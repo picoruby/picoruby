@@ -1,8 +1,8 @@
-CFLAGS += -Wall -Wpointer-arith -std=c99 -pedantic # -pedantic-errors
+CFLAGS += -Wall -Wpointer-arith -std=c99 # -Os # -pedantic # -pedantic-errors
 AR = ar
 CC = gcc
 TARGET = libmmrbc.a
-SRCS = tokenizer.c generator.c
+SRCS = token.c tokenizer.c generator.c my_regex.c
 OBJS = $(SRCS:.c=.o)
 
 all:
@@ -14,9 +14,13 @@ $(TARGET): ruby-lemon-parse/parse.o $(OBJS)
 ruby-lemon-parse/parse.c:
 	cd ruby-lemon-parse ; $(MAKE) all
 
-tokenizer.o: tokenizer.c
+token.o: token.h token.c
 
-generator.o: generator.c
+tokenizer.o: token.h token.c tokenizer.h tokenizer.c
+
+generator.o: generator.h generator.c
+
+my_regex.o: my_regex.h my_regex.c
 
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean

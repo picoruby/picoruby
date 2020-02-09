@@ -1,4 +1,5 @@
 all:
+	cd src ; $(MAKE) all
 	cd cli ; $(MAKE) all
 
 clean:

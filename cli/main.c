@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
-#include "../src/version.h"
+#include "../src/mmrbc.h"
+#include "../src/tokenizer.h"
 
 typedef struct {
   int verbose;
@@ -18,12 +20,12 @@ int handle_opt(const char **argv, opt_t* opt)
   return -1;
 }
 
+#define MAX_LINE_LENGTH 256
+
 int main(int argc, const char * argv[])
 {
   opt_t opt;
   opt.verbose = 0;
-  int c;
-  FILE *fp;
 
   if(!*++argv) {
     printf( "mmrbc: no program file given\n" );
@@ -38,12 +40,17 @@ int main(int argc, const char * argv[])
     }
   }
 
+  FILE *fp;
   if( (fp = fopen( *argv, "r" ) ) == NULL ) {
     fprintf( stderr, "mmrbc: cannot open program file. (%s)\n", *argv );
     return 1;
   } else {
-    while( ( c = getc(fp) ) != EOF ) {
-      putchar(c);
+    Tokenizer tokenizer;
+    Tokenizer_new(&tokenizer);
+    char line[MAX_LINE_LENGTH];
+    while( fgets(line, MAX_LINE_LENGTH, fp)  != NULL ) {
+      Tokenizer_puts(&tokenizer, line);
+      Tokenizer_advance(&tokenizer, false);
     }
     putchar('\n');
     fclose( fp );
