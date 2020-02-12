@@ -7,7 +7,7 @@
 #include "token.h"
 #include "my_regex.h"
 
-bool tokenizer_is_keyword(char *word)
+static bool tokenizer_is_keyword(char *word)
 {
   for (int i = 0; KEYWORDS[i].string != NULL; i++){
     if ( !strcmp(word, KEYWORDS[i].string) ){
@@ -17,7 +17,17 @@ bool tokenizer_is_keyword(char *word)
   return false;
 }
 
-void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
+static bool tokenizer_is_semicolon(int letter)
+{
+  for (int i = 0; SEMICOLON[i].letter != NULL; i++){
+    if ( letter == SEMICOLON[i].letter ){
+      return true;
+    }
+  }
+  return false;
+}
+
+static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
 {
   self->paren_stack_num++;
   self->paren_stack[self->paren_stack_num] = paren;
