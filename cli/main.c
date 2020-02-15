@@ -1,9 +1,9 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 
 #include "../src/mmrbc.h"
-#include "../src/tokenizer.h"
 
 typedef struct {
   int verbose;
@@ -45,15 +45,23 @@ int main(int argc, const char * argv[])
     fprintf( stderr, "mmrbc: cannot open program file. (%s)\n", *argv );
     return 1;
   } else {
-    Tokenizer tokenizer;
-    Tokenizer_new(&tokenizer);
-    char line[MAX_LINE_LENGTH];
-    while( fgets(line, MAX_LINE_LENGTH, fp)  != NULL ) {
-      Tokenizer_puts(&tokenizer, line);
-      Tokenizer_advance(&tokenizer, false);
+    Tokenizer *tokenizer;
+    tokenizer = malloc(sizeof(Tokenizer));
+    Tokenizer_new(tokenizer, fp);
+    Token *token = malloc(sizeof(Token));
+    Token_new(token);
+    while( Tokenizer_hasMoreTokens(tokenizer) ) {
+      Tokenizer_advance(tokenizer, token, false);
+      for (;;) {
+        if (token->value[0] != '\0')
+          printf("(main1)value: %s\n", token->value);
+        if (token->next == NULL) break;
+        token = token->next;
+      }
     }
     putchar('\n');
     fclose( fp );
+    free(tokenizer);
   }
   return 0;
 }

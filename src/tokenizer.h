@@ -9,32 +9,40 @@ typedef enum mode
 {
   MODE_NONE,
   MODE_COMMENT,
-  qwords
+  MODE_QWORDS,
+  MODE_WORDS,
+  MODE_QSYMBOLS,
+  MODE_SYMBOLS,
+  MODE_TSTRING_DOUBLE,
+  MODE_TSTRING_SINGLE,
 } Mode;
 
 typedef enum paren
 {
   PAREN_NONE,
-  PAREN_brace,
+  PAREN_BRACE,
 } Paren;
 
 typedef struct tokenizer
 {
   Mode mode;
-  char* line;
+  char *line;
+  FILE *file;
   int line_num;
   int pos;
   int paren_stack_num;
+  char modeTerminater;
+  State state;
   Paren paren_stack[];
 } Tokenizer;
 
-void Tokenizer_new(Tokenizer* const self);
+void Tokenizer_new(Tokenizer* const self, FILE *file);
 
 void Tokenizer_puts(Tokenizer* const self, char *line);
 
 bool Tokenizer_hasMoreTokens(Tokenizer* const self);
 
-void Tokenizer_advance(Tokenizer* const self, bool recursive);
+void Tokenizer_advance(Tokenizer* const self, Token* const token,  bool recursive);
 
 static struct {
   char *string;
@@ -101,7 +109,7 @@ static struct {
   {'='},
   {'?'},
   {':'},
-  {NULL}
+  {0}
 };
 
 static struct {
@@ -155,21 +163,21 @@ static struct {
   {']'},
   {'{'},
   {'}'},
-  {NULL}
+  {0}
 };
 
 static struct {
   char letter;
 } COMMA[] = {
   {','},
-  {NULL}
+  {0}
 };
 
 static struct {
   char letter;
 } SEMICOLON[] = {
   {';'},
-  {NULL}
+  {0}
 };
 
 #endif

@@ -4,10 +4,13 @@
 #include "common.h"
 #include "token.h"
 
-void Token_new(Token* const self)
+void Token_new(Token* self)
 {
-  char value[MAX_LINE_LENGTH] = {'\0'};
-  self->value = value;
+  self->value = (char *)malloc(sizeof(char) * MAX_LINE_LENGTH);
+  memset(self->value, '\0', MAX_LINE_LENGTH);
+  self->type = ON_NONE;
+  self->prev = NULL;
+  self->next = NULL;
 }
 
 bool Token_exists(Token* const self)

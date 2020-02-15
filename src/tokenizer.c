@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "common.h"
 #include "tokenizer.h"
@@ -10,21 +11,70 @@
 static bool tokenizer_is_keyword(char *word)
 {
   for (int i = 0; KEYWORDS[i].string != NULL; i++){
-    if ( !strcmp(word, KEYWORDS[i].string) ){
+    if ( !strcmp(word, KEYWORDS[i].string) )
       return true;
-    }
+  }
+  return false;
+}
+
+static bool tokenizer_is_operator(char *word, size_t len)
+{
+  switch (len) {
+    case 3:
+      for (int i = 0; OPERATORS_3[i].string != NULL; i++){
+        if ( !strncmp(word, OPERATORS_3[i].string, len) )
+          return true;
+      }
+      break;
+    case 2:
+      for (int i = 0; OPERATORS_2[i].string != NULL; i++){
+        if ( !strncmp(word, OPERATORS_2[i].string, len) )
+          return true;
+      }
+      break;
+    case 1:
+      for (int i = 0; OPERATORS_1[i].letter != 0; i++){
+        if ( *word == OPERATORS_1[i].letter )
+          return true;
+      }
+      break;
+    default:
+      fprintf(stderr, "Out of range!");
+      break;
+  }
+  return false;
+}
+
+static bool tokenizer_is_paren(int letter)
+{
+  for (int i = 0; PARENS[i].letter != 0; i++){
+    if ( letter == PARENS[i].letter )
+      return true;
   }
   return false;
 }
 
 static bool tokenizer_is_semicolon(int letter)
 {
-  for (int i = 0; SEMICOLON[i].letter != NULL; i++){
-    if ( letter == SEMICOLON[i].letter ){
+  for (int i = 0; SEMICOLON[i].letter != 0; i++){
+    if ( letter == SEMICOLON[i].letter )
       return true;
-    }
   }
   return false;
+}
+
+static bool tokenizer_is_comma(int letter)
+{
+  for (int i = 0; COMMA[i].letter != 0; i++){
+    if ( letter == COMMA[i].letter )
+      return true;
+  }
+  return false;
+}
+
+static void tokenizer_paren_stack_pop(Tokenizer* const self)
+{
+  self->paren_stack_num--;
 }
 
 static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
@@ -33,58 +83,347 @@ static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
   self->paren_stack[self->paren_stack_num] = paren;
 }
 
-void Tokenizer_new(Tokenizer* const self)
+void Tokenizer_new(Tokenizer* const self, FILE *file)
 {
+  self->file = file;
   self->mode = MODE_NONE;
   self->paren_stack_num = 0;
   self->line_num = 0;
+  self->line = (char *)malloc(sizeof(char) * MAX_LINE_LENGTH);
+  memset(self->line, '\0', MAX_LINE_LENGTH);
   tokenizer_paren_stack_add(self, PAREN_NONE);
 }
 
-void Tokenizer_puts(Tokenizer* const self, char *line)
+void tokenizer_readLine(Tokenizer* const self)
 {
-  self->line = line;
-  self->line_num++;
-  self->pos = 0;
+  printf("readLine\n");
+  if (self->pos >= strlen(self->line)) {
+    if (fgets(self->line, MAX_LINE_LENGTH, self->file) == NULL)
+      self->line[0] = '\0';
+    self->line_num++;
+    self->pos = 0;
+  }
 }
 
 bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 {
-  if ( (strlen(self->line) == self->pos) || (self->line[0] == '\0') )
+  printf("hasMoreToken\n");
+  if (self->file == NULL) {
     return false;
-  return true;
+  } else if ( feof(self->file) == 0 || (self->line[0] != '\0') ) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
-void Tokenizer_advance(Tokenizer* const self, bool recursive)
+Token *tokenizer_addToken(Token *prevToken, int line_num, int pos, Type type, char *value, State state)
 {
-  char c;
-  Token lazy_token, token;
-  Token_new(&lazy_token);
-  Token_new(&token);
+  printf("addToken: %s\n", value);
+  Token *newToken = malloc(sizeof(Token));
+  Token_new(newToken);
+  newToken->pos = pos;
+  newToken->type = type;
+  newToken->value = value;
+  newToken->state = state;
+  newToken->prev = prevToken;
+  prevToken->next = newToken;
+  return newToken;
+}
 
-  char (*regex_result)[MAX_RESULT_NUM];
-  char *regex_pattern;
+void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive)
+{
+  printf("advance\n");
+  Token *currentToken = token;
+  Token *lazyToken = malloc(sizeof(Token));
+  Token_new(lazyToken);
+  char value[TOKEN_MAX_LENGTH];
+  value[0] = '\0';
+  Type type = ON_NONE;
 
+  RegexResult regexResult[REGEX_MAX_RESULT_NUM];
+
+  tokenizer_readLine(self);
+  if (self->line[0] == '\0') return;
   if (self->mode == MODE_COMMENT) {
-    regex_pattern = "\\A=end(\\s|\\z)";
-    if (Regex_match2(self->line, regex_pattern)) {
-      token.type = ON_EMBDOC_END;
-    } else {
-      token.type = ON_EMBDOC;
-    }
+    type = (Regex_match2(self->line, "^=end(\\s|$)")) ? ON_EMBDOC_END : ON_EMBDOC;
     self->mode = MODE_NONE;
-    token.value = self->line;
-    char end[] ="\n";
-    strcat(token.value, end);
-  } else if (true) {
+    strcpy(value, self->line);
+  } else if (self->mode == MODE_QWORDS
+          || self->mode == MODE_WORDS
+          || self->mode == MODE_QSYMBOLS
+          || self->mode == MODE_SYMBOLS) {
     for (;;) {
-      if (strlen(self->line) == self->pos)
+      tokenizer_readLine(self);
+      value[0] = '\0';
+      type = ON_NONE;
+      if (self->line[self->pos] == self->modeTerminater) {
+        lazyToken->line_num = self->line_num;
+        lazyToken->pos = self->pos;
+        lazyToken->type = ON_TSTRING_END;
+        lazyToken->value[0] = self->modeTerminater;
+        lazyToken->state = EXPR_END;
+        self->pos++;
+        self->mode = MODE_NONE;
         break;
-      c = self->line[self->pos];
+      } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\n') {
+        Regex_match3(&(self->line[self->pos]), "^([\\s]+)", regexResult);
+        strcpy(value, regexResult[0].value);
+        type = ON_WORDS_SEP;
+      } else {
+        int i = 0;
+        for (;;) {
+          if (self->line[self->pos + i] == '\0')
+            break;
+          if (self->line[self->pos + i] != ' '
+              && self->line[self->pos + i] != '\t'
+              && self->line[self->pos + i] != '\n'
+              && self->line[self->pos + i] != self->modeTerminater) {
+            value[strlen(value)] = self->line[self->pos + i];
+            i++;
+          } else {
+            break;
+          }
+        }
+        type = ON_TSTRING_CONTENT;
+      }
+      if (strlen(value) > 0) {
+        if (type == ON_WORDS_SEP && currentToken->prev->type == ON_WORDS_SEP) {
+          strcat(currentToken->prev->value, value);
+        } else {
+          currentToken = tokenizer_addToken(currentToken,
+              self->line_num,
+              self->pos,
+              type,
+              value,
+              EXPR_BEG);
+        }
+        self->pos += strlen(value);
+      }
+    }
+    self->pos--;
+  } else if (self->mode == MODE_TSTRING_DOUBLE) {
+  } else if (self->mode == MODE_TSTRING_SINGLE) {
+  } else if (Regex_match2(self->line, "^=begin(\\s|$)")) { // multi lines comment began
+    self->mode = MODE_COMMENT;
+    strcpy(value, self->line);
+    type = ON_EMBDOC_BEG;
+  } else if (self->line[self->pos] == '\n') {
+    value[0] = '\n';
+    type = ON_NL;
+  } else if (self->line[self->pos] == '\r' && self->line[self->pos + 1] == '\n') {
+    value[0] = '\r';
+    value[1] = '\n';
+    type = ON_NL;
+  } else if (tokenizer_is_operator(&(self->line[self->pos]), 3)) {
+    value[0] = self->line[self->pos];
+    value[1] = self->line[self->pos + 1];
+    value[2] = self->line[self->pos + 2];
+    type = ON_OP;
+  } else if (tokenizer_is_operator(&(self->line[self->pos]), 2)) {
+    value[0] = self->line[self->pos];
+    value[1] = self->line[self->pos + 1];
+    type = ON_OP;
+  } else if (Regex_match3(&(self->line[self->pos]), "^(@\\w+)", regexResult)) {
+    strcpy(value, regexResult[0].value);
+    type = ON_IVAR;
+  } else if (Regex_match3(&(self->line[self->pos]), "^(\\$\\w+)", regexResult)) {
+    strcpy(value, regexResult[0].value);
+    type = ON_GVAR;
+  } else if (Regex_match3(&(self->line[self->pos]), "^(\\?.)", regexResult)) {
+    strcpy(value, regexResult[0].value);
+    type = ON_CHAR;
+  } else if (self->line[self->pos] == '-' && self->line[self->pos + 1] == '>') {
+    value[0] = '-';
+    value[1] = '>';
+    type = ON_TLAMBDA;
+  } else {
+    if (self->line[self->pos] == '\\') {
+      // ignore
       self->pos++;
-      putchar(c);
+    } else if (self->line[self->pos] == ':') {
+      if (Regex_match2(&(self->line[self->pos]), "^:[A-Za-z0-9]?")) {
+        value[0] = ':';
+        type = ON_SYMBEG;
+      } else {
+        // nothing TODO?
+      }
+    } else if (self->line[self->pos] == '#') {
+      strcpy(value, &(self->line[self->pos]));
+      type = ON_COMMENT;
+    } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\t') {
+      Regex_match3(&(self->line[self->pos]), "^(\\s+)", regexResult);
+      strcpy(value, regexResult[0].value);
+      type = ON_SP;
+    } else if (tokenizer_is_paren(self->line[self->pos])) {
+      value[0] = self->line[self->pos];
+      switch (value[0]) {
+        case '(':
+          type = ON_LPAREN;
+          break;
+        case ')':
+          type = ON_RPAREN;
+          self->state = EXPR_ENDFN;
+          break;
+        case '[':
+          type = ON_LBRACKET;
+          break;
+        case ']':
+          type = ON_RBRACKET;
+          break;
+        case '{':
+          type = ON_LBRACE;
+          self->state = EXPR_BEG|EXPR_LABEL;
+          break;
+        case '}':
+          if (self->paren_stack[self->paren_stack_num] == PAREN_BRACE) {
+            tokenizer_paren_stack_pop(self);
+          }
+          type = ON_RBRACE;
+          break;
+        default:
+          fprintf(stderr, "unknown paren error\n");
+      }
+    } else if (tokenizer_is_operator(&(self->line[self->pos]), 1)) {
+      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][~!@#$%^&*()_\\-=+\\[{\\]};:'\"?])", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        switch (value[1]) {
+          case 'w':
+            type = ON_QWORDS_BEG;
+            self->mode = MODE_QWORDS;
+            break;
+          case 'W':
+            type = ON_WORDS_BEG;
+            self->mode = MODE_WORDS;
+            break;
+          case 'q':
+            type = ON_TSTRING_BEG;
+            self->mode = MODE_TSTRING_SINGLE;
+            break;
+          case 'Q':
+            type = ON_TSTRING_BEG;
+            self->mode = MODE_TSTRING_DOUBLE;
+            break;
+          case 'i':
+            type = ON_QSYMBOLS_BEG;
+            self->mode = MODE_QSYMBOLS;
+            break;
+          case 'I':
+            type = ON_SYMBOLS_BEG;
+            self->mode = MODE_SYMBOLS;
+            break;
+        }
+        switch (value[2]) {
+          case '[':
+            self->modeTerminater = ']';
+            break;
+          case '{':
+            self->modeTerminater = '}';
+            break;
+          case '(':
+            self->modeTerminater = ')';
+            break;
+          default:
+            self->modeTerminater = value[2];
+        }
+      }
+    } else if (tokenizer_is_semicolon(self->line[self->pos])) {
+      strcpy(value, &(self->line[self->pos]));
+      type = ON_SEMICOLON;
+      self->state = EXPR_BEG;
+    } else if (tokenizer_is_comma(self->line[self->pos])) {
+      strcpy(value, &(self->line[self->pos]));
+      type = ON_COMMA;
+      self->state = EXPR_BEG|EXPR_LABEL;
+    } else if ('0' <= self->line[self->pos] && self->line[self->pos] <= '9') {
+      if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+\\.[0-9][0-9_]*)", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        type = ON_FLOAT;
+      } else if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+)", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        type = ON_INT;
+      } else {
+        fprintf(stderr, "Failed to tokenize a number");
+      }
+    } else if (self->line[self->pos] == '.') {
+      value[0] = '.';
+      type = ON_PERIOD;
+    } else if ( ('a' <= self->line[self->pos] && self->line[self->pos] <= 'z')
+                || ('A' <= self->line[self->pos] && self->line[self->pos] <= 'Z')
+                || (self->line[self->pos] == '_') ) {
+      if (Regex_match3(&(self->line[self->pos]), "^([A-Za-z0-9_?!]+:)", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        type = ON_LABEL;
+      } else if (Regex_match3(&(self->line[self->pos]), "^([A-Z]\\w*[!?])", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        type = ON_IDENT;
+      } else if (Regex_match3(&(self->line[self->pos]), "^([A-Z]\\w*)", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        type = ON_CONST;
+      } else if (Regex_match3(&(self->line[self->pos]), "^(\\w+[!?]?)", regexResult)) {
+        strcpy(value, regexResult[0].value);
+        type = ON_IDENT;
+      }
+    } else if (self->line[self->pos] == '"') {
+      value[0] = '"';
+      self->mode = MODE_TSTRING_DOUBLE;
+      self->modeTerminater = '"';
+      type = ON_TSTRING_BEG;
+    } else if (self->line[self->pos] == '\'') {
+      value[0] = '\'';
+      self->mode = MODE_TSTRING_SINGLE;
+      self->modeTerminater = '\'';
+      type = ON_TSTRING_BEG;
+    } else {
+      fprintf(stderr, "ERROR error\n");
     }
   }
-  printf("SIZE: %d\n", sizeof(KEYWORDS));
+  if (lazyToken->value[0] == '\0') {
+    self->pos += strlen(value);
+  }
+  if (type != ON_NONE) {
+    if ( (type == ON_IDENT || type == ON_CONST)
+         && tokenizer_is_keyword(value) ) {
+      type = ON_KW;
+      if ( !strcmp(value, "class") ) {
+        self->state = EXPR_CLASS;
+      } else if ( !strcmp(value, "return")
+                  || !strcmp(value, "break")
+                  || !strcmp(value, "next")
+                  || !strcmp(value, "rescue") ) {
+        self->state = EXPR_MID;
+      } else if ( !strcmp(value, "def")
+                  || !strcmp(value, "alias")
+                  || !strcmp(value, "undef") ) {
+        self->state = EXPR_FNAME;
+      }
+    } else { // on_ident
+      switch (self->state) {
+        case EXPR_CLASS:
+          self->state = EXPR_ARG;
+          break;
+        case EXPR_FNAME:
+          self->state = EXPR_ENDFN;
+          break;
+        default:
+          // fprintf(stderr, "error\n");
+          break;
+      }
+    }
+    printf("value len: %ld\n", strlen(value));
+    printf("value: %s\n", value);
+    currentToken = tokenizer_addToken(currentToken,
+        self->line_num,
+        self->pos - strlen(value),
+        type,
+        value,
+        self->state);
+  }
+  if (lazyToken->value[0] != '\0') {
+    currentToken->next = lazyToken;
+    lazyToken->prev = currentToken;
+    self->pos++;
+  }
+  return;
 }
 

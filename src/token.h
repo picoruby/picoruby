@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#define TOKEN_MAX_LENGTH 256
+
 typedef enum state
 {
  EXPR_NONE    = 0b0000000000000,
@@ -27,25 +29,58 @@ typedef enum state
 
 typedef enum type
 {
+  ON_NONE,
   ON_EMBDOC,
+  ON_EMBDOC_BEG,
   ON_EMBDOC_END,
+  ON_NL,
+  ON_OP,
+  ON_IVAR,
+  ON_GVAR,
+  ON_CHAR,
+  ON_KW,
+  ON_CONST,
+  ON_IDENT,
+  ON_TLAMBDA,
+  ON_SYMBEG,
+  ON_COMMENT,
+  ON_SP,
+  ON_LPAREN,
+  ON_RPAREN,
+  ON_LBRACKET,
+  ON_RBRACKET,
+  ON_LBRACE,
+  ON_RBRACE,
+  ON_WORDS_BEG,
+  ON_QWORDS_BEG,
+  ON_TSTRING_SINGLE,
+  ON_TSTRING_BEG,
+  ON_TSTRING_END,
+  ON_QSYMBOLS_BEG,
+  ON_SYMBOLS_BEG,
+  ON_SEMICOLON,
+  ON_COMMA,
+  ON_FLOAT,
+  ON_INT,
+  ON_PERIOD,
+  ON_LABEL,
+  ON_WORDS_SEP,
+  ON_TSTRING_CONTENT,
+  ON_,
 } Type;
-
-typedef struct token_location
-{
-  int line;
-  int pos;
-} TokenLocation;
 
 typedef struct token
 {
-  TokenLocation location;
+  int line_num;
+  int pos;
   Type type;
   State state;
+  struct token *prev;
+  struct token *next;
   char *value;
 } Token;
 
-void Token_new(Token* const self);
+void Token_new(Token* self);
 
 bool Token_exists(Token* const self);
 
