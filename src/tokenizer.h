@@ -23,6 +23,9 @@ typedef enum paren
   PAREN_BRACE,
 } Paren;
 
+/* margin size to malloc tokenizer */
+#define PAREN_STACK_MARGIN 40
+
 typedef struct tokenizer
 {
   Mode mode;

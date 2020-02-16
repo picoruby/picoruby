@@ -7,8 +7,7 @@
 Token *Token_new(void)
 {
   Token *self = malloc(sizeof(Token));
-  self->value = (char *)malloc(sizeof(char) * MAX_TOKEN_LENGTH + 1);
-  memset(self->value, '\0', MAX_TOKEN_LENGTH + 1);
+  self->value = NULL;
   self->type = ON_NONE;
   self->prev = NULL;
   self->next = NULL;

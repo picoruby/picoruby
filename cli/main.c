@@ -48,10 +48,10 @@ int main(int argc, const char * argv[])
     while( Tokenizer_hasMoreTokens(tokenizer) ) {
       Tokenizer_advance(tokenizer, false);
       for (;;) {
-        if (topToken->value[0] == '\0') {
-          printf("(main1)null\n");
+        if (topToken->value == NULL) {
+           printf("(main1)%p null\n", topToken);
         } else {
-          printf("(main1)value(len=%ld): `%s`\n", strlen(topToken->value), topToken->value);
+           printf("(main1)%p value(len=%ld): `%s`\n", topToken, strlen(topToken->value), topToken->value);
         }
         if (topToken->next == NULL) {
           break;

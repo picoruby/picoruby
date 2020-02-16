@@ -13,18 +13,18 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
   int size;
 
   if (regcomp(&regexBuffer, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
-    printf("regcomp failed\n");
+    fprintf(stderr, "regcomp failed\n");
     regfree(&regexBuffer);
     return false;
   }
 
   size = sizeof(match) / sizeof(regmatch_t);
   if (regexec(&regexBuffer, str, size, match, 0) != 0){
-    printf("no match: %s\n", pattern);
+    // printf("no match: %s\n", pattern);
     regfree(&regexBuffer);
     return false;
   } else {
-    printf("match!: %s\n", pattern);
+    // printf("match!: %s\n", pattern);
   }
 
   if (resultRequired) {
