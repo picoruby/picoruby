@@ -20,8 +20,6 @@ int handle_opt(const char **argv, opt_t* opt)
   return -1;
 }
 
-#define MAX_LINE_LENGTH 256
-
 int main(int argc, const char * argv[])
 {
   opt_t opt;
@@ -45,23 +43,26 @@ int main(int argc, const char * argv[])
     fprintf( stderr, "mmrbc: cannot open program file. (%s)\n", *argv );
     return 1;
   } else {
-    Tokenizer *tokenizer;
-    tokenizer = malloc(sizeof(Tokenizer));
-    Tokenizer_new(tokenizer, fp);
-    Token *token = malloc(sizeof(Token));
-    Token_new(token);
+    Tokenizer *tokenizer = Tokenizer_new(fp, PAREN_NONE, NULL);
+    Token *topToken = tokenizer->currentToken;
     while( Tokenizer_hasMoreTokens(tokenizer) ) {
-      Tokenizer_advance(tokenizer, token, false);
+      Tokenizer_advance(tokenizer, false);
       for (;;) {
-        if (token->value[0] != '\0')
-          printf("(main1)value: %s\n", token->value);
-        if (token->next == NULL) break;
-        token = token->next;
+        if (topToken->value[0] == '\0') {
+          printf("(main1)null\n");
+        } else {
+          printf("(main1)value(len=%ld): `%s`\n", strlen(topToken->value), topToken->value);
+        }
+        if (topToken->next == NULL) {
+          break;
+        } else {
+          topToken = topToken->next;
+        }
       }
     }
     putchar('\n');
     fclose( fp );
-    free(tokenizer);
+    Tokenizer_free(tokenizer);
   }
   return 0;
 }

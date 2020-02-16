@@ -83,26 +83,40 @@ static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
   self->paren_stack[self->paren_stack_num] = paren;
 }
 
-void Tokenizer_new(Tokenizer* const self, FILE *file)
+Tokenizer* const Tokenizer_new(FILE *file, Paren paren, Token *currentToken)
 {
+  Tokenizer *self = malloc(sizeof(Tokenizer));
   self->file = file;
+  if (currentToken == NULL) {
+    self->currentToken = Token_new();
+  } else {
+    self->currentToken = currentToken;
+  }
   self->mode = MODE_NONE;
   self->paren_stack_num = 0;
   self->line_num = 0;
-  self->line = (char *)malloc(sizeof(char) * MAX_LINE_LENGTH);
-  memset(self->line, '\0', MAX_LINE_LENGTH);
-  tokenizer_paren_stack_add(self, PAREN_NONE);
+  self->line = (char *)malloc(sizeof(char) * MAX_LINE_LENGTH + 1);
+  memset(self->line, '\0', MAX_LINE_LENGTH + 1);
+  tokenizer_paren_stack_add(self, paren);
+  return self;
+}
+
+void Tokenizer_free(Tokenizer *self)
+{
+  Token_free(self->currentToken); // FIXME memory leak
+  free(self->line);
+  free(self);
 }
 
 void tokenizer_readLine(Tokenizer* const self)
 {
-  printf("readLine\n");
   if (self->pos >= strlen(self->line)) {
     if (fgets(self->line, MAX_LINE_LENGTH, self->file) == NULL)
       self->line[0] = '\0';
     self->line_num++;
     self->pos = 0;
   }
+  printf("readLine line_num: %d, pos: %d\n", self->line_num, self->pos);
 }
 
 bool Tokenizer_hasMoreTokens(Tokenizer* const self)
@@ -117,34 +131,40 @@ bool Tokenizer_hasMoreTokens(Tokenizer* const self)
   }
 }
 
-Token *tokenizer_addToken(Token *prevToken, int line_num, int pos, Type type, char *value, State state)
+void tokenizer_addToken(Tokenizer *self, int line_num, int pos, Type type, char *value, State state)
 {
   printf("addToken: %s\n", value);
-  Token *newToken = malloc(sizeof(Token));
-  Token_new(newToken);
-  newToken->pos = pos;
-  newToken->type = type;
-  newToken->value = value;
-  newToken->state = state;
-  newToken->prev = prevToken;
-  prevToken->next = newToken;
-  return newToken;
+  self->currentToken->pos = pos;
+  self->currentToken->line_num = line_num;
+  self->currentToken->type = type;
+  self->currentToken->value = value;
+  self->currentToken->state = state;
+  Token *newToken = Token_new();
+  newToken->prev = self->currentToken;
+  self->currentToken = newToken;
 }
 
-void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive)
+void tokenizer_freeOldTokens(Token* token)
+{
+  // TODO
+}
+
+int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
   printf("advance\n");
-  Token *currentToken = token;
-  Token *lazyToken = malloc(sizeof(Token));
-  Token_new(lazyToken);
-  char value[TOKEN_MAX_LENGTH];
-  value[0] = '\0';
+  tokenizer_freeOldTokens(self->currentToken->prev);
+  Token *lazyToken = Token_new();
+  char value[MAX_TOKEN_LENGTH + 1];
+  memset(value, '\0', MAX_TOKEN_LENGTH + 1);
   Type type = ON_NONE;
+  char c[3];
+
+  Tokenizer *tokenizer;
 
   RegexResult regexResult[REGEX_MAX_RESULT_NUM];
 
   tokenizer_readLine(self);
-  if (self->line[0] == '\0') return;
+  if (self->line[0] == '\0') return -1;
   if (self->mode == MODE_COMMENT) {
     type = (Regex_match2(self->line, "^=end(\\s|$)")) ? ON_EMBDOC_END : ON_EMBDOC;
     self->mode = MODE_NONE;
@@ -162,6 +182,7 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
         lazyToken->pos = self->pos;
         lazyToken->type = ON_TSTRING_END;
         lazyToken->value[0] = self->modeTerminater;
+        lazyToken->value[1] = '\0';
         lazyToken->state = EXPR_END;
         self->pos++;
         self->mode = MODE_NONE;
@@ -173,13 +194,11 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
       } else {
         int i = 0;
         for (;;) {
-          if (self->line[self->pos + i] == '\0')
-            break;
-          if (self->line[self->pos + i] != ' '
-              && self->line[self->pos + i] != '\t'
-              && self->line[self->pos + i] != '\n'
-              && self->line[self->pos + i] != self->modeTerminater) {
-            value[strlen(value)] = self->line[self->pos + i];
+          c[0] = self->line[self->pos + i];
+          c[1] = '\0';
+          if (c[0] == '\0') break;
+          if (c[0] != ' ' && c[0] != '\t' && c[0] != '\n' && c[0] != self->modeTerminater) {
+            strcat(value, c);
             i++;
           } else {
             break;
@@ -188,21 +207,79 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
         type = ON_TSTRING_CONTENT;
       }
       if (strlen(value) > 0) {
-        if (type == ON_WORDS_SEP && currentToken->prev->type == ON_WORDS_SEP) {
-          strcat(currentToken->prev->value, value);
+        if (type == ON_WORDS_SEP && self->currentToken->prev->type == ON_WORDS_SEP) {
+          strcat(self->currentToken->prev->value, value);
         } else {
-          currentToken = tokenizer_addToken(currentToken,
-              self->line_num,
-              self->pos,
-              type,
-              value,
-              EXPR_BEG);
+          tokenizer_addToken(self,
+            self->line_num,
+            self->pos,
+            type,
+            value,
+            EXPR_BEG);
         }
         self->pos += strlen(value);
       }
     }
     self->pos--;
   } else if (self->mode == MODE_TSTRING_DOUBLE) {
+    for (;;) {
+      tokenizer_readLine(self);
+      if (self->line[0] == '\0') return -1;
+      if (self->line[self->pos] == self->modeTerminater) {
+        lazyToken->line_num = self->line_num;
+        lazyToken->pos = self->pos;
+        lazyToken->type = ON_TSTRING_END;
+        lazyToken->value[0] = self->modeTerminater;
+        lazyToken->value[1] = '\0';;
+        lazyToken->state = EXPR_END;
+        self->pos++;
+        self->mode = MODE_NONE;
+        break;
+      } else if (self->line[self->pos] == '#' && self->line[self->pos + 1] == '{') {
+        tokenizer_addToken(self,
+          self->line_num,
+          self->pos,
+          ON_TSTRING_CONTENT,
+          value,
+          EXPR_BEG);
+        value[0] = '\0';
+        c[0] = '\0';
+        tokenizer_addToken(self,
+          self->line_num,
+          self->pos,
+          ON_EMBDOC_BEG,
+          "#{",
+          EXPR_BEG);
+        self->pos += 2;
+        tokenizer = Tokenizer_new(self->file, PAREN_BRACE, self->currentToken);
+        while (Tokenizer_hasMoreTokens(tokenizer)) {
+          if (Tokenizer_advance(tokenizer, false) == 1) {
+            self->currentToken = tokenizer->currentToken;
+            break;
+          }
+        }
+        tokenizer_addToken(self,
+          self->line_num,
+          self->pos,
+          ON_EMBEXPR_END,
+          "}",
+          EXPR_CMDARG);
+        self->pos++;
+      } else if (self->line[self->pos] == '\\' && self->line[self->pos + 1] == self->modeTerminater) {
+        c[0] = '\\';
+        c[1] = self->modeTerminater;
+        c[2] = '\0';;
+      } else {
+        c[0] = self->line[self->pos];
+        c[1] = '\0';;
+      }
+      self->pos += strlen(c);
+      strcat(value, c);
+    }
+    self->pos--;
+    if (strlen(value) > 0) {
+      type = ON_TSTRING_CONTENT;
+    }
   } else if (self->mode == MODE_TSTRING_SINGLE) {
   } else if (Regex_match2(self->line, "^=begin(\\s|$)")) { // multi lines comment began
     self->mode = MODE_COMMENT;
@@ -210,19 +287,23 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
     type = ON_EMBDOC_BEG;
   } else if (self->line[self->pos] == '\n') {
     value[0] = '\n';
+    value[1] = '\0';
     type = ON_NL;
   } else if (self->line[self->pos] == '\r' && self->line[self->pos + 1] == '\n') {
     value[0] = '\r';
     value[1] = '\n';
+    value[2] = '\0';
     type = ON_NL;
   } else if (tokenizer_is_operator(&(self->line[self->pos]), 3)) {
     value[0] = self->line[self->pos];
     value[1] = self->line[self->pos + 1];
     value[2] = self->line[self->pos + 2];
+    value[3] = '\0';
     type = ON_OP;
   } else if (tokenizer_is_operator(&(self->line[self->pos]), 2)) {
     value[0] = self->line[self->pos];
     value[1] = self->line[self->pos + 1];
+    value[2] = '\0';
     type = ON_OP;
   } else if (Regex_match3(&(self->line[self->pos]), "^(@\\w+)", regexResult)) {
     strcpy(value, regexResult[0].value);
@@ -236,6 +317,7 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
   } else if (self->line[self->pos] == '-' && self->line[self->pos + 1] == '>') {
     value[0] = '-';
     value[1] = '>';
+    value[2] = '\0';
     type = ON_TLAMBDA;
   } else {
     if (self->line[self->pos] == '\\') {
@@ -244,6 +326,7 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
     } else if (self->line[self->pos] == ':') {
       if (Regex_match2(&(self->line[self->pos]), "^:[A-Za-z0-9]?")) {
         value[0] = ':';
+        value[1] = '\0';
         type = ON_SYMBEG;
       } else {
         // nothing TODO?
@@ -257,6 +340,7 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
       type = ON_SP;
     } else if (tokenizer_is_paren(self->line[self->pos])) {
       value[0] = self->line[self->pos];
+      value[1] = '\0';
       switch (value[0]) {
         case '(':
           type = ON_LPAREN;
@@ -278,6 +362,7 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
         case '}':
           if (self->paren_stack[self->paren_stack_num] == PAREN_BRACE) {
             tokenizer_paren_stack_pop(self);
+            return 1;
           }
           type = ON_RBRACE;
           break;
@@ -347,6 +432,7 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
       }
     } else if (self->line[self->pos] == '.') {
       value[0] = '.';
+      value[1] = '\0';
       type = ON_PERIOD;
     } else if ( ('a' <= self->line[self->pos] && self->line[self->pos] <= 'z')
                 || ('A' <= self->line[self->pos] && self->line[self->pos] <= 'Z')
@@ -366,11 +452,13 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
       }
     } else if (self->line[self->pos] == '"') {
       value[0] = '"';
+      value[1] = '\0';
       self->mode = MODE_TSTRING_DOUBLE;
       self->modeTerminater = '"';
       type = ON_TSTRING_BEG;
     } else if (self->line[self->pos] == '\'') {
       value[0] = '\'';
+      value[1] = '\0';
       self->mode = MODE_TSTRING_SINGLE;
       self->modeTerminater = '\'';
       type = ON_TSTRING_BEG;
@@ -412,18 +500,20 @@ void Tokenizer_advance(Tokenizer* const self, Token* const token, bool recursive
     }
     printf("value len: %ld\n", strlen(value));
     printf("value: %s\n", value);
-    currentToken = tokenizer_addToken(currentToken,
-        self->line_num,
-        self->pos - strlen(value),
-        type,
-        value,
-        self->state);
+    tokenizer_addToken(self,
+      self->line_num,
+      self->pos - strlen(value),
+      type,
+      value,
+      self->state);
   }
   if (lazyToken->value[0] != '\0') {
-    currentToken->next = lazyToken;
-    lazyToken->prev = currentToken;
+    lazyToken->prev = self->currentToken;
+    self->currentToken = lazyToken;
     self->pos++;
+  } else {
+    Token_free(lazyToken);
   }
-  return;
+  return 0;
 }
 

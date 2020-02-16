@@ -28,6 +28,7 @@ typedef struct tokenizer
   Mode mode;
   char *line;
   FILE *file;
+  Token *currentToken;
   int line_num;
   int pos;
   int paren_stack_num;
@@ -36,13 +37,15 @@ typedef struct tokenizer
   Paren paren_stack[];
 } Tokenizer;
 
-void Tokenizer_new(Tokenizer* const self, FILE *file);
+Tokenizer* const Tokenizer_new(FILE *file, Paren paren, Token *currentToken);
+
+void Tokenizer_free(Tokenizer *self);
 
 void Tokenizer_puts(Tokenizer* const self, char *line);
 
 bool Tokenizer_hasMoreTokens(Tokenizer* const self);
 
-void Tokenizer_advance(Tokenizer* const self, Token* const token,  bool recursive);
+int Tokenizer_advance(Tokenizer* const self,  bool recursive);
 
 static struct {
   char *string;
