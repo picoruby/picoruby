@@ -24,7 +24,7 @@ typedef enum paren
 } Paren;
 
 /* margin size to malloc tokenizer */
-#define PAREN_STACK_MARGIN 40
+#define PAREN_STACK_SIZE 40
 
 typedef struct tokenizer
 {
@@ -37,10 +37,10 @@ typedef struct tokenizer
   int paren_stack_num;
   char modeTerminater;
   State state;
-  Paren paren_stack[];
+  Paren paren_stack[PAREN_STACK_SIZE];
 } Tokenizer;
 
-Tokenizer* const Tokenizer_new(FILE *file, Paren paren, Token *currentToken);
+Tokenizer* const Tokenizer_new(FILE *file);
 
 void Tokenizer_free(Tokenizer *self);
 

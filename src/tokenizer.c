@@ -83,20 +83,16 @@ static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
   self->paren_stack[self->paren_stack_num] = paren;
 }
 
-Tokenizer* const Tokenizer_new(FILE *file, Paren paren, Token *currentToken)
+Tokenizer* const Tokenizer_new(FILE *file)
 {
-  Tokenizer *self = malloc(sizeof(Tokenizer) + PAREN_STACK_MARGIN);
+  Tokenizer *self = malloc(sizeof(Tokenizer));
   self->file = file;
-  if (currentToken == NULL) {
-    self->currentToken = Token_new();
-  } else {
-    self->currentToken = currentToken;
-  }
+  self->currentToken = Token_new();
   self->mode = MODE_NONE;
   self->paren_stack_num = 0;
   self->line_num = 0;
   self->line = malloc(sizeof(char) * (MAX_LINE_LENGTH + 1));
-  tokenizer_paren_stack_add(self, paren);
+  tokenizer_paren_stack_add(self, PAREN_NONE);
   return self;
 }
 
@@ -132,7 +128,7 @@ bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 
 void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char *value, State state)
 {
-  printf("addToken: `%s`\n", value);
+  printf("pushToken: `%s`\n", value);
   self->currentToken->pos = pos;
   self->currentToken->line_num = line_num;
   self->currentToken->type = type;
@@ -153,15 +149,13 @@ void tokenizer_freeOldTokens(Token* token)
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
   printf("advance\n");
-  tokenizer_freeOldTokens(self->currentToken->prev);
+  //tokenizer_freeOldTokens(self->currentToken->prev); FIXME
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH + 1];
   memset(value, '\0', MAX_TOKEN_LENGTH + 1);
   Type type = ON_NONE;
   char c[3];
   memset(c, '\0', sizeof(c));
-
-  Tokenizer *tokenizer;
 
   RegexResult regexResult[REGEX_MAX_RESULT_NUM];
 
@@ -260,12 +254,9 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           "#{",
           EXPR_BEG);
         self->pos += 2;
-        tokenizer = Tokenizer_new(self->file, PAREN_BRACE, self->currentToken);
-        while (Tokenizer_hasMoreTokens(tokenizer)) {
-          if (Tokenizer_advance(tokenizer, false) == 1) {
-            self->currentToken = tokenizer->currentToken;
-            break;
-          }
+        tokenizer_paren_stack_add(self, PAREN_BRACE);
+        while (Tokenizer_hasMoreTokens(self)) {
+          if (Tokenizer_advance(self, false) == 1) break;
         }
         tokenizer_pushToken(self,
           self->line_num,

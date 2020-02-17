@@ -43,7 +43,7 @@ int main(int argc, const char * argv[])
     fprintf( stderr, "mmrbc: cannot open program file. (%s)\n", *argv );
     return 1;
   } else {
-    Tokenizer *tokenizer = Tokenizer_new(fp, PAREN_NONE, NULL);
+    Tokenizer *tokenizer = Tokenizer_new(fp);
     Token *topToken = tokenizer->currentToken;
     while( Tokenizer_hasMoreTokens(tokenizer) ) {
       Tokenizer_advance(tokenizer, false);
