@@ -31,6 +31,7 @@ typedef enum type
   ON_EMBDOC,
   ON_EMBDOC_BEG,
   ON_EMBDOC_END,
+  ON_EMBEXPR_BEG,
   ON_EMBEXPR_END,
   ON_NL,
   ON_OP,

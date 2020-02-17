@@ -109,7 +109,7 @@ void tokenizer_readLine(Tokenizer* const self)
   if (self->pos >= strlen(self->line)) {
     if (fgets(self->line, MAX_LINE_LENGTH, self->file) == NULL)
       self->line[0] = '\0';
-    printf("line size: %ld\n", strlen(self->line));
+    //printf("line size: %ld\n", strlen(self->line));
     self->line_num++;
     self->pos = 0;
   }
@@ -128,7 +128,7 @@ bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 
 void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char *value, State state)
 {
-  printf("pushToken: `%s`\n", value);
+  //printf("pushToken: `%s`\n", value);
   self->currentToken->pos = pos;
   self->currentToken->line_num = line_num;
   self->currentToken->type = type;
@@ -148,7 +148,7 @@ void tokenizer_freeOldTokens(Token* token)
 
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
-  printf("advance\n");
+  //printf("advance\n");
   //tokenizer_freeOldTokens(self->currentToken->prev); FIXME
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH + 1];
@@ -250,7 +250,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         tokenizer_pushToken(self,
           self->line_num,
           self->pos,
-          ON_EMBDOC_BEG,
+          ON_EMBEXPR_BEG,
           "#{",
           EXPR_BEG);
         self->pos += 2;
@@ -279,9 +279,31 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       type = ON_TSTRING_CONTENT;
     }
   } else if (self->mode == MODE_TSTRING_SINGLE) {
+    for (;;) {
+      tokenizer_readLine(self);
+      if (self->line[0] == '\0') return -1;
+      if (self->line[self->pos] == '\'') {
+        lazyToken->line_num = self->line_num;
+        lazyToken->pos = self->pos;
+        lazyToken->type = ON_TSTRING_END;
+        lazyToken->value = malloc(sizeof(char) *(2));
+        *(lazyToken->value) = '\'';
+        *(lazyToken->value + 1) = '\0';
+        lazyToken->state = EXPR_END;
+        self->pos++;
+        self->mode = MODE_NONE;
+        break;
+      } else {
+        c[0] = self->line[self->pos];
+      }
+      self->pos += strlen(c);
+      strcat(value, c);
+    }
+    self->pos--;
+    if (strlen(value) > 0) type = ON_TSTRING_CONTENT;
   } else if (Regex_match2(self->line, "^=begin(\\s|$)")) { // multi lines comment began
     self->mode = MODE_COMMENT;
-    strcpy(value, self->line);
+    strcpy(value, strcat(self->line, "\n"));
     type = ON_EMBDOC_BEG;
   } else if (self->line[self->pos] == '\n') {
     value[0] = '\n';
@@ -369,7 +391,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           fprintf(stderr, "unknown paren error\n");
       }
     } else if (tokenizer_is_operator(&(self->line[self->pos]), 1)) {
-      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][~!@#$%^&*()_\\-=+\\[{\\]};:'\"?])", regexResult)) {
+      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][-~!@#$%^&*()_=+\[{\]};:'\"?])", regexResult)) {
         strcpy(value, regexResult[0].value);
         switch (value[1]) {
           case 'w':
@@ -410,13 +432,17 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           default:
             self->modeTerminater = value[2];
         }
+      } else {
+        value[0] = self->line[self->pos];
+        value[1] = '\0';
+        type = ON_OP;
       }
     } else if (tokenizer_is_semicolon(self->line[self->pos])) {
-      strcpy(value, &(self->line[self->pos]));
+      value[0] = self->line[self->pos];
       type = ON_SEMICOLON;
       self->state = EXPR_BEG;
     } else if (tokenizer_is_comma(self->line[self->pos])) {
-      strcpy(value, &(self->line[self->pos]));
+      value[0] = self->line[self->pos];
       type = ON_COMMA;
       self->state = EXPR_BEG|EXPR_LABEL;
     } else if ('0' <= self->line[self->pos] && self->line[self->pos] <= '9') {
@@ -497,7 +523,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           break;
       }
     }
-    printf("value len: %ld, `%s`\n", strlen(value), value);
+    //printf("value len: %ld, `%s`\n", strlen(value), value);
     tokenizer_pushToken(self,
       self->line_num,
       self->pos - strlen(value),

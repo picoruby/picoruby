@@ -13,8 +13,7 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
   int size;
 
   if (regcomp(&regexBuffer, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
-    fprintf(stderr, "regcomp failed\n");
-    regfree(&regexBuffer);
+    fprintf(stderr, "regcomp failed: /%s/\n", pattern);
     return false;
   }
 
@@ -34,10 +33,10 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
       if (startIndex == -1 || endIndex == -1) {
         continue;
       }
-      printf("match[%d] index [start, end] = %d, %d\n", i, startIndex, endIndex);
+      //printf("match[%d] index [start, end] = %d, %d\n", i, startIndex, endIndex);
       strncpy(result[i].value, str + startIndex, endIndex - startIndex);
       result[i].value[endIndex - startIndex] = '\0';
-      printf("match result: %s\n", result[i].value);
+      //printf("match result: %s\n", result[i].value);
     }
   }
 

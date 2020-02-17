@@ -3,7 +3,7 @@ all:
 	cd cli ; $(MAKE) all
 
 debug: all
-	gdb --args ./cli/mmrbc test/fixtures/hello.rb
+	gdb --args ./cli/mmrbc test/fixtures/interpolation.rb
 
 
 clean:

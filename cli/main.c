@@ -49,9 +49,13 @@ int main(int argc, const char * argv[])
       Tokenizer_advance(tokenizer, false);
       for (;;) {
         if (topToken->value == NULL) {
-           printf("(main1)%p null\n", topToken);
+          //printf("(main1)%p null\n", topToken);
         } else {
-           printf("(main1)%p value(len=%ld): `%s`\n", topToken, strlen(topToken->value), topToken->value);
+          if (topToken->value[0] == '\n') {
+            printf("(main1)%p value(len=%ld,line=%d,pos=%d): `%s`\n", topToken, strlen(topToken->value), topToken->line_num, topToken->pos, "\\n");
+          } else {
+            printf("(main1)%p value(len=%ld,line=%d,pos=%d): `%s` %d\n", topToken, strlen(topToken->value), topToken->line_num, topToken->pos, topToken->value, topToken->type);
+          }
         }
         if (topToken->next == NULL) {
           break;
