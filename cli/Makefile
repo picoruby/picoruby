@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Wpointer-arith -g -std=c99 -g -O0 # -Os # -pedantic # -pedantic-errors
+CFLAGS += -Wall -Wpointer-arith -std=c99 -g -O0 -DDEBUG_BUILD # -Os
 CC = gcc
 LDFLAGS +=
 TARGET = mmrbc

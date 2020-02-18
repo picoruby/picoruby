@@ -2,45 +2,63 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <getopt.h>
 
 #include "../src/mmrbc.h"
+#include "../src/tokenizer.h"
 
-typedef struct {
-  int verbose;
-} opt_t;
-
-int handle_opt(const char **argv, opt_t* opt)
+int main(int argc, char * const *argv)
 {
-  if (!strcmp(*argv, "-v") || !strcmp(*argv, "--version")) {
-    printf("mini mruby compiler %s\n", MMRBC_VERSION);
-    return 0;
-  } else if (!strcmp(*argv, "--verbose")) {
-    opt->verbose = 1;
-  }
-  return -1;
-}
-
-int main(int argc, const char * argv[])
-{
-  opt_t opt;
-  opt.verbose = 0;
-
-  if(!*++argv) {
-    printf( "mmrbc: no program file given\n" );
-    return 1;
-  }
-
-  if(*argv[0] == '-') {
-    int res = handle_opt(argv, &opt);
-    if (res >= 0) {
-      return res;
-    } else {
+  struct option longopts[] = {
+    { "version",  no_argument,       NULL, 'v' },
+    { "verbose",  no_argument,       NULL, 'b' },
+    { "loglevel", required_argument, NULL, 'l' },
+    { 0,          0,                 0,     0  }
+  };
+  int opt;
+  int longindex;
+  loglevel = LOGLEVEL_WARN;
+  while ((opt = getopt_long(argc, argv, "vbl:", longopts, &longindex)) != -1) {
+    switch (opt) {
+      case 'v':
+        fprintf(stdout, "mini mruby compiler %s\n", MMRBC_VERSION);
+        return 0;
+      case 'b': /* verbose */
+        #ifndef DEBUG_BUILD
+          fprintf(stderr, "[ERROR] `--verbose` option is only valid if you made executable with -DDEBUG_BUILD\n");
+          return 1;
+        #endif
+        loglevel = LOGLEVEL_DEBUG;
+        break;
+      case 'l':
+        #ifndef DEBUG_BUILD
+          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable with -DDEBUG_BUILD\n");
+          return 1;
+        #endif
+        if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else
+        if ( !strcmp(optarg, "info") )  { loglevel = LOGLEVEL_INFO; } else
+        if ( !strcmp(optarg, "warn") )  { loglevel = LOGLEVEL_WARN; } else
+        if ( !strcmp(optarg, "error") ) { loglevel = LOGLEVEL_ERROR; } else
+        if ( !strcmp(optarg, "fatal") ) { loglevel = LOGLEVEL_FATAL; } else
+        {
+          fprintf(stderr, "Invalid loglevel option: %s\n", optarg);
+          return 1;
+        }
+        break;
+      default:
+        fprintf(stderr, "error! \'%c\' \'%c\'\n", opt, optopt);
+        return 1;
     }
   }
 
+  if ( !argv[optind] ) {
+    ERROR("mmrbc: no program file given");
+    return 1;
+  }
+
   FILE *fp;
-  if( (fp = fopen( *argv, "r" ) ) == NULL ) {
-    fprintf( stderr, "mmrbc: cannot open program file. (%s)\n", *argv );
+  if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
+    FATAL("mmrbc: cannot open program file. (%s)", *argv);
     return 1;
   } else {
     Tokenizer *tokenizer = Tokenizer_new(fp);
@@ -49,13 +67,14 @@ int main(int argc, const char * argv[])
       Tokenizer_advance(tokenizer, false);
       for (;;) {
         if (topToken->value == NULL) {
-          //printf("(main1)%p null\n", topToken);
+          DEBUG("(main1)%p null", topToken);
         } else {
-          if (topToken->value[0] == '\n') {
-            printf("(main1)%p value(len=%ld,line=%d,pos=%d): `%s`\n", topToken, strlen(topToken->value), topToken->line_num, topToken->pos, "\\n");
-          } else {
-            printf("(main1)%p value(len=%ld,line=%d,pos=%d): `%s` %d\n", topToken, strlen(topToken->value), topToken->line_num, topToken->pos, topToken->value, topToken->type);
-          }
+          INFO("Token found: (len=%ld,line=%d,pos=%d) type=%d `%s`",
+               strlen(topToken->value),
+               topToken->line_num,
+               topToken->pos,
+               topToken->type,
+               topToken->value);
         }
         if (topToken->next == NULL) {
           break;
@@ -64,7 +83,6 @@ int main(int argc, const char * argv[])
         }
       }
     }
-    putchar('\n');
     fclose( fp );
     Tokenizer_free(tokenizer);
   }

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "mmrbc.h"
 #include "common.h"
 #include "tokenizer.h"
 #include "token.h"
@@ -39,7 +40,7 @@ static bool tokenizer_is_operator(char *word, size_t len)
       }
       break;
     default:
-      fprintf(stderr, "Out of range!");
+      ERROR("Out of range!");
       break;
   }
   return false;
@@ -98,18 +99,19 @@ Tokenizer* const Tokenizer_new(FILE *file)
 
 void Tokenizer_free(Tokenizer *self)
 {
-  Token_free(self->currentToken); // FIXME memory leak
+  WARN("FIXME: You have to free() all the token");
+  Token_free(self->currentToken);
   free(self->line);
   free(self);
 }
 
 void tokenizer_readLine(Tokenizer* const self)
 {
-//  printf("readLine line_num: %d, pos: %d\n", self->line_num, self->pos);
+  DEBUG("readLine line_num: %d, pos: %d", self->line_num, self->pos);
   if (self->pos >= strlen(self->line)) {
     if (fgets(self->line, MAX_LINE_LENGTH, self->file) == NULL)
       self->line[0] = '\0';
-    //printf("line size: %ld\n", strlen(self->line));
+    DEBUG("line size: %ld", strlen(self->line));
     self->line_num++;
     self->pos = 0;
   }
@@ -128,7 +130,7 @@ bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 
 void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char *value, State state)
 {
-  //printf("pushToken: `%s`\n", value);
+  DEBUG("pushToken: `%s`", value);
   self->currentToken->pos = pos;
   self->currentToken->line_num = line_num;
   self->currentToken->type = type;
@@ -148,8 +150,8 @@ void tokenizer_freeOldTokens(Token* token)
 
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
-  //printf("advance\n");
-  //tokenizer_freeOldTokens(self->currentToken->prev); FIXME
+  DEBUG("advance");
+  WARN("You have to free old tokens");
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH + 1];
   memset(value, '\0', MAX_TOKEN_LENGTH + 1);
@@ -388,7 +390,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           type = ON_RBRACE;
           break;
         default:
-          fprintf(stderr, "unknown paren error\n");
+          ERROR("unknown paren error");
       }
     } else if (tokenizer_is_operator(&(self->line[self->pos]), 1)) {
       if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][-~!@#$%^&*()_=+\[{\]};:'\"?])", regexResult)) {
@@ -453,7 +455,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         strcpy(value, regexResult[0].value);
         type = ON_INT;
       } else {
-        fprintf(stderr, "Failed to tokenize a number");
+        ERROR("Failed to tokenize a number");
       }
     } else if (self->line[self->pos] == '.') {
       value[0] = '.';
@@ -488,7 +490,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       self->modeTerminater = '\'';
       type = ON_TSTRING_BEG;
     } else {
-      fprintf(stderr, "ERROR error\n");
+      ERROR("ERROR error");
     }
   }
   if (lazyToken->value == NULL) {
@@ -519,11 +521,11 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           self->state = EXPR_ENDFN;
           break;
         default:
-          // fprintf(stderr, "error\n");
+          WARN("Might be a bug");
           break;
       }
     }
-    //printf("value len: %ld, `%s`\n", strlen(value), value);
+    DEBUG("value len: %ld, `%s`", strlen(value), value);
     tokenizer_pushToken(self,
       self->line_num,
       self->pos - strlen(value),

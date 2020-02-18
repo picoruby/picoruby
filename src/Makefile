@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Wpointer-arith -std=c99 -g -O0# -Os # -pedantic # -pedantic-errors
+CFLAGS += -Wall -Wpointer-arith -std=c99 -g -O0 -DDEBUG_BUILD # -Os
 AR = ar
 CC = gcc
 TARGET = libmmrbc.a
@@ -14,13 +14,13 @@ $(TARGET): ruby-lemon-parse/parse.o $(OBJS)
 ruby-lemon-parse/parse.c:
 	cd ruby-lemon-parse ; $(MAKE) all
 
-token.o: token.h token.c
+token.o: debug.h mmrbc.h token.h token.c
 
-tokenizer.o: token.h token.c tokenizer.h tokenizer.c
+tokenizer.o: debug.h mmrbc.h token.h token.c tokenizer.h tokenizer.c
 
-generator.o: generator.h generator.c
+generator.o: debug.h mmrbc.h generator.h generator.c
 
-my_regex.o: my_regex.h my_regex.c
+my_regex.o: debug.h mmrbc.h my_regex.h my_regex.c
 
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean
