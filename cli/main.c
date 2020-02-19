@@ -7,7 +7,7 @@
 #include "../src/mmrbc.h"
 #include "../src/tokenizer.h"
 
-int main(int argc, char * const *argv)
+int handle_opt(int argc, char * const *argv)
 {
   struct option longopts[] = {
     { "version",  no_argument,       NULL, 'v' },
@@ -17,7 +17,7 @@ int main(int argc, char * const *argv)
   };
   int opt;
   int longindex;
-  loglevel = LOGLEVEL_WARN;
+  loglevel = LOGLEVEL_INFO;
   while ((opt = getopt_long(argc, argv, "vbl:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
@@ -50,6 +50,13 @@ int main(int argc, char * const *argv)
         return 1;
     }
   }
+  return 0;
+}
+
+int main(int argc, char * const *argv)
+{
+  int ret = handle_opt(argc, argv);
+  if (ret != 0) return ret;
 
   if ( !argv[optind] ) {
     ERROR("mmrbc: no program file given");
@@ -69,7 +76,8 @@ int main(int argc, char * const *argv)
         if (topToken->value == NULL) {
           DEBUG("(main1)%p null", topToken);
         } else {
-          INFO("Token found: (len=%ld,line=%d,pos=%d) type=%d `%s`",
+          INFO("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
+               tokenizer->mode,
                strlen(topToken->value),
                topToken->line_num,
                topToken->pos,

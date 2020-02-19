@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #define LOGLEVEL_FATAL 0
 #define LOGLEVEL_ERROR 1
 #define LOGLEVEL_WARN  2
@@ -8,6 +10,7 @@
 int loglevel;
 
 #ifdef DEBUG_BUILD
+
   #define DEBUG(fmt, ...)                 \
     do {                                  \
       if (loglevel >= LOGLEVEL_DEBUG) {   \
@@ -50,7 +53,7 @@ int loglevel;
     } while (0)
   #define DEBUG_PRINTF(fmt, ...)                  \
     do {                                          \
-      printf("file : %s, line : %d, func : %s, ", \
+      printf("file : %s, line : %d, func : %s,\n  ", \
             __FILE__,  __LINE__,  __func__);      \
       printf(fmt, ##__VA_ARGS__);                 \
     } while (0)
@@ -62,9 +65,9 @@ int loglevel;
                            fprintf(stdout, "\n"))
   #define ERROR(fmt, ...) (fprintf(stderr, "[ERROR] "),        \
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
-                           fprintf(stdout, "\n"))
+                           fprintf(stderr, "\n"))
   #define FATAL(fmt, ...) (fprintf(stderr, "[FATAL] "),        \
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
-                           fprintf(stdout, "\n"))
+                           fprintf(stderr, "\n"))
 #endif /* DEBUG_BUILD */
 

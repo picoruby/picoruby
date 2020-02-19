@@ -76,24 +76,32 @@ static bool tokenizer_is_comma(int letter)
 static void tokenizer_paren_stack_pop(Tokenizer* const self)
 {
   self->paren_stack_num--;
+  DEBUG("Paren popped stack_num: %d", self->paren_stack_num);
 }
 
 static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
 {
   self->paren_stack_num++;
   self->paren_stack[self->paren_stack_num] = paren;
+  DEBUG("Paren added stack_num: %d, `%d`", self->paren_stack_num, paren);
 }
 
 Tokenizer* const Tokenizer_new(FILE *file)
 {
   Tokenizer *self = malloc(sizeof(Tokenizer));
-  self->file = file;
-  self->currentToken = Token_new();
-  self->mode = MODE_NONE;
-  self->paren_stack_num = 0;
-  self->line_num = 0;
-  self->line = malloc(sizeof(char) * (MAX_LINE_LENGTH + 1));
+  /* class vars in mmrbc.gem */
+    self->currentToken = Token_new();
+    self->paren_stack_num = -1;
+    self->line = malloc(sizeof(char) * (MAX_LINE_LENGTH));
+    self->line[0] = '\0';
+    self->line_num = 0;
+    self->pos = 0;
   tokenizer_paren_stack_add(self, PAREN_NONE);
+  /* instance vars in mmrbc.gem */
+    self->file = file;
+    self->mode = MODE_NONE;
+    self->modeTerminater = NULL;
+    self->state = EXPR_NONE;
   return self;
 }
 
@@ -135,7 +143,9 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
   self->currentToken->line_num = line_num;
   self->currentToken->type = type;
   self->currentToken->value = malloc(sizeof(char) * (strlen(value) + 1));
-  strcpy(self->currentToken->value, value);
+  self->currentToken->value[0] = '\0';
+  strsafecpy(self->currentToken->value, value, MAX_TOKEN_LENGTH);
+  DEBUG("Pushed token: `%s`", self->currentToken->value);
   self->currentToken->state = state;
   Token *newToken = Token_new();
   newToken->prev = self->currentToken;
@@ -150,11 +160,11 @@ void tokenizer_freeOldTokens(Token* token)
 
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
-  DEBUG("advance");
+  DEBUG("Aadvance. mode: `%d`", self->mode);
   WARN("You have to free old tokens");
   Token *lazyToken = Token_new();
-  char value[MAX_TOKEN_LENGTH + 1];
-  memset(value, '\0', MAX_TOKEN_LENGTH + 1);
+  char value[MAX_TOKEN_LENGTH];
+  memset(value, '\0', MAX_TOKEN_LENGTH);
   Type type = ON_NONE;
   char c[3];
   memset(c, '\0', sizeof(c));
@@ -169,7 +179,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
   if (self->mode == MODE_COMMENT) {
     type = (Regex_match2(self->line, "^=end(\\s|$)")) ? ON_EMBDOC_END : ON_EMBDOC;
     self->mode = MODE_NONE;
-    strcpy(value, self->line);
+    strsafecpy(value, self->line, MAX_TOKEN_LENGTH);
   } else if (self->mode == MODE_QWORDS
           || self->mode == MODE_WORDS
           || self->mode == MODE_QSYMBOLS
@@ -191,15 +201,16 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         break;
       } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\n') {
         Regex_match3(&(self->line[self->pos]), "^([\\s]+)", regexResult);
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_WORDS_SEP;
       } else {
         int i = 0;
         for (;;) {
           c[0] = self->line[self->pos + i];
+          c[1] = '\0';
           if (c[0] == '\0') break;
           if (c[0] != ' ' && c[0] != '\t' && c[0] != '\n' && c[0] != self->modeTerminater) {
-            strcat(value, c);
+            strsafecat(value, c, MAX_TOKEN_LENGTH);
             i++;
           } else {
             break;
@@ -209,7 +220,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       }
       if (strlen(value) > 0) {
         if (type == ON_WORDS_SEP && self->currentToken->prev->type == ON_WORDS_SEP) {
-          strcat(self->currentToken->prev->value, value);
+          strsafecat(self->currentToken->prev->value, value, MAX_TOKEN_LENGTH);
         } else {
           tokenizer_pushToken(self,
             self->line_num,
@@ -224,6 +235,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
     self->pos--;
   } else if (self->mode == MODE_TSTRING_DOUBLE) {
     for (;;) {
+      DEBUG("modeTerminater: `%c`", self->modeTerminater);
       tokenizer_readLine(self);
       if (self->line[0] == '\0') {
         Token_free(lazyToken);
@@ -257,8 +269,23 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           EXPR_BEG);
         self->pos += 2;
         tokenizer_paren_stack_add(self, PAREN_BRACE);
-        while (Tokenizer_hasMoreTokens(self)) {
-          if (Tokenizer_advance(self, false) == 1) break;
+        /**
+         * Reserve some properties in order to revert them
+         * after recursive calling
+         */
+        {
+          Mode reserveMode = self->mode;
+          State reserveState = self->state;
+          char reserveModeTerminater = self->modeTerminater;
+          self->mode = MODE_NONE;
+          self->state = EXPR_NONE;
+          self->modeTerminater = NULL;
+          while (Tokenizer_hasMoreTokens(self)) { /* recursive */
+            if (Tokenizer_advance(self, false) == 1) break;
+          }
+          self->mode = reserveMode;
+          self->state = reserveState;
+          self->modeTerminater = reserveModeTerminater;
         }
         tokenizer_pushToken(self,
           self->line_num,
@@ -274,7 +301,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         c[0] = self->line[self->pos];
       }
       self->pos += strlen(c);
-      strcat(value, c);
+      strsafecat(value, c, MAX_TOKEN_LENGTH);
     }
     self->pos--;
     if (strlen(value) > 0) {
@@ -299,13 +326,13 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         c[0] = self->line[self->pos];
       }
       self->pos += strlen(c);
-      strcat(value, c);
+      strsafecat(value, c, MAX_TOKEN_LENGTH);
     }
     self->pos--;
     if (strlen(value) > 0) type = ON_TSTRING_CONTENT;
   } else if (Regex_match2(self->line, "^=begin(\\s|$)")) { // multi lines comment began
     self->mode = MODE_COMMENT;
-    strcpy(value, strcat(self->line, "\n"));
+    strsafecpy(value, strsafecat(self->line, "\n", MAX_TOKEN_LENGTH), MAX_TOKEN_LENGTH);
     type = ON_EMBDOC_BEG;
   } else if (self->line[self->pos] == '\n') {
     value[0] = '\n';
@@ -328,13 +355,13 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
     value[2] = '\0';
     type = ON_OP;
   } else if (Regex_match3(&(self->line[self->pos]), "^(@\\w+)", regexResult)) {
-    strcpy(value, regexResult[0].value);
+    strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = ON_IVAR;
   } else if (Regex_match3(&(self->line[self->pos]), "^(\\$\\w+)", regexResult)) {
-    strcpy(value, regexResult[0].value);
+    strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = ON_GVAR;
   } else if (Regex_match3(&(self->line[self->pos]), "^(\\?.)", regexResult)) {
-    strcpy(value, regexResult[0].value);
+    strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = ON_CHAR;
   } else if (self->line[self->pos] == '-' && self->line[self->pos + 1] == '>') {
     value[0] = '-';
@@ -354,11 +381,11 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         // nothing TODO?
       }
     } else if (self->line[self->pos] == '#') {
-      strcpy(value, &(self->line[self->pos]));
+      strsafecpy(value, &(self->line[self->pos]), MAX_TOKEN_LENGTH);
       type = ON_COMMENT;
     } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\t') {
       Regex_match3(&(self->line[self->pos]), "^(\\s+)", regexResult);
-      strcpy(value, regexResult[0].value);
+      strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
       type = ON_SP;
     } else if (tokenizer_is_paren(self->line[self->pos])) {
       value[0] = self->line[self->pos];
@@ -393,8 +420,8 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           ERROR("unknown paren error");
       }
     } else if (tokenizer_is_operator(&(self->line[self->pos]), 1)) {
-      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][-~!@#$%^&*()_=+\[{\]};:'\"?])", regexResult)) {
-        strcpy(value, regexResult[0].value);
+      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][]-~!@#$%^&*()_=+\[{};:'\"?])", regexResult)) {
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         switch (value[1]) {
           case 'w':
             type = ON_QWORDS_BEG;
@@ -449,10 +476,10 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       self->state = EXPR_BEG|EXPR_LABEL;
     } else if ('0' <= self->line[self->pos] && self->line[self->pos] <= '9') {
       if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+\\.[0-9][0-9_]*)", regexResult)) {
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_FLOAT;
       } else if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+)", regexResult)) {
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_INT;
       } else {
         ERROR("Failed to tokenize a number");
@@ -461,21 +488,22 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       value[0] = '.';
       value[1] = '\0';
       type = ON_PERIOD;
-    } else if ( ('a' <= self->line[self->pos] && self->line[self->pos] <= 'z')
-                || ('A' <= self->line[self->pos] && self->line[self->pos] <= 'Z')
-                || (self->line[self->pos] == '_') ) {
+    } else if (Regex_match2(&(self->line[self->pos]), "^\\w")) {
       if (Regex_match3(&(self->line[self->pos]), "^([A-Za-z0-9_?!]+:)", regexResult)) {
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_LABEL;
       } else if (Regex_match3(&(self->line[self->pos]), "^([A-Z]\\w*[!?])", regexResult)) {
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_IDENT;
       } else if (Regex_match3(&(self->line[self->pos]), "^([A-Z]\\w*)", regexResult)) {
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_CONST;
       } else if (Regex_match3(&(self->line[self->pos]), "^(\\w+[!?]?)", regexResult)) {
-        strcpy(value, regexResult[0].value);
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = ON_IDENT;
+      } else {
+        ERROR("Failed to tokenize!");
+        return 1;
       }
     } else if (self->line[self->pos] == '"') {
       value[0] = '"';
@@ -490,7 +518,8 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       self->modeTerminater = '\'';
       type = ON_TSTRING_BEG;
     } else {
-      ERROR("ERROR error");
+      ERROR("Failed to tokenize!");
+      return 1;
     }
   }
   if (lazyToken->value == NULL) {
@@ -521,7 +550,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           self->state = EXPR_ENDFN;
           break;
         default:
-          WARN("Might be a bug");
+          DEBUG("Might be a bug");
           break;
       }
     }

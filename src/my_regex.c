@@ -4,6 +4,7 @@
 #include <regex.h>
 
 #include "mmrbc.h"
+#include "common.h"
 #include "my_regex.h"
 
 bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResult result[REGEX_MAX_RESULT_NUM])
@@ -14,17 +15,17 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
   int size;
 
   if (regcomp(&regexBuffer, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
-    FATAL("regcomp failed: /%s/\n", pattern);
+    FATAL("regcomp failed: /%s/", pattern);
     return false;
   }
 
   size = sizeof(match) / sizeof(regmatch_t);
   if (regexec(&regexBuffer, str, size, match, 0) != 0){
-    DEBUG("no match: %s\n", pattern);
+    DEBUG("no match: %s", pattern);
     regfree(&regexBuffer);
     return false;
   } else {
-    DEBUG("match!: %s\n", pattern);
+    DEBUG("match!: %s", pattern);
   }
 
   if (resultRequired) {
@@ -34,10 +35,10 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
       if (startIndex == -1 || endIndex == -1) {
         continue;
       }
-      DEBUG("match[%d] index [start, end] = %d, %d\n", i, startIndex, endIndex);
-      strncpy(result[i].value, str + startIndex, endIndex - startIndex);
+      DEBUG("match[%d] index [start, end] = %d, %d", i, startIndex, endIndex);
+      strsafencpy(result[i].value, str + startIndex, endIndex - startIndex, MAX_TOKEN_LENGTH);
       result[i].value[endIndex - startIndex] = '\0';
-      DEBUG("match result: %s\n", result[i].value);
+      DEBUG("match result: %s", result[i].value);
     }
   }
 
