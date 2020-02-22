@@ -5,5 +5,6 @@
 #include "debug.h"
 #include "version.h"
 #include "tokenizer.h"
+#include "ruby-lemon-parse/parse.h"
 
 #endif /* MMRBC_MMRBC_H_ */

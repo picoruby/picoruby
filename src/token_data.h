@@ -122,14 +122,14 @@ static struct {
 
 static struct {
   char letter;
-} COMMA[] = {
+} COMMAS[] = {
   {','},
   {0}
 };
 
 static struct {
   char letter;
-} SEMICOLON[] = {
+} SEMICOLONS[] = {
   {';'},
   {0}
 };

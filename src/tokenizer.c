@@ -59,8 +59,8 @@ static bool tokenizer_is_paren(int letter)
 
 static bool tokenizer_is_semicolon(int letter)
 {
-  for (int i = 0; SEMICOLON[i].letter != 0; i++){
-    if ( letter == SEMICOLON[i].letter )
+  for (int i = 0; SEMICOLONS[i].letter != 0; i++){
+    if ( letter == SEMICOLONS[i].letter )
       return true;
   }
   return false;
@@ -68,8 +68,8 @@ static bool tokenizer_is_semicolon(int letter)
 
 static bool tokenizer_is_comma(int letter)
 {
-  for (int i = 0; COMMA[i].letter != 0; i++){
-    if ( letter == COMMA[i].letter )
+  for (int i = 0; COMMAS[i].letter != 0; i++){
+    if ( letter == COMMAS[i].letter )
       return true;
   }
   return false;
