@@ -7,8 +7,6 @@
 
 char *strsafecpy(char *str1, const char *str2, size_t max);
 
-char *strsafencpy(char *str1, const char *str2, size_t n, size_t max);
-
 char *strsafecat(char *dst, const char *src, size_t max);
 
 #endif

@@ -2,12 +2,6 @@
 #include "common.h"
 #include "debug.h"
 
-char *strsafecpy(char *s1, const char *s2, size_t max)
-{
-  DEBUG("s1: `%s`, s2: `%s`, max: %d", s1, s2, (int)max);
-  return strsafencpy(s1, s2, strlen(s2), max);
-}
-
 char *strsafencpy(char *s1, const char *s2, size_t n, size_t max)
 {
   DEBUG("s1: `%s`, s2: `%s`, n: %d, max: %d", s1, s2, (int)n, (int)max);
@@ -18,6 +12,12 @@ char *strsafencpy(char *s1, const char *s2, size_t n, size_t max)
     FATAL("Can't copy string!");
   }
   return s1;
+}
+
+char *strsafecpy(char *s1, const char *s2, size_t max)
+{
+  DEBUG("s1: `%s`, s2: `%s`, max: %d", s1, s2, (int)max);
+  return strsafencpy(s1, s2, strlen(s2), max);
 }
 
 char *strsafecat(char *dst, const char *src, size_t max)

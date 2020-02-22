@@ -23,7 +23,7 @@ generator.o: common.h debug.h mmrbc.h generator.h generator.c
 
 my_regex.o: common.h debug.h mmrbc.h my_regex.h my_regex.c
 
-common.o: common.h debug.h
+common.o: common.h debug.h common.c
 
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean
