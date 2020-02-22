@@ -90,18 +90,22 @@ Tokenizer* const Tokenizer_new(FILE *file)
 {
   Tokenizer *self = malloc(sizeof(Tokenizer));
   /* class vars in mmrbc.gem */
+  {
     self->currentToken = Token_new();
     self->paren_stack_num = -1;
     self->line = malloc(sizeof(char) * (MAX_LINE_LENGTH));
     self->line[0] = '\0';
     self->line_num = 0;
     self->pos = 0;
+  }
   tokenizer_paren_stack_add(self, PAREN_NONE);
   /* instance vars in mmrbc.gem */
+  {
     self->file = file;
     self->mode = MODE_NONE;
     self->modeTerminater = NULL;
     self->state = EXPR_NONE;
+  }
   return self;
 }
 
