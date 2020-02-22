@@ -1,3 +1,6 @@
 [submodule "src/ruby-lemon-parse"]
 	path = src/ruby-lemon-parse
 	url = https://github.com/hasumikin/ruby-lemon-parse.git
+[submodule "src/mrubyc"]
+	path = src/mrubyc
+	url = https://github.com/hasumikin/mrubyc.git
