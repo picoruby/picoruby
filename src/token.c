@@ -12,6 +12,7 @@ Token *Token_new(void)
   self->type = ON_NONE;
   self->prev = NULL;
   self->next = NULL;
+  self->done = false;
   return self;
 }
 

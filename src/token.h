@@ -78,6 +78,7 @@ typedef struct token
   struct token *prev;
   struct token *next;
   char *value;
+  bool done;
 } Token;
 
 Token *Token_new(void);
