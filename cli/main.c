@@ -87,6 +87,7 @@ int main(int argc, char * const *argv)
         if (topToken->next == NULL) {
           break;
         } else {
+          topToken->refCount--;
           topToken = topToken->next;
         }
       }
