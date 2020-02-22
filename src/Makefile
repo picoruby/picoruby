@@ -17,7 +17,7 @@ ruby-lemon-parse/parse.c:
 
 token.o: common.h debug.h mmrbc.h token.h token.c
 
-tokenizer.o: common.h debug.h mmrbc.h token.h token.c tokenizer.h tokenizer.c
+tokenizer.o: token_data.h common.h debug.h mmrbc.h token.h token.c tokenizer.h tokenizer.c
 
 generator.o: common.h debug.h mmrbc.h generator.h generator.c
 

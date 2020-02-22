@@ -9,6 +9,8 @@
 #include "token.h"
 #include "my_regex.h"
 
+#include "token_data.h"
+
 static bool tokenizer_is_keyword(char *word)
 {
   for (int i = 0; KEYWORDS[i].string != NULL; i++){
