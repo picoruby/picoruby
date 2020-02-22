@@ -103,7 +103,7 @@ Tokenizer* const Tokenizer_new(FILE *file)
   {
     self->file = file;
     self->mode = MODE_NONE;
-    self->modeTerminater = NULL;
+    self->modeTerminater = '\0';
     self->state = EXPR_NONE;
   }
   return self;
@@ -111,7 +111,6 @@ Tokenizer* const Tokenizer_new(FILE *file)
 
 void Tokenizer_free(Tokenizer *self)
 {
-  WARN("FIXME: You have to free() all the token");
   Token_free(self->currentToken);
   free(self->line);
   free(self);
@@ -148,7 +147,7 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
   self->currentToken->type = type;
   self->currentToken->value = malloc(sizeof(char) * (strlen(value) + 1));
   self->currentToken->value[0] = '\0';
-  strsafecpy(self->currentToken->value, value, MAX_TOKEN_LENGTH);
+  strsafecpy(self->currentToken->value, value, strlen(value) + 1);
   DEBUG("Pushed token: `%s`", self->currentToken->value);
   self->currentToken->state = state;
   Token *newToken = Token_new();
@@ -157,15 +156,10 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
   self->currentToken = newToken;
 }
 
-void tokenizer_freeOldTokens(Token* token)
-{
-  // TODO
-}
-
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
   DEBUG("Aadvance. mode: `%d`", self->mode);
-  WARN("You have to free old tokens");
+  Token_GC(self->currentToken);
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH];
   memset(value, '\0', MAX_TOKEN_LENGTH);
@@ -283,7 +277,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           char reserveModeTerminater = self->modeTerminater;
           self->mode = MODE_NONE;
           self->state = EXPR_NONE;
-          self->modeTerminater = NULL;
+          self->modeTerminater = '\0';
           while (Tokenizer_hasMoreTokens(self)) { /* recursive */
             if (Tokenizer_advance(self, false) == 1) break;
           }
@@ -314,7 +308,10 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
   } else if (self->mode == MODE_TSTRING_SINGLE) {
     for (;;) {
       tokenizer_readLine(self);
-      if (self->line[0] == '\0') return -1;
+      if (self->line[0] == '\0') {
+        Token_free(lazyToken);
+        return -1;
+      }
       if (self->line[self->pos] == '\'') {
         lazyToken->line_num = self->line_num;
         lazyToken->pos = self->pos;
@@ -507,6 +504,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         type = ON_IDENT;
       } else {
         ERROR("Failed to tokenize!");
+        Token_free(lazyToken);
         return 1;
       }
     } else if (self->line[self->pos] == '"') {
@@ -523,6 +521,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       type = ON_TSTRING_BEG;
     } else {
       ERROR("Failed to tokenize!");
+      Token_free(lazyToken);
       return 1;
     }
   }
@@ -567,13 +566,15 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       self->state);
   }
   if (lazyToken->value != NULL) {
-    lazyToken->prev = self->currentToken;
-    self->currentToken->next = lazyToken;
-    self->currentToken = lazyToken;
+    tokenizer_pushToken(self,
+      lazyToken->line_num,
+      lazyToken->pos,
+      lazyToken->type,
+      lazyToken->value,
+      lazyToken->state);
     self->pos++;
-  } else {
-    Token_free(lazyToken);
   }
+  Token_free(lazyToken);
   return 0;
 }
 

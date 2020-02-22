@@ -78,11 +78,14 @@ typedef struct token
   struct token *prev;
   struct token *next;
   char *value;
+  int refCount;
 } Token;
 
 Token *Token_new(void);
 
 void Token_free(Token* self);
+
+void Token_GC(Token* token);
 
 bool Token_exists(Token* const self);
 
