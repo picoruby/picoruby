@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <getopt.h>
 
+#include "../src/mrubyc/src/mrubyc.h"
+
 #include "../src/mmrbc.h"
 #include "../src/tokenizer.h"
 
@@ -22,7 +24,7 @@ int handle_opt(int argc, char * const *argv)
     switch (opt) {
       case 'v':
         fprintf(stdout, "mini mruby compiler %s\n", MMRBC_VERSION);
-        return 0;
+        return -1;
       case 'b': /* verbose */
         #ifndef DEBUG_BUILD
           fprintf(stderr, "[ERROR] `--verbose` option is only valid if you made executable with -DDEBUG_BUILD\n");
@@ -53,6 +55,18 @@ int handle_opt(int argc, char * const *argv)
   return 0;
 }
 
+void print_memory(void)
+{
+#ifndef MRBC_ALLOC_LIBC
+  int total, used, free, fragment;
+  mrbc_alloc_statistics( &total, &used, &free, &fragment );
+  console_printf("Memory total:%d, used:%d, free:%d, fragment:%d\n", total, used, free, fragment );
+#endif
+}
+
+#define MEMORY_SIZE (1024*64-1)
+static uint8_t memory_pool[MEMORY_SIZE];
+
 int main(int argc, char * const *argv)
 {
   int ret = handle_opt(argc, argv);
@@ -62,6 +76,9 @@ int main(int argc, char * const *argv)
     ERROR("mmrbc: no program file given");
     return 1;
   }
+
+  mrbc_init(memory_pool, MEMORY_SIZE);
+  print_memory();
 
   FILE *fp;
   if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
@@ -95,5 +112,6 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Tokenizer_free(tokenizer);
   }
+  print_memory();
   return 0;
 }

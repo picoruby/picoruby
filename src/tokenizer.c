@@ -3,6 +3,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "mrubyc/src/alloc.h"
+
 #include "mmrbc.h"
 #include "common.h"
 #include "tokenizer.h"
@@ -90,12 +92,12 @@ static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
 
 Tokenizer* const Tokenizer_new(FILE *file)
 {
-  Tokenizer *self = malloc(sizeof(Tokenizer));
+  Tokenizer *self = mrbc_raw_alloc(sizeof(Tokenizer));
   /* class vars in mmrbc.gem */
   {
     self->currentToken = Token_new();
     self->paren_stack_num = -1;
-    self->line = malloc(sizeof(char) * (MAX_LINE_LENGTH));
+    self->line = mrbc_raw_alloc(sizeof(char) * (MAX_LINE_LENGTH));
     self->line[0] = '\0';
     self->line_num = 0;
     self->pos = 0;
@@ -114,8 +116,8 @@ Tokenizer* const Tokenizer_new(FILE *file)
 void Tokenizer_free(Tokenizer *self)
 {
   Token_free(self->currentToken);
-  free(self->line);
-  free(self);
+  mrbc_raw_free(self->line);
+  mrbc_raw_free(self);
 }
 
 void tokenizer_readLine(Tokenizer* const self)
@@ -147,7 +149,7 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
   self->currentToken->pos = pos;
   self->currentToken->line_num = line_num;
   self->currentToken->type = type;
-  self->currentToken->value = malloc(sizeof(char) * (strlen(value) + 1));
+  self->currentToken->value = mrbc_raw_alloc(sizeof(char) * (strlen(value) + 1));
   self->currentToken->value[0] = '\0';
   strsafecpy(self->currentToken->value, value, strlen(value) + 1);
   DEBUG("Pushed token: `%s`", self->currentToken->value);
@@ -192,7 +194,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         lazyToken->line_num = self->line_num;
         lazyToken->pos = self->pos;
         lazyToken->type = ON_TSTRING_END;
-        lazyToken->value = malloc(sizeof(char) *(2));
+        lazyToken->value = mrbc_raw_alloc(sizeof(char) *(2));
         *(lazyToken->value) = self->modeTerminater;
         *(lazyToken->value + 1) = '\0';
         lazyToken->state = EXPR_END;
@@ -245,7 +247,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         lazyToken->line_num = self->line_num;
         lazyToken->pos = self->pos;
         lazyToken->type = ON_TSTRING_END;
-        lazyToken->value = malloc(sizeof(char) *(2));
+        lazyToken->value = mrbc_raw_alloc(sizeof(char) *(2));
         *(lazyToken->value) = self->modeTerminater;
         *(lazyToken->value + 1) = '\0';;
         lazyToken->state = EXPR_END;
@@ -318,7 +320,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         lazyToken->line_num = self->line_num;
         lazyToken->pos = self->pos;
         lazyToken->type = ON_TSTRING_END;
-        lazyToken->value = malloc(sizeof(char) *(2));
+        lazyToken->value = mrbc_raw_alloc(sizeof(char) *(2));
         *(lazyToken->value) = '\'';
         *(lazyToken->value + 1) = '\0';
         lazyToken->state = EXPR_END;

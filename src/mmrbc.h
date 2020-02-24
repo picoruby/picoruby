@@ -1,6 +1,7 @@
 #ifndef MMRBC_MMRBC_H_
 #define MMRBC_MMRBC_H_
 
+#include "mrubyc/src/mrubyc.h"
 #include "banned.h"
 #include "debug.h"
 #include "version.h"
