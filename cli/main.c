@@ -9,6 +9,9 @@
 #include "../src/mmrbc.h"
 #include "../src/tokenizer.h"
 
+int alloc_count;
+int free_count;
+
 int handle_opt(int argc, char * const *argv)
 {
   struct option longopts[] = {
@@ -80,6 +83,9 @@ int main(int argc, char * const *argv)
   mrbc_init(memory_pool, MEMORY_SIZE);
   print_memory();
 
+  alloc_count = 0;
+  free_count = 0;
+
   FILE *fp;
   if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
     FATAL("mmrbc: cannot open program file. (%s)", *argv);
@@ -113,5 +119,8 @@ int main(int argc, char * const *argv)
     Tokenizer_free(tokenizer);
   }
   print_memory();
+
+  printf("alloc_count: %d\n", alloc_count);
+  printf("free_count: %d\n", free_count);
   return 0;
 }

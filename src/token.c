@@ -2,15 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "mrubyc/src/alloc.h"
-
 #include "debug.h"
 #include "common.h"
 #include "token.h"
 
 Token *Token_new(void)
 {
-  Token *self = mrbc_raw_alloc(sizeof(Token));
+  Token *self = mmrbc_alloc(sizeof(Token));
   self->value = NULL;
   self->type = ON_NONE;
   self->prev = NULL;
@@ -21,9 +19,10 @@ Token *Token_new(void)
 
 void Token_free(Token* self)
 {
-  DEBUG("free `%s`", self->value);
-  //mrbc_raw_free(self->value);
-  //mrbc_raw_free(self);
+  DEBUG("free Token->value: `%s`", self->value);
+  mmrbc_free(self->value);
+  DEBUG("free Token: %p", self);
+  mmrbc_free(self);
 }
 
 bool Token_exists(Token* const self)
