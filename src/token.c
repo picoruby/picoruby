@@ -8,7 +8,7 @@
 
 Token *Token_new(void)
 {
-  Token *self = malloc(sizeof(Token));
+  Token *self = (Token *)mmrbc_alloc(sizeof(Token));
   self->value = NULL;
   self->type = ON_NONE;
   self->prev = NULL;
@@ -19,9 +19,12 @@ Token *Token_new(void)
 
 void Token_free(Token* self)
 {
-  DEBUG("free `%s`", self->value);
-  free(self->value);
-  free(self);
+  if (self->value != NULL) {
+    mmrbc_free(self->value);
+    DEBUG("free Token->value: `%s`", self->value);
+  }
+  DEBUG("free Token: %p", self);
+  mmrbc_free(self);
 }
 
 bool Token_exists(Token* const self)
@@ -33,15 +36,17 @@ bool Token_exists(Token* const self)
 
 void Token_GC(Token* currentToken)
 {
-  DEBUG("GC start");
-  Token *prev;
-  while (currentToken->prev) {
-    prev = currentToken->prev;
-    if (currentToken->prev->refCount == 0) {
-      Token_free(currentToken->prev);
-      currentToken->prev = NULL;
-    }
-    currentToken = prev;
+  DEBUG("GC start. currentToken: %p", currentToken);
+  print_memory();
+  Token *prevToken = currentToken->prev;
+  Token *temp;
+  while (prevToken) {
+    if (prevToken->refCount > 0) break;
+    prevToken->next->prev = NULL;
+    temp = prevToken->prev;
+    Token_free(prevToken);
+    prevToken = temp;
   }
+  print_memory();
   DEBUG("GC end");
 }

@@ -4,13 +4,16 @@
 #include <stdbool.h>
 #include <getopt.h>
 
+#include "../src/mrubyc/src/mrubyc.h"
+
 #include "../src/mmrbc.h"
-#include "../src/tokenizer.h"
+#include "../src/common.h"
 
 int handle_opt(int argc, char * const *argv)
 {
   struct option longopts[] = {
     { "version",  no_argument,       NULL, 'v' },
+    { "debug",    no_argument,       NULL, 'd' },
     { "verbose",  no_argument,       NULL, 'b' },
     { "loglevel", required_argument, NULL, 'l' },
     { 0,          0,                 0,     0  }
@@ -18,14 +21,17 @@ int handle_opt(int argc, char * const *argv)
   int opt;
   int longindex;
   loglevel = LOGLEVEL_INFO;
-  while ((opt = getopt_long(argc, argv, "vbl:", longopts, &longindex)) != -1) {
+  while ((opt = getopt_long(argc, argv, "vdbl:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
         fprintf(stdout, "mini mruby compiler %s\n", MMRBC_VERSION);
-        return 0;
+        return -1;
       case 'b': /* verbose */
+        /* TODO */
+        break;
+      case 'd': /* debug */
         #ifndef DEBUG_BUILD
-          fprintf(stderr, "[ERROR] `--verbose` option is only valid if you made executable with -DDEBUG_BUILD\n");
+          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DDEBUG_BUILD\n");
           return 1;
         #endif
         loglevel = LOGLEVEL_DEBUG;
@@ -53,6 +59,9 @@ int handle_opt(int argc, char * const *argv)
   return 0;
 }
 
+#define MEMORY_SIZE (1024*64-1)
+static uint8_t memory_pool[MEMORY_SIZE];
+
 int main(int argc, char * const *argv)
 {
   int ret = handle_opt(argc, argv);
@@ -62,6 +71,8 @@ int main(int argc, char * const *argv)
     ERROR("mmrbc: no program file given");
     return 1;
   }
+
+  mrbc_init(memory_pool, MEMORY_SIZE);
 
   FILE *fp;
   if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
@@ -95,5 +106,6 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Tokenizer_free(tokenizer);
   }
+  print_allocs();
   return 0;
 }

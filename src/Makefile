@@ -9,11 +9,14 @@ OBJS = $(SRCS:.c=.o)
 all:
 	$(MAKE) $(TARGET)
 
-$(TARGET): ruby-lemon-parse/parse.o $(OBJS)
+$(TARGET): mrubyc/src/alloc.o ruby-lemon-parse/parse.o $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 ruby-lemon-parse/parse.c:
 	cd ruby-lemon-parse ; $(MAKE) all
+
+mrubyc/src/alloc.o:
+	cd mrubyc/src ; $(MAKE) all
 
 token.o: common.h debug.h mmrbc.h token.h token.c
 
@@ -27,4 +30,5 @@ common.o: common.h debug.h common.c
 
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean
+	cd mrubyc/src ; $(MAKE) clean
 	rm -f $(TARGET) $(OBJS)
