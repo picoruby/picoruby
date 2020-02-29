@@ -1,18 +1,14 @@
-#CFLAGS += -Wall -Wpointer-arith -std=c99 -Os
-CFLAGS += -Wall -Wpointer-arith -std=gnu99 -g -O0 -DDEBUG_BUILD
+CFLAGS += -Wall -Wpointer-arith -std=gnu99
 CC = gcc
 LDFLAGS +=
 TARGET = mmrbc
-MRUBYCSRCDIR = ../src/mrubyc/src
-PARSE = ../src/ruby-lemon-parse/parse
+MRUBYCDIR = ../src/mrubyc/src
+MMRBCDIR = ../src
 
-all: $(TARGET) $(PARSE).c
+all: $(TARGET)
 
-$(TARGET): main.c ../src/*.c $(PARSE).c $(MRUBYCSRCDIR)/*.c $(MRUBYCSRCDIR)/hal/*.c
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
-
-$(PARSE).c: $(PARSE).y
-	cd ../src/ruby-lemon-parse/ ; $(MAKE) all
+$(TARGET): main.c
+	$(CC) $(CFLAGS) $(LDFLAGS)-o $@ $^ -L$(MRUBYCDIR) -L$(MMRBCDIR) -lmrubyc -lmmrbc
 
 clean:
 	rm -f $(TARGET)

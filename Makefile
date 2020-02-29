@@ -1,12 +1,15 @@
+CFLAGS += -Wall -Wpointer-arith -std=gnu99 -O0 -g -DDEBUG_BUILD #-Wl,-s
+
 all:
-#	cd src ; $(MAKE) all
-	cd cli ; $(MAKE) all
+	cd src/mrubyc/src ; CFLAGS="$(CFLAGS)" $(MAKE) all
+	cd src ; CFLAGS="$(CFLAGS)" $(MAKE) all
+	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) all
 
 debug: all
 	gdb --args ./cli/mmrbc test/fixtures/interpolation.rb
 
-
 clean:
+	cd src/mrubyc/src ; $(MAKE) clean
 	cd src ; $(MAKE) clean
 	cd cli ; $(MAKE) clean
 

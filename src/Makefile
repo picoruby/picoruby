@@ -1,34 +1,24 @@
-#CFLAGS += -Wall -Wpointer-arith -std=c99 -Os
-CFLAGS += -Wall -Wpointer-arith -std=c99 -g -O0 -DDEBUG_BUILD
+CFLAGS += -Wall -Wpointer-arith -std=gnu99
 AR = ar
 CC = gcc
-TARGET = libmmrbc.a
-SRCS = common.c token.c tokenizer.c generator.c my_regex.c
-OBJS = $(SRCS:.c=.o)
+TARGET := libmmrbc.a
+SRCS := common.c token.c tokenizer.c generator.c my_regex.c
+OBJS := $(SRCS:%.c=%.o)
+DEPS := $(SRCS:%.c=%.d)
 
-all:
-	$(MAKE) $(TARGET)
+all: $(TARGET)
 
-$(TARGET): mrubyc/src/alloc.o ruby-lemon-parse/parse.o $(OBJS)
+-include $(DEPS)
+
+$(TARGET): ruby-lemon-parse/parse.o $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
-ruby-lemon-parse/parse.c:
-	cd ruby-lemon-parse ; $(MAKE) all
+ruby-lemon-parse/parse.o:
+	cd ruby-lemon-parse ; CFLAGS="$(CFLAGS)" $(MAKE) all
 
-mrubyc/src/alloc.o:
-	cd mrubyc/src ; $(MAKE) all
-
-token.o: common.h debug.h mmrbc.h token.h token.c
-
-tokenizer.o: token_data.h common.h debug.h mmrbc.h token.h token.c tokenizer.h tokenizer.c
-
-generator.o: common.h debug.h mmrbc.h generator.h generator.c
-
-my_regex.o: common.h debug.h mmrbc.h my_regex.h my_regex.c
-
-common.o: common.h debug.h common.c
+%.o: %.c
+	$(CC) -c -MMD -MP $(CFLAGS) $<
 
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean
-	cd mrubyc/src ; $(MAKE) clean
-	rm -f $(TARGET) $(OBJS)
+	rm -f $(TARGET) $(OBJS) $(DEPS)
