@@ -1,26 +1,43 @@
 #include <string.h>
+#include <stdlib.h>
 #include "common.h"
 #include "debug.h"
 
+#include "mrubyc/src/mrubyc.h"
 #include "mrubyc/src/alloc.h"
 
 int alloc_count = 0;
 int free_count = 0;
 
+void print_memory(void)
+{
+#ifndef MRBC_ALLOC_LIBC
+  int total, used, free, fragment;
+  mrbc_alloc_statistics( &total, &used, &free, &fragment );
+  DEBUG("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
+#endif
+}
+
+void print_allocs(void)
+{
+  INFO("alloc_count: %d\n", alloc_count);
+  INFO("free_count: %d\n", free_count);
+}
+
 void *mmrbc_alloc(size_t size)
 {
+  void *ptr;
   alloc_count++;
-  return malloc(size);
-  //return mrbc_raw_alloc(size);
+  ptr = ALLOC(size);
+  DEBUG("alloc: %p, size: %d", ptr, (int)size);
+  return ptr;
 }
 
 void mmrbc_free(void *ptr)
 {
-  //if (ptr == NULL) return;
+  DEBUG("free: %p", ptr);
   free_count++;
-  free(ptr);
-  //mrbc_raw_free(ptr);
-  ptr = NULL;
+  FREE(ptr);
 }
 
 char *strsafencpy(char *s1, const char *s2, size_t n, size_t max)

@@ -70,4 +70,3 @@ int loglevel;
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
                            fprintf(stderr, "\n"))
 #endif /* DEBUG_BUILD */
-

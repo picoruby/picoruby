@@ -7,15 +7,13 @@
 #include "../src/mrubyc/src/mrubyc.h"
 
 #include "../src/mmrbc.h"
-#include "../src/tokenizer.h"
-
-int alloc_count;
-int free_count;
+#include "../src/common.h"
 
 int handle_opt(int argc, char * const *argv)
 {
   struct option longopts[] = {
     { "version",  no_argument,       NULL, 'v' },
+    { "debug",    no_argument,       NULL, 'd' },
     { "verbose",  no_argument,       NULL, 'b' },
     { "loglevel", required_argument, NULL, 'l' },
     { 0,          0,                 0,     0  }
@@ -23,14 +21,17 @@ int handle_opt(int argc, char * const *argv)
   int opt;
   int longindex;
   loglevel = LOGLEVEL_INFO;
-  while ((opt = getopt_long(argc, argv, "vbl:", longopts, &longindex)) != -1) {
+  while ((opt = getopt_long(argc, argv, "vdbl:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
         fprintf(stdout, "mini mruby compiler %s\n", MMRBC_VERSION);
         return -1;
       case 'b': /* verbose */
+        /* TODO */
+        break;
+      case 'd': /* debug */
         #ifndef DEBUG_BUILD
-          fprintf(stderr, "[ERROR] `--verbose` option is only valid if you made executable with -DDEBUG_BUILD\n");
+          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DDEBUG_BUILD\n");
           return 1;
         #endif
         loglevel = LOGLEVEL_DEBUG;
@@ -58,15 +59,6 @@ int handle_opt(int argc, char * const *argv)
   return 0;
 }
 
-void print_memory(void)
-{
-#ifndef MRBC_ALLOC_LIBC
-  int total, used, free, fragment;
-  mrbc_alloc_statistics( &total, &used, &free, &fragment );
-  console_printf("Memory total:%d, used:%d, free:%d, fragment:%d\n", total, used, free, fragment );
-#endif
-}
-
 #define MEMORY_SIZE (1024*64-1)
 static uint8_t memory_pool[MEMORY_SIZE];
 
@@ -81,10 +73,6 @@ int main(int argc, char * const *argv)
   }
 
   mrbc_init(memory_pool, MEMORY_SIZE);
-  print_memory();
-
-  alloc_count = 0;
-  free_count = 0;
 
   FILE *fp;
   if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
@@ -118,9 +106,6 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Tokenizer_free(tokenizer);
   }
-  print_memory();
-
-  printf("alloc_count: %d\n", alloc_count);
-  printf("free_count: %d\n", free_count);
+  print_allocs();
   return 0;
 }

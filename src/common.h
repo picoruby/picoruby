@@ -1,9 +1,22 @@
 #ifndef MMRBC_COMMON_H_
 #define MMRBC_COMMON_H_
 
+#ifdef MRBC_ALLOC_LIBC
+  #include <stdlib.h>
+  #define ALLOC(size) malloc(size)
+  #define FREE(ptr)   free(ptr)
+#else
+  #define ALLOC(size) mrbc_raw_alloc(size)
+  #define FREE(ptr)   mrbc_raw_free(ptr)
+#endif /* MMRBC_ALLOC_LIBC */
+
 #define MAX_LINE_LENGTH 256
 
 #define MAX_TOKEN_LENGTH 256
+
+void print_memory(void);
+
+void print_allocs(void);
 
 void *mmrbc_alloc(size_t size);
 
@@ -15,4 +28,4 @@ char *strsafencpy(char *s1, const char *s2, size_t n, size_t max);
 
 char *strsafecat(char *dst, const char *src, size_t max);
 
-#endif
+#endif /* MMRBC_COMMON_H_ */

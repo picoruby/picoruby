@@ -83,9 +83,9 @@ typedef struct token
 
 Token *Token_new(void);
 
-void Token_free(Token* self);
+void Token_free(Token *self);
 
-void Token_GC(Token* token);
+void Token_GC(Token *currentToken);
 
 bool Token_exists(Token* const self);
 
