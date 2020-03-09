@@ -14,7 +14,7 @@ void print_memory(void)
 #ifndef MRBC_ALLOC_LIBC
   int total, used, free, fragment;
   mrbc_alloc_statistics( &total, &used, &free, &fragment );
-  DEBUG("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
+  WARN("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
 #endif
 }
 

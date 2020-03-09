@@ -14,7 +14,7 @@ $(TARGET): ruby-lemon-parse/parse.o $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
 
 ruby-lemon-parse/parse.o: ruby-lemon-parse/parse.y
-	cd ruby-lemon-parse ; CFLAGS="$(CFLAGS)" $(MAKE) all
+	cd ruby-lemon-parse ; LEMON_MACRO=-DLEMON_MMRBC CFLAGS="$(CFLAGS)" $(MAKE) all
 
 %.o: %.c
 	$(CC) -c -MMD -MP $(CFLAGS) $<

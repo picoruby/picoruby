@@ -9,6 +9,8 @@
 #include "../src/mmrbc.h"
 #include "../src/common.h"
 
+#include "../src/ruby-lemon-parse/parse.c"
+
 int handle_opt(int argc, char * const *argv)
 {
   struct option longopts[] = {
@@ -81,19 +83,23 @@ int main(int argc, char * const *argv)
   } else {
     Tokenizer *tokenizer = Tokenizer_new(fp);
     Token *topToken = tokenizer->currentToken;
+    void *parser = ParseAlloc(mmrbc_alloc);
     while( Tokenizer_hasMoreTokens(tokenizer) ) {
       Tokenizer_advance(tokenizer, false);
       for (;;) {
         if (topToken->value == NULL) {
-          DEBUG("(main1)%p null", topToken);
+          DEBUG("(main)%p null", topToken);
         } else {
-          INFO("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
+          if (topToken->type != ON_SP) {
+            DEBUG("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
                tokenizer->mode,
                strlen(topToken->value),
                topToken->line_num,
                topToken->pos,
                topToken->type,
                topToken->value);
+            Parse(parser, topToken->type, topToken->value);
+          }
         }
         if (topToken->next == NULL) {
           break;
@@ -104,8 +110,16 @@ int main(int argc, char * const *argv)
       }
     }
     fclose( fp );
+    Parse(parser, 0, "");
+    showAllNode(1);
+    print_memory();
+    freeAllNode();
+    print_memory();
+    ParseFree(parser, mmrbc_free);
+    print_memory();
     Tokenizer_free(tokenizer);
   }
   print_allocs();
+  print_memory();
   return 0;
 }

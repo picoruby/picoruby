@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ruby-lemon-parse/parse.h"
 #include "debug.h"
 #include "common.h"
 #include "token.h"

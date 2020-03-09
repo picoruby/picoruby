@@ -8,7 +8,7 @@
 #else
   #define ALLOC(size) mrbc_raw_alloc(size)
   #define FREE(ptr)   mrbc_raw_free(ptr)
-#endif /* MMRBC_ALLOC_LIBC */
+#endif /* MRBC_ALLOC_LIBC */
 
 #define MAX_LINE_LENGTH 256
 

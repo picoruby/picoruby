@@ -25,6 +25,8 @@ typedef enum state
  EXPR_FITEM   = 0b1000000000000
 } State;
 
+typedef unsigned int Type; //defined in parse.h
+/*
 typedef enum type
 {
   ON_NONE,
@@ -68,6 +70,7 @@ typedef enum type
   ON_TSTRING_CONTENT,
   ON_,
 } Type;
+*/
 
 typedef struct token
 {
