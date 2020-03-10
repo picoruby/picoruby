@@ -6,7 +6,7 @@ all:
 	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) all
 
 debug: all
-	gdb --args ./cli/mmrbc test/fixtures/interpolation.rb
+	gdb --args ./cli/mmrbc test/fixtures/hello_world.rb
 
 clean:
 	cd src/mrubyc/src ; $(MAKE) clean

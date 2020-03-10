@@ -83,7 +83,8 @@ int main(int argc, char * const *argv)
   } else {
     Tokenizer *tokenizer = Tokenizer_new(fp);
     Token *topToken = tokenizer->currentToken;
-    void *parser = ParseAlloc(mmrbc_alloc);
+    ParserState *p = ParseInitState();
+    yyParser *parser = ParseAlloc(mmrbc_alloc, p);
     while( Tokenizer_hasMoreTokens(tokenizer) ) {
       Tokenizer_advance(tokenizer, false);
       for (;;) {
@@ -91,7 +92,7 @@ int main(int argc, char * const *argv)
           DEBUG("(main)%p null", topToken);
         } else {
           if (topToken->type != ON_SP) {
-            DEBUG("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
+            INFO("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
                tokenizer->mode,
                strlen(topToken->value),
                topToken->line_num,
@@ -111,9 +112,11 @@ int main(int argc, char * const *argv)
     }
     fclose( fp );
     Parse(parser, 0, "");
-    showAllNode(1);
+    ParseShowAllNode(parser, 1);
     print_memory();
-    freeAllNode();
+    ParseFreeAllNode(parser);
+    print_memory();
+    ParseFreeState(parser);
     print_memory();
     ParseFree(parser, mmrbc_free);
     print_memory();
