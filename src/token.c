@@ -38,7 +38,6 @@ bool Token_exists(Token* const self)
 void Token_GC(Token* currentToken)
 {
   DEBUG("GC start. currentToken: %p", currentToken);
-  print_memory();
   Token *prevToken = currentToken->prev;
   Token *temp;
   while (prevToken) {

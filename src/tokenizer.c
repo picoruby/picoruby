@@ -162,8 +162,6 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
   DEBUG("Aadvance. mode: `%d`", self->mode);
-  if (self->currentToken->prev != NULL)
-  Token_GC(self->currentToken);
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH];
   memset(value, '\0', MAX_TOKEN_LENGTH);

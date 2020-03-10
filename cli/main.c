@@ -112,8 +112,10 @@ int main(int argc, char * const *argv)
     }
     fclose( fp );
     Parse(parser, 0, "");
-    ParseShowAllNode(parser, 1);
     print_memory();
+    Token_GC(topToken);
+    print_memory();
+    ParseShowAllNode(parser, 1);
     ParseFreeAllNode(parser);
     print_memory();
     ParseFreeState(parser);
