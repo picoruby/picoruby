@@ -35,18 +35,10 @@ bool Token_exists(Token* const self)
   return false;
 }
 
-void Token_GC(Token* currentToken)
+void Token_GC(Token* token)
 {
-  DEBUG("GC start. currentToken: %p", currentToken);
-  Token *prevToken = currentToken->prev;
-  Token *temp;
-  while (prevToken) {
-    if (prevToken->refCount > 0) break;
-    prevToken->next->prev = NULL;
-    temp = prevToken->prev;
-    Token_free(prevToken);
-    prevToken = temp;
-  }
-  print_memory();
-  DEBUG("GC end");
+  if (token == NULL || token->refCount > 0) return;
+  Token_GC(token->prev);
+  token->next->prev = NULL;
+  Token_free(token);
 }
