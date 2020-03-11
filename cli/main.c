@@ -99,7 +99,8 @@ int main(int argc, char * const *argv)
                topToken->pos,
                topToken->type,
                topToken->value);
-            Parse(parser, topToken->type, topToken->value);
+            LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
+            Parse(parser, topToken->type, ls->str);
           }
         }
         if (topToken->next == NULL) {
@@ -112,19 +113,12 @@ int main(int argc, char * const *argv)
     }
     fclose( fp );
     Parse(parser, 0, "");
-    print_memory();
-    Token_GC(topToken);
-    print_memory();
     ParseShowAllNode(parser, 1);
     ParseFreeAllNode(parser);
-    print_memory();
     ParseFreeState(parser);
-    print_memory();
     ParseFree(parser, mmrbc_free);
-    print_memory();
     Tokenizer_free(tokenizer);
   }
   print_allocs();
-  print_memory();
   return 0;
 }
