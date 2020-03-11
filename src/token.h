@@ -25,49 +25,7 @@ typedef enum state
  EXPR_FITEM   = 0b1000000000000
 } State;
 
-typedef enum type
-{
-  ON_NONE,
-  ON_EMBDOC,
-  ON_EMBDOC_BEG,
-  ON_EMBDOC_END,
-  ON_EMBEXPR_BEG,
-  ON_EMBEXPR_END,
-  ON_NL,
-  ON_OP,
-  ON_IVAR,
-  ON_GVAR,
-  ON_CHAR,
-  ON_KW,
-  ON_CONST,
-  ON_IDENT,
-  ON_TLAMBDA,
-  ON_SYMBEG,
-  ON_COMMENT,
-  ON_SP,
-  ON_LPAREN,
-  ON_RPAREN,
-  ON_LBRACKET,
-  ON_RBRACKET,
-  ON_LBRACE,
-  ON_RBRACE,
-  ON_WORDS_BEG,
-  ON_QWORDS_BEG,
-  ON_TSTRING_SINGLE,
-  ON_TSTRING_BEG,
-  ON_TSTRING_END,
-  ON_QSYMBOLS_BEG,
-  ON_SYMBOLS_BEG,
-  ON_SEMICOLON,
-  ON_COMMA,
-  ON_FLOAT,
-  ON_INT,
-  ON_PERIOD,
-  ON_LABEL,
-  ON_WORDS_SEP,
-  ON_TSTRING_CONTENT,
-  ON_,
-} Type;
+typedef unsigned int Type; //defined in parse.h
 
 typedef struct token
 {

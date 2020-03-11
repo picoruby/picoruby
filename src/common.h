@@ -3,12 +3,12 @@
 
 #ifdef MRBC_ALLOC_LIBC
   #include <stdlib.h>
-  #define ALLOC(size) malloc(size)
-  #define FREE(ptr)   free(ptr)
+  #define MMRBC_ALLOC(size) malloc(size)
+  #define MMRBC_FREE(ptr)   free(ptr)
 #else
-  #define ALLOC(size) mrbc_raw_alloc(size)
-  #define FREE(ptr)   mrbc_raw_free(ptr)
-#endif /* MMRBC_ALLOC_LIBC */
+  #define MMRBC_ALLOC(size) mrbc_raw_alloc(size)
+  #define MMRBC_FREE(ptr)   mrbc_raw_free(ptr)
+#endif /* MRBC_ALLOC_LIBC */
 
 #define MAX_LINE_LENGTH 256
 
