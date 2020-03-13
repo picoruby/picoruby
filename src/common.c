@@ -30,7 +30,7 @@ void *mmrbc_alloc(size_t size)
   alloc_count++;
   ptr = MMRBC_ALLOC(size);
   DEBUG("alloc: %p, size: %d", ptr, (int)size);
-  print_memory();
+  //print_memory();
   return ptr;
 }
 
@@ -40,7 +40,7 @@ void mmrbc_free(void *ptr)
   DEBUG("free: %p", ptr);
   free_count++;
   MMRBC_FREE(ptr);
-  print_memory();
+  //print_memory();
 }
 
 char *strsafencpy(char *s1, const char *s2, size_t n, size_t max)

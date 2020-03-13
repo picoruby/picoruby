@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Wpointer-arith -std=gnu99 -O0 -g -DDEBUG_BUILD #-Wl,-s
+CFLAGS += -Wall -Wpointer-arith -std=gnu99 -O0 -g3 -DDEBUG_BUILD #-Wl,-s
 
 all:
 	cd src/mrubyc/src ; CFLAGS="$(CFLAGS)" $(MAKE) all

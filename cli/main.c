@@ -75,6 +75,7 @@ int main(int argc, char * const *argv)
   }
 
   mrbc_init(memory_pool, MEMORY_SIZE);
+  MrbCode *mrb;
 
   FILE *fp;
   if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
@@ -114,11 +115,17 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Parse(parser, 0, "");
     ParseShowAllNode(parser, 1);
+    mrb = Generator_generate(p->root);
     ParseFreeAllNode(parser);
     ParseFreeState(parser);
     ParseFree(parser, mmrbc_free);
     Tokenizer_free(tokenizer);
   }
   print_allocs();
+  for (int i=0; i < mrb->size; i++){
+    if (i % 16 == 0) printf("\n");
+    printf("%02x ", mrb->body[i]);
+  }
+  printf("\n");
   return 0;
 }

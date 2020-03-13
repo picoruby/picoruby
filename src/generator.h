@@ -4,9 +4,16 @@
 #include "scope.h"
 
 #define HEADER_SIZE 22
+#define FOOTER_SIZE 8
+
+typedef struct mrb_code
+{
+  int size;
+  char *body;
+} MrbCode;
 
 typedef struct node Node;
 
-Scope *Generator_generate(Node *root);
+MrbCode *Generator_generate(Node *root);
 
 #endif

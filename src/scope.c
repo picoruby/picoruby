@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "common.h"
 #include "scope.h"
@@ -22,18 +23,31 @@ void Scope_free(Scope *self)
   /* TODO */
 }
 
-void Scope_pushCode(Scope *self, const char *value, int size){
+void Scope_pushCodeStr_self(Scope *self, const char *str, int size)
+{
   Code *snippet = mmrbc_alloc(sizeof(Code));
-  snippet->value = mmrbc_alloc(strlen(value));
-  memcpy(snippet->value, value, size);
+  snippet->value = mmrbc_alloc(size);
+  memcpy(snippet->value, str, size);
   snippet->size = size;
   snippet->next = NULL;
-  Code *code = self->code;
-  for (;;) { // find the last code from top (RAM over CPU)
-    if (code->next == NULL) break;
-    code = code->next;
+  if (self->code == NULL) {
+    self->code = snippet;
+  } else {
+    Code *code = self->code;
+    for (;;) { // find the last code from top (RAM over CPU)
+      if (code->next == NULL) break;
+      code = code->next;
+    }
+    code->next = snippet;
   }
-  code->next = snippet;
+}
+
+
+void Scope_pushCode_self(Scope *self, int val)
+{
+  char str[1];
+  str[0] = (unsigned char)val;
+  Scope_pushCodeStr_self(self, str, 1);
 }
 
 Literal *literal_new(const char *value, LiteralType type)
@@ -48,12 +62,12 @@ Literal *literal_new(const char *value, LiteralType type)
 }
 
 int Scope_newLit(Scope *self, const char *value, LiteralType type){
-  int index = 0;//literal_findIndex(self->literal, value);
-  if (index > -1) return index;
+  int index = -1;//literal_findIndex(self->literal, value);
+  if (index >= 0) return index;
   Literal *newLit = literal_new(value, type);
-  Literal *lit = (Literal *)self->literal;
+  Literal *lit = self->literal;
   if (lit == NULL) {
-    lit = newLit;
+    self->literal = newLit;
     return 0;
   }
   for (index = 1; ; index++) {
@@ -75,12 +89,12 @@ Symbol *symbol_new(const char *value)
 }
 
 int Scope_newSym(Scope *self, const char *value){
-  int index = 0;//symbol_findIndex(self->symbol, value);
-  if (index > -1) return index;
+  int index = -1;//symbol_findIndex(self->symbol, value);
+  if (index >= 0) return index;
   Symbol *newSym = symbol_new(value);
-  Symbol *sym = (Symbol *)self->symbol;
+  Symbol *sym = self->symbol;
   if (sym == NULL) {
-    sym = newSym;
+    self->symbol = newSym;
     return 0;
   }
   for (index = 1; ; index++) {
@@ -98,4 +112,64 @@ void Scope_push(Scope *self){
 
 void Scope_pop(Scope *self){
   self->sp--;
+}
+
+int Code_size(Code *code)
+{
+  int size = 0;
+  while (code != NULL) {
+    size += code->size;
+    code = code->next;
+  }
+  return size;
+}
+
+void Scope_finish(Scope *scope)
+{
+  int op_size = Code_size(scope->code);
+  int count;
+  int len;
+  // literal
+  Literal *lit;
+  count = 0;
+  lit = (Literal *)scope->literal;
+  while (lit != NULL) {
+    count++;
+    lit = lit->next;
+  }
+  Scope_pushCode((count & 0xff000000) >> 24);
+  Scope_pushCode((count & 0x00ff0000) >> 16);
+  Scope_pushCode((count & 0x0000ff00) >> 8);
+  Scope_pushCode((count & 0x000000ff));
+  lit = scope->literal;
+  while (lit != NULL) {
+    Scope_pushCode(lit->type);
+    len = strlen(lit->value);
+    Scope_pushCode(len & 0xff00 >> 8);
+    Scope_pushCode(len & 0x00ff);
+    Scope_pushCodeStr(lit->value, len);
+    lit = lit->next;
+  }
+  // symbol
+  Symbol *sym;
+  count = 0;
+  sym = scope->symbol;
+  while (sym != NULL) {
+    count++;
+    sym = sym->next;
+  }
+  Scope_pushCode((count & 0xff000000) >> 24);
+  Scope_pushCode((count & 0x00ff0000) >> 16);
+  Scope_pushCode((count & 0x0000ff00) >> 8);
+  Scope_pushCode((count & 0x000000ff));
+  sym = scope->symbol;
+  while (sym != NULL) {
+    len = strlen(sym->value);
+    Scope_pushCode(len & 0xff00 >> 8);
+    Scope_pushCode(len & 0x00ff);
+    Scope_pushCodeStr(sym->value, len);
+    Scope_pushCode(0); // NULL terminate? FIXME
+    sym = sym->next;
+  }
+
 }
