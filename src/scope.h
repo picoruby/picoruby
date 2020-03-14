@@ -1,6 +1,8 @@
 #ifndef MMRBC_SCOPE_H_
 #define MMRBC_SCOPE_H_
 
+#include <stdint.h>
+
 #define IREP_HEADER_SIZE 26
 
 typedef enum literal_type
@@ -26,7 +28,7 @@ typedef struct symbol
 typedef struct code_snippet
 {
   int size;
-  char *value;
+  uint8_t *value;
   struct code_snippet *next;
 } Code;
 
@@ -46,8 +48,8 @@ Scope *Scope_new(Scope *prev);
 
 void Scope_free(Scope *self); 
 
-void Scope_pushCodeStr_self(Scope *self, const char *value, int size);
-#define Scope_pushCodeStr(v, s) Scope_pushCodeStr_self(scope, (v), (s))
+void Scope_pushNCode_self(Scope *self, const uint8_t *value, int size);
+#define Scope_pushNCode(v, s) Scope_pushNCode_self(scope, (v), (s))
 
 void Scope_pushCode_self(Scope *self, int val);
 #define Scope_pushCode(v) Scope_pushCode_self(scope, (v))

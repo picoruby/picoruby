@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 
 #define LOGLEVEL_FATAL 0
 #define LOGLEVEL_ERROR 1

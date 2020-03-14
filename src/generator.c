@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdint.h>
 
 #include "mmrbc.h"
 #include "common.h"
@@ -7,6 +8,9 @@
 #include "generator.h"
 #include "mrubyc/src/opcode.h"
 #include "ruby-lemon-parse/parse_header.h"
+#include "ruby-lemon-parse/crc.c"
+
+#define END_SECTION_SIZE 8
 
 void codegen(Scope *scope, Node *tree);
 
@@ -113,9 +117,9 @@ void codegen(Scope *scope, Node *tree)
   }
 }
 
-char *flattenCode(Code *code, int codeSize)
+uint8_t *flattenCode(Code *code, int codeSize)
 {
-  char *result = mmrbc_alloc(codeSize);
+  uint8_t *result = mmrbc_alloc(codeSize);
   int index = 0;
   while (code != NULL) {
     memcpy(&result[index], code->value, code->size);
@@ -130,20 +134,22 @@ MrbCode *Generator_generate(Node *root)
   Scope *scope = Scope_new(NULL);
   codegen(scope, root);
   int irepSize = Code_size(scope->code);
-  int bodySize = HEADER_SIZE + irepSize;
-  char *body = mmrbc_alloc(bodySize);
-  memcpy(&body[0], "RITE0006", 8);
-  memcpy(&body[8], "cc", 2);
-  body[10] = (bodySize & 0xff000000) >> 24;
-  body[11] = (bodySize & 0x00ff0000) >> 16;
-  body[12] = (bodySize & 0x0000ff00) >> 8;
-  body[13] = (bodySize & 0x000000ff);
-  memcpy(&body[14], "MATZ0000", 8);
-  memcpy(&body[22], flattenCode(scope->code, irepSize), irepSize);
-  memcpy(&body[22 + irepSize], "END\0\0\0\0", 7);
-  body[22 + irepSize + 7] = 0x08;
+  int codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
+  uint8_t *vmCode = mmrbc_alloc(codeSize);
+  memcpy(&vmCode[0], "RITE0006", 8);
+  vmCode[10] = (codeSize >> 24) & 0xff;
+  vmCode[11] = (codeSize >> 16) & 0xff;
+  vmCode[12] = (codeSize >> 8) & 0xff;
+  vmCode[13] = codeSize & 0xff;
+  memcpy(&vmCode[14], "MATZ0000", 8);
+  memcpy(&vmCode[22], flattenCode(scope->code, irepSize), irepSize);
+  memcpy(&vmCode[22 + irepSize], "END\0\0\0\0", 7);
+  vmCode[22 + irepSize + 7] = 0x08;
+  uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
+  vmCode[8] = (crc >> 8) & 0xff;
+  vmCode[9] = crc & 0xff;
   MrbCode *mrb = mmrbc_alloc(sizeof(MrbCode));
-  mrb->size = bodySize;
-  mrb->body = body;
+  mrb->codeSize = codeSize;
+  mrb->vmCode = vmCode;
   return mrb;
 }

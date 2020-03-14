@@ -4,6 +4,8 @@
 #include "common.h"
 #include "scope.h"
 
+#define IREP_HEADER_SIZE 26
+
 Scope *Scope_new(Scope *prev){
   Scope *self = mmrbc_alloc(sizeof(Scope));
   self->prev = prev;
@@ -23,7 +25,7 @@ void Scope_free(Scope *self)
   /* TODO */
 }
 
-void Scope_pushCodeStr_self(Scope *self, const char *str, int size)
+void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
 {
   Code *snippet = mmrbc_alloc(sizeof(Code));
   snippet->value = mmrbc_alloc(size);
@@ -45,9 +47,9 @@ void Scope_pushCodeStr_self(Scope *self, const char *str, int size)
 
 void Scope_pushCode_self(Scope *self, int val)
 {
-  char str[1];
-  str[0] = (unsigned char)val;
-  Scope_pushCodeStr_self(self, str, 1);
+  uint8_t str[1];
+  str[0] = (uint8_t)val;
+  Scope_pushNCode_self(self, str, 1);
 }
 
 Literal *literal_new(const char *value, LiteralType type)
@@ -61,8 +63,16 @@ Literal *literal_new(const char *value, LiteralType type)
   return literal;
 }
 
+/*
+ * returns -1 if literal was not found
+ */
+int literal_findIndex(Literal *literal, const char *value)
+{
+  return -1; // TODO
+}
+
 int Scope_newLit(Scope *self, const char *value, LiteralType type){
-  int index = -1;//literal_findIndex(self->literal, value);
+  int index = literal_findIndex(self->literal, value);
   if (index >= 0) return index;
   Literal *newLit = literal_new(value, type);
   Literal *lit = self->literal;
@@ -88,8 +98,16 @@ Symbol *symbol_new(const char *value)
   return symbol;
 }
 
+/*
+ * returns -1 if symbol was not found
+ */
+int symbol_findIndex(Symbol *symbol, const char *value)
+{
+  return -1; // TODO
+}
+
 int Scope_newSym(Scope *self, const char *value){
-  int index = -1;//symbol_findIndex(self->symbol, value);
+  int index = symbol_findIndex(self->symbol, value);
   if (index >= 0) return index;
   Symbol *newSym = symbol_new(value);
   Symbol *sym = self->symbol;
@@ -137,17 +155,17 @@ void Scope_finish(Scope *scope)
     count++;
     lit = lit->next;
   }
-  Scope_pushCode((count & 0xff000000) >> 24);
-  Scope_pushCode((count & 0x00ff0000) >> 16);
-  Scope_pushCode((count & 0x0000ff00) >> 8);
-  Scope_pushCode((count & 0x000000ff));
+  Scope_pushCode((count >> 24) & 0xff);
+  Scope_pushCode((count >> 16) & 0xff);
+  Scope_pushCode((count >> 8) & 0xff);
+  Scope_pushCode(count & 0xff);
   lit = scope->literal;
   while (lit != NULL) {
     Scope_pushCode(lit->type);
     len = strlen(lit->value);
-    Scope_pushCode(len & 0xff00 >> 8);
-    Scope_pushCode(len & 0x00ff);
-    Scope_pushCodeStr(lit->value, len);
+    Scope_pushCode((len >>8) & 0xff);
+    Scope_pushCode(len & 0xff);
+    Scope_pushNCode((uint8_t *)lit->value, len);
     lit = lit->next;
   }
   // symbol
@@ -158,18 +176,47 @@ void Scope_finish(Scope *scope)
     count++;
     sym = sym->next;
   }
-  Scope_pushCode((count & 0xff000000) >> 24);
-  Scope_pushCode((count & 0x00ff0000) >> 16);
-  Scope_pushCode((count & 0x0000ff00) >> 8);
-  Scope_pushCode((count & 0x000000ff));
+  Scope_pushCode((count >> 24) & 0xff);
+  Scope_pushCode((count >> 16) & 0xff);
+  Scope_pushCode((count >> 8) & 0xff);
+  Scope_pushCode(count & 0xff);
   sym = scope->symbol;
   while (sym != NULL) {
     len = strlen(sym->value);
-    Scope_pushCode(len & 0xff00 >> 8);
-    Scope_pushCode(len & 0x00ff);
-    Scope_pushCodeStr(sym->value, len);
+    Scope_pushCode((len >>8) & 0xff);
+    Scope_pushCode(len & 0xff);
+    Scope_pushNCode((uint8_t *)sym->value, len);
     Scope_pushCode(0); // NULL terminate? FIXME
     sym = sym->next;
   }
-
+  // irep header
+  uint8_t *h = mmrbc_alloc(IREP_HEADER_SIZE);
+  memcpy(&h[0], "IREP", 4);
+  int irep_size = IREP_HEADER_SIZE + Code_size(scope->code);
+  h[4] = (irep_size >> 24) & 0xff; // size of the section
+  h[5] = (irep_size >> 16) & 0xff;
+  h[6] = (irep_size >> 8) & 0xff;
+  h[7] = irep_size & 0xff;
+  memcpy(&h[8], "0002", 4); // instruction version
+  // record length. but whatever it works because of mruby's bug
+  memcpy(&h[12], "\0\0\0\0", 4);
+  int l = scope->nlocals;
+  h[16] = (l >> 8) & 0xff;
+  h[17] = l & 0xff;
+  l = scope->max_sp + 1; // RIGHT? FIXME
+  h[18] = (l >> 8) & 0xff;
+  h[19] = l & 0xff;
+  l = scope->nirep;
+  h[20] = (l >> 8) & 0xff;
+  h[21] = l & 0xff;
+  h[22] = (op_size >> 24) & 0xff;
+  h[23] = (op_size >> 16) & 0xff;
+  h[24] = (op_size >> 8) & 0xff;
+  h[25] = op_size & 0xff;
+  // insert h before op codes
+  Code *header = mmrbc_alloc(sizeof(Code));
+  header->value = h;
+  header->size = IREP_HEADER_SIZE;
+  header->next = scope->code;
+  scope->code = header;
 }

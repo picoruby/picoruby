@@ -1,6 +1,7 @@
 #ifndef MMRBC_TOKEN_H_
 #define MMRBC_TOKEN_H_
 
+#include <stdint.h>
 #include <stdbool.h>
 
 typedef enum state
@@ -25,7 +26,7 @@ typedef enum state
  EXPR_FITEM   = 0b1000000000000
 } State;
 
-typedef unsigned int Type; //defined in parse.h
+typedef uint8_t Type; //defined in parse.h
 
 typedef struct token
 {

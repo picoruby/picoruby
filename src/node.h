@@ -1,6 +1,7 @@
 #ifndef MMRBC_NODE_H_
 #define MMRBC_NODE_H_
 
+#include <stdint.h>
 #include <stdbool.h>
 #include "ruby-lemon-parse/parse_header.h"
 

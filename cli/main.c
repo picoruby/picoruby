@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -74,11 +75,21 @@ int main(int argc, char * const *argv)
     return 1;
   }
 
+  char *in = argv[optind];
+  char out[strlen(in) + 5];
+  if (strcmp(&in[strlen(in) - 3], ".rb") == 0) {
+    memcpy(out, in, strlen(in));
+    memcpy(&out[strlen(in) - 3], ".mrb\0", 5);
+  } else {
+    memcpy(out, in, strlen(in));
+    memcpy(&out[strlen(in)], ".mrb\0", 5);
+  }
+
   mrbc_init(memory_pool, MEMORY_SIZE);
   MrbCode *mrb;
 
   FILE *fp;
-  if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
+  if( (fp = fopen(in, "r" ) ) == NULL ) {
     FATAL("mmrbc: cannot open program file. (%s)", *argv);
     return 1;
   } else {
@@ -122,10 +133,12 @@ int main(int argc, char * const *argv)
     Tokenizer_free(tokenizer);
   }
   print_allocs();
-  for (int i=0; i < mrb->size; i++){
-    if (i % 16 == 0) printf("\n");
-    printf("%02x ", mrb->body[i]);
+  if( (fp = fopen( out, "wb" ) ) == NULL ) {
+    FATAL("mmrbc: cannot write a file. (%s)", out);
+    return 1;
+  } else {
+    fwrite(mrb->vmCode, mrb->codeSize, 1, fp);
+    fclose(fp);
   }
-  printf("\n");
   return 0;
 }
