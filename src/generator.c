@@ -148,6 +148,7 @@ MrbCode *Generator_generate(Node *root)
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;
+  Scope_freeCodeSnippets(scope);
   MrbCode *mrb = mmrbc_alloc(sizeof(MrbCode));
   mrb->codeSize = codeSize;
   mrb->vmCode = vmCode;

@@ -239,3 +239,17 @@ void Scope_finish(Scope *scope)
   header->next = scope->code_snippet;
   scope->code_snippet = header;
 }
+
+void freeCodeSnippetRcsv(CodeSnippet *snippet)
+{
+  if (snippet == NULL) return;
+  freeCodeSnippetRcsv(snippet->next);
+  mmrbc_free(snippet->value);
+  mmrbc_free(snippet);
+}
+
+void Scope_freeCodeSnippets(Scope *self)
+{
+  freeCodeSnippetRcsv(self->code_snippet);
+  self->code_snippet = NULL;
+}

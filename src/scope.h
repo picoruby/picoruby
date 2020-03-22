@@ -66,4 +66,6 @@ int Code_size(CodeSnippet *code_snippet);
 
 void Scope_finish(Scope *self);
 
+void Scope_freeCodeSnippets(Scope *self);
+
 #endif
