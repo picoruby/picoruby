@@ -69,7 +69,6 @@ Literal *literal_new(const char *value, LiteralType type)
  */
 int literal_findIndex(Literal *literal, const char *value)
 {
-  int len = strlen(value);
   int i = 0;
   while (literal != NULL) {
     if (strcmp(literal->value, value) == 0) {
@@ -113,7 +112,6 @@ Symbol *symbol_new(const char *value)
  */
 int symbol_findIndex(Symbol *symbol, const char *value)
 {
-  int len = strlen(value);
   int i = 0;
   while (symbol != NULL) {
     if (strcmp(symbol->value, value) == 0) {
