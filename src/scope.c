@@ -17,6 +17,8 @@ Scope *Scope_new(Scope *prev){
   self->literal = NULL;
   self->sp = 1;
   self->max_sp = 1;
+  self->vm_code = NULL;
+  self->vm_code_size = 0;
   if (prev != NULL) self->nirep++;
   return self;
 }

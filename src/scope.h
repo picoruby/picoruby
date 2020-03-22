@@ -42,6 +42,8 @@ typedef struct scope
   Literal *literal;
   int sp;
   int max_sp;
+  int32_t vm_code_size;
+  uint8_t *vm_code;
 } Scope;
 
 Scope *Scope_new(Scope *prev); 

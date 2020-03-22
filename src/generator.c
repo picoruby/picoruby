@@ -127,12 +127,12 @@ void memcpyFlattenCode(uint8_t *body, CodeSnippet *code_snippet, int size)
   }
 }
 
-MrbCode *Generator_generate(Node *root)
+Scope *Generator_generate(Node *root)
 {
   Scope *scope = Scope_new(NULL);
   codegen(scope, root);
   int irepSize = Code_size(scope->code_snippet);
-  int codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
+  int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
   uint8_t *vmCode = mmrbc_alloc(codeSize);
   memcpy(&vmCode[0], "RITE0006", 8);
   vmCode[10] = (codeSize >> 24) & 0xff;
@@ -147,8 +147,7 @@ MrbCode *Generator_generate(Node *root)
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;
   Scope_freeCodeSnippets(scope);
-  MrbCode *mrb = mmrbc_alloc(sizeof(MrbCode));
-  mrb->codeSize = codeSize;
-  mrb->vmCode = vmCode;
-  return mrb;
+  scope->vm_code = vmCode;
+  scope->vm_code_size = codeSize;
+  return scope;
 }
