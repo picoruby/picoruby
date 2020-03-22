@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "common.h"
+#include "debug.h"
 #include "scope.h"
 
 #define IREP_HEADER_SIZE 26
@@ -68,7 +69,16 @@ Literal *literal_new(const char *value, LiteralType type)
  */
 int literal_findIndex(Literal *literal, const char *value)
 {
-  return -1; // TODO
+  int len = strlen(value);
+  int i = 0;
+  while (literal != NULL) {
+    if (strcmp(literal->value, value) == 0) {
+      return i;
+    }
+    literal = literal->next;
+    i++;
+  }
+  return -1;
 }
 
 int Scope_newLit(Scope *self, const char *value, LiteralType type){
@@ -103,7 +113,16 @@ Symbol *symbol_new(const char *value)
  */
 int symbol_findIndex(Symbol *symbol, const char *value)
 {
-  return -1; // TODO
+  int len = strlen(value);
+  int i = 0;
+  while (symbol != NULL) {
+    if (strcmp(symbol->value, value) == 0) {
+      return i;
+    }
+    symbol = symbol->next;
+    i++;
+  }
+  return -1;
 }
 
 int Scope_newSym(Scope *self, const char *value){
