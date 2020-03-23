@@ -33,15 +33,15 @@ int handle_opt(int argc, char * const *argv)
         /* TODO */
         break;
       case 'd': /* debug */
-        #ifndef DEBUG_BUILD
-          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DDEBUG_BUILD\n");
+        #ifndef MMRBC_DEBUG
+          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DMMRBC_DEBUG\n");
           return 1;
         #endif
         loglevel = LOGLEVEL_DEBUG;
         break;
       case 'l':
-        #ifndef DEBUG_BUILD
-          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable with -DDEBUG_BUILD\n");
+        #ifndef MMRBC_DEBUG
+          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable with -DMMRBC_DEBUG\n");
           return 1;
         #endif
         if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else

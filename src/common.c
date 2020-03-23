@@ -9,6 +9,7 @@
 int alloc_count = 0;
 int free_count = 0;
 
+#ifdef MMRBC_DEBUG
 void print_memory(void)
 {
 #ifndef MRBC_ALLOC_LIBC
@@ -17,6 +18,7 @@ void print_memory(void)
   INFO("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
 #endif
 }
+#endif
 
 void print_allocs(void)
 {
@@ -30,7 +32,9 @@ void *mmrbc_alloc(size_t size)
   alloc_count++;
   ptr = MMRBC_ALLOC(size);
   DEBUG("alloc: %p, size: %d", ptr, (int)size);
+#ifdef MMRBC_DEBUG
   print_memory();
+#endif
   return ptr;
 }
 
@@ -40,7 +44,9 @@ void mmrbc_free(void *ptr)
   DEBUG("free: %p", ptr);
   free_count++;
   MMRBC_FREE(ptr);
+#ifdef MMRBC_DEBUG
   print_memory();
+#endif
 }
 
 char *strsafencpy(char *s1, const char *s2, size_t n, size_t max)
