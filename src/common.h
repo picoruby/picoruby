@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "debug.h"
+
 #ifdef MRBC_ALLOC_LIBC
   #include <stdlib.h>
   #define MMRBC_ALLOC(size) malloc(size)
@@ -16,9 +18,19 @@
 
 #define MAX_TOKEN_LENGTH 256
 
+#ifdef MMRBC_DEBUG
+typedef struct alloc_list
+{
+  int count;
+  void *ptr;
+  struct alloc_list *prev;
+  struct alloc_list *next;
+} AllocList;
+
 void print_memory(void);
 
-void print_allocs(void);
+void memcheck(void);
+#endif /* !MMRBC_DEBUG */
 
 void *mmrbc_alloc(size_t size);
 

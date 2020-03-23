@@ -9,6 +9,7 @@
 
 #include "../src/mmrbc.h"
 #include "../src/common.h"
+#include "../src/debug.h"
 
 #include "../src/ruby-lemon-parse/parse.c"
 
@@ -142,6 +143,8 @@ int main(int argc, char * const *argv)
     mmrbc_free(scope->vm_code);
   }
   Scope_free(scope);
-  print_allocs();
+#ifdef MMRBC_DEBUG
+  memcheck();
+#endif
   return 0;
 }
