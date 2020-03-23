@@ -9,6 +9,7 @@
 
 #include "../src/mmrbc.h"
 #include "../src/common.h"
+#include "../src/debug.h"
 
 #include "../src/ruby-lemon-parse/parse.c"
 
@@ -33,15 +34,15 @@ int handle_opt(int argc, char * const *argv)
         /* TODO */
         break;
       case 'd': /* debug */
-        #ifndef DEBUG_BUILD
-          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DDEBUG_BUILD\n");
+        #ifndef MMRBC_DEBUG
+          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DMMRBC_DEBUG\n");
           return 1;
         #endif
         loglevel = LOGLEVEL_DEBUG;
         break;
       case 'l':
-        #ifndef DEBUG_BUILD
-          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable with -DDEBUG_BUILD\n");
+        #ifndef MMRBC_DEBUG
+          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable with -DMMRBC_DEBUG\n");
           return 1;
         #endif
         if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else
@@ -142,6 +143,8 @@ int main(int argc, char * const *argv)
     mmrbc_free(scope->vm_code);
   }
   Scope_free(scope);
-  print_allocs();
+#ifdef MMRBC_DEBUG
+  memcheck();
+#endif
   return 0;
 }

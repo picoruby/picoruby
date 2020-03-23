@@ -10,7 +10,9 @@
 /* GLOBAL */
 int loglevel;
 
-#ifdef DEBUG_BUILD
+#if !defined(NDEBUG)
+
+  #define MMRBC_DEBUG
 
   #define DEBUG(fmt, ...)                 \
     do {                                  \
@@ -70,4 +72,4 @@ int loglevel;
   #define FATAL(fmt, ...) (fprintf(stderr, "[FATAL] "),        \
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
                            fprintf(stderr, "\n"))
-#endif /* DEBUG_BUILD */
+#endif /* !NDEBUG */
