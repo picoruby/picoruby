@@ -117,24 +117,21 @@ void codegen(Scope *scope, Node *tree)
   }
 }
 
-uint8_t *flattenCode(Code *code, int codeSize)
+void memcpyFlattenCode(uint8_t *body, CodeSnippet *code_snippet, int size)
 {
-  uint8_t *result = mmrbc_alloc(codeSize);
-  int index = 0;
-  while (code != NULL) {
-    memcpy(&result[index], code->value, code->size);
-    index += code->size;
-    code = code->next;
+  int pos = 0;
+  while (code_snippet != NULL) {
+    memcpy(&body[pos], code_snippet->value, code_snippet->size);
+    pos += code_snippet->size;
+    code_snippet = code_snippet->next;
   }
-  return result;
 }
 
-MrbCode *Generator_generate(Node *root)
+void Generator_generate(Scope *scope, Node *root)
 {
-  Scope *scope = Scope_new(NULL);
   codegen(scope, root);
-  int irepSize = Code_size(scope->code);
-  int codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
+  int irepSize = Code_size(scope->code_snippet);
+  int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
   uint8_t *vmCode = mmrbc_alloc(codeSize);
   memcpy(&vmCode[0], "RITE0006", 8);
   vmCode[10] = (codeSize >> 24) & 0xff;
@@ -142,14 +139,13 @@ MrbCode *Generator_generate(Node *root)
   vmCode[12] = (codeSize >> 8) & 0xff;
   vmCode[13] = codeSize & 0xff;
   memcpy(&vmCode[14], "MATZ0000", 8);
-  memcpy(&vmCode[22], flattenCode(scope->code, irepSize), irepSize);
+  memcpyFlattenCode(&vmCode[22], scope->code_snippet, irepSize);
   memcpy(&vmCode[22 + irepSize], "END\0\0\0\0", 7);
   vmCode[22 + irepSize + 7] = 0x08;
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;
-  MrbCode *mrb = mmrbc_alloc(sizeof(MrbCode));
-  mrb->codeSize = codeSize;
-  mrb->vmCode = vmCode;
-  return mrb;
+  Scope_freeCodeSnippets(scope);
+  scope->vm_code = vmCode;
+  scope->vm_code_size = codeSize;
 }

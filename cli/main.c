@@ -86,7 +86,7 @@ int main(int argc, char * const *argv)
   }
 
   mrbc_init(memory_pool, MEMORY_SIZE);
-  MrbCode *mrb;
+  Scope *scope;
 
   FILE *fp;
   if( (fp = fopen(in, "r" ) ) == NULL ) {
@@ -126,19 +126,22 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Parse(parser, 0, "");
     ParseShowAllNode(parser, 1);
-    mrb = Generator_generate(p->root);
+    scope = Scope_new(NULL);
+    Generator_generate(scope, p->root);
     ParseFreeAllNode(parser);
     ParseFreeState(parser);
     ParseFree(parser, mmrbc_free);
     Tokenizer_free(tokenizer);
   }
-  print_allocs();
   if( (fp = fopen( out, "wb" ) ) == NULL ) {
     FATAL("mmrbc: cannot write a file. (%s)", out);
     return 1;
   } else {
-    fwrite(mrb->vmCode, mrb->codeSize, 1, fp);
+    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
     fclose(fp);
+    mmrbc_free(scope->vm_code);
   }
+  Scope_free(scope);
+  print_allocs();
   return 0;
 }

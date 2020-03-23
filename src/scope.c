@@ -7,41 +7,62 @@
 
 #define IREP_HEADER_SIZE 26
 
-Scope *Scope_new(Scope *prev){
+Scope *Scope_new(Scope *prev)
+{
   Scope *self = mmrbc_alloc(sizeof(Scope));
   self->prev = prev;
-  self->code = NULL;
+  self->code_snippet = NULL;
   self->nlocals = 1;
   self->nirep = 0;
   self->symbol = NULL;
   self->literal = NULL;
   self->sp = 1;
   self->max_sp = 1;
+  self->vm_code = NULL;
+  self->vm_code_size = 0;
   if (prev != NULL) self->nirep++;
   return self;
 }
 
+void freeLiteralRcsv(Literal *literal)
+{
+  if (literal == NULL) return;
+  freeLiteralRcsv(literal->next);
+  mmrbc_free(literal->value);
+  mmrbc_free(literal);
+}
+
+void freeSymbolRcsv(Symbol *symbol)
+{
+  if (symbol == NULL) return;
+  freeSymbolRcsv(symbol->next);
+  mmrbc_free(symbol->value);
+  mmrbc_free(symbol);
+}
+
 void Scope_free(Scope *self)
 {
-  /* TODO */
+  freeLiteralRcsv(self->literal);
+  freeSymbolRcsv(self->symbol);
+  mmrbc_free(self);
 }
 
 void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
 {
-  Code *snippet = mmrbc_alloc(sizeof(Code));
+  CodeSnippet *snippet = mmrbc_alloc(sizeof(CodeSnippet));
   snippet->value = mmrbc_alloc(size);
   memcpy(snippet->value, str, size);
   snippet->size = size;
   snippet->next = NULL;
-  if (self->code == NULL) {
-    self->code = snippet;
+  if (self->code_snippet == NULL) {
+    self->code_snippet = snippet;
   } else {
-    Code *code = self->code;
-    for (;;) { // find the last code from top (RAM over CPU)
-      if (code->next == NULL) break;
-      code = code->next;
+    CodeSnippet *code_snippet = self->code_snippet;
+    for (;;) { // find the last code_snippet from top (RAM over CPU)
+      if (code_snippet->next == NULL) break;
+      code_snippet = code_snippet->next;
     }
-    code->next = snippet;
+    code_snippet->next = snippet;
   }
 }
 
@@ -149,19 +170,19 @@ void Scope_pop(Scope *self){
   self->sp--;
 }
 
-int Code_size(Code *code)
+int Code_size(CodeSnippet *code_snippet)
 {
   int size = 0;
-  while (code != NULL) {
-    size += code->size;
-    code = code->next;
+  while (code_snippet != NULL) {
+    size += code_snippet->size;
+    code_snippet = code_snippet->next;
   }
   return size;
 }
 
 void Scope_finish(Scope *scope)
 {
-  int op_size = Code_size(scope->code);
+  int op_size = Code_size(scope->code_snippet);
   int count;
   int len;
   // literal
@@ -209,7 +230,7 @@ void Scope_finish(Scope *scope)
   // irep header
   uint8_t *h = mmrbc_alloc(IREP_HEADER_SIZE);
   memcpy(&h[0], "IREP", 4);
-  int irep_size = IREP_HEADER_SIZE + Code_size(scope->code);
+  int irep_size = IREP_HEADER_SIZE + Code_size(scope->code_snippet);
   h[4] = (irep_size >> 24) & 0xff; // size of the section
   h[5] = (irep_size >> 16) & 0xff;
   h[6] = (irep_size >> 8) & 0xff;
@@ -231,9 +252,23 @@ void Scope_finish(Scope *scope)
   h[24] = (op_size >> 8) & 0xff;
   h[25] = op_size & 0xff;
   // insert h before op codes
-  Code *header = mmrbc_alloc(sizeof(Code));
+  CodeSnippet *header = mmrbc_alloc(sizeof(CodeSnippet));
   header->value = h;
   header->size = IREP_HEADER_SIZE;
-  header->next = scope->code;
-  scope->code = header;
+  header->next = scope->code_snippet;
+  scope->code_snippet = header;
+}
+
+void freeCodeSnippetRcsv(CodeSnippet *snippet)
+{
+  if (snippet == NULL) return;
+  freeCodeSnippetRcsv(snippet->next);
+  mmrbc_free(snippet->value);
+  mmrbc_free(snippet);
+}
+
+void Scope_freeCodeSnippets(Scope *self)
+{
+  freeCodeSnippetRcsv(self->code_snippet);
+  self->code_snippet = NULL;
 }

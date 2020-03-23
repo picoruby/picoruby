@@ -30,18 +30,20 @@ typedef struct code_snippet
   int size;
   uint8_t *value;
   struct code_snippet *next;
-} Code;
+} CodeSnippet;
 
 typedef struct scope
 {
   struct scope *prev;
-  struct code_snippet *code;
+  CodeSnippet *code_snippet;
   int nlocals;
   int nirep;
   Symbol *symbol;
   Literal *literal;
   int sp;
   int max_sp;
+  int32_t vm_code_size;
+  uint8_t *vm_code;
 } Scope;
 
 Scope *Scope_new(Scope *prev); 
@@ -62,8 +64,10 @@ void Scope_push(Scope *self);
 
 void Scope_pop(Scope *self);
 
-int Code_size(Code *code);
+int Code_size(CodeSnippet *code_snippet);
 
 void Scope_finish(Scope *self);
+
+void Scope_freeCodeSnippets(Scope *self);
 
 #endif
