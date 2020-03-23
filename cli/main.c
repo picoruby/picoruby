@@ -126,7 +126,8 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Parse(parser, 0, "");
     ParseShowAllNode(parser, 1);
-    scope = Generator_generate(p->root);
+    scope = Scope_new(NULL);
+    Generator_generate(scope, p->root);
     ParseFreeAllNode(parser);
     ParseFreeState(parser);
     ParseFree(parser, mmrbc_free);

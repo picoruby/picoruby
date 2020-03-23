@@ -127,9 +127,8 @@ void memcpyFlattenCode(uint8_t *body, CodeSnippet *code_snippet, int size)
   }
 }
 
-Scope *Generator_generate(Node *root)
+void Generator_generate(Scope *scope, Node *root)
 {
-  Scope *scope = Scope_new(NULL);
   codegen(scope, root);
   int irepSize = Code_size(scope->code_snippet);
   int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
@@ -149,5 +148,4 @@ Scope *Generator_generate(Node *root)
   Scope_freeCodeSnippets(scope);
   scope->vm_code = vmCode;
   scope->vm_code_size = codeSize;
-  return scope;
 }

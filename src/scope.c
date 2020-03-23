@@ -7,7 +7,8 @@
 
 #define IREP_HEADER_SIZE 26
 
-Scope *Scope_new(Scope *prev){
+Scope *Scope_new(Scope *prev)
+{
   Scope *self = mmrbc_alloc(sizeof(Scope));
   self->prev = prev;
   self->code_snippet = NULL;
