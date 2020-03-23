@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -74,10 +75,21 @@ int main(int argc, char * const *argv)
     return 1;
   }
 
+  char *in = argv[optind];
+  char out[strlen(in) + 5];
+  if (strcmp(&in[strlen(in) - 3], ".rb") == 0) {
+    memcpy(out, in, strlen(in));
+    memcpy(&out[strlen(in) - 3], ".mrb\0", 5);
+  } else {
+    memcpy(out, in, strlen(in));
+    memcpy(&out[strlen(in)], ".mrb\0", 5);
+  }
+
   mrbc_init(memory_pool, MEMORY_SIZE);
+  Scope *scope;
 
   FILE *fp;
-  if( (fp = fopen( argv[optind], "r" ) ) == NULL ) {
+  if( (fp = fopen(in, "r" ) ) == NULL ) {
     FATAL("mmrbc: cannot open program file. (%s)", *argv);
     return 1;
   } else {
@@ -114,11 +126,22 @@ int main(int argc, char * const *argv)
     fclose( fp );
     Parse(parser, 0, "");
     ParseShowAllNode(parser, 1);
+    scope = Scope_new(NULL);
+    Generator_generate(scope, p->root);
     ParseFreeAllNode(parser);
     ParseFreeState(parser);
     ParseFree(parser, mmrbc_free);
     Tokenizer_free(tokenizer);
   }
+  if( (fp = fopen( out, "wb" ) ) == NULL ) {
+    FATAL("mmrbc: cannot write a file. (%s)", out);
+    return 1;
+  } else {
+    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
+    fclose(fp);
+    mmrbc_free(scope->vm_code);
+  }
+  Scope_free(scope);
   print_allocs();
   return 0;
 }

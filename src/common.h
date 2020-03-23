@@ -1,6 +1,8 @@
 #ifndef MMRBC_COMMON_H_
 #define MMRBC_COMMON_H_
 
+#include <stdint.h>
+
 #ifdef MRBC_ALLOC_LIBC
   #include <stdlib.h>
   #define MMRBC_ALLOC(size) malloc(size)
