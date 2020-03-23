@@ -140,6 +140,7 @@ int main(int argc, char * const *argv)
     fclose(fp);
     mmrbc_free(scope->vm_code);
   }
+  Scope_free(scope);
   print_allocs();
   return 0;
 }

@@ -23,9 +23,27 @@ Scope *Scope_new(Scope *prev){
   return self;
 }
 
+void freeLiteralRcsv(Literal *literal)
+{
+  if (literal == NULL) return;
+  freeLiteralRcsv(literal->next);
+  mmrbc_free(literal->value);
+  mmrbc_free(literal);
+}
+
+void freeSymbolRcsv(Symbol *symbol)
+{
+  if (symbol == NULL) return;
+  freeSymbolRcsv(symbol->next);
+  mmrbc_free(symbol->value);
+  mmrbc_free(symbol);
+}
+
 void Scope_free(Scope *self)
 {
-  /* TODO */
+  freeLiteralRcsv(self->literal);
+  freeSymbolRcsv(self->symbol);
+  mmrbc_free(self);
 }
 
 void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
