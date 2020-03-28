@@ -3,7 +3,6 @@
 #include "common.h"
 #include "debug.h"
 
-#include "mrubyc/src/mrubyc.h"
 #include "mrubyc/src/alloc.h"
 
 #ifdef MMRBC_DEBUG

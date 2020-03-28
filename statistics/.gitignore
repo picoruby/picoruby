@@ -1,0 +1,6 @@
+*
+*.*
+**/
+!memcheck.rb
+!.keep
+!.gitignore
