@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <getopt.h>
 
-#include "../src/mrubyc/src/mrubyc.h"
+#include "../src/mrubyc/src/alloc.h"
 
 #include "../src/mmrbc.h"
 #include "../src/common.h"
@@ -86,7 +86,7 @@ int main(int argc, char * const *argv)
     memcpy(&out[strlen(in)], ".mrb\0", 5);
   }
 
-  mrbc_init(memory_pool, MEMORY_SIZE);
+  mrbc_init_alloc(memory_pool, MEMORY_SIZE);
   Scope *scope;
 
   FILE *fp;
