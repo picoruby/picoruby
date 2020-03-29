@@ -10,8 +10,11 @@
 #include "../src/mmrbc.h"
 #include "../src/common.h"
 #include "../src/debug.h"
+#include "../src/fmemstream.h"
 
 #include "../src/ruby-lemon-parse/parse.c"
+
+#include "heap.h"
 
 int handle_opt(int argc, char * const *argv)
 {
@@ -63,8 +66,7 @@ int handle_opt(int argc, char * const *argv)
   return 0;
 }
 
-#define MEMORY_SIZE (1024*64-1)
-static uint8_t memory_pool[MEMORY_SIZE];
+static uint8_t heap[HEAP_SIZE];
 
 int main(int argc, char * const *argv)
 {
@@ -86,7 +88,7 @@ int main(int argc, char * const *argv)
     memcpy(&out[strlen(in)], ".mrb\0", 5);
   }
 
-  mrbc_init_alloc(memory_pool, MEMORY_SIZE);
+  mrbc_init_alloc(heap, HEAP_SIZE);
   Scope *scope;
 
   FILE *fp;
@@ -94,7 +96,12 @@ int main(int argc, char * const *argv)
     FATAL("mmrbc: cannot open program file. (%s)", *argv);
     return 1;
   } else {
-    Tokenizer *tokenizer = Tokenizer_new(fp);
+    StreamInterface si = {
+      fp,
+      fgets,
+      feof
+    };
+    Tokenizer *tokenizer = Tokenizer_new(&si);
     Token *topToken = tokenizer->currentToken;
     ParserState *p = ParseInitState();
     yyParser *parser = ParseAlloc(mmrbc_alloc, p);

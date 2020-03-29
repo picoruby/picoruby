@@ -26,11 +26,18 @@ typedef enum paren
 /* margin size to malloc tokenizer */
 #define PAREN_STACK_SIZE 40
 
+typedef struct stream_interface
+{
+  void *stream;
+  char *(*fgets)(char *s, int n, FILE *stream);
+  int (*feof)(FILE *stream);
+} StreamInterface;
+
 typedef struct tokenizer
 {
   Mode mode;
   char *line;
-  FILE *file;
+  StreamInterface *si;
   Token *currentToken;
   int line_num;
   int pos;
@@ -40,7 +47,7 @@ typedef struct tokenizer
   Paren paren_stack[PAREN_STACK_SIZE];
 } Tokenizer;
 
-Tokenizer* const Tokenizer_new(FILE *file);
+Tokenizer* const Tokenizer_new(StreamInterface *si);
 
 void Tokenizer_free(Tokenizer *self);
 
