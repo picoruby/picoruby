@@ -1,21 +1,17 @@
 CFLAGS += -Wall -Wpointer-arith -std=gnu99
 CC = gcc
 LDFLAGS +=
-TARGET = mmrbc
+TARGETS = mmrbc mrubyc
 MRUBYCDIR = ../src/mrubyc/src
 MMRBCDIR = ../src
-PARSE = ../src/ruby-lemon-parse/parse
 
-all: $(TARGET)
+all: $(TARGETS)
 
-$(TARGET): main.c $(PARSE).h $(MMRBCDIR)/libmmrbc.a
+mmrbc: mmrbc.c heap.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L$(MRUBYCDIR) -L$(MMRBCDIR) -lmrubyc -lmmrbc
 
-$(PARSE).h:
-	cd $(MMRBCDIR) ; make all
-
-$(MMRBCDIR)/libmmrbc.a:
-	cd $(MMRBCDIR) ; make all
+mrubyc: mrubyc.c heap.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L$(MRUBYCDIR) -L$(MMRBCDIR) -lmrubyc -lmmrbc
 
 clean:
-	rm -f $(TARGET)
+	@rm -f $(TARGETS)
