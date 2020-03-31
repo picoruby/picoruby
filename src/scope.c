@@ -44,6 +44,9 @@ void Scope_free(Scope *self)
 {
   freeLiteralRcsv(self->literal);
   freeSymbolRcsv(self->symbol);
+  if (self->vm_code != NULL) {
+    mmrbc_free(self->vm_code);
+  }
   mmrbc_free(self);
 }
 

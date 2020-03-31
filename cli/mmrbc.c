@@ -10,9 +10,8 @@
 #include "../src/mmrbc.h"
 #include "../src/common.h"
 #include "../src/debug.h"
-#include "../src/fmemstream.h"
-
-#include "../src/ruby-lemon-parse/parse.c"
+#include "../src/stream.h"
+#include "../src/compiler.h"
 
 #include "heap.h"
 
@@ -89,66 +88,21 @@ int main(int argc, char * const *argv)
   }
 
   mrbc_init_alloc(heap, HEAP_SIZE);
-  Scope *scope;
 
-  FILE *fp;
-  if( (fp = fopen(in, "r" ) ) == NULL ) {
-    FATAL("mmrbc: cannot open program file. (%s)", *argv);
-    return 1;
-  } else {
-    StreamInterface si = {
-      fp,
-      fgets,
-      feof
-    };
-    Tokenizer *tokenizer = Tokenizer_new(&si);
-    Token *topToken = tokenizer->currentToken;
-    ParserState *p = ParseInitState();
-    yyParser *parser = ParseAlloc(mmrbc_alloc, p);
-    while( Tokenizer_hasMoreTokens(tokenizer) ) {
-      Tokenizer_advance(tokenizer, false);
-      for (;;) {
-        if (topToken->value == NULL) {
-          DEBUG("(main)%p null", topToken);
-        } else {
-          if (topToken->type != ON_SP) {
-            INFO("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
-               tokenizer->mode,
-               strlen(topToken->value),
-               topToken->line_num,
-               topToken->pos,
-               topToken->type,
-               topToken->value);
-            LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
-            Parse(parser, topToken->type, ls->str);
-          }
-        }
-        if (topToken->next == NULL) {
-          break;
-        } else {
-          topToken->refCount--;
-          topToken = topToken->next;
-        }
-      }
+  Scope *scope = Scope_new(NULL);
+  StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
+
+  if (Compile(scope, si)) {
+    FILE *fp;
+    if( (fp = fopen( out, "wb" ) ) == NULL ) {
+      FATAL("mmrbc: cannot write a file. (%s)", out);
+      return 1;
+    } else {
+      fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
+      fclose(fp);
     }
-    fclose( fp );
-    Parse(parser, 0, "");
-    ParseShowAllNode(parser, 1);
-    scope = Scope_new(NULL);
-    Generator_generate(scope, p->root);
-    ParseFreeAllNode(parser);
-    ParseFreeState(parser);
-    ParseFree(parser, mmrbc_free);
-    Tokenizer_free(tokenizer);
   }
-  if( (fp = fopen( out, "wb" ) ) == NULL ) {
-    FATAL("mmrbc: cannot write a file. (%s)", out);
-    return 1;
-  } else {
-    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
-    fclose(fp);
-    mmrbc_free(scope->vm_code);
-  }
+  StreamInterface_free(si);
   Scope_free(scope);
 #ifdef MMRBC_DEBUG
   memcheck();

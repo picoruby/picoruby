@@ -123,7 +123,7 @@ void tokenizer_readLine(Tokenizer* const self)
 {
   DEBUG("readLine line_num: %d, pos: %d", self->line_num, self->pos);
   if (self->pos >= strlen(self->line)) {
-    if (self->si->fgets(self->line, MAX_LINE_LENGTH, self->si->stream) == NULL)
+    if (self->si->fgetsProc(self->line, MAX_LINE_LENGTH, self->si->stream) == NULL)
       self->line[0] = '\0';
     DEBUG("line size: %ld", strlen(self->line));
     self->line_num++;
@@ -135,7 +135,7 @@ bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 {
   if (self->si->stream == NULL) {
     return false;
-  } else if ( self->si->feof(self->si->stream) == 0 || (self->line[0] != '\0') ) {
+  } else if ( self->si->feofProc(self->si->stream) == 0 || (self->line[0] != '\0') ) {
     return true;
   } else {
     return false;

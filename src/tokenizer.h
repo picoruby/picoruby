@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "token.h"
+#include "stream.h"
 
 typedef enum mode
 {
@@ -25,13 +26,6 @@ typedef enum paren
 
 /* margin size to malloc tokenizer */
 #define PAREN_STACK_SIZE 40
-
-typedef struct stream_interface
-{
-  void *stream;
-  char *(*fgets)(char *s, int n, FILE *stream);
-  int (*feof)(FILE *stream);
-} StreamInterface;
 
 typedef struct tokenizer
 {
