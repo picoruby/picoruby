@@ -89,7 +89,7 @@ static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
   DEBUG("Paren added stack_num: %d, `%d`", self->paren_stack_num, paren);
 }
 
-Tokenizer* const Tokenizer_new(FILE *file)
+Tokenizer* const Tokenizer_new(StreamInterface *si)
 {
   Tokenizer *self = (Tokenizer *)mmrbc_alloc(sizeof(Tokenizer));
   /* class vars in mmrbc.gem */
@@ -104,7 +104,7 @@ Tokenizer* const Tokenizer_new(FILE *file)
   tokenizer_paren_stack_add(self, PAREN_NONE);
   /* instance vars in mmrbc.gem */
   {
-    self->file = file;
+    self->si = si;
     self->mode = MODE_NONE;
     self->modeTerminater = '\0';
     self->state = EXPR_NONE;
@@ -123,7 +123,7 @@ void tokenizer_readLine(Tokenizer* const self)
 {
   DEBUG("readLine line_num: %d, pos: %d", self->line_num, self->pos);
   if (self->pos >= strlen(self->line)) {
-    if (fgets(self->line, MAX_LINE_LENGTH, self->file) == NULL)
+    if (self->si->fgetsProc(self->line, MAX_LINE_LENGTH, self->si->stream) == NULL)
       self->line[0] = '\0';
     DEBUG("line size: %ld", strlen(self->line));
     self->line_num++;
@@ -133,9 +133,9 @@ void tokenizer_readLine(Tokenizer* const self)
 
 bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 {
-  if (self->file == NULL) {
+  if (self->si->stream == NULL) {
     return false;
-  } else if ( feof(self->file) == 0 || (self->line[0] != '\0') ) {
+  } else if ( self->si->feofProc(self->si->stream) == 0 || (self->line[0] != '\0') ) {
     return true;
   } else {
     return false;

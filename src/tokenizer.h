@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "token.h"
+#include "stream.h"
 
 typedef enum mode
 {
@@ -30,7 +31,7 @@ typedef struct tokenizer
 {
   Mode mode;
   char *line;
-  FILE *file;
+  StreamInterface *si;
   Token *currentToken;
   int line_num;
   int pos;
@@ -40,7 +41,7 @@ typedef struct tokenizer
   Paren paren_stack[PAREN_STACK_SIZE];
 } Tokenizer;
 
-Tokenizer* const Tokenizer_new(FILE *file);
+Tokenizer* const Tokenizer_new(StreamInterface *si);
 
 void Tokenizer_free(Tokenizer *self);
 

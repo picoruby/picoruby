@@ -12,7 +12,6 @@ all:
 	cd src ; CFLAGS="$(CFLAGS)" $(MAKE) all
 	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) all
 
-
 gdb: debug
 	gdb --args ./cli/mmrbc test/fixtures/hello_world.rb
 

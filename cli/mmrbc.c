@@ -10,8 +10,10 @@
 #include "../src/mmrbc.h"
 #include "../src/common.h"
 #include "../src/debug.h"
+#include "../src/stream.h"
+#include "../src/compiler.h"
 
-#include "../src/ruby-lemon-parse/parse.c"
+#include "heap.h"
 
 int handle_opt(int argc, char * const *argv)
 {
@@ -63,8 +65,7 @@ int handle_opt(int argc, char * const *argv)
   return 0;
 }
 
-#define MEMORY_SIZE (1024*64-1)
-static uint8_t memory_pool[MEMORY_SIZE];
+static uint8_t heap[HEAP_SIZE];
 
 int main(int argc, char * const *argv)
 {
@@ -86,62 +87,22 @@ int main(int argc, char * const *argv)
     memcpy(&out[strlen(in)], ".mrb\0", 5);
   }
 
-  mrbc_init_alloc(memory_pool, MEMORY_SIZE);
-  Scope *scope;
+  mrbc_init_alloc(heap, HEAP_SIZE);
 
-  FILE *fp;
-  if( (fp = fopen(in, "r" ) ) == NULL ) {
-    FATAL("mmrbc: cannot open program file. (%s)", *argv);
-    return 1;
-  } else {
-    Tokenizer *tokenizer = Tokenizer_new(fp);
-    Token *topToken = tokenizer->currentToken;
-    ParserState *p = ParseInitState();
-    yyParser *parser = ParseAlloc(mmrbc_alloc, p);
-    while( Tokenizer_hasMoreTokens(tokenizer) ) {
-      Tokenizer_advance(tokenizer, false);
-      for (;;) {
-        if (topToken->value == NULL) {
-          DEBUG("(main)%p null", topToken);
-        } else {
-          if (topToken->type != ON_SP) {
-            INFO("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
-               tokenizer->mode,
-               strlen(topToken->value),
-               topToken->line_num,
-               topToken->pos,
-               topToken->type,
-               topToken->value);
-            LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
-            Parse(parser, topToken->type, ls->str);
-          }
-        }
-        if (topToken->next == NULL) {
-          break;
-        } else {
-          topToken->refCount--;
-          topToken = topToken->next;
-        }
-      }
+  Scope *scope = Scope_new(NULL);
+  StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
+
+  if (Compile(scope, si)) {
+    FILE *fp;
+    if( (fp = fopen( out, "wb" ) ) == NULL ) {
+      FATAL("mmrbc: cannot write a file. (%s)", out);
+      return 1;
+    } else {
+      fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
+      fclose(fp);
     }
-    fclose( fp );
-    Parse(parser, 0, "");
-    ParseShowAllNode(parser, 1);
-    scope = Scope_new(NULL);
-    Generator_generate(scope, p->root);
-    ParseFreeAllNode(parser);
-    ParseFreeState(parser);
-    ParseFree(parser, mmrbc_free);
-    Tokenizer_free(tokenizer);
   }
-  if( (fp = fopen( out, "wb" ) ) == NULL ) {
-    FATAL("mmrbc: cannot write a file. (%s)", out);
-    return 1;
-  } else {
-    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
-    fclose(fp);
-    mmrbc_free(scope->vm_code);
-  }
+  StreamInterface_free(si);
   Scope_free(scope);
 #ifdef MMRBC_DEBUG
   memcheck();
