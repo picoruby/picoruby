@@ -37,14 +37,14 @@ int handle_opt(int argc, char * const *argv)
         break;
       case 'd': /* debug */
         #ifndef MMRBC_DEBUG
-          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` with CFLAGS=-DMMRBC_DEBUG\n");
+          fprintf(stderr, "[ERROR] `--debug` option is only valid if you did `make` without CFLAGS=-DNDEBUG\n");
           return 1;
         #endif
         loglevel = LOGLEVEL_DEBUG;
         break;
       case 'l':
         #ifndef MMRBC_DEBUG
-          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable with -DMMRBC_DEBUG\n");
+          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable without -DNDEBUG\n");
           return 1;
         #endif
         if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else
@@ -65,6 +65,27 @@ int handle_opt(int argc, char * const *argv)
   return 0;
 }
 
+int output(Scope *scope, char *in)
+{
+  FILE *fp;
+  char out[strlen(in) + 5];
+  if (strcmp(&in[strlen(in) - 3], ".rb") == 0) {
+    memcpy(out, in, strlen(in));
+    memcpy(&out[strlen(in) - 3], ".mrb\0", 5);
+  } else {
+    memcpy(out, in, strlen(in));
+    memcpy(&out[strlen(in)], ".mrb\0", 5);
+  }
+  if( (fp = fopen( out, "wb" ) ) == NULL ) {
+    FATAL("mmrbc: cannot write a file. (%s)", out);
+    return 1;
+  } else {
+    fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
+    fclose(fp);
+  }
+  return 0;
+}
+
 static uint8_t heap[HEAP_SIZE];
 
 int main(int argc, char * const *argv)
@@ -78,32 +99,17 @@ int main(int argc, char * const *argv)
   }
 
   char *in = argv[optind];
-  char out[strlen(in) + 5];
-  if (strcmp(&in[strlen(in) - 3], ".rb") == 0) {
-    memcpy(out, in, strlen(in));
-    memcpy(&out[strlen(in) - 3], ".mrb\0", 5);
-  } else {
-    memcpy(out, in, strlen(in));
-    memcpy(&out[strlen(in)], ".mrb\0", 5);
-  }
 
   mrbc_init_alloc(heap, HEAP_SIZE);
 
   Scope *scope = Scope_new(NULL);
   StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
-
   if (Compile(scope, si)) {
-    FILE *fp;
-    if( (fp = fopen( out, "wb" ) ) == NULL ) {
-      FATAL("mmrbc: cannot write a file. (%s)", out);
-      return 1;
-    } else {
-      fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
-      fclose(fp);
-    }
+    ret = output(scope, in);
   }
   StreamInterface_free(si);
   Scope_free(scope);
+  if (ret != 0) return ret;
 #ifdef MMRBC_DEBUG
   memcheck();
 #endif
