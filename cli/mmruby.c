@@ -1,11 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
+
 #include "../src/mrubyc/src/mrubyc.h"
+
+#include "../src/mmrbc.h"
 #include "../src/common.h"
 #include "../src/compiler.h"
 #include "../src/debug.h"
 #include "../src/scope.h"
 #include "../src/stream.h"
+
 #include "heap.h"
 
 void run(uint8_t *mrb)
@@ -28,15 +33,72 @@ void run(uint8_t *mrb)
   mrbc_vm_close(vm);
 }
 
+int handle_opt(int argc, char * const *argv, char **oneliner)
+{
+  struct option longopts[] = {
+    { "version",  no_argument,       NULL, 'v' },
+    { "oneline", required_argument,  NULL, 'e' },
+    { "loglevel", required_argument, NULL, 'l' },
+    { 0,          0,                 0,     0  }
+  };
+  int opt;
+  int longindex;
+  loglevel = LOGLEVEL_INFO;
+  while ((opt = getopt_long(argc, argv, "ve:l:", longopts, &longindex)) != -1) {
+    switch (opt) {
+      case 'v':
+        printf("v add: %p\n", optarg);
+        fprintf(stdout, "mini mruby compiler %s\n", MMRBC_VERSION);
+        return -1;
+      case 'e':
+        *oneliner = optarg;
+        break;
+      case 'l':
+        printf("l add: %p\n", optarg);
+        #ifndef MMRBC_DEBUG
+          fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable without -DNDEBUG\n");
+          return 1;
+        #endif
+        if ( !strcmp(optarg, "debug") ) { loglevel = LOGLEVEL_DEBUG; } else
+        if ( !strcmp(optarg, "info") )  { loglevel = LOGLEVEL_INFO; } else
+        if ( !strcmp(optarg, "warn") )  { loglevel = LOGLEVEL_WARN; } else
+        if ( !strcmp(optarg, "error") ) { loglevel = LOGLEVEL_ERROR; } else
+        if ( !strcmp(optarg, "fatal") ) { loglevel = LOGLEVEL_FATAL; } else
+        {
+          fprintf(stderr, "Invalid loglevel option: %s\n", optarg);
+          return 1;
+        }
+        break;
+      default:
+        fprintf(stderr, "error! \'%c\' \'%c\'\n", opt, optopt);
+        return 1;
+    }
+  }
+  return 0;
+}
+
 static uint8_t heap[HEAP_SIZE];
 
 int main(int argc, char *argv[])
 {
-  loglevel = LOGLEVEL_INFO;
   mrbc_init_alloc(heap, HEAP_SIZE);
 
+  char *oneliner = NULL;
+  int ret = handle_opt(argc, argv, &oneliner);
+  if (ret != 0) return ret;
+
   Scope *scope = Scope_new(NULL);
-  StreamInterface *si = StreamInterface_new("puts \"Hello World!\"\n", STREAM_TYPE_MEMORY);
+  StreamInterface *si;
+
+  if (oneliner != NULL) {
+    si = StreamInterface_new(oneliner, STREAM_TYPE_MEMORY);
+  } else {
+    if ( !argv[optind] ) {
+      ERROR("mmruby: no program file given");
+      return 1;
+    }
+    si = StreamInterface_new(argv[optind], STREAM_TYPE_FILE);
+  }
 
   if (Compile(scope, si)) {
     run(scope->vm_code);

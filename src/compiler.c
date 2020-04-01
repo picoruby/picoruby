@@ -1,6 +1,7 @@
 #include <stdbool.h>
 
 #include "../src/ruby-lemon-parse/parse.c"
+#include "common.h"
 #include "compiler.h"
 #include "debug.h"
 #include "generator.h"
