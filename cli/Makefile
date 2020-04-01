@@ -1,4 +1,4 @@
-CFLAGS += -Wall -Wpointer-arith -std=gnu99
+#CFLAGS += -Wall -Wpointer-arith -std=gnu99
 CC = gcc
 LDFLAGS +=
 TARGETS = mmrbc mmruby

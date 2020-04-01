@@ -1,11 +1,11 @@
-CFLAGS_ADD += -Wall -Wpointer-arith -std=gnu99
+CFLAGS += -Wall -Wpointer-arith -std=gnu99
 
 debug:
-	CFLAGS="-O0 -g3 $(CFLAGS_ADD)" $(MAKE) all
+	CFLAGS="-O0 -g3 $(CFLAGS)" $(MAKE) all
 
 production:
 	$(MAKE) clean
-	CFLAGS="-Os -Wl,-s -DNDEBUG $(CFLAGS_ADD)" $(MAKE) all
+	CFLAGS="-Os -Wl,-s -DNDEBUG $(CFLAGS)" $(MAKE) all
 
 all:
 	cd src/mrubyc/src ; CFLAGS="$(CFLAGS)" $(MAKE) all
