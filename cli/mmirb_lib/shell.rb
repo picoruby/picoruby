@@ -1,4 +1,3 @@
-puts "Shell start"
 while true
   suspend_task # suspend task itself
   line = gets
@@ -8,7 +7,6 @@ while true
       puts "bye"
       exit_shell
     else
-      puts line
       unless compile_and_run(line)
         puts "Failed to compile!"
       end

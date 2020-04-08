@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +64,6 @@ resume_shell(int no) {
 static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  WARN("gets");
   char *buf = mmrbc_alloc(BUFLEN + 1);
   int len;
   len = read(hal_fd, buf, BUFLEN);
@@ -104,12 +104,11 @@ void run(uint8_t *mrb)
   }
   mrbc_vm_begin(vm);
   mrbc_vm_run(vm);
-  WARN("0");
   find_class_by_object(vm, vm->current_regs);
-  WARN("11");
   mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
   hal_write(hal_fd, "=> ", 3);
   hal_write(hal_fd, ret.string->data, ret.string->size);
+  hal_write(hal_fd, "\n", 1);
   mrbc_vm_end(vm);
   mrbc_vm_close(vm);
 }
@@ -178,7 +177,7 @@ process_child(void)
 int
 main(int argc, char *argv[])
 {
-  loglevel = LOGLEVEL_INFO;
+  loglevel = LOGLEVEL_WARN;
   if (init_hal(argv[1]) != 0) {
     return 1;
   }

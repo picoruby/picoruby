@@ -8,9 +8,12 @@ production:
 	CFLAGS="-Os -Wl,-s -DNDEBUG $(CFLAGS)" $(MAKE) all
 
 all:
-	cd src/mrubyc/src ; CFLAGS="$(CFLAGS)" $(MAKE) all
-	cd src ; CFLAGS="$(CFLAGS)" $(MAKE) all
-	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) all
+	cd src/mrubyc/src ; CFLAGS="$(CFLAGS)" $(MAKE) clean all
+	cd src ;  CFLAGS="$(CFLAGS)" $(MAKE) clean all
+	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) mmruby mmrbc
+	cd src/mrubyc/src ; CFLAGS="-DMRBC_IRB $(CFLAGS)" $(MAKE) clean all
+	cd src ; CFLAGS="$(CFLAGS)" $(MAKE) clean all
+	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) mmirb
 
 gdb: debug
 	gdb --args ./cli/mmrbc test/fixtures/hello_world.rb
