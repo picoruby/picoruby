@@ -15,6 +15,12 @@ all:
 gdb: debug
 	gdb --args ./cli/mmrbc test/fixtures/hello_world.rb
 
+irb:
+	bin/pts.sh
+
+kill-irb:
+	bin/kill.sh
+
 clean:
 	cd src/mrubyc/src ; $(MAKE) clean
 	cd src ; $(MAKE) clean
