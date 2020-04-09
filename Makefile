@@ -23,7 +23,7 @@ gdb: debug
 	gdb --args ./cli/mmrbc test/fixtures/hello_world.rb
 
 irb:
-	cd bin ; bundle exec ruby mmirb.rb
+	@cd bin ; bundle exec ruby mmirb.rb
 
 kill-irb:
 	bin/kill.sh
