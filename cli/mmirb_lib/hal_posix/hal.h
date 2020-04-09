@@ -21,7 +21,8 @@ extern "C" {
 /***** Feature test switches ************************************************/
 /***** System headers *******************************************************/
 #include <unistd.h>
-
+#include <sys/select.h>
+#include <fcntl.h>
 
 /***** Local headers ********************************************************/
 /***** Constant values ******************************************************/
@@ -46,10 +47,12 @@ extern "C" {
 #define MRBC_TIMESLICE_TICK_COUNT 3
 #endif
 
-extern int hal_fd;
 
 /***** Typedefs *************************************************************/
 /***** Global variables *****************************************************/
+
+extern int hal_fd;
+
 /***** Function prototypes **************************************************/
 void mrbc_tick(void);
 
@@ -69,6 +72,57 @@ void hal_disable_irq(void);
 
 
 /***** Inline functions *****************************************************/
+
+//================================================================
+/*!@brief
+  Open
+
+  @param  pathname
+  @param  flags
+*/
+inline static int hal_open(const char *pathname, int flags)
+{
+  return (int)open(pathname, flags);
+}
+
+//================================================================
+/*!@brief
+  FD_SET
+
+  @param  fd    dummy
+  @param
+*/
+inline static void hal_FD_SET(int fd, fd_set *readfds)
+{
+  FD_SET(hal_fd, readfds);
+}
+
+//================================================================
+/*!@brief
+  select
+
+  @param  nfds    dummy
+  @param
+*/
+inline static int hal_select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
+{
+  return (int)select(hal_fd + 1, readfds, writefds, exceptfds, timeout);
+}
+
+
+//================================================================
+/*!@brief
+  Read
+
+  @param  fd    file descriptor.
+  @param  buf   pointer of buffer.
+  @param  nbytes        output byte length.
+*/
+inline static int hal_read(int fd, void *buf, int nbytes)
+{
+  return (int)read(hal_fd, buf, nbytes);
+}
+
 
 //================================================================
 /*!@brief
@@ -104,4 +158,7 @@ inline static int hal_flush(int fd)
 #ifdef __cplusplus
 }
 #endif
-#endif // ifndef MRBC_HAL_H_
+
+void hal_set_fd(int fd);
+
+#endif // ifndef MRBC_SRC_HAL_H_

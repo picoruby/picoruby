@@ -20,7 +20,6 @@
 /***** Local headers ********************************************************/
 #include "hal.h"
 
-int hal_fd = 1; /* default file descriptor */
 
 /***** Constat values *******************************************************/
 /***** Macros ***************************************************************/
@@ -33,6 +32,9 @@ static sigset_t sigset_, sigset2_;
 
 
 /***** Global variables *****************************************************/
+int hal_fd = 1; /* default file descriptor */
+
+
 /***** Signal catching functions ********************************************/
 #ifndef MRBC_NO_TIMER
 //================================================================
@@ -104,3 +106,9 @@ void hal_disable_irq(void)
 
 
 #endif /* ifndef MRBC_NO_TIMER */
+
+void hal_set_fd(int fd)
+{
+  hal_fd = fd;
+}
+

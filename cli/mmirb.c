@@ -1,14 +1,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <signal.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <unistd.h>
 
 #include "../src/mrubyc/src/mrubyc.h"
 
@@ -22,8 +15,21 @@
 #include "heap.h"
 #include "mmirb_lib/shell.c"
 
+int
+init_hal_fd(const char *pathname)
+{
+  int fd = hal_open(pathname, O_RDWR);
+  //fd = open(pathname, O_RDWR|O_NONBLOCK);
+  if (fd < 0) {
+    FATAL("hal_open failed");
+    return 1;
+  }
+  hal_set_fd(fd);
+  return 0;
+}
+
 void
-init_interrupt(void (*handler)(int))
+init_shell_interrupt(void (*handler)(int))
 {
   sigset_t sigset;
   sigemptyset(&sigset);
@@ -34,18 +40,6 @@ init_interrupt(void (*handler)(int))
   act.sa_mask    = sigset;
   act.sa_flags  |= SA_RESTART;
   sigaction(SIGUSR1, &act, 0);
-}
-
-int
-init_hal(char *fd)
-{
-  hal_fd = open(fd, O_RDWR);
-  //hal_fd = open(argv[1], O_RDWR|O_NONBLOCK);
-  if (hal_fd < 0) {
-    FATAL("open error");
-    return 1;
-  }
-  return 0;
 }
 
 static mrbc_tcb *tcb_shell;
@@ -66,7 +60,7 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   char *buf = mmrbc_alloc(BUFLEN + 1);
   int len;
-  len = read(hal_fd, buf, BUFLEN);
+  len = hal_read(1, buf, BUFLEN);
   if (len == -1) {
     FATAL("read");
     SET_NIL_RETURN();
@@ -83,7 +77,7 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_exit_shell(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  hal_write(hal_fd, "bye", 3);
+  hal_write(1, "bye", 3);
   /* you can not call q_delete_task() as it is static function in rrt0.c
    * PENDING
   q_delete_task(tcb_shell);
@@ -106,9 +100,9 @@ void run(uint8_t *mrb)
   mrbc_vm_run(vm);
   find_class_by_object(vm, vm->current_regs);
   mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
-  hal_write(hal_fd, "=> ", 3);
-  hal_write(hal_fd, ret.string->data, ret.string->size);
-  hal_write(hal_fd, "\n", 1);
+  hal_write(1, "=> ", 3);
+  hal_write(1, ret.string->data, ret.string->size);
+  hal_write(1, "\n", 1);
   mrbc_vm_end(vm);
   mrbc_vm_close(vm);
 }
@@ -134,13 +128,13 @@ process_parent(pid_t pid)
   WARN("successfully forked. parent pid: %d", pid);
   fd_set readfds;
   FD_ZERO(&readfds);
-  FD_SET(hal_fd, &readfds);
+  hal_FD_SET(1, &readfds);
   struct timespec ts;
   ts.tv_sec = 1;
   ts.tv_nsec = 0;
   int ret;
   for (;;) {
-    ret = select(hal_fd + 1, &readfds, NULL, NULL, NULL);
+    ret = hal_select(1, &readfds, NULL, NULL, NULL);
     if (ret == -1) {
       FATAL("select");
     } else if (ret == 0) {
@@ -178,10 +172,10 @@ int
 main(int argc, char *argv[])
 {
   loglevel = LOGLEVEL_WARN;
-  if (init_hal(argv[1]) != 0) {
+  if (init_hal_fd(argv[1]) != 0) {
     return 1;
   }
-  init_interrupt(resume_shell);
+  init_shell_interrupt(resume_shell);
   pid_t pid = fork();
   if (pid < 0) {
     FATAL("fork failed");
