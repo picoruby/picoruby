@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+gem "reline"
+gem "rubyserial"
+gem "systemu"

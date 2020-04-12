@@ -43,11 +43,19 @@ bool Compile(Scope *scope, StreamInterface *si)
     }
   }
   Parse(parser, 0, "");
-  ParseShowAllNode(parser, 1);
-  Generator_generate(scope, p->root);
+  bool success;
+  if (p->error_count == 0) {
+   success = true;
+#ifdef MMRBC_DEBUG
+    ParseShowAllNode(parser, 1);
+#endif
+    Generator_generate(scope, p->root);
+  } else {
+    success = false;
+  }
   ParseFreeAllNode(parser);
   ParserStateFree(p);
   ParseFree(parser, mmrbc_free);
   Tokenizer_free(tokenizer);
-  return true;
+  return success;
 }
