@@ -1,23 +1,31 @@
+CC := gcc
+CC_ARM := arm-linux-gnueabihf-gcc
 CFLAGS += -Wall -Wpointer-arith -std=gnu99
+LDFLAGS += -static
 
 debug:
-	CFLAGS="-O0 -g3 $(CFLAGS)" $(MAKE) build_all
+	$(MAKE) build_all CC=$(CC) CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)"
 
-production:
-	$(MAKE) clean
-	CFLAGS="-Os -Wl,-s -DNDEBUG $(CFLAGS)" $(MAKE) all
+production: clean
+	$(MAKE) build_all CC=$(CC) CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)"
+
+arm_debug: clean
+	$(MAKE) debug CC=$(CC_ARM) CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+
+arm_production:
+	$(MAKE) production CC=$(CC_ARM) CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)"
 
 build_all: mmruby mmirb
 
 mmruby:
-	cd src/mrubyc/src ; CFLAGS="$(CFLAGS)" $(MAKE) clean all
-	cd src ;  CFLAGS="$(CFLAGS)" $(MAKE) all
-	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) mmruby mmrbc
+	cd src/mrubyc/src ; $(MAKE) clean all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd src ; $(MAKE) all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd cli ; $(MAKE) mmruby mmrbc CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
 
 mmirb:
-	cd src/mrubyc/src ; CFLAGS="-DMRBC_IRB $(CFLAGS)" $(MAKE) clean all
-	cd src ; CFLAGS="$(CFLAGS)" $(MAKE) all
-	cd cli ; CFLAGS="$(CFLAGS)" $(MAKE) mmirb
+	cd src/mrubyc/src ; $(MAKE) clean all CFLAGS="-DMRBC_IRB $(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd src ; $(MAKE) all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd cli ; $(MAKE) mmirb CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
 
 gdb: debug
 	gdb --args ./cli/mmrbc test/fixtures/hello_world.rb
@@ -35,3 +43,4 @@ clean:
 
 install:
 	cp cli/mmrbc /usr/local/bin/mmrbc
+	cp cli/mmruby /usr/local/bin/mmruby
