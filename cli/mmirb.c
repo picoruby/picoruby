@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 
 #include "../src/mrubyc/src/mrubyc.h"
@@ -75,11 +76,19 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_pid(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_INT_RETURN(getpid());
+}
+
+static void
 c_exit_shell(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  hal_write(1, "bye", 3);
-  /* you can not call q_delete_task() as it is static function in rrt0.c
+  /*
    * PENDING
+   *
+   * you can not call q_delete_task() as it is static function in rrt0.c
+   *
   q_delete_task(tcb_shell);
   */
 }
@@ -157,6 +166,7 @@ process_child(void)
   mrbc_init(heap, HEAP_SIZE);
   mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);
+  mrbc_define_method(0, mrbc_class_object, "pid", c_pid);
   mrbc_define_method(0, mrbc_class_object, "exit_shell", c_exit_shell);
   //mrbc_define_method(0, mrbc_class_object, "xmodem", c_xmodem);
   tcb_shell = mrbc_create_task(shell, 0);
