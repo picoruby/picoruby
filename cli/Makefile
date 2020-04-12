@@ -1,5 +1,5 @@
-#CFLAGS += -Wall -Wpointer-arith -std=gnu99
-CC = gcc
+CFLAGS += -Wall -Wpointer-arith -std=gnu99
+CC := gcc
 LDFLAGS +=
 TARGETS = mmrbc mmruby mmirb_lib/shell.c mmirb
 MRUBYCDIR = ../src/mrubyc/src
