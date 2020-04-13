@@ -21,4 +21,5 @@ ruby-lemon-parse/parse.o: ruby-lemon-parse/parse.y
 
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean
+	cd mrubyc/src ; $(MAKE) clean
 	rm -f $(TARGET) $(OBJS) $(DEPS)

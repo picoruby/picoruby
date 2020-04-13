@@ -75,7 +75,7 @@ begin
   File.open(SOCAT_OUTPUT, "r") do |f|
     fd_server = f.gets.split(" ").last
     fd_client = f.gets.split(" ").last
-    systemu("../cli/mmirb #{fd_server}") do |server_pid|
+    systemu("../build/host-debug/bin/mmirb #{fd_server}") do |server_pid|
       puts "client pid: #{Process.pid}"
       puts "socat  pid: #{socat_pid}"
       puts "server pid: #{server_pid}"
