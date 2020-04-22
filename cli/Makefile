@@ -20,6 +20,5 @@ mmirb_lib/shell.c: mmirb_lib/shell.rb
 	cd mmirb_lib ; make all
 
 clean:
-	cd mrubyc/src ; $(MAKE) clean
 	cd mmirb_lib ; make clean
 	rm -f $(TARGETS)

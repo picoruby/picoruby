@@ -1,11 +1,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
-#include <regex.h>
 
 #include "mmrbc.h"
 #include "common.h"
 #include "my_regex.h"
+
+#ifdef MMRUBY_REGEX_LIBC
+  #include <regex.h>
+#else
+  #include "regex_light.h"
+#endif
 
 bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResult result[REGEX_MAX_RESULT_NUM])
 {

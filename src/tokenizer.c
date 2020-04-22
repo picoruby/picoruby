@@ -178,7 +178,11 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
     return -1;
   }
   if (self->mode == MODE_COMMENT) {
-    type = (Regex_match2(self->line, "^=end(\\s|$)")) ? EMBDOC_END : EMBDOC;
+    if (Regex_match2(self->line, "^=end$") || Regex_match2(self->line, "^=end\\s")) {
+      type = EMBDOC_END;
+    } else {
+      type = EMBDOC;
+    }
     self->mode = MODE_NONE;
     strsafecpy(value, self->line, MAX_TOKEN_LENGTH);
   } else if (self->mode == MODE_QWORDS
@@ -334,7 +338,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
     }
     self->pos--;
     if (strlen(value) > 0) type = STRING_MID;
-  } else if (Regex_match2(self->line, "^=begin(\\s|$)")) { // multi lines comment began
+  } else if (Regex_match2(self->line, "^=begin$") || Regex_match2(self->line, "^=begin\\s")) { // multi lines comment began
     self->mode = MODE_COMMENT;
     strsafecpy(value, strsafecat(self->line, "\n", MAX_TOKEN_LENGTH), MAX_TOKEN_LENGTH);
     type = EMBDOC_BEG;

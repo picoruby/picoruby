@@ -13,18 +13,19 @@ BIN_DIR_ARM_PRODUCTION  := build/arm-production/bin
 TEST_FILE := test/fixtures/hello_world.rb
 DEPS := cli/heap.h cli/mmirb.c cli/mmruby.c cli/mmrbc.c \
         cli/mmirb_lib/shell.rb \
-        src/common.h    src/common.h \
-        src/compiler.h  src/compiler.h \
+        src/common.h    src/common.c \
+        src/compiler.h  src/compiler.c \
         src/debug.h \
-        src/generator.h src/generator.h \
-        src/my_regex.h  src/my_regex.h \
-        src/node.h      src/node.h \
-        src/scope.h     src/scope.h \
-        src/stream.h    src/stream.h \
+        src/generator.h src/generator.c \
+        src/my_regex.h  src/my_regex.c \
+        src/regex_light.h  src/regex_light.c \
+        src/node.h      src/node.c \
+        src/scope.h     src/scope.c \
+        src/stream.h    src/stream.c \
         src/token_data.h \
-        src/token.h     src/token.h \
-        src/tokenizer.h src/tokenizer.h \
-        src/version.h   src/version.h \
+        src/token.h     src/token.c \
+        src/tokenizer.h src/tokenizer.c \
+        src/version.h \
         src/ruby-lemon-parse/parse_header.h src/ruby-lemon-parse/parse.y \
         src/ruby-lemon-parse/crc.c
 TARGETS = $(BIN_DIR)/mmrbc $(BIN_DIR)/mmruby $(BIN_DIR)/mmirb
