@@ -1,7 +1,13 @@
 CC := gcc
+AR := ar
+GDB := gdb
 CC_ARM := arm-linux-gnueabihf-gcc
+AR_ARM := arm-linux-gnueabihf-ar
+CC_PSOC := arm-none-eabi-gcc
+AR_PSOC := arm-none-eabi-ar
 CFLAGS += -Wall -Wpointer-arith -std=gnu99
 LDFLAGS += -static
+LIB_DIR_PSOC5LP         := build/psoc5lp/lib
 LIB_DIR_HOST_DEBUG      := build/host-debug/lib
 LIB_DIR_HOST_PRODUCTION := build/host-production/lib
 BIN_DIR_HOST_DEBUG      := build/host-debug/bin
@@ -35,49 +41,102 @@ default: host_debug
 all: host_all arm_all
 
 host_all:
-	$(MAKE) host_debug host_production CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	$(MAKE) host_debug host_production \
+	  CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CC=$(CC) AR=$(AR)
 
 host_debug:
 	@mkdir -p $(LIB_DIR_HOST_DEBUG)
 	@mkdir -p $(BIN_DIR_HOST_DEBUG)
-	$(MAKE) $(BIN_DIR_HOST_DEBUG)/mmirb CC=$(CC) CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR_HOST_DEBUG) BIN_DIR=$(BIN_DIR_HOST_DEBUG)
+	$(MAKE) $(BIN_DIR_HOST_DEBUG)/mmirb \
+	  CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  LIB_DIR=$(LIB_DIR_HOST_DEBUG) \
+	  BIN_DIR=$(BIN_DIR_HOST_DEBUG) \
+	  CC=$(CC) AR=$(AR)
 
 host_production:
 	@mkdir -p $(LIB_DIR_HOST_PRODUCTION)
 	@mkdir -p $(BIN_DIR_HOST_PRODUCTION)
-	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/mmirb CC=$(CC) CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)" LIB_DIR=$(LIB_DIR_HOST_PRODUCTION) BIN_DIR=$(BIN_DIR_HOST_PRODUCTION)
+	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/mmirb \
+	  CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)" \
+	  LIB_DIR=$(LIB_DIR_HOST_PRODUCTION) \
+	  BIN_DIR=$(BIN_DIR_HOST_PRODUCTION) \
+	  CC=$(CC) AR=$(AR)
 
 arm_all:
-	$(MAKE) arm_debug arm_production CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	$(MAKE) arm_debug arm_production \
+	  CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CC=$(CC_ARM) AR=$(AR_ARM)
 
 arm_debug:
 	mkdir -p $(LIB_DIR_ARM_DEBUG)
 	mkdir -p $(BIN_DIR_ARM_DEBUG)
-	$(MAKE) $(BIN_DIR_ARM_DEBUG)/mmirb CC=$(CC_ARM) CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR_ARM_DEBUG) BIN_DIR=$(BIN_DIR_ARM_DEBUG)
+	$(MAKE) $(BIN_DIR_ARM_DEBUG)/mmirb \
+	  CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  LIB_DIR=$(LIB_DIR_ARM_DEBUG) \
+	  BIN_DIR=$(BIN_DIR_ARM_DEBUG) \
+	  CC=$(CC_ARM) AR=$(AR_ARM)
 
 arm_production:
 	mkdir -p $(LIB_DIR_ARM_PRODUCTION)
 	mkdir -p $(BIN_DIR_ARM_PRODUCTION)
-	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/mmirb CC=$(CC_ARM) CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)" LIB_DIR=$(LIB_DIR_ARM_PRODUCTION) BIN_DIR=$(BIN_DIR_ARM_PRODUCTION)
+	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/mmirb \
+	  CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)" \
+	  LIB_DIR=$(LIB_DIR_ARM_PRODUCTION) \
+	  BIN_DIR=$(BIN_DIR_ARM_PRODUCTION) \
+	  CC=$(CC_ARM) AR=$(AR_ARM)
 
 $(TARGETS): $(DEPS)
+	$(MAKE) build_lib CFLAGS="$(CFLAGS)" \
+	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR) \
+	  CC=$(CC) AR=$(AR)
+	$(MAKE) build_bin CFLAGS="$(CFLAGS)" \
+	  LDFLAGS="$(LDFLAGS)" BIN_DIR=$(BIN_DIR) \
+	  CC=$(CC) AR=$(AR)
+
+psoc5lp_lib: $(DEPS)
+	mkdir -p $(LIB_DIR_PSOC5LP)
+	cd src/mrubyc/src ; mv hal hal.bak ; ln -fs ./hal_psoc5lp hal
+	$(MAKE) build_lib \
+	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0" \
+	  LDFLAGS=$(LDFLAGS) \
+	  LIB_DIR=$(LIB_DIR_PSOC5LP) \
+	  COMMON_SRCS="alloc.c class.c console.c error.c global.c keyvalue.c load.c rrt0.c static.c symbol.c value.c vm.c" \
+	  CC=$(CC_PSOC) AR=$(AR_PSOC)
+	cd src/mrubyc/src ; rm hal ; mv hal.bak hal
+
+build_lib:
 	@echo "building libmrubyc.a ----------"
-	cd src/mrubyc/src ; $(MAKE) clean all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd src/mrubyc/src ; \
+	  $(MAKE) clean all CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CC=$(CC) AR=$(AR)
+	mv src/mrubyc/src/*.o $(LIB_DIR)/
 	mv src/mrubyc/src/libmrubyc.a $(LIB_DIR)/libmrubyc.a
 	@echo "building libmrubyc-irb.a ----------"
-	cd src/mrubyc/src ; $(MAKE) clean all CFLAGS="-DMRBC_IRB $(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd src/mrubyc/src ; \
+	  $(MAKE) clean all CFLAGS="-DMRBC_IRB $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CC=$(CC) AR=$(AR)
+	mv src/mrubyc/src/*.o $(LIB_DIR)/
 	mv src/mrubyc/src/libmrubyc.a $(LIB_DIR)/libmrubyc-irb.a
 	@echo "building libmmrbc.a ----------"
-	cd src ; $(MAKE) clean all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+	cd src ; \
+	  $(MAKE) clean all CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CC=$(CC) AR=$(AR)
+	mv src/*.o $(LIB_DIR)/
 	mv src/libmmrbc.a $(LIB_DIR)/libmmrbc.a
+
+build_bin:
 	@echo "building mmrbc mmruby mmirb----------"
-	cd cli ; $(MAKE) all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR)
+	cd cli ; \
+	  $(MAKE) all CFLAGS="$(CFLAGS)" \
+	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR) \
+	  CC=$(CC) AR=$(AR)
 	mv cli/mmruby $(BIN_DIR)/mmruby
 	mv cli/mmrbc $(BIN_DIR)/mmrbc
 	mv cli/mmirb $(BIN_DIR)/mmirb
 
 gdb: host_debug
-	gdb --args ./build/host-debug/bin/mmrbc $(TEST_FILE)
+	$(GDB) --args ./build/host-debug/bin/mmrbc $(TEST_FILE)
 
 irb: host_debug
 	@cd bin ; bundle exec ruby mmirb.rb
@@ -85,14 +144,20 @@ irb: host_debug
 clean:
 	cd src ; $(MAKE) clean
 	cd cli ; $(MAKE) clean
+	rm -f $(LIB_DIR_HOST_DEBUG)/*.o
+	rm -f $(LIB_DIR_HOST_PRODUCTION)/*.o
 	rm -f $(LIB_DIR_HOST_DEBUG)/*.a
 	rm -f $(LIB_DIR_HOST_PRODUCTION)/*.a
 	rm -f $(BIN_DIR_HOST_DEBUG)/*
 	rm -f $(BIN_DIR_HOST_PRODUCTION)/*
+	rm -f $(LIB_DIR_ARM_DEBUG)/*.o
+	rm -f $(LIB_DIR_ARM_PRODUCTION)/*.o
 	rm -f $(LIB_DIR_ARM_DEBUG)/*.a
 	rm -f $(LIB_DIR_ARM_PRODUCTION)/*.a
 	rm -f $(BIN_DIR_ARM_DEBUG)/*
 	rm -f $(BIN_DIR_ARM_PRODUCTION)/*
+	rm -f $(LIB_DIR_PSOC5LP)/*.o
+	rm -f $(LIB_DIR_PSOC5LP)/*.a
 
 install:
 	cp cli/mmrbc /usr/local/bin/mmrbc
