@@ -6,7 +6,7 @@ AR_ARM := arm-linux-gnueabihf-ar
 CC_PSOC := arm-none-eabi-gcc
 AR_PSOC := arm-none-eabi-ar
 CFLAGS += -Wall -Wpointer-arith -std=gnu99
-LDFLAGS += -static
+LDFLAGS +=
 LIB_DIR_PSOC5LP         := build/psoc5lp/lib
 LIB_DIR_HOST_DEBUG      := build/host-debug/lib
 LIB_DIR_HOST_PRODUCTION := build/host-production/lib
@@ -123,6 +123,7 @@ build_lib:
 	  $(MAKE) clean all CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 	  CC=$(CC) AR=$(AR)
 	mv src/*.o $(LIB_DIR)/
+	mv src/ruby-lemon-parse/*.o $(LIB_DIR)/
 	mv src/libmmrbc.a $(LIB_DIR)/libmmrbc.a
 
 build_bin:
