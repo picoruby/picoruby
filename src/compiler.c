@@ -20,10 +20,10 @@ bool Compile(Scope *scope, StreamInterface *si)
     Tokenizer_advance(tokenizer, false);
     for (;;) {
       if (topToken->value == NULL) {
-        DEBUG("(main)%p null", topToken);
+        DEBUGP("(main)%p null", topToken);
       } else {
         if (topToken->type != ON_SP) {
-          INFO("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
+          INFOP("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
              tokenizer->mode,
              strlen(topToken->value),
              topToken->line_num,

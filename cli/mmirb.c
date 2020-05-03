@@ -22,7 +22,7 @@ init_hal_fd(const char *pathname)
   int fd = hal_open(pathname, O_RDWR);
   //fd = open(pathname, O_RDWR|O_NONBLOCK);
   if (fd < 0) {
-    FATAL("hal_open failed");
+    FATALP("hal_open failed");
     return 1;
   }
   hal_set_fd(fd);
@@ -63,14 +63,14 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
   int len;
   len = hal_read(1, buf, BUFLEN);
   if (len == -1) {
-    FATAL("read");
+    FATALP("read");
     SET_NIL_RETURN();
   } else if (len) {
     buf[len] = '\0'; // terminate;
     mrbc_value val = mrbc_string_new(vm, buf, len);
     SET_RETURN(val);
   } else {
-    FATAL("This should not happen (c_gets)");
+    FATALP("This should not happen (c_gets)");
   }
   mmrbc_free(buf);
 }
@@ -98,11 +98,11 @@ void run(uint8_t *mrb)
   init_static();
   struct VM *vm = mrbc_vm_open(NULL);
   if( vm == 0 ) {
-    FATAL("Error: Can't open VM.");
+    FATALP("Error: Can't open VM.");
     return;
   }
   if( mrbc_load_mrb(vm, mrb) != 0 ) {
-    FATAL("Error: Illegal bytecode.");
+    FATALP("Error: Illegal bytecode.");
     return;
   }
   mrbc_vm_begin(vm);
@@ -134,7 +134,7 @@ c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 process_parent(pid_t pid)
 {
-  WARN("successfully forked. parent pid: %d", pid);
+  WARNP("successfully forked. parent pid: %d", pid);
   fd_set readfds;
   FD_ZERO(&readfds);
   hal_FD_SET(1, &readfds);
@@ -145,14 +145,14 @@ process_parent(pid_t pid)
   for (;;) {
     ret = hal_select(1, &readfds, NULL, NULL, NULL);
     if (ret == -1) {
-      FATAL("select");
+      FATALP("select");
     } else if (ret == 0) {
-      FATAL("This should not happen (1)");
+      FATALP("This should not happen (1)");
     } else if (ret > 0) {
-      INFO("Input recieved. Issuing SIGUSR1 to pid %d", pid);
+      INFOP("Input recieved. Issuing SIGUSR1 to pid %d", pid);
       kill(pid, SIGUSR1);
       ret = clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, NULL);
-      if (ret) FATAL("clock_nanosleep");
+      if (ret) FATALP("clock_nanosleep");
     }
   }
 }
@@ -162,7 +162,7 @@ static uint8_t heap[HEAP_SIZE];
 void
 process_child(void)
 {
-  WARN("successfully forked. child");
+  WARNP("successfully forked. child");
   mrbc_init(heap, HEAP_SIZE);
   mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);
@@ -172,7 +172,7 @@ process_child(void)
   tcb_shell = mrbc_create_task(shell, 0);
   mrbc_run();
   if (close(hal_fd) == -1) {
-    FATAL("close");
+    FATALP("close");
     return;
   }
 }
@@ -188,7 +188,7 @@ main(int argc, char *argv[])
   init_shell_interrupt(resume_shell);
   pid_t pid = fork();
   if (pid < 0) {
-    FATAL("fork failed");
+    FATALP("fork failed");
     return 1;
   } else if (pid == 0) {
     process_child();

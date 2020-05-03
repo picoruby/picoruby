@@ -22,9 +22,9 @@ void Token_free(Token* self)
 {
   if (self->value != NULL) {
     mmrbc_free(self->value);
-    DEBUG("free Token->value: `%s`", self->value);
+    DEBUGP("free Token->value: `%s`", self->value);
   }
-  DEBUG("free Token: %p", self);
+  DEBUGP("free Token: %p", self);
   mmrbc_free(self);
 }
 

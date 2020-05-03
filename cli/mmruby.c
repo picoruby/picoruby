@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     si = StreamInterface_new(oneliner, STREAM_TYPE_MEMORY);
   } else {
     if ( !argv[optind] ) {
-      ERROR("mmruby: no program file given");
+      ERRORP("mmruby: no program file given");
       return 1;
     }
     si = StreamInterface_new(argv[optind], STREAM_TYPE_FILE);

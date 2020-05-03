@@ -77,7 +77,7 @@ int output(Scope *scope, char *in)
     memcpy(&out[strlen(in)], ".mrb\0", 5);
   }
   if( (fp = fopen( out, "wb" ) ) == NULL ) {
-    FATAL("mmrbc: cannot write a file. (%s)", out);
+    FATALP("mmrbc: cannot write a file. (%s)", out);
     return 1;
   } else {
     fwrite(scope->vm_code, scope->vm_code_size, 1, fp);
@@ -94,7 +94,7 @@ int main(int argc, char * const *argv)
   if (ret != 0) return ret;
 
   if ( !argv[optind] ) {
-    ERROR("mmrbc: no program file given");
+    ERRORP("mmrbc: no program file given");
     return 1;
   }
 

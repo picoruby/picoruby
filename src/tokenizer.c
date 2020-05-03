@@ -43,7 +43,7 @@ static bool tokenizer_is_operator(char *word, size_t len)
       }
       break;
     default:
-      ERROR("Out of range!");
+      ERRORP("Out of range!");
       break;
   }
   return false;
@@ -79,14 +79,14 @@ static bool tokenizer_is_comma(int letter)
 static void tokenizer_paren_stack_pop(Tokenizer* const self)
 {
   self->paren_stack_num--;
-  DEBUG("Paren popped stack_num: %d", self->paren_stack_num);
+  DEBUGP("Paren popped stack_num: %d", self->paren_stack_num);
 }
 
 static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
 {
   self->paren_stack_num++;
   self->paren_stack[self->paren_stack_num] = paren;
-  DEBUG("Paren added stack_num: %d, `%d`", self->paren_stack_num, paren);
+  DEBUGP("Paren added stack_num: %d, `%d`", self->paren_stack_num, paren);
 }
 
 Tokenizer* const Tokenizer_new(StreamInterface *si)
@@ -121,11 +121,11 @@ void Tokenizer_free(Tokenizer *self)
 
 void tokenizer_readLine(Tokenizer* const self)
 {
-  DEBUG("readLine line_num: %d, pos: %d", self->line_num, self->pos);
+  DEBUGP("readLine line_num: %d, pos: %d", self->line_num, self->pos);
   if (self->pos >= strlen(self->line)) {
     if (self->si->fgetsProc(self->line, MAX_LINE_LENGTH, self->si->stream) == NULL)
       self->line[0] = '\0';
-    DEBUG("line size: %ld", strlen(self->line));
+    DEBUGP("line size: %ld", strlen(self->line));
     self->line_num++;
     self->pos = 0;
   }
@@ -144,14 +144,14 @@ bool Tokenizer_hasMoreTokens(Tokenizer* const self)
 
 void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char *value, State state)
 {
-  DEBUG("pushToken: `%s`", value);
+  DEBUGP("pushToken: `%s`", value);
   self->currentToken->pos = pos;
   self->currentToken->line_num = line_num;
   self->currentToken->type = type;
   self->currentToken->value = (char *)mmrbc_alloc(sizeof(char) * (strlen(value) + 1));
   self->currentToken->value[0] = '\0';
   strsafecpy(self->currentToken->value, value, strlen(value) + 1);
-  DEBUG("Pushed token: `%s`", self->currentToken->value);
+  DEBUGP("Pushed token: `%s`", self->currentToken->value);
   self->currentToken->state = state;
   Token *newToken = Token_new();
   newToken->prev = self->currentToken;
@@ -161,7 +161,7 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
 
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
-  DEBUG("Aadvance. mode: `%d`", self->mode);
+  DEBUGP("Aadvance. mode: `%d`", self->mode);
   Token_GC(self->currentToken->prev);
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH];
@@ -240,7 +240,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
     self->pos--;
   } else if (self->mode == MODE_TSTRING_DOUBLE) {
     for (;;) {
-      DEBUG("modeTerminater: `%c`", self->modeTerminater);
+      DEBUGP("modeTerminater: `%c`", self->modeTerminater);
       tokenizer_readLine(self);
       if (self->line[0] == '\0') {
         Token_free(lazyToken);
@@ -425,7 +425,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           type = RBRACE;
           break;
         default:
-          ERROR("unknown paren error");
+          ERRORP("unknown paren error");
       }
     } else if (tokenizer_is_operator(&(self->line[self->pos]), 1)) {
       if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][]-~!@#$%^&*()_=+\[{};:'\"?])", regexResult)) {
@@ -490,7 +490,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = INTEGER;
       } else {
-        ERROR("Failed to tokenize a number");
+        ERRORP("Failed to tokenize a number");
       }
     } else if (self->line[self->pos] == '.') {
       value[0] = '.';
@@ -510,7 +510,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = IDENTIFIER;
       } else {
-        ERROR("Failed to tokenize!");
+        ERRORP("Failed to tokenize!");
         Token_free(lazyToken);
         return 1;
       }
@@ -527,7 +527,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       self->modeTerminater = '\'';
       type = STRING_BEG;
     } else {
-      ERROR("Failed to tokenize!");
+      ERRORP("Failed to tokenize!");
       Token_free(lazyToken);
       return 1;
     }
@@ -560,11 +560,11 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           self->state = EXPR_ENDFN;
           break;
         default:
-          DEBUG("Might be a bug");
+          DEBUGP("Might be a bug");
           break;
       }
     }
-    DEBUG("value len: %ld, `%s`", strlen(value), value);
+    DEBUGP("value len: %ld, `%s`", strlen(value), value);
     tokenizer_pushToken(self,
       self->line_num,
       self->pos - strlen(value),

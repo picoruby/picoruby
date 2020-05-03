@@ -20,17 +20,17 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
   int size;
 
   if (regcomp(&regexBuffer, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
-    FATAL("regcomp failed: /%s/", pattern);
+    FATALP("regcomp failed: /%s/", pattern);
     return false;
   }
 
   size = sizeof(match) / sizeof(regmatch_t);
   if (regexec(&regexBuffer, str, size, match, 0) != 0){
-    DEBUG("no match: %s", pattern);
+    DEBUGP("no match: %s", pattern);
     regfree(&regexBuffer);
     return false;
   } else {
-    DEBUG("match!: %s", pattern);
+    DEBUGP("match!: %s", pattern);
   }
 
   if (resultRequired) {
@@ -40,10 +40,10 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
       if (startIndex == -1 || endIndex == -1) {
         continue;
       }
-      DEBUG("match[%d] index [start, end] = %d, %d", i, startIndex, endIndex);
+      DEBUGP("match[%d] index [start, end] = %d, %d", i, startIndex, endIndex);
       strsafencpy(result[i].value, str + startIndex, endIndex - startIndex, MAX_TOKEN_LENGTH);
       result[i].value[endIndex - startIndex] = '\0';
-      DEBUG("match result: %s", result[i].value);
+      DEBUGP("match result: %s", result[i].value);
     }
   }
 

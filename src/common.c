@@ -16,15 +16,15 @@
   #ifndef MRBC_ALLOC_LIBC
     int total, used, free, fragment;
     mrbc_alloc_statistics( &total, &used, &free, &fragment );
-    INFO("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
+    INFOP("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
   #endif
   }
   void memcheck(void)
   {
-    INFO("---MEMCHECK---\nalloc_count: %d, free_count: %d", alloc_count, free_count);
+    INFOP("---MEMCHECK---\nalloc_count: %d, free_count: %d", alloc_count, free_count);
     AllocList *ah = last_alloc;
     while (ah != NULL) {
-      WARN("MemoryLeakDetected! alloc_count: %d, ptr: %p", ah->count, ah->ptr);
+      WARNP("MemoryLeakDetected! alloc_count: %d, ptr: %p", ah->count, ah->ptr);
       if (ah->prev != NULL) {
         ah = ah->prev;
         free(ah->next);
@@ -40,7 +40,7 @@ void *mmrbc_alloc(size_t size)
 {
   void *ptr;
   ptr = MMRBC_ALLOC(size);
-  DEBUG("alloc: %p, size: %d", ptr, (int)size);
+  DEBUGP("alloc: %p, size: %d", ptr, (int)size);
 #ifdef MMRBC_DEBUG
   print_memory();
   alloc_count++;
@@ -62,7 +62,7 @@ void *mmrbc_alloc(size_t size)
 void mmrbc_free(void *ptr)
 {
   if (ptr == NULL) return;
-  DEBUG("free: %p", ptr);
+  DEBUGP("free: %p", ptr);
   MMRBC_FREE(ptr);
 #ifdef MMRBC_DEBUG
   print_memory();
@@ -91,30 +91,30 @@ void mmrbc_free(void *ptr)
 
 char *strsafencpy(char *s1, const char *s2, size_t n, size_t max)
 {
-  DEBUG("s1: `%s`, s2: `%s`, n: %d, max: %d", s1, s2, (int)n, (int)max);
+  DEBUGP("s1: `%s`, s2: `%s`, n: %d, max: %d", s1, s2, (int)n, (int)max);
   if (n < max) {
     strncpy(s1, s2, n + 1);
-    DEBUG("Copied: %s", s1);
+    DEBUGP("Copied: %s", s1);
   } else {
-    FATAL("Can't copy string!");
+    FATALP("Can't copy string!");
   }
   return s1;
 }
 
 char *strsafecpy(char *s1, const char *s2, size_t max)
 {
-  DEBUG("s1: `%s`, s2: `%s`, max: %d", s1, s2, (int)max);
+  DEBUGP("s1: `%s`, s2: `%s`, max: %d", s1, s2, (int)max);
   return strsafencpy(s1, s2, strlen(s2), max);
 }
 
 char *strsafecat(char *dst, const char *src, size_t max)
 {
-  DEBUG("dst: `%s`, src: `%s`, max: %d", dst, src, (int)max);
+  DEBUGP("dst: `%s`, src: `%s`, max: %d", dst, src, (int)max);
   size_t lensrc = strlen(src);
   if (strlen(dst) + lensrc < max) {
     strncat(dst, src, lensrc);
   } else {
-    FATAL("Can't copy string!");
+    FATALP("Can't copy string!");
   }
   return dst;
 }

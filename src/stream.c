@@ -26,7 +26,7 @@ int fmemeof(FILE *file)
   } else if (stream->pos == stream->size) {
     return 1;
   } else {
-    FATAL("fmemeof error");
+    FATALP("fmemeof error");
   }
   return -1;
 }
@@ -68,7 +68,7 @@ StreamInterface *StreamInterface_new(char *c, StreamType type)
   switch (si->type) {
     case STREAM_TYPE_FILE:
       if( (si->stream = (void *)fopen(c, "r" ) ) == NULL ) {
-        FATAL("mmrbc: cannot open program file. (%s)", c);
+        FATALP("mmrbc: cannot open program file. (%s)", c);
       } else {
         si->fgetsProc = fgets;
         si->feofProc = feof;
@@ -80,7 +80,7 @@ StreamInterface *StreamInterface_new(char *c, StreamType type)
       si->feofProc = fmemeof;
       break;
     default:
-      FATAL("error at Stream_new()");
+      FATALP("error at Stream_new()");
   }
   return si;
 }
@@ -97,6 +97,6 @@ void StreamInterface_free(StreamInterface *si)
       mmrbc_free(si);
       break;
     default:
-      FATAL("error at Stream_free()");
+      FATALP("error at Stream_free()");
   }
 }

@@ -14,7 +14,7 @@ int loglevel;
 
   #define MMRBC_DEBUG
 
-  #define DEBUG(fmt, ...)                 \
+  #define DEBUGP(fmt, ...)                 \
     do {                                  \
       if (loglevel >= LOGLEVEL_DEBUG) {   \
         printf("\033[34;1m[DEBUG] ");     \
@@ -22,7 +22,7 @@ int loglevel;
         printf("\033[m\n");                 \
       }                                   \
     } while (0)
-  #define INFO(fmt, ...)                  \
+  #define INFOP(fmt, ...)                  \
     do {                                  \
       if (loglevel >= LOGLEVEL_INFO) {    \
         printf("[INFO]  ");      \
@@ -30,7 +30,7 @@ int loglevel;
         printf("\033[m\n");                 \
       }                                   \
     } while (0)
-  #define WARN(fmt, ...)                  \
+  #define WARNP(fmt, ...)                  \
     do {                                  \
       if (loglevel >= LOGLEVEL_WARN) {    \
         printf("\033[35;1m[WARN]  ");     \
@@ -38,7 +38,7 @@ int loglevel;
         printf("\033[m\n");                 \
       }                                   \
     } while (0)
-  #define ERROR(fmt, ...)                 \
+  #define ERRORP(fmt, ...)                 \
     do {                                  \
       if (loglevel >= LOGLEVEL_ERROR) {   \
         printf("\033[31;1m[ERROR] ");     \
@@ -46,7 +46,7 @@ int loglevel;
         printf("\033[m\n");                 \
       }                                   \
     } while (0)
-  #define FATAL(fmt, ...)                 \
+  #define FATALP(fmt, ...)                 \
     do {                                  \
       if (loglevel >= LOGLEVEL_FATAL) {   \
         printf("\033[37;41;1m[FATAL] ");     \
@@ -61,15 +61,15 @@ int loglevel;
       printf(fmt, ##__VA_ARGS__);                 \
     } while (0)
 #else
-  #define DEBUG(fmt, ...) /* omit */
-  #define INFO(fmt, ...)  /* omit */
-  #define WARN(fmt, ...)  (fprintf(stdout, "[WARN]  "),        \
+  #define DEBUGP(fmt, ...) /* omit */
+  #define INFOP(fmt, ...)  /* omit */
+  #define WARNP(fmt, ...)  (fprintf(stdout, "[WARN]  "),        \
                            fprintf(stdout, fmt, ##__VA_ARGS__),\
                            fprintf(stdout, "\n"))
-  #define ERROR(fmt, ...) (fprintf(stderr, "[ERROR] "),        \
+  #define ERRORP(fmt, ...) (fprintf(stderr, "[ERROR] "),        \
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
                            fprintf(stderr, "\n"))
-  #define FATAL(fmt, ...) (fprintf(stderr, "[FATAL] "),        \
+  #define FATALP(fmt, ...) (fprintf(stderr, "[FATAL] "),        \
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
                            fprintf(stderr, "\n"))
 #endif /* !NDEBUG */
