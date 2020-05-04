@@ -8,6 +8,12 @@
 #  end
 #end
 
+# abandon buffer
+while !fd_empty? do
+  c = getc
+  print c
+end
+
 puts "pid: #{pid}" # client will receive the pid
 line = "" # String.new does not work...?
 while true
@@ -43,7 +49,7 @@ while true
       end
     else
       print c
-      print c.ord.to_s
+      # print "\r\n#{c.ord}\r\n"
       line << c
     end
   end

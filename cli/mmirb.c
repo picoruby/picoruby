@@ -58,6 +58,7 @@ static mrbc_tcb *tcb_shell;
 static
 void
 resume_shell(int no) {
+  if (tcb_shell == NULL) return;
   mrbc_resume_task(tcb_shell);
 }
 
