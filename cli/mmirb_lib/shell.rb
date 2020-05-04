@@ -16,6 +16,7 @@ end
 
 puts "pid: #{pid}" # client will receive the pid
 line = "" # String.new does not work...?
+print "mmirb> "
 while true
   suspend_task # suspend task itself
   while !fd_empty? do
@@ -31,6 +32,8 @@ while true
     when 13  # CR \r
       print "\r\n"
       case line.chomp
+      when ""
+        # skip
       when "quit", "exit"
         exit_shell
       else
@@ -38,7 +41,7 @@ while true
           puts "Failed to compile!"
         end
       end
-      print "\r\n"
+      print "mmirb> "
       line = ""
     when 65, 66, 67, 68, 126 # ↑↓→←etc.
       # ignore?
