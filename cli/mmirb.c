@@ -16,6 +16,13 @@
 #include "heap.h"
 #include "mmirb_lib/shell.c"
 
+int dfd;
+void dp(char *str)
+{
+  write(dfd, str, strlen(str));
+  write(dfd, "\r\n", 2);
+}
+
 int
 init_hal_fd(const char *pathname)
 {
@@ -52,6 +59,45 @@ static
 void
 resume_shell(int no) {
   mrbc_resume_task(tcb_shell);
+}
+
+static void
+c_print(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  hal_write(1, GET_STRING_ARG(1), strlen((char *)GET_STRING_ARG(1)));
+}
+
+static void
+c_is_fd_empty(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  fd_set readfds;
+  FD_ZERO(&readfds);
+  hal_FD_SET(1, &readfds);
+  struct timeval tv;
+  tv.tv_sec = 0;
+  tv.tv_usec = 1;
+  if (hal_select(1, &readfds, NULL, NULL, &tv) == 0) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char c[1];
+  int len;
+  len = hal_read(1, c, 1);
+  if (len < 0) {
+    FATALP("read");
+    SET_NIL_RETURN();
+  } else if (len == 0) {
+    SET_NIL_RETURN();
+  } else {
+    mrbc_value val = mrbc_string_new(vm, c, 1);
+    SET_RETURN(val);
+  }
 }
 
 #define BUFLEN 100
@@ -111,7 +157,7 @@ void run(uint8_t *mrb)
   mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
   hal_write(1, "=> ", 3);
   hal_write(1, ret.string->data, ret.string->size);
-  hal_write(1, "\n", 1);
+  hal_write(1, "\r\n", 2);
   mrbc_vm_end(vm);
   mrbc_vm_close(vm);
 }
@@ -139,16 +185,18 @@ process_parent(pid_t pid)
   FD_ZERO(&readfds);
   hal_FD_SET(1, &readfds);
   struct timespec ts;
-  ts.tv_sec = 1;
-  ts.tv_nsec = 0;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 1000;
   int ret;
   for (;;) {
+    dp("ready to select");
     ret = hal_select(1, &readfds, NULL, NULL, NULL);
     if (ret == -1) {
       FATALP("select");
     } else if (ret == 0) {
       FATALP("This should not happen (1)");
     } else if (ret > 0) {
+      dp("select!");
       INFOP("Input recieved. Issuing SIGUSR1 to pid %d", pid);
       kill(pid, SIGUSR1);
       ret = clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, NULL);
@@ -165,7 +213,10 @@ process_child(void)
   WARNP("successfully forked. child");
   mrbc_init(heap, HEAP_SIZE);
   mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
+  mrbc_define_method(0, mrbc_class_object, "fd_empty?", c_is_fd_empty);
+  mrbc_define_method(0, mrbc_class_object, "print", c_print);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);
+  mrbc_define_method(0, mrbc_class_object, "getc", c_getc);
   mrbc_define_method(0, mrbc_class_object, "pid", c_pid);
   mrbc_define_method(0, mrbc_class_object, "exit_shell", c_exit_shell);
   //mrbc_define_method(0, mrbc_class_object, "xmodem", c_xmodem);
@@ -181,6 +232,8 @@ process_child(void)
 int
 main(int argc, char *argv[])
 {
+  dfd = hal_open("/dev/pts/12", O_RDWR);
+
   loglevel = LOGLEVEL_WARN;
   if (init_hal_fd(argv[1]) != 0) {
     return 1;
