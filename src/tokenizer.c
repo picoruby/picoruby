@@ -529,6 +529,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
     } else {
       ERRORP("Failed to tokenize!");
       Token_free(lazyToken);
+      self->pos += 1; /* skip one */
       return 1;
     }
   }

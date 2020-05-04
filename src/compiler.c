@@ -53,7 +53,10 @@ bool Compile(Scope *scope, StreamInterface *si)
   } else {
     success = false;
   }
-  ParseFreeAllNode(parser);
+  if (success) {
+    /* FIXME skipping FreeNode causes memory leak */
+    ParseFreeAllNode(parser);
+  }
   ParserStateFree(p);
   ParseFree(parser, mmrbc_free);
   Tokenizer_free(tokenizer);
