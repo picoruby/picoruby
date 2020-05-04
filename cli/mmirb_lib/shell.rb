@@ -14,9 +14,11 @@ while !fd_empty? do
   print c
 end
 
+prompt = "mmrubyOS> "
+
 puts "pid: #{pid}" # client will receive the pid
 line = "" # String.new does not work...?
-print "mmirb> "
+print prompt
 while true
   suspend_task # suspend task itself
   while !fd_empty? do
@@ -41,7 +43,7 @@ while true
           puts "Failed to compile!"
         end
       end
-      print "mmirb> "
+      print prompt
       line = ""
     when 65, 66, 67, 68, 126 # ↑↓→←etc.
       # ignore?

@@ -57,13 +57,19 @@ begin
       puts "starting cu terminal"
       puts "type ~. to stop"
       puts
-      `cu -s 115200 -l #{fd_client}`
+      puts "exec command below on another terminal:"
+      puts "% cu -s 115200 -l #{fd_client}"
+      puts "(type ~. to exit client)"
+      while true
+        print "type any line to exit server > "
+        gets
+        break;
+      end
       Process.kill 9, server_pid
     end
   end
 ensure
   Process.kill 9, socat_pid
   Process.kill 9, shell_pid if shell_pid
-  puts "bye"
 end
 

@@ -16,13 +16,6 @@
 #include "heap.h"
 #include "mmirb_lib/shell.c"
 
-int dfd;
-void dp(char *str)
-{
-  write(dfd, str, strlen(str));
-  write(dfd, "\r\n", 2);
-}
-
 int
 init_hal_fd(const char *pathname)
 {
@@ -190,14 +183,12 @@ process_parent(pid_t pid)
   ts.tv_nsec = 1000;
   int ret;
   for (;;) {
-    dp("ready to select");
     ret = hal_select(1, &readfds, NULL, NULL, NULL);
     if (ret == -1) {
       FATALP("select");
     } else if (ret == 0) {
       FATALP("This should not happen (1)");
     } else if (ret > 0) {
-      dp("select!");
       INFOP("Input recieved. Issuing SIGUSR1 to pid %d", pid);
       kill(pid, SIGUSR1);
       ret = clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, NULL);
@@ -233,8 +224,6 @@ process_child(void)
 int
 main(int argc, char *argv[])
 {
-  dfd = hal_open("/dev/pts/12", O_RDWR);
-
   loglevel = LOGLEVEL_WARN;
   if (init_hal_fd(argv[1]) != 0) {
     return 1;
