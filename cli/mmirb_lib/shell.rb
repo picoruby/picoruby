@@ -16,7 +16,11 @@ end
 
 prompt = "mmrubyOS> "
 
-puts "pid: #{pid}" # client will receive the pid
+if pid > 0
+  # skip unless POSIX
+  puts "pid: #{pid}" # client will receive the pid
+end
+
 line = "" # String.new does not work...?
 print prompt
 while true
