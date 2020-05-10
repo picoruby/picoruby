@@ -98,7 +98,7 @@ psoc5lp_lib: $(DEPS)
 	mkdir -p $(LIB_DIR_PSOC5LP)
 	cd src/mrubyc/src ; mv hal hal.bak ; ln -fs ./hal_psoc5lp hal
 	$(MAKE) build_lib \
-	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0" \
+	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0 -DNDEBUG" \
 	  LDFLAGS=$(LDFLAGS) \
 	  LIB_DIR=$(LIB_DIR_PSOC5LP) \
 	  COMMON_SRCS="alloc.c class.c console.c error.c global.c keyvalue.c load.c rrt0.c static.c symbol.c value.c vm.c" \
