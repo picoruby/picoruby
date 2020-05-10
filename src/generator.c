@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "mmrbc.h"
 #include "common.h"
@@ -53,6 +54,35 @@ void gen_str(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   int litIndex = Scope_newLit(scope, Node_literalName(node), STRING_LITERAL);
   Scope_pushCode(litIndex);
+  Scope_push(scope);
+}
+
+void gen_int(Scope *scope, Node *node)
+{
+  signed int val = atoi(node->cons.car->value.name);
+  if (val <= -65536) {
+  } else if (val <= -256) {
+  } else if (val <= -2) {
+    Scope_pushCode(OP_LOADINEG);
+  } else if (-1 <= val && val <= 7) {
+    Scope_pushCode(OP_LOADI_0 + val);
+    Scope_pushCode(scope->sp);
+  } else if (val <= 0xff) {
+    Scope_pushCode(OP_LOADI);
+    Scope_pushCode(scope->sp);
+    Scope_pushCode(val);
+  } else if (val <= 0xffff) {
+    Scope_pushCode(OP_EXT2);
+    Scope_pushCode(OP_LOADI);
+    Scope_pushCode(scope->sp);
+    Scope_pushCode(val >> 8);
+    Scope_pushCode(val & 0xff);
+  } else {
+    Scope_pushCode(OP_LOADL);
+    Scope_pushCode(scope->sp);
+    int litIndex = Scope_newLit(scope, Node_literalName(node), INTEGER_LITERAL);
+    Scope_pushCode(litIndex);
+  }
   Scope_push(scope);
 }
 
@@ -114,6 +144,9 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_at_tstring_content:
       gen_str(scope, tree->cons.cdr);
+      break;
+    case ATOM_at_int:
+      gen_int(scope, tree->cons.cdr);
       break;
   }
 }
