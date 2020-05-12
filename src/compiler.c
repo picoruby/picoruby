@@ -1,6 +1,7 @@
 #include <stdbool.h>
 
 #include "../src/ruby-lemon-parse/parse.c"
+#include "../src/ruby-lemon-parse/token_helper.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
@@ -9,6 +10,7 @@
 #include "stream.h"
 #include "token.h"
 #include "tokenizer.h"
+#include "tokenizer_helper.h"
 
 bool Compile(Scope *scope, StreamInterface *si)
 {
@@ -23,13 +25,14 @@ bool Compile(Scope *scope, StreamInterface *si)
         DEBUGP("(main)%p null", topToken);
       } else {
         if (topToken->type != ON_SP) {
-          INFOP("Token found: (mode=%d) (len=%ld,line=%d,pos=%d) type=%d `%s`",
-             tokenizer->mode,
+          INFOP("\e[32;40;1m%s\e[m  \e[36;40;1m%s\e[m \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` len=%ld line=%d pos=%d",
+             tokenizer_mode_name(tokenizer->mode),
+             tokenizer_state_name(tokenizer->state),
+             token_name(topToken->type),
+             topToken->value,
              strlen(topToken->value),
              topToken->line_num,
-             topToken->pos,
-             topToken->type,
-             topToken->value);
+             topToken->pos);
           LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
           Parse(parser, topToken->type, ls->str);
         }
