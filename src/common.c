@@ -16,12 +16,12 @@
   #ifndef MRBC_ALLOC_LIBC
     int total, used, free, fragment;
     mrbc_alloc_statistics( &total, &used, &free, &fragment );
-    INFOP("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
+    DEBUGP("Memory total:%d, used:%d, free:%d, fragment:%d", total, used, free, fragment );
   #endif
   }
   void memcheck(void)
   {
-    INFOP("---MEMCHECK---\nalloc_count: %d, free_count: %d", alloc_count, free_count);
+    DEBUGP("---MEMCHECK---\nalloc_count: %d, free_count: %d", alloc_count, free_count);
     AllocList *ah = last_alloc;
     while (ah != NULL) {
       WARNP("MemoryLeakDetected! alloc_count: %d, ptr: %p", ah->count, ah->ptr);
