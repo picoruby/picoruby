@@ -165,9 +165,10 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
   Token_GC(self->currentToken->prev);
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH];
+  char c[3];
+  retry:
   memset(value, '\0', MAX_TOKEN_LENGTH);
   Type type = ON_NONE;
-  char c[3];
   memset(c, '\0', sizeof(c));
 
   RegexResult regexResult[REGEX_MAX_RESULT_NUM];
@@ -536,7 +537,18 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
   if (lazyToken->value == NULL) {
     self->pos += strlen(value);
   }
-  if (type != ON_NONE) {
+  if (type == NL) {
+    switch (self->state) {
+      case EXPR_BEG:
+      case EXPR_FNAME:
+      case EXPR_DOT:
+      case EXPR_CLASS:
+        goto retry;
+      default:
+        break;
+    }
+    self->state = EXPR_BEG;
+  } else if (type != ON_NONE) {
     if ( (type == IDENTIFIER || type == CONSTANT)
          && tokenizer_is_keyword(value) ) {
       type = KW;
