@@ -6,9 +6,12 @@ SRCS := compiler.c common.c token.c tokenizer.c generator.c my_regex.c regex_lig
 OBJS := $(SRCS:%.c=%.o)
 DEPS := $(SRCS:%.c=%.d)
 
-all: $(TARGET)
+all: tokenizer_helper.h $(TARGET)
 
 -include $(DEPS)
+
+tokenizer_helper.h: token.h tokenizer.h
+	./helper_gen.rb tokenizer
 
 $(TARGET): ruby-lemon-parse/parse.o $(OBJS)
 ifeq ($(findstring MMRUBY_REGEX_LIBC, $(CFLAGS)), MMRUBY_REGEX_LIBC)
@@ -26,4 +29,4 @@ ruby-lemon-parse/parse.o: ruby-lemon-parse/parse.y
 clean:
 	cd ruby-lemon-parse ; $(MAKE) clean
 	cd mrubyc/src ; $(MAKE) clean
-	rm -f $(TARGET) $(OBJS) $(DEPS)
+	rm -f $(TARGET) $(OBJS) $(DEPS) tokenizer_helper.h
