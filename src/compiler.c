@@ -25,14 +25,14 @@ bool Compile(Scope *scope, StreamInterface *si)
         DEBUGP("(main)%p null", topToken);
       } else {
         if (topToken->type != ON_SP) {
-          INFOP("\e[32;40;1m%s\e[m  \e[36;40;1m%s\e[m \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` len=%ld line=%d pos=%d",
+          INFOP("\e[32;40;1m%s\e[m len=%ld line=%d pos=%d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m",
              tokenizer_mode_name(tokenizer->mode),
-             tokenizer_state_name(tokenizer->state),
-             token_name(topToken->type),
-             topToken->value,
              strlen(topToken->value),
              topToken->line_num,
-             topToken->pos);
+             topToken->pos,
+             token_name(topToken->type),
+             topToken->value,
+             tokenizer_state_name(topToken->state));
           LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
           Parse(parser, topToken->type, ls->str);
         }

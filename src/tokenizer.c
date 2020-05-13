@@ -12,6 +12,10 @@
 
 #include "token_data.h"
 
+#define IS_ARG() (self->state == EXPR_ARG || self->state == EXPR_CMDARG)
+#define IS_END() (self->state == EXPR_END || self->state == EXPR_ENDARG || self->state == EXPR_ENDFN)
+#define IS_BEG() (self->state == EXPR_BEG || self->state == EXPR_MID || self->state == EXPR_VALUE || self->state == EXPR_CLASS)
+
 static bool tokenizer_is_keyword(char *word)
 {
   for (int i = 0; KEYWORDS[i].string != NULL; i++){
@@ -107,7 +111,7 @@ Tokenizer* const Tokenizer_new(StreamInterface *si)
     self->si = si;
     self->mode = MODE_NONE;
     self->modeTerminater = '\0';
-    self->state = EXPR_NONE;
+    self->state = EXPR_BEG;
   }
   return self;
 }
@@ -284,7 +288,7 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           State reserveState = self->state;
           char reserveModeTerminater = self->modeTerminater;
           self->mode = MODE_NONE;
-          self->state = EXPR_NONE;
+          self->state = EXPR_BEG;
           self->modeTerminater = '\0';
           while (Tokenizer_hasMoreTokens(self)) { /* recursive */
             if (Tokenizer_advance(self, false) == 1) break;
@@ -573,7 +577,20 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           self->state = EXPR_ENDFN;
           break;
         default:
-          DEBUGP("Might be a bug");
+          if (IS_BEG() || self->state == EXPR_DOT || IS_ARG()) {
+//            if (cmd_state) {
+              self->state = EXPR_CMDARG;
+//            }
+//            else {
+//              self->state = EXPR_ARG;
+//            }
+          }
+          else if (self->state == EXPR_FNAME) {
+            self->state = EXPR_ENDFN;
+          }
+          else {
+            self->state = EXPR_END;
+          }
           break;
       }
     }
