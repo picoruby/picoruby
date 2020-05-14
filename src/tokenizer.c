@@ -16,6 +16,8 @@
 #define IS_END() (self->state == EXPR_END || self->state == EXPR_ENDARG || self->state == EXPR_ENDFN)
 #define IS_BEG() (self->state == EXPR_BEG || self->state == EXPR_MID || self->state == EXPR_VALUE || self->state == EXPR_CLASS)
 
+#define IS_NUM(n) ('0' <= self->line[self->pos+(n)] && self->line[self->pos+(n)] <= '9')
+
 static bool tokenizer_is_keyword(char *word)
 {
   for (int i = 0; KEYWORDS[i].string != NULL; i++){
@@ -112,6 +114,7 @@ Tokenizer* const Tokenizer_new(StreamInterface *si)
     self->mode = MODE_NONE;
     self->modeTerminater = '\0';
     self->state = EXPR_BEG;
+    self->cmd_start = true;
   }
   return self;
 }
@@ -170,7 +173,10 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH];
   char c[3];
-  retry:
+  int cmd_state;
+  cmd_state = self->cmd_start;
+  self->cmd_start = false;
+retry:
   memset(value, '\0', MAX_TOKEN_LENGTH);
   Type type = ON_NONE;
   memset(c, '\0', sizeof(c));
@@ -287,15 +293,18 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           Mode reserveMode = self->mode;
           State reserveState = self->state;
           char reserveModeTerminater = self->modeTerminater;
+          bool reserveCmd_start = self->cmd_start;
           self->mode = MODE_NONE;
           self->state = EXPR_BEG;
           self->modeTerminater = '\0';
+          self->cmd_start = true;
           while (Tokenizer_hasMoreTokens(self)) { /* recursive */
             if (Tokenizer_advance(self, false) == 1) break;
           }
           self->mode = reserveMode;
           self->state = reserveState;
           self->modeTerminater = reserveModeTerminater;
+          self->cmd_start = reserveCmd_start;
         }
         tokenizer_pushToken(self,
           self->line_num,
@@ -477,7 +486,11 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       } else {
         value[0] = self->line[self->pos];
         value[1] = '\0';
-        type = ON_OP;
+        if (self->line[self->pos] == '-' && IS_NUM(1)) {
+          type = UMINUS_NUM;
+        } else {
+          type = ON_OP;
+        }
       }
     } else if (tokenizer_is_semicolon(self->line[self->pos])) {
       value[0] = self->line[self->pos];
@@ -487,15 +500,25 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
       value[0] = self->line[self->pos];
       type = COMMA;
       self->state = EXPR_BEG|EXPR_LABEL;
-    } else if ('0' <= self->line[self->pos] && self->line[self->pos] <= '9') {
+    } else if (IS_NUM(0)) {
+      self->state = EXPR_ENDARG;
       if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+\\.[0-9][0-9_]*)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
+        if (strchr(value, (int)'.')[-1] == '_') {
+          ERRORP("trailing `_' in number");
+          return -1;
+        }
         type = FLOAT;
       } else if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = INTEGER;
       } else {
         ERRORP("Failed to tokenize a number");
+        return -1;
+      }
+      if (value[strlen(value) - 1] == '_') {
+        ERRORP("trailing `_' in number");
+        return -1;
       }
     } else if (self->line[self->pos] == '.') {
       value[0] = '.';
@@ -578,12 +601,12 @@ int Tokenizer_advance(Tokenizer* const self, bool recursive)
           break;
         default:
           if (IS_BEG() || self->state == EXPR_DOT || IS_ARG()) {
-//            if (cmd_state) {
+            if (cmd_state) {
               self->state = EXPR_CMDARG;
-//            }
-//            else {
-//              self->state = EXPR_ARG;
-//            }
+            }
+            else {
+              self->state = EXPR_ARG;
+            }
           }
           else if (self->state == EXPR_FNAME) {
             self->state = EXPR_ENDFN;

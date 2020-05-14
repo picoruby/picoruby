@@ -14,6 +14,11 @@
 
 #define END_SECTION_SIZE 8
 
+typedef enum misc {
+  NUM_POS,
+  NUM_NEG
+} Misc;
+
 void codegen(Scope *scope, Node *tree);
 
 Scope *new_scope(Scope *prev)
@@ -57,30 +62,51 @@ void gen_str(Scope *scope, Node *node)
   Scope_push(scope);
 }
 
-void gen_int(Scope *scope, Node *node)
+void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
-  signed int val = atoi(node->cons.car->value.name);
-  if (val <= -65536) {
-  } else if (val <= -256) {
-  } else if (val <= -2) {
-    Scope_pushCode(OP_LOADINEG);
-  } else if (-1 <= val && val <= 7) {
+  char num[strlen(node->cons.car->value.name)];
+  int j = 0;
+  for (int i = 0; i <= strlen(node->cons.car->value.name); i++) {
+    if (node->cons.car->value.name[i] == '_') continue;
+    num[j] = node->cons.car->value.name[i];
+    j++;
+  }
+  unsigned int val = atoi(num);
+  if (pos_neg == NUM_POS && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
     Scope_pushCode(scope->sp);
+  } else if (pos_neg == NUM_NEG && 0 <= val && val <= 1) {
+    Scope_pushCode(OP_LOADI_0 - val);
+    Scope_pushCode(scope->sp);
   } else if (val <= 0xff) {
-    Scope_pushCode(OP_LOADI);
+    if (pos_neg == NUM_NEG) {
+      Scope_pushCode(OP_LOADINEG);
+    } else {
+      Scope_pushCode(OP_LOADI);
+    }
     Scope_pushCode(scope->sp);
     Scope_pushCode(val);
   } else if (val <= 0xffff) {
     Scope_pushCode(OP_EXT2);
-    Scope_pushCode(OP_LOADI);
+    if (pos_neg == NUM_NEG) {
+      Scope_pushCode(OP_LOADINEG);
+    } else {
+      Scope_pushCode(OP_LOADI);
+    }
     Scope_pushCode(scope->sp);
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
     Scope_pushCode(OP_LOADL);
     Scope_pushCode(scope->sp);
-    int litIndex = Scope_newLit(scope, Node_literalName(node), INTEGER_LITERAL);
+    int litIndex;
+    if (pos_neg == NUM_NEG) {
+      char *negnum[strlen(num) + 1];
+      negnum[0] = '-';
+      litIndex = Scope_newLit(scope, strsafecat(negnum, num, strlen(num) + 2), INTEGER_LITERAL);
+    } else {
+       litIndex = Scope_newLit(scope, num, INTEGER_LITERAL);
+    }
     Scope_pushCode(litIndex);
   }
   Scope_push(scope);
@@ -146,7 +172,10 @@ void codegen(Scope *scope, Node *tree)
       gen_str(scope, tree->cons.cdr);
       break;
     case ATOM_at_int:
-      gen_int(scope, tree->cons.cdr);
+      gen_int(scope, tree->cons.cdr, NUM_POS);
+      break;
+    case ATOM_unary:
+      gen_int(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
       break;
   }
 }

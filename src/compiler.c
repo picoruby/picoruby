@@ -19,13 +19,13 @@ bool Compile(Scope *scope, StreamInterface *si)
   ParserState *p = ParseInitState();
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
-    Tokenizer_advance(tokenizer, false);
+    if (Tokenizer_advance(tokenizer, false) != 0) break;
     for (;;) {
       if (topToken->value == NULL) {
         DEBUGP("(main)%p null", topToken);
       } else {
         if (topToken->type != ON_SP) {
-          INFOP("\e[32;40;1m%s\e[m len=%ld line=%d pos=%d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m",
+          INFOP("\n\e[32;40;1m%s\e[m len=%ld line=%d pos=%d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m",
              tokenizer_mode_name(tokenizer->mode),
              strlen(topToken->value),
              topToken->line_num,
