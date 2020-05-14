@@ -37,6 +37,7 @@ typedef struct tokenizer
   int pos;
   int paren_stack_num;
   char modeTerminater;
+  bool cmd_start;
   State state;
   Paren paren_stack[PAREN_STACK_SIZE];
 } Tokenizer;

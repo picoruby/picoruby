@@ -56,7 +56,7 @@ int loglevel;
     } while (0)
   #define DEBUG_PRINTF(fmt, ...)                  \
     do {                                          \
-      printf("file : %s, line : %d, func : %s,\n  ", \
+      printf("%s:%d %s() ",                       \
             __FILE__,  __LINE__,  __func__);      \
       printf(fmt, ##__VA_ARGS__);                 \
     } while (0)

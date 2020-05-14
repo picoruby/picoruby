@@ -1,3 +1,4 @@
 *.o
 *.a
 *.d
+*_helper.h
