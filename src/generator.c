@@ -62,6 +62,29 @@ void gen_str(Scope *scope, Node *node)
   Scope_push(scope);
 }
 
+void gen_float(Scope *scope, Node *node, Misc pos_neg)
+{
+  char num[strlen(node->cons.car->value.name)];
+  int j = 0;
+  for (int i = 0; i <= strlen(node->cons.car->value.name); i++) {
+    if (node->cons.car->value.name[i] == '_') continue;
+    num[j] = node->cons.car->value.name[i];
+    j++;
+  }
+    Scope_pushCode(OP_LOADL);
+    Scope_pushCode(scope->sp);
+    int litIndex;
+    if (pos_neg == NUM_NEG) {
+      char *negnum[strlen(num) + 1];
+      negnum[0] = '-';
+      litIndex = Scope_newLit(scope, strsafecat(negnum, num, strlen(num) + 2), FLOAT_LITERAL);
+    } else {
+       litIndex = Scope_newLit(scope, num, FLOAT_LITERAL);
+    }
+    Scope_pushCode(litIndex);
+  Scope_push(scope);
+}
+
 void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
   char num[strlen(node->cons.car->value.name)];
@@ -174,8 +197,18 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_at_int:
       gen_int(scope, tree->cons.cdr, NUM_POS);
       break;
+    case ATOM_at_float:
+      gen_float(scope, tree->cons.cdr, NUM_POS);
+      break;
     case ATOM_unary:
-      gen_int(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
+      switch (Node_atomType(tree->cons.cdr->cons.cdr->cons.car)) {
+        case (ATOM_at_int):
+          gen_int(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
+        break;
+        case (ATOM_at_float):
+          gen_float(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
+        break;
+      }
       break;
   }
 }
