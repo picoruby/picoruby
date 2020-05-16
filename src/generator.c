@@ -62,15 +62,43 @@ void gen_str(Scope *scope, Node *node)
   Scope_push(scope);
 }
 
+void gen_literal_numeric(Scope *scope, char *num, LiteralType type, Misc pos_neg)
+{
+  Scope_pushCode(OP_LOADL);
+  Scope_pushCode(scope->sp);
+  int litIndex;
+  if (pos_neg == NUM_NEG) {
+    char *negnum[strlen(num) + 1];
+    negnum[0] = '-';
+    litIndex = Scope_newLit(scope, strsafecat(negnum, num, strlen(num) + 2), type);
+  } else {
+     litIndex = Scope_newLit(scope, num, type);
+  }
+  Scope_pushCode(litIndex);
+}
+
+void cleanup_numeric_literal(char *lit, char *result)
+{
+  int j = 0;
+  for (int i = 0; i <= strlen(lit); i++) {
+    if (lit[i] == '_') continue;
+    result[j] = lit[i];
+    j++;
+  }
+}
+
+void gen_float(Scope *scope, Node *node, Misc pos_neg)
+{
+  char num[strlen(node->cons.car->value.name)];
+  cleanup_numeric_literal(node->cons.car->value.name, num);
+  gen_literal_numeric(scope, num, FLOAT_LITERAL, pos_neg);
+  Scope_push(scope);
+}
+
 void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
   char num[strlen(node->cons.car->value.name)];
-  int j = 0;
-  for (int i = 0; i <= strlen(node->cons.car->value.name); i++) {
-    if (node->cons.car->value.name[i] == '_') continue;
-    num[j] = node->cons.car->value.name[i];
-    j++;
-  }
+  cleanup_numeric_literal(node->cons.car->value.name, num);
   unsigned int val = atoi(num);
   if (pos_neg == NUM_POS && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
@@ -97,17 +125,7 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
-    Scope_pushCode(OP_LOADL);
-    Scope_pushCode(scope->sp);
-    int litIndex;
-    if (pos_neg == NUM_NEG) {
-      char *negnum[strlen(num) + 1];
-      negnum[0] = '-';
-      litIndex = Scope_newLit(scope, strsafecat(negnum, num, strlen(num) + 2), INTEGER_LITERAL);
-    } else {
-       litIndex = Scope_newLit(scope, num, INTEGER_LITERAL);
-    }
-    Scope_pushCode(litIndex);
+    gen_literal_numeric(scope, num, INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }
@@ -174,8 +192,18 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_at_int:
       gen_int(scope, tree->cons.cdr, NUM_POS);
       break;
+    case ATOM_at_float:
+      gen_float(scope, tree->cons.cdr, NUM_POS);
+      break;
     case ATOM_unary:
-      gen_int(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
+      switch (Node_atomType(tree->cons.cdr->cons.cdr->cons.car)) {
+        case (ATOM_at_int):
+          gen_int(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
+        break;
+        case (ATOM_at_float):
+          gen_float(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
+        break;
+      }
       break;
   }
 }
