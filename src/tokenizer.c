@@ -414,11 +414,18 @@ retry:
       value[1] = '\0';
       switch (value[0]) {
         case '(':
-          type = LPAREN;
+          if (IS_BEG()) {
+            type = LPAREN;
+          } else {
+            type = LPAREN_ARG;
+          }
+          self->state = EXPR_BEG;
+          tokenizer_paren_stack_add(self, PAREN_PAREN);
           break;
         case ')':
           type = RPAREN;
           self->state = EXPR_ENDFN;
+          tokenizer_paren_stack_pop(self);
           break;
         case '[':
           type = LBRACKET;
@@ -501,7 +508,7 @@ retry:
       type = COMMA;
       self->state = EXPR_BEG|EXPR_LABEL;
     } else if (IS_NUM(0)) {
-      self->state = EXPR_ENDARG;
+      self->state = EXPR_END;
       if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+\\.[0-9][0-9_]*)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         if (strchr(value, (int)'.')[-1] == '_') {
@@ -576,6 +583,7 @@ retry:
     }
     self->state = EXPR_BEG;
   } else if (type != ON_NONE) {
+    /* FIXME from here */
     if ( (type == IDENTIFIER || type == CONSTANT)
          && tokenizer_is_keyword(value) ) {
       type = KW;
@@ -591,7 +599,7 @@ retry:
                   || !strcmp(value, "undef") ) {
         self->state = EXPR_FNAME;
       }
-    } else { // IDENTIFIER
+    } else if (type == IDENTIFIER) {
       switch (self->state) {
         case EXPR_CLASS:
           self->state = EXPR_ARG;

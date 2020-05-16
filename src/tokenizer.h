@@ -21,6 +21,7 @@ typedef enum mode
 typedef enum paren
 {
   PAREN_NONE,
+  PAREN_PAREN,
   PAREN_BRACE,
 } Paren;
 
