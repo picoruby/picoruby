@@ -498,6 +498,17 @@ retry:
           type = UMINUS_NUM;
         } else {
           type = ON_OP;
+          if (self->line[self->pos] == '=') {
+//            if (self->line[self->pos + 1] == '=') {
+//              if (self->line[self->pos + 2] == '=') {
+//                type = EQQ;
+//              } else {
+//                type = EQ;
+//              }
+//            }
+            type = E;
+            self->state = EXPR_BEG;
+          }
         }
       }
     } else if (tokenizer_is_semicolon(self->line[self->pos])) {
