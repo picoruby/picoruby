@@ -399,6 +399,7 @@ retry:
         value[0] = ':';
         value[1] = '\0';
         type = SYMBEG;
+        self->state = EXPR_FNAME;
       } else {
         // nothing TODO?
       }

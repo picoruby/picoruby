@@ -62,6 +62,15 @@ void gen_str(Scope *scope, Node *node)
   Scope_push(scope);
 }
 
+void gen_sym(Scope *scope, Node *node)
+{
+  Scope_pushCode(OP_LOADSYM);
+  Scope_pushCode(scope->sp);
+  int litIndex = Scope_newSym(scope, Node_literalName(node));
+  Scope_pushCode(litIndex);
+  Scope_push(scope);
+}
+
 void gen_literal_numeric(Scope *scope, char *num, LiteralType type, Misc pos_neg)
 {
   Scope_pushCode(OP_LOADL);
@@ -174,6 +183,9 @@ void codegen(Scope *scope, Node *tree)
       codegen(scope, tree->cons.cdr);
       break;
     case ATOM_args_new:
+      break;
+    case ATOM_symbol_literal:
+      gen_sym(scope, tree->cons.cdr);
       break;
     case ATOM_string_literal:
       codegen(scope, tree->cons.cdr->cons.car->cons.cdr); // skip the first :string_add
