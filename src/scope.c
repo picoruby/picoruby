@@ -91,11 +91,11 @@ Literal *literal_new(const char *value, LiteralType type)
 /*
  * returns -1 if literal was not found
  */
-int literal_findIndex(Literal *literal, const char *value)
+int literal_findIndex(Literal *literal, const char *value, LiteralType type)
 {
   int i = 0;
   while (literal != NULL) {
-    if (strcmp(literal->value, value) == 0) {
+    if (literal->type == type && strcmp(literal->value, value) == 0) {
       return i;
     }
     literal = literal->next;
@@ -105,7 +105,7 @@ int literal_findIndex(Literal *literal, const char *value)
 }
 
 int Scope_newLit(Scope *self, const char *value, LiteralType type){
-  int index = literal_findIndex(self->literal, value);
+  int index = literal_findIndex(self->literal, value, type);
   if (index >= 0) return index;
   Literal *newLit = literal_new(value, type);
   Literal *lit = self->literal;
