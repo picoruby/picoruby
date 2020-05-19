@@ -188,7 +188,7 @@ int Scope_newSym(Scope *self, const char *value){
 /*
  * returns -1 if lvar was not found
  */
-int lvar_findRegnum(Lvar *lvar, const char *name)
+int Scope_lvar_findRegnum(Lvar *lvar, const char *name)
 {
   while (lvar != NULL) {
     if (strcmp(lvar->name, name) == 0) {
@@ -200,7 +200,7 @@ int lvar_findRegnum(Lvar *lvar, const char *name)
 }
 
 int Scope_newLvar(Scope *self, const char *name, int newRegnum){
-  int regnum = lvar_findRegnum(self->lvar, name);
+  int regnum = Scope_lvar_findRegnum(self->lvar, name);
   if (regnum >= 0) return regnum;
   Lvar *newLvar = lvar_new(name, newRegnum);
   if (self->lvar == NULL) {
