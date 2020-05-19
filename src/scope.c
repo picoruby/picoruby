@@ -15,6 +15,7 @@ Scope *Scope_new(Scope *prev)
   self->nlocals = 1;
   self->nirep = 0;
   self->symbol = NULL;
+  self->lvar = NULL;
   self->literal = NULL;
   self->sp = 1;
   self->max_sp = 1;
@@ -40,10 +41,19 @@ void freeSymbolRcsv(Symbol *symbol)
   mmrbc_free(symbol);
 }
 
+void freeLvarRcsv(Lvar *lvar)
+{
+  if (lvar == NULL) return;
+  freeLvarRcsv(lvar->next);
+  mmrbc_free(lvar->name);
+  mmrbc_free(lvar);
+}
+
 void Scope_free(Scope *self)
 {
   freeLiteralRcsv(self->literal);
   freeSymbolRcsv(self->symbol);
+  freeLvarRcsv(self->lvar);
   if (self->vm_code != NULL) {
     mmrbc_free(self->vm_code);
   }
@@ -131,6 +141,17 @@ Symbol *symbol_new(const char *value)
   return symbol;
 }
 
+Lvar *lvar_new(const char *name, int regnum)
+{
+  Lvar *lvar = mmrbc_alloc(sizeof(Lvar));
+  lvar->regnum = regnum;
+  lvar->next = NULL;
+  size_t len = strlen(name) + 1;
+  lvar->name = mmrbc_alloc(len);
+  strsafecpy(lvar->name, name, len);
+  return lvar;
+}
+
 /*
  * returns -1 if symbol was not found
  */
@@ -162,6 +183,36 @@ int Scope_newSym(Scope *self, const char *value){
   }
   sym->next = newSym;
   return index;
+}
+
+/*
+ * returns -1 if lvar was not found
+ */
+int Scope_lvar_findRegnum(Lvar *lvar, const char *name)
+{
+  while (lvar != NULL) {
+    if (strcmp(lvar->name, name) == 0) {
+      return lvar->regnum;
+    }
+    lvar = lvar->next;
+  }
+  return -1;
+}
+
+int Scope_newLvar(Scope *self, const char *name, int newRegnum){
+  int regnum = Scope_lvar_findRegnum(self->lvar, name);
+  if (regnum >= 0) return regnum;
+  Lvar *newLvar = lvar_new(name, newRegnum);
+  if (self->lvar == NULL) {
+    self->lvar = newLvar;
+  } else {
+    Lvar *lvar = self->lvar;
+    while (lvar->next) {
+      lvar = lvar->next;
+    }
+    lvar->next = newLvar;
+  }
+  return newRegnum;
 }
 
 void Scope_push(Scope *self){
