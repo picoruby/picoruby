@@ -596,8 +596,7 @@ retry:
     self->state = EXPR_BEG;
   } else if (type != ON_NONE) {
     /* FIXME from here */
-    if ( (type == IDENTIFIER || type == CONSTANT)
-         && tokenizer_is_keyword(value) ) {
+    if ( type == CONSTANT && tokenizer_is_keyword(value) ) {
       type = KW;
       if ( !strcmp(value, "class") ) {
         self->state = EXPR_CLASS;

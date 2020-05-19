@@ -19,11 +19,22 @@ typedef struct literal
   struct literal *next;
 } Literal;
 
+/*
+ * A symbol can be:
+ *  @ivar, $gvar, puts(fname), :symbol, CONST
+ */
 typedef struct symbol
 {
   char *value;
   struct symbol *next;
 } Symbol;
+
+typedef struct lvar
+{
+  char *name;
+  int regnum;
+  struct lvar *next;
+} Lvar;
 
 typedef struct code_snippet
 {
@@ -39,6 +50,7 @@ typedef struct scope
   int nlocals;
   int nirep;
   Symbol *symbol;
+  Lvar *lvar;
   Literal *literal;
   int sp;
   int max_sp;
@@ -59,6 +71,8 @@ void Scope_pushCode_self(Scope *self, int val);
 int Scope_newLit(Scope *self, const char *value, LiteralType type);
 
 int Scope_newSym(Scope *self, const char *value);
+
+int Scope_newLvar(Scope *self, const char *name, int newRegnum);
 
 void Scope_push(Scope *self);
 

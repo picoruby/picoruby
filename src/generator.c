@@ -155,6 +155,7 @@ void gen_call(Scope *scope, Node *tree)
 
 void codegen(Scope *scope, Node *tree)
 {
+  int regnum;
   if (tree == NULL || Node_isAtom(tree)) return;
   switch (Node_atomType(tree)) {
     case ATOM_NONE:
@@ -173,6 +174,15 @@ void codegen(Scope *scope, Node *tree)
       codegen(scope, tree->cons.cdr);
       break;
     case ATOM_stmts_new: // NEW_BEGIN
+      break;
+    case ATOM_assign:
+      regnum = Scope_newLvar(scope, Node_literalName(tree->cons.cdr->cons.car->cons.cdr->cons.car->cons.cdr), scope->sp);
+      Scope_push(scope);
+      codegen(scope, tree->cons.cdr->cons.cdr);
+      Scope_pushCode(OP_MOVE);
+      Scope_pushCode(regnum);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
       break;
     case ATOM_command:
       gen_self(scope);
