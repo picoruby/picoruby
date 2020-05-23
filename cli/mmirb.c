@@ -133,37 +133,63 @@ c_exit_shell(mrbc_vm *vm, mrbc_value *v, int argc)
   */
 }
 
-void run(uint8_t *mrb)
+void vm_restart(struct VM *vm)
 {
-  init_static();
-  struct VM *vm = mrbc_vm_open(NULL);
-  if( vm == 0 ) {
-    FATALP("Error: Can't open VM.");
-    return;
-  }
-  if( mrbc_load_mrb(vm, mrb) != 0 ) {
-    FATALP("Error: Illegal bytecode.");
-    return;
-  }
-  mrbc_vm_begin(vm);
-  mrbc_vm_run(vm);
+  vm->pc_irep = vm->irep;
+  vm->inst = vm->pc_irep->code;
+  vm->current_regs = vm->regs;
+  vm->callinfo_tail = NULL;
+  vm->target_class = mrbc_class_object;
+  vm->exc = 0;
+  vm->exception_tail = 0;
+  vm->error_code = 0;
+  vm->flag_preemption = 0;
+}
+
+void print_inspect(struct VM *vm)
+{
   find_class_by_object(vm, vm->current_regs);
   mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
   hal_write(1, "=> ", 3);
   hal_write(1, ret.string->data, ret.string->size);
   hal_write(1, "\r\n", 2);
-  mrbc_vm_end(vm);
-  mrbc_vm_close(vm);
 }
+
+static bool firstRun = true;
+static struct VM *vm;
+
+void vm_run(uint8_t *mrb)
+{
+  if (firstRun) {
+    vm = mrbc_vm_open(NULL);
+    if(vm == NULL) {
+      hal_write(1, "Error: Can't open VM.\r\n", 23);
+      return;
+    }
+  }
+  if(mrbc_load_mrb(vm, mrb) != 0) {
+    hal_write(1, "Error: Illegal bytecode.\r\n", 26);
+    return;
+  }
+  if (firstRun) {
+    mrbc_vm_begin(vm);
+    firstRun = false;
+  } else {
+    vm_restart(vm);
+  }
+  mrbc_vm_run(vm);
+  print_inspect(vm);
+}
+
+static Scope *scope;
 
 static void
 c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  static Scope *scope;
-  scope = Scope_new(NULL);
+  if (firstRun) scope = Scope_new(NULL);
   StreamInterface *si = StreamInterface_new((char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
   if (Compile(scope, si)) {
-    run(scope->vm_code);
+    vm_run(scope->vm_code);
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
