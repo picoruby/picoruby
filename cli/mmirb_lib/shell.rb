@@ -14,7 +14,7 @@ while !fd_empty? do
   print c
 end
 
-prompt = "mmrubyOS> "
+prompt = "mmirb> "
 
 if pid > 0
   # skip unless POSIX

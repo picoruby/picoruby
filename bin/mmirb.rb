@@ -54,8 +54,6 @@ begin
       shell_pid = client.get_shell_pid
       client.close
       puts "shell  pid: #{shell_pid}"
-      puts "starting cu terminal"
-      puts "type ~. to stop"
       puts
       puts "exec command below on another terminal:"
       puts "% cu -s 115200 -l #{fd_client}"

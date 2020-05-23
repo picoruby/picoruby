@@ -146,7 +146,7 @@ void vm_restart(struct VM *vm)
   vm->flag_preemption = 0;
 }
 
-void return_result(struct VM *vm)
+void print_inspect(struct VM *vm)
 {
   find_class_by_object(vm, vm->current_regs);
   mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
@@ -178,7 +178,7 @@ void vm_run(uint8_t *mrb)
     vm_restart(vm);
   }
   mrbc_vm_run(vm);
-  return_result(vm);
+  print_inspect(vm);
 }
 
 static Scope *scope;
