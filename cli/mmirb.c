@@ -146,39 +146,40 @@ void vm_restart(struct VM *vm)
   vm->flag_preemption = 0;
 }
 
-void print_inspect(struct VM *vm)
+static struct VM *c_vm;
+
+static void
+c_print_inspect(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  find_class_by_object(vm, vm->current_regs);
-  mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
+  find_class_by_object(c_vm, c_vm->current_regs);
+  mrbc_value ret = mrbc_send(c_vm, c_vm->current_regs, 0, c_vm->current_regs, "inspect", 0);
   hal_write(1, "=> ", 3);
   hal_write(1, ret.string->data, ret.string->size);
   hal_write(1, "\r\n", 2);
 }
 
 static bool firstRun = true;
-static struct VM *vm;
 
 void vm_run(uint8_t *mrb)
 {
   if (firstRun) {
-    vm = mrbc_vm_open(NULL);
-    if(vm == NULL) {
+    c_vm = mrbc_vm_open(NULL);
+    if(c_vm == NULL) {
       hal_write(1, "Error: Can't open VM.\r\n", 23);
       return;
     }
   }
-  if(mrbc_load_mrb(vm, mrb) != 0) {
+  if(mrbc_load_mrb(c_vm, mrb) != 0) {
     hal_write(1, "Error: Illegal bytecode.\r\n", 26);
     return;
   }
   if (firstRun) {
-    mrbc_vm_begin(vm);
+    mrbc_vm_begin(c_vm);
     firstRun = false;
   } else {
-    vm_restart(vm);
+    vm_restart(c_vm);
   }
-  mrbc_vm_run(vm);
-  print_inspect(vm);
+  mrbc_vm_run(c_vm);
 }
 
 static Scope *scope;
@@ -231,6 +232,7 @@ process_child(void)
   WARNP("successfully forked. child");
   mrbc_init(heap, HEAP_SIZE);
   mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
+  mrbc_define_method(0, mrbc_class_object, "print_inspect", c_print_inspect);
   mrbc_define_method(0, mrbc_class_object, "fd_empty?", c_is_fd_empty);
   mrbc_define_method(0, mrbc_class_object, "print", c_print);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);

@@ -43,8 +43,10 @@ while true
       when "quit", "exit"
         exit_shell
       else
-        unless compile_and_run(line)
-          puts "Failed to compile!"
+        if compile_and_run(line)
+          print_inspect
+        else
+          puts "Failed to run!"
         end
       end
       print prompt
