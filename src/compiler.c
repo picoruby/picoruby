@@ -17,15 +17,16 @@
 #define CTRL     "\e[35;1m"
 #define LETTER   "\e[36m"
 #define EIGHTBIT "\e[33m"
+#define DUMP_LINE_LEN 210
 void dumpCode(Scope *scope)
 {
-  char line[200];
-  memset(line, '\0', 200);
+  char line[DUMP_LINE_LEN];
+  memset(line, '\0', DUMP_LINE_LEN);
   int linelen = 0;
   int c, i, j;
   for (i = 0; i < scope->vm_code_size; i++) {
     c = scope->vm_code[i];
-    if (linelen == 8) strsafecat(line, "|", 200);
+    if (linelen == 8) strsafecat(line, "|", DUMP_LINE_LEN);
     if (i != 0) {
       if (i % 16 == 0) {
         printf(" %s\n", line);
@@ -37,27 +38,29 @@ void dumpCode(Scope *scope)
     }
     if (c == 0) {
       printf(ZERO);
-      strsafecat(line, ZERO, 200);
-      strsafecat(line, "0", 200);
+      strsafecat(line, ZERO, DUMP_LINE_LEN);
+      strsafecat(line, "0", DUMP_LINE_LEN);
     } else if (c < 0x20) {
       printf(CTRL);
-      strsafecat(line, CTRL, 200);
-      strsafecat(line, "\uFFED", 200);
+      strsafecat(line, CTRL, DUMP_LINE_LEN);
+      strsafecat(line, "\uFFED", DUMP_LINE_LEN);
     } else if (c < 0x7f) {
       printf(LETTER);
-      strsafecat(line, LETTER, 200);
-      strsafecat(line, &c, 200);
+      strsafecat(line, LETTER, DUMP_LINE_LEN);
+      strsafecat(line, &c, DUMP_LINE_LEN);
     } else {
       printf(EIGHTBIT);
-      strsafecat(line, EIGHTBIT, 200);
-      strsafecat(line, "\uFFED", 200);
+      strsafecat(line, EIGHTBIT, DUMP_LINE_LEN);
+      strsafecat(line, "\uFFED", DUMP_LINE_LEN);
     }
-    strsafecat(line, "\e[m", 200);
+    strsafecat(line, "\e[m", DUMP_LINE_LEN);
     linelen++;
     printf("%02x\e[m ", c);
   }
-  if (i % 16 < 9) printf("  "); /* equiv size to "| " */
-  for (j = i % 16; j < 16; j++) printf("   ");
+  if (linelen != 16) {
+    if (i % 16 < 9) printf("  "); /* equiv size to "| " */
+    for (j = i % 16; j < 16; j++) printf("   ");
+  }
   printf(" %s\n", line);
 }
 #endif
