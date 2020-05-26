@@ -160,7 +160,6 @@ void gen_var(Scope *scope, Node *node)
       regnum = Scope_lvar_findRegnum(scope->lvar, Node_literalName(node->cons.cdr));
       if (regnum > 0) {
         Scope_pushCode(OP_MOVE);
-        Scope_pop(scope);
         Scope_pushCode(scope->sp);
         Scope_push(scope);
         Scope_pushCode(regnum);
