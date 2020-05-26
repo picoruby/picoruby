@@ -57,18 +57,18 @@ void gen_str(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_STRING);
   Scope_pushCode(scope->sp);
+  Scope_push(scope);
   int litIndex = Scope_newLit(scope, Node_literalName(node), STRING_LITERAL);
   Scope_pushCode(litIndex);
-  Scope_push(scope);
 }
 
 void gen_sym(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_LOADSYM);
   Scope_pushCode(scope->sp);
+  Scope_push(scope);
   int litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
-  Scope_push(scope);
 }
 
 void gen_literal_numeric(Scope *scope, char *num, LiteralType type, Misc pos_neg)
@@ -162,14 +162,15 @@ void gen_var(Scope *scope, Node *node)
         Scope_pushCode(OP_MOVE);
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
-        Scope_pushCode(regnum);
         Scope_push(scope);
+        Scope_pushCode(regnum);
       } else {
         /* fcall without arg */
         gen_self(scope);
         Scope_pushCode(OP_SEND);
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
+        Scope_push(scope);
         int symIndex = Scope_newSym(scope, Node_literalName(node->cons.cdr));
         Scope_pushCode(symIndex);
         Scope_pushCode(0);
@@ -192,6 +193,7 @@ void codegen(Scope *scope, Node *tree)
       Scope_pop(scope);
       Scope_pushCode(OP_RETURN);
       Scope_pushCode(scope->sp);
+      Scope_push(scope);
       Scope_pushCode(OP_STOP);
       Scope_finish(scope);
       break;
