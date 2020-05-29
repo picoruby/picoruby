@@ -415,11 +415,11 @@ retry:
       value[1] = '\0';
       switch (value[0]) {
         case '(':
-          if (IS_BEG()) {
+//          if (IS_BEG()) {
             type = LPAREN;
-          } else {
-            type = LPAREN_ARG;
-          }
+//          } else {
+//            type = LPAREN_ARG;
+//          }
           self->state = EXPR_BEG;
           tokenizer_paren_stack_add(self, PAREN_PAREN);
           break;

@@ -147,7 +147,7 @@ void gen_call(Scope *scope, Node *tree)
     Scope_pop(scope);
   }
   Scope_pushCode(OP_SEND);
-  Scope_pushCode(scope->sp - nargs);
+  Scope_pushCode(scope->sp - 1);
   int symIndex = Scope_newSym(scope, Node_literalName(tree->cons.cdr->cons.car->cons.cdr));
   Scope_pushCode(symIndex);
   Scope_pushCode(nargs);
@@ -168,9 +168,7 @@ void gen_var(Scope *scope, Node *node)
         /* fcall without arg */
         gen_self(scope);
         Scope_pushCode(OP_SEND);
-        Scope_pop(scope);
-        Scope_pushCode(scope->sp);
-        Scope_push(scope);
+        Scope_pushCode(scope->sp - 1);
         int symIndex = Scope_newSym(scope, Node_literalName(node->cons.cdr));
         Scope_pushCode(symIndex);
         Scope_pushCode(0);
@@ -208,9 +206,7 @@ void gen_assign(Scope *scope, Node *node)
       codegen(scope, node->cons.cdr);
       Scope_pushCode(OP_MOVE);
       Scope_pushCode(num);
-      Scope_pop(scope);
-      Scope_pushCode(scope->sp);
-      Scope_push(scope);
+      Scope_pushCode(scope->sp - 1);
       break;
     case (ATOM_at_ivar):
     case (ATOM_at_gvar):
@@ -228,9 +224,7 @@ void gen_assign(Scope *scope, Node *node)
           Scope_pushCode(OP_SETCONST);
           break;
       }
-      Scope_pop(scope);
-      Scope_pushCode(scope->sp);
-      Scope_push(scope);
+      Scope_pushCode(scope->sp - 1);
       Scope_pushCode(num);
       break;
   }
@@ -246,10 +240,8 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_program:
       codegen(scope, tree->cons.cdr->cons.car);
-      Scope_pop(scope);
       Scope_pushCode(OP_RETURN);
-      Scope_pushCode(scope->sp);
-      Scope_push(scope);
+      Scope_pushCode(scope->sp - 1);
       Scope_pushCode(OP_STOP);
       Scope_finish(scope);
       break;
