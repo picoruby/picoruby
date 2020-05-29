@@ -78,7 +78,8 @@ bool Compile(Scope *scope, StreamInterface *si)
         DEBUGP("(main)%p null", topToken);
       } else {
         if (topToken->type != ON_SP) {
-          INFOP("\n\e[32;40;1m%s\e[m len=%ld line=%d pos=%d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m",
+#ifdef MMRBC_DEBUG
+          printf("\e[32;40;1m%s\e[m len=%ld line=%d pos=%2d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m\n",
              tokenizer_mode_name(tokenizer->mode),
              strlen(topToken->value),
              topToken->line_num,
@@ -86,6 +87,7 @@ bool Compile(Scope *scope, StreamInterface *si)
              token_name(topToken->type),
              topToken->value,
              tokenizer_state_name(topToken->state));
+#endif
           LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
           Parse(parser, topToken->type, ls->str);
         }
