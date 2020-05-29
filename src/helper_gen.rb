@@ -20,6 +20,7 @@ def generate_tokenizer_helper
       end
     end
     file.puts <<~TEXT
+          case(EXPR_BEG|EXPR_LABEL): return "EXPR_BEG|EXPR_LABEL";
           default: return "\\e[37;41;1m\\\"UNDEFINED    \\\"\\e[m";
         }
       }
