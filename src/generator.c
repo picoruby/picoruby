@@ -5,6 +5,7 @@
 
 #include "mmrbc.h"
 #include "common.h"
+#include "debug.h"
 #include "scope.h"
 #include "node.h"
 #include "generator.h"
@@ -154,15 +155,15 @@ void gen_call(Scope *scope, Node *tree)
 
 void gen_var(Scope *scope, Node *node)
 {
-  int regnum;
+  int num;
   switch(Node_atomType(node)) {
     case (ATOM_at_ident):
-      regnum = Scope_lvar_findRegnum(scope->lvar, Node_literalName(node->cons.cdr));
-      if (regnum > 0) {
+      num = Scope_lvar_findRegnum(scope->lvar, Node_literalName(node->cons.cdr));
+      if (num > 0) {
         Scope_pushCode(OP_MOVE);
         Scope_pushCode(scope->sp);
         Scope_push(scope);
-        Scope_pushCode(regnum);
+        Scope_pushCode(num);
       } else {
         /* fcall without arg */
         gen_self(scope);
@@ -175,12 +176,68 @@ void gen_var(Scope *scope, Node *node)
         Scope_pushCode(0);
       }
       break;
+    case (ATOM_at_ivar):
+    case (ATOM_at_gvar):
+    case (ATOM_at_const):
+      num = Scope_newSym(scope, Node_literalName(node->cons.cdr));
+      switch (Node_atomType(node)) {
+        case (ATOM_at_ivar):
+          Scope_pushCode(OP_GETIV);
+          break;
+        case (ATOM_at_gvar):
+          Scope_pushCode(OP_GETGV);
+          break;
+        case (ATOM_at_const):
+          Scope_pushCode(OP_GETCONST);
+          break;
+      }
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      Scope_pushCode(num);
+      break;
+  }
+}
+
+void gen_assign(Scope *scope, Node *node)
+{
+  int num;
+  switch(Node_atomType(node->cons.car->cons.cdr->cons.car)) {
+    case (ATOM_at_ident):
+      num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr->cons.car->cons.cdr), scope->sp);
+      Scope_push(scope);
+      codegen(scope, node->cons.cdr);
+      Scope_pushCode(OP_MOVE);
+      Scope_pushCode(num);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      break;
+    case (ATOM_at_ivar):
+    case (ATOM_at_gvar):
+    case (ATOM_at_const):
+      num = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr->cons.car->cons.cdr));
+      codegen(scope, node->cons.cdr);
+      switch(Node_atomType(node->cons.car->cons.cdr->cons.car)) {
+        case (ATOM_at_ivar):
+          Scope_pushCode(OP_SETIV);
+          break;
+        case (ATOM_at_gvar):
+          Scope_pushCode(OP_SETGV);
+          break;
+        case (ATOM_at_const):
+          Scope_pushCode(OP_SETCONST);
+          break;
+      }
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      Scope_pushCode(num);
+      break;
   }
 }
 
 void codegen(Scope *scope, Node *tree)
 {
-  int regnum;
   if (tree == NULL || Node_isAtom(tree)) return;
   switch (Node_atomType(tree)) {
     case ATOM_NONE:
@@ -203,14 +260,7 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_stmts_new: // NEW_BEGIN
       break;
     case ATOM_assign:
-      regnum = Scope_newLvar(scope, Node_literalName(tree->cons.cdr->cons.car->cons.cdr->cons.car->cons.cdr), scope->sp);
-      Scope_push(scope);
-      codegen(scope, tree->cons.cdr->cons.cdr);
-      Scope_pushCode(OP_MOVE);
-      Scope_pushCode(regnum);
-      Scope_pop(scope);
-      Scope_pushCode(scope->sp);
-      Scope_push(scope);
+      gen_assign(scope, tree->cons.cdr);
       break;
     case ATOM_command:
       gen_self(scope);
