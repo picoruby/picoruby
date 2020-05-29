@@ -28,6 +28,7 @@ while true
   while !fd_empty? do
     c = getc
     break if c == nil
+    # print c.ord.to_s
     case c.ord
     when 7 # ESC
       exit_shell
@@ -51,8 +52,8 @@ while true
       end
       print prompt
       line = ""
-    when 65, 66, 67, 68, 126 # ↑↓→←etc.
-      # ignore?
+    when 14, 15 # Shift Out, Shift In
+      print "shift"
     when 127 # backspace
       if line.size > 0
         line = line[0, line.size - 1] # line.chop!
@@ -60,7 +61,6 @@ while true
       end
     else
       print c
-      # print "\r\n#{c.ord}\r\n"
       line << c
     end
   end
