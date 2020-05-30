@@ -543,6 +543,7 @@ retry:
       value[0] = '.';
       value[1] = '\0';
       type = PERIOD;
+      self->state = EXPR_DOT;
     } else if (Regex_match2(&(self->line[self->pos]), "^\\w")) {
       if (Regex_match3(&(self->line[self->pos]), "^([A-Za-z0-9_?!]+:)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);

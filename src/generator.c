@@ -140,15 +140,18 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
   Scope_push(scope);
 }
 
-void gen_call(Scope *scope, Node *tree)
+void gen_call(Scope *scope, Node *node)
 {
-  int nargs = gen_values(scope, tree->cons.cdr->cons.cdr->cons.car);
-  for (int i = 0; i < nargs; i++) {
-    Scope_pop(scope);
+  int nargs = 0;
+  if (node->cons.cdr->cons.car) {
+    nargs = gen_values(scope, node->cons.cdr->cons.car);
+    for (int i = 0; i < nargs; i++) {
+      Scope_pop(scope);
+    }
   }
   Scope_pushCode(OP_SEND);
   Scope_pushCode(scope->sp - 1);
-  int symIndex = Scope_newSym(scope, Node_literalName(tree->cons.cdr->cons.car->cons.cdr));
+  int symIndex = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr));
   Scope_pushCode(symIndex);
   Scope_pushCode(nargs);
 }
@@ -255,12 +258,13 @@ void codegen(Scope *scope, Node *tree)
       gen_assign(scope, tree->cons.cdr);
       break;
     case ATOM_command:
-      gen_self(scope);
-      gen_call(scope, tree);
-      break;
     case ATOM_fcall:
       gen_self(scope);
-      gen_call(scope, tree);
+      gen_call(scope, tree->cons.cdr);
+      break;
+    case ATOM_call:
+      codegen(scope, tree->cons.cdr);
+      gen_call(scope, tree->cons.cdr->cons.cdr);
       break;
     case ATOM_args_add:
       codegen(scope, tree->cons.car);
