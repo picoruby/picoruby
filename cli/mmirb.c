@@ -198,6 +198,23 @@ c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
   StreamInterface_free(si);
 }
 
+#define FREE_HEADER "          total       used       free       frag\r\n"
+static void
+c_free(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  int total;
+  int used;
+  int free;
+  int fragmentation;
+  mrbc_alloc_statistics(&total, &used, &free, &fragmentation);
+  char result[128];
+  hal_write(1, FREE_HEADER, strlen(FREE_HEADER));
+  snprintf(result, 128, "Mem: %10d %10d %10d %10d\r\n", total, used, free, fragmentation);
+  hal_write(1, result, strlen(result));
+  mrbc_alloc_print_memory_pool();
+  SET_NIL_RETURN();
+}
+
 void
 process_parent(pid_t pid)
 {
@@ -231,6 +248,7 @@ process_child(void)
 {
   WARNP("successfully forked. child");
   mrbc_init(heap, HEAP_SIZE);
+  mrbc_define_method(0, mrbc_class_object, "free", c_free);
   mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
   mrbc_define_method(0, mrbc_class_object, "print_inspect", c_print_inspect);
   mrbc_define_method(0, mrbc_class_object, "fd_empty?", c_is_fd_empty);

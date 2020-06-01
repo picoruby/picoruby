@@ -21,8 +21,12 @@ if pid > 0
   puts "pid: #{pid}" # client will receive the pid
 end
 
+MAX_HISTORY_SIZE = 10
+$history = Array.new
+
 line = "" # String.new does not work...?
 print prompt
+
 while true
   suspend_task # suspend task itself
   while !fd_empty? do
@@ -45,9 +49,11 @@ while true
         exit_shell
       else
         if compile_and_run(line)
+          $history.unshift(line) unless line == "$history";
+          $history.pop if $history.size > MAX_HISTORY_SIZE
           print_inspect
         else
-          puts "Failed to run!"
+          puts "syntax error"
         end
       end
       print prompt
