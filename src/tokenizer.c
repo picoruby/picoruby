@@ -430,9 +430,11 @@ retry:
           break;
         case '[':
           type = LBRACKET;
+          self->state = EXPR_BEG|EXPR_LABEL;
           break;
         case ']':
           type = RBRACKET;
+          self->state = EXPR_END;
           break;
         case '{':
           type = LBRACE;
