@@ -156,6 +156,21 @@ void gen_call(Scope *scope, Node *node)
   Scope_pushCode(nargs);
 }
 
+void gen_array(Scope *scope, Node *node)
+{
+  int nargs = 0;
+  if (node->cons.cdr->cons.car) {
+    nargs = gen_values(scope, node);
+    for (int i = 0; i < nargs; i++) {
+      Scope_pop(scope);
+    }
+  }
+  Scope_pushCode(OP_ARRAY);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
+  Scope_pushCode(nargs);
+}
+
 void gen_var(Scope *scope, Node *node)
 {
   int num;
@@ -307,6 +322,11 @@ void codegen(Scope *scope, Node *tree)
           gen_float(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
         break;
       }
+      break;
+    case ATOM_array:
+      gen_array(scope, tree);
+      break;
+    default:
       break;
   }
 }
