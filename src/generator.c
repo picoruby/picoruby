@@ -211,6 +211,23 @@ void gen_var(Scope *scope, Node *node)
       Scope_push(scope);
       Scope_pushCode(num);
       break;
+    case (ATOM_kw_nil):
+      Scope_pushCode(OP_LOADNIL);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      break;
+    case (ATOM_kw_true):
+      Scope_pushCode(OP_LOADT);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      break;
+    case (ATOM_kw_false):
+      Scope_pushCode(OP_LOADF);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      break;
+    default:
+      break;
   }
 }
 
@@ -305,6 +322,9 @@ void codegen(Scope *scope, Node *tree)
       gen_str(scope, tree->cons.cdr);
       break;
     case ATOM_var_field:
+      gen_var(scope, tree->cons.cdr->cons.car);
+      break;
+    case ATOM_var_ref:
       gen_var(scope, tree->cons.cdr->cons.car);
       break;
     case ATOM_at_int:

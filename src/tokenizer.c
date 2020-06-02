@@ -5,6 +5,7 @@
 
 #include "mmrbc.h"
 #include "ruby-lemon-parse/parse.h"
+#include "ruby-lemon-parse/keyword_helper.h"
 #include "common.h"
 #include "tokenizer.h"
 #include "token.h"
@@ -17,15 +18,6 @@
 #define IS_BEG() (self->state == EXPR_BEG || self->state == EXPR_MID || self->state == EXPR_VALUE || self->state == EXPR_CLASS)
 
 #define IS_NUM(n) ('0' <= self->line[self->pos+(n)] && self->line[self->pos+(n)] <= '9')
-
-static bool tokenizer_is_keyword(char *word)
-{
-  for (int i = 0; KEYWORDS[i].string != NULL; i++){
-    if ( !strcmp(word, KEYWORDS[i].string) )
-      return true;
-  }
-  return false;
-}
 
 static bool tokenizer_is_operator(char *word, size_t len)
 {
@@ -599,8 +591,9 @@ retry:
     self->state = EXPR_BEG;
   } else if (type != ON_NONE) {
     /* FIXME from here */
-    if ( type == CONSTANT && tokenizer_is_keyword(value) ) {
-      type = KW;
+    int8_t kw_num = keyword(value);
+    if ( kw_num > 0 ) {
+      type = (uint8_t)kw_num;
       if ( !strcmp(value, "class") ) {
         self->state = EXPR_CLASS;
       } else if ( !strcmp(value, "return")
@@ -612,6 +605,8 @@ retry:
                   || !strcmp(value, "alias")
                   || !strcmp(value, "undef") ) {
         self->state = EXPR_FNAME;
+      } else {
+        self->state = EXPR_END;
       }
     } else if (type == IDENTIFIER) {
       switch (self->state) {
