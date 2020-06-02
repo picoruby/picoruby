@@ -421,7 +421,11 @@ retry:
           tokenizer_paren_stack_pop(self);
           break;
         case '[':
-          type = LBRACKET;
+          if ( IS_BEG() || (IS_ARG() && self->line[self->pos - 1] == ' ') ) {
+            type = LBRACKET_ARRAY;
+          } else {
+            type = LBRACKET;
+          }
           self->state = EXPR_BEG|EXPR_LABEL;
           break;
         case ']':
