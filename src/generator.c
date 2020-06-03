@@ -149,11 +149,32 @@ void gen_call(Scope *scope, Node *node)
       Scope_pop(scope);
     }
   }
-  Scope_pushCode(OP_SEND);
-  Scope_pushCode(scope->sp - 1);
-  int symIndex = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr));
-  Scope_pushCode(symIndex);
-  Scope_pushCode(nargs);
+  char *method_name = Node_literalName(node->cons.car->cons.cdr);
+  if (method_name[1] == '\0' && strchr("+-*/", method_name[0]) != NULL) {
+    switch (method_name[0]) {
+      case '+':
+        Scope_pushCode(OP_ADD);
+        break;
+      case '-':
+        Scope_pushCode(OP_SUB);
+        break;
+      case '*':
+        Scope_pushCode(OP_MUL);
+        break;
+      case '/':
+        Scope_pushCode(OP_DIV);
+        break;
+      default:
+        FATALP("This should not happen");
+    }
+    Scope_pushCode(scope->sp - 1);
+  } else {
+    Scope_pushCode(OP_SEND);
+    Scope_pushCode(scope->sp - 1);
+    int symIndex = Scope_newSym(scope, method_name);
+    Scope_pushCode(symIndex);
+    Scope_pushCode(nargs);
+  }
 }
 
 void gen_array(Scope *scope, Node *node)

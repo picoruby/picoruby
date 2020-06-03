@@ -495,17 +495,28 @@ retry:
         if (self->line[self->pos] == '-' && IS_NUM(1)) {
           type = UMINUS_NUM;
         } else {
-          type = ON_OP;
-          if (self->line[self->pos] == '=') {
-//            if (self->line[self->pos + 1] == '=') {
-//              if (self->line[self->pos + 2] == '=') {
-//                type = EQQ;
-//              } else {
-//                type = EQ;
-//              }
-//            }
-            type = E;
-            self->state = EXPR_BEG;
+          switch (value[0]) {
+            case '=':
+              type = E;
+              self->state = EXPR_BEG;
+              break;
+            case '+':
+              type = PLUS;
+              break;
+            case '-':
+              type = MINUS;
+              break;
+            case '*':
+              type = TIMES;
+              break;
+            case '/':
+              type = DIVIDE;
+              break;
+            case '%':
+              type = SURPLUS;
+              break;
+            default:
+              type = ON_OP;
           }
         }
       }
