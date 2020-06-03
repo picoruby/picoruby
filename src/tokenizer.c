@@ -367,7 +367,20 @@ retry:
     value[0] = self->line[self->pos];
     value[1] = self->line[self->pos + 1];
     value[2] = '\0';
-    type = ON_OP;
+    switch (value[0]) {
+      case '*':
+        switch (value[1]) {
+          case '*':
+            type = POW;
+            break;
+          default:
+            FATALP("error");
+        }
+        break;
+      default:
+        FATALP("error");
+        break;
+    }
   } else if (Regex_match3(&(self->line[self->pos]), "^(@\\w+)", regexResult)) {
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = IVAR;
