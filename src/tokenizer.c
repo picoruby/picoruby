@@ -34,12 +34,6 @@ static bool tokenizer_is_operator(char *word, size_t len)
           return true;
       }
       break;
-    case 1:
-      for (int i = 0; OPERATORS_1[i].letter != 0; i++){
-        if ( *word == OPERATORS_1[i].letter )
-          return true;
-      }
-      break;
     default:
       ERRORP("Out of range!");
       break;
@@ -460,7 +454,7 @@ retry:
         default:
           ERRORP("unknown paren error");
       }
-    } else if (tokenizer_is_operator(&(self->line[self->pos]), 1)) {
+    } else if (strchr("+-*/%&|^!~><=?:", self->line[self->pos]) != NULL) {
       if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][]-~!@#$%^&*()_=+\[{};:'\"?])", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         switch (value[1]) {
@@ -505,8 +499,14 @@ retry:
       } else {
         value[0] = self->line[self->pos];
         value[1] = '\0';
-        if (self->line[self->pos] == '-' && IS_NUM(1)) {
-          type = UMINUS_NUM;
+        if (IS_BEG() && value[0] == '-') {
+          if (IS_NUM(1)) {
+            type = UMINUS_NUM;
+          } else {
+            type = UMINUS;
+          }
+        } else if (IS_BEG() && value[0] == '+') {
+          type = UPLUS;
         } else {
           switch (value[0]) {
             case '=':
@@ -528,10 +528,17 @@ retry:
             case '%':
               type = SURPLUS;
               break;
+            case '!':
+              type = UEXCL;
+              break;
+            case '~':
+              type = UTILDE;
+              break;
             default:
               type = ON_OP;
           }
         }
+        self->state = EXPR_BEG;
       }
     } else if (tokenizer_is_semicolon(self->line[self->pos])) {
       value[0] = self->line[self->pos];
