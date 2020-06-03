@@ -199,9 +199,11 @@ c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 #define FREE_HEADER "          total       used       free       frag\r\n"
+#define FREE_DOES_NOT_WORK "free() doesn't work on production build\r\n"
 static void
 c_free(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+#ifdef MMRBC_DEBUG
   int total;
   int used;
   int free;
@@ -212,6 +214,9 @@ c_free(mrbc_vm *vm, mrbc_value *v, int argc)
   snprintf(result, 128, "Mem: %10d %10d %10d %10d\r\n", total, used, free, fragmentation);
   hal_write(1, result, strlen(result));
   mrbc_alloc_print_memory_pool();
+#else
+  hal_write(1, FREE_DOES_NOT_WORK, strlen(FREE_DOES_NOT_WORK));
+#endif
   SET_NIL_RETURN();
 }
 
