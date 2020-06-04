@@ -15,7 +15,7 @@
 
 #define IS_ARG() (self->state == EXPR_ARG || self->state == EXPR_CMDARG)
 #define IS_END() (self->state == EXPR_END || self->state == EXPR_ENDARG || self->state == EXPR_ENDFN)
-#define IS_BEG() (self->state == EXPR_BEG || self->state == EXPR_MID || self->state == EXPR_VALUE || self->state == EXPR_CLASS)
+#define IS_BEG() (self->state & EXPR_BEG || self->state == EXPR_MID || self->state == EXPR_VALUE || self->state == EXPR_CLASS)
 
 #define IS_NUM(n) ('0' <= self->line[self->pos+(n)] && self->line[self->pos+(n)] <= '9')
 
