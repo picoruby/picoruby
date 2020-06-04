@@ -150,22 +150,15 @@ void gen_call(Scope *scope, Node *node)
     }
   }
   char *method_name = Node_literalName(node->cons.car->cons.cdr);
-  if (method_name[1] == '\0' && strchr("+-*/", method_name[0]) != NULL) {
+  if (method_name[1] == '\0' && strchr("><+-*/", method_name[0]) != NULL) {
     switch (method_name[0]) {
-      case '+':
-        Scope_pushCode(OP_ADD);
-        break;
-      case '-':
-        Scope_pushCode(OP_SUB);
-        break;
-      case '*':
-        Scope_pushCode(OP_MUL);
-        break;
-      case '/':
-        Scope_pushCode(OP_DIV);
-        break;
-      default:
-        FATALP("This should not happen");
+      case '>': Scope_pushCode(OP_GT); break;
+      case '<': Scope_pushCode(OP_LT); break;
+      case '+': Scope_pushCode(OP_ADD); break;
+      case '-': Scope_pushCode(OP_SUB); break;
+      case '*': Scope_pushCode(OP_MUL); break;
+      case '/': Scope_pushCode(OP_DIV); break;
+      default: FATALP("This should not happen"); break;
     }
     Scope_pushCode(scope->sp - 1);
   } else {

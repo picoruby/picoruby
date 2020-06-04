@@ -511,7 +511,12 @@ retry:
           switch (value[0]) {
             case '=':
               type = E;
-              self->state = EXPR_BEG;
+              break;
+            case '>':
+              type = GT;
+              break;
+            case '<':
+              type = LT;
               break;
             case '+':
               type = PLUS;
