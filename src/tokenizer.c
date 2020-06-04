@@ -528,6 +528,15 @@ retry:
             case '%':
               type = SURPLUS;
               break;
+            case '|':
+              type = OR;
+              break;
+            case '^':
+              type = XOR;
+              break;
+            case '&':
+              type = AND;
+              break;
             case '!':
               type = UEXCL;
               break;
