@@ -538,10 +538,10 @@ retry:
               type = AND;
               break;
             case '!':
-              type = UEXCL;
+              type = UNEG;
               break;
             case '~':
-              type = UTILDE;
+              type = UNOT;
               break;
             default:
               type = ON_OP;
