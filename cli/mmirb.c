@@ -203,7 +203,7 @@ c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_free(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-#ifdef MMRBC_DEBUG
+#if defined(MMRBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
   int total;
   int used;
   int free;
