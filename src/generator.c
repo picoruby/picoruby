@@ -229,6 +229,8 @@ void gen_var(Scope *scope, Node *node)
         case (ATOM_at_const):
           Scope_pushCode(OP_GETCONST);
           break;
+        default:
+          FATALP("error");
       }
       Scope_pushCode(scope->sp);
       Scope_push(scope);
@@ -281,11 +283,125 @@ void gen_assign(Scope *scope, Node *node)
         case (ATOM_at_const):
           Scope_pushCode(OP_SETCONST);
           break;
+        default:
+          FATALP("error");
       }
       Scope_pushCode(scope->sp - 1);
       Scope_pushCode(num);
       break;
+    default:
+      FATALP("error");
   }
+}
+
+void gen_op_assign(Scope *scope, Node *node)
+{
+  int num;
+  switch(Node_atomType(node->cons.car->cons.cdr->cons.car)) {
+    case (ATOM_at_ident):
+      num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr->cons.car->cons.cdr), scope->sp);
+      Scope_pushCode(OP_MOVE);
+      Scope_push(scope);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      Scope_pushCode(num);
+      break;
+    case (ATOM_at_ivar):
+    case (ATOM_at_gvar):
+    case (ATOM_at_const):
+      num = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr->cons.car->cons.cdr));
+      switch(Node_atomType(node->cons.car->cons.cdr->cons.car)) {
+        case (ATOM_at_ivar):
+          Scope_pushCode(OP_GETIV);
+          break;
+        case (ATOM_at_gvar):
+          Scope_pushCode(OP_GETGV);
+          break;
+        case (ATOM_at_const):
+          Scope_pushCode(OP_GETCONST);
+          break;
+        default:
+          FATALP("error");
+      }
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+      Scope_pushCode(num);
+      break;
+    default:
+      FATALP("error");
+  }
+  codegen(scope, node->cons.cdr->cons.cdr); /* right hand */
+  char *method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
+  switch (method_name[0]) {
+    case '+':
+      Scope_pushCode(OP_ADD);
+      Scope_pop(scope);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      break;
+    case '-':
+      Scope_pushCode(OP_SUB);
+      Scope_pop(scope);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      break;
+    case '/':
+      Scope_pushCode(OP_DIV);
+      Scope_pop(scope);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      break;
+    case '%':
+    case '^':
+    case '&':
+    case '|':
+    case '<': /* <<= */
+    case '>': /* >>= */
+    case '*': /* *= and **= */
+      if (!strcmp(method_name, "*=")) {
+        Scope_pushCode(OP_MUL);
+        Scope_pop(scope);
+        Scope_pop(scope);
+        Scope_pushCode(scope->sp);
+      } else {
+        Scope_pushCode(OP_SEND);
+        Scope_pop(scope);
+        Scope_pop(scope);
+        Scope_pushCode(scope->sp);
+        method_name[strlen(method_name) - 1] = '\0';
+        int symIndex = Scope_newSym(scope, method_name);
+        Scope_pushCode(symIndex);
+        Scope_pushCode(1);
+      }
+      break;
+    default:
+      FATALP("error");
+  }
+  switch(Node_atomType(node->cons.car->cons.cdr->cons.car)) {
+    case (ATOM_at_ident):
+      Scope_pushCode(OP_MOVE);
+      Scope_pushCode(num);
+      Scope_pushCode(scope->sp);
+      break;
+    case (ATOM_at_ivar):
+      Scope_pushCode(OP_SETIV);
+      Scope_pushCode(scope->sp);
+      Scope_pushCode(num);
+      break;
+    case (ATOM_at_gvar):
+      Scope_pushCode(OP_SETGV);
+      Scope_pushCode(scope->sp);
+      Scope_pushCode(num);
+      break;
+    case (ATOM_at_const):
+      Scope_pushCode(OP_SETCONST);
+      Scope_pushCode(scope->sp);
+      Scope_pushCode(num);
+      break;
+    default:
+      FATALP("error");
+  }
+  Scope_push(scope);
 }
 
 void codegen(Scope *scope, Node *tree)
@@ -311,6 +427,9 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_assign:
       gen_assign(scope, tree->cons.cdr);
+      break;
+    case ATOM_op_assign:
+      gen_op_assign(scope, tree->cons.cdr);
       break;
     case ATOM_command:
     case ATOM_fcall:
@@ -360,10 +479,12 @@ void codegen(Scope *scope, Node *tree)
       switch (Node_atomType(tree->cons.cdr->cons.cdr->cons.car)) {
         case (ATOM_at_int):
           gen_int(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
-        break;
+          break;
         case (ATOM_at_float):
           gen_float(scope, tree->cons.cdr->cons.cdr->cons.car->cons.cdr, NUM_NEG);
-        break;
+          break;
+        default:
+          break;
       }
       break;
     case ATOM_array:

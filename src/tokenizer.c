@@ -360,6 +360,8 @@ retry:
       type = EQQ;
     } else if (strcmp(value, "<=>") == 0) {
       type = CMP;
+    } else if (value[2] == '=') {
+      type = OP_ASGN;
     }
   } else if (tokenizer_is_operator(&(self->line[self->pos]), 2)) {
     value[0] = self->line[self->pos];
@@ -379,6 +381,7 @@ retry:
       case '*':
         switch (value[1]) {
           case '*': type = POW; break;
+          case '=': type = OP_ASGN; break;
         }
         break;
       case '<':
@@ -392,6 +395,16 @@ retry:
           case '>': type = RSHIFT; break;
           case '=': type = GEQ; break;
         }
+        break;
+      case '+':
+      case '-':
+      case '/':
+      case '^':
+      case '%':
+      case '&':
+      case '|':
+        type = OP_ASGN;
+        self->state = EXPR_BEG;
         break;
       default:
         FATALP("error");
