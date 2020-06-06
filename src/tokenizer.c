@@ -364,11 +364,16 @@ retry:
     switch (value[0]) {
       case '*':
         switch (value[1]) {
-          case '*':
-            type = POW;
-            break;
-          default:
-            FATALP("error");
+          case '*': type = POW; break;
+        }
+      case '<':
+        switch (value[1]) {
+          case '<': type = LSHIFT; break;
+        }
+        break;
+      case '>':
+        switch (value[1]) {
+          case '>': type = RSHIFT; break;
         }
         break;
       default:
