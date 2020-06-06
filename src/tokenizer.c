@@ -356,24 +356,41 @@ retry:
     value[1] = self->line[self->pos + 1];
     value[2] = self->line[self->pos + 2];
     value[3] = '\0';
-    type = ON_OP;
+    if (strcmp(value, "===") == 0) {
+      type = EQQ;
+    } else if (strcmp(value, "<=>") == 0) {
+      type = CMP;
+    }
   } else if (tokenizer_is_operator(&(self->line[self->pos]), 2)) {
     value[0] = self->line[self->pos];
     value[1] = self->line[self->pos + 1];
     value[2] = '\0';
     switch (value[0]) {
+      case '=':
+        switch (value[1]) {
+          case '=': type = EQ; break;
+        }
+        break;
+      case '!':
+        switch (value[1]) {
+          case '=': type = NEQ; break;
+        }
+        break;
       case '*':
         switch (value[1]) {
           case '*': type = POW; break;
         }
+        break;
       case '<':
         switch (value[1]) {
           case '<': type = LSHIFT; break;
+          case '=': type = LEQ; break;
         }
         break;
       case '>':
         switch (value[1]) {
           case '>': type = RSHIFT; break;
+          case '=': type = GEQ; break;
         }
         break;
       default:

@@ -161,6 +161,15 @@ void gen_call(Scope *scope, Node *node)
       default: FATALP("This should not happen"); break;
     }
     Scope_pushCode(scope->sp - 1);
+  } else if (strcmp(method_name, "==") == 0) {
+    Scope_pushCode(OP_EQ);
+    Scope_pushCode(scope->sp - 1);
+  } else if (strcmp(method_name, ">=") == 0) {
+    Scope_pushCode(OP_GE);
+    Scope_pushCode(scope->sp - 1);
+  } else if (strcmp(method_name, "<=") == 0) {
+    Scope_pushCode(OP_LE);
+    Scope_pushCode(scope->sp - 1);
   } else {
     Scope_pushCode(OP_SEND);
     Scope_pushCode(scope->sp - 1);
