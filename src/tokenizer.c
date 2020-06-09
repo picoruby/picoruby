@@ -413,9 +413,11 @@ retry:
   } else if (Regex_match3(&(self->line[self->pos]), "^(@\\w+)", regexResult)) {
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = IVAR;
+    self->state = EXPR_END;
   } else if (Regex_match3(&(self->line[self->pos]), "^(\\$\\w+)", regexResult)) {
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = GVAR;
+    self->state = EXPR_END;
   } else if (Regex_match3(&(self->line[self->pos]), "^(\\?.)", regexResult)) {
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = CHAR;
@@ -632,6 +634,7 @@ retry:
       } else if (Regex_match3(&(self->line[self->pos]), "^([A-Z]\\w*)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = CONSTANT;
+        self->state = EXPR_CMDARG;
       } else if (Regex_match3(&(self->line[self->pos]), "^(\\w+[!?]?)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = IDENTIFIER;
