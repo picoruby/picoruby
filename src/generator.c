@@ -43,7 +43,6 @@ int gen_values(Scope *scope, Node *tree)
   while (node != NULL) {
     if (hasCdr(node) && hasCar(node->cons.cdr) && Node_atomType(node->cons.cdr->cons.car) == ATOM_args_add) {
       nargs++;
-      codegen(scope, node->cons.cdr->cons.car);
     }
     if (node->cons.cdr != NULL) {
       node = node->cons.cdr->cons.car;
@@ -51,6 +50,7 @@ int gen_values(Scope *scope, Node *tree)
       node = NULL;
     }
   }
+  codegen(scope, tree->cons.cdr->cons.car);
   return nargs;
 }
 
@@ -192,6 +192,24 @@ void gen_array(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_push(scope);
   Scope_pushCode(nargs);
+}
+
+void gen_hash(Scope *scope, Node *node)
+{
+  int nassocs = 0;
+  Node *assoc = node;
+  while (assoc) {
+    codegen(scope, assoc->cons.car->cons.cdr);
+    nassocs++;
+    assoc = assoc->cons.cdr;
+  }
+  for (int i = 0; i < nassocs * 2; i++) {
+    Scope_pop(scope);
+  }
+  Scope_pushCode(OP_HASH);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
+  Scope_pushCode(nassocs);
 }
 
 void gen_var(Scope *scope, Node *node)
@@ -499,6 +517,9 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_array:
       gen_array(scope, tree);
+      break;
+    case ATOM_hash:
+      gen_hash(scope, tree->cons.cdr->cons.car);
       break;
     case ATOM_at_ivar:
     case ATOM_at_gvar:

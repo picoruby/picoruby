@@ -371,6 +371,7 @@ retry:
       case '=':
         switch (value[1]) {
           case '=': type = EQ; break;
+          case '>': type = ASSOC; self->state = EXPR_BEG; break;
         }
         break;
       case '!':
@@ -487,6 +488,7 @@ retry:
             return 1;
           }
           type = RBRACE;
+          self->state = EXPR_END;
           break;
         default:
           ERRORP("unknown paren error");
@@ -627,6 +629,8 @@ retry:
     } else if (Regex_match2(&(self->line[self->pos]), "^\\w")) {
       if (Regex_match3(&(self->line[self->pos]), "^([A-Za-z0-9_?!]+:)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
+        value[strlen(value) - 1] = '\0';
+        self->pos++;
         type = LABEL;
       } else if (Regex_match3(&(self->line[self->pos]), "^([A-Z]\\w*[!?])", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
