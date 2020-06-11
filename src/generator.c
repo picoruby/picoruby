@@ -162,7 +162,7 @@ void gen_call(Scope *scope, Node *node)
 {
   int nargs = 0;
   if (node->cons.cdr->cons.car) {
-    nargs = gen_values(scope, node->cons.cdr->cons.car);
+    nargs = gen_values(scope, node);
     for (int i = 0; i < nargs; i++) {
       Scope_pop(scope);
     }
@@ -316,7 +316,7 @@ void gen_assign(Scope *scope, Node *node)
       Node *call_node = node->cons.car->cons.cdr->cons.cdr;
       int nargs = 0;
       if (call_node->cons.cdr->cons.car) {
-        nargs = gen_values(scope, call_node->cons.cdr->cons.car);
+        nargs = gen_values(scope, call_node);
       }
       Scope_pushCode(OP_MOVE);
       Scope_pushCode(scope->sp);
@@ -333,6 +333,7 @@ void gen_assign(Scope *scope, Node *node)
       assign_method_name[strlen(method_name)] = '=';
       assign_method_name[strlen(method_name) + 1] = '\0';
       int symIndex = Scope_newSym(scope, assign_method_name);
+      mmrbc_free(assign_method_name);
       Scope_pushCode(symIndex);
       Scope_pushCode(nargs + 1);
       break;
@@ -580,6 +581,17 @@ void codegen(Scope *scope, Node *tree)
       Scope_pushCode(OP_LOADF);
       Scope_pushCode(scope->sp);
       Scope_push(scope);
+      break;
+    case ATOM_kw_return:
+      if (tree->cons.cdr->cons.car) {
+        codegen(scope, tree->cons.cdr->cons.car);
+      } else {
+        Scope_pushCode(OP_LOADNIL);
+        Scope_pushCode(scope->sp);
+        Scope_push(scope);
+      }
+      Scope_pushCode(OP_RETURN);
+      Scope_pushCode(scope->sp - 1);
       break;
     default:
 //      FATALP("error");

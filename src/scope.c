@@ -12,6 +12,7 @@ Scope *Scope_new(Scope *prev)
   Scope *self = mmrbc_alloc(sizeof(Scope));
   self->prev = prev;
   self->code_snippet = NULL;
+  self->last_snippet = NULL;
   self->nlocals = 1;
   self->nirep = 0;
   self->symbol = NULL;
@@ -70,13 +71,9 @@ void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
   if (self->code_snippet == NULL) {
     self->code_snippet = snippet;
   } else {
-    CodeSnippet *code_snippet = self->code_snippet;
-    for (;;) { // find the last code_snippet from top (RAM over CPU)
-      if (code_snippet->next == NULL) break;
-      code_snippet = code_snippet->next;
-    }
-    code_snippet->next = snippet;
+    self->last_snippet->next = snippet;
   }
+  self->last_snippet = snippet;
 }
 
 
