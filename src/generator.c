@@ -109,7 +109,23 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
   char num[strlen(node->cons.car->value.name)];
   cleanup_numeric_literal(node->cons.car->value.name, num);
-  unsigned int val = atoi(num);
+  unsigned long val;
+  switch (num[1]) {
+    case ('b'):
+    case ('B'):
+      val = strtol(num+2, NULL, 2);
+      break;
+    case ('o'):
+    case ('O'):
+      val = strtol(num+2, NULL, 8);
+      break;
+    case ('x'):
+    case ('X'):
+      val = strtol(num+2, NULL, 16);
+      break;
+    default:
+      val = strtol(num, NULL, 10);
+  }
   if (pos_neg == NUM_POS && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
     Scope_pushCode(scope->sp);
@@ -135,7 +151,9 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
-    gen_literal_numeric(scope, num, INTEGER_LITERAL, pos_neg);
+    char buf[12];
+    snprintf(buf, 12, "%ld", val);
+    gen_literal_numeric(scope, buf, INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }

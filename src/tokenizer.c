@@ -603,16 +603,33 @@ retry:
       self->state = EXPR_BEG|EXPR_LABEL;
     } else if (IS_NUM(0)) {
       self->state = EXPR_END;
-      if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+\\.[0-9][0-9_]*)", regexResult)) {
+      if (Regex_match3(&(self->line[self->pos]), "^(0[xX][0-9a-fA-F][0-9a-fA-F_]*)", regexResult)) {
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
+        type = INTEGER;
+      } else if (Regex_match3(&(self->line[self->pos]), "^(0[oO][0-7][0-7_]*)", regexResult)) {
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
+        type = INTEGER;
+      } else if (Regex_match3(&(self->line[self->pos]), "^(0[bB][01][01_]*)", regexResult)) {
+        strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
+        type = INTEGER;
+      } else if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+\\.[0-9][0-9_]*)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         if (strchr(value, (int)'.')[-1] == '_') {
           ERRORP("trailing `_' in number");
           return -1;
         }
         type = FLOAT;
+        if (Regex_match3(&(self->line[self->pos + strlen(value)]), "^([eE][+\\-]?[0-9_]+)", regexResult)) {
+          strsafecpy(value + strlen(value), regexResult[0].value, MAX_TOKEN_LENGTH);
+        }
       } else if (Regex_match3(&(self->line[self->pos]), "^([0-9_]+)", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
-        type = INTEGER;
+        if (Regex_match3(&(self->line[self->pos + strlen(value)]), "^([eE][+\\-]?[0-9_]+)", regexResult)) {
+          strsafecpy(value + strlen(value), regexResult[0].value, MAX_TOKEN_LENGTH);
+          type = FLOAT;
+        } else {
+          type = INTEGER;
+        }
       } else {
         ERRORP("Failed to tokenize a number");
         return -1;
