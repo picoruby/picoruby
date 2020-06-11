@@ -568,6 +568,9 @@ void codegen(Scope *scope, Node *tree)
       Scope_pushCode(scope->sp);
       Scope_push(scope);
       break;
+    case ATOM_kw_self:
+      gen_self(scope);
+      break;
     case ATOM_kw_true:
       Scope_pushCode(OP_LOADT);
       Scope_pushCode(scope->sp);
