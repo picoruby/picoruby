@@ -72,7 +72,7 @@ arm_debug:
 	mkdir -p $(LIB_DIR_ARM_DEBUG)
 	mkdir -p $(BIN_DIR_ARM_DEBUG)
 	$(MAKE) $(BIN_DIR_ARM_DEBUG)/mmirb \
-	  CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CFLAGS="-static -O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_ARM_DEBUG) \
 	  CC=$(CC_ARM) AR=$(AR_ARM)
@@ -81,7 +81,7 @@ arm_production:
 	mkdir -p $(LIB_DIR_ARM_PRODUCTION)
 	mkdir -p $(BIN_DIR_ARM_PRODUCTION)
 	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/mmirb \
-	  CFLAGS="-Os -DNDEBUG -Wl,-s $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CFLAGS="-static -Os -DNDEBUG -Wl,-s $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_ARM_PRODUCTION) \
 	  CC=$(CC_ARM) AR=$(AR_ARM)
