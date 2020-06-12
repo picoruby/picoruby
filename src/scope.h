@@ -47,6 +47,7 @@ typedef struct scope
 {
   struct scope *prev;
   CodeSnippet *code_snippet;
+  CodeSnippet *last_snippet;
   int nlocals;
   int nirep;
   Symbol *symbol;

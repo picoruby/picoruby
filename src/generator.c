@@ -109,7 +109,23 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
   char num[strlen(node->cons.car->value.name)];
   cleanup_numeric_literal(node->cons.car->value.name, num);
-  unsigned int val = atoi(num);
+  unsigned long val;
+  switch (num[1]) {
+    case ('b'):
+    case ('B'):
+      val = strtol(num+2, NULL, 2);
+      break;
+    case ('o'):
+    case ('O'):
+      val = strtol(num+2, NULL, 8);
+      break;
+    case ('x'):
+    case ('X'):
+      val = strtol(num+2, NULL, 16);
+      break;
+    default:
+      val = strtol(num, NULL, 10);
+  }
   if (pos_neg == NUM_POS && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
     Scope_pushCode(scope->sp);
@@ -135,7 +151,9 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
-    gen_literal_numeric(scope, num, INTEGER_LITERAL, pos_neg);
+    char buf[12];
+    snprintf(buf, 12, "%ld", val);
+    gen_literal_numeric(scope, buf, INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }
@@ -144,7 +162,7 @@ void gen_call(Scope *scope, Node *node)
 {
   int nargs = 0;
   if (node->cons.cdr->cons.car) {
-    nargs = gen_values(scope, node->cons.cdr->cons.car);
+    nargs = gen_values(scope, node);
     for (int i = 0; i < nargs; i++) {
       Scope_pop(scope);
     }
@@ -298,7 +316,7 @@ void gen_assign(Scope *scope, Node *node)
       Node *call_node = node->cons.car->cons.cdr->cons.cdr;
       int nargs = 0;
       if (call_node->cons.cdr->cons.car) {
-        nargs = gen_values(scope, call_node->cons.cdr->cons.car);
+        nargs = gen_values(scope, call_node);
       }
       Scope_pushCode(OP_MOVE);
       Scope_pushCode(scope->sp);
@@ -315,6 +333,7 @@ void gen_assign(Scope *scope, Node *node)
       assign_method_name[strlen(method_name)] = '=';
       assign_method_name[strlen(method_name) + 1] = '\0';
       int symIndex = Scope_newSym(scope, assign_method_name);
+      mmrbc_free(assign_method_name);
       Scope_pushCode(symIndex);
       Scope_pushCode(nargs + 1);
       break;
@@ -550,6 +569,9 @@ void codegen(Scope *scope, Node *tree)
       Scope_pushCode(scope->sp);
       Scope_push(scope);
       break;
+    case ATOM_kw_self:
+      gen_self(scope);
+      break;
     case ATOM_kw_true:
       Scope_pushCode(OP_LOADT);
       Scope_pushCode(scope->sp);
@@ -559,6 +581,17 @@ void codegen(Scope *scope, Node *tree)
       Scope_pushCode(OP_LOADF);
       Scope_pushCode(scope->sp);
       Scope_push(scope);
+      break;
+    case ATOM_kw_return:
+      if (tree->cons.cdr->cons.car) {
+        codegen(scope, tree->cons.cdr->cons.car);
+      } else {
+        Scope_pushCode(OP_LOADNIL);
+        Scope_pushCode(scope->sp);
+        Scope_push(scope);
+      }
+      Scope_pushCode(OP_RETURN);
+      Scope_pushCode(scope->sp - 1);
       break;
     default:
 //      FATALP("error");
