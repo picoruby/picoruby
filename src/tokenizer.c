@@ -182,9 +182,7 @@ retry:
     }
     self->mode = MODE_NONE;
     strsafecpy(value, self->line, MAX_TOKEN_LENGTH);
-  } else if (self->mode == MODE_QWORDS
-          || self->mode == MODE_WORDS
-          || self->mode == MODE_QSYMBOLS
+  } else if (self->mode == MODE_WORDS
           || self->mode == MODE_SYMBOLS) {
     for (;;) {
       tokenizer_readLine(self);
@@ -315,12 +313,12 @@ retry:
         Token_free(lazyToken);
         return -1;
       }
-      if (self->line[self->pos] == '\'') {
+      if (self->line[self->pos] == self->modeTerminater) {
         lazyToken->line_num = self->line_num;
         lazyToken->pos = self->pos;
         lazyToken->type = STRING_END;
         lazyToken->value = (char *)mmrbc_alloc(sizeof(char) *(2));
-        *(lazyToken->value) = '\'';
+        *(lazyToken->value) = self->modeTerminater;
         *(lazyToken->value + 1) = '\0';
         lazyToken->state = EXPR_END;
         self->pos++;
@@ -490,13 +488,10 @@ retry:
           ERRORP("unknown paren error");
       }
     } else if (strchr("+-*/%&|^!~><=?:", self->line[self->pos]) != NULL) {
-      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWq][]-~!@#$%^&*()_=+\[{};:'\"?])", regexResult)) {
+      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWqQ][]-~!@#$%^&*()_=+\[{};:'\"?])", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         switch (value[1]) {
           case 'w':
-            type = WORDS_BEG;
-            self->mode = MODE_WORDS;
-            break;
           case 'W':
             type = WORDS_BEG;
             self->mode = MODE_WORDS;
@@ -510,9 +505,6 @@ retry:
             self->mode = MODE_TSTRING_DOUBLE;
             break;
           case 'i':
-            type = SYMBOLS_BEG;
-            self->mode = MODE_SYMBOLS;
-            break;
           case 'I':
             type = SYMBOLS_BEG;
             self->mode = MODE_SYMBOLS;
