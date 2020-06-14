@@ -161,10 +161,19 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
 void gen_call(Scope *scope, Node *node)
 {
   int nargs = 0;
+  int op;
   if (node->cons.cdr->cons.car) {
-    nargs = gen_values(scope, node);
-    for (int i = 0; i < nargs; i++) {
+    if (Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.car) == ATOM_block_arg) {
+      /* .call(&:method) */
+      codegen(scope, node->cons.cdr->cons.car->cons.cdr->cons.car->cons.cdr);
       Scope_pop(scope);
+      op = OP_SENDB;
+    } else {
+      op = OP_SEND;
+      nargs = gen_values(scope, node);
+      for (int i = 0; i < nargs; i++) {
+        Scope_pop(scope);
+      }
     }
   }
   char *method_name = Node_literalName(node->cons.car->cons.cdr);
@@ -189,7 +198,7 @@ void gen_call(Scope *scope, Node *node)
     Scope_pushCode(OP_LE);
     Scope_pushCode(scope->sp - 1);
   } else {
-    Scope_pushCode(OP_SEND);
+    Scope_pushCode(op);
     Scope_pushCode(scope->sp - 1);
     int symIndex = Scope_newSym(scope, method_name);
     Scope_pushCode(symIndex);

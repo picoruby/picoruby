@@ -579,7 +579,11 @@ retry:
               type = XOR;
               break;
             case '&':
-              type = AND;
+              if (IS_BEG()) {
+                type = AMPER;
+              } else {
+                type = AND;
+              }
               break;
             case '!':
               type = UNEG;
