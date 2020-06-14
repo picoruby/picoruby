@@ -202,7 +202,7 @@ retry:
         self->mode = MODE_NONE;
         break;
       } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\n') {
-        Regex_match3(&(self->line[self->pos]), "^([\\s]+)", regexResult);
+        Regex_match3(&(self->line[self->pos]), "^([ ]+)", regexResult);
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = WORDS_SEP;
       } else {
@@ -221,16 +221,12 @@ retry:
         type = STRING_MID;
       }
       if (strlen(value) > 0) {
-        if (type == WORDS_SEP && self->currentToken->prev->type == WORDS_SEP) {
-          strsafecat(self->currentToken->prev->value, value, MAX_TOKEN_LENGTH);
-        } else {
-          tokenizer_pushToken(self,
-            self->line_num,
-            self->pos,
-            type,
-            value,
-            EXPR_BEG);
-        }
+        tokenizer_pushToken(self,
+          self->line_num,
+          self->pos,
+          type,
+          value,
+          EXPR_BEG);
         self->pos += strlen(value);
       }
     }
@@ -498,8 +494,8 @@ retry:
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         switch (value[1]) {
           case 'w':
-            type = QWORDS_BEG;
-            self->mode = MODE_QWORDS;
+            type = WORDS_BEG;
+            self->mode = MODE_WORDS;
             break;
           case 'W':
             type = WORDS_BEG;
@@ -514,8 +510,8 @@ retry:
             self->mode = MODE_TSTRING_DOUBLE;
             break;
           case 'i':
-            type = QSYMBOLS_BEG;
-            self->mode = MODE_QSYMBOLS;
+            type = SYMBOLS_BEG;
+            self->mode = MODE_SYMBOLS;
             break;
           case 'I':
             type = SYMBOLS_BEG;
