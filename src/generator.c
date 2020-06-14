@@ -277,6 +277,17 @@ void gen_var(Scope *scope, Node *node)
   }
 }
 
+int assignSymIndex(Scope *scope, char *method_name)
+{
+  char *assign_method_name = mmrbc_alloc(strlen(method_name) + 2);
+  memcpy(assign_method_name, method_name, strlen(method_name));
+  assign_method_name[strlen(method_name)] = '=';
+  assign_method_name[strlen(method_name) + 1] = '\0';
+  int symIndex = Scope_newSym(scope, assign_method_name);
+  mmrbc_free(assign_method_name);
+  return symIndex;
+}
+
 void gen_assign(Scope *scope, Node *node)
 {
   int num;
@@ -328,12 +339,7 @@ void gen_assign(Scope *scope, Node *node)
       Scope_pushCode(OP_SEND);
       Scope_pushCode(scope->sp);
       char *method_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
-      char *assign_method_name = mmrbc_alloc(strlen(method_name) + 2);
-      memcpy(assign_method_name, method_name, strlen(method_name));
-      assign_method_name[strlen(method_name)] = '=';
-      assign_method_name[strlen(method_name) + 1] = '\0';
-      int symIndex = Scope_newSym(scope, assign_method_name);
-      mmrbc_free(assign_method_name);
+      int symIndex = assignSymIndex(scope, method_name);
       Scope_pushCode(symIndex);
       Scope_pushCode(nargs + 1);
       break;
@@ -345,6 +351,9 @@ void gen_assign(Scope *scope, Node *node)
 void gen_op_assign(Scope *scope, Node *node)
 {
   int num;
+  char *method_name, *call_name;
+  Node *recv;
+  int symIndex;
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
       num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
@@ -375,11 +384,17 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_push(scope);
       Scope_pushCode(num);
       break;
+    case (ATOM_call):
+      Scope_push(scope);
+      call_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
+      recv = node->cons.car->cons.cdr->cons.car;
+      codegen(scope, node->cons.car);
+      break;
     default:
       FATALP("error");
   }
   codegen(scope, node->cons.cdr->cons.cdr); /* right hand */
-  char *method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
+  method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
   switch (method_name[0]) {
     case '+':
       Scope_pushCode(OP_ADD);
@@ -417,7 +432,7 @@ void gen_op_assign(Scope *scope, Node *node)
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
         method_name[strlen(method_name) - 1] = '\0';
-        int symIndex = Scope_newSym(scope, method_name);
+        symIndex = Scope_newSym(scope, method_name);
         Scope_pushCode(symIndex);
         Scope_pushCode(1);
       }
@@ -446,6 +461,38 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pushCode(scope->sp);
       Scope_pushCode(num);
       break;
+    case (ATOM_call):
+      /*
+       * TODO comfirm
+       * `obj[]+=` probably works
+       * not sure if `obj.attr+=` works
+       */
+      /* right hand of assignment (mass-assign dosen't work) */
+      Scope_pushCode(OP_MOVE);
+      Scope_push(scope);
+      Scope_push(scope);
+      Scope_pushCode(scope->sp);
+      Scope_pop(scope);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      /* load recv of assignment */
+      codegen(scope, recv);
+      /* `n` of `recv[n]+=` */
+      gen_values(scope, node->cons.car->cons.cdr->cons.cdr);
+      /* exec assignment .[]= or .attr= */
+      Scope_pushCode(OP_SEND);
+      Scope_pop(scope);
+      Scope_pop(scope);
+      Scope_pushCode(scope->sp);
+      symIndex = assignSymIndex(scope, call_name);
+      Scope_pushCode(symIndex);
+     /* count of args */
+     if (!strcmp(call_name, "[]")) {
+       Scope_pushCode(2); /* .[]= */
+     } else {
+       Scope_pushCode(1); /* .attr= */
+     }
+      break;
     default:
       FATALP("error");
   }
@@ -469,7 +516,6 @@ void codegen(Scope *scope, Node *tree)
       Scope_finish(scope);
       break;
     case ATOM_stmts_add:
-      codegen(scope, tree->cons.car);
       codegen(scope, tree->cons.cdr);
       break;
     case ATOM_stmts_new: // NEW_BEGIN
@@ -484,10 +530,9 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_fcall:
       gen_self(scope);
       gen_call(scope, tree->cons.cdr);
-      codegen(scope, tree->cons.cdr);
       break;
     case ATOM_call:
-      codegen(scope, tree->cons.cdr);
+      codegen(scope, tree->cons.cdr->cons.car);
       gen_call(scope, tree->cons.cdr->cons.cdr);
       break;
     case ATOM_args_add:
