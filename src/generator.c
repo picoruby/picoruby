@@ -552,18 +552,7 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_symbol_literal:
       gen_sym(scope, tree->cons.cdr);
       break;
-    case ATOM_string_literal:
-      codegen(scope, tree->cons.cdr->cons.car->cons.cdr); // skip the first :string_add
-      break;
-    case ATOM_string_add:
-      Scope_pop(scope);
-      Scope_pop(scope);
-      // TODO gen_2 OP_STRCAT, scope.sp;
-      Scope_push(scope);
-      break;
-    case ATOM_string_content:
-      break;
-    case ATOM_at_tstring_content:
+    case ATOM_str:
       gen_str(scope, tree->cons.cdr);
       break;
     case ATOM_var_ref:
