@@ -161,7 +161,7 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
 void gen_call(Scope *scope, Node *node)
 {
   int nargs = 0;
-  int op;
+  int op = OP_SEND;
   if (node->cons.cdr->cons.car) {
     if (Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.car) == ATOM_block_arg) {
       /* .call(&:method) */
@@ -169,7 +169,6 @@ void gen_call(Scope *scope, Node *node)
       Scope_pop(scope);
       op = OP_SENDB;
     } else {
-      op = OP_SEND;
       nargs = gen_values(scope, node);
       for (int i = 0; i < nargs; i++) {
         Scope_pop(scope);
