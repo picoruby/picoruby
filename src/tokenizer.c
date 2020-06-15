@@ -216,7 +216,7 @@ retry:
             break;
           }
         }
-        type = STRING_MID;
+        type = STRING;
       }
       if (strlen(value) > 0) {
         tokenizer_pushToken(self,
@@ -252,7 +252,7 @@ retry:
         tokenizer_pushToken(self,
           self->line_num,
           self->pos,
-          STRING_MID,
+          STRING,
           value,
           EXPR_BEG);
         value[0] = '\0';
@@ -291,7 +291,7 @@ retry:
           self->pos,
           EMBEXPR_END,
           "}",
-          EXPR_CMDARG);
+          EXPR_END);
         self->pos++;
       } else if (self->line[self->pos] == '\\' && self->line[self->pos + 1] == self->modeTerminater) {
         c[0] = '\\';
@@ -304,7 +304,7 @@ retry:
     }
     self->pos--;
     if (strlen(value) > 0) {
-      type = STRING_MID;
+      type = STRING;
     }
   } else if (self->mode == MODE_TSTRING_SINGLE) {
     for (;;) {
@@ -331,7 +331,7 @@ retry:
       strsafecat(value, c, MAX_TOKEN_LENGTH);
     }
     self->pos--;
-    if (strlen(value) > 0) type = STRING_MID;
+    if (strlen(value) > 0) type = STRING;
   } else if (Regex_match2(self->line, "^=begin$") || Regex_match2(self->line, "^=begin\\s")) { // multi lines comment began
     self->mode = MODE_COMMENT;
     strsafecpy(value, strsafecat(self->line, "\n", MAX_TOKEN_LENGTH), MAX_TOKEN_LENGTH);
