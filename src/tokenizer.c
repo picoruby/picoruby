@@ -340,13 +340,16 @@ retry:
     strsafecpy(value, strsafecat(self->line, "\n", MAX_TOKEN_LENGTH), MAX_TOKEN_LENGTH);
     type = EMBDOC_BEG;
   } else if (self->line[self->pos] == '\n') {
-    value[0] = '\n';
-    value[1] = '\0';
+    value[0] = '\\';
+    value[1] = 'n';
+    value[2] = '\0';
     type = NL;
   } else if (self->line[self->pos] == '\r' && self->line[self->pos + 1] == '\n') {
-    value[0] = '\r';
-    value[1] = '\n';
-    value[2] = '\0';
+    value[0] = '\\';
+    value[1] = 'r';
+    value[2] = '\\';
+    value[3] = 'n';
+    value[4] = '\0';
     type = NL;
   } else if (tokenizer_is_operator(&(self->line[self->pos]), 3)) {
     value[0] = self->line[self->pos];
@@ -692,7 +695,8 @@ retry:
         break;
     }
     self->state = EXPR_BEG;
-  } else if (type != ON_NONE) {
+  }
+  if (type != ON_NONE) {
     /* FIXME from here */
     int8_t kw_num = keyword(value);
     if ( kw_num > 0 ) {
