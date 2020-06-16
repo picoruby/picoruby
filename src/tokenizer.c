@@ -196,6 +196,7 @@ retry:
         *(lazyToken->value) = self->modeTerminater;
         *(lazyToken->value + 1) = '\0';
         lazyToken->state = EXPR_END;
+        self->state = EXPR_END;
         self->pos++;
         self->mode = MODE_NONE;
         break;
@@ -245,6 +246,7 @@ retry:
         *(lazyToken->value) = self->modeTerminater;
         *(lazyToken->value + 1) = '\0';;
         lazyToken->state = EXPR_END;
+        self->state = EXPR_END;
         self->pos++;
         self->mode = MODE_NONE;
         break;
@@ -321,6 +323,7 @@ retry:
         *(lazyToken->value) = self->modeTerminater;
         *(lazyToken->value + 1) = '\0';
         lazyToken->state = EXPR_END;
+        self->state = EXPR_END;
         self->pos++;
         self->mode = MODE_NONE;
         break;
