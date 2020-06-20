@@ -77,7 +77,7 @@ bool Compile(Scope *scope, StreamInterface *si)
       if (topToken->value == NULL) {
         DEBUGP("(main)%p null", topToken);
       } else {
-        if (topToken->type != ON_SP) {
+        if (topToken->type != ON_SP && topToken->type != STRING_END) {
 #ifdef MMRBC_DEBUG
           printf("\e[32;40;1m%s\e[m len=%ld line=%d pos=%2d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m\n",
              tokenizer_mode_name(tokenizer->mode),

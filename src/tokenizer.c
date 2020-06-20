@@ -6,6 +6,7 @@
 #include "mmrbc.h"
 #include "ruby-lemon-parse/parse.h"
 #include "ruby-lemon-parse/keyword_helper.h"
+#include "ruby-lemon-parse/token_helper.h"
 #include "common.h"
 #include "tokenizer.h"
 #include "token.h"
@@ -262,7 +263,7 @@ retry:
         tokenizer_pushToken(self,
           self->line_num,
           self->pos,
-          EMBEXPR_BEG,
+          DSTRING_BEG,
           "#{",
           EXPR_BEG);
         self->pos += 2;
@@ -291,7 +292,7 @@ retry:
         tokenizer_pushToken(self,
           self->line_num,
           self->pos,
-          EMBEXPR_END,
+          DSTRING_END,
           "}",
           EXPR_END);
         self->pos++;
