@@ -63,7 +63,19 @@ void dumpCode(Scope *scope)
   }
   printf(" %s\n", line);
 }
-#endif
+
+void
+printToken(Tokenizer *tokenizer, Token *token) {
+  printf("\e[32;40;1m%s\e[m len=%ld line=%d pos=%2d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m\n",
+     tokenizer_mode_name(tokenizer->mode),
+     strlen(token->value),
+     token->line_num,
+     token->pos,
+     token_name(token->type),
+     token->value,
+     tokenizer_state_name(token->state));
+}
+#endif /* MMRBC_DEBUG */
 
 bool Compile(Scope *scope, StreamInterface *si)
 {
@@ -71,25 +83,25 @@ bool Compile(Scope *scope, StreamInterface *si)
   Token *topToken = tokenizer->currentToken;
   ParserState *p = ParseInitState();
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
+  Type prevType;
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
     if (Tokenizer_advance(tokenizer, false) != 0) break;
     for (;;) {
       if (topToken->value == NULL) {
         DEBUGP("(main)%p null", topToken);
       } else {
-        if (topToken->type != ON_SP && topToken->type != STRING_END) {
-#ifdef MMRBC_DEBUG
-          printf("\e[32;40;1m%s\e[m len=%ld line=%d pos=%2d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m\n",
-             tokenizer_mode_name(tokenizer->mode),
-             strlen(topToken->value),
-             topToken->line_num,
-             topToken->pos,
-             token_name(topToken->type),
-             topToken->value,
-             tokenizer_state_name(topToken->state));
-#endif
+        if (topToken->type != ON_SP) {
+          #ifdef MMRBC_DEBUG
+          printToken(tokenizer, topToken);
+          #endif
           LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
-          Parse(parser, topToken->type, ls->str);
+          if (prevType == DSTRING_END && topToken->type == STRING_END) {
+            Parse(parser, STRING, ""); /* to help pareser */
+          }
+          if (topToken->type != STRING_END) {
+            Parse(parser, topToken->type, ls->str);
+          }
+          prevType = topToken->type;
         }
       }
       if (topToken->next == NULL) {

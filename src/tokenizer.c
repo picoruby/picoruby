@@ -232,6 +232,7 @@ retry:
     }
     self->pos--;
   } else if (self->mode == MODE_TSTRING_DOUBLE) {
+    bool string_top = true;
     for (;;) {
       DEBUGP("modeTerminater: `%c`", self->modeTerminater);
       tokenizer_readLine(self);
@@ -255,9 +256,10 @@ retry:
         tokenizer_pushToken(self,
           self->line_num,
           self->pos,
-          STRING,
+          (string_top ? DSTRING_TOP : DSTRING_MID),
           value,
           EXPR_BEG);
+        string_top = false;
         value[0] = '\0';
         c[0] = '\0';
         tokenizer_pushToken(self,
