@@ -6,6 +6,10 @@
 
 #include "../src/mrubyc/src/mrubyc.h"
 
+#if defined(MMRBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
+  #include "../src/mrubyc/src/alloc.c"
+#endif
+
 #include "../src/mmrbc.h"
 #include "../src/common.h"
 #include "../src/compiler.h"
