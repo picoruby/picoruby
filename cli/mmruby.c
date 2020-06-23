@@ -15,7 +15,8 @@
 
 void run(uint8_t *mrb)
 {
-  init_static();
+  mrbc_init_global();
+  mrbc_init_class();
   struct VM *vm = mrbc_vm_open(NULL);
   if( vm == 0 ) {
     fprintf(stderr, "Error: Can't open VM.\n");

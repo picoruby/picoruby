@@ -155,10 +155,9 @@ static struct VM *c_vm;
 static void
 c_print_inspect(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  find_class_by_object(c_vm, c_vm->current_regs);
-  mrbc_value ret = mrbc_send(c_vm, c_vm->current_regs, 0, c_vm->current_regs, "inspect", 0);
+//  mrbc_value ret = mrbc_send(c_vm, c_vm->current_regs, 0, c_vm->current_regs, "inspect", 0);
   hal_write(1, "=> ", 3);
-  hal_write(1, ret.string->data, ret.string->size);
+//  hal_write(1, ret.string->data, ret.string->size);
   hal_write(1, "\r\n", 2);
 }
 

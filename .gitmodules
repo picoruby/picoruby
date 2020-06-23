@@ -1,4 +1,4 @@
 [submodule "src/mrubyc"]
 	path = src/mrubyc
 	url = git@github.com:hasumikin/mrubyc.git
-	branch = modify_for_mmirb
+	branch = master
