@@ -507,6 +507,37 @@ void gen_op_assign(Scope *scope, Node *node)
   Scope_push(scope);
 }
 
+void gen_dstr(Scope *scope, Node *node)
+{
+  int num = 0; /* number of ATOM_dstr_add */
+  Node *dstr = node->cons.cdr->cons.car;
+  while (Node_atomType(dstr) != ATOM_dstr_new) {
+    dstr = dstr->cons.cdr->cons.car;
+    num++;
+  }
+  /* start from the end (== the first str) of the tree */
+  int sp = scope->sp; /* copy */
+  for (int count = num; 0 < count; count--) {
+    dstr = node->cons.cdr->cons.car;
+    for (int i = 1; i < count; i++) {
+      dstr = dstr->cons.cdr->cons.car;
+    }
+    codegen(scope, dstr->cons.cdr->cons.cdr->cons.car);
+    if (count != num) {
+      /* TRICKY (I'm not sure if this is a correct way) */
+      if (scope->sp > sp + 1) {
+        Scope_pushCode(OP_MOVE);
+        Scope_pushCode(sp + 1);
+        Scope_pushCode(scope->sp - 1);
+      }
+      Scope_pushCode(OP_STRCAT);
+      scope->sp = sp;
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+    }
+  }
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
@@ -634,6 +665,9 @@ void codegen(Scope *scope, Node *tree)
       }
       Scope_pushCode(OP_RETURN);
       Scope_pushCode(scope->sp - 1);
+      break;
+    case ATOM_dstr:
+      gen_dstr(scope, tree);
       break;
     default:
 //      FATALP("error");
