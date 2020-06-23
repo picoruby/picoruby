@@ -48,10 +48,13 @@ while true
       when "quit", "exit"
         exit_shell
       else
-        if compile_and_run(line)
+        if compile(line)
           $history.unshift(line) unless line == "$history";
           $history.pop if $history.size > MAX_HISTORY_SIZE
-          print_inspect
+          result = execute_vm
+          print "=> "
+          #p result # goes bad
+          p "(FIXME)"
         else
           puts "syntax error"
         end

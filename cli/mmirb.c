@@ -152,15 +152,6 @@ void vm_restart(struct VM *vm)
 
 static struct VM *c_vm;
 
-static void
-c_print_inspect(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-//  mrbc_value ret = mrbc_send(c_vm, c_vm->current_regs, 0, c_vm->current_regs, "inspect", 0);
-  hal_write(1, "=> ", 3);
-//  hal_write(1, ret.string->data, ret.string->size);
-  hal_write(1, "\r\n", 2);
-}
-
 static bool firstRun = true;
 
 void vm_run(uint8_t *mrb)
@@ -188,17 +179,23 @@ void vm_run(uint8_t *mrb)
 static Scope *scope;
 
 static void
-c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
+c_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (firstRun) scope = Scope_new(NULL);
   StreamInterface *si = StreamInterface_new((char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
   if (Compile(scope, si)) {
-    vm_run(scope->vm_code);
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
   }
   StreamInterface_free(si);
+}
+
+static void
+c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  vm_run(scope->vm_code);
+  SET_RETURN(c_vm->current_regs[0]); /* FIXME something's wrong */
 }
 
 #define FREE_HEADER "          total       used       free       frag\r\n"
@@ -257,8 +254,8 @@ process_child(void)
   WARNP("successfully forked. child");
   mrbc_init(heap, HEAP_SIZE);
   mrbc_define_method(0, mrbc_class_object, "free", c_free);
-  mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
-  mrbc_define_method(0, mrbc_class_object, "print_inspect", c_print_inspect);
+  mrbc_define_method(0, mrbc_class_object, "compile", c_compile);
+  mrbc_define_method(0, mrbc_class_object, "execute_vm", c_execute_vm);
   mrbc_define_method(0, mrbc_class_object, "fd_empty?", c_is_fd_empty);
   mrbc_define_method(0, mrbc_class_object, "print", c_print);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);
