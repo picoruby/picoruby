@@ -106,7 +106,7 @@ psoc5lp_lib: $(DEPS)
 	  COMMON_SRCS="alloc.c class.c console.c error.c global.c keyvalue.c load.c rrt0.c static.c symbol.c value.c vm.c" \
 	  CC=$(CC_PSOC) AR=$(AR_PSOC)
 
-build_lib:
+build_lib: src/mrubyc/src/hal_user_reerved/hal.c
 	@echo "building libmrubyc.a ----------"
 	cd src/mrubyc/src ; \
 	  $(MAKE) clean all CFLAGS="$(CFLAGS) -DMRBC_CONVERT_CRLF" LDFLAGS="$(LDFLAGS)" HAL_DIR="$(HAL_DIR)" \
@@ -120,6 +120,11 @@ build_lib:
 	mv src/*.o $(LIB_DIR)/
 	mv src/ruby-lemon-parse/*.o $(LIB_DIR)/
 	mv src/libmmrbc.a $(LIB_DIR)/libmmrbc.a
+
+src/mrubyc/src/hal_user_reerved/hal.c:
+	cd src/mrubyc/src/hal_user_reserved/ ;\
+	  ln -s ../../../../cli/mmirb_lib/hal_posix/hal.c ./hal.c ; \
+	  ln -s ../../../../cli/mmirb_lib/hal_posix/hal.h ./hal.h
 
 build_bin:
 	@echo "building mmrbc mmruby mmirb----------"
