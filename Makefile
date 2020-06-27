@@ -98,6 +98,7 @@ $(TARGETS): $(DEPS)
 
 psoc5lp_lib: $(DEPS)
 	mkdir -p $(LIB_DIR_PSOC5LP)
+	touch src/mrubyc/src/hal_psoc5lp/hal.c
 	$(MAKE) build_lib \
 	  HAL_DIR=hal_psoc5lp \
 	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0 -DNDEBUG" \
@@ -105,6 +106,7 @@ psoc5lp_lib: $(DEPS)
 	  LIB_DIR=$(LIB_DIR_PSOC5LP) \
 	  COMMON_SRCS="alloc.c class.c console.c error.c global.c keyvalue.c load.c rrt0.c static.c symbol.c value.c vm.c" \
 	  CC=$(CC_PSOC) AR=$(AR_PSOC)
+	rm src/mrubyc/src/hal_psoc5lp/hal.c
 
 build_lib: src/mrubyc/src/hal_user_reerved/hal.c
 	@echo "building libmrubyc.a ----------"
