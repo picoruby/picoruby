@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   int ret = handle_opt(argc, argv, &oneliner);
   if (ret != 0) return ret;
 
-  Scope *scope = Scope_new(NULL);
+  ParserState *p = Compiler_parseInitState();
   StreamInterface *si;
 
   if (oneliner != NULL) {
@@ -101,12 +101,12 @@ int main(int argc, char *argv[])
     si = StreamInterface_new(argv[optind], STREAM_TYPE_FILE);
   }
 
-  if (Compile(scope, si)) {
-    run(scope->vm_code);
+  if (Compiler_compile(p, si)) {
+    run(p->scope->vm_code);
   }
 
   StreamInterface_free(si);
-  Scope_free(scope);
+  Compiler_parserStateFree(p);
 #ifdef MMRBC_DEBUG
   memcheck();
 #endif

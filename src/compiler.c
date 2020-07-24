@@ -77,11 +77,10 @@ printToken(Tokenizer *tokenizer, Token *token) {
 }
 #endif /* MMRBC_DEBUG */
 
-bool Compile(Scope *scope, StreamInterface *si)
+bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
   Tokenizer *tokenizer = Tokenizer_new(si);
   Token *topToken = tokenizer->currentToken;
-  ParserState *p = ParseInitState();
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
   Type prevType;
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
@@ -119,7 +118,27 @@ bool Compile(Scope *scope, StreamInterface *si)
 #ifdef MMRBC_DEBUG
     ParseShowAllNode(parser, 1);
 #endif
-    Generator_generate(scope, p->root);
+    {
+      /*
+       * Generator_generate() twice.
+       * First time is to gather lvars to put them on the head of registers.
+       * */
+      Scope *lvarScope = Scope_new(NULL);
+      Generator_generate(lvarScope, p->root);
+      int i = 1;
+      Lvar *lvar = lvarScope->lvar;
+      while (lvar) {
+        lvar->regnum = i;
+        lvar = lvar->next;
+        i++;
+      }
+      p->scope->lvar = lvarScope->lvar;
+      p->scope->sp = i;
+      lvarScope->lvar = NULL;
+      Scope_free(lvarScope);
+    }
+    /* Second time */
+    Generator_generate(p->scope, p->root);
   } else {
     success = false;
   }
@@ -127,11 +146,23 @@ bool Compile(Scope *scope, StreamInterface *si)
     /* FIXME skipping FreeNode causes memory leak */
     ParseFreeAllNode(parser);
   }
-  ParserStateFree(p);
   ParseFree(parser, mmrbc_free);
   Tokenizer_free(tokenizer);
 #ifdef MMRBC_DEBUG
-  dumpCode(scope);
+  dumpCode(p->scope);
 #endif
   return success;
+}
+
+ParserState *
+Compiler_parseInitState(void)
+{
+  ParserState *p = ParseInitState();
+  return p;
+}
+
+void
+Compiler_parserStateFree(ParserState *p)
+{
+  ParserStateFree(p);
 }

@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 
+#include "../scope.h"
+
 typedef enum atom_type {
   ATOM_NONE = 0,
   ATOM_program = 1,
@@ -87,16 +89,10 @@ typedef struct literal_store
 } LiteralStore;
 
 typedef struct parser_state {
-  /* see mruby/include/mruby/compile.h */
-  Node *cells;
-  Node *locals;
+  Scope *scope;
   Node *root;
   LiteralStore *literal_store;
   int error_count;
 } ParserState;
-
-bool hasCar(Node *n);
-
-bool hasCdr(Node *n);
 
 #endif
