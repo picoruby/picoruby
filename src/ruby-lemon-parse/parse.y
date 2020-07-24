@@ -249,8 +249,6 @@
   static Node*
   new_lvar(ParserState *p, const char *s)
   {
-    Scope_newLvar(p->scope, s, p->scope->sp);
-    Scope_push(p->scope);
     return list2(atom(ATOM_lvar), literal(s));
   }
 
