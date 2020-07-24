@@ -6,22 +6,23 @@ SRCS := compiler.c common.c token.c tokenizer.c generator.c my_regex.c regex_lig
 OBJS := $(SRCS:%.c=%.o)
 DEPS := $(SRCS:%.c=%.d)
 
-all: tokenizer_helper.h $(TARGET)
+all: tokenizer_helper.h ruby-lemon-parse/parse.c $(TARGET)
 
 -include $(DEPS)
 
 tokenizer_helper.h: token.h tokenizer.h
 	./helper_gen.rb tokenizer
 
-$(TARGET): ruby-lemon-parse/parse.o $(OBJS)
+ruby-lemon-parse/parse.c:
+	cd ruby-lemon-parse ; \
+	  LEMON_MACRO=-DLEMON_MMRBC $(MAKE) parse.c atom_helper.h token_helper.h keyword_helper.h
+
+$(TARGET): $(OBJS)
 ifeq ($(findstring MMRUBY_REGEX_LIBC, $(CFLAGS)), MMRUBY_REGEX_LIBC)
 	$(AR) $(ARFLAGS) $@ $(filter-out regex_light.o, $^)
 else
 	$(AR) $(ARFLAGS) $@ $^
 endif
-
-ruby-lemon-parse/parse.o: ruby-lemon-parse/parse.y
-	cd ruby-lemon-parse ; LEMON_MACRO=-DLEMON_MMRBC $(MAKE) all CC=$(CC) CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
 
 %.o: %.c
 	$(CC) -c -MMD -MP $(CFLAGS) $(LDFLAGS) $<

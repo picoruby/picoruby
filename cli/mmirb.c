@@ -176,14 +176,14 @@ void vm_run(uint8_t *mrb)
   mrbc_vm_run(c_vm);
 }
 
-static Scope *scope;
+static ParserState *p;
 
 static void
 c_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (firstRun) scope = Scope_new(NULL);
+  if (firstRun) p = Compiler_parseInitState();
   StreamInterface *si = StreamInterface_new((char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
-  if (Compile(scope, si)) {
+  if (Compiler_compile(p, si)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -194,7 +194,7 @@ c_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  vm_run(scope->vm_code);
+  vm_run(p->scope->vm_code);
   SET_RETURN(c_vm->current_regs[0]); /* FIXME something's wrong */
 }
 

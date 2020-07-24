@@ -43,6 +43,7 @@
   #include "parse_header.h"
   #include "parse.h"
   #include "atom_helper.h"
+  #include "../scope.h"
 }
 
 %ifdef LEMON_MMRBC
@@ -688,6 +689,7 @@ term ::= SEMICOLON.
 none(A) ::= . { A = 0; }
 
 %code {
+
   void *pointerToMalloc(void){
     return malloc;
   }
@@ -699,6 +701,7 @@ none(A) ::= . { A = 0; }
   ParserState *ParseInitState(void)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
+    p->scope = Scope_new(NULL);
     p->literal_store = LEMON_ALLOC(sizeof(LiteralStore));
     p->literal_store->str = NULL;
     p->literal_store->prev = NULL;
@@ -715,6 +718,7 @@ none(A) ::= . { A = 0; }
   }
 
   void ParserStateFree(ParserState *p) {
+    Scope_free(p->scope);
     freeLiteralStore(p->literal_store);
     LEMON_FREE(p);
   }

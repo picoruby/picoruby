@@ -120,7 +120,6 @@ build_lib: src/mrubyc/src/hal_user_reerved/hal.c
 	  $(MAKE) clean all CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 	  CC=$(CC) AR=$(AR)
 	mv src/*.o $(LIB_DIR)/
-	mv src/ruby-lemon-parse/*.o $(LIB_DIR)/
 	mv src/libmmrbc.a $(LIB_DIR)/libmmrbc.a
 
 src/mrubyc/src/hal_user_reerved/hal.c:
