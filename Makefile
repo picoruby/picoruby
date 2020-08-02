@@ -96,7 +96,10 @@ $(TARGETS): $(DEPS)
 	  LDFLAGS="$(LDFLAGS)" BIN_DIR=$(BIN_DIR) \
 	  CC=$(CC) AR=$(AR)
 
-psoc5lp_lib: $(DEPS)
+psoc5lp_lib:
+	docker-compose up
+
+docker_psoc5lp_lib: $(DEPS)
 	mkdir -p $(LIB_DIR_PSOC5LP)
 	touch src/mrubyc/src/hal_psoc5lp/hal.c
 	$(MAKE) build_lib \
