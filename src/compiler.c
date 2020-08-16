@@ -118,25 +118,25 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
 #ifdef MMRBC_DEBUG
     ParseShowAllNode(parser, 1);
 #endif
-    {
-      /*
-       * Generator_generate() twice.
-       * First time is to gather lvars to put them on the head of registers.
-       * */
-      Scope *lvarScope = Scope_new(NULL);
-      Generator_generate(lvarScope, p->root);
-      int i = 1;
-      Lvar *lvar = lvarScope->lvar;
-      while (lvar) {
-        lvar->regnum = i;
-        lvar = lvar->next;
-        i++;
-      }
-      p->scope->lvar = lvarScope->lvar;
-      p->scope->sp = i;
-      lvarScope->lvar = NULL;
-      Scope_free(lvarScope);
-    }
+//    {
+//      /*
+//       * Generator_generate() twice.
+//       * First time is to gather lvars to put them on the head of registers.
+//       * */
+//      Scope *lvarScope = Scope_new(NULL);
+//      Generator_generate(lvarScope, p->root);
+//      int i = 1;
+//      Lvar *lvar = lvarScope->lvar;
+//      while (lvar) {
+//        lvar->regnum = i;
+//        lvar = lvar->next;
+//        i++;
+//      }
+//      p->scope->lvar = lvarScope->lvar;
+//      p->scope->sp = i;
+//      lvarScope->lvar = NULL;
+//      Scope_free(lvarScope);
+//    }
     /* Second time */
     Generator_generate(p->scope, p->root);
   } else {
