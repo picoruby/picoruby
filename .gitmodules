@@ -1,7 +1,4 @@
-[submodule "src/ruby-lemon-parse"]
-	path = src/ruby-lemon-parse
-	url = git@github.com:hasumikin/ruby-lemon-parse.git
 [submodule "src/mrubyc"]
 	path = src/mrubyc
 	url = git@github.com:hasumikin/mrubyc.git
-	branch = modify_for_mmirb
+	branch = master

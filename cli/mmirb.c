@@ -6,6 +6,10 @@
 
 #include "../src/mrubyc/src/mrubyc.h"
 
+#if defined(MMRBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
+  #include "../src/mrubyc/src/alloc.c"
+#endif
+
 #include "../src/mmrbc.h"
 #include "../src/common.h"
 #include "../src/compiler.h"
@@ -146,55 +150,74 @@ void vm_restart(struct VM *vm)
   vm->flag_preemption = 0;
 }
 
-void print_inspect(struct VM *vm)
-{
-  find_class_by_object(vm, vm->current_regs);
-  mrbc_value ret = mrbc_send(vm, vm->current_regs, 0, vm->current_regs, "inspect", 0);
-  hal_write(1, "=> ", 3);
-  hal_write(1, ret.string->data, ret.string->size);
-  hal_write(1, "\r\n", 2);
-}
+static struct VM *c_vm;
 
 static bool firstRun = true;
-static struct VM *vm;
 
 void vm_run(uint8_t *mrb)
 {
   if (firstRun) {
-    vm = mrbc_vm_open(NULL);
-    if(vm == NULL) {
+    c_vm = mrbc_vm_open(NULL);
+    if(c_vm == NULL) {
       hal_write(1, "Error: Can't open VM.\r\n", 23);
       return;
     }
   }
-  if(mrbc_load_mrb(vm, mrb) != 0) {
+  if(mrbc_load_mrb(c_vm, mrb) != 0) {
     hal_write(1, "Error: Illegal bytecode.\r\n", 26);
     return;
   }
   if (firstRun) {
-    mrbc_vm_begin(vm);
+    mrbc_vm_begin(c_vm);
     firstRun = false;
   } else {
-    vm_restart(vm);
+    vm_restart(c_vm);
   }
-  mrbc_vm_run(vm);
-  print_inspect(vm);
+  mrbc_vm_run(c_vm);
 }
 
-static Scope *scope;
+static ParserState *p;
 
 static void
-c_compile_and_run(mrbc_vm *vm, mrbc_value *v, int argc)
+c_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (firstRun) scope = Scope_new(NULL);
+  if (firstRun) p = Compiler_parseInitState();
   StreamInterface *si = StreamInterface_new((char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
-  if (Compile(scope, si)) {
-    vm_run(scope->vm_code);
+  if (Compiler_compile(p, si)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
   }
   StreamInterface_free(si);
+}
+
+static void
+c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  vm_run(p->scope->vm_code);
+  SET_RETURN(c_vm->current_regs[0]); /* FIXME something's wrong */
+}
+
+#define FREE_HEADER "          total       used       free       frag\r\n"
+#define FREE_DOES_NOT_WORK "free() doesn't work on production build\r\n"
+static void
+c_free(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#if defined(MMRBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
+  int total;
+  int used;
+  int free;
+  int fragmentation;
+  mrbc_alloc_statistics(&total, &used, &free, &fragmentation);
+  char result[128];
+  hal_write(1, FREE_HEADER, strlen(FREE_HEADER));
+  snprintf(result, 128, "Mem: %10d %10d %10d %10d\r\n", total, used, free, fragmentation);
+  hal_write(1, result, strlen(result));
+  mrbc_alloc_print_memory_pool();
+#else
+  hal_write(1, FREE_DOES_NOT_WORK, strlen(FREE_DOES_NOT_WORK));
+#endif
+  SET_NIL_RETURN();
 }
 
 void
@@ -230,7 +253,9 @@ process_child(void)
 {
   WARNP("successfully forked. child");
   mrbc_init(heap, HEAP_SIZE);
-  mrbc_define_method(0, mrbc_class_object, "compile_and_run", c_compile_and_run);
+  mrbc_define_method(0, mrbc_class_object, "free", c_free);
+  mrbc_define_method(0, mrbc_class_object, "compile", c_compile);
+  mrbc_define_method(0, mrbc_class_object, "execute_vm", c_execute_vm);
   mrbc_define_method(0, mrbc_class_object, "fd_empty?", c_is_fd_empty);
   mrbc_define_method(0, mrbc_class_object, "print", c_print);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);

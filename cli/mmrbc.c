@@ -13,6 +13,8 @@
 #include "../src/stream.h"
 #include "../src/compiler.h"
 
+#include "../src/ruby-lemon-parse/parse_header.h"
+
 #include "heap.h"
 
 int handle_opt(int argc, char * const *argv)
@@ -102,13 +104,13 @@ int main(int argc, char * const *argv)
 
   mrbc_init_alloc(heap, HEAP_SIZE);
 
-  Scope *scope = Scope_new(NULL);
+  ParserState *p = Compiler_parseInitState();
   StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
-  if (Compile(scope, si)) {
-    ret = output(scope, in);
+  if (Compiler_compile(p, si)) {
+    ret = output(p->scope, in);
   }
   StreamInterface_free(si);
-  Scope_free(scope);
+  Compiler_parserStateFree(p);
   if (ret != 0) return ret;
 #ifdef MMRBC_DEBUG
   memcheck();

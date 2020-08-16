@@ -49,7 +49,7 @@ host_debug:
 	@mkdir -p $(LIB_DIR_HOST_DEBUG)
 	@mkdir -p $(BIN_DIR_HOST_DEBUG)
 	$(MAKE) $(BIN_DIR_HOST_DEBUG)/mmirb \
-	  CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CFLAGS="-O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_HOST_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_HOST_DEBUG) \
 	  CC=$(CC) AR=$(AR)
@@ -58,7 +58,7 @@ host_production:
 	@mkdir -p $(LIB_DIR_HOST_PRODUCTION)
 	@mkdir -p $(BIN_DIR_HOST_PRODUCTION)
 	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/mmirb \
-	  CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)" \
+	  CFLAGS="-Os -DNDEBUG -Wl,-s $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_HOST_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_HOST_PRODUCTION) \
 	  CC=$(CC) AR=$(AR)
@@ -72,7 +72,7 @@ arm_debug:
 	mkdir -p $(LIB_DIR_ARM_DEBUG)
 	mkdir -p $(BIN_DIR_ARM_DEBUG)
 	$(MAKE) $(BIN_DIR_ARM_DEBUG)/mmirb \
-	  CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  CFLAGS="-static -O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_ARM_DEBUG) \
 	  CC=$(CC_ARM) AR=$(AR_ARM)
@@ -81,50 +81,54 @@ arm_production:
 	mkdir -p $(LIB_DIR_ARM_PRODUCTION)
 	mkdir -p $(BIN_DIR_ARM_PRODUCTION)
 	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/mmirb \
-	  CFLAGS="-Os -DNDEBUG $(CFLAGS)" LDFLAGS="-Wl,-s $(LDFLAGS)" \
+	  CFLAGS="-static -Os -DNDEBUG -Wl,-s $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_ARM_PRODUCTION) \
 	  CC=$(CC_ARM) AR=$(AR_ARM)
 
 $(TARGETS): $(DEPS)
-	$(MAKE) build_lib CFLAGS="$(CFLAGS)" \
+	$(MAKE) build_lib \
+	  HAL_DIR=hal_user_reserved \
+	  CFLAGS="$(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" \
 	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR) \
 	  CC=$(CC) AR=$(AR)
 	$(MAKE) build_bin CFLAGS="$(CFLAGS)" \
 	  LDFLAGS="$(LDFLAGS)" BIN_DIR=$(BIN_DIR) \
 	  CC=$(CC) AR=$(AR)
 
-psoc5lp_lib: $(DEPS)
+psoc5lp_lib:
+	docker-compose up
+
+docker_psoc5lp_lib: $(DEPS)
 	mkdir -p $(LIB_DIR_PSOC5LP)
-	cd src/mrubyc/src ; mv hal hal.bak ; ln -fs ./hal_psoc5lp hal
+	touch src/mrubyc/src/hal_psoc5lp/hal.c
 	$(MAKE) build_lib \
+	  HAL_DIR=hal_psoc5lp \
 	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0 -DNDEBUG" \
 	  LDFLAGS=$(LDFLAGS) \
 	  LIB_DIR=$(LIB_DIR_PSOC5LP) \
 	  COMMON_SRCS="alloc.c class.c console.c error.c global.c keyvalue.c load.c rrt0.c static.c symbol.c value.c vm.c" \
 	  CC=$(CC_PSOC) AR=$(AR_PSOC)
-	cd src/mrubyc/src ; rm hal ; mv hal.bak hal
+	rm src/mrubyc/src/hal_psoc5lp/hal.c
 
-build_lib:
+build_lib: src/mrubyc/src/hal_user_reerved/hal.c
 	@echo "building libmrubyc.a ----------"
 	cd src/mrubyc/src ; \
-	  $(MAKE) clean all CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+	  $(MAKE) clean all CFLAGS="$(CFLAGS) -DMRBC_CONVERT_CRLF" LDFLAGS="$(LDFLAGS)" HAL_DIR="$(HAL_DIR)" \
 	  CC=$(CC) AR=$(AR)
 	mv src/mrubyc/src/*.o $(LIB_DIR)/
 	mv src/mrubyc/src/libmrubyc.a $(LIB_DIR)/libmrubyc.a
-	@echo "building libmrubyc-irb.a ----------"
-	cd src/mrubyc/src ; \
-	  $(MAKE) clean all CFLAGS="-DMRBC_IRB $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
-	  CC=$(CC) AR=$(AR)
-	mv src/mrubyc/src/*.o $(LIB_DIR)/
-	mv src/mrubyc/src/libmrubyc.a $(LIB_DIR)/libmrubyc-irb.a
 	@echo "building libmmrbc.a ----------"
 	cd src ; \
 	  $(MAKE) clean all CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 	  CC=$(CC) AR=$(AR)
 	mv src/*.o $(LIB_DIR)/
-	mv src/ruby-lemon-parse/*.o $(LIB_DIR)/
 	mv src/libmmrbc.a $(LIB_DIR)/libmmrbc.a
+
+src/mrubyc/src/hal_user_reerved/hal.c:
+	cd src/mrubyc/src/hal_user_reserved/ ;\
+	  if [ ! -f ./hal.c ]; then ln -s ../../../../cli/mmirb_lib/hal_posix/hal.c ./hal.c; fi; \
+	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/mmirb_lib/hal_posix/hal.h ./hal.h; fi
 
 build_bin:
 	@echo "building mmrbc mmruby mmirb----------"

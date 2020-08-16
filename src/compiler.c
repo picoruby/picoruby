@@ -17,15 +17,16 @@
 #define CTRL     "\e[35;1m"
 #define LETTER   "\e[36m"
 #define EIGHTBIT "\e[33m"
+#define DUMP_LINE_LEN 210
 void dumpCode(Scope *scope)
 {
-  char line[200];
-  memset(line, '\0', 200);
+  char line[DUMP_LINE_LEN];
+  memset(line, '\0', DUMP_LINE_LEN);
   int linelen = 0;
   int c, i, j;
   for (i = 0; i < scope->vm_code_size; i++) {
     c = scope->vm_code[i];
-    if (linelen == 8) strsafecat(line, "|", 200);
+    if (linelen == 8) strsafecat(line, "|", DUMP_LINE_LEN);
     if (i != 0) {
       if (i % 16 == 0) {
         printf(" %s\n", line);
@@ -37,37 +38,51 @@ void dumpCode(Scope *scope)
     }
     if (c == 0) {
       printf(ZERO);
-      strsafecat(line, ZERO, 200);
-      strsafecat(line, "0", 200);
+      strsafecat(line, ZERO, DUMP_LINE_LEN);
+      strsafecat(line, "0", DUMP_LINE_LEN);
     } else if (c < 0x20) {
       printf(CTRL);
-      strsafecat(line, CTRL, 200);
-      strsafecat(line, "\uFFED", 200);
+      strsafecat(line, CTRL, DUMP_LINE_LEN);
+      strsafecat(line, "\uFFED", DUMP_LINE_LEN);
     } else if (c < 0x7f) {
       printf(LETTER);
-      strsafecat(line, LETTER, 200);
-      strsafecat(line, &c, 200);
+      strsafecat(line, LETTER, DUMP_LINE_LEN);
+      strsafecat(line, &c, DUMP_LINE_LEN);
     } else {
       printf(EIGHTBIT);
-      strsafecat(line, EIGHTBIT, 200);
-      strsafecat(line, "\uFFED", 200);
+      strsafecat(line, EIGHTBIT, DUMP_LINE_LEN);
+      strsafecat(line, "\uFFED", DUMP_LINE_LEN);
     }
-    strsafecat(line, "\e[m", 200);
+    strsafecat(line, "\e[m", DUMP_LINE_LEN);
     linelen++;
     printf("%02x\e[m ", c);
   }
-  if (i % 16 < 9) printf("  "); /* equiv size to "| " */
-  for (j = i % 16; j < 16; j++) printf("   ");
+  if (linelen != 16) {
+    if (i % 16 < 9) printf("  "); /* equiv size to "| " */
+    for (j = i % 16; j < 16; j++) printf("   ");
+  }
   printf(" %s\n", line);
 }
-#endif
 
-bool Compile(Scope *scope, StreamInterface *si)
+void
+printToken(Tokenizer *tokenizer, Token *token) {
+  printf("\e[32;40;1m%s\e[m len=%ld line=%d pos=%2d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m\n",
+     tokenizer_mode_name(tokenizer->mode),
+     strlen(token->value),
+     token->line_num,
+     token->pos,
+     token_name(token->type),
+     token->value,
+     tokenizer_state_name(token->state));
+}
+#endif /* MMRBC_DEBUG */
+
+bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
   Tokenizer *tokenizer = Tokenizer_new(si);
   Token *topToken = tokenizer->currentToken;
-  ParserState *p = ParseInitState();
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
+  Type prevType;
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
     if (Tokenizer_advance(tokenizer, false) != 0) break;
     for (;;) {
@@ -75,16 +90,17 @@ bool Compile(Scope *scope, StreamInterface *si)
         DEBUGP("(main)%p null", topToken);
       } else {
         if (topToken->type != ON_SP) {
-          INFOP("\n\e[32;40;1m%s\e[m len=%ld line=%d pos=%d \e[35;40;1m%s\e[m `\e[31;40;1m%s\e[m` \e[36;40;1m%s\e[m",
-             tokenizer_mode_name(tokenizer->mode),
-             strlen(topToken->value),
-             topToken->line_num,
-             topToken->pos,
-             token_name(topToken->type),
-             topToken->value,
-             tokenizer_state_name(topToken->state));
+          #ifdef MMRBC_DEBUG
+          printToken(tokenizer, topToken);
+          #endif
           LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
-          Parse(parser, topToken->type, ls->str);
+          if (prevType == DSTRING_END && topToken->type == STRING_END) {
+            Parse(parser, STRING, ""); /* to help pareser */
+          }
+          if (topToken->type != STRING_END) {
+            Parse(parser, topToken->type, ls->str);
+          }
+          prevType = topToken->type;
         }
       }
       if (topToken->next == NULL) {
@@ -102,7 +118,27 @@ bool Compile(Scope *scope, StreamInterface *si)
 #ifdef MMRBC_DEBUG
     ParseShowAllNode(parser, 1);
 #endif
-    Generator_generate(scope, p->root);
+    {
+      /*
+       * Generator_generate() twice.
+       * First time is to gather lvars to put them on the head of registers.
+       * */
+      Scope *lvarScope = Scope_new(NULL);
+      Generator_generate(lvarScope, p->root);
+      int i = 1;
+      Lvar *lvar = lvarScope->lvar;
+      while (lvar) {
+        lvar->regnum = i;
+        lvar = lvar->next;
+        i++;
+      }
+      p->scope->lvar = lvarScope->lvar;
+      p->scope->sp = i;
+      lvarScope->lvar = NULL;
+      Scope_free(lvarScope);
+    }
+    /* Second time */
+    Generator_generate(p->scope, p->root);
   } else {
     success = false;
   }
@@ -110,11 +146,23 @@ bool Compile(Scope *scope, StreamInterface *si)
     /* FIXME skipping FreeNode causes memory leak */
     ParseFreeAllNode(parser);
   }
-  ParserStateFree(p);
   ParseFree(parser, mmrbc_free);
   Tokenizer_free(tokenizer);
 #ifdef MMRBC_DEBUG
-  dumpCode(scope);
+  dumpCode(p->scope);
 #endif
   return success;
+}
+
+ParserState *
+Compiler_parseInitState(void)
+{
+  ParserState *p = ParseInitState();
+  return p;
+}
+
+void
+Compiler_parserStateFree(ParserState *p)
+{
+  ParserStateFree(p);
 }

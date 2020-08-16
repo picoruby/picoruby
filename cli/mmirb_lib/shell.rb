@@ -21,13 +21,18 @@ if pid > 0
   puts "pid: #{pid}" # client will receive the pid
 end
 
+MAX_HISTORY_SIZE = 10
+$history = Array.new
+
 line = "" # String.new does not work...?
 print prompt
+
 while true
   suspend_task # suspend task itself
   while !fd_empty? do
     c = getc
     break if c == nil
+    # print c.ord.to_s
     case c.ord
     when 7 # ESC
       exit_shell
@@ -43,14 +48,21 @@ while true
       when "quit", "exit"
         exit_shell
       else
-        unless compile_and_run(line)
-          puts "Failed to compile!"
+        if compile(line)
+          $history.unshift(line) unless line == "$history";
+          $history.pop if $history.size > MAX_HISTORY_SIZE
+          result = execute_vm
+          print "=> "
+          #p result # goes bad
+          p "(FIXME)"
+        else
+          puts "syntax error"
         end
       end
       print prompt
       line = ""
-    when 65, 66, 67, 68, 126 # ↑↓→←etc.
-      # ignore?
+    when 14, 15 # Shift Out, Shift In
+      print "shift"
     when 127 # backspace
       if line.size > 0
         line = line[0, line.size - 1] # line.chop!
@@ -58,7 +70,6 @@ while true
       end
     else
       print c
-      # print "\r\n#{c.ord}\r\n"
       line << c
     end
   end
