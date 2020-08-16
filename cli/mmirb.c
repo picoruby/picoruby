@@ -62,12 +62,6 @@ resume_shell(int no) {
 }
 
 static void
-c_print(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  hal_write(1, GET_STRING_ARG(1), strlen((char *)GET_STRING_ARG(1)));
-}
-
-static void
 c_is_fd_empty(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   fd_set readfds;
@@ -197,7 +191,7 @@ static void
 c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   vm_run(p->scope->vm_code);
-  SET_RETURN(c_vm->current_regs[1]);
+  SET_RETURN(c_vm->current_regs[p->scope->sp - 1]);
 }
 
 #define FREE_HEADER "          total       used       free       frag\r\n"
@@ -259,7 +253,6 @@ process_child(void)
   mrbc_define_method(0, mrbc_class_object, "compile", c_compile);
   mrbc_define_method(0, mrbc_class_object, "execute_vm", c_execute_vm);
   mrbc_define_method(0, mrbc_class_object, "fd_empty?", c_is_fd_empty);
-  mrbc_define_method(0, mrbc_class_object, "print", c_print);
   mrbc_define_method(0, mrbc_class_object, "gets", c_gets);
   mrbc_define_method(0, mrbc_class_object, "getc", c_getc);
   mrbc_define_method(0, mrbc_class_object, "pid", c_pid);

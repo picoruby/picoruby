@@ -15,7 +15,7 @@ while !fd_empty? do
   print c
 end
 
-prompt = "mm> "
+prompt = "mruby machine > "
 
 if pid > 0
   # skip unless POSIX
