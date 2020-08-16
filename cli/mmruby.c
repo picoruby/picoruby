@@ -13,6 +13,8 @@
 
 #include "heap.h"
 
+int loglevel;
+
 void run(uint8_t *mrb)
 {
   mrbc_init_global();

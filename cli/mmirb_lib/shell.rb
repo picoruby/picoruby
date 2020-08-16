@@ -1,12 +1,13 @@
-#class String
-#  def chop!
-#    self = self[0, self.size - 1]
-#    self
-#  end
-#  def chop
-#    self.dup.chop!
-#  end
-#end
+# for a sample project of PSoC5LP
+# https://github.com/hasumikin/mruby_machine_PSoC5LP
+class LED
+  def on
+    led_on
+  end
+  def off
+    led_off
+  end
+end
 
 # abandon buffer
 while !fd_empty? do
@@ -14,7 +15,7 @@ while !fd_empty? do
   print c
 end
 
-prompt = "mmirb> "
+prompt = "mm> "
 
 if pid > 0
   # skip unless POSIX
@@ -53,8 +54,7 @@ while true
           $history.pop if $history.size > MAX_HISTORY_SIZE
           result = execute_vm
           print "=> "
-          #p result # goes bad
-          p "(FIXME)"
+          p result
         else
           puts "syntax error"
         end

@@ -1,3 +1,6 @@
+#ifndef MMRBC_DEBUG_H_
+#define MMRBC_DEBUG_H_
+
 #include <stdio.h>
 #include <stdint.h>
 
@@ -8,7 +11,7 @@
 #define LOGLEVEL_DEBUG 4
 
 /* GLOBAL */
-int loglevel;
+extern int loglevel;
 
 #if !defined(NDEBUG)
 
@@ -73,3 +76,5 @@ int loglevel;
                            fprintf(stderr, fmt, ##__VA_ARGS__),\
                            fprintf(stderr, "\n"))
 #endif /* !NDEBUG */
+
+#endif /* MMRBC_DEBUG_H_ */

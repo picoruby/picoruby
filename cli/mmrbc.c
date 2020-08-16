@@ -17,6 +17,8 @@
 
 #include "heap.h"
 
+int loglevel;
+
 int handle_opt(int argc, char * const *argv)
 {
   struct option longopts[] = {

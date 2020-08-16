@@ -20,6 +20,8 @@
 #include "heap.h"
 #include "mmirb_lib/shell.c"
 
+int loglevel;
+
 int
 init_hal_fd(const char *pathname)
 {
@@ -195,7 +197,7 @@ static void
 c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   vm_run(p->scope->vm_code);
-  SET_RETURN(c_vm->current_regs[0]); /* FIXME something's wrong */
+  SET_RETURN(c_vm->current_regs[1]);
 }
 
 #define FREE_HEADER "          total       used       free       frag\r\n"
@@ -270,7 +272,6 @@ process_child(void)
     return;
   }
 }
-
 
 int
 main(int argc, char *argv[])

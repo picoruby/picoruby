@@ -97,6 +97,7 @@ $(TARGETS): $(DEPS)
 	  CC=$(CC) AR=$(AR)
 
 psoc5lp_lib:
+	cd cli ; $(MAKE) mmirb_lib/shell.c
 	docker-compose up
 
 docker_psoc5lp_lib: $(DEPS)
@@ -104,7 +105,7 @@ docker_psoc5lp_lib: $(DEPS)
 	touch src/mrubyc/src/hal_psoc5lp/hal.c
 	$(MAKE) build_lib \
 	  HAL_DIR=hal_psoc5lp \
-	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0 -DNDEBUG" \
+	  CFLAGS="$(CFLAGS) -I../../../include/psoc5lp -mcpu=cortex-m3 -mthumb -g -ffunction-sections -ffat-lto-objects -O0 -DNDEBUG -DMRBC_USE_HAL_PSOC5LP" \
 	  LDFLAGS=$(LDFLAGS) \
 	  LIB_DIR=$(LIB_DIR_PSOC5LP) \
 	  COMMON_SRCS="alloc.c class.c console.c error.c global.c keyvalue.c load.c rrt0.c static.c symbol.c value.c vm.c" \
@@ -144,7 +145,9 @@ gdb: host_debug
 	$(GDB) --args ./build/host-debug/bin/mmrbc $(TEST_FILE)
 
 irb: host_debug
-	@cd bin ; bundle exec ruby mmirb.rb
+	@which socat || (echo "\nsocat is not installed\nPlease install socat\n"; exit 1)
+	@which cu || (echo "\ncu is not installed\nPlease install cu\n"; exit 1)
+	@cd bin ; bundle install && bundle exec ruby mmirb.rb
 
 clean:
 	cd src ; $(MAKE) clean
