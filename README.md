@@ -3,10 +3,10 @@
 mmruby is an alternative mruby implementation which is:
 
 - Small foot print
-  - 256KB or less ROM
-  - 128KB or less RAM
+  - ROM: 256KB or less
+  - RAM: 128KB or less
 - Portable
-  - Depends on only libc such as Newlib or Newlib-nano
+  - Depends on only standard C library such as glibc, Newlib or Newlib-nano
 
 ### Set-up
 
