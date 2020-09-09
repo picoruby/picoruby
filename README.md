@@ -57,7 +57,7 @@ You will find more information at [hasumikin/mruby_machine_PSoC5LP](https://gith
 
 I gave a talk about this project on [RubyKaigi Takeout 2020](https://rubykaigi.org/2020-takeout).
 
-- [Video (not ready yet)]()
+- [Video](https://youtu.be/kDOf_tZKlLU)
 - [Slide](https://slide.rabbit-shocker.org/authors/hasumikin/RubyKaigiTakeout2020/)
 
 ### Roadmap
