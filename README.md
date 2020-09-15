@@ -5,7 +5,7 @@ mmruby is an alternative mruby implementation which is:
 - Small foot print
   - ROM: 256KB or less
   - RAM: 128KB or less
-  - Reference board is PSoC5LP which has Arm 32bit processor, 128KB ROM and 64KB RAM
+  - Reference board is PSoC5LP which has Arm 32bit processor, 256KB ROM and 64KB RAM
 - Portable
   - Depends on only standard C library such as glibc, Newlib or Newlib-nano
 
