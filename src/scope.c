@@ -74,6 +74,7 @@ void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
     self->last_snippet->next = snippet;
   }
   self->last_snippet = snippet;
+  self->vm_code_size = self->vm_code_size + size;
 }
 
 

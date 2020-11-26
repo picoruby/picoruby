@@ -538,11 +538,43 @@ void gen_dstr(Scope *scope, Node *node)
   }
 }
 
+void gen_if(Scope *scope, Node *node)
+{
+  /* condition */
+  codegen(scope, node->cons.car);
+  Scope_pushCode(OP_JMPNOT);
+  Scope_pushCode(scope->sp - 1);
+  Scope_pushNCode("\0\0", 2);
+  CodeSnippet *label = scope->last_snippet;
+  /* if true */
+  codegen(scope, node->cons.cdr->cons.car);
+  Scope_pushCode(OP_JMP);
+  Scope_pushNCode("\0\0", 2);
+  CodeSnippet *label_2 = scope->last_snippet;
+  label->value[0] = (scope->vm_code_size >> 8) & 0xff;
+  label->value[1] = scope->vm_code_size & 0xff;
+  if (node->cons.cdr->cons.cdr->cons.car != NULL &&
+      Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
+    /* right before KW_end */
+    Scope_pushCode(OP_LOADNIL);
+    Scope_pushCode(scope->sp - 1);
+  } else {
+    /* if_tail */
+    codegen(scope, node->cons.cdr->cons.cdr->cons.car);
+  }
+  /* right after KW_end */
+  label_2->value[0] = (scope->vm_code_size >> 8) & 0xff;
+  label_2->value[1] = scope->vm_code_size & 0xff;
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
   if (tree == NULL || Node_isAtom(tree)) return;
   switch (Node_atomType(tree)) {
+    case ATOM_if:
+      gen_if(scope, tree->cons.cdr);
+      break;
     case ATOM_NONE:
       codegen(scope, tree->cons.car);
       codegen(scope, tree->cons.cdr);

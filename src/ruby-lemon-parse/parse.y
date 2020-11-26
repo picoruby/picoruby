@@ -334,6 +334,12 @@
   }
 
   static Node*
+  new_if(ParserState *p, Node *b, Node *c, Node *d)
+  {
+    return list4(atom(ATOM_if), b, c, d);
+  }
+
+  static Node*
   new_str(ParserState *p, Node *a)
   {
     if (!a) {
@@ -497,6 +503,12 @@ stmt ::= expr.
 expr ::= command_call.
 expr ::= arg.
 
+expr_value(A) ::= expr(B). {
+                   if (!B) A = list1(atom(ATOM_kw_nil));
+                   else A = B;
+                  }
+
+
 command_call ::= command.
 
 command(A) ::= operation(B) command_args(C). [LOWEST] { A = new_fcall(p, B, C); }
@@ -572,8 +584,28 @@ primary(A) ::= KW_return. { A = new_return(p, 0); }
 primary(A) ::= KW_not LPAREN expr(B) RPAREN. { A = call_uni_op(p, B, "!"); }
 primary(A) ::= KW_not LPAREN RPAREN. { A = call_uni_op(p, list1(atom(ATOM_kw_nil)), "!"); }
 primary ::= method_call.
+primary(A) ::= KW_if expr_value(B) then
+               compstmt(C)
+               if_tail(D)
+               KW_end. {
+                 A = new_if(p, B, C, D);
+               }
 
 primary_value(A) ::= primary(B). { A = B; }
+
+then ::= term.
+then ::= KW_then.
+then ::= term KW_then.
+
+if_tail    ::= opt_else.
+if_tail(A) ::= KW_elsif expr_value(B) then
+               compstmt(C)
+               if_tail(D). {
+                 A = new_if(p, B, C, D);
+               }
+
+opt_else    ::= none.
+opt_else(A) ::= KW_else compstmt(B). { A = B; }
 
 assoc_list ::= none.
 assoc_list(A) ::= assocs(B) trailer. { A = B; }
