@@ -709,9 +709,19 @@ retry:
 //          self->state = EXPR_CLASS;
 //          break;
         case KW_if:
+          if (self->state == EXPR_END) { /* really? */
+            type = KW_modifier_if;
+          }
+          self->state = EXPR_BEG;
+          break;
+        case KW_unless:
+          if (self->state == EXPR_END) { /* really? */
+            type = KW_modifier_unless;
+          }
+          self->state = EXPR_BEG;
+          break;
         case KW_elsif:
         case KW_else:
-        case KW_unless:
           self->state = EXPR_BEG;
           break;
         case KW_return:
