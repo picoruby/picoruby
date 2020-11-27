@@ -704,19 +704,30 @@ retry:
     int8_t kw_num = keyword(value);
     if ( kw_num > 0 ) {
       type = (uint8_t)kw_num;
-      if ( !strcmp(value, "class") ) {
-        self->state = EXPR_CLASS;
-      } else if ( !strcmp(value, "return")
-                  || !strcmp(value, "break")
-                  || !strcmp(value, "next")
-                  || !strcmp(value, "rescue") ) {
-        self->state = EXPR_MID;
-      } else if ( !strcmp(value, "def")
-                  || !strcmp(value, "alias")
-                  || !strcmp(value, "undef") ) {
-        self->state = EXPR_FNAME;
-      } else {
-        self->state = EXPR_END;
+      switch (type) {
+//        case KW_class:
+//          self->state = EXPR_CLASS;
+//          break;
+        case KW_if:
+        case KW_elsif:
+        case KW_else:
+        case KW_unless:
+          self->state = EXPR_BEG;
+          break;
+        case KW_return:
+//        case KW_break:
+//        case KW_next:
+//        case KW_rescue:
+          self->state = EXPR_MID;
+          break;
+        case KW_end:
+//        case KW_def:
+//        case KW_alias:
+//        case KW_undef:
+//          self->state = EXPR_FNAME;
+//          break;
+        default:
+          self->state = EXPR_END;
       }
     } else if (type == IDENTIFIER) {
       switch (self->state) {
