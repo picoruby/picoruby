@@ -340,6 +340,18 @@
   }
 
   static Node*
+  new_and(ParserState *p, Node *b, Node *c)
+  {
+    return list3(atom(ATOM_and), b, c);
+  }
+
+  static Node*
+  new_or(ParserState *p, Node *b, Node *c)
+  {
+    return list3(atom(ATOM_or), b, c);
+  }
+
+  static Node*
   new_str(ParserState *p, Node *a)
   {
     if (!a) {
@@ -461,6 +473,8 @@
 %nonassoc  KW_modifier_if KW_modifier_unless.// KW_modifier_while KW_modifier_until
 %right KW_not.
 %right E OP_ASGN.
+%left OROP.
+%left ANDOP.
 %nonassoc EQ EQQ NEQ.
 %left GT GEQ LT LEQ. // > >= < <=
 %left OR XOR.
@@ -509,6 +523,8 @@ stmt(A) ::= stmt(B) KW_modifier_unless expr_value(C). {
 stmt ::= expr.
 
 expr ::= command_call.
+expr(A) ::= expr(B) KW_and expr(C). { A = new_and(p, B, C); }
+expr(A) ::= expr(B) KW_or expr(C). { A = new_or(p, B, C); }
 expr ::= arg.
 
 expr_value(A) ::= expr(B). {
@@ -566,6 +582,8 @@ arg(A) ::= UNEG arg(B). { A = call_uni_op(p, B, "!"); }
 arg(A) ::= UNOT arg(B). { A = call_uni_op(p, B, "~"); }
 arg(A) ::= arg(B) LSHIFT arg(C). { A = call_bin_op(B, "<<", C); }
 arg(A) ::= arg(B) RSHIFT arg(C). { A = call_bin_op(B, ">>", C); }
+arg(A) ::= arg(B) ANDOP arg(C). { A = new_and(p, B, C); }
+arg(A) ::= arg(B) OROP arg(C). { A = new_or(p, B, C); }
 arg ::= primary.
 
 arg_rhs ::= arg. [OP_ASGN]

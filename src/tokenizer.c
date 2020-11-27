@@ -405,10 +405,26 @@ retry:
       case '/':
       case '^':
       case '%':
-      case '&':
-      case '|':
         type = OP_ASGN;
         self->state = EXPR_BEG;
+        break;
+      case '&':
+        if (value[1] == '&') {
+          type = ANDOP;
+          self->state = EXPR_BEG;
+        } else {
+          type = OP_ASGN;
+          self->state = EXPR_BEG;
+        }
+        break;
+      case '|':
+        if (value[1] == '|') {
+          type = OROP;
+          self->state = EXPR_BEG;
+        } else {
+          type = OP_ASGN;
+          self->state = EXPR_BEG;
+        }
         break;
       default:
         FATALP("error");
@@ -722,6 +738,8 @@ retry:
           break;
         case KW_elsif:
         case KW_else:
+        case KW_and:
+        case KW_or:
           self->state = EXPR_BEG;
           break;
         case KW_return:
