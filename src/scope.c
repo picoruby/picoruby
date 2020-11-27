@@ -324,3 +324,15 @@ void Scope_freeCodeSnippets(Scope *self)
   freeCodeSnippetRcsv(self->code_snippet);
   self->code_snippet = NULL;
 }
+
+CodeSnippet *Scope_markJmpLabel(Scope *scope)
+{
+  Scope_pushNCode("\0\0", 2);
+  return scope->last_snippet;
+}
+
+void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position)
+{
+  label->value[0] = (position >> 8) & 0xff;
+  label->value[1] = position & 0xff;
+}

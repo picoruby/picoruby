@@ -544,15 +544,12 @@ void gen_if(Scope *scope, Node *node)
   codegen(scope, node->cons.car);
   Scope_pushCode(OP_JMPNOT);
   Scope_pushCode(scope->sp - 1);
-  Scope_pushNCode("\0\0", 2);
-  CodeSnippet *label = scope->last_snippet;
+  CodeSnippet *label_false = Scope_markJmpLabel(scope);
   /* if true */
   codegen(scope, node->cons.cdr->cons.car);
   Scope_pushCode(OP_JMP);
-  Scope_pushNCode("\0\0", 2);
-  CodeSnippet *label_2 = scope->last_snippet;
-  label->value[0] = (scope->vm_code_size >> 8) & 0xff;
-  label->value[1] = scope->vm_code_size & 0xff;
+  CodeSnippet *label_true = Scope_markJmpLabel(scope);
+  Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
   if (node->cons.cdr->cons.cdr->cons.car != NULL &&
       Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
     /* right before KW_end */
@@ -563,8 +560,7 @@ void gen_if(Scope *scope, Node *node)
     codegen(scope, node->cons.cdr->cons.cdr->cons.car);
   }
   /* right after KW_end */
-  label_2->value[0] = (scope->vm_code_size >> 8) & 0xff;
-  label_2->value[1] = scope->vm_code_size & 0xff;
+  Scope_backpatchJmpLabel(label_true, scope->vm_code_size);
 }
 
 void codegen(Scope *scope, Node *tree)
