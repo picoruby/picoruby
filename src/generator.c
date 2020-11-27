@@ -538,6 +538,19 @@ void gen_dstr(Scope *scope, Node *node)
   }
 }
 
+void gen_and_or(Scope *scope, Node *node, int opcode)
+{
+  /* left condition */
+  codegen(scope, node->cons.car);
+  Scope_pushCode(opcode); /* and->OP_JMPNOT, or->OP_JMPIF */
+  Scope_pushCode(--scope->sp);
+  CodeSnippet *label = Scope_reserveJmpLabel(scope);
+  /* right condition */
+  codegen(scope, node->cons.cdr);
+  /* goto label */
+  Scope_backpatchJmpLabel(label, scope->vm_code_size);
+}
+
 void gen_if(Scope *scope, Node *node)
 {
   /* assert condition */
@@ -569,6 +582,12 @@ void codegen(Scope *scope, Node *tree)
   int num;
   if (tree == NULL || Node_isAtom(tree)) return;
   switch (Node_atomType(tree)) {
+    case ATOM_and:
+      gen_and_or(scope, tree->cons.cdr, OP_JMPNOT);
+      break;
+    case ATOM_or:
+      gen_and_or(scope, tree->cons.cdr, OP_JMPIF);
+      break;
     case ATOM_if:
       gen_if(scope, tree->cons.cdr);
       break;
