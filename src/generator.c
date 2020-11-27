@@ -550,8 +550,7 @@ void gen_if(Scope *scope, Node *node)
   Scope_pushCode(OP_JMP);
   CodeSnippet *label_true = Scope_markJmpLabel(scope);
   Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
-  if (node->cons.cdr->cons.cdr->cons.car != NULL &&
-      Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
+  if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
     /* right before KW_end */
     Scope_pushCode(OP_LOADNIL);
     Scope_pushCode(scope->sp - 1);

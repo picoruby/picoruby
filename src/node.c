@@ -23,7 +23,7 @@ bool Node_isLiteral(Node *self)
 
 AtomType Node_atomType(Node *self)
 {
-  if (self->cons.car == NULL || !Node_isAtom(self->cons.car)) {
+  if (self == NULL || self->cons.car == NULL || !Node_isAtom(self->cons.car)) {
     return ATOM_NONE;
   } else {
     if (self->cons.car->type != ATOM) {
