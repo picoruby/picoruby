@@ -87,7 +87,7 @@ void Scope_finish(Scope *self);
 
 void Scope_freeCodeSnippets(Scope *self);
 
-CodeSnippet *Scope_markJmpLabel(Scope *self);
+CodeSnippet *Scope_reserveJmpLabel(Scope *self);
 
 void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position);
 

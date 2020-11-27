@@ -540,16 +540,17 @@ void gen_dstr(Scope *scope, Node *node)
 
 void gen_if(Scope *scope, Node *node)
 {
-  /* condition */
+  /* assert condition */
   codegen(scope, node->cons.car);
   Scope_pushCode(OP_JMPNOT);
   Scope_pushCode(--scope->sp);
-  CodeSnippet *label_false = Scope_markJmpLabel(scope);
-  /* if true */
+  CodeSnippet *label_false = Scope_reserveJmpLabel(scope);
+  /* condition true */
   codegen(scope, node->cons.cdr->cons.car);
   Scope_pop(scope);
   Scope_pushCode(OP_JMP);
-  CodeSnippet *label_true = Scope_markJmpLabel(scope);
+  CodeSnippet *label_end = Scope_reserveJmpLabel(scope);
+  /* condition false */
   Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
   if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
     /* right before KW_end */
@@ -560,7 +561,7 @@ void gen_if(Scope *scope, Node *node)
     codegen(scope, node->cons.cdr->cons.cdr->cons.car);
   }
   /* right after KW_end */
-  Scope_backpatchJmpLabel(label_true, scope->vm_code_size);
+  Scope_backpatchJmpLabel(label_end, scope->vm_code_size);
 }
 
 void codegen(Scope *scope, Node *tree)

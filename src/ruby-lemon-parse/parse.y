@@ -594,7 +594,7 @@ primary(A) ::= KW_unless expr_value(B) then
                compstmt(C)
                opt_else(D)
                KW_end. {
-                 A = new_if(p, B, D, C); /* NOTE: `D, C` in inverse order*/
+                 A = new_if(p, B, D, C); /* NOTE: `D, C` in inverse order */
                }
 
 primary_value(A) ::= primary(B). { A = B; }

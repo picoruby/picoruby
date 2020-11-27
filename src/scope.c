@@ -325,7 +325,7 @@ void Scope_freeCodeSnippets(Scope *self)
   self->code_snippet = NULL;
 }
 
-CodeSnippet *Scope_markJmpLabel(Scope *scope)
+CodeSnippet *Scope_reserveJmpLabel(Scope *scope)
 {
   Scope_pushNCode("\0\0", 2);
   return scope->last_snippet;
