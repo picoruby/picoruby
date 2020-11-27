@@ -543,17 +543,18 @@ void gen_if(Scope *scope, Node *node)
   /* condition */
   codegen(scope, node->cons.car);
   Scope_pushCode(OP_JMPNOT);
-  Scope_pushCode(scope->sp - 1);
+  Scope_pushCode(--scope->sp);
   CodeSnippet *label_false = Scope_markJmpLabel(scope);
   /* if true */
   codegen(scope, node->cons.cdr->cons.car);
+  Scope_pop(scope);
   Scope_pushCode(OP_JMP);
   CodeSnippet *label_true = Scope_markJmpLabel(scope);
   Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
   if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
     /* right before KW_end */
     Scope_pushCode(OP_LOADNIL);
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp++);
   } else {
     /* if_tail */
     codegen(scope, node->cons.cdr->cons.cdr->cons.car);
