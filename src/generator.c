@@ -538,11 +538,40 @@ void gen_dstr(Scope *scope, Node *node)
   }
 }
 
+void gen_if(Scope *scope, Node *node)
+{
+  /* assert condition */
+  codegen(scope, node->cons.car);
+  Scope_pushCode(OP_JMPNOT);
+  Scope_pushCode(--scope->sp);
+  CodeSnippet *label_false = Scope_reserveJmpLabel(scope);
+  /* condition true */
+  codegen(scope, node->cons.cdr->cons.car);
+  Scope_pop(scope);
+  Scope_pushCode(OP_JMP);
+  CodeSnippet *label_end = Scope_reserveJmpLabel(scope);
+  /* condition false */
+  Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
+  if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
+    /* right before KW_end */
+    Scope_pushCode(OP_LOADNIL);
+    Scope_pushCode(scope->sp++);
+  } else {
+    /* if_tail */
+    codegen(scope, node->cons.cdr->cons.cdr->cons.car);
+  }
+  /* right after KW_end */
+  Scope_backpatchJmpLabel(label_end, scope->vm_code_size);
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
   if (tree == NULL || Node_isAtom(tree)) return;
   switch (Node_atomType(tree)) {
+    case ATOM_if:
+      gen_if(scope, tree->cons.cdr);
+      break;
     case ATOM_NONE:
       codegen(scope, tree->cons.car);
       codegen(scope, tree->cons.cdr);

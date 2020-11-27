@@ -74,6 +74,7 @@ void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
     self->last_snippet->next = snippet;
   }
   self->last_snippet = snippet;
+  self->vm_code_size = self->vm_code_size + size;
 }
 
 
@@ -322,4 +323,16 @@ void Scope_freeCodeSnippets(Scope *self)
 {
   freeCodeSnippetRcsv(self->code_snippet);
   self->code_snippet = NULL;
+}
+
+CodeSnippet *Scope_reserveJmpLabel(Scope *scope)
+{
+  Scope_pushNCode("\0\0", 2);
+  return scope->last_snippet;
+}
+
+void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position)
+{
+  label->value[0] = (position >> 8) & 0xff;
+  label->value[1] = position & 0xff;
 }
