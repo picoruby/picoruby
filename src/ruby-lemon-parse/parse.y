@@ -458,6 +458,7 @@
 %nonassoc LOWEST.
 %nonassoc LBRACE_ARG.
 
+%nonassoc  KW_modifier_if KW_modifier_unless.// KW_modifier_while KW_modifier_until
 %right KW_not.
 %right E OP_ASGN.
 %nonassoc EQ EQQ NEQ.
@@ -498,6 +499,13 @@ stmt(A) ::= none. { A = new_begin(p, 0); }
 //
 //command_rhs ::= command_call. [OP_ASGN]
 //command_rhs ::= command_asgn.
+stmt(A) ::= stmt(B) KW_modifier_if expr_value(C). {
+              A = new_if(p, C, B, 0);
+            }
+stmt(A) ::= stmt(B) KW_modifier_unless expr_value(C). {
+              A = new_if(p, C, 0, B);
+            }
+
 stmt ::= expr.
 
 expr ::= command_call.
