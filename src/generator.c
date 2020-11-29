@@ -360,6 +360,12 @@ void gen_op_assign(Scope *scope, Node *node)
 {
   int num;
   char *method_name, *call_name;
+  method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
+  bool isANDOPorOROP = false; /* &&= or ||= */
+  if (method_name[1] == '|' || method_name[1] == '&') {
+    isANDOPorOROP = true;
+  }
+  CodeSnippet *jmpLabel;
   Node *recv;
   int symIndex;
   switch(Node_atomType(node->cons.car)) {
@@ -401,8 +407,8 @@ void gen_op_assign(Scope *scope, Node *node)
     default:
       FATALP("error");
   }
-  codegen(scope, node->cons.cdr->cons.cdr); /* right hand */
-  method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
+  /* right hand */
+  if (!isANDOPorOROP) codegen(scope, node->cons.cdr->cons.cdr);
   switch (method_name[0]) {
     case '+':
       Scope_pushCode(OP_ADD);
@@ -434,6 +440,20 @@ void gen_op_assign(Scope *scope, Node *node)
         Scope_pop(scope);
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
+      } else if (isANDOPorOROP) {
+        switch (method_name[1]) {
+          case '|':
+            Scope_pushCode(OP_JMPIF);
+            break;
+          case '&':
+            Scope_pushCode(OP_JMPNOT);
+            break;
+        }
+        Scope_pushCode(--scope->sp);
+        jmpLabel = Scope_reserveJmpLabel(scope);
+        /* right condition of `___ &&= ___` */
+        codegen(scope, node->cons.cdr);
+        Scope_pop(scope);
       } else {
         Scope_pushCode(OP_SEND);
         Scope_pop(scope);
@@ -471,9 +491,9 @@ void gen_op_assign(Scope *scope, Node *node)
       break;
     case (ATOM_call):
       /*
-       * TODO comfirm
+       * TODO FIXME
        * `obj[]+=` probably works
-       * not sure if `obj.attr+=` works
+       * `obj.attr+=` doesn't work yet
        */
       /* right hand of assignment (mass-assign dosen't work) */
       Scope_pushCode(OP_MOVE);
@@ -504,7 +524,9 @@ void gen_op_assign(Scope *scope, Node *node)
     default:
       FATALP("error");
   }
-  Scope_push(scope);
+  //Scope_push(scope);
+  /* goto label */
+  if (isANDOPorOROP) Scope_backpatchJmpLabel(jmpLabel, scope->vm_code_size);
 }
 
 void gen_dstr(Scope *scope, Node *node)
