@@ -374,8 +374,8 @@ void gen_op_assign(Scope *scope, Node *node)
     case (ATOM_at_ivar):
     case (ATOM_at_gvar):
     case (ATOM_at_const):
-      num = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr->cons.car->cons.cdr));
-      switch(Node_atomType(node->cons.car->cons.cdr->cons.car)) {
+      num = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr));
+      switch(Node_atomType(node->cons.car)) {
         case (ATOM_at_ivar):
           Scope_pushCode(OP_GETIV);
           break;
