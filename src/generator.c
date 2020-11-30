@@ -537,7 +537,7 @@ void gen_dstr(Scope *scope, Node *node)
     dstr = dstr->cons.cdr->cons.car;
     num++;
   }
-  /* start from the end (== the first str) of the tree */
+  /* start from the bottom (== the first str) of the tree */
   int sp = scope->sp; /* copy */
   for (int count = num; 0 < count; count--) {
     dstr = node->cons.cdr->cons.car;
@@ -547,11 +547,13 @@ void gen_dstr(Scope *scope, Node *node)
     codegen(scope, dstr->cons.cdr->cons.cdr->cons.car);
     if (count != num) {
       /* TRICKY (I'm not sure if this is a correct way) */
-      if (scope->sp > sp + 1) {
-        Scope_pushCode(OP_MOVE);
-        Scope_pushCode(sp + 1);
-        Scope_pushCode(scope->sp - 1);
-      }
+// I don't remember why I wrote this :joy:
+// TODO remove if it's OK
+//      if (scope->sp > sp + 1) {
+//        Scope_pushCode(OP_MOVE);
+//        Scope_pushCode(sp + 1);
+//        Scope_pushCode(scope->sp - 1);
+//      }
       Scope_pushCode(OP_STRCAT);
       scope->sp = sp;
       Scope_pushCode(scope->sp);
@@ -652,6 +654,11 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_symbol_literal:
       gen_sym(scope, tree->cons.cdr);
+      break;
+    case ATOM_dsymbol:
+      gen_dstr(scope, tree->cons.cdr->cons.car);
+      Scope_pushCode(OP_INTERN);
+      Scope_pushCode(scope->sp - 1);
       break;
     case ATOM_str:
       gen_str(scope, tree->cons.cdr);

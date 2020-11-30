@@ -44,6 +44,7 @@ typedef enum atom_type {
   ATOM_stmts_add,
   ATOM_string_literal,
   ATOM_symbol_literal,
+  ATOM_dsymbol,
   ATOM_binary,
   ATOM_unary,
   ATOM_stmts_new,
