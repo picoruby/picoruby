@@ -198,6 +198,12 @@
     return list2(atom(ATOM_symbol_literal), literal(s));
   }
 
+  static Node*
+  new_dsym(ParserState *p, Node *n)
+  {
+    return list2(atom(ATOM_dsymbol), n);
+  }
+
   /* (:call a b c) */
   static Node*
   new_call(ParserState *p, Node *a, const char* b, Node *c, int pass)
@@ -473,6 +479,7 @@
 %nonassoc  KW_modifier_if KW_modifier_unless.// KW_modifier_while KW_modifier_until
 %right KW_not.
 %right E OP_ASGN.
+%right QUESTION COLON.
 %left OROP.
 %left ANDOP.
 %nonassoc EQ EQQ NEQ.
@@ -584,6 +591,7 @@ arg(A) ::= arg(B) LSHIFT arg(C). { A = call_bin_op(B, "<<", C); }
 arg(A) ::= arg(B) RSHIFT arg(C). { A = call_bin_op(B, ">>", C); }
 arg(A) ::= arg(B) ANDOP arg(C). { A = new_and(p, B, C); }
 arg(A) ::= arg(B) OROP arg(C). { A = new_or(p, B, C); }
+arg(A) ::= arg(B) QUESTION arg(C) COLON arg(D). { A = new_if(p, B, C, D); }
 arg ::= primary.
 
 arg_rhs ::= arg. [OP_ASGN]
@@ -709,6 +717,14 @@ numeric(A) ::= UMINUS_NUM INTEGER(B). [LOWEST] { A = new_neglit(p, B, ATOM_at_in
 numeric(A) ::= UMINUS_NUM FLOAT(B). [LOWEST]   { A = new_neglit(p, B, ATOM_at_float); }
 
 symbol(A) ::= basic_symbol(B). { A = new_sym(p, B); }
+symbol(A) ::= SYMBEG STRING_BEG STRING(C). {
+                A = new_sym(p, C);
+              }
+symbol(A) ::= SYMBEG STRING_BEG string_rep(B) STRING(C). {
+                A = new_dsym(
+                  p, new_dstr(p, list3(atom(ATOM_dstr_add), B, new_str(p, C)))
+                );
+              }
 
 basic_symbol(A) ::= SYMBEG sym(B). { A = B; }
 

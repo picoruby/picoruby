@@ -438,9 +438,10 @@ retry:
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = GVAR;
     self->state = EXPR_END;
-  } else if (Regex_match3(&(self->line[self->pos]), "^(\\?.)", regexResult)) {
+  } else if (Regex_match3(&(self->line[self->pos]), "^(\\?)", regexResult)) {
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
-    type = CHAR;
+    type = QUESTION;
+    self->state = EXPR_BEG;
   } else if (self->line[self->pos] == '-' && self->line[self->pos + 1] == '>') {
     value[0] = '-';
     value[1] = '>';
@@ -451,13 +452,18 @@ retry:
       // ignore
       self->pos++;
     } else if (self->line[self->pos] == ':') {
-      if (Regex_match2(&(self->line[self->pos]), "^:[A-Za-z0-9]?")) {
-        value[0] = ':';
-        value[1] = '\0';
+      value[0] = ':';
+      value[1] = '\0';
+      if (Regex_match2(&(self->line[self->pos]), "^:[A-Za-z0-9'\"]")) {
         type = SYMBEG;
-        self->state = EXPR_FNAME;
+        if (self->line[self->pos + 1] == '\'' || self->line[self->pos + 1] == '"') {
+          self->state = EXPR_CMDARG;
+        } else {
+          self->state = EXPR_FNAME;
+        }
       } else {
-        // nothing TODO?
+        type = COLON;
+        self->state = EXPR_BEG;
       }
     } else if (self->line[self->pos] == '#') {
       strsafecpy(value, &(self->line[self->pos]), MAX_TOKEN_LENGTH);
