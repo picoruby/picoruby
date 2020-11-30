@@ -346,6 +346,24 @@
   }
 
   static Node*
+  new_while(ParserState *p, Node *b, Node *c)
+  {
+    return list3(atom(ATOM_while), b, c);
+  }
+
+  static Node*
+  new_break(ParserState *p, Node *b)
+  {
+    return list2(atom(ATOM_break), b);
+  }
+
+  static Node*
+  new_next(ParserState *p, Node *b)
+  {
+    return list2(atom(ATOM_next), b);
+  }
+
+  static Node*
   new_and(ParserState *p, Node *b, Node *c)
   {
     return list3(atom(ATOM_and), b, c);
@@ -476,7 +494,8 @@
 %nonassoc LOWEST.
 %nonassoc LBRACE_ARG.
 
-%nonassoc  KW_modifier_if KW_modifier_unless.// KW_modifier_while KW_modifier_until
+%nonassoc  KW_modifier_if KW_modifier_unless KW_modifier_while.// KW_modifier_until
+%left KW_or KW_and.
 %right KW_not.
 %right E OP_ASGN.
 %right QUESTION COLON.
@@ -488,7 +507,7 @@
 %left AND.
 %left LSHIFT RSHIFT.
 %left PLUS MINUS.
-%left DIVIDE TIMES SURPLUS.
+%left TIMES DIVIDE SURPLUS.
 %right UMINUS_NUM UMINUS.
 %right POW.
 %right UNEG UNOT UPLUS.
@@ -526,6 +545,9 @@ stmt(A) ::= stmt(B) KW_modifier_if expr_value(C). {
 stmt(A) ::= stmt(B) KW_modifier_unless expr_value(C). {
               A = new_if(p, C, 0, B);
             }
+stmt(A) ::= stmt(B) KW_modifier_while expr_value(C). {
+              A = new_while(p, C, B);
+            }
 
 stmt ::= expr.
 
@@ -546,6 +568,8 @@ command(A) ::= operation(B) command_args(C). [LOWEST] { A = new_fcall(p, B, C); 
 command(A) ::= primary_value(B) call_op(C) operation2(D) command_args(E).
   { A = new_call(p, B, D, E, C); }
 command(A) ::= KW_return call_args(B). { A = new_return(p, ret_args(p, B)); }
+command(A) ::= KW_break call_args(B). { A = new_break(p, ret_args(p, B)); }
+command(A) ::= KW_next call_args(B). { A = new_next(p, ret_args(p, B)); }
 
 command_args ::= call_args.
 
@@ -630,12 +654,22 @@ primary(A) ::= KW_unless expr_value(B) then
                KW_end. {
                  A = new_if(p, B, D, C); /* NOTE: `D, C` in inverse order */
                }
+primary(A) ::= KW_while expr_value(B) do compstmt(C) KW_end. {
+                 A = new_while(p, B, C);
+               }
+primary(A) ::= KW_break. { A = new_break(p, 0); }
+primary(A) ::= KW_next. { A = new_next(p, 0); }
+primary(A) ::= KW_redo. { A = list1(atom(ATOM_redo)); }
 
 primary_value(A) ::= primary(B). { A = B; }
 
 then ::= term.
 then ::= KW_then.
 then ::= term KW_then.
+
+do ::= term.
+do ::= KW_do.
+do ::= KW_do_cond.
 
 if_tail    ::= opt_else.
 if_tail(A) ::= KW_elsif expr_value(B) then
