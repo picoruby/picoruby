@@ -22,6 +22,7 @@ Scope *Scope_new(Scope *prev)
   self->max_sp = 1;
   self->vm_code = NULL;
   self->vm_code_size = 0;
+  self->break_stack = NULL;
   if (prev != NULL) self->nirep++;
   return self;
 }
@@ -336,3 +337,26 @@ void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position)
   label->value[0] = (position >> 8) & 0xff;
   label->value[1] = position & 0xff;
 }
+
+void Scope_pushBreakStack(Scope *self)
+{
+  BreakStack *break_stack = mmrbc_alloc(sizeof(BreakStack));
+  break_stack->code_snippet = NULL;
+  break_stack->next_pos = self->vm_code_size;
+  if (self->break_stack) {
+    break_stack->prev = self->break_stack;
+  } else {
+    break_stack->prev = NULL;
+  }
+  self->break_stack = break_stack;
+}
+
+void Scope_popBreakStack(Scope *self)
+{
+  BreakStack *memo = self->break_stack;
+  if (self->break_stack->code_snippet)
+    Scope_backpatchJmpLabel(self->break_stack->code_snippet, self->vm_code_size);
+  self->break_stack = self->break_stack->prev;
+  mmrbc_free(memo);
+}
+

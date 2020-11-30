@@ -601,6 +601,57 @@ void gen_if(Scope *scope, Node *node)
   Scope_backpatchJmpLabel(label_end, scope->vm_code_size);
 }
 
+void gen_while(Scope *scope, Node *node)
+{
+  Scope_pushBreakStack(scope);
+  Scope_pushCode(OP_JMP);
+  CodeSnippet *label_cond = Scope_reserveJmpLabel(scope);
+  scope->break_stack->redo_pos = scope->vm_code_size;
+  /* inside while */
+  Scope_pop(scope);
+  uint32_t top = scope->vm_code_size;
+  codegen(scope, node->cons.cdr);
+  /* just before condition */
+  Scope_backpatchJmpLabel(label_cond, scope->vm_code_size);
+  /* condition */
+  codegen(scope, node->cons.car);
+  Scope_pushCode(OP_JMPIF);
+  Scope_pushCode(--scope->sp);
+  CodeSnippet *label_top = Scope_reserveJmpLabel(scope);
+  Scope_backpatchJmpLabel(label_top, top);
+  /* after while block */
+  Scope_pushCode(OP_LOADNIL);
+  Scope_pushCode(scope->sp++);
+  Scope_popBreakStack(scope);
+}
+
+void gen_break(Scope *scope, Node *node)
+{
+  Scope_push(scope);
+  codegen(scope, node);
+  Scope_pop(scope);
+  Scope_pushCode(OP_JMP);
+  scope->break_stack->code_snippet = Scope_reserveJmpLabel(scope);
+}
+
+void gen_next(Scope *scope, Node *node)
+{
+  Scope_push(scope);
+  codegen(scope, node);
+  Scope_push(scope);
+  Scope_pushCode(OP_JMP);
+  CodeSnippet *label = Scope_reserveJmpLabel(scope);
+  Scope_backpatchJmpLabel(label, scope->break_stack->next_pos);
+}
+
+void gen_redo(Scope *scope)
+{
+  Scope_push(scope);
+  Scope_pushCode(OP_JMP);
+  CodeSnippet *label = Scope_reserveJmpLabel(scope);
+  Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
@@ -614,6 +665,18 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_if:
       gen_if(scope, tree->cons.cdr);
+      break;
+    case ATOM_while:
+      gen_while(scope, tree->cons.cdr);
+      break;
+    case ATOM_break:
+      gen_break(scope, tree->cons.cdr);
+      break;
+    case ATOM_next:
+      gen_next(scope, tree->cons.cdr);
+      break;
+    case ATOM_redo:
+      gen_redo(scope);
       break;
     case ATOM_NONE:
       codegen(scope, tree->cons.car);

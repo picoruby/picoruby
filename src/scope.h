@@ -43,6 +43,14 @@ typedef struct code_snippet
   struct code_snippet *next;
 } CodeSnippet;
 
+typedef struct break_stack
+{
+  CodeSnippet *code_snippet;
+  struct break_stack *prev;
+  uint32_t next_pos;
+  uint32_t redo_pos;
+} BreakStack;
+
 typedef struct scope
 {
   struct scope *prev;
@@ -57,6 +65,7 @@ typedef struct scope
   int max_sp;
   int32_t vm_code_size;
   uint8_t *vm_code;
+  BreakStack *break_stack;
 } Scope;
 
 Scope *Scope_new(Scope *prev);
@@ -90,5 +99,9 @@ void Scope_freeCodeSnippets(Scope *self);
 CodeSnippet *Scope_reserveJmpLabel(Scope *self);
 
 void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position);
+
+void Scope_pushBreakStack(Scope *self);
+
+void Scope_popBreakStack(Scope *self);
 
 #endif
