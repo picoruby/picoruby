@@ -601,7 +601,7 @@ void gen_if(Scope *scope, Node *node)
   Scope_backpatchJmpLabel(label_end, scope->vm_code_size);
 }
 
-void gen_while(Scope *scope, Node *node)
+void gen_while(Scope *scope, Node *node, int op_jmp)
 {
   Scope_pushBreakStack(scope);
   Scope_pushCode(OP_JMP);
@@ -615,7 +615,7 @@ void gen_while(Scope *scope, Node *node)
   Scope_backpatchJmpLabel(label_cond, scope->vm_code_size);
   /* condition */
   codegen(scope, node->cons.car);
-  Scope_pushCode(OP_JMPIF);
+  Scope_pushCode(op_jmp);
   Scope_pushCode(--scope->sp);
   CodeSnippet *label_top = Scope_reserveJmpLabel(scope);
   Scope_backpatchJmpLabel(label_top, top);
@@ -667,7 +667,10 @@ void codegen(Scope *scope, Node *tree)
       gen_if(scope, tree->cons.cdr);
       break;
     case ATOM_while:
-      gen_while(scope, tree->cons.cdr);
+      gen_while(scope, tree->cons.cdr, OP_JMPIF);
+      break;
+    case ATOM_until:
+      gen_while(scope, tree->cons.cdr, OP_JMPNOT);
       break;
     case ATOM_break:
       gen_break(scope, tree->cons.cdr);

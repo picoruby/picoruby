@@ -352,6 +352,12 @@
   }
 
   static Node*
+  new_until(ParserState *p, Node *b, Node *c)
+  {
+    return list3(atom(ATOM_until), b, c);
+  }
+
+  static Node*
   new_break(ParserState *p, Node *b)
   {
     return list2(atom(ATOM_break), b);
@@ -494,7 +500,7 @@
 %nonassoc LOWEST.
 %nonassoc LBRACE_ARG.
 
-%nonassoc  KW_modifier_if KW_modifier_unless KW_modifier_while.// KW_modifier_until
+%nonassoc  KW_modifier_if KW_modifier_unless KW_modifier_while KW_modifier_until.
 %left KW_or KW_and.
 %right KW_not.
 %right E OP_ASGN.
@@ -547,6 +553,9 @@ stmt(A) ::= stmt(B) KW_modifier_unless expr_value(C). {
             }
 stmt(A) ::= stmt(B) KW_modifier_while expr_value(C). {
               A = new_while(p, C, B);
+            }
+stmt(A) ::= stmt(B) KW_modifier_until expr_value(C). {
+              A = new_until(p, C, B);
             }
 
 stmt ::= expr.
@@ -656,6 +665,9 @@ primary(A) ::= KW_unless expr_value(B) then
                }
 primary(A) ::= KW_while expr_value(B) do compstmt(C) KW_end. {
                  A = new_while(p, B, C);
+               }
+primary(A) ::= KW_until expr_value(B) do compstmt(C) KW_end. {
+                 A = new_until(p, B, C);
                }
 primary(A) ::= KW_break. { A = new_break(p, 0); }
 primary(A) ::= KW_next. { A = new_next(p, 0); }
