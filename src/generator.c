@@ -575,6 +575,93 @@ void gen_and_or(Scope *scope, Node *node, int opcode)
   Scope_backpatchJmpLabel(label, scope->vm_code_size);
 }
 
+void gen_case_when(Scope *scope, Node *node, int cond_reg, CodeSnippet *label_true_array)
+{
+  if (Node_atomType(node->cons.car) != ATOM_args_add) {
+    return;
+  } else {
+    gen_case_when(scope, node->cons.car->cons.cdr, cond_reg, label_true_array + 1);
+    codegen(scope, node->cons.car->cons.cdr->cons.cdr);
+    Scope_pushCode(OP_MOVE);
+    Scope_pushCode(scope->sp);
+    Scope_pushCode(cond_reg);
+    Scope_pushCode(OP_SEND);
+    Scope_pushCode(cond_reg + 1);
+    Scope_pushCode(Scope_newSym(scope, "==="));
+    Scope_pushCode(1);
+    /* when condition matched */
+    Scope_pushCode(OP_JMPIF);
+    Scope_pushCode(cond_reg + 1);
+    label_true_array = Scope_reserveJmpLabel(scope);
+    scope->sp = cond_reg + 1;
+  }
+}
+
+void gen_case(Scope *scope, Node *node)
+{
+  /* count number of cases */
+  Node *case_body = node->cons.cdr->cons.car;
+  int i = 0;
+  while (1) {
+    if (case_body && case_body->cons.car) i++; else break;
+    case_body = case_body->cons.cdr->cons.cdr->cons.car;
+  }
+  int when_count = i;
+  CodeSnippet *label_end_array[when_count];
+  /* case expression */
+  codegen(scope, node->cons.car);
+  int cond_reg = scope->sp - 1; /* cond_reg === when_expr */
+  /* each case_body */
+  case_body = node->cons.cdr->cons.car;
+  i = 0;
+  while (1) {
+    /* when expression */
+    int args_count = 0;
+    {
+      /* count number of args */
+      Node *args_node = case_body;
+      while (1) {
+        if (Node_atomType(args_node->cons.car) != ATOM_args_add) break;
+        args_count++;
+        args_node = args_node->cons.car->cons.cdr;
+      }
+    }
+    CodeSnippet *label_true_array[args_count];
+    gen_case_when(scope, case_body, cond_reg, &label_true_array[0]);
+    /* when condition didn't match */
+    Scope_pushCode(OP_JMP);
+    CodeSnippet *label_false = Scope_reserveJmpLabel(scope);
+    /* content */
+    for (int j = 0; j < args_count; j++)
+      Scope_backpatchJmpLabel(label_true_array[j], scope->vm_code_size);
+    codegen(scope, case_body->cons.cdr->cons.car);
+    Scope_pushCode(OP_JMP);
+    label_end_array[i++] = Scope_reserveJmpLabel(scope);
+    /* next case */
+    Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
+    case_body = case_body->cons.cdr->cons.cdr->cons.car;
+    Scope_pop(scope);
+    if (case_body) {
+      if (case_body->cons.car) {
+        continue;
+      } else {
+        if (case_body->cons.cdr->cons.car) {
+          /* else */
+          codegen(scope, case_body->cons.cdr->cons.car);
+          break;
+        }
+      }
+    } else {
+      /* no else clause */
+      Scope_pushCode(OP_LOADNIL);
+      Scope_pushCode(scope->sp++);
+      break;
+    }
+  }
+  for (i = 0; i < when_count; i++)
+    Scope_backpatchJmpLabel(label_end_array[i], scope->vm_code_size);
+}
+
 void gen_if(Scope *scope, Node *node)
 {
   /* assert condition */
@@ -662,6 +749,9 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_or:
       gen_and_or(scope, tree->cons.cdr, OP_JMPIF);
+      break;
+    case ATOM_case:
+      gen_case(scope, tree->cons.cdr);
       break;
     case ATOM_if:
       gen_if(scope, tree->cons.cdr);
