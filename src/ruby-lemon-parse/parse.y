@@ -358,6 +358,12 @@
   }
 
   static Node*
+  new_case(ParserState *p, Node *b, Node *c)
+  {
+    return list3(atom(ATOM_case), b, c);
+  }
+
+  static Node*
   new_break(ParserState *p, Node *b)
   {
     return list2(atom(ATOM_break), b);
@@ -674,6 +680,14 @@ primary(A) ::= KW_while expr_value(B) do compstmt(C) KW_end. {
 primary(A) ::= KW_until expr_value(B) do compstmt(C) KW_end. {
                  A = new_until(p, B, C);
                }
+primary(A) ::= KW_case expr_value(B) opt_terms
+               case_body(C)
+               KW_end. {
+                 A = new_case(p, B, C);
+               }
+primary(A) ::= KW_case opt_terms case_body(C) KW_end. {
+                 A = new_case(p, 0, C);
+               }
 primary(A) ::= KW_break. { A = new_break(p, 0); }
 primary(A) ::= KW_next. { A = new_next(p, 0); }
 primary(A) ::= KW_redo. { A = list1(atom(ATOM_redo)); }
@@ -730,6 +744,20 @@ paren_args(A) ::= LPAREN opt_call_args(B) RPAREN. { A = B; }
 
 opt_call_args ::= none.
 opt_call_args ::= call_args opt_terms.
+
+case_body(A) ::= KW_when args(B) then
+                 compstmt(C)
+                 cases(D). {
+                   A = list3(B, C, D);
+                 }
+cases(A) ::= opt_else(B). {
+               if (B) {
+                 A = list3(0, B, 0);
+               } else {
+                 A = 0;
+               }
+             }
+cases ::= case_body.
 
 literal ::= numeric.
 literal ::= symbol.

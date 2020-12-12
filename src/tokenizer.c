@@ -557,7 +557,7 @@ retry:
       } else {
         value[0] = self->line[self->pos];
         value[1] = '\0';
-        if (IS_BEG() && value[0] == '-') {
+        if ( (IS_BEG() || IS_ARG() ) && value[0] == '-') {
           if (IS_NUM(1)) {
             type = UMINUS_NUM;
           } else {
@@ -750,15 +750,18 @@ retry:
         case KW_and:
         case KW_or:
         case KW_do:
+        case KW_case:
+        case KW_when:
           self->state = EXPR_BEG;
           break;
         case KW_return:
-//        case KW_break:
-//        case KW_next:
+        case KW_break:
+        case KW_next:
 //        case KW_rescue:
           self->state = EXPR_MID;
           break;
         case KW_end:
+        case KW_redo:
 //        case KW_def:
 //        case KW_alias:
 //        case KW_undef:
