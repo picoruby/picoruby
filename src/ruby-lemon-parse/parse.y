@@ -529,6 +529,8 @@ top_stmts(A) ::= top_stmts(B) terms top_stmt(C).
 
 top_stmt ::= stmt.
 
+bodystmt ::= compstmt.
+
 compstmt(A) ::= stmts(B) opt_terms. { A = B; }
 
 stmts(A) ::= none. { A = new_begin(p, 0); }
@@ -644,6 +646,9 @@ variable(A) ::= CONSTANT(B).   { A = new_const(p, B); }
 primary ::= literal.
 primary ::= string.
 primary ::= var_ref.
+primary(A) ::= KW_begin
+               bodystmt(B)
+               KW_end. { A = B; }
 primary(A) ::= LPAREN compstmt(B) RPAREN. { A = B; }
 primary(A) ::= LBRACKET_ARRAY aref_args(B) RBRACKET. { A = new_array(p, B); }
 primary(A) ::= LBRACE assoc_list(B) RBRACE. { A = new_hash(p, B); }
