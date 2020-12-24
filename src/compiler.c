@@ -79,7 +79,7 @@ printToken(Tokenizer *tokenizer, Token *token) {
 
 bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
-  Tokenizer *tokenizer = Tokenizer_new(si);
+  Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
   Type prevType;

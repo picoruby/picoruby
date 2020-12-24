@@ -22,13 +22,6 @@ typedef enum misc {
 
 void codegen(Scope *scope, Node *tree);
 
-Scope *new_scope(Scope *prev)
-{
-  Scope *scope = Scope_new(prev);
-  if (prev != NULL) prev->nirep++;
-  return scope;
-}
-
 void gen_self(Scope *scope)
 {
   Scope_pushCode(OP_LOADSELF);

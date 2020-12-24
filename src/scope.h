@@ -51,24 +51,28 @@ typedef struct break_stack
   uint32_t redo_pos;
 } BreakStack;
 
+typedef struct scope Scope;
 typedef struct scope
 {
-  struct scope *prev;
+  Scope *upper;
+  Scope *first_lower;
+  unsigned int nlowers;
+  Scope *next;
+  bool code_generated;
   CodeSnippet *code_snippet;
   CodeSnippet *last_snippet;
-  int nlocals;
-  int nirep;
+  unsigned int nlocals;
   Symbol *symbol;
   Lvar *lvar;
   Literal *literal;
-  int sp;
-  int max_sp;
+  unsigned int sp;
+  unsigned int max_sp;
   int32_t vm_code_size;
   uint8_t *vm_code;
   BreakStack *break_stack;
 } Scope;
 
-Scope *Scope_new(Scope *prev);
+Scope *Scope_new(Scope *upper);
 
 void Scope_free(Scope *self);
 

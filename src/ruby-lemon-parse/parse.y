@@ -208,7 +208,12 @@
   static Node*
   new_call(ParserState *p, Node *a, const char* b, Node *c, int pass)
   {
-    return list4(atom(pass ? ATOM_call : ATOM_scall), a, list2(atom(ATOM_at_ident), literal(b)), c);
+    return list4(
+      atom(pass ? ATOM_call : ATOM_scall),
+      a,
+      list2(atom(ATOM_at_ident), literal(b)),
+      c
+    );
   }
 
   /* (:begin prog...) */
@@ -222,11 +227,15 @@
   }
 
   static Node*
+  new_first_arg(ParserState *p, Node *arg)
+  {
+    return list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), arg);
+  }
+
+  static Node*
   call_bin_op_gen(ParserState *p, Node *recv, const char *op, Node *arg)
   {
-    return new_call(p, recv, op,
-        list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), arg),
-      1);
+    return new_call(p, recv, op, new_first_arg(p, arg), 1);
   }
   #define call_bin_op(a, m, b) call_bin_op_gen(p ,(a), (m), (b))
 
@@ -300,8 +309,7 @@
   new_fcall(ParserState *p, Node *b, Node *c)
   {
     //Node *n = new_self(p);
-    Node *n = list3(atom(ATOM_fcall), b, c);
-    return n;
+    return list3(atom(ATOM_fcall), b, c);
   }
 
   /* (:block_arg . a) */
@@ -309,6 +317,49 @@
   new_block_arg(ParserState *p, Node *a)
   {
     return list2(atom(ATOM_block_arg), a);
+  }
+
+  static Node*
+  new_block(ParserState *p, Node *a, Node *b)
+  {
+    return list3(atom(ATOM_block), a, b);
+  }
+
+  static void*
+  call_with_block(ParserState *p, Node *a, Node *b)
+  {
+    // FIXME
+    a->cons.cdr->cons.cdr->cons.cdr->cons.car = b;
+  }
+
+  static void
+  local_add_f(ParserState *p, Node *a)
+  {
+    // TODO
+  }
+
+  static Node*
+  new_arg(ParserState *p, Node *a)
+  {
+    // TODO
+  }
+
+  static Node*
+  new_args(ParserState *p, Node *m, Node *opt, const char *rest, Node *m2, Node *tail)
+  {
+    // TODO
+  }
+
+  static Node*
+  new_args_tail(ParserState *p, Node *kws, Node *kwrest, const char *blk)
+  {
+    // TODO
+  }
+
+  static void
+  local_add_blk(ParserState *p, const char *blk)
+  {
+    // TODO
   }
 
   /* (:dstr . a) */
@@ -479,6 +530,18 @@
     }
     fprintf(stderr, "concat_string(); This should not happen\n");
   }
+
+  static void
+  scope_nest(ParserState *p)
+  {
+    p->scope = Scope_new(p->scope);
+  }
+
+  static void
+  scope_unnest(ParserState *p)
+  {
+    p->scope = p->scope->upper;
+  }
 }
 
 %parse_accept {
@@ -580,6 +643,9 @@ expr_value(A) ::= expr(B). {
 
 
 command_call ::= command.
+command_call ::= block_command.
+
+block_command ::= block_call.
 
 command(A) ::= operation(B) command_args(C). [LOWEST] { A = new_fcall(p, B, C); }
 command(A) ::= primary_value(B) call_op(C) operation2(D) command_args(E).
@@ -598,7 +664,7 @@ block_arg(A) ::= AMPER arg(B). { A = new_block_arg(p, B); }
 opt_block_arg(A) ::= COMMA block_arg(B). { A = B; }
 opt_block_arg(A) ::= none. { A = 0; }
 
-args(A) ::= arg(B). { A = list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), B); }
+args(A) ::= arg(B). { A = new_first_arg(p, B); }
 args(A) ::= args(B) COMMA arg(C). { A = list3(atom(ATOM_args_add), B, C); }
 
 arg(A) ::= lhs(B) E arg_rhs(C). { A = new_asgn(p, B, C); }
@@ -649,48 +715,68 @@ variable(A) ::= IVAR(B).       { A = new_ivar(p, B); }
 variable(A) ::= GVAR(B).       { A = new_gvar(p, B); }
 variable(A) ::= CONSTANT(B).   { A = new_const(p, B); }
 
-primary ::= literal.
-primary ::= string.
-primary ::= var_ref.
-primary(A) ::= KW_begin
-               bodystmt(B)
-               KW_end. { A = B; }
-primary(A) ::= LPAREN compstmt(B) RPAREN. { A = B; }
-primary(A) ::= LBRACKET_ARRAY aref_args(B) RBRACKET. { A = new_array(p, B); }
-primary(A) ::= LBRACE assoc_list(B) RBRACE. { A = new_hash(p, B); }
-primary(A) ::= KW_return. { A = new_return(p, 0); }
-primary(A) ::= KW_not LPAREN expr(B) RPAREN. { A = call_uni_op(p, B, "!"); }
-primary(A) ::= KW_not LPAREN RPAREN. { A = call_uni_op(p, list1(atom(ATOM_kw_nil)), "!"); }
-primary ::= method_call.
-primary(A) ::= KW_if expr_value(B) then
-               compstmt(C)
-               if_tail(D)
-               KW_end. {
-                 A = new_if(p, B, C, D);
-               }
-primary(A) ::= KW_unless expr_value(B) then
-               compstmt(C)
-               opt_else(D)
-               KW_end. {
-                 A = new_if(p, B, D, C); /* NOTE: `D, C` in inverse order */
-               }
-primary(A) ::= KW_while expr_value(B) do compstmt(C) KW_end. {
-                 A = new_while(p, B, C);
-               }
-primary(A) ::= KW_until expr_value(B) do compstmt(C) KW_end. {
-                 A = new_until(p, B, C);
-               }
-primary(A) ::= KW_case expr_value(B) opt_terms
-               case_body(C)
-               KW_end. {
-                 A = new_case(p, B, C);
-               }
-primary(A) ::= KW_case opt_terms case_body(C) KW_end. {
-                 A = new_case(p, 0, C);
-               }
-primary(A) ::= KW_break. { A = new_break(p, 0); }
-primary(A) ::= KW_next. { A = new_next(p, 0); }
-primary(A) ::= KW_redo. { A = list1(atom(ATOM_redo)); }
+primary     ::= literal.
+primary     ::= string.
+primary     ::= var_ref.
+primary(A)  ::= KW_begin
+                bodystmt(B)
+                KW_end. {
+                  A = B;
+                }
+primary(A)  ::= LPAREN compstmt(B) RPAREN. {
+                  A = B;
+                }
+primary(A)  ::= LBRACKET_ARRAY aref_args(B) RBRACKET. { A = new_array(p, B); }
+primary(A)  ::= LBRACE assoc_list(B) RBRACE. { A = new_hash(p, B); }
+primary(A)  ::= KW_return. { A = new_return(p, 0); }
+primary(A)  ::= KW_not LPAREN_EXPR expr(B) RPAREN. { A = call_uni_op(p, B, "!"); }
+primary(A)  ::= KW_not LPAREN_EXPR RPAREN. { A = call_uni_op(p, list1(atom(ATOM_kw_nil)), "!"); }
+primary(A)  ::= operation(B) brace_block(C). {
+                  A = new_fcall(p, B, list2(0, C));
+                }
+primary     ::= method_call.
+primary(A)  ::= method_call(B) brace_block(C). {
+                  call_with_block(p, B, new_first_arg(p, C));
+                  A = B;
+                }
+primary(A)  ::= KW_if expr_value(B) then
+                compstmt(C)
+                if_tail(D)
+                KW_end. {
+                  A = new_if(p, B, C, D);
+                }
+primary(A)  ::= KW_unless expr_value(B) then
+                compstmt(C)
+                opt_else(D)
+                KW_end. {
+                  A = new_if(p, B, D, C); /* NOTE: `D, C` in inverse order */
+                }
+cond_push_while ::= KW_while. { COND_PUSH(1); }
+cond_push_until ::= KW_until. { COND_PUSH(1); }
+do_pop ::= do. { COND_POP(); }
+primary(A) ::=  cond_push_while expr_value(B) do_pop compstmt(C) KW_end. {
+                  A = new_while(p, B, C);
+                }
+primary(A) ::=  cond_push_until expr_value(B) do_pop compstmt(C) KW_end. {
+                  A = new_until(p, B, C);
+                }
+primary(A) ::=  KW_case expr_value(B) opt_terms
+                case_body(C)
+                KW_end. {
+                  A = new_case(p, B, C);
+                }
+primary(A) ::=  KW_case opt_terms case_body(C) KW_end. {
+                  A = new_case(p, 0, C);
+                }
+primary(A) ::=  KW_break. {
+                  A = new_break(p, 0);
+                }
+primary(A) ::=  KW_next. {
+                  A = new_next(p, 0);
+                }
+primary(A) ::=  KW_redo. {
+                  A = list1(atom(ATOM_redo));
+                }
 
 primary_value(A) ::= primary(B). { A = B; }
 
@@ -699,15 +785,15 @@ then ::= KW_then.
 then ::= term KW_then.
 
 do ::= term.
-do ::= KW_do.
 do ::= KW_do_cond.
+do ::= KW_do. // TODO remove after definingbrace_block
 
-if_tail    ::= opt_else.
-if_tail(A) ::= KW_elsif expr_value(B) then
-               compstmt(C)
-               if_tail(D). {
-                 A = new_if(p, B, C, D);
-               }
+if_tail     ::= opt_else.
+if_tail(A)  ::= KW_elsif expr_value(B) then
+                compstmt(C)
+                if_tail(D). {
+                  A = new_if(p, B, C, D);
+                }
 
 opt_else    ::= none.
 opt_else(A) ::= KW_else compstmt(B). { A = B; }
@@ -722,25 +808,79 @@ assoc(A) ::= arg(B) ASSOC arg(C). { A = list3(atom(ATOM_assoc_new), B, C); }
 assoc(A) ::= LABEL(B) arg(C). { A = list3(atom(ATOM_assoc_new), new_sym(p, B), C); }
 
 
-aref_args ::= none.
-aref_args(A) ::= args(B) trailer. { A = B; }
+aref_args     ::= none.
+aref_args(A)  ::= args(B) trailer. { A = B; }
 
 trailer ::= .
 trailer ::= terms.
 trailer ::= COMMA.
 
-method_call(A) ::= operation(B) paren_args(C). { A = new_fcall(p, B, C); }
-method_call(A) ::= primary_value(B) call_op(C) operation2(D) opt_paren_args(E).
-  { A = new_call(p, B, D, E, C); }
-method_call(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET.
-  { A = new_call(p, B, "[]", C, '.'); }
+block_param(A) ::= f_arg(B) opt_block_args_tail(C). { A = new_args(p, B, 0, 0, 0, C); }
+
+opt_block_args_tail(A) ::= none. { A = new_args_tail(p, 0, 0, 0); }
+
+opt_block_param(A)  ::= none. {
+                          local_add_blk(p, 0);
+                          A = 0;
+                        }
+opt_block_param(A)  ::= block_param_def(B). {
+                          p->cmd_start = true;
+                          A = B;
+                        }
+
+block_param_def(A)  ::= OR opt_bv_decl OR. { A = 0; }
+block_param_def(A)  ::= OR block_param opt_bv_decl OR. { A = 0; }
+
+opt_bv_decl(A) ::= opt_nl. { A = 0; }
+opt_bv_decl(A) ::= opt_nl SEMICOLON bv_decls opt_nl. { A = 0; }
+
+bv_decls ::= bvar.
+bv_decls ::= bv_decls COMMA bvar.
+
+bvar ::= IDENTIFIER(B). {
+           local_add_f(p, B);
+           //new_bv(p, B);
+         }
+
+scope_nest_KW_do_block ::= KW_do_block. { scope_nest(p); }
+do_block(A) ::= scope_nest_KW_do_block
+                opt_block_param(B)
+                bodystmt(C)
+                KW_end. {
+                  A = new_block(p, B, C);
+                  scope_unnest(p);
+                }
+
+block_call(A) ::= command(B) do_block(C). {
+                    call_with_block(p, B, C);
+                    A = B;
+                  }
+
+method_call(A)  ::=  operation(B) paren_args(C). {
+                       A = new_fcall(p, B, C);
+                     }
+method_call(A)  ::=  primary_value(B) call_op(C) operation2(D) opt_paren_args(E). {
+                       A = new_call(p, B, D, E, C);
+                     }
+method_call(A)  ::=  primary_value(B) LBRACKET opt_call_args(C) RBRACKET. {
+                       A = new_call(p, B, "[]", C, '.');
+                     }
+
+scope_nest_KW_do ::= KW_do. { scope_nest(p); }
+brace_block(A) ::= scope_nest_KW_do
+                   opt_block_param(B)
+                   bodystmt(C)
+                   KW_end. {
+                     A = new_block(p, B, C);
+                     scope_unnest(p);
+                   }
 
 call_op(A) ::= PERIOD(B). { A = B; }
 
 opt_paren_args ::= none.
 opt_paren_args ::= paren_args.
 
-paren_args(A) ::= LPAREN opt_call_args(B) RPAREN. { A = B; }
+paren_args(A) ::= LPAREN_EXPR opt_call_args(B) RPAREN. { A = B; }
 
 opt_call_args ::= none.
 opt_call_args ::= call_args opt_terms.
@@ -759,27 +899,29 @@ cases(A) ::= opt_else(B). {
              }
 cases ::= case_body.
 
+f_norm_arg(A) ::= IDENTIFIER(B). {
+                    local_add_f(p, B);
+                    A = B;
+                  }
+f_arg_item(A) ::= f_norm_arg(B). { A = new_arg(p, B); }
+
+f_arg(A) ::= f_arg_item(B). { A = list1(B); }
+f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). { A = push(B, C); }
+
 literal ::= numeric.
 literal ::= symbol.
 literal ::= words.
 literal ::= symbols.
 
-words(A) ::= WORDS_BEG opt_sep word_list(B).
-  { A = new_array(p, B); }
-word_list(A) ::= word(B).
-  { A = list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), B); }
-word_list(A) ::= word_list(B) opt_sep word(C).
-  { A = list3(atom(ATOM_args_add), B, C); }
+words(A) ::= WORDS_BEG opt_sep word_list(B). { A = new_array(p, B); }
+word_list(A) ::= word(B). { A = new_first_arg(p, B); }
+word_list(A) ::= word_list(B) opt_sep word(C). { A = list3(atom(ATOM_args_add), B, C); }
 word(A) ::= STRING(B). { A = new_str(p, B); }
 
-symbols(A) ::= SYMBOLS_BEG opt_sep symbol_list(B).
-  { A = new_array(p, B); }
-symbol_list(A) ::= symbol_word(B).
-  { A = list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), B); }
-symbol_list(A) ::= symbol_list(B) opt_sep symbol_word(C).
-  { A = list3(atom(ATOM_args_add), B, C); }
-symbol_word(A) ::= STRING(B).
-  { A = new_sym(p, B); }
+symbols(A) ::= SYMBOLS_BEG opt_sep symbol_list(B). { A = new_array(p, B); }
+symbol_list(A) ::= symbol_word(B). { A = new_first_arg(p, B); }
+symbol_list(A) ::= symbol_list(B) opt_sep symbol_word(C). { A = list3(atom(ATOM_args_add), B, C); }
+symbol_word(A) ::= STRING(B). { A = new_sym(p, B); }
 
 opt_sep ::= none.
 opt_sep ::= WORDS_SEP.
@@ -842,6 +984,9 @@ opt_terms ::= .
 opt_terms ::= terms.
 terms ::= term.
 terms ::= terms term.
+
+opt_nl ::= .
+opt_nl ::= NL.
 
 term ::= NL.
 term ::= SEMICOLON.
@@ -917,7 +1062,7 @@ none(A) ::= . { A = 0; }
         if (isCar) {
           printf("\n");
           for (int i=0; i<indent; i++) {
-            printf(" ");
+            printf("  ");
           }
           printf("[");
         } else {

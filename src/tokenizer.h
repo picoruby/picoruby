@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 
+#include "ruby-lemon-parse/parse_header.h"
 #include "token.h"
 #include "stream.h"
 
@@ -30,6 +31,7 @@ typedef enum paren
 
 typedef struct tokenizer
 {
+  ParserState *p;
   Mode mode;
   char *line;
   StreamInterface *si;
@@ -38,12 +40,11 @@ typedef struct tokenizer
   int pos;
   int paren_stack_num;
   char modeTerminater;
-  bool cmd_start;
   State state;
   Paren paren_stack[PAREN_STACK_SIZE];
 } Tokenizer;
 
-Tokenizer* const Tokenizer_new(StreamInterface *si);
+Tokenizer* const Tokenizer_new(ParserState *p, StreamInterface *si);
 
 void Tokenizer_free(Tokenizer *self);
 
@@ -51,6 +52,6 @@ void Tokenizer_puts(Tokenizer* const self, char *line);
 
 bool Tokenizer_hasMoreTokens(Tokenizer* const self);
 
-int Tokenizer_advance(Tokenizer* const self,  bool recursive);
+int Tokenizer_advance(Tokenizer* const self, bool recursive);
 
 #endif

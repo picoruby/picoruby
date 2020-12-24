@@ -8,14 +8,24 @@
 
 #define IREP_HEADER_SIZE 26
 
-Scope *Scope_new(Scope *prev)
+Scope *Scope_new(Scope *upper)
 {
   Scope *self = mmrbc_alloc(sizeof(Scope));
-  self->prev = prev;
+  self->upper = upper;
+  self->first_lower = NULL;
+  self->nlowers = 0;
+  self->next = NULL;
+  if (upper != NULL) {
+    if (upper->first_lower == NULL) upper->first_lower = self;
+    Scope *prev = upper->first_lower;
+    for (int i = 0; i < upper->nlowers; i++) prev = prev->next;
+    if (prev != self) prev->next = self;
+    upper->nlowers++;
+  }
+  self->code_generated = false;
   self->code_snippet = NULL;
   self->last_snippet = NULL;
   self->nlocals = 1;
-  self->nirep = 0;
   self->symbol = NULL;
   self->lvar = NULL;
   self->literal = NULL;
@@ -24,7 +34,6 @@ Scope *Scope_new(Scope *prev)
   self->vm_code = NULL;
   self->vm_code_size = 0;
   self->break_stack = NULL;
-  if (prev != NULL) self->nirep++;
   return self;
 }
 
@@ -54,6 +63,9 @@ void freeLvarRcsv(Lvar *lvar)
 
 void Scope_free(Scope *self)
 {
+  if (self == NULL) return;
+  Scope_free(self->next);
+  Scope_free(self->first_lower);
   freeLiteralRcsv(self->literal);
   freeSymbolRcsv(self->symbol);
   freeLvarRcsv(self->lvar);
@@ -298,7 +310,7 @@ void Scope_finish(Scope *scope)
   l = scope->max_sp + 1; // RIGHT? FIXME
   h[18] = (l >> 8) & 0xff;
   h[19] = l & 0xff;
-  l = scope->nirep;
+  l = scope->nlowers;
   h[20] = (l >> 8) & 0xff;
   h[21] = l & 0xff;
   h[22] = (op_size >> 24) & 0xff;
