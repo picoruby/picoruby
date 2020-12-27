@@ -1006,24 +1006,24 @@ none(A) ::= . { A = 0; }
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
     p->scope = Scope_new(NULL);
-    p->literal_store = LEMON_ALLOC(sizeof(LiteralStore));
-    p->literal_store->str = NULL;
-    p->literal_store->prev = NULL;
+    p->token_store = LEMON_ALLOC(sizeof(TokenStore));
+    p->token_store->str = NULL;
+    p->token_store->prev = NULL;
     p->error_count = 0;
     return p;
   }
 
-  void freeLiteralStore(LiteralStore *literal_store)
+  void freeTokenStore(TokenStore *token_store)
   {
-    if (literal_store == NULL) return;
-    freeLiteralStore(literal_store->prev);
-    LEMON_FREE(literal_store->str);
-    LEMON_FREE(literal_store);
+    if (token_store == NULL) return;
+    freeTokenStore(token_store->prev);
+    LEMON_FREE(token_store->str);
+    LEMON_FREE(token_store);
   }
 
   void ParserStateFree(ParserState *p) {
     Scope_free(p->scope);
-    freeLiteralStore(p->literal_store);
+    freeTokenStore(p->token_store);
     LEMON_FREE(p);
   }
 
@@ -1045,12 +1045,12 @@ none(A) ::= . { A = 0; }
     freeNode(yyp->p->root);
   }
 
-  LiteralStore *ParsePushLiteralStore(ParserState *p, char *s)
+  TokenStore *ParsePushTokenStore(ParserState *p, char *s)
   {
-    LiteralStore *ls = LEMON_ALLOC(sizeof(LiteralStore));
+    TokenStore *ls = LEMON_ALLOC(sizeof(TokenStore));
     ls->str = strdup(s);
-    ls->prev = p->literal_store;
-    p->literal_store = ls;
+    ls->prev = p->token_store;
+    p->token_store = ls;
     return ls;
   }
 

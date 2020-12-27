@@ -93,16 +93,16 @@ struct node {
   };
 };
 
-typedef struct literal_store
+typedef struct token_store
 {
   char *str;
-  struct literal_store *prev;
-} LiteralStore;
+  struct token_store *prev;
+} TokenStore;
 
 typedef struct parser_state {
   Scope *scope;
   Node *root;
-  LiteralStore *literal_store;
+  TokenStore *token_store;
   int error_count;
   unsigned int cond_stack;
   unsigned int cmdarg_stack;
