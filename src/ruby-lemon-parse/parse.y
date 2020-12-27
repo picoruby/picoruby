@@ -319,17 +319,33 @@
     return list2(atom(ATOM_block_arg), a);
   }
 
+//  static Node*
+//  setup_numparams(ParserState *p, Node *a)
+//  {
+//  }
+
   static Node*
   new_block(ParserState *p, Node *a, Node *b)
   {
+    //a = setup_numparams(p, a);
     return list3(atom(ATOM_block), a, b);
   }
 
   static void*
   call_with_block(ParserState *p, Node *a, Node *b)
   {
-    // FIXME
-    a->cons.cdr->cons.cdr->cons.cdr->cons.car = b;
+    Node *n;
+    switch (Node_atomType(a)) {
+    case ATOM_call:
+    case ATOM_fcall:
+      n = a->cons.cdr->cons.cdr->cons.cdr;
+      if (!n->cons.car) {
+        n->cons.car = new_first_arg(p, b);
+      } else {
+        n->cons.car = list3(atom(ATOM_args_add), n->cons.car, b);
+      }
+      break;
+    }
   }
 
   static void
@@ -339,15 +355,15 @@
   }
 
   static Node*
-  new_arg(ParserState *p, Node *a)
+  new_arg(ParserState *p, const char* a)
   {
-    // TODO
+    return list2(atom(ATOM_arg), literal(a));
   }
 
   static Node*
   new_args(ParserState *p, Node *m, Node *opt, const char *rest, Node *m2, Node *tail)
   {
-    // TODO
+    return m;
   }
 
   static Node*
@@ -736,7 +752,7 @@ primary(A)  ::= operation(B) brace_block(C). {
                 }
 primary     ::= method_call.
 primary(A)  ::= method_call(B) brace_block(C). {
-                  call_with_block(p, B, new_first_arg(p, C));
+                  call_with_block(p, B, C);
                   A = B;
                 }
 primary(A)  ::= KW_if expr_value(B) then
@@ -815,9 +831,11 @@ trailer ::= .
 trailer ::= terms.
 trailer ::= COMMA.
 
-block_param(A) ::= f_arg(B) opt_block_args_tail(C). { A = new_args(p, B, 0, 0, 0, C); }
-
 opt_block_args_tail(A) ::= none. { A = new_args_tail(p, 0, 0, 0); }
+
+block_param(A)  ::= f_arg(B) opt_block_args_tail(C). {
+                      A = new_args(p, B, 0, 0, 0, C);
+                    }
 
 opt_block_param(A)  ::= none. {
                           local_add_blk(p, 0);
@@ -828,8 +846,12 @@ opt_block_param(A)  ::= block_param_def(B). {
                           A = B;
                         }
 
-block_param_def(A)  ::= OR opt_bv_decl OR. { A = 0; }
-block_param_def(A)  ::= OR block_param opt_bv_decl OR. { A = 0; }
+block_param_def(A)  ::= OR opt_bv_decl OR. {
+                          A = 0;
+                        }
+block_param_def(A)  ::= OR block_param(B) opt_bv_decl OR. {
+                          A = B;
+                        }
 
 opt_bv_decl(A) ::= opt_nl. { A = 0; }
 opt_bv_decl(A) ::= opt_nl SEMICOLON bv_decls opt_nl. { A = 0; }
@@ -903,10 +925,12 @@ f_norm_arg(A) ::= IDENTIFIER(B). {
                     local_add_f(p, B);
                     A = B;
                   }
-f_arg_item(A) ::= f_norm_arg(B). { A = new_arg(p, B); }
+f_arg_item(A) ::= f_norm_arg(B). {
+                    A = new_arg(p, B);
+                  }
 
 f_arg(A) ::= f_arg_item(B). { A = list1(B); }
-f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). { A = push(B, C); }
+f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). { A = list2(B, C); }
 
 literal ::= numeric.
 literal ::= symbol.

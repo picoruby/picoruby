@@ -166,6 +166,10 @@ void gen_call(Scope *scope, Node *node)
       for (int i = 0; i < nargs; i++) {
         Scope_pop(scope);
       }
+      if (nargs > 0 && Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car) == ATOM_block) {
+        op = OP_SENDB;
+        nargs--;
+      }
     }
   }
   char *method_name = Node_literalName(node->cons.car->cons.cdr);
@@ -483,7 +487,7 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pushCode(num);
       break;
     case (ATOM_call):
-      /*
+      /*+
        * TODO FIXME
        * `obj[]+=` probably works
        * `obj.attr+=` doesn't work yet
@@ -732,6 +736,13 @@ void gen_redo(Scope *scope)
   Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
 }
 
+void gen_block(Scope *scope, Node *node)
+{
+  Scope_pushCode(OP_BLOCK);
+  Scope_pushCode(scope->sp++);
+  Scope_pushCode(0);
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
@@ -894,6 +905,9 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_dstr:
       gen_dstr(scope, tree);
+      break;
+    case ATOM_block:
+      gen_block(scope, tree);
       break;
     default:
 //      FATALP("error");
