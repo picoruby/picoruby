@@ -908,6 +908,17 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_block:
       gen_block(scope, tree);
+  scope = scope->first_lower;
+  scope->sp = 2;
+  Scope_pushCode(OP_ENTER);
+  Scope_pushCode(0);
+  Scope_pushCode(0);
+  Scope_pushCode(0);
+  codegen(scope, tree->cons.cdr->cons.cdr->cons.car);
+  Scope_pushCode(OP_RETURN);
+  Scope_pushCode(--scope->sp);
+  Scope_finish(scope);
+  scope = scope->upper;
       break;
     default:
 //      FATALP("error");
@@ -928,7 +939,7 @@ void memcpyFlattenCode(uint8_t *body, CodeSnippet *code_snippet, int size)
 void Generator_generate(Scope *scope, Node *root)
 {
   codegen(scope, root);
-  int irepSize = Code_size(scope->code_snippet);
+  int irepSize = Scope_updateVmCodeSizeThenReturnTotalSize(scope);
   int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
   uint8_t *vmCode = mmrbc_alloc(codeSize);
   memcpy(&vmCode[0], "RITE0006", 8);
@@ -937,9 +948,19 @@ void Generator_generate(Scope *scope, Node *root)
   vmCode[12] = (codeSize >> 8) & 0xff;
   vmCode[13] = codeSize & 0xff;
   memcpy(&vmCode[14], "MATZ0000", 8);
-  memcpyFlattenCode(&vmCode[22], scope->code_snippet, irepSize);
-  memcpy(&vmCode[22 + irepSize], "END\0\0\0\0", 7);
-  vmCode[22 + irepSize + 7] = 0x08;
+  memcpy(&vmCode[22], "IREP", 4);
+  int sectionSize = irepSize + END_SECTION_SIZE + 4;
+  vmCode[26] = (sectionSize >> 24) & 0xff; // size of the section
+  vmCode[27] = (sectionSize >> 16) & 0xff;
+  vmCode[28] = (sectionSize >> 8) & 0xff;
+  vmCode[29] = sectionSize & 0xff;
+  memcpy(&vmCode[30], "0002", 4); // instruction version
+
+memcpyFlattenCode(&vmCode[HEADER_SIZE], scope->code_snippet, scope->vm_code_size);
+memcpyFlattenCode(&vmCode[HEADER_SIZE + scope->vm_code_size], scope->first_lower->code_snippet, scope->first_lower->vm_code_size);
+
+  memcpy(&vmCode[HEADER_SIZE + irepSize], "END\0\0\0\0", 7);
+  vmCode[codeSize - 1] = 0x08;
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;

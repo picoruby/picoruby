@@ -6,7 +6,7 @@
 #include "debug.h"
 #include "scope.h"
 
-#define IREP_HEADER_SIZE 26
+#define IREP_HEADER_SIZE 14
 
 Scope *Scope_new(Scope *upper)
 {
@@ -236,7 +236,7 @@ void Scope_pop(Scope *self){
   self->sp--;
 }
 
-int Code_size(CodeSnippet *code_snippet)
+int Scope_codeSize(CodeSnippet *code_snippet)
 {
   int size = 0;
   while (code_snippet != NULL) {
@@ -248,7 +248,7 @@ int Code_size(CodeSnippet *code_snippet)
 
 void Scope_finish(Scope *scope)
 {
-  int op_size = Code_size(scope->code_snippet);
+  int op_size = scope->vm_code_size;
   int count;
   int len;
   // literal
@@ -295,28 +295,27 @@ void Scope_finish(Scope *scope)
   }
   // irep header
   uint8_t *h = mmrbc_alloc(IREP_HEADER_SIZE);
-  memcpy(&h[0], "IREP", 4);
-  int irep_size = IREP_HEADER_SIZE + Code_size(scope->code_snippet);
-  h[4] = (irep_size >> 24) & 0xff; // size of the section
-  h[5] = (irep_size >> 16) & 0xff;
-  h[6] = (irep_size >> 8) & 0xff;
-  h[7] = irep_size & 0xff;
-  memcpy(&h[8], "0002", 4); // instruction version
   // record length. but whatever it works because of mruby's bug
-  memcpy(&h[12], "\0\0\0\0", 4);
+  //memcpy(&h[0], "\0\0\0\0", 4);
+  { // monkey patch for migrating mruby3. see mrubyc/src/load.c
+    h[0] = 0xff;
+    h[1] = 0xff;
+    h[2] = 0xff;
+    h[3] = 0xff;
+  }
   int l = scope->nlocals;
-  h[16] = (l >> 8) & 0xff;
-  h[17] = l & 0xff;
+  h[4] = (l >> 8) & 0xff;
+  h[5] = l & 0xff;
   l = scope->max_sp + 1; // RIGHT? FIXME
-  h[18] = (l >> 8) & 0xff;
-  h[19] = l & 0xff;
+  h[6] = (l >> 8) & 0xff;
+  h[7] = l & 0xff;
   l = scope->nlowers;
-  h[20] = (l >> 8) & 0xff;
-  h[21] = l & 0xff;
-  h[22] = (op_size >> 24) & 0xff;
-  h[23] = (op_size >> 16) & 0xff;
-  h[24] = (op_size >> 8) & 0xff;
-  h[25] = op_size & 0xff;
+  h[8] = (l >> 8) & 0xff;
+  h[9] = l & 0xff;
+  h[10] = (op_size >> 24) & 0xff;
+  h[11] = (op_size >> 16) & 0xff;
+  h[12] = (op_size >> 8) & 0xff;
+  h[13] = op_size & 0xff;
   // insert h before op codes
   CodeSnippet *header = mmrbc_alloc(sizeof(CodeSnippet));
   header->value = h;
@@ -335,6 +334,9 @@ void freeCodeSnippetRcsv(CodeSnippet *snippet)
 
 void Scope_freeCodeSnippets(Scope *self)
 {
+  if (self == NULL) return;
+  Scope_freeCodeSnippets(self->next);
+  Scope_freeCodeSnippets(self->first_lower);
   freeCodeSnippetRcsv(self->code_snippet);
   self->code_snippet = NULL;
 }
@@ -371,5 +373,16 @@ void Scope_popBreakStack(Scope *self)
     Scope_backpatchJmpLabel(self->break_stack->code_snippet, self->vm_code_size);
   self->break_stack = self->break_stack->prev;
   mmrbc_free(memo);
+}
+
+int Scope_updateVmCodeSizeThenReturnTotalSize(Scope *self)
+{
+  int totalSize = 0;
+  if (self == NULL) return 0;
+  totalSize += Scope_updateVmCodeSizeThenReturnTotalSize(self->first_lower);
+  totalSize += Scope_updateVmCodeSizeThenReturnTotalSize(self->next);
+  self->vm_code_size = Scope_codeSize(self->code_snippet);
+  totalSize += self->vm_code_size;
+  return totalSize;
 }
 

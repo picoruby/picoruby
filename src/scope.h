@@ -108,4 +108,6 @@ void Scope_pushBreakStack(Scope *self);
 
 void Scope_popBreakStack(Scope *self);
 
+int Scope_updateVmCodeSizeThenReturnTotalSize(Scope *self);
+
 #endif
