@@ -11,18 +11,21 @@
 Scope *Scope_new(Scope *upper)
 {
   Scope *self = mmrbc_alloc(sizeof(Scope));
+  self->next_lower_number = 0;
   self->upper = upper;
   self->first_lower = NULL;
   self->nlowers = 0;
   self->next = NULL;
   if (upper != NULL) {
-    if (upper->first_lower == NULL) upper->first_lower = self;
-    Scope *prev = upper->first_lower;
-    for (int i = 0; i < upper->nlowers; i++) prev = prev->next;
-    if (prev != self) prev->next = self;
+    if (upper->first_lower == NULL) {
+      upper->first_lower = self;
+    } else {
+      Scope *prev = upper->first_lower;
+      for (int i = 1; i < upper->nlowers; i++) prev = prev->next;
+      prev->next = self;
+    }
     upper->nlowers++;
   }
-  self->code_generated = false;
   self->code_snippet = NULL;
   self->last_snippet = NULL;
   self->nlocals = 1;

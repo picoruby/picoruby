@@ -56,9 +56,9 @@ typedef struct scope
 {
   Scope *upper;
   Scope *first_lower;
+  uint16_t next_lower_number;
   unsigned int nlowers;
   Scope *next;
-  bool code_generated;
   CodeSnippet *code_snippet;
   CodeSnippet *last_snippet;
   unsigned int nlocals;

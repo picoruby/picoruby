@@ -29,6 +29,21 @@ void gen_self(Scope *scope)
   Scope_push(scope);
 }
 
+Scope *scope_nest(Scope *scope)
+{
+  scope = scope->first_lower;
+  for (uint16_t i = 0; i < scope->upper->next_lower_number; i++) {
+    scope = scope->next;
+  }
+  scope->upper->next_lower_number++;
+  return scope;
+}
+
+Scope *scope_unnest(Scope *scope)
+{
+  return scope->upper;
+}
+
 int gen_values(Scope *scope, Node *tree)
 {
   int nargs = 0;
@@ -740,7 +755,19 @@ void gen_block(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_BLOCK);
   Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->next_lower_number);
+  scope = scope_nest(scope);
+  scope->sp = 2;
+  Scope_pushCode(OP_ENTER);
+  // TODO: parameter
   Scope_pushCode(0);
+  Scope_pushCode(0);
+  Scope_pushCode(0);
+  codegen(scope, node->cons.cdr->cons.cdr->cons.car);
+  Scope_pushCode(OP_RETURN);
+  Scope_pushCode(--scope->sp);
+  Scope_finish(scope);
+  scope = scope_unnest(scope);
 }
 
 void codegen(Scope *scope, Node *tree)
@@ -908,17 +935,6 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_block:
       gen_block(scope, tree);
-  scope = scope->first_lower;
-  scope->sp = 2;
-  Scope_pushCode(OP_ENTER);
-  Scope_pushCode(0);
-  Scope_pushCode(0);
-  Scope_pushCode(0);
-  codegen(scope, tree->cons.cdr->cons.cdr->cons.car);
-  Scope_pushCode(OP_RETURN);
-  Scope_pushCode(--scope->sp);
-  Scope_finish(scope);
-  scope = scope->upper;
       break;
     default:
 //      FATALP("error");
@@ -934,6 +950,16 @@ void memcpyFlattenCode(uint8_t *body, CodeSnippet *code_snippet, int size)
     pos += code_snippet->size;
     code_snippet = code_snippet->next;
   }
+}
+
+uint8_t *writeCode(Scope *scope, uint8_t *pos)
+{
+  if (scope == NULL) return pos;
+  memcpyFlattenCode(pos, scope->code_snippet, scope->vm_code_size);
+  pos += scope->vm_code_size;
+  pos = writeCode(scope->first_lower, pos);
+  pos = writeCode(scope->next, pos);
+  return pos;
 }
 
 void Generator_generate(Scope *scope, Node *root)
@@ -955,10 +981,7 @@ void Generator_generate(Scope *scope, Node *root)
   vmCode[28] = (sectionSize >> 8) & 0xff;
   vmCode[29] = sectionSize & 0xff;
   memcpy(&vmCode[30], "0002", 4); // instruction version
-
-memcpyFlattenCode(&vmCode[HEADER_SIZE], scope->code_snippet, scope->vm_code_size);
-memcpyFlattenCode(&vmCode[HEADER_SIZE + scope->vm_code_size], scope->first_lower->code_snippet, scope->first_lower->vm_code_size);
-
+  writeCode(scope, &vmCode[HEADER_SIZE]);
   memcpy(&vmCode[HEADER_SIZE + irepSize], "END\0\0\0\0", 7);
   vmCode[codeSize - 1] = 0x08;
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
