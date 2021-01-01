@@ -61,7 +61,11 @@ typedef enum atom_type {
   ATOM_next,
   ATOM_redo,
   ATOM_block,
-  ATOM_arg,
+  ATOM_block_parameters,
+  ATOM_margs,
+  ATOM_optargs,
+  ATOM_m2args,
+  ATOM_tailargs,
 } AtomType;
 
 typedef enum {

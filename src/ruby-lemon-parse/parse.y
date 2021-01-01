@@ -357,19 +357,27 @@
   static Node*
   new_arg(ParserState *p, const char* a)
   {
-    return list2(atom(ATOM_arg), literal(a));
+    //return list2(atom(ATOM_arg), literal(a));
+    return list2(atom(ATOM_lvar), literal(a));
   }
 
   static Node*
   new_args(ParserState *p, Node *m, Node *opt, const char *rest, Node *m2, Node *tail)
   {
-    return m;
+    return list5(atom(ATOM_block_parameters),
+      list2(atom(ATOM_margs), m),
+      list2(atom(ATOM_optargs),opt),
+      list2(atom(ATOM_m2args), m2),
+      list2(atom(ATOM_tailargs), tail)
+    );
   }
 
   static Node*
   new_args_tail(ParserState *p, Node *kws, Node *kwrest, const char *blk)
   {
     // TODO
+    Node *node;
+    return node;
   }
 
   static void
@@ -929,8 +937,8 @@ f_arg_item(A) ::= f_norm_arg(B). {
                     A = new_arg(p, B);
                   }
 
-f_arg(A) ::= f_arg_item(B). { A = list1(B); }
-f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). { A = list2(B, C); }
+f_arg(A) ::= f_arg_item(B). { A = new_first_arg(p, B); }
+f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). { A = list3(atom(ATOM_args_add), B, C); }
 
 literal ::= numeric.
 literal ::= symbol.
