@@ -79,7 +79,7 @@ printToken(Tokenizer *tokenizer, Token *token) {
 
 bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
-  Tokenizer *tokenizer = Tokenizer_new(si);
+  Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
   Type prevType;
@@ -93,12 +93,12 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
           #ifdef MMRBC_DEBUG
           printToken(tokenizer, topToken);
           #endif
-          LiteralStore *ls = ParsePushLiteralStore(p, topToken->value);
+          TokenStore *ts = ParsePushTokenStore(p, topToken->value);
           if (prevType == DSTRING_END && topToken->type == STRING_END) {
             Parse(parser, STRING, ""); /* to help pareser */
           }
           if (topToken->type != STRING_END) {
-            Parse(parser, topToken->type, ls->str);
+            Parse(parser, topToken->type, ts->str);
           }
           prevType = topToken->type;
         }

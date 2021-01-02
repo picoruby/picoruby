@@ -38,7 +38,7 @@ def generate_keyword_helper
     File.open("parse.h", "r") do |f|
       f.each_line do |line|
         data = line.match(/\A#define\s+KW_(\w+)\s+\d+$/)
-        if data && !data[1].match?('modifier_') && !data[1].match?('do_cond')
+        if data && !data[1].match?('modifier_') && !%w(do_cond do_block).include?(data[1])
           file.puts "  if (!strcmp(word, \"#{data[1]}\")) { return KW_#{data[1]}; } else"
         end
       end

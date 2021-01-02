@@ -22,18 +22,26 @@ typedef enum misc {
 
 void codegen(Scope *scope, Node *tree);
 
-Scope *new_scope(Scope *prev)
-{
-  Scope *scope = Scope_new(prev);
-  if (prev != NULL) prev->nirep++;
-  return scope;
-}
-
 void gen_self(Scope *scope)
 {
   Scope_pushCode(OP_LOADSELF);
   Scope_pushCode(scope->sp);
   Scope_push(scope);
+}
+
+Scope *scope_nest(Scope *scope)
+{
+  scope = scope->first_lower;
+  for (uint16_t i = 0; i < scope->upper->next_lower_number; i++) {
+    scope = scope->next;
+  }
+  scope->upper->next_lower_number++;
+  return scope;
+}
+
+Scope *scope_unnest(Scope *scope)
+{
+  return scope->upper;
 }
 
 int gen_values(Scope *scope, Node *tree)
@@ -172,6 +180,10 @@ void gen_call(Scope *scope, Node *node)
       nargs = gen_values(scope, node);
       for (int i = 0; i < nargs; i++) {
         Scope_pop(scope);
+      }
+      if (nargs > 0 && Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car) == ATOM_block) {
+        op = OP_SENDB;
+        nargs--;
       }
     }
   }
@@ -490,7 +502,7 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pushCode(num);
       break;
     case (ATOM_call):
-      /*
+      /*+
        * TODO FIXME
        * `obj[]+=` probably works
        * `obj.attr+=` doesn't work yet
@@ -739,6 +751,35 @@ void gen_redo(Scope *scope)
   Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
 }
 
+uint32_t setup_parameters(Scope *scope, Node *node)
+{
+  uint32_t bbb;
+  /* mandatory args */
+  uint8_t nmargs = gen_values(scope, node->cons.cdr->cons.car);
+  nmargs <<= 2;
+  bbb = (uint32_t)nmargs << 16;
+  /* TODO: rest, tail, etc. */
+  return bbb;
+}
+
+void gen_block(Scope *scope, Node *node)
+{
+  Scope_pushCode(OP_BLOCK);
+  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->next_lower_number);
+  scope = scope_nest(scope);
+  uint32_t bbb = setup_parameters(scope, node->cons.cdr->cons.car);
+  Scope_pushCode(OP_ENTER);
+  Scope_pushCode((int)(bbb >> 16 & 0xFF));
+  Scope_pushCode((int)(bbb >> 8 & 0xFF));
+  Scope_pushCode((int)(bbb & 0xFF));
+  codegen(scope, node->cons.cdr->cons.cdr->cons.car);
+  Scope_pushCode(OP_RETURN);
+  Scope_pushCode(--scope->sp);
+  Scope_finish(scope);
+  scope = scope_unnest(scope);
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
@@ -902,6 +943,13 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_dstr:
       gen_dstr(scope, tree);
       break;
+    case ATOM_block:
+      gen_block(scope, tree);
+      break;
+    case ATOM_arg:
+      Scope_newLvar(scope, Node_literalName(tree->cons.cdr), scope->sp);
+      scope->sp++;
+      break;
     default:
 //      FATALP("error");
       break;
@@ -918,10 +966,20 @@ void memcpyFlattenCode(uint8_t *body, CodeSnippet *code_snippet, int size)
   }
 }
 
+uint8_t *writeCode(Scope *scope, uint8_t *pos)
+{
+  if (scope == NULL) return pos;
+  memcpyFlattenCode(pos, scope->code_snippet, scope->vm_code_size);
+  pos += scope->vm_code_size;
+  pos = writeCode(scope->first_lower, pos);
+  pos = writeCode(scope->next, pos);
+  return pos;
+}
+
 void Generator_generate(Scope *scope, Node *root)
 {
   codegen(scope, root);
-  int irepSize = Code_size(scope->code_snippet);
+  int irepSize = Scope_updateVmCodeSizeThenReturnTotalSize(scope);
   int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
   uint8_t *vmCode = mmrbc_alloc(codeSize);
   memcpy(&vmCode[0], "RITE0006", 8);
@@ -930,9 +988,16 @@ void Generator_generate(Scope *scope, Node *root)
   vmCode[12] = (codeSize >> 8) & 0xff;
   vmCode[13] = codeSize & 0xff;
   memcpy(&vmCode[14], "MATZ0000", 8);
-  memcpyFlattenCode(&vmCode[22], scope->code_snippet, irepSize);
-  memcpy(&vmCode[22 + irepSize], "END\0\0\0\0", 7);
-  vmCode[22 + irepSize + 7] = 0x08;
+  memcpy(&vmCode[22], "IREP", 4);
+  int sectionSize = irepSize + END_SECTION_SIZE + 4;
+  vmCode[26] = (sectionSize >> 24) & 0xff; // size of the section
+  vmCode[27] = (sectionSize >> 16) & 0xff;
+  vmCode[28] = (sectionSize >> 8) & 0xff;
+  vmCode[29] = sectionSize & 0xff;
+  memcpy(&vmCode[30], "0002", 4); // instruction version
+  writeCode(scope, &vmCode[HEADER_SIZE]);
+  memcpy(&vmCode[HEADER_SIZE + irepSize], "END\0\0\0\0", 7);
+  vmCode[codeSize - 1] = 0x08;
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;

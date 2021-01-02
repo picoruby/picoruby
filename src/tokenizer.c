@@ -82,9 +82,10 @@ static void tokenizer_paren_stack_add(Tokenizer* const self, Paren paren)
   DEBUGP("Paren added stack_num: %d, `%d`", self->paren_stack_num, paren);
 }
 
-Tokenizer* const Tokenizer_new(StreamInterface *si)
+Tokenizer* const Tokenizer_new(ParserState *p, StreamInterface *si)
 {
   Tokenizer *self = (Tokenizer *)mmrbc_alloc(sizeof(Tokenizer));
+  self->p = p;
   /* class vars in mmrbc.gem */
   {
     self->currentToken = Token_new();
@@ -101,7 +102,7 @@ Tokenizer* const Tokenizer_new(StreamInterface *si)
     self->mode = MODE_NONE;
     self->modeTerminater = '\0';
     self->state = EXPR_BEG;
-    self->cmd_start = true;
+    p->cmd_start = true;
   }
   return self;
 }
@@ -156,13 +157,14 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
   DEBUGP("Aadvance. mode: `%d`", self->mode);
+  ParserState *p = self->p; /* to use macro in parse_header.h */
   Token_GC(self->currentToken->prev);
   Token *lazyToken = Token_new();
   char value[MAX_TOKEN_LENGTH];
   char c[3];
   int cmd_state;
-  cmd_state = self->cmd_start;
-  self->cmd_start = false;
+  cmd_state = p->cmd_start;
+  p->cmd_start = false;
 retry:
   memset(value, '\0', MAX_TOKEN_LENGTH);
   Type type = ON_NONE;
@@ -278,18 +280,18 @@ retry:
           Mode reserveMode = self->mode;
           State reserveState = self->state;
           char reserveModeTerminater = self->modeTerminater;
-          bool reserveCmd_start = self->cmd_start;
+          bool reserveCmd_start = p->cmd_start;
           self->mode = MODE_NONE;
           self->state = EXPR_BEG;
           self->modeTerminater = '\0';
-          self->cmd_start = true;
+          p->cmd_start = true;
           while (Tokenizer_hasMoreTokens(self)) { /* recursive */
             if (Tokenizer_advance(self, false) == 1) break;
           }
           self->mode = reserveMode;
           self->state = reserveState;
           self->modeTerminater = reserveModeTerminater;
-          self->cmd_start = reserveCmd_start;
+          p->cmd_start = reserveCmd_start;
         }
         tokenizer_pushToken(self,
           self->line_num,
@@ -477,11 +479,23 @@ retry:
       value[1] = '\0';
       switch (value[0]) {
         case '(':
-//          if (IS_BEG()) {
+        case '[':
+        case '{':
+          COND_PUSH(0);
+          CMDARG_PUSH(0);
+          break;
+        defalut: /* must be ) ] } */
+          COND_LEXPOP();
+          CMDARG_LEXPOP();
+          break;
+      }
+      switch (value[0]) {
+        case '(':
+          if (IS_BEG()) {
             type = LPAREN;
-//          } else {
-//            type = LPAREN_ARG;
-//          }
+          } else {
+            type = LPAREN_EXPR;
+          }
           self->state = EXPR_BEG;
           tokenizer_paren_stack_add(self, PAREN_PAREN);
           break;
@@ -745,11 +759,17 @@ retry:
             type = KW_modifier_while;
           self->state = EXPR_BEG;
           break;
+        case KW_do:
+          if (COND_P()) {
+            type = KW_do_cond;
+          } else if ((CMDARG_P() && self->state != EXPR_CMDARG)
+                     || self->state == EXPR_ENDARG || self->state == EXPR_BEG){
+            type = KW_do_block;
+          }
         case KW_elsif:
         case KW_else:
         case KW_and:
         case KW_or:
-        case KW_do:
         case KW_case:
         case KW_when:
           self->state = EXPR_BEG;
