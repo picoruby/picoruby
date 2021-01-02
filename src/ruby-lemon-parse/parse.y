@@ -357,8 +357,7 @@
   static Node*
   new_arg(ParserState *p, const char* a)
   {
-    //return list2(atom(ATOM_arg), literal(a));
-    return list2(atom(ATOM_lvar), literal(a));
+    return list2(atom(ATOM_arg), literal(a));
   }
 
   static Node*

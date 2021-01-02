@@ -751,18 +751,28 @@ void gen_redo(Scope *scope)
   Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
 }
 
+uint32_t setup_parameters(Scope *scope, Node *node)
+{
+  uint32_t bbb;
+  /* mandatory args */
+  uint8_t nmargs = gen_values(scope, node->cons.cdr->cons.car);
+  nmargs <<= 2;
+  bbb = (uint32_t)nmargs << 16;
+  /* TODO: rest, tail, etc. */
+  return bbb;
+}
+
 void gen_block(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_BLOCK);
   Scope_pushCode(scope->sp++);
   Scope_pushCode(scope->next_lower_number);
   scope = scope_nest(scope);
-  scope->sp = 2;
+  uint32_t bbb = setup_parameters(scope, node->cons.cdr->cons.car);
   Scope_pushCode(OP_ENTER);
-  // TODO: parameter
-  Scope_pushCode(0);
-  Scope_pushCode(0);
-  Scope_pushCode(0);
+  Scope_pushCode((int)(bbb >> 16 & 0xFF));
+  Scope_pushCode((int)(bbb >> 8 & 0xFF));
+  Scope_pushCode((int)(bbb & 0xFF));
   codegen(scope, node->cons.cdr->cons.cdr->cons.car);
   Scope_pushCode(OP_RETURN);
   Scope_pushCode(--scope->sp);
@@ -935,6 +945,10 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_block:
       gen_block(scope, tree);
+      break;
+    case ATOM_arg:
+      Scope_newLvar(scope, Node_literalName(tree->cons.cdr), scope->sp);
+      scope->sp++;
       break;
     default:
 //      FATALP("error");
