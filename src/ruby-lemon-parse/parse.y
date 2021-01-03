@@ -557,7 +557,7 @@
   static void
   scope_nest(ParserState *p)
   {
-    p->scope = Scope_new(p->scope);
+    p->scope = Scope_new(p->scope, false);
   }
 
   static void
@@ -1036,7 +1036,7 @@ none(A) ::= . { A = 0; }
   ParserState *ParseInitState(void)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
-    p->scope = Scope_new(NULL);
+    p->scope = Scope_new(NULL, true);
     p->token_store = LEMON_ALLOC(sizeof(TokenStore));
     p->token_store->str = NULL;
     p->token_store->prev = NULL;

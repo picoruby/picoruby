@@ -253,14 +253,23 @@ void gen_hash(Scope *scope, Node *node)
 void gen_var(Scope *scope, Node *node)
 {
   int num;
+  LvarScopeReg lvar;
   switch(Node_atomType(node)) {
     case (ATOM_lvar):
-      num = Scope_lvar_findRegnum(scope->lvar, Node_literalName(node->cons.cdr));
-      if (num > 0) {
-        Scope_pushCode(OP_MOVE);
-        Scope_pushCode(scope->sp);
-        Scope_push(scope);
-        Scope_pushCode(num);
+      lvar = Scope_lvar_findRegnum(scope, Node_literalName(node->cons.cdr));
+      if (lvar.reg_num > 0) {
+        if (lvar.scope_num > 0) {
+          Scope_pushCode(OP_GETUPVAR);
+          Scope_pushCode(scope->sp);
+          Scope_push(scope);
+          Scope_pushCode(lvar.reg_num);
+          Scope_pushCode(lvar.scope_num - 1);
+        } else {
+          Scope_pushCode(OP_MOVE);
+          Scope_pushCode(scope->sp);
+          Scope_push(scope);
+          Scope_pushCode(lvar.reg_num);
+        }
       } else {
         /* fcall without arg */
         gen_self(scope);
