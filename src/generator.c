@@ -320,14 +320,25 @@ int assignSymIndex(Scope *scope, char *method_name)
 void gen_assign(Scope *scope, Node *node)
 {
   int num;
+  LvarScopeReg lvar;
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
-      num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
-      Scope_push(scope);
-      codegen(scope, node->cons.cdr);
-      Scope_pushCode(OP_MOVE);
-      Scope_pushCode(num);
-      Scope_pushCode(scope->sp - 1);
+      lvar = Scope_lvar_findRegnum(scope, Node_literalName(node->cons.car->cons.cdr));
+      if (lvar.reg_num == 0) {
+        num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
+        Scope_push(scope);
+        codegen(scope, node->cons.cdr);
+        Scope_pushCode(OP_MOVE);
+        Scope_pushCode(num);
+        Scope_pushCode(scope->sp - 1);
+      } else {
+        Scope_push(scope);
+        codegen(scope, node->cons.cdr);
+        Scope_pushCode(OP_SETUPVAR);
+        Scope_pushCode(scope->sp - 1);
+        Scope_pushCode(lvar.reg_num);
+        Scope_pushCode(lvar.scope_num - 1);
+      }
       break;
     case (ATOM_at_ivar):
     case (ATOM_at_gvar):
@@ -380,6 +391,7 @@ void gen_assign(Scope *scope, Node *node)
 void gen_op_assign(Scope *scope, Node *node)
 {
   int num;
+  LvarScopeReg lvar;
   char *method_name, *call_name;
   method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
   bool isANDOPorOROP = false; /* &&= or ||= */
@@ -391,12 +403,21 @@ void gen_op_assign(Scope *scope, Node *node)
   int symIndex;
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
-      num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
-      Scope_pushCode(OP_MOVE);
-      Scope_push(scope);
-      Scope_pushCode(scope->sp);
-      Scope_push(scope);
-      Scope_pushCode(num);
+      lvar = Scope_lvar_findRegnum(scope, Node_literalName(node->cons.car->cons.cdr));
+      if (lvar.reg_num == 0) {
+        num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
+        Scope_pushCode(OP_MOVE);
+        Scope_push(scope);
+        Scope_pushCode(scope->sp);
+        Scope_push(scope);
+        Scope_pushCode(num);
+      } else {
+        Scope_push(scope);
+        Scope_pushCode(OP_GETUPVAR);
+        Scope_pushCode(scope->sp - 1);
+        Scope_pushCode(lvar.reg_num);
+        Scope_pushCode(lvar.scope_num - 1);
+      }
       break;
     case (ATOM_at_ivar):
     case (ATOM_at_gvar):
@@ -491,9 +512,16 @@ void gen_op_assign(Scope *scope, Node *node)
   }
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
-      Scope_pushCode(OP_MOVE);
-      Scope_pushCode(num);
-      Scope_pushCode(scope->sp);
+      if (lvar.reg_num == 0) {
+        Scope_pushCode(OP_MOVE);
+        Scope_pushCode(num);
+        Scope_pushCode(scope->sp);
+      } else {
+        Scope_pushCode(OP_SETUPVAR);
+        Scope_pushCode(scope->sp);
+        Scope_pushCode(lvar.reg_num);
+        Scope_pushCode(lvar.scope_num - 1);
+      }
       break;
     case (ATOM_at_ivar):
       Scope_pushCode(OP_SETIV);

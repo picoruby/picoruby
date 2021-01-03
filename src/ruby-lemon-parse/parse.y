@@ -555,9 +555,9 @@
   }
 
   static void
-  scope_nest(ParserState *p)
+  scope_nest(ParserState *p, bool lvar_top)
   {
-    p->scope = Scope_new(p->scope, false);
+    p->scope = Scope_new(p->scope, lvar_top);
   }
 
   static void
@@ -871,7 +871,7 @@ bvar ::= IDENTIFIER(B). {
            //new_bv(p, B);
          }
 
-scope_nest_KW_do_block ::= KW_do_block. { scope_nest(p); }
+scope_nest_KW_do_block ::= KW_do_block. { scope_nest(p, false); }
 do_block(A) ::= scope_nest_KW_do_block
                 opt_block_param(B)
                 bodystmt(C)
@@ -895,7 +895,7 @@ method_call(A)  ::=  primary_value(B) LBRACKET opt_call_args(C) RBRACKET. {
                        A = new_call(p, B, "[]", C, '.');
                      }
 
-scope_nest_KW_do ::= KW_do. { scope_nest(p); }
+scope_nest_KW_do ::= KW_do. { scope_nest(p, false); }
 brace_block(A) ::= scope_nest_KW_do
                    opt_block_param(B)
                    bodystmt(C)

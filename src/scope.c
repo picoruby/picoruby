@@ -226,8 +226,6 @@ LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name)
 }
 
 int Scope_newLvar(Scope *self, const char *name, int newRegnum){
-  LvarScopeReg lvar = Scope_lvar_findRegnum(self, name);
-  if (lvar.reg_num > 0) return lvar.reg_num;
   Lvar *newLvar = lvar_new(name, newRegnum);
   if (self->lvar == NULL) {
     self->lvar = newLvar;
