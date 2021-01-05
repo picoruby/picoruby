@@ -790,6 +790,7 @@ void gen_redo(Scope *scope)
 
 uint32_t setup_parameters(Scope *scope, Node *node)
 {
+  if (Node_atomType(node) != ATOM_block_parameters) return 0;
   uint32_t bbb;
   /* mandatory args */
   uint8_t nmargs = gen_values(scope, node->cons.cdr->cons.car);
