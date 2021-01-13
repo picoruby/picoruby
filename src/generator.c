@@ -29,18 +29,40 @@ void gen_self(Scope *scope)
   Scope_push(scope);
 }
 
+/*
+ *  n == 0 -> Condition nest
+ *  n == 1 -> Block nest
+ */
+void push_nest_stack(Scope *scope, uint8_t n)
+{
+  if (scope->nest_stack & 0x80000000) {
+    FATALP("Nest stack too deep!");
+    return;
+  }
+  scope->nest_stack = (scope->nest_stack << 1) | (n & 1);
+}
+
+void pop_nest_stack(Scope *scope)
+{
+  scope->nest_stack = (scope->nest_stack >> 1);
+}
+
 Scope *scope_nest(Scope *scope)
 {
+  uint32_t nest_stack = scope->nest_stack;;
   scope = scope->first_lower;
   for (uint16_t i = 0; i < scope->upper->next_lower_number; i++) {
     scope = scope->next;
   }
   scope->upper->next_lower_number++;
+  scope->nest_stack = nest_stack;
+  push_nest_stack(scope, 1); /* 1 represents BLOCK NEST */
   return scope;
 }
 
 Scope *scope_unnest(Scope *scope)
 {
+  pop_nest_stack(scope->upper);
   return scope->upper;
 }
 
@@ -324,8 +346,12 @@ void gen_assign(Scope *scope, Node *node)
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
       lvar = Scope_lvar_findRegnum(scope, Node_literalName(node->cons.car->cons.cdr));
-      if (lvar.reg_num == 0) {
-        num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
+      if (lvar.scope_num == 0) {
+        if (lvar.reg_num > 0) {
+          num = lvar.reg_num;
+        } else {
+          num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
+        }
         Scope_push(scope);
         codegen(scope, node->cons.cdr);
         Scope_pushCode(OP_MOVE);
@@ -743,6 +769,7 @@ void gen_if(Scope *scope, Node *node)
 
 void gen_while(Scope *scope, Node *node, int op_jmp)
 {
+  push_nest_stack(scope, 0); /* 0 represents CONDITION NEST */
   Scope_pushBreakStack(scope);
   Scope_pushCode(OP_JMP);
   CodeSnippet *label_cond = Scope_reserveJmpLabel(scope);
@@ -763,25 +790,37 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   Scope_pushCode(OP_LOADNIL);
   Scope_pushCode(scope->sp++);
   Scope_popBreakStack(scope);
+  pop_nest_stack(scope);
 }
 
 void gen_break(Scope *scope, Node *node)
 {
-  Scope_push(scope);
-  codegen(scope, node);
-  Scope_pop(scope);
-  Scope_pushCode(OP_JMP);
-  scope->break_stack->code_snippet = Scope_reserveJmpLabel(scope);
+  if (scope->nest_stack & 1) { /* BLOCK NEST */
+    Scope_push(scope);
+    codegen(scope, node);
+    Scope_pop(scope);
+    Scope_pushCode(OP_BREAK);
+    Scope_pushCode(scope->sp);
+  } else {                     /* CONDITION NEST */
+    Scope_push(scope);
+    codegen(scope, node);
+    Scope_pop(scope);
+    Scope_pushCode(OP_JMP);
+    scope->break_stack->code_snippet = Scope_reserveJmpLabel(scope);
+  }
 }
 
 void gen_next(Scope *scope, Node *node)
 {
-  Scope_push(scope);
-  codegen(scope, node);
-  Scope_push(scope);
-  Scope_pushCode(OP_JMP);
-  CodeSnippet *label = Scope_reserveJmpLabel(scope);
-  Scope_backpatchJmpLabel(label, scope->break_stack->next_pos);
+  if (scope->nest_stack & 1) { /* BLOCK NEST */
+  } else {                     /* CONDITION NEST */
+    Scope_push(scope);
+    codegen(scope, node);
+    Scope_push(scope);
+    Scope_pushCode(OP_JMP);
+    CodeSnippet *label = Scope_reserveJmpLabel(scope);
+    Scope_backpatchJmpLabel(label, scope->break_stack->next_pos);
+  }
 }
 
 void gen_redo(Scope *scope)
@@ -859,6 +898,7 @@ void codegen(Scope *scope, Node *tree)
       codegen(scope, tree->cons.cdr);
       break;
     case ATOM_program:
+      scope->nest_stack = 1; /* 00000000 00000000 00000000 00000001 */
       codegen(scope, tree->cons.cdr->cons.car);
       Scope_pushCode(OP_RETURN);
       Scope_pushCode(scope->sp - 1);
