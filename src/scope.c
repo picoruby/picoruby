@@ -8,12 +8,13 @@
 
 #define IREP_HEADER_SIZE 14
 
-Scope *Scope_new(Scope *upper)
+Scope *Scope_new(Scope *upper, bool lvar_top)
 {
   Scope *self = mmrbc_alloc(sizeof(Scope));
   self->next_lower_number = 0;
   self->upper = upper;
   self->first_lower = NULL;
+  self->lvar_top = lvar_top;
   self->nlowers = 0;
   self->next = NULL;
   if (upper != NULL) {
@@ -201,22 +202,30 @@ int Scope_newSym(Scope *self, const char *value){
 }
 
 /*
- * returns -1 if lvar was not found
+ * reg_num = 0 if lvar was not found
  */
-int Scope_lvar_findRegnum(Lvar *lvar, const char *name)
+LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name)
 {
-  while (lvar != NULL) {
-    if (strcmp(lvar->name, name) == 0) {
-      return lvar->regnum;
+  LvarScopeReg scopeReg = {0, 0};
+  Scope *scope = self;
+  Lvar *lvar;
+  do {
+    lvar = scope->lvar;
+    while (lvar != NULL) {
+      if (strcmp(lvar->name, name) == 0) {
+        scopeReg.reg_num = lvar->regnum;
+        return scopeReg;
+      }
+      lvar = lvar->next;
     }
-    lvar = lvar->next;
-  }
-  return -1;
+    scopeReg.scope_num++;
+    if (scope->upper == NULL) break;
+    scope = scope->upper;
+  } while (scope->lvar_top);
+  return scopeReg;
 }
 
 int Scope_newLvar(Scope *self, const char *name, int newRegnum){
-  int regnum = Scope_lvar_findRegnum(self->lvar, name);
-  if (regnum >= 0) return regnum;
   Lvar *newLvar = lvar_new(name, newRegnum);
   if (self->lvar == NULL) {
     self->lvar = newLvar;

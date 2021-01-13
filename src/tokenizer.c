@@ -745,19 +745,19 @@ retry:
 //          self->state = EXPR_CLASS;
 //          break;
         case KW_if:
-          if (self->state == EXPR_END) /* really? */
+          if (self->state != EXPR_BEG && self->state != EXPR_VALUE)
             type = KW_modifier_if;
-          self->state = EXPR_BEG;
+          self->state = EXPR_VALUE;
           break;
         case KW_unless:
-          if (self->state == EXPR_END) /* really? */
+          if (self->state != EXPR_BEG && self->state != EXPR_VALUE)
             type = KW_modifier_unless;
-          self->state = EXPR_BEG;
+          self->state = EXPR_VALUE;
           break;
         case KW_while:
-          if (self->state == EXPR_END) /* really? */
+          if (self->state != EXPR_BEG && self->state != EXPR_VALUE)
             type = KW_modifier_while;
-          self->state = EXPR_BEG;
+          self->state = EXPR_VALUE;
           break;
         case KW_do:
           if (COND_P()) {

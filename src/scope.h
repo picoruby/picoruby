@@ -36,6 +36,12 @@ typedef struct lvar
   struct lvar *next;
 } Lvar;
 
+typedef struct lvar_scope_reg
+{
+  uint8_t scope_num;
+  uint8_t reg_num;
+} LvarScopeReg;
+
 typedef struct code_snippet
 {
   int size;
@@ -56,6 +62,7 @@ typedef struct scope
 {
   Scope *upper;
   Scope *first_lower;
+  bool lvar_top;
   uint16_t next_lower_number;
   unsigned int nlowers;
   Scope *next;
@@ -72,7 +79,7 @@ typedef struct scope
   BreakStack *break_stack;
 } Scope;
 
-Scope *Scope_new(Scope *upper);
+Scope *Scope_new(Scope *upper, bool lvar_top);
 
 void Scope_free(Scope *self);
 
@@ -86,7 +93,7 @@ int Scope_newLit(Scope *self, const char *value, LiteralType type);
 
 int Scope_newSym(Scope *self, const char *value);
 
-int Scope_lvar_findRegnum(Lvar *lvar, const char *name);
+LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name);
 
 int Scope_newLvar(Scope *self, const char *name, int newRegnum);
 
