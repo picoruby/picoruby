@@ -404,19 +404,23 @@ void gen_op_assign(Scope *scope, Node *node)
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
       lvar = Scope_lvar_findRegnum(scope, Node_literalName(node->cons.car->cons.cdr));
-      if (lvar.reg_num == 0) {
-        num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
-        Scope_pushCode(OP_MOVE);
-        Scope_push(scope);
-        Scope_pushCode(scope->sp);
-        Scope_push(scope);
-        Scope_pushCode(num);
-      } else {
+      if (lvar.scope_num > 0) {
         Scope_push(scope);
         Scope_pushCode(OP_GETUPVAR);
         Scope_pushCode(scope->sp - 1);
         Scope_pushCode(lvar.reg_num);
         Scope_pushCode(lvar.scope_num - 1);
+      } else {
+        if (lvar.reg_num == 0) {
+          num = Scope_newLvar(scope, Node_literalName(node->cons.car->cons.cdr), scope->sp);
+        } else {
+          num = lvar.reg_num;
+        }
+        Scope_pushCode(OP_MOVE);
+        Scope_push(scope);
+        Scope_pushCode(scope->sp);
+        Scope_push(scope);
+        Scope_pushCode(num);
       }
       break;
     case (ATOM_at_ivar):
@@ -512,15 +516,15 @@ void gen_op_assign(Scope *scope, Node *node)
   }
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
-      if (lvar.reg_num == 0) {
-        Scope_pushCode(OP_MOVE);
-        Scope_pushCode(num);
-        Scope_pushCode(scope->sp);
-      } else {
+      if (lvar.scope_num > 0) {
         Scope_pushCode(OP_SETUPVAR);
         Scope_pushCode(scope->sp);
         Scope_pushCode(lvar.reg_num);
         Scope_pushCode(lvar.scope_num - 1);
+      } else {
+        Scope_pushCode(OP_MOVE);
+        Scope_pushCode(num);
+        Scope_pushCode(scope->sp);
       }
       break;
     case (ATOM_at_ivar):
