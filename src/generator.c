@@ -826,8 +826,13 @@ void gen_redo(Scope *scope)
 {
   Scope_push(scope);
   Scope_pushCode(OP_JMP);
-  CodeSnippet *label = Scope_reserveJmpLabel(scope);
-  Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
+  if (scope->nest_stack & 1) { /* BLOCK NEST */
+    Scope_pushCode(0);
+    Scope_pushCode(0);
+  } else {                     /* CONDITION NEST */
+    CodeSnippet *label = Scope_reserveJmpLabel(scope);
+    Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
+  }
 }
 
 uint32_t setup_parameters(Scope *scope, Node *node)
