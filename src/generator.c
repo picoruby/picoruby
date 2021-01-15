@@ -775,7 +775,6 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   CodeSnippet *label_cond = Scope_reserveJmpLabel(scope);
   scope->break_stack->redo_pos = scope->vm_code_size;
   /* inside while */
-  Scope_pop(scope);
   uint32_t top = scope->vm_code_size;
   codegen(scope, node->cons.cdr);
   /* just before condition */
