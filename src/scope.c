@@ -218,11 +218,11 @@ LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name)
       }
       lvar = lvar->next;
     }
-    scopeReg.scope_num++;
     if (scope->upper == NULL) break;
+    scopeReg.scope_num++;
     scope = scope->upper;
   } while (scope->lvar_top);
-  return scopeReg;
+  return (LvarScopeReg){0, 0};
 }
 
 int Scope_newLvar(Scope *self, const char *name, int newRegnum){
