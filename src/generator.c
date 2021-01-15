@@ -795,16 +795,13 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
 
 void gen_break(Scope *scope, Node *node)
 {
+  Scope_push(scope);
+  codegen(scope, node);
+  Scope_pop(scope);
   if (scope->nest_stack & 1) { /* BLOCK NEST */
-    Scope_push(scope);
-    codegen(scope, node);
-    Scope_pop(scope);
     Scope_pushCode(OP_BREAK);
     Scope_pushCode(scope->sp);
   } else {                     /* CONDITION NEST */
-    Scope_push(scope);
-    codegen(scope, node);
-    Scope_pop(scope);
     Scope_pushCode(OP_JMP);
     scope->break_stack->code_snippet = Scope_reserveJmpLabel(scope);
   }
@@ -812,11 +809,13 @@ void gen_break(Scope *scope, Node *node)
 
 void gen_next(Scope *scope, Node *node)
 {
+  Scope_push(scope);
+  codegen(scope, node);
+  Scope_push(scope);
   if (scope->nest_stack & 1) { /* BLOCK NEST */
+    Scope_pushCode(OP_RETURN);
+    Scope_pushCode(scope->sp);
   } else {                     /* CONDITION NEST */
-    Scope_push(scope);
-    codegen(scope, node);
-    Scope_push(scope);
     Scope_pushCode(OP_JMP);
     CodeSnippet *label = Scope_reserveJmpLabel(scope);
     Scope_backpatchJmpLabel(label, scope->break_stack->next_pos);
