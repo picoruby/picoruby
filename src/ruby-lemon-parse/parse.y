@@ -348,6 +348,12 @@
     }
   }
 
+  static Node*
+  new_def(ParserState *p, const char* m, Node *a, Node *b)
+  {
+    return list5(atom(ATOM_def), literal(m), 0, a, b);
+  }
+
   static void
   local_add_f(ParserState *p, Node *a)
   {
@@ -659,6 +665,13 @@ expr(A) ::= expr(B) KW_and expr(C). { A = new_and(p, B, C); }
 expr(A) ::= expr(B) KW_or expr(C). { A = new_or(p, B, C); }
 expr ::= arg.
 
+defn_head(A) ::= KW_def fname(B). {
+                  A = new_def(p, B, 0, 0); // nint(p->cmdarg_stack), local_switch(p)
+                  // p->cmdarg_stackl = 0;
+                  // p->in_def++;
+                  // nvars_block(p);
+                }
+
 expr_value(A) ::= expr(B). {
                    if (!B) A = list1(atom(ATOM_kw_nil));
                    else A = B;
@@ -790,6 +803,15 @@ primary(A) ::=  KW_case expr_value(B) opt_terms
                 }
 primary(A) ::=  KW_case opt_terms case_body(C) KW_end. {
                   A = new_case(p, 0, C);
+                }
+primary(A) ::=  defn_head(B)
+                f_arglist(C)
+                bodystmt(D)
+                KW_end. {
+                  A = B;
+                  // defn_setup(p, A, C, D);
+                  // nvars_unnest(p);
+                  // p->in_def--;
                 }
 primary(A) ::=  KW_break. {
                   A = new_break(p, 0);
@@ -985,6 +1007,32 @@ sym ::= fname.
 fname ::= IDENTIFIER.
 fname ::= CONSTANT.
 fname ::= FID.
+
+f_arglist_paren(A) ::= LPAREN_EXPR f_args(B) RPAREN. {
+                         A = B;
+//                         p->state = EXPR_BEG;
+                         p->cmd_start = true;
+                        }
+
+f_arglist     ::= f_arglist_paren.
+f_arglist(A)  ::= f_args(B) term. {
+                    A = B;
+                  }
+
+f_args(A) ::= f_arg(B) opt_args_tail(C). {
+                A = new_args(p, B, 0, 0, 0, C);
+              }
+f_args(A) ::= . {
+                // local_add_f(p, intern_op(and))
+                A = new_args(p, 0, 0, 0, 0, 0);
+              }
+
+//opt_args_tail(A) ::= COMMA args_tail(B). {
+//                      A = B;
+//                    }
+opt_args_tail(A) ::= . {
+                      A = new_args_tail(p, 0, 0, 0);
+                    }
 
 string ::= string_fragment.
 string(A) ::= string(B) string_fragment(C). { A = concat_string(p, B, C); }
