@@ -96,8 +96,7 @@ void gen_str(Scope *scope, Node *node)
 void gen_sym(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_LOADSYM);
-  Scope_pushCode(scope->sp);
-  Scope_push(scope);
+  Scope_pushCode(scope->sp++);
   int litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
 }
@@ -864,6 +863,35 @@ void gen_block(Scope *scope, Node *node)
   scope = scope_unnest(scope);
 }
 
+void gen_def(Scope *scope, Node *node)
+{
+  Scope_pushCode(OP_TCLASS);
+  Scope_pushCode(scope->sp++);
+  Scope_pushCode(OP_METHOD);
+  Scope_pushCode(scope->sp);
+  Scope_pushCode(scope->next_lower_number);
+  Scope_pushCode(OP_DEF);
+  Scope_pushCode(--scope->sp);
+  int litIndex = Scope_newSym(scope, Node_literalName(node));
+  Scope_pushCode(litIndex);
+  Scope_pushCode(OP_LOADSYM);
+  Scope_pushCode(scope->sp++);
+  Scope_pushCode(litIndex);
+
+  scope = scope_nest(scope);
+  uint32_t bbb = setup_parameters(scope, node->cons.cdr->cons.cdr->cons.car);
+  Scope_pushCode(OP_ENTER);
+  Scope_pushCode((int)(bbb >> 16 & 0xFF));
+  Scope_pushCode((int)(bbb >> 8 & 0xFF));
+  Scope_pushCode((int)(bbb & 0xFF));
+  codegen(scope, node->cons.cdr->cons.cdr->cons.cdr->cons.car);
+
+  Scope_pushCode(OP_RETURN);
+  Scope_pushCode(--scope->sp);
+  Scope_finish(scope);
+  scope = scope_unnest(scope);
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
@@ -1034,6 +1062,9 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_arg:
       Scope_newLvar(scope, Node_literalName(tree->cons.cdr), scope->sp);
       scope->sp++;
+      break;
+    case ATOM_def:
+      gen_def(scope, tree->cons.cdr);
       break;
     default:
 //      FATALP("error");

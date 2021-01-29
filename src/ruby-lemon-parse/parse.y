@@ -34,7 +34,10 @@
 %extra_context { ParserState *p }
 
 %token_type { char* }
+//%token_destructor { LEMON_FREE($$); }
+
 %default_type { Node* }
+//%default_destructor { LEMON_FREE($$); }
 
 %include {
   #include <stdlib.h>
@@ -354,6 +357,22 @@
     return list5(atom(ATOM_def), literal(m), 0, a, b);
   }
 
+  static Node*
+  defn_setup(ParserState *p, Node *d, Node *a, Node *b)
+  {
+    /*
+     * d->cons.cdr->cons.cdr->cons.cdr->cons.cdr
+     *    ^^^^^^^^  ^^^^^^^^  ^^^^^^^^  ^^^^^^^^
+     *  methodname  ???????   args      body
+     */
+    Node *n = d->cons.cdr->cons.cdr;
+    //p->cmdarg_stack = intn(n->cons.cdr->cons.car);
+    n->cons.cdr->cons.car = a;
+    //local_resume(p, n->cons.cdr->cons.cdr->cons.car);
+    n->cons.cdr->cons.cdr->cons.car = b;
+    return d;
+  }
+
   static void
   local_add_f(ParserState *p, Node *a)
   {
@@ -575,7 +594,7 @@
 
 %parse_accept {
 #ifndef NDEBUG
-  printf("Parse has completed successfully.\n");
+//  printf("Parse has completed successfully.\n");
 #endif
 }
 
@@ -670,6 +689,7 @@ defn_head(A) ::= KW_def fname(B). {
                   // p->cmdarg_stackl = 0;
                   // p->in_def++;
                   // nvars_block(p);
+                  scope_nest(p, true);
                 }
 
 expr_value(A) ::= expr(B). {
@@ -804,14 +824,13 @@ primary(A) ::=  KW_case expr_value(B) opt_terms
 primary(A) ::=  KW_case opt_terms case_body(C) KW_end. {
                   A = new_case(p, 0, C);
                 }
-primary(A) ::=  defn_head(B)
-                f_arglist(C)
-                bodystmt(D)
+primary(A) ::=  defn_head(B) f_arglist(C)
+                  bodystmt(D)
                 KW_end. {
-                  A = B;
-                  // defn_setup(p, A, C, D);
+                  A = defn_setup(p, B, C, D);
                   // nvars_unnest(p);
                   // p->in_def--;
+                  scope_unnest(p);
                 }
 primary(A) ::=  KW_break. {
                   A = new_break(p, 0);
@@ -1108,8 +1127,11 @@ none(A) ::= . { A = 0; }
 
   void freeNode(Node *n) {
     //printf("before free cons: %p\n", n);
-    if (n == NULL)
-      return;
+    if (n == NULL) return;
+#ifndef NDEBUG
+    /* mmrbc_alloc() fills with 0xaa */
+    if (n == 0xaaaaaaaaaaaaaaaa) return;
+#endif
     if (n->type == CONS) {
       freeNode(n->cons.car);
       freeNode(n->cons.cdr);
