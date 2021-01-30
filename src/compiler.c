@@ -114,43 +114,23 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
   Parse(parser, 0, "");
   bool success;
   if (p->error_count == 0) {
-   success = true;
+    success = true;
 #ifdef MMRBC_DEBUG
     ParseShowAllNode(parser, 1);
 #endif
-//    {
-//      /*
-//       * Generator_generate() twice.
-//       * First time is to gather lvars to put them on the head of registers.
-//       * */
-//      Scope *lvarScope = Scope_new(NULL);
-//      Generator_generate(lvarScope, p->root);
-//      int i = 1;
-//      Lvar *lvar = lvarScope->lvar;
-//      while (lvar) {
-//        lvar->regnum = i;
-//        lvar = lvar->next;
-//        i++;
-//      }
-//      p->scope->lvar = lvarScope->lvar;
-//      p->scope->sp = i;
-//      lvarScope->lvar = NULL;
-//      Scope_free(lvarScope);
-//    }
-    /* Second time */
     Generator_generate(p->scope, p->root);
   } else {
     success = false;
   }
-  if (success) {
-    /* FIXME skipping FreeNode causes memory leak */
-    ParseFreeAllNode(parser);
-  }
-  ParseFree(parser, mmrbc_free);
-  Tokenizer_free(tokenizer);
 #ifdef MMRBC_DEBUG
   dumpCode(p->scope);
 #endif
+  /* FIXME memory leak happens if success is false */
+  ParseFreeAllNode(parser);
+//  No need to ParseFree()?
+  if (!success)
+    ParseFree(parser, mmrbc_free);
+  Tokenizer_free(tokenizer);
   return success;
 }
 

@@ -34,7 +34,10 @@
 %extra_context { ParserState *p }
 
 %token_type { char* }
+//%token_destructor { LEMON_FREE($$); }
+
 %default_type { Node* }
+//%default_destructor { LEMON_FREE($$); }
 
 %include {
   #include <stdlib.h>
@@ -348,6 +351,28 @@
     }
   }
 
+  static Node*
+  new_def(ParserState *p, const char* m, Node *a, Node *b)
+  {
+    return list5(atom(ATOM_def), literal(m), 0, a, b);
+  }
+
+  static Node*
+  defn_setup(ParserState *p, Node *d, Node *a, Node *b)
+  {
+    /*
+     * d->cons.cdr->cons.cdr->cons.cdr->cons.cdr
+     *    ^^^^^^^^  ^^^^^^^^  ^^^^^^^^  ^^^^^^^^
+     *  methodname  ???????   args      body
+     */
+    Node *n = d->cons.cdr->cons.cdr;
+    //p->cmdarg_stack = intn(n->cons.cdr->cons.car);
+    n->cons.cdr->cons.car = a;
+    //local_resume(p, n->cons.cdr->cons.cdr->cons.car);
+    n->cons.cdr->cons.cdr->cons.car = b;
+    return d;
+  }
+
   static void
   local_add_f(ParserState *p, Node *a)
   {
@@ -569,7 +594,7 @@
 
 %parse_accept {
 #ifndef NDEBUG
-  printf("Parse has completed successfully.\n");
+//  printf("Parse has completed successfully.\n");
 #endif
 }
 
@@ -658,6 +683,14 @@ expr ::= command_call.
 expr(A) ::= expr(B) KW_and expr(C). { A = new_and(p, B, C); }
 expr(A) ::= expr(B) KW_or expr(C). { A = new_or(p, B, C); }
 expr ::= arg.
+
+defn_head(A) ::= KW_def fname(B). {
+                  A = new_def(p, B, 0, 0); // nint(p->cmdarg_stack), local_switch(p)
+                  // p->cmdarg_stackl = 0;
+                  // p->in_def++;
+                  // nvars_block(p);
+                  scope_nest(p, true);
+                }
 
 expr_value(A) ::= expr(B). {
                    if (!B) A = list1(atom(ATOM_kw_nil));
@@ -790,6 +823,14 @@ primary(A) ::=  KW_case expr_value(B) opt_terms
                 }
 primary(A) ::=  KW_case opt_terms case_body(C) KW_end. {
                   A = new_case(p, 0, C);
+                }
+primary(A) ::=  defn_head(B) f_arglist(C)
+                  bodystmt(D)
+                KW_end. {
+                  A = defn_setup(p, B, C, D);
+                  // nvars_unnest(p);
+                  // p->in_def--;
+                  scope_unnest(p);
                 }
 primary(A) ::=  KW_break. {
                   A = new_break(p, 0);
@@ -986,6 +1027,32 @@ fname ::= IDENTIFIER.
 fname ::= CONSTANT.
 fname ::= FID.
 
+f_arglist_paren(A) ::= LPAREN_EXPR f_args(B) RPAREN. {
+                         A = B;
+//                         p->state = EXPR_BEG;
+                         p->cmd_start = true;
+                        }
+
+f_arglist     ::= f_arglist_paren.
+f_arglist(A)  ::= f_args(B) term. {
+                    A = B;
+                  }
+
+f_args(A) ::= f_arg(B) opt_args_tail(C). {
+                A = new_args(p, B, 0, 0, 0, C);
+              }
+f_args(A) ::= . {
+                // local_add_f(p, intern_op(and))
+                A = new_args(p, 0, 0, 0, 0, 0);
+              }
+
+//opt_args_tail(A) ::= COMMA args_tail(B). {
+//                      A = B;
+//                    }
+opt_args_tail(A) ::= . {
+                      A = new_args_tail(p, 0, 0, 0);
+                    }
+
 string ::= string_fragment.
 string(A) ::= string(B) string_fragment(C). { A = concat_string(p, B, C); }
 
@@ -1060,8 +1127,11 @@ none(A) ::= . { A = 0; }
 
   void freeNode(Node *n) {
     //printf("before free cons: %p\n", n);
-    if (n == NULL)
-      return;
+    if (n == NULL) return;
+#ifndef NDEBUG
+    /* mmrbc_alloc() fills with 0xaa */
+    if (n == 0xaaaaaaaaaaaaaaaa) return;
+#endif
     if (n->type == CONS) {
       freeNode(n->cons.car);
       freeNode(n->cons.cdr);
