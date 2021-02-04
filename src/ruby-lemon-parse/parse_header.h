@@ -100,6 +100,16 @@ struct node {
   };
 };
 
+typedef struct node_box NodeBox;
+
+typedef struct node_box
+{
+  NodeBox *next;
+  uint16_t size;
+  uint16_t index;
+  Node *nodes;
+} NodeBox;
+
 typedef struct token_store
 {
   char *str;
@@ -108,7 +118,8 @@ typedef struct token_store
 
 typedef struct parser_state {
   Scope *scope;
-  Node *root;
+  NodeBox *root_node_box;
+  NodeBox *current_node_box;
   TokenStore *token_store;
   int error_count;
   unsigned int cond_stack;

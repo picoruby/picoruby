@@ -15,4 +15,10 @@ AtomType Node_atomType(Node *self);
 
 char *Node_literalName(Node *self);
 
+NodeBox *Node_newBox(ParserState *p);
+
+Node *Node_new(ParserState *p);
+
+void Node_freeAllNode(NodeBox *box);
+
 #endif

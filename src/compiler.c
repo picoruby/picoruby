@@ -118,7 +118,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
 #ifdef MMRBC_DEBUG
     ParseShowAllNode(parser, 1);
 #endif
-    Generator_generate(p->scope, p->root);
+    Generator_generate(p->scope, p->root_node_box->nodes);
   } else {
     success = false;
   }
@@ -127,9 +127,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
 #endif
   /* FIXME memory leak happens if success is false */
   ParseFreeAllNode(parser);
-//  No need to ParseFree()?
-  if (!success)
-    ParseFree(parser, mmrbc_free);
+  mmrbc_free(parser);
   Tokenizer_free(tokenizer);
   return success;
 }

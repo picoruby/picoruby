@@ -44,6 +44,9 @@ void *mmrbc_alloc(size_t size)
   DEBUGP("alloc_count: %d, ptr: %p, size: %d", alloc_count, ptr, (int)size);
   print_memory();
   alloc_count++;
+//  if (alloc_count == 2){
+//    DEBUGP("sssss");
+//  }
   AllocList *ah = malloc(sizeof(AllocList));
   ah->count = alloc_count;
   ah->ptr = ptr;
