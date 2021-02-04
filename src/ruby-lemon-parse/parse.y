@@ -47,6 +47,7 @@
   #include "parse.h"
   #include "atom_helper.h"
   #include "../scope.h"
+  #include "../node.h"
 }
 
 %ifdef LEMON_MMRBC
@@ -96,8 +97,7 @@
   cons_gen(ParserState *p, Node *car, Node *cdr)
   {
     Node *c;
-    c = (Node *)LEMON_ALLOC(sizeof(Node));
-    if (c == NULL) printf("Out Of Memory");
+    c = Node_new(p);
     c->type = CONS;
     c->cons.car = car;
     c->cons.cdr = cdr;
@@ -106,22 +106,21 @@
   #define cons(a,b) cons_gen(p,(a),(b))
 
   static Node*
-  atom(int t)
+  atom_gen(ParserState *p, int t)
   {
     Node* a;
-    a = (Node *)LEMON_ALLOC(sizeof(Node));
-    if (a == NULL) printf("Out Of Memory");
+    a = Node_new(p);
     a->type = ATOM;
     a->atom.type = t;
     return a;
   }
+  #define atom(t) atom_gen(p, (t))
 
   static Node*
   literal_gen(ParserState *p, const char *s)
   {
     Node* l;
-    l = (Node *)LEMON_ALLOC(sizeof(Node));
-    if (l == NULL) printf("Out Of Memory");
+    l = Node_new(p);
     l->type = LITERAL;
     l->value.name = strdup(s);
     return l;
@@ -635,7 +634,9 @@
 %right POW.
 %right UNEG UNOT UPLUS.
 
-program ::= top_compstmt(B). { yypParser->p->root = list2(atom(ATOM_program), B); }
+program ::= top_compstmt(B).  {
+                                yypParser->p->root_node_box->nodes = list2(atom(ATOM_program), B);
+                              }
 
 top_compstmt(A) ::= top_stmts(B) opt_terms. { A = B; }
 
@@ -1104,6 +1105,9 @@ none(A) ::= . { A = 0; }
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
     p->scope = Scope_new(NULL, true);
+    p->current_node_box = NULL;
+    p->root_node_box = Node_newBox(p);
+    p->current_node_box = p->root_node_box;
     p->token_store = LEMON_ALLOC(sizeof(TokenStore));
     p->token_store->str = NULL;
     p->token_store->prev = NULL;
@@ -1120,7 +1124,13 @@ none(A) ::= . { A = 0; }
   }
 
   void ParserStateFree(ParserState *p) {
-    Scope_free(p->scope);
+    Scope *scope = p->scope;
+    /* trace back to the up most scope in case of syntax error */
+    while (1) {
+      if (scope->upper == NULL) break;
+      scope = scope->upper;
+    }
+    Scope_free(scope);
     freeTokenStore(p->token_store);
     LEMON_FREE(p);
   }
@@ -1128,10 +1138,6 @@ none(A) ::= . { A = 0; }
   void freeNode(Node *n) {
     //printf("before free cons: %p\n", n);
     if (n == NULL) return;
-#ifndef NDEBUG
-    /* mmrbc_alloc() fills with 0xaa */
-    if (n == 0xaaaaaaaaaaaaaaaa) return;
-#endif
     if (n->type == CONS) {
       freeNode(n->cons.car);
       freeNode(n->cons.cdr);
@@ -1143,7 +1149,7 @@ none(A) ::= . { A = 0; }
   }
 
   void ParseFreeAllNode(yyParser *yyp) {
-    freeNode(yyp->p->root);
+    Node_freeAllNode(yyp->p->root_node_box);
   }
 
   TokenStore *ParsePushTokenStore(ParserState *p, char *s)
@@ -1214,17 +1220,13 @@ none(A) ::= . { A = 0; }
 
   void ParseShowAllNode(yyParser *yyp, int way) {
     if (way == 1) {
-      showNode1(yyp->p->root, true, 0, false);
+      showNode1(yyp->p->root_node_box->nodes, true, 0, false);
     } else if (way == 2) {
-      showNode2(yyp->p->root);
+      showNode2(yyp->p->root_node_box->nodes);
     }
     printf("\n");
   }
 #endif /* !NDEBUG */
-
-  void *pointerToRoot(yyParser *yyp){
-    return yyp->p->root;
-  }
 
   bool hasCar(Node *n) {
     if (n->type != CONS)

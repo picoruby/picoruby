@@ -1,5 +1,7 @@
 #include <stdlib.h>
+#include <string.h>
 
+#include "common.h"
 #include "node.h"
 #include "ruby-lemon-parse/parse_header.h"
 
@@ -40,5 +42,46 @@ char *Node_literalName(Node *self)
     return NULL;
   } else {
     return self->cons.car->value.name;
+  }
+}
+
+#define NODE_SIZE 99
+
+NodeBox *Node_newBox(ParserState *p)
+{
+  int size = sizeof(NodeBox) + sizeof(Node) * NODE_SIZE;
+  NodeBox *node_box = (NodeBox *)mmrbc_alloc(size);
+  memset(node_box, 0, size);
+  if (p->current_node_box) p->current_node_box->next = node_box;
+  p->current_node_box = node_box;
+  node_box->next = NULL;
+  node_box->size = NODE_SIZE;
+  node_box->index = 0;
+  return node_box;
+}
+
+Node *Node_new(ParserState *p)
+{
+  NodeBox *box = p->current_node_box;
+  box->index++;
+  if (box->index == box->size) {
+    box = Node_newBox(p);
+  }
+  return (Node *)((Node *)(&box->nodes) + box->index);
+}
+
+void Node_freeAllNode(NodeBox *box)
+{
+  Node *node;
+  NodeBox *next;
+  while (box) {
+    next = box->next;
+    for (int i = 0; i < box->index + 1; i++) {
+      node = (Node *)((Node *)(&box->nodes) + i);
+      if (node == NULL) break;
+      if (node->type == LITERAL) mmrbc_free(node->value.name);
+    }
+    mmrbc_free(box);
+    box = next;
   }
 }
