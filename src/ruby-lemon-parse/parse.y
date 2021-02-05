@@ -48,6 +48,7 @@
   #include "atom_helper.h"
   #include "../scope.h"
   #include "../node.h"
+  #include "../token.h"
 }
 
 %ifdef LEMON_MMRBC
@@ -348,6 +349,12 @@
       }
       break;
     }
+  }
+
+  static Node*
+  new_class(ParserState *p, Node *c, Node *b)
+  {
+    return (Node *)0;
   }
 
   static Node*
@@ -765,6 +772,12 @@ lhs(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET.
   { A = new_call(p, B, "[]", C, '.'); }
 lhs(A) ::= primary_value(B) call_op(C) IDENTIFIER(D). { A = new_call(p, B, D, 0, C); }
 
+cname ::= CONSTANT.
+
+cpath(A) ::= cname(B).  {
+                          A = cons(nint(0), literal(B));
+                        }
+
 var_lhs ::= variable.
 
 variable(A) ::= IDENTIFIER(B). { A = new_lvar(p, B); }
@@ -824,6 +837,17 @@ primary(A) ::=  KW_case expr_value(B) opt_terms
                 }
 primary(A) ::=  KW_case opt_terms case_body(C) KW_end. {
                   A = new_case(p, 0, C);
+                }
+class_head(A) ::= KW_class
+                  cpath(B) superclass(C). {
+                    A = cons(B, C);
+                    scope_nest(p, true);
+                  }
+primary(A) ::=  class_head(B)
+                bodystmt(C)
+                KW_end. {
+                  A = new_class(p, B, C);
+                  scope_unnest(p);
                 }
 primary(A) ::=  defn_head(B) f_arglist(C)
                   bodystmt(D)
@@ -1004,6 +1028,15 @@ var_ref(A) ::= KW_nil. { A = list1(atom(ATOM_kw_nil)); }
 var_ref(A) ::= KW_self. { A = new_self(p); }
 var_ref(A) ::= KW_true. { A = list1(atom(ATOM_kw_true)); }
 var_ref(A) ::= KW_false. { A = list1(atom(ATOM_kw_false)); }
+
+superclass(A) ::= . { A = 0; }
+superclass_head ::= LT. {
+                  //p->state = EXPR_BEG;
+                  p->cmd_start = true;
+                }
+superclass(A) ::= superclass_head expr_value(B) term. {
+                    A = B;
+                  }
 
 numeric(A) ::= INTEGER(B). { A = new_lit(p, B, ATOM_at_int); }
 numeric(A) ::= FLOAT(B).   { A = new_lit(p, B, ATOM_at_float); }
