@@ -1101,9 +1101,10 @@ none(A) ::= . { A = 0; }
     return free;
   }
 
-  ParserState *ParseInitState(void)
+  ParserState *ParseInitState(uint8_t node_box_size)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
+    p->node_box_size = node_box_size;
     p->scope = Scope_new(NULL, true);
     p->current_node_box = NULL;
     p->root_node_box = Node_newBox(p);

@@ -133,9 +133,9 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
 }
 
 ParserState *
-Compiler_parseInitState(void)
+Compiler_parseInitState(uint8_t node_box_size)
 {
-  ParserState *p = ParseInitState();
+  ParserState *p = ParseInitState(node_box_size);
   return p;
 }
 

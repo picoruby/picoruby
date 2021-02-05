@@ -45,17 +45,15 @@ char *Node_literalName(Node *self)
   }
 }
 
-#define NODE_SIZE 99
-
 NodeBox *Node_newBox(ParserState *p)
 {
-  int size = sizeof(NodeBox) + sizeof(Node) * NODE_SIZE;
+  int size = sizeof(NodeBox) + sizeof(Node) * p->node_box_size;
   NodeBox *node_box = (NodeBox *)mmrbc_alloc(size);
   memset(node_box, 0, size);
   if (p->current_node_box) p->current_node_box->next = node_box;
   p->current_node_box = node_box;
   node_box->next = NULL;
-  node_box->size = NODE_SIZE;
+  node_box->size = p->node_box_size;
   node_box->index = 0;
   return node_box;
 }

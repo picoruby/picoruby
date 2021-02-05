@@ -174,10 +174,12 @@ void vm_run(uint8_t *mrb)
 
 static ParserState *p;
 
+#define NODE_BOX_SIZE 30
+
 static void
 c_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (firstRun) p = Compiler_parseInitState();
+  if (firstRun) p = Compiler_parseInitState(NODE_BOX_SIZE);
   StreamInterface *si = StreamInterface_new((char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
   if (Compiler_compile(p, si)) {
     SET_TRUE_RETURN();
