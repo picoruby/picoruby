@@ -10,6 +10,7 @@ typedef enum stream_type
 typedef struct stream_interface
 {
   StreamType type;
+  uint8_t node_box_size;
   void *stream;
   char *(*fgetsProc)(char *s, int n, FILE *stream);
   int (*feofProc)(FILE *stream);

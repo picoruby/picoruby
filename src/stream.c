@@ -65,6 +65,7 @@ StreamInterface *StreamInterface_new(char *c, StreamType type)
 {
   StreamInterface *si = mmrbc_alloc(sizeof(StreamInterface));
   si->type = type;
+  uint16_t length;
   switch (si->type) {
     case STREAM_TYPE_FILE:
       if( (si->stream = (void *)fopen(c, "r" ) ) == NULL ) {
@@ -72,12 +73,23 @@ StreamInterface *StreamInterface_new(char *c, StreamType type)
       } else {
         si->fgetsProc = fgets;
         si->feofProc = feof;
+        si->node_box_size = 255;
       }
       break;
     case STREAM_TYPE_MEMORY:
       si->stream = (void *)fmemstreamopen(c);
       si->fgetsProc = fmemgets;
       si->feofProc = fmemeof;
+      length = strlen(c);
+      if (length < 20) {
+        si->node_box_size = 20;
+      } else if (length < 100) {
+        si->node_box_size = 50;
+      } else if (length < 200) {
+        si->node_box_size = 100;
+      } else {
+        si->node_box_size = 255;
+      }
       break;
     default:
       FATALP("error at Stream_new()");

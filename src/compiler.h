@@ -9,7 +9,7 @@
 
 bool Compiler_compile(ParserState *p, StreamInterface *si);
 
-ParserState *Compiler_parseInitState(void);
+ParserState *Compiler_parseInitState(uint8_t node_box_size);
 
 void Compiler_parserStateFree(ParserState *p);
 

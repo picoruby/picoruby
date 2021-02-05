@@ -50,14 +50,14 @@ int handle_opt(int argc, char * const *argv, char **oneliner)
   while ((opt = getopt_long(argc, argv, "ve:l:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
-        printf("v add: %p\n", optarg);
+        DEBUGP("v add: %p\n", optarg);
         fprintf(stdout, "mini mruby compiler %s\n", MMRBC_VERSION);
         return -1;
       case 'e':
         *oneliner = optarg;
         break;
       case 'l':
-        printf("l add: %p\n", optarg);
+        DEBUGP("l add: %p\n", optarg);
         #ifndef MMRBC_DEBUG
           fprintf(stderr, "[ERROR] `--loglevel=[level]` option is only valid if you made executable without -DNDEBUG\n");
           return 1;
@@ -90,7 +90,6 @@ int main(int argc, char *argv[])
   int ret = handle_opt(argc, argv, &oneliner);
   if (ret != 0) return ret;
 
-  ParserState *p = Compiler_parseInitState();
   StreamInterface *si;
 
   if (oneliner != NULL) {
@@ -102,7 +101,7 @@ int main(int argc, char *argv[])
     }
     si = StreamInterface_new(argv[optind], STREAM_TYPE_FILE);
   }
-
+  ParserState *p = Compiler_parseInitState(si->node_box_size);
   if (Compiler_compile(p, si)) {
     run(p->scope->vm_code);
   }

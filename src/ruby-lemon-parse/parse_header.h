@@ -120,6 +120,7 @@ typedef struct parser_state {
   Scope *scope;
   NodeBox *root_node_box;
   NodeBox *current_node_box;
+  uint8_t node_box_size;
   TokenStore *token_store;
   int error_count;
   unsigned int cond_stack;
