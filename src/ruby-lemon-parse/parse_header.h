@@ -68,6 +68,7 @@ typedef enum atom_type {
   ATOM_m2args,
   ATOM_tailargs,
   ATOM_def,
+  ATOM_class,
 } AtomType;
 
 typedef enum {

@@ -741,9 +741,14 @@ retry:
     if ( kw_num > 0 ) {
       type = (uint8_t)kw_num;
       switch (type) {
-//        case KW_class:
-//          self->state = EXPR_CLASS;
-//          break;
+        case KW_class:
+          if (self->state == EXPR_BEG) {
+            self->state = EXPR_CLASS;
+          } else {
+            type = IDENTIFIER;
+            self->state = EXPR_ARG;
+          }
+          break;
         case KW_if:
           if (self->state != EXPR_BEG && self->state != EXPR_VALUE)
             type = KW_modifier_if;

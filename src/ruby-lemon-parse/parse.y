@@ -354,7 +354,7 @@
   static Node*
   new_class(ParserState *p, Node *c, Node *b)
   {
-    return (Node *)0;
+    return list4(atom(ATOM_class), c->cons.car, c->cons.cdr, b);
   }
 
   static Node*
@@ -775,7 +775,8 @@ lhs(A) ::= primary_value(B) call_op(C) IDENTIFIER(D). { A = new_call(p, B, D, 0,
 cname ::= CONSTANT.
 
 cpath(A) ::= cname(B).  {
-                          A = cons(nint(0), literal(B));
+                          A = literal(B);
+                          //A = cons(nint(0), literal(B));
                         }
 
 var_lhs ::= variable.
