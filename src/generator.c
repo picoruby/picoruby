@@ -908,16 +908,24 @@ void gen_class(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
-  Scope_pushCode(OP_EXEC);
-  Scope_pushCode(scope->sp++);
-  Scope_pushCode(scope->next_lower_number);
 
-  scope = scope_nest(scope);
-  codegen(scope, node->cons.cdr);
-  Scope_pushCode(OP_RETURN);
-  Scope_pushCode(--scope->sp);
-  Scope_finish(scope);
-  scope = scope_unnest(scope);
+  if (node->cons.cdr->cons.cdr->cons.car->cons.cdr == NULL) {
+    Scope_pushCode(OP_LOADNIL);
+    Scope_pushCode(scope->sp++);
+    scope->nlowers--;
+  } else {
+    node->cons.cdr->cons.car = NULL; /* Stop generating super class CONST */
+    Scope_pushCode(OP_EXEC);
+    Scope_pushCode(scope->sp++);
+    Scope_pushCode(scope->next_lower_number);
+
+    scope = scope_nest(scope);
+    codegen(scope, node->cons.cdr);
+    Scope_pushCode(OP_RETURN);
+    Scope_pushCode(--scope->sp);
+    Scope_finish(scope);
+    scope = scope_unnest(scope);
+  }
 }
 
 void codegen(Scope *scope, Node *tree)
