@@ -423,7 +423,7 @@ void gen_op_assign(Scope *scope, Node *node)
   if (method_name[1] == '|' || method_name[1] == '&') {
     isANDOPorOROP = true;
   }
-  void *jmpLabel;
+  JmpLabel *jmpLabel;
   Node *recv;
   int symIndex;
   switch(Node_atomType(node->cons.car)) {
@@ -646,14 +646,14 @@ void gen_and_or(Scope *scope, Node *node, int opcode)
   codegen(scope, node->cons.car);
   Scope_pushCode(opcode); /* and->OP_JMPNOT, or->OP_JMPIF */
   Scope_pushCode(--scope->sp);
-  void *label = Scope_reserveJmpLabel(scope);
+  JmpLabel *label = Scope_reserveJmpLabel(scope);
   /* right condition */
   codegen(scope, node->cons.cdr);
   /* goto label */
   Scope_backpatchJmpLabel(label, scope->vm_code_size);
 }
 
-void gen_case_when(Scope *scope, Node *node, int cond_reg, void *label_true[])
+void gen_case_when(Scope *scope, Node *node, int cond_reg, JmpLabel *label_true[])
 {
   if (Node_atomType(node->cons.car) != ATOM_args_add) {
     return;
@@ -685,7 +685,7 @@ void gen_case(Scope *scope, Node *node)
     case_body = case_body->cons.cdr->cons.cdr->cons.car;
   }
   int when_count = i;
-  void *label_end_array[when_count];
+  JmpLabel *label_end_array[when_count];
   /* case expression */
   codegen(scope, node->cons.car);
   int cond_reg = scope->sp - 1; /* cond_reg === when_expr */
@@ -704,11 +704,11 @@ void gen_case(Scope *scope, Node *node)
         args_node = args_node->cons.car->cons.cdr;
       }
     }
-    void *label_true_array[args_count];
+    JmpLabel *label_true_array[args_count];
     gen_case_when(scope, case_body, cond_reg, label_true_array);
     /* when condition didn't match */
     Scope_pushCode(OP_JMP);
-    void *label_false = Scope_reserveJmpLabel(scope);
+    JmpLabel *label_false = Scope_reserveJmpLabel(scope);
     /* content */
     for (int j = 0; j < args_count; j++)
       Scope_backpatchJmpLabel(label_true_array[j], scope->vm_code_size);
@@ -746,12 +746,12 @@ void gen_if(Scope *scope, Node *node)
   codegen(scope, node->cons.car);
   Scope_pushCode(OP_JMPNOT);
   Scope_pushCode(--scope->sp);
-  void *label_false = Scope_reserveJmpLabel(scope);
+  JmpLabel *label_false = Scope_reserveJmpLabel(scope);
   /* condition true */
   codegen(scope, node->cons.cdr->cons.car);
   Scope_pop(scope);
   Scope_pushCode(OP_JMP);
-  void *label_end = Scope_reserveJmpLabel(scope);
+  JmpLabel *label_end = Scope_reserveJmpLabel(scope);
   /* condition false */
   Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
   if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
@@ -771,7 +771,7 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   push_nest_stack(scope, 0); /* 0 represents CONDITION NEST */
   Scope_pushBreakStack(scope);
   Scope_pushCode(OP_JMP);
-  void *label_cond = Scope_reserveJmpLabel(scope);
+  JmpLabel *label_cond = Scope_reserveJmpLabel(scope);
   scope->break_stack->redo_pos = scope->vm_code_size;
   /* inside while */
   uint32_t top = scope->vm_code_size;
@@ -782,7 +782,7 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   codegen(scope, node->cons.car);
   Scope_pushCode(op_jmp);
   Scope_pushCode(--scope->sp);
-  void *label_top = Scope_reserveJmpLabel(scope);
+  JmpLabel *label_top = Scope_reserveJmpLabel(scope);
   Scope_backpatchJmpLabel(label_top, top);
   /* after while block */
   Scope_pushCode(OP_LOADNIL);
@@ -815,7 +815,7 @@ void gen_next(Scope *scope, Node *node)
     Scope_pushCode(scope->sp);
   } else {                     /* CONDITION NEST */
     Scope_pushCode(OP_JMP);
-    void *label = Scope_reserveJmpLabel(scope);
+    JmpLabel *label = Scope_reserveJmpLabel(scope);
     Scope_backpatchJmpLabel(label, scope->break_stack->next_pos);
   }
 }
@@ -828,7 +828,7 @@ void gen_redo(Scope *scope)
     Scope_pushCode(0);
     Scope_pushCode(0);
   } else {                     /* CONDITION NEST */
-    void *label = Scope_reserveJmpLabel(scope);
+    JmpLabel *label = Scope_reserveJmpLabel(scope);
     Scope_backpatchJmpLabel(label, scope->break_stack->redo_pos);
   }
 }

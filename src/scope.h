@@ -107,7 +107,9 @@ void Scope_finish(Scope *self);
 
 void Scope_freeCodePool(Scope *self);
 
-void *Scope_reserveJmpLabel(Scope *self);
+typedef void JmpLabel;
+
+JmpLabel *Scope_reserveJmpLabel(Scope *self);
 
 void Scope_backpatchJmpLabel(void *label, int32_t position);
 
