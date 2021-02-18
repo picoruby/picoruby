@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 
-#define IREP_HEADER_SIZE 26
-
 typedef enum literal_type
 {
   STRING_LITERAL  = 0,
@@ -42,16 +40,19 @@ typedef struct lvar_scope_reg
   uint8_t reg_num;
 } LvarScopeReg;
 
-typedef struct code_snippet
+#define CODE_POOL_SIZE 27
+typedef struct code_pool
 {
-  int size;
-  uint8_t *value;
-  struct code_snippet *next;
-} CodeSnippet;
+  struct code_pool *next;       //     4 bytes or 8 bytes
+  uint8_t index;                //     1 bytes
+  uint8_t data[CODE_POOL_SIZE]; //    27 bytes
+                                // => 32 bytes total in 32 bit
+                                // or 40 bytes total in 64 bit
+} CodePool;
 
 typedef struct break_stack
 {
-  CodeSnippet *code_snippet;
+  void *point;
   struct break_stack *prev;
   uint32_t next_pos;
   uint32_t redo_pos;
@@ -67,8 +68,8 @@ typedef struct scope
   uint16_t next_lower_number;
   unsigned int nlowers;
   Scope *next;
-  CodeSnippet *code_snippet;
-  CodeSnippet *last_snippet;
+  CodePool *first_code_pool;
+  CodePool *current_code_pool;
   unsigned int nlocals;
   Symbol *symbol;
   Lvar *lvar;
@@ -102,15 +103,13 @@ void Scope_push(Scope *self);
 
 void Scope_pop(Scope *self);
 
-int Code_size(CodeSnippet *code_snippet);
-
 void Scope_finish(Scope *self);
 
-void Scope_freeCodeSnippets(Scope *self);
+void Scope_freeCodePool(Scope *self);
 
-CodeSnippet *Scope_reserveJmpLabel(Scope *self);
+void *Scope_reserveJmpLabel(Scope *self);
 
-void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position);
+void Scope_backpatchJmpLabel(void *label, int32_t position);
 
 void Scope_pushBreakStack(Scope *self);
 
