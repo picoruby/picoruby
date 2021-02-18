@@ -47,7 +47,7 @@ void dumpCode(Scope *scope)
     } else if (c < 0x7f) {
       printf(LETTER);
       strsafecat(line, LETTER, DUMP_LINE_LEN);
-      strsafecat(line, &c, DUMP_LINE_LEN);
+      strsafecat(line, (char *)&c, DUMP_LINE_LEN);
     } else {
       printf(EIGHTBIT);
       strsafecat(line, EIGHTBIT, DUMP_LINE_LEN);

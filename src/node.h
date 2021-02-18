@@ -21,4 +21,6 @@ Node *Node_new(ParserState *p);
 
 void Node_freeAllNode(NodeBox *box);
 
+void freeNode(Node *n);
+
 #endif

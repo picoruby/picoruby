@@ -15,6 +15,24 @@
 
 #define END_SECTION_SIZE 8
 
+bool hasCar(Node *n) {
+  if (n->type != CONS)
+    return false;
+  if (n->cons.car) {
+    return true;
+  }
+  return false;
+}
+
+bool hasCdr(Node *n) {
+  if (n->type != CONS)
+    return false;
+  if (n->cons.cdr) {
+    return true;
+  }
+  return false;
+}
+
 typedef enum misc {
   NUM_POS,
   NUM_NEG
@@ -107,7 +125,7 @@ void gen_literal_numeric(Scope *scope, char *num, LiteralType type, Misc pos_neg
   Scope_pushCode(scope->sp);
   int litIndex;
   if (pos_neg == NUM_NEG) {
-    char *negnum[strlen(num) + 1];
+    char negnum[strlen(num) + 1];
     negnum[0] = '-';
     litIndex = Scope_newLit(scope, strsafecat(negnum, num, strlen(num) + 2), type);
   } else {

@@ -163,12 +163,12 @@
   }
   #define list5(a,b,c,d,e) list5_gen(p, (a),(b),(c),(d),(e))
 
-  static Node*
-  list6_gen(ParserState *p, Node *a, Node *b, Node *c, Node *d, Node *e, Node *f)
-  {
-    return cons(a, cons(b, cons(c, cons(d, cons(e, cons(f, 0))))));
-  }
-  #define list6(a,b,c,d,e,f) list6_gen(p, (a),(b),(c),(d),(e),(f))
+//  static Node*
+//  list6_gen(ParserState *p, Node *a, Node *b, Node *c, Node *d, Node *e, Node *f)
+//  {
+//    return cons(a, cons(b, cons(c, cons(d, cons(e, cons(f, 0))))));
+//  }
+//  #define list6(a,b,c,d,e,f) list6_gen(p, (a),(b),(c),(d),(e),(f))
 
   static Node*
   append_gen(ParserState *p, Node *a, Node *b)
@@ -348,6 +348,8 @@
         n->cons.car = list3(atom(ATOM_args_add), n->cons.car, b);
       }
       break;
+    default:
+      break;
     }
   }
 
@@ -406,7 +408,7 @@
   new_args_tail(ParserState *p, Node *kws, Node *kwrest, const char *blk)
   {
     // TODO
-    Node *node;
+    Node *node = NULL;
     return node;
   }
 
@@ -1262,24 +1264,6 @@ none(A) ::= . { A = 0; }
     printf("\n");
   }
 #endif /* !NDEBUG */
-
-  bool hasCar(Node *n) {
-    if (n->type != CONS)
-      return false;
-    if (n->cons.car) {
-      return true;
-    }
-    return false;
-  }
-
-  bool hasCdr(Node *n) {
-    if (n->type != CONS)
-      return false;
-    if (n->cons.cdr) {
-      return true;
-    }
-    return false;
-  }
 
   char *kind(Node *n){
     char *type;

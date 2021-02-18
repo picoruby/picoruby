@@ -361,7 +361,7 @@ void Scope_freeCodePool(Scope *self)
 
 JmpLabel *Scope_reserveJmpLabel(Scope *scope)
 {
-  Scope_pushNCode("\0\0", 2);
+  Scope_pushNCode((uint8_t *)"\0\0", 2);
   return (void *)&scope->current_code_pool->data[scope->current_code_pool->index - 2];
 }
 
