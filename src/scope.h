@@ -40,12 +40,13 @@ typedef struct lvar_scope_reg
   uint8_t reg_num;
 } LvarScopeReg;
 
-#define CODE_POOL_SIZE 27
+#define CODE_POOL_SIZE 25
 typedef struct code_pool
 {
   struct code_pool *next;       //     4 bytes or 8 bytes
+  uint16_t size;                //     2 bytes
   uint8_t index;                //     1 bytes
-  uint8_t data[CODE_POOL_SIZE]; //    27 bytes
+  uint8_t data[CODE_POOL_SIZE]; //    25 bytes (Note: It can be bigger)
                                 // => 32 bytes total in 32 bit
                                 // or 40 bytes total in 64 bit
 } CodePool;

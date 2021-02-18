@@ -8,9 +8,10 @@
 
 #define IREP_HEADER_SIZE 14
 
-void generateCodePool(Scope *self)
+void generateCodePool(Scope *self, uint16_t size)
 {
-  CodePool *pool = mmrbc_alloc(sizeof(CodePool));
+  CodePool *pool = (CodePool *)mmrbc_alloc(sizeof(CodePool) - IREP_HEADER_SIZE + size);
+  pool->size = size;
   pool->index = 0;
   pool->next = NULL;
   if (self->current_code_pool)
@@ -38,7 +39,7 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
     upper->nlowers++;
   }
   self->current_code_pool = NULL;
-  generateCodePool(self);
+  generateCodePool(self, IREP_HEADER_SIZE);
   self->first_code_pool = self->current_code_pool;
   self->first_code_pool->index = IREP_HEADER_SIZE;
   self->nlocals = 1;
@@ -94,9 +95,10 @@ void Scope_free(Scope *self)
 void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
 {
   CodePool *pool;
-  if (self->current_code_pool->index + size > CODE_POOL_SIZE) {
-    generateCodePool(self);
-  }
+  if (size > CODE_POOL_SIZE)
+    generateCodePool(self, size);
+  if (self->current_code_pool->index + size > self->current_code_pool->size)
+    generateCodePool(self, IREP_HEADER_SIZE);
   pool = self->current_code_pool;
   memcpy(&pool->data[pool->index], str, size);
   pool->index += size;
