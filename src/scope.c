@@ -8,6 +8,17 @@
 
 #define IREP_HEADER_SIZE 14
 
+void generateCodePool(Scope *self, uint16_t size)
+{
+  CodePool *pool = (CodePool *)mmrbc_alloc(sizeof(CodePool) - IREP_HEADER_SIZE + size);
+  pool->size = size;
+  pool->index = 0;
+  pool->next = NULL;
+  if (self->current_code_pool)
+    self->current_code_pool->next = pool;
+  self->current_code_pool = pool;
+}
+
 Scope *Scope_new(Scope *upper, bool lvar_top)
 {
   Scope *self = mmrbc_alloc(sizeof(Scope));
@@ -27,8 +38,10 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
     }
     upper->nlowers++;
   }
-  self->code_snippet = NULL;
-  self->last_snippet = NULL;
+  self->current_code_pool = NULL;
+  generateCodePool(self, IREP_HEADER_SIZE);
+  self->first_code_pool = self->current_code_pool;
+  self->first_code_pool->index = IREP_HEADER_SIZE;
   self->nlocals = 1;
   self->symbol = NULL;
   self->lvar = NULL;
@@ -81,17 +94,14 @@ void Scope_free(Scope *self)
 
 void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
 {
-  CodeSnippet *snippet = mmrbc_alloc(sizeof(CodeSnippet));
-  snippet->value = mmrbc_alloc(size);
-  memcpy(snippet->value, str, size);
-  snippet->size = size;
-  snippet->next = NULL;
-  if (self->code_snippet == NULL) {
-    self->code_snippet = snippet;
-  } else {
-    self->last_snippet->next = snippet;
-  }
-  self->last_snippet = snippet;
+  CodePool *pool;
+  if (size > CODE_POOL_SIZE)
+    generateCodePool(self, size);
+  if (self->current_code_pool->index + size > self->current_code_pool->size)
+    generateCodePool(self, IREP_HEADER_SIZE);
+  pool = self->current_code_pool;
+  memcpy(&pool->data[pool->index], str, size);
+  pool->index += size;
   self->vm_code_size = self->vm_code_size + size;
 }
 
@@ -248,12 +258,12 @@ void Scope_pop(Scope *self){
   self->sp--;
 }
 
-int Scope_codeSize(CodeSnippet *code_snippet)
+int Scope_codeSize(CodePool *code_pool)
 {
   int size = 0;
-  while (code_snippet != NULL) {
-    size += code_snippet->size;
-    code_snippet = code_snippet->next;
+  while (code_pool != NULL) {
+    size += code_pool->index;
+    code_pool = code_pool->next;
   }
   return size;
 }
@@ -263,6 +273,7 @@ void Scope_finish(Scope *scope)
   int op_size = scope->vm_code_size;
   int count;
   int len;
+  uint8_t *data = scope->first_code_pool->data;
   // literal
   Literal *lit;
   count = 0;
@@ -306,69 +317,65 @@ void Scope_finish(Scope *scope)
     sym = sym->next;
   }
   // irep header
-  uint8_t *h = mmrbc_alloc(IREP_HEADER_SIZE);
   // record length. but whatever it works because of mruby's bug
-  //memcpy(&h[0], "\0\0\0\0", 4);
+  //memcpy(&data[0], "\0\0\0\0", 4);
   { // monkey patch for migrating mruby3. see mrubyc/src/load.c
-    h[0] = 0xff;
-    h[1] = 0xff;
-    h[2] = 0xff;
-    h[3] = 0xff;
+    data[0] = 0xff;
+    data[1] = 0xff;
+    data[2] = 0xff;
+    data[3] = 0xff;
   }
   int l = scope->nlocals;
-  h[4] = (l >> 8) & 0xff;
-  h[5] = l & 0xff;
+  data[4] = (l >> 8) & 0xff;
+  data[5] = l & 0xff;
   l = scope->max_sp + 1; // RIGHT? FIXME
-  h[6] = (l >> 8) & 0xff;
-  h[7] = l & 0xff;
+  data[6] = (l >> 8) & 0xff;
+  data[7] = l & 0xff;
   l = scope->nlowers;
-  h[8] = (l >> 8) & 0xff;
-  h[9] = l & 0xff;
-  h[10] = (op_size >> 24) & 0xff;
-  h[11] = (op_size >> 16) & 0xff;
-  h[12] = (op_size >> 8) & 0xff;
-  h[13] = op_size & 0xff;
-  // insert h before op codes
-  CodeSnippet *header = mmrbc_alloc(sizeof(CodeSnippet));
-  header->value = h;
-  header->size = IREP_HEADER_SIZE;
-  header->next = scope->code_snippet;
-  scope->code_snippet = header;
+  data[8] = (l >> 8) & 0xff;
+  data[9] = l & 0xff;
+  data[10] = (op_size >> 24) & 0xff;
+  data[11] = (op_size >> 16) & 0xff;
+  data[12] = (op_size >> 8) & 0xff;
+  data[13] = op_size & 0xff;
 }
 
-void freeCodeSnippetRcsv(CodeSnippet *snippet)
+void freeCodePool(CodePool *pool)
 {
-  if (snippet == NULL) return;
-  freeCodeSnippetRcsv(snippet->next);
-  mmrbc_free(snippet->value);
-  mmrbc_free(snippet);
+  CodePool *next ;
+  while (1) {
+    next = pool->next;
+    mmrbc_free(pool);
+    if (next == NULL) break;
+    pool = next;
+  }
 }
 
-void Scope_freeCodeSnippets(Scope *self)
+void Scope_freeCodePool(Scope *self)
 {
   if (self == NULL) return;
-  Scope_freeCodeSnippets(self->next);
-  Scope_freeCodeSnippets(self->first_lower);
-  freeCodeSnippetRcsv(self->code_snippet);
-  self->code_snippet = NULL;
+  Scope_freeCodePool(self->next);
+  Scope_freeCodePool(self->first_lower);
+  freeCodePool(self->first_code_pool);
 }
 
-CodeSnippet *Scope_reserveJmpLabel(Scope *scope)
+JmpLabel *Scope_reserveJmpLabel(Scope *scope)
 {
   Scope_pushNCode("\0\0", 2);
-  return scope->last_snippet;
+  return (void *)&scope->current_code_pool->data[scope->current_code_pool->index - 2];
 }
 
-void Scope_backpatchJmpLabel(CodeSnippet *label, int32_t position)
+void Scope_backpatchJmpLabel(void *label, int32_t position)
 {
-  label->value[0] = (position >> 8) & 0xff;
-  label->value[1] = position & 0xff;
+  uint8_t *data = (uint8_t *)label;
+  data[0] = (position >> 8) & 0xff;
+  data[1] = position & 0xff;
 }
 
 void Scope_pushBreakStack(Scope *self)
 {
   BreakStack *break_stack = mmrbc_alloc(sizeof(BreakStack));
-  break_stack->code_snippet = NULL;
+  break_stack->point = NULL;
   break_stack->next_pos = self->vm_code_size;
   if (self->break_stack) {
     break_stack->prev = self->break_stack;
@@ -381,8 +388,8 @@ void Scope_pushBreakStack(Scope *self)
 void Scope_popBreakStack(Scope *self)
 {
   BreakStack *memo = self->break_stack;
-  if (self->break_stack->code_snippet)
-    Scope_backpatchJmpLabel(self->break_stack->code_snippet, self->vm_code_size);
+  if (self->break_stack->point)
+    Scope_backpatchJmpLabel(self->break_stack->point, self->vm_code_size);
   self->break_stack = self->break_stack->prev;
   mmrbc_free(memo);
 }
@@ -393,7 +400,7 @@ int Scope_updateVmCodeSizeThenReturnTotalSize(Scope *self)
   if (self == NULL) return 0;
   totalSize += Scope_updateVmCodeSizeThenReturnTotalSize(self->first_lower);
   totalSize += Scope_updateVmCodeSizeThenReturnTotalSize(self->next);
-  self->vm_code_size = Scope_codeSize(self->code_snippet);
+  self->vm_code_size = Scope_codeSize(self->first_code_pool);
   totalSize += self->vm_code_size;
   return totalSize;
 }
