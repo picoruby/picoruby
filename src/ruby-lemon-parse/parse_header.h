@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "../scope.h"
+#include "../include/ptr_size.h"
 
 typedef enum atom_type {
   ATOM_NONE = 0,
@@ -74,7 +75,8 @@ typedef enum atom_type {
 typedef enum {
   ATOM,
   CONS,
-  LITERAL
+  LITERAL,
+  iLITERAL
 } NodeType;
 
 typedef struct node Node;
@@ -98,6 +100,7 @@ struct node {
     Atom atom;
     Cons cons;
     Value value;
+    char iValue[PTR_SIZE * 2];
   };
 };
 

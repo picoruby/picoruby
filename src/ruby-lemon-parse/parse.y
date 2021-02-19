@@ -130,8 +130,7 @@
   {
     Node* l;
     l = Node_new(p);
-    l->type = LITERAL;
-    l->value.name = strdup(s);
+    Node_setValue(l, s);
     return l;
   }
   #define literal(s) literal_gen(p, (s))
@@ -514,9 +513,9 @@
 
   static Node*
   unite_str(ParserState *p, Node *a, Node* b) {
-    char *a_value = a->value.name;
+    char *a_value = Node_valueName(a);
     size_t a_len = strlen(a_value);
-    char *b_value = b->value.name;
+    char *b_value = Node_valueName(b);
     size_t b_len = strlen(b_value);
     char *new_value = LEMON_ALLOC(a_len + b_len + 1);
     memcpy(new_value, a_value, a_len);
@@ -1223,7 +1222,8 @@ none(A) ::= . { A = 0; }
         }
         break;
       case LITERAL:
-        printf("\e[31;1m\"%s\"\e[m", n->value.name);
+      case iLITERAL:
+        printf("\e[31;1m\"%s\"\e[m", Node_valueName(n));
         if (isRightMost) {
           printf("]");
         }
@@ -1243,8 +1243,9 @@ none(A) ::= . { A = 0; }
         printf("  value:%d\n", n->atom.type);
         break;
       case LITERAL:
+      case iLITERAL:
         printf("    literal:%p", n);
-        printf("  name:\"%s\"\n", n->value.name);
+        printf("  name:\"%s\"\n", Node_valueName(n));
         break;
       case CONS:
         printf("cons:%p\n", n);
@@ -1272,6 +1273,7 @@ none(A) ::= . { A = 0; }
         type = "a";
         break;
       case LITERAL:
+      case iLITERAL:
         type = "l";
         break;
       case CONS:

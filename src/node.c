@@ -5,6 +5,26 @@
 #include "node.h"
 #include "ruby-lemon-parse/parse_header.h"
 
+char *Node_valueName(Node *self)
+{
+  if (self->type == LITERAL) {
+    return self->value.name;
+  } else if (self->type == iLITERAL) {
+    return self->iValue;
+  }
+}
+
+void Node_setValue(Node *self, const char *s)
+{
+  if (strlen(s) < PTR_SIZE * 2) {
+    self->type = iLITERAL;
+    strcpy(self->iValue, s);
+  } else {
+    self->type = LITERAL;
+    self->value.name = strdup(s);
+  }
+}
+
 bool Node_isAtom(Node *self)
 {
   if (self->type == ATOM) return true;
@@ -19,8 +39,7 @@ bool Node_isCons(Node *self)
 
 bool Node_isLiteral(Node *self)
 {
-  if (self->type == LITERAL) return true;
-  return false;
+  return (self->type == LITERAL || self->type == iLITERAL);
 }
 
 AtomType Node_atomType(Node *self)
@@ -41,7 +60,7 @@ char *Node_literalName(Node *self)
   if (self->cons.car == NULL || !Node_isLiteral(self->cons.car)) {
     return NULL;
   } else {
-    return self->cons.car->value.name;
+    return Node_valueName(self->cons.car);
   }
 }
 

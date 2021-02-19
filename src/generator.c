@@ -146,16 +146,18 @@ void cleanup_numeric_literal(char *lit, char *result)
 
 void gen_float(Scope *scope, Node *node, Misc pos_neg)
 {
-  char num[strlen(node->cons.car->value.name)];
-  cleanup_numeric_literal(node->cons.car->value.name, num);
+  char *value = Node_valueName(node->cons.car);
+  char num[strlen(value)];
+  cleanup_numeric_literal(value, num);
   gen_literal_numeric(scope, num, FLOAT_LITERAL, pos_neg);
   Scope_push(scope);
 }
 
 void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
-  char num[strlen(node->cons.car->value.name)];
-  cleanup_numeric_literal(node->cons.car->value.name, num);
+  char *value = Node_valueName(node->cons.car);
+  char num[strlen(value)];
+  cleanup_numeric_literal(value, num);
   unsigned long val;
   switch (num[1]) {
     case ('b'):

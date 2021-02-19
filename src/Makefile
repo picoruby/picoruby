@@ -25,6 +25,7 @@ else
 endif
 
 %.o: %.c
+	cd include ; $(MAKE) all CC=$(CC)
 	$(CC) -c -MMD -MP $(CFLAGS) $(LDFLAGS) $<
 
 clean:
