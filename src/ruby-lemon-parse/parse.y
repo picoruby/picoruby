@@ -39,6 +39,14 @@
 %default_type { Node* }
 //%default_destructor { LEMON_FREE($$); }
 
+%type call_op       { uint8_t }
+%type cname         { char* }
+%type fname         { char* }
+%type sym           { char* }
+%type basic_symbol  { char* }
+%type operation2    { char* }
+%type f_norm_arg    { char* }
+
 %include {
   #include <stdlib.h>
   #include <stdint.h>
@@ -334,7 +342,7 @@
     return list3(atom(ATOM_block), a, b);
   }
 
-  static void*
+  static void
   call_with_block(ParserState *p, Node *a, Node *b)
   {
     Node *n;
@@ -382,7 +390,7 @@
   }
 
   static void
-  local_add_f(ParserState *p, Node *a)
+  local_add_f(ParserState *p, const char *a)
   {
     // TODO
   }
@@ -495,7 +503,7 @@
   }
 
   static Node*
-  new_str(ParserState *p, Node *a)
+  new_str(ParserState *p, const char *a)
   {
     if (!a) {
       return list2(atom(ATOM_str), literal(""));
@@ -973,7 +981,7 @@ brace_block(A) ::= scope_nest_KW_do
                      scope_unnest(p);
                    }
 
-call_op(A) ::= PERIOD(B). { A = B; }
+call_op(A) ::= PERIOD. { A = '.'; }
 
 opt_paren_args ::= none.
 opt_paren_args ::= paren_args.
@@ -1266,7 +1274,7 @@ none(A) ::= . { A = 0; }
 #endif /* !NDEBUG */
 
   char *kind(Node *n){
-    char *type;
+    char *type = NULL;
     switch (n->type) {
       case ATOM:
         type = "a";

@@ -63,6 +63,10 @@ host_production:
 	  BIN_DIR=$(BIN_DIR_HOST_PRODUCTION) \
 	  CC=$(CC) AR=$(AR)
 
+host_valgrind:
+	rm massif.out.* ; $(MAKE) clean ; $(MAKE) host_production CFLAGS=-DMRBC_ALLOC_LIBC && \
+	  valgrind --tool=massif --stacks=yes ./build/host-production/bin/mmrbc test/fixtures/larger_script.rb
+
 arm_all:
 	$(MAKE) arm_debug arm_production \
 	  CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \

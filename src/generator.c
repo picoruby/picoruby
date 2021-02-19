@@ -359,7 +359,7 @@ int assignSymIndex(Scope *scope, char *method_name)
 void gen_assign(Scope *scope, Node *node)
 {
   int num;
-  LvarScopeReg lvar;
+  LvarScopeReg lvar = {0, 0};
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):
       lvar = Scope_lvar_findRegnum(scope, Node_literalName(node->cons.car->cons.cdr));
@@ -433,16 +433,17 @@ void gen_assign(Scope *scope, Node *node)
 
 void gen_op_assign(Scope *scope, Node *node)
 {
-  int num;
-  LvarScopeReg lvar;
-  char *method_name, *call_name;
+  int num = 0;
+  LvarScopeReg lvar = {0, 0};
+  char *method_name = NULL;
+  char *call_name = NULL;
   method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
   bool isANDOPorOROP = false; /* &&= or ||= */
   if (method_name[1] == '|' || method_name[1] == '&') {
     isANDOPorOROP = true;
   }
-  JmpLabel *jmpLabel;
-  Node *recv;
+  JmpLabel *jmpLabel = NULL;
+  Node *recv = NULL;
   int symIndex;
   switch(Node_atomType(node->cons.car)) {
     case (ATOM_lvar):

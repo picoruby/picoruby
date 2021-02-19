@@ -82,7 +82,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
   Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
-  Type prevType;
+  Type prevType = 0;
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
     if (Tokenizer_advance(tokenizer, false) != 0) break;
     for (;;) {
