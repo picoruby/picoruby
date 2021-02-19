@@ -533,9 +533,7 @@
     if (Node_atomType(a) == ATOM_str) {
       if (Node_atomType(b) == ATOM_str) { /* "str" "str" */
         new_str_value = unite_str(p, a->cons.cdr->cons.car, b->cons.cdr->cons.car);
-        freeNode(a->cons.cdr->cons.car);
         a->cons.cdr->cons.car = new_str_value;
-        freeNode(b);
         return a;
       } else { /* "str" "dstr" */
         Node *n = b->cons.cdr->cons.car;
@@ -543,18 +541,14 @@
           n = n->cons.cdr->cons.car;
         }
         new_str_value = unite_str(p, a->cons.cdr->cons.car, n->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car);
-        freeNode(n->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car);
         n->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car = new_str_value;
-        freeNode(a);
         return b;
       }
     } else {
       if (Node_atomType(b) == ATOM_str) { /* "dstr" "str" */
         Node *a2 = a->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car;
         new_str_value = unite_str(p, a2, b->cons.cdr->cons.car);
-        freeNode(a2);
         a->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car = new_str_value;
-        freeNode(b);
         return a;
       } else { /* "dstr_a" "dstr_b" ...ex) `"w#{1}x" "y#{2}z"`*/
         Node *a2, *b2;
@@ -566,7 +560,6 @@
           }
           new_str_value = unite_str(p, a2, b2->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car);
           a->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car = new_str_value;
-          freeNode(a2); /* remove original str of a2 ...ex) `"x"`*/
           b2 = b2->cons.cdr->cons.cdr->cons.car;
         }
         Node *orig_a = a->cons.cdr->cons.car; /* copy to reuse it later */
@@ -578,15 +571,7 @@
           while (Node_atomType(a2->cons.cdr->cons.car->cons.cdr->cons.car) != ATOM_dstr_new) {
             a2 = a2->cons.cdr->cons.car;
           }
-          freeNode(a2->cons.cdr->cons.car); /* remove [ATOM_dstr_new] of new dstr tree */
           a2->cons.cdr->cons.car = orig_a;  /* insert original dstr_a */
-        }
-        { /* remove the top node `[ATOM_dstr, [` of dstr_bi
-           * You can't use freeNode() because b's grand children are still necessary
-           */
-          LEMON_FREE(b->cons.cdr);
-          LEMON_FREE(b->cons.car);
-          LEMON_FREE(b);
         }
         return a;
       }
