@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "ruby-lemon-parse/parse_header.h"
+#include "include/ptr_size.h"
+
+char *Node_valueName(Node *self);
+
+void Node_setValue(Node *self, const char *s);
 
 bool Node_isAtom(Node *self);
 
