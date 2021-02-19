@@ -1137,14 +1137,6 @@ none(A) ::= . { A = 0; }
 
 %code {
 
-  void *pointerToMalloc(void){
-    return malloc;
-  }
-
-  void *pointerToFree(void){
-    return free;
-  }
-
   ParserState *ParseInitState(uint8_t node_box_size)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
@@ -1294,18 +1286,6 @@ none(A) ::= . { A = 0; }
       return ATOM_NONE;
     }
     return n->atom.type;
-  }
-
-  void *pointerToLiteral(Node *n) {
-    return n->value.name;
-  }
-
-  void *pointerToCar(Node *n){
-    return n->cons.car;
-  }
-
-  void *pointerToCdr(Node *n){
-    return n->cons.cdr;
   }
 
 }
