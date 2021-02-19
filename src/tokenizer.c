@@ -484,7 +484,7 @@ retry:
           COND_PUSH(0);
           CMDARG_PUSH(0);
           break;
-        defalut: /* must be ) ] } */
+        default: /* must be ) ] } */
           COND_LEXPOP();
           CMDARG_LEXPOP();
           break;

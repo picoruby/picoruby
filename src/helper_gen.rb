@@ -15,13 +15,13 @@ def generate_tokenizer_helper
         break if line.match?("State")
         data = line.match(/\A\s+(\w+)\s+/)
         if data
-          file.puts "    case(#{data[1]}): return \"#{data[1].ljust(12)}\";"
+          file.puts "    case(#{data[1]}):#{' '*(13 - data[1].length)} return \"#{data[1].ljust(12)}\";"
         end
       end
     end
     file.puts <<~TEXT
-          case(EXPR_BEG|EXPR_LABEL): return "EXPR_BEG|EXPR_LABEL";
-          default: return "\\e[37;41;1m\\\"UNDEFINED    \\\"\\e[m";
+          default:
+            return "\\e[37;41;1mCOMBINED VALUE\\e[m";
         }
       }
     TEXT
@@ -41,7 +41,7 @@ def generate_tokenizer_helper
         break if line.match?("Mode")
         data = line.match(/\A\s+(\w+)/)
         if data
-          file.puts "    case(#{data[1]}): return \"#{data[1].rjust(19)}\";"
+          file.puts "    case(#{data[1]}):#{' '*(20 - data[1].length)} return \"#{data[1].rjust(19)}\";"
         end
       end
     end

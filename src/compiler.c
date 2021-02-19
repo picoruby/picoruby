@@ -47,7 +47,7 @@ void dumpCode(Scope *scope)
     } else if (c < 0x7f) {
       printf(LETTER);
       strsafecat(line, LETTER, DUMP_LINE_LEN);
-      strsafecat(line, &c, DUMP_LINE_LEN);
+      strsafecat(line, (char *)&c, DUMP_LINE_LEN);
     } else {
       printf(EIGHTBIT);
       strsafecat(line, EIGHTBIT, DUMP_LINE_LEN);
@@ -82,7 +82,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
   Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
-  Type prevType;
+  Type prevType = 0;
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
     if (Tokenizer_advance(tokenizer, false) != 0) break;
     for (;;) {

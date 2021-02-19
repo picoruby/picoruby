@@ -39,6 +39,14 @@
 %default_type { Node* }
 //%default_destructor { LEMON_FREE($$); }
 
+%type call_op       { uint8_t }
+%type cname         { char* }
+%type fname         { char* }
+%type sym           { char* }
+%type basic_symbol  { char* }
+%type operation2    { char* }
+%type f_norm_arg    { char* }
+
 %include {
   #include <stdlib.h>
   #include <stdint.h>
@@ -163,12 +171,12 @@
   }
   #define list5(a,b,c,d,e) list5_gen(p, (a),(b),(c),(d),(e))
 
-  static Node*
-  list6_gen(ParserState *p, Node *a, Node *b, Node *c, Node *d, Node *e, Node *f)
-  {
-    return cons(a, cons(b, cons(c, cons(d, cons(e, cons(f, 0))))));
-  }
-  #define list6(a,b,c,d,e,f) list6_gen(p, (a),(b),(c),(d),(e),(f))
+//  static Node*
+//  list6_gen(ParserState *p, Node *a, Node *b, Node *c, Node *d, Node *e, Node *f)
+//  {
+//    return cons(a, cons(b, cons(c, cons(d, cons(e, cons(f, 0))))));
+//  }
+//  #define list6(a,b,c,d,e,f) list6_gen(p, (a),(b),(c),(d),(e),(f))
 
   static Node*
   append_gen(ParserState *p, Node *a, Node *b)
@@ -334,7 +342,7 @@
     return list3(atom(ATOM_block), a, b);
   }
 
-  static void*
+  static void
   call_with_block(ParserState *p, Node *a, Node *b)
   {
     Node *n;
@@ -347,6 +355,8 @@
       } else {
         n->cons.car = list3(atom(ATOM_args_add), n->cons.car, b);
       }
+      break;
+    default:
       break;
     }
   }
@@ -380,7 +390,7 @@
   }
 
   static void
-  local_add_f(ParserState *p, Node *a)
+  local_add_f(ParserState *p, const char *a)
   {
     // TODO
   }
@@ -406,7 +416,7 @@
   new_args_tail(ParserState *p, Node *kws, Node *kwrest, const char *blk)
   {
     // TODO
-    Node *node;
+    Node *node = NULL;
     return node;
   }
 
@@ -493,7 +503,7 @@
   }
 
   static Node*
-  new_str(ParserState *p, Node *a)
+  new_str(ParserState *p, const char *a)
   {
     if (!a) {
       return list2(atom(ATOM_str), literal(""));
@@ -971,7 +981,7 @@ brace_block(A) ::= scope_nest_KW_do
                      scope_unnest(p);
                    }
 
-call_op(A) ::= PERIOD(B). { A = B; }
+call_op(A) ::= PERIOD. { A = '.'; }
 
 opt_paren_args ::= none.
 opt_paren_args ::= paren_args.
@@ -1127,14 +1137,6 @@ none(A) ::= . { A = 0; }
 
 %code {
 
-  void *pointerToMalloc(void){
-    return malloc;
-  }
-
-  void *pointerToFree(void){
-    return free;
-  }
-
   ParserState *ParseInitState(uint8_t node_box_size)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
@@ -1263,26 +1265,8 @@ none(A) ::= . { A = 0; }
   }
 #endif /* !NDEBUG */
 
-  bool hasCar(Node *n) {
-    if (n->type != CONS)
-      return false;
-    if (n->cons.car) {
-      return true;
-    }
-    return false;
-  }
-
-  bool hasCdr(Node *n) {
-    if (n->type != CONS)
-      return false;
-    if (n->cons.cdr) {
-      return true;
-    }
-    return false;
-  }
-
   char *kind(Node *n){
-    char *type;
+    char *type = NULL;
     switch (n->type) {
       case ATOM:
         type = "a";
@@ -1302,18 +1286,6 @@ none(A) ::= . { A = 0; }
       return ATOM_NONE;
     }
     return n->atom.type;
-  }
-
-  void *pointerToLiteral(Node *n) {
-    return n->value.name;
-  }
-
-  void *pointerToCar(Node *n){
-    return n->cons.car;
-  }
-
-  void *pointerToCdr(Node *n){
-    return n->cons.cdr;
   }
 
 }
