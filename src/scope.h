@@ -13,7 +13,7 @@ typedef enum literal_type
 typedef struct literal
 {
   LiteralType type;
-  char *value;
+  const char *value;
   struct literal *next;
 } Literal;
 
@@ -23,13 +23,13 @@ typedef struct literal
  */
 typedef struct symbol
 {
-  char *value;
+  const char *value;
   struct symbol *next;
 } Symbol;
 
 typedef struct lvar
 {
-  char *name;
+  const char *name;
   int regnum;
   struct lvar *next;
 } Lvar;
@@ -86,7 +86,7 @@ Scope *Scope_new(Scope *upper, bool lvar_top);
 
 void Scope_free(Scope *self);
 
-void Scope_pushNCode_self(Scope *self, const uint8_t *value, int size);
+void Scope_pushNCode_self(Scope *self, uint8_t *value, int size);
 #define Scope_pushNCode(v, s) Scope_pushNCode_self(scope, (v), (s))
 
 void Scope_pushCode_self(Scope *self, int val);

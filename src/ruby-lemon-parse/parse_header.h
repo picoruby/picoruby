@@ -90,7 +90,7 @@ typedef struct {
 } Atom;
 
 typedef struct {
-  char *name;
+  const char *name;
 } Value;
 
 struct node {

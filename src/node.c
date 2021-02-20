@@ -5,12 +5,12 @@
 #include "node.h"
 #include "ruby-lemon-parse/parse_header.h"
 
-char *Node_valueName(Node *self)
+const char *Node_valueName(Node *self)
 {
   return self->value.name;
 }
 
-void Node_setValue(Node *self, char *s)
+void Node_setValue(Node *self, const char *s)
 {
   self->type = LITERAL;
   self->value.name = s;
@@ -46,7 +46,7 @@ AtomType Node_atomType(Node *self)
   }
 }
 
-char *Node_literalName(Node *self)
+const char *Node_literalName(Node *self)
 {
   if (self->cons.car == NULL || !Node_isLiteral(self->cons.car)) {
     return NULL;
@@ -87,7 +87,6 @@ void Node_freeAllNode(NodeBox *box)
     for (int i = 0; i < box->index + 1; i++) {
       node = (Node *)((Node *)(&box->nodes) + i);
       if (node == NULL) break;
-      if (node->type == LITERAL) mmrbc_free(node->value.name);
     }
     mmrbc_free(box);
     box = next;

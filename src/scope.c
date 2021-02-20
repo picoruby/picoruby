@@ -58,7 +58,6 @@ void freeLiteralRcsv(Literal *literal)
 {
   if (literal == NULL) return;
   freeLiteralRcsv(literal->next);
-  mmrbc_free(literal->value);
   mmrbc_free(literal);
 }
 
@@ -66,7 +65,6 @@ void freeSymbolRcsv(Symbol *symbol)
 {
   if (symbol == NULL) return;
   freeSymbolRcsv(symbol->next);
-  mmrbc_free(symbol->value);
   mmrbc_free(symbol);
 }
 
@@ -74,7 +72,6 @@ void freeLvarRcsv(Lvar *lvar)
 {
   if (lvar == NULL) return;
   freeLvarRcsv(lvar->next);
-  mmrbc_free(lvar->name);
   mmrbc_free(lvar);
 }
 
@@ -92,7 +89,7 @@ void Scope_free(Scope *self)
   mmrbc_free(self);
 }
 
-void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
+void Scope_pushNCode_self(Scope *self, uint8_t *str, int size)
 {
   CodePool *pool;
   if (size > CODE_POOL_SIZE)
@@ -118,9 +115,7 @@ Literal *literal_new(const char *value, LiteralType type)
   Literal *literal = mmrbc_alloc(sizeof(Literal));
   literal->next = NULL;
   literal->type = type;
-  size_t len = strlen(value) + 1;
-  literal->value = mmrbc_alloc(len);
-  strsafecpy(literal->value, value, len);
+  literal->value = value;
   return literal;
 }
 
@@ -161,9 +156,7 @@ Symbol *symbol_new(const char *value)
 {
   Symbol *symbol = mmrbc_alloc(sizeof(Symbol));
   symbol->next = NULL;
-  size_t len = strlen(value) + 1;
-  symbol->value = mmrbc_alloc(len);
-  strsafecpy(symbol->value, value, len);
+  symbol->value = value;
   return symbol;
 }
 
@@ -172,9 +165,7 @@ Lvar *lvar_new(const char *name, int regnum)
   Lvar *lvar = mmrbc_alloc(sizeof(Lvar));
   lvar->regnum = regnum;
   lvar->next = NULL;
-  size_t len = strlen(name) + 1;
-  lvar->name = mmrbc_alloc(len);
-  strsafecpy(lvar->name, name, len);
+  lvar->name = name;
   return lvar;
 }
 

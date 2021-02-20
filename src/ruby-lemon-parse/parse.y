@@ -513,15 +513,15 @@
 
   static Node*
   unite_str(ParserState *p, Node *a, Node* b) {
-    char *a_value = Node_valueName(a);
+    const char *a_value = Node_valueName(a);
     size_t a_len = strlen(a_value);
-    char *b_value = Node_valueName(b);
+    const char *b_value = Node_valueName(b);
     size_t b_len = strlen(b_value);
     char *new_value = LEMON_ALLOC(a_len + b_len + 1);
     memcpy(new_value, a_value, a_len);
     memcpy(new_value + a_len, b_value, b_len);
     new_value[a_len + b_len] = '\0';
-    Node *n = literal(new_value);
+    Node *n = literal((const char *)new_value);
     LEMON_FREE(new_value);
     return n;
   }
@@ -1140,7 +1140,7 @@ none(A) ::= . { A = 0; }
   {
     if (token_store == NULL) return;
     freeTokenStore(token_store->prev);
-    LEMON_FREE(token_store->str);
+    if (token_store->str) LEMON_FREE(token_store->str);
     LEMON_FREE(token_store);
   }
 
@@ -1163,7 +1163,7 @@ none(A) ::= . { A = 0; }
       freeNode(n->cons.car);
       freeNode(n->cons.cdr);
     } else if (n->type == LITERAL) {
-      LEMON_FREE(n->value.name);
+      LEMON_FREE((char *)n->value.name);
     }
     //printf("after free cons: %p\n", n);
     LEMON_FREE(n);
