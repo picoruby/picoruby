@@ -1207,7 +1207,6 @@ none(A) ::= . { A = 0; }
         }
         break;
       case LITERAL:
-      case iLITERAL:
         printf("\e[31;1m\"%s\"\e[m", Node_valueName(n));
         if (isRightMost) {
           printf("]");
@@ -1228,7 +1227,6 @@ none(A) ::= . { A = 0; }
         printf("  value:%d\n", n->atom.type);
         break;
       case LITERAL:
-      case iLITERAL:
         printf("    literal:%p", n);
         printf("  name:\"%s\"\n", Node_valueName(n));
         break;
@@ -1258,7 +1256,6 @@ none(A) ::= . { A = 0; }
         type = "a";
         break;
       case LITERAL:
-      case iLITERAL:
         type = "l";
         break;
       case CONS:

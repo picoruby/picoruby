@@ -8,7 +8,7 @@
 
 char *Node_valueName(Node *self);
 
-void Node_setValue(Node *self, const char *s);
+void Node_setValue(Node *self, char *s);
 
 bool Node_isAtom(Node *self);
 

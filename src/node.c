@@ -7,22 +7,13 @@
 
 char *Node_valueName(Node *self)
 {
-  if (self->type == LITERAL) {
-    return self->value.name;
-  } else if (self->type == iLITERAL) {
-    return self->iValue;
-  }
+  return self->value.name;
 }
 
-void Node_setValue(Node *self, const char *s)
+void Node_setValue(Node *self, char *s)
 {
-  if (strlen(s) < PTR_SIZE * 2) {
-    self->type = iLITERAL;
-    strcpy(self->iValue, s);
-  } else {
-    self->type = LITERAL;
-    self->value.name = strdup(s);
-  }
+  self->type = LITERAL;
+  self->value.name = s;
 }
 
 bool Node_isAtom(Node *self)
@@ -39,7 +30,7 @@ bool Node_isCons(Node *self)
 
 bool Node_isLiteral(Node *self)
 {
-  return (self->type == LITERAL || self->type == iLITERAL);
+  return (self->type == LITERAL);
 }
 
 AtomType Node_atomType(Node *self)

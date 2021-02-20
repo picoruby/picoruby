@@ -76,7 +76,6 @@ typedef enum {
   ATOM,
   CONS,
   LITERAL,
-  iLITERAL
 } NodeType;
 
 typedef struct node Node;
@@ -100,7 +99,6 @@ struct node {
     Atom atom;
     Cons cons;
     Value value;
-    char iValue[PTR_SIZE * 2];
   };
 };
 
