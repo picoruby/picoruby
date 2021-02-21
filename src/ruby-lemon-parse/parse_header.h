@@ -120,7 +120,7 @@ typedef struct string_pool
   StringPool *prev;
   uint16_t size;
   uint16_t index;
-  char pool[STRING_POOL_POOL_SIZE];
+  char strings[STRING_POOL_POOL_SIZE];
 } StringPool;
 
 typedef struct parser_state {

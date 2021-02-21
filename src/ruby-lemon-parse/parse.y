@@ -1127,7 +1127,7 @@ none(A) ::= . { A = 0; }
     pool->prev = prev;
     pool->size = size;
     pool->index = 0;
-    memset(pool->pool, 0, STRING_POOL_POOL_SIZE);
+    memset(pool->strings, 0, STRING_POOL_POOL_SIZE);
     return pool;
   }
 
@@ -1144,9 +1144,9 @@ none(A) ::= . { A = 0; }
       pool = p->current_string_pool;
     }
     uint16_t index = pool->index;
-    strcpy((char *)&pool->pool[index], s);
+    strcpy((char *)&pool->strings[index], s);
     pool->index += length;
-    return (char *)&pool->pool[index];
+    return (char *)&pool->strings[index];
   }
 
   ParserState *ParseInitState(uint8_t node_box_size)
