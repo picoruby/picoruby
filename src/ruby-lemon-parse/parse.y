@@ -1121,6 +1121,34 @@ none(A) ::= . { A = 0; }
 
 %code {
 
+  StringPool *stringPool_new(StringPool *prev, uint16_t size)
+  {
+    StringPool *pool = (StringPool *)LEMON_ALLOC(sizeof(StringPool));
+    pool->prev = prev;
+    pool->size = size;
+    pool->index = 0;
+    memset(pool->pool, 0, STRING_POOL_POOL_SIZE);
+    return pool;
+  }
+
+  char *ParsePushStringPool(ParserState *p, char *s)
+  {
+    size_t length = strlen(s) + 1; /* including \0 */
+    StringPool *pool = p->current_string_pool;
+    if (pool->size < pool->index + length) {
+      if (length > STRING_POOL_POOL_SIZE) {
+        p->current_string_pool = stringPool_new(pool, length);
+      } else {
+        p->current_string_pool = stringPool_new(pool, STRING_POOL_POOL_SIZE);
+      }
+      pool = p->current_string_pool;
+    }
+    uint16_t index = pool->index;
+    strcpy((char *)&pool->pool[index], s);
+    pool->index += length;
+    return (char *)&pool->pool[index];
+  }
+
   ParserState *ParseInitState(uint8_t node_box_size)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
@@ -1129,19 +1157,9 @@ none(A) ::= . { A = 0; }
     p->current_node_box = NULL;
     p->root_node_box = Node_newBox(p);
     p->current_node_box = p->root_node_box;
-    p->token_store = LEMON_ALLOC(sizeof(TokenStore));
-    p->token_store->str = NULL;
-    p->token_store->prev = NULL;
+    p->current_string_pool = stringPool_new(NULL, STRING_POOL_POOL_SIZE);
     p->error_count = 0;
     return p;
-  }
-
-  void freeTokenStore(TokenStore *token_store)
-  {
-    if (token_store == NULL) return;
-    freeTokenStore(token_store->prev);
-    if (token_store->str) LEMON_FREE(token_store->str);
-    LEMON_FREE(token_store);
   }
 
   void ParserStateFree(ParserState *p) {
@@ -1151,8 +1169,13 @@ none(A) ::= . { A = 0; }
       if (scope->upper == NULL) break;
       scope = scope->upper;
     }
+    StringPool *prev_pool;
+    while (p->current_string_pool) {
+      prev_pool = p->current_string_pool->prev;
+      LEMON_FREE(p->current_string_pool);
+      p->current_string_pool = prev_pool;
+    }
     Scope_free(scope);
-    freeTokenStore(p->token_store);
     LEMON_FREE(p);
   }
 
@@ -1171,15 +1194,6 @@ none(A) ::= . { A = 0; }
 
   void ParseFreeAllNode(yyParser *yyp) {
     Node_freeAllNode(yyp->p->root_node_box);
-  }
-
-  TokenStore *ParsePushTokenStore(ParserState *p, char *s)
-  {
-    TokenStore *ls = LEMON_ALLOC(sizeof(TokenStore));
-    ls->str = strdup(s);
-    ls->prev = p->token_store;
-    p->token_store = ls;
-    return ls;
   }
 
 #ifndef NDEBUG

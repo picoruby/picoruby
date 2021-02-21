@@ -112,7 +112,6 @@ char *strsafecpy(char *s1, const char *s2, size_t max)
 
 char *strsafecat(char *dst, const char *src, size_t max)
 {
-  DEBUGP("dst: `%s`, src: `%s`, max: %d", dst, src, (int)max);
   size_t lensrc = strlen(src);
   if (strlen(dst) + lensrc < max) {
     strncat(dst, src, lensrc);
