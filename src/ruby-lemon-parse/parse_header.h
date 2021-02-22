@@ -124,12 +124,19 @@ typedef struct string_pool
   char strings[STRING_POOL_POOL_SIZE];
 } StringPool;
 
+typedef struct specail_string_pool {
+  const char null[1]; /* "" */
+  const char neg[2];  /* "-" */
+  const char ary[3];  /* "[]" */
+} SpecialStringPool;;
+
 typedef struct parser_state {
   Scope *scope;
   NodeBox *root_node_box;
   NodeBox *current_node_box;
   uint8_t node_box_size;
   StringPool *current_string_pool;
+  SpecialStringPool special_string_pool;
   int error_count;
   unsigned int cond_stack;
   unsigned int cmdarg_stack;

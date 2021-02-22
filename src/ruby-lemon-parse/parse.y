@@ -83,6 +83,10 @@
 %include {
   #include "parse_header.h"
 
+  #define STRING_NULL (p->special_string_pool.null)
+  #define STRING_NEG  (p->special_string_pool.neg)
+  #define STRING_ARY  (p->special_string_pool.ary)
+
   static Node*
   cons_gen(ParserState *p, Node *car, Node *cdr)
   {
@@ -244,12 +248,14 @@
     return result;
   }
 
+  const char *ParsePushStringPool(ParserState *p, char *s);
+
   /* nageted integer */
   static Node*
   new_neglit(ParserState *p, const char *s, AtomType a)
   {
-    Node* result = list3(atom(ATOM_unary), literal("-") ,list2(atom(a), literal(s)));
-    return result;
+    const char *const_neg = ParsePushStringPool(p, STRING_NEG);
+    return list3(atom(ATOM_unary), literal(const_neg) ,list2(atom(a), literal(s)));
   }
 
   static Node*
@@ -486,7 +492,7 @@
   new_str(ParserState *p, const char *a)
   {
     if (!a) {
-      return list2(atom(ATOM_str), literal(""));
+      return list2(atom(ATOM_str), literal(STRING_NULL));
     } else {
       return list2(atom(ATOM_str), literal(a));
     }
@@ -643,7 +649,7 @@ stmt(A) ::= none. { A = new_begin(p, 0); }
 //command_asgn(A) ::= lhs(B) E command_rhs(C). { A = new_asgn(p, B, C); }
 //command_asgn(A) ::= var_lhs(B) OP_ASGN(C) command_rhs(D). { A = new_op_asgn(p, B, C, D); }
 //command_asgn(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) command_rhs(E).
-//  { A = new_op_asgn(p, new_call(p, B, "[]", C, '.'), D, E); }
+//  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
 //
 //command_rhs ::= command_call. [OP_ASGN]
 //command_rhs ::= command_asgn.
@@ -709,7 +715,7 @@ args(A) ::= args(B) COMMA arg(C). { A = list3(atom(ATOM_args_add), B, C); }
 arg(A) ::= lhs(B) E arg_rhs(C). { A = new_asgn(p, B, C); }
 arg(A) ::= var_lhs(B) OP_ASGN(C) arg_rhs(D). { A = new_op_asgn(p, B, C, D); }
 arg(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) arg_rhs(E).
-  { A = new_op_asgn(p, new_call(p, B, "[]", C, '.'), D, E); }
+  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
 arg(A) ::= primary_value(B) call_op(C) IDENTIFIER(D) OP_ASGN(E) arg_rhs(F).
   { A = new_op_asgn(p, new_call(p, B, D, 0, C), E, F); }
 arg(A) ::= arg(B) PLUS arg(C).   { A = call_bin_op(B, "+" ,C); }
@@ -744,7 +750,7 @@ arg_rhs ::= arg. [OP_ASGN]
 
 lhs ::= variable.
 lhs(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET.
-  { A = new_call(p, B, "[]", C, '.'); }
+  { A = new_call(p, B, STRING_ARY, C, '.'); }
 lhs(A) ::= primary_value(B) call_op(C) IDENTIFIER(D). { A = new_call(p, B, D, 0, C); }
 
 cname ::= CONSTANT.
@@ -934,7 +940,7 @@ method_call(A)  ::=  primary_value(B) call_op(C) operation2(D) opt_paren_args(E)
                        A = new_call(p, B, D, E, C);
                      }
 method_call(A)  ::=  primary_value(B) LBRACKET opt_call_args(C) RBRACKET. {
-                       A = new_call(p, B, "[]", C, '.');
+                       A = new_call(p, B, STRING_ARY, C, '.');
                      }
 
 scope_nest_KW_do ::= KW_do. { scope_nest(p, false); }
@@ -1138,6 +1144,9 @@ none(A) ::= . { A = 0; }
     p->root_node_box = Node_newBox(p);
     p->current_node_box = p->root_node_box;
     p->current_string_pool = stringPool_new(NULL, STRING_POOL_POOL_SIZE);
+    strcpy(STRING_NULL, "");
+    strcpy(STRING_NEG,  "-");
+    strcpy(STRING_ARY, "[]");
     p->error_count = 0;
     return p;
   }
