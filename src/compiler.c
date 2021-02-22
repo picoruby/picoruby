@@ -111,7 +111,8 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
             string = topToken->value;
               break;
           }
-          if (prevType == DSTRING_END && topToken->type == STRING_END) {
+          if ((prevType == DSTRING_END || prevType == STRING_BEG)
+              && topToken->type == STRING_END) {
             Parse(parser, STRING, ""); /* to help pareser */
           }
           if (topToken->type != STRING_END) {

@@ -504,12 +504,12 @@
     size_t a_len = strlen(a_value);
     const char *b_value = Node_valueName(b);
     size_t b_len = strlen(b_value);
-    char *new_value = LEMON_ALLOC(a_len + b_len + 1);
+    char new_value[a_len + b_len + 1];
     memcpy(new_value, a_value, a_len);
     memcpy(new_value + a_len, b_value, b_len);
     new_value[a_len + b_len] = '\0';
-    Node *n = literal((const char *)new_value);
-    LEMON_FREE(new_value);
+    const char *value = ParsePushStringPool(p, new_value);
+    Node *n = literal(value);
     return n;
   }
 
