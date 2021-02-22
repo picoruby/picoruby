@@ -65,6 +65,7 @@ host_production:
 
 host_valgrind:
 	rm massif.out.* ; $(MAKE) clean ; $(MAKE) host_production CFLAGS=-DMRBC_ALLOC_LIBC && \
+	  valgrind --tool=massif --stacks=yes ./build/host-production/bin/mmrbc test/fixtures/hello_world.rb
 	  valgrind --tool=massif --stacks=yes ./build/host-production/bin/mmrbc test/fixtures/larger_script.rb
 
 arm_all:
