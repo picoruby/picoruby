@@ -134,46 +134,49 @@ void gen_literal_numeric(Scope *scope, const char *num, LiteralType type, Misc p
   Scope_pushCode(litIndex);
 }
 
-void cleanup_numeric_literal(const char *lit, char *result)
+void cleanup_numeric_literal(char *lit)
 {
+  char result[strlen(lit) + 1];
   int j = 0;
   for (int i = 0; i <= strlen(lit); i++) {
     if (lit[i] == '_') continue;
     result[j] = lit[i];
     j++;
   }
+  result[j] = '\0';
+  /* Rewrite StingPool */
+  memcpy(lit, result, strlen(result));
+  lit[strlen(result)] = '\0';
 }
 
 void gen_float(Scope *scope, Node *node, Misc pos_neg)
 {
-  const char *value = Node_valueName(node->cons.car);
-  char num[strlen(value)];
-  cleanup_numeric_literal(value, num);
-  gen_literal_numeric(scope, (const char *)num, FLOAT_LITERAL, pos_neg);
+  char *value = (char *)Node_valueName(node->cons.car);
+  cleanup_numeric_literal(value);
+  gen_literal_numeric(scope, (const char *)value, FLOAT_LITERAL, pos_neg);
   Scope_push(scope);
 }
 
 void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
-  const char *value = Node_valueName(node->cons.car);
-  char num[strlen(value)];
-  cleanup_numeric_literal(value, num);
+  char *value = (char *)Node_valueName(node->cons.car);
+  cleanup_numeric_literal(value);
   unsigned long val;
-  switch (num[1]) {
+  switch (value[1]) {
     case ('b'):
     case ('B'):
-      val = strtol(num+2, NULL, 2);
+      val = strtol(value+2, NULL, 2);
       break;
     case ('o'):
     case ('O'):
-      val = strtol(num+2, NULL, 8);
+      val = strtol(value+2, NULL, 8);
       break;
     case ('x'):
     case ('X'):
-      val = strtol(num+2, NULL, 16);
+      val = strtol(value+2, NULL, 16);
       break;
     default:
-      val = strtol(num, NULL, 10);
+      val = strtol(value, NULL, 10);
   }
   if (pos_neg == NUM_POS && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
@@ -200,9 +203,7 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
-    char buf[12];
-    snprintf(buf, 12, "%ld", val);
-    gen_literal_numeric(scope, (const char *)buf, INTEGER_LITERAL, pos_neg);
+    gen_literal_numeric(scope, (const char *)value, INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }
