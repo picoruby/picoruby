@@ -1127,7 +1127,6 @@ none(A) ::= . { A = 0; }
     pool->prev = prev;
     pool->size = size;
     pool->index = 0;
-    memset(pool->strings, 0, STRING_POOL_POOL_SIZE);
     return pool;
   }
 
