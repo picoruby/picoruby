@@ -113,7 +113,8 @@ typedef struct node_box
 } NodeBox;
 
 #define STRING_POOL_SIZE (PTR_SIZE * 16)
-#define STRING_POOL_POOL_SIZE (STRING_POOL_SIZE - (PTR_SIZE * 3))
+#define STRING_POOL_HEADER_SIZE (PTR_SIZE * 3)
+#define STRING_POOL_POOL_SIZE (STRING_POOL_SIZE - STRING_POOL_HEADER_SIZE)
 typedef struct string_pool StringPool;
 typedef struct string_pool
 {

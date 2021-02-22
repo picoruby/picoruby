@@ -1123,7 +1123,7 @@ none(A) ::= . { A = 0; }
 
   StringPool *stringPool_new(StringPool *prev, uint16_t size)
   {
-    StringPool *pool = (StringPool *)LEMON_ALLOC(sizeof(StringPool));
+    StringPool *pool = (StringPool *)LEMON_ALLOC(STRING_POOL_HEADER_SIZE + size);
     pool->prev = prev;
     pool->size = size;
     pool->index = 0;
