@@ -347,18 +347,6 @@ void gen_var(Scope *scope, Node *node)
   }
 }
 
-int assignSymIndex(Scope *scope, const char *method_name)
-{
-  size_t length = strlen(method_name);
-  char *assign_method_name = mmrbc_alloc(length + 2);
-  memcpy(assign_method_name, method_name, length);
-  assign_method_name[length] = '=';
-  assign_method_name[length + 1] = '\0';
-  int symIndex = Scope_newSym(scope, (const char *)assign_method_name);
-//  mmrbc_free(assign_method_name);
-  return symIndex;
-}
-
 void gen_assign(Scope *scope, Node *node)
 {
   int num;
@@ -425,7 +413,7 @@ void gen_assign(Scope *scope, Node *node)
       Scope_pushCode(OP_SEND);
       Scope_pushCode(scope->sp);
       const char *method_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
-      int symIndex = assignSymIndex(scope, (const char *)method_name);
+      int symIndex = Scope_assignSymIndex(scope, (const char *)method_name);
       Scope_pushCode(symIndex);
       Scope_pushCode(nargs + 1);
       break;
@@ -612,7 +600,7 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pop(scope);
       Scope_pop(scope);
       Scope_pushCode(scope->sp);
-      symIndex = assignSymIndex(scope, call_name);
+      symIndex = Scope_assignSymIndex(scope, call_name);
       Scope_pushCode(symIndex);
      /* count of args */
      if (!strcmp(call_name, "[]")) {

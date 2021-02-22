@@ -51,6 +51,7 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
   self->vm_code = NULL;
   self->vm_code_size = 0;
   self->break_stack = NULL;
+  self->last_assign_symbol = NULL;
   return self;
 }
 
@@ -75,6 +76,17 @@ void freeLvarRcsv(Lvar *lvar)
   mmrbc_free(lvar);
 }
 
+void freeAssignSymbol(AssignSymbol *assign_symbol)
+{
+  AssignSymbol *prev;
+  while (assign_symbol) {
+    prev = assign_symbol->prev;
+    mmrbc_free((void *)assign_symbol->value);
+    mmrbc_free(assign_symbol);
+    assign_symbol = prev;
+  }
+}
+
 void Scope_free(Scope *self)
 {
   if (self == NULL) return;
@@ -83,6 +95,7 @@ void Scope_free(Scope *self)
   freeLiteralRcsv(self->literal);
   freeSymbolRcsv(self->symbol);
   freeLvarRcsv(self->lvar);
+  freeAssignSymbol(self->last_assign_symbol);
   if (self->vm_code != NULL) {
     mmrbc_free(self->vm_code);
   }
@@ -200,6 +213,27 @@ int Scope_newSym(Scope *self, const char *value){
   }
   sym->next = newSym;
   return index;
+}
+
+int Scope_assignSymIndex(Scope *self, const char *method_name)
+{
+  size_t length = strlen(method_name);
+  char *assign_method_name = mmrbc_alloc(length + 2);
+  memcpy(assign_method_name, method_name, length);
+  assign_method_name[length] = '=';
+  assign_method_name[length + 1] = '\0';
+  int symIndex = symbol_findIndex(self->symbol, assign_method_name);
+  if (symIndex < 0) {
+    symIndex = Scope_newSym(self, (const char *)assign_method_name);
+    AssignSymbol *assign_symbol = mmrbc_alloc(sizeof(AssignSymbol));
+    assign_symbol->prev = NULL;
+    assign_symbol->value = assign_method_name;
+    assign_symbol->prev = self->last_assign_symbol;
+    self->last_assign_symbol = assign_symbol;
+  } else {
+    mmrbc_free(assign_method_name);
+  }
+  return symIndex;
 }
 
 /*

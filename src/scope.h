@@ -59,16 +59,27 @@ typedef struct break_stack
   uint32_t redo_pos;
 } BreakStack;
 
+/*
+ * For symbols which aren't stored in ParserState's string_pool
+ * like `[]=` `attr=`
+ * They should be created in generator.c
+ */
+typedef struct assign_symbol
+{
+  struct assign_symbol *prev;
+  const char *value;
+} AssignSymbol;
+
 typedef struct scope Scope;
 typedef struct scope
 {
   uint32_t nest_stack; /* Initial: 00000000 00000000 00000000 00000001 */
   Scope *upper;
   Scope *first_lower;
+  Scope *next;
   bool lvar_top;
   uint16_t next_lower_number;
   unsigned int nlowers;
-  Scope *next;
   CodePool *first_code_pool;
   CodePool *current_code_pool;
   unsigned int nlocals;
@@ -80,6 +91,7 @@ typedef struct scope
   int32_t vm_code_size;
   uint8_t *vm_code;
   BreakStack *break_stack;
+  AssignSymbol *last_assign_symbol;
 } Scope;
 
 Scope *Scope_new(Scope *upper, bool lvar_top);
@@ -95,6 +107,8 @@ void Scope_pushCode_self(Scope *self, int val);
 int Scope_newLit(Scope *self, const char *value, LiteralType type);
 
 int Scope_newSym(Scope *self, const char *value);
+
+int Scope_assignSymIndex(Scope *self, const char *method_name);
 
 LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name);
 

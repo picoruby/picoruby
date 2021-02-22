@@ -125,9 +125,9 @@ typedef struct string_pool
 } StringPool;
 
 typedef struct specail_string_pool {
-  const char null[1]; /* "" */
-  const char neg[2];  /* "-" */
-  const char ary[3];  /* "[]" */
+  char null[1]; /* "" */
+  char neg[2];  /* "-" */
+  char ary[3];  /* "[]" */
 } SpecialStringPool;;
 
 typedef struct parser_state {
