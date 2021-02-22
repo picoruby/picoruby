@@ -33,19 +33,19 @@
 
 %extra_context { ParserState *p }
 
-%token_type { char* }
+%token_type { const char* }
 //%token_destructor { LEMON_FREE($$); }
 
 %default_type { Node* }
 //%default_destructor { LEMON_FREE($$); }
 
 %type call_op       { uint8_t }
-%type cname         { char* }
-%type fname         { char* }
-%type sym           { char* }
-%type basic_symbol  { char* }
-%type operation2    { char* }
-%type f_norm_arg    { char* }
+%type cname         { const char* }
+%type fname         { const char* }
+%type sym           { const char* }
+%type basic_symbol  { const char* }
+%type operation2    { const char* }
+%type f_norm_arg    { const char* }
 
 %include {
   #include <stdlib.h>
@@ -82,25 +82,6 @@
 
 %include {
   #include "parse_header.h"
-
-  static char*
-  parser_strndup(ParserState *p, const char *s, size_t len)
-  {
-    char *b = (char *)LEMON_ALLOC(len+1);//TODO リテラルプールへ
-    memcpy(b, s, len);
-    b[len] = '\0';
-    return b;
-  }
-  #undef strndup
-  #define strndup(s,len) parser_strndup(p, s, len)
-
-  static char*
-  parser_strdup(ParserState *p, const char *s)
-  {
-    return parser_strndup(p, s, strlen(s));
-  }
-  #undef strdup
-  #define strdup(s) parser_strdup(p, s)
 
   static Node*
   cons_gen(ParserState *p, Node *car, Node *cdr)
@@ -1130,7 +1111,7 @@ none(A) ::= . { A = 0; }
     return pool;
   }
 
-  char *ParsePushStringPool(ParserState *p, char *s)
+  const char *ParsePushStringPool(ParserState *p, char *s)
   {
     size_t length = strlen(s) + 1; /* including \0 */
     StringPool *pool = p->current_string_pool;
@@ -1145,7 +1126,7 @@ none(A) ::= . { A = 0; }
     uint16_t index = pool->index;
     strcpy((char *)&pool->strings[index], s);
     pool->index += length;
-    return (char *)&pool->strings[index];
+    return (const char *)&pool->strings[index];
   }
 
   ParserState *ParseInitState(uint8_t node_box_size)

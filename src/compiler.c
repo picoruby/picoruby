@@ -93,7 +93,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
           #ifdef MMRBC_DEBUG
           printToken(tokenizer, topToken);
           #endif
-          char *string = ParsePushStringPool(p, topToken->value);
+          const char *string = ParsePushStringPool(p, topToken->value);
           if (prevType == DSTRING_END && topToken->type == STRING_END) {
             Parse(parser, STRING, ""); /* to help pareser */
           }
