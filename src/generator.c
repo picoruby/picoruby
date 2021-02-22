@@ -1167,7 +1167,6 @@ void Generator_generate(Scope *scope, Node *root)
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;
-  Scope_freeCodePool(scope);
   scope->vm_code = vmCode;
   scope->vm_code_size = codeSize;
 }

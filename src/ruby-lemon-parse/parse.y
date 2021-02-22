@@ -1158,6 +1158,7 @@ none(A) ::= . { A = 0; }
       if (scope->upper == NULL) break;
       scope = scope->upper;
     }
+    Scope_freeCodePool(scope);
     StringPool *prev_pool;
     while (p->current_string_pool) {
       prev_pool = p->current_string_pool->prev;
