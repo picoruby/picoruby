@@ -349,12 +349,13 @@ void gen_var(Scope *scope, Node *node)
 
 int assignSymIndex(Scope *scope, const char *method_name)
 {
-  char *assign_method_name = mmrbc_alloc(strlen(method_name) + 2);
-  memcpy(assign_method_name, method_name, strlen(method_name));
-  assign_method_name[strlen(method_name)] = '=';
-  assign_method_name[strlen(method_name) + 1] = '\0';
+  size_t length = strlen(method_name);
+  char *assign_method_name = mmrbc_alloc(length + 2);
+  memcpy(assign_method_name, method_name, length);
+  assign_method_name[length] = '=';
+  assign_method_name[length + 1] = '\0';
   int symIndex = Scope_newSym(scope, (const char *)assign_method_name);
-  mmrbc_free(assign_method_name);
+//  mmrbc_free(assign_method_name);
   return symIndex;
 }
 
