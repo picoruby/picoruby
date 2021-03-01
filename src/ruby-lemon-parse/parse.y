@@ -491,7 +491,7 @@
   static Node*
   new_str(ParserState *p, const char *a)
   {
-    if (!a) {
+    if (a == NULL || a[0] == '\0') {
       return list2(atom(ATOM_str), literal(STRING_NULL));
     } else {
       return list2(atom(ATOM_str), literal(a));
