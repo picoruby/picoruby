@@ -86,8 +86,7 @@ Tokenizer* const Tokenizer_new(ParserState *p, StreamInterface *si)
 {
   Tokenizer *self = (Tokenizer *)mmrbc_alloc(sizeof(Tokenizer));
   self->p = p;
-  /* class vars in mmrbc.gem */
-  {
+  { /* class vars in mmrbc.gem */
     self->currentToken = Token_new();
     self->paren_stack_num = -1;
     self->line = (char *)mmrbc_alloc(sizeof(char) * (MAX_LINE_LENGTH));
@@ -96,13 +95,15 @@ Tokenizer* const Tokenizer_new(ParserState *p, StreamInterface *si)
     self->pos = 0;
   }
   tokenizer_paren_stack_add(self, PAREN_NONE);
-  /* instance vars in mmrbc.gem */
-  {
+  { /* instance vars in mmrbc.gem */
     self->si = si;
     self->mode = MODE_NONE;
     self->modeTerminater = '\0';
     self->state = EXPR_BEG;
     p->cmd_start = true;
+  }
+  { /* prepare regex */
+    RegexSetAllocProcs(mmrbc_alloc, mmrbc_free);
   }
   return self;
 }

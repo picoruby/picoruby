@@ -2,13 +2,28 @@
 #include <string.h>
 #include "regex_light.h"
 
-#include "common.h"
-#define  REGEX_ALLOC(size)  mmrbc_alloc(size)
-#define  REGEX_FREE(ptr)    mmrbc_free(ptr)
-
+/*
+ * You can use stdlib's malloc() and free()
+ *   CFLAGS=-DREGEX_USE_ALLOC_LIBC make
+ */
+#ifndef REGEX_USE_ALLOC_LIBC
+  #define  REGEX_ALLOC(size)  RegexAllocProc(size) /* override */
+  #define  REGEX_FREE(ptr)    RegexFreeProc(ptr)   /* override */
+  void *(* RegexAllocProc)(size_t);
+  void (* RegexFreeProc)(void *);
+  void RegexSetAllocProcs(void *(*allocProcPtr)(size_t), void (*freeProcPtr)(void *))
+  {
+    RegexAllocProc = allocProcPtr;
+    RegexFreeProc = freeProcPtr;
+  }
+#else
+  #include <stdlib.h>
+  #define  REGEX_ALLOC(size)  malloc(size)
+  #define  REGEX_FREE(ptr)    free(ptr)
+#endif /* REGEX_USE_ALLOC_LIBC */
 
 typedef enum {
-  RE_TYPE_TERM,     // sentinel of finishing expression
+  RE_TYPE_TERM = 0, // sentinel of finishing expression. It must be 0
   RE_TYPE_LIT,      // literal
   RE_TYPE_DOT,      // .
   RE_TYPE_QUESTION, // ?
@@ -39,32 +54,22 @@ typedef struct re_state {
   signed char *match_index_data;
 } ReState;
 
-static int match(ReState rs, ReAtom **regexp, const char *text);
-static int matchstar(ReState rs, ReAtom c, ReAtom **regexp, const char *text);
-static int matchhere(ReState rs, ReAtom **regexp, const char *text);
-static int matchone(ReState rs, ReAtom p, const char *text);
-static int matchquestion(ReState rs, ReAtom **regexp, const char *text);
-static int matchchars(ReState rs, const unsigned char *s, const char *text);
-static int matchbetween(ReState rs, const unsigned char *s, const char *text);
-
-/*
- * constractor of ReAtom
- */
-static ReAtom
-*re_atom_new(ReType type)
-{
-  ReAtom *atom = REGEX_ALLOC(sizeof(ReAtom));
-  atom->type = type;
-  return atom;
-}
+static int match(ReState *rs, ReAtom *regexp, const char *text);
+static int matchstar(ReState *rs, ReAtom *c, ReAtom *regexp, const char *text);
+static int matchhere(ReState *rs, ReAtom *regexp, const char *text);
+static int matchone(ReState *rs, ReAtom *p, const char *text);
+static int matchquestion(ReState *rs, ReAtom *regexp, const char *text);
+static int matchchars(ReState *rs, const unsigned char *s, const char *text);
+static int matchbetween(ReState *rs, const unsigned char *s, const char *text);
 
 /*
  * report nsub
  */
 static void
-re_report_nsub(ReState rs, const char *text)
+re_report_nsub(ReState *rs, const char *text)
 {
-  rs.match_index_data[(int)((long)&text[0] - (long)&rs.original_text_top_addr[0])] = rs.current_re_nsub;
+  int pos = (int)((long)text - (long)rs->original_text_top_addr);
+  rs->match_index_data[pos] = rs->current_re_nsub;
 }
 #define REPORT_WITHOUT_RETURN (re_report_nsub(rs, text))
 #define REPORT \
@@ -76,19 +81,18 @@ re_report_nsub(ReState rs, const char *text)
  * matcher functions
  */
 static int
-//matchone(ReAtom p, int c)
-matchone(ReState rs, ReAtom p, const char *text)
+matchone(ReState *rs, ReAtom *p, const char *text)
 {
-  if ((p.type == RE_TYPE_LIT && p.ch == *text) || (p.type == RE_TYPE_DOT))
+  if ((p->type == RE_TYPE_LIT && p->ch == text[0]) || (p->type == RE_TYPE_DOT))
     REPORT;
-  if (p.type == RE_TYPE_BRACKET) return matchchars(rs, p.ccl, text);
+  if (p->type == RE_TYPE_BRACKET) return matchchars(rs, p->ccl, text);
   return 0;
 }
 
 static int
-matchquestion(ReState rs, ReAtom **regexp, const char *text)
+matchquestion(ReState *rs, ReAtom *regexp, const char *text)
 {
-  if ((matchone(rs, *regexp[0], text) && matchhere(rs, (regexp + 2), text + 1))
+  if ((matchone(rs, regexp, text) && matchhere(rs, (regexp + 2), text + 1))
       || matchhere(rs, (regexp + 2), text)) {
     return 1; // do not REPORT
   } else {
@@ -98,46 +102,46 @@ matchquestion(ReState rs, ReAtom **regexp, const char *text)
 
 /* matchhere: search for regexp at beginning of text */
 static int
-matchhere(ReState rs, ReAtom **regexp, const char *text)
+matchhere(ReState *rs, ReAtom *regexp, const char *text)
 {
   do {
-    if (regexp[0]->type == RE_TYPE_TERM)
+    if (regexp->type == RE_TYPE_TERM)
       return 1; // do not REPORT;
-    if (regexp[0]->type == RE_TYPE_LPAREN) {
-      rs.max_re_nsub++;
-      rs.current_re_nsub = rs.max_re_nsub;
+    if (regexp->type == RE_TYPE_LPAREN) {
+      rs->max_re_nsub++;
+      rs->current_re_nsub = rs->max_re_nsub;
       return matchhere(rs, (regexp + 1), text);
     }
-    if (regexp[0]->type == RE_TYPE_RPAREN) {
-      rs.current_re_nsub--;
+    if (regexp->type == RE_TYPE_RPAREN) {
+      rs->current_re_nsub = 0; /* Nested paren doesn't work. eg) `ab(c(de))fg` */
       return matchhere(rs, (regexp + 1), text);
     }
-    if ((regexp + 1)[0]->type == RE_TYPE_QUESTION)
+    if ((regexp + 1)->type == RE_TYPE_QUESTION)
       return matchquestion(rs, regexp, text);
-    if ((regexp + 1)[0]->type == RE_TYPE_STAR)
-      return matchstar(rs, *regexp[0], (regexp + 2), text);
-    if ((regexp + 1)[0]->type == RE_TYPE_PLUS)
-      return matchone(rs, *regexp[0], text) && matchstar(rs, *regexp[0], (regexp + 2), text + 1);
-    if (regexp[0]->type == RE_TYPE_END && (regexp + 1)[0]->type == RE_TYPE_TERM)
-      return *text == '\0';
-    if (*text != '\0' && (regexp[0]->type == RE_TYPE_DOT || (regexp[0]->type == RE_TYPE_LIT && regexp[0]->ch == *text))) {
+    if ((regexp + 1)->type == RE_TYPE_STAR)
+      return matchstar(rs, regexp, (regexp + 2), text);
+    if ((regexp + 1)->type == RE_TYPE_PLUS)
+      return matchone(rs, regexp, text) && matchstar(rs, regexp, (regexp + 2), text + 1);
+    if (regexp->type == RE_TYPE_END && (regexp + 1)->type == RE_TYPE_TERM)
+      return text[0] == '\0';
+    if (text[0] != '\0' && (regexp->type == RE_TYPE_DOT || (regexp->type == RE_TYPE_LIT && regexp->ch == text[0]))) {
       REPORT_WITHOUT_RETURN;
       return matchhere(rs, (regexp + 1), text + 1);
     }
-  } while (text[0] != '\0' && matchone(rs, **regexp++, text++));
+  } while (text[0] != '\0' && matchone(rs, regexp++, text++));
   return 0;
 }
 
 static int
-matchstar(ReState rs, ReAtom c, ReAtom **regexp, const char *text_)
+matchstar(ReState *rs, ReAtom *c, ReAtom *regexp, const char *text_)
 {
   char *text;
   /* leftmost && longest */
   for (text = (char *)text_;
-       *text != '\0' && (
-         (c.type == RE_TYPE_LIT && *text == c.ch) ||
-         (c.type == RE_TYPE_BRACKET && matchchars(rs, c.ccl, text)) ||
-         c.type == RE_TYPE_DOT
+       text[0] != '\0' && (
+         (c->type == RE_TYPE_LIT && text[0] == c->ch) ||
+         (c->type == RE_TYPE_BRACKET && matchchars(rs, c->ccl, text)) ||
+         c->type == RE_TYPE_DOT
        );
        text++)
     REPORT_WITHOUT_RETURN;
@@ -149,7 +153,7 @@ matchstar(ReState rs, ReAtom c, ReAtom **regexp, const char *text_)
 }
 
 static int
-matchbetween(ReState rs, const unsigned char* s, const char *text)
+matchbetween(ReState *rs, const unsigned char* s, const char *text)
 {
   if ((text[0] != '-') && (s[0] != '\0') && (s[0] != '-') &&
       (s[1] == '-') && (s[1] != '\0') &&
@@ -161,7 +165,7 @@ matchbetween(ReState rs, const unsigned char* s, const char *text)
 }
 
 static int
-matchchars(ReState rs, const unsigned char* s, const char *text)
+matchchars(ReState *rs, const unsigned char* s, const char *text)
 {
   do {
     if (matchbetween(rs, s, text)) {
@@ -183,36 +187,44 @@ matchchars(ReState rs, const unsigned char* s, const char *text)
 }
 
 static int
-match(ReState rs, ReAtom **regexp, const char *text)
+match(ReState *rs, ReAtom *regexp, const char *text)
 {
-  if (regexp[0]->type == RE_TYPE_BEGIN)
+  if (regexp->type == RE_TYPE_BEGIN)
     return (matchhere(rs, (regexp + 1), text));
   do {    /* must look even if string is empty */
-    if (matchhere(rs, regexp, text))
-      REPORT;
+    if (matchhere(rs, regexp, text)) {
+      return 1;
+    } else {
+      /* reset match_index_data */
+      memset(rs->match_index_data, -1, strlen(text));
+      rs->current_re_nsub = 0;
+      rs->max_re_nsub = 0;
+    }
   } while (*text++ != '\0');
   return 0;
 }
 
 void
-set_match_data(ReState rs, size_t nmatch, regmatch_t pmatch[], size_t len)
+set_match_data(ReState *rs, size_t nmatch, regmatch_t *pmatch, size_t len)
 {
   int i;
   for (i = 0; i < nmatch; i++) {
-    pmatch[i].rm_so = -1;
-    pmatch[i].rm_eo = -1;
+    (pmatch + i)->rm_so = -1;
+    (pmatch + i)->rm_eo = -1;
   }
   bool scanning = false;
   for (i = len - 1; i > -1; i--) {
-    if (rs.match_index_data[i] < 0) {
+    if (rs->match_index_data[i] < 0) {
       if (scanning) break;
       continue;
     } else {
       scanning = true;
     }
-    if (pmatch[0].rm_eo < 0) pmatch[0].rm_eo = i + 1;
-    if (pmatch[(int)rs.match_index_data[i]].rm_eo < 0) pmatch[(int)rs.match_index_data[i]].rm_eo = i + 1;
-    pmatch[(int)rs.match_index_data[i]].rm_so = i;
+    if (pmatch->rm_eo < 0)
+      pmatch->rm_eo = i + 1;
+    if ( (pmatch + rs->match_index_data[i])->rm_eo < 0 )
+      (pmatch + rs->match_index_data[i])->rm_eo = i + 1;
+    (pmatch + rs->match_index_data[i])->rm_so = i;
   }
   pmatch[0].rm_so = i + 1;
 }
@@ -221,24 +233,38 @@ set_match_data(ReState rs, size_t nmatch, regmatch_t pmatch[], size_t len)
  * public functions
  */
 int
-regexec(regex_t *preg, const char *text, size_t nmatch, regmatch_t pmatch[], int _eflags)
+regexec(regex_t *preg, const char *text, size_t nmatch, regmatch_t *pmatch, int _eflags)
 {
   ReState rs;
   rs.original_text_top_addr = (void *)text;
+  size_t len = strlen(text);
+  signed char mid[len];
+  rs.match_index_data = mid;
+  memset(rs.match_index_data, -1, len);
   rs.current_re_nsub = 0;
   rs.max_re_nsub = 0;
-  size_t len = strlen(text);
-  rs.match_index_data = REGEX_ALLOC(len);
-  memset(rs.match_index_data, -1, len);
-  if (match(rs, preg->atoms, text)) {
-    set_match_data(rs, nmatch, pmatch, len);
-    REGEX_FREE(rs.match_index_data);
+  if (match(&rs, preg->atoms, text)) {
+    set_match_data(&rs, nmatch, pmatch, len);
     return 0; /* success */
   } else {
-    REGEX_FREE(rs.match_index_data);
     return -1; /* to be correct, it should be a thing like REG_NOMATCH */
   }
 }
+
+size_t
+gen_ccl(ReAtom *atom, unsigned char **ccl, const char *snippet, size_t len, bool dry_run)
+{
+  if (len == 0) len = strlen(snippet);
+  if (!dry_run) {
+    memcpy(*ccl, snippet, len);
+    (*ccl)[len] = '\0';
+    atom->ccl = *ccl;
+    atom->type = RE_TYPE_BRACKET;
+    *ccl += len + 1;
+  }
+  return len + 1;
+}
+#define gen_ccl_const(atom, ccl, snippet, dry_run) gen_ccl(atom, ccl, snippet, 0, dry_run)
 
 /*
  * compile regular expression pattern
@@ -250,105 +276,107 @@ regexec(regex_t *preg, const char *text, size_t nmatch, regmatch_t pmatch[], int
 int
 regcomp(regex_t *preg, const char *pattern, int _cflags)
 {
-  for (int i = 0; i < MAX_ATOM_SIZE; i++)
-    preg->atoms[i] = NULL; /* initialize */
+  ReAtom *atoms = REGEX_ALLOC(sizeof(ReAtom));
   preg->re_nsub = 0;
-  char c; // current char in pattern
-  int i = 0; // current position in pattern
-  int j = 0; // index of atom
+  size_t ccl_len = 0; // total length of ccl(s)
+  size_t len;
+  bool dry_run = true;
+  char *pattern_index = (char *)pattern;
+  uint16_t atoms_count = 1;
   unsigned char *ccl;
-  while (pattern[i] != '\0') {
-    c = pattern[i];
-    switch (c) {
-      case '.':
-        preg->atoms[j] = re_atom_new(RE_TYPE_DOT);
-        break;
-      case '?':
-        preg->atoms[j] = re_atom_new(RE_TYPE_QUESTION);
-        break;
-      case '*':
-        preg->atoms[j] = re_atom_new(RE_TYPE_STAR);
-        break;
-      case '+':
-        preg->atoms[j] = re_atom_new(RE_TYPE_PLUS);
-        break;
-      case '^':
-        preg->atoms[j] = re_atom_new(RE_TYPE_BEGIN);
-        break;
-      case '$':
-        preg->atoms[j] = re_atom_new(RE_TYPE_END);
-        break;
-      case '(':
-        preg->atoms[j] = re_atom_new(RE_TYPE_LPAREN);
-        preg->re_nsub++;
-        break;
-      case ')':
-        preg->atoms[j] = re_atom_new(RE_TYPE_RPAREN);
-        break;
-      case '\\':
-        switch (pattern[i + 1]) {
-          case '\0':
-            preg->atoms[j] = re_atom_new(RE_TYPE_LIT);
-            preg->atoms[j]->ch = '\\';
-            break;
-          case 'w':
-            i++;
-            preg->atoms[j] = re_atom_new(RE_TYPE_BRACKET);
-            ccl = REGEX_ALLOC(strlen(REGEX_DEF_w) + 1);
-            memcpy(ccl, REGEX_DEF_w, strlen(REGEX_DEF_w));
-            ccl[strlen(REGEX_DEF_w)] = '\0';
-            preg->atoms[j]->ccl = ccl;
-            break;
-          case 's':
-            i++;
-            preg->atoms[j] = re_atom_new(RE_TYPE_BRACKET);
-            ccl = REGEX_ALLOC(strlen(REGEX_DEF_s) + 1);
-            memcpy(ccl, REGEX_DEF_s, strlen(REGEX_DEF_s));
-            ccl[strlen(REGEX_DEF_s)] = '\0';
-            preg->atoms[j]->ccl = ccl;
-            break;
-          case 'd':
-            i++;
-            preg->atoms[j] = re_atom_new(RE_TYPE_BRACKET);
-            ccl = REGEX_ALLOC(strlen(REGEX_DEF_d) + 1);
-            memcpy(ccl, REGEX_DEF_d, strlen(REGEX_DEF_d));
-            ccl[strlen(REGEX_DEF_d)] = '\0';
-            preg->atoms[j]->ccl = ccl;
-            break;
-          default:
-            i++;
-            preg->atoms[j] = re_atom_new(RE_TYPE_LIT);
-            preg->atoms[j]->ch = pattern[i];
-        }
-        break;
-      case '[':
-        i++;
-        int len;
-         /*
-          * pattern [] must contain at least one letter.
-          * first letter of the content should be ']' if you want to match literal ']'
-          */
-        for (len = 1;
-            pattern[i + len] != '\0' && (pattern[i + len] != ']');
-            len++)
-          ;
-        ccl = REGEX_ALLOC(len + 1); // possibly longer than actual
-        memcpy(ccl, pattern + i, len);
-        ccl[len] = '\0';
-        preg->atoms[j] = re_atom_new(RE_TYPE_BRACKET);
-        preg->atoms[j]->ccl = ccl;
-        i += len;
-        break;
-      default:
-        preg->atoms[j] = re_atom_new(RE_TYPE_LIT);
-        preg->atoms[j]->ch = c;
-        break;
+  /*
+   * Just calculates size of atoms as a dry-run,
+   * then makes atoms and ccl(s) at the second time
+   */
+  for (;;) {
+    while (pattern_index[0] != '\0') {
+      switch (pattern_index[0]) {
+        case '.':
+          atoms->type = RE_TYPE_DOT;
+          break;
+        case '?':
+          atoms->type = RE_TYPE_QUESTION;
+          break;
+        case '*':
+          atoms->type = RE_TYPE_STAR;
+          break;
+        case '+':
+          atoms->type = RE_TYPE_PLUS;
+          break;
+        case '^':
+          atoms->type = RE_TYPE_BEGIN;
+          break;
+        case '$':
+          atoms->type = RE_TYPE_END;
+          break;
+        case '(':
+          atoms->type = RE_TYPE_LPAREN;
+          if (!dry_run) preg->re_nsub++;
+          break;
+        case ')':
+          atoms->type = RE_TYPE_RPAREN;
+          break;
+        case '\\':
+          switch (pattern_index[1]) {
+            case '\0':
+              atoms->type = RE_TYPE_LIT;
+              atoms->ch = '\\';
+              break;
+            case 'w':
+              pattern_index++;
+              ccl_len += gen_ccl_const(atoms, &ccl, REGEX_DEF_w, dry_run);
+              break;
+            case 's':
+              pattern_index++;
+              ccl_len += gen_ccl_const(atoms, &ccl, REGEX_DEF_s, dry_run);
+              break;
+            case 'd':
+              pattern_index++;
+              ccl_len += gen_ccl_const(atoms, &ccl, REGEX_DEF_d, dry_run);
+              break;
+            default:
+              pattern_index++;
+              atoms->type = RE_TYPE_LIT;
+              atoms->ch = pattern_index[0];
+          }
+          break;
+        case '[':
+          pattern_index++;
+           /*
+            * pattern [] must contain at least one letter.
+            * first letter of the content should be ']' if you want to match literal ']'
+            */
+          for (len = 1;
+              pattern_index[len] != '\0' && (pattern_index[len] != ']');
+              len++)
+            ;
+          ccl_len += gen_ccl(atoms, &ccl, pattern_index, len, dry_run);
+          pattern_index += len;
+          break;
+        default:
+          atoms->type = RE_TYPE_LIT;
+          atoms->ch = pattern_index[0];
+          break;
+      }
+      pattern_index++;
+      if (dry_run) {
+        atoms_count++;
+      } else {
+        atoms++;
+      } 
     }
-    i++;
-    j++;
-    if (j >= MAX_ATOM_SIZE) return 1;
+    if (dry_run) {
+      dry_run = false;
+      pattern_index = (char *)pattern;
+      REGEX_FREE(atoms);
+      atoms = (ReAtom *)REGEX_ALLOC(sizeof(ReAtom) * atoms_count + ccl_len);
+      ccl = (unsigned char *)(atoms + atoms_count);
+    } else {
+      atoms->type = RE_TYPE_TERM;
+      preg->atoms = atoms - atoms_count + 1;
+      break;
+    }
   }
-  preg->atoms[j] = re_atom_new(RE_TYPE_TERM);
   return 0;
 }
 
@@ -358,9 +386,6 @@ regcomp(regex_t *preg, const char *pattern, int _cflags)
 void
 regfree(regex_t *preg)
 {
-  for (int i = 0; i < MAX_ATOM_SIZE; i++) {
-    if (preg->atoms[i] == NULL) break;
-    if (preg->atoms[i]->type == RE_TYPE_BRACKET) REGEX_FREE(preg->atoms[i]->ccl);
-    REGEX_FREE(preg->atoms[i]);
-  }
+  REGEX_FREE(preg->atoms);
 }
+
