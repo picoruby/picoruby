@@ -6,49 +6,107 @@
 #include "common.h"
 #include "my_regex.h"
 
-#ifdef MMRUBY_REGEX_LIBC
-  #include <regex.h>
-#else
-  #include "regex_light.h"
-#endif
+typedef struct preg_cache {
+  const char *pattern;
+  regex_t preg;
+} PregCache;
 
-bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResult result[REGEX_MAX_RESULT_NUM])
+#define PREG_CACHE_SIZE 23
+
+PregCache *global_preg_cache;
+
+void MyRegexCache_new(bool use_global_preg_cache)
 {
-  int i;
-  regex_t regexBuffer;
-  regmatch_t match[REGEX_MAX_RESULT_NUM];
-  int size;
+#ifndef MRBC_ALLOC_LIBC
+  RegexSetAllocProcs(mmrbc_alloc, mmrbc_free);
+#endif
+  if (use_global_preg_cache) {
+    global_preg_cache = mmrbc_alloc(sizeof(PregCache) * PREG_CACHE_SIZE);
+    memset(global_preg_cache, 0, sizeof(PregCache) * PREG_CACHE_SIZE);
+  } else {
+    global_preg_cache = NULL;
+  }
+}
 
-  if (regcomp(&regexBuffer, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
-    FATALP("regcomp failed: /%s/", pattern);
-    return false;
+void regex_cache_free(void)
+{
+  int i = 0;
+  PregCache *cache = global_preg_cache;
+  while (cache->preg.atoms && i < PREG_CACHE_SIZE) {
+    regfree(&cache->preg);
+    cache++;
+    i++;
+  }
+}
+
+void MyRegexCache_free(void)
+{
+  if (global_preg_cache == NULL) return;
+  regex_cache_free();
+  mmrbc_free(global_preg_cache);
+}
+
+bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResult *result)
+{
+  int i = 0;
+  int size;
+  bool status = false;
+  PregCache *cache;
+
+  if (global_preg_cache) {
+    cache = global_preg_cache;
+    while (cache->preg.atoms && i < PREG_CACHE_SIZE) {
+      if (cache->pattern == pattern) break;
+      cache++;
+      i++;
+    }
+    if (i == PREG_CACHE_SIZE) {
+      regex_cache_free();
+      memset(global_preg_cache, 0, sizeof(PregCache) * PREG_CACHE_SIZE);
+      cache = global_preg_cache;
+    }
+  } else {
+    cache = mmrbc_alloc(sizeof(PregCache));
+    cache->preg.atoms = NULL;
   }
 
-  size = sizeof(match) / sizeof(regmatch_t);
-  if (regexec(&regexBuffer, str, size, match, 0) != 0){
+  if (cache->preg.atoms == NULL) {
+    cache->pattern = pattern;
+    if (regcomp(&cache->preg, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
+      FATALP("regcomp failed: /%s/", pattern);
+    }
+  }
+
+  size = (&cache->preg)->re_nsub + 1;
+  regmatch_t pmatch[size]; // number of subexpression + 1
+
+  if (regexec(&cache->preg, str, size, pmatch, 0) != 0){
     DEBUGP("no match: %s", pattern);
-    regfree(&regexBuffer);
-    return false;
   } else {
     DEBUGP("match!: %s", pattern);
+    status = true;
   }
 
-  if (resultRequired) {
+  if (status && resultRequired) {
     for (i = 0; i < size; i++){
-      int startIndex = match[i].rm_so;
-      int endIndex = match[i].rm_eo;
+      int startIndex = pmatch[i].rm_so;
+      int endIndex = pmatch[i].rm_eo;
       if (startIndex == -1 || endIndex == -1) {
         continue;
       }
       DEBUGP("match[%d] index [start, end] = %d, %d", i, startIndex, endIndex);
-      strsafencpy(result[i].value, str + startIndex, endIndex - startIndex, MAX_TOKEN_LENGTH);
-      result[i].value[endIndex - startIndex] = '\0';
-      DEBUGP("match result: %s", result[i].value);
+      strsafencpy((result + i)->value, str + startIndex, endIndex - startIndex, MAX_TOKEN_LENGTH);
+      (result + i)->value[endIndex - startIndex] = '\0';
+      DEBUGP("match result: %s", (result + i)->value);
     }
   }
 
-  regfree(&regexBuffer);
-  return true;
+  if (global_preg_cache == NULL) {
+    regfree(&cache->preg);
+    mmrbc_free(cache);
+  }
+
+  return status;
 }
 
 bool Regex_match2(char *str, const char *pattern)

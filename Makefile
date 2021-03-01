@@ -24,7 +24,7 @@ DEPS := cli/heap.h cli/mmirb.c cli/mmruby.c cli/mmrbc.c \
         src/debug.h \
         src/generator.h src/generator.c \
         src/my_regex.h  src/my_regex.c \
-        src/regex_light.h  src/regex_light.c \
+        src/regex_light/src/regex.h  src/regex_light/src/regex.c \
         src/node.h      src/node.c \
         src/scope.h     src/scope.c \
         src/stream.h    src/stream.c \

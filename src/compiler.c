@@ -11,6 +11,7 @@
 #include "token.h"
 #include "tokenizer.h"
 #include "tokenizer_helper.h"
+#include "my_regex.h"
 
 #ifdef MMRBC_DEBUG
 #define ZERO     "\e[30;1m"
@@ -79,6 +80,7 @@ printToken(Tokenizer *tokenizer, Token *token) {
 
 bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
+  MyRegexCache_new(false); /* not using global_preg_cache */
   Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
@@ -129,6 +131,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
       }
     }
   }
+  MyRegexCache_free();
   Parse(parser, 0, "");
   bool success;
   if (p->error_count == 0) {
