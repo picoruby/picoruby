@@ -2,7 +2,7 @@
 #define MMRBC_REGEX_H_
 
 #include <stdint.h>
-#include "regex_light.h"
+#include "regex_light/src/regex.h"
 
 #define REGEX_MAX_RESULT_NUM 1
 #define REGEX_MAX_RESULT_LENGTH 30

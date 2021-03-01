@@ -2,3 +2,6 @@
 	path = src/mrubyc
 	url = git@github.com:hasumikin/mrubyc.git
 	branch = master
+[submodule "src/regex_light"]
+	path = src/regex_light
+	url = git@github.com:hasumikin/regex_light.git
