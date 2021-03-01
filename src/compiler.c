@@ -107,6 +107,8 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
             case CONSTANT:
             case STRING:
             case OP_ASGN:
+            case DSTRING_TOP:
+            case DSTRING_MID:
               string = ParsePushStringPool(p, topToken->value);
               break;
             default:
