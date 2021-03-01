@@ -102,11 +102,6 @@ Tokenizer* const Tokenizer_new(ParserState *p, StreamInterface *si)
     self->state = EXPR_BEG;
     p->cmd_start = true;
   }
-  { /* prepare regex */
-#ifndef MRBC_ALLOC_LIBC
-    RegexSetAllocProcs(mmrbc_alloc, mmrbc_free);
-#endif
-  }
   return self;
 }
 

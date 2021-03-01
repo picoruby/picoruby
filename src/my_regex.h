@@ -16,4 +16,8 @@ bool Regex_match2(char *str, const char *pattern);
 
 bool Regex_match3(char *str, const char *pattern, RegexResult result[REGEX_MAX_RESULT_NUM]);
 
+void MyRegexCache_new(bool use_global_preg_cache);
+
+void MyRegexCache_free(void);
+
 #endif

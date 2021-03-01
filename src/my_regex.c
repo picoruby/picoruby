@@ -6,29 +6,88 @@
 #include "common.h"
 #include "my_regex.h"
 
+typedef struct preg_cache {
+  const char *pattern;
+  regex_t preg;
+} PregCache;
+
+#define PREG_CACHE_SIZE 23
+
+PregCache *global_preg_cache;
+
+void MyRegexCache_new(bool use_global_preg_cache)
+{
+#ifndef MRBC_ALLOC_LIBC
+  RegexSetAllocProcs(mmrbc_alloc, mmrbc_free);
+#endif
+  if (use_global_preg_cache) {
+    global_preg_cache = mmrbc_alloc(sizeof(PregCache) * PREG_CACHE_SIZE);
+    memset(global_preg_cache, 0, sizeof(PregCache) * PREG_CACHE_SIZE);
+  } else {
+    global_preg_cache = NULL;
+  }
+}
+
+void regex_cache_free(void)
+{
+  int i = 0;
+  PregCache *cache = global_preg_cache;
+  while (cache->preg.atoms && i < PREG_CACHE_SIZE) {
+    regfree(&cache->preg);
+    cache++;
+    i++;
+  }
+}
+
+void MyRegexCache_free(void)
+{
+  if (global_preg_cache == NULL) return;
+  regex_cache_free();
+  mmrbc_free(global_preg_cache);
+}
+
 bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResult *result)
 {
-  int i;
-  regex_t preg;
+  int i = 0;
   int size;
+  bool status = false;
+  PregCache *cache;
 
-  if (regcomp(&preg, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
-    FATALP("regcomp failed: /%s/", pattern);
-    return false;
+  if (global_preg_cache) {
+    cache = global_preg_cache;
+    while (cache->preg.atoms && i < PREG_CACHE_SIZE) {
+      if (cache->pattern == pattern) break;
+      cache++;
+      i++;
+    }
+    if (i == PREG_CACHE_SIZE) {
+      regex_cache_free();
+      memset(global_preg_cache, 0, sizeof(PregCache) * PREG_CACHE_SIZE);
+      cache = global_preg_cache;
+    }
+  } else {
+    cache = mmrbc_alloc(sizeof(PregCache));
+    cache->preg.atoms = NULL;
   }
 
-  size = preg.re_nsub + 1;
+  if (cache->preg.atoms == NULL) {
+    cache->pattern = pattern;
+    if (regcomp(&cache->preg, pattern, REG_EXTENDED|REG_NEWLINE) != 0){
+      FATALP("regcomp failed: /%s/", pattern);
+    }
+  }
+
+  size = (&cache->preg)->re_nsub + 1;
   regmatch_t pmatch[size]; // number of subexpression + 1
 
-  if (regexec(&preg, str, size, pmatch, 0) != 0){
+  if (regexec(&cache->preg, str, size, pmatch, 0) != 0){
     DEBUGP("no match: %s", pattern);
-    regfree(&preg);
-    return false;
   } else {
     DEBUGP("match!: %s", pattern);
+    status = true;
   }
 
-  if (resultRequired) {
+  if (status && resultRequired) {
     for (i = 0; i < size; i++){
       int startIndex = pmatch[i].rm_so;
       int endIndex = pmatch[i].rm_eo;
@@ -42,8 +101,12 @@ bool regex_match(char *str, const char *pattern, bool resultRequired, RegexResul
     }
   }
 
-  regfree(&preg);
-  return true;
+  if (global_preg_cache == NULL) {
+    regfree(&cache->preg);
+    mmrbc_free(cache);
+  }
+
+  return status;
 }
 
 bool Regex_match2(char *str, const char *pattern)
