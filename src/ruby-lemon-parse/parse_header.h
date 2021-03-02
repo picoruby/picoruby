@@ -119,8 +119,8 @@ typedef struct string_pool StringPool;
 typedef struct string_pool
 {
   StringPool *prev;
-  uint16_t size;
-  uint16_t index;
+  uint16_t size;  /* maximum size of strings */
+  uint16_t index; /* current size + 1 of strings */
   char strings[STRING_POOL_POOL_SIZE];
 } StringPool;
 

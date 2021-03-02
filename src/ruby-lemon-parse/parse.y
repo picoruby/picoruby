@@ -1117,8 +1117,33 @@ none(A) ::= . { A = 0; }
     return pool;
   }
 
+  const char *findFromStringPool(ParserState *p, char *s)
+  {
+    if (s[0] == '\0') return STRING_NULL;
+    if (s[1] == '-' && s[0] == '\0') return STRING_NEG;
+    if (strcmp(s, "[]") == 0) return STRING_ARY;
+    StringPool *pool = p->current_string_pool;
+    uint16_t index;
+    while (pool) {
+      index = 0;
+      for (;;) {
+        if (strcmp(s, &pool->strings[index]) == 0) return &pool->strings[index];
+        while (index < pool->index) {
+          if (pool->strings[index] == '\0') break;
+          index++;
+        }
+        index++;
+        if (index >= pool->index) break;
+      }
+      pool = pool->prev;
+    }
+    return NULL;
+  }
+
   const char *ParsePushStringPool(ParserState *p, char *s)
   {
+    const char *result = findFromStringPool(p, s);
+    if (result) return result;
     size_t length = strlen(s) + 1; /* including \0 */
     StringPool *pool = p->current_string_pool;
     if (pool->size < pool->index + length) {
@@ -1131,7 +1156,7 @@ none(A) ::= . { A = 0; }
     }
     uint16_t index = pool->index;
     strcpy((char *)&pool->strings[index], s);
-    pool->index += length;
+    pool->index += length; /* position of the next insertion */
     return (const char *)&pool->strings[index];
   }
 
