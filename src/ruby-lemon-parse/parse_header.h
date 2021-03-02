@@ -76,7 +76,6 @@ typedef enum {
   ATOM,
   CONS,
   LITERAL,
-  iLITERAL
 } NodeType;
 
 typedef struct node Node;
@@ -91,7 +90,7 @@ typedef struct {
 } Atom;
 
 typedef struct {
-  char *name;
+  const char *name;
 } Value;
 
 struct node {
@@ -100,7 +99,6 @@ struct node {
     Atom atom;
     Cons cons;
     Value value;
-    char iValue[PTR_SIZE * 2];
   };
 };
 
@@ -114,18 +112,31 @@ typedef struct node_box
   Node *nodes;
 } NodeBox;
 
-typedef struct token_store
+#define STRING_POOL_SIZE (PTR_SIZE * 16)
+#define STRING_POOL_HEADER_SIZE (PTR_SIZE * 3)
+#define STRING_POOL_POOL_SIZE (STRING_POOL_SIZE - STRING_POOL_HEADER_SIZE)
+typedef struct string_pool StringPool;
+typedef struct string_pool
 {
-  char *str;
-  struct token_store *prev;
-} TokenStore;
+  StringPool *prev;
+  uint16_t size;  /* maximum size of strings */
+  uint16_t index; /* current size + 1 of strings */
+  char strings[STRING_POOL_POOL_SIZE];
+} StringPool;
+
+typedef struct specail_string_pool {
+  char null[1]; /* "" */
+  char neg[2];  /* "-" */
+  char ary[3];  /* "[]" */
+} SpecialStringPool;;
 
 typedef struct parser_state {
   Scope *scope;
   NodeBox *root_node_box;
   NodeBox *current_node_box;
   uint8_t node_box_size;
-  TokenStore *token_store;
+  StringPool *current_string_pool;
+  SpecialStringPool special_string_pool;
   int error_count;
   unsigned int cond_stack;
   unsigned int cmdarg_stack;

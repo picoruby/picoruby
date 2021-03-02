@@ -24,7 +24,7 @@ DEPS := cli/heap.h cli/mmirb.c cli/mmruby.c cli/mmrbc.c \
         src/debug.h \
         src/generator.h src/generator.c \
         src/my_regex.h  src/my_regex.c \
-        src/regex_light.h  src/regex_light.c \
+        src/regex_light/src/regex.h  src/regex_light/src/regex.c \
         src/node.h      src/node.c \
         src/scope.h     src/scope.c \
         src/stream.h    src/stream.c \
@@ -65,6 +65,7 @@ host_production:
 
 host_valgrind:
 	rm massif.out.* ; $(MAKE) clean ; $(MAKE) host_production CFLAGS=-DMRBC_ALLOC_LIBC && \
+	  valgrind --tool=massif --stacks=yes ./build/host-production/bin/mmrbc test/fixtures/hello_world.rb
 	  valgrind --tool=massif --stacks=yes ./build/host-production/bin/mmrbc test/fixtures/larger_script.rb
 
 arm_all:

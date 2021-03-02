@@ -11,6 +11,7 @@
 #include "token.h"
 #include "tokenizer.h"
 #include "tokenizer_helper.h"
+#include "my_regex.h"
 
 #ifdef MMRBC_DEBUG
 #define ZERO     "\e[30;1m"
@@ -79,6 +80,7 @@ printToken(Tokenizer *tokenizer, Token *token) {
 
 bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
+  MyRegexCache_new(false); /* not using global_preg_cache */
   Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
@@ -93,12 +95,32 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
           #ifdef MMRBC_DEBUG
           printToken(tokenizer, topToken);
           #endif
-          TokenStore *ts = ParsePushTokenStore(p, topToken->value);
-          if (prevType == DSTRING_END && topToken->type == STRING_END) {
+          const char *string;
+          switch (topToken->type) {
+            case IVAR:
+            case GVAR:
+            case CHAR:
+            case LABEL:
+            case INTEGER:
+            case FLOAT:
+            case IDENTIFIER:
+            case CONSTANT:
+            case STRING:
+            case OP_ASGN:
+            case DSTRING_TOP:
+            case DSTRING_MID:
+              string = ParsePushStringPool(p, topToken->value);
+              break;
+            default:
+            string = topToken->value;
+              break;
+          }
+          if ((prevType == DSTRING_END || prevType == STRING_BEG)
+              && topToken->type == STRING_END) {
             Parse(parser, STRING, ""); /* to help pareser */
           }
           if (topToken->type != STRING_END) {
-            Parse(parser, topToken->type, ts->str);
+            Parse(parser, topToken->type, string);
           }
           prevType = topToken->type;
         }
@@ -111,6 +133,7 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
       }
     }
   }
+  MyRegexCache_free();
   Parse(parser, 0, "");
   bool success;
   if (p->error_count == 0) {

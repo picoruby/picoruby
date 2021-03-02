@@ -2,9 +2,9 @@
 #define MMRBC_REGEX_H_
 
 #include <stdint.h>
+#include "regex_light/src/regex.h"
 
 #define REGEX_MAX_RESULT_NUM 1
-#define REGEX_MAX_PATTERN_LENGTH 30
 #define REGEX_MAX_RESULT_LENGTH 30
 
 typedef struct regex_result
@@ -15,5 +15,9 @@ typedef struct regex_result
 bool Regex_match2(char *str, const char *pattern);
 
 bool Regex_match3(char *str, const char *pattern, RegexResult result[REGEX_MAX_RESULT_NUM]);
+
+void MyRegexCache_new(bool use_global_preg_cache);
+
+void MyRegexCache_free(void);
 
 #endif

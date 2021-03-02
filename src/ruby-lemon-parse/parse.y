@@ -33,19 +33,19 @@
 
 %extra_context { ParserState *p }
 
-%token_type { char* }
+%token_type { const char* }
 //%token_destructor { LEMON_FREE($$); }
 
 %default_type { Node* }
 //%default_destructor { LEMON_FREE($$); }
 
 %type call_op       { uint8_t }
-%type cname         { char* }
-%type fname         { char* }
-%type sym           { char* }
-%type basic_symbol  { char* }
-%type operation2    { char* }
-%type f_norm_arg    { char* }
+%type cname         { const char* }
+%type fname         { const char* }
+%type sym           { const char* }
+%type basic_symbol  { const char* }
+%type operation2    { const char* }
+%type f_norm_arg    { const char* }
 
 %include {
   #include <stdlib.h>
@@ -83,24 +83,9 @@
 %include {
   #include "parse_header.h"
 
-  static char*
-  parser_strndup(ParserState *p, const char *s, size_t len)
-  {
-    char *b = (char *)LEMON_ALLOC(len+1);//TODO リテラルプールへ
-    memcpy(b, s, len);
-    b[len] = '\0';
-    return b;
-  }
-  #undef strndup
-  #define strndup(s,len) parser_strndup(p, s, len)
-
-  static char*
-  parser_strdup(ParserState *p, const char *s)
-  {
-    return parser_strndup(p, s, strlen(s));
-  }
-  #undef strdup
-  #define strdup(s) parser_strdup(p, s)
+  #define STRING_NULL (p->special_string_pool.null)
+  #define STRING_NEG  (p->special_string_pool.neg)
+  #define STRING_ARY  (p->special_string_pool.ary)
 
   static Node*
   cons_gen(ParserState *p, Node *car, Node *cdr)
@@ -263,12 +248,14 @@
     return result;
   }
 
+  const char *ParsePushStringPool(ParserState *p, char *s);
+
   /* nageted integer */
   static Node*
   new_neglit(ParserState *p, const char *s, AtomType a)
   {
-    Node* result = list3(atom(ATOM_unary), literal("-") ,list2(atom(a), literal(s)));
-    return result;
+    const char *const_neg = ParsePushStringPool(p, STRING_NEG);
+    return list3(atom(ATOM_unary), literal(const_neg) ,list2(atom(a), literal(s)));
   }
 
   static Node*
@@ -504,8 +491,8 @@
   static Node*
   new_str(ParserState *p, const char *a)
   {
-    if (!a) {
-      return list2(atom(ATOM_str), literal(""));
+    if (a == NULL || a[0] == '\0') {
+      return list2(atom(ATOM_str), literal(STRING_NULL));
     } else {
       return list2(atom(ATOM_str), literal(a));
     }
@@ -513,16 +500,16 @@
 
   static Node*
   unite_str(ParserState *p, Node *a, Node* b) {
-    char *a_value = Node_valueName(a);
+    const char *a_value = Node_valueName(a);
     size_t a_len = strlen(a_value);
-    char *b_value = Node_valueName(b);
+    const char *b_value = Node_valueName(b);
     size_t b_len = strlen(b_value);
-    char *new_value = LEMON_ALLOC(a_len + b_len + 1);
+    char new_value[a_len + b_len + 1];
     memcpy(new_value, a_value, a_len);
     memcpy(new_value + a_len, b_value, b_len);
     new_value[a_len + b_len] = '\0';
-    Node *n = literal(new_value);
-    LEMON_FREE(new_value);
+    const char *value = ParsePushStringPool(p, new_value);
+    Node *n = literal(value);
     return n;
   }
 
@@ -662,7 +649,7 @@ stmt(A) ::= none. { A = new_begin(p, 0); }
 //command_asgn(A) ::= lhs(B) E command_rhs(C). { A = new_asgn(p, B, C); }
 //command_asgn(A) ::= var_lhs(B) OP_ASGN(C) command_rhs(D). { A = new_op_asgn(p, B, C, D); }
 //command_asgn(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) command_rhs(E).
-//  { A = new_op_asgn(p, new_call(p, B, "[]", C, '.'), D, E); }
+//  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
 //
 //command_rhs ::= command_call. [OP_ASGN]
 //command_rhs ::= command_asgn.
@@ -728,7 +715,7 @@ args(A) ::= args(B) COMMA arg(C). { A = list3(atom(ATOM_args_add), B, C); }
 arg(A) ::= lhs(B) E arg_rhs(C). { A = new_asgn(p, B, C); }
 arg(A) ::= var_lhs(B) OP_ASGN(C) arg_rhs(D). { A = new_op_asgn(p, B, C, D); }
 arg(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) arg_rhs(E).
-  { A = new_op_asgn(p, new_call(p, B, "[]", C, '.'), D, E); }
+  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
 arg(A) ::= primary_value(B) call_op(C) IDENTIFIER(D) OP_ASGN(E) arg_rhs(F).
   { A = new_op_asgn(p, new_call(p, B, D, 0, C), E, F); }
 arg(A) ::= arg(B) PLUS arg(C).   { A = call_bin_op(B, "+" ,C); }
@@ -763,7 +750,7 @@ arg_rhs ::= arg. [OP_ASGN]
 
 lhs ::= variable.
 lhs(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET.
-  { A = new_call(p, B, "[]", C, '.'); }
+  { A = new_call(p, B, STRING_ARY, C, '.'); }
 lhs(A) ::= primary_value(B) call_op(C) IDENTIFIER(D). { A = new_call(p, B, D, 0, C); }
 
 cname ::= CONSTANT.
@@ -953,7 +940,7 @@ method_call(A)  ::=  primary_value(B) call_op(C) operation2(D) opt_paren_args(E)
                        A = new_call(p, B, D, E, C);
                      }
 method_call(A)  ::=  primary_value(B) LBRACKET opt_call_args(C) RBRACKET. {
-                       A = new_call(p, B, "[]", C, '.');
+                       A = new_call(p, B, STRING_ARY, C, '.');
                      }
 
 scope_nest_KW_do ::= KW_do. { scope_nest(p, false); }
@@ -1121,6 +1108,58 @@ none(A) ::= . { A = 0; }
 
 %code {
 
+  StringPool *stringPool_new(StringPool *prev, uint16_t size)
+  {
+    StringPool *pool = (StringPool *)LEMON_ALLOC(STRING_POOL_HEADER_SIZE + size);
+    pool->prev = prev;
+    pool->size = size;
+    pool->index = 0;
+    return pool;
+  }
+
+  const char *findFromStringPool(ParserState *p, char *s)
+  {
+    if (s[0] == '\0') return STRING_NULL;
+    if (s[1] == '-' && s[0] == '\0') return STRING_NEG;
+    if (strcmp(s, "[]") == 0) return STRING_ARY;
+    StringPool *pool = p->current_string_pool;
+    uint16_t index;
+    while (pool) {
+      index = 0;
+      for (;;) {
+        if (strcmp(s, &pool->strings[index]) == 0) return &pool->strings[index];
+        while (index < pool->index) {
+          if (pool->strings[index] == '\0') break;
+          index++;
+        }
+        index++;
+        if (index >= pool->index) break;
+      }
+      pool = pool->prev;
+    }
+    return NULL;
+  }
+
+  const char *ParsePushStringPool(ParserState *p, char *s)
+  {
+    const char *result = findFromStringPool(p, s);
+    if (result) return result;
+    size_t length = strlen(s) + 1; /* including \0 */
+    StringPool *pool = p->current_string_pool;
+    if (pool->size < pool->index + length) {
+      if (length > STRING_POOL_POOL_SIZE) {
+        p->current_string_pool = stringPool_new(pool, length);
+      } else {
+        p->current_string_pool = stringPool_new(pool, STRING_POOL_POOL_SIZE);
+      }
+      pool = p->current_string_pool;
+    }
+    uint16_t index = pool->index;
+    strcpy((char *)&pool->strings[index], s);
+    pool->index += length; /* position of the next insertion */
+    return (const char *)&pool->strings[index];
+  }
+
   ParserState *ParseInitState(uint8_t node_box_size)
   {
     ParserState *p = LEMON_ALLOC(sizeof(ParserState));
@@ -1129,19 +1168,12 @@ none(A) ::= . { A = 0; }
     p->current_node_box = NULL;
     p->root_node_box = Node_newBox(p);
     p->current_node_box = p->root_node_box;
-    p->token_store = LEMON_ALLOC(sizeof(TokenStore));
-    p->token_store->str = NULL;
-    p->token_store->prev = NULL;
+    p->current_string_pool = stringPool_new(NULL, STRING_POOL_POOL_SIZE);
+    strcpy(STRING_NULL, "");
+    strcpy(STRING_NEG,  "-");
+    strcpy(STRING_ARY, "[]");
     p->error_count = 0;
     return p;
-  }
-
-  void freeTokenStore(TokenStore *token_store)
-  {
-    if (token_store == NULL) return;
-    freeTokenStore(token_store->prev);
-    LEMON_FREE(token_store->str);
-    LEMON_FREE(token_store);
   }
 
   void ParserStateFree(ParserState *p) {
@@ -1151,8 +1183,14 @@ none(A) ::= . { A = 0; }
       if (scope->upper == NULL) break;
       scope = scope->upper;
     }
+    Scope_freeCodePool(scope);
+    StringPool *prev_pool;
+    while (p->current_string_pool) {
+      prev_pool = p->current_string_pool->prev;
+      LEMON_FREE(p->current_string_pool);
+      p->current_string_pool = prev_pool;
+    }
     Scope_free(scope);
-    freeTokenStore(p->token_store);
     LEMON_FREE(p);
   }
 
@@ -1163,7 +1201,7 @@ none(A) ::= . { A = 0; }
       freeNode(n->cons.car);
       freeNode(n->cons.cdr);
     } else if (n->type == LITERAL) {
-      LEMON_FREE(n->value.name);
+      LEMON_FREE((char *)n->value.name);
     }
     //printf("after free cons: %p\n", n);
     LEMON_FREE(n);
@@ -1171,15 +1209,6 @@ none(A) ::= . { A = 0; }
 
   void ParseFreeAllNode(yyParser *yyp) {
     Node_freeAllNode(yyp->p->root_node_box);
-  }
-
-  TokenStore *ParsePushTokenStore(ParserState *p, char *s)
-  {
-    TokenStore *ls = LEMON_ALLOC(sizeof(TokenStore));
-    ls->str = strdup(s);
-    ls->prev = p->token_store;
-    p->token_store = ls;
-    return ls;
   }
 
 #ifndef NDEBUG
@@ -1207,7 +1236,6 @@ none(A) ::= . { A = 0; }
         }
         break;
       case LITERAL:
-      case iLITERAL:
         printf("\e[31;1m\"%s\"\e[m", Node_valueName(n));
         if (isRightMost) {
           printf("]");
@@ -1228,7 +1256,6 @@ none(A) ::= . { A = 0; }
         printf("  value:%d\n", n->atom.type);
         break;
       case LITERAL:
-      case iLITERAL:
         printf("    literal:%p", n);
         printf("  name:\"%s\"\n", Node_valueName(n));
         break;
@@ -1258,7 +1285,6 @@ none(A) ::= . { A = 0; }
         type = "a";
         break;
       case LITERAL:
-      case iLITERAL:
         type = "l";
         break;
       case CONS:

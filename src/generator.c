@@ -119,7 +119,7 @@ void gen_sym(Scope *scope, Node *node)
   Scope_pushCode(litIndex);
 }
 
-void gen_literal_numeric(Scope *scope, char *num, LiteralType type, Misc pos_neg)
+void gen_literal_numeric(Scope *scope, const char *num, LiteralType type, Misc pos_neg)
 {
   Scope_pushCode(OP_LOADL);
   Scope_pushCode(scope->sp);
@@ -134,46 +134,49 @@ void gen_literal_numeric(Scope *scope, char *num, LiteralType type, Misc pos_neg
   Scope_pushCode(litIndex);
 }
 
-void cleanup_numeric_literal(char *lit, char *result)
+void cleanup_numeric_literal(char *lit)
 {
+  char result[strlen(lit) + 1];
   int j = 0;
   for (int i = 0; i <= strlen(lit); i++) {
     if (lit[i] == '_') continue;
     result[j] = lit[i];
     j++;
   }
+  result[j] = '\0';
+  /* Rewrite StingPool */
+  memcpy(lit, result, strlen(result));
+  lit[strlen(result)] = '\0';
 }
 
 void gen_float(Scope *scope, Node *node, Misc pos_neg)
 {
-  char *value = Node_valueName(node->cons.car);
-  char num[strlen(value)];
-  cleanup_numeric_literal(value, num);
-  gen_literal_numeric(scope, num, FLOAT_LITERAL, pos_neg);
+  char *value = (char *)Node_valueName(node->cons.car);
+  cleanup_numeric_literal(value);
+  gen_literal_numeric(scope, (const char *)value, FLOAT_LITERAL, pos_neg);
   Scope_push(scope);
 }
 
 void gen_int(Scope *scope, Node *node, Misc pos_neg)
 {
-  char *value = Node_valueName(node->cons.car);
-  char num[strlen(value)];
-  cleanup_numeric_literal(value, num);
+  char *value = (char *)Node_valueName(node->cons.car);
+  cleanup_numeric_literal(value);
   unsigned long val;
-  switch (num[1]) {
+  switch (value[1]) {
     case ('b'):
     case ('B'):
-      val = strtol(num+2, NULL, 2);
+      val = strtol(value+2, NULL, 2);
       break;
     case ('o'):
     case ('O'):
-      val = strtol(num+2, NULL, 8);
+      val = strtol(value+2, NULL, 8);
       break;
     case ('x'):
     case ('X'):
-      val = strtol(num+2, NULL, 16);
+      val = strtol(value+2, NULL, 16);
       break;
     default:
-      val = strtol(num, NULL, 10);
+      val = strtol(value, NULL, 10);
   }
   if (pos_neg == NUM_POS && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
@@ -200,9 +203,7 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
-    char buf[12];
-    snprintf(buf, 12, "%ld", val);
-    gen_literal_numeric(scope, buf, INTEGER_LITERAL, pos_neg);
+    gen_literal_numeric(scope, (const char *)value, INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }
@@ -228,7 +229,7 @@ void gen_call(Scope *scope, Node *node)
       }
     }
   }
-  char *method_name = Node_literalName(node->cons.car->cons.cdr);
+  const char *method_name = Node_literalName(node->cons.car->cons.cdr);
   if (method_name[1] == '\0' && strchr("><+-*/", method_name[0]) != NULL) {
     switch (method_name[0]) {
       case '>': Scope_pushCode(OP_GT); break;
@@ -347,17 +348,6 @@ void gen_var(Scope *scope, Node *node)
   }
 }
 
-int assignSymIndex(Scope *scope, char *method_name)
-{
-  char *assign_method_name = mmrbc_alloc(strlen(method_name) + 2);
-  memcpy(assign_method_name, method_name, strlen(method_name));
-  assign_method_name[strlen(method_name)] = '=';
-  assign_method_name[strlen(method_name) + 1] = '\0';
-  int symIndex = Scope_newSym(scope, assign_method_name);
-  mmrbc_free(assign_method_name);
-  return symIndex;
-}
-
 void gen_assign(Scope *scope, Node *node)
 {
   int num;
@@ -423,8 +413,8 @@ void gen_assign(Scope *scope, Node *node)
       Scope_push(scope);
       Scope_pushCode(OP_SEND);
       Scope_pushCode(scope->sp);
-      char *method_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
-      int symIndex = assignSymIndex(scope, method_name);
+      const char *method_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
+      int symIndex = Scope_assignSymIndex(scope, (const char *)method_name);
       Scope_pushCode(symIndex);
       Scope_pushCode(nargs + 1);
       break;
@@ -438,8 +428,8 @@ void gen_op_assign(Scope *scope, Node *node)
   int num = 0;
   LvarScopeReg lvar = {0, 0};
   char *method_name = NULL;
-  char *call_name = NULL;
-  method_name = Node_literalName(node->cons.cdr->cons.car->cons.cdr);
+  const char *call_name;
+  method_name = (char *)Node_literalName(node->cons.cdr->cons.car->cons.cdr);
   bool isANDOPorOROP = false; /* &&= or ||= */
   if (method_name[1] == '|' || method_name[1] == '&') {
     isANDOPorOROP = true;
@@ -552,7 +542,7 @@ void gen_op_assign(Scope *scope, Node *node)
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
         method_name[strlen(method_name) - 1] = '\0';
-        symIndex = Scope_newSym(scope, method_name);
+        symIndex = Scope_newSym(scope, (const char *)method_name);
         Scope_pushCode(symIndex);
         Scope_pushCode(1);
       }
@@ -611,7 +601,7 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pop(scope);
       Scope_pop(scope);
       Scope_pushCode(scope->sp);
-      symIndex = assignSymIndex(scope, call_name);
+      symIndex = Scope_assignSymIndex(scope, call_name);
       Scope_pushCode(symIndex);
      /* count of args */
      if (!strcmp(call_name, "[]")) {
@@ -1177,7 +1167,6 @@ void Generator_generate(Scope *scope, Node *root)
   uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
   vmCode[8] = (crc >> 8) & 0xff;
   vmCode[9] = crc & 0xff;
-  Scope_freeCodePool(scope);
   scope->vm_code = vmCode;
   scope->vm_code_size = codeSize;
 }

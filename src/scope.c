@@ -51,6 +51,7 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
   self->vm_code = NULL;
   self->vm_code_size = 0;
   self->break_stack = NULL;
+  self->last_assign_symbol = NULL;
   return self;
 }
 
@@ -58,7 +59,6 @@ void freeLiteralRcsv(Literal *literal)
 {
   if (literal == NULL) return;
   freeLiteralRcsv(literal->next);
-  mmrbc_free(literal->value);
   mmrbc_free(literal);
 }
 
@@ -66,7 +66,6 @@ void freeSymbolRcsv(Symbol *symbol)
 {
   if (symbol == NULL) return;
   freeSymbolRcsv(symbol->next);
-  mmrbc_free(symbol->value);
   mmrbc_free(symbol);
 }
 
@@ -74,8 +73,18 @@ void freeLvarRcsv(Lvar *lvar)
 {
   if (lvar == NULL) return;
   freeLvarRcsv(lvar->next);
-  mmrbc_free(lvar->name);
   mmrbc_free(lvar);
+}
+
+void freeAssignSymbol(AssignSymbol *assign_symbol)
+{
+  AssignSymbol *prev;
+  while (assign_symbol) {
+    prev = assign_symbol->prev;
+    mmrbc_free((void *)assign_symbol->value);
+    mmrbc_free(assign_symbol);
+    assign_symbol = prev;
+  }
 }
 
 void Scope_free(Scope *self)
@@ -86,13 +95,14 @@ void Scope_free(Scope *self)
   freeLiteralRcsv(self->literal);
   freeSymbolRcsv(self->symbol);
   freeLvarRcsv(self->lvar);
+  freeAssignSymbol(self->last_assign_symbol);
   if (self->vm_code != NULL) {
     mmrbc_free(self->vm_code);
   }
   mmrbc_free(self);
 }
 
-void Scope_pushNCode_self(Scope *self, const uint8_t *str, int size)
+void Scope_pushNCode_self(Scope *self, uint8_t *str, int size)
 {
   CodePool *pool;
   if (size > CODE_POOL_SIZE)
@@ -118,9 +128,7 @@ Literal *literal_new(const char *value, LiteralType type)
   Literal *literal = mmrbc_alloc(sizeof(Literal));
   literal->next = NULL;
   literal->type = type;
-  size_t len = strlen(value) + 1;
-  literal->value = mmrbc_alloc(len);
-  strsafecpy(literal->value, value, len);
+  literal->value = value;
   return literal;
 }
 
@@ -161,9 +169,7 @@ Symbol *symbol_new(const char *value)
 {
   Symbol *symbol = mmrbc_alloc(sizeof(Symbol));
   symbol->next = NULL;
-  size_t len = strlen(value) + 1;
-  symbol->value = mmrbc_alloc(len);
-  strsafecpy(symbol->value, value, len);
+  symbol->value = value;
   return symbol;
 }
 
@@ -172,9 +178,7 @@ Lvar *lvar_new(const char *name, int regnum)
   Lvar *lvar = mmrbc_alloc(sizeof(Lvar));
   lvar->regnum = regnum;
   lvar->next = NULL;
-  size_t len = strlen(name) + 1;
-  lvar->name = mmrbc_alloc(len);
-  strsafecpy(lvar->name, name, len);
+  lvar->name = name;
   return lvar;
 }
 
@@ -209,6 +213,27 @@ int Scope_newSym(Scope *self, const char *value){
   }
   sym->next = newSym;
   return index;
+}
+
+int Scope_assignSymIndex(Scope *self, const char *method_name)
+{
+  size_t length = strlen(method_name);
+  char *assign_method_name = mmrbc_alloc(length + 2);
+  memcpy(assign_method_name, method_name, length);
+  assign_method_name[length] = '=';
+  assign_method_name[length + 1] = '\0';
+  int symIndex = symbol_findIndex(self->symbol, assign_method_name);
+  if (symIndex < 0) {
+    symIndex = Scope_newSym(self, (const char *)assign_method_name);
+    AssignSymbol *assign_symbol = mmrbc_alloc(sizeof(AssignSymbol));
+    assign_symbol->prev = NULL;
+    assign_symbol->value = assign_method_name;
+    assign_symbol->prev = self->last_assign_symbol;
+    self->last_assign_symbol = assign_symbol;
+  } else {
+    mmrbc_free(assign_method_name);
+  }
+  return symIndex;
 }
 
 /*

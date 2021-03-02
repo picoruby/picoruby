@@ -5,24 +5,15 @@
 #include "node.h"
 #include "ruby-lemon-parse/parse_header.h"
 
-char *Node_valueName(Node *self)
+const char *Node_valueName(Node *self)
 {
-  if (self->type == LITERAL) {
-    return self->value.name;
-  } else if (self->type == iLITERAL) {
-    return self->iValue;
-  }
+  return self->value.name;
 }
 
 void Node_setValue(Node *self, const char *s)
 {
-  if (strlen(s) < PTR_SIZE * 2) {
-    self->type = iLITERAL;
-    strcpy(self->iValue, s);
-  } else {
-    self->type = LITERAL;
-    self->value.name = strdup(s);
-  }
+  self->type = LITERAL;
+  self->value.name = s;
 }
 
 bool Node_isAtom(Node *self)
@@ -39,7 +30,7 @@ bool Node_isCons(Node *self)
 
 bool Node_isLiteral(Node *self)
 {
-  return (self->type == LITERAL || self->type == iLITERAL);
+  return (self->type == LITERAL);
 }
 
 AtomType Node_atomType(Node *self)
@@ -55,7 +46,7 @@ AtomType Node_atomType(Node *self)
   }
 }
 
-char *Node_literalName(Node *self)
+const char *Node_literalName(Node *self)
 {
   if (self->cons.car == NULL || !Node_isLiteral(self->cons.car)) {
     return NULL;
@@ -96,7 +87,6 @@ void Node_freeAllNode(NodeBox *box)
     for (int i = 0; i < box->index + 1; i++) {
       node = (Node *)((Node *)(&box->nodes) + i);
       if (node == NULL) break;
-      if (node->type == LITERAL) mmrbc_free(node->value.name);
     }
     mmrbc_free(box);
     box = next;
