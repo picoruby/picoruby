@@ -467,6 +467,7 @@ retry:
       }
     } else if (self->line[self->pos] == '#') {
       strsafecpy(value, &(self->line[self->pos]), MAX_TOKEN_LENGTH);
+      value[strlen(value) - 1] = '\0'; /* eliminate \n */
       type = COMMENT;
     } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\t') {
       Regex_match3(&(self->line[self->pos]), "^(\\s+)", regexResult);
