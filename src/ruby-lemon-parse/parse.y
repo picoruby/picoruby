@@ -882,10 +882,6 @@ assoc(A) ::= LABEL(B) arg(C). { A = list3(atom(ATOM_assoc_new), new_sym(p, B), C
 aref_args     ::= none.
 aref_args(A)  ::= args(B) trailer. { A = B; }
 
-trailer ::= .
-trailer ::= terms.
-trailer ::= COMMA.
-
 opt_block_args_tail(A) ::= none. { A = new_args_tail(p, 0, 0, 0); }
 
 block_param(A)  ::= f_arg(B) opt_block_args_tail(C). {
@@ -992,18 +988,19 @@ literal ::= symbol.
 literal ::= words.
 literal ::= symbols.
 
-words(A) ::= WORDS_BEG opt_sep word_list(B). { A = new_array(p, B); }
+words(A) ::= WORDS_BEG opt_sep word_list(B) opt_sep. { A = new_array(p, B); }
 word_list(A) ::= word(B). { A = new_first_arg(p, B); }
 word_list(A) ::= word_list(B) opt_sep word(C). { A = list3(atom(ATOM_args_add), B, C); }
 word(A) ::= STRING(B). { A = new_str(p, B); }
 
-symbols(A) ::= SYMBOLS_BEG opt_sep symbol_list(B). { A = new_array(p, B); }
+symbols(A) ::= SYMBOLS_BEG opt_sep symbol_list(B) opt_sep. { A = new_array(p, B); }
 symbol_list(A) ::= symbol_word(B). { A = new_first_arg(p, B); }
 symbol_list(A) ::= symbol_list(B) opt_sep symbol_word(C). { A = list3(atom(ATOM_args_add), B, C); }
 symbol_word(A) ::= STRING(B). { A = new_sym(p, B); }
 
 opt_sep ::= none.
 opt_sep ::= WORDS_SEP.
+opt_sep ::= opt_sep WORDS_SEP.
 
 var_ref ::= variable.
 var_ref(A) ::= KW_nil. { A = list1(atom(ATOM_kw_nil)); }
@@ -1094,16 +1091,24 @@ operation2 ::= IDENTIFIER.
 operation2 ::= CONSTANT.
 operation2 ::= FID.
 
+opt_nl ::= .
+opt_nl ::= nl.
+
 opt_terms ::= .
 opt_terms ::= terms.
+
+trailer ::= .
+trailer ::= terms.
+trailer ::= COMMA.
+
+term ::= SEMICOLON.
+term ::= nl.
+
+nl ::= NL.
+
 terms ::= term.
 terms ::= terms term.
 
-opt_nl ::= .
-opt_nl ::= NL.
-
-term ::= NL.
-term ::= SEMICOLON.
 none(A) ::= . { A = 0; }
 
 %code {
@@ -1173,6 +1178,8 @@ none(A) ::= . { A = 0; }
     strcpy(STRING_NEG,  "-");
     strcpy(STRING_ARY, "[]");
     p->error_count = 0;
+    p->cond_stack = 0;
+    p->cmdarg_stack = 0;
     return p;
   }
 

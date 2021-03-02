@@ -202,7 +202,7 @@ retry:
         self->mode = MODE_NONE;
         break;
       } else if (self->line[self->pos] == ' ' || self->line[self->pos] == '\n') {
-        Regex_match3(&(self->line[self->pos]), "^([ ]+)", regexResult);
+        Regex_match3(&(self->line[self->pos]), "^(\\s+)", regexResult);
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         type = WORDS_SEP;
       } else {
@@ -728,6 +728,7 @@ retry:
       case EXPR_FNAME:
       case EXPR_DOT:
       case EXPR_CLASS:
+      case EXPR_BEG|EXPR_LABEL:
         goto retry;
       default:
         break;

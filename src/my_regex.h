@@ -5,7 +5,7 @@
 #include "regex_light/src/regex.h"
 
 #define REGEX_MAX_RESULT_NUM 1
-#define REGEX_MAX_RESULT_LENGTH 30
+#define REGEX_MAX_RESULT_LENGTH 255
 
 typedef struct regex_result
 {
