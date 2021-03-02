@@ -15,7 +15,7 @@ typedef struct preg_cache {
 
 PregCache *global_preg_cache;
 
-void MyRegexCache_new(bool use_global_preg_cache)
+void MyRegex_setup(bool use_global_preg_cache)
 {
 #ifndef MRBC_ALLOC_LIBC
   RegexSetAllocProcs(mmrbc_alloc, mmrbc_free);

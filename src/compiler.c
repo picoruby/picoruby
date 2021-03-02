@@ -80,7 +80,10 @@ printToken(Tokenizer *tokenizer, Token *token) {
 
 bool Compiler_compile(ParserState *p, StreamInterface *si)
 {
-  MyRegexCache_new(false); /* not using global_preg_cache */
+  /* unusing global_preg_cache prefers smaller RAM consumption */
+  MyRegex_setup(false);
+  /* using global_preg_cache prefers fewer number of step */
+  // MyRegex_setup(true);
   Tokenizer *tokenizer = Tokenizer_new(p, si);
   Token *topToken = tokenizer->currentToken;
   yyParser *parser = ParseAlloc(mmrbc_alloc, p);
@@ -152,7 +155,6 @@ BREAK:
 #ifdef MMRBC_DEBUG
   dumpCode(p->scope);
 #endif
-  /* FIXME memory leak happens if success is false */
   ParseFreeAllNode(parser);
   mmrbc_free(parser);
   Tokenizer_free(tokenizer);
