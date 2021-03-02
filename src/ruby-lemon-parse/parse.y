@@ -1087,7 +1087,7 @@ string_interp(A) ::= DSTRING_BEG compstmt(B) DSTRING_END.
   { A = B; }
 
 operation(A) ::= IDENTIFIER(B). { A = list2(atom(ATOM_at_ident), literal(B)); }
-operation ::= CONSTANT.
+operation(A) ::= CONSTANT(B). { A = list2(atom(ATOM_at_const), literal(B)); }
 operation ::= FID.
 
 operation2 ::= IDENTIFIER.
