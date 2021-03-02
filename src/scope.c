@@ -108,7 +108,7 @@ void Scope_pushNCode_self(Scope *self, uint8_t *str, int size)
   if (size > CODE_POOL_SIZE)
     generateCodePool(self, size);
   if (self->current_code_pool->index + size > self->current_code_pool->size)
-    generateCodePool(self, IREP_HEADER_SIZE);
+    generateCodePool(self, CODE_POOL_SIZE);
   pool = self->current_code_pool;
   memcpy(&pool->data[pool->index], str, size);
   pool->index += size;
@@ -283,7 +283,7 @@ void Scope_pop(Scope *self){
   self->sp--;
 }
 
-int Scope_codeSize(CodePool *code_pool)
+int scope_codeSize(CodePool *code_pool)
 {
   int size = 0;
   while (code_pool != NULL) {
@@ -423,9 +423,12 @@ int Scope_updateVmCodeSizeThenReturnTotalSize(Scope *self)
 {
   int totalSize = 0;
   if (self == NULL) return 0;
+  /* check if it's an empty child scope like `class A; #HERE; end` */
+  if (self->first_code_pool->next == NULL &&
+      self->first_code_pool->index == IREP_HEADER_SIZE) return 0;
   totalSize += Scope_updateVmCodeSizeThenReturnTotalSize(self->first_lower);
   totalSize += Scope_updateVmCodeSizeThenReturnTotalSize(self->next);
-  self->vm_code_size = Scope_codeSize(self->first_code_pool);
+  self->vm_code_size = scope_codeSize(self->first_code_pool);
   totalSize += self->vm_code_size;
   return totalSize;
 }

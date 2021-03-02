@@ -1124,6 +1124,7 @@ void codegen(Scope *scope, Node *tree)
 
 void memcpyFlattenCode(uint8_t *body, CodePool *code_pool)
 {
+  if (code_pool->next == NULL && code_pool->index == code_pool->size) return;
   int pos = 0;
   while (code_pool) {
     memcpy(&body[pos], code_pool->data, code_pool->index);
