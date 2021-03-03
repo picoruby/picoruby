@@ -724,7 +724,10 @@ retry:
     self->pos += strlen(value);
   }
   if (type == NL) {
-    switch (self->state) {
+    switch ((int)self->state) {
+      /*     ^^^
+       * Casting to int can suprress `Warning: case not evaluated in enumerated type`
+       */
       case EXPR_BEG:
       case EXPR_FNAME:
       case EXPR_DOT:
