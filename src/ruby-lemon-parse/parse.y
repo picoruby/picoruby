@@ -1094,6 +1094,7 @@ trailer ::= COMMA.
 
 term ::= SEMICOLON.
 term ::= nl.
+term ::= COMMENT.
 
 nl ::= NL.
 

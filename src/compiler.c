@@ -115,10 +115,9 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
               string = ParsePushStringPool(p, topToken->value);
               break;
             case COMMENT:
-              goto BREAK;
               break;
             default:
-            string = topToken->value;
+              string = topToken->value;
               break;
           }
           if ((prevType == DSTRING_END || prevType == STRING_BEG)
@@ -135,7 +134,6 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
           prevType = topToken->type;
         }
       }
-BREAK:
       if (topToken->next == NULL) {
         break;
       } else {
