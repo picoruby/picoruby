@@ -100,6 +100,7 @@ int main(int argc, char *argv[])
       return 1;
     }
     si = StreamInterface_new(argv[optind], STREAM_TYPE_FILE);
+    if (si == NULL) return 1;
   }
   ParserState *p = Compiler_parseInitState(si->node_box_size);
   if (Compiler_compile(p, si)) {

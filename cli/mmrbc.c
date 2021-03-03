@@ -107,6 +107,7 @@ int main(int argc, char * const *argv)
   mrbc_init_alloc(heap, HEAP_SIZE);
 
   StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
+  if (si == NULL) return 1;
   ParserState *p = Compiler_parseInitState(si->node_box_size);
   if (Compiler_compile(p, si)) {
     ret = output(p->scope, in);

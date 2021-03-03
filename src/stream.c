@@ -70,6 +70,8 @@ StreamInterface *StreamInterface_new(char *c, StreamType type)
     case STREAM_TYPE_FILE:
       if( (si->stream = (void *)fopen(c, "r" ) ) == NULL ) {
         FATALP("mmrbc: cannot open program file. (%s)", c);
+        mmrbc_free(si);
+        return NULL;
       } else {
         si->fgetsProc = fgets;
         si->feofProc = feof;
