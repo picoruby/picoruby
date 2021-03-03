@@ -571,7 +571,7 @@ retry:
       } else {
         value[0] = self->line[self->pos];
         value[1] = '\0';
-        if ( (IS_BEG() || IS_ARG() ) && value[0] == '-') {
+        if ( (IS_BEG() || (IS_ARG() && self->line[self->pos - 1] != ' ') ) && value[0] == '-') {
           if (IS_NUM(1)) {
             type = UMINUS_NUM;
           } else {
