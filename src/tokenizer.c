@@ -298,9 +298,24 @@ retry:
           "}",
           EXPR_END);
         self->pos++;
-      } else if (self->line[self->pos] == '\\' && self->line[self->pos + 1] == self->modeTerminater) {
-        c[0] = '\\';
-        c[1] = self->modeTerminater;
+      } else if (self->line[self->pos] == '\\') {
+        self->pos++;
+        if (self->line[self->pos] == self->modeTerminater) {
+          c[0] = self->modeTerminater;
+        } else {
+          switch (self->line[self->pos]) {
+            case 'a':  c[0] =  7; break;
+            case 'b':  c[0] =  8; break;
+            case 't':  c[0] =  9; break;
+            case 'n':  c[0] = 10; break;
+            case 'v':  c[0] = 11; break;
+            case 'f':  c[0] = 12; break;
+            case 'r':  c[0] = 13; break;
+            case 'e':  c[0] = 27; break;
+            case '\\': c[0] = 92; break;
+            default: c[0] = self->line[self->pos];
+          }
+        }
       } else {
         c[0] = self->line[self->pos];
       }
@@ -533,7 +548,7 @@ retry:
           ERRORP("unknown paren error");
       }
     } else if (strchr("+-*/%&|^!~><=?:", self->line[self->pos]) != NULL) {
-      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWqQ][]-~!@#$%^&*()_=+\[{};:'\"?])", regexResult)) {
+      if (Regex_match3(&(self->line[self->pos]), "^(%[iIwWqQ][]-~!@#$%^&*()_=+\[{};:'\"?/])", regexResult)) {
         strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
         switch (value[1]) {
           case 'w':
