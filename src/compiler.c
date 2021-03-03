@@ -128,6 +128,10 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
           if (topToken->type != STRING_END) {
             Parse(parser, topToken->type, string);
           }
+          if (p->error_count != 0) {
+            Token_free(topToken);
+            goto FAIL;
+          }
           prevType = topToken->type;
         }
       }
@@ -140,8 +144,9 @@ BREAK:
       }
     }
   }
-  MyRegexCache_free();
   Parse(parser, 0, "");
+FAIL:
+  MyRegexCache_free();
   bool success;
   if (p->error_count == 0) {
     success = true;
@@ -150,10 +155,11 @@ BREAK:
 #endif
     Generator_generate(p->scope, p->root_node_box->nodes);
   } else {
+    ERRORP("Syntax error at line:%d\n%s", tokenizer->line_num, tokenizer->line);
     success = false;
   }
 #ifdef MMRBC_DEBUG
-  dumpCode(p->scope);
+  if (success) dumpCode(p->scope);
 #endif
   ParseFreeAllNode(parser);
   mmrbc_free(parser);

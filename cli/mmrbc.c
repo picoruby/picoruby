@@ -111,6 +111,8 @@ int main(int argc, char * const *argv)
   ParserState *p = Compiler_parseInitState(si->node_box_size);
   if (Compiler_compile(p, si)) {
     ret = output(p->scope, in);
+  } else {
+    ret = 1;
   }
   StreamInterface_free(si);
   Compiler_parserStateFree(p);
@@ -118,5 +120,5 @@ int main(int argc, char * const *argv)
 #ifdef MMRBC_DEBUG
   memcheck();
 #endif
-  return 0;
+  return ret;
 }

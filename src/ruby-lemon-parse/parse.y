@@ -580,22 +580,13 @@
 }
 
 %parse_accept {
-#ifndef NDEBUG
-//  printf("Parse has completed successfully.\n");
-#endif
 }
 
 %syntax_error {
-#ifndef NDEBUG
-  fprintf(stderr, "Syntax error\n");
-#endif
   p->error_count++;
 }
 
 %parse_failure {
-#ifndef NDEBUG
-  fprintf(stderr, "Parse failure\n");
-#endif
   p->error_count++;
 }
 
