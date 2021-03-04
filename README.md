@@ -70,6 +70,10 @@ See implementation roadmap on [issue/6](https://github.com/hasumikin/mmruby/issu
 
 Fork, fix, then send a pull request.
 
+### Acknowledgement
+
+Part of this project was coded by [Monstarlab](https://monstar-lab.com/) with the support of [the Ruby Association Grant Program 2020](https://www.ruby.or.jp/en/news/20201022).
+
 ### License
 
-Copyright © 2020 HASUMI Hitoshi. See MIT-LICENSE for further details.
+Copyright © 2020-2021 HASUMI Hitoshi & Monstarlab. See MIT-LICENSE for further details.
