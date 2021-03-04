@@ -293,6 +293,31 @@ int scope_codeSize(CodePool *code_pool)
   return size;
 }
 
+#define MMRUBYNULL "MMRUBYNULL\xF5"
+/*
+ * Replace back to null letter
+ *  -> see REPLACE_NULL_MMRUBY, too
+ */
+size_t replace_mmruby_null(char *value)
+{
+  int i = 0;
+  int j = 0;
+  char j_value[strlen(value) + 1];
+  while (value[i]) {
+    if (value[i] != '\xF5') {
+      j_value[j] = value[i];
+    } else if (strncmp(value+i+1, MMRUBYNULL, sizeof(MMRUBYNULL)-1) == 0) {
+      j_value[j] = '\0';
+      i += sizeof(MMRUBYNULL) - 1;
+    }
+    i++;
+    j++;
+  }
+  j_value[j] = '\0';
+  if (j < i) memcpy(value, j_value, j);
+  return j;
+}
+
 void Scope_finish(Scope *scope)
 {
   int op_size = scope->vm_code_size;
@@ -314,7 +339,7 @@ void Scope_finish(Scope *scope)
   lit = scope->literal;
   while (lit != NULL) {
     Scope_pushCode(lit->type);
-    len = strlen(lit->value);
+    len = replace_mmruby_null(lit->value);
     Scope_pushCode((len >>8) & 0xff);
     Scope_pushCode(len & 0xff);
     Scope_pushNCode((uint8_t *)lit->value, len);

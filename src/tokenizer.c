@@ -152,6 +152,16 @@ void tokenizer_pushToken(Tokenizer *self, int line_num, int pos, Type type, char
   self->currentToken = newToken;
 }
 
+/*
+ * Replace null letter with "\xF5MMRUBYNULL\xF5"
+ *  -> see also replace_mmruby_null();
+ */
+#define REPLACE_NULL_MMRUBY \
+  do { \
+    strsafecat(value, "\xF5MMRUBYNULL", MAX_TOKEN_LENGTH); \
+    c[0] = '\xF5'; \
+  } while (0)
+
 int Tokenizer_advance(Tokenizer* const self, bool recursive)
 {
   DEBUGP("Aadvance. mode: `%d`", self->mode);
@@ -302,6 +312,14 @@ retry:
         self->pos++;
         if (self->line[self->pos] == self->modeTerminater) {
           c[0] = self->modeTerminater;
+        } else if (Regex_match3(&(self->line[self->pos]), "^([0-7]+)", regexResult)) {
+          /*
+           * An octal number
+           */
+          regexResult[0].value[3] = '\0'; /* maximum 3 digits */
+          c[0] = strtol(regexResult[0].value, NULL, 8) % 0x100;
+          if (c[0] == 0) REPLACE_NULL_MMRUBY;
+          self->pos += strlen(regexResult[0].value) - 1;
         } else {
           switch (self->line[self->pos]) {
             case 'a':  c[0] =  7; break;
@@ -313,6 +331,20 @@ retry:
             case 'r':  c[0] = 13; break;
             case 'e':  c[0] = 27; break;
             case '\\': c[0] = 92; break;
+            case 'x':
+              /*
+               * Should ba a hex number
+               */
+              self->pos++;
+              if (Regex_match3(&(self->line[self->pos]), "^([0-9a-fA-F]+)", regexResult)) {
+                regexResult[0].value[2] = '\0'; /* maximum 2 digits */
+                c[0] = strtol(regexResult[0].value, NULL, 16);
+                if (c[0] == '\0') REPLACE_NULL_MMRUBY;
+              } else {
+                ERRORP("Invalid hex escape");
+                self->p->error_count++;
+              }
+              break;
             default: c[0] = self->line[self->pos];
           }
         }
@@ -844,6 +876,7 @@ retry:
     tokenizer_pushToken(self,
       self->line_num,
       self->pos - strlen(value),
+        /* FIXME: ^^^^^^^^^^^^^ incorrect if value contains escape sequences */
       type,
       value,
       self->state);
