@@ -453,7 +453,6 @@ void gen_op_assign(Scope *scope, Node *node)
           num = lvar.reg_num;
         }
         Scope_pushCode(OP_MOVE);
-        Scope_push(scope);
         Scope_pushCode(scope->sp);
         Scope_push(scope);
         Scope_pushCode(num);
@@ -559,24 +558,16 @@ void gen_op_assign(Scope *scope, Node *node)
         Scope_pushCode(lvar.scope_num - 1);
       } else {
         Scope_pushCode(OP_MOVE);
-        Scope_pushCode(num);
-        Scope_pushCode(scope->sp);
       }
       break;
     case (ATOM_at_ivar):
       Scope_pushCode(OP_SETIV);
-      Scope_pushCode(scope->sp);
-      Scope_pushCode(num);
       break;
     case (ATOM_at_gvar):
       Scope_pushCode(OP_SETGV);
-      Scope_pushCode(scope->sp);
-      Scope_pushCode(num);
       break;
     case (ATOM_at_const):
       Scope_pushCode(OP_SETCONST);
-      Scope_pushCode(scope->sp);
-      Scope_pushCode(num);
       break;
     case (ATOM_call):
       /*+
@@ -603,17 +594,28 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pushCode(scope->sp);
       symIndex = Scope_assignSymIndex(scope, call_name);
       Scope_pushCode(symIndex);
-     /* count of args */
-     if (!strcmp(call_name, "[]")) {
-       Scope_pushCode(2); /* .[]= */
-     } else {
-       Scope_pushCode(1); /* .attr= */
-     }
+      /* count of args */
+      if (!strcmp(call_name, "[]")) {
+        Scope_pushCode(2); /* .[]= */
+      } else {
+        Scope_pushCode(1); /* .attr= */
+      }
       break;
     default:
       FATALP("error");
   }
-  //Scope_push(scope);
+  switch(Node_atomType(node->cons.car)) {
+    case (ATOM_lvar): if (lvar.scope_num > 0) break;
+    case (ATOM_at_ivar):
+    case (ATOM_at_gvar):
+    case (ATOM_at_const):
+      Scope_pushCode(scope->sp);
+      Scope_pushCode(num);
+      Scope_push(scope);
+      break;
+    default:
+      break;
+  }
   /* goto label */
   if (isANDOPorOROP) Scope_backpatchJmpLabel(jmpLabel, scope->vm_code_size);
 }
