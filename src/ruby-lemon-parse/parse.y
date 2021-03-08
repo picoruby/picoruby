@@ -735,6 +735,11 @@ arg(A) ::= arg(B) RSHIFT arg(C). { A = call_bin_op(B, ">>", C); }
 arg(A) ::= arg(B) ANDOP arg(C). { A = new_and(p, B, C); }
 arg(A) ::= arg(B) OROP arg(C). { A = new_or(p, B, C); }
 arg(A) ::= arg(B) QUESTION arg(C) COLON arg(D). { A = new_if(p, B, C, D); }
+arg(A) ::= defn_head(B) f_arglist_paren(C) E arg(D). {
+                  A = defn_setup(p, B, C, D);
+                  scope_unnest(p);
+                }
+
 arg ::= primary.
 
 arg_rhs ::= arg. [OP_ASGN]
