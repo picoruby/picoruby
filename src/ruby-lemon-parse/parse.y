@@ -935,7 +935,15 @@ method_call(A)  ::=  primary_value(B) LBRACKET opt_call_args(C) RBRACKET. {
                        A = new_call(p, B, STRING_ARY, C, '.');
                      }
 
+scope_nest_brace ::= LBRACE_BLOCK. { scope_nest(p, false); }
 scope_nest_KW_do ::= KW_do. { scope_nest(p, false); }
+brace_block(A) ::= scope_nest_brace
+                   opt_block_param(B)
+                   bodystmt(C)
+                   RBRACE. {
+                     A = new_block(p, B, C);
+                     scope_unnest(p);
+                   }
 brace_block(A) ::= scope_nest_KW_do
                    opt_block_param(B)
                    bodystmt(C)

@@ -564,8 +564,14 @@ retry:
           self->state = EXPR_END;
           break;
         case '{':
-          type = LBRACE;
-          self->state = EXPR_BEG|EXPR_LABEL;
+          if (IS_ARG()) {
+            type = LBRACE_BLOCK; /* block (primary) */
+          } else if (self->state == EXPR_ENDARG) {
+            type = LBRACE_ARG;  /* block (expr) */
+          } else {
+            type = LBRACE;
+          }
+          self->state = EXPR_BEG;
           break;
         case '}':
           if (self->paren_stack[self->paren_stack_num] == PAREN_BRACE) {
