@@ -339,7 +339,7 @@ void Scope_finish(Scope *scope)
   lit = scope->literal;
   while (lit != NULL) {
     Scope_pushCode(lit->type);
-    len = replace_mmruby_null(lit->value);
+    len = replace_mmruby_null((char *)lit->value);
     Scope_pushCode((len >>8) & 0xff);
     Scope_pushCode(len & 0xff);
     Scope_pushNCode((uint8_t *)lit->value, len);
