@@ -20,6 +20,6 @@ jobs:
       with:
         ruby-version: 3.0.0
     - name: make
-      run: make
+      run: make host_production
     - name: make check
       run: make check
