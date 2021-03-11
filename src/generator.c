@@ -571,7 +571,7 @@ void gen_op_assign(Scope *scope, Node *node)
       /* exec assignment .[]= or .attr= */
       Scope_pushCode(OP_SEND);
       Scope_pop(scope);
-      Scope_pop(scope);
+      if (!strcmp(call_name, "[]")) Scope_pop(scope);
       Scope_pushCode(scope->sp);
       symIndex = Scope_assignSymIndex(scope, call_name);
       Scope_pushCode(symIndex);
