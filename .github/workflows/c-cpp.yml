@@ -20,9 +20,7 @@ jobs:
       with:
         ruby-version: 3.0.0
     - name: Setup mruby
-      uses: ruby/setup-ruby@v1.66.0
-      with:
-        ruby-version: mruby-2.1.1
+      run: sudo apt install mruby=2.0.0-1
     - name: make
       run: make host_production
     - name: make check
