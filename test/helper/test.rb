@@ -29,12 +29,15 @@ class MmrubyTest
     end
     puts
     puts "Summary:"
+    print @@green
+    puts "  Success: #{@@success_count}"
+    print @@brown if @@pending_count > 0
+    puts "  Pending: #{@@pending_count}#{@@reset}"
     if @@failures.count > 0
       print @@red
     else
       print @@green
     end
-    puts "  Success: #{@@success_count}"
     puts "  Failure: #{@@failures.count}"
     @@failures.each do |failure|
       puts "    File: #{failure.filename}"
@@ -45,11 +48,8 @@ class MmrubyTest
       puts "        #{failure.expected.gsub(/\n/, %Q/\n        /)}"
       puts "      Actual:"
       puts "        #{failure.actual.gsub(/\n/, %Q/\n        /)}"
-      puts
     end
     print @@reset
-    print @@brown if @@pending_count > 0
-    puts "  Pending: #{@@pending_count}#{@@reset}"
   end
 
   def self.desc(text)

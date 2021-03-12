@@ -149,6 +149,8 @@ build_bin:
 gdb: host_debug
 	$(GDB) --args ./build/host-debug/bin/mmrbc $(TEST_FILE)
 
+test: check
+
 check: host_production
 	ruby ./test/helper/test.rb
 

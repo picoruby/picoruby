@@ -15,6 +15,12 @@ class DefTest < MmrubyTest
     puts my_method('My arg')
   RUBY
 
+  desc "endless def"
+  assert_equal(<<~RUBY, "0")
+    def my_method(arg) = arg.to_i
+    puts my_method(nil)
+  RUBY
+
   pending
 
   desc "def method with an optional arg"
