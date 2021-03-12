@@ -977,12 +977,15 @@ void codegen(Scope *scope, Node *tree)
       scope->nest_stack = 1; /* 00000000 00000000 00000000 00000001 */
       codegen(scope, tree->cons.cdr->cons.car);
       Scope_pop(scope);
+      /* Prevent double return */
       CodePool *pool = scope->current_code_pool;
-      /* Prevent double return (I'm not 100% sure if it's OK) */
-//      if (pool->data[pool->index - 2] != OP_RETURN && pool->data[pool->index - 1] != scope->sp) {
-        Scope_pushCode(OP_RETURN);
-        Scope_pushCode(scope->sp);
-//      }
+      /* Prevention only works if `OP_RETURN Rn` aren't separated */
+      if (pool->index > 1)
+        if (pool->data[pool->index - 1] != scope->sp)
+          if (pool->data[pool->index - 2] != OP_RETURN) {
+            Scope_pushCode(OP_RETURN);
+            Scope_pushCode(scope->sp);
+          }
       Scope_pushCode(OP_STOP);
       Scope_finish(scope);
       break;

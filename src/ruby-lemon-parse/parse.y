@@ -282,7 +282,7 @@
     return list2(atom(ATOM_at_const), literal(s));
   }
 
-  static
+  static void
   generate_lvar(Scope *scope, Node *n)
   {
     if (Node_atomType(n) == ATOM_lvar) {
