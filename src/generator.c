@@ -114,7 +114,8 @@ void gen_str(Scope *scope, Node *node)
 void gen_sym(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_LOADSYM);
-  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
   int litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
 }
@@ -741,7 +742,8 @@ void gen_case(Scope *scope, Node *node)
     } else {
       /* no else clause */
       Scope_pushCode(OP_LOADNIL);
-      Scope_pushCode(scope->sp++);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
       break;
     }
   }
@@ -766,7 +768,8 @@ void gen_if(Scope *scope, Node *node)
   if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
     /* right before KW_end */
     Scope_pushCode(OP_LOADNIL);
-    Scope_pushCode(scope->sp++);
+    Scope_pushCode(scope->sp);
+    Scope_push(scope);
   } else {
     /* if_tail */
     codegen(scope, node->cons.cdr->cons.cdr->cons.car);
@@ -795,7 +798,8 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   Scope_backpatchJmpLabel(label_top, top);
   /* after while block */
   Scope_pushCode(OP_LOADNIL);
-  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
   Scope_popBreakStack(scope);
   pop_nest_stack(scope);
 }
@@ -872,16 +876,17 @@ void gen_irep(Scope *scope, Node *node)
 void gen_block(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_BLOCK);
-  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
   Scope_pushCode(scope->next_lower_number);
-
   gen_irep(scope, node->cons.cdr);
 }
 
 void gen_def(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_TCLASS);
-  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
   Scope_pushCode(OP_METHOD);
   Scope_pushCode(scope->sp);
   Scope_pushCode(scope->next_lower_number);
@@ -890,7 +895,8 @@ void gen_def(Scope *scope, Node *node)
   int litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
   Scope_pushCode(OP_LOADSYM);
-  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
   Scope_pushCode(litIndex);
 
   gen_irep(scope, node->cons.cdr->cons.cdr);
@@ -900,7 +906,8 @@ void gen_class(Scope *scope, Node *node)
 {
   int litIndex;
   Scope_pushCode(OP_LOADNIL);
-  Scope_pushCode(scope->sp++);
+  Scope_pushCode(scope->sp);
+  Scope_push(scope);
   /*
    * TODO: `::Klass` `Klass::Glass`
    */
@@ -920,12 +927,14 @@ void gen_class(Scope *scope, Node *node)
 
   if (node->cons.cdr->cons.cdr->cons.car->cons.cdr == NULL) {
     Scope_pushCode(OP_LOADNIL);
-    Scope_pushCode(scope->sp++);
+    Scope_pushCode(scope->sp);
+    Scope_push(scope);
     scope->nlowers--;
   } else {
     node->cons.cdr->cons.car = NULL; /* Stop generating super class CONST */
     Scope_pushCode(OP_EXEC);
-    Scope_pushCode(scope->sp++);
+    Scope_pushCode(scope->sp);
+    Scope_push(scope);
     Scope_pushCode(scope->next_lower_number);
 
     scope = scope_nest(scope);
