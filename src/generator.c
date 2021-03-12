@@ -415,6 +415,12 @@ void gen_op_assign(Scope *scope, Node *node)
   LvarScopeReg lvar = {0, 0};
   char *method_name = NULL;
   const char *call_name;
+  { /* setup call_name here to avoid warning */
+    if (Node_atomType(node->cons.car) == ATOM_call)
+      call_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
+    else
+      call_name = NULL;
+  }
   bool is_call_name_at_ary = false;
   method_name = (char *)Node_literalName(node->cons.cdr->cons.car->cons.cdr);
   bool isANDOPorOROP = false; /* &&= or ||= */
@@ -462,7 +468,6 @@ void gen_op_assign(Scope *scope, Node *node)
       break;
     case (ATOM_call):
       Scope_push(scope);
-      call_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
       if (!strcmp(call_name, "[]")) is_call_name_at_ary = true;
       codegen(scope, node->cons.car->cons.cdr->cons.car);
       node->cons.car->cons.cdr->cons.car = NULL;
