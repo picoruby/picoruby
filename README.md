@@ -1,6 +1,6 @@
 [![C/C++ CI](https://github.com/hasumikin/picoruby/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/hasumikin/picoruby/actions/workflows/c-cpp.yml)
 
-## ~~mmruby~~ PicoRuby
+## PicoRuby ~~mmruby~~ (renamed on March 15th, 2021)
 
 PicoRuby is an alternative mruby implementation which is:
 
@@ -43,6 +43,8 @@ PicoRuby is an alternative mruby implementation which is:
 `make` command makes "debug build" which shows debug-print like this:
 
 ![](https://raw.githubusercontent.com/hasumikin/picoruby/master/docs/images/debug-print.png)
+
+(Please replace `mmruby` with `picoruby`)
 
 You can get "production build" like `build/host-production/bin/picoruby` which omits debug-print by `make host_production`
 
