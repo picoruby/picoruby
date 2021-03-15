@@ -13,7 +13,7 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### Set-up
 
-- picomrbc
+- picorbc
   - pico mruby compiler. The main part of this repository
 - [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
   - Another implementation of mruby virtual machine
@@ -30,8 +30,8 @@ PicoRuby is an alternative mruby implementation which is:
 
 `make` command will make three executable binaries
 
-- picomrbc
-  - `build/host-debug/bin/picomrbc source.rb` makes `source.mrb` which is VM code runs on mruby VM
+- picorbc
+  - `build/host-debug/bin/picorbc source.rb` makes `source.mrb` which is VM code runs on mruby VM
 - picoruby
   - `build/host-debug/bin/picoruby source.rb` executes Ruby just like normal `ruby` command
   - You can also do it like `build/host-debug/bin/picoruby -e 'puts "Hello World!"'`

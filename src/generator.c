@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "mmrbc.h"
+#include "picorbc.h"
 #include "common.h"
 #include "debug.h"
 #include "scope.h"
@@ -1166,7 +1166,7 @@ void Generator_generate(Scope *scope, Node *root)
   codegen(scope, root);
   int irepSize = Scope_updateVmCodeSizeThenReturnTotalSize(scope);
   int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
-  uint8_t *vmCode = mmrbc_alloc(codeSize);
+  uint8_t *vmCode = picorbc_alloc(codeSize);
   memcpy(&vmCode[0], "RITE0006", 8);
   vmCode[10] = (codeSize >> 24) & 0xff;
   vmCode[11] = (codeSize >> 16) & 0xff;

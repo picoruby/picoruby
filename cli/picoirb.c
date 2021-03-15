@@ -6,14 +6,14 @@
 
 #include "../src/mrubyc/src/mrubyc.h"
 
-#if defined(MMRBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
+#if defined(PICORBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
   #include "../src/mrubyc/src/alloc.c"
 #endif
 
-#include "../src/mmrbc.h"
+#include "../src/picorbc.h"
 
 #include "heap.h"
-#include "mmirb_lib/shell.c"
+#include "picoirb_lib/shell.c"
 
 int loglevel;
 
@@ -94,7 +94,7 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  char *buf = mmrbc_alloc(BUFLEN + 1);
+  char *buf = picorbc_alloc(BUFLEN + 1);
   int len;
   len = hal_read(1, buf, BUFLEN);
   if (len == -1) {
@@ -107,7 +107,7 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
   } else {
     FATALP("This should not happen (c_gets)");
   }
-  mmrbc_free(buf);
+  picorbc_free(buf);
 }
 
 static void
@@ -196,7 +196,7 @@ c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_free(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-#if defined(MMRBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
+#if defined(PICORBC_DEBUG) && !defined(MRBC_ALLOC_LIBC)
   int total;
   int used;
   int free;
