@@ -134,7 +134,8 @@ build_lib: src/mrubyc/src/hal_user_reerved/hal.c
 src/mrubyc/src/hal_user_reerved/hal.c:
 	cd src/mrubyc/src/hal_user_reserved/ ;\
 	  if [ ! -f ./hal.c ]; then ln -s ../../../../cli/picoirb_lib/hal_posix/hal.c ./hal.c; fi; \
-	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoirb_lib/hal_posix/hal.h ./hal.h; fi
+	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoirb_lib/hal_posix/hal.h ./hal.h; fi; \
+	  ls -l
 
 build_bin:
 	@echo "building picorbc picoruby picoirb----------"
