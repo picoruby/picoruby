@@ -188,7 +188,7 @@ static void
 c_execute_vm(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   vm_run(p->scope->vm_code);
-  SET_RETURN(c_vm->current_regs[p->scope->sp - 1]);
+  SET_RETURN(c_vm->current_regs[p->scope->sp]);
 }
 
 #define FREE_HEADER "          total       used       free       frag\r\n"
