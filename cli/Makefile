@@ -1,11 +1,11 @@
 CFLAGS += -Wall -Wpointer-arith -std=gnu99
 CC := gcc
 LDFLAGS +=
-TARGETS = picorbc picoruby picoirb_lib/shell.c picoirb
+TARGETS = picorbc picoruby picoshell_lib/shell.c picoshell
 MRUBYCDIR = ../src/mrubyc/src
 PICORBCDIR = ../src
 
-all: picorbc picoruby picoirb
+all: picorbc picoruby picoshell
 
 picorbc: picorbc.c heap.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
@@ -13,12 +13,12 @@ picorbc: picorbc.c heap.h
 picoruby: picoruby.c heap.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
 
-picoirb: picoirb.c heap.h picoirb_lib/shell.c picoirb_lib/shell.rb
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(filter-out picoirb_lib/shell.c picoirb_lib/shell.rb, $^) -L../$(LIB_DIR) -lmrubyc -lpicorbc
+picoshell: picoshell.c heap.h picoshell_lib/shell.c picoshell_lib/shell.rb
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(filter-out picoshell_lib/shell.c picoshell_lib/shell.rb, $^) -L../$(LIB_DIR) -lmrubyc -lpicorbc
 
-picoirb_lib/shell.c: picoirb_lib/shell.rb
-	cd picoirb_lib ; make all
+picoshell_lib/shell.c: picoshell_lib/shell.rb
+	cd picoshell_lib ; make all
 
 clean:
-	cd picoirb_lib ; make clean
+	cd picoshell_lib ; make clean
 	rm -f $(TARGETS)

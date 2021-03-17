@@ -13,7 +13,7 @@
 #include "../src/picorbc.h"
 
 #include "heap.h"
-#include "picoirb_lib/shell.c"
+#include "picoshell_lib/shell.c"
 
 int loglevel;
 
