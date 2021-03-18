@@ -91,10 +91,7 @@ start_irb(void)
       }
       mrbc_vm_run(c_vm);
       console_printf("=> ");
-      mrbc_value v = (mrbc_value)c_vm->current_regs[p->scope->sp];
-      if (v.tt == MRBC_TT_EMPTY) /* FIXME: something's wrong 🤔 */
-        v = (mrbc_value)c_vm->current_regs[p->scope->sp - 1];
-      mrbc_p_sub((const mrbc_value *)&v);
+      mrbc_p_sub((const mrbc_value *)&c_vm->current_regs[p->scope->sp]);
 #if defined(PICORBC_DEBUG)
       console_printf(" (reg_num: %d)", p->scope->sp);
 #endif
