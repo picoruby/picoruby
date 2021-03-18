@@ -17,7 +17,7 @@ LIB_DIR_ARM_PRODUCTION  := build/arm-production/lib
 BIN_DIR_ARM_DEBUG       := build/arm-debug/bin
 BIN_DIR_ARM_PRODUCTION  := build/arm-production/bin
 TEST_FILE := test/fixtures/hello_world.rb
-DEPS := cli/heap.h cli/picoshell.c cli/picoruby.c cli/picorbc.c \
+DEPS := cli/heap.h cli/picoshell.c cli/picoruby.c cli/picorbc.c cli/picoirb.c \
         cli/picoshell_lib/shell.rb \
         src/common.h    src/common.c \
         src/compiler.h  src/compiler.c \
@@ -34,7 +34,7 @@ DEPS := cli/heap.h cli/picoshell.c cli/picoruby.c cli/picorbc.c \
         src/version.h \
         src/ruby-lemon-parse/parse_header.h src/ruby-lemon-parse/parse.y \
         src/ruby-lemon-parse/crc.c
-TARGETS = $(BIN_DIR)/picorbc $(BIN_DIR)/picoruby $(BIN_DIR)/picoshell
+TARGETS = $(BIN_DIR)/picorbc $(BIN_DIR)/picoruby $(BIN_DIR)/picoshell $(BIN_DIR)/picoirb
 
 default: host_debug
 
@@ -137,7 +137,7 @@ src/mrubyc/src/hal_user_reerved/hal.c:
 	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoshell_lib/hal_posix/hal.h ./hal.h; fi
 
 build_bin:
-	@echo "building picorbc picoruby picoshell----------"
+	@echo "building picorbc picoruby picoshell picoirb ----------"
 	cd cli ; \
 	  $(MAKE) all CFLAGS="$(CFLAGS)" \
 	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR) \
@@ -145,6 +145,7 @@ build_bin:
 	mv cli/picoruby $(BIN_DIR)/picoruby
 	mv cli/picorbc $(BIN_DIR)/picorbc
 	mv cli/picoshell $(BIN_DIR)/picoshell
+	mv cli/picoirb $(BIN_DIR)/picoirb
 
 gdb: host_debug
 	$(GDB) --args ./build/host-debug/bin/picorbc $(TEST_FILE)

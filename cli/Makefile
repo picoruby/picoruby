@@ -5,12 +5,15 @@ TARGETS = picorbc picoruby picoshell_lib/shell.c picoshell
 MRUBYCDIR = ../src/mrubyc/src
 PICORBCDIR = ../src
 
-all: picorbc picoruby picoshell
+all: picorbc picoruby picoshell picoirb
 
 picorbc: picorbc.c heap.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
 
 picoruby: picoruby.c heap.h
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
+
+picoirb: picoirb.c heap.h
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
 
 picoshell: picoshell.c heap.h picoshell_lib/shell.c picoshell_lib/shell.rb
