@@ -33,7 +33,7 @@ class Client
 end
 
 TMPDIR = Dir.tmpdir
-PID_SOCAT = TMPDIR + "/picoirb_socat.pid"
+PID_SOCAT = TMPDIR + "/picoshell_socat.pid"
 SOCAT_OUTPUT = TMPDIR + "/socat_output"
 
 begin
@@ -46,7 +46,7 @@ begin
     fd_client = f.gets.split(" ").last
     puts "fd_server: #{fd_server}"
     puts "fd_client: #{fd_client}"
-    systemu("../build/host-debug/bin/picoirb #{fd_server}") do |server_pid|
+    systemu("../build/host-debug/bin/picoshell #{fd_server}") do |server_pid|
       puts "client pid: #{Process.pid}"
       puts "socat  pid: #{socat_pid}"
       puts "server pid: #{server_pid}"

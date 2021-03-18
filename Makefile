@@ -17,8 +17,8 @@ LIB_DIR_ARM_PRODUCTION  := build/arm-production/lib
 BIN_DIR_ARM_DEBUG       := build/arm-debug/bin
 BIN_DIR_ARM_PRODUCTION  := build/arm-production/bin
 TEST_FILE := test/fixtures/hello_world.rb
-DEPS := cli/heap.h cli/picoirb.c cli/picoruby.c cli/picorbc.c \
-        cli/picoirb_lib/shell.rb \
+DEPS := cli/heap.h cli/picoshell.c cli/picoruby.c cli/picorbc.c cli/picoirb.c \
+        cli/picoshell_lib/shell.rb \
         src/common.h    src/common.c \
         src/compiler.h  src/compiler.c \
         src/debug.h \
@@ -34,7 +34,7 @@ DEPS := cli/heap.h cli/picoirb.c cli/picoruby.c cli/picorbc.c \
         src/version.h \
         src/ruby-lemon-parse/parse_header.h src/ruby-lemon-parse/parse.y \
         src/ruby-lemon-parse/crc.c
-TARGETS = $(BIN_DIR)/picorbc $(BIN_DIR)/picoruby $(BIN_DIR)/picoirb
+TARGETS = $(BIN_DIR)/picorbc $(BIN_DIR)/picoruby $(BIN_DIR)/picoshell $(BIN_DIR)/picoirb
 
 default: host_debug
 
@@ -48,7 +48,7 @@ host_all:
 host_debug:
 	@mkdir -p $(LIB_DIR_HOST_DEBUG)
 	@mkdir -p $(BIN_DIR_HOST_DEBUG)
-	$(MAKE) $(BIN_DIR_HOST_DEBUG)/picoirb \
+	$(MAKE) $(BIN_DIR_HOST_DEBUG)/picoshell \
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_HOST_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_HOST_DEBUG) \
@@ -57,7 +57,7 @@ host_debug:
 host_production:
 	@mkdir -p $(LIB_DIR_HOST_PRODUCTION)
 	@mkdir -p $(BIN_DIR_HOST_PRODUCTION)
-	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/picoirb \
+	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/picoshell \
 	  CFLAGS="-Os -DNDEBUG -Wl,-s $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_HOST_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_HOST_PRODUCTION) \
@@ -76,7 +76,7 @@ arm_all:
 arm_debug:
 	mkdir -p $(LIB_DIR_ARM_DEBUG)
 	mkdir -p $(BIN_DIR_ARM_DEBUG)
-	$(MAKE) $(BIN_DIR_ARM_DEBUG)/picoirb \
+	$(MAKE) $(BIN_DIR_ARM_DEBUG)/picoshell \
 	  CFLAGS="-static -O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_ARM_DEBUG) \
@@ -85,7 +85,7 @@ arm_debug:
 arm_production:
 	mkdir -p $(LIB_DIR_ARM_PRODUCTION)
 	mkdir -p $(BIN_DIR_ARM_PRODUCTION)
-	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/picoirb \
+	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/picoshell \
 	  CFLAGS="-static -Os -DNDEBUG -Wl,-s $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_ARM_PRODUCTION) \
@@ -102,7 +102,7 @@ $(TARGETS): $(DEPS)
 	  CC=$(CC) AR=$(AR)
 
 psoc5lp_lib:
-	cd cli ; $(MAKE) picoirb_lib/shell.c
+	cd cli ; $(MAKE) picoshell_lib/shell.c
 	docker-compose up
 
 docker_psoc5lp_lib: $(DEPS)
@@ -133,17 +133,18 @@ build_lib: src/mrubyc/src/hal_user_reerved/hal.c
 
 src/mrubyc/src/hal_user_reerved/hal.c:
 	cd src/mrubyc/src/hal_user_reserved/ ;\
-	  if [ ! -f ./hal.c ]; then ln -s ../../../../cli/picoirb_lib/hal_posix/hal.c ./hal.c; fi; \
-	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoirb_lib/hal_posix/hal.h ./hal.h; fi
+	  if [ ! -f ./hal.c ]; then ln -s ../../../../cli/picoshell_lib/hal_posix/hal.c ./hal.c; fi; \
+	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoshell_lib/hal_posix/hal.h ./hal.h; fi
 
 build_bin:
-	@echo "building picorbc picoruby picoirb----------"
+	@echo "building picorbc picoruby picoshell picoirb ----------"
 	cd cli ; \
 	  $(MAKE) all CFLAGS="$(CFLAGS)" \
 	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR) \
 	  CC=$(CC) AR=$(AR)
 	mv cli/picoruby $(BIN_DIR)/picoruby
 	mv cli/picorbc $(BIN_DIR)/picorbc
+	mv cli/picoshell $(BIN_DIR)/picoshell
 	mv cli/picoirb $(BIN_DIR)/picoirb
 
 gdb: host_debug
@@ -154,10 +155,10 @@ test: check
 check: host_production
 	ruby ./test/helper/test.rb
 
-irb: host_debug
+shell: host_debug
 	@which socat || (echo "\nsocat is not installed\nPlease install socat\n"; exit 1)
 	@which cu || (echo "\ncu is not installed\nPlease install cu\n"; exit 1)
-	@cd bin ; bundle install && bundle exec ruby picoirb.rb
+	@cd bin ; bundle install && bundle exec ruby picoshell.rb
 
 clean:
 	cd src ; $(MAKE) clean

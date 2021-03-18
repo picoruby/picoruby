@@ -14,9 +14,9 @@ class Client
   end
 
   def start
-    puts 'picoirb client started.'
+    puts 'picoshell client started.'
     begin
-      while line = Reline.readline("picoirb> ", true)
+      while line = Reline.readline("picoshell> ", true)
         case line.chomp
         when 'exit', 'quit'
           @serialport.write "exit"
@@ -64,7 +64,7 @@ class Client
 end
 
 TMPDIR = Dir.tmpdir
-PID_SOCAT = TMPDIR + "/picoirb_socat.pid"
+PID_SOCAT = TMPDIR + "/picoshell_socat.pid"
 SOCAT_OUTPUT = TMPDIR + "/socat_output"
 
 begin
@@ -75,7 +75,7 @@ begin
   File.open(SOCAT_OUTPUT, "r") do |f|
     fd_server = f.gets.split(" ").last
     fd_client = f.gets.split(" ").last
-    systemu("../build/host-debug/bin/picoirb #{fd_server}") do |server_pid|
+    systemu("../build/host-debug/bin/picoshell #{fd_server}") do |server_pid|
       puts "client pid: #{Process.pid}"
       puts "socat  pid: #{socat_pid}"
       puts "server pid: #{server_pid}"
