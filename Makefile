@@ -155,7 +155,7 @@ test: check
 check: host_production
 	ruby ./test/helper/test.rb
 
-shell: host_debug
+picoshell: host_debug
 	@which socat || (echo "\nsocat is not installed\nPlease install socat\n"; exit 1)
 	@which cu || (echo "\ncu is not installed\nPlease install cu\n"; exit 1)
 	@cd bin ; bundle install && bundle exec ruby picoshell.rb
