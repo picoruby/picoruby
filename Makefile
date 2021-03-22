@@ -48,7 +48,7 @@ host_all:
 host_debug:
 	@mkdir -p $(LIB_DIR_HOST_DEBUG)
 	@mkdir -p $(BIN_DIR_HOST_DEBUG)
-	$(MAKE) $(BIN_DIR_HOST_DEBUG)/picoshell \
+	$(MAKE) $(BIN_DIR_HOST_DEBUG)/picoruby \
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_HOST_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_HOST_DEBUG) \
@@ -57,7 +57,7 @@ host_debug:
 host_production:
 	@mkdir -p $(LIB_DIR_HOST_PRODUCTION)
 	@mkdir -p $(BIN_DIR_HOST_PRODUCTION)
-	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/picoshell \
+	$(MAKE) $(BIN_DIR_HOST_PRODUCTION)/picoruby \
 	  CFLAGS="-Os -DNDEBUG -Wl,-s $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_HOST_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_HOST_PRODUCTION) \
@@ -76,7 +76,7 @@ arm_all:
 arm_debug:
 	mkdir -p $(LIB_DIR_ARM_DEBUG)
 	mkdir -p $(BIN_DIR_ARM_DEBUG)
-	$(MAKE) $(BIN_DIR_ARM_DEBUG)/picoshell \
+	$(MAKE) $(BIN_DIR_ARM_DEBUG)/picoruby \
 	  CFLAGS="-static -O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_DEBUG) \
 	  BIN_DIR=$(BIN_DIR_ARM_DEBUG) \
@@ -85,7 +85,7 @@ arm_debug:
 arm_production:
 	mkdir -p $(LIB_DIR_ARM_PRODUCTION)
 	mkdir -p $(BIN_DIR_ARM_PRODUCTION)
-	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/picoshell \
+	$(MAKE) $(BIN_DIR_ARM_PRODUCTION)/picoruby \
 	  CFLAGS="-static -Os -DNDEBUG -Wl,-s $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
 	  LIB_DIR=$(LIB_DIR_ARM_PRODUCTION) \
 	  BIN_DIR=$(BIN_DIR_ARM_PRODUCTION) \
@@ -137,14 +137,13 @@ src/mrubyc/src/hal_user_reerved/hal.c:
 	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoshell_lib/hal_posix/hal.h ./hal.h; fi
 
 build_bin:
-	@echo "building picorbc picoruby picoshell picoirb ----------"
+	@echo "building picorbc picoruby picoirb ----------"
 	cd cli ; \
 	  $(MAKE) all CFLAGS="$(CFLAGS)" \
 	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR) \
 	  CC=$(CC) AR=$(AR)
 	mv cli/picoruby $(BIN_DIR)/picoruby
 	mv cli/picorbc $(BIN_DIR)/picorbc
-	mv cli/picoshell $(BIN_DIR)/picoshell
 	mv cli/picoirb $(BIN_DIR)/picoirb
 
 gdb: host_debug
@@ -156,6 +155,16 @@ check: host_production
 	ruby ./test/helper/test.rb
 
 picoshell: host_debug
+	$(MAKE) build_lib \
+	  HAL_DIR=hal_user_reserved \
+	  CFLAGS="$(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" \
+	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR_HOST_DEBUG) \
+	  CC=$(CC) AR=$(AR)
+	cd cli ; \
+	  $(MAKE) picoshell CFLAGS="$(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" \
+	  LDFLAGS="$(LDFLAGS)" LIB_DIR=$(LIB_DIR_HOST_DEBUG) \
+	  CC=$(CC) AR=$(AR)
+	mv cli/picoshell $(BIN_DIR_HOST_DEBUG)/picoshell
 	@which socat || (echo "\nsocat is not installed\nPlease install socat\n"; exit 1)
 	@which cu || (echo "\ncu is not installed\nPlease install cu\n"; exit 1)
 	@cd bin ; bundle install && bundle exec ruby picoshell.rb
