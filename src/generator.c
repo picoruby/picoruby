@@ -727,7 +727,16 @@ void gen_case(Scope *scope, Node *node)
     /* content */
     for (int j = 0; j < args_count; j++)
       Scope_backpatchJmpLabel(label_true_array[j], scope->vm_code_size);
-    codegen(scope, case_body->cons.cdr->cons.car);
+    { /* inside when */
+      int32_t current_vm_code_size = scope->vm_code_size;
+      codegen(scope, case_body->cons.cdr->cons.car);
+      /* if code was empty */
+      if (current_vm_code_size == scope->vm_code_size) {
+        Scope_pushCode(OP_LOADNIL);
+        Scope_pushCode(scope->sp);
+        Scope_push(scope);
+      }
+    }
     Scope_pushCode(OP_JMP);
     label_end_array[i++] = Scope_reserveJmpLabel(scope);
     /* next case */
