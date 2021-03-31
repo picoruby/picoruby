@@ -5,7 +5,7 @@ CC_ARM := arm-linux-gnueabihf-gcc
 AR_ARM := arm-linux-gnueabihf-ar
 CC_PSOC := arm-none-eabi-gcc
 AR_PSOC := arm-none-eabi-ar
-CFLAGS += -Wall -Wpointer-arith -std=gnu99
+CFLAGS += -Wall -Wpointer-arith -std=gnu99 -DHEAP_SIZE=1000000
 LDFLAGS +=
 LIB_DIR_PSOC5LP         := build/psoc5lp/lib
 LIB_DIR_HOST_DEBUG      := build/host-debug/lib
