@@ -863,12 +863,20 @@ void gen_redo(Scope *scope)
 uint32_t setup_parameters(Scope *scope, Node *node)
 {
   if (Node_atomType(node) != ATOM_block_parameters) return 0;
-  uint32_t bbb;
-  /* mandatory args */
-  uint8_t nmargs = gen_values(scope, node->cons.cdr->cons.car);
-  nmargs <<= 2;
-  bbb = (uint32_t)nmargs << 16;
+  uint32_t bbb = 0;
+  { /* mandatory args */
+    uint8_t nmargs = gen_values(scope, node->cons.cdr->cons.car);
+    nmargs <<= 2;
+    bbb = (uint32_t)nmargs << 16;
+  }
   /* TODO: rest, tail, etc. */
+  Node *tailargs = node->cons.cdr->cons.cdr->cons.cdr->cons.cdr->cons.car;
+  Node *args_tail = tailargs->cons.cdr->cons.car;
+  if (Node_atomType(args_tail) != ATOM_args_tail) return bbb;
+  { /* block */
+    if (args_tail->cons.cdr->cons.cdr->cons.cdr->cons.car->value.name)
+      bbb += 1;
+  }
   return bbb;
 }
 
@@ -880,9 +888,18 @@ void gen_irep(Scope *scope, Node *node)
   Scope_pushCode((int)(bbb >> 16 & 0xFF));
   Scope_pushCode((int)(bbb >> 8 & 0xFF));
   Scope_pushCode((int)(bbb & 0xFF));
-  codegen(scope, node->cons.cdr->cons.car);
-  Scope_pushCode(OP_RETURN);
-  Scope_pushCode(--scope->sp);
+  { /* inside def */
+    int32_t current_vm_code_size = scope->vm_code_size;
+    codegen(scope, node->cons.cdr->cons.car);
+    /* if code was empty */
+    if (current_vm_code_size == scope->vm_code_size) {
+      Scope_pushCode(OP_LOADNIL);
+      Scope_pushCode(scope->sp);
+      Scope_push(scope);
+    }
+    Scope_pushCode(OP_RETURN);
+    Scope_pushCode(--scope->sp);
+  }
   Scope_finish(scope);
   scope = scope_unnest(scope);
 }
@@ -948,7 +965,6 @@ void gen_class(Scope *scope, Node *node)
     node->cons.cdr->cons.car = NULL; /* Stop generating super class CONST */
     Scope_pushCode(OP_EXEC);
     Scope_pushCode(scope->sp);
-    Scope_push(scope);
     Scope_pushCode(scope->next_lower_number);
 
     scope = scope_nest(scope);
