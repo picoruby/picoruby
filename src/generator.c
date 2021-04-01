@@ -547,7 +547,14 @@ void gen_op_assign(Scope *scope, Node *node)
         Scope_pop(scope);
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
-        method_name[strlen(method_name) - 1] = '\0';
+        /*
+         * method_name[strlen(method_name) - 1] = '\0';
+         * 👆🐛
+         * Because the same method_name may be reused
+         */
+        for (int i=1; i<strlen(method_name); i++) {
+          if (method_name[i] == '=') method_name[i] = '\0';
+        }
         Scope_pushCode(Scope_newSym(scope, (const char *)method_name));
         Scope_pushCode(1);
       }
