@@ -353,10 +353,10 @@ void gen_assign(Scope *scope, Node *node)
         Scope_pushCode(num);
         Scope_pushCode(scope->sp - 1);
       } else {
-        Scope_push(scope);
         codegen(scope, node->cons.cdr);
         Scope_pushCode(OP_SETUPVAR);
-        Scope_pushCode(scope->sp - 1);
+        Scope_pushCode(--scope->sp);
+        Scope_push(scope);
         Scope_pushCode(lvar.reg_num);
         Scope_pushCode(lvar.scope_num - 1);
       }
@@ -686,14 +686,14 @@ void gen_case_when(Scope *scope, Node *node, int cond_reg, JmpLabel *label_true[
     Scope_pushCode(scope->sp);
     Scope_pushCode(cond_reg);
     Scope_pushCode(OP_SEND);
-    Scope_pushCode(cond_reg + 1);
+    Scope_pushCode(++cond_reg);
     Scope_pushCode(Scope_newSym(scope, "==="));
     Scope_pushCode(1);
     /* when condition matched */
     Scope_pushCode(OP_JMPIF);
-    Scope_pushCode(cond_reg + 1);
+    Scope_pushCode(cond_reg);
     *label_true = Scope_reserveJmpLabel(scope);
-    scope->sp = cond_reg + 1;
+    scope->sp = cond_reg;
   }
 }
 
