@@ -125,12 +125,16 @@ void gen_literal_numeric(Scope *scope, const char *num, LiteralType type, Misc p
   Scope_pushCode(OP_LOADL);
   Scope_pushCode(scope->sp);
   int litIndex;
+  size_t len = strlen(num) + 1;
+  char lit[len];
   if (pos_neg == NUM_NEG) {
-    char negnum[strlen(num) + 1];
-    negnum[0] = '-';
-    litIndex = Scope_newLit(scope, strsafecat(negnum, num, strlen(num) + 2), type);
+    lit[0] = '-';
+    lit[1] = '\0';
+    litIndex = Scope_newLit(scope, strsafecat(lit, num, len + 1), type);
   } else {
-     litIndex = Scope_newLit(scope, num, type);
+    memcpy(lit, num, len);
+    lit[len] = '\0';
+    litIndex = Scope_newLit(scope, lit, type);
   }
   Scope_pushCode(litIndex);
 }
@@ -204,7 +208,12 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     Scope_pushCode(val >> 8);
     Scope_pushCode(val & 0xff);
   } else {
-    gen_literal_numeric(scope, (const char *)value, INTEGER_LITERAL, pos_neg);
+    uint8_t digit = 2;
+    unsigned long n = val;
+    while (n /= 10) ++digit; /* count number of digit */
+    char lit[digit];
+    snprintf(lit, digit, "%d", val);
+    gen_literal_numeric(scope, (const char *)lit, INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }
