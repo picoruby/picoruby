@@ -34,4 +34,16 @@ class FixnumTest < PicoRubyTest
   assert_equal(<<~RUBY, "-1048575")
     p(-0xFFFFF)
   RUBY
+
+  assert_equal(<<~RUBY, "70000")
+    p(-70000.abs)
+  RUBY
+
+  assert_equal(<<~RUBY, "7000")
+    p(7000.001.to_i)
+  RUBY
+
+  assert_equal(<<~RUBY, "-7000")
+    p(-7000.001.to_i)
+  RUBY
 end

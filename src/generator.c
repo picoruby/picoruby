@@ -65,6 +65,23 @@ void pop_nest_stack(Scope *scope)
   scope->nest_stack = (scope->nest_stack >> 1);
 }
 
+const char *push_gen_literal(Scope *scope, const char *s)
+{
+  GenLiteral *lit = picorbc_alloc(sizeof(GenLiteral));
+  if (scope->gen_literal) {
+    lit->prev = scope->gen_literal;
+  } else {
+    lit->prev = NULL;
+  }
+  scope->gen_literal = lit;
+  size_t len = strlen(s);
+  char *value = picorbc_alloc(len + 1);
+  memcpy(value, s, len);
+  value[len] = '\0';
+  lit->value = (const char *)value;
+  return lit->value;
+}
+
 Scope *scope_nest(Scope *scope)
 {
   uint32_t nest_stack = scope->nest_stack;;
@@ -125,16 +142,16 @@ void gen_literal_numeric(Scope *scope, const char *num, LiteralType type, Misc p
   Scope_pushCode(OP_LOADL);
   Scope_pushCode(scope->sp);
   int litIndex;
-  size_t len = strlen(num) + 1;
-  char lit[len];
   if (pos_neg == NUM_NEG) {
+    size_t len = strlen(num) + 1;
+    char lit[len];
     lit[0] = '-';
-    lit[1] = '\0';
-    litIndex = Scope_newLit(scope, strsafecat(lit, num, len + 1), type);
-  } else {
-    memcpy(lit, num, len);
+    memcpy(&lit[1], num, len-1);
     lit[len] = '\0';
-    litIndex = Scope_newLit(scope, lit, type);
+    const char *str = push_gen_literal(scope, lit);
+    litIndex = Scope_newLit(scope, str, type);
+  } else {
+    litIndex = Scope_newLit(scope, num, type);
   }
   Scope_pushCode(litIndex);
 }
@@ -212,8 +229,8 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     unsigned long n = val;
     while (n /= 10) ++digit; /* count number of digit */
     char lit[digit];
-    snprintf(lit, digit, "%d", val);
-    gen_literal_numeric(scope, (const char *)lit, INTEGER_LITERAL, pos_neg);
+    snprintf(lit, digit, "%ld", val);
+    gen_literal_numeric(scope, push_gen_literal(scope, lit), INTEGER_LITERAL, pos_neg);
   }
   Scope_push(scope);
 }

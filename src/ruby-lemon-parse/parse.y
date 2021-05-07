@@ -241,7 +241,7 @@
     return new_call(p, recv, op, 0, 1);
   }
 
-  /* (:int . i) */
+    /* (:int . i) */
   static Node*
   new_lit(ParserState *p, const char *s, AtomType a)
   {
