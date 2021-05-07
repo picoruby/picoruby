@@ -17,6 +17,12 @@ typedef struct literal
   struct literal *next;
 } Literal;
 
+typedef struct gen_literal
+{
+  const char *value;
+  struct gen_literal *prev;
+} GenLiteral;
+
 /*
  * A symbol can be:
  *  @ivar, $gvar, puts(fname), :symbol, CONST
@@ -86,6 +92,7 @@ typedef struct scope
   Symbol *symbol;
   Lvar *lvar;
   Literal *literal;
+  GenLiteral *gen_literal; /* Exceptional literals in generator */
   unsigned int sp;
   unsigned int max_sp;
   int32_t vm_code_size;

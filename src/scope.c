@@ -46,6 +46,7 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
   self->symbol = NULL;
   self->lvar = NULL;
   self->literal = NULL;
+  self->gen_literal = NULL;
   self->sp = 1;
   self->max_sp = 1;
   self->vm_code = NULL;
@@ -60,6 +61,14 @@ void freeLiteralRcsv(Literal *literal)
   if (literal == NULL) return;
   freeLiteralRcsv(literal->next);
   picorbc_free(literal);
+}
+
+void freeGenLiteralRcsv(GenLiteral *gen_literal)
+{
+  if (gen_literal == NULL) return;
+  freeGenLiteralRcsv(gen_literal->prev);
+  picorbc_free(gen_literal->value);
+  picorbc_free(gen_literal);
 }
 
 void freeSymbolRcsv(Symbol *symbol)
@@ -93,6 +102,7 @@ void Scope_free(Scope *self)
   Scope_free(self->next);
   Scope_free(self->first_lower);
   freeLiteralRcsv(self->literal);
+  freeGenLiteralRcsv(self->gen_literal);
   freeSymbolRcsv(self->symbol);
   freeLvarRcsv(self->lvar);
   freeAssignSymbol(self->last_assign_symbol);
