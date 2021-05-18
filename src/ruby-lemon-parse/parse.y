@@ -422,7 +422,7 @@
   {
     return list5(atom(ATOM_block_parameters),
       list2(atom(ATOM_margs), m),
-      list2(atom(ATOM_optargs),opt),
+      list2(atom(ATOM_optargs), opt),
       list2(atom(ATOM_m2args), m2),
       list2(atom(ATOM_tailargs), tail)
     );
@@ -1011,8 +1011,12 @@ f_arg_item(A) ::= f_norm_arg(B). {
                     A = new_arg(p, B);
                   }
 
-f_arg(A) ::= f_arg_item(B). { A = new_first_arg(p, B); }
-f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). { A = list3(atom(ATOM_args_add), B, C); }
+f_arg(A) ::= f_arg_item(B). {
+              A = new_first_arg(p, B);
+            }
+f_arg(A) ::= f_arg(B) COMMA f_arg_item(C). {
+              A = list3(atom(ATOM_args_add), B, C);
+            }
 
 literal ::= numeric.
 literal ::= symbol.
@@ -1090,6 +1094,12 @@ f_arglist(A)  ::= f_args(B) term. {
 f_args(A) ::= f_arg(B) opt_args_tail(C). {
                 A = new_args(p, B, 0, 0, 0, C);
               }
+f_args(A) ::= f_arg(B) COMMA f_optarg(C) opt_args_tail(D). {
+                A = new_args(p, B, C, 0, 0, D);
+              }
+f_args(A) ::= f_optarg(B) opt_args_tail(C). {
+                A = new_args(p, 0, B, 0, 0, C);
+              }
 f_args(A) ::= args_tail(B). {
                 A = new_args(p, 0, 0, 0, 0, B);
               }
@@ -1097,6 +1107,22 @@ f_args(A) ::= . {
                 // local_add_f(p, intern_op(and))
                 A = new_args(p, 0, 0, 0, 0, 0);
               }
+
+f_opt_asgn(A) ::= IDENTIFIER(B) E. {
+                    local_add_f(p, B);
+                    A = list2(atom(ATOM_assign_backpatch), new_lvar(p, B));
+                  }
+
+f_opt(A) ::= f_opt_asgn(B) arg(C). {
+               A = push(B, C);
+             }
+
+f_optarg(A) ::= f_opt(B). {
+                  A = new_first_arg(p, B);
+                }
+f_optarg(A) ::= f_optarg(B) COMMA f_opt(C). {
+                  A = list3(atom(ATOM_args_add), B, C);
+                }
 
 args_tail(A) ::= f_block_arg(B). {
                 A = new_args_tail(p, 0, 0, B);

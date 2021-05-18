@@ -904,10 +904,15 @@ uint32_t setup_parameters(Scope *scope, Node *node)
 {
   if (Node_atomType(node) != ATOM_block_parameters) return 0;
   uint32_t bbb = 0;
+  uint8_t nargs;
   { /* mandatory args */
-    uint8_t nmargs = gen_values(scope, node->cons.cdr->cons.car);
-    nmargs <<= 2;
-    bbb = (uint32_t)nmargs << 16;
+    nargs = gen_values(scope, node->cons.cdr->cons.car);
+    bbb = (uint32_t)nargs << 18;
+  }
+  { /* option args which have an initial value */
+    /* this gen_values() won't produce VM code */
+    nargs = gen_values(scope, node->cons.cdr->cons.cdr->cons.car);
+    bbb += (uint32_t)nargs << 13;
   }
   /* TODO: rest, tail, etc. */
   Node *tailargs = node->cons.cdr->cons.cdr->cons.cdr->cons.cdr->cons.car;
@@ -925,9 +930,22 @@ void gen_irep(Scope *scope, Node *node)
   scope = scope_nest(scope);
   uint32_t bbb = setup_parameters(scope, node->cons.car);
   Scope_pushCode(OP_ENTER);
-  Scope_pushCode((int)(bbb >> 16 & 0xFF));
-  Scope_pushCode((int)(bbb >> 8 & 0xFF));
-  Scope_pushCode((int)(bbb & 0xFF));
+  Scope_pushCode((uint8_t)(bbb >> 16 & 0xFF));
+  Scope_pushCode((uint8_t)(bbb >> 8 & 0xFF));
+  Scope_pushCode((uint8_t)(bbb & 0xFF));
+  { /* option args */
+    uint8_t nopt = (bbb>>13)&31;
+    if (nopt) {
+      for (int i=0; i < nopt; i++) {
+        Scope_pushCode(OP_JMP);
+        Scope_pushBackpatch(scope, Scope_reserveJmpLabel(scope));
+      }
+      Scope_pushCode(OP_JMP);
+      JmpLabel *label = Scope_reserveJmpLabel(scope);
+      codegen(scope, node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car);
+      Scope_backpatchJmpLabel(label, scope->vm_code_size);
+    }
+  }
   { /* inside def */
     int32_t current_vm_code_size = scope->vm_code_size;
     codegen(scope, node->cons.cdr->cons.car);
@@ -1074,6 +1092,12 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_stmts_new: // NEW_BEGIN
       break;
     case ATOM_assign:
+      gen_assign(scope, tree->cons.cdr);
+      break;
+    case ATOM_assign_backpatch:
+      if (!scope->backpatch) return;
+      Scope_backpatchJmpLabel(scope->backpatch->label, scope->vm_code_size);
+      Scope_shiftBackpatch(scope);
       gen_assign(scope, tree->cons.cdr);
       break;
     case ATOM_op_assign:
