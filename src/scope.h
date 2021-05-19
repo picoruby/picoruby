@@ -76,6 +76,13 @@ typedef struct assign_symbol
   const char *value;
 } AssignSymbol;
 
+typedef void JmpLabel;
+typedef struct backpatch
+{
+  JmpLabel *label;
+  struct backpatch *next;
+} Backpatch;
+
 typedef struct scope Scope;
 typedef struct scope
 {
@@ -99,11 +106,16 @@ typedef struct scope
   uint8_t *vm_code;
   BreakStack *break_stack;
   AssignSymbol *last_assign_symbol;
+  Backpatch *backpatch; /* for backpatching of JMP label */
 } Scope;
 
 Scope *Scope_new(Scope *upper, bool lvar_top);
 
 void Scope_free(Scope *self);
+
+void Scope_pushBackpatch(Scope *self, JmpLabel *label);
+
+void Scope_shiftBackpatch(Scope *self);
 
 void Scope_pushNCode_self(Scope *self, uint8_t *value, int size);
 #define Scope_pushNCode(v, s) Scope_pushNCode_self(scope, (v), (s))
@@ -128,8 +140,6 @@ void Scope_pop(Scope *self);
 void Scope_finish(Scope *self);
 
 void Scope_freeCodePool(Scope *self);
-
-typedef void JmpLabel;
 
 JmpLabel *Scope_reserveJmpLabel(Scope *self);
 

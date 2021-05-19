@@ -21,13 +21,19 @@ class DefTest < PicoRubyTest
     puts my_method(nil)
   RUBY
 
-  pending
-
   desc "def method with an optional arg"
   assert_equal(<<~RUBY, "default")
-    def my_method(arg = 'defalut')
+    def my_method(arg = 'default')
       arg
     end
     puts my_method
+  RUBY
+
+  desc "def method with a mandatory arg and an optional arg"
+  assert_equal(<<~RUBY, "hey\nyou\n")
+    def my_method(marg, opt = 'optional')
+      puts marg, opt
+    end
+    puts my_method('hey', 'you')
   RUBY
 end

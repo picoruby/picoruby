@@ -23,6 +23,7 @@ typedef enum atom_type {
   ATOM_vcall,
   ATOM_command,
   ATOM_assign,
+  ATOM_assign_backpatch,
   ATOM_op_assign,
   ATOM_at_op,
   ATOM_and,

@@ -53,7 +53,30 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
   self->vm_code_size = 0;
   self->break_stack = NULL;
   self->last_assign_symbol = NULL;
+  self->backpatch = NULL;
   return self;
+}
+
+void Scope_pushBackpatch(Scope *self, JmpLabel *label)
+{
+  Backpatch *bp = picorbc_alloc(sizeof(Backpatch));
+  bp->next = self->backpatch;
+  bp->label = label;
+  if (!self->backpatch) {
+    self->backpatch = bp;
+    return;
+  }
+  Backpatch *tmp = self->backpatch;
+  while (tmp->next) tmp = tmp->next;
+  tmp->next = bp;
+}
+
+void Scope_shiftBackpatch(Scope *self)
+{
+  if (!self->backpatch) return;
+  Backpatch *bp = self->backpatch;
+  self->backpatch = self->backpatch->next;
+  picorbc_free(bp);
 }
 
 void freeLiteralRcsv(Literal *literal)
@@ -67,7 +90,7 @@ void freeGenLiteralRcsv(GenLiteral *gen_literal)
 {
   if (gen_literal == NULL) return;
   freeGenLiteralRcsv(gen_literal->prev);
-  picorbc_free(gen_literal->value);
+  picorbc_free((void *)gen_literal->value);
   picorbc_free(gen_literal);
 }
 
