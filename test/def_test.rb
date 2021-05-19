@@ -30,10 +30,26 @@ class DefTest < PicoRubyTest
   RUBY
 
   desc "def method with a mandatory arg and an optional arg"
-  assert_equal(<<~RUBY, "hey\nyou\n")
+  assert_equal(<<~RUBY, "hey\nyou")
     def my_method(marg, opt = 'optional')
       puts marg, opt
     end
-    puts my_method('hey', 'you')
+    my_method('hey', 'you')
+  RUBY
+
+  desc "marg, optarg and block"
+  assert_equal(<<~RUBY, "1")
+    def m(a,b,&block)
+      block.call
+    end
+    m(8,9) { puts 1 }
+  RUBY
+
+  desc "marg, optarg and block / part.2"
+  assert_equal(<<~RUBY, "8\n9")
+    def m(a,b,&block)
+      block.call(a,b)
+    end
+    m(8,9) { |x, y| puts x, y }
   RUBY
 end

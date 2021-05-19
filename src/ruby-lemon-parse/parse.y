@@ -363,7 +363,12 @@
     switch (Node_atomType(a)) {
     case ATOM_call:
     case ATOM_fcall:
-      n = a->cons.cdr->cons.cdr->cons.cdr;
+      /* TODO: Ambiguous node structure should be tidied up */
+      if (a->cons.cdr->cons.cdr->cons.cdr) {
+        n = a->cons.cdr->cons.cdr->cons.cdr;
+      } else {
+        n = a->cons.cdr->cons.cdr;
+      }
       if (!n->cons.car) {
         n->cons.car = new_first_arg(p, b);
       } else {
@@ -713,8 +718,9 @@ command_call ::= block_command.
 block_command ::= block_call.
 
 command(A) ::= operation(B) command_args(C). [LOWEST] { A = new_fcall(p, B, C); }
-command(A) ::= primary_value(B) call_op(C) operation2(D) command_args(E).
-  { A = new_call(p, B, D, E, C); }
+command(A) ::= primary_value(B) call_op(C) operation2(D) command_args(E). {
+                A = new_call(p, B, D, E, C);
+              }
 command(A) ::= KW_return call_args(B). { A = new_return(p, ret_args(p, B)); }
 command(A) ::= KW_break call_args(B). { A = new_break(p, ret_args(p, B)); }
 command(A) ::= KW_next call_args(B). { A = new_next(p, ret_args(p, B)); }
@@ -1134,9 +1140,9 @@ f_block_arg(A) ::= blkarg_mark IDENTIFIER(B). {
                     A = B;
                   }
 
-//opt_args_tail(A) ::= COMMA args_tail(B). {
-//                      A = B;
-//                    }
+opt_args_tail(A) ::= COMMA args_tail(B). {
+                      A = B;
+                    }
 opt_args_tail(A) ::= . {
                       A = new_args_tail(p, 0, 0, 0);
                     }
