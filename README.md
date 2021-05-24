@@ -1,4 +1,4 @@
-[![C/C++ CI](https://github.com/hasumikin/picoruby/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/hasumikin/picoruby/actions/workflows/c-cpp.yml)
+[![C/C++ CI](https://github.com/picoruby/picoruby/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/picoruby/picoruby/actions/workflows/c-cpp.yml)
 
 ## PicoRuby ~~mmruby~~ (renamed on March 15th, 2021)
 
