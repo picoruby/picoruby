@@ -4,7 +4,9 @@
 #include <stdbool.h>
 
 #include "../scope.h"
+#ifndef PTR_SIZE
 #include "../include/ptr_size.h"
+#endif
 
 typedef enum atom_type {
   ATOM_NONE = 0,

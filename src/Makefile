@@ -32,7 +32,10 @@ else
 endif
 
 %.o: %.c
+ifeq ($(findstring -DPTR_SIZE=, $(CFLAGS)), -DPTR_SIZE=)
+else
 	cd include ; $(MAKE) all CC=$(CC)
+endif
 	$(CC) -c -MMD -MP $(CFLAGS) $(LDFLAGS) $<
 
 clean:

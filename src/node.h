@@ -4,7 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "ruby-lemon-parse/parse_header.h"
+#ifndef PTR_SIZE
 #include "include/ptr_size.h"
+#endif
 
 const char *Node_valueName(Node *self);
 
