@@ -53,7 +53,7 @@ You can get "production build" like `build/host-production/bin/picoruby` which o
 Because PicoRuby is dedicated for onechip-microcontroller which doesn't have STDIN/STDOUT like *normal computers*, REPL (or you can also say SHELL) should work over serial communication like UART.
 
 You can start up picoshell on your host machine with `make picoshell` though, it may look weird since it is implemented as a ported version from microcontroller version.
-Please try to use it according as the message on the screen if you are intersted in.
+Please try to use it according as the message on the screen if you are interested in.
 
 You will find more information at [hasumikin/mruby_machine_PSoC5LP](https://github.com/hasumikin/mruby_machine_PSoC5LP)
 
@@ -66,7 +66,7 @@ I gave a talk about this project on [RubyKaigi Takeout 2020](https://rubykaigi.o
 
 ### Roadmap
 
-PicoRuby is still developing halfway towards finishing as of 2020.
+PicoRuby is still developing halfway towards finishing as of 2021.
 
 See implementation roadmap on [issue/6](https://github.com/hasumikin/picoruby/issues/6)
 
