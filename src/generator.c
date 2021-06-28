@@ -214,16 +214,16 @@ void gen_int(Scope *scope, Node *node, Misc pos_neg)
     }
     Scope_pushCode(scope->sp);
     Scope_pushCode(val);
-  } else if (val <= 0xffff) {
-    Scope_pushCode(OP_EXT2);
-    if (pos_neg == NUM_NEG) {
-      Scope_pushCode(OP_LOADINEG);
-    } else {
-      Scope_pushCode(OP_LOADI);
-    }
-    Scope_pushCode(scope->sp);
-    Scope_pushCode(val >> 8);
-    Scope_pushCode(val & 0xff);
+//  } else if (val <= 0xffff) {
+//    Scope_pushCode(OP_EXT2);
+//    if (pos_neg == NUM_NEG) {
+//      Scope_pushCode(OP_LOADINEG);
+//    } else {
+//      Scope_pushCode(OP_LOADI);
+//    }
+//    Scope_pushCode(scope->sp);
+//    Scope_pushCode(val >> 8);
+//    Scope_pushCode(val & 0xff);
   } else {
     uint8_t digit = 2;
     unsigned long n = val;
