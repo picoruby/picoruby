@@ -11,7 +11,6 @@
 #include "generator.h"
 #include "mrubyc/src/opcode.h"
 #include "ruby-lemon-parse/parse_header.h"
-#include "ruby-lemon-parse/crc.c"
 
 #define END_SECTION_SIZE 8
 
@@ -1263,25 +1262,22 @@ void Generator_generate(Scope *scope, Node *root)
   int irepSize = Scope_updateVmCodeSizeThenReturnTotalSize(scope);
   int32_t codeSize = HEADER_SIZE + irepSize + END_SECTION_SIZE;
   uint8_t *vmCode = picorbc_alloc(codeSize);
-  memcpy(&vmCode[0], "RITE0006", 8);
-  vmCode[10] = (codeSize >> 24) & 0xff;
-  vmCode[11] = (codeSize >> 16) & 0xff;
-  vmCode[12] = (codeSize >> 8) & 0xff;
-  vmCode[13] = codeSize & 0xff;
-  memcpy(&vmCode[14], "MATZ0000", 8);
-  memcpy(&vmCode[22], "IREP", 4);
+  memcpy(&vmCode[0], "RITE0200", 8);
+  vmCode[8] = (codeSize >> 24) & 0xff;
+  vmCode[9] = (codeSize >> 16) & 0xff;
+  vmCode[10] = (codeSize >> 8) & 0xff;
+  vmCode[11] = codeSize & 0xff;
+  memcpy(&vmCode[12], "MATZ0000", 8);
+  memcpy(&vmCode[20], "IREP", 4);
   int sectionSize = irepSize + END_SECTION_SIZE + 4;
-  vmCode[26] = (sectionSize >> 24) & 0xff; // size of the section
-  vmCode[27] = (sectionSize >> 16) & 0xff;
-  vmCode[28] = (sectionSize >> 8) & 0xff;
-  vmCode[29] = sectionSize & 0xff;
-  memcpy(&vmCode[30], "0002", 4); // instruction version
+  vmCode[24] = (sectionSize >> 24) & 0xff; // size of the section
+  vmCode[25] = (sectionSize >> 16) & 0xff;
+  vmCode[26] = (sectionSize >> 8) & 0xff;
+  vmCode[27] = sectionSize & 0xff;
+  memcpy(&vmCode[28], "0002", 4); // instruction version
   writeCode(scope, &vmCode[HEADER_SIZE]);
   memcpy(&vmCode[HEADER_SIZE + irepSize], "END\0\0\0\0", 7);
   vmCode[codeSize - 1] = 0x08;
-  uint16_t crc = calc_crc_16_ccitt(&vmCode[10], codeSize - 10, 0);
-  vmCode[8] = (crc >> 8) & 0xff;
-  vmCode[9] = crc & 0xff;
   scope->vm_code = vmCode;
   scope->vm_code_size = codeSize;
 }
