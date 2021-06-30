@@ -6,8 +6,10 @@
 typedef enum literal_type
 {
   STRING_LITERAL  = 0,
-  INTEGER_LITERAL = 1,
-  FLOAT_LITERAL   = 2
+  SSTRING_LITERAL = 2,
+  INT32_LITERAL   = 1,
+  INT64_LITERAL   = 3,
+  FLOAT_LITERAL   = 5
 } LiteralType;
 
 typedef struct literal

@@ -365,17 +365,21 @@ void Scope_finish(Scope *scope)
     count++;
     lit = lit->next;
   }
-  Scope_pushCode((count >> 24) & 0xff);
-  Scope_pushCode((count >> 16) & 0xff);
   Scope_pushCode((count >> 8) & 0xff);
   Scope_pushCode(count & 0xff);
   lit = scope->literal;
   while (lit != NULL) {
     Scope_pushCode(lit->type);
-    len = replace_picoruby_null((char *)lit->value);
-    Scope_pushCode((len >>8) & 0xff);
-    Scope_pushCode(len & 0xff);
-    Scope_pushNCode((uint8_t *)lit->value, len);
+    if (lit->type == FLOAT_LITERAL) {
+      double d = atof(lit->value);
+      Scope_pushNCode((uint8_t *)&d, 8);
+    } else {
+      len = replace_picoruby_null((char *)lit->value);
+      Scope_pushCode((len >> 8) & 0xff);
+      Scope_pushCode(len & 0xff);
+      Scope_pushNCode((uint8_t *)lit->value, len);
+      Scope_pushCode(0); // Why????
+    }
     lit = lit->next;
   }
   // symbol
@@ -386,8 +390,6 @@ void Scope_finish(Scope *scope)
     count++;
     sym = sym->next;
   }
-  Scope_pushCode((count >> 24) & 0xff);
-  Scope_pushCode((count >> 16) & 0xff);
   Scope_pushCode((count >> 8) & 0xff);
   Scope_pushCode(count & 0xff);
   sym = scope->symbol;
@@ -399,19 +401,18 @@ void Scope_finish(Scope *scope)
     Scope_pushCode(0); // NULL terminate? FIXME
     sym = sym->next;
   }
-  // irep header
-  // record length. but whatever it works because of mruby's bug
-  //memcpy(&data[0], "\0\0\0\0", 4);
-  { // monkey patch for migrating mruby3. see mrubyc/src/load.c
-    data[0] = 0xff;
-    data[1] = 0xff;
-    data[2] = 0xff;
-    data[3] = 0xff;
+  // irep header - record length.
+  {
+    scope->vm_code_size += IREP_HEADER_SIZE;
+    data[0] = ((scope->vm_code_size >> 24) & 0xff);
+    data[1] = ((scope->vm_code_size >> 16) & 0xff);
+    data[2] = ((scope->vm_code_size >> 8) & 0xff);
+    data[3] =  (scope->vm_code_size & 0xff);
   }
   int l = scope->nlocals;
   data[4] = (l >> 8) & 0xff;
   data[5] = l & 0xff;
-  l = scope->max_sp + 1; // RIGHT? FIXME
+  l = scope->max_sp + 1;
   data[6] = (l >> 8) & 0xff;
   data[7] = l & 0xff;
   l = scope->nlowers;
