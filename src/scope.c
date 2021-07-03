@@ -446,14 +446,17 @@ void Scope_freeCodePool(Scope *self)
 JmpLabel *Scope_reserveJmpLabel(Scope *scope)
 {
   Scope_pushNCode((uint8_t *)"\0\0", 2);
-  return (void *)&scope->current_code_pool->data[scope->current_code_pool->index - 2];
+  JmpLabel *label = picorbc_alloc(sizeof(JmpLabel));
+  label->address = (void *)&scope->current_code_pool->data[scope->current_code_pool->index - 2];
+  label->pos = scope->vm_code_size;
+  return label;
 }
 
-void Scope_backpatchJmpLabel(void *label, int32_t position)
+void Scope_backpatchJmpLabel(JmpLabel *label, int32_t position)
 {
-  uint8_t *data = (uint8_t *)label;
-  data[0] = (position >> 8) & 0xff;
-  data[1] = position & 0xff;
+  uint8_t *data = (uint8_t *)label->address;
+  data[0] = ((position - label->pos) >> 8) & 0xff;
+  data[1] = (position - label->pos) & 0xff;
 }
 
 void Scope_pushBreakStack(Scope *self)
