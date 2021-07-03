@@ -457,6 +457,7 @@ void Scope_backpatchJmpLabel(JmpLabel *label, int32_t position)
   uint8_t *data = (uint8_t *)label->address;
   data[0] = ((position - label->pos) >> 8) & 0xff;
   data[1] = (position - label->pos) & 0xff;
+  picorbc_free(label);
 }
 
 void Scope_pushBreakStack(Scope *self)
