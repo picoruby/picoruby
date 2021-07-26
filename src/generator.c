@@ -390,7 +390,7 @@ void gen_assign(Scope *scope, Node *node)
         codegen(scope, node->cons.cdr);
         Scope_pushCode(OP_MOVE);
         Scope_pushCode(num);
-        Scope_pushCode(--scope->sp);
+        Scope_pushCode(scope->sp - 1);
       } else {
         codegen(scope, node->cons.cdr);
         Scope_pushCode(OP_SETUPVAR);
