@@ -600,6 +600,12 @@
     fprintf(stderr, "concat_string(); This should not happen\n");
   }
 
+  static Node*
+  new_alias(ParserState *p, Node *a, Node* b)
+  {
+    return list3(atom(ATOM_alias), new_sym(p, a), new_sym(p, b));
+  }
+
   static void
   scope_nest(ParserState *p, bool lvar_top)
   {
@@ -678,6 +684,14 @@ stmt(A) ::= none. { A = new_begin(p, 0); }
 //
 //command_rhs ::= command_call. [OP_ASGN]
 //command_rhs ::= command_asgn.
+stmt_alias(A) ::= KW_alias fsym(B). {
+                   p->state = EXPR_FNAME;
+                   A = B;
+                  }
+stmt(A) ::= stmt_alias(B) fsym(C). {
+              p->state = EXPR_BEG;
+              A = new_alias(p, B, C);
+            }
 stmt(A) ::= stmt(B) KW_modifier_if expr_value(C). {
               A = new_if(p, C, B, 0);
             }
@@ -1085,6 +1099,9 @@ sym ::= fname.
 fname ::= IDENTIFIER.
 fname ::= CONSTANT.
 fname ::= FID.
+
+fsym ::= fname.
+fsym ::= basic_symbol.
 
 f_arglist_paren(A) ::= LPAREN_EXPR f_args(B) rparen. {
                          A = B;
