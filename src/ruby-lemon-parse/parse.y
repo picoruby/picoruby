@@ -678,6 +678,13 @@ stmt(A) ::= none. { A = new_begin(p, 0); }
 //
 //command_rhs ::= command_call. [OP_ASGN]
 //command_rhs ::= command_asgn.
+stmt_alias(A) ::= KW_alias fsym(B). {
+                   //p->state = EXPR_FNAME;
+                   A = B;
+                  }
+stmt(A) ::= stmt_alias(B) fsym(C). {
+              A = new_alias(p, B, C);
+            }
 stmt(A) ::= stmt(B) KW_modifier_if expr_value(C). {
               A = new_if(p, C, B, 0);
             }
@@ -1085,6 +1092,9 @@ sym ::= fname.
 fname ::= IDENTIFIER.
 fname ::= CONSTANT.
 fname ::= FID.
+
+fsym ::= fname.
+fsym ::= basic_symbol.
 
 f_arglist_paren(A) ::= LPAREN_EXPR f_args(B) rparen. {
                          A = B;

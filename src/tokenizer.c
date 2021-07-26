@@ -860,7 +860,7 @@ retry:
           self->state = EXPR_MID;
           break;
         case KW_def:
-//        case KW_alias:
+        case KW_alias:
 //        case KW_undef:
           self->state = EXPR_FNAME;
           break;
