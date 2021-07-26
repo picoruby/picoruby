@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "../scope.h"
+#include "../token.h"
 #ifndef PTR_SIZE
 #include "../include/ptr_size.h"
 #endif
@@ -145,6 +146,7 @@ typedef struct parser_state {
   unsigned int cond_stack;
   unsigned int cmdarg_stack;
   bool cmd_start;
+  State state;
 } ParserState;
 
 #define BITSTACK_PUSH(stack, n) ((stack) = ((stack) << 1) | ((n) & 1))

@@ -600,6 +600,12 @@
     fprintf(stderr, "concat_string(); This should not happen\n");
   }
 
+  static Node*
+  new_alias(ParserState *p, Node *a, Node* b)
+  {
+    return 0;
+  }
+
   static void
   scope_nest(ParserState *p, bool lvar_top)
   {
@@ -679,7 +685,7 @@ stmt(A) ::= none. { A = new_begin(p, 0); }
 //command_rhs ::= command_call. [OP_ASGN]
 //command_rhs ::= command_asgn.
 stmt_alias(A) ::= KW_alias fsym(B). {
-                   //p->state = EXPR_FNAME;
+                   p->state = EXPR_FNAME;
                    A = B;
                   }
 stmt(A) ::= stmt_alias(B) fsym(C). {
