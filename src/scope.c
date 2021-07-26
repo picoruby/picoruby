@@ -409,7 +409,7 @@ void Scope_finish(Scope *scope)
     data[2] = ((scope->vm_code_size >> 8) & 0xff);
     data[3] =  (scope->vm_code_size & 0xff);
   }
-  int l = scope->nlocals;
+  int l = scope->nlocals + 1;
   data[4] = (l >> 8) & 0xff;
   data[5] = l & 0xff;
   l = scope->max_sp + 1;

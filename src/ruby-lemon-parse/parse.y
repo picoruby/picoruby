@@ -675,15 +675,6 @@ stmts(A) ::= stmt(B). { A = new_begin(p, B); }
 stmts(A) ::= stmts(B) terms stmt(C). { A = list3(atom(ATOM_stmts_add), B, C); }
 
 stmt(A) ::= none. { A = new_begin(p, 0); }
-//stmt ::= command_asgn.
-//
-//command_asgn(A) ::= lhs(B) E command_rhs(C). { A = new_asgn(p, B, C); }
-//command_asgn(A) ::= var_lhs(B) OP_ASGN(C) command_rhs(D). { A = new_op_asgn(p, B, C, D); }
-//command_asgn(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) command_rhs(E).
-//  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
-//
-//command_rhs ::= command_call. [OP_ASGN]
-//command_rhs ::= command_asgn.
 stmt_alias(A) ::= KW_alias fsym(B). {
                    p->state = EXPR_FNAME;
                    A = B;
@@ -704,8 +695,18 @@ stmt(A) ::= stmt(B) KW_modifier_while expr_value(C). {
 stmt(A) ::= stmt(B) KW_modifier_until expr_value(C). {
               A = new_until(p, C, B);
             }
-
+stmt ::= command_asgn.
 stmt ::= expr.
+
+command_asgn(A) ::= lhs(B) E command_rhs(C). {
+                      A = new_asgn(p, B, C);
+                    }
+//command_asgn(A) ::= var_lhs(B) OP_ASGN(C) command_rhs(D). { A = new_op_asgn(p, B, C, D); }
+//command_asgn(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) command_rhs(E).
+//  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
+//
+command_rhs ::= command_call. [OP_ASGN]
+command_rhs ::= command_asgn.
 
 expr ::= command_call.
 expr(A) ::= expr(B) KW_and expr(C). { A = new_and(p, B, C); }
