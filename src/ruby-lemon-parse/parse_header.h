@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "../scope.h"
+#include "../token.h"
 #ifndef PTR_SIZE
 #include "../include/ptr_size.h"
 #endif
@@ -74,6 +75,7 @@ typedef enum atom_type {
   ATOM_args_tail,
   ATOM_def,
   ATOM_class,
+  ATOM_alias,
 } AtomType;
 
 typedef enum {
@@ -145,6 +147,7 @@ typedef struct parser_state {
   unsigned int cond_stack;
   unsigned int cmdarg_stack;
   bool cmd_start;
+  State state;
 } ParserState;
 
 #define BITSTACK_PUSH(stack, n) ((stack) = ((stack) << 1) | ((n) & 1))
