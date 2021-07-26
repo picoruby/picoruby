@@ -199,11 +199,11 @@ void gen_int(Scope *scope, Node *node, Misc is_neg)
     default:
       val = strtol(value, NULL, 10);
   }
-  if (is_neg && 0 <= val && val <= 7) {
+  if (!is_neg && 0 <= val && val <= 7) {
     Scope_pushCode(OP_LOADI_0 + val);
     Scope_pushCode(scope->sp);
-  } else if (is_neg && 0 <= val && val <= 1) {
-    Scope_pushCode(OP_LOADI_0 - val);
+  } else if (is_neg && val == 1) {
+    Scope_pushCode(OP_LOADI__1);
     Scope_pushCode(scope->sp);
   } else if (val <= 0xff) {
     if (is_neg) {
