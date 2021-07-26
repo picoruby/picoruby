@@ -525,6 +525,10 @@ retry:
       Regex_match3(&(self->line[self->pos]), "^(\\s+)", regexResult);
       strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
       type = ON_SP;
+    } else if (tokenizer_is_semicolon(self->line[self->pos])) {
+      value[0] = self->line[self->pos];
+      type = SEMICOLON;
+      self->p->state = EXPR_BEG;
     } else if (self->p->state == EXPR_FNAME || self->p->state == EXPR_DOT) {
       /* TODO: singleton method */
       if ( (Regex_match3(&(self->line[self->pos]), "^(\\w+[!?=]?)", regexResult))
@@ -700,10 +704,6 @@ retry:
         }
         self->p->state = EXPR_BEG;
       }
-    } else if (tokenizer_is_semicolon(self->line[self->pos])) {
-      value[0] = self->line[self->pos];
-      type = SEMICOLON;
-      self->p->state = EXPR_BEG;
     } else if (tokenizer_is_comma(self->line[self->pos])) {
       value[0] = self->line[self->pos];
       type = COMMA;

@@ -845,6 +845,15 @@ void gen_if(Scope *scope, Node *node)
   Scope_backpatchJmpLabel(label_end, scope->vm_code_size);
 }
 
+void gen_alias(Scope *scope, Node *node)
+{
+  Scope_pushCode(OP_ALIAS);
+  int litIndex = Scope_newSym(scope, Node_literalName(node->cons.car->cons.cdr));
+  Scope_pushCode(litIndex);
+  litIndex = Scope_newSym(scope, Node_literalName(node->cons.cdr->cons.car->cons.cdr));
+  Scope_pushCode(litIndex);
+}
+
 void gen_while(Scope *scope, Node *node, int op_jmp)
 {
   push_nest_stack(scope, 0); /* 0 represents CONDITION NEST */
@@ -1235,6 +1244,9 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_class:
       gen_class(scope, tree->cons.cdr);
+      break;
+    case ATOM_alias:
+      gen_alias(scope, tree->cons.cdr);
       break;
     default:
 //      FATALP("error");

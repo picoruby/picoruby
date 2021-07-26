@@ -603,7 +603,7 @@
   static Node*
   new_alias(ParserState *p, Node *a, Node* b)
   {
-    return 0;
+    return list3(atom(ATOM_alias), new_sym(p, a), new_sym(p, b));
   }
 
   static void
@@ -689,6 +689,7 @@ stmt_alias(A) ::= KW_alias fsym(B). {
                    A = B;
                   }
 stmt(A) ::= stmt_alias(B) fsym(C). {
+              p->state = EXPR_BEG;
               A = new_alias(p, B, C);
             }
 stmt(A) ::= stmt(B) KW_modifier_if expr_value(C). {
