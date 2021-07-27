@@ -187,6 +187,16 @@
     return list2(atom(ATOM_kw_return), array);
   }
 
+  static Node*
+  new_yield(ParserState *p, Node *c)
+  {
+    if (c) {
+      return list2(atom(ATOM_kw_yield), c->cons.car);
+    } else {
+      return list2(atom(ATOM_kw_yield), 0);
+    }
+  }
+
   /* (:sym) */
   static Node*
   new_sym(ParserState *p, const char *s)
@@ -437,6 +447,7 @@
   local_add_blk(ParserState *p, const char *blk)
   {
     local_add_f(p, blk ? blk : "&");
+//    Scope_newLvar(p->scope, blk ? blk : "&", 1); // R1: &block
   }
 
   static Node*
@@ -719,6 +730,7 @@ defn_head(A) ::= KW_def fname(B). {
                   // p->in_def++;
                   // nvars_block(p);
                   scope_nest(p, true);
+                  //p->scope->sp = 2; // R1 should be reserved for block arg
                 }
 
 expr_value(A) ::= expr(B). {
@@ -736,6 +748,7 @@ command(A) ::= operation(B) command_args(C). [LOWEST] { A = new_fcall(p, B, C); 
 command(A) ::= primary_value(B) call_op(C) operation2(D) command_args(E). {
                 A = new_call(p, B, D, E, C);
               }
+command(A) ::= KW_yield command_args(B). { A = new_yield(p, B); }
 command(A) ::= KW_return call_args(B). { A = new_return(p, ret_args(p, B)); }
 command(A) ::= KW_break call_args(B). { A = new_break(p, ret_args(p, B)); }
 command(A) ::= KW_next call_args(B). { A = new_next(p, ret_args(p, B)); }
@@ -822,6 +835,7 @@ primary(A)  ::= LPAREN compstmt(B) rparen. {
 primary(A)  ::= LBRACKET_ARRAY aref_args(B) RBRACKET. { A = new_array(p, B); }
 primary(A)  ::= LBRACE assoc_list(B) RBRACE. { A = new_hash(p, B); }
 primary(A)  ::= KW_return. { A = new_return(p, 0); }
+primary(A)  ::= KW_yield opt_paren_args(B). { A = new_yield(p, B); }
 primary(A)  ::= KW_not LPAREN_EXPR expr(B) rparen. { A = call_uni_op(p, B, "!"); }
 primary(A)  ::= KW_not LPAREN_EXPR rparen. { A = call_uni_op(p, list1(atom(ATOM_kw_nil)), "!"); }
 primary(A)  ::= operation(B) brace_block(C). {
@@ -916,8 +930,12 @@ assoc_list(A) ::= assocs(B) trailer. { A = B; }
 assocs(A) ::= assoc(B). { A = list1(B); }
 assocs(A) ::= assocs(B) COMMA assoc(C). { A = push(B, C); }
 
-assoc(A) ::= arg(B) ASSOC arg(C). { A = list3(atom(ATOM_assoc_new), B, C); }
-assoc(A) ::= LABEL(B) arg(C). { A = list3(atom(ATOM_assoc_new), new_sym(p, B), C); }
+assoc(A) ::= arg(B) ASSOC arg(C). {
+  A = list3(atom(ATOM_assoc_new), list2(atom(ATOM_assoc_key), B), list2(atom(ATOM_assoc_value), C));
+}
+assoc(A) ::= LABEL(B) arg(C). {
+A = list3(atom(ATOM_assoc_new), list2(atom(ATOM_assoc_key), new_sym(p, B)), list2(atom(ATOM_assoc_value), C));
+}
 
 
 aref_args     ::= none.

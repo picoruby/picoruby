@@ -43,7 +43,7 @@ void gen_self(Scope *scope)
 {
   Scope_pushCode(OP_LOADSELF);
   Scope_pushCode(scope->sp);
-  Scope_push(scope);
+//  Scope_push(scope);
 }
 
 /*
@@ -122,7 +122,7 @@ void gen_str(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_STRING);
   Scope_pushCode(scope->sp);
-  Scope_push(scope);
+//  Scope_push(scope);
   int litIndex = Scope_newLit(scope, Node_literalName(node), STRING_LITERAL);
   Scope_pushCode(litIndex);
 }
@@ -131,7 +131,7 @@ void gen_sym(Scope *scope, Node *node)
 {
   Scope_pushCode(OP_LOADSYM);
   Scope_pushCode(scope->sp);
-  Scope_push(scope);
+//  Scope_push(scope);
   int litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
 }
@@ -245,13 +245,23 @@ void gen_int(Scope *scope, Node *node, Misc is_neg)
     snprintf(lit, digit, "%ld", val);
     gen_literal_numeric(scope, push_gen_literal(scope, lit), INT32_LITERAL, is_neg);
   }
-  Scope_push(scope);
+  //Scope_push(scope);
 }
 
-void gen_call(Scope *scope, Node *node)
+void gen_call(Scope *scope, Node *node, bool is_fcall)
 {
   int nargs = 0;
   int op = OP_SEND;
+  int reg = scope->sp;
+  // receiver
+  if (is_fcall) {
+    gen_self(scope);
+//    Scope_push(scope);
+  } else {
+    codegen(scope, node->cons.car);
+    node = node->cons.cdr;
+  }
+  // args
   if (node->cons.cdr->cons.car) {
     if (Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.car) == ATOM_block_arg) {
       /* .call(&:method) */
@@ -259,17 +269,21 @@ void gen_call(Scope *scope, Node *node)
       Scope_pop(scope);
       op = OP_SENDB;
     } else {
+      Scope_push(scope);
       nargs = gen_values(scope, node);
-      for (int i = 0; i < nargs; i++) {
-        Scope_pop(scope);
-      }
-      if (nargs > 0 && Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car) == ATOM_block) {
+      if (nargs > 0 && // case: method_name(1) { puts "hello" }
+                       Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.cdr->cons.car) == ATOM_block) {
         op = OP_SENDB;
         nargs--;
+      } else if (// case: method_name { puts "hello" }
+                 Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.car) == ATOM_block ) {
+        op = OP_SENDB;
+        scope->sp--;
       }
     }
   }
   const char *method_name = Node_literalName(node->cons.car->cons.cdr);
+  scope->sp = reg;
   if (method_name[1] == '\0' && strchr("><+-*/", method_name[0]) != NULL) {
     switch (method_name[0]) {
       case '>': Scope_pushCode(OP_GT); break;
@@ -280,19 +294,19 @@ void gen_call(Scope *scope, Node *node)
       case '/': Scope_pushCode(OP_DIV); break;
       default: FATALP("This should not happen"); break;
     }
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp);
   } else if (strcmp(method_name, "==") == 0) {
     Scope_pushCode(OP_EQ);
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp);
   } else if (strcmp(method_name, ">=") == 0) {
     Scope_pushCode(OP_GE);
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp);
   } else if (strcmp(method_name, "<=") == 0) {
     Scope_pushCode(OP_LE);
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp);
   } else {
     Scope_pushCode(op);
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp);
     int symIndex = Scope_newSym(scope, method_name);
     Scope_pushCode(symIndex);
     Scope_pushCode(nargs);
@@ -310,25 +324,26 @@ void gen_array(Scope *scope, Node *node)
   }
   Scope_pushCode(OP_ARRAY);
   Scope_pushCode(scope->sp);
-  Scope_push(scope);
+//  Scope_push(scope);
   Scope_pushCode(nargs);
 }
 
 void gen_hash(Scope *scope, Node *node)
 {
+  int reg = scope->sp;
   int nassocs = 0;
   Node *assoc = node;
   while (assoc) {
-    codegen(scope, assoc->cons.car->cons.cdr);
+    codegen(scope, assoc->cons.car->cons.cdr->cons.car->cons.cdr->cons.car);
+    Scope_push(scope);
+    codegen(scope, assoc->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr->cons.car);
+    Scope_push(scope);
     nassocs++;
     assoc = assoc->cons.cdr;
   }
-  for (int i = 0; i < nassocs * 2; i++) {
-    Scope_pop(scope);
-  }
+  scope->sp = reg;
   Scope_pushCode(OP_HASH);
   Scope_pushCode(scope->sp);
-  Scope_push(scope);
   Scope_pushCode(nassocs);
 }
 
@@ -342,13 +357,13 @@ void gen_var(Scope *scope, Node *node)
       if (lvar.scope_num > 0) {
         Scope_pushCode(OP_GETUPVAR);
         Scope_pushCode(scope->sp);
-        Scope_push(scope);
+//        Scope_push(scope);
         Scope_pushCode(lvar.reg_num);
         Scope_pushCode(lvar.scope_num - 1);
       } else {
         Scope_pushCode(OP_MOVE);
         Scope_pushCode(scope->sp);
-        Scope_push(scope);
+//        Scope_push(scope);
         Scope_pushCode(lvar.reg_num);
       }
       break;
@@ -390,14 +405,14 @@ void gen_assign(Scope *scope, Node *node)
         codegen(scope, node->cons.cdr);
         Scope_pushCode(OP_MOVE);
         Scope_pushCode(num);
-        Scope_pushCode(scope->sp - 1);
+        Scope_pushCode(scope->sp);
       } else {
         codegen(scope, node->cons.cdr);
         Scope_pushCode(OP_SETUPVAR);
-        Scope_pushCode(--scope->sp);
-        Scope_push(scope);
+        Scope_pushCode(scope->sp);
+//        Scope_push(scope);
         Scope_pushCode(lvar.reg_num);
-        Scope_pushCode(lvar.scope_num - 1);
+        Scope_pushCode(lvar.scope_num - 1); // TODO: fixed
       }
       break;
     case (ATOM_at_ivar):
@@ -506,9 +521,10 @@ void gen_op_assign(Scope *scope, Node *node)
       Scope_pushCode(num);
       break;
     case (ATOM_call):
-      Scope_push(scope);
       if (!strcmp(call_name, "[]")) is_call_name_at_ary = true;
+ Scope_push(scope);
       codegen(scope, node->cons.car->cons.cdr->cons.car);
+ Scope_push(scope);
       node->cons.car->cons.cdr->cons.car = NULL;
       if (is_call_name_at_ary) {
         codegen(scope, node->cons.car->cons.cdr);
@@ -539,19 +555,19 @@ void gen_op_assign(Scope *scope, Node *node)
   switch (method_name[0]) {
     case '+':
       Scope_pushCode(OP_ADD);
-      Scope_pop(scope);
+//      Scope_pop(scope);
       Scope_pop(scope);
       Scope_pushCode(scope->sp);
       break;
     case '-':
       Scope_pushCode(OP_SUB);
-      Scope_pop(scope);
+//      Scope_pop(scope);
       Scope_pop(scope);
       Scope_pushCode(scope->sp);
       break;
     case '/':
       Scope_pushCode(OP_DIV);
-      Scope_pop(scope);
+//      Scope_pop(scope);
       Scope_pop(scope);
       Scope_pushCode(scope->sp);
       break;
@@ -564,7 +580,7 @@ void gen_op_assign(Scope *scope, Node *node)
     case '*': /* *= and **= */
       if (!strcmp(method_name, "*=")) {
         Scope_pushCode(OP_MUL);
-        Scope_pop(scope);
+//        Scope_pop(scope);
         Scope_pop(scope);
         Scope_pushCode(scope->sp);
       } else if (isANDOPorOROP) {
@@ -820,13 +836,13 @@ void gen_if(Scope *scope, Node *node)
   /* assert condition */
   codegen(scope, node->cons.car);
   Scope_pushCode(OP_JMPNOT);
-  Scope_pushCode(--scope->sp);
+  Scope_pushCode(scope->sp);
   JmpLabel *label_false = Scope_reserveJmpLabel(scope);
   /* condition true */
   codegen(scope, node->cons.cdr->cons.car);
   Scope_pushCode(OP_MOVE);
   Scope_pushCode(start_reg);
-  Scope_pushCode(--scope->sp);
+  Scope_pushCode(scope->sp);
   Scope_pushCode(OP_JMP);
   JmpLabel *label_end = Scope_reserveJmpLabel(scope);
   /* condition false */
@@ -836,7 +852,7 @@ void gen_if(Scope *scope, Node *node)
     /* right before KW_end */
     Scope_pushCode(OP_LOADNIL);
     Scope_pushCode(scope->sp);
-    Scope_push(scope);
+//    Scope_push(scope);
   } else {
     /* if_tail */
     codegen(scope, node->cons.cdr->cons.cdr->cons.car);
@@ -875,7 +891,7 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   /* after while block */
   Scope_pushCode(OP_LOADNIL);
   Scope_pushCode(scope->sp);
-  Scope_push(scope);
+//  Scope_push(scope);
   Scope_popBreakStack(scope);
   pop_nest_stack(scope);
 }
@@ -978,7 +994,7 @@ void gen_irep(Scope *scope, Node *node)
       Scope_push(scope);
     }
     Scope_pushCode(OP_RETURN);
-    Scope_pushCode(scope->sp - 1);
+    Scope_pushCode(scope->sp);
   }
   Scope_finish(scope);
   scope = scope_unnest(scope);
@@ -1056,6 +1072,19 @@ void gen_class(Scope *scope, Node *node)
   }
 }
 
+void gen_yield(Scope *scope, Node *node)
+{
+  Scope_pushCode(OP_BLKPUSH);
+  Scope_pushCode(scope->sp);
+  Scope_pushCode(0);
+  Scope_pushCode(0);
+  Scope_pushCode(OP_SEND);
+  Scope_pushCode(scope->sp);
+  Scope_pushCode(Scope_newSym(scope, "call"));
+  Scope_pushCode(0);
+  Scope_push(scope);
+}
+
 void codegen(Scope *scope, Node *tree)
 {
   int num;
@@ -1095,7 +1124,7 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_program:
       scope->nest_stack = 1; /* 00000000 00000000 00000000 00000001 */
       codegen(scope, tree->cons.cdr->cons.car);
-      Scope_pop(scope);
+      //Scope_pop(scope);
       /* Prevent double return */
 //      CodePool *pool = scope->current_code_pool;
       /* Prevention only works if `OP_RETURN Rn` aren't separated */
@@ -1127,15 +1156,14 @@ void codegen(Scope *scope, Node *tree)
       break;
     case ATOM_command:
     case ATOM_fcall:
-      gen_self(scope);
-      gen_call(scope, tree->cons.cdr);
+      gen_call(scope, tree->cons.cdr, true);
       break;
     case ATOM_call:
-      codegen(scope, tree->cons.cdr->cons.car);
-      gen_call(scope, tree->cons.cdr->cons.cdr);
+      gen_call(scope, tree->cons.cdr, false);
       break;
     case ATOM_args_add:
       codegen(scope, tree->cons.cdr);
+      Scope_push(scope);
       break;
     case ATOM_args_new:
       codegen(scope, tree->cons.cdr);
@@ -1205,7 +1233,7 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_kw_nil:
       Scope_pushCode(OP_LOADNIL);
       Scope_pushCode(scope->sp);
-      Scope_push(scope);
+//      Scope_push(scope);
       break;
     case ATOM_kw_self:
       gen_self(scope);
@@ -1213,12 +1241,10 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_kw_true:
       Scope_pushCode(OP_LOADT);
       Scope_pushCode(scope->sp);
-      Scope_push(scope);
       break;
     case ATOM_kw_false:
       Scope_pushCode(OP_LOADF);
       Scope_pushCode(scope->sp);
-      Scope_push(scope);
       break;
     case ATOM_kw_return:
       if (tree->cons.cdr->cons.car) {
@@ -1226,10 +1252,13 @@ void codegen(Scope *scope, Node *tree)
       } else {
         Scope_pushCode(OP_LOADNIL);
         Scope_pushCode(scope->sp);
-        Scope_push(scope);
+//        Scope_push(scope);
       }
       Scope_pushCode(OP_RETURN);
       Scope_pushCode(scope->sp - 1);
+      break;
+    case ATOM_kw_yield:
+      gen_yield(scope, tree);
       break;
     case ATOM_dstr:
       gen_dstr(scope, tree);
