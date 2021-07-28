@@ -14,5 +14,12 @@ class OpAssignTest < PicoRubyTest
     ary[1] *= 3
     p ary
   RUBY
+
+  desc "<<="
+  assert_equal(<<~RUBY, "16")
+    a = 2
+    a <<= 3
+    p a
+  RUBY
 end
 

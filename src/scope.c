@@ -312,10 +312,6 @@ void Scope_push(Scope *self){
   if (self->max_sp < self->sp) self->max_sp = self->sp;
 }
 
-void Scope_pop(Scope *self){
-  self->sp--;
-}
-
 int scope_codeSize(CodePool *code_pool)
 {
   int size = 0;

@@ -142,8 +142,6 @@ int Scope_newLvar(Scope *self, const char *name, int newRegnum);
 
 void Scope_push(Scope *self);
 
-void Scope_pop(Scope *self);
-
 void Scope_finish(Scope *self);
 
 void Scope_freeCodePool(Scope *self);
