@@ -306,7 +306,6 @@ void gen_call(Scope *scope, Node *node, bool is_fcall)
     Scope_pushCode(symIndex);
     Scope_pushCode(nargs);
   }
-if (is_fcall) Scope_push(scope);
 }
 
 void gen_array(Scope *scope, Node *node)
@@ -685,6 +684,7 @@ void gen_dstr(Scope *scope, Node *node)
       dstr = dstr->cons.cdr->cons.car;
     }
     codegen(scope, dstr->cons.cdr->cons.cdr->cons.car);
+    Scope_push(scope);
     if (count != num) {
       /* TRICKY (I'm not sure if this is a correct way) */
       Scope_pushCode(OP_STRCAT);
@@ -1056,7 +1056,6 @@ void gen_yield(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_pushCode(Scope_newSym(scope, "call"));
   Scope_pushCode(0);
-  Scope_push(scope);
 }
 
 void codegen(Scope *scope, Node *tree)
