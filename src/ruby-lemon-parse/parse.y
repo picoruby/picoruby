@@ -422,13 +422,17 @@
   local_add_f(ParserState *p, const char *a)
   {
     // different way from mruby...
-    Scope_newLvar(p->scope, a, p->scope->sp++);
+    LvarScopeReg lvar = Scope_lvar_findRegnum(p->scope, a);
+    if (lvar.reg_num == 0)
+      Scope_newLvar(p->scope, a, p->scope->sp++);
   }
 
   static Node*
   new_arg(ParserState *p, const char* a)
   {
-    Scope_newLvar(p->scope, a, p->scope->sp);
+    LvarScopeReg lvar = Scope_lvar_findRegnum(p->scope, a);
+    if (lvar.reg_num == 0)
+      Scope_newLvar(p->scope, a, p->scope->sp);
     return list2(atom(ATOM_arg), literal(a));
   }
 
