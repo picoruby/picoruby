@@ -759,6 +759,9 @@ command(A) ::= KW_next call_args(B). { A = new_next(p, ret_args(p, B)); }
 
 command_args ::= call_args.
 
+call_args(A) ::= command(B). {
+  A = list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), B);
+}
 call_args(A) ::= args(B) opt_block_arg(C). { A = append(B, C); }
 call_args(A) ::= block_arg(B). { A = list2(atom(ATOM_args_add), B); }
 
