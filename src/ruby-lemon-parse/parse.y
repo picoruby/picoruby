@@ -190,11 +190,7 @@
   static Node*
   new_yield(ParserState *p, Node *c)
   {
-    if (c) {
-      return list2(atom(ATOM_kw_yield), c->cons.car);
-    } else {
-      return list2(atom(ATOM_kw_yield), 0);
-    }
+    return list2(atom(ATOM_kw_yield), c);
   }
 
   /* (:sym) */
@@ -450,8 +446,7 @@
   static void
   local_add_blk(ParserState *p, const char *blk)
   {
-    local_add_f(p, blk ? blk : "&");
-//    Scope_newLvar(p->scope, blk ? blk : "&", 1); // R1: &block
+    if (blk) local_add_f(p, blk);
   }
 
   static Node*

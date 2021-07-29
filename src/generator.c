@@ -943,7 +943,16 @@ uint32_t setup_parameters(Scope *scope, Node *node)
 void gen_irep(Scope *scope, Node *node)
 {
   scope = scope_nest(scope);
+  int sp = scope->sp;
   uint32_t bbb = setup_parameters(scope, node->cons.car);
+  { /* adjustments */
+    scope->sp = sp; // cancel gen_var()'s effect
+    if (!(bbb & 1)) { // if there's no explicit block parameter
+      Scope_newLvar(scope, "&", ++scope->sp);
+    }
+    scope->max_sp = scope->sp;
+  }
+  scope->irep_parameters = bbb;
   Scope_pushCode(OP_ENTER);
   Scope_pushCode((uint8_t)(bbb >> 16 & 0xFF));
   Scope_pushCode((uint8_t)(bbb >> 8 & 0xFF));
@@ -969,8 +978,10 @@ void gen_irep(Scope *scope, Node *node)
       Scope_pushCode(OP_LOADNIL);
       Scope_pushCode(scope->sp);
     }
-    Scope_pushCode(OP_RETURN);
-    Scope_pushCode(scope->sp);
+    if (scope->current_code_pool->data[scope->current_code_pool->index - 2] != OP_RETURN) {
+      Scope_pushCode(OP_RETURN);
+      Scope_pushCode(scope->sp);
+    }
   }
   Scope_finish(scope);
   scope = scope_unnest(scope);
@@ -1048,14 +1059,33 @@ void gen_class(Scope *scope, Node *node)
 
 void gen_yield(Scope *scope, Node *node)
 {
+  /*
+   * OP_BLKPUSH B bb
+   * bb: 0000000000000000
+   *     ^^^^^ ^^^^^ ^^^^
+   *      m1    m2    lv
+   *          ^     ^
+   *          r     d
+   */
+  int nargs;
+  if (node->cons.cdr->cons.car) {
+    Scope_push(scope);
+    nargs = gen_values(scope, node);
+    scope->sp -= nargs + 1;
+  }
   Scope_pushCode(OP_BLKPUSH);
   Scope_pushCode(scope->sp);
-  Scope_pushCode(0);
-  Scope_pushCode(0);
+  uint32_t bbb = scope->irep_parameters;
+  uint16_t bb = ( (bbb >> 18 & 0x1f) + (bbb >> 13 & 0x1f) ) << 11 | // m1
+                (bbb>>7 & 0x3f) << 5 |                              // r m2
+                (bbb>>1 & 1) << 4;                                  // d
+                /* TODO: lv */
+  Scope_pushCode((uint8_t)(bb >> 8));
+  Scope_pushCode((uint8_t)(bb & 0xff));
   Scope_pushCode(OP_SEND);
   Scope_pushCode(scope->sp);
   Scope_pushCode(Scope_newSym(scope, "call"));
-  Scope_pushCode(0);
+  Scope_pushCode(nargs);
 }
 
 void codegen(Scope *scope, Node *tree)
@@ -1224,7 +1254,7 @@ void codegen(Scope *scope, Node *tree)
         Scope_pushCode(scope->sp);
       }
       Scope_pushCode(OP_RETURN);
-      Scope_pushCode(scope->sp - 1);
+      Scope_pushCode(scope->sp);
       break;
     case ATOM_kw_yield:
       gen_yield(scope, tree);
