@@ -54,6 +54,7 @@ Scope *Scope_new(Scope *upper, bool lvar_top)
   self->break_stack = NULL;
   self->last_assign_symbol = NULL;
   self->backpatch = NULL;
+  self->irep_parameters = 0;
   return self;
 }
 
@@ -295,6 +296,7 @@ LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name)
 
 int Scope_newLvar(Scope *self, const char *name, int newRegnum){
   Lvar *newLvar = lvar_new(name, newRegnum);
+  self->nlocals++;
   if (self->lvar == NULL) {
     self->lvar = newLvar;
   } else {
@@ -310,10 +312,6 @@ int Scope_newLvar(Scope *self, const char *name, int newRegnum){
 void Scope_push(Scope *self){
   self->sp++;
   if (self->max_sp < self->sp) self->max_sp = self->sp;
-}
-
-void Scope_pop(Scope *self){
-  self->sp--;
 }
 
 int scope_codeSize(CodePool *code_pool)

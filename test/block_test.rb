@@ -45,4 +45,20 @@ class BlockTest < PicoRubyTest
     end
   RUBY
 
+  desc "block.call"
+  assert_equal(<<~RUBY, "hello")
+    def my_method(&block)
+      block.call
+    end
+    my_method {puts 'hello'}
+  RUBY
+
+  desc "yield"
+  assert_equal(<<~RUBY, "hello")
+    def my_method
+      yield
+    end
+    my_method {puts 'hello'}
+  RUBY
+
 end
