@@ -1067,7 +1067,7 @@ void gen_yield(Scope *scope, Node *node)
    *          ^     ^
    *          r     d
    */
-  int nargs;
+  int nargs = 0;
   if (node->cons.cdr->cons.car) {
     Scope_push(scope);
     nargs = gen_values(scope, node);
