@@ -43,6 +43,8 @@
 %type cname         { const char* }
 %type fname         { const char* }
 %type sym           { const char* }
+%type fsym          { const char* }
+%type stmt_alias    { const char* }
 %type basic_symbol  { const char* }
 %type operation2    { const char* }
 %type f_norm_arg    { const char* }
@@ -611,7 +613,7 @@
   }
 
   static Node*
-  new_alias(ParserState *p, Node *a, Node* b)
+  new_alias(ParserState *p, const char *a, const char *b)
   {
     return list3(atom(ATOM_alias), new_sym(p, a), new_sym(p, b));
   }
