@@ -187,6 +187,12 @@
     return list2(atom(ATOM_kw_return), array);
   }
 
+  static Node*
+  new_yield(ParserState *p, Node *c)
+  {
+    return list2(atom(ATOM_kw_yield), c);
+  }
+
   /* (:sym) */
   static Node*
   new_sym(ParserState *p, const char *s)
@@ -412,13 +418,17 @@
   local_add_f(ParserState *p, const char *a)
   {
     // different way from mruby...
-    Scope_newLvar(p->scope, a, p->scope->sp++);
+    LvarScopeReg lvar = Scope_lvar_findRegnum(p->scope, a);
+    if (lvar.reg_num == 0)
+      Scope_newLvar(p->scope, a, p->scope->sp++);
   }
 
   static Node*
   new_arg(ParserState *p, const char* a)
   {
-    Scope_newLvar(p->scope, a, p->scope->sp);
+    LvarScopeReg lvar = Scope_lvar_findRegnum(p->scope, a);
+    if (lvar.reg_num == 0)
+      Scope_newLvar(p->scope, a, p->scope->sp);
     return list2(atom(ATOM_arg), literal(a));
   }
 
@@ -436,7 +446,7 @@
   static void
   local_add_blk(ParserState *p, const char *blk)
   {
-    local_add_f(p, blk ? blk : "&");
+    if (blk) local_add_f(p, blk);
   }
 
   static Node*
@@ -675,15 +685,6 @@ stmts(A) ::= stmt(B). { A = new_begin(p, B); }
 stmts(A) ::= stmts(B) terms stmt(C). { A = list3(atom(ATOM_stmts_add), B, C); }
 
 stmt(A) ::= none. { A = new_begin(p, 0); }
-//stmt ::= command_asgn.
-//
-//command_asgn(A) ::= lhs(B) E command_rhs(C). { A = new_asgn(p, B, C); }
-//command_asgn(A) ::= var_lhs(B) OP_ASGN(C) command_rhs(D). { A = new_op_asgn(p, B, C, D); }
-//command_asgn(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) command_rhs(E).
-//  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
-//
-//command_rhs ::= command_call. [OP_ASGN]
-//command_rhs ::= command_asgn.
 stmt_alias(A) ::= KW_alias fsym(B). {
                    p->state = EXPR_FNAME;
                    A = B;
@@ -704,8 +705,18 @@ stmt(A) ::= stmt(B) KW_modifier_while expr_value(C). {
 stmt(A) ::= stmt(B) KW_modifier_until expr_value(C). {
               A = new_until(p, C, B);
             }
-
+stmt ::= command_asgn.
 stmt ::= expr.
+
+command_asgn(A) ::= lhs(B) E command_rhs(C). {
+                      A = new_asgn(p, B, C);
+                    }
+//command_asgn(A) ::= var_lhs(B) OP_ASGN(C) command_rhs(D). { A = new_op_asgn(p, B, C, D); }
+//command_asgn(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) command_rhs(E).
+//  { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
+//
+command_rhs ::= command_call. [OP_ASGN]
+command_rhs ::= command_asgn.
 
 expr ::= command_call.
 expr(A) ::= expr(B) KW_and expr(C). { A = new_and(p, B, C); }
@@ -718,6 +729,7 @@ defn_head(A) ::= KW_def fname(B). {
                   // p->in_def++;
                   // nvars_block(p);
                   scope_nest(p, true);
+                  //p->scope->sp = 2; // R1 should be reserved for block arg
                 }
 
 expr_value(A) ::= expr(B). {
@@ -735,12 +747,16 @@ command(A) ::= operation(B) command_args(C). [LOWEST] { A = new_fcall(p, B, C); 
 command(A) ::= primary_value(B) call_op(C) operation2(D) command_args(E). {
                 A = new_call(p, B, D, E, C);
               }
+command(A) ::= KW_yield command_args(B). { A = new_yield(p, B); }
 command(A) ::= KW_return call_args(B). { A = new_return(p, ret_args(p, B)); }
 command(A) ::= KW_break call_args(B). { A = new_break(p, ret_args(p, B)); }
 command(A) ::= KW_next call_args(B). { A = new_next(p, ret_args(p, B)); }
 
 command_args ::= call_args.
 
+call_args(A) ::= command(B). {
+  A = list3(atom(ATOM_args_add), list1(atom(ATOM_args_new)), B);
+}
 call_args(A) ::= args(B) opt_block_arg(C). { A = append(B, C); }
 call_args(A) ::= block_arg(B). { A = list2(atom(ATOM_args_add), B); }
 
@@ -821,6 +837,7 @@ primary(A)  ::= LPAREN compstmt(B) rparen. {
 primary(A)  ::= LBRACKET_ARRAY aref_args(B) RBRACKET. { A = new_array(p, B); }
 primary(A)  ::= LBRACE assoc_list(B) RBRACE. { A = new_hash(p, B); }
 primary(A)  ::= KW_return. { A = new_return(p, 0); }
+primary(A)  ::= KW_yield opt_paren_args(B). { A = new_yield(p, B); }
 primary(A)  ::= KW_not LPAREN_EXPR expr(B) rparen. { A = call_uni_op(p, B, "!"); }
 primary(A)  ::= KW_not LPAREN_EXPR rparen. { A = call_uni_op(p, list1(atom(ATOM_kw_nil)), "!"); }
 primary(A)  ::= operation(B) brace_block(C). {
@@ -915,8 +932,12 @@ assoc_list(A) ::= assocs(B) trailer. { A = B; }
 assocs(A) ::= assoc(B). { A = list1(B); }
 assocs(A) ::= assocs(B) COMMA assoc(C). { A = push(B, C); }
 
-assoc(A) ::= arg(B) ASSOC arg(C). { A = list3(atom(ATOM_assoc_new), B, C); }
-assoc(A) ::= LABEL(B) arg(C). { A = list3(atom(ATOM_assoc_new), new_sym(p, B), C); }
+assoc(A) ::= arg(B) ASSOC arg(C). {
+  A = list3(atom(ATOM_assoc_new), list2(atom(ATOM_assoc_key), B), list2(atom(ATOM_assoc_value), C));
+}
+assoc(A) ::= LABEL(B) arg(C). {
+A = list3(atom(ATOM_assoc_new), list2(atom(ATOM_assoc_key), new_sym(p, B)), list2(atom(ATOM_assoc_value), C));
+}
 
 
 aref_args     ::= none.

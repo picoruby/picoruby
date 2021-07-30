@@ -93,6 +93,7 @@ typedef struct backpatch
 typedef struct scope Scope;
 typedef struct scope
 {
+  uint32_t irep_parameters; /* bbb */
   uint32_t nest_stack; /* Initial: 00000000 00000000 00000000 00000001 */
   Scope *upper;
   Scope *first_lower;
@@ -141,8 +142,6 @@ LvarScopeReg Scope_lvar_findRegnum(Scope *self, const char *name);
 int Scope_newLvar(Scope *self, const char *name, int newRegnum);
 
 void Scope_push(Scope *self);
-
-void Scope_pop(Scope *self);
 
 void Scope_finish(Scope *self);
 

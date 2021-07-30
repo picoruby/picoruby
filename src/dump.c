@@ -491,6 +491,7 @@ Dump_codeDump(uint8_t *irep)
 
     default:
       printf("OP_unknown (0x%x)\n", ins);
+      return;
       break;
     }
     printf("\n");

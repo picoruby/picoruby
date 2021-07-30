@@ -1,4 +1,4 @@
-class FixnumTest < PicoRubyTest
+class IntegerTest < PicoRubyTest
   assert_equal(<<~RUBY, "255")
     p(0b11111111)
   RUBY

@@ -19,8 +19,6 @@ class FunctionTest < PicoRubyTest
     puts('String', :symbol, 1, 3.14)
   RUBY
 
-  pending
-
   desc "p p p"
   assert_equal(<<~RUBY, "nil\nnil")
     p p p
@@ -28,6 +26,6 @@ class FunctionTest < PicoRubyTest
 
   desc "p p p 0"
   assert_equal(<<~RUBY, "0\n0\n0")
-    p p p
+    p p p 0
   RUBY
 end
