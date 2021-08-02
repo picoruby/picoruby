@@ -7,36 +7,21 @@ CC_PSOC := arm-none-eabi-gcc
 AR_PSOC := arm-none-eabi-ar
 CFLAGS += -Wall -Wpointer-arith -std=gnu99 -DHEAP_SIZE=1000000
 LDFLAGS +=
-LIB_DIR_PSOC5LP         := build/psoc5lp/lib
-LIB_DIR_HOST_DEBUG      := build/host-debug/lib
-LIB_DIR_HOST_PRODUCTION := build/host-production/lib
-BIN_DIR_HOST_DEBUG      := build/host-debug/bin
-BIN_DIR_HOST_PRODUCTION := build/host-production/bin
-LIB_DIR_ARM_DEBUG       := build/arm-debug/lib
-LIB_DIR_ARM_PRODUCTION  := build/arm-production/lib
-BIN_DIR_ARM_DEBUG       := build/arm-debug/bin
-BIN_DIR_ARM_PRODUCTION  := build/arm-production/bin
 TEST_FILE := test/fixtures/hello_world.rb
 DEPS := cli/heap.h cli/picoshell.c cli/picoruby.c cli/picorbc.c cli/picoirb.c \
         cli/picoshell_lib/shell.rb \
-        src/common.h    src/common.c \
-        src/compiler.h  src/compiler.c \
-        src/debug.h \
-        src/generator.h src/generator.c \
-        src/my_regex.h  src/my_regex.c \
-        src/regex_light/src/regex.h  src/regex_light/src/regex.c \
-        src/node.h      src/node.c \
-        src/scope.h     src/scope.c \
-        src/stream.h    src/stream.c \
-        src/token_data.h \
-        src/token.h     src/token.c \
-        src/tokenizer.h src/tokenizer.c \
-        src/version.h \
-        src/dump.h src/dump.c \
-        src/ruby-lemon-parse/parse_header.h src/ruby-lemon-parse/parse.y
 TARGETS = $(BIN_DIR)/picorbc $(BIN_DIR)/picoruby $(BIN_DIR)/picoshell $(BIN_DIR)/picoirb
 
-default: host_debug
+BIN_DIR_HOST_DEBUG_LIBC      := build/binhost-debug/alloc_libc
+BIN_DIR_HOST_PRODUCTION_LIBC := build/binhost-production/alloc_libc
+BIN_DIR_HOST_DEBUG_MRBC      := build/binhost-debug/alloc_mrbc
+BIN_DIR_HOST_PRODUCTION_MRBC := build/binhost-production/alloc_mrbc
+BIN_DIR_ARM_DEBUG_LIBC       := build/binarm-debug/alloc_libc
+BIN_DIR_ARM_PRODUCTION_LIBC  := build/binarm-production/alloc_libc
+BIN_DIR_ARM_DEBUG_MRBC       := build/binarm-debug/alloc_mrbc
+BIN_DIR_ARM_PRODUCTION_MRBC  := build/binarm-production/alloc_mrbc
+
+default: mrblib host_debug
 
 all: host_all arm_all
 
@@ -92,8 +77,6 @@ arm_production:
 	  CC=$(CC_ARM) AR=$(AR_ARM)
 
 $(TARGETS): $(DEPS)
-	$(MAKE) build_libpicorbc  CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" CC=$(CC) AR=$(AR) \
-	  LIB_DIR=$(LIB_DIR)
 	$(MAKE) build_picorbc CFLAGS="$(CFLAGS)" \
 	  LDFLAGS="$(LDFLAGS)" BIN_DIR=$(BIN_DIR) \
 	  CC=$(CC) AR=$(AR)
@@ -140,7 +123,10 @@ build_libpicorbc:
 	mv src/libpicorbc.a $(LIB_DIR)/libpicorbc.a
 
 build_mrblib:
-	cd src/mrubyc/mrblib ; $(MAKE) MRBC=../../../$(BIN_DIR)/picorbc
+	cd build/lib ; $(MAKE) host_production_libc
+	cd cli ; $(MAKE) picorbc DIR=host-production/alloc_libc
+	cd src/mrubyc/mrblib ; \
+	  $(MAKE) distclean all MRBC=../../../build/bin/host-production/alloc_libc/picorbc
 
 src/mrubyc/src/hal_user_reerved/hal.c:
 	cd src/mrubyc/src/hal_user_reserved/ ;\

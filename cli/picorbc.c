@@ -5,7 +5,9 @@
 #include <stdbool.h>
 #include <getopt.h>
 
-#include "../src/mrubyc/src/alloc.h"
+#ifndef MRBC_ALLOC_LIBC
+#define MRBC_ALLOC_LIBC
+#endif
 
 #include "../src/picorbc.h"
 
@@ -138,10 +140,6 @@ int output(Scope *scope, char *in, char *out, char *b_symbol)
   return 0;
 }
 
-#ifdef PICORBC_DEBUG
-static uint8_t heap[HEAP_SIZE];
-#endif
-
 int main(int argc, char * const *argv)
 {
   char out[255];
@@ -158,10 +156,6 @@ int main(int argc, char * const *argv)
 
   char *in = argv[optind];
 
-#ifdef PICORBC_DEBUG
-  mrbc_init_alloc(heap, HEAP_SIZE);
-#endif
-
   StreamInterface *si = StreamInterface_new(in, STREAM_TYPE_FILE);
   if (si == NULL) return 1;
   ParserState *p = Compiler_parseInitState(si->node_box_size);
@@ -173,8 +167,5 @@ int main(int argc, char * const *argv)
   StreamInterface_free(si);
   Compiler_parserStateFree(p);
   if (ret != 0) return ret;
-#ifdef PICORBC_DEBUG
-  memcheck();
-#endif
   return ret;
 }
