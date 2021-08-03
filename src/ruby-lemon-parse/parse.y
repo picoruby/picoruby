@@ -448,7 +448,7 @@
   static void
   local_add_blk(ParserState *p, const char *blk)
   {
-    if (blk) local_add_f(p, blk);
+    local_add_f(p, blk ? blk : "&");
   }
 
   static Node*
@@ -731,7 +731,7 @@ defn_head(A) ::= KW_def fname(B). {
                   // p->in_def++;
                   // nvars_block(p);
                   scope_nest(p, true);
-                  //p->scope->sp = 2; // R1 should be reserved for block arg
+                  // Scope_newLvar(p->scope, "&", p->scope->sp++);
                 }
 
 expr_value(A) ::= expr(B). {
