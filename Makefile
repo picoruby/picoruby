@@ -168,7 +168,7 @@ src/mrubyc/src/mrblib.c: $(MRBLIB_DEPS)
 	@echo "================================"
 	@echo "building mrblib"
 	cd src/mrubyc/mrblib ; \
-	  $(MAKE) distclean all MRBC=$(MAKEFILE_DIR)$(BIN_DIR_ARM_PRODUCTION_LIBC)/picorbc
+	  $(MAKE) distclean all MRBC=$(MAKEFILE_DIR)$(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc
 	  #$(MAKE) distclean all MRBC=/home/hasumi/.rbenv/shims/mrbc
 	@echo "\e[32;1mYey! $@\e[m\n"
 

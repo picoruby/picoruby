@@ -145,7 +145,7 @@ libpicorbc: $(DEPS)
 	mv ../../src/libpicorbc.a $(LIB_DIR)/libpicorbc.a
 	@echo "\e[32;1mYey! $@\e[m\n"
 
-libmrubyc: $(MRUBYC_DEPS)
+libmrubyc: $(MRUBYC_DEPS) ../../src/mrubyc/src/hal_user_reerved/hal.c
 	@echo
 	@echo "================================"
 	@echo "building libmrubyc.a"
