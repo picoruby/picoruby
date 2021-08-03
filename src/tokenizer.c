@@ -811,7 +811,8 @@ retry:
   }
   if (type != ON_NONE) {
     /* FIXME from here */
-    int8_t kw_num = keyword(value);
+    int8_t kw_num = 0;
+    if (type != STRING) kw_num = keyword(value);
     if ( kw_num > 0 ) {
       type = (uint8_t)kw_num;
       switch (type) {

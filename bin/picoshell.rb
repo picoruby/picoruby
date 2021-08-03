@@ -46,7 +46,7 @@ begin
     fd_client = f.gets.split(" ").last
     puts "fd_server: #{fd_server}"
     puts "fd_client: #{fd_client}"
-    systemu("../build/host-debug/bin/picoshell #{fd_server}") do |server_pid|
+    systemu("../build/bin/host-debug/alloc_mrbc/picoshell #{fd_server}") do |server_pid|
       puts "client pid: #{Process.pid}"
       puts "socat  pid: #{socat_pid}"
       puts "server pid: #{server_pid}"

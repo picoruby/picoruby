@@ -863,12 +863,14 @@ void gen_while(Scope *scope, Node *node, int op_jmp)
   /* condition */
   codegen(scope, node->cons.car);
   Scope_pushCode(op_jmp);
-  Scope_pushCode(--scope->sp);
+  Scope_pushCode(scope->sp);
   JmpLabel *label_top = Scope_reserveJmpLabel(scope);
   Scope_backpatchJmpLabel(label_top, top);
-  /* after while block */
-  Scope_pushCode(OP_LOADNIL);
-  Scope_pushCode(scope->sp);
+  {
+    /* after while block / TODO: should be omitted if subsequent code exists */
+    Scope_pushCode(OP_LOADNIL);
+    Scope_pushCode(scope->sp);
+  }
   Scope_popBreakStack(scope);
   pop_nest_stack(scope);
 }
@@ -940,16 +942,14 @@ uint32_t setup_parameters(Scope *scope, Node *node)
   return bbb;
 }
 
-void gen_irep(Scope *scope, Node *node)
+void gen_irep(Scope *scope, Node *node, bool is_def)
 {
   scope = scope_nest(scope);
+  if (!is_def) scope->sp++;
   int sp = scope->sp;
   uint32_t bbb = setup_parameters(scope, node->cons.car);
   { /* adjustments */
     scope->sp = sp; // cancel gen_var()'s effect
-    if (!(bbb & 1)) { // if there's no explicit block parameter
-      Scope_newLvar(scope, "&", ++scope->sp);
-    }
     scope->max_sp = scope->sp;
   }
   scope->irep_parameters = bbb;
@@ -993,7 +993,7 @@ void gen_block(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_push(scope);
   Scope_pushCode(scope->next_lower_number);
-  gen_irep(scope, node->cons.cdr);
+  gen_irep(scope, node->cons.cdr, false);
 }
 
 void gen_def(Scope *scope, Node *node)
@@ -1012,7 +1012,7 @@ void gen_def(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_pushCode(litIndex);
 
-  gen_irep(scope, node->cons.cdr->cons.cdr);
+  gen_irep(scope, node->cons.cdr->cons.cdr, true);
 }
 
 void gen_class(Scope *scope, Node *node)
@@ -1067,7 +1067,7 @@ void gen_yield(Scope *scope, Node *node)
    *          ^     ^
    *          r     d
    */
-  int nargs;
+  int nargs = 0;
   if (node->cons.cdr->cons.car) {
     Scope_push(scope);
     nargs = gen_values(scope, node);
@@ -1086,6 +1086,20 @@ void gen_yield(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_pushCode(Scope_newSym(scope, "call"));
   Scope_pushCode(nargs);
+}
+
+void gen_return(Scope *scope, Node *node)
+{
+  if (node->cons.cdr->cons.car) {
+    int reg = scope->sp;
+    codegen(scope, node->cons.cdr->cons.car);
+    scope->sp = reg;
+  } else {
+    Scope_pushCode(OP_LOADNIL);
+    Scope_pushCode(scope->sp);
+  }
+  Scope_pushCode(OP_RETURN);
+  Scope_pushCode(scope->sp);
 }
 
 void codegen(Scope *scope, Node *tree)
@@ -1127,15 +1141,10 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_program:
       scope->nest_stack = 1; /* 00000000 00000000 00000000 00000001 */
       codegen(scope, tree->cons.cdr->cons.car);
-      /* Prevent double return */
-//      CodePool *pool = scope->current_code_pool;
-      /* Prevention only works if `OP_RETURN Rn` aren't separated */
-//      if (pool->index > 1)
-//        if (pool->data[pool->index - 1] != scope->sp)
-//          if (pool->data[pool->index - 2] != OP_RETURN) {
-            Scope_pushCode(OP_RETURN);
-            Scope_pushCode(scope->sp);
-//          }
+      if (scope->current_code_pool->data[scope->current_code_pool->index - 2] != OP_RETURN) {
+        Scope_pushCode(OP_RETURN);
+        Scope_pushCode(scope->sp);
+      }
       Scope_pushCode(OP_STOP);
       Scope_finish(scope);
       break;
@@ -1247,14 +1256,7 @@ void codegen(Scope *scope, Node *tree)
       Scope_pushCode(scope->sp);
       break;
     case ATOM_kw_return:
-      if (tree->cons.cdr->cons.car) {
-        codegen(scope, tree->cons.cdr->cons.car);
-      } else {
-        Scope_pushCode(OP_LOADNIL);
-        Scope_pushCode(scope->sp);
-      }
-      Scope_pushCode(OP_RETURN);
-      Scope_pushCode(scope->sp);
+      gen_return(scope, tree);
       break;
     case ATOM_kw_yield:
       gen_yield(scope, tree);

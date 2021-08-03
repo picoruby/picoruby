@@ -13,7 +13,7 @@ class PicoRubyTest
     @@failure_struct = Struct.new(:filename, :description, :script, :expected, :actual)
     @@failures = []
     @@description = ""
-    @@picoruby_path = File.expand_path('../../../build/host-production/bin/picoruby', __FILE__)
+    @@picoruby_path = ENV['PICORUBY']
   end
 
   def exit_code

@@ -66,7 +66,7 @@ Dump_codeDump(uint8_t *irep)
   while (irep < irepend) {
     printf("    1 %03d ", (int)(irep - opstart));
     uint32_t a;
-    uint16_t b;
+    uint16_t b = 0;
     uint16_t c;
     uint8_t ins = *irep++;
     switch (ins) {

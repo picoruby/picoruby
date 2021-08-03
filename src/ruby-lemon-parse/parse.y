@@ -448,7 +448,7 @@
   static void
   local_add_blk(ParserState *p, const char *blk)
   {
-    if (blk) local_add_f(p, blk);
+    local_add_f(p, blk ? blk : "&");
   }
 
   static Node*
@@ -688,11 +688,11 @@ stmts(A) ::= stmts(B) terms stmt(C). { A = list3(atom(ATOM_stmts_add), B, C); }
 
 stmt(A) ::= none. { A = new_begin(p, 0); }
 stmt_alias(A) ::= KW_alias fsym(B). {
-                   p->state = EXPR_FNAME;
+                   //p->state = EXPR_FNAME;
                    A = B;
                   }
 stmt(A) ::= stmt_alias(B) fsym(C). {
-              p->state = EXPR_BEG;
+              //p->state = EXPR_BEG;
               A = new_alias(p, B, C);
             }
 stmt(A) ::= stmt(B) KW_modifier_if expr_value(C). {
@@ -731,7 +731,7 @@ defn_head(A) ::= KW_def fname(B). {
                   // p->in_def++;
                   // nvars_block(p);
                   scope_nest(p, true);
-                  //p->scope->sp = 2; // R1 should be reserved for block arg
+                  // Scope_newLvar(p->scope, "&", p->scope->sp++);
                 }
 
 expr_value(A) ::= expr(B). {
