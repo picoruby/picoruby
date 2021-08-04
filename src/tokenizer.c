@@ -534,7 +534,7 @@ retry:
     } else if (self->line[self->pos] == ':') {
       value[0] = ':';
       value[1] = '\0';
-      if (Regex_match2(&(self->line[self->pos]), "^:[A-Za-z0-9'\"]")) {
+      if (Regex_match2(&(self->line[self->pos]), "^:[_A-Za-z0-9'\"]")) {
         type = SYMBEG;
         if (self->line[self->pos + 1] == '\'' || self->line[self->pos + 1] == '"') {
           self->p->state = EXPR_CMDARG;
