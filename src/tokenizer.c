@@ -507,10 +507,21 @@ retry:
     strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
     type = GVAR;
     self->p->state = EXPR_END;
-  } else if (Regex_match3(&(self->line[self->pos]), "^(\\?)", regexResult)) {
-    strsafecpy(value, regexResult[0].value, MAX_TOKEN_LENGTH);
-    type = QUESTION;
-    self->p->state = EXPR_BEG;
+  } else if (self->line[self->pos] == '?') {
+    char c1 = self->line[self->pos + 1];
+    char c2 = self->line[self->pos + 2];
+    if ( (IS_BEG() || IS_ARG()) && c1 != ' ' &&
+        (c2 == ' ' || c2 == '\n' || c2 == '\t' || c2 == ';' || c2 == '\0') ) {
+      value[0] = c1;
+      type = STRING;
+      self->p->state = EXPR_END;
+      self->pos++;
+    } else {
+      value[0] = '?';
+      type = QUESTION;
+      self->p->state = EXPR_VALUE;
+    }
+    value[1] = '\0';
   } else if (self->line[self->pos] == '-' && self->line[self->pos + 1] == '>') {
     value[0] = '-';
     value[1] = '>';
