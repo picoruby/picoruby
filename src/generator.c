@@ -950,10 +950,9 @@ uint32_t setup_parameters(Scope *scope, Node *node)
   return bbb;
 }
 
-void gen_irep(Scope *scope, Node *node, bool is_def)
+void gen_irep(Scope *scope, Node *node)
 {
   scope = scope_nest(scope);
-  if (!is_def) scope->sp++;
   int sp = scope->sp;
   uint32_t bbb = setup_parameters(scope, node->cons.car);
   { /* adjustments */
@@ -1001,7 +1000,7 @@ void gen_block(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_push(scope);
   Scope_pushCode(scope->next_lower_number);
-  gen_irep(scope, node->cons.cdr, false);
+  gen_irep(scope, node->cons.cdr);
 }
 
 void gen_def(Scope *scope, Node *node)
@@ -1020,7 +1019,7 @@ void gen_def(Scope *scope, Node *node)
   Scope_pushCode(scope->sp);
   Scope_pushCode(litIndex);
 
-  gen_irep(scope, node->cons.cdr->cons.cdr, true);
+  gen_irep(scope, node->cons.cdr->cons.cdr);
 }
 
 void gen_class(Scope *scope, Node *node)
