@@ -172,7 +172,6 @@ void gen_float(Scope *scope, Node *node, Misc is_neg)
   char *value = (char *)Node_valueName(node->cons.car);
   cleanup_numeric_literal(value);
   gen_literal_numeric(scope, (const char *)value, FLOAT_LITERAL, is_neg);
-  Scope_push(scope);
 }
 
 void gen_int(Scope *scope, Node *node, Misc is_neg)
@@ -1048,8 +1047,9 @@ void gen_class(Scope *scope, Node *node)
   Scope_pushCode(litIndex);
 
   if (node->cons.cdr->cons.cdr->cons.car->cons.cdr == NULL) {
-    Scope_pushCode(OP_LOADNIL);
-    Scope_pushCode(scope->sp);
+    Scope_freeCodePool(scope->first_lower);
+    Scope_free(scope->first_lower);
+    scope->first_lower = NULL;
     scope->nlowers--;
   } else {
     node->cons.cdr->cons.car = NULL; /* Stop generating super class CONST */

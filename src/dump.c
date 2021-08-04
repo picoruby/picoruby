@@ -77,11 +77,11 @@ Dump_codeDump(uint8_t *irep)
       printf("OP_MOVE\tR%d\tR%d\t", a, b);
       print_lv_ab(mrb, irep, a, b);
       break;
-//    CASE(OP_LOADL16, BS);
-//      goto op_loadl;
-//
-//    CASE(OP_LOADL, BB);
-//    op_loadl:
+    CASE(OP_LOADL16, BS);
+      goto op_loadl;
+
+    CASE(OP_LOADL, BB);
+    op_loadl:
 //      switch (irep->pool[b].tt) {
 //      case IREP_TT_FLOAT:
 //#ifndef MRB_NO_FLOAT
@@ -97,11 +97,11 @@ Dump_codeDump(uint8_t *irep)
 //        break;
 //#endif
 //      default:
-//        printf("OP_LOADL\tR%d\tL(%d)\t", a, b);
-//        break;
+        printf("OP_LOADL\tR%d\tL(%d)\t", a, b);
+        break;
 //      }
-//      print_lv_a(mrb, irep, a);
-//      break;
+      print_lv_a(mrb, irep, a);
+      break;
     CASE(OP_LOADI, BB);
       printf("OP_LOADI\tR%d\t%d\t", a, b);
       print_lv_a(mrb, irep, a);
@@ -491,7 +491,7 @@ Dump_codeDump(uint8_t *irep)
 
     default:
       printf("OP_unknown (0x%x)\n", ins);
-      return;
+ //     return;
       break;
     }
     printf("\n");
