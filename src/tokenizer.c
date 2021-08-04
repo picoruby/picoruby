@@ -414,6 +414,13 @@ retry:
       type = CMP;
     } else if (value[2] == '=') {
       type = OP_ASGN;
+    } else if (value[2] == '.') {
+      if (IS_BEG()) {
+        type = BDOT3;
+      } else {
+        type = DOT3;
+      }
+      self->p->state = EXPR_BEG;
     }
   } else if (self->p->state != EXPR_DOT && self->p->state != EXPR_FNAME && tokenizer_is_operator(&(self->line[self->pos]), 2)) {
     value[0] = self->line[self->pos];
@@ -475,6 +482,14 @@ retry:
           type = OROP;
         } else {
           type = OP_ASGN;
+        }
+        self->p->state = EXPR_BEG;
+        break;
+      case '.':
+        if (IS_BEG()) {
+          type = BDOT2;
+        } else {
+          type = DOT2;
         }
         self->p->state = EXPR_BEG;
         break;

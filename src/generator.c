@@ -848,6 +848,15 @@ void gen_alias(Scope *scope, Node *node)
   Scope_pushCode(litIndex);
 }
 
+void gen_dot2_3(Scope *scope, Node *node, int op)
+{
+  codegen(scope, node->cons.car);
+  Scope_push(scope);
+  codegen(scope, node->cons.cdr->cons.car);
+  Scope_pushCode(op);
+  Scope_pushCode(--scope->sp);
+}
+
 void gen_while(Scope *scope, Node *node, int op_jmp)
 {
   push_nest_stack(scope, 0); /* 0 represents CONDITION NEST */
@@ -1278,8 +1287,14 @@ void codegen(Scope *scope, Node *tree)
     case ATOM_alias:
       gen_alias(scope, tree->cons.cdr);
       break;
+    case ATOM_dot2:
+      gen_dot2_3(scope, tree->cons.cdr, OP_RANGE_INC);
+      break;
+    case ATOM_dot3:
+      gen_dot2_3(scope, tree->cons.cdr, OP_RANGE_EXC);
+      break;
     default:
-//      FATALP("error");
+      FATALP("Unkown OP code: %x", Node_atomType(tree));
       break;
   }
 }
