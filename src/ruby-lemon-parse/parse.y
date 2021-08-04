@@ -618,6 +618,18 @@
     return list3(atom(ATOM_alias), new_sym(p, a), new_sym(p, b));
   }
 
+  static Node*
+  new_dot2(ParserState *p, const char *a, const char *b)
+  {
+    return list3(atom(ATOM_dot2), a, b);
+  }
+
+  static Node*
+  new_dot3(ParserState *p, const char *a, const char *b)
+  {
+    return list3(atom(ATOM_dot3), a, b);
+  }
+
   static void
   scope_nest(ParserState *p, bool lvar_top)
   {
@@ -652,6 +664,7 @@
 %right KW_not.
 %right E OP_ASGN.
 %right QUESTION COLON.
+%nonassoc DOT2 DOT3 BDOT2 BDOT3.
 %left OROP.
 %left ANDOP.
 %nonassoc EQ EQQ NEQ.
@@ -776,6 +789,24 @@ arg(A) ::= primary_value(B) LBRACKET opt_call_args(C) RBRACKET OP_ASGN(D) arg_rh
   { A = new_op_asgn(p, new_call(p, B, STRING_ARY, C, '.'), D, E); }
 arg(A) ::= primary_value(B) call_op(C) IDENTIFIER(D) OP_ASGN(E) arg_rhs(F).
   { A = new_op_asgn(p, new_call(p, B, D, 0, C), E, F); }
+arg(A) ::= arg(B) DOT2 arg(C). {
+  A = new_dot2(p, B, C);
+}
+arg(A) ::= arg(B) DOT2. {
+  A = new_dot2(p, B, list1(atom(ATOM_kw_nil)));
+}
+arg(A) ::= BDOT2 arg(B). {
+  A = new_dot2(p, list1(atom(ATOM_kw_nil)), B);
+}
+arg(A) ::= arg(B) DOT3 arg(C). {
+  A = new_dot3(p, B, C);
+}
+arg(A) ::= arg(B) DOT3. {
+  A = new_dot3(p, B, list1(atom(ATOM_kw_nil)));
+}
+arg(A) ::= BDOT3 arg(B). {
+  A = new_dot3(p, list1(atom(ATOM_kw_nil)), B);
+}
 arg(A) ::= arg(B) PLUS arg(C).   { A = call_bin_op(B, "+" ,C); }
 arg(A) ::= arg(B) MINUS arg(C).  { A = call_bin_op(B, "-", C); }
 arg(A) ::= arg(B) TIMES arg(C).  { A = call_bin_op(B, "*", C); }
