@@ -1049,12 +1049,21 @@ void gen_class(Scope *scope, Node *node)
     /* empty class */
     Scope_pushCode(OP_LOADNIL);
     Scope_pushCode(scope->sp);
-    Scope *first_lower = scope->first_lower;
-    scope->first_lower = first_lower->next; /* possibly NULL */
-    first_lower->next = NULL;
+    Scope *target = scope->first_lower;
+    Scope *prev = NULL;
+    for (uint16_t i = 0; i < scope->next_lower_number; i++) {
+      prev = target;
+      target = target->next;
+    }
+    if (prev) {
+      prev->next = target->next; /* possibly NULL */
+    } else {
+      scope->first_lower = target->next;
+    }
     scope->nlowers--;
-    Scope_freeCodePool(first_lower);
-    Scope_free(first_lower);
+    picorbc_free(target->first_code_pool); /* should be only one */
+    target->next = NULL;
+    Scope_free(target);
   } else {
     node->cons.cdr->cons.car = NULL; /* Stop generating super class CONST */
     Scope_pushCode(OP_EXEC);
