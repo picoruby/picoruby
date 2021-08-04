@@ -864,6 +864,7 @@ primary(A)  ::= KW_begin
                 KW_end. {
                   A = B;
                 }
+primary(A)  ::= LPAREN_ARG stmt(B) rparen. { A = B; }
 primary(A)  ::= LPAREN compstmt(B) rparen. {
                   A = B;
                 }

@@ -1294,7 +1294,8 @@ void codegen(Scope *scope, Node *tree)
       gen_dot2_3(scope, tree->cons.cdr, OP_RANGE_EXC);
       break;
     default:
-      FATALP("Unkown OP code: %x", Node_atomType(tree));
+      // FIXME: `Unkown OP code: 2e`
+//      FATALP("Unkown OP code: %x", Node_atomType(tree));
       break;
   }
 }

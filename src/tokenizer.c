@@ -410,8 +410,10 @@ retry:
     value[3] = '\0';
     if (strcmp(value, "===") == 0) {
       type = EQQ;
+      self->p->state = EXPR_BEG;
     } else if (strcmp(value, "<=>") == 0) {
       type = CMP;
+      self->p->state = EXPR_BEG;
     } else if (value[2] == '=') {
       type = OP_ASGN;
     } else if (value[2] == '.') {
@@ -429,13 +431,13 @@ retry:
     switch (value[0]) {
       case '=':
         switch (value[1]) {
-          case '=': type = EQ; break;
+          case '=': type = EQ; self->p->state = EXPR_BEG; break;
           case '>': type = ASSOC; self->p->state = EXPR_BEG; break;
         }
         break;
       case '!':
         switch (value[1]) {
-          case '=': type = NEQ; break;
+          case '=': type = NEQ; self->p->state = EXPR_BEG; break;
         }
         break;
       case '*':
@@ -458,7 +460,7 @@ retry:
       case '>':
         switch (value[1]) {
           case '>': type = RSHIFT; break;
-          case '=': type = GEQ; break;
+          case '=': type = GEQ; self->p->state = EXPR_ARG; break;
         }
         break;
       case '+':
@@ -576,6 +578,8 @@ retry:
         case '(':
           if (IS_BEG()) {
             type = LPAREN;
+          } else if (IS_ARG() && self->line[self->pos - 1] == ' ') {
+            type = LPAREN_ARG;
           } else {
             type = LPAREN_EXPR;
           }
