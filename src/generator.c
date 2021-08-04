@@ -82,7 +82,7 @@ const char *push_gen_literal(Scope *scope, const char *s)
 
 Scope *scope_nest(Scope *scope)
 {
-  uint32_t nest_stack = scope->nest_stack;;
+  uint32_t nest_stack = scope->nest_stack;
   scope = scope->first_lower;
   for (uint16_t i = 0; i < scope->upper->next_lower_number; i++) {
     scope = scope->next;
@@ -1047,10 +1047,15 @@ void gen_class(Scope *scope, Node *node)
   Scope_pushCode(litIndex);
 
   if (node->cons.cdr->cons.cdr->cons.car->cons.cdr == NULL) {
-    Scope_freeCodePool(scope->first_lower);
-    Scope_free(scope->first_lower);
-    scope->first_lower = NULL;
+    /* empty class */
+    Scope_pushCode(OP_LOADNIL);
+    Scope_pushCode(scope->sp);
+    Scope *first_lower = scope->first_lower;
+    scope->first_lower = first_lower->next; /* possibly NULL */
+    first_lower->next = NULL;
     scope->nlowers--;
+    Scope_freeCodePool(first_lower);
+    Scope_free(first_lower);
   } else {
     node->cons.cdr->cons.car = NULL; /* Stop generating super class CONST */
     Scope_pushCode(OP_EXEC);

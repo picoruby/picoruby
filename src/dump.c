@@ -72,6 +72,7 @@ Dump_codeDump(uint8_t *irep)
     switch (ins) {
     CASE(OP_NOP, Z);
       printf("OP_NOP\n");
+      return;
       break;
     CASE(OP_MOVE, BB);
       printf("OP_MOVE\tR%d\tR%d\t", a, b);

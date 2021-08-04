@@ -191,24 +191,25 @@ picoshell: host_debug_mrbc
 clean:
 	cd src ; $(MAKE) clean
 	cd src/mrubyc/mrblib ; $(MAKE) distclean
+	cd src/mrubyc ; $(MAKE) clean
 	cd cli ; $(MAKE) clean
 	cd build/lib ; $(MAKE) clean
-	rm -f $(BIN_DIR_HOST_DEBUG_LIBC)/*.o
-	rm -f $(BIN_DIR_HOST_DEBUG_LIBC)/*.a
-	rm -f $(BIN_DIR_HOST_PRODUCTION_LIBC)/*.o
-	rm -f $(BIN_DIR_HOST_PRODUCTION_LIBC)/*.a
-	rm -f $(BIN_DIR_HOST_DEBUG_MRBC)/*.o
-	rm -f $(BIN_DIR_HOST_DEBUG_MRBC)/*.a
-	rm -f $(BIN_DIR_HOST_PRODUCTION_MRBC)/*.o
-	rm -f $(BIN_DIR_HOST_PRODUCTION_MRBC)/*.a
-	rm -f $(BIN_DIR_ARM_DEBUG_LIBC)/*.o
-	rm -f $(BIN_DIR_ARM_DEBUG_LIBC)/*.a
-	rm -f $(BIN_DIR_ARM_PRODUCTION_LIBC)/*.o
-	rm -f $(BIN_DIR_ARM_PRODUCTION_LIBC)/*.a
-	rm -f $(BIN_DIR_ARM_DEBUG_MRBC)/*.o
-	rm -f $(BIN_DIR_ARM_DEBUG_MRBC)/*.a
-	rm -f $(BIN_DIR_ARM_PRODUCTION_MRBC)/*.o
-	rm -f $(BIN_DIR_ARM_PRODUCTION_MRBC)/*.a
+	rm -f $(BIN_DIR_HOST_DEBUG_LIBC)/*
+	rm -f $(BIN_DIR_HOST_DEBUG_LIBC)/*
+	rm -f $(BIN_DIR_HOST_PRODUCTION_LIBC)/*
+	rm -f $(BIN_DIR_HOST_PRODUCTION_LIBC)/*
+	rm -f $(BIN_DIR_HOST_DEBUG_MRBC)/*
+	rm -f $(BIN_DIR_HOST_DEBUG_MRBC)/*
+	rm -f $(BIN_DIR_HOST_PRODUCTION_MRBC)/*
+	rm -f $(BIN_DIR_HOST_PRODUCTION_MRBC)/*
+	rm -f $(BIN_DIR_ARM_DEBUG_LIBC)/*
+	rm -f $(BIN_DIR_ARM_DEBUG_LIBC)/*
+	rm -f $(BIN_DIR_ARM_PRODUCTION_LIBC)/*
+	rm -f $(BIN_DIR_ARM_PRODUCTION_LIBC)/*
+	rm -f $(BIN_DIR_ARM_DEBUG_MRBC)/*
+	rm -f $(BIN_DIR_ARM_DEBUG_MRBC)/*
+	rm -f $(BIN_DIR_ARM_PRODUCTION_MRBC)/*
+	rm -f $(BIN_DIR_ARM_PRODUCTION_MRBC)/*
 
 install:
 	cp cli/picorbc /usr/local/bin/picorbc
