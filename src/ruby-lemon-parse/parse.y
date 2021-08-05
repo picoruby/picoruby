@@ -744,7 +744,6 @@ defn_head(A) ::= KW_def fname(B). {
                   // p->in_def++;
                   // nvars_block(p);
                   scope_nest(p, true);
-                  // Scope_newLvar(p->scope, "&", p->scope->sp++);
                 }
 
 expr_value(A) ::= expr(B). {
@@ -1182,7 +1181,7 @@ f_args(A) ::= args_tail(B). {
                 A = new_args(p, 0, 0, 0, 0, B);
               }
 f_args(A) ::= . {
-                // local_add_f(p, intern_op(and))
+                 local_add_f(p, "&");
                 A = new_args(p, 0, 0, 0, 0, 0);
               }
 
