@@ -619,13 +619,13 @@
   }
 
   static Node*
-  new_dot2(ParserState *p, const char *a, const char *b)
+  new_dot2(ParserState *p, Node *a, Node *b)
   {
     return list3(atom(ATOM_dot2), a, b);
   }
 
   static Node*
-  new_dot3(ParserState *p, const char *a, const char *b)
+  new_dot3(ParserState *p, Node *a, Node *b)
   {
     return list3(atom(ATOM_dot3), a, b);
   }
