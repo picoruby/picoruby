@@ -344,7 +344,7 @@ retry:
                 if (c[0] == '\0') REPLACE_NULL_PICORUBY;
               } else {
                 ERRORP("Invalid hex escape");
-                self->p->error_count++;
+                return 1;
               }
               break;
             default: c[0] = self->line[self->pos];

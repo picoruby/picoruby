@@ -92,25 +92,27 @@ start_irb(void)
         firstRun = false;
       }
       mrbc_vm_run(c_vm);
-      console_printf("=> ");
-      mrbc_p_sub((const mrbc_value *)&c_vm->current_regs[p->scope->sp]);
+      if (c_vm->error_code != 0) {
+        console_printf("=> ");
+        mrbc_p_sub((const mrbc_value *)&c_vm->current_regs[p->scope->sp - 1]);
 #if defined(PICORBC_DEBUG)
-      console_printf(" (reg_num: %d)", p->scope->sp);
+        console_printf(" (reg_num: %d)", p->scope->sp);
 #endif
-      console_putchar('\n');
-
-      lvar = p->scope->lvar;
-      symbol = p->scope->symbol;
-      literal = p->scope->literal;
-      string_pool = p->current_string_pool;
-      sp = p->scope->sp;
-      max_sp = p->scope->max_sp;
-      nlocals = p->scope->nlocals;
-      p->current_string_pool = NULL;
-      p->scope->lvar = NULL;
-      p->scope->symbol = NULL;
-      p->scope->literal = NULL;
+        console_putchar('\n');
+      }
     }
+
+    lvar = p->scope->lvar;
+    symbol = p->scope->symbol;
+    literal = p->scope->literal;
+    string_pool = p->current_string_pool;
+    sp = p->scope->sp;
+    max_sp = p->scope->max_sp;
+    nlocals = p->scope->nlocals;
+    p->current_string_pool = NULL;
+    p->scope->lvar = NULL;
+    p->scope->symbol = NULL;
+    p->scope->literal = NULL;
     StreamInterface_free(si);
     Compiler_parserStateFree(p);
   }

@@ -1287,7 +1287,8 @@ none(A) ::= . { A = 0; }
     while (pool) {
       index = 0;
       for (;;) {
-        if (strcmp(s, &pool->strings[index]) == 0) return &pool->strings[index];
+        if (strcmp(s, &pool->strings[index]) == 0)
+          return &pool->strings[index];
         while (index < pool->index) {
           if (pool->strings[index] == '\0') break;
           index++;
