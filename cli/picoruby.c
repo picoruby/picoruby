@@ -12,8 +12,6 @@ int loglevel;
 
 void run(uint8_t *mrb)
 {
-  mrbc_init_global();
-  mrbc_init_class();
   struct VM *vm = mrbc_vm_open(NULL);
   if( vm == 0 ) {
     fprintf(stderr, "Error: Can't open VM.\n");
@@ -79,7 +77,7 @@ static uint8_t heap[HEAP_SIZE];
 
 int main(int argc, char *argv[])
 {
-  mrbc_init_alloc(heap, HEAP_SIZE);
+  mrbc_init(heap, HEAP_SIZE);
 
   char *oneliner = NULL;
   int ret = handle_opt(argc, argv, &oneliner);
