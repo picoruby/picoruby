@@ -826,6 +826,8 @@ void gen_if(Scope *scope, Node *node)
   Scope_backpatchJmpLabel(label_false, scope->vm_code_size);
   scope->sp = start_reg;
   if (Node_atomType(node->cons.cdr->cons.cdr->cons.car) == ATOM_NONE) {
+  // FIXME
+  //if (node->cons.cdr->cons.cdr->cons.cdr == NULL) {
     /* right before KW_end */
     Scope_pushCode(OP_LOADNIL);
     Scope_pushCode(scope->sp);
