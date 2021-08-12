@@ -699,7 +699,7 @@ void gen_and_or(Scope *scope, Node *node, int opcode)
   /* left condition */
   codegen(scope, node->cons.car);
   Scope_pushCode(opcode); /* and->OP_JMPNOT, or->OP_JMPIF */
-  Scope_pushCode(--scope->sp);
+  Scope_pushCode(scope->sp);
   JmpLabel *label = Scope_reserveJmpLabel(scope);
   /* right condition */
   codegen(scope, node->cons.cdr);

@@ -1,6 +1,6 @@
 MAKEFILE_DIR := $(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 GDB := gdb
-CFLAGS += -Wall -Wpointer-arith -std=gnu99 -DHEAP_SIZE=1000000
+CFLAGS += -Wall -Wpointer-arith -std=gnu99 -DHEAP_SIZE=1000000 -DMAX_REGS_SIZE=256 -DMAX_SYMBOLS_COUNT=500
 LDFLAGS +=
 TEST_FILE := test/fixtures/hello_world.rb
 DEPS := cli/heap.h cli/picoshell.c cli/picoruby.c cli/picorbc.c cli/picoirb.c \
