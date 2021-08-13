@@ -421,8 +421,10 @@
   {
     // different way from mruby...
     LvarScopeReg lvar = Scope_lvar_findRegnum(p->scope, a);
-    if (lvar.reg_num == 0)
+    if (lvar.scope_num != 0 || lvar.reg_num == 0) {
+      /* If no lvar found in the current scope */
       Scope_newLvar(p->scope, a, p->scope->sp++);
+    }
   }
 
   static Node*

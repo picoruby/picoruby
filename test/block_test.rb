@@ -61,4 +61,12 @@ class BlockTest < PicoRubyTest
     my_method {puts 'hello'}
   RUBY
 
+  desc "lvar scope"
+  assert_equal(<<~RUBY, "0")
+    a = 1
+    [0].each do |a|
+      puts a
+    end
+  RUBY
+
 end
