@@ -24,4 +24,19 @@ class AssignTest < PicoRubyTest
     end
     p a
   RUBY
+
+  assert_equal(<<~RUBY, "1")
+    class A
+      attr_accessor :b
+    end
+    a = A.new
+    a.b = 1
+    puts a.b
+  RUBY
+
+  assert_equal(<<~RUBY, "[2, 1]")
+    a = [0, 1]
+    a[0] = 2
+    p a
+  RUBY
 end

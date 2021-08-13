@@ -436,6 +436,8 @@ void gen_assign(Scope *scope, Node *node)
         Scope_push(scope);
         nargs = gen_values(scope, call_node);
       }
+      const char *method_name = Node_literalName(call_node->cons.car->cons.cdr);
+      if (strcmp(method_name, "[]")) Scope_push(scope);
       Scope_pushCode(OP_MOVE);
       Scope_pushCode(scope->sp);
       scope->sp -= nargs + 2;
@@ -443,11 +445,10 @@ void gen_assign(Scope *scope, Node *node)
       Scope_push(scope);
       Scope_pushCode(OP_SEND);
       Scope_pushCode(scope->sp);
-      const char *method_name = Node_literalName(node->cons.car->cons.cdr->cons.cdr->cons.car->cons.cdr);
       int symIndex = Scope_assignSymIndex(scope, method_name);
       Scope_pushCode(symIndex);
       Scope_pushCode(nargs + 1);
-scope->sp = reg;
+      scope->sp = reg;
       break;
     default:
       FATALP("error");
