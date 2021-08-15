@@ -37,6 +37,14 @@ class DefTest < PicoRubyTest
     my_method('hey', 'you')
   RUBY
 
+  desc "block"
+  assert_equal(<<~RUBY, "1")
+    def m(&block)
+      block.call
+    end
+    m { puts 1 }
+  RUBY
+
   desc "marg, optarg and block"
   assert_equal(<<~RUBY, "1")
     def m(a,b,&block)

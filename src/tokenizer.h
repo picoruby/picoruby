@@ -40,7 +40,6 @@ typedef struct tokenizer
   int pos;
   int paren_stack_num;
   char modeTerminater;
-  State state;
   Paren paren_stack[PAREN_STACK_SIZE];
 } Tokenizer;
 

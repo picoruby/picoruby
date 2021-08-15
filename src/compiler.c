@@ -89,7 +89,10 @@ bool Compiler_compile(ParserState *p, StreamInterface *si)
   yyParser *parser = ParseAlloc(picorbc_alloc, p);
   Type prevType = 0;
   while( Tokenizer_hasMoreTokens(tokenizer) ) {
-    if (Tokenizer_advance(tokenizer, false) != 0) break;
+    if (Tokenizer_advance(tokenizer, false) > 0) {
+      p->error_count++;
+      break;
+    }
     for (;;) {
       if (topToken->value == NULL) {
         DEBUGP("(main)%p null", topToken);

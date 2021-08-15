@@ -1,27 +1,41 @@
-CFLAGS += -Wall -Wpointer-arith -std=gnu99
 CC := gcc
+AR := ar
+CFLAGS += -Wall -Wpointer-arith -std=gnu99 -DHEAP_SIZE=1000000
 LDFLAGS +=
-TARGETS = picorbc picoruby picoshell_lib/shell.c picoshell
-MRUBYCDIR = ../src/mrubyc/src
-PICORBCDIR = ../src
 
 all: picorbc picoruby picoirb
 
 picorbc: picorbc.c heap.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
+	@echo
+	@echo "================================"
+	@echo "building picorbc"
+	@echo "  DIR=$(DIR)"
+	mkdir -p ../build/bin/$(DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
 
 picoruby: picoruby.c heap.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
+	@echo
+	@echo "================================"
+	@echo "building picoruby"
+	@echo "  DIR=$(DIR)"
+	mkdir -p ../build/bin/$(DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
 
 picoirb: picoirb.c heap.h
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ -L../$(LIB_DIR) -lmrubyc -lpicorbc
+	@echo
+	@echo "================================"
+	@echo "building picoirb"
+	@echo "  DIR=$(DIR)"
+	mkdir -p ../build/bin/$(DIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
 
 picoshell: picoshell.c heap.h picoshell_lib/shell.c picoshell_lib/shell.rb
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(filter-out picoshell_lib/shell.c picoshell_lib/shell.rb, $^) -L../$(LIB_DIR) -lmrubyc -lpicorbc
+	$(CC) $(CFLAGS) $(LDFLAGS) \
+	  -o $@ $(filter-out picoshell_lib/shell.c picoshell_lib/shell.rb, $^) \
+	  -L$(LIB_DIR) -lmrubyc -lpicorbc
 
 picoshell_lib/shell.c: picoshell_lib/shell.rb
-	cd picoshell_lib ; make all
+	cd picoshell_lib ; make all PICORBC=$(PICORBC)
 
 clean:
 	cd picoshell_lib ; make clean
-	rm -f $(TARGETS)

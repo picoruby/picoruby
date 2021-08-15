@@ -6,8 +6,10 @@
 typedef enum literal_type
 {
   STRING_LITERAL  = 0,
-  INTEGER_LITERAL = 1,
-  FLOAT_LITERAL   = 2
+  SSTRING_LITERAL = 2,
+  INT32_LITERAL   = 1,
+  INT64_LITERAL   = 3,
+  FLOAT_LITERAL   = 5
 } LiteralType;
 
 typedef struct literal
@@ -76,7 +78,12 @@ typedef struct assign_symbol
   const char *value;
 } AssignSymbol;
 
-typedef void JmpLabel;
+typedef struct jmp_label
+{
+  void *address;
+  uint32_t pos;
+} JmpLabel;
+
 typedef struct backpatch
 {
   JmpLabel *label;
@@ -86,6 +93,7 @@ typedef struct backpatch
 typedef struct scope Scope;
 typedef struct scope
 {
+  uint32_t irep_parameters; /* bbb */
   uint32_t nest_stack; /* Initial: 00000000 00000000 00000000 00000001 */
   Scope *upper;
   Scope *first_lower;
@@ -135,15 +143,13 @@ int Scope_newLvar(Scope *self, const char *name, int newRegnum);
 
 void Scope_push(Scope *self);
 
-void Scope_pop(Scope *self);
-
 void Scope_finish(Scope *self);
 
 void Scope_freeCodePool(Scope *self);
 
 JmpLabel *Scope_reserveJmpLabel(Scope *self);
 
-void Scope_backpatchJmpLabel(void *label, int32_t position);
+void Scope_backpatchJmpLabel(JmpLabel *label, int32_t position);
 
 void Scope_pushBreakStack(Scope *self);
 
