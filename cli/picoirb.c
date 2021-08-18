@@ -78,6 +78,10 @@ start_irb(void)
       return 1;
     };
     script[strlen(script) - 1] = '\0';
+    if (strncmp(script, "exit\0", 5) == 0) {
+      fprintf(stdout, "bye\n");
+      return 0;
+    }
     si = StreamInterface_new(script, STREAM_TYPE_MEMORY);
 
     if (Compiler_compile(p, si)) {
@@ -92,7 +96,7 @@ start_irb(void)
         firstRun = false;
       }
       mrbc_vm_run(c_vm);
-      if (c_vm->error_code != 0) {
+      if (c_vm->error_code == 0) {
         console_printf("=> ");
         mrbc_p_sub((const mrbc_value *)&c_vm->current_regs[p->scope->sp - 1]);
 #if defined(PICORBC_DEBUG)
