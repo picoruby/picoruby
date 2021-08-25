@@ -1282,7 +1282,7 @@ none(A) ::= . { A = 0; }
   const char *findFromStringPool(ParserState *p, char *s)
   {
     if (s[0] == '\0') return STRING_NULL;
-    if (s[1] == '-' && s[0] == '\0') return STRING_NEG;
+    if (s[0] == '-' && s[1] == '\0') return STRING_NEG;
     if (strcmp(s, "[]") == 0) return STRING_ARY;
     StringPool *pool = p->current_string_pool;
     uint16_t index;
