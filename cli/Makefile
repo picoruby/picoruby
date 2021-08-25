@@ -21,13 +21,19 @@ picoruby: picoruby.c heap.h
 	mkdir -p ../build/bin/$(DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
 
-picoirb: picoirb.c heap.h
+picoirb: picoirb.c heap.h sandbox.h # ruby/irb.c ruby/buffer.c
 	@echo
 	@echo "================================"
 	@echo "building picoirb"
 	@echo "  DIR=$(DIR)"
 	mkdir -p ../build/bin/$(DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
+
+ruby/irb.c: ruby/irb.rb
+	$(MRBC) -B$(basename $(^F)) $<
+
+ruby/buffer.c: ruby/buffer.rb
+	$(MRBC) -B$(basename $(^F)) $<
 
 picoshell: picoshell.c heap.h picoshell_lib/shell.c picoshell_lib/shell.rb
 	$(CC) $(CFLAGS) $(LDFLAGS) \
@@ -39,3 +45,4 @@ picoshell_lib/shell.c: picoshell_lib/shell.rb
 
 clean:
 	cd picoshell_lib ; make clean
+	rm ruby/*.c
