@@ -21,7 +21,8 @@ picoruby: picoruby.c heap.h
 	mkdir -p ../build/bin/$(DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
 
-picoirb: picoirb.c heap.h sandbox.h # ruby/irb.c ruby/buffer.c
+picoirb: picoirb.c heap.h sandbox.c
+	$(MAKE) mrblib
 	@echo
 	@echo "================================"
 	@echo "building picoirb"
@@ -29,7 +30,12 @@ picoirb: picoirb.c heap.h sandbox.h # ruby/irb.c ruby/buffer.c
 	mkdir -p ../build/bin/$(DIR)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o ../build/bin/$(DIR)/$@ $^ -L../build/lib/$(DIR) $(LIBS)
 
+mrblib: ruby/irb.c ruby/sandbox.c ruby/buffer.c
+
 ruby/irb.c: ruby/irb.rb
+	$(MRBC) -B$(basename $(^F)) $<
+
+ruby/sandbox.c: ruby/sandbox.rb
 	$(MRBC) -B$(basename $(^F)) $<
 
 ruby/buffer.c: ruby/buffer.rb

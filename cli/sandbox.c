@@ -1,9 +1,8 @@
-//#include <picorbc.h>
 #include "../src/picorbc.h"
-//#include "sandbox.h"
+#include "../src/mrubyc/src/mrubyc.h"
+#include "sandbox.h"
 
-//#include "ruby/lib/sandbox.c"
-//#include "sandbox.h"
+#include "ruby/sandbox.c"
 
 #ifndef NODE_BOX_SIZE
 #define NODE_BOX_SIZE 20
@@ -61,7 +60,8 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
   if (sandbox_vm->error_code == 0) {
-    SET_RETURN(sandbox_vm->regs[0]);
+    mrbc_incref(&sandbox_vm->regs[sp]);
+    SET_RETURN(sandbox_vm->regs[sp]);
   } else {
     char message[] = "Error: Runtime error. code: __";
     snprintf(message, sizeof(message), "Error: Runtime error. code: %02d", sandbox_vm->error_code);
@@ -69,6 +69,12 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
   }
   mrbc_suspend_task(tcb_sandbox);
   save_p_state(p);
+  { /*
+       Workaround but causes memory leak 😔
+       To preserve symbol table
+    */
+    p->scope->vm_code = NULL;
+  }
   Compiler_parserStateFree(p);
 }
 
@@ -78,7 +84,7 @@ c_invoke_ruby(mrb_vm *vm, mrb_value *v, int argc)
   mrbc_vm *sandbox_vm;
   p = Compiler_parseInitState(NODE_BOX_SIZE);
   if (tcb_sandbox) restore_p_state(p);
-  StreamInterface *si = StreamInterface_new(GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
+    StreamInterface *si = StreamInterface_new((char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
   if (!Compiler_compile(p, si)) {
     SET_FALSE_RETURN();
   } else {
@@ -88,7 +94,7 @@ c_invoke_ruby(mrb_vm *vm, mrb_value *v, int argc)
     } else {
       sandbox_vm->pc_irep = sandbox_vm->irep;
       sandbox_vm->inst = sandbox_vm->pc_irep->code;
-      sandbox_vm->current_regs = sandbox_vm->regs;
+//      sandbox_vm->current_regs = sandbox_vm->regs;
       sandbox_vm->callinfo_tail = NULL;
       sandbox_vm->target_class = mrbc_class_object;
       sandbox_vm->exc = mrbc_nil_value();

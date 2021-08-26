@@ -1,7 +1,9 @@
+#! /usr/bin/env ruby
+
 case RUBY_ENGINE
 when "ruby"
   require "io/console"
-  require "./buffer.rb"
+  require_relative "./buffer.rb"
   class Sandbox
     def bind
       binding
@@ -11,25 +13,27 @@ when "ruby"
   def getch
     STDIN.getch.ord
   end
-  def getc_nonblock(max)
+  def gets_nonblock(max)
     STDIN.noecho{ |input| input.read_nonblock(max) }
   end
   def invoke_ruby(script)
-    $sandbox_state = 1
     $sandbox_result = eval script, $bind
-    $sandbox_state = 0
     true
   end
   def sandbox_result
     $sandbox_result
   end
   def sandbox_state
-    $sandbox_state
+    0
   end
 when "mruby/c"
   while !$buffer_lock
     relinquish
   end
+end
+
+def debug(text)
+  #`echo "#{text}\n" > /dev/pts/8`
 end
 
 buffer = Buffer.new
@@ -38,26 +42,28 @@ print "picoirb> "
 while true
   c = getch
   case c
-  when 10
-    # ignore
-  when 13
+  when 4 # Ctrl-D
+    puts "\r\nbye"
+    break
+  when 10, 13
     script = buffer.lines[0].chomp
     buffer.clear
     case script
     when ""
       print "\r\npicoirb> "
     when "quit", "exit"
-      puts "bye"
+      puts "\r\nbye"
       break
     else
       print "\r\n"
+      debug script
       if invoke_ruby(script)
         n = 0
         while sandbox_state != 0 do # 0: TASKSTATE_DORMANT == finished(?)
           sleep_ms 50
           n += 1
           if n > 20
-            puts "Error: Timeout"
+            puts "Error: Timeout (sandbox_state: #{sandbox_state})"
             break
           end
         end
@@ -66,22 +72,25 @@ while true
         print "picoirb> "
       else
         puts "Error: Compile failed"
+        print "picoirb> "
       end
     end
   when 27 # ESC
-    case getc_nonblock(100)
+    case gets_nonblock(10)
     when "[A"
       # buffer.put :UP
     when "[B"
       # buffer.put :DOWN
     when "[C"
-      if buffer.current_tail.length > 1
+      if buffer.current_tail(0).length > 0
         buffer.put :RIGHT
         print "\e[C"
       end
     when "[D"
-      buffer.put :LEFT
-      print "\e[D"
+      if buffer.cursor[:x] > 1
+        buffer.put :LEFT
+        print "\e[D"
+      end
     else
       break
     end
@@ -100,4 +109,5 @@ while true
   else
     # ??
   end
+  debug buffer.cursor
 end
