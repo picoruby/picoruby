@@ -32,47 +32,64 @@ when "mruby/c"
   end
 end
 
+TIMEOUT = 10_000 # 10 sec
+PROMPT = "picoirb"
+
 def debug(text)
   #`echo "#{text}\n" > /dev/pts/8`
 end
 
+def exit_irb
+  puts "\nbye"
+  terminate_sandbox
+end
+
 buffer = Buffer.new
 
-print "picoirb> "
+print "#{PROMPT}> "
 while true
   c = getch
   case c
+  when 3 # Ctrl-C
+    buffer.clear
+    print "\r\n#{PROMPT}> "
   when 4 # Ctrl-D
-    puts "\r\nbye"
+    exit_irb
     break
   when 10, 13
-    script = buffer.lines[0].chomp
-    buffer.clear
+    script = buffer.dump.chomp
     case script
     when ""
-      print "\r\npicoirb> "
+      print "\r\n#{PROMPT}> "
     when "quit", "exit"
-      puts "\r\nbye"
+      exit_irb
       break
     else
       print "\r\n"
       debug script
-      if invoke_ruby(script)
-        n = 0
-        while sandbox_state != 0 do # 0: TASKSTATE_DORMANT == finished(?)
-          sleep_ms 50
-          n += 1
-          if n > 20
-            puts "Error: Timeout (sandbox_state: #{sandbox_state})"
-            break
+      if compile_ruby(script)
+        buffer.clear
+        if invoke_ruby
+          n = 0
+          while sandbox_state != 0 do # 0: TASKSTATE_DORMANT == finished(?)
+            sleep_ms 50
+            n += 50
+            if n > TIMEOUT
+              puts "Error: Timeout (sandbox_state: #{sandbox_state})"
+              break
+            end
           end
+          print "=> "
+          puts sandbox_result.inspect
+          print "#{PROMPT}> "
+        else
+          puts "Error: Compile failed"
+          print "#{PROMPT}> "
         end
-        print "=> "
-        puts sandbox_result.inspect
-        print "picoirb> "
       else
-        puts "Error: Compile failed"
-        print "picoirb> "
+        print "#{PROMPT}* "
+        buffer.tail
+        buffer.put :ENTER
       end
     end
   when 27 # ESC

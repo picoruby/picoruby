@@ -39,7 +39,7 @@ int handle_opt(int argc, char * const *argv, char **oneliner)
   };
   int opt;
   int longindex;
-  loglevel = LOGLEVEL_INFO;
+  loglevel = LOGLEVEL_ERROR;
   while ((opt = getopt_long(argc, argv, "ve:l:", longopts, &longindex)) != -1) {
     switch (opt) {
       case 'v':
