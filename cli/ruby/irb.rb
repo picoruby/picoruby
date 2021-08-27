@@ -80,7 +80,7 @@ while true
             end
           end
           print "=> "
-          puts sandbox_result.inspect
+          p sandbox_result
           print "#{PROMPT}> "
         else
           puts "Error: Compile failed"
