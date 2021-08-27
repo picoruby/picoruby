@@ -60,7 +60,6 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
   if (sandbox_vm->error_code == 0) {
-    mrbc_incref(&sandbox_vm->regs[sp]);
     SET_RETURN(sandbox_vm->regs[sp]);
   } else {
     char message[] = "Error: Runtime error. code: __";
