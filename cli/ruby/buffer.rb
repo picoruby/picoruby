@@ -1,3 +1,9 @@
+#
+# TODO
+# Array#my_insert should be replaced with #insert
+# after PicoRuby compiler implements f_rest_arg
+# so that `steep check` works
+#
 class Array
   def my_insert(index, obj)
     # @type var index: Integer
