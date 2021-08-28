@@ -238,7 +238,7 @@ void gen_int(Scope *scope, Node *node, Misc is_neg)
     unsigned long n = val;
     while (n /= 10) ++digit; /* count number of digit */
     char lit[digit];
-    snprintf(lit, digit, "%ld", val);
+    snprintf(lit, digit, "%lu", val);
     gen_literal_numeric(scope, push_gen_literal(scope, lit), INT32_LITERAL, is_neg);
   }
 }

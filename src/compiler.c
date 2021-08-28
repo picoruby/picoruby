@@ -157,7 +157,9 @@ FAIL:
 #endif
     Generator_generate(p->scope, p->root_node_box->nodes);
   } else {
-    ERRORP("Syntax error at line:%d\n%s", tokenizer->line_num, tokenizer->line);
+    //ERRORP("Syntax error at line:%d\n%s", tokenizer->line_num - 1, tokenizer->line);
+    // FIXME should print prev line
+    WARNP("Syntax error at line:%d", tokenizer->line_num - 1);
     success = false;
   }
 #ifdef PICORBC_DEBUG

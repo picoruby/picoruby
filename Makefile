@@ -41,6 +41,7 @@ host_debug_libc: src/mrubyc/src/mrblib.c
 	  LIBS="-lpicorbc"
 	cd cli ; $(MAKE) picoruby picoirb DIR=host-debug/alloc_libc \
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED -DMRBC_ALLOC_LIBC" LDFLAGS="$(LDFLAGS)" \
+	  MRBC=$(MAKEFILE_DIR)$(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc \
 	  LIBS="-lmrubyc -lpicorbc"
 	@echo "\e[32;1mYey! $@\e[m\n"
 
@@ -51,6 +52,7 @@ host_debug_mrbc: src/mrubyc/src/mrblib.c
 	  CFLAGS="-O0 -g3 $(CFLAGS)" LDFLAGS="$(LDFLAGS)"
 	cd cli ; $(MAKE) picoruby picoirb DIR=host-debug/alloc_mrbc \
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
+	  MRBC=$(MAKEFILE_DIR)$(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc \
 	  LIBS="-lmrubyc -lpicorbc"
 	@echo "\e[32;1mYey! $@\e[m\n"
 
@@ -66,6 +68,7 @@ host_production_libc: src/mrubyc/src/mrblib.c
 	cd cli ; $(MAKE) picoruby picoirb DIR=host-production/alloc_libc \
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DNDEBUG -DMRBC_USE_HAL_USER_RESERVED -DMRBC_ALLOC_LIBC" \
 	  LDFLAGS="$(LDFLAGS)" \
+	  MRBC=$(MAKEFILE_DIR)$(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc \
 	  LIBS="-lpicorbc -lmrubyc"
 	@echo "\e[32;1mYey! $@\e[m\n"
 
@@ -76,6 +79,7 @@ host_production_mrbc: src/mrubyc/src/mrblib.c
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DNDEBUG" LDFLAGS="$(LDFLAGS)"
 	cd cli ; $(MAKE) picoruby picoirb DIR=host-production/alloc_mrbc \
 	  CFLAGS="-O0 -g3 $(CFLAGS) -DNDEBUG -DMRBC_USE_HAL_USER_RESERVED" LDFLAGS="$(LDFLAGS)" \
+	  MRBC=$(MAKEFILE_DIR)$(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc \
 	  LIBS="-lmrubyc -lpicorbc"
 	@echo "\e[32;1mYey! $@\e[m\n"
 

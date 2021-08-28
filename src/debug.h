@@ -66,15 +66,30 @@ extern int loglevel;
 #else
   #define DEBUGP(fmt, ...) /* omit */
   #define INFOP(fmt, ...)  /* omit */
-  #define WARNP(fmt, ...)  (fprintf(stdout, "[WARN]  "),        \
-                           fprintf(stdout, fmt, ##__VA_ARGS__),\
-                           fprintf(stdout, "\n"))
-  #define ERRORP(fmt, ...) (fprintf(stderr, "[ERROR] "),        \
-                           fprintf(stderr, fmt, ##__VA_ARGS__),\
-                           fprintf(stderr, "\n"))
-  #define FATALP(fmt, ...) (fprintf(stderr, "[FATAL] "),        \
-                           fprintf(stderr, fmt, ##__VA_ARGS__),\
-                           fprintf(stderr, "\n"))
+  #define WARNP(fmt, ...)                     \
+    do {                                      \
+      if (loglevel >= LOGLEVEL_WARN) {        \
+        fprintf(stdout, "[WARN]  ");          \
+        fprintf(stdout, fmt, ##__VA_ARGS__);  \
+        fprintf(stdout, "\n");                \
+      }                                       \
+    } while (0)
+  #define ERRORP(fmt, ...)                    \
+    do {                                      \
+      if (loglevel >= LOGLEVEL_ERROR) {       \
+        fprintf(stderr, "[ERROR] ");          \
+        fprintf(stderr, fmt, ##__VA_ARGS__);  \
+        fprintf(stderr, "\n");                \
+      }                                       \
+    } while (0)
+  #define FATALP(fmt, ...)                    \
+    do {                                      \
+      if (loglevel >= LOGLEVEL_FATAL) {       \
+        fprintf(stderr, "[FATAL] ");          \
+        fprintf(stderr, fmt, ##__VA_ARGS__);  \
+        fprintf(stderr, "\n");                \
+      }                                       \
+    } while (0)
 #endif /* !NDEBUG */
 
 #endif /* PICORBC_DEBUG_H_ */
