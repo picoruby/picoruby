@@ -8,6 +8,8 @@
 #define NODE_BOX_SIZE 20
 #endif
 
+int loglevel = LOGLEVEL_ERROR;
+
 mrbc_tcb *tcb_sandbox;
 
 static ParserState *p;
