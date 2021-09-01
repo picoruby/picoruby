@@ -1,6 +1,6 @@
 [![C/C++ CI](https://github.com/picoruby/picoruby/actions/workflows/c-cpp.yml/badge.svg)](https://github.com/picoruby/picoruby/actions/workflows/c-cpp.yml)
 
-## PicoRuby ~~mmruby~~ (renamed on March 15th, 2021)
+## PicoRuby
 
 PicoRuby is an alternative mruby implementation which is:
 
@@ -20,7 +20,8 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### Build
 
-- Just hitting `make` will build binaries for your host machine.
+- `git clone` this repository with `--recursive` option
+- Then, just hitting `make` will build binaries for your machine
 - You can build library files for PSoC5LP by hitting `make psoc5lp_lib`
   - It requires you to have Docker though,
   - You can make arm-none-eabi tools if you don't want to use Docker
@@ -28,15 +29,15 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### Binaries
 
-`make` command will make three executable binaries
+`make` command will make three kinds of executable binary
 
-- picorbc
-  - `build/host-debug/bin/picorbc source.rb` makes `source.mrb` which is VM code runs on mruby VM
-- picoruby
-  - `build/host-debug/bin/picoruby source.rb` executes Ruby just like normal `ruby` command
-  - You can also do it like `build/host-debug/bin/picoruby -e 'puts "Hello World!"'`
-- picoshell
-  - It is an experimental REPL implementation. See [picoshell section](#picoshell)
+- build/bin/host-production/alloc_libc/picorbc
+  - `build/bin/host-production/alloc_libc/picorbc path/to/source.rb` makes `path/to/source.mrb` which is VM code runs on mruby VM
+- build/bin/host-production/alloc_mrbc/picoruby and build/bin/host-debug/alloc_mrbc/picoruby
+  - `build/bin/host-production/alloc_mrbc/picoruby source.rb` executes Ruby just like normal `ruby` command
+  - You can also do it like `build/bin/host-production/alloc_mrbc/picoruby -e 'puts "Hello World!"'`
+- build/bin/host-production/alloc_mrbc/picoirb and build/bin/host-debug/alloc_mrbc/picoirb
+  - They are experimental REPL implementation
 
 ### Debug build and production build
 
@@ -44,18 +45,10 @@ PicoRuby is an alternative mruby implementation which is:
 
 ![](https://raw.githubusercontent.com/hasumikin/picoruby/master/docs/images/debug-print.png)
 
-(Please replace `mmruby` with `picoruby`)
+(Please replace `mmruby` with `picoruby` in mind. It's an old name)
 
-You can get "production build" like `build/host-production/bin/picoruby` which omits debug-print by `make host_production`
-
-### picoshell<a name="picoshell"></a>
-
-Because PicoRuby is dedicated for onechip-microcontroller which doesn't have STDIN/STDOUT like *normal computers*, REPL (or you can also say SHELL) should work over serial communication like UART.
-
-You can start up picoshell on your host machine with `make picoshell` though, it may look weird since it is implemented as a ported version from microcontroller version.
-Please try to use it according as the message on the screen if you are interested in.
-
-You will find more information at [hasumikin/mruby_machine_PSoC5LP](https://github.com/hasumikin/mruby_machine_PSoC5LP)
+A production build omits debug-print.
+You can get "production build with LIBC" like `build/bin/host-production/alloc_libc/picoruby` by `make host_production_libc`
 
 ### Presentation about ~~mmruby~~ PicoRuby
 
