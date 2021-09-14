@@ -61,7 +61,7 @@ class Buffer
     if @lines[@cursor[:y]].length > @cursor[:x]
       @cursor[:x] += 1
     else
-      if @lines.length > @cursor[:y]
+      if @lines.length > @cursor[:y] + 1
         down
         head
       end
