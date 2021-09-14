@@ -74,7 +74,12 @@ class Buffer
     end
   end
   def down
-    @cursor[:y] += 1 if @lines.length > @cursor[:y] + 1
+    if @lines.length > @cursor[:y] + 1
+      @cursor[:y] += 1
+      if @cursor[:x] > @lines[@cursor[:y]].length
+        @cursor[:x] = @lines[@cursor[:y]].length
+      end
+    end
   end
   def put(c)
     line = @lines[@cursor[:y]]
@@ -84,12 +89,15 @@ class Buffer
       right
     else
       case c
+      when :TAB
+        put " "
+        put " "
       when :ENTER
         new_line = line[@cursor[:x], 65535]
         @lines[@cursor[:y]] = line[0, @cursor[:x]].to_s
         @lines.my_insert(@cursor[:y] + 1, new_line)
-        down
         head
+        down
       when :BSPACE
         if @cursor[:x] > 0
           line = line[0, @cursor[:x] - 1].to_s + line[@cursor[:x], 65535].to_s
@@ -119,6 +127,20 @@ class Buffer
   def current_tail(n = 1)
     @lines[@cursor[:y]][@cursor[:x] - n, 65535].to_s
   end
+
+  ####################################
+  # Screen
+
+  def refresh_screen
+    print "\e[2J\e[H"
+    @lines.each do |line|
+      puts line
+    end
+    print "\e[24;1H"
+    print "x:#{@cursor[:x]}, y:#{@cursor[:y]}"
+    print "\e[#{@cursor[:y] + 1};#{@cursor[:x] + 1}H"
+  end
+
 end
 
 $buffer_lock = true
