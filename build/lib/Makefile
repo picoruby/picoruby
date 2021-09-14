@@ -145,7 +145,7 @@ libpicorbc: $(DEPS)
 	mv ../../src/libpicorbc.a $(LIB_DIR)/libpicorbc.a
 	@echo "\e[32;1mYey! $@\e[m\n"
 
-libmrubyc: $(MRUBYC_DEPS) ../../src/mrubyc/src/hal_user_reerved/hal.c
+libmrubyc: $(MRUBYC_DEPS) ../../src/mrubyc/src/hal_user_reserved/hal.c
 	@echo
 	@echo "================================"
 	@echo "building libmrubyc.a"
@@ -159,7 +159,7 @@ libmrubyc: $(MRUBYC_DEPS) ../../src/mrubyc/src/hal_user_reerved/hal.c
 	@echo "\e[32;1mYey! $@\e[m\n"
 
 
-../../src/mrubyc/src/hal_user_reerved/hal.c:
+../../src/mrubyc/src/hal_user_reserved/hal.c:
 	cd ../../src/mrubyc/src/hal_user_reserved/ ;\
 	  if [ ! -f ./hal.c ]; then ln -s ../../../../cli/picoshell_lib/hal_posix/hal.c ./hal.c; fi; \
 	  if [ ! -f ./hal.h ]; then ln -s ../../../../cli/picoshell_lib/hal_posix/hal.h ./hal.h; fi

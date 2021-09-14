@@ -194,6 +194,7 @@ picoshell: host_debug_mrbc
 
 clean:
 	cd src ; $(MAKE) clean
+	cd src/include ; $(MAKE) clean
 	cd src/mrubyc/mrblib ; $(MAKE) distclean
 	cd src/mrubyc ; $(MAKE) clean
 	cd cli ; $(MAKE) clean
