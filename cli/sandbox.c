@@ -77,7 +77,7 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 void
-c_compile_ruby(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_picorbc(mrb_vm *vm, mrb_value *v, int argc)
 {
   p = Compiler_parseInitState(NODE_BOX_SIZE);
   if (tcb_sandbox) restore_p_state(p);
@@ -94,7 +94,7 @@ c_compile_ruby(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 void
-c_invoke_ruby(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
   if(mrbc_load_mrb(sandbox_vm, p->scope->vm_code) != 0) {
