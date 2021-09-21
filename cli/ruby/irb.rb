@@ -2,6 +2,7 @@
 
 case RUBY_ENGINE
 when "ruby"
+  require "ripper"
   require "io/console"
   require_relative "./buffer.rb"
   class Sandbox
@@ -16,8 +17,24 @@ when "ruby"
   def gets_nonblock(max)
     STDIN.noecho{ |input| input.read_nonblock(max) }
   end
-  def sandbox_resume(script)
-    $sandbox_result = eval script, $bind
+  def sandbox_picorbc(script)
+    # TODO: upgrade picoirb to make `A::B` and `rescue => e` valid
+    #begin
+    #  RubyVM::InstructionSequence.compile(script)
+    #  $sandbox_result = eval script, $bind
+    #rescue => e
+    #  puts e.message
+    #  return false
+    #end
+    #true
+    if Ripper.sexp(script)
+      $sandbox_result = eval script, $bind
+    else
+      puts "Syntax error"
+      false
+    end
+  end
+  def sandbox_resume
     true
   end
   def sandbox_result
@@ -26,7 +43,15 @@ when "ruby"
   def sandbox_state
     0
   end
+  def terminate_sandbox
+    exit
+  end
+  def debug(text)
+    #`echo "#{text}\n" > /dev/pts/8`
+  end
 when "mruby/c"
+  def debug(text)
+  end
   while !$buffer_lock
     relinquish
   end
@@ -35,96 +60,78 @@ end
 TIMEOUT = 10_000 # 10 sec
 PROMPT = "picoirb"
 
-def debug(text)
-  #`echo "#{text}\n" > /dev/pts/8`
-end
-
 def exit_irb
   puts "\nbye"
   terminate_sandbox
 end
 
-buffer = Buffer.new
+buffer = Buffer.new(PROMPT)
 
-print "#{PROMPT}> "
 while true
+  buffer.refresh_screen
   c = getch
   case c
   when 3 # Ctrl-C
     buffer.clear
-    print "\r\n#{PROMPT}> "
+    buffer.adjust_screen
   when 4 # Ctrl-D
     exit_irb
     break
+  when 9
+    buffer.put :TAB
   when 10, 13
     script = buffer.dump.chomp
     case script
     when ""
-      print "\r\n#{PROMPT}> "
+      puts
     when "quit", "exit"
       exit_irb
       break
     else
-      print "\r\n"
-      debug script
-      if sandbox_picorbc(script)
-        buffer.clear
-        if sandbox_resume
-          n = 0
-          while sandbox_state != 0 do # 0: TASKSTATE_DORMANT == finished(?)
-            sleep_ms 50
-            n += 50
-            if n > TIMEOUT
-              puts "Error: Timeout (sandbox_state: #{sandbox_state})"
-              break
-            end
-          end
-          print "=> "
-          p sandbox_result
-          print "#{PROMPT}> "
-        else
-          puts "Error: Compile failed"
-          print "#{PROMPT}> "
-        end
-      else
-        print "#{PROMPT}* "
-        buffer.tail
+      buffer.adjust_screen
+      if buffer.lines[-1][-1] == "\\"
         buffer.put :ENTER
+      else
+        buffer.clear
+        debug script
+        if sandbox_picorbc(script)
+          if sandbox_resume
+            n = 0
+            while sandbox_state != 0 do # 0: TASKSTATE_DORMANT == finished(?)
+              sleep_ms 50
+              n += 50
+              if n > TIMEOUT
+                puts "Error: Timeout (sandbox_state: #{sandbox_state})"
+                break
+              end
+            end
+            print "=> "
+            p sandbox_result
+          else
+            puts "Error: Compile failed"
+          end
+        end
       end
     end
   when 27 # ESC
     case gets_nonblock(10)
     when "[A"
-      # buffer.put :UP
+      buffer.put :UP
     when "[B"
-      # buffer.put :DOWN
+      buffer.put :DOWN
     when "[C"
-      if buffer.current_tail(0).length > 0
-        buffer.put :RIGHT
-        print "\e[C"
-      end
+      buffer.put :RIGHT
     when "[D"
-      if buffer.cursor[:x] > 1
-        buffer.put :LEFT
-        print "\e[D"
-      end
+      buffer.put :LEFT
     else
       break
     end
   when 8, 127 # 127 on UNIX
-    print "\b" if buffer.lines[0].length > 0
-    print "\e[0K"
     buffer.put :BSPACE
-    tail = buffer.current_tail(0)
-    print tail
-    print "\e[#{tail.length}D" if tail.length > 1
   when 32..126
     buffer.put c.chr
-    tail = buffer.current_tail
-    print tail
-    print "\e[#{tail.length - 1}D" if tail.length > 1
   else
-    # ??
+    # ignore
   end
   debug buffer.cursor
 end

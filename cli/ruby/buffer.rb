@@ -21,7 +21,9 @@ class Array
 end
 
 class Buffer
-  def initialize
+  def initialize(prompt = "")
+    @prompt = prompt
+    @prompt_margin = 3 + @prompt.length
     @cursor = {x: 0, y: 0}
     clear
   end
@@ -35,7 +37,9 @@ class Buffer
     home
   end
   def dump
-    @lines.join("\n")
+    @lines.map do |line|
+      line[-1] == "\\" ? line[0, line.length - 1] : line
+    end.join("\n")
   end
   def home
     @cursor[:x] = 0
@@ -68,7 +72,10 @@ class Buffer
     end
   end
   def up
-    @cursor[:y] -= 1 if @cursor[:y] > 0
+    if @cursor[:y] > 0
+      @cursor[:y] -= 1
+      @prev_c = :UP
+    end
     if @cursor[:x] > @lines[@cursor[:y]].length
       @cursor[:x] = @lines[@cursor[:y]].length
     end
@@ -76,6 +83,7 @@ class Buffer
   def down
     if @lines.length > @cursor[:y] + 1
       @cursor[:y] += 1
+      @prev_c = :DOWN
       if @cursor[:x] > @lines[@cursor[:y]].length
         @cursor[:x] = @lines[@cursor[:y]].length
       end
@@ -131,14 +139,36 @@ class Buffer
   ####################################
   # Screen
 
+  def adjust_screen
+    print "\e[#{@lines.length - @cursor[:y]}E\e[0J"
+  end
+
   def refresh_screen
-    print "\e[2J\e[H"
-    @lines.each do |line|
+    if @prev_c == :UP
+      print "\e[1A"
+      @prev_c = nil
+    elsif @prev_c == :DOWN
+      print "\e[1B"
+      @prev_c = nil
+    end
+    if 0 < @cursor[:y]
+      print "\e[#{@cursor[:y]}F"
+    else
+      print "\e[1G"
+    end
+    print "\e[0J"
+    @lines.each_with_index do |line, i|
+      print @prompt
+      if i == 0
+        print "> "
+      else
+        print "* "
+      end
       puts line
     end
-    print "\e[24;1H"
-    print "x:#{@cursor[:x]}, y:#{@cursor[:y]}"
-    print "\e[#{@cursor[:y] + 1};#{@cursor[:x] + 1}H"
+    print "\e[#{@lines.length}F"
+    print "\e[#{@cursor[:y]}E" if @cursor[:y] > 0
+    print "\e[#{@cursor[:x] + @prompt_margin}G"
   end
 
 end
