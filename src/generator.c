@@ -259,6 +259,7 @@ void gen_call(Scope *scope, Node *node, bool is_fcall)
   if (node->cons.cdr->cons.car) {
     if (Node_atomType(node->cons.cdr->cons.car->cons.cdr->cons.car) == ATOM_block_arg) {
       /* .call(&:method) */
+      scope->sp++;
       codegen(scope, node->cons.cdr->cons.car->cons.cdr->cons.car->cons.cdr);
       scope->sp--;
       op = OP_SENDB;
@@ -1018,9 +1019,11 @@ void gen_def(Scope *scope, Node *node)
   Scope_pushCode(--scope->sp);
   int litIndex = Scope_newSym(scope, Node_literalName(node));
   Scope_pushCode(litIndex);
-  Scope_pushCode(OP_LOADSYM);
-  Scope_pushCode(scope->sp);
-  Scope_pushCode(litIndex);
+  { //TODO: Should be ommited if subsequent OP exists
+    Scope_pushCode(OP_LOADSYM);
+    Scope_pushCode(scope->sp);
+    Scope_pushCode(litIndex);
+  }
 
   gen_irep(scope, node->cons.cdr->cons.cdr);
 }
