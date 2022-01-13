@@ -59,11 +59,11 @@ void
 c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
-  if (sandbox_vm->error_code == 0) {
+  if (sandbox_vm->exception.tt == MRBC_TT_NIL) {
     SET_RETURN(sandbox_vm->regs[sp]);
   } else {
     char message[] = "Error: Runtime error. code: __";
-    snprintf(message, sizeof(message), "Error: Runtime error. code: %02d", sandbox_vm->error_code);
+    snprintf(message, sizeof(message), "Error: Runtime error");
     SET_RETURN( mrbc_string_new_cstr(vm, message) );
   }
   mrbc_suspend_task(tcb_sandbox);
@@ -100,13 +100,11 @@ c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
   if(mrbc_load_mrb(sandbox_vm, p->scope->vm_code) != 0) {
     SET_FALSE_RETURN();
   } else {
-    sandbox_vm->pc_irep = sandbox_vm->irep;
-    sandbox_vm->inst = sandbox_vm->pc_irep->code;
+    sandbox_vm->cur_irep = sandbox_vm->top_irep;
+    sandbox_vm->inst = sandbox_vm->cur_irep->inst;
 //      sandbox_vm->current_regs = sandbox_vm->regs;
     sandbox_vm->callinfo_tail = NULL;
     sandbox_vm->target_class = mrbc_class_object;
-    sandbox_vm->exc = mrbc_nil_value();
-    sandbox_vm->error_code = 0;
     sandbox_vm->flag_preemption = 0;
     mrbc_resume_task(tcb_sandbox);
     SET_TRUE_RETURN();
