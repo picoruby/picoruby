@@ -141,7 +141,7 @@ arm_production_mrbc: src/mrubyc/src/mrblib.c
 host_valgrind:
 	rm massif.out.* ; $(MAKE) clean ; $(MAKE) host_production_libc && \
 	  valgrind --tool=massif --stacks=yes $(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc test/fixtures/hello_world.rb
-	  valgrind --tool=massif --stacks=yes $(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc test/fixtures/larger_script.rb
+	  valgrind --tool=massif --stacks=yes $(BIN_DIR_HOST_PRODUCTION_LIBC)/picorbc test/fixtures/keymap.rb
 
 psoc5lp_lib:
 	cd cli ; $(MAKE) picoshell_lib/shell.c \
