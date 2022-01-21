@@ -11,6 +11,8 @@ PicoRuby is an alternative mruby implementation which is:
 - Portable
   - Depends on only standard C library such as glibc, Newlib or Newlib-nano
 
+<img src="docs/logos/fukuokarubyaward.png" width="212">
+
 ### Set-up
 
 - picorbc
