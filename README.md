@@ -15,6 +15,10 @@ PicoRuby is an alternative mruby implementation which is:
 
 <img src="docs/logos/fukuokarubyaward.png" width="212">
 
+### Used by
+
+[PRK Firmware](https://github.com/picoruby/prk_firmware)
+
 ### Set-up
 
 - PicoRuby compiler
