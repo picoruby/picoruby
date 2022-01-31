@@ -55,9 +55,8 @@ rake
 - bin/picoruby
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
   - You can also do like `bin/picoruby -e 'puts "Hello World!"'`
-- ~~bin/picoirb~~
-  - ~~A REPL implementation like irb and mirb~~
-  - The picoirb is under reconstruction as of 2022
+- bin/picoirb
+  - A REPL implementation like irb and mirb
 
 ### Debug build and production build
 
