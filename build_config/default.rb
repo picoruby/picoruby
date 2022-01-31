@@ -14,9 +14,10 @@ MRuby::Build.new do |conf|
   disable_libmruby
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
-  conf.gem git: 'https://github.com/hasumikin/mruby-bin-picorbc.git', branch: 'master'
-  conf.gem git: 'https://github.com/hasumikin/mruby-pico-compiler.git', branch: 'master'
-  conf.gem git: 'https://github.com/hasumikin/mruby-bin-picoruby.git', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-bin-picoruby', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-bin-picoirb', branch: 'master'
 
   conf.cc.defines << "NDEBUG" unless ENV["PICORUBY_DEBUG"]
   conf.cc.defines << "MRBC_ALLOC_LIBC"

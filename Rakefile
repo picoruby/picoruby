@@ -95,7 +95,7 @@ end
 desc "create degub build"
 task :debug do
   clean_if(:production)
-  sh "PICORUBY_DEBUG=1 rake all"
+  sh "PICORUBY_DEBUG=1 CFLAGS='-g3 -O0 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings' rake all"
 end
 
 desc "run all tests"
