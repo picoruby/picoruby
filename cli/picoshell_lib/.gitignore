@@ -1,2 +1,0 @@
-*.c
-!hal_posix/hal.c

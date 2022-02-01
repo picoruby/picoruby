@@ -19,9 +19,7 @@ jobs:
       uses: ruby/setup-ruby@v1.66.0
       with:
         ruby-version: 3.0.0
-    - name: make
-      run: make host_production
     #- name: Setup tmate session
     #  uses: mxschmitt/action-tmate@v3
-    - name: make check
-      run: make check
+    - name: rake test
+      run: rake test

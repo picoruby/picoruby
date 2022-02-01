@@ -5,59 +5,82 @@
 PicoRuby is an alternative mruby implementation which is:
 
 - Small foot print
-  - ROM: 256KB or less
-  - RAM: 128KB or less
-  - Reference board is PSoC5LP which has Arm 32bit processor, 256KB ROM and 64KB RAM
+  - ROM: 256KB
+  - RAM: 128KB or less (depending on app code)
 - Portable
   - Depends on only standard C library such as glibc, Newlib or Newlib-nano
+- Reference microcontroller boards
+  - Raspberry Pi Pico - Arm Cortex-M0+, 264 KB RAM, 2 MB ROM
+  - PSoC5LP - Arm Cortex-M3, 128 KB RAM, 256 KB ROM
 
 <img src="docs/logos/fukuokarubyaward.png" width="212">
 
+### Used by
+
+[PRK Firmware](https://github.com/picoruby/prk_firmware)
+
 ### Set-up
 
-- picorbc
-  - pico mruby compiler. The main part of this repository
+- PicoRuby compiler
 - [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
   - Another implementation of mruby virtual machine
 
 ### Build
 
-- `git clone` this repository with `--recursive` option
-- Then, just hitting `make` will build binaries for your machine
-- You can build library files for PSoC5LP by hitting `make psoc5lp_lib`
-  - It requires you to have Docker though,
-  - You can make arm-none-eabi tools if you don't want to use Docker
-  - [hasumikin/cross_compilation_toolchains](https://github.com/hasumikin/cross_compilation_toolchains) may help you to make an environment
+- Prerequisites
+  - C toolchain
+  - git
+  - ruby (should be CRuby)
+- `git clone` this repository
+- `rake` will build binaries for your machine
+- ~~You can build library files for PSoC5LP by hitting `rake psoc5lp_lib`~~
+  - ~~It requires you to have Docker though,~~
+  - ~~You can make arm-none-eabi tools if you don't want to use Docker~~
+  - ~~[hasumikin/cross_compilation_toolchains](https://github.com/hasumikin/cross_compilation_toolchains) may help you to make an environment~~
+  - This feature is under reconstruction as of 2022
+
+#### Cross compilation
+
+You can do it like this:
+
+```
+CC=arm-linux-gnueabihf-gcc \
+CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
+LDFLAGS="-static" \
+rake
+```
 
 ### Binaries
 
-`make` command will make three kinds of executable binary
+`rake` command will make three kinds of executable binary
 
-- build/bin/host-production/alloc_libc/picorbc
-  - `build/bin/host-production/alloc_libc/picorbc path/to/source.rb` makes `path/to/source.mrb` which is VM code runs on mruby VM
-- build/bin/host-production/alloc_mrbc/picoruby and build/bin/host-debug/alloc_mrbc/picoruby
-  - `build/bin/host-production/alloc_mrbc/picoruby source.rb` executes Ruby just like normal `ruby` command
-  - You can also do it like `build/bin/host-production/alloc_mrbc/picoruby -e 'puts "Hello World!"'`
-- build/bin/host-production/alloc_mrbc/picoirb and build/bin/host-debug/alloc_mrbc/picoirb
-  - They are experimental REPL implementation
+- bin/picorbc
+  - `bin/picorbc path/to/source.rb` makes `path/to/source.mrb` that is VM code runs on an mruby-compatible virtual machine
+- bin/picoruby
+  - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
+  - You can also do like `bin/picoruby -e 'puts "Hello World!"'`
+- bin/picoirb
+  - A REPL implementation like irb and mirb
 
 ### Debug build and production build
 
-`make` command makes "debug build" which shows debug-print like this:
+`rake debug` command makes "debug build" which shows debug-print like this:
 
 ![](https://raw.githubusercontent.com/hasumikin/picoruby/master/docs/images/debug-print.png)
 
 (Please replace `mmruby` with `picoruby` in mind. It's an old name)
 
-A production build omits debug-print.
-You can get "production build with LIBC" like `build/bin/host-production/alloc_libc/picoruby` by `make host_production_libc`
+A production build omits those debug-print.
 
-### Presentation about ~~mmruby~~ PicoRuby
+### Presentations about PicoRuby
 
-I gave a talk about this project on [RubyKaigi Takeout 2020](https://rubykaigi.org/2020-takeout).
+The author gave a talk about PRK Firmware in RubyConf 2021.
+See the video on [YouTube](https://www.youtube.com/watch?v=SLSwn41iJX4&t=12s).
 
-- [Video](https://youtu.be/kDOf_tZKlLU)
-- [Slide](https://slide.rabbit-shocker.org/authors/hasumikin/RubyKaigiTakeout2020/)
+Japanese talks are available at
+[RubyKaigi Takeout 2020](https://rubykaigi.org/2020-takeout/presentations/hasumikin.html)
+and
+[RubyKaigi Takeout 2021](https://rubykaigi.org/2021-takeout/presentations/hasumikin.html).
 
 ### Roadmap
 
@@ -71,8 +94,14 @@ Fork, fix, then send a pull request.
 
 ### Acknowledgement
 
-Part of this project was coded by [Monstarlab](https://monstar-lab.com/) with the support of [the Ruby Association Grant Program 2020](https://www.ruby.or.jp/en/news/20201022).
+Part of this project was coded by [Monstarlab](https://monstar-lab.com/) with the support of
+the Ruby Association Grant Program
+[2020](https://www.ruby.or.jp/en/news/20201022)
+and
+[2021](https://www.ruby.or.jp/en/news/20211025).
+
+See also [picoruby/picoruby/wiki](https://github.com/picoruby/picoruby/wiki).
 
 ### License
 
-Copyright © 2020-2021 HASUMI Hitoshi & Monstarlab. See MIT-LICENSE for further details.
+Copyright © 2020-2022 HASUMI Hitoshi & Monstarlab. See MIT-LICENSE for further details.

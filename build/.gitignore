@@ -1,6 +1,2 @@
-*.o
-*.a
-picoruby
-picorbc
-picoirb
-picoshell
+*
+!.gitignore

@@ -1,7 +1,0 @@
-[submodule "src/mrubyc"]
-	path = src/mrubyc
-	url = https://github.com/mrubyc/mrubyc.git
-	branch = master
-[submodule "src/regex_light"]
-	path = src/regex_light
-	url = https://github.com/hasumikin/regex_light.git
