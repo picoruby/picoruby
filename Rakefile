@@ -105,7 +105,10 @@ task :test do
   sh "PICORUBY=#{picorubyfile} ./test/helper/test.rb"
 end
 
+current_dir = File.dirname(File.expand_path __FILE__)
+picorbc_include_dir = "#{current_dir}/build/repos/host/mruby-pico-compiler/include"
+
 desc "create picorbc executable"
-task :picorbc do
-  Rake::Task["#{File.dirname(File.expand_path __FILE__)}/bin/picorbc"].invoke
+task :picorbc => ["#{picorbc_include_dir}/ptr_size.h", "#{picorbc_include_dir}/parse.h"] do
+  Rake::Task["#{current_dir}/bin/picorbc"].invoke
 end
