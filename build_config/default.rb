@@ -18,6 +18,7 @@ MRuby::Build.new do |conf|
   conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picoruby', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picoirb', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-mrubyc', branch: 'master'
 
   conf.cc.defines << "NDEBUG" unless ENV["PICORUBY_DEBUG"]
   conf.cc.defines << "MRBC_ALLOC_LIBC"
