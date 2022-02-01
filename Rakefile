@@ -104,3 +104,8 @@ task :test do
   Rake::Task[:all].invoke
   sh "PICORUBY=#{picorubyfile} ./test/helper/test.rb"
 end
+
+desc "create picorbc executable"
+task :picorbc do
+  Rake::Task["#{File.dirname(File.expand_path __FILE__)}/bin/picorbc"].invoke
+end
