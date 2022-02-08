@@ -42,7 +42,7 @@ class IfTest < PicoRubyTest
 
   desc "a complicated case"
   assert_equal(<<~RUBY, "hello\ntrue\n1\nnil")
-    proc = Proc.new do puts 'hello' end
+    proc = Proc.new do puts "hello" end
     ary = [0, true, proc]
     res = if ary[1]
       ary[0] += 1

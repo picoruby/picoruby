@@ -50,7 +50,7 @@ class BlockTest < PicoRubyTest
     def my_method(&block)
       block.call
     end
-    my_method {puts 'hello'}
+    my_method {puts "hello"}
   RUBY
 
   desc "yield"
@@ -58,7 +58,7 @@ class BlockTest < PicoRubyTest
     def my_method
       yield
     end
-    my_method {puts 'hello'}
+    my_method {puts "hello"}
   RUBY
 
   desc "lvar scope"

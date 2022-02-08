@@ -4,8 +4,8 @@ class YieldTest < PicoRubyTest
     def my_method(m)
       yield m
     end
-    my_method('Ruby') do |v|
-      puts \"Hello #{v}\"
+    my_method("Ruby") do |v|
+      puts "Hello #{v}"
     end
   RUBY
 
@@ -14,8 +14,8 @@ class YieldTest < PicoRubyTest
     def my_method(m, n)
      yield m, n
     end
-    my_method('Ruby', 'Pico') do |v, x|
-      puts \"Hello #{x}#{v}\"
+    my_method("Ruby", "Pico") do |v, x|
+      puts "Hello #{x}#{v}"
     end
   RUBY
 end

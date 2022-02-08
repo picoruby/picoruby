@@ -5,12 +5,12 @@ class AssignTest < PicoRubyTest
   RUBY
 
   assert_equal(<<~RUBY, '"hello"')
-    a = b = 'hello'
+    a = b = "hello"
     p b
   RUBY
 
   assert_equal(<<~RUBY, '"hello"')
-    a = b = 'hello'
+    a = b = "hello"
     p a
   RUBY
 

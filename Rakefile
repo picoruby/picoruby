@@ -114,7 +114,7 @@ task :debug do
 end
 
 desc "run all tests"
-task :test => :all do
+task :test => :debug do
   sh "PICORUBY=#{picorubyfile} ./test/helper/test.rb"
 end
 

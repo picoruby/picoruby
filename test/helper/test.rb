@@ -62,7 +62,7 @@ class PicoRubyTest
       @@pending_count += 1
       return
     end
-    actual = `#{@@picoruby_path} -e "#{script}"`.chomp.gsub(/\r/, "")
+    actual = `#{@@picoruby_path} -e '#{script}'`.chomp.gsub(/\r/, "")
     if actual == expected
       print "#{@@green}."
       @@success_count += 1

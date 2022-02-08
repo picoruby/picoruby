@@ -1,32 +1,32 @@
-class IvarTest < PicoRubyTest
+class GvarTest < PicoRubyTest
   desc "assign"
   assert_equal(<<~RUBY, '[0]')
-    @ivar = [0]
-    p @ivar
+    $gvar = [0]
+    p $gvar
   RUBY
 
   desc "init idiom"
   assert_equal(<<~RUBY, '"init"')
-    @ivar ||= "init"
-    p @ivar
+    $gvar ||= "init"
+    p $gvar
   RUBY
 
   desc "op_assign"
   assert_equal(<<~RUBY, '2')
-    @ivar = 1
-    @ivar += 1
-    p @ivar
+    $gvar = 1
+    $gvar += 1
+    p $gvar
   RUBY
 
   desc "op_assign array"
   assert_equal(<<~RUBY, '[]')
-    @ivar||=[]
-    p @ivar
+    $gvar||=[]
+    p $gvar
   RUBY
 
-  desc "op_assign hash"
+  desc "gvar op_assign hash"
   assert_equal(<<~RUBY, '{}')
-    @ivar||={}
-    p @ivar
+    $gvar||={}
+    p $gvar
   RUBY
 end

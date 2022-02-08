@@ -45,7 +45,7 @@ class CaseTest < PicoRubyTest
       false
     else
       String.new
-      [{a: 2}, 'hello', :ruby][2]
+      [{a: 2}, "hello", :ruby][2]
     end
     p res
   RUBY

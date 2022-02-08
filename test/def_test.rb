@@ -2,7 +2,7 @@ class DefTest < PicoRubyTest
   desc "def method without arg"
   assert_equal(<<~RUBY, "My method!")
     def my_method
-      'My method!'
+      "My method!"
     end
     puts my_method
   RUBY
@@ -12,7 +12,7 @@ class DefTest < PicoRubyTest
     def my_method(arg)
       arg
     end
-    puts my_method('My arg')
+    puts my_method("My arg")
   RUBY
 
   desc "endless def"
@@ -23,7 +23,7 @@ class DefTest < PicoRubyTest
 
   desc "def method with an optional arg"
   assert_equal(<<~RUBY, "default")
-    def my_method(arg = 'default')
+    def my_method(arg = "default")
       arg
     end
     puts my_method
@@ -31,10 +31,10 @@ class DefTest < PicoRubyTest
 
   desc "def method with a mandatory arg and an optional arg"
   assert_equal(<<~RUBY, "hey\nyou")
-    def my_method(marg, opt = 'optional')
+    def my_method(marg, opt = "optional")
       puts marg, opt
     end
-    my_method('hey', 'you')
+    my_method("hey", "you")
   RUBY
 
   desc "block"
