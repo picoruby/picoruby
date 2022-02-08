@@ -69,4 +69,12 @@ class BlockTest < PicoRubyTest
     end
   RUBY
 
+  desc "return blk"
+  assert_equal(<<~RUBY, "true")
+    def a
+      [1].each { return true }
+    end
+    p a
+  RUBY
+
 end
