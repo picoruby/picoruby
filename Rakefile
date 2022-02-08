@@ -88,20 +88,16 @@ def picorbc_debug?
   `#{picorbcfile} -v`.include? "debug build"
 end
 
-def clean_if(build)
+def clean_if(clean)
   if File.exist? picorubyfile
-    if build == :debug
-      if picoruby_debug?
-        Rake::Task[:clean].invoke
-      end
+    if clean == :debug && picoruby_debug?
+      Rake::Task[:clean].invoke
     elsif !picoruby_debug?
       Rake::Task[:clean].invoke
     end
   elsif File.exist? picorbcfile
-    if build == :debug
-      if picorbc_debug?
-        Rake::Task[:clean].invoke
-      end
+    if clean == :debug && plicorbc_debug?
+      Rake::Task[:clean].invoke
     elsif !picorbc_debug?
       Rake::Task[:clean].invoke
     end
@@ -114,13 +110,11 @@ end
 desc "create degub build"
 task :debug do
   clean_if(:production)
-  sh "PICORUBY_DEBUG=1 CFLAGS='-g3 -O0 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings' rake all"
+  sh %q{CFLAGS="-DPICORUBY_DEBUG -g3 -O0 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" rake all}
 end
 
 desc "run all tests"
-task :test do
-  clean_if(:debug)
-  Rake::Task[:all].invoke
+task :test => :all do
   sh "PICORUBY=#{picorubyfile} ./test/helper/test.rb"
 end
 
