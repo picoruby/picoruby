@@ -76,8 +76,16 @@ def picorubyfile
   "#{`pwd`.chomp}/bin/picoruby"
 end
 
+def picorbcfile
+  "#{`pwd`.chomp}/bin/picorbc"
+end
+
 def picoruby_debug?
   `#{picorubyfile} -v`.include? "debug build"
+end
+
+def picorbc_debug?
+  `#{picorbcfile} -v`.include? "debug build"
 end
 
 def clean_if(build)
@@ -89,6 +97,17 @@ def clean_if(build)
     elsif !picoruby_debug?
       Rake::Task[:clean].invoke
     end
+  elsif File.exist? picorbcfile
+    if build == :debug
+      if picorbc_debug?
+        Rake::Task[:clean].invoke
+      end
+    elsif !picorbc_debug?
+      Rake::Task[:clean].invoke
+    end
+  else
+    # clean anyway
+    Rake::Task[:clean].invoke
   end
 end
 
