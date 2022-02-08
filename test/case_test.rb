@@ -25,7 +25,7 @@ class CaseTest < PicoRubyTest
     p res
   RUBY
 
-  desc "case 3"
+  desc "case no else"
   assert_equal(<<~RUBY, "nil")
     dummy = [0,1,2]
     res = case dummy[0]
@@ -33,6 +33,19 @@ class CaseTest < PicoRubyTest
       true
     when 2
       false
+    end
+    p res
+  RUBY
+
+  desc "case else"
+  assert_equal(<<~RUBY, ":ruby")
+    dummy = 1
+    res = case dummy[0]
+    when 2
+      false
+    else
+      String.new
+      [{a: 2}, 'hello', :ruby][2]
     end
     p res
   RUBY
