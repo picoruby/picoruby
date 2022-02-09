@@ -1,3 +1,7 @@
+#
+# This build config works also in mruby/build_config
+#
+
 module MRuby
   class Build
     def disable_libmruby_core
@@ -14,11 +18,11 @@ MRuby::Build.new do |conf|
   disable_libmruby
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
-  conf.gem core: 'mruby-mrubyc'
-  conf.gem core: 'mruby-pico-compiler'
-  conf.gem core: 'mruby-bin-picorbc'
-  conf.gem core: 'mruby-bin-picoruby'
-  conf.gem core: 'mruby-bin-picoirb'
+  conf.gem github: 'hasumikin/mruby-mrubyc', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-bin-picoruby', branch: 'master'
+  conf.gem github: 'hasumikin/mruby-bin-picoirb', branch: 'master'
 
   conf.cc.defines << "DISABLE_MRUBY"
   conf.cc.defines << "NDEBUG" unless ENV["PICORUBY_DEBUG"]

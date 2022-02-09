@@ -5,8 +5,9 @@
 PicoRuby is an alternative mruby implementation which is:
 
 - Small foot print
-  - ROM: 256KB
-  - RAM: 128KB or less (depending on app code)
+  - ROM: 256 KB
+  - RAM: 128 KB or less (depending on app code)
+  - (Figures in 32 bit architecture)
 - Portable
   - Depends on only standard C library such as glibc, Newlib or Newlib-nano
 - Reference microcontroller boards
@@ -15,15 +16,14 @@ PicoRuby is an alternative mruby implementation which is:
 
 <img src="docs/logos/fukuokarubyaward.png" width="212">
 
-### Used by
+#### Depends on
 
-[PRK Firmware](https://github.com/picoruby/prk_firmware)
-
-### Set-up
-
-- PicoRuby compiler
 - [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
   - Another implementation of mruby virtual machine
+
+#### Used by
+
+[PRK Firmware](https://github.com/picoruby/prk_firmware)
 
 ### Build
 
@@ -31,24 +31,16 @@ PicoRuby is an alternative mruby implementation which is:
   - C toolchain
   - git
   - ruby (should be CRuby)
-- `git clone` this repository
-- `rake` will build binaries for your machine
+- `git clone --recursive` this repository
+- `cd picoruby`
+- `rake` builds binaries for your machine
+  - PicoRuby basically uses mruby's build system as it is
+  - `rake -T` shows available subcommands
 - ~~You can build library files for PSoC5LP by hitting `rake psoc5lp_lib`~~
   - ~~It requires you to have Docker though,~~
   - ~~You can make arm-none-eabi tools if you don't want to use Docker~~
   - ~~[hasumikin/cross_compilation_toolchains](https://github.com/hasumikin/cross_compilation_toolchains) may help you to make an environment~~
   - This feature is under reconstruction as of 2022
-
-#### Cross compilation
-
-You can do it like this:
-
-```
-CC=arm-linux-gnueabihf-gcc \
-CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
-LDFLAGS="-static" \
-rake
-```
 
 ### Binaries
 
@@ -62,19 +54,31 @@ rake
 - bin/picoirb
   - A REPL implementation like irb and mirb
 
-### Debug build and production build
+### `--verbose` option
 
-`rake debug` command makes "debug build" which shows debug-print like this:
+`bin/picoruby --verbose -e 'puts "Hello World!"'` shows debug-print like this:
 
 ![](https://raw.githubusercontent.com/hasumikin/picoruby/master/docs/images/debug-print.png)
 
-(Please replace `mmruby` with `picoruby` in mind. It's an old name)
+(Replace `[path/to/]mmruby` with `bin/picoruby --verbose` in mind. It's an old name)
 
-A production build omits those debug-print.
+#### Cross compilation
+
+You can simply do it like this:
+
+```
+CC=arm-linux-gnueabihf-gcc \
+CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
+LDFLAGS="-static" \
+rake
+```
+
+However, it'd be better to write an instance of `Mruby::CrossBuild`.
+See [mruby's doc](https://github.com/mruby/mruby/blob/master/doc/guides/compile.md#cross-compilation)
 
 ### Presentations about PicoRuby
 
-The author gave a talk about PRK Firmware in RubyConf 2021.
+The author gave a talk about PicoRuby in RubyConf 2021.
 See the video on [YouTube](https://www.youtube.com/watch?v=SLSwn41iJX4&t=12s).
 
 Japanese talks are available at
@@ -84,13 +88,13 @@ and
 
 ### Roadmap
 
-PicoRuby is still developing halfway towards finishing as of 2021.
+PicoRuby is still developing halfway towards finishing as of 2022.
 
 See implementation roadmap on [issue/6](https://github.com/hasumikin/picoruby/issues/6)
 
 ### Contributing to PicoRuby
 
-Fork, fix, then send a pull request.
+Fork, patch, then send a pull request.
 
 ### Acknowledgement
 

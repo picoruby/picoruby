@@ -1,2 +1,0 @@
-class MyClass < Object
-end
