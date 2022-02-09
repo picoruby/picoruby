@@ -42,6 +42,20 @@ PicoRuby is an alternative mruby implementation which is:
   - ~~[hasumikin/cross_compilation_toolchains](https://github.com/hasumikin/cross_compilation_toolchains) may help you to make an environment~~
   - This feature is under reconstruction as of 2022
 
+#### Cross compilation
+
+You can simply do it like this:
+
+```
+CC=arm-linux-gnueabihf-gcc \
+CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
+LDFLAGS="-static" \
+rake
+```
+
+However, it'd be better to write an instance of `Mruby::CrossBuild`.
+See [mruby's doc](https://github.com/mruby/mruby/blob/master/doc/guides/compile.md#cross-compilation)
+
 ### Binaries
 
 `rake` command will make three kinds of executable binary
@@ -61,20 +75,6 @@ PicoRuby is an alternative mruby implementation which is:
 ![](https://raw.githubusercontent.com/hasumikin/picoruby/master/docs/images/debug-print.png)
 
 (Replace `[path/to/]mmruby` with `bin/picoruby --verbose` in mind. It's an old name)
-
-#### Cross compilation
-
-You can simply do it like this:
-
-```
-CC=arm-linux-gnueabihf-gcc \
-CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
-LDFLAGS="-static" \
-rake
-```
-
-However, it'd be better to write an instance of `Mruby::CrossBuild`.
-See [mruby's doc](https://github.com/mruby/mruby/blob/master/doc/guides/compile.md#cross-compilation)
 
 ### Presentations about PicoRuby
 

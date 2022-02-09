@@ -1,0 +1,15 @@
+[submodule "mrbgems/mruby-bin-picoruby"]
+	path = mrbgems/mruby-bin-picoruby
+	url = https://github.com/hasumikin/mruby-bin-picoruby.git
+[submodule "mrbgems/mruby-bin-picoirb"]
+	path = mrbgems/mruby-bin-picoirb
+	url = https://github.com/hasumikin/mruby-bin-picoirb.git
+[submodule "mrbgems/mruby-bin-picorbc"]
+	path = mrbgems/mruby-bin-picorbc
+	url = https://github.com/hasumikin/mruby-bin-picorbc.git
+[submodule "mrbgems/mruby-mrubyc"]
+	path = mrbgems/mruby-mrubyc
+	url = https://github.com/hasumikin/mruby-mrubyc.git
+[submodule "mrbgems/mruby-pico-compiler"]
+	path = mrbgems/mruby-pico-compiler
+	url = https://github.com/hasumikin/mruby-pico-compiler.git
