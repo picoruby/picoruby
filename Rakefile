@@ -120,10 +120,18 @@ task :debug do
   sh %q{PICORUBY_DEBUG_BUILD=yes rake all}
 end
 
-desc "run all tests"
+desc "run all tests with mruby VM"
 task :test => :debug do
-  sh "PICORUBY=#{picorubyfile} ./test/helper/test.rb"
+  ENV['MRUBY_COMMAND'] ||= "RBENV_VERSION=mruby-3.0.0 mruby"
+  sh "./test/helper/test.rb"
 end
+
+desc "run all tests with mruby/c VM"
+task :test_with_mrubyc => :debug do
+  ENV['MRUBY_COMMAND'] ||= picorubyfile
+  sh "PICORUBY=yes ./test/helper/test.rb"
+end
+
 
 current_dir = File.dirname(File.expand_path __FILE__)
 picorbc_include_dir = "#{current_dir}/build/repos/host/mruby-pico-compiler/include"
