@@ -108,10 +108,16 @@ def clean_if(clean)
   end
 end
 
-desc "create degub build"
+desc "create production build"
+task :production do
+  clean_if(:debug)
+  Rake::Task[:all].invoke
+end
+
+desc "create debug build"
 task :debug do
   clean_if(:production)
-  sh %q{CFLAGS="-DPICORUBY_DEBUG -g3 -O0 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" rake all}
+  sh %q{PICORUBY_DEBUG_BUILD=yes rake all}
 end
 
 desc "run all tests"
