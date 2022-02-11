@@ -120,15 +120,20 @@ task :debug do
   sh %q{PICORUBY_DEBUG_BUILD=yes rake all}
 end
 
+desc "run all tests"
+task :test => [:test_mrubyc, :test_mruby]
+
 desc "run all tests with mruby VM"
-task :test => :debug do
-  ENV['MRUBY_COMMAND'] ||= "RBENV_VERSION=mruby-3.0.0 mruby"
+task :test_mruby => :debug do
+  puts "On mruby VM"
+  ENV['MRUBY_COMMAND'] = "RBENV_VERSION=mruby-3.0.0 mruby"
   sh "./test/helper/test.rb"
 end
 
 desc "run all tests with mruby/c VM"
-task :test_with_mrubyc => :debug do
-  ENV['MRUBY_COMMAND'] ||= picorubyfile
+task :test_mrubyc => :debug do
+  puts "On mruby/c VM"
+  ENV['MRUBY_COMMAND'] = picorubyfile
   sh "PICORUBY=yes ./test/helper/test.rb"
 end
 

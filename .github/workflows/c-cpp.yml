@@ -26,10 +26,10 @@ jobs:
         rake
     #- name: Setup tmate session
     #  uses: mxschmitt/action-tmate@v3
-    - name: rake test with mruby
-      run: rake test
+    - name: Test with mruby/c
+      run: rake test_mrubyc
+    - name: Test with mruby
+      run: rake test_mruby
       env:
         MRUBY_COMMAND: $PWD/mruby/bin/mruby
-    #- name: rake test with mruby/c
-    #  run: rake test_with_mrubyc
 
