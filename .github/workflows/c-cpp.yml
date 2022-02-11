@@ -24,8 +24,8 @@ jobs:
         git clone -b 3.0.0 https://github.com/mruby/mruby.git
         cd mruby
         rake
-    #- name: Setup tmate session
-    #  uses: mxschmitt/action-tmate@v3
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
     - name: rake test with mruby
       run: rake test
       env:
