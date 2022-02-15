@@ -14,6 +14,8 @@ MRuby::Build.new do |conf|
   disable_libmruby
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
+  ENV['MRUBYC_BRANCH'] = "mrubyc3"
+  ENV['MRUBYC_REVISION'] = "857ca36"
   conf.gem core: 'mruby-mrubyc'
   conf.gem core: 'mruby-pico-compiler'
   conf.gem core: 'mruby-bin-picorbc'
