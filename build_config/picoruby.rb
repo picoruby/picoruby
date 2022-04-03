@@ -2,20 +2,10 @@
 # This build config works also in mruby/build_config
 #
 
-module MRuby
-  class Build
-    def disable_libmruby_core
-      @enable_libmruby_core = false
-    end
-  end
-end
-
 MRuby::Build.new do |conf|
   conf.toolchain
 
   disable_presym
-  disable_libmruby_core
-  disable_libmruby
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
   ENV['MRUBYC_BRANCH'] = "mrubyc3"
