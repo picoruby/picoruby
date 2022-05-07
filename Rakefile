@@ -59,6 +59,9 @@ task :clean do
     rm_f build.products
   end
   puts "Cleaned up target build folder"
+  FileUtils.cd "mrbgems/mruby-pico-compiler" do
+    sh "rake clean"
+  end
 end
 
 desc "clean everything!"

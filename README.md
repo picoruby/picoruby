@@ -44,10 +44,11 @@ PicoRuby is an alternative mruby implementation which is:
 
 #### Cross compilation
 
-You can simply do it like this:
+If you want to build for Arm, you can do it like this:
 
 ```
 CC=arm-linux-gnueabihf-gcc \
+QEMU=qemu-arm-static \
 CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
 LDFLAGS="-static" \
 rake
