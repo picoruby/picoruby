@@ -9,7 +9,7 @@ MRuby::Build.new do |conf|
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
   ENV['MRUBYC_BRANCH'] = "mrubyc3"
-  ENV['MRUBYC_REVISION'] = "2e93033"
+  ENV['MRUBYC_REVISION'] = "4e91963"
   conf.gem github: 'hasumikin/mruby-mrubyc', branch: 'master'
   conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: 'master'
