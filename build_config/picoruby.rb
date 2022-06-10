@@ -29,4 +29,5 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "MRBC_ALLOC_LIBC"
   conf.cc.defines << "REGEX_USE_ALLOC_LIBC"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
+  conf.cc.defines << "MRBC_USE_MATH"
 end
