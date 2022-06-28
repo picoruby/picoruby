@@ -59,7 +59,7 @@ task :clean do
     rm_f build.products
   end
   puts "Cleaned up target build folder"
-  FileUtils.cd "mrbgems/mruby-pico-compiler" do
+  FileUtils.cd "build/repos/host/mruby-pico-compiler" do
     sh "rake clean"
   end
 end
@@ -69,7 +69,7 @@ task :deep_clean => %w[clean doc:clean] do
   MRuby.each_target do |build|
     rm_rf build.gem_clone_dir
   end
-  rm_rf "mrbgems/mruby-mrubyc/repos/mrubyc"
+  rm_rf "build/repos/host/mruby-mrubyc/repos/mrubyc"
   puts "Cleaned up mrbgems build folder"
 end
 
