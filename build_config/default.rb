@@ -4,8 +4,8 @@ MRuby::Build.new do |conf|
   disable_presym
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
-  ENV['MRUBYC_BRANCH'] = "master"
-  ENV['MRUBYC_REVISION'] = "504c598"
+  ENV['MRUBYC_BRANCH'] = "release3.1"
+  # ENV['MRUBYC_REVISION'] = "504c598"
   conf.gem core: 'mruby-mrubyc'
   conf.gem core: 'mruby-pico-compiler'
   conf.gem core: 'mruby-bin-picorbc'

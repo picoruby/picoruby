@@ -8,8 +8,8 @@ MRuby::Build.new do |conf|
   disable_presym
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
-  ENV['MRUBYC_BRANCH'] = "mrubyc3"
-  ENV['MRUBYC_REVISION'] = "4e91963"
+  ENV['MRUBYC_BRANCH'] = "master"
+  # ENV['MRUBYC_REVISION'] = "504c598"
   conf.gem github: 'hasumikin/mruby-mrubyc', branch: 'master'
   conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: 'master'
