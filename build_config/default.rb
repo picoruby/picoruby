@@ -1,3 +1,7 @@
+#
+# This build config works also in mruby/build_config
+#
+
 MRuby::Build.new do |conf|
   conf.toolchain
 
@@ -5,12 +9,12 @@ MRuby::Build.new do |conf|
   conf.mrbcfile = "#{conf.build_dir}/bin/picorbc"
 
   ENV['MRUBYC_BRANCH'] = "mrubyc3"
-  ENV['MRUBYC_REVISION'] = "4e91963"
-  conf.gem core: 'mruby-mrubyc'
-  conf.gem core: 'mruby-pico-compiler'
-  conf.gem core: 'mruby-bin-picorbc'
-  conf.gem core: 'mruby-bin-picoruby'
-  conf.gem core: 'mruby-bin-picoirb'
+  # ENV['MRUBYC_REVISION'] = "4e91963"
+  conf.gem github: 'hasumikin/mruby-mrubyc', branch: '3.0.0'
+  conf.gem github: 'hasumikin/mruby-pico-compiler', branch: '3.0.0'
+  conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: '3.0.0'
+  conf.gem github: 'hasumikin/mruby-bin-picoruby', branch: '3.0.0'
+  conf.gem github: 'hasumikin/mruby-bin-picoirb', branch: '3.0.0'
 
   conf.cc.defines << "DISABLE_MRUBY"
   if ENV["PICORUBY_DEBUG_BUILD"]
