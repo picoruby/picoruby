@@ -30,5 +30,5 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "REGEX_USE_ALLOC_LIBC"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
   conf.cc.defines << "MRBC_USE_MATH"
-  conf.cc.defines << "MAX_SYMBOLS_COUNT=700"
+  conf.cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 700}"
 end
