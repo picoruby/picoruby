@@ -125,7 +125,7 @@ desc "run all tests with mruby VM"
 task :test_mruby => :debug do
   ENV['USE_MRUBY'] = "yes"
   ENV['PICORBC_COMMAND'] ||= picorbcfile
-  ENV['MRUBY_COMMAND'] ||= "RBENV_VERSION=mruby-3.1.0 mruby"
+  ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.1.0 rbenv which mruby`.chomp
   sh "./test/helper/test.rb"
 end
 
@@ -133,6 +133,7 @@ desc "run all tests with mruby/c VM"
 task :test_mrubyc => :debug do
   ENV['MRUBY_COMMAND'] = picorubyfile
   sh "./test/helper/test.rb"
+  ENV['MRUBY_COMMAND'] = nil
 end
 
 
