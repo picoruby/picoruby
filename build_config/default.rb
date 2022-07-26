@@ -27,7 +27,23 @@ MRuby::Build.new do |conf|
   end
   conf.cc.defines << "MRBC_ALLOC_LIBC"
   conf.cc.defines << "REGEX_USE_ALLOC_LIBC"
-  conf.cc.defines << "MRBC_USE_HAL_POSIX"
   conf.cc.defines << "MRBC_USE_MATH"
+  conf.cc.defines << "MRBC_INT64"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 700}"
+
+  conf.cc.defines << ENV.keys.find { |env|
+    env.start_with? "MRBC_USE_HAL"
+  }.then { |hal|
+    if hal.nil?
+      "MRBC_USE_HAL_POSIX"
+    elsif hal == "MRBC_USE_HAL"
+      "#{hal}=#{ENV[hal]}"
+    elsif hal.start_with?("MRBC_USE_HAL_")
+      hal
+    else
+      raise "Invalid MRBC_USE_HAL_ definition!"
+    end
+  }
+  pp conf.cc.defines
+
 end
