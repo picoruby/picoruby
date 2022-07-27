@@ -44,6 +44,5 @@ MRuby::Build.new do |conf|
       raise "Invalid MRBC_USE_HAL_ definition!"
     end
   }
-  pp conf.cc.defines
 
 end
