@@ -66,6 +66,9 @@ task :deep_clean => %w[clean doc:clean] do
   MRuby.each_target do |build|
     rm_rf build.gem_clone_dir
   end
+  FileUtils.cd "mrbgems/picoruby-mrubyc/repos" do
+    rm_rf "mrubyc"
+  end
 end
 
 ##############################
