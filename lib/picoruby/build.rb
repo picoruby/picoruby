@@ -1,6 +1,8 @@
 module MRuby
   class Build
-    def picoruby
+    def mrubyc(mrubyc_conf = :default)
+
+      ENV['MRUBYC_BRANCH'] ||= "mrubyc3.1"
 
       disable_presym
 
@@ -10,10 +12,17 @@ module MRuby
 
       gem core: 'picoruby-mrubyc'
 
-      cc.defines << "MRBC_USE_MATH=1"
-      cc.defines << "MRBC_INT64=1"
-      cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 1000}"
-      cc.defines << "MAX_VM_COUNT=#{ENV['MAX_VM_COUNT'] || 255}"
+      case mrubyc_conf
+      when :default
+        cc.defines << "MRBC_USE_MATH=1"
+        cc.defines << "MRBC_INT64=1"
+        cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 1000}"
+        cc.defines << "MAX_VM_COUNT=#{ENV['MAX_VM_COUNT'] || 255}"
+      when :minimum
+        # Do noghing
+      else
+        raise 'Unknown mrubyc_conf'
+      end
 
       cc.defines << ENV.keys.find { |env|
         env.start_with? "MRBC_USE_HAL"

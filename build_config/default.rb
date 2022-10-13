@@ -1,10 +1,8 @@
 MRuby::Build.new do |conf|
 
-  ENV['MRUBYC_BRANCH'] = "mrubyc3.1"
-
   conf.toolchain
 
-  conf.picoruby
+  conf.mrubyc
 
   conf.gembox "default"
 
