@@ -5,7 +5,7 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
-  conf.mrubyc :minimum # or :default
+  conf.picoruby :minimum # or :default
 
   # conf.cc.defines << "MRBC_ALLOC_LIBC"
 
