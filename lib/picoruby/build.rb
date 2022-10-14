@@ -1,6 +1,6 @@
 module MRuby
   class Build
-    def mrubyc(mrubyc_conf = :default)
+    def picoruby(picoruby_conf = :default)
 
       ENV['MRUBYC_BRANCH'] ||= "mrubyc3.1"
 
@@ -9,19 +9,21 @@ module MRuby
       self.mrbcfile = "#{build_dir}/bin/picorbc"
 
       cc.defines << "DISABLE_MRUBY"
+      cc.include_paths << "#{MRUBY_ROOT}/build/repos/host/mruby-pico-compiler/include"
 
       gem core: 'picoruby-mrubyc'
 
-      case mrubyc_conf
+      case picoruby_conf
       when :default
         cc.defines << "MRBC_USE_MATH=1"
         cc.defines << "MRBC_INT64=1"
         cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 1000}"
         cc.defines << "MAX_VM_COUNT=#{ENV['MAX_VM_COUNT'] || 255}"
+        cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/repos/mrubyc/src"
       when :minimum
         # Do noghing
       else
-        raise 'Unknown mrubyc_conf'
+        raise "Unknown picoruby_conf: #{picoruby_conf}"
       end
 
       cc.defines << ENV.keys.find { |env|
@@ -48,6 +50,20 @@ module MRuby
         cc.defines << "NDEBUG"
       end
 
+    end
+  end
+
+  module Gem
+    class Specification
+      def define_gem_init_builder
+        file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
+          mkdir_p build_dir
+          if build_dir.include?("mrbgems/picoruby-")
+            rbfiles.clear
+          end
+          generate_gem_init("#{build_dir}/gem_init.c")
+        end
+      end
     end
   end
 end
