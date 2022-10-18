@@ -6,6 +6,7 @@ MRuby.each_target do |build|
       mrbfile = "#{build_dir}/mrbgems/#{gem.name}/mrblib/#{gem.name.sub(/\Apicoruby-(bin-)?/,'')}.c"
       mrbfiles << mrbfile
       file mrbfile => gem.rbfiles do |t|
+        next if t.prerequisites.empty?
         mkdir_p File.dirname(t.name)
         File.open(t.name, 'w') do |f|
           name = File.basename(t.name, ".c")
@@ -29,7 +30,7 @@ MRuby.each_target do |build|
       PICOGEM
       f.puts
       mrbfiles.each do |mrb|
-        f.puts "#include \"#{mrb}\""
+        f.puts "#include \"#{mrb}\"" if File.exist?(mrb)
       end
       f.puts
       f.puts <<~PICOGEM
@@ -44,7 +45,7 @@ MRuby.each_target do |build|
       f.puts "static picogems gems[] = {"
       mrbfiles.each do |mrb|
         name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", #{name}, mrbc_#{name}_init, 0},"
+        f.puts "  {\"#{name}\", #{name}, mrbc_#{name}_init, 0}," if File.exist?(mrb)
       end
       f.puts "};"
       f.puts

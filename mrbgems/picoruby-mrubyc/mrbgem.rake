@@ -39,7 +39,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   if cc.defines.include?("DISABLE_MRUBY")
     build.libmruby_objs.clear
   end
-  mrubyc_srcs.each do |mrubyc_src|
+  (mrubyc_srcs << "mrblib").each do |mrubyc_src|
     obj = objfile("#{build_dir}/src/#{mrubyc_src}")
     build.libmruby_objs << obj
     file obj => "#{mrubyc_dir}/src/#{mrubyc_src}.c" do |f|
@@ -50,8 +50,9 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
 
   file "#{mrubyc_dir}/mrblib" => mrubyc_dir
 
-  file "#{build_dir}/src/mrblib.c" => "#{mrubyc_dir}/mrblib" do |f|
+  file "#{build_dir}/src/mrblib.c" => [build.mrbcfile, "#{mrubyc_dir}/mrblib"] do |f|
     mrblib_sources = Dir.glob("#{mrubyc_dir}/mrblib/*.rb").join(" ")
+    mkdir_p File.dirname(f.name)
     sh "#{ENV['QEMU']} #{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{mrblib_sources}"
   end
 
