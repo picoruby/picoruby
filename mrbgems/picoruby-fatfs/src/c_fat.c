@@ -2,6 +2,8 @@
 #include <stdio.h>
 
 #include "c_fat.h"
+#include "c_fat_dir.h"
+#include "c_fat_file.h"
 
 #include "../lib/ff14b/source/ff.h"
 
@@ -78,19 +80,6 @@ c__directory_eq(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 }
 
-void
-c_fat_init(mrbc_vm *vm)
-{
-  mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
-  mrbc_define_method(0, class_FAT, "_mount", c__mount);
-  mrbc_define_method(0, class_FAT, "_unmount", c__unmount);
-  mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
-  mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
-  mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
-  mrbc_define_method(0, class_FAT, "_exist?", c__exist_eq);
-  mrbc_define_method(0, class_FAT, "_directory?", c__directory_eq);
-}
-
 #define PREPARE_EXCEPTION(message) (sprintf(buff, "%s @ %s", message, func))
 
 void
@@ -159,5 +148,20 @@ mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func)
       PREPARE_EXCEPTION("This should not happen");
   }
   mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
+}
+
+void
+mrbc_fatfs_init(void)
+{
+  mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+  mrbc_define_method(0, class_FAT, "_mount", c__mount);
+  mrbc_define_method(0, class_FAT, "_unmount", c__unmount);
+  mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
+  mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
+  mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
+  mrbc_define_method(0, class_FAT, "_exist?", c__exist_eq);
+  mrbc_define_method(0, class_FAT, "_directory?", c__directory_eq);
+  mrbc_init_class_FAT_Dir();
+  mrbc_init_class_FAT_File();
 }
 

@@ -1,7 +1,7 @@
 #include <mrubyc.h>
 
 void
-c_vfs_init(mrbc_vm *vm)
+mrbc_vfs_init(void)
 {
   return;
 }

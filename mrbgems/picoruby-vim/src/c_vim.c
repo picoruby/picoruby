@@ -1,7 +1,7 @@
 #include <mrubyc.h>
 
 void
-c_vim_init(mrbc_vm *vm)
+mrbc_vim_init(void)
 {
   return;
 }

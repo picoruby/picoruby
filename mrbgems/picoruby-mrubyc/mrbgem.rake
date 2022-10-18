@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('mruby-mrubyc') do |spec|
+MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   spec.license = 'MIT'
   spec.authors = 'HASUMI Hitoshi'
   spec.summary = 'mruby/c library'

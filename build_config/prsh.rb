@@ -11,6 +11,7 @@ MRuby::Build.new do |conf|
 
   conf.gem core: "picoruby-fatfs"
   conf.gem core: "picoruby-vim"
+  conf.gem core: "picoruby-bin-prsh"
 
 end
 

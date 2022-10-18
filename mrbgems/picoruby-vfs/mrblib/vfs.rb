@@ -1,10 +1,11 @@
+ENV = {}
+
 class VFS
 
   VOLUMES = Array.new
 
   class << self
     def mount(driver, mountpoint)
-      mountpoint << "/" unless mountpoint.end_with?("/")
       if volume_index(mountpoint)
         raise RuntimeError.new "Mountpoint `#{mountpoint}` already exists"
       end
@@ -13,6 +14,7 @@ class VFS
       end
       driver.mount(mountpoint) # It raises if error
       VOLUMES << { driver: driver, mountpoint: mountpoint }
+      ENV["PWD"] ||= mountpoint
     end
 
     def unmount(driver)
@@ -21,13 +23,13 @@ class VFS
       unless index = volume_index(mountpoint)
         raise "Mountpoint `#{mountpoint}` doesn't exist"
       end
-      if OS::ENV["PWD"].start_with?(mountpoint)
+      if ENV["PWD"].start_with?(mountpoint)
         raise "Can't unmount where you are"
       end
       driver.unmount
       VOLUMES.delete_at index
       if VOLUMES.empty?
-        OS::ENV["PWD"] = nil
+        ENV["PWD"] = nil
       end
     end
 
@@ -35,11 +37,11 @@ class VFS
       sanitized_path = VFS.sanitize(dir)
       volume, _path = VFS.split(sanitized_path)
       volume[:driver]._chdir(_path)
-      OS::ENV["PWD"] = sanitized_path
+      ENV["PWD"] = sanitized_path
     end
 
     def pwd
-      OS::ENV["PWD"]
+      ENV["PWD"]
     end
 
     def mkdir(path, mode = 0777)
@@ -73,13 +75,13 @@ class VFS
       when "/"
         [""]
       when ""
-        return OS::ENV["HOME"]
+        return ENV["HOME"]
       else
         path.split("/")
       end
       if dirs[0] != "" # path.start_with?("/")
         # Relative path
-        dirs = OS::ENV["PWD"].split("/") + dirs
+        dirs = ENV["PWD"].split("/") + dirs
       end
       sanitized_dirs = []
       dirs.each do |dir|
