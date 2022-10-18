@@ -12,8 +12,7 @@ module MRuby
       cc.include_paths << "#{build_dir}/mruby-pico-compiler/include"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
 
-      #gem core: 'picoruby-mrubyc'
-      gem git: 'https://github.com/hasumikin/mruby-mrubyc.git', branch: 'master'
+      gem core: 'picoruby-mrubyc'
 
       case picoruby_conf
       when :default
@@ -21,8 +20,7 @@ module MRuby
         cc.defines << "MRBC_INT64=1"
         cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 1000}"
         cc.defines << "MAX_VM_COUNT=#{ENV['MAX_VM_COUNT'] || 255}"
-        #cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/repos/mrubyc/src"
-        cc.include_paths << "#{MRUBY_ROOT}/build/repos/host/mruby-mrubyc/repos/mrubyc/src"
+        cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/repos/mrubyc/src"
       when :minimum
         # Do noghing
       else

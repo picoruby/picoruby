@@ -4,6 +4,6 @@ MRuby::GemBox.new do |conf|
   conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picoruby', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picoirb', branch: 'master'
-  conf.gem github: 'hasumikin/mruby-mrubyc', branch: 'master'
+  conf.gem core: 'picoruby-mrubyc'
 
 end
