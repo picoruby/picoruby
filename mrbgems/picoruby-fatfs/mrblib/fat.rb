@@ -1,4 +1,11 @@
 class FAT
+
+  class Dir
+  end
+
+  class File
+  end
+
   def initialize(drive = "0") # "0".."9"
     @prefix = "#{drive}:"
   end
@@ -32,11 +39,5 @@ class FAT
 
   def mkdir(path, mode)
     FAT._mkdir("#{@prefix}#{path}", mode)
-  end
-
-  class Dir
-  end
-
-  class File
   end
 end

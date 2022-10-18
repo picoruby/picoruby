@@ -115,6 +115,7 @@ void
 mrbc_init_class_FAT_File(void)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+
   mrbc_sym symid = mrbc_search_symid("File");
   mrbc_value *v = mrbc_get_class_const(class_FAT, symid);
   mrbc_class *class_FAT_File = v->cls;

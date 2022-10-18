@@ -2,8 +2,8 @@ MRuby.each_target do |build|
 
   mrbfiles = Array.new
   gems.each do |gem|
-    if gem.name.start_with?("picoruby-") && !gem.name.start_with?("picoruby-bin-")
-      mrbfile = "#{build_dir}/mrbgems/#{gem.name}/mrblib/#{gem.name.sub(/\Apicoruby-/,'')}.c"
+    if gem.name.start_with?("picoruby-")
+      mrbfile = "#{build_dir}/mrbgems/#{gem.name}/mrblib/#{gem.name.sub(/\Apicoruby-(bin-)?/,'')}.c"
       mrbfiles << mrbfile
       file mrbfile => gem.rbfiles do |t|
         mkdir_p File.dirname(t.name)
@@ -11,7 +11,7 @@ MRuby.each_target do |build|
           name = File.basename(t.name, ".c")
           mrbc.run(f, t.prerequisites, name, false)
           f.puts
-          f.puts "void c_#{name}_init(mrbc_vm *vm);"
+          f.puts "void mrbc_#{name}_init();"
         end
       end
     end
@@ -36,7 +36,7 @@ MRuby.each_target do |build|
         typedef struct picogems {
           const char *name;
           const uint8_t *mrb;
-          void (*initializer)(mrbc_vm *);
+          void (*initializer)(void);
           int required;
         } picogems;
       PICOGEM
@@ -44,7 +44,7 @@ MRuby.each_target do |build|
       f.puts "static picogems gems[] = {"
       mrbfiles.each do |mrb|
         name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", #{name}, c_#{name}_init, 0},"
+        f.puts "  {\"#{name}\", #{name}, mrbc_#{name}_init, 0},"
       end
       f.puts "};"
       f.puts
@@ -62,7 +62,25 @@ MRuby.each_target do |build|
           }
         }
 
-        void
+        static int
+        load_model(const uint8_t *mrb)
+        {
+          mrbc_vm *vm = mrbc_vm_open(NULL);
+          if (vm == 0) {
+            console_printf("Error: Can't open VM.");
+            return 0;
+          }
+          if (mrbc_load_mrb(vm, mrb) != 0) {
+            console_printf("Error: Illegal bytecode.");
+            return 0;
+          }
+          mrbc_vm_begin(vm);
+          mrbc_vm_run(vm);
+          mrbc_raw_free(vm);
+          return 1;
+        }
+
+        static void
         c_require(mrb_vm *vm, mrb_value *v, int argc)
         {
           const char *name = (const char *)GET_STRING_ARG(1);
@@ -73,13 +91,19 @@ MRuby.each_target do |build|
             mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
             return;
           }
-          if (!gems[i].required && mrbc_load_mrb(vm, gems[i].mrb) == 0) {
-            if (gems[i].initializer) gems[i].initializer(vm);
+          if (!gems[i].required && load_model(gems[i].mrb)) {
+            if (gems[i].initializer) gems[i].initializer();
             gems[i].required = 1;
             SET_TRUE_RETURN();
           } else {
             SET_FALSE_RETURN();
           }
+        }
+
+        void
+        mrbc_require_init(void)
+        {
+          mrbc_define_method(0, mrbc_class_object, "require", c_require);
         }
       PICOGEM
     end
