@@ -151,7 +151,7 @@ mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func)
 }
 
 void
-mrbc_fatfs_init(void)
+mrbc_filesystem_fat_init(void)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
   mrbc_define_method(0, class_FAT, "_mount", c__mount);

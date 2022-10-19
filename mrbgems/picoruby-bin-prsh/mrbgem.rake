@@ -2,7 +2,7 @@ MRuby::Gem::Specification.new 'picoruby-bin-prsh' do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'prsh executable'
-  spec.add_dependency 'picoruby-fatfs', core: 'picoruby-fatfs'
+  spec.add_dependency 'picoruby-filesystem-fat'
 
   exec = exefile("#{build.build_dir}/bin/prsh")
   prsh_objs = Dir.glob("#{spec.dir}/tools/prsh/*.c").map do |f|

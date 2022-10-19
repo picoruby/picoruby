@@ -14,7 +14,7 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   mrbc_value _file = mrbc_instance_new(vm, v->cls, sizeof(FIL));
   FIL *fp = (FIL *)_file.instance->data;
-  BYTE mode;
+  BYTE mode = 0;
   const char *mode_str = (const char *)GET_STRING_ARG(2);
   if (strcmp(mode_str, "r") == 0) {
     mode = FA_READ;
@@ -33,7 +33,7 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
   } else if (strcmp(mode_str, "w+x") == 0) {
     mode = FA_CREATE_NEW | FA_WRITE | FA_READ;
   } else {
-    // TODO raise
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Unknown file open mode");
   }
   res = f_open(fp, path, mode);
   mrbc_raise_iff_f_error(vm, res, "f_open");
