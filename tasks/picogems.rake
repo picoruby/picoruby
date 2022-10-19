@@ -47,6 +47,7 @@ MRuby.each_target do |build|
         name = File.basename(mrb, ".c")
         f.puts "  {\"#{name}\", #{name}, mrbc_#{name}_init, 0}," if File.exist?(mrb)
       end
+      f.puts "  {NULL, NULL, NULL, 1} /* sentinel */"
       f.puts "};"
       f.puts
       f.puts <<~PICOGEM

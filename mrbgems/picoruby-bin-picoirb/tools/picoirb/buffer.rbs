@@ -1,0 +1,25 @@
+class Buffer
+  $buffer_lock: bool
+
+  @cursor: Hash[Symbol, Integer]
+  @lines: Array[String]
+  @prev_c: Symbol | nil
+  @prompt: String
+  @prompt_margin: Integer
+
+  def initialize: (?String prompt) -> void
+  def cursor: () -> Hash[Symbol, Integer]
+  def clear: () -> void
+  def dump: () -> String
+  def home: () -> void
+  def head: () -> void
+  def tail: () -> void
+  def left: () -> void
+  def right: () -> void
+  def up: () -> void
+  def down: () -> void
+  def put: (String | Symbol) -> void
+  def adjust_screen: () -> void
+  def refresh_screen: () -> void
+end
+
