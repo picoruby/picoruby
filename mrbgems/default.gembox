@@ -2,7 +2,7 @@ MRuby::GemBox.new do |conf|
 
   conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
   conf.gem github: 'hasumikin/mruby-bin-picorbc', branch: 'master'
-  conf.gem github: 'hasumikin/mruby-bin-picoruby', branch: 'master'
+  conf.gem core: 'picoruby-bin-picoruby'
   conf.gem core: 'picoruby-bin-picoirb'
   conf.gem core: 'picoruby-mrubyc'
 
