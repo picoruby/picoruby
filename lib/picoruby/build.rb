@@ -9,7 +9,7 @@ module MRuby
       self.mrbcfile = "#{build_dir}/bin/picorbc"
 
       cc.defines << "DISABLE_MRUBY"
-      cc.include_paths << "#{build_dir}/mruby-pico-compiler/include"
+      cc.include_paths << "#{gem_clone_dir}/mruby-pico-compiler/include"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
 
       gem core: 'picoruby-mrubyc'
@@ -63,6 +63,19 @@ module MRuby
             rbfiles.clear
           end
           generate_gem_init("#{build_dir}/gem_init.c")
+        end
+      end
+
+      def hal_obj
+        hal = cc.defines.find { |d| d.start_with?("MRBC_USE_HAL_") }
+        if hal
+          Dir.glob("#{dir}/src/hal/#{hal.sub("MRBC_USE_HAL_", "").downcase}/*.c").each do |src|
+            obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"
+            file obj => src do |t|
+              cc.run(t.name, t.prerequisites[0])
+            end
+            objs << obj
+          end
         end
       end
     end

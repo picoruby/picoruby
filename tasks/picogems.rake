@@ -26,6 +26,7 @@ MRuby.each_target do |build|
     open(t.name, 'w+') do |f|
       f.puts <<~PICOGEM
         #include <stdio.h>
+        #include <stdbool.h>
         #include <mrubyc.h>
       PICOGEM
       f.puts
@@ -38,16 +39,16 @@ MRuby.each_target do |build|
           const char *name;
           const uint8_t *mrb;
           void (*initializer)(void);
-          int required;
+          bool required;
         } picogems;
       PICOGEM
       f.puts
       f.puts "static picogems gems[] = {"
       mrbfiles.each do |mrb|
         name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", #{name.gsub('-','_')}, mrbc_#{name.gsub('-','_')}_init, 0}," if File.exist?(mrb)
+        f.puts "  {\"#{name}\", #{name.gsub('-','_')}, mrbc_#{name.gsub('-','_')}_init, false}," if File.exist?(mrb)
       end
-      f.puts "  {NULL, NULL, NULL, 1} /* sentinel */"
+      f.puts "  {NULL, NULL, NULL, true} /* sentinel */"
       f.puts "};"
       f.puts
       f.puts <<~PICOGEM
@@ -69,11 +70,11 @@ MRuby.each_target do |build|
         {
           mrbc_vm *vm = mrbc_vm_open(NULL);
           if (vm == 0) {
-            console_printf("Error: Can't open VM.");
+            console_printf("Error: Can't open VM.\\n");
             return 0;
           }
           if (mrbc_load_mrb(vm, mrb) != 0) {
-            console_printf("Error: Illegal bytecode.");
+            console_printf("Error: Illegal bytecode.\\n");
             return 0;
           }
           mrbc_vm_begin(vm);
@@ -95,7 +96,7 @@ MRuby.each_target do |build|
           }
           if (!gems[i].required && load_model(gems[i].mrb)) {
             if (gems[i].initializer) gems[i].initializer();
-            gems[i].required = 1;
+            gems[i].required = true;
             SET_TRUE_RETURN();
           } else {
             SET_FALSE_RETURN();

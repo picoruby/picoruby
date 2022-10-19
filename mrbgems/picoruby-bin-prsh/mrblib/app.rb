@@ -1,45 +1,18 @@
-require "vfs"
+require "sandbox"
+require "shell"
 require "filesystem-fat"
-
-File = MyFile
-Dir = MyDir
+require "vfs"
+require "vim"
 
 fat = FAT.new("0")
 VFS.mount(fat, "/")
+File = MyFile
+Dir = MyDir
 
-p Dir.pwd
-p ENV
-
-p File.expand_path "..", "/home/matz/work/foo"
-p File.expand_path "..", "/home"
-p File.expand_path ".", "."
-
-Dir.mkdir("test/")
-Dir.mkdir("test/aa")
-dir = Dir.new("/")
-p Dir.empty?("/")
-p Dir.empty?("/test")
-p Dir.zero?("/test/aa")
-dir.each do |f|
-  puts f
+File.open("test.txt", "w") do |f|
+  f.puts "hello"
+  f.puts "world"
 end
 
-file = File.open("test/myfile.txt", "w+")
-file.puts "Hello!","World"
-file.close
-#file = File.open("test/myfile.txt", "r")
-#lineno = 1
-#file.each_line do |line|
-#  #puts "lineno: #{lineno}"
-#  p line
-#  lineno += 1
-#end
-#file.close
-
-File.open("test/myfile.txt") do |f|
-  p :hey
-  p f.gets
-  p :hey
-  p f.gets
-end
+shell = Shell.new.start(:mrbsh)
 
