@@ -9,7 +9,7 @@ MRuby.each_target do |build|
         next if t.prerequisites.empty?
         mkdir_p File.dirname(t.name)
         File.open(t.name, 'w') do |f|
-          name = File.basename(t.name, ".c")
+          name = File.basename(t.name, ".c").gsub('-','_')
           mrbc.run(f, t.prerequisites, name, false)
           f.puts
           f.puts "void mrbc_#{name}_init();"
@@ -45,7 +45,7 @@ MRuby.each_target do |build|
       f.puts "static picogems gems[] = {"
       mrbfiles.each do |mrb|
         name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", #{name}, mrbc_#{name}_init, 0}," if File.exist?(mrb)
+        f.puts "  {\"#{name}\", #{name.gsub('-','_')}, mrbc_#{name.gsub('-','_')}_init, 0}," if File.exist?(mrb)
       end
       f.puts "  {NULL, NULL, NULL, 1} /* sentinel */"
       f.puts "};"

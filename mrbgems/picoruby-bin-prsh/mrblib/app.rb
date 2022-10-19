@@ -1,5 +1,5 @@
 require "vfs"
-require "fatfs"
+require "filesystem-fat"
 
 File = MyFile
 Dir = MyDir

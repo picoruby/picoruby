@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('picoruby-fatfs') do |spec|
+MRuby::Gem::Specification.new('picoruby-filesystem-fat') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'FAT filesystem'
