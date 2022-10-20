@@ -1,6 +1,4 @@
-#ifdef MRBC_USE_HAL_POSIX
-#include "hal/posix/io_console.h"
-#endif
+#include "hal/io_console.h"
 
 void
 mrbc_terminal_init(void)

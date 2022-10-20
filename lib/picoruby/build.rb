@@ -1,12 +1,29 @@
 module MRuby
+  class Command::Compiler
+    attr_accessor :alt_command
+  end
+
+  class Command::Archiver
+    attr_accessor :alt_command
+  end
+
   class Build
+    # Override
+    def build_mrbc_exec
+      gem :github => 'hasumikin/mruby-bin-picorbc' unless @gems['mruby-bin-picorbc']
+      gem :github => 'hasumikin/mruby-pico-compiler' unless @gems['mruby-pico-picocompiler']
+      cc.defines << "MRBC_USE_HAL_POSIX"
+      cc.defines << "MRBC_ALLOC_LIBC"
+      cc.defines << "REGEX_USE_ALLOC_LIBC"
+      cc.defines << "DISABLE_MRUBY"
+      self.mrbcfile = "#{build_dir}/bin/picorbc"
+    end
+
     def picoruby(picoruby_conf = :default)
 
       ENV['MRUBYC_BRANCH'] ||= "mrubyc3.1"
 
       disable_presym
-
-      self.mrbcfile = "#{build_dir}/bin/picorbc"
 
       cc.defines << "DISABLE_MRUBY"
       cc.include_paths << "#{gem_clone_dir}/mruby-pico-compiler/include"
@@ -26,20 +43,6 @@ module MRuby
       else
         raise "Unknown picoruby_conf: #{picoruby_conf}"
       end
-
-      cc.defines << ENV.keys.find { |env|
-        env.start_with? "MRBC_USE_HAL"
-      }.then { |hal|
-        if hal.nil?
-          "MRBC_USE_HAL_POSIX"
-        elsif hal == "MRBC_USE_HAL"
-          "#{hal}=#{ENV[hal]}"
-        elsif hal.start_with?("MRBC_USE_HAL_")
-          hal
-        else
-          raise "Invalid MRBC_USE_HAL_ definition!"
-        end
-      }
 
       if ENV["PICORUBY_DEBUG_BUILD"]
         cc.defines << "PICORUBY_DEBUG"

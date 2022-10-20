@@ -32,13 +32,12 @@ DSTATUS disk_status (
 	BYTE pdrv		/* Physical drive nmuber to identify the drive */
 )
 {
-	DSTATUS stat;
-
 	switch (pdrv) {
+#ifdef MRBC_USE_HAL_POSIX
 	case DEV_RAM :
-		stat = RAM_disk_status();
+		DSTATUS stat = RAM_disk_status();
 		return stat;
-
+#endif
 	case DEV_MMC :
 		return STA_NOINIT;
 
@@ -56,13 +55,12 @@ DSTATUS disk_initialize (
 	BYTE pdrv				/* Physical drive nmuber to identify the drive */
 )
 {
-	DSTATUS stat;
-
 	switch (pdrv) {
+#ifdef MRBC_USE_HAL_POSIX
 	case DEV_RAM :
-		stat = RAM_disk_initialize();
+		DSTATUS stat = RAM_disk_initialize();
 		return stat;
-
+#endif
 	case DEV_MMC :
 		return STA_NOINIT;
 
@@ -85,9 +83,10 @@ DRESULT disk_read (
 	UINT count		/* Number of sectors to read */
 )
 {
-	DRESULT res;
+	DRESULT res = RES_NOTRDY;
 
 	switch (pdrv) {
+#ifdef MRBC_USE_HAL_POSIX
 	case DEV_RAM :
 		// translate the arguments here
 
@@ -96,12 +95,12 @@ DRESULT disk_read (
 		// translate the reslut code here
 
 		return res;
-
+#endif
 	case DEV_MMC :
-		return RES_NOTRDY;
+		return res;
 
 	case DEV_USB :
-		return RES_NOTRDY;
+		return res;
 	}
 
 	return RES_PARERR;
@@ -122,9 +121,10 @@ DRESULT disk_write (
 	UINT count			/* Number of sectors to write */
 )
 {
-	DRESULT res;
+	DRESULT res = RES_NOTRDY;
 
 	switch (pdrv) {
+#ifdef MRBC_USE_HAL_POSIX
 	case DEV_RAM :
 		// translate the arguments here
 
@@ -133,12 +133,12 @@ DRESULT disk_write (
 		// translate the reslut code here
 
 		return res;
-
+#endif
 	case DEV_MMC :
-		return RES_NOTRDY;
+		return res;
 
 	case DEV_USB :
-		return RES_NOTRDY;
+		return res;
 	}
 
 	return RES_PARERR;
@@ -158,14 +158,16 @@ DRESULT disk_ioctl (
 )
 {
 
+	DRESULT res = RES_NOTRDY;
 	switch (pdrv) {
+#ifdef MRBC_USE_HAL_POSIX
 	case DEV_RAM :
 		return RAM_disk_ioctl(cmd, (int *)buff);
-
+#endif
 	case DEV_MMC :
-		return RES_NOTRDY;
+		return res;
 	case DEV_USB :
-		return RES_NOTRDY;
+		return res;
 	}
 
 	return RES_PARERR;

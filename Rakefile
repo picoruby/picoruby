@@ -58,6 +58,11 @@ task :build => MRuby.targets.flat_map{|_, build| build.products}
 desc "clean all built and in-repo installed artifacts"
 task :clean do
   MRuby.each_target do |build|
+    if Dir.exist? build.gems['mruby-pico-compiler'].dir
+      Dir.chdir build.gems['mruby-pico-compiler'].dir do
+        sh "rake clean"
+      end
+    end
     rm_rf build.build_dir
     rm_f build.products
   end
