@@ -8,7 +8,7 @@
 #include <mrubyc.h>
 #include <picorbc.h>
 
-#include "io_console.h"
+#include "../io_console.h"
 
 static int sigint;
 int loglevel = LOGLEVEL_FATAL;

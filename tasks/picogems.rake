@@ -28,6 +28,7 @@ MRuby.each_target do |build|
         #include <stdio.h>
         #include <stdbool.h>
         #include <mrubyc.h>
+        #include <alloc.h>
       PICOGEM
       f.puts
       mrbfiles.each do |mrb|
