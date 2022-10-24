@@ -12,6 +12,7 @@ void hal_disable_irq(void);
 void hal_abort(const char *s);
 int hal_write(int fd, const void *buf, int nbytes);
 int hal_flush(int fd);
+void hal_idle_cpu(void);
 
 #ifdef __cplusplus
 }
