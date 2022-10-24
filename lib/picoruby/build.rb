@@ -31,6 +31,11 @@ module MRuby
       self.mrbcfile = "#{build_dir}/bin/picorbc"
     end
 
+    def mrubyc_hal_arm
+      cc.defines << "MRBC_TICK_UNIT=1"
+      cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
+    end
+
     def picoruby(picoruby_conf = :default)
 
       ENV['MRUBYC_BRANCH'] ||= "mrubyc3.1"
@@ -42,6 +47,7 @@ module MRuby
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
       cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
 
+      gem github: 'hasumikin/mruby-pico-compiler'
       gem core: 'picoruby-mrubyc'
 
       case picoruby_conf
