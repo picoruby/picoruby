@@ -34,12 +34,12 @@ static void
 c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
-  if (sandbox_vm->regs[p->scope->sp].tt == MRBC_TT_EMPTY) {
-    // fallback but FIXME
-    SET_NIL_RETURN();
-  } else {
+  //if (sandbox_vm->regs[p->scope->sp].tt == MRBC_TT_EMPTY) {
+  //  // fallback but FIXME
+  //  SET_NIL_RETURN();
+  //} else {
     SET_RETURN(sandbox_vm->regs[p->scope->sp]);
-  }
+  //}
 }
 
 static void

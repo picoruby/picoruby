@@ -12,7 +12,19 @@ module MRuby
     def build_mrbc_exec
       gem :github => 'hasumikin/mruby-bin-picorbc' unless @gems['mruby-bin-picorbc']
       gem :github => 'hasumikin/mruby-pico-compiler' unless @gems['mruby-pico-picocompiler']
+      gem core: 'picoruby-mrubyc'
+      cc.include_paths.delete_if do |path|
+        path.end_with? "hal_no_impl"
+      end
+      cc.defines.delete_if do |define|
+        define.end_with? "hal_no_impl"
+      end
       cc.defines << "MRBC_USE_HAL_POSIX"
+      hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/src/hal_posix/hal")
+      libmruby_objs << hal_obj
+      file hal_obj => "#{gems['picoruby-mrubyc'].dir}/repos/mrubyc/src/hal_posix/hal.c" do |f|
+        cc.run f.name, f.prerequisites.first
+      end
       cc.defines << "MRBC_ALLOC_LIBC"
       cc.defines << "REGEX_USE_ALLOC_LIBC"
       cc.defines << "DISABLE_MRUBY"
@@ -28,6 +40,7 @@ module MRuby
       cc.defines << "DISABLE_MRUBY"
       cc.include_paths << "#{gem_clone_dir}/mruby-pico-compiler/include"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
+      cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
 
       gem core: 'picoruby-mrubyc'
 

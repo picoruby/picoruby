@@ -4,6 +4,8 @@ MRuby::Gem::Specification.new 'picoruby-bin-prsh' do |spec|
   spec.summary = 'prsh executable for POSIX'
   spec.add_dependency 'picoruby-shell'
 
+  spec.cc.defines << "MRBC_USE_HAL_POSIX"
+
   exec = exefile("#{build.build_dir}/bin/prsh")
   prsh_objs = Dir.glob("#{spec.dir}/tools/prsh/*.c").map do |f|
     objfile(f.pathmap("#{spec.build_dir}/tools/prsh/%n"))
