@@ -15,8 +15,6 @@ MRuby::CrossBuild.new("prsh_arm-none-eabi") do |conf|
   conf.gem github: 'hasumikin/mruby-pico-compiler', branch: 'master'
 
   conf.gem core: 'picoruby-mrubyc'
-  # RP2040 is the only target so far
-  conf.cc.include_paths << "#{gems['picoruby-mrubyc'].clone.dir}/include/rp2040"
 
   conf.gem core: "picoruby-filesystem-fat"
   conf.gem core: "picoruby-vim"
