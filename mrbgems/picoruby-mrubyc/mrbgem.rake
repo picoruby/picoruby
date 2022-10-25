@@ -22,30 +22,26 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
                    c_array c_numeric c_string error   load     symbol
                    c_hash  c_object  class    global  value)
 
-      hal_dir = cc.defines.find { |d|
-        d.start_with? "MRBC_USE_HAL"
-      }.then { |hal|
-        if hal.nil?
-          cc.defines << "MRBC_USE_HAL=#{MRUBY_ROOT}/include/hal_no_impl"
-          "#{MRUBY_ROOT}/include/hal_no_impl"
-        elsif hal.start_with?("MRBC_USE_HAL_")
-          "#{dir}/repos/mrubyc/src/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase}"
-        else
-          "#{dir}/repos/mrubyc/src/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
-        end
-      }
-      cc.include_paths << hal_dir
-      #file objfile("#{build_dir}/src/hal/hal") => "#{hal_dir}/hal.c" do |f|
-      #  cc.run f.name, f.prerequisites.first
-      #end
-#  binding.irb
-#  if cc.defines.include?("DISABLE_MRUBY")
-#    build.libmruby_objs.clear
-#  end
-build.libmruby_objs.flatten!.delete_if do |obj|
-  obj.end_with? "mrblib.o"
-end
-#  binding.irb
+  hal_dir = cc.defines.find { |d|
+    d.start_with? "MRBC_USE_HAL"
+  }.then { |hal|
+    if hal.nil?
+      cc.defines << "MRBC_USE_HAL=#{MRUBY_ROOT}/include/hal_no_impl"
+      "#{MRUBY_ROOT}/include/hal_no_impl"
+    elsif hal.start_with?("MRBC_USE_HAL_")
+      "#{dir}/repos/mrubyc/src/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase}"
+    else
+      "#{dir}/repos/mrubyc/src/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
+    end
+  }
+  cc.include_paths << hal_dir
+
+  file "#{hal_dir}/hal.c" => mrubyc_dir
+
+  build.libmruby_objs.flatten!.delete_if do |obj|
+    obj.end_with? "mrblib.o"
+  end
+
   (mrubyc_srcs << "mrblib").each do |mrubyc_src|
     obj = objfile("#{build_dir}/src/#{mrubyc_src}")
     build.libmruby_objs << obj
