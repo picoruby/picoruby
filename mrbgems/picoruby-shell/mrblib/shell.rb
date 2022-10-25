@@ -1,7 +1,8 @@
 case RUBY_ENGINE
 when "ruby"
   require "io/console"
-  require_relative "./terminal"
+  require_relative "../../picoruby-terminal/mrblib/terminal"
+  require_relative "command"
 
   class Sandbox
     def initialize
@@ -10,24 +11,28 @@ when "ruby"
       @state = 0
     end
 
-    attr_reader :result, :state
+    attr_reader :result, :state, :error
 
     def compile(script)
       begin
         RubyVM::InstructionSequence.compile("_ = (#{script})")
         @script = script
       rescue SyntaxError => e
-        #puts e.message
         return false
       end
       true
     end
 
+    def suspend
+    end
+
     def resume
       begin
         @result = eval "_ = (#{@script})", @binding
+        @error = nil
       rescue => e
         puts e.message
+        @error = e
         return false
       end
       true
@@ -98,9 +103,7 @@ class Shell
     sandbox = @sandbox
     @terminal.start do |terminal, buffer, c|
       case c
-      when 13 # CR \r
-        # Just ignore
-      when 10 # LF \n
+      when 10, 13 # LF(\n)=10, CR(\r)=13
         case script = buffer.dump.chomp
         when ""
           puts

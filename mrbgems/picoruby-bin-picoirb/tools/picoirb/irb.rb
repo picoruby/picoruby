@@ -42,7 +42,7 @@ when "ruby"
     STDIN.getch.ord
   end
 
-  def gets_nonblock(max)
+  def get_nonblock(max)
     STDIN.noecho{ |input| input.read_nonblock(max) }
   end
 
@@ -120,7 +120,7 @@ while true
       end
     end
   when 27 # ESC
-    case gets_nonblock(10)
+    case get_nonblock(2)
     when "[A"
       buffer.put :UP
     when "[B"

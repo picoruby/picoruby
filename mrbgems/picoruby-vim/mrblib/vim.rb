@@ -2,7 +2,7 @@
 
 case RUBY_ENGINE
 when "ruby"
-  require_relative "./terminal"
+  require_relative "../../picoruby-terminal/mrblib/terminal"
 when "mruby/c"
   require "terminal"
 else
