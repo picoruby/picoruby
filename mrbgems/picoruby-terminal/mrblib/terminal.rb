@@ -6,15 +6,15 @@ when "ruby"
   require "io/console"
   require_relative "./buffer.rb"
 
-  def getch
-    STDIN.getch.ord
+  def IO.getch
+    STDIN.getch
   end
-  def gets_nonblock(max)
+  def IO.get_nonblock(max)
     STDIN.noecho{ |input| input.read_nonblock(max) }
   rescue IO::EAGAINWaitReadable => e
     nil
   end
-  def get_cursor_position
+  def IO.get_cursor_position
     res = ""
     STDIN.raw do |stdin|
       STDOUT << "\e[6n"
@@ -28,6 +28,13 @@ when "ruby"
     return [_size[0][2, 3].to_i, _size[1].to_i]
   end
 when "mruby/c"
+  require "io"
+  class IO
+    def get_nonblock(max)
+      str = read_nonblock(max)
+      str.length == 0 ? nil : str
+    end
+  end
 else
   raise RuntimeError.new("Unknown RUBY_ENGINE")
 end
@@ -61,10 +68,10 @@ class Terminal
     end
 
     def get_size
-      y, x = get_cursor_position # save current position
+      y, x = IO.get_cursor_position # save current position
       home
       print "\e[999B\e[999C" # down * 999 and right * 999
-      @height, @width = get_cursor_position
+      @height, @width = IO.get_cursor_position
       # debug "#{@height};#{@width}" # restore original position
       print "\e[#{y};#{x}H" # restore original position
     end
@@ -154,7 +161,7 @@ class Terminal
       print "\e[0J" # Delete all after the cursor
 
       # Scroll screen if necessary
-      scroll = line_count - (@height - get_cursor_position[0]) - 1
+      scroll = line_count - (@height - IO.get_cursor_position[0]) - 1
       if 0 < scroll
         print "\e[#{scroll}S\e[#{scroll}A"
       end
@@ -195,7 +202,7 @@ class Terminal
     def start
       while true
         refresh
-        case c = getch
+        case c = IO.getch.ord
         when 1 # Ctrl-A
           @buffer.head
         when 3 # Ctrl-C
@@ -218,7 +225,7 @@ class Terminal
           print @feed, "shunt" # Shunt into the background
           break
         when 27 # ESC
-          case gets_nonblock(2)
+          case IO.get_nonblock(2)
           when "[A"
             if @prev_cursor_y == 0
               load_history :up
@@ -381,13 +388,12 @@ class Terminal
     def start
       while true
         refresh
-        case c = getch
+        case c = IO.getch.ord
         when 3 # Ctrl-C
           return
         when 4 # Ctrl-D logout
           return
         when 12 # Ctrl-L
-          get_size
           # FIXME: in case that cursor has to relocate
         else
           yield self, @buffer, c
