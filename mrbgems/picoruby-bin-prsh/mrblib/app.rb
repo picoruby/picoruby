@@ -22,5 +22,5 @@ when "mruby/c"
   end
 end
 
-shell = Shell.new.start(:mrbsh)
+shell = Shell.new.start(:prsh)
 

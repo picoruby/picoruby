@@ -65,19 +65,19 @@ class Shell
     terminate_irb
   end
 
-  def start(mode = :mrbsh)
+  def start(mode = :prsh)
     case mode
     when :irb
       @terminal.prompt = "irb"
       run_irb
-    when :mrbsh
+    when :prsh
       @terminal.prompt = "sh"
-      run_mrbsh
+      run_prsh
       deinitialize
     end
   end
 
-  def run_mrbsh
+  def run_prsh
     sandbox = @sandbox
     command = Command.new
     command.feed = @terminal.feed
