@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("prsh_arm-none-eabi") do |conf|
+MRuby::CrossBuild.new("prsh-cortex-m0plus") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -8,14 +8,29 @@ MRuby::CrossBuild.new("prsh_arm-none-eabi") do |conf|
   ###############################################################
 
   conf.toolchain
-  conf.cc.flags << "-static"
-  conf.linker.flags << "-static"
+
   conf.cc.command = "arm-none-eabi-gcc"
+  conf.linker.command = "arm-none-eabi-ld"
+  conf.linker.flags << "-static"
   conf.archiver.command = "arm-none-eabi-ar"
-  # alt_command is for qemu execution on the host computer
+
   conf.cc.alt_command = "arm-linux-gnueabihf-gcc"
-  conf.archiver.alt_command = "arm-linux-gnueabihf-ar"
   ENV['QEMU'] = "qemu-arm-static"
+
+  conf.cc.flags.flatten!
+  conf.cc.flags.delete "-O3"
+  conf.cc.flags << "-Og"
+  conf.cc.flags << "-mcpu=cortex-m0plus"
+  conf.cc.flags << "-mthumb"
+  conf.cc.flags << "-Wall"
+  conf.cc.flags << "-Wno-format"
+  conf.cc.flags << "-Wno-unused-function"
+  conf.cc.flags << "-Wno-maybe-uninitialized"
+  conf.cc.flags << "-ffunction-sections"
+  conf.cc.flags << "-fdata-sections"
+  conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT"
+  conf.cc.defines << "MRBC_CONVERT_CRLF"
+  conf.cc.defines << "MRBC_USE_MATH"
 
   conf.mrubyc_hal_arm
   conf.picoruby
