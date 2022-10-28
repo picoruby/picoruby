@@ -28,9 +28,16 @@ MRuby::CrossBuild.new("prsh-cortex-m0plus") do |conf|
   conf.cc.flags << "-Wno-maybe-uninitialized"
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
+
+  # These defines should correspond to
+  # the platform's configuration
+  conf.cc.defines << "NDEBUG"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT"
   conf.cc.defines << "MRBC_CONVERT_CRLF"
   conf.cc.defines << "MRBC_USE_MATH"
+  conf.cc.defines << "MRBC_TICK_UNIT=1"
+  conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
+  conf.cc.defines << "MRBC_NO_TIMER"
 
   conf.mrubyc_hal_arm
   conf.picoruby
