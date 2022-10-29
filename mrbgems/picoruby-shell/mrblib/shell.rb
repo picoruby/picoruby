@@ -39,10 +39,6 @@ when "ruby"
     end
   end
 
-  def terminate_irb
-    exit
-  end
-
 when "mruby/c"
   require "terminal"
 end
@@ -60,11 +56,6 @@ class Shell
     @sandbox.resume
   end
 
-  def deinitialize
-    puts "\nbye"
-    terminate_irb
-  end
-
   def start(mode = :prsh)
     case mode
     when :irb
@@ -73,7 +64,8 @@ class Shell
     when :prsh
       @terminal.prompt = "sh"
       run_prsh
-      deinitialize
+      puts "\nbye"
+      return
     end
   end
 
