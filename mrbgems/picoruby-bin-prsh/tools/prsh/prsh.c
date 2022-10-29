@@ -9,7 +9,7 @@
 #define HEAP_SIZE (1024 * 200 - 1)
 #endif
 
-int loglevel = LOGLEVEL_ERROR;
+int loglevel = LOGLEVEL_FATAL; /* must be LOGLEVEL_FATAL so that irb works */
 static uint8_t heap_pool[HEAP_SIZE];
 
 int

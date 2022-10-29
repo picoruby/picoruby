@@ -223,7 +223,7 @@ class Terminal
           refresh
         when 26 # Ctrl-Z
           print @feed, "shunt" # Shunt into the background
-          break
+          return
         when 27 # ESC
           case IO.get_nonblock(2)
           when "[A"
