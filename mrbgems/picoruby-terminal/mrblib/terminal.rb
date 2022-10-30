@@ -148,8 +148,6 @@ class Terminal
     end
 
     def refresh
-      get_size
-
       line_count = physical_line_count
 
       # Move cursor to the top of the snippet
@@ -220,12 +218,13 @@ class Terminal
         when 9
           @buffer.put :TAB
         when 12 # Ctrl-L
+          get_size
           refresh
         when 26 # Ctrl-Z
           print @feed, "shunt" # Shunt into the background
           return
         when 27 # ESC
-          case IO.get_nonblock(2)
+          case IO.read_nonblock(2)
           when "[A"
             if @prev_cursor_y == 0
               load_history :up
