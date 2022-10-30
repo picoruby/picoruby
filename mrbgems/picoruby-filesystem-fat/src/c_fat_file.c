@@ -60,7 +60,7 @@ c_seek(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_eof_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+c_eof_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
   if (f_eof(fp) == 0) {
@@ -123,7 +123,7 @@ mrbc_init_class_FAT_File(void)
   mrbc_define_method(0, class_FAT_File, "new", c_new);
   mrbc_define_method(0, class_FAT_File, "tell", c_tell);
   mrbc_define_method(0, class_FAT_File, "seek", c_seek);
-  mrbc_define_method(0, class_FAT_File, "eof?", c_eof_eq);
+  mrbc_define_method(0, class_FAT_File, "eof?", c_eof_q);
   mrbc_define_method(0, class_FAT_File, "read", c_read);
   mrbc_define_method(0, class_FAT_File, "write", c_write);
   mrbc_define_method(0, class_FAT_File, "close", c_close);

@@ -55,7 +55,7 @@ c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c__exist_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
   FILINFO fno;
@@ -68,7 +68,7 @@ c__exist_eq(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c__directory_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+c__directory_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
   FILINFO fno;
@@ -159,8 +159,8 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
   mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
   mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
-  mrbc_define_method(0, class_FAT, "_exist?", c__exist_eq);
-  mrbc_define_method(0, class_FAT, "_directory?", c__directory_eq);
+  mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
+  mrbc_define_method(0, class_FAT, "_directory?", c__directory_q);
   mrbc_init_class_FAT_Dir();
   mrbc_init_class_FAT_File();
 }
