@@ -36,6 +36,11 @@ c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc)
   SET_RETURN(v[0]);
 }
 
+#else
+
+void c_raw_bang(mrb_vm *vm, mrb_value *v, int argc);
+void c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc);
+
 #endif /* MRBC_USE_HAL_POSIX */
 
 static void
@@ -53,9 +58,9 @@ static void
 c_read_nonblock(mrb_vm *vm, mrb_value *v, int argc)
 {
   /*
-   * read_nonblock(maxlen, outbuf = nil, exeption: true) -> String | Symbol | nil
-   * only supports `exception: false` mode
-   */
+    * read_nonblock(maxlen, outbuf = nil, exeption: true) -> String | Symbol | nil
+    * only supports `exception: false` mode
+    */
   int maxlen = GET_INT_ARG(1);
   char buf[maxlen + 1];
   mrbc_value outbuf;
@@ -65,12 +70,12 @@ c_read_nonblock(mrb_vm *vm, mrb_value *v, int argc)
   for (len = 0; len < maxlen; len++) {
     c = hal_getchar();
     if (c < 0) {
-      buf[len] = '\0';
       break;
     } else {
       buf[len] = c;
     }
   }
+  buf[len] = '\0';
   c_cooked_bang(vm, v, 0);
   if (GET_ARG(2).tt == MRBC_TT_STRING) {
     outbuf = GET_ARG(2);

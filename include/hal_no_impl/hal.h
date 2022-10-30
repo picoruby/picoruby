@@ -20,8 +20,8 @@ void hal_idle_cpu(void);
 void hal_abort(const char *s);
 int hal_write(int fd, const void *buf, int nbytes);
 int hal_flush(int fd);
-int hal_read_char(int fd);
-int hal_read_available(int fd);
+int hal_getchar(void);
+int hal_read_available(void);
 
 #ifdef __cplusplus
 }
