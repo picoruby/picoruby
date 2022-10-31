@@ -37,7 +37,7 @@ MRuby::CrossBuild.new("prsh-cortex-m0plus") do |conf|
   conf.cc.defines << "MRBC_USE_MATH"
   conf.cc.defines << "MRBC_TICK_UNIT=1"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
-  conf.cc.defines << "MRBC_NO_TIMER"
+  conf.cc.defines << "LEMON_PICORBC"
 
   conf.mrubyc_hal_arm
   conf.picoruby
