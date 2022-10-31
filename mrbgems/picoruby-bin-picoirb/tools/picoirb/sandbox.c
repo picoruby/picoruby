@@ -43,7 +43,7 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 void
 c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
 {
-  p = Compiler_parseInitState(NODE_BOX_SIZE);
+  p = Compiler_parseInitState(0, NODE_BOX_SIZE);
   //p->verbose = true;
   char script[255];
   sprintf(script, "_ = (%s)", (const char *)GET_STRING_ARG(1));
@@ -81,7 +81,7 @@ create_sandbox(void)
 {
   tcb_sandbox = mrbc_create_task(sandbox_task, 0);
   tcb_sandbox->vm.flag_permanence = 1;
-  cxt = picorbc_context_new();
+  cxt = picorbc_context_new(0);
 }
 
 void

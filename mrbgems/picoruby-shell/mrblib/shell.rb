@@ -80,7 +80,7 @@ class Shell
         when []
           puts
         when ["quit"], ["exit"]
-          break
+          return
         else
           print terminal.feed
           command.exec(args)

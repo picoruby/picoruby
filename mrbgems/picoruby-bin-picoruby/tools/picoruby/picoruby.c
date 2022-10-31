@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
     si = StreamInterface_new(fp, NULL, STREAM_TYPE_FILE);
     if (si == NULL) return 1;
   }
-  ParserState *p = Compiler_parseInitState(si->node_box_size);
+  ParserState *p = Compiler_parseInitState(0, si->node_box_size);
   p->verbose = verbose;
   if (Compiler_compile(p, si, NULL)) { /* TODO picorb_context */
     run(p->scope->vm_code);

@@ -8,21 +8,27 @@
 #define NODE_BOX_SIZE 20
 #endif
 
-mrbc_tcb *tcb_sandbox;
+typedef struct sandbox_state {
+  mrbc_tcb tcb;
+  ParserState p;
+  picorbc_context cxt;
+} SandboxState;
 
-static ParserState *p;
-static picorbc_context *cxt;
+#define SS() \
+  SandboxState *ss = (SandboxState *)v->instance->data
 
 static void
 c_sandbox_state(mrb_vm *vm, mrb_value *v, int argc)
 {
-  SET_INT_RETURN(tcb_sandbox->state);
+  SS();
+  SET_INT_RETURN(ss->tcb.state);
 }
 
 static void
 c_sandbox_error(mrb_vm *vm, mrb_value *v, int argc)
 {
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
   if (sandbox_vm->exception.tt == MRBC_TT_NIL) {
     SET_NIL_RETURN();
   } else {
@@ -33,42 +39,43 @@ c_sandbox_error(mrb_vm *vm, mrb_value *v, int argc)
 static void
 c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 {
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
-  //if (sandbox_vm->regs[p->scope->sp].tt == MRBC_TT_EMPTY) {
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  //if (sandbox_vm->regs[p.scope->sp].tt == MRBC_TT_EMPTY) {
   //  // fallback but FIXME
   //  SET_NIL_RETURN();
   //} else {
-    SET_RETURN(sandbox_vm->regs[p->scope->sp]);
+    SET_RETURN(sandbox_vm->regs[ss->p.scope->sp]);
   //}
 }
 
 static void
 c_sandbox_suspend(mrb_vm *vm, mrb_value *v, int argc)
 {
-  mrbc_suspend_task(tcb_sandbox);
+  SS();
+  mrbc_suspend_task(&ss->tcb);
   { /*
        Workaround but causes memory leak 😔
        To preserve symbol table
     */
-    if (p->scope->vm_code) p->scope->vm_code = NULL;
+    if (ss->p.scope->vm_code) ss->p.scope->vm_code = NULL;
   }
-  Compiler_parserStateFree(p);
 }
 
 static void
 c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
 {
-  p = Compiler_parseInitState(NODE_BOX_SIZE);
-  //p->verbose = true;
+  SS();
+  Compiler_parseInitState(&ss->p, NODE_BOX_SIZE);
+  //ss->p.verbose = true;
   char script[255];
   sprintf(script, "_ = (%s)", (const char *)GET_STRING_ARG(1));
   StreamInterface *si = StreamInterface_new(NULL, script, STREAM_TYPE_MEMORY);
-  if (!Compiler_compile(p, si, cxt)) {
+  if (!Compiler_compile(&ss->p, si, &ss->cxt)) {
     SET_FALSE_RETURN();
-    Scope *upper_scope = p->scope;
+    Scope *upper_scope = ss->p.scope;
     while (upper_scope->upper) upper_scope = upper_scope->upper;
     upper_scope->lvar = NULL; /* top level lvar (== cxt->sysm) should not be freed */
-    Compiler_parserStateFree(p);
   } else {
     SET_TRUE_RETURN();
   }
@@ -78,9 +85,9 @@ c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
 static void
 c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
 {
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
-  if(mrbc_load_mrb(sandbox_vm, p->scope->vm_code) != 0) {
-    Compiler_parserStateFree(p);
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  if(mrbc_load_mrb(sandbox_vm, ss->p.scope->vm_code) != 0) {
     SET_FALSE_RETURN();
   } else {
     sandbox_vm->cur_irep = sandbox_vm->top_irep;
@@ -88,15 +95,9 @@ c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
     sandbox_vm->callinfo_tail = NULL;
     sandbox_vm->target_class = mrbc_class_object;
     sandbox_vm->flag_preemption = 0;
-    mrbc_resume_task(tcb_sandbox);
+    mrbc_resume_task(&ss->tcb);
     SET_TRUE_RETURN();
   }
-}
-
-static void
-c_sandbox_exit(mrb_vm *vm, mrb_value *v, int argc)
-{
-  picorbc_context_free(cxt);
 }
 
 static const uint8_t sandbox_task[] = {
@@ -108,12 +109,16 @@ static const uint8_t sandbox_task[] = {
 0x00,0x08,
 };
 
-void
-create_sandbox(void)
+static void
+c_sandbox_new(mrb_vm *vm, mrb_value *v, int argc)
 {
-  tcb_sandbox = mrbc_create_task(sandbox_task, 0);
-  tcb_sandbox->vm.flag_permanence = 1;
-  cxt = picorbc_context_new();
+  mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
+  SandboxState *ss = (SandboxState *)sandbox.instance->data;
+  mrbc_init_tcb(&ss->tcb);
+  mrbc_create_task(sandbox_task, &ss->tcb);
+  ss->tcb.vm.flag_permanence = 1;
+  picorbc_context_new(&ss->cxt);
+  SET_RETURN(sandbox);
 }
 
 void
@@ -126,6 +131,5 @@ mrbc_sandbox_init(void)
   mrbc_define_method(0, mrbc_class_Sandbox, "result",  c_sandbox_result);
   mrbc_define_method(0, mrbc_class_Sandbox, "error",   c_sandbox_error);
   mrbc_define_method(0, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
-  mrbc_define_method(0, mrbc_class_Sandbox, "exit",    c_sandbox_exit);
-  create_sandbox();
+  mrbc_define_method(0, mrbc_class_Sandbox, "new",     c_sandbox_new);
 }
