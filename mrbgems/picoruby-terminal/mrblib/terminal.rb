@@ -148,53 +148,56 @@ class Terminal
     end
 
     def refresh
-      line_count = physical_line_count
+      # Cache values on local registers for performance
+      _line_count = physical_line_count
+      _buffer_lines = @buffer.lines
+      _buffer_cursor_x = @buffer.cursor_x
+      _prompt_margin = @prompt_margin
+      _width = @width
 
+      # Hide cursor &&
       # Move cursor to the top of the snippet
       if 0 < @prev_cursor_y
-        print "\e[#{@prev_cursor_y}F"
+        print "\e[?25l\e[#{@prev_cursor_y}F"
       else
-        print "\e[1G"
+        print "\e[?25l\e[1G"
       end
-      print "\e[0J" # Delete all after the cursor
 
       # Scroll screen if necessary
-      scroll = line_count - (@height - IO.get_cursor_position[0]) - 1
-      if 0 < scroll
+      if 0 < scroll = (_line_count - (@height - IO.get_cursor_position[0]) - 1)
         print "\e[#{scroll}S\e[#{scroll}A"
       end
 
-      # Show the buffer
-      @buffer.lines.each_with_index do |line, i|
-        print @prompt
-        if i == 0
-          print "> "
-        else
-          print "* "
-        end
-        print line
-        if (@prompt_margin + line.length) % @width == 0
+      # Write the buffer content
+      _buffer_lines.each_with_index do |line, i|
+        print (0 < i ? @feed : ""),
+          @prompt,
+          (i == 0 ? "> " : "* "),
+          line,
+          "\e[0K",
           # if the last letter is on the right most of the window,
           # move cursor to the next line's head
-          print "\e[1E"
-        end
-        print @feed if @buffer.lines[i + 1]
+          ((_prompt_margin + line.length) % _width == 0 ? "\e[1E" : "")
       end
 
+      # Delete all after cursor &&
       # move the cursor where supposed to be
-      print "\e[#{line_count}F"
+      print "\e[0J\e[#{_line_count}F"
+
       @prev_cursor_y = -1
-      @buffer.lines.each_with_index do |line, i|
+      _buffer_lines.each_with_index do |line, i|
         break if i == @buffer.cursor_y
-        a = (@prompt_margin + line.length) / @width + 1
+        a = (_prompt_margin + line.length) / _width + 1
         print "\e[#{a}B"
         @prev_cursor_y += a
       end
-      b = (@prompt_margin + @buffer.cursor_x) / @width + 1
-      print "\e[#{b}B"
+
+      # Show cursor
+      b = (_prompt_margin + _buffer_cursor_x) / _width + 1
+      c = (_prompt_margin + _buffer_cursor_x) % _width
+      print 0 < c ? "\e[#{b}B\e[#{c}C\e[?25h" : "\e[#{b}B\e[?25h"
+
       @prev_cursor_y += b
-      c = (@prompt_margin + @buffer.cursor_x) % @width
-      print "\e[#{c}C" if 0 < c
     end
 
     def start
