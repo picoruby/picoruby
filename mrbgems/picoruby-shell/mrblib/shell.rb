@@ -43,6 +43,8 @@ when "mruby/c"
   require "terminal"
 end
 
+$sandbox = Sandbox.new
+
 class Shell
   TIMEOUT = 10_000 # 10 sec
   def initialize
@@ -50,10 +52,10 @@ class Shell
     if RUBY_ENGINE == "ruby"
       @terminal.debug_tty = ARGV[0]
     end
-    @terminal.feed = :lf
-    @sandbox = Sandbox.new
-    @sandbox.compile("nil") # _ = nil
-    @sandbox.resume
+  end
+
+  def feed=(feed)
+    @terminal.feed = feed
   end
 
   def start(mode = :prsh)
@@ -70,7 +72,7 @@ class Shell
   end
 
   def run_prsh
-    sandbox = @sandbox
+    sandbox = $sandbox
     command = Command.new
     command.feed = @terminal.feed
     @terminal.start do |terminal, buffer, c|
@@ -92,7 +94,7 @@ class Shell
   end
 
   def run_irb
-    sandbox = @sandbox
+    sandbox = $sandbox
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13
@@ -102,7 +104,7 @@ class Shell
         when "quit", "exit"
           break
         else
-          if buffer.lines[-1][-1] == "\\" || !sandbox.compile(script)
+          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("_ = (#{script})")
             buffer.put :ENTER
           else
             terminal.feed_at_bottom
@@ -113,7 +115,7 @@ class Shell
               while sandbox.state != 0 do
                 sleep_ms 50
                 n += 50
-                if n > TIMEOUT
+                if TIMEOUT < n
                   puts "Error: Timeout (sandbox.state: #{sandbox.state})"
                 end
               end

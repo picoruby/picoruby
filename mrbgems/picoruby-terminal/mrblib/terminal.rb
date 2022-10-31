@@ -43,7 +43,8 @@ class Terminal
 
   class Base
     def initialize
-      self.feed = :crlf
+      # :lf works fine under MRBC_CONVERT_CRLF defined
+      self.feed = :lf
       get_size
       @buffer = Terminal::Buffer.new
     end
@@ -52,7 +53,14 @@ class Terminal
     attr_accessor :debug_tty
 
     def feed=(arg)
-      @feed = arg == :lf ? "\n" : "\r\n"
+      @feed = case arg
+      when :lf
+        "\n"
+      when :cr
+        "\r"
+      else # :crlf
+        "\r\n"
+      end
     end
 
     def clear
