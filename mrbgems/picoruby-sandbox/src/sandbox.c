@@ -82,60 +82,24 @@ c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
   StreamInterface_free(si);
 }
 
-#define ZERO     "\e[30;1m"
-#define CTRL     "\e[35;1m"
-#define LETTER   "\e[36m"
-#define EIGHTBIT "\e[33m"
-void c_tud_task(mrbc_vm *vm, mrbc_value v[], int argc);
-static void dump(Scope *scope, mrb_vm *vm, mrb_value *v)
-{
-  int c, i, j;
-  for (i = 0; i < scope->vm_code_size; i++) {
-    c = scope->vm_code[i];
-    if (i != 0) {
-      if (i % 16 == 0) {
-        console_printf("\n");
-      } else if (i % 8 == 0) {
-        console_printf("| ");
-      }
-      c_tud_task(vm, v, 0);
-    }
-    if (c == 0) {
-      console_printf(ZERO);
-    } else if (c < 0x20) {
-      console_printf(CTRL);
-    } else if (c < 0x7f) {
-      console_printf(LETTER);
-    } else {
-      console_printf(EIGHTBIT);
-    }
-    c_tud_task(vm, v, 0);
-    console_printf("%02x\e[m ", c);
-    c_tud_task(vm, v, 0);
-  }
-  console_printf("\n");
-  c_tud_task(vm, v, 0);
-}
-
 static void
 c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
-  if (sandbox_vm->vm_id == 7) {
-    volatile int ii;
-    ii++;
-  }
-  //dump(ss->p->scope, vm, v);
   if(mrbc_load_mrb(sandbox_vm, ss->p->scope->vm_code) != 0) {
     Compiler_parserStateFree(ss->p);
     SET_FALSE_RETURN();
   } else {
     sandbox_vm->cur_irep = sandbox_vm->top_irep;
     sandbox_vm->inst = sandbox_vm->cur_irep->inst;
-    sandbox_vm->callinfo_tail = NULL;
+    sandbox_vm->cur_regs = sandbox_vm->regs;
     sandbox_vm->target_class = mrbc_class_object;
+    sandbox_vm->callinfo_tail = NULL;
+    sandbox_vm->ret_blk = NULL;
+    sandbox_vm->exception = mrbc_nil_value();
     sandbox_vm->flag_preemption = 0;
+    sandbox_vm->flag_stop = 0;
     mrbc_resume_task(&ss->tcb);
     SET_TRUE_RETURN();
   }
