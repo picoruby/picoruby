@@ -80,7 +80,7 @@ class Shell
       print margin
       puts line
     end
-    puts "\e[33m"
+    puts "\e[32;0m"
   end
 
   def start(mode = :prsh)
