@@ -67,6 +67,7 @@ class Shell
       @terminal.prompt = "sh"
       run_prsh
       puts "\nbye"
+      exit
       return
     end
   end
