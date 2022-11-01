@@ -58,6 +58,31 @@ class Shell
     @terminal.feed = feed
   end
 
+  LOGO_LINES = [
+    "   888888  88   88888  88888",
+    "   88   88 88  88     88   88",
+    "   888888  88 88     88     88",
+    "   88      88  88     88   88",
+    "   88      88   88888  88888",
+    "",
+    "888888  88    88 888888 88    88",
+    "88   88 88    88 88   88 88  88",
+    "888888  88    88 888888   8888",
+    "88   88  88  88  88   88   88",
+    "88    888 8888   888888    88"
+  ]
+
+  def show_logo
+    logo_width = LOGO_LINES.map{|l| l.length}.max
+    margin = " " * ((@terminal.width - logo_width) / 2)
+    puts "\e[33;1m"
+    LOGO_LINES.each do |line|
+      print margin
+      puts line
+    end
+    puts "\e[33m"
+  end
+
   def start(mode = :prsh)
     case mode
     when :irb
@@ -65,8 +90,9 @@ class Shell
       run_irb
     when :prsh
       @terminal.prompt = "sh"
+      show_logo
       run_prsh
-      puts "\nbye"
+      puts "\nbye\e[0m"
       exit
       return
     end

@@ -42,6 +42,17 @@ class IO
     end
     return [row, col]
   end
+
+  def self.wait_and_clear
+    IO.raw do
+      while true
+        print "\e[5n"
+        sleep 0.1
+        break if IO.read_nonblock(10) == "\e[0n"
+      end
+    end
+    print "\e[2J\e[1;1H"
+  end
 end
 
 # To save current termios state
