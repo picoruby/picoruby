@@ -22,5 +22,10 @@ when "mruby/c"
   end
 end
 
-shell = Shell.new.start(:prsh)
+begin
+  IO.wait_and_clear
+  Shell.new.start(:prsh)
+rescue
+  exit
+end
 

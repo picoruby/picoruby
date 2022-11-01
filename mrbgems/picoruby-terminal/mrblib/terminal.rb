@@ -32,7 +32,7 @@ when "mruby/c"
   class IO
     def get_nonblock(max)
       str = read_nonblock(max)
-      str.length == 0 ? nil : str
+      str&.length == 0 ? nil : str
     end
   end
 else
