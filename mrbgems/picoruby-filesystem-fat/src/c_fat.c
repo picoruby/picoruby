@@ -6,6 +6,37 @@
 #include "c_fat_file.h"
 
 #include "../lib/ff14b/source/ff.h"
+#include "../lib/ff14b/source/ffconf.h"
+
+static void
+c_mkfs(struct VM *vm, mrbc_value v[], int argc)
+{
+  void *work = mrbc_alloc(vm, FF_MAX_SS);
+  const MKFS_PARM opt = {
+    FM_FAT,  // fmt
+    0,       // au_size
+    0,       // n_align: BLOCK_SIZE (== DISK_ERASE_UNIT_SIZE / SECTOR_SIZE) from ioctl
+    1,       // n_fat: number of FAT copies
+    0        // n_root: number of root directory entries
+  };
+  FRESULT res;
+  res = f_mkfs((const TCHAR *)GET_STRING_ARG(1), &opt, work, FF_MAX_SS);
+  mrbc_raise_iff_f_error(vm, res, "f_mkfs");
+  mrbc_free(vm, work);
+  SET_INT_RETURN(0);
+}
+
+static void
+c__getfree(struct VM *vm, mrbc_value v[], int argc)
+{
+  FATFS *fs = (FATFS *)v->instance->data;
+  DWORD fre_clust, fre_sect, tot_sect;
+  FRESULT res = f_getfree((const TCHAR *)GET_STRING_ARG(1), &fre_clust, &fs);
+  mrbc_raise_iff_f_error(vm, res, "f_getfree");
+  tot_sect = (fs->n_fatent - 2) * fs->csize;
+  fre_sect = fre_clust * fs->csize;
+  SET_INT_RETURN((tot_sect << 16) | fre_sect);
+}
 
 static void
 c__mount(struct VM *vm, mrbc_value v[], int argc)
@@ -154,6 +185,8 @@ void
 mrbc_filesystem_fat_init(void)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+  mrbc_define_method(0, class_FAT, "mkfs", c_mkfs);
+  mrbc_define_method(0, class_FAT, "_getfree", c__getfree);
   mrbc_define_method(0, class_FAT, "_mount", c__mount);
   mrbc_define_method(0, class_FAT, "_unmount", c__unmount);
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);

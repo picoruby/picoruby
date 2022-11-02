@@ -12,7 +12,19 @@ when "mruby/c"
   require "vim"
 
   fat = FAT.new("0")
-  VFS.mount(fat, "/")
+  retry_count = 0
+  begin
+    VFS.mount(fat, "/")
+  rescue => e
+    if retry_count < 1 &&
+        e.message.include?("Storage device not ready") &&
+        (FAT.mkfs("0") == 0)
+      retry_count += 1
+      retry
+    else
+      raise e
+    end
+  end
   File = MyFile
   Dir = MyDir
 
