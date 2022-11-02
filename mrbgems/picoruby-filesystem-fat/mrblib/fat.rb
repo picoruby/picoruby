@@ -12,6 +12,11 @@ class FAT
 
   attr_reader :mountpoint
 
+  def sector_count
+    res = self._getfree(@prefix)
+    {total: (res >> 16), free: (res & 0b1111111111111111) }
+  end
+
   def mount(mountpoint)
     @mountpoint = mountpoint
     @fatfs = self._mount("#{@prefix}#{mountpoint}")
