@@ -18,7 +18,7 @@ when "mruby/c"
   rescue => e
     if retry_count < 1 &&
         e.message.include?("Storage device not ready") &&
-        (FAT.mkfs("0") == 0)
+        (fat.mkfs == 0)
       retry_count += 1
       retry
     else
