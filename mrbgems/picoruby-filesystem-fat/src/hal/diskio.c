@@ -1,14 +1,20 @@
+/*
+ * Copyright (c) 2022 HASUMI Hitoshi | MIT license
+ *
+ * This program was originally created under the copyright below */
+   /*-----------------------------------------------------------------------*/
+   /* Low level disk I/O module SKELETON for FatFs     (C)ChaN, 2019        */
+   /*-----------------------------------------------------------------------*/
+
 #include "../../lib/ff14b/source/ff.h"
 #include "diskio.h"
 
-/* Definitions of physical drive number for each drive */
+#include "ram_disk.h"
 #define DEV_RAM     0
+#ifdef USE_FAT_FLASH_DISK
+#include "flash_disk.h"
 #define DEV_FLASH   1
-
-/*
- * My implementation
- */
-#include "posix/ram_disk.h"
+#endif
 
 /*-----------------------------------------------------------------------*/
 /* Get Drive Status                                                      */
@@ -22,8 +28,11 @@ DSTATUS disk_status (
   case DEV_RAM :
     DSTATUS stat = RAM_disk_status();
     return stat;
+#ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    return STA_NOINIT;
+    DSTATUS stat = FLASH_disk_status();
+    return stat;
+#endif
   }
   return STA_NOINIT;
 }
@@ -41,8 +50,11 @@ DSTATUS disk_initialize (
   case DEV_RAM :
     DSTATUS stat = RAM_disk_initialize();
     return stat;
+#ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    return STA_NOINIT;
+    DSTATUS stat = FLASH_disk_initialize();
+    return stat;
+#endif
   }
   return STA_NOINIT;
 }
@@ -65,8 +77,11 @@ DRESULT disk_read (
   case DEV_RAM :
     res = RAM_disk_read(buff, sector, count);
     return res;
+#ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    return res;
+    DSTATUS stat = FLASH_disk_read();
+    return stat;
+#endif
   }
   return RES_PARERR;
 }
@@ -91,8 +106,11 @@ DRESULT disk_write (
   case DEV_RAM :
     res = RAM_disk_write(buff, sector, count);
     return res;
+#ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    return res;
+    DSTATUS stat = FLASH_disk_write();
+    return stat;
+#endif
   }
   return RES_PARERR;
 }
@@ -115,8 +133,11 @@ DRESULT disk_ioctl (
   switch (pdrv) {
   case DEV_RAM :
     return RAM_disk_ioctl(cmd, (int *)buff);
+#ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    return res;
+    DSTATUS stat = FLASH_disk_ioctl();
+    return stat;
+#endif
   }
   return RES_PARERR;
 }

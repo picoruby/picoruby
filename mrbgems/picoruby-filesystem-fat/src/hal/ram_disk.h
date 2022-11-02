@@ -1,8 +1,8 @@
 #ifndef RAM_DISK_DEFINED
 #define RAM_DISK_DEFINED
 
-#include "../../../lib/ff14b/source/ff.h"
-#include "../../../lib/ff14b/source/diskio.h"
+#include "../../lib/ff14b/source/ff.h"
+#include "../../lib/ff14b/source/diskio.h"
 
 #ifdef __cplusplus
 extern "C" {
