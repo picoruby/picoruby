@@ -20,9 +20,9 @@ module MRuby
         define.end_with? "hal_no_impl"
       end
       cc.defines << "MRBC_USE_HAL_POSIX"
-      hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/src/hal_posix/hal")
-      libmruby_objs << hal_obj
-      file hal_obj => "#{gems['picoruby-mrubyc'].dir}/repos/mrubyc/src/hal_posix/hal.c" do |f|
+      mrubyc_hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/src/hal_posix/hal")
+      libmruby_objs << mrubyc_hal_obj
+      file mrubyc_hal_obj => "#{gems['picoruby-mrubyc'].dir}/repos/mrubyc/src/hal_posix/hal.c" do |f|
         cc.run f.name, f.prerequisites.first
       end
       cc.defines << "MRBC_ALLOC_LIBC"
@@ -89,15 +89,12 @@ module MRuby
       end
 
       def hal_obj
-        hal = cc.defines.find { |d| d.start_with?("MRBC_USE_HAL_") }
-        if hal
-          Dir.glob("#{dir}/src/hal/#{hal.sub("MRBC_USE_HAL_", "").downcase}/*.c").each do |src|
-            obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"
-            file obj => src do |t|
-              cc.run(t.name, t.prerequisites[0])
-            end
-            objs << obj
+        Dir.glob("#{dir}/src/hal/*.c").each do |src|
+          obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"
+          file obj => src do |t|
+            cc.run(t.name, t.prerequisites[0])
           end
+          objs << obj
         end
       end
     end
