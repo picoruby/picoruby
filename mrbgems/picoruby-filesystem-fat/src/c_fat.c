@@ -9,7 +9,7 @@
 #include "../lib/ff14b/source/ffconf.h"
 
 static void
-c_mkfs(struct VM *vm, mrbc_value v[], int argc)
+c__mkfs(struct VM *vm, mrbc_value v[], int argc)
 {
   void *work = mrbc_alloc(vm, FF_MAX_SS);
   const MKFS_PARM opt = {
@@ -185,7 +185,7 @@ void
 mrbc_filesystem_fat_init(void)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
-  mrbc_define_method(0, class_FAT, "mkfs", c_mkfs);
+  mrbc_define_method(0, class_FAT, "_mkfs", c__mkfs);
   mrbc_define_method(0, class_FAT, "_getfree", c__getfree);
   mrbc_define_method(0, class_FAT, "_mount", c__mount);
   mrbc_define_method(0, class_FAT, "_unmount", c__unmount);

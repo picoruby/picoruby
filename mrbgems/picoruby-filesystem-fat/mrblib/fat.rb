@@ -12,6 +12,10 @@ class FAT
 
   attr_reader :mountpoint
 
+  def mkfs
+    self._mkfs(@prefix)
+  end
+
   def sector_count
     res = self._getfree(@prefix)
     {total: (res >> 16), free: (res & 0b1111111111111111) }
