@@ -11,7 +11,7 @@ when "mruby/c"
   require "vfs"
   require "vim"
 
-  fat = FAT.new("0")
+  fat = FAT.new("ram")
   retry_count = 0
   begin
     VFS.mount(fat, "/")
