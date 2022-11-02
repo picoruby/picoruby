@@ -43,7 +43,6 @@ when "mruby/c"
   require "terminal"
 end
 
-$sandbox = Sandbox.new
 
 class Shell
   TIMEOUT = 10_000 # 10 sec
@@ -52,6 +51,7 @@ class Shell
     if RUBY_ENGINE == "ruby"
       @terminal.debug_tty = ARGV[0]
     end
+    @sandbox = Sandbox.new
   end
 
   def feed=(feed)
@@ -99,7 +99,7 @@ class Shell
   end
 
   def run_prsh
-    sandbox = $sandbox
+    sandbox = @sandbox
     command = Command.new
     command.feed = @terminal.feed
     @terminal.start do |terminal, buffer, c|
@@ -121,7 +121,7 @@ class Shell
   end
 
   def run_irb
-    sandbox = $sandbox
+    sandbox = @sandbox
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13
