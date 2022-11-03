@@ -11,16 +11,7 @@
 #define STA_NODISK      0x02    /* No medium in the drive */
 #define STA_PROTECT     0x04    /* Write protected */
 
-#define DISK_ERASE_UNIT_SIZE    512
-/*
- * Volume size = SECTOR_SIZE * SECTOR_COUNT
- *  512 * 192 == 96 KiB
- *  Seems this is the minimum volume size of FatFS
- */
-#define SECTOR_SIZE             512
-#define SECTOR_COUNT            192
-
-static BYTE *ram_disk = NULL;
+BYTE *ram_disk = NULL;
 
 int
 RAM_disk_erase(void)
