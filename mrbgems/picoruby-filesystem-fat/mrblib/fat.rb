@@ -6,7 +6,9 @@ class FAT
   class File
   end
 
-  def initialize(drive = "0") # "0".."9"
+  # drive can be "0".."9", :ram, :flash, etc
+  # The name is case-insensitive
+  def initialize(drive = "0")
     @prefix = "#{drive}:"
   end
 
@@ -14,6 +16,7 @@ class FAT
 
   def mkfs
     self._mkfs(@prefix)
+    self
   end
 
   def sector_count

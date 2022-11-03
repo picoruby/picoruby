@@ -1,6 +1,11 @@
-CC         = gcc
-AR         = ar
-CFLAGS    += -O3 -Wall -Wpointer-arith -g
+#CC         = gcc
+#AR         = ar
+#CFLAGS    += -O3 -Wall -Wpointer-arith -g
+#AR         = ar
+#CFLAGS    += -O3 -Wall -Wpointer-arith -g
+CC         = arm-none-eabi-gcc
+AR         = arm-none-eabi-ar
+CFLAGS     = -Og -mcpu=cortex-m0plus -mthumb -Wall -Wno-format -Wno-unused-function -Wno-maybe-uninitialized -ffunction-sections -fdata-sections
 SRC_DIR    = source
 BUILD_DIR  = build
 OBJ_DIR    = $(BUILD_DIR)/obj

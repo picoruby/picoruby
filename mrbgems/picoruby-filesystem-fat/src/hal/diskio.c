@@ -24,13 +24,14 @@ DSTATUS disk_status (
   BYTE pdrv    /* Physical drive nmuber to identify the drive */
 )
 {
+  DSTATUS stat;
   switch (pdrv) {
   case DEV_RAM :
-    DSTATUS stat = RAM_disk_status();
+    stat = RAM_disk_status();
     return stat;
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    DSTATUS stat = FLASH_disk_status();
+    stat = FLASH_disk_status();
     return stat;
 #endif
   }
@@ -46,13 +47,14 @@ DSTATUS disk_initialize (
   BYTE pdrv        /* Physical drive nmuber to identify the drive */
 )
 {
+  DSTATUS stat;
   switch (pdrv) {
   case DEV_RAM :
-    DSTATUS stat = RAM_disk_initialize();
+    stat = RAM_disk_initialize();
     return stat;
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    DSTATUS stat = FLASH_disk_initialize();
+    stat = FLASH_disk_initialize();
     return stat;
 #endif
   }
@@ -72,15 +74,14 @@ DRESULT disk_read (
 )
 {
   DRESULT res = RES_NOTRDY;
-
   switch (pdrv) {
   case DEV_RAM :
     res = RAM_disk_read(buff, sector, count);
     return res;
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    DSTATUS stat = FLASH_disk_read();
-    return stat;
+    res = FLASH_disk_read(buff, sector, count);
+    return res;
 #endif
   }
   return RES_PARERR;
@@ -101,15 +102,14 @@ DRESULT disk_write (
 )
 {
   DRESULT res = RES_NOTRDY;
-
   switch (pdrv) {
   case DEV_RAM :
     res = RAM_disk_write(buff, sector, count);
     return res;
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    DSTATUS stat = FLASH_disk_write();
-    return stat;
+    res = FLASH_disk_write(buff, sector, count);
+    return res;
 #endif
   }
   return RES_PARERR;
@@ -128,15 +128,15 @@ DRESULT disk_ioctl (
   void *buff    /* Buffer to send/receive control data */
 )
 {
-
   DRESULT res = RES_NOTRDY;
   switch (pdrv) {
   case DEV_RAM :
-    return RAM_disk_ioctl(cmd, (int *)buff);
+    res = RAM_disk_ioctl(cmd, buff);
+    return res;
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    DSTATUS stat = FLASH_disk_ioctl();
-    return stat;
+    res = FLASH_disk_ioctl(cmd, buff);
+    return res;
 #endif
   }
   return RES_PARERR;
