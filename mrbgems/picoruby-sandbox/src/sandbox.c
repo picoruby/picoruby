@@ -43,7 +43,7 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
   if (sandbox_vm->regs[ss->p->scope->sp].tt == MRBC_TT_EMPTY) {
     // fallback but FIXME
-    console_printf("MRBC_TT_EMPTY\n");
+    console_printf("Oops, return value is gone\n");
     SET_NIL_RETURN();
   } else {
     SET_RETURN(sandbox_vm->regs[ss->p->scope->sp]);
