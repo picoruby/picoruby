@@ -17,10 +17,33 @@
 #endif
 
 /*-----------------------------------------------------------------------*/
+/* Erase Drive                                                           */
+/*-----------------------------------------------------------------------*/
+
+DSTATUS disk_erase (
+  BYTE pdrv    /* Physical drive nmuber to identify the drive */
+)
+{
+  DSTATUS stat;
+  switch (pdrv) {
+  case DEV_RAM :
+    stat = RAM_disk_erase();
+    return stat;
+#ifdef USE_FAT_FLASH_DISK
+  case DEV_FLASH :
+    stat = FLASH_disk_erase();
+    return stat;
+#endif
+  }
+  return STA_NOINIT;
+}
+
+
+/*-----------------------------------------------------------------------*/
 /* Get Drive Status                                                      */
 /*-----------------------------------------------------------------------*/
 
-DSTATUS disk_status (
+DRESULT disk_status (
   BYTE pdrv    /* Physical drive nmuber to identify the drive */
 )
 {

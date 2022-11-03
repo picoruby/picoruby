@@ -8,6 +8,20 @@
 #include "../lib/ff14b/source/ff.h"
 #include "../lib/ff14b/source/ffconf.h"
 
+#include "hal/diskio.h"
+
+/*
+ * Usage: FAT._erase(num)
+ * params
+ *   - num: Drive numnber in Integer
+ */
+static void
+c__erase(struct VM *vm, mrbc_value v[], int argc)
+{
+  disk_erase(GET_INT_ARG(1));
+  SET_INT_RETURN(0);
+}
+
 static void
 c__mkfs(struct VM *vm, mrbc_value v[], int argc)
 {
@@ -185,6 +199,7 @@ void
 mrbc_filesystem_fat_init(void)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+  mrbc_define_method(0, class_FAT, "_erase", c__erase);
   mrbc_define_method(0, class_FAT, "_mkfs", c__mkfs);
   mrbc_define_method(0, class_FAT, "_getfree", c__getfree);
   mrbc_define_method(0, class_FAT, "_mount", c__mount);

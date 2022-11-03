@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 
+int RAM_disk_erase(void);
 int RAM_disk_initialize(void);
 int RAM_disk_status(void);
 int RAM_disk_read(BYTE *buff, LBA_t sector, UINT count);

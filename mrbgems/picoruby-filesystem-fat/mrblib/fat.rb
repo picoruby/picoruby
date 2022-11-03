@@ -6,6 +6,30 @@ class FAT
   class File
   end
 
+  def self._setup(num)
+    drive = case num
+    when 0
+      :ram
+    when 1
+      :flash
+    end
+    fat = FAT.new(drive)
+    retry_count = 0
+    begin
+      VFS.mount(fat, "/")
+    rescue => e
+      puts e.message
+      fat.mkfs
+      retry_count += 1
+      retry if retry_count == 1
+      raise e
+    end
+    File.open("test.txt", "w") do |f|
+      f.puts "hello"
+      f.puts "world"
+    end
+  end
+
   # drive can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
   def initialize(drive = "0")

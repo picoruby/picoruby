@@ -23,6 +23,14 @@
 static BYTE *ram_disk = NULL;
 
 int
+RAM_disk_erase(void)
+{
+  if (!ram_disk) return STA_NODISK;
+  mrbc_raw_free(ram_disk);
+  return 0;
+}
+
+int
 RAM_disk_initialize(void)
 {
   if (ram_disk) return 0;
