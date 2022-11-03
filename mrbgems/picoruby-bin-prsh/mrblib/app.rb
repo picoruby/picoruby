@@ -11,14 +11,13 @@ when "mruby/c"
   require "vfs"
   require "vim"
 
-  fat = FAT.new("ram")
+  fat = FAT.new(:RAM)
   retry_count = 0
   begin
     VFS.mount(fat, "/")
   rescue => e
-    if retry_count < 1 &&
-        e.message.include?("Storage device not ready") &&
-        (fat.mkfs == 0)
+    if retry_count < 1 && e.message.include?("Storage device not ready")
+      fat.mkfs
       retry_count += 1
       retry
     else

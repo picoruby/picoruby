@@ -14,10 +14,10 @@ c__mkfs(struct VM *vm, mrbc_value v[], int argc)
   void *work = mrbc_alloc(vm, FF_MAX_SS);
   const MKFS_PARM opt = {
     FM_FAT,  // fmt
-    0,       // au_size
-    0,       // n_align: BLOCK_SIZE (== DISK_ERASE_UNIT_SIZE / SECTOR_SIZE) from ioctl
     1,       // n_fat: number of FAT copies
-    0        // n_root: number of root directory entries
+    0,       // n_align: BLOCK_SIZE (== DISK_ERASE_UNIT_SIZE / SECTOR_SIZE) from ioctl
+    0,       // n_root: number of root directory entries
+    0        // au_size
   };
   FRESULT res;
   res = f_mkfs((const TCHAR *)GET_STRING_ARG(1), &opt, work, FF_MAX_SS);
@@ -152,7 +152,7 @@ mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func)
       PREPARE_EXCEPTION("Invalid drive number");
       break;
     case FR_NOT_ENABLED:
-      PREPARE_EXCEPTION("Drive not mouted");
+      PREPARE_EXCEPTION("Drive not mounted");
       break;
     case FR_NO_FILESYSTEM:
       PREPARE_EXCEPTION("No valid FAT volume found");

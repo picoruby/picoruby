@@ -28,7 +28,7 @@ RAM_disk_initialize(void)
   if (ram_disk) return 0;
   ram_disk = mrbc_raw_alloc(SECTOR_SIZE * SECTOR_COUNT);
   if (ram_disk) {
-    return STA_NOINIT;
+    return 0;
   } else {
     return STA_NODISK;
   }
@@ -66,24 +66,23 @@ get_fattime(void)
 }
 
 DRESULT
-RAM_disk_ioctl(BYTE cmd, int *buff)
+RAM_disk_ioctl(BYTE cmd, void *buff)
 {
   switch (cmd) {
     case CTRL_SYNC:
       // TODO
       break;
     case GET_BLOCK_SIZE:
-      // Should've named GET_SECTOR_COUNT_OF_ERASE_UNIT
-      *buff = DISK_ERASE_UNIT_SIZE / SECTOR_SIZE;
-      return RES_ERROR;
+      *((DWORD *)buff) = 1; // Non flash memory returns 1
+      break;
     case CTRL_TRIM:
-      // TODO
+      // TODO *((LBA_t *)buff) = (LBA_t)something
       return RES_ERROR;
     case GET_SECTOR_SIZE:
-      *buff = SECTOR_SIZE;
+      *((WORD *)buff) = (WORD)SECTOR_SIZE;
       break;
     case GET_SECTOR_COUNT:
-      *buff = SECTOR_COUNT;
+      *((LBA_t *)buff) = (LBA_t)SECTOR_COUNT;
       break;
     default :
       return RES_PARERR;

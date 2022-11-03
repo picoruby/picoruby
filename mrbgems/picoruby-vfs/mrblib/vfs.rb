@@ -36,7 +36,7 @@ class VFS
     def chdir(dir)
       sanitized_path = VFS.sanitize(dir)
       volume, _path = VFS.split(sanitized_path)
-      volume[:driver]._chdir(_path)
+      volume[:driver]&._chdir(_path)
       ENV["PWD"] = sanitized_path
     end
 
@@ -46,22 +46,22 @@ class VFS
 
     def mkdir(path, mode = 0777)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]._mkdir(_path, mode)
+      volume[:driver]&._mkdir(_path, mode)
     end
 
     def unlink(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]._unlink(_path)
+      volume[:driver]&._unlink(_path)
     end
 
     def exist?(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]._exist?(_path)
+      volume[:driver]&._exist?(_path)
     end
 
     def directory?(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]._directory?(_path)
+      volume[:driver]&._directory?(_path)
     end
 
     # private
