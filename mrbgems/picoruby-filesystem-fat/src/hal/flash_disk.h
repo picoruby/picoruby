@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 
+int FLASH_disk_erase(void);
 int FLASH_disk_initialize(void);
 int FLASH_disk_status(void);
 int FLASH_disk_read(BYTE *buff, LBA_t sector, UINT count);
