@@ -65,14 +65,14 @@ class FAT
     # FatFs where FF_STR_VOLUME_ID == 2 configured
     # calls f_chdrive internally in f_chdir.
     # This is the reason of passing also @prefix
-    if path == "" || FAT._exist?("#{@prefix}/#{path}")
-      FAT._chdir("#{@prefix}/#{path}")
+    if path == "" || FAT._exist?("#{@prefix}#{path}")
+      FAT._chdir("#{@prefix}#{path}")
     else
       false
     end
   end
 
   def mkdir(path, mode)
-    FAT._mkdir("#{@prefix}/#{path}", mode)
+    FAT._mkdir("#{@prefix}#{path}", mode)
   end
 end

@@ -118,7 +118,7 @@ class VFS
         end
       end
       if volume
-        [volume, sanitized_path[volume[:mountpoint].length, 255]]
+        [volume, "/#{sanitized_path[volume[:mountpoint].length, 255]}"]
       else
         [VOLUMES[0], sanitized_path] # fallback
       end

@@ -297,13 +297,15 @@ class Terminal
     end
 
     def save_file_from_buffer(filepath)
-      File.open filepath, "w" do |f|
+      File.open(filepath, "w") do |f|
         @buffer.lines.each do |line|
           f.puts line
         end
       end
       @buffer.changed = false
-      return true
+      return "File saved: #{filepath}"
+    rescue => e
+      return "Failed to save: #{e.message}"
     end
 
     def refresh
