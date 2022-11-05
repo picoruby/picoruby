@@ -35,9 +35,13 @@ class VFS
 
     def chdir(dir)
       sanitized_path = VFS.sanitize(dir)
-      volume, _path = VFS.split(sanitized_path)
-      volume[:driver]&._chdir(_path)
-      ENV["PWD"] = sanitized_path
+      volume, path = VFS.split(sanitized_path)
+      if volume[:driver]&.chdir(path)
+        ENV["PWD"] = sanitized_path
+        return 0
+      else
+        print "No such directory: #{dir}"
+      end
     end
 
     def pwd
@@ -45,8 +49,8 @@ class VFS
     end
 
     def mkdir(path, mode = 0777)
-      volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&._mkdir(_path, mode)
+      volume, path = VFS.sanitize_and_split(path)
+      volume[:driver]&.mkdir(path, mode)
     end
 
     def unlink(path)
@@ -84,15 +88,20 @@ class VFS
         dirs = ENV["PWD"].split("/") + dirs
       end
       sanitized_dirs = []
+      prefix_dirs = []
       dirs.each do |dir|
         next if dir == "." || dir == ""
         if dir == ".."
-          sanitized_dirs.pop
+          if sanitized_dirs.empty?
+            prefix_dirs << ".."
+          else
+            sanitized_dirs.pop
+          end
         else
           sanitized_dirs << dir
         end
       end
-      "/#{sanitized_dirs.join("/")}"
+      "#{prefix_dirs.join("/")}/#{sanitized_dirs.join("/")}"
     end
 
     def split(sanitized_path)
@@ -108,10 +117,11 @@ class VFS
           end
         end
       end
-      unless volume
-        raise RuntimeError.new("No mounted volume found")
+      if volume
+        [volume, sanitized_path[volume[:mountpoint].length, 255]]
+      else
+        [VOLUMES[0], sanitized_path] # fallback
       end
-      [volume, sanitized_path[volume[:mountpoint].length, 255]]
     end
 
     def volume_index(mountpoint)

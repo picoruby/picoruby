@@ -78,7 +78,7 @@ c__chdir(struct VM *vm, mrbc_value v[], int argc)
   FRESULT res;
   res = f_chdir((const TCHAR *)GET_STRING_ARG(1));
   mrbc_raise_iff_f_error(vm, res, "f_chdir");
-  SET_INT_RETURN(0);
+  SET_TRUE_RETURN();
 }
 
 
