@@ -48,10 +48,13 @@ class Shell
         _type(*args)
       when "vim"
         Vim.new(args[0]).start
+      when "pwd"
+        print Dir.pwd, @feed
+      when "cd"
+        print @feed if Dir.chdir(args[0] || "/home") != 0
       else
-        print "#{params[0]}: command not found"
+        print "#{params[0]}: command not found", @feed
       end
-      print @feed
     end
 
     #

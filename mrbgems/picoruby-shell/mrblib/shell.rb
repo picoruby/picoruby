@@ -104,7 +104,7 @@ class Shell
     command.feed = @terminal.feed
     @terminal.start do |terminal, buffer, c|
       case c
-      when 10, 13 # TODO depenging on the the "terminal"
+      when 10, 13
         case args = buffer.dump.chomp.strip.split(" ")
         when []
           puts
