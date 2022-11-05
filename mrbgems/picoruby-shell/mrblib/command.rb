@@ -6,6 +6,7 @@ class Shell
     attr_accessor :feed
 
     BUILTIN = %w(
+      free
       irb
       ruby
       alias
@@ -52,6 +53,10 @@ class Shell
         print Dir.pwd, @feed
       when "cd"
         print @feed if Dir.chdir(args[0] || "/home") != 0
+      when "free"
+        Object.memory_statistics.each do |k, v|
+          print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
+        end
       else
         print "#{params[0]}: command not found", @feed
       end
