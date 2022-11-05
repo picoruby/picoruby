@@ -2,7 +2,7 @@
 # https://www.ibm.com/docs/en/linux-on-systems?topic=wysk-terminal-modes
 
 case RUBY_ENGINE
-when "ruby"
+when "ruby", "jruby"
   require "io/console"
   require_relative "./buffer.rb"
 
@@ -29,6 +29,8 @@ when "ruby"
   end
 when "mruby/c"
   require "io"
+  require "filesystem-fat"
+  require "vfs"
   class IO
     def get_nonblock(max)
       str = read_nonblock(max)
@@ -274,10 +276,11 @@ class Terminal
       @visual_offset = 0
       @visual_cursor_x = 0
       @visual_cursor_y = 0
+      @quit_by_ctrl_c = true
       super
     end
 
-    attr_accessor :footer_height
+    attr_accessor :footer_height, :quit_by_ctrl_c
 
     def load_file_into_buffer(filepath)
       if File.exist?(filepath)
@@ -291,6 +294,16 @@ class Terminal
       else
         return false
       end
+    end
+
+    def save_file_from_buffer(filepath)
+      File.open filepath, "w" do |f|
+        @buffer.lines.each do |line|
+          f.puts line
+        end
+      end
+      @buffer.changed = false
+      return true
     end
 
     def refresh
@@ -396,17 +409,23 @@ class Terminal
     end
 
     def start
+      print "\e[m"
       while true
         refresh
         case c = IO.getch.ord
         when 3 # Ctrl-C
-          return
+          return if @quit_by_ctrl_c
         when 4 # Ctrl-D logout
           return
         when 12 # Ctrl-L
           # FIXME: in case that cursor has to relocate
+          get_size
         else
-          yield self, @buffer, c
+          begin
+            yield self, @buffer, c
+          rescue => e
+            return if e.message == "__quit()"
+          end
         end
       end
     end

@@ -32,11 +32,15 @@ class Terminal
       clear
     end
 
-    attr_accessor :lines
+    attr_accessor :lines, :changed
     attr_reader :cursor_x, :cursor_y
 
     def current_line
       @lines[@cursor_y]
+    end
+
+    def current_char
+      current_line[@cursor_x]
     end
 
     def clear
@@ -106,21 +110,25 @@ class Terminal
       line = current_line
       tail if current_line.length < @cursor_x
       if c.is_a?(String)
+        @changed = true
         line = line[0, @cursor_x].to_s + c + line[@cursor_x, 65535].to_s
         @lines[@cursor_y] = line
         right
       else
         case c
         when :TAB
+          @changed = true
           put " "
           put " "
         when :ENTER
+          @changed = true
           new_line = line[@cursor_x, 65535]
           @lines[@cursor_y] = line[0, @cursor_x].to_s
           @lines.insert(@cursor_y + 1, new_line) if new_line
           head
           down
         when :BSPACE
+          @changed = true
           if 0 < @cursor_x
             if current_line.length == @cursor_x
               @lines[@cursor_y][-1] = ""
