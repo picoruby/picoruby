@@ -12,6 +12,8 @@ when "mruby/c"
   require "vim"
 
   IO.wait_and_clear
+  File = MyFile
+  Dir = MyDir
   FAT._setup(0) # Workaround until Flash ROM works
 end
 
