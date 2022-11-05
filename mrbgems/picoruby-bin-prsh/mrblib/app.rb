@@ -11,26 +11,8 @@ when "mruby/c"
   require "vfs"
   require "vim"
 
-  fat = FAT.new(:RAM)
-  retry_count = 0
-  begin
-    VFS.mount(fat, "/")
-  rescue => e
-    if retry_count < 1 && e.message.include?("Storage device not ready")
-      fat.mkfs
-      retry_count += 1
-      retry
-    else
-      raise e
-    end
-  end
-  File = MyFile
-  Dir = MyDir
-
-  File.open("test.txt", "w") do |f|
-    f.puts "hello"
-    f.puts "world"
-  end
+  IO.wait_and_clear
+  FAT._setup(0) # Workaround until Flash ROM works
 end
 
 begin
