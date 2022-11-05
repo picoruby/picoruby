@@ -43,10 +43,31 @@ c_close(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_findnext(struct VM *vm, mrbc_value v[], int argc)
+{
+  DIR *dp = (DIR *)v->instance->data;
+  FRESULT fr;
+  FILINFO fno;
+  fr = f_findnext(&dp, &fno);
+  if (fr == FR_OK && fno.fname[0]) {
+    mrbc_value value = mrbc_string_new_cstr(vm, (const char *)(fno.fname));
+    SET_RETURN(value);
+  } else {
+    SET_NIL_RETURN();
+  }
+}
+
+static void
+c_pat_eq(struct VM *vm, mrbc_value v[], int argc)
+{
+  DIR *dp = (DIR *)v->instance->data;
+  dp->pat = (const TCHAR *)GET_STRING_ARG(1);
+  SET_INT_RETURN(0);
+}
+
+static void
 c_read(struct VM *vm, mrbc_value v[], int argc)
 {
-  (v[0]).obj->ref_count++;
-  (v[0]).obj->ref_count++;
   DIR *dp = (DIR *)v->instance->data;
   FILINFO fno;
   FRESULT res = f_readdir(dp, &fno);
@@ -75,9 +96,11 @@ mrbc_init_class_FAT_Dir(void)
   mrbc_value *v = mrbc_get_class_const(class_FAT, symid);
   mrbc_class *class_FAT_Dir = v->cls;
 
-  mrbc_define_method(0, class_FAT_Dir, "new",    c_new);
-  mrbc_define_method(0, class_FAT_Dir, "close",  c_close);
-  mrbc_define_method(0, class_FAT_Dir, "read",   c_read);
+  mrbc_define_method(0, class_FAT_Dir, "new", c_new);
+  mrbc_define_method(0, class_FAT_Dir, "close", c_close);
+  mrbc_define_method(0, class_FAT_Dir, "read", c_read);
   mrbc_define_method(0, class_FAT_Dir, "rewind", c_rewind);
+  mrbc_define_method(0, class_FAT_Dir, "pat=", c_pat_eq);
+  mrbc_define_method(0, class_FAT_Dir, "findnext", c_findnext);
 }
 

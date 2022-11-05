@@ -12,6 +12,10 @@ class MyDir
 
     def glob(pattern, flags = 0, base: nil, sort: true)
       # block_given? ? nil : [String]
+      dir = self.open(ENV['PWD'])
+      dir.pat = pattern
+      puts dir.findnext
+      dir.close
     end
 
     def exist?(path)
@@ -22,7 +26,7 @@ class MyDir
       dir = self.open(path)
       res = dir.read
       dir.close
-      res ? false : true
+      !res
     end
     alias zero? empty?
 
@@ -73,8 +77,16 @@ class MyDir
     end
   end
 
+  def pat=(pattern)
+    @dir.pat = pattern
+  end
+
+  def findnext
+    @dir.findnext
+  end
+
   def read
-    @dir.read("/")
+    @dir.read
   end
 
   def rewind
