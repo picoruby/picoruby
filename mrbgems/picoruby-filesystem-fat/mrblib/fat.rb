@@ -11,7 +11,7 @@ class FAT
     fat = FAT.new(drive)
     retry_count = 0
     begin
-      VFS.mount(fat, "/#{drive}")
+      VFS.mount(fat, "/")
     rescue => e
       puts e.message
       fat.mkfs
@@ -19,10 +19,10 @@ class FAT
       retry if retry_count == 1
       raise e
     end
-    #File.open("test.txt", "w") do |f|
-    #  f.puts "hello"
-    #  f.puts "world"
-    #end
+    MyDir.mkdir "bin"
+    MyDir.mkdir "var"
+    MyDir.mkdir "home"
+    MyDir.chdir "home"
   end
 
   # drive can be "0".."9", :ram, :flash, etc
@@ -65,10 +65,14 @@ class FAT
     # FatFs where FF_STR_VOLUME_ID == 2 configured
     # calls f_chdrive internally in f_chdir.
     # This is the reason of passing also @prefix
-    FAT._chdir("#{@prefix}#{path}")
+    if path == "" || FAT._exist?("#{@prefix}/#{path}")
+      FAT._chdir("#{@prefix}/#{path}")
+    else
+      false
+    end
   end
 
   def mkdir(path, mode)
-    FAT._mkdir("#{@prefix}#{path}", mode)
+    FAT._mkdir("#{@prefix}/#{path}", mode)
   end
 end
