@@ -104,6 +104,7 @@ class Terminal
 
     def put(c)
       line = current_line
+      tail if current_line.length < @cursor_x
       if c.is_a?(String)
         line = line[0, @cursor_x].to_s + c + line[@cursor_x, 65535].to_s
         @lines[@cursor_y] = line
