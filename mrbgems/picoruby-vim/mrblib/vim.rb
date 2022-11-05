@@ -63,7 +63,7 @@ class Vim
           case c
           when  13 # LF
           when  27 # ESC
-            case gets_nonblock(2)
+            case IO.get_nonblock(2)
             when "[A" # up
               buffer.put :UP
             when "[B" # down
@@ -115,7 +115,7 @@ class Vim
       when :command
         case c
         when 27 # ESC
-          case gets_nonblock(2)
+          case IO.get_nonblock(2)
           when "[C" # right
             @command_buffer.put :RIGHT
           when "[D" # left
@@ -135,11 +135,27 @@ class Vim
       when :insert
         case c
         when 27 # ESC
-          case gets_nonblock(2)
+          case IO.get_nonblock(2)
+          when "[A" # up
+            buffer.put :UP
+          when "[B" # down
+            buffer.put :DOWN
+          when "[C" # right
+            buffer.put :RIGHT
+          when "[D" # left
+            buffer.put :LEFT
           when nil
             @command_buffer.clear
             @mode = :normal
           end
+        when 8, 127 # 127 on UNIX
+          buffer.put :BSPACE
+        when 9
+          buffer.put :TAB
+        when 10, 13
+          buffer.put :ENTER
+        when 32..126
+          buffer.put c.chr
         end
       when :visual
       when :visual_line
