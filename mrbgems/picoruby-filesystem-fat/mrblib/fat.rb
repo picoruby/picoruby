@@ -19,9 +19,13 @@ class FAT
       retry if retry_count == 1
       raise e
     end
-    MyDir.mkdir "bin"
-    MyDir.mkdir "var"
-    MyDir.mkdir "home"
+    begin
+      %w(bin var home).each do |dir|
+        MyDir.mkdir dir
+      end
+    rescue => e
+      puts e.message
+    end
     MyDir.chdir "home"
   end
 
@@ -65,6 +69,7 @@ class FAT
     # FatFs where FF_STR_VOLUME_ID == 2 configured
     # calls f_chdrive internally in f_chdir.
     # This is the reason of passing also @prefix
+    path = "" if path == "/"
     if path == "" || FAT._exist?("#{@prefix}#{path}")
       FAT._chdir("#{@prefix}#{path}")
     else
