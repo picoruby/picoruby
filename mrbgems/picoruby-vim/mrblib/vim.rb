@@ -81,14 +81,14 @@ class Vim
             @command_buffer.put ':'
           when  65 # A
           when  86 # V
-          when  97 # a
           when  98 # b begin
           when 100 # d
           when 101 # e end
           when 103 # g
           when 104 # h left
             buffer.put :LEFT
-          when 105 # i insert
+          when 97, 105 # a, i insert
+            right if c == 97 # a
             @mode = :insert
             @command_buffer.lines[0] = "Insert"
           when 106 # j down
