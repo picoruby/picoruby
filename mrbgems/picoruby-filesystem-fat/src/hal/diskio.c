@@ -43,7 +43,7 @@ DSTATUS disk_erase (
 /* Get Drive Status                                                      */
 /*-----------------------------------------------------------------------*/
 
-DRESULT disk_status (
+DSTATUS disk_status (
   BYTE pdrv    /* Physical drive nmuber to identify the drive */
 )
 {
