@@ -88,11 +88,12 @@ class Shell
     when :irb
       @terminal.prompt = "irb"
       run_irb
+      print @terminal.feed
     when :prsh
       @terminal.prompt = "sh"
       show_logo
       run_prsh
-      puts "\nbye\e[0m"
+      print "\nbye\e[0m"
       exit
       return
     end

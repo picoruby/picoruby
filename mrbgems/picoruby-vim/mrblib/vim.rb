@@ -20,7 +20,7 @@ class Vim
     @message = nil
     if @filepath
       unless @terminal.load_file_into_buffer(@filepath)
-        @command_buffer.lines[0] = "\"#{filepath}\" [New]"
+        @message = "\"#{filepath}\" [New]"
       end
     end
     @terminal.refresh_footer do |terminal|
@@ -196,7 +196,7 @@ class Vim
     params = @command_buffer.lines[0].split(" ")
     case params.count
     when 0
-      # do nothing
+      # should not happen
     when 1
       case params[0]
       when ":q"
@@ -230,11 +230,7 @@ class Vim
 
   def save_file
     return "No file name" unless @filepath
-    if @terminal.save_file_from_buffer(@filepath)
-      "File saved: #{@filepath}"
-    else
-      "Failed to save file: #{e.message}"
-    end
+    @terminal.save_file_from_buffer(@filepath)
   end
 end
 
