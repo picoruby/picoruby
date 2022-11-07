@@ -1,5 +1,3 @@
-ENV = {}
-
 class VFS
 
   VOLUMES = Array.new

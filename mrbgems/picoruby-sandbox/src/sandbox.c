@@ -84,7 +84,36 @@ c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
+reset_vm(mrbc_vm *vm)
+{
+  vm->cur_irep        = vm->top_irep;
+  vm->inst            = vm->cur_irep->inst;
+  vm->cur_regs        = vm->regs;
+  vm->target_class    = mrbc_class_object;
+  vm->callinfo_tail   = NULL;
+  vm->ret_blk         = NULL;
+  vm->exception       = mrbc_nil_value();
+  vm->flag_preemption = 0;
+  vm->flag_stop       = 0;
+}
+
+static void
+c_sandbox_exec_mrb(mrb_vm *vm, mrb_value *v, int argc)
+{
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  mrbc_value mrb_string = v[1];
+  if (mrbc_load_mrb(sandbox_vm, mrb_string.string->data) != 0) {
+    SET_FALSE_RETURN();
+  } else {
+    reset_vm(sandbox_vm);
+    mrbc_resume_task(&ss->tcb);
+    SET_TRUE_RETURN();
+  }
+}
+
+static void
+c_sandbox_execute(mrb_vm *vm, mrb_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
@@ -92,15 +121,7 @@ c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
     Compiler_parserStateFree(ss->p);
     SET_FALSE_RETURN();
   } else {
-    sandbox_vm->cur_irep = sandbox_vm->top_irep;
-    sandbox_vm->inst = sandbox_vm->cur_irep->inst;
-    sandbox_vm->cur_regs = sandbox_vm->regs;
-    sandbox_vm->target_class = mrbc_class_object;
-    sandbox_vm->callinfo_tail = NULL;
-    sandbox_vm->ret_blk = NULL;
-    sandbox_vm->exception = mrbc_nil_value();
-    sandbox_vm->flag_preemption = 0;
-    sandbox_vm->flag_stop = 0;
+    reset_vm(sandbox_vm);
     mrbc_resume_task(&ss->tcb);
     SET_TRUE_RETURN();
   }
@@ -136,10 +157,11 @@ mrbc_sandbox_init(void)
 {
   mrbc_class *mrbc_class_Sandbox = mrbc_define_class(0, "Sandbox", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_Sandbox, "compile", c_sandbox_compile);
-  mrbc_define_method(0, mrbc_class_Sandbox, "resume",  c_sandbox_resume);
+  mrbc_define_method(0, mrbc_class_Sandbox, "execute", c_sandbox_execute);
   mrbc_define_method(0, mrbc_class_Sandbox, "state",   c_sandbox_state);
   mrbc_define_method(0, mrbc_class_Sandbox, "result",  c_sandbox_result);
   mrbc_define_method(0, mrbc_class_Sandbox, "error",   c_sandbox_error);
   mrbc_define_method(0, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
+  mrbc_define_method(0, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
   mrbc_define_method(0, mrbc_class_Sandbox, "new",     c_sandbox_new);
 }

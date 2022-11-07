@@ -26,6 +26,11 @@ class FAT
     rescue => e
       puts e.message
     end
+    while exe = _next_executable
+      f = MyFile.open "/bin/#{exe[:name]}", "w"
+      f.write exe[:code]
+      f.close
+    end
     MyDir.chdir "home"
   end
 

@@ -75,13 +75,12 @@ c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
   UINT btr = GET_INT_ARG(1);
-  char buff[btr + 1];
+  char buff[btr];
   UINT br;
   FRESULT res = f_read(fp, buff, btr, &br);
   mrbc_raise_iff_f_error(vm, res, "f_read");
   if (0 < br) {
-    buff[br] = '\0';
-    mrbc_value value = mrbc_string_new_cstr(vm, (const char *)buff);
+    mrbc_value value = mrbc_string_new(vm, (const void *)buff, br);
     SET_RETURN(value);
   } else {
     SET_NIL_RETURN();
@@ -92,11 +91,10 @@ static void
 c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
-  const char *buff = (const char *)GET_STRING_ARG(1);
-  UINT btw = strlen(buff);
+  mrbc_value str = v[1];
   UINT bw;
   FRESULT res;
-  res = f_write(fp, (const void *)buff, btw, &bw);
+  res = f_write(fp, str.string->data, str.string->size, &bw);
   mrbc_raise_iff_f_error(vm, res, "f_write");
   SET_INT_RETURN(bw);
 }

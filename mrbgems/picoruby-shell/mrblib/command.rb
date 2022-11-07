@@ -24,18 +24,12 @@ class Shell
       unset
     )
 
-    def command_type(name)
-      if BUILTIN.include?(name)
-        :builtin
-      elsif find_executable(name)
-        :executable
-      else
-        nil
-      end
-    end
-
     def find_executable(name)
-      false
+      ENV['PATH'].each do |path|
+        file = "#{path}/#{name}"
+        return file if File.exist? file
+      end
+      return nil
     end
 
     def exec(params)
@@ -58,7 +52,14 @@ class Shell
           print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
         end
       else
-        print "#{params[0]}: command not found", @feed
+        if exefile = find_executable(params[0])
+          f = File.open(exefile, "r")
+          sandbox = Sandbox.new
+          sandbox.exec_mrb(f.read(512))
+          sandbox.wait
+        else
+          print "#{params[0]}: command not found", @feed
+        end
       end
     end
 
@@ -81,6 +82,7 @@ class Shell
           print "type: #{name}: not found"
         end
       end
+      print @feed
     end
 
     def _echo(*params)
