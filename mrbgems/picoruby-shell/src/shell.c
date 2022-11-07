@@ -1,9 +1,9 @@
 #include <mrubyc.h>
 
-#ifndef MRBC_ALLOC_LIBC
 static void
 c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
 {
+#ifndef MRBC_ALLOC_LIBC
   struct MRBC_ALLOC_STATISTICS mem;
   mrbc_alloc_statistics(&mem);
   mrbc_value ret = mrbc_hash_new(vm, 4);
@@ -27,15 +27,21 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
     &mrbc_symbol_value(mrbc_str_to_symid("frag")),
     &mrbc_integer_value(mem.fragmentation)
   );
+#else
+  mrbc_value ret = mrbc_hash_new(vm, 4);
+  mrbc_value message = mrbc_string_new_cstr(vm, "memory_statistics doesn't work");
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("error")),
+    &message
+  );
+#endif /* MRBC_ALLOC_LIBC */
   SET_RETURN(ret);
 }
-#endif /* MRBC_ALLOC_LIBC */
 
 void
 mrbc_shell_init(void)
 {
-#ifndef MRBC_ALLOC_LIBC
   mrbc_define_method(0, mrbc_class_object, "memory_statistics", c_memory_statistics);
-#endif /* MRBC_ALLOC_LIBC */
 }
 

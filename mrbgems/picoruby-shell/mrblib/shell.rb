@@ -26,7 +26,7 @@ when "ruby"
     def suspend
     end
 
-    def resume
+    def execute
       begin
         @result = eval "_ = (#{@script})", @binding
         @error = nil
@@ -45,7 +45,6 @@ end
 
 
 class Shell
-  TIMEOUT = 10_000 # 10 sec
   def initialize
     @terminal = Terminal::Line.new
     if RUBY_ENGINE == "ruby"
@@ -100,7 +99,6 @@ class Shell
   end
 
   def run_prsh
-    sandbox = @sandbox
     command = Command.new
     command.feed = @terminal.feed
     @terminal.start do |terminal, buffer, c|
@@ -122,7 +120,7 @@ class Shell
   end
 
   def run_irb
-    sandbox = @sandbox
+    sandbox = Sandbox.new
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13
@@ -136,25 +134,11 @@ class Shell
             buffer.put :ENTER
           else
             terminal.feed_at_bottom
-            if sandbox.resume
+            sandbox.execute
+            if sandbox.wait
               terminal.save_history
-              n = 0
-              # state 0: TASKSTATE_DORMANT == finished
-              while sandbox.state != 0 do
-                sleep_ms 50
-                n += 50
-                if TIMEOUT < n
-                  puts "Error: Timeout (sandbox.state: #{sandbox.state})"
-                end
-              end
-              if error = sandbox.error
-                print "=> #{error.message} (#{error.class})"
-              else
-                print "=> #{sandbox.result.inspect}"
-              end
-              print terminal.feed
-              sandbox.suspend
             end
+            print terminal.feed
             buffer.clear
             terminal.history_head
           end

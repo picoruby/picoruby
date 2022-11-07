@@ -149,7 +149,7 @@ class MyFile
   def write(*args)
     len = 0
     args.each do |arg|
-      len += @file.write(arg)
+      len += @file.write(arg.to_s)
     end
     return len
   end

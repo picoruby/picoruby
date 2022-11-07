@@ -1,5 +1,7 @@
 #! /usr/bin/env ruby
 
+ENV = {}
+
 case RUBY_ENGINE
 when "ruby"
   require_relative "../../picoruby-shell/mrblib/shell"
@@ -16,6 +18,9 @@ when "mruby/c"
   Dir = MyDir
   FAT._setup(0) # Workaround until Flash ROM works
 end
+
+
+ENV['PATH'] = ["/bin"]
 
 begin
   IO.wait_and_clear
