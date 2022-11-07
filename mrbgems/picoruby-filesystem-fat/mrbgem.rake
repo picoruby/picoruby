@@ -8,7 +8,7 @@ MRuby::Gem::Specification.new('picoruby-filesystem-fat') do |spec|
 
   Dir.glob("#{dir}/lib/ff14b/source/*.c").each do |src|
     obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"
-    file obj => src do |t|
+    file obj => [src, "#{dir}/lib/ff14b/source/ffconf.h"] do |t|
       spec.cc.run t.name, t.prerequisites[0]
     end
     spec.objs << obj
