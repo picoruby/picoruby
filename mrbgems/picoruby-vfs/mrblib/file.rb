@@ -11,6 +11,10 @@ class MyFile
       end
     end
 
+    def stat(path)
+      VFS.stat(path)
+    end
+
     def open(path, mode = "r")
       if block_given?
         file = self.new(path, mode)
@@ -131,13 +135,9 @@ class MyFile
       raise ArgumentError.new("negative length #{length} given")
     end
     if length.is_a?(Integer)
-      (length / 255).times do
-        buff = @file.read(255)
-        buff ? (outbuf << buff) : break
-      end
-      outbuf << buff if buff = @file.read(length % 255)
+      outbuf << @file.read(length)
     elsif length.nil?
-      while buff = @file.read(255)
+      while buff = @file.read(1024)
         outbuf << buff
       end
     else
@@ -189,4 +189,12 @@ class MyFile
   def close
     @file.close
   end
+
+   def size
+     @file.size
+   end
+
+   def expand(size)
+     @file.expand(size)
+   end
 end

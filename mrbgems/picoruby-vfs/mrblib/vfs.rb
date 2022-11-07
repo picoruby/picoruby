@@ -56,6 +56,11 @@ class VFS
       volume[:driver]&._unlink(_path)
     end
 
+    def stat(path)
+      volume, _path = VFS.sanitize_and_split(path)
+      volume[:driver]&._stat(_path)
+    end
+
     def exist?(path)
       volume, _path = VFS.sanitize_and_split(path)
       volume[:driver]&._exist?(_path)

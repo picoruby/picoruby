@@ -18,9 +18,8 @@ class Shell
       fc
       help
       history
+      install
       kill
-      mrbc
-      picorbc
       pwd
       type
       unset
@@ -49,20 +48,21 @@ class Shell
       when "pwd"
         print Dir.pwd, @feed
       when "cd"
-        print @feed if Dir.chdir(args[0] || "/home") != 0
+        print @feed if Dir.chdir(args[0] || ENV['HOME']) != 0
       when "free"
         Object.memory_statistics.each do |k, v|
           print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
         end
-      when "mrbc", "picorbc"
+      when "install"
         if File.exist?(args[0])
           script = ""
           File.open(args[0], "r") do |f|
-            script = f.read(1024) # TODO: check size
+            script = f.read(f.size) # TODO: check size
           end
           begin
             mrb = self.mrbc(script)
             File.open(args[1], "w") do |f|
+              # f.expand(mrb.length)
               f.write(mrb)
             end
           rescue => e
@@ -74,23 +74,27 @@ class Shell
       else
         if exefile = find_executable(params[0])
           f = File.open(exefile, "r")
-          sandbox = Sandbox.new
-          ARGV.clear
-          args.each_with_index do |param|
-            ARGV << param
-          end
-          mrb = f.read(1024) # TODO: check size
-          if mrb[0,8] == "RITE0300"
-            begin
+          begin
+            # PicoRuby compiler's bug
+            # https://github.com/picoruby/picoruby/issues/120
+            mrb = f.read
+            if mrb.start_with?("RITE0300")
+              ARGV.clear
+              args.each_with_index do |param|
+                ARGV << param
+              end
+              sandbox = Sandbox.new
               sandbox.exec_mrb(mrb)
               if sandbox.wait && error = sandbox.error
                 print "#{error.message} (#{error.class})", @feed
               end
-            rescue => e
-              # ???
+            else
+              print "Invalide VM code", @feed
             end
-          else
-            print "Invalide VM code", @feed
+          rescue => e
+            p e
+          ensure
+            f.close
           end
         else
           print "#{params[0]}: command not found", @feed
