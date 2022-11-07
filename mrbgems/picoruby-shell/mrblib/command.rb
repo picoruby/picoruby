@@ -29,6 +29,9 @@ class Shell
         file = "#{path}/#{name}"
         return file if File.exist? file
       end
+      if name.include?("/") && File.exist?(name)
+        return name
+      end
       return nil
     end
 
