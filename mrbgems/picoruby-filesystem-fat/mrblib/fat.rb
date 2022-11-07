@@ -1,6 +1,13 @@
 class FAT
 
   class Dir
+    def stat_label
+      {
+        attributes: "DRHSA",
+        datetime: "datetime",
+        size: "size"
+      }
+    end
   end
 
   class File
@@ -29,6 +36,7 @@ class FAT
     ENV['PATH'] = ["/bin"]
     while exe = _next_executable
       f = MyFile.open "/bin/#{exe[:name]}", "w"
+      # f.expand exe[:size]
       f.write exe[:code]
       f.close
     end

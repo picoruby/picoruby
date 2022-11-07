@@ -60,6 +60,14 @@ c_seek(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_size(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FIL *fp = (FIL *)v->instance->data;
+  SET_INT_RETURN(f_size(fp));
+}
+
+
+static void
 c_eof_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
@@ -109,6 +117,17 @@ c_close(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_NIL_RETURN();
 }
 
+static void
+c_expand(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FIL *fp = (FIL *)v->instance->data;
+  FRESULT res;
+  FSIZE_t size = GET_INT_ARG(1);
+  res = f_expand(fp, size, 1);
+  mrbc_raise_iff_f_error(vm, res, "f_expand");
+  SET_INT_RETURN(size);
+}
+
 void
 mrbc_init_class_FAT_File(void)
 {
@@ -125,5 +144,7 @@ mrbc_init_class_FAT_File(void)
   mrbc_define_method(0, class_FAT_File, "read", c_read);
   mrbc_define_method(0, class_FAT_File, "write", c_write);
   mrbc_define_method(0, class_FAT_File, "close", c_close);
+  mrbc_define_method(0, class_FAT_File, "size", c_size);
+  mrbc_define_method(0, class_FAT_File, "expand", c_expand);
 }
 

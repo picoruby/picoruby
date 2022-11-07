@@ -100,6 +100,46 @@ c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
+  FILINFO fno;
+  FRESULT res = f_stat(path, &fno);
+  mrbc_raise_iff_f_error(vm, res, "f_stat");
+SET_INT_RETURN(fno.fsize);
+  mrbc_value stat = mrbc_hash_new(vm, 3);
+  char datetime[17];
+  sprintf(datetime, "%u/%02u/%02u %02u:%02u",
+          (fno.fdate >> 9) + 1980, fno.fdate >> 5 & 15, fno.fdate & 31,
+          fno.ftime >> 11, fno.ftime >> 5 & 63);
+  mrbc_value datetime_val = mrbc_string_new_cstr(vm, datetime);
+  char attr[6];
+  sprintf(attr, "%c%c%c%c%c",
+          (fno.fattrib & AM_DIR) ? 'D' : '-',
+          (fno.fattrib & AM_RDO) ? 'R' : '-',
+          (fno.fattrib & AM_HID) ? 'H' : '-',
+          (fno.fattrib & AM_SYS) ? 'S' : '-',
+          (fno.fattrib & AM_ARC) ? 'A' : '-');
+  mrbc_value attr_val = mrbc_string_new_cstr(vm, attr);
+  mrbc_hash_set(
+    &stat,
+    &mrbc_symbol_value(mrbc_str_to_symid("size")),
+    &mrbc_integer_value(fno.fsize)
+  );
+  mrbc_hash_set(
+    &stat,
+    &mrbc_symbol_value(mrbc_str_to_symid("datetime")),
+    &datetime_val
+  );
+  mrbc_hash_set(
+    &stat,
+    &mrbc_symbol_value(mrbc_str_to_symid("attributes")),
+    &attr_val
+  );
+  SET_RETURN(stat);
+}
+
+static void
 c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
@@ -207,6 +247,7 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
   mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
   mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
+  mrbc_define_method(0, class_FAT, "_stat", c__stat);
   mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
   mrbc_define_method(0, class_FAT, "_directory?", c__directory_q);
   mrbc_init_class_FAT_Dir();

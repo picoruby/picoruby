@@ -48,7 +48,7 @@ c_findnext(struct VM *vm, mrbc_value v[], int argc)
   DIR *dp = (DIR *)v->instance->data;
   FRESULT fr;
   FILINFO fno;
-  fr = f_findnext(&dp, &fno);
+  fr = f_findnext(dp, &fno);
   if (fr == FR_OK && fno.fname[0]) {
     mrbc_value value = mrbc_string_new_cstr(vm, (const char *)(fno.fname));
     SET_RETURN(value);
