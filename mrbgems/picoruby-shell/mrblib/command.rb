@@ -59,13 +59,18 @@ class Shell
           args.each_with_index do |param|
             ARGV << param
           end
-          begin
-            sandbox.exec_mrb(f.read(1024)) # TODO: check size
-            if sandbox.wait && error = sandbox.error
-              print "#{error.message} (#{error.class})", @feed
+          mrb = f.read(1024) # TODO: check size
+          if mrb[0,8] == "RITE0300"
+            begin
+              sandbox.exec_mrb(mrb)
+              if sandbox.wait && error = sandbox.error
+                print "#{error.message} (#{error.class})", @feed
+              end
+            rescue => e
+              # ???
             end
-          rescue => e
-            # ???
+          else
+            print "Invalide VM code", @feed
           end
         else
           print "#{params[0]}: command not found", @feed

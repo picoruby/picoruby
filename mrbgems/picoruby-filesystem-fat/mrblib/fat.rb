@@ -26,6 +26,7 @@ class FAT
     rescue => e
       puts e.message
     end
+    ENV['PATH'] = ["/bin"]
     while exe = _next_executable
       f = MyFile.open "/bin/#{exe[:name]}", "w"
       f.write exe[:code]
