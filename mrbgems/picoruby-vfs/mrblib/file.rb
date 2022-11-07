@@ -4,7 +4,11 @@ class MyFile
 
   class << self
     def expand_path(path, default_path = '.')
-      VFS.sanitize "#{default_path}/#{path}"
+      if path.start_with?("/")
+        VFS.sanitize path
+      else
+        VFS.sanitize "#{default_path}/#{path}"
+      end
     end
 
     def open(path, mode = "r")

@@ -44,8 +44,6 @@ class Shell
         _echo(*args)
       when "type"
         _type(*args)
-      when "vim"
-        Vim.new(args[0]).start
       when "pwd"
         print Dir.pwd, @feed
       when "cd"

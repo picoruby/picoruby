@@ -28,7 +28,7 @@ MRuby.each_target do |build|
       mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"
       file mrbfile => [rbfile, executable_dir] do |t|
         File.open(t.name, 'w') do |f|
-          mrbc.run(f, t.prerequisites[0], t.name.pathmap("%n").gsub('-', '_'), false)
+          mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", false)
         end
       end
       executable_mrbfiles << mrbfile
@@ -138,7 +138,7 @@ MRuby.each_target do |build|
       f.puts "static shell_executables executables[] = {"
       executable_mrbfiles.each do |mrb|
         name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", #{name}}," if File.exist?(mrb)
+        f.puts "  {\"#{name}\", executable_#{name}}," if File.exist?(mrb)
       end
       f.puts "  {NULL, NULL} /* sentinel */"
       f.puts "};"
