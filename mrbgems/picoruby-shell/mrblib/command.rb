@@ -55,8 +55,12 @@ class Shell
         if exefile = find_executable(params[0])
           f = File.open(exefile, "r")
           sandbox = Sandbox.new
+          ARGV.clear
+          args.each_with_index do |param|
+            ARGV << param
+          end
           begin
-            sandbox.exec_mrb(f.read(512))
+            sandbox.exec_mrb(f.read(1024)) # TODO: check size
             if sandbox.wait && error = sandbox.error
               print "#{error.message} (#{error.class})", @feed
             end

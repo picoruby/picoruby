@@ -1,6 +1,7 @@
 #! /usr/bin/env ruby
 
 ENV = {}
+ARGV = []
 
 case RUBY_ENGINE
 when "ruby"
