@@ -89,7 +89,6 @@ class Shell
       run_irb
       print @terminal.feed
     when :prsh
-      @terminal.prompt = "sh"
       show_logo
       run_prsh
       print "\nbye\e[0m"

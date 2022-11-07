@@ -19,6 +19,8 @@ class Shell
       help
       history
       kill
+      mrbc
+      picorbc
       pwd
       type
       unset
@@ -51,6 +53,23 @@ class Shell
       when "free"
         Object.memory_statistics.each do |k, v|
           print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
+        end
+      when "mrbc", "picorbc"
+        if File.exist?(args[0])
+          script = ""
+          File.open(args[0], "r") do |f|
+            script = f.read(1024) # TODO: check size
+          end
+          begin
+            mrb = self.mrbc(script)
+            File.open(args[1], "w") do |f|
+              f.write(mrb)
+            end
+          rescue => e
+            puts "#{e.message}"
+          end
+        else
+          puts "#{params[0]}: No such file"
         end
       else
         if exefile = find_executable(params[0])
