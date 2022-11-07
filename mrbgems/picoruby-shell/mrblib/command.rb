@@ -55,8 +55,14 @@ class Shell
         if exefile = find_executable(params[0])
           f = File.open(exefile, "r")
           sandbox = Sandbox.new
-          sandbox.exec_mrb(f.read(512))
-          sandbox.wait
+          begin
+            sandbox.exec_mrb(f.read(512))
+            if sandbox.wait && error = sandbox.error
+              print "#{error.message} (#{error.class})", @feed
+            end
+          rescue => e
+            # ???
+          end
         else
           print "#{params[0]}: command not found", @feed
         end
