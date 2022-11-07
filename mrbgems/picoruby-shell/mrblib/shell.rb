@@ -134,9 +134,14 @@ class Shell
             buffer.put :ENTER
           else
             terminal.feed_at_bottom
-            sandbox.execute
-            if sandbox.wait
+            if sandbox.execute
               terminal.save_history
+              if sandbox.wait && error = sandbox.error
+                print "=> #{error.message} (#{error.class})"
+              else
+                print "=> #{sandbox.result.inspect}"
+              end
+              sandbox.suspend
             end
             print terminal.feed
             buffer.clear
