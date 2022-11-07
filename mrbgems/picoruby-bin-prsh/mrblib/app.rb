@@ -20,9 +20,6 @@ when "mruby/c"
   FAT._setup(0) # Workaround until Flash ROM works
 end
 
-
-ENV['PATH'] = ["/bin"]
-
 begin
   IO.wait_and_clear
   Shell.new.start(:prsh)
