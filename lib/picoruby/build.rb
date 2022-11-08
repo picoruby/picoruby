@@ -10,8 +10,8 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem :github => 'hasumikin/mruby-bin-picorbc' unless @gems['mruby-bin-picorbc']
-      gem :github => 'hasumikin/mruby-pico-compiler' unless @gems['mruby-pico-picocompiler']
+      gem :github => 'picoruby/mruby-bin-picorbc' unless @gems['mruby-bin-picorbc']
+      gem :github => 'picoruby/mruby-pico-compiler' unless @gems['mruby-pico-picocompiler']
       gem core: 'picoruby-mrubyc'
       cc.include_paths.delete_if do |path|
         path.end_with? "hal_no_impl"
@@ -47,7 +47,7 @@ module MRuby
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
       cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
 
-      gem github: 'hasumikin/mruby-pico-compiler'
+      gem github: 'picoruby/mruby-pico-compiler'
       gem core: 'picoruby-mrubyc'
 
       case picoruby_conf

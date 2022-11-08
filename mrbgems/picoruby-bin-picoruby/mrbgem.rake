@@ -2,7 +2,7 @@ MRuby::Gem::Specification.new 'picoruby-bin-picoruby' do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'picoruby executable'
-  spec.add_dependency 'mruby-pico-compiler', github: 'hasumikin/mruby-pico-compiler'
+  spec.add_dependency 'mruby-pico-compiler', github: 'picoruby/mruby-pico-compiler'
   spec.add_dependency 'picoruby-mrubyc'
 
   spec.cc.include_paths << "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/src"
