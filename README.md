@@ -73,7 +73,7 @@ See [mruby's doc](https://github.com/mruby/mruby/blob/master/doc/guides/compile.
 
 `bin/picoruby --verbose -e 'puts "Hello World!"'` shows debug-print like this:
 
-![](https://raw.githubusercontent.com/hasumikin/picoruby/master/docs/images/debug-print.png)
+![](https://raw.githubusercontent.com/picoruby/picoruby/master/docs/images/debug-print.png)
 
 (Replace `[path/to/]mmruby` with `bin/picoruby --verbose` in mind. It's an old name)
 
@@ -91,7 +91,7 @@ and
 
 PicoRuby is still developing halfway towards finishing as of 2022.
 
-See implementation roadmap on [issue/6](https://github.com/hasumikin/picoruby/issues/6)
+See implementation roadmap on [issue/6](https://github.com/picoruby/picoruby/issues/6)
 
 ### Contributing to PicoRuby
 
