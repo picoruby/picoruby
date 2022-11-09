@@ -26,6 +26,9 @@ else
 end
 
 if dir != "/" && Dir.exist?("#{dir}/#{file}")
+  dir = "#{dir}/#{file}"
+  file = nil
+end
 
 Dir.open(dir) do |d|
   # TODO: handle file

@@ -34,13 +34,14 @@ class FAT
       puts e.message
     end
     ENV['PATH'] = ["/bin"]
+    ENV['HOME'] = "/home"
     while exe = _next_executable
       f = MyFile.open "/bin/#{exe[:name]}", "w"
       # f.expand exe[:size]
       f.write exe[:code]
       f.close
     end
-    MyDir.chdir "home"
+    MyDir.chdir ENV['HOME']
   end
 
   # drive can be "0".."9", :ram, :flash, etc
