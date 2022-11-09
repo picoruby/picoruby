@@ -85,7 +85,7 @@ class Shell
               end
               sandbox = Sandbox.new
               sandbox.exec_mrb(mrb)
-              if sandbox.wait && error = sandbox.error
+              if sandbox.wait(nil) && error = sandbox.error
                 print "#{error.message} (#{error.class})", @feed
               end
             else
