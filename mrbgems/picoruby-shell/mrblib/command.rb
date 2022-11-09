@@ -7,8 +7,6 @@ class Shell
 
     BUILTIN = %w(
       free
-      irb
-      ruby
       alias
       cd
       echo
@@ -18,7 +16,6 @@ class Shell
       fc
       help
       history
-      install
       kill
       pwd
       type
@@ -39,8 +36,6 @@ class Shell
     def exec(params)
       args = params[1, params.length - 1]
       case params[0]
-      when "irb"
-        _irb(*args)
       when "echo"
         _echo(*args)
       when "type"
@@ -52,24 +47,6 @@ class Shell
       when "free"
         Object.memory_statistics.each do |k, v|
           print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
-        end
-      when "install"
-        if File.exist?(args[0])
-          script = ""
-          File.open(args[0], "r") do |f|
-            script = f.read(f.size) # TODO: check size
-          end
-          begin
-            mrb = self.mrbc(script)
-            File.open(args[1], "w") do |f|
-              # f.expand(mrb.length)
-              f.write(mrb)
-            end
-          rescue => e
-            puts "#{e.message}"
-          end
-        else
-          puts "#{params[0]}: No such file"
         end
       else
         if exefile = find_executable(params[0])
@@ -105,10 +82,6 @@ class Shell
     #
     # Builtin commands
     #
-
-    def _irb(*params)
-      Shell.new.start(:irb)
-    end
 
     def _type(*params)
       params.each_with_index do |name, index|
