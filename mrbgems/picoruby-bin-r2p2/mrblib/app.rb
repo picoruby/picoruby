@@ -12,7 +12,6 @@ when "mruby/c"
   require "shell"
   require "filesystem-fat"
   require "vfs"
-  require "vim"
 
   IO.wait_and_clear
   File = MyFile
