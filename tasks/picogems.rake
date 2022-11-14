@@ -19,7 +19,7 @@ MRuby.each_target do |build|
     end
   end
 
-  # prsh executable commands
+  # shell executable commands
   executable_mrbfiles = Array.new
   if shell_gem = gems.find{|gem| gem.name == "picoruby-shell"}
     executable_dir = "#{build_dir}/mrbgems/picoruby-shell/shell_executables"

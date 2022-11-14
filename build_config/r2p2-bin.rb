@@ -18,7 +18,7 @@ MRuby::Build.new do |conf|
 
   conf.gem core: "picoruby-filesystem-fat"
   conf.gem core: "picoruby-vim"
-  conf.gem core: "picoruby-bin-prsh"
+  conf.gem core: "picoruby-bin-r2p2"
 
 end
 

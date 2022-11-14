@@ -82,22 +82,22 @@ class Shell
     puts "\e[32;0m"
   end
 
-  def start(mode = :prsh)
+  def start(mode = :shell)
     case mode
     when :irb
       @terminal.prompt = "irb"
       run_irb
       print @terminal.feed
-    when :prsh
+    when :shell
       show_logo
-      run_prsh
+      run_shell
       print "\nbye\e[0m"
       exit
       return
     end
   end
 
-  def run_prsh
+  def run_shell
     command = Command.new
     command.feed = @terminal.feed
     @terminal.start do |terminal, buffer, c|

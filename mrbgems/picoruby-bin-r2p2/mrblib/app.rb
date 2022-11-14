@@ -22,7 +22,7 @@ end
 
 begin
   IO.wait_and_clear
-  Shell.new.start(:prsh)
+  Shell.new.start(:shell)
 rescue
   exit
 end

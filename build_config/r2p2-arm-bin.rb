@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("prsh-arm-bin") do |conf|
+MRuby::CrossBuild.new("r2p2-arm-bin") do |conf|
 
   conf.toolchain
 
@@ -20,7 +20,7 @@ MRuby::CrossBuild.new("prsh-arm-bin") do |conf|
 
   conf.gem core: "picoruby-filesystem-fat"
   conf.gem core: "picoruby-vim"
-  conf.gem core: "picoruby-bin-prsh"
+  conf.gem core: "picoruby-bin-r2p2"
 
 end
 
