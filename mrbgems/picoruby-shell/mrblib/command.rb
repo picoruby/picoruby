@@ -57,7 +57,7 @@ class Shell
             mrb = f.read
             if mrb.start_with?("RITE0300")
               ARGV.clear
-              args.each_with_index do |param|
+              args.each do |param|
                 ARGV << param
               end
               sandbox = Sandbox.new
