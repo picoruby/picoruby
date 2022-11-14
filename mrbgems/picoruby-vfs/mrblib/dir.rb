@@ -2,9 +2,14 @@ class MyDir
   class << self
     def open(path)
       if block_given?
-        dir = self.new(path)
-        yield dir
-        dir.close
+        begin
+          dir = self.new(path)
+          yield dir
+        rescue => e
+          puts e.message
+        ensure
+          dir.close
+        end
       else
         self.new(path)
       end
