@@ -34,16 +34,19 @@ class Shell
     end
 
     def exec(params)
-      args = params[1, params.length - 1]
+      ARGV.clear
+      params[1, params.length - 1].each do |param|
+        ARGV << param
+      end
       case params[0]
       when "echo"
-        _echo(*args)
+        _echo
       when "type"
-        _type(*args)
+        _type
       when "pwd"
         print Dir.pwd, @feed
       when "cd"
-        print @feed if Dir.chdir(args[0] || ENV['HOME']) != 0
+        print @feed if Dir.chdir(ARGV[0] || ENV['HOME']) != 0
       when "free"
         Object.memory_statistics.each do |k, v|
           print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
@@ -56,10 +59,6 @@ class Shell
             # https://github.com/picoruby/picoruby/issues/120
             mrb = f.read
             if mrb.start_with?("RITE0300")
-              ARGV.clear
-              args.each do |param|
-                ARGV << param
-              end
               @sandbox ||= Sandbox.new
               @sandbox.exec_mrb(mrb)
               if @sandbox.wait(nil) && error = @sandbox.error
@@ -83,8 +82,8 @@ class Shell
     # Builtin commands
     #
 
-    def _type(*params)
-      params.each_with_index do |name, index|
+    def _type
+      ARGV.each_with_index do |name, index|
         print @feed if 0 < index
         if BUILTIN.include?(name)
           print "#{name} is a shell builtin"
@@ -97,11 +96,12 @@ class Shell
       print @feed
     end
 
-    def _echo(*params)
-      params.each_with_index do |param, index|
+    def _echo
+      ARGV.each_with_index do |param, index|
         print " " if 0 < index
         print param
       end
+      print @feed
     end
 
   end
