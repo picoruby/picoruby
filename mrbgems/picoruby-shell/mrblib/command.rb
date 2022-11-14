@@ -60,9 +60,9 @@ class Shell
               args.each do |param|
                 ARGV << param
               end
-              sandbox = Sandbox.new
-              sandbox.exec_mrb(mrb)
-              if sandbox.wait(nil) && error = sandbox.error
+              @sandbox ||= Sandbox.new
+              @sandbox.exec_mrb(mrb)
+              if @sandbox.wait(nil) && error = @sandbox.error
                 print "#{error.message} (#{error.class})", @feed
               end
             else
