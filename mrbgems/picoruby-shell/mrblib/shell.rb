@@ -40,7 +40,12 @@ when "ruby"
   end
 
 when "mruby/c"
+  require "sandbox"
+  require "filesystem-fat"
+  require "vfs"
   require "terminal"
+  ENV = {}
+  ARGV = []
 end
 
 
@@ -80,6 +85,37 @@ class Shell
       puts line
     end
     puts "\e[32;0m"
+  end
+
+  def self.setup(drive)
+    return if VFS.volume_index("/")
+    fat = FAT.new(drive)
+    retry_count = 0
+    begin
+      VFS.mount(fat, "/")
+    rescue => e
+      puts e.message
+      fat.mkfs
+      retry_count += 1
+      retry if retry_count == 1
+      raise e
+    end
+    begin
+      %w(bin var home).each do |dir|
+        MyDir.mkdir dir
+      end
+    rescue => e
+      puts e.message
+    end
+    ENV['PATH'] = ["/bin"]
+    ENV['HOME'] = "/home"
+    while exe = _next_executable
+      f = MyFile.open "/bin/#{exe[:name]}", "w"
+      # f.expand exe[:size]
+      f.write exe[:code]
+      f.close
+    end
+    MyDir.chdir ENV['HOME']
   end
 
   def start(mode = :shell)

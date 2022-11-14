@@ -13,37 +13,6 @@ class FAT
   class File
   end
 
-  def self._setup(num)
-    drive = [:ram, :flash][num]
-    fat = FAT.new(drive)
-    retry_count = 0
-    begin
-      VFS.mount(fat, "/")
-    rescue => e
-      puts e.message
-      fat.mkfs
-      retry_count += 1
-      retry if retry_count == 1
-      raise e
-    end
-    begin
-      %w(bin var home).each do |dir|
-        MyDir.mkdir dir
-      end
-    rescue => e
-      puts e.message
-    end
-    ENV['PATH'] = ["/bin"]
-    ENV['HOME'] = "/home"
-    while exe = _next_executable
-      f = MyFile.open "/bin/#{exe[:name]}", "w"
-      # f.expand exe[:size]
-      f.write exe[:code]
-      f.close
-    end
-    MyDir.chdir ENV['HOME']
-  end
-
   # drive can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
   def initialize(drive = "0")
@@ -92,7 +61,27 @@ class FAT
     end
   end
 
+  def erase
+    FAT._erase(@prefix)
+  end
+
   def mkdir(path, mode)
     FAT._mkdir("#{@prefix}#{path}", mode)
+  end
+
+  def stat(path)
+    FAT._stat("#{@prefix}#{path}")
+  end
+
+  def exist?(path)
+    FAT._exist?("#{@prefix}#{path}")
+  end
+
+  def unlink(path)
+    FAT._unlink("#{@prefix}#{path}")
+  end
+
+  def directory?(path)
+    FAT._directory?("#{@prefix}#{path}")
   end
 end

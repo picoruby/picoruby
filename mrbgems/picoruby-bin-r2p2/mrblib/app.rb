@@ -1,28 +1,22 @@
 #! /usr/bin/env ruby
 
-ENV = {}
-ARGV = []
-
 case RUBY_ENGINE
 when "ruby"
   require_relative "../../picoruby-shell/mrblib/shell"
   require_relative "../../picoruby-vim/mrblib/vim"
 when "mruby/c"
-  require "sandbox"
   require "shell"
-  require "filesystem-fat"
-  require "vfs"
 
-  IO.wait_and_clear
   File = MyFile
   Dir = MyDir
-  FAT._setup(0) # Workaround until Flash ROM works
 end
 
 begin
+  Shell.setup(:ram)
   IO.wait_and_clear
   Shell.new.start(:shell)
-rescue
+rescue => e
+  puts e.message
   exit
 end
 

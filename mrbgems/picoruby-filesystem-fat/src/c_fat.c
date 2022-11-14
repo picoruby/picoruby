@@ -8,6 +8,12 @@
 #include "../lib/ff14b/source/ff.h"
 #include "../lib/ff14b/source/ffconf.h"
 
+#if FF_STR_VOLUME_ID
+#ifdef FF_VOLUME_STRS
+static const char* const VolumeStr[FF_VOLUMES] = {FF_VOLUME_STRS};	/* Pre-defined volume ID */
+#endif
+#endif
+
 #include "hal/diskio.h"
 
 /*
@@ -18,8 +24,18 @@
 static void
 c__erase(struct VM *vm, mrbc_value v[], int argc)
 {
-  disk_erase(GET_INT_ARG(1));
-  SET_INT_RETURN(0);
+  int i;
+  char *volume = GET_STRING_ARG(1);
+  volume[strlen(volume) - 1] = '\0'; /* remove ":" */
+  for (i = 0; i < FF_VOLUMES; i++) {
+    if (strcmp(VolumeStr[i], (const char *)volume) == 0) break;
+  }
+  if (i < FF_VOLUMES) {
+    disk_erase(i);
+    SET_INT_RETURN(0);
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Volume not found in c__erase");
+  }
 }
 
 static void

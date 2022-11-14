@@ -18,6 +18,7 @@ RAM_disk_erase(void)
 {
   if (!ram_disk) return STA_NODISK;
   mrbc_raw_free(ram_disk);
+  ram_disk = NULL;
   return 0;
 }
 
