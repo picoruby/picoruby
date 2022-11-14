@@ -45,25 +45,12 @@ class Terminal
 
   class Base
     def initialize
-      # :lf works fine under MRBC_CONVERT_CRLF defined
-      self.feed = :lf
       get_size
       @buffer = Terminal::Buffer.new
     end
 
-    attr_reader :feed, :width, :height
+    attr_reader :width, :height
     attr_accessor :debug_tty
-
-    def feed=(arg)
-      @feed = case arg
-      when :lf
-        "\n"
-      when :cr
-        "\r"
-      else # :crlf
-        "\r\n"
-      end
-    end
 
     def clear
       print "\e[2J"
@@ -152,8 +139,7 @@ class Terminal
     def feed_at_bottom
       adjust = physical_line_count - @prev_cursor_y - 1
       print "\e[#{adjust}B" if 0 < adjust
-      print "\e[999C" # right * 999
-      print @feed
+      puts "\e[999C" # right * 999
       @prev_cursor_y = 0
     end
 
@@ -180,8 +166,8 @@ class Terminal
 
       # Write the buffer content
       _buffer_lines.each_with_index do |line, i|
-        print (0 < i ? @feed : ""),
-          @prompt,
+        puts if 0 < i
+        print @prompt,
           (i == 0 ? "> " : "* "),
           line,
           "\e[0K",
@@ -219,12 +205,12 @@ class Terminal
         when 3 # Ctrl-C
           @buffer.bottom
           @buffer.tail
-          print @feed, "^C\e[0J", @feed
+          puts "", "^C\e[0J"
           @prev_cursor_y = 0
           @buffer.clear
           history_head
         when 4 # Ctrl-D logout
-          print @feed
+          puts
           return
         when 5 # Ctrl-E
           @buffer.tail
@@ -234,7 +220,8 @@ class Terminal
           get_size
           refresh
         when 26 # Ctrl-Z
-          print @feed, "shunt" # Shunt into the background
+          puts
+          print "shunt" # Shunt into the background
           return
         when 27 # ESC
           case IO.read_nonblock(2)

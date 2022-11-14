@@ -161,9 +161,6 @@ class MyFile
   def puts(*lines)
     lines.each do |line|
       @file.write line
-      if @feed == :crlf
-        @file.write "\r"
-      end
       @file.write "\n"
     end
     return nil

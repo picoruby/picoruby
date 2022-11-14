@@ -58,10 +58,6 @@ class Shell
     @sandbox = Sandbox.new
   end
 
-  def feed=(feed)
-    @terminal.feed = feed
-  end
-
   LOGO_LINES = [
     "   888888  88   88888  88888",
     "   88   88 88  88     88   88",
@@ -123,7 +119,7 @@ class Shell
     when :irb
       @terminal.prompt = "irb"
       run_irb
-      print @terminal.feed
+      puts
     when :shell
       show_logo
       run_shell
@@ -135,7 +131,6 @@ class Shell
 
   def run_shell
     command = Command.new
-    command.feed = @terminal.feed
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13
@@ -145,7 +140,7 @@ class Shell
         when ["quit"], ["exit"]
           return
         else
-          print terminal.feed
+          puts
           command.exec(args)
           terminal.save_history
           buffer.clear
@@ -178,7 +173,7 @@ class Shell
               end
               sandbox.suspend
             end
-            print terminal.feed
+            puts
             buffer.clear
             terminal.history_head
           end

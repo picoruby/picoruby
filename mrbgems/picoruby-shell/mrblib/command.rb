@@ -3,8 +3,6 @@ class Shell
     def initialize
     end
 
-    attr_accessor :feed
-
     BUILTIN = %w(
       free
       alias
@@ -44,12 +42,12 @@ class Shell
       when "type"
         _type
       when "pwd"
-        print Dir.pwd, @feed
+        puts Dir.pwd
       when "cd"
-        print @feed if Dir.chdir(ARGV[0] || ENV['HOME']) != 0
+        puts if Dir.chdir(ARGV[0] || ENV['HOME']) != 0
       when "free"
         Object.memory_statistics.each do |k, v|
-          print "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}", @feed
+          puts "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}"
         end
       else
         if exefile = find_executable(params[0])
@@ -62,10 +60,10 @@ class Shell
               @sandbox ||= Sandbox.new
               @sandbox.exec_mrb(mrb)
               if @sandbox.wait(nil) && error = @sandbox.error
-                print "#{error.message} (#{error.class})", @feed
+                puts "#{error.message} (#{error.class})"
               end
             else
-              print "Invalide VM code", @feed
+              puts "Invalide VM code"
             end
           rescue => e
             p e
@@ -73,7 +71,7 @@ class Shell
             f.close
           end
         else
-          print "#{params[0]}: command not found", @feed
+          puts "#{params[0]}: command not found"
         end
       end
     end
@@ -84,7 +82,7 @@ class Shell
 
     def _type
       ARGV.each_with_index do |name, index|
-        print @feed if 0 < index
+        puts if 0 < index
         if BUILTIN.include?(name)
           print "#{name} is a shell builtin"
         elsif path = find_executable(name)
@@ -93,7 +91,7 @@ class Shell
           print "type: #{name}: not found"
         end
       end
-      print @feed
+      puts
     end
 
     def _echo
@@ -101,7 +99,7 @@ class Shell
         print " " if 0 < index
         print param
       end
-      print @feed
+      puts
     end
 
   end
