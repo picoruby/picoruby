@@ -9,6 +9,9 @@ when "mruby/c"
 
   File = MyFile
   Dir = MyDir
+
+  ENV['PATH'] = ["/bin"]
+  ENV['HOME'] = "/home"
 end
 
 begin

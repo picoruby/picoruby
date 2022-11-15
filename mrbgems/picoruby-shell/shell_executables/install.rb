@@ -8,7 +8,7 @@ elsif File.exist?(ARGV[0])
   begin
     mrb = self.mrbc(script)
     File.open(ARGV[1], "w") do |f|
-      # f.expand(mrb.length)
+      f.expand(mrb.length)
       f.write(mrb)
     end
   rescue => e

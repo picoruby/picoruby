@@ -103,11 +103,10 @@ class Shell
     rescue => e
       puts e.message
     end
-    ENV['PATH'] = ["/bin"]
-    ENV['HOME'] = "/home"
     while exe = _next_executable
+      p exe
       f = MyFile.open "/bin/#{exe[:name]}", "w"
-      # f.expand exe[:size]
+      f.expand exe[:code].length
       f.write exe[:code]
       f.close
     end
