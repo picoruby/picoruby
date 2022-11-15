@@ -7,9 +7,6 @@ when "ruby"
 when "mruby/c"
   require "shell"
 
-  File = MyFile
-  Dir = MyDir
-
   ENV['PATH'] = ["/bin"]
   ENV['HOME'] = "/home"
 end

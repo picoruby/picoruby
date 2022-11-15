@@ -98,18 +98,18 @@ class Shell
     end
     begin
       %w(bin var home).each do |dir|
-        MyDir.mkdir dir
+        Dir.mkdir dir
       end
     rescue => e
       puts e.message
     end
     while exe = _next_executable
-      f = MyFile.open "/bin/#{exe[:name]}", "w"
+      f = File.open "/bin/#{exe[:name]}", "w"
       f.expand exe[:code].length
       f.write exe[:code]
       f.close
     end
-    MyDir.chdir ENV['HOME']
+    Dir.chdir ENV['HOME']
   end
 
   def start(mode = :shell)
