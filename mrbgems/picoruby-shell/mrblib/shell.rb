@@ -104,7 +104,6 @@ class Shell
       puts e.message
     end
     while exe = _next_executable
-      p exe
       f = MyFile.open "/bin/#{exe[:name]}", "w"
       f.expand exe[:code].length
       f.write exe[:code]
