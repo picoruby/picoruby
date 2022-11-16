@@ -1,4 +1,4 @@
-class MyFile
+class File
 
   CHUNK_SIZE = 127
 

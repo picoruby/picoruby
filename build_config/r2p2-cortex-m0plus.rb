@@ -43,11 +43,8 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.mrubyc_hal_arm
   conf.picoruby
 
-  conf.gem core: "picoruby-filesystem-fat"
   conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-shell"
-  conf.gem core: "picoruby-terminal"
-  conf.gem core: "picoruby-sandbox"
 
 end
 

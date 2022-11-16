@@ -1,4 +1,4 @@
-class MyDir
+class Dir
   class << self
     def open(path)
       if block_given?
@@ -17,10 +17,12 @@ class MyDir
 
     def glob(pattern, flags = 0, base: nil, sort: true)
       # block_given? ? nil : [String]
-      dir = self.open(ENV['PWD'])
-      dir.pat = pattern
-      puts dir.findnext
-      dir.close
+      self.open(ENV['PWD']) do |dir|
+        dir.pat = pattern
+        while entry = dir.findnext
+          puts entry
+        end
+      end
     end
 
     def exist?(path)
