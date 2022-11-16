@@ -1,26 +1,29 @@
-class Buffer
-  $buffer_lock: bool
+class Terminal
+  class Buffer
+    $buffer_lock: bool
 
-  attr_reader cursor_x: Integer
-  attr_reader cursor_y: Integer
+    attr_reader cursor_x: Integer
+    attr_reader cursor_y: Integer
 
-  @lines: Array[String]
-  @prev_c: Symbol | nil
-  @prompt: String
-  @prompt_margin: Integer
+    @lines: Array[String]
+    @prev_c: Symbol | nil
+    @prompt: String
+    @prompt_margin: Integer
+    @changed: bool
 
-  def initialize: (?String prompt) -> void
-  def clear: () -> void
-  def dump: () -> String
-  def home: () -> void
-  def head: () -> void
-  def tail: () -> void
-  def left: () -> void
-  def right: () -> void
-  def up: () -> void
-  def down: () -> void
-  def put: (String | Symbol) -> void
-  def adjust_screen: () -> void
-  def refresh_screen: () -> void
+    def initialize: () -> void
+    def clear: () -> void
+    def dump: () -> String
+    def home: () -> void
+    def head: () -> void
+    def tail: () -> void
+    def left: () -> void
+    def right: () -> void
+    def up: () -> void
+    def down: () -> void
+    def put: (String | Symbol) -> void
+    def adjust_screen: () -> void
+    def refresh_screen: () -> void
+    def current_line: () -> String
+  end
 end
-
