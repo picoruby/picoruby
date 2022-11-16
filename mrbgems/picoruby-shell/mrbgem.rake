@@ -5,4 +5,5 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-terminal'
   spec.add_dependency 'picoruby-vfs'
   spec.add_dependency 'picoruby-filesystem-fat'
+  spec.add_dependency 'picoruby-sandbox'
 end

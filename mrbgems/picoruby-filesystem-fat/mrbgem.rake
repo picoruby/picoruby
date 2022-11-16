@@ -2,7 +2,6 @@ MRuby::Gem::Specification.new('picoruby-filesystem-fat') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'FAT filesystem'
-  spec.add_dependency 'picoruby-vfs'
 
   spec.hal_obj
 
