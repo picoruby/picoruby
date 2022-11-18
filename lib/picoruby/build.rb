@@ -1,17 +1,13 @@
 module MRuby
   class Command::Compiler
-    attr_accessor :alt_command
-  end
-
-  class Command::Archiver
-    attr_accessor :alt_command
+    attr_accessor :host_command
   end
 
   class Build
     # Override
     def build_mrbc_exec
       gem :github => 'picoruby/mruby-bin-picorbc' unless @gems['mruby-bin-picorbc']
-      gem :github => 'picoruby/mruby-pico-compiler' unless @gems['mruby-pico-picocompiler']
+      gem :github => 'picoruby/mruby-pico-compiler' unless @gems['mruby-pico-compiler']
       gem core: 'picoruby-mrubyc'
       cc.include_paths.delete_if do |path|
         path.end_with? "hal_no_impl"

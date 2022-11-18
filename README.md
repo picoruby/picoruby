@@ -44,18 +44,7 @@ PicoRuby is an alternative mruby implementation which is:
 
 #### Cross compilation
 
-If you want to build for Arm, you can do it like this:
-
-```
-CC=arm-linux-gnueabihf-gcc \
-QEMU=qemu-arm-static \
-CFLAGS="-static -g -O3 -Wall -Wundef -Werror-implicit-function-declaration -Wwrite-strings" \
-LDFLAGS="-static" \
-rake
-```
-
-However, it'd be better to write an instance of `Mruby::CrossBuild`.
-See [mruby's doc](https://github.com/mruby/mruby/blob/master/doc/guides/compile.md#cross-compilation)
+See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby/picoruby/blob/master/build_config/r2p2-cortex-m0plus.rb)
 
 ### Binaries
 

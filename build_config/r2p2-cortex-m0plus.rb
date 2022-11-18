@@ -3,8 +3,6 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   ###############################################################
   # You need following tools:
   #   arm-none-eabi       | to make libmruby.a
-  #   arm-linux-gnueabihf | to make lemon and ptr_size_generator
-  #   qemu-arm-static     | to run ptr_size_generator
   ###############################################################
 
   conf.toolchain
@@ -14,8 +12,7 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.linker.flags << "-static"
   conf.archiver.command = "arm-none-eabi-ar"
 
-  conf.cc.alt_command = "arm-linux-gnueabihf-gcc"
-  ENV['QEMU'] = "qemu-arm-static"
+  conf.cc.host_command = "gcc"
 
   conf.cc.flags.flatten!
   conf.cc.flags.delete "-O3"

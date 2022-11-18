@@ -61,5 +61,8 @@ mrbc_shell_init(void)
 {
   mrbc_define_method(0, mrbc_class_object, "memory_statistics", c_memory_statistics);
   mrbc_define_method(0, mrbc_class_object, "mrbc", c_mrbc);
+
+  mrbc_sym sym_id = mrbc_str_to_symid("SIZEOF_POINTER");
+  mrbc_set_const(sym_id, &mrbc_integer_value(PICORBC_PTR_SIZE));
 }
 

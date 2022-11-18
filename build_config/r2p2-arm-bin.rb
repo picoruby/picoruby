@@ -8,7 +8,7 @@ MRuby::CrossBuild.new("r2p2-arm-bin") do |conf|
   conf.linker.flags << "-static"
   conf.archiver.command = "arm-linux-gnueabihf-ar"
 
-  ENV['QEMU'] = "qemu-arm-static"
+  conf.cc.host_command = "gcc"
 
   conf.picoruby
 
