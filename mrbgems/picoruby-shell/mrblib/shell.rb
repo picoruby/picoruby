@@ -55,7 +55,6 @@ class Shell
     if RUBY_ENGINE == "ruby"
       @terminal.debug_tty = ARGV[0]
     end
-    @sandbox = Sandbox.new
   end
 
   LOGO_LINES = [

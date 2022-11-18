@@ -2,8 +2,6 @@
 #include <mrubyc.h>
 #include "sandbox.h"
 
-//#include "sandbox_task.c"
-
 #ifndef NODE_BOX_SIZE
 #define NODE_BOX_SIZE 20
 #endif
