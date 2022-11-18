@@ -1,6 +1,7 @@
 class Shell
   class Command
     def initialize
+      @sandbox = Sandbox.new
     end
 
     BUILTIN = %w(
@@ -57,7 +58,6 @@ class Shell
             # https://github.com/picoruby/picoruby/issues/120
             mrb = f.read
             if mrb.start_with?("RITE0300")
-              @sandbox ||= Sandbox.new
               @sandbox.exec_mrb(mrb)
               if @sandbox.wait(nil) && error = @sandbox.error
                 puts "#{error.message} (#{error.class})"
