@@ -43,9 +43,18 @@ end
 
 class Terminal
 
+  def self.get_screen_size
+    y, x = IO.get_cursor_position # save current position
+    print "\e[999B\e[999C" # down * 999 and right * 999
+    res = IO.get_cursor_position
+    print "\e[#{y};#{x}H" # restore original position
+    res
+  end
+
   class Base
+
     def initialize
-      get_size
+      @height, @width = Terminal.get_screen_size
       @buffer = Terminal::Buffer.new
     end
 
@@ -62,15 +71,6 @@ class Terminal
 
     def next_head
       print "\e[1E"
-    end
-
-    def get_size
-      y, x = IO.get_cursor_position # save current position
-      home
-      print "\e[999B\e[999C" # down * 999 and right * 999
-      @height, @width = IO.get_cursor_position
-      # debug "#{@height};#{@width}" # restore original position
-      print "\e[#{y};#{x}H" # restore original position
     end
 
     def physical_line_count
@@ -217,7 +217,7 @@ class Terminal
         when 9
           @buffer.put :TAB
         when 12 # Ctrl-L
-          get_size
+          @height, @width = Terminal.get_screen_size
           refresh
         when 26 # Ctrl-Z
           puts
@@ -408,7 +408,7 @@ class Terminal
           return
         when 12 # Ctrl-L
           # FIXME: in case that cursor has to relocate
-          get_size
+          @height, @width = Terminal.get_screen_size
         else
           begin
             yield self, @buffer, c
