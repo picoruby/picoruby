@@ -1053,7 +1053,7 @@ class Keyboard
     end
 
     @via&.start!
-    resume_task("rgb") if $rgb
+    resume_rgb_task if $rgb
 
     @keycodes = Array.new
     prev_layer = @default_layer
