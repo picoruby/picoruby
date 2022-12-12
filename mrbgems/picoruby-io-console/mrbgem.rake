@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('picoruby-io') do |spec|
+MRuby::Gem::Specification.new('picoruby-io-console') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'IO class'
