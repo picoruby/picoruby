@@ -1,11 +1,11 @@
 MRuby.each_target do |build|
 
   # picogems to be required in Ruby
-  mrbfiles = Array.new
+  picogems = Hash.new
   gems.each do |gem|
     if gem.name.start_with?("picoruby-")
       mrbfile = "#{build_dir}/mrbgems/#{gem.name}/mrblib/#{gem.name.sub(/\Apicoruby-(bin-)?/,'')}.c"
-      mrbfiles << mrbfile
+      picogems[gem.require_name || File.basename(mrbfile, ".c")] = mrbfile
       file mrbfile => gem.rbfiles do |t|
         next if t.prerequisites.empty?
         mkdir_p File.dirname(t.name)
@@ -38,7 +38,7 @@ MRuby.each_target do |build|
   self.libmruby_objs << objfile("#{build_dir}/mrbgems/picogem_init")
   file objfile("#{build_dir}/mrbgems/picogem_init") => ["#{build_dir}/mrbgems/picogem_init.c"]
 
-  file "#{build_dir}/mrbgems/picogem_init.c" => [*mrbfiles, *executable_mrbfiles, MRUBY_CONFIG, __FILE__] do |t|
+  file "#{build_dir}/mrbgems/picogem_init.c" => [*picogems.values, *executable_mrbfiles, MRUBY_CONFIG, __FILE__] do |t|
     mkdir_p File.dirname t.name
     open(t.name, 'w+') do |f|
       f.puts <<~PICOGEM
@@ -48,7 +48,7 @@ MRuby.each_target do |build|
         #include <alloc.h>
       PICOGEM
       f.puts
-      mrbfiles.each do |mrb|
+      picogems.each do |_require_name, mrb|
         f.puts "#include \"#{mrb}\"" if File.exist?(mrb)
       end
       f.puts
@@ -62,9 +62,9 @@ MRuby.each_target do |build|
       PICOGEM
       f.puts
       f.puts "static picogems gems[] = {"
-      mrbfiles.each do |mrb|
+      picogems.each do |require_name, mrb|
         name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", #{name.gsub('-','_')}, mrbc_#{name.gsub('-','_')}_init, false}," if File.exist?(mrb)
+        f.puts "  {\"#{require_name}\", #{name.gsub('-','_')}, mrbc_#{name.gsub('-','_')}_init, false}," if File.exist?(mrb)
       end
       f.puts "  {NULL, NULL, NULL, true} /* sentinel */"
       f.puts "};"

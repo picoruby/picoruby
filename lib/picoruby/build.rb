@@ -74,6 +74,8 @@ module MRuby
 
   module Gem
     class Specification
+      attr_accessor :require_name
+
       def define_gem_init_builder
         file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
           mkdir_p build_dir

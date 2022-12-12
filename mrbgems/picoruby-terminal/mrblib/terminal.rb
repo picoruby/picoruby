@@ -28,7 +28,7 @@ when "ruby", "jruby"
     return [_size[0][2, 3].to_i, _size[1].to_i]
   end
 when "mruby/c"
-  require "io"
+  require "io/console"
   require "filesystem-fat"
   require "vfs"
   class IO
