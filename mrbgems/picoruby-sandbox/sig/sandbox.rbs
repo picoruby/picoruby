@@ -1,0 +1,9 @@
+class Sandbox
+  def compile: (String) -> bool
+  def suspend: () -> void
+  def state: () -> Integer
+  def result: () -> untyped
+  def wait: () -> bool
+  def execute: () -> bool
+  def error: () -> Exception
+end

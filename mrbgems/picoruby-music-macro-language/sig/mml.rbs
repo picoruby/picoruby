@@ -1,0 +1,14 @@
+class MML
+  DURATION_BASE: Float
+
+  @octave: Integer
+  @tempo: Integer
+  @common_duration: Integer
+  @q: Integer
+
+  def self.number_str: (String, Integer) -> [String, Integer]
+  def self.count_punto: (String, Integer) -> [Integer, Integer]
+  def self.coef: (Integer) -> Float
+
+  def compile: (String) { (Float, Integer) -> bool } -> Integer
+end

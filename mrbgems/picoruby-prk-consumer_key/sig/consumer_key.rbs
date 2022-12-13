@@ -1,0 +1,10 @@
+class ConsumerKey
+  KEYCODE: Hash[Symbol, Integer]
+  ALIAS: Hash[Symbol, Integer]
+  VIACODE: Hash[Integer, Symbol]
+  MAP_OFFSET: Integer
+
+  def self.keycode: (Symbol) -> Integer?
+  def self.keycode_from_mapcode: (Integer) -> Integer
+  def self.viacode_from_mapcode: (Integer) -> Integer?
+end

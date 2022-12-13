@@ -1,0 +1,28 @@
+
+class DebounceBase
+  DEFAULT_THRESHOLD: Integer
+
+  @now: Integer
+  @threshold: Integer
+  @type: Symbol
+
+  def initialize: () -> void
+  def threshold=: (Integer) -> void
+  def set_time: () -> void
+end
+
+class DebounceNone < DebounceBase
+  def resolve: (Integer in_pin, Integer out_pin) -> bool
+end
+
+class DebouncePerRow < DebounceBase
+  @pr_table: Hash[Integer, { in_pin: Integer?, pin_val: bool, time: Integer }]
+
+  def resolve: (Integer in_pin, Integer out_pin) -> bool
+end
+
+class DebouncePerKey < DebounceBase
+  @pk_table: Hash[Integer, { pin_val: bool, time: Integer }]
+
+  def resolve: (Integer in_pin, Integer out_pin) -> bool
+end

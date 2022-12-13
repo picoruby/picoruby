@@ -1,0 +1,187 @@
+# TypeProf 0.14.1
+
+# Global variables
+$mutex: bool
+
+class Keyboard
+  type debounce_type = :none
+                     | :per_row
+                     | :per_key
+  type debouncer_type = DebounceNone
+                      | DebouncePerRow
+                      | DebouncePerKey
+  type scan_mode_type = :matrix
+                      | :direct
+  type append_type = RGB
+                   | RotaryEncoder
+                   | VIA
+                   | Joystick
+                   | Sounder
+                   | DebounceNone
+                   | DebouncePerRow
+                   | DebouncePerKey
+  type anchor_type = :left
+                   | :right
+  type split_style_type = :standard_split
+                        | :right_side_flipped_split
+
+  GPIO_IN: Integer
+  GPIO_IN_PULLUP: Integer
+  GPIO_IN_PULLDOWN: Integer
+  GPIO_OUT: Integer
+  GPIO_OUT_LO: Integer
+  GPIO_OUT_HI: Integer
+  LED_NUMLOCK: Integer
+  LED_CAPSLOCK: Integer
+  LED_SCROLLLOCK: Integer
+  LED_COMPOSE: Integer
+  LED_KANA: Integer
+
+  MOD_KEYCODE: Hash[Symbol, Integer]
+  KEYCODE: Array[Symbol]
+  KEYCODE_SFT: Hash[Symbol, Integer]
+  LETTER: Array[String | Symbol | nil]
+  KC_ALIASES: Hash[Symbol, Symbol]
+  SIGNALS_MAX_INDEX: Integer
+
+  @SHIFT_LETTER_OFFSET_A: Integer
+  @SHIFT_LETTER_OFFSET_UNDS: Integer
+  @SHIFT_LETTER_THRESHOLD_A: Integer
+  @SHIFT_LETTER_THRESHOLD_UNDS: Integer
+
+  @before_filters: Array[^() -> void] | nil
+  @on_start_procs: Array[^() -> void] | nil
+  @partner_signals: Array[^() -> void] | nil
+  @anker_signals: Array[Symbol] | nil
+  @keymaps: Hash[Symbol, Array[Array[Integer | Symbol | Proc]]]
+  @composite_keys: Array[{
+    layer:             Symbol | nil,
+    keycodes:          Array[Integer],
+    switch:            [Integer, Integer],
+  }]
+  @mode_keys: Hash[[Integer, Integer],
+    {
+      prev_state:  Symbol,
+      pushed_at:   Integer,
+      released_at: Integer,
+      layers:      Hash[Symbol,
+                        {
+                          on_release:        Integer | Array[Integer] | Proc | nil,
+                          on_hold:           Integer | Symbol | Proc,
+                          release_threshold: Integer,
+                          repush_threshold:  Integer
+                        }
+      ]
+    }
+  ]
+  @injected_switches: Array[[Integer, Integer]]
+  @layer_names: Array[Symbol]
+  @layer: Symbol | nil
+  @default_layer: Symbol
+  @anchor_left: bool
+  @direct_pins: Array[Integer]
+  @matrix: Hash[Integer, Hash[Integer, [Integer, Integer]]]
+  @locked_layer: Symbol | nil
+  @keycodes: Array[String]
+  @macro_keys: Array[Integer]
+  @macro_key_numbers: Array[Integer | nil]
+  @modifier: Integer
+  @message: Integer
+  @encoders: Array[RotaryEncoder]
+  @scan_mode: scan_mode_type
+  @offset_a: Integer
+  @offset_b: Integer
+  @entire_cols_size: Integer
+  @skip_positions: Array[[Integer, Integer]]
+  @joystick: Joystick
+  @output_report_cb: ^(Integer)->void
+  @prev_rgb_effect: effect_type
+  @ruby_mode_stop: bool
+  @ruby_mode: bool
+  @via: VIA
+  @debouncer: DebounceNone | DebouncePerRow | DebouncePerKey
+  @buffer: Terminal::Buffer
+  @layer_changed_delay: Integer
+  @partner_encoders: Array[RotaryEncoder]
+  @macro_keycodes: Array[Integer]
+  @switches: Array[[Integer, Integer]]
+  @key_pressed: bool
+  @anchor: bool
+
+  attr_accessor split: bool
+  attr_accessor uart_pin: Integer
+  attr_accessor default_layer: Symbol
+  attr_accessor sounder: Sounder
+
+  attr_reader layer: Symbol | nil
+  attr_reader split_style: split_style_type
+  attr_reader sandbox: Sandbox
+  attr_reader cols_size: Integer
+  attr_reader rows_size: Integer
+
+  def self.suspend_keymap: () -> void
+  def self.resume_keymap: () -> void
+  def self.reload_keymap: () -> void
+
+  def self.hid_task : (Integer, String, Integer, Integer, Integer) -> void
+  def hid_task : (Integer, String, Integer, Integer, Integer) -> void
+
+  def set_debounce: (debounce_type) -> void
+  def set_debounce_threshold: (Integer) -> void
+  def append: (append_type feature) -> void
+  def start_features: -> void
+  def mutual_uart_at_my_own_risk= : (bool) -> void
+  def mutual_uart= : (bool) -> void
+  def uart_partner_push8 : (Integer) -> void
+  def uart_partner : () -> Integer
+  def uart_anchor : (Integer) -> Integer
+  def uart_anchor_init : (Integer) -> void
+  def uart_partner_init : (Integer) -> void
+
+  def initialize: -> void
+  def anchor?: -> bool
+  def via=: (bool) -> void
+  def via_layer_count=: (Integer) -> void
+  def bootsel!: -> void
+  def set_anchor: (anchor_type val) -> void
+  def set_scan_mode: (scan_mode_type val) -> void
+  def split_style=: (Symbol style) -> void
+  def init_matrix_pins: (Array[Array[Array[Integer] | nil]] matrix) -> void
+  def init_uart: () -> void
+  def init_pins: (Array[Integer] rows, Array[Integer] cols) -> void
+  def init_direct_pins: (Array[Integer] pins) -> void
+  def calculate_col_position: (Integer col_index) -> Integer
+  def convert_composite_keys: (Array[Symbol]) -> Array[Integer]
+  def add_layer: (Symbol name, Array[ Symbol | Array[Symbol] ] map) -> void
+  def find_keycode_index: (Symbol key) -> (Integer | Symbol)
+  def define_composite_key: (Symbol key_name, Array[Symbol] keys) -> void
+  def define_mode_key: (Symbol key_name, [Symbol | Array[Symbol] | Proc | nil, Symbol | Proc | nil, Integer?, Integer?] param, ?bool from_via) -> void
+  def invert_sft: -> void
+  def before_report: () { () -> void } -> void
+  def on_start: () { () -> void } -> void
+  def signal_partner: (Symbol key) { () -> void } -> void
+  def keys_include?: (Symbol) -> bool
+  def action_on_release: (Integer | Array[Integer] | Proc | nil) -> void
+  def send_key: (*untyped) -> void # 気持ちとしては *(Symbol | Array) だけど書き方わからんかった
+  def start!: -> void
+  def raise_layer: -> void
+  def lower_layer: -> void
+  def lock_layer: (Symbol layer_name) -> void
+  def unlock_layer: () -> void
+  def macro: (String text, ?::Array[Symbol] opt) -> void
+  def eval: (String) -> void
+  def ruby: () -> void
+  def scan_matrix!: () -> void
+  def scan_direct!: () -> void
+  def entire_cols_size: () -> Integer
+  def skip_position?: (Integer row_index, Integer col_index) -> bool
+  def resolve_key_alias: (Symbol) -> Symbol
+  def get_layer: (Symbol | nil, Integer) -> ( Array[Array[Integer | Symbol | Proc]] | nil )
+  def delete_mode_keys: (Symbol) -> void
+  def output_report_changed: () { (Integer) -> void } -> void
+  def start_observing_output_report: () -> void
+  def stop_observing_output_report: () -> void
+  def output_report: () -> Integer
+  def inject_switch: (Integer col, Integer row) -> void
+  def key_pressed?: () -> bool
+end

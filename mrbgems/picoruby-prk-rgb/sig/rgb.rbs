@@ -1,0 +1,76 @@
+# TypeProf 0.14.1
+
+# Global variables
+$rgb: RGB
+
+type effect_type = :swirl
+                 | :rainbow_mood
+                 | :breath
+                 | :ruby
+                 | :nokogiri
+                 | :static
+                 | :circle
+
+# Classes
+class RGB
+  type action_type = :thunder
+                   | nil
+
+  KEYCODE: Hash[Symbol, Integer]
+  EFFECTS: Array[effect_type]
+
+  def ws2812_init: (Integer, Integer, bool) -> void
+  def ws2812_show: () -> void
+  def ws2812_fill: (Integer, Integer) -> void
+  def ws2812_rand_show: (Integer, Integer, Integer) -> void
+  def ws2812_set_pixel_at: (Integer, Integer) -> void
+  def ws2812_rotate_swirl: (Integer) -> bool
+  def ws2812_reset_swirl_index: () -> bool
+  def ws2812_circle: (Integer, Integer, Integer) -> void
+  def ws2812_add_matrix_pixel_at: (Integer, Integer, Integer) -> void
+  def ws2812_init_pixel_distance: (Integer) -> void
+  def ws2812_circle_set_center: (Integer, Integer) -> void
+
+  @fifo: Array[true]
+  @effect: effect_type
+  @effect_init: boolish
+  @speed: Integer
+  @delay: Integer
+  @max_value: Integer
+  @value: Float
+  @hue: Integer
+  @circle_diameter: Integer
+  @srand: bool
+  @ascent: bool
+  @offed: bool
+  @last_key: Symbol?
+  @saturation: Integer
+  @ping: bool
+  @pixel_index: Integer?
+
+  def hsv2rgb: (Float | Integer h, Integer s, Float | Integer v) -> Integer
+
+  attr_reader pixel_size: Integer
+  attr_reader effect: effect_type
+  attr_accessor action: action_type
+  attr_accessor anchor: bool
+
+  def initialize: (Integer pin, Integer underglow_size, Integer backlight_size, ?bool is_rgbw) -> void
+  def init_values: () -> void
+  def turn_off: () -> void
+  def turn_on: () -> void
+  def toggle: () -> void
+  def effect=: (effect_type) -> void
+  def hue=: (Integer) -> void
+  def saturation=: (Integer) -> void
+  def value=: (Integer) -> void
+  def speed=: (Integer) -> void
+  def reset_pixel: () -> void
+  def invoke_anchor: (Symbol | nil) -> Integer
+  def invoke_partner: (Integer) -> void
+  def show: -> void
+  def fifo_push: (true data) -> void
+  def thunder: -> void
+  def ping?: () -> bool
+  def add_pixel: (Integer, Integer) -> void
+end
