@@ -83,11 +83,14 @@ MRuby.each_target do |build|
       f.puts
       f.puts <<~PICOGEM
         static int
-        gem_index(const char *name)
+        gem_index(mrbc_vm *vm, const char *name)
         {
           if (!name) return -1;
           for (int i = 0; ; i++) {
             if (gems[i].name == NULL) {
+              char buff[100];
+              sprintf(buff, "cannot find such gem -- %s", name);
+              mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
               return -1;
             } else if (strcmp(name, gems[i].name) == 0) {
               return i;
@@ -114,16 +117,22 @@ MRuby.each_target do |build|
         }
 
         static void
-        c_require(mrb_vm *vm, mrb_value *v, int argc)
+        c_required_q(mrbc_vm *vm, mrb_value *v, int argc)
         {
           const char *name = (const char *)GET_STRING_ARG(1);
-          int i = gem_index(name);
-          if (i < 0) {
-            char buff[64];
-            sprintf(buff, "cannot find such gem -- %s", name);
-            mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
-            return;
+          int i = gem_index(vm, name);
+          if (gems[i].required) {
+            SET_TRUE_RETURN();
+          } else {
+            SET_FALSE_RETURN();
           }
+        }
+
+        static void
+        c_require(mrbc_vm *vm, mrb_value *v, int argc)
+        {
+          const char *name = (const char *)GET_STRING_ARG(1);
+          int i = gem_index(vm, name);
           if (!gems[i].required && load_model(gems[i].mrb)) {
             if (gems[i].initializer) gems[i].initializer();
             gems[i].required = true;
@@ -187,6 +196,7 @@ MRuby.each_target do |build|
         {
           mrbc_define_method(0, mrbc_class_object, "_next_executable", c__next_executable);
           mrbc_define_method(0, mrbc_class_object, "require", c_require);
+          mrbc_define_method(0, mrbc_class_object, "required?", c_required_q);
         }
       PICOGEM
     end
