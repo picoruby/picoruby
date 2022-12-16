@@ -2,7 +2,7 @@
 #include "../include/prk-keyboard.h"
 
 #ifndef PRK_NO_MSC
- mrbc_tcb *tcb_keymap;
+mrbc_tcb *tcb_keymap;
 
 static void
 c_Keyboard_resume_keymap(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -30,6 +30,9 @@ c_Keyboard_reload_keymap(mrbc_vm *vm, mrbc_value *v, int argc)
 #endif /* PRK_NO_MSC */
 
 
+/*
+ * Software UART
+ */
 
 static void
 c_uart_anchor_init(mrb_vm *vm, mrb_value *v, int argc)
