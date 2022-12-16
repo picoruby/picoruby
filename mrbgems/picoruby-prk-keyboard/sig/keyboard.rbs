@@ -131,7 +131,6 @@ class Keyboard
   def append: (append_type feature) -> void
   def start_features: -> void
   def mutual_uart_at_my_own_risk= : (bool) -> void
-  def mutual_uart= : (bool) -> void
   def uart_partner_push8 : (Integer) -> void
   def uart_partner : () -> Integer
   def uart_anchor : (Integer) -> Integer
