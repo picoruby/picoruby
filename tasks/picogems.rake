@@ -117,7 +117,7 @@ MRuby.each_target do |build|
         }
 
         static void
-        c_required_q(mrbc_vm *vm, mrb_value *v, int argc)
+        c_required_q(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
@@ -129,7 +129,7 @@ MRuby.each_target do |build|
         }
 
         static void
-        c_require(mrbc_vm *vm, mrb_value *v, int argc)
+        c_require(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
@@ -166,7 +166,7 @@ MRuby.each_target do |build|
       f.puts
       f.puts <<~PICOGEM
         static void
-        c__next_executable(mrb_vm *vm, mrb_value *v, int argc)
+        c__next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           static int i = 0;
           if (executables[i].name) {

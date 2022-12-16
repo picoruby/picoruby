@@ -3,14 +3,14 @@
 #ifndef PRK_NO_MSC
  mrbc_tcb *tcb_keymap;
 
-void
-c_Keyboard_resume_keymap(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Keyboard_resume_keymap(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_resume_task(tcb_keymap);
 }
 
-void
-c_Keyboard_suspend_keymap(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Keyboard_suspend_keymap(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_suspend_task(tcb_keymap);
 }
@@ -21,8 +21,8 @@ c_Keyboard_suspend_keymap(mrb_vm *vm, mrb_value *v, int argc)
  */
 mrbc_tcb* create_keymap_task(mrbc_tcb *tcb);
 
-void
-c_Keyboard_reload_keymap(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Keyboard_reload_keymap(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   tcb_keymap = create_keymap_task(tcb_keymap);
 }

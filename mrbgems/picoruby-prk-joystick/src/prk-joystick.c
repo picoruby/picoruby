@@ -4,14 +4,14 @@
 
 #define MAGNIFY_BASE 1.0
 
-int8_t axes[MAX_ADC_COUNT] = {-1,-1,-1,-1};
-uint8_t adc_offset[MAX_ADC_COUNT] = {0,0,0,0};
-float sensitivity[MAX_ADC_COUNT] = {-1.0,-1.0,-1.0,-1.0};
-int8_t drift_suppression = 5;
-int8_t drift_suppression_minus = -5;
+int8_t  Joystick_axes[MAX_ADC_COUNT] = {-1,-1,-1,-1};
+uint8_t Joystick_adc_offset[MAX_ADC_COUNT] = {0,0,0,0};
+float   Joystick_sensitivity[MAX_ADC_COUNT] = {-1.0,-1.0,-1.0,-1.0};
+int8_t  Joystick_drift_suppression = 5;
+int8_t  Joystick_drift_suppression_minus = -5;
 
-void
-c_Joystick_drift_suppression_eq(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Joystick_drift_suppression_eq(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int value = GET_INT_ARG(1);
   if (value < 0 || 100 < value) {
@@ -19,33 +19,33 @@ c_Joystick_drift_suppression_eq(mrb_vm *vm, mrb_value *v, int argc)
     SET_FALSE_RETURN();
     return;
   } else {
-    drift_suppression = value;
-    drift_suppression_minus = value * (-1);
+    Joystick_drift_suppression = value;
+    Joystick_drift_suppression_minus = value * (-1);
     SET_TRUE_RETURN();
   }
 }
 
-void
-c_Joystick_reset_axes(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Joystick_reset_axes(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   Joystick_reset_zero_report();
   for (int i = 0; i < MAX_ADC_COUNT; i++) {
-    axes[i] = -1;
-    adc_offset[i] = 0;
+    Joystick_axes[i] = -1;
+    Joystick_adc_offset[i] = 0;
   }
   SET_NIL_RETURN();
 }
 
-void
-c_Joystick_init_sensitivity(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Joystick_init_sensitivity(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int8_t adc_ch = GET_INT_ARG(1);
   float val = GET_FLOAT_ARG(2);
-  sensitivity[adc_ch] = val * MAGNIFY_BASE;
+  Joystick_sensitivity[adc_ch] = val * MAGNIFY_BASE;
 }
 
-void
-c_Joystick_init_axis_offset(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_Joystick_init_axis_offset(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   char *axis = (char *)GET_STRING_ARG(1);
   int8_t adc_ch = GET_INT_ARG(2);
@@ -56,19 +56,19 @@ c_Joystick_init_axis_offset(mrb_vm *vm, mrb_value *v, int argc)
     sleep_ms(20);
     offset_sum += Joystick_adc_read();
   }
-  adc_offset[adc_ch] = (uint8_t)((offset_sum / 3) >> 4);
+  Joystick_adc_offset[adc_ch] = (uint8_t)((offset_sum / 3) >> 4);
   if (strcmp(axis, "x") == 0) {
-    axes[adc_ch] = AXIS_INDEX_X;
+    Joystick_axes[adc_ch] = AXIS_INDEX_X;
   } else if (strcmp(axis, "y") == 0) {
-    axes[adc_ch] = AXIS_INDEX_Y;
+    Joystick_axes[adc_ch] = AXIS_INDEX_Y;
   } else if (strcmp(axis, "z") == 0) {
-    axes[adc_ch] = AXIS_INDEX_Z;
+    Joystick_axes[adc_ch] = AXIS_INDEX_Z;
   } else if (strcmp(axis, "rz") == 0) {
-    axes[adc_ch] = AXIS_INDEX_RZ;
+    Joystick_axes[adc_ch] = AXIS_INDEX_RZ;
   } else if (strcmp(axis, "rx") == 0) {
-    axes[adc_ch] = AXIS_INDEX_RX;
+    Joystick_axes[adc_ch] = AXIS_INDEX_RX;
   } else if (strcmp(axis, "ry") == 0) {
-    axes[adc_ch] = AXIS_INDEX_RY;
+    Joystick_axes[adc_ch] = AXIS_INDEX_RY;
   } else {
     console_printf("Invalid axis: %s\n", axis);
     SET_FALSE_RETURN();

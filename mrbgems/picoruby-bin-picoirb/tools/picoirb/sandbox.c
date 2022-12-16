@@ -14,13 +14,13 @@ static ParserState *p;
 static picorbc_context *cxt;
 
 void
-c_sandbox_state(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SET_INT_RETURN(tcb_sandbox->state);
 }
 
 void
-c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
   if (sandbox_vm->exception.tt == MRBC_TT_NIL) {
@@ -41,7 +41,7 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 void
-c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   p = Compiler_parseInitState(0, NODE_BOX_SIZE);
   //p->verbose = true;
@@ -59,7 +59,7 @@ c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 void
-c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_resume(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_vm *sandbox_vm = (mrbc_vm *)&tcb_sandbox->vm;
   if(mrbc_load_mrb(sandbox_vm, p->scope->vm_code) != 0) {
@@ -85,7 +85,7 @@ create_sandbox(void)
 }
 
 void
-c_sandbox_exit(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_exit(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   picorbc_context_free(cxt);
 }

@@ -1,11 +1,11 @@
 #include <vm.h>
 #include <value.h>
 
-void c_sandbox_state(mrb_vm *vm, mrb_value *v, int argc);
-void c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc);
-void c_sandbox_resume(mrb_vm *vm, mrb_value *v, int argc);
-void c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc);
-void c_sandbox_exit(mrb_vm *vm, mrb_value *v, int argc);
+void c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc);
+void c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc);
+void c_sandbox_resume(mrbc_vm *vm, mrbc_value *v, int argc);
+void c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc);
+void c_sandbox_exit(mrbc_vm *vm, mrbc_value *v, int argc);
 
 void create_sandbox(void);
 

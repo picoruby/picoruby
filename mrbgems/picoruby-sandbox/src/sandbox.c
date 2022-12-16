@@ -16,14 +16,14 @@ typedef struct sandbox_state {
   SandboxState *ss = (SandboxState *)v->instance->data
 
 static void
-c_sandbox_state(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   SET_INT_RETURN(ss->tcb.state);
 }
 
 static void
-c_sandbox_error(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_error(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
@@ -35,7 +35,7 @@ c_sandbox_error(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
@@ -49,7 +49,7 @@ c_sandbox_result(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_sandbox_suspend(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_suspend_task(&ss->tcb);
@@ -63,7 +63,7 @@ c_sandbox_suspend(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_sandbox_compile(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   ss->p = (ParserState *)PICORBC_ALLOC(sizeof(ParserState));
@@ -96,12 +96,12 @@ reset_vm(mrbc_vm *vm)
 }
 
 static void
-c_sandbox_exec_mrb(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
-  mrbc_value mrb_string = v[1];
-  if (mrbc_load_mrb(sandbox_vm, mrb_string.string->data) != 0) {
+  mrbc_value mrbc_string = v[1];
+  if (mrbc_load_mrb(sandbox_vm, mrbc_string.string->data) != 0) {
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
@@ -111,7 +111,7 @@ c_sandbox_exec_mrb(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_sandbox_execute(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
@@ -139,7 +139,7 @@ static const uint8_t sandbox_task[] = {
 };
 
 static void
-c_sandbox_new(mrb_vm *vm, mrb_value *v, int argc)
+c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
   SandboxState *ss = (SandboxState *)sandbox.instance->data;

@@ -2,25 +2,13 @@
 #include <mrubyc.h>
 #include "../include/prk-rotary_encoder.h"
 
-static int8_t encoder_count = 0;
-static int8_t pins_a[] = {-1,-1,-1,-1,-1};
-static int8_t pins_b[] = {-1,-1,-1,-1,-1};
-volatile static int8_t status[] = {0,0,0,0,0};
-volatile static int8_t rotation_count[] = {0,0,0,0,0};
-
 #define MAX_ENCODER_COUNT 5
 
-void
-RotaryEncoder_reset(void)
-{
-  encoder_count = 0;
-  for (int i = 0; i < MAX_ENCODER_COUNT; i++) {
-    pins_a[i] = -1;
-    pins_b[i] = -1;
-    status[i] = 0;
-    rotation_count[i] = 0;
-  }
-}
+static int8_t encoder_count = 0;
+static int8_t pins_a[MAX_ENCODER_COUNT] = {-1,-1,-1,-1,-1};
+static int8_t pins_b[MAX_ENCODER_COUNT] = {-1,-1,-1,-1,-1};
+volatile static int8_t status[MAX_ENCODER_COUNT] = {0,0,0,0,0};
+volatile static int8_t rotation_count[MAX_ENCODER_COUNT] = {0,0,0,0,0};
 
 /*
  * status[i]:
@@ -40,7 +28,7 @@ RotaryEncoder_reset(void)
  * (B-2) if the possible rotation is cw and the previous status is `01`, should be CW.
  *       if the possible rotation is ccw and the previous status is `10`, should be CCW.
  */
-void
+static void
 encoder_callback(uint32_t gpio, uint32_t _events) /* We ignore the event itself */
 {
   for (int i = 0; i < MAX_ENCODER_COUNT; i++) {
@@ -73,8 +61,8 @@ encoder_callback(uint32_t gpio, uint32_t _events) /* We ignore the event itself 
   }
 }
 
-void
-c_consume_encoder(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_consume_encoder(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int number = GET_INT_ARG(1);
   if (rotation_count[number] > 0) {
@@ -88,8 +76,8 @@ c_consume_encoder(mrb_vm *vm, mrb_value *v, int argc)
   }
 }
 
-void
-c_init_encoder(mrb_vm *vm, mrb_value *v, int argc)
+static void
+c_init_encoder(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (encoder_count == 0) {
     RotaryEncoder_gpio_set_irq_enabled_with_callback(0, false, &encoder_callback);
@@ -112,6 +100,7 @@ c_init_encoder(mrb_vm *vm, mrb_value *v, int argc)
   SET_INT_RETURN(encoder_count);
   encoder_count++;
 }
+
 void
 mrbc_prk_rotary_encoder_init(void)
 {
@@ -119,3 +108,16 @@ mrbc_prk_rotary_encoder_init(void)
   mrbc_define_method(0, mrbc_class_RotaryEncoder, "init_encoder",    c_init_encoder);
   mrbc_define_method(0, mrbc_class_RotaryEncoder, "consume_encoder", c_consume_encoder);
 }
+
+void
+RotaryEncoder_reset(void)
+{
+  encoder_count = 0;
+  for (int i = 0; i < MAX_ENCODER_COUNT; i++) {
+    pins_a[i] = -1;
+    pins_b[i] = -1;
+    status[i] = 0;
+    rotation_count[i] = 0;
+  }
+}
+

@@ -16,11 +16,11 @@ extern "C" {
 #define AXIS_INDEX_RX  4
 #define AXIS_INDEX_RY  5
 
-extern int8_t axes[MAX_ADC_COUNT];
-extern uint8_t adc_offset[MAX_ADC_COUNT];
-extern float sensitivity[MAX_ADC_COUNT];
-extern int8_t drift_suppression;
-extern int8_t drift_suppression_minus;
+extern int8_t  Joystick_axes[MAX_ADC_COUNT];
+extern uint8_t Joystick_adc_offset[MAX_ADC_COUNT];
+extern float   Joystick_sensitivity[MAX_ADC_COUNT];
+extern int8_t  Joystick_drift_suppression;
+extern int8_t  Joystick_drift_suppression_minus;
 
 void Joystick_reset_zero_report(void);
 void Joystick_adc_gpio_init(uint32_t gpio);
