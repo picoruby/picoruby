@@ -13,7 +13,7 @@ static struct termios save_settings;
 static int save_flags;
 
 static void
-c_raw_bang(mrb_vm *vm, mrb_value *v, int argc)
+c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   struct termios settings;
   tcgetattr(fileno(stdin), &save_settings);
@@ -29,7 +29,7 @@ c_raw_bang(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc)
+c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   fcntl(fileno(stdin), F_SETFL, save_flags);
   tcsetattr(fileno(stdin), TCSANOW, &save_settings);
@@ -38,13 +38,13 @@ c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc)
 
 #else
 
-void c_raw_bang(mrb_vm *vm, mrb_value *v, int argc);
-void c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc);
+void c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc);
+void c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc);
 
 #endif /* MRBC_USE_HAL_POSIX */
 
 static void
-c_getc(mrb_vm *vm, mrb_value *v, int argc)
+c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int c = hal_getchar();
   if (-1 < c) {
@@ -55,7 +55,7 @@ c_getc(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_read_nonblock(mrb_vm *vm, mrb_value *v, int argc)
+c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   /*
     * read_nonblock(maxlen, outbuf = nil, exeption: true) -> String | Symbol | nil

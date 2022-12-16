@@ -26,7 +26,7 @@ int loglevel;
 static uint8_t heap[HEAP_SIZE];
 
 void
-c_getch(mrb_vm *vm, mrb_value *v, int argc)
+c_getch(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   struct termios save_settings;
   struct termios settings;
@@ -50,7 +50,7 @@ c_getch(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 void
-c_gets_nonblock(mrb_vm *vm, mrb_value *v, int argc)
+c_gets_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   size_t max_len = GET_INT_ARG(1) + 1;
   char buf[max_len];
@@ -73,7 +73,7 @@ c_gets_nonblock(mrb_vm *vm, mrb_value *v, int argc)
   }
   buf[len] = '\0';
   tcsetattr( fileno( stdin ), TCSANOW, &save_settings );
-  mrb_value value = mrbc_string_new(vm, (const void *)&buf, len);
+  mrbc_value value = mrbc_string_new(vm, (const void *)&buf, len);
   SET_RETURN(value);
 }
 
@@ -110,7 +110,7 @@ default_sigint(void)
 }
 
 void
-c_terminate_irb(mrb_vm *vm, mrb_value *v, int argc)
+c_terminate_irb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   default_sigint();
   raise(SIGINT);

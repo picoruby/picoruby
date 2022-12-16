@@ -14,7 +14,7 @@ int loglevel = LOGLEVEL_FATAL; /* must be LOGLEVEL_FATAL so that irb works */
 static uint8_t heap_pool[HEAP_SIZE];
 
 static void
-c_exit(mrb_vm *vm, mrb_value *v, int argc)
+c_exit(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   pid_t pid = getpid();
   kill(pid, SIGINT);
