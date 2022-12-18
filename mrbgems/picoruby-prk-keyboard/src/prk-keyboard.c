@@ -4,6 +4,9 @@
 #ifndef PRK_NO_MSC
 mrbc_tcb *tcb_keymap;
 
+static uint32_t buffer = 0;
+static int      buffer_index = 0;
+
 static void
 c_Keyboard_resume_keymap(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -47,17 +50,6 @@ c_uart_partner_init(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_uart_anchor(mrb_vm *vm, mrb_value *v, int argc)
-{
-  uint32_t data;
-  data = Keyboard_mutual_anchor_put8_get24_nonblocking((uint8_t)GET_INT_ARG(1));
-  SET_INT_RETURN(data);
-}
-
-static uint32_t buffer = 0;
-static int      buffer_index = 0;
-
-static void
 c_uart_partner_push8(mrb_vm *vm, mrb_value *v, int argc)
 {
   int keycode = GET_INT_ARG(1);
@@ -88,14 +80,15 @@ mrbc_prk_keyboard_init(void)
   mrbc_class *mrbc_class_Keyboard = mrbc_define_class(0, "Keyboard", mrbc_class_object);
 
 #ifndef PRK_NO_MSC
-  mrbc_define_method(0, mrbc_class_Keyboard, "reload_keymap",    c_Keyboard_reload_keymap);
-  mrbc_define_method(0, mrbc_class_Keyboard, "suspend_keymap",   c_Keyboard_suspend_keymap);
-  mrbc_define_method(0, mrbc_class_Keyboard, "resume_keymap",    c_Keyboard_resume_keymap);
+  mrbc_define_method(0, mrbc_class_Keyboard, "reload_keymap",  c_Keyboard_reload_keymap);
+  mrbc_define_method(0, mrbc_class_Keyboard, "suspend_keymap", c_Keyboard_suspend_keymap);
+  mrbc_define_method(0, mrbc_class_Keyboard, "resume_keymap",  c_Keyboard_resume_keymap);
 #endif /* PRK_NO_MSC */
 
   mrbc_define_method(0, mrbc_class_Keyboard, "uart_anchor_init",   c_uart_anchor_init);
   mrbc_define_method(0, mrbc_class_Keyboard, "uart_partner_init",  c_uart_partner_init);
-  mrbc_define_method(0, mrbc_class_Keyboard, "uart_anchor",        c_uart_anchor);
   mrbc_define_method(0, mrbc_class_Keyboard, "uart_partner",       c_uart_partner);
   mrbc_define_method(0, mrbc_class_Keyboard, "uart_partner_push8", c_uart_partner_push8);
+
+  Keyboard_init_sub(mrbc_class_Keyboard);
 }
