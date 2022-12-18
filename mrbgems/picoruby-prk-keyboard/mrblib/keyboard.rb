@@ -596,13 +596,12 @@ class Keyboard
     end
   end
 
-  def mutual_uart_at_my_own_risk=(v)
-    if v == true
-      puts
-      puts "[WARN] Mutual UART is at your own risk"
-      puts
-    end
-    self.mutual_uart = v
+  def mutual_uart_at_my_own_risk=(_v)
+    puts
+    puts "[Deprecated in 0.9.20]"
+    puts "Keyboard#mutual_uart_at_my_own_risk= no longer takes any effect."
+    puts "Software-mutual-UART has became the default and only option."
+    puts
   end
 
   def init_matrix_pins(matrix)
