@@ -20,7 +20,7 @@ class DebounceBase
   end
 
   def set_time
-    @now = board_millis
+    @now = Machine.board_millis
   end
 end
 

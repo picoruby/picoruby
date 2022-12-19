@@ -466,7 +466,7 @@ class Keyboard
   def bootsel!
     puts "Rebooting into BOOTSEL mode!"
     sleep 0.1
-    Microcontroller.reset_usb_boot
+    Machine.reset_usb_boot
   end
 
   def set_debounce(type)
@@ -1007,11 +1007,9 @@ class Keyboard
         end
       end
     end
-    tud_task
     hid_task(modifier, keycodes, consumer, 0, 0)
     (consumer > 0 ? 3 : 1).times do
       sleep_ms 1
-      tud_task
     end
     hid_task(0, "\000\000\000\000\000\000", 0, 0, 0)
   end
@@ -1064,7 +1062,7 @@ class Keyboard
 
     while true
       cycle_time = 20
-      now = board_millis
+      now = Machine.board_millis
       @keycodes.clear
 
       @switches = @injected_switches.dup
@@ -1296,7 +1294,7 @@ class Keyboard
         @output_report_cb.call(prev_output_report)
       end
 
-      time = cycle_time - (board_millis - now)
+      time = cycle_time - (Machine.board_millis - now)
       sleep_ms(time) if time > 0
     end
 

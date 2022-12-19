@@ -62,7 +62,7 @@ class Sounder
   # inserting `sleep_ms 1` may solve the problem.
   def replay
     return if @locked
-    now = board_millis
+    now = Machine.board_millis
     return if now < @playing_until
     @playing_until = now + @total_duration
     sounder_replay

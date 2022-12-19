@@ -316,7 +316,7 @@ class RGB
   def thunder
     unless @srand
       # generate seed with board_millis
-      srand(board_millis)
+      Machine.srand(Machine.board_millis)
       @srand = true
     end
     4.times do |salt|

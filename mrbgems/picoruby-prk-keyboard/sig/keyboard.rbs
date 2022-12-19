@@ -119,6 +119,7 @@ class Keyboard
   attr_reader cols_size: Integer
   attr_reader rows_size: Integer
 
+  def self.autoreload_ready?: () -> bool
   def self.suspend_keymap: () -> void
   def self.resume_keymap: () -> void
   def self.reload_keymap: () -> void

@@ -82,24 +82,9 @@ MRuby.each_target do |build|
       f.puts "};"
       f.puts
       f.puts <<~PICOGEM
-        static int
-        gem_index(mrbc_vm *vm, const char *name)
-        {
-          if (!name) return -1;
-          for (int i = 0; ; i++) {
-            if (gems[i].name == NULL) {
-              char buff[100];
-              sprintf(buff, "cannot find such gem -- %s", name);
-              mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
-              return -1;
-            } else if (strcmp(name, gems[i].name) == 0) {
-              return i;
-            }
-          }
-        }
-
-        static int
-        load_model(const uint8_t *mrb)
+        /* public API */
+        int
+        picoruby_load_model(const uint8_t *mrb)
         {
           mrbc_vm *vm = mrbc_vm_open(NULL);
           if (vm == 0) {
@@ -114,6 +99,22 @@ MRuby.each_target do |build|
           mrbc_vm_run(vm);
           mrbc_raw_free(vm);
           return 1;
+        }
+
+        static int
+        gem_index(mrbc_vm *vm, const char *name)
+        {
+          if (!name) return -1;
+          for (int i = 0; ; i++) {
+            if (gems[i].name == NULL) {
+              char buff[100];
+              sprintf(buff, "cannot find such gem -- %s", name);
+              mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
+              return -1;
+            } else if (strcmp(name, gems[i].name) == 0) {
+              return i;
+            }
+          }
         }
 
         static void
@@ -133,7 +134,7 @@ MRuby.each_target do |build|
         {
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
-          if (!gems[i].required && load_model(gems[i].mrb)) {
+          if (!gems[i].required && picoruby_load_model(gems[i].mrb)) {
             if (gems[i].initializer) gems[i].initializer();
             gems[i].required = true;
             SET_TRUE_RETURN();

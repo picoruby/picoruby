@@ -385,7 +385,7 @@ class VIA
     when :ID_GET_KEYBOARD_VALUE
       case KEYBOARD_VALUES[data[1]]
       when :ID_UPTIME
-        value  = board_millis >> 10 # seconds
+        value  = Machine.board_millis >> 10 # seconds
         data[2] = (value >> 24) & 0xFF
         data[3] = (value >> 16) & 0xFF
         data[4] = (value >> 8) & 0xFF
