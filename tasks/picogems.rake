@@ -193,7 +193,7 @@ MRuby.each_target do |build|
       PICOGEM
       f.puts <<~PICOGEM
         void
-        mrbc_require_init(void)
+        picoruby_init_require(void)
         {
           mrbc_define_method(0, mrbc_class_object, "_next_executable", c__next_executable);
           mrbc_define_method(0, mrbc_class_object, "require", c_require);
