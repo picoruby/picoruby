@@ -4,6 +4,7 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-mrubyc'
   conf.gem core: 'picoruby-vfs'
   conf.gem core: 'picoruby-filesystem-fat'
+  conf.gem core: 'picoruby-float-ext'
   conf.gem core: 'picoruby-music-macro-language'
   conf.gem core: 'picoruby-prk-consumer_key'
   conf.gem core: 'picoruby-prk-debounce'

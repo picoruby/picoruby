@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new('picoruby-prk-rgb') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PRK Firmware / class RGB'
 
+  spec.add_dependency 'picoruby-float-ext'
+
   spec.require_name = 'rgb'
 end
 

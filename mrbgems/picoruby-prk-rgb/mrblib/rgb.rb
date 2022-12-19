@@ -1,3 +1,5 @@
+require "float-ext"
+
 class RGB
   KEYCODE = {
     RGB_TOG:          0x601,
@@ -42,7 +44,7 @@ class RGB
     s /= 100.0
     v /= 100.0
     c = v * s
-    x = c * (1 - ((h / 60.0).modulo(2) - 1).abs)
+    x = c * (1 - ((h / 60.0) % 2 - 1).abs)
     m = v - c
     rgb = if h < 60
             [c, x, 0]
