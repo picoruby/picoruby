@@ -544,11 +544,11 @@ class VIA
   end
 
   def task
-    if raw_hid_report_received?
-      data = raw_hid_receive( get_last_received_raw_hid_report )
+    if USB.raw_hid_report_received?
+      data = raw_hid_receive( USB.get_last_received_raw_hid_report )
       # sleep is needed to be received
       sleep_ms 1
-      report_raw_hid( data )
+      USB.report_raw_hid( data )
     end
   end
 end

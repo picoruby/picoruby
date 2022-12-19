@@ -586,7 +586,7 @@ class Keyboard
   def init_uart
     return unless @split
     print "Configured as a split-type"
-    @anchor = tud_mounted?
+    @anchor = USB.tud_mounted?
     if @anchor
       puts " Anchor"
       uart_anchor_init(@uart_pin)
@@ -1007,16 +1007,16 @@ class Keyboard
         end
       end
     end
-    hid_task(modifier, keycodes, consumer, 0, 0)
+    USB.hid_task(modifier, keycodes, consumer, 0, 0)
     (consumer > 0 ? 3 : 1).times do
       sleep_ms 1
     end
-    hid_task(0, "\000\000\000\000\000\000", 0, 0, 0)
+    USB.hid_task(0, "\000\000\000\000\000\000", 0, 0, 0)
   end
 
   def output_report_changed(&block)
     @output_report_cb = block
-    start_observing_output_report
+    USB.start_observing_output_report
   end
 
   def inject_switch(col, row)
@@ -1245,7 +1245,7 @@ class Keyboard
 
         #@joystick&.report_hid(joystick_buttons, joystick_hat)
 
-        hid_task(
+        USB.hid_task(
           @modifier,
           @keycodes.join,
           consumer_keycode,
@@ -1289,8 +1289,8 @@ class Keyboard
       @via&.task
 
       # CapsLock, NumLock, etc.
-      if prev_output_report != output_report && @output_report_cb
-        prev_output_report = output_report
+      if prev_output_report != USB.output_report && @output_report_cb
+        prev_output_report = USB.output_report
         @output_report_cb.call(prev_output_report)
       end
 

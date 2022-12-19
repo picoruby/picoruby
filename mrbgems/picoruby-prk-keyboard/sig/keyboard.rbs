@@ -124,9 +124,6 @@ class Keyboard
   def self.resume_keymap: () -> void
   def self.reload_keymap: () -> void
 
-  def self.hid_task : (Integer, String, Integer, Integer, Integer) -> void
-  def hid_task : (Integer, String, Integer, Integer, Integer) -> void
-
   def set_debounce: (debounce_type) -> void
   def set_debounce_threshold: (Integer) -> void
   def append: (append_type feature) -> void
@@ -178,10 +175,6 @@ class Keyboard
   def resolve_key_alias: (Symbol) -> Symbol
   def get_layer: (Symbol | nil, Integer) -> ( Array[Array[Integer | Symbol | Proc]] | nil )
   def delete_mode_keys: (Symbol) -> void
-  def output_report_changed: () { (Integer) -> void } -> void
-  def start_observing_output_report: () -> void
-  def stop_observing_output_report: () -> void
-  def output_report: () -> Integer
   def inject_switch: (Integer col, Integer row) -> void
   def key_pressed?: () -> bool
 end

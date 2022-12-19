@@ -19,7 +19,6 @@ class VIA
   def start!: -> void
   def raw_hid_receive : (Array[Integer]) -> Array[Integer]
   def raw_hid_receive_kb : (Array[Integer]) -> Array[Integer]
-  def report_raw_hid : (Array[Integer]) -> void
   def dynamic_keymap_get_buffer : (Array[Integer]) -> Array[Integer]
   def dynamic_keymap_set_buffer : (Array[Integer]) -> void
   def dynamic_keymap_get_keycode : (Integer, Integer, Integer) -> Integer
