@@ -22,7 +22,8 @@ class Shell
     )
 
     def find_executable(name)
-      ENV['PATH'].each do |path|
+      # Unlike UNIX, $PATH is an array of Ruby
+      ENV['PATH']&.split(":")&.each do |path|
         file = "#{path}/#{name}"
         return file if File.exist? file
       end
@@ -45,9 +46,10 @@ class Shell
       when "pwd"
         puts Dir.pwd
       when "cd"
-        puts if Dir.chdir(ARGV[0] || ENV['HOME']) != 0
+        Dir.chdir(ARGV[0] || ENV['HOME'] || "")
+        puts
       when "free"
-        Object.memory_statistics.each do |k, v|
+        PicoRubyVM.memory_statistics.each do |k, v|
           puts "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}"
         end
       else
@@ -57,7 +59,7 @@ class Shell
             # PicoRuby compiler's bug
             # https://github.com/picoruby/picoruby/issues/120
             mrb = f.read
-            if mrb.start_with?("RITE0300")
+            if mrb.to_s.start_with?("RITE0300")
               @sandbox.exec_mrb(mrb)
               if @sandbox.wait(nil) && error = @sandbox.error
                 puts "#{error.message} (#{error.class})"

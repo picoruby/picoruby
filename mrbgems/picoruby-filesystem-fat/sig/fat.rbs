@@ -1,0 +1,52 @@
+# TypeProf 0.21.3
+
+# Classes
+class FAT
+  def self._directory?: (String path) -> bool
+  def self._exist?: (String path) -> bool
+  def self._unlink: (String path) -> 0
+  def self._chdir: (String path) -> 0
+  def self._mkdir: (String path, String mode) -> 0
+  def self._erase: (String path) -> 0
+  def self._stat: (String path) -> {size: Integer, datetime: String, arrributes: String}
+
+  def _getfree: (String path) -> Integer
+  def _mkfs: (String path) -> self
+  def _mount: (String path) -> 0
+  def _unmount: (String path) -> 0
+
+  @prefix: String
+  @fatfs: nil | 0
+
+  def initialize: (?String drive) -> void
+  attr_reader mountpoint: untyped
+  def mkfs: -> FAT
+  def sector_count: -> {total: untyped, free: untyped}
+  def mount: (untyped mountpoint) -> untyped
+  def unmount: -> nil
+  def open_dir: (String path) -> FAT::Dir
+  def open_file: (String path, String mode) -> FAT::File
+  def chdir: (String path) -> 0
+  def erase: -> untyped
+  def mkdir: (untyped path, untyped mode) -> untyped
+  def stat: (untyped path) -> untyped
+  def exist?: (untyped path) -> untyped
+  def unlink: (untyped path) -> untyped
+  def directory?: (untyped path) -> untyped
+
+  class Dir
+    attr_accessor pat: String
+
+    def initialize: (String path) -> void
+    def stat_label: -> {attributes: String, datetime: String, size: String}
+    def rewind: -> self
+    def read: -> String?
+    def findnext: -> String?
+    def close: -> nil
+    def fullpath: -> String
+  end
+
+  class File
+    def initialize: (String path, String mode) -> void
+  end
+end

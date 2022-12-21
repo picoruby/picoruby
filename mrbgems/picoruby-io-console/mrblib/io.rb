@@ -12,7 +12,7 @@ class IO
 
   def self.getch
     self.raw do
-      getc&.chr
+      getc
     end
   end
 
@@ -22,19 +22,19 @@ class IO
     raw do
       print "\e[6n"
       while true
-        c = getc
-        if c == 59 # ";"
+        case c = getc&.ord
+        when 59 # ";"
           break
-        elsif 0x30 <= c && c <= 0x39
-          row = row * 10 + (c - 0x30)
+        when 0x30..0x39
+          row = row * 10 + (c.to_i - 0x30)
         end
       end
       while true
-        c = getc
-        if c == 82 # "R"
+        case c = getc&.ord
+        when 82 # "R"
           break
-        elsif 0x30 <= c && c <= 0x39
-          col = col * 10 + (c - 0x30)
+        when 0x30..0x39
+          col = col * 10 + (c.to_i - 0x30)
         else
           raise Exception.new("get_cursor_position failed")
         end

@@ -7,7 +7,7 @@ when "ruby"
 when "mruby/c"
   require "shell"
 
-  ENV['PATH'] = ["/bin"]
+  ENV['PATH'] = "/bin"
   ENV['HOME'] = "/home"
 end
 

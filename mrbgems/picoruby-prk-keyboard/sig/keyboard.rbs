@@ -177,4 +177,5 @@ class Keyboard
   def delete_mode_keys: (Symbol) -> void
   def inject_switch: (Integer col, Integer row) -> void
   def key_pressed?: () -> bool
+  def output_report_changed: () { (Integer) -> void} -> void
 end

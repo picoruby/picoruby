@@ -1,0 +1,4 @@
+class File
+  CHUNK_SIZE: Integer
+  def expand: (Integer) -> Integer
+end

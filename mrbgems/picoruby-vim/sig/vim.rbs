@@ -1,0 +1,16 @@
+# TypeProf 0.21.3
+
+class Vim
+  @filepath: String
+  @mode: :command | :insert | :normal
+  @terminal: Terminal::Editor
+  @command_buffer: Terminal::Buffer
+  @message: String | nil
+
+  def initialize: (String filepath) -> void
+  def start: -> void
+  def _start: -> void
+  def exec_command: (Terminal::Buffer buffer) -> (:quit | String | nil)
+  def save_file: -> String
+end
+

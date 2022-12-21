@@ -1,9 +1,10 @@
 # Learn "Terminal modes"
 # https://www.ibm.com/docs/en/linux-on-systems?topic=wysk-terminal-modes
 
+require "io/console"
+
 case RUBY_ENGINE
 when "ruby", "jruby"
-  require "io/console"
   require_relative "./buffer.rb"
 
   def IO.getch
@@ -12,7 +13,7 @@ when "ruby", "jruby"
   def IO.get_nonblock(max)
     STDIN.noecho{ |input| input.read_nonblock(max) }
   rescue IO::EAGAINWaitReadable => e
-    nil
+    ""
   end
   def IO.get_cursor_position
     res = ""
@@ -28,7 +29,6 @@ when "ruby", "jruby"
     return [_size[0][2, 3].to_i, _size[1].to_i]
   end
 when "mruby/c"
-  require "io/console"
   require "filesystem-fat"
   require "vfs"
   class IO
@@ -182,7 +182,7 @@ class Terminal
 
       @prev_cursor_y = -1
       _buffer_lines.each_with_index do |line, i|
-        break if i == @buffer.cursor_y
+        break [] if i == @buffer.cursor_y
         a = (_prompt_margin + line.length) / _width + 1
         print "\e[#{a}B"
         @prev_cursor_y += a
@@ -247,6 +247,7 @@ class Terminal
         when 8, 127 # 127 on UNIX
           @buffer.put :BSPACE
         when 32..126
+          # @type var c: Integer
           @buffer.put c.chr
         else
           yield self, @buffer, c
@@ -312,15 +313,15 @@ class Terminal
       visual_offset = @visual_offset
       clear
       home
-      first_lineno = nil
+      first_lineno = -1
       first_line_skip_count = 0
       # Show the content
       @buffer.lines.each_with_index do |line, lineno|
-        [1, ((line.length + content_width - 1) / content_width)].max.times do |i|
+        [1, ((line.length + content_width - 1) / content_width)].max&.times do |i|
           if visual_offset < 0
             visual_offset += 1
           else
-            unless first_lineno
+            if first_lineno < 0
               first_lineno = lineno
               first_line_skip_count = i
             end
@@ -329,13 +330,13 @@ class Terminal
             else
               print "#{lineno + 1} ".rjust(4)
             end
-            print line[i * content_width, content_width]
+            print line[i * content_width, content_width].to_s
             content_height -= 1
-            break if content_height == 0
+            break 0 if content_height == 0
             next_head
           end
         end
-        break if content_height == 0
+        break [] if content_height == 0
       end
       # Adjust if cursor is close to the end of file
       if 0 < content_height && @visual_offset < 0
@@ -344,15 +345,16 @@ class Terminal
         # Fill the blank made by the scroll
         blank_lines = []
         ((first_line_skip_count - content_height)..first_lineno).each do |lineno|
+          lineno = lineno.to_i
           line = @buffer.lines[lineno]
-          [1, (line.length - 1) / content_width + 1].max.times do |i|
-            break if lineno == first_lineno && first_line_skip_count - 1 < i
+          ([1, (line.length - 1) / content_width + 1].max || 0).times do |i|
+            break 0 if lineno == first_lineno && first_line_skip_count - 1 < i
             str = if i == 0
               "\e[31m" + "#{lineno + 1} ".rjust(4)
             else
               "\e[31m    "
             end
-            str << line[i * content_width, content_width]
+            str << line[i * content_width, content_width].to_s
             str << "\e[0m"
             blank_lines.unshift str
           end
@@ -360,7 +362,7 @@ class Terminal
         blank_lines.each do |line|
           print "\e[#{content_height};1H#{line}"
           content_height -= 1
-          break if content_height < 1
+          break [] if content_height < 1
         end
       end
       print "\e[#{@height - @footer_height + 1};1H"
@@ -386,10 +388,10 @@ class Terminal
       cursor_x = @buffer.cursor_x
       cursor_y = @buffer.cursor_y
       @buffer.lines.each_with_index do |line, i|
-        break if i == cursor_y
-        y += [1, (line.length + content_width - 1) / content_width].max
+        break [] if i == cursor_y
+        y += [1, (line.length + content_width - 1) / content_width].max || 0
       end
-      @visual_cursor_y = y + cursor_x / content_width + @visual_offset
+      @visual_cursor_y = y + cursor_x / content_width + @visual_offset.to_i
       @visual_cursor_x = cursor_x % content_width
       if @visual_cursor_x == 0 && 0 < cursor_x && @buffer.current_line.length == cursor_x
         @visual_cursor_x = @width

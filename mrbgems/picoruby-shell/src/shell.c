@@ -59,7 +59,9 @@ c_mrbc(struct VM *vm, mrbc_value v[], int argc)
 void
 mrbc_shell_init(void)
 {
-  mrbc_define_method(0, mrbc_class_object, "memory_statistics", c_memory_statistics);
+
+  mrbc_class *mrbc_class_PicoRubyVM = mrbc_define_class(0, "PicoRubyVM", mrbc_class_object);
+  mrbc_define_method(0, mrbc_class_PicoRubyVM, "memory_statistics", c_memory_statistics);
   mrbc_define_method(0, mrbc_class_object, "mrbc", c_mrbc);
 
   mrbc_sym sym_id = mrbc_str_to_symid("SIZEOF_POINTER");

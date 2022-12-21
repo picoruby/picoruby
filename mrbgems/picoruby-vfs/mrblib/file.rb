@@ -169,11 +169,13 @@ class File
   def putc(ch)
     case ch.class
     when Integer
+      # @type var ch: Integer
       @file.write ch.chr
     when String
+      # @type var ch: String
       @file.write ch[0]
     else
-      @file.write ch.to_i.chr
+      raise ArgumentError
     end
     return ch
   end

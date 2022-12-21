@@ -1,27 +1,36 @@
 class Dir
   class << self
-    def open(path)
+    def open(path, encoding: nil)
       if block_given?
         begin
           dir = self.new(path)
-          yield dir
+          res = yield dir
         rescue => e
           puts e.message
         ensure
           dir.close
         end
+        res
       else
         self.new(path)
       end
     end
 
-    def glob(pattern, flags = 0, base: nil, sort: true)
-      # block_given? ? nil : [String]
-      self.open(ENV['PWD']) do |dir|
-        dir.pat = pattern
-        while entry = dir.findnext
-          puts entry
+    def glob(pattern, flags = 0, base: "")
+      if block_given?
+        nil
+      else
+        ary = []
+        pattern = [pattern].flatten
+        self.open(ENV['PWD'].to_s) do |dir|
+          pattern.each do |pat|
+            dir.pat = pat
+            while entry = dir.findnext
+              ary << entry
+            end
+          end
         end
+        ary
       end
     end
 
@@ -37,12 +46,12 @@ class Dir
     end
     alias zero? empty?
 
-    def chdir(path)
+    def chdir(path = "")
       # block_given? ? object : 0
       _pwd = pwd
       if block_given?
         VFS.chdir(path)
-        result = yield
+        result = yield("")
         VFS.chdir(_pwd)
         result
       else
@@ -66,7 +75,7 @@ class Dir
     alias rmdir unlink
   end
 
-  def initialize(path)
+  def initialize(path, encoding: nil)
     @dir = VFS::Dir.open(path)
   end
 
@@ -80,8 +89,9 @@ class Dir
 
   def each(&block)
     while filename = self.read do
-      block.call(filename)
+      block&.call(filename)
     end
+    block ? self : self.each # For steep check
   end
 
   def pat=(pattern)

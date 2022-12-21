@@ -26,13 +26,13 @@ class Vim
     @terminal.refresh_footer do |terminal|
       print "\e[37;1m\e[48;5;239m " # foreground & background
       if @filepath
-        print @filepath[0, terminal.width - 1].ljust(terminal.width - 1)
+        print @filepath[0, terminal.width - 1].to_s.ljust(terminal.width - 1)
       else
         print "[No Name]".ljust(terminal.width - 1)
       end
       print "\e[m\e[1E"
       if @message
-        print "\e[31m", @message, "\e[m"
+        print "\e[31m", @message.to_s, "\e[m"
         @message = nil
       else
         print "\e[m", @command_buffer.lines[0]
@@ -66,7 +66,7 @@ class Vim
         if c < 112
           case c
           when  3 # Ctrl-C
-            @command_buffer = "Type  :q  and press <Enter> to exit"
+            @command_buffer.lines[0] = "Type  :q  and press <Enter> to exit"
           when  13 # LF
           when  27 # ESC
             case IO.get_nonblock(2)
@@ -80,9 +80,9 @@ class Vim
               buffer.put :LEFT
             end
           when  18 # Ctrl-R
-          when  46 # . redo
-          when  58 # ; command
-          when  59 # : command
+          when  46 # `.` redo
+          when  58 # `;` command
+          when  59 # `:` command
             @mode = :command
             @command_buffer.put ':'
           when 65, 73, 97, 105, 111 # A, I, a, i, o -> insert
@@ -137,6 +137,7 @@ class Vim
           when :quit
             raise "__quit()"
           else
+            # @type var res: String | nil
             @message = res
             @command_buffer.clear
             @mode = :normal

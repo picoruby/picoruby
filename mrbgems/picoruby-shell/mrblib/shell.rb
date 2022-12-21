@@ -44,7 +44,7 @@ when "mruby/c"
   require "filesystem-fat"
   require "vfs"
   require "terminal"
-  ENV = {}
+  # ENV = {} # This moved to 0_out_of_steep.rb
   ARGV = []
 end
 
@@ -72,7 +72,7 @@ class Shell
   ]
 
   def show_logo
-    logo_width = LOGO_LINES.map{|l| l.length}.max
+    logo_width = LOGO_LINES.map{|l| l.length}.max || 0
     margin = " " * ((@terminal.width - logo_width) / 2)
     puts "\e[33;1m"
     LOGO_LINES.each do |line|
@@ -108,7 +108,7 @@ class Shell
       f.write exe[:code]
       f.close
     end
-    Dir.chdir ENV['HOME']
+    Dir.chdir ENV['HOME'].to_s
   end
 
   def start(mode = :shell)

@@ -1,0 +1,20 @@
+# TypeProf 0.21.3
+
+# Revealed types
+#  /home/hasumi/work/prk_firmware/lib/picoruby/mrbgems/picoruby-shell/mrblib/command.rb:69 #=> nil
+
+# Classes
+
+class Shell
+  LOGO_LINES: [String]
+  @terminal: Terminal::Line
+
+  def self.setup: (untyped drive) -> void
+  def self._next_executable: -> {code: String, name: String}
+
+  def initialize: -> void
+  def show_logo: -> nil
+  def start: (?:shell mode) -> nil
+  def run_shell: -> void
+  def run_irb: -> void
+end

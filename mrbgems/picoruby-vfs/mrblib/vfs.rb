@@ -21,7 +21,7 @@ class VFS
       unless index = volume_index(mountpoint)
         raise "Mountpoint `#{mountpoint}` doesn't exist"
       end
-      if ENV["PWD"].start_with?(mountpoint)
+      if ENV["PWD"].to_s.start_with?(mountpoint)
         raise "Can't unmount where you are"
       end
       driver.unmount
@@ -36,14 +36,14 @@ class VFS
       volume, path = VFS.split(sanitized_path)
       if volume[:driver]&.chdir(path)
         ENV["PWD"] = sanitized_path
-        return 0
       else
         print "No such directory: #{dir}"
       end
+      return 0
     end
 
     def pwd
-      ENV["PWD"]
+      ENV["PWD"].to_s
     end
 
     def mkdir(path, mode = 0777)
@@ -82,13 +82,13 @@ class VFS
       when "/"
         [""]
       when ""
-        return ENV["HOME"]
+        return ENV["HOME"].to_s
       else
         path.split("/")
       end
       if dirs[0] != "" # path.start_with?("/")
         # Relative path
-        dirs = ENV["PWD"].split("/") + dirs
+        dirs = ENV["PWD"].to_s.split("/") + dirs
       end
       sanitized_dirs = []
       prefix_dirs = []
@@ -108,18 +108,10 @@ class VFS
     end
 
     def split(sanitized_path)
-      volume = nil
-      VOLUMES.each do |v|
-        if sanitized_path.start_with?(v[:mountpoint])
-          if volume
-            if volume[:mountpoint].length < v[:mountpoint].length
-              volume = v
-            end
-          else
-            volume = v
-          end
-        end
-      end
+      found = false
+      volume = VOLUMES.map { |v|
+        sanitized_path.start_with?(v[:mountpoint]) ? v : nil
+      }.max {|v| v ? v[:mountpoint].length : -1}
       if volume
         [volume, "/#{sanitized_path[volume[:mountpoint].length, 255]}"]
       else

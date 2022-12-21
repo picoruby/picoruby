@@ -25,7 +25,7 @@ static void
 c__erase(struct VM *vm, mrbc_value v[], int argc)
 {
   int i;
-  char *volume = GET_STRING_ARG(1);
+  char *volume = (char *)GET_STRING_ARG(1);
   volume[strlen(volume) - 1] = '\0'; /* remove ":" */
   for (i = 0; i < FF_VOLUMES; i++) {
     if (strcmp(VolumeStr[i], (const char *)volume) == 0) break;
@@ -94,7 +94,7 @@ c__chdir(struct VM *vm, mrbc_value v[], int argc)
   FRESULT res;
   res = f_chdir((const TCHAR *)GET_STRING_ARG(1));
   mrbc_raise_iff_f_error(vm, res, "f_chdir");
-  SET_TRUE_RETURN();
+  SET_INT_RETURN(0);
 }
 
 

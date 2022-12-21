@@ -48,7 +48,11 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int c = hal_getchar();
   if (-1 < c) {
-    SET_INT_RETURN(c);
+    char buf[2];
+    buf[0] = c;
+    buf[1] = '\0';
+    mrb_value str = mrbc_string_new_cstr(vm, buf);
+    SET_RETURN(str);
   } else {
     SET_NIL_RETURN();
   }

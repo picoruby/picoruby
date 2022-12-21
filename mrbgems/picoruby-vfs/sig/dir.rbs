@@ -1,0 +1,6 @@
+class Dir
+  @dir: FAT::Dir
+
+  def findnext: -> String?
+  def pat=: (String) -> String
+end

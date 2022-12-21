@@ -57,7 +57,7 @@ class FAT
     if path == "" || FAT._exist?("#{@prefix}#{path}")
       FAT._chdir("#{@prefix}#{path}")
     else
-      false
+      0
     end
   end
 

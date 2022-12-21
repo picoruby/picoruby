@@ -1,0 +1,31 @@
+# TypeProf 0.21.3
+
+# Classes
+class VFS
+  type driver_t = FAT
+  type volume_t = {mountpoint: String, driver: driver_t}
+
+  VOLUMES: Array[volume_t]
+
+  def self.mount: (driver_t driver, String mountpoint) -> void
+  def self.unmount: (driver_t driver) -> void
+  def self.chdir: (String dir) -> Integer
+  def self.pwd: -> String
+  def self.mkdir: (String path, ?Integer mode) -> 0
+  def self.unlink: (String path) -> 0
+  def self.stat: (String path) -> untyped
+  def self.exist?: (String path) -> bool
+  def self.directory?: (String path) -> untyped
+  def self.sanitize_and_split: (String path) -> [volume_t, String]
+  def self.sanitize: (String path) -> String
+  def self.split: (String sanitized_path) -> [volume_t, String]
+  def self.volume_index: (untyped mountpoint) -> Integer?
+
+  class File
+    def self.open: (String, String) -> FAT::File
+  end
+
+  class Dir
+    def self.open: (String) -> FAT::Dir
+  end
+end

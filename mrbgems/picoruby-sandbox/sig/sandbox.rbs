@@ -1,9 +1,21 @@
 class Sandbox
+  TIMEOUT: Integer
+
+  @result: Object | nil
+  @script: String
+  @state: Integer
+  @binding: Binding
+
+  attr_accessor error: Exception?
+
   def compile: (String) -> bool
   def suspend: () -> void
   def state: () -> Integer
   def result: () -> untyped
-  def wait: () -> bool
+  def wait: (?Integer timeout) -> bool
   def execute: () -> bool
-  def error: () -> Exception
+end
+
+class RubyVM::InstructionSequence
+  def self.compile: (String) -> self
 end

@@ -73,4 +73,5 @@ class RGB
   def thunder: -> void
   def ping?: () -> bool
   def add_pixel: (Integer, Integer) -> void
+  def resume: () -> void
 end
