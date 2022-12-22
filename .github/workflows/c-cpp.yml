@@ -29,11 +29,11 @@ jobs:
     - name: Build PicoRuby
       run: rake
     - name: Test with mruby/c
-      run: ./test/helper/test_picorbc.rb
+      run: build/repos/host/mruby-pico-compiler/test/helper/test.rb
       env:
         MRUBY_COMMAND: $PWD/bin/picoruby
     - name: Test with mruby
-      run: ./test/helper/test_picorbc.rb
+      run: build/repos/host/mruby-pico-compiler/test/helper/test.rb
       env:
         USE_MRUBY: yes
         PICORBC_COMMAND: $PWD/bin/picorbc

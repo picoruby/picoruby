@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("prk_firmware") do |conf|
+MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -32,8 +32,6 @@ MRuby::CrossBuild.new("prk_firmware") do |conf|
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT"
   conf.cc.defines << "MRBC_CONVERT_CRLF"
   conf.cc.defines << "MRBC_USE_MATH"
-  conf.cc.defines << "MRBC_TICK_UNIT=1"
-  conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
   conf.cc.defines << "LEMON_PICORBC"
   conf.cc.defines << "USE_FAT_FLASH_DISK"
 

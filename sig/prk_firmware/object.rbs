@@ -1,0 +1,25 @@
+class Object
+  PRK_DESCRIPTION: String
+
+  # mrbc
+  def relinquish : -> bool
+  def sleep_ms : (Integer) -> void
+  def suspend_task : () -> void
+  def sandbox_state : () -> Integer
+  def sandbox_result : () -> untyped
+  def sandbox_picorbc: (String) -> bool
+  def sandbox_resume: () -> bool
+
+  # Raspi
+  def gpio_init : (Integer) -> void
+  def gpio_set_dir : (Integer, Integer) -> void
+  def gpio_pull_up : (Integer) -> void
+  def gpio_put : (Integer, Integer) -> void
+  def gpio_get : (Integer) -> bool
+  def write_file_internal : (String, String) -> void
+  def find_file : (String) -> ( [Integer, Integer] | nil )
+  def read_file : (Integer, Integer) -> String
+
+  # PRK
+  def required? : (String) -> bool
+end

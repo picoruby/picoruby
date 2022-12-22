@@ -130,20 +130,20 @@ task :debug do
 end
 
 desc "run all tests"
-task :test => [:test_mrubyc, :test_mruby]
+task :test => [:steep, :test_compiler_mrubyc, :test_compiler_mruby]
 
-desc "run all tests with mruby VM"
-task :test_mruby => :debug do
+desc "run compiler tests with mruby VM"
+task :test_compiler_mruby => :debug do
   ENV['USE_MRUBY'] = "yes"
   ENV['PICORBC_COMMAND'] ||= picorbcfile
   ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.1.0 rbenv which mruby`.chomp
-  sh "./test_picorbc/helper/test.rb"
+  sh "build/repos/host/mruby-pico-compiler/test/helper/test.rb"
 end
 
-desc "run all tests with mruby/c VM"
-task :test_mrubyc => :debug do
+desc "run compiler tests with mruby/c VM"
+task :test_compiler_mrubyc => :debug do
   ENV['MRUBY_COMMAND'] = picorubyfile
-  sh "./test_picorbc/helper/test.rb"
+  sh "build/repos/host/mruby-pico-compiler/test/helper/test.rb"
   ENV['MRUBY_COMMAND'] = nil
 end
 
@@ -154,4 +154,9 @@ picorbc_include_dir = "#{current_dir}/build/repos/host/mruby-pico-compiler/inclu
 desc "create picorbc executable"
 task :picorbc => ["#{picorbc_include_dir}/ptr_size.h", "#{picorbc_include_dir}/parse.h"] do
   Rake::Task["#{current_dir}/bin/picorbc"].invoke
+end
+
+desc "steep check"
+task :steep do
+  sh "bundle exec steep check"
 end

@@ -1,0 +1,6 @@
+class Machine
+  def self.reset_usb_boot: () -> void
+  def self.srand: (Integer) -> void
+  def self.rand: () -> Integer
+  def self.board_millis: () -> Integer
+end

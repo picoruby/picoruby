@@ -1,0 +1,3 @@
+class PicoRubyVM
+  def self.alloc_stats: () -> Hash[Symbol, Integer]
+end
