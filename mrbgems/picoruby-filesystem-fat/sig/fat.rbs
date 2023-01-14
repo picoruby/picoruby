@@ -12,6 +12,8 @@ class FAT
 
   def _getfree: (String path) -> Integer
   def _mkfs: (String path) -> self
+  def _setlabel: (String) -> 0
+  def _getlabel: (String) -> String
   def _mount: (String path) -> 0
   def _unmount: (String path) -> 0
 
@@ -21,6 +23,8 @@ class FAT
   def initialize: (?String drive) -> void
   attr_reader mountpoint: untyped
   def mkfs: -> FAT
+  def setlabel: -> 0
+  def getlabel: -> String
   def sector_count: -> {total: untyped, free: untyped}
   def mount: (untyped mountpoint) -> untyped
   def unmount: -> nil
