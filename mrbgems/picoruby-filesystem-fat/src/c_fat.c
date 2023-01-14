@@ -181,6 +181,27 @@ c__directory_q(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 }
 
+static void
+c__setlabel(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FRESULT res = f_setlabel((const TCHAR *)GET_STRING_ARG(1));
+  mrbc_raise_iff_f_error(vm, res, "f_setlabel");
+  SET_INT_RETURN(0);
+}
+
+static void
+c__getlabel(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  const TCHAR *path = (const TCHAR *)GET_STRING_ARG(1);
+  // Max label length depends on FF_USE_LFN, FF_FS_EXFAT and FF_LFN_UNICODE
+  // see picoruby-filesystem-fat/lib/ff14b/documents/doc/getlabel.html
+  TCHAR label[12];
+  FRESULT res = f_getlabel(path, label, NULL);
+  mrbc_raise_iff_f_error(vm, res, "f_getlabel");
+  mrbc_value label_val = mrbc_string_new_cstr(vm, label);
+  SET_RETURN(label_val);
+}
+
 #define PREPARE_EXCEPTION(message) (sprintf(buff, "%s @ %s", message, func))
 
 void
@@ -266,6 +287,8 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_stat", c__stat);
   mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
   mrbc_define_method(0, class_FAT, "_directory?", c__directory_q);
+  mrbc_define_method(0, class_FAT, "_setlabel", c__setlabel);
+  mrbc_define_method(0, class_FAT, "_getlabel", c__getlabel);
   mrbc_init_class_FAT_Dir();
   mrbc_init_class_FAT_File();
 }

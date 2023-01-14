@@ -15,15 +15,26 @@ class FAT
 
   # drive can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
-  def initialize(drive = "0")
+  def initialize(drive = "0", label = nil)
     @prefix = "#{drive}:"
+    @label = label || "PicoRuby"
   end
 
   attr_reader :mountpoint
 
   def mkfs
     self._mkfs(@prefix)
+    self.setlabel
     self
+  end
+
+  def setlabel
+    return unless @label
+    self._setlabel("#{@prefix}#{@label}")
+  end
+
+  def getlabel
+    self._getlabel(@prefix)
   end
 
   def sector_count
