@@ -116,6 +116,23 @@ c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c__chmod(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  const char *mode = (const char *)GET_STRING_ARG(1);
+  const TCHAR *path = (const TCHAR *)GET_STRING_ARG(2);
+  BYTE attr = 0;
+  if (strchr(mode, 'R')) attr |= AM_RDO;
+  if (strchr(mode, 'A')) attr |= AM_ARC;
+  if (strchr(mode, 'S')) attr |= AM_SYS;
+  if (strchr(mode, 'H')) attr |= AM_HID;
+  console_printf("chmod %s\n", mode);
+  console_printf("chmod %d\n", attr);
+  FRESULT res = f_chmod(path, attr, AM_RDO|AM_ARC|AM_SYS|AM_HID);
+  mrbc_raise_iff_f_error(vm, res, "f_chmod");
+  SET_INT_RETURN(0);
+}
+
+static void
 c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
@@ -284,6 +301,7 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
   mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
   mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
+  mrbc_define_method(0, class_FAT, "_chmod", c__chmod);
   mrbc_define_method(0, class_FAT, "_stat", c__stat);
   mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
   mrbc_define_method(0, class_FAT, "_directory?", c__directory_q);

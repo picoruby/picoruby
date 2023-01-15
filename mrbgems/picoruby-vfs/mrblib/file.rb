@@ -11,6 +11,14 @@ class File
       end
     end
 
+    def chmod(mode, *paths)
+      count = 0
+      paths.each do |path|
+        count += 1 if VFS.chmod(mode, path) == 0
+      end
+      count
+    end
+
     def stat(path)
       VFS.stat(path)
     end

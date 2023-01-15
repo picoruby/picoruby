@@ -8,11 +8,12 @@ class VFS
   VOLUMES: Array[volume_t]
 
   def self.mount: (driver_t driver, String mountpoint) -> void
-  def self.unmount: (driver_t driver) -> void
+  def self.unmount: (driver_t driver, ?bool force) -> void
   def self.chdir: (String dir) -> Integer
   def self.pwd: -> String
   def self.mkdir: (String path, ?Integer mode) -> 0
   def self.unlink: (String path) -> 0
+  def self.chmod: (String mode, String path) -> 0
   def self.stat: (String path) -> untyped
   def self.exist?: (String path) -> bool
   def self.directory?: (String path) -> untyped

@@ -2,6 +2,7 @@ MRuby::GemBox.new do |conf|
 
   conf.gem github: 'picoruby/mruby-pico-compiler', branch: 'master'
   conf.gem core: 'picoruby-mrubyc'
+  conf.gem core: 'picoruby-task-ext'
   conf.gem core: 'picoruby-vfs'
   conf.gem core: 'picoruby-filesystem-fat'
   conf.gem core: 'picoruby-float-ext'

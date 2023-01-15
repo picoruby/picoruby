@@ -8,6 +8,7 @@ class FAT
   def self._chdir: (String path) -> 0
   def self._mkdir: (String path, String mode) -> 0
   def self._erase: (String path) -> 0
+  def self._chmod: (String mode, String path) -> 0
   def self._stat: (String path) -> {size: Integer, datetime: String, arrributes: String}
 
   def _getfree: (String path) -> Integer
@@ -19,8 +20,9 @@ class FAT
 
   @prefix: String
   @fatfs: nil | 0
+  @label: String | nil
 
-  def initialize: (?String drive) -> void
+  def initialize: (?String drive, ?String? label) -> void
   attr_reader mountpoint: untyped
   def mkfs: -> FAT
   def setlabel: -> 0
@@ -33,6 +35,7 @@ class FAT
   def chdir: (String path) -> 0
   def erase: -> untyped
   def mkdir: (untyped path, untyped mode) -> untyped
+  def chmod: (String mode, String path) -> 0
   def stat: (untyped path) -> untyped
   def exist?: (untyped path) -> untyped
   def unlink: (untyped path) -> untyped

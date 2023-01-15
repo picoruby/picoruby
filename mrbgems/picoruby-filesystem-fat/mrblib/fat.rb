@@ -29,7 +29,7 @@ class FAT
   end
 
   def setlabel
-    return unless @label
+    return 0 unless @label
     self._setlabel("#{@prefix}#{@label}")
   end
 
@@ -78,6 +78,10 @@ class FAT
 
   def mkdir(path, mode)
     FAT._mkdir("#{@prefix}#{path}", mode)
+  end
+
+  def chmod(mode, path)
+    FAT._chmod(mode, "#{@prefix}#{path}")
   end
 
   def stat(path)
