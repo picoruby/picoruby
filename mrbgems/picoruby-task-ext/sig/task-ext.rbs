@@ -1,0 +1,8 @@
+class Task
+  def self.[]: (Symbol) -> Task
+  def self.current: () -> Task
+
+  def reload: (String) -> self
+  def suspend: () -> self
+  def reload: () -> self
+end
