@@ -15,13 +15,13 @@ class VFS
       ENV["PWD"] ||= mountpoint
     end
 
-    def unmount(driver)
+    def unmount(driver, force = false)
       mountpoint = driver.mountpoint
       mountpoint << "/" unless mountpoint.end_with?("/")
       unless index = volume_index(mountpoint)
         raise "Mountpoint `#{mountpoint}` doesn't exist"
       end
-      if ENV["PWD"].to_s.start_with?(mountpoint)
+      if !force && ENV["PWD"].to_s.start_with?(mountpoint)
         raise "Can't unmount where you are"
       end
       driver.unmount
@@ -54,6 +54,11 @@ class VFS
     def unlink(path)
       volume, _path = VFS.sanitize_and_split(path)
       volume[:driver]&.unlink(_path)
+    end
+
+    def chmod(mode, path)
+      volume, _path = VFS.sanitize_and_split(path)
+      volume[:driver].chmod(mode, _path)
     end
 
     def stat(path)
