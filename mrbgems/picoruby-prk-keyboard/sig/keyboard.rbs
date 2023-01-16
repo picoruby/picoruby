@@ -6,6 +6,7 @@ class Object
   PRK_NO_MSC: bool
   README: String
   KEYMAP: String
+  PRK_CONF: String
   DRIVE_NAME: String
   MY_VOLUME: FAT
 end
