@@ -2,6 +2,9 @@ if RUBY_ENGINE == 'mruby/c'
   require "debounce"
   require "rgb"
   require "rotary_encoder"
+  require "task-ext"
+  require "vfs"
+  require "filesystem-fat"
 end
 
 class Keyboard
@@ -426,7 +429,69 @@ end
 
 # Keyboard class have to be split to avoid unexpected behavior of the compiler
 
+README = "/README.txt"
+KEYMAP = "/keymap.rb"
+DRIVE_NAME = "PRK DRIVE"
+MY_VOLUME = FAT.new(:flash, DRIVE_NAME)
+
 class Keyboard
+
+  def self.mount_volume
+    return if PRK_NO_MSC
+    begin
+      VFS.mount(MY_VOLUME, "/")
+    rescue => e
+      MY_VOLUME.mkfs
+      VFS.mount(MY_VOLUME, "/")
+    end
+    File.open(README, "w") do |f|
+      f.puts PRK_DESCRIPTION,
+        "\nWelcome to PRK Firmware!\n",
+        "Usage:",
+        "- Drag and drop your `keymap.rb` into this directory",
+        "- Then, your keyboard will be automatically rebooted. That's all!\n",
+        "Notice:",
+        "- Make sure you always have a backup of your `keymap.rb`",
+        "  because upgrading prk_firmware-*.uf2 may remove it from flash\n",
+        "https://github.com/picoruby/prk_firmware"
+    end
+  end
+
+  def self.restart
+    VFS.unmount(MY_VOLUME, true)
+    USB.hid_task(0, "\000\000\000\000\000\000", 0, 0, 0)
+    200.times do
+      USB.tud_task
+      sleep_ms 1
+    end
+    VFS.mount(MY_VOLUME, "/")
+    if Task[:keyboard].nil?
+      File.exist?(KEYMAP) ? Keyboard.reload_keymap : Keyboard.wait_keymap
+    elsif File.exist?(KEYMAP) && (0 < File.stat(KEYMAP).mode & FAT::AM_ARC)
+      # FIXME: Checking Stat#mode doesn't work well
+      Task[:keyboard].suspend
+      Keyboard.reload_keymap
+    end
+    Keyboard.autoreload_off
+  end
+
+  def self.reload_keymap
+    $rgb&.turn_off
+    script = ""
+    File.open(KEYMAP) do |f|
+      f.each_line { |line| script << line }
+    end
+    task = Task[:keyboard] || Task.new(:keyboard)
+    task.compile_and_run(script, true)
+    File.chmod(0, KEYMAP)
+  end
+
+  def self.wait_keymap
+    puts "No keymap.rb found"
+    script = "while true;sleep 5;puts 'Please make keymap.rb in #{DRIVE_NAME}';end"
+    task = Task[:keyboard] || Task.new(:keyboard)
+    task.compile_and_run(script, false)
+  end
 
   def initialize
     puts "Init Keyboard"
@@ -1418,4 +1483,3 @@ class Keyboard
 
 end
 
-$mutex = true

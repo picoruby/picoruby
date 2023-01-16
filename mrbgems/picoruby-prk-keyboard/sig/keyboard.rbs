@@ -1,7 +1,14 @@
 # TypeProf 0.14.1
 
 # Global variables
-$mutex: bool
+
+class Object
+  PRK_NO_MSC: bool
+  README: String
+  KEYMAP: String
+  DRIVE_NAME: String
+  MY_VOLUME: FAT
+end
 
 class Keyboard
   type debounce_type = :none
@@ -119,10 +126,13 @@ class Keyboard
   attr_reader cols_size: Integer
   attr_reader rows_size: Integer
 
+  def self.autoreload_off: () -> void
   def self.autoreload_ready?: () -> bool
   def self.suspend_keymap: () -> void
   def self.resume_keymap: () -> void
+  def self.restart: () -> void
   def self.reload_keymap: () -> void
+  def self.wait_keymap: () -> void
 
   def set_debounce: (debounce_type) -> void
   def set_debounce_threshold: (Integer) -> void
