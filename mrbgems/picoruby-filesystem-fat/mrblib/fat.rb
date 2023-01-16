@@ -1,5 +1,22 @@
 class FAT
 
+  # Stat[:mode]
+  AM_RDO = 0x01 # Read only
+  AM_HID = 0x02 # Hidden
+  AM_SYS = 0x04 # System
+  AM_DIR = 0x10 # Directory
+  AM_ARC = 0x20 # Archive
+
+  class Stat
+    def initialize(stat_hash)
+      @stat_hash = stat_hash
+    end
+
+    def mode
+      @stat_hash[:mode]
+    end
+  end
+
   class Dir
     def stat_label
       {
@@ -85,7 +102,7 @@ class FAT
   end
 
   def stat(path)
-    FAT._stat("#{@prefix}#{path}")
+    Stat.new FAT._stat("#{@prefix}#{path}")
   end
 
   def exist?(path)

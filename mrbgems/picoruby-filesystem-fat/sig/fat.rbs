@@ -2,14 +2,29 @@
 
 # Classes
 class FAT
+
+  type stat_t = {size: Integer, datetime: String, mode: Integer}
+
+  class Stat
+    @stat_hash: stat_t
+    def initialize: (stat_t) -> void
+    def mode: () -> Integer
+  end
+
+  AM_RDO: 1
+  AM_HID: 2
+  AM_SYS: 4
+  AM_DIR: 16
+  AM_ARC: 32
+
   def self._directory?: (String path) -> bool
   def self._exist?: (String path) -> bool
   def self._unlink: (String path) -> 0
   def self._chdir: (String path) -> 0
   def self._mkdir: (String path, String mode) -> 0
   def self._erase: (String path) -> 0
-  def self._chmod: (String mode, String path) -> 0
-  def self._stat: (String path) -> {size: Integer, datetime: String, arrributes: String}
+  def self._chmod: (Integer mode, String path) -> 0
+  def self._stat: (String path) -> stat_t
 
   def _getfree: (String path) -> Integer
   def _mkfs: (String path) -> self
@@ -22,7 +37,7 @@ class FAT
   @fatfs: nil | 0
   @label: String | nil
 
-  def initialize: (?String drive, ?String? label) -> void
+  def initialize: (?(Symbol|String) drive, ?String? label) -> void
   attr_reader mountpoint: untyped
   def mkfs: -> FAT
   def setlabel: -> 0
@@ -35,8 +50,8 @@ class FAT
   def chdir: (String path) -> 0
   def erase: -> untyped
   def mkdir: (untyped path, untyped mode) -> untyped
-  def chmod: (String mode, String path) -> 0
-  def stat: (untyped path) -> untyped
+  def chmod: (Integer mode, String path) -> 0
+  def stat: (untyped path) -> Stat
   def exist?: (untyped path) -> untyped
   def unlink: (untyped path) -> untyped
   def directory?: (untyped path) -> untyped
