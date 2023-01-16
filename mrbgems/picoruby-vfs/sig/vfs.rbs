@@ -13,8 +13,8 @@ class VFS
   def self.pwd: -> String
   def self.mkdir: (String path, ?Integer mode) -> 0
   def self.unlink: (String path) -> 0
-  def self.chmod: (String mode, String path) -> 0
-  def self.stat: (String path) -> untyped
+  def self.chmod: (Integer mode, String path) -> 0
+  def self.stat: (String path) -> untyped # depending on driver
   def self.exist?: (String path) -> bool
   def self.directory?: (String path) -> untyped
   def self.sanitize_and_split: (String path) -> [volume_t, String]
