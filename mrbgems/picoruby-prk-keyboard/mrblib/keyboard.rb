@@ -431,6 +431,7 @@ end
 
 README = "/README.txt"
 KEYMAP = "/keymap.rb"
+PRK_CONF = "/prk-conf.txt"
 DRIVE_NAME = "PRK DRIVE"
 MY_VOLUME = FAT.new(:flash, DRIVE_NAME)
 
@@ -465,6 +466,20 @@ class Keyboard
       sleep_ms 1
     end
     VFS.mount(MY_VOLUME, "/")
+    # See https://github.com/picoruby/prk_firmware/wiki/VIA-and-Remap#prk-conftxt
+    if File.exist?(PRK_CONF)
+      File.open(PRK_CONF, "r") do |f|
+        line = f.gets&.chomp
+        USB.save_prk_conf(line.to_s)
+      end
+    else
+      USB.save_prk_conf("")
+    end
+    puts "==============================================="
+    puts PRK_DESCRIPTION
+    puts "PRK_NO_MSC: #{PRK_NO_MSC}"
+    puts "prk-conf: #{USB.prk_conf}"
+    puts "==============================================="
     if Task[:keyboard].nil?
       File.exist?(KEYMAP) ? Keyboard.reload_keymap : Keyboard.wait_keymap
     elsif File.exist?(KEYMAP) && (0 < File.stat(KEYMAP).mode & FAT::AM_ARC)
