@@ -1,4 +1,5 @@
 require "float-ext"
+require "task-ext"
 
 class RGB
   KEYCODE = {
@@ -32,6 +33,13 @@ class RGB
 
   attr_reader :pixel_size, :effect
   attr_accessor :action, :anchor
+
+  TASK_SCRIPT = "while true; $rgb&.show || sleep(3); end"
+
+  def start
+    return if Task[:rgb]
+    Task.new(:rgb).compile_and_run(TASK_SCRIPT, false)
+  end
 
   def init_values
     self.speed = @speed || 25
