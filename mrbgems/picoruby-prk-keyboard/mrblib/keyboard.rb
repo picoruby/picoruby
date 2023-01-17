@@ -487,7 +487,7 @@ class Keyboard
       Task[:keyboard].suspend
       Keyboard.reload_keymap
     end
-    PicoRubyVM.print_simple_alloc_stats
+    PicoRubyVM.print_alloc_stats
     Keyboard.autoreload_off
   end
 
