@@ -487,6 +487,7 @@ class Keyboard
       Task[:keyboard].suspend
       Keyboard.reload_keymap
     end
+    PicoRubyVM.print_simple_alloc_stats
     Keyboard.autoreload_off
   end
 
@@ -601,6 +602,7 @@ class Keyboard
       else
         $rgb.ws2812_circle_set_center(112,32)
       end
+      $rgb.start
     when "RotaryEncoder"
       # @type var feature: RotaryEncoder
       if @split
@@ -1130,7 +1132,6 @@ class Keyboard
     end
 
     @via&.start!
-    $rgb&.resume
 
     @keycodes = Array.new
     prev_layer = @default_layer
