@@ -466,14 +466,14 @@ class Keyboard
       sleep_ms 1
     end
     VFS.mount(MY_VOLUME, "/")
-    # See https://github.com/picoruby/prk_firmware/wiki/VIA-and-Remap#prk-conftxt
+    # Spec: https://github.com/picoruby/prk_firmware/wiki/VIA-and-Remap#prk-conftxt
     if File.exist?(PRK_CONF)
       File.open(PRK_CONF, "r") do |f|
         line = f.gets&.chomp
-        USB.save_prk_conf(line.to_s)
+        USB.save_prk_conf(line || "::")
       end
     else
-      USB.save_prk_conf("")
+      USB.save_prk_conf("::")
     end
     puts "==============================================="
     puts PRK_DESCRIPTION
