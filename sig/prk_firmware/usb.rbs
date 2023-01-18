@@ -9,6 +9,6 @@ class USB
   def self.start_observing_output_report: () -> void
   def self.stop_observing_output_report: () -> void
   def self.output_report: () -> Integer
-  def self.save_prk_conf: (String) -> 0
+  def self.save_prk_conf: (String) -> bool
   def self.prk_conf: () -> String
 end
