@@ -1,0 +1,9 @@
+class Mouse
+  type driver_t = I2C # | SPI
+
+  attr_reader driver: driver_t
+  attr_accessor task_proc: ^(Mouse, Keyboard) -> void
+
+  def initialize: ({driver: driver_t}) -> void
+  def task: () { (Mouse, Keyboard) -> void } -> Proc
+end

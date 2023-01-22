@@ -14,6 +14,10 @@ class I2C
     _poll(@unit_num, i2c_adrs_7)
   end
 
+  def read(i2c_adrs_7, len)
+    _read(@unit_num, i2c_adrs_7, len)
+  end
+
   def write(i2c_adrs_7, *params)
     case params[0]
     when Array

@@ -583,6 +583,9 @@ class Keyboard
   # TODO: OLED, SDCard
   def append(feature)
     case feature.class.to_s
+    when "Mouse"
+      # @type var feature: Mouse
+      @mouse = feature
     when "RGB"
       # @type var feature: RGB
       $rgb = feature
@@ -1333,6 +1336,8 @@ class Keyboard
           joystick_buttons,
           joystick_hat
         )
+
+        @mouse&.task_proc&.call(@mouse, self)
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol

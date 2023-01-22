@@ -24,6 +24,7 @@ class Keyboard
                    | RotaryEncoder
                    | VIA
                    | Joystick
+                   | Mouse
                    | Sounder
                    | DebounceNone
                    | DebouncePerRow
@@ -102,6 +103,7 @@ class Keyboard
   @entire_cols_size: Integer
   @skip_positions: Array[[Integer, Integer]]
   @joystick: Joystick
+  @mouse: Mouse
   @output_report_cb: ^(Integer)->void
   @prev_rgb_effect: effect_type
   @ruby_mode_stop: bool

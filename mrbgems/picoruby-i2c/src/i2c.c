@@ -67,5 +67,6 @@ mrbc_i2c_init(void)
   mrbc_define_method(0, mrbc_class_I2C, "_init", c__init);
   mrbc_define_method(0, mrbc_class_I2C, "_poll", c__poll);
   mrbc_define_method(0, mrbc_class_I2C, "_write", c__write);
+  mrbc_define_method(0, mrbc_class_I2C, "_read", c__read);
 }
 

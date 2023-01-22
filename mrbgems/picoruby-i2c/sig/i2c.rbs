@@ -16,4 +16,6 @@ class I2C
   def _poll: (Integer, Integer) -> nil
   def write: (Integer, *(Integer|String) | Array[Integer]) -> Integer
   def _write: (Integer, Integer, Array[Integer]) -> Integer
+  def read: (Integer, Integer) -> String
+  def _read: (Integer, Integer, Integer) -> String
 end
