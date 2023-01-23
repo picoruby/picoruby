@@ -1090,11 +1090,10 @@ class Keyboard
       modifier = 0b00100000
       keycodes = "#{keycode.chr}\000\000\000\000\000"
     else
+      keycodes = ""
       6.times do |i|
-        break i unless symbols[i]
-        if code = KEYCODE.index(symbols[i])
-         keycodes[i] = code.chr
-        elsif code = MOD_KEYCODE[symbols[i]]
+        keycodes << (KEYCODE.index(symbols[i])&.chr || "\000")
+        if code = MOD_KEYCODE[symbols[i]]
           modifier |= code
         end
       end
