@@ -37,9 +37,10 @@ static void
 c__init(mrb_vm *vm, mrb_value *v, int argc)
 {
   uint8_t unit_num;
-  if (strcmp(GET_STRING_ARG(1), "RP2040_I2C0") == 0) {
+  const char *unit_name = (const char *)GET_STRING_ARG(1);
+  if (strcmp(unit_name, "RP2040_I2C0") == 0) {
     unit_num = PICORUBY_I2C_RP2040_I2C0;
-  } else if (strcmp(GET_STRING_ARG(1), "RP2040_I2C1") == 0) {
+  } else if (strcmp(unit_name, "RP2040_I2C1") == 0) {
     unit_num = PICORUBY_I2C_RP2040_I2C1;
   } else {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Invalid I2C unit name");

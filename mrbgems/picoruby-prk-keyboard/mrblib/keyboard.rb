@@ -860,6 +860,8 @@ class Keyboard
       (keycode + 0x100) * -1
     elsif keycode = MOD_KEYCODE[key]
       keycode
+    elsif required?("mouse") && keycode = Mouse::KEYCODE[key]
+      keycode
     elsif required?("rgb") && keycode = RGB::KEYCODE[key]
       keycode
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(key)
@@ -1154,6 +1156,11 @@ class Keyboard
       @modifier = 0
       joystick_hat = 0
       joystick_buttons = 0
+      mouse_buttons = 0
+      mouse_cursor_x = 0
+      mouse_cursor_y = 0
+      mouse_wheel_x = 0
+      mouse_wheel_y = 0
 
       @scan_mode == :matrix ? scan_matrix! : scan_direct!
       @key_pressed = !@switches.empty? # Independent even on split type
@@ -1285,14 +1292,34 @@ class Keyboard
           elsif keycode < 0x100
             @modifier |= keycode
             modifier_switch_positions.unshift i
-          elsif keycode < 0x200
-            joystick_hat |= (keycode - 0x100)
-          elsif keycode < 0x300
-            joystick_buttons |= (1 << (keycode - 0x200))
-          elsif keycode < 0x400
-            # TODO: mouse
-          # Redundant code because no need for performance from here
+          elsif @joystick
+            if keycode < 0x200
+              joystick_hat |= (keycode - 0x100)
+            elsif keycode < 0x300
+              joystick_buttons |= (1 << (keycode - 0x200))
+            end
+          elsif @mouse
+            if keycode < 0x306 # Mouse button
+              mouse_buttons |= (keycode - 0x300)
+            elsif keycode == 0x311 # Mouse UP
+              mouse_cursor_y = @mouse.cursor_speed
+            elsif keycode == 0x312 # Mouse DOWN
+              mouse_cursor_y = -@mouse.cursor_speed
+            elsif keycode == 0x313 # Mouse LEFT
+              mouse_cursor_x = @mouse.cursor_speed
+            elsif keycode == 0x314 # Mouse RIGHT
+              mouse_cursor_x = -@mouse.cursor_speed
+            elsif keycode == 0x315 # Mouse WHEEL UP
+              mouse_wheel_y = @mouse.wheel_speed
+            elsif keycode == 0x316 # Mouse WHEEL DOWN
+              mouse_wheel_y = -@mouse.wheel_speed
+            elsif keycode == 0x317 # Mouse WHEEL LEFT
+              mouse_wheel_x = @mouse.wheel_speed
+            elsif keycode == 0x318 # Mouse WHEEL RIGHT
+              mouse_wheel_x = -@mouse.wheel_speed
+            end
           elsif required?("consumer_key") && keycode < 0x700
+            # Redundant code because no need for performance from here
             consumer_keycode = ConsumerKey.keycode_from_mapcode(keycode)
           elsif required?("rgb") && keycode < 0x800
             message_to_partner = $rgb.invoke_anchor RGB::KEYCODE.key(keycode)
@@ -1340,7 +1367,16 @@ class Keyboard
           joystick_hat
         )
 
-        @mouse&.task_proc&.call(@mouse, self)
+        if @mouse
+          USB.merge_mouse_report(
+            mouse_buttons,
+            mouse_cursor_x,
+            mouse_cursor_y,
+            mouse_wheel_x,
+            mouse_wheel_y
+          )
+          @mouse.task_proc&.call(@mouse, self)
+        end
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol
