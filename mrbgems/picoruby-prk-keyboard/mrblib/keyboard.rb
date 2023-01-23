@@ -866,7 +866,7 @@ class Keyboard
       keycode
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(key)
       # You need to `require "consumer_key"`
-      keycode + 0x400
+      keycode + ConsumerKey::MAP_OFFSET
     elsif key.to_s.start_with?("JS_BUTTON")
       # JS_BUTTON0 - JS_BUTTON31
       # You need to `require "joystick"`
@@ -1141,10 +1141,13 @@ class Keyboard
     @keycodes = Array.new
     prev_layer = @default_layer
     modifier_switch_positions = Array.new
-    message_to_partner = 0
-    earlier_report_size = 0
+    message_to_partner, earlier_report_size, prev_output_report = 0, 0, 0
 
-    prev_output_report = 0
+    mouse_buttons,
+    mouse_cursor_x,
+    mouse_cursor_y,
+    mouse_wheel_x,
+    mouse_wheel_y = 0, 0, 0, 0, 0
 
     while true
       cycle_time = 20
@@ -1154,13 +1157,9 @@ class Keyboard
       @switches = @injected_switches.dup
       @injected_switches.clear
       @modifier = 0
-      joystick_hat = 0
-      joystick_buttons = 0
-      mouse_buttons = 0
-      mouse_cursor_x = 0
-      mouse_cursor_y = 0
-      mouse_wheel_x = 0
-      mouse_wheel_y = 0
+      if @joystick
+        joystick_hat, joystick_buttons = 0, 0
+      end
 
       @scan_mode == :matrix ? scan_matrix! : scan_direct!
       @key_pressed = !@switches.empty? # Independent even on split type
@@ -1292,14 +1291,13 @@ class Keyboard
           elsif keycode < 0x100
             @modifier |= keycode
             modifier_switch_positions.unshift i
-          elsif @joystick
-            if keycode < 0x200
-              joystick_hat |= (keycode - 0x100)
-            elsif keycode < 0x300
-              joystick_buttons |= (1 << (keycode - 0x200))
-            end
-          elsif @mouse
+          elsif keycode < 0x200
+            joystick_hat |= (keycode - 0x100)
+          elsif keycode < 0x300
+            joystick_buttons |= (1 << (keycode - 0x200))
+          elsif keycode < 0x400
             if keycode < 0x306 # Mouse button
+              # @type var mouse_buttons: Integer
               mouse_buttons |= (keycode - 0x300)
             elsif keycode == 0x311 # Mouse UP
               mouse_cursor_y = @mouse.cursor_speed
@@ -1318,11 +1316,10 @@ class Keyboard
             elsif keycode == 0x318 # Mouse WHEEL RIGHT
               mouse_wheel_x = -@mouse.wheel_speed
             end
-          elsif required?("consumer_key") && keycode < 0x700
-            # Redundant code because no need for performance from here
+          elsif keycode < 0x700
             consumer_keycode = ConsumerKey.keycode_from_mapcode(keycode)
-          elsif required?("rgb") && keycode < 0x800
-            message_to_partner = $rgb.invoke_anchor RGB::KEYCODE.key(keycode)
+          elsif keycode < 0x800
+            message_to_partner = $rgb&.invoke_anchor(RGB::KEYCODE.key(keycode)) || 0
           else
             puts "[ERROR] Wrong keycode: 0x#{keycode.to_s(16)}"
           end
@@ -1357,8 +1354,20 @@ class Keyboard
           encoder.consume_rotation_anchor
         end
 
-        #@joystick&.report_hid(joystick_buttons, joystick_hat)
+        if @mouse
+          USB.merge_mouse_report(
+            mouse_buttons,
+            mouse_cursor_x, mouse_cursor_y,
+            mouse_wheel_x, mouse_wheel_y
+          )
+          mouse_buttons,
+          mouse_cursor_x, mouse_cursor_y,
+          mouse_wheel_x, mouse_wheel_y = 0, 0, 0, 0, 0
+          @mouse.task_proc&.call(@mouse, self)
+        end
 
+        # @type var joystick_buttons: Integer
+        # @type var joystick_hat: Integer
         USB.hid_task(
           @modifier,
           @keycodes.join,
@@ -1366,17 +1375,6 @@ class Keyboard
           joystick_buttons,
           joystick_hat
         )
-
-        if @mouse
-          USB.merge_mouse_report(
-            mouse_buttons,
-            mouse_cursor_x,
-            mouse_cursor_y,
-            mouse_wheel_x,
-            mouse_wheel_y
-          )
-          @mouse.task_proc&.call(@mouse, self)
-        end
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol

@@ -90,7 +90,7 @@ class ConsumerKey
     0xBA => :KC_WWW_FAVORITES
   }
 
-  MAP_OFFSET = 0x300
+  MAP_OFFSET = 0x400
 
   def self.keycode(sym)
     ConsumerKey::KEYCODE[sym] || ConsumerKey::ALIAS[sym]
