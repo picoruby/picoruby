@@ -461,7 +461,7 @@ class Keyboard
 
   def self.restart
     VFS.unmount(MY_VOLUME, true)
-    USB.hid_task(0, "\000\000\000\000\000\000")
+    USB.hid_task(0, "\000\000\000\000\000\000", 0)
     200.times do
       USB.tud_task
       sleep_ms 1
@@ -1078,14 +1078,13 @@ class Keyboard
       []
     end
     modifier = 0
-    consumer_reported = false
+    consumer_keycode = 0
     keycodes = "\000\000\000\000\000\000"
     if required?("rgb") && RGB::KEYCODE[symbols[0]]
       $rgb&.invoke_anchor(symbols[0])
       return
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(symbols[0])
-      USB.merge_consumer_report(keycode)
-      consumer_reported = true
+      consumer_keycode = keycode
     elsif keycode = KEYCODE_SFT[symbols[0]]
       modifier = 0b00100000
       keycodes = "#{keycode.chr}\000\000\000\000\000"
@@ -1098,9 +1097,9 @@ class Keyboard
         end
       end
     end
-    USB.hid_task(modifier, keycodes)
-    sleep_ms(consumer_reported ? 4 : 1)
-    USB.hid_task(0, "\000\000\000\000\000\000")
+    USB.hid_task(modifier, keycodes, consumer_keycode)
+    sleep_ms(0 < consumer_keycode ? 4 : 1)
+    USB.hid_task(0, "\000\000\000\000\000\000", 0)
   end
 
   def output_report_changed(&block)
@@ -1157,6 +1156,7 @@ class Keyboard
       cycle_time = 20
       now = Machine.board_millis
       @keycodes.clear
+      consumer_keycode = 0
 
       @switches = @injected_switches.dup
       @injected_switches.clear
@@ -1317,7 +1317,7 @@ class Keyboard
               mouse_wheel_x = -@mouse.wheel_speed
             end
           elsif keycode < 0x700
-            USB.merge_consumer_report ConsumerKey.keycode_from_mapcode(keycode)
+            consumer_keycode = ConsumerKey.keycode_from_mapcode(keycode)
           elsif keycode < 0x800
             message_to_partner = $rgb&.invoke_anchor(RGB::KEYCODE.key(keycode)) || 0
           else
@@ -1371,7 +1371,7 @@ class Keyboard
           @mouse.task_proc&.call(@mouse, self)
         end
 
-        USB.hid_task(@modifier, @keycodes.join)
+        USB.hid_task(@modifier, @keycodes.join, consumer_keycode)
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol
