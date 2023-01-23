@@ -2,7 +2,7 @@ class USB
   def self.report_raw_hid : (Array[Integer]) -> void
   def self.raw_hid_report_received?: -> bool
   def self.get_last_received_raw_hid_report: -> Array[Integer]
-  def self.hid_task : (Integer, String, Integer, Integer) -> void
+  def self.hid_task : (Integer, String) -> void
   def self.tud_mounted? : () -> bool
   def self.tud_task : -> void
   def self.output_report_changed: () { (Integer) -> void } -> void
@@ -11,6 +11,7 @@ class USB
   def self.output_report: () -> Integer
   def self.save_prk_conf: (String) -> bool
   def self.prk_conf: () -> String
+  def self.merge_joystick_report: (Integer, Integer) -> nil
   def self.merge_consumer_report: (Integer) -> nil
   def self.merge_mouse_report: (Integer, Integer, Integer, Integer, Integer) -> nil
 end

@@ -460,7 +460,7 @@ class Keyboard
 
   def self.restart
     VFS.unmount(MY_VOLUME, true)
-    USB.hid_task(0, "\000\000\000\000\000\000", 0, 0)
+    USB.hid_task(0, "\000\000\000\000\000\000")
     200.times do
       USB.tud_task
       sleep_ms 1
@@ -1095,9 +1095,9 @@ class Keyboard
         end
       end
     end
-    USB.hid_task(modifier, keycodes, 0, 0)
+    USB.hid_task(modifier, keycodes)
     sleep_ms(consumer_reported ? 4 : 1)
-    USB.hid_task(0, "\000\000\000\000\000\000", 0, 0)
+    USB.hid_task(0, "\000\000\000\000\000\000")
   end
 
   def output_report_changed(&block)
@@ -1142,6 +1142,8 @@ class Keyboard
     modifier_switch_positions = Array.new
     message_to_partner, earlier_report_size, prev_output_report = 0, 0, 0
 
+    joystick_hat, joystick_buttons = 0, 0
+
     mouse_buttons,
     mouse_cursor_x,
     mouse_cursor_y,
@@ -1156,9 +1158,6 @@ class Keyboard
       @switches = @injected_switches.dup
       @injected_switches.clear
       @modifier = 0
-      if @joystick
-        joystick_hat, joystick_buttons = 0, 0
-      end
 
       @scan_mode == :matrix ? scan_matrix! : scan_direct!
       @key_pressed = !@switches.empty? # Independent even on split type
@@ -1352,6 +1351,11 @@ class Keyboard
           encoder.consume_rotation_anchor
         end
 
+        if @joystick
+          USB.merge_joystick_report(joystick_buttons, joystick_hat)
+          joystick_buttons, joystick_hat = 0, 0
+        end
+
         if @mouse
           USB.merge_mouse_report(
             mouse_buttons,
@@ -1364,14 +1368,7 @@ class Keyboard
           @mouse.task_proc&.call(@mouse, self)
         end
 
-        # @type var joystick_buttons: Integer
-        # @type var joystick_hat: Integer
-        USB.hid_task(
-          @modifier,
-          @keycodes.join,
-          joystick_buttons,
-          joystick_hat
-        )
+        USB.hid_task(@modifier, @keycodes.join)
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol
