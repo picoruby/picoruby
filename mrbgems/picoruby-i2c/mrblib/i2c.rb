@@ -1,3 +1,5 @@
+require "gpio"
+
 class I2C
   DEFAULT_FREQUENCY = 100_000
 
@@ -10,18 +12,17 @@ class I2C
     )
   end
 
-  def poll(i2c_adrs_7)
-    _poll(@unit_num, i2c_adrs_7)
-  end
-
   def read(i2c_adrs_7, len)
-    _read(@unit_num, i2c_adrs_7, len)
+    ret = _read(@unit_num, i2c_adrs_7, len)
+    return ret if String === ret
+    GPIO.handle_error(ret, "I2C#read")
+    return ""
   end
 
   def write(i2c_adrs_7, *params)
     case params[0]
     when Array
-      _write(@unit_num, i2c_adrs_7, params[0]) # Ignore subsequent values
+      ary = params[0] # Ignore subsequent values
     else
       ary = []
       params.each do |param|
@@ -34,7 +35,9 @@ class I2C
           end
         end
       end
-      _write(@unit_num, i2c_adrs_7, ary)
     end
+    ret = _write(@unit_num, i2c_adrs_7, ary)
+    return ret if 0 < ret
+    GPIO.handle_error(ret, "I2C#write")
   end
 end

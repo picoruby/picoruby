@@ -12,10 +12,8 @@ class I2C
 
   def initialize: (init_t params) -> void
   def _init: (String unit, Integer frequency, Integer sda_pin, Integer scl_pin) -> Integer
-  def poll: (Integer) -> nil
-  def _poll: (Integer, Integer) -> nil
   def write: (Integer, *(Integer|String) | Array[Integer]) -> Integer
   def _write: (Integer, Integer, Array[Integer]) -> Integer
   def read: (Integer, Integer) -> String
-  def _read: (Integer, Integer, Integer) -> String
+  def _read: (Integer, Integer, Integer) -> (String | Integer)
 end
