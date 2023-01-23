@@ -864,7 +864,7 @@ class Keyboard
       keycode
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(key)
       # You need to `require "consumer_key"`
-      keycode + 0x300
+      keycode + 0x400
     elsif key.to_s.start_with?("JS_BUTTON")
       # JS_BUTTON0 - JS_BUTTON31
       # You need to `require "joystick"`
@@ -1274,8 +1274,9 @@ class Keyboard
           #       0.. 0x100 : Modifier key
           #   0x101.. 0x1FF : Joystick D-pad hat
           #   0x200.. 0x2FF : Joystick button
-          #   0x300.. 0x5FF : Consumer (media) key
-          #   0x600.. 0x6FF : RGB
+          #   0x300.. 0x3FF : Mouse
+          #   0x400.. 0x6FF : Consumer (media) key
+          #   0x700.. 0x7FF : RGB
           if keycode < -0xFF
             @keycodes << ((keycode + 0x100) * -1).chr
             @modifier |= 0b00100000
@@ -1288,10 +1289,12 @@ class Keyboard
             joystick_hat |= (keycode - 0x100)
           elsif keycode < 0x300
             joystick_buttons |= (1 << (keycode - 0x200))
+          elsif keycode < 0x400
+            # TODO: mouse
           # Redundant code because no need for performance from here
-          elsif required?("consumer_key") && keycode < 0x600
+          elsif required?("consumer_key") && keycode < 0x700
             consumer_keycode = ConsumerKey.keycode_from_mapcode(keycode)
-          elsif required?("rgb") && keycode < 0x700
+          elsif required?("rgb") && keycode < 0x800
             message_to_partner = $rgb.invoke_anchor RGB::KEYCODE.key(keycode)
           else
             puts "[ERROR] Wrong keycode: 0x#{keycode.to_s(16)}"
