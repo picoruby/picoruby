@@ -1,4 +1,5 @@
 class GPIO
+  ERROR_NONE:           0
   ERROR_TIMEOUT:       -1
   ERROR_GENERIC:       -2
   ERROR_NO_DATA:       -3
@@ -7,4 +8,40 @@ class GPIO
   ERROR_IO:            -6
 
   def self.handle_error: (Integer, ?String) -> Integer
+
+  IN:          1 # 0b000001
+  OUT:         2 # 0b000010
+  HIGH_Z:      4 # 0b000100
+  PULL_UP:     8 # 0b001000
+  PULL_DOWN:  16 # 0b010000
+  OPEN_DRAIN: 32 # 0b100000
+
+  type pin_t = (Integer|String)
+
+  @pin: pin_t
+  @dir: (Integer|nil)
+  @pull: (Integer|nil)
+  @open_drain: bool
+
+  # Ruby method
+  def initialize: (pin_t, *(Integer)) -> void
+  def setmode: (*(Integer)) -> 0
+  def disjunction: (Array[Integer]) -> Integer
+  def set_dir: (Integer) -> 0
+  def set_pull: (Integer, ?bool) -> 0
+  def set_open_drain: (Integer, ?bool) -> 0
+
+  # C function
+  def self.read_at: (pin_t) -> Integer
+  def self.high_at?: (pin_t) -> bool
+  def self.low_at?: (Integer) -> bool
+  def self.write_at: (pin_t, Integer) -> 0
+  def self._init: (pin_t) -> 0
+  def self._set_dir: (pin_t, Integer) -> 0
+  def self._set_pull: (pin_t, Integer) -> 0
+  def self._set_open_drain: (pin_t) -> 0
+  def read: () -> Integer
+  def write: (Integer) -> 0
+  def high?: () -> bool
+  def low?: () -> bool
 end
