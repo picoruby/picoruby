@@ -37,9 +37,9 @@ class GPIO
   def self.low_at?: (Integer) -> bool
   def self.write_at: (pin_t, Integer) -> 0
   def self._init: (pin_t) -> 0
-  def self._set_dir: (pin_t, Integer) -> 0
-  def self._set_pull: (pin_t, Integer) -> 0
-  def self._set_open_drain: (pin_t) -> 0
+  def self.set_dir_at: (pin_t, Integer) -> 0
+  def self.set_pull_at: (pin_t, Integer) -> 0
+  def self.set_open_drain_at: (pin_t) -> 0
   def read: () -> Integer
   def write: (Integer) -> 0
   def high?: () -> bool

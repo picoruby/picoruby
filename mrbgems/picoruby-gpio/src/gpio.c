@@ -34,30 +34,30 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * GPIO._set_dir(pin, dir)
+ * GPIO.set_dir_at(pin, dir)
  */
 static void
-c__set_dir(mrbc_vm *vm, mrbc_value *v, int argc)
+c_set_dir_at(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   GPIO_set_dir(pin_num(vm, v[1]), GET_INT_ARG(2));
   SET_INT_RETURN(0);
 }
 
 /*
- * GPIO._set_open_drain(pin)
+ * GPIO.set_open_drain_at(pin)
  */
 static void
-c__set_open_drain(mrbc_vm *vm, mrbc_value *v, int argc)
+c_set_open_drain_at(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   GPIO_set_open_drain(pin_num(vm, v[1]));
   SET_INT_RETURN(0);
 }
 
 /*
- * GPIO._set_pull(pin, pull)
+ * GPIO.set_pull_at(pin, pull)
  */
 static void
-c__set_pull(mrbc_vm *vm, mrbc_value *v, int argc)
+c_set_pull_at(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   GPIO_set_pull(pin_num(vm, v[1]), GET_INT_ARG(2));
   SET_INT_RETURN(0);
@@ -69,7 +69,8 @@ c__set_pull(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_high_at_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (READ(v[1]) == 0) {
+  //if (READ(v[1]) == 0) {
+  if (GPIO_read(GET_INT_ARG(1)) == 0) {
     SET_FALSE_RETURN();
   } else {
     SET_TRUE_RETURN();
@@ -166,9 +167,9 @@ mrbc_gpio_init(void)
   mrbc_set_const(mrbc_str_to_symid("OPEN_DRAIN"), &mrbc_integer_value(OPEN_DRAIN));
 
   mrbc_define_method(0, mrbc_class_GPIO, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_GPIO, "_set_dir", c__set_dir);
-  mrbc_define_method(0, mrbc_class_GPIO, "_set_pull", c__set_pull);
-  mrbc_define_method(0, mrbc_class_GPIO, "_set_open_drain", c__set_open_drain);
+  mrbc_define_method(0, mrbc_class_GPIO, "set_dir_at", c_set_dir_at);
+  mrbc_define_method(0, mrbc_class_GPIO, "set_pull_at", c_set_pull_at);
+  mrbc_define_method(0, mrbc_class_GPIO, "set_open_drain_at", c_set_open_drain_at);
   mrbc_define_method(0, mrbc_class_GPIO, "high_at?", c_high_at_q);
   mrbc_define_method(0, mrbc_class_GPIO, "high?", c_high_q);
   mrbc_define_method(0, mrbc_class_GPIO, "low_at?", c_low_at_q);

@@ -1,4 +1,5 @@
 if RUBY_ENGINE == 'mruby/c'
+  require "gpio"
   require "debounce"
   require "rgb"
   require "rotary_encoder"
@@ -8,12 +9,12 @@ if RUBY_ENGINE == 'mruby/c'
 end
 
 class Keyboard
-  GPIO_IN          = 0b000
+#  GPIO_IN          = 0b000
   GPIO_IN_PULLUP   = 0b010
-  GPIO_IN_PULLDOWN = 0b110
-  GPIO_OUT         = 0b001
+#  GPIO_IN_PULLDOWN = 0b110
+#  GPIO_OUT         = 0b001
   GPIO_OUT_LO      = 0b011
-  GPIO_OUT_HI      = 0b101
+#  GPIO_OUT_HI      = 0b101
 
   LED_NUMLOCK    = 0b00001
   LED_CAPSLOCK   = 0b00010
@@ -707,6 +708,8 @@ class Keyboard
       rows.each_with_index do |cell, col_index|
         if cell.is_a?(Array)
           @matrix[cell[0]][cell[1]] = [row_index, col_index]
+          #GPIO.new(cell[0], GPIO::IN, GPIO::PULL_UP)
+          #GPIO.new(cell[1], GPIO::IN, GPIO::PULL_UP)
           gpio_init(cell[0])
           gpio_set_dir(cell[0], GPIO_IN_PULLUP)
           gpio_init(cell[1])
@@ -737,8 +740,9 @@ class Keyboard
     set_scan_mode :direct
     init_uart
     pins.each do |pin|
-      gpio_init(pin)
-      gpio_set_dir(pin, GPIO_IN_PULLUP)
+      GPIO.new(pin, GPIO::IN, GPIO::PULL_UP)
+      #gpio_init(pin)
+      #gpio_set_dir(pin, GPIO_IN_PULLUP)
     end
     @cols_size = pins.count
     @direct_pins = pins
@@ -1420,6 +1424,8 @@ class Keyboard
   def scan_matrix!
     @debouncer.set_time
     @matrix.each do |out_pin, in_pins|
+      #GPIO.set_dir_at(out_pin, GPIO::OUT)
+      #GPIO.write_at(out_pin, 0)
       gpio_set_dir(out_pin, GPIO_OUT_LO)
       in_pins.each do |in_pin, switch|
         row = switch[0]
@@ -1444,6 +1450,8 @@ class Keyboard
           @switches << [row, col]
         end
       end
+      #GPIO.set_dir_at(out_pin, GPIO::IN)
+      #GPIO.set_pull_at(out_pin, GPIO::PULL_UP)
       gpio_set_dir(out_pin, GPIO_IN_PULLUP)
     end
   end

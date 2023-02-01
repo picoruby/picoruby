@@ -28,7 +28,7 @@ GPIO_set_dir(uint8_t pin, uint8_t dir)
       gpio_set_dir(pin, true);
       break;
     case (HIGH_Z):
-      /* HIGH_Z is not support */
+      /* HIGH_Z is not supported */
       break;
   }
 }
@@ -61,6 +61,6 @@ GPIO_read(uint8_t pin)
 void
 GPIO_write(uint8_t pin, uint8_t val)
 {
-  gpio_put(pin, (bool)val);
+  gpio_put(pin, val);
 }
 

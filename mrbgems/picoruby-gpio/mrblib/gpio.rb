@@ -64,7 +64,7 @@ class GPIO
       # do nothing
     when 1
       @dir = mode & (IN|OUT|HIGH_Z)
-      GPIO._set_dir(@pin, @dir.to_i)
+      GPIO.set_dir_at(@pin, @dir.to_i)
       return 0
     else
       raise ArgumentError.new("IN, OUT and HIGH_Z are exclusive")
@@ -74,12 +74,12 @@ class GPIO
 
   def set_pull(mode, initialize = false)
     if initialize || 0 < (mode & (PULL_UP|PULL_DOWN))
-      @pull = case mode & (PULL_UP|PULL_DOWN)
+      case pull = (mode & (PULL_UP|PULL_DOWN))
       when 0
-        nil
+        @pull = nil
       when PULL_UP, PULL_DOWN
-        GPIO._set_pull(@pin, @pull.to_i)
-        @pull
+        GPIO.set_pull_at(@pin, pull.to_i)
+        @pull = pull
       else
         raise ArgumentError.new("PULL_UP and PULL_DOWN are exclusive")
       end
@@ -90,7 +90,7 @@ class GPIO
   def set_open_drain(mode, initialize = false)
     if initialize || 0 < (mode & OPEN_DRAIN)
       @open_drain = (0 < (mode & 0b1000000))
-      GPIO._set_open_drain(@pin) if @open_drain
+      GPIO.set_open_drain_at(@pin) if @open_drain
       @open_drain
     end
     0
