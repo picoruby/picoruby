@@ -9,14 +9,24 @@ class GPIO
   ERROR_INVALID_ARG = -5
   ERROR_IO = -6
 
-  def handle_error(code, name = "")
+  def self.handle_error(code, name = "unknown peripheral")
     case code
     when ERROR_NONE
       return 0
     when ERROR_TIMEOUT
-      raise(RuntimeError.new("Timeout error in #{name}"))
+      raise(RuntimeError.new "Timeout error in #{name}")
+    when ERROR_GENERIC
+      raise(RuntimeError.new "Generic error in #{name}")
+    when ERROR_NO_DATA
+      raise(RuntimeError.new "No data error in #{name}")
+    when ERROR_NOT_PERMITTED
+      raise(RuntimeError.new "Not permitted error in #{name}")
+    when ERROR_INVALID_ARG
+      raise(RuntimeError.new "Invalid arg error in #{name}")
+    when ERROR_IO
+      raise(RuntimeError.new "IO error in #{name}")
     else
-      raise(RuntimeError.new("Unknown error in #{name}. code: #{code}"))
+      raise(RuntimeError.new "Unknown error in #{name}. code: #{code}")
     end
   end
 
