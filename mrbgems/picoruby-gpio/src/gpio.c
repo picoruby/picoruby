@@ -26,16 +26,18 @@ pin_num(mrbc_vm *vm, mrbc_value pin)
  * GPIO._init(pin)
  */
 static void
-c__init(mrbc_vm *vm, mrb_value *v, int argc)
+c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  GPIO_init(pin_num(vm, v[1]));
+  int pin_number = pin_num(vm, v[1]);
+  if (-1 < pin_number) GPIO_init(pin_number);
+  SET_INT_RETURN(0);
 }
 
 /*
  * GPIO._set_dir(pin, dir)
  */
 static void
-c__set_dir(mrbc_vm *vm, mrb_value *v, int argc)
+c__set_dir(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   GPIO_set_dir(pin_num(vm, v[1]), GET_INT_ARG(2));
   SET_INT_RETURN(0);
@@ -45,7 +47,7 @@ c__set_dir(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO._set_open_drain(pin)
  */
 static void
-c__set_open_drain(mrbc_vm *vm, mrb_value *v, int argc)
+c__set_open_drain(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   GPIO_set_open_drain(pin_num(vm, v[1]));
   SET_INT_RETURN(0);
@@ -55,7 +57,7 @@ c__set_open_drain(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO._set_pull(pin, pull)
  */
 static void
-c__set_pull(mrbc_vm *vm, mrb_value *v, int argc)
+c__set_pull(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   GPIO_set_pull(pin_num(vm, v[1]), GET_INT_ARG(2));
   SET_INT_RETURN(0);
@@ -65,7 +67,7 @@ c__set_pull(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO.high_at?(pin)
  */
 static void
-c_high_at_q(mrbc_vm *vm, mrb_value *v, int argc)
+c_high_at_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (READ(v[1]) == 0) {
     SET_FALSE_RETURN();
@@ -78,9 +80,9 @@ c_high_at_q(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO.high?(pin)
  */
 static void
-c_high_q(mrbc_vm *vm, mrb_value *v, int argc)
+c_high_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (READ(GETIV("pin")) == 0) {
+  if (READ(GETIV(pin)) == 0) {
     SET_FALSE_RETURN();
   } else {
     SET_TRUE_RETURN();
@@ -91,7 +93,7 @@ c_high_q(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO.low_at?(pin)
  */
 static void
-c_low_at_q(mrbc_vm *vm, mrb_value *v, int argc)
+c_low_at_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (READ(v[1]) == 0) {
     SET_TRUE_RETURN();
@@ -104,9 +106,9 @@ c_low_at_q(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO.low?(pin)
  */
 static void
-c_low_q(mrbc_vm *vm, mrb_value *v, int argc)
+c_low_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (READ(GETIV("pin")) == 0) {
+  if (READ(GETIV(pin)) == 0) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -117,7 +119,7 @@ c_low_q(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO.read_at(pin)
  */
 static void
-c_read_at(mrbc_vm *vm, mrb_value *v, int argc)
+c_read_at(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SET_INT_RETURN(READ(v[1]));
 }
@@ -126,16 +128,16 @@ c_read_at(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO.read(pin)
  */
 static void
-c_read(mrbc_vm *vm, mrb_value *v, int argc)
+c_read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  SET_INT_RETURN(READ(GETIV("pin")));
+  SET_INT_RETURN(READ(GETIV(pin)));
 }
 
 /*
  * GPIO.write_at(pin, val)
  */
 static void
-c_write_at(mrbc_vm *vm, mrb_value *v, int argc)
+c_write_at(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   WRITE(v[1], GET_INT_ARG(2));
   SET_INT_RETURN(0);
@@ -145,9 +147,9 @@ c_write_at(mrbc_vm *vm, mrb_value *v, int argc)
  * GPIO#write(val)
  */
 static void
-c_write(mrbc_vm *vm, mrb_value *v, int argc)
+c_write(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  WRITE(GETIV("pin"), GET_INT_ARG(1));
+  WRITE(GETIV(pin), GET_INT_ARG(1));
   SET_INT_RETURN(0);
 }
 
