@@ -2,7 +2,7 @@ class USB
   def self.report_raw_hid : (Array[Integer]) -> void
   def self.raw_hid_report_received?: -> bool
   def self.get_last_received_raw_hid_report: -> Array[Integer]
-  def self.hid_task : (Integer, String, Integer) -> void
+  def self.hid_task : (Integer, Array[Integer], Integer) -> void
   def self.tud_mounted? : () -> bool
   def self.tud_task : -> void
   def self.output_report_changed: () { (Integer) -> void } -> void

@@ -461,7 +461,7 @@ class Keyboard
 
   def self.restart
     VFS.unmount(MY_VOLUME, true)
-    USB.hid_task(0, "\000\000\000\000\000\000", 0)
+    USB.hid_task(0, [], 0)
     200.times do
       USB.tud_task
       sleep_ms 1
@@ -1030,7 +1030,7 @@ class Keyboard
 
   def keys_include?(key)
     keycode = KEYCODE.index(key)
-    !keycode.nil? && @keycodes.include?(keycode.chr)
+    !keycode.nil? && @keycodes.include?(keycode)
   end
 
   def key_pressed?
@@ -1042,20 +1042,20 @@ class Keyboard
     when Integer
       # @type var mode_key: Integer
       if mode_key < -255
-        @keycodes << ((mode_key + 0x100) * -1).chr
+        @keycodes << ((mode_key + 0x100) * -1)
         @modifier |= 0b00000010
       else
-        @keycodes << (mode_key * -1).chr
+        @keycodes << (mode_key * -1)
       end
     when Array
       0 # `steep check` will fail if you remove this line 🤔
       # @type var mode_key: Array[Integer]
       mode_key.each do |key|
         if key < -255
-          @keycodes << ((key + 0x100) * -1).chr
+          @keycodes << ((key + 0x100) * -1)
           @modifier |= 0b00000010
         elsif key < 0
-          @keycodes << (key * -1).chr
+          @keycodes << (key * -1)
         else # Should be a modifier
           @modifier |= key
         end
@@ -1079,7 +1079,7 @@ class Keyboard
     end
     modifier = 0
     consumer_keycode = 0
-    keycodes = "\000\000\000\000\000\000"
+    keycodes = []
     if required?("rgb") && RGB::KEYCODE[symbols[0]]
       $rgb&.invoke_anchor(symbols[0])
       return
@@ -1087,19 +1087,19 @@ class Keyboard
       consumer_keycode = keycode
     elsif keycode = KEYCODE_SFT[symbols[0]]
       modifier = 0b00100000
-      keycodes = "#{keycode.chr}\000\000\000\000\000"
+      keycodes = [keycode]
     else
-      keycodes = ""
-      6.times do |i|
-        keycodes << (KEYCODE.index(symbols[i])&.chr || "\000")
-        if code = MOD_KEYCODE[symbols[i]]
+      symbols.each do |symbol|
+        if code = KEYCODE.index(symbol)
+          keycodes << code
+        elsif code = MOD_KEYCODE[symbol]
           modifier |= code
         end
       end
     end
     USB.hid_task(modifier, keycodes, consumer_keycode)
     sleep_ms(0 < consumer_keycode ? 4 : 1)
-    USB.hid_task(0, "\000\000\000\000\000\000", 0)
+    USB.hid_task(0, [], 0)
   end
 
   def output_report_changed(&block)
@@ -1284,10 +1284,10 @@ class Keyboard
           #   0x400.. 0x6FF : Consumer (media) key
           #   0x700.. 0x7FF : RGB
           if keycode < -0xFF
-            @keycodes << ((keycode + 0x100) * -1).chr
+            @keycodes << ((keycode + 0x100) * -1)
             @modifier |= 0b00100000
           elsif keycode < 0
-            @keycodes << (keycode * -1).chr
+            @keycodes << (keycode * -1)
           elsif keycode < 0x100
             @modifier |= keycode
             modifier_switch_positions.unshift i
@@ -1334,17 +1334,14 @@ class Keyboard
         if macro_keycode
           if macro_keycode < 0
             @modifier |= 0b00100000
-            @keycodes << (macro_keycode * -1).chr
+            @keycodes << (macro_keycode * -1)
           else
-            @keycodes << macro_keycode.chr
+            @keycodes << macro_keycode
           end
           cycle_time = 40 # To avoid accidental skip
         end
 
         earlier_report_size = @keycodes.size
-        (6 - earlier_report_size).times do
-          @keycodes << "\000"
-        end
 
         @before_filters&.each do |block|
           block.call
@@ -1371,7 +1368,7 @@ class Keyboard
           @mouse.task_proc&.call(@mouse, self)
         end
 
-        USB.hid_task(@modifier, @keycodes.join, consumer_keycode)
+        USB.hid_task(@modifier, @keycodes, consumer_keycode)
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol
