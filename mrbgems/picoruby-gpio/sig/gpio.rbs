@@ -28,8 +28,9 @@ class GPIO
   def setmode: (*(Integer)) -> 0
   def disjunction: (Array[Integer]) -> Integer
   def set_dir: (Integer) -> 0
-  def set_pull: (Integer, ?bool) -> 0
-  def set_open_drain: (Integer, ?bool) -> 0
+  def set_pull: (Integer) -> 0
+  def open_drain: (Integer) -> 0
+  def on_initialize?: () -> bool
 
   # C function
   def self.read_at: (pin_t) -> Integer
@@ -38,8 +39,9 @@ class GPIO
   def self.write_at: (pin_t, Integer) -> 0
   def self._init: (pin_t) -> 0
   def self.set_dir_at: (pin_t, Integer) -> 0
-  def self.set_pull_at: (pin_t, Integer) -> 0
-  def self.set_open_drain_at: (pin_t) -> 0
+  def self.pull_up_at: (pin_t) -> 0
+  def self.pull_down_at: (pin_t) -> 0
+  def self.open_drain_at: (pin_t) -> 0
   def read: () -> Integer
   def write: (Integer) -> 0
   def high?: () -> bool

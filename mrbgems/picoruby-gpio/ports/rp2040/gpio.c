@@ -34,22 +34,21 @@ GPIO_set_dir(uint8_t pin, uint8_t dir)
 }
 
 void
-GPIO_set_open_drain(uint8_t pin)
+GPIO_open_drain(uint8_t pin)
 {
   /* Not supported */
 }
 
 void
-GPIO_set_pull(uint8_t pin, uint8_t pull)
+GPIO_pull_up(uint8_t pin)
 {
-  switch (pull) {
-    case (PULL_UP):
-      gpio_pull_up(pin);
-      break;
-    case (PULL_DOWN):
-      gpio_pull_down(pin);
-      break;
-  }
+  gpio_pull_up(pin);
+}
+
+void
+GPIO_pull_down(uint8_t pin)
+{
+  gpio_pull_down(pin);
 }
 
 int

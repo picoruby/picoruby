@@ -33,20 +33,17 @@ class GPIO
   def initialize(pin, *params)
     @pin = pin
     GPIO._init(pin)
-    mode = disjunction(params)
-    set_dir(mode)
+    setmode(*params)
     unless @dir
       raise ArgumentError.new("You must specify one of IN, OUT and HIGH_Z")
     end
-    set_pull(mode, true)
-    set_open_drain(mode, true)
   end
 
   def setmode(*params)
     mode = disjunction(params)
-    set_dir(mode) if 0 < (mode & (IN|OUT|HIGH_Z))
+    set_dir(mode)
     set_pull(mode)
-    set_open_drain(mode)
+    open_drain(mode)
   end
 
   # private
@@ -58,42 +55,49 @@ class GPIO
   end
 
   def set_dir(mode)
+    dir = (mode & (IN|OUT|HIGH_Z))
+    return 0 if dir == 0 && !on_initialize?
     mode_dir = ((mode & IN) + ((mode & OUT)>>1) + ((mode & HIGH_Z)>>2))
-    case mode_dir
+    @dir = case mode_dir
     when 0
-      # do nothing
+      nil
     when 1
-      @dir = mode & (IN|OUT|HIGH_Z)
-      GPIO.set_dir_at(@pin, @dir.to_i)
-      return 0
+      GPIO.set_dir_at(@pin, dir)
+      dir
     else
       raise ArgumentError.new("IN, OUT and HIGH_Z are exclusive")
     end
     0
   end
 
-  def set_pull(mode, initialize = false)
-    if initialize || 0 < (mode & (PULL_UP|PULL_DOWN))
-      case pull = (mode & (PULL_UP|PULL_DOWN))
-      when 0
-        @pull = nil
-      when PULL_UP, PULL_DOWN
-        GPIO.set_pull_at(@pin, pull.to_i)
-        @pull = pull
-      else
-        raise ArgumentError.new("PULL_UP and PULL_DOWN are exclusive")
-      end
+  def set_pull(mode)
+    pull = (mode & (PULL_UP|PULL_DOWN))
+    return 0 if 0 == pull && !on_initialize?
+    @pull = case pull
+    when 0
+      nil
+    when PULL_UP
+      GPIO.pull_up_at(@pin)
+      PULL_UP
+    when PULL_DOWN
+      GPIO.pull_down_at(@pin)
+      PULL_DOWN
+    else
+      raise ArgumentError.new("PULL_UP and PULL_DOWN are exclusive")
     end
     0
   end
 
-  def set_open_drain(mode, initialize = false)
-    if initialize || 0 < (mode & OPEN_DRAIN)
-      @open_drain = (0 < (mode & 0b1000000))
-      GPIO.set_open_drain_at(@pin) if @open_drain
-      @open_drain
+  def open_drain(mode)
+    @open_drain = (0 < (mode & OPEN_DRAIN))
+    if on_initialize? || @open_drain
+      GPIO.open_drain_at(@pin) if @open_drain
     end
     0
+  end
+
+  def on_initialize?
+    @dir.nil?
   end
 end
 

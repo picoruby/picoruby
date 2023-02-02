@@ -1434,7 +1434,7 @@ class Keyboard
         end
       end
       GPIO.set_dir_at(out_pin, GPIO::IN)
-      GPIO.set_pull_at(out_pin, GPIO::PULL_UP)
+      GPIO.pull_up_at(out_pin)
     end
   end
 
