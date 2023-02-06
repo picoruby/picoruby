@@ -1159,15 +1159,15 @@ class Keyboard
       if @anchor
         # Receive max 3 switches from partner
         if @split
-          sleep_ms 3
-          if message_to_partner > 0
-            data24 = uart_anchor(message_to_partner)
-            message_to_partner = 0
-          elsif $rgb && $rgb.ping?
-            data24 = uart_anchor(0b11100000) # adjusts RGB time
+          sleep_ms 2
+          data24 = if message_to_partner > 0
+            uart_anchor(message_to_partner)
+          elsif $rgb&.ping?
+            uart_anchor(0b11100000) # adjusts RGB time
           else
-            data24 = uart_anchor(0)
+            uart_anchor(0)
           end
+          message_to_partner = 0
           [data24 & 0xFF, (data24 >> 8) & 0xFF, data24 >> 16].each do |data|
             if data == 0xFF
               # do nothing
@@ -1263,7 +1263,6 @@ class Keyboard
             # Note:
             # Ignore an invalid switch data occasionally happens in split type
             # It is almost [5, 16] but sometimes [5, 0] and very rarely [7, 0]
-            # This potentially causes unintentional input if your split layout has 6+ rows
             # puts "Skipped an invalid switch data: #{switch}"
             next
           end
