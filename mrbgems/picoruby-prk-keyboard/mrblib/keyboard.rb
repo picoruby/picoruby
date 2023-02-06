@@ -1257,7 +1257,16 @@ class Keyboard
         keymap = @keymaps[@locked_layer || @layer || @default_layer]
         modifier_switch_positions.clear
         @switches.each_with_index do |switch, i|
-          keycode = keymap[switch[0]][switch[1]]
+          begin
+            keycode = keymap[switch[0]][switch[1]]
+          rescue NoMethodError
+            # Note:
+            # Ignore an invalid switch data occasionally happens in split type
+            # It is almost [5, 16] but sometimes [5, 0] and very rarely [7, 0]
+            # This potentially causes unintentional input if your split layout has 6+ rows
+            # puts "Skipped an invalid switch data: #{switch}"
+            next
+          end
           if signal = @anchor_signals&.index(keycode)
             message_to_partner = signal + 1
           end
