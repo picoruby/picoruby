@@ -40,19 +40,14 @@ class GPIO
   end
 
   def setmode(*params)
-    mode = disjunction(params)
+    mode = 0
+    params.each { |param| mode |= param }
     set_dir(mode)
     set_pull(mode)
     open_drain(mode)
   end
 
   # private
-
-  def disjunction(params)
-    mode = 0
-    params.each { |param| mode |= param }
-    mode
-  end
 
   def set_dir(mode)
     dir = (mode & (IN|OUT|HIGH_Z))
