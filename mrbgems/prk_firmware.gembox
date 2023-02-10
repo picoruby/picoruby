@@ -17,4 +17,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-prk-sounder'
   conf.gem core: 'picoruby-prk-via'
   conf.gem core: 'picoruby-i2c'
+  conf.gem core: 'picoruby-spi'
 end
