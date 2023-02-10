@@ -7,8 +7,8 @@ class I2C
     @unit_num = _init(
       params[:unit].to_s,
       params[:frequency] || DEFAULT_FREQUENCY,
-      params[:sda_pin],
-      params[:scl_pin]
+      params[:sda_pin]   || -1,
+      params[:scl_pin]   || -1
     )
   end
 
@@ -24,9 +24,7 @@ class I2C
     params.each do |param|
       case param
       when Array
-        param.each do |e|
-          ary << e
-        end
+        ary += param
       when Integer
         ary << param
       when String
