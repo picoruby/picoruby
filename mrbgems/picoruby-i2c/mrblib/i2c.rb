@@ -20,20 +20,17 @@ class I2C
   end
 
   def write(i2c_adrs_7, *params)
-    case params[0]
-    when Array
-      ary = params[0] # Ignore subsequent values
-    else
-      ary = []
-      params.each do |param|
-        case param
-        when Integer
-          ary << param
-        when String
-          param.each_byte do |byte|
-            ary << byte
-          end
+    ary = []
+    params.each do |param|
+      case param
+      when Array
+        param.each do |e|
+          ary << e
         end
+      when Integer
+        ary << param
+      when String
+        art += param.bytes
       end
     end
     ret = _write(@unit_num, i2c_adrs_7, ary)
