@@ -39,7 +39,7 @@ class SPI
       end
     end
     ret = _write(@unit_num, ary)
-    return ret if String === ret
+    return ret if -1 < ret
     GPIO.handle_error(ret, "SPI#write")
   end
 end
