@@ -188,6 +188,7 @@ class RGB
   def toggle
     if @offed
       reset_pixel
+      turn_on
       puts "On"
     else
       turn_off
