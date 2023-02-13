@@ -1,6 +1,7 @@
 class Machine
-  def self.reset_usb_boot: () -> void
-  def self.srand: (Integer) -> void
+  def self.delay_us: () -> void
+  def self.reset_usb_boot: () -> 0
+  def self.srand: (Integer) -> 0
   def self.rand: () -> Integer
   def self.board_millis: () -> Integer
 end

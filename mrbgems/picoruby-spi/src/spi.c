@@ -3,7 +3,7 @@
 #include "../include/spi.h"
 
 static void
-c__write(mrb_vm *vm, mrb_value *v, int argc)
+c__write(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int unit_num = GET_INT_ARG(1);
   mrbc_array value_ary = *(GET_ARY_ARG(2).array);
@@ -16,7 +16,7 @@ c__write(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c__read(mrb_vm *vm, mrb_value *v, int argc)
+c__read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   size_t len = GET_INT_ARG(2);
   uint8_t rxdata[len];
@@ -30,7 +30,7 @@ c__read(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c__init(mrb_vm *vm, mrb_value *v, int argc)
+c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int unit_num = SPI_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
   spi_status_t status = SPI_gpio_init(

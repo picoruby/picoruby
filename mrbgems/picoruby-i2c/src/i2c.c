@@ -5,7 +5,7 @@
 static uint32_t duration_1byte = 0;
 
 static void
-c__write(mrb_vm *vm, mrb_value *v, int argc)
+c__write(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_array value_ary = *(GET_ARY_ARG(3).array);
   int len = value_ary.n_stored;
@@ -17,7 +17,7 @@ c__write(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c__read(mrb_vm *vm, mrb_value *v, int argc)
+c__read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int len = GET_INT_ARG(3);
   uint8_t rxdata[len];
@@ -31,7 +31,7 @@ c__read(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c__init(mrb_vm *vm, mrb_value *v, int argc)
+c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int unit_num = I2C_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
   uint32_t frequency = (uint32_t)GET_INT_ARG(2);
