@@ -94,7 +94,6 @@ class Keyboard
   @keycodes: Array[Integer]
   @macro_keys: Array[Integer]
   @macro_key_numbers: Array[Integer | nil]
-  @modifier: Integer
   @message: Integer
   @encoders: Array[RotaryEncoder]
   @scan_mode: scan_mode_type
@@ -122,6 +121,7 @@ class Keyboard
   attr_accessor uart_pin: Integer
   attr_accessor default_layer: Symbol
   attr_accessor sounder: Sounder
+  attr_accessor modifier: Integer
 
   attr_reader layer: Symbol | nil
   attr_reader split_style: split_style_type

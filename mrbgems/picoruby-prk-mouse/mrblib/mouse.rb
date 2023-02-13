@@ -37,9 +37,14 @@ class Mouse
 
   attr_accessor :cursor_speed, :wheel_speed
   attr_accessor :task_proc
+  attr_accessor :buttons
   attr_reader :driver
 
   def task(&block)
     @task_proc = block
+  end
+
+  def button_pressed?
+    0 < @buttons
   end
 end

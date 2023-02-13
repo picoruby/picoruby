@@ -532,7 +532,7 @@ class Keyboard
     @layer_changed_delay = 20
   end
 
-  attr_accessor :split, :uart_pin, :default_layer, :sounder
+  attr_accessor :split, :uart_pin, :default_layer, :sounder, :modifier
   attr_reader :layer, :split_style, :cols_size, :rows_size
 
   def anchor?
@@ -1358,6 +1358,7 @@ class Keyboard
             mouse_cursor_x, mouse_cursor_y,
             mouse_wheel_x, mouse_wheel_y
           )
+          @mouse.buttons = mouse_buttons
           mouse_buttons,
           mouse_cursor_x, mouse_cursor_y,
           mouse_wheel_x, mouse_wheel_y = 0, 0, 0, 0, 0
@@ -1503,10 +1504,12 @@ class Keyboard
   # Switch to specified layer
   def lock_layer(layer)
     @locked_layer = layer
+    puts ":#{layer} layer locked"
   end
 
   def unlock_layer
     @locked_layer = nil
+    puts "layer unlocked"
   end
 
   def macro(text, opts = [:ENTER])
