@@ -29,10 +29,11 @@ class RGB
     ws2812_init(pin, @pixel_size, is_rgbw)
     @max_value = 13 # default
     init_values
+    @split_sync = true
   end
 
   attr_reader :pixel_size, :effect
-  attr_accessor :action, :anchor
+  attr_accessor :action, :anchor, :split_sync
 
   TASK_SCRIPT = "while true; $rgb&.show || sleep(3); end"
 
@@ -178,9 +179,9 @@ class RGB
   def ping?
     if @ping
       @ping = false
-      return true
+      @split_sync ? true : false
     else
-      return false
+      false
     end
   end
 

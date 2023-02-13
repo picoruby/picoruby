@@ -55,6 +55,7 @@ class RGB
   attr_reader effect: effect_type
   attr_accessor action: action_type
   attr_accessor anchor: bool
+  attr_accessor split_sync: bool
 
   def initialize: (Integer pin, Integer underglow_size, Integer backlight_size, ?bool is_rgbw) -> void
   def start: () -> void
