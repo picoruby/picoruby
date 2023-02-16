@@ -1,0 +1,13 @@
+class ADC
+  type pin_t = (Integer|String)
+
+  attr_reader min: Float|nil
+  attr_reader max: Float|nil
+
+  @input: Integer
+
+  def initialize: (pin_t pin, ?Hash[untyped, untyped] params) -> void
+  def read: () -> Float
+
+  def self._init: (pin_t pin) -> 0
+end
