@@ -1212,6 +1212,7 @@ class Keyboard
               when Symbol
                 # @type var on_hold: Symbol
                 desired_layer = on_hold
+                unlock_layer if @locked_layer
               when Integer
                 # @type var on_hold: Integer
                 @modifier |= on_hold
