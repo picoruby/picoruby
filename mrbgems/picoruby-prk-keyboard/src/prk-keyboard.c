@@ -9,19 +9,19 @@ static uint32_t buffer = 0;
 static int      buffer_index = 0;
 
 static void
-c_uart_anchor_init(mrb_vm *vm, mrb_value *v, int argc)
+c_uart_anchor_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   Keyboard_uart_anchor_init(GET_INT_ARG(1));
 }
 
 static void
-c_uart_partner_init(mrb_vm *vm, mrb_value *v, int argc)
+c_uart_partner_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   Keyboard_uart_partner_init(GET_INT_ARG(1));
 }
 
 static void
-c_uart_partner_push8(mrb_vm *vm, mrb_value *v, int argc)
+c_uart_partner_push8(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int keycode = GET_INT_ARG(1);
   if (buffer_index > 2) return;
@@ -30,7 +30,7 @@ c_uart_partner_push8(mrb_vm *vm, mrb_value *v, int argc)
 }
 
 static void
-c_uart_partner(mrb_vm *vm, mrb_value *v, int argc)
+c_uart_partner(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   switch (buffer_index) {
     case 0: buffer  = NIL; break;

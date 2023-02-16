@@ -24,6 +24,7 @@ class Keyboard
                    | RotaryEncoder
                    | VIA
                    | Joystick
+                   | Mouse
                    | Sounder
                    | DebounceNone
                    | DebouncePerRow
@@ -90,10 +91,9 @@ class Keyboard
   @direct_pins: Array[Integer]
   @matrix: Hash[Integer, Hash[Integer, [Integer, Integer]]]
   @locked_layer: Symbol | nil
-  @keycodes: Array[String]
+  @keycodes: Array[Integer]
   @macro_keys: Array[Integer]
   @macro_key_numbers: Array[Integer | nil]
-  @modifier: Integer
   @message: Integer
   @encoders: Array[RotaryEncoder]
   @scan_mode: scan_mode_type
@@ -102,6 +102,7 @@ class Keyboard
   @entire_cols_size: Integer
   @skip_positions: Array[[Integer, Integer]]
   @joystick: Joystick
+  @mouse: Mouse
   @output_report_cb: ^(Integer)->void
   @prev_rgb_effect: effect_type
   @ruby_mode_stop: bool
@@ -120,6 +121,7 @@ class Keyboard
   attr_accessor uart_pin: Integer
   attr_accessor default_layer: Symbol
   attr_accessor sounder: Sounder
+  attr_accessor modifier: Integer
 
   attr_reader layer: Symbol | nil
   attr_reader split_style: split_style_type
