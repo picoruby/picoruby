@@ -20,6 +20,11 @@ ADC_pin_num_from_char(const uint8_t *str)
 int
 ADC_init(uint8_t pin)
 {
+  static bool init = false;
+  if (!init) {
+    adc_init();
+    init = true;
+  }
   uint input;
   switch (pin) {
     case 26: { input = 0; break; }
@@ -29,7 +34,6 @@ ADC_init(uint8_t pin)
     case TEMPERATURE: { input = 4; break; }
     default: { return -1; }
   }
-  adc_init();
   if (pin != TEMPERATURE) {
     adc_gpio_init(input);
   }

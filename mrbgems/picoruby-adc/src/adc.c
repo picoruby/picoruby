@@ -24,17 +24,15 @@ pin_num(mrbc_vm *vm, mrbc_value pin)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  int input = -1;
   int pin_number = pin_num(vm, v[1]);
   if (-1 < pin_number) {
-    int input = ADC_init(pin_number);
+    input = ADC_init(pin_number);
     if (input < 0) {
       mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong ADC pin value");
-    } else {
-      mrbc_value ivar_input = GETIV(input);
-      ivar_input.i = input;
     }
   }
-  SET_INT_RETURN(0);
+  SET_INT_RETURN(input);
 }
 
 static void
