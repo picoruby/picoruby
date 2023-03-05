@@ -34,7 +34,7 @@ module MRuby
 
     def picoruby(picoruby_conf = :default)
 
-      ENV['MRUBYC_BRANCH'] ||= "mrubyc3.1"
+      ENV['MRUBYC_BRANCH'] ||= "master"
 
       disable_presym
 
