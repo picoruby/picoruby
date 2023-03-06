@@ -702,8 +702,8 @@ class Keyboard
       rows.each_with_index do |cell, col_index|
         if cell.is_a?(Array)
           @matrix[cell[0]][cell[1]] = [row_index, col_index]
-          GPIO.new(cell[0], GPIO::IN, GPIO::PULL_UP)
-          GPIO.new(cell[1], GPIO::IN, GPIO::PULL_UP)
+          GPIO.new(cell[0], GPIO::IN|GPIO::PULL_UP)
+          GPIO.new(cell[1], GPIO::IN|GPIO::PULL_UP)
         else # should be nil
           @skip_positions << [row_index, col_index]
         end
@@ -730,7 +730,7 @@ class Keyboard
     set_scan_mode :direct
     init_uart
     pins.each do |pin|
-      GPIO.new(pin, GPIO::IN, GPIO::PULL_UP)
+      GPIO.new(pin, GPIO::IN|GPIO::PULL_UP)
     end
     @cols_size = pins.count
     @direct_pins = pins

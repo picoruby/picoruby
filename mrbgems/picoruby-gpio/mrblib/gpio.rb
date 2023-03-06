@@ -30,29 +30,27 @@ class GPIO
     end
   end
 
-  def initialize(pin, *params)
+  def initialize(pin, flags)
     @pin = pin
     GPIO._init(pin)
-    setmode(*params)
+    setmode(flags)
     unless @dir
       raise ArgumentError.new("You must specify one of IN, OUT and HIGH_Z")
     end
   end
 
-  def setmode(*params)
-    mode = 0
-    params.each { |param| mode |= param }
-    set_dir(mode)
-    set_pull(mode)
-    open_drain(mode)
+  def setmode(flags)
+    set_dir(flags)
+    set_pull(flags)
+    open_drain(flags)
   end
 
   # private
 
-  def set_dir(mode)
-    dir = (mode & (IN|OUT|HIGH_Z))
+  def set_dir(flags)
+    dir = (flags & (IN|OUT|HIGH_Z))
     return 0 if dir == 0 && !on_initialize?
-    mode_dir = ((mode & IN) + ((mode & OUT)>>1) + ((mode & HIGH_Z)>>2))
+    mode_dir = ((flags & IN) + ((flags & OUT)>>1) + ((flags & HIGH_Z)>>2))
     @dir = case mode_dir
     when 0
       nil
@@ -65,8 +63,8 @@ class GPIO
     0
   end
 
-  def set_pull(mode)
-    pull = (mode & (PULL_UP|PULL_DOWN))
+  def set_pull(flags)
+    pull = (flags & (PULL_UP|PULL_DOWN))
     return 0 if 0 == pull && !on_initialize?
     @pull = case pull
     when 0
@@ -83,8 +81,8 @@ class GPIO
     0
   end
 
-  def open_drain(mode)
-    @open_drain = (0 < (mode & OPEN_DRAIN))
+  def open_drain(flags)
+    @open_drain = (0 < (flags & OPEN_DRAIN))
     if on_initialize? || @open_drain
       GPIO.open_drain_at(@pin) if @open_drain
     end

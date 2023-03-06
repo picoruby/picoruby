@@ -24,8 +24,8 @@ class GPIO
   @open_drain: bool
 
   # Ruby method
-  def initialize: (pin_t, *(Integer)) -> void
-  def setmode: (*(Integer)) -> 0
+  def initialize: (pin_t, Integer) -> void
+  def setmode: (Integer) -> 0
   def set_dir: (Integer) -> 0
   def set_pull: (Integer) -> 0
   def open_drain: (Integer) -> 0
