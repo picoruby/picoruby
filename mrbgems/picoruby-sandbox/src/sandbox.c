@@ -8,7 +8,7 @@
 
 typedef struct sandbox_state {
   ParserState *p;
-  mrbc_tcb tcb;
+  mrbc_tcb *tcb;
   picorbc_context cxt;
 } SandboxState;
 
@@ -19,14 +19,14 @@ static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  SET_INT_RETURN(ss->tcb.state);
+  SET_INT_RETURN(ss->tcb->state);
 }
 
 static void
 c_sandbox_error(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   if (sandbox_vm->exception.tt == MRBC_TT_NIL) {
     SET_NIL_RETURN();
   } else {
@@ -38,7 +38,7 @@ static void
 c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   if (sandbox_vm->regs[ss->p->scope->sp].tt == MRBC_TT_EMPTY) {
     // fallback but FIXME
     console_printf("Oops, return value is gone\n");
@@ -52,7 +52,7 @@ static void
 c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_suspend_task(&ss->tcb);
+  mrbc_suspend_task(ss->tcb);
   { /*
        Workaround but causes memory leak 😔
        To preserve symbol table
@@ -99,13 +99,13 @@ static void
 c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   mrbc_value mrbc_string = v[1];
   if (mrbc_load_mrb(sandbox_vm, mrbc_string.string->data) != 0) {
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
-    mrbc_resume_task(&ss->tcb);
+    mrbc_resume_task(ss->tcb);
     SET_TRUE_RETURN();
   }
 }
@@ -114,13 +114,13 @@ static void
 c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb.vm;
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   if(mrbc_load_mrb(sandbox_vm, ss->p->scope->vm_code) != 0) {
     Compiler_parserStateFree(ss->p);
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
-    mrbc_resume_task(&ss->tcb);
+    mrbc_resume_task(ss->tcb);
     SET_TRUE_RETURN();
   }
 }
@@ -143,9 +143,9 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
   SandboxState *ss = (SandboxState *)sandbox.instance->data;
-  mrbc_init_tcb(&ss->tcb);
-  mrbc_create_task(sandbox_task, &ss->tcb);
-  ss->tcb.vm.flag_permanence = 1;
+  ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
+  mrbc_create_task(sandbox_task, ss->tcb);
+  ss->tcb->vm.flag_permanence = 1;
   picorbc_context_new(&ss->cxt);
   SET_RETURN(sandbox);
 }
