@@ -16,13 +16,12 @@ class Joystick
         puts "Invaid joystick pin: #{pin}"
       else
         init_axis_offset(axis.to_s, pin - VALID_PINS[0])
-        invert = params[:invert].nil? ? true : params[:invert]
         magnify = (params[:magnify] || 1).to_f
         unless magnify.is_a? Float
           puts "Invalid magnify value: #{magnify}"
           next
         end
-        sens = magnify * (invert ? 1 : -1)
+        sens = magnify * (params[:invert] ? 1 : -1)
         # default value of sens: -1.0
         init_sensitivity(pin - VALID_PINS[0], sens)
       end
