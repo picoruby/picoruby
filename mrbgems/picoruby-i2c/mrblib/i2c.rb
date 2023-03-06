@@ -3,13 +3,8 @@ require "gpio"
 class I2C
   DEFAULT_FREQUENCY = 100_000
 
-  def initialize(params)
-    @unit_num = _init(
-      params[:unit].to_s,
-      params[:frequency] || DEFAULT_FREQUENCY,
-      params[:sda_pin]   || -1,
-      params[:scl_pin]   || -1
-    )
+  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sda_pin: -1, scl_pin: -1)
+    @unit_num = _init(unit.to_s, frequency, sda_pin, scl_pin)
   end
 
   def read(i2c_adrs_7, len)

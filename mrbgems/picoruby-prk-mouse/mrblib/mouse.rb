@@ -29,8 +29,8 @@ class Mouse
     KC_WH_R:        0x318
   }
 
-  def initialize(params)
-    @driver = params[:driver]
+  def initialize(driver:)
+    @driver = driver
     @cursor_speed = 5
     @wheel_speed = 1
   end

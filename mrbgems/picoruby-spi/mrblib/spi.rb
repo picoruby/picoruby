@@ -6,15 +6,15 @@ class SPI
   DATA_BITS = 8
   DEFAULT_FREQUENCY = 100_000
 
-  def initialize(params)
+  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, mode: 0, first_bit: MSB_FIRST)
     @unit_num = _init(
-      params[:unit].to_s,
-      params[:frequency] || DEFAULT_FREQUENCY,
-      params[:sck_pin]   || -1,
-      params[:cipo_pin]  || -1,
-      params[:copi_pin]  || -1,
-      params[:mode]      || 0,
-      params[:first_bit] || MSB_FIRST,
+      unit.to_s,
+      frequency,
+      sck_pin,
+      cipo_pin,
+      copi_pin,
+      mode,
+      first_bit,
       DATA_BITS # Data bit size. No support other than 8
     )
   end

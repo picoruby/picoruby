@@ -1,5 +1,5 @@
 class Mouse
-  type driver_t = I2C | SPI
+  type driver_t = I2C | SPI | Array[ADC]
 
   KEYCODE: Hash[Symbol, Integer]
 
@@ -9,7 +9,7 @@ class Mouse
   attr_accessor wheel_speed: Integer
   attr_accessor buttons: Integer
 
-  def initialize: ({driver: driver_t}) -> void
+  def initialize: (driver: driver_t) -> void
   def task: () { (Mouse, Keyboard) -> void } -> Proc
   def button_pressed?: () -> bool
 end

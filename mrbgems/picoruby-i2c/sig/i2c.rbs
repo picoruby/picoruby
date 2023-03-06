@@ -1,16 +1,9 @@
 class I2C
-  type init_t = {
-    unit: Symbol,
-    frequency: Integer?,
-    sda_pin: Integer,
-    scl_pin: Integer
-  }
-
   DEFAULT_FREQUENCY: 100_000
 
   @unit_num: Integer
 
-  def initialize: (init_t params) -> void
+  def initialize: (unit: Symbol, ?frequency: Integer, ?sda_pin: Integer, ?scl_pin: Integer) -> void
   def _init: (String unit, Integer frequency, Integer sda_pin, Integer scl_pin) -> Integer
   def write: (Integer, *(Integer|String) | Array[Integer]) -> Integer
   def _write: (Integer, Integer, Array[Integer]) -> Integer
