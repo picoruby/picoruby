@@ -30,7 +30,7 @@ class VIA
     ID_SWITCH_MATRIX_STATE
   ]
 
-  VIA_FILENAME = "VIA_MAP TXT"
+  VIA_FILENAME = "via_map.txt"
 
   def initialize
     puts "Init VIA"
@@ -307,45 +307,41 @@ class VIA
   end
 
   def save_on_flash
-    data = ""
-
-    @layer_count.times do |i|
-      rows_size.times do |j|
-        cols_size.times do |k|
-          key = via_keycode_into_keysymbol(@keymaps[i][j][k] || 0)
-          data << key.to_s + " "
+    File.open(VIA_FILENAME, "w") do |f|
+      @layer_count.times do |i|
+        rows_size.times do |j|
+          cols_size.times do |k|
+            key = via_keycode_into_keysymbol(@keymaps[i][j][k] || 0)
+            f.write "#{key} "
+          end
+          f.write " \n"
         end
-
-        data << " \n"
+        f.write ",\n"
       end
-
-      data << ",\n"
     end
-
-    data << ""
-    
-    write_file_internal(VIA_FILENAME, data)
   end
-  
+
   def start!
     init_keymap
 
-    fileinfo = find_file(VIA_FILENAME)
-    
-    if fileinfo
+    if File.exist?(VIA_FILENAME)
       puts "via_map.txt found"
-      script = read_file(fileinfo[0], fileinfo[1])
-      
+      script = ""
+      File.open(VIA_FILENAME, "r") do |f|
+        f.each_line do |line|
+          script << line
+        end
+      end
       ret = []
       layers = script.split(",")
       layers.size.times do |l|
-          ret[l] = []
-          rows = layers[l].split("\n")
-          rows.each do |row|
-              row.split(" ").each do |kc|
-                  ret[l] << kc.intern
-              end
+        ret[l] = []
+        rows = layers[l].split("\n")
+        rows.each do |row|
+          row.split(" ").each do |kc|
+            ret[l] << kc.intern
           end
+        end
       end
 
       puts "loading VIA map"

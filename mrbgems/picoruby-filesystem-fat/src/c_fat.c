@@ -116,27 +116,28 @@ c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c__chmod(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  BYTE attr = GET_INT_ARG(1);
+  const TCHAR *path = (const TCHAR *)GET_STRING_ARG(2);
+  FRESULT res = f_chmod(path, attr, AM_RDO|AM_ARC|AM_SYS|AM_HID);
+  mrbc_raise_iff_f_error(vm, res, "f_chmod");
+  SET_INT_RETURN(0);
+}
+
+static void
 c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
   FILINFO fno;
   FRESULT res = f_stat(path, &fno);
   mrbc_raise_iff_f_error(vm, res, "f_stat");
-SET_INT_RETURN(fno.fsize);
   mrbc_value stat = mrbc_hash_new(vm, 3);
   char datetime[17];
   sprintf(datetime, "%u/%02u/%02u %02u:%02u",
           (fno.fdate >> 9) + 1980, fno.fdate >> 5 & 15, fno.fdate & 31,
           fno.ftime >> 11, fno.ftime >> 5 & 63);
   mrbc_value datetime_val = mrbc_string_new_cstr(vm, datetime);
-  char attr[6];
-  sprintf(attr, "%c%c%c%c%c",
-          (fno.fattrib & AM_DIR) ? 'D' : '-',
-          (fno.fattrib & AM_RDO) ? 'R' : '-',
-          (fno.fattrib & AM_HID) ? 'H' : '-',
-          (fno.fattrib & AM_SYS) ? 'S' : '-',
-          (fno.fattrib & AM_ARC) ? 'A' : '-');
-  mrbc_value attr_val = mrbc_string_new_cstr(vm, attr);
   mrbc_hash_set(
     &stat,
     &mrbc_symbol_value(mrbc_str_to_symid("size")),
@@ -149,8 +150,8 @@ SET_INT_RETURN(fno.fsize);
   );
   mrbc_hash_set(
     &stat,
-    &mrbc_symbol_value(mrbc_str_to_symid("attributes")),
-    &attr_val
+    &mrbc_symbol_value(mrbc_str_to_symid("mode")),
+    &mrbc_integer_value(fno.fattrib)
   );
   SET_RETURN(stat);
 }
@@ -179,6 +180,27 @@ c__directory_q(mrbc_vm *vm, mrbc_value v[], int argc)
   } else {
     SET_FALSE_RETURN();
   }
+}
+
+static void
+c__setlabel(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FRESULT res = f_setlabel((const TCHAR *)GET_STRING_ARG(1));
+  mrbc_raise_iff_f_error(vm, res, "f_setlabel");
+  SET_INT_RETURN(0);
+}
+
+static void
+c__getlabel(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  const TCHAR *path = (const TCHAR *)GET_STRING_ARG(1);
+  // Max label length depends on FF_USE_LFN, FF_FS_EXFAT and FF_LFN_UNICODE
+  // see picoruby-filesystem-fat/lib/ff14b/documents/doc/getlabel.html
+  TCHAR label[12];
+  FRESULT res = f_getlabel(path, label, NULL);
+  mrbc_raise_iff_f_error(vm, res, "f_getlabel");
+  mrbc_value label_val = mrbc_string_new_cstr(vm, label);
+  SET_RETURN(label_val);
 }
 
 #define PREPARE_EXCEPTION(message) (sprintf(buff, "%s @ %s", message, func))
@@ -263,9 +285,12 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
   mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
   mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
+  mrbc_define_method(0, class_FAT, "_chmod", c__chmod);
   mrbc_define_method(0, class_FAT, "_stat", c__stat);
   mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
   mrbc_define_method(0, class_FAT, "_directory?", c__directory_q);
+  mrbc_define_method(0, class_FAT, "_setlabel", c__setlabel);
+  mrbc_define_method(0, class_FAT, "_getlabel", c__getlabel);
   mrbc_init_class_FAT_Dir();
   mrbc_init_class_FAT_File();
 }

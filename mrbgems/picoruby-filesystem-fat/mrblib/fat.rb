@@ -1,5 +1,22 @@
 class FAT
 
+  # Stat[:mode]
+  AM_RDO = 0x01 # Read only
+  AM_HID = 0x02 # Hidden
+  AM_SYS = 0x04 # System
+  AM_DIR = 0x10 # Directory
+  AM_ARC = 0x20 # Archive
+
+  class Stat
+    def initialize(stat_hash)
+      @stat_hash = stat_hash
+    end
+
+    def mode
+      @stat_hash[:mode]
+    end
+  end
+
   class Dir
     def stat_label
       {
@@ -15,15 +32,26 @@ class FAT
 
   # drive can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
-  def initialize(drive = "0")
+  def initialize(drive = "0", label = nil)
     @prefix = "#{drive}:"
+    @label = label || "PicoRuby"
   end
 
   attr_reader :mountpoint
 
   def mkfs
     self._mkfs(@prefix)
+    self.setlabel
     self
+  end
+
+  def setlabel
+    return 0 unless @label
+    self._setlabel("#{@prefix}#{@label}")
+  end
+
+  def getlabel
+    self._getlabel(@prefix)
   end
 
   def sector_count
@@ -69,8 +97,12 @@ class FAT
     FAT._mkdir("#{@prefix}#{path}", mode)
   end
 
+  def chmod(mode, path)
+    FAT._chmod(mode, "#{@prefix}#{path}")
+  end
+
   def stat(path)
-    FAT._stat("#{@prefix}#{path}")
+    Stat.new FAT._stat("#{@prefix}#{path}")
   end
 
   def exist?(path)

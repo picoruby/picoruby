@@ -18,6 +18,7 @@ class RGB
 
   KEYCODE: Hash[Symbol, Integer]
   EFFECTS: Array[effect_type]
+  TASK_SCRIPT: String
 
   def ws2812_init: (Integer, Integer, bool) -> void
   def ws2812_show: () -> void
@@ -54,8 +55,10 @@ class RGB
   attr_reader effect: effect_type
   attr_accessor action: action_type
   attr_accessor anchor: bool
+  attr_accessor split_sync: bool
 
   def initialize: (Integer pin, Integer underglow_size, Integer backlight_size, ?bool is_rgbw) -> void
+  def start: () -> void
   def init_values: () -> void
   def turn_off: () -> void
   def turn_on: () -> void

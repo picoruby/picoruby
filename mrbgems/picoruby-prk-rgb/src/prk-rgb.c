@@ -266,7 +266,5 @@ mrbc_prk_rgb_init(void)
   mrbc_define_method(0, mrbc_class_RGB, "ws2812_init_pixel_distance", c_ws2812_init_pixel_distance);
   mrbc_define_method(0, mrbc_class_RGB, "ws2812_circle",              c_ws2812_circle);
   mrbc_define_method(0, mrbc_class_RGB, "ws2812_circle_set_center",   c_ws2812_circle_set_center);
-
-  RGB_init_sub(mrbc_class_RGB);
 }
 

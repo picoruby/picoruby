@@ -1,0 +1,12 @@
+class Task
+  TASKS: Hash[Symbol, Task]
+
+  @sandbox: Sandbox
+
+  def self.[]: (Symbol) -> Task
+  def self.current: () -> Task
+
+  def initialize: (Symbol) -> void
+  def compile_and_run: (String, ?bool wrap_rescue) -> self
+  def suspend: () -> self
+end

@@ -1,20 +1,21 @@
 require "float-ext"
+require "task-ext"
 
 class RGB
   KEYCODE = {
-    RGB_TOG:          0x601,
-    RGB_MODE_FORWARD: 0x602,
-    RGB_MOD:          0x603,
-    RGB_MODE_REVERSE: 0x604,
-    RGB_RMOD:         0x605,
-    RGB_HUI:          0x606,
-    RGB_HUD:          0x607,
-    RGB_SAI:          0x608,
-    RGB_SAD:          0x609,
-    RGB_VAI:          0x60a,
-    RGB_VAD:          0x60b,
-    RGB_SPI:          0x60c,
-    RGB_SPD:          0x60d
+    RGB_TOG:          0x701,
+    RGB_MODE_FORWARD: 0x702,
+    RGB_MOD:          0x703,
+    RGB_MODE_REVERSE: 0x704,
+    RGB_RMOD:         0x705,
+    RGB_HUI:          0x706,
+    RGB_HUD:          0x707,
+    RGB_SAI:          0x708,
+    RGB_SAD:          0x709,
+    RGB_VAI:          0x70a,
+    RGB_VAD:          0x70b,
+    RGB_SPI:          0x70c,
+    RGB_SPD:          0x70d
     #                 ^^^^^
     #                 Hard-coded values
   }
@@ -28,10 +29,18 @@ class RGB
     ws2812_init(pin, @pixel_size, is_rgbw)
     @max_value = 13 # default
     init_values
+    @split_sync = true
   end
 
   attr_reader :pixel_size, :effect
-  attr_accessor :action, :anchor
+  attr_accessor :action, :anchor, :split_sync
+
+  TASK_SCRIPT = "while true; $rgb&.show || sleep(3); end"
+
+  def start
+    return if Task[:rgb]
+    Task.new(:rgb).compile_and_run(TASK_SCRIPT, false)
+  end
 
   def init_values
     self.speed = @speed || 25
@@ -170,15 +179,16 @@ class RGB
   def ping?
     if @ping
       @ping = false
-      return true
+      @split_sync ? true : false
     else
-      return false
+      false
     end
   end
 
   def toggle
     if @offed
       reset_pixel
+      turn_on
       puts "On"
     else
       turn_off

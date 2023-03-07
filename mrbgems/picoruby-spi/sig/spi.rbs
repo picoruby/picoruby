@@ -1,0 +1,30 @@
+class SPI
+  MSB_FIRST: 1
+  LSB_FIRST: 0
+  DATA_BITS: 8
+
+  type first_bit_t = 0|1#MSB_FIRST|LSB_FIRST
+  type mode_t = 0|1|2|3
+  type init_t = {
+  }
+
+  DEFAULT_FREQUENCY: 100_000
+
+  @first_bit: first_bit_t
+  @unit_num: Integer
+
+  def initialize: (
+    unit: Symbol,
+    ?frequency: Integer,
+    ?sck_pin: Integer,
+    ?cipo_pin: Integer,
+    ?copi_pin: Integer,
+    ?mode: mode_t,
+    ?first_bit: first_bit_t
+  ) -> void
+  def _init: (String unit, Integer frequency, Integer sck_pin, Integer cipo_pin, Integer copo_pin, Integer mode, Integer first_bit, Integer data_bits) -> Integer
+  def write: (*(Integer|String) | Array[Integer]) -> Integer
+  def _write: (Integer, Array[Integer]) -> Integer
+  def read: (Integer len, ?Integer repeated_tx_data) -> String
+  def _read: (Integer unit_num, Integer repeated_tx_data, Integer len) -> String
+end

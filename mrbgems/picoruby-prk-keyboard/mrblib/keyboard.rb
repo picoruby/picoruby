@@ -1,16 +1,14 @@
 if RUBY_ENGINE == 'mruby/c'
+  require "gpio"
   require "debounce"
   require "rgb"
   require "rotary_encoder"
+  require "task-ext"
+  require "vfs"
+  require "filesystem-fat"
 end
 
 class Keyboard
-  GPIO_IN          = 0b000
-  GPIO_IN_PULLUP   = 0b010
-  GPIO_IN_PULLDOWN = 0b110
-  GPIO_OUT         = 0b001
-  GPIO_OUT_LO      = 0b011
-  GPIO_OUT_HI      = 0b101
 
   LED_NUMLOCK    = 0b00001
   LED_CAPSLOCK   = 0b00010
@@ -426,7 +424,85 @@ end
 
 # Keyboard class have to be split to avoid unexpected behavior of the compiler
 
+README = "/README.txt"
+KEYMAP = "/keymap.rb"
+PRK_CONF = "/prk-conf.txt"
+DRIVE_NAME = "PRK DRIVE"
+MY_VOLUME = FAT.new(:flash, DRIVE_NAME)
+
 class Keyboard
+
+  def self.mount_volume
+    return if PRK_NO_MSC
+    begin
+      VFS.mount(MY_VOLUME, "/")
+    rescue => e
+      MY_VOLUME.mkfs
+      VFS.mount(MY_VOLUME, "/")
+    end
+    File.open(README, "w") do |f|
+      f.puts PRK_DESCRIPTION,
+        "\nWelcome to PRK Firmware!\n",
+        "Usage:",
+        "- Drag and drop your `keymap.rb` into this directory",
+        "- Then, your keyboard will be automatically rebooted. That's all!\n",
+        "Notice:",
+        "- Make sure you always have a backup of your `keymap.rb`",
+        "  because upgrading prk_firmware-*.uf2 may remove it from flash\n",
+        "https://github.com/picoruby/prk_firmware"
+    end
+  end
+
+  def self.restart
+    VFS.unmount(MY_VOLUME, true)
+    USB.hid_task(0, [], 0)
+    200.times do
+      USB.tud_task
+      sleep_ms 1
+    end
+    VFS.mount(MY_VOLUME, "/")
+    # Spec: https://github.com/picoruby/prk_firmware/wiki/VIA-and-Remap#prk-conftxt
+    if File.exist?(PRK_CONF)
+      File.open(PRK_CONF, "r") do |f|
+        line = f.gets&.chomp
+        USB.save_prk_conf(line || "::")
+      end
+    else
+      USB.save_prk_conf("::")
+    end
+    puts "==============================================="
+    puts PRK_DESCRIPTION
+    puts "PRK_NO_MSC: #{PRK_NO_MSC}"
+    puts "prk-conf: #{USB.prk_conf}"
+    puts "==============================================="
+    if Task[:keyboard].nil?
+      File.exist?(KEYMAP) ? Keyboard.reload_keymap : Keyboard.wait_keymap
+    elsif File.exist?(KEYMAP) && (0 < File.stat(KEYMAP).mode & FAT::AM_ARC)
+      # FIXME: Checking Stat#mode doesn't work well
+      Task[:keyboard].suspend
+      Keyboard.reload_keymap
+    end
+    PicoRubyVM.print_alloc_stats
+    Keyboard.autoreload_off
+  end
+
+  def self.reload_keymap
+    $rgb&.turn_off
+    script = ""
+    File.open(KEYMAP) do |f|
+      f.each_line { |line| script << line }
+    end
+    task = Task[:keyboard] || Task.new(:keyboard)
+    task.compile_and_run(script, true)
+    File.chmod(0, KEYMAP)
+  end
+
+  def self.wait_keymap
+    puts "No keymap.rb found"
+    script = "while true;sleep 5;puts 'Please make keymap.rb in #{DRIVE_NAME}';end"
+    task = Task[:keyboard] || Task.new(:keyboard)
+    task.compile_and_run(script, false)
+  end
 
   def initialize
     puts "Init Keyboard"
@@ -456,7 +532,7 @@ class Keyboard
     @layer_changed_delay = 20
   end
 
-  attr_accessor :split, :uart_pin, :default_layer, :sounder
+  attr_accessor :split, :uart_pin, :default_layer, :sounder, :modifier
   attr_reader :layer, :split_style, :cols_size, :rows_size
 
   def anchor?
@@ -502,6 +578,9 @@ class Keyboard
   # TODO: OLED, SDCard
   def append(feature)
     case feature.class.to_s
+    when "Mouse"
+      # @type var feature: Mouse
+      @mouse = feature
     when "RGB"
       # @type var feature: RGB
       $rgb = feature
@@ -521,6 +600,7 @@ class Keyboard
       else
         $rgb.ws2812_circle_set_center(112,32)
       end
+      $rgb.start
     when "RotaryEncoder"
       # @type var feature: RotaryEncoder
       if @split
@@ -622,10 +702,8 @@ class Keyboard
       rows.each_with_index do |cell, col_index|
         if cell.is_a?(Array)
           @matrix[cell[0]][cell[1]] = [row_index, col_index]
-          gpio_init(cell[0])
-          gpio_set_dir(cell[0], GPIO_IN_PULLUP)
-          gpio_init(cell[1])
-          gpio_set_dir(cell[1], GPIO_IN_PULLUP)
+          GPIO.new(cell[0], GPIO::IN|GPIO::PULL_UP)
+          GPIO.new(cell[1], GPIO::IN|GPIO::PULL_UP)
         else # should be nil
           @skip_positions << [row_index, col_index]
         end
@@ -652,8 +730,7 @@ class Keyboard
     set_scan_mode :direct
     init_uart
     pins.each do |pin|
-      gpio_init(pin)
-      gpio_set_dir(pin, GPIO_IN_PULLUP)
+      GPIO.new(pin, GPIO::IN|GPIO::PULL_UP)
     end
     @cols_size = pins.count
     @direct_pins = pins
@@ -775,11 +852,13 @@ class Keyboard
       (keycode + 0x100) * -1
     elsif keycode = MOD_KEYCODE[key]
       keycode
+    elsif required?("mouse") && keycode = Mouse::KEYCODE[key]
+      keycode
     elsif required?("rgb") && keycode = RGB::KEYCODE[key]
       keycode
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(key)
       # You need to `require "consumer_key"`
-      keycode + 0x300
+      keycode + ConsumerKey::MAP_OFFSET
     elsif key.to_s.start_with?("JS_BUTTON")
       # JS_BUTTON0 - JS_BUTTON31
       # You need to `require "joystick"`
@@ -939,7 +1018,7 @@ class Keyboard
 
   def keys_include?(key)
     keycode = KEYCODE.index(key)
-    !keycode.nil? && @keycodes.include?(keycode.chr)
+    !keycode.nil? && @keycodes.include?(keycode)
   end
 
   def key_pressed?
@@ -951,20 +1030,20 @@ class Keyboard
     when Integer
       # @type var mode_key: Integer
       if mode_key < -255
-        @keycodes << ((mode_key + 0x100) * -1).chr
+        @keycodes << ((mode_key + 0x100) * -1)
         @modifier |= 0b00000010
       else
-        @keycodes << (mode_key * -1).chr
+        @keycodes << (mode_key * -1)
       end
     when Array
       0 # `steep check` will fail if you remove this line 🤔
       # @type var mode_key: Array[Integer]
       mode_key.each do |key|
         if key < -255
-          @keycodes << ((key + 0x100) * -1).chr
+          @keycodes << ((key + 0x100) * -1)
           @modifier |= 0b00000010
         elsif key < 0
-          @keycodes << (key * -1).chr
+          @keycodes << (key * -1)
         else # Should be a modifier
           @modifier |= key
         end
@@ -987,31 +1066,28 @@ class Keyboard
       []
     end
     modifier = 0
-    keycodes = "\000\000\000\000\000\000"
-    consumer = 0
+    consumer_keycode = 0
+    keycodes = []
     if required?("rgb") && RGB::KEYCODE[symbols[0]]
       $rgb&.invoke_anchor(symbols[0])
       return
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(symbols[0])
-      consumer = keycode
+      consumer_keycode = keycode
     elsif keycode = KEYCODE_SFT[symbols[0]]
       modifier = 0b00100000
-      keycodes = "#{keycode.chr}\000\000\000\000\000"
+      keycodes = [keycode]
     else
-      6.times do |i|
-        break i unless symbols[i]
-        if code = KEYCODE.index(symbols[i])
-         keycodes[i] = code.chr
-        elsif code = MOD_KEYCODE[symbols[i]]
+      symbols.each do |symbol|
+        if code = KEYCODE.index(symbol)
+          keycodes << code
+        elsif code = MOD_KEYCODE[symbol]
           modifier |= code
         end
       end
     end
-    USB.hid_task(modifier, keycodes, consumer, 0, 0)
-    (consumer > 0 ? 3 : 1).times do
-      sleep_ms 1
-    end
-    USB.hid_task(0, "\000\000\000\000\000\000", 0, 0, 0)
+    USB.hid_task(modifier, keycodes, consumer_keycode)
+    sleep_ms(0 < consumer_keycode ? 4 : 1)
+    USB.hid_task(0, [], 0)
   end
 
   def output_report_changed(&block)
@@ -1050,26 +1126,29 @@ class Keyboard
     end
 
     @via&.start!
-    $rgb&.resume
 
     @keycodes = Array.new
     prev_layer = @default_layer
     modifier_switch_positions = Array.new
-    message_to_partner = 0
-    earlier_report_size = 0
+    message_to_partner, earlier_report_size, prev_output_report = 0, 0, 0
 
-    prev_output_report = 0
+    joystick_hat, joystick_buttons = 0, 0
+
+    mouse_buttons,
+    mouse_cursor_x,
+    mouse_cursor_y,
+    mouse_wheel_x,
+    mouse_wheel_y = 0, 0, 0, 0, 0
 
     while true
       cycle_time = 20
       now = Machine.board_millis
       @keycodes.clear
+      consumer_keycode = 0
 
       @switches = @injected_switches.dup
       @injected_switches.clear
       @modifier = 0
-      joystick_hat = 0
-      joystick_buttons = 0
 
       @scan_mode == :matrix ? scan_matrix! : scan_direct!
       @key_pressed = !@switches.empty? # Independent even on split type
@@ -1080,15 +1159,15 @@ class Keyboard
       if @anchor
         # Receive max 3 switches from partner
         if @split
-          sleep_ms 3
-          if message_to_partner > 0
-            data24 = uart_anchor(message_to_partner)
-            message_to_partner = 0
-          elsif $rgb && $rgb.ping?
-            data24 = uart_anchor(0b11100000) # adjusts RGB time
+          sleep_ms 2
+          data24 = if message_to_partner > 0
+            uart_anchor(message_to_partner)
+          elsif $rgb&.ping?
+            uart_anchor(0b11100000) # adjusts RGB time
           else
-            data24 = uart_anchor(0)
+            uart_anchor(0)
           end
+          message_to_partner = 0
           [data24 & 0xFF, (data24 >> 8) & 0xFF, data24 >> 16].each do |data|
             if data == 0xFF
               # do nothing
@@ -1133,6 +1212,7 @@ class Keyboard
               when Symbol
                 # @type var on_hold: Symbol
                 desired_layer = on_hold
+                unlock_layer if @locked_layer
               when Integer
                 # @type var on_hold: Integer
                 @modifier |= on_hold
@@ -1177,9 +1257,16 @@ class Keyboard
 
         keymap = @keymaps[@locked_layer || @layer || @default_layer]
         modifier_switch_positions.clear
-        consumer_keycode = 0
         @switches.each_with_index do |switch, i|
-          keycode = keymap[switch[0]][switch[1]]
+          begin
+            keycode = keymap[switch[0]][switch[1]]
+          rescue NoMethodError
+            # Note:
+            # Ignore an invalid switch data occasionally happens in split type
+            # It is almost [5, 16] but sometimes [5, 0] and very rarely [7, 0]
+            # puts "Skipped an invalid switch data: #{switch}"
+            next
+          end
           if signal = @anchor_signals&.index(keycode)
             message_to_partner = signal + 1
           end
@@ -1190,13 +1277,14 @@ class Keyboard
           #       0.. 0x100 : Modifier key
           #   0x101.. 0x1FF : Joystick D-pad hat
           #   0x200.. 0x2FF : Joystick button
-          #   0x300.. 0x5FF : Consumer (media) key
-          #   0x600.. 0x6FF : RGB
+          #   0x300.. 0x3FF : Mouse
+          #   0x400.. 0x6FF : Consumer (media) key
+          #   0x700.. 0x7FF : RGB
           if keycode < -0xFF
-            @keycodes << ((keycode + 0x100) * -1).chr
+            @keycodes << ((keycode + 0x100) * -1)
             @modifier |= 0b00100000
           elsif keycode < 0
-            @keycodes << (keycode * -1).chr
+            @keycodes << (keycode * -1)
           elsif keycode < 0x100
             @modifier |= keycode
             modifier_switch_positions.unshift i
@@ -1204,11 +1292,31 @@ class Keyboard
             joystick_hat |= (keycode - 0x100)
           elsif keycode < 0x300
             joystick_buttons |= (1 << (keycode - 0x200))
-          # Redundant code because no need for performance from here
-          elsif required?("consumer_key") && keycode < 0x600
+          elsif keycode < 0x400
+            if keycode < 0x306 # Mouse button
+              # @type var mouse_buttons: Integer
+              mouse_buttons |= (keycode - 0x300)
+            elsif keycode == 0x311 # Mouse UP
+              mouse_cursor_y = @mouse.cursor_speed
+            elsif keycode == 0x312 # Mouse DOWN
+              mouse_cursor_y = -@mouse.cursor_speed
+            elsif keycode == 0x313 # Mouse LEFT
+              mouse_cursor_x = @mouse.cursor_speed
+            elsif keycode == 0x314 # Mouse RIGHT
+              mouse_cursor_x = -@mouse.cursor_speed
+            elsif keycode == 0x315 # Mouse WHEEL UP
+              mouse_wheel_y = @mouse.wheel_speed
+            elsif keycode == 0x316 # Mouse WHEEL DOWN
+              mouse_wheel_y = -@mouse.wheel_speed
+            elsif keycode == 0x317 # Mouse WHEEL LEFT
+              mouse_wheel_x = @mouse.wheel_speed
+            elsif keycode == 0x318 # Mouse WHEEL RIGHT
+              mouse_wheel_x = -@mouse.wheel_speed
+            end
+          elsif keycode < 0x700
             consumer_keycode = ConsumerKey.keycode_from_mapcode(keycode)
-          elsif required?("rgb") && keycode < 0x700
-            message_to_partner = $rgb.invoke_anchor RGB::KEYCODE.key(keycode)
+          elsif keycode < 0x800
+            message_to_partner = $rgb&.invoke_anchor(RGB::KEYCODE.key(keycode)) || 0
           else
             puts "[ERROR] Wrong keycode: 0x#{keycode.to_s(16)}"
           end
@@ -1223,17 +1331,14 @@ class Keyboard
         if macro_keycode
           if macro_keycode < 0
             @modifier |= 0b00100000
-            @keycodes << (macro_keycode * -1).chr
+            @keycodes << (macro_keycode * -1)
           else
-            @keycodes << macro_keycode.chr
+            @keycodes << macro_keycode
           end
           cycle_time = 40 # To avoid accidental skip
         end
 
         earlier_report_size = @keycodes.size
-        (6 - earlier_report_size).times do
-          @keycodes << "\000"
-        end
 
         @before_filters&.each do |block|
           block.call
@@ -1243,15 +1348,25 @@ class Keyboard
           encoder.consume_rotation_anchor
         end
 
-        #@joystick&.report_hid(joystick_buttons, joystick_hat)
+        if @joystick
+          USB.merge_joystick_report(joystick_buttons, joystick_hat)
+          joystick_buttons, joystick_hat = 0, 0
+        end
 
-        USB.hid_task(
-          @modifier,
-          @keycodes.join,
-          consumer_keycode,
-          joystick_buttons,
-          joystick_hat
-        )
+        if @mouse
+          USB.merge_mouse_report(
+            mouse_buttons,
+            mouse_cursor_x, mouse_cursor_y,
+            mouse_wheel_x, mouse_wheel_y
+          )
+          @mouse.buttons = mouse_buttons
+          mouse_buttons,
+          mouse_cursor_x, mouse_cursor_y,
+          mouse_wheel_x, mouse_wheel_y = 0, 0, 0, 0, 0
+          @mouse.task_proc&.call(@mouse, self)
+        end
+
+        USB.hid_task(@modifier, @keycodes, consumer_keycode)
 
         if @locked_layer
           # @type ivar @locked_layer: Symbol
@@ -1303,7 +1418,8 @@ class Keyboard
   def scan_matrix!
     @debouncer.set_time
     @matrix.each do |out_pin, in_pins|
-      gpio_set_dir(out_pin, GPIO_OUT_LO)
+      GPIO.set_dir_at(out_pin, GPIO::OUT)
+      GPIO.write_at(out_pin, 0)
       in_pins.each do |in_pin, switch|
         row = switch[0]
         unless @debouncer.resolve(in_pin, out_pin)
@@ -1327,7 +1443,8 @@ class Keyboard
           @switches << [row, col]
         end
       end
-      gpio_set_dir(out_pin, GPIO_IN_PULLUP)
+      GPIO.set_dir_at(out_pin, GPIO::IN)
+      GPIO.pull_up_at(out_pin)
     end
   end
 
@@ -1388,10 +1505,12 @@ class Keyboard
   # Switch to specified layer
   def lock_layer(layer)
     @locked_layer = layer
+    puts ":#{layer} layer locked"
   end
 
   def unlock_layer
     @locked_layer = nil
+    puts "layer unlocked"
   end
 
   def macro(text, opts = [:ENTER])
@@ -1418,4 +1537,3 @@ class Keyboard
 
 end
 
-$mutex = true

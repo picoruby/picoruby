@@ -2,6 +2,7 @@ MRuby::GemBox.new do |conf|
 
   conf.gem github: 'picoruby/mruby-pico-compiler', branch: 'master'
   conf.gem core: 'picoruby-mrubyc'
+  conf.gem core: 'picoruby-task-ext'
   conf.gem core: 'picoruby-vfs'
   conf.gem core: 'picoruby-filesystem-fat'
   conf.gem core: 'picoruby-float-ext'
@@ -9,9 +10,13 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-prk-consumer_key'
   conf.gem core: 'picoruby-prk-debounce'
   conf.gem core: 'picoruby-prk-joystick'
+  conf.gem core: 'picoruby-prk-mouse'
   conf.gem core: 'picoruby-prk-keyboard'
   conf.gem core: 'picoruby-prk-rgb'
   conf.gem core: 'picoruby-prk-rotary_encoder'
   conf.gem core: 'picoruby-prk-sounder'
   conf.gem core: 'picoruby-prk-via'
+  conf.gem core: 'picoruby-i2c'
+  conf.gem core: 'picoruby-spi'
+  conf.gem core: 'picoruby-adc'
 end

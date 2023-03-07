@@ -1,3 +1,5 @@
+require "gpio"
+
 # DebounceBase is meant to be inherited by a child class.
 # So you can't use it directly.
 class DebounceBase
@@ -32,7 +34,7 @@ class DebounceNone < DebounceBase
   def set_time
   end
   def resolve(in_pin, _out_pin)
-    gpio_get(in_pin)
+    GPIO.high_at?(in_pin)
   end
 end
 
@@ -49,7 +51,7 @@ class DebouncePerRow < DebounceBase
   end
 
   def resolve(in_pin, out_pin)
-    pin_val = gpio_get(in_pin)
+    pin_val = GPIO.high_at?(in_pin)
     status = @pr_table[out_pin]
     unless status
       @pr_table[out_pin] = { in_pin: nil, pin_val: pin_val, time: @now }
@@ -93,7 +95,7 @@ class DebouncePerKey < DebounceBase
   end
 
   def resolve(in_pin, out_pin)
-    pin_val = gpio_get(in_pin)
+    pin_val = GPIO.high_at?(in_pin)
     key = in_pin << 8 | out_pin
     status = @pk_table[key]
     unless status

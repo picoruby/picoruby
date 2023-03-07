@@ -136,7 +136,7 @@ desc "run compiler tests with mruby VM"
 task :test_compiler_mruby => :debug do
   ENV['USE_MRUBY'] = "yes"
   ENV['PICORBC_COMMAND'] ||= picorbcfile
-  ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.1.0 rbenv which mruby`.chomp
+  ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.2.0 rbenv which mruby`.chomp
   if ENV['MRUBY_COMMAND'] && ENV['MRUBY_COMMAND'] != ""
     sh "build/repos/host/mruby-pico-compiler/test/helper/test.rb"
   else
