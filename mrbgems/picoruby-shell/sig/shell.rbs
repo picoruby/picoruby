@@ -3,6 +3,8 @@
 # Revealed types
 #  /home/hasumi/work/prk_firmware/lib/picoruby/mrbgems/picoruby-shell/mrblib/command.rb:69 #=> nil
 
+$sandbox: Sandbox
+
 # Classes
 
 class Shell
