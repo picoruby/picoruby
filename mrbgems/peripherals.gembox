@@ -1,0 +1,7 @@
+MRuby::GemBox.new do |conf|
+  conf.gem core: 'picoruby-gpio'
+  conf.gem core: 'picoruby-i2c'
+  conf.gem core: 'picoruby-spi'
+  conf.gem core: 'picoruby-adc'
+end
+

@@ -43,6 +43,7 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-shell"
 
+  conf.gembox "peripherals"
 end
 
 
