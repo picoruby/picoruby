@@ -10,7 +10,7 @@
 int
 ADC_pin_num_from_char(const uint8_t *str)
 {
-  if (strcmp(str, "temperature") == 0) {
+  if (strcmp((const char *)str, "temperature") == 0) {
     return TEMPERATURE;
   } else {
     return -1;

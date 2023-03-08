@@ -11,7 +11,7 @@ GPIO_pin_num_from_char(const uint8_t *str)
   return -1;
 }
 
-int
+void
 GPIO_init(uint8_t pin)
 {
   gpio_init(pin);

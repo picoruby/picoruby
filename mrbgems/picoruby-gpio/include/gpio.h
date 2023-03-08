@@ -17,7 +17,7 @@ extern "C" {
 
 int GPIO_pin_num_from_char(const uint8_t *);
 
-int GPIO_init(uint8_t);
+void GPIO_init(uint8_t);
 void GPIO_set_dir(uint8_t, uint8_t);
 void GPIO_pull_up(uint8_t);
 void GPIO_pull_down(uint8_t);
