@@ -1,10 +1,12 @@
-/*
- * Copyright (c) 2022 HASUMI Hitoshi | MIT license
- *
- * This program was originally created under the copyright below */
-   /*-----------------------------------------------------------------------*/
-   /* Low level disk I/O module SKELETON for FatFs     (C)ChaN, 2019        */
-   /*-----------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------*/
+/* Low level disk I/O module SKELETON for FatFs     (C)ChaN, 2019        */
+/*                Modification Copyright (C) HASUMI Hitoshi, 2023        */
+/*-----------------------------------------------------------------------*/
+/* If a working storage control module is available, it should be        */
+/* attached to the FatFs via a glue function rather than modifying it.   */
+/* This is an example of glue functions to attach various exsisting      */
+/* storage control modules to the FatFs module with a defined API.       */
+/*-----------------------------------------------------------------------*/
 
 #include "../../lib/ff14b/source/ff.h"
 #include "diskio.h"
