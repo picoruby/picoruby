@@ -37,14 +37,11 @@ Dir.open(dir) do |d|
     puts "\e[36m#{label[:attributes]} #{label[:size].to_s.rjust(6)} #{label[:datetime]}\e[0m"
     while entry = d.read
       stat = File.stat("#{dir}/#{entry}")
-      puts "#{stat[:attributes]} #{stat[:size].to_s.rjust(6)} #{stat[:datetime]} #{entry}"
+      puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.datetime} #{entry}"
     end
   else
-    feed = false
     while entry = d.read
-      print entry, "  "
-      feed = true
+      puts entry
     end
-    puts if feed
   end
 end
