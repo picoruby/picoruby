@@ -122,6 +122,7 @@ class FAT
   end
 
   def stat(path)
+    return Stat.new({mode: AM_DIR}) if path == "/"
     Stat.new FAT._stat("#{@prefix}#{path}")
   end
 
@@ -134,6 +135,7 @@ class FAT
   end
 
   def directory?(path)
+    return true if path == "/"
     FAT._directory?("#{@prefix}#{path}")
   end
 end
