@@ -31,6 +31,10 @@ class FAT
     def size
       @stat_hash[:size]
     end
+
+    def directory?
+      0 < mode & AM_DIR
+    end
   end
 
   class Dir

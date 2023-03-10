@@ -21,27 +21,42 @@ elsif path.end_with?("/")
 else
   elements = path.split("/")
   file = elements.pop
-  elements[0] = "/" if elements[0].to_s == ""
+  elements[0] = "/" if elements == [""]
   [elements.join("/") , file]
 end
 
-if dir != "/" && Dir.exist?("#{dir}/#{file}")
-  dir = "#{dir}/#{file}"
-  file = nil
+if file
+  _dir = "#{dir}/#{file}"
+  if Dir.exist?(_dir) && File.stat(_dir).directory?
+    dir = _dir
+    file = nil
+  end
 end
 
-Dir.open(dir) do |d|
-  # TODO: handle file
+dir = "./" if dir.length == 0
+
+Dir.open(dir) do |dirent|
+  count = 0
+  # TODO: Wildcard
   if opts.include?("l")
-    label = d.stat_label
+    label = dirent.stat_label
     puts "\e[36m#{label[:attributes]} #{label[:size].to_s.rjust(6)} #{label[:datetime]}\e[0m"
-    while entry = d.read
-      stat = File.stat("#{dir}/#{entry}")
-      puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.datetime} #{entry}"
+    while entry = dirent.read
+      if !file || file == entry
+        stat = File.stat("#{dir}/#{entry}")
+        puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.datetime} #{entry}"
+        count += 1
+      end
     end
   else
-    while entry = d.read
-      puts entry
+    while entry = dirent.read
+      if !file || file == entry
+        puts entry
+        count += 1
+      end
     end
+  end
+  if file && count == 0
+    puts "ls: cannot access '#{path}': No such file or directory"
   end
 end
