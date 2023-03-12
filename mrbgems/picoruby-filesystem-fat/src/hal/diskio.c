@@ -13,9 +13,15 @@
 
 #include "ram_disk.h"
 #define DEV_RAM     0
+
 #ifdef USE_FAT_FLASH_DISK
 #include "flash_disk.h"
 #define DEV_FLASH   1
+#endif
+
+#ifdef USE_FAT_SD_DISK
+#include "sd_disk.h"
+#define DEV_SD      2
 #endif
 
 /*-----------------------------------------------------------------------*/
@@ -36,6 +42,11 @@ DSTATUS disk_erase (
     stat = FLASH_disk_erase();
     return stat;
 #endif
+#ifdef USE_FAT_SD_DISK
+  case DEV_SD :
+    stat = SD_disk_erase();
+    return stat;
+#endif
   }
   return STA_NOINIT;
 }
@@ -49,15 +60,16 @@ DSTATUS disk_status (
   BYTE pdrv    /* Physical drive nmuber to identify the drive */
 )
 {
-  DSTATUS stat;
   switch (pdrv) {
   case DEV_RAM :
-    stat = RAM_disk_status();
-    return stat;
+    return RAM_disk_status();
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
-    stat = FLASH_disk_status();
-    return stat;
+    return FLASH_disk_status();
+#endif
+#ifdef USE_FAT_SD_DISK
+  case DEV_SD :
+    return SD_disk_status();
 #endif
   }
   return STA_NOINIT;
@@ -80,6 +92,11 @@ DSTATUS disk_initialize (
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
     stat = FLASH_disk_initialize();
+    return stat;
+#endif
+#ifdef USE_FAT_SD_DISK
+  case DEV_SD :
+    stat = SD_disk_initialize();
     return stat;
 #endif
   }
@@ -106,6 +123,11 @@ DRESULT disk_read (
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
     res = FLASH_disk_read(buff, sector, count);
+    return res;
+#endif
+#ifdef USE_FAT_SD_DISK
+  case DEV_SD :
+    res = SD_disk_read(buff, sector, count);
     return res;
 #endif
   }
@@ -136,6 +158,11 @@ DRESULT disk_write (
     res = FLASH_disk_write(buff, sector, count);
     return res;
 #endif
+#ifdef USE_FAT_SD_DISK
+  case DEV_SD :
+    res = SD_disk_write(buff, sector, count);
+    return res;
+#endif
   }
   return RES_PARERR;
 }
@@ -161,6 +188,11 @@ DRESULT disk_ioctl (
 #ifdef USE_FAT_FLASH_DISK
   case DEV_FLASH :
     res = FLASH_disk_ioctl(cmd, buff);
+    return res;
+#endif
+#ifdef USE_FAT_SD_DISK
+  case DEV_SD :
+    res = SD_disk_ioctl(cmd, buff);
     return res;
 #endif
   }

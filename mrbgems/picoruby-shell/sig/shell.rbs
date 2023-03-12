@@ -11,7 +11,7 @@ class Shell
   LOGO_LINES: [String]
   @terminal: Terminal::Line
 
-  def self.setup: (untyped drive) -> void
+  def self.setup: (untyped drive, ?String drive_name) -> void
   def self._next_executable: -> {code: String, name: String}
 
   def initialize: -> void

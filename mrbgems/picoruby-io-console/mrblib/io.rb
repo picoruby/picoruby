@@ -51,6 +51,7 @@ class IO
         break if IO.read_nonblock(10) == "\e[0n"
       end
     end
+    sleep 0.1
     print "\e[2J\e[1;1H"
   end
 end
