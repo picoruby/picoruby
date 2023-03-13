@@ -65,9 +65,16 @@ check_sector_count(uint32_t lba)
 #if defined(PICORUBY_MSC_FLASH)
   if (lba >= MSC_SECTOR_COUNT) return false;
 #elif defined(PICORUBY_MSC_SD)
-  uint16_t block_count = 0;
-  if (SD_disk_ioctl(GET_SECTOR_COUNT, &block_count)) return false;
-  if (lba >= block_count) return false;
+  //
+  // FIXME: This code hangs
+  //
+  //uint16_t block_count = 0;
+  //if (SD_disk_ioctl(GET_SECTOR_COUNT, &block_count)) {
+  //  return false;
+  //}
+  //if (lba >= block_count) {
+  //  return false;
+  //}
 #else
   #error
 #endif
