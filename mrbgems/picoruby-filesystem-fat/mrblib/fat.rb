@@ -50,12 +50,25 @@ class FAT
   class File
   end
 
-  # drive can be "0".."9", :ram, :flash, etc
+  # device can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
-  def initialize(drive = "0", label = nil)
-    @device = drive
-    @prefix = "#{drive}:"
-    @label = label || "PicoRuby"
+  def initialize(device, label: "PICORUBY", driver: nil)
+    @device = device
+    @prefix = "#{device}:"
+    @label = label
+    case driver
+    when nil
+      # Do nothing
+    when SPI
+      FAT._init_spi(
+        driver.unit,
+        driver.sck_pin,
+        driver.cipo_pin,
+        driver.copi_pin,
+        driver.cs_pin
+      )
+      sleep_ms 10
+    end
   end
 
   attr_reader :device, :mountpoint

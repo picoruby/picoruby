@@ -18,28 +18,45 @@
 
 #include "disk.h"
 
-#define DEF_SPI_TX_PIN  23 // COPI/spi0_tx
-#define DEF_SPI_RX_PIN  20 // CIPO/spi0_rx
-#define DEF_SPI_SCK_PIN 22 // SCK/spi0_sclk
-#define DEF_SPI_CSN_PIN 21 // Chip select
+#include <mrubyc.h>
 
-#define SPIDEV      spi0
+static spi_inst_t* SPI_UNIT = NULL;
+static int SPI_SCK_PIN  = -1;
+static int SPI_CIPO_PIN = -1;
+static int SPI_COPI_PIN = -1;
+static int SPI_CS_PIN   = -1;
+
+#define PICORUBY_SPI_RP2040_SPI0      spi0
+#define PICORUBY_SPI_RP2040_SPI1      spi1
 
 #define FCLK_FAST() { }
 #define FCLK_SLOW() { }
 
-#define CS_HIGH()   { gpio_put(DEF_SPI_CSN_PIN, 1 ); /* HIGH */ }
-#define CS_LOW()    { gpio_put(DEF_SPI_CSN_PIN, 0 ); /* LOW */ }
+#define CS_HIGH()   { gpio_put(SPI_CS_PIN, 1); /* HIGH */ }
+#define CS_LOW()    { gpio_put(SPI_CS_PIN, 0); /* LOW */ }
 
 #define MMC_CD      1 /* Card detect (yes:true, no:false, default:true) */
 #define MMC_WP      0 /* Write protected (yes:true, no:false, default:false) */
 
+volatile int conter1;
 
-volatile  int  conter1;
-
-void  Delay( int ms )
+void
+c_FAT__init_spi(struct VM *vm, mrbc_value v[], int argc)
 {
-  for( conter1=0; conter1<125*ms ; conter1++ ) ;
+  const char *unit_name = (const char *)GET_STRING_ARG(1);
+  if (strcmp(unit_name, "RP2040_SPI0") == 0) {
+    SPI_UNIT = PICORUBY_SPI_RP2040_SPI0;
+  } else if (strcmp(unit_name, "RP2040_SPI1") == 0) {
+    SPI_UNIT = PICORUBY_SPI_RP2040_SPI1;
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Invalid SPI unit.");
+  }
+  SPI_SCK_PIN  = GET_INT_ARG(2);
+  SPI_CIPO_PIN = GET_INT_ARG(3);
+  SPI_COPI_PIN = GET_INT_ARG(4);
+  SPI_CS_PIN   = GET_INT_ARG(5);
+
+  SET_INT_RETURN(0);
 }
 
 
@@ -95,29 +112,6 @@ static BYTE CardType;   /* Card type flags */
 /* SPI controls (Platform dependent)                                     */
 /*-----------------------------------------------------------------------*/
 
-/* Initialize MMC interface */
-static void
-init_spi(void)
-{
-  spi_init( SPIDEV, 5 * 1000 * 1000 ); /* 5Mbps */
-  gpio_set_function( DEF_SPI_TX_PIN, GPIO_FUNC_SPI );
-  gpio_set_function( DEF_SPI_RX_PIN, GPIO_FUNC_SPI );
-  gpio_set_function( DEF_SPI_SCK_PIN, GPIO_FUNC_SPI );
-
-  /* CS# */
-  gpio_init( DEF_SPI_CSN_PIN );
-  gpio_set_dir( DEF_SPI_CSN_PIN, GPIO_OUT);
-
-  CS_HIGH();            /* Set CS# high */
-
-#if 0
-  for (Timer1 = 10; Timer1; ) ;   /* 10ms */
-#else
-  Delay( 10 );
-#endif
-}
-
-
 /* Exchange a byte */
 static BYTE
 xchg_spi(
@@ -126,7 +120,7 @@ xchg_spi(
 {
   uint8_t  src, dst;
   src = dat;
-  spi_write_read_blocking( SPIDEV, &src, &dst, 1 );
+  spi_write_read_blocking( SPI_UNIT, &src, &dst, 1 );
   return  (BYTE)dst;
 }
 
@@ -138,7 +132,7 @@ rcvr_spi_multi(
   UINT btr        /* Number of bytes to receive (even number) */
 )
 {
-  spi_read_blocking( SPIDEV, 0xff, buff, btr );
+  spi_read_blocking( SPI_UNIT, 0xff, buff, btr );
 }
 
 
@@ -149,7 +143,7 @@ xmit_spi_multi(
   UINT btx            /* Number of bytes to send (even number) */
 )
 {
-  spi_write_blocking( SPIDEV, buff, btx );
+  spi_write_blocking( SPI_UNIT, buff, btx );
 }
 
 /*-----------------------------------------------------------------------*/
@@ -318,8 +312,6 @@ DSTATUS
 SD_disk_initialize(void)
 {
   BYTE n, cmd, ty, ocr[4];
-
-  init_spi();              /* Initialize SPI */
 
   if (Stat & STA_NODISK) return Stat;  /* Is card existing in the soket? */
 

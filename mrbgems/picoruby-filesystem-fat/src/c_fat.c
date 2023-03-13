@@ -8,6 +8,8 @@
 #include "../lib/ff14b/source/ff.h"
 #include "../lib/ff14b/source/ffconf.h"
 
+#include "../include/fat.h"
+
 #if FF_STR_VOLUME_ID
 #ifdef FF_VOLUME_STRS
 static const char* const VolumeStr[FF_VOLUMES] = {FF_VOLUME_STRS};	/* Pre-defined volume ID */
@@ -293,5 +295,9 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_getlabel", c__getlabel);
   mrbc_init_class_FAT_Dir();
   mrbc_init_class_FAT_File();
+
+#ifdef USE_FAT_SD_DISK
+  mrbc_define_method(0, class_FAT, "_init_spi", c_FAT__init_spi);
+#endif
 }
 

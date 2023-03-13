@@ -6,18 +6,28 @@ class SPI
   DATA_BITS = 8
   DEFAULT_FREQUENCY = 100_000
 
-  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, mode: 0, first_bit: MSB_FIRST)
+  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, cs_pin: -1, mode: 0, first_bit: MSB_FIRST)
+    @unit     = unit.to_s
+    @sck_pin  = sck_pin
+    @cipo_pin = cipo_pin
+    @copi_pin = copi_pin
+    @cs_pin   = cs_pin
     @unit_num = _init(
-      unit.to_s,
+      @unit,
       frequency,
-      sck_pin,
-      cipo_pin,
-      copi_pin,
+      @sck_pin,
+      @cipo_pin,
+      @copi_pin,
       mode,
       first_bit,
       DATA_BITS # Data bit size. No support other than 8
     )
+    if -1 < @cs_pin
+      GPIO.new(@cs_pin, GPIO::OUT).write(1)
+    end
   end
+
+  attr_reader :unit, :sck_pin, :cipo_pin, :copi_pin, :cs_pin
 
   def read(len, repeated_tx_data = 0)
     ret = _read(@unit_num, len, repeated_tx_data)

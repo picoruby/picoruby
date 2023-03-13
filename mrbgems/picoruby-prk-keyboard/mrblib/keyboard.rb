@@ -428,7 +428,7 @@ README = "/README.txt"
 KEYMAP = "/keymap.rb"
 PRK_CONF = "/prk-conf.txt"
 DRIVE_NAME = "PRK DRIVE"
-MY_VOLUME = FAT.new(:flash, DRIVE_NAME)
+MY_VOLUME = FAT.new(:flash, label: DRIVE_NAME)
 
 class Keyboard
 

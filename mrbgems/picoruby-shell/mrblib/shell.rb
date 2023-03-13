@@ -82,12 +82,13 @@ class Shell
     puts "\e[32;0m"
   end
 
-  def self.setup(device, drive_name = "PICORUBY")
+  def self.setup(device, label: "PicoRuby")
     sleep 1 if device == :sd
     return if VFS.volume_index("/")
-    fat = FAT.new(device, drive_name)
+    fat = FAT.new(device, label: label)
     retry_count = 0
     begin
+      puts "#{fat.class} #{fat}"
       VFS.mount(fat, "/")
     rescue => e
       puts e.message
@@ -150,7 +151,7 @@ class Shell
   end
 
   def run_irb
-    $sandbox ||= Sandbox.new
+    $sandbox = Sandbox.new unless $sandbox
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13

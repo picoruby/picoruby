@@ -26,6 +26,8 @@ class FAT
   def self._chmod: (Integer mode, String path) -> 0
   def self._stat: (String path) -> stat_t
 
+  def self._init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+
   def _getfree: (String path) -> Integer
   def _mkfs: (String path) -> self
   def _setlabel: (String) -> 0
@@ -37,7 +39,7 @@ class FAT
   @fatfs: nil | 0
   @label: String | nil
 
-  def initialize: (?(Symbol|String) drive, ?String? label) -> void
+  def initialize: (Symbol|String device, ?label: String?, ?driver: untyped) -> void
   attr_reader mountpoint: String
   attr_reader device: Symbol|String
   def mkfs: -> FAT

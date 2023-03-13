@@ -46,4 +46,3 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.gembox "peripherals"
 end
 
-

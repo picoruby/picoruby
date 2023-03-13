@@ -13,12 +13,19 @@ class SPI
   @first_bit: first_bit_t
   @unit_num: Integer
 
+  attr_reader unit: String
+  attr_reader sck_pin: Integer
+  attr_reader cipo_pin: Integer
+  attr_reader copi_pin: Integer
+  attr_reader cs_pin: Integer
+
   def initialize: (
     unit: Symbol,
     ?frequency: Integer,
     ?sck_pin: Integer,
     ?cipo_pin: Integer,
     ?copi_pin: Integer,
+    ?cs_pin: Integer,
     ?mode: mode_t,
     ?first_bit: first_bit_t
   ) -> void
