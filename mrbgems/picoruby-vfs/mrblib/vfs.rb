@@ -36,7 +36,7 @@ class VFS
       volume, path = VFS.split(sanitized_path)
       if volume[:driver]&.chdir(path)
         index = 1
-        while [".", "/"].include?(sanitized_path[index])
+        while [".", "/"].include?(sanitized_path[index].to_s)
           index += 1
         end
         ENV["PWD"] = sanitized_path[index - 1, sanitized_path.length]

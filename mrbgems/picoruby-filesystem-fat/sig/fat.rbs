@@ -3,7 +3,7 @@
 # Classes
 class FAT
 
-  type stat_t = {size: Integer, datetime: String, mode: Integer}
+  type stat_t = {size: Integer?, datetime: String?, mode: Integer}
 
   class Stat
     @stat_hash: stat_t

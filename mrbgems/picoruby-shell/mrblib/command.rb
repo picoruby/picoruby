@@ -46,7 +46,7 @@ class Shell
       when "pwd"
         puts Dir.pwd
       when "cd"
-        dir = ARGV[0] || ENV['HOME']
+        dir = ARGV[0] || ENV['HOME'] || ""
         unless Dir.exist?(dir)
           puts "cd: #{dir}: No such file or directory"
           return

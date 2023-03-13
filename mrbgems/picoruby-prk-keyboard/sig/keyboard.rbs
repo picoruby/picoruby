@@ -3,7 +3,7 @@
 # Global variables
 
 class Object
-  PRK_NO_MSC: bool
+  PICORUBY_NO_MSC: bool
   README: String
   KEYMAP: String
   PRK_CONF: String

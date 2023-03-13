@@ -433,7 +433,7 @@ MY_VOLUME = FAT.new(:flash, DRIVE_NAME)
 class Keyboard
 
   def self.mount_volume
-    return if PRK_NO_MSC
+    return if PICORUBY_NO_MSC
     begin
       VFS.mount(MY_VOLUME, "/")
     rescue => e
@@ -472,7 +472,7 @@ class Keyboard
     end
     puts "==============================================="
     puts PRK_DESCRIPTION
-    puts "PRK_NO_MSC: #{PRK_NO_MSC}"
+    puts "PICORUBY_NO_MSC: #{PICORUBY_NO_MSC}"
     puts "prk-conf: #{USB.prk_conf}"
     puts "==============================================="
     if Task[:keyboard].nil?
