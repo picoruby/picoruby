@@ -38,12 +38,13 @@ class FAT
   @label: String | nil
 
   def initialize: (?(Symbol|String) drive, ?String? label) -> void
-  attr_reader mountpoint: untyped
+  attr_reader mountpoint: String
+  attr_reader device: Symbol|String
   def mkfs: -> FAT
   def setlabel: -> 0
   def getlabel: -> String
   def sector_count: -> {total: untyped, free: untyped}
-  def mount: (untyped mountpoint) -> untyped
+  def mount: (String mountpoint) -> untyped
   def unmount: -> nil
   def open_dir: (String path) -> FAT::Dir
   def open_file: (String path, String mode) -> FAT::File
