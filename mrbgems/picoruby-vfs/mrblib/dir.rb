@@ -8,7 +8,7 @@ class Dir
         rescue => e
           puts e.message
         ensure
-          dir.close
+          dir&.close # dir becomes nil, why?????
         end
         res
       else

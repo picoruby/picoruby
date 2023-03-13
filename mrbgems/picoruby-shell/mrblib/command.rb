@@ -46,8 +46,16 @@ class Shell
       when "pwd"
         puts Dir.pwd
       when "cd"
-        Dir.chdir(ARGV[0] || ENV['HOME'] || "")
-        puts
+        dir = ARGV[0] || ENV['HOME']
+        unless Dir.exist?(dir)
+          puts "cd: #{dir}: No such file or directory"
+          return
+        end
+        unless File.stat(dir).directory?
+          puts "cd: #{dir}: Not a directory"
+          return
+        end
+        Dir.chdir(dir)
       when "free"
         PicoRubyVM.memory_statistics.each do |k, v|
           puts "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}"

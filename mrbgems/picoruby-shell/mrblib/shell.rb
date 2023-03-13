@@ -82,9 +82,10 @@ class Shell
     puts "\e[32;0m"
   end
 
-  def self.setup(drive)
+  def self.setup(drive, drive_name = "PICORUBY")
+    sleep 0.5 if drive == :sd
     return if VFS.volume_index("/")
-    fat = FAT.new(drive)
+    fat = FAT.new(drive, drive_name)
     retry_count = 0
     begin
       VFS.mount(fat, "/")

@@ -1,11 +1,11 @@
 class FAT
 
-  # Stat[:mode]
-  AM_RDO = 0x01 # Read only
-  AM_HID = 0x02 # Hidden
-  AM_SYS = 0x04 # System
-  AM_DIR = 0x10 # Directory
-  AM_ARC = 0x20 # Archive
+  AM_RDO = 0b000001 # Read only
+  AM_HID = 0b000010 # Hidden
+  AM_SYS = 0b000100 # System
+  #AM_?? = 0b001000 # ???????
+  AM_DIR = 0b010000 # Directory
+  AM_ARC = 0b100000 # Archive
 
   class Stat
     def initialize(stat_hash)
@@ -15,12 +15,32 @@ class FAT
     def mode
       @stat_hash[:mode]
     end
+
+    def mode_str
+      (0 < mode & AM_ARC ? "A" : "-") <<
+      (0 < mode & AM_DIR ? "D" : "-") <<
+      (0 < mode & AM_SYS ? "S" : "-") <<
+      (0 < mode & AM_HID ? "H" : "-") <<
+      (0 < mode & AM_RDO ? "R" : "-")
+    end
+
+    def datetime
+      @stat_hash[:datetime]
+    end
+
+    def size
+      @stat_hash[:size]
+    end
+
+    def directory?
+      0 < mode & AM_DIR
+    end
   end
 
   class Dir
     def stat_label
       {
-        attributes: "DRHSA",
+        attributes: "ADSHR",
         datetime: "datetime",
         size: "size"
       }
@@ -102,6 +122,7 @@ class FAT
   end
 
   def stat(path)
+    return Stat.new({mode: AM_DIR}) if path == "/"
     Stat.new FAT._stat("#{@prefix}#{path}")
   end
 
@@ -114,6 +135,7 @@ class FAT
   end
 
   def directory?(path)
+    return true if path == "/"
     FAT._directory?("#{@prefix}#{path}")
   end
 end

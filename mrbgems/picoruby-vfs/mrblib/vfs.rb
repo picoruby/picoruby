@@ -35,7 +35,11 @@ class VFS
       sanitized_path = VFS.sanitize(dir)
       volume, path = VFS.split(sanitized_path)
       if volume[:driver]&.chdir(path)
-        ENV["PWD"] = sanitized_path
+        index = 1
+        while [".", "/"].include?(sanitized_path[index])
+          index += 1
+        end
+        ENV["PWD"] = sanitized_path[index - 1, sanitized_path.length]
       else
         print "No such directory: #{dir}"
       end

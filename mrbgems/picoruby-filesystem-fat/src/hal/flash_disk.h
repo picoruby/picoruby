@@ -14,7 +14,6 @@ int FLASH_disk_status(void);
 int FLASH_disk_read(BYTE *buff, LBA_t sector, UINT count);
 int FLASH_disk_write(const BYTE *buff, LBA_t sector, UINT count);
 DRESULT FLASH_disk_ioctl(BYTE cmd, int *buff);
-DWORD get_fattime(void);
 
 #ifdef __cplusplus
 }
