@@ -82,10 +82,10 @@ class Shell
     puts "\e[32;0m"
   end
 
-  def self.setup(drive, drive_name = "PICORUBY")
-    sleep 0.5 if drive == :sd
+  def self.setup(device, drive_name = "PICORUBY")
+    sleep 1 if device == :sd
     return if VFS.volume_index("/")
-    fat = FAT.new(drive, drive_name)
+    fat = FAT.new(device, drive_name)
     retry_count = 0
     begin
       VFS.mount(fat, "/")
@@ -96,18 +96,20 @@ class Shell
       retry if retry_count == 1
       raise e
     end
-    begin
-      %w(bin var home).each do |dir|
+    %w(bin var home).each do |dir|
+      begin
         Dir.mkdir dir
+      rescue => e
+        puts "#{dir}: #{e.message}"
       end
-    rescue => e
-      puts e.message
     end
     while exe = _next_executable
-      f = File.open "/bin/#{exe[:name]}", "w"
-      f.expand exe[:code].length
-      f.write exe[:code]
-      f.close
+      unless File.exist? "/bin/#{exe[:name]}"
+        f = File.open "/bin/#{exe[:name]}", "w"
+        f.expand exe[:code].length
+        f.write exe[:code]
+        f.close
+      end
     end
     Dir.chdir ENV['HOME'].to_s
   end

@@ -9,19 +9,6 @@
 
 #include "disk.h"
 
-/*
- * 1280 KiB + 768 KiB == 2 MiB
- * Fully exhausts Raspberry Pi Pico ROM because it's 2 MiB.
- * (Other RP2040 board may have a bigger ROM)
- */
-#define FLASH_TARGET_OFFSET  0x00140000  /* 1280 KiB for program code */
-#define FLASH_MMAP_ADDR      (XIP_BASE + FLASH_TARGET_OFFSET)
-
-/* Disk Status Bits (DSTATUS) */
-#define STA_NOINIT		0x01	/* Drive not initialized */
-#define STA_NODISK		0x02	/* No medium in the drive */
-#define STA_PROTECT		0x04	/* Write protected */
-
 int
 FLASH_disk_erase(void)
 {

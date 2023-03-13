@@ -39,16 +39,21 @@
 
 #if defined(PICORUBY_MSC_FLASH)
   #include <hardware/flash.h>
+  /* 4096 * 192 = 768 KiB */
+  #define MSC_SECTOR_SIZE     FLASH_SECTOR_SIZE
+  #define MSC_SECTOR_COUNT    FLASH_SECTOR_COUNT
   int FLASH_disk_read(void *buff, int32_t sector, int count);
   int FLASH_disk_write(const void *buff, int32_t sector, int count);
   #define DISK_READ(buff, sector, count)    FLASH_disk_read(buff, sector, count)
   #define DISK_WRITE(buff, sector, count)   FLASH_disk_write(buff, sector, count)
 #elif defined(PICORUBY_MSC_SD)
+  #define MSC_SECTOR_SIZE     SD_SECTOR_SIZE
+  int SD_disk_status(void);
+  int SD_disk_ioctl(unsigned char cmd, void *buff);
   int SD_disk_read(void *buff, int32_t sector, int count);
   int SD_disk_write(const void *buff, int32_t sector, int count);
   #define DISK_READ(buff, sector, count)    SD_disk_read(buff, sector, count)
   #define DISK_WRITE(buff, sector, count)   SD_disk_write(buff, sector, count)
-  int SD_disk_ioctl(unsigned char cmd, void *buff);
 #endif
 
 // whether host does safe-eject
@@ -61,7 +66,7 @@ check_sector_count(uint32_t lba)
   if (lba >= MSC_SECTOR_COUNT) return false;
 #elif defined(PICORUBY_MSC_SD)
   uint16_t block_count = 0;
-  SD_disk_ioctl(GET_SECTOR_COUNT, &block_count);
+  if (SD_disk_ioctl(GET_SECTOR_COUNT, &block_count)) return false;
   if (lba >= block_count) return false;
 #else
   #error
@@ -87,6 +92,12 @@ tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], ui
 bool
 tud_msc_test_unit_ready_cb(uint8_t lun)
 {
+#if defined(PICORUBY_MSC_SD)
+  if (0 < (SD_disk_status() & (STA_NOINIT|STA_NODISK))) {
+    tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
+    return false;
+  }
+#endif
   if (ejected) {
     tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
     return false;
