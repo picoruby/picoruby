@@ -44,7 +44,7 @@ static void
 c_mrbc(struct VM *vm, mrbc_value v[], int argc)
 {
 
-  StreamInterface *si = StreamInterface_new(NULL, GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
+  StreamInterface *si = StreamInterface_new(NULL, (const char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
   ParserState *p = Compiler_parseInitState(0, si->node_box_size);
   if (Compiler_compile(p, si, NULL)) {
     mrbc_value mrb = mrbc_string_new(vm, p->scope->vm_code, p->scope->vm_code_size);
