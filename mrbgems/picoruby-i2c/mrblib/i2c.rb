@@ -7,27 +7,34 @@ class I2C
     @unit_num = _init(unit.to_s, frequency, sda_pin, scl_pin)
   end
 
-  def read(i2c_adrs_7, len)
+  def read(i2c_adrs_7, len, *outputs)
+    unless outputs.empty?
+       _write(@unit_num, i2c_adrs_7, outputs_array(outputs), true)
+    end
     ret = _read(@unit_num, i2c_adrs_7, len)
     return ret if String === ret
     GPIO.handle_error(ret, "I2C#read")
     return ""
   end
 
-  def write(i2c_adrs_7, *params)
+  def write(i2c_adrs_7, *outputs)
+    ret = _write(@unit_num, i2c_adrs_7, outputs_array(outputs), false)
+    return ret if 0 < ret
+    GPIO.handle_error(ret, "I2C#write")
+  end
+
+  def outputs_array(outputs)
     ary = []
-    params.each do |param|
+    outputs.each do |param|
       case param
       when Array
         ary += param
       when Integer
         ary << param
       when String
-        art += param.bytes
+        ary += param.bytes
       end
     end
-    ret = _write(@unit_num, i2c_adrs_7, ary)
-    return ret if 0 < ret
-    GPIO.handle_error(ret, "I2C#write")
+    ary
   end
 end

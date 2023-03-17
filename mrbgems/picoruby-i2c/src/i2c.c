@@ -13,7 +13,16 @@ c__write(mrbc_vm *vm, mrbc_value *v, int argc)
   for (int i = 0; i < len; i++) {
     src[i] = mrbc_integer(value_ary.data[i]);
   }
-  SET_INT_RETURN(I2C_write_timeout_us((uint8_t)GET_INT_ARG(1), (uint8_t)GET_INT_ARG(2), src, len, false, duration_1byte * len));
+  SET_INT_RETURN(
+    I2C_write_timeout_us((
+      uint8_t)GET_INT_ARG(1),
+      (uint8_t)GET_INT_ARG(2),
+      src,
+      len,
+      (bool)(GET_ARG(4).tt == MRBC_TT_TRUE),
+      duration_1byte * len
+    )
+  );
 }
 
 static void
@@ -21,7 +30,14 @@ c__read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int len = GET_INT_ARG(3);
   uint8_t rxdata[len];
-  int ret = I2C_read_timeout_us((uint8_t)GET_INT_ARG(1), (uint8_t)GET_INT_ARG(2), rxdata, len, false, duration_1byte * len);
+  int ret = I2C_read_timeout_us(
+              (uint8_t)GET_INT_ARG(1),
+              (uint8_t)GET_INT_ARG(2),
+              rxdata,
+              len,
+              false,
+              duration_1byte * len
+            );
   if (0 < ret) {
     mrbc_value value = mrbc_string_new(vm, (const char *)rxdata, ret);
     SET_RETURN(value);

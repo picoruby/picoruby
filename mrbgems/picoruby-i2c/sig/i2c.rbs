@@ -1,12 +1,43 @@
 class I2C
+  type outputs_t = Integer|String|Array[Integer]
+
   DEFAULT_FREQUENCY: 100_000
 
   @unit_num: Integer
 
-  def initialize: (unit: Symbol, ?frequency: Integer, ?sda_pin: Integer, ?scl_pin: Integer) -> void
-  def _init: (String unit, Integer frequency, Integer sda_pin, Integer scl_pin) -> Integer
-  def write: (Integer, *(Integer|String) | Array[Integer]) -> Integer
-  def _write: (Integer, Integer, Array[Integer]) -> Integer
-  def read: (Integer, Integer) -> String
-  def _read: (Integer, Integer, Integer) -> (String | Integer)
+  def initialize: (
+    unit: Symbol|nil,
+    ?frequency: Integer,
+    ?sda_pin: Integer,
+    ?scl_pin: Integer
+  ) -> void
+  def _init: (
+    String unit,
+    Integer frequency,
+    Integer sda_pin,
+    Integer scl_pin
+  ) -> Integer
+  def write: (
+    Integer i2c_adrs_7,
+    *outputs_t outputs
+  ) -> Integer
+  def _write: (
+    Integer unit_num,
+    Integer i2c_adrs_7,
+    Array[Integer] output_array,
+    bool nostop
+  ) -> Integer
+  def read: (
+    Integer i2c_adrs_7,
+    Integer len,
+    *outputs_t outputs
+  ) -> String
+  def _read: (
+    Integer unit_num,
+    Integer i2c_adrs_7,
+    Integer len
+  ) -> (String | Integer)
+  def outputs_array: (
+    Array[outputs_t] outputs
+  ) -> Array[Integer]
 end
