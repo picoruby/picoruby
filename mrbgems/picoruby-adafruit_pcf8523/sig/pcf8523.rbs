@@ -1,0 +1,14 @@
+class PCF8523
+  ADDRESS: Integer
+
+  @i2c: I2C
+
+  def initialize : (
+    ?unit: Symbol|nil,
+    ?frequency: Integer,
+    sda_pin: Integer,
+    scl_pin: Integer
+  ) -> void
+  def current_time= : (Time) -> Time
+  def current_time : () -> Time
+end

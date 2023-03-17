@@ -44,5 +44,6 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.gem core: "picoruby-shell"
 
   conf.gembox "peripherals"
+  conf.gem core: 'picoruby-adafruit_pcf8523'
 end
 
