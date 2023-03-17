@@ -7,6 +7,7 @@ when "ruby"
 when "mruby/c"
   require "shell"
 
+  ENV['TZ'] = "JST-9"
   ENV['PATH'] = "/bin"
   ENV['HOME'] = "/home"
 end

@@ -1,3 +1,5 @@
+require "time"
+
 class FAT
 
   AM_RDO = 0b000001 # Read only
