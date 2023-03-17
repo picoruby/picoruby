@@ -158,7 +158,7 @@ c_at(struct VM *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1)");
     return;
   }
-  SET_RETURN(new_from_unixtime(vm, v, GET_INT_ARG(1)));
+  SET_RETURN(new_from_unixtime(vm, v, GET_INT_ARG(1) - unixtime_offset));
 }
 
 static void
@@ -226,6 +226,36 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
   SET_RETURN(mrbc_string_new_cstr(vm, str));
 }
 
+static void
+c_year(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_year + 1900);
+}
+static void
+c_mon(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_mon + 1);
+}
+static void
+c_mday(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_mday);
+}
+static void
+c_hour(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_hour);
+}
+static void
+c_min(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_min);
+}
+static void
+c_sec(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_sec);
+}
 static void
 c_wday(struct VM *vm, mrbc_value v[], int argc)
 {
@@ -350,6 +380,12 @@ mrbc_time_class_init(void)
   mrbc_define_method(0, class_Time, "to_i", c_to_i);
   mrbc_define_method(0, class_Time, "to_s", c_inspect);
   mrbc_define_method(0, class_Time, "inspect", c_inspect);
+  mrbc_define_method(0, class_Time, "year", c_year);
+  mrbc_define_method(0, class_Time, "mon",  c_mon);
+  mrbc_define_method(0, class_Time, "mday", c_mday);
+  mrbc_define_method(0, class_Time, "hour", c_hour);
+  mrbc_define_method(0, class_Time, "min",  c_min);
+  mrbc_define_method(0, class_Time, "sec",  c_sec);
   mrbc_define_method(0, class_Time, "wday", c_wday);
   mrbc_define_method(0, class_Time, "<=>", c_compare);
   mrbc_define_method(0, class_Time, "==", c_eq);

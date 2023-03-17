@@ -1,0 +1,4 @@
+class Time
+  def hwclock= : (Time) -> Time
+end
+
