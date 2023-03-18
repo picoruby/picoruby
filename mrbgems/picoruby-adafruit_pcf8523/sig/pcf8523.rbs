@@ -9,6 +9,7 @@ class PCF8523
     sda_pin: Integer,
     scl_pin: Integer
   ) -> void
+  def set_power_management : (?Integer pow) -> Integer
   def current_time= : (Time) -> Time
   def current_time : () -> Time
 end

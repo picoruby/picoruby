@@ -13,6 +13,41 @@ class PCF8523
     )
     # Reset
     @i2c.write(ADDRESS, 0x00, 0x58)
+    # Reset command set power management default
+    # so we enable switch-over everytime
+    set_power_management
+  end
+
+  attr_reader :i2c # for debug. eg) $rtc.i2c.read(0x68, 3, 0)
+
+  #
+  # (from https://www.nxp.com/docs/en/data-sheet/PCF8523.pdf)
+  #
+  # Power management function
+  #
+  # pow =
+  # 0b000     battery switch-over function is enabled in standard mode;
+  #           battery low detection function is enabled
+  # 0b001     battery switch-over function is enabled in direct switching mode;
+  #           battery low detection function is enabled
+  # 0b010,011 battery switch-over function is disabled - only one power supply (VDD);
+  #           battery low detection function is enabled
+  # 0b100     battery switch-over function is enabled in standard mode;
+  #           battery low detection function is disabled
+  # 0b101     battery switch-over function is enabled in direct switching mode;
+  #           battery low detection function is disabled
+  # 0b110     not allowed
+  # 0b111     *Default
+  #           battery switch-over function is disabled - only one power supply (VDD);
+  #           battery low detection function is disabled
+  #
+  # Default 02h register: 111-0000 (`-`: not implemented)
+  #                       ^^^
+  #                       pow
+  #
+  # Direct switching mode is suitable for 5V Vdd
+  def set_power_management(pow = 0b001)
+    @i2c.write(ADDRESS, 2, pow << 5)
   end
 
   def current_time=(time)
