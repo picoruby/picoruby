@@ -6,6 +6,7 @@ class FAT
   type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
 
   class Stat
+    LABEL: String
     @mtime: Time
     @stat_hash: stat_t
     def initialize: (stat_t) -> void
@@ -66,7 +67,6 @@ class FAT
     attr_accessor pat: String
 
     def initialize: (String path) -> void
-    def stat_label: -> {attributes: String, datetime: String, size: String}
     def rewind: -> self
     def read: -> String?
     def findnext: -> String?

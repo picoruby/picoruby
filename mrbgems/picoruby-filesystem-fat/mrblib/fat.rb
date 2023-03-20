@@ -10,6 +10,9 @@ class FAT
   AM_ARC = 0b100000 # Archive
 
   class Stat
+
+    LABEL = "ADSHR size   datetime"
+
     def initialize(stat_hash)
       @stat_hash = stat_hash
     end
@@ -44,13 +47,6 @@ class FAT
   end
 
   class Dir
-    def stat_label
-      {
-        attributes: "ADSHR",
-        datetime: "datetime",
-        size: "size"
-      }
-    end
   end
 
   class File

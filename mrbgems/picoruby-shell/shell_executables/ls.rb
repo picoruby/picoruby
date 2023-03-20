@@ -39,8 +39,7 @@ Dir.open(dir) do |dirent|
   count = 0
   # TODO: Wildcard
   if opts.include?("l")
-    label = dirent.stat_label
-    puts "\e[36m#{label[:attributes]} #{label[:size].to_s.rjust(6)} #{label[:datetime]}\e[0m"
+    puts "\e[36m#{FAT::Stat::LABEL}\e[0m" # TODO: `FAT` should be hidden
     while entry = dirent.read
       if !file || file == entry
         stat = File.stat("#{dir}/#{entry}")

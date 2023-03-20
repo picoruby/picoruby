@@ -111,8 +111,4 @@ class Dir
     self
   end
 
-  def stat_label
-    @dir.stat_label
-  end
-
 end

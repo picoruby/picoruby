@@ -197,10 +197,10 @@ class File
   end
 
   def close
-#    if @file.writable?
-#      now = Time.now
-#      @file.utime(now, now)
-#    end
+    #if 1#@file.writable?
+    #  now = Time.now
+     # @file.utime(now, now)
+    #end
     @file.close
   end
 

@@ -4,6 +4,8 @@
 class VFS
   type driver_t = FAT
   type volume_t = {mountpoint: String, driver: driver_t}
+  type file_t = FAT::File
+  type dir_t = FAT::Dir
 
   VOLUMES: Array[volume_t]
 
@@ -23,10 +25,10 @@ class VFS
   def self.volume_index: (untyped mountpoint) -> Integer?
 
   class File
-    def self.open: (String, String) -> FAT::File
+    def self.open: (String, String) -> file_t
   end
 
   class Dir
-    def self.open: (String) -> FAT::Dir
+    def self.open: (String) -> dir_t
   end
 end
