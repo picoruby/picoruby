@@ -26,8 +26,12 @@ class FAT
       (0 < mode & AM_RDO ? "R" : "-")
     end
 
-    def datetime
-      @stat_hash[:datetime]
+    def mtime
+      @mtime ||= Time.at(@stat_hash[:unixtime] || 0)
+    end
+
+    def birthtime
+      raise "NotImplementedError"
     end
 
     def size
@@ -129,7 +133,11 @@ class FAT
     FAT._erase(@prefix)
   end
 
-  def mkdir(path, mode)
+  def utime(path, unixtime)
+    FAT._utime("#{@prefix}#{path}", unixtime)
+  end
+
+  def mkdir(path, mode = AM_DIR)
     FAT._mkdir("#{@prefix}#{path}", mode)
   end
 

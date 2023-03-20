@@ -1,3 +1,5 @@
+require "time"
+
 class File
 
   CHUNK_SIZE = 127
@@ -163,6 +165,7 @@ class File
     args.each do |arg|
       len += @file.write(arg.to_s)
     end
+    @changed = true if 0 < len
     return len
   end
 
@@ -194,6 +197,10 @@ class File
   end
 
   def close
+#    if @file.writable?
+#      now = Time.now
+#      @file.utime(now, now)
+#    end
     @file.close
   end
 

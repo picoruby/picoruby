@@ -3,9 +3,10 @@
 # Classes
 class FAT
 
-  type stat_t = {size: Integer?, datetime: String?, mode: Integer}
+  type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
 
   class Stat
+    @mtime: Time
     @stat_hash: stat_t
     def initialize: (stat_t) -> void
     def mode: () -> Integer
@@ -21,7 +22,8 @@ class FAT
   def self._exist?: (String path) -> bool
   def self._unlink: (String path) -> 0
   def self._chdir: (String path) -> 0
-  def self._mkdir: (String path, String mode) -> 0
+  def self._utime: (String path, Integer unixtime) -> Integer
+  def self._mkdir: (String path, Integer mode) -> 0
   def self._erase: (String path) -> 0
   def self._chmod: (Integer mode, String path) -> 0
   def self._stat: (String path) -> stat_t
@@ -52,7 +54,8 @@ class FAT
   def open_file: (String path, String mode) -> FAT::File
   def chdir: (String path) -> 0
   def erase: -> untyped
-  def mkdir: (untyped path, untyped mode) -> untyped
+  def utime: (String path, Integer unixtime) -> Integer
+  def mkdir: (String path, ?Integer mode) -> untyped
   def chmod: (Integer mode, String path) -> 0
   def stat: (untyped path) -> Stat
   def exist?: (untyped path) -> untyped

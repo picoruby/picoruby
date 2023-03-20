@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "c_fat.h"
 #include "c_fat_dir.h"
@@ -17,6 +18,31 @@ static const char* const VolumeStr[FF_VOLUMES] = {FF_VOLUME_STRS};	/* Pre-define
 #endif
 
 #include "hal/diskio.h"
+
+static void
+unixtime2fno(const time_t *unixtime, FILINFO *fno)
+{
+  struct tm tm;
+  localtime_r(unixtime, &tm);
+  fno->fdate = (WORD)(((tm.tm_year + 1900 - 1980) << 9) | (tm.tm_mon + 1) << 5 | tm.tm_mday);
+  fno->ftime = (WORD)(tm.tm_hour << 11 | tm.tm_min << 5 | tm.tm_sec / 2);
+}
+
+static void
+fno2unixtime(const FILINFO *fno, time_t *unixtime)
+{
+  struct tm tm;
+  tm.tm_year = (fno->fdate >> 9) + 1980 - 1900;
+  tm.tm_mon  = ((fno->fdate >> 5) & 15) - 1;
+  tm.tm_mday = (fno->fdate & 31);
+  tm.tm_hour = (fno->ftime >> 11);
+  tm.tm_min  = (fno->ftime >> 5) & 63;
+  tm.tm_sec  = (fno->ftime & 31) * 2;
+  tm.tm_wday = 0;
+  tm.tm_yday = 0;
+  tm.tm_isdst = 0;
+  *unixtime = mktime(&tm);
+}
 
 /*
  * Usage: FAT._erase(num)
@@ -99,6 +125,16 @@ c__chdir(struct VM *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(0);
 }
 
+static void
+c__utime(struct VM *vm, mrbc_value v[], int argc)
+{
+  FILINFO fno;
+  const time_t unixtime = GET_INT_ARG(2);
+  unixtime2fno(&unixtime, &fno);
+  FRESULT res = f_utime((const TCHAR *)GET_STRING_ARG(1), &fno);
+  mrbc_raise_iff_f_error(vm, res, "f_utime");
+  SET_INT_RETURN(1);
+}
 
 static void
 c__mkdir(struct VM *vm, mrbc_value v[], int argc)
@@ -135,11 +171,10 @@ c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
   FRESULT res = f_stat(path, &fno);
   mrbc_raise_iff_f_error(vm, res, "f_stat");
   mrbc_value stat = mrbc_hash_new(vm, 3);
-  char datetime[17];
-  sprintf(datetime, "%u/%02u/%02u %02u:%02u",
-          (fno.fdate >> 9) + 1980, fno.fdate >> 5 & 15, fno.fdate & 31,
-          fno.ftime >> 11, fno.ftime >> 5 & 63);
-  mrbc_value datetime_val = mrbc_string_new_cstr(vm, datetime);
+
+  time_t unixtime;
+  fno2unixtime(&fno, &unixtime);
+
   mrbc_hash_set(
     &stat,
     &mrbc_symbol_value(mrbc_str_to_symid("size")),
@@ -147,8 +182,8 @@ c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
   );
   mrbc_hash_set(
     &stat,
-    &mrbc_symbol_value(mrbc_str_to_symid("datetime")),
-    &datetime_val
+    &mrbc_symbol_value(mrbc_str_to_symid("unixtime")),
+    &mrbc_integer_value(unixtime)
   );
   mrbc_hash_set(
     &stat,
@@ -285,6 +320,7 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_mount", c__mount);
   mrbc_define_method(0, class_FAT, "_unmount", c__unmount);
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
+  mrbc_define_method(0, class_FAT, "_utime", c__utime);
   mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
   mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
   mrbc_define_method(0, class_FAT, "_chmod", c__chmod);

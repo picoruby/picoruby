@@ -44,7 +44,7 @@ Dir.open(dir) do |dirent|
     while entry = dirent.read
       if !file || file == entry
         stat = File.stat("#{dir}/#{entry}")
-        puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.datetime} #{entry}"
+        puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.mtime} #{entry}"
         count += 1
       end
     end
