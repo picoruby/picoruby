@@ -2,6 +2,20 @@ require "time"
 
 class File
 
+  class Stat
+    def initialize(path)
+      volume, _path = VFS.sanitize_and_split(path)
+      @stat = volume[:driver].class::Stat.new(_path)
+    end
+    def directory? = @stat.directory?
+    def mode = @stat.mode
+    def mode_str = @stat.mode_str
+    def writable? = @stat.writable?
+    def mtime = @stat.mtime
+    def birthtime = @stat.birthtime
+    def size = @stat.size
+  end
+
   CHUNK_SIZE = 127
 
   class << self
@@ -57,6 +71,7 @@ class File
   end
 
   def initialize(path, mode = "r")
+    @path = path
     @file = VFS::File.open(path, mode)
   end
 
@@ -197,18 +212,18 @@ class File
   end
 
   def close
-    #if 1#@file.writable?
-    #  now = Time.now
-     # @file.utime(now, now)
-    #end
+    if File::Stat.new(@path).writable?
+      now = Time.now
+      VFS::File.utime(now, now, @path)
+    end
     @file.close
   end
 
-   def size
-     @file.size
-   end
+  def size
+    @file.size
+  end
 
-   def expand(size)
-     @file.expand(size)
-   end
+  def expand(size)
+    @file.expand(size)
+  end
 end

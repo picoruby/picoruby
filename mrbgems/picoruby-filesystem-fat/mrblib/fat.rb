@@ -13,8 +13,9 @@ class FAT
 
     LABEL = "ADSHR size   datetime"
 
-    def initialize(stat_hash)
-      @stat_hash = stat_hash
+    def initialize(path)
+      return Stat.new({mode: AM_DIR}) if path == "/"
+      @stat_hash = FAT._stat("#{@prefix}#{path}")
     end
 
     def mode
@@ -27,6 +28,10 @@ class FAT
       (0 < mode & AM_SYS ? "S" : "-") <<
       (0 < mode & AM_HID ? "H" : "-") <<
       (0 < mode & AM_RDO ? "R" : "-")
+    end
+
+    def writable?
+      (mode & AM_RDO) != 0
     end
 
     def mtime
@@ -129,8 +134,8 @@ class FAT
     FAT._erase(@prefix)
   end
 
-  def utime(path, unixtime)
-    FAT._utime("#{@prefix}#{path}", unixtime)
+  def utime(atime, _mtime, path)
+    FAT._utime(atime.to_i, "#{@prefix}#{path}")
   end
 
   def mkdir(path, mode = AM_DIR)
@@ -139,11 +144,6 @@ class FAT
 
   def chmod(mode, path)
     FAT._chmod(mode, "#{@prefix}#{path}")
-  end
-
-  def stat(path)
-    return Stat.new({mode: AM_DIR}) if path == "/"
-    Stat.new FAT._stat("#{@prefix}#{path}")
   end
 
   def exist?(path)

@@ -129,9 +129,9 @@ static void
 c__utime(struct VM *vm, mrbc_value v[], int argc)
 {
   FILINFO fno;
-  const time_t unixtime = GET_INT_ARG(2);
+  const time_t unixtime = GET_INT_ARG(1);
   unixtime2fno(&unixtime, &fno);
-  FRESULT res = f_utime((const TCHAR *)GET_STRING_ARG(1), &fno);
+  FRESULT res = f_utime((const TCHAR *)GET_STRING_ARG(2), &fno);
   mrbc_raise_iff_f_error(vm, res, "f_utime");
   SET_INT_RETURN(1);
 }

@@ -26,6 +26,8 @@ class VFS
 
   class File
     def self.open: (String, String) -> file_t
+    def self.writable?: () -> bool
+    def self.utime: (Time atime, Time mtime, *String filename) -> Integer
   end
 
   class Dir

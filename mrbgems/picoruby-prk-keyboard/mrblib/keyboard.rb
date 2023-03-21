@@ -477,7 +477,7 @@ class Keyboard
     puts "==============================================="
     if Task[:keyboard].nil?
       File.exist?(KEYMAP) ? Keyboard.reload_keymap : Keyboard.wait_keymap
-    elsif File.exist?(KEYMAP) && (0 < File.stat(KEYMAP).mode & FAT::AM_ARC)
+    elsif File.exist?(KEYMAP) && (0 < File::Stat.new(KEYMAP).mode & FAT::AM_ARC)
       # FIXME: Checking Stat#mode doesn't work well
       Task[:keyboard].suspend
       Keyboard.reload_keymap

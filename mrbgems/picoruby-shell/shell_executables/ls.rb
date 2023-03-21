@@ -27,7 +27,7 @@ end
 
 if file
   _dir = "#{dir}/#{file}"
-  if Dir.exist?(_dir) && File.stat(_dir).directory?
+  if Dir.exist?(_dir) && File::Stat.new(_dir).directory?
     dir = _dir
     file = nil
   end
@@ -42,7 +42,7 @@ Dir.open(dir) do |dirent|
     puts "\e[36m#{FAT::Stat::LABEL}\e[0m" # TODO: `FAT` should be hidden
     while entry = dirent.read
       if !file || file == entry
-        stat = File.stat("#{dir}/#{entry}")
+        stat = File::Stat.new("#{dir}/#{entry}")
         puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.mtime} #{entry}"
         count += 1
       end

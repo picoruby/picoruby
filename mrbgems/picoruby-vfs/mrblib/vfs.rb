@@ -53,7 +53,8 @@ class VFS
     def mkdir(path, mode = 0777)
       volume, path = VFS.sanitize_and_split(path)
       if 0 == volume[:driver]&.mkdir(path, mode)
-        volume[:driver]&.utime(path, Time.now.to_i)
+        now = Time.now
+        volume[:driver]&.utime(now, now, path)
       end
       0
     end
@@ -66,11 +67,6 @@ class VFS
     def chmod(mode, path)
       volume, _path = VFS.sanitize_and_split(path)
       volume[:driver].chmod(mode, _path)
-    end
-
-    def stat(path)
-      volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&.stat(_path)
     end
 
     def exist?(path)
@@ -153,6 +149,15 @@ class VFS
     def self.open(path, mode)
       volume, _path = VFS.sanitize_and_split(path)
       volume[:driver].open_file(_path, mode)
+    end
+
+    def self.utime(atime, mtime, *filename)
+      count = 0
+      filename.each do |path|
+        volume, _path = VFS.sanitize_and_split(path)
+        count += volume[:driver].utime(atime, mtime, path)
+      end
+      return count
     end
   end
 

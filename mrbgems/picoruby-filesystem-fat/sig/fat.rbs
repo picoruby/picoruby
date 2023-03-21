@@ -23,7 +23,7 @@ class FAT
   def self._exist?: (String path) -> bool
   def self._unlink: (String path) -> 0
   def self._chdir: (String path) -> 0
-  def self._utime: (String path, Integer unixtime) -> Integer
+  def self._utime: (Integer unixtime, String path) -> Integer
   def self._mkdir: (String path, Integer mode) -> 0
   def self._erase: (String path) -> 0
   def self._chmod: (Integer mode, String path) -> 0
@@ -55,7 +55,7 @@ class FAT
   def open_file: (String path, String mode) -> FAT::File
   def chdir: (String path) -> 0
   def erase: -> untyped
-  def utime: (String path, Integer unixtime) -> Integer
+  def utime: (Time atime, Time mtime, String path) -> Integer
   def mkdir: (String path, ?Integer mode) -> untyped
   def chmod: (Integer mode, String path) -> 0
   def stat: (untyped path) -> Stat

@@ -51,7 +51,7 @@ class Shell
           puts "cd: #{dir}: No such file or directory"
           return
         end
-        unless File.stat(dir).directory?
+        unless File::Stat.new(dir).directory?
           puts "cd: #{dir}: Not a directory"
           return
         end
