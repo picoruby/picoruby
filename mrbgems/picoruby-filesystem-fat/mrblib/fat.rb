@@ -11,7 +11,7 @@ class FAT
 
   class Stat
 
-    LABEL = "ADSHR size   datetime"
+    LABEL = "ADSHR size   datetime                  name"
 
     def initialize(path)
       return Stat.new({mode: AM_DIR}) if path == "/"
@@ -31,7 +31,7 @@ class FAT
     end
 
     def writable?
-      (mode & AM_RDO) != 0
+      (mode & AM_RDO) == 0
     end
 
     def mtime

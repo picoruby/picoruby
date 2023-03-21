@@ -35,14 +35,12 @@ class File
       count
     end
 
-    def stat(path)
-      VFS.stat(path)
-    end
-
     def open(path, mode = "r")
       if block_given?
         file = self.new(path, mode)
         yield file
+        now = Time.now
+        File.utime(now, now, path)
         file.close
       else
         self.new(path, mode)
@@ -58,7 +56,7 @@ class File
     end
 
     def file?(name)
-      !VFS.directory?(name)
+      VFS.exist?(name) && !VFS.directory?(name)
     end
 
     def unlink(*filenames)
@@ -68,12 +66,19 @@ class File
       end
       return count
     end
+
+    def utime(atime, mtime, *filename)
+      VFS::File.utime(atime, mtime, *filename)
+    end
   end
 
   def initialize(path, mode = "r")
+    @changed = true if %w(w w+ wx w+x).include?(mode)
     @path = path
     @file = VFS::File.open(path, mode)
   end
+
+  attr_reader :path
 
   def tell
     @file.tell
@@ -212,11 +217,11 @@ class File
   end
 
   def close
-    if File::Stat.new(@path).writable?
-      now = Time.now
-      VFS::File.utime(now, now, @path)
-    end
     @file.close
+    if File::Stat.new(@path).writable? && @changed
+      now = Time.now
+      File.utime(now, now, @path)
+    end
   end
 
   def size
@@ -226,4 +231,5 @@ class File
   def expand(size)
     @file.expand(size)
   end
+
 end
