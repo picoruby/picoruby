@@ -9,8 +9,13 @@ class FAT
     LABEL: String
     @mtime: Time
     @stat_hash: stat_t
-    def initialize: (stat_t) -> void
+    def initialize: (String device, String path) -> void
     def mode: () -> Integer
+    def mode_str: () -> String
+    def writable?: () -> bool
+    def mtime: () -> Time
+    def birthtime: () -> untyped
+    def size: () -> Integer
   end
 
   AM_RDO: 1
@@ -38,13 +43,14 @@ class FAT
   def _mount: (String path) -> 0
   def _unmount: (String path) -> 0
 
-  @prefix: String
   @fatfs: nil | 0
   @label: String | nil
 
   def initialize: (Symbol|String device, ?label: String?, ?driver: untyped) -> void
+
   attr_reader mountpoint: String
-  attr_reader device: Symbol|String
+  attr_reader prefix: String
+
   def mkfs: -> FAT
   def setlabel: -> 0
   def getlabel: -> String

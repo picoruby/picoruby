@@ -5,7 +5,7 @@ class File
   class Stat
     def initialize(path)
       volume, _path = VFS.sanitize_and_split(path)
-      @stat = volume[:driver].class::Stat.new(_path)
+      @stat = volume[:driver].class::Stat.new(volume[:driver].prefix, _path)
     end
     def directory? = @stat.directory?
     def mode = @stat.mode

@@ -13,9 +13,12 @@ class FAT
 
     LABEL = "ADSHR size   datetime                  name"
 
-    def initialize(path)
-      return Stat.new({mode: AM_DIR}) if path == "/"
-      @stat_hash = FAT._stat("#{@prefix}#{path}")
+    def initialize(prefix, path)
+      @stat_hash = if path == "/"
+        { mode: AM_DIR }
+      else
+        FAT._stat("#{prefix}#{path}")
+      end
     end
 
     def mode
@@ -43,7 +46,7 @@ class FAT
     end
 
     def size
-      @stat_hash[:size]
+      @stat_hash[:size] || 0
     end
 
     def directory?
@@ -60,7 +63,6 @@ class FAT
   # device can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
   def initialize(device, label: "PICORUBY", driver: nil)
-    @device = device
     @prefix = "#{device}:"
     @label = label
     case driver
@@ -78,7 +80,7 @@ class FAT
     end
   end
 
-  attr_reader :device, :mountpoint
+  attr_reader :mountpoint, :prefix
 
   def mkfs
     self._mkfs(@prefix)
