@@ -164,17 +164,21 @@ c_write(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(0);
 }
 
+
+#define SET_CLASS_CONST(cls, cst) \
+  mrbc_set_class_const(mrbc_class_##cls, mrbc_str_to_symid(#cst), &mrbc_integer_value(cst))
+
 void
 mrbc_gpio_init(void)
 {
   mrbc_class *mrbc_class_GPIO = mrbc_define_class(0, "GPIO", mrbc_class_object);
 
-  mrbc_set_const(mrbc_str_to_symid("IN"), &mrbc_integer_value(IN));
-  mrbc_set_const(mrbc_str_to_symid("OUT"), &mrbc_integer_value(OUT));
-  mrbc_set_const(mrbc_str_to_symid("HIGH_Z"), &mrbc_integer_value(HIGH_Z));
-  mrbc_set_const(mrbc_str_to_symid("PULL_UP"), &mrbc_integer_value(PULL_UP));
-  mrbc_set_const(mrbc_str_to_symid("PULL_DOWN"), &mrbc_integer_value(PULL_DOWN));
-  mrbc_set_const(mrbc_str_to_symid("OPEN_DRAIN"), &mrbc_integer_value(OPEN_DRAIN));
+  SET_CLASS_CONST(GPIO, IN);
+  SET_CLASS_CONST(GPIO, OUT);
+  SET_CLASS_CONST(GPIO, HIGH_Z);
+  SET_CLASS_CONST(GPIO, PULL_UP);
+  SET_CLASS_CONST(GPIO, PULL_DOWN);
+  SET_CLASS_CONST(GPIO, OPEN_DRAIN);
 
   mrbc_define_method(0, mrbc_class_GPIO, "_init", c__init);
   mrbc_define_method(0, mrbc_class_GPIO, "set_dir_at", c_set_dir_at);
