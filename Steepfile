@@ -1,15 +1,15 @@
-target :lib do
+target :mrbgems do
   library "io-console"
 
   signature "sig/prk_firmware"
-  Dir.glob("mrbgems/**/sig/").each do |dir|
+  Dir.glob("**/sig/").each do |dir|
     signature dir
   end
 
   check "mrblib"
   Dir.glob([
-    "mrbgems/**/mrblib/",
-    "mrbgems/**/task/"
+    "**/mrblib/",
+    "**/task/"
   ]).each { |dir| check dir }
 
   ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/*.rb"
