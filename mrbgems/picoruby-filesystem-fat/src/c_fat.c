@@ -62,7 +62,7 @@ c__erase(struct VM *vm, mrbc_value v[], int argc)
     disk_erase(i);
     SET_INT_RETURN(0);
   } else {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Volume not found in c__erase");
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Volume not found in disk_erase");
   }
 }
 
@@ -85,7 +85,7 @@ c__mkfs(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
-c__getfree(struct VM *vm, mrbc_value v[], int argc)
+c_getfree(struct VM *vm, mrbc_value v[], int argc)
 {
   FATFS *fs = (FATFS *)v->instance->data;
   DWORD fre_clust, fre_sect, tot_sect;
@@ -316,7 +316,7 @@ mrbc_filesystem_fat_init(void)
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
   mrbc_define_method(0, class_FAT, "_erase", c__erase);
   mrbc_define_method(0, class_FAT, "_mkfs", c__mkfs);
-  mrbc_define_method(0, class_FAT, "_getfree", c__getfree);
+  mrbc_define_method(0, class_FAT, "getfree", c_getfree);
   mrbc_define_method(0, class_FAT, "_mount", c__mount);
   mrbc_define_method(0, class_FAT, "_unmount", c__unmount);
   mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
@@ -333,7 +333,7 @@ mrbc_filesystem_fat_init(void)
   mrbc_init_class_FAT_File();
 
 #ifdef USE_FAT_SD_DISK
-  mrbc_define_method(0, class_FAT, "_init_spi", c_FAT__init_spi);
+  mrbc_define_method(0, class_FAT, "init_spi", c_FAT_init_spi);
 #endif
 }
 

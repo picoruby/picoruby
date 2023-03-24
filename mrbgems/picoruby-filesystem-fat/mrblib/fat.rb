@@ -69,7 +69,7 @@ class FAT
     when nil
       # Do nothing
     when SPI
-      FAT._init_spi(
+      FAT.init_spi(
         driver.unit,
         driver.sck_pin,
         driver.cipo_pin,
@@ -98,7 +98,7 @@ class FAT
   end
 
   def sector_count
-    res = self._getfree(@prefix)
+    res = self.getfree(@prefix)
     {total: (res >> 16), free: (res & 0b1111111111111111) }
   end
 

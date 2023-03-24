@@ -35,9 +35,9 @@ class FAT
   def self._chmod: (Integer mode, String path) -> 0
   def self._stat: (String path) -> stat_t
 
-  def self._init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+  def self.init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+  def getfree: (String path) -> Integer
 
-  def _getfree: (String path) -> Integer
   def _mkfs: (String path) -> self
   def _setlabel: (String) -> 0
   def _getlabel: (String) -> String
