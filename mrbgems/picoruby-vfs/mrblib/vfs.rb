@@ -61,7 +61,7 @@ class VFS
 
     def unlink(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&.unlink(_path)
+      volume[:driver].unlink(_path)
     end
 
     def chmod(mode, path)
@@ -71,7 +71,7 @@ class VFS
 
     def exist?(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&.exist?(_path)
+      volume[:driver].exist?(_path)
     end
 
     def directory?(path)
