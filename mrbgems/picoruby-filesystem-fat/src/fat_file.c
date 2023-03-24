@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "c_fat.h"
-#include "c_fat_file.h"
+#include "../include/fat.h"
 
 #include "../lib/ff14b/source/ff.h"
 
@@ -52,9 +51,9 @@ static void
 c_seek(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
-  FSIZE_t ofs = (FSIZE_t)GET_INT_ARG(1);
+  int ofs = GET_INT_ARG(1);
   FRESULT res;
-  res = f_lseek(fp, ofs);
+  res = f_lseek(fp, (FSIZE_t)ofs);
   mrbc_raise_iff_f_error(vm, res, "f_lseek");
   SET_INT_RETURN(0);
 }

@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "c_fat.h"
-#include "c_fat_dir.h"
+#include "../include/fat.h"
 
 #include "../lib/ff14b/source/ff.h"
 

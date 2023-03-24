@@ -2,9 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "c_fat.h"
-#include "c_fat_dir.h"
-#include "c_fat_file.h"
+#include "../include/fat.h"
 
 #include "../lib/ff14b/source/ff.h"
 #include "../lib/ff14b/source/ffconf.h"
