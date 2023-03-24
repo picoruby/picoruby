@@ -52,6 +52,24 @@ c_seek(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
   int ofs = GET_INT_ARG(1);
+  int whence = GET_INT_ARG(2);
+  FSIZE_t size = f_size(fp);
+  if (whence == SEEK_SET) {
+    // do nothing
+  } else if (whence == SEEK_CUR) {
+    ofs = f_tell(fp) + ofs;
+  } else if (whence == SEEK_END) {
+    ofs = size + ofs;
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Unknown whence");
+    return;
+  }
+  if (ofs < 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Invalid offset");
+    return;
+  } else if (size < ofs) {
+    ofs = size;
+  }
   FRESULT res;
   res = f_lseek(fp, (FSIZE_t)ofs);
   mrbc_raise_iff_f_error(vm, res, "f_lseek");

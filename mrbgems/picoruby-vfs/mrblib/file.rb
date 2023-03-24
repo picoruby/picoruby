@@ -85,9 +85,11 @@ class File
   end
   alias pos tell
 
-  # TODO seek(pos, whence = SEEK_SET)
-  def seek(pos)
-    @file.seek(pos)
+  SEEK_SET = 0
+  SEEK_CUR = 1
+  SEEK_END = 2
+  def seek(pos, whence = SEEK_SET)
+    @file.seek(pos, whence)
   end
   alias pos= seek
 

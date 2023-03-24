@@ -84,7 +84,7 @@ class FAT
   class File
     def initialize: (String path, String mode) -> void
     def tell: -> Integer
-    def seek: (Integer offset) -> 0
+    def seek: (Integer offset, Integer whence) -> 0
     def eof?: -> bool
     def read: (Integer size) -> String
     def write: (String data) -> Integer
