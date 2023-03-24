@@ -128,6 +128,16 @@ c_expand(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(size);
 }
 
+static void
+c_fsync(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FIL *fp = (FIL *)v->instance->data;
+  FRESULT res;
+  res = f_sync(fp);
+  mrbc_raise_iff_f_error(vm, res, "f_sync");
+  SET_INT_RETURN(0);
+}
+
 void
 mrbc_init_class_FAT_File(void)
 {
@@ -146,5 +156,6 @@ mrbc_init_class_FAT_File(void)
   mrbc_define_method(0, class_FAT_File, "close", c_close);
   mrbc_define_method(0, class_FAT_File, "size", c_size);
   mrbc_define_method(0, class_FAT_File, "expand", c_expand);
+  mrbc_define_method(0, class_FAT_File, "fsync", c_fsync);
 }
 

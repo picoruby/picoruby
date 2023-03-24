@@ -232,4 +232,8 @@ class File
     @file.expand(size)
   end
 
+  def fsync
+    @file.fsync
+  end
+
 end

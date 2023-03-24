@@ -91,5 +91,6 @@ class FAT
     def close: -> nil
     def size: -> Integer
     def expand: -> Integer
+    def fsync: -> 0
   end
 end
