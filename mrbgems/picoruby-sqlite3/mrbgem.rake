@@ -37,7 +37,7 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.cc.defines << "SQLITE_ZERO_MALLOC=1"
 
   obj = "#{build_dir}/src/#{objfile("sqlite3")}"
-  file obj => "#{dir}/lib/sqlite-amalgamation-3410100/sqlit3.c" do |t|
+  file obj => "#{dir}/lib/sqlite-amalgamation-3410100/sqlite3.c" do |t|
     spec.cc.run t.name, t.prerequisites[0]
   end
   spec.objs << obj

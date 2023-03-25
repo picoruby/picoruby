@@ -143,15 +143,6 @@ c__mkdir(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
-c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
-  FRESULT res = f_unlink(path);
-  mrbc_raise_iff_f_error(vm, res, "f_unlink");
-  SET_INT_RETURN(0);
-}
-
-static void
 c__chmod(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   BYTE attr = GET_INT_ARG(1);
@@ -189,19 +180,6 @@ c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
     &mrbc_integer_value(fno.fattrib)
   );
   SET_RETURN(stat);
-}
-
-static void
-c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
-  FILINFO fno;
-  FRESULT res = f_stat(path, &fno);
-  if (res == FR_OK) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
 }
 
 static void
@@ -333,5 +311,28 @@ mrbc_filesystem_fat_init(void)
 #ifdef USE_FAT_SD_DISK
   mrbc_define_method(0, class_FAT, "init_spi", c_FAT_init_spi);
 #endif
+}
+
+
+void
+c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
+  FILINFO fno;
+  FRESULT res = f_stat(path, &fno);
+  if (res == FR_OK) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+void
+c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
+  FRESULT res = f_unlink(path);
+  mrbc_raise_iff_f_error(vm, res, "f_unlink");
+  SET_INT_RETURN(0);
 }
 

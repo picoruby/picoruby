@@ -155,6 +155,26 @@ c_fsync(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(0);
 }
 
+static void
+c_vfs_methods(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+   prb_vfs_methods m = {
+    c_new,
+    c_close,
+    c_read,
+    c_write,
+    c_seek,
+    c_tell,
+    c_size,
+    c_fsync,
+    c__exist_q,
+    c__unlink
+  };
+  mrbc_value methods = mrbc_instance_new(vm, v->cls, sizeof(prb_vfs_methods));
+  memcpy(methods.instance->data, &m, sizeof(prb_vfs_methods));
+  SET_RETURN(methods);
+}
+
 void
 mrbc_init_class_FAT_File(void)
 {
@@ -165,6 +185,7 @@ mrbc_init_class_FAT_File(void)
   mrbc_class *class_FAT_File = v->cls;
 
   mrbc_define_method(0, class_FAT_File, "new", c_new);
+  mrbc_define_method(0, class_FAT_File, "open", c_new);
   mrbc_define_method(0, class_FAT_File, "tell", c_tell);
   mrbc_define_method(0, class_FAT_File, "seek", c_seek);
   mrbc_define_method(0, class_FAT_File, "eof?", c_eof_q);
@@ -174,5 +195,7 @@ mrbc_init_class_FAT_File(void)
   mrbc_define_method(0, class_FAT_File, "size", c_size);
   mrbc_define_method(0, class_FAT_File, "expand", c_expand);
   mrbc_define_method(0, class_FAT_File, "fsync", c_fsync);
+
+  mrbc_define_method(0, class_FAT_File, "vfs_methods", c_vfs_methods);
 }
 
