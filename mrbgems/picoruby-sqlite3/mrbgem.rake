@@ -3,6 +3,7 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'SQLite3'
 
+  spec.add_dependency 'picoruby-mrubyc'
   spec.add_dependency 'picoruby-filesystem-fat'
   spec.add_dependency 'picoruby-time-class'
 
@@ -41,6 +42,37 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
     spec.cc.run t.name, t.prerequisites[0]
   end
   spec.objs << obj
+
+  ##
+  # test binary
+
+  spec.add_dependency 'picoruby-shell'
+  spec.linker.libraries << 'm'
+
+  mrubyc_objs = Rake::Task.tasks.select{ |t|
+    t.name.match? /picoruby-mrubyc.+\.o\z/
+  }.map(&:name)
+
+  test_obj = "#{build_dir}/sqlite3-test/#{objfile("sqlite3-test")}"
+
+  ruby_c = "#{dir}/sqlite3-test/ruby.c"
+  file ruby_c => "#{dir}/sqlite3-test/ruby.rb" do |t|
+    File.open(t.name, 'w') do |out|
+      spec.mrbc.run out, t.prerequisites[0], "ruby", false
+    end
+  end
+
+  file test_obj => ["#{dir}/sqlite3-test/sqlite3-test.c", ruby_c] do |t|
+    spec.cc.run t.name, t.prerequisites[0]
+  end
+
+  exec = exefile("#{build.build_dir}/bin/test-sqlite3")
+  #file exec => [test_obj] + mrubyc_objs do |t|
+  file exec => [test_obj] + [build.libmruby_static] do |t|
+    spec.linker.run t.name, t.prerequisites
+  end
+
+  build.bins << 'test-sqlite3'
 end
 
 

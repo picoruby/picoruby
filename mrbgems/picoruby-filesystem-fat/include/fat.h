@@ -28,6 +28,7 @@ typedef struct prb_vfs_methods
   void (*file_fsync)(mrbc_vm *vm, mrbc_value *v, int argc);
   void (*file_exist_q)(mrbc_vm *vm, mrbc_value *v, int argc);
   void (*file_unlink)(mrbc_vm *vm, mrbc_value *v, int argc);
+  void (*file_stat)(mrbc_vm *vm, mrbc_value *v, int argc);
 } prb_vfs_methods;
 
 void mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func);
