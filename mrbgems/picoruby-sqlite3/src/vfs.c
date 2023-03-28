@@ -102,11 +102,18 @@ int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int flags);
 
+#ifdef MRBC_ALLOC_LIBC
+#include <malloc.h>
+#endif
 int
 prb_mem_msize(void *p)
 {
   D();
-  return 0;
+#ifdef MRBC_ALLOC_LIBC
+  return malloc_usable_size(p);
+#else
+  return mrbc_alloc_usable_size(p);
+#endif
 }
 
 int
