@@ -5,12 +5,13 @@
 
 #include "../lib/ff14b/source/ff.h"
 
+static mrbc_class *class_FAT_File;
+
 static void
 c_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FRESULT res;
   const TCHAR *path = (const TCHAR *)GET_STRING_ARG(1);
-
   mrbc_value _file = mrbc_instance_new(vm, v->cls, sizeof(FIL));
   FIL *fp = (FIL *)_file.instance->data;
   BYTE mode = 0;
@@ -36,6 +37,7 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   res = f_open(fp, path, mode);
   mrbc_raise_iff_f_error(vm, res, "f_open");
+  _file.instance->cls = class_FAT_File;
   SET_RETURN(_file);
 }
 
@@ -182,7 +184,7 @@ mrbc_init_class_FAT_File(void)
 
   mrbc_sym symid = mrbc_search_symid("File");
   mrbc_value *v = mrbc_get_class_const(class_FAT, symid);
-  mrbc_class *class_FAT_File = v->cls;
+  class_FAT_File = v->cls;
 
   mrbc_define_method(0, class_FAT_File, "new", c_new);
   mrbc_define_method(0, class_FAT_File, "open", c_new);

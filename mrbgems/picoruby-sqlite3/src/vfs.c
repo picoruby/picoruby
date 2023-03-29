@@ -8,8 +8,6 @@
 #include <stdio.h>
 #define D() printf("debug: %s\n", __func__)
 
-typedef mrbc_vm    prb_vm;
-typedef mrbc_value prb_value;
 typedef struct PRBFile
 {
   sqlite3_file base;
@@ -68,6 +66,15 @@ static sqlite3_vfs prbvfs = {
   0,                            /* xGetSystemCall */
   0,                            /* xNextSystemCall */
 };
+
+void
+set_vm_for_vfs(prb_vm *vm)
+{
+  D();
+  if (!prbvfs.pAppData) {
+    prbvfs.pAppData = vm;
+  }
+}
 
 static sqlite3_io_methods prbvfs_io_methods = {
   3,                            /* iVersion */
@@ -136,13 +143,34 @@ prb_mem_shutdown(void)
   D();
 }
 
+
+static void *ignore;
+
+void *
+prb_raw_alloc(int nByte)
+{
+  void *ptr = mrbc_raw_alloc(nByte);
+  if (nByte == 4104) {
+    ignore = ptr;
+  }
+//  console_printf("prb_raw_alloc(%d) = %p\n", nByte, ptr);
+  return ptr;
+}
+
+void
+prb_raw_free(void *pPrior)
+{
+//  console_printf("prb_raw_free(%p)\n", pPrior);
+  mrbc_raw_free(pPrior);
+}
+
 int
 sqlite3_os_init(void)
 {
   D();
   static const sqlite3_mem_methods defaultMethods = {
-    mrbc_raw_alloc,
-    mrbc_raw_free,
+    prb_raw_alloc,
+    prb_raw_free,
     mrbc_raw_realloc,
     prb_mem_msize,
     prb_mem_roundup,
@@ -171,13 +199,17 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   //v[2] = mrbc_integer_value(flags);
-  v[2] = mrbc_string_new_cstr(vm, "w");
+  /*
+   * TODO: handle flags like SQLITE_OPEN_READONLY, SQLITE_OPEN_READWRITE, SQLITE_OPEN_CREATE
+   */
+  v[2] = mrbc_string_new_cstr(vm, "w+");
   vfs_methods.file_new(vm, &v[0], 2);
   if (v->tt == MRBC_TT_NIL) {
     return -1;
   }
-//  memcpy(prbfile->file, &v[0], sizeof(prb_value));
-  prbfile->file = v[0].instance;
+  // TODO: check if memory leak
+  prbfile->file = mrbc_alloc(vm, sizeof(prb_value));
+  memcpy(prbfile->file, &v[0], sizeof(prb_value));
   return 0;
 }
 
@@ -185,10 +217,9 @@ int prb_file_close(PRBFile *prbfile)
 {
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[2];
-  v[0] = mrbc_nil_value();
-  memcpy(&v[1], prbfile->file, sizeof(prb_value));
-  vfs_methods.file_close(vm, &v[0], 1);
+  prb_value v[1];
+  memcpy(&v[0], prbfile->file, sizeof(prb_value));
+  vfs_methods.file_close(vm, &v[0], 0);
   return 0;
 }
 
@@ -200,7 +231,9 @@ int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
   memcpy(&v[0], prbfile->file, sizeof(prb_value));
   v[1] = mrbc_integer_value(nBuf);
   vfs_methods.file_read(vm, &v[0], 1);
-  if (v->tt != MRBC_TT_STRING) {
+  if (v->tt == MRBC_TT_NIL) {
+    return 0;
+  } else if (v->tt != MRBC_TT_STRING) {
     return -1;
   }
   memcpy(zBuf, v[0].string->data, v[0].string->size);
@@ -448,7 +481,7 @@ static int
 prbvfsFileControl(sqlite3_file *pFile, int op, void *pArg)
 {
   D();
-  return SQLITE_OK;
+  return SQLITE_NOTFOUND;
 }
 
 static int

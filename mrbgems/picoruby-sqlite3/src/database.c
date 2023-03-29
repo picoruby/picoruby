@@ -6,7 +6,7 @@
 static void
 c_open(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  //  sqlite3_initialize();
+  set_vm_for_vfs(vm);
   sqlite3_os_init();
   /*
    * sqlite3.h only has the statement of sqlite3 struct.
@@ -25,6 +25,7 @@ c_open(mrbc_vm *vm, mrbc_value v[], int argc)
     SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE,
     VFS_NAME
   );
+ // self.instance->data = (void *)db;
   if (rc != SQLITE_OK) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sqlite3_open_v2() failed");
     console_printf("\nsqlite3_open_v2() error code: %d\n\n", rc);
@@ -41,7 +42,6 @@ c_close(mrbc_vm *vm, mrbc_value v[], int argc)
   if (rc != SQLITE_OK) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sqlite3_close_v2() failed");
     console_printf("\nsqlite3_close_v2() error code: %d\n\n", rc);
-    return;
   }
 }
 
