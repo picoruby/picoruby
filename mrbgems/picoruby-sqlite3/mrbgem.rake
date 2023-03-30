@@ -66,13 +66,13 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
     spec.cc.run t.name, t.prerequisites[0]
   end
 
-  exec = exefile("#{build.build_dir}/bin/test-sqlite3")
+  exec = exefile("#{build.build_dir}/bin/sqlite3-test")
   #file exec => [test_obj] + mrubyc_objs do |t|
   file exec => [test_obj] + [build.libmruby_static] do |t|
     spec.linker.run t.name, t.prerequisites
   end
 
-  build.bins << 'test-sqlite3'
+  build.bins << 'sqlite3-test'
 end
 
 
