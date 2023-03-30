@@ -1,0 +1,50 @@
+class UART
+  type unit_t = Symbol|String
+
+  PARITY_NONE: 0
+  PARITY_ODD: 1
+  PARITY_EVEN: 2
+  FLOW_CONTROL_NONE: 0
+  FLOW_CONTROL_RTS_CTS: 1
+  FLOW_CONTROL_XON_XOFF: 2
+
+  @unit_num: Integer
+
+  def initialize: (
+    unit_t,
+    ?txd_pin: Integer,
+    ?rxd_pin: Integer,
+    ?baudrate: Integer,
+    ?data_bits: Integer,
+    ?stop_bits: Integer,
+    ?parity: Integer,
+    ?flow_control: Integer,
+    ?rts_pin: Integer,
+    ?cts_pin: Integer
+  ) -> void
+  def self._init: (unit_t, Integer, Integer, Integer) -> Integer
+  def setmode: (
+    ?baudrate: Integer?,
+    ?data_bits: Integer?,
+    ?stop_bits: Integer?,
+    ?parity: Integer?,
+    ?flow_control: Integer?,
+    ?rts_pin: Integer?,
+    ?cts_pin: Integer?
+  ) -> self
+  def self._set_baudrate: (Integer unit_num, Integer baudrate) -> void
+  def set_flow_control: (Integer flow_control, Integer rts_pin, Integer cts_pin) -> void
+  def self._set_flow_control: (Integer unit_num, bool rts, bool cts) -> void
+  def self._set_function: (Integer pin) -> void
+  def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
+  def self._set_format: (Integer unit_num, Integer data_bits, Integer stop_bits, Integer parity) -> void
+  def read: (?Integer len) -> String
+  def readpartial: (Integer maxlen) -> String
+  def bytes_available: () -> Integer
+  def gets: () -> String
+  def write: (String str) -> Integer
+  def flush: () -> self
+  def clear_tx_buffer: () -> self
+  def clear_rx_buffer: () -> self
+  def break: (Integer|Float time) -> self
+end
