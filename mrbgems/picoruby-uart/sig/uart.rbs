@@ -11,7 +11,7 @@ class UART
   @unit_num: Integer
 
   def initialize: (
-    unit_t,
+    unit: unit_t,
     ?txd_pin: Integer,
     ?rxd_pin: Integer,
     ?baudrate: Integer,
@@ -22,7 +22,13 @@ class UART
     ?rts_pin: Integer,
     ?cts_pin: Integer
   ) -> void
-  def self._init: (unit_t, Integer, Integer, Integer) -> Integer
+  def self._init: (
+    unit_t unit,
+    Integer baudrate,
+    Integer txd_pin,
+    Integer rxd_pin,
+    Integer|nil rx_buffer_size
+  ) -> Integer
   def setmode: (
     ?baudrate: Integer?,
     ?data_bits: Integer?,
@@ -46,5 +52,5 @@ class UART
   def flush: () -> self
   def clear_tx_buffer: () -> self
   def clear_rx_buffer: () -> self
-  def break: (Integer|Float time) -> self
+  def break: (?Integer|Float time) -> self
 end

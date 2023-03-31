@@ -2,7 +2,7 @@ require "gpio"
 
 class UART
   def initialize(
-    unit,
+    unit:,
     txd_pin: -1,
     rxd_pin: -1,
     baudrate: 9600,
@@ -12,7 +12,7 @@ class UART
     flow_control: FLOW_CONTROL_NONE,
     rts_pin: -1,
     cts_pin: -1)
-    @unit_num = UART._init(unit, baudrate, txd_pin, rxd_pin)
+    @unit_num = UART._init(unit, baudrate, txd_pin, rxd_pin, nil)
     setmode(
       baudrate: nil,
       data_bits: data_bits,
@@ -34,7 +34,7 @@ class UART
     cts_pin:      nil)
     UART._set_baudrate(@unit_num, baudrate) if baudrate
     set_flow_control(flow_control || FLOW_CONTROL_NONE, rts_pin || -1, cts_pin || -1)
-    set_format(data_bits || -1, stop_bits || -1, parity || -1)
+    set_format(data_bits || 8, stop_bits || 1, parity || PARITY_NONE)
     self
   end
 
