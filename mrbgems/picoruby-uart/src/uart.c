@@ -259,8 +259,9 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_NIL_RETURN();
     return;
   }
-  uint8_t buf[pos + 1];
-  popBuffer(rx_buffer, buf, pos + 1);
+  pos++;
+  uint8_t buf[pos];
+  popBuffer(rx_buffer, buf, pos);
   mrbc_value str = mrbc_string_new(vm, buf, pos);
   SET_RETURN(str);
 }
