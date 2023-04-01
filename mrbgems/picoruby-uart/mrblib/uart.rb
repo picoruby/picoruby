@@ -11,8 +11,9 @@ class UART
     parity: PARITY_NONE,
     flow_control: FLOW_CONTROL_NONE,
     rts_pin: -1,
-    cts_pin: -1)
-    @unit_num = UART._init(unit, baudrate, txd_pin, rxd_pin, nil)
+    cts_pin: -1,
+    rx_buffer_size: nil)
+    @unit_num = UART._init(unit, baudrate, txd_pin, rxd_pin, rx_buffer_size)
     setmode(
       baudrate: nil,
       data_bits: data_bits,

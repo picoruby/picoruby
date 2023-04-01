@@ -96,6 +96,17 @@ popBuffer(RingBuffer *ring_buffer, uint8_t *popData, int len) {
   return true;
 }
 
+static int
+searchCharBuffer(RingBuffer *ring_buffer, uint8_t c)
+{
+  int i;
+  for (i = 0; i < bufferDataSize(ring_buffer); i++) {
+    if (ring_buffer->data[(ring_buffer->head + i) & ring_buffer->mask] == c) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 /*
  * Ruby method
@@ -235,6 +246,26 @@ c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (0 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 0");
+    return;
+  }
+  RingBuffer *rx_buffer = (RingBuffer *)v->instance->data;
+  uart_to_rx_buffer(rx_buffer, GETIV(unit_num).i);
+  int pos = searchCharBuffer(rx_buffer, (uint8_t)'\n');
+  if (pos < 0) {
+    SET_NIL_RETURN();
+    return;
+  }
+  uint8_t buf[pos + 1];
+  popBuffer(rx_buffer, buf, pos + 1);
+  mrbc_value str = mrbc_string_new(vm, buf, pos);
+  SET_RETURN(str);
+}
+
+static void
 c_flush(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   UART_flush(GETIV(unit_num).i);
@@ -303,6 +334,7 @@ mrbc_uart_init(void)
   mrbc_define_method(0, mrbc_class_UART, "readpartial", c_readpartial);
   mrbc_define_method(0, mrbc_class_UART, "bytes_available", c_bytes_available);
   mrbc_define_method(0, mrbc_class_UART, "write", c_write);
+  mrbc_define_method(0, mrbc_class_UART, "gets", c_gets);
   mrbc_define_method(0, mrbc_class_UART, "flush", c_flush);
   mrbc_define_method(0, mrbc_class_UART, "clear_tx_buffer", c_clear_tx_buffer);
   mrbc_define_method(0, mrbc_class_UART, "clear_rx_buffer", c_clear_rx_buffer);

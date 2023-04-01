@@ -20,7 +20,8 @@ class UART
     ?parity: Integer,
     ?flow_control: Integer,
     ?rts_pin: Integer,
-    ?cts_pin: Integer
+    ?cts_pin: Integer,
+    ?rx_buffer_size: Integer?
   ) -> void
   def self._init: (
     unit_t unit,
