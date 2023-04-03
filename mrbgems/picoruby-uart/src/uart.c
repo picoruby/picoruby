@@ -6,14 +6,17 @@
  * RingBuffer
  */
 
-#ifndef PICORUBY_UART_BUFFER_SIZE
-#define PICORUBY_UART_BUFFER_SIZE 1024
+#ifndef PICORUBY_UART_RX_BUFFER_SIZE
+#define PICORUBY_UART_RX_BUFFER_SIZE 1024
 #endif
+
+static mrbc_class *mrbc_class_UART;
+static mrbc_class *mrbc_class_UART_RxBuffer;
 
 typedef struct {
   int head;
   int tail;
-  int size;
+  size_t size;
   int mask;
   uint8_t data[];
 } RingBuffer;
@@ -33,22 +36,22 @@ isPowerOfTwo(int n) {
 }
 
 static bool
-initializeBuffer(RingBuffer *ring_buffer, int size)
+initializeBuffer(RingBuffer *ring_buffer, size_t size)
 {
   if (!isPowerOfTwo(size)) {
     return false;
   }
-  ring_buffer->head = 0;
-  ring_buffer->tail = 0;
-  ring_buffer->size = size;
-  ring_buffer->mask = size - 1;
+  (*ring_buffer).head = 0;
+  (*ring_buffer).tail = 0;
+  (*ring_buffer).size = size;
+  (*ring_buffer).mask = (int)(size - 1);
   return true;
 }
 
-static int
+static size_t
 bufferDataSize(RingBuffer *ring_buffer)
 {
-  return (ring_buffer->tail - ring_buffer->head) & ring_buffer->mask;
+  return (size_t)((ring_buffer->tail - ring_buffer->head) & ring_buffer->mask);
 }
 
 static void
@@ -58,13 +61,13 @@ clearBuffer(RingBuffer *ring_buffer)
   ring_buffer->tail = 0;
 }
 
-static int
+static size_t
 bufferFreeSize(RingBuffer *ring_buffer) {
   return ring_buffer->size - bufferDataSize(ring_buffer);
 }
 
 static bool
-pushBuffer(RingBuffer *ring_buffer, uint8_t *pushData, int len)
+pushBuffer(RingBuffer *ring_buffer, uint8_t *pushData, size_t len)
 {
   if (bufferFreeSize(ring_buffer) < len) {
     return false;
@@ -78,7 +81,7 @@ pushBuffer(RingBuffer *ring_buffer, uint8_t *pushData, int len)
 }
 
 static bool
-popBuffer(RingBuffer *ring_buffer, uint8_t *popData, int len) {
+popBuffer(RingBuffer *ring_buffer, uint8_t *popData, size_t len) {
   if (len > ring_buffer->size) {
     return false;
   }
@@ -112,25 +115,35 @@ searchCharBuffer(RingBuffer *ring_buffer, uint8_t c)
  * Ruby method
  */
 
+#define GETIV(str)  mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
+#define SETIV(str, val) mrbc_instance_setiv(&v[0], mrbc_str_to_symid(#str), val)
+
 static void
-c__init(mrbc_vm *vm, mrbc_value v[], int argc)
+c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int rx_buffer_size;
-  if (argc != 5 ) {
+  if (argc != 1 ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 5");
     return;
   } else
-  if (v[5].tt == MRBC_TT_NIL) {
-    rx_buffer_size = PICORUBY_UART_BUFFER_SIZE;
+  if (v[1].tt == MRBC_TT_NIL) {
+    rx_buffer_size = PICORUBY_UART_RX_BUFFER_SIZE;
   } else {
-    rx_buffer_size = GET_INT_ARG(5);
+    rx_buffer_size = GET_INT_ARG(1);
   }
-  mrbc_value uart = mrbc_instance_new(vm, v->cls, sizeof(RingBuffer) + rx_buffer_size);
-  RingBuffer *rx_buffer = (RingBuffer *)uart.instance->data;
-  if (!initializeBuffer(rx_buffer, rx_buffer_size)) {
+  mrbc_value rx_buffer_value = mrbc_instance_new(vm, mrbc_class_UART_RxBuffer, sizeof(RingBuffer) + sizeof(uint8_t) * rx_buffer_size);
+
+  RingBuffer *rx = (RingBuffer *)rx_buffer_value.instance->data;
+  if (!initializeBuffer(rx, rx_buffer_size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "UART: rx_buffer_size is not power of two");
     return;
   }
+  SET_RETURN(rx_buffer_value);
+}
+
+static void
+c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
+{
   int unit_num = UART_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
   UART_init(unit_num, GET_INT_ARG(2), GET_INT_ARG(3), GET_INT_ARG(4));
   SET_INT_RETURN(unit_num);
@@ -139,31 +152,35 @@ c__init(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c__set_baudrate(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int unit_num = GET_INT_ARG(1);
-  uint32_t baudrate = GET_INT_ARG(2);
+  int unit_num = GETIV(unit_num).i;
+  uint32_t baudrate = GET_INT_ARG(1);
   UART_set_baudrate(unit_num, baudrate);
 }
 
 static void
 c__set_flow_control(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int unit_num = GET_INT_ARG(1);
-  bool cts = (v[2].tt == MRBC_TT_TRUE);
-  bool rts = (v[3].tt == MRBC_TT_TRUE);
+  int unit_num = GETIV(unit_num).i;
+  bool cts = (v[1].tt == MRBC_TT_TRUE);
+  bool rts = (v[2].tt == MRBC_TT_TRUE);
   UART_set_flow_control(unit_num, cts, rts);
 }
 
 static void
 c__set_format(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int unit_num = GET_INT_ARG(1);
+  int unit_num = GETIV(unit_num).i;
   int32_t data_bits = GET_INT_ARG(1);
   int32_t stop_bits = GET_INT_ARG(2);
   int32_t parity = GET_INT_ARG(3);
   UART_set_format(unit_num, data_bits, stop_bits, parity);
 }
 
-#define GETIV(str)  mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
+static void
+c__set_function(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_set_function(GET_INT_ARG(1));
+}
 
 static void
 uart_to_rx_buffer(RingBuffer *rx_buffer, int unit_num)
@@ -179,9 +196,10 @@ uart_to_rx_buffer(RingBuffer *rx_buffer, int unit_num)
 static void
 c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx_buffer = (RingBuffer *)v->instance->data;
-  uart_to_rx_buffer(rx_buffer, GETIV(unit_num).i);
-  size_t available_len = bufferDataSize(rx_buffer);
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  int unit_num = GETIV(unit_num).i;
+  uart_to_rx_buffer(rx, unit_num);
+  size_t available_len = bufferDataSize(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
     return;
@@ -196,7 +214,7 @@ c_read(mrbc_vm *vm, mrbc_value v[], int argc)
     }
   }
   uint8_t buf[available_len];
-  popBuffer(rx_buffer, buf, available_len);
+  popBuffer(rx, buf, available_len);
   mrbc_value str = mrbc_string_new(vm, buf, available_len);
   SET_RETURN(str);
 }
@@ -208,9 +226,10 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   }
-  RingBuffer *rx_buffer = (RingBuffer *)v->instance->data;
-  uart_to_rx_buffer(rx_buffer, GETIV(unit_num).i);
-  size_t available_len = bufferDataSize(rx_buffer);
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  int unit_num = GETIV(unit_num).i;
+  uart_to_rx_buffer(rx, unit_num);
+  size_t available_len = bufferDataSize(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
     return;
@@ -220,7 +239,7 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     maxlen = available_len;
   }
   uint8_t buf[maxlen];
-  popBuffer(rx_buffer, buf, maxlen);
+  popBuffer(rx, buf, maxlen);
   mrbc_value str = mrbc_string_new(vm, buf, maxlen);
   SET_RETURN(str);
 }
@@ -228,9 +247,10 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx_buffer = (RingBuffer *)v->instance->data;
-  uart_to_rx_buffer(rx_buffer, GETIV(unit_num).i);
-  SET_INT_RETURN(bufferDataSize(rx_buffer));
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  int unit_num = GETIV(unit_num).i;
+  uart_to_rx_buffer(rx, unit_num);
+  SET_INT_RETURN(bufferDataSize(rx));
 }
 
 static void
@@ -241,7 +261,8 @@ c_write(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
   size_t len = v[1].string->size;
-  UART_write_blocking(GETIV(unit_num).i, (const uint8_t *)v[1].string->data, len);
+  int unit_num = GETIV(unit_num).i;
+  UART_write_blocking(unit_num, (const uint8_t *)v[1].string->data, len);
   SET_INT_RETURN(len);
 }
 
@@ -252,16 +273,17 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 0");
     return;
   }
-  RingBuffer *rx_buffer = (RingBuffer *)v->instance->data;
-  uart_to_rx_buffer(rx_buffer, GETIV(unit_num).i);
-  int pos = searchCharBuffer(rx_buffer, (uint8_t)'\n');
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  int unit_num = GETIV(unit_num).i;
+  uart_to_rx_buffer(rx, unit_num);
+  int pos = searchCharBuffer(rx, (uint8_t)'\n');
   if (pos < 0) {
     SET_NIL_RETURN();
     return;
   }
   pos++;
   uint8_t buf[pos];
-  popBuffer(rx_buffer, buf, pos);
+  popBuffer(rx, buf, pos);
   mrbc_value str = mrbc_string_new(vm, buf, pos);
   SET_RETURN(str);
 }
@@ -269,23 +291,26 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_flush(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_flush(GETIV(unit_num).i);
+  int unit_num = GETIV(unit_num).i;
+  UART_flush(unit_num);
   SET_RETURN(v[0]);
 }
 
 static void
 c_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  UART_clear_tx_buffer(GETIV(unit_num).i);
+  int unit_num = GETIV(unit_num).i;
+  UART_clear_tx_buffer(unit_num);
   SET_RETURN(v[0]);
 }
 
 static void
 c_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx_buffer = (RingBuffer *)v->instance->data;
-  clearBuffer(rx_buffer);
-  UART_clear_rx_buffer(GETIV(unit_num).i);
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  clearBuffer(rx);
+  int unit_num = GETIV(unit_num).i;
+  UART_clear_rx_buffer(unit_num);
   SET_RETURN(v[0]);
 }
 
@@ -309,7 +334,8 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
     }
     break_ms = GET_INT_ARG(1);
   }
-  UART_break(GETIV(unit_num).i, break_ms);
+  int unit_num = GETIV(unit_num).i;
+  UART_break(unit_num, break_ms);
   SET_RETURN(v[0]);
 }
 
@@ -319,7 +345,8 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_uart_init(void)
 {
-  mrbc_class *mrbc_class_UART = mrbc_define_class(0, "UART", mrbc_class_object);
+  mrbc_class_UART = mrbc_define_class(0, "UART", mrbc_class_object);
+  mrbc_class_UART_RxBuffer = mrbc_define_class(0, "RxBuffer", mrbc_class_UART);
 
   SET_CLASS_CONST_INT(UART, PARITY_NONE);
   SET_CLASS_CONST_INT(UART, PARITY_EVEN);
@@ -327,10 +354,12 @@ mrbc_uart_init(void)
   SET_CLASS_CONST_INT(UART, FLOW_CONTROL_NONE);
   SET_CLASS_CONST_INT(UART, FLOW_CONTROL_RTS_CTS);
 
-  mrbc_define_method(0, mrbc_class_UART, "_init", c__init);
+  mrbc_define_method(0, mrbc_class_UART, "open_rx_buffer", c_open_rx_buffer);
+  mrbc_define_method(0, mrbc_class_UART, "open_connection", c_open_connection);
   mrbc_define_method(0, mrbc_class_UART, "_set_baudrate", c__set_baudrate);
   mrbc_define_method(0, mrbc_class_UART, "_set_flow_control", c__set_flow_control);
   mrbc_define_method(0, mrbc_class_UART, "_set_format", c__set_format);
+  mrbc_define_method(0, mrbc_class_UART, "_set_function", c__set_function);
   mrbc_define_method(0, mrbc_class_UART, "read", c_read);
   mrbc_define_method(0, mrbc_class_UART, "readpartial", c_readpartial);
   mrbc_define_method(0, mrbc_class_UART, "bytes_available", c_bytes_available);

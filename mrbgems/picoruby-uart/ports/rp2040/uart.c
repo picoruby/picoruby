@@ -5,6 +5,8 @@
 #include "hardware/uart.h"
 #include "pico/stdlib.h"
 
+#include <mrubyc.h>
+
 #include "../../include/uart.h"
 
 #define UNIT_SELECT() \
@@ -65,6 +67,12 @@ UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t pa
   uart_inst_t *unit;
   UNIT_SELECT();
   uart_set_format(unit, data_bits, stop_bits, (uart_parity_t)parity);
+}
+
+void
+UART_set_function(uint32_t pin)
+{
+  gpio_set_function(pin, GPIO_FUNC_UART);
 }
 
 bool

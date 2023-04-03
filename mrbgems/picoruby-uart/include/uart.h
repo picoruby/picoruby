@@ -27,6 +27,7 @@ uint32_t UART_init(int unit_num, uint32_t baudrate, uint32_t txd_pin, uint32_t r
 uint32_t UART_set_baudrate(int unit_num, uint32_t baudrate);
 void UART_set_flow_control(int unit_num, bool cts, bool rts);
 void UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity);
+void UART_set_function(uint32_t pin);
 void UART_write_blocking(int unit_num, const uint8_t *src, size_t len);
 bool UART_is_readable(int unit_num);
 size_t UART_read_nonblocking(int unit_num, uint8_t *dst, size_t len);

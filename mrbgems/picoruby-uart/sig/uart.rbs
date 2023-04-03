@@ -1,4 +1,7 @@
 class UART
+  class RxBuffer
+  end
+
   type unit_t = Symbol|String
 
   PARITY_NONE: 0
@@ -9,6 +12,7 @@ class UART
   FLOW_CONTROL_XON_XOFF: 2
 
   @unit_num: Integer
+  @rx_buffer: UART::RxBuffer
 
   def initialize: (
     unit: unit_t,
@@ -23,12 +27,12 @@ class UART
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
   ) -> void
-  def self._init: (
-    unit_t unit,
+  def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
+  def self.open_connection: (
+    String unit,
     Integer baudrate,
     Integer txd_pin,
-    Integer rxd_pin,
-    Integer|nil rx_buffer_size
+    Integer rxd_pin
   ) -> Integer
   def setmode: (
     ?baudrate: Integer?,
@@ -39,12 +43,12 @@ class UART
     ?rts_pin: Integer?,
     ?cts_pin: Integer?
   ) -> self
-  def self._set_baudrate: (Integer unit_num, Integer baudrate) -> void
+  def _set_baudrate: (Integer baudrate) -> void
   def set_flow_control: (Integer flow_control, Integer rts_pin, Integer cts_pin) -> void
-  def self._set_flow_control: (Integer unit_num, bool rts, bool cts) -> void
-  def self._set_function: (Integer pin) -> void
+  def _set_flow_control: (bool rts, bool cts) -> void
+  def _set_function: (Integer pin) -> void
   def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
-  def self._set_format: (Integer unit_num, Integer data_bits, Integer stop_bits, Integer parity) -> void
+  def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   def read: (?Integer len) -> String
   def readpartial: (Integer maxlen) -> String
   def bytes_available: () -> Integer
