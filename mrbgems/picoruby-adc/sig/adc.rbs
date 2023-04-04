@@ -1,5 +1,5 @@
 class ADC
-  type pin_t = (Integer|String)
+  type pin_t = (Integer|String|Symbol)
   type additional_params_t = Hash[untyped, untyped]
 
   attr_reader min: Float|nil

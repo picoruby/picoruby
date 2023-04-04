@@ -6,7 +6,7 @@
 #define SETIV(str, val) mrbc_instance_setiv(&v[0], mrbc_str_to_symid(#str), val)
 
 static int
-pin_num(mrbc_vm *vm, mrbc_value pin)
+pin_num(mrbc_value pin)
 {
   switch (mrbc_type(pin)) {
     case MRBC_TT_INTEGER: {
@@ -15,28 +15,33 @@ pin_num(mrbc_vm *vm, mrbc_value pin)
     case MRBC_TT_STRING: {
       return ADC_pin_num_from_char(pin.string->data);
     }
+    case MRBC_TT_SYMBOL: {
+      return ADC_pin_num_from_char((const uint8_t *)mrbc_symid_to_str(mrbc_symbol(pin)));
+    }
     default:
-      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong GPIO pin value");
       return -1;
   }
 }
 
 static void
-c__init(mrbc_vm *vm, mrbc_value *v, int argc)
+c__init(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int input = -1;
-  int pin_number = pin_num(vm, v[1]);
+  int pin_number = pin_num(v[1]);
   if (-1 < pin_number) {
     input = ADC_init(pin_number);
     if (input < 0) {
       mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong ADC pin value");
     }
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong GPIO pin value");
+    return;
   }
   SET_INT_RETURN(input);
 }
 
 static void
-c_read(mrbc_vm *vm, mrbc_value *v, int argc)
+c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value ivar_input = GETIV(input);
   uint16_t result = ADC_read(ivar_input.i);

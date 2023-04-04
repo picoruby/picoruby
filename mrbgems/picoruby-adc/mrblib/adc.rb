@@ -6,7 +6,6 @@ class ADC
     @min = nil
     @max = nil
     @input = ADC._init(pin)
-    puts "@input: #{@input}"
     begin
       init_additional_params unless @additional_params.empty?
     rescue NoMethodError => e
