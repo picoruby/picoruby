@@ -34,7 +34,9 @@ ADC_init(uint8_t pin)
     case TEMPERATURE: { input = 4; break; }
     default: { return -1; }
   }
-  if (pin != TEMPERATURE) {
+  if (pin == TEMPERATURE) {
+    adc_set_temp_sensor_enabled(true);
+  } else {
     adc_gpio_init(input);
   }
   return (int)input;

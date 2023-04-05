@@ -49,8 +49,9 @@ error:
 static time_t unixtime_offset = 0;
 
 static void
-_tz_env_set(struct VM *vm)
+tz_env_set(struct VM *vm)
 {
+#ifdef PICORUBY_NO_ENV
   mrbc_value *env = mrbc_get_const(mrbc_search_symid("ENV"));
   if (env == NULL || env->tt != MRBC_TT_HASH) return;
   mrbc_value key = mrbc_string_new_cstr(vm, "TZ");
@@ -58,6 +59,7 @@ _tz_env_set(struct VM *vm)
   if (tz.tt != MRBC_TT_STRING) return;
   setenv("TZ", (const char *)tz.string->data, 1);
   tzset();
+#endif
 }
 
 /*
@@ -84,7 +86,7 @@ c_hwclock_eq(struct VM *vm, mrbc_value v[], int argc)
 static mrbc_value
 new_from_unixtime(struct VM *vm, mrbc_value v[], uint32_t unixtime)
 {
-  _tz_env_set(vm);
+  tz_env_set(vm);
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
   data->unixtime = unixtime + unixtime_offset;
@@ -100,7 +102,7 @@ new_from_unixtime(struct VM *vm, mrbc_value v[], uint32_t unixtime)
 inline static mrbc_value
 new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
 {
-  _tz_env_set(vm);
+  tz_env_set(vm);
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
   data->unixtime = mktime(tm);
