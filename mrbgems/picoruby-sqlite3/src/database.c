@@ -109,7 +109,7 @@ c_vfs_methods_eq(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_sqlite3_class_init(void)
+mrbc_sqlite3_init(void)
 {
   mrbc_class *class_SQLite3 = mrbc_define_class(0, "SQLite3", mrbc_class_object);
   mrbc_value *v = mrbc_get_class_const(class_SQLite3, mrbc_search_symid("Database"));

@@ -1,9 +1,7 @@
-MRuby::Gem::Specification.new('picoruby-sqlite3-class') do |spec|
+MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'SQLite3'
-
-  spec.require_name = 'sqlite3'
 
   spec.add_dependency 'picoruby-mrubyc'
   spec.add_dependency 'picoruby-filesystem-fat'
