@@ -131,14 +131,14 @@ prb_mem_roundup(int n)
 }
 
 int
-prb_mem_init(void)
+prb_mem_init(void *)
 {
   D();
   return SQLITE_OK;
 }
 
 void
-prb_mem_shutdown(void)
+prb_mem_shutdown(void *)
 {
   D();
 }
@@ -166,7 +166,7 @@ sqlite3_os_init(void)
   static const sqlite3_mem_methods defaultMethods = {
     prb_raw_alloc,
     prb_raw_free,
-    mrbc_raw_realloc,
+    (void *(*)(void*, int))mrbc_raw_realloc,
     prb_mem_msize,
     prb_mem_roundup,
     prb_mem_init,
