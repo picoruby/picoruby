@@ -1,7 +1,9 @@
-MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
+MRuby::Gem::Specification.new('picoruby-sqlite3-class') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'SQLite3'
+
+  spec.require_name = 'sqlite3'
 
   spec.add_dependency 'picoruby-mrubyc'
   spec.add_dependency 'picoruby-filesystem-fat'
@@ -36,6 +38,8 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.cc.defines << "SQLITE_ENABLE_MEMORY_MANAGEMENT=1"
   spec.cc.defines << "SQLITE_DEFAULT_MEMSTATUS=0"
   spec.cc.defines << "SQLITE_ZERO_MALLOC=1"
+
+#  spec.cc.defines << "SQLITE_OMIT_VIRTUALTABLE=1"
 
   obj = "#{build_dir}/src/#{objfile("sqlite3")}"
   file obj => "#{dir}/lib/sqlite-amalgamation-3410100/sqlite3.c" do |t|

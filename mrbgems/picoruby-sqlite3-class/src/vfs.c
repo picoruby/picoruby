@@ -144,23 +144,18 @@ prb_mem_shutdown(void)
 }
 
 
-static void *ignore;
-
 void *
 prb_raw_alloc(int nByte)
 {
   void *ptr = mrbc_raw_alloc(nByte);
-  if (nByte == 4104) {
-    ignore = ptr;
-  }
-//  console_printf("prb_raw_alloc(%d) = %p\n", nByte, ptr);
+  //console_printf("prb_raw_alloc(%d) = %p\n", nByte, ptr);
   return ptr;
 }
 
 void
 prb_raw_free(void *pPrior)
 {
-//  console_printf("prb_raw_free(%p)\n", pPrior);
+  //console_printf("prb_raw_free(%p)\n", pPrior);
   mrbc_raw_free(pPrior);
 }
 
@@ -207,9 +202,9 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   if (v->tt == MRBC_TT_NIL) {
     return -1;
   }
-  // TODO: check if memory leak
   prbfile->file = mrbc_alloc(vm, sizeof(prb_value));
   memcpy(prbfile->file, &v[0], sizeof(prb_value));
+  mrbc_incref(&v[0]);
   return 0;
 }
 
@@ -218,7 +213,7 @@ int prb_file_close(PRBFile *prbfile)
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
   prb_value v[1];
-  memcpy(&v[0], prbfile->file, sizeof(prb_value));
+  v[0] = *prbfile->file;
   vfs_methods.file_close(vm, &v[0], 0);
   return 0;
 }
@@ -228,11 +223,11 @@ int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
   prb_value v[2];
-  memcpy(&v[0], prbfile->file, sizeof(prb_value));
+  v[0] = *prbfile->file;
   v[1] = mrbc_integer_value(nBuf);
   vfs_methods.file_read(vm, &v[0], 1);
   if (v->tt == MRBC_TT_NIL) {
-    return 0;
+    return 0; /* EOF */
   } else if (v->tt != MRBC_TT_STRING) {
     return -1;
   }
@@ -245,11 +240,11 @@ int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
   prb_value v[3];
-  v[0] = mrbc_nil_value();
-  memcpy(&v[1], prbfile->file, sizeof(prb_value));
-  v[2] = mrbc_string_new(vm, zBuf, nBuf);
+  v[0] = *prbfile->file;
+  v[1] = mrbc_string_new(vm, zBuf, nBuf);
+  v[2] = mrbc_integer_value(nBuf);
   vfs_methods.file_write(vm, &v[0], 2);
-  if (v->tt == MRBC_TT_NIL) {
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return v->i;
@@ -259,11 +254,10 @@ int prb_file_fsync(PRBFile *prbfile)
 {
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[2];
-  v[0] = mrbc_nil_value();
-  memcpy(&v[1], prbfile->file, sizeof(prb_value));
-  vfs_methods.file_fsync(vm, &v[0], 1);
-  if (v->tt == MRBC_TT_NIL) {
+  prb_value v[1];
+  v[0] = *prbfile->file;
+  vfs_methods.file_fsync(vm, &v[0], 0);
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return 0;
@@ -273,13 +267,12 @@ int prb_file_seek(PRBFile *prbfile, int offset, int whence)
 {
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[4];
-  v[0] = mrbc_nil_value();
-  memcpy(&v[1], prbfile->file, sizeof(prb_value));
-  v[2] = mrbc_integer_value(offset);
-  v[3] = mrbc_integer_value(whence);
-  vfs_methods.file_seek(vm, &v[0], 3);
-  if (v->tt == MRBC_TT_NIL) {
+  prb_value v[3];
+  v[0] = *prbfile->file;
+  v[1] = mrbc_integer_value(offset);
+  v[2] = mrbc_integer_value(whence);
+  vfs_methods.file_seek(vm, &v[0], 2);
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return 0;
@@ -289,11 +282,10 @@ int prb_file_tell(PRBFile *prbfile)
 {
   D();
   prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[2];
-  v[0] = mrbc_nil_value();
-  memcpy(&v[1], prbfile->file, sizeof(prb_value));
-  vfs_methods.file_tell(vm, &v[0], 1);
-  if (v->tt == MRBC_TT_NIL) {
+  prb_value v[1];
+  v[0] = *prbfile->file;
+  vfs_methods.file_tell(vm, &v[0], 0);
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return v->i;
@@ -302,12 +294,12 @@ int prb_file_tell(PRBFile *prbfile)
 int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
 {
   D();
-  prb_vm *vm = (prb_vm *)pVfs->pAppData;
+  prb_vm *vm = prbvfs.pAppData;
   prb_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_methods.file_unlink(vm, &v[0], 1);
-  if (v->tt == MRBC_TT_NIL) {
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return 0;
@@ -316,12 +308,12 @@ int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
 {
   D();
-  prb_vm *vm = (prb_vm *)pVfs->pAppData;
+  prb_vm *vm = prbvfs.pAppData;
   prb_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_methods.file_exist_q(vm, &v[0], 1);
-  if (v->tt == MRBC_TT_NIL) {
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return v->tt == MRBC_TT_TRUE;
@@ -330,16 +322,18 @@ int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
 {
   D();
-  prb_vm *vm = (prb_vm *)pVfs->pAppData;
+  prb_vm *vm = prbvfs.pAppData;
   prb_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_methods.file_stat(vm, &v[0], 1);
-  if (v->tt == MRBC_TT_NIL) {
+  if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
   return 0;
 }
+
+
 
 static int
 prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
@@ -347,15 +341,15 @@ prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags,
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
   memset(prbfile, 0, sizeof(PRBFile));
-  prbfile->vm = pVfs->pAppData;
+  prbfile->vm = prbvfs.pAppData;
   pFile->pMethods = &prbvfs_io_methods;
+  memcpy(prbfile->pathname, zName, strlen(zName));
   if (prb_file_new(prbfile, zName, flags) != 0) {
     return SQLITE_CANTOPEN;
   }
   if (pOutFlags) {
     *pOutFlags = flags;
   }
-  prbfile->vm = (prb_vm *)pVfs->pAppData;
   return SQLITE_OK;
 }
 

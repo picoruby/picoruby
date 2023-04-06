@@ -11,6 +11,10 @@ end
 
 SQLite3::Database.vfs_methods = FAT::File.vfs_methods
 db = SQLite3::Database.open "/home/test.db"
-p db
 
 db.close
+
+File.open "/home/test.db" do |f|
+  p f.read
+end
+
