@@ -30,6 +30,7 @@ typedef struct prb_vfs_methods
 extern prb_vfs_methods vfs_methods;
 
 void set_vm_for_vfs(prb_vm *vm);
+prb_vm *get_vm_for_vfs(void);
 
 #ifdef __cplusplus
 }

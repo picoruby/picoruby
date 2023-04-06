@@ -11,10 +11,12 @@ end
 
 SQLite3::Database.vfs_methods = FAT::File.vfs_methods
 db = SQLite3::Database.open "/home/test.db"
-
+db.execute "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT);"
+db.execute "INSERT INTO test (name) VALUES ('hello');"
+db.execute "INSERT INTO test (name) VALUES ('ruby');"
+db.execute "SELECT * FROM test;" do |row|
+  p row
+end
 db.close
 
-File.open "/home/test.db" do |f|
-  p f.read
-end
-
+p File::Stat.new("/home/test.db").size

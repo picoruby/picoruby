@@ -7,7 +7,8 @@ typedef struct {
   sqlite3 *db;
 } DbState;
 
-#define D() console_printf("debug: %s\n", __func__)
+//#define D() console_printf("debug: %s\n", __func__)
+#define D() (void)0
 
 static void
 c_open(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -54,7 +55,46 @@ c_close(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 }
 
+static void
+array_callback_funciton(mrbc_value *result_array, int count, char **data, char **columns)
+{
+  D();
+  mrbc_vm *vm = get_vm_for_vfs();
+  mrbc_value row = mrbc_array_new(vm, count);
+  for (int i = 0; i < count; i++) {
+    mrbc_value val;
+    if (data[i] == NULL) {
+      val = mrbc_nil_value();
+    } else {
+      val = mrbc_string_new_cstr(vm, data[i]);
+    }
+    mrbc_array_push(&row, &val);
+  }
+  mrbc_array_push(result_array, &row);
+}
 
+static void
+c__execute(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  D();
+  DbState *state = (DbState *)v[0].instance->data;
+  sqlite3 *db = state->db;
+  char *err_msg = NULL;
+  mrbc_value result_array = mrbc_array_new(vm, 0);
+  int rc = sqlite3_exec(
+              db,
+              (const char *)GET_STRING_ARG(1),
+              (sqlite3_callback)array_callback_funciton,
+              &result_array,
+              &err_msg
+            );
+  if (rc != SQLITE_OK) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sqlite3_exec() failed");
+    console_printf("code: %d, error message: %s\n", rc, err_msg);
+    mrbc_raw_free(err_msg);
+  }
+  SET_RETURN(result_array);
+}
 
 /*
  * Usage: SQLite3::Database.vfs_methods = FAT::File.vfs_methods
@@ -80,4 +120,5 @@ mrbc_sqlite3_class_init(void)
   mrbc_define_method(0, class_SQLite3_Database, "new", c_open);
   mrbc_define_method(0, class_SQLite3_Database, "open", c_open);
   mrbc_define_method(0, class_SQLite3_Database, "close", c_close);
+  mrbc_define_method(0, class_SQLite3_Database, "_execute", c__execute);
 }

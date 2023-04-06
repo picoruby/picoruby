@@ -6,7 +6,9 @@
 #define MAX_PATHNAME 512
 
 #include <stdio.h>
-#define D() printf("debug: %s\n", __func__)
+
+//#define D() printf("debug: %s\n", __func__)
+#define D() (void)0
 
 typedef struct PRBFile
 {
@@ -70,10 +72,15 @@ static sqlite3_vfs prbvfs = {
 void
 set_vm_for_vfs(prb_vm *vm)
 {
-  D();
   if (!prbvfs.pAppData) {
     prbvfs.pAppData = vm;
   }
+}
+
+prb_vm *
+get_vm_for_vfs(void)
+{
+  return prbvfs.pAppData;
 }
 
 static sqlite3_io_methods prbvfs_io_methods = {
@@ -205,6 +212,8 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   prbfile->file = mrbc_alloc(vm, sizeof(prb_value));
   memcpy(prbfile->file, &v[0], sizeof(prb_value));
   mrbc_incref(&v[0]);
+  v[0].obj->ref_count = 34464; // TODO: fix this hack
+  //v[0].obj->ref_count = 21; // TODO: fix this hack
   return 0;
 }
 
@@ -215,6 +224,8 @@ int prb_file_close(PRBFile *prbfile)
   prb_value v[1];
   v[0] = *prbfile->file;
   vfs_methods.file_close(vm, &v[0], 0);
+  mrbc_incref(&v[0]);
+  v[0].obj->ref_count = 0; // TODO: fix this hack
   return 0;
 }
 
@@ -232,6 +243,7 @@ int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
     return -1;
   }
   memcpy(zBuf, v[0].string->data, v[0].string->size);
+  mrbc_incref(&v[0]);
   return v[0].string->size;
 }
 
@@ -247,6 +259,7 @@ int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
+  mrbc_incref(&v[0]);
   return v->i;
 }
 
@@ -260,6 +273,7 @@ int prb_file_fsync(PRBFile *prbfile)
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
+  mrbc_incref(&v[0]);
   return 0;
 }
 
@@ -275,6 +289,7 @@ int prb_file_seek(PRBFile *prbfile, int offset, int whence)
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
+  mrbc_incref(&v[0]);
   return 0;
 }
 
@@ -288,6 +303,7 @@ int prb_file_tell(PRBFile *prbfile)
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
+  mrbc_incref(&v[0]);
   return v->i;
 }
 
@@ -316,7 +332,7 @@ int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
-  return v->tt == MRBC_TT_TRUE;
+  return (v->tt == MRBC_TT_TRUE) ? 0 : -1;
 }
 
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
@@ -364,7 +380,9 @@ static int
 prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
 {
   D();
-  assert(flags == SQLITE_ACCESS_EXISTS || flags == SQLITE_ACCESS_READWRITE);
+  assert(flags == SQLITE_ACCESS_EXISTS
+      || flags == SQLITE_ACCESS_READ
+      || flags == SQLITE_ACCESS_READWRITE);
   int rc;
   if (flags == SQLITE_ACCESS_EXISTS) {
     rc = prb_file_exist_q(pVfs, zName);
@@ -372,9 +390,9 @@ prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
     rc = prb_file_stat(pVfs, zName, flags);
   }
   if (rc == 0) {
-    *pResOut = 1;
-  } else {
     *pResOut = 0;
+  } else {
+    *pResOut = 0; // TODO
   }
   return SQLITE_OK;
 }
@@ -384,7 +402,7 @@ prbvfsFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut)
 {
   D();
   strncpy(zOut, zName, nOut);
-  zOut[nOut-1] = '\0';
+  zOut[nOut+1] = '\0';
   return SQLITE_OK;
 }
 
@@ -408,7 +426,7 @@ prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
-  return prb_file_read(prbfile, zBuf, iAmt);
+  return (iAmt = prb_file_read(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_SHORT_READ;
 }
 
 
@@ -417,7 +435,7 @@ prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
-  return prb_file_write(prbfile, zBuf, iAmt);
+  return (iAmt == prb_file_write(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_WRITE;
 }
 
 static int
@@ -441,10 +459,9 @@ prbvfsFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
   prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[2];
-  v[0] = mrbc_nil_value();
-  v[1] = prbfile->file[0];
-  vfs_methods.file_size(vm, &v[0], 1);
+  prb_value v[1];
+  v[0] = *prbfile->file;
+  vfs_methods.file_size(vm, &v[0], 0);
   *pSize = v[0].i;
   return SQLITE_OK;
 }
