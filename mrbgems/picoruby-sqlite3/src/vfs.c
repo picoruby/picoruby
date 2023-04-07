@@ -13,8 +13,8 @@
 typedef struct PRBFile
 {
   sqlite3_file base;
-  prb_vm *vm;
-  prb_value *file;
+  mrbc_vm *vm;
+  mrbc_value *file;
   char pathname[MAX_PATHNAME];
 } PRBFile;
 
@@ -70,14 +70,14 @@ static sqlite3_vfs prbvfs = {
 };
 
 void
-set_vm_for_vfs(prb_vm *vm)
+set_vm_for_vfs(mrbc_vm *vm)
 {
   if (!prbvfs.pAppData) {
     prbvfs.pAppData = vm;
   }
 }
 
-prb_vm *
+mrbc_vm *
 get_vm_for_vfs(void)
 {
   return prbvfs.pAppData;
@@ -138,14 +138,14 @@ prb_mem_roundup(int n)
 }
 
 int
-prb_mem_init(void *)
+prb_mem_init(void *ignore)
 {
   D();
   return SQLITE_OK;
 }
 
 void
-prb_mem_shutdown(void *)
+prb_mem_shutdown(void *ignore)
 {
   D();
 }
@@ -192,12 +192,26 @@ sqlite3_os_end(void)
   return SQLITE_OK;
 }
 
+static void
+mrbc_funcall(
+  mrbc_vm *vm,
+  void (*func)(mrbc_vm *, mrbc_value *, int),
+  mrbc_value *v,
+  int argc
+)
+{
+  for (int i = 0; i < argc + 1; i++) {
+    mrbc_incref(&v[i]);
+  }
+  func(vm, &v[0], argc);
+}
+
 int
 prb_file_new(PRBFile *prbfile, const char *zName, int flags)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[3];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[3];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   //v[2] = mrbc_integer_value(flags);
@@ -205,116 +219,108 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
    * TODO: handle flags like SQLITE_OPEN_READONLY, SQLITE_OPEN_READWRITE, SQLITE_OPEN_CREATE
    */
   v[2] = mrbc_string_new_cstr(vm, "w+");
-  vfs_methods.file_new(vm, &v[0], 2);
+  mrbc_funcall(vm, vfs_methods.file_new, &v[0], 2);
+  mrbc_incref(&v[0]);
   if (v->tt == MRBC_TT_NIL) {
     return -1;
   }
-  prbfile->file = mrbc_alloc(vm, sizeof(prb_value));
-  memcpy(prbfile->file, &v[0], sizeof(prb_value));
-  mrbc_incref(&v[0]);
-  v[0].obj->ref_count = 34464; // TODO: fix this hack
-  //v[0].obj->ref_count = 21; // TODO: fix this hack
+  prbfile->file = mrbc_alloc(vm, sizeof(mrbc_value));
+  memcpy(prbfile->file, &v[0], sizeof(mrbc_value));
   return 0;
 }
 
 int prb_file_close(PRBFile *prbfile)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[1];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_methods.file_close(vm, &v[0], 0);
   mrbc_incref(&v[0]);
-  v[0].obj->ref_count = 0; // TODO: fix this hack
+  mrbc_funcall(vm, vfs_methods.file_close, &v[0], 0);
   return 0;
 }
 
 int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[2];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[2];
   v[0] = *prbfile->file;
   v[1] = mrbc_integer_value(nBuf);
-  vfs_methods.file_read(vm, &v[0], 1);
+  mrbc_funcall(vm, vfs_methods.file_read, &v[0], 1);
   if (v->tt == MRBC_TT_NIL) {
     return 0; /* EOF */
   } else if (v->tt != MRBC_TT_STRING) {
     return -1;
   }
   memcpy(zBuf, v[0].string->data, v[0].string->size);
-  mrbc_incref(&v[0]);
   return v[0].string->size;
 }
 
 int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[3];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[3];
   v[0] = *prbfile->file;
   v[1] = mrbc_string_new(vm, zBuf, nBuf);
   v[2] = mrbc_integer_value(nBuf);
-  vfs_methods.file_write(vm, &v[0], 2);
+  mrbc_funcall(vm, vfs_methods.file_write, &v[0], 2);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
-  mrbc_incref(&v[0]);
   return v->i;
 }
 
 int prb_file_fsync(PRBFile *prbfile)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[1];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_methods.file_fsync(vm, &v[0], 0);
+  mrbc_funcall(vm, vfs_methods.file_fsync, &v[0], 0);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
-  mrbc_incref(&v[0]);
   return 0;
 }
 
 int prb_file_seek(PRBFile *prbfile, int offset, int whence)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[3];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[3];
   v[0] = *prbfile->file;
   v[1] = mrbc_integer_value(offset);
   v[2] = mrbc_integer_value(whence);
-  vfs_methods.file_seek(vm, &v[0], 2);
+  mrbc_funcall(vm, vfs_methods.file_seek, &v[0], 2);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
-  mrbc_incref(&v[0]);
   return 0;
 }
 
 int prb_file_tell(PRBFile *prbfile)
 {
   D();
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[1];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_methods.file_tell(vm, &v[0], 0);
+  mrbc_funcall(vm, vfs_methods.file_tell, &v[0], 0);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
-  mrbc_incref(&v[0]);
   return v->i;
 }
 
 int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
 {
   D();
-  prb_vm *vm = prbvfs.pAppData;
-  prb_value v[2];
+  mrbc_vm *vm = prbvfs.pAppData;
+  mrbc_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_methods.file_unlink(vm, &v[0], 1);
+  mrbc_funcall(vm, vfs_methods.file_unlink, &v[0], 1);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -324,11 +330,11 @@ int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
 {
   D();
-  prb_vm *vm = prbvfs.pAppData;
-  prb_value v[2];
+  mrbc_vm *vm = prbvfs.pAppData;
+  mrbc_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_methods.file_exist_q(vm, &v[0], 1);
+  mrbc_funcall(vm, vfs_methods.file_exist_q, &v[0], 1);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -338,11 +344,11 @@ int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
 {
   D();
-  prb_vm *vm = prbvfs.pAppData;
-  prb_value v[2];
+  mrbc_vm *vm = prbvfs.pAppData;
+  mrbc_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_methods.file_stat(vm, &v[0], 1);
+  mrbc_funcall(vm, vfs_methods.file_stat, &v[0], 1);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -458,10 +464,10 @@ prbvfsFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
-  prb_vm *vm = (prb_vm *)prbfile->vm;
-  prb_value v[1];
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_methods.file_size(vm, &v[0], 0);
+  mrbc_funcall(vm, vfs_methods.file_size, &v[0], 0);
   *pSize = v[0].i;
   return SQLITE_OK;
 }

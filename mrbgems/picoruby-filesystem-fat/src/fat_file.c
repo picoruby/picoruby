@@ -5,7 +5,9 @@
 
 #include "../lib/ff14b/source/ff.h"
 
+static mrbc_class *class_FAT;
 static mrbc_class *class_FAT_File;
+static mrbc_class *class_FAT_VFSMethods;
 
 static void
 c_new(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -160,7 +162,7 @@ c_fsync(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_vfs_methods(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-   prb_vfs_methods m = {
+  prb_vfs_methods m = {
     c_new,
     c_close,
     c_read,
@@ -172,7 +174,7 @@ c_vfs_methods(mrbc_vm *vm, mrbc_value v[], int argc)
     c__exist_q,
     c__unlink
   };
-  mrbc_value methods = mrbc_instance_new(vm, v->cls, sizeof(prb_vfs_methods));
+  mrbc_value methods = mrbc_instance_new(vm, class_FAT_VFSMethods, sizeof(prb_vfs_methods));
   memcpy(methods.instance->data, &m, sizeof(prb_vfs_methods));
   SET_RETURN(methods);
 }
@@ -180,11 +182,14 @@ c_vfs_methods(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_init_class_FAT_File(void)
 {
-  mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+  class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
 
   mrbc_sym symid = mrbc_search_symid("File");
   mrbc_value *v = mrbc_get_class_const(class_FAT, symid);
   class_FAT_File = v->cls;
+  symid = mrbc_search_symid("VFSMethods");
+  v = mrbc_get_class_const(class_FAT, symid);
+  class_FAT_VFSMethods = v->cls;
 
   mrbc_define_method(0, class_FAT_File, "new", c_new);
   mrbc_define_method(0, class_FAT_File, "open", c_new);
@@ -198,6 +203,6 @@ mrbc_init_class_FAT_File(void)
   mrbc_define_method(0, class_FAT_File, "expand", c_expand);
   mrbc_define_method(0, class_FAT_File, "fsync", c_fsync);
 
-  mrbc_define_method(0, class_FAT_File, "vfs_methods", c_vfs_methods);
+  mrbc_define_method(0, class_FAT, "vfs_methods", c_vfs_methods);
 }
 

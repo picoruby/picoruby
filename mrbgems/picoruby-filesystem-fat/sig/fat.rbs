@@ -2,6 +2,10 @@
 
 # Classes
 class FAT
+  class VFSMethods
+  end
+
+  def self.vfs_methods: -> FAT::VFSMethods
 
   type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
   type driver_t = nil|SPI

@@ -10,10 +10,27 @@ typedef struct {
 //#define D() console_printf("debug: %s\n", __func__)
 #define D() (void)0
 
+/*
+ * Usage: SQLite3::Database.vfs_methods = FAT::File.vfs_methods
+ */
+prb_vfs_methods vfs_methods = {0};
+static void
+c_vfs_methods_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  D();
+  mrbc_value methods = GET_ARG(1);
+  memcpy(&vfs_methods, methods.instance->data, sizeof(prb_vfs_methods));
+}
+
+
 static void
 c_open(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   D();
+  if (vfs_methods.file_new == NULL) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "vfs_methods is not set");
+    return;
+  };
   set_vm_for_vfs(vm);
   sqlite3_os_init();
   /*
@@ -96,18 +113,6 @@ c__execute(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(result_array);
 }
 
-/*
- * Usage: SQLite3::Database.vfs_methods = FAT::File.vfs_methods
- */
-prb_vfs_methods vfs_methods;
-static void
-c_vfs_methods_eq(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  D();
-  mrbc_value methods = GET_ARG(1);
-  memcpy(&vfs_methods, methods.instance->data, sizeof(prb_vfs_methods));
-}
-
 void
 mrbc_sqlite3_init(void)
 {
@@ -115,7 +120,7 @@ mrbc_sqlite3_init(void)
   mrbc_value *v = mrbc_get_class_const(class_SQLite3, mrbc_search_symid("Database"));
   mrbc_class *class_SQLite3_Database = v->cls;
 
-  mrbc_define_method(0, class_SQLite3_Database, "vfs_methods=", c_vfs_methods_eq);
+  mrbc_define_method(0, class_SQLite3, "vfs_methods=", c_vfs_methods_eq);
 
   mrbc_define_method(0, class_SQLite3_Database, "new", c_open);
   mrbc_define_method(0, class_SQLite3_Database, "open", c_open);

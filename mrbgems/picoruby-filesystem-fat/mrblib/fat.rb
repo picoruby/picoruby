@@ -1,6 +1,8 @@
 require "time"
 
 class FAT
+  class VFSMethods
+  end
 
   AM_RDO = 0b000001 # Read only
   AM_HID = 0b000010 # Hidden

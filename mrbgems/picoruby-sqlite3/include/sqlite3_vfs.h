@@ -10,8 +10,6 @@ extern "C" {
 
 #define VFS_NAME "prbvfs"
 
-typedef mrbc_vm    prb_vm;
-typedef mrbc_value prb_value;
 typedef struct prb_vfs_methods
 {
   void (*file_new)(mrbc_vm *vm, mrbc_value *v, int argc);
@@ -29,8 +27,8 @@ typedef struct prb_vfs_methods
 
 extern prb_vfs_methods vfs_methods;
 
-void set_vm_for_vfs(prb_vm *vm);
-prb_vm *get_vm_for_vfs(void);
+void set_vm_for_vfs(mrbc_vm *vm);
+mrbc_vm *get_vm_for_vfs(void);
 
 #ifdef __cplusplus
 }

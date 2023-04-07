@@ -9,7 +9,7 @@ Dir.open "/" do |dir|
   end
 end
 
-SQLite3::Database.vfs_methods = FAT::File.vfs_methods
+SQLite3.vfs_methods = FAT.vfs_methods
 db = SQLite3::Database.open "/home/test.db"
 db.execute "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT);"
 db.execute "INSERT INTO test (name) VALUES ('hello');"
