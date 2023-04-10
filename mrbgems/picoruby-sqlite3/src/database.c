@@ -19,12 +19,17 @@ c_vfs_methods_eq(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   D();
   mrbc_value methods = GET_ARG(1);
+  if (vfs_methods.file_new != NULL &&
+      memcmp(&vfs_methods, methods.instance->data, sizeof(prb_vfs_methods)) != 0)
+  {
+    console_printf("WARN: changing vfs_methods may break existing database connection\n");
+  }
   memcpy(&vfs_methods, methods.instance->data, sizeof(prb_vfs_methods));
 }
 
 
 static void
-c_open(mrbc_vm *vm, mrbc_value v[], int argc)
+c__open(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   D();
   if (vfs_methods.file_new == NULL) {
@@ -122,8 +127,7 @@ mrbc_sqlite3_init(void)
 
   mrbc_define_method(0, class_SQLite3, "vfs_methods=", c_vfs_methods_eq);
 
-  mrbc_define_method(0, class_SQLite3_Database, "new", c_open);
-  mrbc_define_method(0, class_SQLite3_Database, "open", c_open);
   mrbc_define_method(0, class_SQLite3_Database, "close", c_close);
+  mrbc_define_method(0, class_SQLite3_Database, "_open", c__open);
   mrbc_define_method(0, class_SQLite3_Database, "_execute", c__execute);
 }

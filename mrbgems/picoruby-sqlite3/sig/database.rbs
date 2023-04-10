@@ -1,11 +1,12 @@
 class SQLite3
-  def self.vfs_methods=: () -> FAT::VFSMethods
+  def self.vfs_methods=: (FAT::VFSMethods) -> FAT::VFSMethods
 
   class Database
     type row_t = Hash[String, String] | Array[String]
 
     def self.new: (String filename) -> Database
     def self.open: (String filename) -> Database
+    def self._open: (String filename) -> Database
 
     def execute: (String sql, *String params) ?{ (String, ?String) -> void }-> void
     def _execute: (String sql, Array[String] params) -> row_t

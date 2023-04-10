@@ -9,8 +9,7 @@ Dir.open "/" do |dir|
   end
 end
 
-SQLite3.vfs_methods = FAT.vfs_methods
-db = SQLite3::Database.open "/home/test.db"
+db = SQLite3::Database.new "/home/test.db"
 db.execute "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT);"
 db.execute "INSERT INTO test (name) VALUES ('hello');"
 db.execute "INSERT INTO test (name) VALUES ('ruby');"
@@ -20,3 +19,4 @@ end
 db.close
 
 p File::Stat.new("/home/test.db").size
+

@@ -4,7 +4,7 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.summary = 'SQLite3'
 
   spec.add_dependency 'picoruby-mrubyc'
-  spec.add_dependency 'picoruby-filesystem-fat'
+  spec.add_dependency 'picoruby-vfs'
   spec.add_dependency 'picoruby-time-class'
 
   # SQLite build configuration https://sqlite.org/compile.html
