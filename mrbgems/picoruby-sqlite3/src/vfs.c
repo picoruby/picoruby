@@ -155,14 +155,12 @@ void *
 prb_raw_alloc(int nByte)
 {
   void *ptr = mrbc_raw_alloc(nByte);
-  //console_printf("prb_raw_alloc(%d) = %p\n", nByte, ptr);
   return ptr;
 }
 
 void
 prb_raw_free(void *pPrior)
 {
-  //console_printf("prb_raw_free(%p)\n", pPrior);
   mrbc_raw_free(pPrior);
 }
 
@@ -211,11 +209,20 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   mrbc_value v[3];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  //v[2] = mrbc_integer_value(flags);
-  /*
-   * TODO: handle flags like SQLITE_OPEN_READONLY, SQLITE_OPEN_READWRITE, SQLITE_OPEN_CREATE
-   */
-  v[2] = mrbc_string_new_cstr(vm, "w+");
+  char mode[3];
+  if (flags & SQLITE_OPEN_CREATE) {
+    if (prb_file_exist_q(&prbvfs, zName)) {
+      mode[0] = 'r';
+    } else {
+      mode[0] = 'w';
+    }
+    mode[1] = '+';
+    mode[2] = '\0';
+  } else {
+    mode[0] = 'r';
+    mode[1] = '\0';
+  }
+  v[2] = mrbc_string_new_cstr(vm, mode);
   vfs_funcall(vfs_methods.file_new, &v[0], 2);
   if (v->tt == MRBC_TT_NIL) {
     return -1;
@@ -325,10 +332,7 @@ int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_funcall(vfs_methods.file_exist_q, &v[0], 1);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return (v->tt == MRBC_TT_TRUE) ? 0 : -1;
+  return (v->tt == MRBC_TT_TRUE);
 }
 
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
@@ -342,7 +346,7 @@ int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
-  return 0;
+  return 0; // TODO
 }
 
 
@@ -362,6 +366,9 @@ prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags,
   if (pOutFlags) {
     *pOutFlags = flags;
   }
+  char buf[16];
+  prb_file_read(prbfile, buf, 16);
+  prb_file_seek(prbfile, 0, 0);
   return SQLITE_OK;
 }
 
@@ -379,16 +386,19 @@ prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
   assert(flags == SQLITE_ACCESS_EXISTS
       || flags == SQLITE_ACCESS_READ
       || flags == SQLITE_ACCESS_READWRITE);
-  int rc;
+  // TODO
   if (flags == SQLITE_ACCESS_EXISTS) {
-    rc = prb_file_exist_q(pVfs, zName);
+    if (prb_file_exist_q(pVfs, zName)) {
+      *pResOut = 1;
+    } else {
+      *pResOut = 0;
+    }
   } else {
-    rc = prb_file_stat(pVfs, zName, flags);
-  }
-  if (rc == 0) {
-    *pResOut = 0;
-  } else {
-    *pResOut = 0; // TODO
+    if (prb_file_stat(pVfs, zName, flags) == 0) {
+      *pResOut = 0;
+    } else {
+      *pResOut = 1;
+    }
   }
   return SQLITE_OK;
 }
@@ -422,6 +432,9 @@ prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
+  if (prb_file_seek(prbfile, iOfst, 0) < 0) {
+    return SQLITE_ERROR;
+  }
   return (iAmt = prb_file_read(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_SHORT_READ;
 }
 
@@ -431,6 +444,9 @@ prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
+  if (prb_file_seek(prbfile, iOfst, 0) < 0) {
+    return SQLITE_ERROR;
+  }
   return (iAmt == prb_file_write(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_WRITE;
 }
 
