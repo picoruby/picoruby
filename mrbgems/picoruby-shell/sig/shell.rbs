@@ -9,6 +9,8 @@ $sandbox: Sandbox
 
 class Shell
   LOGO_LINES: [String]
+  LOGO_COLOR: String
+  AUTHOR_COLOR: String
   @terminal: Terminal::Line
 
   def self.setup: (Symbol drive, ?label: String) -> void

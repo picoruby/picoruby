@@ -58,28 +58,26 @@ class Shell
   end
 
   LOGO_LINES = [
-    "   888888  88   88888  88888",
-    "   88   88 88  88     88   88",
-    "   888888  88 88     88     88",
-    "   88      88  88     88   88",
-    "   88      88   88888  88888",
-    "",
-    "888888  88    88 888888 88    88",
-    "88   88 88    88 88   88 88  88",
-    "888888  88    88 888888   8888",
-    "88   88  88  88  88   88   88",
-    "88    888 8888   888888    88"
+    ' ____  _           ____        _',
+    '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
+    '| |_) | |/ __/ _ \| |_) | | | | \'_ \| | | |',
+    '|  __/| | (_| (_) |  _ <| |_| | |_) | |_| |',
+    '|_|   |_|\___\___/|_| \_\\__,_|_.__/ \__, |'
   ]
+  LOGO_COLOR = "\e[36;1m"
+  AUTHOR_COLOR = "\e[36;1m"
 
   def show_logo
     logo_width = LOGO_LINES.map{|l| l.length}.max || 0
     margin = " " * ((@terminal.width - logo_width) / 2)
-    puts "\e[33;1m"
+    puts LOGO_COLOR
     LOGO_LINES.each do |line|
       print margin
       puts line
     end
-    puts "\e[32;0m"
+    print margin
+    puts "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
+    puts "\e[0m"
   end
 
   def self.setup(device, label: "PicoRuby")
