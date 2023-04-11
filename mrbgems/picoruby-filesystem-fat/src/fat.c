@@ -20,10 +20,16 @@ static const char* const VolumeStr[FF_VOLUMES] = {FF_VOLUME_STRS};	/* Pre-define
 static void
 unixtime2fno(const time_t *unixtime, FILINFO *fno)
 {
-  struct tm tm;
-  localtime_r(unixtime, &tm);
-  fno->fdate = (WORD)(((tm.tm_year + 1900 - 1980) << 9) | (tm.tm_mon + 1) << 5 | tm.tm_mday);
-  fno->ftime = (WORD)(tm.tm_hour << 11 | tm.tm_min << 5 | tm.tm_sec / 2);
+#ifdef _POSIX_THREAD_SAFE_FUNCTIONS
+  struct tm localtime;
+  localtime_r(unixtime, &localtime);
+  fno->fdate = (WORD)(((localtime.tm_year + 1900 - 1980) << 9) | (localtime.tm_mon + 1) << 5 | localtime.tm_mday);
+  fno->ftime = (WORD)(localtime.tm_hour << 11 | localtime.tm_min << 5 | localtime.tm_sec / 2);
+#else
+  struct tm *local = localtime(unixtime);
+  fno->fdate = (WORD)(((local->tm_year + 1900 - 1980) << 9) | (local->tm_mon + 1) << 5 | local->tm_mday);
+  fno->ftime = (WORD)(local->tm_hour << 11 | local->tm_min << 5 | local->tm_sec / 2);
+#endif
 }
 
 static void

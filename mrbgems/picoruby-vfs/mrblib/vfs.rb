@@ -151,10 +151,10 @@ class VFS
       volume[:driver].open_file(_path, mode)
     end
 
-    def self.utime(atime, mtime, *filename)
+    def self.utime(atime, mtime, *filenames)
       count = 0
-      filename.each do |path|
-        volume, _path = VFS.sanitize_and_split(path)
+      filenames.each do |filename|
+        volume, path = VFS.sanitize_and_split(filename)
         count += volume[:driver].utime(atime, mtime, path)
       end
       return count

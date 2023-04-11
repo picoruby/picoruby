@@ -51,13 +51,24 @@ static time_t unixtime_offset = 0;
 static void
 tz_env_set(struct VM *vm)
 {
-#ifdef PICORUBY_NO_ENV
   mrbc_value *env = mrbc_get_const(mrbc_search_symid("ENV"));
   if (env == NULL || env->tt != MRBC_TT_HASH) return;
   mrbc_value key = mrbc_string_new_cstr(vm, "TZ");
   mrbc_value tz = mrbc_hash_get(env, &key);
   if (tz.tt != MRBC_TT_STRING) return;
+#if defined(_BSD_SOURCE) || \
+    (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || \
+    (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 600)
   setenv("TZ", (const char *)tz.string->data, 1);
+#elif defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
+  char *tzstr[4 + tz.string->size] = {0};
+  tzstr[0] = 'T';
+  tzstr[1] = 'Z';
+  tzstr[2] = '=';
+  memcpy(&tzstr[3], tz.string->data, tz.string->size);
+  putenv(tzstr);
+#endif
+#if defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
   tzset();
 #endif
 }
@@ -107,7 +118,7 @@ new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
   data->unixtime = mktime(tm);
   memcpy(&data->tm, tm, sizeof(struct tm));
-#ifdef MRBC_USE_HAL_POSIX
+#ifdef _POSIX_VERSION
   data->timezone = (int32_t)timezone;
 #else
   data->timezone = (int32_t)_timezone;

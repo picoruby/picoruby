@@ -39,8 +39,10 @@ class File
       if block_given?
         file = self.new(path, mode)
         yield file
-        now = Time.now
-        File.utime(now, now, path)
+        unless mode == "r"
+          now = Time.now
+          File.utime(now, now, path)
+        end
         file.close
       else
         self.new(path, mode)
