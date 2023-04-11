@@ -121,7 +121,8 @@ class VFS
         sanitized_path.start_with?(v[:mountpoint]) ? v : nil
       }.max {|v| v ? v[:mountpoint].length : -1}
       if volume
-        [volume, "/#{sanitized_path[volume[:mountpoint].length, 255]}"]
+        cut = volume[:mountpoint] == "/" ? 0 : 1
+        [volume, "/#{sanitized_path[volume[:mountpoint].length + cut, 255]}"]
       else
         [VOLUMES[0], sanitized_path] # fallback
       end
