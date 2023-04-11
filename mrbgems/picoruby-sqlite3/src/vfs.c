@@ -110,7 +110,7 @@ int prb_file_close(PRBFile *prbfile);
 int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf);
 int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf);
 int prb_file_fsync(PRBFile *prbfile);
-int prb_file_seek(PRBFile *prbfile, int offset, int whence);
+int prb_file_seek(PRBFile *prbfile, int offset);
 int prb_file_tell(PRBFile *prbfile);
 int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName);
@@ -284,13 +284,15 @@ int prb_file_fsync(PRBFile *prbfile)
   return 0;
 }
 
-int prb_file_seek(PRBFile *prbfile, int offset, int whence)
+#define SEEK_SET 0
+
+int prb_file_seek(PRBFile *prbfile, int offset)
 {
   D();
   mrbc_value v[3];
   v[0] = *prbfile->file;
   v[1] = mrbc_integer_value(offset);
-  v[2] = mrbc_integer_value(whence);
+  v[2] = mrbc_integer_value(SEEK_SET); // whence is always SEEK_SET
   vfs_funcall(vfs_methods.file_seek, &v[0], 2);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
@@ -366,9 +368,6 @@ prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags,
   if (pOutFlags) {
     *pOutFlags = flags;
   }
-  char buf[16];
-  prb_file_read(prbfile, buf, 16);
-  prb_file_seek(prbfile, 0, 0);
   return SQLITE_OK;
 }
 
@@ -432,7 +431,7 @@ prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
-  if (prb_file_seek(prbfile, iOfst, 0) < 0) {
+  if (prb_file_seek(prbfile, iOfst) < 0) {
     return SQLITE_ERROR;
   }
   return (iAmt = prb_file_read(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_SHORT_READ;
@@ -444,7 +443,7 @@ prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst
 {
   D();
   PRBFile *prbfile = (PRBFile *)pFile;
-  if (prb_file_seek(prbfile, iOfst, 0) < 0) {
+  if (prb_file_seek(prbfile, iOfst) < 0) {
     return SQLITE_ERROR;
   }
   return (iAmt == prb_file_write(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_WRITE;
