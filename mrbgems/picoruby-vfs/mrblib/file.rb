@@ -39,10 +39,6 @@ class File
       if block_given?
         file = self.new(path, mode)
         yield file
-        unless mode == "r"
-          now = Time.now
-          File.utime(now, now, path)
-        end
         file.close
       else
         self.new(path, mode)
@@ -75,7 +71,6 @@ class File
   end
 
   def initialize(path, mode = "r")
-    @changed = true if %w(w w+ wx w+x).include?(mode)
     @path = path
     @file = VFS::File.open(path, mode)
   end
@@ -189,7 +184,6 @@ class File
     args.each do |arg|
       len += @file.write(arg.to_s)
     end
-    @changed = true if 0 < len
     return len
   end
 
@@ -222,10 +216,6 @@ class File
 
   def close
     @file.close
-    if File::Stat.new(@path).writable? && @changed
-      now = Time.now
-      File.utime(now, now, @path)
-    end
   end
 
   def size

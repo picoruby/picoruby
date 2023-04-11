@@ -78,6 +78,12 @@ tz_env_set(struct VM *vm)
  */
 
 static void
+c_unixtime_offset(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(unixtime_offset);
+}
+
+static void
 c_hwclock_eq(struct VM *vm, mrbc_value v[], int argc)
 {
   /*
@@ -384,6 +390,7 @@ void
 mrbc_time_class_init(void)
 {
   mrbc_class *class_Time = mrbc_define_class(0, "Time", mrbc_class_object);
+  mrbc_define_method(0, class_Time, "unixtime_offset", c_unixtime_offset);
   mrbc_define_method(0, class_Time, "hwclock=", c_hwclock_eq);
   mrbc_define_method(0, class_Time, "mktime", c_local);
   mrbc_define_method(0, class_Time, "local", c_local);

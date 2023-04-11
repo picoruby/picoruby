@@ -6,6 +6,7 @@ class FAT
   end
 
   def self.vfs_methods: -> FAT::VFSMethods
+  def self.unixtime_offset=: (Integer) -> Integer
 
   type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
   type driver_t = nil|SPI

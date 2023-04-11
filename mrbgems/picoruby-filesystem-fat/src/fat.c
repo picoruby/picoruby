@@ -7,8 +7,6 @@
 #include "../lib/ff14b/source/ff.h"
 #include "../lib/ff14b/source/ffconf.h"
 
-#include "../include/fat.h"
-
 #if FF_STR_VOLUME_ID
 #ifdef FF_VOLUME_STRS
 static const char* const VolumeStr[FF_VOLUMES] = {FF_VOLUME_STRS};	/* Pre-defined volume ID */
@@ -16,6 +14,31 @@ static const char* const VolumeStr[FF_VOLUMES] = {FF_VOLUME_STRS};	/* Pre-define
 #endif
 
 #include "hal/diskio.h"
+
+static time_t unixtime_offset = 0;
+
+static void
+c_unixtime_offset_eq(struct VM *vm, mrbc_value v[], int argc)
+{
+  unixtime_offset = GET_INT_ARG(1);
+  SET_INT_RETURN(unixtime_offset);
+}
+
+DWORD
+get_fattime(void)
+{
+  time_t unixtime = time(NULL) + unixtime_offset;
+  struct tm local;
+  localtime_r(&unixtime, &local);
+  DWORD time = (local.tm_year + 1900 - 1980) << 25
+               | (local.tm_mon + 1) << 21
+               | local.tm_mday << 16
+               | local.tm_hour << 11
+               | local.tm_min << 5
+               | local.tm_sec / 2;
+  return time;
+}
+
 
 static void
 unixtime2fno(const time_t *unixtime, FILINFO *fno)
@@ -296,6 +319,7 @@ void
 mrbc_filesystem_fat_init(void)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+  mrbc_define_method(0, class_FAT, "unixtime_offset=", c_unixtime_offset_eq);
   mrbc_define_method(0, class_FAT, "_erase", c__erase);
   mrbc_define_method(0, class_FAT, "_mkfs", c__mkfs);
   mrbc_define_method(0, class_FAT, "getfree", c_getfree);

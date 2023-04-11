@@ -52,10 +52,7 @@ class VFS
 
     def mkdir(path, mode = 0777)
       volume, path = VFS.sanitize_and_split(path)
-      if 0 == volume[:driver]&.mkdir(path, mode)
-        now = Time.now
-        volume[:driver]&.utime(now, now, path)
-      end
+      volume[:driver]&.mkdir(path, mode)
       0
     end
 

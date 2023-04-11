@@ -1,4 +1,5 @@
 class Time
+  def self.unixtime_offset: () -> Integer
   def hwclock= : (Time) -> Time
 end
 
