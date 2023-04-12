@@ -7,7 +7,7 @@
 typedef struct {
   struct tm  tm;
   time_t     unixtime;
-  int32_t    timezone;
+  long int   timezone;
 } PICORUBY_TIME;
 
 
@@ -101,7 +101,7 @@ c_hwclock_eq(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static mrbc_value
-new_from_unixtime(struct VM *vm, mrbc_value v[], uint32_t unixtime)
+new_from_unixtime(struct VM *vm, mrbc_value v[], time_t unixtime)
 {
   tz_env_set(vm);
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
@@ -109,9 +109,9 @@ new_from_unixtime(struct VM *vm, mrbc_value v[], uint32_t unixtime)
   data->unixtime = unixtime + unixtime_offset;
   localtime_r(&data->unixtime, &data->tm);
 #ifdef _POSIX_VERSION
-  data->timezone = (int32_t)timezone;  /* global variable from time.h */
+  data->timezone = timezone;  /* global variable from time.h */
 #else
-  data->timezone = (int32_t)_timezone;
+  data->timezone = _timezone;
 #endif
   return value;
 }
@@ -125,9 +125,9 @@ new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
   data->unixtime = mktime(tm);
   memcpy(&data->tm, tm, sizeof(struct tm));
 #ifdef _POSIX_VERSION
-  data->timezone = (int32_t)timezone;
+  data->timezone = timezone;
 #else
-  data->timezone = (int32_t)_timezone;
+  data->timezone = _timezone;
 #endif
   return value;
 }
@@ -177,7 +177,7 @@ c_at(struct VM *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1)");
     return;
   }
-  SET_RETURN(new_from_unixtime(vm, v, GET_INT_ARG(1) - unixtime_offset));
+  SET_RETURN(new_from_unixtime(vm, v, (time_t)GET_INT_ARG(1) - unixtime_offset));
 }
 
 static void
@@ -223,7 +223,7 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
   char str[MINIMUN_INSPECT_LENGTH + 10];
-  int a = abs(data->timezone) / 60;
+  long int a = labs(data->timezone) / 60;
   int year = tm->tm_year + 1900;
   if (year < 0) {
     sprintf(str, "%05d", year);

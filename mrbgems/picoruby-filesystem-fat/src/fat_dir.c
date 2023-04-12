@@ -9,7 +9,7 @@ static void
 c_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FRESULT res;
-  FILINFO fno;
+  FILINFO fno = {0};
   const TCHAR *path = (const TCHAR *)GET_STRING_ARG(1);
 
   res = f_stat(path, &fno);
@@ -46,7 +46,7 @@ c_findnext(struct VM *vm, mrbc_value v[], int argc)
 {
   DIR *dp = (DIR *)v->instance->data;
   FRESULT fr;
-  FILINFO fno;
+  FILINFO fno = {0};
   fr = f_findnext(dp, &fno);
   if (fr == FR_OK && fno.fname[0]) {
     mrbc_value value = mrbc_string_new_cstr(vm, (const char *)(fno.fname));
@@ -68,7 +68,7 @@ static void
 c_read(struct VM *vm, mrbc_value v[], int argc)
 {
   DIR *dp = (DIR *)v->instance->data;
-  FILINFO fno;
+  FILINFO fno = {0};
   FRESULT res = f_readdir(dp, &fno);
   mrbc_raise_iff_f_error(vm, res, "f_readdir");
   if (fno.fname[0] == 0) {

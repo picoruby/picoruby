@@ -55,8 +55,8 @@ unixtime2fno(const time_t *unixtime, FILINFO *fno)
 #endif
 }
 
-static void
-fno2unixtime(const FILINFO *fno, time_t *unixtime)
+static time_t
+fno2unixtime(const FILINFO *fno)
 {
   struct tm tm;
   tm.tm_year = (fno->fdate >> 9) + 1980 - 1900;
@@ -65,10 +65,8 @@ fno2unixtime(const FILINFO *fno, time_t *unixtime)
   tm.tm_hour = (fno->ftime >> 11);
   tm.tm_min  = (fno->ftime >> 5) & 63;
   tm.tm_sec  = (fno->ftime & 31) * 2;
-  tm.tm_wday = 0;
-  tm.tm_yday = 0;
   tm.tm_isdst = 0;
-  *unixtime = mktime(&tm);
+  return mktime(&tm);
 }
 
 /*
@@ -155,7 +153,7 @@ c__chdir(struct VM *vm, mrbc_value v[], int argc)
 static void
 c__utime(struct VM *vm, mrbc_value v[], int argc)
 {
-  FILINFO fno;
+  FILINFO fno = {0};
   const time_t unixtime = GET_INT_ARG(1);
   unixtime2fno(&unixtime, &fno);
   FRESULT res = f_utime((const TCHAR *)GET_STRING_ARG(2), &fno);
@@ -185,13 +183,12 @@ static void
 c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
-  FILINFO fno;
+  FILINFO fno = {0};
   FRESULT res = f_stat(path, &fno);
   mrbc_raise_iff_f_error(vm, res, "f_stat");
   mrbc_value stat = mrbc_hash_new(vm, 3);
 
-  time_t unixtime;
-  fno2unixtime(&fno, &unixtime);
+  time_t unixtime = fno2unixtime(&fno);
 
   mrbc_hash_set(
     &stat,
@@ -201,7 +198,7 @@ c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_hash_set(
     &stat,
     &mrbc_symbol_value(mrbc_str_to_symid("unixtime")),
-    &mrbc_integer_value(unixtime)
+    &mrbc_integer_value((int32_t)unixtime)
   );
   mrbc_hash_set(
     &stat,
@@ -215,7 +212,7 @@ static void
 c__directory_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
-  FILINFO fno;
+  FILINFO fno = {0};
   FRESULT res = f_stat(path, &fno);
   if (res == FR_OK && (fno.fattrib & AM_DIR)) {
     SET_TRUE_RETURN();
@@ -348,7 +345,7 @@ void
 c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
-  FILINFO fno;
+  FILINFO fno = {0};
   FRESULT res = f_stat(path, &fno);
   if (res == FR_OK) {
     SET_TRUE_RETURN();
