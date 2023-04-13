@@ -238,6 +238,8 @@ int prb_file_close(PRBFile *prbfile)
   mrbc_value v[1];
   v[0] = *prbfile->file;
   vfs_funcall(vfs_methods.file_close, &v[0], 0);
+  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
+  mrbc_free(vm, prbfile->file);
   return 0;
 }
 
