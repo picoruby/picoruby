@@ -80,7 +80,7 @@ tz_env_set(struct VM *vm)
 static void
 c_unixtime_offset(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(unixtime_offset);
+  SET_INT_RETURN((mrbc_int_t)unixtime_offset);
 }
 
 static void
@@ -212,7 +212,7 @@ static void
 c_to_i(struct VM *vm, mrbc_value v[], int argc)
 {
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
-  SET_INT_RETURN((uint32_t)data->unixtime);
+  SET_INT_RETURN((mrbc_int_t)data->unixtime);
 }
 
 #define MINIMUN_INSPECT_LENGTH 25
@@ -239,8 +239,8 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
     tm->tm_min,
     tm->tm_sec,
     (0 < data->timezone ? '-' : (data->timezone == 0 ? ' ' : '+')),
-    (a / 60),
-    (a % 60)
+    (int)(a / 60),
+    (int)(a % 60)
   );
   SET_RETURN(mrbc_string_new_cstr(vm, str));
 }

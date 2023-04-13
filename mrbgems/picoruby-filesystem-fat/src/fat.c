@@ -20,8 +20,8 @@ static time_t unixtime_offset = 0;
 static void
 c_unixtime_offset_eq(struct VM *vm, mrbc_value v[], int argc)
 {
-  unixtime_offset = GET_INT_ARG(1);
-  SET_INT_RETURN(unixtime_offset);
+  unixtime_offset = (time_t)GET_INT_ARG(1);
+  SET_INT_RETURN((mrbc_int_t)unixtime_offset);
 }
 
 DWORD
@@ -198,7 +198,7 @@ c__stat(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_hash_set(
     &stat,
     &mrbc_symbol_value(mrbc_str_to_symid("unixtime")),
-    &mrbc_integer_value((int32_t)unixtime)
+    &mrbc_integer_value((mrbc_int_t)unixtime)
   );
   mrbc_hash_set(
     &stat,
