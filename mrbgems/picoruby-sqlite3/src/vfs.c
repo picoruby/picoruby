@@ -16,6 +16,7 @@ typedef struct PRBFile
   mrbc_vm *vm;
   mrbc_value *file;
   char pathname[MAX_PATHNAME];
+  int sector_size;
 } PRBFile;
 
 void
@@ -201,6 +202,9 @@ vfs_funcall(
   func(prbvfs.pAppData, &v[0], argc);
 }
 
+
+#define FLASH_VOLUME_NAME "flash"
+
 int
 prb_file_new(PRBFile *prbfile, const char *zName, int flags)
 {
@@ -229,6 +233,14 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   }
   prbfile->file = mrbc_alloc(vm, sizeof(mrbc_value));
   memcpy(prbfile->file, &v[0], sizeof(mrbc_value));
+
+  /* FIXME: retrieve from the real filesystem */
+  if (strncmp(zName, FLASH_VOLUME_NAME, sizeof(FLASH_VOLUME_NAME)) == 0) {
+    prbfile->sector_size = 4096;
+  } else {
+    prbfile->sector_size = 512;
+  }
+
   return 0;
 }
 
@@ -511,7 +523,8 @@ static int
 prbvfsSectorSize(sqlite3_file *pFile)
 {
   D();
-  return 512;
+  PRBFile *prbfile = (PRBFile *)pFile;
+  return prbfile->sector_size;
 }
 
 static int
