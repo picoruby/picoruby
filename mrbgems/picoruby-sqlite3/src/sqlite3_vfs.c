@@ -1,54 +1,14 @@
-#include <mrubyc.h>
-
-#include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
 #include "../include/sqlite3_vfs.h"
-
-#define MAX_PATHNAME 512
 
 #include <stdio.h>
 
 //#define D() printf("debug: %s\n", __func__)
 #define D() (void)0
 
-typedef struct PRBFile
-{
-  sqlite3_file base;
-  mrbc_vm *vm;
-  mrbc_value *file;
-  char pathname[MAX_PATHNAME];
-  int sector_size;
-} PRBFile;
-
-void
-sqlite3Analyze(void *pParse, void *pName1, void *pName2)
-{
-  D();
-}
-
-static int prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags);
-static int prbvfsDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir);
-static int prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut);
-static int prbvfsFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut);
-static int prbvfsRandomness(sqlite3_vfs *pVfs, int nByte, char *zOut);
-static int prbvfsClose(sqlite3_file *pFile);
-
-static int prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst);
-static int prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst);
-static int prbvfsTruncate(sqlite3_file *pFile, sqlite3_int64 size);
-static int prbvfsSync(sqlite3_file *pFile, int flags);
-static int prbvfsFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize);
-static int prbvfsLock(sqlite3_file *pFile, int eLock);
-static int prbvfsUnlock(sqlite3_file *pFile, int eLock);
-static int prbvfsCheckReservedLock(sqlite3_file *pFile, int *pResOut);
-static int prbvfsFileControl(sqlite3_file *pFile, int op, void *pArg);
-static int prbvfsSectorSize(sqlite3_file *pFile);
-static int prbvfsDeviceCharacteristics(sqlite3_file *pFile);
-
-
-static sqlite3_vfs prbvfs = {
+sqlite3_vfs prbvfs = {
   1,                            /* iVersion */
   sizeof(PRBFile),              /* szOsFile */
-  MAX_PATHNAME,                 /* mxPathname */
+  PATHNAME_MAX_LEN,                 /* mxPathname */
   0,                            /* pNext */
   VFS_NAME,                     /* zName */
   0,                            /* pAppData */
@@ -69,6 +29,14 @@ static sqlite3_vfs prbvfs = {
   0,                            /* xGetSystemCall */
   0,                            /* xNextSystemCall */
 };
+
+void
+sqlite3Analyze(void *pParse, void *pName1, void *pName2)
+{
+  D();
+}
+
+
 
 void
 set_vm_for_vfs(mrbc_vm *vm)
@@ -105,17 +73,6 @@ static sqlite3_io_methods prbvfs_io_methods = {
   0,                            /* xFetch */
   0                             /* xUnfetch */
 };
-
-int prb_file_new(PRBFile *prbfile, const char *zName, int flags);
-int prb_file_close(PRBFile *prbfile);
-int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf);
-int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf);
-int prb_file_fsync(PRBFile *prbfile);
-int prb_file_seek(PRBFile *prbfile, int offset);
-int prb_file_tell(PRBFile *prbfile);
-int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName);
-int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName);
-int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int flags);
 
 #ifdef MRBC_ALLOC_LIBC
 #include <malloc.h>
@@ -191,183 +148,8 @@ sqlite3_os_end(void)
   return SQLITE_OK;
 }
 
-static void
-vfs_funcall(
-  void (*func)(mrbc_vm *, mrbc_value *, int),
-  mrbc_value *v,
-  int argc
-)
-{
-  mrbc_incref(&v[0]);
-  func(prbvfs.pAppData, &v[0], argc);
-}
-
-
-#define FLASH_VOLUME_NAME "flash"
 
 int
-prb_file_new(PRBFile *prbfile, const char *zName, int flags)
-{
-  D();
-  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
-  mrbc_value v[3];
-  v[0] = mrbc_nil_value();
-  v[1] = mrbc_string_new_cstr(vm, zName);
-  char mode[3];
-  if (flags & SQLITE_OPEN_CREATE) {
-    if (prb_file_exist_q(&prbvfs, zName)) {
-      mode[0] = 'r';
-    } else {
-      mode[0] = 'w';
-    }
-    mode[1] = '+';
-    mode[2] = '\0';
-  } else {
-    mode[0] = 'r';
-    mode[1] = '\0';
-  }
-  v[2] = mrbc_string_new_cstr(vm, mode);
-  vfs_funcall(vfs_methods.file_new, &v[0], 2);
-  if (v->tt == MRBC_TT_NIL) {
-    return -1;
-  }
-  prbfile->file = mrbc_alloc(vm, sizeof(mrbc_value));
-  memcpy(prbfile->file, &v[0], sizeof(mrbc_value));
-
-  /* FIXME: retrieve from the real filesystem */
-  if (strncmp(zName, FLASH_VOLUME_NAME, sizeof(FLASH_VOLUME_NAME)) == 0) {
-    prbfile->sector_size = 4096;
-  } else {
-    prbfile->sector_size = 512;
-  }
-
-  return 0;
-}
-
-int prb_file_close(PRBFile *prbfile)
-{
-  D();
-  mrbc_value v[1];
-  v[0] = *prbfile->file;
-  vfs_funcall(vfs_methods.file_close, &v[0], 0);
-  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
-  mrbc_free(vm, prbfile->file);
-  return 0;
-}
-
-int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
-{
-  D();
-  mrbc_value v[2];
-  v[0] = *prbfile->file;
-  v[1] = mrbc_integer_value(nBuf);
-  vfs_funcall(vfs_methods.file_read, &v[0], 1);
-  if (v->tt == MRBC_TT_NIL) {
-    return 0; /* EOF */
-  } else if (v->tt != MRBC_TT_STRING) {
-    return -1;
-  }
-  memcpy(zBuf, v[0].string->data, v[0].string->size);
-  return v[0].string->size;
-}
-
-int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
-{
-  D();
-  mrbc_vm *vm = (mrbc_vm *)prbfile->vm;
-  mrbc_value v[3];
-  v[0] = *prbfile->file;
-  v[1] = mrbc_string_new(vm, zBuf, nBuf);
-  v[2] = mrbc_integer_value(nBuf);
-  vfs_funcall(vfs_methods.file_write, &v[0], 2);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return v->i;
-}
-
-int prb_file_fsync(PRBFile *prbfile)
-{
-  D();
-  mrbc_value v[1];
-  v[0] = *prbfile->file;
-  vfs_funcall(vfs_methods.file_fsync, &v[0], 0);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return 0;
-}
-
-#define SEEK_SET 0
-
-int prb_file_seek(PRBFile *prbfile, int offset)
-{
-  D();
-  mrbc_value v[3];
-  v[0] = *prbfile->file;
-  v[1] = mrbc_integer_value(offset);
-  v[2] = mrbc_integer_value(SEEK_SET); // whence is always SEEK_SET
-  vfs_funcall(vfs_methods.file_seek, &v[0], 2);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return 0;
-}
-
-int prb_file_tell(PRBFile *prbfile)
-{
-  D();
-  mrbc_value v[1];
-  v[0] = *prbfile->file;
-  vfs_funcall(vfs_methods.file_tell, &v[0], 0);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return v->i;
-}
-
-int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
-{
-  D();
-  mrbc_vm *vm = prbvfs.pAppData;
-  mrbc_value v[2];
-  v[0] = mrbc_nil_value();
-  v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_funcall(vfs_methods.file_unlink, &v[0], 1);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return 0;
-}
-
-int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
-{
-  D();
-  mrbc_vm *vm = prbvfs.pAppData;
-  mrbc_value v[2];
-  v[0] = mrbc_nil_value();
-  v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_funcall(vfs_methods.file_exist_q, &v[0], 1);
-  return (v->tt == MRBC_TT_TRUE);
-}
-
-int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
-{
-  D();
-  mrbc_vm *vm = prbvfs.pAppData;
-  mrbc_value v[2];
-  v[0] = mrbc_nil_value();
-  v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_funcall(vfs_methods.file_stat, &v[0], 1);
-  if (v->tt != MRBC_TT_INTEGER) {
-    return -1;
-  }
-  return 0; // TODO
-}
-
-
-
-static int
 prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
 {
   D();
@@ -385,14 +167,14 @@ prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags,
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir)
 {
   D();
   return prb_file_unlink(pVfs, zName);
 }
 
-static int
+int
 prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
 {
   D();
@@ -416,7 +198,7 @@ prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut)
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut)
 {
   D();
@@ -425,14 +207,14 @@ prbvfsFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut)
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsRandomness(sqlite3_vfs *pVfs, int nByte, char *zOut)
 {
   D();
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsClose(sqlite3_file *pFile)
 {
   D();
@@ -440,7 +222,7 @@ prbvfsClose(sqlite3_file *pFile)
   return prb_file_close(prbfile);
 }
 
-static int
+int
 prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   D();
@@ -452,7 +234,7 @@ prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst)
 }
 
 
-static int
+int
 prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst)
 {
   D();
@@ -463,14 +245,14 @@ prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst
   return (iAmt == prb_file_write(prbfile, zBuf, iAmt)) ? SQLITE_OK : SQLITE_IOERR_WRITE;
 }
 
-static int
+int
 prbvfsTruncate(sqlite3_file *pFile, sqlite3_int64 size)
 {
   D();
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsSync(sqlite3_file *pFile, int flags)
 {
   D();
@@ -478,7 +260,7 @@ prbvfsSync(sqlite3_file *pFile, int flags)
   return prb_file_fsync(prbfile);
 }
 
-static int
+int
 prbvfsFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
 {
   D();
@@ -490,21 +272,21 @@ prbvfsFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize)
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsLock(sqlite3_file *pFile, int eLock)
 {
   D();
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsUnlock(sqlite3_file *pFile, int eLock)
 {
   D();
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsCheckReservedLock(sqlite3_file *pFile, int *pResOut)
 {
   D();
@@ -512,14 +294,14 @@ prbvfsCheckReservedLock(sqlite3_file *pFile, int *pResOut)
   return SQLITE_OK;
 }
 
-static int
+int
 prbvfsFileControl(sqlite3_file *pFile, int op, void *pArg)
 {
   D();
   return SQLITE_NOTFOUND;
 }
 
-static int
+int
 prbvfsSectorSize(sqlite3_file *pFile)
 {
   D();
@@ -527,11 +309,10 @@ prbvfsSectorSize(sqlite3_file *pFile)
   return prbfile->sector_size;
 }
 
-static int
+int
 prbvfsDeviceCharacteristics(sqlite3_file *pFile)
 {
   D();
   return 0;
 }
-
 
