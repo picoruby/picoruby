@@ -24,6 +24,7 @@ class Keyboard
                    | RotaryEncoder
                    | VIA
                    | Joystick
+                   | MIDI
                    | Mouse
                    | Sounder
                    | DebounceNone
@@ -101,6 +102,7 @@ class Keyboard
   @entire_cols_size: Integer
   @skip_positions: Array[[Integer, Integer]]
   @joystick: Joystick
+  @midi: MIDI
   @mouse: Mouse
   @output_report_cb: ^(Integer)->void
   @prev_rgb_effect: effect_type
@@ -121,6 +123,7 @@ class Keyboard
   attr_accessor default_layer: Symbol
   attr_accessor sounder: Sounder
   attr_accessor modifier: Integer
+  attr_accessor midi: MIDI
 
   attr_reader layer: Symbol | nil
   attr_reader split_style: split_style_type
