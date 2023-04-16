@@ -10,6 +10,7 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-prk-consumer_key'
   conf.gem core: 'picoruby-prk-debounce'
   conf.gem core: 'picoruby-prk-joystick'
+  conf.gem core: 'picoruby-prk-midi'
   conf.gem core: 'picoruby-prk-mouse'
   conf.gem core: 'picoruby-prk-keyboard'
   conf.gem core: 'picoruby-prk-rgb'

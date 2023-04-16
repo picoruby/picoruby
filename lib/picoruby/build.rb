@@ -47,7 +47,7 @@ module MRuby
       gem core: 'picoruby-mrubyc'
       case picoruby_conf
       when :default
-        %w(MRBC_USE_MATH=1 MRBC_INT64=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255).each do |define|
+        %w(MRBC_USE_MATH=1 MRBC_INT64=1 MAX_SYMBOLS_COUNT=2000 MAX_VM_COUNT=255).each do |define|
           key, _value = define.split("=")
           cc.defines << define if cc.defines.none? { _1.start_with? key }
         end

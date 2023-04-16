@@ -1,6 +1,7 @@
 if RUBY_ENGINE == 'mruby/c'
   require "gpio"
   require "debounce"
+  require "midi"
   require "rgb"
   require "rotary_encoder"
   require "sandbox"
@@ -555,7 +556,7 @@ class Keyboard
     @anchor_signals = Array.new
   end
 
-  attr_accessor :split, :uart_pin, :default_layer, :sounder, :modifier
+  attr_accessor :split, :uart_pin, :default_layer, :sounder, :modifier, :midi
   attr_reader :layer, :split_style, :cols_size, :rows_size, :keycodes
 
   def anchor?
@@ -660,6 +661,9 @@ class Keyboard
     when "Sounder"
       # @type var feature: Sounder
       @sounder = feature
+    when "MIDI"
+      # @type var feature: MIDI
+      @midi = feature
     end
   end
 
@@ -886,6 +890,8 @@ class Keyboard
     elsif required?("consumer_key") && keycode = ConsumerKey.keycode(key)
       # You need to `require "consumer_key"`
       keycode + ConsumerKey::MAP_OFFSET
+    elsif required?("midi") && keycode = MIDI.keycode(key)
+      keycode + MIDI::MAP_OFFSET
     elsif key.to_s.start_with?("JS_BUTTON")
       # JS_BUTTON0 - JS_BUTTON31
       # You need to `require "joystick"`
@@ -1299,6 +1305,7 @@ class Keyboard
           #   0x300.. 0x3FF : Mouse
           #   0x400.. 0x6FF : Consumer (media) key
           #   0x700.. 0x7FF : RGB
+          #   0x800.. 0x8FF : MIDI
           if keycode < -0xFF
             @keycodes << ((keycode + 0x100) * -1)
             @modifier |= 0b00100000
@@ -1336,6 +1343,10 @@ class Keyboard
             consumer_keycode = ConsumerKey.keycode_from_mapcode(keycode)
           elsif keycode < 0x800
             message_to_partner = $rgb&.invoke_anchor(RGB::KEYCODE.key(keycode)) || 0
+          elsif keycode < 0x900
+            midi_keycode = MIDI.keycode_from_mapcode(keycode)
+            @keycodes << keycode
+            @midi&.update_event(midi_keycode, :press)
           else
             puts "[ERROR] Wrong keycode: 0x#{keycode.to_s(16)}"
           end
@@ -1385,6 +1396,14 @@ class Keyboard
           @mouse.task_proc&.call(@mouse, self)
         end
 
+        if @midi
+          @midi.key_states.each do |keycode, state|
+            if state == :pressed && !@keycodes.include?(keycode + MIDI::MAP_OFFSET)
+              @midi.update_event(keycode, :release)
+            end
+          end
+        end
+
         USB.hid_task(@modifier, @keycodes, consumer_keycode)
 
         if @locked_layer
@@ -1421,6 +1440,7 @@ class Keyboard
       end
 
       @via&.task
+      @midi&.task
 
       # CapsLock, NumLock, etc.
       if prev_output_report != USB.output_report && @output_report_cb

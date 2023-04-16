@@ -1,0 +1,40 @@
+# TypeProf 0.14.1
+
+# Global variables
+
+class MIDI
+  type midi_event = Integer
+
+  NOTE_OFF_EVENT:        midi_event
+  NOTE_ON_EVENT:         midi_event
+  CONTROL_CHANGE_EVENT:  midi_event
+  PROGRAM_CHANGE_EVENT:  midi_event
+  MAX_EVENT:             Integer
+  KEYCODE: Hash[Symbol, Integer]
+  VELOCITY_VALUES:       Array[Integer]
+  MAP_OFFSET:            Integer
+
+  def self.init: () -> void
+  def self.write: (Array[Integer]) -> void
+  def self.keycode: (Symbol) -> Integer?
+  def self.keycode_from_mapcode: (Integer) -> Integer
+  def self.keycode_to_note_number: (Integer) -> Integer
+
+  @channel: Integer
+  @octave_offset: Integer
+  @transpose_offset: Integer
+  @velocity_offset: Integer
+  @buffer: Array[Array[Integer]]
+  @key_states: Hash[Integer, Symbol]
+
+  attr_accessor channel: Integer
+  attr_accessor key_states: Hash[Integer, Symbol]
+
+  def initialize: () -> void
+  def update_event: (Integer, Symbol) -> void
+  def note_on: (Integer, Integer | nil) -> void
+  def note_off: (Integer, Integer | nil) -> void
+  def send_pc: (Integer) -> void
+  def send_cc: (Integer, Integer) -> void
+  def task: () -> void
+end
