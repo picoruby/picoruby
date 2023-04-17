@@ -13,9 +13,12 @@ when "mruby/c"
 end
 
 begin
-  Shell.setup(:ram)
   IO.wait_and_clear
-  Shell.new.start(:shell)
+  $shell = Shell.new
+  $shell.show_logo
+  $shell.setup_root_volume(:ram)
+  $shell.setup_system_files
+  $shell.start
 rescue => e
   puts e.message
   exit

@@ -80,7 +80,7 @@ class Shell
     puts "\e[0m"
   end
 
-  def self.setup(device, label: "PicoRuby")
+  def setup_root_volume(device, label: "PicoRuby")
     sleep 1 if device == :sd
     return if VFS.volume_index("/")
     fat = FAT.new(device, label: label)
@@ -90,27 +90,29 @@ class Shell
       VFS.mount(fat, "/")
     rescue => e
       puts e.message
+      puts "Try to format the volume..."
       fat.mkfs
       retry_count += 1
       retry if retry_count == 1
       raise e
     end
-    %w(bin var home).each do |dir|
-      begin
-        Dir.mkdir dir
-      rescue => e
-        puts "#{dir}: #{e.message}"
-      end
-    end
-    while exe = _next_executable
-      unless File.exist? "/bin/#{exe[:name]}"
-        f = File.open "/bin/#{exe[:name]}", "w"
-        f.expand exe[:code].length
-        f.write exe[:code]
-        f.close
-      end
-    end
     Dir.chdir ENV['HOME'].to_s
+  end
+
+  def setup_system_files(force: false)
+    Dir.chdir("/") do
+      %w(bin var home).each do |dir|
+        Dir.mkdir(dir) unless Dir.exist?(dir)
+      end
+      while exe = _next_executable
+        if force || !File.exist?("/bin/#{exe[:name]}")
+          f = File.open "/bin/#{exe[:name]}", "w"
+          f.expand exe[:code].length
+          f.write exe[:code]
+          f.close
+        end
+      end
+    end
   end
 
   def start(mode = :shell)
@@ -120,13 +122,17 @@ class Shell
       run_irb
       puts
     when :shell
-      show_logo
       run_shell
       print "\nbye\e[0m"
       exit
       return
     end
   end
+
+  def exit(code = 0)
+    raise # to restart
+  end
+
 
   def run_shell
     command = Command.new
