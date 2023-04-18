@@ -40,7 +40,11 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   if (sandbox_vm->regs[ss->p->scope->sp].tt == MRBC_TT_EMPTY) {
-    // fallback but FIXME
+    /*
+     * This bug was fixed in
+     * https://github.com/picoruby/mruby-pico-compiler/commit/4f39ddc
+     * but I leave this workaround in case of the bug is still there.
+     */
     console_printf("Oops, return value is gone\n");
     SET_NIL_RETURN();
   } else {
