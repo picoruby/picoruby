@@ -7,7 +7,14 @@ class SQLite3
       def new(filename)
         volume, path = VFS.sanitize_and_split(filename)
         SQLite3.vfs_methods = volume[:driver].class.vfs_methods
-        SQLite3::Database._open "#{volume[:driver].prefix}#{path}"
+        db = SQLite3::Database._open("#{volume[:driver].prefix}#{path}")
+        return db unless block_given?
+        begin
+          yield db
+        ensure
+          db.close
+        end
+        return db
       end
       alias :open :new
     end
