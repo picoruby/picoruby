@@ -86,7 +86,6 @@ class Shell
     fat = FAT.new(device, label: label)
     retry_count = 0
     begin
-      puts "#{fat.class} #{fat}"
       VFS.mount(fat, "/")
     rescue => e
       puts e.message
