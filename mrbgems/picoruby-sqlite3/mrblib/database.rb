@@ -8,29 +8,39 @@ class SQLite3
         volume, path = VFS.sanitize_and_split(filename)
         SQLite3.vfs_methods = volume[:driver].class.vfs_methods
         db = SQLite3::Database._open("#{volume[:driver].prefix}#{path}")
-        return db unless block_given?
-        begin
-          yield db
-        ensure
-          db.close
+        if block_given?
+          begin
+            yield db
+          ensure
+            db.close
+          end
         end
         return db
       end
       alias :open :new
     end
 
-    def execute(sql, *params, &block)
-      rows = _execute(sql, params)
-      return rows unless block
-      case rows
-      when Array
-        rows.each do |row|
-          block.call(row)
+    def execute(sql, bind_vars = [])
+      prepare(sql) do |stmt|
+        stmt.bind_params(*bind_vars)
+        resultset = SQLite3::ResultSet.new(self, stmt)
+        if block_given?
+          resultset.each do |row|
+            yield row
+          end
+        else
+          resultset.to_a
         end
-      when Hash
-        rows.each do |key, value|
-          block.call(key, value)
-        end
+      end
+    end
+
+    def prepare(sql)
+      stmt = SQLite3::Statement.new(self, sql)
+      return stmt unless block_given?
+      begin
+        yield stmt
+      ensure
+        stmt.close unless stmt.closed?
       end
     end
   end

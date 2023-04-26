@@ -15,6 +15,9 @@ vfs_funcall(
   int argc
 )
 {
+  /*
+   * TODO: when mrbc_decref() should be called?
+   */
   mrbc_incref(&v[0]);
   func(prbvfs.pAppData, &v[0], argc);
 }
