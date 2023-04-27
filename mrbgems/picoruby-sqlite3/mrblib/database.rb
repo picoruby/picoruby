@@ -4,7 +4,7 @@ require "time"
 class SQLite3
   class Database
     class << self
-      def new(filename)
+      def new(filename, results_as_hash: false)
         volume, path = VFS.sanitize_and_split(filename)
         SQLite3.vfs_methods = volume[:driver].class.vfs_methods
         db = SQLite3::Database._open("#{volume[:driver].prefix}#{path}")
@@ -15,10 +15,13 @@ class SQLite3
             db.close
           end
         end
+        db.results_as_hash = results_as_hash
         return db
       end
       alias :open :new
     end
+
+    attr_accessor :results_as_hash
 
     def execute(sql, bind_vars = [])
       prepare(sql) do |stmt|

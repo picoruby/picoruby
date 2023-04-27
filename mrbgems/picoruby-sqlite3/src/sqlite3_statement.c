@@ -55,7 +55,6 @@ c_Statement_new(mrbc_vm *vm, mrbc_value v[], int argc)
   SETIV(remainder, &remainder);
   SETIV(columns, &mrbc_nil_value());
   SETIV(types, &mrbc_nil_value());
-//  mrbc_incref(&self);
 }
 
 static void
@@ -146,8 +145,6 @@ c_Statement_reset_bang(mrbc_vm *vm, mrbc_value v[], int argc)
   DbStatement *cxt = (DbStatement *)v[0].instance->data;
   sqlite3_reset(cxt->st);
   cxt->done_p = 0;
-  SET_RETURN(v[0]);
-  mrbc_incref(&v[0]);
 }
 
 static void
@@ -198,8 +195,28 @@ c_Statement_bind_param(mrbc_vm *vm, mrbc_value v[], int argc)
       break;
   }
   prb_sqlite3_raise(vm, sqlite3_db_handle(cxt->st), status);
-  mrbc_incref(&v[0]);
-  SET_RETURN(v[0]);
+}
+
+static void
+c_Statement_column_name(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  DbStatement *cxt = (DbStatement *)v[0].instance->data;
+  int index = GET_INT_ARG(1);
+  const char *name = sqlite3_column_name(cxt->st, index);
+  if (name) {
+    SET_RETURN(mrbc_string_new_cstr(vm, name));
+  } else {
+    SET_NIL_RETURN();
+  }
+}
+
+static void
+c_Statement_column_decltype(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  DbStatement *cxt = (DbStatement *)v[0].instance->data;
+  int index = GET_INT_ARG(1);
+  const char *name = sqlite3_column_decltype(cxt->st, index);
+  SET_RETURN(mrbc_string_new_cstr(vm, name));
 }
 
 void
@@ -217,5 +234,7 @@ mrbc_init_class_SQLite3_Statement(void)
   mrbc_define_method(0, class_SQLite3_Statement, "done?", c_Statement_done_q);
   mrbc_define_method(0, class_SQLite3_Statement, "column_count", c_Statement_column_count);
   mrbc_define_method(0, class_SQLite3_Statement, "bind_param", c_Statement_bind_param);
+  mrbc_define_method(0, class_SQLite3_Statement, "column_name", c_Statement_column_name);
+  mrbc_define_method(0, class_SQLite3_Statement, "column_decltype", c_Statement_column_decltype);
 }
 

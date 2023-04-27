@@ -11,7 +11,7 @@ Dir.open "/" do |dir|
   end
 end
 
-db = SQLite3::Database.new "/home/test.db"
+db = SQLite3::Database.new "/home/test.db", results_as_hash: true
 
 #db.execute("SELECT CURRENT_TIME;") do |row|
 #  p row
@@ -31,6 +31,12 @@ stmt.execute "Principessa Pesca"
 #stmt.bind_params "Kuppa"
 #puts 4
 #stmt.execute
+
+db.execute("SELECT * FROM test;") do |row|
+  p row
+end
+
+db.results_as_hash = false
 
 db.execute("SELECT * FROM test;") do |row|
   p row

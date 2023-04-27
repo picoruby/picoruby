@@ -39,17 +39,17 @@ class SQLite3
     end
 
     def next
-    #  if @db.results_as_hash
-    #    return next_hash
-    #  end
       row = @stmt.step
-      return nil if @stmt.done?
-      row
-    end
-
-
-    def to_a
-      []
+      return nil if @stmt.done? || row.nil?
+      if @db.results_as_hash
+        row_hash = {}
+        @stmt.columns&.each_with_index do |column, i|
+          row_hash[column] = row[i]
+        end
+        row_hash
+      else
+        row
+      end
     end
   end
 end

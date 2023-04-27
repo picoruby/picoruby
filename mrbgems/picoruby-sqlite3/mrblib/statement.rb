@@ -29,8 +29,8 @@ class SQLite3
     end
 
     def columns
-#      get_metadata unless @columns
-#      return @columns
+      get_metadata unless @columns
+      return @columns
     end
 
 #    def each
@@ -42,9 +42,24 @@ class SQLite3
 #    end
 
     def types
-#      must_be_open!
-#      get_metadata unless @types
+      must_be_open!
+      get_metadata unless @types
       @types
+    end
+
+    def must_be_open!
+      if closed?
+        raise SQLite3::Exception.new("cannot use a closed statement")
+      end
+    end
+
+    def get_metadata
+      @columns = Array.new(column_count)
+      @types = Array.new(column_count)
+      column_count.times do |column|
+        @columns[column] = column_name(column)
+        @types[column] = column_decltype(column)
+      end
     end
   end
 end
