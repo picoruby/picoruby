@@ -11,32 +11,35 @@ Dir.open "/" do |dir|
   end
 end
 
-db = SQLite3::Database.new "/home/test.db", results_as_hash: true
+db = SQLite3::Database.new "/home/test.db"
 
-#db.execute("SELECT CURRENT_TIME;") do |row|
-#  p row
-#end
-
-#  db.execute "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT);"
-#db.execute "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);"
-stmt = db.prepare "CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, name TEXT);"
+stmt = db.prepare "CREATE TABLE IF NOT EXISTS test
+  (
+    id INTEGER PRIMARY KEY,
+    name TEXT,
+    created_at TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
+    updated_at TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
+  );"
 stmt.execute
 stmt = db.prepare "INSERT INTO test (name) VALUES (?);"
 stmt.execute "Mario"
+sleep 0.1
 stmt.execute "Luigi"
-stmt.execute "Kuppa"
-stmt.execute "Principessa Pesca"
+sleep 0.05
+stmt.execute "Koopa"
+sleep 0.01
+stmt.execute "Pesca"
 
-
-#stmt.bind_params "Kuppa"
-#puts 4
-#stmt.execute
+#db.execute("SELECT datetime('now', '+9 hours');") do |row|
+db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');") do |row|
+  p row
+end
 
 db.execute("SELECT * FROM test;") do |row|
   p row
 end
 
-db.results_as_hash = false
+db.results_as_hash = true
 
 db.execute("SELECT * FROM test;") do |row|
   p row
@@ -55,3 +58,9 @@ p File::Stat.new("/home/test.db").size
 #end
 #db.close
 
+now = Time.now
+p now.to_s
+p now.inspect
+p now.to_i
+p now.to_f - now.to_i
+p now.usec

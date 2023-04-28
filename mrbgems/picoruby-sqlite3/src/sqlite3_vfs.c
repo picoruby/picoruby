@@ -6,7 +6,7 @@
 #define D() (void)0
 
 sqlite3_vfs prbvfs = {
-  1,                            /* iVersion */
+  3,                            /* iVersion */
   sizeof(PRBFile),              /* szOsFile */
   PATHNAME_MAX_LEN,                 /* mxPathname */
   0,                            /* pNext */
@@ -24,7 +24,7 @@ sqlite3_vfs prbvfs = {
   0,                            /* xSleep */
   0,                            /* xCurrentTime */
   0,                            /* xGetLastError */
-  0,                            /* xCurrentTimeInt64 */
+  prbvfsCurrentTimeInt64,       /* xCurrentTimeInt64 */
   0,                            /* xSetSystemCall */
   0,                            /* xGetSystemCall */
   0,                            /* xNextSystemCall */
@@ -211,6 +211,15 @@ int
 prbvfsRandomness(sqlite3_vfs *pVfs, int nByte, char *zOut)
 {
   D();
+  return SQLITE_OK;
+}
+
+int
+prbvfsCurrentTimeInt64(sqlite3_vfs *pVfs, sqlite3_int64 *piNow)
+{
+  D();
+  static const sqlite3_int64 unixEpoch = 24405875 * (sqlite3_int64)8640000;
+  *piNow = unixEpoch + prb_time_gettime_us();
   return SQLITE_OK;
 }
 

@@ -2,14 +2,11 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
+#include "../include/time-class.h"
 
-typedef struct {
-  struct tm  tm;
-  time_t     unixtime;
-  long int   timezone;
-} PICORUBY_TIME;
+#define USEC 1000000
 
+static mrbc_class *class_TimeMethods;
 
 static mrbc_int_t
 mrbc_Integer(struct VM *vm, mrbc_value value)
@@ -96,22 +93,23 @@ c_hwclock_eq(struct VM *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "value is not a Time");
     return;
   }
-  time_t unixtime = ((PICORUBY_TIME *)value.instance->data)->unixtime;
+  time_t unixtime = ((PICORUBY_TIME *)value.instance->data)->unixtime_us / USEC;
   unixtime_offset = unixtime - time(NULL);
 }
 
 static mrbc_value
-new_from_unixtime(struct VM *vm, mrbc_value v[], time_t unixtime)
+new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
 {
   tz_env_set(vm);
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
-  data->unixtime = unixtime + unixtime_offset;
-  localtime_r(&data->unixtime, &data->tm);
+  data->unixtime_us = unixtime_us + unixtime_offset * USEC;
+  time_t unixtime = data->unixtime_us / USEC;
+  localtime_r(&unixtime, &data->tm);
 #ifdef _POSIX_VERSION
-  data->timezone = timezone;  /* global variable from time.h */
+  data->timezone = timezone;  /* global variable from time.h of glibc */
 #else
-  data->timezone = _timezone;
+  data->timezone = _timezone; /* newlib? */
 #endif
   return value;
 }
@@ -122,7 +120,7 @@ new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
   tz_env_set(vm);
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
-  data->unixtime = mktime(tm);
+  data->unixtime_us = mktime(tm) * USEC;
   memcpy(&data->tm, tm, sizeof(struct tm));
 #ifdef _POSIX_VERSION
   data->timezone = timezone;
@@ -177,7 +175,7 @@ c_at(struct VM *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1)");
     return;
   }
-  SET_RETURN(new_from_unixtime(vm, v, (time_t)GET_INT_ARG(1) - unixtime_offset));
+  SET_RETURN(new_from_unixtime_us(vm, v, (mrbc_int_t)((time_t)GET_INT_ARG(1) - unixtime_offset) * USEC));
 }
 
 static void
@@ -187,7 +185,15 @@ c_now(struct VM *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  SET_RETURN(new_from_unixtime(vm, v, time(NULL)));
+#if defined(NO_CLOCK_GETTIME)
+  struct timeval tv;
+  gettimeofday(&tv, 0);
+  SET_RETURN(new_from_unixtime_us(vm, v, (mrbc_int_t)(tv.tv_sec * USEC + tv.tv_usec)));
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  SET_RETURN(new_from_unixtime_us(vm, v, (mrbc_int_t)(ts.tv_sec * USEC + ts.tv_nsec / 1000)));
+#endif
 }
 
 
@@ -212,13 +218,20 @@ static void
 c_to_i(struct VM *vm, mrbc_value v[], int argc)
 {
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
-  SET_INT_RETURN((mrbc_int_t)data->unixtime);
+  SET_INT_RETURN((mrbc_int_t)data->unixtime_us / USEC);
 }
 
-#define MINIMUN_INSPECT_LENGTH 25
+static void
+c_to_f(struct VM *vm, mrbc_value v[], int argc)
+{
+  PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
+  SET_FLOAT_RETURN((mrbc_float_t)data->unixtime_us / USEC);
+}
+
+#define MINIMUN_INSPECT_LENGTH 30
 
 static void
-c_inspect(struct VM *vm, mrbc_value v[], int argc)
+c_to_s(struct VM *vm, mrbc_value v[], int argc)
 {
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
@@ -238,6 +251,35 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
     tm->tm_hour,
     tm->tm_min,
     tm->tm_sec,
+    (0 < data->timezone ? '-' : (data->timezone == 0 ? ' ' : '+')),
+    (int)(a / 60),
+    (int)(a % 60)
+  );
+  SET_RETURN(mrbc_string_new_cstr(vm, str));
+}
+
+static void
+c_inspect(struct VM *vm, mrbc_value v[], int argc)
+{
+  PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
+  struct tm *tm = &data->tm;
+  char str[MINIMUN_INSPECT_LENGTH + 10];
+  long int a = labs(data->timezone) / 60;
+  int year = tm->tm_year + 1900;
+  if (year < 0) {
+    sprintf(str, "%05d", year);
+  } else if (year < 10000) {
+    sprintf(str, "%04d", year);
+  } else {
+    sprintf(str, "%d", year);
+  }
+  sprintf(str + strlen(str), "-%02d-%02d %02d:%02d:%02d.%06ld %c%02d%02d",
+    tm->tm_mon + 1,
+    tm->tm_mday,
+    tm->tm_hour,
+    tm->tm_min,
+    tm->tm_sec,
+    (long int)(data->unixtime_us % USEC),
     (0 < data->timezone ? '-' : (data->timezone == 0 ? ' ' : '+')),
     (int)(a / 60),
     (int)(a % 60)
@@ -276,6 +318,11 @@ c_sec(struct VM *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_sec);
 }
 static void
+c_usec(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->unixtime_us % USEC);
+}
+static void
 c_wday(struct VM *vm, mrbc_value v[], int argc)
 {
   SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_wday);
@@ -287,11 +334,11 @@ mrbc_time_compare(mrbc_value *self, mrbc_value *other)
   if (other->tt != MRBC_TT_OBJECT || self->instance->cls != other->instance->cls) {
     return -2;
   }
-  time_t other_unixtime = ((PICORUBY_TIME *)other->instance->data)->unixtime;
-  time_t self_unixtime = ((PICORUBY_TIME *)self->instance->data)->unixtime;
-  if (self_unixtime < other_unixtime) {
+  mrbc_int_t other_unixtime_us = ((PICORUBY_TIME *)other->instance->data)->unixtime_us;
+  mrbc_int_t self_unixtime_us = ((PICORUBY_TIME *)self->instance->data)->unixtime_us;
+  if (self_unixtime_us < other_unixtime_us) {
     return -1;
-  } else if (other_unixtime < self_unixtime) {
+  } else if (other_unixtime_us < self_unixtime_us) {
     return 1;
   } else {
     return 0;
@@ -386,10 +433,24 @@ c_gte(struct VM *vm, mrbc_value v[], int argc)
   }
 }
 
+static void
+c_time_methods(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  prb_time_methods m = {
+    c_now
+  };
+  mrbc_value methods = mrbc_instance_new(vm, class_TimeMethods, sizeof(prb_time_methods));
+  memcpy(methods.instance->data, &m, sizeof(prb_time_methods));
+  SET_RETURN(methods);
+}
 void
 mrbc_time_class_init(void)
 {
   mrbc_class *class_Time = mrbc_define_class(0, "Time", mrbc_class_object);
+  mrbc_sym symid = mrbc_search_symid("TimeMethods");
+  mrbc_value *v = mrbc_get_class_const(class_Time, symid);
+  class_TimeMethods = v->cls;
+
   mrbc_define_method(0, class_Time, "unixtime_offset", c_unixtime_offset);
   mrbc_define_method(0, class_Time, "hwclock=", c_hwclock_eq);
   mrbc_define_method(0, class_Time, "mktime", c_local);
@@ -398,7 +459,8 @@ mrbc_time_class_init(void)
   mrbc_define_method(0, class_Time, "now", c_now);
   mrbc_define_method(0, class_Time, "new", c_new);
   mrbc_define_method(0, class_Time, "to_i", c_to_i);
-  mrbc_define_method(0, class_Time, "to_s", c_inspect);
+  mrbc_define_method(0, class_Time, "to_f", c_to_f);
+  mrbc_define_method(0, class_Time, "to_s", c_to_s);
   mrbc_define_method(0, class_Time, "inspect", c_inspect);
   mrbc_define_method(0, class_Time, "year", c_year);
   mrbc_define_method(0, class_Time, "mon",  c_mon);
@@ -406,6 +468,7 @@ mrbc_time_class_init(void)
   mrbc_define_method(0, class_Time, "hour", c_hour);
   mrbc_define_method(0, class_Time, "min",  c_min);
   mrbc_define_method(0, class_Time, "sec",  c_sec);
+  mrbc_define_method(0, class_Time, "usec", c_usec);
   mrbc_define_method(0, class_Time, "wday", c_wday);
   mrbc_define_method(0, class_Time, "<=>", c_compare);
   mrbc_define_method(0, class_Time, "==", c_eq);
@@ -413,4 +476,6 @@ mrbc_time_class_init(void)
   mrbc_define_method(0, class_Time, "<=", c_lte);
   mrbc_define_method(0, class_Time, ">",  c_gt);
   mrbc_define_method(0, class_Time, ">=", c_gte);
+
+  mrbc_define_method(0, class_Time, "time_methods", c_time_methods);
 }

@@ -10,6 +10,10 @@
 extern "C" {
 #endif
 
+#ifndef MRBC_INT64
+#define MRBC_INT64 1
+#endif
+
 typedef struct {
   sqlite3 *db;
   bool closed;

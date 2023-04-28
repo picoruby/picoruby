@@ -22,6 +22,19 @@ vfs_funcall(
   func(prbvfs.pAppData, &v[0], argc);
 }
 
+mrbc_int_t
+prb_time_gettime_us(void)
+{
+  D();
+  mrbc_value v[1];
+  v[0] = mrbc_nil_value();
+  vfs_funcall(time_methods.time_now, &v[0], 0);
+  if (v->tt == MRBC_TT_NIL) {
+    return 0;
+  }
+  PICORUBY_TIME * data = (PICORUBY_TIME *)v[0].instance->data;
+  return data->unixtime_us / 1000;
+}
 
 int
 prb_file_new(PRBFile *prbfile, const char *zName, int flags)

@@ -1,4 +1,7 @@
 class Time
+  class TimeMethods
+  end
+
   def sunday?    = wday == 0
   def monday?    = wday == 1
   def tuesday?   = wday == 2

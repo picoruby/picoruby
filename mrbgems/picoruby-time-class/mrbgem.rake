@@ -5,6 +5,8 @@ MRuby::Gem::Specification.new('picoruby-time-class') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Time class'
 
+  spec.cc.defines << "_POSIX_TIMERS" # for clock_gettime()
+
   spec.require_name = 'time'
 end
 

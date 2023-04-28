@@ -20,6 +20,8 @@ typedef struct PRBFile
   int sector_size;
 } PRBFile;
 
+mrbc_int_t prb_time_gettime_us(void);
+
 int prb_file_new(PRBFile *prbfile, const char *zName, int flags);
 int prb_file_close(PRBFile *prbfile);
 int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf);
@@ -30,6 +32,7 @@ int prb_file_tell(PRBFile *prbfile);
 int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int flags);
+
 void vfs_funcall(
   void (*func)(mrbc_vm *, mrbc_value *, int),
   mrbc_value *v,

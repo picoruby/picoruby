@@ -17,7 +17,7 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.cc.defines << "SQLITE_OMIT_DEPRECATED=1"
   spec.cc.defines << "SQLITE_OMIT_EXPLAIN=1"
   spec.cc.defines << "SQLITE_OMIT_LOAD_EXTENSION=1"
-  spec.cc.defines << "SQLITE_OMIT_LOCALTIME=1"
+  spec.cc.defines << "SQLITE_OMIT_LOCALTIME=0"
   spec.cc.defines << "SQLITE_OMIT_LOOKASIDE=1"
   spec.cc.defines << "SQLITE_OMIT_PROGRESS_CALLBACK=1"
   spec.cc.defines << "SQLITE_OMIT_QUICKBALANCE=1"
