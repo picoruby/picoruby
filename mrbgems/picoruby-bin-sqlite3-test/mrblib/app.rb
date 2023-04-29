@@ -31,6 +31,11 @@ sleep 0.01
 stmt.execute "Pesca"
 
 #db.execute("SELECT datetime('now', '+9 hours');") do |row|
+resultset = db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');")
+resultset.each do |row|
+  p row
+end
+
 db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');") do |row|
   p row
 end

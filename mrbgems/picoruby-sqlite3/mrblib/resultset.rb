@@ -32,6 +32,14 @@ class SQLite3
       @stmt.columns
     end
 
+    def to_a
+      rows = []
+      while row = self.next
+        rows << row
+      end
+      rows
+    end
+
     def each
       while node = self.next
         yield node

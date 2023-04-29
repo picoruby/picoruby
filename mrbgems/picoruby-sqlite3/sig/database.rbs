@@ -10,7 +10,7 @@ class SQLite3
 
     def close: -> void
     def closed?: -> bool
-    def execute: (String sql, ?Array[var_t] bind_vars) -> Array[SQLite3::ResultSet]
+    def execute: (String sql, ?Array[var_t] bind_vars) -> Array[Array[var_t] | Hash[String, var_t]]
                | (String sql, ?Array[var_t] bind_vars) { (Array[var_t]) -> Array[var_t] } -> nil
                | (String sql, ?Array[var_t] bind_vars) { (Hash[String, var_t]) -> Hash[String, var_t] } -> nil
     def _execute: (String sql, Array[var_t] params) -> Array[var_t]
