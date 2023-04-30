@@ -5,7 +5,7 @@
 #include "../../picoruby-time-class/include/time-class.h"
 #include "../../picoruby-filesystem-fat/include/fat.h"
 #include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
-#include "sqlite3_file.h"
+#include "sqlite3_prb_methods.h"
 
 #ifdef __cplusplus
 extern "C" {

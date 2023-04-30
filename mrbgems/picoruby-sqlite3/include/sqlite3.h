@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <mrubyc.h>
-#include "sqlite3_vfs.h"
+#include "sqlite3_vfs_methods.h"
 #include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
 
 #ifdef __cplusplus

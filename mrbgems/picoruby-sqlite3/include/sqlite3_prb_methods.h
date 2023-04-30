@@ -2,7 +2,7 @@
 #define SQLITE3_FILE_DEFINED_H_
 
 #include <mrubyc.h>
-#include "sqlite3_vfs.h"
+#include "sqlite3_prb_methods.h"
 #include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
 
 #ifdef __cplusplus

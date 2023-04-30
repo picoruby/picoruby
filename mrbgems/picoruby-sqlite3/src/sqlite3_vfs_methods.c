@@ -1,4 +1,4 @@
-#include "../include/sqlite3_vfs.h"
+#include "../include/sqlite3_vfs_methods.h"
 
 #include <stdio.h>
 

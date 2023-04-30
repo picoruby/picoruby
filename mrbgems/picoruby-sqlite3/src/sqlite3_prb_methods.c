@@ -1,4 +1,4 @@
-#include "../include/sqlite3_file.h"
+#include "../include/sqlite3_prb_methods.h"
 
 #include <stdio.h>
 
