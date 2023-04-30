@@ -32,6 +32,7 @@ class MIDI
 
   def initialize: () -> void
   def update_event: (Integer, Symbol) -> void
+  def process_request: (Integer, Hash[Symbol, Integer | String]) -> void
   def note_on: (Integer, Integer | nil) -> void
   def note_off: (Integer, Integer | nil) -> void
   def send_pc: (Integer) -> void

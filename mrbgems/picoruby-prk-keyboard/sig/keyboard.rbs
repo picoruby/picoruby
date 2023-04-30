@@ -93,6 +93,8 @@ class Keyboard
   @direct_pins: Array[Integer]
   @matrix: Hash[Integer, Hash[Integer, [Integer, Integer]]]
   @locked_layer: Symbol | nil
+  @keycodes: Array[Integer]
+  @midi_keycodes: Array[Integer]
   @macro_keys: Array[Integer]
   @macro_key_numbers: Array[Integer | nil]
   @message: Integer

@@ -1153,6 +1153,7 @@ class Keyboard
     @via&.start!
 
     @keycodes = Array.new
+    @midi_keycodes = Array.new
     prev_layer = @default_layer
     modifier_switch_positions = Array.new
     message_to_partner, earlier_report_size, prev_output_report = 0, 0, 0
@@ -1169,6 +1170,7 @@ class Keyboard
       cycle_time = 20
       now = Machine.board_millis
       @keycodes.clear
+      @midi_keycodes.clear
       consumer_keycode = 0
 
       @switches = @injected_switches.dup
@@ -1345,7 +1347,7 @@ class Keyboard
             message_to_partner = $rgb&.invoke_anchor(RGB::KEYCODE.key(keycode)) || 0
           elsif keycode < 0x900
             midi_keycode = MIDI.keycode_from_mapcode(keycode)
-            @keycodes << keycode
+            @midi_keycodes << midi_keycode
             @midi&.update_event(midi_keycode, :press)
           else
             puts "[ERROR] Wrong keycode: 0x#{keycode.to_s(16)}"
@@ -1398,7 +1400,7 @@ class Keyboard
 
         if @midi
           @midi.key_states.each do |keycode, state|
-            if state == :pressed && !@keycodes.include?(keycode + MIDI::MAP_OFFSET)
+            if state == :pressed && !@midi_keycodes.include?(keycode)
               @midi.update_event(keycode, :release)
             end
           end

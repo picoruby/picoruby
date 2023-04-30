@@ -114,7 +114,7 @@ class MIDI
     # MI_B5:      0x48,
     # MI_OCN2:    0x49, # Set octave to -2
     # MI_OCN1:    0x4a, # Set octave to -1
-    # MI_OC0:     0x4b, # Set octave to 0
+    MI_OC0:     0x4b, # Set octave to 0
     # MI_OC1:     0x4c, # Set octave to 1
     # MI_OC2:     0x4d, # Set octave to 2
     # MI_OC3:     0x4e, # Set octave to 3
@@ -122,36 +122,36 @@ class MIDI
     # MI_OC5:     0x50, # Set octave to 5
     # MI_OC6:     0x51, # Set octave to 6
     # MI_OC7:     0x52, # Set octave to 7
-    # MI_OCTD:    0x53, # Decrease octave
-    # MI_OCTU:    0x54, # Increase octave
+    MI_OCTD:    0x53, # Decrease octave
+    MI_OCTU:    0x54, # Increase octave
     # MI_TRN6:    0x55, # Set transpose to -6 semitones
     # MI_TRN5:    0x56, # Set transpose to -5 semitones
     # MI_TRN4:    0x57, # Set transpose to -4 semitones
     # MI_TRN3:    0x58, # Set transpose to -3 semitones
     # MI_TRN2:    0x59, # Set transpose to -2 semitones
     # MI_TRN1:    0x5a, # Set transpose to -1 semitone
-    # MI_TR0:     0x5b, # No transposition
+    MI_TR0:     0x5b, # No transposition
     # MI_TR1:     0x5c, # Set transpose to +1 semitone
     # MI_TR2:     0x5d, # Set transpose to +2 semitones
     # MI_TR3:     0x5e, # Set transpose to +3 semitones
     # MI_TR4:     0x5f, # Set transpose to +4 semitones
     # MI_TR5:     0x60, # Set transpose to +5 semitones
     # MI_TR6:     0x61, # Set transpose to +6 semitones
-    # MI_TRSD:    0x62, # Decrease transpose
-    # MI_TRSU:    0x63, # Increase transpose
+    MI_TRSD:    0x62, # Decrease transpose
+    MI_TRSU:    0x63, # Increase transpose
     # MI_VL0:     0x64, # Set velocity to 0
     # MI_VL1:     0x65, # Set velocity to 12
     # MI_VL2:     0x66, # Set velocity to 25
     # MI_VL3:     0x67, # Set velocity to 38
     # MI_VL4:     0x68, # Set velocity to 51
     # MI_VL5:     0x69, # Set velocity to 64
-    # MI_VL6:     0x6a, # Set velocity to 76
+    MI_VL6:     0x6a, # Set velocity to 76
     # MI_VL7:     0x6b, # Set velocity to 89
     # MI_VL8:     0x6c, # Set velocity to 102
     # MI_VL9:     0x6d, # Set velocity to 114
     # MI_VL10:    0x6e, # Set velocity to 127
-    # MI_VELD:    0x6f, # Decrease velocity
-    # MI_VELU:    0x70, # Increase velocity
+    MI_VELD:    0x6f, # Decrease velocity
+    MI_VELU:    0x70, # Increase velocity
     # MI_CH1:     0x71, # Set channel to 1
     # MI_CH2:     0x72, # Set channel to 2
     # MI_CH3:     0x73, # Set channel to 3
@@ -221,28 +221,78 @@ class MIDI
   #   wait_noteon
   #   wait_noteoff
   def update_event(keycode, event)
-    return unless keycode >= 0x01 && keycode <= 0x48
-    case event
-    when :press
-      case @key_states[keycode]
-      when :released, nil
-        @key_states[keycode] = :wait_noteon
+    if keycode >= 0x01 && keycode <= 0x48
+      # for note
+      case event
+      when :press
+        case @key_states[keycode]
+        when :released, nil
+          @key_states[keycode] = :wait_noteon
+        end
+      when :release
+        case @key_states[keycode]
+        when :pressed
+          @key_states[keycode] = :wait_noteoff
+        end
+      when :noteon
+        case @key_states[keycode]
+        when :wait_noteon
+          @key_states[keycode] = :pressed
+        end
+      when :noteoff
+        case @key_states[keycode]
+        when :wait_noteoff
+          @key_states[keycode] = :released
+        end
       end
-    when :release
-      case @key_states[keycode]
-      when :pressed
-        @key_states[keycode] = :wait_noteoff
+    else
+      # for control
+      case event
+      when :press
+        case @key_states[keycode]
+        when nil
+          @key_states[keycode] = :wait_request
+        end
+      when :release
+        case @key_states[keycode]
+        when :pressed
+          @key_states.delete(keycode)
+        end
+      when :do_request
+        case @key_states[keycode]
+        when :wait_request
+          @key_states[keycode] = :pressed
+        end
       end
-    when :noteon
-      case @key_states[keycode]
-      when :wait_noteon
-        @key_states[keycode] = :pressed
-      end
-    when :noteoff
-      case @key_states[keycode]
-      when :wait_noteoff
-        @key_states[keycode] = :released
-      end
+    end
+  end
+
+  def process_request(keycode, params)
+    case keycode
+    when KEYCODE[:MI_OC0]
+      @octave_offset = 0
+    when KEYCODE[:MI_OCTD]
+      return if @octave_offset - 1 < -2
+      @octave_offset -= 1
+    when KEYCODE[:MI_OCTU]
+      return if @octave_offset + 1 > 7
+      @octave_offset += 1
+    when KEYCODE[:MI_TR0]
+      @transpose_offset = 0
+    when KEYCODE[:MI_TRSD]
+      return if @transpose_offset - 1 < -6
+      @transpose_offset -= 1
+    when KEYCODE[:MI_TRSU]
+      return if @transpose_offset + 1 > 6
+      @transpose_offset += 1
+    when KEYCODE[:MI_VL6]
+      @velocity_offset = 6
+    when KEYCODE[:MI_VELD]
+      return if @velocity_offset - 1 < 0
+      @velocity_offset -= 1
+    when KEYCODE[:MI_VELU]
+      return if @velocity_offset + 1 > 10
+      @velocity_offset += 1
     end
   end
 
@@ -251,7 +301,8 @@ class MIDI
     puts "note-on channel: #{channel}, number: #{number}, velocity: #{velocity}"
     return if number < 0 || number > 128
     return if velocity < 0 || velocity > 128
-    @buffer << [NOTE_ON_EVENT | channel, number, velocity] if @buffer.length <= 64
+    modified_note = number + @octave_offset * 12 + @transpose_offset
+    @buffer << [NOTE_ON_EVENT | channel, modified_note, velocity] if @buffer.length <= 64
   end
 
   def note_off(number, velocity)
@@ -259,7 +310,9 @@ class MIDI
     puts "note-off channel: #{channel}, number: #{number}, velocity: #{velocity}"
     return if number < 0 || number > 128
     return if velocity < 0 || velocity > 128
-    @buffer << [NOTE_OFF_EVENT | channel, number, velocity] if @buffer.length <= 64
+    
+    modified_note = number + @octave_offset * 12 + @transpose_offset
+    @buffer << [NOTE_OFF_EVENT | channel, modified_note, velocity] if @buffer.length <= 64
   end
 
   def send_pc(number)
@@ -286,6 +339,9 @@ class MIDI
       when :wait_noteoff
         note_off(MIDI.keycode_to_note_number(keycode), nil)
         update_event(keycode, :noteoff)
+      when :wait_request
+        process_request(keycode, {})
+        update_event(keycode, :do_request)
       end
     end
 
