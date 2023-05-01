@@ -50,7 +50,7 @@ module MRuby
       when :default
         cc.defines << "MRBC_USE_MATH=1"
         cc.defines << "MRBC_INT64=1"
-        cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 1000}"
+        cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 10000}"
         cc.defines << "MAX_VM_COUNT=#{ENV['MAX_VM_COUNT'] || 255}"
         cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/repos/mrubyc/src"
       when :minimum
