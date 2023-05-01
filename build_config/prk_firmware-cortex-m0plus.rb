@@ -34,6 +34,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   conf.cc.defines << "MRBC_USE_MATH"
   conf.cc.defines << "LEMON_PICORBC"
   conf.cc.defines << "USE_FAT_FLASH_DISK"
+  conf.cc.defines << "NO_CLOCK_GETTIME"
 
   conf.mrubyc_hal_arm
   conf.picoruby
