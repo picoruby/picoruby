@@ -58,13 +58,6 @@ RAM_disk_write(const BYTE *buff, LBA_t sector, UINT count)
   return 0;
 }
 
-DWORD
-get_fattime(void)
-{
-  DWORD time = 1<<21 | 1<<16;
-  return time;
-}
-
 DRESULT
 RAM_disk_ioctl(BYTE cmd, void *buff)
 {

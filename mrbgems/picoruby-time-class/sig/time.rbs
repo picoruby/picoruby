@@ -1,4 +1,9 @@
 class Time
+  class TimeMethods
+  end
+
+  def self.time_methods: () -> Time::TimeMethods
+  def self.unixtime_offset: () -> Integer
   def hwclock= : (Time) -> Time
 end
 

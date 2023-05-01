@@ -3,12 +3,7 @@ class PCF8523
 
   @i2c: I2C
 
-  def initialize : (
-    ?unit: Symbol|nil,
-    ?frequency: Integer,
-    sda_pin: Integer,
-    scl_pin: Integer
-  ) -> void
+  def initialize : (i2c: I2C) -> void
   def set_power_management : (?Integer pow) -> Integer
   def current_time= : (Time) -> Time
   def current_time : () -> Time

@@ -1,0 +1,7 @@
+class SQLite3
+  type var_t = String | Integer | Float | nil | bool
+
+  def self.vfs_methods=: (FAT::VFSMethods) -> FAT::VFSMethods
+  def self.time_methods=: (Time::TimeMethods) -> Time::TimeMethods
+end
+

@@ -1,16 +1,10 @@
 require "time"
-require "i2c"
 
 class PCF8523
   ADDRESS = 0x68
 
-  def initialize(unit: nil, sda_pin:, scl_pin:, frequency: 400_000)
-    @i2c = I2C.new(
-      unit: unit,
-      sda_pin: sda_pin,
-      scl_pin: scl_pin,
-      frequency: frequency
-    )
+  def initialize(i2c:)
+    @i2c = i2c
     # Reset
     @i2c.write(ADDRESS, 0x00, 0x58)
     # Reset command set power management default

@@ -52,16 +52,13 @@ class VFS
 
     def mkdir(path, mode = 0777)
       volume, path = VFS.sanitize_and_split(path)
-      if 0 == volume[:driver]&.mkdir(path, mode)
-        now = Time.now
-        volume[:driver]&.utime(now, now, path)
-      end
+      volume[:driver]&.mkdir(path, mode)
       0
     end
 
     def unlink(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&.unlink(_path)
+      volume[:driver].unlink(_path)
     end
 
     def chmod(mode, path)
@@ -71,7 +68,7 @@ class VFS
 
     def exist?(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&.exist?(_path)
+      volume[:driver].exist?(_path)
     end
 
     def directory?(path)
@@ -121,7 +118,8 @@ class VFS
         sanitized_path.start_with?(v[:mountpoint]) ? v : nil
       }.max {|v| v ? v[:mountpoint].length : -1}
       if volume
-        [volume, "/#{sanitized_path[volume[:mountpoint].length, 255]}"]
+        cut = volume[:mountpoint] == "/" ? 0 : 1
+        [volume, "/#{sanitized_path[volume[:mountpoint].length + cut, 255]}"]
       else
         [VOLUMES[0], sanitized_path] # fallback
       end
@@ -151,10 +149,10 @@ class VFS
       volume[:driver].open_file(_path, mode)
     end
 
-    def self.utime(atime, mtime, *filename)
+    def self.utime(atime, mtime, *filenames)
       count = 0
-      filename.each do |path|
-        volume, _path = VFS.sanitize_and_split(path)
+      filenames.each do |filename|
+        volume, path = VFS.sanitize_and_split(filename)
         count += volume[:driver].utime(atime, mtime, path)
       end
       return count

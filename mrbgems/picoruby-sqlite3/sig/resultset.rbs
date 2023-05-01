@@ -1,0 +1,12 @@
+class SQLite3
+  class ResultSet
+    @db: SQLite3::Database
+    @stmt: SQLite3::Statement
+    @eof: bool
+    def initialize: (SQLite3::Database, SQLite3::Statement) -> void
+    def each: () { (Array[var_t] | Hash[String, var_t]) -> void } -> nil
+    def to_a: () -> Array[Array[var_t]]
+    def next: () -> (Array[var_t] | Hash[String, var_t] | nil)
+  end
+end
+

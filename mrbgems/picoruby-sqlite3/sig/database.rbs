@@ -1,0 +1,21 @@
+class SQLite3
+  class Database
+    type row_t = Hash[String, String] | Array[String]
+
+    def self.new: (String filename, ?results_as_hash: bool) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
+    def self.open: (String filename) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
+    def self._open: (String filename) -> SQLite3::Database
+
+    attr_accessor results_as_hash: bool
+
+    def close: -> void
+    def closed?: -> bool
+    def execute: (String sql, ?Array[var_t] bind_vars) -> Array[Array[var_t] | Hash[String, var_t]]
+               | (String sql, ?Array[var_t] bind_vars) { (Array[var_t]) -> Array[var_t] } -> nil
+               | (String sql, ?Array[var_t] bind_vars) { (Hash[String, var_t]) -> Hash[String, var_t] } -> nil
+    def _execute: (String sql, Array[var_t] params) -> Array[var_t]
+    def prepare: (String sql) { (SQLite3::Statement) -> untyped } -> nil
+               | (String sql) -> SQLite3::Statement
+  end
+end
+

@@ -36,6 +36,7 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.cc.defines << "LEMON_PICORBC"
   conf.cc.defines << "USE_FAT_FLASH_DISK"
   conf.cc.defines << "USE_FAT_SD_DISK"
+  conf.cc.defines << "NO_CLOCK_GETTIME"
 
   conf.mrubyc_hal_arm
   conf.picoruby
@@ -45,5 +46,7 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
 
   conf.gembox "peripherals"
   conf.gem core: 'picoruby-adafruit_pcf8523'
+
+  conf.gem core: 'picoruby-sqlite3'
 end
 

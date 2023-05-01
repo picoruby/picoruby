@@ -2,8 +2,14 @@
 
 # Classes
 class FAT
+  class VFSMethods
+  end
+
+  def self.vfs_methods: -> FAT::VFSMethods
+  def self.unixtime_offset=: (Integer) -> Integer
 
   type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
+  type driver_t = nil|SPI
 
   class Stat
     LABEL: String
@@ -34,9 +40,9 @@ class FAT
   def self._chmod: (Integer mode, String path) -> 0
   def self._stat: (String path) -> stat_t
 
-  def self._init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+  def self.init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+  def getfree: (String path) -> Integer
 
-  def _getfree: (String path) -> Integer
   def _mkfs: (String path) -> self
   def _setlabel: (String) -> 0
   def _getlabel: (String) -> String
@@ -46,7 +52,7 @@ class FAT
   @fatfs: nil | 0
   @label: String | nil
 
-  def initialize: (Symbol|String device, ?label: String?, ?driver: untyped) -> void
+  def initialize: (Symbol|String device, ?label: String?, ?driver: driver_t) -> void
 
   attr_reader mountpoint: String
   attr_reader prefix: String
@@ -54,20 +60,20 @@ class FAT
   def mkfs: -> FAT
   def setlabel: -> 0
   def getlabel: -> String
-  def sector_count: -> {total: untyped, free: untyped}
-  def mount: (String mountpoint) -> untyped
+  def sector_count: -> {total: Integer, free: Integer}
+  def mount: (String mountpoint) -> 0
   def unmount: -> nil
   def open_dir: (String path) -> FAT::Dir
   def open_file: (String path, String mode) -> FAT::File
   def chdir: (String path) -> 0
-  def erase: -> untyped
+  def erase: -> 0
   def utime: (Time atime, Time mtime, String path) -> Integer
-  def mkdir: (String path, ?Integer mode) -> untyped
+  def mkdir: (String path, ?Integer mode) -> 0
   def chmod: (Integer mode, String path) -> 0
-  def stat: (untyped path) -> Stat
-  def exist?: (untyped path) -> untyped
-  def unlink: (untyped path) -> untyped
-  def directory?: (untyped path) -> untyped
+  def stat: (String path) -> Stat
+  def exist?: (String path) -> bool
+  def unlink: (String path) -> 0
+  def directory?: (String path) -> bool
 
   class Dir
     attr_accessor pat: String
@@ -82,5 +88,14 @@ class FAT
 
   class File
     def initialize: (String path, String mode) -> void
+    def tell: -> Integer
+    def seek: (Integer offset, Integer whence) -> 0
+    def eof?: -> bool
+    def read: (Integer size) -> String
+    def write: (String data) -> Integer
+    def close: -> nil
+    def size: -> Integer
+    def expand: -> Integer
+    def fsync: -> 0
   end
 end

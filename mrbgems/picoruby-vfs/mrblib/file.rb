@@ -39,8 +39,6 @@ class File
       if block_given?
         file = self.new(path, mode)
         yield file
-        now = Time.now
-        File.utime(now, now, path)
         file.close
       else
         self.new(path, mode)
@@ -73,7 +71,6 @@ class File
   end
 
   def initialize(path, mode = "r")
-    @changed = true if %w(w w+ wx w+x).include?(mode)
     @path = path
     @file = VFS::File.open(path, mode)
   end
@@ -85,9 +82,11 @@ class File
   end
   alias pos tell
 
-  # TODO seek(pos, whence = SEEK_SET)
-  def seek(pos)
-    @file.seek(pos)
+  SEEK_SET = 0
+  SEEK_CUR = 1
+  SEEK_END = 2
+  def seek(pos, whence = SEEK_SET)
+    @file.seek(pos, whence)
   end
   alias pos= seek
 
@@ -185,7 +184,6 @@ class File
     args.each do |arg|
       len += @file.write(arg.to_s)
     end
-    @changed = true if 0 < len
     return len
   end
 
@@ -218,10 +216,6 @@ class File
 
   def close
     @file.close
-    if File::Stat.new(@path).writable? && @changed
-      now = Time.now
-      File.utime(now, now, @path)
-    end
   end
 
   def size
@@ -230,6 +224,10 @@ class File
 
   def expand(size)
     @file.expand(size)
+  end
+
+  def fsync
+    @file.fsync
   end
 
 end

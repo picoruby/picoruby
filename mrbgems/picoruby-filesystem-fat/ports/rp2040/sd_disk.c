@@ -41,7 +41,7 @@ static int SPI_CS_PIN   = -1;
 volatile int conter1;
 
 void
-c_FAT__init_spi(struct VM *vm, mrbc_value v[], int argc)
+c_FAT_init_spi(struct VM *vm, mrbc_value v[], int argc)
 {
   const char *unit_name = (const char *)GET_STRING_ARG(1);
   if (strcmp(unit_name, "RP2040_SPI0") == 0) {

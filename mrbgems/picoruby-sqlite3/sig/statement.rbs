@@ -1,0 +1,30 @@
+class SQLite3
+  class Statement
+    @connection: SQLite3::Database
+    @results: SQLite3::ResultSet
+    @remainder: String
+    @columns: Array[String]
+    @types: Array[String]
+
+    def initialize: (SQLite3::Database db, String sql) -> void
+    def bind_params: (*(var_t | Hash[Symbol, var_t]) bind_vars) -> Array[var_t | Hash[Symbol, var_t]]
+    def bind_param: (Integer|Symbol|String key, var_t var) -> self
+    def execute: (*var_t bind_vars) -> SQLite3::ResultSet
+               | (*var_t bind_vars) { (SQLite3::ResultSet) -> nil } -> nil
+    def closed?: -> bool
+    def close: -> self
+    def step: -> (Array[var_t] | nil)
+    def reset!: -> self
+    def active?: -> bool
+    def done?: -> bool
+    def column_count: -> Integer
+    def columns: -> Array[String]
+    def column_name: (Integer index) -> String
+    def column_decltype: (Integer index) -> String
+    def types: -> Array[String]
+    def must_be_open!: -> nil
+    def get_metadata: -> void
+#    def each: () { (Array[var_t] | nil) -> self } -> self
+  end
+end
+
