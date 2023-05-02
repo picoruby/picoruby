@@ -5,14 +5,18 @@
 class MIDI
   type midi_event = Integer
 
-  NOTE_OFF_EVENT:        midi_event
-  NOTE_ON_EVENT:         midi_event
-  CONTROL_CHANGE_EVENT:  midi_event
-  PROGRAM_CHANGE_EVENT:  midi_event
-  MAX_EVENT:             Integer
-  KEYCODE: Hash[Symbol, Integer]
-  VELOCITY_VALUES:       Array[Integer]
-  MAP_OFFSET:            Integer
+  NOTE_OFF_EVENT:          midi_event
+  NOTE_ON_EVENT:           midi_event
+  PITCH_BEND_EVENT:        midi_event
+  CONTROL_CHANGE_EVENT:    midi_event
+  PROGRAM_CHANGE_EVENT:    midi_event
+  MAX_EVENT:               Integer
+  KEYCODE:                 Hash[Symbol, Integer]
+  VELOCITY_VALUES:         Array[Integer]
+  MAP_OFFSET:              Integer
+  MAX_PITCHBEND_VALUE:     Integer
+  MIN_PITCHBEND_VALUE:     Integer
+  DEFAULT_PITCHBEND_VALUE: Integer
 
   def self.init: () -> void
   def self.write: (Array[Integer]) -> void
@@ -26,6 +30,11 @@ class MIDI
   @velocity_offset: Integer
   @buffer: Array[Array[Integer]]
   @key_states: Hash[Integer, Symbol]
+  @program_no: Integer
+  @bend_value: Integer
+  @bend_step: Integer
+  @bend_release_step: Integer
+  @bend_width: Integer
 
   attr_accessor channel: Integer
   attr_accessor key_states: Hash[Integer, Symbol]
@@ -35,7 +44,10 @@ class MIDI
   def process_request: (Integer, Hash[Symbol, Integer | String]) -> void
   def note_on: (Integer, Integer | nil) -> void
   def note_off: (Integer, Integer | nil) -> void
+  def send_pitchbend: () -> void
   def send_pc: (Integer) -> void
   def send_cc: (Integer, Integer) -> void
   def task: () -> void
+  def press_bend_event: (:up | :down) -> void
+  def release_bend_event: () -> void
 end
