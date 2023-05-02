@@ -28,13 +28,24 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
 
   # These defines should correspond to
   # the platform's configuration
-  conf.cc.defines << "NDEBUG"
-  conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT"
-  conf.cc.defines << "MRBC_CONVERT_CRLF"
-  conf.cc.defines << "MRBC_USE_MATH"
-  conf.cc.defines << "LEMON_PICORBC"
-  conf.cc.defines << "USE_FAT_FLASH_DISK"
-  conf.cc.defines << "NO_CLOCK_GETTIME"
+  conf.cc.defines << "NDEBUG=1"
+  conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
+  conf.cc.defines << "MRBC_CONVERT_CRLF=1"
+  conf.cc.defines << "MRBC_USE_MATH=1"
+  conf.cc.defines << "MRBC_TICK_UNIT=1"
+  conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
+  conf.cc.defines << "LEMON_PICORBC=1"
+  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "NO_CLOCK_GETTIME=1"
+  if ENV['PICORUBY_SQLITE3']
+    conf.cc.defines << "MAX_SYMBOLS_COUNT=2500"
+    conf.gem core: 'picoruby-sqlite3'
+  else
+    conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
+  end
+  if ENV['PICORUBY_SD_CARD']
+    conf.cc.defines << "USE_FAT_SD_DISK=1"
+  end
 
   conf.mrubyc_hal_arm
   conf.picoruby
