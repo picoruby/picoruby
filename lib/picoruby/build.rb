@@ -45,13 +45,12 @@ module MRuby
 
       gem github: 'picoruby/mruby-pico-compiler'
       gem core: 'picoruby-mrubyc'
-
       case picoruby_conf
       when :default
-        cc.defines << "MRBC_USE_MATH=1"
-        cc.defines << "MRBC_INT64=1"
-        cc.defines << "MAX_SYMBOLS_COUNT=#{ENV['MAX_SYMBOLS_COUNT'] || 10000}"
-        cc.defines << "MAX_VM_COUNT=#{ENV['MAX_VM_COUNT'] || 255}"
+        %w(MRBC_USE_MATH=1 MRBC_INT64=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255).each do |define|
+          key, _value = define.split("=")
+          cc.defines << define if cc.defines.none? { _1.start_with? key }
+        end
         cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/repos/mrubyc/src"
       when :minimum
         # Do noghing

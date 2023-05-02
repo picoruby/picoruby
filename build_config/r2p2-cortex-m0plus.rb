@@ -27,16 +27,17 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.cc.flags << "-fdata-sections"
 
   # These defines should not contradict platform's configuration
-  conf.cc.defines << "NDEBUG"
-  conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT"
-  conf.cc.defines << "MRBC_CONVERT_CRLF"
-  conf.cc.defines << "MRBC_USE_MATH"
+  conf.cc.defines << "NDEBUG=1"
+  conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
+  conf.cc.defines << "MRBC_CONVERT_CRLF=1"
+  conf.cc.defines << "MRBC_USE_MATH=1"
   conf.cc.defines << "MRBC_TICK_UNIT=1"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
-  conf.cc.defines << "LEMON_PICORBC"
-  conf.cc.defines << "USE_FAT_FLASH_DISK"
-  conf.cc.defines << "USE_FAT_SD_DISK"
-  conf.cc.defines << "NO_CLOCK_GETTIME"
+  conf.cc.defines << "LEMON_PICORBC=1"
+  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "NO_CLOCK_GETTIME=1"
+  conf.cc.defines << "USE_FAT_SD_DISK=1"
+  conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
 
   conf.mrubyc_hal_arm
   conf.picoruby
