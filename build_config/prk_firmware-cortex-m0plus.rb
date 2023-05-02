@@ -40,6 +40,9 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   conf.picoruby
 
   conf.gembox "prk_firmware"
+  if ENV['PICORUBY_SQLITE3']
+    conf.gem :core => "picoruby-sqlite3"
+  end
 end
 
 

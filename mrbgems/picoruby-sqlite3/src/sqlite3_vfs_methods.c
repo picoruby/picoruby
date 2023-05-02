@@ -8,7 +8,7 @@
 sqlite3_vfs prbvfs = {
   3,                            /* iVersion */
   sizeof(PRBFile),              /* szOsFile */
-  PATHNAME_MAX_LEN,                 /* mxPathname */
+  PATHNAME_MAX_LEN,             /* mxPathname */
   0,                            /* pNext */
   VFS_NAME,                     /* zName */
   0,                            /* pAppData */
