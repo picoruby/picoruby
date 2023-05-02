@@ -1,12 +1,16 @@
 class MIDI
-  attr_accessor :channel, :key_states
+  attr_accessor :channel, :key_states, :bend_width, :bend_step, :bend_release_step
 
   NOTE_OFF_EVENT = 0x80
   NOTE_ON_EVENT  = 0x90
+  PITCH_BEND_EVENT = 0xE0
   CONTROL_CHANGE_EVENT = 0xB0
   PROGRAM_CHANGE_EVENT = 0xC0
 
   MAX_EVENT = 64
+  MAX_PITCHBEND_VALUE = 0x3FFF
+  MIN_PITCHBEND_VALUE = 0
+  DEFAULT_PITCHBEND_VALUE = 8192
 
   # MIDI Keycodes
   KEYCODE = {
@@ -152,24 +156,24 @@ class MIDI
     # MI_VL10:    0x6e, # Set velocity to 127
     MI_VELD:    0x6f, # Decrease velocity
     MI_VELU:    0x70, # Increase velocity
-    # MI_CH1:     0x71, # Set channel to 1
-    # MI_CH2:     0x72, # Set channel to 2
-    # MI_CH3:     0x73, # Set channel to 3
-    # MI_CH4:     0x74, # Set channel to 4
-    # MI_CH5:     0x75, # Set channel to 5
-    # MI_CH6:     0x76, # Set channel to 6
-    # MI_CH7:     0x77, # Set channel to 7
-    # MI_CH8:     0x78, # Set channel to 8
-    # MI_CH9:     0x79, # Set channel to 9
-    # MI_CH10:    0x7a, # Set channel to 10
-    # MI_CH11:    0x7b, # Set channel to 11
-    # MI_CH12:    0x7c, # Set channel to 12
-    # MI_CH13:    0x7d, # Set channel to 13
-    # MI_CH14:    0x7e, # Set channel to 14
-    # MI_CH15:    0x7f, # Set channel to 15
-    # MI_CH16:    0x80, # Set channel to 16
-    # MI_CHND:    0x81, # Decrease channel
-    # MI_CHNU:    0x82, # Increase channel
+    MI_CH1:     0x71, # Set channel to 1
+    MI_CH2:     0x72, # Set channel to 2
+    MI_CH3:     0x73, # Set channel to 3
+    MI_CH4:     0x74, # Set channel to 4
+    MI_CH5:     0x75, # Set channel to 5
+    MI_CH6:     0x76, # Set channel to 6
+    MI_CH7:     0x77, # Set channel to 7
+    MI_CH8:     0x78, # Set channel to 8
+    MI_CH9:     0x79, # Set channel to 9
+    MI_CH10:    0x7a, # Set channel to 10
+    MI_CH11:    0x7b, # Set channel to 11
+    MI_CH12:    0x7c, # Set channel to 12
+    MI_CH13:    0x7d, # Set channel to 13
+    MI_CH14:    0x7e, # Set channel to 14
+    MI_CH15:    0x7f, # Set channel to 15
+    MI_CH16:    0x80, # Set channel to 16
+    MI_CHND:    0x81, # Decrease channel
+    MI_CHNU:    0x82, # Increase channel
     # MI_AOFF:    0x83, # Stop all notes
     # MI_SUST:    0x84, # Sustain
     # MI_PORT:    0x85, # Portamento
@@ -179,8 +183,11 @@ class MIDI
     # MI_MOD:     0x89, # Modulation
     # MI_MODD:    0x8a, # Decrease modulation speed
     # MI_MODU:    0x8b, # Increase modulation speed
-    # MI_BND:     0x8c, # Bend pitch down
-    # MI_BNDU:    0x8d # Bend pitch up
+    MI_BND:     0x8c, # Bend pitch down
+    MI_BNDU:    0x8d, # Bend pitch up
+    MI_PRG0:    0x8e, # Set program number to 0
+    MI_PRGU:    0x8f, # Increase program number
+    MI_PRGD:    0x90, # Decrease program number
   }
 
   VELOCITY_VALUES = [0, 12, 25, 38, 51, 64, 76, 89, 102, 114, 127]
@@ -204,12 +211,16 @@ class MIDI
 
   def initialize
     puts "Init MIDI"
-    @channel = 1;
+    @channel = 0;
     @buffer = []
     @octave_offset = 0
     @transpose_offset = 0
     @velocity_offset = 6
+    @program_no = 0
     @key_states = Hash.new
+    @bend_width = 1365
+    @bend_value = DEFAULT_PITCHBEND_VALUE
+    @bend_step = 2000
   end
 
   # event
@@ -244,6 +255,26 @@ class MIDI
         when :wait_noteoff
           @key_states[keycode] = :released
         end
+      end
+    elsif keycode == KEYCODE[:MI_BND]
+      # for pitch bend down
+      case event
+      when :press
+        @key_states[KEYCODE[:MI_BND]] = :pressed
+        press_bend_event(:down)
+      when :release
+        @key_states.delete(KEYCODE[:MI_BND])
+        release_bend_event
+      end
+    elsif keycode == KEYCODE[:MI_BNDU]
+      # for pitch bend up
+      case event
+      when :press
+        @key_states[KEYCODE[:MI_BNDU]] = :pressed
+        press_bend_event(:up)
+      when :release
+        @key_states.delete(KEYCODE[:MI_BNDU])
+        release_bend_event
       end
     else
       # for control
@@ -293,40 +324,60 @@ class MIDI
     when KEYCODE[:MI_VELU]
       return if @velocity_offset + 1 > 10
       @velocity_offset += 1
+    when (KEYCODE[:MI_CH1]..KEYCODE[:MI_CH16])
+      @channel = keycode - 0x71
+      puts "set channel = #{@channel}"
+    when KEYCODE[:MI_PRG0]
+      @program_no = 0
+      send_pc(@program_no)
+      puts "set program_no = #{@program_no}"
+    when KEYCODE[:MI_PRGD]
+      @program_no = (@program_no - 1) < 0 ? (@program_no + 128 - 1) : @program_no - 1
+      send_pc(@program_no)
+      puts "set program_no = #{@program_no}"
+    when KEYCODE[:MI_PRGU]
+      @program_no = (@program_no + 1) > 128 ? (@program_no + 1 - 128) : @program_no + 1
+      send_pc(@program_no)
+      puts "set program_no = #{@program_no}"
     end
   end
 
   def note_on(number, velocity)
     velocity ||= VELOCITY_VALUES[@velocity_offset]
-    puts "note-on channel: #{channel}, number: #{number}, velocity: #{velocity}"
+    puts "note-on channel: #{@channel}, number: #{number}, velocity: #{velocity}"
     return if number < 0 || number > 128
     return if velocity < 0 || velocity > 128
     modified_note = number + @octave_offset * 12 + @transpose_offset
-    @buffer << [NOTE_ON_EVENT | channel, modified_note, velocity] if @buffer.length <= 64
+    @buffer << [NOTE_ON_EVENT | @channel, modified_note, velocity] if @buffer.length <= 64
   end
 
   def note_off(number, velocity)
     velocity ||= VELOCITY_VALUES[@velocity_offset]
-    puts "note-off channel: #{channel}, number: #{number}, velocity: #{velocity}"
+    puts "note-off channel: #{@channel}, number: #{number}, velocity: #{velocity}"
     return if number < 0 || number > 128
     return if velocity < 0 || velocity > 128
     
     modified_note = number + @octave_offset * 12 + @transpose_offset
-    @buffer << [NOTE_OFF_EVENT | channel, modified_note, velocity] if @buffer.length <= 64
+    @buffer << [NOTE_OFF_EVENT | @channel, modified_note, velocity] if @buffer.length <= 64
+  end
+
+  def send_pitchbend
+    puts "send-pitchbend channel: #{@channel}, value: #{@bend_value}"
+    @buffer << [PITCH_BEND_EVENT | @channel, @bend_value & 0x7f, (@bend_value >> 7) & 0x7f] if @buffer.length <= 64
   end
 
   def send_pc(number)
-    puts "send-pc channel: #{channel}, number: #{number}"
+    puts "send-pc channel: #{@channel}, number: #{number}"
     return if number < 0 || number > 128
-    @buffer << [PROGRAM_CHANGE_EVENT | channel, number] if @buffer.length <= 64
+    @buffer << [PROGRAM_CHANGE_EVENT | @channel, number] if @buffer.length <= 64
 
   end
 
   def send_cc(number, value)
-    puts "send-cc channel: #{channel}, number: #{number}, value: #{value}"
+    puts "send-cc channel: #{@channel}, number: #{number}, value: #{value}"
     return if number < 0 || number > 128
     return if value < 0 || value > 128
-    @buffer << [CONTROL_CHANGE_EVENT | channel, number, value]
+    @buffer << [CONTROL_CHANGE_EVENT | @channel, number, value]
   end
 
   def task
@@ -349,5 +400,26 @@ class MIDI
       MIDI.write(ev)
     end
     @buffer.clear
+  end
+
+  def press_bend_event(up_or_down)
+    if up_or_down == :up
+      if @bend_value + @bend_step > MAX_PITCHBEND_VALUE
+        @bend_value = MAX_PITCHBEND_VALUE
+      else
+        @bend_value += @bend_step
+      end
+    elsif up_or_down == :down
+      if @bend_value - @bend_step < MIN_PITCHBEND_VALUE
+        @bend_value = MIN_PITCHBEND_VALUE
+      else
+        @bend_value -= @bend_step
+      end
+    end
+    send_pitchbend
+  end
+
+  def release_bend_event
+    @bend_value = DEFAULT_PITCHBEND_VALUE
   end
 end
