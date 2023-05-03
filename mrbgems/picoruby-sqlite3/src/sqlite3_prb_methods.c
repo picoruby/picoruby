@@ -33,7 +33,9 @@ prb_time_gettime_us(void)
     return 0;
   }
   PICORUBY_TIME * data = (PICORUBY_TIME *)v[0].instance->data;
-  return data->unixtime_us / 1000;
+  mrbc_int_t ret = data->unixtime_us;
+  mrbc_decref(&v[0]);
+  return ret;
 }
 
 int
@@ -59,6 +61,8 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   }
   v[2] = mrbc_string_new_cstr(vm, mode);
   vfs_funcall(vfs_methods.file_new, &v[0], 2);
+  mrbc_decref(&v[1]);
+  mrbc_decref(&v[2]);
   if (v->tt == MRBC_TT_NIL) {
     return -1;
   }
@@ -97,8 +101,10 @@ int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
   } else if (v->tt != MRBC_TT_STRING) {
     return -1;
   }
-  memcpy(zBuf, v[0].string->data, v[0].string->size);
-  return v[0].string->size;
+  size_t retSize = v[0].string->size;
+  memcpy(zBuf, v[0].string->data, retSize);
+  mrbc_decref(&v[0]);
+  return retSize;
 }
 
 int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
@@ -110,6 +116,7 @@ int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
   v[1] = mrbc_string_new(vm, zBuf, nBuf);
   v[2] = mrbc_integer_value(nBuf);
   vfs_funcall(vfs_methods.file_write, &v[0], 2);
+  mrbc_decref(&v[1]);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -162,6 +169,7 @@ int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_funcall(vfs_methods.file_unlink, &v[0], 1);
+  mrbc_decref(&v[1]);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -176,6 +184,7 @@ int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_funcall(vfs_methods.file_exist_q, &v[0], 1);
+  mrbc_decref(&v[1]);
   return (v->tt == MRBC_TT_TRUE);
 }
 
@@ -187,6 +196,7 @@ int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
   vfs_funcall(vfs_methods.file_stat, &v[0], 1);
+  mrbc_decref(&v[1]);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -227,8 +237,7 @@ prb_mem_shutdown(void *ignore)
 void *
 prb_raw_alloc(int nByte)
 {
-  void *ptr = mrbc_raw_alloc(nByte);
-  return ptr;
+  return mrbc_raw_alloc(nByte);
 }
 
 void
