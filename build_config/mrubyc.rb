@@ -7,6 +7,4 @@ MRuby::Build.new do |conf|
 
   conf.picoruby :minimum # or :default
 
-  # conf.cc.defines << "MRBC_ALLOC_LIBC"
-
 end

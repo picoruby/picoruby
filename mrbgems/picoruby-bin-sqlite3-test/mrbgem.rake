@@ -7,37 +7,20 @@ MRuby::Gem::Specification.new('picoruby-bin-sqlite3-test') do |spec|
   spec.add_dependency 'picoruby-shell'
   spec.linker.libraries << 'm'
 
-  #mrubyc_objs = Rake::Task.tasks.select{ |t|
-  #  t.name.match? /picoruby-mrubyc.+\.o\z/
-  #}.map(&:name)
-
-  #test_obj = "#{build_dir}/sqlite3-test/#{objfile("sqlite3-test")}"
-
-  #app_c = "#{build_dir}/mrblib/app.c"
-  #file app_c => "#{dir}/sqlite3-test/app.rb" do |t|
-  #  File.open(t.name, 'w') do |out|
-  #    spec.mrbc.run out, t.prerequisites[0], "app", false
-  #  end
-  #end
-
-  #file test_obj => ["#{dir}/sqlite3-test/sqlite3-test.c", app_c] do |t|
-  #  spec.cc.run t.name, t.prerequisites[0], [], [File.dirname(app_c)]
-  #end
-
-  #exec = exefile("#{build.build_dir}/bin/sqlite3-test")
-  ##file exec => [test_obj] + mrubyc_objs do |t|
-  #file exec => [test_obj] + [build.libmruby_static] do |t|
-  #  spec.linker.run t.name, t.prerequisites
-  #end
-
   spec.cc.defines << "MRBC_USE_HAL_POSIX"
+  hal_src = "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/src/hal_posix/hal.c"
+  hal_obj = objfile(hal_src.pathmap("#{build.gems['picoruby-mrubyc'].build_dir}/src/%n"))
+  file hal_obj => hal_src do |f|
+    cc.run f.name, f.prerequisites.first
+  end
 
   exec = exefile("#{build.build_dir}/bin/sqlite3-test")
   sqlite3_test_objs = Dir.glob("#{spec.dir}/tools/sqlite3-test/*.c").map do |f|
     objfile(f.pathmap("#{spec.build_dir}/tools/sqlite3-test/%n"))
   end
-  file exec => sqlite3_test_objs << build.libmruby_static do |f|
+  file exec => sqlite3_test_objs << build.libmruby_static << hal_obj do |f|
     build.linker.run f.name, f.prerequisites
   end
   build.bins << 'sqlite3-test'
+
 end

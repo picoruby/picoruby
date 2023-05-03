@@ -37,7 +37,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   if ENV['PICORUBY_SQLITE3']
-    conf.cc.defines << "MAX_SYMBOLS_COUNT=2500"
+    conf.cc.defines << "MAX_SYMBOLS_COUNT=1800"
     conf.gem core: 'picoruby-sqlite3'
     conf.gem core: 'picoruby-adafruit_pcf8523'
   else
