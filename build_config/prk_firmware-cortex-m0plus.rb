@@ -39,6 +39,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   if ENV['PICORUBY_SQLITE3']
     conf.cc.defines << "MAX_SYMBOLS_COUNT=2500"
     conf.gem core: 'picoruby-sqlite3'
+    conf.gem core: 'picoruby-adafruit_pcf8523'
   else
     conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   end
@@ -50,9 +51,6 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   conf.picoruby
 
   conf.gembox "prk_firmware"
-  if ENV['PICORUBY_SQLITE3']
-    conf.gem :core => "picoruby-sqlite3"
-  end
 end
 
 
