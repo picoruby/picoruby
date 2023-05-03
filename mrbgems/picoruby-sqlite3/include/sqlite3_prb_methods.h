@@ -4,6 +4,9 @@
 #include <mrubyc.h>
 #include "sqlite3_vfs_methods.h"
 #include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
+#ifdef MRBC_ALLOC_LIBC
+#include <malloc.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,6 +41,13 @@ void vfs_funcall(
   mrbc_value *v,
   int argc
 );
+
+int prb_mem_msize(void *p);
+int prb_mem_roundup(int n);
+int prb_mem_init(void *ignore);
+void prb_mem_shutdown(void *ignore);
+void *prb_raw_alloc(int nByte);
+void prb_raw_free(void *pPrior);
 
 #ifdef __cplusplus
 }

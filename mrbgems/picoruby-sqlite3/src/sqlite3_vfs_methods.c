@@ -74,54 +74,6 @@ static sqlite3_io_methods prbvfs_io_methods = {
   0                             /* xUnfetch */
 };
 
-#ifdef MRBC_ALLOC_LIBC
-#include <malloc.h>
-#endif
-int
-prb_mem_msize(void *p)
-{
-  D();
-#ifdef MRBC_ALLOC_LIBC
-  return malloc_usable_size(p);
-#else
-  return mrbc_alloc_usable_size(p);
-#endif
-}
-
-int
-prb_mem_roundup(int n)
-{
-  D();
-  return n;
-}
-
-int
-prb_mem_init(void *ignore)
-{
-  D();
-  return SQLITE_OK;
-}
-
-void
-prb_mem_shutdown(void *ignore)
-{
-  D();
-}
-
-
-void *
-prb_raw_alloc(int nByte)
-{
-  void *ptr = mrbc_raw_alloc(nByte);
-  return ptr;
-}
-
-void
-prb_raw_free(void *pPrior)
-{
-  mrbc_raw_free(pPrior);
-}
-
 int
 sqlite3_os_init(void)
 {
@@ -147,7 +99,6 @@ sqlite3_os_end(void)
   D();
   return SQLITE_OK;
 }
-
 
 int
 prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)

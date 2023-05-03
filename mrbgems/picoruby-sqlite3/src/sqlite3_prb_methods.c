@@ -193,3 +193,47 @@ int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
   return 0; // TODO
 }
 
+int
+prb_mem_msize(void *p)
+{
+  D();
+#ifdef MRBC_ALLOC_LIBC
+  return malloc_usable_size(p);
+#else
+  return mrbc_alloc_usable_size(p);
+#endif
+}
+
+int
+prb_mem_roundup(int n)
+{
+  D();
+  return n;
+}
+
+int
+prb_mem_init(void *ignore)
+{
+  D();
+  return SQLITE_OK;
+}
+
+void
+prb_mem_shutdown(void *ignore)
+{
+  D();
+}
+
+void *
+prb_raw_alloc(int nByte)
+{
+  void *ptr = mrbc_raw_alloc(nByte);
+  return ptr;
+}
+
+void
+prb_raw_free(void *pPrior)
+{
+  mrbc_raw_free(pPrior);
+}
+
