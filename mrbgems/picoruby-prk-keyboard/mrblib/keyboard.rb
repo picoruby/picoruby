@@ -990,13 +990,11 @@ class Keyboard
 
   def before_report(&block)
     @before_filters ||= Array.new
-    # @type ivar @before_filters: Array[^() -> void]
     @before_filters << block
   end
 
   def on_start(&block)
     @on_start_procs ||= Array.new
-    # @type ivar @on_start_procs: Array[^() -> void]
     @on_start_procs << block
   end
 
@@ -1006,8 +1004,6 @@ class Keyboard
     return unless @split
     @partner_signals ||= Array.new
     @anchor_signals ||= Array.new
-    # @type ivar @partner_signals: Array[^() -> void]
-    # @type ivar @anchor_signals: Array[Symbol]
     if SIGNALS_MAX_INDEX == @partner_signals.count
       puts "No more signals can register"
       return
@@ -1113,7 +1109,7 @@ class Keyboard
 
     puts "Keyboard started"
 
-    @on_start_procs&.each{ |my_proc| my_proc.call }
+    @on_start_procs&.each{ |my_proc| my_proc.call(self) }
 
     # To avoid unintentional report on startup
     # which happens only on Sparkfun Pro Micro RP2040
@@ -1341,7 +1337,7 @@ class Keyboard
         earlier_report_size = @keycodes.size
 
         @before_filters&.each do |block|
-          block.call
+          block.call(self)
         end
 
         @encoders.each do |encoder|
@@ -1377,7 +1373,7 @@ class Keyboard
       else
         # Partner
         @before_filters&.each do |block|
-          block.call
+          block.call(self)
         end
         @encoders.each do |encoder|
           data = encoder.consume_rotation_partner
@@ -1393,7 +1389,7 @@ class Keyboard
         if message_from_anchor == 0
           # Do nothing
         elsif message_from_anchor <= SIGNALS_MAX_INDEX
-          @partner_signals&.at(message_from_anchor - 1)&.call
+          @partner_signals&.at(message_from_anchor - 1)&.call(self)
         elsif message_from_anchor <= 0b00011111
           # Reserved
         else

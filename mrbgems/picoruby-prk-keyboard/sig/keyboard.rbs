@@ -58,10 +58,10 @@ class Keyboard
   @SHIFT_LETTER_THRESHOLD_A: Integer
   @SHIFT_LETTER_THRESHOLD_UNDS: Integer
 
-  @before_filters: Array[^() -> void] | nil
-  @on_start_procs: Array[^() -> void] | nil
-  @partner_signals: Array[^() -> void] | nil
-  @anker_signals: Array[Symbol] | nil
+  @before_filters: Array[^(Keyboard) -> void]
+  @on_start_procs: Array[^(Keyboard) -> void]
+  @partner_signals: Array[^(Keyboard) -> void]
+  @anchor_signals: Array[Symbol]
   @keymaps: Hash[Symbol, Array[Array[Integer | Symbol | Proc]]]
   @composite_keys: Array[{
     layer:             Symbol | nil,
@@ -165,9 +165,9 @@ class Keyboard
   def define_composite_key: (Symbol key_name, Array[Symbol] keys) -> void
   def define_mode_key: (Symbol key_name, [Symbol | Array[Symbol] | Proc | nil, Symbol | Proc | nil, Integer?, Integer?] param, ?bool from_via) -> void
   def invert_sft: -> void
-  def before_report: () { () -> void } -> void
-  def on_start: () { () -> void } -> void
-  def signal_partner: (Symbol key) { () -> void } -> void
+  def before_report: () { (Keyboard) -> void } -> void
+  def on_start: () { (Keyboard) -> void } -> void
+  def signal_partner: (Symbol key) { (Keyboard) -> void } -> void
   def keys_include?: (Symbol) -> bool
   def action_on_release: (Integer | Array[Integer] | Proc | nil) -> void
   def send_key: (*untyped) -> void # 気持ちとしては *(Symbol | Array) だけど書き方わからんかった
