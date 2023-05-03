@@ -440,6 +440,11 @@ class Keyboard
       MY_VOLUME.mkfs
       VFS.mount(MY_VOLUME, "/")
     end
+    if File.exist?(README)
+      File.open(README, "r") do |f|
+        return if f.gets&.chomp == PRK_DESCRIPTION
+      end
+    end
     File.open(README, "w") do |f|
       f.puts PRK_DESCRIPTION,
         "\nWelcome to PRK Firmware!\n",
