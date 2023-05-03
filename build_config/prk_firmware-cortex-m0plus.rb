@@ -28,7 +28,6 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
 
   # These defines should correspond to
   # the platform's configuration
-  conf.cc.defines << "NDEBUG=1"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
   conf.cc.defines << "MRBC_USE_MATH=1"

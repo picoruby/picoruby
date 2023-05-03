@@ -126,7 +126,8 @@ end
 desc "create debug build"
 task :debug do
   clean_if(:production)
-  sh %q{PICORUBY_DEBUG_BUILD=yes rake all}
+  ENV['PICORUBY_DEBUG'] = "yes"
+  Rake::Task[:all].invoke
 end
 
 desc "run all tests"

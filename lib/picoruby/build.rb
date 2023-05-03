@@ -58,14 +58,14 @@ module MRuby
         raise "Unknown picoruby_conf: #{picoruby_conf}"
       end
 
-      if ENV["PICORUBY_DEBUG_BUILD"]
-        cc.defines << "PICORUBY_DEBUG"
+      if ENV["PICORUBY_DEBUG"]
+        cc.defines << "PICORUBY_DEBUG=1"
         cc.flags.flatten!
         cc.flags.reject! { |f| %w(-g -O3).include? f }
         cc.flags << "-g3"
         cc.flags << "-O0"
       else
-        cc.defines << "NDEBUG"
+        cc.defines << "NDEBUG=1"
       end
 
     end
