@@ -535,10 +535,14 @@ class Keyboard
     @scan_mode = :matrix
     @skip_positions = Array.new
     @layer_changed_delay = 20
+    @on_start_procs = Array.new
+    @before_filters = Array.new
+    @partner_signals = Array.new
+    @anchor_signals = Array.new
   end
 
   attr_accessor :split, :uart_pin, :default_layer, :sounder, :modifier
-  attr_reader :layer, :split_style, :cols_size, :rows_size
+  attr_reader :layer, :split_style, :cols_size, :rows_size, :keycodes
 
   def anchor?
     @anchor
@@ -994,12 +998,10 @@ class Keyboard
   end
 
   def before_report(&block)
-    @before_filters ||= Array.new
     @before_filters << block
   end
 
   def on_start(&block)
-    @on_start_procs ||= Array.new
     @on_start_procs << block
   end
 
@@ -1007,8 +1009,6 @@ class Keyboard
 
   def signal_partner(key, &block)
     return unless @split
-    @partner_signals ||= Array.new
-    @anchor_signals ||= Array.new
     if SIGNALS_MAX_INDEX == @partner_signals.count
       puts "No more signals can register"
       return
@@ -1341,7 +1341,7 @@ class Keyboard
 
         earlier_report_size = @keycodes.size
 
-        @before_filters&.each do |block|
+        @before_filters.each do |block|
           block.call(self)
         end
 

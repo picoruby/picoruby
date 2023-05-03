@@ -91,7 +91,6 @@ class Keyboard
   @direct_pins: Array[Integer]
   @matrix: Hash[Integer, Hash[Integer, [Integer, Integer]]]
   @locked_layer: Symbol | nil
-  @keycodes: Array[Integer]
   @macro_keys: Array[Integer]
   @macro_key_numbers: Array[Integer | nil]
   @message: Integer
@@ -128,6 +127,7 @@ class Keyboard
   attr_reader sandbox: Sandbox
   attr_reader cols_size: Integer
   attr_reader rows_size: Integer
+  attr_reader keycodes: Array[Integer]
 
   def self.autoreload_off: () -> void
   def self.autoreload_ready?: () -> bool
