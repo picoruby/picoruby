@@ -36,6 +36,5 @@ mrbc_sqlite3_init(void)
 
   mrbc_init_class_SQLite3_Database();
   mrbc_init_class_SQLite3_Statement();
-  mrbc_init_class_SQLite3_ResultSet();
 }
 
