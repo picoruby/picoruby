@@ -1,5 +1,6 @@
 class MIDI
-  attr_accessor :channel, :key_states, :bend_width, :bend_step, :bend_release_step
+  attr_accessor :channel, :key_states, :bend_width, :bend_step,
+    :bpm, :arpeggiate_mode, :chord_mode, :chord_pattern
 
   NOTE_OFF_EVENT = 0x80
   NOTE_ON_EVENT  = 0x90
@@ -174,7 +175,7 @@ class MIDI
     MI_CH16:    0x80, # Set channel to 16
     MI_CHND:    0x81, # Decrease channel
     MI_CHNU:    0x82, # Increase channel
-    # MI_AOFF:    0x83, # Stop all notes
+    MI_AOFF:    0x83, # Stop all notes
     # MI_SUST:    0x84, # Sustain
     # MI_PORT:    0x85, # Portamento
     # MI_SOST:    0x86, # Sostenuto
@@ -188,6 +189,44 @@ class MIDI
     MI_PRG0:    0x8e, # Set program number to 0
     MI_PRGU:    0x8f, # Increase program number
     MI_PRGD:    0x90, # Decrease program number
+    MI_CRDTGL:  0x91, # Toggle chord mode
+    MI_CRDON:   0x92, # Chord mode on
+    MI_CRDOFF:  0x93, # Chord mode off
+    MI_CRDNPTN: 0x94, # Change next chord pattern
+    MI_CRDPPTN: 0x95, # Change previous chord pattern
+    MI_ARPGTGL: 0x96, # Toggle arppegiate mode
+    MI_ARPGON:  0x97, # Arppegiate mode on
+    MI_ARPGOFF: 0x98, # Arppegiate mode off
+  }
+
+  CHORD_PATTERNS = {
+    # Major chords
+    major: [1, 5, 8],
+    major7th: [1, 5, 8, 12],
+    major9th: [1, 5, 8, 12, 15],
+    major11th: [1, 5, 8, 12, 15, 19],
+    major13th: [1, 5, 8, 12, 15, 19, 22],
+
+    # Minor chords
+    minor: [1, 4, 8],
+    minor7th: [1, 4, 8, 11],
+    minor9th: [1, 4, 8, 11, 14],
+    minor11th: [1, 4, 8, 11, 14, 18],
+    minor13th: [1, 4, 8, 11, 14, 18, 21],
+
+    # Dominant chords
+    dominant7th: [1, 5, 8, 10],
+    dominant9th: [1, 5, 8, 10, 14],
+    dominant11th: [1, 5, 8, 10, 14, 17],
+    dominant13th: [1, 5, 8, 10, 14, 17, 21],
+
+    # Diminished chords
+    diminished: [1, 4, 7],
+    diminished7th: [1, 4, 7, 10],
+
+    # Augmented chords
+    augmented: [1, 5, 9],
+    augmented7th: [1, 5, 9, 13],
   }
 
   VELOCITY_VALUES = [0, 12, 25, 38, 51, 64, 76, 89, 102, 114, 127]
@@ -211,7 +250,7 @@ class MIDI
 
   def initialize
     puts "Init MIDI"
-    @channel = 0;
+    @channel = 0
     @buffer = []
     @octave_offset = 0
     @transpose_offset = 0
@@ -221,6 +260,10 @@ class MIDI
     @bend_width = 1365
     @bend_value = DEFAULT_PITCHBEND_VALUE
     @bend_step = 2000
+    @bpm = 120
+    @arpeggiate_mode = false
+    @chord_pattern = :major
+    @chord_mode = false
   end
 
   # event
@@ -277,7 +320,7 @@ class MIDI
         release_bend_event
       end
     else
-      # for control
+      # for control, chord mode, arpeggiate mode
       case event
       when :press
         case @key_states[keycode]
@@ -339,6 +382,35 @@ class MIDI
       @program_no = (@program_no + 1) > 128 ? (@program_no + 1 - 128) : @program_no + 1
       send_pc(@program_no)
       puts "set program_no = #{@program_no}"
+    when KEYCODE[:MI_AOFF]
+      (0..128).each{|n| note_off(n, nil) }
+    when KEYCODE[:MI_CRDTGL]
+      @chord_mode = !@chord_mode
+      puts "set chord mode #{@chord_mode ? 'on' : 'off'}"
+    when KEYCODE[:MI_CRDON]
+      @chord_mode = true
+      puts "set chord mode on"
+    when KEYCODE[:MI_CRDOFF]
+      @chord_mode = false
+      puts "set chord mode off"
+    when KEYCODE[:MI_CRDNPTN]
+      if (index = CHORD_PATTERNS.keys.index(@chord_pattern))
+        @chord_pattern = CHORD_PATTERNS.keys[(index + 1) % CHORD_PATTERNS.count]
+        puts "set chord_pattern = #{@chord_pattern}"
+      else
+        puts "unknown chord_pattern = #{@chord_pattern}"
+      end
+    # FIXME: compile error when comment out.
+    # when KEYCODE[:MI_CRDPPTN]
+    #   if (index = CHORD_PATTERNS.keys.index(@chord_pattern))
+    #     @chord_pattern = CHORD_PATTERNS.keys[(index - 1) % CHORD_PATTERNS.count]
+    #     puts "set chord_pattern = #{@chord_pattern}"
+    #   else
+    #     puts "unknown chord_pattern = #{@chord_pattern}"
+    #   end
+    when KEYCODE[:MI_ARPGTGL]
+    when KEYCODE[:MI_ARPGON]
+    when KEYCODE[:MI_ARPGOFF]
     end
   end
 
@@ -385,10 +457,24 @@ class MIDI
     @key_states.each do |keycode, state|
       case state
       when :wait_noteon
-        note_on(MIDI.keycode_to_note_number(keycode), nil)
+        note_num = MIDI.keycode_to_note_number(keycode)
+        if @chord_mode
+          convert_chord_pattern(note_num).each do |note|
+            note_on(note, nil)
+          end
+        else
+          note_on(note_num, nil)
+        end
         update_event(keycode, :noteon)
       when :wait_noteoff
-        note_off(MIDI.keycode_to_note_number(keycode), nil)
+        note_num = MIDI.keycode_to_note_number(keycode)
+        if @chord_mode
+          convert_chord_pattern(note_num).each do |note|
+            note_off(note, nil)
+          end
+        else
+          note_off(note_num, nil)
+        end
         update_event(keycode, :noteoff)
       when :wait_request
         process_request(keycode, {})
@@ -421,5 +507,13 @@ class MIDI
 
   def release_bend_event
     @bend_value = DEFAULT_PITCHBEND_VALUE
+  end
+
+  def convert_chord_pattern(root_note)
+    if CHORD_PATTERNS[@chord_pattern]
+      CHORD_PATTERNS[@chord_pattern].map{|n| root_note + n - 1 }
+    else
+      [root_note]
+    end
   end
 end

@@ -17,6 +17,7 @@ class MIDI
   MAX_PITCHBEND_VALUE:     Integer
   MIN_PITCHBEND_VALUE:     Integer
   DEFAULT_PITCHBEND_VALUE: Integer
+  CHORD_PATTERNS:          Hash[Symbol, Array[Integer]]
 
   def self.init: () -> void
   def self.write: (Array[Integer]) -> void
@@ -32,12 +33,21 @@ class MIDI
   @key_states: Hash[Integer, Symbol]
   @program_no: Integer
   @bend_value: Integer
-  @bend_step: Integer
-  @bend_release_step: Integer
+  @bend_step:  Integer
   @bend_width: Integer
+  @bpm:        Integer
+  @arpeggiate_mode: bool
+  @chord_mode:      bool
+  @chord_pattern:   Symbol
 
   attr_accessor channel: Integer
   attr_accessor key_states: Hash[Integer, Symbol]
+  attr_accessor bend_width: Integer
+  attr_accessor bend_step: Integer
+  attr_accessor bpm: Integer
+  attr_accessor arpeggiate_mode: bool
+  attr_accessor chord_mode: bool
+  attr_accessor chord_pattern: Symbol
 
   def initialize: () -> void
   def update_event: (Integer, Symbol) -> void
@@ -50,4 +60,5 @@ class MIDI
   def task: () -> void
   def press_bend_event: (:up | :down) -> void
   def release_bend_event: () -> void
+  def convert_chord_pattern: (Integer) -> Array[Integer]
 end
