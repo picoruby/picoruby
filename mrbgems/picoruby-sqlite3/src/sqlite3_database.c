@@ -78,28 +78,6 @@ array_callback_funciton(mrbc_value *result_array, int count, char **data, char *
   mrbc_array_push(result_array, &row);
 }
 
-static void
-c__execute(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  DbState *state = (DbState *)v[0].instance->data;
-  sqlite3 *db = state->db;
-  char *err_msg = NULL;
-  mrbc_value result_array = mrbc_array_new(vm, 0);
-  int rc = sqlite3_exec(
-              db,
-              (const char *)GET_STRING_ARG(1),
-              (sqlite3_callback)array_callback_funciton,
-              &result_array,
-              &err_msg
-            );
-  if (rc != SQLITE_OK) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sqlite3_exec() failed");
-    console_printf("code: %d, error message: %s\n", rc, err_msg);
-    mrbc_raw_free(err_msg);
-  }
-  SET_RETURN(result_array);
-}
-
 void
 mrbc_init_class_SQLite3_Database(void)
 {
@@ -110,5 +88,4 @@ mrbc_init_class_SQLite3_Database(void)
   mrbc_define_method(0, class_SQLite3_Database, "close", c_close);
   mrbc_define_method(0, class_SQLite3_Database, "closed?", c_closed_q);
   mrbc_define_method(0, class_SQLite3_Database, "_open", c__open);
-  mrbc_define_method(0, class_SQLite3_Database, "_execute", c__execute);
 }
