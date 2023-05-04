@@ -15,6 +15,7 @@ extern "C" {
 
 void c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc);
 void c__unlink(mrbc_vm *vm, mrbc_value v[], int argc);
+void c__rename(mrbc_vm *vm, mrbc_value v[], int argc);
 
 typedef struct prb_vfs_methods
 {

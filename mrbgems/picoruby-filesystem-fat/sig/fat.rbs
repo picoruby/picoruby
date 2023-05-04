@@ -33,6 +33,7 @@ class FAT
   def self._directory?: (String path) -> bool
   def self._exist?: (String path) -> bool
   def self._unlink: (String path) -> 0
+  def self._rename: (String from, String to) -> 0
   def self._chdir: (String path) -> 0
   def self._utime: (Integer unixtime, String path) -> Integer
   def self._mkdir: (String path, Integer mode) -> 0
@@ -73,6 +74,7 @@ class FAT
   def stat: (String path) -> Stat
   def exist?: (String path) -> bool
   def unlink: (String path) -> 0
+  def rename: (String from, String to) -> 0
   def directory?: (String path) -> bool
 
   class Dir

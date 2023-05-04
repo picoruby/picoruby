@@ -158,6 +158,10 @@ class FAT
     FAT._unlink("#{@prefix}#{path}")
   end
 
+  def rename(from, to)
+    FAT._rename("#{@prefix}#{from}", "#{@prefix}#{to}")
+  end
+
   def directory?(path)
     return true if path == "/"
     FAT._directory?("#{@prefix}#{path}")

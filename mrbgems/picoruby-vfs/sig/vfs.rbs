@@ -14,6 +14,7 @@ class VFS
   def self.chdir: (String dir) -> Integer
   def self.pwd: -> String
   def self.mkdir: (String path, ?Integer mode) -> 0
+  def self.rename: (String from, String to) -> 0
   def self.unlink: (String path) -> 0
   def self.chmod: (Integer mode, String path) -> 0
   def self.exist?: (String path) -> bool

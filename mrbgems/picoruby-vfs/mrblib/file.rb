@@ -65,6 +65,10 @@ class File
       return count
     end
 
+    def rename(from, to)
+      VFS.rename(from, to)
+    end
+
     def utime(atime, mtime, *filename)
       VFS::File.utime(atime, mtime, *filename)
     end

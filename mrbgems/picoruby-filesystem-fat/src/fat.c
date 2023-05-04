@@ -326,6 +326,7 @@ mrbc_filesystem_fat_init(void)
   mrbc_define_method(0, class_FAT, "_utime", c__utime);
   mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
   mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
+  mrbc_define_method(0, class_FAT, "_rename", c__rename);
   mrbc_define_method(0, class_FAT, "_chmod", c__chmod);
   mrbc_define_method(0, class_FAT, "_stat", c__stat);
   mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
@@ -360,6 +361,16 @@ c__unlink(mrbc_vm *vm, mrbc_value v[], int argc)
   TCHAR *path = (TCHAR *)GET_STRING_ARG(1);
   FRESULT res = f_unlink(path);
   mrbc_raise_iff_f_error(vm, res, "f_unlink");
+  SET_INT_RETURN(0);
+}
+
+void
+c__rename(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  TCHAR *from = (TCHAR *)GET_STRING_ARG(1);
+  TCHAR *to = (TCHAR *)GET_STRING_ARG(2);
+  FRESULT res = f_rename(from, to);
+  mrbc_raise_iff_f_error(vm, res, "f_rename");
   SET_INT_RETURN(0);
 }
 

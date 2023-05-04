@@ -61,6 +61,15 @@ class VFS
       volume[:driver].unlink(_path)
     end
 
+    def rename(from, to)
+      volume_from, _from = VFS.sanitize_and_split(from)
+      volume_to, _to = VFS.sanitize_and_split(to)
+      if volume_from != volume_to
+        raise "Can't rename across volumes"
+      end
+      volume_from[:driver].rename(_from, _to)
+    end
+
     def chmod(mode, path)
       volume, _path = VFS.sanitize_and_split(path)
       volume[:driver].chmod(mode, _path)
