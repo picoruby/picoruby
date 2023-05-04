@@ -3,12 +3,12 @@
 # Global variables
 
 class Object
-  PICORUBY_NO_MSC: bool
+  $volume: FAT
+  PICORUBY_MSC: String
   README: String
   KEYMAP: String
   PRK_CONF: String
   DRIVE_NAME: String
-  MY_VOLUME: FAT
 end
 
 class Keyboard

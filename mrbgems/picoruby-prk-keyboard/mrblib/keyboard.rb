@@ -428,17 +428,27 @@ README = "/README.txt"
 KEYMAP = "/keymap.rb"
 PRK_CONF = "/prk-conf.txt"
 DRIVE_NAME = "PRK DRIVE"
-MY_VOLUME = FAT.new(:flash, label: DRIVE_NAME)
 
 class Keyboard
 
   def self.mount_volume
-    return if PICORUBY_NO_MSC
+    case PICORUBY_MSC
+    when "NO_MSC"
+      return
+    when "MSC_FLASH"
+      $volume = FAT.new(:flash, label: DRIVE_NAME)
+    when "MSC_SD"
+      spi_unit, sck, cipo, copi, cs = :RP2040_SPI1, 26, 24, 27, 25
+      spi = SPI.new(frequency: 5_000_000, unit: spi_unit,
+                    sck_pin:  sck,  cipo_pin: cipo,
+                    copi_pin: copi, cs_pin:   cs)
+      $volume = FAT.new(:sd, label: DRIVE_NAME, driver: spi)
+    end
     begin
-      VFS.mount(MY_VOLUME, "/")
+      VFS.mount($volume, "/")
     rescue => e
-      MY_VOLUME.mkfs
-      VFS.mount(MY_VOLUME, "/")
+      $volume.mkfs
+      VFS.mount($volume, "/")
     end
     if File.exist?(README)
       File.open(README, "r") do |f|
@@ -459,13 +469,13 @@ class Keyboard
   end
 
   def self.restart
-    VFS.unmount(MY_VOLUME, true)
+    VFS.unmount($volume, true)
     USB.hid_task(0, [], 0)
     200.times do
       USB.tud_task
       sleep_ms 1
     end
-    VFS.mount(MY_VOLUME, "/")
+    VFS.mount($volume, "/")
     # Spec: https://github.com/picoruby/prk_firmware/wiki/VIA-and-Remap#prk-conftxt
     if File.exist?(PRK_CONF)
       File.open(PRK_CONF, "r") do |f|
@@ -477,7 +487,7 @@ class Keyboard
     end
     puts "==============================================="
     puts PRK_DESCRIPTION
-    puts "PICORUBY_NO_MSC: #{PICORUBY_NO_MSC}"
+    puts "PICORUBY_MSC: #{PICORUBY_MSC}"
     puts "prk-conf: #{USB.prk_conf}"
     puts "==============================================="
     if Task[:keyboard].nil?
