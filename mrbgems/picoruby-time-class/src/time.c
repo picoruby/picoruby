@@ -52,6 +52,7 @@ tz_env_set(struct VM *vm)
   if (env == NULL || env->tt != MRBC_TT_HASH) return;
   mrbc_value key = mrbc_string_new_cstr(vm, "TZ");
   mrbc_value tz = mrbc_hash_get(env, &key);
+  mrbc_decref(&key);
   if (tz.tt != MRBC_TT_STRING) return;
 #if defined(_BSD_SOURCE) || \
     (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || \
