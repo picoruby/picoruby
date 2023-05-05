@@ -36,7 +36,7 @@ int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName);
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int flags);
 
-void vfs_funcall(
+void prb_funcall(
   void (*func)(mrbc_vm *, mrbc_value *, int),
   mrbc_value *v,
   int argc

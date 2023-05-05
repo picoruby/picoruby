@@ -11,28 +11,29 @@
 extern "C" {
 #endif
 
-#define VFS_NAME "prbvfs"
+#define VFS_NAME "prb_vfs"
 
-int prbvfsOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags);
-int prbvfsDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir);
-int prbvfsAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut);
-int prbvfsFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut);
-int prbvfsRandomness(sqlite3_vfs *pVfs, int nByte, char *zOut);
-int prbvfsCurrentTimeInt64(sqlite3_vfs *pVfs, sqlite3_int64 *piNow);
-int prbvfsClose(sqlite3_file *pFile);
-int prbvfsRead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst);
-int prbvfsWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst);
-int prbvfsTruncate(sqlite3_file *pFile, sqlite3_int64 size);
-int prbvfsSync(sqlite3_file *pFile, int flags);
-int prbvfsFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize);
-int prbvfsLock(sqlite3_file *pFile, int eLock);
-int prbvfsUnlock(sqlite3_file *pFile, int eLock);
-int prbvfsCheckReservedLock(sqlite3_file *pFile, int *pResOut);
-int prbvfsFileControl(sqlite3_file *pFile, int op, void *pArg);
-int prbvfsSectorSize(sqlite3_file *pFile);
-int prbvfsDeviceCharacteristics(sqlite3_file *pFile);
+int prbVFSOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags);
+int prbVFSDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir);
+int prbVFSAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut);
+int prbVFSFullPathname(sqlite3_vfs *pVfs, const char *zName, int nOut, char *zOut);
+int prbVFSRandomness(sqlite3_vfs *pVfs, int nByte, char *zOut);
+int prbVFSCurrentTimeInt64(sqlite3_vfs *pVfs, sqlite3_int64 *piNow);
 
-extern sqlite3_vfs prbvfs;
+int prbIOClose(sqlite3_file *pFile);
+int prbIORead(sqlite3_file *pFile, void *zBuf, int iAmt, sqlite3_int64 iOfst);
+int prbIOWrite(sqlite3_file *pFile, const void *zBuf, int iAmt, sqlite3_int64 iOfst);
+int prbIOTruncate(sqlite3_file *pFile, sqlite3_int64 size);
+int prbIOSync(sqlite3_file *pFile, int flags);
+int prbIOFileSize(sqlite3_file *pFile, sqlite3_int64 *pSize);
+int prbIOLock(sqlite3_file *pFile, int eLock);
+int prbIOUnlock(sqlite3_file *pFile, int eLock);
+int prbIOCheckReservedLock(sqlite3_file *pFile, int *pResOut);
+int prbIOFileControl(sqlite3_file *pFile, int op, void *pArg);
+int prbIOSectorSize(sqlite3_file *pFile);
+int prbIODeviceCharacteristics(sqlite3_file *pFile);
+
+extern sqlite3_vfs prb_vfs;
 extern prb_vfs_methods vfs_methods;
 extern prb_time_methods time_methods;
 

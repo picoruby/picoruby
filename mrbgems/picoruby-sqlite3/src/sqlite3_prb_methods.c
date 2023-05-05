@@ -9,17 +9,14 @@
 #define D() (void)0
 
 void
-vfs_funcall(
+prb_funcall(
   void (*func)(mrbc_vm *, mrbc_value *, int),
   mrbc_value *v,
   int argc
 )
 {
-  /*
-   * TODO: when mrbc_decref() should be called?
-   */
   mrbc_incref(&v[0]);
-  func(prbvfs.pAppData, &v[0], argc);
+  func(prb_vfs.pAppData, &v[0], argc);
 }
 
 mrbc_int_t
@@ -28,7 +25,7 @@ prb_time_gettime_us(void)
   D();
   mrbc_value v[1];
   v[0] = mrbc_nil_value();
-  vfs_funcall(time_methods.time_now, &v[0], 0);
+  prb_funcall(time_methods.time_now, &v[0], 0);
   if (v->tt == MRBC_TT_NIL) {
     return 0;
   }
@@ -48,7 +45,7 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
   v[1] = mrbc_string_new_cstr(vm, zName);
   char mode[3];
   if (flags & SQLITE_OPEN_CREATE) {
-    if (prb_file_exist_q(&prbvfs, zName)) {
+    if (prb_file_exist_q(&prb_vfs, zName)) {
       mode[0] = 'r';
     } else {
       mode[0] = 'w';
@@ -60,7 +57,7 @@ prb_file_new(PRBFile *prbfile, const char *zName, int flags)
     mode[1] = '\0';
   }
   v[2] = mrbc_string_new_cstr(vm, mode);
-  vfs_funcall(vfs_methods.file_new, &v[0], 2);
+  prb_funcall(vfs_methods.file_new, &v[0], 2);
   mrbc_decref(&v[1]);
   mrbc_decref(&v[2]);
   if (v->tt == MRBC_TT_NIL) {
@@ -84,7 +81,7 @@ int prb_file_close(PRBFile *prbfile)
   D();
   mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_funcall(vfs_methods.file_close, &v[0], 0);
+  prb_funcall(vfs_methods.file_close, &v[0], 0);
   mrbc_raw_free(prbfile->file);
   return 0;
 }
@@ -95,7 +92,7 @@ int prb_file_read(PRBFile *prbfile, void *zBuf, size_t nBuf)
   mrbc_value v[2];
   v[0] = *prbfile->file;
   v[1] = mrbc_integer_value(nBuf);
-  vfs_funcall(vfs_methods.file_read, &v[0], 1);
+  prb_funcall(vfs_methods.file_read, &v[0], 1);
   if (v->tt == MRBC_TT_NIL) {
     return 0; /* EOF */
   } else if (v->tt != MRBC_TT_STRING) {
@@ -115,7 +112,7 @@ int prb_file_write(PRBFile *prbfile, const void *zBuf, size_t nBuf)
   v[0] = *prbfile->file;
   v[1] = mrbc_string_new(vm, zBuf, nBuf);
   v[2] = mrbc_integer_value(nBuf);
-  vfs_funcall(vfs_methods.file_write, &v[0], 2);
+  prb_funcall(vfs_methods.file_write, &v[0], 2);
   mrbc_decref(&v[1]);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
@@ -128,7 +125,7 @@ int prb_file_fsync(PRBFile *prbfile)
   D();
   mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_funcall(vfs_methods.file_fsync, &v[0], 0);
+  prb_funcall(vfs_methods.file_fsync, &v[0], 0);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -142,7 +139,7 @@ int prb_file_seek(PRBFile *prbfile, int offset)
   v[0] = *prbfile->file;
   v[1] = mrbc_integer_value(offset);
   v[2] = mrbc_integer_value(SEEK_SET); // whence is always SEEK_SET
-  vfs_funcall(vfs_methods.file_seek, &v[0], 2);
+  prb_funcall(vfs_methods.file_seek, &v[0], 2);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -154,7 +151,7 @@ int prb_file_tell(PRBFile *prbfile)
   D();
   mrbc_value v[1];
   v[0] = *prbfile->file;
-  vfs_funcall(vfs_methods.file_tell, &v[0], 0);
+  prb_funcall(vfs_methods.file_tell, &v[0], 0);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
   }
@@ -164,11 +161,11 @@ int prb_file_tell(PRBFile *prbfile)
 int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
 {
   D();
-  mrbc_vm *vm = prbvfs.pAppData;
+  mrbc_vm *vm = prb_vfs.pAppData;
   mrbc_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_funcall(vfs_methods.file_unlink, &v[0], 1);
+  prb_funcall(vfs_methods.file_unlink, &v[0], 1);
   mrbc_decref(&v[1]);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
@@ -179,11 +176,11 @@ int prb_file_unlink(sqlite3_vfs *pVfs, const char *zName)
 int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
 {
   D();
-  mrbc_vm *vm = prbvfs.pAppData;
+  mrbc_vm *vm = prb_vfs.pAppData;
   mrbc_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_funcall(vfs_methods.file_exist_q, &v[0], 1);
+  prb_funcall(vfs_methods.file_exist_q, &v[0], 1);
   mrbc_decref(&v[1]);
   return (v->tt == MRBC_TT_TRUE);
 }
@@ -191,11 +188,11 @@ int prb_file_exist_q(sqlite3_vfs *pVfs, const char *zName)
 int prb_file_stat(sqlite3_vfs *pVfs, const char *zName, int stat)
 {
   D();
-  mrbc_vm *vm = prbvfs.pAppData;
+  mrbc_vm *vm = prb_vfs.pAppData;
   mrbc_value v[2];
   v[0] = mrbc_nil_value();
   v[1] = mrbc_string_new_cstr(vm, zName);
-  vfs_funcall(vfs_methods.file_stat, &v[0], 1);
+  prb_funcall(vfs_methods.file_stat, &v[0], 1);
   mrbc_decref(&v[1]);
   if (v->tt != MRBC_TT_INTEGER) {
     return -1;
