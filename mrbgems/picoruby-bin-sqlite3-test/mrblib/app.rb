@@ -21,37 +21,43 @@ stmt = db.prepare "CREATE TABLE IF NOT EXISTS test
     updated_at TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
   );"
 stmt.execute
+PicoRubyVM.print_alloc_stats
+
+print "journal_mode="
+db.execute("PRAGMA journal_mode;") do |row|
+  print row[0]
+end
+
 stmt = db.prepare "INSERT INTO test (name) VALUES (?);"
-stmt.execute "Mario"
-sleep 0.1
-stmt.execute "Luigi"
-sleep 0.05
-stmt.execute "Koopa"
-sleep 0.01
-stmt.execute "Pesca"
 
-#db.execute("SELECT datetime('now', '+9 hours');") do |row|
-resultset = db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');")
-resultset.each do |row|
-  p row
+%w{Mario Luigi Peach Toad Koopa Kuribo a n d l iel oa g}.each do |name|
+  puts name
+  stmt.execute name
+  PicoRubyVM.print_alloc_stats
 end
 
-db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');") do |row|
-  p row
-end
-
-db.execute("SELECT * FROM test;") do |row|
-  p row
-end
-
-db.results_as_hash = true
-
-db.execute("SELECT * FROM test;") do |row|
-  p row
-end
-
+##db.execute("SELECT datetime('now', '+9 hours');") do |row|
+#resultset = db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');")
+#resultset.each do |row|
+#  p row
+#end
+#
+#db.execute("SELECT STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW');") do |row|
+#  p row
+#end
+#
+#db.execute("SELECT * FROM test;") do |row|
+#  p row
+#end
+#
+#db.results_as_hash = true
+#
+#db.execute("SELECT * FROM test;") do |row|
+#  p row
+#end
+#
 db.close
-p File::Stat.new("/home/test.db").size
+#p File::Stat.new("/home/test.db").size
 #File.open("/home/test.db") do |f|
 #  p f.read
 #end
@@ -63,9 +69,9 @@ p File::Stat.new("/home/test.db").size
 #end
 #db.close
 
-now = Time.now
-p now.to_s
-p now.inspect
-p now.to_i
-p now.to_f - now.to_i
-p now.usec
+#now = Time.now
+#p now.to_s
+#p now.inspect
+#p now.to_i
+#p now.to_f - now.to_i
+#p now.usec
