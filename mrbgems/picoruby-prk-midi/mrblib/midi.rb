@@ -1,12 +1,16 @@
 class MIDI
   attr_accessor :channel, :key_states, :bend_width, :bend_step,
-    :bpm, :arpeggiate_mode, :chord_mode, :chord_pattern
+    :default_bpm, :arpeggiate_mode, :chord_mode, :chord_pattern
 
   NOTE_OFF_EVENT = 0x80
   NOTE_ON_EVENT  = 0x90
   PITCH_BEND_EVENT = 0xE0
   CONTROL_CHANGE_EVENT = 0xB0
   PROGRAM_CHANGE_EVENT = 0xC0
+
+  SRT_TIMING_CLOCK = 0xF8
+  SRT_START = 0xFA
+  SRT_STOP = 0xFB
 
   MAX_EVENT = 64
   MAX_PITCHBEND_VALUE = 0x3FFF
@@ -190,13 +194,16 @@ class MIDI
     MI_PRGU:    0x8f, # Increase program number
     MI_PRGD:    0x90, # Decrease program number
     MI_CRDTGL:  0x91, # Toggle chord mode
-    MI_CRDON:   0x92, # Chord mode on
-    MI_CRDOFF:  0x93, # Chord mode off
-    MI_CRDNPTN: 0x94, # Change next chord pattern
-    MI_CRDPPTN: 0x95, # Change previous chord pattern
-    MI_ARPGTGL: 0x96, # Toggle arppegiate mode
-    MI_ARPGON:  0x97, # Arppegiate mode on
-    MI_ARPGOFF: 0x98, # Arppegiate mode off
+    MI_NEXTCRD: 0x92, # Change next chord pattern
+    MI_PREVCRD: 0x93, # Change previous chord pattern
+    MI_ARPGTGL: 0x94, # Toggle arppegiate mode
+    MI_ARPGON:  0x95, # Arppegiate mode on
+    MI_ARPGOFF: 0x96, # Arppegiate mode off
+    MI_SRTSTART:0x97, # Start MIDI System Realtime
+    MI_SRTSTOP: 0xa1, # Stop MIDI System Realtime
+    MI_BPMUP:   0xa2, # Insurace BPM
+    MI_BPMDOWN: 0xa3, # Decreace BPM
+    MI_BPMDFLT: 0xa4, # Reset BPM to 120
   }
 
   CHORD_PATTERNS = {
@@ -260,10 +267,15 @@ class MIDI
     @bend_width = 1365
     @bend_value = DEFAULT_PITCHBEND_VALUE
     @bend_step = 2000
-    @bpm = 120
+    @default_bpm = 120
+    @bpm = @default_bpm
     @arpeggiate_mode = false
     @chord_pattern = :major
     @chord_mode = false
+    @play_status = :stop
+    @previous_clock_time = nil
+    @duration_per_beat = -1
+    @duration_per_clock = -1
   end
 
   # event
@@ -318,6 +330,20 @@ class MIDI
       when :release
         @key_states.delete(KEYCODE[:MI_BNDU])
         release_bend_event
+      end
+    elsif keycode == KEYCODE[:MI_BPMUP]
+      # for increace bpm
+      case event
+      when :press
+        @key_states[KEYCODE[:MI_BPMUP]] = :pressed
+        change_bpm(@bpm + 1)
+      end
+    elsif keycode == KEYCODE[:MI_BPMDOWN]
+      # for decreace bpm
+      case event
+      when :press
+        @key_states[KEYCODE[:MI_BPMDOWN]] = :pressed
+        change_bpm(@bpm - 1)
       end
     else
       # for control, chord mode, arpeggiate mode
@@ -382,35 +408,32 @@ class MIDI
       @program_no = (@program_no + 1) > 128 ? (@program_no + 1 - 128) : @program_no + 1
       send_pc(@program_no)
       puts "set program_no = #{@program_no}"
-    when KEYCODE[:MI_AOFF]
-      (0..128).each{|n| note_off(n, nil) }
+    # when KEYCODE[:MI_AOFF]
+    #   (0..128).each{|n| note_off(n, nil) }
     when KEYCODE[:MI_CRDTGL]
       @chord_mode = !@chord_mode
-      puts "set chord mode #{@chord_mode ? 'on' : 'off'}"
-    when KEYCODE[:MI_CRDON]
-      @chord_mode = true
-      puts "set chord mode on"
-    when KEYCODE[:MI_CRDOFF]
-      @chord_mode = false
-      puts "set chord mode off"
-    when KEYCODE[:MI_CRDNPTN]
+      puts "set chord mode #{@chord_mode}"
+    when KEYCODE[:MI_NEXTCRD], KEYCODE[:MI_PREVCRD]
       if (index = CHORD_PATTERNS.keys.index(@chord_pattern))
-        @chord_pattern = CHORD_PATTERNS.keys[(index + 1) % CHORD_PATTERNS.count]
+        if keycode == KEYCODE[:MI_NEXTCRD]
+          @chord_pattern = CHORD_PATTERNS.keys[(index + 1) % CHORD_PATTERNS.count]
+        elsif keycode == KEYCODE[:MI_PREVCRD]
+          @chord_pattern = CHORD_PATTERNS.keys[(index - 1) % CHORD_PATTERNS.count]
+        end
         puts "set chord_pattern = #{@chord_pattern}"
       else
         puts "unknown chord_pattern = #{@chord_pattern}"
       end
-    # FIXME: compile error when comment out.
-    # when KEYCODE[:MI_CRDPPTN]
-    #   if (index = CHORD_PATTERNS.keys.index(@chord_pattern))
-    #     @chord_pattern = CHORD_PATTERNS.keys[(index - 1) % CHORD_PATTERNS.count]
-    #     puts "set chord_pattern = #{@chord_pattern}"
-    #   else
-    #     puts "unknown chord_pattern = #{@chord_pattern}"
-    #   end
     when KEYCODE[:MI_ARPGTGL]
     when KEYCODE[:MI_ARPGON]
     when KEYCODE[:MI_ARPGOFF]
+    when KEYCODE[:MI_BPMDFLT]
+      change_bpm(@default_bpm)
+    when KEYCODE[:MI_SRTSTART]
+      change_bpm(@bpm)
+      send_srt_start
+    when KEYCODE[:MI_SRTSTOP]
+      send_srt_stop
     end
   end
 
@@ -452,8 +475,49 @@ class MIDI
     @buffer << [CONTROL_CHANGE_EVENT | @channel, number, value]
   end
 
+  def send_srt_clock
+    if @play_status == :start
+      current_time = Machine.board_millis
+      duration = current_time - (@previous_clock_time || 0)
+
+      if @previous_clock_time.nil?
+        @buffer << [SRT_TIMING_CLOCK]
+        @previous_clock_time = current_time
+        # puts "send_srt_clock duration: #{duration}ms"
+      else
+        cnt = duration / @duration_per_clock
+        if cnt > 0
+          cnt.times do
+            @buffer << [SRT_TIMING_CLOCK]
+          end
+          @previous_clock_time = current_time - duration % @duration_per_clock
+        end
+        # puts "send_srt_clock #{cnt}times duration: #{duration}ms"
+      end
+    end
+  end
+
+  def send_srt_start
+    if @play_status == :stop
+      puts "send_srt_start"
+      @buffer << [SRT_START]
+      @play_status = :start
+      @previous_clock_time = nil
+    end
+  end
+
+  def send_srt_stop
+    if @play_status == :start
+      puts "send_srt_stop"
+      @buffer << [SRT_STOP]
+      @play_status = :stop
+      @previous_clock_time = nil
+    end
+  end
+
   def task
     MIDI.init
+    send_srt_clock
     @key_states.each do |keycode, state|
       case state
       when :wait_noteon
@@ -515,5 +579,13 @@ class MIDI
     else
       [root_note]
     end
+  end
+
+  def change_bpm(bpm)
+    return if bpm < 20 || bpm > 300
+    @bpm = bpm
+    @duration_per_beat = 60000 / @bpm
+    @duration_per_clock = (@duration_per_beat || 0) / 24
+    puts "set BPM = #{@bpm}(#{@duration_per_beat}ms/beat)"
   end
 end

@@ -4,12 +4,17 @@
 
 class MIDI
   type midi_event = Integer
+  type play_status = :start | :stop
 
   NOTE_OFF_EVENT:          midi_event
   NOTE_ON_EVENT:           midi_event
   PITCH_BEND_EVENT:        midi_event
   CONTROL_CHANGE_EVENT:    midi_event
   PROGRAM_CHANGE_EVENT:    midi_event
+  SRT_TIMING_CLOCK:        midi_event
+  SRT_START:               midi_event
+  SRT_STOP:                midi_event
+  
   MAX_EVENT:               Integer
   KEYCODE:                 Hash[Symbol, Integer]
   VELOCITY_VALUES:         Array[Integer]
@@ -25,20 +30,25 @@ class MIDI
   def self.keycode_from_mapcode: (Integer) -> Integer
   def self.keycode_to_note_number: (Integer) -> Integer
 
-  @channel: Integer
-  @octave_offset: Integer
-  @transpose_offset: Integer
-  @velocity_offset: Integer
-  @buffer: Array[Array[Integer]]
-  @key_states: Hash[Integer, Symbol]
-  @program_no: Integer
-  @bend_value: Integer
-  @bend_step:  Integer
-  @bend_width: Integer
-  @bpm:        Integer
-  @arpeggiate_mode: bool
-  @chord_mode:      bool
-  @chord_pattern:   Symbol
+  @channel:              Integer
+  @octave_offset:        Integer
+  @transpose_offset:     Integer
+  @velocity_offset:      Integer
+  @buffer:               Array[Array[Integer]]
+  @key_states:           Hash[Integer, Symbol]
+  @program_no:           Integer
+  @bend_value:           Integer
+  @bend_step:            Integer
+  @bend_width:           Integer
+  @default_bpm:          Integer
+  @bpm:                  Integer
+  @arpeggiate_mode:      bool
+  @chord_mode:           bool
+  @chord_pattern:        Symbol
+  @play_status:          play_status
+  @previous_clock_time:  Integer | nil
+  @duration_per_beat:    Integer
+  @duration_per_clock:   Integer
 
   attr_accessor channel: Integer
   attr_accessor key_states: Hash[Integer, Symbol]
@@ -57,8 +67,12 @@ class MIDI
   def send_pitchbend: () -> void
   def send_pc: (Integer) -> void
   def send_cc: (Integer, Integer) -> void
+  def send_srt_clock: () -> void
+  def send_srt_start: () -> void
+  def send_srt_stop: () -> void
   def task: () -> void
   def press_bend_event: (:up | :down) -> void
   def release_bend_event: () -> void
   def convert_chord_pattern: (Integer) -> Array[Integer]
+  def change_bpm: (Integer)-> void
 end
