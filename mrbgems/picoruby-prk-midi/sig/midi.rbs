@@ -4,7 +4,12 @@
 
 class MIDI
   type midi_event = Integer
+  type midi_param = Integer
   type play_status = :start | :stop
+  type midi_packets = Array[midi_event | midi_param]
+  type seq_midi_event = Array[midi_packets]
+  type song_slot_group = Array[seq_midi_event]
+  type song_slot = Array[song_slot_group]
 
   NOTE_OFF_EVENT:          midi_event
   NOTE_ON_EVENT:           midi_event
@@ -23,6 +28,8 @@ class MIDI
   MIN_PITCHBEND_VALUE:     Integer
   DEFAULT_PITCHBEND_VALUE: Integer
   CHORD_PATTERNS:          Hash[Symbol, Array[Integer]]
+  MAX_SLOTS:               Integer
+  MAX_SLOT_GROUPS:         Integer
 
   def self.init: () -> void
   def self.write: (Array[Integer]) -> void
@@ -30,25 +37,34 @@ class MIDI
   def self.keycode_from_mapcode: (Integer) -> Integer
   def self.keycode_to_note_number: (Integer) -> Integer
 
-  @channel:              Integer
-  @octave_offset:        Integer
-  @transpose_offset:     Integer
-  @velocity_offset:      Integer
-  @buffer:               Array[Array[Integer]]
-  @key_states:           Hash[Integer, Symbol]
-  @program_no:           Integer
-  @bend_value:           Integer
-  @bend_step:            Integer
-  @bend_width:           Integer
-  @default_bpm:          Integer
-  @bpm:                  Integer
-  @arpeggiate_mode:      bool
-  @chord_mode:           bool
-  @chord_pattern:        Symbol
-  @play_status:          play_status
-  @previous_clock_time:  Integer | nil
-  @duration_per_beat:    Integer
-  @duration_per_clock:   Integer
+  @channel:                       Integer
+  @octave_offset:                 Integer
+  @transpose_offset:              Integer
+  @velocity_offset:               Integer
+  @buffer:                        Array[midi_packets]
+  @key_states:                    Hash[Integer, Symbol]
+  @program_no:                    Integer
+  @bend_value:                    Integer
+  @bend_step:                     Integer
+  @bend_width:                    Integer
+  @default_bpm:                   Integer
+  @bpm:                           Integer
+  @arpeggiate_mode:               bool
+  @chord_mode:                    bool
+  @chord_pattern:                 Symbol
+  @play_status:                   play_status
+  @previous_clock_time:           Integer?
+  @previous_sixteenth_beat_time:  Integer?
+  @duration_per_beat:             Integer
+  @duration_per_sixteenth_beat:   Integer
+  @duration_per_clock:            Integer
+  @current_seq_no:                Integer
+  @slots:                         Array[song_slot]
+  @current_slot_group:            Array[Integer]
+  @start_seq_no:                  Array[Integer]
+  @active_slots:                  Array[Integer]
+  @play_repeat:                   bool
+  @is_played:                     Array[bool]
 
   attr_accessor channel: Integer
   attr_accessor key_states: Hash[Integer, Symbol]
@@ -62,6 +78,7 @@ class MIDI
   def initialize: () -> void
   def update_event: (Integer, Symbol) -> void
   def process_request: (Integer, Hash[Symbol, Integer | String]) -> void
+  def play_slot: (Hash[Symbol, Integer]) -> void
   def note_on: (Integer, Integer | nil) -> void
   def note_off: (Integer, Integer | nil) -> void
   def send_pitchbend: () -> void
@@ -75,4 +92,7 @@ class MIDI
   def release_bend_event: () -> void
   def convert_chord_pattern: (Integer) -> Array[Integer]
   def change_bpm: (Integer)-> void
+  def calc_seq_no: () -> void
+  def process_slots: () -> void
+  def add_song: (Integer, Integer, Integer, *Array[String]) -> void
 end
