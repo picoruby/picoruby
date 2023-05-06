@@ -1,6 +1,11 @@
+if RUBY_ENGINE == 'mruby/c'
+  require "mml2midi"
+end
+
 class MIDI
   attr_accessor :channel, :key_states, :bend_width, :bend_step,
-    :default_bpm, :arpeggiate_mode, :chord_mode, :chord_pattern
+    :default_bpm, :arpeggiate_mode, :chord_mode, :chord_pattern,
+    :slots, :play_repeat
 
   NOTE_OFF_EVENT = 0x80
   NOTE_ON_EVENT  = 0x90
@@ -203,7 +208,20 @@ class MIDI
     MI_SRTSTOP: 0xa1, # Stop MIDI System Realtime
     MI_BPMUP:   0xa2, # Insurace BPM
     MI_BPMDOWN: 0xa3, # Decreace BPM
-    MI_BPMDFLT: 0xa4, # Reset BPM to 120
+    MI_BPMDFLT: 0xa4, # Reset BPM to default(or 120)
+    MI_PL1GL1:  0xb0, # Play slot 1, group 1
+    MI_PL1GL2:  0xb1, # Play slot 1, group 2
+    MI_PL1GL3:  0xb2, # Play slot 1, group 3
+    MI_PL2GL1:  0xb3, # Play slot 2, group 1
+    MI_PL2GL2:  0xb4, # Play slot 2, group 2
+    MI_PL2GL3:  0xb5, # Play slot 2, group 3
+    MI_PL3GL1:  0xb6, # Play slot 3, group 1
+    MI_PL3GL2:  0xb7, # Play slot 3, group 2
+    MI_PL3GL3:  0xb8, # Play slot 3, group 3
+    MI_PL4GL1:  0xb9, # Play slot 3, group 1
+    MI_PL4GL2:  0xc0, # Play slot 3, group 2
+    MI_PL4GL3:  0xc1, # Play slot 3, group 3
+    MI_PL_RPT:  0xc2, # Play with repeat
   }
 
   CHORD_PATTERNS = {
@@ -238,6 +256,8 @@ class MIDI
 
   VELOCITY_VALUES = [0, 12, 25, 38, 51, 64, 76, 89, 102, 114, 127]
   MAP_OFFSET = 0x800
+  MAX_SLOTS = 4
+  MAX_SLOT_GROUPS = 3
 
   def self.keycode(sym)
     MIDI::KEYCODE[sym]
@@ -274,8 +294,21 @@ class MIDI
     @chord_mode = false
     @play_status = :stop
     @previous_clock_time = nil
+    @previous_sixteenth_beat_time = nil
     @duration_per_beat = -1
+    @duration_per_sixteenth_beat = -1
     @duration_per_clock = -1
+    @slots = Array.new(MAX_SLOTS)
+
+    @slots.each_with_index do |slot, i|
+      @slots[i] = Array.new(MAX_SLOT_GROUPS)
+    end
+
+    @current_seq_no = 0
+    @current_slot_group = Array.new(MAX_SLOTS)
+    @start_seq_no = Array.new(MAX_SLOTS)
+    @is_played = Array.new(MAX_SLOTS)
+    @play_repeat = false
   end
 
   # event
@@ -408,6 +441,7 @@ class MIDI
       @program_no = (@program_no + 1) > 128 ? (@program_no + 1 - 128) : @program_no + 1
       send_pc(@program_no)
       puts "set program_no = #{@program_no}"
+    # FIXME: Syntax error when comment out
     # when KEYCODE[:MI_AOFF]
     #   (0..128).each{|n| note_off(n, nil) }
     when KEYCODE[:MI_CRDTGL]
@@ -425,8 +459,11 @@ class MIDI
         puts "unknown chord_pattern = #{@chord_pattern}"
       end
     when KEYCODE[:MI_ARPGTGL]
+      @arpeggiate_mode = !@arpeggiate_mode
     when KEYCODE[:MI_ARPGON]
+      @arpeggiate_mode = true
     when KEYCODE[:MI_ARPGOFF]
+      @arpeggiate_mode = false
     when KEYCODE[:MI_BPMDFLT]
       change_bpm(@default_bpm)
     when KEYCODE[:MI_SRTSTART]
@@ -435,6 +472,12 @@ class MIDI
     when KEYCODE[:MI_SRTSTOP]
       send_srt_stop
     end
+  end
+
+  def play_slot(params)
+    puts "play_slot: slot: #{params[:slot_no]}, group: #{params[:group_no]}"
+    @start_seq_no[params[:slot_no]] = @current_seq_no 
+    @current_slot_group[params[:slot_no]] = params[:group_no]
   end
 
   def note_on(number, velocity)
@@ -497,6 +540,22 @@ class MIDI
     end
   end
 
+  def calc_seq_no
+    if @play_status == :start
+      current_time = Machine.board_millis
+      (0...MAX_SLOTS).each{|slot| @is_played[slot] = false }
+      if @previous_sixteenth_beat_time.nil?
+        @current_seq_no = 0
+        @previous_sixteenth_beat_time = current_time
+      else
+        if current_time - @previous_sixteenth_beat_time.to_i >= @duration_per_sixteenth_beat
+          @current_seq_no += 1
+          @previous_sixteenth_beat_time = current_time
+        end
+      end
+    end
+  end
+
   def send_srt_start
     if @play_status == :stop
       puts "send_srt_start"
@@ -517,7 +576,10 @@ class MIDI
 
   def task
     MIDI.init
+
+    calc_seq_no
     send_srt_clock
+
     @key_states.each do |keycode, state|
       case state
       when :wait_noteon
@@ -541,15 +603,41 @@ class MIDI
         end
         update_event(keycode, :noteoff)
       when :wait_request
-        process_request(keycode, {})
+        if keycode >= KEYCODE[:MI_PL1GL1] && keycode <= (KEYCODE[:MI_PL1GL1] + MAX_SLOTS * MAX_SLOT_GROUPS - 1)
+          rel = keycode - KEYCODE[:MI_PL1GL1]
+          play_slot(slot_no: rel / MAX_SLOT_GROUPS, group_no: rel % MAX_SLOT_GROUPS)
+        else
+          process_request(keycode, {})
+        end
         update_event(keycode, :do_request)
       end
     end
+
+    process_slots
 
     @buffer.each do |ev|
       MIDI.write(ev)
     end
     @buffer.clear
+  end
+
+  def process_slots
+    if @play_status == :start
+      (0..MAX_SLOTS).each do |slot|
+        start_seq_no = @start_seq_no[slot]
+        current_slot_group = @current_slot_group[slot]
+        next if @is_played[slot] || start_seq_no.nil? || current_slot_group.nil?
+        if start_seq_no >= 0 && !current_slot_group.nil? &&
+          seq_no = @current_seq_no - start_seq_no
+          if @slots[slot] && @slots[slot][current_slot_group] && @slots[slot][current_slot_group][seq_no]
+            @slots[slot][current_slot_group][seq_no]&.each do |notes|
+              @buffer << notes
+            end
+            @is_played[slot] = true
+          end
+        end
+      end
+    end
   end
 
   def press_bend_event(up_or_down)
@@ -585,7 +673,35 @@ class MIDI
     return if bpm < 20 || bpm > 300
     @bpm = bpm
     @duration_per_beat = 60000 / @bpm
+    @duration_per_sixteenth_beat = @duration_per_beat / 4
     @duration_per_clock = (@duration_per_beat || 0) / 24
     puts "set BPM = #{@bpm}(#{@duration_per_beat}ms/beat)"
+  end
+
+  # For insert note from MML
+  def add_song(slot_no, slot_group_no, ch, *measures)
+    return if slot_no.nil? || slot_group_no.nil?
+    @slots[slot_no] ||= []
+    @slots[slot_no][slot_group_no] ||= []
+    notes = @slots[slot_no][slot_group_no]
+    notes.clear
+
+    velocity = VELOCITY_VALUES[@velocity_offset]
+    MML2MIDI.new.compile(measures.join) do |seq, params|
+      case params[0]
+      when :tempo
+        change_bpm(params[1])
+      when :note
+        notes[seq] ||= []
+        notes[seq] << [NOTE_ON_EVENT | ch, params[1], velocity]
+        notes[seq + params[2]] ||= []
+        notes[seq + params[2]] << [NOTE_OFF_EVENT | ch, params[1], 0]
+      when :ch
+        ch = params[1]
+      when :prg_no
+        notes[seq] ||= []
+        notes[seq] << [PROGRAM_CHANGE_EVENT | ch, params[1]]
+      end
+    end
   end
 end
