@@ -109,61 +109,61 @@ class MIDI
     MI_As4:     0x3b,
     MI_Bb4:     0x3b,
     MI_B4:      0x3c,
-    # MI_C5:      0x3d,
-    # MI_Cs5:     0x3e,
-    # MI_Db5:     0x3e,
-    # MI_D5:      0x3f,
-    # MI_Ds5:     0x40,
-    # MI_Eb5:     0x40,
-    # MI_E5:      0x41,
-    # MI_F5:      0x42,
-    # MI_Fs5:     0x43,
-    # MI_Gb5:     0x43,
-    # MI_G5:      0x44,
-    # MI_Gs5:     0x45,
-    # MI_Ab5:     0x45,
-    # MI_A5:      0x46,
-    # MI_As5:     0x47,
-    # MI_Bb5:     0x47,
-    # MI_B5:      0x48,
-    # MI_OCN2:    0x49, # Set octave to -2
-    # MI_OCN1:    0x4a, # Set octave to -1
+    MI_C5:      0x3d,
+    MI_Cs5:     0x3e,
+    MI_Db5:     0x3e,
+    MI_D5:      0x3f,
+    MI_Ds5:     0x40,
+    MI_Eb5:     0x40,
+    MI_E5:      0x41,
+    MI_F5:      0x42,
+    MI_Fs5:     0x43,
+    MI_Gb5:     0x43,
+    MI_G5:      0x44,
+    MI_Gs5:     0x45,
+    MI_Ab5:     0x45,
+    MI_A5:      0x46,
+    MI_As5:     0x47,
+    MI_Bb5:     0x47,
+    MI_B5:      0x48,
+    MI_OCN2:    0x49, # Set octave to -2
+    MI_OCN1:    0x4a, # Set octave to -1
     MI_OC0:     0x4b, # Set octave to 0
-    # MI_OC1:     0x4c, # Set octave to 1
-    # MI_OC2:     0x4d, # Set octave to 2
-    # MI_OC3:     0x4e, # Set octave to 3
-    # MI_OC4:     0x4f, # Set octave to 4
-    # MI_OC5:     0x50, # Set octave to 5
-    # MI_OC6:     0x51, # Set octave to 6
-    # MI_OC7:     0x52, # Set octave to 7
+    MI_OC1:     0x4c, # Set octave to 1
+    MI_OC2:     0x4d, # Set octave to 2
+    MI_OC3:     0x4e, # Set octave to 3
+    MI_OC4:     0x4f, # Set octave to 4
+    MI_OC5:     0x50, # Set octave to 5
+    MI_OC6:     0x51, # Set octave to 6
+    MI_OC7:     0x52, # Set octave to 7
     MI_OCTD:    0x53, # Decrease octave
     MI_OCTU:    0x54, # Increase octave
-    # MI_TRN6:    0x55, # Set transpose to -6 semitones
-    # MI_TRN5:    0x56, # Set transpose to -5 semitones
-    # MI_TRN4:    0x57, # Set transpose to -4 semitones
-    # MI_TRN3:    0x58, # Set transpose to -3 semitones
-    # MI_TRN2:    0x59, # Set transpose to -2 semitones
-    # MI_TRN1:    0x5a, # Set transpose to -1 semitone
+    MI_TRN6:    0x55, # Set transpose to -6 semitones
+    MI_TRN5:    0x56, # Set transpose to -5 semitones
+    MI_TRN4:    0x57, # Set transpose to -4 semitones
+    MI_TRN3:    0x58, # Set transpose to -3 semitones
+    MI_TRN2:    0x59, # Set transpose to -2 semitones
+    MI_TRN1:    0x5a, # Set transpose to -1 semitone
     MI_TR0:     0x5b, # No transposition
-    # MI_TR1:     0x5c, # Set transpose to +1 semitone
-    # MI_TR2:     0x5d, # Set transpose to +2 semitones
-    # MI_TR3:     0x5e, # Set transpose to +3 semitones
-    # MI_TR4:     0x5f, # Set transpose to +4 semitones
-    # MI_TR5:     0x60, # Set transpose to +5 semitones
-    # MI_TR6:     0x61, # Set transpose to +6 semitones
+    MI_TR1:     0x5c, # Set transpose to +1 semitone
+    MI_TR2:     0x5d, # Set transpose to +2 semitones
+    MI_TR3:     0x5e, # Set transpose to +3 semitones
+    MI_TR4:     0x5f, # Set transpose to +4 semitones
+    MI_TR5:     0x60, # Set transpose to +5 semitones
+    MI_TR6:     0x61, # Set transpose to +6 semitones
     MI_TRSD:    0x62, # Decrease transpose
     MI_TRSU:    0x63, # Increase transpose
-    # MI_VL0:     0x64, # Set velocity to 0
-    # MI_VL1:     0x65, # Set velocity to 12
-    # MI_VL2:     0x66, # Set velocity to 25
-    # MI_VL3:     0x67, # Set velocity to 38
-    # MI_VL4:     0x68, # Set velocity to 51
-    # MI_VL5:     0x69, # Set velocity to 64
+    MI_VL0:     0x64, # Set velocity to 0
+    MI_VL1:     0x65, # Set velocity to 12
+    MI_VL2:     0x66, # Set velocity to 25
+    MI_VL3:     0x67, # Set velocity to 38
+    MI_VL4:     0x68, # Set velocity to 51
+    MI_VL5:     0x69, # Set velocity to 64
     MI_VL6:     0x6a, # Set velocity to 76
-    # MI_VL7:     0x6b, # Set velocity to 89
-    # MI_VL8:     0x6c, # Set velocity to 102
-    # MI_VL9:     0x6d, # Set velocity to 114
-    # MI_VL10:    0x6e, # Set velocity to 127
+    MI_VL7:     0x6b, # Set velocity to 89
+    MI_VL8:     0x6c, # Set velocity to 102
+    MI_VL9:     0x6d, # Set velocity to 114
+    MI_VL10:    0x6e, # Set velocity to 127
     MI_VELD:    0x6f, # Decrease velocity
     MI_VELU:    0x70, # Increase velocity
     MI_CH1:     0x71, # Set channel to 1
@@ -185,7 +185,7 @@ class MIDI
     MI_CHND:    0x81, # Decrease channel
     MI_CHNU:    0x82, # Increase channel
     MI_AOFF:    0x83, # Stop all notes
-    # MI_SUST:    0x84, # Sustain
+    MI_SUST:    0x84, # Sustain
     # MI_PORT:    0x85, # Portamento
     # MI_SOST:    0x86, # Sostenuto
     # MI_SOFT:    0x87, # Soft pedal
@@ -364,6 +364,16 @@ class MIDI
         @key_states.delete(KEYCODE[:MI_BNDU])
         release_bend_event
       end
+    elsif keycode == KEYCODE[:MI_SUST]
+      # for sustain
+      case event
+      when :press
+        @key_status[KEYCODE[:MI_SUST]] = :pressed
+        send_sustain(1)
+      when :release
+        @key_status.delete(KEYCODE[:MI_SUST])
+        send_sustain(0)
+      end
     elsif keycode == KEYCODE[:MI_BPMUP]
       # for increace bpm
       case event
@@ -402,15 +412,15 @@ class MIDI
 
   def process_request(keycode, params)
     case keycode
-    when KEYCODE[:MI_OC0]
-      @octave_offset = 0
+    when (KEYCODE[:MI_OCN2]..KEYCODE[:MI_OC7])
+      @octave_offset = keycode - KEYCODE[:MI_OC0]
     when KEYCODE[:MI_OCTD]
       return if @octave_offset - 1 < -2
       @octave_offset -= 1
     when KEYCODE[:MI_OCTU]
       return if @octave_offset + 1 > 7
       @octave_offset += 1
-    when KEYCODE[:MI_TR0]
+    when (KEYCODE[:MI_TRN6]..KEYCODE[:MI_TR6])
       @transpose_offset = 0
     when KEYCODE[:MI_TRSD]
       return if @transpose_offset - 1 < -6
@@ -418,8 +428,8 @@ class MIDI
     when KEYCODE[:MI_TRSU]
       return if @transpose_offset + 1 > 6
       @transpose_offset += 1
-    when KEYCODE[:MI_VL6]
-      @velocity_offset = 6
+    when (KEYCODE[:MI_VL0]..KEYCODE[:MI_VL10])
+      @velocity_offset = keycode - KEYCODE[:MI_VL0]
     when KEYCODE[:MI_VELD]
       return if @velocity_offset - 1 < 0
       @velocity_offset -= 1
@@ -427,7 +437,7 @@ class MIDI
       return if @velocity_offset + 1 > 10
       @velocity_offset += 1
     when (KEYCODE[:MI_CH1]..KEYCODE[:MI_CH16])
-      @channel = keycode - 0x71
+      @channel = keycode - KEYCODE[:MI_CH1]
       puts "set channel = #{@channel}"
     when KEYCODE[:MI_PRG0]
       @program_no = 0
@@ -496,6 +506,11 @@ class MIDI
     
     modified_note = number + @octave_offset * 12 + @transpose_offset
     @buffer << [NOTE_OFF_EVENT | @channel, modified_note, velocity] if @buffer.length <= 64
+  end
+
+  def send_sustain(value)
+    puts "send-sustain channel: #{@channel}, value: #{value}"
+    @buffer << [CONTROL_CHANGE_EVENT | @channel, value == 0 ? 0x00 : 0x7f]
   end
 
   def send_pitchbend

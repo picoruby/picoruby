@@ -81,6 +81,7 @@ class MIDI
   def play_slot: (Hash[Symbol, Integer]) -> void
   def note_on: (Integer, Integer | nil) -> void
   def note_off: (Integer, Integer | nil) -> void
+  def send_sustain: (1 | 0) -> void
   def send_pitchbend: () -> void
   def send_pc: (Integer) -> void
   def send_cc: (Integer, Integer) -> void
