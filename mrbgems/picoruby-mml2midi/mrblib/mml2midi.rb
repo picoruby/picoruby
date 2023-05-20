@@ -88,11 +88,10 @@ class MML2MIDI
         when "l"
           fraction_str, i = MML2MIDI.number_str(str, i)
           fraction = 0 < fraction_str.size ? fraction_str.to_i : nil
-          # FIXME: Syntax error when comment out
-          # if fraction
-          #   punti, i = MML2MIDI.count_punto(str, i)
-          #   @common_duration = (fraction * MML2MIDI.coef(punti)).to_i
-          # end
+          if fraction
+            punti, i = MML2MIDI.count_punto(str, i)
+            @common_duration = (fraction * MML2MIDI.coef(punti)).to_i
+          end
         end
         -2 # Neither a note nor a rest
       end
