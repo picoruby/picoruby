@@ -170,7 +170,7 @@ prbVFSCurrentTimeInt64(sqlite3_vfs *pVfs, sqlite3_int64 *piNow)
 {
   D();
   static const sqlite3_int64 unixEpoch = 24405875 * (sqlite3_int64)8640000;
-  *piNow = unixEpoch + prb_time_gettime_us();
+  *piNow = unixEpoch + prb_time_gettime_us() / 1000;
   return SQLITE_OK;
 }
 
