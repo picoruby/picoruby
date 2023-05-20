@@ -441,9 +441,8 @@ class MIDI
       @program_no = (@program_no + 1) > 128 ? (@program_no + 1 - 128) : @program_no + 1
       send_pc(@program_no)
       puts "set program_no = #{@program_no}"
-    # FIXME: Syntax error when comment out
-    # when KEYCODE[:MI_AOFF]
-    #   (0..128).each{|n| note_off(n, nil) }
+    when KEYCODE[:MI_AOFF]
+      (0..128).each{|n| note_off(n, nil) }
     when KEYCODE[:MI_CRDTGL]
       @chord_mode = !@chord_mode
       puts "set chord mode #{@chord_mode}"
