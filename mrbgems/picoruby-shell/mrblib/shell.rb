@@ -57,6 +57,24 @@ class Shell
     end
   end
 
+  def simple_question(question, &block)
+    while true
+      print question
+      answer = ""
+      while true
+        case c = IO.getch.ord
+        when 0x0d, 0x0a
+          puts
+          break
+        when 32..126
+          answer << c.chr
+          print c.chr
+        end
+      end
+      break if block.call(answer)
+    end
+  end
+
   LOGO_LINES = [
     ' ____  _           ____        _',
     '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
@@ -142,6 +160,7 @@ class Shell
         when []
           puts
         when ["quit"], ["exit"]
+          buffer.clear
           return
         else
           puts
