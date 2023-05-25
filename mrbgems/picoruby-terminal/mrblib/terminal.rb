@@ -197,60 +197,65 @@ class Terminal
     end
 
     def start
+      refresh
       while true
-        refresh
-        case c = IO.getch.ord
-        when 1 # Ctrl-A
-          @buffer.head
-        when 3 # Ctrl-C
-          @buffer.bottom
-          @buffer.tail
-          puts "", "^C\e[0J"
-          @prev_cursor_y = 0
-          @buffer.clear
-          history_head
-        when 4 # Ctrl-D logout
-          puts
-          return
-        when 5 # Ctrl-E
-          @buffer.tail
-        when 9
-          @buffer.put :TAB
-        when 12 # Ctrl-L
-          @height, @width = Terminal.get_screen_size
-          refresh
-        when 26 # Ctrl-Z
-          puts
-          print "shunt" # Shunt into the background
-          return
-        when 27 # ESC
-          case IO.read_nonblock(2)
-          when "[A"
-            if @prev_cursor_y == 0
-              load_history :up
+        line = IO.read_nonblock(256)
+        next unless line
+        line.bytes.each do |c|
+          case c #= IO.getch.ord
+          when 1 # Ctrl-A
+            @buffer.head
+          when 3 # Ctrl-C
+            @buffer.bottom
+            @buffer.tail
+            puts "", "^C\e[0J"
+            @prev_cursor_y = 0
+            @buffer.clear
+            history_head
+          when 4 # Ctrl-D logout
+            puts
+            return
+          when 5 # Ctrl-E
+            @buffer.tail
+          when 9
+            @buffer.put :TAB
+          when 12 # Ctrl-L
+            @height, @width = Terminal.get_screen_size
+            refresh
+          when 26 # Ctrl-Z
+            puts
+            print "shunt" # Shunt into the background
+            return
+          when 27 # ESC
+            case IO.read_nonblock(2)
+            when "[A"
+              if @prev_cursor_y == 0
+                load_history :up
+              else
+                @buffer.put :UP
+              end
+            when "[B"
+              if physical_line_count == @prev_cursor_y + 1
+                load_history :down
+              else
+                @buffer.put :DOWN
+              end
+            when "[C"
+              @buffer.put :RIGHT
+            when "[D"
+              @buffer.put :LEFT
             else
-              @buffer.put :UP
+              debug c
             end
-          when "[B"
-            if physical_line_count == @prev_cursor_y + 1
-              load_history :down
-            else
-              @buffer.put :DOWN
-            end
-          when "[C"
-            @buffer.put :RIGHT
-          when "[D"
-            @buffer.put :LEFT
+          when 8, 127 # 127 on UNIX
+            @buffer.put :BSPACE
+          when 32..126
+            # @type var c: Integer
+            @buffer.put c.chr
           else
-            debug c
+            yield self, @buffer, c
           end
-        when 8, 127 # 127 on UNIX
-          @buffer.put :BSPACE
-        when 32..126
-          # @type var c: Integer
-          @buffer.put c.chr
-        else
-          yield self, @buffer, c
+          refresh
         end
       end
     end
