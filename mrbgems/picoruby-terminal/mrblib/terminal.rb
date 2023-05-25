@@ -201,8 +201,10 @@ class Terminal
       while true
         line = IO.read_nonblock(256)
         next unless line
-        line.bytes.each do |c|
-          case c #= IO.getch.ord
+        while true
+          break unless c = line[0]&.ord
+          line[0] = ''
+          case c
           when 1 # Ctrl-A
             @buffer.head
           when 3 # Ctrl-C
@@ -227,7 +229,9 @@ class Terminal
             print "shunt" # Shunt into the background
             return
           when 27 # ESC
-            case IO.read_nonblock(2)
+            rest = line[0, 2]
+            line[0, 2] = ''
+            case rest
             when "[A"
               if @prev_cursor_y == 0
                 load_history :up
@@ -245,12 +249,11 @@ class Terminal
             when "[D"
               @buffer.put :LEFT
             else
-              debug c
+              line = rest.to_s + line
             end
           when 8, 127 # 127 on UNIX
             @buffer.put :BSPACE
           when 32..126
-            # @type var c: Integer
             @buffer.put c.chr
           else
             yield self, @buffer, c
