@@ -92,13 +92,14 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
     str[len] = '\0';
     outbuf.string->data = str;
     outbuf.string->size = len;
-  } else {
-    outbuf = mrbc_string_new_cstr(vm, buf);
-  }
-  if (len < 1) {
-    SET_NIL_RETURN();
-  } else {
     SET_RETURN(outbuf);
+  } else {
+    if (len < 1) {
+      SET_NIL_RETURN();
+    } else {
+      outbuf = mrbc_string_new_cstr(vm, buf);
+      SET_RETURN(outbuf);
+    }
   }
 }
 
