@@ -38,7 +38,8 @@ class Shell
       params[1, params.length - 1].each do |param|
         ARGV << param
       end
-      case params[0]
+      command = params[0]
+      case command
       when "echo"
         _echo
       when "type"
@@ -61,7 +62,7 @@ class Shell
           puts "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}"
         end
       else
-        if exefile = find_executable(params[0])
+        if exefile = find_executable(command)
           f = File.open(exefile, "r")
           begin
             # PicoRuby compiler's bug
@@ -69,7 +70,7 @@ class Shell
             mrb = f.read
             if mrb.to_s.start_with?("RITE0300")
               @sandbox.exec_mrb(mrb)
-              if @sandbox.wait(nil) && error = @sandbox.error
+              if @sandbox.wait(signal: (command != "irb"), timeout: nil) && error = @sandbox.error
                 puts "#{error.message} (#{error.class})"
               end
             else
@@ -81,7 +82,7 @@ class Shell
             f.close
           end
         else
-          puts "#{params[0]}: command not found"
+          puts "#{command}: command not found"
         end
       end
     end

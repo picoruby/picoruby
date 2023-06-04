@@ -53,10 +53,18 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
+c_sandbox_interrupt(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrbc_value *abort = mrbc_get_class_const(v->instance->cls, mrbc_search_symid("Abort"));
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
+  mrbc_raise(sandbox_vm, abort->cls, "interrupt");
+}
+
+static void
+c_sandbox_free_parser(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_suspend_task(ss->tcb);
   { /*
        Workaround but causes memory leak 😔
        To preserve symbol table
@@ -64,6 +72,13 @@ c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
     if (ss->p->scope->vm_code) ss->p->scope->vm_code = NULL;
   }
   Compiler_parserStateFree(ss->p);
+}
+
+static void
+c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SS();
+  mrbc_suspend_task(ss->tcb);
 }
 
 static void
@@ -163,7 +178,9 @@ mrbc_sandbox_init(void)
   mrbc_define_method(0, mrbc_class_Sandbox, "state",   c_sandbox_state);
   mrbc_define_method(0, mrbc_class_Sandbox, "result",  c_sandbox_result);
   mrbc_define_method(0, mrbc_class_Sandbox, "error",   c_sandbox_error);
+  mrbc_define_method(0, mrbc_class_Sandbox, "interrupt", c_sandbox_interrupt);
   mrbc_define_method(0, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
+  mrbc_define_method(0, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
   mrbc_define_method(0, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
   mrbc_define_method(0, mrbc_class_Sandbox, "new",     c_sandbox_new);
 }

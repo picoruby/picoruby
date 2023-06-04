@@ -524,14 +524,12 @@ class VIA
   end
   
   def eval_val(script)
-    if @kbd.sandbox.compile(script)
-      if @kbd.sandbox.execute
-        if @kbd.sandbox.wait && error = @kbd.sandbox.error
-          return error.message
-        else
-          return @kbd.sandbox.result
-        end
-        @kbd.sandbox.suspend
+    sandbox = @kbd.sandbox
+    if sandbox.compile(script)
+      if sandbox.execute
+        sandbox.wait
+        sandbox.free_parser
+        return sandbox.error || sandbox.result
       end
     else
       puts "Error: Compile failed"

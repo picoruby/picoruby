@@ -187,16 +187,16 @@ class Shell
             buffer.put :ENTER
           else
             terminal.feed_at_bottom
+            terminal.save_history
             if $sandbox.execute
-              terminal.save_history
-              if $sandbox.wait && error = $sandbox.error
-                print "=> #{error.message} (#{error.class})"
+              $sandbox.wait(timeout: nil)
+              if e = $sandbox.error
+                puts "=> #{e.message} (#{e.class})"
               else
-                print "=> #{$sandbox.result.inspect}"
+                puts "=> #{$sandbox.result.inspect}"
               end
-              $sandbox.suspend
+              $sandbox.free_parser
             end
-            puts
             buffer.clear
             terminal.history_head
           end

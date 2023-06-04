@@ -1,16 +1,26 @@
 class Sandbox
 
+  class Abort < Exception
+  end
+
   TIMEOUT = 10_000 # 10 sec
 
-  def wait(timeout = TIMEOUT)
+  def wait(signal: true, timeout: TIMEOUT)
     n = 0
     # state 0: TASKSTATE_DORMANT == finished
     while self.state != 0 do
-      sleep_ms 50
-      n += 50
-      if timeout && timeout < n
-        puts "Error: Timeout (sandbox.state: #{self.state})"
+      if signal && (line = IO.read_nonblock(1)) && line[0]&.ord == 3
+        puts "^C"
+        interrupt
         return false
+      end
+      sleep_ms 50
+      if timeout
+        n += 50
+        if timeout < n
+          puts "Error: Timeout (sandbox.state: #{self.state})"
+          return false
+        end
       end
     end
     return true

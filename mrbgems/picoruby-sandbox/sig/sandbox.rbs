@@ -1,4 +1,7 @@
 class Sandbox
+  class Abort
+  end
+
   TIMEOUT: Integer
 
   @result: Object | nil
@@ -10,9 +13,11 @@ class Sandbox
 
   def compile: (String) -> bool
   def suspend: () -> void
+  def free_parser: () -> void
+  def interrupt: () -> void
   def state: () -> Integer
   def result: () -> untyped
-  def wait: (?Integer timeout) -> bool
+  def wait: (?timeout: (Integer|nil), ?signal: bool) -> bool
   def execute: () -> bool
 end
 
