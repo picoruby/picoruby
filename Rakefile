@@ -106,7 +106,7 @@ def clean_if(clean)
       Rake::Task[:clean].invoke
     end
   elsif File.exist? picorbcfile
-    if clean == :debug && plicorbc_debug?
+    if clean == :debug && picorbc_debug?
       Rake::Task[:clean].invoke
     elsif !picorbc_debug?
       Rake::Task[:clean].invoke
