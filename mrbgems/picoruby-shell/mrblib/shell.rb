@@ -75,26 +75,32 @@ class Shell
     end
   end
 
+  LOGO_COLOR = "\e[32;1m"
+  AUTHOR_COLOR = "\e[36;1m"
   LOGO_LINES = [
     ' ____  _           ____        _',
     '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
     '| |_) | |/ __/ _ \| |_) | | | | \'_ \| | | |',
     '|  __/| | (_| (_) |  _ <| |_| | |_) | |_| |',
-    '|_|   |_|\___\___/|_| \_\\__,_|_.__/ \__, |'
+    '|_|   |_|\___\___/|_| \_\\__,_|_.__/ \__, |',
+    "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
   ]
-  LOGO_COLOR = "\e[36;1m"
-  AUTHOR_COLOR = "\e[36;1m"
+  SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
 
   def show_logo
-    logo_width = LOGO_LINES.map{|l| l.length}.max || 0
+    logo_width = LOGO_LINES[0, LOGO_LINES.size - 1]&.map{|l| l.length}&.max || 0
+    if logo_width < @terminal.width
+      logo_lines = LOGO_LINES
+    else
+      logo_width = SHORT_LOGO_LINES.map{|l| l.length}.max || 0
+      logo_lines = SHORT_LOGO_LINES
+    end
     margin = " " * ((@terminal.width - logo_width) / 2)
     puts LOGO_COLOR
-    LOGO_LINES.each do |line|
+    logo_lines.each do |line|
       print margin
       puts line
     end
-    print margin
-    puts "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
     puts "\e[0m"
   end
 
