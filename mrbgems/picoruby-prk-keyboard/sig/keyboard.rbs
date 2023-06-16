@@ -3,6 +3,7 @@
 # Global variables
 
 class Object
+  $keyboard_sandbox: Sandbox
   $volume: FAT
   PICORUBY_MSC: String
   README: String
@@ -104,6 +105,7 @@ class Keyboard
   @mouse: Mouse
   @output_report_cb: ^(Integer)->void
   @prev_rgb_effect: effect_type
+  @rgb_sandbox: Sandbox
   @ruby_mode_stop: bool
   @ruby_mode: bool
   @via: VIA
@@ -124,7 +126,6 @@ class Keyboard
 
   attr_reader layer: Symbol | nil
   attr_reader split_style: split_style_type
-  attr_reader sandbox: Sandbox
   attr_reader cols_size: Integer
   attr_reader rows_size: Integer
   attr_reader keycodes: Array[Integer]

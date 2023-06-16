@@ -32,7 +32,6 @@ class VIA
   def get_modifier_name : (Integer) -> String
   def load_mode_keys: -> void
   def define_mode_key : (Symbol key_name, [Symbol | Array[Symbol] | Proc | nil, Symbol | Proc | nil, Integer?, Integer?] param) -> void
-  def eval_val : (String) -> untyped
   def sync_keymap : (?bool)-> void
   def init_keymap: -> void
   def save_on_keyboard: -> void

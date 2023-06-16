@@ -3,7 +3,7 @@ if RUBY_ENGINE == 'mruby/c'
   require "debounce"
   require "rgb"
   require "rotary_encoder"
-  require "task-ext"
+  require "sandbox"
   require "vfs"
   require "filesystem-fat"
 end
@@ -490,12 +490,13 @@ class Keyboard
     puts "PICORUBY_MSC: #{PICORUBY_MSC}"
     puts "prk-conf: #{USB.prk_conf}"
     puts "==============================================="
-    if Task[:keyboard].nil?
-      File.exist?(KEYMAP) ? Keyboard.reload_keymap : Keyboard.wait_keymap
-    elsif File.exist?(KEYMAP) && (0 < File::Stat.new(KEYMAP).mode & FAT::AM_ARC)
+    $keyboard_sandbox ||= Sandbox.new
+    if File.exist?(KEYMAP) #&& (0 < File::Stat.new(KEYMAP).mode & FAT::AM_ARC)
       # FIXME: Checking Stat#mode doesn't work well
-      Task[:keyboard].suspend
+      $keyboard_sandbox.suspend
       Keyboard.reload_keymap
+    else
+      Keyboard.wait_keymap
     end
     PicoRubyVM.print_alloc_stats
     Keyboard.autoreload_off
@@ -503,20 +504,21 @@ class Keyboard
 
   def self.reload_keymap
     $rgb&.turn_off
-    script = ""
+    script = "begin\n"
     File.open(KEYMAP) do |f|
       f.each_line { |line| script << line }
     end
-    task = Task[:keyboard] || Task.new(:keyboard)
-    task.compile_and_run(script, true)
+    script << "\nrescue => e\nputs e.class, e.message, 'Task stopped!'\nend"
+    unless $keyboard_sandbox.compile(script) and $keyboard_sandbox.execute
+      puts "Failed to compile keymap.rb"
+    end
     File.chmod(0, KEYMAP)
   end
 
   def self.wait_keymap
     puts "No keymap.rb found"
     script = "while true;sleep 5;puts 'Please make keymap.rb in #{DRIVE_NAME}';end"
-    task = Task[:keyboard] || Task.new(:keyboard)
-    task.compile_and_run(script, false)
+    $keyboard_sandbox.compile(script) and $keyboard_sandbox.execute
   end
 
   def initialize
@@ -605,7 +607,7 @@ class Keyboard
       $rgb = feature
       $rgb.anchor = @anchor
       if @split
-        if @anchor==@anchor_left
+        if @anchor == @anchor_left
           # left
           $rgb.ws2812_circle_set_center(224,32)
         else
@@ -619,7 +621,11 @@ class Keyboard
       else
         $rgb.ws2812_circle_set_center(112,32)
       end
-      $rgb.start
+      unless @rgb_sandbox
+        @rgb_sandbox = Sandbox.new
+        @rgb_sandbox.compile "while true; $rgb&.show || sleep(3); end"
+        @rgb_sandbox.execute
+      end
     when "RotaryEncoder"
       # @type var feature: RotaryEncoder
       if @split
