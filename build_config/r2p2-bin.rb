@@ -18,6 +18,7 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-sqlite3"
   conf.gem core: "picoruby-bin-r2p2"
+  conf.gem core: "picoruby-task-ext"
 
 end
 

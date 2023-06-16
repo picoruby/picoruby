@@ -1,55 +1,58 @@
 require "sandbox"
 
 class Task
-  TASKS = {}
 
-  def self.[](name)
-    TASKS[name]
-  end
-
-  def self.current
-    # TODO
-  end
-
-  def self.remove(name)
-    # TODO removing API in mruby/c's rrt0
-    TASKS.delete name
-  end
-
-  def initialize(name)
-    if TASKS[name]
-      raise RuntimeError.new("task :#{name} already exists")
-    else
+  class Tmp # Tentative implementation until Task#initialize becomes accepting a block
+    def initialize(args, block)
+      @proc = block
+      @args = args
+      @name = nil
+      Task::TASKS << self
       @sandbox = Sandbox.new
-      TASKS[name] = self
-    end
-  end
-
-  def load_mrb(mrb)
-    # TODO
-  end
-
-  def compile_and_run(script, wrap_rescue = true) # TODO kwarg `wrap_rescue: false`
-    if wrap_rescue
-      script =
-        "begin\n" +
-        script +
-        "\nrescue => e\nputs e.class, e.message, 'Task stopped!'\nend"
-    end
-    if @sandbox.compile(script)
-      if @sandbox.execute
+      if @sandbox.compile "Task::TASKS['#{@id}']._start"
+        @sandbox.execute
       else
-        puts "Execution failed"
+        puts "Compilation failed"
       end
-    else
-      puts "Compilation failed"
     end
-    self
+
+    attr_reader :name
+
+    def name=(name)
+      name.is_a? String or raise TypeError
+      @name = name
+    end
+
+    def suspend
+      @sandbox.suspend
+      self
+    end
+
+    def terminate
+      @sandbox.interrupt
+      self
+    end
+
+    def join(limit = nil)
+      @sandbox.wait(timeout: limit) ? self : nil
+    end
+
+    # private
+
+    def _start
+      @proc.call(*@args)
+    end
+
   end
 
-  def suspend
-    @sandbox.suspend
-    self
+  TASKS = []
+
+  def self.new(*args, &block)
+    Tmp.new(args, block)
+  end
+
+  def self.list
+    TASKS
   end
 
 end
