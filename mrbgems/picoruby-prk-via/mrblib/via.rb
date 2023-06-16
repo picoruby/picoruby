@@ -522,20 +522,6 @@ class VIA
     @keymaps[layer][row][col] = keycode
     @keymap_saved = false
   end
-  
-  def eval_val(script)
-    sandbox = @kbd.sandbox
-    if sandbox.compile(script)
-      if sandbox.execute
-        sandbox.wait
-        sandbox.free_parser
-        return sandbox.error || sandbox.result
-      end
-    else
-      puts "Error: Compile failed"
-      return nil
-    end
-  end
 
   def task
     if USB.raw_hid_report_received?

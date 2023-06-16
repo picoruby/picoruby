@@ -5,8 +5,9 @@ class Task
 
     @proc: Proc
     @args: Array[untyped]
-    @name: String | nil
     @sandbox: Sandbox
+
+    attr_reader name: String | nil
 
     def initialize: (Array[untyped], Proc) -> void
     def name=: (String) -> String
