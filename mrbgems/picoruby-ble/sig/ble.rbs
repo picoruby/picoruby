@@ -1,0 +1,3 @@
+class BLE
+  def self.init: () -> BLE
+end
