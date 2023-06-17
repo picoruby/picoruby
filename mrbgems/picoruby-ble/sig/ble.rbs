@@ -1,3 +1,4 @@
 class BLE
-  def self.init: () -> BLE
+  def initialize: () -> void
+  def start: () -> 0
 end

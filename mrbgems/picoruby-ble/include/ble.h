@@ -8,7 +8,8 @@
 extern "C" {
 #endif
 
-void BLE_init(void);
+int BLE_init(void);
+void BLE_start(void);
 
 #ifdef __cplusplus
 }
