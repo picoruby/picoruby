@@ -21,16 +21,16 @@ c_init(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c__start(mrbc_vm *vm, mrbc_value *v, int argc)
+c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_start();
+  BLE_hci_power_on();
 }
 
 static void
 c_packet_event(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int event = BLE_packet_event();
-  if (event < 0) {
+  uint8_t event = BLE_packet_event();
+  if (event == 0) {
     SET_NIL_RETURN();
   } else {
     SET_INT_RETURN(event);
@@ -61,6 +61,15 @@ c_notify(mrbc_vm *vm, mrbc_value *v, int argc)
   BLE_notify();
 }
 
+static void
+c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  uint8_t addr[6];
+  BLE_gap_local_bd_addr(addr);
+  mrbc_value str = mrbc_string_new(vm, (const void *)addr, 6);
+  SET_RETURN(str);
+}
+
 void
 mrbc_ble_init(void)
 {
@@ -69,11 +78,12 @@ mrbc_ble_init(void)
   mrbc_class *mrbc_class_BLE_AttServer = v->cls;
 
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "init", c_init);
-  mrbc_define_method(0, mrbc_class_BLE_AttServer, "_start", c__start);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "hci_power_on", c_hci_power_on);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "packet_event", c_packet_event);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "advertise", c_advertise);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "enable_le_notification", c_enable_le_notification);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "notify", c_notify);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "gap_local_bd_addr", c_gap_local_bd_addr);
 }
 

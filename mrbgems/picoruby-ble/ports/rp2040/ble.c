@@ -46,10 +46,10 @@ poll_temp(void) {
 }
 
 
-static int event_type = -1;
+static uint8_t event_type = 0;
 static uint8_t event_state = 0;
 
-int
+uint8_t
 BLE_packet_event(void)
 {
   return event_type;
@@ -58,7 +58,7 @@ BLE_packet_event(void)
 void
 BLE_down_packet_flag(void)
 {
-  event_type = -1;
+  event_type = 0;
 }
 
 static void
@@ -70,12 +70,15 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
 }
 
 void
+BLE_gap_local_bd_addr(uint8_t *local_addr)
+{
+  gap_local_bd_addr(local_addr);
+}
+
+void
 BLE_advertise(void)
 {
   if (event_state != HCI_STATE_WORKING) return;
-  bd_addr_t local_addr;
-  gap_local_bd_addr(local_addr);
-  printf("BTstack up and running on %s.\n", bd_addr_to_str(local_addr));
   // setup advertisements
   uint16_t adv_int_min = 800;
   uint16_t adv_int_max = 800;
@@ -248,7 +251,7 @@ BLE_init(void)
   return 0;
 }
 
-void BLE_start(void)
+void BLE_hci_power_on(void)
 {
   // turn on bluetooth!
   hci_power_control(HCI_POWER_ON);

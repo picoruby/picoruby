@@ -1,7 +1,10 @@
 class BLE
   BTSTACK_EVENT_STATE: Integer
+  HCI_EVENT_CONNECTION_COMPLETE: Integer
   HCI_EVENT_DISCONNECTION_COMPLETE: Integer
   ATT_EVENT_CAN_SEND_NOW: Integer
+
+  def self.bd_addr_to_str: (String) -> String
 
   class AttServer
     @task: Task::Tmp
@@ -9,11 +12,12 @@ class BLE
     def initialize: () -> void
     def init: () -> void
     def start: () -> 0
-    def _start: () -> void
+    def hci_power_on: () -> void
     def stop: () -> 0
     def down_packet_flag: () -> void
     def packet_event: () -> (Integer | nil)
 
+    def gap_local_bd_addr: () -> String
     def advertise: () -> void
     def enable_le_notification: () -> void
     def notify: () -> void
