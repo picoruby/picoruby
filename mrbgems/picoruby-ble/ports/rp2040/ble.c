@@ -46,10 +46,24 @@ poll_temp(void) {
 }
 
 
+bool packet_flag = false;
+
+bool
+BLE_packet_flag(void)
+{
+  return packet_flag;
+}
+
+void
+BLE_down_packet_flag(void)
+{
+  packet_flag = false;
+}
 
 void
 packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
+  packet_flag = true;
   UNUSED(size);
   UNUSED(channel);
   bd_addr_t local_addr;
@@ -163,10 +177,10 @@ BLE_init(void)
     return -1;
   }
 
-//  // Initialise adc for the temp sensor
-//  adc_init();
-//  adc_select_input(ADC_CHANNEL_TEMPSENSOR);
-//  adc_set_temp_sensor_enabled(true);
+  // Initialise adc for the temp sensor
+  adc_init();
+  adc_select_input(ADC_CHANNEL_TEMPSENSOR);
+  adc_set_temp_sensor_enabled(true);
 
   l2cap_init();
   sm_init();

@@ -1,4 +1,15 @@
 class BLE
-  def initialize: () -> void
-  def start: () -> 0
+  class AttServer
+    @task: Task::Tmp
+    @connections: Array[BLE::AttServer]
+    def initialize: () -> void
+    def init: () -> void
+    def start: () -> 0
+    def _start: () -> void
+    def stop: () -> 0
+    def down_packet_flag: () -> void
+    def packet_flag?: () -> bool
+
+    def packet_callback: () -> void
+  end
 end

@@ -11,6 +11,9 @@ extern "C" {
 int BLE_init(void);
 void BLE_start(void);
 
+bool BLE_packet_flag(void);
+void BLE_down_packet_flag(void);
+
 #ifdef __cplusplus
 }
 #endif
