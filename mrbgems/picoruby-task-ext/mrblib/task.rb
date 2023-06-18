@@ -7,9 +7,10 @@ class Task
       @proc = block
       @args = args
       @name = nil
-      Task::TASKS << self
+      id = self.to_s
+      Task::TASKS[id] = self
       @sandbox = Sandbox.new
-      if @sandbox.compile "Task::TASKS['#{@id}']._start"
+      if @sandbox.compile "Task::TASKS['#{id}']._start"
         @sandbox.execute
       else
         puts "Compilation failed"
@@ -45,14 +46,14 @@ class Task
 
   end
 
-  TASKS = []
+  TASKS = {}
 
   def self.new(*args, &block)
     Tmp.new(args, block)
   end
 
   def self.list
-    TASKS
+    TASKS.values
   end
 
 end

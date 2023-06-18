@@ -1,5 +1,5 @@
 class Task
-  TASKS: Array[Task::Tmp]
+  TASKS: Hash[String, Task::Tmp]
 
   class Tmp
 
