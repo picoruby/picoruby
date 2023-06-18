@@ -27,12 +27,13 @@ c__start(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_packet_flag(mrbc_vm *vm, mrbc_value *v, int argc)
+c_packet_event(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (BLE_packet_flag()) {
-    SET_TRUE_RETURN();
+  int event = BLE_packet_event();
+  if (event < 0) {
+    SET_NIL_RETURN();
   } else {
-    SET_FALSE_RETURN();
+    SET_INT_RETURN(event);
   }
 }
 
@@ -40,6 +41,24 @@ static void
 c_down_packet_flag(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   BLE_down_packet_flag();
+}
+
+static void
+c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_advertise();
+}
+
+static void
+c_enable_le_notification(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_enable_le_notification();
+}
+
+static void
+c_notify(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_notify();
 }
 
 void
@@ -51,16 +70,10 @@ mrbc_ble_init(void)
 
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "init", c_init);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "_start", c__start);
-  mrbc_define_method(0, mrbc_class_BLE_AttServer, "packet_flag?", c_packet_flag);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "packet_event", c_packet_event);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "down_packet_flag", c_down_packet_flag);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "advertise", c_advertise);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "enable_le_notification", c_enable_le_notification);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "notify", c_notify);
 }
 
-uint16_t
-picoruby_att_read_callback(uint16_t conn_handle, uint16_t attr_handle, uint8_t *p_value, uint16_t len)
-{
-  if (attr_handle == 0x0003) {
-    p_value[0] = 0x01;
-    return 1;
-  }
-  return 0;
-}

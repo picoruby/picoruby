@@ -1,4 +1,8 @@
 class BLE
+  BTSTACK_EVENT_STATE: Integer
+  HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+  ATT_EVENT_CAN_SEND_NOW: Integer
+
   class AttServer
     @task: Task::Tmp
     @connections: Array[BLE::AttServer]
@@ -8,8 +12,15 @@ class BLE
     def _start: () -> void
     def stop: () -> 0
     def down_packet_flag: () -> void
-    def packet_flag?: () -> bool
+    def packet_event: () -> (Integer | nil)
 
-    def packet_callback: () -> void
+    def advertise: () -> void
+    def enable_le_notification: () -> void
+    def notify: () -> void
+
+    def packet_callback: (Integer) -> void
   end
+end
+
+class MyServer < BLE::AttServer
 end

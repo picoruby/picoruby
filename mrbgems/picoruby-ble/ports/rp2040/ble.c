@@ -46,24 +46,70 @@ poll_temp(void) {
 }
 
 
-bool packet_flag = false;
+static int event_type = -1;
+static uint8_t event_state = 0;
 
-bool
-BLE_packet_flag(void)
+int
+BLE_packet_event(void)
 {
-  return packet_flag;
+  return event_type;
 }
 
 void
 BLE_down_packet_flag(void)
 {
-  packet_flag = false;
+  event_type = -1;
+}
+
+static void
+packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+  if (packet_type != HCI_EVENT_PACKET) return;
+  event_type = hci_event_packet_get_type(packet);
+  event_state = btstack_event_state_get_state(packet);
 }
 
 void
-packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+BLE_advertise(void)
 {
-  packet_flag = true;
+  if (event_state != HCI_STATE_WORKING) return;
+  bd_addr_t local_addr;
+  gap_local_bd_addr(local_addr);
+  printf("BTstack up and running on %s.\n", bd_addr_to_str(local_addr));
+  // setup advertisements
+  uint16_t adv_int_min = 800;
+  uint16_t adv_int_max = 800;
+  uint8_t adv_type = 0;
+  bd_addr_t null_addr;
+  memset(null_addr, 0, 6);
+  gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
+  assert(adv_data_len <= 31); // ble limitation
+  gap_advertisements_set_data(adv_data_len, (uint8_t *)adv_data);
+  gap_advertisements_enable(1);
+  poll_temp();
+}
+
+void
+BLE_enable_le_notification(void)
+{
+  le_notification_enabled = 1;
+}
+
+void
+BLE_notify(void)
+{
+  att_server_notify(
+    con_handle,
+    ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE,
+    (uint8_t *)&current_temp,
+    sizeof(current_temp)
+  );
+}
+
+/*
+void
+_bak_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
   UNUSED(size);
   UNUSED(channel);
   bd_addr_t local_addr;
@@ -105,6 +151,7 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
       break;
   }
 }
+*/
 
 uint16_t
 att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
