@@ -194,28 +194,68 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
 static btstack_timer_source_t heartbeat;
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 
+static bool heartbeat_on = false;
+
 static void
 heartbeat_handler(struct btstack_timer_source *ts)
 {
-  static uint32_t counter = 0;
-  counter++;
+//  static uint32_t counter = 0;
+//  counter++;
+//
+//  // Update the temp every 10s
+//  if (counter % 10 == 0) {
+//    poll_temp();
+//    if (le_notification_enabled) {
+//      att_server_request_can_send_now_event(con_handle);
+//    }
+//  }
+//
+//  // Invert the led
+//  static int led_on = true;
+//  led_on = !led_on;
+//  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+//
 
-  // Update the temp every 10s
-  if (counter % 10 == 0) {
-    poll_temp();
-    if (le_notification_enabled) {
-      att_server_request_can_send_now_event(con_handle);
-    }
-  }
-
-  // Invert the led
-  static int led_on = true;
-  led_on = !led_on;
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-
+  heartbeat_on = true;
   // Restart timer
   btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
   btstack_run_loop_add_timer(ts);
+}
+
+void
+BLE_poll_temp(void)
+{
+  poll_temp();
+}
+
+bool
+BLE_heartbeat_on_q(void)
+{
+  return heartbeat_on;
+}
+
+void
+BLE_heartbeat_off(void)
+{
+  heartbeat_on = false;
+}
+
+bool
+BLE_le_notification_enabled_q(void)
+{
+  return le_notification_enabled;
+}
+
+void
+BLE_request_can_send_now_event(void)
+{
+  att_server_request_can_send_now_event(con_handle);
+}
+
+void
+BLE_cyw43_arch_gpio_put(uint8_t pin, uint8_t value)
+{
+  cyw43_arch_gpio_put(pin, value);
 }
 
 int

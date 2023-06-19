@@ -70,6 +70,57 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(str);
 }
 
+static void
+c_heartbeat_on_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (BLE_heartbeat_on_q()) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_heartbeat_off();
+}
+
+static void
+c_le_notification_enabled_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (BLE_le_notification_enabled_q()) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_request_can_send_now_event(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_request_can_send_now_event();
+}
+
+static void
+c_cyw43_arch_gpio_put(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  int pin = GET_INT_ARG(1);
+  int value;
+  if (GET_TT_ARG(2) == MRBC_TT_TRUE) {
+    value = 1;
+  } else {
+    value = 0;
+  }
+  BLE_cyw43_arch_gpio_put(pin, value);
+}
+
+static void
+c_poll_temp(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_poll_temp();
+}
+
 void
 mrbc_ble_init(void)
 {
@@ -85,5 +136,12 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "enable_le_notification", c_enable_le_notification);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "notify", c_notify);
   mrbc_define_method(0, mrbc_class_BLE_AttServer, "gap_local_bd_addr", c_gap_local_bd_addr);
+
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "heartbeat_on?", c_heartbeat_on_q);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "heartbeat_off", c_heartbeat_off);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "le_notification_enabled?", c_le_notification_enabled_q);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "request_can_send_now_event", c_request_can_send_now_event);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "cyw43_arch_gpio_put", c_cyw43_arch_gpio_put);
+  mrbc_define_method(0, mrbc_class_BLE_AttServer, "poll_temp", c_poll_temp);
 }
 

@@ -1,8 +1,5 @@
 class BLE
-  BTSTACK_EVENT_STATE: Integer
-  HCI_EVENT_CONNECTION_COMPLETE: Integer
-  HCI_EVENT_DISCONNECTION_COMPLETE: Integer
-  ATT_EVENT_CAN_SEND_NOW: Integer
+  CYW43_WL_GPIO_LED_PIN: Integer
 
   def self.bd_addr_to_str: (String) -> String
 
@@ -23,8 +20,25 @@ class BLE
     def notify: () -> void
 
     def packet_callback: (Integer) -> void
+    def heatbeat_callback: () -> void
+
+    def heartbeat_on?: () -> void
+    def heartbeat_off: () -> void
+    def le_notification_enabled?: () -> bool
+    def request_can_send_now_event: () -> void
+    def cyw43_arch_gpio_put: (Integer, bool|nil) -> void
   end
 end
 
 class MyServer < BLE::AttServer
+  BTSTACK_EVENT_STATE: Integer
+  HCI_EVENT_CONNECTION_COMPLETE: Integer
+  HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+  ATT_EVENT_CAN_SEND_NOW: Integer
+  ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
+  CYW43_WL_GPIO_LED_PIN: Integer
+  @last_event: Integer
+  @counter: Integer
+  @led_on: bool
+  def poll_temp: () -> void
 end
