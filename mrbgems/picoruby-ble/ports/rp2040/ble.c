@@ -14,15 +14,15 @@
 
 #define ADC_CHANNEL_TEMPSENSOR 4
 
-#define APP_AD_FLAGS 0x06
-static uint8_t adv_data[] = {
-    // Flags general discoverable
-    0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
-    // Name
-    0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
-    0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x1a, 0x18,
-};
-static const uint8_t adv_data_len = sizeof(adv_data);
+//#define APP_AD_FLAGS 0x06
+//static uint8_t adv_data[] = {
+//    // Flags general discoverable
+//    0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
+//    // Name
+//    0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
+//    0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x1a, 0x18,
+//};
+//static const uint8_t adv_data_len = sizeof(adv_data);
 
 int le_notification_enabled;
 hci_con_handle_t con_handle;
@@ -76,7 +76,7 @@ BLE_gap_local_bd_addr(uint8_t *local_addr)
 }
 
 void
-BLE_advertise(void)
+BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 {
   if (event_state != HCI_STATE_WORKING) return;
   // setup advertisements
@@ -86,8 +86,7 @@ BLE_advertise(void)
   bd_addr_t null_addr;
   memset(null_addr, 0, 6);
   gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
-  assert(adv_data_len <= 31); // ble limitation
-  gap_advertisements_set_data(adv_data_len, (uint8_t *)adv_data);
+  gap_advertisements_set_data(adv_data_len, adv_data);
   gap_advertisements_enable(1);
   poll_temp();
 }

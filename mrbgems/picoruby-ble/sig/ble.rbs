@@ -15,7 +15,7 @@ class BLE
     def packet_event: () -> (Integer | nil)
 
     def gap_local_bd_addr: () -> String
-    def advertise: () -> void
+    def advertise: (String) -> void
     def enable_le_notification: () -> void
     def notify: () -> void
 
@@ -28,9 +28,21 @@ class BLE
     def request_can_send_now_event: () -> void
     def cyw43_arch_gpio_put: (Integer, bool|nil) -> void
   end
+
+  class AdvertisingData
+    class Body
+      attr_reader data: String
+      def add: (Integer, *untyped) -> void
+    end
+    def self.build: () { (Body) -> void } -> String
+  end
 end
 
 class MyServer < BLE::AttServer
+  APP_AD_FLAGS: Integer
+  BLUETOOTH_DATA_TYPE_FLAGS: Integer
+  BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS: Integer
+  BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME: Integer
   BTSTACK_EVENT_STATE: Integer
   HCI_EVENT_CONNECTION_COMPLETE: Integer
   HCI_EVENT_DISCONNECTION_COMPLETE: Integer
@@ -40,5 +52,6 @@ class MyServer < BLE::AttServer
   @last_event: Integer
   @counter: Integer
   @led_on: bool
+  @adv_data: String
   def poll_temp: () -> void
 end

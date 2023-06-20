@@ -46,7 +46,8 @@ c_down_packet_flag(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_advertise();
+  mrbc_value adv_data = GET_ARG(1);
+  BLE_advertise(adv_data.string->data, adv_data.string->size);
 }
 
 static void
