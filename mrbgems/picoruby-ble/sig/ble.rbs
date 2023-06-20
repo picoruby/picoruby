@@ -30,11 +30,9 @@ class BLE
   end
 
   class AdvertisingData
-    class Body
-      attr_reader data: String
-      def add: (Integer, *untyped) -> void
-    end
-    def self.build: () { (Body) -> void } -> String
+    attr_reader data: String
+    def add: (Integer, *untyped) -> void
+    def self.build: () { (AdvertisingData) -> void } -> String
   end
 end
 

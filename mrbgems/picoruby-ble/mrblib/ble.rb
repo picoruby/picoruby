@@ -44,37 +44,38 @@ class BLE
   end
 
   class AdvertisingData
-    class Body
-      def initialize
-        @data = ""
-      end
-      attr_reader :data
-      def add(type, *data)
-        length_pos = @data.length
-        @data << 0.chr # dummy length
-        @data << type.chr
-        length = 1
-        data.each do |d|
-          case d
-          when String
-            @data << d
-            length += d.length
-          when Integer
-            while 0 < d
-              @data << (d & 0xff).chr
-              d >>= 8
-              length += 1
-            end
-          else
-            raise ArgumentError, "invalid data type: `#{d}`"
-          end
-        end
-        @data[length_pos] = length.chr
-      end
+    def initialize
+      @data = ""
     end
+
+    attr_reader :data
+
+    def add(type, *data)
+      length_pos = @data.length
+      @data << 0.chr # dummy length
+      @data << type.chr
+      length = 1
+      data.each do |d|
+        case d
+        when String
+          @data << d
+          length += d.length
+        when Integer
+          while 0 < d
+            @data << (d & 0xff).chr
+            d >>= 8
+            length += 1
+          end
+        else
+          raise ArgumentError, "invalid data type: `#{d}`"
+        end
+      end
+      @data[length_pos] = length.chr
+    end
+
     # private_constant :Body
     def self.build(&block)
-      b = Body.new
+      b = self.new
       block.call(b)
       adv_data = b.data
       if 31 < adv_data.length
