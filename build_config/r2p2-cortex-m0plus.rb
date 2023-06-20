@@ -48,5 +48,7 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.gem core: 'picoruby-adafruit_pcf8523'
 
   conf.gem core: 'picoruby-sqlite3'
+  conf.gem core: 'picoruby-task-ext'
+  conf.gem core: 'picoruby-machine'
 end
 

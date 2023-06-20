@@ -1,0 +1,3 @@
+class Machine
+  def self.sleep: (Integer) -> Integer
+end

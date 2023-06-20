@@ -50,5 +50,6 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
 #  conf.gem core: 'picoruby-sqlite3'
 
   conf.gem core: 'picoruby-ble'
+  conf.gem core: 'picoruby-machine'
 end
 
