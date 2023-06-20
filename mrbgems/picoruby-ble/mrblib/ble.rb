@@ -129,11 +129,10 @@ class MyServer < BLE::AttServer
   end
 
   def packet_callback(event)
-    puts "packet_callback: #{sprintf "%02X", event}"
+    #puts "packet_callback: #{sprintf "%02X", event}"
     @last_event = event
     case event
     when BTSTACK_EVENT_STATE
-      puts "advertising"
       puts "AttServer is up and running on: `#{BLE.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE
@@ -144,7 +143,6 @@ class MyServer < BLE::AttServer
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
     when ATT_EVENT_CAN_SEND_NOW
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-      puts "can send now. notify"
       notify
       sleep_ms 10
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
