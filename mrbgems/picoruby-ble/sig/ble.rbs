@@ -4,7 +4,7 @@ class BLE
   def self.bd_addr_to_str: (String) -> String
 
   class AttServer
-    @task: Task::Tmp
+    @task: Task
     @connections: Array[BLE::AttServer]
     def initialize: () -> void
     def init: () -> void
