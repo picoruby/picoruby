@@ -1,22 +1,18 @@
 class Task
-  TASKS: Hash[String, Task::Tmp]
+  TASKS: Hash[String, Task]
 
-  class Tmp
+  @proc: Proc
+  @args: Array[untyped]
+  @sandbox: Sandbox
 
-    @proc: Proc
-    @args: Array[untyped]
-    @sandbox: Sandbox
+  attr_reader name: String | nil
 
-    attr_reader name: String | nil
+  def self.list: () -> Array[Task]
 
-    def initialize: (Array[untyped], Proc) -> void
-    def name=: (String) -> String
-    def suspend: () -> self
-    def terminate: () -> self
-    def join: (?Integer|nil) -> (self | nil)
-    def _start: () -> void
-  end
-
-  def self.new: (*untyped) { (*untyped) -> void } -> Task::Tmp
-  def self.list: () -> Array[Task::Tmp]
+  def initialize: (*untyped) { (*untyped) -> void } -> void
+  def name=: (String) -> String
+  def suspend: () -> self
+  def terminate: () -> self
+  def join: (?Integer|nil) -> (self | nil)
+  def _start: () -> void
 end
