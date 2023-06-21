@@ -16,4 +16,5 @@ target :mrbgems do
   ignore "mrbgems/picoruby-vfs/mrblib/file.rb"
   ignore "mrbgems/picoruby-vfs/mrblib/dir.rb"
   ignore "mrbgems/picoruby-shell/mrblib/0_out_of_steep.rb"
+  ignore "mrbgems/picoruby-ble/mrblib/demo.rb"
 end
