@@ -200,7 +200,20 @@ BLE_init(void)
   l2cap_init();
   sm_init();
 
-  att_server_init(profile_data, att_read_callback, att_write_callback);
+        att_db_util_init();
+
+        att_db_util_add_service_uuid16(GAP_SERVICE_UUID);
+        uint16_t handle = att_db_util_add_characteristic_uuid16(GAP_DEVICE_NAME_UUID, ATT_PROPERTY_READ | ATT_PROPERTY_DYNAMIC, ATT_SECURITY_NONE, ATT_SECURITY_NONE, NULL, 0);
+        (void)handle;
+        assert(handle == BTSTACK_GAP_DEVICE_NAME_HANDLE);
+
+        att_db_util_add_service_uuid16(0x1801);
+        att_db_util_add_characteristic_uuid16(0x2a05, ATT_PROPERTY_READ, ATT_SECURITY_NONE, ATT_SECURITY_NONE, NULL, 0);
+
+
+        att_server_init(att_db_util_get_address(), att_read_callback, att_write_callback);
+
+  //att_server_init(profile_data, att_read_callback, att_write_callback);
 
   // inform about BTstack state
   hci_event_callback_registration.callback = &packet_handler;
