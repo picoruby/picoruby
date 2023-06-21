@@ -7,6 +7,56 @@ class BLE
     addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
   end
 
+  class UUID
+    def initialize(value)
+      case value
+      when Integer
+        @type = :uuid16
+        @str = ""
+        if value < 65536
+          @str << (value & 0xff).chr
+          @str << ((value >> 8) & 0xff).chr
+        end
+      when String
+        # Simply trustily assumes "cd833ba3-97c5-4615-a2a0-a6c3e56b24b2" format
+        @type = :uuid128
+        @str = "_" * 16
+        i = 0
+        15.downto(0) do |j|
+          i += 1 if value[i] == "-"
+          c = value[i, 2].to_s
+          if c.length != 2
+            raise ArgumentError, "invalid uuid value: `#{value}`"
+          end
+          if valid_char?(c[0]) && valid_char?(c[1])
+            @str[j] = c.to_i(16).chr
+          else
+            @str = ""
+            break 0
+          end
+          i += 2
+        end
+      end
+      if @str.empty?
+        raise ArgumentError, "invalid uuid value: `#{value}`"
+      end
+    end
+
+    attr_reader :type
+
+    def to_s
+      @str
+    end
+
+    # private
+
+    def valid_char?(c)
+      return false unless c
+      o = c.ord
+      ('0'.ord..'9'.ord) === o || ('a'.ord..'z'.ord) === o || ('A'.ord..'Z'.ord) === o
+    end
+  end
+
   class AttServer
     def initialize
       @connections = []

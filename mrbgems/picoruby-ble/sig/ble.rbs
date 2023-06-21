@@ -3,6 +3,14 @@ class BLE
 
   def self.bd_addr_to_str: (String) -> String
 
+  class UUID
+    @str: String
+    attr_reader type: Symbol
+    def initialize: (untyped) -> void
+    def to_s: () -> String
+    def valid_char?: (String | nil) -> bool
+  end
+
   class AttServer
     @task: Task
     @connections: Array[BLE::AttServer]
