@@ -1,14 +1,29 @@
 class BLE
   CYW43_WL_GPIO_LED_PIN: Integer
 
+  GATT_PRIMARY_SERVICE_UUID: Integer
+  GAP_SERVICE_UUID: Integer
+  ATT_PROPERTY_READ: Integer
+  GATT_CHARACTERISTIC_UUID: Integer
+
   def self.bd_addr_to_str: (String) -> String
 
-  class UUID
-    @str: String
-    attr_reader type: Symbol
-    def initialize: (untyped) -> void
-    def to_s: () -> String
-    def valid_char?: (String | nil) -> bool
+  class Utils
+    def self.uuid: (untyped) -> String
+    def self.int16_to_little_endian: (Integer) -> String
+    def self.valid_char_for_uuid?: (String | nil) -> bool
+  end
+
+  class GattDatabase
+    @handle: Integer
+    attr_reader data: String
+
+    def self.build: () { (GattDatabase) -> void } -> String
+    def handle: () -> Integer
+    def add_line: (String) -> void
+    def add_service: (String) -> void
+    def add_characteristic: (String, Integer, Integer, String) -> void
+    def add_descriptor: (String, Integer, Integer, String) -> void
   end
 
   class AttServer

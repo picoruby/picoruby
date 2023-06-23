@@ -7,20 +7,14 @@ class BLE
     addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
   end
 
-  class UUID
-    def initialize(value)
+  class Utils
+    def self.uuid(value)
       case value
       when Integer
-        @type = :uuid16
-        @str = ""
-        if value < 65536
-          @str << (value & 0xff).chr
-          @str << ((value >> 8) & 0xff).chr
-        end
+        str = int16_to_little_endian(value)
       when String
         # Simply trustily assumes "cd833ba3-97c5-4615-a2a0-a6c3e56b24b2" format
-        @type = :uuid128
-        @str = "_" * 16
+        str = "_" * 16
         i = 0
         15.downto(0) do |j|
           i += 1 if value[i] == "-"
@@ -28,33 +22,38 @@ class BLE
           if c.length != 2
             raise ArgumentError, "invalid uuid value: `#{value}`"
           end
-          if valid_char?(c[0]) && valid_char?(c[1])
-            @str[j] = c.to_i(16).chr
+          if valid_char_for_uuid?(c[0]) && valid_char_for_uuid?(c[1])
+            str[j] = c.to_i(16).chr
           else
-            @str = ""
+            str = ""
             break 0
           end
           i += 2
         end
+      else
+        str = ""
       end
-      if @str.empty?
+      if str.empty?
         raise ArgumentError, "invalid uuid value: `#{value}`"
       end
+      str
     end
 
-    attr_reader :type
-
-    def to_s
-      @str
+    def self.int16_to_little_endian(value)
+      if 65536 < value
+        raise ArgumentError, "invalid value: `#{value}`"
+      end
+      value.chr + (value >> 8).chr
     end
 
     # private
 
-    def valid_char?(c)
+    def self.valid_char_for_uuid?(c)
       return false unless c
       o = c.ord
       ('0'.ord..'9'.ord) === o || ('a'.ord..'z'.ord) === o || ('A'.ord..'Z'.ord) === o
     end
+
   end
 
   class AttServer
@@ -93,6 +92,62 @@ class BLE
     end
   end
 
+  class GattDatabase
+    def initialize
+      @data = 0x01.chr
+      @handle = 0
+    end
+
+    def self.build(&block)
+      gatt_db = self.new
+      block.call(gatt_db)
+      gatt_db.data
+    end
+
+    attr_reader :data
+
+    def handle
+      @handle += 1
+    end
+
+    def add_line(line)
+      @data << Utils.int16_to_little_endian(line.length) << line
+    end
+
+    def add_service(uuid)
+      line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
+      line << Utils.int16_to_little_endian(handle)
+      line << Utils.int16_to_little_endian(BLE::GATT_PRIMARY_SERVICE_UUID)
+      line << Utils.int16_to_little_endian(BLE::GAP_SERVICE_UUID)
+      add_line(line)
+    end
+
+    def add_characteristic(uuid, properties, flags, value)
+      # declaration
+      line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
+      line << Utils.int16_to_little_endian(handle)
+      line << Utils.int16_to_little_endian(BLE::GATT_CHARACTERISTIC_UUID)
+      line << (properties & 0xff).chr
+      line << Utils.int16_to_little_endian(handle + 1)
+      line << uuid.to_s
+      add_line(line)
+      # value
+      line = Utils.int16_to_little_endian(flags)
+      line << Utils.int16_to_little_endian(handle)
+      line << uuid.to_s
+      line << value
+      add_line(line)
+    end
+
+    def add_descriptor(uuid, properties, flags, value)
+      line = Utils.int16_to_little_endian(properties)
+      line << Utils.int16_to_little_endian(handle)
+      line << uuid.to_s
+      line << value
+      add_line(line)
+    end
+  end
+
   class AdvertisingData
     def initialize
       @data = ""
@@ -123,7 +178,6 @@ class BLE
       @data[length_pos] = length.chr
     end
 
-    # private_constant :Body
     def self.build(&block)
       b = self.new
       block.call(b)
