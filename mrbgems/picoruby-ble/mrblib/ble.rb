@@ -1,7 +1,12 @@
-require 'task'
+#require 'task'
 
 class BLE
   CYW43_WL_GPIO_LED_PIN = 0
+  ATT_PROPERTY_READ = 0x02
+  GAP_DEVICE_NAME_UUID = 0x2a00
+  GATT_PRIMARY_SERVICE_UUID = 0x2800
+  GATT_CHARACTERISTIC_UUID = 0x2803
+  GAP_SERVICE_UUID = 0x1800
 
   def self.bd_addr_to_str(addr)
     addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
@@ -43,7 +48,7 @@ class BLE
       if 65536 < value
         raise ArgumentError, "invalid value: `#{value}`"
       end
-      value.chr + (value >> 8).chr
+      (value & 0xff).chr + (value >> 8).chr
     end
 
     # private
@@ -110,39 +115,58 @@ class BLE
       @handle += 1
     end
 
+    def next_handle
+      @handle + 1
+    end
+
     def add_line(line)
-      @data << Utils.int16_to_little_endian(line.length) << line
+      @data << Utils.int16_to_little_endian(line.length + 2) << line
     end
 
     def add_service(uuid)
       line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
       line << Utils.int16_to_little_endian(handle)
       line << Utils.int16_to_little_endian(BLE::GATT_PRIMARY_SERVICE_UUID)
-      line << Utils.int16_to_little_endian(BLE::GAP_SERVICE_UUID)
+      line << Utils.int16_to_little_endian(uuid)
       add_line(line)
+      yield self if block_given?
     end
 
-    def add_characteristic(uuid, properties, flags, value)
+    def add_characteristic(uuid, properties, flags, *values)
       # declaration
       line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
       line << Utils.int16_to_little_endian(handle)
       line << Utils.int16_to_little_endian(BLE::GATT_CHARACTERISTIC_UUID)
       line << (properties & 0xff).chr
-      line << Utils.int16_to_little_endian(handle + 1)
-      line << uuid.to_s
+      line << Utils.int16_to_little_endian(next_handle)
+      line << Utils.int16_to_little_endian(uuid)
       add_line(line)
       # value
       line = Utils.int16_to_little_endian(flags)
       line << Utils.int16_to_little_endian(handle)
-      line << uuid.to_s
-      line << value
+      line << Utils.int16_to_little_endian(uuid)
+      values.each do |value|
+        case value
+        when String
+          line << value
+        when Integer
+          if value < 256
+            line << value.chr
+          else
+            line << Utils.int16_to_little_endian(value)
+          end
+        else
+          raise ArgumentError, "invalid value: `#{value}`"
+        end
+      end
       add_line(line)
+      yield self if block_given?
     end
 
     def add_descriptor(uuid, properties, flags, value)
       line = Utils.int16_to_little_endian(properties)
       line << Utils.int16_to_little_endian(handle)
-      line << uuid.to_s
+      line << Utils.int16_to_little_endian(uuid)
       line << value
       add_line(line)
     end
