@@ -3,6 +3,7 @@ class BLE
 
   GATT_PRIMARY_SERVICE_UUID: Integer
   GAP_SERVICE_UUID: Integer
+  GAP_DEVICE_NAME_UUID: Integer
   ATT_PROPERTY_READ: Integer
   GATT_CHARACTERISTIC_UUID: Integer
 
@@ -15,15 +16,18 @@ class BLE
   end
 
   class GattDatabase
+    type uuid_t = String|Integer
     @handle: Integer
     attr_reader data: String
 
     def self.build: () { (GattDatabase) -> void } -> String
     def handle: () -> Integer
+    def next_handle: () -> Integer
     def add_line: (String) -> void
-    def add_service: (String) -> void
-    def add_characteristic: (String, Integer, Integer, String) -> void
-    def add_descriptor: (String, Integer, Integer, String) -> void
+    def add_service: (uuid_t) ?{ (GattDatabase) -> void } -> void
+    def add_characteristic: (uuid_t, Integer, Integer, *(String|Integer)) ?{ (GattDatabase) -> void } -> void
+    def add_descriptor: (uuid_t, Integer, Integer, String) -> void
+    def uuid2str: (uuid_t) -> String
   end
 
   class AttServer

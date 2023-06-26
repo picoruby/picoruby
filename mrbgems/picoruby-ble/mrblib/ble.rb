@@ -127,7 +127,7 @@ class BLE
       line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
       line << Utils.int16_to_little_endian(handle)
       line << Utils.int16_to_little_endian(BLE::GATT_PRIMARY_SERVICE_UUID)
-      line << Utils.int16_to_little_endian(uuid)
+      line << uuid2str(uuid)
       add_line(line)
       yield self if block_given?
     end
@@ -139,12 +139,12 @@ class BLE
       line << Utils.int16_to_little_endian(BLE::GATT_CHARACTERISTIC_UUID)
       line << (properties & 0xff).chr
       line << Utils.int16_to_little_endian(next_handle)
-      line << Utils.int16_to_little_endian(uuid)
+      line << uuid2str(uuid)
       add_line(line)
       # value
       line = Utils.int16_to_little_endian(flags)
       line << Utils.int16_to_little_endian(handle)
-      line << Utils.int16_to_little_endian(uuid)
+      line << uuid2str(uuid)
       values.each do |value|
         case value
         when String
@@ -155,8 +155,6 @@ class BLE
           else
             line << Utils.int16_to_little_endian(value)
           end
-        else
-          raise ArgumentError, "invalid value: `#{value}`"
         end
       end
       add_line(line)
@@ -166,9 +164,13 @@ class BLE
     def add_descriptor(uuid, properties, flags, value)
       line = Utils.int16_to_little_endian(properties)
       line << Utils.int16_to_little_endian(handle)
-      line << Utils.int16_to_little_endian(uuid)
+      line << uuid2str(uuid)
       line << value
       add_line(line)
+    end
+
+    def uuid2str(uuid)
+      uuid.is_a?(String) ? uuid : Utils.int16_to_little_endian(uuid)
     end
   end
 
