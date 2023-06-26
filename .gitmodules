@@ -1,0 +1,3 @@
+[submodule "mrbgems/picoruby-mbedtls/mbedtls"]
+	path = mrbgems/picoruby-mbedtls/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
