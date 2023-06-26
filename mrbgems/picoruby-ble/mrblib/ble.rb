@@ -3,10 +3,17 @@
 class BLE
   CYW43_WL_GPIO_LED_PIN = 0
   ATT_PROPERTY_READ = 0x02
+  ATT_PROPERTY_WRITE_WITHOUT_RESPONSE = 0x04
+  ATT_PROPERTY_WRITE = 0x08
+  ATT_PROPERTY_NOTIFY = 0x10
+  ATT_PROPERTY_INDICATE = 0x20
+  ATT_PROPERTY_AUTHENTICATED_SIGNED_WRITES = 0x40
+  ATT_PROPERTY_EXTENDED_PROPERTIES = 0x80
   GAP_DEVICE_NAME_UUID = 0x2a00
   GATT_PRIMARY_SERVICE_UUID = 0x2800
   GATT_CHARACTERISTIC_UUID = 0x2803
   GAP_SERVICE_UUID = 0x1800
+  CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
 
   def self.bd_addr_to_str(addr)
     addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
@@ -158,10 +165,18 @@ class BLE
         end
       end
       add_line(line)
+      if properties & (ATT_PROPERTY_NOTIFY | ATT_PROPERTY_INDICATE) != 0
+        flags = ATT_PROPERTY_READ | ATT_PROPERTY_WRITE
+        line = Utils.int16_to_little_endian(flags)
+        line << Utils.int16_to_little_endian(handle)
+        line << Utils.int16_to_little_endian(BLE::CLIENT_CHARACTERISTIC_CONFIGURATION)
+        line << 0.chr * 2
+        add_line(line)
+      end
       yield self if block_given?
     end
 
-    def add_descriptor(uuid, properties, flags, value)
+    def add_descriptor(uuid, properties, value)
       line = Utils.int16_to_little_endian(properties)
       line << Utils.int16_to_little_endian(handle)
       line << uuid2str(uuid)
