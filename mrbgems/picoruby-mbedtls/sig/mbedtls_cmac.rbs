@@ -1,0 +1,14 @@
+class MbedTLS
+  class CMAC
+    attr_accessor _digest: String
+
+    def self.new: (untyped key, String digest) -> MbedTLS::CMAC
+    def self.__init_aes: (String) -> MbedTLS::CMAC
+    def update: (String) -> MbedTLS::CMAC
+    def reset: -> MbedTLS::CMAC
+    def digest: -> String
+
+    # private
+    def self._init_aes: (String) -> MbedTLS::CMAC
+  end
+end
