@@ -1,7 +1,52 @@
 class BLE
+
+  CLIENT_CHARACTERISTIC_CONFIGURATION: Integer
+  CHARACTERISTIC_DATABASE_HASH: Integer
+
+  BROADCAST:                   Integer
+  READ:                        Integer
+  WRITE_WITHOUT_RESPONSE:      Integer
+  WRITE:                       Integer
+  NOTIFY:                      Integer
+  INDICATE:                    Integer
+  AUTHENTICATED_SIGNED_WRITE:  Integer
+  EXTENDED_PROPERTIES:         Integer
+  DYNAMIC:                     Integer
+  LONG_UUID:                   Integer
+  READ_PERMISSION_BIT_0:       Integer
+  READ_PERMISSION_BIT_1:       Integer
+  ENCRYPTION_KEY_SIZE_7:       Integer
+  ENCRYPTION_KEY_SIZE_8:       Integer
+  ENCRYPTION_KEY_SIZE_9:       Integer
+  ENCRYPTION_KEY_SIZE_10:      Integer
+  ENCRYPTION_KEY_SIZE_11:      Integer
+  ENCRYPTION_KEY_SIZE_12:      Integer
+  ENCRYPTION_KEY_SIZE_13:      Integer
+  ENCRYPTION_KEY_SIZE_14:      Integer
+  ENCRYPTION_KEY_SIZE_15:      Integer
+  ENCRYPTION_KEY_SIZE_16:      Integer
+  ENCRYPTION_KEY_SIZE_MASK:    Integer
+  RELIABLE_WRITE:              Integer
+  AUTHENTICATION_REQUIRED:     Integer
+  AUTHORIZATION_REQUIRED:      Integer
+  READ_ANYBODY:                Integer
+  READ_ENCRYPTED:              Integer
+  READ_AUTHENTICATED:          Integer
+  READ_AUTHENTICATED_SC:       Integer
+  READ_AUTHORIZED:             Integer
+  WRITE_ANYBODY:               Integer
+  WRITE_ENCRYPTED:             Integer
+  WRITE_AUTHENTICATED:         Integer
+  WRITE_AUTHENTICATED_SC:      Integer
+  WRITE_AUTHORIZED:            Integer
+  WRITE_PERMISSION_BIT_0:      Integer
+  WRITE_PERMISSION_BIT_1:      Integer
+  READ_PERMISSION_SC:          Integer
+  WRITE_PERMISSION_SC:         Integer
   CYW43_WL_GPIO_LED_PIN: Integer
 
   GATT_PRIMARY_SERVICE_UUID: Integer
+  GATT_SECONDARY_SERVICE_UUID: Integer
   GAP_SERVICE_UUID: Integer
   GAP_DEVICE_NAME_UUID: Integer
   ATT_PROPERTY_READ: Integer
@@ -16,18 +61,24 @@ class BLE
   end
 
   class GattDatabase
+    ATT_DB_VERSION: Integer
+
     type uuid_t = String|Integer
     @handle: Integer
+    @hash_src: String
+    @hash_pos: Integer|nil
     attr_reader data: String
 
-    def self.build: () { (GattDatabase) -> void } -> String
-    def handle: () -> Integer
-    def next_handle: () -> Integer
+    def initialize: () { (GattDatabase) -> void } -> void
+    def insert_database_hash: () -> void
+    def push_handle: () -> Integer
     def add_line: (String) -> void
-    def add_service: (uuid_t) ?{ (GattDatabase) -> void } -> void
-    def add_characteristic: (uuid_t, Integer, Integer, *(String|Integer)) ?{ (GattDatabase) -> void } -> void
-    def add_descriptor: (uuid_t, Integer, Integer, String) -> void
+    def add_service: (Integer, uuid_t) ?{ (GattDatabase) -> void } -> void
+    def add_characteristic: (uuid_t, Integer, *(String|Integer)) ?{ (GattDatabase) -> void } -> void
+    def add_descriptor: (uuid_t, Integer, *(String|Integer)) -> void
     def uuid2str: (uuid_t) -> String
+    def att_flags: (Integer) -> Integer
+    def write_permissions_and_key_size_flags_from_properties: (Integer) -> Integer
   end
 
   class AttServer

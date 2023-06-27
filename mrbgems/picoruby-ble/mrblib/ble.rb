@@ -1,19 +1,75 @@
 #require 'task'
 
 class BLE
+  # GATT Characteristic Properties
+  BROADCAST =                   0x01
+  READ =                        0x02
+  WRITE_WITHOUT_RESPONSE =      0x04
+  WRITE =                       0x08
+  NOTIFY =                      0x10
+  INDICATE =                    0x20
+  AUTHENTICATED_SIGNED_WRITE =  0x40
+  EXTENDED_PROPERTIES =         0x80
+  # custom BTstack extension
+  DYNAMIC =                     0x100
+  LONG_UUID =                   0x200
+
+  # read permissions
+  READ_PERMISSION_BIT_0 =       0x400
+  READ_PERMISSION_BIT_1 =       0x800
+
+  # 
+  ENCRYPTION_KEY_SIZE_7 =       0x6000
+  ENCRYPTION_KEY_SIZE_8 =       0x7000
+  ENCRYPTION_KEY_SIZE_9 =       0x8000
+  ENCRYPTION_KEY_SIZE_10 =      0x9000
+  ENCRYPTION_KEY_SIZE_11 =      0xa000
+  ENCRYPTION_KEY_SIZE_12 =      0xb000
+  ENCRYPTION_KEY_SIZE_13 =      0xc000
+  ENCRYPTION_KEY_SIZE_14 =      0xd000
+  ENCRYPTION_KEY_SIZE_15 =      0xe000
+  ENCRYPTION_KEY_SIZE_16 =      0xf000
+  ENCRYPTION_KEY_SIZE_MASK =    0xf000
+  
+  # only used by gatt compiler >= 0xffff
+  # Extended Properties
+  RELIABLE_WRITE =              0x00010000
+  AUTHENTICATION_REQUIRED =     0x00020000
+  AUTHORIZATION_REQUIRED =      0x00040000
+  READ_ANYBODY =                0x00080000
+  READ_ENCRYPTED =              0x00100000
+  READ_AUTHENTICATED =          0x00200000
+  READ_AUTHENTICATED_SC =       0x00400000
+  READ_AUTHORIZED =             0x00800000
+  WRITE_ANYBODY =               0x01000000
+  WRITE_ENCRYPTED =             0x02000000
+  WRITE_AUTHENTICATED =         0x04000000
+  WRITE_AUTHENTICATED_SC =      0x08000000
+  WRITE_AUTHORIZED =            0x10000000
+
+  # Broadcast, Notify, Indicate, Extended Properties are only used to describe a GATT Characteristic, but are free to use with att_db
+  # - write permissions
+  WRITE_PERMISSION_BIT_0 =      0x01
+  WRITE_PERMISSION_BIT_1 =      0x10
+  # - SC required
+  READ_PERMISSION_SC =          0x20
+  WRITE_PERMISSION_SC =         0x80
+
   CYW43_WL_GPIO_LED_PIN = 0
-  ATT_PROPERTY_READ = 0x02
-  ATT_PROPERTY_WRITE_WITHOUT_RESPONSE = 0x04
-  ATT_PROPERTY_WRITE = 0x08
-  ATT_PROPERTY_NOTIFY = 0x10
-  ATT_PROPERTY_INDICATE = 0x20
-  ATT_PROPERTY_AUTHENTICATED_SIGNED_WRITES = 0x40
-  ATT_PROPERTY_EXTENDED_PROPERTIES = 0x80
+#  ATT_PROPERTY_READ = 0x02
+#  ATT_PROPERTY_WRITE_WITHOUT_RESPONSE = 0x04
+#  ATT_PROPERTY_WRITE = 0x08
+#  ATT_PROPERTY_NOTIFY = 0x10
+#  ATT_PROPERTY_INDICATE = 0x20
+#  ATT_PROPERTY_AUTHENTICATED_SIGNED_WRITES = 0x40
+#  ATT_PROPERTY_EXTENDED_PROPERTIES = 0x80
   GAP_DEVICE_NAME_UUID = 0x2a00
   GATT_PRIMARY_SERVICE_UUID = 0x2800
+  GATT_SECONDARY_SERVICE_UUID = 0x2801
   GATT_CHARACTERISTIC_UUID = 0x2803
   GAP_SERVICE_UUID = 0x1800
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
+  CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
   def self.bd_addr_to_str(addr)
     addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
@@ -52,10 +108,10 @@ class BLE
     end
 
     def self.int16_to_little_endian(value)
-      if 65536 < value
-        raise ArgumentError, "invalid value: `#{value}`"
-      end
-      (value & 0xff).chr + (value >> 8).chr
+      #if 65536 < value
+      #  raise ArgumentError, "invalid value: `#{value}`"
+      #end
+      (value & 0xff).chr + (value >> 8 & 0xff).chr
     end
 
     # private
@@ -105,82 +161,188 @@ class BLE
   end
 
   class GattDatabase
-    def initialize
-      @data = 0x01.chr
+    ATT_DB_VERSION = 0x01
+    def initialize(&block)
+      @data = ATT_DB_VERSION.chr
       @handle = 0
-    end
-
-    def self.build(&block)
-      gatt_db = self.new
-      block.call(gatt_db)
-      gatt_db.data
+      @hash_src = ""
+      @hash_pos = nil
+      block.call self
+      insert_database_hash
+      @data << "\x00\x00"
     end
 
     attr_reader :data
 
-    def handle
-      @handle += 1
+    def insert_database_hash
+      return unless @hash_pos
+      # todo: calculate hash with MbedTLS::CMAC
+      hash = [0xd9, 0x9e, 0xb6, 0x01, 0xab, 0xc5, 0xab, 0x97, 0xcf, 0x26, 0x35, 0x4a, 0xbb, 0x4b, 0xc5, 0xef].map(&:chr).join
+      # @type ivar @hash_pos: Integer
+      @data[@hash_pos, 16] = hash
     end
 
-    def next_handle
-      @handle + 1
+    def push_handle
+      @handle += 1
     end
 
     def add_line(line)
       @data << Utils.int16_to_little_endian(line.length + 2) << line
     end
 
-    def add_service(uuid)
-      line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
-      line << Utils.int16_to_little_endian(handle)
-      line << Utils.int16_to_little_endian(BLE::GATT_PRIMARY_SERVICE_UUID)
-      line << uuid2str(uuid)
+    def add_service(service, uuid)
+      line = Utils.int16_to_little_endian(READ)
+      [
+        Utils.int16_to_little_endian(push_handle),
+        Utils.int16_to_little_endian(service),
+        uuid2str(uuid)
+      ].each do |element|
+        line << element
+        @hash_src << element
+      end
       add_line(line)
       yield self if block_given?
     end
 
-    def add_characteristic(uuid, properties, flags, *values)
+    def add_characteristic(uuid, properties, *values)
       # declaration
-      line = Utils.int16_to_little_endian(BLE::ATT_PROPERTY_READ)
-      line << Utils.int16_to_little_endian(handle)
-      line << Utils.int16_to_little_endian(BLE::GATT_CHARACTERISTIC_UUID)
-      line << (properties & 0xff).chr
-      line << Utils.int16_to_little_endian(next_handle)
-      line << uuid2str(uuid)
+      line = Utils.int16_to_little_endian(READ)
+      [
+        Utils.int16_to_little_endian(push_handle),
+        Utils.int16_to_little_endian(GATT_CHARACTERISTIC_UUID),
+        (properties & 0xff).chr,
+        Utils.int16_to_little_endian(@handle + 1),
+        uuid2str(uuid)
+      ].each do |element|
+        line << element
+        @hash_src << element
+      end
       add_line(line)
       # value
-      line = Utils.int16_to_little_endian(flags)
-      line << Utils.int16_to_little_endian(handle)
+      value_flags = att_flags(properties)
+      if uuid.is_a?(String) && uuid.length == 16
+        value_flags = value_flags | LONG_UUID
+      end
+      line = Utils.int16_to_little_endian(value_flags)
+      line << Utils.int16_to_little_endian(push_handle)
       line << uuid2str(uuid)
+      if uuid == CHARACTERISTIC_DATABASE_HASH
+        values = Array.new(16, 0)
+        @hash_pos = @data.length + line.length + 2
+      end
       values.each do |value|
-        case value
+        line << case value
         when String
-          line << value
+          value
         when Integer
-          if value < 256
-            line << value.chr
-          else
-            line << Utils.int16_to_little_endian(value)
-          end
+          value < 256 ? value.chr : Utils.int16_to_little_endian(value)
         end
       end
       add_line(line)
-      if properties & (ATT_PROPERTY_NOTIFY | ATT_PROPERTY_INDICATE) != 0
-        flags = ATT_PROPERTY_READ | ATT_PROPERTY_WRITE
+      if properties & (NOTIFY | INDICATE) != 0
+        # characteristic configuration
+        flags = write_permissions_and_key_size_flags_from_properties(properties)
+        flags |= READ
+        flags |= WRITE
+        flags |= WRITE_WITHOUT_RESPONSE
+        flags |= DYNAMIC
         line = Utils.int16_to_little_endian(flags)
-        line << Utils.int16_to_little_endian(handle)
-        line << Utils.int16_to_little_endian(BLE::CLIENT_CHARACTERISTIC_CONFIGURATION)
+        [
+          Utils.int16_to_little_endian(push_handle),
+          Utils.int16_to_little_endian(CLIENT_CHARACTERISTIC_CONFIGURATION)
+        ].each do |element|
+          line << element
+          @hash_src << element
+        end
         line << 0.chr * 2
         add_line(line)
       end
       yield self if block_given?
     end
 
-    def add_descriptor(uuid, properties, value)
+    def write_permissions_and_key_size_flags_from_properties(properties)
+      att_flags(properties) & (ENCRYPTION_KEY_SIZE_MASK | WRITE_PERMISSION_BIT_0 | WRITE_PERMISSION_BIT_1)
+    end
+
+    def att_flags(properties)
+      # drop Broadcast (0x01), Notify (0x10), Indicate (0x20), Extended Properties (0x80) - not used for flags
+      properties &= 0xffffff4e
+      # 0x1ff80000 =  READ_AUTHORIZED |
+      #               READ_AUTHENTICATED_SC |
+      #               READ_AUTHENTICATED |
+      #               READ_ENCRYPTED |
+      #               READ_ANYBODY |
+      #               WRITE_AUTHORIZED |
+      #               WRITE_AUTHENTICATED |
+      #               WRITE_AUTHENTICATED_SC |
+      #               WRITE_ENCRYPTED |
+      #               WRITE_ANYBODY
+      distinct_permissions_used = (properties & 0x1ff80000 != 0)
+      encryption_key_size_specified = (properties & ENCRYPTION_KEY_SIZE_MASK) != 0
+
+      # if distinct permissions not used and encyrption key size specified -> set READ/WRITE Encrypted
+      if encryption_key_size_specified && !distinct_permissions_used
+        properties |= READ_ENCRYPTED | WRITE_ENCRYPTED
+      end
+      # if distinct permissions not used and authentication is requires -> set READ/WRITE Authenticated
+      if 0 < properties & AUTHENTICATION_REQUIRED && !distinct_permissions_used
+        properties |= READ_AUTHENTICATED | WRITE_AUTHENTICATED
+      end
+      # if distinct permissions not used and authorized is requires -> set READ/WRITE Authorized
+      if 0 < properties & AUTHORIZATION_REQUIRED && !distinct_permissions_used
+        properties |= READ_AUTHORIZED | WRITE_AUTHORIZED
+      end
+
+      # determine read/write security requirements
+      read_requires_sc, write_requires_sc = false, false
+      read_security_level = if 0 < properties & READ_AUTHORIZED
+        3
+      elsif 0 < properties & READ_AUTHENTICATED
+        2
+      elsif 0 < properties & READ_AUTHENTICATED_SC
+        read_requires_sc = true
+        2
+      elsif 0 < properties & READ_ENCRYPTED
+        1
+      else
+        0
+      end
+      write_security_level = if 0 < properties & WRITE_AUTHORIZED
+        3
+      elsif 0 < properties & WRITE_AUTHENTICATED
+        2
+      elsif 0 < properties & WRITE_AUTHENTICATED_SC
+        write_requires_sc = true
+        2
+      elsif 0 < properties & WRITE_ENCRYPTED
+        1
+      else
+        0
+      end
+
+      # map security requirements to flags
+      properties |= READ_PERMISSION_BIT_1 if 0 < read_security_level & 2
+      properties |= READ_PERMISSION_BIT_0 if 0 < read_security_level & 1
+      properties |= READ_PERMISSION_SC if read_requires_sc
+      properties |= WRITE_PERMISSION_BIT_1 if 0 < write_security_level & 2
+      properties |= WRITE_PERMISSION_BIT_0 if 0 < write_security_level & 1
+      properties |= WRITE_PERMISSION_SC if write_requires_sc
+
+      return properties
+    end
+
+    def add_descriptor(uuid, properties, *values)
       line = Utils.int16_to_little_endian(properties)
-      line << Utils.int16_to_little_endian(handle)
+      line << Utils.int16_to_little_endian(push_handle)
       line << uuid2str(uuid)
-      line << value
+      values.each do |value|
+        line << case value
+        when String
+          value
+        when Integer
+          value < 256 ? value.chr : Utils.int16_to_little_endian(value)
+        end
+      end
       add_line(line)
     end
 
