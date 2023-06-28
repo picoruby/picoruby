@@ -173,7 +173,7 @@ class BLE
     def insert_database_hash
       return unless @hash_pos
       # @type ivar @hash_pos: Integer
-      cmac ||= MbedTLS::CMAC.new(@database_hash_key, 'AES')
+      cmac = MbedTLS::CMAC.new(@database_hash_key, 'AES')
       cmac.update(@hash_src)
       digest = cmac.digest
       0.upto(15) do |i|
