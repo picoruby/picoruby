@@ -72,6 +72,7 @@ c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   mrbc_value digest = mrbc_string_new(vm, output, sizeof(output));
+  mrbc_incref(&v[0]);
   SET_RETURN(digest);
   mbedtls_cipher_free(ctx);
 }
