@@ -142,6 +142,10 @@ MRuby.each_target do |build|
           }
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
+          if (i < 0) {
+            mrbc_raise(vm, MRBC_CLASS(RuntimeError), "cannot load such gem");
+            return;
+          }
           if (!gems[i].required && picoruby_load_model(gems[i].mrb)) {
             if (gems[i].initializer) gems[i].initializer();
             gems[i].required = true;
