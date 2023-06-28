@@ -4,8 +4,8 @@ class MbedTLS
       unless key.is_a?(String)
         raise ArgumentError, "Invalid key type: #{key.class}"
       end
-      case digest
-      when "AES", "aes"
+      case digest.downcase
+      when "aes"
         unless key.length == 16
           raise ArgumentError, "Invalid key length: #{key.length}"
         end

@@ -1,4 +1,5 @@
-#require 'task'
+require 'task'
+require 'mbedtls'
 
 class BLE
   # GATT Characteristic Properties
@@ -18,7 +19,6 @@ class BLE
   READ_PERMISSION_BIT_0 =       0x400
   READ_PERMISSION_BIT_1 =       0x800
 
-  # 
   ENCRYPTION_KEY_SIZE_7 =       0x6000
   ENCRYPTION_KEY_SIZE_8 =       0x7000
   ENCRYPTION_KEY_SIZE_9 =       0x8000
@@ -30,7 +30,7 @@ class BLE
   ENCRYPTION_KEY_SIZE_15 =      0xe000
   ENCRYPTION_KEY_SIZE_16 =      0xf000
   ENCRYPTION_KEY_SIZE_MASK =    0xf000
-  
+
   # only used by gatt compiler >= 0xffff
   # Extended Properties
   RELIABLE_WRITE =              0x00010000
@@ -56,26 +56,20 @@ class BLE
   WRITE_PERMISSION_SC =         0x80
 
   CYW43_WL_GPIO_LED_PIN = 0
-#  ATT_PROPERTY_READ = 0x02
-#  ATT_PROPERTY_WRITE_WITHOUT_RESPONSE = 0x04
-#  ATT_PROPERTY_WRITE = 0x08
-#  ATT_PROPERTY_NOTIFY = 0x10
-#  ATT_PROPERTY_INDICATE = 0x20
-#  ATT_PROPERTY_AUTHENTICATED_SIGNED_WRITES = 0x40
-#  ATT_PROPERTY_EXTENDED_PROPERTIES = 0x80
   GAP_DEVICE_NAME_UUID = 0x2a00
   GATT_PRIMARY_SERVICE_UUID = 0x2800
   GATT_SECONDARY_SERVICE_UUID = 0x2801
   GATT_CHARACTERISTIC_UUID = 0x2803
   GAP_SERVICE_UUID = 0x1800
+  GATT_SERVICE_UUID = 0x1801
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
-  def self.bd_addr_to_str(addr)
-    addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
-  end
-
   class Utils
+    def self.bd_addr_to_str(addr)
+      addr.bytes.map{|b| sprintf("%02X", b)}.join(":")
+    end
+
     def self.uuid(value)
       case value
       when Integer
@@ -117,17 +111,16 @@ class BLE
     # private
 
     def self.valid_char_for_uuid?(c)
-      return false unless c
-      o = c.ord
-      ('0'.ord..'9'.ord) === o || ('a'.ord..'z'.ord) === o || ('A'.ord..'Z'.ord) === o
+      o = c&.downcase
+      ('0'..'9') === o || ('a'..'f') === o
     end
 
   end
 
   class AttServer
-    def initialize
+    def initialize(profile)
       @connections = []
-      init
+      init(profile)
     end
 
     def start
@@ -163,23 +156,32 @@ class BLE
   class GattDatabase
     ATT_DB_VERSION = 0x01
     def initialize(&block)
-      @data = ATT_DB_VERSION.chr
+      @profile_data = ATT_DB_VERSION.chr
       @handle = 0
       @hash_src = ""
       @hash_pos = nil
+      @database_hash_key = "\x00" * 16
       block.call self
       insert_database_hash
-      @data << "\x00\x00"
+      @profile_data << "\x00\x00"
     end
 
-    attr_reader :data
+    attr_reader :profile_data
+    attr_reader :hash_src
+    attr_accessor :database_hash_key
 
     def insert_database_hash
       return unless @hash_pos
-      # todo: calculate hash with MbedTLS::CMAC
-      hash = [0xd9, 0x9e, 0xb6, 0x01, 0xab, 0xc5, 0xab, 0x97, 0xcf, 0x26, 0x35, 0x4a, 0xbb, 0x4b, 0xc5, 0xef].map(&:chr).join
       # @type ivar @hash_pos: Integer
-      @data[@hash_pos, 16] = hash
+      hash = [0xd9, 0x9e, 0xb6, 0x01, 0xab, 0xc5, 0xab, 0x97, 0xcf, 0x26, 0x35, 0x4a, 0xbb, 0x4b, 0xc5, 0xef].map{|e|e.chr}.join
+      @profile_data[@hash_pos, 16] = hash
+      #cmac ||= MbedTLS::CMAC.new(@database_hash_key, 'AES')
+      #cmac.update(@hash_src)
+      #digest = cmac.digest
+      #0.upto(15) do |i|
+      #  (c = digest[15 - i]) or raise "digest[#{15 - i}] is nil"
+      #  @profile_data[@hash_pos + i] = c
+      #end
     end
 
     def push_handle
@@ -187,7 +189,7 @@ class BLE
     end
 
     def add_line(line)
-      @data << Utils.int16_to_little_endian(line.length + 2) << line
+      @profile_data << Utils.int16_to_little_endian(line.length + 2) << line
     end
 
     def add_service(service, uuid)
@@ -228,7 +230,7 @@ class BLE
       line << uuid2str(uuid)
       if uuid == CHARACTERISTIC_DATABASE_HASH
         values = Array.new(16, 0)
-        @hash_pos = @data.length + line.length + 2
+        @hash_pos = @profile_data.length + line.length + 2
       end
       values.each do |value|
         line << case value
@@ -260,13 +262,27 @@ class BLE
       yield self if block_given?
     end
 
-    def write_permissions_and_key_size_flags_from_properties(properties)
-      att_flags(properties) & (ENCRYPTION_KEY_SIZE_MASK | WRITE_PERMISSION_BIT_0 | WRITE_PERMISSION_BIT_1)
+    def add_descriptor(uuid, properties, *values)
+      line = Utils.int16_to_little_endian(properties)
+      line << Utils.int16_to_little_endian(push_handle)
+      line << uuid2str(uuid)
+      values.each do |value|
+        line << case value
+        when String
+          value
+        when Integer
+          value < 256 ? value.chr : Utils.int16_to_little_endian(value)
+        end
+      end
+      add_line(line)
     end
+
+    # private
 
     def att_flags(properties)
       # drop Broadcast (0x01), Notify (0x10), Indicate (0x20), Extended Properties (0x80) - not used for flags
-      properties &= 0xffffff4e
+      #properties &= 0xffffff4e
+      properties &= 0xfffff4e
       # 0x1ff80000 =  READ_AUTHORIZED |
       #               READ_AUTHENTICATED_SC |
       #               READ_AUTHENTICATED |
@@ -331,19 +347,8 @@ class BLE
       return properties
     end
 
-    def add_descriptor(uuid, properties, *values)
-      line = Utils.int16_to_little_endian(properties)
-      line << Utils.int16_to_little_endian(push_handle)
-      line << uuid2str(uuid)
-      values.each do |value|
-        line << case value
-        when String
-          value
-        when Integer
-          value < 256 ? value.chr : Utils.int16_to_little_endian(value)
-        end
-      end
-      add_line(line)
+    def write_permissions_and_key_size_flags_from_properties(properties)
+      att_flags(properties) & (ENCRYPTION_KEY_SIZE_MASK | WRITE_PERMISSION_BIT_0 | WRITE_PERMISSION_BIT_1)
     end
 
     def uuid2str(uuid)
@@ -358,12 +363,12 @@ class BLE
 
     attr_reader :data
 
-    def add(type, *data)
+    def add(type, *values)
       length_pos = @data.length
       @data << 0.chr # dummy length
       @data << type.chr
       length = 1
-      data.each do |d|
+      values.each do |d|
         case d
         when String
           @data << d
@@ -382,9 +387,9 @@ class BLE
     end
 
     def self.build(&block)
-      b = self.new
-      block.call(b)
-      adv_data = b.data
+      instance = self.new
+      block.call(instance)
+      adv_data = instance.data
       if 31 < adv_data.length
         raise ArgumentError, "too long AdvData. It must be less than 32 bytes."
       end

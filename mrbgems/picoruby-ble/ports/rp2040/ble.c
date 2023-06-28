@@ -10,7 +10,30 @@
 #include "pico/stdlib.h"
 
 
-#include "gatt.h"
+//
+// list service handle ranges
+//
+#define ATT_SERVICE_GAP_SERVICE_START_HANDLE 0x0001
+#define ATT_SERVICE_GAP_SERVICE_END_HANDLE 0x0003
+#define ATT_SERVICE_GAP_SERVICE_01_START_HANDLE 0x0001
+#define ATT_SERVICE_GAP_SERVICE_01_END_HANDLE 0x0003
+#define ATT_SERVICE_GATT_SERVICE_START_HANDLE 0x0004
+#define ATT_SERVICE_GATT_SERVICE_END_HANDLE 0x0006
+#define ATT_SERVICE_GATT_SERVICE_01_START_HANDLE 0x0004
+#define ATT_SERVICE_GATT_SERVICE_01_END_HANDLE 0x0006
+#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_START_HANDLE 0x0007
+#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_END_HANDLE 0x000a
+#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_01_START_HANDLE 0x0007
+#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_01_END_HANDLE 0x000a
+
+//
+// list mapping between characteristics and handles
+//
+#define ATT_CHARACTERISTIC_GAP_DEVICE_NAME_01_VALUE_HANDLE 0x0003
+#define ATT_CHARACTERISTIC_GATT_DATABASE_HASH_01_VALUE_HANDLE 0x0006
+#define ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE 0x0009
+#define ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE 0x000a
+
 
 #define ADC_CHANNEL_TEMPSENSOR 4
 
@@ -184,7 +207,7 @@ BLE_cyw43_arch_gpio_put(uint8_t pin, uint8_t value)
 }
 
 int
-BLE_init(void)
+BLE_init(const uint8_t *profile_data)
 {
   // initialize CYW43 driver architecture (will enable BT if/because CYW43_ENABLE_BLUETOOTH == 1)
   if (cyw43_arch_init()) {
@@ -199,19 +222,6 @@ BLE_init(void)
 
   l2cap_init();
   sm_init();
-
-//        att_db_util_init();
-//
-//        att_db_util_add_service_uuid16(GAP_SERVICE_UUID);
-//        uint16_t handle = att_db_util_add_characteristic_uuid16(GAP_DEVICE_NAME_UUID, ATT_PROPERTY_READ | ATT_PROPERTY_DYNAMIC, ATT_SECURITY_NONE, ATT_SECURITY_NONE, NULL, 0);
-//        (void)handle;
-//        assert(handle == BTSTACK_GAP_DEVICE_NAME_HANDLE);
-//
-//        att_db_util_add_service_uuid16(0x1801);
-//        att_db_util_add_characteristic_uuid16(0x2a05, ATT_PROPERTY_READ, ATT_SECURITY_NONE, ATT_SECURITY_NONE, NULL, 0);
-//
-//
-//        att_server_init(att_db_util_get_address(), att_read_callback, att_write_callback);
 
   att_server_init(profile_data, att_read_callback, att_write_callback);
 

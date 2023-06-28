@@ -48,13 +48,13 @@ class BLE
   GATT_PRIMARY_SERVICE_UUID: Integer
   GATT_SECONDARY_SERVICE_UUID: Integer
   GAP_SERVICE_UUID: Integer
+  GATT_SERVICE_UUID: Integer
   GAP_DEVICE_NAME_UUID: Integer
   ATT_PROPERTY_READ: Integer
   GATT_CHARACTERISTIC_UUID: Integer
 
-  def self.bd_addr_to_str: (String) -> String
-
   class Utils
+    def self.bd_addr_to_str: (String) -> String
     def self.uuid: (untyped) -> String
     def self.int16_to_little_endian: (Integer) -> String
     def self.valid_char_for_uuid?: (String | nil) -> bool
@@ -67,7 +67,9 @@ class BLE
     @handle: Integer
     @hash_src: String
     @hash_pos: Integer|nil
-    attr_reader data: String
+    attr_reader profile_data: String
+    attr_reader hash_src: String
+    attr_accessor database_hash_key: String
 
     def initialize: () { (GattDatabase) -> void } -> void
     def insert_database_hash: () -> void
@@ -84,8 +86,8 @@ class BLE
   class AttServer
     @task: Task
     @connections: Array[BLE::AttServer]
-    def initialize: () -> void
-    def init: () -> void
+    def initialize: (String) -> void
+    def init: (String) -> void
     def start: () -> 0
     def hci_power_on: () -> void
     def stop: () -> 0

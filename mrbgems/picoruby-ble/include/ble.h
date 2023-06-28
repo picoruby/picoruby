@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-int BLE_init(void);
+int BLE_init(const uint8_t *profile);
 void BLE_hci_power_on(void);
 
 uint8_t BLE_packet_event(void);

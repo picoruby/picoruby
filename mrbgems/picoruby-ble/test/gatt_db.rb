@@ -1,4 +1,4 @@
-require_relative "/home/hasumi/work/r2p2/lib/picoruby/mrbgems/picoruby-ble/mrblib/ble.rb"
+require_relative "../mrblib/ble.rb"
 
 READ = BLE::READ
 WRITE_WITHOUT_RESPONSE = BLE::WRITE_WITHOUT_RESPONSE
@@ -7,17 +7,14 @@ NOTIFY = BLE::NOTIFY
 INDICATE = BLE::INDICATE
 DYNAMIC = BLE::DYNAMIC
 
-GAP_SERVICE = 0x1800
-GATT_SERVICE = 0x1801
 SERVICE_ENVIRONMENTAL_SENSING = 0x181A
 CHARACTERISTIC_TEMPERATURE = 0x2A6E
-CHARACTERISTIC_GAP_DEVICE_NAME = 0x2A00
 
 db = BLE::GattDatabase.new do |db|
-  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, GAP_SERVICE) do |s|
-    s.add_characteristic(CHARACTERISTIC_GAP_DEVICE_NAME, READ, "picow_temp")
+  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
+    s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, READ, "picoR_temp")
   end
-  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, GATT_SERVICE) do |s|
+  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
     s.add_characteristic(BLE::CHARACTERISTIC_DATABASE_HASH, READ)
   end
   db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|

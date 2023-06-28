@@ -10,7 +10,7 @@
 static void
 c_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (BLE_init() < 0) {
+  if (BLE_init(GET_STRING_ARG(1)) < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
