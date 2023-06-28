@@ -173,15 +173,13 @@ class BLE
     def insert_database_hash
       return unless @hash_pos
       # @type ivar @hash_pos: Integer
-      hash = [0xd9, 0x9e, 0xb6, 0x01, 0xab, 0xc5, 0xab, 0x97, 0xcf, 0x26, 0x35, 0x4a, 0xbb, 0x4b, 0xc5, 0xef].map{|e|e.chr}.join
-      @profile_data[@hash_pos, 16] = hash
-      #cmac ||= MbedTLS::CMAC.new(@database_hash_key, 'AES')
-      #cmac.update(@hash_src)
-      #digest = cmac.digest
-      #0.upto(15) do |i|
-      #  (c = digest[15 - i]) or raise "digest[#{15 - i}] is nil"
-      #  @profile_data[@hash_pos + i] = c
-      #end
+      cmac ||= MbedTLS::CMAC.new(@database_hash_key, 'AES')
+      cmac.update(@hash_src)
+      digest = cmac.digest
+      0.upto(15) do |i|
+        (c = digest[15 - i]) or raise "digest[#{15 - i}] is nil"
+        @profile_data[@hash_pos + i] = c
+      end
     end
 
     def push_handle

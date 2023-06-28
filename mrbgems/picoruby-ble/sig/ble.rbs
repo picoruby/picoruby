@@ -68,7 +68,6 @@ class BLE
     @hash_src: String
     @hash_pos: Integer|nil
     attr_reader profile_data: String
-    attr_reader hash_src: String
     attr_accessor database_hash_key: String
 
     def initialize: () { (GattDatabase) -> void } -> void

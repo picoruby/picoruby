@@ -27,8 +27,16 @@ c__init_aes(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_update(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
   mrbc_value input = GET_ARG(1);
+  if (input.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
+    return;
+  }
+  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
   int ret;
   ret = mbedtls_cipher_cmac_update(ctx, input.string->data, input.string->size);
   if (ret != 0) {
@@ -60,6 +68,7 @@ c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   mrbc_value digest = mrbc_string_new(vm, output, sizeof(output));
   SET_RETURN(digest);
+  mbedtls_cipher_free(ctx);
 }
 
 void
