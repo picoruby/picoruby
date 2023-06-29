@@ -1,5 +1,17 @@
 require_relative "../mrblib/ble.rb"
 
+class MbedTLS
+  class CMAC
+    def initialize(key, digest)
+    end
+    def update(data)
+    end
+    def digest
+      "0123456789abcdef"
+    end
+  end
+end
+
 READ = BLE::READ
 WRITE_WITHOUT_RESPONSE = BLE::WRITE_WITHOUT_RESPONSE
 WRITE = BLE::WRITE
@@ -24,8 +36,8 @@ end
 
 i = 0
 len = nil
-puts db.data[0].ord.to_s(16).rjust(2, "0")
-db.data[1, db.data.length - 1].each_byte do |b|
+puts db.profile_data[0].ord.to_s(16).rjust(2, "0")
+db.profile_data[1, db.profile_data.length - 1].each_byte do |b|
   i += 1
   len = b if i == 1
   len = (b << 8) + len if i == 2
@@ -37,6 +49,8 @@ db.data[1, db.data.length - 1].each_byte do |b|
 end
 
 puts
+
+pp db.handle_table
 
 # assume that the database hash will be calculated by MbedTLS::CMAC
 # 0x01, 0x00, 0x00, 0x28, 0x00, 0x18,

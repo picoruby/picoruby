@@ -157,7 +157,14 @@ class BLE
     ATT_DB_VERSION = 0x01
     def initialize(&block)
       @profile_data = ATT_DB_VERSION.chr
-      @handle = 0
+      @handle_table = {
+        service: {},
+        characteristic: {
+          value: {},
+          client_configuration: {},
+        }
+      }
+      @current_handle = 0
       @hash_src = ""
       @hash_pos = nil
       @database_hash_key = "\x00" * 16
@@ -166,8 +173,8 @@ class BLE
       @profile_data << "\x00\x00"
     end
 
+    attr_reader :handle_table
     attr_reader :profile_data
-    attr_reader :hash_src
     attr_accessor :database_hash_key
 
     def insert_database_hash
@@ -183,7 +190,7 @@ class BLE
     end
 
     def push_handle
-      @handle += 1
+      @current_handle += 1
     end
 
     def add_line(line)
@@ -201,6 +208,7 @@ class BLE
         @hash_src << element
       end
       add_line(line)
+      @handle_table[:service][uuid] = @current_handle
       yield self if block_given?
     end
 
@@ -211,7 +219,7 @@ class BLE
         Utils.int16_to_little_endian(push_handle),
         Utils.int16_to_little_endian(GATT_CHARACTERISTIC_UUID),
         (properties & 0xff).chr,
-        Utils.int16_to_little_endian(@handle + 1),
+        Utils.int16_to_little_endian(@current_handle + 1),
         uuid2str(uuid)
       ].each do |element|
         line << element
@@ -239,8 +247,9 @@ class BLE
         end
       end
       add_line(line)
+      @handle_table[:characteristic][:value][uuid] = @current_handle
       if properties & (NOTIFY | INDICATE) != 0
-        # characteristic configuration
+        # characteristic client configuration
         flags = write_permissions_and_key_size_flags_from_properties(properties)
         flags |= READ
         flags |= WRITE
@@ -255,6 +264,7 @@ class BLE
           @hash_src << element
         end
         line << 0.chr * 2
+        @handle_table[:characteristic][:client_configuration][uuid] = @current_handle
         add_line(line)
       end
       yield self if block_given?
