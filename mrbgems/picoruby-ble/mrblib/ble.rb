@@ -118,9 +118,9 @@ class BLE
   end
 
   class Peripheral
-    def initialize(profile)
+    def initialize(profile_data)
       @connections = []
-      init(profile)
+      init(profile_data)
     end
 
     def start

@@ -137,5 +137,4 @@ class MyServer < BLE::Peripheral
   @counter: Integer
   @led_on: bool
   @adv_data: String
-  def poll_temp: () -> void
 end

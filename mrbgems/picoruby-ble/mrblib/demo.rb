@@ -15,7 +15,10 @@ class MyServer < BLE::Peripheral
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
   def initialize
-    $db = BLE::GattDatabase.new do |db|
+    # Note:
+    # @db should be an instance variable, not a local variable
+    # because the data is referenced by the C code.
+    @db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
         s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picoR_temp")
       end
@@ -26,7 +29,7 @@ class MyServer < BLE::Peripheral
         s.add_characteristic(CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC)
       end
     end
-    super($db.profile_data)
+    super(@db.profile_data)
     @last_event = 0
     @led_on = false
     @counter = 0
@@ -40,7 +43,6 @@ class MyServer < BLE::Peripheral
   def heartbeat_callback
     @counter += 1
     if @counter == 10
-      poll_temp
       if le_notification_enabled?
         puts "le_notification_enabled"
         request_can_send_now_event
