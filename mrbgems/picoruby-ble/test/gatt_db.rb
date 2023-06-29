@@ -1,3 +1,13 @@
+module Kernel
+  alias :require_bak :require
+  def require(gem)
+    begin
+      require_bak(gem)
+    rescue LoadError
+    end
+  end
+end
+
 require_relative "../mrblib/ble.rb"
 
 class MbedTLS
