@@ -116,12 +116,6 @@ c_cyw43_arch_gpio_put(mrbc_vm *vm, mrbc_value *v, int argc)
   BLE_cyw43_arch_gpio_put(pin, value);
 }
 
-static void
-c_poll_temp(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  BLE_poll_temp();
-}
-
 void
 mrbc_ble_init(void)
 {
@@ -143,6 +137,5 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "le_notification_enabled?", c_le_notification_enabled_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "cyw43_arch_gpio_put", c_cyw43_arch_gpio_put);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "poll_temp", c_poll_temp);
 }
 
