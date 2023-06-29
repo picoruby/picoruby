@@ -1,4 +1,4 @@
-class MyServer < BLE::AttServer
+class MyServer < BLE::Peripheral
   # for advertising
   APP_AD_FLAGS = 0x06
   BLUETOOTH_DATA_TYPE_FLAGS = 0x01
@@ -59,7 +59,7 @@ class MyServer < BLE::AttServer
     @last_event = event
     case event
     when BTSTACK_EVENT_STATE
-      puts "AttServer is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
+      puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE
       puts "disconnected"

@@ -117,7 +117,7 @@ class BLE
 
   end
 
-  class AttServer
+  class Peripheral
     def initialize(profile)
       @connections = []
       init(profile)
