@@ -76,6 +76,12 @@ c_enable_notification(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_disable_notification(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  ble_notification_enabled = false;
+}
+
+static void
 c_notify(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   BLE_notify();
@@ -157,6 +163,7 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "enable_notification", c_enable_notification);
+  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "disable_notification", c_disable_notification);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notify", c_notify);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "gap_local_bd_addr", c_gap_local_bd_addr);
 

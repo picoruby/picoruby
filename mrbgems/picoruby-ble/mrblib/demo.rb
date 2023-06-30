@@ -8,6 +8,7 @@ class MyServer < BLE::Peripheral
   CYW43_WL_GPIO_LED_PIN = BLE::CYW43_WL_GPIO_LED_PIN
   BTSTACK_EVENT_STATE = 0x60
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
+  HCI_EVENT_COMMAND_COMPLETE = 0x0E
   ATT_EVENT_CAN_SEND_NOW = 0xB7
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
   #
@@ -15,6 +16,7 @@ class MyServer < BLE::Peripheral
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
   def initialize
+    @debug = true
     # Note:
     # @db should be an instance variable, not a local variable
     # because the data is referenced by the C code.
@@ -44,30 +46,30 @@ class MyServer < BLE::Peripheral
     @counter += 1
     if @counter == 10
       if notification_enabled?
-        puts "notification_enabled"
+        puts "notification_enabled" if @debug
         request_can_send_now_event
       end
       @counter = 0
     end
     case @last_event
-    when BTSTACK_EVENT_STATE, HCI_EVENT_DISCONNECTION_COMPLETE
+    when BTSTACK_EVENT_STATE, HCI_EVENT_COMMAND_COMPLETE
       @led_on = !@led_on
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, @led_on);
     end
   end
 
   def packet_callback(event)
-    #puts "packet_callback: #{sprintf "%02X", event}"
+    puts "packet_callback: #{sprintf "%02X", event}" if @debug
     @last_event = event
     case event
     when BTSTACK_EVENT_STATE
       puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
-    when HCI_EVENT_DISCONNECTION_COMPLETE
-      puts "disconnected"
-      enable_notification
+    when HCI_EVENT_COMMAND_COMPLETE
+      puts "disconnected" if @debug
+      disable_notification
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
-      puts "mtu exchange complete"
+      puts "mtu exchange complete" if @debug
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
     when ATT_EVENT_CAN_SEND_NOW
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);

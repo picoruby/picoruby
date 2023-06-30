@@ -104,6 +104,7 @@ class BLE
     def gap_local_bd_addr: () -> String
     def advertise: (String) -> void
     def enable_notification: () -> void
+    def disable_notification: () -> void
     def notify: () -> void
 
     def packet_callback: (Integer) -> void
