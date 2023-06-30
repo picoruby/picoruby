@@ -7,6 +7,21 @@
 //  hci_con_handle_t con_handle;
 //} picruby_ble_data;
 
+bool ble_heartbeat_on = false;
+
+static uint16_t current_temp = 0;
+static uint8_t current_temp_str[2] = {0, 0};
+
+uint16_t
+PeripheralReadTemperature(uint8_t **data)
+{
+  current_temp += 1;
+  current_temp_str[0] = current_temp & 0xff;
+  current_temp_str[1] = (current_temp >> 8) & 0xff;
+  *data = current_temp_str;
+  return sizeof(current_temp_str);
+}
+
 static void
 c_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -74,7 +89,7 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_heartbeat_on_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (BLE_heartbeat_on_q()) {
+  if (ble_heartbeat_on) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -84,7 +99,7 @@ c_heartbeat_on_q(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_heartbeat_off();
+  ble_heartbeat_on = false;
 }
 
 static void

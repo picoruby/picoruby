@@ -36,7 +36,6 @@
 
 int le_notification_enabled;
 hci_con_handle_t con_handle;
-uint16_t current_temp = 0;
 
 static uint8_t event_type = 0;
 static uint8_t event_state = 0;
@@ -91,12 +90,14 @@ BLE_enable_le_notification(void)
 void
 BLE_notify(void)
 {
-  current_temp++;
+  uint8_t *data_ptr = NULL;
+  uint8_t **data = &data_ptr;
+  uint16_t len = PeripheralReadTemperature(data);
   att_server_notify(
     con_handle,
     ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE,
-    (uint8_t *)&current_temp,
-    sizeof(current_temp)
+    (uint8_t *)*data,
+    len
   );
 }
 
@@ -107,10 +108,12 @@ att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint1
   if (att_handle != ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE){
     return 0;
   }
-  current_temp += 100;
+  uint8_t *data_ptr = NULL;
+  uint8_t **data = &data_ptr;
+  uint16_t len = PeripheralReadTemperature(data);
   return att_read_callback_handle_blob(
-           (const uint8_t *)&current_temp,
-           sizeof(current_temp),
+           (const uint8_t *)*data,
+           len,
            offset,
            buffer,
            buffer_size
@@ -139,27 +142,13 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
 static btstack_timer_source_t heartbeat;
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 
-static bool heartbeat_on = false;
-
 static void
 heartbeat_handler(struct btstack_timer_source *ts)
 {
-  heartbeat_on = true;
+  ble_heartbeat_on = true;
   // Restart timer
   btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
   btstack_run_loop_add_timer(ts);
-}
-
-bool
-BLE_heartbeat_on_q(void)
-{
-  return heartbeat_on;
-}
-
-void
-BLE_heartbeat_off(void)
-{
-  heartbeat_on = false;
 }
 
 bool
