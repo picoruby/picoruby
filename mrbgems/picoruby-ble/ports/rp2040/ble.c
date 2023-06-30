@@ -46,7 +46,7 @@ BLE_set_heartbeat_period_ms(uint16_t period_ms)
 }
 
 uint8_t
-BLE_packet_event(void)
+BLE_packet_event_type(void)
 {
   return packet_event_type;
 }

@@ -99,7 +99,6 @@ class BLE
     def hci_power_on: () -> void
     def stop: () -> 0
     def down_packet_flag: () -> void
-    def packet_event: () -> (Integer | nil)
 
     def gap_local_bd_addr: () -> String
     def advertise: (String) -> void
@@ -107,6 +106,7 @@ class BLE
     def disable_notification: () -> void
     def notify: () -> void
 
+    def packet_event_type: () -> (Integer | nil)
     def packet_callback: (Integer) -> void
     def heatbeat_callback: () -> void
 

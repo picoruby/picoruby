@@ -46,13 +46,13 @@ c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_packet_event(mrbc_vm *vm, mrbc_value *v, int argc)
+c_packet_event_type(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  uint8_t event = BLE_packet_event();
-  if (event == 0) {
+  uint8_t type = BLE_packet_event_type();
+  if (type == 0) {
     SET_NIL_RETURN();
   } else {
-    SET_INT_RETURN(event);
+    SET_INT_RETURN(type);
   }
 }
 
@@ -159,7 +159,7 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "init", c_init);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "hci_power_on", c_hci_power_on);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event", c_packet_event);
+  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event_type", c_packet_event_type);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "enable_notification", c_enable_notification);

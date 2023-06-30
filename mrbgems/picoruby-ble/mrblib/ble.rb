@@ -131,8 +131,8 @@ class BLE
             server.heartbeat_callback
             server.heartbeat_off
           end
-          if event = server.packet_event
-            server.packet_callback(event)
+          if event_type = server.packet_event_type
+            server.packet_callback(event_type)
             server.down_packet_flag
           end
           #if (conn_handle, att_handle, offset, buffer = server._read_event)

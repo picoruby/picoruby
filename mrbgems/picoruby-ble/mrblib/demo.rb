@@ -58,10 +58,10 @@ class MyServer < BLE::Peripheral
     end
   end
 
-  def packet_callback(event)
-    puts "packet_callback: #{sprintf "%02X", event}" if @debug
-    @last_event = event
-    case event
+  def packet_callback(event_type)
+    puts "event type: #{sprintf "%02X", event_type}" if @debug
+    @last_event = event_type
+    case event_type
     when BTSTACK_EVENT_STATE
       puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
