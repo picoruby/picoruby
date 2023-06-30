@@ -8,13 +8,17 @@
 //} picruby_ble_data;
 
 bool ble_heartbeat_on = false;
+bool ble_notification_enabled = false;
 
 static uint16_t current_temp = 0;
 static uint8_t current_temp_str[2] = {0, 0};
 
 uint16_t
-PeripheralReadTemperature(uint8_t **data)
+PeripheralReadData(uint16_t att_handle, uint8_t **data)
 {
+  if (att_handle != 9) {
+    return 0;
+  }
   current_temp += 1;
   current_temp_str[0] = current_temp & 0xff;
   current_temp_str[1] = (current_temp >> 8) & 0xff;
@@ -68,7 +72,7 @@ c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_enable_le_notification(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_enable_le_notification();
+  ble_notification_enabled = true;
 }
 
 static void
@@ -105,7 +109,7 @@ c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_le_notification_enabled_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (BLE_le_notification_enabled_q()) {
+  if (ble_notification_enabled) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -131,6 +135,14 @@ c_cyw43_arch_gpio_put(mrbc_vm *vm, mrbc_value *v, int argc)
   BLE_cyw43_arch_gpio_put(pin, value);
 }
 
+static void
+c_heartbeat_period_ms_eq(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  uint16_t period_ms = (uint16_t)GET_INT_ARG(1);
+  BLE_set_heartbeat_period_ms(period_ms);
+  SET_INT_RETURN(period_ms);
+}
+
 void
 mrbc_ble_init(void)
 {
@@ -139,6 +151,7 @@ mrbc_ble_init(void)
   mrbc_class *mrbc_class_BLE_Peripheral = v->cls;
 
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "init", c_init);
+  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "hci_power_on", c_hci_power_on);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event", c_packet_event);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);

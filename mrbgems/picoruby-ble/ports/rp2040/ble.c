@@ -34,30 +34,35 @@
 #define ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE 0x000a
 
 
-int le_notification_enabled;
-hci_con_handle_t con_handle;
+static hci_con_handle_t con_handle;
+static uint8_t packet_event_type = 0;
+static uint8_t packet_event_state = 0;
+static uint16_t heartbeat_period_ms = 1000;
 
-static uint8_t event_type = 0;
-static uint8_t event_state = 0;
+void
+BLE_set_heartbeat_period_ms(uint16_t period_ms)
+{
+  heartbeat_period_ms = period_ms;
+}
 
 uint8_t
 BLE_packet_event(void)
 {
-  return event_type;
+  return packet_event_type;
 }
 
 void
 BLE_down_packet_flag(void)
 {
-  event_type = 0;
+  packet_event_type = 0;
 }
 
 static void
 packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
   if (packet_type != HCI_EVENT_PACKET) return;
-  event_type = hci_event_packet_get_type(packet);
-  event_state = btstack_event_state_get_state(packet);
+  packet_event_type = hci_event_packet_get_type(packet);
+  packet_event_state = btstack_event_state_get_state(packet);
 }
 
 void
@@ -69,7 +74,7 @@ BLE_gap_local_bd_addr(uint8_t *local_addr)
 void
 BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 {
-  if (event_state != HCI_STATE_WORKING) return;
+  if (packet_event_state != HCI_STATE_WORKING) return;
   // setup advertisements
   uint16_t adv_int_min = 800;
   uint16_t adv_int_max = 800;
@@ -82,35 +87,24 @@ BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 }
 
 void
-BLE_enable_le_notification(void)
-{
-  le_notification_enabled = 1;
-}
-
-void
 BLE_notify(void)
 {
+  uint16_t att_handle = ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE;
   uint8_t *data_ptr = NULL;
   uint8_t **data = &data_ptr;
-  uint16_t len = PeripheralReadTemperature(data);
-  att_server_notify(
-    con_handle,
-    ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE,
-    (uint8_t *)*data,
-    len
-  );
+  uint16_t len = PeripheralReadData(att_handle, data);
+  if (len == 0) return;
+  att_server_notify(con_handle, att_handle, (uint8_t *)*data, len);
 }
 
 uint16_t
 att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
 {
   UNUSED(connection_handle);
-  if (att_handle != ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE){
-    return 0;
-  }
   uint8_t *data_ptr = NULL;
   uint8_t **data = &data_ptr;
-  uint16_t len = PeripheralReadTemperature(data);
+  uint16_t len = PeripheralReadData(att_handle, data);
+  if (len == 0) return 0;
   return att_read_callback_handle_blob(
            (const uint8_t *)*data,
            len,
@@ -128,16 +122,13 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
   UNUSED(buffer_size);
 
   if (att_handle != ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE) return 0;
-  le_notification_enabled = little_endian_read_16(buffer, 0) == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION;
+  ble_notification_enabled = little_endian_read_16(buffer, 0) == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION;
   con_handle = connection_handle;
-  if (le_notification_enabled) {
+  if (ble_notification_enabled) {
     att_server_request_can_send_now_event(con_handle);
   }
   return 0;
 }
-
-
-#define HEARTBEAT_PERIOD_MS 1000
 
 static btstack_timer_source_t heartbeat;
 static btstack_packet_callback_registration_t hci_event_callback_registration;
@@ -147,14 +138,8 @@ heartbeat_handler(struct btstack_timer_source *ts)
 {
   ble_heartbeat_on = true;
   // Restart timer
-  btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
+  btstack_run_loop_set_timer(ts, heartbeat_period_ms);
   btstack_run_loop_add_timer(ts);
-}
-
-bool
-BLE_le_notification_enabled_q(void)
-{
-  return le_notification_enabled;
 }
 
 void
@@ -192,7 +177,7 @@ BLE_init(const uint8_t *profile_data)
 
   // set one-shot btstack timer
   heartbeat.process = &heartbeat_handler;
-  btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
+  btstack_run_loop_set_timer(&heartbeat, heartbeat_period_ms);
   btstack_run_loop_add_timer(&heartbeat);
   return 0;
 }

@@ -94,6 +94,7 @@ class BLE
     @connections: Array[BLE::Peripheral]
     def initialize: (String) -> void
     def init: (String) -> void
+    def heartbeat_period_ms=: (Integer) -> Integer
     def start: () -> 0
     def hci_power_on: () -> void
     def stop: () -> 0
