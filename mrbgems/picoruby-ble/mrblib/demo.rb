@@ -43,8 +43,8 @@ class MyServer < BLE::Peripheral
   def heartbeat_callback
     @counter += 1
     if @counter == 10
-      if le_notification_enabled?
-        puts "le_notification_enabled"
+      if notification_enabled?
+        puts "notification_enabled"
         request_can_send_now_event
       end
       @counter = 0
@@ -65,7 +65,7 @@ class MyServer < BLE::Peripheral
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE
       puts "disconnected"
-      enable_le_notification
+      enable_notification
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
       puts "mtu exchange complete"
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);

@@ -70,7 +70,7 @@ c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_enable_le_notification(mrbc_vm *vm, mrbc_value *v, int argc)
+c_enable_notification(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   ble_notification_enabled = true;
 }
@@ -107,7 +107,7 @@ c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_le_notification_enabled_q(mrbc_vm *vm, mrbc_value *v, int argc)
+c_notification_enabled_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (ble_notification_enabled) {
     SET_TRUE_RETURN();
@@ -156,13 +156,13 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event", c_packet_event);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "enable_le_notification", c_enable_le_notification);
+  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "enable_notification", c_enable_notification);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notify", c_notify);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "gap_local_bd_addr", c_gap_local_bd_addr);
 
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_on?", c_heartbeat_on_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_off", c_heartbeat_off);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "le_notification_enabled?", c_le_notification_enabled_q);
+  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notification_enabled?", c_notification_enabled_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "cyw43_arch_gpio_put", c_cyw43_arch_gpio_put);
 }

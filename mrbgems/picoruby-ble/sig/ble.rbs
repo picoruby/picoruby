@@ -103,7 +103,7 @@ class BLE
 
     def gap_local_bd_addr: () -> String
     def advertise: (String) -> void
-    def enable_le_notification: () -> void
+    def enable_notification: () -> void
     def notify: () -> void
 
     def packet_callback: (Integer) -> void
@@ -111,7 +111,7 @@ class BLE
 
     def heartbeat_on?: () -> void
     def heartbeat_off: () -> void
-    def le_notification_enabled?: () -> bool
+    def notification_enabled?: () -> bool
     def request_can_send_now_event: () -> void
     def cyw43_arch_gpio_put: (Integer, bool|nil) -> void
   end
