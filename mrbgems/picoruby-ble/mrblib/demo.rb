@@ -17,10 +17,7 @@ class MyServer < BLE::Peripheral
 
   def initialize(debug: false)
     @debug = debug
-    # Note:
-    # @db should be an instance variable, not a local variable
-    # because the data is referenced by the C code.
-    @db = BLE::GattDatabase.new do |db|
+    db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
         s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picoR_temp")
       end
@@ -31,7 +28,7 @@ class MyServer < BLE::Peripheral
         s.add_characteristic(CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC)
       end
     end
-    super(@db.profile_data)
+    super(db.profile_data)
     @last_event = 0
     @led_on = false
     @counter = 0

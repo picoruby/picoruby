@@ -33,10 +33,8 @@ c_init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
-  //mrbc_value ble = mrbc_instance_new(vm, v->cls, sizeof(picruby_ble_data));
-  //ble->data.le_notification_enabled = false;
-  //ble->data.con_handle = 0;
-  //SET_RETURN(ble);
+  /* Protect profile_data from GC */
+  mrbc_incref(&v[1]);
 }
 
 static void
