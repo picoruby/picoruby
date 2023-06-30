@@ -82,7 +82,11 @@ c_disable_notification(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_notify(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_notify();
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  BLE_notify((uint16_t)GET_INT_ARG(1));
 }
 
 static void

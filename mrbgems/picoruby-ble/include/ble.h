@@ -20,7 +20,7 @@ void BLE_hci_power_on(void);
 uint8_t BLE_packet_event_type(void);
 void BLE_down_packet_flag(void);
 void BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len);
-void BLE_notify(void);
+void BLE_notify(uint16_t att_handle);
 void BLE_gap_local_bd_addr(uint8_t *local_addr);
 
 void BLE_request_can_send_now_event(void);

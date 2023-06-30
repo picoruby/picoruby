@@ -87,9 +87,8 @@ BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 }
 
 void
-BLE_notify(void)
+BLE_notify(uint16_t att_handle)
 {
-  uint16_t att_handle = ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE;
   uint8_t *data_ptr = NULL;
   uint8_t **data = &data_ptr;
   uint16_t len = PeripheralReadData(att_handle, data);

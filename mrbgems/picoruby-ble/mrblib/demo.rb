@@ -28,6 +28,7 @@ class MyServer < BLE::Peripheral
         s.add_characteristic(CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC)
       end
     end
+    @temperature_handle = db.handle_table[:characteristic][:value][CHARACTERISTIC_TEMPERATURE]
     super(db.profile_data)
     @last_event = 0
     @led_on = false
@@ -74,7 +75,7 @@ class MyServer < BLE::Peripheral
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
     when ATT_EVENT_CAN_SEND_NOW
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
-      notify
+      notify @temperature_handle
       sleep_ms 10
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
     end
