@@ -15,8 +15,8 @@ class MyServer < BLE::Peripheral
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
-  def initialize
-    @debug = true
+  def initialize(debug: false)
+    @debug = debug
     # Note:
     # @db should be an instance variable, not a local variable
     # because the data is referenced by the C code.
@@ -42,11 +42,15 @@ class MyServer < BLE::Peripheral
     end
   end
 
+  def debug_puts(*args)
+    puts(*args) if @debug
+  end
+
   def heartbeat_callback
     @counter += 1
     if @counter == 10
       if notification_enabled?
-        puts "notification_enabled" if @debug
+        debug_puts "notification_enabled"
         request_can_send_now_event
       end
       @counter = 0
@@ -59,17 +63,17 @@ class MyServer < BLE::Peripheral
   end
 
   def packet_callback(event_type)
-    puts "event type: #{sprintf "%02X", event_type}" if @debug
+    debug_puts "event type: #{sprintf "%02X", event_type}"
     @last_event = event_type
     case event_type
     when BTSTACK_EVENT_STATE
       puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
     when HCI_EVENT_COMMAND_COMPLETE
-      puts "disconnected" if @debug
+      debug_puts "disconnected"
       disable_notification
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
-      puts "mtu exchange complete" if @debug
+      debug_puts "mtu exchange complete"
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
     when ATT_EVENT_CAN_SEND_NOW
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
