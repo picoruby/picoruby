@@ -8,8 +8,8 @@ class MyServer < BLE::Peripheral
   CYW43_WL_GPIO_LED_PIN = BLE::CYW43_WL_GPIO_LED_PIN
   BTSTACK_EVENT_STATE = 0x60
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
-  HCI_EVENT_COMMAND_COMPLETE = 0x0E
   ATT_EVENT_CAN_SEND_NOW = 0xB7
+  ATT_EVENT_DISCONNECTED = 0xB4
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
   #
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
@@ -54,7 +54,7 @@ class MyServer < BLE::Peripheral
       @counter = 0
     end
     case @last_event
-    when BTSTACK_EVENT_STATE, HCI_EVENT_COMMAND_COMPLETE
+    when BTSTACK_EVENT_STATE, HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
       @led_on = !@led_on
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, @led_on);
     end
@@ -67,7 +67,7 @@ class MyServer < BLE::Peripheral
     when BTSTACK_EVENT_STATE
       puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
-    when HCI_EVENT_COMMAND_COMPLETE
+    when HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
       debug_puts "disconnected"
       disable_notification
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE

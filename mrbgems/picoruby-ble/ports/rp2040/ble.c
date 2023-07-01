@@ -61,7 +61,19 @@ static void
 packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
   if (packet_type != HCI_EVENT_PACKET) return;
-  packet_event_type = hci_event_packet_get_type(packet);
+  uint8_t _type = hci_event_packet_get_type(packet);
+  switch (_type) {
+    /*
+     * Ignore these events so that we can get a DISCONNECTION event.
+     */
+    case HCI_EVENT_NUMBER_OF_COMPLETED_PACKETS: // 0x13
+    case BTSTACK_EVENT_NR_CONNECTIONS_CHANGED:  // 0x61
+    case HCI_EVENT_TRANSPORT_PACKET_SENT:       // 0x6e
+    case HCI_EVENT_COMMAND_COMPLETE:            // 0x0e
+      break;
+    default:
+      packet_event_type = _type;
+  }
   packet_event_state = btstack_event_state_get_state(packet);
 }
 
