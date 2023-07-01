@@ -35,7 +35,6 @@
 
 
 static hci_con_handle_t con_handle;
-static uint8_t packet_event_type = 0;
 static uint8_t packet_event_state = 0;
 static uint16_t heartbeat_period_ms = 1000;
 
@@ -43,18 +42,6 @@ void
 BLE_set_heartbeat_period_ms(uint16_t period_ms)
 {
   heartbeat_period_ms = period_ms;
-}
-
-uint8_t
-BLE_packet_event_type(void)
-{
-  return packet_event_type;
-}
-
-void
-BLE_down_packet_flag(void)
-{
-  packet_event_type = 0;
 }
 
 static void

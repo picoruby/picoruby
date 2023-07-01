@@ -8,6 +8,7 @@
 extern "C" {
 #endif
 
+extern uint8_t packet_event_type;
 extern bool ble_heartbeat_on;
 extern bool ble_notification_enabled;
 
@@ -17,8 +18,6 @@ void BLE_set_heartbeat_period_ms(uint16_t period_ms);
 int BLE_init(const uint8_t *profile);
 void BLE_hci_power_on(void);
 
-uint8_t BLE_packet_event_type(void);
-void BLE_down_packet_flag(void);
 void BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len);
 void BLE_notify(uint16_t att_handle);
 void BLE_gap_local_bd_addr(uint8_t *local_addr);

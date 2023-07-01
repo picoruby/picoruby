@@ -7,6 +7,7 @@
 //  hci_con_handle_t con_handle;
 //} picruby_ble_data;
 
+uint8_t packet_event_type = 0;
 bool ble_heartbeat_on = false;
 bool ble_notification_enabled = false;
 
@@ -46,18 +47,17 @@ c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_packet_event_type(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  uint8_t type = BLE_packet_event_type();
-  if (type == 0) {
+  if (packet_event_type == 0) {
     SET_NIL_RETURN();
   } else {
-    SET_INT_RETURN(type);
+    SET_INT_RETURN(packet_event_type);
   }
 }
 
 static void
 c_down_packet_flag(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_down_packet_flag();
+  packet_event_type = 0;
 }
 
 static void
