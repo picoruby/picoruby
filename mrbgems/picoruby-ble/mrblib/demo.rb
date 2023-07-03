@@ -1,3 +1,5 @@
+require 'adc'
+
 class MyServer < BLE::Peripheral
   # for advertising
   APP_AD_FLAGS = 0x06
@@ -38,7 +40,7 @@ class MyServer < BLE::Peripheral
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, "PicoRuby BLE")
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x181a)
     end
-    @temperature = 0
+    @adc = ADC.new(:temperature)
   end
 
   def debug_puts(*args)
@@ -47,8 +49,8 @@ class MyServer < BLE::Peripheral
 
   def heartbeat_callback
     @counter += 1
-    @temperature += 1
-    save_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(@temperature))
+    temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
+    save_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(temperature))
     if @counter == 10
       if notification_enabled?
         debug_puts "notification_enabled"
