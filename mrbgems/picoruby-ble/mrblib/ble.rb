@@ -102,9 +102,6 @@ class BLE
     end
 
     def self.int16_to_little_endian(value)
-      #if 65536 < value
-      #  raise ArgumentError, "invalid value: `#{value}`"
-      #end
       (value & 0xff).chr + (value >> 8 & 0xff).chr
     end
 
@@ -125,6 +122,14 @@ class BLE
     end
 
     def save_read_value(handle, value)
+      # @type var handle: untyped
+      unless handle.is_a?(Integer)
+        raise TypeError, "handle must be Integer"
+      end
+      # @type var value: untyped
+      unless value.is_a?(String)
+        raise TypeError, "value must be String"
+      end
       @_read_values[handle] = value
     end
 
