@@ -113,21 +113,9 @@ BLE_request_can_send_now_event(void)
   att_server_request_can_send_now_event(con_handle);
 }
 
-void
-BLE_cyw43_arch_gpio_put(uint8_t pin, uint8_t value)
-{
-  cyw43_arch_gpio_put(pin, value);
-}
-
 int
 BLE_init(const uint8_t *profile_data)
 {
-  // initialize CYW43 driver architecture (will enable BT if/because CYW43_ENABLE_BLUETOOTH == 1)
-  if (cyw43_arch_init()) {
-    printf("failed to initialise cyw43_arch\n");
-    return -1;
-  }
-
   l2cap_init();
   sm_init();
 

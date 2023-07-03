@@ -7,7 +7,6 @@ class MyServer < BLE::Peripheral
   BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS = 0x03
   BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME = 0x09
   # for GATT
-  CYW43_WL_GPIO_LED_PIN = BLE::CYW43_WL_GPIO_LED_PIN
   GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION = 0x01
   BTSTACK_EVENT_STATE = 0x60
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
@@ -35,6 +34,7 @@ class MyServer < BLE::Peripheral
     @configuration_handle = db.handle_table[:characteristic][:client_configuration][CHARACTERISTIC_TEMPERATURE]
     super(db.profile_data)
     @last_event = 0
+    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
     @counter = 0
     @adv_data = BLE::AdvertisingData.build do |a|
@@ -63,7 +63,7 @@ class MyServer < BLE::Peripheral
     case @last_event
     when BTSTACK_EVENT_STATE, HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
       @led_on = !@led_on
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, @led_on);
+      @led.write(@led_on ? 1 : 0)
     end
     if write_value = get_write_value(@configuration_handle)
       if write_value == "\x01\x00"
@@ -86,12 +86,12 @@ class MyServer < BLE::Peripheral
       @notification_enabled = false
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
       debug_puts "mtu exchange complete"
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+      @led.write(0)
     when ATT_EVENT_CAN_SEND_NOW
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
+      @led.write(1)
       notify @temperature_handle
       sleep_ms 10
-      cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+      @led.write(0)
     end
   end
 end

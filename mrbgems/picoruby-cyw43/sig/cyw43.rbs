@@ -1,0 +1,12 @@
+class CYW43
+  def self.init: (?String, ?force: bool) -> bool
+  def self._init: (String, bool) -> bool
+
+  class GPIO
+    LED_PIN: Integer
+    @pin: Integer
+    def initialize: (Integer) -> void
+    def write: (Integer, Integer) -> 0
+  end
+end
+

@@ -115,7 +115,6 @@ class BLE
     def heartbeat_on?: () -> void
     def heartbeat_off: () -> void
     def request_can_send_now_event: () -> void
-    def cyw43_arch_gpio_put: (Integer, bool|nil) -> void
   end
 
   class AdvertisingData

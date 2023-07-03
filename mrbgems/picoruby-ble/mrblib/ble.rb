@@ -1,5 +1,6 @@
 require 'task'
 require 'mbedtls'
+require 'cyw43'
 
 class BLE
   # GATT Characteristic Properties
@@ -55,7 +56,6 @@ class BLE
   READ_PERMISSION_SC =          0x20
   WRITE_PERMISSION_SC =         0x80
 
-  CYW43_WL_GPIO_LED_PIN = 0
   GAP_DEVICE_NAME_UUID = 0x2a00
   GATT_PRIMARY_SERVICE_UUID = 0x2800
   GATT_SECONDARY_SERVICE_UUID = 0x2801
@@ -119,6 +119,7 @@ class BLE
       @connections = []
       @_read_values = {}
       @_write_values = {}
+      CYW43.init
       init(profile_data)
     end
 

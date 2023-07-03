@@ -60,6 +60,6 @@ GPIO_read(uint8_t pin)
 void
 GPIO_write(uint8_t pin, uint8_t val)
 {
-  gpio_put(pin, val);
+  gpio_put(pin, val == 1);
 }
 

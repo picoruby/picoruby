@@ -153,6 +153,5 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_on?", c_heartbeat_on_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_off", c_heartbeat_off);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "cyw43_arch_gpio_put", c_cyw43_arch_gpio_put);
 }
 
