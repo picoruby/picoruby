@@ -4,9 +4,19 @@
 
 uint8_t packet_event_type = 0;
 bool ble_heartbeat_on = false;
-bool ble_notification_enabled = false;
 
 static mrbc_value peripheral = {0};
+
+int
+PeripheralWriteData(uint16_t att_handle, const uint8_t *data, uint16_t size)
+{
+  if (att_handle == 0 || size == 0 || peripheral.instance == NULL) return -1;
+  mrbc_value write_values_hash = mrbc_instance_getiv(&peripheral, mrbc_str_to_symid("_write_values"));
+  if (write_values_hash.tt != MRBC_TT_HASH) return -1;
+  mrbc_value write_value = mrbc_string_new(NULL, data, size);
+  mrbc_incref(&write_value);
+  return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
+}
 
 int
 PeripheralReadData(BLE_read_value *read_value)
@@ -63,18 +73,6 @@ c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_enable_notification(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  ble_notification_enabled = true;
-}
-
-static void
-c_disable_notification(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  ble_notification_enabled = false;
-}
-
-static void
 c_notify(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
@@ -107,16 +105,6 @@ static void
 c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   ble_heartbeat_on = false;
-}
-
-static void
-c_notification_enabled_q(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (ble_notification_enabled) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
 }
 
 static void
@@ -159,14 +147,11 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event_type", c_packet_event_type);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "enable_notification", c_enable_notification);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "disable_notification", c_disable_notification);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notify", c_notify);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "gap_local_bd_addr", c_gap_local_bd_addr);
 
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_on?", c_heartbeat_on_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_off", c_heartbeat_off);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notification_enabled?", c_notification_enabled_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "cyw43_arch_gpio_put", c_cyw43_arch_gpio_put);
 }

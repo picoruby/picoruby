@@ -118,10 +118,15 @@ class BLE
     def initialize(profile_data)
       @connections = []
       @_read_values = {}
+      @_write_values = {}
       init(profile_data)
     end
 
-    def save_read_value(handle, value)
+    def get_write_value(handle)
+      @_write_values.delete(handle)
+    end
+
+    def set_read_value(handle, value)
       # @type var handle: untyped
       unless handle.is_a?(Integer)
         raise TypeError, "handle must be Integer"

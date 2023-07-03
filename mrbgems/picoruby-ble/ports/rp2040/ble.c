@@ -8,32 +8,6 @@
 #include "pico/btstack_cyw43.h"
 #include "pico/stdlib.h"
 
-
-//
-// list service handle ranges
-//
-#define ATT_SERVICE_GAP_SERVICE_START_HANDLE 0x0001
-#define ATT_SERVICE_GAP_SERVICE_END_HANDLE 0x0003
-#define ATT_SERVICE_GAP_SERVICE_01_START_HANDLE 0x0001
-#define ATT_SERVICE_GAP_SERVICE_01_END_HANDLE 0x0003
-#define ATT_SERVICE_GATT_SERVICE_START_HANDLE 0x0004
-#define ATT_SERVICE_GATT_SERVICE_END_HANDLE 0x0006
-#define ATT_SERVICE_GATT_SERVICE_01_START_HANDLE 0x0004
-#define ATT_SERVICE_GATT_SERVICE_01_END_HANDLE 0x0006
-#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_START_HANDLE 0x0007
-#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_END_HANDLE 0x000a
-#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_01_START_HANDLE 0x0007
-#define ATT_SERVICE_ORG_BLUETOOTH_SERVICE_ENVIRONMENTAL_SENSING_01_END_HANDLE 0x000a
-
-//
-// list mapping between characteristics and handles
-//
-#define ATT_CHARACTERISTIC_GAP_DEVICE_NAME_01_VALUE_HANDLE 0x0003
-#define ATT_CHARACTERISTIC_GATT_DATABASE_HASH_01_VALUE_HANDLE 0x0006
-#define ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_VALUE_HANDLE 0x0009
-#define ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE 0x000a
-
-
 static hci_con_handle_t con_handle;
 static uint8_t packet_event_state = 0;
 static uint16_t heartbeat_period_ms = 1000;
@@ -114,13 +88,9 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
 {
   UNUSED(transaction_mode);
   UNUSED(offset);
-  UNUSED(buffer_size);
 
-  if (att_handle != ATT_CHARACTERISTIC_ORG_BLUETOOTH_CHARACTERISTIC_TEMPERATURE_01_CLIENT_CONFIGURATION_HANDLE) return 0;
-  ble_notification_enabled = little_endian_read_16(buffer, 0) == GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION;
-  con_handle = connection_handle;
-  if (ble_notification_enabled) {
-    att_server_request_can_send_now_event(con_handle);
+  if (0 == PeripheralWriteData(att_handle, (const uint8_t *)buffer, buffer_size)) {
+    con_handle = connection_handle;
   }
   return 0;
 }

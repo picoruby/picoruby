@@ -8,6 +8,7 @@ class MyServer < BLE::Peripheral
   BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME = 0x09
   # for GATT
   CYW43_WL_GPIO_LED_PIN = BLE::CYW43_WL_GPIO_LED_PIN
+  GATT_CLIENT_CHARACTERISTICS_CONFIGURATION_NOTIFICATION = 0x01
   BTSTACK_EVENT_STATE = 0x60
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
   ATT_EVENT_CAN_SEND_NOW = 0xB7
@@ -31,6 +32,7 @@ class MyServer < BLE::Peripheral
       end
     end
     @temperature_handle = db.handle_table[:characteristic][:value][CHARACTERISTIC_TEMPERATURE]
+    @configuration_handle = db.handle_table[:characteristic][:client_configuration][CHARACTERISTIC_TEMPERATURE]
     super(db.profile_data)
     @last_event = 0
     @led_on = false
@@ -50,10 +52,10 @@ class MyServer < BLE::Peripheral
   def heartbeat_callback
     @counter += 1
     temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
-    save_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(temperature))
+    set_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(temperature))
     if @counter == 10
-      if notification_enabled?
-        debug_puts "notification_enabled"
+      if @notification_enabled
+        debug_puts "request_can_send_now_event"
         request_can_send_now_event
       end
       @counter = 0
@@ -62,6 +64,13 @@ class MyServer < BLE::Peripheral
     when BTSTACK_EVENT_STATE, HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
       @led_on = !@led_on
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, @led_on);
+    end
+    if write_value = get_write_value(@configuration_handle)
+      if write_value == "\x01\x00"
+        @notification_enabled = true
+      else
+        @notification_enabled = false
+      end
     end
   end
 
@@ -74,7 +83,7 @@ class MyServer < BLE::Peripheral
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
       debug_puts "disconnected"
-      disable_notification
+      @notification_enabled = false
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
       debug_puts "mtu exchange complete"
       cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
