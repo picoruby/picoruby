@@ -120,7 +120,12 @@ class BLE
   class Peripheral
     def initialize(profile_data)
       @connections = []
+      @_read_values = {}
       init(profile_data)
+    end
+
+    def save_read_value(handle, value)
+      @_read_values[handle] = value
     end
 
     def start

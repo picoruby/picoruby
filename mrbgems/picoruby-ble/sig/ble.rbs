@@ -90,9 +90,11 @@ class BLE
   end
 
   class Peripheral
+    @_read_values: Hash[Integer, String]
     @task: Task
     @connections: Array[BLE::Peripheral]
     def initialize: (String) -> void
+    def save_read_value: (Integer, String) -> void
     def init: (String) -> void
     def heartbeat_period_ms=: (Integer) -> Integer
     def start: () -> 0

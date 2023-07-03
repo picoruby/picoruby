@@ -8,11 +8,17 @@
 extern "C" {
 #endif
 
+typedef struct {
+  uint16_t att_handle;
+  uint8_t *data;
+  uint16_t size;
+} BLE_read_value;
+
+int PeripheralReadData(BLE_read_value *read_value);
+
 extern uint8_t packet_event_type;
 extern bool ble_heartbeat_on;
 extern bool ble_notification_enabled;
-
-uint16_t PeripheralReadData(uint16_t att_handle, uint8_t **data);
 
 void BLE_set_heartbeat_period_ms(uint16_t period_ms);
 int BLE_init(const uint8_t *profile);

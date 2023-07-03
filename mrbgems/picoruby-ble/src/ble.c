@@ -2,29 +2,23 @@
 #include <mrubyc.h>
 #include "../include/ble.h"
 
-//typedef struct {
-//  bool le_notification_enabled;
-//  hci_con_handle_t con_handle;
-//} picruby_ble_data;
-
 uint8_t packet_event_type = 0;
 bool ble_heartbeat_on = false;
 bool ble_notification_enabled = false;
 
-static uint16_t current_temp = 0;
-static uint8_t current_temp_str[2] = {0, 0};
+static mrbc_value peripheral = {0};
 
-uint16_t
-PeripheralReadData(uint16_t att_handle, uint8_t **data)
+int
+PeripheralReadData(BLE_read_value *read_value)
 {
-  if (att_handle != 9) {
-    return 0;
-  }
-  current_temp += 1;
-  current_temp_str[0] = current_temp & 0xff;
-  current_temp_str[1] = (current_temp >> 8) & 0xff;
-  *data = current_temp_str;
-  return sizeof(current_temp_str);
+  if (peripheral.instance == NULL) return -1;
+  mrbc_value read_values_hash = mrbc_instance_getiv(&peripheral, mrbc_str_to_symid("_read_values"));
+  if (read_values_hash.tt != MRBC_TT_HASH) return -1;
+  mrbc_value value = mrbc_hash_get(&read_values_hash, &mrbc_integer_value(read_value->att_handle));
+  if (value.tt != MRBC_TT_STRING) return -1;
+  read_value->data = value.string->data;
+  read_value->size = value.string->size;
+  return 0;
 }
 
 static void
@@ -34,6 +28,7 @@ c_init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
+  peripheral.instance = v[0].instance;
   /* Protect profile_data from GC */
   mrbc_incref(&v[1]);
 }

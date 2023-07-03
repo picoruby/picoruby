@@ -38,6 +38,7 @@ class MyServer < BLE::Peripheral
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, "PicoRuby BLE")
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x181a)
     end
+    @temperature = 0
   end
 
   def debug_puts(*args)
@@ -46,6 +47,8 @@ class MyServer < BLE::Peripheral
 
   def heartbeat_callback
     @counter += 1
+    @temperature += 1
+    save_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(@temperature))
     if @counter == 10
       if notification_enabled?
         debug_puts "notification_enabled"
