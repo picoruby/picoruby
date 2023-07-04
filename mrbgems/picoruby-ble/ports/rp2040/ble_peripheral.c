@@ -13,7 +13,7 @@ static uint8_t packet_event_state = 0;
 static uint16_t heartbeat_period_ms = 1000;
 
 void
-BLE_set_heartbeat_period_ms(uint16_t period_ms)
+BLE_peripheral_set_heartbeat_period_ms(uint16_t period_ms)
 {
   heartbeat_period_ms = period_ms;
 }
@@ -39,13 +39,13 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
 }
 
 void
-BLE_gap_local_bd_addr(uint8_t *local_addr)
+BLE_peripheral_gap_local_bd_addr(uint8_t *local_addr)
 {
   gap_local_bd_addr(local_addr);
 }
 
 void
-BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len)
+BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 {
   if (packet_event_state != HCI_STATE_WORKING) return;
   // setup advertisements
@@ -60,7 +60,7 @@ BLE_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 }
 
 void
-BLE_notify(uint16_t att_handle)
+BLE_peripheral_notify(uint16_t att_handle)
 {
   BLE_read_value read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
   if (PeripheralReadData(&read_value) < 0) return;
@@ -108,13 +108,13 @@ heartbeat_handler(struct btstack_timer_source *ts)
 }
 
 void
-BLE_request_can_send_now_event(void)
+BLE_peripheral_request_can_send_now_event(void)
 {
   att_server_request_can_send_now_event(con_handle);
 }
 
 int
-BLE_init(const uint8_t *profile_data)
+BLE_peripheral_init(const uint8_t *profile_data)
 {
   l2cap_init();
   sm_init();
@@ -135,8 +135,3 @@ BLE_init(const uint8_t *profile_data)
   return 0;
 }
 
-void BLE_hci_power_on(void)
-{
-  // turn on bluetooth!
-  hci_power_control(HCI_POWER_ON);
-}

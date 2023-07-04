@@ -117,6 +117,9 @@ class BLE
     def request_can_send_now_event: () -> void
   end
 
+  class Central
+  end
+
   class AdvertisingData
     attr_reader data: String
     def add: (Integer, *untyped) -> void
@@ -124,19 +127,3 @@ class BLE
   end
 end
 
-class MyServer < BLE::Peripheral
-  APP_AD_FLAGS: Integer
-  BLUETOOTH_DATA_TYPE_FLAGS: Integer
-  BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS: Integer
-  BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME: Integer
-  BTSTACK_EVENT_STATE: Integer
-  HCI_EVENT_CONNECTION_COMPLETE: Integer
-  HCI_EVENT_DISCONNECTION_COMPLETE: Integer
-  ATT_EVENT_CAN_SEND_NOW: Integer
-  ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
-  CYW43_WL_GPIO_LED_PIN: Integer
-  @last_event: Integer
-  @counter: Integer
-  @led_on: bool
-  @adv_data: String
-end
