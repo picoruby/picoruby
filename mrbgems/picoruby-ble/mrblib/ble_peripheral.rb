@@ -5,7 +5,7 @@ class BLE
       @_read_values = {}
       @_write_values = {}
       CYW43.init
-      init(profile_data)
+      _init(profile_data)
     end
 
     def get_write_value(handle)
@@ -25,7 +25,7 @@ class BLE
     end
 
     def start
-      hci_power_on
+      BLE.hci_power_on
       while true
         if heartbeat_on?
           heartbeat_callback
@@ -37,11 +37,6 @@ class BLE
         end
         sleep_ms 50
       end
-      return 0
-    end
-
-    def stop
-      @task.suspend
       return 0
     end
   end

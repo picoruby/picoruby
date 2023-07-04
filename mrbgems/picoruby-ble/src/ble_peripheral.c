@@ -33,10 +33,10 @@ PeripheralReadData(BLE_read_value *read_value)
 }
 
 static void
-c_init(mrbc_vm *vm, mrbc_value *v, int argc)
+c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (BLE_peripheral_init(GET_STRING_ARG(1)) < 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE::Peripheral init failed");
     return;
   }
   peripheral.instance = v[0].instance;
@@ -129,12 +129,6 @@ c_heartbeat_period_ms_eq(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(period_ms);
 }
 
-static void
-c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  BLE_hci_power_on();
-}
-
 void
 mrbc_init_class_BLE_Peripheral(void)
 {
@@ -142,7 +136,7 @@ mrbc_init_class_BLE_Peripheral(void)
   mrbc_value *BLE = mrbc_get_class_const(mrbc_class_BLE, mrbc_search_symid("Peripheral"));
   mrbc_class *mrbc_class_BLE_Peripheral = BLE->cls;
 
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "init", c_init);
+  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "_init", c__init);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event_type", c_packet_event_type);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);
@@ -153,7 +147,5 @@ mrbc_init_class_BLE_Peripheral(void)
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_on?", c_heartbeat_on_q);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_off", c_heartbeat_off);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
-
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "hci_power_on", c_hci_power_on);
 }
 

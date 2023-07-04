@@ -53,6 +53,8 @@ class BLE
   ATT_PROPERTY_READ: Integer
   GATT_CHARACTERISTIC_UUID: Integer
 
+  def self.hci_power_on: () -> void
+
   class Utils
     def self.bd_addr_to_str: (String) -> String
     def self.uuid: (untyped) -> String
@@ -97,11 +99,9 @@ class BLE
     def initialize: (String) -> void
     def get_read_value: (Integer) -> (String|nil)
     def set_read_value: (Integer, String) -> void
-    def init: (String) -> void
+    def _init: (String) -> void
     def heartbeat_period_ms=: (Integer) -> Integer
     def start: () -> 0
-    def hci_power_on: () -> void
-    def stop: () -> 0
     def down_packet_flag: () -> void
 
     def gap_local_bd_addr: () -> String
@@ -118,6 +118,19 @@ class BLE
   end
 
   class Central
+    def initialize: () -> void
+    def _init: () -> void
+    def start: () -> 0
+    def start_scan: () -> 0
+    def heartbeat_period_ms=: (Integer) -> Integer
+    def heartbeat_callback: () -> void
+    def heartbeat_on?: () -> void
+    def heartbeat_off: () -> void
+    def packet_event_type: () -> (Integer | nil)
+    def packet_callback: (Integer) -> void
+    def down_packet_flag: () -> void
+
+    def show_packet: () -> void
   end
 
   class AdvertisingData

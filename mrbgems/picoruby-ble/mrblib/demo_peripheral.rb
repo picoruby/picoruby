@@ -1,6 +1,6 @@
 require 'adc'
 
-class MyServer < BLE::Peripheral
+class MyPeripheral < BLE::Peripheral
   # for advertising
   APP_AD_FLAGS = 0x06
   BLUETOOTH_DATA_TYPE_FLAGS = 0x01

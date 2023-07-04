@@ -12,12 +12,8 @@
 #define ENABLE_PRINTF_HEXDUMP
 
 // for the client
-#if RUNNING_AS_CLIENT
 #define ENABLE_LE_CENTRAL
 #define MAX_NR_GATT_CLIENTS 1
-#else
-#define MAX_NR_GATT_CLIENTS 0
-#endif
 
 // BTstack configuration. buffers, sizes, ...
 #define HCI_OUTGOING_PRE_BUFFER_SIZE 4
