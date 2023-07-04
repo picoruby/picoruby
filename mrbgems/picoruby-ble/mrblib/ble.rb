@@ -1,4 +1,3 @@
-require 'task'
 require 'mbedtls'
 require 'cyw43'
 
@@ -141,24 +140,16 @@ class BLE
 
     def start
       hci_power_on
-      @task = Task.new(self) do |server|
-        while true
-          if server.heartbeat_on?
-            server.heartbeat_callback
-            server.heartbeat_off
-          end
-          if event_type = server.packet_event_type
-            server.packet_callback(event_type)
-            server.down_packet_flag
-          end
-          #if (conn_handle, att_handle, offset, buffer = server._read_event)
-          #  server.read_callback(conn_handle, att_handle, offset, buffer)
-          #end
-          #if (conn_handle, att_handle, offset, buffer = server._write_event)
-          #  server.write_callback(conn_handle, att_handle, offset, buffer)
-          #end
-          sleep_ms 50
+      while true
+        if heartbeat_on?
+          heartbeat_callback
+          heartbeat_off
         end
+        if event_type = packet_event_type
+          packet_callback(event_type)
+          down_packet_flag
+        end
+        sleep_ms 50
       end
       return 0
     end

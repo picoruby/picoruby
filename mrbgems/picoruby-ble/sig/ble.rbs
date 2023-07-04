@@ -110,7 +110,7 @@ class BLE
 
     def packet_event_type: () -> (Integer | nil)
     def packet_callback: (Integer) -> void
-    def heatbeat_callback: () -> void
+    def heartbeat_callback: () -> void
 
     def heartbeat_on?: () -> void
     def heartbeat_off: () -> void
