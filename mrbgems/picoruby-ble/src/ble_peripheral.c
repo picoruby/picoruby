@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <mrubyc.h>
-#include "../include/ble.h"
+#include "../include/ble_peripheral.h"
 
 uint8_t packet_event_type = 0;
 bool ble_heartbeat_on = false;

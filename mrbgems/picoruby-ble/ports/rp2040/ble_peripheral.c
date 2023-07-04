@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../../include/ble.h"
+#include "../../include/ble_peripheral.h"
 
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
