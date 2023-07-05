@@ -7,7 +7,7 @@
 #include <picogem_init.c>
 
 #ifndef HEAP_SIZE
-#define HEAP_SIZE (1024 * 200 - 1)
+#define HEAP_SIZE (1024 * 2000)
 #endif
 
 int loglevel = LOGLEVEL_FATAL; /* must be LOGLEVEL_FATAL so that irb works */

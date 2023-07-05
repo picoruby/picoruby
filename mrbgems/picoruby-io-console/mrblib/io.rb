@@ -43,15 +43,18 @@ class IO
     return [row, col]
   end
 
-  def self.wait_and_clear
+  def self.wait_and_clear(timeout: nil)
+    timer = 0.0
     IO.raw do
-      while true
+      while !timeout || timer < timeout.to_f
         print "\e[5n"
         sleep 0.1
         break if IO.read_nonblock(10) == "\e[0n"
+        timer += 0.1
       end
     end
     sleep 0.1
+    IO.read_nonblock(10) # discard the rest
     print "\e[2J\e[1;1H"
   end
 end

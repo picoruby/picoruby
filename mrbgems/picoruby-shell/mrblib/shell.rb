@@ -170,7 +170,7 @@ class Shell
           return
         else
           puts
-          command.exec(args)
+          command.exec(*args)
           terminal.save_history
           buffer.clear
         end
