@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../../include/ble.h"
 #include "../../include/ble_peripheral.h"
 
 #include "btstack.h"
@@ -9,14 +10,6 @@
 #include "pico/stdlib.h"
 
 static hci_con_handle_t con_handle;
-static uint8_t packet_event_state = 0;
-static uint16_t heartbeat_period_ms = 1000;
-
-void
-BLE_peripheral_set_heartbeat_period_ms(uint16_t period_ms)
-{
-  heartbeat_period_ms = period_ms;
-}
 
 static void
 packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
@@ -36,12 +29,6 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
       packet_event_type = _type;
   }
   packet_event_state = btstack_event_state_get_state(packet);
-}
-
-void
-BLE_peripheral_gap_local_bd_addr(uint8_t *local_addr)
-{
-  gap_local_bd_addr(local_addr);
 }
 
 void

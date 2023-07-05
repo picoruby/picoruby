@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../../include/ble.h"
 #include "../../include/ble_central.h"
 
 #include "btstack.h"
@@ -20,9 +21,6 @@ typedef enum {
 } gc_state_t;
 
 static gc_state_t state = TC_OFF;
-
-static uint8_t packet_event_state = 0;
-static uint16_t heartbeat_period_ms = 1000;
 
 static btstack_timer_source_t heartbeat;
 static btstack_packet_callback_registration_t hci_event_callback_registration;

@@ -17,8 +17,7 @@ class MyPeripheral < BLE::Peripheral
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
-  def initialize(debug: false)
-    @debug = debug
+  def initialize(debug)
     db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
         s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picoR_temp")
@@ -32,7 +31,7 @@ class MyPeripheral < BLE::Peripheral
     end
     @temperature_handle = db.handle_table[:characteristic][:value][CHARACTERISTIC_TEMPERATURE]
     @configuration_handle = db.handle_table[:characteristic][:client_configuration][CHARACTERISTIC_TEMPERATURE]
-    super(db.profile_data)
+    super(db.profile_data, debug)
     @last_event = 0
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
@@ -43,10 +42,6 @@ class MyPeripheral < BLE::Peripheral
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x181a)
     end
     @adc = ADC.new(:temperature)
-  end
-
-  def debug_puts(*args)
-    puts(*args) if @debug
   end
 
   def heartbeat_callback

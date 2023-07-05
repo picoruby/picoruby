@@ -3,16 +3,15 @@ class MyCentral < BLE::Central
   GAP_EVENT_ADVERTISING_REPORT = 0xda
 #  HCI_STATE_WORKING = 
 
-  def initialize(debug: false)
-    @debug = debug
-    super
+  def initialize(debug)
+    super(debug)
     @last_event = 0
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
   end
 
-  def debug_puts(*args)
-    puts(*args) if @debug
+  def heartbeat_callback
+    @led.write((@led_on = !@led_on) ? 1 : 0)
   end
 
   def packet_callback(event_type)

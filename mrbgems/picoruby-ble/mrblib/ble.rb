@@ -64,5 +64,25 @@ class BLE
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
+  def start
+    hci_power_on
+    while true
+      if heartbeat_on?
+        heartbeat_callback
+        heartbeat_off
+      end
+      if event_type = packet_event_type
+        packet_callback(event_type)
+        down_packet_flag
+      end
+      sleep_ms 50
+    end
+    return 0
+  end
+
+  def debug_puts(*args)
+    puts(*args) if @debug
+  end
+
 end
 

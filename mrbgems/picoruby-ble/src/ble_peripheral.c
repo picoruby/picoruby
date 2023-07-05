@@ -3,9 +3,6 @@
 #include "../include/ble.h"
 #include "../include/ble_peripheral.h"
 
-uint8_t packet_event_type = 0;
-bool ble_heartbeat_on = false;
-
 static mrbc_value peripheral = {0};
 
 int
@@ -45,22 +42,6 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_packet_event_type(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (packet_event_type == 0) {
-    SET_NIL_RETURN();
-  } else {
-    SET_INT_RETURN(packet_event_type);
-  }
-}
-
-static void
-c_down_packet_flag(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  packet_event_type = 0;
-}
-
-static void
 c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_value adv_data = GET_ARG(1);
@@ -75,31 +56,6 @@ c_notify(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   BLE_peripheral_notify((uint16_t)GET_INT_ARG(1));
-}
-
-static void
-c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  uint8_t addr[6];
-  BLE_peripheral_gap_local_bd_addr(addr);
-  mrbc_value str = mrbc_string_new(vm, (const void *)addr, 6);
-  SET_RETURN(str);
-}
-
-static void
-c_heartbeat_on_q(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (ble_heartbeat_on) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-static void
-c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  ble_heartbeat_on = false;
 }
 
 static void
@@ -121,14 +77,6 @@ c_cyw43_arch_gpio_put(mrbc_vm *vm, mrbc_value *v, int argc)
   BLE_peripheral_cyw43_arch_gpio_put(pin, value);
 }
 
-static void
-c_heartbeat_period_ms_eq(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  uint16_t period_ms = (uint16_t)GET_INT_ARG(1);
-  BLE_peripheral_set_heartbeat_period_ms(period_ms);
-  SET_INT_RETURN(period_ms);
-}
-
 void
 mrbc_init_class_BLE_Peripheral(void)
 {
@@ -137,15 +85,9 @@ mrbc_init_class_BLE_Peripheral(void)
   mrbc_class *mrbc_class_BLE_Peripheral = BLE->cls;
 
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "packet_event_type", c_packet_event_type);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notify", c_notify);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "gap_local_bd_addr", c_gap_local_bd_addr);
 
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_on?", c_heartbeat_on_q);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "heartbeat_off", c_heartbeat_off);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
 }
 
