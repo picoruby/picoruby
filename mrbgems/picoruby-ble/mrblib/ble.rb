@@ -71,7 +71,9 @@ class BLE
         heartbeat_callback
         heartbeat_off
       end
-      if event_type = packet_event_type
+      #if event_type = packet_event_type
+      # this breaks peripheral
+      if event_type = @_events.shift
         packet_callback(event_type)
         down_packet_flag
       end

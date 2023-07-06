@@ -119,12 +119,13 @@ class BLE
   end
 
   class Central
+    @_events: Array[{event_type: Integer, packet: String}]
     @debug: bool
     def initialize: (?bool) -> void
     def _init: () -> void
     def start_scan: () -> 0
 
-    def show_packet: () -> void
+    def get_packet: () -> String
   end
 
   class AdvertisingData

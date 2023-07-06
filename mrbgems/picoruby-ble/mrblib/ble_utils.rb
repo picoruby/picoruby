@@ -39,6 +39,10 @@ class BLE
       (value & 0xff).chr + (value >> 8 & 0xff).chr
     end
 
+    def self.little_endian_to_int16(str)
+      str[0]&.ord | (str[1]&.ord << 8)
+    end
+
     # private
 
     def self.valid_char_for_uuid?(c)

@@ -11,11 +11,13 @@ extern "C" {
 extern uint8_t packet_event_type;
 extern bool ble_heartbeat_on;
 
+void CentralPushEvent(uint8_t event_type, uint8_t *packet, uint16_t size);
+
 int BLE_central_init(void);
 void BLE_central_start_scan(void);
 int BLE_central_packet_event_state(void);
 
-void BLE_central_show_packet();
+uint16_t BLE_central_get_packet(uint8_t *packet);
 
 #ifdef __cplusplus
 }

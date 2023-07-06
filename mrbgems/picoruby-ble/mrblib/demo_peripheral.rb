@@ -74,7 +74,7 @@ class MyPeripheral < BLE::Peripheral
     @last_event = event_type
     case event_type
     when BTSTACK_EVENT_STATE
-      puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
+      debug_puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
       debug_puts "disconnected"
