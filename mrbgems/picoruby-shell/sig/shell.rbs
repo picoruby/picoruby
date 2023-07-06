@@ -19,7 +19,7 @@ class Shell
   def setup_system_files: (?force: bool) -> void
   def _next_executable: -> {code: String, name: String}
 
-  def initialize: -> void
+  def initialize: (?clean: bool) -> void
   def simple_question: (String question) { (String answer) -> boolish } -> void
   def show_logo: -> nil
   def start: (?:shell mode) -> nil

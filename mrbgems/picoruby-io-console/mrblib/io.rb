@@ -2,9 +2,7 @@ class IO
   def self.raw(&block)
     raise Exception.new("no block given") unless block
     self.raw!
-    while true do
-      break if res = block.call
-    end
+    res = block.call
   ensure
     self.cooked!
     return res
@@ -17,8 +15,8 @@ class IO
   end
 
   def self.get_cursor_position
-    row = 0
-    col = 0
+    return [0, 0] if ENV && ENV['TERM'] == "dumb"
+    row, col = 0, 0
     raw do
       print "\e[6n"
       while true
@@ -46,15 +44,19 @@ class IO
   def self.wait_and_clear(timeout: nil)
     timer = 0.0
     IO.raw do
-      while !timeout || timer < timeout.to_f
+      while true
+        timer += 0.1
         print "\e[5n"
         sleep 0.1
-        break if IO.read_nonblock(10) == "\e[0n"
-        timer += 0.1
+        if "\e[0n" == IO.read_nonblock(10) || (timeout && timeout.to_f < timer)
+          break
+        end
       end
+      sleep 0.1
+      IO.read_nonblock(10) # discard the rest
     end
-    sleep 0.1
-    IO.read_nonblock(10) # discard the rest
+    # to avoid "get_cursor_position failed"
+    ENV['TERM'] = "dumb" if timeout && timeout.to_f < timer
     print "\e[2J\e[1;1H"
   end
 end

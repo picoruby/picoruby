@@ -50,7 +50,8 @@ end
 
 
 class Shell
-  def initialize
+  def initialize(clean: false)
+    IO.wait_and_clear(timeout: 2) if clean
     @terminal = Terminal::Line.new
     if RUBY_ENGINE == "ruby"
       @terminal.debug_tty = ARGV[0]
@@ -88,6 +89,7 @@ class Shell
   SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
 
   def show_logo
+    return nil if ENV['TERM'] == "dumb"
     logo_width = LOGO_LINES[0, LOGO_LINES.size - 1]&.map{|l| l.length}&.max || 0
     if logo_width < @terminal.width
       logo_lines = LOGO_LINES
