@@ -2,6 +2,13 @@ require 'mbedtls'
 require 'cyw43'
 
 class BLE
+  HCI_STATE_OFF = 0
+  HCI_STATE_INITIALIZING = 1
+  HCI_STATE_WORKING = 2
+  HCI_STATE_HALTING = 3
+  HCI_STATE_SLEEPING = 4
+  HCI_STATE_FALLING_ASLEEP = 5
+
   # GATT Characteristic Properties
   BROADCAST =                   0x01
   READ =                        0x02
@@ -73,9 +80,8 @@ class BLE
       end
       #if event_type = packet_event_type
       # this breaks peripheral
-      if event_type = @_events.shift
-        packet_callback(event_type)
-        down_packet_flag
+      while event_packet = @_event_packets.shift do
+        packet_callback(event_packet)
       end
       sleep_ms 50
     end

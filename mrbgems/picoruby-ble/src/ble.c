@@ -5,26 +5,23 @@
 uint8_t packet_event_type = 0;
 bool ble_heartbeat_on = false;
 
+mrbc_value singleton = {0};
+
+void
+BLE_push_event(uint8_t *packet, uint16_t size)
+{
+  if (singleton.instance == NULL) return;
+  mrbc_value _event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
+  if (_event_packets.tt != MRBC_TT_ARRAY) return;
+  if (_event_packets.array->n_stored >= 10) return;
+  mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+  mrbc_array_push(&_event_packets, &str);
+}
+
 static void
 c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   BLE_hci_power_on();
-}
-
-static void
-c_packet_event_type(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (packet_event_type == 0) {
-    SET_NIL_RETURN();
-  } else {
-    SET_INT_RETURN(packet_event_type);
-  }
-}
-
-static void
-c_down_packet_flag(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  packet_event_type = 0;
 }
 
 static void
@@ -65,8 +62,6 @@ mrbc_ble_init(void)
 {
   mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_BLE, "hci_power_on", c_hci_power_on);
-  mrbc_define_method(0, mrbc_class_BLE, "packet_event_type", c_packet_event_type);
-  mrbc_define_method(0, mrbc_class_BLE, "down_packet_flag", c_down_packet_flag);
   mrbc_define_method(0, mrbc_class_BLE, "heartbeat_on?", c_heartbeat_on_q);
   mrbc_define_method(0, mrbc_class_BLE, "heartbeat_off", c_heartbeat_off);
   mrbc_define_method(0, mrbc_class_BLE, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);

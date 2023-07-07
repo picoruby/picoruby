@@ -4,6 +4,7 @@ class BLE
       @debug = debug
       @_read_values = {}
       @_write_values = {}
+      @_event_packets = []
       CYW43.init
       _init(profile_data)
     end

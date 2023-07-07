@@ -1,5 +1,12 @@
 class BLE
 
+  HCI_STATE_OFF: Integer
+  HCI_STATE_INITIALIZING: Integer
+  HCI_STATE_WORKING: Integer
+  HCI_STATE_HALTING: Integer
+  HCI_STATE_SLEEPING: Integer
+  HCI_STATE_FALLING_ASLEEP: Integer
+
   CLIENT_CHARACTERISTIC_CONFIGURATION: Integer
   CHARACTERISTIC_DATABASE_HASH: Integer
 
@@ -55,11 +62,11 @@ class BLE
 
   @debug: bool
 
+  type event_packet_t = Array[String]
+
   def hci_power_on: () -> void
   def start: () -> 0
-  def packet_event_type: () -> (Integer | nil)
-  def down_packet_flag: () -> void
-  def packet_callback: (Integer) -> void
+  def packet_callback: (event_packet_t) -> void
   def heartbeat_callback: () -> void
   def heartbeat_on?: () -> void
   def heartbeat_off: () -> void
@@ -105,7 +112,7 @@ class BLE
   class Peripheral
     @_write_values: Hash[Integer, String]
     @_read_values: Hash[Integer, String]
-    @task: Task
+    @_event_packets: event_packet_t
     @debug: bool
     def initialize: (String, ?bool) -> void
     def get_read_value: (Integer) -> (String|nil)
@@ -119,7 +126,7 @@ class BLE
   end
 
   class Central
-    @_events: Array[{event_type: Integer, packet: String}]
+    @_event_packets: event_packet_t
     @debug: bool
     def initialize: (?bool) -> void
     def _init: () -> void

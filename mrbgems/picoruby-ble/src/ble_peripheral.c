@@ -3,13 +3,11 @@
 #include "../include/ble.h"
 #include "../include/ble_peripheral.h"
 
-static mrbc_value peripheral = {0};
-
 int
 PeripheralWriteData(uint16_t att_handle, const uint8_t *data, uint16_t size)
 {
-  if (att_handle == 0 || size == 0 || peripheral.instance == NULL) return -1;
-  mrbc_value write_values_hash = mrbc_instance_getiv(&peripheral, mrbc_str_to_symid("_write_values"));
+  if (att_handle == 0 || size == 0 || singleton.instance == NULL) return -1;
+  mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
   if (write_values_hash.tt != MRBC_TT_HASH) return -1;
   mrbc_value write_value = mrbc_string_new(NULL, data, size);
   mrbc_incref(&write_value);
@@ -19,8 +17,8 @@ PeripheralWriteData(uint16_t att_handle, const uint8_t *data, uint16_t size)
 int
 PeripheralReadData(BLE_read_value *read_value)
 {
-  if (peripheral.instance == NULL) return -1;
-  mrbc_value read_values_hash = mrbc_instance_getiv(&peripheral, mrbc_str_to_symid("_read_values"));
+  if (singleton.instance == NULL) return -1;
+  mrbc_value read_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_read_values"));
   if (read_values_hash.tt != MRBC_TT_HASH) return -1;
   mrbc_value value = mrbc_hash_get(&read_values_hash, &mrbc_integer_value(read_value->att_handle));
   if (value.tt != MRBC_TT_STRING) return -1;
@@ -36,7 +34,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE::Peripheral init failed");
     return;
   }
-  peripheral.instance = v[0].instance;
+  singleton.instance = v[0].instance;
   /* Protect profile_data from GC */
   mrbc_incref(&v[1]);
 }
