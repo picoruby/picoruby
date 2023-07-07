@@ -8,15 +8,6 @@
 extern "C" {
 #endif
 
-typedef struct {
-  uint16_t att_handle;
-  uint8_t *data;
-  uint16_t size;
-} BLE_read_value;
-
-int PeripheralWriteData(uint16_t att_handle, const uint8_t *data, uint16_t size);
-int PeripheralReadData(BLE_read_value *read_value);
-
 int BLE_peripheral_init(const uint8_t *profile);
 
 void BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len);

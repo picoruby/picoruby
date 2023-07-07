@@ -61,6 +61,9 @@ class BLE
   GATT_CHARACTERISTIC_UUID: Integer
 
   @debug: bool
+  @_write_values: Hash[Integer, String]
+  @_read_values: Hash[Integer, String]
+  @_event_packets: event_packet_t
 
   type event_packet_t = Array[String]
 
@@ -68,12 +71,14 @@ class BLE
   def start: () -> 0
   def mutex_trylock: () -> bool
   def mutex_unlock: () -> 0
-  def packet_callback: (event_packet_t) -> void
+  def packet_callback: (String) -> void
   def heartbeat_callback: () -> void
   def heartbeat_on?: () -> void
   def heartbeat_off: () -> void
   def heartbeat_period_ms=: (Integer) -> Integer
   def gap_local_bd_addr: () -> String
+  def get_read_value: (Integer) -> (String|nil)
+  def set_read_value: (Integer, String) -> void
 
   class Utils
     def self.bd_addr_to_str: (String) -> String
@@ -111,14 +116,8 @@ class BLE
     def write_permissions_and_key_size_flags_from_properties: (Integer) -> Integer
   end
 
-  class Peripheral
-    @_write_values: Hash[Integer, String]
-    @_read_values: Hash[Integer, String]
-    @_event_packets: event_packet_t
-    @debug: bool
+  class Peripheral < BLE
     def initialize: (String, ?bool) -> void
-    def get_read_value: (Integer) -> (String|nil)
-    def set_read_value: (Integer, String) -> void
     def _init: (String) -> void
 
     def advertise: (String) -> void
@@ -127,9 +126,7 @@ class BLE
     def request_can_send_now_event: () -> void
   end
 
-  class Central
-    @_event_packets: event_packet_t
-    @debug: bool
+  class Central < BLE
     def initialize: (?bool) -> void
     def _init: () -> void
     def start_scan: () -> 0

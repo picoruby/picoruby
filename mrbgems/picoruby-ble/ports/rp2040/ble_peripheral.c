@@ -30,8 +30,8 @@ BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len)
 void
 BLE_peripheral_notify(uint16_t att_handle)
 {
-  BLE_read_value read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
-  if (PeripheralReadData(&read_value) < 0) return;
+  BLE_read_value_t read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
+  if (BLE_read_data(&read_value) < 0) return;
   if (read_value.size == 0) return;
   att_server_notify(con_handle, att_handle, read_value.data, read_value.size);
 }
@@ -40,8 +40,8 @@ uint16_t
 att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
 {
   UNUSED(connection_handle);
-  BLE_read_value read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
-  if (PeripheralReadData(&read_value) < 0) return 0;
+  BLE_read_value_t read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
+  if (BLE_read_data(&read_value) < 0) return 0;
   return att_read_callback_handle_blob(
            (const uint8_t *)read_value.data,
            read_value.size,
@@ -57,7 +57,7 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
   UNUSED(transaction_mode);
   UNUSED(offset);
 
-  if (0 == PeripheralWriteData(att_handle, (const uint8_t *)buffer, buffer_size)) {
+  if (0 == BLE_write_data(att_handle, (const uint8_t *)buffer, buffer_size)) {
     con_handle = connection_handle;
   }
   return 0;

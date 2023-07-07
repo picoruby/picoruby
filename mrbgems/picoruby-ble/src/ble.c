@@ -21,6 +21,31 @@ BLE_push_event(uint8_t *packet, uint16_t size)
   mrbc_array_push(&_event_packets, &str);
 }
 
+int
+BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
+{
+  if (mutex_locked) return -1;
+  if (att_handle == 0 || size == 0 || singleton.instance == NULL) return -1;
+  mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
+  if (write_values_hash.tt != MRBC_TT_HASH) return -1;
+  mrbc_value write_value = mrbc_string_new(NULL, data, size);
+  return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
+}
+
+int
+BLE_read_data(BLE_read_value_t *read_value)
+{
+  if (mutex_locked) return -1;
+  if (singleton.instance == NULL) return -1;
+  mrbc_value read_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_read_values"));
+  if (read_values_hash.tt != MRBC_TT_HASH) return -1;
+  mrbc_value value = mrbc_hash_get(&read_values_hash, &mrbc_integer_value(read_value->att_handle));
+  if (value.tt != MRBC_TT_STRING) return -1;
+  read_value->data = value.string->data;
+  read_value->size = value.string->size;
+  return 0;
+}
+
 static void
 c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
 {

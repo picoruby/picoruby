@@ -93,5 +93,23 @@ class BLE
     puts(*args) if @debug
   end
 
+  def get_write_value(handle)
+    return unless mutex_trylock
+    value = @_write_values.delete(handle)
+    mutex_unlock
+    return value
+  end
+
+  def set_read_value(handle, value)
+    # @type var handle: untyped
+    unless handle.is_a?(Integer)
+      raise TypeError, "handle must be Integer"
+    end
+    # @type var value: untyped
+    unless value.is_a?(String)
+      raise TypeError, "value must be String"
+    end
+    @_read_values[handle] = value
+  end
 end
 
