@@ -9,6 +9,8 @@
 #include "pico/btstack_cyw43.h"
 #include "pico/stdlib.h"
 
+#include "ble_common.h"
+
 static hci_con_handle_t con_handle;
 
 void
@@ -61,18 +63,6 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
   return 0;
 }
 
-static btstack_timer_source_t heartbeat;
-static btstack_packet_callback_registration_t hci_event_callback_registration;
-
-static void
-heartbeat_handler(struct btstack_timer_source *ts)
-{
-  ble_heartbeat_on = true;
-  // Restart timer
-  btstack_run_loop_set_timer(ts, heartbeat_period_ms);
-  btstack_run_loop_add_timer(ts);
-}
-
 void
 BLE_peripheral_request_can_send_now_event(void)
 {
@@ -88,16 +78,16 @@ BLE_peripheral_init(const uint8_t *profile_data)
   att_server_init(profile_data, att_read_callback, att_write_callback);
 
   // inform about BTstack state
-  hci_event_callback_registration.callback = &packet_handler;
-  hci_add_event_handler(&hci_event_callback_registration);
+  ble_hci_event_callback_registration.callback = &BLE_packet_handler;
+  hci_add_event_handler(&ble_hci_event_callback_registration);
 
   // register for ATT event
-  att_server_register_packet_handler(packet_handler);
+  att_server_register_packet_handler(BLE_packet_handler);
 
   // set one-shot btstack timer
-  heartbeat.process = &heartbeat_handler;
-  btstack_run_loop_set_timer(&heartbeat, heartbeat_period_ms);
-  btstack_run_loop_add_timer(&heartbeat);
+  ble_heartbeat.process = &BLE_heartbeat_handler;
+  btstack_run_loop_set_timer(&ble_heartbeat, ble_heartbeat_period_ms);
+  btstack_run_loop_add_timer(&ble_heartbeat);
   return 0;
 }
 

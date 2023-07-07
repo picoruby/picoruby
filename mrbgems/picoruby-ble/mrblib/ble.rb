@@ -78,8 +78,6 @@ class BLE
         heartbeat_callback
         heartbeat_off
       end
-      #if event_type = packet_event_type
-      # this breaks peripheral
       while event_packet = @_event_packets.shift do
         packet_callback(event_packet)
       end

@@ -25,12 +25,11 @@ class MyCentral < BLE::Central
   end
 
   def packet_callback(event_packet)
-    debug_puts "event_packet: #{event_packet.inspect}"
     case event_packet[0]&.ord # event type
     when BTSTACK_EVENT_STATE
-      debug_puts "packet_event_state: #{event_packet[2].ord}"
+      debug_puts "event_packet: #{event_packet.inspect}"
       if event_packet[2]&.ord == BLE::HCI_STATE_WORKING
-        puts "Central is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
+        debug_puts "Central is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
         start_scan
         @state = :TC_W4_SCAN_RESULT
       else
@@ -38,14 +37,13 @@ class MyCentral < BLE::Central
       end
     when GAP_EVENT_ADVERTISING_REPORT
       return unless @state == :TC_W4_SCAN_RESULT
-      debug_puts "Advertising report received."
-      event_packet.each_byte { |b| printf("%02X ", b) }
-      puts
+      #debug_puts "Advertising report received."
     when HCI_EVENT_LE_META
+      #debug_puts "event_packet: #{event_packet.inspect}"
       case event_packet[2]&.ord
       when HCI_SUBEVENT_LE_CONNECTION_COMPLETE
         return unless @state == :TC_W4_CONNECT
-        conn_handle = BLE::Utils.little_endian_to_int16(packet[4,2])
+        conn_handle = BLE::Utils.little_endian_to_int16(packet[4, 2])
         debug_puts "Search for env sensing service."
         @state = :TC_W4_SERVICE_RESULT
       end

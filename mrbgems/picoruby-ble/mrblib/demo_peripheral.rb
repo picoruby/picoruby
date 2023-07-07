@@ -11,7 +11,6 @@ class MyPeripheral < BLE::Peripheral
   BTSTACK_EVENT_STATE = 0x60
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
   ATT_EVENT_CAN_SEND_NOW = 0xB7
-  ATT_EVENT_DISCONNECTED = 0xB4
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
   #
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
@@ -54,6 +53,10 @@ class MyPeripheral < BLE::Peripheral
       end
       @counter = 0
     end
+    unless @led_on.nil?
+      @led_on = !@led_on
+      @led.write(@led_on ? 1 : 0)
+    end
     if write_value = get_write_value(@configuration_handle)
       if write_value == "\x01\x00"
         @notification_enabled = true
@@ -67,15 +70,17 @@ class MyPeripheral < BLE::Peripheral
     debug_puts "event_packet: #{event_packet.inspect}"
     case event_packet[0]&.ord # event type
     when BTSTACK_EVENT_STATE
-      @led_on = !@led_on
+      return unless event_packet[2]&.ord ==  BLE::HCI_STATE_WORKING
+      @led_on = false
       debug_puts "Peripheral is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
-      advertise(@adv_data) if event_packet[2].ord ==  BLE::HCI_STATE_WORKING
-    when HCI_EVENT_DISCONNECTION_COMPLETE, ATT_EVENT_DISCONNECTED
-      @led_on = !@led_on
+      advertise(@adv_data)
+    when HCI_EVENT_DISCONNECTION_COMPLETE
+      @led_on = false
       debug_puts "disconnected"
       @notification_enabled = false
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
       debug_puts "mtu exchange complete"
+      @led_on = nil
       @led.write(0)
     when ATT_EVENT_CAN_SEND_NOW
       @led.write(1)

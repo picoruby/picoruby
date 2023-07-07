@@ -10,7 +10,6 @@ PeripheralWriteData(uint16_t att_handle, const uint8_t *data, uint16_t size)
   mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
   if (write_values_hash.tt != MRBC_TT_HASH) return -1;
   mrbc_value write_value = mrbc_string_new(NULL, data, size);
-  mrbc_incref(&write_value);
   return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
 }
 

@@ -9,17 +9,7 @@
 #include "pico/btstack_cyw43.h"
 #include "pico/stdlib.h"
 
-static btstack_timer_source_t heartbeat;
-static btstack_packet_callback_registration_t hci_event_callback_registration;
-
-static void
-heartbeat_handler(struct btstack_timer_source *ts)
-{
-  ble_heartbeat_on = true;
-  // Restart timer
-  btstack_run_loop_set_timer(ts, heartbeat_period_ms);
-  btstack_run_loop_add_timer(ts);
-}
+#include "ble_common.h"
 
 int
 BLE_central_init(void)
@@ -32,13 +22,13 @@ BLE_central_init(void)
   att_server_init(NULL, NULL, NULL);
 
   // inform about BTstack state
-  hci_event_callback_registration.callback = &packet_handler;
-  hci_add_event_handler(&hci_event_callback_registration);
+  ble_hci_event_callback_registration.callback = &BLE_packet_handler;
+  hci_add_event_handler(&ble_hci_event_callback_registration);
 
   // set one-shot btstack timer
-  heartbeat.process = &heartbeat_handler;
-  btstack_run_loop_set_timer(&heartbeat, heartbeat_period_ms);
-  btstack_run_loop_add_timer(&heartbeat);
+  ble_heartbeat.process = &BLE_heartbeat_handler;
+  btstack_run_loop_set_timer(&ble_heartbeat, ble_heartbeat_period_ms);
+  btstack_run_loop_add_timer(&ble_heartbeat);
   return 0;
 }
 

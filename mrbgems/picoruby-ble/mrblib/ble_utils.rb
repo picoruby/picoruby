@@ -40,7 +40,7 @@ class BLE
     end
 
     def self.little_endian_to_int16(str)
-      str[0]&.ord | (str[1]&.ord << 8)
+      (str[0]&.ord || 0) | ((str[1]&.ord || 0 ) << 8)
     end
 
     # private

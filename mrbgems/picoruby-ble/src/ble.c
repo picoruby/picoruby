@@ -13,7 +13,7 @@ BLE_push_event(uint8_t *packet, uint16_t size)
   if (singleton.instance == NULL) return;
   mrbc_value _event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
   if (_event_packets.tt != MRBC_TT_ARRAY) return;
-  if (_event_packets.array->n_stored >= 10) return;
+  if (20 < _event_packets.array->n_stored) return;
   mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
   mrbc_array_push(&_event_packets, &str);
 }
