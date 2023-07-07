@@ -7,9 +7,12 @@ bool ble_heartbeat_on = false;
 
 mrbc_value singleton = {0};
 
+static bool mutex_locked = false;
+
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
+  if (mutex_locked) return;
   if (singleton.instance == NULL) return;
   mrbc_value _event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
   if (_event_packets.tt != MRBC_TT_ARRAY) return;
@@ -57,6 +60,24 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(str);
 }
 
+static void
+c_mutex_trylock(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (mutex_locked) {
+    SET_FALSE_RETURN();
+  } else {
+    mutex_locked = true;
+    SET_TRUE_RETURN();
+  }
+}
+
+static void
+c_mutex_unlock(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mutex_locked = false;
+  SET_INT_RETURN(0);
+}
+
 void
 mrbc_ble_init(void)
 {
@@ -66,6 +87,8 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE, "heartbeat_off", c_heartbeat_off);
   mrbc_define_method(0, mrbc_class_BLE, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);
   mrbc_define_method(0, mrbc_class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
+  mrbc_define_method(0, mrbc_class_BLE, "mutex_trylock", c_mutex_trylock);
+  mrbc_define_method(0, mrbc_class_BLE, "mutex_unlock", c_mutex_unlock);
 
   mrbc_init_class_BLE_Peripheral();
   mrbc_init_class_BLE_Central();

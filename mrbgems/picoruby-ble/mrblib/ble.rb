@@ -78,8 +78,11 @@ class BLE
         heartbeat_callback
         heartbeat_off
       end
-      while event_packet = @_event_packets.shift do
-        packet_callback(event_packet)
+      if mutex_trylock
+        while event_packet = @_event_packets.shift do
+          packet_callback(event_packet)
+        end
+        mutex_unlock
       end
       sleep_ms 50
     end

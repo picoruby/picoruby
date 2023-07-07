@@ -66,6 +66,8 @@ class BLE
 
   def hci_power_on: () -> void
   def start: () -> 0
+  def mutex_trylock: () -> bool
+  def mutex_unlock: () -> 0
   def packet_callback: (event_packet_t) -> void
   def heartbeat_callback: () -> void
   def heartbeat_on?: () -> void
