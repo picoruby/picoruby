@@ -51,7 +51,7 @@ end
 
 class Shell
   def initialize(clean: false)
-    IO.wait_and_clear(timeout: 2) if clean
+    clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @terminal = Terminal::Line.new
     if RUBY_ENGINE == "ruby"
       @terminal.debug_tty = ARGV[0]

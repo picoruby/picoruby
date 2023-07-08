@@ -5,7 +5,8 @@ class IO
   def self.read_nonblock: (Integer) -> String
   def self.get_nonblock: (Integer) -> String
   def self.get_cursor_position: -> ([Integer, Integer])
-  def self.wait_and_clear: (?timeout: Integer|Float|nil) -> untyped
+  def self.wait_terminal: (?timeout: Integer|Float|nil) -> bool
+  def self.clear_screen: () -> nil
   def self.getch: -> String
   def self.getc: -> String?
   def self.raw: () { () -> untyped } -> untyped

@@ -41,7 +41,11 @@ class IO
     return [row, col]
   end
 
-  def self.wait_and_clear(timeout: nil)
+  def self.clear_screen
+    print "\e[2J\e[1;1H"
+  end
+
+  def self.wait_terminal(timeout: nil)
     timer = 0.0
     IO.raw do
       while true
@@ -56,8 +60,12 @@ class IO
       IO.read_nonblock(10) # discard the rest
     end
     # to avoid "get_cursor_position failed"
-    ENV['TERM'] = "dumb" if timeout && timeout.to_f < timer
-    print "\e[2J\e[1;1H"
+    if timeout && timeout.to_f < timer
+      ENV['TERM'] = "dumb"
+      return false
+    else
+      return true
+    end
   end
 end
 
