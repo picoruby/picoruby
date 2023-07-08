@@ -7,7 +7,7 @@ class MbedTLS
       case digest.downcase
       when "aes"
         unless key.length == 16
-          raise ArgumentError, "Invalid key length: #{key.length}"
+          raise ArgumentError, "Invalid key length: `#{key.inspect}`"
         end
         instance = self._init_aes(key)
         instance._digest = "aes"
