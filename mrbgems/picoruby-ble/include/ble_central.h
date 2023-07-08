@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-extern bool ble_heartbeat_on;
-
 int BLE_central_init(void);
 void BLE_central_start_scan(void);
 
@@ -18,5 +16,4 @@ void BLE_central_start_scan(void);
 #endif
 
 #endif /* BLE_CENTRAL_DEFINED_H_ */
-
 

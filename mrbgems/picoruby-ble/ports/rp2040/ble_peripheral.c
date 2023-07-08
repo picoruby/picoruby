@@ -83,11 +83,6 @@ BLE_peripheral_init(const uint8_t *profile_data)
 
   // register for ATT event
   att_server_register_packet_handler(BLE_packet_handler);
-
-  // set one-shot btstack timer
-  ble_heartbeat.process = &BLE_heartbeat_handler;
-  btstack_run_loop_set_timer(&ble_heartbeat, ble_heartbeat_period_ms);
-  btstack_run_loop_add_timer(&ble_heartbeat);
   return 0;
 }
 

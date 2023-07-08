@@ -73,9 +73,6 @@ class BLE
   def mutex_unlock: () -> 0
   def packet_callback: (String) -> void
   def heartbeat_callback: () -> void
-  def heartbeat_on?: () -> void
-  def heartbeat_off: () -> void
-  def heartbeat_period_ms=: (Integer) -> Integer
   def gap_local_bd_addr: () -> String
   def get_write_value: (Integer) -> (String|nil)
   def set_read_value: (Integer, String) -> void

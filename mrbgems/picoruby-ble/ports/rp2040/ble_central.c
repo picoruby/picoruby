@@ -24,11 +24,6 @@ BLE_central_init(void)
   // inform about BTstack state
   ble_hci_event_callback_registration.callback = &BLE_packet_handler;
   hci_add_event_handler(&ble_hci_event_callback_registration);
-
-  // set one-shot btstack timer
-  ble_heartbeat.process = &BLE_heartbeat_handler;
-  btstack_run_loop_set_timer(&ble_heartbeat, ble_heartbeat_period_ms);
-  btstack_run_loop_add_timer(&ble_heartbeat);
   return 0;
 }
 

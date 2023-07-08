@@ -19,7 +19,7 @@ class MyPeripheral < BLE::Peripheral
   def initialize(debug)
     db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
-        s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picoR_temp")
+        s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "R2P2")
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
         s.add_characteristic(BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ)
@@ -37,7 +37,7 @@ class MyPeripheral < BLE::Peripheral
     @adv_data = BLE::AdvertisingData.build do |a|
       a.add(BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS)
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, "PicoRuby BLE")
-      a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x181a)
+      a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, SERVICE_ENVIRONMENTAL_SENSING)
     end
     @adc = ADC.new(:temperature)
   end
@@ -48,6 +48,7 @@ class MyPeripheral < BLE::Peripheral
     set_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(temperature))
     if @counter == 10
       puts "temperature: #{temperature}"
+      p PicoRubyVM.memory_statistics
       if @notification_enabled
         debug_puts "request_can_send_now_event"
         request_can_send_now_event

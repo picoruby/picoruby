@@ -31,7 +31,7 @@ class BLE
       @event_type = packet[2]&.ord || -1
       @address_type = packet[3]&.ord || 4
       @address = BLE::Utils.bd_addr_to_str(packet[4, 6] || "\x00" * 6)
-      @rssi = packet[10]&.ord
+      @rssi = (packet[10]&.ord || 0) - 256
       data_length = packet[11]&.ord || 0
       @reports = inspect_reports(packet[12, data_length] || "")
     end
@@ -41,7 +41,7 @@ class BLE
       "\nAddress Type: #{ADDRESS_TYPE[@address_type] || @address_type&.to_s(16)}" +
       "\nAddress: #{@address}" +
       "\nRSSI: #{@rssi}" +
-      "\nData:\n" +
+      "\nReports:\n" +
       @reports.map{|d| "  #{EVENT_TYPE[d[:type]] || 'N/A'}: #{d[:value].inspect}"}.join("\n")
     end
 

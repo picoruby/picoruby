@@ -3,7 +3,6 @@
 #include "../include/ble.h"
 
 uint8_t packet_event_type = 0;
-bool ble_heartbeat_on = false;
 
 mrbc_value singleton = {0};
 
@@ -53,30 +52,6 @@ c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_heartbeat_on_q(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (ble_heartbeat_on) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-static void
-c_heartbeat_off(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  ble_heartbeat_on = false;
-}
-
-static void
-c_heartbeat_period_ms_eq(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  uint16_t period_ms = (uint16_t)GET_INT_ARG(1);
-  BLE_set_heartbeat_period_ms(period_ms);
-  SET_INT_RETURN(period_ms);
-}
-
-static void
 c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   uint8_t addr[6];
@@ -108,9 +83,6 @@ mrbc_ble_init(void)
 {
   mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_BLE, "hci_power_on", c_hci_power_on);
-  mrbc_define_method(0, mrbc_class_BLE, "heartbeat_on?", c_heartbeat_on_q);
-  mrbc_define_method(0, mrbc_class_BLE, "heartbeat_off", c_heartbeat_off);
-  mrbc_define_method(0, mrbc_class_BLE, "heartbeat_period_ms=", c_heartbeat_period_ms_eq);
   mrbc_define_method(0, mrbc_class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
   mrbc_define_method(0, mrbc_class_BLE, "mutex_trylock", c_mutex_trylock);
   mrbc_define_method(0, mrbc_class_BLE, "mutex_unlock", c_mutex_unlock);

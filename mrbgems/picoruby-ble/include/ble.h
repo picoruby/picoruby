@@ -13,17 +13,10 @@ extern "C" {
 extern mrbc_value singleton;
 void BLE_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size);
 
-/* Globals used in src/ble.c */
-extern bool ble_heartbeat_on;
-
-/* Globals used in ports/rp2040/ble.c */
-extern uint16_t ble_heartbeat_period_ms;
-
 void mrbc_init_class_BLE_Peripheral(void);
 void mrbc_init_class_BLE_Central(void);
 
 void BLE_hci_power_on(void);
-void BLE_set_heartbeat_period_ms(uint16_t period_ms);
 
 void BLE_gap_local_bd_addr(uint8_t *local_addr);
 

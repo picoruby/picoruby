@@ -73,10 +73,11 @@ class BLE
 
   def start
     hci_power_on
+    ms = 0
     while true
-      if heartbeat_on?
+      if 1000 < ms
+        ms = 0
         heartbeat_callback
-        heartbeat_off
       end
       if mutex_trylock
         while event_packet = @_event_packets.shift do
@@ -85,6 +86,7 @@ class BLE
         mutex_unlock
       end
       sleep_ms 50
+      ms += 50
     end
     return 0
   end
