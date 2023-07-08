@@ -77,7 +77,7 @@ class BLE
   def heartbeat_off: () -> void
   def heartbeat_period_ms=: (Integer) -> Integer
   def gap_local_bd_addr: () -> String
-  def get_read_value: (Integer) -> (String|nil)
+  def get_write_value: (Integer) -> (String|nil)
   def set_read_value: (Integer, String) -> void
 
   class Utils
@@ -85,6 +85,19 @@ class BLE
     def self.uuid: (untyped) -> String
     def self.int16_to_little_endian: (Integer) -> String
     def self.valid_char_for_uuid?: (String | nil) -> bool
+  end
+
+  class AdvertisingReport
+    type report_t = {type: Integer, value: String}
+    EVENT_TYPE: Hash[Integer, Symbol]
+    ADDRESS_TYPE: Array[Symbol]
+    attr_reader event_type: Integer
+    attr_reader address_type: Integer
+    attr_reader address: String
+    attr_reader rssi: Integer | nil
+    attr_reader reports: Array[report_t]
+    def initialize: (String) -> void
+    def inspect_reports: (String) -> Array[report_t]
   end
 
   class GattDatabase

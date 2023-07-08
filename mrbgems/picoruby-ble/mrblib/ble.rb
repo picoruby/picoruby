@@ -94,7 +94,7 @@ class BLE
   end
 
   def get_write_value(handle)
-    return unless mutex_trylock
+    return nil unless mutex_trylock
     value = @_write_values.delete(handle)
     mutex_unlock
     return value

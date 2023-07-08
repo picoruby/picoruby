@@ -9,6 +9,8 @@ module Kernel
 end
 
 require_relative "../mrblib/ble.rb"
+require_relative "../mrblib/ble_utils.rb"
+require_relative "../mrblib/ble_gatt_database.rb"
 
 class MbedTLS
   class CMAC
@@ -34,7 +36,7 @@ CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
 db = BLE::GattDatabase.new do |db|
   db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
-    s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, READ, "picoR_temp")
+    s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, READ, "PicoRuby BLE")
   end
   db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
     s.add_characteristic(BLE::CHARACTERISTIC_DATABASE_HASH, READ)

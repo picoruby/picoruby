@@ -18,6 +18,8 @@ class MyCentral < BLE::Central
     #   :TC_W4_CHARACTERISTIC_RESULT
     #   :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
     #   :TC_W4_READY
+    @found_devices = {}
+    @found_devices_count_limit = 10
   end
 
   def heartbeat_callback
@@ -37,7 +39,15 @@ class MyCentral < BLE::Central
       end
     when GAP_EVENT_ADVERTISING_REPORT
       return unless @state == :TC_W4_SCAN_RESULT
-      #debug_puts "Advertising report received."
+      adv_report = BLE::AdvertisingReport.new(event_packet)
+      if @found_devices_count_limit <= @found_devices.count
+        return
+      end
+      unless @found_devices[adv_report.address]
+        @found_devices[adv_report.address] = adv_report
+        debug_puts adv_report.inspect
+        debug_puts ""
+      end
     when HCI_EVENT_LE_META
       #debug_puts "event_packet: #{event_packet.inspect}"
       case event_packet[2]&.ord

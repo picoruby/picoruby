@@ -47,6 +47,7 @@ class MyPeripheral < BLE::Peripheral
     temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
     set_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(temperature))
     if @counter == 10
+      puts "temperature: #{temperature}"
       if @notification_enabled
         debug_puts "request_can_send_now_event"
         request_can_send_now_event
@@ -58,11 +59,7 @@ class MyPeripheral < BLE::Peripheral
       @led.write(@led_on ? 1 : 0)
     end
     if write_value = get_write_value(@configuration_handle)
-      if write_value == "\x01\x00"
-        @notification_enabled = true
-      else
-        @notification_enabled = false
-      end
+      @notification_enabled = ( write_value == "\x01\x00" )
     end
   end
 
