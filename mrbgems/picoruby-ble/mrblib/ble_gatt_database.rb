@@ -13,7 +13,10 @@ class BLE
       @current_handle = 0
       @hash_src = ""
       @hash_pos = nil
-      @database_hash_key = "\x00" * 16
+      # workaround: bug of picoruby-compiler? mruby/c?
+      # @database_hash_key = "\x00" * 16
+      # => "" # expected: "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+      @database_hash_key = 0.chr * 16
       block.call self
       insert_database_hash
       @profile_data << "\x00\x00"
