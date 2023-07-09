@@ -1,6 +1,5 @@
 class IO
   def self.raw(&block)
-    raise Exception.new("no block given") unless block
     self.raw!
     res = block.call
   ensure
@@ -47,25 +46,25 @@ class IO
 
   def self.wait_terminal(timeout: nil)
     timer = 0.0
+    res = false
     IO.raw do
       while true
         timer += 0.1
-        print "\e[5n"
+        print "\e[5n" # CSI DSR 5 to request terminal status report
         sleep 0.1
-        if "\e[0n" == IO.read_nonblock(10) || (timeout && timeout.to_f < timer)
+        if IO.read_nonblock(10) == "\e[0n"
+          res = true
           break
         end
+        if timeout && timeout.to_f < timer
+          ENV['TERM'] = "dumb"
+          # TODO: refactor after fixing the bug
+          # https://github.com/picoruby/picoruby/issues/148
+          return false
+        end
       end
-      sleep 0.1
-      IO.read_nonblock(10) # discard the rest
     end
-    # to avoid "get_cursor_position failed"
-    if timeout && timeout.to_f < timer
-      ENV['TERM'] = "dumb"
-      return false
-    else
-      return true
-    end
+    res
   end
 end
 
