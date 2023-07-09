@@ -9,6 +9,10 @@ class BLE
   HCI_STATE_SLEEPING = 4
   HCI_STATE_FALLING_ASLEEP = 5
 
+  HCI_POWER_OFF = 0
+  HCI_POWER_ON = 1
+  HCI_POWER_SLEEP = 2
+
   # GATT Characteristic Properties
   BROADCAST =                   0x01
   READ =                        0x02
@@ -71,33 +75,48 @@ class BLE
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
-  def initialize(profile_data = nil, debug = false)
-    @debug = debug
+  def initialize(profile_data = nil)
+    @debug = false
     @_read_values = {}
     @_write_values = {}
     @_event_packets = []
+    @heartbeat_period_ms = 1000
     CYW43.init
     _init(profile_data)
   end
 
-  def start
-    hci_power_on
-    ms = 0
+  attr_accessor :heartbeat_period_ms, :debug
+
+  POLLING_UNIT_MS = 50
+
+  def start(duration = nil)
+    duration_ms = duration ? duration * 1000 : nil
+    if duration_ms
+      debug_puts "Starting for #{duration_ms} ms"
+    else
+      debug_puts "Starting with infinite loop. Ctrl-C for stop"
+    end
+    heartbeat_ms = 0
+    total_duration_ms = 0
+    hci_power_control(HCI_POWER_ON)
     while true
-      if 1000 < ms
-        ms = 0
+      if @heartbeat_period_ms < heartbeat_ms
+        heartbeat_ms = 0
         heartbeat_callback
       end
+      break if duration_ms && duration_ms <= total_duration_ms
       if mutex_trylock
         while event_packet = @_event_packets.shift do
           packet_callback(event_packet)
         end
         mutex_unlock
       end
-      sleep_ms 50
-      ms += 50
+      sleep_ms POLLING_UNIT_MS
+      heartbeat_ms += POLLING_UNIT_MS
+      total_duration_ms += POLLING_UNIT_MS
     end
-    return 0
+    hci_power_control(HCI_POWER_SLEEP)
+    return total_duration_ms
   end
 
   def debug_puts(*args)

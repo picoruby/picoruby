@@ -1,11 +1,11 @@
-class MyCentral < BLE::Central
+class DemoCentral < BLE::Central
   HCI_SUBEVENT_LE_CONNECTION_COMPLETE = 0x01
   BTSTACK_EVENT_STATE = 0x60
   HCI_EVENT_LE_META = 0x3E
   GAP_EVENT_ADVERTISING_REPORT = 0xda
 
-  def initialize(debug)
-    super(nil, debug)
+  def initialize
+    super(nil)
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
     @state = :TC_IDLE
@@ -18,7 +18,6 @@ class MyCentral < BLE::Central
     #   :TC_W4_CHARACTERISTIC_RESULT
     #   :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
     #   :TC_W4_READY
-    @found_devices = {}
     @found_devices_count_limit = 10
   end
 
@@ -40,13 +39,11 @@ class MyCentral < BLE::Central
     when GAP_EVENT_ADVERTISING_REPORT
       return unless @state == :TC_W4_SCAN_RESULT
       adv_report = BLE::AdvertisingReport.new(event_packet)
-      if @found_devices_count_limit <= @found_devices.count
+      if @found_devices_count_limit <= found_devices.count
         return
       end
-      unless @found_devices[adv_report.address]
-        @found_devices[adv_report.address] = adv_report
-        debug_puts adv_report.inspect
-        debug_puts ""
+      unless found_devices.any?{ |d| d.address == adv_report.address }
+        add_found_device adv_report
       end
     when HCI_EVENT_LE_META
       #debug_puts "event_packet: #{event_packet.inspect}"

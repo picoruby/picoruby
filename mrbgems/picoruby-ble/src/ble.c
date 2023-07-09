@@ -66,9 +66,10 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_hci_power_on(mrbc_vm *vm, mrbc_value *v, int argc)
+c_hci_power_control(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_hci_power_on();
+  BLE_hci_power_control(GET_INT_ARG(1));
+  SET_INT_RETURN(0);
 }
 
 static void
@@ -103,7 +104,7 @@ mrbc_ble_init(void)
 {
   mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_BLE, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_BLE, "hci_power_on", c_hci_power_on);
+  mrbc_define_method(0, mrbc_class_BLE, "hci_power_control", c_hci_power_control);
   mrbc_define_method(0, mrbc_class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
   mrbc_define_method(0, mrbc_class_BLE, "mutex_trylock", c_mutex_trylock);
   mrbc_define_method(0, mrbc_class_BLE, "mutex_unlock", c_mutex_unlock);

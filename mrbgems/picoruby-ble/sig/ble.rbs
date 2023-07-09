@@ -7,6 +7,10 @@ class BLE
   HCI_STATE_SLEEPING: Integer
   HCI_STATE_FALLING_ASLEEP: Integer
 
+  HCI_POWER_OFF: Integer
+  HCI_POWER_ON: Integer
+  HCI_POWER_SLEEP: Integer
+
   CLIENT_CHARACTERISTIC_CONFIGURATION: Integer
   CHARACTERISTIC_DATABASE_HASH: Integer
 
@@ -60,17 +64,22 @@ class BLE
   ATT_PROPERTY_READ: Integer
   GATT_CHARACTERISTIC_UUID: Integer
 
-  @debug: bool
+  POLLING_UNIT_MS: Integer
+
   @_write_values: Hash[Integer, String]
   @_read_values: Hash[Integer, String]
   @_event_packets: event_packet_t
+  
+  attr_accessor heartbeat_period_ms: Integer
+  attr_accessor debug: bool
 
   type event_packet_t = Array[String]
 
-  def initialize: (?(String|nil), ?bool) -> void
+  def initialize: (?(String|nil)) -> void
   def _init: (String | nil) -> void
-  def hci_power_on: () -> void
-  def start: () -> 0
+  def debug_puts: (*untyped) -> nil
+  def hci_power_control: (Integer) -> 0
+  def start: (?(Integer|nil)) -> Integer
   def mutex_trylock: () -> bool
   def mutex_unlock: () -> 0
   def packet_callback: (String) -> void
@@ -96,6 +105,7 @@ class BLE
     attr_reader rssi: Integer | nil
     attr_reader reports: Array[report_t]
     def initialize: (String) -> void
+    def format: () -> String
     def inspect_reports: (String) -> Array[report_t]
   end
 
@@ -136,8 +146,13 @@ class BLE
   end
 
   class Central < BLE
-    def start_scan: () -> 0
+    type found_devices_t = Array[BLE::AdvertisingReport]
+    attr_reader found_devices: found_devices_t
 
+    def add_found_device: (BLE::AdvertisingReport) -> found_devices_t
+    def clear_found_devices: () -> found_devices_t
+    def print_found_devices: () -> nil
+    def start_scan: () -> 0
     def get_packet: () -> String
   end
 

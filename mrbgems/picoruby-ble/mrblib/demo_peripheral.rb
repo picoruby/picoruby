@@ -1,6 +1,6 @@
 require 'adc'
 
-class MyPeripheral < BLE::Peripheral
+class DemoPeripheral < BLE::Peripheral
   # for advertising
   APP_AD_FLAGS = 0x06
   BLUETOOTH_DATA_TYPE_FLAGS = 0x01
@@ -16,7 +16,7 @@ class MyPeripheral < BLE::Peripheral
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
-  def initialize(debug)
+  def initialize
     db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
         s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "R2P2")
@@ -30,7 +30,7 @@ class MyPeripheral < BLE::Peripheral
     end
     @temperature_handle = db.handle_table[:characteristic][:value][CHARACTERISTIC_TEMPERATURE]
     @configuration_handle = db.handle_table[:characteristic][:client_configuration][CHARACTERISTIC_TEMPERATURE]
-    super(db.profile_data, debug)
+    super(db.profile_data)
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
     @counter = 0

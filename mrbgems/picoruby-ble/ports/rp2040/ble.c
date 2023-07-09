@@ -60,9 +60,10 @@ BLE_init(const uint8_t *profile_data)
   return 0;
 }
 
-void BLE_hci_power_on(void)
+void
+BLE_hci_power_control(uint8_t power_mode)
 {
-  hci_power_control(HCI_POWER_ON);
+  hci_power_control(power_mode);
 }
 
 void

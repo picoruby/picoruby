@@ -18,7 +18,7 @@ void mrbc_init_class_BLE_Central(void);
 
 int BLE_init(const uint8_t *profile);
 
-void BLE_hci_power_on(void);
+void BLE_hci_power_control(uint8_t power_mode);
 
 void BLE_gap_local_bd_addr(uint8_t *local_addr);
 
