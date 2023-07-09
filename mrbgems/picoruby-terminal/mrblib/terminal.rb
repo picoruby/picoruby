@@ -411,7 +411,9 @@ class Terminal
       print "\e[m"
       while true
         refresh
-        case c = IO.getch.ord
+        while !(c = IO.getch&.ord)
+        end
+        case c
         when 3 # Ctrl-C
           return if @quit_by_ctrl_c
         when 4 # Ctrl-D logout
