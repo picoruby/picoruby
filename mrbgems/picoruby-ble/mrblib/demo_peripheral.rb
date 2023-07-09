@@ -47,8 +47,6 @@ class MyPeripheral < BLE::Peripheral
     temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
     set_read_value(@temperature_handle, BLE::Utils.int16_to_little_endian(temperature))
     if @counter == 10
-      puts "temperature: #{temperature}"
-      p PicoRubyVM.memory_statistics
       if @notification_enabled
         debug_puts "request_can_send_now_event"
         request_can_send_now_event
