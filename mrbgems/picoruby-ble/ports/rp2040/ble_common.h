@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 /* Globals used in ports/rp2040/ble_{peripheral,central}.c */
+extern hci_con_handle_t con_handle;
 extern btstack_timer_source_t ble_heartbeat;
 extern btstack_packet_callback_registration_t ble_hci_event_callback_registration;
 void BLE_heartbeat_handler(struct btstack_timer_source *ts);

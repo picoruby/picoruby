@@ -31,7 +31,6 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
 }
 
-#include <mrubyc.h>
 int
 BLE_read_data(BLE_read_value_t *read_value)
 {
@@ -43,6 +42,27 @@ BLE_read_data(BLE_read_value_t *read_value)
   read_value->data = value.string->data;
   read_value->size = value.string->size;
   return 0;
+}
+
+static void
+c__init(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  const uint8_t *profile_data;
+  if (GET_TT_ARG(1) == MRBC_TT_STRING) {
+    /* Protect profile_data from GC */
+    mrbc_incref(&v[1]);
+    profile_data = GET_STRING_ARG(1);
+  } else if (GET_TT_ARG(1) == MRBC_TT_NIL) {
+    profile_data = NULL;
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong argument type");
+    return;
+  }
+  if (BLE_init(profile_data) < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
+    return;
+  }
+  singleton.instance = v[0].instance;
 }
 
 static void
@@ -82,6 +102,7 @@ void
 mrbc_ble_init(void)
 {
   mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
+  mrbc_define_method(0, mrbc_class_BLE, "_init", c__init);
   mrbc_define_method(0, mrbc_class_BLE, "hci_power_on", c_hci_power_on);
   mrbc_define_method(0, mrbc_class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
   mrbc_define_method(0, mrbc_class_BLE, "mutex_trylock", c_mutex_trylock);

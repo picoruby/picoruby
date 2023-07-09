@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-int BLE_peripheral_init(const uint8_t *profile);
-
 void BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len);
 void BLE_peripheral_notify(uint16_t att_handle);
 

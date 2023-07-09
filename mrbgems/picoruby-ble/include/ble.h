@@ -16,6 +16,8 @@ void BLE_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, 
 void mrbc_init_class_BLE_Peripheral(void);
 void mrbc_init_class_BLE_Central(void);
 
+int BLE_init(const uint8_t *profile);
+
 void BLE_hci_power_on(void);
 
 void BLE_gap_local_bd_addr(uint8_t *local_addr);

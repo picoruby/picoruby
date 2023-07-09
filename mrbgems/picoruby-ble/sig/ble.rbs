@@ -67,6 +67,8 @@ class BLE
 
   type event_packet_t = Array[String]
 
+  def initialize: (?(String|nil), ?bool) -> void
+  def _init: (String | nil) -> void
   def hci_power_on: () -> void
   def start: () -> 0
   def mutex_trylock: () -> bool
@@ -127,9 +129,6 @@ class BLE
   end
 
   class Peripheral < BLE
-    def initialize: (String, ?bool) -> void
-    def _init: (String) -> void
-
     def advertise: (String) -> void
     def notify: (Integer) -> void
 
@@ -137,8 +136,6 @@ class BLE
   end
 
   class Central < BLE
-    def initialize: (?bool) -> void
-    def _init: () -> void
     def start_scan: () -> 0
 
     def get_packet: () -> String

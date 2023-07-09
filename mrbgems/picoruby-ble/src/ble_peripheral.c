@@ -4,18 +4,6 @@
 #include "../include/ble_peripheral.h"
 
 static void
-c__init(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (BLE_peripheral_init(GET_STRING_ARG(1)) < 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE::Peripheral init failed");
-    return;
-  }
-  singleton.instance = v[0].instance;
-  /* Protect profile_data from GC */
-  mrbc_incref(&v[1]);
-}
-
-static void
 c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_value adv_data = GET_ARG(1);
@@ -58,7 +46,6 @@ mrbc_init_class_BLE_Peripheral(void)
   mrbc_value *BLE = mrbc_get_class_const(mrbc_class_BLE, mrbc_search_symid("Peripheral"));
   mrbc_class *mrbc_class_BLE_Peripheral = BLE->cls;
 
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "_init", c__init);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
   mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notify", c_notify);
 

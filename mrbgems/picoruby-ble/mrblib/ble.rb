@@ -71,6 +71,15 @@ class BLE
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
+  def initialize(profile_data = nil, debug = false)
+    @debug = debug
+    @_read_values = {}
+    @_write_values = {}
+    @_event_packets = []
+    CYW43.init
+    _init(profile_data)
+  end
+
   def start
     hci_power_on
     ms = 0

@@ -5,7 +5,7 @@ class MyCentral < BLE::Central
   GAP_EVENT_ADVERTISING_REPORT = 0xda
 
   def initialize(debug)
-    super(debug)
+    super(nil, debug)
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
     @state = :TC_IDLE
