@@ -12,7 +12,6 @@ MRuby::CrossBuild.new("no-libc-host") do |conf|
   conf.cc.defines << "LEMON_PICORBC=1"
   conf.cc.defines << "MRBC_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
-  conf.cc.defines << "MAX_SYMBOLS_COUNT=10000"
 
   conf.gem core: "picoruby-filesystem-fat"
   conf.gem core: "picoruby-vim"
