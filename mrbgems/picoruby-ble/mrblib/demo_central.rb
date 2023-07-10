@@ -95,14 +95,6 @@ class DemoCentral < BLE::Central
         uuid128: uuid128,
         uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord
       }
-      if @_discovering_characteristics_index < @services.count - 1
-        debug_puts "discovering next"
-        @_discovering_characteristics_index += 1
-        @services[@_discovering_characteristics_index][:characteristics].clear
-        discover_characteristics_for_service(@conn_handle, @services[@_discovering_characteristics_index])
-      else
-        @state = :TC_W4_READY
-      end
     when GATT_EVENT_QUERY_COMPLETE
       case @state
       when :TC_W4_SERVICE_RESULT
@@ -113,8 +105,19 @@ class DemoCentral < BLE::Central
         @state = :TC_W4_CHARACTERISTIC_RESULT
       when :TC_W4_CHARACTERISTIC_RESULT
         debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic"
+        if @_discovering_characteristics_index < @services.count - 1
+          debug_puts "discovering next"
+          @_discovering_characteristics_index += 1
+          @services[@_discovering_characteristics_index][:characteristics].clear
+          discover_characteristics_for_service(@conn_handle, @services[@_discovering_characteristics_index])
+        end
+      when :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
+        # TODO
         @state = :TC_W4_READY
       end
+     when GATT_EVENT_NOTIFICATION
+       return unless @state == :TC_W4_READY
+       # TODO
     end
   end
 end
