@@ -3,9 +3,33 @@ class BLE
     def initialize(profile_data = nil)
       super(profile_data)
       @found_devices = []
+      reset_state
+      @services = []
     end
 
-    attr_reader :found_devices
+    attr_reader :found_devices, :services
+
+    def reset_state
+      @state = :TC_OFF
+    end
+
+    def connect(device_id)
+      unless device = @found_devices[device_id]
+        puts "No device with id #{device_id} found."
+        return false
+      end
+      stop_scan # Is it necessary?
+      @_event_packets.clear
+      err_code = gap_connect(device.address, device.address_type)
+      if err_code == 0
+        @state = :TC_W4_CONNECT
+        start(10, :TC_W4_READY)
+        return true
+      else
+        puts "Error: #{err_code}"
+        return false
+      end
+    end
 
     def add_found_device(adv_report)
       @found_devices << adv_report

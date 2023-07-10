@@ -79,7 +79,7 @@ class BLE
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer) -> 0
-  def start: (?(Integer|nil)) -> Integer
+  def start: (?(Integer | nil), ?(Symbol | nil)) -> Integer
   def mutex_trylock: () -> bool
   def mutex_unlock: () -> 0
   def packet_callback: (String) -> void
@@ -87,6 +87,7 @@ class BLE
   def gap_local_bd_addr: () -> String
   def get_write_value: (Integer) -> (String|nil)
   def set_read_value: (Integer, String) -> void
+  def gap_connect: (String, Integer) -> Integer
 
   class Utils
     def self.bd_addr_to_str: (String) -> String
@@ -147,12 +148,25 @@ class BLE
 
   class Central < BLE
     type found_devices_t = Array[BLE::AdvertisingReport]
+    type service_t = {
+      start_group_handle: Integer,
+      end_group_handle: Integer,
+      uuid16: Integer,
+      uuid128: String
+    }
+
+    @state: Symbol
+    attr_reader services: Array[service_t]
+
     attr_reader found_devices: found_devices_t
 
+    def reset_state: () -> Symbol
     def add_found_device: (BLE::AdvertisingReport) -> found_devices_t
     def clear_found_devices: () -> found_devices_t
     def print_found_devices: () -> nil
     def start_scan: () -> 0
+    def stop_scan: () -> 0
+    def connect: (Integer) -> bool
     def get_packet: () -> String
   end
 

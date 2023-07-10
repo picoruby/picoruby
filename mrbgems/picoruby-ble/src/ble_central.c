@@ -3,12 +3,63 @@
 #include "../include/ble.h"
 #include "../include/ble_central.h"
 
+void
+BLE_central_push_service(uint16_t start_group_handle, uint16_t end_group_handle, uint16_t uuid16, const uint8_t *uuid128)
+{
+  if (singleton.instance == NULL) return;
+  mrbc_value _services = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_services"));
+  if (_services.tt != MRBC_TT_ARRAY) return;
+  mrbc_value hash = mrbc_hash_new(NULL, 4);
+  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("start_group_handle")), &mrbc_integer_value(start_group_handle));
+  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("end_group_handle")), &mrbc_integer_value(end_group_handle));
+  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("uuid16")), &mrbc_integer_value(uuid16));
+  mrbc_value uuid128_value = mrbc_string_new(NULL, uuid128, 16);
+  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("uuid128")), &uuid128_value);
+  mrbc_array_push(&_services, &hash);
+}
+
+static void
+c_discover_primary_services(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (GET_TT_ARG(1) != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
+    return;
+  }
+  uint8_t res = BLE_discover_primary_services((uint16_t)GET_INT_ARG(1));
+  SET_INT_RETURN(res);
+}
 
 static void
 c_start_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   BLE_central_start_scan();
   SET_INT_RETURN(0);
+}
+
+static void
+c_stop_scan(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_central_stop_scan();
+  SET_INT_RETURN(0);
+}
+
+static void
+c_gap_connect(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (GET_TT_ARG(1) != MRBC_TT_STRING || GET_TT_ARG(2) != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
+    return;
+  }
+  uint8_t res = BLE_central_gap_connect(GET_STRING_ARG(1), GET_INT_ARG(2));
+  SET_INT_RETURN(res);
 }
 
 void
@@ -19,4 +70,7 @@ mrbc_init_class_BLE_Central(void)
   mrbc_class *mrbc_class_BLE_Central = BLE->cls;
 
   mrbc_define_method(0, mrbc_class_BLE_Central, "start_scan", c_start_scan);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "stop_scan", c_stop_scan);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "gap_connect", c_gap_connect);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "discover_primary_services", c_discover_primary_services);
 }

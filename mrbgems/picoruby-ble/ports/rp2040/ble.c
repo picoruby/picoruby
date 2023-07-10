@@ -39,18 +39,66 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
   return 0;
 }
 
+static bool listen_query = false;
+
+#include <mrubyc.h>
+
+void
+BLE_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+  if (packet_type != HCI_EVENT_PACKET) return;
+  switch (hci_event_packet_get_type(packet)) {
+    /*
+    * Ignore these events not to overflow the queue
+    */
+    case HCI_EVENT_NUMBER_OF_COMPLETED_PACKETS: // 0x13
+    case BTSTACK_EVENT_NR_CONNECTIONS_CHANGED:  // 0x61
+    case HCI_EVENT_TRANSPORT_PACKET_SENT:       // 0x6e
+    case HCI_EVENT_COMMAND_COMPLETE:            // 0x0e
+      break;
+//    case GATT_EVENT_SERVICE_QUERY_RESULT:
+//    case GATT_EVENT_QUERY_COMPLETE:
+//    case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
+//      console_printf("GATT_EVENT_SERVICE_QUERY_RESULT\n");
+//      if (listen_query) BLE_push_event(packet, size);
+//      break;
+    default:
+      BLE_push_event(packet, size);
+      break;
+  }
+}
+
+void
+BLE_packet_handler_2(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+  if (packet_type != HCI_EVENT_PACKET) return;
+  switch (hci_event_packet_get_type(packet)) {
+    case GATT_EVENT_SERVICE_QUERY_RESULT:
+    case GATT_EVENT_QUERY_COMPLETE:
+    case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
+      if (listen_query) BLE_push_event(packet, size);
+      break;
+    default:
+      break;
+  }
+}
+
 int
 BLE_init(const uint8_t *profile_data)
 {
   l2cap_init();
   sm_init();
 
+  /*
+   * Fixme: This looks like a hardcodeing.
+   */
   if (profile_data) {
     att_server_init(profile_data, att_read_callback, att_write_callback);
     att_server_register_packet_handler(BLE_packet_handler);
   } else {
-    att_server_init(NULL, NULL, NULL);
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+    att_server_init(NULL, NULL, NULL);
+    gatt_client_init();
   }
 
   // inform about BTstack state
@@ -72,23 +120,9 @@ BLE_gap_local_bd_addr(uint8_t *local_addr)
   gap_local_bd_addr(local_addr);
 }
 
-void
-BLE_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+uint8_t
+BLE_discover_primary_services(uint16_t conn_handle)
 {
-  if (packet_type != HCI_EVENT_PACKET) return;
-  uint8_t _type = hci_event_packet_get_type(packet);
-  switch (_type) {
-    /*
-     * Ignore these events not to overflow the queue
-     */
-    case HCI_EVENT_NUMBER_OF_COMPLETED_PACKETS: // 0x13
-    case BTSTACK_EVENT_NR_CONNECTIONS_CHANGED:  // 0x61
-    case HCI_EVENT_TRANSPORT_PACKET_SENT:       // 0x6e
-    case HCI_EVENT_COMMAND_COMPLETE:            // 0x0e
-      break;
-    default:
-      BLE_push_event(packet, size);
-      break;
-  }
+  listen_query = true;
+  return gatt_client_discover_primary_services(&BLE_packet_handler_2, conn_handle);
 }
-

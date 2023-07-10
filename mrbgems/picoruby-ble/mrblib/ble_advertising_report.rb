@@ -16,11 +16,10 @@ class BLE
       0xff => :manufacturer_specific_data
     }
     ADDRESS_TYPE = [
-      :public_device_address,
-      :random_device_address,
-      :public_identity_address,
-      :random_identity_address,
-      :unknown
+      :public,
+      :random,
+      :public_identity,
+      :random_identity
     ]
     attr_reader :event_type, :address_type, :address, :rssi, :reports
 
@@ -30,7 +29,10 @@ class BLE
       end
       @event_type = packet[2]&.ord || -1
       @address_type = packet[3]&.ord || 4
-      @address = packet[4, 6] || ""
+      @address = ""
+      5.downto(0) do |i|
+        @address << (packet[4 + i] || "\x00")
+      end
       @rssi = (packet[10]&.ord || 0) - 256
       data_length = packet[11]&.ord || 0
       @reports = inspect_reports(packet[12, data_length] || "")

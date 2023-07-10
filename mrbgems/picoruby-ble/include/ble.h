@@ -33,6 +33,7 @@ typedef struct {
 int BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size);
 int BLE_read_data(BLE_read_value_t *read_value);
 
+uint8_t BLE_discover_primary_services(uint16_t conn_handle);
 
 #ifdef __cplusplus
 }

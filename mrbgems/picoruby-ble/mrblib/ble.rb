@@ -89,7 +89,7 @@ class BLE
 
   POLLING_UNIT_MS = 50
 
-  def start(duration = nil)
+  def start(duration = nil, stop_condition = nil)
     duration_ms = duration ? duration * 1000 : nil
     if duration_ms
       debug_puts "Starting for #{duration_ms} ms"
@@ -111,11 +111,13 @@ class BLE
         end
         mutex_unlock
       end
+      if @state == stop_condition
+        return total_duration_ms
+      end
       sleep_ms POLLING_UNIT_MS
       heartbeat_ms += POLLING_UNIT_MS
       total_duration_ms += POLLING_UNIT_MS
     end
-    hci_power_control(HCI_POWER_SLEEP)
     return total_duration_ms
   end
 
