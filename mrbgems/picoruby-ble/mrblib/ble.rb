@@ -87,7 +87,7 @@ class BLE
 
   attr_accessor :heartbeat_period_ms, :debug
 
-  POLLING_UNIT_MS = 50
+  POLLING_UNIT_MS = 10
 
   def start(duration = nil, stop_condition = nil)
     duration_ms = duration ? duration * 1000 : nil
@@ -114,7 +114,7 @@ class BLE
       if @state == stop_condition
         return total_duration_ms
       end
-      sleep_ms POLLING_UNIT_MS
+      sleep_ms POLLING_UNIT_MS - 2
       heartbeat_ms += POLLING_UNIT_MS
       total_duration_ms += POLLING_UNIT_MS
     end

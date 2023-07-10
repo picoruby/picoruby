@@ -39,44 +39,18 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
   return 0;
 }
 
-static bool listen_query = false;
-
-#include <mrubyc.h>
-
 void
 BLE_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
   if (packet_type != HCI_EVENT_PACKET) return;
   switch (hci_event_packet_get_type(packet)) {
-    /*
-    * Ignore these events not to overflow the queue
-    */
-    case HCI_EVENT_NUMBER_OF_COMPLETED_PACKETS: // 0x13
-    case BTSTACK_EVENT_NR_CONNECTIONS_CHANGED:  // 0x61
-    case HCI_EVENT_TRANSPORT_PACKET_SENT:       // 0x6e
-    case HCI_EVENT_COMMAND_COMPLETE:            // 0x0e
-      break;
-//    case GATT_EVENT_SERVICE_QUERY_RESULT:
-//    case GATT_EVENT_QUERY_COMPLETE:
-//    case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
-//      console_printf("GATT_EVENT_SERVICE_QUERY_RESULT\n");
-//      if (listen_query) BLE_push_event(packet, size);
-//      break;
-    default:
-      BLE_push_event(packet, size);
-      break;
-  }
-}
-
-void
-BLE_packet_handler_2(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
-{
-  if (packet_type != HCI_EVENT_PACKET) return;
-  switch (hci_event_packet_get_type(packet)) {
+    case BTSTACK_EVENT_STATE:
+    case GAP_EVENT_ADVERTISING_REPORT:
+    case HCI_EVENT_LE_META:
     case GATT_EVENT_SERVICE_QUERY_RESULT:
-    case GATT_EVENT_QUERY_COMPLETE:
     case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
-      if (listen_query) BLE_push_event(packet, size);
+    case GATT_EVENT_QUERY_COMPLETE:
+      BLE_push_event(packet, size);
       break;
     default:
       break;
@@ -123,8 +97,7 @@ BLE_gap_local_bd_addr(uint8_t *local_addr)
 uint8_t
 BLE_discover_primary_services(uint16_t conn_handle)
 {
-  listen_query = true;
-  return gatt_client_discover_primary_services(&BLE_packet_handler_2, conn_handle);
+  return gatt_client_discover_primary_services(&BLE_packet_handler, conn_handle);
 }
 
 uint8_t
@@ -139,6 +112,6 @@ BLE_discover_characteristics_for_service(
     .uuid16 = 0,
     .uuid128 = { 0 }
   };
-  return gatt_client_discover_characteristics_for_service(&BLE_packet_handler_2, conn_handle, &service);
+  return gatt_client_discover_characteristics_for_service(&BLE_packet_handler, conn_handle, &service);
 }
 
