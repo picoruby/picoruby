@@ -126,3 +126,19 @@ BLE_discover_primary_services(uint16_t conn_handle)
   listen_query = true;
   return gatt_client_discover_primary_services(&BLE_packet_handler_2, conn_handle);
 }
+
+uint8_t
+BLE_discover_characteristics_for_service(
+    uint16_t conn_handle,
+    uint16_t start_handle,
+    uint16_t end_handle)
+{
+  gatt_client_service_t service = {
+    .start_group_handle = start_handle,
+    .end_group_handle = end_handle,
+    .uuid16 = 0,
+    .uuid128 = { 0 }
+  };
+  return gatt_client_discover_characteristics_for_service(&BLE_packet_handler_2, conn_handle, &service);
+}
+

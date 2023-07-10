@@ -35,7 +35,6 @@ class DemoCentral < BLE::Central
     case event_packet[0]&.ord # event type
     when BTSTACK_EVENT_STATE
       return if @state != :TC_OFF && @state != :TC_IDLE
-      debug_puts "event_packet: #{event_packet.inspect}"
       if event_packet[2]&.ord == BLE::HCI_STATE_WORKING
         debug_puts "Central is up and running on: `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
         start_scan
@@ -71,6 +70,7 @@ class DemoCentral < BLE::Central
       end
     when GATT_EVENT_SERVICE_QUERY_RESULT
       return unless @state == :TC_W4_SERVICE_RESULT
+      debug_puts "GATT_EVENT_SERVICE_QUERY_RESULT"
       debug_puts "event_packet: #{event_packet.inspect}"
       uuid128 = ""
       15.downto(0) { |i| uuid128 << event_packet[8 + i] }
@@ -78,24 +78,42 @@ class DemoCentral < BLE::Central
         start_group_handle: BLE::Utils.little_endian_to_int16(event_packet[4]),
         end_group_handle: BLE::Utils.little_endian_to_int16(event_packet[6]),
         uuid128: uuid128,
-        uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord
+        uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord,
+        characteristics: []
       }
     when GATT_EVENT_CHARACTERISTIC_QUERY_RESULT
       return unless @state == :TC_W4_CHARACTERISTIC_RESULT
-      puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
+      debug_puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
+      debug_puts "event_packet: #{event_packet.inspect}"
+      uuid128 = ""
+      15.downto(0) { |i| uuid128 << event_packet[12 + i] }
+      @services[@_discovering_characteristics_index][:characteristics] << {
+        start_handle: BLE::Utils.little_endian_to_int16(event_packet[4]),
+        value_handle: BLE::Utils.little_endian_to_int16(event_packet[6]),
+        end_handle: BLE::Utils.little_endian_to_int16(event_packet[8]),
+        properties: BLE::Utils.little_endian_to_int16(event_packet[10]),
+        uuid128: uuid128,
+        uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord
+      }
+      if @_discovering_characteristics_index < @services.count - 1
+        debug_puts "discovering next"
+        @_discovering_characteristics_index += 1
+        @services[@_discovering_characteristics_index][:characteristics].clear
+        discover_characteristics_for_service(@conn_handle, @services[@_discovering_characteristics_index])
+      else
+        @state = :TC_W4_READY
+      end
     when GATT_EVENT_QUERY_COMPLETE
       case @state
       when :TC_W4_SERVICE_RESULT
+        debug_puts "GATT_EVENT_QUERY_COMPLETE for service"
+        @services[0][:characteristics].clear
+        discover_characteristics_for_service(@conn_handle, @services[0])
         @_discovering_characteristics_index = 0
-        discover_characteristics_for_service(@conn_handle, @services[@_discovering_characteristics_index])
         @state = :TC_W4_CHARACTERISTIC_RESULT
       when :TC_W4_CHARACTERISTIC_RESULT
-        @_discovering_characteristics_index += 1
-        if @_discovering_characteristics_index < @services.count
-          discover_characteristics_for_service(@conn_handle, @services[@_discovering_characteristics_index])
-        else
-          @state = :TC_W4_READY
-        end
+        debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic"
+        @state = :TC_W4_READY
       end
     end
   end

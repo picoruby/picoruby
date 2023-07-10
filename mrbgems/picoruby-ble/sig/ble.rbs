@@ -148,16 +148,24 @@ class BLE
 
   class Central < BLE
     type found_devices_t = Array[BLE::AdvertisingReport]
+    type characteristic_t = {
+      start_handle: Integer,
+      value_handle: Integer,
+      end_handle: Integer,
+      properties: Integer,
+      uuid16: Integer,
+      uuid128: String,
+    }
     type service_t = {
       start_group_handle: Integer,
       end_group_handle: Integer,
       uuid16: Integer,
-      uuid128: String
+      uuid128: String,
+      characteristics: Array[characteristic_t]
     }
 
-    @state: Symbol
+    attr_reader state: Symbol
     attr_reader services: Array[service_t]
-
     attr_reader found_devices: found_devices_t
 
     def reset_state: () -> Symbol

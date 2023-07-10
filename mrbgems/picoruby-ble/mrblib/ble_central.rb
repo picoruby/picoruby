@@ -7,7 +7,7 @@ class BLE
       @services = []
     end
 
-    attr_reader :found_devices, :services
+    attr_reader :found_devices, :services, :state
 
     def reset_state
       @state = :TC_OFF
