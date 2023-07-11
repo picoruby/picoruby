@@ -71,6 +71,8 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
         case GAP_EVENT_ADVERTISING_REPORT:
         case GATT_EVENT_SERVICE_QUERY_RESULT:
         case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
+        case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
+        case GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT:
         case GATT_EVENT_QUERY_COMPLETE:
         case GATT_EVENT_NOTIFICATION:
           BLE_push_event(packet, size);
@@ -150,3 +152,14 @@ BLE_discover_characteristics_for_service(uint16_t conn_handle, uint16_t start_ha
   return gatt_client_discover_characteristics_for_service(&packet_handler, conn_handle, &service);
 }
 
+uint8_t
+BLE_read_value_of_characteristic_using_value_handle(uint16_t conn_handle, uint16_t value_handle)
+{
+  return gatt_client_read_value_of_characteristic_using_value_handle(&packet_handler, conn_handle, value_handle);
+}
+
+uint8_t
+BLE_read_characteristic_descriptor_using_descriptor_handle(uint16_t conn_handle, uint16_t descriptor_handle)
+{
+  return gatt_client_read_characteristic_descriptor_using_descriptor_handle(&packet_handler, conn_handle, descriptor_handle);
+}

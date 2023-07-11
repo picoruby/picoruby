@@ -23,7 +23,7 @@ class BLE
       err_code = gap_connect(device.address, device.address_type)
       if err_code == 0
         @state = :TC_W4_CONNECT
-        start(10, :TC_W4_READY)
+        start(10, :TC_IDLE)
         return true
       else
         puts "Error: #{err_code}"

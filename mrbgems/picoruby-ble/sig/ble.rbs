@@ -155,6 +155,7 @@ class BLE
       properties: Integer,
       uuid16: Integer,
       uuid128: String,
+      value: (String|nil)
     }
     type service_t = {
       start_group_handle: Integer,

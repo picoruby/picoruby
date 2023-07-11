@@ -89,7 +89,7 @@ class BLE
 
   POLLING_UNIT_MS = 10
 
-  def start(duration = nil, stop_condition = nil)
+  def start(duration = nil, stop_state = nil)
     duration_ms = duration ? duration * 1000 : nil
     if duration_ms
       debug_puts "Starting for #{duration_ms} ms"
@@ -111,7 +111,7 @@ class BLE
         end
         mutex_unlock
       end
-      if @state == stop_condition
+      if @state == stop_state
         return total_duration_ms
       end
       sleep_ms POLLING_UNIT_MS - 2
