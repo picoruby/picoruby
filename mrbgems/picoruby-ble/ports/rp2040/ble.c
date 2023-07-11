@@ -10,9 +10,17 @@
 
 #include "ble_common.h"
 
-btstack_packet_callback_registration_t ble_hci_event_callback_registration;
+enum BLE_role_t {
+  BLE_ROLE_NONE,
+  BLE_ROLE_CENTRAL,
+  BLE_ROLE_PERIPHERAL
+};
 
-uint16_t
+static enum BLE_role_t role = BLE_ROLE_NONE;
+
+static btstack_packet_callback_registration_t ble_hci_event_callback_registration;
+
+static uint16_t
 att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
 {
   UNUSED(connection_handle);
@@ -27,7 +35,7 @@ att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint1
          );
 }
 
-int
+static int
 att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t transaction_mode, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
 {
   UNUSED(transaction_mode);
@@ -39,25 +47,37 @@ att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint
   return 0;
 }
 
-void
-BLE_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+static void
+packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
 {
   if (packet_type != HCI_EVENT_PACKET) return;
-  switch (hci_event_packet_get_type(packet)) {
-    /* common */
-    case BTSTACK_EVENT_STATE:
-    /* peripheral */
-    case HCI_EVENT_DISCONNECTION_COMPLETE:
-    case ATT_EVENT_MTU_EXCHANGE_COMPLETE:
-    case ATT_EVENT_CAN_SEND_NOW:
-    /* central */
-    case HCI_EVENT_LE_META:
-    case GAP_EVENT_ADVERTISING_REPORT:
-    case GATT_EVENT_SERVICE_QUERY_RESULT:
-    case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
-    case GATT_EVENT_QUERY_COMPLETE:
-    case GATT_EVENT_NOTIFICATION:
-      BLE_push_event(packet, size);
+  switch (role) {
+    case BLE_ROLE_PERIPHERAL:
+      switch (hci_event_packet_get_type(packet)) {
+        case BTSTACK_EVENT_STATE:
+        case HCI_EVENT_DISCONNECTION_COMPLETE:
+        case ATT_EVENT_MTU_EXCHANGE_COMPLETE:
+        case ATT_EVENT_CAN_SEND_NOW:
+          BLE_push_event(packet, size);
+          break;
+        default:
+          break;
+      }
+      break;
+    case BLE_ROLE_CENTRAL:
+      switch (hci_event_packet_get_type(packet)) {
+        case BTSTACK_EVENT_STATE:
+        case HCI_EVENT_LE_META:
+        case GAP_EVENT_ADVERTISING_REPORT:
+        case GATT_EVENT_SERVICE_QUERY_RESULT:
+        case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
+        case GATT_EVENT_QUERY_COMPLETE:
+        case GATT_EVENT_NOTIFICATION:
+          BLE_push_event(packet, size);
+          break;
+        default:
+          break;
+      }
       break;
     default:
       break;
@@ -74,16 +94,27 @@ BLE_init(const uint8_t *profile_data)
    * Fixme: This looks like a hardcodeing.
    */
   if (profile_data) {
-    att_server_init(profile_data, att_read_callback, att_write_callback);
-    att_server_register_packet_handler(BLE_packet_handler);
+    role = BLE_ROLE_PERIPHERAL;
   } else {
-    sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-    att_server_init(NULL, NULL, NULL);
-    gatt_client_init();
+    role = BLE_ROLE_CENTRAL;
+  }
+
+  switch (role) {
+    case BLE_ROLE_PERIPHERAL:
+      att_server_init(profile_data, att_read_callback, att_write_callback);
+      att_server_register_packet_handler(packet_handler);
+      break;
+    case BLE_ROLE_CENTRAL:
+      sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+      att_server_init(NULL, NULL, NULL);
+      gatt_client_init();
+      break;
+    default:
+      break;
   }
 
   // inform about BTstack state
-  ble_hci_event_callback_registration.callback = &BLE_packet_handler;
+  ble_hci_event_callback_registration.callback = &packet_handler;
   hci_add_event_handler(&ble_hci_event_callback_registration);
 
   return 0;
@@ -104,14 +135,11 @@ BLE_gap_local_bd_addr(uint8_t *local_addr)
 uint8_t
 BLE_discover_primary_services(uint16_t conn_handle)
 {
-  return gatt_client_discover_primary_services(&BLE_packet_handler, conn_handle);
+  return gatt_client_discover_primary_services(&packet_handler, conn_handle);
 }
 
 uint8_t
-BLE_discover_characteristics_for_service(
-    uint16_t conn_handle,
-    uint16_t start_handle,
-    uint16_t end_handle)
+BLE_discover_characteristics_for_service(uint16_t conn_handle, uint16_t start_handle, uint16_t end_handle)
 {
   gatt_client_service_t service = {
     .start_group_handle = start_handle,
@@ -119,6 +147,6 @@ BLE_discover_characteristics_for_service(
     .uuid16 = 0,
     .uuid128 = { 0 }
   };
-  return gatt_client_discover_characteristics_for_service(&BLE_packet_handler, conn_handle, &service);
+  return gatt_client_discover_characteristics_for_service(&packet_handler, conn_handle, &service);
 }
 

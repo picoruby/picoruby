@@ -26,19 +26,6 @@ c_request_can_send_now_event(mrbc_vm *vm, mrbc_value *v, int argc)
   BLE_peripheral_request_can_send_now_event();
 }
 
-static void
-c_cyw43_arch_gpio_put(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  int pin = GET_INT_ARG(1);
-  int value;
-  if (GET_TT_ARG(2) == MRBC_TT_TRUE) {
-    value = 1;
-  } else {
-    value = 0;
-  }
-  BLE_peripheral_cyw43_arch_gpio_put(pin, value);
-}
-
 void
 mrbc_init_class_BLE_Peripheral(void)
 {
