@@ -14,6 +14,9 @@ class DemoCentral < BLE::Central
   GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT = 0xA5
   GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT = 0xA6
   GATT_EVENT_NOTIFICATION = 0xA7
+  GATT_EVENT_INDICATION = 0xA8
+  GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xA9
+  GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xAA
 
   def initialize
     super(nil)
@@ -134,6 +137,7 @@ class DemoCentral < BLE::Central
           if @service_index < @services.size
             discover_characteristics_for_service(@conn_handle, @services[@service_index])
           elsif value_handle = @value_handles.shift
+            @_event_packets.clear
             read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
             @state = :TC_W4_CHARACTERISTIC_VALUE_RESULT
           end
@@ -161,6 +165,7 @@ class DemoCentral < BLE::Central
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
           debug_puts "event_packet: #{event_packet.inspect}"
           if descriptor_handle = @descriptor_handles.shift
+            debug_puts "descriptor_handle: #{descriptor_handle}"
             @_event_packets.clear
             read_characteristic_descriptor_using_descriptor_handle(@conn_handle, descriptor_handle)
             @state = :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
@@ -170,8 +175,8 @@ class DemoCentral < BLE::Central
         end
       when :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
         case event_type
-        when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
-          debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
+        when GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT
+          debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
           debug_puts "event_packet: #{event_packet.inspect}"
           handle = BLE::Utils.little_endian_to_int16(event_packet[2])
           uuid128 = ""
