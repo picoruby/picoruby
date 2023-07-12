@@ -47,6 +47,15 @@ class BLE
       @reports.map{|d| "  #{EVENT_TYPE[d[:type]] || 'N/A'}: #{d[:value].inspect}"}.join("\n")
     end
 
+    def name_include?(name)
+      @reports.each do |report|
+        if report[:type] == 0x09 || report[:type] == 0x08
+          return true if report[:value].include?(name)
+        end
+      end
+      false
+    end
+
     # private
 
     def inspect_reports(data)

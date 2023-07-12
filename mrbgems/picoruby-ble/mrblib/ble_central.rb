@@ -9,6 +9,13 @@ class BLE
 
     attr_reader :found_devices, :services, :state
 
+    def scan(search_name = nil)
+      @found_devices_count_limit = 1 if search_name
+      @search_name = search_name
+      start(10, :TC_IDLE)
+      0 < @found_devices.size
+    end
+
     def reset_state
       @state = :TC_OFF
     end

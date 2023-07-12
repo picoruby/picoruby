@@ -108,6 +108,7 @@ class BLE
     def initialize: (String) -> void
     def format: () -> String
     def inspect_reports: (String) -> Array[report_t]
+    def name_include?: (String) -> bool
   end
 
   class GattDatabase
@@ -165,11 +166,15 @@ class BLE
       characteristics: Array[characteristic_t]
     }
 
+    @found_devices_count_limit: Integer
+    @search_name: String | nil
+
     attr_reader state: Symbol
     attr_reader services: Array[service_t]
     attr_reader found_devices: found_devices_t
 
     def reset_state: () -> Symbol
+    def scan: (?(String | nil)) -> bool
     def add_found_device: (BLE::AdvertisingReport) -> found_devices_t
     def clear_found_devices: () -> found_devices_t
     def print_found_devices: () -> nil

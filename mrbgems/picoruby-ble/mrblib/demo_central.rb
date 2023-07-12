@@ -60,7 +60,9 @@ class DemoCentral < BLE::Central
         return
       end
       unless found_devices.any?{ |d| d.address == adv_report.address }
-        add_found_device adv_report
+        if !@search_name || adv_report.name_include?(@search_name)
+          add_found_device adv_report
+        end
       end
     when HCI_EVENT_LE_META
       return unless @state == :TC_W4_CONNECT
