@@ -89,7 +89,7 @@ class BLE
 
   POLLING_UNIT_MS = 10
 
-  def start(duration = nil, stop_state = nil)
+  def start(duration = nil, stop_state = :no_stop)
     duration_ms = duration ? duration * 1000 : nil
     if duration_ms
       debug_puts "Starting for #{duration_ms} ms"
@@ -100,7 +100,7 @@ class BLE
     total_duration_ms = 0
     hci_power_control(HCI_POWER_ON)
     while true
-      if @heartbeat_period_ms < heartbeat_ms
+      if @heartbeat_period_ms <= heartbeat_ms
         heartbeat_ms = 0
         heartbeat_callback
       end
