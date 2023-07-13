@@ -93,6 +93,8 @@ class BLE
     def self.bd_addr_to_str: (String) -> String
     def self.uuid: (untyped) -> String
     def self.int16_to_little_endian: (Integer) -> String
+    def self.int32_to_little_endian: (Integer) -> String
+    def self.little_endian_to_int: (String) -> Integer
     def self.valid_char_for_uuid?: (String | nil) -> bool
   end
 
@@ -115,29 +117,28 @@ class BLE
     ATT_DB_VERSION: Integer
 
     type uuid_t = String|Integer
+    type properties_t = Integer
     @current_handle: Integer
     @hash_src: String
     @hash_pos: Integer|nil
-    attr_reader handle_table: {
-      service: Hash[uuid_t, Integer],
-      characteristic: {
-        value: Hash[uuid_t, Integer],
-        client_configuration: Hash[uuid_t, Integer],
-      }
-    }
+    @service_uuid: uuid_t|nil
+    @char_uuid: uuid_t|nil
+    @database_hash_key: String
+    attr_reader handle_table: Hash[uuid_t|nil, untyped]
     attr_reader profile_data: String
-    attr_accessor database_hash_key: String
 
     def initialize: () { (GattDatabase) -> void } -> void
     def insert_database_hash: () -> void
-    def push_handle: () -> Integer
+    def push_handle: () -> String
+    def seek_handle: () -> String
     def add_line: (String) -> void
-    def add_service: (Integer, uuid_t) ?{ (GattDatabase) -> void } -> void
-    def add_characteristic: (uuid_t, Integer, *(String|Integer)) ?{ (GattDatabase) -> void } -> void
-    def add_descriptor: (uuid_t, Integer, *(String|Integer)) -> void
+    def add_service: (uuid_t, uuid_t) ?{ (GattDatabase) -> void } -> void
+    def add_characteristic: (properties_t, uuid_t, properties_t, String) ?{ (GattDatabase) -> void } -> void
+    def add_descriptor: (properties_t, uuid_t, ?(String)) -> void
     def uuid2str: (uuid_t) -> String
     def att_flags: (Integer) -> Integer
     def write_permissions_and_key_size_flags_from_properties: (Integer) -> Integer
+    def flag_by_uuid: (uuid_t, Integer) -> String
   end
 
   class Peripheral < BLE

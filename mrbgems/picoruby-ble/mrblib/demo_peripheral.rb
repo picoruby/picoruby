@@ -13,23 +13,27 @@ class DemoPeripheral < BLE::Peripheral
   ATT_EVENT_CAN_SEND_NOW = 0xB7
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
   #
+  #
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
   def initialize
     db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
-        s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "R2P2")
+        s.add_characteristic(BLE::READ, BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picow_temp")
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
-        s.add_characteristic(BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ)
+        database_hash_key = 0.chr * 16
+        s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key)
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
-        s.add_characteristic(CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC)
+        s.add_characteristic(BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC, CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::DYNAMIC, "") do |c|
+          c.add_descriptor(BLE::READ|BLE::WRITE|BLE::WRITE_WITHOUT_RESPONSE|BLE::DYNAMIC, BLE::CLIENT_CHARACTERISTIC_CONFIGURATION, "\x00\x00")
+        end
       end
     end
-    @temperature_handle = db.handle_table[:characteristic][:value][CHARACTERISTIC_TEMPERATURE]
-    @configuration_handle = db.handle_table[:characteristic][:client_configuration][CHARACTERISTIC_TEMPERATURE]
+    @temperature_handle =   db.handle_table[SERVICE_ENVIRONMENTAL_SENSING][CHARACTERISTIC_TEMPERATURE][:value_handle]
+    @configuration_handle = db.handle_table[SERVICE_ENVIRONMENTAL_SENSING][CHARACTERISTIC_TEMPERATURE][BLE::CLIENT_CHARACTERISTIC_CONFIGURATION]
     super(db.profile_data)
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false

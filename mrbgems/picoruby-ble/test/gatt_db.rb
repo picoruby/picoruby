@@ -24,27 +24,27 @@ class MbedTLS
   end
 end
 
-READ = BLE::READ
-WRITE_WITHOUT_RESPONSE = BLE::WRITE_WITHOUT_RESPONSE
-WRITE = BLE::WRITE
-NOTIFY = BLE::NOTIFY
-INDICATE = BLE::INDICATE
-DYNAMIC = BLE::DYNAMIC
-
 SERVICE_ENVIRONMENTAL_SENSING = 0x181A
 CHARACTERISTIC_TEMPERATURE = 0x2A6E
+GAP_DEVICE_NAME =            0x2a00
 
-db = BLE::GattDatabase.new do |db|
-  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
-    s.add_characteristic(BLE::GAP_DEVICE_NAME_UUID, READ, "R2P2")
-  end
-  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
-    s.add_characteristic(BLE::CHARACTERISTIC_DATABASE_HASH, READ)
-  end
-  db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
-    s.add_characteristic(CHARACTERISTIC_TEMPERATURE, READ|NOTIFY|INDICATE|DYNAMIC)
-  end
-end
+SERVICE_GENERIC_ATTRIBUTE = 0x1801
+SERVICE_ENVIRONMENTAL_SENSING = 0x181A
+
+    db = BLE::GattDatabase.new do |db|
+      db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
+        s.add_characteristic(BLE::READ, BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picow_temp")
+      end
+      db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
+        database_hash_key = 0.chr * 16
+        s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key)
+      end
+      db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
+        s.add_characteristic(BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC, CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::DYNAMIC, "") do |c|
+          c.add_descriptor(BLE::READ|BLE::WRITE|BLE::WRITE_WITHOUT_RESPONSE|BLE::DYNAMIC, BLE::CLIENT_CHARACTERISTIC_CONFIGURATION, "\x00\x00")
+        end
+      end
+    end
 
 i = 0
 len = nil
@@ -63,6 +63,10 @@ end
 puts
 
 pp db.handle_table
+
+pp db.handle_table[SERVICE_ENVIRONMENTAL_SENSING][CHARACTERISTIC_TEMPERATURE][:value_handle]
+pp db.handle_table[SERVICE_ENVIRONMENTAL_SENSING][CHARACTERISTIC_TEMPERATURE][BLE::CLIENT_CHARACTERISTIC_CONFIGURATION]
+
 
 # assume that the database hash will be calculated by MbedTLS::CMAC
 # 0x01, 0x00, 0x00, 0x28, 0x00, 0x18,

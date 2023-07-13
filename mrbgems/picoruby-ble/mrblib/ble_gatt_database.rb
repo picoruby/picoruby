@@ -1,33 +1,78 @@
 class BLE
   class GattDatabase
     ATT_DB_VERSION = 0x01
+
     def initialize(&block)
       @profile_data = ATT_DB_VERSION.chr
-      @handle_table = {
-        service: {},
-        characteristic: {
-          value: {},
-          client_configuration: {},
-        }
-      }
+      @handle_table = {}
       @current_handle = 0
       @hash_src = ""
       @hash_pos = nil
-      # workaround: bug of picoruby-compiler? mruby/c?
-      # @database_hash_key = "\x00" * 16
-      # => "" # expected: "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-      @database_hash_key = 0.chr * 16
       block.call self
-      insert_database_hash
+      insert_database_hash if @database_hash_key
       @profile_data << "\x00\x00"
     end
 
-    attr_reader :handle_table
-    attr_reader :profile_data
-    attr_accessor :database_hash_key
+    attr_reader :handle_table, :profile_data
+
+    def add_service(uuid, service_uuid)
+      if uuid != GATT_PRIMARY_SERVICE_UUID && uuid != GATT_SECONDARY_SERVICE_UUID
+        raise "invalid uuid: #{uuid.inspect}"
+      end
+      line = Utils.int16_to_little_endian(READ)
+      tail = [ push_handle, uuid2str(uuid), uuid2str(service_uuid) ].join
+      line << tail
+      @hash_src << tail
+      add_line(line)
+      @handle_table[service_uuid] = { handle: @current_handle }
+      @service_uuid = service_uuid
+      yield self if block_given?
+      @service_uuid = nil
+    end
+
+    def add_characteristic(properties, char_uuid, value_properties, value)
+      # declaration
+      line = Utils.int16_to_little_endian(READ)
+      tail = [ push_handle,
+        Utils.int16_to_little_endian(GATT_CHARACTERISTIC_UUID),
+        (properties & 0xff).chr,
+        seek_handle,
+        uuid2str(char_uuid) ].join
+      line << tail
+      @hash_src << tail
+      add_line(line)
+      @handle_table[@service_uuid][char_uuid] = { handle: @current_handle, value_handle: nil }
+      # value
+      if char_uuid == CHARACTERISTIC_DATABASE_HASH
+        if !value.is_a?(String) || value.length != 16
+          raise "database hash key must be 16 bytes string: #{value.inspect}"
+        end
+        @database_hash_key = value
+        @hash_pos = @profile_data.length + line.length - 3
+      end
+      if value
+        line = flag_by_uuid(char_uuid, value_properties)
+        line << push_handle << uuid2str(char_uuid) << value
+        add_line(line)
+        @handle_table[@service_uuid][char_uuid] = { value_handle: @current_handle }
+      end
+      @char_uuid = char_uuid
+      yield self if block_given?
+      @char_uuid = nil
+    end
+
+    def add_descriptor(properties, desc_uuid, value = "")
+      line = flag_by_uuid(desc_uuid, properties)
+      tail = [ push_handle, uuid2str(desc_uuid), value ].join
+      line << tail
+      @hash_src << tail
+      add_line(line)
+      @handle_table[@service_uuid][@char_uuid][desc_uuid] = @current_handle
+    end
+
+    # private
 
     def insert_database_hash
-      return unless @hash_pos
       # @type ivar @hash_pos: Integer
       cmac = MbedTLS::CMAC.new(@database_hash_key, 'AES')
       cmac.update(@hash_src)
@@ -40,101 +85,16 @@ class BLE
 
     def push_handle
       @current_handle += 1
+      Utils.int16_to_little_endian(@current_handle)
+    end
+
+    def seek_handle
+      Utils.int16_to_little_endian(@current_handle + 1)
     end
 
     def add_line(line)
       @profile_data << Utils.int16_to_little_endian(line.length + 2) << line
     end
-
-    def add_service(service, uuid)
-      line = Utils.int16_to_little_endian(READ)
-      [
-        Utils.int16_to_little_endian(push_handle),
-        Utils.int16_to_little_endian(service),
-        uuid2str(uuid)
-      ].each do |element|
-        line << element
-        @hash_src << element
-      end
-      add_line(line)
-      @handle_table[:service][uuid] = @current_handle
-      yield self if block_given?
-    end
-
-    def add_characteristic(uuid, properties, *values)
-      # declaration
-      line = Utils.int16_to_little_endian(READ)
-      [
-        Utils.int16_to_little_endian(push_handle),
-        Utils.int16_to_little_endian(GATT_CHARACTERISTIC_UUID),
-        (properties & 0xff).chr,
-        Utils.int16_to_little_endian(@current_handle + 1),
-        uuid2str(uuid)
-      ].each do |element|
-        line << element
-        @hash_src << element
-      end
-      add_line(line)
-      # value
-      value_flags = att_flags(properties)
-      if uuid.is_a?(String) && uuid.length == 16
-        value_flags = value_flags | LONG_UUID
-      end
-      line = Utils.int16_to_little_endian(value_flags)
-      line << Utils.int16_to_little_endian(push_handle)
-      line << uuid2str(uuid)
-      if uuid == CHARACTERISTIC_DATABASE_HASH
-        values = Array.new(16, 0)
-        @hash_pos = @profile_data.length + line.length + 2
-      end
-      values.each do |value|
-        line << case value
-        when String
-          value
-        when Integer
-          value < 256 ? value.chr : Utils.int16_to_little_endian(value)
-        end
-      end
-      add_line(line)
-      @handle_table[:characteristic][:value][uuid] = @current_handle
-      if properties & (NOTIFY | INDICATE) != 0
-        # characteristic client configuration
-        flags = write_permissions_and_key_size_flags_from_properties(properties)
-        flags |= READ
-        flags |= WRITE
-        flags |= WRITE_WITHOUT_RESPONSE
-        flags |= DYNAMIC
-        line = Utils.int16_to_little_endian(flags)
-        [
-          Utils.int16_to_little_endian(push_handle),
-          Utils.int16_to_little_endian(CLIENT_CHARACTERISTIC_CONFIGURATION)
-        ].each do |element|
-          line << element
-          @hash_src << element
-        end
-        line << 0.chr * 2
-        @handle_table[:characteristic][:client_configuration][uuid] = @current_handle
-        add_line(line)
-      end
-      yield self if block_given?
-    end
-
-    def add_descriptor(uuid, properties, *values)
-      line = Utils.int16_to_little_endian(properties)
-      line << Utils.int16_to_little_endian(push_handle)
-      line << uuid2str(uuid)
-      values.each do |value|
-        line << case value
-        when String
-          value
-        when Integer
-          value < 256 ? value.chr : Utils.int16_to_little_endian(value)
-        end
-      end
-      add_line(line)
-    end
-
-    # private
 
     def att_flags(properties)
       # drop Broadcast (0x01), Notify (0x10), Indicate (0x20), Extended Properties (0x80) - not used for flags
@@ -208,8 +168,47 @@ class BLE
       att_flags(properties) & (ENCRYPTION_KEY_SIZE_MASK | WRITE_PERMISSION_BIT_0 | WRITE_PERMISSION_BIT_1)
     end
 
-    def uuid2str(uuid)
-      uuid.is_a?(String) ? uuid : Utils.int16_to_little_endian(uuid)
+    def flag_by_uuid(uuid, properties)
+      if properties & (NOTIFY | INDICATE) != 0
+        # characteristic client configuration
+        flag = write_permissions_and_key_size_flags_from_properties(properties)
+        flag |= READ
+        flag |= WRITE
+        flag |= WRITE_WITHOUT_RESPONSE
+        flag |= DYNAMIC
+      else
+        flag = properties
+      end
+      if uuid.is_a?(String) && uuid.length == 16
+        Utils.int16_to_little_endian(flag|LONG_UUID)
+      elsif uuid.is_a?(Integer)
+        Utils.int16_to_little_endian(flag)
+      else
+        raise "invalid uuid: #{uuid.inspect}"
+      end
     end
+
+    def uuid2str(uuid)
+      if uuid.is_a?(String)
+        if uuid.length == 16
+          uuid
+        else
+          raise "invalid uuid: #{uuid.inspect}"
+        end
+      else
+        # TODO: Fix pico-compiler to support "unsigned" 32bit integer
+        if uuid < 0 #|| 0xffffffff < uuid
+          raise "invalid uuid: #{uuid.inspect}"
+        elsif uuid < 0x10000
+          Utils.int16_to_little_endian(uuid)
+        #elsif uuid < 0x100000000
+        else
+          Utils.int32_to_little_endian(uuid)
+        #else
+        #  raise "invalid uuid: #{uuid.inspect}"
+        end
+      end
+    end
+
   end
 end
