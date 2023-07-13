@@ -43,11 +43,18 @@ class BLE
       int16_to_little_endian(value & 0xffff) + int16_to_little_endian(value >> 16 & 0xffff)
     end
 
-    def self.little_endian_to_int(str)
+    def self.little_endian_to_int16(str)
+      if 2 < str.length
+        raise ArgumentError, "invalid length of string: #{str.length}"
+      end
+      (str[0]&.ord || 0) | ((str[1]&.ord || 0) << 8)
+    end
+
+    def self.little_endian_to_int32(str)
       if 4 < str.length
         raise ArgumentError, "invalid length of string: #{str.length}"
       end
-      (str[0] || 0).ord | ((str[1] || 0).ord << 8) | ((str[2] || 0).ord << 16) | ((str[3] || 0).ord << 24)
+      little_endian_to_int16(str[0, 2] || "") | (little_endian_to_int16(str[2, 2] || "") << 16)
     end
 
     # private

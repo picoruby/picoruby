@@ -98,7 +98,7 @@ class DemoCentral < BLE::Central
             start_group_handle: BLE::Utils.little_endian_to_int16(event_packet[4]),
             end_group_handle: BLE::Utils.little_endian_to_int16(event_packet[6]),
             uuid128: uuid128,
-            uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord,
+            uuid16: ((uuid128[2]&.ord || 0) << 8) | (uuid128[3]&.ord || 0),
             characteristics: []
           }
         when GATT_EVENT_QUERY_COMPLETE
@@ -122,7 +122,7 @@ class DemoCentral < BLE::Central
             end_handle: end_handle,
             properties: BLE::Utils.little_endian_to_int16(event_packet[10]),
             uuid128: uuid128,
-            uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord,
+            uuid16: ((uuid128[2]&.ord || 0) << 8) | (uuid128[3]&.ord || 0),
             value: nil,
             descriptors: []
           }
@@ -187,7 +187,7 @@ class DemoCentral < BLE::Central
                 chara[:descriptors] << {
                   handle: handle,
                   uuid128: uuid128,
-                  uuid16: ((uuid128[2] || 0).ord << 8) | (uuid128[3] || 0).ord,
+                  uuid16: ((uuid128[2]&.ord || 0) << 8) | (uuid128[3]&.ord || 0),
                   value: nil
                 }
               end
