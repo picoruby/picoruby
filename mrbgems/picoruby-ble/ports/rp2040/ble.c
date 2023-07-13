@@ -164,7 +164,16 @@ BLE_read_value_of_characteristic_using_value_handle(uint16_t conn_handle, uint16
 }
 
 uint8_t
-BLE_read_characteristic_descriptor_using_descriptor_handle(uint16_t conn_handle, uint16_t descriptor_handle)
+BLE_discover_characteristic_descriptors(uint16_t conn_handle, uint16_t value_handle, uint16_t end_handle)
 {
-  return gatt_client_read_characteristic_descriptor_using_descriptor_handle(&packet_handler, conn_handle, descriptor_handle);
+  gatt_client_characteristic_t characteristic = {
+    .start_handle = 0,
+    .value_handle = value_handle,
+    .end_handle = end_handle,
+    .properties = 0,
+    .uuid16 = 0,
+    .uuid128 = { 0 }
+  };
+  return gatt_client_discover_characteristic_descriptors(&packet_handler, conn_handle, &characteristic);
 }
+

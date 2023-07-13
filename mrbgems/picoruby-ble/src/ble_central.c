@@ -72,19 +72,20 @@ c_read_value_of_characteristic_using_value_handle(mrbc_vm *vm, mrbc_value *v, in
 }
 
 static void
-c_read_characteristic_descriptor_using_descriptor_handle(mrbc_vm *vm, mrbc_value *v, int argc)
+c_discover_characteristic_descriptors(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 2) {
+  if (argc != 3) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_INTEGER) {
+  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_INTEGER || GET_TT_ARG(3) != MRBC_TT_INTEGER) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
     return;
   }
-  uint8_t res = BLE_read_characteristic_descriptor_using_descriptor_handle(
+  uint8_t res = BLE_discover_characteristic_descriptors(
     (uint16_t)GET_INT_ARG(1),
-    (uint16_t)GET_INT_ARG(2)
+    (uint16_t)GET_INT_ARG(2),
+    (uint16_t)GET_INT_ARG(3)
   );
   SET_INT_RETURN(res);
 }
@@ -131,5 +132,5 @@ mrbc_init_class_BLE_Central(void)
   mrbc_define_method(0, mrbc_class_BLE_Central, "discover_primary_services", c_discover_primary_services);
   mrbc_define_method(0, mrbc_class_BLE_Central, "discover_characteristics_for_service", c_discover_characteristics_for_service);
   mrbc_define_method(0, mrbc_class_BLE_Central, "read_value_of_characteristic_using_value_handle", c_read_value_of_characteristic_using_value_handle);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "read_characteristic_descriptor_using_descriptor_handle", c_read_characteristic_descriptor_using_descriptor_handle);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "discover_characteristic_descriptors", c_discover_characteristic_descriptors);
 }

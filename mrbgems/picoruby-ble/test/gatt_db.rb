@@ -31,13 +31,17 @@ GAP_DEVICE_NAME =            0x2a00
 SERVICE_GENERIC_ATTRIBUTE = 0x1801
 SERVICE_ENVIRONMENTAL_SENSING = 0x181A
 
+GATT_CHARACTERISTIC_USER_DESCRIPTION   =     0x2901
+
     db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
         s.add_characteristic(BLE::READ, BLE::GAP_DEVICE_NAME_UUID, BLE::READ, "picow_temp")
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
         database_hash_key = 0.chr * 16
-        s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key)
+        s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key) do |c|
+          c.add_descriptor(BLE::READ, GATT_CHARACTERISTIC_USER_DESCRIPTION, "Database Hash")
+        end
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
         s.add_characteristic(BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC, CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::DYNAMIC, "") do |c|

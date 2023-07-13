@@ -12,6 +12,8 @@ class DemoPeripheral < BLE::Peripheral
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
   ATT_EVENT_CAN_SEND_NOW = 0xB7
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
+  GATT_CHARACTERISTIC_USER_DESCRIPTION   =     0x2901
+  CHARACTERISTIC_EXTENDED_PROPERTIES     =     0x2900
   #
   #
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
@@ -24,7 +26,10 @@ class DemoPeripheral < BLE::Peripheral
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
         database_hash_key = 0.chr * 16
-        s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key)
+        s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key) do |c|
+          c.add_descriptor(BLE::READ, GATT_CHARACTERISTIC_USER_DESCRIPTION, "Database Hash")
+          c.add_descriptor(BLE::READ|BLE::WRITE, CHARACTERISTIC_EXTENDED_PROPERTIES, "\x00\x00")
+        end
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
         s.add_characteristic(BLE::READ|BLE::NOTIFY|BLE::INDICATE|BLE::DYNAMIC, CHARACTERISTIC_TEMPERATURE, BLE::READ|BLE::DYNAMIC, "") do |c|

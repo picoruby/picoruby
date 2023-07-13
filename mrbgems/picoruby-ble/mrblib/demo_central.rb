@@ -128,8 +128,8 @@ class DemoCentral < BLE::Central
           }
           @services[@service_index][:characteristics] << characteristic
           @value_handles << value_handle
-          (value_handle + 1).upto(end_handle) do |handle|
-            @descriptor_handles << handle
+          if value_handle < end_handle
+            @descriptor_handles << {value_handle: value_handle, end_handle: end_handle}
           end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic"
@@ -165,9 +165,9 @@ class DemoCentral < BLE::Central
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
           debug_puts "event_packet: #{event_packet.inspect}"
           if descriptor_handle = @descriptor_handles.shift
-            debug_puts "descriptor_handle: #{descriptor_handle}"
             @_event_packets.clear
-            read_characteristic_descriptor_using_descriptor_handle(@conn_handle, descriptor_handle)
+            discover_characteristic_descriptors(@conn_handle, descriptor_handle[:value_handle], descriptor_handle[:end_handle])
+            puts "discover_characteristic_descriptors"
             @state = :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
           else
             @state = :TC_IDLE
@@ -175,10 +175,10 @@ class DemoCentral < BLE::Central
         end
       when :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
         case event_type
-        when GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT
-          debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
+        when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
+          debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
           debug_puts "event_packet: #{event_packet.inspect}"
-          handle = BLE::Utils.little_endian_to_int16(event_packet[2])
+          handle = BLE::Utils.little_endian_to_int16(event_packet[4])
           uuid128 = ""
           15.downto(0) { |i| uuid128 << event_packet[6 + i] }
           @services.each do |service|
@@ -193,15 +193,15 @@ class DemoCentral < BLE::Central
               end
             end
           end
-          if descriptor_handle = @descriptor_handles.shift
-            @_event_packets.clear
-            read_characteristic_descriptor_using_descriptor_handle(@conn_handle, descriptor_handle)
-          end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor"
-          @state = :TC_IDLE
+          if descriptor_handle = @descriptor_handles.shift
+            @_event_packets.clear
+            discover_characteristic_descriptors(@conn_handle, descriptor_handle[:value_handle], descriptor_handle[:end_handle])
+          else
+            @state = :TC_IDLE
+          end
         end
-        # TODO
       else
         debug_puts "Not implemented: 0x#{event_type.to_s(16)} state: #{@state}"
       end
