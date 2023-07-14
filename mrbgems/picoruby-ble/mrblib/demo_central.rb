@@ -92,13 +92,12 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_SERVICE_QUERY_RESULT
           debug_puts "GATT_EVENT_SERVICE_QUERY_RESULT"
-          uuid128 = ""
-          15.downto(0) { |i| uuid128 << event_packet[8 + i] }
+          uuid128 = BLE::Utils.reverse_128(event_packet[8, 16])
           @services << {
             start_group_handle: BLE::Utils.little_endian_to_int16(event_packet[4]),
             end_group_handle: BLE::Utils.little_endian_to_int16(event_packet[6]),
             uuid128: uuid128,
-            uuid16: ((uuid128[2]&.ord || 0) << 8) | (uuid128[3]&.ord || 0),
+            uuid32: BLE::Utils.uuid128_to_uuid32(uuid128),
             characteristics: []
           }
         when GATT_EVENT_QUERY_COMPLETE
@@ -111,17 +110,16 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_CHARACTERISTIC_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
-          uuid128 = ""
           value_handle = BLE::Utils.little_endian_to_int16(event_packet[6])
           end_handle = BLE::Utils.little_endian_to_int16(event_packet[8])
-          15.downto(0) { |i| uuid128 << event_packet[12 + i] }
+          uuid128 = BLE::Utils.reverse_128(event_packet[12, 16])
           characteristic = {
             start_handle: BLE::Utils.little_endian_to_int16(event_packet[4]),
             value_handle: value_handle,
             end_handle: end_handle,
             properties: BLE::Utils.little_endian_to_int16(event_packet[10]),
             uuid128: uuid128,
-            uuid16: ((uuid128[2]&.ord || 0) << 8) | (uuid128[3]&.ord || 0),
+            uuid32: BLE::Utils.uuid128_to_uuid32(uuid128),
             value: nil,
             descriptors: []
           }
@@ -145,12 +143,10 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT"
-          value_handle = BLE::Utils.little_endian_to_int16(event_packet[4])
-          length = BLE::Utils.little_endian_to_int16(event_packet[6])
           @services.each do |service|
             service[:characteristics].each do |chara|
-              if chara[:value_handle] == value_handle
-                chara[:value] = event_packet[8, length]
+              if chara[:value_handle] == BLE::Utils.little_endian_to_int16(event_packet[4])
+                chara[:value] = event_packet[8, BLE::Utils.little_endian_to_int16(event_packet[6])]
                 break
               end
             end
@@ -173,17 +169,15 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
           debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
-          debug_puts "event_packet: #{event_packet.inspect}"
           handle = BLE::Utils.little_endian_to_int16(event_packet[4])
-          uuid128 = ""
-          15.downto(0) { |i| uuid128 << event_packet[6 + i] }
+          uuid128 = BLE::Utils.reverse_128(event_packet[6, 16])
           @services.each do |service|
             service[:characteristics].each do |chara|
               if chara[:value_handle] < handle && handle <= chara[:end_handle]
                 chara[:descriptors] << {
                   handle: handle,
                   uuid128: uuid128,
-                  uuid16: ((uuid128[2]&.ord || 0) << 8) | (uuid128[3]&.ord || 0),
+                  uuid32: BLE::Utils.uuid128_to_uuid32(uuid128),
                   value: nil
                 }
               end
@@ -195,10 +189,10 @@ class DemoCentral < BLE::Central
           if handle_range = @descriptor_handle_ranges.shift
             @_event_packets.clear
             discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
-          elsif handle = @descriptor_handles.shift
+          elsif descriptor_handle = @descriptor_handles.shift
             @_event_packets.clear
             # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
-            read_value_of_characteristic_using_value_handle(@conn_handle, handle)
+            read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
             @state = :TC_W4_CHARACTERISTIC_DESCRIPTOR_VALUE_RESULT
           else
             @state = :TC_IDLE
@@ -208,23 +202,20 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
-          debug_puts "event_packet: #{event_packet.inspect}"
-          handle = BLE::Utils.little_endian_to_int16(event_packet[4])
-          length = BLE::Utils.little_endian_to_int16(event_packet[6])
           @services.each do |service|
             service[:characteristics].each do |chara|
               chara[:descriptors].each do |descriptor|
-                if descriptor[:handle] == handle
-                  descriptor[:value] = event_packet[8, length]
+                if descriptor[:handle] == BLE::Utils.little_endian_to_int16(event_packet[4])
+                  descriptor[:value] = event_packet[8, BLE::Utils.little_endian_to_int16(event_packet[6])]
                   break
                 end
               end
             end
           end
-          if handle = @descriptor_handles.shift
+          if descriptor_handle = @descriptor_handles.shift
             @_event_packets.clear
             # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
-            read_value_of_characteristic_using_value_handle(@conn_handle, handle)
+            read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
           end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor value"

@@ -35,6 +35,20 @@ class BLE
       str
     end
 
+    def self.reverse_128(src)
+      dst = ""
+      15.downto(0) { |i| dst << src[i] }
+    end
+
+    # Bluetooth Base UUID: 00000000-0000-1000-8000-00805F9B34FB
+    def self.uuid128_to_uuid32(uuid128)
+      if uuid128.length == 16 && uuid128[4, 12] == "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
+        (uuid128[0].ord | (uuid128[1].ord << 8) | (uuid128[2].ord << 16) | (uuid128[3].ord << 24))
+      else
+        nil
+      end
+    end
+
     def self.int16_to_little_endian(value)
       (value & 0xff).chr + (value >> 8 & 0xff).chr
     end
