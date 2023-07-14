@@ -48,6 +48,7 @@ class BLE
     end
 
     def name_include?(name)
+      return false unless name
       @reports.each do |report|
         if report[:type] == 0x09 || report[:type] == 0x08
           return true if report[:value].include?(name)

@@ -92,12 +92,12 @@ class BLE
   class Utils
     def self.bd_addr_to_str: (String) -> String
     def self.uuid: (untyped) -> String
-    def self.reverse_128: (String) -> String
+    def self.reverse_128: (String|nil) -> String
     def self.uuid128_to_uuid32: (String) -> (Integer|nil)
     def self.int16_to_little_endian: (Integer) -> String
     def self.int32_to_little_endian: (Integer) -> String
-    def self.little_endian_to_int16: (String) -> Integer
-    def self.little_endian_to_int32: (String) -> Integer
+    def self.little_endian_to_int16: (String|nil) -> Integer
+    def self.little_endian_to_int32: (String|nil) -> Integer
     def self.valid_char_for_uuid?: (String | nil) -> bool
   end
 
@@ -113,7 +113,7 @@ class BLE
     def initialize: (String) -> void
     def format: () -> String
     def inspect_reports: (String) -> Array[report_t]
-    def name_include?: (String) -> bool
+    def name_include?: (String|nil) -> bool
   end
 
   class GattDatabase
@@ -152,25 +152,57 @@ class BLE
   end
 
   class Central < BLE
+
+    HCI_SUBEVENT_LE_CONNECTION_COMPLETE: Integer
+    HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+    HCI_CON_HANDLE_INVALID: Integer
+    BTSTACK_EVENT_STATE: Integer
+    HCI_EVENT_LE_META: Integer
+    GAP_EVENT_ADVERTISING_REPORT: Integer
+    GATT_EVENT_QUERY_COMPLETE: Integer
+    GATT_EVENT_SERVICE_QUERY_RESULT: Integer
+    GATT_EVENT_CHARACTERISTIC_QUERY_RESULT: Integer
+    GATT_EVENT_INCLUDED_SERVICE_QUERY_RESULT: Integer
+    GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT: Integer
+    GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT: Integer
+    GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT: Integer
+    GATT_EVENT_NOTIFICATION: Integer
+    GATT_EVENT_INDICATION: Integer
+    GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT: Integer
+    GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT: Integer
+
     type found_devices_t = Array[BLE::AdvertisingReport]
+    type service_t = {
+      start_handle: Integer,
+      end_handle: Integer,
+      uuid128: String,
+      uuid32: (Integer | nil),
+      characteristics: Array[characteristic_t]
+    }
     type characteristic_t = {
       start_handle: Integer,
       value_handle: Integer,
       end_handle: Integer,
       properties: Integer,
-      uuid16: Integer,
       uuid128: String,
-      value: (String|nil)
+      uuid32: (Integer | nil),
+      value: (String | nil),
+      descriptors: Array[descriptor_t]
     }
-    type service_t = {
-      start_group_handle: Integer,
-      end_group_handle: Integer,
-      uuid16: Integer,
+    type descriptor_t = {
+      handle: Integer,
       uuid128: String,
-      characteristics: Array[characteristic_t]
+      uuid32: (Integer | nil),
+      value: (String | nil)
     }
 
     @found_devices_count_limit: Integer
+    @search_name: String | nil
+    @conn_handle: Integer
+    @characteristic_handle_ranges: Array[{start_handle: Integer, end_handle: Integer}]
+    @value_handles: Array[Integer]
+    @descriptor_handle_ranges: Array[{value_handle: Integer, end_handle: Integer}]
+    @descriptor_handles: Array[Integer]
     @search_name: String | nil
 
     attr_reader state: Symbol
@@ -186,6 +218,10 @@ class BLE
     def stop_scan: () -> 0
     def connect: (Integer) -> bool
     def get_packet: () -> String
+    def discover_primary_services: (Integer) -> Integer
+    def read_value_of_characteristic_using_value_handle: (Integer, Integer) -> Integer
+    def discover_characteristic_descriptors: (Integer, Integer, Integer) -> Integer
+    def discover_characteristics_for_service: (Integer, Integer, Integer) -> Integer
   end
 
   class AdvertisingData

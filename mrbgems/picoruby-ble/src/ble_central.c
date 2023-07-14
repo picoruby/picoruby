@@ -36,19 +36,18 @@ c_discover_primary_services(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_discover_characteristics_for_service(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 2) {
+  if (argc != 3) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_HASH) {
+  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_INTEGER || GET_TT_ARG(3) != MRBC_TT_INTEGER) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
     return;
   }
-  mrbc_value service_hash = GET_ARG(2);
   uint8_t res = BLE_discover_characteristics_for_service(
     (uint16_t)GET_INT_ARG(1),
-    mrbc_hash_get(&service_hash, &mrbc_symbol_value(mrbc_str_to_symid("start_group_handle"))).i,
-    mrbc_hash_get(&service_hash, &mrbc_symbol_value(mrbc_str_to_symid("end_group_handle"))).i
+    (uint16_t)GET_INT_ARG(2),
+    (uint16_t)GET_INT_ARG(3)
   );
   SET_INT_RETURN(res);
 }
