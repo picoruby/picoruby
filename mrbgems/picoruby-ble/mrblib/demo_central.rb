@@ -30,12 +30,14 @@ class DemoCentral < BLE::Central
     #   :TC_W4_SERVICE_RESULT
     #   :TC_W4_CHARACTERISTIC_RESULT
     #   :TC_W4_CHARACTERISTIC_VALUE_RESULT
-    #   :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
+    #   :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
+    #   :TC_W4_CHARACTERISTIC_DESCRIPTOR_RESULT
     #   :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
     #   :TC_W4_READY
     @found_devices_count_limit = 10
     @conn_handle = HCI_CON_HANDLE_INVALID
     @value_handles = []
+    @descriptor_handle_ranges = []
     @descriptor_handles = []
   end
 
@@ -69,7 +71,6 @@ class DemoCentral < BLE::Central
       end
     when HCI_EVENT_LE_META
       return unless @state == :TC_W4_CONNECT
-      #debug_puts "event_packet: #{event_packet.inspect}"
       case event_packet[2]&.ord
       when HCI_SUBEVENT_LE_CONNECTION_COMPLETE
         @conn_handle = BLE::Utils.little_endian_to_int16(event_packet[4, 2])
@@ -91,7 +92,6 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_SERVICE_QUERY_RESULT
           debug_puts "GATT_EVENT_SERVICE_QUERY_RESULT"
-          debug_puts "event_packet: #{event_packet.inspect}"
           uuid128 = ""
           15.downto(0) { |i| uuid128 << event_packet[8 + i] }
           @services << {
@@ -111,7 +111,6 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_CHARACTERISTIC_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
-          debug_puts "event_packet: #{event_packet.inspect}"
           uuid128 = ""
           value_handle = BLE::Utils.little_endian_to_int16(event_packet[6])
           end_handle = BLE::Utils.little_endian_to_int16(event_packet[8])
@@ -129,7 +128,7 @@ class DemoCentral < BLE::Central
           @services[@service_index][:characteristics] << characteristic
           @value_handles << value_handle
           if value_handle < end_handle
-            @descriptor_handles << {value_handle: value_handle, end_handle: end_handle}
+            @descriptor_handle_ranges << {value_handle: value_handle, end_handle: end_handle}
           end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic"
@@ -146,7 +145,6 @@ class DemoCentral < BLE::Central
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT"
-          debug_puts "event_packet: #{event_packet.inspect}"
           value_handle = BLE::Utils.little_endian_to_int16(event_packet[4])
           length = BLE::Utils.little_endian_to_int16(event_packet[6])
           @services.each do |service|
@@ -163,17 +161,15 @@ class DemoCentral < BLE::Central
           end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
-          debug_puts "event_packet: #{event_packet.inspect}"
-          if descriptor_handle = @descriptor_handles.shift
+          if handle_range = @descriptor_handle_ranges.shift
             @_event_packets.clear
-            discover_characteristic_descriptors(@conn_handle, descriptor_handle[:value_handle], descriptor_handle[:end_handle])
-            puts "discover_characteristic_descriptors"
-            @state = :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
+            discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
+            @state = :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
           else
             @state = :TC_IDLE
           end
         end
-      when :TC_W4_CHARACTERISTIC_DESCRIPTORS_RESULT
+      when :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
         case event_type
         when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
           debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
@@ -193,14 +189,46 @@ class DemoCentral < BLE::Central
               end
             end
           end
+          @descriptor_handles << handle
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor"
-          if descriptor_handle = @descriptor_handles.shift
+          if handle_range = @descriptor_handle_ranges.shift
             @_event_packets.clear
-            discover_characteristic_descriptors(@conn_handle, descriptor_handle[:value_handle], descriptor_handle[:end_handle])
+            discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
+          elsif handle = @descriptor_handles.shift
+            @_event_packets.clear
+            # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
+            read_value_of_characteristic_using_value_handle(@conn_handle, handle)
+            @state = :TC_W4_CHARACTERISTIC_DESCRIPTOR_VALUE_RESULT
           else
             @state = :TC_IDLE
           end
+        end
+      when :TC_W4_CHARACTERISTIC_DESCRIPTOR_VALUE_RESULT
+        case event_type
+        when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
+          debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
+          debug_puts "event_packet: #{event_packet.inspect}"
+          handle = BLE::Utils.little_endian_to_int16(event_packet[4])
+          length = BLE::Utils.little_endian_to_int16(event_packet[6])
+          @services.each do |service|
+            service[:characteristics].each do |chara|
+              chara[:descriptors].each do |descriptor|
+                if descriptor[:handle] == handle
+                  descriptor[:value] = event_packet[8, length]
+                  break
+                end
+              end
+            end
+          end
+          if handle = @descriptor_handles.shift
+            @_event_packets.clear
+            # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
+            read_value_of_characteristic_using_value_handle(@conn_handle, handle)
+          end
+        when GATT_EVENT_QUERY_COMPLETE
+          debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor value"
+          @state = :TC_IDLE
         end
       else
         debug_puts "Not implemented: 0x#{event_type.to_s(16)} state: #{@state}"

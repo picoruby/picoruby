@@ -28,7 +28,7 @@ class DemoPeripheral < BLE::Peripheral
         database_hash_key = 0.chr * 16
         s.add_characteristic(BLE::READ, BLE::CHARACTERISTIC_DATABASE_HASH, BLE::READ, database_hash_key) do |c|
           c.add_descriptor(BLE::READ, GATT_CHARACTERISTIC_USER_DESCRIPTION, "Database Hash")
-          c.add_descriptor(BLE::READ|BLE::WRITE, CHARACTERISTIC_EXTENDED_PROPERTIES, "\x00\x00")
+          c.add_descriptor(BLE::READ|BLE::WRITE, CHARACTERISTIC_EXTENDED_PROPERTIES, "\x00\x01")
         end
       end
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
