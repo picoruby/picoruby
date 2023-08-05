@@ -16,7 +16,7 @@ class GPIO
   PULL_DOWN:  16 # 0b010000
   OPEN_DRAIN: 32 # 0b100000
 
-  type pin_t = (Integer|String)
+  type pin_t = (Integer|String|Symbol)
 
   @pin: pin_t
   @dir: (Integer|nil)
