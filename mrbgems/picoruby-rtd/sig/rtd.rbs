@@ -1,0 +1,19 @@
+class RTD
+  type pin_t = (Integer|String|Symbol)
+
+  @iexc: GPIO
+  @ain1: ADC
+  @ain2: ADC
+  @ref:  ADC
+  @r_ref: Integer
+
+  attr_accessor sample_count: Integer
+
+  def initialize: (
+    pin_t iexc_pin,
+    pin_t ain1_pin,
+    pin_t ain2_pin,
+    pin_t ref_pin,
+    Integer r_ref) -> void
+  def read: () -> Float
+end

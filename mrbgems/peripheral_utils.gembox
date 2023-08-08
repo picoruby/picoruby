@@ -1,0 +1,5 @@
+MRuby::GemBox.new do |conf|
+  conf.gem core: 'picoruby-dip_switch'
+  conf.gem core: 'picoruby-rtd'
+end
+
