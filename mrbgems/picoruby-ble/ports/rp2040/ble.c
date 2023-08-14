@@ -10,12 +10,6 @@
 
 #include "ble_common.h"
 
-enum BLE_role_t {
-  BLE_ROLE_NONE,
-  BLE_ROLE_CENTRAL,
-  BLE_ROLE_PERIPHERAL
-};
-
 static enum BLE_role_t role = BLE_ROLE_NONE;
 
 static btstack_packet_callback_registration_t ble_hci_event_callback_registration;
@@ -64,6 +58,13 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
           break;
       }
       break;
+    case BLE_ROLE_BROADCASTER:
+      switch (hci_event_packet_get_type(packet)) {
+        case BTSTACK_EVENT_STATE:
+        default:
+          break;
+      }
+      break;
     case BLE_ROLE_CENTRAL:
       switch (hci_event_packet_get_type(packet)) {
         case BTSTACK_EVENT_STATE:
@@ -86,31 +87,32 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
           break;
       }
       break;
+    case BLE_ROLE_OBSERVER:
+      // TODO
+      break;
     default:
       break;
   }
 }
 
 int
-BLE_init(const uint8_t *profile_data)
+BLE_init(const uint8_t *profile_data, int ble_role)
 {
   l2cap_init();
   sm_init();
 
-  /*
-   * Fixme: This looks like a hardcodeing.
-   */
-  if (profile_data) {
-    role = BLE_ROLE_PERIPHERAL;
-  } else {
-    role = BLE_ROLE_CENTRAL;
-  }
+  role = ble_role;
 
   switch (role) {
     case BLE_ROLE_PERIPHERAL:
       att_server_init(profile_data, att_read_callback, att_write_callback);
       att_server_register_packet_handler(packet_handler);
       break;
+    case BLE_ROLE_BROADCASTER:
+      att_server_init(NULL, NULL, NULL);
+      att_server_register_packet_handler(packet_handler);
+      break;
+    case BLE_ROLE_OBSERVER:
     case BLE_ROLE_CENTRAL:
       sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
       att_server_init(NULL, NULL, NULL);

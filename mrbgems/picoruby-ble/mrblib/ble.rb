@@ -85,6 +85,7 @@ class BLE
     _init(profile_data)
   end
 
+  attr_reader :role
   attr_accessor :heartbeat_period_ms, :debug
 
   POLLING_UNIT_MS = 10

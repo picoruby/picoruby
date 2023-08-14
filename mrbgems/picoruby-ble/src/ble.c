@@ -58,7 +58,21 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong argument type");
     return;
   }
-  if (BLE_init(profile_data) < 0) {
+  int ble_role;
+  int role_symid = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("role")).i;
+  if (role_symid == mrbc_str_to_symid("central")) {
+    ble_role = BLE_ROLE_CENTRAL;
+  } else if (role_symid == mrbc_str_to_symid("peripheral")) {
+    ble_role = BLE_ROLE_PERIPHERAL;
+  } else if (role_symid == mrbc_str_to_symid("observer")) {
+    ble_role = BLE_ROLE_OBSERVER;
+  } else if (role_symid == mrbc_str_to_symid("broadcaster")) {
+    ble_role = BLE_ROLE_BROADCASTER;
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong argument type");
+    return;
+  }
+  if (BLE_init(profile_data, ble_role) < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }

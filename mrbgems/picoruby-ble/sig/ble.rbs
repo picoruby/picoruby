@@ -151,6 +151,10 @@ class BLE
     def request_can_send_now_event: () -> void
   end
 
+  class Broadcaster < BLE
+    def advertise: (String) -> void
+  end
+
   class Central < BLE
 
     HCI_SUBEVENT_LE_CONNECTION_COMPLETE: Integer
@@ -205,6 +209,7 @@ class BLE
     @descriptor_handles: Array[Integer]
     @search_name: String | nil
 
+    attr_reader role: (:central | :peripheral | :observer | :broadcaster)
     attr_reader state: Symbol
     attr_reader services: Array[service_t]
     attr_reader found_devices: found_devices_t

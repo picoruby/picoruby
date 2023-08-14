@@ -9,6 +9,14 @@
 extern "C" {
 #endif
 
+enum BLE_role_t {
+  BLE_ROLE_NONE,
+  BLE_ROLE_CENTRAL,
+  BLE_ROLE_PERIPHERAL,
+  BLE_ROLE_BROADCASTER,
+  BLE_ROLE_OBSERVER
+};
+
 extern mrbc_value singleton;
 
 void mrbc_init_class_BLE_Peripheral(void);
@@ -20,7 +28,7 @@ typedef struct {
   uint16_t size;
 } BLE_read_value_t;
 
-int BLE_init(const uint8_t *profile);
+int BLE_init(const uint8_t *profile, int ble_role);
 void BLE_hci_power_control(uint8_t power_mode);
 void BLE_gap_local_bd_addr(uint8_t *local_addr);
 void BLE_push_event(uint8_t *packet, uint16_t size);

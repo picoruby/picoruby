@@ -20,6 +20,7 @@ class BLE
     GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xAA
 
     def initialize(profile_data = nil)
+      @role = :central
       super(profile_data)
       @found_devices = []
       reset_state
