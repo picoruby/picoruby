@@ -14,6 +14,12 @@
 hci_con_handle_t con_handle;
 
 void
+BLE_peripheral_stop_advertise(void)
+{
+  gap_advertisements_enable(0);
+}
+
+void
 BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len, bool connectable)
 {
   // setup advertisements

@@ -152,7 +152,7 @@ class BLE
   end
 
   class Broadcaster < BLE
-    def advertise: (String) -> void
+    def advertise: (String) -> 0
   end
 
   class Central < BLE

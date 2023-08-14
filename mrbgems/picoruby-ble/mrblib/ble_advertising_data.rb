@@ -22,6 +22,9 @@ class BLE
             d >>= 8
             length += 1
           end
+        when nil
+          @data << "\x00"
+          length += 1
         else
           raise ArgumentError, "invalid data type: `#{d}`"
         end

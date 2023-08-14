@@ -7,7 +7,12 @@ static void
 c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_value adv_data = GET_ARG(1);
-  BLE_peripheral_advertise(adv_data.string->data, adv_data.string->size, false);
+  if (adv_data.tt == MRBC_TT_NIL) {
+    BLE_peripheral_stop_advertise();
+  } else {
+    BLE_peripheral_advertise(adv_data.string->data, adv_data.string->size, false);
+  }
+  SET_INT_RETURN(0);
 }
 
 void
