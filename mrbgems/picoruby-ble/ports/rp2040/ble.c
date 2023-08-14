@@ -61,6 +61,8 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
     case BLE_ROLE_BROADCASTER:
       switch (hci_event_packet_get_type(packet)) {
         case BTSTACK_EVENT_STATE:
+          BLE_push_event(packet, size);
+          break;
         default:
           break;
       }
@@ -109,7 +111,6 @@ BLE_init(const uint8_t *profile_data, int ble_role)
       att_server_register_packet_handler(packet_handler);
       break;
     case BLE_ROLE_BROADCASTER:
-      att_server_init(NULL, NULL, NULL);
       att_server_register_packet_handler(packet_handler);
       break;
     case BLE_ROLE_OBSERVER:

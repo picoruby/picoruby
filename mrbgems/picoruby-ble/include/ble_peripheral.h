@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-void BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len);
+void BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len, bool connectable);
 void BLE_peripheral_notify(uint16_t att_handle);
 void BLE_peripheral_request_can_send_now_event(void);
 

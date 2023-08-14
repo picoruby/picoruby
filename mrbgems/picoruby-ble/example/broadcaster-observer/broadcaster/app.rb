@@ -2,11 +2,6 @@ require 'adc'
 require 'ble'
 
 class DemoBroadcaster < BLE::Broadcaster
-  # for advertising
-  APP_AD_FLAGS = 0x06
-  BLUETOOTH_DATA_TYPE_FLAGS = 0x01
-  BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS = 0x03
-  BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME = 0x09
 
   def initialize
     super(nil)
@@ -17,9 +12,10 @@ class DemoBroadcaster < BLE::Broadcaster
   def adv_data
     temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
     BLE::AdvertisingData.build do |a|
-      a.add(BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS)
-      a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, "PicoRuby BLE")
-      a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, SERVICE_ENVIRONMENTAL_SENSING)
+      # bluetooth_data_type_manufacturer_specific_data = 0xFF
+      a.add(0xFF, 0xFF, 0xFF, 1,2,3,4,5,6,7)
+      # bluetooth_data_type_complete_local_name = 0x09
+      a.add(0x09, "PicoRuby BLE")
     end
   end
 
@@ -29,7 +25,7 @@ class DemoBroadcaster < BLE::Broadcaster
 
   def packet_callback(event_packet)
     case event_packet[0]&.ord # event type
-    when BTSTACK_EVENT_STATE
+    when 0x60 # BTSTACK_EVENT_STATE
       return unless event_packet[2]&.ord ==  BLE::HCI_STATE_WORKING
       debug_puts "Broadcaster is up and running on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(adv_data)

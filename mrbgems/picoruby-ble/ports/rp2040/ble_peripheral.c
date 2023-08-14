@@ -14,15 +14,17 @@
 hci_con_handle_t con_handle;
 
 void
-BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len)
+BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len, bool connectable)
 {
   // setup advertisements
   uint16_t adv_int_min = 800;
   uint16_t adv_int_max = 800;
-  uint8_t adv_type = 0;
+  uint8_t adv_type = connectable ? 0 : 2;
+  uint8_t channel_map = 0x07; // Use all three broadcast channels.
+  uint8_t filter_policy = 0x00; // None.
   bd_addr_t null_addr;
   memset(null_addr, 0, 6);
-  gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
+  gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, channel_map, filter_policy);
   gap_advertisements_set_data(adv_data_len, adv_data);
   gap_advertisements_enable(1);
 }

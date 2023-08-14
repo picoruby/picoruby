@@ -62,14 +62,18 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   int role_symid = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("role")).i;
   if (role_symid == mrbc_str_to_symid("central")) {
     ble_role = BLE_ROLE_CENTRAL;
+    console_printf("BLE role: central\n");
   } else if (role_symid == mrbc_str_to_symid("peripheral")) {
     ble_role = BLE_ROLE_PERIPHERAL;
+    console_printf("BLE role: peripheral\n");
   } else if (role_symid == mrbc_str_to_symid("observer")) {
     ble_role = BLE_ROLE_OBSERVER;
+    console_printf("BLE role: observer\n");
   } else if (role_symid == mrbc_str_to_symid("broadcaster")) {
     ble_role = BLE_ROLE_BROADCASTER;
+    console_printf("BLE role: broadcaster\n");
   } else {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong argument type");
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong role type");
     return;
   }
   if (BLE_init(profile_data, ble_role) < 0) {
@@ -124,5 +128,6 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE, "mutex_unlock", c_mutex_unlock);
 
   mrbc_init_class_BLE_Peripheral();
+  mrbc_init_class_BLE_Broadcaster();
   mrbc_init_class_BLE_Central();
 }
