@@ -50,10 +50,12 @@ class IO
     IO.raw do
       while true
         timer += 0.1
+        IO.read_nonblock(1000) # clear buffer
         print "\e[5n" # CSI DSR 5 to request terminal status report
         sleep 0.1
         if IO.read_nonblock(10) == "\e[0n"
           res = true
+          ENV['TERM'] = "ansi"
           break
         end
         if timeout && timeout.to_f < timer

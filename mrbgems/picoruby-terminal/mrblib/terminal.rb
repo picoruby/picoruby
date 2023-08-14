@@ -75,6 +75,7 @@ class Terminal
 
     def physical_line_count
       count = 0
+      return count if @width == 0
       @buffer.lines.each do |line|
         count += 1 + (@prompt_margin + line.length) / @width
       end

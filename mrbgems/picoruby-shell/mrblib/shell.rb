@@ -97,6 +97,7 @@ class Shell
       logo_width = SHORT_LOGO_LINES.map{|l| l.length}.max || 0
       logo_lines = SHORT_LOGO_LINES
     end
+    return nil if @terminal.width < logo_width
     margin = " " * ((@terminal.width - logo_width) / 2)
     puts LOGO_COLOR
     logo_lines.each do |line|
