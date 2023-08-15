@@ -12,14 +12,14 @@
 #include "ble_common.h"
 
 void
-BLE_central_start_scan(void){
+BLE_central_resume_scan(void){
   gap_set_scan_parameters(0, 0x0030, 0x0030);
-  gap_start_scan();
+  gap_resume_scan();
 }
 
 void
-BLE_central_stop_scan(void){
-  gap_stop_scan();
+BLE_central_suspend_scan(void){
+  gap_suspend_scan();
 }
 
 uint8_t

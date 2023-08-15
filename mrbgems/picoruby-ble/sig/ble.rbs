@@ -215,12 +215,12 @@ class BLE
     attr_reader found_devices: found_devices_t
 
     def reset_state: () -> Symbol
-    def scan: (?(String | nil)) -> bool
+    def scan: (?filter_name: String, ?timeout: Integer|nil, ?stop_state: Symbol) -> bool
     def add_found_device: (BLE::AdvertisingReport) -> found_devices_t
     def clear_found_devices: () -> found_devices_t
     def print_found_devices: () -> nil
-    def start_scan: () -> 0
-    def stop_scan: () -> 0
+    def resume_scan: () -> 0
+    def suspend_scan: () -> 0
     def connect: (Integer) -> bool
     def get_packet: () -> String
     def discover_primary_services: (Integer) -> Integer

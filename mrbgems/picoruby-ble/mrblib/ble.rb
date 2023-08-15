@@ -90,22 +90,22 @@ class BLE
 
   POLLING_UNIT_MS = 10
 
-  def start(duration = nil, stop_state = :no_stop)
-    duration_ms = duration ? duration * 1000 : nil
-    if duration_ms
-      debug_puts "Starting for #{duration_ms} ms"
+  def start(timeout = nil, stop_state = :no_stop)
+    timeout_ms = timeout ? timeout * 1000 : nil
+    if timeout_ms
+      debug_puts "Starting for #{timeout_ms} ms"
     else
       debug_puts "Starting with infinite loop. Ctrl-C for stop"
     end
     heartbeat_ms = 0
-    total_duration_ms = 0
+    total_timeout_ms = 0
     hci_power_control(HCI_POWER_ON)
     while true
       if @heartbeat_period_ms <= heartbeat_ms
         heartbeat_ms = 0
         heartbeat_callback
       end
-      break if duration_ms && duration_ms <= total_duration_ms
+      break if timeout_ms && timeout_ms <= total_timeout_ms
       if mutex_trylock
         while event_packet = @_event_packets.shift do
           packet_callback(event_packet)
@@ -113,13 +113,14 @@ class BLE
         mutex_unlock
       end
       if @state == stop_state
-        return total_duration_ms
+        puts "Stopped by state: #{stop_state}"
+        return total_timeout_ms
       end
       sleep_ms POLLING_UNIT_MS - 2
       heartbeat_ms += POLLING_UNIT_MS
-      total_duration_ms += POLLING_UNIT_MS
+      total_timeout_ms += POLLING_UNIT_MS
     end
-    return total_duration_ms
+    return total_timeout_ms
   end
 
   def debug_puts(*args)

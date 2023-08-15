@@ -47,10 +47,10 @@ class BLE
 
     attr_reader :found_devices, :services, :state
 
-    def scan(search_name = nil)
-      @found_devices_count_limit = 1 if search_name
-      @search_name = search_name
-      start(10, :TC_IDLE)
+    def scan(filter_name: nil, timeout: nil, stop_state: :TC_IDLE)
+      @found_devices_count_limit = 1 if filter_name
+      @search_name = filter_name
+      start(timeout, stop_state)
       0 < @found_devices.size
     end
 
@@ -63,7 +63,7 @@ class BLE
         puts "No device with id #{device_id} found."
         return false
       end
-      stop_scan # Is it necessary?
+      suspend_scan # Is it necessary?
       @_event_packets.clear
       err_code = gap_connect(device.address, device.address_type)
       if err_code == 0
@@ -100,7 +100,7 @@ class BLE
         return if @state != :TC_OFF && @state != :TC_IDLE
         if event_packet[2]&.ord == HCI_STATE_WORKING
           debug_puts "Central is up and running on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
-          start_scan
+          resume_scan
           @state = :TC_W4_SCAN_RESULT
         else
           @state = :TC_OFF

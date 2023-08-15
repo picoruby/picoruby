@@ -90,16 +90,16 @@ c_discover_characteristic_descriptors(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_start_scan(mrbc_vm *vm, mrbc_value *v, int argc)
+c_resume_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_central_start_scan();
+  BLE_central_resume_scan();
   SET_INT_RETURN(0);
 }
 
 static void
-c_stop_scan(mrbc_vm *vm, mrbc_value *v, int argc)
+c_suspend_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_central_stop_scan();
+  BLE_central_suspend_scan();
   SET_INT_RETURN(0);
 }
 
@@ -125,8 +125,8 @@ mrbc_init_class_BLE_Central(void)
   mrbc_value *BLE = mrbc_get_class_const(mrbc_class_BLE, mrbc_search_symid("Central"));
   mrbc_class *mrbc_class_BLE_Central = BLE->cls;
 
-  mrbc_define_method(0, mrbc_class_BLE_Central, "start_scan", c_start_scan);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "stop_scan", c_stop_scan);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "resume_scan", c_resume_scan);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "suspend_scan", c_suspend_scan);
   mrbc_define_method(0, mrbc_class_BLE_Central, "gap_connect", c_gap_connect);
   mrbc_define_method(0, mrbc_class_BLE_Central, "discover_primary_services", c_discover_primary_services);
   mrbc_define_method(0, mrbc_class_BLE_Central, "discover_characteristics_for_service", c_discover_characteristics_for_service);
