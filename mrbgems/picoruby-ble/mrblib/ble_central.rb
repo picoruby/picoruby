@@ -64,7 +64,7 @@ class BLE
         return false
       end
       suspend_scan # Is it necessary?
-      @_event_packets.clear
+      clear_event_packets
       err_code = gap_connect(device.address, device.address_type)
       if err_code == 0
         @state = :TC_W4_CONNECT
@@ -202,7 +202,7 @@ class BLE
                 characteristic_handle_range[:end_handle]
               )
             elsif value_handle = @value_handles.shift
-              @_event_packets.clear
+              clear_event_packets
               read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
               @state = :TC_W4_CHARACTERISTIC_VALUE_RESULT
             end
@@ -220,13 +220,13 @@ class BLE
               end
             end
             if value_handle = @value_handles.shift
-              @_event_packets.clear
+              clear_event_packets
               read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
             end
           when GATT_EVENT_QUERY_COMPLETE
             debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
             if handle_range = @descriptor_handle_ranges.shift
-              @_event_packets.clear
+              clear_event_packets
               discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
               @state = :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
             else
@@ -255,10 +255,10 @@ class BLE
           when GATT_EVENT_QUERY_COMPLETE
             debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor"
             if handle_range = @descriptor_handle_ranges.shift
-              @_event_packets.clear
+              clear_event_packets
               discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
             elsif descriptor_handle = @descriptor_handles.shift
-              @_event_packets.clear
+              clear_event_packets
               # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
               read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
               @state = :TC_W4_CHARACTERISTIC_DESCRIPTOR_VALUE_RESULT
@@ -281,7 +281,7 @@ class BLE
               end
             end
             if descriptor_handle = @descriptor_handles.shift
-              @_event_packets.clear
+              clear_event_packets
               # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
               read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
             end

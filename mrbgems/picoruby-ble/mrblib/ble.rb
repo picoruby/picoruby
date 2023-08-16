@@ -127,6 +127,16 @@ class BLE
     puts(*args) if @debug
   end
 
+  def clear_event_packets
+    while true
+      if mutex_trylock
+        @_event_packets.clear
+        break
+      end
+    end
+    mutex_unlock
+  end
+
   def get_write_value(handle)
     return nil unless mutex_trylock
     value = @_write_values.delete(handle)

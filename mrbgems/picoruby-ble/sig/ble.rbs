@@ -88,6 +88,7 @@ class BLE
   def get_write_value: (Integer) -> (String|nil)
   def set_read_value: (Integer, String) -> void
   def gap_connect: (String, Integer) -> Integer
+  def clear_event_packets: () -> 0
 
   class Utils
     def self.bd_addr_to_str: (String) -> String
