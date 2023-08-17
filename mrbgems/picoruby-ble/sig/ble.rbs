@@ -79,7 +79,7 @@ class BLE
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer) -> 0
-  def start: (?(Integer | nil), ?(Symbol | nil)) -> Integer
+  def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
   def mutex_trylock: () -> bool
   def mutex_unlock: () -> 0
   def packet_callback: (String) -> void
@@ -216,9 +216,9 @@ class BLE
     attr_reader found_devices: found_devices_t
 
     def reset_state: () -> Symbol
-    def scan: (?filter_name: String, ?timeout: Integer|nil, ?stop_state: Symbol) -> bool
+    def scan: (?filter_name: String, ?timeout_ms: Integer|nil, ?stop_state: Symbol) -> bool
     def add_found_device: (BLE::AdvertisingReport) -> found_devices_t
-    def clear_found_devices: () -> found_devices_t
+    def clear_found_devices: () -> void
     def print_found_devices: () -> nil
     def resume_scan: () -> 0
     def suspend_scan: () -> 0

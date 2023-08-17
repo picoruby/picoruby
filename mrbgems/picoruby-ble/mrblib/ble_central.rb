@@ -47,10 +47,11 @@ class BLE
 
     attr_reader :found_devices, :services, :state
 
-    def scan(filter_name: nil, timeout: nil, stop_state: :TC_IDLE)
+    def scan(filter_name: nil, timeout_ms: nil, stop_state: :TC_IDLE)
       @found_devices_count_limit = 1 if filter_name
       @search_name = filter_name
-      start(timeout, stop_state)
+      reset_state
+      start(timeout_ms, stop_state)
       0 < @found_devices.size
     end
 
@@ -81,7 +82,12 @@ class BLE
     end
 
     def clear_found_devices
-      @found_devices = []
+      if mutex_trylock
+        @found_devices = []
+        mutex_unlock
+      else
+        puts "Failed to lock mutex. Skip"
+      end
     end
 
     def print_found_devices
@@ -103,7 +109,7 @@ class BLE
           resume_scan
           @state = :TC_W4_SCAN_RESULT
         else
-          @state = :TC_OFF
+          reset_state
         end
       when GAP_EVENT_ADVERTISING_REPORT
         return unless @state == :TC_W4_SCAN_RESULT

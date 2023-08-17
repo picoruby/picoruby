@@ -12,22 +12,26 @@ void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
   if (mutex_locked) return;
+  mutex_locked = true;
   if (singleton.instance == NULL) return;
   mrbc_value _event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
   if (_event_packets.tt != MRBC_TT_ARRAY) return;
   if (20 < _event_packets.array->n_stored) return;
   mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
   mrbc_array_push(&_event_packets, &str);
+  mutex_locked = false;
 }
 
 int
 BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
 {
   if (mutex_locked) return -1;
+  mutex_locked = true;
   if (att_handle == 0 || size == 0 || singleton.instance == NULL) return -1;
   mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
   if (write_values_hash.tt != MRBC_TT_HASH) return -1;
   mrbc_value write_value = mrbc_string_new(NULL, data, size);
+  mutex_locked = false;
   return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
 }
 

@@ -90,8 +90,7 @@ class BLE
 
   POLLING_UNIT_MS = 10
 
-  def start(timeout = nil, stop_state = :no_stop)
-    timeout_ms = timeout ? timeout * 1000 : nil
+  def start(timeout_ms = nil, stop_state = :no_stop)
     if timeout_ms
       debug_puts "Starting for #{timeout_ms} ms"
     else
@@ -120,6 +119,7 @@ class BLE
       heartbeat_ms += POLLING_UNIT_MS
       total_timeout_ms += POLLING_UNIT_MS
     end
+    hci_power_control(HCI_POWER_OFF)
     return total_timeout_ms
   end
 
@@ -131,10 +131,10 @@ class BLE
     while true
       if mutex_trylock
         @_event_packets.clear
-        break
+        mutex_unlock
+        return 0
       end
     end
-    mutex_unlock
   end
 
   def get_write_value(handle)

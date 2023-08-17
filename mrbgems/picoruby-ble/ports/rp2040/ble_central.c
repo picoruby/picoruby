@@ -14,12 +14,12 @@
 void
 BLE_central_resume_scan(void){
   gap_set_scan_parameters(0, 0x0030, 0x0030);
-  gap_resume_scan();
+  gap_start_scan();
 }
 
 void
 BLE_central_suspend_scan(void){
-  gap_suspend_scan();
+  gap_stop_scan();
 }
 
 uint8_t
