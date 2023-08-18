@@ -2,23 +2,26 @@
 #include <mrubyc.h>
 #include "../include/ble.h"
 
-uint8_t packet_event_type = 0;
-
 mrbc_value singleton = {0};
 
-static bool mutex_locked = false;
+static volatile bool mutex_locked = false;
+
+#define MAX_EVENT_PACKETS 20
 
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
+  if (singleton.instance == NULL) return;
   if (mutex_locked) return;
   mutex_locked = true;
-  if (singleton.instance == NULL) return;
   mrbc_value _event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
-  if (_event_packets.tt != MRBC_TT_ARRAY) return;
-  if (20 < _event_packets.array->n_stored) return;
-  mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-  mrbc_array_push(&_event_packets, &str);
+  if (_event_packets.tt != MRBC_TT_ARRAY || MAX_EVENT_PACKETS < _event_packets.array->n_stored) {
+    mutex_locked = false;
+    return;
+  } else {
+    mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+    mrbc_array_push(&_event_packets, &str);
+  }
   mutex_locked = false;
 }
 
@@ -27,9 +30,15 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
 {
   if (mutex_locked) return -1;
   mutex_locked = true;
-  if (att_handle == 0 || size == 0 || singleton.instance == NULL) return -1;
+  if (att_handle == 0 || size == 0 || singleton.instance == NULL) {
+    mutex_locked = false;
+    return -1;
+  }
   mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
-  if (write_values_hash.tt != MRBC_TT_HASH) return -1;
+  if (write_values_hash.tt != MRBC_TT_HASH) {
+    mutex_locked = false;
+    return -1;
+  }
   mrbc_value write_value = mrbc_string_new(NULL, data, size);
   mutex_locked = false;
   return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
@@ -51,6 +60,7 @@ BLE_read_data(BLE_read_value_t *read_value)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  mutex_locked = false
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {
     /* Protect profile_data from GC */
@@ -66,16 +76,12 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   int role_symid = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("role")).i;
   if (role_symid == mrbc_str_to_symid("central")) {
     ble_role = BLE_ROLE_CENTRAL;
-    console_printf("BLE role: central\n");
   } else if (role_symid == mrbc_str_to_symid("peripheral")) {
     ble_role = BLE_ROLE_PERIPHERAL;
-    console_printf("BLE role: peripheral\n");
   } else if (role_symid == mrbc_str_to_symid("observer")) {
     ble_role = BLE_ROLE_OBSERVER;
-    console_printf("BLE role: observer\n");
   } else if (role_symid == mrbc_str_to_symid("broadcaster")) {
     ble_role = BLE_ROLE_BROADCASTER;
-    console_printf("BLE role: broadcaster\n");
   } else {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong role type");
     return;

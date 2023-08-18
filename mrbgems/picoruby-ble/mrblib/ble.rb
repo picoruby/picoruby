@@ -105,11 +105,10 @@ class BLE
         heartbeat_callback
       end
       break if timeout_ms && timeout_ms <= total_timeout_ms
-      if mutex_trylock
+      mutex_lock do
         while event_packet = @_event_packets.shift do
           packet_callback(event_packet)
         end
-        mutex_unlock
       end
       if @state == stop_state
         puts "Stopped by state: #{stop_state}"
@@ -128,20 +127,13 @@ class BLE
   end
 
   def clear_event_packets
-    while true
-      if mutex_trylock
-        @_event_packets.clear
-        mutex_unlock
-        return 0
-      end
-    end
+    @_event_packets.clear
   end
 
   def get_write_value(handle)
-    return nil unless mutex_trylock
-    value = @_write_values.delete(handle)
-    mutex_unlock
-    return value
+    mutex_lock do
+      @_write_values.delete(handle)
+    end
   end
 
   def set_read_value(handle, value)
@@ -155,5 +147,26 @@ class BLE
     end
     @_read_values[handle] = value
   end
+
+  def mutex_lock(timeout_ms = nil, &block)
+    time_ms = 0
+    while true
+      if mutex_trylock
+        result = block.call
+        mutex_unlock
+        return result
+      else
+        sleep_ms POLLING_UNIT_MS
+        time_ms += POLLING_UNIT_MS
+        puts "Mutex too long" if 3000 <= time_ms
+        next unless timeout_ms
+        if timeout_ms <= time_ms
+          puts "mutex_lock timeout"
+          break
+        end
+      end
+    end
+  end
+
 end
 

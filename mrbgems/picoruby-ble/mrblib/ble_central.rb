@@ -45,14 +45,14 @@ class BLE
       @descriptor_handles = []
     end
 
-    attr_reader :found_devices, :services, :state
+    attr_reader :services, :state
 
     def scan(filter_name: nil, timeout_ms: nil, stop_state: :TC_IDLE)
       @found_devices_count_limit = 1 if filter_name
       @search_name = filter_name
       reset_state
       start(timeout_ms, stop_state)
-      0 < @found_devices.size
+      return device_found?
     end
 
     def reset_state
@@ -77,17 +77,12 @@ class BLE
       end
     end
 
-    def add_found_device(adv_report)
-      @found_devices << adv_report
+    def device_found?
+      !@found_devices.empty?
     end
 
     def clear_found_devices
-      if mutex_trylock
-        @found_devices = []
-        mutex_unlock
-      else
-        puts "Failed to lock mutex. Skip"
-      end
+      @found_devices.clear
     end
 
     def print_found_devices
@@ -114,13 +109,13 @@ class BLE
       when GAP_EVENT_ADVERTISING_REPORT
         return unless @state == :TC_W4_SCAN_RESULT
         adv_report = AdvertisingReport.new(event_packet)
-        if @found_devices_count_limit <= found_devices.count
+        if @found_devices_count_limit <= @found_devices.count
           @state = :TC_IDLE
           return
         end
-        unless found_devices.any?{ |d| d.address == adv_report.address }
+        unless @found_devices.any?{ |d| d.address == adv_report.address }
           if @search_name.nil? || adv_report.name_include?(@search_name)
-            add_found_device adv_report
+            @found_devices << adv_report
           end
         end
       when HCI_EVENT_LE_META

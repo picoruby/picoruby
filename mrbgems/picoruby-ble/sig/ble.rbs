@@ -68,18 +68,19 @@ class BLE
 
   @_write_values: Hash[Integer, String]
   @_read_values: Hash[Integer, String]
-  @_event_packets: event_packet_t
+  @_event_packets: event_packets_t
   
   attr_accessor heartbeat_period_ms: Integer
   attr_accessor debug: bool
 
-  type event_packet_t = Array[String]
+  type event_packets_t = Array[String]
 
   def initialize: (?(String|nil)) -> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer) -> 0
   def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
+  def mutex_lock: (?(Integer | nil) timeout_ms) { () -> untyped} -> untyped
   def mutex_trylock: () -> bool
   def mutex_unlock: () -> 0
   def packet_callback: (String) -> void
@@ -88,7 +89,7 @@ class BLE
   def get_write_value: (Integer) -> (String|nil)
   def set_read_value: (Integer, String) -> void
   def gap_connect: (String, Integer) -> Integer
-  def clear_event_packets: () -> 0
+  def clear_event_packets: () -> event_packets_t
 
   class Utils
     def self.bd_addr_to_str: (String) -> String
@@ -213,12 +214,11 @@ class BLE
     attr_reader role: (:central | :peripheral | :observer | :broadcaster)
     attr_reader state: Symbol
     attr_reader services: Array[service_t]
-    attr_reader found_devices: found_devices_t
 
     def reset_state: () -> Symbol
     def scan: (?filter_name: String, ?timeout_ms: Integer|nil, ?stop_state: Symbol) -> bool
-    def add_found_device: (BLE::AdvertisingReport) -> found_devices_t
-    def clear_found_devices: () -> void
+    def device_found?: () -> bool
+    def clear_found_devices: () -> found_devices_t
     def print_found_devices: () -> nil
     def resume_scan: () -> 0
     def suspend_scan: () -> 0
