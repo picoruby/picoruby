@@ -102,7 +102,9 @@ class BLE
     while true
       if @heartbeat_period_ms <= heartbeat_ms
         heartbeat_ms = 0
-        heartbeat_callback
+        mutex_lock do
+          heartbeat_callback
+        end
       end
       break if timeout_ms && timeout_ms <= total_timeout_ms
       mutex_lock do

@@ -157,6 +157,10 @@ class BLE
     def advertise: (String) -> 0
   end
 
+  class Observer < BLE::Central
+    def initialize: () -> void
+  end
+
   class Central < BLE
 
     HCI_SUBEVENT_LE_CONNECTION_COMPLETE: Integer
@@ -201,6 +205,7 @@ class BLE
       uuid32: (Integer | nil),
       value: (String | nil)
     }
+    type scan_type_t = (:passive|:active)
 
     @found_devices_count_limit: Integer
     @search_name: String | nil
@@ -216,12 +221,21 @@ class BLE
     attr_reader services: Array[service_t]
 
     def reset_state: () -> Symbol
-    def scan: (?filter_name: String, ?timeout_ms: Integer|nil, ?stop_state: Symbol) -> bool
+    def scan: (
+      ?scan_type: scan_type_t,
+      ?scan_interval: Integer,
+      ?scan_window: Integer,
+      ?filter_name: String,
+      ?timeout_ms: Integer|nil,
+      ?stop_state: Symbol,
+      ?debug: bool
+    ) -> bool
     def device_found?: () -> bool
     def clear_found_devices: () -> found_devices_t
     def print_found_devices: () -> nil
-    def resume_scan: () -> 0
-    def suspend_scan: () -> 0
+    def set_scan_params: (scan_type_t scan_type, Integer scan_interval, Integer scan_window) -> 0
+    def start_scan: () -> 0
+    def stop_scan: () -> 0
     def connect: (Integer) -> bool
     def get_packet: () -> String
     def discover_primary_services: (Integer) -> Integer

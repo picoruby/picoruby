@@ -89,17 +89,53 @@ c_discover_characteristic_descriptors(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(res);
 }
 
+/*
+ * @param [Symbol] scan_type. :passive or :active
+ * @param [Integer] scan_interval. 4..4000 (unit: 0.625ms)
+ * @param [Integer] scan_window. 4..4000 (unit: 0.625ms)
+ * @param [Symbol] scan_filter_policy (not implemented)
+ * @return void
+ */
 static void
-c_resume_scan(mrbc_vm *vm, mrbc_value *v, int argc)
+c_set_scan_params(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_central_resume_scan();
+  if (argc != 3) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (GET_TT_ARG(1) != MRBC_TT_SYMBOL ||
+      GET_TT_ARG(2) != MRBC_TT_INTEGER ||
+      GET_TT_ARG(3) != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
+    return;
+  }
+  uint8_t scan_type;
+  if (mrbc_str_to_symid("passive") == v[1].i) {
+    scan_type = 0;
+  } else if (mrbc_str_to_symid("active") == v[1].i) {
+    scan_type = 1;
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "scan_type active is not implemented");
+    return;
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong parameter of scan_type");
+    return;
+  }
+  uint8_t scanning_filter_policy = 0; // TODO 1: all from whitelist
+  BLE_central_set_scan_params(scan_type, (uint16_t)GET_INT_ARG(2), (uint16_t)GET_INT_ARG(3), scanning_filter_policy);
   SET_INT_RETURN(0);
 }
 
 static void
-c_suspend_scan(mrbc_vm *vm, mrbc_value *v, int argc)
+c_start_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  BLE_central_suspend_scan();
+  BLE_central_start_scan();
+  SET_INT_RETURN(0);
+}
+
+static void
+c_stop_scan(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  BLE_central_stop_scan();
   SET_INT_RETURN(0);
 }
 
@@ -125,8 +161,9 @@ mrbc_init_class_BLE_Central(void)
   mrbc_value *BLE = mrbc_get_class_const(mrbc_class_BLE, mrbc_search_symid("Central"));
   mrbc_class *mrbc_class_BLE_Central = BLE->cls;
 
-  mrbc_define_method(0, mrbc_class_BLE_Central, "resume_scan", c_resume_scan);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "suspend_scan", c_suspend_scan);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "set_scan_params", c_set_scan_params);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "start_scan", c_start_scan);
+  mrbc_define_method(0, mrbc_class_BLE_Central, "stop_scan", c_stop_scan);
   mrbc_define_method(0, mrbc_class_BLE_Central, "gap_connect", c_gap_connect);
   mrbc_define_method(0, mrbc_class_BLE_Central, "discover_primary_services", c_discover_primary_services);
   mrbc_define_method(0, mrbc_class_BLE_Central, "discover_characteristics_for_service", c_discover_characteristics_for_service);

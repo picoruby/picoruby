@@ -47,7 +47,9 @@ class BLE
 
     attr_reader :services, :state
 
-    def scan(filter_name: nil, timeout_ms: nil, stop_state: :TC_IDLE)
+    def scan(scan_type: :passive, scan_interval: 0x60, scan_window: 0x30, filter_name: nil, timeout_ms: nil, stop_state: :TC_IDLE, debug: false)
+      set_scan_params(scan_type, scan_interval, scan_window)
+      @debug = debug
       @found_devices_count_limit = 1 if filter_name
       @search_name = filter_name
       reset_state
@@ -64,7 +66,7 @@ class BLE
         puts "No device with id #{device_id} found."
         return false
       end
-      suspend_scan # Is it necessary?
+      stop_scan # Is it necessary?
       clear_event_packets
       err_code = gap_connect(device.address, device.address_type)
       if err_code == 0
@@ -101,23 +103,21 @@ class BLE
         return if @state != :TC_OFF && @state != :TC_IDLE
         if event_packet[2]&.ord == HCI_STATE_WORKING
           debug_puts "Central is up and running on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
-          resume_scan
+          start_scan
           @state = :TC_W4_SCAN_RESULT
         else
           reset_state
         end
       when GAP_EVENT_ADVERTISING_REPORT
         return unless @state == :TC_W4_SCAN_RESULT
-        adv_report = AdvertisingReport.new(event_packet)
         if @found_devices_count_limit <= @found_devices.count
           @state = :TC_IDLE
           return
         end
-        unless @found_devices.any?{ |d| d.address == adv_report.address }
-          if @search_name.nil? || adv_report.name_include?(@search_name)
-            @found_devices << adv_report
-          end
-        end
+        adv_report = AdvertisingReport.new(event_packet)
+        return if @search_name && !adv_report.name_include?(@search_name)
+        return if @found_devices.any?{ |d| d.address == adv_report.address }
+        @found_devices << adv_report
       when HCI_EVENT_LE_META
         return unless @state == :TC_W4_CONNECT
         case event_packet[2]&.ord

@@ -1,6 +1,6 @@
 require 'ble'
 
-class DemoObserver < BLE::Central
+class DemoObserver < BLE::Observer
   def initialize
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
@@ -12,12 +12,8 @@ class DemoObserver < BLE::Central
     @led.write((@led_on = !@led_on) ? 1 : 0)
     if device_found?
       puts @count
-      puts "Found device(s) including 'PicoRuby' in name"
-      mutex_lock do
-        #print_found_devices
-        clear_found_devices
-      end
-      p PicoRubyVM.memory_statistics
+      print_found_devices
+      clear_found_devices
       @state = :TC_W4_SCAN_RESULT
     end
     puts @count += 1
@@ -25,6 +21,12 @@ class DemoObserver < BLE::Central
 end
 
 observer = DemoObserver.new
-observer.debug = true
-observer.scan(filter_name: "PicoRuby", stop_state: :no_stop)
+observer.scan(
+  scan_type: :passive,
+  scan_interval: 150,
+  scan_window: 50,
+  filter_name: "PicoRuby",
+  stop_state: :no_stop,
+  debug: true
+)
 

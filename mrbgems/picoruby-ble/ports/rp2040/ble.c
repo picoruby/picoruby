@@ -71,19 +71,19 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
     case BLE_ROLE_CENTRAL:
       switch (hci_event_packet_get_type(packet)) {
         case BTSTACK_EVENT_STATE:
-        //case HCI_EVENT_LE_META:
+        case HCI_EVENT_LE_META:
         case GAP_EVENT_ADVERTISING_REPORT:
-        //case GATT_EVENT_QUERY_COMPLETE:
-        //case GATT_EVENT_SERVICE_QUERY_RESULT:
-        //case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
-        //case GATT_EVENT_INCLUDED_SERVICE_QUERY_RESULT:
-        //case GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT:
-        //case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
-        //case GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT:
-        //case GATT_EVENT_NOTIFICATION:
-        //case GATT_EVENT_INDICATION:
-        //case GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT:
-        //case GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT:
+        case GATT_EVENT_QUERY_COMPLETE:
+        case GATT_EVENT_SERVICE_QUERY_RESULT:
+        case GATT_EVENT_CHARACTERISTIC_QUERY_RESULT:
+        case GATT_EVENT_INCLUDED_SERVICE_QUERY_RESULT:
+        case GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT:
+        case GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT:
+        case GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT:
+        case GATT_EVENT_NOTIFICATION:
+        case GATT_EVENT_INDICATION:
+        case GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT:
+        case GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT:
           BLE_push_event(packet, size);
           break;
         default:
@@ -91,8 +91,14 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
       }
       break;
     case BLE_ROLE_OBSERVER:
-      // TODO
-      break;
+      switch (hci_event_packet_get_type(packet)) {
+        case BTSTACK_EVENT_STATE:
+        case GAP_EVENT_ADVERTISING_REPORT:
+          BLE_push_event(packet, size);
+          break;
+        default:
+          break;
+      }
     default:
       break;
   }

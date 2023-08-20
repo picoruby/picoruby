@@ -3,24 +3,47 @@
 #include "../include/ble.h"
 
 mrbc_value singleton = {0};
-
+static mrbc_value event_packets;
 static volatile bool mutex_locked = false;
 
-#define MAX_EVENT_PACKETS 20
+#define MAX_EVENT_PACKETS 10
+inline void *
+memmem(const void *l, size_t l_len, const void *s, size_t s_len)
+{
+  register char *cur, *last;
+  const char *cl = (const char *)l;
+  const char *cs = (const char *)s;
+
+  if (l_len < s_len) return NULL;
+
+  if (s_len == 1) return memchr(l, (int)*cs, l_len);
+
+  last = (char *)cl + l_len - s_len;
+
+  for (cur = (char *)cl; cur <= last; cur++)
+    if (cur[0] == cs[0] && memcmp(cur, cs, s_len) == 0)
+      return cur;
+
+  return NULL;
+}
 
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
-  if (singleton.instance == NULL) return;
+  if (singleton.instance == NULL || packet == NULL) return;
   if (mutex_locked) return;
   mutex_locked = true;
-  mrbc_value _event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
-  if (_event_packets.tt != MRBC_TT_ARRAY || MAX_EVENT_PACKETS < _event_packets.array->n_stored) {
-    mutex_locked = false;
-    return;
-  } else {
+  if (MAX_EVENT_PACKETS - 1 < event_packets.array->n_stored) {
+    console_printf("[WARN] BLE_push_event: event packet dropped\n");
+    console_printf("n_stored: %d\n", event_packets.array->n_stored);
+  } else if (packet[0] == 0x60 || memmem((const void *)packet, size, "PicoRuby", 8)) {
     mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-    mrbc_array_push(&_event_packets, &str);
+    mrbc_array_push(&event_packets, &str);
+  } else {
+    for (int i = 0; i < size; i++) {
+      console_printf("%c", packet[i]);
+    }
+    console_printf("\n");
   }
   mutex_locked = false;
 }
@@ -60,7 +83,9 @@ BLE_read_data(BLE_read_value_t *read_value)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mutex_locked = false
+  singleton.instance = v[0].instance;
+  event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
+  mutex_locked = false;
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {
     /* Protect profile_data from GC */
@@ -90,7 +115,6 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
-  singleton.instance = v[0].instance;
 }
 
 static void
