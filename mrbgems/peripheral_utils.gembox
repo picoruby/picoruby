@@ -1,5 +1,6 @@
 MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-dip_switch'
   conf.gem core: 'picoruby-iir_filter'
+  conf.gem core: 'picoruby-mcp3204'
 end
 
