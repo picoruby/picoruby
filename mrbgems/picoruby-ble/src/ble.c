@@ -40,10 +40,7 @@ BLE_push_event(uint8_t *packet, uint16_t size)
     mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
     mrbc_array_push(&event_packets, &str);
   } else {
-    for (int i = 0; i < size; i++) {
-      console_printf("%c", packet[i]);
-    }
-    console_printf("\n");
+    console_printf(".");
   }
   mutex_locked = false;
 }

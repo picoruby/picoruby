@@ -51,7 +51,7 @@ class BLE
       set_scan_params(scan_type, scan_interval, scan_window)
       @debug = debug
       @found_devices_count_limit = 1 if filter_name
-      @search_name = filter_name
+      #@search_name = filter_name
       reset_state
       start(timeout_ms, stop_state)
       return device_found?
@@ -115,7 +115,6 @@ class BLE
           return
         end
         adv_report = AdvertisingReport.new(event_packet)
-        return if @search_name && !adv_report.name_include?(@search_name)
         return if @found_devices.any?{ |d| d.address == adv_report.address }
         @found_devices << adv_report
       when HCI_EVENT_LE_META

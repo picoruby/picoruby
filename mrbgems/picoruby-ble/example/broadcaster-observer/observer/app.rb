@@ -23,8 +23,8 @@ end
 observer = DemoObserver.new
 observer.scan(
   scan_type: :passive,
-  scan_interval: 150,
-  scan_window: 50,
+  scan_interval: 300,
+  scan_window: 30,
   filter_name: "PicoRuby",
   stop_state: :no_stop,
   debug: true
