@@ -8,11 +8,11 @@ c__write(mrbc_vm *vm, mrbc_value *v, int argc)
   int unit_num = GET_INT_ARG(1);
   mrbc_array value_ary = *(GET_ARY_ARG(2).array);
   int len = value_ary.n_stored;
-  uint8_t src[len];
+  uint8_t txdata[len];
   for (int i = 0; i < len; i++) {
-    src[i] = mrbc_integer(value_ary.data[i]);
+    txdata[i] = mrbc_integer(value_ary.data[i]);
   }
-  SET_INT_RETURN(SPI_write_blocking(unit_num, src, len));
+  SET_INT_RETURN(SPI_write_blocking(unit_num, txdata, len));
 }
 
 static void
@@ -22,6 +22,26 @@ c__read(mrbc_vm *vm, mrbc_value *v, int argc)
   uint8_t rxdata[len];
   int ret_len = SPI_read_blocking(GET_INT_ARG(1), rxdata, len, GET_INT_ARG(3));
   if (-1 < ret_len) {
+    mrbc_value value = mrbc_string_new(vm, (const char *)rxdata, ret_len);
+    SET_RETURN(value);
+  } else {
+    SET_INT_RETURN(ret_len);
+  }
+}
+
+static void
+c__transfer(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  int unit_num = GET_INT_ARG(1);
+  mrbc_array value_ary = *(GET_ARY_ARG(2).array);
+  int len = value_ary.n_stored;
+  uint8_t txdata[len];
+  uint8_t rxdata[len];
+  for (int i = 0; i < len; i++) {
+    txdata[i] = mrbc_integer(value_ary.data[i]);
+  }
+  int ret_len = SPI_transfer(unit_num, txdata, rxdata, len);
+  if (ret_len == len) {
     mrbc_value value = mrbc_string_new(vm, (const char *)rxdata, ret_len);
     SET_RETURN(value);
   } else {
@@ -64,5 +84,6 @@ mrbc_spi_init(void)
   mrbc_define_method(0, mrbc_class_SPI, "_init", c__init);
   mrbc_define_method(0, mrbc_class_SPI, "_write", c__write);
   mrbc_define_method(0, mrbc_class_SPI, "_read", c__read);
+  mrbc_define_method(0, mrbc_class_SPI, "_transfer", c__transfer);
 }
 

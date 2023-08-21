@@ -23,6 +23,7 @@ int SPI_unit_name_to_unit_num(const char *);
 spi_status_t SPI_gpio_init(int, uint32_t, int8_t, int8_t, int8_t, uint8_t, uint8_t, uint8_t);
 int SPI_read_blocking(int, uint8_t*, size_t, uint8_t);
 int SPI_write_blocking(int, uint8_t*, size_t);
+int SPI_transfer(int, uint8_t*, uint8_t*, size_t);
 
 #ifdef __cplusplus
 }
