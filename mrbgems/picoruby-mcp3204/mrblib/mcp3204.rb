@@ -19,16 +19,10 @@ class MCP3204
   def read(channel, differential: false)
     @cs.write 0
     cmd = differential ? 0b100 : 0b110
-    #@spi.write cmd|(channel >> 2), (channel & 0x11) << 6, 0
-    @spi.write cmd|(channel >> 2)
-    @spi.read 1
-    @spi.write (channel & 0x11) << 6
-    hi = @spi.read 1
-    @spi.write 0
-    lo = @spi.read 1
+    res = @spi.transfer cmd|(channel >> 2), (channel & 0b11) << 6, 0
   ensure
     @cs.write 1
-    return hi+lo
+    return res
   end
 end
 
