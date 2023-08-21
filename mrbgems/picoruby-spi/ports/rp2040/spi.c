@@ -32,6 +32,14 @@ SPI_write_blocking(int unit_num, uint8_t *src, size_t len)
 }
 
 int
+SPI_transfer(int unit_num, uint8_t *txdata, uint8_t *rxdata, size_t len)
+{
+  spi_inst_t *unit;
+  UNIT_SELECT();
+  return spi_write_read_blocking(unit, txdata, rxdata, len);
+}
+
+int
 SPI_unit_name_to_unit_num(const char *unit_name)
 {
   if (strcmp(unit_name, "RP2040_SPI0") == 0) {
