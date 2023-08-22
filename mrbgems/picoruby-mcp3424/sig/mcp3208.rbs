@@ -1,0 +1,27 @@
+class MCP3424
+  DEFAULT_FREQUENCY: Integer
+
+  @i2c: I2C
+  @configuratin: Integer
+  
+  attr_reader address: Integer
+
+  def initialize: (
+    unit: Symbol,
+    ?frequency: Integer,
+    ?sda_pin: Integer,
+    ?scl_pin: Integer,
+    address_selector: Integer
+  ) -> void
+  def set_address: (Integer address_selector) -> void
+  def bit_resolution=: (Integer bit_resolution) -> Integer
+  def bit_resolution: () -> Integer
+  def pga_gain=: (Integer pga_gain) -> Integer
+  def pga_gain: () -> Integer
+  def one_shot_read: (Integer channel, ?Integer timeout_ms) -> (Integer|nil)
+  def start_continuous_conversion: (Integer channel) -> void
+  def read: (?Integer timeout_ms) -> (Integer|nil)
+  # private
+  def assert_channel: (Integer channel) -> void
+end
+
