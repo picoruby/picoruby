@@ -1,4 +1,4 @@
-class MCP3204
+class MCP3208
   DEFAULT_FREQUENCY: 500_000
 
   @spi: SPI
@@ -13,4 +13,7 @@ class MCP3204
     ?cs_pin: Integer
   ) -> void
   def read: (Integer channel) -> String
+end
+
+class MCP3204 < MCP3208
 end
