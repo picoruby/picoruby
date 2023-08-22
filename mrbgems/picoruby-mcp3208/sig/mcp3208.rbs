@@ -12,7 +12,7 @@ class MCP3208
     ?copi_pin: Integer,
     ?cs_pin: Integer
   ) -> void
-  def read: (Integer channel) -> String
+  def read: (Integer channel, ?differential: bool) -> Integer
 end
 
 class MCP3204 < MCP3208

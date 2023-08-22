@@ -29,10 +29,9 @@ class MCP3208
   def read(channel, differential: false)
     @cs.write 0
     cmd = differential ? 0b100 : 0b110
-    res = @spi.transfer cmd|((channel >> 2)&1), (channel & 0b11) << 6, 0
-  ensure
+    _, d1, d2 = @spi.transfer(cmd|((channel >> 2)&1), (channel & 0b11) << 6, 0).bytes
     @cs.write 1
-    return res
+    return ((d1 || 0) & 0b1111) << 8 | (d2 || 0)
   end
 end
 
@@ -46,10 +45,9 @@ class MCP3204 < MCP3208
   def read(channel, differential: false)
     @cs.write 0
     cmd = differential ? 0b100 : 0b110
-    res = @spi.transfer cmd, (channel & 0b11) << 6, 0
-  ensure
+    _, d1, d2 = @spi.transfer(cmd, (channel & 0b11) << 6, 0).bytes
     @cs.write 1
-    return res
+    return ((d1 || 0) & 0b1111) << 8 | (d2 || 0)
   end
 end
 
