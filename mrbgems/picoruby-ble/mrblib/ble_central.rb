@@ -109,6 +109,7 @@ class BLE
           reset_state
         end
       when GAP_EVENT_ADVERTISING_REPORT
+        stop_scan
         return unless @state == :TC_W4_SCAN_RESULT
         if @found_devices_count_limit <= @found_devices.count
           @state = :TC_IDLE

@@ -35,7 +35,7 @@ BLE_push_event(uint8_t *packet, uint16_t size)
   mutex_locked = true;
   if (MAX_EVENT_PACKETS - 1 < event_packets.array->n_stored) {
     console_printf("[WARN] BLE_push_event: event packet dropped\n");
-    console_printf("n_stored: %d\n", event_packets.array->n_stored);
+    console_printf("       event_packets.array->n_stored: %d\n", event_packets.array->n_stored);
   } else if (packet[0] == 0x60 || memmem((const void *)packet, size, "PicoRuby", 8)) {
     mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
     mrbc_array_push(&event_packets, &str);

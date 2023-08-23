@@ -6,6 +6,7 @@ class DemoObserver < BLE::Observer
     @led_on = false
     super
     @count = 0
+    @idle_count = 0
   end
 
   def heartbeat_callback
@@ -15,15 +16,26 @@ class DemoObserver < BLE::Observer
       print_found_devices
       clear_found_devices
       @state = :TC_W4_SCAN_RESULT
+      start_scan
+      @idle_count = 0
     end
     puts @count += 1
+    @idle_count += 1
+    if 9 < @idle_count
+      puts "idle"
+      puts "scan seems to be stuck, restarting"
+      @state = :TC_W4_SCAN_RESULT
+      start_scan
+      @idle_count = 0
+    end
   end
 end
 
 observer = DemoObserver.new
+observer.heartbeat_period_ms = 5000
 observer.scan(
   scan_type: :passive,
-  scan_interval: 300,
+  scan_interval: 60,
   scan_window: 30,
   filter_name: "PicoRuby",
   stop_state: :no_stop,
