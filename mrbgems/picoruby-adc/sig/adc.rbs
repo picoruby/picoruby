@@ -2,14 +2,13 @@ class ADC
   type pin_t = (Integer|String|Symbol)
   type additional_params_t = Hash[untyped, untyped]
 
-  attr_reader min: Float|nil
-  attr_reader max: Float|nil
-
   @input: Integer
   @additional_params: additional_params_t
 
   def initialize: (pin_t pin, ?additional_params_t additional_params) -> void
   def read: () -> Float
+  def read_voltage: () -> Float
+  def read_raw: () -> Integer
 
   def self._init: (pin_t pin) -> 0
   def init_additional_params: () -> self

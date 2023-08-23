@@ -5,6 +5,8 @@
 
 #include "../../include/adc.h"
 
+#define VOLTAGE_MAX 3.3
+#define RESOLUTION 4095
 #define TEMPERATURE 255
 
 int
@@ -42,10 +44,18 @@ ADC_init(uint8_t pin)
   return (int)input;
 }
 
-uint16_t
-ADC_read(uint8_t input)
+uint32_t
+ADC_read_raw(uint8_t input)
 {
   adc_select_input(input);
   return adc_read();
 }
 
+#if MRBC_USE_FLOAT
+mrbc_float_t
+ADC_read_voltage(uint8_t input)
+{
+  adc_select_input(input);
+  return adc_read() * VOLTAGE_MAX / RESOLUTION;
+}
+#endif

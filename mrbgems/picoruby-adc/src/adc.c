@@ -41,29 +41,21 @@ c__init(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_read(mrbc_vm *vm, mrbc_value v[], int argc)
+c_read_raw(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value ivar_input = GETIV(input);
-  uint16_t result = ADC_read(ivar_input.i);
-  mrbc_value ivar_min = GETIV(min);
-  if (ivar_min.tt == MRBC_TT_NIL) {
-    ivar_min.tt = MRBC_TT_INTEGER;
-    ivar_min.i = 0;
-  }
-  if (result < ivar_min.i) {
-    ivar_min.i = result;
-    SETIV(min, &ivar_min);
-  }
-  mrbc_value ivar_max = GETIV(max);
-  if (ivar_max.tt == MRBC_TT_NIL) {
-    ivar_max.tt = MRBC_TT_INTEGER;
-    ivar_max.i = 0;
-  }
-  if (ivar_max.i < result) {
-    ivar_max.i = result;
-    SETIV(max, &ivar_max);
-  }
-  SET_INT_RETURN(result);
+  SET_INT_RETURN(ADC_read_raw(ivar_input.i));
+}
+
+static void
+c_read_voltage(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#ifdef MRBC_USE_FLOAT
+  mrbc_value voltage = mrbc_float_value(vm, ADC_read_voltage(GETIV(input).i));
+  SET_RETURN(voltage);
+#else
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "not implemented: ADC#read_voltage");
+#endif
 }
 
 void
@@ -72,5 +64,7 @@ mrbc_adc_init(void)
   mrbc_class *mrbc_class_ADC = mrbc_define_class(0, "ADC", mrbc_class_object);
 
   mrbc_define_method(0, mrbc_class_ADC, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_ADC, "read", c_read);
+  mrbc_define_method(0, mrbc_class_ADC, "read_voltage", c_read_voltage);
+  mrbc_define_method(0, mrbc_class_ADC, "read", c_read_voltage);
+  mrbc_define_method(0, mrbc_class_ADC, "read_raw", c_read_raw);
 }
