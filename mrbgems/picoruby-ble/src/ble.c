@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <mrubyc.h>
 #include "../include/ble.h"
+#include "../include/ble_central.h"
 
 mrbc_value singleton = {0};
 static mrbc_value event_packets;
@@ -36,11 +37,21 @@ BLE_push_event(uint8_t *packet, uint16_t size)
   if (MAX_EVENT_PACKETS - 1 < event_packets.array->n_stored) {
     console_printf("[WARN] BLE_push_event: event packet dropped\n");
     console_printf("       event_packets.array->n_stored: %d\n", event_packets.array->n_stored);
-  } else if (packet[0] == 0x60 || memmem((const void *)packet, size, "PicoRuby", 8)) {
+  } else if (packet[0] == 0x60) {
     mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
     mrbc_array_push(&event_packets, &str);
   } else {
-    console_printf(".");
+    if (packet[0] == 0xda) {
+      if (memmem((const void *)packet, size, "PicoRuby", 8)) {
+        //BLE_central_stop_scan();
+        //mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+        //mrbc_array_push(&event_packets, &str);
+      } else {
+        console_printf(".");
+      }
+    } else {
+      console_printf("%02x ", packet[0]);
+    }
   }
   mutex_locked = false;
 }
