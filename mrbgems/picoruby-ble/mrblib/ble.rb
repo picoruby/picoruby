@@ -102,16 +102,16 @@ class BLE
     while true
       if @heartbeat_period_ms <= heartbeat_ms
         heartbeat_ms = 0
-        mutex_lock do
+#        mutex_lock do
           heartbeat_callback
-        end
+#        end
       end
       break if timeout_ms && timeout_ms <= total_timeout_ms
-      mutex_lock do
+#      mutex_lock do
         while event_packet = @_event_packets.shift do
           packet_callback(event_packet)
         end
-      end
+#      end
       if @state == stop_state
         puts "Stopped by state: #{stop_state}"
         return total_timeout_ms

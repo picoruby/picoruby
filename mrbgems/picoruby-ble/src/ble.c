@@ -44,8 +44,8 @@ BLE_push_event(uint8_t *packet, uint16_t size)
     if (packet[0] == 0xda) {
       if (memmem((const void *)packet, size, "PicoRuby", 8)) {
         //BLE_central_stop_scan();
-        //mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-        //mrbc_array_push(&event_packets, &str);
+        mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+        mrbc_array_push(&event_packets, &str);
       } else {
         console_printf(".");
       }
