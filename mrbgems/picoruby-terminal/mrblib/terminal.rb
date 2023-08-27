@@ -44,6 +44,10 @@ end
 class Terminal
 
   def self.get_screen_size
+    if ENV && ENV['TERM'] == "dumb"
+      IO.wait_terminal(timeout: 0.1)
+      return [24, 80] if ENV['TERM'] == "dumb"
+    end
     y, x = IO.get_cursor_position # save current position
     print "\e[999B\e[999C" # down * 999 and right * 999
     res = IO.get_cursor_position
