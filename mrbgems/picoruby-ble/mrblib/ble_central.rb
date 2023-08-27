@@ -53,7 +53,8 @@ class BLE
       @found_devices_count_limit = 1 if filter_name
       #@search_name = filter_name
       reset_state
-      start(timeout_ms, stop_state)
+    #  start(timeout_ms, stop_state)
+    hci_power_control(HCI_POWER_ON)
       return device_found?
     end
 
@@ -109,7 +110,6 @@ class BLE
           reset_state
         end
       when GAP_EVENT_ADVERTISING_REPORT
-        stop_scan
         return unless @state == :TC_W4_SCAN_RESULT
         if @found_devices_count_limit <= @found_devices.count
           @state = :TC_IDLE

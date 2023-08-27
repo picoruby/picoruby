@@ -7,7 +7,7 @@ mrbc_value singleton = {0};
 static mrbc_value event_packets;
 static volatile bool mutex_locked = false;
 
-#define MAX_EVENT_PACKETS 10
+#define MAX_EVENT_PACKETS 1
 inline void *
 memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 {
@@ -31,29 +31,34 @@ memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
+  static int led = 0;
   if (singleton.instance == NULL || packet == NULL) return;
-  if (mutex_locked) return;
-  mutex_locked = true;
+//  if (mutex_locked) return;
+//  mutex_locked = true;
   if (MAX_EVENT_PACKETS - 1 < event_packets.array->n_stored) {
     console_printf("[WARN] BLE_push_event: event packet dropped\n");
     console_printf("       event_packets.array->n_stored: %d\n", event_packets.array->n_stored);
   } else if (packet[0] == 0x60) {
-    mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-    mrbc_array_push(&event_packets, &str);
+    //mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+    //mrbc_array_push(&event_packets, &str);
+    BLE_central_start_scan();
   } else {
     if (packet[0] == 0xda) {
       if (memmem((const void *)packet, size, "PicoRuby", 8)) {
         //BLE_central_stop_scan();
-        mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-        mrbc_array_push(&event_packets, &str);
+        //mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+        //mrbc_array_push(&event_packets, &str);
+        console_printf("!\n");
       } else {
         console_printf(".");
+        led = (led == 0) ? 1 : 0;
       }
+      BLE_led_put(led);
     } else {
-      console_printf("%02x ", packet[0]);
+      //console_printf("%02x ", packet[0]);
     }
   }
-  mutex_locked = false;
+//  mutex_locked = false;
 }
 
 int
@@ -144,17 +149,19 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mutex_trylock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (mutex_locked) {
-    SET_FALSE_RETURN();
-  } else {
+//  if (mutex_locked) {
+//    SET_FALSE_RETURN();
+//  } else {
+    BLE_disable_irq();
     mutex_locked = true;
     SET_TRUE_RETURN();
-  }
+//  }
 }
 
 static void
 c_mutex_unlock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  BLE_enable_irq();
   mutex_locked = false;
   SET_INT_RETURN(0);
 }

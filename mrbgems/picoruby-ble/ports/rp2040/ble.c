@@ -187,3 +187,20 @@ BLE_discover_characteristic_descriptors(uint16_t conn_handle, uint16_t value_han
   return gatt_client_discover_characteristic_descriptors(&packet_handler, conn_handle, &characteristic);
 }
 
+void
+BLE_enable_irq(void)
+{
+  irq_set_mask_enabled(1u << TIMER_IRQ_0|1u << IO_IRQ_BANK0, true);
+}
+
+void
+BLE_disable_irq(void)
+{
+  irq_set_mask_enabled(1u << TIMER_IRQ_0|1u << IO_IRQ_BANK0, false);
+}
+
+void
+BLE_led_put(int led)
+{
+  cyw43_arch_gpio_put(0, led);
+}

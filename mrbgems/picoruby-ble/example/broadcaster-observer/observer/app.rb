@@ -32,8 +32,8 @@ observer = DemoObserver.new
 observer.heartbeat_period_ms = 1000
 observer.scan(
   scan_type: :passive,
-  scan_interval: 500,
-  scan_window: 50,
+  scan_interval: 100,
+  scan_window: 30,
   filter_name: "PicoRuby",
   stop_state: :no_stop,
   debug: true
