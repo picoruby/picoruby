@@ -5,7 +5,6 @@
 
 mrbc_value singleton = {0};
 static mrbc_value event_packets;
-static volatile bool mutex_locked = false;
 
 #define MAX_EVENT_PACKETS 1
 inline void *
@@ -33,8 +32,6 @@ BLE_push_event(uint8_t *packet, uint16_t size)
 {
   static int led = 0;
   if (singleton.instance == NULL || packet == NULL) return;
-//  if (mutex_locked) return;
-//  mutex_locked = true;
   if (MAX_EVENT_PACKETS - 1 < event_packets.array->n_stored) {
     console_printf("[WARN] BLE_push_event: event packet dropped\n");
     console_printf("       event_packets.array->n_stored: %d\n", event_packets.array->n_stored);
@@ -58,25 +55,19 @@ BLE_push_event(uint8_t *packet, uint16_t size)
       //console_printf("%02x ", packet[0]);
     }
   }
-//  mutex_locked = false;
 }
 
 int
 BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
 {
-  if (mutex_locked) return -1;
-  mutex_locked = true;
   if (att_handle == 0 || size == 0 || singleton.instance == NULL) {
-    mutex_locked = false;
     return -1;
   }
   mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
   if (write_values_hash.tt != MRBC_TT_HASH) {
-    mutex_locked = false;
     return -1;
   }
   mrbc_value write_value = mrbc_string_new(NULL, data, size);
-  mutex_locked = false;
   return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
 }
 
@@ -98,7 +89,6 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   singleton.instance = v[0].instance;
   event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
-  mutex_locked = false;
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {
     /* Protect profile_data from GC */
@@ -149,20 +139,14 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mutex_trylock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-//  if (mutex_locked) {
-//    SET_FALSE_RETURN();
-//  } else {
-    BLE_disable_irq();
-    mutex_locked = true;
-    SET_TRUE_RETURN();
-//  }
+  BLE_disable_irq();
+  SET_TRUE_RETURN();
 }
 
 static void
 c_mutex_unlock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   BLE_enable_irq();
-  mutex_locked = false;
   SET_INT_RETURN(0);
 }
 
