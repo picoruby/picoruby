@@ -1,10 +1,11 @@
 #include <stdbool.h>
 #include <mrubyc.h>
+#include <picorbc.h>
 #include "../include/ble.h"
 #include "../include/ble_central.h"
 
-mrbc_value singleton = {0};
-static mrbc_value event_packets;
+static uint8_t *packet_callback_vm_code = NULL;
+mrbc_value singleton = {.tt = MRBC_TT_NIL};
 
 #define MAX_EVENT_PACKETS 1
 inline void *
@@ -30,31 +31,16 @@ memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
-  static int led = 0;
-  if (singleton.instance == NULL || packet == NULL) return;
-  if (MAX_EVENT_PACKETS - 1 < event_packets.array->n_stored) {
-    console_printf("[WARN] BLE_push_event: event packet dropped\n");
-    console_printf("       event_packets.array->n_stored: %d\n", event_packets.array->n_stored);
-  } else if (packet[0] == 0x60) {
-    //mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-    //mrbc_array_push(&event_packets, &str);
-    BLE_central_start_scan();
-  } else {
-    if (packet[0] == 0xda) {
-      if (memmem((const void *)packet, size, "PicoRuby", 8)) {
-        //BLE_central_stop_scan();
-        //mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-        //mrbc_array_push(&event_packets, &str);
-        console_printf("!\n");
-      } else {
-        console_printf(".");
-        led = (led == 0) ? 1 : 0;
-      }
-      BLE_led_put(led);
-    } else {
-      //console_printf("%02x ", packet[0]);
-    }
+  if (packet_callback_vm_code == NULL || packet == NULL) return;
+  mrbc_sym sym_id = mrbc_str_to_symid("$_btstack_event_packet");
+  mrbc_value *event_packet = mrbc_get_global(sym_id);
+  if (event_packet->tt == MRBC_TT_STRING && memcmp(event_packet->string->data, packet, size) == 0) {
+    // same as previous packet
+    return;
   }
+  mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+  mrbc_set_global(sym_id, &str);
+  mrbc_run_mrblib(packet_callback_vm_code);
 }
 
 int
@@ -84,11 +70,26 @@ BLE_read_data(BLE_read_value_t *read_value)
   return 0;
 }
 
+#define NODE_BOX_SIZE 10
+static uint8_t *
+compile(const char *script)
+{
+  ParserState *p = (ParserState *)mrbc_alloc(vm, sizeof(ParserState));
+  Compiler_parseInitState(p, NODE_BOX_SIZE);
+  StreamInterface *si = StreamInterface_new(NULL, script, STREAM_TYPE_MEMORY);
+  Compiler_compile(p, si, NULL);
+  StreamInterface_free(si);
+  uint8_t *vm_code = mrbc_alloc(vm, p->scope->vm_code_size);
+  memcpy(vm_code, p->scope->vm_code, p->scope->vm_code_size);
+  Compiler_parserStateFree(p);
+  return vm_code;
+}
+
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  packet_callback_vm_code = compile("BLE.instance&.packet_callback($_btstack_event_packet)");
   singleton.instance = v[0].instance;
-  event_packets = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_event_packets"));
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {
     /* Protect profile_data from GC */
@@ -136,20 +137,6 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(str);
 }
 
-static void
-c_mutex_trylock(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  BLE_disable_irq();
-  SET_TRUE_RETURN();
-}
-
-static void
-c_mutex_unlock(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  BLE_enable_irq();
-  SET_INT_RETURN(0);
-}
-
 void
 mrbc_ble_init(void)
 {
@@ -157,8 +144,6 @@ mrbc_ble_init(void)
   mrbc_define_method(0, mrbc_class_BLE, "_init", c__init);
   mrbc_define_method(0, mrbc_class_BLE, "hci_power_control", c_hci_power_control);
   mrbc_define_method(0, mrbc_class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
-  mrbc_define_method(0, mrbc_class_BLE, "mutex_trylock", c_mutex_trylock);
-  mrbc_define_method(0, mrbc_class_BLE, "mutex_unlock", c_mutex_unlock);
 
   mrbc_init_class_BLE_Peripheral();
   mrbc_init_class_BLE_Broadcaster();

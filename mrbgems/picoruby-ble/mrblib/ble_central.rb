@@ -50,8 +50,7 @@ class BLE
     def scan(scan_type: :passive, scan_interval: 0x60, scan_window: 0x30, filter_name: nil, timeout_ms: nil, stop_state: :TC_IDLE, debug: false)
       set_scan_params(scan_type, scan_interval, scan_window)
       @debug = debug
-      @found_devices_count_limit = 1 if filter_name
-      #@search_name = filter_name
+      @filter_name = filter_name
       reset_state
     #  start(timeout_ms, stop_state)
     hci_power_control(HCI_POWER_ON)
@@ -68,7 +67,6 @@ class BLE
         return false
       end
       stop_scan # Is it necessary?
-      clear_event_packets
       err_code = gap_connect(device.address, device.address_type)
       if err_code == 0
         @state = :TC_W4_CONNECT
@@ -115,9 +113,14 @@ class BLE
           @state = :TC_IDLE
           return
         end
-        adv_report = AdvertisingReport.new(event_packet)
-        return if @found_devices.any?{ |d| d.address == adv_report.address }
-        @found_devices << adv_report
+        if !@filter_name || event_packet.include?(@filter_name.to_s)
+          adv_report = AdvertisingReport.new(event_packet)
+          return if @found_devices.any?{ |d| d.address == adv_report.address }
+          #@found_devices << adv_report
+          puts adv_report.format
+        else
+          print "."
+        end
       when HCI_EVENT_LE_META
         return unless @state == :TC_W4_CONNECT
         case event_packet[2]&.ord
@@ -203,7 +206,6 @@ class BLE
                 characteristic_handle_range[:end_handle]
               )
             elsif value_handle = @value_handles.shift
-              clear_event_packets
               read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
               @state = :TC_W4_CHARACTERISTIC_VALUE_RESULT
             end
@@ -221,13 +223,11 @@ class BLE
               end
             end
             if value_handle = @value_handles.shift
-              clear_event_packets
               read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
             end
           when GATT_EVENT_QUERY_COMPLETE
             debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
             if handle_range = @descriptor_handle_ranges.shift
-              clear_event_packets
               discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
               @state = :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
             else
@@ -256,10 +256,8 @@ class BLE
           when GATT_EVENT_QUERY_COMPLETE
             debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor"
             if handle_range = @descriptor_handle_ranges.shift
-              clear_event_packets
               discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
             elsif descriptor_handle = @descriptor_handles.shift
-              clear_event_packets
               # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
               read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
               @state = :TC_W4_CHARACTERISTIC_DESCRIPTOR_VALUE_RESULT
@@ -282,7 +280,6 @@ class BLE
               end
             end
             if descriptor_handle = @descriptor_handles.shift
-              clear_event_packets
               # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
               read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
             end

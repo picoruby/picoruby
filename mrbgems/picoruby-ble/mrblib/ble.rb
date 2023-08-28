@@ -79,10 +79,14 @@ class BLE
     @debug = false
     @_read_values = {}
     @_write_values = {}
-    @_event_packets = []
     @heartbeat_period_ms = 1000
     CYW43.init
     _init(profile_data)
+    $_btstack_singleton = self
+  end
+
+  def instance
+    $_btstack_singleton
   end
 
   attr_reader :role
@@ -128,14 +132,8 @@ class BLE
     puts(*args) if @debug
   end
 
-  def clear_event_packets
-    @_event_packets.clear
-  end
-
   def get_write_value(handle)
-    mutex_lock do
-      @_write_values.delete(handle)
-    end
+    @_write_values.delete(handle)
   end
 
   def set_read_value(handle, value)
@@ -148,26 +146,6 @@ class BLE
       raise TypeError, "value must be String"
     end
     @_read_values[handle] = value
-  end
-
-  def mutex_lock(timeout_ms = nil, &block)
-    time_ms = 0
-    while true
-      if mutex_trylock
-        result = block.call
-        mutex_unlock
-        return result
-      else
-        sleep_ms POLLING_UNIT_MS
-        time_ms += POLLING_UNIT_MS
-        puts "Mutex too long" if 3000 <= time_ms
-        next unless timeout_ms
-        if timeout_ms <= time_ms
-          puts "mutex_lock timeout"
-          break
-        end
-      end
-    end
   end
 
 end

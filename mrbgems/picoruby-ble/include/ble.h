@@ -40,11 +40,6 @@ uint8_t BLE_discover_characteristics_for_service(uint16_t conn_handle, uint16_t 
 uint8_t BLE_read_value_of_characteristic_using_value_handle(uint16_t conn_handle, uint16_t value_handle);
 uint8_t BLE_discover_characteristic_descriptors(uint16_t conn_handle, uint16_t value_handle, uint16_t end_handle);
 
-void BLE_disable_irq(void);
-void BLE_enable_irq(void);
-
-void BLE_led_put(int led);
-
 #ifdef __cplusplus
 }
 #endif

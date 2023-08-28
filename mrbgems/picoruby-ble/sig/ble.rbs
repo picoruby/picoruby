@@ -1,5 +1,7 @@
 class BLE
 
+  $_btstack_singleton: BLE
+
   HCI_STATE_OFF: Integer
   HCI_STATE_INITIALIZING: Integer
   HCI_STATE_WORKING: Integer
@@ -68,28 +70,21 @@ class BLE
 
   @_write_values: Hash[Integer, String]
   @_read_values: Hash[Integer, String]
-  @_event_packets: event_packets_t
   
   attr_accessor heartbeat_period_ms: Integer
   attr_accessor debug: bool
-
-  type event_packets_t = Array[String]
 
   def initialize: (?(String|nil)) -> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer) -> 0
   def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
-  def mutex_lock: (?(Integer | nil) timeout_ms) { () -> untyped} -> untyped
-  def mutex_trylock: () -> bool
-  def mutex_unlock: () -> 0
   def packet_callback: (String) -> void
   def heartbeat_callback: () -> void
   def gap_local_bd_addr: () -> String
   def get_write_value: (Integer) -> (String|nil)
   def set_read_value: (Integer, String) -> void
   def gap_connect: (String, Integer) -> Integer
-  def clear_event_packets: () -> event_packets_t
 
   class Utils
     def self.bd_addr_to_str: (String) -> String
@@ -208,13 +203,12 @@ class BLE
     type scan_type_t = (:passive|:active)
 
     @found_devices_count_limit: Integer
-    @search_name: String | nil
     @conn_handle: Integer
     @characteristic_handle_ranges: Array[{start_handle: Integer, end_handle: Integer}]
     @value_handles: Array[Integer]
     @descriptor_handle_ranges: Array[{value_handle: Integer, end_handle: Integer}]
     @descriptor_handles: Array[Integer]
-    @search_name: String | nil
+    @filter_name: String | nil
 
     attr_reader role: (:central | :peripheral | :observer | :broadcaster)
     attr_reader state: Symbol
