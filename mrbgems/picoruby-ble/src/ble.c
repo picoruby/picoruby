@@ -5,6 +5,7 @@
 #include "../include/ble_central.h"
 
 static uint8_t *packet_callback_vm_code = NULL;
+static uint8_t *heartbeat_vm_code = NULL;
 mrbc_value singleton = {.tt = MRBC_TT_NIL};
 
 #define MAX_EVENT_PACKETS 1
@@ -26,6 +27,12 @@ memmem(const void *l, size_t l_len, const void *s, size_t s_len)
       return cur;
 
   return NULL;
+}
+
+void
+BLE_heartbeat(void)
+{
+  mrbc_run_mrblib(heartbeat_vm_code);
 }
 
 void
@@ -89,6 +96,7 @@ static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   packet_callback_vm_code = compile("BLE.instance&.packet_callback($_btstack_event_packet)");
+  heartbeat_vm_code = compile("BLE.instance&.heartbeat_callback");
   singleton.instance = v[0].instance;
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {

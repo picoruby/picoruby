@@ -11,8 +11,8 @@
 #include "ble_common.h"
 
 static enum BLE_role_t role = BLE_ROLE_NONE;
-
 static btstack_packet_callback_registration_t ble_hci_event_callback_registration;
+static btstack_timer_source_t heartbeat;
 
 static uint16_t
 att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t *buffer, uint16_t buffer_size)
@@ -103,6 +103,17 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
   }
 }
 
+#define HEARTBEAT_PERIOD_MS 1000
+
+static void
+heartbeat_handler(struct btstack_timer_source *ts)
+{
+  BLE_heartbeat();
+  // Restart timer
+  btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
+  btstack_run_loop_add_timer(ts);
+}
+
 int
 BLE_init(const uint8_t *profile_data, int ble_role)
 {
@@ -132,6 +143,11 @@ BLE_init(const uint8_t *profile_data, int ble_role)
   // register packet handler for HCI events
   ble_hci_event_callback_registration.callback = &packet_handler;
   hci_add_event_handler(&ble_hci_event_callback_registration);
+
+  // set one-shot btstack timer
+  heartbeat.process = &heartbeat_handler;
+  btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
+  btstack_run_loop_add_timer(&heartbeat);
 
   return 0;
 }

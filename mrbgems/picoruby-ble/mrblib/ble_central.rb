@@ -22,7 +22,6 @@ class BLE
     def initialize(profile_data = nil)
       @role = :central
       super(profile_data)
-      @found_devices = []
       reset_state
       @services = []
       # @state can be:
@@ -37,7 +36,6 @@ class BLE
       #   :TC_W4_CHARACTERISTIC_DESCRIPTOR_RESULT
       #   :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
       #   :TC_W4_READY
-      @found_devices_count_limit = 10
       @conn_handle = HCI_CON_HANDLE_INVALID
       @characteristic_handle_ranges = []
       @value_handles = []
@@ -47,27 +45,21 @@ class BLE
 
     attr_reader :services, :state
 
-    def scan(scan_type: :passive, scan_interval: 0x60, scan_window: 0x30, filter_name: nil, timeout_ms: nil, stop_state: :TC_IDLE, debug: false)
+    def scan(scan_type: :passive, scan_interval: 0x60, scan_window: 0x30, timeout_ms: nil, stop_state: :TC_IDLE, debug: false)
       set_scan_params(scan_type, scan_interval, scan_window)
       @debug = debug
-      @filter_name = filter_name
       reset_state
-    #  start(timeout_ms, stop_state)
-    hci_power_control(HCI_POWER_ON)
-      return device_found?
+      start(timeout_ms, stop_state)
+      reset_state # In order to be able to scan again
     end
 
     def reset_state
       @state = :TC_OFF
     end
 
-    def connect(device_id)
-      unless device = @found_devices[device_id]
-        puts "No device with id #{device_id} found."
-        return false
-      end
+    def connect(adv_report)
       stop_scan # Is it necessary?
-      err_code = gap_connect(device.address, device.address_type)
+      err_code = gap_connect(adv_report.address, adv_report.address_type)
       if err_code == 0
         @state = :TC_W4_CONNECT
         start(10, :TC_IDLE)
@@ -78,21 +70,8 @@ class BLE
       end
     end
 
-    def device_found?
-      !@found_devices.empty?
-    end
-
-    def clear_found_devices
-      @found_devices.clear
-    end
-
-    def print_found_devices
-      @found_devices.each_with_index do |adv_report, index|
-        puts "ID: #{index}"
-        puts adv_report.format
-        puts ""
-      end
-      nil
+    def advertising_report_callback(adv_report)
+      # You have to override this method
     end
 
     def packet_callback(event_packet)
@@ -109,18 +88,7 @@ class BLE
         end
       when GAP_EVENT_ADVERTISING_REPORT
         return unless @state == :TC_W4_SCAN_RESULT
-        if @found_devices_count_limit <= @found_devices.count
-          @state = :TC_IDLE
-          return
-        end
-        if !@filter_name || event_packet.include?(@filter_name.to_s)
-          adv_report = AdvertisingReport.new(event_packet)
-          return if @found_devices.any?{ |d| d.address == adv_report.address }
-          #@found_devices << adv_report
-          puts adv_report.format
-        else
-          print "."
-        end
+        advertising_report_callback(AdvertisingReport.new(event_packet))
       when HCI_EVENT_LE_META
         return unless @state == :TC_W4_CONNECT
         case event_packet[2]&.ord

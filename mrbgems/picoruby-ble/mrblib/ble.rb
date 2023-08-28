@@ -79,20 +79,30 @@ class BLE
     @debug = false
     @_read_values = {}
     @_write_values = {}
-    @heartbeat_period_ms = 1000
     CYW43.init
+    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+    @led_on = false
     _init(profile_data)
     $_btstack_singleton = self
   end
+
+  attr_reader :role
+  attr_accessor :debug
 
   def instance
     $_btstack_singleton
   end
 
-  attr_reader :role
-  attr_accessor :heartbeat_period_ms, :debug
+  # You can override this method
+  def heartbeat_callback
+    blink_led
+  end
 
-  POLLING_UNIT_MS = 10
+  def blink_led
+    @led&.write((@led_on = !@led_on) ? 1 : 0)
+  end
+
+  POLLING_UNIT_MS = 100
 
   def start(timeout_ms = nil, stop_state = :no_stop)
     if timeout_ms
@@ -100,32 +110,21 @@ class BLE
     else
       debug_puts "Starting with infinite loop. Ctrl-C for stop"
     end
-    heartbeat_ms = 0
     total_timeout_ms = 0
     hci_power_control(HCI_POWER_ON)
     while true
-      if @heartbeat_period_ms <= heartbeat_ms
-        heartbeat_ms = 0
-#        mutex_lock do
-          heartbeat_callback
-#        end
-      end
       break if timeout_ms && timeout_ms <= total_timeout_ms
-#      mutex_lock do
-        while event_packet = @_event_packets.shift do
-          packet_callback(event_packet)
-        end
-#      end
       if @state == stop_state
         puts "Stopped by state: #{stop_state}"
-        return total_timeout_ms
+        break
       end
-      sleep_ms POLLING_UNIT_MS - 2
-      heartbeat_ms += POLLING_UNIT_MS
+      sleep_ms POLLING_UNIT_MS
       total_timeout_ms += POLLING_UNIT_MS
     end
-    hci_power_control(HCI_POWER_OFF)
     return total_timeout_ms
+  ensure
+    hci_power_control(HCI_POWER_OFF)
+    debug_puts "Stopped"
   end
 
   def debug_puts(*args)
