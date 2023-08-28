@@ -8,7 +8,7 @@ class MCP3424
     set_address(address_selector)
     @configuration = 0
     # One-shot mode makes the device to enter power-down mode after a conversion.
-    one_shot_read(0)
+    one_shot_read(1)
   end
 
   attr_reader :address
@@ -20,9 +20,9 @@ class MCP3424
     @address = 0b0110_1000 | address_selector
   end
 
-  def bit_resolution=(bit_resolution)
+  def bit_resolution=(val)
     @configuration &= 0b1111_0011
-    case bit_resolution
+    case val
     when 12
       # do nothing
     when 14
@@ -34,6 +34,7 @@ class MCP3424
     else
       raise ArgumentError, "bit_resolution must be 12, 14, 16 or 18"
     end
+    val
   end
 
   def bit_resolution
@@ -51,9 +52,9 @@ class MCP3424
     end
   end
 
-  def pga_gain=(pga_gain)
+  def pga_gain=(val)
     @configuration &= 0b1111_1100
-    case pga_gain
+    case val
     when 1
       # do nothing
     when 2
@@ -65,6 +66,7 @@ class MCP3424
     else
       raise ArgumentError, "pga_gain must be 1, 2, 4 or 8"
     end
+    val
   end
 
   def pga_gain
