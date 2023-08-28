@@ -6,7 +6,7 @@ class CYW43
     LED_PIN: Integer
     @pin: Integer
     def initialize: (Integer) -> void
-    def write: (Integer, Integer) -> 0
+    def write: (Integer) -> 0
   end
 end
 
