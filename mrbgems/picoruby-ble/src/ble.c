@@ -4,11 +4,10 @@
 #include "../include/ble.h"
 #include "../include/ble_central.h"
 
-static uint8_t *packet_callback_vm_code = NULL;
-static uint8_t *heartbeat_vm_code = NULL;
+static mrbc_vm *packet_callback_vm = NULL;
+static mrbc_vm *heartbeat_callback_vm = NULL;
 mrbc_value singleton = {.tt = MRBC_TT_NIL};
 
-#define MAX_EVENT_PACKETS 1
 inline void *
 memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 {
@@ -29,25 +28,52 @@ memmem(const void *l, size_t l_len, const void *s, size_t s_len)
   return NULL;
 }
 
-void
-BLE_heartbeat(void)
+#define NODE_BOX_SIZE 10
+#define VM_REGS_SIZE 110 # can be reduced?
+
+static mrbc_vm *
+prepare_vm(const char *script)
 {
-  mrbc_run_mrblib(heartbeat_vm_code);
+  ParserState *p = (ParserState *)mrbc_alloc(vm, sizeof(ParserState));
+  Compiler_parseInitState(p, NODE_BOX_SIZE);
+  StreamInterface *si = StreamInterface_new(NULL, script, STREAM_TYPE_MEMORY);
+  Compiler_compile(p, si, NULL);
+  StreamInterface_free(si);
+  uint8_t *vm_code = mrbc_alloc(vm, p->scope->vm_code_size);
+  memcpy(vm_code, p->scope->vm_code, p->scope->vm_code_size);
+  Compiler_parserStateFree(p);
+  mrbc_vm *vm = mrbc_vm_new(VM_REGS_SIZE);
+  if (mrbc_load_mrb(vm, vm_code)) {
+    mrbc_print_exception(&vm->exception);
+    return NULL;
+  }
+  mrbc_vm_begin(vm);
+  return vm;
 }
 
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
-  if (packet_callback_vm_code == NULL || packet == NULL) return;
+  if (packet_callback_vm == NULL || packet == NULL) return;
   mrbc_sym sym_id = mrbc_str_to_symid("$_btstack_event_packet");
   mrbc_value *event_packet = mrbc_get_global(sym_id);
   if (event_packet->tt == MRBC_TT_STRING && memcmp(event_packet->string->data, packet, size) == 0) {
-    // same as previous packet
+    // same as previous packet but not happens?
     return;
   }
   mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
   mrbc_set_global(sym_id, &str);
-  mrbc_run_mrblib(packet_callback_vm_code);
+  mrbc_vm_begin(packet_callback_vm);
+  mrbc_vm_run(packet_callback_vm);
+  mrbc_vm_end(packet_callback_vm);
+}
+
+void
+BLE_heartbeat(void)
+{
+  mrbc_vm_begin(heartbeat_callback_vm);
+  mrbc_vm_run(heartbeat_callback_vm);
+  mrbc_vm_end(heartbeat_callback_vm);
 }
 
 int
@@ -77,26 +103,15 @@ BLE_read_data(BLE_read_value_t *read_value)
   return 0;
 }
 
-#define NODE_BOX_SIZE 10
-static uint8_t *
-compile(const char *script)
-{
-  ParserState *p = (ParserState *)mrbc_alloc(vm, sizeof(ParserState));
-  Compiler_parseInitState(p, NODE_BOX_SIZE);
-  StreamInterface *si = StreamInterface_new(NULL, script, STREAM_TYPE_MEMORY);
-  Compiler_compile(p, si, NULL);
-  StreamInterface_free(si);
-  uint8_t *vm_code = mrbc_alloc(vm, p->scope->vm_code_size);
-  memcpy(vm_code, p->scope->vm_code, p->scope->vm_code_size);
-  Compiler_parserStateFree(p);
-  return vm_code;
-}
-
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  packet_callback_vm_code = compile("BLE.instance&.packet_callback($_btstack_event_packet)");
-  heartbeat_vm_code = compile("BLE.instance&.heartbeat_callback");
+  if (packet_callback_vm == NULL) {
+    packet_callback_vm = prepare_vm("BLE.instance&.packet_callback($_btstack_event_packet)");
+  }
+  if (heartbeat_callback_vm == NULL) {
+    heartbeat_callback_vm = prepare_vm("BLE.instance&.heartbeat_callback");
+  }
   singleton.instance = v[0].instance;
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {
