@@ -18,4 +18,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-i2c'
   conf.gem core: 'picoruby-spi'
   conf.gem core: 'picoruby-adc'
+  conf.gem core: 'picoruby-adns5050'
 end
