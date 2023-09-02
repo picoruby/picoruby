@@ -37,6 +37,25 @@ class SPI
   end
 
   def write(*params)
+    ret = _write(@unit_num, params_to_array(*params))
+    return ret if -1 < ret
+    GPIO.handle_error(ret, "SPI#write")
+  end
+
+  def transfer(*params, additional_read_bytes: 0)
+    ary = params_to_array(*params)
+    additional_read_bytes.times do
+      ary << 0
+    end
+    ret = _transfer(@unit_num, params_to_array(*params))
+    return ret if String === ret
+    GPIO.handle_error(ret, "SPI#transfer")
+    return ""
+  end
+
+  # private
+
+  def params_to_array(*params)
     ary = []
     params.each do |param|
       case param
@@ -48,8 +67,6 @@ class SPI
         ary += param.bytes
       end
     end
-    ret = _write(@unit_num, ary)
-    return ret if -1 < ret
-    GPIO.handle_error(ret, "SPI#write")
+    return ary
   end
 end
