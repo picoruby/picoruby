@@ -60,19 +60,10 @@ software_write_blocking(uint8_t *src, size_t len)
   uint8_t temp = 0;
   int n;
   gpio_set_dir(copi, GPIO_OUT);
-  for (int reg = 0; reg < len; reg++) {
-    temp = reg;
-    gpio_put(sck, 0);
+  for (int i = 0; i < len; i++) {
+    temp = src[i];
     for (n = 0; n < 8; n++) {
-      gpio_put(sck, 0);
       busy_wait_us_32(1);
-      gpio_put(copi, (temp & 0x80) != 0);
-      temp <<= 1;
-      gpio_put(sck, 1);
-      busy_wait_us_32(1);
-    }
-    temp = src[reg];
-    for (n = 0; n < 8; n++) {
       gpio_put(sck, 0);
       busy_wait_us_32(1);
       gpio_put(copi, (temp & 0x80) != 0);
@@ -81,6 +72,7 @@ software_write_blocking(uint8_t *src, size_t len)
       busy_wait_us_32(1);
     }
   }
+  busy_wait_us_32(20);
   return len;
 }
 
@@ -171,6 +163,7 @@ SPI_gpio_init(int unit_num, uint32_t frequency, int8_t sck_pin, int8_t cipo_pin,
     copi = copi_pin;
     cipo = cipo_pin;
     gpio_init(sck);
+    gpio_put(sck, 1);
     gpio_init(cipo);
     gpio_set_dir(sck, GPIO_OUT);
     gpio_set_dir(cipo, GPIO_IN);
