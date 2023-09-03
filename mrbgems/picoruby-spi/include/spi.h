@@ -8,9 +8,19 @@
 extern "C" {
 #endif
 
-#define PICORUBY_SPI_SOFTWARE         0
+#define PICORUBY_SPI_BITBANG          0
 #define PICORUBY_SPI_RP2040_SPI0      1
 #define PICORUBY_SPI_RP2040_SPI1      2
+
+#define UNIT_SELECT() \
+  do { \
+    switch (unit_num) { \
+      case PICORUBY_SPI_BITBANG:     { unit = NULL; break; } \
+      case PICORUBY_SPI_RP2040_SPI0: { unit = spi0; break; } \
+      case PICORUBY_SPI_RP2040_SPI1: { unit = spi1; break; } \
+      default: { return ERROR_INVALID_UNIT; } \
+    } \
+  } while (0)
 
 typedef enum {
   ERROR_NONE              =  0,

@@ -52,7 +52,10 @@ c__transfer(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int unit_num = SPI_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
+  int unit_num = PICORUBY_SPI_BITBANG;
+  if (strcmp((const char *)GET_STRING_ARG(1), "BITBANG") != 0) {
+    unit_num = SPI_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
+  }
   spi_status_t status = SPI_gpio_init(
     unit_num,
     (uint32_t)GET_INT_ARG(2), // frequency

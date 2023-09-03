@@ -6,41 +6,21 @@
 
 #include "../../include/spi.h"
 
-#define UNIT_SELECT() \
-  do { \
-    switch (unit_num) { \
-      case PICORUBY_SPI_SOFTWARE:    { unit = NULL; break; } \
-      case PICORUBY_SPI_RP2040_SPI0: { unit = spi0; break; } \
-      case PICORUBY_SPI_RP2040_SPI1: { unit = spi1; break; } \
-      default: { return ERROR_INVALID_UNIT; } \
-    } \
-  } while (0)
 
-// For software SPI (workaround)
+// For bitbang SPI (workaround)
 static uint8_t sck = -1;
 static uint8_t copi = -1;
 static uint8_t cipo = -1;
 
 static int
-software_read_blocking(uint8_t *dst, size_t len)
+bitbang_read_blocking(uint8_t *dst, size_t len)
 {
-  uint8_t temp = 0;
-  int n;
-  for (int reg = 0; reg < len; reg++) {
-    temp = reg;
-    gpio_put(sck, 0);
-    gpio_set_dir(copi, GPIO_OUT);
-    for (n = 0; n < 8; n++) {
-      gpio_put(sck, 0);
-      busy_wait_us_32(1);
-      gpio_put(copi, (temp & 0x80) != 0);
-      temp <<= 1;
-      gpio_put(sck, 1);
-      busy_wait_us_32(1);
-    }
+  uint8_t temp;
+  int bit;
+  gpio_set_dir(cipo, GPIO_IN);
+  for (int i = 0; i < len; i++) {
     temp = 0;
-    gpio_set_dir(cipo, GPIO_IN);
-    for (n = 0; n < 8; n++) {
+    for (bit = 0; bit < 8; bit++) {
       busy_wait_us_32(1);
       gpio_put(sck, 0);
       busy_wait_us_32(1);
@@ -49,21 +29,20 @@ software_read_blocking(uint8_t *dst, size_t len)
       busy_wait_us_32(20);
       gpio_put(sck, 1);
     }
-    dst[reg] = temp;
+    dst[i] = temp;
   }
   return len;
 }
 
 static int
-software_write_blocking(uint8_t *src, size_t len)
+bitbang_write_blocking(uint8_t *src, size_t len)
 {
   uint8_t temp = 0;
-  int n;
+  int bit;
   gpio_set_dir(copi, GPIO_OUT);
   for (int i = 0; i < len; i++) {
     temp = src[i];
-    for (n = 0; n < 8; n++) {
-      busy_wait_us_32(1);
+    for (bit = 0; bit < 8; bit++) {
       gpio_put(sck, 0);
       busy_wait_us_32(1);
       gpio_put(copi, (temp & 0x80) != 0);
@@ -72,7 +51,6 @@ software_write_blocking(uint8_t *src, size_t len)
       busy_wait_us_32(1);
     }
   }
-  busy_wait_us_32(20);
   return len;
 }
 
@@ -81,10 +59,10 @@ SPI_read_blocking(int unit_num, uint8_t *dst, size_t len, uint8_t repeated_tx_da
 {
   spi_inst_t *unit;
   UNIT_SELECT();
-  if (PICORUBY_SPI_SOFTWARE < unit) {
+  if (PICORUBY_SPI_BITBANG < unit) {
     return spi_read_blocking(unit, repeated_tx_data, dst, len);
   } else {
-    return software_read_blocking(dst, len);
+    return bitbang_read_blocking(dst, len);
   }
 }
 
@@ -93,10 +71,10 @@ SPI_write_blocking(int unit_num, uint8_t *src, size_t len)
 {
   spi_inst_t *unit;
   UNIT_SELECT();
-  if (PICORUBY_SPI_SOFTWARE < unit) {
+  if (PICORUBY_SPI_BITBANG < unit) {
     return spi_write_blocking(unit, src, len);
   } else {
-    return software_write_blocking(src, len);
+    return bitbang_write_blocking(src, len);
   }
 }
 
@@ -105,7 +83,7 @@ SPI_transfer(int unit_num, uint8_t *txdata, uint8_t *rxdata, size_t len)
 {
   spi_inst_t *unit;
   UNIT_SELECT();
-  if (PICORUBY_SPI_SOFTWARE < unit) {
+  if (PICORUBY_SPI_BITBANG < unit) {
     return spi_write_read_blocking(unit, txdata, rxdata, len);
   } else {
     return ERROR_NOT_IMPLEMENTED;
@@ -115,9 +93,7 @@ SPI_transfer(int unit_num, uint8_t *txdata, uint8_t *rxdata, size_t len)
 int
 SPI_unit_name_to_unit_num(const char *unit_name)
 {
-  if (strcmp(unit_name, "NONE") == 0) {
-    return PICORUBY_SPI_SOFTWARE;
-  } else if (strcmp(unit_name, "RP2040_SPI0") == 0) {
+  if (strcmp(unit_name, "RP2040_SPI0") == 0) {
     return PICORUBY_SPI_RP2040_SPI0;
   } else if (strcmp(unit_name, "RP2040_SPI1") == 0) {
     return PICORUBY_SPI_RP2040_SPI1;
@@ -158,7 +134,7 @@ SPI_gpio_init(int unit_num, uint32_t frequency, int8_t sck_pin, int8_t cipo_pin,
     }
     spi_set_format(unit, data_bits, cpol, cpha, first_bit);
   } else {
-    // Software SPI
+    // bitbang SPI
     sck = sck_pin;
     copi = copi_pin;
     cipo = cipo_pin;
