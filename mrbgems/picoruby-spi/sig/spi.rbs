@@ -10,6 +10,7 @@ class SPI
 
   @first_bit: first_bit_t
   @unit_num: Integer
+  @cs: GPIO
 
   attr_reader unit: String
   attr_reader sck_pin: Integer
@@ -28,6 +29,8 @@ class SPI
     ?first_bit: first_bit_t
   ) -> void
   def _init: (String unit, Integer frequency, Integer sck_pin, Integer cipo_pin, Integer copo_pin, Integer mode, Integer first_bit, Integer data_bits) -> Integer
+  def select: () ?{ (SPI) -> untyped } -> untyped
+  def deselect: () -> void
   def write: (*(Integer|String)|Array[Integer] outputs) -> Integer
   def read: (Integer len, ?Integer repeated_tx_data) -> String
   def transfer: (*(Integer|String)|Array[Integer] outputs, ?additional_read_bytes: Integer) -> String

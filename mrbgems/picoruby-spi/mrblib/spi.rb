@@ -23,11 +23,27 @@ class SPI
       DATA_BITS # Data bit size. No support other than 8
     )
     if -1 < @cs_pin
-      GPIO.new(@cs_pin, GPIO::OUT).write(1)
+      @cs = GPIO.new(@cs_pin, GPIO::OUT)
+      @cs.write(1)
     end
   end
 
   attr_reader :unit, :sck_pin, :cipo_pin, :copi_pin, :cs_pin
+
+  def select
+    @cs&.write(0)
+    if block_given?
+      begin
+        yield(self)
+      ensure
+        deselect
+      end
+    end
+  end
+
+  def deselect
+    @cs&.write(1)
+  end
 
   def read(len, repeated_tx_data = 0)
     ret = _read(@unit_num, len, repeated_tx_data)
