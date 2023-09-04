@@ -42,10 +42,12 @@ class RotaryEncoder
   def clockwise(&block)
     @proc_cw = block
   end
+  alias cw clockwise
 
   def counterclockwise(&block)
     @proc_ccw = block
   end
+  alias ccw counterclockwise
 
   def call_cw
     @proc_cw.call
