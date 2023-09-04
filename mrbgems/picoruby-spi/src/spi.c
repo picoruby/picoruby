@@ -27,7 +27,7 @@ c__write(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  UNIT_INFO()
+  UNIT_INFO();
   size_t len = GET_INT_ARG(1);
   uint8_t rxdata[len];
   int ret_len = SPI_read_blocking(unit_info, rxdata, len, GET_INT_ARG(2));
@@ -42,7 +42,7 @@ c__read(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__transfer(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  UNIT_INFO()
+  UNIT_INFO();
   mrbc_array value_ary = *(GET_ARY_ARG(1).array);
   int len = value_ary.n_stored;
   uint8_t txdata[len];
@@ -62,28 +62,28 @@ c__transfer(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_sck_pin(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  UNIT_INFO()
+  UNIT_INFO();
   SET_INT_RETURN(unit_info->sck_pin);
 }
 
 static void
 c_copi_pin(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  UNIT_INFO()
+  UNIT_INFO();
   SET_INT_RETURN(unit_info->copi_pin);
 }
 
 static void
 c_cipo_pin(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  UNIT_INFO()
+  UNIT_INFO();
   SET_INT_RETURN(unit_info->cipo_pin);
 }
 
 static void
 c_cs_pin(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  UNIT_INFO()
+  UNIT_INFO();
   SET_INT_RETURN(unit_info->cs_pin);
 }
 
