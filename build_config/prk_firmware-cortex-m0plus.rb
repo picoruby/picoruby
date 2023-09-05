@@ -30,6 +30,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   # the platform's configuration
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
+  conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "MRBC_USE_MATH=1"
   conf.cc.defines << "MRBC_TICK_UNIT=1"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"

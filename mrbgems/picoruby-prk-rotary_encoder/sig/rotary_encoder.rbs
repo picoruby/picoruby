@@ -24,7 +24,9 @@ class RotaryEncoder
   def left?: () -> bool
   def right?: () -> bool
   def clockwise: () { () -> void } -> void
+  def cw: () { () -> void } -> void
   def counterclockwise: () { () -> void } -> void
+  def ccw: () { () -> void } -> void
   def consume_rotation_anchor: () -> void
   def consume_rotation_partner: () -> Integer
 end
