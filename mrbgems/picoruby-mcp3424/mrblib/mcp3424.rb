@@ -84,7 +84,7 @@ class MCP3424
     end
   end
 
-  def one_shot_read(channel, timeout_ms = 1000)
+  def one_shot_read(channel, timeout_ms = nil)
     assert_channel(channel)
     @i2c.write(@address, 0b1000_0000 | ((channel - 1) << 5) | @configuration)
     read(timeout_ms)
@@ -95,7 +95,7 @@ class MCP3424
     @i2c.write(@address, 0b1001_0000 | ((channel - 1) << 5) | @configuration)
   end
 
-  def read(timeout_ms = 1000)
+  def read(timeout_ms = nil)
     bit_resolution = self.bit_resolution
     read_length = (bit_resolution == 18) ? 4 : 3
     data = []
@@ -103,9 +103,12 @@ class MCP3424
       d0, d1, d2, d3 = @i2c.read(@address, read_length).bytes
       return nil unless config_byte = (bit_resolution == 18) ? d3 : d2
       break if config_byte < 0b1000_0000 # equivalent to (config_byte & 0b1000_0000) == 0
-      timeout_ms -= 10
-      return nil if timeout_ms < 0
-      sleep_ms 10
+      if timeout_ms
+        # @type var timeout_ms: Integer
+        timeout_ms -= 10
+        return nil if timeout_ms < 0
+        sleep_ms 10
+      end
     end
     case bit_resolution
     when 12

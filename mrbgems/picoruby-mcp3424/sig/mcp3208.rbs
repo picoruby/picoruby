@@ -18,9 +18,9 @@ class MCP3424
   def bit_resolution: () -> Integer
   def pga_gain=: (Integer pga_gain) -> Integer
   def pga_gain: () -> Integer
-  def one_shot_read: (Integer channel, ?Integer timeout_ms) -> (Integer|nil)
+  def one_shot_read: (Integer channel, ?(Integer|nil) timeout_ms) -> (Integer|nil)
   def start_continuous_conversion: (Integer channel) -> void
-  def read: (?Integer timeout_ms) -> (Integer|nil)
+  def read: (?(Integer|nil) timeout_ms) -> (Integer|nil)
   # private
   def assert_channel: (Integer channel) -> void
 end
