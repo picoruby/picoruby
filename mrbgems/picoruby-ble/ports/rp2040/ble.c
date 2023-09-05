@@ -105,13 +105,17 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
 
 #define HEARTBEAT_PERIOD_MS 1000
 
+static bool heartbeat_active = false;
+
 static void
 heartbeat_handler(struct btstack_timer_source *ts)
 {
   BLE_heartbeat();
   // Restart timer
-  btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
-  btstack_run_loop_add_timer(ts);
+  if (heartbeat_active) {
+    btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
+    btstack_run_loop_add_timer(ts);
+  }
 }
 
 int
@@ -144,10 +148,7 @@ BLE_init(const uint8_t *profile_data, int ble_role)
   ble_hci_event_callback_registration.callback = &packet_handler;
   hci_add_event_handler(&ble_hci_event_callback_registration);
 
-  // set one-shot btstack timer
   heartbeat.process = &heartbeat_handler;
-  btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
-  btstack_run_loop_add_timer(&heartbeat);
 
   return 0;
 }
@@ -156,6 +157,13 @@ void
 BLE_hci_power_control(uint8_t power_mode)
 {
   hci_power_control(power_mode);
+  if (power_mode == HCI_POWER_ON) {
+    heartbeat_active = true;
+    btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
+    btstack_run_loop_add_timer(&heartbeat);
+  } else {
+    heartbeat_active = false;
+  }
 }
 
 void
