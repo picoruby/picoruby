@@ -29,7 +29,7 @@ memmem(const void *l, size_t l_len, const void *s, size_t s_len)
 }
 
 #define NODE_BOX_SIZE 10
-#define VM_REGS_SIZE 110 # can be reduced?
+#define VM_REGS_SIZE 110 // can be reduced?
 
 static mrbc_vm *
 prepare_vm(const char *script)
