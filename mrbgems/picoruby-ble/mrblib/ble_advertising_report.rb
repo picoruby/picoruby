@@ -44,7 +44,7 @@ class BLE
       "\nAddress: #{BLE::Utils.bd_addr_to_str(@address)}" +
       "\nRSSI: #{@rssi}" +
       "\nReports:\n" +
-      @reports.map{|d| "  #{EVENT_TYPE[d[:type]] || 'N/A'}: #{d[:value].inspect}"}.join("\n")
+      @reports.map{|d| "  #{EVENT_TYPE[d[:type]] || 'N/A'}: #{d[:value].inspect}(len #{d[:value].length})"}.join("\n")
     end
 
     def name_include?(name)

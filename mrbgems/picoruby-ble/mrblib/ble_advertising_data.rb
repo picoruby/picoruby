@@ -16,6 +16,9 @@ class BLE
         when String
           @data << d
           length += d.length
+        when 0
+          @data << "\x00"
+          length += 1
         when Integer
           while 0 < d
             @data << (d & 0xff).chr
