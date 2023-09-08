@@ -1,3 +1,4 @@
 class Machine
-  def self.sleep: (Integer) -> Integer
+  def self.sleep: (Integer sec) -> Integer
+  def self.deep_sleep: (Integer gpio_pin, bool edge, bool high) -> 0
 end
