@@ -3,8 +3,8 @@ require 'i2c'
 class MCP3424
   DEFAULT_FREQUENCY = 100_000
 
-  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sda_pin: -1, scl_pin: -1, address_selector:)
-    @i2c = I2C.new(unit: unit, frequency: frequency, sda_pin: sda_pin, scl_pin: scl_pin)
+  def initialize(i2c:, address_selector:)
+    @i2c = i2c
     set_address(address_selector)
     @configuration = 0
     # One-shot mode makes the device to enter power-down mode after a conversion.
