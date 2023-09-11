@@ -80,8 +80,6 @@ class BLE
     @_read_values = {}
     @_write_values = {}
     CYW43.init
-    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
-    @led_on = false
     _init(profile_data)
     $_btstack_singleton = self
   end
@@ -99,6 +97,8 @@ class BLE
   end
 
   def blink_led
+    @led ||= CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+    @led_on ||= false
     @led&.write((@led_on = !@led_on) ? 1 : 0)
   end
 
