@@ -37,6 +37,17 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
+ * GPIO.set_function_at(pin, function)
+ */
+static void
+c_set_function_at(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  GPIO_set_function(pin_num(vm, v[1]), GET_INT_ARG(2));
+  SET_INT_RETURN(0);
+}
+
+
+/*
  * GPIO.set_dir_at(pin, dir)
  */
 static void
@@ -167,7 +178,6 @@ c_write(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(0);
 }
 
-
 #define SET_CLASS_CONST(cls, cst) \
   mrbc_set_class_const(mrbc_class_##cls, mrbc_str_to_symid(#cst), &mrbc_integer_value(cst))
 
@@ -182,8 +192,10 @@ mrbc_gpio_init(void)
   SET_CLASS_CONST(GPIO, PULL_UP);
   SET_CLASS_CONST(GPIO, PULL_DOWN);
   SET_CLASS_CONST(GPIO, OPEN_DRAIN);
+  SET_CLASS_CONST(GPIO, ALT);
 
   mrbc_define_method(0, mrbc_class_GPIO, "_init", c__init);
+  mrbc_define_method(0, mrbc_class_GPIO, "set_function_at", c_set_function_at);
   mrbc_define_method(0, mrbc_class_GPIO, "set_dir_at", c_set_dir_at);
   mrbc_define_method(0, mrbc_class_GPIO, "pull_up_at", c_pull_up_at);
   mrbc_define_method(0, mrbc_class_GPIO, "pull_down_at", c_pull_down_at);

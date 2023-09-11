@@ -63,3 +63,9 @@ GPIO_write(uint8_t pin, uint8_t val)
   gpio_put(pin, val == 1);
 }
 
+void
+GPIO_set_function(uint8_t pin, uint8_t function)
+{
+  gpio_set_function(pin, function);
+}
+
