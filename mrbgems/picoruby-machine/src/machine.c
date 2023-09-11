@@ -47,6 +47,13 @@ c_Machine_deep_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(0);
 }
 
+static void
+c_Machine_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  Machine_reboot(GET_INT_ARG(1));
+  SET_INT_RETURN(0);
+}
+
 void
 mrbc_machine_init(void)
 {
@@ -54,5 +61,6 @@ mrbc_machine_init(void)
 
   mrbc_define_method(0, mrbc_class_Machine, "sleep", c_Machine_sleep);
   mrbc_define_method(0, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
+  mrbc_define_method(0, mrbc_class_Machine, "reboot", c_Machine_reboot);
 }
 
