@@ -1,5 +1,8 @@
 class CYW43
-  def self.init: (?String, ?force: bool) -> bool
+  $_cyw43_country: String
+
+  def self.init: (?String, ?force: bool) -> void
+  def self.check_initialized: () -> void
   def self._init: (String, bool) -> bool
 
   class GPIO
