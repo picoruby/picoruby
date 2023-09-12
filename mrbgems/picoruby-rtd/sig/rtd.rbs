@@ -1,19 +1,23 @@
 class RTD
-  type pin_t = (Integer|String|Symbol)
+  DRIVERS: Array[Symbol]
 
-  @iexc: GPIO
-  @ain1: ADC
-  @ain2: ADC
-  @ref:  ADC
-  @r_ref: Integer
+  @r_ref: Float
+  @current_gpio: GPIO
+  @driver: (Hash[Symbol, ADC] | MCP3424 | MCP3208)
+  @driver_type: Symbol
+  @channels: Hash[Symbol, (Integer | ADC)]
 
   attr_accessor sample_count: Integer
 
   def initialize: (
-    pin_t iexc_pin,
-    pin_t ain1_pin,
-    pin_t ain2_pin,
-    pin_t ref_pin,
-    Integer r_ref) -> void
+    driver: (:ADC | MCP3424 | MCP3208),
+    current_gpio: GPIO,
+    r_ref: (Float | Integer),
+    channels: Hash[Symbol, (Integer | ADC)]
+  ) -> void
   def read: () -> Float
+  def temperature_in_celsius: (Float) -> Float
+
+  class PT100 < RTD
+  end
 end
