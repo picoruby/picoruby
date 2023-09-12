@@ -48,9 +48,9 @@ c_Machine_deep_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_Machine_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
+c_Machine_watchdog_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  Machine_reboot(GET_INT_ARG(1));
+  Machine_watchdog_reboot(GET_INT_ARG(1));
   SET_INT_RETURN(0);
 }
 
@@ -61,6 +61,6 @@ mrbc_machine_init(void)
 
   mrbc_define_method(0, mrbc_class_Machine, "sleep", c_Machine_sleep);
   mrbc_define_method(0, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
-  mrbc_define_method(0, mrbc_class_Machine, "reboot", c_Machine_reboot);
+  mrbc_define_method(0, mrbc_class_Machine, "watchdog_reboot", c_Machine_watchdog_reboot);
 }
 

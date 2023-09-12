@@ -134,7 +134,7 @@ Machine_sleep(uint32_t seconds)
 }
 
 void
-Machine_reboot(uint32_t delay_ms)
+Machine_watchdog_reboot(uint32_t delay_ms)
 {
   watchdog_reboot(0, 0, delay_ms);
 }

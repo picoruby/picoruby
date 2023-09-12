@@ -10,7 +10,7 @@ extern "C" {
 
 void Machine_sleep(uint32_t seconds);
 void Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high);
-void Machine_reboot(uint32_t delay_ms);
+void Machine_watchdog_reboot(uint32_t delay_ms);
 
 #ifdef __cplusplus
 }
