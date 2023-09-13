@@ -24,6 +24,24 @@ class UART
       rts_pin: rts_pin,
       cts_pin: cts_pin
     )
+    @line_ending = "\n"
+  end
+
+  def line_ending=(line_ending)
+    unless ["\n", "\r", "\r\n"].include?(line_ending)
+      raise ArgumentError.new("UART: invalid line ending")
+    end
+    @line_ending = line_ending
+  end
+
+  def puts(str)
+    write(str + @line_ending)
+    if str.end_with?(@line_ending)
+      write str
+    else
+      write str + @line_ending
+    end
+    nil
   end
 
   def setmode(
