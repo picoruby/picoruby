@@ -2,7 +2,8 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-dip_switch'
   conf.gem core: 'picoruby-iir_filter'
   conf.gem core: 'picoruby-mcp3424'
-  conf.gem core: 'picoruby-aqm0802a'
   conf.gem core: 'picoruby-rtd'
+  conf.gem core: 'picoruby-akizukidenshi_aqm0802a'
+  conf.gem core: 'picoruby-quectel_ec21'
 end
 
