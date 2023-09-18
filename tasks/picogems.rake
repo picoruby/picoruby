@@ -132,8 +132,20 @@ MRuby.each_target do |build|
         static void
         c_require(mrbc_vm *vm, mrbc_value *v, int argc)
         {
+          if (argc != 1) {
+            mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+            return;
+          }
+          if (GET_TT_ARG(1) != MRBC_TT_STRING) {
+            mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type");
+            return;
+          }
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
+          if (i < 0) {
+            mrbc_raise(vm, MRBC_CLASS(RuntimeError), "cannot load such gem");
+            return;
+          }
           if (!gems[i].required && picoruby_load_model(gems[i].mrb)) {
             if (gems[i].initializer) gems[i].initializer();
             gems[i].required = true;
@@ -167,7 +179,7 @@ MRuby.each_target do |build|
       f.puts
       f.puts <<~PICOGEM
         static void
-        c__next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
+        c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           static int i = 0;
           if (executables[i].name) {
@@ -195,9 +207,11 @@ MRuby.each_target do |build|
         void
         picoruby_init_require(void)
         {
-          mrbc_define_method(0, mrbc_class_object, "_next_executable", c__next_executable);
-          mrbc_define_method(0, mrbc_class_object, "require", c_require);
-          mrbc_define_method(0, mrbc_class_object, "required?", c_required_q);
+          mrbc_class *mrbc_class_Shell = mrbc_define_class(0, "Shell", mrbc_class_object);
+          mrbc_define_method(0, mrbc_class_Shell, "next_executable", c_next_executable);
+          mrbc_class *mrbc_class_PicoGem = mrbc_define_class(0, "PicoGem", mrbc_class_object);
+          mrbc_define_method(0, mrbc_class_PicoGem, "require", c_require);
+          mrbc_define_method(0, mrbc_class_PicoGem, "required?", c_required_q);
         }
       PICOGEM
     end

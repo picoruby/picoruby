@@ -1,0 +1,17 @@
+class EC21
+  type log_t = Hash[Symbol, String]
+
+  DEFAULT_LOG_SIZE: Integer
+
+  @log: Array[log_t]
+  @uart: UART
+
+  def initialize: (unit: (Symbol|String), txd_pin: Integer, rxd_pin: Integer, baudrate: Integer, log_size: Integer) -> void
+  def addlog: (String cmd, String res) -> nil
+  def send_and_wait_for_response: (String cmd, String expected_response, ?Integer timeout_ms) -> bool
+  def check_sim_status: () -> bool
+
+  class SoracomBeamUDP < EC21
+    def connect_and_send: (String data) -> bool
+  end
+end

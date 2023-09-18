@@ -44,6 +44,10 @@ end
 class Terminal
 
   def self.get_screen_size
+    if ENV && ENV['TERM'] == "dumb"
+      IO.wait_terminal(timeout: 0.1)
+      return [24, 80] if ENV['TERM'] == "dumb"
+    end
     y, x = IO.get_cursor_position # save current position
     print "\e[999B\e[999C" # down * 999 and right * 999
     res = IO.get_cursor_position
@@ -75,6 +79,7 @@ class Terminal
 
     def physical_line_count
       count = 0
+      return count if @width == 0
       @buffer.lines.each do |line|
         count += 1 + (@prompt_margin + line.length) / @width
       end
@@ -411,7 +416,9 @@ class Terminal
       print "\e[m"
       while true
         refresh
-        case c = IO.getch.ord
+        while !(c = IO.getch&.ord)
+        end
+        case c
         when 3 # Ctrl-C
           return if @quit_by_ctrl_c
         when 4 # Ctrl-D logout

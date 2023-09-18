@@ -1,0 +1,6 @@
+class Machine
+  def self.sleep: (Integer sec) -> Integer
+  def self.deep_sleep: (Integer gpio_pin, bool edge, bool high) -> 0
+  def self.watchdog_reboot: (Integer delay_ms) -> 0
+  def self.watchdog_caused_reboot?: () -> bool
+end

@@ -1,0 +1,244 @@
+class BLE
+
+  $_btstack_singleton: BLE
+
+  HCI_STATE_OFF: Integer
+  HCI_STATE_INITIALIZING: Integer
+  HCI_STATE_WORKING: Integer
+  HCI_STATE_HALTING: Integer
+  HCI_STATE_SLEEPING: Integer
+  HCI_STATE_FALLING_ASLEEP: Integer
+
+  HCI_POWER_OFF: Integer
+  HCI_POWER_ON: Integer
+  HCI_POWER_SLEEP: Integer
+
+  CLIENT_CHARACTERISTIC_CONFIGURATION: Integer
+  CHARACTERISTIC_DATABASE_HASH: Integer
+
+  BROADCAST:                   Integer
+  READ:                        Integer
+  WRITE_WITHOUT_RESPONSE:      Integer
+  WRITE:                       Integer
+  NOTIFY:                      Integer
+  INDICATE:                    Integer
+  AUTHENTICATED_SIGNED_WRITE:  Integer
+  EXTENDED_PROPERTIES:         Integer
+  DYNAMIC:                     Integer
+  LONG_UUID:                   Integer
+  READ_PERMISSION_BIT_0:       Integer
+  READ_PERMISSION_BIT_1:       Integer
+  ENCRYPTION_KEY_SIZE_7:       Integer
+  ENCRYPTION_KEY_SIZE_8:       Integer
+  ENCRYPTION_KEY_SIZE_9:       Integer
+  ENCRYPTION_KEY_SIZE_10:      Integer
+  ENCRYPTION_KEY_SIZE_11:      Integer
+  ENCRYPTION_KEY_SIZE_12:      Integer
+  ENCRYPTION_KEY_SIZE_13:      Integer
+  ENCRYPTION_KEY_SIZE_14:      Integer
+  ENCRYPTION_KEY_SIZE_15:      Integer
+  ENCRYPTION_KEY_SIZE_16:      Integer
+  ENCRYPTION_KEY_SIZE_MASK:    Integer
+  RELIABLE_WRITE:              Integer
+  AUTHENTICATION_REQUIRED:     Integer
+  AUTHORIZATION_REQUIRED:      Integer
+  READ_ANYBODY:                Integer
+  READ_ENCRYPTED:              Integer
+  READ_AUTHENTICATED:          Integer
+  READ_AUTHENTICATED_SC:       Integer
+  READ_AUTHORIZED:             Integer
+  WRITE_ANYBODY:               Integer
+  WRITE_ENCRYPTED:             Integer
+  WRITE_AUTHENTICATED:         Integer
+  WRITE_AUTHENTICATED_SC:      Integer
+  WRITE_AUTHORIZED:            Integer
+  WRITE_PERMISSION_BIT_0:      Integer
+  WRITE_PERMISSION_BIT_1:      Integer
+  READ_PERMISSION_SC:          Integer
+  WRITE_PERMISSION_SC:         Integer
+  CYW43_WL_GPIO_LED_PIN: Integer
+
+  GATT_PRIMARY_SERVICE_UUID: Integer
+  GATT_SECONDARY_SERVICE_UUID: Integer
+  GAP_SERVICE_UUID: Integer
+  GATT_SERVICE_UUID: Integer
+  GAP_DEVICE_NAME_UUID: Integer
+  ATT_PROPERTY_READ: Integer
+  GATT_CHARACTERISTIC_UUID: Integer
+
+  POLLING_UNIT_MS: Integer
+
+  @_write_values: Hash[Integer, String]
+  @_read_values: Hash[Integer, String]
+  @led: CYW43::GPIO
+  @led_on: bool
+
+  attr_accessor debug: bool
+
+  def initialize: (?(String|nil)) -> void
+  def _init: (String | nil) -> void
+  def debug_puts: (*untyped) -> nil
+  def hci_power_control: (Integer) -> 0
+  def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
+  def packet_callback: (String) -> void
+  def heartbeat_callback: () -> void
+  def blink_led: () -> void
+  def gap_local_bd_addr: () -> String
+  def get_write_value: (Integer) -> (String|nil)
+  def set_read_value: (Integer, String) -> void
+  def gap_connect: (String, Integer) -> Integer
+
+  class Utils
+    def self.bd_addr_to_str: (String) -> String
+    def self.uuid: (untyped) -> String
+    def self.reverse_128: (String|nil) -> String
+    def self.uuid128_to_uuid32: (String) -> (Integer|nil)
+    def self.int16_to_little_endian: (Integer) -> String
+    def self.int32_to_little_endian: (Integer) -> String
+    def self.little_endian_to_int16: (String|nil) -> Integer
+    def self.little_endian_to_int32: (String|nil) -> Integer
+    def self.valid_char_for_uuid?: (String | nil) -> bool
+  end
+
+  class AdvertisingReport
+    type report_t = {type: Integer, value: String}
+    EVENT_TYPE: Hash[Integer, Symbol]
+    ADDRESS_TYPE: Array[Symbol]
+    attr_reader event_type: Integer
+    attr_reader address_type: Integer
+    attr_reader address: String
+    attr_reader rssi: Integer | nil
+    attr_reader reports: Array[report_t]
+    def initialize: (String) -> void
+    def format: () -> String
+    def inspect_reports: (String) -> Array[report_t]
+    def name_include?: (String|nil) -> bool
+  end
+
+  class GattDatabase
+    ATT_DB_VERSION: Integer
+
+    type uuid_t = String|Integer
+    type properties_t = Integer
+    @current_handle: Integer
+    @hash_src: String
+    @hash_pos: Integer|nil
+    @service_uuid: uuid_t|nil
+    @char_uuid: uuid_t|nil
+    @database_hash_key: String
+    attr_reader handle_table: Hash[uuid_t|nil, untyped]
+    attr_reader profile_data: String
+
+    def initialize: () { (GattDatabase) -> void } -> void
+    def insert_database_hash: () -> void
+    def push_handle: () -> String
+    def seek_handle: () -> String
+    def add_line: (String) -> void
+    def add_service: (uuid_t, uuid_t) ?{ (GattDatabase) -> void } -> void
+    def add_characteristic: (properties_t, uuid_t, properties_t, String) ?{ (GattDatabase) -> void } -> void
+    def add_descriptor: (properties_t, uuid_t, ?(String)) -> void
+    def uuid2str: (uuid_t) -> String
+    def att_flags: (Integer) -> Integer
+    def write_permissions_and_key_size_flags_from_properties: (Integer) -> Integer
+    def flag_by_uuid: (uuid_t, Integer) -> String
+  end
+
+  class Peripheral < BLE
+    def advertise: (String) -> void
+    def notify: (Integer) -> void
+
+    def request_can_send_now_event: () -> void
+  end
+
+  class Broadcaster < BLE
+    def advertise: (String) -> 0
+  end
+
+  class Observer < BLE::Central
+    def initialize: () -> void
+  end
+
+  class Central < BLE
+
+    HCI_SUBEVENT_LE_CONNECTION_COMPLETE: Integer
+    HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+    HCI_CON_HANDLE_INVALID: Integer
+    BTSTACK_EVENT_STATE: Integer
+    HCI_EVENT_LE_META: Integer
+    GAP_EVENT_ADVERTISING_REPORT: Integer
+    GATT_EVENT_QUERY_COMPLETE: Integer
+    GATT_EVENT_SERVICE_QUERY_RESULT: Integer
+    GATT_EVENT_CHARACTERISTIC_QUERY_RESULT: Integer
+    GATT_EVENT_INCLUDED_SERVICE_QUERY_RESULT: Integer
+    GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT: Integer
+    GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT: Integer
+    GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT: Integer
+    GATT_EVENT_NOTIFICATION: Integer
+    GATT_EVENT_INDICATION: Integer
+    GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT: Integer
+    GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT: Integer
+
+    type service_t = {
+      start_handle: Integer,
+      end_handle: Integer,
+      uuid128: String,
+      uuid32: (Integer | nil),
+      characteristics: Array[characteristic_t]
+    }
+    type characteristic_t = {
+      start_handle: Integer,
+      value_handle: Integer,
+      end_handle: Integer,
+      properties: Integer,
+      uuid128: String,
+      uuid32: (Integer | nil),
+      value: (String | nil),
+      descriptors: Array[descriptor_t]
+    }
+    type descriptor_t = {
+      handle: Integer,
+      uuid128: String,
+      uuid32: (Integer | nil),
+      value: (String | nil)
+    }
+    type scan_type_t = (:passive|:active)
+
+    @conn_handle: Integer
+    @characteristic_handle_ranges: Array[{start_handle: Integer, end_handle: Integer}]
+    @value_handles: Array[Integer]
+    @descriptor_handle_ranges: Array[{value_handle: Integer, end_handle: Integer}]
+    @descriptor_handles: Array[Integer]
+    @advertisement_report_callback: Proc#{ (BLE::AdvertisingReport) -> void } -> void
+
+    attr_reader role: (:central | :peripheral | :observer | :broadcaster)
+    attr_reader state: Symbol
+    attr_reader services: Array[service_t]
+
+    def reset_state: () -> Symbol
+    def scan: (
+      ?scan_type: scan_type_t,
+      ?scan_interval: Integer,
+      ?scan_window: Integer,
+      ?timeout_ms: Integer|nil,
+      ?stop_state: Symbol,
+      ?debug: bool
+    ) -> void
+    def advertising_report_callback: (BLE::AdvertisingReport) -> void
+    def set_scan_params: (scan_type_t scan_type, Integer scan_interval, Integer scan_window) -> 0
+    def start_scan: () -> 0
+    def stop_scan: () -> 0
+    def connect: (BLE::AdvertisingReport) -> bool
+    def get_packet: () -> String
+    def discover_primary_services: (Integer) -> Integer
+    def read_value_of_characteristic_using_value_handle: (Integer, Integer) -> Integer
+    def discover_characteristic_descriptors: (Integer, Integer, Integer) -> Integer
+    def discover_characteristics_for_service: (Integer, Integer, Integer) -> Integer
+  end
+
+  class AdvertisingData
+    attr_reader data: String
+    def add: (Integer, *untyped) -> void
+    def self.build: () { (AdvertisingData) -> void } -> String
+  end
+end
+

@@ -15,11 +15,12 @@ class Shell
   AUTHOR_COLOR: String
   @terminal: Terminal::Line
 
+  def self.next_executable: -> {code: String, name: String}
+
   def setup_root_volume: (Symbol drive, ?label: String) -> void
   def setup_system_files: (?force: bool) -> void
-  def _next_executable: -> {code: String, name: String}
 
-  def initialize: -> void
+  def initialize: (?clean: bool) -> void
   def simple_question: (String question) { (String answer) -> boolish } -> void
   def show_logo: -> nil
   def start: (?:shell mode) -> nil

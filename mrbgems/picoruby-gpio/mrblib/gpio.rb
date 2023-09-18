@@ -30,22 +30,33 @@ class GPIO
     end
   end
 
-  def initialize(pin, flags)
+  def initialize(pin, flags, alt_function = 0)
     @pin = pin
     GPIO._init(pin)
-    setmode(flags)
-    unless @dir
-      raise ArgumentError.new("You must specify one of IN, OUT and HIGH_Z")
+    setmode(flags, alt_function)
+    unless @dir || @alt_function
+      raise ArgumentError.new("You must specify one of IN, OUT, HIGH_Z, and ALT")
     end
   end
 
-  def setmode(flags)
+  def setmode(flags, alt_function = 0)
     set_dir(flags)
     set_pull(flags)
     open_drain(flags)
+    set_function(flags, alt_function)
   end
 
   # private
+
+  def set_function(flags, alt_function)
+    @alt_function = if 0 < alt_function && (flags & ALT) == ALT
+      GPIO.set_function_at(@pin, alt_function)
+      alt_function
+    else
+      nil
+    end
+    0
+  end
 
   def set_dir(flags)
     dir = (flags & (IN|OUT|HIGH_Z))

@@ -50,7 +50,8 @@ end
 
 
 class Shell
-  def initialize
+  def initialize(clean: false)
+    clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @terminal = Terminal::Line.new
     if RUBY_ENGINE == "ruby"
       @terminal.debug_tty = ARGV[0]
@@ -88,6 +89,7 @@ class Shell
   SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
 
   def show_logo
+    return nil if ENV['TERM'] == "dumb"
     logo_width = LOGO_LINES[0, LOGO_LINES.size - 1]&.map{|l| l.length}&.max || 0
     if logo_width < @terminal.width
       logo_lines = LOGO_LINES
@@ -95,6 +97,7 @@ class Shell
       logo_width = SHORT_LOGO_LINES.map{|l| l.length}.max || 0
       logo_lines = SHORT_LOGO_LINES
     end
+    return nil if @terminal.width < logo_width
     margin = " " * ((@terminal.width - logo_width) / 2)
     puts LOGO_COLOR
     logo_lines.each do |line|
@@ -124,10 +127,10 @@ class Shell
 
   def setup_system_files(force: false)
     Dir.chdir("/") do
-      %w(bin var home).each do |dir|
+      %w(bin lib var home).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
       end
-      while exe = _next_executable
+      while exe = Shell.next_executable
         if force || !File.exist?("/bin/#{exe[:name]}")
           f = File.open "/bin/#{exe[:name]}", "w"
           f.expand exe[:code].length
@@ -170,7 +173,7 @@ class Shell
           return
         else
           puts
-          command.exec(args)
+          command.exec(*args)
           terminal.save_history
           buffer.clear
         end

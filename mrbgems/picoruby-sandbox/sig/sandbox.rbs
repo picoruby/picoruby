@@ -19,6 +19,7 @@ class Sandbox
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil), ?signal: bool) -> bool
   def execute: () -> bool
+  def exec_mrb: (String) -> bool
 end
 
 class RubyVM::InstructionSequence

@@ -1,0 +1,10 @@
+class IIRFilter
+  COEFF_SHIFT: Integer
+  MAX_COEFF_SHIFT: Integer
+  FILTER_FEEDFORWARD: Integer
+
+  @filterd_value: Integer
+
+  def initialize: () -> void
+  def filter: (Integer raw_value) -> Integer
+end

@@ -9,23 +9,26 @@ class GPIO
 
   def self.handle_error: (Integer, ?String) -> Integer
 
-  IN:          1 # 0b000001
-  OUT:         2 # 0b000010
-  HIGH_Z:      4 # 0b000100
-  PULL_UP:     8 # 0b001000
-  PULL_DOWN:  16 # 0b010000
-  OPEN_DRAIN: 32 # 0b100000
+  IN:          1 # 0b0000001
+  OUT:         2 # 0b0000010
+  HIGH_Z:      4 # 0b0000100
+  PULL_UP:     8 # 0b0001000
+  PULL_DOWN:  16 # 0b0010000
+  OPEN_DRAIN: 32 # 0b0100000
+  ALT:        64 # 0b1000000
 
-  type pin_t = (Integer|String)
+  type pin_t = (Integer|String|Symbol)
 
   @pin: pin_t
   @dir: (Integer|nil)
+  @alt_function: (Integer|nil)
   @pull: (Integer|nil)
   @open_drain: bool
 
   # Ruby method
-  def initialize: (pin_t, Integer) -> void
-  def setmode: (Integer) -> 0
+  def initialize: (pin_t pin, Integer flags, ?Integer alt_function) -> void
+  def setmode: (Integer flags, ?Integer alt_function) -> 0
+  def set_function: (Integer, Integer) -> 0
   def set_dir: (Integer) -> 0
   def set_pull: (Integer) -> 0
   def open_drain: (Integer) -> 0
@@ -41,6 +44,7 @@ class GPIO
   def self.pull_up_at: (pin_t) -> 0
   def self.pull_down_at: (pin_t) -> 0
   def self.open_drain_at: (pin_t) -> 0
+  def self.set_function_at: (pin_t, Integer) -> 0
   def read: () -> Integer
   def write: (Integer) -> 0
   def high?: () -> bool
