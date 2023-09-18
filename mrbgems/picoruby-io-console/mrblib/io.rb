@@ -1,10 +1,7 @@
 class IO
   def self.raw(&block)
-    raise Exception.new("no block given") unless block
     self.raw!
-    while true do
-      break if res = block.call
-    end
+    res = block.call
   ensure
     self.cooked!
     return res
@@ -17,8 +14,8 @@ class IO
   end
 
   def self.get_cursor_position
-    row = 0
-    col = 0
+    return [0, 0] if ENV && ENV['TERM'] == "dumb"
+    row, col = 0, 0
     raw do
       print "\e[6n"
       while true
@@ -43,16 +40,33 @@ class IO
     return [row, col]
   end
 
-  def self.wait_and_clear
+  def self.clear_screen
+    print "\e[2J\e[1;1H"
+  end
+
+  def self.wait_terminal(timeout: nil)
+    timer = 0.0
+    res = false
     IO.raw do
       while true
-        print "\e[5n"
+        timer += 0.1
+        IO.read_nonblock(1000) # clear buffer
+        print "\e[5n" # CSI DSR 5 to request terminal status report
         sleep 0.1
-        break if IO.read_nonblock(10) == "\e[0n"
+        if IO.read_nonblock(10) == "\e[0n"
+          res = true
+          ENV['TERM'] = "ansi"
+          break
+        end
+        if timeout && timeout.to_f < timer
+          ENV['TERM'] = "dumb"
+          # TODO: refactor after fixing the bug
+          # https://github.com/picoruby/picoruby/issues/148
+          return false
+        end
       end
     end
-    sleep 0.1
-    print "\e[2J\e[1;1H"
+    res
   end
 end
 

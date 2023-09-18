@@ -1,0 +1,19 @@
+class MCP3208
+  DEFAULT_FREQUENCY: 500_000
+
+  @spi: SPI
+  @cs: GPIO
+
+  def initialize: (
+    unit: Symbol,
+    ?frequency: Integer,
+    ?sck_pin: Integer,
+    ?cipo_pin: Integer,
+    ?copi_pin: Integer,
+    ?cs_pin: Integer
+  ) -> void
+  def read: (Integer channel, ?differential: bool) -> Integer
+end
+
+class MCP3204 < MCP3208
+end

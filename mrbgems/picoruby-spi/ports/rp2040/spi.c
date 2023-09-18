@@ -6,12 +6,6 @@
 
 #include "../../include/spi.h"
 
-
-// For bitbang SPI (workaround)
-static uint8_t sck = -1;
-static uint8_t copi = -1;
-static uint8_t cipo = -1;
-
 static int
 bitbang_read_blocking(spi_unit_info_t *unit_info, uint8_t *dst, size_t len)
 {

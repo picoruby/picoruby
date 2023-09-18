@@ -132,8 +132,20 @@ MRuby.each_target do |build|
         static void
         c_require(mrbc_vm *vm, mrbc_value *v, int argc)
         {
+          if (argc != 1) {
+            mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+            return;
+          }
+          if (GET_TT_ARG(1) != MRBC_TT_STRING) {
+            mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type");
+            return;
+          }
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
+          if (i < 0) {
+            mrbc_raise(vm, MRBC_CLASS(RuntimeError), "cannot load such gem");
+            return;
+          }
           if (!gems[i].required && picoruby_load_model(gems[i].mrb)) {
             if (gems[i].initializer) gems[i].initializer();
             gems[i].required = true;

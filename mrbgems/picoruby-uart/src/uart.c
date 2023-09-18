@@ -260,6 +260,10 @@ c_write(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   }
+  if (v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected String)");
+    return;
+  }
   size_t len = v[1].string->size;
   int unit_num = GETIV(unit_num).i;
   UART_write_blocking(unit_num, (const uint8_t *)v[1].string->data, len);

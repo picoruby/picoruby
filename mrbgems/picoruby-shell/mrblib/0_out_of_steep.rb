@@ -1,1 +1,2 @@
 ENV = {}
+ENV['TERM'] = "ansi" # may be overwritten by IO.wait_terminal

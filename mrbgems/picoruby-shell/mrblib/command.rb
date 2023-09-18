@@ -33,9 +33,9 @@ class Shell
       return nil
     end
 
-    def exec(params)
+    def exec(*params)
       ARGV.clear
-      params[1, params.length - 1].each do |param|
+      params[1, params.length - 1]&.each do |param|
         ARGV << param
       end
       command = params[0]
@@ -67,14 +67,16 @@ class Shell
           begin
             # PicoRuby compiler's bug
             # https://github.com/picoruby/picoruby/issues/120
-            mrb = f.read
-            if mrb.to_s.start_with?("RITE0300")
-              @sandbox.exec_mrb(mrb)
-              if @sandbox.wait(signal: (command != "irb"), timeout: nil) && error = @sandbox.error
-                puts "#{error.message} (#{error.class})"
-              end
+            rb = f.read
+            started = if rb.to_s.start_with?("RITE0300")
+              # assume mruby bytecode
+              @sandbox.exec_mrb(rb)
             else
-              puts "Invalide VM code"
+              # assume Ruby script
+              @sandbox.compile(rb) and @sandbox.execute
+            end
+            if started && @sandbox.wait(signal: (command != "irb"), timeout: nil) && error = @sandbox.error
+              puts "#{error.message} (#{error.class})"
             end
           rescue => e
             p e

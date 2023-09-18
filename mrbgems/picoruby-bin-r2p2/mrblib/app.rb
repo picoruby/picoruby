@@ -1,5 +1,6 @@
 #! /usr/bin/env ruby
 
+
 case RUBY_ENGINE
 when "ruby"
   require_relative "../../picoruby-shell/mrblib/shell"
@@ -13,7 +14,7 @@ when "mruby/c"
 end
 
 begin
-  IO.wait_and_clear
+  IO.wait_terminal and IO.clear_screen
   $shell = Shell.new
   $shell.show_logo
   $shell.setup_root_volume(:ram)

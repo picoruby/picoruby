@@ -1,0 +1,8 @@
+class DipSwitch
+  @c_pin: GPIO | nil
+  @negative_logic: bool
+  @pins: Array[GPIO]
+
+  def initialize: (GPIO|nil c_pin, Array[Integer] pin_nums) -> void
+  def read: () -> Integer
+end
