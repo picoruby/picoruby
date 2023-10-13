@@ -63,26 +63,7 @@ class Shell
         end
       else
         if exefile = find_executable(command)
-          f = File.open(exefile, "r")
-          begin
-            # PicoRuby compiler's bug
-            # https://github.com/picoruby/picoruby/issues/120
-            rb = f.read
-            started = if rb.to_s.start_with?("RITE0300")
-              # assume mruby bytecode
-              @sandbox.exec_mrb(rb)
-            else
-              # assume Ruby script
-              @sandbox.compile(rb) and @sandbox.execute
-            end
-            if started && @sandbox.wait(signal: (command != "irb"), timeout: nil) && error = @sandbox.error
-              puts "#{error.message} (#{error.class})"
-            end
-          rescue => e
-            p e
-          ensure
-            f.close
-          end
+          @sandbox.load_file(exefile, signal: (command != "irb"))
         else
           puts "#{command}: command not found"
         end

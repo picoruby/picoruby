@@ -1,9 +1,16 @@
+$REQUIRED_FILES: Array[String]
+
 class Object
   def require: (String) -> bool
   def required?: (String) -> bool
+  def load: (String) -> bool
+  # private
+  def load_file: (String) -> bool
+  def require_file: (String) -> bool
+  def required_file?: (String) -> bool
 end
 
 class PicoGem
-  def self.require: (String) -> bool
+  def self.require: (String) -> (bool|nil)
   def self.required?: (String) -> bool
 end

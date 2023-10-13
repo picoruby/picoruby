@@ -25,4 +25,28 @@ class Sandbox
     end
     return true
   end
+
+  def load_file(path, signal: true)
+    f = File.open(path, "r")
+    begin
+      # PicoRuby compiler's bug
+      # https://github.com/picoruby/picoruby/issues/120
+      rb = f.read
+      return nil unless rb
+      started = if rb.to_s.start_with?("RITE0300")
+        # assume mruby bytecode
+        exec_mrb(rb)
+      else
+        # assume Ruby script
+        compile(rb) and execute
+      end
+      if started && wait(signal: signal, timeout: nil) && error
+        puts "#{error.message} (#{error.class})"
+      end
+    rescue => e
+      p e
+    ensure
+      f.close
+    end
+  end
 end

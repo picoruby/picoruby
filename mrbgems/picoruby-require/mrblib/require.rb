@@ -6,7 +6,10 @@ class Object
 
   def require(name)
     result = PicoGem.require(name)
-    return result if result != nil
+    if result != nil
+      # @type var result: bool
+      return result
+    end
     return false if required?(name)
     require_file(name)
   end
@@ -25,12 +28,14 @@ class Object
   # private
 
   def load_file(path)
-    $REQUIRED_FILES << path
+    sandbox = Sandbox.new
+    sandbox.load_file(path)
+    $REQUIRED_FILES << path unless required_file?(path)
     true
   end
 
   def require_file(name)
-    ENV['LOAD_PATH']&.split(":").each do |load_path|
+    ENV['LOAD_PATH']&.split(":")&.each do |load_path|
       ["mrb", "rb"].each do |ext|
         path = File.expand_path("#{name}.#{ext}", load_path)
         if File.exist?(path)
