@@ -107,9 +107,6 @@ MRuby.each_target do |build|
           if (!name) return -1;
           for (int i = 0; ; i++) {
             if (gems[i].name == NULL) {
-              char buff[100];
-              sprintf(buff, "cannot find such gem -- %s", name);
-              mrbc_raise(vm, MRBC_CLASS(RuntimeError), buff);
               return -1;
             } else if (strcmp(name, gems[i].name) == 0) {
               return i;
@@ -122,11 +119,11 @@ MRuby.each_target do |build|
         {
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
-          if (gems[i].required) {
+          if (i <= 0 && gems[i].required) {
             SET_TRUE_RETURN();
-          } else {
-            SET_FALSE_RETURN();
+            return;
           }
+          SET_FALSE_RETURN();
         }
 
         static void
@@ -143,7 +140,7 @@ MRuby.each_target do |build|
           const char *name = (const char *)GET_STRING_ARG(1);
           int i = gem_index(vm, name);
           if (i < 0) {
-            mrbc_raise(vm, MRBC_CLASS(RuntimeError), "cannot load such gem");
+            SET_NIL_RETURN();
             return;
           }
           if (!gems[i].required && picoruby_load_model(gems[i].mrb)) {
