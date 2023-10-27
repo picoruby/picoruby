@@ -9,7 +9,4 @@ class Object
   def sandbox_result : () -> untyped
   def sandbox_picorbc: (String) -> bool
   def sandbox_resume: () -> bool
-
-  # PRK
-  def required? : (String) -> bool
 end

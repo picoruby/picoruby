@@ -27,8 +27,6 @@ end
 load "#{MRUBY_ROOT}/tasks/core.rake"
 load "#{MRUBY_ROOT}/tasks/mrblib.rake"
 load "#{MRUBY_ROOT}/tasks/mrbgems.rake"
-# Customized for PicoRuby. This should be loaded before libmruby.rake
-load "#{MRUBY_ROOT}/tasks/picogems.rake"
 load "#{MRUBY_ROOT}/tasks/libmruby.rake"
 load "#{MRUBY_ROOT}/tasks/bin.rake"
 load "#{MRUBY_ROOT}/tasks/presym.rake"

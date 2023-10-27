@@ -42,17 +42,11 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.mrubyc_hal_arm
   conf.picoruby
 
-  conf.gem core: "picoruby-vim"
-  conf.gem core: "picoruby-shell"
-  conf.gem core: "picoruby-task-ext"
+  conf.gembox "r2p2"
   conf.gem core: 'picoruby-machine'
-
   conf.gembox "peripherals"
   conf.gembox "peripheral_utils"
   conf.gem core: 'picoruby-adafruit_pcf8523'
-
-#  conf.gem core: 'picoruby-sqlite3'
-
   conf.gem core: 'picoruby-ble'
 end
 

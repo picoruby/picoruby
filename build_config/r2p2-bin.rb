@@ -13,11 +13,8 @@ MRuby::CrossBuild.new("no-libc-host") do |conf|
   conf.cc.defines << "MRBC_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
 
-  conf.gem core: "picoruby-filesystem-fat"
-  conf.gem core: "picoruby-vim"
-#conf.gem core: "picoruby-sqlite3"
+  conf.gembox "r2p2"
   conf.gem core: "picoruby-bin-r2p2"
-  conf.gem core: "picoruby-task-ext"
   conf.gem core: "picoruby-mbedtls"
 
 end

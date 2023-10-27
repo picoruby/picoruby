@@ -1,0 +1,7 @@
+MRuby::GemBox.new do |conf|
+  conf.gem core: "picoruby-require"
+  conf.gem core: "picoruby-vim"
+  conf.gem core: "picoruby-filesystem-fat"
+  conf.gem core: "picoruby-shell"
+  conf.gem core: 'picoruby-task-ext'
+end

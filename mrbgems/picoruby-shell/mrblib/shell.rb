@@ -127,10 +127,10 @@ class Shell
 
   def setup_system_files(force: false)
     Dir.chdir("/") do
-      %w(bin var home).each do |dir|
+      %w(bin lib var home).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
       end
-      while exe = _next_executable
+      while exe = Shell.next_executable
         if force || !File.exist?("/bin/#{exe[:name]}")
           f = File.open "/bin/#{exe[:name]}", "w"
           f.expand exe[:code].length
