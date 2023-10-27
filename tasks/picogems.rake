@@ -102,7 +102,7 @@ MRuby.each_target do |build|
         }
 
         static int
-        gem_index(mrbc_vm *vm, const char *name)
+        gem_index(const char *name)
         {
           if (!name) return -1;
           for (int i = 0; ; i++) {
@@ -118,7 +118,7 @@ MRuby.each_target do |build|
         c_required_q(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           const char *name = (const char *)GET_STRING_ARG(1);
-          int i = gem_index(vm, name);
+          int i = gem_index(name);
           if (i <= 0 && gems[i].required) {
             SET_TRUE_RETURN();
             return;
@@ -138,7 +138,7 @@ MRuby.each_target do |build|
             return;
           }
           const char *name = (const char *)GET_STRING_ARG(1);
-          int i = gem_index(vm, name);
+          int i = gem_index(name);
           if (i < 0) {
             SET_NIL_RETURN();
             return;
