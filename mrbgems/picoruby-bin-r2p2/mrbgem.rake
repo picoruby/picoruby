@@ -11,6 +11,8 @@ MRuby::Gem::Specification.new 'picoruby-bin-r2p2' do |spec|
     cc.run f.name, f.prerequisites.first
   end
 
+  task "#{build_dir}/mrblib/r2p2.c" => "#{spec.dir}/mrblib/app.rb"
+
   exec = exefile("#{build.build_dir}/bin/r2p2")
   r2p2_objs = Dir.glob("#{spec.dir}/tools/r2p2/*.c").map do |f|
     objfile(f.pathmap("#{spec.build_dir}/tools/r2p2/%n"))
