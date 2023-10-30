@@ -70,7 +70,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         } picogems;
       PICOGEM
       f.puts
-      f.puts "static picogems gems[] = {"
+      f.puts "static picogems prebuilt_gems[] = {"
       picogems.each do |require_name, v|
         name = File.basename(v[:mrbfile], ".c")
         f.puts "  {\"#{require_name}\", #{name.gsub('-','_')}, #{v[:initializer]}, false}," if File.exist?(v[:mrbfile])
@@ -103,28 +103,16 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         {
           if (!name) return -1;
           for (int i = 0; ; i++) {
-            if (gems[i].name == NULL) {
+            if (prebuilt_gems[i].name == NULL) {
               return -1;
-            } else if (strcmp(name, gems[i].name) == 0) {
+            } else if (strcmp(name, prebuilt_gems[i].name) == 0) {
               return i;
             }
           }
         }
 
         static void
-        c_required_q(mrbc_vm *vm, mrbc_value *v, int argc)
-        {
-          const char *name = (const char *)GET_STRING_ARG(1);
-          int i = gem_index(name);
-          if (i <= 0 && gems[i].required) {
-            SET_TRUE_RETURN();
-            return;
-          }
-          SET_FALSE_RETURN();
-        }
-
-        static void
-        c_require(mrbc_vm *vm, mrbc_value *v, int argc)
+        c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           if (argc != 1) {
             mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -140,9 +128,9 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             SET_NIL_RETURN();
             return;
           }
-          if (!gems[i].required && picoruby_load_model(gems[i].mrb)) {
-            if (gems[i].initializer) gems[i].initializer();
-            gems[i].required = true;
+          if (!prebuilt_gems[i].required && picoruby_load_model(prebuilt_gems[i].mrb)) {
+            if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer();
+            prebuilt_gems[i].required = true;
             SET_TRUE_RETURN();
           } else {
             SET_FALSE_RETURN();
@@ -155,9 +143,11 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         void
         picoruby_init_require(void)
         {
-          mrbc_class *mrbc_class_PicoGem = mrbc_define_class(0, "PicoGem", mrbc_class_object);
-          mrbc_define_method(0, mrbc_class_PicoGem, "require", c_require);
-          mrbc_define_method(0, mrbc_class_PicoGem, "required?", c_required_q);
+          mrbc_value self = mrbc_instance_new(NULL, mrbc_class_object, 0);
+          mrbc_value str = mrbc_string_new_cstr(NULL, "require");
+          mrbc_value args[2] = { self, str };
+          c_extern(NULL, args, 1);
+          mrbc_define_method(0, mrbc_class_object, "extern", c_extern);
         }
       PICOGEM
     end
