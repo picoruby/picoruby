@@ -1,16 +1,17 @@
 class LoadError < StandardError; end
 
-$REQUIRED_FILES = []
+$LOADED_FEATURES = []
 
 class Object
 
   def require(name)
+    return false if required?(name)
     result = PicoGem.require(name)
     if result != nil
       # @type var result: bool
+      $LOADED_FEATURES << name
       return result
     end
-    return false if required?(name)
     require_file(name)
   end
 
@@ -30,7 +31,7 @@ class Object
   def load_file(path)
     sandbox = Sandbox.new
     sandbox.load_file(path)
-    $REQUIRED_FILES << path unless required_file?(path)
+    $LOADED_FEATURES << path unless required_file?(path)
     true
   end
 
@@ -47,7 +48,7 @@ class Object
   end
 
   def required_file?(name)
-    $REQUIRED_FILES.include?(name)
+    $LOADED_FEATURES.include?(name)
   end
 end
 
