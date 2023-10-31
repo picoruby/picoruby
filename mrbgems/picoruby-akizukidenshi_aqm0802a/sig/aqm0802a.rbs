@@ -4,10 +4,10 @@ class AQM0802A
   @i2c: I2C
 
   def initialize: (i2c: I2C) -> void
+  def print: (String line) -> nil
+  def putc: (Integer c) -> Integer
   def write_instruction: (Integer inst) -> self
-  def write_data: (*Integer data) -> self
   def clear: () -> self
   def home: () -> self
-  def put_line: (String line) -> void
   def break_line: () -> self
 end

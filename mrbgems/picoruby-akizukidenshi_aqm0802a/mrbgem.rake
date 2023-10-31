@@ -4,5 +4,6 @@ MRuby::Gem::Specification.new('picoruby-akizukidenshi_aqm0802a') do |spec|
   spec.summary = 'AQM0802A 8*2 character LDC https://akizukidenshi.com/catalog/g/gP-06669/'
 
   spec.add_dependency 'picoruby-i2c'
+  spec.require_name = 'aqm0802a'
 end
 
