@@ -19,6 +19,10 @@ class AQM0802A
 
   def initialize(i2c:)
     @i2c = i2c
+    reset
+  end
+
+  def reset
     [ 0x38,     # Function set
       0x39,     # Function set
       0x14,     # Internal OSC frequency
@@ -31,6 +35,7 @@ class AQM0802A
       0x0c,     # Display ON/OFF control
       0x01      # Clear Display
     ].each { |i| write_instruction(i) }
+    self
   end
 
   def write_instruction(inst)
