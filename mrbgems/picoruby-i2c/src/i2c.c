@@ -14,8 +14,8 @@ c__write(mrbc_vm *vm, mrbc_value *v, int argc)
     src[i] = mrbc_integer(value_ary.data[i]);
   }
   SET_INT_RETURN(
-    I2C_write_timeout_us((
-      uint8_t)GET_INT_ARG(1),
+    I2C_write_timeout_us(
+      (uint8_t)GET_INT_ARG(1),
       (uint8_t)GET_INT_ARG(2),
       src,
       len,
