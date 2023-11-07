@@ -1,0 +1,9 @@
+class AHT25
+  ADDRESS: Integer
+
+  @i2c: I2C
+
+  def initialize: (i2c: I2C) -> void
+  def check: () -> void
+  def read: () -> {temperature: Float, humidity: Float}
+end
