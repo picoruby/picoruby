@@ -17,9 +17,9 @@ class AQM0802A
 
   ADDRESS = 0x3e # 0x7c == (0x3e << 1) + 0 (R/W)
 
-  def initialize(i2c:)
+  def initialize(i2c:, init: true)
     @i2c = i2c
-    reset
+    reset if init
   end
 
   def reset

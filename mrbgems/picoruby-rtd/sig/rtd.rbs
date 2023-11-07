@@ -1,9 +1,10 @@
 class RTD
+  type unit_t = :celsius | :fahrenheit | :kelvin
   DRIVERS: Array[Symbol]
 
   @r_ref: Float
   @current_gpio: GPIO
-  @driver: (Hash[Symbol, ADC] | MCP3424 | MCP3208)
+  @driver: (:ADC | MCP3424 | MCP3208)
   @driver_type: Symbol
   @channels: Hash[Symbol, (Integer | ADC)]
 
@@ -13,9 +14,9 @@ class RTD
     driver: (:ADC | MCP3424 | MCP3208),
     current_gpio: GPIO,
     r_ref: (Float | Integer),
-    channels: Hash[Symbol, (Integer | ADC)]
+    ?channels: Hash[Symbol, (Integer | ADC)]
   ) -> void
-  def read: () -> Float
+  def read: (?unit: unit_t) -> Float
   def temperature_in_celsius: (Float) -> Float
 
   class PT100 < RTD

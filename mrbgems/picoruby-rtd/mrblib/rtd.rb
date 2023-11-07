@@ -29,26 +29,25 @@
 #   )
 # or
 #   rtd = RTD::PT100.new(
-#     driver: ADC,
+#     driver: :ADC,
 #     current_gpio: 18,
 #     r_ref: 1000.0,
 #     channels: {
 #       rtd: ADC.new(...),
 #       ref: ADC.new(...)
 #     }
-#   ) 
+#   )
 class RTD
   DRIVERS = %i[ADC MCP3424 MCP3208]
 
   def initialize(driver:, current_gpio:, r_ref:, channels: {})
-    if driver.to_s == "ADC"
-      @driver = {ref: channels[:ref], rtd: channels[:rtd]}
+    @driver = driver
+    if driver == :ADC
       @driver_type = :ADC
     else
-      @driver = driver
       @driver_type = driver.class.to_s.to_sym
     end
-    DRIVERS.include?(@driver_type) or raise "Unknown driver: #{@driver.class}"
+    DRIVERS.include?(@driver_type) or raise "Unknown driver: #{@driver}"
     @current_gpio = current_gpio
     @current_gpio.write 0
     @r_ref = r_ref.to_f
@@ -61,9 +60,9 @@ class RTD
     channels = @channels
     case @driver_type
     when :ADC
-      # @type var driver: Hash[Symbol, ADC]
-      adc_rtd = driver[:rtd].read_raw
-      adc_ref = driver[:ref].read_raw
+      # @type var channels: Hash[Symbol, ADC]
+      adc_rtd = channels[:rtd].read_raw
+      adc_ref = channels[:ref].read_raw
     when :MCP3424
       # @type var driver: MCP3424
       # @type var channels: Hash[Symbol, Integer]
