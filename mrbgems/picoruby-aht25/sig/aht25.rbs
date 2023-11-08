@@ -4,6 +4,7 @@ class AHT25
   @i2c: I2C
 
   def initialize: (i2c: I2C) -> void
-  def check: () -> void
+  def check: () -> bool
+  def reset: () -> void
   def read: () -> {temperature: Float, humidity: Float}
 end
