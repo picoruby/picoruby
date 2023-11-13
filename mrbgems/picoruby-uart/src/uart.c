@@ -135,7 +135,7 @@ c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 
   RingBuffer *rx = (RingBuffer *)rx_buffer_value.instance->data;
   if (!initializeBuffer(rx, rx_buffer_size)) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "UART: rx_buffer_size is not power of two");
+    mrbc_raise(vm, IOError, "UART: rx_buffer_size is not power of two");
     return;
   }
   SET_RETURN(rx_buffer_value);

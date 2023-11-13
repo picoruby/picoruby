@@ -42,14 +42,14 @@ class SPI
   def read(len, repeated_tx_data = 0)
     ret = _read(len, repeated_tx_data)
     return ret if String === ret
-    GPIO.handle_error(ret, "SPI#read")
+    IOError.peripheral_error(ret, "SPI#read")
     return ""
   end
 
   def write(*params)
     ret = _write(params_to_array(*params))
     return ret if -1 < ret
-    GPIO.handle_error(ret, "SPI#write")
+    IOError.peripheral_error(ret, "SPI#write")
   end
 
   def transfer(*params, additional_read_bytes: 0)
@@ -59,7 +59,7 @@ class SPI
     end
     ret = _transfer(params_to_array(*params))
     return ret if String === ret
-    GPIO.handle_error(ret, "SPI#transfer")
+    IOError.peripheral_error(ret, "SPI#transfer")
     return ""
   end
 

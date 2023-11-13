@@ -1,4 +1,4 @@
-class GPIO
+class IOError
   ERROR_NONE:           0
   ERROR_TIMEOUT:       -1
   ERROR_GENERIC:       -2
@@ -7,8 +7,10 @@ class GPIO
   ERROR_INVALID_ARG:   -5
   ERROR_IO:            -6
 
-  def self.handle_error: (Integer, ?String) -> Integer
+  def self.peripheral_error: (Integer, ?String) -> Integer
+end
 
+class GPIO
   IN:          1 # 0b0000001
   OUT:         2 # 0b0000010
   HIGH_Z:      4 # 0b0000100

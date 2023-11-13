@@ -8,6 +8,8 @@
 extern "C" {
 #endif
 
+#define IOError mrbc_define_class(0, "IOError", mrbc_class_object)
+
 #define PICORUBY_SPI_BITBANG          0
 #define PICORUBY_SPI_RP2040_SPI0      1
 #define PICORUBY_SPI_RP2040_SPI1      2

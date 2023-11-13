@@ -1,4 +1,5 @@
-class GPIO
+# Todo: picoruby-io gem
+class IOError < StandardError
   # This is a mimic of pico_error_codes
   # from pico-sdk/src/common/pico_base/include/pico/error.h
   ERROR_NONE = 0
@@ -9,27 +10,29 @@ class GPIO
   ERROR_INVALID_ARG = -5
   ERROR_IO = -6
 
-  def self.handle_error(code, name = "unknown peripheral")
+  def self.peripheral_error(code, name = "unknown peripheral")
     case code
     when ERROR_NONE
       return 0
     when ERROR_TIMEOUT
-      raise(RuntimeError.new "Timeout error in #{name}")
+      raise(IOError.new "Timeout error in #{name}")
     when ERROR_GENERIC
-      raise(RuntimeError.new "Generic error in #{name}")
+      raise(IOError.new "Generic error in #{name}")
     when ERROR_NO_DATA
-      raise(RuntimeError.new "No data error in #{name}")
+      raise(IOError.new "No data error in #{name}")
     when ERROR_NOT_PERMITTED
-      raise(RuntimeError.new "Not permitted error in #{name}")
+      raise(IOError.new "Not permitted error in #{name}")
     when ERROR_INVALID_ARG
-      raise(RuntimeError.new "Invalid arg error in #{name}")
+      raise(IOError.new "Invalid arg error in #{name}")
     when ERROR_IO
-      raise(RuntimeError.new "IO error in #{name}")
+      raise(IOError.new "IO error in #{name}")
     else
-      raise(RuntimeError.new "Unknown error in #{name}. code: #{code}")
+      raise(IOError.new "Unknown error in #{name}. code: #{code}")
     end
   end
+end
 
+class GPIO
   def initialize(pin, flags, alt_function = 0)
     @pin = pin
     GPIO._init(pin)

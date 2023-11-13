@@ -13,14 +13,14 @@ class I2C
     end
     ret = _read(@unit_num, i2c_adrs_7, len)
     return ret if String === ret
-    GPIO.handle_error(ret, "I2C#read")
+    IOError.peripheral_error(ret, "I2C#read")
     return ""
   end
 
   def write(i2c_adrs_7, *outputs)
     ret = _write(@unit_num, i2c_adrs_7, outputs_array(outputs), false)
     return ret if 0 < ret
-    GPIO.handle_error(ret, "I2C#write")
+    IOError.peripheral_error(ret, "I2C#write")
   end
 
   def outputs_array(outputs)
@@ -36,5 +36,25 @@ class I2C
       end
     end
     ary
+  end
+
+  def scan
+    msg_proc = Proc.new do |adrs|
+      puts "I2C device found at address #{sprintf("0x%02x", adrs)} (#{sprintf("0b%08b", adrs)})"
+    end
+    (0x08..0x77).each do |i2c_adrs_7|
+      begin
+        read(i2c_adrs_7, 1)
+        msg_proc.call(i2c_adrs_7)
+      rescue IOError
+        begin
+          write(i2c_adrs_7, 0)
+          msg_proc.call(i2c_adrs_7)
+        rescue IOError
+          # ignore
+        end
+      end
+    end
+    nil
   end
 end

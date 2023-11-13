@@ -40,4 +40,5 @@ class I2C
   def outputs_array: (
     Array[outputs_t] outputs
   ) -> Array[Integer]
+  def scan: () -> nil
 end
