@@ -7,8 +7,9 @@ require 'i2c'
 # Usage:
 #
 # require 'aqm0802a'
-# GPIO.new(3, GPIO::OUT).write 1 # lcd_vdd if needed
-# lcd = AQM0802A.new(i2c: I2C.new(unit: :RP2040_I2C1, sda_pin: 14, scl_pin: 15))
+# GPIO.new(16, GPIO::OUT).write(1) # lcd_vdd if needed
+# i2c = I2C.new(unit: :RP2040_I2C1, sda_pin: 14, scl_pin: 15)
+# lcd = AQM0802A.new(i2c: i2c)
 # lcd.print "Hello!"
 # lcd.break_line
 # lcd.print "PicoRuby"
