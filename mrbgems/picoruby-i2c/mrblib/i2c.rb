@@ -39,17 +39,15 @@ class I2C
   end
 
   def scan
-    msg_proc = Proc.new do |adrs|
-      puts "I2C device found at address #{sprintf("0x%02x", adrs)} (#{sprintf("0b%08b", adrs)})"
-    end
+    msg_format = "I2C device found at 7-bit address 0x%02x (0b%07b) +%s\n"
     (0x08..0x77).each do |i2c_adrs_7|
       begin
         read(i2c_adrs_7, 1)
-        msg_proc.call(i2c_adrs_7)
+        printf(msg_format, i2c_adrs_7, i2c_adrs_7, "R")
       rescue IOError
         begin
           write(i2c_adrs_7, 0)
-          msg_proc.call(i2c_adrs_7)
+          printf(msg_format, i2c_adrs_7, i2c_adrs_7, "W")
         rescue IOError
           # ignore
         end
