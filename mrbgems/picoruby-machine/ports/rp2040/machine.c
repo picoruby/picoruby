@@ -144,3 +144,9 @@ Machine_watchdog_caused_reboot(void)
 {
   return watchdog_caused_reboot();
 }
+
+void
+Machine_delay_ms(uint32_t ms)
+{
+  sleep_ms(ms);
+}
