@@ -7,8 +7,6 @@ class MCP3424
     @i2c = i2c
     set_address(address_selector)
     @configuration = 0
-    # One-shot mode makes the device to enter power-down mode after a conversion.
-    one_shot_read(1)
   end
 
   attr_reader :address
