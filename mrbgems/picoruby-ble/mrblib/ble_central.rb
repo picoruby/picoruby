@@ -59,7 +59,7 @@ class BLE
 
     def connect(adv_report)
       stop_scan # Is it necessary?
-      err_code = gap_connect(adv_report.address, adv_report.address_type)
+      err_code = gap_connect(adv_report.address, adv_report.address_type_code)
       if err_code == 0
         @state = :TC_W4_CONNECT
         start(10, :TC_IDLE)

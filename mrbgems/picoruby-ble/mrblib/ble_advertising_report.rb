@@ -1,7 +1,6 @@
 class BLE
   class AdvertisingReport
     EVENT_TYPE = {
-      -1 => :unknown,
       0x00 => :connectable_advertising_ind,
       0x01 => :flags,
       0x02 => :incomplete_list_16_bit_service_class_uuids,
@@ -21,14 +20,15 @@ class BLE
       :public_identity,
       :random_identity
     ]
-    attr_reader :event_type, :address_type, :address, :rssi, :reports
+    attr_reader :event_type, :address_type_code, :address, :rssi, :reports
 
     def initialize(packet)
       if packet.length < 14
         raise ArgumentError, "packet length must be 14 or more"
       end
-      @event_type = packet[2]&.ord || -1
-      @address_type = packet[3]&.ord || 4
+      event_code = packet[2]&.ord
+      @event_type = EVENT_TYPE[event_code || -1] || sprintf("0x%02x", event_code)
+      @address_type_code = packet[3]&.ord || 99
       @address = ""
       5.downto(0) do |i|
         @address << (packet[4 + i] || "\x00")
@@ -39,37 +39,33 @@ class BLE
     end
 
     def format
-      "Event Type: #{EVENT_TYPE[@event_type] || @event_type&.to_s(16)}" +
-      "\nAddress Type: #{ADDRESS_TYPE[@address_type] || @address_type&.to_s(16)}" +
+      "Event Type: #{@event_type}" +
+      "\nAddress Type: #{ADDRESS_TYPE[@address_type_code] || 'unknown'}" +
       "\nAddress: #{BLE::Utils.bd_addr_to_str(@address)}" +
       "\nRSSI: #{@rssi}" +
       "\nReports:\n" +
-      @reports.map{|d| "  #{EVENT_TYPE[d[:type]] || 'N/A'}: #{d[:value].inspect}(len #{d[:value].length})"}.join("\n")
+      @reports.map { |type, value|
+        "  #{type}: #{value.inspect}(len #{value.length})"
+      }.join("\n")
     end
 
     def name_include?(name)
-      return false unless name
-      @reports.each do |report|
-        if report[:type] == 0x09 || report[:type] == 0x08
-          return true if report[:value].include?(name)
-        end
-      end
-      false
+      @reports[:shortened_local_name]&.include?(name) || @reports[:complete_local_name]&.include?(name)
     end
 
     # private
 
     def inspect_reports(data)
-      reports = []
+      reports = {}
       index = 0
       while index < data.length
-        length = data[index]&.ord || 0
+        length = data[index]&.ord
         break if length.nil?
-        type = data[index + 1]&.ord || -1
-        break if type.nil?
-        value = data[index + 2, length - 1]
-        break if value.nil?
-        reports << {type: type, value: value}
+        type_num = data[index + 1]&.ord
+        break if type_num.nil?
+        value = data[index + 2, length - 1] || ""
+        break if value.empty?
+        reports[EVENT_TYPE[type_num] || type_num] = value
         index += length + 1
       end
       reports

@@ -101,18 +101,18 @@ class BLE
   end
 
   class AdvertisingReport
-    type report_t = {type: Integer, value: String}
+    type report_t = Hash[(Symbol|Integer), String]
     EVENT_TYPE: Hash[Integer, Symbol]
     ADDRESS_TYPE: Array[Symbol]
-    attr_reader event_type: Integer
-    attr_reader address_type: Integer
+    attr_reader event_type: (Symbol|String)
+    attr_reader address_type_code: Integer
     attr_reader address: String
     attr_reader rssi: Integer | nil
-    attr_reader reports: Array[report_t]
+    attr_reader reports: report_t
     def initialize: (String) -> void
     def format: () -> String
-    def inspect_reports: (String) -> Array[report_t]
-    def name_include?: (String|nil) -> bool
+    def inspect_reports: (String) -> report_t
+    def name_include?: (String) -> (bool | nil)
   end
 
   class GattDatabase

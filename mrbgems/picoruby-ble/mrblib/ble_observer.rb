@@ -1,8 +1,8 @@
 class BLE
   class Observer < BLE::Central
     def initialize
-      @role = :observer
       super(nil)
+      @role = :observer
     end
   end
 end
