@@ -35,11 +35,9 @@ class UART
   end
 
   def puts(str)
-    write(str + @line_ending)
-    if str.end_with?(@line_ending)
-      write str
-    else
-      write str + @line_ending
+    write str
+    unless str.end_with?(@line_ending)
+      write @line_ending
     end
     nil
   end
