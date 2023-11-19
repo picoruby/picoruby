@@ -50,7 +50,7 @@ class UART
   def _set_function: (Integer pin) -> void
   def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
-  def read: (?Integer len) -> String
+  def read: (?Integer len) -> (String | nil)
   def readpartial: (Integer maxlen) -> String
   def bytes_available: () -> Integer
   def line_ending=: (("\n"|"\r\n"|"\r") line_ending) -> void
