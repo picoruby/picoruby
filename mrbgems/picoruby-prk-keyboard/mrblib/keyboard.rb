@@ -450,6 +450,8 @@ class Keyboard
       $volume.mkfs
       VFS.mount($volume, "/")
     end
+    Dir.mkdir "lib" unless Dir.exist?("lib")
+    $LOAD_PATH = ["/lib"]
     if File.exist?(README)
       File.open(README, "r") do |f|
         return if f.gets&.chomp == PRK_DESCRIPTION
