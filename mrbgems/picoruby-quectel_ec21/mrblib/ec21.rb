@@ -1,5 +1,4 @@
 require 'uart'
-
 class EC21
 
   DEFAULT_LOG_SIZE = 10
@@ -22,43 +21,54 @@ class EC21
     nil
   end
 
-  def assert_response(cmd, expected_response, timeout_ms = 1000)
+  def call_and_response(cmd, expected_response, error_response = nil, timeout = 1)
+    puts cmd
     @uart.puts cmd
     time = 0
-    while @uart.bytes_available < expected_response.length
-      sleep_ms 10
-      time += 10
-      if timeout_ms < time
-        addlog(cmd, 'timeout')
+    response = ""
+    print "  wait #{timeout} "
+    while true
+      print "."
+      sleep_ms 1000 # Machine.using_delay does not work with Object.sleep
+      time += 1
+      flagment = @uart.read
+      response << flagment if flagment
+      if response.include?(expected_response)
+        addlog(cmd, response)
+        puts "OK"
+        return true
+      end
+      if error_response && response.include?(error_response)
+        addlog(cmd, response)
+        puts "NG"
         return false
       end
+      break if timeout < time
     end
-    res = @uart.read
-    addlog(cmd, res)
-    return res.include?(expected_response)
+    puts "timeout"
+    addlog(cmd, "timeout: " + response)
+    return false
   end
 
   def check_sim_status
-    assert_response('AT+CPIN?', '+CPIN: READY')
-    assert_response('AT+CIMI', 'OK')
-    return false unless assert_response('AT+CGREG?', 'OK')
-    # Sometimes 558, invalid parameters error occurs here, but it can be sent
-    assert_response('AT+QICSGP=1,1,"SORACOM.IO","sora","sora",0', 'OK')
-    true
+    call_and_response('ATE0', 'OK', nil, 1) # echo off
+    call_and_response('AT+CPIN?', '+CPIN: READY', nil, 20)
+    call_and_response('AT+CIMI', 'OK', nil, 5)
+    call_and_response('AT+CGREG?', 'OK', nil, 90)
   end
 
   class SoracomBeamUDP < EC21
+    def configure_and_activate_context
+      call_and_response('AT+QICSGP=1,1,"SORACOM.IO","sora","sora",0', 'OK', 'ERROR', 10)
+      # It may be raise an error (code 563) even if already activated. ignore it.
+      call_and_response('AT+QIACT=1', 'OK', 'ERROR', 10)
+      call_and_response('AT+QIACT?', '+QIACT: 1,1,1,', nil, 150)
+    end
+
     def connect_and_send(data)
-      # It will be an error (error code 563) if it is already activated, but proceed
-      assert_response('AT+QIACT=1', 'OK')
-      # Ignore error. I don't know why, but it works.
-      assert_response('AT+QIACT?', '+QIACT: 1,1,1,')
-      return false unless assert_response('AT+QIOPEN=1,0,"UDP","beam.soracom.io",23080,0,0', 'OK')
-      return false unless assert_response('AT+QISEND=0,#{data.length}', '>')
-      return false unless assert_response(data, 'SEND OK')
-      assert_response('AT+QICLOSE=0', 'OK')
-      assert_response('AT+QIDEACT=1', 'OK')
-      true
+      call_and_response('AT+QIOPEN=1,0,"UDP","beam.soracom.io",23080,0,0', 'OK', nil, 150) and
+        call_and_response("AT+QISEND=0,#{data.length}", '>', nil, 5) and
+        call_and_response(data, 'SEND OK', nil, 5)
     end
  end
 end
