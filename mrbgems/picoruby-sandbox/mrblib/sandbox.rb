@@ -1,3 +1,5 @@
+require 'io/console'
+
 class Sandbox
 
   class Abort < Exception
