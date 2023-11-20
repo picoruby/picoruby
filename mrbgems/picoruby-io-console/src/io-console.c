@@ -1,8 +1,6 @@
 #include <stdlib.h>
-
 #include <mrubyc.h>
-
-#include "./hal/hal.h"
+#include "../include/io-console.h"
 
 #ifdef MRBC_USE_HAL_POSIX
 #include <stdio.h>
@@ -35,11 +33,6 @@ c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc)
   tcsetattr(fileno(stdin), TCSANOW, &save_settings);
   SET_RETURN(v[0]);
 }
-
-#else
-
-void c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc);
-void c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc);
 
 #endif /* MRBC_USE_HAL_POSIX */
 
@@ -114,5 +107,7 @@ mrbc_io_console_init(void)
 #ifdef MRBC_USE_HAL_POSIX
   mrbc_define_method(0, class_IO, "raw!", c_raw_bang);
   mrbc_define_method(0, class_IO, "cooked!", c_cooked_bang);
+#else
+  io_console_port_init();
 #endif /* MRBC_USE_HAL_POSIX */
 }
