@@ -1,0 +1,2 @@
+class Watchdog
+end

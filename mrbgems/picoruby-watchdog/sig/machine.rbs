@@ -1,4 +1,10 @@
 class Watchdog
+  def self.enable: (Integer delay_ms, ?pause_on_debug: bool) -> 0
   def self.reboot: (Integer delay_ms) -> 0
+  def self.start_tick: (Integer cycle) -> 0
+  def self.update: (Integer delay_ms) -> 0
+  def self.feed: () -> 0
   def self.caused_reboot?: () -> bool
+  def self.enable_caused_reboot?: () -> bool
+  def self.get_count: () -> Integer
 end
