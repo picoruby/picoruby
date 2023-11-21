@@ -51,6 +51,8 @@ prepare_vm(const char *script)
   return vm;
 }
 
+static bool mutex_locked = false;
+
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
@@ -61,16 +63,19 @@ BLE_push_event(uint8_t *packet, uint16_t size)
     // same as previous packet but not happens?
     return;
   }
+  mutex_locked = true;
   mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
   mrbc_set_global(sym_id, &str);
   mrbc_vm_begin(packet_callback_vm);
   mrbc_vm_run(packet_callback_vm);
   mrbc_vm_end(packet_callback_vm);
+  mutex_locked = false;
 }
 
 void
 BLE_heartbeat(void)
 {
+  if (heartbeat_callback_vm == NULL || mutex_locked) return;
   mrbc_vm_begin(heartbeat_callback_vm);
   mrbc_vm_run(heartbeat_callback_vm);
   mrbc_vm_end(heartbeat_callback_vm);
