@@ -72,10 +72,12 @@ class BLE
   @_read_values: Hash[Integer, String]
   @led: CYW43::GPIO
   @led_on: bool
+  @ensure_proc: Proc
 
   attr_accessor debug: bool
 
   def initialize: (?(String|nil)) -> void
+  def ensure: () { () -> void }-> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer) -> 0

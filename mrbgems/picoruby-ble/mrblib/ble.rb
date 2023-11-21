@@ -87,6 +87,10 @@ class BLE
   attr_reader :role
   attr_accessor :debug
 
+  def ensure(&block)
+    @ensure_proc = block
+  end
+
   def instance
     $_btstack_singleton
   end
@@ -124,6 +128,7 @@ class BLE
     return total_timeout_ms
   ensure
     hci_power_control(HCI_POWER_OFF)
+    @ensure_proc&.call
     debug_puts "Stopped"
   end
 
