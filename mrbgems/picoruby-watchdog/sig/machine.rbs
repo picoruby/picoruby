@@ -1,0 +1,4 @@
+class Watchdog
+  def self.reboot: (Integer delay_ms) -> 0
+  def self.caused_reboot?: () -> bool
+end

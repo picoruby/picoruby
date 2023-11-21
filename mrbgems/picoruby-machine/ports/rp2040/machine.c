@@ -8,7 +8,6 @@
 #include "hardware/rosc.h"
 #include "hardware/structs/scb.h"
 #include "hardware/sync.h"
-#include "hardware/watchdog.h"
 
 /*
  * References:
@@ -131,18 +130,6 @@ Machine_sleep(uint32_t seconds)
 
   // reset processor and clocks back to defaults
   recover_from_sleep(scb_orig, clock0_orig, clock1_orig);
-}
-
-void
-Machine_watchdog_reboot(uint32_t delay_ms)
-{
-  watchdog_reboot(0, 0, delay_ms);
-}
-
-bool
-Machine_watchdog_caused_reboot(void)
-{
-  return watchdog_caused_reboot();
 }
 
 void
