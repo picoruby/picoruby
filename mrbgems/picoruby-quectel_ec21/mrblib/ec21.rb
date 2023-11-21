@@ -51,7 +51,7 @@ class EC21
   end
 
   def check_sim_status
-    call_and_response('ATE0', 'OK', nil, 1) # echo off
+    call_and_response('ATE0', 'OK', nil, 5) # echo off
     call_and_response('AT+CPIN?', '+CPIN: READY', nil, 20)
     call_and_response('AT+CIMI', 'OK', nil, 5)
     call_and_response('AT+CGREG?', 'OK', nil, 90)
@@ -61,8 +61,10 @@ class EC21
     def configure_and_activate_context
       call_and_response('AT+QICSGP=1,1,"SORACOM.IO","sora","sora",0', 'OK', 'ERROR', 10)
       # It may be raise an error (code 563) even if already activated. ignore it.
+      puts "wait 10 sec"
+      sleep 10
       call_and_response('AT+QIACT=1', 'OK', 'ERROR', 10)
-      call_and_response('AT+QIACT?', '+QIACT: 1,1,1,', nil, 150)
+      call_and_response('AT+QIACT?', '+QIACT: 1,1,1,', nil, 10)
     end
 
     def connect_and_send(data)
