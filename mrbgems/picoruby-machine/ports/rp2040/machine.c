@@ -137,3 +137,9 @@ Machine_delay_ms(uint32_t ms)
 {
   sleep_ms(ms);
 }
+
+void
+Machine_busy_wait_ms(uint32_t ms)
+{
+  busy_wait_us_32(1000 * ms);
+}

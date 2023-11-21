@@ -8,9 +8,10 @@
 extern "C" {
 #endif
 
-void Machine_delay_ms(uint32_t ms);
 void Machine_sleep(uint32_t seconds);
 void Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high);
+void Machine_delay_ms(uint32_t ms);
+void Machine_busy_wait_ms(uint32_t ms);
 
 #ifdef __cplusplus
 }
