@@ -60,7 +60,7 @@ class EC21
   class SoracomBeamUDP < EC21
     def configure_and_activate_context
       call_and_response('AT+QICSGP=1,1,"SORACOM.IO","sora","sora",0', 'OK', 'ERROR', 10)
-      call_and_response('AT+QIACT=1', 'OK', 'ERROR', 10)
+      call_and_response('AT+QIACT=1', 'OK', 'ERROR', 15)
       call_and_response('AT+QIACT?', '+QIACT: 1,1,1,', nil, 10)
     end
 

@@ -51,6 +51,9 @@ prepare_vm(const char *script)
   return vm;
 }
 
+/*
+ * Workaround: To avoid deadlock
+ */
 static bool mutex_locked = false;
 
 void
