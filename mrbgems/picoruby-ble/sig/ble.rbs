@@ -75,6 +75,7 @@ class BLE
   @ensure_proc: Proc
 
   attr_accessor debug: bool
+  attr_reader role: (:central | :peripheral | :observer | :broadcaster)
 
   def initialize: (?(String|nil)) -> void
   def ensure: () { () -> void }-> void
@@ -212,7 +213,6 @@ class BLE
     @descriptor_handles: Array[Integer]
     @advertisement_report_callback: Proc#{ (BLE::AdvertisingReport) -> void } -> void
 
-    attr_reader role: (:central | :peripheral | :observer | :broadcaster)
     attr_reader state: Symbol
     attr_reader services: Array[service_t]
 
