@@ -59,19 +59,22 @@ static bool mutex_locked = false;
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
-  if (packet_callback_vm == NULL || packet == NULL) return;
-  mrbc_sym sym_id = mrbc_str_to_symid("$_btstack_event_packet");
-  mrbc_value *event_packet = mrbc_get_global(sym_id);
-  if (event_packet->tt == MRBC_TT_STRING && memcmp(event_packet->string->data, packet, size) == 0) {
-    // same as previous packet but not happens?
-    return;
-  }
   mutex_locked = true;
-  mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-  mrbc_set_global(sym_id, &str);
-  mrbc_vm_begin(packet_callback_vm);
-  mrbc_vm_run(packet_callback_vm);
-  mrbc_vm_end(packet_callback_vm);
+  if (packet_callback_vm == NULL || packet == NULL) {
+    // do nothing
+  } else {
+    mrbc_sym sym_id = mrbc_str_to_symid("$_btstack_event_packet");
+    mrbc_value *event_packet = mrbc_get_global(sym_id);
+    if (event_packet->tt == MRBC_TT_STRING && memcmp(event_packet->string->data, packet, size) == 0) {
+      // same as previous packet but not happens?
+    } else {
+      mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
+      mrbc_set_global(sym_id, &str);
+      mrbc_vm_begin(packet_callback_vm);
+      mrbc_vm_run(packet_callback_vm);
+      mrbc_vm_end(packet_callback_vm);
+    }
+  }
   mutex_locked = false;
 }
 
