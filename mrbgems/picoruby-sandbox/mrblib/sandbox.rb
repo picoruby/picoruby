@@ -40,7 +40,12 @@ class Sandbox
         exec_mrb(rb)
       else
         # assume Ruby script
-        compile(rb) and execute
+        if compile(rb)
+          execute
+        else
+          # TODO: detailed error message
+          puts "#{path}: compile failed"
+        end
       end
       if started && wait(signal: signal, timeout: nil) && error
         puts "#{error.message} (#{error.class})"
