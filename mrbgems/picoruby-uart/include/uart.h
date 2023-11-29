@@ -16,6 +16,8 @@ extern "C" {
 #define FLOW_CONTROL_NONE       0
 #define FLOW_CONTROL_RTS_CTS    1
 
+#define DEFAULT_BAUDRATE 115200
+
 #define PICORUBY_UART_RP2040_UART0      0
 #define PICORUBY_UART_RP2040_UART1      1
 
@@ -25,7 +27,7 @@ typedef enum {
 } uart_status_t;
 
 int UART_unit_name_to_unit_num(const char *unit_name);
-uint32_t UART_init(int unit_num, uint32_t baudrate, uint32_t txd_pin, uint32_t rxd_pin);
+void UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin);
 uint32_t UART_set_baudrate(int unit_num, uint32_t baudrate);
 void UART_set_flow_control(int unit_num, bool cts, bool rts);
 void UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity);

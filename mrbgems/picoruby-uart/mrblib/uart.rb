@@ -14,7 +14,8 @@ class UART
         cts_pin: -1,
         rx_buffer_size: nil)
     @rx_buffer = UART.open_rx_buffer(rx_buffer_size)
-    @unit_num = UART.open_connection(unit.to_s, baudrate, txd_pin, rxd_pin)
+    @unit_num = UART.open_connection(unit.to_s, txd_pin, rxd_pin)
+    @baudrate = _set_baudrate(baudrate)
     setmode(
       baudrate: nil,
       data_bits: data_bits,
@@ -26,6 +27,8 @@ class UART
     )
     @line_ending = "\n"
   end
+
+  attr_reader :baudrate
 
   def line_ending=(line_ending)
     unless ["\n", "\r", "\r\n"].include?(line_ending)
@@ -50,7 +53,7 @@ class UART
     flow_control: nil,
     rts_pin:      nil,
     cts_pin:      nil)
-    _set_baudrate(baudrate) if baudrate
+    @baudrate = _set_baudrate(baudrate) if baudrate
     set_flow_control(flow_control || FLOW_CONTROL_NONE, rts_pin || -1, cts_pin || -1)
     set_format(data_bits || 8, stop_bits || 1, parity || PARITY_NONE)
     self

@@ -145,7 +145,7 @@ static void
 c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int unit_num = UART_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
-  UART_init(unit_num, GET_INT_ARG(2), GET_INT_ARG(3), GET_INT_ARG(4));
+  UART_init(unit_num, GET_INT_ARG(2), GET_INT_ARG(3));
   SET_INT_RETURN(unit_num);
 }
 
@@ -154,7 +154,7 @@ c__set_baudrate(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int unit_num = GETIV(unit_num).i;
   uint32_t baudrate = GET_INT_ARG(1);
-  UART_set_baudrate(unit_num, baudrate);
+  SET_INT_RETURN(UART_set_baudrate(unit_num, baudrate));
 }
 
 static void

@@ -30,19 +30,19 @@ UART_unit_name_to_unit_num(const char *name)
   }
 }
 
-uint32_t
-UART_init(int unit_num, uint32_t baudrate, uint32_t txd_pin, uint32_t rxd_pin)
+void
+UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
 {
   uart_inst_t *unit;
   UNIT_SELECT();
-  uint actual_baudrate = uart_init(unit, baudrate);
+  uart_init(unit, DEFAULT_BAUDRATE);
   if (-1 < txd_pin) {
     gpio_set_function(txd_pin, GPIO_FUNC_UART);
   }
   if (-1 < rxd_pin) {
     gpio_set_function(rxd_pin, GPIO_FUNC_UART);
   }
-  return actual_baudrate;
+  return;
 }
 
 uint32_t

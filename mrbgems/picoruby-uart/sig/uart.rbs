@@ -15,6 +15,8 @@ class UART
   @rx_buffer: UART::RxBuffer
   @line_ending: ("\n"|"\r\n"|"\r")
 
+  attr_reader baudrate: Integer
+
   def initialize: (
     unit: unit_t,
     ?txd_pin: Integer,
@@ -31,7 +33,6 @@ class UART
   def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
   def self.open_connection: (
     String unit,
-    Integer baudrate,
     Integer txd_pin,
     Integer rxd_pin
   ) -> Integer
@@ -44,7 +45,7 @@ class UART
     ?rts_pin: Integer?,
     ?cts_pin: Integer?
   ) -> self
-  def _set_baudrate: (Integer baudrate) -> void
+  def _set_baudrate: (Integer baudrate) -> Integer
   def set_flow_control: (Integer flow_control, Integer rts_pin, Integer cts_pin) -> void
   def _set_flow_control: (bool rts, bool cts) -> void
   def _set_function: (Integer pin) -> void
