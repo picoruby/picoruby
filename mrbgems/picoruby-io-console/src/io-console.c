@@ -34,6 +34,16 @@ c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(v[0]);
 }
 
+int
+hal_getchar(void)
+{
+  int c = getchar();
+  if (c == EOF) {
+    return -1;
+  } else {
+    return c;
+  }
+}
 #endif /* MRBC_USE_HAL_POSIX */
 
 static void
