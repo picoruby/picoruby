@@ -1,4 +1,6 @@
 class Watchdog
+  RP2040_MAX_ENABLE_MS: Integer
+
   def self.enable: (Integer delay_ms, ?pause_on_debug: bool) -> 0
   def self.reboot: (Integer delay_ms) -> 0
   def self.start_tick: (Integer cycle) -> 0
