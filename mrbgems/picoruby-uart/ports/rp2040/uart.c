@@ -36,10 +36,10 @@ UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
   uart_inst_t *unit;
   UNIT_SELECT();
   uart_init(unit, DEFAULT_BAUDRATE);
-  if (-1 < txd_pin) {
+  if (0 <= txd_pin) {
     gpio_set_function(txd_pin, GPIO_FUNC_UART);
   }
-  if (-1 < rxd_pin) {
+  if (0 <= rxd_pin) {
     gpio_set_function(rxd_pin, GPIO_FUNC_UART);
   }
   return;
