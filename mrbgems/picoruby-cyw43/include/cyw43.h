@@ -10,6 +10,7 @@ extern "C" {
 
 int CYW43_arch_init_with_country(const uint8_t *);
 void CYW43_GPIO_write(uint8_t, uint8_t);
+uint8_t CYW43_GPIO_read(uint8_t pin);
 
 #ifdef __cplusplus
 }
