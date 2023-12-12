@@ -8,26 +8,6 @@ static mrbc_vm *packet_callback_vm = NULL;
 static mrbc_vm *heartbeat_callback_vm = NULL;
 mrbc_value singleton = {.tt = MRBC_TT_NIL};
 
-inline void *
-memmem(const void *l, size_t l_len, const void *s, size_t s_len)
-{
-  register char *cur, *last;
-  const char *cl = (const char *)l;
-  const char *cs = (const char *)s;
-
-  if (l_len < s_len) return NULL;
-
-  if (s_len == 1) return memchr(l, (int)*cs, l_len);
-
-  last = (char *)cl + l_len - s_len;
-
-  for (cur = (char *)cl; cur <= last; cur++)
-    if (cur[0] == cs[0] && memcmp(cur, cs, s_len) == 0)
-      return cur;
-
-  return NULL;
-}
-
 #define NODE_BOX_SIZE 10
 #define VM_REGS_SIZE 110 // can be reduced?
 
@@ -56,24 +36,34 @@ prepare_vm(const char *script)
  */
 static bool mutex_locked = false;
 
+static void
+reset_vm(mrbc_vm *vm)
+{
+  vm->cur_irep        = vm->top_irep;
+  vm->inst            = vm->cur_irep->inst;
+  vm->cur_regs        = vm->regs;
+  vm->target_class    = mrbc_class_object;
+  vm->callinfo_tail   = NULL;
+  vm->ret_blk         = NULL;
+  vm->exception       = mrbc_nil_value();
+  vm->flag_preemption = 0;
+  vm->flag_stop       = 0;
+}
+
 void
 BLE_push_event(uint8_t *packet, uint16_t size)
 {
+  if (mutex_locked || packet_callback_vm == NULL || packet == NULL) return;
   mutex_locked = true;
-  if (packet_callback_vm == NULL || packet == NULL) {
-    // do nothing
+  mrbc_sym sym_id = mrbc_str_to_symid("$_btstack_event_packet");
+  mrbc_value *event_packet = mrbc_get_global(sym_id);
+  if (event_packet->tt == MRBC_TT_STRING && memcmp(event_packet->string->data, packet, size) == 0) {
+    // same as previous packet but not happens?
   } else {
-    mrbc_sym sym_id = mrbc_str_to_symid("$_btstack_event_packet");
-    mrbc_value *event_packet = mrbc_get_global(sym_id);
-    if (event_packet->tt == MRBC_TT_STRING && memcmp(event_packet->string->data, packet, size) == 0) {
-      // same as previous packet but not happens?
-    } else {
-      mrbc_value str = mrbc_string_new(NULL, (const void *)packet, size);
-      mrbc_set_global(sym_id, &str);
-      mrbc_vm_begin(packet_callback_vm);
-      mrbc_vm_run(packet_callback_vm);
-      mrbc_vm_end(packet_callback_vm);
-    }
+    mrbc_value str = mrbc_string_new(packet_callback_vm, (const void *)packet, size);
+    mrbc_set_global(sym_id, &str);
+    mrbc_vm_run(packet_callback_vm);
+    reset_vm(packet_callback_vm);
   }
   mutex_locked = false;
 }
@@ -82,9 +72,8 @@ void
 BLE_heartbeat(void)
 {
   if (heartbeat_callback_vm == NULL || mutex_locked) return;
-  mrbc_vm_begin(heartbeat_callback_vm);
   mrbc_vm_run(heartbeat_callback_vm);
-  mrbc_vm_end(heartbeat_callback_vm);
+  reset_vm(heartbeat_callback_vm);
 }
 
 int
