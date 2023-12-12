@@ -7,10 +7,11 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   mrubyc_dir = "#{dir}/repos/mrubyc"
 
   file mrubyc_dir do
-    branch = ENV['MRUBYC_BRANCH'] || "master"
+    branch = ENV['MRUBYC_BRANCH'] || "flag_protect_symbol_literal"
     revision = ENV['MRUBYC_REVISION']
+    repo = ENV['MRUBYC_REPO'] || 'https://github.com/mrubyc/mrubyc.git'
     FileUtils.cd "#{dir}/repos" do
-      sh "git clone -b #{branch} https://github.com/mrubyc/mrubyc.git"
+      sh "git clone -b #{branch} #{repo}"
     end
     if revision
       FileUtils.cd "#{dir}/repos/mrubyc" do

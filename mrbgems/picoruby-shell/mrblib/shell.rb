@@ -182,7 +182,7 @@ class Shell
   end
 
   def run_irb
-    $sandbox = Sandbox.new unless $sandbox
+    sandbox = Sandbox.new
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13
@@ -192,19 +192,19 @@ class Shell
         when "quit", "exit"
           break
         else
-          if buffer.lines[-1][-1] == "\\" || !$sandbox.compile("_ = (#{script})")
+          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("_ = (#{script})")
             buffer.put :ENTER
           else
             terminal.feed_at_bottom
             terminal.save_history
-            if $sandbox.execute
-              $sandbox.wait(timeout: nil)
-              if e = $sandbox.error
+            if sandbox.execute
+              sandbox.wait(timeout: nil)
+              if e = sandbox.error
                 puts "=> #{e.message} (#{e.class})"
               else
-                puts "=> #{$sandbox.result.inspect}"
+                puts "=> #{sandbox.result.inspect}"
               end
-              $sandbox.free_parser
+          #    $sandbox.free_parser
             end
             buffer.clear
             terminal.history_head
