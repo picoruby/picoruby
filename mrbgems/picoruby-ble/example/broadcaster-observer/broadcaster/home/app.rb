@@ -1,3 +1,4 @@
+require 'watchdog'
 require 'ble'
 require 'lcd'
 require 'thermo'
