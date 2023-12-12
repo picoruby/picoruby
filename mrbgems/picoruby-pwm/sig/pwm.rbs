@@ -1,0 +1,12 @@
+class PWM
+  @slice_num: Integer
+  @duty: Float
+
+  def initialize: (Integer pin, ?frequency: (Float|Integer), ?duty:  (Float|Integer)) -> void
+  def frequency: (Float|Integer) -> 0
+  #private
+  def _init: (Integer pin) -> Integer
+  def _set_frequency_and_duty: (Integer slice_num, Float frequency, Float duty) -> nil
+  def _start: (Integer slice_num) -> 0
+  def _stop: (Integer slice_num) -> 0
+end
