@@ -5,7 +5,7 @@ when "ruby"
   require_relative "command"
 
   class Sandbox
-    def initialize
+    def initialize(suppress_error = false)
       @binding = binding
       @result = nil
       @state = 0
@@ -182,7 +182,7 @@ class Shell
   end
 
   def run_irb
-    sandbox = Sandbox.new
+    sandbox = Sandbox.new(true)
     @terminal.start do |terminal, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13
