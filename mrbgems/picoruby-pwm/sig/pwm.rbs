@@ -1,0 +1,13 @@
+class PWM
+  @gpio: Integer
+  @frequency: Float
+  @duty: Float
+
+  def initialize: (Integer pin, ?frequency: (Float|Integer), ?duty:  (Float|Integer)) -> void
+  def frequency: (Float|Integer) -> Float
+  def duty: (Float|Integer) -> Float
+  def period_us: (Integer) -> Float
+  def pulse_width_us: (Integer) -> Float
+  #private
+  def _init: (Integer pin) -> 0
+end
