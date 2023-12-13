@@ -1,12 +1,13 @@
 class PWM
-  @slice_num: Integer
+  @gpio: Integer
+  @frequency: Float
   @duty: Float
 
   def initialize: (Integer pin, ?frequency: (Float|Integer), ?duty:  (Float|Integer)) -> void
-  def frequency: (Float|Integer) -> 0
+  def frequency: (Float|Integer) -> Float
+  def duty: (Float|Integer) -> Float
+  def period_us: (Integer) -> Float
+  def pulse_width_us: (Integer) -> Float
   #private
-  def _init: (Integer pin) -> Integer
-  def _set_frequency_and_duty: (Integer slice_num, Float frequency, Float duty) -> nil
-  def _start: (Integer slice_num) -> 0
-  def _stop: (Integer slice_num) -> 0
+  def _init: (Integer pin) -> 0
 end

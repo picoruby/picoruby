@@ -10,7 +10,7 @@ extern "C" {
 
 #define IOError mrbc_define_class(0, "IOError", mrbc_class_object)
 
-uint32_t PWM_init(uint32_t gpio);
+void PWM_init(uint32_t gpio);
 void PWM_set_frequency_and_duty(uint32_t slice_num, float frequency, float duty_cycle);
 void PWM_set_enabled(uint32_t slice_num, bool enabled);
 

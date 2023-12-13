@@ -1,38 +1,38 @@
-#include <stdio.h>
-#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/pwm.h"
 
 #include "../../include/pwm.h"
 
 #define APB_CLK_FREQ 125000000
+#define CLK_DIV      100.0
 
-uint32_t
+void
 PWM_init(uint32_t gpio)
 {
   gpio_set_function(gpio, GPIO_FUNC_PWM);
-  return (uint32_t)pwm_gpio_to_slice_num(gpio);
+  uint slice_num = pwm_gpio_to_slice_num(gpio);
+  pwm_set_clkdiv(slice_num, CLK_DIV);
 }
 
+/*
+ * @frequency: in Hz
+ * @duty_cycle: in percentage
+ */ 
 void
-PWM_set_frequency_and_duty(uint32_t slice_num, float frequency, float duty_cycle)
+PWM_set_frequency_and_duty(uint32_t gpio, float frequency, float duty_cycle)
 {
-  // PWMの周期を計算して設定
-  float period = 1.0 / frequency;
-  uint16_t wrap = (uint16_t)(period * (uint32_t)(APB_CLK_FREQ / 65536.0));
-
+  uint slice_num = pwm_gpio_to_slice_num(gpio);
+  uint channel = pwm_gpio_to_channel(gpio);
+  float period = 1.0f / frequency;
+  uint16_t wrap = (uint16_t)(period * APB_CLK_FREQ / CLK_DIV);
   pwm_set_wrap(slice_num, wrap);
-
-  // PWMのクロックディバイダーを設定（必要に応じて調整）
-  pwm_set_clkdiv(slice_num, 1.0);
-
-  // デューティ比を計算して設定
-  uint16_t duty = (uint16_t)(wrap * duty_cycle);
-  pwm_set_chan_level(slice_num, PWM_CHAN_A, duty); // チャンネル0にデューティ比を設定
+  uint16_t duty = (uint16_t)(wrap * duty_cycle / 100.0f);
+  pwm_set_chan_level(slice_num, channel, duty);
 }
 
 void
-PWM_set_enabled(uint32_t slice_num, bool enabled)
+PWM_set_enabled(uint32_t gpio, bool enabled)
 {
+  uint slice_num = pwm_gpio_to_slice_num(gpio);
   pwm_set_enabled(slice_num, enabled);
 }
