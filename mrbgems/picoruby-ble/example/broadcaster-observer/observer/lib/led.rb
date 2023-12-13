@@ -1,4 +1,6 @@
 require 'gpio'
+require 'cyw43'
+CYW43.init
 
 class LED
   def initialize
@@ -18,4 +20,3 @@ class LED
     @gpio.read == 1 ? off : on
   end
 end
-
