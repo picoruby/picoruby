@@ -28,4 +28,22 @@ class Object
       sleep_ms_orig(ms)
     end
   end
+
+  def sleep(sec = nil)
+    case sec
+    when Integer, Float
+      ms = (sec * 1000).to_i
+      case $machine_delay
+      when :delay
+        # delay_ms will hang in IRQ handler
+        Machine.delay_ms(ms)
+      when :busy_wait
+        Machine.busy_wait_ms(ms)
+      else
+        sleep_ms_orig(ms)
+      end
+    else
+      0
+    end
+  end
 end
