@@ -171,7 +171,6 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
   ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
   mrbc_create_task(sandbox_task, ss->tcb);
   ss->tcb->vm.flag_permanence = 1;
-  ss->tcb->vm.flag_protect_symbol_literal = 1;
   picorbc_context_new(&ss->cxt);
   SET_RETURN(sandbox);
 }
