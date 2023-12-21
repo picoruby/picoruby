@@ -160,12 +160,17 @@ static const uint8_t sandbox_task[] = {
 static void
 c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  /*
+   * FIXME: Remove global variable `loglevel`
+   */
+  if (argc == 1 && GET_TT_ARG(1) == MRBC_TT_TRUE) {
+    loglevel = LOGLEVEL_FATAL;
+  }
   mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
   SandboxState *ss = (SandboxState *)sandbox.instance->data;
   ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
   mrbc_create_task(sandbox_task, ss->tcb);
   ss->tcb->vm.flag_permanence = 1;
-  ss->tcb->vm.flag_protect_symbol_literal = 1;
   picorbc_context_new(&ss->cxt);
   SET_RETURN(sandbox);
 }

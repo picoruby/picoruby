@@ -7,7 +7,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   mrubyc_dir = "#{dir}/repos/mrubyc"
 
   file mrubyc_dir do
-    branch = ENV['MRUBYC_BRANCH'] || "flag_protect_symbol_literal"
+    branch = ENV['MRUBYC_BRANCH'] || "master"
     revision = ENV['MRUBYC_REVISION']
     repo = ENV['MRUBYC_REPO'] || 'https://github.com/mrubyc/mrubyc.git'
     FileUtils.cd "#{dir}/repos" do
