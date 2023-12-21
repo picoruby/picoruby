@@ -8,14 +8,18 @@ class Object
     return false if required?(name)
     result = extern(name)
     if result != nil
-      # @type var result: bool
       $LOADED_FEATURES << name
-      return result
+      return !!result
     end
     require_file(name)
   end
 
   def load(path)
+    result = extern(path, true)
+    if result != nil
+      $LOADED_FEATURES << path
+      return !!result
+    end
     unless File.exist?(path)
       raise LoadError, "cannot load such file -- #{path}"
     end

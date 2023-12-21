@@ -13,3 +13,9 @@ CYW43_GPIO_write(uint8_t pin, uint8_t val)
 {
   cyw43_arch_gpio_put(pin, val == 1);
 }
+
+uint8_t
+CYW43_GPIO_read(uint8_t pin)
+{
+  return(cyw43_arch_gpio_get(pin) ? 1 : 0);
+}

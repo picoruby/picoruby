@@ -10,6 +10,7 @@ class CYW43
     @pin: Integer
     def initialize: (Integer) -> void
     def write: (Integer) -> 0
+    def read: () -> Integer
   end
 end
 

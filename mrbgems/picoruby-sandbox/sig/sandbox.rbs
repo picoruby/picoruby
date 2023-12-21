@@ -11,6 +11,7 @@ class Sandbox
 
   attr_accessor error: Exception?
 
+  def initialize: (?bool suppress_error) -> void
   def compile: (String) -> bool
   def suspend: () -> void
   def free_parser: () -> void

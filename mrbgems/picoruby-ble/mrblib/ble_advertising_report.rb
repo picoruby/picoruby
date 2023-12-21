@@ -39,14 +39,15 @@ class BLE
     end
 
     def format
-      "Event Type: #{@event_type}" +
-      "\nAddress Type: #{ADDRESS_TYPE[@address_type_code] || 'unknown'}" +
-      "\nAddress: #{BLE::Utils.bd_addr_to_str(@address)}" +
-      "\nRSSI: #{@rssi}" +
-      "\nReports:\n" +
-      @reports.map { |type, value|
-        "  #{type}: #{value.inspect}(len #{value.length})"
-      }.join("\n")
+      format_str = "Event Type: #{@event_type}" +
+        "\nAddress Type: #{ADDRESS_TYPE[@address_type_code] || 'unknown'}" +
+        "\nAddress: #{BLE::Utils.bd_addr_to_str(@address)}" +
+        "\nRSSI: #{@rssi}" +
+        "\nReports:\n"
+      @reports.each do |type, value|
+        format_str << "  #{type}: #{value.inspect}(len #{value.length})\n"
+      end
+      format_str
     end
 
     def name_include?(name)

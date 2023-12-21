@@ -6,6 +6,6 @@ class Object
   def load_file: (String) -> bool
   def require_file: (String) -> bool
   # picogem_init.c
-  def extern: (String) -> (bool|nil)
+  def extern: (String path, ?bool force) -> (bool|nil)
 end
 

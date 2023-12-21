@@ -32,6 +32,12 @@ c_GPIO_write(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(0);
 }
 
+static void
+c_GPIO_read(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_INT_RETURN(CYW43_GPIO_read(GETIV(pin).i));
+}
+
 void
 mrbc_cyw43_init(void)
 {
@@ -41,4 +47,5 @@ mrbc_cyw43_init(void)
   mrbc_value *CYW43 = mrbc_get_class_const(mrbc_class_CYW43, mrbc_search_symid("GPIO"));
   mrbc_class *mrbc_class_CYW43_GPIO = CYW43->cls;
   mrbc_define_method(0, mrbc_class_CYW43_GPIO, "write", c_GPIO_write);
+  mrbc_define_method(0, mrbc_class_CYW43_GPIO, "read", c_GPIO_read);
 }

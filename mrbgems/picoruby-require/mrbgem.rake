@@ -113,8 +113,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         static void
         c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
         {
-          if (argc != 1) {
-            mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+          if (argc == 0 || 2 < argc) {
+            mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1..2)");
             return;
           }
           if (GET_TT_ARG(1) != MRBC_TT_STRING) {
@@ -127,7 +127,11 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             SET_NIL_RETURN();
             return;
           }
-          if (!prebuilt_gems[i].required && picoruby_load_model(prebuilt_gems[i].mrb)) {
+          bool force = false;
+          if (argc == 2 && GET_TT_ARG(2) == MRBC_TT_TRUE) {
+            force = true;
+          }
+          if ((force || !prebuilt_gems[i].required) && picoruby_load_model(prebuilt_gems[i].mrb)) {
             if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer();
             prebuilt_gems[i].required = true;
             SET_TRUE_RETURN();
