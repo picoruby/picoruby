@@ -8,6 +8,10 @@ $sandbox: Sandbox
 
 # Classes
 
+ENV: Hash[String, String]
+$LOAD_PATH: Array[String]
+ARGV: Array[String]
+
 class Shell
   LOGO_LINES: [String]
   SHORT_LOGO_LINES: [String]

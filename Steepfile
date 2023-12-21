@@ -2,7 +2,7 @@ target :mrbgems do
   #library "io-console"
 
   stdlib_path(
-    core_root: false,        # Skip loading core RBSs
+    core_root: "mrbgems/picoruby-mrubyc/core_sig/",        # Skip loading core RBSs
     stdlib_root: false       # Skip loading stdlib RBSs
   )
 
@@ -20,7 +20,7 @@ target :mrbgems do
 #  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/*.rb"
 #  ignore "mrbgems/picoruby-vfs/mrblib/file.rb"
 #  ignore "mrbgems/picoruby-vfs/mrblib/dir.rb"
-  ignore "mrbgems/picoruby-shell/mrblib/0_out_of_steep.rb"
-  ignore "mrbgems/picoruby-ble/mrblib/demo_peripheral.rb"
-  ignore "mrbgems/picoruby-ble/mrblib/demo_central.rb"
+#  ignore "mrbgems/picoruby-shell/mrblib/0_out_of_steep.rb"
+#  ignore "mrbgems/picoruby-ble/mrblib/demo_peripheral.rb"
+#  ignore "mrbgems/picoruby-ble/mrblib/demo_central.rb"
 end

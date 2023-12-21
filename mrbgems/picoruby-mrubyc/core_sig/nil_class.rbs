@@ -27,16 +27,6 @@ class NilClass
 
   # <!--
   #   rdoc-file=object.c
-  #   - nil =~ other  -> nil
-  # -->
-  # Dummy pattern matching -- always returns nil.
-  #
-  # This method makes it possible to `while gets =~ /re/ do`.
-  #
-  def =~: (untyped obj) -> nil
-
-  # <!--
-  #   rdoc-file=object.c
   #   - false ^ obj    -> true or false
   #   - nil   ^ obj    -> true or false
   # -->
@@ -61,32 +51,6 @@ class NilClass
   # Only the object *nil* responds `true` to `nil?`.
   #
   def nil?: () -> true
-
-  # <!--
-  #   rdoc-file=rational.c
-  #   - nil.rationalize([eps])  ->  (0/1)
-  # -->
-  # Returns zero as a rational.  The optional argument `eps` is always ignored.
-  #
-  def rationalize: (?untyped eps) -> Rational
-
-  # <!--
-  #   rdoc-file=object.c
-  #   - nil.to_a    -> []
-  # -->
-  # Always returns an empty array.
-  #
-  #     nil.to_a   #=> []
-  #
-  def to_a: () -> []
-
-  # <!--
-  #   rdoc-file=complex.c
-  #   - nil.to_c  ->  (0+0i)
-  # -->
-  # Returns zero as a complex.
-  #
-  def to_c: () -> Complex
 
   # <!--
   #   rdoc-file=nilclass.rb
@@ -117,14 +81,6 @@ class NilClass
   #     nil.to_i   #=> 0
   #
   def to_i: () -> 0
-
-  # <!--
-  #   rdoc-file=rational.c
-  #   - nil.to_r  ->  (0/1)
-  # -->
-  # Returns zero as a rational.
-  #
-  def to_r: () -> Rational
 
   # <!--
   #   rdoc-file=object.c

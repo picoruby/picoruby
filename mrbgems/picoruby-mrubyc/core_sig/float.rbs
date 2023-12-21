@@ -1,0 +1,351 @@
+# <!-- rdoc-file=numeric.c -->
+# A Float object represents a sometimes-inexact real number using the native
+# architecture's double-precision floating point representation.
+#
+# Floating point has a different arithmetic and is an inexact number. So you
+# should know its esoteric system. See following:
+#
+# *   https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
+# *   https://github.com/rdp/ruby_tutorials_core/wiki/Ruby-Talk-FAQ#floats_impre
+#     cise
+# *   https://en.wikipedia.org/wiki/Floating_point#Accuracy_problems
+#
+#
+# You can create a Float object explicitly with:
+#
+# *   A [floating-point literal](rdoc-ref:syntax/literals.rdoc@Float+Literals).
+#
+#
+# You can convert certain objects to Floats with:
+#
+# *   Method #Float.
+#
+#
+# ## What's Here
+#
+# First, what's elsewhere. Class Float:
+#
+# *   Inherits from [class Numeric](rdoc-ref:Numeric@What-27s+Here).
+#
+#
+# Here, class Float provides methods for:
+#
+# *   [Querying](rdoc-ref:Float@Querying)
+# *   [Comparing](rdoc-ref:Float@Comparing)
+# *   [Converting](rdoc-ref:Float@Converting)
+#
+#
+# ### Querying
+#
+# *   #finite?: Returns whether `self` is finite.
+# *   #hash: Returns the integer hash code for `self`.
+# *   #infinite?: Returns whether `self` is infinite.
+# *   #nan?: Returns whether `self` is a NaN (not-a-number).
+#
+#
+# ### Comparing
+#
+# *   #<: Returns whether `self` is less than the given value.
+# *   #<=: Returns whether `self` is less than or equal to the given value.
+# *   #<=>: Returns a number indicating whether `self` is less than, equal to,
+#     or greater than the given value.
+# *   #== (aliased as #=== and #eql?): Returns whether `self` is equal to the
+#     given value.
+# *   #>: Returns whether `self` is greater than the given value.
+# *   #>=: Returns whether `self` is greater than or equal to the given value.
+#
+#
+# ### Converting
+#
+# *   #% (aliased as #modulo): Returns `self` modulo the given value.
+# *   #*: Returns the product of `self` and the given value.
+# *   #**: Returns the value of `self` raised to the power of the given value.
+# *   #+: Returns the sum of `self` and the given value.
+# *   #-: Returns the difference of `self` and the given value.
+# *   #/: Returns the quotient of `self` and the given value.
+# *   #ceil: Returns the smallest number greater than or equal to `self`.
+# *   #coerce: Returns a 2-element array containing the given value converted to
+#     a Float and `self`
+# *   #divmod: Returns a 2-element array containing the quotient and remainder
+#     results of dividing `self` by the given value.
+# *   #fdiv: Returns the Float result of dividing `self` by the given value.
+# *   #floor: Returns the greatest number smaller than or equal to `self`.
+# *   #next_float: Returns the next-larger representable Float.
+# *   #prev_float: Returns the next-smaller representable Float.
+# *   #quo: Returns the quotient from dividing `self` by the given value.
+# *   #round: Returns `self` rounded to the nearest value, to a given precision.
+# *   #to_i (aliased as #to_int): Returns `self` truncated to an Integer.
+# *   #to_s (aliased as #inspect): Returns a string containing the place-value
+#     representation of `self` in the given radix.
+# *   #truncate: Returns `self` truncated to a given precision.
+#
+class Float < Object
+  public
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self * other -> numeric
+  # -->
+  # Returns a new Float which is the product of `self` and `other`:
+  #
+  #     f = 3.14
+  #     f * 2              # => 6.28
+  #     f * 2.0            # => 6.28
+  #     f * Rational(1, 2) # => 1.57
+  #     f * Complex(2, 0)  # => (6.28+0.0i)
+  #
+  def *: (Integer | Float) -> Float
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self ** other -> numeric
+  # -->
+  # Raises `self` to the power of `other`:
+  #
+  #     f = 3.14
+  #     f ** 2              # => 9.8596
+  #     f ** -2             # => 0.1014239928597509
+  #     f ** 2.1            # => 11.054834900588839
+  #     f ** Rational(2, 1) # => 9.8596
+  #     f ** Complex(2, 0)  # => (9.8596+0i)
+  #
+  def **: (Integer | Float) -> Float
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self + other -> numeric
+  # -->
+  # Returns a new Float which is the sum of `self` and `other`:
+  #
+  #     f = 3.14
+  #     f + 1                 # => 4.140000000000001
+  #     f + 1.0               # => 4.140000000000001
+  #     f + Rational(1, 1)    # => 4.140000000000001
+  #     f + Complex(1, 0)     # => (4.140000000000001+0i)
+  #
+  def +: (Integer | Float) -> Float
+
+  def +@: () -> Float
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self - other -> numeric
+  # -->
+  # Returns a new Float which is the difference of `self` and `other`:
+  #
+  #     f = 3.14
+  #     f - 1                 # => 2.14
+  #     f - 1.0               # => 2.14
+  #     f - Rational(1, 1)    # => 2.14
+  #     f - Complex(1, 0)     # => (2.14+0i)
+  #
+  def -: (Integer | Float) -> Float
+
+  # <!--
+  #   rdoc-file=numeric.rb
+  #   - -float  ->  float
+  # -->
+  # Returns `float`, negated.
+  #
+  def -@: () -> Float
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self / other -> numeric
+  # -->
+  # Returns a new Float which is the result of dividing `self` by `other`:
+  #
+  #     f = 3.14
+  #     f / 2              # => 1.57
+  #     f / 2.0            # => 1.57
+  #     f / Rational(2, 1) # => 1.57
+  #     f / Complex(2, 0)  # => (1.57+0.0i)
+  #
+  def /: (Integer | Float) -> Float
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self < other -> true or false
+  # -->
+  # Returns `true` if `self` is numerically less than `other`:
+  #
+  #     2.0 < 3              # => true
+  #     2.0 < 3.0            # => true
+  #     2.0 < Rational(3, 1) # => true
+  #     2.0 < 2.0            # => false
+  #
+  # `Float::NAN < Float::NAN` returns an implementation-dependent value.
+  #
+  def <: (Integer | Float) -> bool
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self <= other -> true or false
+  # -->
+  # Returns `true` if `self` is numerically less than or equal to `other`:
+  #
+  #     2.0 <= 3              # => true
+  #     2.0 <= 3.0            # => true
+  #     2.0 <= Rational(3, 1) # => true
+  #     2.0 <= 2.0            # => true
+  #     2.0 <= 1.0            # => false
+  #
+  # `Float::NAN <= Float::NAN` returns an implementation-dependent value.
+  #
+  def <=: (Integer | Float) -> bool
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self <=> other ->  -1, 0, +1, or nil
+  # -->
+  # Returns a value that depends on the numeric relation between `self` and
+  # `other`:
+  #
+  # *   -1, if `self` is less than `other`.
+  # *   0, if `self` is equal to `other`.
+  # *   1, if `self` is greater than `other`.
+  # *   `nil`, if the two values are incommensurate.
+  #
+  #
+  # Examples:
+  #
+  #     2.0 <=> 2              # => 0
+  #     2.0 <=> 2.0            # => 0
+  #     2.0 <=> Rational(2, 1) # => 0
+  #     2.0 <=> Complex(2, 0)  # => 0
+  #     2.0 <=> 1.9            # => 1
+  #     2.0 <=> 2.1            # => -1
+  #     2.0 <=> 'foo'          # => nil
+  #
+  # This is the basis for the tests in the Comparable module.
+  #
+  # `Float::NAN <=> Float::NAN` returns an implementation-dependent value.
+  #
+  def <=>: (Integer | Float) -> Integer?
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self == other -> true or false
+  # -->
+  # Returns `true` if `other` has the same value as `self`, `false` otherwise:
+  #
+  #     2.0 == 2              # => true
+  #     2.0 == 2.0            # => true
+  #     2.0 == Rational(2, 1) # => true
+  #     2.0 == Complex(2, 0)  # => true
+  #
+  # `Float::NAN == Float::NAN` returns an implementation-dependent value.
+  #
+  # Related: Float#eql? (requires `other` to be a Float).
+  #
+  def ==: (untyped) -> bool
+
+  # <!-- rdoc-file=numeric.c -->
+  # Returns `true` if `other` has the same value as `self`, `false` otherwise:
+  #
+  #     2.0 == 2              # => true
+  #     2.0 == 2.0            # => true
+  #     2.0 == Rational(2, 1) # => true
+  #     2.0 == Complex(2, 0)  # => true
+  #
+  # `Float::NAN == Float::NAN` returns an implementation-dependent value.
+  #
+  # Related: Float#eql? (requires `other` to be a Float).
+  #
+  def ===: (untyped) -> bool
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self > other -> true or false
+  # -->
+  # Returns `true` if `self` is numerically greater than `other`:
+  #
+  #     2.0 > 1              # => true
+  #     2.0 > 1.0            # => true
+  #     2.0 > Rational(1, 2) # => true
+  #     2.0 > 2.0            # => false
+  #
+  # `Float::NAN > Float::NAN` returns an implementation-dependent value.
+  #
+  def >: (Integer | Float) -> bool
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - self >= other -> true or false
+  # -->
+  # Returns `true` if `self` is numerically greater than or equal to `other`:
+  #
+  #     2.0 >= 1              # => true
+  #     2.0 >= 1.0            # => true
+  #     2.0 >= Rational(1, 2) # => true
+  #     2.0 >= 2.0            # => true
+  #     2.0 >= 2.1            # => false
+  #
+  # `Float::NAN >= Float::NAN` returns an implementation-dependent value.
+  #
+  def >=: (Integer | Float) -> bool
+
+  def %: (Integer | Float) -> Float
+
+  # <!--
+  #   rdoc-file=numeric.rb
+  #   - float.abs        ->  float
+  #   - float.magnitude  ->  float
+  # -->
+  # Returns the absolute value of `float`.
+  #
+  #     (-34.56).abs   #=> 34.56
+  #     -34.56.abs     #=> 34.56
+  #     34.56.abs      #=> 34.56
+  #
+  # Float#magnitude is an alias for Float#abs.
+  #
+  def abs: () -> Float
+
+  # <!--
+  #   rdoc-file=numeric.rb
+  #   - float.to_f  ->  self
+  # -->
+  # Since `float` is already a Float, returns `self`.
+  #
+  def to_f: () -> Float
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - to_i -> integer
+  # -->
+  # Returns `self` truncated to an Integer.
+  #
+  #     1.2.to_i    # => 1
+  #     (-1.2).to_i # => -1
+  #
+  # Note that the limited precision of floating-point arithmetic may lead to
+  # surprising results:
+  #
+  #     (0.3 / 0.1).to_i  # => 2 (!)
+  #
+  # Float#to_int is an alias for Float#to_i.
+  #
+  def to_i: () -> Integer
+
+  # <!--
+  #   rdoc-file=numeric.c
+  #   - to_s -> string
+  # -->
+  # Returns a string containing a representation of `self`; depending of the value
+  # of `self`, the string representation may contain:
+  #
+  # *   A fixed-point number.
+  # *   A number in "scientific notation" (containing an exponent).
+  # *   'Infinity'.
+  # *   '-Infinity'.
+  # *   'NaN' (indicating not-a-number).
+  #
+  #     3.14.to_s         # => "3.14" (10.1**50).to_s   # =>
+  #     "1.644631821843879e+50" (10.1**500).to_s  # => "Infinity"
+  #     (-10.1**500).to_s # => "-Infinity" (0.0/0.0).to_s    # => "NaN"
+  #
+  def to_s: () -> String
+
+end
+

@@ -1,0 +1,18 @@
+class StandardError < Exception
+end
+class ArgumentError < StandardError
+end
+class NameError < StandardError
+end
+class NoMethodError < StandardError
+end
+class RangeError < StandardError
+end
+class TypeError < StandardError
+end
+class RuntimeError < StandardError
+end
+class ZeroDivisionError < StandardError
+end
+class SyntaxError < StandardError
+end

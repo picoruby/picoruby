@@ -13,3 +13,9 @@ class IO
   def self.raw!: -> self
   def self.cooked!: -> self
 end
+
+class IO::EAGAINWaitReadable < StandardError
+end
+
+STDIN: IO
+STDOUT: IO

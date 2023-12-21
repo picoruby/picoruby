@@ -90,7 +90,7 @@
 # *   #inspect: Returns a string description of `self`.
 #
 class Dir
-  include Enumerable[String]
+   def self.new: (path dir) -> VFS::dir_t
 
   # <!--
   #   rdoc-file=dir.rb
@@ -102,15 +102,7 @@ class Dir
   # The optional *encoding* keyword argument specifies the encoding of the
   # directory. If not specified, the filesystem encoding is used.
   #
-  def initialize: (path dir, ?encoding: encoding?) -> self
-
-  # <!--
-  #   rdoc-file=dir.rb
-  #   - Dir[ string [, string ...] [, base: path] [, sort: true] ] -> array
-  # -->
-  # Equivalent to calling `Dir.glob([`*string,...*`], 0)`.
-  #
-  def self.[]: (*path patterns, ?base: path?, ?sort: bool) -> Array[String]
+  def initialize: (path dir) -> VFS::dir_t
 
   # <!--
   #   rdoc-file=dir.c
@@ -154,32 +146,6 @@ class Dir
 
   # <!--
   #   rdoc-file=dir.c
-  #   - Dir.children( dirname )                -> array
-  #   - Dir.children( dirname, encoding: enc ) -> array
-  # -->
-  # Returns an array containing all of the filenames except for "." and ".." in
-  # the given directory. Will raise a SystemCallError if the named directory
-  # doesn't exist.
-  #
-  # The optional *encoding* keyword argument specifies the encoding of the
-  # directory. If not specified, the filesystem encoding is used.
-  #
-  #     Dir.children("testdir")   #=> ["config.h", "main.rb"]
-  #
-  def self.children: (path dirname, ?encoding: encoding?) -> Array[String]
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - Dir.chroot( string ) -> 0
-  # -->
-  # Changes this process's idea of the file system root. Only a privileged process
-  # may make this call. Not available on all platforms. On Unix systems, see
-  # `chroot(2)` for more information.
-  #
-  def self.chroot: (path root) -> 0
-
-  # <!--
-  #   rdoc-file=dir.c
   #   - Dir.delete( string ) -> 0
   #   - Dir.rmdir( string ) -> 0
   #   - Dir.unlink( string ) -> 0
@@ -188,28 +154,6 @@ class Dir
   # directory isn't empty.
   #
   def self.delete: (path dirname) -> 0
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - Dir.each_child( dirname ) {| filename | block }                 -> nil
-  #   - Dir.each_child( dirname, encoding: enc ) {| filename | block }  -> nil
-  #   - Dir.each_child( dirname )                                       -> an_enumerator
-  #   - Dir.each_child( dirname, encoding: enc )                        -> an_enumerator
-  # -->
-  # Calls the block once for each entry except for "." and ".." in the named
-  # directory, passing the filename of each entry as a parameter to the block.
-  #
-  # If no block is given, an enumerator is returned instead.
-  #
-  #     Dir.each_child("testdir") {|x| puts "Got #{x}" }
-  #
-  # *produces:*
-  #
-  #     Got config.h
-  #     Got main.rb
-  #
-  def self.each_child: (path dirname, ?encoding: encoding?) -> Enumerator[String, nil]
-                     | (path dirname, ?encoding: encoding?) { (String filename) -> void } -> nil
 
   # <!--
   #   rdoc-file=dir.c
@@ -222,49 +166,11 @@ class Dir
 
   # <!--
   #   rdoc-file=dir.c
-  #   - Dir.entries( dirname )                -> array
-  #   - Dir.entries( dirname, encoding: enc ) -> array
-  # -->
-  # Returns an array containing all of the filenames in the given directory. Will
-  # raise a SystemCallError if the named directory doesn't exist.
-  #
-  # The optional *encoding* keyword argument specifies the encoding of the
-  # directory. If not specified, the filesystem encoding is used.
-  #
-  #     Dir.entries("testdir")   #=> [".", "..", "config.h", "main.rb"]
-  #
-  def self.entries: (path dirname, ?encoding: encoding?) -> Array[String]
-
-  # <!--
-  #   rdoc-file=dir.c
   #   - Dir.exist?(file_name)   ->  true or false
   # -->
   # Returns `true` if the named file is a directory, `false` otherwise.
   #
   def self.exist?: (path | io file_name) -> bool
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - Dir.foreach( dirname ) {| filename | block }                 -> nil
-  #   - Dir.foreach( dirname, encoding: enc ) {| filename | block }  -> nil
-  #   - Dir.foreach( dirname )                                       -> an_enumerator
-  #   - Dir.foreach( dirname, encoding: enc )                        -> an_enumerator
-  # -->
-  # Calls the block once for each entry in the named directory, passing the
-  # filename of each entry as a parameter to the block.
-  #
-  # If no block is given, an enumerator is returned instead.
-  #
-  #     Dir.foreach("testdir") {|x| puts "Got #{x}" }
-  #
-  # *produces:*
-  #
-  #     Got .
-  #     Got ..
-  #     Got config.h
-  #     Got main.rb
-  #
-  alias self.foreach self.each_child
 
   # <!--
   #   rdoc-file=dir.c
@@ -375,29 +281,6 @@ class Dir
                | (array[path] | path pattern, ?int flags, ?base: path?, ?sort: bool) { (String pathname) -> void } -> nil
 
   # <!--
-  #   rdoc-file=dir.c
-  #   - Dir.home()       -> "/home/me"
-  #   - Dir.home("root") -> "/root"
-  # -->
-  # Returns the home directory of the current user or the named user if given.
-  #
-  def self.home: (?string? user) -> String
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - Dir.mkdir( string [, integer] ) -> 0
-  # -->
-  # Makes a new directory named by *string*, with permissions specified by the
-  # optional parameter *anInteger*. The permissions may be modified by the value
-  # of File::umask, and are ignored on NT. Raises a SystemCallError if the
-  # directory cannot be created. See also the discussion of permissions in the
-  # class documentation for File.
-  #
-  #     Dir.mkdir(File.join(Dir.home, ".foo"), 0700) #=> 0
-  #
-  def self.mkdir: (path dirname, ?int permissions) -> 0
-
-  # <!--
   #   rdoc-file=dir.rb
   #   - Dir.open( string ) -> aDir
   #   - Dir.open( string, encoding: enc ) -> aDir
@@ -411,8 +294,8 @@ class Dir
   # passed *aDir* as a parameter. The directory is closed at the end of the block,
   # and Dir::open returns the value of the block.
   #
-  def self.open: (path dirname, ?encoding: encoding?) -> instance
-               | [U] (path dirname, ?encoding: encoding?) { (instance) -> U } -> U
+  def self.open: (path dirname) -> instance
+               | [U] (path dirname) { (instance) -> U } -> U
 
   # <!--
   #   rdoc-file=dir.c
@@ -453,18 +336,6 @@ class Dir
 
   # <!--
   #   rdoc-file=dir.c
-  #   - dir.children  -> array
-  # -->
-  # Returns an array containing all of the filenames except for "." and ".." in
-  # this directory.
-  #
-  #     d = Dir.new("testdir")
-  #     d.children   #=> ["config.h", "main.rb"]
-  #
-  def children: () -> Array[String]
-
-  # <!--
-  #   rdoc-file=dir.c
   #   - dir.close -> nil
   # -->
   # Closes the directory stream. Calling this method on closed Dir object is
@@ -496,51 +367,6 @@ class Dir
   #     Got main.rb
   #
   def each: () { (String) -> void } -> self
-          | () -> Enumerator[String, self]
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - dir.each_child {| filename | block }  -> dir
-  #   - dir.each_child                        -> an_enumerator
-  # -->
-  # Calls the block once for each entry except for "." and ".." in this directory,
-  # passing the filename of each entry as a parameter to the block.
-  #
-  # If no block is given, an enumerator is returned instead.
-  #
-  #     d = Dir.new("testdir")
-  #     d.each_child  {|x| puts "Got #{x}" }
-  #
-  # *produces:*
-  #
-  #     Got config.h
-  #     Got main.rb
-  #
-  def each_child: () { (String) -> void } -> self
-                | () -> Enumerator[String, self]
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - dir.fileno -> integer
-  # -->
-  # Returns the file descriptor used in *dir*.
-  #
-  #     d = Dir.new("..")
-  #     d.fileno   #=> 8
-  #
-  # This method uses dirfd() function defined by POSIX 2008. NotImplementedError
-  # is raised on other platforms, such as Windows, which doesn't provide the
-  # function.
-  #
-  def fileno: () -> Integer
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - dir.inspect -> string
-  # -->
-  # Return a string describing this Dir object.
-  #
-  def inspect: () -> String
 
   # <!--
   #   rdoc-file=dir.c
@@ -553,31 +379,6 @@ class Dir
   #     d.path   #=> ".."
   #
   def path: () -> String?
-
-  # <!-- rdoc-file=dir.c -->
-  # Returns the current position in *dir*. See also Dir#seek.
-  #
-  #     d = Dir.new("testdir")
-  #     d.tell   #=> 0
-  #     d.read   #=> "."
-  #     d.tell   #=> 12
-  #
-  def pos: () -> Integer
-
-  # <!--
-  #   rdoc-file=dir.c
-  #   - dir.pos = integer  -> integer
-  # -->
-  # Synonym for Dir#seek, but returns the position parameter.
-  #
-  #     d = Dir.new("testdir")   #=> #<Dir:0x401b3c40>
-  #     d.read                   #=> "."
-  #     i = d.pos                #=> 12
-  #     d.read                   #=> ".."
-  #     d.pos = i                #=> 12
-  #     d.read                   #=> ".."
-  #
-  def pos=: [U < _ToInt] (U pos) -> U
 
   # <!--
   #   rdoc-file=dir.c
@@ -606,41 +407,9 @@ class Dir
   #
   def rewind: () -> self
 
-  # <!--
-  #   rdoc-file=dir.c
-  #   - dir.seek( integer ) -> dir
-  # -->
-  # Seeks to a particular location in *dir*. *integer* must be a value returned by
-  # Dir#tell.
-  #
-  #     d = Dir.new("testdir")   #=> #<Dir:0x401b3c40>
-  #     d.read                   #=> "."
-  #     i = d.tell               #=> 12
-  #     d.read                   #=> ".."
-  #     d.seek(i)                #=> #<Dir:0x401b3c40>
-  #     d.read                   #=> ".."
-  #
-  def seek: (int pos) -> self
+  private
 
-  # <!--
-  #   rdoc-file=dir.c
-  #   - dir.pos -> integer
-  #   - dir.tell -> integer
-  # -->
-  # Returns the current position in *dir*. See also Dir#seek.
-  #
-  #     d = Dir.new("testdir")
-  #     d.tell   #=> 0
-  #     d.read   #=> "."
-  #     d.tell   #=> 12
-  #
-  alias tell pos
+  def pat=: (String) -> String
 
-  # <!-- rdoc-file=dir.c -->
-  # Returns the path parameter passed to *dir*'s constructor.
-  #
-  #     d = Dir.new("..")
-  #     d.path   #=> ".."
-  #
-  alias to_path path
+  def findnext: () -> String?
 end

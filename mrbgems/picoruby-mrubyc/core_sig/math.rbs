@@ -126,7 +126,7 @@
 #
 # *   ::hypot: Returns `sqrt(a**2 + b**2)` for the given `a` and `b`.
 #
-module Math
+class Math
   # <!-- rdoc-file=math.c -->
   # Definition of the mathematical constant E for Euler's number (e) as a Float
   # number.
@@ -137,26 +137,6 @@ module Math
   # Definition of the mathematical constant PI as a Float number.
   #
   PI: Float
-
-  # <!-- rdoc-file=math.c -->
-  # Raised when a mathematical function is evaluated outside of its domain of
-  # definition.
-  #
-  # For example, since `cos` returns values in the range -1..1, its inverse
-  # function `acos` is only defined on that interval:
-  #
-  #     Math.acos(42)
-  #
-  # *produces:*
-  #
-  #     Math::DomainError: Numerical argument is out of domain - "acos"
-  #
-  class DomainError < StandardError
-  end
-
-  # A type that's passable to `Math` functions: A `Numeric` type that defines `.to_f`.
-  #
-  type double = Numeric & _ToF
 
   # <!--
   #   rdoc-file=math.c
@@ -175,7 +155,7 @@ module Math
   #     acos(0.0)  # => 1.5707963267948966 # PI/2
   #     acos(1.0)  # => 0.0
   #
-  def self.acos: (double x) -> Float
+  def self.acos: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -193,7 +173,7 @@ module Math
   #     acosh(1.0)      # => 0.0
   #     acosh(INFINITY) # => Infinity
   #
-  def self.acosh: (double x) -> Float
+  def self.acosh: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -212,7 +192,7 @@ module Math
   #     asin(0.0)  # => 0.0
   #     asin(1.0)  # => 1.5707963267948966  # PI/2
   #
-  def self.asin: (double x) -> Float
+  def self.asin: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -231,7 +211,7 @@ module Math
   #     asinh(0.0)       # => 0.0
   #     asinh(INFINITY)  # => Infinity
   #
-  def self.asinh: (double x) -> Float
+  def self.asinh: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -255,7 +235,7 @@ module Math
   #     atan(PI)        # => 1.2626272556789115
   #     atan(INFINITY)  # => 1.5707963267948966  # PI/2
   #
-  def self.atan: (double x) -> Float
+  def self.atan: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -278,7 +258,7 @@ module Math
   #     atan2(-1.0, 1.0)  # => -0.7853981633974483 # -PI/4
   #     atan2(0.0, -1.0)  # => 3.141592653589793   # PI
   #
-  def self.atan2: (double y, double x) -> Float
+  def self.atan2: (Float y, Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -297,7 +277,7 @@ module Math
   #     atanh(0.0)  # => 0.0
   #     atanh(1.0)  # => Infinity
   #
-  def self.atanh: (double x) -> Float
+  def self.atanh: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -323,7 +303,7 @@ module Math
   #     cbrt(27.0)      # => 3.0
   #     cbrt(INFINITY)  # => Infinity
   #
-  def self.cbrt: (double x) -> Float
+  def self.cbrt: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -345,7 +325,7 @@ module Math
   #     cos(PI/2)  # => 6.123031769111886e-17 # 0.0000000000000001
   #     cos(PI)    # => -1.0
   #
-  def self.cos: (double x) -> Float
+  def self.cos: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -366,7 +346,7 @@ module Math
   #     cosh(0.0)       # => 1.0
   #     cosh(INFINITY)  # => Infinity
   #
-  def self.cosh: (double x) -> Float
+  def self.cosh: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -387,7 +367,7 @@ module Math
   #
   # Related: Math.erfc.
   #
-  def self.erf: (double x) -> Float
+  def self.erf: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -409,7 +389,7 @@ module Math
   #
   # Related: Math.erf.
   #
-  def self.erfc: (double x) -> Float
+  def self.erfc: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -431,65 +411,7 @@ module Math
   #     exp(2.0)       # => 7.38905609893065    # E**2
   #     exp(INFINITY)  # => Infinity
   #
-  def self.exp: (double x) -> Float
-
-  # <!--
-  #   rdoc-file=math.c
-  #   - Math.frexp(x) -> [fraction, exponent]
-  # -->
-  # Returns a 2-element array containing the normalized signed float `fraction`
-  # and integer `exponent` of `x` such that:
-  #
-  #     x = fraction * 2**exponent
-  #
-  # See [IEEE 754 double-precision binary floating-point format:
-  # binary64](https://en.wikipedia.org/wiki/Double-precision_floating-point_format
-  # #IEEE_754_double-precision_binary_floating-point_format:_binary64).
-  #
-  # *   Domain: `[-INFINITY, INFINITY]`.
-  # *   Range `[-INFINITY, INFINITY]`.
-  #
-  #
-  # Examples:
-  #
-  #     frexp(-INFINITY) # => [-Infinity, -1]
-  #     frexp(-2.0)      # => [-0.5, 2]
-  #     frexp(-1.0)      # => [-0.5, 1]
-  #     frexp(0.0)       # => [0.0, 0]
-  #     frexp(1.0)       # => [0.5, 1]
-  #     frexp(2.0)       # => [0.5, 2]
-  #     frexp(INFINITY)  # => [Infinity, -1]
-  #
-  # Related: Math.ldexp (inverse of Math.frexp).
-  #
-  def self.frexp: (double x) -> [Float, Integer]
-
-  # <!--
-  #   rdoc-file=math.c
-  #   - Math.gamma(x) -> float
-  # -->
-  # Returns the value of the [gamma
-  # function](https://en.wikipedia.org/wiki/Gamma_function) for `x`.
-  #
-  # *   Domain: `(-INFINITY, INFINITY]` excluding negative integers.
-  # *   Range: `[-INFINITY, INFINITY]`.
-  #
-  #
-  # Examples:
-  #
-  #     gamma(-2.5)      # => -0.9453087204829431
-  #     gamma(-1.5)      # => 2.3632718012073513
-  #     gamma(-0.5)      # => -3.5449077018110375
-  #     gamma(0.0)      # => Infinity
-  #     gamma(1.0)      # => 1.0
-  #     gamma(2.0)      # => 1.0
-  #     gamma(3.0)      # => 2.0
-  #     gamma(4.0)      # => 6.0
-  #     gamma(5.0)      # => 24.0
-  #
-  # Related: Math.lgamma.
-  #
-  def self.gamma: (double x) -> Float
+  def self.exp: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -514,7 +436,7 @@ module Math
   # Note that if either argument is `INFINITY` or `-INFINITY`, the result is
   # `Infinity`.
   #
-  def self.hypot: (double x, double y) -> Float
+  def self.hypot: (Float x, Float y) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -526,8 +448,8 @@ module Math
   # *   Domain of `exponent`: `[0, 1024]` (larger values are equivalent to 1024).
   #
   #
-  # See [IEEE 754 double-precision binary floating-point format:
-  # binary64](https://en.wikipedia.org/wiki/Double-precision_floating-point_format
+  # See [IEEE 754 Float-precision binary floating-point format:
+  # binary64](https://en.wikipedia.org/wiki/Float-precision_floating-point_format
   # #IEEE_754_double-precision_binary_floating-point_format:_binary64).
   #
   # Examples:
@@ -542,48 +464,7 @@ module Math
   #
   # Related: Math.frexp (inverse of Math.ldexp).
   #
-  def self.ldexp: (double fraction, int exponent) -> Float
-
-  # <!--
-  #   rdoc-file=math.c
-  #   - Math.lgamma(x) -> [float, -1 or 1]
-  # -->
-  # Returns a 2-element array equivalent to:
-  #
-  #     [Math.log(Math.gamma(x).abs), Math.gamma(x) < 0 ? -1 : 1]
-  #
-  # See [logarithmic gamma
-  # function](https://en.wikipedia.org/wiki/Gamma_function#The_log-gamma_function)
-  # .
-  #
-  # *   Domain: `(-INFINITY, INFINITY]`.
-  # *   Range of first element: `(-INFINITY, INFINITY]`.
-  # *   Second element is -1 or 1.
-  #
-  #
-  # Examples:
-  #
-  #     lgamma(-4.0) # => [Infinity, -1]
-  #     lgamma(-3.0) # => [Infinity, -1]
-  #     lgamma(-2.0) # => [Infinity, -1]
-  #     lgamma(-1.0) # => [Infinity, -1]
-  #     lgamma(0.0)  # => [Infinity, 1]
-  #
-  #     lgamma(1.0)  # => [0.0, 1]
-  #     lgamma(2.0)  # => [0.0, 1]
-  #     lgamma(3.0)  # => [0.6931471805599436, 1]
-  #     lgamma(4.0)  # => [1.7917594692280545, 1]
-  #
-  #     lgamma(-2.5) # => [-0.05624371649767279, -1]
-  #     lgamma(-1.5) # => [0.8600470153764797, 1]
-  #     lgamma(-0.5) # => [1.265512123484647, -1]
-  #     lgamma(0.5)  # => [0.5723649429247004, 1]
-  #     lgamma(1.5)  # => [-0.12078223763524676, 1]
-  #     lgamma(2.5)      # => [0.2846828704729205, 1]
-  #
-  # Related: Math.gamma.
-  #
-  def self.lgamma: (double x) -> [Float, -1 | 1]
+  def self.ldexp: (Float fraction, int exponent) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -611,7 +492,7 @@ module Math
   #     log(1.0, 10.0)  # => 0.0
   #     log(10.0, 10.0) # => 1.0
   #
-  def self.log: (double x, ?double base) -> Float
+  def self.log: (Float x, ?Float base) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -631,7 +512,7 @@ module Math
   #     log10(10.0)     # => 1.0
   #     log10(INFINITY) # => Infinity
   #
-  def self.log10: (double x) -> Float
+  def self.log10: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -651,7 +532,7 @@ module Math
   #     log2(2.0)      # => 1.0
   #     log2(INFINITY) # => Infinity
   #
-  def self.log2: (double x) -> Float
+  def self.log2: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -673,7 +554,7 @@ module Math
   #     sin(PI/2)  # => 1.0
   #     sin(PI)    # => 1.2246063538223773e-16  # 0.0000000000000001
   #
-  def self.sin: (double x) -> Float
+  def self.sin: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -694,7 +575,7 @@ module Math
   #     sinh(0.0)       # => 0.0
   #     sinh(INFINITY)  # => Infinity
   #
-  def self.sinh: (double x) -> Float
+  def self.sinh: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -717,7 +598,7 @@ module Math
   #     sqrt(9.0)      # => 3.0
   #     sqrt(INFINITY) # => Infinity
   #
-  def self.sqrt: (double x) -> Float
+  def self.sqrt: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -740,7 +621,7 @@ module Math
   #     tan(PI/2)  # => 1.633123935319537e+16   # 16331239353195370.0
   #     tan(PI)    # => -1.2246467991473532e-16 # -0.0000000000000001
   #
-  def self.tan: (double x) -> Float
+  def self.tan: (Float x) -> Float
 
   # <!--
   #   rdoc-file=math.c
@@ -761,5 +642,5 @@ module Math
   #     tanh(0.0)       # => 0.0
   #     tanh(INFINITY)  # => 1.0
   #
-  def self.tanh: (double x) -> Float
+  def self.tanh: (Float x) -> Float
 end
