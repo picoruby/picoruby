@@ -1,3 +1,10 @@
+# Usage:
+#  require 'lcd'
+#  lcd = LCD.new(i2c: I2C.new(unit: :RP2040_I2C1, sda_pin: 26, scl_pin: 27))
+#  lcd.print "Hello,"
+#  lcd.break_line
+#  lcd.print "World!"
+
 require 'i2c'
 
 class LCD
