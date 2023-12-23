@@ -165,6 +165,7 @@ class Object < BasicObject
   #
   def self?.raise: () -> bot
                 | (string message, ?cause: Exception?) -> bot
+                | (_Exception exception, ?cause: Exception?) -> bot
 
   # <!--
   #   rdoc-file=object.c

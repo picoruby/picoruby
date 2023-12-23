@@ -108,6 +108,25 @@
 class Exception
   # <!--
   #   rdoc-file=error.c
+  #   - exc.exception([string])  ->  an_exception or exc
+  # -->
+  # With no argument, or if the argument is the same as the receiver, return the
+  # receiver. Otherwise, create a new exception object of the same class as the
+  # receiver, but with a message equal to `string.to_str`.
+  #
+  def self.exception: (?string) -> instance
+
+  # <!--
+  #   rdoc-file=error.c
+  #   - exc == obj   -> true or false
+  # -->
+  # Equality---If *obj* is not an Exception, returns `false`. Otherwise, returns
+  # `true` if *exc* and *obj* share same class, messages, and backtrace.
+  #
+  def ==: (untyped obj) -> bool
+
+  # <!--
+  #   rdoc-file=error.c
   #   - Exception.new(msg = nil)        ->  exception
   #   - Exception.exception(msg = nil)  ->  exception
   # -->

@@ -8,7 +8,7 @@ $sandbox: Sandbox
 
 # Classes
 
-ENV: Hash[String, String]
+ENV: Hash[String, String?]
 $LOAD_PATH: Array[String]
 ARGV: Array[String]
 

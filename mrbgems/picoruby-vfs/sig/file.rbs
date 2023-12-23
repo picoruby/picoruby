@@ -876,7 +876,7 @@ class File
   # *   [Open Options](rdoc-ref:IO@Open+Options).
   # *   [Encoding options](rdoc-ref:encodings.rdoc@Encoding+Options).
   #
-  def initialize: (string | _ToPath | int file_name, ?string | int mode, ?int perm) -> File
+  def initialize: (string, ?string | int mode) -> File
 
   # <!--
   #   rdoc-file=file.c
@@ -889,7 +889,7 @@ class File
   #
   #     File.chmod(0644, "testfile", "out")   #=> 2
   #
-  def self.chmod: (int mode, *string | _ToPath file_name) -> Integer
+  def self.chmod: (int mode, *string) -> Integer
 
   # <!--
   #   rdoc-file=file.c
@@ -907,7 +907,7 @@ class File
   #
   # Argument `path` can be an IO object.
   #
-  def self.directory?: (string | _ToPath | IO path) -> bool
+  def self.directory?: (string) -> bool
 
   # <!--
   #   rdoc-file=file.c
@@ -919,7 +919,7 @@ class File
   #
   # "file exists" means that stat() or fstat() system call is successful.
   #
-  def self.exist?: (string | _ToPath | IO file_name) -> bool
+  def self.exist?: (string) -> bool
 
   # <!--
   #   rdoc-file=file.c
@@ -946,7 +946,7 @@ class File
   # So first it resolves the parent of __FILE__, that is bin/, then go to the
   # parent, the root of the project and appends `lib/mygem.rb`.
   #
-  def self.expand_path: (string | _ToPath file_name, ?string | _ToPath dir_string) -> String
+  def self.expand_path: (string, ?string) -> String
 
   # <!--
   #   rdoc-file=file.c
@@ -959,7 +959,7 @@ class File
   # If the `file` argument is a symbolic link, it will resolve the symbolic link
   # and use the file referenced by the link.
   #
-  def self.file?: (string | _ToPath | IO file) -> bool
+  def self.file?: (string) -> bool
 
   # <!--
   #   rdoc-file=io.c
@@ -973,8 +973,8 @@ class File
   # With a block given, calls the block with the File object and returns the
   # block's value.
   #
-  def self.open: (string | _ToPath | int file_name, ?string | int mode, ?int perm) -> instance
-               | [T] (string | _ToPath | int file_name, ?string | int mode, ?int perm) { (File) -> T } -> T
+  def self.open: (string, ?string | int mode) -> VFS::file_t
+               | [T] (string, ?string | int mode) { (VFS::file_t) -> T } -> VFS::file_t
 
   # <!--
   #   rdoc-file=file.c
@@ -985,7 +985,7 @@ class File
   #
   #     File.rename("afile", "afile.bak")   #=> 0
   #
-  def self.rename: (string | _ToPath old_name, string | _ToPath new_name) -> 0
+  def self.rename: (string, string) -> 0
 
   # <!--
   #   rdoc-file=file.c
@@ -1000,7 +1000,7 @@ class File
   #
   # See also Dir::rmdir.
   #
-  def self.unlink: (*string | _ToPath file_name) -> Integer
+  def self.unlink: (*string) -> Integer
 
   # <!--
   #   rdoc-file=file.c
@@ -1011,7 +1011,7 @@ class File
   # than the link itself; for the inverse behavior see File.lutime. Returns the
   # number of file names in the argument list.
   #
-  def self.utime: (Time | Integer atime, Time | Integer mtime, *string | _ToPath file_name) -> Integer
+  def self.utime: (Time | Integer atime, Time | Integer mtime, *string) -> Integer
 
   public
 
@@ -1082,7 +1082,7 @@ end
 #
 class File::Stat < Object
 
-  def self.new: (String file) -> self
+  def self.new: (String file) -> instance
 
   # <!--
   #   rdoc-file=file.c

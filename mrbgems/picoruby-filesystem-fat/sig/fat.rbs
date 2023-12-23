@@ -90,6 +90,9 @@ class FAT
 
   class File
     def initialize: (String path, String mode) -> void
+    def each_line: () { (String) -> void } -> nil
+    def gets: () -> String?
+    def puts: (Sting?) -> nil
     def tell: -> Integer
     def seek: (Integer offset, Integer whence) -> 0
     def eof?: -> bool

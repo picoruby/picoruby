@@ -1319,8 +1319,7 @@ class String
   #
   # Related: String#partition, String#rpartition.
   #
-  def split: (string pattern, ?int limit) -> Array[String]
-           | (string pattern, ?int limit) { (String) -> void } -> self
+  def split: (?string pattern, ?int limit) -> Array[String]
 
   # <!--
   #   rdoc-file=string.c

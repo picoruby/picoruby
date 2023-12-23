@@ -102,7 +102,7 @@ class Dir
   # The optional *encoding* keyword argument specifies the encoding of the
   # directory. If not specified, the filesystem encoding is used.
   #
-  def initialize: (path dir) -> VFS::dir_t
+  def initialize: (path dir) -> void
 
   # <!--
   #   rdoc-file=dir.c
@@ -277,8 +277,10 @@ class Dir
   #
   #     Dir.glob("**/lib/*.rb")             #=> ["lib/song.rb"]
   #
-  def self.glob: (array[path] | path pattern, ?int flags, ?base: path?, ?sort: bool) -> Array[String]
-               | (array[path] | path pattern, ?int flags, ?base: path?, ?sort: bool) { (String pathname) -> void } -> nil
+  def self.glob: (array[path] | path pattern, ?int flags, ?base: path?) -> Array[String]
+               | (array[path] | path pattern, ?int flags, ?base: path?) { (String pathname) -> void } -> nil
+
+  def self.mkdir: (path) -> 0
 
   # <!--
   #   rdoc-file=dir.rb
@@ -294,8 +296,8 @@ class Dir
   # passed *aDir* as a parameter. The directory is closed at the end of the block,
   # and Dir::open returns the value of the block.
   #
-  def self.open: (path dirname) -> instance
-               | [U] (path dirname) { (instance) -> U } -> U
+  def self.open: (path dirname) -> VFS::dir_t
+               | [U] (path dirname) { (VFS::dir_t) -> U } -> VFS::dir_t
 
   # <!--
   #   rdoc-file=dir.c
@@ -409,7 +411,7 @@ class Dir
 
   def findnext: () -> String?
 
-  def pat=: (String) -> String
+  def pat=: (array[path] | path) -> Array[String]
 
   private
 

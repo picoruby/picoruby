@@ -1008,6 +1008,8 @@ class Array[unchecked out Elem] < Object
   #
   alias any? all?
 
+  def at: (int index) -> Elem?
+
   # <!--
   #   rdoc-file=array.c
   #   - array.clear -> self
