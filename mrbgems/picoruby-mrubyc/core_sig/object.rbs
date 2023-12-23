@@ -106,6 +106,7 @@
 # *   #to_s: Returns a string representation of `self`.
 #
 class BasicObject
+  def self.new: (*untyped) -> untyped
 end
 class Class
 end
@@ -117,7 +118,6 @@ MRUBY_VERSION: String
 MRUBYC_VERSION: String
 class Object < BasicObject
 
-  def self.new: (*untyped) -> untyped
 
   def class: -> class
 

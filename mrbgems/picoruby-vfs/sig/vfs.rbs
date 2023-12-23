@@ -11,7 +11,7 @@ class VFS
 
   def self.mount: (driver_t driver, String mountpoint) -> void
   def self.unmount: (driver_t driver, ?bool force) -> void
-  def self.chdir: (String dir) -> Integer
+  def self.chdir: (String dir) -> 0
   def self.pwd: -> String
   def self.mkdir: (String path, ?Integer mode) -> 0
   def self.rename: (String from, String to) -> 0

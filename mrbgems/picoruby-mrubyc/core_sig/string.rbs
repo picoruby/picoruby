@@ -1544,6 +1544,8 @@ class String
              | (:lithuanian, :turkic) -> self?
              | (:turkic, :lithuanian) -> self?
 
+  def ! : () -> bool
+
   private
 
   # <!--

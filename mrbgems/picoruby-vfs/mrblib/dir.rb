@@ -103,8 +103,6 @@ class Dir
     self
   end
 
-  # private
-
   def pat=(pattern)
     @dir.pat = pattern
   end

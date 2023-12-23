@@ -1312,6 +1312,8 @@ class Array[unchecked out Elem] < Object
   def first: () -> Elem?
            | (int n) -> ::Array[Elem]
 
+  def flatten: () -> ::Array[Elem]
+
   # <!--
   #   rdoc-file=array.c
   #   - array.include?(obj) -> true or false
