@@ -110,8 +110,8 @@ class BasicObject
 end
 class Class
 end
-class Module < Object
-end
+#class Module < Object
+#end
 RUBY_ENGINE: String
 RUBY_VERSION: String
 MRUBY_VERSION: String

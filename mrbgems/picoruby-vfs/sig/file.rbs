@@ -838,6 +838,12 @@
 # *   #truncate: Truncates `self` to the given size.
 #
 class File
+  CHUNK_SIZE: Integer
+  SEEK_SET: Integer
+  SEEK_CUR: Integer
+  SEEK_END: Integer
+  @file: VFS::file_t
+
   # <!--
   #   rdoc-file=io.c
   #   - File.new(path, mode = 'r', perm = 0666, **opts) -> file
@@ -1051,7 +1057,7 @@ class File
 
   def each_line: () { (String) -> void } -> nil
 
-  def gets: (Integer sep, ?chomp: bool) -> String
+  def gets: (Integer sep, ?chomp: bool) -> String?
 
   def eof?: () -> bool
 
@@ -1081,7 +1087,6 @@ end
 # all values are meaningful on all systems. See also Kernel#test.
 #
 class File::Stat < Object
-
   def self.new: (String file) -> instance
 
   # <!--

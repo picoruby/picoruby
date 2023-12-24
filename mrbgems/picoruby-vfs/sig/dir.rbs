@@ -90,7 +90,9 @@
 # *   #inspect: Returns a string description of `self`.
 #
 class Dir
-   def self.new: (path dir) -> VFS::dir_t
+  @dir: VFS::dir_t
+
+  def self.new: (path dir) -> VFS::dir_t
 
   # <!--
   #   rdoc-file=dir.rb

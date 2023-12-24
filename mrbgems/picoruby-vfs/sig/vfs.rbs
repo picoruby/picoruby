@@ -31,5 +31,6 @@ class VFS
 
   class Dir
     def self.open: (String) -> dir_t
+    def pat=: (array[path] | path) -> Array[String]
   end
 end
