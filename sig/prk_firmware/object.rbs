@@ -3,10 +3,5 @@ class Object
 
   # mrbc
   def relinquish : -> bool
-  def sleep_ms : (Integer) -> void
   def suspend_task : () -> void
-  def sandbox_state : () -> Integer
-  def sandbox_result : () -> untyped
-  def sandbox_picorbc: (String) -> bool
-  def sandbox_resume: () -> bool
 end

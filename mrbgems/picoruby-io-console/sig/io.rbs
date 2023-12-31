@@ -3,7 +3,7 @@
 # Classes
 class IO
   def self.read_nonblock: (Integer) -> String
-  def self.get_nonblock: (Integer) -> String
+  def self.get_nonblock: (Integer) -> String?
   def self.get_cursor_position: -> ([Integer, Integer])
   def self.wait_terminal: (?timeout: Integer|Float|nil) -> bool
   def self.clear_screen: () -> nil
@@ -12,4 +12,7 @@ class IO
   def self.raw: () { () -> untyped } -> untyped
   def self.raw!: -> self
   def self.cooked!: -> self
+end
+
+class IO::EAGAINWaitReadable < StandardError
 end

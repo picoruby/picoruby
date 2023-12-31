@@ -7,7 +7,7 @@ class Machine
   def self.using_busy_wait: () { () -> void } -> void
 end
 
-$machine_delay: boolish
+$machine_delay: Symbol?
 
 class Object
   def sleep_ms_orig: (Integer ms) -> Integer

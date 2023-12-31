@@ -65,25 +65,23 @@ class Keyboard
   @anchor_signals: Array[Symbol]
   @keymaps: Hash[Symbol, Array[Array[Integer | Symbol | Proc]]]
   @composite_keys: Array[{
-    layer:             Symbol | nil,
-    keycodes:          Array[Integer],
-    switch:            [Integer, Integer],
+    layer:    Symbol | nil,
+    keycodes: Array[Integer],
+    switch:   [Integer, Integer],
   }]
-  @mode_keys: Hash[[Integer, Integer],
-    {
-      prev_state:  Symbol,
-      pushed_at:   Integer,
-      released_at: Integer,
-      layers:      Hash[Symbol,
-                        {
-                          on_release:        Integer | Array[Integer] | Proc | nil,
-                          on_hold:           Integer | Symbol | Proc,
-                          release_threshold: Integer,
-                          repush_threshold:  Integer
-                        }
-      ]
-    }
-  ]
+  type layer_t = {
+    on_release:        Integer | Array[Integer] | Proc | nil,
+    on_hold:           Integer | Symbol | Proc,
+    release_threshold: Integer,
+    repush_threshold:  Integer
+  }
+  type mode_key_t = {
+    prev_state:  Symbol,
+    pushed_at:   Integer,
+    released_at: Integer,
+    layers:      Hash[Symbol, layer_t]
+  }
+  @mode_keys: Hash[[Integer, Integer], mode_key_t]
   @injected_switches: Array[[Integer, Integer]]
   @layer_names: Array[Symbol]
   @layer: Symbol | nil

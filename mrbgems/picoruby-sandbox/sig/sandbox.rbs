@@ -1,5 +1,5 @@
 class Sandbox
-  class Abort
+  class Abort < Exception
   end
 
   TIMEOUT: Integer
@@ -7,7 +7,6 @@ class Sandbox
   @result: Object | nil
   @script: String
   @state: Integer
-  @binding: Binding
 
   attr_accessor error: Exception?
 
@@ -24,6 +23,8 @@ class Sandbox
   def load_file: (String, ?signal: bool) -> void
 end
 
+class RubyVM
+end
 class RubyVM::InstructionSequence
   def self.compile: (String) -> self
 end

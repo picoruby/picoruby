@@ -1,5 +1,17 @@
 # TypeProf 0.21.3
 
+# for RUBY_ENGINE == "ruby"
+STDIN: IO
+STDOUT: IO
+class IO
+  def noecho: () { (untyped) -> untyped } -> untyped
+  def <<: (untyped) -> self
+  def flush: -> self
+  def iflush: -> self
+  def getch: -> String
+  def raw: () { (untyped) -> untyped } -> untyped
+end
+
 # Classes
 class Terminal
   def self.get_screen_size: -> [Integer, Integer]
@@ -11,12 +23,15 @@ class Terminal
     def initialize: -> void
     attr_reader width: Integer
     attr_reader height: Integer
-    attr_accessor debug_tty: String?
     def clear: -> untyped
     def home: -> untyped
     def next_head: -> untyped
     def physical_line_count: -> Integer
-    def debug: (untyped text) -> bool?
+    def debug: (untyped text) -> Integer?
+
+    # for RUBY_ENGINE == "ruby"
+    attr_accessor debug_tty: String?
+    def system: (untyped command) -> Integer
   end
 
   class Line < Base
@@ -57,4 +72,9 @@ class Terminal
     def calculate_visual_cursor: -> void
     def start: () { (self, Terminal::Buffer, Integer) -> void }  -> void
   end
+end
+
+# for RUBY_ENGINE == "ruby"
+class IO
+  def read_nonblock: (Integer maxlen) -> String
 end

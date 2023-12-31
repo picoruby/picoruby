@@ -1,0 +1,1610 @@
+# <!-- rdoc-file=string.rb -->
+# A String object has an arbitrary sequence of bytes, typically representing
+# text or binary data. A String object may be created using String::new or as
+# literals.
+#
+# String objects differ from Symbol objects in that Symbol objects are designed
+# to be used as identifiers, instead of text or data.
+#
+# You can create a String object explicitly with:
+#
+# *   A [string literal](rdoc-ref:syntax/literals.rdoc@String+Literals).
+# *   A [heredoc literal](rdoc-ref:syntax/literals.rdoc@Here+Document+Literals).
+#
+#
+# You can convert certain objects to Strings with:
+#
+# *   Method #String.
+#
+#
+# Some String methods modify `self`. Typically, a method whose name ends with
+# `!` modifies `self` and returns `self`; often a similarly named method
+# (without the `!`) returns a new string.
+#
+# In general, if there exist both bang and non-bang version of method, the bang!
+# mutates and the non-bang! does not. However, a method without a bang can also
+# mutate, such as String#replace.
+#
+# ## Substitution Methods
+#
+# These methods perform substitutions:
+#
+# *   String#sub: One substitution (or none); returns a new string.
+# *   String#sub!: One substitution (or none); returns `self`.
+# *   String#gsub: Zero or more substitutions; returns a new string.
+# *   String#gsub!: Zero or more substitutions; returns `self`.
+#
+#
+# Each of these methods takes:
+#
+# *   A first argument, `pattern` (string or regexp), that specifies the
+#     substring(s) to be replaced.
+#
+# *   Either of these:
+#
+#     *   A second argument, `replacement` (string or hash), that determines the
+#         replacing string.
+#     *   A block that will determine the replacing string.
+#
+#
+#
+# The examples in this section mostly use methods String#sub and String#gsub;
+# the principles illustrated apply to all four substitution methods.
+#
+# **Argument `pattern`**
+#
+# Argument `pattern` is commonly a regular expression:
+#
+#     s = 'hello'
+#     s.sub(/[aeiou]/, '*')# => "h*llo"
+#     s.gsub(/[aeiou]/, '*') # => "h*ll*"
+#     s.gsub(/[aeiou]/, '')# => "hll"
+#     s.sub(/ell/, 'al')   # => "halo"
+#     s.gsub(/xyzzy/, '*') # => "hello"
+#     'THX1138'.gsub(/\d+/, '00') # => "THX00"
+#
+# When `pattern` is a string, all its characters are treated as ordinary
+# characters (not as regexp special characters):
+#
+#     'THX1138'.gsub('\d+', '00') # => "THX1138"
+#
+# **\String `replacement`**
+#
+# If `replacement` is a string, that string will determine the replacing string
+# that is to be substituted for the matched text.
+#
+# Each of the examples above uses a simple string as the replacing string.
+#
+# String `replacement` may contain back-references to the pattern's captures:
+#
+# *   `\n` (*n* a non-negative integer) refers to `$n`.
+# *   `\k<name>` refers to the named capture `name`.
+#
+#
+# See regexp.rdoc for details.
+#
+# Note that within the string `replacement`, a character combination such as
+# `$&` is treated as ordinary text, and not as a special match variable.
+# However, you may refer to some special match variables using these
+# combinations:
+#
+# *   `\&` and `\0` correspond to `$&`, which contains the complete matched
+#     text.
+# *   `\'` corresponds to `$'`, which contains string after match.
+# *   `\`` corresponds to `$``, which contains string before match.
+# *   `+` corresponds to `$+`, which contains last capture group.
+#
+#
+# See regexp.rdoc for details.
+#
+# Note that `\\\` is interpreted as an escape, i.e., a single backslash.
+#
+# Note also that a string literal consumes backslashes. See [String
+# Literals](rdoc-ref:syntax/literals.rdoc@String+Literals) for details about
+# string literals.
+#
+# A back-reference is typically preceded by an additional backslash. For
+# example, if you want to write a back-reference `\&` in `replacement` with a
+# double-quoted string literal, you need to write `"..\\\\&.."`.
+#
+# If you want to write a non-back-reference string `\&` in `replacement`, you
+# need first to escape the backslash to prevent this method from interpreting it
+# as a back-reference, and then you need to escape the backslashes again to
+# prevent a string literal from consuming them: `"..\\\\\\\\&.."`.
+#
+# You may want to use the block form to avoid a lot of backslashes.
+#
+# **\Hash `replacement`**
+#
+# If argument `replacement` is a hash, and `pattern` matches one of its keys,
+# the replacing string is the value for that key:
+#
+#     h = {'foo' => 'bar', 'baz' => 'bat'}
+#     'food'.sub('foo', h) # => "bard"
+#
+# Note that a symbol key does not match:
+#
+#     h = {foo: 'bar', baz: 'bat'}
+#     'food'.sub('foo', h) # => "d"
+#
+# **Block**
+#
+# In the block form, the current match string is passed to the block; the
+# block's return value becomes the replacing string:
+#
+#      s = '@'
+#     '1234'.gsub(/\d/) {|match| s.succ! } # => "ABCD"
+#
+# Special match variables such as `$1`, `$2`, `$``, `$&`, and `$'` are set
+# appropriately.
+#
+# ## Whitespace in Strings
+#
+# In class String, *whitespace* is defined as a contiguous sequence of
+# characters consisting of any mixture of the following:
+#
+# *   NL (null): `"\x00"`, `"\u0000"`.
+# *   HT (horizontal tab): `"\x09"`, `"\t"`.
+# *   LF (line feed): `"\x0a"`, `"\n"`.
+# *   VT (vertical tab): `"\x0b"`, `"\v"`.
+# *   FF (form feed): `"\x0c"`, `"\f"`.
+# *   CR (carriage return): `"\x0d"`, `"\r"`.
+# *   SP (space): `"\x20"`, `" "`.
+#
+#
+# Whitespace is relevant for these methods:
+#
+# *   #lstrip, #lstrip!: strip leading whitespace.
+# *   #rstrip, #rstrip!: strip trailing whitespace.
+# *   #strip, #strip!: strip leading and trailing whitespace.
+#
+#
+# ## String Slices
+#
+# A *slice* of a string is a substring that is selected by certain criteria.
+#
+# These instance methods make use of slicing:
+#
+# *   String#[] (also aliased as String#slice) returns a slice copied from
+#     `self`.
+# *   String#[]= returns a copy of `self` with a slice replaced.
+# *   String#slice! returns `self` with a slice removed.
+#
+#
+# Each of the above methods takes arguments that determine the slice to be
+# copied or replaced.
+#
+# The arguments have several forms. For string `string`,  the forms are:
+#
+# *   `string[index]`.
+# *   `string[start, length]`.
+# *   `string[range]`.
+# *   `string[regexp, capture = 0]`.
+# *   `string[substring]`.
+#
+#
+# **`string[index]`**
+#
+# When non-negative integer argument `index` is given, the slice is the
+# 1-character substring found in `self` at character offset `index`:
+#
+#     'bar'[0]       # => "b"
+#     'bar'[2]       # => "r"
+#     'bar'[20]      # => nil
+#     'тест'[2]      # => "с"
+#     'こんにちは'[4]  # => "は"
+#
+# When negative integer `index` is given, the slice begins at the offset given
+# by counting backward from the end of `self`:
+#
+#     'bar'[-3]         # => "b"
+#     'bar'[-1]         # => "r"
+#     'bar'[-20]        # => nil
+#
+# **`string[start, length]`**
+#
+# When non-negative integer arguments `start` and `length` are given, the slice
+# begins at character offset `start`, if it exists, and continues for `length`
+# characters, if available:
+#
+#     'foo'[0, 2]       # => "fo"
+#     'тест'[1, 2]      # => "ес"
+#     'こんにちは'[2, 2]  # => "にち"
+#     # Zero length.
+#     'foo'[2, 0]       # => ""
+#     # Length not entirely available.
+#     'foo'[1, 200]     # => "oo"
+#     # Start out of range.
+#     'foo'[4, 2]      # => nil
+#
+# Special case: if `start` is equal to the length of `self`, the slice is a new
+# empty string:
+#
+#     'foo'[3, 2]   # => ""
+#     'foo'[3, 200] # => ""
+#
+# When negative `start` and non-negative `length` are given, the slice beginning
+# is determined by counting backward from the end of `self`, and the slice
+# continues for `length` characters, if available:
+#
+#     'foo'[-2, 2]    # => "oo"
+#     'foo'[-2, 200]  # => "oo"
+#     # Start out of range.
+#     'foo'[-4, 2]     # => nil
+#
+# When negative `length` is given, there is no slice:
+#
+#     'foo'[1, -1]  # => nil
+#     'foo'[-2, -1] # => nil
+#
+# **`string[range]`**
+#
+# When Range argument `range` is given, creates a substring of `string` using
+# the indices in `range`. The slice is then determined as above:
+#
+#     'foo'[0..1]    # => "fo"
+#     'foo'[0, 2]    # => "fo"
+#
+#     'foo'[2...2]   # => ""
+#     'foo'[2, 0]    # => ""
+#
+#     'foo'[1..200]  # => "oo"
+#     'foo'[1, 200]  # => "oo"
+#
+#     'foo'[4..5]    # => nil
+#     'foo'[4, 2]    # => nil
+#
+#     'foo'[-4..-3]  # => nil
+#     'foo'[-4, 2]   # => nil
+#
+#     'foo'[3..4]    # => ""
+#     'foo'[3, 2]    # => ""
+#
+#     'foo'[-2..-1]  # => "oo"
+#     'foo'[-2, 2]   # => "oo"
+#
+#     'foo'[-2..197] # => "oo"
+#     'foo'[-2, 200] # => "oo"
+#
+# **`string[regexp, capture = 0]`**
+#
+# When the Regexp argument `regexp` is given, and the `capture` argument is `0`,
+# the slice is the first matching substring found in `self`:
+#
+#     'foo'[/o/] # => "o"
+#     'foo'[/x/] # => nil
+#     s = 'hello there'
+#     s[/[aeiou](.)\1/] # => "ell"
+#     s[/[aeiou](.)\1/, 0] # => "ell"
+#
+# If argument `capture` is given and not `0`, it should be either an capture
+# group index (integer) or a capture group name (string or symbol); the slice is
+# the specified capture (see Regexp@Capturing):
+#
+#     s = 'hello there'
+#     s[/[aeiou](.)\1/, 1] # => "l"
+#     s[/(?<vowel>[aeiou])(?<non_vowel>[^aeiou])/, "non_vowel"] # => "l"
+#     s[/(?<vowel>[aeiou])(?<non_vowel>[^aeiou])/, :vowel] # => "e"
+#
+# If an invalid capture group index is given, there is no slice. If an invalid
+# capture group name is given, `IndexError` is raised.
+#
+# **`string[substring]`**
+#
+# When the single String argument `substring` is given, returns the substring
+# from `self` if found, otherwise `nil`:
+#
+#     'foo'['oo'] # => "oo"
+#     'foo'['xx'] # => nil
+#
+# ## What's Here
+#
+# First, what's elsewhere. Class String:
+#
+# *   Inherits from [class Object](rdoc-ref:Object@What-27s+Here).
+# *   Includes [module Comparable](rdoc-ref:Comparable@What-27s+Here).
+#
+#
+# Here, class String provides methods that are useful for:
+#
+# *   [Creating a String](rdoc-ref:String@Methods+for+Creating+a+String)
+# *   [Frozen/Unfrozen
+#     Strings](rdoc-ref:String@Methods+for+a+Frozen-2FUnfrozen+String)
+# *   [Querying](rdoc-ref:String@Methods+for+Querying)
+# *   [Comparing](rdoc-ref:String@Methods+for+Comparing)
+# *   [Modifying a String](rdoc-ref:String@Methods+for+Modifying+a+String)
+# *   [Converting to New
+#     String](rdoc-ref:String@Methods+for+Converting+to+New+String)
+# *   [Converting to
+#     Non-String](rdoc-ref:String@Methods+for+Converting+to+Non--5CString)
+# *   [Iterating](rdoc-ref:String@Methods+for+Iterating)
+#
+#
+# ### Methods for Creating a String
+#
+# *   ::new: Returns a new string.
+# *   ::try_convert: Returns a new string created from a given object.
+#
+#
+# ### Methods for a Frozen/Unfrozen String
+#
+# *   #+@: Returns a string that is not frozen: `self`, if not frozen;
+#     `self.dup` otherwise.
+# *   #-@: Returns a string that is frozen: `self`, if already frozen;
+#     `self.freeze` otherwise.
+# *   #freeze: Freezes `self`, if not already frozen; returns `self`.
+#
+#
+# ### Methods for Querying
+#
+# *Counts*
+#
+# *   #length, #size: Returns the count of characters (not bytes).
+# *   #empty?: Returns `true` if `self.length` is zero; `false` otherwise.
+# *   #bytesize: Returns the count of bytes.
+# *   #count: Returns the count of substrings matching given strings.
+#
+#
+# *Substrings*
+#
+# *   #=~: Returns the index of the first substring that matches a given Regexp
+#     or other object; returns `nil` if no match is found.
+# *   #index: Returns the index of the *first* occurrence of a given substring;
+#     returns `nil` if none found.
+# *   #rindex: Returns the index of the *last* occurrence of a given substring;
+#     returns `nil` if none found.
+# *   #include?: Returns `true` if the string contains a given substring;
+#     `false` otherwise.
+# *   #match: Returns a MatchData object if the string matches a given Regexp;
+#     `nil` otherwise.
+# *   #match?: Returns `true` if the string matches a given Regexp; `false`
+#     otherwise.
+# *   #start_with?: Returns `true` if the string begins with any of the given
+#     substrings.
+# *   #end_with?: Returns `true` if the string ends with any of the given
+#     substrings.
+#
+#
+# *Encodings*
+#
+# *   #encoding: Returns the Encoding object that represents the encoding of the
+#     string.
+# *   #unicode_normalized?: Returns `true` if the string is in Unicode
+#     normalized form; `false` otherwise.
+# *   #valid_encoding?: Returns `true` if the string contains only characters
+#     that are valid for its encoding.
+# *   #ascii_only?: Returns `true` if the string has only ASCII characters;
+#     `false` otherwise.
+#
+#
+# *Other*
+#
+# *   #sum: Returns a basic checksum for the string: the sum of each byte.
+# *   #hash: Returns the integer hash code.
+#
+#
+# ### Methods for Comparing
+#
+# *   #==, #===: Returns `true` if a given other string has the same content as
+#     `self`.
+# *   #eql?: Returns `true` if the content is the same as the given other
+#     string.
+# *   #<=>: Returns -1, 0, or 1 as a given other string is smaller than, equal
+#     to, or larger than `self`.
+# *   #casecmp: Ignoring case, returns -1, 0, or 1 as a given other string is
+#     smaller than, equal to, or larger than `self`.
+# *   #casecmp?: Returns `true` if the string is equal to a given string after
+#     Unicode case folding; `false` otherwise.
+#
+#
+# ### Methods for Modifying a String
+#
+# Each of these methods modifies `self`.
+#
+# *Insertion*
+#
+# *   #insert: Returns `self` with a given string inserted at a given offset.
+# *   #<<: Returns `self` concatenated with a given string or integer.
+#
+#
+# *Substitution*
+#
+# *   #sub!: Replaces the first substring that matches a given pattern with a
+#     given replacement string; returns `self` if any changes, `nil` otherwise.
+# *   #gsub!: Replaces each substring that matches a given pattern with a given
+#     replacement string; returns `self` if any changes, `nil` otherwise.
+# *   #succ!, #next!: Returns `self` modified to become its own successor.
+# *   #replace: Returns `self` with its entire content replaced by a given
+#     string.
+# *   #reverse!: Returns `self` with its characters in reverse order.
+# *   #setbyte: Sets the byte at a given integer offset to a given value;
+#     returns the argument.
+# *   #tr!: Replaces specified characters in `self` with specified replacement
+#     characters; returns `self` if any changes, `nil` otherwise.
+# *   #tr_s!: Replaces specified characters in `self` with specified replacement
+#     characters, removing duplicates from the substrings that were modified;
+#     returns `self` if any changes, `nil` otherwise.
+#
+#
+# *Casing*
+#
+# *   #capitalize!: Upcases the initial character and downcases all others;
+#     returns `self` if any changes, `nil` otherwise.
+# *   #downcase!: Downcases all characters; returns `self` if any changes, `nil`
+#     otherwise.
+# *   #upcase!: Upcases all characters; returns `self` if any changes, `nil`
+#     otherwise.
+# *   #swapcase!: Upcases each downcase character and downcases each upcase
+#     character; returns `self` if any changes, `nil` otherwise.
+#
+#
+# *Encoding*
+#
+# *   #encode!: Returns `self` with all characters transcoded from one given
+#     encoding into another.
+# *   #unicode_normalize!: Unicode-normalizes `self`; returns `self`.
+# *   #scrub!: Replaces each invalid byte with a given character; returns
+#     `self`.
+# *   #force_encoding: Changes the encoding to a given encoding; returns `self`.
+#
+#
+# *Deletion*
+#
+# *   #clear: Removes all content, so that `self` is empty; returns `self`.
+# *   #slice!, #[]=: Removes a substring determined by a given index,
+#     start/length, range, regexp, or substring.
+# *   #squeeze!: Removes contiguous duplicate characters; returns `self`.
+# *   #delete!: Removes characters as determined by the intersection of
+#     substring arguments.
+# *   #lstrip!: Removes leading whitespace; returns `self` if any changes, `nil`
+#     otherwise.
+# *   #rstrip!: Removes trailing whitespace; returns `self` if any changes,
+#     `nil` otherwise.
+# *   #strip!: Removes leading and trailing whitespace; returns `self` if any
+#     changes, `nil` otherwise.
+# *   #chomp!: Removes trailing record separator, if found; returns `self` if
+#     any changes, `nil` otherwise.
+# *   #chop!: Removes trailing newline characters if found; otherwise removes
+#     the last character; returns `self` if any changes, `nil` otherwise.
+#
+#
+# ### Methods for Converting to New String
+#
+# Each of these methods returns a new String based on `self`, often just a
+# modified copy of `self`.
+#
+# *Extension*
+#
+# *   #*: Returns the concatenation of multiple copies of `self`,
+# *   #+: Returns the concatenation of `self` and a given other string.
+# *   #center: Returns a copy of `self` centered between pad substring.
+# *   #concat: Returns the concatenation of `self` with given other strings.
+# *   #prepend: Returns the concatenation of a given other string with `self`.
+# *   #ljust: Returns a copy of `self` of a given length, right-padded with a
+#     given other string.
+# *   #rjust: Returns a copy of `self` of a given length, left-padded with a
+#     given other string.
+#
+#
+# *Encoding*
+#
+# *   #b: Returns a copy of `self` with ASCII-8BIT encoding.
+# *   #scrub: Returns a copy of `self` with each invalid byte replaced with a
+#     given character.
+# *   #unicode_normalize: Returns a copy of `self` with each character
+#     Unicode-normalized.
+# *   #encode: Returns a copy of `self` with all characters transcoded from one
+#     given encoding into another.
+#
+#
+# *Substitution*
+#
+# *   #dump: Returns a copy of `self` with all non-printing characters replaced
+#     by xHH notation and all special characters escaped.
+# *   #undump: Returns a copy of `self` with all `\xNN` notation replace by
+#     `\uNNNN` notation and all escaped characters unescaped.
+# *   #sub: Returns a copy of `self` with the first substring matching a given
+#     pattern replaced with a given replacement string;.
+# *   #gsub: Returns a copy of `self` with each substring that matches a given
+#     pattern replaced with a given replacement string.
+# *   #succ, #next: Returns the string that is the successor to `self`.
+# *   #reverse: Returns a copy of `self` with its characters in reverse order.
+# *   #tr: Returns a copy of `self` with specified characters replaced with
+#     specified      replacement characters.
+# *   #tr_s: Returns a copy of `self` with specified characters replaced with
+#     specified replacement characters, removing duplicates from the substrings
+#     that were modified.
+# *   #%: Returns the string resulting from formatting a given object into
+#     `self`
+#
+#
+# *Casing*
+#
+# *   #capitalize: Returns a copy of `self` with the first character upcased and
+#     all other characters downcased.
+# *   #downcase: Returns a copy of `self` with all characters downcased.
+# *   #upcase: Returns a copy of `self` with all characters upcased.
+# *   #swapcase: Returns a copy of `self` with all upcase characters downcased
+#     and all downcase characters upcased.
+#
+#
+# *Deletion*
+#
+# *   #delete: Returns a copy of `self` with characters removed
+# *   #delete_prefix: Returns a copy of `self` with a given prefix removed.
+# *   #delete_suffix: Returns a copy of `self` with a given suffix removed.
+# *   #lstrip: Returns a copy of `self` with leading whitespace removed.
+# *   #rstrip: Returns a copy of `self` with trailing whitespace removed.
+# *   #strip: Returns a copy of `self` with leading and trailing whitespace
+#     removed.
+# *   #chomp: Returns a copy of `self` with a trailing record separator removed,
+#     if found.
+# *   #chop: Returns a copy of `self` with trailing newline characters or the
+#     last character removed.
+# *   #squeeze: Returns a copy of `self` with contiguous duplicate characters
+#     removed.
+# *   #[], #slice: Returns a substring determined by a given index,
+#     start/length, or range, or string.
+# *   #byteslice: Returns a substring determined by a given index, start/length,
+#     or range.
+# *   #chr: Returns the first character.
+#
+#
+# *Duplication*
+#
+# *   #to_s, $to_str: If `self` is a subclass of String, returns `self` copied
+#     into a String; otherwise, returns `self`.
+#
+#
+# ### Methods for Converting to Non-String
+#
+# Each of these methods converts the contents of `self` to a non-String.
+#
+# *Characters, Bytes, and Clusters*
+#
+# *   #bytes: Returns an array of the bytes in `self`.
+# *   #chars: Returns an array of the characters in `self`.
+# *   #codepoints: Returns an array of the integer ordinals in `self`.
+# *   #getbyte: Returns an integer byte as determined by a given index.
+# *   #grapheme_clusters: Returns an array of the grapheme clusters in `self`.
+#
+#
+# *Splitting*
+#
+# *   #lines: Returns an array of the lines in `self`, as determined by a given
+#     record separator.
+# *   #partition: Returns a 3-element array determined by the first substring
+#     that matches a given substring or regexp,
+# *   #rpartition: Returns a 3-element array determined by the last substring
+#     that matches a given substring or regexp,
+# *   #split: Returns an array of substrings determined by a given delimiter --
+#     regexp or string -- or, if a block given, passes those substrings to the
+#     block.
+#
+#
+# *Matching*
+#
+# *   #scan: Returns an array of substrings matching a given regexp or string,
+#     or, if a block given, passes each matching substring to the  block.
+# *   #unpack: Returns an array of substrings extracted from `self` according to
+#     a given format.
+# *   #unpack1: Returns the first substring extracted from `self` according to a
+#     given format.
+#
+#
+# *Numerics*
+#
+# *   #hex: Returns the integer value of the leading characters, interpreted as
+#     hexadecimal digits.
+# *   #oct: Returns the integer value of the leading characters, interpreted as
+#     octal digits.
+# *   #ord: Returns the integer ordinal of the first character in `self`.
+# *   #to_i: Returns the integer value of leading characters, interpreted as an
+#     integer.
+# *   #to_f: Returns the floating-point value of leading characters, interpreted
+#     as a floating-point number.
+#
+#
+# *Strings and Symbols*
+#
+# *   #inspect: Returns copy of `self`, enclosed in double-quotes, with special
+#     characters escaped.
+# *   #to_sym, #intern: Returns the symbol corresponding to `self`.
+#
+#
+# ### Methods for Iterating
+#
+# *   #each_byte: Calls the given block with each successive byte in `self`.
+# *   #each_char: Calls the given block with each successive character in
+#     `self`.
+# *   #each_codepoint: Calls the given block with each successive integer
+#     codepoint in `self`.
+# *   #each_grapheme_cluster: Calls the given block with each successive
+#     grapheme cluster in `self`.
+# *   #each_line: Calls the given block with each successive line in `self`, as
+#     determined by a given record separator.
+# *   #upto: Calls the given block with each string value returned by successive
+#     calls to #succ.
+#
+class String
+
+  public
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string * integer -> new_string
+  # -->
+  # Returns a new String containing `integer` copies of `self`:
+  #
+  #     "Ho! " * 3 # => "Ho! Ho! Ho! "
+  #     "Ho! " * 0 # => ""
+  #
+  def *: (int n) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string + other_string -> new_string
+  # -->
+  # Returns a new String containing `other_string` concatenated to `self`:
+  #
+  #     "Hello from " + self.to_s # => "Hello from main"
+  #
+  def +: (string other_str) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string << object -> string
+  # -->
+  # Concatenates `object` to `self` and returns `self`:
+  #
+  #     s = 'foo'
+  #     s << 'bar' # => "foobar"
+  #     s          # => "foobar"
+  #
+  # If `object` is an Integer, the value is considered a codepoint and converted
+  # to a character before concatenation:
+  #
+  #     s = 'foo'
+  #     s << 33 # => "foo!"
+  #
+  # Related: String#concat, which takes multiple arguments.
+  #
+  def <<: (string | Integer str_or_codepoint) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string <=> other_string -> -1, 0, 1, or nil
+  # -->
+  # Compares `self` and `other_string`, returning:
+  #
+  # *   -1 if `other_string` is larger.
+  # *   0 if the two are equal.
+  # *   1 if `other_string` is smaller.
+  # *   `nil` if the two are incomparable.
+  #
+  #
+  # Examples:
+  #
+  #     'foo' <=> 'foo' # => 0
+  #     'foo' <=> 'food' # => -1
+  #     'food' <=> 'foo' # => 1
+  #     'FOO' <=> 'foo' # => -1
+  #     'foo' <=> 'FOO' # => 1
+  #     'foo' <=> 1 # => nil
+  #
+  def <=>: (string other) -> Integer
+         | (untyped other) -> Integer?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string == object -> true or false
+  #   - string === object -> true or false
+  # -->
+  # Returns `true` if `object` has the same length and content; as `self`; `false`
+  # otherwise:
+  #
+  #     s = 'foo'
+  #     s == 'foo' # => true
+  #     s == 'food' # => false
+  #     s == 'FOO' # => false
+  #
+  # Returns `false` if the two strings' encodings are not compatible:
+  #     "\u{e4 f6 fc}".encode("ISO-8859-1") == ("\u{c4 d6 dc}") # => false
+  #
+  # If `object` is not an instance of String but responds to `to_str`, then the
+  # two strings are compared using `object.==`.
+  #
+  def ==: (untyped obj) -> bool
+
+  # <!-- rdoc-file=string.c -->
+  # Returns `true` if `object` has the same length and content; as `self`; `false`
+  # otherwise:
+  #
+  #     s = 'foo'
+  #     s == 'foo' # => true
+  #     s == 'food' # => false
+  #     s == 'FOO' # => false
+  #
+  # Returns `false` if the two strings' encodings are not compatible:
+  #     "\u{e4 f6 fc}".encode("ISO-8859-1") == ("\u{c4 d6 dc}") # => false
+  #
+  # If `object` is not an instance of String but responds to `to_str`, then the
+  # two strings are compared using `object.==`.
+  #
+  def ===: (untyped obj) -> bool
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string[index] -> new_string or nil
+  #   - string[start, length] -> new_string or nil
+  #   - string[range] -> new_string or nil
+  #   - string[regexp, capture = 0] -> new_string or nil
+  #   - string[substring] -> new_string or nil
+  # -->
+  # Returns the substring of `self` specified by the arguments. See examples at
+  # [String Slices](rdoc-ref:String@String+Slices).
+  #
+  def []: (int index) -> String?
+        | (int start, int length) -> String?
+        | (Range[Integer] | Range[Integer?] range) -> String?
+        | (String match_str) -> String?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - string[index] = new_string
+  #   - string[start, length] = new_string
+  #   - string[range] = new_string
+  #   - string[regexp, capture = 0] = new_string
+  #   - string[substring] = new_string
+  # -->
+  # Replaces all, some, or none of the contents of `self`; returns `new_string`.
+  # See [String Slices](rdoc-ref:String@String+Slices).
+  #
+  # A few examples:
+  #
+  #     s = 'foo'
+  #     s[2] = 'rtune'     # => "rtune"
+  #     s                  # => "fortune"
+  #     s[1, 5] = 'init'   # => "init"
+  #     s                  # => "finite"
+  #     s[3..4] = 'al'     # => "al"
+  #     s                  # => "finale"
+  #     s[/e$/] = 'ly'     # => "ly"
+  #     s                  # => "finally"
+  #     s['lly'] = 'ncial' # => "ncial"
+  #     s                  # => "financial"
+  #
+  # String#slice is an alias for String#[].
+  #
+  def []=: (int pos, String new_str) -> String
+         | (int begin_pos, int end_pos, String new_str) -> String
+         | (Range[Integer] | Range[Integer?] range, String new_str) -> String
+         | (String other_str, String new_str) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - bytes -> array_of_bytes
+  # -->
+  # Returns an array of the bytes in `self`:
+  #
+  #     'hello'.bytes # => [104, 101, 108, 108, 111]
+  #     'тест'.bytes  # => [209, 130, 208, 181, 209, 129, 209, 130]
+  #     'こんにちは'.bytes
+  #     # => [227, 129, 147, 227, 130, 147, 227, 129, 171, 227, 129, 161, 227, 129, 175]
+  #
+  def bytes: () -> Array[Integer]
+           | () { (Integer byte) -> void } -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - chomp(line_sep = $/) -> new_string
+  # -->
+  # Returns a new string copied from `self`, with trailing characters possibly
+  # removed:
+  #
+  # When `line_sep` is `"\n"`, removes the last one or two characters if they are
+  # `"\r"`, `"\n"`, or `"\r\n"` (but not `"\n\r"`):
+  #
+  #     $/                    # => "\n"
+  #     "abc\r".chomp         # => "abc"
+  #     "abc\n".chomp         # => "abc"
+  #     "abc\r\n".chomp       # => "abc"
+  #     "abc\n\r".chomp       # => "abc\n"
+  #     "тест\r\n".chomp      # => "тест"
+  #     "こんにちは\r\n".chomp  # => "こんにちは"
+  #
+  # When `line_sep` is `''` (an empty string), removes multiple trailing
+  # occurrences of `"\n"` or `"\r\n"` (but not `"\r"` or `"\n\r"`):
+  #
+  #     "abc\n\n\n".chomp('')           # => "abc"
+  #     "abc\r\n\r\n\r\n".chomp('')     # => "abc"
+  #     "abc\n\n\r\n\r\n\n\n".chomp('') # => "abc"
+  #     "abc\n\r\n\r\n\r".chomp('')     # => "abc\n\r\n\r\n\r"
+  #     "abc\r\r\r".chomp('')           # => "abc\r\r\r"
+  #
+  # When `line_sep` is neither `"\n"` nor `''`, removes a single trailing line
+  # separator if there is one:
+  #
+  #     'abcd'.chomp('d')  # => "abc"
+  #     'abcdd'.chomp('d') # => "abcd"
+  #
+  def chomp: (?string separator) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - chomp!(line_sep = $/) -> self or nil
+  # -->
+  # Like String#chomp, but modifies `self` in place; returns `nil` if no
+  # modification made, `self` otherwise.
+  #
+  def chomp!: (?string separator) -> String?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - clear -> self
+  # -->
+  # Removes the contents of `self`:
+  #
+  #     s = 'foo' # => "foo"
+  #     s.clear   # => ""
+  #
+  def clear: () -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - downcase(*options) -> string
+  # -->
+  # Returns a string containing the downcased characters in `self`:
+  #
+  #     s = 'Hello World!' # => "Hello World!"
+  #     s.downcase         # => "hello world!"
+  #
+  # The casing may be affected by the given `options`; see [Case
+  # Mapping](rdoc-ref:case_mapping.rdoc).
+  #
+  # Related: String#downcase!, String#upcase, String#upcase!.
+  #
+  def downcase: () -> String
+              | (:ascii | :fold | :lithuanian | :turkic) -> String
+              | (:lithuanian, :turkic) -> String
+              | (:turkic, :lithuanian) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - downcase!(*options) -> self or nil
+  # -->
+  # Downcases the characters in `self`; returns `self` if any changes were made,
+  # `nil` otherwise:
+  #
+  #     s = 'Hello World!' # => "Hello World!"
+  #     s.downcase!        # => "hello world!"
+  #     s                  # => "hello world!"
+  #     s.downcase!        # => nil
+  #
+  # The casing may be affected by the given `options`; see [Case
+  # Mapping](rdoc-ref:case_mapping.rdoc).
+  #
+  # Related: String#downcase, String#upcase, String#upcase!.
+  #
+  def downcase!: () -> String?
+               | (:ascii | :fold | :lithuanian | :turkic) -> String?
+               | (:lithuanian, :turkic) -> String?
+               | (:turkic, :lithuanian) -> String?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - each_byte {|byte| ... } -> self
+  #   - each_byte               -> enumerator
+  # -->
+  # Calls the given block with each successive byte from `self`; returns `self`:
+  #
+  #     'hello'.each_byte {|byte| print byte, ' ' }
+  #     print "\n"
+  #     'тест'.each_byte {|byte| print byte, ' ' }
+  #     print "\n"
+  #     'こんにちは'.each_byte {|byte| print byte, ' ' }
+  #     print "\n"
+  #
+  # Output:
+  #
+  #     104 101 108 108 111
+  #     209 130 208 181 209 129 209 130
+  #     227 129 147 227 130 147 227 129 171 227 129 161 227 129 175
+  #
+  # Returns an enumerator if no block is given.
+  #
+  def each_byte: () { (Integer byte) -> void } -> self
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - each_char {|c| ... } -> self
+  #   - each_char            -> enumerator
+  # -->
+  # Calls the given block with each successive character from `self`; returns
+  # `self`:
+  #
+  #     'hello'.each_char {|char| print char, ' ' }
+  #     print "\n"
+  #     'тест'.each_char {|char| print char, ' ' }
+  #     print "\n"
+  #     'こんにちは'.each_char {|char| print char, ' ' }
+  #     print "\n"
+  #
+  # Output:
+  #
+  #     h e l l o
+  #     т е с т
+  #     こ ん に ち は
+  #
+  # Returns an enumerator if no block is given.
+  #
+  def each_char: () { (String char) -> void } -> self
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - empty? -> true or false
+  # -->
+  # Returns `true` if the length of `self` is zero, `false` otherwise:
+  #
+  #     "hello".empty? # => false
+  #     " ".empty? # => false
+  #     "".empty? # => true
+  #
+  def empty?: () -> bool
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - end_with?(*strings) -> true or false
+  # -->
+  # Returns whether `self` ends with any of the given `strings`.
+  #
+  # Returns `true` if any given string matches the end, `false` otherwise:
+  #
+  #     'hello'.end_with?('ello')               #=> true
+  #     'hello'.end_with?('heaven', 'ello')     #=> true
+  #     'hello'.end_with?('heaven', 'paradise') #=> false
+  #     'тест'.end_with?('т')                   # => true
+  #     'こんにちは'.end_with?('は')              # => true
+  #
+  # Related: String#start_with?.
+  #
+  def end_with?: (*string suffixes) -> bool
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - getbyte(index) -> integer or nil
+  # -->
+  # Returns the byte at zero-based `index` as an integer, or `nil` if `index` is
+  # out of range:
+  #
+  #     s = 'abcde'   # => "abcde"
+  #     s.getbyte(0)  # => 97
+  #     s.getbyte(-1) # => 101
+  #     s.getbyte(5)  # => nil
+  #
+  # Related: String#setbyte.
+  #
+  def getbyte: (int index) -> Integer?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - include? other_string -> true or false
+  # -->
+  # Returns `true` if `self` contains `other_string`, `false` otherwise:
+  #
+  #     s = 'foo'
+  #     s.include?('f')    # => true
+  #     s.include?('fo')   # => true
+  #     s.include?('food') # => false
+  #
+  def include?: (string other_str) -> bool
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - index(substring, offset = 0) -> integer or nil
+  #   - index(regexp, offset = 0) -> integer or nil
+  # -->
+  # Returns the integer index of the first match for the given argument, or `nil`
+  # if none found; the search of `self` is forward, and begins at position
+  # `offset` (in characters).
+  #
+  # With string argument `substring`, returns the index of the first matching
+  # substring in `self`:
+  #
+  #     'foo'.index('f')         # => 0
+  #     'foo'.index('o')         # => 1
+  #     'foo'.index('oo')        # => 1
+  #     'foo'.index('ooo')       # => nil
+  #     'тест'.index('с')        # => 2
+  #     'こんにちは'.index('ち')   # => 3
+  #
+  # With Regexp argument `regexp`, returns the index of the first match in `self`:
+  #
+  #     'foo'.index(/o./) # => 1
+  #     'foo'.index(/.o/) # => 0
+  #
+  # With positive integer `offset`, begins the search at position `offset`:
+  #
+  #     'foo'.index('o', 1)        # => 1
+  #     'foo'.index('o', 2)        # => 2
+  #     'foo'.index('o', 3)        # => nil
+  #     'тест'.index('с', 1)       # => 2
+  #     'こんにちは'.index('ち', 2)  # => 3
+  #
+  # With negative integer `offset`, selects the search position by counting
+  # backward from the end of `self`:
+  #
+  #     'foo'.index('o', -1)  # => 2
+  #     'foo'.index('o', -2)  # => 1
+  #     'foo'.index('o', -3)  # => 1
+  #     'foo'.index('o', -4)  # => nil
+  #     'foo'.index(/o./, -2) # => 1
+  #     'foo'.index(/.o/, -2) # => 1
+  #
+  # Related: String#rindex.
+  #
+  def index: (string substr_or_regexp, ?int offset) -> Integer?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - inspect -> string
+  # -->
+  # Returns a printable version of `self`, enclosed in double-quotes, and with
+  # special characters escaped:
+  #
+  #     s = "foo\tbar\tbaz\n"
+  #     s.inspect
+  #     # => "\"foo\\tbar\\tbaz\\n\""
+  #
+  def inspect: () -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - str.intern   -> symbol
+  #   - str.to_sym   -> symbol
+  # -->
+  # Returns the Symbol corresponding to *str*, creating the symbol if it did not
+  # previously exist. See Symbol#id2name.
+  #
+  #     "Koala".intern         #=> :Koala
+  #     s = 'cat'.to_sym       #=> :cat
+  #     s == :cat              #=> true
+  #     s = '@cat'.to_sym      #=> :@cat
+  #     s == :@cat             #=> true
+  #
+  # This can also be used to create symbols that cannot be represented using the
+  # `:xxx` notation.
+  #
+  #     'cat and dog'.to_sym   #=> :"cat and dog"
+  #
+  def intern: () -> Symbol
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - length -> integer
+  # -->
+  # Returns the count of characters (not bytes) in `self`:
+  #
+  #     'foo'.length        # => 3
+  #     'тест'.length       # => 4
+  #     'こんにちは'.length   # => 5
+  #
+  # Contrast with String#bytesize:
+  #
+  #     'foo'.bytesize        # => 3
+  #     'тест'.bytesize       # => 8
+  #     'こんにちは'.bytesize   # => 15
+  #
+  # String#size is an alias for String#length.
+  #
+  def length: () -> Integer
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - ljust(size, pad_string = ' ') -> new_string
+  # -->
+  # Returns a left-justified copy of `self`.
+  #
+  # If integer argument `size` is greater than the size (in characters) of `self`,
+  # returns a new string of length `size` that is a copy of `self`, left justified
+  # and padded on the right with `pad_string`:
+  #
+  #     'hello'.ljust(10)       # => "hello     "
+  #     '  hello'.ljust(10)     # => "  hello   "
+  #     'hello'.ljust(10, 'ab') # => "helloababa"
+  #     'тест'.ljust(10)        # => "тест      "
+  #     'こんにちは'.ljust(10)    # => "こんにちは     "
+  #
+  # If `size` is not greater than the size of `self`, returns a copy of `self`:
+  #
+  #     'hello'.ljust(5)  # => "hello"
+  #     'hello'.ljust(1)  # => "hello"
+  #
+  # Related: String#rjust, String#center.
+  #
+  def ljust: (Integer width, ?string padstr) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - lstrip -> new_string
+  # -->
+  # Returns a copy of `self` with leading whitespace removed; see [Whitespace in
+  # Strings](rdoc-ref:String@Whitespace+in+Strings):
+  #
+  #     whitespace = "\x00\t\n\v\f\r "
+  #     s = whitespace + 'abc' + whitespace
+  #     s        # => "\u0000\t\n\v\f\r abc\u0000\t\n\v\f\r "
+  #     s.lstrip # => "abc\u0000\t\n\v\f\r "
+  #
+  # Related: String#rstrip, String#strip.
+  #
+  def lstrip: () -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - lstrip! -> self or nil
+  # -->
+  # Like String#lstrip, except that any modifications are made in `self`; returns
+  # `self` if any modification are made, `nil` otherwise.
+  #
+  # Related: String#rstrip!, String#strip!.
+  #
+  def lstrip!: () -> self?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - ord -> integer
+  # -->
+  # Returns the integer ordinal of the first character of `self`:
+  #
+  #     'h'.ord         # => 104
+  #     'hello'.ord     # => 104
+  #     'тест'.ord      # => 1090
+  #     'こんにちは'.ord  # => 12371
+  #
+  def ord: () -> Integer
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - rjust(size, pad_string = ' ') -> new_string
+  # -->
+  # Returns a right-justified copy of `self`.
+  #
+  # If integer argument `size` is greater than the size (in characters) of `self`,
+  # returns a new string of length `size` that is a copy of `self`, right
+  # justified and padded on the left with `pad_string`:
+  #
+  #     'hello'.rjust(10)       # => "     hello"
+  #     'hello  '.rjust(10)     # => "   hello  "
+  #     'hello'.rjust(10, 'ab') # => "ababahello"
+  #     'тест'.rjust(10)        # => "      тест"
+  #     'こんにちは'.rjust(10)    # => "     こんにちは"
+  #
+  # If `size` is not greater than the size of `self`, returns a copy of `self`:
+  #
+  #     'hello'.rjust(5, 'ab')  # => "hello"
+  #     'hello'.rjust(1, 'ab')  # => "hello"
+  #
+  # Related: String#ljust, String#center.
+  #
+  def rjust: (Integer width, ?string padstr) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - rstrip -> new_string
+  # -->
+  # Returns a copy of the receiver with trailing whitespace removed; see
+  # [Whitespace in Strings](rdoc-ref:String@Whitespace+in+Strings):
+  #
+  #     whitespace = "\x00\t\n\v\f\r "
+  #     s = whitespace + 'abc' + whitespace
+  #     s        # => "\u0000\t\n\v\f\r abc\u0000\t\n\v\f\r "
+  #     s.rstrip # => "\u0000\t\n\v\f\r abc"
+  #
+  # Related: String#lstrip, String#strip.
+  #
+  def rstrip: () -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - rstrip! -> self or nil
+  # -->
+  # Like String#rstrip, except that any modifications are made in `self`; returns
+  # `self` if any modification are made, `nil` otherwise.
+  #
+  # Related: String#lstrip!, String#strip!.
+  #
+  def rstrip!: () -> self?
+
+  # <!-- rdoc-file=string.c -->
+  # Returns the count of characters (not bytes) in `self`:
+  #
+  #     'foo'.length        # => 3
+  #     'тест'.length       # => 4
+  #     'こんにちは'.length   # => 5
+  #
+  # Contrast with String#bytesize:
+  #
+  #     'foo'.bytesize        # => 3
+  #     'тест'.bytesize       # => 8
+  #     'こんにちは'.bytesize   # => 15
+  #
+  # String#size is an alias for String#length.
+  #
+  alias size length
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - split(field_sep = $;, limit = nil) -> array
+  #   - split(field_sep = $;, limit = nil) {|substring| ... } -> self
+  # -->
+  # Returns an array of substrings of `self` that are the result of splitting
+  # `self` at each occurrence of the given field separator `field_sep`.
+  #
+  # When `field_sep` is `$;`:
+  #
+  # *   If `$;` is `nil` (its default value), the split occurs just as if
+  #     `field_sep` were given as a space character (see below).
+  #
+  # *   If `$;` is a string, the split ocurs just as if `field_sep` were given as
+  #     that string (see below).
+  #
+  #
+  # When `field_sep` is `' '` and `limit` is `nil`, the split occurs at each
+  # sequence of whitespace:
+  #
+  #     'abc def ghi'.split(' ')         => ["abc", "def", "ghi"]
+  #     "abc \n\tdef\t\n  ghi".split(' ') # => ["abc", "def", "ghi"]
+  #     'abc  def   ghi'.split(' ')      => ["abc", "def", "ghi"]
+  #     ''.split(' ')                    => []
+  #
+  # When `field_sep` is a string different from `' '` and `limit` is `nil`, the
+  # split occurs at each occurrence of `field_sep`; trailing empty substrings are
+  # not returned:
+  #
+  #     'abracadabra'.split('ab')  => ["", "racad", "ra"]
+  #     'aaabcdaaa'.split('a')     => ["", "", "", "bcd"]
+  #     ''.split('a')              => []
+  #     '3.14159'.split('1')       => ["3.", "4", "59"]
+  #     '!@#$%^$&*($)_+'.split('$') # => ["!@#", "%^", "&*(", ")_+"]
+  #     'тест'.split('т')          => ["", "ес"]
+  #     'こんにちは'.split('に')     => ["こん", "ちは"]
+  #
+  # When `field_sep` is a Regexp and `limit` is `nil`, the split occurs at each
+  # occurrence of a match; trailing empty substrings are not returned:
+  #
+  #     'abracadabra'.split(/ab/) # => ["", "racad", "ra"]
+  #     'aaabcdaaa'.split(/a/)   => ["", "", "", "bcd"]
+  #     'aaabcdaaa'.split(//)    => ["a", "a", "a", "b", "c", "d", "a", "a", "a"]
+  #     '1 + 1 == 2'.split(/\W+/) # => ["1", "1", "2"]
+  #
+  # If the Regexp contains groups, their matches are also included in the returned
+  # array:
+  #
+  #     '1:2:3'.split(/(:)()()/, 2) # => ["1", ":", "", "", "2:3"]
+  #
+  # As seen above, if `limit` is `nil`, trailing empty substrings are not
+  # returned; the same is true if `limit` is zero:
+  #
+  #     'aaabcdaaa'.split('a')   => ["", "", "", "bcd"]
+  #     'aaabcdaaa'.split('a', 0) # => ["", "", "", "bcd"]
+  #
+  # If `limit` is positive integer `n`, no more than `n - 1-` splits occur, so
+  # that at most `n` substrings are returned, and trailing empty substrings are
+  # included:
+  #
+  #     'aaabcdaaa'.split('a', 1) # => ["aaabcdaaa"]
+  #     'aaabcdaaa'.split('a', 2) # => ["", "aabcdaaa"]
+  #     'aaabcdaaa'.split('a', 5) # => ["", "", "", "bcd", "aa"]
+  #     'aaabcdaaa'.split('a', 7) # => ["", "", "", "bcd", "", "", ""]
+  #     'aaabcdaaa'.split('a', 8) # => ["", "", "", "bcd", "", "", ""]
+  #
+  # Note that if `field_sep` is a Regexp containing groups, their matches are in
+  # the returned array, but do not count toward the limit.
+  #
+  # If `limit` is negative, it behaves the same as if `limit` was `nil`, meaning
+  # that there is no limit, and trailing empty substrings are included:
+  #
+  #     'aaabcdaaa'.split('a', -1) # => ["", "", "", "bcd", "", "", ""]
+  #
+  # If a block is given, it is called with each substring:
+  #
+  #     'abc def ghi'.split(' ') {|substring| p substring }
+  #
+  # Output:
+  #
+  #     "abc"
+  #     "def"
+  #     "ghi"
+  #
+  # Related: String#partition, String#rpartition.
+  #
+  def split: (?string pattern, ?int limit) -> Array[String]
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - start_with?(*string_or_regexp) -> true or false
+  # -->
+  # Returns whether `self` starts with any of the given `string_or_regexp`.
+  #
+  # Matches patterns against the beginning of `self`. For each given
+  # `string_or_regexp`, the pattern is:
+  #
+  # *   `string_or_regexp` itself, if it is a Regexp.
+  # *   `Regexp.quote(string_or_regexp)`, if `string_or_regexp` is a string.
+  #
+  #
+  # Returns `true` if any pattern matches the beginning, `false` otherwise:
+  #
+  #     'hello'.start_with?('hell')               # => true
+  #     'hello'.start_with?(/H/i)                 # => true
+  #     'hello'.start_with?('heaven', 'hell')     # => true
+  #     'hello'.start_with?('heaven', 'paradise') # => false
+  #     'тест'.start_with?('т')                   # => true
+  #     'こんにちは'.start_with?('こ')              # => true
+  #
+  # Related: String#end_with?.
+  #
+  def start_with?: (*string prefixes) -> bool
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - strip -> new_string
+  # -->
+  # Returns a copy of the receiver with leading and trailing whitespace removed;
+  # see [Whitespace in Strings](rdoc-ref:String@Whitespace+in+Strings):
+  #
+  #     whitespace = "\x00\t\n\v\f\r "
+  #     s = whitespace + 'abc' + whitespace
+  #     s       # => "\u0000\t\n\v\f\r abc\u0000\t\n\v\f\r "
+  #     s.strip # => "abc"
+  #
+  # Related: String#lstrip, String#rstrip.
+  #
+  def strip: () -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - strip! -> self or nil
+  # -->
+  # Like String#strip, except that any modifications are made in `self`; returns
+  # `self` if any modification are made, `nil` otherwise.
+  #
+  # Related: String#lstrip!, String#strip!.
+  #
+  def strip!: () -> self?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - to_f -> float
+  # -->
+  # Returns the result of interpreting leading characters in `self` as a Float:
+  #
+  #     '3.14159'.to_f  # => 3.14159
+  #     '1.234e-2'.to_f # => 0.01234
+  #
+  # Characters past a leading valid number (in the given `base`) are ignored:
+  #
+  #     '3.14 (pi to two places)'.to_f # => 3.14
+  #
+  # Returns zero if there is no leading valid number:
+  #
+  #     'abcdef'.to_f # => 0.0
+  #
+  def to_f: () -> Float
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - to_i(base = 10) -> integer
+  # -->
+  # Returns the result of interpreting leading characters in `self` as an integer
+  # in the given `base` (which must be in (0, 2..36)):
+  #
+  #     '123456'.to_i     # => 123456
+  #     '123def'.to_i(16) # => 1195503
+  #
+  # With `base` zero, string `object` may contain leading characters to specify
+  # the actual base:
+  #
+  #     '123def'.to_i(0)   # => 123
+  #     '0123def'.to_i(0)  # => 83
+  #     '0b123def'.to_i(0) # => 1
+  #     '0o123def'.to_i(0) # => 83
+  #     '0d123def'.to_i(0) # => 123
+  #     '0x123def'.to_i(0) # => 1195503
+  #
+  # Characters past a leading valid number (in the given `base`) are ignored:
+  #
+  #     '12.345'.to_i   # => 12
+  #     '12345'.to_i(2) # => 1
+  #
+  # Returns zero if there is no leading valid number:
+  #
+  #     'abcdef'.to_i # => 0
+  #     '2'.to_i(2)   # => 0
+  #
+  def to_i: (?int base) -> Integer
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - to_s -> self or string
+  # -->
+  # Returns `self` if `self` is a String, or `self` converted to a String if
+  # `self` is a subclass of String.
+  #
+  # String#to_str is an alias for String#to_s.
+  #
+  def to_s: () -> String
+
+  # <!-- rdoc-file=string.c -->
+  # Returns the Symbol corresponding to *str*, creating the symbol if it did not
+  # previously exist. See Symbol#id2name.
+  #
+  #     "Koala".intern         #=> :Koala
+  #     s = 'cat'.to_sym       #=> :cat
+  #     s == :cat              #=> true
+  #     s = '@cat'.to_sym      #=> :@cat
+  #     s == :@cat             #=> true
+  #
+  # This can also be used to create symbols that cannot be represented using the
+  # `:xxx` notation.
+  #
+  #     'cat and dog'.to_sym   #=> :"cat and dog"
+  #
+  def to_sym: () -> Symbol
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - tr(selector, replacements) -> new_string
+  # -->
+  # Returns a copy of `self` with each character specified by string `selector`
+  # translated to the corresponding character in string `replacements`. The
+  # correspondence is *positional*:
+  #
+  # *   Each occurrence of the first character specified by `selector` is
+  #     translated to the first character in `replacements`.
+  # *   Each occurrence of the second character specified by `selector` is
+  #     translated to the second character in `replacements`.
+  # *   And so on.
+  #
+  #
+  # Example:
+  #
+  #     'hello'.tr('el', 'ip') #=> "hippo"
+  #
+  # If `replacements` is shorter than `selector`, it is implicitly padded with its
+  # own last character:
+  #
+  #     'hello'.tr('aeiou', '-')   # => "h-ll-"
+  #     'hello'.tr('aeiou', 'AA-') # => "hAll-"
+  #
+  # Arguments `selector` and `replacements` must be valid character selectors (see
+  # [Character Selectors](rdoc-ref:character_selectors.rdoc)), and may use any of
+  # its valid forms, including negation, ranges, and escaping:
+  #
+  #     # Negation.
+  #     'hello'.tr('^aeiou', '-') # => "-e--o"
+  #     # Ranges.
+  #     'ibm'.tr('b-z', 'a-z') # => "hal"
+  #     # Escapes.
+  #     'hel^lo'.tr('\^aeiou', '-')     # => "h-l-l-"    # Escaped leading caret.
+  #     'i-b-m'.tr('b\-z', 'a-z')       # => "ibabm"     # Escaped embedded hyphen.
+  #     'foo\\bar'.tr('ab\\', 'XYZ')    # => "fooZYXr"   # Escaped backslash.
+  #
+  def tr: (string from_str, string to_str) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - tr!(selector, replacements) -> self or nil
+  # -->
+  # Like String#tr, but modifies `self` in place. Returns `self` if any changes
+  # were made, `nil` otherwise.
+  #
+  def tr!: (string from_str, string to_str) -> String?
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - upcase(*options) -> string
+  # -->
+  # Returns a string containing the upcased characters in `self`:
+  #
+  #     s = 'Hello World!' # => "Hello World!"
+  #     s.upcase           # => "HELLO WORLD!"
+  #
+  # The casing may be affected by the given `options`; see [Case
+  # Mapping](rdoc-ref:case_mapping.rdoc).
+  #
+  # Related: String#upcase!, String#downcase, String#downcase!.
+  #
+  def upcase: () -> String
+            | (:ascii | :lithuanian | :turkic) -> String
+            | (:lithuanian, :turkic) -> String
+            | (:turkic, :lithuanian) -> String
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - upcase!(*options) -> self or nil
+  # -->
+  # Upcases the characters in `self`; returns `self` if any changes were made,
+  # `nil` otherwise:
+  #
+  #     s = 'Hello World!' # => "Hello World!"
+  #     s.upcase!          # => "HELLO WORLD!"
+  #     s                  # => "HELLO WORLD!"
+  #     s.upcase!          # => nil
+  #
+  # The casing may be affected by the given `options`; see [Case
+  # Mapping](rdoc-ref:case_mapping.rdoc).
+  #
+  # Related: String#upcase, String#downcase, String#downcase!.
+  #
+  def upcase!: () -> self?
+             | (:ascii | :lithuanian | :turkic) -> self?
+             | (:lithuanian, :turkic) -> self?
+             | (:turkic, :lithuanian) -> self?
+
+  def ! : () -> bool
+
+  private
+
+  # <!--
+  #   rdoc-file=string.c
+  #   - String.new(string = '', **opts) -> new_string
+  # -->
+  # Returns a new String that is a copy of `string`.
+  #
+  # With no arguments, returns the empty string with the Encoding `ASCII-8BIT`:
+  #
+  #     s = String.new
+  #     s # => ""
+  #     s.encoding # => #<Encoding:ASCII-8BIT>
+  #
+  # With optional argument `string` and no keyword arguments, returns a copy of
+  # `string` with the same encoding:
+  #
+  #     String.new('foo')               # => "foo"
+  #     String.new('тест')              # => "тест"
+  #     String.new('こんにちは')          # => "こんにちは"
+  #
+  # (Unlike String.new, a [string
+  # literal](rdoc-ref:syntax/literals.rdoc@String+Literals) like `''` or a [here
+  # document literal](rdoc-ref:syntax/literals.rdoc@Here+Document+Literals) always
+  # has [script encoding](rdoc-ref:encodings.rdoc@Script+Encoding).)
+  #
+  # With optional keyword argument `encoding`, returns a copy of `string` with the
+  # specified encoding; the `encoding` may be an Encoding object, an encoding
+  # name, or an encoding name alias:
+  #
+  #     String.new('foo', encoding: Encoding::US_ASCII).encoding # => #<Encoding:US-ASCII>
+  #     String.new('foo', encoding: 'US-ASCII').encoding         # => #<Encoding:US-ASCII>
+  #     String.new('foo', encoding: 'ASCII').encoding            # => #<Encoding:US-ASCII>
+  #
+  # The given encoding need not be valid for the string's content, and that
+  # validity is not checked:
+  #
+  #     s = String.new('こんにちは', encoding: 'ascii')
+  #     s.valid_encoding? # => false
+  #
+  # But the given `encoding` itself is checked:
+  #
+  #     String.new('foo', encoding: 'bar') # Raises ArgumentError.
+  #
+  # With optional keyword argument `capacity`, returns a copy of `string` (or an
+  # empty string, if `string` is not given); the given `capacity` is advisory
+  # only, and may or may not set the size of the internal buffer, which may in
+  # turn affect performance:
+  #
+  #     String.new(capacity: 1)
+  #     String.new('foo', capacity: 4096)
+  #
+  # The `string`, `encoding`, and `capacity` arguments may all be used together:
+  #
+  #     String.new('hello', encoding: 'UTF-8', capacity: 25)
+  #
+  def initialize: (?string str) -> void
+
+  private 
+
+  def __ljust_rjust_argcheck: (Integer width, String padding) -> void
+end
+

@@ -12,7 +12,7 @@ class I2C
        _write(@unit_num, i2c_adrs_7, outputs_array(outputs), true)
     end
     ret = _read(@unit_num, i2c_adrs_7, len)
-    return ret if String === ret
+    return ret if ret.is_a?(String)
     IOError.peripheral_error(ret, "I2C#read")
     return ""
   end
@@ -28,10 +28,12 @@ class I2C
     outputs.each do |param|
       case param
       when Array
+        # @type var param: Array[Integer]
         ary += param
       when Integer
         ary << param
       when String
+        # @type var param: String
         ary += param.bytes
       end
     end

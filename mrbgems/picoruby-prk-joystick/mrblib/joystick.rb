@@ -7,6 +7,7 @@ class Joystick
     puts "Init Joystick"
     reset_axes
     axes.each do |axis, params|
+      # @type var pin: adc_pins_t
       pin = params[:pin]
       unless pin.is_a? Integer
         puts "Invalid pin value: #{pin}"

@@ -1,5 +1,8 @@
 target :mrbgems do
-  library "io-console"
+  stdlib_path(
+    core_root:   "mrbgems/picoruby-mrubyc/core_sig",
+    stdlib_root: false # Skip loading stdlib RBSs
+  )
 
   signature "sig/prk_firmware"
   Dir.glob("**/sig/").each do |dir|
@@ -12,10 +15,8 @@ target :mrbgems do
     "**/task/"
   ]).each { |dir| check dir }
 
-  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/*.rb"
-  ignore "mrbgems/picoruby-vfs/mrblib/file.rb"
-  ignore "mrbgems/picoruby-vfs/mrblib/dir.rb"
-  ignore "mrbgems/picoruby-shell/mrblib/0_out_of_steep.rb"
-  ignore "mrbgems/picoruby-ble/mrblib/demo_peripheral.rb"
-  ignore "mrbgems/picoruby-ble/mrblib/demo_central.rb"
+  # Skip checking String as #each_char and #each_byte raise error
+  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/array.rb"
+  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/range.rb"
+  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/string.rb"
 end

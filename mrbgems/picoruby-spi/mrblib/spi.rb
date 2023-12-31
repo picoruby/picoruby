@@ -41,7 +41,7 @@ class SPI
 
   def read(len, repeated_tx_data = 0)
     ret = _read(len, repeated_tx_data)
-    return ret if String === ret
+    return ret if ret.is_a?(String)
     IOError.peripheral_error(ret, "SPI#read")
     return ""
   end
@@ -58,7 +58,7 @@ class SPI
       ary << 0
     end
     ret = _transfer(params_to_array(*params))
-    return ret if String === ret
+    return ret if ret.is_a?(String)
     IOError.peripheral_error(ret, "SPI#transfer")
     return ""
   end
@@ -70,10 +70,12 @@ class SPI
     params.each do |param|
       case param
       when Array
+        # @type var param: Array[Integer]
         ary += param
       when Integer
         ary << param
       when String
+        # @type var param: String
         ary += param.bytes
       end
     end

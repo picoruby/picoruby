@@ -1,0 +1,62 @@
+# A type that's convertible to a `String`.
+#
+interface _ToS
+  # Converts `self` to a `String`.
+  #
+  def to_s: () -> String
+end
+
+# A type that defines the `.inspect` method.
+#
+# Since `Object` defines `.inspect`, nearly every object in Ruby has it defined: Only those that
+# derive from `BasicObject`, or `undef inspect` won't have it. It's used in a few locations,
+# such as `Kernel#p` and `Array#join`.
+#
+interface _Inspect
+  # Returns a debugging representation of `self`.
+  #
+  def inspect: () -> String
+end
+
+interface _Exception
+  def exception: () -> Exception
+               | (String arg0) -> Exception
+end
+
+# Represents an `Integer`, or a type convertible to it (via `.to_int`).
+#
+type int = Integer
+
+# Represents a `Float`, or a type convertible to it (via `.to_f`).
+#
+type float = Float
+
+# Represents a `String`, or a type convertible to it (via `.to_str`).
+#
+type string = String
+
+# Represents an `Array[T]`, or a type convertible to it (via `.to_ary`).
+#
+type array[T] = Array[T]
+
+# Represents a `Hash[K, V]`, or a type convertible to it (via `.to_hash`).
+#
+type hash[K, V] = Hash[K, V]
+
+# Represents an `IO`, or a type convertible to it (via `.to_io`).
+#
+type io = IO
+
+# A filesystem path: Either something that defines `.to_path`, or a `String` (or a type that is
+# convertible to a string via `.to_str`).
+#
+# If a type defines both `.to_path` and `.to_str`, the `.to_path` function is called.
+#
+type path = string
+
+# `boolish` is a type for documentation.
+# It means the value of this type is only for testing a condition.
+# Unlike `bool` type, it doesn't require the value is one of `true` or `false`.
+# Any Ruby object can have `boolish` type.
+#
+type boolish = top

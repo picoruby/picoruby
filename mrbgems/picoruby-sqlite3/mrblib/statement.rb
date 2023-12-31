@@ -3,7 +3,7 @@ class SQLite3
     def bind_params(*bind_vars)
       index = 1
       bind_vars.each do |var|
-        if Hash === var
+        if var.is_a?(Hash)
           var.each { |key, val| bind_param(key, val) }
         else
           bind_param(index, var)

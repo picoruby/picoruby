@@ -36,7 +36,7 @@ class RGB
   @effect_init: boolish
   @speed: Integer
   @delay: Integer
-  @max_value: Integer
+  @max_value: Float
   @value: Float
   @hue: Integer
   @circle_diameter: Integer

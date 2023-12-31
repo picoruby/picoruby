@@ -48,7 +48,7 @@ class Vim
       end
     end
     if RUBY_ENGINE == "ruby"
-      @terminal.debug_tty = ARGV[1]
+      @terminal.debug_tty = ARGV[0]
       @terminal.debug "debug start"
     end
   end
@@ -127,7 +127,7 @@ class Vim
           when 120 # x delete
           when 121 # y yank
           else
-            puts c
+            puts c.chr
           end
         end
       when :command
@@ -148,7 +148,7 @@ class Vim
             @command_buffer.put :RIGHT
           when "[D" # left
             @command_buffer.put :LEFT
-          when nil
+          when nil, ""
             @command_buffer.clear
             @mode = :normal
           end
@@ -163,7 +163,7 @@ class Vim
       when :insert
         case c
         when 27 # ESC
-          case IO.get_nonblock(2)
+          case cc = IO.get_nonblock(2)
           when "[A" # up
             buffer.put :UP
           when "[B" # down
@@ -172,7 +172,7 @@ class Vim
             buffer.put :RIGHT
           when "[D" # left
             buffer.put :LEFT
-          when nil
+          when nil, ""
             @command_buffer.clear
             @mode = :normal
             buffer.put :LEFT if 0 < buffer.cursor_x

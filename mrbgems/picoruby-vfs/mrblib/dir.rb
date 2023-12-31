@@ -91,15 +91,7 @@ class Dir
     while filename = self.read do
       block&.call(filename)
     end
-    block ? self : self.each # For steep check
-  end
-
-  def pat=(pattern)
-    @dir.pat = pattern
-  end
-
-  def findnext
-    @dir.findnext
+    self
   end
 
   def read
@@ -109,6 +101,14 @@ class Dir
   def rewind
     @dir.rewind
     self
+  end
+
+  def pat=(pattern)
+    @dir.pat = pattern
+  end
+
+  def findnext
+    @dir.findnext
   end
 
 end

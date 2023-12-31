@@ -1,3 +1,8 @@
+$LOADED_FEATURES: Array[String]
+
+class LoadError < StandardError
+end
+
 class Object
   def require: (String) -> bool
   def load: (String) -> bool
@@ -7,5 +12,8 @@ class Object
   def require_file: (String) -> bool
   # picogem_init.c
   def extern: (String path, ?bool force) -> (bool|nil)
+
+  # for CRuby
+  def require_relative: (String) -> bool
 end
 

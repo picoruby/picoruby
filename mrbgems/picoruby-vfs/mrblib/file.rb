@@ -104,8 +104,7 @@ class File
     end
   end
 
-  # TODO: get(limit, chomp: false) when PicoRuby implements kargs
-  def gets(*args)
+  def gets(*args, chomp: false)
     case args.count
     when 0
       rs = "\n"
@@ -122,11 +121,12 @@ class File
       rs = args[0].to_s
       limit = args[1].to_i
     else
-      raies ArgumentError.new("wrong number of arguments (expected 0..2)")
+      raise ArgumentError.new("wrong number of arguments (expected 0..2)")
     end
     result = ""
     chunk_size = CHUNK_SIZE
     initial_pos = self.tell
+    rs = "" unless rs
     rs_adjust = rs.length - 1
     if limit
       (limit / chunk_size).times do
@@ -144,18 +144,18 @@ class File
       index_at = 0
       while chunk = @file.read(chunk_size) do
         result << chunk
-        if pos = result.index(rs, [index_at - rs_adjust, 0].max)
-          result = result[0, pos + 1 + rs_adjust]
+        if pos = result.index(rs, [index_at - rs_adjust, 0].max || 0)
+          result = result[0, pos + 1 + rs_adjust] || ""
           break
         end
         index_at += chunk_size
       end
     end
-    if result.length == 0
+    if result&.length == 0 || result.nil?
       return nil
     else
-      self.seek(initial_pos + result.length)
-      return result
+      self.seek(initial_pos + (result&.length || 0))
+      return chomp ? result.chomp(rs) : result
     end
   end
 
@@ -205,8 +205,7 @@ class File
       # @type var ch: Integer
       @file.write ch.chr
     when String
-      # @type var ch: String
-      @file.write ch[0]
+      @file.write ch[0].to_s
     else
       raise ArgumentError
     end

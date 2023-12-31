@@ -132,7 +132,7 @@ class RGB
       if @ascent
         @value < @max_value ? @value += (@max_value / 31.0) : @ascent = false
       else
-        if 0 < @value
+        if 0.0 < @value
           @value -= (@max_value / 31.0)
           @value = 0.0 if @value < 0
         else
@@ -163,7 +163,7 @@ class RGB
         @ping = true
         @circle_diameter = 11
       end
-      ws2812_circle(@pixel_size, @max_value, @circle_diameter)
+      ws2812_circle(@pixel_size, @max_value.to_i, @circle_diameter)
     end
     sleep_ms @delay
   end
@@ -204,9 +204,9 @@ class RGB
 
   def value=(val)
     @max_value = val
-    @max_value = 0 if @max_value < 0
-    @max_value = 31 if 31 < @max_value
-    @value = [@value, @max_value].min.to_f
+    @max_value = 0.0 if @max_value < 0.0
+    @max_value = 31.0 if 31.0 < @max_value
+    @value = [@value, @max_value].min
     reset_pixel
   end
 
@@ -258,9 +258,10 @@ class RGB
       message |= (@saturation / 5)
     when :RGB_VAI, :RGB_VAD
       message = 0b10000000 # 4 << 5
-      self.value = key == :RGB_VAI ? @max_value + 1 : @max_value - 1
-      puts "value: #{@max_value}"
-      message |= @max_value
+      max_value = @max_value.to_i
+      self.value = key == :RGB_VAI ? max_value + 1 : max_value - 1
+      puts "value: #{max_value}"
+      message |= max_value
     when :RGB_SPI, :RGB_SPD
       message = 0b10100000 # 5 << 5
       self.speed = key == :RGB_SPI ? @speed + 1 : @speed - 1

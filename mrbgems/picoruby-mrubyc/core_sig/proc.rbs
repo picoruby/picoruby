@@ -1,0 +1,51 @@
+class Proc
+  # <!--
+  #   rdoc-file=proc.c
+  #   - Proc.new {|...| block } -> a_proc
+  # -->
+  # Creates a new Proc object, bound to the current context.
+  #
+  #     proc = Proc.new { "hello" }
+  #     proc.call   #=> "hello"
+  #
+  # Raises ArgumentError if called without a block.
+  #
+  #     Proc.new    #=> ArgumentError
+  #
+  def initialize: () { (*untyped) -> untyped } -> void
+
+  # <!--
+  #   rdoc-file=proc.c
+  #   - prc.call(params,...)   -> obj
+  #   - prc[params,...]        -> obj
+  #   - prc.(params,...)       -> obj
+  #   - prc.yield(params,...)  -> obj
+  # -->
+  # Invokes the block, setting the block's parameters to the values in *params*
+  # using something close to method calling semantics. Returns the value of the
+  # last expression evaluated in the block.
+  #
+  #     a_proc = Proc.new {|scalar, *values| values.map {|value| value*scalar } }
+  #     a_proc.call(9, 1, 2, 3)    #=> [9, 18, 27]
+  #     a_proc[9, 1, 2, 3]         #=> [9, 18, 27]
+  #     a_proc.(9, 1, 2, 3)        #=> [9, 18, 27]
+  #     a_proc.yield(9, 1, 2, 3)   #=> [9, 18, 27]
+  #
+  # Note that `prc.()` invokes `prc.call()` with the parameters given.  It's
+  # syntactic sugar to hide "call".
+  #
+  # For procs created using #lambda or `->()` an error is generated if the wrong
+  # number of parameters are passed to the proc.  For procs created using Proc.new
+  # or Kernel.proc, extra parameters are silently discarded and missing parameters
+  # are set to `nil`.
+  #
+  #     a_proc = proc {|a,b| [a,b] }
+  #     a_proc.call(1)   #=> [1, nil]
+  #
+  #     a_proc = lambda {|a,b| [a,b] }
+  #     a_proc.call(1)   # ArgumentError: wrong number of arguments (given 1, expected 2)
+  #
+  # See also Proc#lambda?.
+  #
+  def call: (*untyped arg0) -> untyped
+end

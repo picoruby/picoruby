@@ -1,10 +1,7 @@
 if RUBY_ENGINE == "mruby/c"
-  class Integer
-    alias to_int to_i
-  end
   class Array
     def insert(index, *vals)
-      index_int = index.to_int
+      index_int = index.to_i
       if index_int < 0
         raise ArgumentError, "Negative index doesn't work"
       end

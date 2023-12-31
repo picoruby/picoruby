@@ -11,7 +11,7 @@ class VFS
 
   def self.mount: (driver_t driver, String mountpoint) -> void
   def self.unmount: (driver_t driver, ?bool force) -> void
-  def self.chdir: (String dir) -> Integer
+  def self.chdir: (String dir) -> 0
   def self.pwd: -> String
   def self.mkdir: (String path, ?Integer mode) -> 0
   def self.rename: (String from, String to) -> 0
@@ -25,11 +25,14 @@ class VFS
   def self.volume_index: (untyped mountpoint) -> Integer?
 
   class File
-    def self.open: (String, String) -> file_t
+    def self.open: (String path, String mode) -> file_t
     def self.utime: (Time atime, Time mtime, *String filename) -> Integer
+    def self.new: (String path, String mode) -> void
+    def initialize: (String path, String mode) -> void
   end
 
   class Dir
     def self.open: (String) -> dir_t
+    def pat=: (array[path] | path) -> Array[String]
   end
 end

@@ -6,7 +6,7 @@ class RotaryEncoder
     @partner_keycode_cw = 0
     @partner_keycode_ccw = 0
     @split_left = true
-    @proc_cw = Proc.new { }
+    @proc_cw = Proc.new
     @proc_ccw = @proc_cw
   end
 
