@@ -1,61 +1,15 @@
-case RUBY_ENGINE
-when "ruby"
-  require "io/console"
-  require_relative "../../picoruby-terminal/mrblib/terminal"
-  require_relative "command"
-
-  class Sandbox
-    def initialize(suppress_error = false)
-      @binding = binding
-      @result = nil
-      @state = 0
-    end
-
-    attr_reader :result, :state, :error
-
-    def compile(script)
-      begin
-        RubyVM::InstructionSequence.compile("_ = (#{script})")
-        @script = script
-      rescue SyntaxError => e
-        return false
-      end
-      true
-    end
-
-    def suspend
-    end
-
-    def execute
-      begin
-        @result = eval "_ = (#{@script})", @binding
-        @error = nil
-      rescue => e
-        puts e.message
-        @error = e
-        return false
-      end
-      true
-    end
-  end
-
-when "mruby/c"
-  require "sandbox"
-  require "filesystem-fat"
-  require "vfs"
-  require "terminal"
-  # ENV = {} # This moved to 0_out_of_steep.rb
-  ARGV = []
-end
+require "sandbox"
+require "filesystem-fat"
+require "vfs"
+require "terminal"
+# ENV = {} # This moved to 0_out_of_steep.rb
+ARGV = []
 
 
 class Shell
   def initialize(clean: false)
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @terminal = Terminal::Line.new
-    if RUBY_ENGINE == "ruby"
-      @terminal.debug_tty = ARGV[0]
-    end
   end
 
   def simple_question(question, &block)

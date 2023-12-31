@@ -104,8 +104,7 @@ class File
     end
   end
 
-  # TODO: get(limit, chomp: false) when PicoRuby implements kargs
-  def gets(*args)
+  def gets(*args, chomp: false)
     case args.count
     when 0
       rs = "\n"
@@ -152,11 +151,11 @@ class File
         index_at += chunk_size
       end
     end
-    if result&.length == 0
+    if result&.length == 0 || result.nil?
       return nil
     else
       self.seek(initial_pos + (result&.length || 0))
-      return result
+      return chomp ? result.chomp(rs) : result
     end
   end
 
@@ -206,8 +205,7 @@ class File
       # @type var ch: Integer
       @file.write ch.chr
     when String
-      # @type var ch: String
-      @file.write ch[0]
+      @file.write ch[0].to_s
     else
       raise ArgumentError
     end

@@ -572,6 +572,9 @@ class Array[unchecked out Elem] < Object
                 | (int size, ?Elem val) -> void
                 | (int size) { (::Integer index) -> Elem } -> void
 
+
+  def insert: (Integer index, *Elem) -> void
+
   public
 
   # <!--
@@ -590,7 +593,7 @@ class Array[unchecked out Elem] < Object
   #
   # Related: Array#intersection.
   #
-  def &: (::Array[untyped] | _ToAry[untyped]) -> ::Array[Elem]
+  def &: (::Array[untyped]) -> ::Array[Elem]
 
   # <!--
   #   rdoc-file=array.c
@@ -623,7 +626,7 @@ class Array[unchecked out Elem] < Object
   #
   # Related: #concat.
   #
-  def +: [U] (_ToAry[U]) -> ::Array[Elem | U]
+  def +: [U] (Array[U]) -> ::Array[Elem | U]
 
   # <!--
   #   rdoc-file=array.c
@@ -639,7 +642,7 @@ class Array[unchecked out Elem] < Object
   #
   # Related: Array#difference.
   #
-  def -: (_ToAry[untyped]) -> ::Array[Elem]
+  def -: [U] (Array[U]) -> ::Array[Elem]
 
   # <!--
   #   rdoc-file=array.c
@@ -813,7 +816,6 @@ class Array[unchecked out Elem] < Object
   #
   def []: %a{implicitly-returns-nil} (int index) -> Elem
         | (int start, int length) -> ::Array[Elem]?
-        | (::Range[::Integer?] range) -> ::Array[Elem]?
 
   # <!--
   #   rdoc-file=array.c
@@ -970,7 +972,6 @@ class Array[unchecked out Elem] < Object
   # Related: Enumerable#all?
   #
   def all?: () -> bool
-          | (_Pattern[Elem] pattern) -> bool
           | () { (Elem obj) -> boolish } -> bool
 
   # <!--
@@ -1774,14 +1775,10 @@ class Array[unchecked out Elem] < Object
   #
   def |: [T] (::Array[T] other_ary) -> ::Array[Elem | T]
 
+  # To surpress an error in steep/lib/steep/interface/builder.rb:479
+  def fetch: (int index) -> Elem
+
   private
 
 end
 
-interface _Rand
-  def rand: (::Integer max) -> ::Integer
-end
-
-interface Array::_Pattern[T]
-  def ===: (T) -> bool
-end

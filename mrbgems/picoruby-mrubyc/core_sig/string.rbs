@@ -1122,7 +1122,7 @@ class String
   #
   # Related: String#rjust, String#center.
   #
-  def ljust: (int integer, ?string padstr) -> String
+  def ljust: (Integer width, ?string padstr) -> String
 
   # <!--
   #   rdoc-file=string.c
@@ -1187,7 +1187,7 @@ class String
   #
   # Related: String#ljust, String#center.
   #
-  def rjust: (int integer, ?string padstr) -> String
+  def rjust: (Integer width, ?string padstr) -> String
 
   # <!--
   #   rdoc-file=string.c
@@ -1603,5 +1603,8 @@ class String
   #
   def initialize: (?string str) -> void
 
+  private 
+
+  def __ljust_rjust_argcheck: (Integer width, String padding) -> void
 end
 

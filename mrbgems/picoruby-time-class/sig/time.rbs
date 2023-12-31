@@ -282,7 +282,7 @@ class Time < Object
   # For the forms of argument `zone`, see [Timezone
   # Specifiers](rdoc-ref:timezones.rdoc).
   #
-  def self.at: (Time, ?in: String | Integer | nil) -> Time
+  def self.at: ((Integer|Time), ?in: String | Integer | nil) -> Time
 
   type subsec_unit = :msec | :millisecond | :usec | :microsecond | :nsec | :nanosecond
 
@@ -787,7 +787,7 @@ class Time < Object
   #
   def self.mktime: (Integer year, ?Integer | String month, ?Integer day, ?Integer hour, ?Integer min, ?Integer sec, ?Integer usec_with_frac) -> Time
 
-  def time_methods: () -> Time::TimeMethods
+  def self.time_methods: () -> Time::TimeMethods
 end
 
 class Time::TimeMethods

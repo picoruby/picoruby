@@ -107,23 +107,25 @@
 #
 class BasicObject
   def self.new: (*untyped) -> untyped
-end
-class Class
-end
-#class Module < Object
-#end
-RUBY_ENGINE: String
-RUBY_VERSION: String
-MRUBY_VERSION: String
-MRUBYC_VERSION: String
-class Object < BasicObject
-
-
-  def class: -> class
 
   def ==: (untyped) -> bool
 
   def !=: (untyped) -> bool
+
+  def !: () -> bool
+end
+
+class Class
+end
+
+RUBY_ENGINE: String
+RUBY_VERSION: String
+MRUBY_VERSION: String
+MRUBYC_VERSION: String
+
+class Object < BasicObject
+
+  def class: -> class
 
   # <!--
   #   rdoc-file=vm_eval.c
@@ -164,8 +166,9 @@ class Object < BasicObject
   #     raise ArgumentError, "No parameters", caller
   #
   def self?.raise: () -> bot
-                | (string message, ?cause: Exception?) -> bot
-                | (_Exception exception, ?cause: Exception?) -> bot
+                | (string message) -> bot
+                | (Exception exception, ?String cause) -> bot
+                | (_Exception exception, ?String cause) -> bot
 
   # <!--
   #   rdoc-file=object.c
@@ -263,20 +266,7 @@ class Object < BasicObject
   #
   def self?.printf: () -> nil
                   | (String fmt, *untyped args) -> nil
-                  | (_Writer io, string fmt, *untyped args) -> nil
 
-  # <!--
-  #   rdoc-file=io.c
-  #   - putc(int) -> int
-  # -->
-  # Equivalent to:
-  #
-  #     $stdout.putc(int)
-  #
-  # See IO#putc for important information regarding multi-byte characters.
-  #
-  def self?.putc: [T < _ToInt] (T chr) -> T
-                | (String chr) -> String
 
   # <!--
   #   rdoc-file=io.c
@@ -458,6 +448,7 @@ class Object < BasicObject
   #     b.kind_of? M       #=> true
   #
   def is_a?: (untyped) -> bool
+  alias kind_of? is_a?
 
   # <!--
   #   rdoc-file=object.c
@@ -506,7 +497,7 @@ class Object < BasicObject
   #
   def to_s: () -> String
 
-  def exit: (Integer) -> void
+  def exit: (?Integer) -> void
 
   def attr_accessor: (*Symbol) -> void
   def attr_reader: (*Symbol) -> void

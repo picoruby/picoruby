@@ -1,15 +1,15 @@
 class Joystick
-  type adc_pins_type = 26 | 27 | 28 | 29
-  type init_axis_type = :x | :y | :z | :rx | :ry | :rz
-  type init_param_type = {
-                           invert: bool?,
-                           magnify: Integer? | Float?,
-                           pin: adc_pins_type
-                         }
+  type adc_pins_t = 26 | 27 | 28 | 29
+  type init_axis_t = :x | :y | :z | :rx | :ry | :rz
+  type init_param_t = {
+                        invert: bool?,
+                        magnify: Integer? | Float?,
+                        pin: adc_pins_t
+                      }
 
-  VALID_PINS: Array[adc_pins_type]
+  VALID_PINS: Array[adc_pins_t]
 
-  def initialize: (?Hash[init_axis_type, init_param_type] axes) -> void
+  def initialize: (?Hash[init_axis_t, init_param_t] axes) -> void
   def reset_axes: () -> nil
   def init_axis_offset: (String axis, Integer pin) -> bool
   def report_hid: (Integer, Integer) -> nil

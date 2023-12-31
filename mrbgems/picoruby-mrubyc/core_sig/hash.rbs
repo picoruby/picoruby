@@ -497,7 +497,6 @@
 # *   #invert: Returns a hash with the each key-value pair inverted.
 #
 class Hash[unchecked out K, unchecked out V] < Object
-
   public
 
   # <!--
@@ -623,6 +622,35 @@ class Hash[unchecked out K, unchecked out V] < Object
   #
   def clear: () -> self
 
+  # <!--
+  #   rdoc-file=hash.c
+  #   - hash.delete(key) -> value or nil
+  #   - hash.delete(key) {|key| ... } -> object
+  # -->
+  # Deletes the entry for the given `key` and returns its associated value.
+  #
+  # If no block is given and `key` is found, deletes the entry and returns the
+  # associated value:
+  #     h = {foo: 0, bar: 1, baz: 2}
+  #     h.delete(:bar) # => 1
+  #     h # => {:foo=>0, :baz=>2}
+  #
+  # If no block given and `key` is not found, returns `nil`.
+  #
+  # If a block is given and `key` is found, ignores the block, deletes the entry,
+  # and returns the associated value:
+  #     h = {foo: 0, bar: 1, baz: 2}
+  #     h.delete(:baz) { |key| raise 'Will never happen'} # => 2
+  #     h # => {:foo=>0, :bar=>1}
+  #
+  # If a block is given and `key` is not found, calls the block and returns the
+  # block's return value:
+  #     h = {foo: 0, bar: 1, baz: 2}
+  #     h.delete(:nosuch) { |key| "Key #{key} not found" } # => "Key nosuch not found"
+  #     h # => {:foo=>0, :bar=>1, :baz=>2}
+  #
+  def delete: (K arg0) -> V?
+
   # <!-- rdoc-file=hash.c -->
   # Hash#each is an alias for Hash#each_pair.
   #
@@ -646,7 +674,7 @@ class Hash[unchecked out K, unchecked out V] < Object
   #     bar: 1
   #     baz: 2
   #
-  def each: () { ([ K, V ] arg0) -> untyped } -> self
+  def each: () { (K key, V val) -> untyped } -> self
 
   # <!--
   #   rdoc-file=hash.c
@@ -892,6 +920,9 @@ class Hash[unchecked out K, unchecked out V] < Object
   #
   def values: () -> ::Array[V]
 
+  # To surpress an error in steep/lib/steep/interface/builder.rb:615
+  def fetch: (K arg0) -> V
+
   private
 
   # <!--
@@ -926,5 +957,4 @@ class Hash[unchecked out K, unchecked out V] < Object
   def initialize: () -> void
                 | (untyped default) -> void
                 | [A, B] () { (Hash[A, B] hash, A key) -> B } -> void
-
 end

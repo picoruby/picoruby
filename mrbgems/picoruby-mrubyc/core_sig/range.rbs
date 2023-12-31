@@ -314,7 +314,7 @@ class Range[out Elem] < Object
   #
   # With no block given, returns an enumerator.
   #
-  def each: () { (Elem arg0) -> untyped } -> self
+  def each: [Elem] () { (Elem arg0) -> untyped } -> self
 
   # <!--
   #   rdoc-file=range.c

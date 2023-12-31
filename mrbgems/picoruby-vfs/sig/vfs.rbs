@@ -25,8 +25,10 @@ class VFS
   def self.volume_index: (untyped mountpoint) -> Integer?
 
   class File
-    def self.open: (String, String) -> file_t
+    def self.open: (String path, String mode) -> file_t
     def self.utime: (Time atime, Time mtime, *String filename) -> Integer
+    def self.new: (String path, String mode) -> void
+    def initialize: (String path, String mode) -> void
   end
 
   class Dir

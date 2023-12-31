@@ -842,7 +842,9 @@ class File
   SEEK_SET: Integer
   SEEK_CUR: Integer
   SEEK_END: Integer
+
   @file: VFS::file_t
+  @path: String
 
   # <!--
   #   rdoc-file=io.c
@@ -882,7 +884,7 @@ class File
   # *   [Open Options](rdoc-ref:IO@Open+Options).
   # *   [Encoding options](rdoc-ref:encodings.rdoc@Encoding+Options).
   #
-  def initialize: (string, ?string | int mode) -> File
+  def initialize: (string, ?string mode) -> void
 
   # <!--
   #   rdoc-file=file.c
@@ -895,7 +897,7 @@ class File
   #
   #     File.chmod(0644, "testfile", "out")   #=> 2
   #
-  def self.chmod: (int mode, *string) -> Integer
+  def self.chmod: (Integer mode, *string) -> Integer
 
   # <!--
   #   rdoc-file=file.c
@@ -1017,7 +1019,7 @@ class File
   # than the link itself; for the inverse behavior see File.lutime. Returns the
   # number of file names in the argument list.
   #
-  def self.utime: (Time | Integer atime, Time | Integer mtime, *string) -> Integer
+  def self.utime: (Time atime, Time mtime, *string) -> Integer
 
   public
 
@@ -1057,7 +1059,7 @@ class File
 
   def each_line: () { (String) -> void } -> nil
 
-  def gets: (Integer sep, ?chomp: bool) -> String?
+  def gets: (*(Integer|String) args, ?chomp: bool) -> String?
 
   def eof?: () -> bool
 
@@ -1087,6 +1089,8 @@ end
 # all values are meaningful on all systems. See also Kernel#test.
 #
 class File::Stat < Object
+  @stat: FAT::Stat
+
   def self.new: (String file) -> instance
 
   # <!--

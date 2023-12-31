@@ -279,8 +279,8 @@ class Dir
   #
   #     Dir.glob("**/lib/*.rb")             #=> ["lib/song.rb"]
   #
-  def self.glob: (array[path] | path pattern, ?int flags, ?base: path?) -> Array[String]
-               | (array[path] | path pattern, ?int flags, ?base: path?) { (String pathname) -> void } -> nil
+  def self.glob: (path pattern, ?int flags, ?base: path?) -> Array[String]
+               | (path pattern, ?int flags, ?base: path?) { (String pathname) -> void } -> nil
 
   def self.mkdir: (path) -> 0
 
@@ -413,7 +413,7 @@ class Dir
 
   def findnext: () -> String?
 
-  def pat=: (array[path] | path) -> Array[String]
+  def pat=: (path) -> path
 
   private
 
