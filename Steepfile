@@ -1,6 +1,6 @@
 target :mrbgems do
   stdlib_path(
-    core_root:   "mrbgems/picoruby-mrubyc/core_sig",
+    core_root:   false,
     stdlib_root: false # Skip loading stdlib RBSs
   )
 
