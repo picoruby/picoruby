@@ -1,3 +1,4 @@
+# @hardware_device
 class AQM0802A
   ADDRESS: Integer
 

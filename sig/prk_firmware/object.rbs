@@ -1,3 +1,4 @@
+# @private
 class Object
   PRK_DESCRIPTION: String
 

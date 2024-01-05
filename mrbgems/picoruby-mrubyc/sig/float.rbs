@@ -79,6 +79,8 @@
 #     representation of `self` in the given radix.
 # *   #truncate: Returns `self` truncated to a given precision.
 #
+
+# @builtin
 class Float < Object
   public
 

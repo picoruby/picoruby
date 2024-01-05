@@ -10,6 +10,7 @@ class IOError
   def self.peripheral_error: (Integer, ?String) -> Integer
 end
 
+# @io_peripheral
 class GPIO
   IN:          1 # 0b0000001
   OUT:         2 # 0b0000010

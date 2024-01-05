@@ -1,3 +1,4 @@
+# @private
 class USB
   def self.report_raw_hid : (Array[Integer]) -> void
   def self.raw_hid_report_received?: -> bool

@@ -1,3 +1,4 @@
+# @prk_firmware
 class Mouse
   type driver_t = I2C | SPI | Array[ADC]
 

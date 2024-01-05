@@ -105,6 +105,8 @@
 # *   SystemStackError
 # *   fatal
 #
+
+# @builtin
 class Exception
   # <!--
   #   rdoc-file=error.c

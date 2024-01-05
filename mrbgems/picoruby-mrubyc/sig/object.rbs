@@ -105,6 +105,8 @@
 # *   #send: Calls the given method in `self` with the given argument.
 # *   #to_s: Returns a string representation of `self`.
 #
+
+# @private
 class BasicObject
   def self.new: (*untyped) -> untyped
 
@@ -115,6 +117,7 @@ class BasicObject
   def !: () -> bool
 end
 
+# @private
 class Class
 end
 
@@ -123,6 +126,7 @@ RUBY_VERSION: String
 MRUBY_VERSION: String
 MRUBYC_VERSION: String
 
+# @builtin
 class Object < BasicObject
 
   def class: -> class

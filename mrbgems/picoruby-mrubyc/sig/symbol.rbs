@@ -119,6 +119,8 @@
 # *   #to_sym, #intern: Returns `self`.
 # *   #upcase: Returns symbol with all characters upcased.
 #
+
+# @builtin
 class Symbol
 
   public

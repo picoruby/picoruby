@@ -3,6 +3,8 @@ $LOADED_FEATURES: Array[String]
 class LoadError < StandardError
 end
 
+# @builtin
+# @added_by picoruby-require
 class Object
   def require: (String) -> bool
   def load: (String) -> bool

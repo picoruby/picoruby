@@ -1,18 +1,35 @@
+# @builtin
 class StandardError < Exception
 end
+
+# @builtin
 class ArgumentError < StandardError
 end
+
+# @builtin
 class NameError < StandardError
 end
+
+# @builtin
 class NoMethodError < StandardError
 end
+
+# @builtin
 class RangeError < StandardError
 end
+
+# @builtin
 class TypeError < StandardError
 end
+
+# @builtin
 class RuntimeError < StandardError
 end
+
+# @builtin
 class ZeroDivisionError < StandardError
 end
+
+# @builtin
 class SyntaxError < StandardError
 end

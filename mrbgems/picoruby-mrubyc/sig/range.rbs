@@ -225,6 +225,8 @@
 # *   #to_a (aliased as #entries): Returns elements of `self` in an array.
 # *   #to_s: Returns a string representation of `self` (uses #to_s).
 #
+
+# @builtin
 class Range[out Elem] < Object
 
   # <!--

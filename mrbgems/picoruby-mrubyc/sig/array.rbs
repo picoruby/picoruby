@@ -521,7 +521,8 @@
 # *   #pack: Packs the elements into a binary sequence.
 # *   #sum: Returns a sum of elements according to either `+` or a given block.
 #
-%a{annotate:rdoc:source:from=array.c}
+
+# @builtin
 class Array[unchecked out Elem] < Object
 
   # <!--

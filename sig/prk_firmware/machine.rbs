@@ -1,3 +1,4 @@
+# @private
 class Machine
   def self.delay_us: () -> void
   def self.reset_usb_boot: () -> 0

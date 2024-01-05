@@ -1,3 +1,4 @@
+# @io_peripheral
 class I2C
   type outputs_t = Integer|String|Array[Integer]
 

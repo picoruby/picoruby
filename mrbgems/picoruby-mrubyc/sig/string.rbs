@@ -626,6 +626,8 @@
 # *   #upto: Calls the given block with each string value returned by successive
 #     calls to #succ.
 #
+
+# @builtin
 class String
 
   public

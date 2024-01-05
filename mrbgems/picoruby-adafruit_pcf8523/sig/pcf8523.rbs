@@ -1,3 +1,4 @@
+# @hardware_device
 class PCF8523
   ADDRESS: Integer
 

@@ -1,6 +1,8 @@
 # <!-- rdoc-file=object.c -->
 # The class of the singleton object `nil`.
 #
+
+# @builtin
 class NilClass
   def !: () -> true
 

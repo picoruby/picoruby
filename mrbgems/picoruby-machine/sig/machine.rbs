@@ -9,6 +9,7 @@ end
 
 $machine_delay: Symbol?
 
+# @private
 class Object
   def sleep_ms_orig: (Integer ms) -> Integer
 end

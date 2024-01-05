@@ -1,3 +1,4 @@
+# @io_peripheral
 class UART
   class RxBuffer
   end
@@ -30,8 +31,8 @@ class UART
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
   ) -> void
-  def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
-  def self.open_connection: (
+  private def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
+  private def self.open_connection: (
     String unit,
     Integer txd_pin,
     Integer rxd_pin
@@ -45,12 +46,12 @@ class UART
     ?rts_pin: Integer?,
     ?cts_pin: Integer?
   ) -> self
-  def _set_baudrate: (Integer baudrate) -> Integer
+  private def _set_baudrate: (Integer baudrate) -> Integer
   def set_flow_control: (Integer flow_control, Integer rts_pin, Integer cts_pin) -> void
-  def _set_flow_control: (bool rts, bool cts) -> void
-  def _set_function: (Integer pin) -> void
+  private def _set_flow_control: (bool rts, bool cts) -> void
+  private def _set_function: (Integer pin) -> void
   def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
-  def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
+  private def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   def read: (?Integer len) -> (String | nil)
   def readpartial: (Integer maxlen) -> String
   def bytes_available: () -> Integer

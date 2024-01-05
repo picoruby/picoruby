@@ -1,3 +1,4 @@
+# @hardware_device
 class CYW43
   $_cyw43_country: String
 
@@ -5,6 +6,7 @@ class CYW43
   def self.check_initialized: () -> void
   def self._init: (String, bool) -> bool
 
+  # @hardware_device
   class GPIO
     LED_PIN: Integer
     @pin: Integer

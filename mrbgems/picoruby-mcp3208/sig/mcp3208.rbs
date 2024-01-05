@@ -1,3 +1,4 @@
+# @hardware_device
 class MCP3208
   DEFAULT_FREQUENCY: 500_000
 
@@ -15,5 +16,6 @@ class MCP3208
   def read: (Integer channel, ?differential: bool) -> Integer
 end
 
+# @hardware_device
 class MCP3204 < MCP3208
 end

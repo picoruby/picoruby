@@ -1,3 +1,4 @@
+# @hardware_device
 class MCP3424
   DEFAULT_FREQUENCY: Integer
 

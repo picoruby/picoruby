@@ -3,21 +3,21 @@
 # Global variables
 $rgb: RGB
 
-type effect_type = :swirl
-                 | :rainbow_mood
-                 | :breath
-                 | :ruby
-                 | :nokogiri
-                 | :static
-                 | :circle
-
-# Classes
+# @prk_firmware
 class RGB
+  type rgb_effect_t = :swirl
+                  | :rainbow_mood
+                  | :breath
+                  | :ruby
+                  | :nokogiri
+                  | :static
+                  | :circle
+
   type action_type = :thunder
                    | nil
 
   KEYCODE: Hash[Symbol, Integer]
-  EFFECTS: Array[effect_type]
+  EFFECTS: Array[rgb_effect_t]
 
   def ws2812_init: (Integer, Integer, bool) -> void
   def ws2812_show: () -> void
@@ -32,7 +32,7 @@ class RGB
   def ws2812_circle_set_center: (Integer, Integer) -> void
 
   @fifo: Array[true]
-  @effect: effect_type
+  @effect: rgb_effect_t
   @effect_init: boolish
   @speed: Integer
   @delay: Integer
@@ -51,7 +51,7 @@ class RGB
   def hsv2rgb: (Float | Integer h, Integer s, Float | Integer v) -> Integer
 
   attr_reader pixel_size: Integer
-  attr_reader effect: effect_type
+  attr_reader effect: rgb_effect_t
   attr_accessor action: action_type
   attr_accessor anchor: bool
   attr_accessor split_sync: bool
@@ -61,7 +61,7 @@ class RGB
   def turn_off: () -> void
   def turn_on: () -> void
   def toggle: () -> void
-  def effect=: (effect_type) -> void
+  def effect=: (rgb_effect_t) -> void
   def hue=: (Integer) -> void
   def saturation=: (Integer) -> void
   def value=: (Integer) -> void

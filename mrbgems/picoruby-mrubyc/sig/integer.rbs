@@ -97,6 +97,8 @@
 # *   #upto: Calls the given block with each integer value from `self` up to the
 #     given value.
 #
+
+# @builtin
 class Integer < Object
   public
 
