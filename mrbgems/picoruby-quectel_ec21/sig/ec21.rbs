@@ -1,4 +1,4 @@
-# @hardware_device
+# @sidebar hardware_device
 class EC21
   type log_t = Hash[Symbol, String]
 
@@ -13,7 +13,7 @@ class EC21
   def call_and_response: (String cmd, String expected_response, ?String? error_response, ?Integer timeout) -> bool
   def check_sim_status: () -> bool
 
-  # @hardware_device
+  # @sidebar hardware_device
   class SoracomBeamUDP < EC21
     def configure_and_activate_context: () -> bool
     def connect_and_send: (String data) -> bool

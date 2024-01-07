@@ -522,7 +522,7 @@
 # *   #sum: Returns a sum of elements according to either `+` or a given block.
 #
 
-# @builtin
+# @sidebar builtin
 class Array[unchecked out Elem] < Object
 
   # <!--

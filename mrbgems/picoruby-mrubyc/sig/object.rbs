@@ -126,7 +126,7 @@ RUBY_VERSION: String
 MRUBY_VERSION: String
 MRUBYC_VERSION: String
 
-# @builtin
+# @sidebar builtin
 class Object < BasicObject
 
   def class: -> class

@@ -127,7 +127,7 @@
 # *   ::hypot: Returns `sqrt(a**2 + b**2)` for the given `a` and `b`.
 #
 
-# @builtin
+# @sidebar builtin
 class Math
   # <!-- rdoc-file=math.c -->
   # Definition of the mathematical constant E for Euler's number (e) as a Float

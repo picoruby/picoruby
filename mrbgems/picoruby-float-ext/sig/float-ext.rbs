@@ -1,4 +1,4 @@
-# @builtin
+# @sidebar builtin
 # @added_by picoruby-float-ext
 class Float
   def ceil_to_i: () -> Integer

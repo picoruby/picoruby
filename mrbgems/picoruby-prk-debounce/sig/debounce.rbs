@@ -1,4 +1,4 @@
-# @prk_firmware
+# @sidebar prk_firmware
 class DebounceBase
   DEFAULT_THRESHOLD: Integer
 
@@ -11,19 +11,19 @@ class DebounceBase
   def set_time: () -> void
 end
 
-# @prk_firmware
+# @sidebar prk_firmware
 class DebounceNone < DebounceBase
   def resolve: (Integer in_pin, Integer out_pin) -> bool
 end
 
-# @prk_firmware
+# @sidebar prk_firmware
 class DebouncePerRow < DebounceBase
   @pr_table: Hash[Integer, { in_pin: Integer?, pin_val: bool, time: Integer }]
 
   def resolve: (Integer in_pin, Integer out_pin) -> bool
 end
 
-# @prk_firmware
+# @sidebar prk_firmware
 class DebouncePerKey < DebounceBase
   @pk_table: Hash[Integer, { pin_val: bool, time: Integer }]
 

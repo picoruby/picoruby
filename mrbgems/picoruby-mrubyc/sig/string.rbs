@@ -627,7 +627,7 @@
 #     calls to #succ.
 #
 
-# @builtin
+# @sidebar builtin
 class String
 
   public

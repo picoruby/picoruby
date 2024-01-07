@@ -1,4 +1,4 @@
-# @hardware_device
+# @sidebar hardware_device
 class DipSwitch
   @c_pin: GPIO | nil
   @negative_logic: bool

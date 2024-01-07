@@ -2,7 +2,7 @@
 # The class of the singleton object `nil`.
 #
 
-# @builtin
+# @sidebar builtin
 class NilClass
   def !: () -> true
 

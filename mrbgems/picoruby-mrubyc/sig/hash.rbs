@@ -497,7 +497,7 @@
 # *   #invert: Returns a hash with the each key-value pair inverted.
 #
 
-# @builtin
+# @sidebar builtin
 class Hash[unchecked out K, unchecked out V] < Object
   public
 

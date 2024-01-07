@@ -226,7 +226,7 @@
 # *   #to_s: Returns a string representation of `self` (uses #to_s).
 #
 
-# @builtin
+# @sidebar builtin
 class Range[out Elem] < Object
 
   # <!--

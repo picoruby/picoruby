@@ -13,7 +13,7 @@ class Object
   DRIVE_NAME: String
 end
 
-# @prk_firmware
+# @sidebar prk_firmware
 class Keyboard
   type debounce_type = :none
                      | :per_row

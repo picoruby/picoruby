@@ -1,4 +1,4 @@
-# @hardware_device
+# @sidebar hardware_device
 class AHT25
   ADDRESS: Integer
 

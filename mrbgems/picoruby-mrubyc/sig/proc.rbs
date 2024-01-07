@@ -1,4 +1,4 @@
-# @builtin
+# @sidebar builtin
 class Proc
   # <!--
   #   rdoc-file=proc.c

@@ -120,7 +120,7 @@
 # *   #upcase: Returns symbol with all characters upcased.
 #
 
-# @builtin
+# @sidebar builtin
 class Symbol
 
   public

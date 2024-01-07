@@ -80,7 +80,7 @@
 # *   #truncate: Returns `self` truncated to a given precision.
 #
 
-# @builtin
+# @sidebar builtin
 class Float < Object
   public
 

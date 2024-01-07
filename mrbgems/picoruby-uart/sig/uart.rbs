@@ -1,4 +1,4 @@
-# @io_peripheral
+# @sidebar io_peripheral
 class UART
   class RxBuffer
   end

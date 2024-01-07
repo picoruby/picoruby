@@ -1,4 +1,4 @@
-# @prk_firmware
+# @sidebar prk_firmware
 class ConsumerKey
   KEYCODE: Hash[Symbol, Integer]
   ALIAS: Hash[Symbol, Integer]

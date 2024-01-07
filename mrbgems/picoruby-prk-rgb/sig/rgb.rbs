@@ -3,7 +3,7 @@
 # Global variables
 $rgb: RGB
 
-# @prk_firmware
+# @sidebar prk_firmware
 class RGB
   type rgb_effect_t = :swirl
                   | :rainbow_mood

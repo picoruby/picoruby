@@ -1,4 +1,4 @@
-# @prk_firmware
+# @sidebar prk_firmware
 class Joystick
   type adc_pins_t = 26 | 27 | 28 | 29
   type init_axis_t = :x | :y | :z | :rx | :ry | :rz

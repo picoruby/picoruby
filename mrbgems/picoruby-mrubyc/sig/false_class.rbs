@@ -4,7 +4,7 @@
 # operators allowing `false` to participate correctly in logical expressions.
 #
 
-# @builtin
+# @sidebar builtin
 class FalseClass
   def !: () -> true
 

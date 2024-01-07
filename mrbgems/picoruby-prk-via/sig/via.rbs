@@ -1,4 +1,4 @@
-# @prk_firmware
+# @sidebar prk_firmware
 class VIA
   VIA_FILENAME: String
   VIA_IDs : Array[Symbol]

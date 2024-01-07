@@ -4,7 +4,7 @@
 # allowing `true` to be used in logical expressions.
 #
 
-# @builtin
+# @sidebar builtin
 class TrueClass
   def !: () -> false
 

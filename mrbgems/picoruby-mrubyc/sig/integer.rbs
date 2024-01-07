@@ -98,7 +98,7 @@
 #     given value.
 #
 
-# @builtin
+# @sidebar builtin
 class Integer < Object
   public
 

@@ -1,4 +1,4 @@
-# @io_peripheral
+# @sidebar io_peripheral
 class SPI
   MSB_FIRST: 1
   LSB_FIRST: 0

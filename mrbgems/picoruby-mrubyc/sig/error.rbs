@@ -1,35 +1,35 @@
-# @builtin
+# @sidebar builtin
 class StandardError < Exception
 end
 
-# @builtin
+# @sidebar builtin
 class ArgumentError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class NameError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class NoMethodError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class RangeError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class TypeError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class RuntimeError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class ZeroDivisionError < StandardError
 end
 
-# @builtin
+# @sidebar builtin
 class SyntaxError < StandardError
 end

@@ -2,7 +2,7 @@
 
 # Global variables
 
-# @prk_firmware
+# @sidebar prk_firmware
 class RotaryEncoder
   @proc_cw:  (^() -> void | Proc)
   @proc_ccw: (^() -> void | Proc)
