@@ -922,8 +922,9 @@ class Hash[unchecked out K, unchecked out V] < Object
   #
   def values: () -> ::Array[V]
 
+  # @ignore
   # To surpress an error in steep/lib/steep/interface/builder.rb:615
-  private def fetch: (K arg0) -> V
+  def fetch: (K arg0) -> V
 
   # <!--
   #   rdoc-file=hash.c

@@ -1,5 +1,11 @@
 # TypeProf 0.21.3
 
+# @sidebar builtin
+# @added_by picoruby-terminal
+class Array[unchecked out Elem] < Object
+  def insert: (Integer index, *Elem) -> void
+end
+
 # Classes
 class Terminal
   class Buffer

@@ -104,7 +104,7 @@ class Keyboard
   @joystick: Joystick
   @mouse: Mouse
   @output_report_cb: ^(Integer)->void
-  @prev_rgb_effect: effect_type
+  @prev_rgb_effect: RGB::rgb_effect_t
   @rgb_sandbox: Sandbox
   @ruby_mode_stop: bool
   @ruby_mode: bool

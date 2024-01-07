@@ -31,8 +31,10 @@ class UART
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
   ) -> void
-  private def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
-  private def self.open_connection: (
+  # @private
+  def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
+  # @private
+  def self.open_connection: (
     String unit,
     Integer txd_pin,
     Integer rxd_pin

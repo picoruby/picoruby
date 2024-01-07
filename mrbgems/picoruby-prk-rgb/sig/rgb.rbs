@@ -5,13 +5,14 @@ $rgb: RGB
 
 # @sidebar prk_firmware
 class RGB
+
   type rgb_effect_t = :swirl
-                  | :rainbow_mood
-                  | :breath
-                  | :ruby
-                  | :nokogiri
-                  | :static
-                  | :circle
+                    | :rainbow_mood
+                    | :breath
+                    | :ruby
+                    | :nokogiri
+                    | :static
+                    | :circle
 
   type action_type = :thunder
                    | nil

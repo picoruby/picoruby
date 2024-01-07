@@ -9,4 +9,6 @@ class Watchdog
   def self.caused_reboot?: () -> bool
   def self.enable_caused_reboot?: () -> bool
   def self.get_count: () -> Integer
+
+  attr_accessor enabled: bool
 end

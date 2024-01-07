@@ -573,9 +573,6 @@ class Array[unchecked out Elem] < Object
                 | (int size, ?Elem val) -> void
                 | (int size) { (::Integer index) -> Elem } -> void
 
-
-  def insert: (Integer index, *Elem) -> void
-
   public
 
   # <!--
@@ -1776,10 +1773,10 @@ class Array[unchecked out Elem] < Object
   #
   def |: [T] (::Array[T] other_ary) -> ::Array[Elem | T]
 
+  # @ignore
   # To surpress an error in steep/lib/steep/interface/builder.rb:479
   def fetch: (int index) -> Elem
 
-  private
 
 end
 
