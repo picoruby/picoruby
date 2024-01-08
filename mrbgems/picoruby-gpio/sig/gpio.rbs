@@ -1,3 +1,4 @@
+# @sidebar error
 class IOError
   ERROR_NONE:           0
   ERROR_TIMEOUT:       -1
@@ -20,36 +21,44 @@ class GPIO
   OPEN_DRAIN: 32 # 0b0100000
   ALT:        64 # 0b1000000
 
-  type pin_t = (Integer|String|Symbol)
+  type gpio_pin_t = (Integer|String|Symbol)
+  type gpio_logic_t = (0 | 1)
 
-  @pin: pin_t
+  @pin: gpio_pin_t
   @dir: (Integer|nil)
   @alt_function: (Integer|nil)
   @pull: (Integer|nil)
   @open_drain: bool
 
   # Ruby method
-  def initialize: (pin_t pin, Integer flags, ?Integer alt_function) -> void
+  def self.new: (gpio_pin_t pin, Integer flags, ?Integer alt_function) -> instance
   def setmode: (Integer flags, ?Integer alt_function) -> 0
-  def set_function: (Integer, Integer) -> 0
-  def set_dir: (Integer) -> 0
-  def set_pull: (Integer) -> 0
-  def open_drain: (Integer) -> 0
-  def on_initialize?: () -> bool
 
   # C function
-  def self.read_at: (pin_t) -> Integer
-  def self.high_at?: (pin_t) -> bool
+  def self.read_at: (gpio_pin_t) -> gpio_logic_t
+  def self.high_at?: (gpio_pin_t) -> bool
   def self.low_at?: (Integer) -> bool
-  def self.write_at: (pin_t, Integer) -> 0
-  def self._init: (pin_t) -> 0
-  def self.set_dir_at: (pin_t, Integer) -> 0
-  def self.pull_up_at: (pin_t) -> 0
-  def self.pull_down_at: (pin_t) -> 0
-  def self.open_drain_at: (pin_t) -> 0
-  def self.set_function_at: (pin_t, Integer) -> 0
-  def read: () -> Integer
+  def self.write_at: (gpio_pin_t, Integer) -> 0
+  def read: () -> gpio_logic_t
   def write: (Integer) -> 0
   def high?: () -> bool
   def low?: () -> bool
+
+  private def set_function: (Integer, Integer) -> 0
+  private def set_dir: (Integer) -> 0
+  private def set_pull: (Integer) -> 0
+  private def open_drain: (Integer) -> 0
+  private def on_initialize?: () -> bool
+  # @private
+  def self._init: (gpio_pin_t) -> 0
+  # @private
+  def self.set_function_at: (gpio_pin_t, Integer) -> 0
+  # @private
+  def self.set_dir_at: (gpio_pin_t, Integer) -> 0
+  # @private
+  def self.pull_up_at: (gpio_pin_t) -> 0
+  # @private
+  def self.pull_down_at: (gpio_pin_t) -> 0
+  # @private
+  def self.open_drain_at: (gpio_pin_t) -> 0
 end

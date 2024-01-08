@@ -6,8 +6,12 @@ class MML
   @common_duration: Integer
   @q: Integer
 
+  def self.new: () -> instance
+  # @private
   def self.number_str: (String, Integer) -> [String, Integer]
+  # @private
   def self.count_punto: (String, Integer) -> [Integer, Integer]
+  # @private
   def self.coef: (Integer) -> Float
 
   def compile: (String) { (Float, Integer) -> bool } -> Integer

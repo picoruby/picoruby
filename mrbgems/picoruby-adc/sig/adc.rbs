@@ -6,11 +6,14 @@ class ADC
   @input: Integer
   @additional_params: additional_params_t
 
-  def initialize: (pin_t pin, ?additional_params_t additional_params) -> void
+  def self.new: (pin_t pin, ?additional_params_t additional_params) -> instance
   def read: () -> Float
   def read_voltage: () -> Float
   def read_raw: () -> Integer
 
+  # @private
   def self._init: (pin_t pin) -> 0
+
+  # @private
   def init_additional_params: () -> self
 end

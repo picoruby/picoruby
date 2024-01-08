@@ -41,7 +41,7 @@ class VIA
     @composite_keys = Array.new
   end
 
-  attr_accessor :layer_count, :kbd, :sandbox
+  attr_accessor :layer_count, :kbd
 
   def cols_size
     (@kbd.cols_size || 1) * (@kbd.split ? 2 : 1)

@@ -7,9 +7,9 @@ class Vim
   @command_buffer: Terminal::Buffer
   @message: String | nil
 
-  def initialize: (String filepath) -> void
+  def self.new: (String filepath) -> instance
   def start: -> void
-  def _start: -> void
+  private def _start: -> void
   def exec_command: (Terminal::Buffer buffer) -> (:quit | String | nil)
   def save_file: -> String
 end

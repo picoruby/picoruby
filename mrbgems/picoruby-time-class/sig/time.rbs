@@ -788,7 +788,8 @@ class Time < Object
   def self.mktime: (Integer year, ?Integer | String month, ?Integer day, ?Integer hour, ?Integer min, ?Integer sec, ?Integer usec_with_frac) -> Time
 
   def self.time_methods: () -> Time::TimeMethods
+
+  class TimeMethods
+  end
 end
 
-class Time::TimeMethods
-end

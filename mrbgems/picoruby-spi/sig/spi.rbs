@@ -4,8 +4,8 @@ class SPI
   LSB_FIRST: 0
   DATA_BITS: 8
 
-  type first_bit_t = 0|1#MSB_FIRST|LSB_FIRST
-  type mode_t = 0|1|2|3
+  type spi_first_bit_t = 0|1#MSB_FIRST|LSB_FIRST
+  type spi_mode_t = 0|1|2|3
 
   DEFAULT_FREQUENCY: 100_000
 
@@ -18,17 +18,17 @@ class SPI
   def copi_pin: () -> Integer
   def cs_pin: () -> Integer
 
-  def initialize: (
+  def self.new: (
     unit: Symbol,
     ?frequency: Integer,
     ?sck_pin: Integer,
     ?cipo_pin: Integer,
     ?copi_pin: Integer,
     ?cs_pin: Integer,
-    ?mode: mode_t,
-    ?first_bit: first_bit_t
-  ) -> void
-  def _init: (String unit, Integer frequency, Integer sck_pin, Integer cipo_pin, Integer copo_pin, Integer mode, Integer first_bit, Integer data_bits) -> Integer
+    ?mode: spi_mode_t,
+    ?first_bit: spi_first_bit_t
+  ) -> instance
+  private def _init: (String unit, Integer frequency, Integer sck_pin, Integer cipo_pin, Integer copo_pin, Integer mode, Integer first_bit, Integer data_bits) -> Integer
   def select: () ?{ (SPI) -> untyped } -> untyped
   def deselect: () -> void
   def write: (*(Integer|String)|Array[Integer] outputs) -> Integer
@@ -36,7 +36,7 @@ class SPI
   def transfer: (*(Integer|String)|Array[Integer] outputs, ?additional_read_bytes: Integer) -> String
   # private
   def params_to_array: (*(Integer|String)|Array[Integer] params) -> Array[Integer]
-  def _write: (Array[Integer]) -> Integer
-  def _read: (Integer repeated_tx_data, Integer len) -> (String|Integer)
-  def _transfer: (Array[Integer]) -> (String|Integer)
+  private def _write: (Array[Integer]) -> Integer
+  private def _read: (Integer repeated_tx_data, Integer len) -> (String|Integer)
+  private def _transfer: (Array[Integer]) -> (String|Integer)
 end

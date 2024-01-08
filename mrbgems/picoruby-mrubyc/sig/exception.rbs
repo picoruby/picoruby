@@ -106,7 +106,7 @@
 # *   fatal
 #
 
-# @sidebar builtin
+# @sidebar error
 class Exception
   # <!--
   #   rdoc-file=error.c

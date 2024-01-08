@@ -14,6 +14,7 @@ class VIA
   attr_accessor kbd: Keyboard
   attr_accessor layer_count: Integer
 
+  def self.new: () -> instance
   def cols_size: -> Integer
   def rows_size: -> Integer
   def task: -> void

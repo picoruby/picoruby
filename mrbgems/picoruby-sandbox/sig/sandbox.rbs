@@ -10,7 +10,7 @@ class Sandbox
 
   attr_accessor error: Exception?
 
-  def initialize: (?bool suppress_error) -> void
+  def self.new: (?bool suppress_error) -> instance
   def compile: (String) -> bool
   def suspend: () -> void
   def free_parser: () -> void
@@ -23,8 +23,3 @@ class Sandbox
   def load_file: (String, ?signal: bool) -> void
 end
 
-class RubyVM
-end
-class RubyVM::InstructionSequence
-  def self.compile: (String) -> self
-end

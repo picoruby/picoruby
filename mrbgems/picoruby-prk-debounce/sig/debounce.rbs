@@ -6,7 +6,7 @@ class DebounceBase
   @threshold: Integer
   @type: Symbol
 
-  def initialize: () -> void
+  def self.new: () -> instance
   def threshold=: (Integer) -> void
   def set_time: () -> void
 end

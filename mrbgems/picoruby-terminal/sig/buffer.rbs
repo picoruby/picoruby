@@ -16,7 +16,7 @@ class Terminal
     attr_reader cursor_x: Integer
     attr_reader cursor_y: Integer
 
-    def initialize: -> void
+    def self.new: () -> instance
     def current_line: -> String
     def current_char: -> String?
     def clear: -> void

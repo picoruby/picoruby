@@ -6,13 +6,13 @@ class I2C
 
   @unit_num: Integer
 
-  def initialize: (
+  def self.new: (
     unit: Symbol|nil,
     ?frequency: Integer,
     ?sda_pin: Integer,
     ?scl_pin: Integer
-  ) -> void
-  def _init: (
+  ) -> instance
+  private def _init: (
     String unit,
     Integer frequency,
     Integer sda_pin,
@@ -22,7 +22,7 @@ class I2C
     Integer i2c_adrs_7,
     *outputs_t outputs
   ) -> Integer
-  def _write: (
+  private def _write: (
     Integer unit_num,
     Integer i2c_adrs_7,
     Array[Integer] output_array,
@@ -33,7 +33,7 @@ class I2C
     Integer len,
     *outputs_t outputs
   ) -> String
-  def _read: (
+  private def _read: (
     Integer unit_num,
     Integer i2c_adrs_7,
     Integer len

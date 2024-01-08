@@ -4,6 +4,6 @@ class DipSwitch
   @negative_logic: bool
   @pins: Array[GPIO]
 
-  def initialize: (GPIO|nil c_pin, Array[Integer] pin_nums) -> void
+  def self.new: (GPIO|nil c_pin, Array[Integer] pin_nums) -> instance
   def read: () -> Integer
 end

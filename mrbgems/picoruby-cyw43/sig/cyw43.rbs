@@ -4,6 +4,7 @@ class CYW43
 
   def self.init: (?String, ?force: bool) -> void
   def self.check_initialized: () -> void
+  # @private
   def self._init: (String, bool) -> bool
 
   # @sidebar hardware_device
@@ -12,7 +13,7 @@ class CYW43
     @pin: Integer
     def initialize: (Integer) -> void
     def write: (Integer) -> 0
-    def read: () -> Integer
+    def read: () -> GPIO::gpio_logic_t
   end
 end
 

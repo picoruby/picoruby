@@ -10,7 +10,7 @@ class Mouse
   attr_accessor wheel_speed: Integer
   attr_accessor buttons: Integer
 
-  def initialize: (driver: driver_t) -> void
+  def self.new: (driver: driver_t) -> instance
   def task: () { (Mouse, Keyboard) -> void } -> Proc
   def button_pressed?: () -> bool
 end

@@ -5,14 +5,14 @@ class MCP3208
   @spi: SPI
   @cs: GPIO
 
-  def initialize: (
+  def self.new: (
     unit: Symbol,
     ?frequency: Integer,
     ?sck_pin: Integer,
     ?cipo_pin: Integer,
     ?copi_pin: Integer,
     ?cs_pin: Integer
-  ) -> void
+  ) -> instance
   def read: (Integer channel, ?differential: bool) -> Integer
 end
 

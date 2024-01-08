@@ -17,7 +17,7 @@ class RotaryEncoder
   def init_encoder: (Integer, Integer) -> Integer
   def consume_encoder: (Integer) -> Integer
 
-  def initialize: (Integer pin_a, Integer pin_b) -> void
+  def self.new: (Integer pin_a, Integer pin_b) -> instance
   def init_pins: () -> void
   def create_keycodes: (Integer) -> void
   def call_proc_if: (Integer) -> void

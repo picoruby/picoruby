@@ -77,7 +77,7 @@ class BLE
   attr_accessor debug: bool
   attr_reader role: (:central | :peripheral | :observer | :broadcaster)
 
-  def initialize: (?(String|nil)) -> void
+  def self.new: (?(String|nil)) -> instance
   def ensure: () { () -> void }-> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
@@ -112,7 +112,7 @@ class BLE
     attr_reader address: String
     attr_reader rssi: Integer | nil
     attr_reader reports: report_t
-    def initialize: (String) -> void
+    def self.new: (String) -> instance
     def format: () -> String
     def inspect_reports: (String) -> report_t
     def name_include?: (String) -> (bool | nil)
@@ -132,7 +132,7 @@ class BLE
     attr_reader handle_table: Hash[uuid_t|nil, untyped]
     attr_reader profile_data: String
 
-    def initialize: () { (GattDatabase) -> void } -> void
+    def self.new: () ?{ (GattDatabase) -> void } -> instance
     def insert_database_hash: () -> void
     def push_handle: () -> String
     def seek_handle: () -> String
@@ -158,7 +158,7 @@ class BLE
   end
 
   class Observer < BLE::Central
-    def initialize: () -> void
+    def self.new: () -> instance
   end
 
   class Central < BLE

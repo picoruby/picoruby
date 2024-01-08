@@ -5,6 +5,6 @@ class IIRFilter
 
   @filterd_value: Integer
 
-  def initialize: () -> void
+  def self.new: () -> instance
   def filter: (Integer raw_value) -> Integer
 end

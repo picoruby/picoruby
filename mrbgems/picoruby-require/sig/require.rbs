@@ -1,5 +1,7 @@
 $LOADED_FEATURES: Array[String]
 
+# @sidebar error
+# @added_by picoruby-require
 class LoadError < StandardError
 end
 
@@ -8,13 +10,12 @@ end
 class Object
   def require: (String) -> bool
   def load: (String) -> bool
-  # private
-  def required?: (String) -> bool
-  def load_file: (String) -> bool
-  def require_file: (String) -> bool
-  # picogem_init.c
-  def extern: (String path, ?bool force) -> (bool|nil)
+  private def required?: (String) -> bool
+  private def load_file: (String) -> bool
+  private def require_file: (String) -> bool
+  private def extern: (String path, ?bool force) -> (bool|nil)
 
+  # @ignore
   # for CRuby
   def require_relative: (String) -> bool
 end

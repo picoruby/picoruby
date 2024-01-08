@@ -57,7 +57,7 @@ class RGB
   attr_accessor anchor: bool
   attr_accessor split_sync: bool
 
-  def initialize: (Integer pin, Integer underglow_size, Integer backlight_size, ?bool is_rgbw) -> void
+  def self.new: (Integer pin, Integer underglow_size, Integer backlight_size, ?bool is_rgbw) -> instance
   def init_values: () -> void
   def turn_off: () -> void
   def turn_on: () -> void
@@ -65,7 +65,7 @@ class RGB
   def effect=: (rgb_effect_t) -> void
   def hue=: (Integer) -> void
   def saturation=: (Integer) -> void
-  def value=: (Integer) -> void
+  def value=: (Integer | Float) -> void
   def speed=: (Integer) -> void
   def reset_pixel: () -> void
   def invoke_anchor: (Symbol | nil) -> Integer

@@ -2,9 +2,9 @@
 class PCF8523
   ADDRESS: Integer
 
-  @i2c: I2C
+  attr_reader i2c: I2C
 
-  def initialize : (i2c: I2C) -> void
+  def self.new : (i2c: I2C) -> instance
   def set_power_management : (?Integer pow) -> Integer
   def current_time= : (Time) -> Time
   def current_time : () -> Time

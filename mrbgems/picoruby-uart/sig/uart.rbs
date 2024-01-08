@@ -1,5 +1,7 @@
 # @sidebar io_peripheral
 class UART
+
+  # @sidebar hardware_device
   class RxBuffer
   end
 
@@ -18,7 +20,7 @@ class UART
 
   attr_reader baudrate: Integer
 
-  def initialize: (
+  def self.new: (
     unit: unit_t,
     ?txd_pin: Integer,
     ?rxd_pin: Integer,
@@ -30,7 +32,7 @@ class UART
     ?rts_pin: Integer,
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
-  ) -> void
+  ) -> instance
   # @private
   def self.open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
   # @private

@@ -26,7 +26,7 @@ class RGB
     # TODO: @underglow_size, @backlight_size
     @pixel_size = underglow_size + backlight_size
     ws2812_init(pin, @pixel_size, is_rgbw)
-    @max_value = 13 # default
+    @max_value = 13.0 # default
     init_values
     @split_sync = true
   end
@@ -203,10 +203,10 @@ class RGB
   end
 
   def value=(val)
-    @max_value = val
+    @max_value = val.to_f
     @max_value = 0.0 if @max_value < 0.0
     @max_value = 31.0 if 31.0 < @max_value
-    @value = [@value, @max_value].min
+    @value = [@value, @max_value].min || 0.0
     reset_pixel
   end
 

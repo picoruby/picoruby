@@ -1,6 +1,4 @@
-if RUBY_ENGINE == 'mruby/c'
-  require "mml"
-end
+require "mml"
 
 class Sounder
   SONGS = {

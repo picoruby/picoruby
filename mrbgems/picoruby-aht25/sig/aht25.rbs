@@ -4,8 +4,8 @@ class AHT25
 
   @i2c: I2C
 
-  def initialize: (i2c: I2C) -> void
+  def self.new: (i2c: I2C) -> instance
   def check: () -> bool
   def reset: () -> void
-  def read: () -> {temperature: Float, humidity: Float}
+  def read: () -> { temperature: Float, humidity: Float }
 end

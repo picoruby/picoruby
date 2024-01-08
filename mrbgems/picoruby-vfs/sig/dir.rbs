@@ -92,7 +92,6 @@
 class Dir
   @dir: VFS::dir_t
 
-  def self.new: (path dir) -> VFS::dir_t
 
   # <!--
   #   rdoc-file=dir.rb
@@ -104,7 +103,7 @@ class Dir
   # The optional *encoding* keyword argument specifies the encoding of the
   # directory. If not specified, the filesystem encoding is used.
   #
-  def initialize: (path dir) -> void
+  def self.new: (path dir) -> VFS::dir_t
 
   # <!--
   #   rdoc-file=dir.c

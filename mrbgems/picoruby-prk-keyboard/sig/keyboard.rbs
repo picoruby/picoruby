@@ -147,7 +147,7 @@ class Keyboard
   def uart_anchor_init : (Integer) -> void
   def uart_partner_init : (Integer) -> void
 
-  def initialize: -> void
+  def self.new: -> instance
   def anchor?: -> bool
   def via=: (bool) -> void
   def via_layer_count=: (Integer) -> void

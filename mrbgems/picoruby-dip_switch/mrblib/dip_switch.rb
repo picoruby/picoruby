@@ -19,7 +19,7 @@ class DipSwitch
     @pins = []
     pin_nums.each do |pin_num|
       pin = GPIO.new(pin_num, GPIO::IN)
-      pin.set_pull(@negative_logic ? GPIO::PULL_UP : GPIO::PULL_DOWN)
+      pin.setmode(@negative_logic ? GPIO::PULL_UP : GPIO::PULL_DOWN)
       @pins << pin
     end
   end

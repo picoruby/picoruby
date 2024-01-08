@@ -1,4 +1,5 @@
 class SQLite3
+  # @sidebar error
   class Exception < StandardError
   end
 end

@@ -9,10 +9,10 @@ class Shell
     BUILTIN: Array[String]
     @sandbox: untyped
 
-    def initialize: -> void
+    def self.new: () -> instance
     def find_executable: (String name) -> String?
     def exec: (*untyped params) -> void
-    def _type: -> nil
-    def _echo: -> nil
+    private def _type: -> nil
+    private def _echo: -> nil
   end
 end

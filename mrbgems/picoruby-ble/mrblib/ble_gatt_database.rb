@@ -2,13 +2,14 @@ class BLE
   class GattDatabase
     ATT_DB_VERSION = 0x01
 
-    def initialize(&block)
+    def initialize#(&block)
       @profile_data = ATT_DB_VERSION.chr
       @handle_table = {}
       @current_handle = 0
       @hash_src = ""
       @hash_pos = nil
-      block.call self
+      #block.call self
+      yield self if block_given?
       insert_database_hash if @database_hash_key
       @profile_data << "\x00\x00"
     end

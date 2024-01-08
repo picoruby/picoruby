@@ -7,7 +7,7 @@ class MCP3424
 
   attr_reader address: Integer
 
-  def initialize: (i2c: I2C, address_selector: Integer) -> void
+  def self.new: (i2c: I2C, address_selector: Integer) -> instance
   def set_address: (Integer address_selector) -> void
   def bit_resolution=: (Integer bit_resolution) -> Integer
   def bit_resolution: () -> Integer

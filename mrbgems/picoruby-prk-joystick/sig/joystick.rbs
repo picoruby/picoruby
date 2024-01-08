@@ -10,10 +10,10 @@ class Joystick
 
   VALID_PINS: Array[adc_pins_t]
 
-  def initialize: (?Hash[init_axis_t, init_param_t] axes) -> void
-  def reset_axes: () -> nil
-  def init_axis_offset: (String axis, Integer pin) -> bool
+  def self.new: (?Hash[init_axis_t, init_param_t] axes) -> instance
+  private def reset_axes: () -> nil
+  private def init_axis_offset: (String axis, Integer pin) -> bool
   def report_hid: (Integer, Integer) -> nil
   def drift_supression=: (Integer) -> bool
-  def init_sensitivity: (Integer, Float) -> void
+  private def init_sensitivity: (Integer, Float) -> void
 end

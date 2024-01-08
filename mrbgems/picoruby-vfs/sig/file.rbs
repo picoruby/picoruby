@@ -884,7 +884,7 @@ class File
   # *   [Open Options](rdoc-ref:IO@Open+Options).
   # *   [Encoding options](rdoc-ref:encodings.rdoc@Encoding+Options).
   #
-  def initialize: (string, ?string mode) -> void
+  def self.new: (string, ?string mode) -> VFS::file_t
 
   # <!--
   #   rdoc-file=file.c
@@ -981,8 +981,8 @@ class File
   # With a block given, calls the block with the File object and returns the
   # block's value.
   #
-  def self.open: (string, ?string | int mode) -> VFS::file_t
-               | [T] (string, ?string | int mode) { (VFS::file_t) -> T } -> VFS::file_t
+  def self.open: (string, ?string) -> VFS::file_t
+               | [T] (string, ?string) { (VFS::file_t) -> T } -> nil
 
   # <!--
   #   rdoc-file=file.c
@@ -1078,7 +1078,6 @@ class File
   def expand: (Integer size) -> Integer
 
   def fsync: () -> Integer
-end
 
 # <!-- rdoc-file=file.c -->
 # Objects of class File::Stat encapsulate common status information for File
@@ -1088,103 +1087,96 @@ end
 # File::lstat. Many of these methods return platform-specific values, and not
 # all values are meaningful on all systems. See also Kernel#test.
 #
-class File::Stat < Object
-  @stat: FAT::Stat
+  class Stat < Object
+    @stat: FAT::Stat
 
-  def self.new: (String file) -> instance
+    def self.new: (String file) -> instance
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - File::Stat.new(file_name)  -> stat
-  # -->
-  # Create a File::Stat object for the given file name (raising an exception if
-  # the file doesn't exist).
-  #
-  def initialize: (String file) -> void
+    # <!--
+    #   rdoc-file=file.c
+    #   - stat.birthtime  ->  time
+    # -->
+    # Returns the birth time for *stat*.
+    #
+    # If the platform doesn't have birthtime, raises NotImplementedError.
+    #
+    #     File.write("testfile", "foo")
+    #     sleep 10
+    #     File.write("testfile", "bar")
+    #     sleep 10
+    #     File.chmod(0644, "testfile")
+    #     sleep 10
+    #     File.read("testfile")
+    #     File.stat("testfile").birthtime   #=> 2014-02-24 11:19:17 +0900
+    #     File.stat("testfile").mtime       #=> 2014-02-24 11:19:27 +0900
+    #     File.stat("testfile").ctime       #=> 2014-02-24 11:19:37 +0900
+    #     File.stat("testfile").atime       #=> 2014-02-24 11:19:47 +0900
+    #
+    def birthtime: () -> Time
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - stat.birthtime  ->  time
-  # -->
-  # Returns the birth time for *stat*.
-  #
-  # If the platform doesn't have birthtime, raises NotImplementedError.
-  #
-  #     File.write("testfile", "foo")
-  #     sleep 10
-  #     File.write("testfile", "bar")
-  #     sleep 10
-  #     File.chmod(0644, "testfile")
-  #     sleep 10
-  #     File.read("testfile")
-  #     File.stat("testfile").birthtime   #=> 2014-02-24 11:19:17 +0900
-  #     File.stat("testfile").mtime       #=> 2014-02-24 11:19:27 +0900
-  #     File.stat("testfile").ctime       #=> 2014-02-24 11:19:37 +0900
-  #     File.stat("testfile").atime       #=> 2014-02-24 11:19:47 +0900
-  #
-  def birthtime: () -> Time
+    # <!--
+    #   rdoc-file=file.c
+    #   - File.directory?(path) -> true or false
+    # -->
+    # With string `object` given, returns `true` if `path` is a string path leading
+    # to a directory, or to a symbolic link to a directory; `false` otherwise:
+    #
+    #     File.directory?('.')              # => true
+    #     File.directory?('foo')            # => false
+    #     File.symlink('.', 'dirlink')      # => 0
+    #     File.directory?('dirlink')        # => true
+    #     File.symlink('t,txt', 'filelink') # => 0
+    #     File.directory?('filelink')       # => false
+    #
+    # Argument `path` can be an IO object.
+    #
+    def directory?: () -> bool
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - File.directory?(path) -> true or false
-  # -->
-  # With string `object` given, returns `true` if `path` is a string path leading
-  # to a directory, or to a symbolic link to a directory; `false` otherwise:
-  #
-  #     File.directory?('.')              # => true
-  #     File.directory?('foo')            # => false
-  #     File.symlink('.', 'dirlink')      # => 0
-  #     File.directory?('dirlink')        # => true
-  #     File.symlink('t,txt', 'filelink') # => 0
-  #     File.directory?('filelink')       # => false
-  #
-  # Argument `path` can be an IO object.
-  #
-  def directory?: () -> bool
+    # <!--
+    #   rdoc-file=file.c
+    #   - stat.mode   -> integer
+    # -->
+    # Returns an integer representing the permission bits of *stat*. The meaning of
+    # the bits is platform dependent; on Unix systems, see `stat(2)`.
+    #
+    #     File.chmod(0644, "testfile")   #=> 1
+    #     s = File.stat("testfile")
+    #     sprintf("%o", s.mode)          #=> "100644"
+    #
+    def mode: () -> Integer
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - stat.mode   -> integer
-  # -->
-  # Returns an integer representing the permission bits of *stat*. The meaning of
-  # the bits is platform dependent; on Unix systems, see `stat(2)`.
-  #
-  #     File.chmod(0644, "testfile")   #=> 1
-  #     s = File.stat("testfile")
-  #     sprintf("%o", s.mode)          #=> "100644"
-  #
-  def mode: () -> Integer
+    def mode_str: () -> String
 
-  def mode_str: () -> String
+    # <!--
+    #   rdoc-file=file.c
+    #   - stat.mtime  ->  time
+    # -->
+    # Returns the modification time of *stat*.
+    #
+    #     File.stat("testfile").mtime   #=> Wed Apr 09 08:53:14 CDT 2003
+    #
+    def mtime: () -> Time
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - stat.mtime  ->  time
-  # -->
-  # Returns the modification time of *stat*.
-  #
-  #     File.stat("testfile").mtime   #=> Wed Apr 09 08:53:14 CDT 2003
-  #
-  def mtime: () -> Time
+    # <!--
+    #   rdoc-file=file.c
+    #   - stat.size    -> integer
+    # -->
+    # Returns the size of *stat* in bytes.
+    #
+    #     File.stat("testfile").size   #=> 66
+    #
+    def size: () -> Integer
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - stat.size    -> integer
-  # -->
-  # Returns the size of *stat* in bytes.
-  #
-  #     File.stat("testfile").size   #=> 66
-  #
-  def size: () -> Integer
+    # <!--
+    #   rdoc-file=file.c
+    #   - stat.writable?  ->  true or false
+    # -->
+    # Returns `true` if *stat* is writable by the effective user id of this process.
+    #
+    #     File.stat("testfile").writable?   #=> true
+    #
+    def writable?: () -> bool
 
-  # <!--
-  #   rdoc-file=file.c
-  #   - stat.writable?  ->  true or false
-  # -->
-  # Returns `true` if *stat* is writable by the effective user id of this process.
-  #
-  #     File.stat("testfile").writable?   #=> true
-  #
-  def writable?: () -> bool
+  end
 
 end
