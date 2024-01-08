@@ -5,27 +5,30 @@
 PicoRuby is an alternative mruby implementation which is:
 
 - Small foot print
-  - ROM: 256 KB
+  - ROM: 256 KB (depending on build config)
   - RAM: 128 KB or less (depending on app code)
   - (Figures in 32 bit architecture)
 - Portable
   - Depends on only standard C library such as glibc, Newlib or Newlib-nano
 - Reference microcontroller boards
   - Raspberry Pi Pico - Arm Cortex-M0+, 264 KB RAM, 2 MB ROM
-  - PSoC5LP - Arm Cortex-M3, 128 KB RAM, 256 KB ROM
+
+### API documentation with some demo videos
+
+[https://picoruby.github.io/](https://picoruby.github.io/)
 
 <img src="docs/logos/fukuokarubyaward.png" width="212">
 
-#### Depends on
+### Depends on
 
 - [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
   - Another implementation of mruby virtual machine
 
-#### Used by
+### Used by
 
 [PRK Firmware](https://github.com/picoruby/prk_firmware)
 
-### Build basics
+### Build
 
 - Prerequisites
   - C toolchain
