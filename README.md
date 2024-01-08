@@ -25,7 +25,7 @@ PicoRuby is an alternative mruby implementation which is:
 
 [PRK Firmware](https://github.com/picoruby/prk_firmware)
 
-### Build
+### Build basics
 
 - Prerequisites
   - C toolchain
@@ -36,11 +36,6 @@ PicoRuby is an alternative mruby implementation which is:
 - `rake` builds binaries for your machine
   - PicoRuby basically uses mruby's build system as it is
   - `rake -T` shows available subcommands
-- ~~You can build library files for PSoC5LP by hitting `rake psoc5lp_lib`~~
-  - ~~It requires you to have Docker though,~~
-  - ~~You can make arm-none-eabi tools if you don't want to use Docker~~
-  - ~~[hasumikin/cross_compilation_toolchains](https://github.com/hasumikin/cross_compilation_toolchains) may help you to make an environment~~
-  - This feature is under reconstruction as of 2022
 
 #### Cross compilation
 
@@ -55,8 +50,6 @@ See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby
 - bin/picoruby
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
   - You can also do like `bin/picoruby -e 'puts "Hello World!"'`
-- bin/picoirb
-  - A REPL implementation like irb and mirb
 
 ### `--verbose` option
 
@@ -66,19 +59,9 @@ See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby
 
 (Replace `[path/to/]mmruby` with `bin/picoruby --verbose` in mind. It's an old name)
 
-### Presentations about PicoRuby
-
-The author gave a talk about PicoRuby in RubyConf 2021.
-See the video on [YouTube](https://www.youtube.com/watch?v=SLSwn41iJX4&t=12s).
-
-Japanese talks are available at
-[RubyKaigi Takeout 2020](https://rubykaigi.org/2020-takeout/presentations/hasumikin.html)
-and
-[RubyKaigi Takeout 2021](https://rubykaigi.org/2021-takeout/presentations/hasumikin.html).
-
 ### Roadmap
 
-PicoRuby is still developing halfway towards finishing as of 2022.
+PicoRuby is still developing halfway towards finishing as of 2024.
 
 See implementation roadmap on [issue/6](https://github.com/picoruby/picoruby/issues/6)
 
@@ -98,4 +81,6 @@ See also [picoruby/picoruby/wiki](https://github.com/picoruby/picoruby/wiki).
 
 ### License
 
-Copyright © 2020-2022 HASUMI Hitoshi & Monstarlab. See MIT-LICENSE for further details.
+Copyright © 2020-2024 HASUMI Hitoshi. See MIT-LICENSE for further details.
+
+Copyright © 2020-2021 Monstarlab. See MIT-LICENSE for further details.
