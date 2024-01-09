@@ -955,7 +955,6 @@ class Hash[unchecked out K, unchecked out V] < Object
   #     h.default_proc.class # => Proc
   #     h[:nosuch] # => "Default value for nosuch"
   #
-  def initialize: () -> void
-                | (untyped default) -> void
-                | [A, B] () { (Hash[A, B] hash, A key) -> B } -> void
+  def self.new: () -> instance
+                | (untyped default) -> instance
 end

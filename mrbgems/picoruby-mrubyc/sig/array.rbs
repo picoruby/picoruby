@@ -568,10 +568,9 @@ class Array[unchecked out Elem] < Object
   # With a block and no argument, or a single argument `0`, ignores the block and
   # returns a new empty Array.
   #
-  def initialize: () -> void
-                | (::Array[Elem] ary) -> void
-                | (int size, ?Elem val) -> void
-                | (int size) { (::Integer index) -> Elem } -> void
+  def initialize: () -> instance
+                | (::Array[Elem] ary) -> instance
+                | (int size, ?Elem val) -> instance
 
   public
 

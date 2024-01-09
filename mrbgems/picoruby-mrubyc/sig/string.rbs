@@ -1603,7 +1603,7 @@ class String
   #
   #     String.new('hello', encoding: 'UTF-8', capacity: 25)
   #
-  def initialize: (?string str) -> void
+  def self.new: (?string str) -> instance
 
   private 
 

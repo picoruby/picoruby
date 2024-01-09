@@ -13,7 +13,7 @@ class Proc
   #
   #     Proc.new    #=> ArgumentError
   #
-  def initialize: () { (*untyped) -> untyped } -> void
+  def self.new: () ?{ (*untyped) -> untyped } -> instance
 
   # <!--
   #   rdoc-file=proc.c

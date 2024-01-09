@@ -368,7 +368,7 @@ class Range[out Elem] < Object
   #     Range.new('a', 'd').to_a        # => ["a", "b", "c", "d"]
   #     Range.new('a', 'd', true).to_a  # => ["a", "b", "c"]
   #
-  def initialize: (Elem from, Elem to, ?boolish exclude_end) -> void
+  def initialize: (Elem from, Elem to, ?boolish exclude_end) -> instance
 
   # <!--
   #   rdoc-file=range.c
