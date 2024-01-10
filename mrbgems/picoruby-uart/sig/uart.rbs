@@ -1,7 +1,7 @@
 # @sidebar io_peripheral
 class UART
 
-  # @sidebar hardware_device
+  # @sidebar io_peripheral
   class RxBuffer
   end
 
