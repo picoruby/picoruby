@@ -11,7 +11,7 @@ PicoRuby is an alternative mruby implementation which is:
 - Portable
   - Depends on only standard C library such as glibc, Newlib or Newlib-nano
 - Reference microcontroller boards
-  - Raspberry Pi Pico - Arm Cortex-M0+, 264 KB RAM, 2 MB ROM
+  - Raspberry Pi Pico - Arm Cortex-M0+, 264 KB RAM, 2 MB Flash
 
 ### API documentation with some demo videos
 
