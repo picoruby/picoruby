@@ -3,7 +3,7 @@ class CYW43
   $_cyw43_country: String
 
   def self.init: (?String, ?force: bool) -> void
-  def self.check_initialized: () -> void
+  def self.initialized?: () -> bool
   # @private
   def self._init: (String, bool) -> bool
 

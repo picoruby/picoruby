@@ -8,16 +8,14 @@ class CYW43
     end
   end
 
-  def self.check_initialized
-    unless $_cyw43_country
-      raise RuntimeError, "CYW43.init must be called before using GPIO"
-    end
+  def self.initialized?
+    !!$_cyw43_country
   end
 
   class GPIO
     LED_PIN = 0
     def initialize(pin)
-      CYW43.check_initialized
+      CYW43.init unless CYW43.initialized?
       @pin = pin
     end
   end
