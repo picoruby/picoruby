@@ -4,4 +4,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-filesystem-fat"
   conf.gem core: "picoruby-shell"
   conf.gem core: 'picoruby-task-ext'
+  conf.gem core: 'picoruby-prism'
 end

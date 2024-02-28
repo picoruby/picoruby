@@ -6,7 +6,7 @@ target :mrbgems do
 
   signature "sig/prk_firmware"
   Dir.glob("**/sig/").each do |dir|
-    signature dir
+    signature dir unless dir.include?("picoruby-prism/lib/prism")
   end
 
   check "mrblib"
