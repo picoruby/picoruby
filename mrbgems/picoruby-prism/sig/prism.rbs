@@ -1,0 +1,16 @@
+class Prism
+  class ParseError
+    @message: String
+    @location: Prism::Location
+  end
+
+  class Location
+    def inspect: () -> String
+  end
+
+  class ParseResult
+    @errors: [Prism::ParseError]
+  end
+
+  def parse: (String script) -> String # TODO: Prism::ParseResult
+end
