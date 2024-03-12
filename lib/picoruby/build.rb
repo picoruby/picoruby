@@ -64,6 +64,7 @@ module MRuby
         cc.flags.reject! { |f| %w(-g -O3).include? f }
         cc.flags << "-g3"
         cc.flags << "-O0"
+        cc.flags << "-fno-inline"
       else
         cc.defines << "NDEBUG=1"
       end
