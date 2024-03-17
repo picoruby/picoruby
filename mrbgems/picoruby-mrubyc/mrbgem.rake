@@ -4,64 +4,70 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   spec.authors = 'HASUMI Hitoshi'
   spec.summary = 'mruby/c library'
 
-  mrubyc_dir = "#{dir}/repos/mrubyc"
+  repos_dir = "#{dir}/repos"
+  mrubyc_dir = "#{repos_dir}/mrubyc"
+  mrubyc_src_dir = "#{dir}/repos/mrubyc/src"
+  mrblib_build_dir = "#{build_dir}/mrblib"
 
   file mrubyc_dir do
     branch = ENV['MRUBYC_BRANCH'] || "master"
     revision = ENV['MRUBYC_REVISION'] || "5fab2b85dce8fc0780293235df6c0daa5fd57dce"
     repo = ENV['MRUBYC_REPO'] || 'https://github.com/mrubyc/mrubyc.git'
-    FileUtils.cd "#{dir}/repos" do
+    FileUtils.cd repos_dir do
       sh "git clone -b #{branch} #{repo}"
     end
     if revision
-      FileUtils.cd "#{dir}/repos/mrubyc" do
+      FileUtils.cd mrubyc_dir do
         sh "git checkout #{revision}"
       end
     end
   end
 
-  mrubyc_srcs = %w(alloc   c_math    c_range  console keyvalue rrt0    vm
-                   c_array c_numeric c_string error   load     symbol
-                   c_hash  c_object  class    global  value)
+  if Rake.application.top_level_tasks.first == "deep_clean"
+    FileUtils.cd repos_dir do
+      rm_rf "mrubyc"
+    end
+  else
+    Rake::Task[mrubyc_dir].invoke
+  end
 
-  hal_dir = cc.defines.find { |d|
+  cc.include_paths << cc.defines.find { |d|
     d.start_with? "MRBC_USE_HAL"
   }.then { |hal|
     if hal.nil?
       cc.defines << "MRBC_USE_HAL=#{MRUBY_ROOT}/include/hal_no_impl"
       "#{MRUBY_ROOT}/include/hal_no_impl"
     elsif hal.start_with?("MRBC_USE_HAL_")
-      "#{dir}/repos/mrubyc/src/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase}"
+      "#{mrubyc_src_dir}/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase}"
     else
-      "#{dir}/repos/mrubyc/src/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
+      "#{mrubyc_src_dir}/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
     end
   }
-  cc.include_paths << hal_dir
 
-  file "#{hal_dir}/hal.c" => mrubyc_dir
+  MRUBYC_SRCS = Dir.glob("#{mrubyc_src_dir}/*.c").freeze
 
-  build.libmruby_objs.flatten!.delete_if do |obj|
-    obj.end_with? "mrblib.o"
-  end
-
-  (mrubyc_srcs << "mrblib").each do |mrubyc_src|
-    obj = objfile("#{build_dir}/src/#{mrubyc_src}")
+  MRUBYC_SRCS.each do |mrubyc_src|
+    obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
-    file obj => "#{mrubyc_dir}/src/#{mrubyc_src}.c" do |f|
+    file obj => mrubyc_src do |f|
       cc.run f.name, f.prerequisites.first
     end
-    file "#{mrubyc_dir}/src/#{mrubyc_src}.c" => mrubyc_dir
-  end
-  file "#{mrubyc_dir}/mrblib" => mrubyc_dir
-
-  file "#{build_dir}/src/mrblib.c" => [build.mrbcfile, "#{mrubyc_dir}/mrblib"] do |f|
-    mrblib_sources = Dir.glob("#{mrubyc_dir}/mrblib/*.rb").join(" ")
-    mkdir_p File.dirname(f.name)
-    sh "#{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{mrblib_sources}"
   end
 
-  file objfile("#{build_dir}/src/mrblib") => "#{build_dir}/src/mrblib.c" do |f|
+  MRBLIB_RBS = Dir.glob("#{mrubyc_dir}/mrblib/*.rb").freeze
+
+  directory mrblib_build_dir
+
+  file "#{mrblib_build_dir}/mrblib.c" => [build.mrbcfile, mrblib_build_dir] + MRBLIB_RBS do |f|
+    sh "#{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{MRBLIB_RBS.join(' ')}"
+  end
+
+  mrblib_c = "#{mrblib_build_dir}/mrblib.c"
+  mrblib_o = objfile(mrblib_c.ext)
+
+  file mrblib_o => mrblib_c do |f|
     cc.run f.name, f.prerequisites.first
   end
 
+  objs << mrblib_o
 end

@@ -25,7 +25,7 @@ end
 
 # load custom rules
 load "#{MRUBY_ROOT}/tasks/core.rake"
-load "#{MRUBY_ROOT}/tasks/mrblib.rake"
+#load "#{MRUBY_ROOT}/tasks/mrblib.rake"
 load "#{MRUBY_ROOT}/tasks/mrbgems.rake"
 load "#{MRUBY_ROOT}/tasks/libmruby.rake"
 load "#{MRUBY_ROOT}/tasks/bin.rake"
@@ -71,9 +71,6 @@ desc "clean everything!"
 task :deep_clean => %w[clean doc:clean] do
   MRuby.each_target do |build|
     rm_rf build.gem_clone_dir
-  end
-  FileUtils.cd "mrbgems/picoruby-mrubyc/repos" do
-    rm_rf "mrubyc"
   end
 end
 
