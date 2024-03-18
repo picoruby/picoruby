@@ -16,7 +16,7 @@ jobs:
       with:
         submodules: true
     - name: Setup CRuby
-      uses: ruby/setup-ruby@v1.66.0
+      uses: ruby/setup-ruby@v1.172.0
       with:
         ruby-version: 3.0.0
     - name: Setup mruby
