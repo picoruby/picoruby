@@ -44,7 +44,10 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     end
   }
 
-  MRUBYC_SRCS = Dir.glob("#{mrubyc_src_dir}/*.c").freeze
+  # Reject src/mrblib.c because it is possibly old
+  MRUBYC_SRCS = Dir.glob("#{mrubyc_src_dir}/*.c").reject{|s|s.end_with?("mrblib.c")}.freeze
+  # So, we regenerate mrblib.c from mrblib/*.rb
+  MRBLIB_RBS = Dir.glob("#{mrubyc_dir}/mrblib/*.rb").freeze
 
   MRUBYC_SRCS.each do |mrubyc_src|
     obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))
@@ -53,8 +56,6 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
       cc.run f.name, f.prerequisites.first
     end
   end
-
-  MRBLIB_RBS = Dir.glob("#{mrubyc_dir}/mrblib/*.rb").freeze
 
   directory mrblib_build_dir
 
