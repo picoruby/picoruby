@@ -10,7 +10,7 @@ class Task
   def self.list: () -> Array[Task]
 
   def self.new: (*untyped) { (*untyped) -> void } -> instance
-  def name=: (String) -> String
+  def name=: (String name) -> String
   def suspend: () -> self
   def terminate: () -> self
   def join: (?Integer|nil) -> (self | nil)

@@ -8,15 +8,14 @@ end
 # @sidebar builtin
 # @added_by picoruby-require
 class Object
-  def require: (String) -> bool
-  def load: (String) -> bool
-  private def required?: (String) -> bool
-  private def load_file: (String) -> bool
-  private def require_file: (String) -> bool
+  def require: (String name) -> bool
+  def load: (String path) -> bool
+  private def required?: (String name) -> bool
+  private def load_file: (String path) -> bool
+  private def require_file: (String name) -> bool
   private def extern: (String path, ?bool force) -> (bool|nil)
 
   # @ignore
   # for CRuby
   def require_relative: (String) -> bool
 end
-

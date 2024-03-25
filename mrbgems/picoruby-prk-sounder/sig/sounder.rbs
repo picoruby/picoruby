@@ -7,7 +7,7 @@ class Sounder
   @last_compiled_song: nil | Symbol
   @locked: bool
 
-  def self.new: (Integer) -> instance
+  def self.new: (Integer pin) -> instance
 
   private def sounder_init: (Integer) -> void
   private def sounder_replay: () -> void
@@ -15,8 +15,8 @@ class Sounder
   def lock: () -> void
   def unlock: () -> void
   def replay: () -> void
-  def play: (*String | Symbol) -> void
-  def compile: (*String | Symbol) -> void
+  def play: (*String | Symbol measures) -> void
+  def compile: (*String | Symbol measures) -> void
   def add_song: (Symbol name, *String measures) -> void
   def add_note: (Float frequency, Integer duration) -> bool
   def clear_song: () -> void

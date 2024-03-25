@@ -62,18 +62,18 @@ class RGB
   def turn_off: () -> void
   def turn_on: () -> void
   def toggle: () -> void
-  def effect=: (rgb_effect_t) -> void
-  def hue=: (Integer) -> void
-  def saturation=: (Integer) -> void
-  def value=: (Integer | Float) -> void
-  def speed=: (Integer) -> void
+  def effect=: (rgb_effect_t name) -> void
+  def hue=: (Integer val) -> void
+  def saturation=: (Integer val) -> void
+  def value=: (Integer | Float val) -> void
+  def speed=: (Integer val) -> void
   def reset_pixel: () -> void
-  def invoke_anchor: (Symbol | nil) -> Integer
-  def invoke_partner: (Integer) -> void
+  def invoke_anchor: (Symbol | nil key) -> Integer
+  def invoke_partner: (Integer message) -> void
   def show: -> void
   def fifo_push: (true data) -> void
   def thunder: -> void
   def ping?: () -> bool
-  def add_pixel: (Integer, Integer) -> void
+  def add_pixel: (Integer x, Integer y) -> void
   def resume: () -> void
 end

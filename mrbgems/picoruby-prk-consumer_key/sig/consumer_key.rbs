@@ -5,7 +5,7 @@ class ConsumerKey
   VIACODE: Hash[Integer, Symbol]
   MAP_OFFSET: Integer
 
-  def self.keycode: (Symbol) -> Integer?
-  def self.keycode_from_mapcode: (Integer) -> Integer
-  def self.viacode_from_mapcode: (Integer) -> Integer?
+  def self.keycode: (Symbol sym) -> Integer?
+  def self.keycode_from_mapcode: (Integer mapcode) -> Integer
+  def self.viacode_from_mapcode: (Integer mapcode) -> Integer?
 end
