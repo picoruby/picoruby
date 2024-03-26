@@ -136,8 +136,8 @@ class Keyboard
   def self.reload_keymap: () -> void
   def self.wait_keymap: () -> void
 
-  def set_debounce: (debounce_type) -> void
-  def set_debounce_threshold: (Integer) -> void
+  def set_debounce: (debounce_type type) -> void
+  def set_debounce_threshold: (Integer val) -> void
   def append: (append_type feature) -> void
   def start_features: -> void
   def mutual_uart_at_my_own_risk= : (bool) -> void
@@ -149,18 +149,18 @@ class Keyboard
 
   def self.new: -> instance
   def anchor?: -> bool
-  def via=: (bool) -> void
-  def via_layer_count=: (Integer) -> void
+  def via=: (bool val) -> void
+  def via_layer_count=: (Integer count) -> void
   def bootsel!: -> void
   def set_anchor: (anchor_type val) -> void
-  def set_scan_mode: (scan_mode_type val) -> void
+  def set_scan_mode: (scan_mode_type mode) -> void
   def split_style=: (Symbol style) -> void
   def init_matrix_pins: (Array[Array[Array[Integer] | nil]] matrix) -> void
   def init_uart: () -> void
   def init_pins: (Array[Integer] rows, Array[Integer] cols) -> void
   def init_direct_pins: (Array[Integer] pins) -> void
   def calculate_col_position: (Integer col_index) -> Integer
-  def convert_composite_keys: (Array[Symbol]) -> Array[Integer]
+  def convert_composite_keys: (Array[Symbol] keys) -> Array[Integer]
   def add_layer: (Symbol name, Array[ Symbol | Array[Symbol] ] map) -> void
   def find_keycode_index: (Symbol key) -> (Integer | Symbol)
   def define_composite_key: (Symbol key_name, Array[Symbol] keys) -> void
@@ -169,8 +169,8 @@ class Keyboard
   def before_report: () { (Keyboard) -> void } -> void
   def on_start: () { (Keyboard) -> void } -> void
   def signal_partner: (Symbol key) { (Keyboard) -> void } -> void
-  def keys_include?: (Symbol) -> bool
-  def action_on_release: (Integer | Array[Integer] | Proc | nil) -> void
+  def keys_include?: (Symbol key) -> bool
+  def action_on_release: (Integer | Array[Integer] | Proc | nil mode_key) -> void
   def send_key: (*untyped) -> void # 気持ちとしては *(Symbol | Array) だけど書き方わからんかった
   def start!: -> void
   def raise_layer: -> void
@@ -184,9 +184,9 @@ class Keyboard
   def scan_direct!: () -> void
   def entire_cols_size: () -> Integer
   def skip_position?: (Integer row_index, Integer col_index) -> bool
-  def resolve_key_alias: (Symbol) -> Symbol
-  def get_layer: (Symbol | nil, Integer) -> ( Array[Array[Integer | Symbol | Proc]] | nil )
-  def delete_mode_keys: (Symbol) -> void
+  def resolve_key_alias: (Symbol sym) -> Symbol
+  def get_layer: (Symbol | nil name, Integer num) -> ( Array[Array[Integer | Symbol | Proc]] | nil )
+  def delete_mode_keys: (Symbol layer_name) -> void
   def inject_switch: (Integer col, Integer row) -> void
   def key_pressed?: () -> bool
   def output_report_changed: () { (Integer) -> void} -> void

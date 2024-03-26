@@ -19,22 +19,22 @@ class VIA
   def rows_size: -> Integer
   def task: -> void
   def start!: -> void
-  def raw_hid_receive : (Array[Integer]) -> Array[Integer]
-  def raw_hid_receive_kb : (Array[Integer]) -> Array[Integer]
-  def dynamic_keymap_get_buffer : (Array[Integer]) -> Array[Integer]
-  def dynamic_keymap_set_buffer : (Array[Integer]) -> void
-  def dynamic_keymap_get_keycode : (Integer, Integer, Integer) -> Integer
-  def dynamic_keymap_set_keycode : (Integer, Integer, Integer, Integer) -> void
-  def via_get_layer_name : (Integer) -> Symbol
-  def check_for_keycode_shift : (Integer) -> ( Symbol | nil )
-  def via_keycode_into_keysymbol : (Integer) -> Symbol
-  def prk_keycode_into_via_keycode : (Integer | Symbol | Proc) -> Integer
-  def expand_composite_key : (Symbol) -> Array[Symbol]
-  def get_via_composite_keycode : (Symbol) -> Integer
-  def get_modifier_name : (Integer) -> String
+  def raw_hid_receive : (Array[Integer] data) -> Array[Integer]
+  def raw_hid_receive_kb : (Array[Integer] data) -> Array[Integer]
+  def dynamic_keymap_get_buffer : (Array[Integer] data) -> Array[Integer]
+  def dynamic_keymap_set_buffer : (Array[Integer] data) -> void
+  def dynamic_keymap_get_keycode : (Integer layer, Integer row, Integer col) -> Integer
+  def dynamic_keymap_set_keycode : (Integer layer, Integer row, Integer col, Integer keycode) -> void
+  def via_get_layer_name : (Integer i) -> Symbol
+  def check_for_keycode_shift : (Integer keycode) -> ( Symbol | nil )
+  def via_keycode_into_keysymbol : (Integer keycode) -> Symbol
+  def prk_keycode_into_via_keycode : (Integer | Symbol | Proc key) -> Integer
+  def expand_composite_key : (Symbol name) -> Array[Symbol]
+  def get_via_composite_keycode : (Symbol keyname) -> Integer
+  def get_modifier_name : (Integer bits) -> String
   def load_mode_keys: -> void
   def define_mode_key : (Symbol key_name, [Symbol | Array[Symbol] | Proc | nil, Symbol | Proc | nil, Integer?, Integer?] param) -> void
-  def sync_keymap : (?bool)-> void
+  def sync_keymap : (?bool init)-> void
   def init_keymap: -> void
   def save_on_keyboard: -> void
   def save_on_flash: -> void
