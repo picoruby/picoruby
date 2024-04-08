@@ -62,7 +62,7 @@ c_base64_encode(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(ret);
 }
 
-unsigned char convert(unsigned char n) {
+unsigned char c_base64_convert(unsigned char n) {
   if (n >= 0x30 && n <= 0x39) {
     return n - 0x30;
   } else if (n >= 0x41 && n <= 0x46) {
