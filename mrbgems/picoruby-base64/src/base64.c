@@ -100,9 +100,9 @@ c_base64_decode(mrbc_vm *vm, mrbc_value *v, int argc)
   uint8_t* output = mrbc_alloc(vm, out_size);
 
   for (; index < in_size; index++) {
-    unsigned char c = c_base64_convert(data[index]);
-    if (c == '=')
+    if (data[index] == '=')
       break;
+    unsigned char c = c_base64_convert(data[index]);
     buf = buf << 6 | c;
     iter++;
     if (iter == 4) {
