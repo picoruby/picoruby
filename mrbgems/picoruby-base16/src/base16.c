@@ -34,7 +34,7 @@ c_base16_encode(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(ret);
 }
 
-unsigned char convert(unsigned char n) {
+unsigned char c_base16_convert(unsigned char n) {
   if (n >= 0x30 && n <= 0x39) {
     return n - 0x30;
   } else if (n >= 0x41 && n <= 0x46) {
@@ -69,9 +69,9 @@ c_base16_decode(mrbc_vm *vm, mrbc_value *v, int argc)
   uint8_t* output = mrbc_alloc(vm, out_size);
 
   for (index = 0; index < out_size; index++) {
-    n0 = convert(input.string->data[index * 2]);
+    n0 = c_base16_convert(input.string->data[index * 2]);
     if (index * 2 + 1 < in_size) {
-      n1 = convert(input.string->data[index * 2 + 1]);
+      n1 = c_base16_convert(input.string->data[index * 2 + 1]);
     } else {
       n1 = 0;
     }
