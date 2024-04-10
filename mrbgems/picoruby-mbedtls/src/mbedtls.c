@@ -3,6 +3,7 @@
 
 #include "cmac.h"
 #include "cipher.h"
+#include "digest.h"
 
 void
 mrbc_mbedtls_init(void)
@@ -11,5 +12,6 @@ mrbc_mbedtls_init(void)
 
   gem_mbedtls_cmac_init();
   gem_mbedtls_cipher_init();
+  gem_mbedtls_digest_init();
 }
 

@@ -17,3 +17,7 @@
 #define MBEDTLS_CIPHER_PADDING_PKCS7
 #define MBEDTLS_CIPHER_MODE_GCM
 #define MBEDTLS_GCM_C
+
+/* This is needed for SHA256 */
+#define MBEDTLS_MD_C
+#define MBEDTLS_SHA256_C
