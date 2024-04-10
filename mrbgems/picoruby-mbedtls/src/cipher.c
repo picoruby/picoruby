@@ -186,7 +186,7 @@ c_mbedtls_cipher_finish(mrbc_vm *vm, mrbc_value *v, int argc)
   mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
   ret = mbedtls_cipher_finish(ctx, output, &out_len);
   if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_reset failed");
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_finish failed");
     return;
   }
   mrbc_value ret_value = mrbc_string_new(vm, output, out_len);
