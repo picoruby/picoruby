@@ -1,0 +1,12 @@
+class MbedTLS
+  class Cipher
+    SUPPORTED_CIPHERS:    Hash[untyped, untyped]
+    KEY_LENGTHS:          Hash[untyped, untyped]
+    SUPPORTED_OPERATIONS: Hash[untyped, untyped]
+
+    def self.new: (untyped cipher_suite, untyped key, untyped operation) -> MbedTLS::Cipher
+    def self._init_ctx: (Integer, String, Integer) -> MbedTLS::Cipher
+    # @private
+    def _set_iv: (String) -> MbedTLS::Cipher
+  end
+end

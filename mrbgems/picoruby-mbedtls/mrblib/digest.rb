@@ -6,7 +6,7 @@ class MbedTLS
 
     def self.new(algorithm)
       unless SUPPORTED_ALGORITHMS[algorithm] != nil
-        raise ArgumentError, "Algorithm not supported: #{cipher_suite}"
+        raise ArgumentError, "Algorithm not supported: #{algorithm}"
       end
       instance = self._init_ctx(SUPPORTED_ALGORITHMS[algorithm])
 

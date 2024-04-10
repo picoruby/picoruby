@@ -1,0 +1,9 @@
+class MbedTLS
+  class Digest
+    SUPPORTED_ALGORITHMS: Hash[untyped, untyped]
+
+    def self.new: (untyped algorithm) -> MbedTLS::Digest
+    # @private
+    def self._init_ctx: (Integer) -> MbedTLS::Digest
+  end
+end
