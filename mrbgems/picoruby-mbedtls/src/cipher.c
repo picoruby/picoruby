@@ -16,15 +16,15 @@ c_mbedtls_cipher_cipher_name(int key)
     case 0x0003:
       ret = MBEDTLS_CIPHER_AES_256_CBC;
       break;
-    // case 0x1001:
-    //   ret = MBEDTLS_CIPHER_AES_128_GCM;
-    //   break;
-    // case 0x1002:
-    //   ret = MBEDTLS_CIPHER_AES_192_GCM;
-    //   break;
-    // case 0x1003:
-    //   ret = MBEDTLS_CIPHER_AES_256_GCM;
-    //   break;
+    case 0x1001:
+      ret = MBEDTLS_CIPHER_AES_128_GCM;
+      break;
+    case 0x1002:
+      ret = MBEDTLS_CIPHER_AES_192_GCM;
+      break;
+    case 0x1003:
+      ret = MBEDTLS_CIPHER_AES_256_GCM;
+      break;
     default:
       ret = MBEDTLS_CIPHER_NONE;
   }
@@ -46,6 +46,12 @@ c_mbedtls_cipher_operation_name(int key)
       ret = MBEDTLS_OPERATION_NONE;
   }
   return ret;
+}
+
+int
+c_mbedtls_cipher_is_cbc(int cipher_key)
+{
+  return cipher_key < 0x0010;
 }
 
 static void
@@ -75,10 +81,12 @@ c_mbedtls_cipher__init_ctx(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setkey failed");
     return;
   }
-  ret = mbedtls_cipher_set_padding_mode(ctx, MBEDTLS_PADDING_PKCS7);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_set_padding_mode failed");
-    return;
+  if (c_mbedtls_cipher_is_cbc(mrbc_integer(cipher_suite))) {
+    ret = mbedtls_cipher_set_padding_mode(ctx, MBEDTLS_PADDING_PKCS7);
+    if (ret != 0) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_set_padding_mode failed");
+      return;
+    }
   }
 
   SET_RETURN(self);
@@ -113,6 +121,32 @@ c_mbedtls_cipher__set_iv(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_mbedtls_cipher_update_ad(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  mrbc_value input = GET_ARG(1);
+  if (input.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
+    return;
+  }
+
+  int ret;
+  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
+
+  ret = mbedtls_cipher_update_ad(ctx, input.string->data, input.string->size);
+  if (ret != 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_update_ad failed");
+    return;
+  }
+
+  mrbc_incref(&v[0]); // TODO: without this GCM fails to run; what's the difference between this and _set_iv?
+  SET_RETURN(*v);
+}
+
+static void
 c_mbedtls_cipher_update(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
@@ -133,7 +167,7 @@ c_mbedtls_cipher_update(mrbc_vm *vm, mrbc_value *v, int argc)
 
   ret = mbedtls_cipher_update(ctx, input.string->data, input.string->size, output, &out_len);
   if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_reset failed");
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_update failed");
     return;
   }
   mrbc_value ret_value = mrbc_string_new(vm, output, out_len);
@@ -161,6 +195,55 @@ c_mbedtls_cipher_finish(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(ret_value);
 }
 
+static void
+c_mbedtls_cipher_write_tag(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  int ret;
+  size_t tag_len = 16;
+  unsigned char* tag = mrbc_alloc(vm, tag_len); // tag size is 16 for AES-*-GCM and ChaCha20-Poly1305
+  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
+
+  ret = mbedtls_cipher_write_tag(ctx, tag, tag_len);
+  if (ret != 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_write_tag failed");
+    return;
+  }
+
+  mrbc_value ret_value = mrbc_string_new(vm, tag, tag_len);
+  mrbc_free(vm, tag);
+  mrbc_incref(&v[0]);
+  SET_RETURN(ret_value);
+}
+
+static void
+c_mbedtls_cipher_check_tag(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  mrbc_value input = GET_ARG(1);
+  if (input.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
+    return;
+  }
+
+  int ret;
+  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
+
+  ret = mbedtls_cipher_check_tag(ctx, input.string->data, input.string->size);
+  if (ret == MBEDTLS_ERR_CIPHER_AUTH_FAILED) {
+    mrbc_incref(&v[0]);
+    SET_BOOL_RETURN(MRBC_TT_FALSE);
+  } else if (ret != 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_check_tag failed");
+    return;
+  } else {
+    mrbc_incref(&v[0]);
+    SET_BOOL_RETURN(MRBC_TT_TRUE);
+  }
+}
+
 void
 gem_mbedtls_cipher_init(void)
 {
@@ -173,13 +256,7 @@ gem_mbedtls_cipher_init(void)
   mrbc_define_method(0, class_MbedTLS_Cipher, "_set_iv",   c_mbedtls_cipher__set_iv);
   mrbc_define_method(0, class_MbedTLS_Cipher, "update",    c_mbedtls_cipher_update);
   mrbc_define_method(0, class_MbedTLS_Cipher, "finish",    c_mbedtls_cipher_finish);
-
-  mrbc_define_method(0, class_MbedTLS_Cipher, "unprocessed", c_mbedtls_cipher_unprocessed);
-
-  /*
-  mrbc_define_method(0, class_MbedTLS_CMAC, "_init_aes", c__init_aes);
-  mrbc_define_method(0, class_MbedTLS_CMAC, "update", c_update);
-  mrbc_define_method(0, class_MbedTLS_CMAC, "reset", c_reset);
-  mrbc_define_method(0, class_MbedTLS_CMAC, "digest", c_digest);
-  */
+  mrbc_define_method(0, class_MbedTLS_Cipher, "update_ad", c_mbedtls_cipher_update_ad);
+  mrbc_define_method(0, class_MbedTLS_Cipher, "write_tag", c_mbedtls_cipher_write_tag);
+  mrbc_define_method(0, class_MbedTLS_Cipher, "check_tag", c_mbedtls_cipher_check_tag);
 }

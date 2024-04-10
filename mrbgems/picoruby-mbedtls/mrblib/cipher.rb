@@ -4,17 +4,17 @@ class MbedTLS
       :aes_128_cbc       => 0x0001,
       :aes_192_cbc       => 0x0002,
       :aes_256_cbc       => 0x0003,
-      # :aes_128_gcm       => 0x1001,
-      # :aes_192_gcm       => 0x1002,
-      # :aes_256_gcm       => 0x1003
+      :aes_128_gcm       => 0x1001,
+      :aes_192_gcm       => 0x1002,
+      :aes_256_gcm       => 0x1003
     }
     KEY_LENGTHS = {
       :aes_128_cbc       => 16,
       :aes_192_cbc       => 24,
       :aes_256_cbc       => 32,
-      # :aes_128_gcm       => 16,
-      # :aes_192_gcm       => 24,
-      # :aes_256_gcm       => 32
+      :aes_128_gcm       => 16,
+      :aes_192_gcm       => 24,
+      :aes_256_gcm       => 32
     }
     SUPPORTED_OPERATIONS = {
       :encrypt => 0,
