@@ -138,6 +138,7 @@ c_mbedtls_cipher_update(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   mrbc_value ret_value = mrbc_string_new(vm, output, out_len);
   mrbc_free(vm, output);
+  mrbc_incref(&v[0]);
   SET_RETURN(ret_value);
 }
 
@@ -156,15 +157,8 @@ c_mbedtls_cipher_finish(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   mrbc_value ret_value = mrbc_string_new(vm, output, out_len);
   mrbc_free(vm, output);
+  mrbc_incref(&v[0]);
   SET_RETURN(ret_value);
-}
-
-static void
-c_mbedtls_cipher_unprocessed(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
-
-  SET_INT_RETURN(ctx->private_unprocessed_len);
 }
 
 void
