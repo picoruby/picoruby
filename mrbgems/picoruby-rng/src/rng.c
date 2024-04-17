@@ -6,7 +6,11 @@
 static void
 c_rng_random_int(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  SET_INT_RETURN(rng_random_byte());
+  uint32_t ret = 0;
+  for (int i = 0; i < 4; i++) {
+    ret = (ret << 8) | c_rng_random_byte_impl();
+  }
+  SET_INT_RETURN(ret);
 }
 
 static void
@@ -23,7 +27,7 @@ c_rng_random_string(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   unsigned char* buf = mrbc_alloc(vm, len.i);
   for (int i = 0; i < len.i; i++) {
-    buf[i] = (unsigned char)rng_random_byte();
+    buf[i] = (unsigned char)c_rng_random_byte_impl();
   }
   mrbc_value ret = mrbc_string_new(vm, buf, len.i);
   mrbc_free(vm, buf);
