@@ -46,5 +46,6 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.gembox "peripheral_utils"
   conf.gembox "machine"
   conf.gem core: 'picoruby-adafruit_pcf8523'
+  conf.gem core: 'picoruby-rng'
 end
 
