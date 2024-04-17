@@ -1,0 +1,2 @@
+class RNG
+end
