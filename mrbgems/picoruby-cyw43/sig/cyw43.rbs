@@ -15,4 +15,11 @@ class CYW43
     def write: (Integer) -> 0
     def read: () -> GPIO::gpio_logic_t
   end
+
+  class Auth
+    OPEN: Integer
+    WPA_TKIP_PSK: Integer
+    WPA2_AES_PSK: Integer
+    WPA2_MIXED_PSK: Integer
+  end
 end
