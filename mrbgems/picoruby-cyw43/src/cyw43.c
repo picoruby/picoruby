@@ -86,7 +86,7 @@ mrbc_cyw43_init(void)
   mrbc_class *mrbc_class_CYW43 = mrbc_define_class(0, "CYW43", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_CYW43, "_init", c__init);
   mrbc_define_method(0, mrbc_class_CYW43, "enable_sta_mode", c_CYW43_enable_sta_mode);
-  mrbc_define_method(0, mrbc_class_CYW43, "enable_sta_mode", c_CYW43_disable_sta_mode);
+  mrbc_define_method(0, mrbc_class_CYW43, "disable_sta_mode", c_CYW43_disable_sta_mode);
   mrbc_define_method(0, mrbc_class_CYW43, "connect_blocking", c_CYW43_connect_blocking);
 
   mrbc_value *CYW43 = mrbc_get_class_const(mrbc_class_CYW43, mrbc_search_symid("GPIO"));
