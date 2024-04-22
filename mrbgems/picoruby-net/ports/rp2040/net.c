@@ -21,7 +21,7 @@ err_t get_ip(const char *name, ip_addr_t *ip)
   return err;
 }
 
-void DNS_resolve(mrbc_vm *vm, mrbc_value *v, const char *name)
+mrbc_value DNS_resolve(mrbc_vm *vm, const char *name)
 {
   ip_addr_t ip;
   mrbc_value ret;
@@ -37,5 +37,5 @@ void DNS_resolve(mrbc_vm *vm, mrbc_value *v, const char *name)
   } else {
     ret = mrbc_nil_value();
   }
-  SET_RETURN(ret);
+  return ret;
 }

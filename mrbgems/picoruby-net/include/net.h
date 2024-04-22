@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-void DNS_resolve(mrbc_vm *vm, mrbc_value *v, const char *name);
+mrbc_value DNS_resolve(mrbc_vm *vm, const char *name);
 
 #ifdef __cplusplus
 }
