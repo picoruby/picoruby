@@ -21,9 +21,10 @@ err_t get_ip(const char *name, ip_addr_t *ip)
   return err;
 }
 
-mrbc_value *DNS_resolve(mrbc_vm *vm, const char *name)
+void DNS_resolve(mrbc_vm *vm, mrbc_value *v, const char *name)
 {
   ip_addr_t ip;
+  mrbc_value ret;
   ip4_addr_set_zero(&ip);
   get_ip(name, &ip);
   while (!ip_addr_get_ip4_u32(&ip)) {
@@ -31,10 +32,10 @@ mrbc_value *DNS_resolve(mrbc_vm *vm, const char *name)
   }
   if(!ip4_addr_isloopback(&ip)) {
     char buf[16];
-    ipaddr_ntoa_r(ip, buf, 16);
-    mrbc_value ret = mrbc_string_new(vm, buf, strlen(buf)));
-    SET_RETURN(ret);
+    ipaddr_ntoa_r(&ip, buf, 16);
+    ret = mrbc_string_new(vm, buf, strlen(buf));
   } else {
-    SET_NIL_RETURN();
+    ret = mrbc_nil_value();
   }
+  SET_RETURN(ret);
 }

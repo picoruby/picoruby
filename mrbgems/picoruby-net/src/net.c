@@ -15,8 +15,7 @@ c_net_dns_resolve(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_value *ret = DNS_resolve(vm, GET_STRING_ARG(1));
-  SET_RETURN(*ret);
+  DNS_resolve(vm, v, GET_STRING_ARG(1));
 }
 
 void
