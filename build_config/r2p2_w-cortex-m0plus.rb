@@ -49,5 +49,6 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.gem core: 'picoruby-adafruit_pcf8523'
   conf.gem core: 'picoruby-ble'
   conf.gem core: 'picoruby-rng'
+  conf.gem core: 'picoruby-net'
 end
 
