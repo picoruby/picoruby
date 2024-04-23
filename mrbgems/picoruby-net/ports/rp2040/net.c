@@ -157,26 +157,19 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
     return 0;
   tcp_connection_state *cs = *pcs;
   mrbc_vm *vm;
-  console_printf("State: %d\n", cs->state);
   switch(cs->state)
   {
     case NET_TCP_STATE_NONE:
-      console_printf("None\n");
       break;
     case NET_TCP_STATE_CONNECTION_STARTED:
-      console_printf("Connection started\n");
       break;
     case NET_TCP_STATE_WAITING_PACKET:
-      console_printf("Waiting packet...\n", cs->state);
       break;
     case NET_TCP_STATE_CONNECTED:
       cs->state = NET_TCP_STATE_WAITING_PACKET;
-      console_printf("ALTCP write\n");
       cyw43_arch_lwip_begin();
-      err_t err = altcp_write(cs->pcb, cs->send_data->string->data, cs->send_data->string->size, 0);
-      console_printf("ALTCP write %d\n", err);
-      err = altcp_output(cs->pcb);
-      console_printf("ALTCP output %d\n", err);
+      altcp_write(cs->pcb, cs->send_data->string->data, cs->send_data->string->size, 0);
+      altcp_output(cs->pcb);
       cyw43_arch_lwip_end();
       break;
     case NET_TCP_STATE_PACKET_RECVED:
