@@ -1,7 +1,14 @@
 class Net
   class DNS
+    def self.resolve: (String) -> String
   end
 
-  class TCP
+  class TCPClient
+    def self.request: (String, Integer, String) -> String
+    def self._request_impl: (String, Integer, String) -> String
+  end
+
+  class HTTPClient
+    def get: (String) -> String
   end
 end

@@ -20,19 +20,29 @@ c_net_dns_resolve(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_net_tcp_test(mrbc_vm *vm, mrbc_value *v, int argc)
+c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 1) {
+  if (argc != 3) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  mrbc_value input = GET_ARG(1);
+  mrbc_value host = GET_ARG(1);
+  if (host.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
+    return;
+  }
+  mrbc_value port = GET_ARG(2);
+  if (port.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
+    return;
+  }
+  mrbc_value input = GET_ARG(3);
   if (input.tt != MRBC_TT_STRING) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
     return;
   }
 
-  mrbc_value ret = TCP_send("192.168.4.1", 8000, vm, &input);
+  mrbc_value ret = TCPClient_send(GET_STRING_ARG(1), port.i, vm, &input);
   SET_RETURN(ret);
 }
 
@@ -45,7 +55,7 @@ mrbc_net_init(void)
   mrbc_class *mrbc_class_Net_DNS = DNS->cls;
   mrbc_define_method(0, mrbc_class_Net_DNS, "resolve", c_net_dns_resolve);
 
-  mrbc_value *TCP = mrbc_get_class_const(mrbc_class_Net, mrbc_search_symid("TCP"));
-  mrbc_class *mrbc_class_Net_TCP = TCP->cls;
-  mrbc_define_method(0, mrbc_class_Net_TCP, "test", c_net_tcp_test);
+  mrbc_value *TCPClient = mrbc_get_class_const(mrbc_class_Net, mrbc_search_symid("TCPClient"));
+  mrbc_class *mrbc_class_Net_TCPClient = TCPClient->cls;
+  mrbc_define_method(0, mrbc_class_Net_TCPClient, "_request_impl", c_net_tcpclient__request_impl);
 }
