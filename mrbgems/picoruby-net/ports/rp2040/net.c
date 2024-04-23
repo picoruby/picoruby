@@ -112,7 +112,6 @@ static err_t TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 err_t TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  console_printf("Connection closed\n");
   cs->state = NET_TCP_STATE_FINISHED;
   return ERR_OK;
 }
@@ -141,9 +140,33 @@ tcp_connection_state *TCPClient_new_connection(mrbc_value *send_data, mrbc_value
   return cs;
 }
 
-tcp_connection_state *TCPClient_connect_impl(ip_addr_t *ip, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
+tcp_connection_state *TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
 {
-  tcp_connection_state *cs = TCPClient_new_connection(send_data, recv_data, vm);
+  tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
+  cs->state = NET_TCP_STATE_NONE;
+
+  struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
+  cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_ANY);
+  mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), host);
+  altcp_recv(cs->pcb, TCPClient_recv_cb);
+  altcp_sent(cs->pcb, TCPClient_sent_cb);
+  altcp_err(cs->pcb, TCPClient_err_cb);
+  altcp_poll(cs->pcb, TCPClient_poll_cb, 10);
+  altcp_arg(cs->pcb, cs);
+  cs->send_data = send_data;
+  cs->recv_data = recv_data;
+  cs->vm        = vm;
+  return cs;
+}
+
+tcp_connection_state *TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm, bool is_tls)
+{
+  tcp_connection_state *cs;
+  if (is_tls) {
+    cs = TCPClient_new_tls_connection(host, send_data, recv_data, vm);
+  } else {
+    cs = TCPClient_new_connection(send_data, recv_data, vm);
+  }
   cyw43_arch_lwip_begin();
   altcp_connect(cs->pcb, ip, port, TCPClient_connected_cb);
   cyw43_arch_lwip_end();
@@ -194,16 +217,24 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
   return cs->state;
 }
 
-mrbc_value TCPClient_send(const char *ipaddr_str, int port, mrbc_vm *vm, mrbc_value *send_data)
+mrbc_value TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls)
 {
   ip_addr_t ip;
-  ipaddr_aton(ipaddr_str, &ip);
-  mrbc_value recv_data = mrbc_string_new(vm, NULL, 0);
-  tcp_connection_state *cs = TCPClient_connect_impl(&ip, port, send_data, &recv_data, vm);
-  while(TCPClient_poll_impl(&cs))
-  {
-    sleep_ms(200);
+  mrbc_value ret;
+  get_ip(host, &ip);
+  if(!ip4_addr_isloopback(&ip)) {
+    char ip_str[16];
+    ipaddr_ntoa_r(&ip, ip_str, 16);
+    mrbc_value recv_data = mrbc_string_new(vm, NULL, 0);
+    tcp_connection_state *cs = TCPClient_connect_impl(&ip, host, port, send_data, &recv_data, vm, is_tls);
+    while(TCPClient_poll_impl(&cs))
+    {
+      sleep_ms(200);
+    }
+    // recv_data is ready after connection is complete
+    ret = recv_data;
+  } else {
+    ret = mrbc_nil_value();
   }
-  // recv_data is ready after connection is complete
-  return recv_data;
+  return ret;
 }

@@ -22,7 +22,7 @@ c_net_dns_resolve(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 3) {
+  if (argc != 4) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -41,8 +41,13 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
     return;
   }
+  mrbc_value is_tls = GET_ARG(4);
+  if (!((is_tls.tt == MRBC_TT_TRUE) || (is_tls.tt == MRBC_TT_FALSE))) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
+    return;
+  }
 
-  mrbc_value ret = TCPClient_send(GET_STRING_ARG(1), port.i, vm, &input);
+  mrbc_value ret = TCPClient_send(GET_STRING_ARG(1), port.i, vm, &input, (is_tls.tt == MRBC_TT_TRUE));
   SET_RETURN(ret);
 }
 

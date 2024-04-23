@@ -4,11 +4,15 @@ class Net
   end
 
   class TCPClient
-    def self.request: (String, Integer, String) -> String
-    def self._request_impl: (String, Integer, String) -> String
+    def self.request: (String, Integer, String, bool) -> String
+    def self._request_impl: (String, Integer, String, bool) -> String
   end
 
   class HTTPClient
+    def get: (String) -> String
+  end
+
+  class HTTPSClient
     def get: (String) -> String
   end
 end
