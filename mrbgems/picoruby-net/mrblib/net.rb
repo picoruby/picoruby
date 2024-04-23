@@ -4,8 +4,8 @@ class Net
 
   class TCPClient
     def self.request(host, port, content, is_tls)
-      ip = DNS.resolve(host)
-      _request_impl(ip, port, content, is_tls)
+      # ip = DNS.resolve(host)
+      _request_impl(host, port, content, is_tls)
     end
   end
 
