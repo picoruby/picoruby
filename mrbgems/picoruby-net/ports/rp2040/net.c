@@ -74,6 +74,7 @@ mrbc_value DNS_resolve(mrbc_vm *vm, const char *name)
 
 err_t TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
+  console_printf("TCPClient_recv_cb\n");
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   if (pbuf != NULL) {
     char *tmpbuf = mrbc_alloc(cs->vm, pbuf->tot_len + 1);
@@ -98,12 +99,14 @@ err_t TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err
 
 err_t TCPClient_sent_cb(void *arg, struct altcp_pcb *pcb, u16_t len)
 {
+  console_printf("TCPClient_sent_cb\n");
   // do nothing as of now
   return ERR_OK;
 }
 
 static err_t TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
+  console_printf("TCPClient_connected_cb\n");
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   cs->state = NET_TCP_STATE_CONNECTED;
   return ERR_OK;
@@ -142,12 +145,17 @@ tcp_connection_state *TCPClient_new_connection(mrbc_value *send_data, mrbc_value
 
 tcp_connection_state *TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
 {
+  console_printf("TLS connection\n");
+  console_printf("Host: %s\n", host);
   tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
   cs->state = NET_TCP_STATE_NONE;
 
   struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
-  cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_ANY);
+  console_printf("TLS config created\n");
+  cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
+  console_printf("PCB set\n");
   mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), host);
+  console_printf("mbedtls_ssl_set_hostname\n");
   altcp_recv(cs->pcb, TCPClient_recv_cb);
   altcp_sent(cs->pcb, TCPClient_sent_cb);
   altcp_err(cs->pcb, TCPClient_err_cb);
@@ -163,10 +171,12 @@ tcp_connection_state *TCPClient_connect_impl(ip_addr_t *ip, const char *host, in
 {
   tcp_connection_state *cs;
   if (is_tls) {
+    console_printf("Host: %s\n", host);
     cs = TCPClient_new_tls_connection(host, send_data, recv_data, vm);
   } else {
     cs = TCPClient_new_connection(send_data, recv_data, vm);
   }
+  console_printf("begin\n");
   cyw43_arch_lwip_begin();
   altcp_connect(cs->pcb, ip, port, TCPClient_connected_cb);
   cyw43_arch_lwip_end();
@@ -180,6 +190,7 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
     return 0;
   tcp_connection_state *cs = *pcs;
   mrbc_vm *vm;
+  console_printf("Poll state: %d\n", cs->state);
   switch(cs->state)
   {
     case NET_TCP_STATE_NONE:
