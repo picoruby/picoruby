@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 mrbc_value DNS_resolve(mrbc_vm *vm, const char *name);
+mrbc_value TCP_send(const char *ipaddr_str, int port, mrbc_vm *vm, mrbc_value *send_data);
 
 #ifdef __cplusplus
 }
