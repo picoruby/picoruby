@@ -2,18 +2,17 @@
 class CYW43
   $_cyw43_country: String
 
-  def self.init: (?String, ?force: bool) -> void
+  def self.init: (?String country, ?force: bool) -> void
   def self.initialized?: () -> bool
   # @private
-  def self._init: (String, bool) -> bool
+  def self._init: (String country, bool force) -> bool
 
   # @sidebar hardware_device
   class GPIO
     LED_PIN: Integer
     @pin: Integer
-    def initialize: (Integer) -> void
+    def initialize: (Integer pin) -> void
     def write: (Integer) -> 0
     def read: () -> GPIO::gpio_logic_t
   end
 end
-

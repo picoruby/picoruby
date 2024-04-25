@@ -1,0 +1,4 @@
+class RNG
+  def self.random_int: -> Integer
+  def self.random_string: (Integer) -> String
+end

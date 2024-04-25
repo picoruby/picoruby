@@ -1,0 +1,4 @@
+class Base16
+  def self.encode16: (String) -> String
+  def self.decode16: (String) -> String
+end

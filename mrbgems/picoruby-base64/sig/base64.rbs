@@ -1,0 +1,4 @@
+class Base64
+  def self.encode64: (String) -> String
+  def self.decode64: (String) -> String
+end

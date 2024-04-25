@@ -20,6 +20,5 @@ class Sandbox
   def wait: (?timeout: (Integer|nil), ?signal: bool) -> bool
   def execute: () -> bool
   def exec_mrb: (String) -> bool
-  def load_file: (String, ?signal: bool) -> void
+  def load_file: (String path, ?signal: bool) -> void
 end
-
