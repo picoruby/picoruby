@@ -5,5 +5,7 @@ class MbedTLS
     def self.new: (untyped algorithm) -> MbedTLS::Digest
     # @private
     def self._init_ctx: (Integer) -> MbedTLS::Digest
+    def update: (String) -> MbedTLS::Digest
+    def finish: () -> String
   end
 end

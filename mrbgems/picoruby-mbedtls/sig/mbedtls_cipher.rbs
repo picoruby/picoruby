@@ -8,5 +8,10 @@ class MbedTLS
     def self._init_ctx: (Integer, String, Integer) -> MbedTLS::Cipher
     # @private
     def _set_iv: (String) -> MbedTLS::Cipher
+    def update: (String) -> String
+    def update_ad: (String) -> MbedTLS::Cipher
+    def finish: () -> String
+    def write_tag: () -> String
+    def check_tag: (String) -> bool
   end
 end
