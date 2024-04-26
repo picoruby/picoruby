@@ -142,7 +142,7 @@ c_mbedtls_cipher_update_ad(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_incref(&v[0]); // TODO: without this GCM fails to run; what's the difference between this and _set_iv?
+  mrbc_incref(&v[0]);
   SET_RETURN(*v);
 }
 
