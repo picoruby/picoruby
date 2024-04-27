@@ -43,7 +43,13 @@ class MbedTLS
       unless iv.length == 16
         raise ArgumentError, "Invalid IV length"
       end
-      _set_iv(iv)
+      unless @iv_set
+        @iv_set = true
+        _set_iv(iv)
+      else
+        puts "[WARN] set_iv should be called once per instance, ignoring"
+        self
+      end
     end
   end
 end
