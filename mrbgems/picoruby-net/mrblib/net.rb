@@ -72,6 +72,32 @@ class Net
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
     end
+
+    def post(path, headers, body)
+      req =  "POST #{path} HTTP/1.1\r\n"
+      req += "Host:#{@host}\r\n"
+      req += "Connection: close\r\n"
+      headers.each do |k, v|
+        req += "#{k}: #{v}"
+      end
+      req += "#{body}\r\n"
+      req += "\r\n"
+
+      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
+    end
+
+    def put(path, headers, body)
+      req =  "PUT #{path} HTTP/1.1\r\n"
+      req += "Host:#{@host}\r\n"
+      req += "Connection: close\r\n"
+      headers.each do |k, v|
+        req += "#{k}: #{v}"
+      end
+      req += "#{body}\r\n"
+      req += "\r\n"
+
+      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
+    end
   end
 
   class HTTPSClient
@@ -96,6 +122,32 @@ class Net
         req += "#{k}: #{v}"
       end
       req += "\r\n" 
+
+      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
+    end
+
+    def post(path, headers, body)
+      req =  "POST #{path} HTTP/1.1\r\n"
+      req += "Host:#{@host}\r\n"
+      req += "Connection: close\r\n"
+      headers.each do |k, v|
+        req += "#{k}: #{v}"
+      end
+      req += "#{body}\r\n"
+      req += "\r\n"
+
+      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
+    end
+
+    def put(path, headers, body)
+      req =  "PUT #{path} HTTP/1.1\r\n"
+      req += "Host:#{@host}\r\n"
+      req += "Connection: close\r\n"
+      headers.each do |k, v|
+        req += "#{k}: #{v}"
+      end
+      req += "#{body}\r\n"
+      req += "\r\n"
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
     end
