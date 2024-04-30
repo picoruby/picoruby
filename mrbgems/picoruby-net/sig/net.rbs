@@ -1,4 +1,14 @@
+type httpreturn = {
+  status: Integer,
+  headers: Hash[String, String],
+  body: String
+}
+
 class Net
+  class HTTPUtil
+    def self.format_response: (String) -> (httpreturn | nil)
+  end
+
   class DNS
     def self.resolve: (String) -> String
   end
@@ -9,10 +19,10 @@ class Net
   end
 
   class HTTPClient
-    def get: (String) -> String
+    def get: (String) -> (httpreturn | nil)
   end
 
   class HTTPSClient
-    def get: (String) -> String
+    def get: (String) -> (httpreturn | nil)
   end
 end

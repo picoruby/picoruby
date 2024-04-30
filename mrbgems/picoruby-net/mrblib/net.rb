@@ -1,4 +1,42 @@
 class Net
+  class HTTPUtil
+    def self.format_response(raw_response)
+      if raw_response.is_a?(String)
+        lines = raw_response.split("\r\n")
+        line_number = 0
+        status = 0
+        headers = {}
+        body = ""
+        body_started = false
+        while(true)
+          if lines[line_number] == nil
+            break
+          elsif line_number == 0
+            status = lines[0].split(' ')[1].to_i
+          elsif body_started == false
+            if lines[line_number].length == 0
+              body_started = true
+            else 
+              fields = lines[line_number].split(':')
+              headers[fields[0]] = fields[1]&.strip
+            end
+          else
+            body += lines[line_number]
+            body += "\r\n" unless lines[line_number + 1].nil?
+          end
+          line_number += 1
+        end
+        return {
+          status: status,
+          headers: headers,
+          body: body
+        }
+      else
+        return nil
+      end
+    end
+  end
+
   class DNS
   end
 
@@ -20,7 +58,7 @@ class Net
       req += "Connection: close\r\n"
       req += "\r\n"
 
-      TCPClient.request(@host, 80, req, false)
+      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
     end
   end
 
@@ -35,7 +73,7 @@ class Net
       req += "Connection: close\r\n"
       req += "\r\n"
 
-      TCPClient.request(@host, 443, req, true)
+      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
     end
   end
 end
