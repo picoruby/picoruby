@@ -20,9 +20,11 @@ class Net
 
   class HTTPClient
     def get: (String) -> (httpreturn | nil)
+    def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
   end
 
   class HTTPSClient
     def get: (String) -> (httpreturn | nil)
+    def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
   end
 end
