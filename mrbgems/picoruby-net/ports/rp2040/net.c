@@ -220,6 +220,7 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
 mrbc_value TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls)
 {
   ip_addr_t ip;
+  ip4_addr_set_zero(&ip);
   mrbc_value ret;
   get_ip(host, &ip);
   if(!ip4_addr_isloopback(&ip)) {
