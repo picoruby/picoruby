@@ -6,8 +6,7 @@ MRuby::Build.new do |conf|
     conf.toolchain :gcc
   end
 
- # conf.cc.defines << "MRC_PARSER_PRISM"
-  conf.cc.defines << "MRC_PARSER_KANEKO"
+  conf.cc.defines << "MRC_PARSER_LRAMA"
 
   conf.picoruby
 
