@@ -459,9 +459,9 @@ class MIDI
     when KEYCODE[:MI_NEXTCRD], KEYCODE[:MI_PREVCRD]
       if (index = CHORD_PATTERNS.keys.index(@chord_pattern))
         if keycode == KEYCODE[:MI_NEXTCRD]
-          @chord_pattern = CHORD_PATTERNS.keys[(index + 1) % CHORD_PATTERNS.count]
+          @chord_pattern = CHORD_PATTERNS.keys[(index + 1) % CHORD_PATTERNS.size]
         elsif keycode == KEYCODE[:MI_PREVCRD]
-          @chord_pattern = CHORD_PATTERNS.keys[(index - 1) % CHORD_PATTERNS.count]
+          @chord_pattern = CHORD_PATTERNS.keys[(index - 1) % CHORD_PATTERNS.size]
         end
         puts "set chord_pattern = #{@chord_pattern}"
       else
