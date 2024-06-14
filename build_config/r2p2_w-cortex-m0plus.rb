@@ -5,7 +5,7 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   #   arm-none-eabi       | to make libmruby.a
   ###############################################################
 
-  conf.toolchain
+  conf.toolchain("gcc")
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
