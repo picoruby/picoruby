@@ -1,0 +1,14 @@
+class MML2MIDI
+  type midi_params = Array[Symbol | Integer]
+
+  @octave: Integer
+  @common_duration: Integer
+  @q: Integer
+  @current_no: Integer
+
+  def self.number_str: (String, Integer) -> [String, Integer]
+  def self.count_punto: (String, Integer) -> [Integer, Integer]
+  def self.coef: (Integer) -> Float
+
+  def compile: (String) { (Integer, untyped) -> untyped } -> Integer
+end
