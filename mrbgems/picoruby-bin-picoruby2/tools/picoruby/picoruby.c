@@ -93,16 +93,16 @@ struct options {
 static void
 picorb_show_version(struct VM *vm)
 {
-  printf("picoruby %s\n", PICORUBY_VERSION);
+  fprintf(stdout, "picoruby %s\n", PICORUBY_VERSION);
 }
 
 static void
 picorb_show_copyright(struct VM *vm)
 {
   picorb_show_version(vm);
-  printf("picoruby is a lightweight implementation of the Ruby language.\n");
-  printf("picoruby is based on mruby/c.\n");
-  printf("picoruby is released under the MIT License.\n");
+  fprintf(stdout, "picoruby is a lightweight implementation of the Ruby language.\n");
+  fprintf(stdout, "picoruby is based on mruby/c.\n");
+  fprintf(stdout, "picoruby is released under the MIT License.\n");
 }
 
 static void
