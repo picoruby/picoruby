@@ -365,7 +365,7 @@ static mrc_irep *
 picorb_load_detect_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source)
 {
   char **filenames = (char**)mrbc_raw_alloc(sizeof(char*) * 2);
-  filenames[0] = fname;
+  filenames[0] = (char *)fname;
   filenames[1] = NULL;
   mrc_irep *irep = mrc_load_file_cxt(c, (const char **)filenames, source);
   if (irep == NULL) {
