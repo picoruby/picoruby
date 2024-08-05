@@ -293,19 +293,8 @@ parse_args(struct VM *vm, int argc, char **argv, struct _args *args)
   if (args->cmdline == NULL) {
     if (*argv == NULL) {
       if (args->version) exit(EXIT_SUCCESS);
-      // TODO: read from stdin into tempfile
-      FILE *tmpfp = tmpfile();
-      if (tmpfp == NULL) {
-        fprintf(stderr, "%s: Cannot open temporary file\n", *argv);
-        return EXIT_FAILURE;
-      }
-      int c;
-      while ((c = getchar()) != EOF) {
-        fputc(c, tmpfp);
-      }
-      fclose(tmpfp);
+      args->cmdline = (char *)"-";
       args->fname = "-";
-  //    args->cmdline = "-";
     }
     else {
       args->fname = *argv;
