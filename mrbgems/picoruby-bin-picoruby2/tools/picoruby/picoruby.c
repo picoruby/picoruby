@@ -91,15 +91,15 @@ struct options {
 #define PICORUBY_VERSION "3.3.0"
 
 static void
-picorb_show_version(struct VM *vm)
+picorb_show_version(void)
 {
   fprintf(stdout, "picoruby %s\n", PICORUBY_VERSION);
 }
 
 static void
-picorb_show_copyright(struct VM *vm)
+picorb_show_copyright(void)
 {
-  picorb_show_version(vm);
+  picorb_show_version();
   fprintf(stdout, "picoruby is a lightweight implementation of the Ruby language.\n");
   fprintf(stdout, "picoruby is based on mruby/c.\n");
   fprintf(stdout, "picoruby is released under the MIT License.\n");
@@ -124,18 +124,32 @@ usage(const char *name)
   const char *const *p = usage_msg;
 
   printf("Usage: %s [switches] [programfile] [arguments]\n", name);
+  printf("  programfile can be comma-linked multiple files like `a.rb,b.rb,c.rb`\n");
   while (*p)
     printf("  %s\n", *p++);
 }
 
+/*
+ * In order to be recognized as a `.mrb` file, the following three points must be satisfied:
+ * - File starts with "RITE"
+ */
 static mrc_bool
-picorb_extension_p(const char *path)
+picorb_mrb_p(const char *path)
 {
-  const char *e = strrchr(path, '.');
-  if (e && e[1] == 'm' && e[2] == 'r' && e[3] == 'b' && e[4] == '\0') {
-    return TRUE;
+  FILE *fp;
+  char buf[4];
+  mrc_bool ret = FALSE;
+
+  if ((fp = fopen(path, "rb")) == NULL) {
+    return FALSE;
   }
-  return FALSE;
+  if (fread(buf, 1, sizeof(buf), fp) == sizeof(buf)) {
+    if (memcmp(buf, "RITE", 4) == 0 && memchr(buf, 0, sizeof(buf))) {
+      ret = TRUE;
+    }
+  }
+  fclose(fp);
+  return ret;
 }
 
 static void
@@ -206,7 +220,7 @@ dup_arg_item(const char *item)
 }
 
 static int
-parse_args(struct VM *vm, int argc, char **argv, struct _args *args)
+parse_args(int argc, char **argv, struct _args *args)
 {
   static const struct _args args_zero = { 0 };
   struct options opts[1];
@@ -266,20 +280,20 @@ parse_args(struct VM *vm, int argc, char **argv, struct _args *args)
     }
     else if (strcmp(opt, "v") == 0) {
       if (!args->verbose) {
-        picorb_show_version(vm);
+        picorb_show_version();
         args->version = TRUE;
       }
       args->verbose = TRUE;
     }
     else if (strcmp(opt, "version") == 0) {
-      picorb_show_version(vm);
+      picorb_show_version();
       exit(EXIT_SUCCESS);
     }
     else if (strcmp(opt, "verbose") == 0) {
       args->verbose = TRUE;
     }
     else if (strcmp(opt, "copyright") == 0) {
-      picorb_show_copyright(vm);
+      picorb_show_copyright();
       exit(EXIT_SUCCESS);
     }
     else {
@@ -325,46 +339,34 @@ cleanup(struct _args *args)
 }
 
 static mrc_bool
-picorb_undef_p(mrbc_value v)
+picorb_undef_p(mrbc_value *v)
 {
-  return v.tt == MRBC_TT_EMPTY;
+  if (!v) return TRUE;
+  return v->tt == MRBC_TT_EMPTY;
 }
 
 static void
 picorb_vm_init()
 {
-  hal_init();
-  mrbc_init_alloc(mrbc_heap, HEAP_SIZE);
-  mrbc_init_global();
-  mrbc_init_class();
+  mrbc_init(mrbc_heap, HEAP_SIZE);
 }
 
 static void
-picorb_run(mrc_ccontext *c, mrbc_vm *vm, mrc_irep *irep)
+lib_run(mrc_ccontext *c, mrbc_vm *vm, uint8_t *mrb)
 {
-  uint8_t *bin = NULL;
-  size_t bin_size = 0;
-  int result;
-
-  result = mrc_dump_irep(c, irep, 0, &bin, &bin_size);
-  if (result != MRC_DUMP_OK) {
-    fprintf(stderr, "irep dump error: %d\n", result);
-    return;
-  }
-  if (mrbc_load_mrb(vm, bin) != 0) {
+  if (mrbc_load_mrb(vm, mrb) != 0) {
     fprintf(stderr, "mrbc_load_mrb failed\n");
     return;
   }
   mrbc_vm_begin(vm);
   mrbc_vm_run(vm);
-  mrbc_raw_free(bin);
   mrbc_vm_end(vm);
 }
 
 static mrc_irep *
-picorb_load_detect_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source)
+picorb_load_rb_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source)
 {
-  char **filenames = (char**)mrbc_raw_alloc(sizeof(char*) * 2);
+  char *filenames[2];// = (char**)mrbc_raw_alloc(sizeof(char*) * 2);
   filenames[0] = (char *)fname;
   filenames[1] = NULL;
   mrc_irep *irep = mrc_load_file_cxt(c, (const char **)filenames, source);
@@ -374,89 +376,162 @@ picorb_load_detect_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source
   return irep;
 }
 
+static void
+picorb_print_error(void)
+{
+  //TODO
+}
+
 int
 main(int argc, char **argv)
 {
   picorb_vm_init();
-  mrbc_vm *vm = mrbc_vm_open(NULL);
-  if(vm == NULL) {
-    fprintf(stderr, "%s: Invalid mrbc_vm, exiting picoruby\n", *argv);
-    return EXIT_FAILURE;
-  }
 
   int n = -1;
   struct _args args;
   mrbc_value ARGV;
   mrc_irep *irep = NULL;
 
-  n = parse_args(vm, argc, argv, &args);
+  n = parse_args(argc, argv, &args);
   if (n == EXIT_FAILURE || (args.cmdline == NULL)) {
     cleanup(&args);
     return n;
   }
-  else {
-//    int ai = mrb_gc_arena_save(mrb);
-    ARGV = mrbc_array_new(vm, args.argc);
-    for (int i = 0; i < args.argc; i++) {
-      char* utf8 = picorb_utf8_from_locale(args.argv[i], -1);
-      if (utf8) {
-        mrbc_value str = mrbc_string_new(vm, utf8, strlen(utf8));
-        mrbc_array_push(&ARGV, &str);
-        picorb_utf8_free(utf8);
-      }
+
+  ARGV = mrbc_array_new(NULL, args.argc);
+  for (int i = 0; i < args.argc; i++) {
+    char* utf8 = picorb_utf8_from_locale(args.argv[i], -1);
+    if (utf8) {
+      mrbc_value str = mrbc_string_new(NULL, utf8, strlen(utf8));
+      mrbc_array_push(&ARGV, &str);
+      picorb_utf8_free(utf8);
     }
-    mrbc_set_const(mrbc_str_to_symid("ARGV"), &ARGV);
-    mrbc_value debug = mrbc_bool_value(args.debug);
-    mrbc_set_global(mrbc_str_to_symid("$DEBUG"), &debug);
+  }
+  mrbc_set_const(mrbc_str_to_symid("ARGV"), &ARGV);
+  mrbc_value debug = mrbc_bool_value(args.debug);
+  mrbc_set_global(mrbc_str_to_symid("$DEBUG"), &debug);
 
+  /* Set $0 */
+  const char *cmdline;
+  if (args.fname) {
+    cmdline = args.cmdline ? args.cmdline : "-";
+  }
+  else {
+    cmdline = "-e";
+  }
+  mrbc_value cmd = mrbc_string_new(NULL, cmdline, strlen(cmdline));
+  mrbc_set_global(mrbc_str_to_symid("$0"), &cmd);
+
+  uint8_t *source = NULL;
+
+  mrbc_vm *lib_vm_list[args.libc];
+  int lib_vm_list_size = 0;
+  uint8_t *lib_mrb_list[args.libc];
+  int lib_mrb_list_size = 0;
+
+  /* Load libraries */
+  for (int i = 0; i < args.libc; i++) {
     mrc_ccontext *c = mrc_ccontext_new(NULL);
-    if (args.verbose)
-      c->dump_result = TRUE;
-    if (args.check_syntax)
-      c->no_exec = TRUE;
+    if (args.verbose) c->dump_result = TRUE;
+    if (args.check_syntax) c->no_exec = TRUE;
+    mrc_ccontext_filename(c, args.libv[i]);
 
-    /* Set $0 */
-    const char *cmdline;
-    if (args.fname) {
-      cmdline = args.cmdline ? args.cmdline : "-";
+    irep = NULL;
+    uint8_t *mrb = NULL;
+
+    if (picorb_mrb_p(args.libv[i])) {
+      size_t size;
+      FILE *fp = fopen(args.libv[i], "rb");
+      if (fp == NULL) {
+        fprintf(stderr, "cannot open file: %s\n", args.libv[i]);
+        exit(EXIT_FAILURE);
+      }
+      fseek(fp, 0, SEEK_END);
+      size = ftell(fp);
+      fseek(fp, 0, SEEK_SET);
+      mrb = (uint8_t *)mrbc_raw_alloc(size);
+      if (fread(mrb, 1, size, fp) != size) {
+        fprintf(stderr, "cannot read file: %s\n", args.libv[i]);
+        exit(EXIT_FAILURE);
+      }
+      fclose(fp);
     }
     else {
-      cmdline = "-e";
-    }
-    mrbc_value cmd = mrbc_string_new(vm, cmdline, strlen(cmdline));
-    mrbc_set_global(mrbc_str_to_symid("$0"), &cmd);
-
-    uint8_t *source = NULL;
-
-    /* Load libraries */
-    for (int i = 0; i < args.libc; i++) {
-      mrc_ccontext_filename(c, args.libv[i]);
-      if (picorb_extension_p(args.libv[i])) {
-//        irep = picorb_load_irep_file_cxt(c, args.libv[i]);
-      }
-      else {
-        source = NULL;
-        irep = picorb_load_detect_file_cxt(c, args.libv[i], &source);
-      }
-      if (irep) {
-        picorb_run(c, vm, irep);
-        mrc_irep_free(c, irep);
-        if (source) mrc_free(source);
-      }
-//      mrb_vm_ci_env_clear(mrb, mrb->c->cibase);
-//      mrb_ccontext_cleanup_local_variables(mrb, c);
+      source = NULL;
+      irep = picorb_load_rb_file_cxt(c, args.libv[i], &source);
     }
 
+    if (irep) {
+      size_t mrb_size = 0;
+      int result;
+      result = mrc_dump_irep(c, irep, 0, &mrb, &mrb_size);
+      if (result != MRC_DUMP_OK) {
+        fprintf(stderr, "irep dump error: %d\n", result);
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    if (mrb) {
+      lib_mrb_list[lib_mrb_list_size++] = mrb;
+      mrc_irep_free(c, irep);
+      mrc_ccontext_free(c);
+      mrbc_vm *libvm = mrbc_vm_open(NULL);
+      lib_vm_list[lib_vm_list_size++] = libvm;
+      lib_run(c, libvm, mrb);
+    }
+    if (source) {
+      // TODO refactor
+      mrbc_raw_free(source);
+      source = NULL;
+    }
+  }
+
+  /*
+   * [tasks]
+   * args.fname possibly looks like `a.rb,b.rb,c.rb` (comma separated file names)
+   */
+  int taskc = 1;
+  if (args.fname) {
+    for (int i = 0; args.fname[i]; i++) {
+      if (args.fname[i] == ',') {
+        taskc++;
+      }
+    }
+  }
+  else {
+    /* -e option */
+  }
+  uint8_t *task_mrb_list[taskc];
+  int tasks_mrb_list_size = 0;
+  mrbc_tcb *tcb_list[taskc];
+  int tcb_list_size = 0;
+  char *fnames[taskc];
+  char *token = strtok((char *)cmdline, ",");
+  int index = 0;
+  while (token != NULL) {
+    fnames[index] = mrbc_raw_alloc(strlen(token) + 1);
+    if (fnames[index] == NULL) {
+      fprintf(stderr, "Failed to allocate memory");
+      exit(EXIT_FAILURE);
+    }
+    strcpy(fnames[index], token);
+    token = strtok(NULL, ",");
+    index++;
+  }
+  for (int i = 0; i < taskc; i++) {
     /* set program file name */
-    mrc_ccontext_filename(c, cmdline);
+    mrc_ccontext *c = mrc_ccontext_new(NULL);
+    if (args.verbose) c->dump_result = TRUE;
+    if (args.check_syntax) c->no_exec = TRUE;
+    mrc_ccontext_filename(c, fnames[i]);
 
     /* Load program */
-    if (args.mrbfile || picorb_extension_p(cmdline)) {
-//      irep = picorb_load_irep_file_cxt(c, args.fname);
+    if (args.mrbfile || picorb_mrb_p(fnames[i])) {
+  //      irep = picorb_load_irep_file_cxt(c, args.fname);
     }
     else if (args.fname) {
       source = NULL;
-      irep = picorb_load_detect_file_cxt(c, args.fname, &source);
+      irep = picorb_load_rb_file_cxt(c, fnames[i], &source);
     }
     else {
       char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
@@ -466,26 +541,62 @@ main(int argc, char **argv)
     }
 
     if (irep) {
-      picorb_run(c, vm, irep);
+      uint8_t *mrb = NULL;
+      size_t mrb_size = 0;
+      int result;
+      result = mrc_dump_irep(c, irep, 0, &mrb, &mrb_size);
+      if (result != MRC_DUMP_OK) {
+        fprintf(stderr, "irep dump error: %d\n", result);
+        exit(EXIT_FAILURE);
+      }
+      task_mrb_list[tasks_mrb_list_size++] = mrb;
+
+      mrc_ccontext_free(c);
       mrc_irep_free(c, irep);
-      if (source) mrc_free(source);
+      if (source) {
+        mrc_free(source);
+        source = NULL;
+      }
+
+      mrbc_tcb *tcb = mrbc_create_task(mrb, NULL);
+      if (!tcb) {
+        fprintf(stderr, "mrbc_create_task failed\n");
+        exit(EXIT_FAILURE);
+      }
+      else {
+        tcb_list[tcb_list_size++] = tcb;
+      }
     }
-    mrc_ccontext_free(c);
-//    mrb_gc_arena_restore(mrb, ai);
-    if (vm->exception.tt != MRBC_TT_NIL) {
-      //MRB_EXC_CHECK_EXIT(mrb, mrb->exc);
-      // TODO
-      //if (!picorb_undef_p(v)) {
-      //  picorb_print_error(vm);
-      //}
-      n = EXIT_FAILURE;
-    }
-    else if (args.check_syntax) {
-      puts("Syntax OK");
+
+    if (args.check_syntax) {
+      printf("Syntax OK: %s\n", fnames[i]);
     }
   }
+
+  /* run tasks */
+  if (!args.check_syntax && mrbc_run() != 1) {
+    if (!picorb_undef_p(NULL)) {
+      picorb_print_error();
+    }
+    n = EXIT_FAILURE;
+  }
+
+  for (int i = 0; i < lib_vm_list_size; i++) {
+    mrbc_vm_close(lib_vm_list[i]);
+  }
+  for (int i = 0; i < lib_mrb_list_size; i++) {
+    mrbc_raw_free(lib_mrb_list[i]);
+  }
+  for (int i = 0; i < tasks_mrb_list_size; i++) {
+    mrbc_raw_free(task_mrb_list[i]);
+  }
+  for (int i = 0; i < taskc; i++) {
+    mrbc_raw_free(fnames[i]);
+  }
+  for (int i = 0; i < tcb_list_size; i++) {
+    mrbc_vm_close(&tcb_list[i]->vm);
+  }
   cleanup(&args);
-  mrbc_vm_close(vm);
 
   return n;
 }
