@@ -19,7 +19,7 @@ class UART
       puts "      Contributions are welcome https://github.com/picoruby/picoruby/issues/171"
     end
     @rx_buffer = UART.open_rx_buffer(rx_buffer_size)
-    @unit_num = UART.open_connection(unit.to_s, txd_pin, rxd_pin)
+    @unit_num = UART.open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
     @baudrate = _set_baudrate(baudrate)
     setmode(
       baudrate: nil,
