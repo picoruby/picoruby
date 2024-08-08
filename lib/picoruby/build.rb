@@ -67,7 +67,7 @@ module MRuby
         cc.flags << "-fno-inline"
       else
         cc.defines << "NDEBUG=1"
-        cc.flags << "-Os"
+        cc.flags << "-O3"   # The build won't work with -Os
         cc.flags << "-s"
         cc.flags << "-finline-functions"
         cc.flags << "-ffunction-sections"
