@@ -46,7 +46,7 @@ class MCP3008 < MCP3x0x
   def read(channel, differential: false)
     @cs.write 0
     cmd = differential ? 0 : 0b10000000
-    _, d1, d2 = @spi.transfer(1, cmd|((channel << 4)&0b1110000), 0).bytes
+    _, d1, d2 = @spi.transfer(1, cmd|(channel << 4), 0).bytes
     @cs.write 1
     return ((d1 || 0) & 0b11) << 8 | (d2 || 0)
   end
