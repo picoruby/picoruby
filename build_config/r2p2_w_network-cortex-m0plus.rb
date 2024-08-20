@@ -38,6 +38,7 @@ MRuby::CrossBuild.new("r2p2_w_network-cortex-m0plus") do |conf|
   conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
+  conf.cc.defines << "USE_WIFI=1"
 
   conf.mrubyc_hal_arm
   conf.picoruby

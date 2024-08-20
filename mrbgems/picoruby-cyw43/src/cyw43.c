@@ -27,6 +27,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+#ifdef USE_WIFI
 static void
 c_CYW43_enable_sta_mode(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -65,7 +66,7 @@ c_CYW43_connect_blocking(mrbc_vm *vm, mrbc_value *v, int argc)
     SET_FALSE_RETURN();
   }
 }
-
+#endif
 
 static void
 c_GPIO_write(mrbc_vm *vm, mrbc_value *v, int argc)
