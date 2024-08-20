@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2_w_ble_wifi-cortex-m0plus") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -38,6 +38,7 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
+  conf.cc.defines << "USE_WIFI"
 
   conf.mrubyc_hal_arm
   conf.picoruby
@@ -49,5 +50,6 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.gem core: 'picoruby-adafruit_pcf8523'
   conf.gem core: 'picoruby-ble'
   conf.gem core: 'picoruby-rng'
+  conf.gem core: 'picoruby-net'
 end
 
