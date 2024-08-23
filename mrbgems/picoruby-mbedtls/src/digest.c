@@ -77,7 +77,7 @@ c_mbedtls_digest_finish(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
 
-  size_t out_len = mbedtls_md_get_size(ctx->private_md_info);
+  size_t out_len = mbedtls_md_get_size(ctx->md_info);
   unsigned char* output = mrbc_alloc(vm, out_len); // need at least block size
   int ret;
 
