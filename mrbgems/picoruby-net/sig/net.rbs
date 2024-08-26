@@ -6,7 +6,7 @@ type httpreturn = {
 
 class Net
   class HTTPUtil
-    def self.format_response: (String) -> (httpreturn | nil)
+    def self.format_response: (String?) -> (httpreturn | nil)
   end
 
   class DNS
@@ -14,11 +14,12 @@ class Net
   end
 
   class TCPClient
-    def self.request: (String, Integer, String, bool) -> String
-    def self._request_impl: (String, Integer, String, bool) -> String
+    def self.request: (String, Integer, String, bool) -> String?
+    def self._request_impl: (String, Integer, String, bool) -> String?
   end
 
   class HTTPClient
+    @host: String
     def get: (String) -> (httpreturn | nil)
     def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
     def post: (String, Hash[String, String], String) -> (httpreturn | nil)
@@ -26,6 +27,7 @@ class Net
   end
 
   class HTTPSClient
+    @host: String
     def get: (String) -> (httpreturn | nil)
     def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
     def post: (String, Hash[String, String], String) -> (httpreturn | nil)

@@ -16,7 +16,7 @@ class Net
           elsif body_started == false
             if lines[line_number].length == 0
               body_started = true
-            else 
+            else
               fields = lines[line_number].split(':')
               headers[fields[0]] = fields[1]&.strip
             end
