@@ -68,7 +68,6 @@ class Net
         req += "#{k}: #{v}\r\n"
       end
       req += "\r\n"
-      req += body
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
     end
@@ -120,7 +119,6 @@ class Net
         req += "#{k}: #{v}\r\n"
       end
       req += "\r\n"
-      req += body
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
     end
