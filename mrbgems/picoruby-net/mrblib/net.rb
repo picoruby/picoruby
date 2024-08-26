@@ -64,11 +64,11 @@ class Net
     def get_with_headers(path, headers)
       req =  "GET #{path} HTTP/1.1\r\n"
       req += "Host:#{@host}\r\n"
-      req += "Connection: close\r\n"
       headers.each do |k, v|
-        req += "#{k}: #{v}"
+        req += "#{k}: #{v}\r\n"
       end
       req += "\r\n"
+      req += body
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
     end
@@ -76,12 +76,12 @@ class Net
     def post(path, headers, body)
       req =  "POST #{path} HTTP/1.1\r\n"
       req += "Host:#{@host}\r\n"
-      req += "Connection: close\r\n"
       headers.each do |k, v|
-        req += "#{k}: #{v}"
+        req += "#{k}: #{v}\r\n"
       end
-      req += "#{body}\r\n"
       req += "\r\n"
+      req += body
+
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
     end
@@ -89,12 +89,11 @@ class Net
     def put(path, headers, body)
       req =  "PUT #{path} HTTP/1.1\r\n"
       req += "Host:#{@host}\r\n"
-      req += "Connection: close\r\n"
       headers.each do |k, v|
-        req += "#{k}: #{v}"
+        req += "#{k}: #{v}\r\n"
       end
-      req += "#{body}\r\n"
       req += "\r\n"
+      req += body
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
     end
@@ -117,11 +116,11 @@ class Net
     def get_with_headers(path, headers)
       req =  "GET #{path} HTTP/1.1\r\n"
       req += "Host:#{@host}\r\n"
-      req += "Connection: close\r\n"
       headers.each do |k, v|
-        req += "#{k}: #{v}"
+        req += "#{k}: #{v}\r\n"
       end
-      req += "\r\n" 
+      req += "\r\n"
+      req += body
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
     end
@@ -141,12 +140,11 @@ class Net
     def put(path, headers, body)
       req =  "PUT #{path} HTTP/1.1\r\n"
       req += "Host:#{@host}\r\n"
-      req += "Connection: close\r\n"
       headers.each do |k, v|
-        req += "#{k}: #{v}"
+        req += "#{k}: #{v}\r\n"
       end
-      req += "#{body}\r\n"
       req += "\r\n"
+      req += body
 
       return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
     end
