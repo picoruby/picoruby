@@ -106,6 +106,8 @@ class Shell
       print "\nbye\e[0m"
       exit
       return
+    else
+      raise ArgumentError, "Unknown mode: #{mode}"
     end
   end
 

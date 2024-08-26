@@ -27,7 +27,7 @@ class Shell
   def initialize: (?clean: bool) -> void
   def simple_question: (String question) { (String answer) -> boolish } -> void
   def show_logo: -> nil
-  def start: (?:shell mode) -> nil
+  def start: (?Symbol mode) -> nil
   def run_shell: -> void
   def run_irb: -> void
 end
