@@ -1,3 +1,4 @@
+#ifndef PICORUBY_MBEDTLS_USE_R2P2_CONFIG
 /*
  * We are not on a unix or windows platform,
  * so we must define MBEDTLS_PLATFORM_C
@@ -20,4 +21,8 @@
 
 /* This is needed for SHA256 */
 #define MBEDTLS_MD_C
+#define MBEDTLS_SHA1_C
+#define MBEDTLS_SHA224_C
 #define MBEDTLS_SHA256_C
+#define MBEDTLS_SHA512_C
+#endif

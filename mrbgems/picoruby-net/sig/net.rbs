@@ -1,0 +1,34 @@
+type httpreturn = {
+  status: Integer,
+  headers: Hash[String, String],
+  body: String
+}
+
+class Net
+  class HTTPUtil
+    def self.format_response: (String) -> (httpreturn | nil)
+  end
+
+  class DNS
+    def self.resolve: (String) -> String
+  end
+
+  class TCPClient
+    def self.request: (String, Integer, String, bool) -> String
+    def self._request_impl: (String, Integer, String, bool) -> String
+  end
+
+  class HTTPClient
+    def get: (String) -> (httpreturn | nil)
+    def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
+    def post: (String, Hash[String, String], String) -> (httpreturn | nil)
+    def put:  (String, Hash[String, String], String) -> (httpreturn | nil)
+  end
+
+  class HTTPSClient
+    def get: (String) -> (httpreturn | nil)
+    def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
+    def post: (String, Hash[String, String], String) -> (httpreturn | nil)
+    def put:  (String, Hash[String, String], String) -> (httpreturn | nil)
+  end
+end

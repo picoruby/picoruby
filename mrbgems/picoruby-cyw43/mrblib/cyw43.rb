@@ -19,4 +19,11 @@ class CYW43
       @pin = pin
     end
   end
+
+  class Auth
+    OPEN           = 0
+    WPA_TKIP_PSK   = 0x00200002
+    WPA2_AES_PSK   = 0x00400004
+    WPA2_MIXED_PSK = 0x00400006
+  end
 end

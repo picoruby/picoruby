@@ -13,7 +13,7 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
     f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
   }
 
-  MBEDTLS_VERSION = "v3.4.1"
+  MBEDTLS_VERSION = "v2.28.1"
 
   task :repo do
     clone = false
