@@ -17,7 +17,7 @@ pin_num(mrbc_vm *vm, mrbc_value pin)
       return GPIO_pin_num_from_char(pin.string->data);
     }
     case MRBC_TT_SYMBOL: {
-      return GPIO_pin_num_from_char(mrbc_symid_to_str(pin.i));
+      return GPIO_pin_num_from_char((const uint8_t *)mrbc_symid_to_str(pin.i));
     }
     default:
       mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong GPIO pin value");

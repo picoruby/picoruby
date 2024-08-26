@@ -58,7 +58,7 @@ static void
 c_CYW43_connect_blocking(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
-    if (CYW43_arch_wifi_connect_blocking(GET_STRING_ARG(1), GET_STRING_ARG(2), GET_INT_ARG(3)) < 0) {
+    if (CYW43_arch_wifi_connect_blocking((const char *)GET_STRING_ARG(1), (const char *)GET_STRING_ARG(2), GET_INT_ARG(3)) < 0) {
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43_arch_wifi_connect_blocking() failed");
       return;
     }

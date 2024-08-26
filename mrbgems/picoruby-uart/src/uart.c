@@ -177,7 +177,6 @@ static void
 c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  int unit_num = GETIV(unit_num).i;
   size_t available_len = bufferDataSize(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
@@ -206,7 +205,6 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  int unit_num = GETIV(unit_num).i;
   size_t available_len = bufferDataSize(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
@@ -226,7 +224,6 @@ static void
 c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  int unit_num = GETIV(unit_num).i;
   SET_INT_RETURN(bufferDataSize(rx));
 }
 
@@ -255,7 +252,6 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  int unit_num = GETIV(unit_num).i;
   int pos = searchCharBuffer(rx, (uint8_t)'\n');
   if (pos < 0) {
     SET_NIL_RETURN();

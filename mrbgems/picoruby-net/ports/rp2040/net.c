@@ -179,7 +179,6 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
   if (*pcs == NULL)
     return 0;
   tcp_connection_state *cs = *pcs;
-  mrbc_vm *vm;
   switch(cs->state)
   {
     case NET_TCP_STATE_NONE:
@@ -202,14 +201,12 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
       cyw43_arch_lwip_begin();
       altcp_close(cs->pcb);
       cyw43_arch_lwip_end();
-      vm = cs->vm;
-      mrbc_free(vm, cs);
+      mrbc_free(cs->vm, cs);
       *pcs = NULL;
       return 0;
       break;
     case NET_TCP_STATE_ERROR:
-      vm = cs->vm;
-      mrbc_free(vm, cs);
+      mrbc_free(cs->vm, cs);
       *pcs = NULL;
       return 0;
       break;
