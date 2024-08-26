@@ -28,7 +28,8 @@ typedef struct tcp_connection_state_str
 
 /* end of platform-dependent definitions */
 
-void dns_found(const char *name, const ip_addr_t *ip, void *arg)
+static void
+dns_found(const char *name, const ip_addr_t *ip, void *arg)
 {
   ip_addr_t *result = (ip_addr_t *)arg;
   if (ip) {
@@ -39,7 +40,8 @@ void dns_found(const char *name, const ip_addr_t *ip, void *arg)
   return;
 }
 
-err_t get_ip_impl(const char *name, ip_addr_t *ip)
+static err_t
+get_ip_impl(const char *name, ip_addr_t *ip)
 {
   cyw43_arch_lwip_begin();
   err_t err = dns_gethostbyname(name, ip, dns_found, ip);
@@ -47,7 +49,8 @@ err_t get_ip_impl(const char *name, ip_addr_t *ip)
   return err;
 }
 
-err_t get_ip(const char *name, ip_addr_t *ip)
+static err_t
+get_ip(const char *name, ip_addr_t *ip)
 {
   get_ip_impl(name, ip);
   while (!ip_addr_get_ip4_u32(ip)) {
@@ -56,7 +59,8 @@ err_t get_ip(const char *name, ip_addr_t *ip)
   return ERR_OK;
 }
 
-mrbc_value DNS_resolve(mrbc_vm *vm, const char *name)
+mrbc_value
+DNS_resolve(mrbc_vm *vm, const char *name)
 {
   ip_addr_t ip;
   mrbc_value ret;
@@ -72,7 +76,8 @@ mrbc_value DNS_resolve(mrbc_vm *vm, const char *name)
   return ret;
 }
 
-err_t TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
+static err_t
+TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   if (pbuf != NULL) {
@@ -96,27 +101,31 @@ err_t TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err
   return ERR_OK;
 }
 
-err_t TCPClient_sent_cb(void *arg, struct altcp_pcb *pcb, u16_t len)
+static err_t
+TCPClient_sent_cb(void *arg, struct altcp_pcb *pcb, u16_t len)
 {
   // do nothing as of now
   return ERR_OK;
 }
 
-static err_t TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
+static err_t
+TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   cs->state = NET_TCP_STATE_CONNECTED;
   return ERR_OK;
 }
 
-err_t TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
+static err_t
+TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   cs->state = NET_TCP_STATE_FINISHED;
   return ERR_OK;
 }
 
-void TCPClient_err_cb(void *arg, err_t err)
+static void
+TCPClient_err_cb(void *arg, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   console_printf("Error with: %d\n", err);
@@ -124,7 +133,8 @@ void TCPClient_err_cb(void *arg, err_t err)
   // do nothing as of now
 }
 
-tcp_connection_state *TCPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
+static tcp_connection_state *
+TCPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
 {
   tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
   cs->state = NET_TCP_STATE_NONE;
@@ -140,7 +150,8 @@ tcp_connection_state *TCPClient_new_connection(mrbc_value *send_data, mrbc_value
   return cs;
 }
 
-tcp_connection_state *TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
+static tcp_connection_state *
+TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
 {
   tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
   cs->state = NET_TCP_STATE_NONE;
@@ -159,7 +170,8 @@ tcp_connection_state *TCPClient_new_tls_connection(const char *host, mrbc_value 
   return cs;
 }
 
-tcp_connection_state *TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm, bool is_tls)
+static tcp_connection_state *
+TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm, bool is_tls)
 {
   tcp_connection_state *cs;
   if (is_tls) {
@@ -174,7 +186,8 @@ tcp_connection_state *TCPClient_connect_impl(ip_addr_t *ip, const char *host, in
   return cs;
 }
 
-int TCPClient_poll_impl(tcp_connection_state **pcs)
+static int
+TCPClient_poll_impl(tcp_connection_state **pcs)
 {
   if (*pcs == NULL)
     return 0;
@@ -214,7 +227,8 @@ int TCPClient_poll_impl(tcp_connection_state **pcs)
   return cs->state;
 }
 
-mrbc_value TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls)
+mrbc_value
+TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls)
 {
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
