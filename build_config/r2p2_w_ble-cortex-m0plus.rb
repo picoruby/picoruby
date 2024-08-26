@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2_w_ble-cortex-m0plus") do |conf|
 
   ###############################################################
   # You need following tools:
