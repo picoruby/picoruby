@@ -13,8 +13,13 @@ class UART
         rts_pin: -1,
         cts_pin: -1,
         rx_buffer_size: nil)
+    if (unit.to_s == "RP2040_UART1")
+      puts "[BUG] TXD of RP2040_UART1 unit does not work properly."
+      puts "      Please use RP2040_UART0 instead."
+      puts "      Contributions are welcome https://github.com/picoruby/picoruby/issues/171"
+    end
     @rx_buffer = UART.open_rx_buffer(rx_buffer_size)
-    @unit_num = UART.open_connection(unit.to_s, txd_pin, rxd_pin)
+    @unit_num = UART.open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
     @baudrate = _set_baudrate(baudrate)
     setmode(
       baudrate: nil,

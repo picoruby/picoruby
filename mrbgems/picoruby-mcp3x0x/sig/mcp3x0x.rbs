@@ -1,5 +1,5 @@
 # @sidebar hardware_device
-class MCP3208
+class MCP3x0x
   DEFAULT_FREQUENCY: 500_000
 
   @spi: SPI
@@ -17,5 +17,16 @@ class MCP3208
 end
 
 # @sidebar hardware_device
-class MCP3204 < MCP3208
+class MCP3004 < MCP3008
+end
+
+# @sidebar hardware_device
+class MCP3008 < MCP3x0x
+end
+# @sidebar hardware_device
+class MCP3204 < MCP3x0x
+end
+
+# @sidebar hardware_device
+class MCP3208 < MCP3x0x
 end

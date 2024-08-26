@@ -5,7 +5,7 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   #   arm-none-eabi       | to make libmruby.a
   ###############################################################
 
-  conf.toolchain
+  conf.toolchain("gcc")
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
@@ -15,8 +15,6 @@ MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
   conf.cc.host_command = "gcc"
 
   conf.cc.flags.flatten!
-  conf.cc.flags.delete "-O3"
-  conf.cc.flags << "-Og"
   conf.cc.flags << "-mcpu=cortex-m0plus"
   conf.cc.flags << "-mthumb"
   conf.cc.flags << "-Wall"

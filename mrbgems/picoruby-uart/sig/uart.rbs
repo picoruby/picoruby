@@ -39,7 +39,8 @@ class UART
   def self.open_connection: (
     String unit,
     Integer txd_pin,
-    Integer rxd_pin
+    Integer rxd_pin,
+    UART::RxBuffer rx_buffer
   ) -> Integer
   def setmode: (
     ?baudrate: Integer?,

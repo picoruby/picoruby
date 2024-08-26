@@ -58,15 +58,21 @@ module MRuby
         raise "Unknown picoruby_conf: #{picoruby_conf}"
       end
 
+      cc.flags.flatten!
+      cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }
       if ENV["PICORUBY_DEBUG"]
         cc.defines << "PICORUBY_DEBUG=1"
-        cc.flags.flatten!
-        cc.flags.reject! { |f| %w(-g -O3).include? f }
-        cc.flags << "-g3"
         cc.flags << "-O0"
+        cc.flags << "-g3"
         cc.flags << "-fno-inline"
       else
         cc.defines << "NDEBUG=1"
+        cc.flags << "-O3"   # The build won't work with -Os
+        cc.flags << "-s"
+        cc.flags << "-finline-functions"
+        cc.flags << "-ffunction-sections"
+        cc.flags << "-fdata-sections"
+        cc.flags << "-Wl,--gc-sections"
       end
 
     end

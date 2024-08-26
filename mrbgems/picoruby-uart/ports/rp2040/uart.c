@@ -18,6 +18,26 @@
     } \
   } while (0)
 
+static RingBuffer *rx_buffers[2];
+
+static void
+on_uart0_rx(void)
+{
+  while (uart_is_readable(uart0)) {
+    uint8_t ch = uart_getc(uart0);
+    UART_pushBuffer(rx_buffers[0], ch);
+  }
+}
+
+static void
+on_uart1_rx(void)
+{
+  while (uart_is_readable(uart1)) {
+    uint8_t ch = uart_getc(uart1);
+    UART_pushBuffer(rx_buffers[1], ch);
+  }
+}
+
 int
 UART_unit_name_to_unit_num(const char *name)
 {
@@ -31,18 +51,27 @@ UART_unit_name_to_unit_num(const char *name)
 }
 
 void
-UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
+UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer)
 {
+  uint irq;
   uart_inst_t *unit;
   UNIT_SELECT();
   uart_init(unit, DEFAULT_BAUDRATE);
-  if (0 <= txd_pin) {
-    gpio_set_function(txd_pin, GPIO_FUNC_UART);
+
+  gpio_set_function(txd_pin, GPIO_FUNC_UART);
+  gpio_set_function(rxd_pin, GPIO_FUNC_UART);
+
+  if (unit_num == PICORUBY_UART_RP2040_UART0) {
+    irq = UART0_IRQ;
+    irq_set_exclusive_handler(irq, on_uart0_rx);
+    rx_buffers[0] = ring_buffer;
+  } else if (unit_num == PICORUBY_UART_RP2040_UART1) {
+    irq = UART1_IRQ;
+    irq_set_exclusive_handler(irq, on_uart1_rx);
+    rx_buffers[1] = ring_buffer;
   }
-  if (0 <= rxd_pin) {
-    gpio_set_function(rxd_pin, GPIO_FUNC_UART);
-  }
-  return;
+  irq_set_enabled(irq, true);
+  uart_set_irq_enables(unit, true, false);
 }
 
 uint32_t

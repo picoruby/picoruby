@@ -13,14 +13,6 @@
 static mrbc_class *mrbc_class_UART;
 static mrbc_class *mrbc_class_UART_RxBuffer;
 
-typedef struct {
-  int head;
-  int tail;
-  size_t size;
-  int mask;
-  uint8_t data[];
-} RingBuffer;
-
 static bool
 isPowerOfTwo(int n) {
   if (n == 0) {
@@ -67,20 +59,6 @@ bufferFreeSize(RingBuffer *ring_buffer) {
 }
 
 static bool
-pushBuffer(RingBuffer *ring_buffer, uint8_t *pushData, size_t len)
-{
-  if (bufferFreeSize(ring_buffer) < len) {
-    return false;
-  }
-  int i;
-  for (i = 0; i < len; i++) {
-    ring_buffer->data[ring_buffer->tail] = pushData[i];
-    ring_buffer->tail = (ring_buffer->tail + 1) & ring_buffer->mask;
-  }
-  return true;
-}
-
-static bool
 popBuffer(RingBuffer *ring_buffer, uint8_t *popData, size_t len) {
   if (len > ring_buffer->size) {
     return false;
@@ -111,6 +89,18 @@ searchCharBuffer(RingBuffer *ring_buffer, uint8_t c)
   return -1;
 }
 
+/* Called by ports */
+bool
+UART_pushBuffer(RingBuffer *ring_buffer, uint8_t ch)
+{
+  if (bufferFreeSize(ring_buffer) < 1) {
+    return false;
+  }
+  ring_buffer->data[ring_buffer->tail] = ch;
+  ring_buffer->tail = (ring_buffer->tail + 1) & ring_buffer->mask;
+  return true;
+}
+
 /*
  * Ruby method
  */
@@ -122,8 +112,8 @@ static void
 c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int rx_buffer_size;
-  if (argc != 1 ) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 5");
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   } else
   if (v[1].tt == MRBC_TT_NIL) {
@@ -145,7 +135,8 @@ static void
 c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int unit_num = UART_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
-  UART_init(unit_num, GET_INT_ARG(2), GET_INT_ARG(3));
+  RingBuffer *rx = (RingBuffer *)v[4].instance->data;
+  UART_init(unit_num, GET_INT_ARG(2), GET_INT_ARG(3), rx);
   SET_INT_RETURN(unit_num);
 }
 
@@ -183,22 +174,10 @@ c__set_function(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-uart_to_rx_buffer(RingBuffer *rx_buffer, int unit_num)
-{
-  size_t maxlen = bufferFreeSize(rx_buffer);
-  uint8_t buf[maxlen];
-  size_t actual_len = UART_read_nonblocking(unit_num, buf, maxlen);
-  if (0 < actual_len) {
-    pushBuffer(rx_buffer, buf, actual_len);
-  }
-}
-
-static void
 c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   int unit_num = GETIV(unit_num).i;
-  uart_to_rx_buffer(rx, unit_num);
   size_t available_len = bufferDataSize(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
@@ -222,13 +201,12 @@ c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  if (argc < 1) {
+  if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   int unit_num = GETIV(unit_num).i;
-  uart_to_rx_buffer(rx, unit_num);
   size_t available_len = bufferDataSize(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
@@ -249,14 +227,13 @@ c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   int unit_num = GETIV(unit_num).i;
-  uart_to_rx_buffer(rx, unit_num);
   SET_INT_RETURN(bufferDataSize(rx));
 }
 
 static void
 c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  if (argc < 1) {
+  if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   }
@@ -279,7 +256,6 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   int unit_num = GETIV(unit_num).i;
-  uart_to_rx_buffer(rx, unit_num);
   int pos = searchCharBuffer(rx, (uint8_t)'\n');
   if (pos < 0) {
     SET_NIL_RETURN();
