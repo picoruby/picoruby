@@ -6,6 +6,7 @@ MRuby::Gem::Specification.new 'picoruby-bin-picoirb' do |spec|
   spec.add_dependency 'picoruby-mrubyc'
 
   spec.cc.include_paths << "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/src"
+  spec.cc.include_paths << "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/hal/posix"
 
   picoirb_mrblib_rbs = Dir.glob("#{dir}/tools/picoirb/*.rb")
   picoirb_mrblib_srcs = picoirb_mrblib_rbs.map do |rb|

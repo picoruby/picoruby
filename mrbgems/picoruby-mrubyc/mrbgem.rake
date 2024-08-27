@@ -31,6 +31,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     Rake::Task[mrubyc_dir].invoke
   end
 
+  cc.include_paths.delete_if { |path| path.include?("no_impl") }
   cc.include_paths << cc.defines.find { |d|
     d.start_with? "MRBC_USE_HAL"
   }.then { |hal|
@@ -38,16 +39,16 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
       cc.defines << "MRBC_USE_HAL=#{MRUBY_ROOT}/include/hal_no_impl"
       "#{MRUBY_ROOT}/include/hal_no_impl"
     elsif hal.start_with?("MRBC_USE_HAL_")
-      "#{mrubyc_src_dir}/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase}"
+      "#{mrubyc_dir}/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase.sub("_", "/")}"
     else
-      "#{mrubyc_src_dir}/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
+      "#{mrubyc_dir}/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
     end
   }
 
   # Reject src/mrblib.c because it is possibly old
-  MRUBYC_SRCS = Dir.glob("#{mrubyc_src_dir}/*.c").reject{|s|s.end_with?("mrblib.c")}.freeze
+  MRUBYC_SRCS = Dir.glob("#{mrubyc_dir}/src/*.c").reject{|s|s.end_with?("mrblib.c")}.freeze
   # So, we regenerate mrblib.c from mrblib/*.rb
-  MRBLIB_RBS = Dir.glob("#{mrubyc_dir}/mrblib/*.rb").freeze
+  MRBLIB_RBS = %w[enum.rb array.rb global.rb hash.rb numeric.rb object.rb range.rb string.rb].map{|f|"#{mrubyc_dir}/mrblib/#{f}"}.freeze
 
   MRUBYC_SRCS.each do |mrubyc_src|
     obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))

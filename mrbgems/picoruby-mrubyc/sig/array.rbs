@@ -524,6 +524,7 @@
 
 # @sidebar builtin
 class Array[unchecked out Elem] < Object
+  include Enumerable[Elem]
 
   # <!--
   #   rdoc-file=array.c
@@ -1021,27 +1022,6 @@ class Array[unchecked out Elem] < Object
 
   # <!--
   #   rdoc-file=array.c
-  #   - array.map {|element| ... } -> new_array
-  #   - array.map -> new_enumerator
-  # -->
-  # Calls the block, if given, with each element of `self`; returns a new Array
-  # whose elements are the return values from the block:
-  #
-  #     a = [:foo, 'bar', 2]
-  #     a1 = a.map {|element| element.class }
-  #     a1 # => [Symbol, String, Integer]
-  #
-  # Returns a new Enumerator if no block given:
-  #     a = [:foo, 'bar', 2]
-  #     a1 = a.map
-  #     a1 # => #<Enumerator: [:foo, "bar", 2]:map>
-  #
-  # Array#collect is an alias for Array#map.
-  #
-  def collect: [U] () { (Elem item) -> U } -> ::Array[U]
-
-  # <!--
-  #   rdoc-file=array.c
   #   - array.map! {|element| ... } -> self
   #   - array.map! -> new_enumerator
   # -->
@@ -1180,8 +1160,6 @@ class Array[unchecked out Elem] < Object
   # Related: #each_index, #reverse_each.
   #
   def each: () { (Elem item) -> void } -> self
-
-  def each_with_index: () { (Elem item, ::Integer index) -> void } -> self
 
   # <!--
   #   rdoc-file=array.c
@@ -1447,23 +1425,6 @@ class Array[unchecked out Elem] < Object
   # Returns the count of elements in `self`.
   #
   def length: () -> ::Integer
-
-  # <!-- rdoc-file=array.c -->
-  # Calls the block, if given, with each element of `self`; returns a new Array
-  # whose elements are the return values from the block:
-  #
-  #     a = [:foo, 'bar', 2]
-  #     a1 = a.map {|element| element.class }
-  #     a1 # => [Symbol, String, Integer]
-  #
-  # Returns a new Enumerator if no block given:
-  #     a = [:foo, 'bar', 2]
-  #     a1 = a.map
-  #     a1 # => #<Enumerator: [:foo, "bar", 2]:map>
-  #
-  # Array#collect is an alias for Array#map.
-  #
-  alias map collect
 
   # <!--
   #   rdoc-file=array.c

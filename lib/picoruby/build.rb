@@ -16,7 +16,7 @@ module MRuby
         define.end_with? "hal_no_impl"
       end
       cc.defines << "MRBC_USE_HAL_POSIX"
-      mrubyc_hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/src/hal_posix/hal")
+      mrubyc_hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/hal/posix/hal")
       libmruby_objs << mrubyc_hal_obj
       file mrubyc_hal_obj => "#{mrubyc_src_dir}/hal_posix/hal.c" do |f|
         cc.run f.name, f.prerequisites.first
