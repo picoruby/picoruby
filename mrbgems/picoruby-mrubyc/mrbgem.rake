@@ -46,11 +46,11 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   }
 
   # Reject src/mrblib.c because it is possibly old
-  MRUBYC_SRCS = Dir.glob("#{mrubyc_dir}/src/*.c").reject{|s|s.end_with?("mrblib.c")}.freeze
+  mrubyc_srcs = Dir.glob("#{mrubyc_dir}/src/*.c").reject{|s|s.end_with?("mrblib.c")}.freeze
   # So, we regenerate mrblib.c from mrblib/*.rb
-  MRBLIB_RBS = %w[enum.rb array.rb global.rb hash.rb numeric.rb object.rb range.rb string.rb].map{|f|"#{mrubyc_dir}/mrblib/#{f}"}.freeze
+  mrblib_rbs = %w[enum.rb array.rb global.rb hash.rb numeric.rb object.rb range.rb string.rb].map{|f|"#{mrubyc_dir}/mrblib/#{f}"}.freeze
 
-  MRUBYC_SRCS.each do |mrubyc_src|
+  mrubyc_srcs.each do |mrubyc_src|
     obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
     file obj => mrubyc_src do |f|
@@ -60,8 +60,8 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
 
   directory mrblib_build_dir
 
-  file "#{mrblib_build_dir}/mrblib.c" => [build.mrbcfile, mrblib_build_dir] + MRBLIB_RBS do |f|
-    sh "#{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{MRBLIB_RBS.join(' ')}"
+  file "#{mrblib_build_dir}/mrblib.c" => [build.mrbcfile, mrblib_build_dir] + mrblib_rbs do |f|
+    sh "#{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{mrblib_rbs.join(' ')}"
   end
 
   mrblib_c = "#{mrblib_build_dir}/mrblib.c"
