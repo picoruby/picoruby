@@ -129,8 +129,7 @@ desc "run all tests"
 task :test => [:steep, :test_compiler_mrubyc, :test_compiler_mruby]
 
 desc "run compiler tests with mruby VM"
-#task :test_compiler_mruby => :debug do
-task :test_compiler_mruby do
+task :test_compiler_mruby => :debug do
   ENV['USE_MRUBY'] = "yes"
   ENV['PICORBC_COMMAND'] = "RBENV_VERSION=mruby-3.3.0 mrbc"#||= picorbcfile
   ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.3.0 rbenv which mruby`.chomp
@@ -143,8 +142,7 @@ task :test_compiler_mruby do
 end
 
 desc "run compiler tests with mruby/c VM"
-#task :test_compiler_mrubyc => :debug do
-task :test_compiler_mrubyc do
+task :test_compiler_mrubyc => :debug do
   ENV['MRUBY_COMMAND'] = picorubyfile
   #sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
   sh "/home/hasumi/work/mruby-pico-work/mruby-compiler2/test/helper/test.rb"
