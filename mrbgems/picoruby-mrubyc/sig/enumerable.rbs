@@ -3,6 +3,7 @@ interface _Each[out A]
   def each: () { (A) -> void } -> void
 end
 
+# @sidebar builtin
 module Enumerable[unchecked out Elem] : _Each[Elem]
   def collect: [U] () { (Elem arg0) -> U } -> ::Array[U]
   alias map collect
