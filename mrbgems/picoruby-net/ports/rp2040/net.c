@@ -1,4 +1,5 @@
 #include "../../include/net.h"
+#include "lwipopts.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
 #include "lwip/altcp_tcp.h"
@@ -24,6 +25,7 @@ typedef struct tcp_connection_state_str
   mrbc_value *send_data;
   mrbc_value *recv_data;
   mrbc_vm *vm;
+  struct altcp_tls_config *tls_config;
 } tcp_connection_state;
 
 /* end of platform-dependent definitions */
@@ -76,6 +78,14 @@ DNS_resolve(mrbc_vm *vm, const char *name)
   return ret;
 }
 
+static void
+TCPClient_free_tls_config(tcp_connection_state *cs)
+{
+  if (cs && cs->tls_config) {
+    altcp_tls_free_config(cs->tls_config);
+  }
+}
+
 static err_t
 TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
@@ -98,6 +108,7 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   } else {
     cs->state = NET_TCP_STATE_FINISHED;
   }
+  TCPClient_free_tls_config(cs);
   return ERR_OK;
 }
 
@@ -130,13 +141,14 @@ TCPClient_err_cb(void *arg, err_t err)
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   console_printf("Error with: %d\n", err);
   cs->state = NET_TCP_STATE_ERROR;
-  // do nothing as of now
+  TCPClient_free_tls_config(cs);
 }
 
 static tcp_connection_state *
 TCPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
 {
   tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
+  cs->tls_config = NULL;
   cs->state = NET_TCP_STATE_NONE;
   cs->pcb = altcp_new(NULL);
   altcp_recv(cs->pcb, TCPClient_recv_cb);
@@ -158,6 +170,7 @@ TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value
 
   struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
+  cs->tls_config = tls_config;
   mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), host);
   altcp_recv(cs->pcb, TCPClient_recv_cb);
   altcp_sent(cs->pcb, TCPClient_sent_cb);
