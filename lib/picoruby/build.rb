@@ -18,7 +18,7 @@ module MRuby
       cc.defines << "MRBC_USE_HAL_POSIX"
       mrubyc_hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/hal/posix/hal")
       libmruby_objs << mrubyc_hal_obj
-      file mrubyc_hal_obj => "#{mrubyc_src_dir}/hal_posix/hal.c" do |f|
+      file mrubyc_hal_obj => "#{mrubyc_dir}/hal/posix/hal.c" do |f|
         cc.run f.name, f.prerequisites.first
       end
       cc.defines << "MRBC_ALLOC_LIBC"
@@ -27,10 +27,18 @@ module MRuby
       self.mrbcfile = "#{build_dir}/bin/picorbc"
     end
 
-    def mrubyc_src_dir
+    def mrubyc_lib_dir
       # Also used in picoruby-mrubyc
       ENV['MRUBYC_LIB_DIR'] ||= "#{gems['picoruby-mrubyc'].dir}/lib"
-      ENV['MRUBYC_LIB_DIR'] + "/mrubyc/src"
+    end
+
+    def mrubyc_dir
+      mrubyc_lib_dir + "/mrubyc"
+    end
+
+
+    def mrubyc_src_dir
+      mrubyc_dir + "/src"
     end
 
     def mrubyc_hal_arm
@@ -56,6 +64,9 @@ module MRuby
           cc.defines << define if cc.defines.none? { _1.start_with? key }
         end
         cc.include_paths << mrubyc_src_dir
+        cc.include_paths << mrubyc_dir + "/hal/posix"
+        cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
+
       when :minimum
         # Do noghing
       else

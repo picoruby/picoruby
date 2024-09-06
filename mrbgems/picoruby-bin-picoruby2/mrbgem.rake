@@ -16,7 +16,7 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
   spec.add_dependency 'picoruby-mrubyc'
-  spec.cc.include_paths << "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/src"
+  spec.cc.include_paths << "#{ENV['MRUBYC_LIB_DIR']}/mrubyc/hal/posix"
 
   picoruby_src = "#{dir}/tools/picoruby/picoruby.c"
   picoruby_obj = objfile(picoruby_src.pathmap("#{build_dir}/tools/picoruby/%n"))
@@ -30,9 +30,6 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
   exec = exefile("#{build.build_dir}/bin/#{BINNAME}")
 
   pico_compiler_objs = []
-#  pico_compiler_objs = Rake::Task.tasks.select{ |t|
-#    t.name.match? /mruby-pico-compiler.+\.o\z/
-#  }.map(&:name).reject { |o| o.end_with? "parse.o" }
 
   mrubyc_objs = Rake::Task.tasks.select{ |t|
     t.name.match? /picoruby-mrubyc.+\.o\z/
