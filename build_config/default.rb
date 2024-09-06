@@ -7,6 +7,6 @@ MRuby::Build.new do |conf|
   conf.gembox "picoruby"
 
   ENV['MRUBYC_BRANCH'] ||= "master"
-  ENV['MRUBYC_REVISION'] ||= "5fab2b85dce8fc0780293235df6c0daa5fd57dce"
+  ENV['MRUBYC_REVISION'] ||= "52fcc668a3a175f6fd2c991d5c3b5f8eca927604"
 end
 
