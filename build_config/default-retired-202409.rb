@@ -4,6 +4,5 @@ MRuby::Build.new do |conf|
 
   conf.picoruby
 
-  conf.gembox "picoruby2"
+  conf.gembox "default-retired-202409"
 end
-

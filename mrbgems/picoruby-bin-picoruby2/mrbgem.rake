@@ -1,13 +1,13 @@
-MRuby::Gem::Specification.new('mruby-bin-mruby') do |spec|
+MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
 
-  BINNAME = 'picoruby2'
+  BINNAME = 'picoruby'
 
   spec.license = 'MIT'
   spec.author  = 'picoruby developers'
   spec.summary = 'picoruby command'
   spec.bins = [BINNAME]
   spec.add_dependency('mruby-compiler2', :github => 'picoruby/mruby-compiler2')
-  #spec.add_test_dependency('mruby-print', :core => 'mruby-print')
+  spec.add_conflict 'picoruby-bin-picoruby'
 
   if build.cxx_exception_enabled?
     build.compile_as_cxx("#{spec.dir}/tools/picoruby/picoruby.c")

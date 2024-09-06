@@ -4,16 +4,16 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   spec.authors = 'HASUMI Hitoshi'
   spec.summary = 'mruby/c library'
 
-  repos_dir = "#{dir}/repos"
-  mrubyc_dir = "#{repos_dir}/mrubyc"
-  mrubyc_src_dir = "#{dir}/repos/mrubyc/src"
+  lib_dir = ENV['MRUBYC_LIB_DIR']
+  mrubyc_dir = "#{lib_dir}/mrubyc"
+  mrubyc_src_dir = "#{mrubyc_dir}/src"
   mrblib_build_dir = "#{build_dir}/mrblib"
 
   file mrubyc_dir do
-    branch = ENV['MRUBYC_BRANCH'] || "master"
-    revision = ENV['MRUBYC_REVISION'] || "5fab2b85dce8fc0780293235df6c0daa5fd57dce"
+    branch = ENV['MRUBYC_BRANCH']
+    revision = ENV['MRUBYC_REVISION']
     repo = ENV['MRUBYC_REPO'] || 'https://github.com/mrubyc/mrubyc.git'
-    FileUtils.cd repos_dir do
+    FileUtils.cd lib_dir do
       sh "git clone -b #{branch} #{repo}"
     end
     if revision
@@ -24,7 +24,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   end
 
   if Rake.application.top_level_tasks.first == "deep_clean"
-    FileUtils.cd repos_dir do
+    FileUtils.cd lib_dir do
       rm_rf "mrubyc"
     end
   else

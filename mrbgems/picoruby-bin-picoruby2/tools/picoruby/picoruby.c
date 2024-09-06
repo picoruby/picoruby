@@ -530,7 +530,10 @@ main(int argc, char **argv)
   //      irep = picorb_load_irep_file_cxt(c, args.fname);
     }
     else if (args.fname) {
-      source = NULL;
+      // TODO refactor
+      source = malloc(sizeof(uint8_t) * 2);
+      source[0] = 0x0;
+      source[1] = 0x0;
       irep = picorb_load_rb_file_cxt(c, fnames[i], &source);
     }
     else {
