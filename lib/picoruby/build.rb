@@ -64,7 +64,9 @@ module MRuby
           cc.defines << define if cc.defines.none? { _1.start_with? key }
         end
         cc.include_paths << mrubyc_src_dir
-        cc.include_paths << mrubyc_dir + "/hal/posix"
+        if cc.build.name == "host" || cc.build.name == "no-libc-host"
+          cc.include_paths << mrubyc_dir + "/hal/posix"
+        end
         cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
 
       when :minimum
