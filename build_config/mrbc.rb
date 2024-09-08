@@ -11,8 +11,8 @@ MRuby::Build.new do |conf|
   conf.picoruby
 
   conf.gem core: 'picoruby-mrubyc'
-  conf.gem "/home/hasumi/work/mruby-pico-work/mruby-bin-mrbc2"
-  conf.gem "/home/hasumi/work/mruby-pico-work/mruby-compiler2"
+  conf.gem github: "picoruby/mruby-bin-mrbc2"
+  conf.gem github: "picoruby/mruby-compiler2"
 
   conf.disable_presym
 end

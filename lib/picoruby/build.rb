@@ -6,8 +6,8 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem path: '/home/hasumi/work/mruby-pico-work/mruby-compiler2' unless @gems['mruby-compiler2']
-      gem path: '/home/hasumi/work/mruby-pico-work/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
+      gem github: 'picoruby/mruby-compiler2' unless @gems['mruby-compiler2']
+      gem github: 'picoruby/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
       gem core: 'picoruby-mrubyc'
       cc.include_paths.delete_if do |path|
         path.end_with? "hal_no_impl"
@@ -46,11 +46,11 @@ module MRuby
       disable_presym
 
       cc.defines << "DISABLE_MRUBY"
-      cc.include_paths << "/home/hasumi/work/mruby-pico-work/mruby-compiler2/include"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
       cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
 
-      gem path: "/home/hasumi/work/mruby-pico-work/mruby-compiler2"
+      gem github: "picoruby/mruby-compiler2"
+      cc.include_paths << cc.build.gems['mruby-compiler2'].dir + '/include'
       gem core: 'picoruby-mrubyc'
       case picoruby_conf
       when :default
