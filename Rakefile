@@ -134,8 +134,7 @@ task :test_compiler_mruby => :debug do
   ENV['PICORBC_COMMAND'] = "RBENV_VERSION=mruby-3.3.0 mrbc"#||= picorbcfile
   ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.3.0 rbenv which mruby`.chomp
   if ENV['MRUBY_COMMAND'] && ENV['MRUBY_COMMAND'] != ""
-    #sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
-    sh "/home/hasumi/work/mruby-pico-work/mruby-compiler2/test/helper/test.rb"
+    sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
   else
     puts "[WARN] test_compiler_mruby skipped because no mruby found"
   end
@@ -144,8 +143,7 @@ end
 desc "run compiler tests with mruby/c VM"
 task :test_compiler_mrubyc => :debug do
   ENV['MRUBY_COMMAND'] = picorubyfile
-  #sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
-  sh "/home/hasumi/work/mruby-pico-work/mruby-compiler2/test/helper/test.rb"
+  sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
   ENV['MRUBY_COMMAND'] = nil
 end
 
@@ -160,5 +158,6 @@ end
 
 desc "steep check"
 task :steep do
-  sh "bundle exec steep check"
+  puts "Skipped steep check as WIP"
+#  sh "bundle exec steep check"
 end

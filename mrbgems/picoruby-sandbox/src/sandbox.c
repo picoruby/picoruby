@@ -2,19 +2,28 @@
 #include <mrubyc.h>
 #include "sandbox.h"
 
-#ifndef NODE_BOX_SIZE
-#define NODE_BOX_SIZE 20
-#endif
-
 typedef struct sandbox_state {
   mrbc_tcb *tcb;
   mrc_ccontext *c;
   mrc_irep *irep;
   uint8_t *vm_code;
+  pm_options_t *options;
 } SandboxState;
 
 #define SS() \
   SandboxState *ss = (SandboxState *)v->instance->data
+
+static void
+free_ccontext(SandboxState *ss)
+{
+  if (ss->c) {
+    if (ss->c->options) {
+      pm_options_free(ss->c->options);
+    }
+    mrc_ccontext_free(ss->c);
+    ss->c = NULL;
+  }
+}
 
 static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -72,7 +81,7 @@ c_sandbox_free_parser(mrbc_vm *vm, mrbc_value *v, int argc)
     */
     if (ss->vm_code) ss->vm_code = NULL;
   }
-  mrc_ccontext_free(ss->c);
+  free_ccontext(ss);
 }
 
 static void
@@ -83,32 +92,40 @@ c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+init_options(pm_options_t *options)
+{
+  if (!options) {
+    return;
+  }
+  pm_string_t *encoding = &options->encoding;
+  pm_string_constant_init(encoding, "UTF-8", 5);
+}
+
+static void
 c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  //ss->c->p = (ParserState *)PICORBC_ALLOC(sizeof(ParserState));
-  //Compiler_parseInitState(ss->c->p, NODE_BOX_SIZE);
-  //StreamInterface *si = StreamInterface_new(NULL, (const char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
-  //if (!Compiler_compile(ss->c->p, si, &ss->cxt)) {
-  //  SET_FALSE_RETURN();
-  //  Scope *upper_scope = ss->c->p->scope;
-  //  while (upper_scope->upper) upper_scope = upper_scope->upper;
-  //  upper_scope->lvar = NULL; /* top level lvar (== cxt->sysm) should not be freed */
-  //  Compiler_parserStateFree(ss->c->p);
-  //} else {
-  //  SET_TRUE_RETURN();
-  //}
-  //StreamInterface_free(si);
+  free_ccontext(ss);
+  init_options(ss->options);
   ss->c = mrc_ccontext_new(NULL);
+  ss->c->options = ss->options;
   uint8_t *script = GET_STRING_ARG(1);
   size_t size = strlen((const char *)script);
   ss->irep = mrc_load_string_cxt(ss->c, (const uint8_t **)&script, size);
+    ss->options = ss->c->options;
+    ss->c->options = NULL;
   if (!ss->irep) {
-    mrc_ccontext_free(ss->c);
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Compile failed");
+    free_ccontext(ss);
     SET_FALSE_RETURN();
   }
   else {
+    size_t vm_code_size = 0;
+    int result = mrc_dump_irep(ss->c, (const mrc_irep *)ss->irep, 0, &ss->vm_code, &vm_code_size);
+    if (result != MRC_DUMP_OK) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
+      free_ccontext(ss);
+      return;
+    }
     SET_TRUE_RETURN();
   }
 }
@@ -148,7 +165,6 @@ c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   if(mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
-    mrc_ccontext_free(ss->c);
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
@@ -161,24 +177,13 @@ static void
 c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   static uint8_t *sandbox_task = NULL;
-  /*
-   * FIXME: Remove global variable `loglevel`
-   */
-//  if (argc == 1 && GET_TT_ARG(1) == MRBC_TT_TRUE) {
-//    loglevel = LOGLEVEL_FATAL;
-//  }
   mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
   SandboxState *ss = (SandboxState *)sandbox.instance->data;
+  memset(ss, 0, sizeof(SandboxState));
 
   if (!sandbox_task) {
-    //ParserState *p = Compiler_parseInitState(NULL, NODE_BOX_SIZE);
-    //StreamInterface *si = StreamInterface_new(NULL, "Task.current.suspend", STREAM_TYPE_MEMORY);
-    //Compiler_compile(p, si, NULL);
-    //sandbox_task = p->scope->vm_code;
-    //p->scope->vm_code = NULL;
-    //Compiler_parserStateFree(p);
-    //StreamInterface_free(si);
     ss->c = mrc_ccontext_new(NULL);
+
     const uint8_t *script = (const uint8_t *)"Task.current.suspend";
     size_t size = strlen((const char *)script);
     ss->irep = mrc_load_string_cxt(ss->c, (const uint8_t **)&script, size);
@@ -186,12 +191,13 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
     size_t vm_code_size = 0;
     int result = mrc_dump_irep(ss->c, (const mrc_irep *)ss->irep, flags, &ss->vm_code, &vm_code_size);
     if (result != MRC_DUMP_OK) {
-      mrc_ccontext_free(ss->c);
+      free_ccontext(ss);
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
       return;
     }
     sandbox_task = ss->vm_code;
     mrc_irep_free(ss->c, ss->irep);
+    free_ccontext(ss);
   }
   if (!sandbox_task) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to compile sandbox_task");
@@ -201,7 +207,6 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
   ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
   mrbc_create_task(sandbox_task, ss->tcb);
   ss->tcb->vm.flag_permanence = 1;
-  ss->c = mrc_ccontext_new(NULL);
   SET_RETURN(sandbox);
 }
 
