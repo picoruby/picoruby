@@ -57,6 +57,14 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
       cc.run f.name, f.prerequisites.first
     end
   end
+  if cc.defines.include?("MRBC_USE_HAL_POSIX")
+    hal_src = "#{mrubyc_dir}/hal/posix/hal.c"
+    obj = objfile(hal_src.pathmap("#{build_dir}/src/%n"))
+    build.libmruby_objs << obj
+    file obj => hal_src do |f|
+      cc.run f.name, f.prerequisites.first
+    end
+  end
 
   directory mrblib_build_dir
 
