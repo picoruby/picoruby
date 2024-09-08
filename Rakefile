@@ -78,7 +78,7 @@ end
 # for PicoRuby
 
 def picorubyfile
-  "#{`pwd`.chomp}/bin/picoruby2"
+  "#{`pwd`.chomp}/bin/picoruby"
 end
 
 def picorbcfile
