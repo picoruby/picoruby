@@ -25,12 +25,12 @@ MRuby::CrossBuild.new("r2p2_w_ble_wifi-cortex-m0plus") do |conf|
   conf.cc.flags << "-fdata-sections"
 
   # These defines should not contradict platform's configuration
+  conf.cc.defines << "MRC_CUSTOM_ALLOC"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
   conf.cc.defines << "MRBC_USE_MATH=1"
   conf.cc.defines << "MRBC_TICK_UNIT=1"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
-  conf.cc.defines << "LEMON_PICORBC=1"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "USE_FAT_SD_DISK=1"

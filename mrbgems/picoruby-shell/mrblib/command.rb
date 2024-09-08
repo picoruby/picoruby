@@ -64,6 +64,7 @@ class Shell
       else
         if exefile = find_executable(command)
           @sandbox.load_file(exefile, signal: (command != "irb"))
+          @sandbox.suspend
         else
           puts "#{command}: command not found"
         end

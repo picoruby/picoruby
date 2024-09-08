@@ -56,7 +56,7 @@ task :build => MRuby.targets.flat_map{|_, build| build.products}
 desc "clean all built and in-repo installed artifacts"
 task :clean do
   MRuby.each_target do |build|
-    if Dir.exist? build.gems['mruby-pico-compiler'].dir
+    if Dir.exist? build.gems['mruby-pico-compiler']&.dir.to_s
       Dir.chdir build.gems['mruby-pico-compiler'].dir do
         sh "rake clean"
       end
@@ -131,10 +131,10 @@ task :test => [:steep, :test_compiler_mrubyc, :test_compiler_mruby]
 desc "run compiler tests with mruby VM"
 task :test_compiler_mruby => :debug do
   ENV['USE_MRUBY'] = "yes"
-  ENV['PICORBC_COMMAND'] ||= picorbcfile
-  ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.2.0 rbenv which mruby`.chomp
+  ENV['PICORBC_COMMAND'] = "RBENV_VERSION=mruby-3.3.0 mrbc"#||= picorbcfile
+  ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.3.0 rbenv which mruby`.chomp
   if ENV['MRUBY_COMMAND'] && ENV['MRUBY_COMMAND'] != ""
-    sh "build/repos/host/mruby-pico-compiler/test/helper/test.rb"
+    sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
   else
     puts "[WARN] test_compiler_mruby skipped because no mruby found"
   end
@@ -143,7 +143,7 @@ end
 desc "run compiler tests with mruby/c VM"
 task :test_compiler_mrubyc => :debug do
   ENV['MRUBY_COMMAND'] = picorubyfile
-  sh "build/repos/host/mruby-pico-compiler/test/helper/test.rb"
+  sh "build/repos/host/mruby-compiler2/test/helper/test.rb"
   ENV['MRUBY_COMMAND'] = nil
 end
 
@@ -153,10 +153,11 @@ picorbc_include_dir = "#{current_dir}/build/repos/host/mruby-pico-compiler/inclu
 
 desc "create picorbc executable"
 task :picorbc => ["#{picorbc_include_dir}/ptr_size.h", "#{picorbc_include_dir}/parse.h"] do
-  Rake::Task["#{current_dir}/bin/picorbc"].invoke
+#  Rake::Task["#{current_dir}/bin/picorbc"].invoke
 end
 
 desc "steep check"
 task :steep do
-  sh "bundle exec steep check"
+  puts "Skipped steep check as WIP"
+#  sh "bundle exec steep check"
 end

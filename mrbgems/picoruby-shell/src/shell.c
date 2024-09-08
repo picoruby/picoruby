@@ -1,4 +1,4 @@
-#include <picorbc.h>
+#include <mruby_compiler.h>
 #include <mrubyc.h>
 
 static void
@@ -43,28 +43,36 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_mrbc(struct VM *vm, mrbc_value v[], int argc)
 {
-
-  StreamInterface *si = StreamInterface_new(NULL, (const char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
-  ParserState *p = Compiler_parseInitState(0, si->node_box_size);
-  if (Compiler_compile(p, si, NULL)) {
-    mrbc_value mrb = mrbc_string_new(vm, p->scope->vm_code, p->scope->vm_code_size);
-    SET_RETURN(mrb);
-  } else {
+  mrc_ccontext *c = mrc_ccontext_new(NULL);
+  uint8_t *script = GET_STRING_ARG(1);
+  size_t size = strlen((const char *)script);
+  mrc_irep *irep = mrc_load_string_cxt(c, (const uint8_t **)&script, size);
+  if (!irep) {
+    mrc_ccontext_free(c);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Compile failed");
+    return;
   }
-  StreamInterface_free(si);
-  Compiler_parserStateFree(p);
+  uint8_t flags = 0;
+  uint8_t *bin = NULL;
+  size_t bin_size = 0;
+  int result = mrc_dump_irep(c, (const mrc_irep *)irep, flags, &bin, &bin_size);
+  mrc_irep_free(c, irep);
+  if (result != MRC_DUMP_OK) {
+    mrc_ccontext_free(c);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
+    return;
+  }
+  mrbc_value mrb = mrbc_string_new(vm, bin, bin_size);
+  mrbc_free(vm, bin);
+  SET_RETURN(mrb);
+  mrc_ccontext_free(c);
 }
 
 void
 mrbc_shell_init(void)
 {
-
   mrbc_class *mrbc_class_PicoRubyVM = mrbc_define_class(0, "PicoRubyVM", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "memory_statistics", c_memory_statistics);
   mrbc_define_method(0, mrbc_class_object, "mrbc", c_mrbc);
-
-  mrbc_sym sym_id = mrbc_str_to_symid("SIZEOF_POINTER");
-  mrbc_set_const(sym_id, &mrbc_integer_value(PICORBC_PTR_SIZE));
 }
 

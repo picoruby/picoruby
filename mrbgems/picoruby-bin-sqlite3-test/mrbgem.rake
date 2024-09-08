@@ -8,7 +8,7 @@ MRuby::Gem::Specification.new('picoruby-bin-sqlite3-test') do |spec|
   spec.linker.libraries << 'm'
 
   spec.cc.defines << "MRBC_USE_HAL_POSIX"
-  hal_src = "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/src/hal_posix/hal.c"
+  hal_src = "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/hal/posix/hal.c"
   hal_obj = objfile(hal_src.pathmap("#{build.gems['picoruby-mrubyc'].build_dir}/src/%n"))
   file hal_obj => hal_src do |f|
     cc.run f.name, f.prerequisites.first

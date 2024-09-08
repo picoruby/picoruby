@@ -6,5 +6,7 @@ MRuby::Gem::Specification.new('picoruby-task-ext') do |spec|
   spec.add_dependency 'picoruby-sandbox'
 
   spec.require_name = 'task'
+
+  raise "Deprecated. Use mruby/c built-in Task class instead."
 end
 

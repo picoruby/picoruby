@@ -6,6 +6,7 @@ MRuby::Gem::Specification.new 'picoruby-bin-picoruby' do |spec|
   spec.add_dependency 'picoruby-mrubyc'
 
   spec.cc.include_paths << "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/src"
+  spec.cc.include_paths << "#{build.gems['picoruby-mrubyc'].dir}/repos/mrubyc/hal/posix"
 
   picoruby_src = "#{dir}/tools/picoruby/picoruby.c"
   picoruby_obj = objfile(picoruby_src.pathmap("#{build_dir}/tools/picoruby/%n"))

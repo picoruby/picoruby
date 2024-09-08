@@ -128,7 +128,7 @@
 #
 
 # @sidebar builtin
-class Math
+module Math
   # <!-- rdoc-file=math.c -->
   # Definition of the mathematical constant E for Euler's number (e) as a Float
   # number.

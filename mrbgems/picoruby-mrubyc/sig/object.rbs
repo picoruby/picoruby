@@ -505,4 +505,6 @@ class Object < BasicObject
 
   def attr_accessor: (*Symbol) -> void
   def attr_reader: (*Symbol) -> void
+
+  def include: (Module) -> void
 end

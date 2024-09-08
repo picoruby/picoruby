@@ -2,8 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <signal.h>
+#include <unistd.h>
 
-#include <picorbc.h>
+#include <mruby_compiler.h>
 #include <picogem_init.c>
 #include <executables_init.c>
 
@@ -11,7 +12,7 @@
 #define HEAP_SIZE (1024 * 2000)
 #endif
 
-int loglevel = LOGLEVEL_FATAL; /* must be LOGLEVEL_FATAL so that irb works */
+//int loglevel = LOGLEVEL_FATAL; /* must be LOGLEVEL_FATAL so that irb works */
 static uint8_t heap_pool[HEAP_SIZE];
 
 static void

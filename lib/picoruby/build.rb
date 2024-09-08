@@ -6,8 +6,8 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem :github => 'picoruby/mruby-bin-picorbc' unless @gems['mruby-bin-picorbc']
-      gem :github => 'picoruby/mruby-pico-compiler' unless @gems['mruby-pico-compiler']
+      gem path: '/home/hasumi/work/mruby-pico-work/mruby-compiler2' unless @gems['mruby-compiler2']
+      gem path: '/home/hasumi/work/mruby-pico-work/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
       gem core: 'picoruby-mrubyc'
       cc.include_paths.delete_if do |path|
         path.end_with? "hal_no_impl"
@@ -16,15 +16,24 @@ module MRuby
         define.end_with? "hal_no_impl"
       end
       cc.defines << "MRBC_USE_HAL_POSIX"
-      mrubyc_hal_obj = objfile("#{gems['picoruby-mrubyc'].build_dir}/src/hal_posix/hal")
-      libmruby_objs << mrubyc_hal_obj
-      file mrubyc_hal_obj => "#{gems['picoruby-mrubyc'].dir}/repos/mrubyc/src/hal_posix/hal.c" do |f|
-        cc.run f.name, f.prerequisites.first
-      end
       cc.defines << "MRBC_ALLOC_LIBC"
       cc.defines << "REGEX_USE_ALLOC_LIBC"
       cc.defines << "DISABLE_MRUBY"
       self.mrbcfile = "#{build_dir}/bin/picorbc"
+    end
+
+    def mrubyc_lib_dir
+      # Also used in picoruby-mrubyc
+      ENV['MRUBYC_LIB_DIR'] ||= "#{gems['picoruby-mrubyc'].dir}/lib"
+    end
+
+    def mrubyc_dir
+      mrubyc_lib_dir + "/mrubyc"
+    end
+
+
+    def mrubyc_src_dir
+      mrubyc_dir + "/src"
     end
 
     def mrubyc_hal_arm
@@ -34,16 +43,14 @@ module MRuby
 
     def picoruby(picoruby_conf = :default)
 
-      ENV['MRUBYC_BRANCH'] ||= "master"
-
       disable_presym
 
       cc.defines << "DISABLE_MRUBY"
-      cc.include_paths << "#{gem_clone_dir}/mruby-pico-compiler/include"
+      cc.include_paths << "/home/hasumi/work/mruby-pico-work/mruby-compiler2/include"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
       cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
 
-      gem github: 'picoruby/mruby-pico-compiler'
+      gem path: "/home/hasumi/work/mruby-pico-work/mruby-compiler2"
       gem core: 'picoruby-mrubyc'
       case picoruby_conf
       when :default
@@ -51,7 +58,12 @@ module MRuby
           key, _value = define.split("=")
           cc.defines << define if cc.defines.none? { _1.start_with? key }
         end
-        cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/repos/mrubyc/src"
+        cc.include_paths << mrubyc_src_dir
+        if cc.build.name == "host" || cc.build.name == "no-libc-host"
+          cc.include_paths << mrubyc_dir + "/hal/posix"
+        end
+        cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
+
       when :minimum
         # Do noghing
       else

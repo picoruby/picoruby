@@ -1,19 +1,29 @@
-#include <picorbc.h>
+#include <mruby_compiler.h>
 #include <mrubyc.h>
 #include "sandbox.h"
 
-#ifndef NODE_BOX_SIZE
-#define NODE_BOX_SIZE 20
-#endif
-
 typedef struct sandbox_state {
-  ParserState *p;
   mrbc_tcb *tcb;
-  picorbc_context cxt;
+  mrc_ccontext *c;
+  mrc_irep *irep;
+  uint8_t *vm_code;
+  pm_options_t *options;
 } SandboxState;
 
 #define SS() \
   SandboxState *ss = (SandboxState *)v->instance->data
+
+static void
+free_ccontext(SandboxState *ss)
+{
+  if (ss->c) {
+    if (ss->c->options) {
+      pm_options_free(ss->c->options);
+    }
+    mrc_ccontext_free(ss->c);
+    ss->c = NULL;
+  }
+}
 
 static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -39,7 +49,7 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  if (sandbox_vm->regs[ss->p->scope->sp].tt == MRBC_TT_EMPTY) {
+  if (sandbox_vm->regs[ss->c->scope_sp].tt == MRBC_TT_EMPTY) {
     /*
      * This bug was fixed in
      * https://github.com/picoruby/mruby-pico-compiler/commit/4f39ddc
@@ -48,7 +58,7 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
     console_printf("Oops, return value is gone\n");
     SET_NIL_RETURN();
   } else {
-    SET_RETURN(sandbox_vm->regs[ss->p->scope->sp]);
+    SET_RETURN(sandbox_vm->regs[ss->c->scope_sp]);
   }
 }
 
@@ -69,9 +79,9 @@ c_sandbox_free_parser(mrbc_vm *vm, mrbc_value *v, int argc)
        Workaround but causes memory leak 😔
        To preserve symbol table
     */
-    if (ss->p->scope->vm_code) ss->p->scope->vm_code = NULL;
+    if (ss->vm_code) ss->vm_code = NULL;
   }
-  Compiler_parserStateFree(ss->p);
+  free_ccontext(ss);
 }
 
 static void
@@ -82,22 +92,42 @@ c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+init_options(pm_options_t *options)
+{
+  if (!options) {
+    return;
+  }
+  pm_string_t *encoding = &options->encoding;
+  pm_string_constant_init(encoding, "UTF-8", 5);
+}
+
+static void
 c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  ss->p = (ParserState *)PICORBC_ALLOC(sizeof(ParserState));
-  Compiler_parseInitState(ss->p, NODE_BOX_SIZE);
-  StreamInterface *si = StreamInterface_new(NULL, (const char *)GET_STRING_ARG(1), STREAM_TYPE_MEMORY);
-  if (!Compiler_compile(ss->p, si, &ss->cxt)) {
+  free_ccontext(ss);
+  init_options(ss->options);
+  ss->c = mrc_ccontext_new(NULL);
+  ss->c->options = ss->options;
+  uint8_t *script = GET_STRING_ARG(1);
+  size_t size = strlen((const char *)script);
+  ss->irep = mrc_load_string_cxt(ss->c, (const uint8_t **)&script, size);
+    ss->options = ss->c->options;
+    ss->c->options = NULL;
+  if (!ss->irep) {
+    free_ccontext(ss);
     SET_FALSE_RETURN();
-    Scope *upper_scope = ss->p->scope;
-    while (upper_scope->upper) upper_scope = upper_scope->upper;
-    upper_scope->lvar = NULL; /* top level lvar (== cxt->sysm) should not be freed */
-    Compiler_parserStateFree(ss->p);
-  } else {
+  }
+  else {
+    size_t vm_code_size = 0;
+    int result = mrc_dump_irep(ss->c, (const mrc_irep *)ss->irep, 0, &ss->vm_code, &vm_code_size);
+    if (result != MRC_DUMP_OK) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
+      free_ccontext(ss);
+      return;
+    }
     SET_TRUE_RETURN();
   }
-  StreamInterface_free(si);
 }
 
 static void
@@ -134,8 +164,7 @@ c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  if(mrbc_load_mrb(sandbox_vm, ss->p->scope->vm_code) != 0) {
-    Compiler_parserStateFree(ss->p);
+  if(mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
@@ -144,34 +173,40 @@ c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-/*
- * echo "suspend_task" > sandbox_task.rb
- * picorbc -Bsandbox_task -o- sandbox_task.rb
- */
-static const uint8_t sandbox_task[] = {
-0x52,0x49,0x54,0x45,0x30,0x33,0x30,0x30,0x00,0x00,0x00,0x52,0x4d,0x41,0x54,0x5a,
-0x30,0x30,0x30,0x30,0x49,0x52,0x45,0x50,0x00,0x00,0x00,0x36,0x30,0x33,0x30,0x30,
-0x00,0x00,0x00,0x2a,0x00,0x01,0x00,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x07,
-0x2d,0x01,0x00,0x00,0x38,0x01,0x69,0x00,0x00,0x00,0x01,0x00,0x0c,0x73,0x75,0x73,
-0x70,0x65,0x6e,0x64,0x5f,0x74,0x61,0x73,0x6b,0x00,0x45,0x4e,0x44,0x00,0x00,0x00,
-0x00,0x08,
-};
-
 static void
 c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  /*
-   * FIXME: Remove global variable `loglevel`
-   */
-  if (argc == 1 && GET_TT_ARG(1) == MRBC_TT_TRUE) {
-    loglevel = LOGLEVEL_FATAL;
-  }
+  static uint8_t *sandbox_task = NULL;
   mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
   SandboxState *ss = (SandboxState *)sandbox.instance->data;
+  memset(ss, 0, sizeof(SandboxState));
+
+  if (!sandbox_task) {
+    ss->c = mrc_ccontext_new(NULL);
+
+    const uint8_t *script = (const uint8_t *)"Task.current.suspend";
+    size_t size = strlen((const char *)script);
+    ss->irep = mrc_load_string_cxt(ss->c, (const uint8_t **)&script, size);
+    uint8_t flags = 0;
+    size_t vm_code_size = 0;
+    int result = mrc_dump_irep(ss->c, (const mrc_irep *)ss->irep, flags, &ss->vm_code, &vm_code_size);
+    if (result != MRC_DUMP_OK) {
+      free_ccontext(ss);
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
+      return;
+    }
+    sandbox_task = ss->vm_code;
+    mrc_irep_free(ss->c, ss->irep);
+    free_ccontext(ss);
+  }
+  if (!sandbox_task) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to compile sandbox_task");
+    return;
+  }
+
   ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
   mrbc_create_task(sandbox_task, ss->tcb);
   ss->tcb->vm.flag_permanence = 1;
-  picorbc_context_new(&ss->cxt);
   SET_RETURN(sandbox);
 }
 

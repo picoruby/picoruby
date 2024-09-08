@@ -1,6 +1,5 @@
 #! /usr/bin/env ruby
 
-
 case RUBY_ENGINE
 when "ruby"
   require_relative "../../picoruby-shell/mrblib/shell"

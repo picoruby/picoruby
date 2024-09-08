@@ -31,10 +31,7 @@ class Sandbox
   def load_file(path, signal: true)
     f = File.open(path, "r")
     begin
-      # PicoRuby compiler's bug
-      # https://github.com/picoruby/picoruby/issues/120
-      rb = f.read
-      return nil unless rb
+      return nil unless rb = f.read
       started = if rb.to_s.start_with?("RITE0300")
         # assume mruby bytecode
         exec_mrb(rb)

@@ -1,9 +1,9 @@
 MRuby::GemBox.new do |conf|
 
-  conf.gem github: 'picoruby/mruby-pico-compiler', branch: 'master'
-  conf.gem github: 'picoruby/mruby-bin-picorbc', branch: 'master'
-  conf.gem core: 'picoruby-bin-picoruby'
-  conf.gem core: 'picoruby-bin-picoirb'
+  conf.gem github: 'picoruby/mruby-compiler2'
+  conf.gem github: 'picoruby/mruby-bin-mrbc2'
+  conf.gem core: 'picoruby-bin-picoruby2'
   conf.gem core: 'picoruby-mrubyc'
 
 end
+

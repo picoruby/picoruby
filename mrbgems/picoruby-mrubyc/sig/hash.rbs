@@ -499,6 +499,8 @@
 
 # @sidebar builtin
 class Hash[unchecked out K, unchecked out V] < Object
+  include Enumerable[[ K, V ]]
+
   public
 
   # <!--
@@ -676,7 +678,7 @@ class Hash[unchecked out K, unchecked out V] < Object
   #     bar: 1
   #     baz: 2
   #
-  def each: () { (K key, V val) -> untyped } -> self
+  def each: () { ([ K, V ] arg0) -> untyped } -> self
 
   # <!--
   #   rdoc-file=hash.c

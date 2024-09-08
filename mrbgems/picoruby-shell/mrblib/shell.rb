@@ -155,6 +155,7 @@ class Shell
             terminal.save_history
             if sandbox.execute
               sandbox.wait(timeout: nil)
+              sandbox.suspend
               if e = sandbox.error
                 puts "=> #{e.message} (#{e.class})"
               else
