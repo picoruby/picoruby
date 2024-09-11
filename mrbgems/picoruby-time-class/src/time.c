@@ -96,6 +96,8 @@ c_hwclock_eq(struct VM *vm, mrbc_value v[], int argc)
   }
   time_t unixtime = ((PICORUBY_TIME *)value.instance->data)->unixtime_us / USEC;
   unixtime_offset = unixtime - time(NULL);
+  mrbc_incref(&value);
+  SET_RETURN(value);
 }
 
 static mrbc_value
@@ -262,6 +264,10 @@ c_to_s(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_inspect(struct VM *vm, mrbc_value v[], int argc)
 {
+  if (v[0].tt == MRBC_TT_CLASS) {
+    SET_RETURN(mrbc_string_new_cstr(vm, "Time"));
+    return;
+  }
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
   char str[MINIMUN_INSPECT_LENGTH + 10];
