@@ -164,6 +164,10 @@ c_read(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_write_at(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  if (v[2].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong value. 0 and 1 are only valid");
+    return;
+  }
   WRITE(v[1], GET_INT_ARG(2));
   SET_INT_RETURN(0);
 }
@@ -174,6 +178,10 @@ c_write_at(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_write(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  if (v[1].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Wrong value. 0 and 1 are only valid");
+    return;
+  }
   WRITE(GETIV(pin), GET_INT_ARG(1));
   SET_INT_RETURN(0);
 }

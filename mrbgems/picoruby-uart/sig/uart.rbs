@@ -62,7 +62,7 @@ class UART
   def bytes_available: () -> Integer
   def line_ending=: (("\n"|"\r\n"|"\r") line_ending) -> void
   def puts: (String str) -> nil
-  def gets: () -> String
+  def gets: () -> String?
   def write: (String str) -> Integer
   def flush: () -> self
   def clear_tx_buffer: () -> self
