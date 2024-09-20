@@ -1,12 +1,16 @@
+MRUBYC_SIG = "mrbgems/picoruby-mrubyc/sig"
+
 target :mrbgems do
   stdlib_path(
-    core_root:   false,
-    stdlib_root: false # Skip loading stdlib RBSs
+    core_root:   MRUBYC_SIG,
+    stdlib_root: "" # Skip loading stdlib RBSs
   )
 
   signature "sig/prk_firmware"
   Dir.glob("**/sig/").each do |dir|
-    signature dir unless dir.include?("picoruby-prism/lib/prism")
+    unless dir.include?("lib/prism/sig") || dir.include?(MRUBYC_SIG)
+      signature dir
+    end
   end
 
   check "mrblib"
@@ -16,7 +20,7 @@ target :mrbgems do
   ]).each { |dir| check dir }
 
   # Skip checking String as #each_char and #each_byte raise error
-  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/array.rb"
-  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/range.rb"
-  ignore "mrbgems/picoruby-mrubyc/repos/mrubyc/mrblib/string.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/array.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/range.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/string.rb"
 end

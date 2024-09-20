@@ -168,7 +168,7 @@ class File
       raise ArgumentError.new("negative length #{length} given")
     end
     if length.is_a?(Integer)
-      outbuf << @file.read(length)
+      outbuf << @file.read(length).to_s
     elsif length.nil?
       while buff = @file.read(1024)
         outbuf << buff
