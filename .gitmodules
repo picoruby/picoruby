@@ -1,0 +1,3 @@
+[submodule "mrbgems/picoruby-mrubyc/lib/mrubyc"]
+	path = mrbgems/picoruby-mrubyc/lib/mrubyc
+	url = https://github.com/mrubyc/mrubyc

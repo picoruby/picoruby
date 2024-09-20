@@ -10,17 +10,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   mrblib_build_dir = "#{build_dir}/mrblib"
 
   file mrubyc_dir do
-    branch = ENV['MRUBYC_BRANCH']
-    revision = ENV['MRUBYC_REVISION']
-    repo = ENV['MRUBYC_REPO'] || 'https://github.com/mrubyc/mrubyc.git'
-    FileUtils.cd lib_dir do
-      sh "git clone -b #{branch} #{repo}"
-    end
-    if revision
-      FileUtils.cd mrubyc_dir do
-        sh "git checkout #{revision}"
-      end
-    end
+    sh "git submodule update --init --recursive"
   end
 
   if Rake.application.top_level_tasks.first == "deep_clean"
