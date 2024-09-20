@@ -3,13 +3,7 @@ class CYW43
     if (!country.is_a?(String) || country.length != 2)
       raise ArgumentError, "country must be a 2-character string"
     end
-    if self._init(country.upcase, force)
-      $_cyw43_country = country
-    end
-  end
-
-  def self.initialized?
-    !!$_cyw43_country
+    self._init(country.upcase, force)
   end
 
   class GPIO
