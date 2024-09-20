@@ -9,18 +9,6 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   mrubyc_src_dir = "#{mrubyc_dir}/src"
   mrblib_build_dir = "#{build_dir}/mrblib"
 
-  file mrubyc_dir do
-    sh "git submodule update --init --recursive"
-  end
-
-  if Rake.application.top_level_tasks.first == "deep_clean"
-    FileUtils.cd lib_dir do
-      rm_rf "mrubyc"
-    end
-  else
-    Rake::Task[mrubyc_dir].invoke
-  end
-
   cc.include_paths.delete_if { |path| path.include?("no_impl") }
   cc.include_paths << cc.defines.find { |d|
     d.start_with? "MRBC_USE_HAL"
@@ -70,4 +58,11 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   end
 
   objs << mrblib_o
+
+  next if %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
+
+  file mrubyc_dir do
+    sh "git submodule update --init --recursive"
+  end
+
 end
