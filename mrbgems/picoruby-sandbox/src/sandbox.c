@@ -150,8 +150,11 @@ c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  mrbc_value mrbc_string = v[1];
-  if (mrbc_load_mrb(sandbox_vm, mrbc_string.string->data) != 0) {
+  mrbc_value mrb = v[1];
+  ss->vm_code = mrb.string->data;
+  mrb.string->data = NULL;
+  mrb.string->size = 0;
+  if (mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
