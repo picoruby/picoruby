@@ -147,15 +147,6 @@ task :test_compiler_with_mrubycVM => :debug do
   ENV['MRUBY_COMMAND'] = nil
 end
 
-
-current_dir = File.dirname(File.expand_path __FILE__)
-picorbc_include_dir = "#{current_dir}/build/repos/host/mruby-pico-compiler/include"
-
-desc "create picorbc executable"
-task :picorbc => ["#{picorbc_include_dir}/ptr_size.h", "#{picorbc_include_dir}/parse.h"] do
-#  Rake::Task["#{current_dir}/bin/picorbc"].invoke
-end
-
 desc "steep check"
 task :steep do
   sh "bundle exec steep check"
