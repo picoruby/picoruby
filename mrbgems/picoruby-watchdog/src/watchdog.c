@@ -27,6 +27,13 @@ c_Watchdog_enable(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_Watchdog_disable(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  Watchdog_disable();
+  SET_INT_RETURN(0);
+}
+
+static void
 c_Watchdog_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1 ) {
@@ -104,6 +111,7 @@ mrbc_watchdog_init(void)
   mrbc_class *mrbc_class_Watchdog = mrbc_define_class(0, "Watchdog", mrbc_class_object);
 
   mrbc_define_method(0, mrbc_class_Watchdog, "enable", c_Watchdog_enable);
+  mrbc_define_method(0, mrbc_class_Watchdog, "disable", c_Watchdog_disable);
   mrbc_define_method(0, mrbc_class_Watchdog, "reboot", c_Watchdog_reboot);
   mrbc_define_method(0, mrbc_class_Watchdog, "start_tick", c_Watchdog_start_tick);
   mrbc_define_method(0, mrbc_class_Watchdog, "update", c_Watchdog_update);

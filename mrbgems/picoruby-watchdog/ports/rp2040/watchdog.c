@@ -7,6 +7,15 @@ Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 }
 
 void
+Watchdog_disable(void)
+{
+  // Workaround for watchdog_disable();
+  // sdk 1.5.1 does not have watchdog_disable() function
+  // TODO: migrate to sdk 2.0.0 that has watchdog_disable()
+  hw_clear_bits(&watchdog_hw->ctrl, WATCHDOG_CTRL_ENABLE_BITS);
+}
+
+void
 Watchdog_reboot(uint32_t delay_ms)
 {
   watchdog_reboot(0, 0, delay_ms);
