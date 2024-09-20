@@ -112,7 +112,7 @@ c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
   uint8_t *script = GET_STRING_ARG(1);
   size_t size = strlen((const char *)script);
   ss->irep = mrc_load_string_cxt(ss->c, (const uint8_t **)&script, size);
-  mrc_irep_remove_lv(ss->c, ss->irep);
+  if (ss->irep) mrc_irep_remove_lv(ss->c, ss->irep);
   ss->options = ss->c->options;
   ss->c->options = NULL;
   if (!ss->irep) {
