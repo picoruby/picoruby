@@ -79,11 +79,13 @@ module MRuby
         cc.flags << "-fno-inline"
       else
         cc.defines << "NDEBUG=1"
-        cc.flags << "-O3"   # The build won't work with -Os
+        cc.flags << "-Os"
         cc.flags << "-s"
         cc.flags << "-finline-functions"
         cc.flags << "-ffunction-sections"
         cc.flags << "-fdata-sections"
+        cc.flags << "-fomit-frame-pointer"
+        # cc.flags << "-flto" # Build fails with -flto
         cc.flags << "-Wl,--gc-sections"
       end
 
