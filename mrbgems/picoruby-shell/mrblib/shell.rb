@@ -1,7 +1,7 @@
 require "sandbox"
 require "filesystem-fat"
 require "vfs"
-require "terminal"
+require "editor"
 # ENV = {} # This moved to 0_out_of_steep.rb
 ARGV = []
 
@@ -9,7 +9,7 @@ ARGV = []
 class Shell
   def initialize(clean: false)
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
-    @terminal = Terminal::Line.new
+    @editor = Editor::Line.new
   end
 
   def simple_question(question, &block)
@@ -45,14 +45,14 @@ class Shell
   def show_logo
     return nil if ENV['TERM'] == "dumb"
     logo_width = LOGO_LINES[0, LOGO_LINES.size - 1]&.map{|l| l.length}&.max || 0
-    if logo_width < @terminal.width
+    if logo_width < @editor.width
       logo_lines = LOGO_LINES
     else
       logo_width = SHORT_LOGO_LINES.map{|l| l.length}.max || 0
       logo_lines = SHORT_LOGO_LINES
     end
-    return nil if @terminal.width < logo_width
-    margin = " " * ((@terminal.width - logo_width) / 2)
+    return nil if @editor.width < logo_width
+    margin = " " * ((@editor.width - logo_width) / 2)
     puts LOGO_COLOR
     logo_lines.each do |line|
       print margin
@@ -98,7 +98,7 @@ class Shell
   def start(mode = :shell)
     case mode
     when :irb
-      @terminal.prompt = "irb"
+      @editor.prompt = "irb"
       run_irb
       puts
     when :shell
@@ -118,7 +118,7 @@ class Shell
 
   def run_shell
     command = Command.new
-    @terminal.start do |terminal, buffer, c|
+    @editor.start do |editor, buffer, c|
       case c
       when 10, 13
         case args = buffer.dump.chomp.strip.split(" ")
@@ -130,7 +130,7 @@ class Shell
         else
           puts
           command.exec(*args)
-          terminal.save_history
+          editor.save_history
           buffer.clear
         end
       end
@@ -139,7 +139,7 @@ class Shell
 
   def run_irb
     sandbox = Sandbox.new(true)
-    @terminal.start do |terminal, buffer, c|
+    @editor.start do |editor, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13
         case script = buffer.dump.chomp
@@ -151,8 +151,8 @@ class Shell
           if buffer.lines[-1][-1] == "\\" || !sandbox.compile("_ = (#{script})")
             buffer.put :ENTER
           else
-            terminal.feed_at_bottom
-            terminal.save_history
+            editor.feed_at_bottom
+            editor.save_history
             if sandbox.execute
               sandbox.wait(timeout: nil)
               sandbox.suspend
@@ -164,11 +164,11 @@ class Shell
           #    $sandbox.free_parser
             end
             buffer.clear
-            terminal.history_head
+            editor.history_head
           end
         end
       else
-        terminal.debug c
+        editor.debug c
       end
     end
   end

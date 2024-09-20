@@ -41,7 +41,7 @@ else
   raise RuntimeError.new("Unknown RUBY_ENGINE")
 end
 
-class Terminal
+module Editor
 
   def self.get_screen_size
     if ENV && ENV['TERM'] == "dumb"
@@ -58,8 +58,8 @@ class Terminal
   class Base
 
     def initialize
-      @height, @width = Terminal.get_screen_size
-      @buffer = Terminal::Buffer.new
+      @height, @width = Editor.get_screen_size
+      @buffer = Editor::Buffer.new
     end
 
     attr_reader :width, :height
@@ -227,7 +227,7 @@ class Terminal
           when 9
             @buffer.put :TAB
           when 12 # Ctrl-L
-            @height, @width = Terminal.get_screen_size
+            @height, @width = Editor.get_screen_size
             refresh
           when 26 # Ctrl-Z
             puts
@@ -270,7 +270,7 @@ class Terminal
 
   end
 
-  class Editor < Base
+  class Screen < Base
     def initialize
       @content_margin_height = 5
       @footer_height = 0
@@ -425,7 +425,7 @@ class Terminal
           return
         when 12 # Ctrl-L
           # FIXME: in case that cursor has to relocate
-          @height, @width = Terminal.get_screen_size
+          @height, @width = Editor.get_screen_size
         else
           begin
             yield self, @buffer, c

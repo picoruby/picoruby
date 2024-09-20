@@ -1,13 +1,13 @@
 # TypeProf 0.21.3
 
 # @sidebar builtin
-# @added_by picoruby-terminal
+# @added_by picoruby-editor
 class Array[unchecked out Elem] < Object
   def insert: (Integer index, *Elem) -> void
 end
 
 # Classes
-class Terminal
+module Editor
   class Buffer
     @prev_c: :DOWN | :UP
 

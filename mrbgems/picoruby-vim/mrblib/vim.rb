@@ -2,9 +2,9 @@
 
 case RUBY_ENGINE
 when "ruby", "jruby"
-  require_relative "../../picoruby-terminal/mrblib/terminal"
+  require_relative "../../picoruby-editor/mrblib/editor"
 when "mruby/c"
-  require "terminal"
+  require "editor"
 else
   raise "Unknown RUBY_ENGINE: #{RUBY_ENGINE}"
 end
@@ -13,22 +13,22 @@ class Vim
   def initialize(filepath)
     @filepath = File.expand_path filepath, Dir.getwd if filepath
     @mode = :normal
-    @terminal = Terminal::Editor.new
-    @terminal.quit_by_ctrl_c = false
-    @terminal.footer_height = 2
-    @command_buffer = Terminal::Buffer.new
+    @editor = Editor::Screen.new
+    @editor.quit_by_ctrl_c = false
+    @editor.footer_height = 2
+    @command_buffer = Editor::Buffer.new
     @message = nil
     if @filepath
-      unless @terminal.load_file_into_buffer(@filepath)
+      unless @editor.load_file_into_buffer(@filepath)
         @message = "\"#{filepath}\" [New]"
       end
     end
-    @terminal.refresh_footer do |terminal|
+    @editor.refresh_footer do |editor|
       print "\e[37;1m\e[48;5;239m " # foreground & background
       if @filepath
-        print @filepath[0, terminal.width - 1].to_s.ljust(terminal.width - 1)
+        print @filepath[0, editor.width - 1].to_s.ljust(editor.width - 1)
       else
-        print "[No Name]".ljust(terminal.width - 1)
+        print "[No Name]".ljust(editor.width - 1)
       end
       print "\e[m\e[1E"
       if @message
@@ -38,18 +38,18 @@ class Vim
         print "\e[m", @command_buffer.lines[0]
       end
       if @mode == :command
-        print "\e[#{terminal.width};1H\e[#{@command_buffer.lines[0].size}C"
+        print "\e[#{editor.width};1H\e[#{@command_buffer.lines[0].size}C"
       end
     end
-    @terminal.refresh_cursor do |terminal|
+    @editor.refresh_cursor do |editor|
       unless @mode == :command
-        terminal.calculate_visual_cursor
-        terminal.show_cursor
+        editor.calculate_visual_cursor
+        editor.show_cursor
       end
     end
     if RUBY_ENGINE == "ruby"
-      @terminal.debug_tty = ARGV[0]
-      @terminal.debug "debug start"
+      @editor.debug_tty = ARGV[0]
+      @editor.debug "debug start"
     end
   end
 
@@ -60,7 +60,7 @@ class Vim
   end
 
   def _start
-    @terminal.start do |terminal, buffer, c|
+    @editor.start do |editor, buffer, c|
       case @mode
       when :normal
         if c < 112
@@ -231,7 +231,7 @@ class Vim
 
   def save_file
     return "No file name" unless @filepath
-    @terminal.save_file_from_buffer(@filepath)
+    @editor.save_file_from_buffer(@filepath)
   end
 end
 

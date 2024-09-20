@@ -3,14 +3,14 @@
 class Vim
   @filepath: String
   @mode: :command | :insert | :normal
-  @terminal: Terminal::Editor
-  @command_buffer: Terminal::Buffer
+  @editor: Editor::Screen
+  @command_buffer: Editor::Buffer
   @message: String | nil
 
   def self.new: (String filepath) -> instance
   def start: -> void
   private def _start: -> void
-  def exec_command: (Terminal::Buffer buffer) -> (:quit | String | nil)
+  def exec_command: (Editor::Buffer buffer) -> (:quit | String | nil)
   def save_file: -> String
 end
 

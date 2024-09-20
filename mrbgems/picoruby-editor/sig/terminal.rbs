@@ -13,11 +13,11 @@ class IO
 end
 
 # Classes
-class Terminal
+module Editor
   def self.get_screen_size: -> [Integer, Integer]
 
   class Base
-    @buffer: Terminal::Buffer
+    @buffer: Editor::Buffer
     @prompt_margin: Integer
 
     def initialize: -> void
@@ -49,10 +49,10 @@ class Terminal
     def load_history: (:down | :up dir) -> void
     def feed_at_bottom: -> Integer
     def refresh: -> void
-    def start: () { (self, Terminal::Buffer, Integer) -> void }  -> void
+    def start: () { (self, Editor::Buffer, Integer) -> void }  -> void
   end
 
-  class Editor < Base
+  class Screen < Base
     @content_margin_height: Integer
     @visual_offset: Integer
     @visual_cursor_x: Integer
@@ -70,7 +70,7 @@ class Terminal
     def refresh_footer: () { (self) -> void } -> void
     def show_cursor: -> untyped
     def calculate_visual_cursor: -> void
-    def start: () { (self, Terminal::Buffer, Integer) -> void }  -> void
+    def start: () { (self, Editor::Buffer, Integer) -> void }  -> void
   end
 end
 

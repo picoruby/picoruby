@@ -110,7 +110,7 @@ class Keyboard
   @ruby_mode: bool
   @via: VIA
   @debouncer: DebounceNone | DebouncePerRow | DebouncePerKey
-  @buffer: Terminal::Buffer
+  @buffer: Editor::Buffer
   @layer_changed_delay: Integer
   @partner_encoders: Array[RotaryEncoder]
   @macro_keycodes: Array[Integer]

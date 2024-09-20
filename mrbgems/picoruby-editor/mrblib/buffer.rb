@@ -21,7 +21,7 @@ if RUBY_ENGINE == "mruby/c"
   end
 end
 
-class Terminal
+module Editor
   class Buffer
     def initialize
       @cursor_x = 0

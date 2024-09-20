@@ -17,7 +17,7 @@ class Shell
   SHORT_LOGO_LINES: [String]
   LOGO_COLOR: String
   AUTHOR_COLOR: String
-  @terminal: Terminal::Line
+  @editor: Editor::Line
 
   def self.next_executable: -> {code: String, name: String}
 
