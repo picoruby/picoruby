@@ -280,7 +280,7 @@ module JSON
         generate_object(obj)
       when Array
         generate_array(obj)
-      when String
+      when String, Symbol
         generate_string(obj)
       when Integer, Float
         generate_number(obj)
@@ -316,7 +316,7 @@ module JSON
     def generate_string(obj)
       # PicoRuby does not support gsub nor Regexp
       #"\"#{obj.gsub(/["\\]/, '\\\\\0')}\""
-      "\"#{obj.tr('"\\', '""\\\\')}\""
+      "\"#{obj.to_s.tr('"\\', '""\\\\')}\""
     end
 
     def generate_number(obj)
