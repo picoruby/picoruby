@@ -141,7 +141,7 @@ module JSON
       #puts "pop_stack: #{@stack}, index: #{@index}"
     end
 
-    def dig_string
+    def dig_string(need_return)
       skip_whitespace
       expect('"')
       string_start = @index
@@ -149,7 +149,9 @@ module JSON
         if char == '\\'
           @index += 2
         elsif char == '"'
-          str = @json[string_start, @index - string_start]
+          if need_return
+            str = @json[string_start, @index - string_start]
+          end
           @index += 1
           return str
         else
@@ -160,7 +162,6 @@ module JSON
     end
 
     def dig_number
-      skip_whitespace
       while char = @json[@index]
         if char == '-' || char == '.' || char == 'e' || char == 'E' || ('0' <= char && char <= '9')
           @index += 1
@@ -182,7 +183,7 @@ module JSON
             break
           end
         end
-        found_key = dig_string
+        found_key = dig_string(true)
         if key && found_key == key
           skip_whitespace
           expect(':')
@@ -214,7 +215,7 @@ module JSON
       when '['
         dig_array(nil)
       when '"'
-        dig_string
+        dig_string(false)
       when 't'
         skip_whitespace
         parse_true

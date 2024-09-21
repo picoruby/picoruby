@@ -19,7 +19,7 @@ module JSON
     private def reset: () -> void
     def dig: (*dig_key_t) -> self
     def parse: () -> untyped
-    private def dig_string: () -> String
+    private def dig_string: (bool) -> String?
     private def dig_number: () -> void
     private def dig_object: (String | nil) -> void
     private def dig_value: () -> void
