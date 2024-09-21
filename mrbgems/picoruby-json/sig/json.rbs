@@ -1,0 +1,53 @@
+module JSON
+  module Common
+    private def expect: (String) -> void
+    private def skip_whitespace: () -> void
+    private def parse_true: () -> true
+    private def parse_false: () -> false
+    private def parse_null: () -> nil
+    private def expect_sequence: (String) -> void
+  end
+
+  def self.parse: (String) -> untyped
+  def self.generate: (untyped) -> String
+
+  class Digger
+    type dig_key_t = (String | Integer)
+    type stack_t = (:array | :object)
+    include JSON::Common
+    def initialize: (String) -> void
+    private def reset: () -> void
+    def dig: (*dig_key_t) -> self
+    def parse: () -> untyped
+    private def dig_string: () -> String
+    private def dig_number: () -> void
+    private def dig_object: (String | nil) -> void
+    private def dig_value: () -> void
+    private def dig_array: (Integer | nil) -> void
+    private def push_stack: (stack_t) -> void
+    private def pop_stack: () -> void
+  end
+
+  class Generator
+    include JSON::Common
+    def initialize: (untyped) -> void
+    def generate: (?untyped) -> void
+    private def generate_object: (Hash[String, untyped]) -> void
+    private def generate_array: (Array[untyped]) -> void
+    private def generate_string: (String) -> void
+    private def generate_number: (Integer|Float) -> void
+  end
+
+  class Parser
+    include JSON::Common
+    def initialize: (String) -> void
+    def parse: () -> untyped
+    private def parse_object: () -> void
+    private def parse_array: () -> void
+    private def parse_string: () -> void
+    private def parse_number: () -> void
+    private def parse_integer: (Integer, Integer) -> void
+    private def parse_float: (Integer, Integer) -> void
+    private def is_digit?: (String) -> bool
+  end
+end

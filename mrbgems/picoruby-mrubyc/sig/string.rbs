@@ -697,6 +697,11 @@ class String
   def <=>: (string other) -> Integer
          | (untyped other) -> Integer?
 
+  def <: (string other) -> bool
+  def >: (string other) -> bool
+  def <=: (string other) -> bool
+  def >=: (string other) -> bool
+
   # <!--
   #   rdoc-file=string.c
   #   - string == object -> true or false

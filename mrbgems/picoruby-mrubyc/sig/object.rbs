@@ -507,4 +507,6 @@ class Object < BasicObject
   def attr_reader: (*Symbol) -> void
 
   def include: (Module) -> void
+
+  def loop: () { () -> void }-> void
 end
