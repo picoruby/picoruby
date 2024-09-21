@@ -58,7 +58,7 @@ picorb_utf8_from_locale(const char *str, int len)
 #endif
 
 #ifndef HEAP_SIZE
-#define HEAP_SIZE (1024 * 64 - 1)
+#define HEAP_SIZE (1024 * 6400 - 1)
 #endif
 static uint8_t mrbc_heap[HEAP_SIZE];
 
@@ -144,7 +144,7 @@ picorb_mrb_p(const char *path)
     return FALSE;
   }
   if (fread(buf, 1, sizeof(buf), fp) == sizeof(buf)) {
-    if (memcmp(buf, "RITE", 4) == 0 && memchr(buf, 0, sizeof(buf))) {
+    if (memcmp(buf, "RITE", 4) == 0) {
       ret = TRUE;
     }
   }
@@ -473,7 +473,7 @@ main(int argc, char **argv)
 
     if (mrb) {
       lib_mrb_list[lib_mrb_list_size++] = mrb;
-      mrc_irep_free(c, irep);
+      if (irep) mrc_irep_free(c, irep);
       mrc_ccontext_free(c);
       mrbc_vm *libvm = mrbc_vm_open(NULL);
       lib_vm_list[lib_vm_list_size++] = libvm;
@@ -525,9 +525,12 @@ main(int argc, char **argv)
     if (args.check_syntax) c->no_exec = TRUE;
     mrc_ccontext_filename(c, fnames[i]);
 
+    uint8_t *mrb = NULL;
+    size_t mrb_size = 0;
+
     /* Load program */
     if (args.mrbfile || picorb_mrb_p(fnames[i])) {
-  //      irep = picorb_load_irep_file_cxt(c, args.fname);
+      irep = NULL;
     }
     else if (args.fname) {
       // TODO refactor
@@ -543,32 +546,49 @@ main(int argc, char **argv)
       picorb_utf8_free(utf8);
     }
 
-    if (irep) {
-      uint8_t *mrb = NULL;
-      size_t mrb_size = 0;
+    if (!irep) { // mrb file
+      FILE *fp = fopen(fnames[i], "rb");
+      if (fp == NULL) {
+        fprintf(stderr, "cannot open file: %s\n", fnames[i]);
+        exit(EXIT_FAILURE);
+      }
+      fseek(fp, 0, SEEK_END);
+      mrb_size = ftell(fp);
+      fseek(fp, 0, SEEK_SET);
+      mrb = (uint8_t *)mrbc_raw_alloc(mrb_size);
+      if (fread(mrb, 1, mrb_size, fp) != mrb_size) {
+        fprintf(stderr, "cannot read file: %s\n", fnames[i]);
+        exit(EXIT_FAILURE);
+      }
+      fclose(fp);
+    }
+    else {
       int result;
       result = mrc_dump_irep(c, irep, 0, &mrb, &mrb_size);
       if (result != MRC_DUMP_OK) {
         fprintf(stderr, "irep dump error: %d\n", result);
         exit(EXIT_FAILURE);
       }
-      task_mrb_list[tasks_mrb_list_size++] = mrb;
+    }
 
+    task_mrb_list[tasks_mrb_list_size++] = mrb;
+
+    if (irep) {
       mrc_ccontext_free(c);
       mrc_irep_free(c, irep);
-      if (source) {
-        mrc_free(source);
-        source = NULL;
-      }
+    }
+    if (source) {
+      mrc_free(source);
+      source = NULL;
+    }
 
-      mrbc_tcb *tcb = mrbc_create_task(mrb, NULL);
-      if (!tcb) {
-        fprintf(stderr, "mrbc_create_task failed\n");
-        exit(EXIT_FAILURE);
-      }
-      else {
-        tcb_list[tcb_list_size++] = tcb;
-      }
+    mrbc_tcb *tcb = mrbc_create_task(mrb, NULL);
+    if (!tcb) {
+      fprintf(stderr, "mrbc_create_task failed\n");
+      exit(EXIT_FAILURE);
+    }
+    else {
+      tcb_list[tcb_list_size++] = tcb;
     }
 
     if (args.check_syntax) {
