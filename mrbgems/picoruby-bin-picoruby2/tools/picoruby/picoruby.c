@@ -12,6 +12,7 @@
 #include <mrc_ccontext.h>
 #include <mrc_compile.h>
 #include <mrc_dump.h>
+#include <picogem_init.c>
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */
@@ -349,6 +350,7 @@ static void
 picorb_vm_init()
 {
   mrbc_init(mrbc_heap, HEAP_SIZE);
+  picoruby_init_require();
 }
 
 static void
