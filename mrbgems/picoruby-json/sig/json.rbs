@@ -1,4 +1,13 @@
 module JSON
+  class JSONError < StandardError
+  end
+  class ParserError < JSONError
+  end
+  class GeneratorError < JSONError
+  end
+  class DiggerError < JSONError
+  end
+
   module Common
     private def expect: (String) -> void
     private def skip_whitespace: () -> void
