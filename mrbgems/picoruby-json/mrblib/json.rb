@@ -404,7 +404,7 @@ module JSON
       @index += 1  # Skip opening quote
       result = ''
       while @json[@index] != '"'
-        result += @json[@index]
+        result += @json[@index].to_s
         @index += 1
         if @index >= @json.length
           raise "Unterminated string"
@@ -457,7 +457,9 @@ module JSON
       start += 1 if is_negative
 
       (start...end_index).each do |i|
-        result = result * 10 + (@json[i].ord - '0'.ord)
+        # @type var ord: Integer
+        ord = @json[i]&.ord
+        result = result * 10 + (ord - '0'.ord)
       end
 
       is_negative ? -result : result
@@ -475,13 +477,15 @@ module JSON
       (start...end_index).each do |i|
         case @json[i]
         when '0'..'9'
+          # @type var ord: Integer
+          ord = @json[i]&.ord
           if parsing_exponent
-            exponent = exponent * 10 + (@json[i].ord - '0'.ord)
+            exponent = exponent * 10 + (ord - '0'.ord)
           elsif decimal_divider == 1.0
-            result = result * 10 + (@json[i].ord - '0'.ord)
+            result = result * 10 + (ord - '0'.ord)
           else
             decimal_divider *= 10
-            result += (@json[i].ord - '0'.ord) / decimal_divider
+            result += (ord - '0'.ord) / decimal_divider
           end
         when '.'
           # Do nothing, just move to the next character
@@ -499,7 +503,8 @@ module JSON
     end
 
     def is_digit?(char)
-      char >= '0' && char <= '9'
+      return false unless char
+      '0' <= char && char <= '9'
     end
 
   end
