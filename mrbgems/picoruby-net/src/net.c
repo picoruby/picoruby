@@ -15,7 +15,7 @@ c_net_dns_resolve(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_value ret = DNS_resolve(vm, GET_STRING_ARG(1));
+  mrbc_value ret = DNS_resolve(vm, (const char *)GET_STRING_ARG(1));
   SET_RETURN(ret);
 }
 
@@ -47,7 +47,7 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_value ret = TCPClient_send(GET_STRING_ARG(1), port.i, vm, &input, (is_tls.tt == MRBC_TT_TRUE));
+  mrbc_value ret = TCPClient_send((const char *)GET_STRING_ARG(1), port.i, vm, &input, (is_tls.tt == MRBC_TT_TRUE));
   SET_RETURN(ret);
 }
 
