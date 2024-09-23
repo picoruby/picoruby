@@ -1,4 +1,13 @@
 module JSON
+  class JSONError < StandardError
+  end
+  class ParserError < JSONError
+  end
+  class GeneratorError < JSONError
+  end
+  class DiggerError < JSONError
+  end
+
   module Common
     private def expect: (String) -> void
     private def skip_whitespace: () -> void
@@ -14,7 +23,14 @@ module JSON
   class Digger
     type dig_key_t = (String | Integer)
     type stack_t = (:array | :object)
+
     include JSON::Common
+
+    @json: String
+    @index: Integer
+    @start_index: Integer
+    @stack: Array[stack_t]
+
     def initialize: (String) -> void
     private def reset: () -> void
     def dig: (*dig_key_t) -> self
@@ -30,6 +46,9 @@ module JSON
 
   class Generator
     include JSON::Common
+
+    @obj: untyped
+
     def initialize: (untyped) -> void
     def generate: (?untyped) -> void
     private def generate_object: (Hash[String, untyped]) -> void
@@ -40,6 +59,10 @@ module JSON
 
   class Parser
     include JSON::Common
+
+    @json: String
+    @index: Integer
+
     def initialize: (String) -> void
     def parse: () -> untyped
     private def parse_object: () -> void
@@ -48,6 +71,6 @@ module JSON
     private def parse_number: () -> void
     private def parse_integer: (Integer, Integer) -> void
     private def parse_float: (Integer, Integer) -> void
-    private def is_digit?: (String) -> bool
+    private def is_digit?: (String | nil) -> bool
   end
 end

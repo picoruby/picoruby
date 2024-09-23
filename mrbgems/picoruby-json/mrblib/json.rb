@@ -7,24 +7,18 @@
 # License: MIT
 #
 
-# json = <<~JSON
-#   [{"id":"02e548eb-900d-4de4-93d8-2f63f787b8eb","device":{"name":"分電盤の近く","id":"9b098976-98fb-439f-ac09-38eb2eeee8b3","created_at":"2024-09-19T01:08:25Z","updated_at":"2024-09-19T08:53:00Z","mac_address":"f0:08:d1:ea:da:00","bt_mac_address":"f0:08:d1:ea:da:02","serial_number":"4W121010002448","firmware_version":"Remo-E-lite/1.10.0","temperature_offset":0,"humidity_offset":0},"model":{"id":"7f3de26b-0afa-44fe-8680-7cf67f8bd415","manufacturer":"","name":"Smart Meter","image":"ico_smartmeter"},"type":"EL_SMART_METER","nickname":"スマートメーター","image":"ico_smartmeter","settings":null,"aircon":null,"signals":[],"smart_meter":{"echonetlite_properties":[{"name":"coefficient","epc":211,"val":"1","updated_at":"2024-09-20T01:44:15Z"},{"name":"cumulative_electric_energy_effective_digits","epc":215,"val":"6","updated_at":"2024-09-20T01:44:15Z"},{"name":"normal_direction_cumulative_electric_energy","epc":224,"val":"80481","updated_at":"2024-09-20T01:44:15Z"},{"name":"cumulative_electric_energy_unit","epc":225,"val":"1","updated_at":"2024-09-20T01:44:15Z"},{"name":"reverse_direction_cumulative_electric_energy","epc":227,"val":"9","updated_at":"2024-09-20T01:44:15Z"},{"name":"measured_instantaneous","epc":231,"val":"599","updated_at":"2024-09-20T01:46:14Z"}]}}]
-# JSON
-#
-# dig = JSON::Digger.new(json).dig(0, 'smart_meter', 'echonetlite_properties', 0, 'name')
-# p dig.parse
-# => "coefficient"
-#
-# dig = JSON::Digger.new(json).dig(0).dig('smart_meter').dig('echonetlite_properties').dig(0).dig('name')
-# p dig.parse
-# => "coefficient"
 
 module JSON
+
+  class JSONError < StandardError; end
+  class ParserError < JSONError; end
+  class GeneratorError < JSONError; end
+  class DiggerError < JSONError; end
 
   module Common
     def expect(char)
       if @json[@index] != char
-        raise "Expected '#{char}' at index #{@index}, but got '#{@json[@index]}'"
+        raise JSON::JSONError.new("Expected '#{char}' at index #{@index}, but got '#{@json[@index]}'")
       end
       @index += 1
     end
@@ -71,21 +65,27 @@ module JSON
   # and extract a part of the JSON object.
   #
   # Usage:
+  #   json = <<~JSON
+  #     [{"id":"02e548eb-900d-4de4-93d8-xxxxxxxxxxxx","device":{"name":"MyName","id":"9b098976-98fb-439f-ac09-xxxxxxxxxxxx","created_at":"2024-09-19T01:08:25Z","updated_at":"2024-09-19T08:53:00Z","mac_address":"f0:08:d1:ea:da:00","bt_mac_address":"f0:08:d1:ea:da:02","serial_number":"4W121010002448","firmware_version":"Remo-E-lite/1.10.0","temperature_offset":0,"humidity_offset":0},"model":{"id":"7f3de26b-0afa-44fe-8680-xxxxxxxxxxxx","manufacturer":"","name":"Smart Meter","image":"ico_smartmeter"},"type":"EL_SMART_METER","nickname":"NyNickname","image":"ico_smartmeter","settings":null,"aircon":null,"signals":[],"smart_meter":{"echonetlite_properties":[{"name":"coefficient","epc":211,"val":"1","updated_at":"2024-09-20T01:44:15Z"},{"name":"cumulative_electric_energy_effective_digits","epc":215,"val":"6","updated_at":"2024-09-20T01:44:15Z"},{"name":"normal_direction_cumulative_electric_energy","epc":224,"val":"80481","updated_at":"2024-09-20T01:44:15Z"},{"name":"cumulative_electric_energy_unit","epc":225,"val":"1","updated_at":"2024-09-20T01:44:15Z"},{"name":"reverse_direction_cumulative_electric_energy","epc":227,"val":"9","updated_at":"2024-09-20T01:44:15Z"},{"name":"measured_instantaneous","epc":231,"val":"599","updated_at":"2024-09-20T01:46:14Z"}]}}]
+  #   JSON
+  #
   #   json = '[{"device":{"name":"Remo"}}, {"device":{"name":null}}]'
+  #   JSON::Digger.new(json).dig(0, 'device', 'name')
+  #   => Digger object
   #   JSON::Digger.new(json).dig(0, 'device', 'name').parse
   #   => "Remo"
   #   JSON::Digger.new(json).dig(0, 'device')
   #   => Digger object
   #   JSON::Digger.new(json).dig(0, 'device').parse
   #   => {"name"=>"Remo"}
-  #   JSON::Digger.new(json).dig(0, 'device').dig('name').parse
-  #   => "Remo"
   #   JSON::Digger.new(json).dig(1, 'device', 'name').parse
   #   => nil
+  #   JSON::Digger.new(json).dig(0, 'device').dig('name').parse
+  #   => "Remo"
   #   JSON::Digger.new(json).dig(3, 'device', 'name')
-  #   => exception "Index out of range"
+  #   => JSON::DiggerError: Array index out of range
   #   JSON::Digger.new(json).dig(1, '___device', 'name')
-  #   => exception "Key not found"
+  #   => JSON::DiggerError: Key not found: ___device
   #
   class Digger
     include JSON::Common
@@ -102,7 +102,7 @@ module JSON
         case key
         when Integer
           if key < 0
-            raise "Index out of range: #{key}"
+            raise ArgumentError.new("Negative index is not supported")
           end
           # @type var key: Integer
           dig_array(key)
@@ -110,9 +110,10 @@ module JSON
           # @type var key: String
           dig_object(key)
         else
-          raise "Unsupported type: #{key.class}"
+          raise ArgumentError.new("Unsupported type: #{key.class}")
         end
         @json = @json[@start_index, @index - @start_index]
+        @json.strip!
         reset
         # p @json
       end
@@ -158,7 +159,7 @@ module JSON
           @index += 1
         end
       end
-      raise "Unterminated string"
+      raise JSON::DiggerError.new("Unterminated string")
     end
 
     def dig_number
@@ -204,7 +205,9 @@ module JSON
           skip_whitespace
         end
       end
-      raise "Key not found: #{key}" if key
+      if key
+        raise JSON::DiggerError.new("Key not found: #{key}")
+      end
     end
 
     def dig_value
@@ -264,7 +267,9 @@ module JSON
           dig_value
         end
       end
-      raise "Index out of range" if array_pos && current_array_pos < array_pos
+      if array_pos && current_array_pos < array_pos
+        JSON::DiggerError.new("Array index out of range")
+      end
     end
   end
 
@@ -292,7 +297,7 @@ module JSON
       when NilClass
         nil
       else
-        raise "Unsupported type: #{obj.class}"
+        raise JSON::GeneratorError.new("Unsupported element type: #{obj.class}")
       end
     end
 
@@ -350,7 +355,7 @@ module JSON
       when 'n'
         parse_null
       else
-        raise "Unexpected character at index #{@index}"
+        raise JSON::ParserError.new("Unexpected character at index #{@index}")
       end
     end
 
@@ -404,10 +409,10 @@ module JSON
       @index += 1  # Skip opening quote
       result = ''
       while @json[@index] != '"'
-        result += @json[@index]
+        result += @json[@index].to_s
         @index += 1
         if @index >= @json.length
-          raise "Unterminated string"
+          raise JSON::ParserError.new("Unterminated string")
         end
       end
       @index += 1  # Skip closing quote
@@ -457,7 +462,9 @@ module JSON
       start += 1 if is_negative
 
       (start...end_index).each do |i|
-        result = result * 10 + (@json[i].ord - '0'.ord)
+        # @type var ord: Integer
+        ord = @json[i]&.ord
+        result = result * 10 + (ord - '0'.ord)
       end
 
       is_negative ? -result : result
@@ -475,13 +482,15 @@ module JSON
       (start...end_index).each do |i|
         case @json[i]
         when '0'..'9'
+          # @type var ord: Integer
+          ord = @json[i]&.ord
           if parsing_exponent
-            exponent = exponent * 10 + (@json[i].ord - '0'.ord)
+            exponent = exponent * 10 + (ord - '0'.ord)
           elsif decimal_divider == 1.0
-            result = result * 10 + (@json[i].ord - '0'.ord)
+            result = result * 10 + (ord - '0'.ord)
           else
             decimal_divider *= 10
-            result += (@json[i].ord - '0'.ord) / decimal_divider
+            result += (ord - '0'.ord) / decimal_divider
           end
         when '.'
           # Do nothing, just move to the next character
@@ -499,7 +508,8 @@ module JSON
     end
 
     def is_digit?(char)
-      char >= '0' && char <= '9'
+      return false unless char
+      '0' <= char && char <= '9'
     end
 
   end
