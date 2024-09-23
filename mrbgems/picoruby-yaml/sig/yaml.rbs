@@ -1,0 +1,15 @@
+module YAML
+  def self.load: (String) -> Object
+  def self.dump: (Object) -> String
+
+  private def self.parse: (String) -> Object
+  private def self.parse_value: (String) -> Object
+  private def self.serialize: (Object, ?Integer) -> String
+  private def self.count_leading_spaces: (String) -> Integer
+  private def self.split_key_value: (String) -> [String, (String|nil)]
+  private def self.parse_list_items: (String) -> Array[Object]
+  private def self.is_integer?: (String) -> bool
+  private def self.is_float?: (String) -> bool
+  private def self.is_boolean?: (String) -> bool
+  private def self.is_null?: (String) -> bool
+end
