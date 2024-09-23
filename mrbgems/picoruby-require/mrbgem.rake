@@ -110,6 +110,14 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           }
         }
 
+        int
+        picoruby_load_model_by_name(const char *gem)
+        {
+          int i = gem_index(gem);
+          if (i < 0) return -1;
+          return picoruby_load_model(prebuilt_gems[i].mrb);
+        }
+
         static void
         c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
         {

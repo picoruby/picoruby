@@ -433,6 +433,10 @@ main(int argc, char **argv)
 
   /* Load libraries */
   for (int i = 0; i < args.libc; i++) {
+    if (0 < picoruby_load_model_by_name(args.libv[i])) {
+      continue;
+    }
+
     mrc_ccontext *c = mrc_ccontext_new(NULL);
     if (args.verbose) c->dump_result = TRUE;
     if (args.check_syntax) c->no_exec = TRUE;
