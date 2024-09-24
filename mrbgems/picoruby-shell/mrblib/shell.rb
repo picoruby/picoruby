@@ -1,3 +1,4 @@
+require "picorubyvm"
 require "sandbox"
 require "filesystem-fat"
 require "vfs"

@@ -35,14 +35,14 @@ picorb_utf8_from_locale(const char *str, int len)
   if (len == -1)
     len = (int)strlen(str);
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len,  NULL, 0);
-  wcsp = (wchar_t*) malloc((wcssize + 1) * sizeof(wchar_t));
+  wcsp = (wchar_t*) mrbc_raw_alloc((wcssize + 1) * sizeof(wchar_t));
   if (!wcsp)
     return NULL;
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len, wcsp, wcssize + 1);
   wcsp[wcssize] = 0;
 
   mbssize = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR) wcsp, -1, NULL, 0, NULL, NULL);
-  mbsp = (char*) malloc((mbssize + 1));
+  mbsp = (char*) mrbc_raw_alloc((mbssize + 1));
   if (!mbsp) {
     free(wcsp);
     return NULL;
@@ -317,7 +317,7 @@ parse_args(int argc, char **argv, struct _args *args)
       argc--; argv++;
     }
   }
-  args->argv = (char **)mrbc_raw_realloc(args->argv, sizeof(char*) * (argc + 1));
+  args->argv = (char **)mrbc_raw_alloc(sizeof(char*) * (argc + 1));
   memcpy(args->argv, argv, (argc+1) * sizeof(char*));
   args->argc = argc;
 
@@ -540,7 +540,7 @@ main(int argc, char **argv)
     }
     else if (args.fname) {
       // TODO refactor
-      source = malloc(sizeof(uint8_t) * 2);
+      source = mrbc_raw_alloc(sizeof(uint8_t) * 2);
       source[0] = 0x0;
       source[1] = 0x0;
       irep = picorb_load_rb_file_cxt(c, fnames[i], &source);

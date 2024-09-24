@@ -1,4 +1,0 @@
-class PicoRubyVM
-  def self.memory_statistics: -> Hash[Symbol, Integer]
-end
-
