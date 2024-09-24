@@ -1,0 +1,11 @@
+class PicoRubyVM
+  type alloc_stat_t: {total: Integer, used: Integer, free: Integer, frag: Integer}
+  type alloc_prof_t: {peak: Integer, valley: Integer}
+
+  def self.memory_statistics: -> alloc_stat_t
+  def self.profile_alloc: () {() -> untyped} -> untyped
+  private def self.start_alloc_profiling: () -> 0
+  private def self.stop_alloc_profiling: () -> 0
+  private def self.get_alloc_peak: () -> alloc_prof_t
+end
+

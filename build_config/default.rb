@@ -4,7 +4,11 @@ MRuby::Build.new do |conf|
 
   conf.picoruby
 
-  conf.gembox "default"
+  conf.cc.defines << "MRC_INT64"
+  conf.cc.defines << "MRBC_USE_HAL_POSIX"
+  conf.cc.defines << "MRBC_ALLOC_LIBC"
+
+  conf.gembox "minimum"
   conf.gembox "r2p2"
   conf.gem core: "picoruby-bin-r2p2"
 
