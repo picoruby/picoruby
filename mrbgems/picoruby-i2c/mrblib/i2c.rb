@@ -13,14 +13,14 @@ class I2C
     end
     ret = _read(@unit_num, i2c_adrs_7, len)
     return ret if ret.is_a?(String)
-    IOError.peripheral_error(ret, "I2C#read")
+    GPIO::Error.peripheral_error(ret, "I2C#read")
     return ""
   end
 
   def write(i2c_adrs_7, *outputs)
     ret = _write(@unit_num, i2c_adrs_7, outputs_array(outputs), false)
     return ret if 0 < ret
-    IOError.peripheral_error(ret, "I2C#write")
+    GPIO::Error.peripheral_error(ret, "I2C#write")
   end
 
   def outputs_array(outputs)

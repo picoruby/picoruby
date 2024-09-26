@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-#define IOError mrbc_define_class(0, "IOError", mrbc_class_object)
-
 #define PARITY_NONE   0
 #define PARITY_EVEN   1
 #define PARITY_ODD    2

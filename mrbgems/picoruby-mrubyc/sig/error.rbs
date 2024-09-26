@@ -1,4 +1,8 @@
 # @sidebar error
+class IOError < StandardError
+end
+
+# @sidebar error
 class StandardError < Exception
 end
 

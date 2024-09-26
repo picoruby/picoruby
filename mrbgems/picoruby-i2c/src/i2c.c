@@ -58,7 +58,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     switch (status) {
       case ERROR_INVALID_UNIT: { strcpy(message, "Invalid I2C unit"); break; }
       default: { strcpy(message, "Unknows I2C error"); }
-      mrbc_raise(vm, IOError, message);
+      mrbc_raise(vm, MRBC_CLASS(IOError), message);
       return;
     }
   }
