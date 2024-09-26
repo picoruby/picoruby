@@ -118,18 +118,6 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           return picoruby_load_model(prebuilt_gems[i].mrb);
         }
 
-        static bool
-        picorb_extern(int i, bool force)
-        {
-          if ((force || !prebuilt_gems[i].required) && picoruby_load_model(prebuilt_gems[i].mrb)) {
-            if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer();
-            prebuilt_gems[i].required = true;
-            return true;
-          } else {
-            return false;
-          }
-        }
-
         static void
         c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
         {
@@ -147,11 +135,15 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             SET_NIL_RETURN();
             return;
           }
-          bool force = (argc == 2 && GET_TT_ARG(2) == MRBC_TT_TRUE);
-          if (picorb_extern(i, force)) {
-            SET_TRUE_RETURN();
+          bool force = false;
+          if (argc == 2 && GET_TT_ARG(2) == MRBC_TT_TRUE) {
+            force = true;
           }
-          else {
+          if ((force || !prebuilt_gems[i].required) && picoruby_load_model(prebuilt_gems[i].mrb)) {
+            if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer();
+            prebuilt_gems[i].required = true;
+            SET_TRUE_RETURN();
+          } else {
             SET_FALSE_RETURN();
           }
         }
@@ -162,10 +154,11 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         void
         picoruby_init_require(void)
         {
+          mrbc_value self = mrbc_instance_new(NULL, mrbc_class_object, 0);
+          mrbc_value str = mrbc_string_new_cstr(NULL, "require");
+          mrbc_value args[2] = { self, str };
+          c_extern(NULL, args, 1);
           mrbc_define_method(0, mrbc_class_object, "extern", c_extern);
-          // More than one gem can NOT be required in this way.
-          // If you do, weird things will happen.
-          picorb_extern(gem_index("require"), false);
         }
       PICOGEM
     end
