@@ -53,3 +53,7 @@ class Object
 
 end
 
+require "sandbox"
+require "filesystem-fat"
+require "vfs"
+
