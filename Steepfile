@@ -8,7 +8,7 @@ target :mrbgems do
 
   signature "sig/prk_firmware"
   Dir.glob("**/sig/").each do |dir|
-    unless dir.include?("lib/prism/sig") || dir.include?(MRUBYC_SIG)
+    unless dir.include?("lib/prism/sig") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext")
       signature dir
     end
   end
@@ -23,4 +23,5 @@ target :mrbgems do
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/array.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/range.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/string.rb"
+  ignore "mrbgems/picoruby-task-ext/mrblib/task.rb"
 end
