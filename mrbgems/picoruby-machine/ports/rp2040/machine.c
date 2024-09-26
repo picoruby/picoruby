@@ -53,7 +53,8 @@ Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
     scb_hw->scr = _scr;
     clocks_hw->sleep_en0 = _sleep_en0;
     clocks_hw->sleep_en1 = _sleep_en1;
-    clocks_init();
+    //clocks_init();
+    set_sys_clock_khz(125000, true);
   }
   restore_interrupts(ints);
   gpio_put(PIN_DCDC_PSM_CTRL, psm); // recover PWM mode
@@ -68,20 +69,18 @@ sleep_callback(void)
 static void
 rtc_sleep(uint32_t seconds)
 {
-  uint8_t hours_to_sleep_to = seconds / 3600;
-  uint8_t minute_to_sleep_to = seconds / 60;
-  uint8_t second_to_sleep_to = seconds % 60;
-  datetime_t t_alarm = {
-          .year  = YEAR,
-          .month = MONTH,
-          .day   = DAY,
-          .dotw  = DOTW,
-          .hour  = hours_to_sleep_to,
-          .min   = minute_to_sleep_to,
-          .sec   = second_to_sleep_to
-  };
-
-  sleep_goto_sleep_until(&t_alarm, &sleep_callback);
+  datetime_t t;
+  rtc_get_datetime(&t);
+  t.sec += seconds;
+  if (t.sec >= 60) {
+    t.min += t.sec / 60;
+    t.sec %= 60;
+  }
+  if (t.min >= 60) {
+    t.hour += t.min / 60;
+    t.min %= 60;
+  }
+  sleep_goto_sleep_until(&t, &sleep_callback);
 }
 
 
@@ -95,9 +94,9 @@ recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
   clocks_hw->sleep_en0 = clock0_orig;
   clocks_hw->sleep_en1 = clock1_orig;
   //reset clocks
-  clocks_init();
+  set_sys_clock_khz(125000, true);
+  // Re-initialize peripherals
   stdio_init_all();
-  return;
 }
 
 void
@@ -108,28 +107,31 @@ Machine_sleep(uint32_t seconds)
   uint clock0_orig = clocks_hw->sleep_en0;
   uint clock1_orig = clocks_hw->sleep_en1;
 
-  // crudely reset the clock each time to the value below
-  datetime_t t = {
-          .year  = YEAR,
-          .month = MONTH,
-          .day   = DAY,
-          .dotw  = DOTW,
-          .hour  = 0,
-          .min   = 0,
-          .sec   = 0
-  };
-
   // Start the Real time clock
   rtc_init();
-
   sleep_run_from_xosc();
-  // Reset real time clock to a value
-  rtc_set_datetime(&t);
-  // sleep here, in this case for 1 min
+
+  // Get current time and set alarm
+  datetime_t t;
+  rtc_get_datetime(&t);
+
   rtc_sleep(seconds);
 
   // reset processor and clocks back to defaults
   recover_from_sleep(scb_orig, clock0_orig, clock1_orig);
+
+  // システムクロックをリセットし、デフォルト設定に戻す
+  clock_configure(clk_sys,
+                  CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
+                  CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_XOSC_CLKSRC,
+                  12 * MHZ,  // XOSC frequency
+                  12 * MHZ);
+
+  // PLLを使用して通常の動作周波数に戻す
+  set_sys_clock_khz(133000, true);  // 133 MHz、デフォルトの周波数
+
+  // Re-enable interrupts
+  irq_set_enabled(RTC_IRQ, true);
 }
 
 void
