@@ -12,6 +12,7 @@ MRuby::CrossBuild.new("no-libc-host") do |conf|
   conf.gembox "minimum"
   conf.gembox "r2p2"
   conf.gem core: "picoruby-bin-r2p2"
+  conf.gem core: 'picoruby-net'
 
   conf.linker.flags_after_libraries << '-lcrypto'
   conf.linker.flags_after_libraries << '-lssl'
