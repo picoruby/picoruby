@@ -4,7 +4,7 @@
 static void
 c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
 {
-#ifndef MRBC_ALLOC_LIBC
+#if !defined(MRBC_ALLOC_LIBC)
   struct MRBC_ALLOC_STATISTICS mem;
   mrbc_alloc_statistics(&mem);
   mrbc_value ret = mrbc_hash_new(vm, 4);
@@ -37,25 +37,25 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_start_alloc_profiling(struct VM *vm, mrbc_value v[], int argc)
 {
-#ifndef MRBC_ALLOC_LIBC
+#if !defined(MRBC_ALLOC_LIBC) && defined(MRBC_USE_ALLOC_PROF)
   mrbc_start_alloc_profiling();
-#endif /* MRBC_ALLOC_LIBC */
+#endif
   SET_INT_RETURN(0);
 }
 
 static void
 c_stop_alloc_profiling(struct VM *vm, mrbc_value v[], int argc)
 {
-#ifndef MRBC_ALLOC_LIBC
+#if !defined(MRBC_ALLOC_LIBC) && defined(MRBC_USE_ALLOC_PROF)
   mrbc_stop_alloc_profiling();
-#endif /* MRBC_ALLOC_LIBC */
+#endif
   SET_INT_RETURN(0);
 }
 
 static void
 c_alloc_profiling_result(struct VM *vm, mrbc_value v[], int argc)
 {
-#ifndef MRBC_ALLOC_LIBC
+#if !defined(MRBC_ALLOC_LIBC) && defined(MRBC_USE_ALLOC_PROF)
   mrbc_value ret = mrbc_hash_new(vm, 2);
   struct MRBC_ALLOC_PROF prof;
   mrbc_get_alloc_profiling(&prof);
@@ -70,7 +70,7 @@ c_alloc_profiling_result(struct VM *vm, mrbc_value v[], int argc)
   SET_RETURN(ret);
 #else
   mrbc_raise(vm, MRBC_CLASS(RuntimeError), "profile_alloc is not supported in MRBC_ALLOC_LIBC");
-#endif /* MRBC_ALLOC_LIBC */
+#endif
 }
 
 void
