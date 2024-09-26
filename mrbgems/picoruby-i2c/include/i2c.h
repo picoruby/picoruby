@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-#define IOError mrbc_define_class(0, "IOError", mrbc_class_object)
-
 #define PICORUBY_I2C_RP2040_I2C0      0
 #define PICORUBY_I2C_RP2040_I2C1      1
 

@@ -1,38 +1,37 @@
-# Todo: picoruby-io gem
-class IOError < StandardError
-  # This is a mimic of pico_error_codes
-  # from pico-sdk/src/common/pico_base/include/pico/error.h
-  ERROR_NONE = 0
-  ERROR_TIMEOUT = -1
-  ERROR_GENERIC = -2
-  ERROR_NO_DATA = -3
-  ERROR_NOT_PERMITTED = -4
-  ERROR_INVALID_ARG = -5
-  ERROR_IO = -6
+class GPIO
+  class Error
+    # This is a mimic of pico_error_codes
+    # from pico-sdk/src/common/pico_base/include/pico/error.h
+    ERROR_NONE = 0
+    ERROR_TIMEOUT = -1
+    ERROR_GENERIC = -2
+    ERROR_NO_DATA = -3
+    ERROR_NOT_PERMITTED = -4
+    ERROR_INVALID_ARG = -5
+    ERROR_IO = -6
 
-  def self.peripheral_error(code, name = "unknown peripheral")
-    case code
-    when ERROR_NONE
-      return 0
-    when ERROR_TIMEOUT
-      raise(IOError.new "Timeout error in #{name}")
-    when ERROR_GENERIC
-      raise(IOError.new "Generic error in #{name}")
-    when ERROR_NO_DATA
-      raise(IOError.new "No data error in #{name}")
-    when ERROR_NOT_PERMITTED
-      raise(IOError.new "Not permitted error in #{name}")
-    when ERROR_INVALID_ARG
-      raise(IOError.new "Invalid arg error in #{name}")
-    when ERROR_IO
-      raise(IOError.new "IO error in #{name}")
-    else
-      raise(IOError.new "Unknown error in #{name}. code: #{code}")
+    def self.peripheral_error(code, name = "unknown peripheral")
+      case code
+      when ERROR_NONE
+        return 0
+      when ERROR_TIMEOUT
+        raise(IOError.new "Timeout error in #{name}")
+      when ERROR_GENERIC
+        raise(IOError.new "Generic error in #{name}")
+      when ERROR_NO_DATA
+        raise(IOError.new "No data error in #{name}")
+      when ERROR_NOT_PERMITTED
+        raise(IOError.new "Not permitted error in #{name}")
+      when ERROR_INVALID_ARG
+        raise(IOError.new "Invalid arg error in #{name}")
+      when ERROR_IO
+        raise(IOError.new "IO error in #{name}")
+      else
+        raise(IOError.new "Unknown error in #{name}. code: #{code}")
+      end
     end
   end
-end
 
-class GPIO
   def initialize(pin, flags, alt_function = 0)
     @pin = pin
     GPIO._init(pin)

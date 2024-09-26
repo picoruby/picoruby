@@ -1,18 +1,18 @@
 # @sidebar error
-class IOError
-  ERROR_NONE:           0
-  ERROR_TIMEOUT:       -1
-  ERROR_GENERIC:       -2
-  ERROR_NO_DATA:       -3
-  ERROR_NOT_PERMITTED: -4
-  ERROR_INVALID_ARG:   -5
-  ERROR_IO:            -6
-
-  def self.peripheral_error: (Integer code, ?String name) -> Integer
-end
-
 # @sidebar io_peripheral
 class GPIO
+  class Error
+    ERROR_NONE:           0
+    ERROR_TIMEOUT:       -1
+    ERROR_GENERIC:       -2
+    ERROR_NO_DATA:       -3
+    ERROR_NOT_PERMITTED: -4
+    ERROR_INVALID_ARG:   -5
+    ERROR_IO:            -6
+
+    def self.peripheral_error: (Integer code, ?String name) -> Integer
+  end
+
   IN:          1 # 0b0000001
   OUT:         2 # 0b0000010
   HIGH_Z:      4 # 0b0000100

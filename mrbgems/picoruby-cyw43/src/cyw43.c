@@ -25,7 +25,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-static bool
+static void
 c_CYW43_initialized_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (cyw43_arch_init_flag) {
