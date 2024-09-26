@@ -6,6 +6,6 @@ class PicoRubyVM
     start_alloc_profiling
     yield
     stop_alloc_profiling
-    get_alloc_peak
+    alloc_profiling_result
   end
 end

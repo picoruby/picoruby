@@ -1,5 +1,5 @@
-#include <mruby_compiler.h>
 #include <mrubyc.h>
+#include "../include/instruction_sequence.h"
 
 static void
 c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
@@ -53,18 +53,19 @@ c_stop_alloc_profiling(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_get_alloc_peak(struct VM *vm, mrbc_value v[], int argc)
+c_alloc_profiling_result(struct VM *vm, mrbc_value v[], int argc)
 {
 #ifndef MRBC_ALLOC_LIBC
   mrbc_value ret = mrbc_hash_new(vm, 2);
-  struct MRBC_ALLOC_PROF *prof = mrbc_get_alloc_profiling();
+  struct MRBC_ALLOC_PROF prof;
+  mrbc_get_alloc_profiling(&prof);
   mrbc_hash_set(&ret,
     &mrbc_symbol_value(mrbc_str_to_symid("peak")),
-    &mrbc_integer_value(prof->max - prof->initial)
+    &mrbc_integer_value(prof.max - prof.initial)
   );
   mrbc_hash_set(&ret,
     &mrbc_symbol_value(mrbc_str_to_symid("valley")),
-    &mrbc_integer_value(prof->min - prof->initial)
+    &mrbc_integer_value(prof.min - prof.initial)
   );
   SET_RETURN(ret);
 #else
@@ -79,6 +80,8 @@ mrbc_picorubyvm_init(void)
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "memory_statistics", c_memory_statistics);
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "start_alloc_profiling", c_start_alloc_profiling);
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "stop_alloc_profiling", c_stop_alloc_profiling);
-  mrbc_define_method(0, mrbc_class_PicoRubyVM, "get_alloc_peak", c_get_alloc_peak);
+  mrbc_define_method(0, mrbc_class_PicoRubyVM, "alloc_profiling_result", c_alloc_profiling_result);
+
+  mrbc_instruction_sequence_init();
 }
 
