@@ -1,0 +1,26 @@
+class Task
+  def self.list: () -> Array[Task]
+  def self.name_list: () -> Array[String]
+  def self.create: (String) -> Task
+  def self.get: (String) -> Task
+  def self.current: () -> Task
+  def suspend: () -> void
+  def resume: () -> self
+  def terminate: () -> self
+  def join: () -> void
+  def priority=: (Integer) -> self # should be Integer
+  def status: () -> String
+  def run: () -> void
+  def rewind: () -> self
+  def name: () -> String
+  def name=: (String) -> self
+
+  # Should not be used
+  def self.name=: (String) -> String
+  def self.suspend: () -> Task
+  def self.terminate: () -> Task
+  def self.priority=: (Integer) -> Task
+  def self.pass: () -> Task
+  def self.status: () -> Task
+end
+

@@ -6,6 +6,7 @@ MRuby::CrossBuild.new("no-libc-host") do |conf|
 
   conf.cc.defines << "MRC_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
+  conf.cc.defines << "MRBC_USE_ALLOC_PROF"
   conf.cc.defines << 'MRC_CUSTOM_ALLOC'
 
   conf.gembox "minimum"
