@@ -13,6 +13,14 @@ class IO
     end
   end
 
+  def self.gets
+    str = ""
+    while true
+      str += (char = getch)
+      return str if char == "\n"
+    end
+  end
+
   def self.get_cursor_position
     return [0, 0] if ENV && ENV['TERM'] == "dumb"
     row, col = 0, 0

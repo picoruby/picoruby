@@ -9,6 +9,7 @@ class IO
   def self.clear_screen: () -> nil
   def self.getch: -> String
   def self.getc: -> String?
+  def self.gets: -> String
   def self.raw: () { () -> untyped } -> untyped
   def self.raw!: -> self
   def self.cooked!: -> self

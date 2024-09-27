@@ -7,11 +7,9 @@
 extern "C" {
 #endif
 
-#ifndef MRBC_USE_HAL_POSIX
 void c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc);
 void c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc);
 void io_console_port_init(void);
-#endif
 
 int hal_getchar(void);
 

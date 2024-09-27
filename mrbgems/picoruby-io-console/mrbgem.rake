@@ -5,7 +5,14 @@ MRuby::Gem::Specification.new('picoruby-io-console') do |spec|
 
   spec.require_name = 'io/console'
 
-  spec.hal_obj
+  if %w(host no-libc-host).include?(cc.build.name)
+    src = "#{dir}/ports/posix/io-console.c"
+    obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
+    build.libmruby_objs << obj
+    file obj => src do |f|
+      cc.run f.name, f.prerequisites.first
+    end
+  end
 end
 
 
