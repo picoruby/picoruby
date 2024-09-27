@@ -9,7 +9,7 @@ class IO
 
   def self.getch
     self.raw do
-      getc
+      getc.to_s
     end
   end
 
@@ -17,8 +17,9 @@ class IO
     str = ""
     while true
       str += (char = getch)
-      return str if char == "\n"
+      break if char == "\n"
     end
+    str
   end
 
   def self.get_cursor_position
