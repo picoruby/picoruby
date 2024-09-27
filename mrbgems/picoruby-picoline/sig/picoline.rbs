@@ -1,0 +1,12 @@
+class PicoLine
+  class Question
+    attr_accessor default: String
+    attr_accessor default_hint_show: bool
+  end
+
+  attr_accessor default: String?
+
+  @answer: String
+
+  def ask: (String) ?{ (Question) -> void } -> String
+end
