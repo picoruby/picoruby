@@ -23,6 +23,7 @@ module Editor
     def initialize: -> void
     attr_reader width: Integer
     attr_reader height: Integer
+    def clear_buffer: -> void
     def clear: -> untyped
     def home: -> untyped
     def next_head: -> untyped

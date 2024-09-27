@@ -3,6 +3,12 @@
 
 require "io/console"
 
+begin
+  ENV
+rescue NameError
+  ENV = {}
+end
+
 case RUBY_ENGINE
 when "ruby", "jruby"
   require_relative "./buffer.rb"
@@ -64,6 +70,10 @@ module Editor
 
     attr_reader :width, :height
     attr_accessor :debug_tty
+
+    def clear_buffer
+      @buffer.clear
+    end
 
     def clear
       print "\e[2J"
