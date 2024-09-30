@@ -6,7 +6,7 @@
 #include "digest.h"
 
 void
-mrbc_mbedtls_init(void)
+mrbc_mbedtls_init(mrbc_vm *vm)
 {
   // mrbc_class *class_MbedTLS = mrbc_define_class(0, "MbedTLS", mrbc_class_object);
 

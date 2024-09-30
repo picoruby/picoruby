@@ -74,7 +74,7 @@ c_alloc_profiling_result(struct VM *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_picorubyvm_init(void)
+mrbc_picorubyvm_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_PicoRubyVM = mrbc_define_class(0, "PicoRubyVM", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "memory_statistics", c_memory_statistics);
@@ -82,6 +82,6 @@ mrbc_picorubyvm_init(void)
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "stop_alloc_profiling", c_stop_alloc_profiling);
   mrbc_define_method(0, mrbc_class_PicoRubyVM, "alloc_profiling_result", c_alloc_profiling_result);
 
-  mrbc_instruction_sequence_init();
+  mrbc_instruction_sequence_init(vm);
 }
 

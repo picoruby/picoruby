@@ -313,7 +313,7 @@ mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func)
 }
 
 void
-mrbc_filesystem_fat_init(void)
+mrbc_filesystem_fat_init(mrbc_vm *vm)
 {
   mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
   mrbc_define_method(0, class_FAT, "unixtime_offset=", c_unixtime_offset_eq);

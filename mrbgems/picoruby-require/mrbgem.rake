@@ -34,7 +34,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             mrbc.run(f, t.prerequisites, name, false)
             if initializer != "NULL"
               f.puts
-              f.puts "void #{initializer}();"
+              f.puts "void #{initializer}(mrbc_vm *vm);"
             end
           end
         end
@@ -64,7 +64,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         typedef struct picogems {
           const char *name;
           const uint8_t *mrb;
-          void (*initializer)(void);
+          void (*initializer)(mrbc_vm *vm);
           bool required;
         } picogems;
       PICOGEM
@@ -140,7 +140,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             force = true;
           }
           if ((force || !prebuilt_gems[i].required) && picoruby_load_model(prebuilt_gems[i].mrb)) {
-            if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer();
+            if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer(vm);
             prebuilt_gems[i].required = true;
             SET_TRUE_RETURN();
           } else {

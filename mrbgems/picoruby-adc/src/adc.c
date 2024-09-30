@@ -59,7 +59,7 @@ c_read_voltage(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_adc_init(void)
+mrbc_adc_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_ADC = mrbc_define_class(0, "ADC", mrbc_class_object);
 

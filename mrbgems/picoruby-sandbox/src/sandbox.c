@@ -215,7 +215,7 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_sandbox_init(void)
+mrbc_sandbox_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Sandbox = mrbc_define_class(0, "Sandbox", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_Sandbox, "compile", c_sandbox_compile);

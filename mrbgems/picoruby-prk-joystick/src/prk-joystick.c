@@ -78,7 +78,7 @@ c_Joystick_init_axis_offset(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_prk_joystick_init(void)
+mrbc_prk_joystick_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Joystick = mrbc_define_class(0, "Joystick", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_Joystick, "reset_axes",          c_Joystick_reset_axes);

@@ -80,7 +80,7 @@ c_Machine_deep_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_machine_init(void)
+mrbc_machine_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Machine = mrbc_define_class(0, "Machine", mrbc_class_object);
 

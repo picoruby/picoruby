@@ -319,7 +319,7 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_set_class_const(mrbc_class_##cls, mrbc_str_to_symid(#cst), &mrbc_integer_value(cst))
 
 void
-mrbc_uart_init(void)
+mrbc_uart_init(mrbc_vm *vm)
 {
   mrbc_class_UART = mrbc_define_class(0, "UART", mrbc_class_object);
   mrbc_class_UART_RxBuffer = mrbc_define_class(0, "RxBuffer", mrbc_class_UART);

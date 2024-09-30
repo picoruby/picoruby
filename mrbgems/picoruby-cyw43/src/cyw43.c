@@ -116,7 +116,7 @@ c_GPIO_read(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_cyw43_init(void)
+mrbc_cyw43_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_CYW43 = mrbc_define_class(0, "CYW43", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_CYW43, "_init", c__init);

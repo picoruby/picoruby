@@ -252,7 +252,7 @@ c_ws2812_circle(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_prk_rgb_init(void)
+mrbc_prk_rgb_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_RGB = mrbc_define_class(0, "RGB", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_RGB, "ws2812_init",                c_ws2812_init);

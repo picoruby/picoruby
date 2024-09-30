@@ -109,7 +109,7 @@ c_pulse_width_us(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_pwm_init(void)
+mrbc_pwm_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_PWM = mrbc_define_class(0, "PWM", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_PWM, "_init", c__init);

@@ -52,7 +52,7 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_net_init(void)
+mrbc_net_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Net = mrbc_define_class(0, "Net", mrbc_class_object);
 

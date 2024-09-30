@@ -64,7 +64,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_io_console_init(void)
+mrbc_io_console_init(mrbc_vm *vm)
 {
   mrbc_class *class_IO = mrbc_define_class(0, "IO", mrbc_class_object);
   mrbc_define_method(0, class_IO, "read_nonblock", c_read_nonblock);

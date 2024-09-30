@@ -84,7 +84,7 @@ c_base16_decode(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_base16_init(void)
+mrbc_base16_init(mrbc_vm *vm)
 {
   mrbc_class *class_Base16 = mrbc_define_class(0, "Base16", mrbc_class_object);
 

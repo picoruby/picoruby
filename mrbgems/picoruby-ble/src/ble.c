@@ -161,7 +161,7 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_ble_init(void)
+mrbc_ble_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_BLE, "_init", c__init);

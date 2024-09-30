@@ -46,7 +46,7 @@ c_uart_partner(mrbc_vm *vm, mrbc_value *v, int argc)
 
 
 void
-mrbc_prk_keyboard_init(void)
+mrbc_prk_keyboard_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Keyboard = mrbc_define_class(0, "Keyboard", mrbc_class_object);
 

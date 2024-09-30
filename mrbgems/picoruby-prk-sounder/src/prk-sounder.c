@@ -48,7 +48,7 @@ c_sounder_replay(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_prk_sounder_init(void)
+mrbc_prk_sounder_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Sounder = mrbc_define_class(0, "Sounder", mrbc_class_object);
   mrbc_define_method(0, mrbc_class_Sounder, "sounder_init",   c_sounder_init);

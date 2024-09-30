@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-void mrbc_sandbox_init(void);
+void mrbc_sandbox_init(mrbc_vm *vm);
 void create_sandbox(void);
 
 #ifdef __cplusplus

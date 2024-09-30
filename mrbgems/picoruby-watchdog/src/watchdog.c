@@ -106,7 +106,7 @@ c_Watchdog_get_count(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_watchdog_init(void)
+mrbc_watchdog_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Watchdog = mrbc_define_class(0, "Watchdog", mrbc_class_object);
 

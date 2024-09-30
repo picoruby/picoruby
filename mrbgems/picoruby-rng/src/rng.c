@@ -35,7 +35,7 @@ c_rng_random_string(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_rng_init(void)
+mrbc_rng_init(mrbc_vm *vm)
 {
   mrbc_class *class_RNG = mrbc_define_class(0, "RNG", mrbc_class_object);
 

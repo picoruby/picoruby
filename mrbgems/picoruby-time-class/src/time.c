@@ -451,7 +451,7 @@ c_time_methods(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(methods);
 }
 void
-mrbc_time_class_init(void)
+mrbc_time_class_init(mrbc_vm *vm)
 {
   mrbc_class *class_Time = mrbc_define_class(0, "Time", mrbc_class_object);
   mrbc_sym symid = mrbc_search_symid("TimeMethods");
