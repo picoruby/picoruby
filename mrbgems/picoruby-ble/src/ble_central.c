@@ -155,18 +155,16 @@ c_gap_connect(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_init_class_BLE_Central(void)
+mrbc_init_class_BLE_Central(mrbc_vm *vm, mrbc_class *class_BLE)
 {
-  mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
-  mrbc_value *BLE = mrbc_get_class_const(mrbc_class_BLE, mrbc_search_symid("Central"));
-  mrbc_class *mrbc_class_BLE_Central = BLE->cls;
+  mrbc_class *mrbc_class_BLE_Central = mrbc_define_class_under(vm, class_BLE, "Central", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_BLE_Central, "set_scan_params", c_set_scan_params);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "start_scan", c_start_scan);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "stop_scan", c_stop_scan);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "gap_connect", c_gap_connect);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "discover_primary_services", c_discover_primary_services);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "discover_characteristics_for_service", c_discover_characteristics_for_service);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "read_value_of_characteristic_using_value_handle", c_read_value_of_characteristic_using_value_handle);
-  mrbc_define_method(0, mrbc_class_BLE_Central, "discover_characteristic_descriptors", c_discover_characteristic_descriptors);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "set_scan_params", c_set_scan_params);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "start_scan", c_start_scan);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "stop_scan", c_stop_scan);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "gap_connect", c_gap_connect);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "discover_primary_services", c_discover_primary_services);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "discover_characteristics_for_service", c_discover_characteristics_for_service);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "read_value_of_characteristic_using_value_handle", c_read_value_of_characteristic_using_value_handle);
+  mrbc_define_method(vm, mrbc_class_BLE_Central, "discover_characteristic_descriptors", c_discover_characteristic_descriptors);
 }

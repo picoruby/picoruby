@@ -79,6 +79,6 @@ class IO
   end
 end
 
-# To save current termios state
-IO.raw!
-IO.cooked!
+## To save current termios state
+#IO.raw!
+#IO.cooked!

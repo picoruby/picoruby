@@ -68,9 +68,9 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_i2c_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_I2C = mrbc_define_class(0, "I2C", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_I2C, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_I2C, "_write", c__write);
-  mrbc_define_method(0, mrbc_class_I2C, "_read", c__read);
+  mrbc_class *mrbc_class_I2C = mrbc_define_class(vm, "I2C", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_I2C, "_init", c__init);
+  mrbc_define_method(vm, mrbc_class_I2C, "_write", c__write);
+  mrbc_define_method(vm, mrbc_class_I2C, "_read", c__read);
 }
 

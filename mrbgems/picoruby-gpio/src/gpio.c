@@ -192,7 +192,7 @@ c_write(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_gpio_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_GPIO = mrbc_define_class(0, "GPIO", mrbc_class_object);
+  mrbc_class *mrbc_class_GPIO = mrbc_define_class(vm, "GPIO", mrbc_class_object);
 
   SET_CLASS_CONST(GPIO, IN);
   SET_CLASS_CONST(GPIO, OUT);
@@ -202,19 +202,19 @@ mrbc_gpio_init(mrbc_vm *vm)
   SET_CLASS_CONST(GPIO, OPEN_DRAIN);
   SET_CLASS_CONST(GPIO, ALT);
 
-  mrbc_define_method(0, mrbc_class_GPIO, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_GPIO, "set_function_at", c_set_function_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "set_dir_at", c_set_dir_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "pull_up_at", c_pull_up_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "pull_down_at", c_pull_down_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "open_drain_at", c_open_drain_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "high_at?", c_high_at_q);
-  mrbc_define_method(0, mrbc_class_GPIO, "high?", c_high_q);
-  mrbc_define_method(0, mrbc_class_GPIO, "low_at?", c_low_at_q);
-  mrbc_define_method(0, mrbc_class_GPIO, "low?", c_low_q);
-  mrbc_define_method(0, mrbc_class_GPIO, "read_at", c_read_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "read", c_read);
-  mrbc_define_method(0, mrbc_class_GPIO, "write_at", c_write_at);
-  mrbc_define_method(0, mrbc_class_GPIO, "write", c_write);
+  mrbc_define_method(vm, mrbc_class_GPIO, "_init", c__init);
+  mrbc_define_method(vm, mrbc_class_GPIO, "set_function_at", c_set_function_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "set_dir_at", c_set_dir_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "pull_up_at", c_pull_up_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "pull_down_at", c_pull_down_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "open_drain_at", c_open_drain_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "high_at?", c_high_at_q);
+  mrbc_define_method(vm, mrbc_class_GPIO, "high?", c_high_q);
+  mrbc_define_method(vm, mrbc_class_GPIO, "low_at?", c_low_at_q);
+  mrbc_define_method(vm, mrbc_class_GPIO, "low?", c_low_q);
+  mrbc_define_method(vm, mrbc_class_GPIO, "read_at", c_read_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "read", c_read);
+  mrbc_define_method(vm, mrbc_class_GPIO, "write_at", c_write_at);
+  mrbc_define_method(vm, mrbc_class_GPIO, "write", c_write);
 }
 

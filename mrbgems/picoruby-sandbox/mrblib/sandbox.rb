@@ -45,7 +45,7 @@ class Sandbox
         end
       end
       if started && wait(signal: signal, timeout: nil) && error
-        puts "#{error.message} (#{error.class})"
+        puts "#{error.message} (#{error})"
       end
     rescue => e
       p e

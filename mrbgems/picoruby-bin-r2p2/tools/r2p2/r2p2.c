@@ -26,10 +26,11 @@ int
 main(void)
 {
   mrbc_init(heap_pool, HEAP_SIZE);
-  mrbc_define_method(0, mrbc_class_object, "exit", c_exit);
-  picoruby_init_require();
-  picoruby_init_executables();
-  mrbc_create_task(r2p2, 0);
+  mrbc_tcb *tcb = mrbc_create_task(r2p2, 0);
+  mrbc_vm *vm = &tcb->vm;
+  mrbc_define_method(vm, mrbc_class_object, "exit", c_exit);
+  picoruby_init_require(vm);
+  picoruby_init_executables(vm);
   mrbc_run();
   return 0;
 }

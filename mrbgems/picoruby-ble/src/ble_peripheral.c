@@ -32,15 +32,13 @@ c_request_can_send_now_event(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_init_class_BLE_Peripheral(void)
+mrbc_init_class_BLE_Peripheral(mrbc_vm *vm, mrbc_class *class_BLE)
 {
-  mrbc_class *mrbc_class_BLE = mrbc_define_class(0, "BLE", mrbc_class_object);
-  mrbc_value *Peripheral = mrbc_get_class_const(mrbc_class_BLE, mrbc_search_symid("Peripheral"));
-  mrbc_class *mrbc_class_BLE_Peripheral = Peripheral->cls;
+  mrbc_class *mrbc_class_BLE_Peripheral = mrbc_define_class_under(vm, class_BLE, "Peripheral", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "notify", c_notify);
+  mrbc_define_method(vm, mrbc_class_BLE_Peripheral, "advertise", c_advertise);
+  mrbc_define_method(vm, mrbc_class_BLE_Peripheral, "notify", c_notify);
 
-  mrbc_define_method(0, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
+  mrbc_define_method(vm, mrbc_class_BLE_Peripheral, "request_can_send_now_event", c_request_can_send_now_event);
 }
 

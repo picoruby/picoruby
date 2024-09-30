@@ -217,15 +217,15 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Sandbox = mrbc_define_class(0, "Sandbox", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_Sandbox, "compile", c_sandbox_compile);
-  mrbc_define_method(0, mrbc_class_Sandbox, "execute", c_sandbox_execute);
-  mrbc_define_method(0, mrbc_class_Sandbox, "state",   c_sandbox_state);
-  mrbc_define_method(0, mrbc_class_Sandbox, "result",  c_sandbox_result);
-  mrbc_define_method(0, mrbc_class_Sandbox, "error",   c_sandbox_error);
-  mrbc_define_method(0, mrbc_class_Sandbox, "interrupt", c_sandbox_interrupt);
-  mrbc_define_method(0, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
-  mrbc_define_method(0, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
-  mrbc_define_method(0, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
-  mrbc_define_method(0, mrbc_class_Sandbox, "new",     c_sandbox_new);
+  mrbc_class *mrbc_class_Sandbox = mrbc_define_class(vm, "Sandbox", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "compile", c_sandbox_compile);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "execute", c_sandbox_execute);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "state",   c_sandbox_state);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "result",  c_sandbox_result);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "error",   c_sandbox_error);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "interrupt", c_sandbox_interrupt);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "new",     c_sandbox_new);
 }

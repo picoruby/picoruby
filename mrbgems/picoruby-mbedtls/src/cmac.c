@@ -75,15 +75,12 @@ c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-gem_mbedtls_cmac_init(void)
+gem_mbedtls_cmac_init(mrbc_vm *vm, mrbc_class *class_MbedTLS)
 {
-  mrbc_class *class_MbedTLS = mrbc_define_class(0, "MbedTLS", mrbc_class_object);
+  mrbc_class *class_MbedTLS_CMAC = mrbc_define_class_under(vm, class_MbedTLS, "CMAC", mrbc_class_object);
 
-  mrbc_value *CMAC = mrbc_get_class_const(class_MbedTLS, mrbc_search_symid("CMAC"));
-  mrbc_class *class_MbedTLS_CMAC = CMAC->cls;
-
-  mrbc_define_method(0, class_MbedTLS_CMAC, "_init_aes", c__init_aes);
-  mrbc_define_method(0, class_MbedTLS_CMAC, "update", c_update);
-  mrbc_define_method(0, class_MbedTLS_CMAC, "reset", c_reset);
-  mrbc_define_method(0, class_MbedTLS_CMAC, "digest", c_digest);
+  mrbc_define_method(vm, class_MbedTLS_CMAC, "_init_aes", c__init_aes);
+  mrbc_define_method(vm, class_MbedTLS_CMAC, "update", c_update);
+  mrbc_define_method(vm, class_MbedTLS_CMAC, "reset", c_reset);
+  mrbc_define_method(vm, class_MbedTLS_CMAC, "digest", c_digest);
 }

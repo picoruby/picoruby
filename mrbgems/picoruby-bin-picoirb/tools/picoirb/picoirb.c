@@ -121,9 +121,9 @@ main(int argc, char *argv[])
 {
   loglevel = LOGLEVEL_ERROR;
   mrbc_init(heap, HEAP_SIZE);
-  mrbc_define_method(0, mrbc_class_object, "getch", c_getch);
-  mrbc_define_method(0, mrbc_class_object, "gets_nonblock", c_gets_nonblock);
-  mrbc_define_method(0, mrbc_class_object, "terminate_irb", c_terminate_irb);
+  mrbc_define_method(vm, mrbc_class_object, "getch", c_getch);
+  mrbc_define_method(vm, mrbc_class_object, "gets_nonblock", c_gets_nonblock);
+  mrbc_define_method(vm, mrbc_class_object, "terminate_irb", c_terminate_irb);
   SANDBOX_INIT();
   create_sandbox();
   mrbc_create_task(buffer, 0);

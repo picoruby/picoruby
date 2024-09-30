@@ -321,8 +321,8 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_uart_init(mrbc_vm *vm)
 {
-  mrbc_class_UART = mrbc_define_class(0, "UART", mrbc_class_object);
-  mrbc_class_UART_RxBuffer = mrbc_define_class(0, "RxBuffer", mrbc_class_UART);
+  mrbc_class_UART = mrbc_define_class(vm, "UART", mrbc_class_object);
+  mrbc_class_UART_RxBuffer = mrbc_define_class(vm, "RxBuffer", mrbc_class_UART);
 
   SET_CLASS_CONST_INT(UART, PARITY_NONE);
   SET_CLASS_CONST_INT(UART, PARITY_EVEN);
@@ -330,20 +330,20 @@ mrbc_uart_init(mrbc_vm *vm)
   SET_CLASS_CONST_INT(UART, FLOW_CONTROL_NONE);
   SET_CLASS_CONST_INT(UART, FLOW_CONTROL_RTS_CTS);
 
-  mrbc_define_method(0, mrbc_class_UART, "open_rx_buffer", c_open_rx_buffer);
-  mrbc_define_method(0, mrbc_class_UART, "open_connection", c_open_connection);
-  mrbc_define_method(0, mrbc_class_UART, "_set_baudrate", c__set_baudrate);
-  mrbc_define_method(0, mrbc_class_UART, "_set_flow_control", c__set_flow_control);
-  mrbc_define_method(0, mrbc_class_UART, "_set_format", c__set_format);
-  mrbc_define_method(0, mrbc_class_UART, "_set_function", c__set_function);
-  mrbc_define_method(0, mrbc_class_UART, "read", c_read);
-  mrbc_define_method(0, mrbc_class_UART, "readpartial", c_readpartial);
-  mrbc_define_method(0, mrbc_class_UART, "bytes_available", c_bytes_available);
-  mrbc_define_method(0, mrbc_class_UART, "write", c_write);
-  mrbc_define_method(0, mrbc_class_UART, "gets", c_gets);
-  mrbc_define_method(0, mrbc_class_UART, "flush", c_flush);
-  mrbc_define_method(0, mrbc_class_UART, "clear_tx_buffer", c_clear_tx_buffer);
-  mrbc_define_method(0, mrbc_class_UART, "clear_rx_buffer", c_clear_rx_buffer);
-  mrbc_define_method(0, mrbc_class_UART, "break", c_break);
+  mrbc_define_method(vm, mrbc_class_UART, "open_rx_buffer", c_open_rx_buffer);
+  mrbc_define_method(vm, mrbc_class_UART, "open_connection", c_open_connection);
+  mrbc_define_method(vm, mrbc_class_UART, "_set_baudrate", c__set_baudrate);
+  mrbc_define_method(vm, mrbc_class_UART, "_set_flow_control", c__set_flow_control);
+  mrbc_define_method(vm, mrbc_class_UART, "_set_format", c__set_format);
+  mrbc_define_method(vm, mrbc_class_UART, "_set_function", c__set_function);
+  mrbc_define_method(vm, mrbc_class_UART, "read", c_read);
+  mrbc_define_method(vm, mrbc_class_UART, "readpartial", c_readpartial);
+  mrbc_define_method(vm, mrbc_class_UART, "bytes_available", c_bytes_available);
+  mrbc_define_method(vm, mrbc_class_UART, "write", c_write);
+  mrbc_define_method(vm, mrbc_class_UART, "gets", c_gets);
+  mrbc_define_method(vm, mrbc_class_UART, "flush", c_flush);
+  mrbc_define_method(vm, mrbc_class_UART, "clear_tx_buffer", c_clear_tx_buffer);
+  mrbc_define_method(vm, mrbc_class_UART, "clear_rx_buffer", c_clear_rx_buffer);
+  mrbc_define_method(vm, mrbc_class_UART, "break", c_break);
 }
 

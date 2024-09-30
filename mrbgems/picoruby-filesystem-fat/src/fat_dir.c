@@ -87,19 +87,15 @@ c_rewind(struct VM *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_init_class_FAT_Dir(void)
+mrbc_init_class_FAT_Dir(mrbc_vm *vm, mrbc_class *class_FAT)
 {
-  mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
+  mrbc_class *class_FAT_Dir = mrbc_define_class_under(vm, class_FAT, "Dir", mrbc_class_object);
 
-  mrbc_sym symid = mrbc_search_symid("Dir");
-  mrbc_value *v = mrbc_get_class_const(class_FAT, symid);
-  mrbc_class *class_FAT_Dir = v->cls;
-
-  mrbc_define_method(0, class_FAT_Dir, "new", c_new);
-  mrbc_define_method(0, class_FAT_Dir, "close", c_close);
-  mrbc_define_method(0, class_FAT_Dir, "read", c_read);
-  mrbc_define_method(0, class_FAT_Dir, "rewind", c_rewind);
-  mrbc_define_method(0, class_FAT_Dir, "pat=", c_pat_eq);
-  mrbc_define_method(0, class_FAT_Dir, "findnext", c_findnext);
+  mrbc_define_method(vm, class_FAT_Dir, "new", c_new);
+  mrbc_define_method(vm, class_FAT_Dir, "close", c_close);
+  mrbc_define_method(vm, class_FAT_Dir, "read", c_read);
+  mrbc_define_method(vm, class_FAT_Dir, "rewind", c_rewind);
+  mrbc_define_method(vm, class_FAT_Dir, "pat=", c_pat_eq);
+  mrbc_define_method(vm, class_FAT_Dir, "findnext", c_findnext);
 }
 

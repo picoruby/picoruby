@@ -347,10 +347,10 @@ picorb_undef_p(mrbc_value *v)
 }
 
 static void
-picorb_vm_init()
+picorb_vm_init(mrbc_vm *vm)
 {
   mrbc_init(mrbc_heap, HEAP_SIZE);
-  picoruby_init_require();
+  picoruby_init_require(vm);
 }
 
 static void
@@ -387,7 +387,7 @@ picorb_print_error(void)
 int
 main(int argc, char **argv)
 {
-  picorb_vm_init();
+  picorb_vm_init(NULL);
 
   int n = -1;
   struct _args args;

@@ -30,11 +30,11 @@ c_time_methods_eq(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_sqlite3_init(mrbc_vm *vm)
 {
-  mrbc_class *class_SQLite3 = mrbc_define_class(0, "SQLite3", mrbc_class_object);
-  mrbc_define_method(0, class_SQLite3, "vfs_methods=", c_vfs_methods_eq);
-  mrbc_define_method(0, class_SQLite3, "time_methods=", c_time_methods_eq);
+  mrbc_class *class_SQLite3 = mrbc_define_class(vm, "SQLite3", mrbc_class_object);
+  mrbc_define_method(vm, class_SQLite3, "vfs_methods=", c_vfs_methods_eq);
+  mrbc_define_method(vm, class_SQLite3, "time_methods=", c_time_methods_eq);
 
-  mrbc_init_class_SQLite3_Database();
-  mrbc_init_class_SQLite3_Statement();
+  mrbc_init_class_SQLite3_Database(vm, class_SQLite3);
+  mrbc_init_class_SQLite3_Statement(vm, class_SQLite3);
 }
 

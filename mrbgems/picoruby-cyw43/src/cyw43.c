@@ -118,25 +118,24 @@ c_GPIO_read(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_cyw43_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_CYW43 = mrbc_define_class(0, "CYW43", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_CYW43, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_CYW43, "initialized?", c_CYW43_initialized_q);
+  mrbc_class *class_CYW43 = mrbc_define_class(vm, "CYW43", mrbc_class_object);
+  mrbc_define_method(vm, class_CYW43, "_init", c__init);
+  mrbc_define_method(vm, class_CYW43, "initialized?", c_CYW43_initialized_q);
 #ifdef USE_WIFI
-  mrbc_define_method(0, mrbc_class_CYW43, "enable_sta_mode", c_CYW43_enable_sta_mode);
-  mrbc_define_method(0, mrbc_class_CYW43, "disable_sta_mode", c_CYW43_disable_sta_mode);
-  mrbc_define_method(0, mrbc_class_CYW43, "connect_blocking", c_CYW43_connect_blocking);
-  mrbc_define_method(0, mrbc_class_CYW43, "tcpip_link_status", c_CYW43_tcpip_link_status);
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_DOWN"), &mrbc_integer_value(CYW43_CONST_link_down()));
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_JOIN"), &mrbc_integer_value(CYW43_CONST_link_join()));
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_NOIP"), &mrbc_integer_value(CYW43_CONST_link_noip()));
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_UP"), &mrbc_integer_value(CYW43_CONST_link_up()));
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_FAIL"), &mrbc_integer_value(CYW43_CONST_link_fail()));
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_NONET"), &mrbc_integer_value(CYW43_CONST_link_nonet()));
-  mrbc_set_class_const(mrbc_class_CYW43, mrbc_str_to_symid("LINK_BADAUTH"), &mrbc_integer_value(CYW43_CONST_link_badauth()));
+  mrbc_define_method(vm, class_CYW43, "enable_sta_mode", c_CYW43_enable_sta_mode);
+  mrbc_define_method(vm, class_CYW43, "disable_sta_mode", c_CYW43_disable_sta_mode);
+  mrbc_define_method(vm, class_CYW43, "connect_blocking", c_CYW43_connect_blocking);
+  mrbc_define_method(vm, class_CYW43, "tcpip_link_status", c_CYW43_tcpip_link_status);
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_DOWN"), &mrbc_integer_value(CYW43_CONST_link_down()));
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_JOIN"), &mrbc_integer_value(CYW43_CONST_link_join()));
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_NOIP"), &mrbc_integer_value(CYW43_CONST_link_noip()));
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_UP"), &mrbc_integer_value(CYW43_CONST_link_up()));
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_FAIL"), &mrbc_integer_value(CYW43_CONST_link_fail()));
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_NONET"), &mrbc_integer_value(CYW43_CONST_link_nonet()));
+  mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_BADAUTH"), &mrbc_integer_value(CYW43_CONST_link_badauth()));
 #endif
 
-  mrbc_value *CYW43 = mrbc_get_class_const(mrbc_class_CYW43, mrbc_search_symid("GPIO"));
-  mrbc_class *mrbc_class_CYW43_GPIO = CYW43->cls;
-  mrbc_define_method(0, mrbc_class_CYW43_GPIO, "write", c_GPIO_write);
-  mrbc_define_method(0, mrbc_class_CYW43_GPIO, "read", c_GPIO_read);
+  mrbc_class *mrbc_class_CYW43_GPIO = mrbc_define_class_under(vm, class_CYW43, "GPIO", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_CYW43_GPIO, "write", c_GPIO_write);
+  mrbc_define_method(vm, mrbc_class_CYW43_GPIO, "read", c_GPIO_read);
 }

@@ -79,13 +79,11 @@ array_callback_funciton(mrbc_value *result_array, int count, char **data, char *
 }
 
 void
-mrbc_init_class_SQLite3_Database(void)
+mrbc_init_class_SQLite3_Database(mrbc_vm *vm, mrbc_class *class_SQLite3)
 {
-  mrbc_class *class_SQLite3 = mrbc_define_class(0, "SQLite3", mrbc_class_object);
-  mrbc_value *v = mrbc_get_class_const(class_SQLite3, mrbc_search_symid("Database"));
-  mrbc_class *class_SQLite3_Database = v->cls;
+  mrbc_class *class_SQLite3_Database = mrbc_define_class_under(vm, class_SQLite3, "Database", mrbc_class_object);
 
-  mrbc_define_method(0, class_SQLite3_Database, "close", c_close);
-  mrbc_define_method(0, class_SQLite3_Database, "closed?", c_closed_q);
-  mrbc_define_method(0, class_SQLite3_Database, "_open", c__open);
+  mrbc_define_method(vm, class_SQLite3_Database, "close", c_close);
+  mrbc_define_method(vm, class_SQLite3_Database, "closed?", c_closed_q);
+  mrbc_define_method(vm, class_SQLite3_Database, "_open", c__open);
 }

@@ -32,7 +32,7 @@ c_parse(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_prism_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Prism = mrbc_define_class(0, "Prism", mrbc_class_object);
+  mrbc_class *mrbc_class_Prism = mrbc_define_class(vm, "Prism", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_Prism, "parse", c_parse);
+  mrbc_define_method(vm, mrbc_class_Prism, "parse", c_parse);
 }

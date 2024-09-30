@@ -315,29 +315,29 @@ mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func)
 void
 mrbc_filesystem_fat_init(mrbc_vm *vm)
 {
-  mrbc_class *class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
-  mrbc_define_method(0, class_FAT, "unixtime_offset=", c_unixtime_offset_eq);
-  mrbc_define_method(0, class_FAT, "_erase", c__erase);
-  mrbc_define_method(0, class_FAT, "_mkfs", c__mkfs);
-  mrbc_define_method(0, class_FAT, "getfree", c_getfree);
-  mrbc_define_method(0, class_FAT, "_mount", c__mount);
-  mrbc_define_method(0, class_FAT, "_unmount", c__unmount);
-  mrbc_define_method(0, class_FAT, "_chdir", c__chdir);
-  mrbc_define_method(0, class_FAT, "_utime", c__utime);
-  mrbc_define_method(0, class_FAT, "_mkdir", c__mkdir);
-  mrbc_define_method(0, class_FAT, "_unlink", c__unlink);
-  mrbc_define_method(0, class_FAT, "_rename", c__rename);
-  mrbc_define_method(0, class_FAT, "_chmod", c__chmod);
-  mrbc_define_method(0, class_FAT, "_stat", c__stat);
-  mrbc_define_method(0, class_FAT, "_exist?", c__exist_q);
-  mrbc_define_method(0, class_FAT, "_directory?", c__directory_q);
-  mrbc_define_method(0, class_FAT, "_setlabel", c__setlabel);
-  mrbc_define_method(0, class_FAT, "_getlabel", c__getlabel);
-  mrbc_init_class_FAT_Dir();
-  mrbc_init_class_FAT_File();
+  mrbc_class *class_FAT = mrbc_define_class(vm, "FAT", mrbc_class_object);
+  mrbc_define_method(vm, class_FAT, "unixtime_offset=", c_unixtime_offset_eq);
+  mrbc_define_method(vm, class_FAT, "_erase", c__erase);
+  mrbc_define_method(vm, class_FAT, "_mkfs", c__mkfs);
+  mrbc_define_method(vm, class_FAT, "getfree", c_getfree);
+  mrbc_define_method(vm, class_FAT, "_mount", c__mount);
+  mrbc_define_method(vm, class_FAT, "_unmount", c__unmount);
+  mrbc_define_method(vm, class_FAT, "_chdir", c__chdir);
+  mrbc_define_method(vm, class_FAT, "_utime", c__utime);
+  mrbc_define_method(vm, class_FAT, "_mkdir", c__mkdir);
+  mrbc_define_method(vm, class_FAT, "_unlink", c__unlink);
+  mrbc_define_method(vm, class_FAT, "_rename", c__rename);
+  mrbc_define_method(vm, class_FAT, "_chmod", c__chmod);
+  mrbc_define_method(vm, class_FAT, "_stat", c__stat);
+  mrbc_define_method(vm, class_FAT, "_exist?", c__exist_q);
+  mrbc_define_method(vm, class_FAT, "_directory?", c__directory_q);
+  mrbc_define_method(vm, class_FAT, "_setlabel", c__setlabel);
+  mrbc_define_method(vm, class_FAT, "_getlabel", c__getlabel);
+  mrbc_init_class_FAT_Dir(vm, class_FAT);
+  mrbc_init_class_FAT_File(vm, class_FAT);
 
 #ifdef USE_FAT_SD_DISK
-  mrbc_define_method(0, class_FAT, "init_spi", c_FAT_init_spi);
+  mrbc_define_method(vm, class_FAT, "init_spi", c_FAT_init_spi);
 #endif
 }
 

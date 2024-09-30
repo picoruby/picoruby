@@ -125,14 +125,14 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_spi_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_SPI = mrbc_define_class(0, "SPI", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_SPI, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_SPI, "_write", c__write);
-  mrbc_define_method(0, mrbc_class_SPI, "_read", c__read);
-  mrbc_define_method(0, mrbc_class_SPI, "_transfer", c__transfer);
-  mrbc_define_method(0, mrbc_class_SPI, "sck_pin", c_sck_pin);
-  mrbc_define_method(0, mrbc_class_SPI, "cipo_pin", c_cipo_pin);
-  mrbc_define_method(0, mrbc_class_SPI, "copi_pin", c_copi_pin);
-  mrbc_define_method(0, mrbc_class_SPI, "cs_pin", c_cs_pin);
+  mrbc_class *mrbc_class_SPI = mrbc_define_class(vm, "SPI", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_SPI, "_init", c__init);
+  mrbc_define_method(vm, mrbc_class_SPI, "_write", c__write);
+  mrbc_define_method(vm, mrbc_class_SPI, "_read", c__read);
+  mrbc_define_method(vm, mrbc_class_SPI, "_transfer", c__transfer);
+  mrbc_define_method(vm, mrbc_class_SPI, "sck_pin", c_sck_pin);
+  mrbc_define_method(vm, mrbc_class_SPI, "cipo_pin", c_cipo_pin);
+  mrbc_define_method(vm, mrbc_class_SPI, "copi_pin", c_copi_pin);
+  mrbc_define_method(vm, mrbc_class_SPI, "cs_pin", c_cs_pin);
 }
 

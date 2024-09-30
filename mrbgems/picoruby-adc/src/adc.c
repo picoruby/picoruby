@@ -61,10 +61,10 @@ c_read_voltage(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_adc_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_ADC = mrbc_define_class(0, "ADC", mrbc_class_object);
+  mrbc_class *mrbc_class_ADC = mrbc_define_class(vm, "ADC", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_ADC, "_init", c__init);
-  mrbc_define_method(0, mrbc_class_ADC, "read_voltage", c_read_voltage);
-  mrbc_define_method(0, mrbc_class_ADC, "read", c_read_voltage);
-  mrbc_define_method(0, mrbc_class_ADC, "read_raw", c_read_raw);
+  mrbc_define_method(vm, mrbc_class_ADC, "_init", c__init);
+  mrbc_define_method(vm, mrbc_class_ADC, "read_voltage", c_read_voltage);
+  mrbc_define_method(vm, mrbc_class_ADC, "read", c_read_voltage);
+  mrbc_define_method(vm, mrbc_class_ADC, "read_raw", c_read_raw);
 }

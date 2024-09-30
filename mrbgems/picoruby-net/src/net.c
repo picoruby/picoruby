@@ -54,13 +54,11 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_net_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Net = mrbc_define_class(0, "Net", mrbc_class_object);
+  mrbc_class *class_Net = mrbc_define_class(vm, "Net", mrbc_class_object);
 
-  mrbc_value *DNS = mrbc_get_class_const(mrbc_class_Net, mrbc_search_symid("DNS"));
-  mrbc_class *mrbc_class_Net_DNS = DNS->cls;
-  mrbc_define_method(0, mrbc_class_Net_DNS, "resolve", c_net_dns_resolve);
+  mrbc_class *class_Net_DNS = mrbc_define_class_under(vm, class_Net, "DNS", mrbc_class_object);
+  mrbc_define_method(vm, class_Net_DNS, "resolve", c_net_dns_resolve);
 
-  mrbc_value *TCPClient = mrbc_get_class_const(mrbc_class_Net, mrbc_search_symid("TCPClient"));
-  mrbc_class *mrbc_class_Net_TCPClient = TCPClient->cls;
-  mrbc_define_method(0, mrbc_class_Net_TCPClient, "_request_impl", c_net_tcpclient__request_impl);
+  mrbc_class *class_Net_TCPClient = mrbc_define_class_under(vm, class_Net, "TCPClient", mrbc_class_object);
+  mrbc_define_method(vm, class_Net_TCPClient, "_request_impl", c_net_tcpclient__request_impl);
 }

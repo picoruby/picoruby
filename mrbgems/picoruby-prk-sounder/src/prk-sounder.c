@@ -50,9 +50,9 @@ c_sounder_replay(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_prk_sounder_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Sounder = mrbc_define_class(0, "Sounder", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_Sounder, "sounder_init",   c_sounder_init);
-  mrbc_define_method(0, mrbc_class_Sounder, "sounder_replay", c_sounder_replay);
-  mrbc_define_method(0, mrbc_class_Sounder, "add_note",       c_sounder_add_note);
-  mrbc_define_method(0, mrbc_class_Sounder, "clear_song",     c_sounder_clear_song);
+  mrbc_class *mrbc_class_Sounder = mrbc_define_class(vm, "Sounder", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_Sounder, "sounder_init",   c_sounder_init);
+  mrbc_define_method(vm, mrbc_class_Sounder, "sounder_replay", c_sounder_replay);
+  mrbc_define_method(vm, mrbc_class_Sounder, "add_note",       c_sounder_add_note);
+  mrbc_define_method(vm, mrbc_class_Sounder, "clear_song",     c_sounder_clear_song);
 }

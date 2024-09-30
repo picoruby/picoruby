@@ -43,10 +43,9 @@ hal_getchar(void)
 }
 
 void
-io_console_port_init(void)
+io_console_port_init(mrbc_vm *vm, mrbc_class *class_IO)
 {
-  mrbc_class *class_IO = mrbc_define_class(0, "IO", mrbc_class_object);
-  mrbc_define_method(0, class_IO, "raw!", c_raw_bang);
-  mrbc_define_method(0, class_IO, "cooked!", c_cooked_bang);
+  mrbc_define_method(vm, class_IO, "raw!", c_raw_bang);
+  mrbc_define_method(vm, class_IO, "cooked!", c_cooked_bang);
 }
 

@@ -192,6 +192,7 @@ c_Statement_bind_param(mrbc_vm *vm, mrbc_value v[], int argc)
       break;
     default:
       mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
+      return;
       break;
   }
   prb_sqlite3_raise(vm, sqlite3_db_handle(cxt->st), status);
@@ -220,21 +221,19 @@ c_Statement_column_decltype(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_init_class_SQLite3_Statement(void)
+mrbc_init_class_SQLite3_Statement(mrbc_vm *vm, mrbc_class *class_SQLite3)
 {
-  mrbc_class *class_SQLite3 = mrbc_define_class(0, "SQLite3", mrbc_class_object);
-  mrbc_value *v = mrbc_get_class_const(class_SQLite3, mrbc_search_symid("Statement"));
-  mrbc_class *class_SQLite3_Statement = v->cls;
+  mrbc_class *class_SQLite3_Statement = mrbc_define_class_under(vm, class_SQLite3, "Statement", class_SQLite3);
 
-  mrbc_define_method(0, class_SQLite3_Statement, "new", c_Statement_new);
-  mrbc_define_method(0, class_SQLite3_Statement, "close", c_Statement_close);
-  mrbc_define_method(0, class_SQLite3_Statement, "closed?", c_Statement_closed_q);
-  mrbc_define_method(0, class_SQLite3_Statement, "step", c_Statement_step);
-  mrbc_define_method(0, class_SQLite3_Statement, "reset!", c_Statement_reset_bang);
-  mrbc_define_method(0, class_SQLite3_Statement, "done?", c_Statement_done_q);
-  mrbc_define_method(0, class_SQLite3_Statement, "column_count", c_Statement_column_count);
-  mrbc_define_method(0, class_SQLite3_Statement, "bind_param", c_Statement_bind_param);
-  mrbc_define_method(0, class_SQLite3_Statement, "column_name", c_Statement_column_name);
-  mrbc_define_method(0, class_SQLite3_Statement, "column_decltype", c_Statement_column_decltype);
+  mrbc_define_method(vm, class_SQLite3_Statement, "new", c_Statement_new);
+  mrbc_define_method(vm, class_SQLite3_Statement, "close", c_Statement_close);
+  mrbc_define_method(vm, class_SQLite3_Statement, "closed?", c_Statement_closed_q);
+  mrbc_define_method(vm, class_SQLite3_Statement, "step", c_Statement_step);
+  mrbc_define_method(vm, class_SQLite3_Statement, "reset!", c_Statement_reset_bang);
+  mrbc_define_method(vm, class_SQLite3_Statement, "done?", c_Statement_done_q);
+  mrbc_define_method(vm, class_SQLite3_Statement, "column_count", c_Statement_column_count);
+  mrbc_define_method(vm, class_SQLite3_Statement, "bind_param", c_Statement_bind_param);
+  mrbc_define_method(vm, class_SQLite3_Statement, "column_name", c_Statement_column_name);
+  mrbc_define_method(vm, class_SQLite3_Statement, "column_decltype", c_Statement_column_decltype);
 }
 

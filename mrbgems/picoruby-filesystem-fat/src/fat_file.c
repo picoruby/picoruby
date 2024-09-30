@@ -5,7 +5,6 @@
 
 #include "../lib/ff14b/source/ff.h"
 
-static mrbc_class *class_FAT;
 static mrbc_class *class_FAT_File;
 static mrbc_class *class_FAT_VFSMethods;
 
@@ -180,29 +179,24 @@ c_vfs_methods(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_init_class_FAT_File(void)
+mrbc_init_class_FAT_File(mrbc_vm *vm ,mrbc_class *class_FAT)
 {
-  class_FAT = mrbc_define_class(0, "FAT", mrbc_class_object);
 
-  mrbc_sym symid = mrbc_search_symid("File");
-  mrbc_value *v = mrbc_get_class_const(class_FAT, symid);
-  class_FAT_File = v->cls;
-  symid = mrbc_search_symid("VFSMethods");
-  v = mrbc_get_class_const(class_FAT, symid);
-  class_FAT_VFSMethods = v->cls;
+  class_FAT_File = mrbc_define_class_under(vm, class_FAT, "File", mrbc_class_object);
+  class_FAT_VFSMethods = mrbc_define_class_under(vm, class_FAT, "VFSMethods", mrbc_class_object);
 
-  mrbc_define_method(0, class_FAT_File, "new", c_new);
-  mrbc_define_method(0, class_FAT_File, "open", c_new);
-  mrbc_define_method(0, class_FAT_File, "tell", c_tell);
-  mrbc_define_method(0, class_FAT_File, "seek", c_seek);
-  mrbc_define_method(0, class_FAT_File, "eof?", c_eof_q);
-  mrbc_define_method(0, class_FAT_File, "read", c_read);
-  mrbc_define_method(0, class_FAT_File, "write", c_write);
-  mrbc_define_method(0, class_FAT_File, "close", c_close);
-  mrbc_define_method(0, class_FAT_File, "size", c_size);
-  mrbc_define_method(0, class_FAT_File, "expand", c_expand);
-  mrbc_define_method(0, class_FAT_File, "fsync", c_fsync);
+  mrbc_define_method(vm, class_FAT_File, "new", c_new);
+  mrbc_define_method(vm, class_FAT_File, "open", c_new);
+  mrbc_define_method(vm, class_FAT_File, "tell", c_tell);
+  mrbc_define_method(vm, class_FAT_File, "seek", c_seek);
+  mrbc_define_method(vm, class_FAT_File, "eof?", c_eof_q);
+  mrbc_define_method(vm, class_FAT_File, "read", c_read);
+  mrbc_define_method(vm, class_FAT_File, "write", c_write);
+  mrbc_define_method(vm, class_FAT_File, "close", c_close);
+  mrbc_define_method(vm, class_FAT_File, "size", c_size);
+  mrbc_define_method(vm, class_FAT_File, "expand", c_expand);
+  mrbc_define_method(vm, class_FAT_File, "fsync", c_fsync);
 
-  mrbc_define_method(0, class_FAT, "vfs_methods", c_vfs_methods);
+  mrbc_define_method(vm, class_FAT, "vfs_methods", c_vfs_methods);
 }
 

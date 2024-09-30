@@ -48,12 +48,12 @@ c_uart_partner(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_prk_keyboard_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Keyboard = mrbc_define_class(0, "Keyboard", mrbc_class_object);
+  mrbc_class *mrbc_class_Keyboard = mrbc_define_class(vm, "Keyboard", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_Keyboard, "uart_anchor_init",   c_uart_anchor_init);
-  mrbc_define_method(0, mrbc_class_Keyboard, "uart_partner_init",  c_uart_partner_init);
-  mrbc_define_method(0, mrbc_class_Keyboard, "uart_partner",       c_uart_partner);
-  mrbc_define_method(0, mrbc_class_Keyboard, "uart_partner_push8", c_uart_partner_push8);
+  mrbc_define_method(vm, mrbc_class_Keyboard, "uart_anchor_init",   c_uart_anchor_init);
+  mrbc_define_method(vm, mrbc_class_Keyboard, "uart_partner_init",  c_uart_partner_init);
+  mrbc_define_method(vm, mrbc_class_Keyboard, "uart_partner",       c_uart_partner);
+  mrbc_define_method(vm, mrbc_class_Keyboard, "uart_partner_push8", c_uart_partner_push8);
 
   Keyboard_init_sub(mrbc_class_Keyboard);
 }

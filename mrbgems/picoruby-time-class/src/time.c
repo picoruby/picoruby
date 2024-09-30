@@ -453,36 +453,34 @@ c_time_methods(mrbc_vm *vm, mrbc_value v[], int argc)
 void
 mrbc_time_class_init(mrbc_vm *vm)
 {
-  mrbc_class *class_Time = mrbc_define_class(0, "Time", mrbc_class_object);
-  mrbc_sym symid = mrbc_search_symid("TimeMethods");
-  mrbc_value *v = mrbc_get_class_const(class_Time, symid);
-  class_TimeMethods = v->cls;
+  mrbc_class *class_Time = mrbc_define_class(vm, "Time", mrbc_class_object);
+  class_TimeMethods = mrbc_define_class_under(vm, class_Time, "TimeMethods", mrbc_class_object);
 
-  mrbc_define_method(0, class_Time, "unixtime_offset", c_unixtime_offset);
-  mrbc_define_method(0, class_Time, "hwclock=", c_hwclock_eq);
-  mrbc_define_method(0, class_Time, "mktime", c_local);
-  mrbc_define_method(0, class_Time, "local", c_local);
-  mrbc_define_method(0, class_Time, "at", c_at);
-  mrbc_define_method(0, class_Time, "now", c_now);
-  mrbc_define_method(0, class_Time, "new", c_new);
-  mrbc_define_method(0, class_Time, "to_i", c_to_i);
-  mrbc_define_method(0, class_Time, "to_f", c_to_f);
-  mrbc_define_method(0, class_Time, "to_s", c_to_s);
-  mrbc_define_method(0, class_Time, "inspect", c_inspect);
-  mrbc_define_method(0, class_Time, "year", c_year);
-  mrbc_define_method(0, class_Time, "mon",  c_mon);
-  mrbc_define_method(0, class_Time, "mday", c_mday);
-  mrbc_define_method(0, class_Time, "hour", c_hour);
-  mrbc_define_method(0, class_Time, "min",  c_min);
-  mrbc_define_method(0, class_Time, "sec",  c_sec);
-  mrbc_define_method(0, class_Time, "usec", c_usec);
-  mrbc_define_method(0, class_Time, "wday", c_wday);
-  mrbc_define_method(0, class_Time, "<=>", c_compare);
-  mrbc_define_method(0, class_Time, "==", c_eq);
-  mrbc_define_method(0, class_Time, "<",  c_lt);
-  mrbc_define_method(0, class_Time, "<=", c_lte);
-  mrbc_define_method(0, class_Time, ">",  c_gt);
-  mrbc_define_method(0, class_Time, ">=", c_gte);
+  mrbc_define_method(vm, class_Time, "unixtime_offset", c_unixtime_offset);
+  mrbc_define_method(vm, class_Time, "hwclock=", c_hwclock_eq);
+  mrbc_define_method(vm, class_Time, "mktime", c_local);
+  mrbc_define_method(vm, class_Time, "local", c_local);
+  mrbc_define_method(vm, class_Time, "at", c_at);
+  mrbc_define_method(vm, class_Time, "now", c_now);
+  mrbc_define_method(vm, class_Time, "new", c_new);
+  mrbc_define_method(vm, class_Time, "to_i", c_to_i);
+  mrbc_define_method(vm, class_Time, "to_f", c_to_f);
+  mrbc_define_method(vm, class_Time, "to_s", c_to_s);
+  mrbc_define_method(vm, class_Time, "inspect", c_inspect);
+  mrbc_define_method(vm, class_Time, "year", c_year);
+  mrbc_define_method(vm, class_Time, "mon",  c_mon);
+  mrbc_define_method(vm, class_Time, "mday", c_mday);
+  mrbc_define_method(vm, class_Time, "hour", c_hour);
+  mrbc_define_method(vm, class_Time, "min",  c_min);
+  mrbc_define_method(vm, class_Time, "sec",  c_sec);
+  mrbc_define_method(vm, class_Time, "usec", c_usec);
+  mrbc_define_method(vm, class_Time, "wday", c_wday);
+  mrbc_define_method(vm, class_Time, "<=>", c_compare);
+  mrbc_define_method(vm, class_Time, "==", c_eq);
+  mrbc_define_method(vm, class_Time, "<",  c_lt);
+  mrbc_define_method(vm, class_Time, "<=", c_lte);
+  mrbc_define_method(vm, class_Time, ">",  c_gt);
+  mrbc_define_method(vm, class_Time, ">=", c_gte);
 
-  mrbc_define_method(0, class_Time, "time_methods", c_time_methods);
+  mrbc_define_method(vm, class_Time, "time_methods", c_time_methods);
 }

@@ -19,9 +19,8 @@ typedef struct {
   bool closed;
 } DbState;
 
-void mrbc_init_class_SQLite3_Database(void);
-void mrbc_init_class_SQLite3_Statement(void);
-void mrbc_init_class_SQLite3_ResultSet(void);
+void mrbc_init_class_SQLite3_Database(mrbc_vm *vm, mrbc_class *class_SQLite3);
+void mrbc_init_class_SQLite3_Statement(mrbc_vm *vm, mrbc_class *class_SQLite3);
 
 #ifdef __cplusplus
 }

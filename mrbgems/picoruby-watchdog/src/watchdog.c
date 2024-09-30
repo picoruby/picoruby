@@ -108,16 +108,16 @@ c_Watchdog_get_count(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_watchdog_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Watchdog = mrbc_define_class(0, "Watchdog", mrbc_class_object);
+  mrbc_class *mrbc_class_Watchdog = mrbc_define_class(vm, "Watchdog", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_Watchdog, "enable", c_Watchdog_enable);
-  mrbc_define_method(0, mrbc_class_Watchdog, "disable", c_Watchdog_disable);
-  mrbc_define_method(0, mrbc_class_Watchdog, "reboot", c_Watchdog_reboot);
-  mrbc_define_method(0, mrbc_class_Watchdog, "start_tick", c_Watchdog_start_tick);
-  mrbc_define_method(0, mrbc_class_Watchdog, "update", c_Watchdog_update);
-  mrbc_define_method(0, mrbc_class_Watchdog, "feed", c_Watchdog_update);
-  mrbc_define_method(0, mrbc_class_Watchdog, "caused_reboot?", c_Watchdog_caused_reboot_q);
-  mrbc_define_method(0, mrbc_class_Watchdog, "enable_caused_reboot?", c_Watchdog_enable_caused_reboot_q);
-  mrbc_define_method(0, mrbc_class_Watchdog, "get_count", c_Watchdog_get_count);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "enable", c_Watchdog_enable);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "disable", c_Watchdog_disable);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "reboot", c_Watchdog_reboot);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "start_tick", c_Watchdog_start_tick);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "update", c_Watchdog_update);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "feed", c_Watchdog_update);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "caused_reboot?", c_Watchdog_caused_reboot_q);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "enable_caused_reboot?", c_Watchdog_enable_caused_reboot_q);
+  mrbc_define_method(vm, mrbc_class_Watchdog, "get_count", c_Watchdog_get_count);
 }
 

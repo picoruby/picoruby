@@ -83,10 +83,10 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
       PICOGEM
       f.puts <<~PICOGEM
         void
-        picoruby_init_executables(void)
+        picoruby_init_executables(mrbc_vm *vm)
         {
-          mrbc_class *mrbc_class_Shell = mrbc_define_class(0, "Shell", mrbc_class_object);
-          mrbc_define_method(0, mrbc_class_Shell, "next_executable", c_next_executable);
+          mrbc_class *mrbc_class_Shell = mrbc_define_class(vm, "Shell", mrbc_class_object);
+          mrbc_define_method(vm, mrbc_class_Shell, "next_executable", c_next_executable);
         }
       PICOGEM
     end

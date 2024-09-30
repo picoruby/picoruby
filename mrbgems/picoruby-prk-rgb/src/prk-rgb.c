@@ -254,17 +254,17 @@ c_ws2812_circle(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_prk_rgb_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_RGB = mrbc_define_class(0, "RGB", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_init",                c_ws2812_init);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_show",                c_ws2812_show);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_fill",                c_ws2812_fill);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_rand_show",           c_ws2812_rand_show);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_set_pixel_at",        c_ws2812_set_pixel_at);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_rotate_swirl",        c_ws2812_rotate_swirl);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_reset_swirl_index",   c_ws2812_reset_swirl_index);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_add_matrix_pixel_at", c_ws2812_add_matrix_pixel_at);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_init_pixel_distance", c_ws2812_init_pixel_distance);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_circle",              c_ws2812_circle);
-  mrbc_define_method(0, mrbc_class_RGB, "ws2812_circle_set_center",   c_ws2812_circle_set_center);
+  mrbc_class *mrbc_class_RGB = mrbc_define_class(vm, "RGB", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_init",                c_ws2812_init);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_show",                c_ws2812_show);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_fill",                c_ws2812_fill);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_rand_show",           c_ws2812_rand_show);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_set_pixel_at",        c_ws2812_set_pixel_at);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_rotate_swirl",        c_ws2812_rotate_swirl);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_reset_swirl_index",   c_ws2812_reset_swirl_index);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_add_matrix_pixel_at", c_ws2812_add_matrix_pixel_at);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_init_pixel_distance", c_ws2812_init_pixel_distance);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_circle",              c_ws2812_circle);
+  mrbc_define_method(vm, mrbc_class_RGB, "ws2812_circle_set_center",   c_ws2812_circle_set_center);
 }
 

@@ -19,9 +19,9 @@ enum BLE_role_t {
 
 extern mrbc_value singleton;
 
-void mrbc_init_class_BLE_Peripheral(void);
-void mrbc_init_class_BLE_Broadcaster(void);
-void mrbc_init_class_BLE_Central(void);
+void mrbc_init_class_BLE_Peripheral(mrbc_vm *vm, mrbc_class *class_BLE);
+void mrbc_init_class_BLE_Broadcaster(mrbc_vm *vm, mrbc_class *class_BLE);
+void mrbc_init_class_BLE_Central(mrbc_vm *vm, mrbc_class *class_BLE);
 
 typedef struct {
   uint16_t att_handle;

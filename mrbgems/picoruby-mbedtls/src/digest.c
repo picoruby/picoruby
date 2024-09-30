@@ -93,14 +93,11 @@ c_mbedtls_digest_finish(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-gem_mbedtls_digest_init(void)
+gem_mbedtls_digest_init(mrbc_vm *vm, mrbc_class *class_MbedTLS)
 {
-  mrbc_class *class_MbedTLS = mrbc_define_class(0, "MbedTLS", mrbc_class_object);
+  mrbc_class *class_MbedTLS_Digest = mrbc_define_class_under(vm, class_MbedTLS, "Digest", mrbc_class_object);
 
-  mrbc_value *Digest = mrbc_get_class_const(class_MbedTLS, mrbc_search_symid("Digest"));
-  mrbc_class *class_MbedTLS_Digest = Digest->cls;
-
-  mrbc_define_method(0, class_MbedTLS_Digest, "_init_ctx", c_mbedtls_digest__init_ctx);
-  mrbc_define_method(0, class_MbedTLS_Digest, "update", c_mbedtls_digest_update);
-  mrbc_define_method(0, class_MbedTLS_Digest, "finish", c_mbedtls_digest_finish);
+  mrbc_define_method(vm, class_MbedTLS_Digest, "_init_ctx", c_mbedtls_digest__init_ctx);
+  mrbc_define_method(vm, class_MbedTLS_Digest, "update", c_mbedtls_digest_update);
+  mrbc_define_method(vm, class_MbedTLS_Digest, "finish", c_mbedtls_digest_finish);
 }

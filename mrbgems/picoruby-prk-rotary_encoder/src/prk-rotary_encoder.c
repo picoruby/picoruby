@@ -104,9 +104,9 @@ c_init_encoder(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_prk_rotary_encoder_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_RotaryEncoder = mrbc_define_class(0, "RotaryEncoder", mrbc_class_object);
-  mrbc_define_method(0, mrbc_class_RotaryEncoder, "init_encoder",    c_init_encoder);
-  mrbc_define_method(0, mrbc_class_RotaryEncoder, "consume_encoder", c_consume_encoder);
+  mrbc_class *mrbc_class_RotaryEncoder = mrbc_define_class(vm, "RotaryEncoder", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_RotaryEncoder, "init_encoder",    c_init_encoder);
+  mrbc_define_method(vm, mrbc_class_RotaryEncoder, "consume_encoder", c_consume_encoder);
 }
 
 void

@@ -132,8 +132,8 @@ c_base64_decode(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_base64_init(mrbc_vm *vm)
 {
-  mrbc_class *class_Base64 = mrbc_define_class(0, "Base64", mrbc_class_object);
+  mrbc_class *class_Base64 = mrbc_define_class(vm, "Base64", mrbc_class_object);
 
-  mrbc_define_method(0, class_Base64, "encode64", c_base64_encode);
-  mrbc_define_method(0, class_Base64, "decode64", c_base64_decode);
+  mrbc_define_method(vm, class_Base64, "encode64", c_base64_encode);
+  mrbc_define_method(vm, class_Base64, "decode64", c_base64_decode);
 }

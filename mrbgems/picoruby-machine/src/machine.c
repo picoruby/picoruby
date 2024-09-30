@@ -82,11 +82,11 @@ c_Machine_deep_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_machine_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Machine = mrbc_define_class(0, "Machine", mrbc_class_object);
+  mrbc_class *mrbc_class_Machine = mrbc_define_class(vm, "Machine", mrbc_class_object);
 
-  mrbc_define_method(0, mrbc_class_Machine, "delay_ms", c_Machine_delay_ms);
-  mrbc_define_method(0, mrbc_class_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
-  mrbc_define_method(0, mrbc_class_Machine, "sleep", c_Machine_sleep);
-  mrbc_define_method(0, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
+  mrbc_define_method(vm, mrbc_class_Machine, "delay_ms", c_Machine_delay_ms);
+  mrbc_define_method(vm, mrbc_class_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
+  mrbc_define_method(vm, mrbc_class_Machine, "sleep", c_Machine_sleep);
+  mrbc_define_method(vm, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
 }
 

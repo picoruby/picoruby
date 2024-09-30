@@ -1,5 +1,6 @@
 require "shell"
 require "sqlite3"
+require "picorubyvm"
 
 shell = Shell.new
 shell.setup_root_volume(:ram)
@@ -21,7 +22,7 @@ stmt = db.prepare "CREATE TABLE IF NOT EXISTS test
     updated_at TEXT DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
   );"
 stmt.execute
-PicoRubyVM.print_alloc_stats
+puts PicoRubyVM.memory_statistics
 
 print "journal_mode="
 db.execute("PRAGMA journal_mode;") do |row|
@@ -33,7 +34,7 @@ stmt = db.prepare "INSERT INTO test (name) VALUES (?);"
 %w{Mario Luigi Peach Toad Koopa Kuribo a n d l iel oa g}.each do |name|
   puts name
   stmt.execute name
-  PicoRubyVM.print_alloc_stats
+  puts PicoRubyVM.memory_statistics
 end
 
 ##db.execute("SELECT datetime('now', '+9 hours');") do |row|
