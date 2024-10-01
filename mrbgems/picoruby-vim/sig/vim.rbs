@@ -1,7 +1,7 @@
 # TypeProf 0.21.3
 
 class Vim
-  @filepath: String
+  @filepath: String | nil
   @mode: :command | :insert | :normal
   @editor: Editor::Screen
   @command_buffer: Editor::Buffer
