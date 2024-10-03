@@ -26,7 +26,7 @@ class Vim
     @editor.refresh_footer do |editor|
       print "\e[37;1m\e[48;5;239m " # foreground & background
       if @filepath
-        print @filepath[0, editor.width - 1].to_s.ljust(editor.width - 1)
+        print @filepath.to_s[0, editor.width - 1]&.ljust(editor.width - 1)
       else
         print "[No Name]".ljust(editor.width - 1)
       end
