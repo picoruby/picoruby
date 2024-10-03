@@ -115,9 +115,9 @@ c_hexdigest(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-gem_mbedtls_hmac_init(mrbc_vm *vm, mrbc_class *class_MbedTLS)
+gem_mbedtls_hmac_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
 {
-  mrbc_class *class_MbedTLS_HMAC = mrbc_define_class_under(vm, class_MbedTLS, "HMAC", mrbc_class_object);
+  mrbc_class *class_MbedTLS_HMAC = mrbc_define_class_under(vm, module_MbedTLS, "HMAC", mrbc_class_object);
   mrbc_define_method(vm, class_MbedTLS_HMAC, "_init_sha256", c__init_sha256);
   mrbc_define_method(vm, class_MbedTLS_HMAC, "update", c_update);
   mrbc_define_method(vm, class_MbedTLS_HMAC, "reset", c_reset);

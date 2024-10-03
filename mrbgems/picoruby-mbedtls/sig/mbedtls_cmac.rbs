@@ -1,4 +1,4 @@
-class MbedTLS
+module MbedTLS
   class CMAC
     attr_accessor _digest: String
 

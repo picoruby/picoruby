@@ -1,4 +1,4 @@
-class MbedTLS
+module MbedTLS
   class CMAC
     def self.new(key, digest)
       unless key.is_a?(String)

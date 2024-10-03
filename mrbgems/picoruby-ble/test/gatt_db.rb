@@ -12,7 +12,7 @@ require_relative "../mrblib/ble.rb"
 require_relative "../mrblib/ble_utils.rb"
 require_relative "../mrblib/ble_gatt_database.rb"
 
-class MbedTLS
+module MbedTLS
   class CMAC
     def initialize(key, digest)
     end

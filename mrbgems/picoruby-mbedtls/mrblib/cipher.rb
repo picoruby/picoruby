@@ -1,4 +1,4 @@
-class MbedTLS
+module MbedTLS
   class Cipher
     SUPPORTED_CIPHERS = {
       :aes_128_cbc       => 0x0001,

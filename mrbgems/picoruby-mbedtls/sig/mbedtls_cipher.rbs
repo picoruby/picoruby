@@ -1,4 +1,4 @@
-class MbedTLS
+module MbedTLS
   class Cipher
     SUPPORTED_CIPHERS:    Hash[untyped, untyped]
     KEY_LENGTHS:          Hash[untyped, untyped]

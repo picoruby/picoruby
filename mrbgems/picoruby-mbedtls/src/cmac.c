@@ -75,9 +75,9 @@ c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-gem_mbedtls_cmac_init(mrbc_vm *vm, mrbc_class *class_MbedTLS)
+gem_mbedtls_cmac_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
 {
-  mrbc_class *class_MbedTLS_CMAC = mrbc_define_class_under(vm, class_MbedTLS, "CMAC", mrbc_class_object);
+  mrbc_class *class_MbedTLS_CMAC = mrbc_define_class_under(vm, module_MbedTLS, "CMAC", mrbc_class_object);
 
   mrbc_define_method(vm, class_MbedTLS_CMAC, "_init_aes", c__init_aes);
   mrbc_define_method(vm, class_MbedTLS_CMAC, "update", c_update);

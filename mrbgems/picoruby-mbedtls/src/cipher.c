@@ -245,9 +245,9 @@ c_mbedtls_cipher_check_tag(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-gem_mbedtls_cipher_init(mrbc_vm *vm, mrbc_class *class_MbedTLS)
+gem_mbedtls_cipher_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
 {
-  mrbc_class *class_MbedTLS_Cipher = mrbc_define_class_under(vm, class_MbedTLS, "Cipher", mrbc_class_object);
+  mrbc_class *class_MbedTLS_Cipher = mrbc_define_class_under(vm, module_MbedTLS, "Cipher", mrbc_class_object);
 
   mrbc_define_method(vm, class_MbedTLS_Cipher, "_init_ctx", c_mbedtls_cipher__init_ctx);
   mrbc_define_method(vm, class_MbedTLS_Cipher, "_set_iv",   c_mbedtls_cipher__set_iv);
