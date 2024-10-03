@@ -3,23 +3,22 @@ require 'mbedtls'
 require 'base64'
 
 module JWT
-  def self.encode(paylaod, secret = nil, validate = 'none', algorithm: 'HS256')
-    header = { 'alg' => algorithm, 'typ' => 'JWT' }
+  class VerificationError < StandardError; end
+
+  def self.encode(paylaod, secret = nil, algorithm = 'none')
+    header = { 'alg' => algorithm }
     segments = []
     segments << Base64.urlsafe_encode64(JSON.generate header)
     segments << Base64.urlsafe_encode64(JSON.generate paylaod)
     signing_input = segments.join('.')
-    case validate
+    case algorithm.to_s.downcase
     when 'none'
-      # no-op
-    else
-      raise "Not implemented"
-    end
-    case algorithm
-    when 'HS256'
-      digest = MbedTLS::Digest.new(:sha256)
-      digest.update(signing_input)
-      signature = digest.finish
+      signature = ''
+    when 'hs256'
+      raise TypeError, "secret must be a string" unless secret.is_a? String
+      hmac = MbedTLS::HMAC.new(secret, "sha256")
+      hmac.update(signing_input)
+      signature = hmac.digest
     else
       raise "Algorithm: #{algorithm} not supported"
     end
@@ -28,7 +27,7 @@ module JWT
     segments.join('.')
   end
 
-  def self.decode(token, secret = nil, validate = 'none')
+  def self.decode(token, secret = nil, validate = true)
     segments = token.split('.')
     case segments.length
     when 3
@@ -38,23 +37,20 @@ module JWT
     end
     header = JSON.parse(Base64.urlsafe_decode64(segments[0]))
     payload = JSON.parse(Base64.urlsafe_decode64(segments[1]))
-    case validate
-    when 'none'
-      # no-op
-    else
-      raise "Not implemented"
-    end
-    case header['alg']
-    when 'HS256'
-      digest = MbedTLS::Digest.new(:sha256)
-      digest.update(segments[0] + '.' + segments[1])
-      signature = digest.finish
-      if signature != Base64.decode64(segments[2])
-        raise "Invalid signature"
+    if validate
+      case header['alg']&.downcase
+      when 'hs256'
+        raise TypeError, "secret must be a string" unless secret.is_a? String
+        hmac = MbedTLS::HMAC.new(secret, "sha256")
+        hmac.update(segments[0] + '.' + segments[1])
+        signature = hmac.digest
+        if signature != Base64.urlsafe_decode64(segments[2])
+          raise JWT::VerificationError.new("Signature verification failed")
+        end
+      else
+        raise "Algorithm: #{header['alg']} not supported"
       end
-    else
-      raise "Algorithm: #{header['alg']} not supported"
     end
-    payload
+    [payload, header]
   end
 end

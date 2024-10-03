@@ -1,4 +1,7 @@
 module JWT
-  def self.encode: (String payload, String|nil secret, String|bool validate, ?algorithm: String) -> String
-  def self.decode: (String token, String|nil secret, String|bool validate) -> String
+  class VerificationError < StandardError
+  end
+
+  def self.encode: (String payload, ?String|nil secret, ?String algorithm) -> String
+  def self.decode: (String token, ?String|nil secret, ?bool validate) -> [Object, Hash[String, Object]]
 end
