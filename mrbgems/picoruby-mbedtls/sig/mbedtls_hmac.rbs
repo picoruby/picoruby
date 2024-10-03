@@ -1,0 +1,17 @@
+class MbedTLS
+  class HMAC
+    attr_accessor _digest: String
+
+    def self.new: (String key, String digest) -> MbedTLS::HMAC
+    # @private
+    def self._init_sha256: (String) -> MbedTLS::HMAC
+    def update: (String) -> MbedTLS::HMAC
+    def reset: () -> MbedTLS::HMAC
+    def digest: () -> String
+    def hexdigest: () -> String
+
+    # @private
+    def self._init_aes: (String) -> MbedTLS::HMAC
+  end
+end
+
