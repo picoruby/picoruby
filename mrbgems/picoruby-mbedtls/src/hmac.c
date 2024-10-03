@@ -24,6 +24,16 @@ c__init_sha256(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(self);
 }
 
+static int
+check_finished(mrbc_vm *vm, mbedtls_md_context_t *ctx)
+{
+  if (ctx->md_info == NULL) { // mbedtls_md_free() did make md_info NULL
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
+    return -1;
+  }
+  return 0;
+}
+
 static void
 c_update(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -37,6 +47,9 @@ c_update(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
+  if (check_finished(vm, ctx) != 0) {
+    return;
+  }
   int ret;
   ret = mbedtls_md_hmac_update(ctx, input.string->data, input.string->size);
   if (ret != 0) {
@@ -64,8 +77,7 @@ static int
 finish(mrbc_vm *vm, unsigned char *output, mbedtls_md_context_t *ctx)
 {
   int ret;
-  if (ctx->md_info == NULL) { // workaround
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
+  if (check_finished(vm, ctx) != 0) {
     return -1;
   }
   ret = mbedtls_md_hmac_finish(ctx, output);
@@ -93,7 +105,6 @@ c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value digest = mrbc_string_new(vm, output, sizeof(output));
   mrbc_incref(&v[0]);
   SET_RETURN(digest);
-  memset(v->instance->data, 0, sizeof(mbedtls_md_context_t));
 }
 
 static void
@@ -111,7 +122,6 @@ c_hexdigest(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value result = mrbc_string_new_cstr(vm, hexdigest);
   mrbc_incref(&v[0]);
   SET_RETURN(result);
-  memset(v->instance->data, 0, sizeof(mbedtls_md_context_t));
 }
 
 void
