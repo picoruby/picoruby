@@ -3,6 +3,9 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.author  = 'Ryo Kajiwara'
   spec.summary = 'Network functionality for PicoRuby'
 
+  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-pack'
+
   if %w(host no-libc-host).include?(cc.build.name)
     src = "#{dir}/ports/posix/net.c"
     obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
@@ -15,4 +18,5 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
     spec.add_dependency 'picoruby-cyw43'
     spec.add_dependency 'picoruby-mbedtls'
   end
+
 end

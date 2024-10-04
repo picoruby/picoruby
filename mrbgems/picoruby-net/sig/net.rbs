@@ -10,12 +10,17 @@ class Net
   end
 
   class DNS
-    def self.resolve: (String) -> String
+    def self.resolve: (String host, bool is_tcp) -> String
+  end
+
+  class UDPClient
+    def self.send: (String host, Integer port, String content, bool is_dtls) -> String?
+    private def self._send_impl: (String host, Integer port, String content, bool is_dtls) -> String?
   end
 
   class TCPClient
-    def self.request: (String, Integer, String, bool) -> String?
-    def self._request_impl: (String, Integer, String, bool) -> String?
+    def self.request: (String host, Integer port, String content, bool is_tls) -> String?
+    private def self._request_impl: (String host, Integer port, String content, bool is_tls) -> String?
   end
 
   class HTTPClient
