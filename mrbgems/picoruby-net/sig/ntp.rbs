@@ -1,0 +1,21 @@
+class Net
+  class NTP
+    class Response
+      @year: Integer
+      @month: Integer
+      @day: Integer
+      @hour: Integer
+      @minute: Integer
+      @second: Integer
+      
+      def time: () -> Time
+    end
+
+    NTP_SERVER: String
+    NTP_PORT: Integer
+    NTP_PACKET_SIZE: Integer
+
+    def self.get: (?String ntp_server, ?Integer ntp_port) -> Response
+    private def self.time_components: (Float unixtime) -> Array[Integer]
+  end
+end

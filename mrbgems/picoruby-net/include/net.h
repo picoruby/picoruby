@@ -11,7 +11,7 @@ extern "C" {
 
 mrbc_value DNS_resolve(mrbc_vm *vm, const char *name, bool is_tcp);
 mrbc_value TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls);
-mrbc_value UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls);
+mrbc_value UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_dtls);
 
 #ifdef __cplusplus
 }

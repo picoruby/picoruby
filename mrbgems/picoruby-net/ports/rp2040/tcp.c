@@ -265,37 +265,3 @@ TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
   return ret;
 }
 
-mrbc_value
-UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool use_dtls)
-{
-  ip_addr_t ip;
-  ip4_addr_set_zero(&ip);
-  mrbc_value ret;
-  get_ip(host, &ip);
-  if(!ip4_addr_isloopback(&ip)) {
-    char ip_str[16];
-    ipaddr_ntoa_r(&ip, ip_str, 16);
-    mrbc_value recv_data = mrbc_string_new(vm, NULL, 0);
-    udp_connection_state *cs = UDPClient_send_impl(&ip, host, port, send_data, &recv_data, vm, use_dtls);
-
-    if (cs->wait_response) {
-      int timeout = 5000;
-      while(!cs->response_received && timeout > 0) {
-        UDPClient_poll_impl(&cs);
-        sleep_ms(100);
-        timeout -= 100;
-      }
-      if (cs->response_received) {
-        ret = recv_data;
-      } else {
-        ret = mrbc_nil_value();
-      }
-    } else {
-      ret = mrbc_true_value();
-    }
-    UDPClient_close_impl(&cs);
-  } else {
-    ret = mrbc_nil_value();
-  }
-  return ret;
-}
