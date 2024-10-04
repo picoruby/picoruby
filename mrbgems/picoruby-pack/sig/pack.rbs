@@ -1,0 +1,7 @@
+class String
+  def self.pack: (String format, *untyped args) -> String
+end
+
+class Array[unchecked out Elem] < Object
+  def pack: (String format) -> String
+end
