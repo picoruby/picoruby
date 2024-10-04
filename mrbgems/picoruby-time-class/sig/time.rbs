@@ -789,6 +789,8 @@ class Time < Object
 
   def self.time_methods: () -> Time::TimeMethods
 
+  def self.set_hwclock: (Time) -> void
+
   class TimeMethods
   end
 end

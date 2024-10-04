@@ -82,11 +82,13 @@ c_unixtime_offset(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_hwclock_eq(struct VM *vm, mrbc_value v[], int argc)
+c_set_hwclock(struct VM *vm, mrbc_value v[], int argc)
 {
   /*
-   * Usage: Time.hwclock = Time.local(2023,1,1,0,0,0)
-   * Usage: Time.set_hwclock(2023,1,1,0,0,0)
+   * Usage:
+   *   time = Time.local(2023,1,1,0,0,0)
+   *   # or time = Net::NTP.get.time
+   *   Time.set_hwclock(time)
    */
   mrbc_value value = GET_ARG(1);
   mrbc_class *class_Time = mrbc_get_class_by_name("Time");
@@ -457,7 +459,7 @@ mrbc_time_class_init(mrbc_vm *vm)
   class_TimeMethods = mrbc_define_class_under(vm, class_Time, "TimeMethods", mrbc_class_object);
 
   mrbc_define_method(vm, class_Time, "unixtime_offset", c_unixtime_offset);
-  mrbc_define_method(vm, class_Time, "hwclock=", c_hwclock_eq);
+  mrbc_define_method(vm, class_Time, "set_hwclock", c_set_hwclock);
   mrbc_define_method(vm, class_Time, "mktime", c_local);
   mrbc_define_method(vm, class_Time, "local", c_local);
   mrbc_define_method(vm, class_Time, "at", c_at);
