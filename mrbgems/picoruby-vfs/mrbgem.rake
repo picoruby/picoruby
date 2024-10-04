@@ -3,5 +3,5 @@ MRuby::Gem::Specification.new('picoruby-vfs') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Virtual-File-System-like wrapper for filesystems'
 
-  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-time'
 end

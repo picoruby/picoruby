@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-adafruit_pcf8523') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Adafruit PCF8523 I2C RTC module'
 
-  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-time'
   spec.add_dependency 'picoruby-i2c'
 end
 
