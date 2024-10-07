@@ -14,6 +14,7 @@ class CYW43
   def self.enable_sta_mode: () -> bool
   def self.disable_sta_mode: () -> bool
   def self.tcpip_link_status: () -> Integer
+  def self.link_connected?: (?bool print_status) -> bool
   # @private
   def self._init: (String country, bool force) -> bool
 

@@ -6,6 +6,32 @@ class CYW43
     self._init(country.upcase, force)
   end
 
+  def self.link_connected?(print_status = false)
+    result = false
+    status = case tcpip_link_status
+    when LINK_DOWN
+      "link down"
+    when LINK_JOIN
+      "link join"
+    when LINK_NOIP
+      "link no ip"
+    when LINK_UP
+      result = true
+      "link up"
+    when LINK_FAIL
+      "link fail"
+    when LINK_NONET
+      "link no net"
+    when LINK_BADAUTH
+      "link bad auth"
+    else
+      "unknown status"
+    end
+    puts "TCP/IP link status: #{status}" if print_status
+    result
+  end
+
+
   class GPIO
     LED_PIN = 0
     def initialize(pin)
