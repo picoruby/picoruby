@@ -3,6 +3,8 @@
 # Revealed types
 #  /home/hasumi/work/prk_firmware/lib/picoruby/mrbgems/picoruby-shell/mrblib/command.rb:69 #=> nil
 
+type rtc_t = PCF8523
+
 $shell: Shell
 $sandbox: Sandbox
 
@@ -20,6 +22,8 @@ class Shell
   @editor: Editor::Line
 
   def self.next_executable: -> {code: String, name: String}
+  def self.setup_rtc: (rtc_t trc) -> void
+  def self.setup_sdcard: (SPI spi) -> void
 
   def setup_root_volume: (Symbol drive, ?label: String) -> void
   def setup_system_files: (?force: bool) -> void

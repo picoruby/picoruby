@@ -16,6 +16,7 @@ target :mrbgems do
   check "mrblib"
   Dir.glob([
     "**/mrblib/",
+    "mrbgems/picoruby-shell/shell_executables/",
     "**/task/"
   ]).each { |dir| check dir }
 

@@ -2,7 +2,7 @@ args = []
 opts = []
 ARGV.each do |arg|
   if arg.start_with?("-")
-    arg[1, 255].each_char do |ch|
+    arg[1, 255]&.each_char do |ch|
       opts << ch
     end
   else

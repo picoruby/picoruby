@@ -1,4 +1,5 @@
 require "time"
+require "i2c"
 
 class PCF8523
   ADDRESS = 0x68
@@ -12,7 +13,7 @@ class PCF8523
     set_power_management
   end
 
-  attr_reader :i2c # for debug. eg) $rtc.i2c.read(0x68, 3, 0)
+  attr_reader :i2c # for debug. eg) rtc.i2c.read(0x68, 3, 0)
 
   #
   # (from https://www.nxp.com/docs/en/data-sheet/PCF8523.pdf)

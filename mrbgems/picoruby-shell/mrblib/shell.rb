@@ -3,11 +3,43 @@ require "sandbox"
 require "filesystem-fat"
 require "vfs"
 require "editor"
+begin
+  require "adafruit_pcf8523"
+rescue LoadError
+  # nothing to do
+end
+
 # ENV = {} # This moved to 0_out_of_steep.rb
 ARGV = []
 
 
 class Shell
+  def self.setup_rtc(rtc)
+    begin
+      print "Initializing RTC... "
+      ENV['TZ'] = "JST-9"
+      Time.set_hwclock rtc.current_time
+      FAT.unixtime_offset = Time.unixtime_offset
+      puts "Available (#{Time.now})"
+    rescue => e
+      puts "Not available"
+      puts "#{e.message} (#{e.class})"
+    end
+  end
+
+  def self.setup_sdcard(spi)
+    begin
+      print "Initializing SD card... "
+      sd = FAT.new(:sd, label: "SD", driver: spi)
+      sd_mountpoint = "/sd"
+      VFS.mount(sd, sd_mountpoint)
+      puts "Available at #{sd_mountpoint}"
+    rescue => e
+      puts "Not available"
+      puts "#{e.message} (#{e.class})"
+    end
+  end
+
   def initialize(clean: false)
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
@@ -82,7 +114,7 @@ class Shell
 
   def setup_system_files(force: false)
     Dir.chdir("/") do
-      %w(bin lib var home).each do |dir|
+      %w(bin lib var home etc etc/init.c etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
       end
       while exe = Shell.next_executable
