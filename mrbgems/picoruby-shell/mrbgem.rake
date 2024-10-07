@@ -27,6 +27,10 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
 
   file "#{mrbgems_dir}/executables_init.c" => executable_mrbfiles do |t|
     mkdir_p File.dirname t.name
+    pathmap = File.read("#{dir}/shell_executables/_path.txt").lines.map(&:chomp).map do
+      p = Pathname.new(_1)
+      { dir: p.dirname.to_s, basename: p.basename.to_s }
+    end
     open(t.name, 'w+') do |f|
       f.puts <<~PICOGEM
         #include <stdio.h>
@@ -42,15 +46,16 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
       f.puts
       f.puts <<~PICOGEM
         typedef struct shell_executables {
-          const char *name;
+          const char *path;
           const uint8_t *mrb;
         } shell_executables;
       PICOGEM
       f.puts
       f.puts "static shell_executables executables[] = {"
       executable_mrbfiles.each do |mrb|
-        name = File.basename(mrb, ".c")
-        f.puts "  {\"#{name}\", executable_#{name}}," if File.exist?(mrb)
+        basename = File.basename(mrb, ".c")
+        dirname = pathmap.find { _1[:basename] == basename }[:dir]
+        f.puts "  {\"#{dirname}/#{basename}\", executable_#{basename}}," if File.exist?(mrb)
       end
       f.puts "  {NULL, NULL} /* sentinel */"
       f.puts "};"
@@ -60,13 +65,13 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
         c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
         {
           static int i = 0;
-          if (executables[i].name) {
+          if (executables[i].path) {
             const uint8_t *mrb = executables[i].mrb;
             mrbc_value hash = mrbc_hash_new(vm, 2);
-            mrbc_value name = mrbc_string_new_cstr(vm, (char *)executables[i].name);
+            mrbc_value path = mrbc_string_new_cstr(vm, (char *)executables[i].path);
             mrbc_hash_set(&hash,
-              &mrbc_symbol_value(mrbc_str_to_symid("name")),
-              &name
+              &mrbc_symbol_value(mrbc_str_to_symid("path")),
+              &path
             );
             uint32_t codesize = (mrb[8] << 24) + (mrb[9] << 16) + (mrb[10] << 8) + mrb[11];
             mrbc_value code_val = mrbc_string_new(vm, mrb, codesize);

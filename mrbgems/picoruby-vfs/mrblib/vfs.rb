@@ -12,7 +12,7 @@ class VFS
       end
       driver.mount(mountpoint) # It raises if error
       VOLUMES << { driver: driver, mountpoint: mountpoint }
-      ENV["PWD"] ||= mountpoint
+      ENV["PWD"] = mountpoint if ENV["PWD"]&.empty?
     end
 
     def unmount(driver, force = false)
@@ -21,13 +21,13 @@ class VFS
       unless index = volume_index(mountpoint)
         raise "Mountpoint `#{mountpoint}` doesn't exist"
       end
-      if !force && ENV["PWD"].to_s.start_with?(mountpoint)
+      if !force && ENV["PWD"].start_with?(mountpoint)
         raise "Can't unmount where you are"
       end
       driver.unmount
       VOLUMES.delete_at index
       if VOLUMES.empty?
-        ENV["PWD"] = nil
+        ENV["PWD"] = ""
       end
     end
 
@@ -39,7 +39,7 @@ class VFS
         while [".", "/"].include?(sanitized_path[index].to_s)
           index += 1
         end
-        ENV["PWD"] = sanitized_path[index - 1, sanitized_path.length]
+        ENV["PWD"] = sanitized_path[index - 1, sanitized_path.length].to_s
       else
         print "No such directory: #{dir}"
       end
@@ -47,7 +47,7 @@ class VFS
     end
 
     def pwd
-      ENV["PWD"].to_s
+      ENV["PWD"]
     end
 
     def mkdir(path, mode = 0777)
@@ -102,7 +102,7 @@ class VFS
       end
       if dirs[0] != "" # path.start_with?("/")
         # Relative path
-        dirs = ENV["PWD"].to_s.split("/") + dirs
+        dirs = ENV["PWD"].split("/") + dirs
       end
       sanitized_dirs = []
       prefix_dirs = []

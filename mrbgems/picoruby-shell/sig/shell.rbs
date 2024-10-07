@@ -10,7 +10,15 @@ $sandbox: Sandbox
 
 # Classes
 
-ENV: Hash[String, String?]
+ENV: {
+  "TERM" => String,
+  "TZ" => String,
+  "PATH" => String,
+  "HOME" => String,
+  "PWD" => String,
+  "WIFI_CONFIG_PATH" => String
+}
+
 $LOAD_PATH: Array[String]
 ARGV: Array[String]
 
@@ -21,7 +29,7 @@ class Shell
   AUTHOR_COLOR: String
   @editor: Editor::Line
 
-  def self.next_executable: -> {code: String, name: String}
+  def self.next_executable: -> {code: String, path: String}
   def self.setup_rtc: (rtc_t trc) -> void
   def self.setup_sdcard: (SPI spi) -> void
 

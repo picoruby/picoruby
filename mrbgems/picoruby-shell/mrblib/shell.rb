@@ -3,11 +3,6 @@ require "sandbox"
 require "filesystem-fat"
 require "vfs"
 require "editor"
-begin
-  require "adafruit_pcf8523"
-rescue LoadError
-  # nothing to do
-end
 
 # ENV = {} # This moved to 0_out_of_steep.rb
 ARGV = []
@@ -15,6 +10,7 @@ ARGV = []
 
 class Shell
   def self.setup_rtc(rtc)
+    require "adafruit_pcf8523"
     begin
       print "Initializing RTC... "
       ENV['TZ'] = "JST-9"
@@ -114,12 +110,12 @@ class Shell
 
   def setup_system_files(force: false)
     Dir.chdir("/") do
-      %w(bin lib var home etc etc/init.c etc/network).each do |dir|
+      %w(bin lib var home etc etc/init.d etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
       end
       while exe = Shell.next_executable
-        if force || !File.exist?("/bin/#{exe[:name]}")
-          f = File.open "/bin/#{exe[:name]}", "w"
+        if force || !File.exist?(exe[:path])
+          f = File.open exe[:path], "w"
           f.expand exe[:code].length
           f.write exe[:code]
           f.close
