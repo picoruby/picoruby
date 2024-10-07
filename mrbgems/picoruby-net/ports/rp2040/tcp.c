@@ -1,10 +1,9 @@
 #include "../../include/net.h"
 #include "lwipopts.h"
 #include "pico/cyw43_arch.h"
-#include "lwip/pbuf.h"
-#include "lwip/altcp_tcp.h"
 #include "lwip/altcp_tls.h"
-#include "lwip/dns.h"
+
+#include "include/common.h"
 
 /* platform-dependent definitions */
 
@@ -29,55 +28,6 @@ typedef struct tcp_connection_state_str
 } tcp_connection_state;
 
 /* end of platform-dependent definitions */
-
-static void
-dns_found(const char *name, const ip_addr_t *ip, void *arg)
-{
-  ip_addr_t *result = (ip_addr_t *)arg;
-  if (ip) {
-    ip4_addr_copy(*result, *ip);
-  } else {
-    ip4_addr_set_loopback(result);
-  }
-  return;
-}
-
-static err_t
-get_ip_impl(const char *name, ip_addr_t *ip)
-{
-  cyw43_arch_lwip_begin();
-  err_t err = dns_gethostbyname(name, ip, dns_found, ip);
-  cyw43_arch_lwip_end();
-  return err;
-}
-
-static err_t
-get_ip(const char *name, ip_addr_t *ip)
-{
-  get_ip_impl(name, ip);
-  while (!ip_addr_get_ip4_u32(ip)) {
-    sleep_ms(50);
-  }
-  return ERR_OK;
-}
-
-mrbc_value
-DNS_resolve(mrbc_vm *vm, const char *name, bool is_tcp)
-{
-  (void)is_tcp;
-  ip_addr_t ip;
-  mrbc_value ret;
-  ip4_addr_set_zero(&ip);
-  get_ip(name, &ip);
-  if(!ip4_addr_isloopback(&ip)) {
-    char buf[16];
-    ipaddr_ntoa_r(&ip, buf, 16);
-    ret = mrbc_string_new(vm, buf, strlen(buf));
-  } else {
-    ret = mrbc_nil_value();
-  }
-  return ret;
-}
 
 static void
 TCPClient_free_tls_config(tcp_connection_state *cs)
@@ -247,7 +197,7 @@ TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
   mrbc_value ret;
-  get_ip(host, &ip);
+  Net_get_ip(host, &ip);
   if(!ip4_addr_isloopback(&ip)) {
     char ip_str[16];
     ipaddr_ntoa_r(&ip, ip_str, 16);
