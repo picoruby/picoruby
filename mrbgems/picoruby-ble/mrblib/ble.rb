@@ -79,7 +79,7 @@ class BLE
     @debug = false
     @_read_values = {}
     @_write_values = {}
-    CYW43.init
+    CYW43.init unless CYW43.initialized?
     _init(profile_data)
     $_btstack_singleton = self
   end
