@@ -1,13 +1,8 @@
 class Net
   class NTP
     class Response
-      @year: Integer
-      @month: Integer
-      @day: Integer
-      @hour: Integer
-      @minute: Integer
-      @second: Integer
-      
+      @unixtime: Integer
+      def initialize: (Integer unixtime) -> void
       def time: () -> Time
     end
 
@@ -16,6 +11,6 @@ class Net
     NTP_PACKET_SIZE: Integer
 
     def self.get: (?String ntp_server, ?Integer ntp_port) -> Response
-    private def self.time_components: (Float unixtime) -> Array[Integer]
+    def self.set_hwclock: () -> void
   end
 end
