@@ -982,7 +982,7 @@ class File
   # block's value.
   #
   def self.open: (string, ?string) -> VFS::file_t
-               | [T] (string, ?string) { (VFS::file_t) -> T } -> nil
+               | [T] (string, ?string) { (VFS::file_t) -> T } -> untyped
 
   # <!--
   #   rdoc-file=file.c

@@ -38,8 +38,9 @@ class File
     def open(path, mode = "r")
       if block_given?
         file = self.new(path, mode)
-        yield file
+        result = yield(file)
         file.close
+        result
       else
         self.new(path, mode)
       end
