@@ -20,7 +20,7 @@ GEM
     connection_pool (2.4.1)
     csv (3.3.0)
     drb (2.2.1)
-    ffi (1.17.0-x86_64-linux-gnu)
+    ffi (1.17.0)
     fileutils (1.7.2)
     formatador (1.1.0)
     guard (2.18.1)
