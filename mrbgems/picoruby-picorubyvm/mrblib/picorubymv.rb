@@ -1,11 +1,11 @@
 class PicoRubyVM
-  def self.profile_alloc
+  def self.alloc_profile
     unless block_given?
       raise ArgumentError, "block not given"
     end
-    start_alloc_profiling
+    alloc_start_profiling
     yield
-    stop_alloc_profiling
+    alloc_stop_profiling
     alloc_profiling_result
   end
 end

@@ -35,19 +35,19 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_start_alloc_profiling(struct VM *vm, mrbc_value v[], int argc)
+c_alloc_start_profiling(struct VM *vm, mrbc_value v[], int argc)
 {
 #if !defined(MRBC_ALLOC_LIBC) && defined(MRBC_USE_ALLOC_PROF)
-  mrbc_start_alloc_profiling();
+  mrbc_alloc_start_profiling();
 #endif
   SET_INT_RETURN(0);
 }
 
 static void
-c_stop_alloc_profiling(struct VM *vm, mrbc_value v[], int argc)
+c_alloc_stop_profiling(struct VM *vm, mrbc_value v[], int argc)
 {
 #if !defined(MRBC_ALLOC_LIBC) && defined(MRBC_USE_ALLOC_PROF)
-  mrbc_stop_alloc_profiling();
+  mrbc_alloc_stop_profiling();
 #endif
   SET_INT_RETURN(0);
 }
@@ -58,7 +58,7 @@ c_alloc_profiling_result(struct VM *vm, mrbc_value v[], int argc)
 #if !defined(MRBC_ALLOC_LIBC) && defined(MRBC_USE_ALLOC_PROF)
   mrbc_value ret = mrbc_hash_new(vm, 2);
   struct MRBC_ALLOC_PROF prof;
-  mrbc_get_alloc_profiling(&prof);
+  mrbc_alloc_get_profiling(&prof);
   mrbc_hash_set(&ret,
     &mrbc_symbol_value(mrbc_str_to_symid("peak")),
     &mrbc_integer_value(prof.max - prof.initial)
@@ -78,8 +78,8 @@ mrbc_picorubyvm_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_PicoRubyVM = mrbc_define_class(vm, "PicoRubyVM", mrbc_class_object);
   mrbc_define_method(vm, mrbc_class_PicoRubyVM, "memory_statistics", c_memory_statistics);
-  mrbc_define_method(vm, mrbc_class_PicoRubyVM, "start_alloc_profiling", c_start_alloc_profiling);
-  mrbc_define_method(vm, mrbc_class_PicoRubyVM, "stop_alloc_profiling", c_stop_alloc_profiling);
+  mrbc_define_method(vm, mrbc_class_PicoRubyVM, "alloc_start_profiling", c_alloc_start_profiling);
+  mrbc_define_method(vm, mrbc_class_PicoRubyVM, "alloc_stop_profiling", c_alloc_stop_profiling);
   mrbc_define_method(vm, mrbc_class_PicoRubyVM, "alloc_profiling_result", c_alloc_profiling_result);
 
   mrbc_instruction_sequence_init(vm);
