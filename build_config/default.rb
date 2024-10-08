@@ -7,7 +7,6 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "MRC_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
   conf.cc.defines << "MRBC_ALLOC_LIBC"
-#  conf.cc.defines << "MRBC_USE_ALLOC_PROF"
 
   conf.gembox "minimum"
   conf.gembox "r2p2"
