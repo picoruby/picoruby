@@ -9,7 +9,11 @@ class IO
 
   def self.getch
     self.raw do
-      getc.to_s
+      while true
+        c = getc
+        break if 0 < c.to_s.length
+      end
+      c
     end
   end
 
