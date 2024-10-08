@@ -8,11 +8,6 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   #   it requires more RAM consumption.
   spec.cc.defines << "MBEDTLS_CONFIG_FILE='\"#{dir}/include/mbedtls_config.h\"'"
 
-  spec.cc.include_paths << "#{dir}/mbedtls/include"
-  spec.objs += Dir.glob("#{dir}/mbedtls/library/*.{c,cpp,m,asm,S}").map { |f|
-    f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
-  }
-
   MBEDTLS_VERSION = "v2.28.1"
 
   task :repo do
@@ -34,5 +29,10 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
     end
   end
   Rake::Task[:repo].invoke
+
+  spec.cc.include_paths << "#{dir}/mbedtls/include"
+  spec.objs += Dir.glob("#{dir}/mbedtls/library/*.{c,cpp,m,asm,S}").map { |f|
+    f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
+  }
 end
 
