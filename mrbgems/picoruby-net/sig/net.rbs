@@ -1,4 +1,4 @@
-type header_t = header_t
+type header_t = Hash[String, String]
 type httpreturn = {
   status: Integer,
   headers: header_t,
@@ -26,7 +26,7 @@ class Net
 
   class HTTPClient
     @host: String
-    def initialize: (String host) -> HTTPClient
+    def initialize: (String host) -> void
     def get: (String path) -> (httpreturn | nil)
     def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
     def post: (String path, header_t headers, String body) -> (httpreturn | nil)
@@ -35,7 +35,7 @@ class Net
 
   class HTTPSClient
     @host: String
-    def initialize: (String host) -> HTTPClient
+    def initialize: (String host) -> void
     def get: (String path) -> (httpreturn | nil)
     def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
     def post: (String path, header_t headers, String body) -> (httpreturn | nil)
