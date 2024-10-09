@@ -50,11 +50,11 @@ class Shell
         dir = ARGV[0] || ENV['HOME'] || ""
         unless Dir.exist?(dir)
           puts "cd: #{dir}: No such file or directory"
-          return
+          return false
         end
         unless File::Stat.new(dir).directory?
           puts "cd: #{dir}: Not a directory"
-          return
+          return false
         end
         Dir.chdir(dir)
       when "free"
@@ -67,8 +67,13 @@ class Shell
           @sandbox.suspend
         else
           puts "#{command}: command not found"
+          return false
         end
       end
+      return true
+    rescue => e
+      puts e
+      return false
     end
 
     #

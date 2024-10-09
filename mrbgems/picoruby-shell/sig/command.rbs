@@ -11,7 +11,7 @@ class Shell
 
     def self.new: () -> instance
     def find_executable: (String name) -> String?
-    def exec: (*untyped params) -> void
+    def exec: (*untyped params) -> bool
     private def _type: -> nil
     private def _echo: -> nil
   end
