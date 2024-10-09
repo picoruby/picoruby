@@ -1,6 +1,7 @@
+type header_t = header_t
 type httpreturn = {
   status: Integer,
-  headers: Hash[String, String],
+  headers: header_t,
   body: String
 }
 
@@ -25,17 +26,19 @@ class Net
 
   class HTTPClient
     @host: String
-    def get: (String) -> (httpreturn | nil)
-    def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
-    def post: (String, Hash[String, String], String) -> (httpreturn | nil)
-    def put:  (String, Hash[String, String], String) -> (httpreturn | nil)
+    def initialize: (String host) -> HTTPClient
+    def get: (String path) -> (httpreturn | nil)
+    def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
+    def post: (String path, header_t headers, String body) -> (httpreturn | nil)
+    def put:  (String path, header_t headers, String body) -> (httpreturn | nil)
   end
 
   class HTTPSClient
     @host: String
-    def get: (String) -> (httpreturn | nil)
-    def get_with_headers: (String, Hash[String, String]) -> (httpreturn | nil)
-    def post: (String, Hash[String, String], String) -> (httpreturn | nil)
-    def put:  (String, Hash[String, String], String) -> (httpreturn | nil)
+    def initialize: (String host) -> HTTPClient
+    def get: (String path) -> (httpreturn | nil)
+    def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
+    def post: (String path, header_t headers, String body) -> (httpreturn | nil)
+    def put:  (String path, header_t headers, String body) -> (httpreturn | nil)
   end
 end
