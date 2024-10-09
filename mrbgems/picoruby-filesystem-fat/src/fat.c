@@ -328,13 +328,15 @@ mrbc_filesystem_fat_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_FAT, "_unlink", c__unlink);
   mrbc_define_method(vm, class_FAT, "_rename", c__rename);
   mrbc_define_method(vm, class_FAT, "_chmod", c__chmod);
-  mrbc_define_method(vm, class_FAT, "_stat", c__stat);
   mrbc_define_method(vm, class_FAT, "_exist?", c__exist_q);
   mrbc_define_method(vm, class_FAT, "_directory?", c__directory_q);
   mrbc_define_method(vm, class_FAT, "_setlabel", c__setlabel);
   mrbc_define_method(vm, class_FAT, "_getlabel", c__getlabel);
   mrbc_init_class_FAT_Dir(vm, class_FAT);
   mrbc_init_class_FAT_File(vm, class_FAT);
+
+  mrbc_class *class_FAT_Stat = mrbc_define_class_under(vm, class_FAT, "Stat", mrbc_class_object);
+  mrbc_define_method(vm, class_FAT_Stat, "_stat", c__stat);
 
 #ifdef USE_FAT_SD_DISK
   mrbc_define_method(vm, class_FAT, "init_spi", c_FAT_init_spi);
