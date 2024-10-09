@@ -63,13 +63,13 @@ GEM
     rb-fsevent (0.11.2)
     rb-inotify (0.11.1)
       ffi (~> 1.0)
-    rbs (3.6.0)
+    rbs (3.6.1)
       logger
     securerandom (0.3.1)
     shellany (0.0.1)
     spoon (0.0.6)
       ffi
-    steep (1.8.0)
+    steep (1.8.1)
       activesupport (>= 5.1)
       concurrent-ruby (>= 1.1.10)
       csv (>= 3.0.9)
