@@ -23,6 +23,7 @@ class FAT
     def birthtime: () -> untyped
     def size: () -> Integer
     def directory?: () -> bool
+    private def _stat: (String path) -> stat_t
   end
 
   AM_RDO: 1
@@ -31,26 +32,15 @@ class FAT
   AM_DIR: 16
   AM_ARC: 32
 
-  # @private
-  def self._directory?: (String path) -> bool
-  # @private
-  def self._exist?: (String path) -> bool
-  # @private
-  def self._unlink: (String path) -> 0
-  # @private
-  def self._rename: (String from, String to) -> 0
-  # @private
-  def self._chdir: (String path) -> 0
-  # @private
-  def self._utime: (Integer unixtime, String path) -> Integer
-  # @private
-  def self._mkdir: (String path, Integer mode) -> 0
-  # @private
-  def self._erase: (String path) -> 0
-  # @private
-  def self._chmod: (Integer mode, String path) -> 0
-  # @private
-  def self._stat: (String path) -> stat_t
+  private def _directory?: (String path) -> bool
+  private def _exist?: (String path) -> bool
+  private def _unlink: (String path) -> 0
+  private def _rename: (String from, String to) -> 0
+  private def _chdir: (String path) -> 0
+  private def _utime: (Integer unixtime, String path) -> Integer
+  private def _mkdir: (String path, Integer mode) -> 0
+  private def _erase: (String path) -> 0
+  private def _chmod: (Integer mode, String path) -> 0
 
   def self.init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
   def getfree: (String path) -> Integer

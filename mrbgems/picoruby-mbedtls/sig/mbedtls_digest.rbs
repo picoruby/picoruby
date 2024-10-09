@@ -1,11 +1,11 @@
 module MbedTLS
   class Digest
-    SUPPORTED_ALGORITHMS: Hash[untyped, untyped]
+    type algorithm_t = :sha256
+    SUPPORTED_ALGORITHMS: Hash[algorithm_t, Integer]
 
-    def self.new: (untyped algorithm) -> MbedTLS::Digest
-    # @private
-    def self._init_ctx: (Integer) -> MbedTLS::Digest
-    def update: (String) -> MbedTLS::Digest
+    def self.new: (algorithm_t algorithm) -> MbedTLS::Digest
+    private def self._init_ctx: (Integer algorithm) -> MbedTLS::Digest
+    def update: (String input) -> MbedTLS::Digest
     def finish: () -> String
   end
 end

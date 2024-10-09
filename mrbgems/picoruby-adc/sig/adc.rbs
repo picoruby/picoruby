@@ -11,9 +11,6 @@ class ADC
   def read_voltage: () -> Float
   def read_raw: () -> Integer
 
-  # @private
-  def self._init: (pin_t pin) -> 0
-
-  # @private
-  def init_additional_params: () -> self
+  private def _init: (pin_t pin) -> 0
+  private def init_additional_params: () -> self
 end

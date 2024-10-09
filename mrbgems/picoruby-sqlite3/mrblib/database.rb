@@ -8,7 +8,7 @@ class SQLite3
         volume, path = VFS.sanitize_and_split(filename)
         SQLite3.vfs_methods = volume[:driver].class.vfs_methods
         SQLite3.time_methods = Time.time_methods
-        db = SQLite3::Database._open("#{volume[:driver].prefix}#{path}")
+        db = _open("#{volume[:driver].prefix}#{path}")
         if block_given?
           begin
             yield db

@@ -1,4 +1,6 @@
 class Prism
+
+  # @sidebar error
   class ParseError
     @message: String
     @location: Prism::Location

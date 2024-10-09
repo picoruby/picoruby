@@ -13,8 +13,8 @@ class UART
         rts_pin: -1,
         cts_pin: -1,
         rx_buffer_size: nil)
-    @rx_buffer = UART.open_rx_buffer(rx_buffer_size)
-    @unit_num = UART.open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
+    @rx_buffer = open_rx_buffer(rx_buffer_size)
+    @unit_num = open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
     @baudrate = _set_baudrate(baudrate)
     setmode(
       baudrate: nil,

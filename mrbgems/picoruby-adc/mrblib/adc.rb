@@ -1,7 +1,7 @@
 class ADC
   def initialize(pin, additional_params = {})
     @additional_params = additional_params
-    @input = ADC._init(pin)
+    @input = _init(pin)
     begin
       init_additional_params unless @additional_params.empty?
     rescue NoMethodError => e

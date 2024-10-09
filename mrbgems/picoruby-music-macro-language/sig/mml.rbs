@@ -7,11 +7,8 @@ class MML
   @q: Integer
 
   def self.new: () -> instance
-  # @private
   def self.number_str: (String str, Integer i) -> [String, Integer]
-  # @private
   def self.count_punto: (String str, Integer i) -> [Integer, Integer]
-  # @private
   def self.coef: (Integer punti) -> Float
 
   def compile: (String str) { (Float, Integer) -> bool } -> Integer

@@ -1,6 +1,7 @@
-# @sidebar error
 # @sidebar io_peripheral
 class GPIO
+
+  # @sidebar error
   class Error
     ERROR_NONE:           0
     ERROR_TIMEOUT:       -1
@@ -44,21 +45,15 @@ class GPIO
   def high?: () -> bool
   def low?: () -> bool
 
-  private def set_function: (Integer flags, Integer alt_function) -> 0
-  private def set_dir: (Integer flags) -> 0
-  private def set_pull: (Integer flags) -> 0
-  private def open_drain: (Integer flags) -> 0
+  def set_function: (Integer flags, Integer alt_function) -> 0
+  def set_dir: (Integer flags) -> 0
+  def set_pull: (Integer flags) -> 0
+  def open_drain: (Integer flags) -> 0
   private def on_initialize?: () -> bool
-  # @private
-  def self._init: (gpio_pin_t) -> 0
-  # @private
+  private def _init: (gpio_pin_t) -> 0
   def self.set_function_at: (gpio_pin_t, Integer) -> 0
-  # @private
   def self.set_dir_at: (gpio_pin_t, Integer) -> 0
-  # @private
   def self.pull_up_at: (gpio_pin_t) -> 0
-  # @private
   def self.pull_down_at: (gpio_pin_t) -> 0
-  # @private
   def self.open_drain_at: (gpio_pin_t) -> 0
 end

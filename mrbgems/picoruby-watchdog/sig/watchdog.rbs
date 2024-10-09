@@ -1,3 +1,4 @@
+# @sidebar hardware_device
 class Watchdog
   RP2040_MAX_ENABLE_MS: Integer
 

@@ -34,7 +34,7 @@ class GPIO
 
   def initialize(pin, flags, alt_function = 0)
     @pin = pin
-    GPIO._init(pin)
+    _init(pin)
     setmode(flags, alt_function)
     unless @dir || @alt_function
       raise ArgumentError.new("You must specify one of IN, OUT, HIGH_Z, and ALT")

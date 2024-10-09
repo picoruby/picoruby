@@ -1,17 +1,25 @@
 module MbedTLS
   class Cipher
-    SUPPORTED_CIPHERS:    Hash[untyped, untyped]
-    KEY_LENGTHS:          Hash[untyped, untyped]
-    SUPPORTED_OPERATIONS: Hash[untyped, untyped]
+    type cipher_t = :aes_128_cbc
+                               | :aes_192_cbc
+                               | :aes_256_cbc
+                               | :aes_128_gcm
+                               | :aes_192_gcm
+                               | :aes_256_gcm
+    SUPPORTED_CIPHERS:    Hash[cipher_t, Integer]
+    KEY_LENGTHS:          Hash[cipher_t, Integer]
+    type operation_t = :encrypt | :decrypt
+    SUPPORTED_OPERATIONS: Hash[operation_t, Integer]
 
-    def self.new: (untyped cipher_suite, untyped key, untyped operation) -> MbedTLS::Cipher
-    def self._init_ctx: (Integer, String, Integer) -> MbedTLS::Cipher
-    # @private
-    def _set_iv: (String) -> MbedTLS::Cipher
-    def update: (String) -> String
-    def update_ad: (String) -> MbedTLS::Cipher
+    @iv_set: bool | nil
+
+    def self.new: (cipher_t cipher_suite, String key, operation_t operation) -> MbedTLS::Cipher
+    private def self._init_ctx: (Integer, String, Integer) -> MbedTLS::Cipher
+    private def _set_iv: (String) -> MbedTLS::Cipher
+    def update: (String input) -> String
+    def update_ad: (String input) -> MbedTLS::Cipher
     def finish: () -> String
     def write_tag: () -> String
-    def check_tag: (String) -> bool
+    def check_tag: (String tag) -> bool
   end
 end

@@ -1,10 +1,14 @@
 module JSON
+  # @sidebar error
   class JSONError < StandardError
   end
+  # @sidebar error
   class ParserError < JSONError
   end
+  # @sidebar error
   class GeneratorError < JSONError
   end
+  # @sidebar error
   class DiggerError < JSONError
   end
 

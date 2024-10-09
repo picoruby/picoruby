@@ -15,6 +15,6 @@ class IO
   def self.cooked!: -> self
 end
 
-# @error
+# @sidebar error
 class IO::EAGAINWaitReadable < StandardError
 end

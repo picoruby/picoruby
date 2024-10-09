@@ -1,3 +1,4 @@
+# @sidebar hardware_device
 class RTD
   type rtd_unit_t = :celsius | :fahrenheit | :kelvin
   DRIVERS: Array[Symbol]
@@ -19,6 +20,7 @@ class RTD
   def read: (?unit: rtd_unit_t) -> Float
   def temperature_in_celsius: (Float) -> Float
 
+  # @sidebar hardware_device
   class PT100 < RTD
   end
 end

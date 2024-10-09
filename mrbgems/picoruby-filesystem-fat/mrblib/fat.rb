@@ -19,7 +19,7 @@ class FAT
       @stat_hash = if path == "/"
         { mode: AM_DIR }
       else
-        FAT._stat("#{prefix}#{path}")
+        _stat("#{prefix}#{path}")
       end
     end
 
@@ -127,43 +127,43 @@ class FAT
     # calls f_chdrive internally in f_chdir.
     # This is the reason of passing also @prefix
     path = "" if path == "/"
-    if path == "" || FAT._exist?("#{@prefix}#{path}")
-      FAT._chdir("#{@prefix}#{path}")
+    if path == "" || _exist?("#{@prefix}#{path}")
+      _chdir("#{@prefix}#{path}")
     else
       0
     end
   end
 
   def erase
-    FAT._erase(@prefix)
+    _erase(@prefix)
   end
 
   def utime(atime, _mtime, path)
-    FAT._utime(atime.to_i, "#{@prefix}#{path}")
+    _utime(atime.to_i, "#{@prefix}#{path}")
   end
 
   def mkdir(path, mode = AM_DIR)
-    FAT._mkdir("#{@prefix}#{path}", mode)
+    _mkdir("#{@prefix}#{path}", mode)
   end
 
   def chmod(mode, path)
-    FAT._chmod(mode, "#{@prefix}#{path}")
+    _chmod(mode, "#{@prefix}#{path}")
   end
 
   def exist?(path)
-    FAT._exist?("#{@prefix}#{path}")
+    _exist?("#{@prefix}#{path}")
   end
 
   def unlink(path)
-    FAT._unlink("#{@prefix}#{path}")
+    _unlink("#{@prefix}#{path}")
   end
 
   def rename(from, to)
-    FAT._rename("#{@prefix}#{from}", "#{@prefix}#{to}")
+    _rename("#{@prefix}#{from}", "#{@prefix}#{to}")
   end
 
   def directory?(path)
     return true if path == "/"
-    FAT._directory?("#{@prefix}#{path}")
+    _directory?("#{@prefix}#{path}")
   end
 end

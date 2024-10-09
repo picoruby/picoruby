@@ -4,8 +4,7 @@ class SQLite3
 
     def self.new: (String filename, ?results_as_hash: bool) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
     def self.open: (String filename) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
-    # @private
-    def self._open: (String filename) -> SQLite3::Database
+    private def self._open: (String filename) -> SQLite3::Database
 
     attr_accessor results_as_hash: bool
 

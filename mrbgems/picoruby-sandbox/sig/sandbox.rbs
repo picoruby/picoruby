@@ -1,4 +1,6 @@
 class Sandbox
+
+  # @sidebar error
   class Abort < Exception
   end
 

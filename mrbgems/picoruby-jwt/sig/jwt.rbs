@@ -1,4 +1,5 @@
 module JWT
+  # @sidebar error
   class VerificationError < StandardError
   end
 
