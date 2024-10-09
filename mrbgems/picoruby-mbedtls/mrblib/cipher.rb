@@ -1,24 +1,32 @@
 module MbedTLS
   class Cipher
     SUPPORTED_CIPHERS = {
-      :aes_128_cbc       => 0x0001,
-      :aes_192_cbc       => 0x0002,
-      :aes_256_cbc       => 0x0003,
-      :aes_128_gcm       => 0x1001,
-      :aes_192_gcm       => 0x1002,
-      :aes_256_gcm       => 0x1003
+      aes_128_cbc: 0x0001,
+      aes_192_cbc: 0x0002,
+      aes_256_cbc: 0x0003,
+      aes_128_gcm: 0x1001,
+      aes_192_gcm: 0x1002,
+      aes_256_gcm: 0x1003
     }
     KEY_LENGTHS = {
-      :aes_128_cbc       => 16,
-      :aes_192_cbc       => 24,
-      :aes_256_cbc       => 32,
-      :aes_128_gcm       => 16,
-      :aes_192_gcm       => 24,
-      :aes_256_gcm       => 32
+      aes_128_cbc: 16,
+      aes_192_cbc: 24,
+      aes_256_cbc: 32,
+      aes_128_gcm: 16,
+      aes_192_gcm: 24,
+      aes_256_gcm: 32
+    }
+    IV_LENGTHS = {
+      0x0001 => 16,
+      0x0002 => 16,
+      0x0003 => 16,
+      0x1001 => 12,
+      0x1002 => 12,
+      0x1003 => 12
     }
     SUPPORTED_OPERATIONS = {
-      :encrypt => 0,
-      :decrypt => 1
+      encrypt: 0,
+      decrypt: 1
     }
 
     def self.new(cipher_suite, key, operation)
@@ -40,8 +48,8 @@ module MbedTLS
     end
 
     def set_iv(iv)
-      unless iv.length == 16
-        raise ArgumentError, "Invalid IV length"
+      if iv.length != IV_LENGTHS[@cipher_key]
+        raise ArgumentError, "Invalid IV length: #{iv.length}"
       end
       unless @iv_set
         @iv_set = true
@@ -51,6 +59,7 @@ module MbedTLS
         self
       end
     end
+
   end
 end
 

@@ -2,8 +2,8 @@
 #include "mbedtls/cipher.h"
 #include "mbedtls/aes.h"
 
-mbedtls_cipher_type_t
-c_mbedtls_cipher_cipher_name(int key)
+static mbedtls_cipher_type_t
+mbedtls_cipher_cipher_name(int key)
 {
   mbedtls_cipher_type_t ret;
   switch (key) {
@@ -31,8 +31,8 @@ c_mbedtls_cipher_cipher_name(int key)
   return ret;
 }
 
-mbedtls_operation_t
-c_mbedtls_cipher_operation_name(int key)
+static mbedtls_operation_t
+mbedtls_cipher_operation_name(int key)
 {
   mbedtls_operation_t ret;
   switch (key) {
@@ -48,8 +48,8 @@ c_mbedtls_cipher_operation_name(int key)
   return ret;
 }
 
-int
-c_mbedtls_cipher_is_cbc(int cipher_key)
+static int
+mbedtls_cipher_is_cbc(int cipher_key)
 {
   return cipher_key < 0x0010;
 }
@@ -61,11 +61,12 @@ c_mbedtls_cipher__init_ctx(mrbc_vm *vm, mrbc_value *v, int argc)
   mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)self.instance->data;
   mbedtls_cipher_init(ctx);
 
-  mrbc_value cipher_suite = GET_ARG(1);
-  mrbc_value key          = GET_ARG(2);
-  mrbc_value operation    = GET_ARG(3);
+  int cipher_suite = GET_INT_ARG(1);
+  mrbc_instance_setiv(&self, mrbc_str_to_symid("cipher_key"), &GET_ARG(1));
+  mrbc_value key   = GET_ARG(2);
+  int operation    = GET_INT_ARG(3);
 
-  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(c_mbedtls_cipher_cipher_name(mrbc_integer(cipher_suite)));
+  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(mbedtls_cipher_cipher_name(cipher_suite));
   int ret;
   ret = mbedtls_cipher_setup(ctx, cipher_info);
   if (ret != 0) {
@@ -76,12 +77,12 @@ c_mbedtls_cipher__init_ctx(mrbc_vm *vm, mrbc_value *v, int argc)
     }
     return;
   }
-  ret = mbedtls_cipher_setkey(ctx, key.string->data, key.string->size * 8, c_mbedtls_cipher_operation_name(mrbc_integer(operation))); /* last arg is keybits */
+  ret = mbedtls_cipher_setkey(ctx, key.string->data, key.string->size * 8, mbedtls_cipher_operation_name(operation)); /* last arg is keybits */
   if (ret != 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setkey failed");
     return;
   }
-  if (c_mbedtls_cipher_is_cbc(mrbc_integer(cipher_suite))) {
+  if (mbedtls_cipher_is_cbc(cipher_suite)) {
     ret = mbedtls_cipher_set_padding_mode(ctx, MBEDTLS_PADDING_PKCS7);
     if (ret != 0) {
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_set_padding_mode failed");
