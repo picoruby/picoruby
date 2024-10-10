@@ -23,6 +23,7 @@ c_member_reader(mrbc_vm *vm, mrbc_value *v, int argc)
   data_instance_t *instance_data = (data_instance_t *)v->instance->data;
   mrbc_value members = instance_data->members;
   mrbc_value value = mrbc_hash_get(&members, &key);
+  mrbc_incref(&value);
   SET_RETURN(value);
 }
 
@@ -74,6 +75,14 @@ c_instance_is_a_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_instance_inspect(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char inspect[25] = {0};
+  sprintf(inspect, "#<data %s>", v->instance->cls->name);
+  mrbc_value str = mrbc_string_new_cstr(vm, inspect);
+  SET_RETURN(str);
+}
 /*
  * Subclass Class methods
  */
@@ -133,10 +142,11 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
   data_subclass_t *data = (data_subclass_t *)subclass.instance->data;
   memset(data, 0, sizeof(data_subclass_t));
 
-  char buf[24] = {0};
-  memcpy(buf, "Data_", 5);
-  sprintf(buf + 5, "0x%p", subclass.instance);
-  mrbc_class *cls = mrbc_define_class(vm, buf, mrbc_class_object);
+  char *class_name = mrbc_alloc(vm, 15);
+  memset(class_name, 0, 15);
+  sprintf(class_name, "%p", subclass.instance);
+  class_name[14] = '\0';
+  mrbc_class *cls = mrbc_define_class(vm, class_name, class_Data);
 
   mrbc_value member_keys = mrbc_array_new(vm, argc);
   for (int i = 0; i < argc; i++) {
@@ -165,6 +175,7 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_define_method(vm, cls, "members", c_instance_members);
   mrbc_define_method(vm, cls, "to_h", c_instance_to_h);
   mrbc_define_method(vm, cls, "is_a?", c_instance_is_a_q);
+  mrbc_define_method(vm, cls, "inspect", c_instance_inspect);
 
   data->cls = cls;
   data->member_keys = member_keys;
