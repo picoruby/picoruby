@@ -12,4 +12,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-mbedtls"
   conf.gem core: "picoruby-jwt"
   conf.gem core: "picoruby-rng"
+  conf.gem core: "picoruby-data"
 end
