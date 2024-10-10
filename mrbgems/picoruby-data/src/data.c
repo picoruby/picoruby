@@ -48,6 +48,32 @@ c_instance_members(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(keys);
 }
 
+static void
+c_instance_is_a_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  mrbc_value arg = GET_ARG(1);
+  if (arg.tt == MRBC_TT_CLASS) {
+    if (arg.cls == class_Data) {
+      SET_TRUE_RETURN();
+    } else {
+      SET_FALSE_RETURN();
+    }
+  } else if (arg.tt == MRBC_TT_OBJECT) {
+    data_subclass_t *subclass_data = (data_subclass_t *)arg.instance->data;
+    if (subclass_data->cls == v->instance->cls) {
+      SET_TRUE_RETURN();
+    } else {
+      SET_FALSE_RETURN();
+    }
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a class");
+  }
+}
+
 /*
  * Subclass Class methods
  */
@@ -109,7 +135,7 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
 
   char buf[24] = {0};
   memcpy(buf, "Data_", 5);
-  sprintf(buf + 5, "0x%p", &subclass.instance);
+  sprintf(buf + 5, "0x%p", subclass.instance);
   mrbc_class *cls = mrbc_define_class(vm, buf, mrbc_class_object);
 
   mrbc_value member_keys = mrbc_array_new(vm, argc);
@@ -138,6 +164,7 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   mrbc_define_method(vm, cls, "members", c_instance_members);
   mrbc_define_method(vm, cls, "to_h", c_instance_to_h);
+  mrbc_define_method(vm, cls, "is_a?", c_instance_is_a_q);
 
   data->cls = cls;
   data->member_keys = member_keys;
