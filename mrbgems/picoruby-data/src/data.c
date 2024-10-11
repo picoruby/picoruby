@@ -28,6 +28,21 @@ c_member_reader(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_method_missing(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrbc_value key = GET_ARG(1);
+  data_instance_t *instance_data = (data_instance_t *)v->instance->data;
+  mrbc_value members = instance_data->members;
+  if (!mrbc_hash_search(&members, &key)) {
+    mrbc_raise(vm, MRBC_CLASS(NoMethodError), "no such member");
+    return;
+  }
+  mrbc_value value = mrbc_hash_get(&members, &key);
+  mrbc_incref(&value);
+  SET_RETURN(value);
+}
+
+static void
 c_instance_to_h(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   data_instance_t *instance_data = (data_instance_t *)v->instance->data;
@@ -133,10 +148,10 @@ c_members(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_define(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (vm->exception.tt != MRBC_TT_SYMBOL) {
-    mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Data.define is not implemented");
-    return;
-  }
+//  if (vm->exception.tt != MRBC_TT_SYMBOL) {
+//    mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Data.define is not implemented");
+//    return;
+//  }
 
   mrbc_value subclass = mrbc_instance_new(vm, v->cls, sizeof(data_subclass_t));
   data_subclass_t *data = (data_subclass_t *)subclass.instance->data;
@@ -170,8 +185,9 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
       }
     }
     mrbc_array_set(&member_keys, i, &key);
-    mrbc_define_method(vm, cls, (const char *)name.string->data, c_member_reader);
+//    mrbc_define_method(vm, cls, (const char *)name.string->data, c_member_reader);
   }
+  mrbc_define_method(vm, cls, "method_missing", c_method_missing);
   mrbc_define_method(vm, cls, "members", c_instance_members);
   mrbc_define_method(vm, cls, "to_h", c_instance_to_h);
   mrbc_define_method(vm, cls, "is_a?", c_instance_is_a_q);
