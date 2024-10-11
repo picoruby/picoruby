@@ -62,6 +62,14 @@ class VFS
     end
 
     def rename(from, to)
+      unless exist?(from)
+        puts "No such file or directory: #{from}"
+        return 0
+      end
+      if exist?(to)
+        puts "File exists: #{to}. Can't overwrite"
+        return 0
+      end
       volume_from, _from = VFS.sanitize_and_split(from)
       volume_to, _to = VFS.sanitize_and_split(to)
       if volume_from != volume_to

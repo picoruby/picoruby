@@ -2,6 +2,7 @@
 /etc/init.d/r2p2_wifi
 /bin/wifi_connect
 /bin/wifi_config
+/bin/mv
 /bin/free
 /bin/irb
 /bin/rm
