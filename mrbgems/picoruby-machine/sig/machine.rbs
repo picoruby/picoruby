@@ -5,6 +5,7 @@ class Machine
   def self.deep_sleep: (Integer gpio_pin, bool edge, bool high) -> 0
   def self.using_delay: () { () -> void } -> void
   def self.using_busy_wait: () { () -> void } -> void
+  def self.unique_id: () -> (String | nil)
 end
 
 $machine_delay: Symbol?

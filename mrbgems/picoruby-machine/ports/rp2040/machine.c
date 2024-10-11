@@ -1,5 +1,6 @@
 #include "pico/sleep.h"
 #include "pico/stdlib.h"
+#include "pico/unique_id.h"
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -144,4 +145,10 @@ void
 Machine_busy_wait_ms(uint32_t ms)
 {
   busy_wait_us_32(1000 * ms);
+}
+
+void
+Machine_get_unique_id(char *id_str)
+{
+  pico_get_unique_board_id_string(id_str, PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1);
 }

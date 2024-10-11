@@ -79,7 +79,23 @@ c_Machine_deep_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(0);
 }
 
-void
+static void
+c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  char id[32] = {0};
+  Machine_get_unique_id(id);
+  if (id) {
+    mrbc_value ret = mrbc_string_new_cstr(vm, (const char *)id);
+    SET_RETURN(ret);
+  } else {
+    SET_NIL_RETURN();
+  }
+}
+
 mrbc_machine_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Machine = mrbc_define_class(vm, "Machine", mrbc_class_object);
@@ -88,5 +104,6 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
   mrbc_define_method(vm, mrbc_class_Machine, "sleep", c_Machine_sleep);
   mrbc_define_method(vm, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
+  mrbc_define_method(vm, mrbc_class_Machine, "unique_id", c_Machine_unique_id);
 }
 
