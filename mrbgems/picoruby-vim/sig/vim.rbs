@@ -7,7 +7,7 @@ class Vim
   @command_buffer: Editor::Buffer
   @message: String | nil
 
-  def self.new: (String filepath) -> instance
+  def self.new: (String | nil filepath) -> instance
   def start: -> void
   private def _start: -> void
   def exec_command: (Editor::Buffer buffer) -> (:quit | String | nil)
