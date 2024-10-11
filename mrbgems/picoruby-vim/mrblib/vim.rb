@@ -114,6 +114,8 @@ class Vim
           when  86 # V
           when  98 # b begin
           when 100 # d
+            @mode = :cut
+            @command_buffer.lines[0] = "d"
           when 101 # e end
           when 103 # g
           when 104 # h left
@@ -122,6 +124,10 @@ class Vim
         else
           case c
           when 112 # p paste
+            if @paste_board
+              buffer.put :DOWN
+              buffer.insert_line(@paste_board)
+            end
           when 114 # r replace
           when 117 # u undo
           when 118 # v visual
@@ -142,7 +148,7 @@ class Vim
           else
             # @type var res: String | nil
             @message = res
-            @command_buffer.clear
+            clear_command_buffer
             @mode = :normal
           end
         when 27 # ESC
@@ -152,7 +158,7 @@ class Vim
           when "[D" # left
             @command_buffer.put :LEFT
           when nil, ""
-            @command_buffer.clear
+            clear_command_buffer
             @mode = :normal
           end
         when 8, 127 # 127 on UNIX
@@ -176,7 +182,7 @@ class Vim
           when "[D" # left
             buffer.put :LEFT
           when nil, ""
-            @command_buffer.clear
+            clear_command_buffer
             @mode = :normal
             buffer.put :LEFT if 0 < buffer.cursor_x
           end
@@ -192,6 +198,12 @@ class Vim
       when :visual
       when :visual_line
       when :visual_block
+      when :cut
+        if c == 100 # d delete (cut)
+          @paste_board = buffer.delete_line
+        end
+        @mode = :normal
+        clear_command_buffer
       end
     end
   end
@@ -235,6 +247,10 @@ class Vim
   def save_file
     return "No file name" unless @filepath
     @editor.save_file_from_buffer(@filepath)
+  end
+
+  def clear_command_buffer
+    @command_buffer.clear
   end
 end
 

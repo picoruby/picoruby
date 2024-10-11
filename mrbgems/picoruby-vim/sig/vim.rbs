@@ -1,16 +1,20 @@
 # TypeProf 0.21.3
 
 class Vim
+  type mode_t = :command | :insert | :normal | :visual | :visual_line | :visual_block | :cut
+
   @filepath: String | nil
-  @mode: :command | :insert | :normal
+  @mode: mode_t
   @editor: Editor::Screen
   @command_buffer: Editor::Buffer
   @message: String | nil
+  @paste_board: String | nil
 
   def self.new: (String | nil filepath) -> instance
-  def start: -> void
-  private def _start: -> void
+  def start: () -> void
+  private def _start: () -> void
   def exec_command: (Editor::Buffer buffer) -> (:quit | String | nil)
-  def save_file: -> String
+  def save_file: () -> String
+  def clear_command_buffer: () -> void
 end
 

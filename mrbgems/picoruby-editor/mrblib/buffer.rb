@@ -160,6 +160,15 @@ module Editor
       @lines[@cursor_y][@cursor_x] = ""
     end
 
+    def delete_line
+      @lines.delete_at @cursor_y
+    end
+
+    def insert_line(line)
+      return unless line
+      @lines.insert @cursor_y, line
+    end
+
     def current_tail(n = 1)
       current_line[@cursor_x - n, 65535].to_s
     end

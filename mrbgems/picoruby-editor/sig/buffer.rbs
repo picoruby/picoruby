@@ -31,6 +31,8 @@ module Editor
     def down: () -> void
     def put: (String | Symbol c) -> void
     def delete: () -> void
+    def delete_line: () -> (String | nil)
+    def insert_line: (String | nil line) -> void
     def current_tail: (?Integer n) -> String
   end
 end
