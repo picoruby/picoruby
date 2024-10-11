@@ -16,6 +16,7 @@ ENV: {
   "PATH" => String,
   "HOME" => String,
   "PWD" => String,
+  "WIFI_MODULE" => String,
   "WIFI_CONFIG_PATH" => String
 }
 
@@ -35,6 +36,7 @@ class Shell
 
   def setup_root_volume: (Symbol drive, ?label: String) -> void
   def setup_system_files: (?force: bool) -> void
+  def bootstrap: (String file) -> bool
 
   def initialize: (?clean: bool) -> void
   def simple_question: (String question) { (String answer) -> boolish } -> void

@@ -124,6 +124,32 @@ class Shell
     end
   end
 
+  def bootstrap(file)
+    unless File.exist?(file)
+      puts "File not found: #{file}"
+      return false
+    end
+    puts "Press 's' to skip running #{file}"
+    skip = false
+    20.times do
+      print "."
+      USB.tud_task
+      if IO.getc == "s"
+        skip = true
+        break 0
+      end
+      sleep 0.1
+    end
+    IO.read_nonblock 1024 # discard remaining input
+    if skip
+      puts "Skip"
+      return false
+    end
+    puts "\nLoading #{file}..."
+    load file
+    return true
+  end
+
   def start(mode = :shell)
     case mode
     when :irb

@@ -1,5 +1,4 @@
 require 'yaml'
-require 'cyw43'
 require 'net'
 
 check_auto_connect = false
