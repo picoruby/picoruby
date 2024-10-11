@@ -127,6 +127,7 @@ class Vim
           when 118 # v visual
           when 119 # w word
           when 120 # x delete
+            buffer.delete
           when 121 # y yank
           else
             puts c.chr

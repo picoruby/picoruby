@@ -17,19 +17,20 @@ module Editor
     attr_reader cursor_y: Integer
 
     def self.new: () -> instance
-    def current_line: -> String
-    def current_char: -> String?
-    def clear: -> void
-    def dump: -> String
-    def home: -> void
-    def head: -> void
-    def tail: -> void
-    def bottom: -> void
-    def left: -> void
-    def right: -> void
-    def up: -> void
-    def down: -> void
+    def current_line: () -> String
+    def current_char: () -> String?
+    def clear: () -> void
+    def dump: () -> String
+    def home: () -> void
+    def head: () -> void
+    def tail: () -> void
+    def bottom: () -> void
+    def left: () -> void
+    def right: () -> void
+    def up: () -> void
+    def down: () -> void
     def put: (String | Symbol c) -> void
+    def delete: () -> void
     def current_tail: (?Integer n) -> String
   end
 end

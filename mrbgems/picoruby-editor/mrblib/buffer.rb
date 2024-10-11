@@ -156,6 +156,10 @@ module Editor
       end
     end
 
+    def delete
+      @lines[@cursor_y][@cursor_x] = ""
+    end
+
     def current_tail(n = 1)
       current_line[@cursor_x - n, 65535].to_s
     end
