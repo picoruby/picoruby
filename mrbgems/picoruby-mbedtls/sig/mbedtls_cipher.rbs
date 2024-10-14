@@ -1,24 +1,20 @@
 module MbedTLS
   class Cipher
-    type cipher_t = :aes_128_cbc
-                    | :aes_192_cbc
-                    | :aes_256_cbc
-                    | :aes_128_gcm
-                    | :aes_192_gcm
-                    | :aes_256_gcm
-    SUPPORTED_CIPHERS:    Hash[cipher_t, Integer]
-    KEY_LENGTHS:          Hash[cipher_t, Integer]
-    IV_LENGTHS:           Hash[Integer, Integer]
-    type operation_t = :encrypt | :decrypt
-    SUPPORTED_OPERATIONS: Hash[operation_t, Integer]
+    type cipher_t = "AES-128-CBC"
+                    | "AES-192-CBC"
+                    | "AES-256-CBC"
+                    | "AES-128-GCM"
+                    | "AES-192-GCM"
+                    | "AES-256-GCM"
 
-    @iv_set: bool | nil
-    @cipher_key: Integer
-
-    def self.new: (cipher_t cipher_suite, String key, operation_t operation) -> MbedTLS::Cipher
-    private def self._init_ctx: (Integer, String, Integer) -> MbedTLS::Cipher
-    def set_iv: (String) -> MbedTLS::Cipher
-    private def _set_iv: (String) -> MbedTLS::Cipher
+    def self.new: (cipher_t cipher_suite) -> MbedTLS::Cipher
+    def self.ciphers: () -> Array[cipher_t]
+    def encrypt: () -> MbedTLS::Cipher
+    def decrypt: () -> MbedTLS::Cipher
+    def key_len: () -> Integer
+    def key=: (String key) -> String
+    def iv_len: () -> Integer
+    def iv=: (String iv) -> String
     def update: (String input) -> String
     def update_ad: (String input) -> MbedTLS::Cipher
     def finish: () -> String
