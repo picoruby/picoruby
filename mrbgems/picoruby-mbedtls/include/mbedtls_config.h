@@ -3,6 +3,8 @@
  * We are not on a unix or windows platform,
  * so we must define MBEDTLS_PLATFORM_C
  */
+#define MBEDTLS_PLATFORM_C
+
 #define MBEDTLS_NO_PLATFORM_ENTROPY
 
 /*
@@ -25,4 +27,11 @@
 #define MBEDTLS_SHA224_C
 #define MBEDTLS_SHA256_C
 #define MBEDTLS_SHA512_C
+
+/* custom allocator */
+#include "alloc.h"
+#define MBEDTLS_PLATFORM_MEMORY
+#define MBEDTLS_PLATFORM_CALLOC_MACRO   mrbc_raw_calloc
+#define MBEDTLS_PLATFORM_FREE_MACRO     mrbc_raw_free
+
 #endif
