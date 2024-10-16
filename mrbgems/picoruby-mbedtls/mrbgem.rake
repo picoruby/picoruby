@@ -1,6 +1,6 @@
 MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.license = 'MIT'
-  spec.author  = 'HASUMI Hitoshi'
+  spec.authors = ['HASUMI Hitoshi', 'Ryo Kajiwara']
   spec.summary = 'Mbed-TLS porting for PicoRuby'
 
   # Alternative to `mbedtls/include/mbedtls/mbedtls_config.h`

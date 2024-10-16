@@ -1,6 +1,6 @@
 MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.license = 'MIT'
-  spec.author  = 'Ryo Kajiwara'
+  spec.authors = ['Ryo Kajiwara', 'HASUMI Hitoshi']
   spec.summary = 'Network functionality for PicoRuby'
 
   spec.add_dependency 'picoruby-time-class'
