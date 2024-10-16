@@ -1,3 +1,4 @@
+require "metaprog"
 require "picorubyvm"
 require "sandbox"
 require "filesystem-fat"
