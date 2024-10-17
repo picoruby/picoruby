@@ -5,9 +5,29 @@ end
 class IO
   type fd_t = Integer | IO
   def self.new: (*Object args) -> instance
+  alias for_fd new
   def self.open: (*Object args) -> instance
-               | (*Object args) { () -> instance } -> object
+               | (*Object args) { () -> instance } -> untyped
   def self.popen: (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) -> instance
-                | (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) { () -> instance } -> object
+                | (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) { () -> instance } -> untyped
   private def self._popen: (String command, String mode, fd_t in, fd_t out, fd_t err) -> instance
+  def self.pipe: () -> [instance, instance]
+               | { (instance, instance) -> void } -> untyped
+  private def self._pipe: () -> [instance, instance]
+  def self.read: (String path, ?(Integer | nil) length, ?Integer offset, ?mode: String) -> String
+  def self.sysopen: (String path, ?String mode, ?Integer perm) -> Integer
+  private def self._sysclose: (Integer fd) -> 0
+  def self.select: (Array[?fd_t] readfds, ?Array[?fd_t] writefds, ?Array[?fd_t] exceptfds, ?Integer timeout) -> ([[IO]] | nil)
+
+  def isatty: () -> bool
+  alias tty? isatty
+  def eof?: () -> bool
+  alias eof eof?
+  def seek: (Integer offset, ?Integer whence) -> Integer
+  def write: (String input) -> Integer
+  def puts: (*String line) -> nil
+  def closed?: () -> bool
+  def close: () -> nil
+  def read: (?(Integer | nil) length, ?String outbuf) -> (String | nil)
+  def gets: (?String rs, ?Integer limit) -> (String | nil)
 end
