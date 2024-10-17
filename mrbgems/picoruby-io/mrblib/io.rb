@@ -53,14 +53,14 @@ class IO
     end
     if block
       begin
-        r, w = IO._pipe
+        r, w = _pipe
         yield r, w
       ensure
         r.close unless r.closed?
         w.close unless w.closed?
       end
     else
-      IO._pipe
+      _pipe
     end
   end
 
@@ -77,7 +77,7 @@ class IO
       if io
         io.close
       elsif fd != -1
-        IO._sysclose(fd)
+        _sysclose(fd)
       end
     end
     str
@@ -94,8 +94,8 @@ class IO
     self
   end
 
-  alias eof eof?
-  alias tell pos
+#  alias eof eof?
+#  alias tell pos
 
   def pos=(i)
     seek(i, SEEK_SET)
@@ -180,8 +180,8 @@ class IO
     nil
   end
 
-  alias to_i fileno
-  alias tty? isatty
+#  alias to_i fileno
+#  alias tty? isatty
 end
 
 STDIN  = IO.open(0, "r")

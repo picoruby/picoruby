@@ -47,6 +47,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <limits.h>
 
 #define OPEN_ACCESS_MODE_FLAGS (O_RDONLY | O_WRONLY | O_RDWR)
 #define OPEN_RDONLY_P(f)       ((bool)(((f) & OPEN_ACCESS_MODE_FLAGS) == O_RDONLY))
@@ -59,10 +60,10 @@
 static void
 io_set_process_status(mrbc_vm *vm, pid_t pid, int status)
 {
-  // TODO
-//  struct RClass *c_status = NULL;
-//  mrb_value v;
-//
+ // struct RClass *c_status = NULL;
+  mrbc_value v;
+
+  // TODO: implement Process::Status
 //  if (mrb_class_defined_id(mrb, MRB_SYM(Process))) {
 //    struct RClass *c_process = mrb_module_get_id(mrb, MRB_SYM(Process));
 //    if (mrb_const_defined(mrb, mrb_obj_value(c_process), MRB_SYM(Status))) {
@@ -73,11 +74,59 @@ io_set_process_status(mrbc_vm *vm, pid_t pid, int status)
 //    v = mrb_funcall_id(mrb, mrb_obj_value(c_status), MRB_SYM(new), 2, mrb_fixnum_value(pid), mrb_fixnum_value(status));
 //  }
 //  else {
-//    v = mrb_fixnum_value(WEXITSTATUS(status));
+    v = mrbc_integer_value(WEXITSTATUS(status));
 //  }
-//  mrb_gv_set(mrb, mrb_intern_lit(mrb, "$?"), v);
+  mrbc_set_global(mrbc_str_to_symid("$?"), &v);
 }
 #endif
+
+static int
+picorb_io_read_data_pending(mrbc_vm *vm, struct picorb_io *fptr)
+{
+  if (fptr->buf && fptr->buf->len > 0) return 1;
+  return 0;
+}
+
+static struct timeval
+time2timeval(mrbc_vm *vm, mrbc_value time)
+{
+  struct timeval t = { 0, 0 };
+
+  switch (time.tt) {
+    case MRBC_TT_INTEGER:
+      t.tv_sec = (ftime_t)time.i;
+      t.tv_usec = 0;
+      break;
+
+#ifdef MRBC_USE_FLOAT
+    case MRBC_TT_FLOAT:
+      t.tv_sec = (ftime_t)time.d;
+      t.tv_usec = (fsuseconds_t)((time.d - t.tv_sec) * 1000000.0);
+      break;
+#endif
+
+    default:
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument class");
+  }
+
+  return t;
+}
+static int
+io_find_index(struct picorb_io *fptr, const char *rs, int rslen)
+{
+  struct picorb_io_buf *buf = fptr->buf;
+
+  assert(rslen > 0);
+  const char c = rs[0];
+  const int limit = buf->len - rslen + 1;
+  const char *p = buf->mem+buf->start;
+  for (int i=0; i<limit; i++) {
+    if (p[i] == c && (rslen == 1 || memcmp(p+i, rs, rslen) == 0)) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 static struct picorb_io*
 io_data_get_ptr(mrbc_value io)
@@ -97,6 +146,17 @@ io_get_open_fptr(mrbc_vm *vm, mrbc_value io)
   }
   if (fptr->fd < 0) {
     mrbc_raise(vm, MRBC_CLASS(IOError), "closed stream");
+    return NULL;
+  }
+  return fptr;
+}
+
+static struct picorb_io*
+io_get_read_fptr(mrbc_vm *vm, mrbc_value io)
+{
+  struct picorb_io *fptr = io_get_open_fptr(vm, io);
+  if (!fptr->readable) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "not opened for reading");
     return NULL;
   }
   return fptr;
@@ -439,6 +499,69 @@ io_process_exec(const char *pname)
   return -1;
 }
 
+#if !defined(_WIN32) && !defined(_WIN64)
+static int
+io_cloexec_pipe(mrbc_vm *vm, int fildes[2])
+{
+  int ret;
+  ret = pipe(fildes);
+  if (ret == -1)
+    return -1;
+  io_fd_cloexec(vm, fildes[0]);
+  io_fd_cloexec(vm, fildes[1]);
+  return ret;
+}
+
+static int
+io_pipe(mrbc_vm *vm, int pipes[2])
+{
+  int ret;
+  ret = io_cloexec_pipe(vm, pipes);
+  if (ret == -1) {
+    if (errno == EMFILE || errno == ENFILE) {
+      ret = io_cloexec_pipe(vm, pipes);
+    }
+  }
+  return ret;
+}
+#endif
+
+static int
+io_cloexec_open(mrbc_vm *vm, const char *pathname, int flags, fmode_t mode)
+{
+  int fd, retry = false;
+  char* fname = (char *)pathname; // mrb_locale_from_utf8(pathname, -1);
+
+#ifdef O_CLOEXEC
+  /* O_CLOEXEC is available since Linux 2.6.23.  Linux 2.6.18 silently ignore it. */
+  flags |= O_CLOEXEC;
+#elif defined O_NOINHERIT
+  flags |= O_NOINHERIT;
+#endif
+reopen:
+  fd = open(fname, flags, mode);
+  if (fd == -1) {
+    if (!retry) {
+      switch (errno) {
+        case ENFILE:
+        case EMFILE:
+        //mrb_garbage_collect(mrb);
+        retry = true;
+        goto reopen;
+      }
+    }
+
+    //mrb_sys_fail(mrb, RSTRING_CSTR(mrb, mrb_format(mrb, "open %s", pathname)));
+    mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "open failed: %s", pathname);
+    return -1;
+  }
+
+  if (fd <= 2) {
+    io_fd_cloexec(vm, fd);
+  }
+  return fd;
+}
+
 /* class methods */
 
 static void
@@ -628,7 +751,470 @@ c_io__popen(mrbc_vm *vm, mrbc_value v[], int argc)
 #endif /* _WIN32 */
 }
 
+#if !defined(_WIN32) && !defined(_WIN64)
+static void
+c_io__pipe(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int pipes[2];
+
+  if (io_pipe(vm, pipes) == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "pipe failed");
+    return;
+  }
+
+  mrbc_value r = mrbc_instance_new(vm, v->cls, sizeof(struct picorb_io));
+  struct picorb_io *fptr_r = (struct picorb_io *)r.instance->data;
+  io_alloc(fptr_r);
+  fptr_r->fd = pipes[0];
+  fptr_r->readable = 1;
+  io_init_buf(vm, fptr_r);
+
+  mrbc_value w = mrbc_instance_new(vm, v->cls, sizeof(struct picorb_io));
+  struct picorb_io *fptr_w = (struct picorb_io *)w.instance->data;
+  io_alloc(fptr_w);
+  fptr_w->fd = pipes[1];
+  fptr_w->writable = 1;
+  fptr_w->sync = 1;
+
+  mrb_value ret = mrbc_array_new(vm, 2);
+  mrbc_array_set(&ret, 0, &r);
+  mrbc_array_set(&ret, 1, &w);
+  SET_RETURN(ret);
+}
+#endif
+
+static void
+c_io_sysopen(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value mode;
+  int fd, perm = -1;
+  int flags;
+  const char *path;
+  if (argc < 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  path = (const char *)GET_STRING_ARG(1);
+  if (1 < argc) {
+    mode = GET_ARG(2);
+  } else {
+    mode = mrbc_nil_value();
+  }
+  if (2 < argc) {
+    perm = GET_INT_ARG(3);
+  }
+
+  if (perm < 0) {
+    perm = 0666;
+  }
+
+  flags = io_mode_to_flags(vm, mode);
+  fd = io_cloexec_open(vm, path, flags, (fmode_t)perm);
+  SET_INT_RETURN(fd);
+}
+
+static void
+c_io__sysclose(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int fd;
+  //mrb->c->ci->mid = 0; ????
+  if (argc < 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (v[1].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type");
+    return;
+  }
+  fd = GET_INT_ARG(1);
+  if (close((int)fd) == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "close failed");
+    return;
+  }
+  SET_INT_RETURN(0);
+}
+
+static mrbc_value
+io_reset_outbuf(mrbc_vm *vm, mrbc_value outbuf, int len)
+{
+  if (outbuf.tt == MRBC_TT_NIL) {
+    outbuf = mrbc_string_new(vm, NULL, 0);
+  }
+  return outbuf;
+}
+
+static void
+io_fill_buf(mrbc_vm *vm, struct picorb_io *fptr)
+{
+  struct picorb_io_buf *buf = fptr->buf;
+
+  if (buf->len > 0) return;
+
+  int n = read(fptr->fd, buf->mem, PICORB_IO_BUF_SIZE);
+  if (n < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sysread failed");
+    return;
+  }
+  if (n == 0) fptr->eof = 1;
+  buf->start = 0;
+  buf->len = (short)n;
+}
+
+static void
+io_buf_reset(struct picorb_io_buf *buf)
+{
+  buf->start = 0;
+  buf->len = 0;
+}
+
+static void
+io_buf_shift(struct picorb_io_buf *buf, int n)
+{
+  assert(n <= SHRT_MAX);
+  buf->start += (short)n;
+  buf->len -= (short)n;
+}
+
+static void
+io_buf_cat(mrbc_vm *vm, mrbc_value outbuf, struct picorb_io_buf *buf, int n)
+{
+  assert(n <= buf->len);
+  mrbc_string_append_cbuf(&outbuf, (const char *)buf->mem+buf->start, n);
+  io_buf_shift(buf, n);
+}
+
+static void
+io_buf_cat_all(mrbc_vm *vm, mrbc_value outbuf, struct picorb_io_buf *buf)
+{
+  mrbc_string_append_cbuf(&outbuf, buf->mem+buf->start, buf->len);
+  io_buf_reset(buf);
+}
+
+static mrbc_value
+io_read_all(mrbc_vm *vm, struct picorb_io *fptr, mrbc_value outbuf)
+{
+  for (;;) {
+    io_fill_buf(vm, fptr);
+    if (fptr->eof) {
+      return outbuf;
+    }
+    io_buf_cat_all(vm, outbuf, fptr->buf);
+  }
+}
+
+static void
+c_io_select(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value read, read_io, write, except, timeout, list;
+  struct timeval *tp, timerec;
+  fd_set pset, rset, wset, eset;
+  fd_set *rp, *wp, *ep;
+  struct picorb_io *fptr;
+  int pending = 0;
+  mrbc_value result;
+  int max = 0;
+  int interrupt_flag = 0;
+  int i, n;
+
+  if (argc < 1 || 4 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. (1..4 required)");
+    return;
+  }
+
+  timeout = mrbc_nil_value();
+  except = mrbc_nil_value();
+  write = mrbc_nil_value();
+  if (argc > 3)
+    timeout = v[4];
+  if (argc > 2)
+    except = v[3];
+  if (argc > 1)
+    write = v[2];
+  read = v[1];
+
+  if (timeout.tt == MRBC_TT_NIL) {
+    tp = NULL;
+  }
+  else {
+    timerec = time2timeval(vm, timeout);
+    if (vm->exception.tt == MRBC_TT_EXCEPTION) return; /* raise exception */
+    tp = &timerec;
+  }
+
+  FD_ZERO(&pset);
+  if (read.tt != MRBC_TT_NIL) {
+    if (read.tt != MRBC_TT_ARRAY) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "expected Array");
+      return;
+    }
+    rp = &rset;
+    FD_ZERO(rp);
+    for (i = 0; i < read.array->n_stored; i++) {
+      read_io = read.array->data[i];
+      fptr = io_get_open_fptr(vm, read_io);
+      if (fptr->fd >= FD_SETSIZE) continue;
+      FD_SET(fptr->fd, rp);
+      if (picorb_io_read_data_pending(vm, fptr)) {
+        pending++;
+        FD_SET(fptr->fd, &pset);
+      }
+      if (max < fptr->fd)
+        max = fptr->fd;
+    }
+    if (pending) {
+      timerec.tv_sec = timerec.tv_usec = 0;
+      tp = &timerec;
+    }
+  }
+  else {
+    rp = NULL;
+  }
+
+  if (write.tt != MRBC_TT_NIL) {
+    if (write.tt != MRBC_TT_ARRAY) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "expected Array");
+      return;
+    }
+    wp = &wset;
+    FD_ZERO(wp);
+    for (i = 0; i < write.array->n_stored; i++) {
+      fptr = io_get_open_fptr(vm, write.array->data[i]);
+      if (fptr->fd >= FD_SETSIZE) continue;
+      FD_SET(fptr->fd, wp);
+      if (max < fptr->fd)
+        max = fptr->fd;
+      if (fptr->fd2 >= 0) {
+        FD_SET(fptr->fd2, wp);
+        if (max < fptr->fd2)
+          max = fptr->fd2;
+      }
+    }
+  }
+  else {
+    wp = NULL;
+  }
+
+  if (except.tt != MRBC_TT_NIL) {
+    if (except.tt != MRBC_TT_ARRAY) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "expected Array");
+      return;
+    }
+    ep = &eset;
+    FD_ZERO(ep);
+    for (i = 0; i < except.array->n_stored; i++) {
+      fptr = io_get_open_fptr(vm, except.array->data[i]);
+      if (fptr->fd >= FD_SETSIZE) continue;
+      FD_SET(fptr->fd, ep);
+      if (max < fptr->fd)
+        max = fptr->fd;
+      if (fptr->fd2 >= 0) {
+        FD_SET(fptr->fd2, ep);
+        if (max < fptr->fd2)
+          max = fptr->fd2;
+      }
+    }
+  }
+  else {
+    ep = NULL;
+  }
+
+  max++;
+
+retry:
+  n = select(max, rp, wp, ep, tp);
+  if (n < 0) {
+#ifdef _WIN32
+    errno = WSAGetLastError();
+    if (errno != WSAEINTR) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "select failed");
+      return;
+    }
+#else
+    if (errno != EINTR) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "select failed");
+      return;
+    }
+#endif
+    if (tp == NULL)
+      goto retry;
+    interrupt_flag = 1;
+  }
+
+  if (!pending && n == 0) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  result = mrbc_array_new(vm, 3);
+  mrbc_incref(&result);
+  mrbc_value r = mrbc_array_new(vm, 0);
+  mrbc_incref(&r);
+  mrbc_array_set(&result, 0, &r);
+  mrbc_value w = mrbc_array_new(vm, 0);
+  mrbc_incref(&w);
+  mrbc_array_set(&result, 1, &w);
+  mrbc_value e = mrbc_array_new(vm, 0);
+  mrbc_incref(&e);
+  mrbc_array_set(&result, 2, &e);
+
+  if (interrupt_flag == 0) {
+    if (rp) {
+      list = result.array->data[0];
+      for (i = 0; i < read.array->n_stored; i++) {
+        fptr = io_get_open_fptr(vm, read.array->data[i]);
+        if (FD_ISSET(fptr->fd, rp) ||
+            FD_ISSET(fptr->fd, &pset)) {
+          mrbc_array_push(&list, &read.array->data[i]);
+        }
+      }
+    }
+
+    if (wp) {
+      list = result.array->data[1];
+      for (i = 0; i < write.array->n_stored; i++) {
+        fptr = io_get_open_fptr(vm, write.array->data[i]);
+        if (FD_ISSET(fptr->fd, wp)) {
+          mrbc_array_push(&list, &write.array->data[i]);
+        }
+        else if (fptr->fd2 >= 0 && FD_ISSET(fptr->fd2, wp)) {
+          mrbc_array_push(&list, &write.array->data[i]);
+        }
+      }
+    }
+
+    if (ep) {
+      list = result.array->data[2];
+      for (i = 0; i < except.array->n_stored; i++) {
+        fptr = io_get_open_fptr(vm, except.array->data[i]);
+        if (FD_ISSET(fptr->fd, ep)) {
+          mrbc_array_push(&list, &except.array->data[i]);
+        }
+        else if (fptr->fd2 >= 0 && FD_ISSET(fptr->fd2, ep)) {
+          mrbc_array_push(&list, &except.array->data[i]);
+        }
+      }
+    }
+  }
+
+  if (n == 0 && !pending) {
+    SET_NIL_RETURN();
+  } else {
+    SET_RETURN(result);
+  }
+}
+
 /* instance methods */
+
+static void
+c_io_sysseek(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+  off_t pos;
+  int offset = 0, whence = -1;
+
+  if (1 < argc) {
+    offset = GET_INT_ARG(1);
+  }
+  if (2 < argc) {
+    whence = GET_INT_ARG(2);
+  }
+  if (whence < 0) {
+    whence = 0;
+  }
+
+  fptr = io_get_open_fptr(vm, v[0]);
+  pos = lseek(fptr->fd, (off_t)offset, (int)whence);
+  if (pos == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sysseek failed");
+  }
+  fptr->eof = 0;
+  if (sizeof(off_t) > sizeof(int) && pos > (off_t)INT_MAX) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "sysseek reached too far for int");
+  }
+  SET_INT_RETURN((int)pos);
+}
+
+static void
+c_io_seek(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  c_io_sysseek(vm, v, argc);
+  struct picorb_io *fptr = io_get_open_fptr(vm, v[0]);
+  if (fptr->buf) {
+    fptr->buf->start = 0;
+    fptr->buf->len = 0;
+  }
+}
+
+static void
+c_io_read(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value outbuf = mrbc_nil_value();
+  mrbc_value len;
+  int length = 0;
+  bool length_given;
+  struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
+  if (fptr == NULL) return; /* raise error */
+
+  if (argc < 1) {
+    length_given = false;
+  }
+  else {
+    len = GET_ARG(1);
+    length_given = true;
+  }
+  if (argc < 2) {
+    outbuf = mrbc_nil_value();
+  }
+  else {
+    outbuf = GET_ARG(2);
+  }
+  if (length_given) {
+    if (len.tt == MRBC_TT_NIL) {
+      length_given = false;
+    }
+    else {
+      length = len.i;
+      if (length < 0) {
+        mrbc_raisef(vm, MRBC_CLASS(ArgumentError), "negative length %d given", length);
+      }
+      if (length == 0) {
+        mrbc_value res = io_reset_outbuf(vm, outbuf, 0);
+        SET_RETURN(res);
+        return;
+      }
+    }
+  }
+
+  outbuf = io_reset_outbuf(vm, outbuf, PICORB_IO_BUF_SIZE);
+  if (!length_given) {          /* read as much as possible */
+    mrbc_value res = io_read_all(vm, fptr, outbuf);
+    SET_RETURN(res);
+    return;
+  }
+
+  struct picorb_io_buf *buf = fptr->buf;
+
+  for (;;) {
+    io_fill_buf(vm, fptr);
+    if (fptr->eof || length == 0) {
+      if (outbuf.string->size == 0) {
+        SET_NIL_RETURN();
+        return;
+      }
+      SET_RETURN(outbuf);
+      return;
+    }
+    if (buf->len < length) {
+      length -= buf->len;
+      io_buf_cat_all(vm, outbuf, buf);
+    }
+    else {
+      io_buf_cat(vm, outbuf, buf, length);
+      SET_RETURN(outbuf);
+      return;
+    }
+  }
+}
 
 static void
 c_io_write(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -681,6 +1267,163 @@ c_io_close(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_NIL_RETURN();
 }
 
+static void
+c_io_isatty(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+
+  fptr = io_get_open_fptr(vm, v[0]);
+  if (isatty(fptr->fd) == 0){
+    SET_FALSE_RETURN();
+  } else {
+    SET_TRUE_RETURN();
+  }
+}
+
+static void
+c_io_eof_q(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
+
+  if (fptr->eof) {
+    SET_TRUE_RETURN();
+    return;
+  }
+  if (fptr->buf->len > 0) {
+    SET_FALSE_RETURN();
+    return;
+  }
+  io_fill_buf(vm, fptr);
+  SET_RETURN(mrbc_bool_value(fptr->eof));
+}
+
+static void
+c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value rs = mrbc_nil_value();
+  int limit;
+  bool rs_given = false;    /* newline break */
+  bool limit_given = false; /* no limit */
+  mrbc_value outbuf;
+  struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
+  struct picorb_io_buf *buf = fptr->buf;
+
+  switch (argc) {
+    case 0:
+      rs_given = false;
+      limit_given = false;
+      break;
+    case 1:
+      rs = GET_ARG(1);
+      rs_given = true;
+      limit_given = false;
+      break;
+    case 2:
+      rs = GET_ARG(1);
+      rs_given = true;
+      limit = GET_INT_ARG(2);
+      limit_given = true;
+      break;
+    default:
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+      return;
+  }
+
+  if (limit_given == false) {
+    if (rs_given) {
+      if (rs.tt == MRBC_TT_NIL) {
+        rs_given = false;
+      }
+      else if (rs.tt == MRBC_TT_INTEGER) {
+        limit = rs.i;
+        limit_given = true;
+        rs = mrbc_nil_value();
+      }
+      else if (rs.tt != MRBC_TT_STRING) {
+        //mrb_ensure_int_type(mrb, rs);
+        mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected String)");
+      }
+    }
+  }
+  if (rs_given) {
+    if (rs.tt == MRBC_TT_NIL) {
+      rs_given = false;
+    }
+    else if (rs.tt == MRBC_TT_STRING) {
+      if (rs.string->size == 0) { /* paragraph mode */
+        rs = mrbc_string_new_cstr(vm, "\n\n");
+      }
+    }
+    else {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected String)");
+    }
+  }
+  else {
+    rs = mrbc_string_new_cstr(vm, "\n");
+    rs_given = true;
+  }
+
+  /* from now on rs_given==FALSE means no RS */
+  if (rs.tt == MRBC_TT_NIL && !limit_given) {
+    mrbc_value output = io_read_all(vm, fptr, mrbc_string_new(vm, "", PICORB_IO_BUF_SIZE));
+    SET_RETURN(output);
+    return;
+  }
+
+  io_fill_buf(vm, fptr);
+  if (fptr->eof) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  if (limit_given) {
+    if (limit == 0) {
+      mrbc_value output = mrbc_string_new(vm, NULL, 0);
+      mrbc_incref(&output);
+      SET_RETURN(output);
+      return;
+    }
+    outbuf = mrbc_string_new(vm, "", limit);
+  }
+  else {
+    outbuf = mrbc_string_new(vm, NULL, 0);
+  }
+
+  for (;;) {
+    if (rs_given) {                /* with RS */
+      int rslen = rs.string->size;
+      int idx = io_find_index(fptr, (const char *)rs.string->data, rslen);
+      if (idx >= 0) {              /* found */
+        int n = idx+rslen;
+        if (limit_given && limit < n) {
+          n = limit;
+        }
+        io_buf_cat(vm, outbuf, buf, n);
+        SET_RETURN(outbuf);
+        return;
+      }
+    }
+    if (limit_given) {
+      if (limit <= buf->len) {
+        io_buf_cat(vm, outbuf, buf, limit);
+        SET_RETURN(outbuf);
+        return;
+      }
+      limit -= buf->len;
+    }
+    io_buf_cat_all(vm, outbuf, buf);
+    io_fill_buf(vm, fptr);
+    if (fptr->eof) {
+      if (outbuf.string->size == 0) {
+        SET_NIL_RETURN();
+      } else {
+        SET_RETURN(outbuf);
+      }
+      return;
+    }
+  }
+}
+
 void
 mrbc_io_init(mrbc_vm *vm)
 {
@@ -688,30 +1431,32 @@ mrbc_io_init(mrbc_vm *vm)
 
   // class methods
   mrbc_define_method(vm, mrbc_class_IO, "new", c_io_new);
+  mrbc_define_method(vm, mrbc_class_IO, "for_fd", c_io_new);
   mrbc_define_method(vm, mrbc_class_IO, "_popen", c_io__popen);
-//  mrbc_define_method(vm, mrbc_class_IO, "_sysclose", c_io__sysclose);
-//  mrbc_define_method(vm, mrbc_class_IO, "for_fd", c_io_for_fd);
-//  mrbc_define_method(vm, mrbc_class_IO, "select", c_io_select);
-//  mrbc_define_method(vm, mrbc_class_IO, "sysopen", c_io_sysopen);
-//#if !defined(_WIN32) && !(defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
-//  mrbc_define_method(vm, mrbc_class_IO, "_pipe", c_io__pipe);
-//#endif
-//
-//  // instance methods
-//  mrbc_define_method(vm, mrbc_class_IO, "isatty",         c_io_isatty);
-//  mrbc_define_method(vm, mrbc_class_IO, "eof?",           c_io_eof_q);
+  mrbc_define_method(vm, mrbc_class_IO, "_sysclose", c_io__sysclose);
+  mrbc_define_method(vm, mrbc_class_IO, "select", c_io_select);
+  mrbc_define_method(vm, mrbc_class_IO, "sysopen", c_io_sysopen);
+#if !defined(_WIN32) && !defined(_WIN64)
+  mrbc_define_method(vm, mrbc_class_IO, "_pipe", c_io__pipe);
+#endif
+
+  // instance methods
+  mrbc_define_method(vm, mrbc_class_IO, "isatty",         c_io_isatty);
+  mrbc_define_method(vm, mrbc_class_IO, "tty?",           c_io_isatty);
+  mrbc_define_method(vm, mrbc_class_IO, "eof?",           c_io_eof_q);
+  mrbc_define_method(vm, mrbc_class_IO, "eof",            c_io_eof_q);
 //  mrbc_define_method(vm, mrbc_class_IO, "getc",           c_io_getc);
-//  mrbc_define_method(vm, mrbc_class_IO, "gets",           c_io_gets);
-//  mrbc_define_method(vm, mrbc_class_IO, "read",           c_io_read);
+  mrbc_define_method(vm, mrbc_class_IO, "gets",           c_io_gets);
+  mrbc_define_method(vm, mrbc_class_IO, "read",           c_io_read);
 //  mrbc_define_method(vm, mrbc_class_IO, "readchar",       c_io_readchar);
 //  mrbc_define_method(vm, mrbc_class_IO, "readline",       c_io_readline);
 //  mrbc_define_method(vm, mrbc_class_IO, "readlines",      c_io_readlines);
 //  mrbc_define_method(vm, mrbc_class_IO, "sync",           c_io_sync);
 //  mrbc_define_method(vm, mrbc_class_IO, "sync=",          c_io_sync_eq);
 //  mrbc_define_method(vm, mrbc_class_IO, "sysread",        c_io_sysread);
-//  mrbc_define_method(vm, mrbc_class_IO, "sysseek",        c_io_sysseek);
+  mrbc_define_method(vm, mrbc_class_IO, "sysseek",        c_io_sysseek);
 //  mrbc_define_method(vm, mrbc_class_IO, "syswrite",       c_io_syswrite);
-//  mrbc_define_method(vm, mrbc_class_IO, "seek",           c_io_seek);
+  mrbc_define_method(vm, mrbc_class_IO, "seek",           c_io_seek);
   mrbc_define_method(vm, mrbc_class_IO, "close",          c_io_close);
 //  mrbc_define_method(vm, mrbc_class_IO, "close_write",    c_io_close_write);
 //  mrbc_define_method(vm, mrbc_class_IO, "close_on_exec=", c_io_close_on_exec_eq);
