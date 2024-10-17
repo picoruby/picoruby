@@ -37,3 +37,7 @@ end
 # @sidebar error
 class SyntaxError < StandardError
 end
+
+# @sidebar error
+class NotImplementedError < Exception
+end
