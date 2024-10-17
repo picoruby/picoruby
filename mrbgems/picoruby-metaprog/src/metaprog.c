@@ -161,6 +161,27 @@ RETURN:
   SET_RETURN(v[2]);
 }
 
+static void
+c_object_respond_to_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (v[1].tt != MRBC_TT_SYMBOL && v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
+    return;
+  }
+  mrbc_method method;
+  const char *method_name;
+  if (v[1].tt == MRBC_TT_SYMBOL) {
+    method_name = (const char *)mrbc_symid_to_str(v[1].i);
+  } else {
+    method_name = (const char *)GET_STRING_ARG(1);
+  }
+  if (mrbc_find_method(&method, find_class_by_object(&v[0]), mrbc_str_to_symid(method_name)) == 0) {
+    SET_FALSE_RETURN();
+  } else {
+    SET_TRUE_RETURN();
+  }
+}
+
 void
 mrbc_metaprog_init(mrbc_vm *vm)
 {
@@ -169,4 +190,5 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "instance_variables", c_object_instance_variables);
   mrbc_define_method(vm, mrbc_class_object, "instance_variable_get", c_object_instance_variable_get);
   mrbc_define_method(vm, mrbc_class_object, "instance_variable_set", c_object_instance_variable_set);
+  mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
 }

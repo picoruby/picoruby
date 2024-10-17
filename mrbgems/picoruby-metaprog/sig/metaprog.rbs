@@ -1,0 +1,8 @@
+class Object
+  def send: (Symbol | String name, *Object args) -> Object
+  def methods: () -> Array[Symbol]
+  def instance_variables: () -> Array[Symbol]
+  def instance_variable_get: (Symbol name) -> Object
+  def instance_variable_set: (Symbol name, Object value) -> Object
+  def respond_to?: (Symbol | String name) -> bool
+end
