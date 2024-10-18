@@ -488,7 +488,7 @@ class Object < BasicObject
   #     "hello".object_id     == "hello".object_id     # => false
   #     "hi".freeze.object_id == "hi".freeze.object_id # => true
   #
-  def object_id: () -> Integer
+  # def object_id: () -> Integer
 
   # <!--
   #   rdoc-file=object.c
