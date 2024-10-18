@@ -119,16 +119,16 @@ time2timeval(mrbc_vm *vm, mrbc_value time)
 
   return t;
 }
-static int
-io_find_index(struct picorb_io *fptr, const char *rs, int rslen)
+static mrbc_int_t
+io_find_index(struct picorb_io *fptr, const char *rs, mrbc_int_t rslen)
 {
   struct picorb_io_buf *buf = fptr->buf;
 
   assert(rslen > 0);
   const char c = rs[0];
-  const int limit = buf->len - rslen + 1;
+  const mrbc_int_t limit = buf->len - rslen + 1;
   const char *p = buf->mem+buf->start;
-  for (int i=0; i<limit; i++) {
+  for (mrbc_int_t i=0; i<limit; i++) {
     if (p[i] == c && (rslen == 1 || memcmp(p+i, rs, rslen) == 0)) {
       return i;
     }
@@ -179,7 +179,7 @@ sysread(int fd, void *buf, fsize_t nbytes, off_t offset)
 static mrbc_value
 io_read_common(mrbc_vm *vm,
     fssize_t (*readfunc)(int, void*, fsize_t, off_t),
-    mrbc_value io, mrbc_value buf, int maxlen, off_t offset)
+    mrbc_value io, mrbc_value buf, mrbc_int_t maxlen, off_t offset)
 {
   int ret;
 
@@ -287,7 +287,7 @@ io_mode_to_flags(mrbc_vm *vm, mrbc_value mode)
   }
   else {
     int flags = 0;
-    int flags0 = mode.i;
+    mrbc_int_t flags0 = mode.i;
 
     switch (flags0 & PICORB_O_ACCMODE) {
       case PICORB_O_RDONLY:
@@ -471,7 +471,7 @@ io_write_common(mrbc_vm *vm,
     fssize_t (*writefunc)(int, const void*, fsize_t, off_t),
     struct picorb_io *fptr, const void *buf, ssize_t blen, off_t offset)
 {
-  int fd;
+  mrbc_int_t fd;
   fssize_t length;
 
   fd = io_get_write_fd(fptr);
@@ -479,10 +479,10 @@ io_write_common(mrbc_vm *vm,
   if (length == -1) {
     return mrbc_nil_value();
   }
-  return mrbc_integer_value((int)length);
+  return mrbc_integer_value((mrbc_int_t)length);
 }
 
-static int
+static mrbc_int_t
 fd_write(mrbc_vm *vm, int fd, mrbc_value str)
 {
   fssize_t len, sum, n;
@@ -607,7 +607,7 @@ io_pipe(mrbc_vm *vm, int pipes[2])
 static int
 io_cloexec_open(mrbc_vm *vm, const char *pathname, int flags, fmode_t mode)
 {
-  int fd, retry = false;
+  mrbc_int_t fd, retry = false;
   char* fname = (char *)pathname; // mrb_locale_from_utf8(pathname, -1);
 
 #ifdef O_CLOEXEC
@@ -646,7 +646,7 @@ static void
 c_io_new(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   struct picorb_io *fptr;
-  int fd;
+  mrbc_int_t fd;
   mrbc_value mode;
   int flags;
 
@@ -865,7 +865,7 @@ static void
 c_io_sysopen(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value mode;
-  int fd, perm = -1;
+  mrbc_int_t fd, perm = -1;
   int flags;
   const char *path;
   if (argc < 1) {
@@ -894,7 +894,7 @@ c_io_sysopen(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_io__sysclose(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int fd;
+  mrbc_int_t fd;
   //mrb->c->ci->mid = 0; ????
   if (argc < 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -913,7 +913,7 @@ c_io__sysclose(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static mrbc_value
-io_reset_outbuf(mrbc_vm *vm, mrbc_value outbuf, int len)
+io_reset_outbuf(mrbc_vm *vm, mrbc_value outbuf, mrbc_int_t len)
 {
   if (outbuf.tt == MRBC_TT_NIL) {
     outbuf = mrbc_string_new(vm, NULL, 0);
@@ -946,7 +946,7 @@ io_buf_reset(struct picorb_io_buf *buf)
 }
 
 static void
-io_buf_shift(struct picorb_io_buf *buf, int n)
+io_buf_shift(struct picorb_io_buf *buf, mrbc_int_t n)
 {
   assert(n <= SHRT_MAX);
   buf->start += (short)n;
@@ -954,7 +954,7 @@ io_buf_shift(struct picorb_io_buf *buf, int n)
 }
 
 static void
-io_buf_cat(mrbc_vm *vm, mrbc_value outbuf, struct picorb_io_buf *buf, int n)
+io_buf_cat(mrbc_vm *vm, mrbc_value outbuf, struct picorb_io_buf *buf, mrbc_int_t n)
 {
   assert(n <= buf->len);
   mrbc_string_append_cbuf(&outbuf, (const char *)buf->mem+buf->start, n);
@@ -1188,7 +1188,7 @@ c_io_sysseek(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   struct picorb_io *fptr;
   off_t pos;
-  int offset = 0, whence = -1;
+  mrbc_int_t offset = 0, whence = -1;
 
   if (1 < argc) {
     offset = GET_INT_ARG(1);
@@ -1206,10 +1206,10 @@ c_io_sysseek(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sysseek failed");
   }
   fptr->eof = 0;
-  if (sizeof(off_t) > sizeof(int) && pos > (off_t)INT_MAX) {
-    mrbc_raise(vm, MRBC_CLASS(IOError), "sysseek reached too far for int");
+  if (sizeof(off_t) > sizeof(mrbc_int_t) && pos > (off_t)INT_MAX) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "sysseek reached too far for mrbc_int_t");
   }
-  SET_INT_RETURN((int)pos);
+  SET_INT_RETURN((mrbc_int_t)pos);
 }
 
 static void
@@ -1237,7 +1237,7 @@ c_io_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
 
   unsigned char c = buf->mem[buf->start];
   io_buf_shift(buf, 1);
-  SET_INT_RETURN((int)c);
+  SET_INT_RETURN((mrbc_int_t)c);
 }
 
 static void
@@ -1254,7 +1254,7 @@ c_io_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value outbuf = mrbc_nil_value();
   mrbc_value len;
-  int length = 0;
+  mrbc_int_t length = 0;
   bool length_given;
   struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
   if (fptr == NULL) return; /* raise error */
@@ -1325,8 +1325,8 @@ c_io_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   struct picorb_io *fptr = io_get_write_fptr(vm, v[0]);
   if (fptr == NULL) return; /* raise error */
-  int fd = io_get_write_fd(fptr);
-  int len = 0;
+  mrbc_int_t fd = io_get_write_fd(fptr);
+  mrbc_int_t len = 0;
 
   if (fptr->buf && fptr->buf->len > 0) {
     off_t n;
@@ -1363,7 +1363,7 @@ c_io_pread(mrbc_vm *vm, mrbc_value v[], int argc)
 #else
   mrbc_value buf = mrbc_nil_value();
   mrbc_value res;
-  int off, maxlen;
+  mrbc_int_t off, maxlen;
   if (argc < 2 || 3 < argc) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
@@ -1441,7 +1441,7 @@ c_io_ungetc(mrbc_vm *vm, mrbc_value v[], int argc)
   struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
   struct picorb_io_buf *buf = fptr->buf;
   mrbc_value str;
-  int len;
+  mrbc_int_t len;
 
   if (argc < 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -1643,7 +1643,7 @@ c_io_eof_q(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_io_getc(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int len = 1;
+  mrbc_int_t len = 1;
   struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
   struct picorb_io_buf *buf = fptr->buf;
 
@@ -1682,7 +1682,7 @@ static void
 c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value rs = mrbc_nil_value();
-  int limit;
+  mrbc_int_t limit;
   bool rs_given = false;    /* newline break */
   bool limit_given = false; /* no limit */
   mrbc_value outbuf;
@@ -1773,9 +1773,9 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
   for (;;) {
     if (rs_given) {                /* with RS */
       int rslen = rs.string->size;
-      int idx = io_find_index(fptr, (const char *)rs.string->data, rslen);
+      mrbc_int_t idx = io_find_index(fptr, (const char *)rs.string->data, rslen);
       if (idx >= 0) {              /* found */
-        int n = idx+rslen;
+        mrbc_int_t n = idx+rslen;
         if (limit_given && limit < n) {
           n = limit;
         }
@@ -1832,7 +1832,7 @@ static void
 c_io_sysread(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value buf, res;
-  int maxlen;
+  mrbc_int_t maxlen;
 
   if (argc < 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
