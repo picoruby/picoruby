@@ -67,7 +67,7 @@ class IO
   def self.read(path, length=nil, offset=0, mode: "r")
     str = ""
     fd = -1
-    io = nil
+    #io = nil
     begin
       fd = IO.sysopen(path, mode)
       io = IO.open(fd, mode)
@@ -94,8 +94,7 @@ class IO
     self
   end
 
-#  alias eof eof?
-#  alias tell pos
+  alias tell pos
 
   def pos=(i)
     seek(i, SEEK_SET)
@@ -112,13 +111,17 @@ class IO
       c &= 0xff
     end
     s = " "
-    s.setbyte(0,c)
-    ungetc s
+    if c.nil?
+      raise ArgumentError, "ungetbyte: nil byte"
+    end
+    ungetc c.chr
   end
 
   # 15.2.20.5.3
   def each(&block)
-    return to_enum unless block
+    unless block
+      raise ArgumentError, "block not supplied"
+    end
 
     while line = self.gets
       block.call(line)
@@ -128,7 +131,9 @@ class IO
 
   # 15.2.20.5.4
   def each_byte(&block)
-    return to_enum(:each_byte) unless block
+    unless block
+      raise ArgumentError, "block not supplied"
+    end
 
     while byte = self.getbyte
       block.call(byte)
@@ -140,7 +145,9 @@ class IO
   alias each_line each
 
   def each_char(&block)
-    return to_enum(:each_char) unless block
+    unless block
+      raise ArgumentError, "block not supplied"
+    end
 
     while char = self.getc
       block.call(char)
@@ -181,7 +188,6 @@ class IO
   end
 
 #  alias to_i fileno
-#  alias tty? isatty
 end
 
 STDIN  = IO.open(0, "r")

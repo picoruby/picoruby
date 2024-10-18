@@ -56,6 +56,8 @@
 #define OPEN_READABLE_P(f)     ((bool)(OPEN_RDONLY_P(f) || OPEN_RDWR_P(f)))
 #define OPEN_WRITABLE_P(f)     ((bool)(OPEN_WRONLY_P(f) || OPEN_RDWR_P(f)))
 
+static mrbc_class *mrbc_class_EOFError;
+
 #ifndef PICORB_NO_IO_POPEN
 static void
 io_set_process_status(mrbc_vm *vm, pid_t pid, int status)
@@ -79,6 +81,12 @@ io_set_process_status(mrbc_vm *vm, pid_t pid, int status)
   mrbc_set_global(mrbc_str_to_symid("$?"), &v);
 }
 #endif
+
+static void
+eof_error(mrbc_vm *vm)
+{
+  mrbc_raise(vm, mrbc_class_EOFError, "end of file reached");
+}
 
 static int
 picorb_io_read_data_pending(mrbc_vm *vm, struct picorb_io *fptr)
@@ -160,6 +168,54 @@ io_get_read_fptr(mrbc_vm *vm, mrbc_value io)
     return NULL;
   }
   return fptr;
+}
+
+static fssize_t
+sysread(int fd, void *buf, fsize_t nbytes, off_t offset)
+{
+  return (fssize_t)read(fd, buf, nbytes);
+}
+
+static mrbc_value
+io_read_common(mrbc_vm *vm,
+    fssize_t (*readfunc)(int, void*, fsize_t, off_t),
+    mrbc_value io, mrbc_value buf, int maxlen, off_t offset)
+{
+  int ret;
+
+  if (maxlen < 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "negative expanding string size");
+    return mrbc_nil_value();
+  }
+  else if (maxlen == 0) {
+    return mrbc_string_new(vm, NULL, maxlen);
+  }
+
+  if (buf.tt == MRBC_TT_NIL) {
+    buf = mrbc_string_new(vm, NULL, maxlen);
+  }
+
+  if (buf.string->size != maxlen) {
+    mrbc_realloc(vm, buf.string->data, maxlen);
+  }
+
+  struct picorb_io *fptr = io_get_read_fptr(vm, io);
+  ret = readfunc(fptr->fd, buf.string->data, (fsize_t)maxlen, offset);
+  if (ret < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sysread failed");
+    //mrbc_decref(&buf); ????
+    buf = mrbc_nil_value();
+  }
+  assert(ret <= maxlen);
+  if (buf.string->size != ret) {
+    buf.string->size = ret;
+  }
+  if (ret == 0 && maxlen > 0) {
+    fptr->eof = 1;
+    eof_error(vm);
+    buf = mrbc_nil_value();
+  }
+  return buf;
 }
 
 static int
@@ -402,6 +458,28 @@ io_get_write_fd(struct picorb_io *fptr)
   else {
     return fptr->fd2;
   }
+}
+
+static fssize_t
+syswrite(int fd, const void *buf, fsize_t nbytes, off_t offset)
+{
+  return (fssize_t)write(fd, buf, nbytes);
+}
+
+static mrbc_value
+io_write_common(mrbc_vm *vm,
+    fssize_t (*writefunc)(int, const void*, fsize_t, off_t),
+    struct picorb_io *fptr, const void *buf, ssize_t blen, off_t offset)
+{
+  int fd;
+  fssize_t length;
+
+  fd = io_get_write_fd(fptr);
+  length = writefunc(fd, buf, (fsize_t)blen, offset);
+  if (length == -1) {
+    return mrbc_nil_value();
+  }
+  return mrbc_integer_value((int)length);
 }
 
 static int
@@ -1146,6 +1224,32 @@ c_io_seek(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_io_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
+  struct picorb_io_buf *buf = fptr->buf;
+
+  io_fill_buf(vm, fptr);
+  if (fptr->eof) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  unsigned char c = buf->mem[buf->start];
+  io_buf_shift(buf, 1);
+  SET_INT_RETURN((int)c);
+}
+
+static void
+c_io_readbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  c_io_getbyte(vm, v, argc);
+  if (v[0].tt == MRBC_TT_NIL) {
+    eof_error(vm);
+  }
+}
+
+static void
 c_io_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value outbuf = mrbc_nil_value();
@@ -1247,6 +1351,73 @@ c_io_write(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_INT_RETURN(len);
 }
 
+/*
+ * call-seq:
+ *  pread(maxlen, offset, outbuf = "") -> outbuf
+ */
+static void
+c_io_pread(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#ifndef PICORB_WITH_IO_PREAD_PWRITE
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "IO.pread is not implemented");
+#else
+  mrbc_value buf = mrbc_nil_value();
+  mrbc_value res;
+  int off, maxlen;
+  if (argc < 2 || 3 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (2 < argc) {
+    buf = GET_ARG(3);
+    if (buf.tt == MRBC_TT_NIL) {
+      // no-op
+    }
+    else if (buf.tt != MRBC_TT_STRING) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "expected String");
+      return;
+    }
+  }
+  maxlen = GET_INT_ARG(1);
+  off = GET_INT_ARG(2);
+
+  res = io_read_common(vm, pread, v[0], buf, maxlen, (off_t)off);
+  if (res.tt == MRBC_TT_NIL) {
+    return; /* raise error */
+  }
+  SET_RETURN(res);
+#endif
+}
+
+/*
+ * call-seq:
+ *  pwrite(buffer, offset) -> wrote_bytes
+ */
+static void
+c_io_pwrite(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#ifndef PICORB_WITH_IO_PREAD_PWRITE
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "IO.pwrite is not implemented");
+#else
+  mrbc_value buf, res;
+  int off;
+
+  if (argc < 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  buf = GET_ARG(1);
+  off = GET_INT_ARG(2);
+
+  res = io_write_common(vm, pwrite, io_get_write_fptr(vm, v[0]), buf.string->data, buf.string->size, (off_t)off);
+  if (res.tt == MRBC_TT_NIL) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "pwrite failed");
+    return; /* raise error */
+  }
+  SET_RETURN(res);
+#endif
+}
+
 static void
 c_io_closed_q(mrbc_vm *vm, mrbc_value v[], int argc)
 {
@@ -1259,12 +1430,184 @@ c_io_closed_q(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_io_flush(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  io_get_open_fptr(vm, v[0]);
+}
+
+static void
+c_io_ungetc(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
+  struct picorb_io_buf *buf = fptr->buf;
+  mrbc_value str;
+  int len;
+
+  if (argc < 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  str = GET_ARG(1);
+
+  len = str.string->size;
+  if (len > SHRT_MAX) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "string too long to ungetc");
+    return;
+  }
+  if (len > PICORB_IO_BUF_SIZE - buf->len) {
+    fptr->buf = (struct picorb_io_buf*)mrbc_realloc(vm, buf, sizeof(struct picorb_io_buf)+buf->len+len-PICORB_IO_BUF_SIZE);
+    buf = fptr->buf;
+  }
+  memmove(buf->mem+len, buf->mem+buf->start, buf->len);
+  memcpy(buf->mem, str.string->data, len);
+  buf->start = 0;
+  buf->len += (short)len;
+  SET_NIL_RETURN();
+}
+
+static void
+c_io_pos(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr = io_get_open_fptr(vm, v[0]);
+  off_t pos = lseek(fptr->fd, 0, SEEK_CUR);
+  if (pos == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "lseek failed");
+  }
+
+  if (fptr->buf) {
+    SET_INT_RETURN(pos - fptr->buf->len);
+  }
+  else {
+    SET_INT_RETURN(pos);
+  }
+}
+
+static void
+c_io_pid(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+  fptr = io_get_open_fptr(vm, v[0]);
+
+  if (fptr->pid > 0) {
+    SET_INT_RETURN(fptr->pid);
+  }
+
+  SET_NIL_RETURN();
+}
+
+static void
+c_io_fileno(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+  fptr = io_get_open_fptr(vm, v[0]);
+  SET_INT_RETURN(fptr->fd);
+}
+
+static void
 c_io_close(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   struct picorb_io *fptr;
   fptr = io_get_open_fptr(vm, v[0]);
   fptr_finalize(vm, fptr, false);
   SET_NIL_RETURN();
+}
+
+static void
+c_io_close_write(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+  fptr = io_get_open_fptr(vm, v[0]);
+  if (close((int)fptr->fd2) == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "close failed");
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
+static void
+c_io_close_on_exec_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#if defined(F_GETFD) && defined(F_SETFD) && defined(FD_CLOEXEC)
+  struct picorb_io *fptr;
+  int flag, ret;
+  mrbc_value b;
+
+  if (argc < 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  fptr = io_get_open_fptr(vm, v[0]);
+  b = GET_ARG(1);
+  flag = (b.tt != MRBC_TT_FALSE) ? FD_CLOEXEC : 0;
+
+  if (fptr->fd2 >= 0) {
+    if ((ret = fcntl(fptr->fd2, F_GETFD)) == -1) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "F_GETFD failed");
+      return;
+    }
+    if ((ret & FD_CLOEXEC) != flag) {
+      ret = (ret & ~FD_CLOEXEC) | flag;
+      ret = fcntl(fptr->fd2, F_SETFD, ret);
+
+      if (ret == -1) {
+        mrbc_raise(vm, MRBC_CLASS(RuntimeError), "F_SETFD failed");
+        return;
+      }
+    }
+  }
+
+  if ((ret = fcntl(fptr->fd, F_GETFD)) == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "F_GETFD failed");
+    return;
+  }
+  if ((ret & FD_CLOEXEC) != flag) {
+    ret = (ret & ~FD_CLOEXEC) | flag;
+    ret = fcntl(fptr->fd, F_SETFD, ret);
+    if (ret == -1) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "F_SETFD failed");
+      return;
+    }
+  }
+
+  SET_RETURN(b);
+#else
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "IO#close_on_exec= is not implemented");
+#endif
+}
+
+static void
+c_io_close_on_exec_q(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+#if defined(F_GETFD) && defined(F_SETFD) && defined(FD_CLOEXEC)
+  struct picorb_io *fptr;
+  int ret;
+
+  fptr = io_get_open_fptr(vm, v[0]);
+
+  if (fptr->fd2 >= 0) {
+    if ((ret = fcntl(fptr->fd2, F_GETFD)) == -1) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "F_GETFD failed");
+      return;
+    }
+    if (!(ret & FD_CLOEXEC)) {
+      SET_FALSE_RETURN();
+      return;
+    }
+  }
+
+  if ((ret = fcntl(fptr->fd, F_GETFD)) == -1) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "F_GETFD failed");
+    return;
+  }
+  if (!(ret & FD_CLOEXEC)) {
+    SET_FALSE_RETURN();
+    return;
+  }
+  SET_TRUE_RETURN();
+#else
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "IO#close_on_exec? is not implemented");
+#endif
 }
 
 static void
@@ -1295,6 +1638,44 @@ c_io_eof_q(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   io_fill_buf(vm, fptr);
   SET_RETURN(mrbc_bool_value(fptr->eof));
+}
+
+static void
+c_io_getc(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int len = 1;
+  struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
+  struct picorb_io_buf *buf = fptr->buf;
+
+  io_fill_buf(vm, fptr);
+  if (fptr->eof) {
+    SET_NIL_RETURN();
+    return;
+  }
+#ifdef PICORB_UTF8_STRING
+# error "not implemented"
+//  const char *p = &buf->mem[buf->start];
+//  if ((*p) & 0x80) {
+//    len = mrb_utf8len(p, p+buf->len);
+//    if (len == 1 && buf->len < 4) { /* partial UTF-8 */
+//      io_fill_buf_comp(mrb, fptr);
+//      p = &buf->mem[buf->start];
+//      len = mrb_utf8len(p, p+buf->len);
+//    }
+//  }
+#endif
+  mrb_value str = mrbc_string_new(vm, buf->mem+buf->start, len);
+  io_buf_shift(buf, len);
+  SET_RETURN(str);
+}
+
+static void
+c_io_readchar(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  c_io_getc(vm, v, argc);
+  if (v[0].tt == MRBC_TT_NIL) {
+    eof_error(vm);
+  }
 }
 
 static void
@@ -1424,9 +1805,97 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 }
 
+static void
+c_io_readline(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  c_io_gets(vm, v, argc);
+  if (v[0].tt == MRBC_TT_NIL) {
+    eof_error(vm);
+  }
+}
+
+static void
+c_io_readlines(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value ary = mrbc_array_new(vm, 0);
+  for (;;) {
+    c_io_gets(vm, v, argc);
+    if (v[0].tt == MRBC_TT_NIL) {
+      SET_RETURN(ary);
+      return;
+    }
+    mrbc_array_push(&ary, &v[0]);
+  }
+}
+
+static void
+c_io_sysread(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value buf, res;
+  int maxlen;
+
+  if (argc < 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  maxlen = GET_INT_ARG(1);
+  if (1 < argc) {
+    buf = GET_ARG(2);
+  }
+
+  res = io_read_common(vm, sysread, v[0], buf, maxlen, 0);
+  if (res.tt == MRBC_TT_NIL) {
+    return; /* raise error */
+  }
+  SET_RETURN(res);
+}
+
+static void
+c_io_syswrite(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  mrbc_value buf, res;
+
+  if (argc < 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  buf = GET_ARG(1);
+
+  res = io_write_common(vm, syswrite, io_get_write_fptr(vm, v[0]), buf.string->data, buf.string->size, 0);
+  if (res.tt == MRBC_TT_NIL) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "syswrite failed");
+    return; /* raise error */
+  }
+  SET_RETURN(res);
+}
+
+static void
+c_io_sync(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+  fptr = io_get_open_fptr(vm, v[0]);
+  if (argc == 0) {
+    SET_RETURN(mrbc_bool_value(fptr->sync));
+    return;
+  }
+}
+
+static void
+c_io_sync_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  struct picorb_io *fptr;
+  fptr = io_get_open_fptr(vm, v[0]);
+  mrbc_value sync = GET_ARG(1);
+  fptr->sync = (sync.tt != MRBC_TT_FALSE);
+  SET_RETURN(v[0]);
+}
+
+/* initialization */
+
 void
 mrbc_io_init(mrbc_vm *vm)
 {
+  mrbc_class_EOFError = mrbc_define_class(vm, "EOFError", MRBC_CLASS(IOError));
   mrbc_class *mrbc_class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
 
   // class methods
@@ -1445,31 +1914,31 @@ mrbc_io_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_IO, "tty?",           c_io_isatty);
   mrbc_define_method(vm, mrbc_class_IO, "eof?",           c_io_eof_q);
   mrbc_define_method(vm, mrbc_class_IO, "eof",            c_io_eof_q);
-//  mrbc_define_method(vm, mrbc_class_IO, "getc",           c_io_getc);
+  mrbc_define_method(vm, mrbc_class_IO, "getc",           c_io_getc);
   mrbc_define_method(vm, mrbc_class_IO, "gets",           c_io_gets);
   mrbc_define_method(vm, mrbc_class_IO, "read",           c_io_read);
-//  mrbc_define_method(vm, mrbc_class_IO, "readchar",       c_io_readchar);
-//  mrbc_define_method(vm, mrbc_class_IO, "readline",       c_io_readline);
-//  mrbc_define_method(vm, mrbc_class_IO, "readlines",      c_io_readlines);
-//  mrbc_define_method(vm, mrbc_class_IO, "sync",           c_io_sync);
-//  mrbc_define_method(vm, mrbc_class_IO, "sync=",          c_io_sync_eq);
-//  mrbc_define_method(vm, mrbc_class_IO, "sysread",        c_io_sysread);
+  mrbc_define_method(vm, mrbc_class_IO, "readchar",       c_io_readchar);
+  mrbc_define_method(vm, mrbc_class_IO, "readline",       c_io_readline);
+  mrbc_define_method(vm, mrbc_class_IO, "readlines",      c_io_readlines);
+  mrbc_define_method(vm, mrbc_class_IO, "sync",           c_io_sync);
+  mrbc_define_method(vm, mrbc_class_IO, "sync=",          c_io_sync_eq);
+  mrbc_define_method(vm, mrbc_class_IO, "sysread",        c_io_sysread);
   mrbc_define_method(vm, mrbc_class_IO, "sysseek",        c_io_sysseek);
-//  mrbc_define_method(vm, mrbc_class_IO, "syswrite",       c_io_syswrite);
+  mrbc_define_method(vm, mrbc_class_IO, "syswrite",       c_io_syswrite);
   mrbc_define_method(vm, mrbc_class_IO, "seek",           c_io_seek);
   mrbc_define_method(vm, mrbc_class_IO, "close",          c_io_close);
-//  mrbc_define_method(vm, mrbc_class_IO, "close_write",    c_io_close_write);
-//  mrbc_define_method(vm, mrbc_class_IO, "close_on_exec=", c_io_close_on_exec_eq);
-//  mrbc_define_method(vm, mrbc_class_IO, "close_on_exec?", c_io_close_on_exec_q);
+  mrbc_define_method(vm, mrbc_class_IO, "close_write",    c_io_close_write);
+  mrbc_define_method(vm, mrbc_class_IO, "close_on_exec=", c_io_close_on_exec_eq);
+  mrbc_define_method(vm, mrbc_class_IO, "close_on_exec?", c_io_close_on_exec_q);
   mrbc_define_method(vm, mrbc_class_IO, "closed?",        c_io_closed_q);
-//  mrbc_define_method(vm, mrbc_class_IO, "flush",          c_io_flush);
-//  mrbc_define_method(vm, mrbc_class_IO, "ungetc",         c_io_ungetc);
-//  mrbc_define_method(vm, mrbc_class_IO, "pos",            c_io_pos);
-//  mrbc_define_method(vm, mrbc_class_IO, "pid",            c_io_pid);
-//  mrbc_define_method(vm, mrbc_class_IO, "fileno",         c_io_fileno);
+  mrbc_define_method(vm, mrbc_class_IO, "flush",          c_io_flush);
+  mrbc_define_method(vm, mrbc_class_IO, "ungetc",         c_io_ungetc);
+  mrbc_define_method(vm, mrbc_class_IO, "pos",            c_io_pos);
+  mrbc_define_method(vm, mrbc_class_IO, "pid",            c_io_pid);
+  mrbc_define_method(vm, mrbc_class_IO, "fileno",         c_io_fileno);
   mrbc_define_method(vm, mrbc_class_IO, "write",          c_io_write);
-//  mrbc_define_method(vm, mrbc_class_IO, "pread",          c_io_pread);
-//  mrbc_define_method(vm, mrbc_class_IO, "pwrite",         c_io_pwrite);
-//  mrbc_define_method(vm, mrbc_class_IO, "getbyte",        c_io_getbyte);
-//  mrbc_define_method(vm, mrbc_class_IO, "readbyte",       c_io_readbyte);
+  mrbc_define_method(vm, mrbc_class_IO, "pread",          c_io_pread);
+  mrbc_define_method(vm, mrbc_class_IO, "pwrite",         c_io_pwrite);
+  mrbc_define_method(vm, mrbc_class_IO, "getbyte",        c_io_getbyte);
+  mrbc_define_method(vm, mrbc_class_IO, "readbyte",       c_io_readbyte);
 }
