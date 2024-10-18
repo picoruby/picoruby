@@ -1,12 +1,8 @@
 # TypeProf 0.21.3
 
 # for RUBY_ENGINE == "ruby"
-STDIN: IO
-STDOUT: IO
 class IO
   def noecho: () { (untyped) -> untyped } -> untyped
-  def <<: (untyped) -> self
-  def flush: -> self
   def iflush: -> self
   def getch: -> String
   def raw: () { (untyped) -> untyped } -> untyped
