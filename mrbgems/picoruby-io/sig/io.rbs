@@ -13,21 +13,22 @@ SEEK_SET: Integer
 
 class IO
   type fd_t = Integer | IO
-  def self.new: (*Object args) -> instance
+  def self.new: (*Object args) -> IO
   alias self.for_fd self.new
-  def self.open: (*Object args) -> instance
-               | (*Object args) { (instance) -> untyped } -> untyped
-  def self.popen: (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) -> instance
-                | (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) { (instance) -> untyped } -> untyped
-  private def self._popen: (String command, String mode, fd_t in, fd_t out, fd_t err) -> instance
-  def self.pipe: () -> [instance, instance]
-               | { (instance, instance) -> void } -> untyped
-  private def self._pipe: () -> [instance, instance]
+  def self.open: (*Object args) -> IO
+               | (*Object args) { (IO) -> untyped } -> untyped
+  def self.popen: (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) -> IO
+                | (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) { (IO) -> untyped } -> untyped
+  private def self._popen: (String command, String mode, fd_t in, fd_t out, fd_t err) -> IO
+  def self.pipe: () -> [IO, IO]
+               | { (IO, IO) -> void } -> untyped
+  private def self._pipe: () -> [IO, IO]
   def self.read: (String path, ?(Integer | nil) length, ?Integer offset, ?mode: String) -> String
   def self.sysopen: (String path, ?String mode, ?Integer perm) -> Integer
   private def self._sysclose: (Integer fd) -> 0
   def self.select: (Array[fd_t] readfds, ?Array[fd_t] writefds, ?Array[fd_t] exceptfds, ?Integer timeout) -> ([[IO]] | nil)
 
+  def each: () ?{ (String) -> void } -> self
   def isatty: () -> bool
   alias tty? isatty
   def eof?: () -> bool
