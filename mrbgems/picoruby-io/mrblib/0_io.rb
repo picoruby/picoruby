@@ -94,8 +94,6 @@ class IO
     self
   end
 
-  alias tell pos
-
   def pos=(i)
     seek(i, SEEK_SET)
   end
@@ -187,7 +185,6 @@ class IO
     nil
   end
 
-#  alias to_i fileno
 end
 
 STDIN  = IO.open(0, "r")
@@ -197,3 +194,4 @@ STDERR = IO.open(2, "w")
 $stdin  = STDIN
 $stdout = STDOUT
 $stderr = STDERR
+

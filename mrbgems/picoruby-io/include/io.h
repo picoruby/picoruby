@@ -65,6 +65,7 @@ struct picorb_io {
 //#define E_EOF_ERROR             mrb_exc_get_id(mrb, MRBC_SYM(EOFError))
 
 int picorb_io_fileno(mrbc_vm *vm, mrbc_value io);
+void mrbc_io_file_init(mrbc_vm *vm, mrbc_class *io);
 
 #if defined(__cplusplus)
 } /* extern "C" { */
