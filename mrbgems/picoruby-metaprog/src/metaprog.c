@@ -182,6 +182,13 @@ c_object_respond_to_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_object_id(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrbc_int_t id = (mrbc_int_t)v[0].i;
+  SET_INT_RETURN(id);
+}
+
 void
 mrbc_metaprog_init(mrbc_vm *vm)
 {
@@ -191,4 +198,6 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "instance_variable_get", c_object_instance_variable_get);
   mrbc_define_method(vm, mrbc_class_object, "instance_variable_set", c_object_instance_variable_set);
   mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
+  mrbc_define_method(vm, mrbc_class_object, "__id__", c_object_id);
+  mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
 }
