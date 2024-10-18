@@ -188,33 +188,32 @@ io_read_common(mrbc_vm *vm,
     return mrbc_nil_value();
   }
   else if (maxlen == 0) {
-    return mrbc_string_new(vm, NULL, maxlen);
+    return mrbc_string_new(vm, NULL, 0);
   }
 
   if (buf.tt == MRBC_TT_NIL) {
-    buf = mrbc_string_new(vm, NULL, maxlen);
+    buf = mrbc_string_new(vm, NULL, 0);
   }
 
-  if (buf.string->size != maxlen) {
-    mrbc_realloc(vm, buf.string->data, maxlen);
-  }
+//  if (buf.string->size != maxlen) {
+//    mrbc_realloc(vm, buf.string->data, maxlen);
+//  }
 
   struct picorb_io *fptr = io_get_read_fptr(vm, io);
-  ret = readfunc(fptr->fd, buf.string->data, (fsize_t)maxlen, offset);
+  char temp[maxlen];
+  ret = readfunc(fptr->fd, temp, (fsize_t)maxlen, offset);
   if (ret < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sysread failed");
     //mrbc_decref(&buf); ????
     buf = mrbc_nil_value();
   }
   assert(ret <= maxlen);
-  if (buf.string->size != ret) {
-    buf.string->size = ret;
-  }
   if (ret == 0 && maxlen > 0) {
     fptr->eof = 1;
     eof_error(vm);
     buf = mrbc_nil_value();
   }
+  mrbc_string_append_cstr(&buf, temp);
   return buf;
 }
 
@@ -629,7 +628,6 @@ reopen:
       }
     }
 
-    //mrb_sys_fail(mrb, RSTRING_CSTR(mrb, mrb_format(mrb, "open %s", pathname)));
     mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "open failed: %s", pathname);
     return -1;
   }
@@ -821,7 +819,6 @@ c_io__popen(mrbc_vm *vm, mrbc_value v[], int argc)
         close(pw[1]);
       }
       errno = saved_errno;
-      //mrb_sys_fail(mrb, "pipe_open failed");
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "pipe_open failed");
       break;
   }
@@ -1746,7 +1743,7 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 
   /* from now on rs_given==FALSE means no RS */
   if (rs.tt == MRBC_TT_NIL && !limit_given) {
-    mrbc_value output = io_read_all(vm, fptr, mrbc_string_new(vm, "", PICORB_IO_BUF_SIZE));
+    mrbc_value output = io_read_all(vm, fptr, mrbc_string_new(vm, "", 0));
     SET_RETURN(output);
     return;
   }
@@ -1764,7 +1761,7 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
       SET_RETURN(output);
       return;
     }
-    outbuf = mrbc_string_new(vm, "", limit);
+    outbuf = mrbc_string_new(vm, "", 0);
   }
   else {
     outbuf = mrbc_string_new(vm, NULL, 0);
@@ -1934,11 +1931,15 @@ mrbc_io_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_IO, "flush",          c_io_flush);
   mrbc_define_method(vm, mrbc_class_IO, "ungetc",         c_io_ungetc);
   mrbc_define_method(vm, mrbc_class_IO, "pos",            c_io_pos);
+  mrbc_define_method(vm, mrbc_class_IO, "tell",           c_io_pos);
   mrbc_define_method(vm, mrbc_class_IO, "pid",            c_io_pid);
   mrbc_define_method(vm, mrbc_class_IO, "fileno",         c_io_fileno);
+  mrbc_define_method(vm, mrbc_class_IO, "to_i",           c_io_fileno);
   mrbc_define_method(vm, mrbc_class_IO, "write",          c_io_write);
   mrbc_define_method(vm, mrbc_class_IO, "pread",          c_io_pread);
   mrbc_define_method(vm, mrbc_class_IO, "pwrite",         c_io_pwrite);
   mrbc_define_method(vm, mrbc_class_IO, "getbyte",        c_io_getbyte);
   mrbc_define_method(vm, mrbc_class_IO, "readbyte",       c_io_readbyte);
+
+  mrbc_io_file_init(vm, mrbc_class_IO);
 }
