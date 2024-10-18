@@ -2,14 +2,23 @@
 class EOFError < IOError
 end
 
+STDERR: IO
+STDIN: IO
+STDOUT: IO
+$stdin: IO
+$stdout: IO
+$stderr: IO
+
+SEEK_SET: Integer
+
 class IO
   type fd_t = Integer | IO
   def self.new: (*Object args) -> instance
-  alias for_fd new
+  alias self.for_fd self.new
   def self.open: (*Object args) -> instance
-               | (*Object args) { () -> instance } -> untyped
+               | (*Object args) { (instance) -> untyped } -> untyped
   def self.popen: (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) -> instance
-                | (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) { () -> instance } -> untyped
+                | (String command, ?String mode, ?in: fd_t, ?out: fd_t, ?err: fd_t) { (instance) -> untyped } -> untyped
   private def self._popen: (String command, String mode, fd_t in, fd_t out, fd_t err) -> instance
   def self.pipe: () -> [instance, instance]
                | { (instance, instance) -> void } -> untyped
@@ -17,7 +26,7 @@ class IO
   def self.read: (String path, ?(Integer | nil) length, ?Integer offset, ?mode: String) -> String
   def self.sysopen: (String path, ?String mode, ?Integer perm) -> Integer
   private def self._sysclose: (Integer fd) -> 0
-  def self.select: (Array[?fd_t] readfds, ?Array[?fd_t] writefds, ?Array[?fd_t] exceptfds, ?Integer timeout) -> ([[IO]] | nil)
+  def self.select: (Array[fd_t] readfds, ?Array[fd_t] writefds, ?Array[fd_t] exceptfds, ?Integer timeout) -> ([[IO]] | nil)
 
   def isatty: () -> bool
   alias tty? isatty
@@ -25,9 +34,39 @@ class IO
   alias eof eof?
   def seek: (Integer offset, ?Integer whence) -> Integer
   def write: (String input) -> Integer
+  private def hash: () -> Integer
+  def <<: (String input) -> self
   def puts: (*String line) -> nil
+  def print: (*String str) -> nil
+  def printf: (*String str) -> nil
   def closed?: () -> bool
   def close: () -> nil
+  def close_write: () -> nil
   def read: (?(Integer | nil) length, ?String outbuf) -> (String | nil)
   def gets: (?String rs, ?Integer limit) -> (String | nil)
+  def readline: (?String sep, ?Integer limit) -> String
+  def readlines: (?String sep, ?Integer limit) -> Array[String]
+  def sysread: (Integer length, ?String outbuf) -> String
+  def getc: () -> (String | nil)
+  def readchar: () -> String
+  def sync: () -> bool
+  def sync=: (bool) -> bool
+  def syswrite: (String input) -> Integer
+  def close_on_exec=: (bool) -> bool
+  def close_on_exec?: () -> bool
+  def flush: () -> self
+  def ungetc: (String char) -> nil
+  def pos: () -> Integer
+  def pos=: (Integer) -> Integer
+  def rewind: () -> Integer
+  def ungetbyte: (String | Integer byte) -> nil
+  def each_byte: () ?{ (Integer) -> void } -> self
+  def each_char: () ?{ (String) -> void } -> self
+  alias tell pos
+  def pid: () -> (Integer | nil)
+  def fileno: () -> Integer
+  def pread: (Integer length, Integer offset, ?String outbuf) -> String
+  def pwrite: (String input, Integer offset) -> Integer
+  def getbyte: () -> (Integer | nil)
+  def readbyte: () -> Integer
 end
