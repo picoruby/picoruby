@@ -3,9 +3,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby Shell library'
   spec.add_dependency 'picoruby-editor'
-  spec.add_dependency 'picoruby-vfs'
-  spec.add_dependency 'picoruby-filesystem-fat'
-  spec.add_dependency 'picoruby-sandbox'
+  spec.add_dependency 'picoruby-require'
 
   executable_mrbfiles = Array.new
   executable_dir = "#{build_dir}/shell_executables"
