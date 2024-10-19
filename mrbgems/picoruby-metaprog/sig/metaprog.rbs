@@ -7,4 +7,5 @@ class Object
   def respond_to?: (Symbol | String name) -> bool
   def __id__: () -> Integer
   alias object_id __id__
+  def instance_of?: (Class klass) -> bool
 end
