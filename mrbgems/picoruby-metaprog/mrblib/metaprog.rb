@@ -1,3 +1,1 @@
-class Object
-  include Kernel
-end
+# dummy
