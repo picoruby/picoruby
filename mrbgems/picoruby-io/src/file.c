@@ -89,8 +89,8 @@ flock(int fd, int operation) {
 
 #define picorb_locale_from_utf8(p, l) ((char *)(p))
 #define picorb_utf8_from_locale(p, l) ((char *)(p))
-#define picorb_locale_free(p)
-#define picorb_utf8_free(p)
+#define picorb_locale_free(p)  // no-op
+#define picorb_utf8_free(p)    // no-op
 #define RSTRING_CSTR(vm, s)   ((char *)(s.string->data))
 
 static void
@@ -170,6 +170,10 @@ c_file_rename(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_file_dirname(mrbc_vm *vm, mrbc_value v[], int argc)
 {
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
 #if defined(_WIN32) || defined(_WIN64)
   char dname[_MAX_DIR], vname[_MAX_DRIVE];
   char buffer[_MAX_DRIVE + _MAX_DIR];
@@ -178,10 +182,6 @@ c_file_dirname(mrbc_vm *vm, mrbc_value v[], int argc)
   size_t ridx;
   mrbc_value result;
 
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
   utf8_path = (const char *)GET_STRING_ARG(1);
 
   path = picorb_locale_from_utf8(utf8_path, -1);
@@ -203,16 +203,11 @@ c_file_dirname(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(result);
 #else
   char *dname, *path;
-  const char *s;
-  mrbc_value result;
+  mrbc_value s, result;
 
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
-  s = (const char *)GET_STRING_ARG(1);
+  s = mrbc_string_dup(vm, &GET_ARG(1));
 
-  path = picorb_locale_from_utf8(s, -1);
+  path = picorb_locale_from_utf8(s.string->data, -1);
 
   if ((dname = dirname(path)) == NULL) {
     picorb_locale_free(path);
@@ -221,6 +216,7 @@ c_file_dirname(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   picorb_locale_free(path);
   result = mrbc_string_new_cstr(vm, dname);
+  mrbc_decref(&s);
   SET_RETURN(result);
 #endif
 }
@@ -270,6 +266,7 @@ c_file_basename(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   if (strncmp(bname, "//", 3) == 0) bname[1] = '\0';  /* patch for Cygwin */
   result = mrbc_string_new_cstr(vm, bname);
+//  mrbc_incref(&result);
   SET_RETURN(result);
 #endif
 }
@@ -280,7 +277,6 @@ c_file_realpath(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_value pathname, dir_string, s, result;
   char *cpath;
 
-  //argc = mrb_get_args(vm, "S|S", &pathname, &dir_string);
   if (argc < 1 || 2 < argc) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
   }
@@ -296,12 +292,10 @@ c_file_realpath(mrbc_vm *vm, mrbc_value v[], int argc)
   cpath = picorb_locale_from_utf8(RSTRING_CSTR(vm, pathname), -1);
   char buf[PATH_MAX];
   if (realpath(cpath, buf) == NULL) {
-    picorb_locale_free(cpath);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "realpath failed");
     return;
   }
-  picorb_locale_free(cpath);
-  result = mrbc_string_new_cstr(vm, "");
+  result = mrbc_string_new_cstr(vm, buf);
   SET_RETURN(result);
 }
 
@@ -545,7 +539,7 @@ c_file_flock(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_file_size(mrbc_vm *vm, mrbc_value v[], int argc)
+c_file__size(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   picorb_stat st;
   int fd;
@@ -746,7 +740,7 @@ mrbc_io_file_init(mrbc_vm *vm, mrbc_class *io)
   mrbc_define_method(vm, file, "_atime",    c_file_atime);
   mrbc_define_method(vm, file, "_ctime",    c_file_ctime);
   mrbc_define_method(vm, file, "_mtime",    c_file_mtime);
-  mrbc_define_method(vm, file, "size",      c_file_size);
+  mrbc_define_method(vm, file, "_size",     c_file__size);
   mrbc_define_method(vm, file, "truncate",  c_file_truncate);
 
   cnst = mrbc_define_module_under(vm, file, "Constants");
