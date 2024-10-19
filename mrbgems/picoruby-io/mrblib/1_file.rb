@@ -1,13 +1,14 @@
 class File < IO
   attr_accessor :path
 
-  def initialize(fd_or_path, mode = "r", perm = 0666)
+  def self.new(fd_or_path, mode = "r", perm = 0666, &block)
     if fd_or_path.is_a? Integer
-      IO.new(fd_or_path, mode)
+      super(fd_or_path, mode, &block)
     else
-      @path = fd_or_path
-      fd = IO.sysopen(@path, mode, perm)
-      IO.new(fd, mode)
+      fd = IO.sysopen(fd_or_path, mode, perm)
+      instance = super(fd, mode, perm, &block)
+      instance.path = fd_or_path
+      instance
     end
   end
 

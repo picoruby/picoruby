@@ -433,8 +433,9 @@ main(int argc, char **argv)
 
   /* Load libraries */
   for (int i = 0; i < args.libc; i++) {
-    if (0 < picoruby_load_model_by_name(args.libv[i])) {
-      continue;
+    if (!picoruby_load_model_by_name(args.libv[i])) {
+      fprintf(stderr, "cannot load library: %s\n", args.libv[i]);
+      exit(EXIT_FAILURE);
     }
 
     mrc_ccontext *c = mrc_ccontext_new(NULL);
