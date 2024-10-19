@@ -79,22 +79,28 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
       f.puts
       f.puts <<~PICOGEM
         /* public API */
-        int
+        bool
         picoruby_load_model(const uint8_t *mrb)
         {
           mrbc_vm *vm = mrbc_vm_open(NULL);
           if (vm == 0) {
             console_printf("Error: Can't open VM.\\n");
-            return 0;
+            return false;
           }
           if (mrbc_load_mrb(vm, mrb) != 0) {
             console_printf("Error: Illegal bytecode.\\n");
-            return 0;
+            return false;
           }
           mrbc_vm_begin(vm);
           mrbc_vm_run(vm);
+          if (vm->exception.tt != MRBC_TT_NIL) {
+            console_printf("Error: Exception occurred.\\n");
+            mrbc_vm_end(vm);
+            mrbc_vm_close(vm);
+            return false;
+          }
           mrbc_raw_free(vm);
-          return 1;
+          return true;
         }
 
         static int
@@ -110,7 +116,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           }
         }
 
-        int
+        bool
         picoruby_load_model_by_name(const char *gem)
         {
           int i = gem_index(gem);
@@ -139,10 +145,14 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           if (argc == 2 && GET_TT_ARG(2) == MRBC_TT_TRUE) {
             force = true;
           }
-          if ((force || !prebuilt_gems[i].required) && picoruby_load_model(prebuilt_gems[i].mrb)) {
+          if ((force || !prebuilt_gems[i].required)) {
             if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer(vm);
-            prebuilt_gems[i].required = true;
-            SET_TRUE_RETURN();
+            if (!picoruby_load_model(prebuilt_gems[i].mrb)) {
+              SET_NIL_RETURN();
+            } else {
+              prebuilt_gems[i].required = true;
+              SET_TRUE_RETURN();
+            }
           } else {
             SET_FALSE_RETURN();
           }
