@@ -1,0 +1,4 @@
+class String
+  def rindex: (String needle) -> (Integer | nil)
+  def gsub: (String pattern, String replacement) -> String
+end

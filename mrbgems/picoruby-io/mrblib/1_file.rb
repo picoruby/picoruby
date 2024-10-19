@@ -36,7 +36,7 @@ class File < IO
   def self.join(*names)
     return "" if names.empty?
 
-    names.map! do |name|
+    names = names.map do |name|
       case name
       when String
         name
@@ -44,7 +44,7 @@ class File < IO
         if names == name
           raise ArgumentError, "recursive array"
         end
-        join(*name)
+        join(name)
       else
         raise TypeError, "no implicit conversion of #{name.class} into String"
       end
@@ -58,6 +58,8 @@ class File < IO
       s = names[0].dup
     end
 
+    s = s.to_s
+
     (1..names.size-2).each { |i|
       t = names[i]
       if t[0] == File::SEPARATOR and t[-1] == File::SEPARATOR
@@ -67,10 +69,11 @@ class File < IO
       elsif t[-1] == File::SEPARATOR
         t = t[0, t.size - 1]
       end
+      t = t.to_s
       s += File::SEPARATOR + t if t != ""
     }
     if names[-1][0] == File::SEPARATOR
-      s += File::SEPARATOR + names[-1][1, names[-1].size - 1]
+      s += File::SEPARATOR + names[-1][1, names[-1].size - 1].to_s
     else
       s += File::SEPARATOR + names[-1]
     end
@@ -95,7 +98,7 @@ class File < IO
       else
         splitted_path = path.split("/")
         user = splitted_path[0][1, splitted_path[0].size]
-        dir = "/" + splitted_path[1, splitted_path.size].join("/")
+        dir = "/" + splitted_path[1, splitted_path.size]&.join("/").to_s
 
         home_dir = _gethome(user)
 
@@ -118,21 +121,20 @@ class File < IO
   def self.expand_path(path, default_dir = '.')
     expanded_path = _concat_path(path, default_dir)
     drive_prefix = ""
-    if File::ALT_SEPARATOR && expanded_path.size > 2 &&
-        ("A".."Z")===(expanded_path[0].upcase) && expanded_path[1] == ":"
-      drive_prefix = expanded_path[0, 2]
+    if File::ALT_SEPARATOR && expanded_path.size > 2 && ("A".."Z")===(expanded_path[0]&.upcase) && expanded_path[1] == ":"
+      drive_prefix = expanded_path[0, 2].to_s
       expanded_path = expanded_path[2, expanded_path.size]
     end
     expand_path_array = []
-    if File::ALT_SEPARATOR && expanded_path.include?(File::ALT_SEPARATOR)
-      expanded_path.gsub!(File::ALT_SEPARATOR, '/')
+    if File::ALT_SEPARATOR && expanded_path&.include?(File::ALT_SEPARATOR)
+      expand_path = expanded_path.gsub(File::ALT_SEPARATOR, '/')
     end
-    while expanded_path.include?('//')
+    while expanded_path&.include?('//')
       expanded_path = expanded_path.gsub('//', '/')
     end
 
     if expanded_path != "/"
-      expanded_path.split('/').each do |path_token|
+      expanded_path&.split('/')&.each do |path_token|
         if path_token == '..'
           if expand_path_array.size > 1
             expand_path_array.pop
@@ -150,9 +152,9 @@ class File < IO
       end
     end
     if drive_prefix.empty?
-      expanded_path
+      expanded_path.to_s
     else
-      drive_prefix + expanded_path.gsub("/", File::ALT_SEPARATOR)
+      drive_prefix + expanded_path&.gsub("/", File::ALT_SEPARATOR).to_s
     end
   end
 
@@ -227,19 +229,5 @@ class File < IO
         raise TypeError, "no implicit conversion of #{filename.class} into String"
       end
     end
-  end
-end
-
-class String
-  def rindex(needle)
-    index = nil
-    (self.size - 1).downto(0) do |i|
-      if self[i] == needle
-        index = i
-        break
-      end
-    end
-    p index
-    index
   end
 end

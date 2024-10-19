@@ -1,0 +1,11 @@
+class FileTest
+  def self.directory?: (String file) -> bool
+  def self.exist?: (String file) -> bool
+  def self.file?: (String file) -> bool
+  def self.pipe?: (String file) -> bool
+  def self.size: (String |nil file) -> Integer
+  def self.size?: (String file) -> (Integer | nil)
+  def self.socket?: (String file) -> bool
+  def self.symlink?: (String file) -> bool
+  def self.zero?: (String file) -> bool
+end
