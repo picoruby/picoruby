@@ -12,8 +12,9 @@ $stderr: IO
 SEEK_SET: Integer
 
 class IO
+
   type fd_t = Integer | IO
-  def self.new: (*Object args) -> IO
+  def self.new: (*Object args) ?{ (untyped) -> untyped } -> IO
   alias self.for_fd self.new
   def self.open: (*Object args) -> IO
                | (*Object args) { (IO) -> untyped } -> untyped
@@ -70,4 +71,8 @@ class IO
   def pwrite: (String input, Integer offset) -> Integer
   def getbyte: () -> (Integer | nil)
   def readbyte: () -> Integer
+
+  # For only File class
+  def path=: (string) -> string
+
 end

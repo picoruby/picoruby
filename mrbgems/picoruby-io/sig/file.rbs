@@ -837,7 +837,18 @@
 # *   ::unlink (aliased as ::delete): Deletes the file for each given file path.
 # *   #truncate: Truncates `self` to the given size.
 #
-class File
+class File < IO
+  module Constants
+    FNM_SYSCASE:  0
+    FNM_NOESCAPE: 1
+    FNM_PATHNAME: 2
+    FNM_DOTMATCH: 4
+    FNM_CASEFOLD: 8
+  end
+
+  SEPARATOR: String
+  ALT_SEPARATOR: String
+
   CHUNK_SIZE: Integer
   SEEK_SET: Integer
   SEEK_CUR: Integer
@@ -884,7 +895,8 @@ class File
   # *   [Open Options](rdoc-ref:IO@Open+Options).
   # *   [Encoding options](rdoc-ref:encodings.rdoc@Encoding+Options).
   #
-  def self.new: (string, ?string mode) -> VFS::file_t
+  def self.new: (string fd_or_path, ?string mode, ?int perm) -> File
+               | [T] (string fd_or_path, ?string mode, ?int perm) { (untyped) -> T } -> untyped
 
   # <!--
   #   rdoc-file=file.c
@@ -981,8 +993,8 @@ class File
   # With a block given, calls the block with the File object and returns the
   # block's value.
   #
-  def self.open: (string, ?string) -> VFS::file_t
-               | [T] (string, ?string) { (VFS::file_t) -> T } -> untyped
+  def self.open: (string, ?string) -> File
+               | [T] (string, ?string) { (untyped) -> T } -> untyped
 
   # <!--
   #   rdoc-file=file.c
@@ -1021,6 +1033,17 @@ class File
   #
   def self.utime: (Time atime, Time mtime, *string) -> Integer
 
+  def self.basename: (String filename) -> String
+
+  def self.join: (*String parts) -> String
+
+  private def self._concat_path: (String base, String path) -> String
+  private def self._gethome: (?(String |nil) user) -> String
+  private def self._getwd: () -> String
+  private def _atime: () -> Time
+  private def _ctime: () -> Time
+  private def _mtime: () -> Time
+
   public
 
   # <!--
@@ -1048,6 +1071,7 @@ class File
   # -->
   #
   def size: () -> Integer
+  private def self._size: () -> Integer
 
   def tell: () -> Integer
   alias pos tell
