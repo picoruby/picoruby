@@ -1,3 +1,5 @@
+require 'time'
+
 class File < IO
   attr_accessor :path
 
@@ -184,8 +186,15 @@ class File < IO
     FileTest.pipe?(file)
   end
 
-  def self.size(file)
-    FileTest.size(file)
+  def self.size(file = nil)
+    if (self.instance_of? self.class)
+      _size
+    else
+      if file.nil?
+        raise ArgumentError, "missing filename"
+      end
+      FileTest.size(file)
+    end
   end
 
   def self.size?(file)
