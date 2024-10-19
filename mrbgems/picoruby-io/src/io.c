@@ -1942,4 +1942,5 @@ mrbc_io_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_IO, "readbyte",       c_io_readbyte);
 
   mrbc_io_file_init(vm, mrbc_class_IO);
+  mrbc_io_file_test_init(vm);
 }
