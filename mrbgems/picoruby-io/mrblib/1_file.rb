@@ -211,11 +211,16 @@ class File < IO
     return fname[epos..-1]
   end
 
-  def self.path(filename)
-    if filename.is_a?(String)
-      filename
+  def self.path(filename = nil)
+    if self.instance_of?(self.class)
+      @path
     else
-      raise TypeError, "no implicit conversion of #{filename.class} into String"
+      raise ArgumentError, "missing filename" if filename.nil?
+      if filename.is_a?(String)
+        filename
+      else
+        raise TypeError, "no implicit conversion of #{filename.class} into String"
+      end
     end
   end
 end
