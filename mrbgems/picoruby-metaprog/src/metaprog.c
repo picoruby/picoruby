@@ -1,5 +1,4 @@
 #include <mrubyc.h>
-#include <stdbool.h>
 
 /*
  * Restriction: Methods written in Ruby can not be called by send.
@@ -192,6 +191,7 @@ c_object_id(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(id);
 }
 
+<<<<<<< HEAD
 static void
 c_instance_of_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -243,5 +243,4 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
   mrbc_define_method(vm, mrbc_class_object, "__id__", c_object_id);
   mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
-  mrbc_define_method(vm, mrbc_class_object, "instance_of?", c_instance_of_q);
 }
