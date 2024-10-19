@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include <stdbool.h>
 
 /*
  * Restriction: Methods written in Ruby can not be called by send.
@@ -189,6 +190,45 @@ c_object_id(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(id);
 }
 
+static void
+c_instance_of_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (v[1].tt != MRBC_TT_CLASS) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "class or module required");
+    return;
+  }
+  bool result = false;
+  switch (v[0].tt) {
+    case MRBC_TT_NIL: {
+      if (v[1].cls == MRBC_CLASS(NilClass)) result = true;
+      break;
+    }
+    case MRBC_TT_TRUE: {
+      if (v[1].cls == MRBC_CLASS(TrueClass)) result = true;
+      break;
+    }
+    case MRBC_TT_FALSE: {
+      if (v[1].cls == MRBC_CLASS(FalseClass)) result = true;
+      break;
+    }
+    case MRBC_TT_OBJECT: {
+      mrbc_class *self_cls = find_class_by_object(&v[0]);
+      if (self_cls == v[1].cls) result = true;
+      break;
+    }
+    default:
+  }
+  if (result) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
 void
 mrbc_metaprog_init(mrbc_vm *vm)
 {
@@ -200,4 +240,5 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
   mrbc_define_method(vm, mrbc_class_object, "__id__", c_object_id);
   mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
+  mrbc_define_method(vm, mrbc_class_object, "instance_of?", c_instance_of_q);
 }
