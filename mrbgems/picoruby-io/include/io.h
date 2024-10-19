@@ -64,8 +64,15 @@ struct picorb_io {
 //#define E_IO_ERROR              mrb_exc_get_id(mrb, MRBC_SYM(IOError))
 //#define E_EOF_ERROR             mrb_exc_get_id(mrb, MRBC_SYM(EOFError))
 
+#define picorb_locale_from_utf8(p, l) ((char *)(p))
+#define picorb_utf8_from_locale(p, l) ((char *)(p))
+#define picorb_locale_free(p)  // no-op
+#define picorb_utf8_free(p)    // no-op
+#define RSTRING_CSTR(vm, s)   ((char *)(s.string->data))
+
 int picorb_io_fileno(mrbc_vm *vm, mrbc_value io);
 void mrbc_io_file_init(mrbc_vm *vm, mrbc_class *io);
+void mrbc_io_file_test_init(mrbc_vm *vm);
 
 #if defined(__cplusplus)
 } /* extern "C" { */

@@ -53,7 +53,7 @@ class File < IO
     return names[0] if names.size == 1
 
     if names[0][-1] == File::SEPARATOR
-      s = names[0][0..-2]
+      s = names[0][0, names[0].size - 1]
     else
       s = names[0].dup
     end
@@ -61,16 +61,16 @@ class File < IO
     (1..names.size-2).each { |i|
       t = names[i]
       if t[0] == File::SEPARATOR and t[-1] == File::SEPARATOR
-        t = t[1..-2]
+        t = t[1, t.size - 2]
       elsif t[0] == File::SEPARATOR
-        t = t[1..-1]
+        t = t[1, t.size - 1]
       elsif t[-1] == File::SEPARATOR
-        t = t[0..-2]
+        t = t[0, t.size - 1]
       end
       s += File::SEPARATOR + t if t != ""
     }
     if names[-1][0] == File::SEPARATOR
-      s += File::SEPARATOR + names[-1][1..-1]
+      s += File::SEPARATOR + names[-1][1, names[-1].size - 1]
     else
       s += File::SEPARATOR + names[-1]
     end
@@ -119,7 +119,7 @@ class File < IO
     expanded_path = _concat_path(path, default_dir)
     drive_prefix = ""
     if File::ALT_SEPARATOR && expanded_path.size > 2 &&
-        ("A".."Z").include?(expanded_path[0].upcase) && expanded_path[1] == ":"
+        ("A".."Z")===(expanded_path[0].upcase) && expanded_path[1] == ":"
       drive_prefix = expanded_path[0, 2]
       expanded_path = expanded_path[2, expanded_path.size]
     end
@@ -174,10 +174,6 @@ class File < IO
     FileTest.exist?(file)
   end
 
-  def self.exists?(file)
-    FileTest.exists?(file)
-  end
-
   def self.file?(file)
     FileTest.file?(file)
   end
@@ -217,7 +213,7 @@ class File < IO
     fname = self.basename(filename)
     epos = fname.rindex('.')
     return '' if epos == 0 || epos.nil?
-    return fname[epos..-1]
+    return fname[epos, fname.size - epos]
   end
 
   def self.path(filename = nil)
@@ -231,5 +227,19 @@ class File < IO
         raise TypeError, "no implicit conversion of #{filename.class} into String"
       end
     end
+  end
+end
+
+class String
+  def rindex(needle)
+    index = nil
+    (self.size - 1).downto(0) do |i|
+      if self[i] == needle
+        index = i
+        break
+      end
+    end
+    p index
+    index
   end
 end

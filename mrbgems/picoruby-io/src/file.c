@@ -87,12 +87,6 @@ flock(int fd, int operation) {
 }
 #endif
 
-#define picorb_locale_from_utf8(p, l) ((char *)(p))
-#define picorb_utf8_from_locale(p, l) ((char *)(p))
-#define picorb_locale_free(p)  // no-op
-#define picorb_utf8_free(p)    // no-op
-#define RSTRING_CSTR(vm, s)   ((char *)(s.string->data))
-
 static void
 c_file_umask(mrbc_vm *vm, mrbc_value v[], int argc)
 {
