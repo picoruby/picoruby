@@ -1,4 +1,4 @@
-# dummy
-#class Object
+class Object
+  # TODO
 #  include Kernel
-#end
+end
