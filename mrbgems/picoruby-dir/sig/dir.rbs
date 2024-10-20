@@ -1,0 +1,36 @@
+class Dir
+
+  type path_t = String
+
+  def self.chdir: (?path_t dir) -> 0
+                | [U] (?path_t dir) { (path_t dir) -> U } -> U
+  private def self._chdir: (path_t dir) -> 0
+  def self.delete: (path_t dirname) -> 0
+  alias self.rmdir self.delete
+  alias self.unlink self.delete
+  def self.entries: (String dir) -> Array[String]
+  alias self.children self.entries
+  def self.exist?: (path_t dirname) -> bool
+  def self.foreach: (String path) { (String path) -> untyped } -> nil
+  def self.getwd: () -> String
+  alias self.pwd self.getwd
+  def self.mkdir: (path_t dirname, ?Integer mode) -> 0
+
+  def self.glob: (path_t pattern, ?int flags, ?base: path?) -> Array[String]
+               | (path_t pattern, ?int flags, ?base: path?) { (String pathname) -> void } -> nil
+  def self.open: (path_t dirname) -> untyped
+               | [U] (path_t dirname) { (Dir dir) -> U } -> Dir
+  def close: () -> nil
+  def each: () { (String item) -> untyped} -> self
+  def read: () -> String?
+  def rewind: () -> self
+  def seek: (Integer pos) -> 0
+  alias pos= seek
+  def tell: () -> Integer
+  alias pos tell
+  def empty?: () -> bool
+
+  # for VFS
+  def findnext: () -> Dir
+  def pat=: (String) -> String
+end

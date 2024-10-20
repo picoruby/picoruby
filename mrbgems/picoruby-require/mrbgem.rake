@@ -2,7 +2,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby require gem'
-  binding.irb
+
   if cc.defines.flatten.include? 'MRBC_USE_HAL_POSIX'
     spec.add_dependency 'picoruby-io'
   else
