@@ -1201,10 +1201,12 @@ c_io_sysseek(mrbc_vm *vm, mrbc_value v[], int argc)
   pos = lseek(fptr->fd, (off_t)offset, (int)whence);
   if (pos == -1) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sysseek failed");
+    return;
   }
   fptr->eof = 0;
   if (sizeof(off_t) > sizeof(mrbc_int_t) && pos > (off_t)INT_MAX) {
     mrbc_raise(vm, MRBC_CLASS(IOError), "sysseek reached too far for mrbc_int_t");
+    return;
   }
   SET_INT_RETURN((mrbc_int_t)pos);
 }
@@ -1250,7 +1252,7 @@ static void
 c_io_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value outbuf = mrbc_nil_value();
-  mrbc_value len;
+  mrbc_value len = mrbc_nil_value();
   mrbc_int_t length = 0;
   bool length_given;
   struct picorb_io *fptr = io_get_read_fptr(vm, v[0]);
@@ -1331,11 +1333,17 @@ c_io_write(mrbc_vm *vm, mrbc_value v[], int argc)
     /* get current position */
     n = lseek(fd, 0, SEEK_CUR);
     //if (n == -1) mrb_sys_fail(mrb, "lseek");
-    if (n == -1) mrbc_raise(vm, MRBC_CLASS(RuntimeError), "lseek failed");
+    if (n == -1) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "lseek failed");
+      return;
+    }
     /* move cursor */
     n = lseek(fd, n - fptr->buf->len, SEEK_SET);
     //if (n == -1) mrb_sys_fail(mrb, "lseek(2)");
-    if (n == -1) mrbc_raise(vm, MRBC_CLASS(RuntimeError), "lseek(2) failed");
+    if (n == -1) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "lseek(2) failed");
+      return;
+    }
     fptr->buf->start = fptr->buf->len = 0;
   }
 
@@ -1469,6 +1477,7 @@ c_io_pos(mrbc_vm *vm, mrbc_value v[], int argc)
   off_t pos = lseek(fptr->fd, 0, SEEK_CUR);
   if (pos == -1) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "lseek failed");
+    return;
   }
 
   if (fptr->buf) {
@@ -1679,7 +1688,7 @@ static void
 c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value rs = mrbc_nil_value();
-  mrbc_int_t limit;
+  mrbc_int_t limit = -1;
   bool rs_given = false;    /* newline break */
   bool limit_given = false; /* no limit */
   mrbc_value outbuf;
@@ -1720,6 +1729,7 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
       else if (rs.tt != MRBC_TT_STRING) {
         //mrb_ensure_int_type(mrb, rs);
         mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected String)");
+        return;
       }
     }
   }
@@ -1734,6 +1744,7 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     }
     else {
       mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected String)");
+      return;
     }
   }
   else {
@@ -1755,6 +1766,7 @@ c_io_gets(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 
   if (limit_given) {
+    assert(-1 < limit);
     if (limit == 0) {
       mrbc_value output = mrbc_string_new(vm, NULL, 0);
       mrbc_incref(&output);
@@ -1884,7 +1896,6 @@ c_io_sync_eq(mrbc_vm *vm, mrbc_value v[], int argc)
   fptr = io_get_open_fptr(vm, v[0]);
   mrbc_value sync = GET_ARG(1);
   fptr->sync = (sync.tt != MRBC_TT_FALSE);
-  SET_RETURN(v[0]);
 }
 
 /* initialization */

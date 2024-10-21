@@ -169,12 +169,15 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         void
         picoruby_init_require(mrbc_vm *vm)
         {
+          mrbc_define_method(vm, mrbc_class_object, "extern", c_extern);
           mrbc_value self = mrbc_instance_new(vm, mrbc_class_object, 0);
           mrbc_instance_call_initialize(vm, &self, 0);
-          mrbc_value str = mrbc_string_new_cstr(vm, "require");
-          mrbc_value args[2] = { self, str };
-          c_extern(NULL, args, 1);
-          mrbc_define_method(vm, mrbc_class_object, "extern", c_extern);
+          mrbc_value args[2];
+          args[0] = self;
+          args[1] = mrbc_string_new_cstr(vm, "require");
+          c_extern(vm, args, 1);
+          args[1] = mrbc_string_new_cstr(vm, "io");
+          c_extern(vm, args, 1);
         }
       PICOGEM
     end

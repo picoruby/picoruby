@@ -1136,7 +1136,7 @@ class File < IO
     #     File.stat("testfile").ctime       #=> 2014-02-24 11:19:37 +0900
     #     File.stat("testfile").atime       #=> 2014-02-24 11:19:47 +0900
     #
-    def birthtime: () -> Time
+    def birthtime: () -> (Time | nil)
 
     # <!--
     #   rdoc-file=file.c
@@ -1167,9 +1167,9 @@ class File < IO
     #     s = File.stat("testfile")
     #     sprintf("%o", s.mode)          #=> "100644"
     #
-    def mode: () -> Integer
+    def mode: () -> (Integer | nil)
 
-    def mode_str: () -> String
+    def mode_str: () -> (String | nil)
 
     # <!--
     #   rdoc-file=file.c
@@ -1199,7 +1199,7 @@ class File < IO
     #
     #     File.stat("testfile").writable?   #=> true
     #
-    def writable?: () -> bool
+    def writable?: () -> boolish
 
   end
 

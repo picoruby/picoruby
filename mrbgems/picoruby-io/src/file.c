@@ -743,9 +743,9 @@ mrbc_io_file_init(mrbc_vm *vm, mrbc_class *io)
   mrbc_set_class_const(cnst, PICORB_SYM(LOCK_EX), &mrbc_integer_value(LOCK_EX));
   mrbc_set_class_const(cnst, PICORB_SYM(LOCK_UN), &mrbc_integer_value(LOCK_UN));
   mrbc_set_class_const(cnst, PICORB_SYM(LOCK_NB), &mrbc_integer_value(LOCK_NB));
-  str = mrbc_string_new_cstr(vm, "FILE_SEPARATOR");
+  str = mrbc_string_new_cstr(vm, FILE_SEPARATOR);
   mrbc_set_class_const(cnst, PICORB_SYM(SEPARATOR), &str);
-  str = mrbc_string_new_cstr(vm, "PATH_SEPARATOR");
+  str = mrbc_string_new_cstr(vm, PATH_SEPARATOR);
   mrbc_set_class_const(cnst, PICORB_SYM(PATH_SEPARATOR), &str);
 #if defined(_WIN32) || defined(_WIN64)
   str = mrbc_string_new_cstr(vm, FILE_ALT_SEPARATOR);

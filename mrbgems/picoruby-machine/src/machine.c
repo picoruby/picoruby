@@ -87,8 +87,7 @@ c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   char id[32] = {0};
-  Machine_get_unique_id(id);
-  if (id) {
+  if (Machine_get_unique_id(id)) {
     mrbc_value ret = mrbc_string_new_cstr(vm, (const char *)id);
     SET_RETURN(ret);
   } else {
@@ -96,6 +95,7 @@ c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+void
 mrbc_machine_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Machine = mrbc_define_class(vm, "Machine", mrbc_class_object);

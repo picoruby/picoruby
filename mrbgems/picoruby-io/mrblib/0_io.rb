@@ -17,7 +17,7 @@ class IO
     return io unless block
 
     begin
-      yield io
+      return yield io
     ensure
       begin
         io.close unless io.closed?
@@ -64,24 +64,26 @@ class IO
     end
   end
 
-  def self.read(path, length=nil, offset=0, mode: "r")
-    str = ""
-    fd = -1
-    #io = nil
-    begin
-      fd = IO.sysopen(path, mode)
-      io = IO.open(fd, mode)
-      io.seek(offset) if offset > 0
-      str = io.read(length)
-    ensure
-      if io
-        io.close
-      elsif fd != -1
-        _sysclose(fd)
-      end
-    end
-    str
-  end
+  # mruby/c does not distinguish between singleton and instance methods.
+  # So, we don't define singleton methods here.
+#  def self.read(path, length=nil, offset=0, mode: "r")
+#    str = ""
+#    fd = -1
+#    #io = nil
+#    begin
+#      fd = IO.sysopen(path, mode)
+#      io = IO.open(fd, mode)
+#      io.seek(offset) if offset > 0
+#      str = io.read(length)
+#    ensure
+#      if io
+#        io.close
+#      elsif fd != -1
+#        _sysclose(fd)
+#      end
+#    end
+#    str
+#  end
 
   def hash
     # We must define IO#hash here because IO includes Enumerable and

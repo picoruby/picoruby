@@ -12,7 +12,7 @@ void Machine_sleep(uint32_t seconds);
 void Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high);
 void Machine_delay_ms(uint32_t ms);
 void Machine_busy_wait_ms(uint32_t ms);
-void Machine_get_unique_id(char *id_str);
+int Machine_get_unique_id(char *id_str);
 
 #ifdef __cplusplus
 }

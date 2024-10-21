@@ -31,17 +31,17 @@ struct picoruby_dir {
   DIR *dir;
 };
 
-static void
-dir_free(mrbc_vm *vm, void *ptr)
-{
-  struct picoruby_dir *mdir = (struct picoruby_dir*)ptr;
-
-  if (mdir->dir) {
-    closedir(mdir->dir);
-    mdir->dir = NULL;
-  }
-  mrbc_free(vm, mdir);
-}
+//static void
+//dir_free(mrbc_vm *vm, void *ptr)
+//{
+//  struct picoruby_dir *mdir = (struct picoruby_dir*)ptr;
+//
+//  if (mdir->dir) {
+//    closedir(mdir->dir);
+//    mdir->dir = NULL;
+//  }
+//  mrbc_free(vm, mdir);
+//}
 
 static void
 c_dir_close(mrbc_vm *vm, mrbc_value v[], int argc)
