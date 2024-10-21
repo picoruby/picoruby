@@ -48,7 +48,7 @@ class Sandbox
         puts "#{error.message} (#{error})"
       end
     rescue => e
-      p e
+      p "#{e.message} (#{e.class})"
     ensure
       f.close
     end
