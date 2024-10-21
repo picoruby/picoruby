@@ -4,6 +4,10 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.summary = 'PicoRuby Shell library'
   spec.add_dependency 'picoruby-editor'
   spec.add_dependency 'picoruby-require'
+  spec.add_dependency 'picoruby-sandbox'
+  if cc.defines.flatten.include? 'MRBC_USE_HAL_POSIX'
+    spec.add_dependency 'picoruby-dir'
+  end
 
   executable_mrbfiles = Array.new
   executable_dir = "#{build_dir}/shell_executables"

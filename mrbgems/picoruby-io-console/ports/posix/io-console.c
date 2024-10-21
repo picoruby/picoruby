@@ -19,8 +19,12 @@ c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc)
   settings.c_cc[VTIME] = 0;
   tcsetattr(fileno(stdin), TCSANOW, &settings);
   save_flags = fcntl(fileno(stdin), F_GETFL, 0);
-  fcntl(fileno(stdin), F_SETFL, save_flags | O_NONBLOCK); /* add `non blocking` */
-  SET_RETURN(v[0]);
+  if (0 < argc) {
+    fcntl(fileno(stdin), F_SETFL, save_flags | O_NONBLOCK); /* add `non blocking` */
+  }
+  else {
+    fcntl(fileno(stdin), F_SETFL, save_flags);
+  }
 }
 
 void
@@ -28,7 +32,6 @@ c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   fcntl(fileno(stdin), F_SETFL, save_flags);
   tcsetattr(fileno(stdin), TCSANOW, &save_settings);
-  SET_RETURN(v[0]);
 }
 
 int
@@ -42,10 +45,19 @@ hal_getchar(void)
   }
 }
 
+static void
+c_dummy_true(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_TRUE_RETURN();
+}
+
 void
 io_console_port_init(mrbc_vm *vm, mrbc_class *class_IO)
 {
   mrbc_define_method(vm, class_IO, "raw!", c_raw_bang);
   mrbc_define_method(vm, class_IO, "cooked!", c_cooked_bang);
+
+  mrbc_define_method(vm, class_IO, "echo=", c_dummy_true);
+  mrbc_define_method(vm, class_IO, "echo?", c_dummy_true);
 }
 

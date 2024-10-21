@@ -40,14 +40,23 @@ Dir.open(dir) do |dirent|
   # TODO: Wildcard
   if opts.include?("l")
     label_printed = false
+    is_fat = true
     while entry = dirent.read
       if !file || file == entry
         stat = File::Stat.new("#{dir}/#{entry}")
         if !label_printed
-          puts "\e[36m#{FAT::Stat::LABEL}\e[0m" # TODO: `FAT` should be hidden
+          begin
+            puts "\e[36m#{FAT::Stat::LABEL}\e[0m" # TODO: `FAT` should be hidden
+          rescue NameError
+            is_fat = false
+          end
           label_printed = true
         end
-        puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.mtime} #{entry}"
+        if is_fat
+          puts "#{stat.mode_str} #{stat.size.to_s.rjust(6)} #{stat.mtime} #{entry}"
+        else
+          puts "#{stat.size.to_s.rjust(8)}  #{stat.mtime.to_s}  #{entry}"
+        end
         count += 1
       end
     end

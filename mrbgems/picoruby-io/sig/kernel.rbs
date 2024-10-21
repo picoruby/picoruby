@@ -1,0 +1,23 @@
+module Kernel : BasicObject
+  def self?.print: (*_ToS args) -> nil
+  def self?.printf: () -> nil
+                  | (String fmt, *untyped args) -> nil
+  def self?.puts: (*_ToS objects) -> nil
+  def self?.p: [T < _Inspect] (T arg0) -> T
+             | (_Inspect arg0, _Inspect arg1, *_Inspect rest) -> _Inspect
+             | () -> nil
+end
+
+
+# @private
+class Object
+  # Workaround.
+  # I don't know why `include Kernel` doesn't work.
+  def self?.print: (*_ToS args) -> nil
+  def self?.printf: () -> nil
+                  | (String fmt, *untyped args) -> nil
+  def self?.puts: (*_ToS objects) -> nil
+  def self?.p: [T < _Inspect] (T arg0) -> T
+             | (_Inspect arg0, _Inspect arg1, *_Inspect rest) -> _Inspect
+             | () -> nil
+end

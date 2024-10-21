@@ -3,20 +3,6 @@
 #include "../include/io-console.h"
 
 static void
-c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  char buf[1];
-  int c = hal_getchar();
-  if (-1 < c) {
-    buf[0] = c;
-    mrb_value str = mrbc_string_new(vm, buf, 1);
-    SET_RETURN(str);
-  } else {
-    SET_NIL_RETURN();
-  }
-}
-
-static void
 c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   /*
@@ -27,9 +13,10 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   char buf[maxlen + 1];
   mrbc_value outbuf;
   int len;
-  c_raw_bang(vm, v, 0);
+  c_raw_bang(vm, v, 1); // TODO fixme: argc=1 means NONBLOCK mode (temporary)
   int c;
   for (len = 0; len < maxlen; len++) {
+    // TODO no use hal_getchar. The same way as picoruby-io instead.
     c = hal_getchar();
     if (c < 0) {
       break;
@@ -68,7 +55,6 @@ mrbc_io_console_init(mrbc_vm *vm)
 {
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
   mrbc_define_method(vm, class_IO, "read_nonblock", c_read_nonblock);
-  mrbc_define_method(vm, class_IO, "getc", c_getc);
 
   io_console_port_init(vm, class_IO);
 }

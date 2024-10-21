@@ -14,6 +14,11 @@ class File < IO
     end
   end
 
+  def expand(_size)
+    # no-op. For compatibility with FAT filesystems.
+    size
+  end
+
   def atime
     t = self._atime
     t && Time.at(t)

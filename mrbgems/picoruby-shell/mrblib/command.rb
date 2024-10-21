@@ -22,15 +22,18 @@ class Shell
     )
 
     def find_executable(name)
-      # Unlike UNIX, $PATH is an array of Ruby
-      ENV['PATH']&.split(":")&.each do |path|
+      if name.start_with?("/")
+        return File.exist?(name) ? name : nil
+      end
+      if name.start_with?("./") || name.start_with?("../")
+        file = File.expand_path(name, Dir.pwd)
+        return File.exist?(name) ? name : nil
+      end
+      ENV['PATH']&.split(";")&.each do |path|
         file = "#{path}/#{name}"
         return file if File.exist? file
       end
-      if name.include?("/") && File.exist?(name)
-        return name
-      end
-      return nil
+      nil
     end
 
     def exec(*params)
@@ -72,7 +75,7 @@ class Shell
       end
       return true
     rescue => e
-      puts e
+      puts "#{e.message} (#{e.class})"
       return false
     end
 

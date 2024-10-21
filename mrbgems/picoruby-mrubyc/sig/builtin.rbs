@@ -4,6 +4,7 @@ interface _ToS
   # Converts `self` to a `String`.
   #
   def to_s: () -> String
+  def is_a?: (untyped klass) -> bool
 end
 
 # A type that defines the `.inspect` method.

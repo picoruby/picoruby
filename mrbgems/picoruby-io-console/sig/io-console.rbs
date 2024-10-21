@@ -13,6 +13,8 @@ class IO
   def self.raw: () { () -> untyped } -> untyped
   def self.raw!: -> self
   def self.cooked!: -> self
+  def echo?: -> bool
+  def echo=: (bool) -> bool
 end
 
 # @sidebar error

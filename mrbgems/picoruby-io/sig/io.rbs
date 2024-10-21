@@ -24,7 +24,7 @@ class IO
   def self.pipe: () -> [IO, IO]
                | { (IO, IO) -> void } -> untyped
   private def self._pipe: () -> [IO, IO]
-  def self.read: (String path, ?(Integer | nil) length, ?Integer offset, ?mode: String) -> String
+#  def self.read: (String path, ?(Integer | nil) length, ?Integer offset, ?mode: String) -> String
   def self.sysopen: (String path, ?String mode, ?Integer perm) -> Integer
   private def self._sysclose: (Integer fd) -> 0
   def self.select: (Array[fd_t] readfds, ?Array[fd_t] writefds, ?Array[fd_t] exceptfds, ?Integer timeout) -> ([[IO]] | nil)
@@ -38,8 +38,8 @@ class IO
   def write: (String input) -> Integer
   private def hash: () -> Integer
   def <<: (String input) -> self
-  def puts: (*String line) -> nil
-  def print: (*String str) -> nil
+  def puts: (*_ToS line) -> nil
+  def print: (*_ToS args) -> nil
   def printf: (*String str) -> nil
   def closed?: () -> bool
   def close: () -> nil
