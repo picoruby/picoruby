@@ -72,7 +72,7 @@ c_dir_init(mrbc_vm *vm, mrbc_value v[], int argc)
   const char *path;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.new: wrong number of arguments");
   }
 
   mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(struct picoruby_dir));
@@ -94,7 +94,7 @@ c_dir_delete(mrbc_vm *vm, mrbc_value v[], int argc)
   const char *path;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.delete: wrong number of arguments");
   }
   path = (const char *)GET_STRING_ARG(1);
   if (rmdir(path) == -1) {
@@ -111,7 +111,7 @@ c_dir_exist_q(mrbc_vm *vm, mrbc_value v[], int argc)
   const char *path;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.exist?: wrong number of arguments");
   }
   path = (const char *)GET_STRING_ARG(1);
   if (stat(path, &sb) == 0 && S_ISDIR(sb.st_mode)) {
@@ -150,7 +150,7 @@ c_dir_mkdir(mrbc_vm *vm, mrbc_value v[], int argc)
 
   mode = 0777;
   if (argc < 1 || 2 < argc) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.mkdir: wrong number of arguments");
     return;
   }
   path = (const char *)GET_STRING_ARG(1);
@@ -170,7 +170,7 @@ c_dir__chdir(mrbc_vm *vm, mrbc_value v[], int argc)
   const char *path;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.chdir: wrong number of arguments");
     return;
   }
   path = (const char *)GET_STRING_ARG(1);
@@ -193,7 +193,7 @@ c_dir_chroot(mrbc_vm *vm, mrbc_value v[], int argc)
   int res;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.chroot: wrong number of arguments");
     return;
   }
   path = (const char *)GET_STRING_ARG(1);
@@ -225,7 +225,7 @@ c_dir_empty_q(mrbc_vm *vm, mrbc_value v[], int argc)
   const char *path;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.empty?: wrong number of arguments");
   }
   path = (const char *)GET_STRING_ARG(1);
   if ((dir = opendir(path)) == NULL) {
@@ -294,7 +294,7 @@ c_dir_seek(mrbc_vm *vm, mrbc_value v[], int argc)
   struct picoruby_dir *mdir;
 
   if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Dir.seek: wrong number of arguments");
     return;
   }
 
