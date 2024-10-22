@@ -13,10 +13,9 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   char buf[maxlen + 1];
   mrbc_value outbuf;
   int len;
-  c_raw_bang(vm, v, 1); // TODO fixme: argc=1 means NONBLOCK mode (temporary)
+  c_raw_bang(vm, v, 1); // TODO fix this
   int c;
   for (len = 0; len < maxlen; len++) {
-    // TODO no use hal_getchar. The same way as picoruby-io instead.
     c = hal_getchar();
     if (c < 0) {
       break;

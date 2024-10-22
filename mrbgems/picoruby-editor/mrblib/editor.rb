@@ -16,6 +16,11 @@ when "ruby", "jruby"
   def IO.getch
     STDIN.getch
   end
+  def IO.get_nonblock(max)
+    STDIN.noecho{ |input| input.read_nonblock(max) }
+  rescue IO::EAGAINWaitReadable => e
+    ""
+  end
   def IO.get_cursor_position
     res = ""
     STDIN.raw do |stdin|
@@ -34,7 +39,12 @@ when "mruby/c"
     require "filesystem-fat"
     require "vfs"
   rescue LoadError
-    # ignore
+  end
+  class IO
+    def get_nonblock(max)
+      str = read_nonblock(max)
+      str&.length == 0 ? nil : str
+    end
   end
 else
   raise RuntimeError.new("Unknown RUBY_ENGINE")
@@ -207,66 +217,67 @@ module Editor
     def start
       refresh
       while true
-        case c = STDIN.getch.ord
-        when 1 # Ctrl-A
-          @buffer.head
-        when 3 # Ctrl-C
-          @buffer.bottom
-          @buffer.tail
-          puts "", "^C\e[0J"
-          @prev_cursor_y = 0
-          @buffer.clear
-          history_head
-        when 4 # Ctrl-D logout
-          puts
-          return
-        when 5 # Ctrl-E
-          @buffer.tail
-        when 9
-          @buffer.put :TAB
-        when 12 # Ctrl-L
-          @height, @width = Editor.get_screen_size
+        line = STDIN.read_nonblock(256)
+        next unless line
+        while true
+          break unless c = line[0]&.ord
+          line[0] = ''
+          case c
+          when 1 # Ctrl-A
+            @buffer.head
+          when 3 # Ctrl-C
+            @buffer.bottom
+            @buffer.tail
+            puts "", "^C\e[0J"
+            @prev_cursor_y = 0
+            @buffer.clear
+            history_head
+          when 4 # Ctrl-D logout
+            puts
+            return
+          when 5 # Ctrl-E
+            @buffer.tail
+          when 9
+            @buffer.put :TAB
+          when 12 # Ctrl-L
+            @height, @width = Editor.get_screen_size
+            refresh
+          when 26 # Ctrl-Z
+            puts
+            print "shunt" # Shunt into the background
+            return
+          when 27 # ESC
+            rest = line[0, 2]
+            line[0, 2] = ''
+            case rest
+            when "[A"
+              if @prev_cursor_y == 0
+                load_history :up
+              else
+                @buffer.put :UP
+              end
+            when "[B"
+              if physical_line_count == @prev_cursor_y + 1
+                load_history :down
+              else
+                @buffer.put :DOWN
+              end
+            when "[C"
+              @buffer.put :RIGHT
+            when "[D"
+              @buffer.put :LEFT
+            else
+              line = rest.to_s + line
+            end
+          when 8, 127 # 127 on UNIX
+            @buffer.put :BSPACE
+          when 32..126
+            @buffer.put c.chr
+          else
+            yield self, @buffer, c
+          end
           refresh
-        when 26 # Ctrl-Z
-          puts
-          print "shunt" # Shunt into the background
-          return
-        when 27 # ESC
-          next_char = STDIN.getch.ord
-          if next_char == 91 # [
-            next_char = STDIN.getch.ord
-          else
-            next
-          end
-          case next_char
-          when 65 # A
-            if @prev_cursor_y == 0
-              load_history :up
-            else
-              @buffer.put :UP
-            end
-          when 66 # B
-            if physical_line_count == @prev_cursor_y + 1
-              load_history :down
-            else
-              @buffer.put :DOWN
-            end
-          when 67 # C
-            @buffer.put :RIGHT
-          when 68 # D
-            @buffer.put :LEFT
-          else
-            # TODO???
-            #line = rest.to_s + line
-          end
-        when 8, 127 # 127 on UNIX
-          @buffer.put :BSPACE
-        when 32..126
-          @buffer.put c.chr
-        else
-          yield self, @buffer, c
         end
-        refresh
       end
     end
 
