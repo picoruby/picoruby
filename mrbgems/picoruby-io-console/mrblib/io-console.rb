@@ -5,25 +5,38 @@
 #
 
 class IO
-  def self.raw(&block)
-    self.raw!
-    res = block.call
+  def raw(&block)
+    raw!
+    res = block.call(self)
   ensure
-    self.cooked!
+    _restore_termios
     return res
   end
 
-  def self.getch
-    self.raw do
+  def cooked(&block)
+    cooked!
+    res = block.call(self)
+  ensure
+    _restore_termios
+    return res
+  end
+
+  def getch
+    raw do |io|
       while true
-        c = STDIN.getc
+        c = io.getc
         break if 0 < c.to_s.length
       end
       c
     end
   end
 
-  def self.get_cursor_position
+  def get_nonblock(maxlen)
+    buf = ""
+
+  end
+
+  def get_cursor_position
     return [0, 0] if ENV && ENV['TERM'] == "dumb"
     row, col = 0, 0
     raw do
@@ -56,15 +69,13 @@ class IO
 
   def self.wait_terminal(timeout: nil)
     timer = 0.0
-    res = false
-    IO.raw do
+    STDIN.raw do
       while true
         timer += 0.1
-        IO.read_nonblock(1000) # clear buffer
+        STDIN.read_nonblock(100) # clear buffer
         STDOUT.print "\e[5n" # CSI DSR 5 to request terminal status report
         sleep 0.1
-        if IO.read_nonblock(10) == "\e[0n"
-          res = true
+        if STDIN.read_nonblock(4) == "\e[0n"
           ENV['TERM'] = "ansi"
           break
         end
@@ -76,7 +87,7 @@ class IO
         end
       end
     end
-    res
+    true
   end
 end
 

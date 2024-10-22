@@ -134,8 +134,10 @@ static char *stdin_buf = NULL;
 static size_t stdin_buf_capa = BUF_SIZE;
 static size_t stdin_buf_pos = 0;
 
-static bool raw_mode = false;
-static bool echo_back = true;
+static bool raw_mode_saved = false;
+static bool raw_mode_current = false;
+static bool echo_back_saved = true;
+static bool echo_back_current = true;
 
 static void
 init_stdin_buf(mrbc_vm *vm)
@@ -171,7 +173,7 @@ getc_from_stdin_buf(mrbc_vm *vm, mrbc_value *v)
   // Not available
   if (c == -1) return -1;
 
-  if (!raw_mode) {
+  if (!raw_mode_current) {
     // Ctrl+C
     if (c == 3) {
       clear_stdin_buf(vm);
@@ -187,12 +189,12 @@ getc_from_stdin_buf(mrbc_vm *vm, mrbc_value *v)
     if (c == 8 || c == 127) {
       if (0 < stdin_buf_pos) {
         stdin_buf_pos--;
-        if (echo_back) hal_write(1, "\b \b", 3);
+        if (echo_back_current) hal_write(1, "\b \b", 3);
       }
       return 0;
     }
   }
-  if (echo_back) hal_write(1, &c, 1); // echo back
+  if (echo_back_current) hal_write(1, &c, 1); // echo back
   stdin_buf[stdin_buf_pos++] = c;
   return c;
 }
@@ -214,7 +216,7 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
       if (c < -1) return;
       if (c == -1) continue;
       if (c == 0) continue;
-      if (raw_mode || c == '\n') break;
+      if (raw_mode_current || c == '\n') break;
     }
   }
   str = mrbc_string_new(vm, stdin_buf, 1);
@@ -245,22 +247,33 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 c_raw_bang(mrb_vm *vm, mrb_value *v, int argc)
 {
-  raw_mode = true;
+  echo_back_saved = echo_back_current;
+  raw_mode_saved = raw_mode_current;
+  raw_mode_current = true;
 }
 
 void
 c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc)
 {
-  raw_mode = false;
+  echo_back_saved = echo_back_current;
+  raw_mode_saved = raw_mode_current;
+  raw_mode_current = false;
+}
+
+void
+c__restore_termios(mrb_vm *vm, mrb_value *v, int argc)
+{
+  echo_back_current = echo_back_saved;
+  raw_mode_current = raw_mode_saved;
 }
 
 static void
 c_echo_eq(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (v[1].tt == MRBC_TT_TRUE) {
-    echo_back = true;
+    echo_back_current = true;
   } else {
-    echo_back = false;
+    echo_back_current = false;
   }
   SET_RETURN(v[1]);
 }
@@ -268,7 +281,7 @@ c_echo_eq(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_echo_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (echo_back) {
+  if (echo_back_current) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -280,6 +293,7 @@ io_console_port_init(mrbc_vm *vm, mrbc_class *class_IO)
 {
   mrbc_define_method(vm, class_IO, "raw!", c_raw_bang);
   mrbc_define_method(vm, class_IO, "cooked!", c_cooked_bang);
+  mrbc_define_method(vm, class_IO, "_restore_termios", c__restore_termios);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
   mrbc_define_method(vm, class_IO, "echo=", c_echo_eq);
   mrbc_define_method(vm, class_IO, "echo?", c_echo_q);

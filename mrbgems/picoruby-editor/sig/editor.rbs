@@ -1,11 +1,10 @@
 # TypeProf 0.21.3
 
 # for RUBY_ENGINE == "ruby"
+# @private
 class IO
   def noecho: () { (untyped) -> untyped } -> untyped
   def iflush: -> self
-  def getch: -> String
-  def raw: () { (untyped) -> untyped } -> untyped
 end
 
 # Classes
@@ -71,7 +70,3 @@ module Editor
   end
 end
 
-# for RUBY_ENGINE == "ruby"
-class IO
-  def read_nonblock: (Integer maxlen) -> String
-end

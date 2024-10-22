@@ -2,19 +2,18 @@
 
 # Classes
 class IO
-  def self.read_nonblock: (Integer) -> String
-  def self.get_nonblock: (Integer) -> String?
   def self.get_cursor_position: -> ([Integer, Integer])
   def self.wait_terminal: (?timeout: Integer|Float|nil) -> bool
   def self.clear_screen: () -> nil
-  def self.getch: -> String
-  def self.getc: -> String?
-  def self.gets: -> String
-  def self.raw: () { () -> untyped } -> untyped
-  def self.raw!: -> self
-  def self.cooked!: -> self
-  def echo?: -> bool
-  def echo=: (bool) -> bool
+  def read_nonblock: (Integer maxlen) -> String
+  def getch: () -> String
+  def raw: () { (IO io) -> untyped } -> untyped
+  def raw!: () -> self
+  def cooked: () { (IO io) -> untyped } -> untyped
+  def cooked!: () -> self
+  private def _restore_termios: -> self
+  def echo?: () -> bool
+  def echo=: (bool mode) -> bool
 end
 
 # @sidebar error

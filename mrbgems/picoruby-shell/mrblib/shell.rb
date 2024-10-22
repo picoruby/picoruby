@@ -224,11 +224,14 @@ class Shell
             editor.save_history
             echo_save = STDIN.echo?
             STDIN.echo = true
-            result = sandbox.execute
-            STDIN.echo = echo_save
-            if result
+            result = STDIN.cooked do
+              r = sandbox.execute
               sandbox.wait(timeout: nil)
               sandbox.suspend
+              r
+            end
+            STDIN.echo = echo_save
+            if result
               if e = sandbox.error
                 puts "=> #{e.message} (#{e.class})"
               else

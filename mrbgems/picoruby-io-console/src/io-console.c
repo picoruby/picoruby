@@ -25,7 +25,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
   buf[len] = '\0';
-  c_cooked_bang(vm, v, 0);
+  c__restore_termios(vm, v, 0);
   if (GET_ARG(2).tt == MRBC_TT_STRING) {
     outbuf = GET_ARG(2);
     uint8_t *str = outbuf.string->data;

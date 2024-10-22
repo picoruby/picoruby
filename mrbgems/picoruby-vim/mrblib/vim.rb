@@ -71,7 +71,7 @@ class Vim
             @command_buffer.lines[0] = "Type  :q  and press <Enter> to exit"
           when  13 # LF
           when  27 # ESC
-            case IO.get_nonblock(2)
+            case STDIN.read_nonblock(2)
             when "[A" # up
               buffer.put :UP
             when "[B" # down
@@ -152,7 +152,7 @@ class Vim
             @mode = :normal
           end
         when 27 # ESC
-          case IO.get_nonblock(2)
+          case STDIN.read_nonblock(2)
           when "[C" # right
             @command_buffer.put :RIGHT
           when "[D" # left
@@ -172,7 +172,7 @@ class Vim
       when :insert
         case c
         when 27 # ESC
-          case cc = IO.get_nonblock(2)
+          case cc = STDIN.read_nonblock(2)
           when "[A" # up
             buffer.put :UP
           when "[B" # down

@@ -16,11 +16,6 @@ when "ruby", "jruby"
   def IO.getch
     STDIN.getch
   end
-  def IO.get_nonblock(max)
-    STDIN.noecho{ |input| input.read_nonblock(max) }
-  rescue IO::EAGAINWaitReadable => e
-    ""
-  end
   def IO.get_cursor_position
     res = ""
     STDIN.raw do |stdin|
@@ -40,12 +35,6 @@ when "mruby/c"
     require "vfs"
   rescue LoadError
     # ignore
-  end
-  class IO
-    def get_nonblock(max)
-      str = read_nonblock(max)
-      str&.length == 0 ? nil : str
-    end
   end
 else
   raise RuntimeError.new("Unknown RUBY_ENGINE")
@@ -429,9 +418,7 @@ module Editor
       print "\e[m"
       while true
         refresh
-        while !(c = STDIN.getch&.ord) # TODO remove `&`
-        end
-        case c
+        case c = STDIN.getch.ord
         when 3 # Ctrl-C
           return if @quit_by_ctrl_c
         when 4 # Ctrl-D logout
