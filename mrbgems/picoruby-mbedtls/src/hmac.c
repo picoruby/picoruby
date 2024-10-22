@@ -116,6 +116,8 @@ c_hexdigest(mrbc_vm *vm, mrbc_value *v, int argc)
     sprintf(hexdigest + i * 2, "%02x", output[i]);
   }
   mrbc_value result = mrbc_string_new_cstr(vm, hexdigest);
+  mrbc_incref(&v[0]);
+  SET_RETURN(digest);
 }
 
 void
