@@ -33,12 +33,14 @@ PicoRuby is an alternative mruby implementation which is:
 - Prerequisites
   - C toolchain
   - git
-  - ruby (should be CRuby)
-- `git clone --recursive` this repository
-- `cd picoruby`
-- `rake` builds binaries for your machine
-  - PicoRuby basically uses mruby's build system as it is
-  - `rake -T` shows available subcommands
+  - ruby (should be CRuby 3.0+)
+
+```console
+git clone --recursive https://github.com/picoruby/picoruby
+cd picoruby/
+PICORUBY_DEBUG=1 rake
+bin/picoruby -e 'puts "Hello World!"'
+```
 
 #### Cross compilation
 
@@ -52,15 +54,9 @@ See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby
   - `bin/picorbc path/to/source.rb` makes `path/to/source.mrb` that is VM code runs on an mruby-compatible virtual machine
 - bin/picoruby
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
-  - You can also do like `bin/picoruby -e 'puts "Hello World!"'`
-
-### `--verbose` option
-
-`bin/picoruby --verbose -e 'puts "Hello World!"'` shows debug-print like this:
-
-![](https://raw.githubusercontent.com/picoruby/picoruby/master/docs/images/debug-print.png)
-
-(Replace `[path/to/]mmruby` with `bin/picoruby --verbose` in mind. It's an old name)
+  - You can do like `bin/picoruby path/to/your_script.rb` to run your script
+- bin/r2p2
+  - POSIX version of R2P2 (https://github.com/picoruby/R2P2)
 
 ### Roadmap
 
