@@ -31,18 +31,13 @@ class IO
     end
   end
 
-  def get_nonblock(maxlen)
-    buf = ""
-
-  end
-
   def get_cursor_position
     return [0, 0] if ENV && ENV['TERM'] == "dumb"
     row, col = 0, 0
     raw do
       STDOUT.print "\e[6n"
       while true
-        case c = STDIN.getc&.ord
+        case c = STDIN.getch.ord
         when 59 # ";"
           break
         when 0x30..0x39
@@ -50,7 +45,7 @@ class IO
         end
       end
       while true
-        case c = STDIN.getc&.ord
+        case c = STDIN.getch.ord
         when 82 # "R"
           break
         when 0x30..0x39

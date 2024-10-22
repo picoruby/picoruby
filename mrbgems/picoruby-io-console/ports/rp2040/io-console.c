@@ -99,6 +99,7 @@ hal_read_available(void)
 int
 hal_getchar(void)
 {
+  tud_task();
   if (tud_cdc_available()) {
     return tud_cdc_read_char();
   } else {
@@ -172,6 +173,40 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrb_value str = mrbc_string_new(vm, NULL, 0);
+  char buf[2];
+  buf[1] = '\0';
+  while (true) {
+    int c = hal_getchar();
+    if (c == 3) { // Ctrl-C
+      mrbc_raise(vm, MRBC_CLASS(IOError), "Interrupted");
+      return;
+    }
+    if (c == 27) { // ESC
+      continue;
+    }
+    if (c == 8 || c == 127) { // Backspace
+      if (0 < str.string->size) {
+        str.string->size--;
+        mrbc_realloc(vm, str.string->data, str.string->size);
+        hal_write(1, "\b \b", 3);
+      }
+    } else
+    if (-1 < c) {
+      buf[0] = c;
+      mrbc_string_append_cstr(&str, buf);
+      hal_write(1, buf, 1);
+      if (c == '\n' || c == '\r') {
+        break;
+      }
+    }
+  }
+  SET_RETURN(str);
+}
+
 void
 io_console_port_init(mrbc_vm *vm, mrbc_class *class_IO)
 {
@@ -181,5 +216,6 @@ io_console_port_init(mrbc_vm *vm, mrbc_class *class_IO)
   mrbc_define_method(vm, class_IO, "echo=", c_echo_eq);
   mrbc_define_method(vm, class_IO, "_restore_termios", c__restore_termios);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
+  mrbc_define_method(vm, mrbc_class_object, "gets", c_gets);
 }
 

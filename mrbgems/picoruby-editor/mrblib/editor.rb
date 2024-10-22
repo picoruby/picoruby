@@ -13,14 +13,6 @@ case RUBY_ENGINE
 when "ruby", "jruby"
   require_relative "./buffer.rb"
 
-  def IO.getch
-    STDIN.getch
-  end
-  def IO.get_nonblock(max)
-    STDIN.noecho{ |input| input.read_nonblock(max) }
-  rescue IO::EAGAINWaitReadable => e
-    ""
-  end
   def IO.get_cursor_position
     res = ""
     STDIN.raw do |stdin|
@@ -39,12 +31,6 @@ when "mruby/c"
     require "filesystem-fat"
     require "vfs"
   rescue LoadError
-  end
-  class IO
-    def get_nonblock(max)
-      str = read_nonblock(max)
-      str&.length == 0 ? nil : str
-    end
   end
 else
   raise RuntimeError.new("Unknown RUBY_ENGINE")
