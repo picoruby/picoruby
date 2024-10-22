@@ -233,6 +233,7 @@ module MRuby
     end
 
     def run(outfile, objfiles)
+      return if objfiles.empty?
       mkdir_p File.dirname(outfile)
       _pp "AR", outfile.relative_path
       _run archive_options, { :outfile => filename(outfile), :objs => filename(objfiles).map{|f| %Q["#{f}"]}.join(' ') }
