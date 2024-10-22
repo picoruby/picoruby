@@ -20,8 +20,9 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
 
   picoruby_src = "#{dir}/tools/picoruby/picoruby.c"
   picoruby_obj = objfile(picoruby_src.pathmap("#{build_dir}/tools/picoruby/%n"))
+  picogem_init = File.expand_path("../picogem_init.c", build_dir)
 
-  file picoruby_obj => "#{dir}/tools/picoruby/picoruby.c" do |f|
+  file picoruby_obj => ["#{dir}/tools/picoruby/picoruby.c", picogem_init] do |f|
     Dir.glob("#{dir}/tools/picoruby/*.c").map do |f|
       cc.run objfile(f.pathmap("#{build_dir}/tools/picoruby/%n")), f
     end
@@ -34,6 +35,7 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
   mrubyc_objs = Rake::Task.tasks.select{ |t|
     t.name.match? /picoruby-mrubyc.+\.o\z/
   }.map(&:name)
+
 
   file exec => pico_compiler_objs + mrubyc_objs + [picoruby_obj] do |f|
     build.linker.run f.name, f.prerequisites
