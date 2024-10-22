@@ -109,9 +109,10 @@ c_object_instance_variable_get(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   const char *name;
+  mrbc_sym sym_id;
   switch (v[1].tt) {
     case MRBC_TT_SYMBOL:
-      mrbc_sym sym_id = v[1].i;
+      sym_id = v[1].i;
       name = mrbc_symid_to_str(sym_id);
       break;
     case MRBC_TT_STRING:
@@ -141,9 +142,10 @@ c_object_instance_variable_set(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   const char *name;
+  mrbc_sym sym_id;
   switch (v[1].tt) {
     case MRBC_TT_SYMBOL:
-      mrbc_sym sym_id = v[1].i;
+      sym_id = v[1].i;
       name = mrbc_symid_to_str(sym_id);
       break;
     case MRBC_TT_STRING:
@@ -221,6 +223,7 @@ c_instance_of_q(mrbc_vm *vm, mrbc_value *v, int argc)
       break;
     }
     default:
+      break;
   }
   if (result) {
     SET_TRUE_RETURN();
