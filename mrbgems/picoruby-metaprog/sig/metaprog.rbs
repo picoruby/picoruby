@@ -1,3 +1,5 @@
+# @sidebar builtin
+# @added_by picoruby-metaprog
 class Object
   def send: (Symbol | String name, *Object args) -> Object
   def methods: () -> Array[Symbol]

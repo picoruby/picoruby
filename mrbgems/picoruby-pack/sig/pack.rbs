@@ -1,7 +1,11 @@
+# @sidebar builtin
+# @added_by picoruby-pack
 class String
   def self.pack: (String format, *untyped args) -> String
 end
 
+# @sidebar builtin
+# @added_by picoruby-pack
 class Array[unchecked out Elem] < Object
   def pack: (String format) -> String
 end
