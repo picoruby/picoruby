@@ -56,8 +56,6 @@ c_update(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_hmac_update failed");
     return;
   }
-  mrbc_incref(&v[0]);
-  SET_RETURN(v[0]);
 }
 
 static void
@@ -69,8 +67,6 @@ c_reset(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_hmac_reset failed");
     return;
   }
-  mrbc_incref(&v[0]);
-  SET_RETURN(v[0]);
 }
 
 static int

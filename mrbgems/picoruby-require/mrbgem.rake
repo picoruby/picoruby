@@ -2,9 +2,14 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby require gem'
-  spec.add_dependency 'picoruby-vfs'
-  spec.add_dependency 'picoruby-filesystem-fat'
-  spec.add_dependency 'picoruby-sandbox'
+
+  if cc.defines.flatten.include? 'MRBC_USE_HAL_POSIX'
+    spec.add_dependency 'picoruby-io'
+  else
+    spec.add_dependency 'picoruby-vfs'
+    spec.add_dependency 'picoruby-filesystem-fat'
+    spec.add_dependency 'picoruby-sandbox'
+  end
 
   mrbgems_dir = File.expand_path "..", build_dir
 
@@ -79,22 +84,28 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
       f.puts
       f.puts <<~PICOGEM
         /* public API */
-        int
+        bool
         picoruby_load_model(const uint8_t *mrb)
         {
           mrbc_vm *vm = mrbc_vm_open(NULL);
           if (vm == 0) {
             console_printf("Error: Can't open VM.\\n");
-            return 0;
+            return false;
           }
           if (mrbc_load_mrb(vm, mrb) != 0) {
             console_printf("Error: Illegal bytecode.\\n");
-            return 0;
+            return false;
           }
           mrbc_vm_begin(vm);
           mrbc_vm_run(vm);
+          if (vm->exception.tt != MRBC_TT_NIL) {
+            console_printf("Error: Exception occurred.\\n");
+            mrbc_vm_end(vm);
+            mrbc_vm_close(vm);
+            return false;
+          }
           mrbc_raw_free(vm);
-          return 1;
+          return true;
         }
 
         static int
@@ -110,7 +121,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           }
         }
 
-        int
+        bool
         picoruby_load_model_by_name(const char *gem)
         {
           int i = gem_index(gem);
@@ -139,10 +150,14 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           if (argc == 2 && GET_TT_ARG(2) == MRBC_TT_TRUE) {
             force = true;
           }
-          if ((force || !prebuilt_gems[i].required) && picoruby_load_model(prebuilt_gems[i].mrb)) {
+          if ((force || !prebuilt_gems[i].required)) {
             if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer(vm);
-            prebuilt_gems[i].required = true;
-            SET_TRUE_RETURN();
+            if (!picoruby_load_model(prebuilt_gems[i].mrb)) {
+              SET_NIL_RETURN();
+            } else {
+              prebuilt_gems[i].required = true;
+              SET_TRUE_RETURN();
+            }
           } else {
             SET_FALSE_RETURN();
           }
@@ -154,12 +169,15 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         void
         picoruby_init_require(mrbc_vm *vm)
         {
+          mrbc_define_method(vm, mrbc_class_object, "extern", c_extern);
           mrbc_value self = mrbc_instance_new(vm, mrbc_class_object, 0);
           mrbc_instance_call_initialize(vm, &self, 0);
-          mrbc_value str = mrbc_string_new_cstr(vm, "require");
-          mrbc_value args[2] = { self, str };
-          c_extern(NULL, args, 1);
-          mrbc_define_method(vm, mrbc_class_object, "extern", c_extern);
+          mrbc_value args[2];
+          args[0] = self;
+          args[1] = mrbc_string_new_cstr(vm, "require");
+          c_extern(vm, args, 1);
+          args[1] = mrbc_string_new_cstr(vm, "io");
+          c_extern(vm, args, 1);
         }
       PICOGEM
     end

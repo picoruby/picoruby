@@ -3,20 +3,6 @@
 #include "../include/io-console.h"
 
 static void
-c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  char buf[1];
-  int c = hal_getchar();
-  if (-1 < c) {
-    buf[0] = c;
-    mrb_value str = mrbc_string_new(vm, buf, 1);
-    SET_RETURN(str);
-  } else {
-    SET_NIL_RETURN();
-  }
-}
-
-static void
 c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   /*
@@ -27,7 +13,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   char buf[maxlen + 1];
   mrbc_value outbuf;
   int len;
-  c_raw_bang(vm, v, 0);
+  c_raw_bang(vm, v, 1); // TODO fix this
   int c;
   for (len = 0; len < maxlen; len++) {
     c = hal_getchar();
@@ -38,7 +24,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
   buf[len] = '\0';
-  c_cooked_bang(vm, v, 0);
+  c__restore_termios(vm, v, 0);
   if (GET_ARG(2).tt == MRBC_TT_STRING) {
     outbuf = GET_ARG(2);
     uint8_t *str = outbuf.string->data;
@@ -68,7 +54,6 @@ mrbc_io_console_init(mrbc_vm *vm)
 {
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
   mrbc_define_method(vm, class_IO, "read_nonblock", c_read_nonblock);
-  mrbc_define_method(vm, class_IO, "getc", c_getc);
 
   io_console_port_init(vm, class_IO);
 }

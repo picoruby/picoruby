@@ -1,8 +1,13 @@
 require "metaprog"
 require "picorubyvm"
 require "sandbox"
-require "filesystem-fat"
-require "vfs"
+begin
+  require "filesystem-fat"
+  require "vfs"
+rescue LoadError
+  # ignore. mayby POSIX
+  require "dir"
+end
 require "editor"
 
 # ENV = {} # This moved to 0_out_of_steep.rb
@@ -47,7 +52,7 @@ class Shell
       print question
       answer = ""
       while true
-        case c = IO.getch.ord
+        case c = STDIN.getch.ord
         when 0x0d, 0x0a
           puts
           break
@@ -109,20 +114,28 @@ class Shell
     Dir.chdir ENV['HOME'].to_s
   end
 
-  def setup_system_files(force: false)
-    Dir.chdir("/") do
+  def setup_system_files(root = nil, force: false)
+    unless root.nil? || Dir.exist?(root)
+      Dir.mkdir(root)
+      puts "Created root directory: #{root}"
+    end
+    ENV['HOME'] = "#{root}/home"
+    ENV['PATH'] = "#{root}/bin"
+    Dir.chdir(root || "/") do
       %w(bin lib var home etc etc/init.d etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
       end
       while exe = Shell.next_executable
-        if force || !File.exist?(exe[:path])
-          f = File.open exe[:path], "w"
+        path = "#{root}#{exe[:path]}"
+        if force || !File.exist?(path)
+          f = File.open path, "w"
           f.expand exe[:code].length
           f.write exe[:code]
           f.close
         end
       end
     end
+    Dir.chdir ENV['HOME']
   end
 
   def bootstrap(file)
@@ -135,13 +148,13 @@ class Shell
     20.times do
       print "."
       USB.tud_task
-      if IO.getc == "s"
+      if STDIN.read_nonblock(1) == "s"
         skip = true
         break 0
       end
       sleep 0.1
     end
-    IO.read_nonblock 1024 # discard remaining input
+    STDIN.read_nonblock 1024 # discard remaining input
     if skip
       puts "Skip"
       return false
@@ -209,9 +222,14 @@ class Shell
           else
             editor.feed_at_bottom
             editor.save_history
-            if sandbox.execute
+            echo_save = STDIN.echo?
+            result = STDIN.cooked do
+              r = sandbox.execute
               sandbox.wait(timeout: nil)
               sandbox.suspend
+              r
+            end
+            if result
               if e = sandbox.error
                 puts "=> #{e.message} (#{e.class})"
               else

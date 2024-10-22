@@ -13,14 +13,6 @@ case RUBY_ENGINE
 when "ruby", "jruby"
   require_relative "./buffer.rb"
 
-  def IO.getch
-    STDIN.getch
-  end
-  def IO.get_nonblock(max)
-    STDIN.noecho{ |input| input.read_nonblock(max) }
-  rescue IO::EAGAINWaitReadable => e
-    ""
-  end
   def IO.get_cursor_position
     res = ""
     STDIN.raw do |stdin|
@@ -35,13 +27,10 @@ when "ruby", "jruby"
     return [_size[0][2, 3].to_i, _size[1].to_i]
   end
 when "mruby/c"
-  require "filesystem-fat"
-  require "vfs"
-  class IO
-    def get_nonblock(max)
-      str = read_nonblock(max)
-      str&.length == 0 ? nil : str
-    end
+  begin
+    require "filesystem-fat"
+    require "vfs"
+  rescue LoadError
   end
 else
   raise RuntimeError.new("Unknown RUBY_ENGINE")
@@ -214,7 +203,7 @@ module Editor
     def start
       refresh
       while true
-        line = IO.read_nonblock(256)
+        line = STDIN.read_nonblock(256)
         next unless line
         while true
           break unless c = line[0]&.ord
@@ -426,9 +415,7 @@ module Editor
       print "\e[m"
       while true
         refresh
-        while !(c = IO.getch&.ord)
-        end
-        case c
+        case c = STDIN.getch.ord
         when 3 # Ctrl-C
           return if @quit_by_ctrl_c
         when 4 # Ctrl-D logout

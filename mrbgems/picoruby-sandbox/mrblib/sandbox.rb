@@ -11,7 +11,7 @@ class Sandbox
     n = 0
     # state 0: TASKSTATE_DORMANT == finished
     while self.state != 0 do
-      if signal && (line = IO.read_nonblock(1)) && line[0]&.ord == 3
+      if signal && (line = STDIN.read_nonblock(1)) && line[0]&.ord == 3
         puts "^C"
         interrupt
         return false
@@ -48,7 +48,7 @@ class Sandbox
         puts "#{error.message} (#{error})"
       end
     rescue => e
-      p e
+      p "#{e.message} (#{e.class})"
     ensure
       f.close
     end

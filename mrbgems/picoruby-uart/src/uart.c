@@ -269,7 +269,6 @@ c_flush(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int unit_num = GETIV(unit_num).i;
   UART_flush(unit_num);
-  SET_RETURN(v[0]);
 }
 
 static void
@@ -277,7 +276,6 @@ c_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   int unit_num = GETIV(unit_num).i;
   UART_clear_tx_buffer(unit_num);
-  SET_RETURN(v[0]);
 }
 
 static void
@@ -287,7 +285,6 @@ c_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
   clearBuffer(rx);
   int unit_num = GETIV(unit_num).i;
   UART_clear_rx_buffer(unit_num);
-  SET_RETURN(v[0]);
 }
 
 static void
@@ -312,7 +309,6 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   int unit_num = GETIV(unit_num).i;
   UART_break(unit_num, break_ms);
-  SET_RETURN(v[0]);
 }
 
 #define SET_CLASS_CONST_INT(cls, cst) \
