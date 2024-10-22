@@ -1840,7 +1840,8 @@ c_io_readlines(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_io_sysread(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  mrbc_value buf, res;
+  mrbc_value buf = mrbc_nil_value();
+  mrbc_value res;
   mrbc_int_t maxlen;
 
   if (argc < 1) {
