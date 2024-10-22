@@ -129,48 +129,51 @@ void hal_abort(const char *s)
  *
  *------------------------------------*/
 
+static bool raw_mode = false;
+static bool raw_mode_saved = false;
+static bool echo_mode = true;
+static bool echo_mode_saved = true;
+
 void
 c_raw_bang(mrb_vm *vm, mrb_value *v, int argc)
 {
-  // TODO
+  raw_mode_saved = raw_mode;
+  raw_mode = true;
 }
 
 void
 c_cooked_bang(mrb_vm *vm, mrb_value *v, int argc)
 {
-  // TODO
+  raw_mode_saved = raw_mode;
+  raw_mode = false;
 }
 
 static void
 c_echo_eq(mrb_vm *vm, mrb_value *v, int argc)
 {
-  // TODO
+  echo_mode_saved = echo_mode;
+  if (v[1].tt == MRBC_TT_FALSE) {
+    echo_mode = false;
+  } else {
+    echo_mode = true;
+  }
 }
 
 static void
 c_echo_q(mrb_vm *vm, mrb_value *v, int argc)
 {
-  // TODO
+  if (echo_mode) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
 }
 
 void
 c__restore_termios(mrb_vm *vm, mrb_value *v, int argc)
 {
-  // TODO
-}
-
-static void
-c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  char buf[1];
-  int c = hal_getchar();
-  if (-1 < c) {
-    buf[0] = c;
-    mrb_value str = mrbc_string_new(vm, buf, 1);
-    SET_RETURN(str);
-  } else {
-    SET_NIL_RETURN();
-  }
+  raw_mode = raw_mode_saved;
+  echo_mode = echo_mode_saved;
 }
 
 static void
@@ -205,6 +208,30 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
   SET_RETURN(str);
+}
+
+static void
+c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (raw_mode) {
+    char buf[1];
+    int c = hal_getchar();
+    if (-1 < c) {
+      buf[0] = c;
+      mrb_value str = mrbc_string_new(vm, buf, 1);
+      SET_RETURN(str);
+    } else {
+      SET_NIL_RETURN();
+    }
+  }
+  else {
+    c_gets(vm, v, argc);
+    mrbc_value str = v[0];
+    if (1 < str.string->size) {
+      mrbc_realloc(vm, str.string->data, 1);
+      str.string->size = 1;
+    }
+  }
 }
 
 void
