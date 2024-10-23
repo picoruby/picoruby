@@ -25,6 +25,7 @@ MRuby::CrossBuild.new("r2p2_w_wifi-cortex-m0plus") do |conf|
   conf.cc.flags << "-fdata-sections"
 
   # These defines should not contradict platform's configuration
+  conf.cc.defines << "MRBC_USE_ALLOC_PROF"
   conf.cc.defines << "MRC_CUSTOM_ALLOC"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
@@ -41,12 +42,14 @@ MRuby::CrossBuild.new("r2p2_w_wifi-cortex-m0plus") do |conf|
   conf.mrubyc_hal_arm
   conf.picoruby
 
-  conf.gembox "r2p2"
-  conf.gembox "peripherals"
+  conf.gembox "baremetal"
   conf.gembox "peripheral_utils"
-  conf.gembox "machine"
-  conf.gem core: 'picoruby-adafruit_pcf8523'
-  conf.gem core: 'picoruby-rng'
+  conf.gembox "peripherals"
+  conf.gembox "r2p2"
+  conf.gembox "stdlib"
+  conf.gembox "utils"
   conf.gem core: 'picoruby-net'
+  # For some reason, picoruby-net doesn't have dependency on picoruby-cyw43
+  conf.gem core: 'picoruby-cyw43'
 end
 

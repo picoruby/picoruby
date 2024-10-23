@@ -17,7 +17,8 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
     end
   else
     # TODO refactor
-    spec.add_dependency 'picoruby-cyw43'
+    # cyw43 is only for pico_w but picoruby-net is also for PISIX
+    # spec.add_dependency 'picoruby-cyw43'
     spec.add_dependency 'picoruby-mbedtls'
   end
 

@@ -19,6 +19,7 @@ MRuby::Build.new do |conf|
   conf.gembox "posix"
   conf.gembox "stdlib"
   conf.gembox "utils"
+  conf.gem core: "picoruby-net"
 
 
   conf.linker.flags_after_libraries << '-lcrypto'

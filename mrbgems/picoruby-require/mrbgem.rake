@@ -30,8 +30,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           mrbfile: mrbfile,
           initializer: initializer
         }
-        gem.setup
-        file mrbfile => gem.rbfiles do |t|
+        rbfiles = Dir.glob("#{gem.dir}/mrblib/**/*.rb").sort
+        file mrbfile => rbfiles do |t|
           next if t.prerequisites.empty?
           mkdir_p File.dirname(t.name)
           File.open(t.name, 'w') do |f|
@@ -63,6 +63,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
       picogems.each do |_require_name, v|
         Rake::FileTask[v[:mrbfile]].invoke
         f.puts "#include \"#{v[:mrbfile]}\"" if File.exist?(v[:mrbfile])
+        puts "#include \"#{v[:mrbfile]}\"" if File.exist?(v[:mrbfile])
       end
       f.puts
       f.puts <<~PICOGEM
