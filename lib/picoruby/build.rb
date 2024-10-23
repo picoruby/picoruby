@@ -80,13 +80,15 @@ module MRuby
       else
         cc.defines << "NDEBUG=1"
         cc.flags << "-Os"
-        cc.flags << "-s"
         cc.flags << "-finline-functions"
         cc.flags << "-ffunction-sections"
         cc.flags << "-fdata-sections"
         cc.flags << "-fomit-frame-pointer"
         # cc.flags << "-flto" # Build fails with -flto
-        cc.flags << "-Wl,--gc-sections"
+        unless cc.command == "clang"
+          cc.flags << "-s"
+          cc.flags << "-Wl,--gc-sections"
+        end
       end
 
     end
