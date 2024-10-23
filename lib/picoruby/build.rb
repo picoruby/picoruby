@@ -16,7 +16,7 @@ module MRuby
         define.end_with? "hal_no_impl"
       end
       cc.defines << "MRBC_USE_HAL_POSIX"
-      cc.defines << "MRBC_ALLOC_LIBC"
+#      cc.defines << "MRBC_ALLOC_LIBC"
       cc.defines << "DISABLE_MRUBY"
       self.mrbcfile = "#{build_dir}/bin/picorbc"
     end

@@ -1,0 +1,7 @@
+MRuby::GemBox.new do |conf|
+  conf.gem core: "picoruby-vfs"
+  conf.gem core: "picoruby-filesystem-fat"
+  conf.gem core: "picoruby-watchdog"
+  conf.gem core: "picoruby-machine"
+end
+

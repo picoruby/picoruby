@@ -1,15 +1,3 @@
 MRuby::GemBox.new do |conf|
-  conf.gem core: "picoruby-require"
-  conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-shell"
-  conf.gem core: 'picoruby-base16'
-  conf.gem core: 'picoruby-base64'
-  conf.gem core: 'picoruby-json'
-  conf.gem core: 'picoruby-yaml'
-  conf.gem core: "picoruby-picorubyvm"
-  conf.gem core: "picoruby-picoline"
-  conf.gem core: "picoruby-mbedtls"
-  conf.gem core: "picoruby-jwt"
-  conf.gem core: "picoruby-rng"
-  conf.gem core: "picoruby-metaprog"
 end
