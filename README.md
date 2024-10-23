@@ -38,7 +38,9 @@ PicoRuby is an alternative mruby implementation which is:
 ```console
 git clone --recursive https://github.com/picoruby/picoruby
 cd picoruby/
-PICORUBY_DEBUG=1 rake
+rake
+# PICORUBY_DEBUG=1 rake                         # for debug build
+# PICORUBY_DEBUG=1 PICORUBY_NO_LIBC_ALLOC rake  # for debug build using mruby/c's memory allocator
 bin/picoruby -e 'puts "Hello World!"'
 ```
 
