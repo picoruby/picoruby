@@ -40,7 +40,7 @@ git clone --recursive https://github.com/picoruby/picoruby
 cd picoruby/
 rake
 # PICORUBY_DEBUG=1 rake                         # for debug build
-# PICORUBY_DEBUG=1 PICORUBY_NO_LIBC_ALLOC rake  # for debug build using mruby/c's memory allocator
+# PICORUBY_DEBUG=1 PICORUBY_NO_LIBC_ALLOC=1 rake  # for debug build using mruby/c's memory allocator
 bin/picoruby -e 'puts "Hello World!"'
 ```
 
