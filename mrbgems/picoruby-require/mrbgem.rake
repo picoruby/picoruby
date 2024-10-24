@@ -8,8 +8,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
   else
     spec.add_dependency 'picoruby-vfs'
     spec.add_dependency 'picoruby-filesystem-fat'
-    spec.add_dependency 'picoruby-sandbox'
   end
+  spec.add_dependency 'picoruby-sandbox'
 
   mrbgems_dir = File.expand_path "..", build_dir
 
@@ -63,7 +63,6 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
       picogems.each do |_require_name, v|
         Rake::FileTask[v[:mrbfile]].invoke
         f.puts "#include \"#{v[:mrbfile]}\"" if File.exist?(v[:mrbfile])
-        puts "#include \"#{v[:mrbfile]}\"" if File.exist?(v[:mrbfile])
       end
       f.puts
       f.puts <<~PICOGEM

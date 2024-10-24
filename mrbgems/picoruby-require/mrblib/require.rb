@@ -40,7 +40,12 @@ class Object
   end
 
   def require_file(name)
-    $LOAD_PATH&.each do |load_path|
+    load_paths = if name.start_with?("/")
+                   [""]
+                 else
+                   $LOAD_PATH || []
+                 end
+    load_paths.each do |load_path|
       ["mrb", "rb"].each do |ext|
         path = File.expand_path("#{name}.#{ext}", load_path)
         if File.exist?(path)
@@ -53,3 +58,4 @@ class Object
 
 end
 
+require "sandbox"
