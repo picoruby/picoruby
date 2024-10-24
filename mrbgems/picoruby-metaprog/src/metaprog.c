@@ -263,6 +263,24 @@ c_object_class_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_object_ancestors(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (v[0].tt != MRBC_TT_CLASS && v[0].tt != MRBC_TT_MODULE) {
+    mrbc_raise(vm, MRBC_CLASS(NoMethodError), "undefined method `ancestors'");
+    return;
+  }
+  mrbc_value *ancestor;
+  mrbc_value ancestors = mrbc_array_new(vm, 0);
+  mrbc_class *cls = find_class_by_object(&v[0]);
+  while (cls) {
+    ancestor = mrbc_get_const(cls->sym_id);
+    mrbc_array_push(&ancestors, ancestor);
+    cls = cls->super;
+  }
+  SET_RETURN(ancestors);
+}
+
 #define MAX_CALLINFO 100
 
 static void
@@ -321,6 +339,7 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
   mrbc_define_method(vm, mrbc_class_object, "const_get", c_object_const_get);
   mrbc_define_method(vm, mrbc_class_object, "class?", c_object_class_q);
+  mrbc_define_method(vm, mrbc_class_object, "ancestors", c_object_ancestors);
 
   mrbc_class *module_Kernel = mrbc_get_class_by_name("Kernel");
   mrbc_define_method(vm, module_Kernel, "caller", c_kernel_caller);

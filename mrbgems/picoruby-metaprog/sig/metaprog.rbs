@@ -14,6 +14,7 @@ class Object
   def instance_of?: (Class klass) -> bool
   def const_get: (Symbol name) -> untyped # mruby/c doesn't have Class
   def class?: () -> bool # Alternative to #class==Class
+  def self.ancestors: () -> Array[Class]
 end
 
 # @added_by picoruby-metaprog
