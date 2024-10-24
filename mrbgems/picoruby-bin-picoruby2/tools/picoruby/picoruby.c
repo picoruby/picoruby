@@ -604,7 +604,7 @@ main(int argc, char **argv)
   }
 
   /* run tasks */
-  if (!args.check_syntax && mrbc_run() != 1) {
+  if (!args.check_syntax && mrbc_run() != 0) {
     if (!picorb_undef_p(NULL)) {
       picorb_print_error();
     }
