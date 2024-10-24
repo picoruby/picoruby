@@ -1,20 +1,22 @@
 # @sidebar builtin
 # @added_by picoruby-metaprog
 class Object
-  def send: (Symbol | String name, *Object args) -> Object
+  include Kernel
+
+  def send: (Symbol | String name, *untyped args) -> untyped
   def methods: () -> Array[Symbol]
   def instance_variables: () -> Array[Symbol]
-  def instance_variable_get: (Symbol name) -> Object
-  def instance_variable_set: (Symbol name, Object value) -> Object
+  def instance_variable_get: (Symbol name) -> untyped
+  def instance_variable_set: (Symbol name, untyped value) -> untyped
   def respond_to?: (Symbol | String name) -> bool
   def __id__: () -> Integer
   alias object_id __id__
   def instance_of?: (Class klass) -> bool
-  def const_get: (Symbol name) -> Object # mruby/c doesn't have Class
+  def const_get: (Symbol name) -> untyped # mruby/c doesn't have Class
   def class?: () -> bool # Alternative to #class==Class
 end
 
 # @added_by picoruby-metaprog
 module Kernel
-  def self.caller: (?Integer start, ?Integer length) -> Array[String]
+  def caller: (?Integer start, ?Integer length) -> Array[String]
 end
