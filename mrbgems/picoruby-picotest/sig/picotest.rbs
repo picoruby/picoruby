@@ -1,0 +1,34 @@
+type picotest_error_t = {
+  success: Integer,
+  failure: Integer,
+  errors: Array[Hash[untyped, untyped]]
+}
+
+$picotest_result: Hash[String, picotest_error_t]
+
+module Picotest
+  GREEN: String
+  RED: String
+  RESET: String
+
+  class Test
+    def list_tests: () -> Array[Symbol]
+    def assert:(bool result) -> void
+    def assert_nil: (untyped obj) -> void
+    def assert_equal: (untyped expected, untyped actual) -> void
+    def assert_raise: (untyped exception, ?(String | nil) message) { () -> void } -> void
+    private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
+  end
+
+  class Runner
+    def self.run: (String dir, ?(String | nil) filter) -> void
+    private def self.summerize: () -> Integer
+    private def self.load_tests: (Array[untyped] entries) -> void
+    private def self.find_tests: (String dir, (String | nil) filter) -> Array[Symbol]
+  end
+end
+
+# @private
+class Object
+  def self.constants: () -> Array[Symbol]
+end

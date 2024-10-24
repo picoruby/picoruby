@@ -20,6 +20,7 @@ MRuby::Build.new do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
   conf.gem core: "picoruby-net"
+  conf.gem core: "picoruby-picotest"
 
 
   conf.linker.flags_after_libraries << '-lcrypto'
