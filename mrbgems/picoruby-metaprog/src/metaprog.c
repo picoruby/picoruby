@@ -232,6 +232,81 @@ c_object_instance_of_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  mrbc_value *value;
+  mrbc_sym sym_id;
+  if (v[1].tt == MRBC_TT_SYMBOL) {
+    sym_id = v[1].i;
+  } else if (v[1].tt == MRBC_TT_STRING) {
+    sym_id = mrbc_str_to_symid((const char *)GET_STRING_ARG(1));
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
+    return;
+  }
+  value = mrbc_get_const(sym_id);
+  SET_RETURN(*value);
+}
+
+static void
+c_object_class_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (v[0].tt == MRBC_TT_CLASS) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+#define MAX_CALLINFO 100
+
+static void
+c_kernel_caller(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  int start = 1;
+  int length = MAX_CALLINFO;
+  mrbc_value ary = mrbc_array_new(vm, 0);
+  mrbc_callinfo *ci;
+  if (2 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (0 < argc) {
+    start = GET_INT_ARG(1);
+  }
+  if (1 < argc) {
+    length = GET_INT_ARG(2);
+    if (length < 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "negative length");
+      return;
+    }
+  }
+  ci = vm->callinfo_tail; // this does not include `caller' itself
+  while (1) {
+    if (start <= 0) {
+      if (length <= 0) {
+        break;
+      }
+      length--;
+      mrbc_value str = mrbc_string_new_cstr(vm, mrbc_symid_to_str(ci->method_id));
+      mrbc_array_push(&ary, &str);
+    }
+    start--;
+    ci = ci->prev;
+    if (ci == NULL && 0 < length) {
+      mrbc_value str = mrbc_string_new_cstr(vm, "<main>");
+      mrbc_array_push(&ary, &str);
+      break;
+    }
+  }
+  SET_RETURN(ary);
+}
+
 void
 mrbc_metaprog_init(mrbc_vm *vm)
 {
@@ -244,4 +319,9 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
   mrbc_define_method(vm, mrbc_class_object, "__id__", c_object_id);
   mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
+  mrbc_define_method(vm, mrbc_class_object, "const_get", c_object_const_get);
+  mrbc_define_method(vm, mrbc_class_object, "class?", c_object_class_q);
+
+  mrbc_class *module_Kernel = mrbc_get_class_by_name("Kernel");
+  mrbc_define_method(vm, module_Kernel, "caller", c_kernel_caller);
 }

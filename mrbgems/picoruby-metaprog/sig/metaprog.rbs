@@ -10,4 +10,11 @@ class Object
   def __id__: () -> Integer
   alias object_id __id__
   def instance_of?: (Class klass) -> bool
+  def const_get: (Symbol name) -> Object # mruby/c doesn't have Class
+  def class?: () -> bool # Alternative to #class==Class
+end
+
+# @added_by picoruby-metaprog
+module Kernel
+  def self.caller: (?Integer start, ?Integer length) -> Array[String]
 end
