@@ -1,5 +1,10 @@
 module Picotest
+
   class Test
+    def initialize
+      @doubles = []
+    end
+
     def list_tests
       result = []
       self.methods.each do |m|
@@ -8,6 +13,29 @@ module Picotest
         end
       end
       result
+    end
+
+    # stub(obj).method_name().returns(return_value)
+    def stub(doubled_obj)
+      double = Picotest::Double.alloc(:stub,  doubled_obj)
+      @doubles << double
+      double
+    end
+
+    def mock(doubled_obj)
+      double = Picotest::Double.alloc(:mock, doubled_obj)
+      @doubles << double
+      double
+    end
+
+    def mock_methods
+      #todo
+    end
+
+    def clear_doubles
+      @doubles.each do |double|
+        double.remove_singleton
+      end
     end
 
     def assert(result)

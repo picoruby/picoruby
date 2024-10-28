@@ -11,7 +11,31 @@ module Picotest
   RED: String
   RESET: String
 
+  class Double
+    type type_t = :stub | :mock
+    type double_data_t = {
+      type: type_t,
+      doubled_obj_id: Integer,
+      method_id: Symbol?,
+      return_value: untyped,
+      singleton_class_name: String?,
+      ?expected_count: Integer,
+      ?actual_count: Integer
+    }
+    attr_accessor double_data: double_data_t
+    attr_accessor doubled_obj: untyped
+    attr_accessor singleton_class_name: String
+    @method_id: Symbol
+    def self.alloc: (type_t type, untyped untyped) -> Double
+    private def self._alloc: (untyped untyped) -> Double
+    private def self.get_double_methods: () -> Array[double_data_t]
+    private def _define_method: (Symbol method_id, untyped doubled_obj) -> String
+    private def method_missing: (?Symbol method_id, ?Integer expected_count) { () -> void } -> void
+    def remove_singleton: () -> nil
+  end
+
   class Test
+    @doubles: Array[Double]
     def list_tests: () -> Array[Symbol]
     def assert:(bool result) -> void
     def assert_nil: (untyped obj) -> void
