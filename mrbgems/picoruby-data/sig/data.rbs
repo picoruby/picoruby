@@ -1,0 +1,7 @@
+class Data
+  def self.define: (*Symbol args) -> Data
+  def self.new: (*untyped args) -> instance
+  def self.members: () -> Array[Symbol]
+  def members: () -> Array[Symbol]
+  def to_h: () -> Hash[Symbol, untyped]
+end
