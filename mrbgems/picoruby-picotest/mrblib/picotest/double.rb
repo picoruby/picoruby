@@ -3,11 +3,12 @@ module Picotest
   class Double
     attr_accessor :double_data, :doubled_obj, :singleton_class_name
 
-    def self.alloc(type, doubled_obj)
+    def self._init(type, doubled_obj, any_instance_of: false)
       instance = _alloc(doubled_obj)
       instance.doubled_obj = doubled_obj
       instance.double_data = {
         type: type,
+        any_instance_of: any_instance_of,
         doubled_obj_id: doubled_obj.object_id,
         method_id: nil,
         return_value: nil,
@@ -17,8 +18,7 @@ module Picotest
         instance.double_data[:expected_count] = 0
         instance.double_data[:actual_count] = 0
       end
-      double_methods = get_double_methods
-      double_methods << instance.double_data
+      global_doubles << instance.double_data
       instance
     end
 
@@ -31,7 +31,11 @@ module Picotest
       if @double_data[:type] == :mock
         @double_data[:expected_count] = expected_count
       end
-      @singleton_class_name = _define_method(method_id, @doubled_obj)
+      if @double_data[:any_instance_of]
+        @singleton_class_name = define_method_any_instance_of(method_id, @doubled_obj)
+      else
+        @singleton_class_name = define_method(method_id, @doubled_obj)
+      end
       return self
     end
 

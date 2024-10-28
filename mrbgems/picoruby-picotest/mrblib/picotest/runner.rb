@@ -26,7 +26,10 @@ module Picotest
           File.open(tmpfile, "w") do |f|
             f.puts "my_test = #{klass}.new"
             test.list_tests.each do |m|
+              f.puts "my_test.setup"
               f.puts "my_test.#{m}"
+              f.puts "my_test.teardown"
+              f.puts "my_test.clear_doubles"
             end
           end
           load tmpfile

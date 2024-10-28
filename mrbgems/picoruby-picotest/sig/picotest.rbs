@@ -12,9 +12,10 @@ module Picotest
   RESET: String
 
   class Double
-    type type_t = :stub | :mock
+    type type_t = :stub | :mock | :any_instance_of
     type double_data_t = {
       type: type_t,
+      any_instance_of: bool,
       doubled_obj_id: Integer,
       method_id: Symbol?,
       return_value: untyped,
@@ -26,10 +27,11 @@ module Picotest
     attr_accessor doubled_obj: untyped
     attr_accessor singleton_class_name: String
     @method_id: Symbol
-    def self.alloc: (type_t type, untyped untyped) -> Double
+    def self._init: (type_t type, untyped untyped, ?any_instance_of: bool) -> Double
     private def self._alloc: (untyped untyped) -> Double
-    private def self.get_double_methods: () -> Array[double_data_t]
-    private def _define_method: (Symbol method_id, untyped doubled_obj) -> String
+    private def self.global_doubles: () -> Array[double_data_t]
+    private def define_method: (Symbol method_id, untyped doubled_obj) -> String
+    private def define_method_any_instance_of: (Symbol method_id, untyped doubled_obj) -> String
     private def method_missing: (?Symbol method_id, ?Integer expected_count) { () -> void } -> void
     def remove_singleton: () -> nil
   end
@@ -37,9 +39,12 @@ module Picotest
   class Test
     @doubles: Array[Double]
     def list_tests: () -> Array[Symbol]
+    def setup: () -> void
+    def teardown: () -> void
     def assert:(bool result) -> void
     def assert_nil: (untyped obj) -> void
     def assert_equal: (untyped expected, untyped actual) -> void
+    def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (untyped exception, ?(String | nil) message) { () -> void } -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end

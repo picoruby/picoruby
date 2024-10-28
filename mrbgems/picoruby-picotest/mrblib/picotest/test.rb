@@ -17,15 +17,35 @@ module Picotest
 
     # stub(obj).method_name().returns(return_value)
     def stub(doubled_obj)
-      double = Picotest::Double.alloc(:stub,  doubled_obj)
+      double = Picotest::Double._init(:stub,  doubled_obj)
       @doubles << double
       double
     end
 
     def mock(doubled_obj)
-      double = Picotest::Double.alloc(:mock, doubled_obj)
+      double = Picotest::Double._init(:mock, doubled_obj)
       @doubles << double
       double
+    end
+
+    def stub_any_instance_of(klass)
+      if klass.class?
+        double = Picotest::Double._init(:stub, klass, any_instance_of: true)
+        @doubles << double
+        double
+      else
+        raise TypeError, "Argument must be a class"
+      end
+    end
+
+    def mock_any_instance_of(klass)
+      if klass.class?
+        double = Picotest::Double._init(:mock, klass, any_instance_of: true)
+        @doubles << double
+        double
+      else
+        raise TypeError, "Argument must be a class"
+      end
     end
 
     def mock_methods
@@ -38,6 +58,12 @@ module Picotest
       end
     end
 
+    def setup
+    end
+
+    def teardown
+    end
+
     def assert(result)
       report(result, "Expected truthy but got falsy", nil, nil)
     end
@@ -48,6 +74,10 @@ module Picotest
 
     def assert_equal(expected, actual)
       report(expected == actual, "Expected #{expected} but got #{actual}", expected, actual)
+    end
+
+    def asser_not_equal(expected, actual)
+      report(expected != actual, "Expected #{expected} to be different from #{actual}", expected, actual)
     end
 
     def assert_raise(exception, message = nil, &block)
