@@ -1034,6 +1034,7 @@ class File < IO
   def self.utime: (Time atime, Time mtime, *string) -> Integer
 
   def self.basename: (String filename) -> String
+  def self.dirname: (String filename) -> String
 
   def self.join: (*String parts) -> String
 
