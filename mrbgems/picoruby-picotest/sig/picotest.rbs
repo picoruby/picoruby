@@ -1,7 +1,7 @@
 type picotest_error_t = {
-  success: Integer,
-  failure: Integer,
-  errors: Array[Hash[untyped, untyped]]
+  success_count: Integer,
+  failures: Array[Hash[untyped, untyped]],
+  exceptions: Array[Hash[untyped, untyped]]
 }
 
 $picotest_result: Hash[String, picotest_error_t]
@@ -43,10 +43,13 @@ module Picotest
     def setup: () -> void
     def teardown: () -> void
     def assert:(bool result) -> void
+    def assert_true: (bool result) -> void
+    def assert_false: (bool result) -> void
     def assert_nil: (untyped obj) -> void
     def assert_equal: (untyped expected, untyped actual) -> void
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (untyped exception, ?(String | nil) message) { () -> void } -> void
+    def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end
 

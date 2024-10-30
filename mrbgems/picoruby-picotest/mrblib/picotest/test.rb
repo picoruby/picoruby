@@ -71,6 +71,11 @@ module Picotest
     def assert(result)
       report(result, "Expected truthy but got falsy", nil, nil)
     end
+    alias assert_true assert
+
+    def assert_false(result)
+      report(!result, "Expected falsy but got truthy", nil, nil)
+    end
 
     def assert_nil(obj)
       report(obj.nil?, "Expected #{obj} to be nil", nil, obj)
@@ -84,12 +89,22 @@ module Picotest
       report(expected != actual, "Expected #{expected} to be different from #{actual}", expected, actual)
     end
 
-    def assert_raise(exception, message = nil, &block)
+    def assert_raise(*exceptions, &block)
+      if exceptions.empty?
+        raise ArgumentError, "At least one exception class must be given"
+      end
+      message = if 1 < exceptions.size && exceptions[-1].is_a?(String)
+        message = exceptions.pop
+      end
+      unless exceptions.all? { |e| e.class? }
+        raise TypeError, "All arguments must be classes"
+      end
+      exception = exceptions.join(' || ')
       begin
         block.call
         report(false, "Expected #{exception} but nothing raised", exception, nil)
       rescue => e
-        if e == exception && (message.nil? || (message && e.message == message))
+        if exceptions.include?(e.class) && (message.nil? || e.message == message)
           report(true, nil, nil, nil)
         else
           if message
@@ -101,6 +116,10 @@ module Picotest
       end
     end
 
+    def assert_in_delta(expected, actual, delta = 0.001)
+      report((expected - actual).abs < delta, "Expected #{expected} but got #{actual}", expected, actual)
+    end
+
     # private
 
     def report(result, error_message, expected, actual)
@@ -108,11 +127,10 @@ module Picotest
       klass_name = self.class.to_s
       if result
         print "#{Picotest::GREEN}.#{Picotest::RESET}"
-        $picotest_result[klass_name][:success] += 1
+        $picotest_result[klass_name][:success_count] += 1
       else
         print "#{Picotest::RED}F#{Picotest::RESET}"
-        $picotest_result[klass_name][:failure] += 1
-        $picotest_result[klass_name][:errors] << {
+        $picotest_result[klass_name][:exceptions] << {
           method: method,
           error_message: error_message,
           expected: expected,

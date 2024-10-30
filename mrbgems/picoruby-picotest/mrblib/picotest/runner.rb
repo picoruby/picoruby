@@ -10,18 +10,22 @@ module Picotest
           puts Picotest::RESET
           puts "Running #{c}"
           $picotest_result[c.to_s] = {
-            success: 0,
-            failure: 0,
-            errors: []
+            success_count: 0,
+            failures: [],
+            exceptions: []
           }
           test = klass.new
           tmpfile = "/tmp/#{c.to_s}.rb"
           File.open(tmpfile, "w") do |f|
             f.puts "my_test = #{klass}.new"
-            test.list_tests.each do |m|
+            test.list_tests.each do |t|
               f.puts
               f.puts "my_test.setup"
-              f.puts "my_test.#{m}"
+              f.puts "begin"
+              f.puts "  my_test.#{t}"
+              f.puts "rescue => e"
+              f.puts "  $picotest_result['#{c.to_s}'][:exceptions] << {method: '#{t}', raise_message: e.message}"
+              f.puts "end"
               f.puts "my_test.teardown"
               f.puts "my_test.clear_doubles"
             end
@@ -38,26 +42,33 @@ module Picotest
     def self.summerize
       total_success = 0
       total_failure = 0
+      total_exception = 0
       puts
       puts "Summary"
       puts
       $picotest_result.each do |k, v|
-        total_success += v[:success]
-        total_failure += v[:failure]
-        print (0 < v[:failure] ? RED : GREEN)
-        puts "#{k}: success: #{v[:success]}, failure: #{v[:failure]}"
-        v[:errors].each do |e|
+        total_success += v[:success_count]
+        failure_count = v[:failures].size
+        exception_count = v[:exceptions].size
+        total_failure += failure_count
+        total_exception += exception_count
+        print (0 < failure_count + exception_count ? Picotest::RED : Picotest::GREEN)
+        puts "#{k}: success: #{v[:success_count]}, failure: #{failure_count}, exception: #{exception_count}"
+        v[:failures].each do |e|
           puts "  #{e[:method]}: #{e[:error_message]}"
           puts "    expected: #{e[:expected].inspect}"
           puts "    actual:   #{e[:actual].inspect}"
         end
-        print RESET
+        v[:exceptions].each do |e|
+          puts "  #{e[:method]}: #{e[:raise_message]}"
+        end
+        print Picotest::RESET
       end
       puts
-      total_failure == 0 ? print(GREEN) : print(RED)
-      puts "Total: success: #{total_success}, failure: #{total_failure}"
-      print RESET
-      return total_failure
+      total_failure + total_exception == 0 ? print(Picotest::GREEN) : print(Picotest::RED)
+      puts "Total: success: #{total_success}, failure: #{total_failure}, raise: #{total_exception}"
+      print Picotest::RESET
+      return total_failure + total_exception
     end
 
 
