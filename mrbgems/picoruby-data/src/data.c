@@ -94,7 +94,7 @@ static void
 c_instance_inspect(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   char inspect[25] = {0};
-  sprintf(inspect, "#<data %s>", v->instance->cls->name);
+  sprintf(inspect, "#<data %s>", mrbc_symid_to_str(v->instance->cls->sym_id));
   mrbc_value str = mrbc_string_new_cstr(vm, inspect);
   SET_RETURN(str);
 }
