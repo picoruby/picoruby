@@ -80,7 +80,7 @@ module Picotest
       report(expected == actual, "Expected #{expected} but got #{actual}", expected, actual)
     end
 
-    def asser_not_equal(expected, actual)
+    def assert_not_equal(expected, actual)
       report(expected != actual, "Expected #{expected} to be different from #{actual}", expected, actual)
     end
 
