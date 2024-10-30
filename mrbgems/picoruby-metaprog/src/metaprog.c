@@ -251,7 +251,7 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   value = mrbc_get_const(sym_id);
   if (!value) {
-    mrbc_raise(vm, MRBC_CLASS(NameError), "uninitialized constant %s", mrbc_symid_to_str(sym_id));
+    mrbc_raisef(vm, MRBC_CLASS(NameError), "uninitialized constant %s", mrbc_symid_to_str(sym_id));
     return;
   }
   SET_RETURN(*value);
