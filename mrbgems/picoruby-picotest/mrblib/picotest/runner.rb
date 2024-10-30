@@ -1,10 +1,3 @@
-# mock for development
-class Object
-  def self.constants
-    [:MyTest, :My2Test]
-  end
-end
-
 module Picotest
   class Runner
     def self.run(dir, filter = nil)
@@ -26,6 +19,7 @@ module Picotest
           File.open(tmpfile, "w") do |f|
             f.puts "my_test = #{klass}.new"
             test.list_tests.each do |m|
+              f.puts
               f.puts "my_test.setup"
               f.puts "my_test.#{m}"
               f.puts "my_test.teardown"
