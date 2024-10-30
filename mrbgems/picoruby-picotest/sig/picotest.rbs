@@ -38,6 +38,7 @@ module Picotest
 
   class Test
     @doubles: Array[Double]
+    def self.description: (String description) -> void
     def list_tests: () -> Array[Symbol]
     def setup: () -> void
     def teardown: () -> void

@@ -1,6 +1,10 @@
 module Picotest
 
   class Test
+
+    def self.description(text)
+    end
+
     def initialize
       @doubles = []
     end
