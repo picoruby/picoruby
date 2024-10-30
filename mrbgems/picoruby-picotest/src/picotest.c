@@ -52,10 +52,20 @@ search_return_value(struct VM *vm, intptr_t doubled_obj_id, mrbc_sym called_meth
   return false;
 }
 
+static inline mrbc_sym
+callee_symid(struct VM *vm)
+{
+  /*
+   * mrbc_get_callee_name() in vm.c may not work correctly
+   * in the future as it depends on the VM code spec.
+   */
+  return mrbc_get_callee_symid(vm);
+}
+
 static void
 c__double_method(struct VM *vm, mrbc_value v[], int argc)
 {
-  mrbc_sym called_method_id = mrbc_integer(vm->exception);
+  mrbc_sym called_method_id = callee_symid(vm);
   mrbc_value return_value = mrbc_nil_value();
 
   mrbc_class *cls;
@@ -114,7 +124,7 @@ search_return_value_any_instance_of(struct VM *vm, mrbc_class *cls, mrbc_sym cal
 static void
 c__double_method_any_instance_of(struct VM *vm, mrbc_value v[], int argc)
 {
-  mrbc_sym called_method_id = mrbc_integer(vm->exception);
+  mrbc_sym called_method_id = callee_symid(vm);
   mrbc_value return_value = mrbc_nil_value();
 
   mrbc_class *cls;
