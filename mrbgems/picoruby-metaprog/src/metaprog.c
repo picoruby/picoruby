@@ -254,6 +254,7 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raisef(vm, MRBC_CLASS(NameError), "uninitialized constant %s", mrbc_symid_to_str(sym_id));
     return;
   }
+  mrbc_incref(value);
   SET_RETURN(*value);
 }
 
