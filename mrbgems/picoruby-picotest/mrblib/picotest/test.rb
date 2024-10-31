@@ -6,8 +6,17 @@ module Picotest
     end
 
     def initialize
+      @klass_name = self.class.to_s
       @doubles = []
+      @result = {
+         "success_count" => 0,
+         "failures" => [],
+         "exceptions" => [],
+         "crashes" => []
+      }
     end
+
+    attr_reader :result
 
     def list_tests
       result = []
@@ -120,17 +129,20 @@ module Picotest
       report((expected - actual).abs < delta, "Expected #{expected} but got #{actual}", expected, actual)
     end
 
+    def exception_report(data)
+      @result["exceptions"] << data
+    end
+
     # private
 
     def report(result, error_message, expected, actual)
       method = caller(2, 1)[0]
-      klass_name = self.class.to_s
       if result
         print "#{Picotest::GREEN}.#{Picotest::RESET}"
-        $picotest_result[klass_name][:success_count] += 1
+        @result["success_count"] += 1
       else
         print "#{Picotest::RED}F#{Picotest::RESET}"
-        $picotest_result[klass_name][:exceptions] << {
+        @result["failures"] << {
           method: method,
           error_message: error_message,
           expected: expected,

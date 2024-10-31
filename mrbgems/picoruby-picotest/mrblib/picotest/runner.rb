@@ -1,51 +1,82 @@
 module Picotest
   class Runner
-    def self.run(dir, filter = nil)
-      $picotest_load_crashes = []
-      $picotest_result = {}
-      files = find_tests(dir, filter)
-      self.load_tests(files)
-      Object.constants.each do |c|
-        klass = Object.const_get(c)
-        if klass.class? && klass.ancestors.include?(Picotest::Test)
-          puts Picotest::RESET
-          puts "Running #{c}"
-          $picotest_result[c.to_s] = {
-            success_count: 0,
-            failures: [],
-            exceptions: [],
-            crashes: []
-          }
-          test = klass.new
-          tmpfile = "/tmp/#{c.to_s}.rb"
-          File.open(tmpfile, "w") do |f|
-            f.puts "my_test = #{klass}.new"
-            test.list_tests.each do |t|
-              f.puts
-              f.puts "my_test.setup"
-              f.puts "begin"
-              f.puts "  my_test.#{t}"
-              f.puts "rescue => e"
-              f.puts "  $picotest_result['#{c.to_s}'][:exceptions] << {method: '#{t}', raise_message: e.message}"
-              f.puts "end"
-              f.puts "my_test.teardown"
-              f.puts "my_test.clear_doubles"
-            end
-          end
-          begin
-            load tmpfile
-          rescue => e
-            $picotest_result[c.to_s][:crashes] << e.message
-          end
-          puts
-        end
-      end
+
+    TMPDIR = "/tmp"
+    SEPARATOR = "----\n"
+
+    def initialize(dir, filter = nil, tmpdir = TMPDIR)
+      @tmpdir = tmpdir
+      @entries = find_tests(dir, filter)
+      @result = {}
+      @test_classes = []
+      @load_crashes = []
+    end
+
+    def run
+      load_tests(@entries)
       0 < summarize and raise "Test failed"
     end
 
     # private
 
-    def self.summarize
+    def run_test(entry)
+      test_classes = Object.constants.map{|c| Object.const_get(c)}
+      test_classes.reject! do |c|
+        !c.class? || !c.ancestors.include?(Picotest::Test) || @test_classes.include?(c)
+      end
+      @test_classes += test_classes
+      test_classes.each do |klass|
+        test = klass.new
+        tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
+        File.open(tmpfile, "w") do |f|
+          f.puts "require 'picotest'"
+          f.puts "load '#{entry}'"
+          f.puts "my_test = #{klass}.new"
+          f.puts "puts"
+          f.puts "print 'From #{entry}:'"
+          test.list_tests.each do |t|
+            f.puts "puts"
+            f.puts "print '  #{klass.to_s}##{t} '"
+            f.puts "my_test.setup"
+            f.puts "begin"
+            f.puts "  my_test.#{t}"
+            f.puts "rescue => e"
+            f.puts "  my_test.report_exception({method: '#{t}', raise_message: e.message})"
+            f.puts "end"
+            f.puts "my_test.teardown"
+            f.puts "my_test.clear_doubles"
+          end
+          f.puts "puts"
+          f.print 'puts "', SEPARATOR, '"', "\n"
+          f.puts "puts JSON.generate(my_test.result)"
+        end
+        error_file = "#{@tmpdir}/#{klass.to_s}_error"
+        File.open(error_file, "w") do |error|
+          IO.popen("/home/hasumi/work/R2P2/lib/picoruby/bin/picoruby #{tmpfile}", err: error.fileno) do |io|
+            outputs = io.read&.split("----\n") || []
+            print Picotest::RESET
+            puts outputs[0]
+            print Picotest::RESET
+            unless outputs[1].nil?
+              @result[klass.to_s] = JSON.parse(outputs[1])
+            end
+          end
+        end
+        if FileTest.size?(error_file)
+          @result[klass.to_s] = {
+            "success_count" => 0,
+            "failures" => [],
+            "exceptions" => [],
+            "crashes" => []
+          }
+          File.open(error_file) do |error|
+            @result[klass.to_s]["crashes"] << error.read
+          end
+        end
+      end
+    end
+
+    def summarize
       total_success = 0
       total_failure = 0
       total_exception = 0
@@ -53,53 +84,57 @@ module Picotest
       puts
       puts "Summary"
       puts
-      $picotest_result.each do |k, v|
-        total_success += v[:success_count]
-        failure_count = v[:failures].size
-        exception_count = v[:exceptions].size
-        crash_count = v[:crashes].size
+      @result.each do |k, v|
+        total_success += v["success_count"]
+        failure_count = v["failures"].size
+        exception_count = v["exceptions"].size
+        crash_count = v["crashes"].size
         error_count = failure_count + exception_count + crash_count
         total_failure += failure_count
         total_exception += exception_count
         total_crash += crash_count
         print (0 < error_count ? Picotest::RED : Picotest::GREEN)
-        puts "#{k}: success: #{v[:success_count]}, failure: #{failure_count}, exception: #{exception_count}, crash: #{crash_count}"
-        v[:failures].each do |e|
-          puts "  #{e[:method]}: #{e[:error_message]}"
-          puts "    expected: #{e[:expected].inspect}"
-          puts "    actual:   #{e[:actual].inspect}"
+        puts "#{k}:"
+        puts "  success: #{v["success_count"]}, failure: #{failure_count}, exception: #{exception_count}, crash: #{crash_count}"
+        v["failures"].each do |e|
+          puts "  #{e["method"]}: #{e["error_message"]}"
+          puts "    expected: #{e["expected"].inspect}"
+          puts "    actual:   #{e["actual"].inspect}"
         end
-        v[:exceptions].each do |e|
-          puts "  #{e[:method]}: #{e[:raise_message]}"
+        v["exceptions"].each do |e|
+          puts "  #{e["method"]}: #{e["raise_message"]}"
         end
-        v[:crashes].each do |e|
-          puts "  crash: #{e}"
+        v["crashes"].each do |crash|
+          puts "  crash:"
+          crash.split("\n").each do |line|
+            puts "    #{line}"
+          end
         end
         print Picotest::RESET
       end
-      $picotest_load_crashes.each do |e|
+      @load_crashes.each do |crash|
         print Picotest::RED
-        puts "Crash in loading: #{e[:entry]}: #{e[:message]}"
+        puts "Crash in loading: #{crash[:entry]}: #{crash[:message]}"
         print Picotest::RESET
       end
       puts
-      total_error_count = total_failure + total_exception + total_crash + $picotest_load_crashes.size
+      total_error_count = total_failure + total_exception + total_crash + @load_crashes.size
       total_error_count == 0 ? print(Picotest::GREEN) : print(Picotest::RED)
-      puts "Total: success: #{total_success}, failure: #{total_failure}, exception: #{total_exception}, crash: #{total_crash}, crash in loading: #{$picotest_load_crashes.size}"
-      print Picotest::RESET
+      puts "Total: success: #{total_success}, failure: #{total_failure}, exception: #{total_exception}, crash: #{total_crash}, crash in loading: #{@load_crashes.size}"
+      puts Picotest::RESET
       return total_error_count
     end
 
-
-    def self.load_tests(entries)
+    def load_tests(entries)
       entries.each do |entry|
         if entry.is_a? Array
           load_tests(entry)
         else
           begin
             load entry
+            run_test(File.join Dir.pwd, entry)
           rescue => e
-            $picotest_load_crashes << {
+            @load_crashes << {
               entry: entry,
               message: e.message
             }
@@ -108,7 +143,7 @@ module Picotest
       end
     end
 
-    def self.find_tests(dir, filter)
+    def find_tests(dir, filter)
       files = []
       Dir.foreach(dir) do |entry|
         next if entry == "." or entry == ".."

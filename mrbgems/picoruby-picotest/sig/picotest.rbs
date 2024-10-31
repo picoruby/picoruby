@@ -1,12 +1,11 @@
-type picotest_error_t = {
-  success_count: Integer,
-  failures: Array[Hash[untyped, untyped]],
-  exceptions: Array[Hash[untyped, untyped]]
-}
-
-$picotest_result: Hash[String, picotest_error_t]
-
 module Picotest
+  type picotest_error_t = {
+    "success_count" => Integer,
+    "failures" => Array[Hash[untyped, untyped]],
+    "exceptions" => Array[Hash[untyped, untyped]],
+    "crashes" => Array[String]
+  }
+
   GREEN: String
   RED: String
   RESET: String
@@ -37,7 +36,10 @@ module Picotest
   end
 
   class Test
+    @klass_name: String
     @doubles: Array[Double]
+    @result: picotest_error_t
+
     def self.description: (String description) -> void
     def list_tests: () -> Array[Symbol]
     def setup: () -> void
@@ -48,16 +50,28 @@ module Picotest
     def assert_nil: (untyped obj) -> void
     def assert_equal: (untyped expected, untyped actual) -> void
     def assert_not_equal: (untyped expected, untyped actual) -> void
-    def assert_raise: (untyped exception, ?(String | nil) message) { () -> void } -> void
+    def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
     def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end
 
   class Runner
-    def self.run: (String dir, ?(String | nil) filter) -> void
-    private def self.summerize: () -> Integer
-    private def self.load_tests: (Array[untyped] entries) -> void
-    private def self.find_tests: (String dir, (String | nil) filter) -> Array[Symbol]
+
+    TMPDIR: String
+    SEPARATOR: String
+
+    @tmpdir: String
+    @entries: Array[untyped]
+    @result: Hash[String, picotest_error_t]
+    @test_classes: Array[Class]
+    @load_crashes: Array[{ entry: String, message: String }]
+
+    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir) -> void
+    def run: () -> void
+    private def run_test: (String entry) -> void
+    private def summarize: () -> Integer
+    private def load_tests: (Array[untyped] entries) -> void
+    private def find_tests: (String dir, (String | nil) filter) -> Array[Symbol]
   end
 end
 
