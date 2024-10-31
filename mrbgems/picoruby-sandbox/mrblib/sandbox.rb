@@ -41,14 +41,12 @@ class Sandbox
           execute
         else
           # TODO: detailed error message
-          puts "#{path}: compile failed"
+          raise RuntimeError, "#{path}: compile failed"
         end
       end
       if started && wait(signal: signal, timeout: nil) && error
         puts "#{error.message} (#{error})"
       end
-    rescue => e
-      p "#{e.message} (#{e.class})"
     ensure
       f.close
     end

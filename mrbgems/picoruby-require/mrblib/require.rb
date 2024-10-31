@@ -34,7 +34,12 @@ class Object
 
   def load_file(path)
     sandbox = Sandbox.new
-    sandbox.load_file(path)
+    begin
+      sandbox.load_file(path)
+    rescue => e
+      sandbox.terminate
+      raise e
+    end
     $LOADED_FEATURES << path unless required?(path)
     true
   end
