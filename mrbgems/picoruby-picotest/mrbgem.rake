@@ -6,4 +6,5 @@ MRuby::Gem::Specification.new('picoruby-picotest') do |spec|
   spec.add_dependency 'picoruby-metaprog'
   spec.add_dependency 'picoruby-dir'
   spec.add_dependency 'picoruby-io'
+  spec.add_dependency 'picoruby-json'
 end

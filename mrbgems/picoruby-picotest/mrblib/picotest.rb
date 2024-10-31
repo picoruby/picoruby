@@ -1,3 +1,5 @@
+require 'json'
+
 if RUBY_ENGINE == "mruby/c"
   require "metaprog"
   require 'dir'
