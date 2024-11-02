@@ -4,6 +4,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-iir_filter"
   conf.gem core: "picoruby-data"
-  conf.gem core: "picoruby-picotest"
 end
 

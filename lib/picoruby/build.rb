@@ -40,35 +40,28 @@ module MRuby
       cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
     end
 
-    def picoruby(picoruby_conf = :default)
+    def picoruby
 
       disable_presym
 
       cc.defines << "DISABLE_MRUBY"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
-      cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
 
       gem github: "picoruby/mruby-compiler2"
       cc.include_paths << cc.build.gems['mruby-compiler2'].dir + '/include'
       gem core: 'picoruby-mrubyc'
 
-      case picoruby_conf
-      when :default
-        %w(MRBC_USE_MATH=1 MRBC_INT64=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|
-          key, _value = define.split("=")
-          cc.defines << define if cc.defines.none? { _1.start_with? key }
-        end
-        cc.include_paths << mrubyc_src_dir
-        if cc.build.name == "host" || cc.build.name == "no-libc-host"
-          cc.include_paths << mrubyc_dir + "/hal/posix"
-        end
-        cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
-
-      when :minimum
-        # Do noghing
-      else
-        raise "Unknown picoruby_conf: #{picoruby_conf}"
+      %w(MRBC_USE_MATH=1 MRBC_INT64=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|
+        key, _value = define.split("=")
+        cc.defines << define if cc.defines.none? { _1.start_with? key }
       end
+      cc.include_paths << mrubyc_src_dir
+      if cc.defines.include?("PICORUBY_POSIX")
+        cc.include_paths << mrubyc_dir + "/hal/posix"
+      else
+        cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
+      end
+      cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
 
       cc.flags.flatten!
       cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }

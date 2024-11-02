@@ -12,10 +12,6 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.linker.flags << '-Wl,-rpath,/usr/arm-linux-gnueabihf/lib'
   conf.archiver.command = 'arm-linux-gnueabihf-ar'
 
-  conf.cc.host_command = "gcc"
-
-  conf.picoruby
-
   conf.cc.defines << "PICORUBY_POSIX"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
 
@@ -38,6 +34,9 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.linker.flags_after_libraries << '-lssl'
   conf.linker.flags_after_libraries << '-lcrypto'
   conf.linker.flags_after_libraries << '-ldl'
+
+  conf.picoruby
+
 end
 
 

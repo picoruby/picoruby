@@ -2,8 +2,6 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
-  conf.picoruby
-
   conf.cc.defines << "PICORUBY_POSIX"
 
   if ENV['PICORUBY_NO_LIBC_ALLOC']
@@ -24,5 +22,8 @@ MRuby::Build.new do |conf|
 
   conf.linker.flags_after_libraries << '-lcrypto'
   conf.linker.flags_after_libraries << '-lssl'
+
+  conf.picoruby
+
 end
 
