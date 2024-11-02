@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-rng') do |spec|
   spec.author  = 'Ryo Kajiwara'
   spec.summary = 'Random Number Generator for PicoRuby'
 
-  if %w(host no-libc-host).include?(cc.build.name)
+  if cc.defines.include?("PICORUBY_POSIX")
     src = "#{dir}/ports/posix/rng.c"
     obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
     build.libmruby_objs << obj
