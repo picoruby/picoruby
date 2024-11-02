@@ -233,14 +233,14 @@ c_to_f(struct VM *vm, mrbc_value v[], int argc)
   SET_FLOAT_RETURN((mrbc_float_t)data->unixtime_us / USEC);
 }
 
-#define MINIMUN_INSPECT_LENGTH 30
+#define INSPECT_LENGTH 80
 
 static void
 c_to_s(struct VM *vm, mrbc_value v[], int argc)
 {
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
-  char str[MINIMUN_INSPECT_LENGTH + 10];
+  char str[INSPECT_LENGTH];
   long int a = labs(data->timezone) / 60;
   int year = tm->tm_year + 1900;
   if (year < 0) {
@@ -272,7 +272,7 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
   }
   PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
-  char str[MINIMUN_INSPECT_LENGTH + 10];
+  char str[INSPECT_LENGTH];
   long int a = labs(data->timezone) / 60;
   int year = tm->tm_year + 1900;
   if (year < 0) {

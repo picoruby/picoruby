@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <inttypes.h>
 
 /*
  * global_doubles = [
@@ -307,7 +308,7 @@ c_double_define_method(struct VM *vm, mrbc_value v[], int argc)
       }
     }
     char buf[30];
-    sprintf(buf, "S_%p_%08ld", doubled_obj.instance, method_id.i);
+    sprintf(buf, "S_%p_%08" PRId64, doubled_obj.instance, (int64_t)method_id.i);
     char *name = mrbc_alloc(vm, strlen(buf) + 1);
     strcpy(name, buf);
     name[strlen(buf)] = '\0';
