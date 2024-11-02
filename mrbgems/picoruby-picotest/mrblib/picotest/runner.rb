@@ -5,11 +5,19 @@ module Picotest
     SEPARATOR = "----\n"
 
     def initialize(dir, filter = nil, tmpdir = TMPDIR)
+      unless dir.start_with? "/"
+        dir = File.join Dir.pwd, dir
+      end
+      puts "Running tests in #{dir}"
       @tmpdir = tmpdir
       @entries = find_tests(dir, filter)
       @result = {}
       @test_classes = []
       @load_crashes = []
+      @ruby_path = RbConfig.ruby
+      if @ruby_path.nil?
+        raise "RbConfig.ruby is nil. Maybe running on baremetal?"
+      end
     end
 
     def run
@@ -52,7 +60,7 @@ module Picotest
         end
         error_file = "#{@tmpdir}/#{klass.to_s}_error"
         File.open(error_file, "w") do |error|
-          IO.popen("/home/hasumi/work/R2P2/lib/picoruby/bin/picoruby #{tmpfile}", err: error.fileno) do |io|
+          IO.popen("#{@ruby_path} #{tmpfile}", err: error.fileno) do |io|
             outputs = io.read&.split("----\n") || []
             print Picotest::RESET
             puts outputs[0]
@@ -132,7 +140,7 @@ module Picotest
         else
           begin
             load entry
-            run_test(File.join Dir.pwd, entry)
+            run_test(entry)
           rescue => e
             @load_crashes << {
               entry: entry,

@@ -1,5 +1,6 @@
 #include <mrubyc.h>
 #include <stdbool.h>
+#include <unistd.h>
 
 /*
  * Restriction: Methods written in Ruby can not be called by send.
@@ -330,6 +331,41 @@ c_kernel_caller(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(ary);
 }
 
+#define PATH_MAX 1024
+static void
+c_rbconfig_ruby(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char *picoruby_path = NULL;
+#ifdef _WIN32
+  char path[PATH_MAX];
+  if (GetModuleFileName(NULL, path, PATH_MAX) != 0) {
+    picoruby_path = _strdup(path);
+  }
+#elif defined(__linux__)
+  char path[PATH_MAX];
+  ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+  if (len != -1) {
+    path[len] = '\0';
+    picoruby_path = strdup(path);
+  }
+#elif defined(__APPLE__)
+  char path[PATH_MAX];
+  uint32_t size = sizeof(path);
+  if (_NSGetExecutablePath(path, &size) == 0) {
+    char real_path[PATH_MAX];
+    if (realpath(path, real_path) != NULL) {
+      picoruby_path = strdup(real_path);
+    }
+  }
+#else
+  // maybe baremetal
+  SET_NIL_RETURN();
+  return;
+#endif
+  mrbc_value path_str = mrbc_string_new_cstr(vm, picoruby_path);
+  SET_RETURN(path_str);
+}
+
 void
 mrbc_metaprog_init(mrbc_vm *vm)
 {
@@ -348,4 +384,7 @@ mrbc_metaprog_init(mrbc_vm *vm)
 
   mrbc_class *module_Kernel = mrbc_get_class_by_name("Kernel");
   mrbc_define_method(vm, module_Kernel, "caller", c_kernel_caller);
+
+  mrbc_class *module_RbConfig = mrbc_define_module(vm, "RbConfig");
+  mrbc_define_method(vm, module_RbConfig, "ruby", c_rbconfig_ruby);
 }
