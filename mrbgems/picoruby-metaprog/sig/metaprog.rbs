@@ -21,3 +21,8 @@ end
 module Kernel
   def caller: (?Integer start, ?Integer length) -> Array[String]
 end
+
+# @added_by picoruby-metaprog
+module RbConfig
+  def self.ruby: () -> (String | nil)
+end

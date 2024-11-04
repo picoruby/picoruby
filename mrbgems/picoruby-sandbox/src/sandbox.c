@@ -82,6 +82,7 @@ c_sandbox_free_parser(mrbc_vm *vm, mrbc_value *v, int argc)
     if (ss->vm_code) ss->vm_code = NULL;
   }
   free_ccontext(ss);
+  SET_NIL_RETURN();
 }
 
 static void
@@ -89,6 +90,7 @@ c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_suspend_task(ss->tcb);
+  SET_NIL_RETURN();
 }
 
 static void
@@ -214,6 +216,14 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(sandbox);
 }
 
+static void
+c_sandbox_terminate(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SS();
+  mrbc_terminate_task(ss->tcb);
+  SET_NIL_RETURN();
+}
+
 void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
@@ -228,4 +238,5 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
   mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
   mrbc_define_method(vm, mrbc_class_Sandbox, "new",     c_sandbox_new);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "terminate", c_sandbox_terminate);
 }

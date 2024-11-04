@@ -1,10 +1,10 @@
-MRuby::Gem::Specification.new('picoruby-rng') do |spec|
+MRuby::Gem::Specification.new('picoruby-env') do |spec|
   spec.license = 'MIT'
-  spec.author  = 'Ryo Kajiwara'
-  spec.summary = 'Random Number Generator for PicoRuby'
+  spec.author  = 'HASUMI Hitoshi'
+  spec.summary = 'ENV'
 
   if cc.defines.include?("PICORUBY_POSIX")
-    src = "#{dir}/ports/posix/rng.c"
+    src = "#{dir}/ports/posix/env.c"
     obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
     build.libmruby_objs << obj
     file obj => src do |f|

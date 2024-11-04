@@ -6,7 +6,7 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.add_dependency 'picoruby-time-class'
   spec.add_dependency 'picoruby-pack'
 
-  if %w(host no-libc-host).include?(cc.build.name)
+  if cc.defines.include?("PICORUBY_POSIX")
     %w(tcp udp).each do |proto|
       src = "#{dir}/ports/posix/#{proto}.c"
       obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))

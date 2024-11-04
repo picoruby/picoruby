@@ -14,8 +14,9 @@ class Sandbox
 
   def self.new: (?bool suppress_error) -> instance
   def compile: (String) -> bool
-  def suspend: () -> void
-  def free_parser: () -> void
+  def suspend: () -> nil
+  def terminate: () -> nil
+  def free_parser: () -> nil
   def interrupt: () -> void
   def state: () -> Integer
   def result: () -> untyped

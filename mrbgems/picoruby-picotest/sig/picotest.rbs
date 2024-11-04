@@ -1,30 +1,78 @@
-type picotest_error_t = {
-  success: Integer,
-  failure: Integer,
-  errors: Array[Hash[untyped, untyped]]
-}
-
-$picotest_result: Hash[String, picotest_error_t]
-
 module Picotest
+  type picotest_error_t = {
+    "success_count" => Integer,
+    "failures" => Array[Hash[untyped, untyped]],
+    "exceptions" => Array[Hash[untyped, untyped]],
+    "crashes" => Array[String]
+  }
+
   GREEN: String
   RED: String
   RESET: String
 
+  class Double
+    type type_t = :stub | :mock | :any_instance_of
+    type double_data_t = {
+      type: type_t,
+      any_instance_of: bool,
+      doubled_obj_id: Integer,
+      method_id: Symbol?,
+      return_value: untyped,
+      singleton_class_name: String?,
+      ?expected_count: Integer,
+      ?actual_count: Integer
+    }
+    attr_accessor double_data: double_data_t
+    attr_accessor doubled_obj: untyped
+    attr_accessor singleton_class_name: String
+    @method_id: Symbol
+    def self._init: (type_t type, untyped untyped, ?any_instance_of: bool) -> Double
+    private def self._alloc: (untyped untyped) -> Double
+    private def self.global_doubles: () -> Array[double_data_t]
+    private def define_method: (Symbol method_id, untyped doubled_obj) -> String
+    private def define_method_any_instance_of: (Symbol method_id, untyped doubled_obj) -> String
+    private def method_missing: (?Symbol method_id, ?Integer expected_count) { () -> void } -> void
+    def remove_singleton: () -> nil
+  end
+
   class Test
+    @klass_name: String
+    @doubles: Array[Double]
+    @result: picotest_error_t
+
+    def self.description: (String description) -> void
     def list_tests: () -> Array[Symbol]
+    def setup: () -> void
+    def teardown: () -> void
     def assert:(bool result) -> void
+    def assert_true: (bool result) -> void
+    def assert_false: (bool result) -> void
     def assert_nil: (untyped obj) -> void
     def assert_equal: (untyped expected, untyped actual) -> void
-    def assert_raise: (untyped exception, ?(String | nil) message) { () -> void } -> void
+    def assert_not_equal: (untyped expected, untyped actual) -> void
+    def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
+    def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end
 
   class Runner
-    def self.run: (String dir, ?(String | nil) filter) -> void
-    private def self.summerize: () -> Integer
-    private def self.load_tests: (Array[untyped] entries) -> void
-    private def self.find_tests: (String dir, (String | nil) filter) -> Array[Symbol]
+
+    TMPDIR: String
+    SEPARATOR: String
+
+    @tmpdir: String
+    @entries: Array[untyped]
+    @result: Hash[String, picotest_error_t]
+    @test_classes: Array[Class]
+    @load_crashes: Array[{ entry: String, message: String }]
+    @ruby_path: String
+
+    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir) -> void
+    def run: () -> void
+    private def run_test: (String entry) -> void
+    private def summarize: () -> Integer
+    private def load_tests: (Array[untyped] entries) -> void
+    private def find_tests: (String dir, (String | nil) filter) -> Array[Symbol]
   end
 end
 

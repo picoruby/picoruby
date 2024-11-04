@@ -2,7 +2,7 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
-  conf.picoruby
+  conf.cc.defines << "PICORUBY_POSIX"
 
   if ENV['PICORUBY_NO_LIBC_ALLOC']
     conf.cc.defines << "MRBC_USE_ALLOC_PROF"
@@ -19,11 +19,11 @@ MRuby::Build.new do |conf|
   conf.gembox "posix"
   conf.gembox "stdlib"
   conf.gembox "utils"
-  conf.gem core: "picoruby-net"
-  conf.gem core: "picoruby-picotest"
-
 
   conf.linker.flags_after_libraries << '-lcrypto'
   conf.linker.flags_after_libraries << '-lssl'
+
+  conf.picoruby
+
 end
 

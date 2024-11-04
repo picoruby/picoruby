@@ -16,16 +16,16 @@ static mrbc_class *class_Data;
  * Instance methods
  */
 
-static void
-c_member_reader(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  mrbc_value key = mrbc_symbol_value(vm->exception.i);
-  data_instance_t *instance_data = (data_instance_t *)v->instance->data;
-  mrbc_value members = instance_data->members;
-  mrbc_value value = mrbc_hash_get(&members, &key);
-  mrbc_incref(&value);
-  SET_RETURN(value);
-}
+//static void
+//c_member_reader(mrbc_vm *vm, mrbc_value *v, int argc)
+//{
+//  mrbc_value key = mrbc_symbol_value(vm->exception.i);
+//  data_instance_t *instance_data = (data_instance_t *)v->instance->data;
+//  mrbc_value members = instance_data->members;
+//  mrbc_value value = mrbc_hash_get(&members, &key);
+//  mrbc_incref(&value);
+//  SET_RETURN(value);
+//}
 
 static void
 c_method_missing(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -94,7 +94,7 @@ static void
 c_instance_inspect(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   char inspect[25] = {0};
-  sprintf(inspect, "#<data %s>", v->instance->cls->name);
+  sprintf(inspect, "#<data %s>", mrbc_symid_to_str(v->instance->cls->sym_id));
   mrbc_value str = mrbc_string_new_cstr(vm, inspect);
   SET_RETURN(str);
 }
@@ -166,16 +166,16 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value member_keys = mrbc_array_new(vm, argc);
   for (int i = 0; i < argc; i++) {
     mrbc_value arg = GET_ARG(i + 1);
-    mrbc_value name;
+//    mrbc_value name;
     mrbc_value key;
     switch (arg.tt) {
       case MRBC_TT_STRING: {
-        name = arg;
+//        name = arg;
         key = mrbc_symbol_value(mrbc_str_to_symid((const char *)arg.string->data));
         break;
         }
       case MRBC_TT_SYMBOL: {
-        name = mrbc_string_new_cstr(vm, mrbc_symid_to_str(arg.i));
+//        name = mrbc_string_new_cstr(vm, mrbc_symid_to_str(arg.i));
         key = arg;
         break;
         }

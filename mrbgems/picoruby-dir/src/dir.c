@@ -26,10 +26,50 @@
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 struct picoruby_dir {
   DIR *dir;
 };
+
+// TODO: move to somewhere
+static bool
+is_valid_utf8(const unsigned char *str)
+{
+  while (*str) {
+    if (*str < 0x80) {
+      // ASCII
+      if (*str < 0x20 && *str != 0x0A && *str != 0x0D && *str != 0x09) {
+        return false;
+      }
+      str++;
+    }
+    else if ((*str & 0xE0) == 0xC0) {
+      // 2バイト文字
+      if (!(str[1] && (str[1] & 0xC0) == 0x80)) return false;
+      str += 2;
+    }
+    else if ((*str & 0xF0) == 0xE0) {
+      // 3バイト文字
+      if (!(str[1] && str[2] &&
+            (str[1] & 0xC0) == 0x80 &&
+            (str[2] & 0xC0) == 0x80)) return false;
+      str += 3;
+    }
+    else if ((*str & 0xF8) == 0xF0) {
+      // 4バイト文字
+      if (!(str[1] && str[2] && str[3] &&
+            (str[1] & 0xC0) == 0x80 &&
+            (str[2] & 0xC0) == 0x80 &&
+            (str[3] & 0xC0) == 0x80)) return false;
+      str += 4;
+    }
+    else {
+      return false;
+    }
+  }
+  return true;
+}
 
 //static void
 //dir_free(mrbc_vm *vm, void *ptr)
@@ -247,6 +287,7 @@ c_dir_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   struct picoruby_dir *mdir;
   struct dirent *dp;
+  char name_buf[256];
 
   mdir = (struct picoruby_dir*)v[0].instance->data;
   if (!mdir) {
@@ -257,14 +298,37 @@ c_dir_read(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(IOError), "closed directory");
     return;
   }
+
+  errno = 0;
   dp = readdir(mdir->dir);
-  if (dp != NULL) {
-    mrbc_value str = mrbc_string_new_cstr(vm, dp->d_name);
-    SET_RETURN(str);
-  }
-  else {
+
+  if (dp == NULL) {
+    if (errno != 0) {
+      char buf[256];
+      snprintf(buf, sizeof(buf), "readdir failed: %s (errno: %d)", strerror(errno), errno);
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), buf);
+      return;
+    }
     SET_NIL_RETURN();
+    return;
   }
+
+  size_t name_len = strnlen(dp->d_name, sizeof(dp->d_name));
+  if (name_len == 0 || name_len >= sizeof(dp->d_name)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "invalid directory entry");
+    return;
+  }
+
+  memset(name_buf, 0, sizeof(name_buf));
+  strncpy(name_buf, dp->d_name, sizeof(name_buf) - 1);
+
+  if (!is_valid_utf8((const unsigned char *)name_buf)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "invalid character encoding in directory entry");
+    return;
+  }
+
+  mrbc_value result = mrbc_string_new_cstr(vm, name_buf);
+  SET_RETURN(result);
 }
 
 static void
