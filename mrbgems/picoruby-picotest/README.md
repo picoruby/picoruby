@@ -106,3 +106,14 @@ end
 
 PicoTest::Runner.run("/absolute/path/to/test_dir")
 ```
+
+## Cross-platform
+
+If you test on a different platform, you can use eg: `qemu-arm` to run the test.
+In this case, you need to set the environment variable `RUBY` to the path of the `picoruby` binary.
+(See `mrblib/picotest/runner.rb`)
+
+```console
+RUBY="qemu-arm build/arm-linux-gnueabihf/bin/picoruby" \
+  qemu-arm build/arm-linux-gnueabihf/bin/picoruby ~/work/mrubyc/mrubyc/test/0_runner.rb
+```

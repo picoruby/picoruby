@@ -4,4 +4,5 @@ MRuby::Gem::Specification.new('picoruby-vfs') do |spec|
   spec.summary = 'Virtual-File-System-like wrapper for filesystems'
 
   spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-env'
 end

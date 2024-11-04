@@ -14,7 +14,8 @@ module Picotest
       @result = {}
       @test_classes = []
       @load_crashes = []
-      @ruby_path = RbConfig.ruby
+      # See README.md about ENV["RUBY"]
+      @ruby_path = ENV["RUBY"] || RbConfig.ruby
       if @ruby_path.nil?
         raise "RbConfig.ruby is nil. Maybe running on baremetal?"
       end

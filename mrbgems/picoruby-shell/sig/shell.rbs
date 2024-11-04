@@ -10,16 +10,6 @@ $sandbox: Sandbox
 
 # Classes
 
-ENV: {
-  "TERM" => String,
-  "TZ" => String,
-  "PATH" => String,
-  "HOME" => String,
-  "PWD" => String,
-  "WIFI_MODULE" => String,
-  "WIFI_CONFIG_PATH" => String
-}
-
 $LOAD_PATH: Array[String]
 ARGV: Array[String]
 

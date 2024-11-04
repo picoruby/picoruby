@@ -3,6 +3,7 @@ require 'json'
 if RUBY_ENGINE == "mruby/c"
   require "metaprog"
   require 'dir'
+  require 'env'
 elsif RUBY_ENGINE == "ruby"
   class Object
     def class?
