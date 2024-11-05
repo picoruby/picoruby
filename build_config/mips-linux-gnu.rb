@@ -27,6 +27,7 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
     conf.cc.defines << "MRBC_ALLOC_LIBC"
   end
 
+  conf.cc.defines << "MRBC_BIG_ENDIAN"
   conf.cc.defines << "MRBC_NO_OBJECT_STDOUT"
   conf.cc.defines << "MRC_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
