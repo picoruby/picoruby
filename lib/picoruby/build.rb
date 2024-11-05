@@ -81,6 +81,11 @@ module MRuby
 
       if /darwin/ =~ RUBY_PLATFORM && system("which brew > /dev/null 2>&1") # for macOS && homebrew
         linker.library_paths << File.join(`brew --prefix`.chomp, "/lib")
+
+        openssl_path = `brew --prefix openssl`.chomp
+        if openssl_path != "" && openssl_path != nil
+          cc.include_paths << File.join(openssl_path, "include")
+        end
       end
 
       cc.flags.flatten!
