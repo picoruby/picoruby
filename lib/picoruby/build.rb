@@ -79,6 +79,10 @@ module MRuby
       end
       cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
 
+      if /darwin/ =~ RUBY_PLATFORM && system("which brew > /dev/null 2>&1") # for macOS && homebrew
+        linker.library_paths << File.join(`brew --prefix`.chomp, "/lib")
+      end
+
       cc.flags.flatten!
       cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }
       if ENV["PICORUBY_DEBUG"]
