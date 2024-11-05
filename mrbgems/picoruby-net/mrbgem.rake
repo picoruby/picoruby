@@ -6,16 +6,9 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.add_dependency 'picoruby-time-class'
   spec.add_dependency 'picoruby-pack'
 
-  if cc.defines.include?("PICORUBY_POSIX")
-    %w(tcp udp).each do |proto|
-      src = "#{dir}/ports/posix/#{proto}.c"
-      obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
-      build.libmruby_objs << obj
-      file obj => src do |f|
-        cc.run f.name, f.prerequisites.first
-      end
-    end
-  else
+  build.porting(dir)
+
+  unless cc.defines.include?('PICORUBY_PLATFORM=posix')
     # TODO refactor
     # cyw43 is only for pico_w but picoruby-net is also for PISIX
     # spec.add_dependency 'picoruby-cyw43'

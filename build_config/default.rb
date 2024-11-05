@@ -2,7 +2,7 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
-  conf.cc.defines << "PICORUBY_POSIX"
+  conf.cc.defines << "PICORUBY_PLATFORM=posix"
 
   if ENV['PICORUBY_NO_LIBC_ALLOC']
     conf.cc.defines << "MRBC_USE_ALLOC_PROF"

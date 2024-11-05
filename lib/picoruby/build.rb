@@ -40,6 +40,22 @@ module MRuby
       cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
     end
 
+    def porting(dir)
+      d = cc.defines.find { _1.start_with?("PICORUBY_PLATFORM=") }
+      return unless d
+      platform = d.split("=")[1]
+      if platform.nil?
+        raise "PICORUBY_PLATFORM is not set"
+      end
+      Dir.glob("#{dir}/ports/#{platform}/**/*.c").each do |src|
+        obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
+        libmruby_objs << obj
+        file obj => src do |f|
+          cc.run f.name, f.prerequisites.first
+        end
+      end
+    end
+
     def picoruby
 
       disable_presym
@@ -56,7 +72,7 @@ module MRuby
         cc.defines << define if cc.defines.none? { _1.start_with? key }
       end
       cc.include_paths << mrubyc_src_dir
-      if cc.defines.include?("PICORUBY_POSIX")
+      if cc.defines.include?("PICORUBY_PLATFORM=posix")
         cc.include_paths << mrubyc_dir + "/hal/posix"
       else
         cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"

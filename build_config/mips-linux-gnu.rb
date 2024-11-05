@@ -17,7 +17,7 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
   conf.linker.flags << '-Wl,-rpath,/usr/mips-linux-gnu/lib'
   conf.archiver.command = 'mips-linux-gnu-ar'
 
-  conf.cc.defines << "PICORUBY_POSIX"
+  conf.cc.defines << "PICORUBY_PLATFORM=posix"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
 
   if ENV['PICORUBY_NO_LIBC_ALLOC']
