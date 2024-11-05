@@ -1,18 +1,21 @@
-MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
+MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
 
   conf.toolchain :gcc
 
-  conf.cc.command = 'arm-linux-gnueabihf-gcc'
-  conf.cc.flags << '-mcpu=cortex-a7'
+  conf.cc.command = 'mips-linux-gnu-gcc'
+  conf.cc.flags << '-mips32'
+  conf.cc.flags << '-EB' # big endian
+  conf.cc.flags << '-mhard-float'
+  conf.cc.flags << '-mabi=32' # o32. Most popular ABI for mips32
   conf.cc.flags << '-D_FILE_OFFSET_BITS=64'
   conf.cc.flags << '-D_LARGEFILE64_SOURCE'
   conf.cc.flags << '-D_GNU_SOURCE'
-  conf.linker.command = 'arm-linux-gnueabihf-gcc'
+  conf.linker.command = 'mips-linux-gnu-gcc'
   conf.linker.libraries = %w(m c gcc resolv)
-  conf.linker.flags_after_libraries = '-lssl -lcrypto -ldl'
+#  conf.linker.flags_after_libraries = '-lssl -lcrypto -ldl'
 
-  conf.linker.flags << '-Wl,-rpath,/usr/arm-linux-gnueabihf/lib'
-  conf.archiver.command = 'arm-linux-gnueabihf-ar'
+  conf.linker.flags << '-Wl,-rpath,/usr/mips-linux-gnu/lib'
+  conf.archiver.command = 'mips-linux-gnu-ar'
 
   conf.cc.defines << "PICORUBY_POSIX"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
@@ -33,8 +36,7 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
   # Net::NTTPSClient needs -lssl -lcrypto
-  conf.gem core: "picoruby-net"
+#  conf.gem core: "picoruby-net"
 
   conf.picoruby
-
 end

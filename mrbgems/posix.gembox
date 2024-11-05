@@ -4,7 +4,4 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-dir'
   conf.gem core: "picoruby-jwt"
   conf.gem core: "picoruby-picotest"
-
-  # Net::NTTPSClient needs -lssl -lcrypto
-  conf.gem core: "picoruby-net"
 end
