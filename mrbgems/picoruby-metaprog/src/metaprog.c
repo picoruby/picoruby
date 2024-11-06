@@ -83,6 +83,7 @@ c_object_methods(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(methods);
 }
 
+#if !defined(MRBC_DEBUG)
 static void
 c_object_instance_variables(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -101,6 +102,7 @@ c_object_instance_variables(mrbc_vm *vm, mrbc_value *v, int argc)
 
   SET_RETURN(ivars);
 }
+#endif
 
 static void
 c_object_instance_variable_get(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -371,13 +373,15 @@ mrbc_metaprog_init(mrbc_vm *vm)
 {
   mrbc_define_method(vm, mrbc_class_object, "send", c_object_send);
   mrbc_define_method(vm, mrbc_class_object, "methods", c_object_methods);
+  mrbc_define_method(vm, mrbc_class_object, "__id__", c_object_id);
+#if !defined(MRBC_DEBUG)
+  mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
   mrbc_define_method(vm, mrbc_class_object, "instance_variables", c_object_instance_variables);
+#endif
   mrbc_define_method(vm, mrbc_class_object, "instance_variable_get", c_object_instance_variable_get);
   mrbc_define_method(vm, mrbc_class_object, "instance_variable_set", c_object_instance_variable_set);
   mrbc_define_method(vm, mrbc_class_object, "instance_of?", c_object_instance_of_q);
   mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
-  mrbc_define_method(vm, mrbc_class_object, "__id__", c_object_id);
-  mrbc_define_method(vm, mrbc_class_object, "object_id", c_object_id);
   mrbc_define_method(vm, mrbc_class_object, "const_get", c_object_const_get);
   mrbc_define_method(vm, mrbc_class_object, "class?", c_object_class_q);
   mrbc_define_method(vm, mrbc_class_object, "ancestors", c_object_ancestors);
