@@ -28,8 +28,8 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
   end
 
   conf.cc.defines << "MRBC_BIG_ENDIAN"
-  conf.cc.defines << "MRBC_NO_OBJECT_STDOUT"
   conf.cc.defines << "MRC_INT64"
+  conf.cc.defines << "MRBC_NO_STDIO"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
 
   conf.gembox "minimum"

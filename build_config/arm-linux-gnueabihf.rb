@@ -25,7 +25,7 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
     conf.cc.defines << "MRBC_ALLOC_LIBC"
   end
 
-  conf.cc.defines << "MRBC_NO_OBJECT_STDOUT"
+  conf.cc.defines << "MRBC_NO_STDIO"
   conf.cc.defines << "MRC_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
 
