@@ -1,3 +1,4 @@
+require "env"
 require "metaprog"
 require "picorubyvm"
 require "sandbox"
@@ -111,7 +112,6 @@ class Shell
       retry if retry_count == 1
       raise e
     end
-    Dir.chdir ENV['HOME'].to_s
   end
 
   def setup_system_files(root = nil, force: false)

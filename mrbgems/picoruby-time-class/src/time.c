@@ -48,10 +48,11 @@ static time_t unixtime_offset = 0;
 static void
 tz_env_set(struct VM *vm)
 {
-  mrbc_value *env = mrbc_get_const(mrbc_search_symid("ENV"));
-  if (env == NULL || env->tt != MRBC_TT_HASH) return;
+  mrbc_value *env_instance = mrbc_get_const(mrbc_search_symid("ENV"));
+  mrbc_value env = mrbc_instance_getiv(env_instance, mrbc_str_to_symid("env"));
+  if (env.tt != MRBC_TT_HASH) return;
   mrbc_value key = mrbc_string_new_cstr(vm, "TZ");
-  mrbc_value tz = mrbc_hash_get(env, &key);
+  mrbc_value tz = mrbc_hash_get(&env, &key);
   mrbc_decref(&key);
   if (tz.tt != MRBC_TT_STRING) return;
 #if defined(_BSD_SOURCE) || \

@@ -1,3 +1,5 @@
+require 'env'
+
 class Time
   class TimeMethods
   end

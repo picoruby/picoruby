@@ -1,3 +1,5 @@
+require 'env'
+
 class Dir
   include Enumerable
 

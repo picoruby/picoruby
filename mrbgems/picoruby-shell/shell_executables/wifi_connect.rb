@@ -9,8 +9,10 @@
 #     ssid: "my_wifi"
 #     encoded_password: "base64_encoded_encrypted_password"
 #     auto_connect: true
+#     retry_if_failed: true
 #   ```
 
+require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"

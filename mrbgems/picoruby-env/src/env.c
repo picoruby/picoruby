@@ -12,6 +12,8 @@ c_env_setenv(struct VM *vm, mrbc_value v[], int argc)
   mrbc_value key_value = mrbc_string_new_cstr(vm, key);
   mrbc_value value_value = mrbc_string_new_cstr(vm, value);
   mrbc_hash_set(&hash, &key_value, &value_value);
+  mrbc_incref(&key_value);
+  mrbc_incref(&value_value);
   SET_RETURN(value_value);
 }
 

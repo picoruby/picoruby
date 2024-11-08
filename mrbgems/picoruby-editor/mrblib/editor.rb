@@ -1,13 +1,8 @@
 # Learn "Terminal modes"
 # https://www.ibm.com/docs/en/linux-on-systems?topic=wysk-terminal-modes
 
+require "env"
 require "io/console"
-
-begin
-  ENV
-rescue NameError
-  ENV = {}
-end
 
 case RUBY_ENGINE
 when "ruby", "jruby"
