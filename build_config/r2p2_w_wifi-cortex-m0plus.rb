@@ -25,6 +25,7 @@ MRuby::CrossBuild.new("r2p2_w_wifi-cortex-m0plus") do |conf|
   conf.cc.flags << "-fdata-sections"
 
   # These defines should not contradict platform's configuration
+  conf.cc.defines << "PICORUBY_INT64"
   conf.cc.defines << "MRBC_USE_ALLOC_PROF"
   conf.cc.defines << "MRC_CUSTOM_ALLOC"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"

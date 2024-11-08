@@ -67,7 +67,7 @@ module MRuby
       cc.include_paths << cc.build.gems['mruby-compiler2'].dir + '/include'
       gem core: 'picoruby-mrubyc'
 
-      if cc.defines.include?("MRC_INT64")
+      if cc.defines.include?("PICORUBY_INT64")
         cc.defines << "MRBC_INT64"
       end
       %w(MRBC_USE_MATH=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|

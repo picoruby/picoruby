@@ -9,6 +9,10 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   mrubyc_src_dir = "#{mrubyc_dir}/src"
   mrblib_build_dir = "#{build_dir}/mrblib"
 
+  if cc.defines.include?("PICORUBY_INT64")
+    cc.defines << "MRBC_INT64"
+  end
+
   cc.include_paths.delete_if { |path| path.include?("no_impl") }
   cc.include_paths << cc.defines.find { |d|
     d.start_with? "MRBC_USE_HAL"
