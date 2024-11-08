@@ -3,3 +3,7 @@ module Kernel
     Shell::Command.new.exec(*command.split)
   end
 end
+
+class Object
+  include Kernel
+end
