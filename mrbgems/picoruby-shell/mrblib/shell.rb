@@ -6,7 +6,7 @@ begin
   require "filesystem-fat"
   require "vfs"
 rescue LoadError
-  # ignore. mayby POSIX
+  # ignore. maybe POSIX
   require "dir"
 end
 require "editor"
