@@ -93,7 +93,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             return false;
           }
           if (mrbc_load_mrb(vm, mrb) != 0) {
-            console_printf("Error: Illegal bytecode.\\n");
+            console_printf("Error: %s\\n", vm->exception.exception->message);
+            mrbc_vm_close(vm);
             return false;
           }
           mrbc_vm_begin(vm);
