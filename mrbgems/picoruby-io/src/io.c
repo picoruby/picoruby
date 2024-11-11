@@ -869,6 +869,10 @@ c_io_sysopen(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
+  if (v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type");
+    return;
+  }
   path = (const char *)GET_STRING_ARG(1);
   if (1 < argc) {
     mode = GET_ARG(2);

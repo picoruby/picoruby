@@ -100,7 +100,9 @@ module YAML
       yaml = ""
       object.each do |key, value|
         yaml << "#{' ' * indent}#{key}:"
-        if value.is_a?(Hash) || value.is_a?(Array)
+        if value.nil?
+          yaml << " null\n"
+        elsif value.is_a?(Hash) || value.is_a?(Array)
           yaml << "\n" + serialize(value, indent + 2)
         else
           yaml << " #{serialize(value)}\n"
@@ -113,7 +115,9 @@ module YAML
       object.each do |item|
         # @type var item: (Hash | Array)
         yaml << "#{' ' * indent}- "
-        if item.is_a?(Hash) || item.is_a?(Array)
+        if item.nil?
+          yaml << "null\n"
+        elsif item.is_a?(Hash) || item.is_a?(Array)
           yaml << "\n" + serialize(item, indent + 2)
         else
           yaml << "#{serialize(item)}\n"
