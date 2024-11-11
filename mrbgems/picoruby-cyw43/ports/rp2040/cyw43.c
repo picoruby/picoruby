@@ -70,9 +70,9 @@ CYW43_arch_disable_sta_mode(void)
 }
 
 int
-CYW43_arch_wifi_connect_blocking(const char *ssid, const char *pw, uint32_t auth)
+CYW43_arch_wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms)
 {
-  return cyw43_arch_wifi_connect_blocking(ssid, pw, auth);
+  return cyw43_arch_wifi_connect_timeout_ms(ssid, pw, auth, timeout_ms);
 }
 #endif
 

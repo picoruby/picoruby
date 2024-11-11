@@ -11,7 +11,11 @@ encrypt_proc = Proc.new do |password|
   cipher.encrypt
   key_len = cipher.key_len
   iv_len = cipher.iv_len
-  unique_id = Machine.unique_id
+  begin
+    unique_id = Machine.unique_id
+  rescue NameError # On POSIX
+    unique_id = "0123456789abcdef"
+  end
   len = unique_id.length
   cipher.key = (unique_id * ((key_len / len + 1) * len))[0, key_len].to_s
   cipher.iv = (unique_id * ((iv_len / len + 1) * len))[0, iv_len].to_s
@@ -32,6 +36,9 @@ encrypted_password = encrypt_proc.call(password)
 answers["wifi"]["encoded_password"] = Base64.encode64(encrypted_password)
 answers["wifi"]["auto_connect"] = cli.ask("Auto Connect? (y/n)") do |q|
   q.default = "y"
+end == "y"
+answers["wifi"]["retry_if_failed"] = cli.ask("Retry if failed? (y/n)") do |q|
+  q.default = "n"
 end == "y"
 
 File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f|

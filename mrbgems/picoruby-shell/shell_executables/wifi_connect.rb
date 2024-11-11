@@ -49,7 +49,15 @@ end
 
 # Load the file
 
-# @rbs config: { "auto_connect": bool, "wifi": { "ssid": String, "password": String }, "country_code": String }
+# @rbs config: {
+#        "wifi": {
+#          "ssid": String,
+#          "password": String,
+#          "auto_connect": bool,
+#          "retry_if_failed": bool
+#        },
+#        "country_code": String
+#       }
 config = File.open(ENV['WIFI_CONFIG_PATH'], "r") do |f|
   YAML.load(f.read.to_s)
 end
@@ -78,13 +86,28 @@ end
 puts "Setting up WiFi as a station"
 CYW43.enable_sta_mode
 
-decoded_password = Base64.decode64(encoded_password)
-password = decrypt_proc.call(decoded_password)
-
-if CYW43.connect_blocking(ssid, password, CYW43::Auth::WPA2_MIXED_PSK)
-  puts "Connected to WiFi network: #{ssid}"
+if encoded_password.nil? || encoded_password.empty?
+  auth = CYW43::Auth::OPEN
+  password = nil
 else
-  puts "Failed to connect to WiFi network: #{ssid}"
+  auth = CYW43::Auth::WPA2_MIXED_PSK
+  decoded_password = Base64.decode64(encoded_password)
+  password = decrypt_proc.call(decoded_password)
+end
+
+begin
+  puts "Connecting to WiFi network: #{ssid}. Timeout in 5 seconds..."
+  CYW43.connect_timeout(ssid, password, auth, 5)
+  puts "Connected."
+rescue CYW43::ConnectTimeout
+  if config["wifi"]["retry_if_failed"]
+    puts "Failed to connect. Retrying..."
+    sleep 1
+    retry
+  else
+    puts "Failed to connect. Abort."
+    return
+  end
 end
 
 Net::NTP.set_hwclock

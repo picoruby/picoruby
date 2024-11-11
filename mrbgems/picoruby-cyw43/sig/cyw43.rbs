@@ -1,5 +1,8 @@
 # @sidebar hardware_device
 class CYW43
+  class ConnectTimeout < RuntimeError
+  end
+
   LINK_DOWN:    Integer
   LINK_JOIN:    Integer
   LINK_NOIP:    Integer
@@ -10,7 +13,7 @@ class CYW43
 
   def self.init: (?String country, ?force: bool) -> void
   def self.initialized?: () -> bool
-  def self.connect_blocking: (String ssid, String password, Integer augh) -> bool
+  def self.connect_timeout: (String ssid, String password, Integer augh, ?Integer timeout) -> bool
   def self.enable_sta_mode: () -> bool
   def self.disable_sta_mode: () -> bool
   def self.tcpip_link_status: () -> Integer

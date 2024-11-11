@@ -5,6 +5,7 @@
 #define GETIV(str)       mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
 #define WRITE(pin, val)  CYW43_GPIO_write(pin.i, val)
 
+static mrbc_class *ConnectTimeout;
 static bool cyw43_arch_init_flag = false;
 
 static void
@@ -73,15 +74,23 @@ c_CYW43_disable_sta_mode(mrbc_vm *vm, mrbc_value *v, int argc)
 static bool cyw43_arch_connected = false;
 
 static void
-c_CYW43_connect_blocking(mrbc_vm *vm, mrbc_value *v, int argc)
+c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (!cyw43_arch_init_flag) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43 not initialized");
     return;
   }
+  if (argc < 3) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  const char *ssid = GET_STRING_ARG(1);
+  const char *pass = GET_STRING_ARG(2);
+  int auth = GET_INT_ARG(3);
+  int timeout_ms = 3 < argc ? GET_INT_ARG(4)*1000 : 60*1000;
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
-    if (CYW43_arch_wifi_connect_blocking((const char *)GET_STRING_ARG(1), (const char *)GET_STRING_ARG(2), GET_INT_ARG(3)) < 0) {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43_arch_wifi_connect_blocking() failed");
+    if (CYW43_arch_wifi_connect_timeout_ms(ssid, pass, auth, timeout_ms) != 0) {
+      mrbc_raise(vm, ConnectTimeout, "CYW43_arch_wifi_connect_timeout_ms() failed");
       return;
     }
     cyw43_arch_connected = true;
@@ -119,12 +128,14 @@ void
 mrbc_cyw43_init(mrbc_vm *vm)
 {
   mrbc_class *class_CYW43 = mrbc_define_class(vm, "CYW43", mrbc_class_object);
+  ConnectTimeout = mrbc_define_class_under(vm, class_CYW43, "ConnectTimeout", MRBC_CLASS(RuntimeError));
+
   mrbc_define_method(vm, class_CYW43, "_init", c__init);
   mrbc_define_method(vm, class_CYW43, "initialized?", c_CYW43_initialized_q);
 #ifdef USE_WIFI
   mrbc_define_method(vm, class_CYW43, "enable_sta_mode", c_CYW43_enable_sta_mode);
   mrbc_define_method(vm, class_CYW43, "disable_sta_mode", c_CYW43_disable_sta_mode);
-  mrbc_define_method(vm, class_CYW43, "connect_blocking", c_CYW43_connect_blocking);
+  mrbc_define_method(vm, class_CYW43, "connect_timeout", c_CYW43_connect_timeout);
   mrbc_define_method(vm, class_CYW43, "tcpip_link_status", c_CYW43_tcpip_link_status);
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_DOWN"), &mrbc_integer_value(CYW43_CONST_link_down()));
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_JOIN"), &mrbc_integer_value(CYW43_CONST_link_join()));
