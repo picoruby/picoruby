@@ -29,10 +29,17 @@ class VFS
     def self.utime: (Time atime, Time mtime, *String filename) -> Integer
     def self.new: (String path, String mode) -> void
     def initialize: (String path, String mode) -> void
+    def physical_address: () -> Integer
+    def sector_size: () -> Integer
   end
 
   class Dir
     def self.open: (String) -> dir_t
     def pat=: (array[path] | path) -> Array[String]
   end
+end
+
+class File
+  def physical_address: () -> Integer
+  def sector_size: () -> Integer
 end

@@ -104,3 +104,38 @@ FLASH_disk_ioctl(BYTE cmd, void *buff)
   }
   return RES_OK;
 }
+
+
+
+#if FF_MAX_SS == FF_MIN_SS
+#define SS(fs)	((UINT)FF_MAX_SS)	/* Fixed sector size */
+#else
+#define SS(fs)	((fs)->ssize)	/* Variable sector size */
+#endif
+
+static LBA_t clst2sect (	/* !=0:Sector number, 0:Failed (invalid cluster#) */
+	FATFS* fs,		/* Filesystem object */
+	DWORD clst		/* Cluster# to be converted */
+)
+{
+	clst -= 2;		/* Cluster number is origin from 2 */
+	if (clst >= fs->n_fatent - 2) return 0;		/* Is it invalid cluster number? */
+	return fs->database + (LBA_t)fs->csize * clst;	/* Start sector number of the cluster */
+}
+
+void
+FILE_physical_address(FIL *fp, uint8_t **addr)
+{
+  FATFS *fs = fp->obj.fs;
+  LBA_t sect;
+
+  sect = clst2sect(fs, fp->obj.sclust);
+
+  *addr = (uint8_t*)(FLASH_MMAP_ADDR + sect * FLASH_SECTOR_SIZE);
+}
+
+int
+FILE_sector_size(void)
+{
+  return FLASH_SECTOR_SIZE;
+}

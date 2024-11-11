@@ -73,6 +73,7 @@ class File
     def utime(atime, mtime, *filename)
       VFS::File.utime(atime, mtime, *filename)
     end
+
   end
 
   def initialize(path, mode = "r")
@@ -81,6 +82,14 @@ class File
   end
 
   attr_reader :path
+
+  def sector_size
+    @file.sector_size
+  end
+
+  def physical_address
+    @file.physical_address
+  end
 
   def tell
     @file.tell

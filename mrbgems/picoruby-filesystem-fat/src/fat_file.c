@@ -43,6 +43,34 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_sector_size(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  SET_INT_RETURN(FILE_sector_size());
+}
+
+static void
+c_physical_address(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FIL *fp = (FIL *)v->instance->data;
+  uint8_t *addr;
+
+  /* Check if file object is valid */
+  if (!fp) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Invalid argument");
+    return;
+  }
+  if (!fp->obj.fs) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Invalid file object");
+    return;
+  }
+
+  FILE_physical_address(fp, &addr);
+
+  /* Return physical address */
+  SET_INT_RETURN((intptr_t)addr);
+}
+
+static void
 c_tell(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
@@ -196,6 +224,9 @@ mrbc_init_class_FAT_File(mrbc_vm *vm ,mrbc_class *class_FAT)
   mrbc_define_method(vm, class_FAT_File, "size", c_size);
   mrbc_define_method(vm, class_FAT_File, "expand", c_expand);
   mrbc_define_method(vm, class_FAT_File, "fsync", c_fsync);
+
+  mrbc_define_method(vm, class_FAT_File, "physical_address", c_physical_address);
+  mrbc_define_method(vm, class_FAT_File, "sector_size", c_sector_size);
 
   mrbc_define_method(vm, class_FAT, "vfs_methods", c_vfs_methods);
 }

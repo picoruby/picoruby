@@ -1,4 +1,5 @@
 require 'io/console'
+require 'metaprog'
 
 class Sandbox
 
@@ -36,19 +37,33 @@ class Sandbox
 
   def load_file(path, signal: true)
     f = File.open(path, "r")
-    begin
+    # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
+    # See Shell#setup_system_files
+    if f.respond_to?(:physical_address) && (f.size < f.sector_size || path.start_with?("/bin/"))
+      physical_address = f.physical_address
+      rb = ""
+      is_rite = (Machine.read_memory(physical_address, 8) == "RITE0300")
+    else
+      physical_address = nil
       return nil unless rb = f.read
-      started = if rb.to_s.start_with?("RITE0300")
+      is_rite = rb.start_with?("RITE0300")
+    end
+    begin
+      started = if is_rite
         # assume mruby bytecode
-        exec_mrb(rb)
+        physical_address ? exec_mrb_from_memory(physical_address) : exec_mrb(rb)
       else
         # assume Ruby script
-        if compile(rb)
-          execute
+        if physical_address
+          unless compile_from_memory(physical_address, f.size)
+            raise RuntimeError, "#{path}: compile failed"
+          end
         else
-          # TODO: detailed error message
-          raise RuntimeError, "#{path}: compile failed"
+          unless compile(rb)
+            raise RuntimeError, "#{path}: compile failed"
+          end
         end
+        execute
       end
       if started && wait(signal: signal, timeout: nil) && error
         puts "#{error.message} (#{error})"

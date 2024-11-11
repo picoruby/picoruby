@@ -91,6 +91,8 @@ class FAT
 
   class File
     def initialize: (String path, String mode) -> void
+    def physical_address: () -> Integer
+    def sector_size: () -> Integer
     def each_line: () { (String) -> void } -> nil
     def gets: () -> String?
     def puts: (*String) -> nil

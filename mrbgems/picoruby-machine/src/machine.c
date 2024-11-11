@@ -95,6 +95,15 @@ c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_Machine_read_memory(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  const void *addr = (const void *)GET_INT_ARG(1);
+  uint32_t size = GET_INT_ARG(2);
+  mrbc_value ret = mrbc_string_new(vm, addr, size);
+  SET_RETURN(ret);
+}
+
 void
 mrbc_machine_init(mrbc_vm *vm)
 {
@@ -105,5 +114,6 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Machine, "sleep", c_Machine_sleep);
   mrbc_define_method(vm, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
   mrbc_define_method(vm, mrbc_class_Machine, "unique_id", c_Machine_unique_id);
+  mrbc_define_method(vm, mrbc_class_Machine, "read_memory", c_Machine_read_memory);
 }
 

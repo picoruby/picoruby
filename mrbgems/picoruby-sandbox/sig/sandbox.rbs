@@ -13,7 +13,8 @@ class Sandbox
   attr_accessor error: Exception?
 
   def self.new: (?bool suppress_error) -> instance
-  def compile: (String) -> bool
+  def compile: (String script) -> bool
+  def compile_from_memory: (Integer address, Integer size) -> bool
   def suspend: () -> nil
   def terminate: () -> nil
   def free_parser: () -> nil
@@ -22,6 +23,7 @@ class Sandbox
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil), ?signal: bool) -> bool
   def execute: () -> bool
-  def exec_mrb: (String) -> bool
+  def exec_mrb: (String mrb) -> bool
+  def exec_mrb_from_memory: (Integer address) -> bool
   def load_file: (String path, ?signal: bool) -> void
 end

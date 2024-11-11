@@ -36,6 +36,9 @@ void mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func);
 void mrbc_init_class_FAT_File(mrbc_vm *vm, mrbc_class *class_FAT);
 void mrbc_init_class_FAT_Dir(mrbc_vm *vm, mrbc_class *class_FAT);
 
+void FILE_physical_address(FIL *fp, uint8_t **addr);
+int FILE_sector_size(void);
+
 #ifdef USE_FAT_SD_DISK
 void c_FAT_init_spi();
 #endif

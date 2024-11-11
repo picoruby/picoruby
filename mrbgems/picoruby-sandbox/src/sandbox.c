@@ -104,15 +104,13 @@ init_options(pm_options_t *options)
 }
 
 static void
-c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
+sandbox_compile_sub(mrbc_vm *vm, mrbc_value *v, uint8_t *script, size_t size)
 {
   SS();
   free_ccontext(ss);
   init_options(ss->options);
   ss->c = mrc_ccontext_new(NULL);
   ss->c->options = ss->options;
-  uint8_t *script = GET_STRING_ARG(1);
-  size_t size = strlen((const char *)script);
   ss->irep = mrc_load_string_cxt(ss->c, (const uint8_t **)&script, size);
   if (ss->irep) mrc_irep_remove_lv(ss->c, ss->irep);
   ss->options = ss->c->options;
@@ -134,6 +132,22 @@ c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  uint8_t *script = GET_STRING_ARG(1);
+  size_t size = strlen((const char *)script);
+  sandbox_compile_sub(vm, v, script, size);
+}
+
+static void
+c_sandbox_compile_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  uint8_t *script = (uint8_t *)(intptr_t)GET_INT_ARG(1);
+  size_t size = GET_INT_ARG(2);
+  sandbox_compile_sub(vm, v, script, size);
+}
+
+static void
 reset_vm(mrbc_vm *vm)
 {
   vm->cur_irep        = vm->top_irep;
@@ -147,6 +161,18 @@ reset_vm(mrbc_vm *vm)
   vm->flag_stop       = 0;
 }
 
+static bool
+sandbox_exec_mrb_sub(mrbc_vm *sandbox_vm, SandboxState *ss)
+{
+  if (mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
+    return false;
+  } else {
+    reset_vm(sandbox_vm);
+    mrbc_resume_task(ss->tcb);
+    return true;
+  }
+}
+
 static void
 c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -156,12 +182,23 @@ c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
   ss->vm_code = mrb.string->data;
   mrb.string->data = NULL;
   mrb.string->size = 0;
-  if (mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
-    SET_FALSE_RETURN();
-  } else {
-    reset_vm(sandbox_vm);
-    mrbc_resume_task(ss->tcb);
+  if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
     SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
+  ss->vm_code = (uint8_t *)(intptr_t)GET_INT_ARG(1);
+  if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
   }
 }
 
@@ -229,6 +266,7 @@ mrbc_sandbox_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Sandbox = mrbc_define_class(vm, "Sandbox", mrbc_class_object);
   mrbc_define_method(vm, mrbc_class_Sandbox, "compile", c_sandbox_compile);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "compile_from_memory", c_sandbox_compile_from_memory);
   mrbc_define_method(vm, mrbc_class_Sandbox, "execute", c_sandbox_execute);
   mrbc_define_method(vm, mrbc_class_Sandbox, "state",   c_sandbox_state);
   mrbc_define_method(vm, mrbc_class_Sandbox, "result",  c_sandbox_result);
@@ -237,6 +275,7 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
   mrbc_define_method(vm, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
   mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);
   mrbc_define_method(vm, mrbc_class_Sandbox, "new",     c_sandbox_new);
   mrbc_define_method(vm, mrbc_class_Sandbox, "terminate", c_sandbox_terminate);
 }
