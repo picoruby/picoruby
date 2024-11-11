@@ -8,5 +8,5 @@ class PicoLine
 
   @answer: String
 
-  def ask: (String) ?{ (Question) -> void } -> String
+  def ask: (String, ?allow_empty: bool) ?{ (Question) -> void } -> String
 end

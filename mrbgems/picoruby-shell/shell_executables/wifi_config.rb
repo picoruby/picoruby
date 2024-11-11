@@ -31,9 +31,12 @@ answers["country_code"] = cli.ask("Country Code?") do |q|
   q.default = "JP"
 end
 answers["wifi"]["ssid"] = cli.ask("WiFi SSID?")
-password = cli.ask("WiFi Password?")
-encrypted_password = encrypt_proc.call(password)
-answers["wifi"]["encoded_password"] = Base64.encode64(encrypted_password)
+password = cli.ask("WiFi Password? (leave blank if no password required)", allow_empty: true)
+answers["wifi"]["encoded_password"] = if !password.empty?
+  Base64.encode64(encrypt_proc.call(password))
+else
+  nil
+end
 answers["wifi"]["auto_connect"] = cli.ask("Auto Connect? (y/n)") do |q|
   q.default = "y"
 end == "y"

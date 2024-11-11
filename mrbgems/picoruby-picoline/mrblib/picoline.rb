@@ -40,7 +40,7 @@ class PicoLine
     @answer = ""
   end
 
-  def ask(prompt)
+  def ask(prompt, allow_empty: false)
     q = Question.new
     yield q if block_given?
     if q.default_hint_show && !q.default.to_s.empty?
@@ -58,7 +58,7 @@ class PicoLine
         end
       end
       answer = q.default.to_s if answer.empty?
-      break unless answer.empty?
+      break if !answer.empty? || allow_empty
     end
     return(@answer = answer)
   end
