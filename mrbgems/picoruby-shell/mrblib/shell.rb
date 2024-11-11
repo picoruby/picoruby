@@ -121,6 +121,7 @@ class Shell
     end
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
+    ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     Dir.chdir(root || "/") do
       %w(bin lib var home etc etc/init.d etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)

@@ -1,5 +1,5 @@
 ARGV.each do |arg|
-  if File.exist?(arg)
+  if File.file?(arg)
     File.open arg, "r" do |f|
       f.each_line do |line|
         puts line

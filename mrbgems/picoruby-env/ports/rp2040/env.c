@@ -7,10 +7,7 @@ static const struct {
     { "PWD", "" },      // Should be set in Shell.setup_system_files
     { "TERM", "ansi" }, // may be overwritten by IO.wait_terminal
     { "TZ", "JST-9" },
-    { "PATH", "" },     // Should be set in Shell.setup_system_files
-    { "HOME", "" },     // Should be set in Shell.setup_system_files
     { "WIFI_MODULE", "" },
-    { "WIFI_CONFIG_PATH", "/etc/network/wifi.yml" },
     { NULL, NULL }
 };
 
