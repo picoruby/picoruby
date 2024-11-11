@@ -14,6 +14,12 @@ class Sandbox
       if signal && (line = STDIN.read_nonblock(1)) && line[0]&.ord == 3
         puts "^C"
         interrupt
+        begin
+          Watchdog.disable
+          puts "Watchdog disabled"
+        rescue NameError
+          # ignore. maybe POSIX
+        end
         return false
       end
       sleep_ms 50
