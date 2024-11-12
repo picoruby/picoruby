@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2_w_ble_wifi-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2-cortex-m33") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -15,8 +15,14 @@ MRuby::CrossBuild.new("r2p2_w_ble_wifi-cortex-m0plus") do |conf|
   conf.cc.host_command = "gcc"
 
   conf.cc.flags.flatten!
-  conf.cc.flags << "-mcpu=cortex-m0plus"
+  conf.cc.flags << "-mcpu=cortex-m33"
+  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
+  conf.cc.flags << "-mabi=aapcs-linux"
+  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
+
+  conf.cc.flags << "-fshort-enums"
+
   conf.cc.flags << "-Wall"
   conf.cc.flags << "-Wno-format"
   conf.cc.flags << "-Wno-unused-function"
@@ -37,8 +43,6 @@ MRuby::CrossBuild.new("r2p2_w_ble_wifi-cortex-m0plus") do |conf|
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
-  conf.cc.defines << "MRBC_USE_FLOAT=2"
-  conf.cc.defines << "USE_WIFI"
 
   conf.mrubyc_hal_arm
   conf.picoruby
@@ -49,7 +53,5 @@ MRuby::CrossBuild.new("r2p2_w_ble_wifi-cortex-m0plus") do |conf|
   conf.gembox "r2p2"
   conf.gembox "stdlib"
   conf.gembox "utils"
-  conf.gem core: 'picoruby-net'
-  conf.gem core: 'picoruby-ble'
 end
 

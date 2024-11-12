@@ -1,4 +1,8 @@
-#include "pico/sleep.h"
+#if !defined(PICO_RP2350)
+  #include "pico/sleep.h"
+  #include "hardware/rosc.h"
+#endif
+
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
 #include <stdint.h>
@@ -6,7 +10,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include "hardware/clocks.h"
-#include "hardware/rosc.h"
 #include "hardware/structs/scb.h"
 #include "hardware/sync.h"
 
@@ -26,10 +29,13 @@
 #define MONTH    6
 #define DAY      5
 #define DOTW     5
-static const uint32_t PIN_DCDC_PSM_CTRL = 23;
-static uint32_t _scr;
-static uint32_t _sleep_en0;
-static uint32_t _sleep_en1;
+
+#if !defined(PICO_RP2350)
+  static const uint32_t PIN_DCDC_PSM_CTRL = 23;
+  static uint32_t _scr;
+  static uint32_t _sleep_en0;
+  static uint32_t _sleep_en1;
+#endif
 
 /*
  * deep_sleep doesn't work yet
@@ -37,6 +43,7 @@ static uint32_t _sleep_en1;
 void
 Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
 {
+#if !defined(PICO_RP2350)
   bool psm = gpio_get(PIN_DCDC_PSM_CTRL);
   gpio_put(PIN_DCDC_PSM_CTRL, 0); // PFM mode for better efficiency
   uint32_t ints = save_and_disable_interrupts();
@@ -59,6 +66,7 @@ Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
   }
   restore_interrupts(ints);
   gpio_put(PIN_DCDC_PSM_CTRL, psm); // recover PWM mode
+#endif
 }
 
 static void
@@ -70,6 +78,7 @@ sleep_callback(void)
 static void
 rtc_sleep(uint32_t seconds)
 {
+#if !defined(PICO_RP2350)
   datetime_t t;
   rtc_get_datetime(&t);
   t.sec += seconds;
@@ -82,12 +91,14 @@ rtc_sleep(uint32_t seconds)
     t.min %= 60;
   }
   sleep_goto_sleep_until(&t, &sleep_callback);
+#endif
 }
 
 
 static void
 recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
 {
+#if !defined(PICO_RP2350)
   //Re-enable ring Oscillator control
   rosc_write(&rosc_hw->ctrl, ROSC_CTRL_ENABLE_BITS);
   //reset procs back to default
@@ -98,11 +109,13 @@ recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
   set_sys_clock_khz(125000, true);
   // Re-initialize peripherals
   stdio_init_all();
+#endif
 }
 
 void
 Machine_sleep(uint32_t seconds)
 {
+#if !defined(PICO_RP2350)
   // save values for later
   uint scb_orig = scb_hw->scr;
   uint clock0_orig = clocks_hw->sleep_en0;
@@ -133,6 +146,7 @@ Machine_sleep(uint32_t seconds)
 
   // Re-enable interrupts
   irq_set_enabled(RTC_IRQ, true);
+#endif
 }
 
 void
