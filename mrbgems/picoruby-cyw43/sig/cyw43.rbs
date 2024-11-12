@@ -1,5 +1,7 @@
 # @sidebar hardware_device
 class CYW43
+
+  # @sidebar error
   class ConnectTimeout < RuntimeError
   end
 

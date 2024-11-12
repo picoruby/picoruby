@@ -1,4 +1,5 @@
 
+# @sidebar error
 class EOFError < IOError
 end
 
