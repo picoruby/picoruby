@@ -22,9 +22,6 @@ MRuby::Build.new do |conf|
   # Net::NTTPSClient needs -lssl -lcrypto
   conf.gem core: "picoruby-net"
 
-  conf.linker.flags_after_libraries << '-lcrypto'
-  conf.linker.flags_after_libraries << '-lssl'
-
   conf.picoruby
 
 end
