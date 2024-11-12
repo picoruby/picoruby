@@ -1,5 +1,6 @@
 module YAML
   def self.load: (String) -> Object
+  def self.load_file: (String) -> Object
   def self.dump: (Object) -> String
 
   private def self.parse: (String) -> Object

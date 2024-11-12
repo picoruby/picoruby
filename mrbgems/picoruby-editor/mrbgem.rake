@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-editor') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Library for editor-like application'
 
-  if cc.defines.flatten.include? 'MRBC_USE_HAL_POSIX'
+  if cc.defines.flatten.include?('PICORUBY_PLATFORM=posix')
     spec.add_dependency 'picoruby-io'
   else
     spec.add_dependency 'picoruby-filesystem-fat'

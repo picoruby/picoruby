@@ -12,6 +12,12 @@ module YAML
     parse(yaml_string)
   end
 
+  def self.load_file(file_path)
+    File.open(file_path, "r") do |file|
+      parse(file.read)
+    end
+  end
+
   def self.dump(ruby_object)
     serialize(ruby_object)
   end
