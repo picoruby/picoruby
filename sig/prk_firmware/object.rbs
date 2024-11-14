@@ -1,8 +1,0 @@
-# @private
-class Object
-  PRK_DESCRIPTION: String
-
-  # mrbc
-  def relinquish : -> bool
-  def suspend_task : () -> void
-end

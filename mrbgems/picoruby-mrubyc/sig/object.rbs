@@ -385,4 +385,7 @@ class Object < BasicObject
   def include: (Module) -> void
 
   def loop: () { () -> void }-> void
+
+  # mrbc
+  def relinquish : -> bool
 end
