@@ -132,7 +132,7 @@ class Keyboard
 
   def self.autoreload_off: () -> void
   def self.autoreload_ready?: () -> bool
-  def self.restart: () -> void
+  def self.restart: () -> bool
   def self.reload_keymap: () -> void
   def self.wait_keymap: () -> void
 

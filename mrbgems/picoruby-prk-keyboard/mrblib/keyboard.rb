@@ -4,8 +4,12 @@ if RUBY_ENGINE == 'mruby/c'
   require "rgb"
   require "rotary_encoder"
   require "sandbox"
+  require "machine"
+  require "watchdog"
+  require "picorubyvm"
   require "vfs"
   require "filesystem-fat"
+  require "io/console"
 end
 
 class Keyboard
@@ -493,6 +497,20 @@ class Keyboard
     puts "prk-conf: #{USB.prk_conf}"
     puts "==============================================="
     $keyboard_sandbox ||= Sandbox.new
+
+    puts "Press 's' to skip starting the keyboard"
+    20.times do
+      print "."
+      USB.tud_task
+      if STDIN.read_nonblock(1) == "s"
+        puts
+        puts "Skipped starting the keyboard"
+        return false
+      end
+      sleep 0.1
+    end
+    puts
+
     if File.exist?(KEYMAP) #&& (0 < File::Stat.new(KEYMAP).mode & FAT::AM_ARC)
       # FIXME: Checking Stat#mode doesn't work well
       $keyboard_sandbox.suspend
@@ -500,8 +518,9 @@ class Keyboard
     else
       Keyboard.wait_keymap
     end
-    PicoRubyVM.print_alloc_stats
+    p PicoRubyVM.memory_statistics
     Keyboard.autoreload_off
+    return true
   end
 
   def self.reload_keymap

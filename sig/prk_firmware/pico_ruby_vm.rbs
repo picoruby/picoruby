@@ -1,5 +1,0 @@
-# @private
-class PicoRubyVM
-  def self.alloc_stats: () -> Hash[Symbol, Integer]
-  def self.print_alloc_stats: () -> nil
-end

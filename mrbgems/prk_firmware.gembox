@@ -1,6 +1,6 @@
 MRuby::GemBox.new do |conf|
 
-  conf.gem github: 'picoruby/mruby-pico-compiler', branch: 'master'
+  conf.gem github: 'picoruby/mruby-compiler2'
   conf.gem core: 'picoruby-mrubyc'
   conf.gem core: "picoruby-require"
   conf.gem core: 'picoruby-vfs'
@@ -19,4 +19,8 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-i2c'
   conf.gem core: 'picoruby-spi'
   conf.gem core: 'picoruby-adc'
+  conf.gem core: 'picoruby-pwm'
+  conf.gem core: "picoruby-watchdog"
+  conf.gem core: "picoruby-machine"
+  conf.gem core: "picoruby-picorubyvm"
 end

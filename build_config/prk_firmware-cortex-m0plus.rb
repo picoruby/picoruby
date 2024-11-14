@@ -17,6 +17,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   conf.cc.flags.flatten!
   conf.cc.flags << "-mcpu=cortex-m0plus"
   conf.cc.flags << "-mthumb"
+  conf.cc.flags << "-fshort-enums"
   conf.cc.flags << "-Wall"
   conf.cc.flags << "-Wno-format"
   conf.cc.flags << "-Wno-unused-function"
@@ -26,6 +27,8 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
 
   # These defines should correspond to
   # the platform's configuration
+  conf.cc.defines << "PICORUBY_INT64"
+  conf.cc.defines << "MRBC_USE_ALLOC_PROF"
   conf.cc.defines << 'MRC_CUSTOM_ALLOC'
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
