@@ -98,9 +98,9 @@ c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_Machine_read_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  const void *addr = (const void *)GET_INT_ARG(1);
+  intptr_t addr = (intptr_t)GET_INT_ARG(1);
   uint32_t size = GET_INT_ARG(2);
-  mrbc_value ret = mrbc_string_new(vm, addr, size);
+  mrbc_value ret = mrbc_string_new(vm, (const void *)addr, size);
   SET_RETURN(ret);
 }
 
