@@ -44,6 +44,19 @@ rake
 bin/picoruby -e 'puts "Hello World!"'
 ```
 
+#### macOS
+
+If you get the error like `ld: library not found for -lssl`, you will need to specify the location of `libssh.a` using the environment variables as follows.
+
+```console
+LIBRARY_PATH=/your/libssl/path/ rake
+```
+
+If you get the error like `fatal error: ‘openssl/ssl.h’ file not found`, you will need to specify the location of `openssl/ssl.h` using the environment variables as follows.
+```console
+C_INCLUDE_PATH=/your/openssl/include/path/ rake
+```
+
 #### Cross compilation
 
 See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby/picoruby/blob/master/build_config/r2p2-cortex-m0plus.rb)
