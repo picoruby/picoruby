@@ -17,13 +17,16 @@
  *
  *------------------------------------*/
 
+#ifdef MRBC_NO_TIMER
+  #error "MRBC_NO_TIMER is not supported"
+#endif
+
 #define ALARM_IRQ 0
 
 #ifndef MRBC_TICK_UNIT
 #define MRBC_TICK_UNIT 1
 #endif
 
-#ifndef MRBC_NO_TIMER
 struct repeating_timer timer;
 
 bool
@@ -75,16 +78,6 @@ hal_idle_cpu()
 {
   __wfi();
 }
-
-#else // MRBC_NO_TIMER
-
-void
-hal_idle_cpu()
-{
-  sleep_ms(MRBC_TICK_UNIT);
-  mrbc_tick();
-}
-#endif
 
 int hal_write(int fd, const void *buf, int nbytes)
 {
