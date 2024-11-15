@@ -21,7 +21,8 @@
   #error "MRBC_NO_TIMER is not supported"
 #endif
 
-#define ALARM_IRQ 0
+#define ALARM_NUM 0
+#define ALARM_IRQ timer_hardware_alarm_get_irq_num(timer_hw, ALARM_NUM)
 
 #ifndef MRBC_TICK_UNIT
 #define MRBC_TICK_UNIT 1
