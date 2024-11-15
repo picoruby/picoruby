@@ -27,23 +27,32 @@
 #ifndef MRBC_TICK_UNIT
 #define MRBC_TICK_UNIT 1
 #endif
+#define US_PER_MS (MRBC_TICK_UNIT * 1000)
 
 struct repeating_timer timer;
 
-bool
-alarm_irq(struct repeating_timer *t)
+static void
+alarm_irq(void)
 {
+  uint32_t current_time = timer_hw->timerawl;
+  uint32_t next_time = current_time + US_PER_MS;
+  timer_hw->alarm[ALARM_NUM] = next_time;
+  hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
   mrbc_tick();
-  return true;
 }
 
 void
 hal_init(void)
 {
-  add_repeating_timer_ms(MRBC_TICK_UNIT, alarm_irq, NULL, &timer);
+  hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
+  irq_set_exclusive_handler(ALARM_IRQ, alarm_irq);
+  irq_set_enabled(ALARM_IRQ, true);
+  timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
+
   clocks_hw->sleep_en0 = 0;
-#if !defined(PICO_RP2350)
-  clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS
+#if defined(PICO_RP2040)
+  clocks_hw->sleep_en1 =
+  CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
   | CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
@@ -51,8 +60,9 @@ hal_init(void)
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
 #else
-  clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS // ???
+  clocks_hw->sleep_en1 =
+  CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
@@ -65,6 +75,8 @@ hal_init(void)
 void
 hal_enable_irq()
 {
+  timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
+  hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_enabled(ALARM_IRQ, true);
 }
 
@@ -72,6 +84,8 @@ void
 hal_disable_irq()
 {
   irq_set_enabled(ALARM_IRQ, false);
+  hw_set_bits(&timer_hw->intr, 1u << ALARM_NUM);
+  hw_clear_bits(&timer_hw->inte, 1u << ALARM_NUM);
 }
 
 void
