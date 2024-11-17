@@ -39,6 +39,16 @@ alarm_irq(void)
   timer_hw->alarm[ALARM_NUM] = next_time;
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
   mrbc_tick();
+  tud_task();
+}
+
+static void
+_usb_irq_wrapper(void) {
+  if (!tud_inited()) {
+    return;
+  }
+  tud_int_handler(0);
+  tud_task();
 }
 
 void
@@ -59,17 +69,24 @@ hal_init(void)
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
-#else
+#elif defined(PICO_RP2350)
   clocks_hw->sleep_en1 =
   CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
+  | CLOCKS_WAKE_EN1_CLK_USB_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
+#else
+  #error "Unsupported Pico Board"
 #endif
-  irq_set_enabled(ALARM_IRQ, true);
+
+  tusb_init();
+  irq_add_shared_handler(USBCTRL_IRQ, _usb_irq_wrapper,
+      PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
+
 }
 
 void
@@ -102,6 +119,7 @@ int hal_write(int fd, const void *buf, int nbytes)
 }
 
 int hal_flush(int fd) {
+  tud_task();
   return tud_cdc_write_flush();
 }
 
