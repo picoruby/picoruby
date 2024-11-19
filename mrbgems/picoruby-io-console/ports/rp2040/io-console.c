@@ -125,20 +125,29 @@ hal_idle_cpu()
 
 int hal_write(int fd, const void *buf, int nbytes)
 {
+  hal_disable_irq();
   tud_task();
   tud_cdc_write(buf, nbytes);
-  return tud_cdc_write_flush();
+  int len = tud_cdc_write_flush();
+  hal_enable_irq();
+  return len;
 }
 
 int hal_flush(int fd) {
+  hal_disable_irq();
   tud_task();
-  return tud_cdc_write_flush();
+  int len = tud_cdc_write_flush();
+  hal_enable_irq();
+  return len;
 }
 
 int
 hal_read_available(void)
 {
-  if (tud_cdc_available()) {
+  hal_disable_irq();
+  int len = tud_cdc_available();
+  hal_enable_irq();
+  if (0 < len) {
     return 1;
   } else {
     return 0;
@@ -148,12 +157,14 @@ hal_read_available(void)
 int
 hal_getchar(void)
 {
+  int c = -1;
+  hal_disable_irq();
   tud_task();
   if (tud_cdc_available()) {
-    return tud_cdc_read_char();
-  } else {
-    return -1;
+    c = tud_cdc_read_char();
   }
+  hal_enable_irq();
+  return c;
 }
 
 //================================================================
