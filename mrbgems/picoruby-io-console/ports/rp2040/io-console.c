@@ -36,21 +36,32 @@ static volatile uint32_t interrupt_nesting = 0;
 void hal_enable_irq(void);
 void hal_disable_irq(void);
 
-#include "rrt0.h"
+static volatile bool in_tick_processing = false;
 
 static void
-alarm_irq(void)
+alarm_handler(void)
 {
+  if (in_tick_processing) {
+    timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
+    hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
+    return;
+  }
+  in_tick_processing = true;
+  __dmb();
+
   uint32_t current_time = timer_hw->timerawl;
   uint32_t next_time = current_time + US_PER_MS;
   timer_hw->alarm[ALARM_NUM] = next_time;
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 
   mrbc_tick();
+
+  __dmb();
+  in_tick_processing = false;
 }
 
 static void
-_usb_irq_wrapper(void) {
+usb_irq_handler(void) {
   if (!tud_inited()) {
     return;
   }
@@ -61,7 +72,7 @@ void
 hal_init(void)
 {
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
-  irq_set_exclusive_handler(ALARM_IRQ, alarm_irq);
+  irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
   irq_set_priority(ALARM_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
   timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
@@ -91,7 +102,7 @@ hal_init(void)
 #endif
 
   tusb_init();
-  irq_add_shared_handler(USBCTRL_IRQ, _usb_irq_wrapper,
+  irq_add_shared_handler(USBCTRL_IRQ, usb_irq_handler,
       PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
 }
 

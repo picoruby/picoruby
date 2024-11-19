@@ -23,14 +23,14 @@ class Sandbox
         end
         return false
       end
-      sleep_ms 50
-      if timeout
-        n += 50
-        if timeout < n
-          puts "Error: Timeout (sandbox.state: #{self.state})"
-          return false
-        end
-      end
+      #sleep_ms 50
+      #if timeout
+      #  n += 50
+      #  if timeout < n
+      #    puts "Error: Timeout (sandbox.state: #{self.state})"
+      #    return false
+      #  end
+      #end
     end
     return true
   end
