@@ -31,6 +31,13 @@
 
 struct repeating_timer timer;
 
+static volatile uint32_t interrupt_nesting = 0;
+
+void hal_enable_irq(void);
+void hal_disable_irq(void);
+
+#include "rrt0.h"
+
 static void
 alarm_irq(void)
 {
@@ -38,8 +45,8 @@ alarm_irq(void)
   uint32_t next_time = current_time + US_PER_MS;
   timer_hw->alarm[ALARM_NUM] = next_time;
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
+
   mrbc_tick();
-  tud_task();
 }
 
 static void
@@ -47,7 +54,6 @@ _usb_irq_wrapper(void) {
   if (!tud_inited()) {
     return;
   }
-  tud_int_handler(0);
   tud_task();
 }
 
@@ -57,6 +63,7 @@ hal_init(void)
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_irq);
   irq_set_enabled(ALARM_IRQ, true);
+  irq_set_priority(ALARM_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
   timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
 
   clocks_hw->sleep_en0 = 0;
@@ -86,23 +93,28 @@ hal_init(void)
   tusb_init();
   irq_add_shared_handler(USBCTRL_IRQ, _usb_irq_wrapper,
       PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
-
 }
 
 void
 hal_enable_irq()
 {
-  timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
-  hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
-  irq_set_enabled(ALARM_IRQ, true);
+  if (interrupt_nesting == 0) {
+    return; // wrong state???
+  }
+  interrupt_nesting--;
+  if (interrupt_nesting > 0) {
+    return;
+  }
+  __dmb();
+  asm volatile ("cpsie i" : : : "memory");
 }
 
 void
 hal_disable_irq()
 {
-  irq_set_enabled(ALARM_IRQ, false);
-  hw_set_bits(&timer_hw->intr, 1u << ALARM_NUM);
-  hw_clear_bits(&timer_hw->inte, 1u << ALARM_NUM);
+  asm volatile ("cpsid i" : : : "memory");
+  __dmb();
+  interrupt_nesting++;
 }
 
 void
