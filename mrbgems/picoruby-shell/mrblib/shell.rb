@@ -208,7 +208,7 @@ class Shell
   end
 
   def run_irb
-    sandbox = Sandbox.new(true)
+    sandbox = Sandbox.new('irb')
     @editor.start do |editor, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13

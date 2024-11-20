@@ -69,7 +69,8 @@ class IO
         timer += 0.1
         STDIN.read_nonblock(100) # clear buffer
         STDOUT.print "\e[5n" # CSI DSR 5 to request terminal status report
-        sleep 0.1
+        # sleep(0.1) won't work in very first phase of booting
+        Machine.busy_wait_ms(100)
         if STDIN.read_nonblock(4) == "\e[0n"
           ENV['TERM'] = "ansi"
           break

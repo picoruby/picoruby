@@ -33,7 +33,7 @@ class Object
   end
 
   def load_file(path)
-    sandbox = Sandbox.new
+    sandbox = Sandbox.new('require')
     begin
       sandbox.load_file(path)
     rescue => e

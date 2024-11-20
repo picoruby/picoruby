@@ -16,10 +16,14 @@ MRuby::CrossBuild.new("r2p2-cortex-m33") do |conf|
 
   conf.cc.flags.flatten!
   conf.cc.flags << "-mcpu=cortex-m33"
-  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
-  conf.cc.flags << "-mabi=aapcs-linux"
-  conf.cc.flags << "-mfloat-abi=softfp"
+#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
+#  conf.cc.flags << "-mabi=aapcs-linux"
+#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
+
+  conf.cc.flags << "-fno-strict-aliasing"
+  conf.cc.flags << "-fno-unroll-loops"
+  conf.cc.flags << "-mslow-flash-data"
 
   conf.cc.flags << "-fshort-enums"
 

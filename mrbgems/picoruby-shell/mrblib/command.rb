@@ -1,7 +1,7 @@
 class Shell
   class Command
     def initialize
-      @sandbox = Sandbox.new
+      @sandbox = Sandbox.new('command')
     end
 
     BUILTIN = %w(

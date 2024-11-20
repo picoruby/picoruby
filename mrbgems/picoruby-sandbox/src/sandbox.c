@@ -250,6 +250,13 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
   ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
   mrbc_create_task(sandbox_task, ss->tcb);
   ss->tcb->vm.flag_permanence = 1;
+  const char *name;
+  if (0 == argc) {
+    name = "sandbox";
+  } else {
+    name = (const char *)GET_STRING_ARG(1);
+  }
+  mrbc_set_task_name(ss->tcb, name);
   SET_RETURN(sandbox);
 }
 

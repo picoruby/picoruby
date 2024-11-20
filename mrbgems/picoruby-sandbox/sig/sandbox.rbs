@@ -12,7 +12,7 @@ class Sandbox
 
   attr_accessor error: Exception?
 
-  def self.new: (?bool suppress_error) -> instance
+  def self.new: (?String name) -> instance
   def compile: (String script) -> bool
   def compile_from_memory: (Integer address, Integer size) -> bool
   def suspend: () -> nil

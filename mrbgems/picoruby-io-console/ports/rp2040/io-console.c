@@ -38,14 +38,21 @@ void hal_disable_irq(void);
 
 static volatile bool in_tick_processing = false;
 
+
+#define DEBUG_TICK_PIN 14    // CH1: tick発生タイミング
+#define DEBUG_PROC_PIN 15    // CH2: 処理状態表示用（用途を切り替えて観察）
+
 static void
 alarm_handler(void)
 {
+gpio_put(DEBUG_TICK_PIN, 1);    // 割り込み開始
+
   if (in_tick_processing) {
     timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
     hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
     return;
   }
+
   in_tick_processing = true;
   __dmb();
 
@@ -58,19 +65,29 @@ alarm_handler(void)
 
   __dmb();
   in_tick_processing = false;
+gpio_put(DEBUG_TICK_PIN, 0);    // 割り込み終了
 }
 
 static void
 usb_irq_handler(void) {
+//gpio_put(DEBUG_PROC_PIN, 1);    // USB処理開始
   if (!tud_inited()) {
     return;
   }
   tud_task();
+//gpio_put(DEBUG_PROC_PIN, 0);    // USB処理終了
 }
 
 void
 hal_init(void)
 {
+    gpio_init(DEBUG_TICK_PIN);
+    gpio_init(DEBUG_PROC_PIN);
+    gpio_set_dir(DEBUG_TICK_PIN, GPIO_OUT);
+    gpio_set_dir(DEBUG_PROC_PIN, GPIO_OUT);
+    gpio_put(DEBUG_TICK_PIN, 0);
+    gpio_put(DEBUG_PROC_PIN, 0);
+
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
@@ -92,7 +109,7 @@ hal_init(void)
   CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
-  | CLOCKS_WAKE_EN1_CLK_USB_BITS
+  | CLOCKS_SLEEP_EN1_CLK_USB_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
   | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
@@ -101,7 +118,7 @@ hal_init(void)
   #error "Unsupported Pico Board"
 #endif
 
-  tusb_init();
+  tud_init(TUD_OPT_RHPORT);
   irq_add_shared_handler(USBCTRL_IRQ, usb_irq_handler,
       PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
 }
@@ -110,19 +127,21 @@ void
 hal_enable_irq()
 {
   if (interrupt_nesting == 0) {
-    return; // wrong state???
+//    return; // wrong state???
   }
   interrupt_nesting--;
   if (interrupt_nesting > 0) {
     return;
   }
   __dmb();
+gpio_put(DEBUG_PROC_PIN, 0);    // 割り込み禁止区間終了
   asm volatile ("cpsie i" : : : "memory");
 }
 
 void
 hal_disable_irq()
 {
+gpio_put(DEBUG_PROC_PIN, 1);    // 割り込み禁止区間開始
   asm volatile ("cpsid i" : : : "memory");
   __dmb();
   interrupt_nesting++;
@@ -131,7 +150,10 @@ hal_disable_irq()
 void
 hal_idle_cpu()
 {
+  hal_disable_irq();
+  __dsb();
   __wfi();
+  hal_enable_irq();
 }
 
 int hal_write(int fd, const void *buf, int nbytes)
@@ -171,7 +193,8 @@ hal_getchar(void)
   int c = -1;
   hal_disable_irq();
   tud_task();
-  if (tud_cdc_available()) {
+  int len = tud_cdc_available();
+  if (0 < len) {
     c = tud_cdc_read_char();
   }
   hal_enable_irq();
