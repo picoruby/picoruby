@@ -32,58 +32,50 @@ class IO
   end
 
   def get_cursor_position
-    return [0, 0] if ENV && ENV['TERM'] == "dumb"
+    return [0, 0] if ENV['TERM'] == "dumb"
+    STDIN.read_nonblock(100) # discard buffer
+    STDOUT.print "\e[6n"
+    sleep_ms 1
     row, col = 0, 0
-    raw do
-      STDOUT.print "\e[6n"
-      while true
-        case c = STDIN.getch.ord
-        when 59 # ";"
-          break
-        when 0x30..0x39
-          row = row * 10 + (c.to_i - 0x30)
-        end
-      end
-      while true
-        case c = STDIN.getch.ord
-        when 82 # "R"
-          break
-        when 0x30..0x39
-          col = col * 10 + (c.to_i - 0x30)
-        else
-          raise Exception.new("get_cursor_position failed")
-        end
+    while true
+      c = STDIN.read_nonblock(1)&.ord || 0
+      if 0x30 <= c && c <= 0x39
+        row = row * 10 + c - 0x30
+      elsif c == 0x3B # ";"
+        break
+      elsif c == 0
+        sleep_ms 1
       end
     end
-    return [row, col]
+    while true
+      c = STDIN.read_nonblock(1)&.ord || 0
+      if 0x30 <= c && c <= 0x39
+        col = col * 10 + c - 0x30
+      elsif c == 0x52 # "R"
+        break
+      elsif c == 0
+        sleep_ms 1
+      else
+        raise "Invalid cursor position response"
+      end
+    end
+    return [row.to_i, col.to_i]
   end
 
   def self.clear_screen
     STDOUT.print "\e[2J\e[1;1H"
   end
 
-  def self.wait_terminal(timeout: nil)
-    timer = 0.0
-    STDIN.raw do
-      while true
-        timer += 0.1
-        STDIN.read_nonblock(100) # clear buffer
-        STDOUT.print "\e[5n" # CSI DSR 5 to request terminal status report
-        # sleep(0.1) won't work in very first phase of booting
-        Machine.busy_wait_ms(100)
-        if STDIN.read_nonblock(4) == "\e[0n"
-          ENV['TERM'] = "ansi"
-          break
-        end
-        if timeout && timeout.to_f < timer
-          ENV['TERM'] = "dumb"
-          # TODO: refactor after fixing the bug
-          # https://github.com/picoruby/picoruby/issues/148
-          return false
-        end
-      end
+  def self.wait_terminal(timeout: 65535)
+    res = ""
+    STDIN.read_nonblock(100) # clear buffer
+    STDOUT.print "\e[5n" # CSI DSR 5 to request terminal status report
+    (timeout * 1000).to_i.times do |i|
+      res << STDIN.read_nonblock(1).to_s
+      break i if 3 < res.length
+      sleep_ms 1
     end
-    true
+    ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb"
   end
 end
 

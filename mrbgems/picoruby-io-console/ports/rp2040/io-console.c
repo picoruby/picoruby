@@ -58,9 +58,6 @@ alarm_handler(void)
 
 static void
 usb_irq_handler(void) {
-  if (!tud_inited()) {
-    return;
-  }
   tud_task();
 }
 
@@ -146,28 +143,20 @@ hal_idle_cpu()
 
 int hal_write(int fd, const void *buf, int nbytes)
 {
-  hal_disable_irq();
-  tud_task();
   tud_cdc_write(buf, nbytes);
   int len = tud_cdc_write_flush();
-  hal_enable_irq();
   return len;
 }
 
 int hal_flush(int fd) {
-  hal_disable_irq();
-  tud_task();
   int len = tud_cdc_write_flush();
-  hal_enable_irq();
   return len;
 }
 
 int
 hal_read_available(void)
 {
-  hal_disable_irq();
   int len = tud_cdc_available();
-  hal_enable_irq();
   if (0 < len) {
     return 1;
   } else {
@@ -179,13 +168,10 @@ int
 hal_getchar(void)
 {
   int c = -1;
-  hal_disable_irq();
-  tud_task();
   int len = tud_cdc_available();
   if (0 < len) {
     c = tud_cdc_read_char();
   }
-  hal_enable_irq();
   return c;
 }
 
