@@ -26,6 +26,7 @@ c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc)
     fcntl(fileno(stdin), F_SETFL, save_flags);
   }
 }
+
 void
 c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -58,6 +59,7 @@ hal_getchar(void)
     return c;
   }
 }
+
 
 static void
 c_echo_eq(mrbc_vm *vm, mrbc_value *v, int argc)

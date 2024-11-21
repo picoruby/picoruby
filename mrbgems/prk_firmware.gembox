@@ -1,6 +1,7 @@
 MRuby::GemBox.new do |conf|
 
   conf.gem github: 'picoruby/mruby-pico-compiler', branch: 'master'
+  conf.gem core: 'picoruby-machine'
   conf.gem core: 'picoruby-mrubyc'
   conf.gem core: "picoruby-require"
   conf.gem core: 'picoruby-vfs'

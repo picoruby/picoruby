@@ -148,7 +148,7 @@ class Shell
     skip = false
     20.times do
       print "."
-      USB.tud_task
+      Machine.tud_task
       if STDIN.read_nonblock(1) == "s"
         skip = true
         break 0

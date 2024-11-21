@@ -2,6 +2,22 @@
 #include <mrubyc.h>
 #include "../include/machine.h"
 
+static void
+c_Machine_tud_task(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  Machine_tud_task();
+  SET_NIL_RETURN();
+}
+
+static void
+c_Machine_tud_mounted_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (Machine_tud_mounted_q()) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
 
 static void
 c_Machine_delay_ms(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -98,7 +114,7 @@ c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_Machine_read_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  const void *addr = (const void *)GET_INT_ARG(1);
+  const void *addr = (const void *)(uintptr_t)GET_INT_ARG(1);
   uint32_t size = GET_INT_ARG(2);
   mrbc_value ret = mrbc_string_new(vm, addr, size);
   SET_RETURN(ret);
@@ -108,6 +124,9 @@ void
 mrbc_machine_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Machine = mrbc_define_class(vm, "Machine", mrbc_class_object);
+
+  mrbc_define_method(vm, mrbc_class_Machine, "tud_task", c_Machine_tud_task);
+  mrbc_define_method(vm, mrbc_class_Machine, "tud_mounted?", c_Machine_tud_mounted_q);
 
   mrbc_define_method(vm, mrbc_class_Machine, "delay_ms", c_Machine_delay_ms);
   mrbc_define_method(vm, mrbc_class_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);

@@ -5,6 +5,7 @@ MRuby::Gem::Specification.new('picoruby-prk-keyboard') do |spec|
 
   spec.require_name = 'keyboard'
 
+  spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-sandbox'
 end
 

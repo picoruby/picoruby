@@ -7,6 +7,8 @@ class Machine
   def self.using_busy_wait: () { () -> void } -> void
   def self.unique_id: () -> String
   def self.read_memory: (Integer address, Integer size) -> String
+  def self.tud_task: () -> void
+  def self.tud_mounted?: () -> bool
 end
 
 $machine_delay: Symbol?

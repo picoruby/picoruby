@@ -33,30 +33,32 @@ class IO
 
   def get_cursor_position
     return [0, 0] if ENV['TERM'] == "dumb"
-    STDIN.read_nonblock(100) # discard buffer
-    STDOUT.print "\e[6n"
-    sleep_ms 1
     row, col = 0, 0
-    while true
-      c = STDIN.read_nonblock(1)&.ord || 0
-      if 0x30 <= c && c <= 0x39
-        row = row * 10 + c - 0x30
-      elsif c == 0x3B # ";"
-        break
-      elsif c == 0
-        sleep_ms 1
+    STDIN.read_nonblock(100) # discard buffer
+    IO.raw do
+      STDOUT.print "\e[6n"
+  #    sleep_ms 1
+      while true
+        c = STDIN.read_nonblock(1)&.ord || 0
+        if 0x30 <= c && c <= 0x39 # "0".."9"
+          row = row * 10 + c - 0x30
+        elsif c == 0x3B # ";"
+          break
+        else
+          sleep_ms 1
+        end
       end
-    end
-    while true
-      c = STDIN.read_nonblock(1)&.ord || 0
-      if 0x30 <= c && c <= 0x39
-        col = col * 10 + c - 0x30
-      elsif c == 0x52 # "R"
-        break
-      elsif c == 0
-        sleep_ms 1
-      else
-        raise "Invalid cursor position response"
+      while true
+        c = STDIN.read_nonblock(1)&.ord || 0
+        if 0x30 <= c && c <= 0x39
+          col = col * 10 + c - 0x30
+        elsif c == 0x52 # "R"
+          break
+        elsif c == 0
+          sleep_ms 1
+        else
+          raise "Invalid cursor position response"
+        end
       end
     end
     return [row.to_i, col.to_i]

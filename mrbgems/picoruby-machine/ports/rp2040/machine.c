@@ -1,3 +1,5 @@
+#include "../../include/hal.h"
+
 #if !defined(PICO_RP2350)
   #include "pico/sleep.h"
   #include "hardware/rosc.h"
@@ -12,6 +14,208 @@
 #include "hardware/clocks.h"
 #include "hardware/structs/scb.h"
 #include "hardware/sync.h"
+#include <tusb.h>
+
+/*-------------------------------------
+ *
+ * HAL
+ *
+ *------------------------------------*/
+
+#ifdef MRBC_NO_TIMER
+  #error "MRBC_NO_TIMER is not supported"
+#endif
+
+#define ALARM_NUM 0
+#define ALARM_IRQ timer_hardware_alarm_get_irq_num(timer_hw, ALARM_NUM)
+
+#ifndef MRBC_TICK_UNIT
+#define MRBC_TICK_UNIT 1
+#endif
+#define US_PER_MS (MRBC_TICK_UNIT * 1000)
+
+static volatile uint32_t interrupt_nesting = 0;
+
+static volatile bool in_tick_processing = false;
+
+static void
+alarm_handler(void)
+{
+  if (in_tick_processing) {
+    timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
+    hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
+    return;
+  }
+
+  in_tick_processing = true;
+  __dmb();
+
+  uint32_t current_time = timer_hw->timerawl;
+  uint32_t next_time = current_time + US_PER_MS;
+  timer_hw->alarm[ALARM_NUM] = next_time;
+  hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
+
+  mrbc_tick();
+
+  __dmb();
+  in_tick_processing = false;
+}
+
+static void
+usb_irq_handler(void) {
+  tud_task();
+}
+
+void
+hal_init(void)
+{
+  hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
+  irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
+  irq_set_enabled(ALARM_IRQ, true);
+  irq_set_priority(ALARM_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
+  timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
+
+  clocks_hw->sleep_en0 = 0;
+#if defined(PICO_RP2040)
+  clocks_hw->sleep_en1 =
+  CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
+  | CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
+  | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
+  | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
+#elif defined(PICO_RP2350)
+  clocks_hw->sleep_en1 =
+  CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
+  | CLOCKS_SLEEP_EN1_CLK_USB_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
+  | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
+  | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
+#else
+  #error "Unsupported Board"
+#endif
+
+  tud_init(TUD_OPT_RHPORT);
+  irq_add_shared_handler(USBCTRL_IRQ, usb_irq_handler,
+      PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
+}
+
+void
+hal_enable_irq()
+{
+
+  if (interrupt_nesting == 0) {
+//    return; // wrong state???
+  }
+  interrupt_nesting--;
+  if (interrupt_nesting > 0) {
+    return;
+  }
+  __dmb();
+  asm volatile ("cpsie i" : : : "memory");
+}
+
+void
+hal_disable_irq()
+{
+  asm volatile ("cpsid i" : : : "memory");
+  __dmb();
+  interrupt_nesting++;
+}
+
+void
+hal_idle_cpu()
+{
+#if defined(PICO_RP2040)
+  __wfi();
+#elif defined(PICO_RP2350)
+  /*
+   * TODO: Fix this for RP2350
+   *       Why does `__wfi` not wake up?
+   */
+  asm volatile (
+    "wfe\n"           // Wait for Event
+    "nop\n"           // No Operation
+    "sev\n"           // Set Event
+    : : : "memory"    // clobber
+  );
+#endif
+}
+
+int
+hal_write(int fd, const void *buf, int nbytes)
+{
+  tud_cdc_write(buf, nbytes);
+  int len = tud_cdc_write_flush();
+  return len;
+}
+
+int hal_flush(int fd) {
+  int len = tud_cdc_write_flush();
+  return len;
+}
+
+int
+hal_read_available(void)
+{
+  int len = tud_cdc_available();
+  if (0 < len) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+int
+hal_getchar(void)
+{
+  int c = -1;
+  int len = tud_cdc_available();
+  if (0 < len) {
+    c = tud_cdc_read_char();
+  }
+  return c;
+}
+
+void
+hal_abort(const char *s)
+{
+  if( s ) {
+    hal_write(1, s, strlen(s));
+  }
+
+  abort();
+}
+
+
+/*-------------------------------------
+ *
+ * USB
+ *
+ *------------------------------------*/
+
+void
+Machine_tud_task(void)
+{
+  tud_task();
+}
+
+bool
+Machine_tud_mounted_q(void)
+{
+  return tud_mounted();
+}
+
+
+/*-------------------------------------
+ *
+ * RTC
+ *
+ *------------------------------------*/
 
 /*
  * References:
