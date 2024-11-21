@@ -29,24 +29,13 @@
 #endif
 #define US_PER_MS (MRBC_TICK_UNIT * 1000)
 
-struct repeating_timer timer;
-
 static volatile uint32_t interrupt_nesting = 0;
 
-void hal_enable_irq(void);
-void hal_disable_irq(void);
-
 static volatile bool in_tick_processing = false;
-
-
-#define DEBUG_TICK_PIN 14    // CH1: tick発生タイミング
-#define DEBUG_PROC_PIN 15    // CH2: 処理状態表示用（用途を切り替えて観察）
 
 static void
 alarm_handler(void)
 {
-gpio_put(DEBUG_TICK_PIN, 1);    // 割り込み開始
-
   if (in_tick_processing) {
     timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
     hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
@@ -65,29 +54,19 @@ gpio_put(DEBUG_TICK_PIN, 1);    // 割り込み開始
 
   __dmb();
   in_tick_processing = false;
-gpio_put(DEBUG_TICK_PIN, 0);    // 割り込み終了
 }
 
 static void
 usb_irq_handler(void) {
-//gpio_put(DEBUG_PROC_PIN, 1);    // USB処理開始
   if (!tud_inited()) {
     return;
   }
   tud_task();
-//gpio_put(DEBUG_PROC_PIN, 0);    // USB処理終了
 }
 
 void
 hal_init(void)
 {
-    gpio_init(DEBUG_TICK_PIN);
-    gpio_init(DEBUG_PROC_PIN);
-    gpio_set_dir(DEBUG_TICK_PIN, GPIO_OUT);
-    gpio_set_dir(DEBUG_PROC_PIN, GPIO_OUT);
-    gpio_put(DEBUG_TICK_PIN, 0);
-    gpio_put(DEBUG_PROC_PIN, 0);
-
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
@@ -126,6 +105,7 @@ hal_init(void)
 void
 hal_enable_irq()
 {
+
   if (interrupt_nesting == 0) {
 //    return; // wrong state???
   }
@@ -134,14 +114,12 @@ hal_enable_irq()
     return;
   }
   __dmb();
-gpio_put(DEBUG_PROC_PIN, 0);    // 割り込み禁止区間終了
   asm volatile ("cpsie i" : : : "memory");
 }
 
 void
 hal_disable_irq()
 {
-gpio_put(DEBUG_PROC_PIN, 1);    // 割り込み禁止区間開始
   asm volatile ("cpsid i" : : : "memory");
   __dmb();
   interrupt_nesting++;
@@ -150,10 +128,20 @@ gpio_put(DEBUG_PROC_PIN, 1);    // 割り込み禁止区間開始
 void
 hal_idle_cpu()
 {
-  hal_disable_irq();
-  __dsb();
+#if defined(PICO_RP2040)
   __wfi();
-  hal_enable_irq();
+#elif defined(PICO_RP2350)
+  /*
+   * TODO: Fix this for RP2350
+   *       Why does `__wfi` not wake up?
+   */
+  asm volatile (
+    "wfe\n"           // Wait for Event
+    "nop\n"           // No Operation
+    "sev\n"           // Set Event
+    : : : "memory"    // clobber
+  );
+#endif
 }
 
 int hal_write(int fd, const void *buf, int nbytes)

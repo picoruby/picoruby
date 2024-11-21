@@ -153,7 +153,7 @@ class Shell
         skip = true
         break 0
       end
-      #sleep 0.1
+      sleep 0.1
     end
     STDIN.read_nonblock 1024 # discard remaining input
     if skip
