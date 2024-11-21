@@ -23,15 +23,15 @@ class Shell
 
     def find_executable(name)
       if name.start_with?("/")
-        return File.exist?(name) ? name : nil
+        return File.file?(name) ? name : nil
       end
       if name.start_with?("./") || name.start_with?("../")
         file = File.expand_path(name, Dir.pwd)
-        return File.exist?(name) ? name : nil
+        return File.file?(name) ? name : nil
       end
       ENV['PATH']&.split(";")&.each do |path|
         file = "#{path}/#{name}"
-        return file if File.exist? file
+        return file if File.file? file
       end
       nil
     end

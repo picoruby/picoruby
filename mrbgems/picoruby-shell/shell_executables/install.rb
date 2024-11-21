@@ -2,7 +2,7 @@ if !ARGV[0]
   puts "No input file specified"
 elsif !ARGV[1]
   puts "No output file specified"
-elsif !File.exist?(ARGV[0])
+elsif !File.file?(ARGV[0])
   puts "#{ARGV[0]}: No such file"
 else
   script = ""

@@ -128,7 +128,7 @@ class Shell
       end
       while exe = Shell.next_executable
         path = "#{root}#{exe[:path]}"
-        if force || !File.exist?(path)
+        if force || !File.file?(path)
           f = File.open path, "w"
           f.expand exe[:code].length
           f.write exe[:code]
@@ -140,7 +140,7 @@ class Shell
   end
 
   def bootstrap(file)
-    unless File.exist?(file)
+    unless File.file?(file)
       puts "File not found: #{file}"
       return false
     end

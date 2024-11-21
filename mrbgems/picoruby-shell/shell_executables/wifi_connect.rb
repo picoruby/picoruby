@@ -42,7 +42,7 @@ ARGV.each do |arg|
   end
 end
 
-unless File.exist?(ENV['WIFI_CONFIG_PATH'])
+unless File.file?(ENV['WIFI_CONFIG_PATH'])
   puts "File #{ENV['WIFI_CONFIG_PATH']} does not exist"
   return
 end

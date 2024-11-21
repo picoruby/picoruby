@@ -20,7 +20,7 @@ class Object
       $LOADED_FEATURES << path
       return !!result
     end
-    unless File.exist?(path)
+    unless File.file?(path)
       raise LoadError, "cannot load such file -- #{path}"
     end
     load_file(path)
@@ -53,7 +53,7 @@ class Object
     load_paths.each do |load_path|
       ["mrb", "rb"].each do |ext|
         path = File.expand_path("#{name}.#{ext}", load_path)
-        if File.exist?(path)
+        if File.file?(path)
           return (required?(path) ? false : load_file(path))
         end
       end

@@ -278,7 +278,7 @@ module Editor
     attr_accessor :footer_height, :quit_by_ctrl_c
 
     def load_file_into_buffer(filepath)
-      if File.exist?(filepath)
+      if File.file?(filepath)
         @buffer.lines.clear
         File.open(filepath, 'r') do |f|
           f.each_line do |line|
@@ -286,6 +286,8 @@ module Editor
           end
         end
         return true
+      elsif File.directory?(filepath)
+        raise "Is a directory: #{filepath}"
       else
         return false
       end
