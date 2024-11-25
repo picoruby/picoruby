@@ -13,43 +13,33 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     cc.defines << "MRBC_INT64"
   end
 
-  cc.include_paths.delete_if { |path| path.include?("no_impl") }
-  cc.include_paths << cc.defines.find { |d|
-    d.start_with? "MRBC_USE_HAL"
-  }.then { |hal|
-    if hal.nil?
-      cc.defines << "MRBC_USE_HAL=#{MRUBY_ROOT}/include/hal_no_impl"
-      "#{MRUBY_ROOT}/include/hal_no_impl"
-    elsif hal.start_with?("MRBC_USE_HAL_")
-      "#{mrubyc_dir}/#{hal.match(/\A(MRBC_USE_)(.+)\z/)[2].downcase.sub("_", "/")}"
-    else
-      "#{mrubyc_dir}/#{hal.match(/\A(MRBC_USE_HAL=)(.+)\z/)[2]}"
-    end
-  }
-
-  # Reject src/mrblib.c because it is possibly old
-  mrubyc_srcs = Dir.glob("#{mrubyc_dir}/src/*.c").reject{|s|s.end_with?("mrblib.c")}.freeze
-  # So, we regenerate mrblib.c from mrblib/*.rb
-  mrblib_rbs = %w[enum.rb array.rb global.rb hash.rb numeric.rb object.rb range.rb string.rb].map{|f|"#{mrubyc_dir}/mrblib/#{f}"}.freeze
-
-  mrubyc_srcs.each do |mrubyc_src|
+  Dir.glob("#{mrubyc_dir}/src/*.c").each do |mrubyc_src|
+    next if mrubyc_src.end_with?("mrblib.c")
     obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
     file obj => mrubyc_src do |f|
       cc.run f.name, f.prerequisites.first
     end
   end
-  if cc.defines.include?("MRBC_USE_HAL_POSIX")
+
+  if cc.defines.include?("PICORUBY_PLATFORM=posix") || cc.defines.include?("MRBC_USE_HAL_POSIX")
+    cc.include_paths << mrubyc_dir + "/hal/posix"
     hal_src = "#{mrubyc_dir}/hal/posix/hal.c"
     obj = objfile(hal_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
     file obj => hal_src do |f|
       cc.run f.name, f.prerequisites.first
     end
+  else
+    spec.add_dependency 'picoruby-machine'
+    cc.include_paths << "#{build.gems['picoruby-machine'].dir}/include"
+    cc.defines << "MRBC_USE_HAL=#{build.gems['picoruby-machine'].dir}/include"
   end
 
   directory mrblib_build_dir
 
+  # Regenerate mrblib.c from mrblib/*.rb
+  mrblib_rbs = %w[enum.rb array.rb global.rb hash.rb numeric.rb object.rb range.rb string.rb].map{|f|"#{mrubyc_dir}/mrblib/#{f}"}.freeze
   file "#{mrblib_build_dir}/mrblib.c" => [build.mrbcfile, mrblib_build_dir] + mrblib_rbs do |f|
     sh "#{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{mrblib_rbs.join(' ')}"
   end

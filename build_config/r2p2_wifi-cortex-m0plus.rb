@@ -41,9 +41,6 @@ MRuby::CrossBuild.new("r2p2_wifi-cortex-m0plus") do |conf|
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"
 
-  conf.mrubyc_hal_arm
-  conf.picoruby
-
   conf.gembox "baremetal"
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
@@ -53,5 +50,9 @@ MRuby::CrossBuild.new("r2p2_wifi-cortex-m0plus") do |conf|
   conf.gem core: 'picoruby-net'
   # For some reason, picoruby-net doesn't have dependency on picoruby-cyw43
   conf.gem core: 'picoruby-cyw43'
+
+  conf.mrubyc_hal_arm
+  conf.picoruby
+
 end
 

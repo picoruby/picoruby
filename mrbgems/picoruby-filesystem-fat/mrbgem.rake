@@ -5,7 +5,14 @@ MRuby::Gem::Specification.new('picoruby-filesystem-fat') do |spec|
 
   spec.add_dependency 'picoruby-time-class'
 
-  spec.hal_obj
+  # TODO: use #porting instead
+  Dir.glob("#{dir}/src/hal/*.c").each do |src|
+    obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"
+    file obj => src do |t|
+      cc.run(t.name, t.prerequisites[0])
+    end
+    objs << obj
+  end
 
   Dir.glob("#{dir}/lib/ff14b/source/*.c").each do |src|
     obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"

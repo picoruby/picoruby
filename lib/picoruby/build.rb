@@ -9,12 +9,6 @@ module MRuby
       gem github: 'picoruby/mruby-compiler2' unless @gems['mruby-compiler2']
       gem github: 'picoruby/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
       gem core: 'picoruby-mrubyc'
-      cc.include_paths.delete_if do |path|
-        path.end_with? "hal_no_impl"
-      end
-      cc.defines.delete_if do |define|
-        define.end_with? "hal_no_impl"
-      end
       cc.defines << "MRBC_USE_HAL_POSIX"
       cc.defines << "MRBC_ALLOC_LIBC"
       cc.defines << "DISABLE_MRUBY"
@@ -78,7 +72,8 @@ module MRuby
       if cc.defines.include?("PICORUBY_PLATFORM=posix")
         cc.include_paths << mrubyc_dir + "/hal/posix"
       else
-        cc.include_paths << "#{MRUBY_ROOT}/include/hal_no_impl"
+        # assuming microcontroller platform
+        cc.include_paths << gems['picoruby-machine'].dir + '/include'
       end
       cc.include_paths << gems['mruby-compiler2'].dir + "/lib/prism/include"
 
@@ -117,16 +112,6 @@ module MRuby
             rbfiles.clear
           end
           generate_gem_init("#{build_dir}/gem_init.c")
-        end
-      end
-
-      def hal_obj
-        Dir.glob("#{dir}/src/hal/*.c").each do |src|
-          obj = "#{build_dir}/src/#{objfile(File.basename(src, ".c"))}"
-          file obj => src do |t|
-            cc.run(t.name, t.prerequisites[0])
-          end
-          objs << obj
         end
       end
     end

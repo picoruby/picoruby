@@ -47,10 +47,11 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
     conf.cc.defines << "USE_FAT_SD_DISK=1"
   end
 
+  conf.gembox "prk_firmware"
+
   conf.mrubyc_hal_arm
   conf.picoruby
 
-  conf.gembox "prk_firmware"
 end
 
 

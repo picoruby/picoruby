@@ -85,24 +85,30 @@ c_seek(mrbc_vm *vm, mrbc_value v[], int argc)
   int ofs = GET_INT_ARG(1);
   int whence = GET_INT_ARG(2);
   FSIZE_t size = f_size(fp);
+  FSIZE_t new_pos;
+
   if (whence == SEEK_SET) {
-    // do nothing
+    new_pos = ofs;
   } else if (whence == SEEK_CUR) {
-    ofs = f_tell(fp) + ofs;
+    new_pos = f_tell(fp) + ofs;
   } else if (whence == SEEK_END) {
-    ofs = size + ofs;
+    new_pos = size + ofs;
   } else {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Unknown whence");
     return;
   }
-  if (ofs < 0) {
+
+  if (new_pos < 0) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Invalid offset");
     return;
-  } else if (size < ofs) {
-    ofs = size;
+  } else if (size < new_pos) {
+    FRESULT res;
+    res = f_expand(fp, new_pos, 1);
+    if (res == FR_OK) res = f_sync(fp);
+    mrbc_raise_iff_f_error(vm, res, "f_lseek|f_expand|f_sync");
   }
   FRESULT res;
-  res = f_lseek(fp, (FSIZE_t)ofs);
+  res = f_lseek(fp, new_pos);
   mrbc_raise_iff_f_error(vm, res, "f_lseek");
   SET_INT_RETURN(0);
 }
@@ -151,7 +157,8 @@ c_write(mrbc_vm *vm, mrbc_value v[], int argc)
   UINT bw;
   FRESULT res;
   res = f_write(fp, str.string->data, str.string->size, &bw);
-  mrbc_raise_iff_f_error(vm, res, "f_write");
+  if (res == FR_OK) res = f_sync(fp);
+  mrbc_raise_iff_f_error(vm, res, "f_write|f_sync");
   SET_INT_RETURN(bw);
 }
 
@@ -172,7 +179,8 @@ c_expand(mrbc_vm *vm, mrbc_value v[], int argc)
   FRESULT res;
   FSIZE_t size = GET_INT_ARG(1);
   res = f_expand(fp, size, 1);
-  mrbc_raise_iff_f_error(vm, res, "f_expand");
+  if (res == FR_OK) res = f_sync(fp);
+  mrbc_raise_iff_f_error(vm, res, "f_expand|f_sync");
   SET_INT_RETURN(size);
 }
 

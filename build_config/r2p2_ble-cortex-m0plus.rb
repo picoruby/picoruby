@@ -40,9 +40,6 @@ MRuby::CrossBuild.new("r2p2_ble-cortex-m0plus") do |conf|
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
 
-  conf.mrubyc_hal_arm
-  conf.picoruby
-
   conf.gembox "baremetal"
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
@@ -50,4 +47,8 @@ MRuby::CrossBuild.new("r2p2_ble-cortex-m0plus") do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
   conf.gem core: 'picoruby-ble'
+
+  conf.mrubyc_hal_arm
+  conf.picoruby
+
 end

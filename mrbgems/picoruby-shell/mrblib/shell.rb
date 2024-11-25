@@ -128,7 +128,7 @@ class Shell
       end
       while exe = Shell.next_executable
         path = "#{root}#{exe[:path]}"
-        if force || !File.exist?(path)
+        if force || !File.file?(path)
           f = File.open path, "w"
           f.expand exe[:code].length
           f.write exe[:code]
@@ -140,7 +140,7 @@ class Shell
   end
 
   def bootstrap(file)
-    unless File.exist?(file)
+    unless File.file?(file)
       puts "File not found: #{file}"
       return false
     end
@@ -148,7 +148,7 @@ class Shell
     skip = false
     20.times do
       print "."
-      USB.tud_task
+      Machine.tud_task
       if STDIN.read_nonblock(1) == "s"
         skip = true
         break 0
@@ -208,7 +208,7 @@ class Shell
   end
 
   def run_irb
-    sandbox = Sandbox.new(true)
+    sandbox = Sandbox.new('irb')
     @editor.start do |editor, buffer, c|
       case c
       when 10, 13 # LF(\n)=10, CR(\r)=13

@@ -16,10 +16,14 @@ MRuby::CrossBuild.new("r2p2-cortex-m33") do |conf|
 
   conf.cc.flags.flatten!
   conf.cc.flags << "-mcpu=cortex-m33"
-  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
-  conf.cc.flags << "-mabi=aapcs-linux"
-  conf.cc.flags << "-mfloat-abi=softfp"
+#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
+#  conf.cc.flags << "-mabi=aapcs-linux"
+#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
+
+  conf.cc.flags << "-fno-strict-aliasing"
+  conf.cc.flags << "-fno-unroll-loops"
+  conf.cc.flags << "-mslow-flash-data"
 
   conf.cc.flags << "-fshort-enums"
 
@@ -44,14 +48,15 @@ MRuby::CrossBuild.new("r2p2-cortex-m33") do |conf|
   conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
 
-  conf.mrubyc_hal_arm
-  conf.picoruby
-
   conf.gembox "baremetal"
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
   conf.gembox "r2p2"
   conf.gembox "stdlib"
   conf.gembox "utils"
+
+  conf.mrubyc_hal_arm
+  conf.picoruby
+
 end
 

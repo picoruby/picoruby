@@ -478,7 +478,7 @@ class Keyboard
     VFS.unmount($volume, true)
     USB.hid_task(0, [], 0)
     200.times do
-      USB.tud_task
+      Machine.tud_task
       sleep_ms 1
     end
     VFS.mount($volume, "/")
@@ -712,7 +712,7 @@ class Keyboard
   def init_uart
     return unless @split
     print "Configured as a split-type"
-    @anchor = USB.tud_mounted?
+    @anchor = Machine.tud_mounted?
     if @anchor
       puts " Anchor"
       uart_anchor_init(@uart_pin)
