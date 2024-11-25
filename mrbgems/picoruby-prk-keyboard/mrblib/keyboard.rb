@@ -501,7 +501,7 @@ class Keyboard
     puts "Press 's' to skip starting the keyboard"
     20.times do
       print "."
-      USB.tud_task
+      Machine.tud_task
       if STDIN.read_nonblock(1) == "s"
         puts
         puts "Skipped starting the keyboard"

@@ -35,7 +35,7 @@ class IO
     return [0, 0] if ENV['TERM'] == "dumb"
     row, col = 0, 0
     STDIN.read_nonblock(100) # discard buffer
-    IO.raw do
+    raw do
       STDOUT.print "\e[6n"
   #    sleep_ms 1
       while true
@@ -50,6 +50,7 @@ class IO
       end
       while true
         c = STDIN.read_nonblock(1)&.ord || 0
+        # @type var c: Integer
         if 0x30 <= c && c <= 0x39
           col = col * 10 + c - 0x30
         elsif c == 0x52 # "R"
