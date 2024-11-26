@@ -1585,17 +1585,18 @@ class Keyboard
       @prev_chr = :ENTER
       @off = true
       @editor = Editor::Line.new
-      @editor.refresh
     end
 
     def toggle
       if @off
-        @off = false
         puts "Ruby mode started"
+        @off = false
       else
-        @off = true
         puts "Ruby mode ended"
+        @off = true
       end
+      @editor.refresh
+      @off
     end
 
     def task(modifier, keycode)

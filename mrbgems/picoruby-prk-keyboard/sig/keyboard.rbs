@@ -191,7 +191,7 @@ class Keyboard
   def key_pressed?: () -> bool
   def output_report_changed: () { (Integer) -> void} -> void
 
-  def toggle_ruby_mode: () -> nil
+  def toggle_ruby_mode: () -> bool
 
   class IRB
     @editor: Editor::Line
@@ -201,6 +201,7 @@ class Keyboard
     @off: bool
     @prev_chr: String | Symbol
     def self.new: (Keyboard) -> instance
+    def toggle: () -> bool
     def task: (Integer modifier, Integer keycode) -> void
   end
 end
