@@ -18,11 +18,13 @@ module Editor
     def initialize: -> void
     attr_reader width: Integer
     attr_reader height: Integer
-    def clear_buffer: -> void
-    def clear: -> untyped
-    def home: -> untyped
-    def next_head: -> untyped
-    def physical_line_count: -> Integer
+    def put_buffer: (String | Symbol chr) -> void
+    def dump_buffer: () -> String
+    def clear_buffer: () -> void
+    def clear: () -> void
+    def home: () -> void
+    def next_head: () -> void
+    def physical_line_count: () -> Integer
     def debug: (untyped text) -> Integer?
 
     # for RUBY_ENGINE == "ruby"

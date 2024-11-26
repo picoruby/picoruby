@@ -424,16 +424,16 @@ class Keyboard
     XXXXXXX: :KC_NO,
   }
   letter = nil
-end
 
-# Keyboard class have to be split to avoid unexpected behavior of the compiler
+  SHIFT_LETTER_THRESHOLD_A    = LETTER.index('A').to_i
+  SHIFT_LETTER_OFFSET_A       = SHIFT_LETTER_THRESHOLD_A - KEYCODE.index(:KC_A).to_i
+  SHIFT_LETTER_THRESHOLD_UNDS = LETTER.index('_').to_i
+  SHIFT_LETTER_OFFSET_UNDS    = SHIFT_LETTER_THRESHOLD_UNDS - KEYCODE_SFT[:KC_UNDS]
 
-README = "/README.txt"
-KEYMAP = "/keymap.rb"
-PRK_CONF = "/prk-conf.txt"
-DRIVE_NAME = "PRK DRIVE"
-
-class Keyboard
+  README = "/README.txt"
+  KEYMAP = "/keymap.rb"
+  PRK_CONF = "/prk-conf.txt"
+  DRIVE_NAME = "PRK DRIVE"
 
   def self.mount_volume
     case PICORUBY_MSC
@@ -511,7 +511,7 @@ class Keyboard
     end
     puts
 
-    if File.exist?(KEYMAP) #&& (0 < File::Stat.new(KEYMAP).mode & FAT::AM_ARC)
+    if File.file?(KEYMAP) #&& (0 < File::Stat.new(KEYMAP).mode & FAT::AM_ARC)
       # FIXME: Checking Stat#mode doesn't work well
       $keyboard_sandbox.suspend
       Keyboard.reload_keymap
@@ -525,15 +525,16 @@ class Keyboard
 
   def self.reload_keymap
     $rgb&.turn_off
-    script = "begin\n"
-    File.open(KEYMAP) do |f|
-      f.each_line { |line| script << line }
-    end
-    script << "\nrescue => e\nputs e.class, e.message, 'Task stopped!'\nend"
-    unless $keyboard_sandbox.compile(script) and $keyboard_sandbox.execute
-      puts "Failed to compile keymap.rb"
-    end
-    File.chmod(0, KEYMAP)
+    #script = "begin\n"
+    #File.open(KEYMAP) do |f|
+    #  f.each_line { |line| script << line }
+    #end
+    #script << "\nrescue => e\nputs e.class, e.message, 'Task stopped!'\nend"
+    #unless $keyboard_sandbox.compile(script) and $keyboard_sandbox.execute
+    #  puts "Failed to compile keymap.rb"
+    #end
+    #File.chmod(0, KEYMAP)
+    $keyboard_sandbox.load_file(KEYMAP, join: false)
   end
 
   def self.wait_keymap
@@ -546,10 +547,6 @@ class Keyboard
     puts "Init Keyboard"
     # mruby/c VM doesn't work with a CONSTANT to make another CONSTANT
     # steep doesn't allow dynamic assignment of CONSTANT
-    @SHIFT_LETTER_THRESHOLD_A    = LETTER.index('A').to_i
-    @SHIFT_LETTER_OFFSET_A       = @SHIFT_LETTER_THRESHOLD_A - KEYCODE.index(:KC_A).to_i
-    @SHIFT_LETTER_THRESHOLD_UNDS = LETTER.index('_').to_i
-    @SHIFT_LETTER_OFFSET_UNDS    = @SHIFT_LETTER_THRESHOLD_UNDS - KEYCODE_SFT[:KC_UNDS]
     @keymaps = Hash.new
     @composite_keys = Array.new
     @mode_keys = Hash.new
@@ -1074,7 +1071,6 @@ class Keyboard
         @keycodes << (mode_key * -1)
       end
     when Array
-      0 # `steep check` will fail if you remove this line 🤔
       # @type var mode_key: Array[Integer]
       mode_key.each do |key|
         if key < -255
@@ -1364,6 +1360,8 @@ class Keyboard
           @switches.delete_at(i)
         end
 
+        @irb&.task(@modifier, @keycodes[0])
+
         # Macro
         macro_keycode = @macro_keycodes.shift
         if macro_keycode
@@ -1558,10 +1556,10 @@ class Keyboard
       index = LETTER.index(c)
       next unless index
       @macro_keycodes << 0
-      if index >= @SHIFT_LETTER_THRESHOLD_UNDS
-        @macro_keycodes << (index - @SHIFT_LETTER_OFFSET_UNDS) * -1
-      elsif index >= @SHIFT_LETTER_THRESHOLD_A
-        @macro_keycodes << (index - @SHIFT_LETTER_OFFSET_A) * -1
+      if index >= SHIFT_LETTER_THRESHOLD_UNDS
+        @macro_keycodes << (index - SHIFT_LETTER_OFFSET_UNDS) * -1
+      elsif index >= SHIFT_LETTER_THRESHOLD_A
+        @macro_keycodes << (index - SHIFT_LETTER_OFFSET_A) * -1
       else
         @macro_keycodes << index
       end
@@ -1573,5 +1571,67 @@ class Keyboard
     end
   end
 
-end
+  def toggle_ruby_mode
+    @irb ||= IRB.new(self)
+    @irb.toggle
+  end
 
+  class IRB
+    def initialize(kbd)
+      require 'editor'
+      @kbd = kbd
+      @last_put_at = Machine.board_millis
+      @sandbox = Sandbox.new('irb')
+      @prev_chr = :ENTER
+      @off = true
+      @editor = Editor::Line.new
+      @editor.refresh
+    end
+
+    def toggle
+      if @off
+        @off = false
+        puts "Ruby mode started"
+      else
+        @off = true
+        puts "Ruby mode ended"
+      end
+    end
+
+    def task(modifier, keycode)
+      return if @off || keycode.nil?
+      chr = if 0 < modifier&0b00100010
+        if 0x2d <= keycode && keycode <= 0x38 # KC_UNDS..KC_QUES
+          LETTER[keycode + SHIFT_LETTER_OFFSET_UNDS]
+        else
+          LETTER[keycode + SHIFT_LETTER_OFFSET_A]
+        end
+      else
+        LETTER[keycode]
+      end
+      return if chr.nil? || (chr == @prev_chr && Machine.board_millis - @last_put_at < 100)
+      @prev_chr = chr
+      if chr == :ENTER
+        script = @editor.dump_buffer
+        if !script.empty? && @sandbox.compile("_ = (#{script})")
+          result = @sandbox.execute
+          @editor.clear_buffer
+          @sandbox.wait(timeout: nil)
+          @sandbox.suspend
+          if result
+            message = (e = @sandbox.error) ? "=> #{e.message} (#{e.class})" : "=> #{@sandbox.result.inspect}"
+            @kbd.macro message
+            puts message
+          end
+        else
+          @editor.put_buffer(:ENTER)
+        end
+      else
+        @editor.put_buffer(chr)
+      end
+      @editor.refresh
+      @last_put_at = Machine.board_millis
+    end
+  end
+
+end

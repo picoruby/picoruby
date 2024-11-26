@@ -36,7 +36,7 @@ class Sandbox
     return true
   end
 
-  def load_file(path, signal: true)
+  def load_file(path, signal: true, join: true)
     f = File.open(path, "r")
     # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
     # See Shell#setup_system_files
@@ -66,7 +66,7 @@ class Sandbox
         end
         execute
       end
-      if started && wait(signal: signal, timeout: nil) && error
+      if join && started && wait(signal: signal, timeout: nil) && error
         puts "#{error.message} (#{error})"
       end
     ensure

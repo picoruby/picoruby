@@ -7,10 +7,6 @@ class Object
   $keyboard_sandbox: Sandbox
   $volume: FAT
   PICORUBY_MSC: String
-  README: String
-  KEYMAP: String
-  PRK_CONF: String
-  DRIVE_NAME: String
 end
 
 # @sidebar prk_firmware
@@ -56,10 +52,15 @@ class Keyboard
   KC_ALIASES: Hash[Symbol, Symbol]
   SIGNALS_MAX_INDEX: Integer
 
-  @SHIFT_LETTER_OFFSET_A: Integer
-  @SHIFT_LETTER_OFFSET_UNDS: Integer
-  @SHIFT_LETTER_THRESHOLD_A: Integer
-  @SHIFT_LETTER_THRESHOLD_UNDS: Integer
+  SHIFT_LETTER_OFFSET_A: Integer
+  SHIFT_LETTER_OFFSET_UNDS: Integer
+  SHIFT_LETTER_THRESHOLD_A: Integer
+  SHIFT_LETTER_THRESHOLD_UNDS: Integer
+
+  README: String
+  KEYMAP: String
+  PRK_CONF: String
+  DRIVE_NAME: String
 
   @before_filters: Array[^(Keyboard) -> void]
   @on_start_procs: Array[^(Keyboard) -> void]
@@ -106,8 +107,7 @@ class Keyboard
   @output_report_cb: ^(Integer)->void
   @prev_rgb_effect: RGB::rgb_effect_t
   @rgb_sandbox: Sandbox
-  @ruby_mode_stop: bool
-  @ruby_mode: bool
+  @irb: Keyboard::IRB
   @via: VIA
   @debouncer: DebounceNone | DebouncePerRow | DebouncePerKey
   @buffer: Editor::Buffer
@@ -190,4 +190,17 @@ class Keyboard
   def inject_switch: (Integer col, Integer row) -> void
   def key_pressed?: () -> bool
   def output_report_changed: () { (Integer) -> void} -> void
+
+  def toggle_ruby_mode: () -> nil
+
+  class IRB
+    @editor: Editor::Line
+    @kbd: Keyboard
+    @sandbox: Sandbox
+    @last_put_at: Integer
+    @off: bool
+    @prev_chr: String | Symbol
+    def self.new: (Keyboard) -> instance
+    def task: (Integer modifier, Integer keycode) -> void
+  end
 end

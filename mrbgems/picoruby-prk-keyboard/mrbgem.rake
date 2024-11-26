@@ -8,6 +8,7 @@ MRuby::Gem::Specification.new('picoruby-prk-keyboard') do |spec|
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-picorubyvm'
+  spec.add_dependency 'picoruby-editor'
 end
 
 

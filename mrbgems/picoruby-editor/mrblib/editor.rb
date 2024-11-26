@@ -55,6 +55,14 @@ module Editor
     attr_reader :width, :height
     attr_accessor :debug_tty
 
+    def put_buffer(chr)
+      @buffer.put chr
+    end
+
+    def dump_buffer
+      @buffer.dump.chomp
+    end
+
     def clear_buffer
       @buffer.clear
     end
