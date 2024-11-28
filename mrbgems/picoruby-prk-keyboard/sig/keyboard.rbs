@@ -107,7 +107,7 @@ class Keyboard
   @output_report_cb: ^(Integer)->void
   @prev_rgb_effect: RGB::rgb_effect_t
   @rgb_sandbox: Sandbox
-  @irb: Keyboard::IRB
+  @irb: Keyboard::Irb
   @via: VIA
   @debouncer: DebounceNone | DebouncePerRow | DebouncePerKey
   @buffer: Editor::Buffer
@@ -193,7 +193,7 @@ class Keyboard
 
   def toggle_ruby_mode: () -> bool
 
-  class IRB
+  class Irb
     @editor: Editor::Line
     @kbd: Keyboard
     @sandbox: Sandbox
@@ -202,6 +202,6 @@ class Keyboard
     @prev_chr: String | Symbol
     def self.new: (Keyboard) -> instance
     def toggle: () -> bool
-    def task: (Integer modifier, Integer keycode) -> void
+    def task: (Integer modifier, Integer | nil keycode) -> void
   end
 end

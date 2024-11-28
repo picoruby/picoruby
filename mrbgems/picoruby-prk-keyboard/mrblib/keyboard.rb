@@ -1572,17 +1572,17 @@ class Keyboard
   end
 
   def toggle_ruby_mode
-    @irb ||= IRB.new(self)
+    @irb ||= Irb.new(self)
     @irb.toggle
   end
 
-  class IRB
+  class Irb
     def initialize(kbd)
       require 'editor'
       @kbd = kbd
       @last_put_at = Machine.board_millis
       @sandbox = Sandbox.new('irb')
-      @prev_chr = :ENTER
+      @prev_chr = :NULL
       @off = true
       @editor = Editor::Line.new
     end
@@ -1600,7 +1600,11 @@ class Keyboard
     end
 
     def task(modifier, keycode)
-      return if @off || keycode.nil?
+      return if @off
+      if keycode.nil?
+        @prev_chr = :NULL
+        return
+      end
       chr = if 0 < modifier&0b00100010
         if 0x2d <= keycode && keycode <= 0x38 # KC_UNDS..KC_QUES
           LETTER[keycode + SHIFT_LETTER_OFFSET_UNDS]
