@@ -23,6 +23,7 @@ GEM
     connection_pool (2.4.1)
     csv (3.3.0)
     drb (2.2.1)
+    ffi (1.17.0)
     ffi (1.17.0-x86_64-linux-gnu)
     fileutils (1.7.3)
     formatador (1.1.0)
@@ -99,6 +100,7 @@ GEM
     uri (1.0.2)
 
 PLATFORMS
+  ruby
   x86_64-linux
 
 DEPENDENCIES
