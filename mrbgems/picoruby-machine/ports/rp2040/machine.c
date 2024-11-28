@@ -1,6 +1,7 @@
 #include "../../include/hal.h"
 
-#if !defined(PICO_RP2350)
+//#if !defined(PICO_RP2350)
+#if 0
   #include "pico/sleep.h"
   #include "hardware/rosc.h"
 #endif
@@ -234,7 +235,8 @@ Machine_tud_mounted_q(void)
 #define DAY      5
 #define DOTW     5
 
-#if !defined(PICO_RP2350)
+//#if !defined(PICO_RP2350)
+#if 0
   static const uint32_t PIN_DCDC_PSM_CTRL = 23;
   static uint32_t _scr;
   static uint32_t _sleep_en0;
@@ -247,7 +249,8 @@ Machine_tud_mounted_q(void)
 void
 Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
 {
-#if !defined(PICO_RP2350)
+//#if !defined(PICO_RP2350)
+#if 0
   bool psm = gpio_get(PIN_DCDC_PSM_CTRL);
   gpio_put(PIN_DCDC_PSM_CTRL, 0); // PFM mode for better efficiency
   uint32_t ints = save_and_disable_interrupts();
@@ -282,7 +285,8 @@ sleep_callback(void)
 static void
 rtc_sleep(uint32_t seconds)
 {
-#if !defined(PICO_RP2350)
+//#if !defined(PICO_RP2350)
+#if 0
   datetime_t t;
   rtc_get_datetime(&t);
   t.sec += seconds;
@@ -302,7 +306,8 @@ rtc_sleep(uint32_t seconds)
 static void
 recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
 {
-#if !defined(PICO_RP2350)
+//#if !defined(PICO_RP2350)
+#if 0
   //Re-enable ring Oscillator control
   rosc_write(&rosc_hw->ctrl, ROSC_CTRL_ENABLE_BITS);
   //reset procs back to default
@@ -319,7 +324,8 @@ recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
 void
 Machine_sleep(uint32_t seconds)
 {
-#if !defined(PICO_RP2350)
+//#if !defined(PICO_RP2350)
+#if 0
   // save values for later
   uint scb_orig = scb_hw->scr;
   uint clock0_orig = clocks_hw->sleep_en0;
