@@ -74,6 +74,10 @@ class File
       VFS::File.utime(atime, mtime, *filename)
     end
 
+
+    def contiguous?(path)
+      VFS.contiguous?(path)
+    end
   end
 
   def initialize(path, mode = "r")

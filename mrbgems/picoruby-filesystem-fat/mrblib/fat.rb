@@ -166,4 +166,8 @@ class FAT
     return true if path == "/"
     _directory?("#{@prefix}#{path}")
   end
+
+  def contiguous?(path)
+    _contiguous?("#{@prefix}#{path}")
+  end
 end

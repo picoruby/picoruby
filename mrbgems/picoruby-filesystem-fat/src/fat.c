@@ -242,6 +242,60 @@ c__getlabel(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(label_val);
 }
 
+/*
+ * Check if file is contiguous in the FAT sectors
+ */
+static void
+c__contiguous_q(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FRESULT res;
+  FSIZE_t file_size;
+  DWORD prev_sect = 0;
+  FSIZE_t offset = 0;
+  FIL fil;
+  const FSIZE_t sector_size = (const FSIZE_t)FILE_sector_size();
+  BYTE mode = FA_READ;
+  const TCHAR *path = (const TCHAR *)GET_STRING_ARG(1);
+
+  FILINFO fno = {0};
+  res = f_stat(path, &fno);
+  if (res == FR_OK && (fno.fattrib & AM_DIR)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Is a directory");
+    return;
+  }
+
+  res = f_open(&fil, path, mode);
+  mrbc_raise_iff_f_error(vm, res, "f_open in File.contiguous?");
+  if (res != FR_OK) return;
+
+  file_size = f_size(&fil);
+  if (file_size < sector_size) {
+    SET_TRUE_RETURN();
+    goto CLOSE;
+  }
+
+  prev_sect = fil.sect;
+  if (prev_sect == 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Invalid sector number");
+    goto CLOSE;
+  }
+
+  while (offset < file_size) {
+    offset += sector_size;
+    res = f_lseek(&fil, offset);
+    mrbc_raise_iff_f_error(vm, res, "f_lseek in File.contiguous?");
+    if (prev_sect + 1 != fil.sect) {
+      SET_FALSE_RETURN();
+      goto CLOSE;
+    }
+    prev_sect = fil.sect;
+  }
+
+  SET_TRUE_RETURN();
+CLOSE:
+  f_close(&fil);
+}
+
 #define PREPARE_EXCEPTION(message) (sprintf(buff, "%s @ %s", message, func))
 
 void
@@ -332,6 +386,7 @@ mrbc_filesystem_fat_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_FAT, "_directory?", c__directory_q);
   mrbc_define_method(vm, class_FAT, "_setlabel", c__setlabel);
   mrbc_define_method(vm, class_FAT, "_getlabel", c__getlabel);
+  mrbc_define_method(vm, class_FAT, "_contiguous?", c__contiguous_q);
   mrbc_init_class_FAT_Dir(vm, class_FAT);
   mrbc_init_class_FAT_File(vm, class_FAT);
 
