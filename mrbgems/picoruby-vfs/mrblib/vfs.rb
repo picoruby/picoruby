@@ -90,7 +90,12 @@ class VFS
 
     def directory?(path)
       volume, _path = VFS.sanitize_and_split(path)
-      volume[:driver]&.directory?(_path)
+      volume[:driver].directory?(_path)
+    end
+
+    def contiguous?(path)
+      volume, _path = VFS.sanitize_and_split(path)
+      volume[:driver].contiguous?(_path)
     end
 
     # private

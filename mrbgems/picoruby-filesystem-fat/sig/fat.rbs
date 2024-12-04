@@ -32,6 +32,7 @@ class FAT
   AM_DIR: 16
   AM_ARC: 32
 
+  private def _contiguous?: (String path) -> bool
   private def _directory?: (String path) -> bool
   private def _exist?: (String path) -> bool
   private def _unlink: (String path) -> 0
@@ -77,6 +78,7 @@ class FAT
   def unlink: (String path) -> 0
   def rename: (String from, String to) -> 0
   def directory?: (String path) -> bool
+  def contiguous?: (String path) -> bool
 
   class Dir
     attr_accessor pat: String

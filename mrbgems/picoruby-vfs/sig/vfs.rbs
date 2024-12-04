@@ -23,6 +23,7 @@ class VFS
   def self.sanitize: (String path) -> String
   def self.split: (String sanitized_path) -> [volume_t, String]
   def self.volume_index: (untyped mountpoint) -> Integer?
+  def self.contiguous?: (String path) -> bool
 
   class File
     def self.open: (String path, String mode) -> file_t
