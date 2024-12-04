@@ -1580,7 +1580,6 @@ class Keyboard
     def initialize(kbd)
       require 'editor'
       @kbd = kbd
-      @last_put_at = Machine.board_millis
       @sandbox = Sandbox.new('irb')
       @prev_chr = :NULL
       @off = true
@@ -1605,7 +1604,7 @@ class Keyboard
         @prev_chr = :NULL
         return
       end
-      chr = if 0 < modifier&0b00100010
+      chr = if 0 < modifier&0b00100010 # If Shift key is pressed
         if 0x2d <= keycode && keycode <= 0x38 # KC_UNDS..KC_QUES
           LETTER[keycode + SHIFT_LETTER_OFFSET_UNDS]
         else
@@ -1614,16 +1613,17 @@ class Keyboard
       else
         LETTER[keycode]
       end
-      return if chr.nil? || (chr == @prev_chr && Machine.board_millis - @last_put_at < 100)
-      @prev_chr = chr
-      if chr == :ENTER
+      return if chr == @prev_chr || chr.nil?
+      if chr != :ENTER
+        @editor.put_buffer(chr)
+      else
         script = @editor.dump_buffer
         if !script.empty? && @sandbox.compile("_ = (#{script})")
-          result = @sandbox.execute
+          exe_status = @sandbox.execute
           @editor.clear_buffer
           @sandbox.wait(timeout: nil)
           @sandbox.suspend
-          if result
+          if exe_status
             message = (e = @sandbox.error) ? "=> #{e.message} (#{e.class})" : "=> #{@sandbox.result.inspect}"
             @kbd.macro message
             puts message
@@ -1631,11 +1631,9 @@ class Keyboard
         else
           @editor.put_buffer(:ENTER)
         end
-      else
-        @editor.put_buffer(chr)
       end
       @editor.refresh
-      @last_put_at = Machine.board_millis
+      @prev_chr = chr
     end
   end
 

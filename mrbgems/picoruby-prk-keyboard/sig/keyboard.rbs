@@ -197,7 +197,6 @@ class Keyboard
     @editor: Editor::Line
     @kbd: Keyboard
     @sandbox: Sandbox
-    @last_put_at: Integer
     @off: bool
     @prev_chr: String | Symbol
     def self.new: (Keyboard) -> instance
