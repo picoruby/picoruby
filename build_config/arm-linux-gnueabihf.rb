@@ -9,7 +9,7 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.cc.flags << '-D_GNU_SOURCE'
   conf.linker.command = 'arm-linux-gnueabihf-gcc'
   conf.linker.libraries = %w(m c gcc resolv)
-  conf.linker.flags_after_libraries = '-ldl'
+  conf.linker.flags_after_libraries << '-ldl'
 
   conf.linker.flags << '-Wl,-rpath,/usr/arm-linux-gnueabihf/lib'
   conf.archiver.command = 'arm-linux-gnueabihf-ar'
