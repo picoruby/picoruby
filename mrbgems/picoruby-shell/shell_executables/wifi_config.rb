@@ -43,6 +43,9 @@ end == "y"
 answers["wifi"]["retry_if_failed"] = cli.ask("Retry if failed? (y/n)") do |q|
   q.default = "n"
 end == "y"
+answers["wifi"]["watchdog"] = cli.ask("Use Watchdog? (y/n)") do |q|
+  q.default = "n"
+end == "y"
 
 File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f|
   f.write YAML.dump(answers)

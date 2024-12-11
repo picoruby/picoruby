@@ -10,6 +10,7 @@
 #     encoded_password: "base64_encoded_encrypted_password"
 #     auto_connect: true
 #     retry_if_failed: true
+#     watchdog: true
 #   ```
 
 require 'env'
@@ -95,6 +96,11 @@ else
   password = decrypt_proc.call(decoded_password)
 end
 
+if config["wifi"]["watchdog"]
+  Watchdog.enable 8388 # Max value is 8388ms
+  puts "Watchdog enabled (8388ms)"
+end
+
 begin
   puts "Connecting to WiFi network: #{ssid}. Timeout in 5 seconds..."
   CYW43.connect_timeout(ssid, password, auth, 5)
@@ -108,6 +114,11 @@ rescue CYW43::ConnectTimeout
     puts "Failed to connect. Abort."
     return
   end
+end
+
+if config["wifi"]["watchdog"]
+  Watchdog.disable
+  puts "Watchdog disabled"
 end
 
 Net::NTP.set_hwclock
