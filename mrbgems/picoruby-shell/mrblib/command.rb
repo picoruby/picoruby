@@ -17,6 +17,7 @@ class Shell
       history
       kill
       pwd
+      reboot
       type
       unset
     )

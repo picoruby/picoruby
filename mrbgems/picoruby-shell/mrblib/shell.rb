@@ -148,7 +148,6 @@ class Shell
     skip = false
     20.times do
       print "."
-      Machine.tud_task
       if STDIN.read_nonblock(1) == "s"
         skip = true
         break 0
@@ -194,6 +193,13 @@ class Shell
         case args = buffer.dump.chomp.strip.split(" ")
         when []
           puts
+        when ["reboot"]
+          begin
+            Watchdog.reboot 1000
+          rescue NameError
+            buffer.clear
+            puts "reboot is not available"
+          end
         when ["quit"], ["exit"]
           buffer.clear
           return
