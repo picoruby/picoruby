@@ -4,7 +4,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   spec.authors = 'HASUMI Hitoshi'
   spec.summary = 'mruby/c library'
 
-  lib_dir = ENV['MRUBYC_LIB_DIR']
+  lib_dir = build.mrubyc_lib_dir
   mrubyc_dir = "#{lib_dir}/mrubyc"
   mrubyc_src_dir = "#{mrubyc_dir}/src"
   mrblib_build_dir = "#{build_dir}/mrblib"

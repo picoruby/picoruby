@@ -17,7 +17,7 @@ module MRuby
 
     def mrubyc_lib_dir
       # Also used in picoruby-mrubyc
-      ENV['MRUBYC_LIB_DIR'] ||= "#{gems['picoruby-mrubyc'].dir}/lib"
+      "#{gems['picoruby-mrubyc'].dir}/lib"
     end
 
     def mrubyc_dir

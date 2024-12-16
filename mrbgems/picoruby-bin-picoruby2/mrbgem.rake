@@ -16,7 +16,7 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
   spec.add_dependency 'picoruby-mrubyc'
-  spec.cc.include_paths << "#{ENV['MRUBYC_LIB_DIR']}/mrubyc/hal/posix"
+  spec.cc.include_paths << "#{build.mrubyc_lib_dir}/mrubyc/hal/posix"
 
   picoruby_src = "#{dir}/tools/picoruby/picoruby.c"
   picoruby_obj = objfile(picoruby_src.pathmap("#{build_dir}/tools/picoruby/%n"))
