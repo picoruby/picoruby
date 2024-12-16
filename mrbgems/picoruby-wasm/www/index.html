@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PicoRuby WASM Demo</title>
+  <meta charset="utf-8">
+</head>
+<body>
+  <script type="text/picoruby" src="task1.rb"></script>
+  <script type="text/picoruby">
+    while true
+      if $aho
+        puts "アホ"
+        $aho = false
+      end
+    end
+  </script>
+  <script src="picoruby-wrapper.js"></script>
+  <h1>PicoRuby WASM Demo</h1>
+  <div>Open the console</div>
+</body>
+</html>
