@@ -1,5 +1,11 @@
 #include <emscripten.h>
+
+#include <mrc_common.h>
+#include <mrc_ccontext.h>
+#include <mrc_compile.h>
+#include <mrc_dump.h>
 #include <mrubyc.h>
+
 #include <stdbool.h>
 #include <string.h>
 
@@ -71,6 +77,47 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   }
 });
 
+//EM_ASYNC_JS(void, js_add_event_listener, (int ref_id, const char* event_type), {
+EM_JS(void, js_add_event_listener, (int ref_id, const char* event_type), {
+  const target = globalThis.picorubyRefs[ref_id];
+  const type = UTF8ToString(event_type);
+  target.addEventListener(type, (event) => {
+    const eventStr = JSON.stringify({
+      type: event.type,
+     // timeStamp: event.timeStamp
+    });
+    ccall(
+      'call_ruby_callback',
+      'void',
+      ['number', 'string', 'string'],
+      [ref_id, eventStr]
+    );
+  });
+});
+
+EMSCRIPTEN_KEEPALIVE
+void
+call_ruby_callback(int ref_id, const char* event)
+{
+  mrbc_value event_json = mrbc_string_new_cstr(NULL, event);
+  mrbc_set_global(mrbc_str_to_symid("$event_json"), &event_json);
+  mrc_ccontext *c = mrc_ccontext_new(NULL);
+  const char *utf8 = "JS::Object::CALLBACKS[0].call($event_json)";
+  mrc_irep *irep = mrc_load_string_cxt(c, (const uint8_t **)&utf8, strlen(utf8));
+  int result;
+  uint8_t *mrb = NULL;
+  size_t mrb_size = 0;
+  result = mrc_dump_irep(c, irep, 0, &mrb, &mrb_size);
+  if (result != MRC_DUMP_OK) {
+    console_printf("Failed to dump irep\n");
+    return;
+  }
+  mrc_irep_free(c, irep);
+  mrc_ccontext_free(c);
+  mrbc_tcb *tcb = mrbc_create_task(mrb, NULL);
+  (void)tcb;
+}
+
 /*
  * JS::Object#[]
  */
@@ -102,6 +149,7 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_value self = v[0];
   mrbc_sym method_sym = v[1].i;
   const char *method_name = mrbc_symid_to_str(method_sym);
+  //console_printf("method_missing: %s\n", method_name);
   picorb_js_obj *js_obj = (picorb_js_obj *)self.instance->data;
 
   //if (!has_property(js_obj->ref_id, method_name)) {
@@ -154,6 +202,19 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
 /*
+ * JS::Object#_add_event_listener
+ */
+static void
+c_object__add_event_listener(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)v[0].instance->data;
+  const char* event_type = (const char*)GET_STRING_ARG(1);
+  js_add_event_listener(obj->ref_id, event_type);
+  SET_NIL_RETURN();
+}
+
+
+/*
  * JS.global
  */
 static void
@@ -177,5 +238,6 @@ mrbc_js_init(mrbc_vm *vm)
   class_JS_Object = mrbc_define_class_under(vm, module_JS, "Object", mrbc_class_object);
   mrbc_define_method(vm, class_JS_Object, "[]", c_object_get_property);
   mrbc_define_method(vm, class_JS_Object, "method_missing", c_object_method_missing);
+  mrbc_define_method(vm, class_JS_Object, "_add_event_listener", c_object__add_event_listener);
 }
 

@@ -2,6 +2,8 @@ module JS
   class Object
     def []: (Symbol) -> JS::Object
     def getElementById: (String) -> JS::Object
+    def addEventListener: (String) { (untyped) -> void) } -> void
+    def _add_event_listener: (String) -> nil
   end
 
   def global: () -> JS::Object

@@ -4,34 +4,40 @@
     <title>PicoRuby WASM Demo</title>
     <meta charset="utf-8">
   </head>
-<body>
-  <h1>PicoRuby WASM Demo</h1>
-  <h2 id="container">Start</h2>
+  <body>
+    <h1>PicoRuby WASM Demo</h1>
+    <h2 id="container">0</h2>
+    <button id="switch">Start</button>
 
-  <script type="text/ruby">
-    require 'js'
-    $container = JS.global[:document].getElementById('container')
-    1.upto(1000000) do |i|
-      sleep 0.5
-      if i % 3 == 0 || i.to_s.include?("3")
-        $aho = true
-      else
-        $container.innerText = i.to_s
+    <script type="text/ruby">
+      require 'js'
+      JS.global[:document].getElementById('switch').addEventListener('click') do |event|
+        puts "click"
+        sub_task = Task.get('sub_task')
+        if sub_task.status == "SUSPENDED"
+          sub_task.resume
+          JS.global[:document].getElementById('switch').innerText = 'Suspend'
+        else
+          sub_task.suspend
+          JS.global[:document].getElementById('switch').innerText = 'Start'
+        end
       end
-    end
-  </script>
+    </script>
 
-  <script type="text/ruby">
-    count = 0
-    while true
-      if $aho
-        count += 1
-        $container&.innerText = 'Aho' * count
-        $aho = false
+    <script type="text/ruby">
+      require 'js'
+      task = Task.current
+      task.name = 'sub_task'
+      task.suspend
+      container = JS.global[:document].getElementById('container')
+      i = 1
+      while true
+        sleep 0.5
+        container.innerText = i.to_s
+        i += 1
       end
-    end
-  </script>
+    </script>
 
-  <script src="picoruby-wrapper.js"></script>
-</body>
+    <script src="picoruby-wrapper.js"></script>
+  </body>
 </html>

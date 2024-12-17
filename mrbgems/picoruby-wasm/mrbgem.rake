@@ -2,7 +2,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby for WebAssembly'
-
+  spec.add_dependency 'picoruby-json'
   spec.require_name = 'js'
 
   bin_dir = File.join(build.build_dir, 'bin')

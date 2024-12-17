@@ -32,9 +32,10 @@ async function initPicoRuby() {
         lastTime = currentTime;
       }
       const result = Module.ccall('wasm_run_step', 'number', [], []);
-      if (0 <= result) { // No task is running nor waiting
-        setTimeout(run, 0);
+      if (result < 0) { // All tasks are dormant
+        return; // Finish
       }
+      setTimeout(run, 0);
     }
     run();
   };
