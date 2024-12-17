@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby for WebAssembly'
 
+  spec.require_name = 'js'
+
   bin_dir = File.join(build.build_dir, 'bin')
   picoruby_js = File.join(bin_dir, 'picoruby.js')
   custom_js = File.join(dir, 'custom.js')
@@ -14,7 +16,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
       emcc -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \
-      -s EXPORTED_RUNTIME_METHODS=['ccall','cwrap'] \
+      -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "UTF8ToString", "stringToUTF8", "lengthBytesUTF8"]' \
       -s EXPORTED_FUNCTIONS='["_picorb_init", "_picorb_create_task", "_wasm_tick", "_wasm_run_step"]' \
       -s INITIAL_MEMORY=16MB \
       -s ALLOW_MEMORY_GROWTH=1 \
@@ -33,5 +35,3 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
   build.bins << 'picoruby.js'
 end
-
-

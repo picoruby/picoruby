@@ -1,21 +1,37 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>PicoRuby WASM Demo</title>
-  <meta charset="utf-8">
-</head>
+  <head>
+    <title>PicoRuby WASM Demo</title>
+    <meta charset="utf-8">
+  </head>
 <body>
-  <script type="text/picoruby" src="task1.rb"></script>
-  <script type="text/picoruby">
+  <h1>PicoRuby WASM Demo</h1>
+  <h2 id="container">Start</h2>
+
+  <script type="text/ruby">
+    require 'js'
+    $container = JS.global[:document].getElementById('container')
+    1.upto(1000000) do |i|
+      sleep 0.5
+      if i % 3 == 0 || i.to_s.include?("3")
+        $aho = true
+      else
+        $container.innerText = i.to_s
+      end
+    end
+  </script>
+
+  <script type="text/ruby">
+    count = 0
     while true
       if $aho
-        puts "アホ"
+        count += 1
+        $container&.innerText = 'Aho' * count
         $aho = false
       end
     end
   </script>
+
   <script src="picoruby-wrapper.js"></script>
-  <h1>PicoRuby WASM Demo</h1>
-  <div>Open the console</div>
 </body>
 </html>

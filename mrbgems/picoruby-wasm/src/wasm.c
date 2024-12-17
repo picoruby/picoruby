@@ -8,6 +8,8 @@
 #include <mrc_dump.h>
 #include <picogem_init.c>
 
+#include "../include/js.h"
+
 #define picorb_utf8_from_locale(p, l) ((char*)(p))
 #define picorb_utf8_free(p)
 
@@ -33,6 +35,7 @@ int
 picorb_init(void)
 {
   mrbc_init(memory_pool, PICORUBY_MEMORY_SIZE);
+  picoruby_init_require(NULL);
   return 0;
 }
 
@@ -59,4 +62,10 @@ picorb_create_task(const char *code)
 
   mrbc_create_task(mrb, NULL);
   return 0;
+}
+
+void
+mrbc_wasm_init(mrbc_vm *vm)
+{
+  mrbc_js_init(vm);
 }

@@ -1,0 +1,8 @@
+module JS
+  class Object
+    def []: (Symbol) -> JS::Object
+    def getElementById: (String) -> JS::Object
+  end
+
+  def global: () -> JS::Object
+end

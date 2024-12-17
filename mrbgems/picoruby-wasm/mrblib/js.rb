@@ -1,0 +1,2 @@
+module JS
+end

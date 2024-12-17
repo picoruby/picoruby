@@ -5,7 +5,7 @@ async function initPicoRuby() {
   const { default: createModule } = await import('./picoruby.js')
 
   async function collectRubyScripts() {
-    const rubyScripts = document.querySelectorAll('script[type="text/picoruby"]');
+    const rubyScripts = document.querySelectorAll('script[type="text/ruby"]');
     const taskPromises = Array.from(rubyScripts).map(async script => {
       if (script.src) {
         const response = await fetch(script.src);
