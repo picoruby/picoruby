@@ -94,7 +94,7 @@ module MRuby
         # cc.flags << "-flto" # Build fails with -flto
         unless cc.command == "clang"
           cc.flags << "-s"
-          cc.flags << "-Wl,--gc-sections"
+          linker.flags << "-Wl,--gc-sections"
         end
       end
 
