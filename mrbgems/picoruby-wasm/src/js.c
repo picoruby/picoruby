@@ -15,6 +15,7 @@ typedef struct picorb_js_obj {
 
 static mrbc_class *class_JS_Object;
 
+#define VM2TCB(p) ((mrbc_tcb *)((uint8_t *)p - offsetof(mrbc_tcb, vm)))
 
 EM_JS(void, init_js_refs, (), {
   if (typeof globalThis.picorubyRefs === 'undefined') {
@@ -110,19 +111,27 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
   });
 });
 
-EM_ASYNC_JS(char*, array_buffer_to_binary, (int ref_id), {
-  try {
-    const response = window.picorubyRefs[ref_id];
-    const arrayBuffer = await response.arrayBuffer();
+EM_JS(int, setup_binary_handler, (int ref_id, mrbc_tcb *tcb, uintptr_t callback_id), {
+  const response = window.picorubyRefs[ref_id];
+  if (!response || typeof response.arrayBuffer !== 'function') {
+    console.error('Invalid response object:', response);
+    return 0;
+  }
+  response.arrayBuffer().then(arrayBuffer => {
     const uint8Array = new Uint8Array(arrayBuffer);
     const ptr = _malloc(uint8Array.length);
     const heapBytes = new Uint8Array(HEAPU8.buffer, ptr, uint8Array.length);
     heapBytes.set(uint8Array);
-    return ptr;
-  } catch(e) {
-    console.error('Error:', e);
-    return null;
-  }
+    ccall(
+      'resume_binary_task',
+      'void',
+      ['number', 'number', 'number', 'number'],
+      [tcb, callback_id, ptr, uint8Array.length]
+    );
+  }).catch(error => {
+    console.error('Error in arrayBuffer processing:', error);
+  });
+  return 0;
 });
 
 typedef struct {
@@ -225,7 +234,7 @@ static char*
 callback_script(uintptr_t callback_id, const char* event)
 {
   static char script[255];
-  snprintf(script, sizeof(script), "JS::Object::CALLBACKS[%lu].call('%s');", callback_id, event);
+  snprintf(script, sizeof(script), "JS::Object::CALLBACKS[%lu].call('%s')", callback_id, event);
   return script;
 }
 
@@ -255,13 +264,26 @@ void
 resume_promise_task(mrbc_tcb *tcb, uintptr_t callback_id, int result_id)
 {
   mrbc_vm *vm = &tcb->vm;
-  mrbc_value *responses = mrbc_get_global(mrbc_str_to_symid("$responses"));
+  mrbc_value *responses = mrbc_get_global(mrbc_str_to_symid("$promise_responses"));
   mrbc_value response = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
   picorb_js_obj *data = (picorb_js_obj *)response.instance->data;
   data->ref_id = result_id;
   mrbc_hash_set(responses, &mrbc_integer_value(callback_id), &response);
   mrbc_resume_task(tcb);
 }
+
+EMSCRIPTEN_KEEPALIVE
+void
+resume_binary_task(mrbc_tcb *tcb, uintptr_t callback_id, void *binary, int length)
+{
+  mrbc_vm *vm = &tcb->vm;
+  mrbc_value *responses = mrbc_get_global(mrbc_str_to_symid("$promise_responses"));
+  mrbc_value str = mrbc_string_new(vm, binary, length);
+  mrbc_hash_set(responses, &mrbc_integer_value(callback_id), &str);
+  free(binary);
+  mrbc_resume_task(tcb);
+}
+
 
 /*****************************************************
  * methods for JS::Object
@@ -293,16 +315,14 @@ c_object_get_property(mrbc_vm *vm, mrbc_value v[], int argc)
  * JS::Object#to_binary
  */
 static void
-c_object_to_binary(mrbc_vm *vm, mrbc_value v[], int argc)
+c_object__to_binary_and_suspend(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorb_js_obj *obj = (picorb_js_obj *)v[0].instance->data;
-  char *binary = array_buffer_to_binary(obj->ref_id);
-  if (!binary) {
-    SET_NIL_RETURN();
-    return;
-  }
-  mrbc_value str = mrbc_string_new(vm, binary, strlen(binary));
-  SET_RETURN(str);
+  picorb_js_obj *js_obj = (picorb_js_obj *)v[0].instance->data;
+  uintptr_t callback_id = (uintptr_t)GET_INT_ARG(1);
+  mrbc_tcb *tcb = VM2TCB(vm);
+  setup_binary_handler(js_obj->ref_id, tcb, callback_id);
+  mrbc_suspend_task(tcb);
+  SET_NIL_RETURN();
 }
 
 /*
@@ -458,7 +478,6 @@ c_object__add_event_listener(mrbc_vm *vm, mrbc_value v[], int argc)
 /*
  * JS::Object#_fetch
  */
-#define VM2TCB(p) ((mrbc_tcb *)((uint8_t *)p - offsetof(mrbc_tcb, vm)))
 static void
 c_object__fetch_and_suspend(mrbc_vm *vm, mrbc_value v[], int argc)
 {
@@ -499,7 +518,7 @@ mrbc_js_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_JS_Object, "method_missing", c_object_method_missing);
   mrbc_define_method(vm, class_JS_Object, "_add_event_listener", c_object__add_event_listener);
   mrbc_define_method(vm, class_JS_Object, "_fetch_and_suspend", c_object__fetch_and_suspend);
-  mrbc_define_method(vm, class_JS_Object, "to_binary", c_object_to_binary);
+  mrbc_define_method(vm, class_JS_Object, "_to_binary_and_suspend", c_object__to_binary_and_suspend);
   mrbc_define_method(vm, class_JS_Object, "to_poro", c_object_to_poro);
 }
 

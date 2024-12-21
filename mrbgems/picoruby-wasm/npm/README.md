@@ -32,13 +32,16 @@ You can also make an independent Ruby script:
 ### Fetching
 
 ```ruby
-response = JS.global.fetch('some.svg').await
-if response[:status].to_poro == 200
-  JS.global[:document].getElementById('container').innerHTML = response.to_binary
+JS.global.fetch('some.svg') do |response|
+  if response[:status].to_poro == 200
+    JS.global[:document].getElementById('container').innerHTML = response.to_binary
+  end
 end
 ```
 
-As of now, GET method is only supported.
+async/await is not supported so to make picoruby.wasm binary small.
+
+As of now, GET method is only supported. We'll wait for your PRs!
 
 ### JS::Object#to_poro method
 
@@ -95,7 +98,7 @@ Other than `JS::Object#to_poro`, you can use `JS::Object#to_binary` to get a bin
 
 ## Ristriction due to the language design
 
-Inside callbacks like `addEventListener`, you can't refer to variables outside the block:
+Inside callbacks of `addEventListener`, you can't refer to variables outside the block:
 
 ```ruby
 document = JS.global[:document]
@@ -105,7 +108,7 @@ document.getElementById('button').addEventListener('click') do |e|
 end
 ```
 
-The restriction above is only for the JS callbacks.
+The restriction above is only for the `addEventListener`.
 You can refer to variables outside the block in general:
 
 ```ruby

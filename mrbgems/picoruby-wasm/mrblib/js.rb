@@ -3,7 +3,7 @@ require 'json'
 module JS
   class Object
     CALLBACKS = {}
-    $responses = {}
+    $promise_responses = {}
 
     def addEventListener(event_type, &block)
       callback_id = block.object_id
@@ -16,8 +16,17 @@ module JS
       callback_id = block.object_id
       _fetch_and_suspend(url, callback_id)
       # resumed by calback
-      block.call($responses[callback_id])
-      $responses.delete(callback_id)
+      block.call($promise_responses[callback_id])
+      $promise_responses.delete(callback_id)
+    end
+
+    def to_binary
+      callback_id = self.object_id
+      _to_binary_and_suspend(callback_id)
+      # resumed by calback
+      result = $promise_responses[callback_id]
+      $promise_responses.delete(callback_id)
+      result
     end
   end
 end

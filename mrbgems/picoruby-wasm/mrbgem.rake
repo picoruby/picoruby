@@ -22,7 +22,6 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
       -s ALLOW_MEMORY_GROWTH=1 \
       -s ENVIRONMENT=web \
       -s WASM_ASYNC_COMPILATION=1 \
-      -s ASYNCIFY=1 \
       --no-entry \
       --compress-debug-sections \
       #{t.prerequisites.first} \

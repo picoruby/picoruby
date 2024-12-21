@@ -24,10 +24,10 @@
         if sub_task.status == "SUSPENDED"
           sub_task.resume
           JS.global[:document].getElementById('switch').innerText = 'Suspend'
-          response = JS.global.fetch('favicon.ico') do |response|
+          lvar = :hey
+          JS.global.fetch('favicon.ico') do |response|
             if response[:status].to_poro == 200
-              puts "to_poro!"
-              JS.global[:document].getElementById('logo').innerHTML = response.to_poro
+              JS.global[:document].getElementById('logo').innerHTML = response.to_binary
             end
           end
         else
