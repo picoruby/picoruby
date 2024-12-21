@@ -77,20 +77,22 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   }
 });
 
-EM_ASYNC_JS(int, await_promise, (int promise_id), {
-  try {
-    const promise = window.picorubyRefs[promise_id];
-    const result = await promise;
-    const resultId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
-    return resultId;
-  } catch(e) {
-    console.error(e);
-    return -1;
-  }
+EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, mrbc_tcb *tcb), {
+  const promise = globalThis.picorubyRefs[promise_id];
+  promise.then(
+    (result) => {
+      const resultId = globalThis.picorubyRefs.length;
+      globalThis.picorubyRefs.push(result);
+      ccall(
+        'resume_promise_task',
+        'void',
+        ['number', 'number', 'number'],
+        [tcb, callback_id, resultId]
+      );
+    }
+  );
 });
 
-//EM_ASYNC_JS(void, js_add_event_listener, (int ref_id, const char* event_type), {
 EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const char* event_type), {
   const target = globalThis.picorubyRefs[ref_id];
   const type = UTF8ToString(event_type);
@@ -248,6 +250,18 @@ call_ruby_callback(int ref_id, uintptr_t callback_id, const char* event)
   (void)tcb;
 }
 
+EMSCRIPTEN_KEEPALIVE
+void
+resume_promise_task(mrbc_tcb *tcb, uintptr_t callback_id, int result_id)
+{
+  mrbc_vm *vm = &tcb->vm;
+  mrbc_value *responses = mrbc_get_global(mrbc_str_to_symid("$responses"));
+  mrbc_value response = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
+  picorb_js_obj *data = (picorb_js_obj *)response.instance->data;
+  data->ref_id = result_id;
+  mrbc_hash_set(responses, &mrbc_integer_value(callback_id), &response);
+  mrbc_resume_task(tcb);
+}
 
 /*****************************************************
  * methods for JS::Object
@@ -367,24 +381,6 @@ c_object_to_poro(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 /*
- * JS::Object#awit
- */
-static void
-c_object_await(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  picorb_js_obj *obj = (picorb_js_obj *)v[0].instance->data;
-  int new_ref_id = await_promise(obj->ref_id);
-  if (new_ref_id < 0) {
-    SET_NIL_RETURN();
-    return;
-  }
-  mrbc_value new_obj = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
-  picorb_js_obj *data = (picorb_js_obj *)new_obj.instance->data;
-  data->ref_id = new_ref_id;
-  SET_RETURN(new_obj);
-}
-
-/*
  * JS::Object#method_missing
  */
 static void
@@ -460,6 +456,23 @@ c_object__add_event_listener(mrbc_vm *vm, mrbc_value v[], int argc)
 
 
 /*
+ * JS::Object#_fetch
+ */
+#define VM2TCB(p) ((mrbc_tcb *)((uint8_t *)p - offsetof(mrbc_tcb, vm)))
+static void
+c_object__fetch_and_suspend(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)v[0].instance->data;
+  const char *url = (const char *)GET_STRING_ARG(1);
+  uintptr_t callback_id = (uintptr_t)GET_INT_ARG(2);
+  int promise_id = call_method(obj->ref_id, "fetch", url);
+  mrbc_tcb *tcb = VM2TCB(vm);
+  mrbc_suspend_task(tcb);
+  setup_promise_handler(promise_id, callback_id, tcb);
+  SET_NIL_RETURN();
+}
+
+/*
  * JS.global
  */
 static void
@@ -485,7 +498,7 @@ mrbc_js_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_JS_Object, "[]", c_object_get_property);
   mrbc_define_method(vm, class_JS_Object, "method_missing", c_object_method_missing);
   mrbc_define_method(vm, class_JS_Object, "_add_event_listener", c_object__add_event_listener);
-  mrbc_define_method(vm, class_JS_Object, "await", c_object_await);
+  mrbc_define_method(vm, class_JS_Object, "_fetch_and_suspend", c_object__fetch_and_suspend);
   mrbc_define_method(vm, class_JS_Object, "to_binary", c_object_to_binary);
   mrbc_define_method(vm, class_JS_Object, "to_poro", c_object_to_poro);
 }

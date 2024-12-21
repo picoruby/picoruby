@@ -31,8 +31,8 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
     picoruby_wasm = Pathname(picoruby_js).sub_ext('.wasm')
     dist_dir = File.join(dir, 'dist')
-    sh "cp #{picoruby_js} #{dir}/wasm-wasi/dist/"
-    sh "cp #{picoruby_wasm} #{dir}/wasm-wasi/dist/"
+    sh "cp #{picoruby_js} #{dir}/npm/dist/"
+    sh "cp #{picoruby_wasm} #{dir}/npm/dist/"
   end
 
   build.bins << 'picoruby.js'

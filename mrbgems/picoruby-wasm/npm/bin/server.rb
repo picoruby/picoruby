@@ -18,7 +18,7 @@ server.config[:MimeTypes]['wasm'] = 'application/wasm'
 
 ROUTES = {
   '/picoruby.js' => ['picoruby.js', 'application/javascript'],
-  '/picoruby.iife.js' => ['picoruby.iife.js', 'application/javascript'],
+  '/init.iife.js' => ['init.iife.js', 'application/javascript'],
   '/picoruby.wasm' => ['picoruby.wasm', 'application/wasm']
 }
 
