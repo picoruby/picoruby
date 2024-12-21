@@ -154,5 +154,5 @@ end
 
 desc "Start local server for wasm"
 task :wasm_server do
-  sh "./mrbgems/picoruby-wasm/bin/server.rb"
+  sh "./mrbgems/picoruby-wasm/npm/bin/server.rb"
 end

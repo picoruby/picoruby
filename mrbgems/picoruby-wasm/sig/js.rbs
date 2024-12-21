@@ -1,9 +1,15 @@
 module JS
   class Object
-    def []: (Symbol) -> JS::Object
-    def getElementById: (String) -> JS::Object
-    def addEventListener: (String) { (untyped) -> void) } -> void
-    def _add_event_listener: (String) -> nil
+    type poro_t = JS::Object | String | Symbol | Array[JS::Object] | Integer | Float | nil | bool
+
+    CALLBACKS: Hash[Integer, Proc]
+
+    def []: (Symbol name) -> JS::Object
+    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer # callback_id
+    def to_binary: () -> String
+    def to_poro: () -> poro_t
+    private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
+    private def _add_event_listener: (Integer callback_id, String event_type) -> nil
   end
 
   def global: () -> JS::Object

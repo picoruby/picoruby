@@ -4,9 +4,6 @@
     require "js"
 
     puts RUBY_VERSION # (Printed to the Web browser console)
-    JS.global[:document].addEventListener('click') do |event|
-      p event.methods
-      puts "Hello, Ruby!"
-    end
+    JS.global[:document].write "Hello, world!"
   </script>
 </html>
