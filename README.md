@@ -21,12 +21,13 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### Depends on
 
-- [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
-  - Another implementation of mruby virtual machine
+- [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc): Another implementation of mruby virtual machine
 
 ### Used by
 
-[PRK Firmware](https://github.com/picoruby/prk_firmware)
+- [PRK Firmware](https://github.com/picoruby/prk_firmware): Keyboard firmware for Raspberry Pi Pico
+
+- [picoruby.wasm](https://www.npmjs.com/package/@picoruby/wasm-wasi): PicoRuby WASI runtime for WebAssembly
 
 ### Build
 
