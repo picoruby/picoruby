@@ -23,9 +23,9 @@ PicoRuby.wasm is a PicoRuby port to WebAssembly.
 </html>
 ```
 
-You can also make an independent Ruby script:
+You can also read Ruby scripts from a file:
 
-```ruby
+```html
     <script type="text/ruby" src="your_script.rb"></script>
 ```
 
@@ -39,7 +39,7 @@ JS.global.fetch('some.svg') do |response|
 end
 ```
 
-async/await is not supported so to make picoruby.wasm binary small.
+picoruby.wasm doesn't support async/await so to make the binary small.
 
 As of now, GET method is only supported. We'll wait for your PRs!
 
@@ -96,7 +96,7 @@ Other than `JS::Object#to_poro`, you can use `JS::Object#to_binary` to get a bin
 </html>
 ```
 
-## Ristriction due to the language design
+## Ristriction due to the imlementation
 
 Inside callbacks of `addEventListener`, you can't refer to variables outside the block:
 
@@ -137,7 +137,7 @@ Then, you can start a local server:
 rake wasm_server
 ```
 
-### Resources that you may want to dig into:
+### Files that you may want to dig into
 
 - `picoruby/mrbgems/picoruby-wasm/*`
 - `picoruby/build_config/wasm.rb`
@@ -146,4 +146,4 @@ rake wasm_server
 
 MIT License
 
-2024 (c) HASUMI Hitoshi a.k.a. @hasumikin
+2024 (c) HASUMI Hitoshi a.k.a. [@hasumikin](https://twitter.com/hasumikin)
