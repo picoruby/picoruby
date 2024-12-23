@@ -134,7 +134,7 @@ MRUBY_CONFIG=wasm rake
 Then, you can start a local server:
 
 ```sh
-rake wasm_server
+rake wasm:server
 ```
 
 ### Files that you may want to dig into

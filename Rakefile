@@ -152,7 +152,17 @@ task :steep do
   sh "bundle exec steep check"
 end
 
-desc "Start local server for wasm"
-task :wasm_server do
-  sh "./mrbgems/picoruby-wasm/npm/bin/server.rb"
+namespace :wasm do
+  desc "Start local server for wasm"
+  task :server do
+    sh "./mrbgems/picoruby-wasm/npm/bin/server.rb"
+  end
+
+  desc "Publish to npm"
+  task :publish do
+    FileUtils.cd "mrbgems/picoruby-wasm/npm" do
+      sh "npm install"
+      sh "npm publish --access public"
+    end
+  end
 end
