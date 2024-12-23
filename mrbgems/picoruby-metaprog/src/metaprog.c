@@ -289,6 +289,29 @@ c_object_ancestors(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(ancestors);
 }
 
+static void
+c_proc__get_self(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (v[0].tt != MRBC_TT_PROC) {
+    mrbc_raise(vm, MRBC_CLASS(NoMethodError), "undefined method `get_self'");
+  } else {
+    SET_RETURN(v[0].proc->self);
+  }
+}
+
+static void
+c_proc__set_self(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (v[0].tt != MRBC_TT_PROC) {
+    mrbc_raise(vm, MRBC_CLASS(NoMethodError), "undefined method `set_self'");
+  } else {
+    mrbc_incref(&v[0]);
+    mrbc_incref(&v[1]);
+    v[0].proc->self = v[1];
+    SET_RETURN(v[1]);
+  }
+}
+
 #define MAX_CALLINFO 100
 
 static void
@@ -385,6 +408,9 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "const_get", c_object_const_get);
   mrbc_define_method(vm, mrbc_class_object, "class?", c_object_class_q);
   mrbc_define_method(vm, mrbc_class_object, "ancestors", c_object_ancestors);
+
+  mrbc_define_method(vm, mrbc_class_object, "_get_self", c_proc__get_self);
+  mrbc_define_method(vm, mrbc_class_object, "_set_self", c_proc__set_self);
 
   mrbc_class *module_Kernel = mrbc_get_class_by_name("Kernel");
   mrbc_define_method(vm, module_Kernel, "caller", c_kernel_caller);
