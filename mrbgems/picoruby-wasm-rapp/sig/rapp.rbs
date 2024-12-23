@@ -1,0 +1,20 @@
+module Rapp
+  type selector_t = String | Symbol
+  module Helper
+    def selector: (selector_t sel) -> String
+  end
+
+  class Component
+    include Helper
+    def method_missing: (Symbol tag, selector_t sel) ?{ () -> untyped } -> untyped
+  end
+
+  class ComponentContext
+    include Helper
+    @elem: JS::Object
+    def initialize: (JS::Object elem) -> void
+    def method_missing: (Symbol tag, selector_t sel) ?{ () -> untyped } -> untyped
+    def text: (String text) -> String
+    def innterHTML: (String html) -> String
+  end
+end
