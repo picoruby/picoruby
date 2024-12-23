@@ -21,6 +21,7 @@ end
 # @added_by picoruby-metaprog
 module Kernel
   def caller: (?Integer start, ?Integer length) -> Array[String]
+  def self?.eval: (String code) -> nil
 end
 
 # @added_by picoruby-metaprog
