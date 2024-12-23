@@ -165,4 +165,9 @@ namespace :wasm do
       sh "npm publish --access public"
     end
   end
+
+  desc "Check versions"
+  task :versions do
+    sh "npm view @picoruby/wasm-wasi versions"
+  end
 end
