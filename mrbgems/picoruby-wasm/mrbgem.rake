@@ -13,7 +13,8 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
   file picoruby_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
     sh <<~CMD
-      emcc -s WASM=1 \
+      emcc \
+      -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \
       -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "UTF8ToString", "stringToUTF8", "lengthBytesUTF8"]' \

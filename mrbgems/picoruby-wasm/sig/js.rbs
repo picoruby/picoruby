@@ -10,11 +10,14 @@ module JS
     def to_binary: () -> ::Object
     def to_poro: () -> poro_t
     def fetch: (String url) { (::Object response) -> void } -> void
+    def text=: (String text) -> String
+    def innerHTML=: (String html) -> String
+    def querySelector: (String selector) -> JS::Object
     private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
   end
 
-  def global: () -> JS::Object
+  def self.global: () -> JS::Object
 end
