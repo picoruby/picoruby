@@ -1,0 +1,26 @@
+{
+  "name": "@picoruby/wasm-wasi",
+  "version": "0.9.3",
+  "description": "PicoRuby WebAssembly WASI",
+  "main": "dist/init.iife.js",
+  "files": ["../README.md", "dist/"],
+  "exports": {
+    ".": "./dist/init.iife.js",
+    "./picoruby.js": "./dist/picoruby.js",
+    "./picoruby.wasm": "./dist/picoruby.wasm"
+  },
+  "author": "HASUMI Hitoshi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/picoruby/picoruby"
+  },
+  "homepage": "https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm/npm",
+  "keywords": [
+    "Ruby",
+    "PicoRuby",
+    "WASM",
+    "WebAssembly",
+    "WASI"
+  ]
+}

@@ -3,7 +3,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby require gem'
 
-  if cc.defines.flatten.include? 'MRBC_USE_HAL_POSIX'
+  if cc.defines.flatten.any?{ _1.match? /\AMRBC_USE_HAL_POSIX(=\d+)?\z/ }
+    # TODO: in Wasm, you may need to implement File class with File System Access API
     spec.add_dependency 'picoruby-io'
   else
     spec.add_dependency 'picoruby-vfs'

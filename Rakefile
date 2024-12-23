@@ -151,3 +151,8 @@ desc "steep check"
 task :steep do
   sh "bundle exec steep check"
 end
+
+desc "Start local server for wasm"
+task :wasm_server do
+  sh "./mrbgems/picoruby-wasm/npm/bin/server.rb"
+end
