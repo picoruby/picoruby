@@ -10,12 +10,18 @@ class Counter < Component
     @num = 0
   end
 
+  def h(tag, attrs = {}, children = [])
+    VNode.new(tag, attrs, children)
+  end
+
   def render
-    query_eval do
-      num = Root.counter.num
-      style.color = (num % 3 == 0 || num.to_s.include?('3')) ? 'red' : 'black'
-      innerHTML "<b>#{num}</b>"
-    end
+    num = Root.counter.num
+    new_vdom = h('div', {id: :counter}, [h('#text', {}, num.to_s)])
+
+    patches = Differ.diff(@current_vdom, new_vdom)
+    new_element = Patcher.apply(@element, patches)
+    @element = new_element if new_element
+    @current_vdom = new_vdom
   end
 end
 

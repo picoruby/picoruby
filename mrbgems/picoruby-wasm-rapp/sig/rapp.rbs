@@ -12,7 +12,6 @@ module Rapp
     def self.attr_selector: (*selector_t attrs) -> void
     def add: (Symbol name, Component comp) -> Component
     def method_missing: (Symbol tag, ?selector_t sel) ?{ () -> untyped } -> untyped
-    def query_eval: (?selector_t selector) { (String event_json) -> untyped } -> untyped
     def on: (String event, ?selector_t selector) { (String event_json) -> untyped } -> untyped
   end
 
@@ -24,5 +23,30 @@ module Rapp
     def text: (String text) -> String
     def innterHTML: (String html) -> String
     def style: () -> JS::Object
+  end
+
+  type props_t = Hash[String, String]
+
+  class VNode
+    type node_t = VNode | String | Integer | Float | Array[node_t]
+    attr_reader type: String
+    @type: String
+    @props: props_t
+    @children: node_t
+    def self.create: (node_t node) -> (VNode | Array[VNode])
+    def initialize: (String type, ?props_t props, ?node_t children) -> void
+    def to_s: () -> String
+  end
+
+  class Differ
+    def self.diff: (VNode old_node, VNode new_node) -> Array[untyped]
+    private def self.diff_props: (props_t old_props, props_t new_props) -> props_t
+    private def self.diff_children: (Array[untyped] old_children, Array[untyped] new_children) -> Array[untyped]
+  end
+
+  class Patcher
+    def self.apply: (JS::Object element, Array[untyped] patches) -> JS::Object
+    private def self.update_props: (JS::Object element, props_t props_patch) -> void
+    private def self.create_element: (VNode | Array[VNode] node) -> JS::Object
   end
 end

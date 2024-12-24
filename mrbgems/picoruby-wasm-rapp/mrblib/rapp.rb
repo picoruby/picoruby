@@ -47,6 +47,7 @@ module Rapp
     def initialize(selector = 'div')
       @children = {}
       @selector = s(selector)
+      @element = JS.global[:document].querySelector(@selector)
     end
 
     def method_missing(tag, selector = nil, &block)
@@ -59,11 +60,6 @@ module Rapp
       else
         elem
       end
-    end
-
-    def query_eval(selector = @selector, &block)
-      elem = Rapp::ComponentContext.new(JS.global[:document].querySelector(selector.to_s))
-      elem.instance_eval(&block)
     end
 
     def on(event, selector = @selector, &block)

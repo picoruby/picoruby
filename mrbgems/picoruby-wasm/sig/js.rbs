@@ -28,20 +28,8 @@ module JS
     def replaceChild: (JS::Object new_child, JS::Object old_child) -> JS::Object
     def createElement: (String tag_name) -> JS::Object
     def createTextNode: (String text) -> JS::Object
-
-    # Properties
-    def className: () -> JS::Object
-    def classList: () -> JS::Object
     def children: () -> JS::Object
-    def parentElement: () -> JS::Object
-    def tagName: () -> JS::Object
-    def innerHTML: () -> JS::Object
-    def innerHTML=: (String html) -> String
-    def style: () -> JS::Object
-    def style=: (String style) -> String
-    def textContent: () -> JS::Object
-    def textContent=: (String text) -> String
-
+    def parent: () -> JS::Object
     private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
