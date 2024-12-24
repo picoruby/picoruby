@@ -8,6 +8,9 @@ module JS
     $js_events: Hash[Integer, ::Object]
     CALLBACKS: Hash[Integer, Proc]
 
+    def []: (Symbol name) -> JS::Object
+    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer # callback_id
+    def to_binary: () -> String
     def to_poro: () -> poro_t
 
     def []: (Symbol name) -> JS::Object
