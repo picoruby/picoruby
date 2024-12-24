@@ -1,12 +1,19 @@
 module Rapp
   type selector_t = String | Symbol
+
   module Helper
-    def selector: (selector_t sel) -> String
+    def s: (selector_t sel) -> String
   end
 
   class Component
     include Helper
-    def method_missing: (Symbol tag, selector_t sel) ?{ () -> untyped } -> untyped
+    @children: Hash[Symbol, Component]
+    @selector: selector_t
+    def self.attr_selector: (*selector_t attrs) -> void
+    def add: (Symbol name, Component comp) -> Component
+    def method_missing: (Symbol tag, ?selector_t sel) ?{ () -> untyped } -> untyped
+    def query_eval: (?selector_t selector) { (String event_json) -> untyped } -> untyped
+    def on: (String event, ?selector_t selector) { (String event_json) -> untyped } -> untyped
   end
 
   class ComponentContext
@@ -16,5 +23,6 @@ module Rapp
     def method_missing: (Symbol tag, selector_t sel) ?{ () -> untyped } -> untyped
     def text: (String text) -> String
     def innterHTML: (String html) -> String
+    def style: () -> JS::Object
   end
 end
