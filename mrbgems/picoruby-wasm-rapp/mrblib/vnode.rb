@@ -72,11 +72,9 @@ module Rapp
 
     def self.diff_props(old_props, new_props)
       patches = {}
-      # 変更されたプロパティを検出
       new_props.each do |key, value|
         patches[key] = value if old_props[key] != value
       end
-      # 削除されたプロパティを検出
       old_props.keys.each do |key|
         patches[key] = nil unless new_props.keys.include?(key)
       end
@@ -86,7 +84,7 @@ module Rapp
     def self.diff_children(old_children, new_children)
       patches = []
       max_length = [old_children.length, new_children.length].max
-      (max_length || 0).times do |i|
+      max_length&.times do |i|
         old_child = old_children[i]
         new_child = new_children[i]
         child_patches = diff(old_child, new_child)
@@ -117,16 +115,28 @@ module Rapp
         else # Integer: child index
           child_index = patch[0]
           child_patches = patch[1]
-          if child_patches[0][0] == :replace 
+          case child_patches[0][0]
+          when Integer
+            child_element = element.children.to_poro[child_index]
+            apply(child_element, child_patches)
+          when :replace
             if child_patches[0][1].type == '#text'
-              element.textContent = child_patches[0][1].children
+              element.textContent = child_patches[0][1].children.to_s
             else
               child_element = element.children.to_poro[child_index]
               if child_element
+                apply(child_element, child_patches)
+              else
                 new_child = create_element(child_patches[0][1])
-                element.replaceChild(new_child, child_element)
+                element.appendChild(new_child)
               end
             end
+          when :props
+            update_props(element.children.to_poro[child_index], child_patches[0][1])
+          when :remove
+            element.children.to_poro[child_index].remove
+          else
+            raise "Unsupported patch type: #{child_patches[0][0]}"
           end
         end
       end
@@ -138,9 +148,9 @@ module Rapp
     def self.update_props(element, props_patch)
       props_patch.each do |key, value|
         if value.nil?
-          element.removeAttribute(key)
+          element.removeAttribute(key.to_s)
         else
-          element.setAttribute(key, value)
+          element.setAttribute(key.to_s, value.to_s)
         end
       end
     end

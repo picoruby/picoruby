@@ -16,9 +16,18 @@ class Counter < Component
 
   def render
     num = Root.counter.num
-    new_vdom = h('div', {id: :counter}, [h('#text', {}, num.to_s)])
+    prop = if num%3 == 0
+             {style: "color: red;"}
+           else
+             {}
+           end
+    new_vdom = h('div', {id: :counter},
+                 [ h('b', prop,
+                    [ h('#text', {},
+                       num.to_s)])])
 
     patches = Differ.diff(@current_vdom, new_vdom)
+    p patches
     new_element = Patcher.apply(@element, patches)
     @element = new_element if new_element
     @current_vdom = new_vdom

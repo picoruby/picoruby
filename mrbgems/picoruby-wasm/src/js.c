@@ -539,7 +539,7 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
     char property_name[100];
     strncpy(property_name, method_name, strlen(method_name) - 1);
     property_name[strlen(method_name) - 1] = '\0';
-    //console_printf("property_name: %s\n", property_name);
+    console_printf("property_name: %s\n", property_name);
     bool success = set_property(js_obj->ref_id, property_name, (const char *)GET_STRING_ARG(2));
     if (!success) {
       SET_NIL_RETURN();
