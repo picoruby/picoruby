@@ -1,52 +1,53 @@
+
 module Rapp
+  Comps: Components
+
   type selector_t = String | Symbol
 
-  module Helper
-    def s: (selector_t sel) -> String
+  type vnode_props_t = Hash[String | Symbol, String | Symbol | nil]
+  type vnode_children_t = Array[VNode] | String | Integer | Float
+
+  class Components
+    @children: Hash[Symbol, Component]
+    def add: (Symbol name, Component comp) -> Component
+    def []: (Symbol name) -> Component
+    private def method_missing: (Symbol name, *untyped args) ?{ () -> untyped } -> Component
   end
 
   class Component
-    include Helper
-    @children: Hash[Symbol, Component]
-    @selector: selector_t
+    @selector: String
+    @element: JS::Object
+    @current_vdom: VNode | nil
     def self.attr_selector: (*selector_t attrs) -> void
-    def add: (Symbol name, Component comp) -> Component
-    def method_missing: (Symbol tag, ?selector_t sel) ?{ () -> untyped } -> untyped
+    def initialize: (?selector_t selector) -> void
     def on: (String event, ?selector_t selector) { (String event_json) -> untyped } -> untyped
+    private def update_vdom: () -> VNode
+    private def render: (VNode) -> void
+    private def h: (String type, ?vnode_props_t props, ?vnode_children_t children) -> VNode
   end
-
-  class ComponentContext
-    include Helper
-    @elem: JS::Object
-    def initialize: (JS::Object elem) -> void
-    def method_missing: (Symbol tag, selector_t sel) ?{ () -> untyped } -> untyped
-    def text: (String text) -> String
-    def innterHTML: (String html) -> String
-    def style: () -> JS::Object
-  end
-
-  type props_t = Hash[String, String]
 
   class VNode
-    type node_t = VNode | String | Integer | Float | Array[node_t]
     attr_reader type: String
-    @type: String
-    @props: props_t
-    @children: node_t
-    def self.create: (node_t node) -> (VNode | Array[VNode])
-    def initialize: (String type, ?props_t props, ?node_t children) -> void
+    attr_reader props: vnode_props_t
+    attr_reader children: vnode_children_t
+    def initialize: (String type, ?vnode_props_t props, ?(Array[VNode] | String | Integer | Float) children) -> void
     def to_s: () -> String
   end
 
+  type patch_t = [Integer, Array[VNode]] | [:replace, VNode] | [:props, vnode_props_t]
+  type patches_t = Array[patch_t]
+
   class Differ
-    def self.diff: (VNode old_node, VNode new_node) -> Array[untyped]
-    private def self.diff_props: (props_t old_props, props_t new_props) -> props_t
-    private def self.diff_children: (Array[untyped] old_children, Array[untyped] new_children) -> Array[untyped]
+    def self.diff: (VNode old_node, VNode new_node) -> patches_t
+                 | (nil old_node, VNode | nil new_node) -> [[:replace, VNode | nil]]
+                 | (VNode old_node, nil new_node) -> [[Symbol]] # [[:remove]]
+    private def self.diff_props: (vnode_props_t old_props, vnode_props_t new_props) -> vnode_props_t
+    private def self.diff_children: (vnode_children_t old_children, vnode_children_t new_children) -> Array[untyped]
   end
 
   class Patcher
-    def self.apply: (JS::Object element, Array[untyped] patches) -> JS::Object
-    private def self.update_props: (JS::Object element, props_t props_patch) -> void
-    private def self.create_element: (VNode | Array[VNode] node) -> JS::Object
+    def self.apply: (JS::Object element, patches_t patches) -> JS::Object
+    private def self.update_props: (JS::Object element, vnode_props_t props_patch) -> void
+    private def self.create_element: (VNode node) -> JS::Object
   end
 end

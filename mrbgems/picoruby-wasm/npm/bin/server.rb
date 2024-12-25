@@ -11,7 +11,14 @@ DIST = File.join(ROOT, '..', 'dist')
 
 server = WEBrick::HTTPServer.new(
   Port: 8080,
-  DocumentRoot: ROOT
+  DocumentRoot: ROOT,
+  ConfigureBlock: -> (server) {
+    server[:HTTPHeader] = { 
+      'Cache-Control' => 'no-store, no-cache, must-revalidate',
+      'Pragma' => 'no-cache',
+      'Expires' => '0'
+    }
+  }
 )
 
 server.config[:MimeTypes]['wasm'] = 'application/wasm'
@@ -22,17 +29,13 @@ ROUTES = {
   '/picoruby.wasm' => ['picoruby.wasm', 'application/wasm'],
 }
 
-CACHE_HEADERS = {
-  'Cache-Control' => 'no-store, no-cache, must-revalidate',
-  'Pragma' => 'no-cache',
-  'Expires' => '0'
-}
-
 ROUTES.each do |path, (filename, content_type)|
   server.mount_proc(path) do |req, res|
     res.body = File.read(File.join(DIST, filename))
     res['Content-Type'] = content_type
-    CACHE_HEADERS.each { |key, value| res[key] = value }
+    res['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+    res['Pragma'] = 'no-cache'
+    res['Expires'] = '0'
   end
 end
 
