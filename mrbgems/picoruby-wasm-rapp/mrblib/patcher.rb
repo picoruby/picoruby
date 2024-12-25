@@ -7,18 +7,19 @@ module Rapp
         case patch[0]
         when :replace
           new_element = create_element(patch[1])
-          if element.parent
-            element.parent.replaceChild(new_element, element)
+          if parent = element.parentElement
+            parent.replaceChild(new_element, element)
             result = new_element
           end
         when :props
           update_props(element, patch[1])
         when :remove
-          element.parent.removeChild(element)
+          element.parentElement.removeChild(element)
         when Integer
           child_index = patch[0]
           child_patches = patch[1]
-          child_element = element.children.to_poro[child_index]
+          children = element.children.to_poro
+          child_element = children.is_a?(Array) ? children[child_index] : nil
           if child_element.nil? # No children tag, but possibly text
             case child_patches[0][0]
             when :replace
@@ -53,7 +54,7 @@ module Rapp
 
     def self.create_element(vnode)
       if vnode.type == '#text'
-        return JS.document.createTextNode(vnode.children.to_s)
+        return JS.document.createTextNode(vnode.children.map{|c|c.to_s}.join)
       end
 
       element = JS.document.createElement(vnode.type)
@@ -62,9 +63,11 @@ module Rapp
         element.setAttribute(key.to_s, value.to_s)
       end
 
-      if vnode.children.is_a?(Array)
-        vnode.children.each do |child|
+      vnode.children.each do |child|
+        if child.is_a?(VNode)
           element.appendChild(create_element(child))
+        else
+          puts "TODO: handle text nodes"
         end
       end
 

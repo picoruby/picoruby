@@ -26,20 +26,10 @@ EM_JS(void, init_js_refs, (), {
 
 EM_JS(bool, is_array_like, (int ref_id), {
   const obj = window.picorubyRefs[ref_id];
-  try {
-    // 実際にアクセスしてみて、undefinedでなければtrue
-    return typeof obj[name] !== 'undefined';
-  } catch (e) {
-    return false;
-  }
-});
-
-EM_JS(bool, is_array_like, (int ref_id), {
-  const obj = window.picorubyRefs[ref_id];
-  // NodeListまたはHTMLCollectionのインスタンスかチェック
+  // NodeList or HTMLCollection
   return obj instanceof NodeList || 
          obj instanceof HTMLCollection ||
-         // 追加の安全策として、length propertyと数値インデックスアクセスをチェック
+         // Just in case, check the length property and numeric index access
          (typeof obj === 'object' && 
           obj !== null &&
           'length' in obj && 
@@ -98,7 +88,7 @@ EM_JS(int, get_property, (int ref_id, const char* key), {
 EM_JS(int, get_length, (int ref_id), {
   try {
     const obj = window.picorubyRefs[ref_id];
-    return obj.length || 0;  // lengthが存在しない場合は0を返す
+    return obj.length || 0;
   } catch(e) {
     return -1;
   }
@@ -539,7 +529,7 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
     char property_name[100];
     strncpy(property_name, method_name, strlen(method_name) - 1);
     property_name[strlen(method_name) - 1] = '\0';
-    console_printf("property_name: %s\n", property_name);
+    //console_printf("property_name: %s\n", property_name);
     bool success = set_property(js_obj->ref_id, property_name, (const char *)GET_STRING_ARG(2));
     if (!success) {
       SET_NIL_RETURN();

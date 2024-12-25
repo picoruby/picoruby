@@ -33,21 +33,5 @@ module JS
       $promise_responses.delete(callback_id)
       result.to_s
     end
-
-    def parent
-      self[:parentElement]
-    end
-
-    def children
-      self[:children]
-    end
-
-    def tagName
-      self[:tagName]
-    end
-
-    def innerHTML
-      self[:innerHTML]
-    end
   end
 end

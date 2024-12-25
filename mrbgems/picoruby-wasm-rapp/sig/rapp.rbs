@@ -5,7 +5,8 @@ module Rapp
   type selector_t = String | Symbol
 
   type vnode_props_t = Hash[String | Symbol, String | Symbol | nil]
-  type vnode_children_t = Array[VNode] | String | Integer | Float
+  type vnode_child_t = VNode | String | Integer | Float
+  type vnode_children_t = Array[vnode_child_t]
 
   class Components
     @children: Hash[Symbol, Component]
@@ -34,19 +35,21 @@ module Rapp
     def to_s: () -> String
   end
 
-  type patch_t = [Integer, Array[VNode]] | [:replace, VNode] | [:props, vnode_props_t]
+  type patch_t = [Integer, Array[patch_t]] | [:replace, VNode] | [:props, vnode_props_t]
   type patches_t = Array[patch_t]
 
   class Differ
     def self.diff: (VNode old_node, VNode new_node) -> patches_t
                  | (nil old_node, VNode | nil new_node) -> [[:replace, VNode | nil]]
+                 | (VNode | nil old_node, VNode new_node) -> [[:replace, VNode]]
                  | (VNode old_node, nil new_node) -> [[Symbol]] # [[:remove]]
+                 | (vnode_child_t old_node, vnode_child_t new_node) -> [[:replace, vnode_child_t]]
     private def self.diff_props: (vnode_props_t old_props, vnode_props_t new_props) -> vnode_props_t
     private def self.diff_children: (vnode_children_t old_children, vnode_children_t new_children) -> Array[untyped]
   end
 
   class Patcher
-    def self.apply: (JS::Object element, patches_t patches) -> JS::Object
+    def self.apply: (JS::Object element, untyped patches) -> JS::Object # TODO: Fix untyped
     private def self.update_props: (JS::Object element, vnode_props_t props_patch) -> void
     private def self.create_element: (VNode node) -> JS::Object
   end

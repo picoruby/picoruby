@@ -5,6 +5,14 @@ module Rapp
       return [[:remove]] if new_node.nil?
       return [] if old_node == new_node
 
+      unless old_node.is_a?(VNode) && new_node.is_a?(VNode)
+        if old_node != new_node
+          return [[:replace, new_node]]
+        else
+          return []
+        end
+      end
+
       patches = []
       if old_node.type != new_node.type
         patches << [:replace, new_node]
@@ -40,10 +48,6 @@ module Rapp
 
     def self.diff_children(old_children, new_children)
       patches = []
-      unless old_children.is_a?(Array) && new_children.is_a?(Array)
-        puts "WARN"
-        return patches
-      end
       max_length = [old_children.length, new_children.length].max
       max_length&.times do |i|
         old_child = old_children[i]

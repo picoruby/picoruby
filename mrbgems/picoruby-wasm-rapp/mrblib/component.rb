@@ -22,7 +22,6 @@ module Rapp
 
     def render(new_vdom)
       patches = Differ.diff(@current_vdom, new_vdom)
-      p patches
       new_element = Patcher.apply(@element, patches)
       @element = new_element if new_element
       @current_vdom = new_vdom
