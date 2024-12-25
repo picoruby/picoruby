@@ -8,7 +8,7 @@ module Rapp
     end
 
     def h(tag_name, props = {}, children = [])
-      VNode.new(tag_name, props, children)
+      Rapp::VNode.new(tag_name, props, children)
     end
 
     def on(event, selector = @selector, &block)
@@ -17,12 +17,12 @@ module Rapp
 
     def update_vdom
       # Subclass should override this method
-      VNode.new('div',{},'dummy')
+      Rapp::VNode.new('div',{},'dummy')
     end
 
     def render(new_vdom)
-      patches = Differ.diff(@current_vdom, new_vdom)
-      new_element = Patcher.apply(@element, patches)
+      patches = Rapp::Differ.diff(@current_vdom, new_vdom)
+      new_element = Rapp::Patcher.apply(@element, patches)
       @element = new_element if new_element
       @current_vdom = new_vdom
       #puts "@current_vdon: #{@current_vdom.to_s}"

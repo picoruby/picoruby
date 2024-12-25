@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PicoRuby WASM Demo</title>
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <div>Example using published npm package</div>
+    <ul>
+      <li><a href="dom.html">DOM manipulation</a></li>
+      <li><a href="multitasks.html">Multi tasks</a></li>
+      <li><a href="rapp_demo.html">Rapp demo</a></li>
+    </ul>
+    <h1>PicoRuby WASM Demo</h1>
+    <h2 id="container">0</h2>
+    <button id="switch">Start</button>
+    <div id="logo"></div>
+
+    <script type="text/ruby">
+      require 'js'
+      require 'dir'
+      JS.global[:document].getElementById('switch').addEventListener('click') do |event_json|
+        puts event_json # The `event_json` can be parsed by JSON.parse
+        sub_task = Task.get('sub_task')
+        if sub_task.status == "SUSPENDED"
+          sub_task.resume
+          JS.global[:document].getElementById('switch').innerText = 'Suspend'
+          lvar = :hey
+          JS.global.fetch('favicon.ico') do |response|
+            if response[:status].to_poro == 200
+              JS.global[:document].getElementById('logo').innerHTML = response.to_binary
+            end
+          end
+        else
+          sub_task.suspend
+          JS.global[:document].getElementById('switch').innerText = 'Resume'
+          JS.global[:document].getElementById('logo').innerHTML = ''
+        end
+      end
+    </script>
+
+    <script type="text/ruby">
+      require 'js'
+      task = Task.current
+      task.name = 'sub_task'
+      task.suspend
+      container = JS.global[:document].getElementById('container')
+      i = 1
+      while true
+        sleep 1
+        container.innerText = i.to_s
+        i += 1
+      end
+    </script>
+
+    <script src="init.iife.js"></script>
+  </body>
+</html>

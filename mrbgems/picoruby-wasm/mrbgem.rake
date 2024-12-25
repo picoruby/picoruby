@@ -12,10 +12,9 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   directory bin_dir
 
   file picoruby_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
-    optdebug = ENV['NDEBUG'] ? '-g0' : '-gsource-map --source-map-base http://127.0.0.1:8080/'
+    optdebug = ENV['NDEBUG'] ? '-g0' : '-g4'
     sh <<~CMD
-      emcc \
-        -g4 \
+      emcc #{optdebug} \
       -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \
