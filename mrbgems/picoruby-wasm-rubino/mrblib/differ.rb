@@ -1,4 +1,4 @@
-module Rapp
+module Rubino
   class Differ
     def self.diff(old_node, new_node)
       return [[:replace, new_node]] if old_node.nil?

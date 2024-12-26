@@ -1,4 +1,4 @@
-module Rapp
+module Rubino
   class Patcher
     def self.apply(element, patches)
       return element if patches.empty?

@@ -1,4 +1,4 @@
-module Rapp
+module Rubino
   class Components
     def initialize
       @children = {}
@@ -17,6 +17,6 @@ module Rapp
     end
   end
 
-  Comps = Rapp::Components.new
+  Comps = Rubino::Components.new
 end
 

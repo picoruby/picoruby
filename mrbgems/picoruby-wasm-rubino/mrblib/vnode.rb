@@ -1,4 +1,4 @@
-module Rapp
+module Rubino
   class VNode
     attr_reader :type, :props, :children
 

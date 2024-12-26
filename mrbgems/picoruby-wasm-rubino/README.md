@@ -1,6 +1,6 @@
-# Rapp
+# Rubino
 
-Rapp is a lightweight frontend framework for PicoRuby.wasm that implements Virtual DOM and reactive component-based architecture.
+Rubino is a lightweight frontend framework for PicoRuby.wasm that implements Virtual DOM and reactive component-based architecture.
 
 ## Features
 
@@ -18,28 +18,28 @@ Here's a simple counter component example:
 <!DOCTYPE html>
 <html>
   <head>
-    <title>PicoRuby.wasm Rapp Demo</title>
+    <title>PicoRuby.wasm Rubino Demo</title>
     <meta charset="utf-8">
   </head>
   <body>
-    <h1>PicoRuby.wasm Rapp Demo</h1>
+    <h1>PicoRuby.wasm Rubino Demo</h1>
     <button id="button">Up</button>
     <div id="container">
       <div id="counter">
         <b>0</b>
       </div>
     </div>
-    <script type="text/ruby" src="rapp_demo.rb"></script>
+    <script type="text/ruby" src="rubino_demo.rb"></script>
     <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js"></script>
   </body>
 </html>
 ```
 
 ```ruby
-# rapp_demo.rb
-require 'rapp'
+# rubino_demo.rb
+require 'rubino'
 
-class Counter < Rapp::Component
+class Counter < Rubino::Component
   attr_reactive :num
 
   def initialize(selector)
@@ -59,11 +59,11 @@ class Counter < Rapp::Component
 end
 
 # Register component
-Rapp::Comps.add(:counter, Counter.new('#container #counter'))
+Rubino::Comps.add(:counter, Counter.new('#container #counter'))
 
 # Add click event handler
-Rapp::Component.new(:button).on :click do
-  Rapp::Comps[:counter].num += 1
+Rubino::Component.new(:button).on :click do
+  Rubino::Comps[:counter].num += 1
 end
 ```
 
@@ -71,10 +71,10 @@ end
 
 ### Creating Components
 
-Inherit from `Rapp::Component` to create a new component:
+Inherit from `Rubino::Component` to create a new component:
 
 ```ruby
-class MyComponent < Rapp::Component
+class MyComponent < Rubino::Component
   def initialize(selector)
     super(selector)
   end
@@ -90,7 +90,7 @@ end
 Use `attr_reactive` to create properties that trigger re-rendering when changed:
 
 ```ruby
-class MyComponent < Rapp::Component
+class MyComponent < Rubino::Component
   attr_reactive :title, :content
 
   def initialize(selector)
@@ -106,7 +106,7 @@ end
 Add event listeners using the `on` method:
 
 ```ruby
-Rapp::Component.new('#my-button').on :click do
+Rubino::Component.new('#my-button').on :click do
   # Handle click event
 end
 ```
@@ -130,24 +130,24 @@ h('div', {class: 'container'}, [
 
 ## Component Registry
 
-Use `Rapp::Comps` to register and access components globally:
+Use `Rubino::Comps` to register and access components globally:
 
 ```ruby
 # Register component
-Rapp::Comps.add(:my_component, MyComponent.new('#app'))
+Rubino::Comps.add(:my_component, MyComponent.new('#app'))
 
 # Access component
-Rapp::Comps[:my_component].title = "New Title"
+Rubino::Comps[:my_component].title = "New Title"
 ```
 
 ## Architecture
 
-Rapp uses a Virtual DOM implementation consisting of these main parts:
+Rubino uses a Virtual DOM implementation consisting of these main parts:
 
-- `Rapp::Component`: Base class for all components
-- `Rapp::VNode`: Virtual DOM node representation
-- `Rapp::Differ`: Calculates differences between Virtual DOM trees
-- `Rapp::Patcher`: Applies Virtual DOM differences to actual DOM
+- `Rubino::Component`: Base class for all components
+- `Rubino::VNode`: Virtual DOM node representation
+- `Rubino::Differ`: Calculates differences between Virtual DOM trees
+- `Rubino::Patcher`: Applies Virtual DOM differences to actual DOM
 
 ## Future Plans
 

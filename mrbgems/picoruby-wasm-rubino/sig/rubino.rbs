@@ -1,5 +1,5 @@
 
-module Rapp
+module Rubino
   Comps: Components
 
   type selector_t = String | Symbol

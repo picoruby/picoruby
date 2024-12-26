@@ -1,6 +1,6 @@
-require 'rapp'
+require 'rubino'
 
-class Counter < Rapp::Component
+class Counter < Rubino::Component
   attr_reactive :num
 
   def initialize(selector)
@@ -18,8 +18,8 @@ class Counter < Rapp::Component
   end
 end
 
-Rapp::Comps.add(:counter, Counter.new('#container #counter'))
+Rubino::Comps.add(:counter, Counter.new('#container #counter'))
 
-Rapp::Component.new(:button).on :click do
-  Rapp::Comps[:counter].num += 1
+Rubino::Component.new(:button).on :click do
+  Rubino::Comps[:counter].num += 1
 end

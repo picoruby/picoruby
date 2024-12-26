@@ -1,6 +1,6 @@
 require 'js'
 
-module Rapp
+module Rubino
   class Component
     def initialize(selector = 'div')
       @selector = (selector.is_a?(Symbol) ? "##{selector}" : selector.to_s)
@@ -9,7 +9,7 @@ module Rapp
 
     def h(tag_name, props = {}, children = [])
       children = [children] unless children.is_a?(Array)
-      Rapp::VNode.new(tag_name, props, children)
+      Rubino::VNode.new(tag_name, props, children)
     end
 
     def on(event, selector = @selector, &block)
@@ -22,8 +22,8 @@ module Rapp
     end
 
     def render(new_vdom)
-      patches = Rapp::Differ.diff(@current_vdom, new_vdom)
-      new_element = Rapp::Patcher.apply(@element, patches)
+      patches = Rubino::Differ.diff(@current_vdom, new_vdom)
+      new_element = Rubino::Patcher.apply(@element, patches)
       @element = new_element if new_element
       @current_vdom = new_vdom
     end
