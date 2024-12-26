@@ -12,8 +12,9 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   directory bin_dir
 
   file picoruby_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
+    optdebug = ENV['NDEBUG'] ? '-g0' : '-gsource-map --source-map-base http://127.0.0.1:8080/'
     sh <<~CMD
-      emcc \
+      emcc #{optdebug} \
       -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \
@@ -33,6 +34,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     dist_dir = File.join(dir, 'dist')
     sh "cp #{picoruby_js} #{dir}/npm/dist/"
     sh "cp #{picoruby_wasm} #{dir}/npm/dist/"
+    sh "brotli -f #{dir}/npm/dist/picoruby.wasm"
   end
 
   build.bins << 'picoruby.js'

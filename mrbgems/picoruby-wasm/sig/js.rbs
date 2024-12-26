@@ -1,18 +1,44 @@
+$js_document: JS::Object
+
 module JS
   class Object
     type poro_t = JS::Object | String | Symbol | Array[JS::Object] | Integer | Float | nil | bool
 
     $promise_responses: Hash[Integer, ::Object]
+    $js_events: Hash[Integer, ::Object]
     CALLBACKS: Hash[Integer, Proc]
 
-    def []: (Symbol name) -> JS::Object
-    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer # callback_id
-    def to_binary: () -> ::Object
     def to_poro: () -> poro_t
+
+    def []: (Symbol name) -> JS::Object
     def fetch: (String url) { (::Object response) -> void } -> void
-    def text=: (String text) -> String
-    def innerHTML=: (String html) -> String
+    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer # callback_id
+    def to_binary: () -> String
+
+
+    # Methods
     def querySelector: (String selector) -> JS::Object
+    def appendChild: (JS::Object child) -> JS::Object
+    def removeChild: (JS::Object child) -> JS::Object
+    def setAttribute: (String name, String value) -> void
+    def removeAttribute: (String name) -> void
+    def replaceChild: (JS::Object new_child, JS::Object old_child) -> JS::Object
+    def createElement: (String tag_name) -> JS::Object
+    def createTextNode: (String text) -> JS::Object
+
+    # Properties
+    def className: () -> JS::Object
+    def classList: () -> JS::Object
+    def children: () -> JS::Object
+    def parentElement: () -> JS::Object
+    def tagName: () -> JS::Object
+    def innerHTML: () -> JS::Object
+    def innerHTML=: (String html) -> String
+    def style: () -> JS::Object
+    def style=: (String style) -> String
+    def textContent: () -> JS::Object
+    def textContent=: (String text) -> String
+
     private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
@@ -20,4 +46,5 @@ module JS
   end
 
   def self.global: () -> JS::Object
+  def self.document: () -> JS::Object
 end

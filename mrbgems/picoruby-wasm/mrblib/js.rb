@@ -1,9 +1,14 @@
 require 'json'
 
 module JS
+  def self.document
+    $js_document ||= global[:document]
+  end
+
   class Object
     CALLBACKS = {}
     $promise_responses = {}
+    $js_events = {}
 
     def addEventListener(event_type, &block)
       callback_id = block.object_id
@@ -26,7 +31,7 @@ module JS
       # resumed by calback
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)
-      result
+      result.to_s
     end
   end
 end

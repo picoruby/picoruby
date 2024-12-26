@@ -1,3 +1,4 @@
 npm/dist/picoruby.wasm
+npm/dist/picoruby.wasm.br
 npm/dist/picoruby.js
 npm/*.tgz

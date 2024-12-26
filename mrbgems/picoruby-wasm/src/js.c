@@ -24,9 +24,30 @@ EM_JS(void, init_js_refs, (), {
   }
 });
 
-EM_JS(bool, has_property, (int ref_id, const char* name), {
+EM_JS(bool, is_array_like, (int ref_id), {
   const obj = window.picorubyRefs[ref_id];
-  return name in obj;
+  // NodeList or HTMLCollection
+  return obj instanceof NodeList || 
+         obj instanceof HTMLCollection ||
+         // Just in case, check the length property and numeric index access
+         (typeof obj === 'object' && 
+          obj !== null &&
+          'length' in obj && 
+          typeof obj.length === 'number');
+});
+
+EM_JS(int, get_element, (int ref_id, int index), {
+  try {
+    const nodeList = window.picorubyRefs[ref_id];
+    const element = nodeList[index];
+    if (element === undefined) {
+      return -1;
+    }
+    const newRefId = window.picorubyRefs.push(element) - 1;
+    return newRefId;
+  } catch(e) {
+    return -1;
+  }
 });
 
 EM_JS(bool, set_property, (int ref_id, const char* key, const char* value), {
@@ -64,11 +85,71 @@ EM_JS(int, get_property, (int ref_id, const char* key), {
   }
 });
 
+EM_JS(int, get_length, (int ref_id), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    return obj.length || 0;
+  } catch(e) {
+    return -1;
+  }
+})
+
 EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   try {
     const obj = window.picorubyRefs[ref_id];
     const func = obj[UTF8ToString(method)];
     const result = func.call(obj, UTF8ToString(arg));
+    const newRefId = window.picorubyRefs.length;
+    window.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
+EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, const char *arg2), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    const func = obj[UTF8ToString(method)];
+    const result = func.call(obj, UTF8ToString(arg1), UTF8ToString(arg2));
+    const newRefId = window.picorubyRefs.length;
+    window.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
+EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+
+    const argObj = window.picorubyRefs[arg_ref_id];
+    const result = func.call(obj, argObj);
+
+    const newRefId = window.picorubyRefs.length;
+    window.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
+EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_ref_1_id, int arg_ref_2_id), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+
+    const argObj1 = window.picorubyRefs[arg_ref_1_id];
+    const argObj2 = window.picorubyRefs[arg_ref_2_id];
+    const result = func.call(obj, argObj1, argObj2);
+
     const newRefId = window.picorubyRefs.length;
     window.picorubyRefs.push(result);
     return newRefId;
@@ -98,15 +179,12 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
   const target = globalThis.picorubyRefs[ref_id];
   const type = UTF8ToString(event_type);
   target.addEventListener(type, (event) => {
-    const eventStr = JSON.stringify({
-      type: event.type,
-     // timeStamp: event.timeStamp
-    });
+    const eventRefId = globalThis.picorubyRefs.push(event) - 1;
     ccall(
       'call_ruby_callback',
       'void',
-      ['number', 'number', 'string'],
-      [ref_id, callback_id, eventStr]
+      ['number', 'number'],
+      [callback_id, eventRefId]
     );
   });
 });
@@ -230,19 +308,25 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
  * callback functions
  *****************************************************/
 
-static char*
-callback_script(uintptr_t callback_id, const char* event)
+inline static char*
+callback_script(uintptr_t callback_id, int event_ref_id)
 {
   static char script[255];
-  snprintf(script, sizeof(script), "JS::Object::CALLBACKS[%lu].call('%s')", callback_id, event);
+  snprintf(script, sizeof(script), "JS::Object::CALLBACKS[%lu].call($js_events[%d]);", callback_id, event_ref_id);
   return script;
 }
 
 EMSCRIPTEN_KEEPALIVE
 void
-call_ruby_callback(int ref_id, uintptr_t callback_id, const char* event)
+call_ruby_callback(uintptr_t callback_id, int event_ref_id)
 {
-  char *utf8 = callback_script(callback_id, event);
+  mrbc_value event = mrbc_instance_new(NULL, class_JS_Object, sizeof(picorb_js_obj));
+  picorb_js_obj *data = (picorb_js_obj *)event.instance->data;
+  data->ref_id = event_ref_id;
+  mrbc_value *events = mrbc_get_global(mrbc_str_to_symid("$js_events"));
+  mrbc_hash_set(events, &mrbc_integer_value(event_ref_id), &event);
+
+  char *utf8 = callback_script(callback_id, event_ref_id);
   mrc_ccontext *c = mrc_ccontext_new(NULL);
   mrc_irep *irep = mrc_load_string_cxt(c, (const uint8_t **)&utf8, strlen(utf8));
   int result;
@@ -338,6 +422,7 @@ c_object_to_poro(mrbc_vm *vm, mrbc_value v[], int argc)
   switch (info.type) {
     case TYPE_UNDEFINED:
     case TYPE_NULL:
+      console_printf("type: NULL\n");
       SET_NIL_RETURN();
       break;
     case TYPE_BOOLEAN:
@@ -394,6 +479,32 @@ c_object_to_poro(mrbc_vm *vm, mrbc_value v[], int argc)
       }
       break;
     case TYPE_OBJECT:
+      {
+        // Create an Array if it is nodeList, otherwise create a Hash
+        if (is_array_like(obj->ref_id)) {
+          int length = get_length(obj->ref_id);
+          //console_printf("length: %d\n", length);
+          mrbc_value array = mrbc_array_new(vm, length);
+          for (int i = 0; i < length; i++) {
+            mrbc_value element = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
+            mrbc_incref(&element);
+            picorb_js_obj *data = (picorb_js_obj *)element.instance->data;
+            data->ref_id = get_element(obj->ref_id, i);
+            if (data->ref_id < 0) {
+              mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Failed to get element");
+              return;
+            }
+            mrbc_array_set(&array, i, &element);
+          }
+          mrbc_incref(&array);
+          SET_RETURN(array);
+        } else {
+          console_printf("TODO\n");
+          mrbc_value hash = mrbc_hash_new(vm, 0);
+          mrbc_incref(&hash);
+          SET_RETURN(hash);
+        }
+      }
     case TYPE_FUNCTION:
       SET_RETURN(v[0]);
       break;
@@ -406,16 +517,9 @@ c_object_to_poro(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  mrbc_value self = v[0];
   mrbc_sym method_sym = v[1].i;
   const char *method_name = mrbc_symid_to_str(method_sym);
-  //console_printf("method_missing: %s\n", method_name);
-  picorb_js_obj *js_obj = (picorb_js_obj *)self.instance->data;
-
-  //if (!has_property(js_obj->ref_id, method_name)) {
-  //  mrbc_raisef(vm, MRBC_CLASS(NoMethodError), "undefined method '%s'", method_name);
-  //  return;
-  //}
+  picorb_js_obj *js_obj = (picorb_js_obj *)v[0].instance->data;
 
   if (method_name[strlen(method_name) - 1] == '=') {
     if (argc != 2) {
@@ -425,6 +529,7 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
     char property_name[100];
     strncpy(property_name, method_name, strlen(method_name) - 1);
     property_name[strlen(method_name) - 1] = '\0';
+    //console_printf("property_name: %s\n", property_name);
     bool success = set_property(js_obj->ref_id, property_name, (const char *)GET_STRING_ARG(2));
     if (!success) {
       SET_NIL_RETURN();
@@ -435,8 +540,20 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
 
+  int new_ref_id;
+
   if (argc == 1) { // No argument
-    int new_ref_id = call_method(js_obj->ref_id, method_name, "");
+    new_ref_id = get_property(js_obj->ref_id, method_name);
+    if (new_ref_id < 0) {
+      goto FUNCTION;
+    }
+    mrbc_value obj = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
+    picorb_js_obj *data = (picorb_js_obj *)obj.instance->data;
+    data->ref_id = new_ref_id;
+    SET_RETURN(obj);
+    return;
+FUNCTION:
+    new_ref_id = call_method(js_obj->ref_id, method_name, "");
     if (new_ref_id < 0) {
       SET_NIL_RETURN();
       return;
@@ -452,10 +569,50 @@ c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
       picorb_js_obj *data = (picorb_js_obj *)obj.instance->data;
       data->ref_id = new_ref_id;
       SET_RETURN(obj);
+    } else if (v[2].tt == MRBC_TT_OBJECT && v[2].instance->cls == class_JS_Object) {
+      picorb_js_obj *arg_obj = (picorb_js_obj *)v[2].instance->data;
+      int new_ref_id = call_method_with_ref(js_obj->ref_id, method_name, arg_obj->ref_id);
+      if (new_ref_id < 0) {
+        SET_NIL_RETURN();
+        return;
+      }
+      mrbc_value obj = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
+      picorb_js_obj *data = (picorb_js_obj *)obj.instance->data;
+      data->ref_id = new_ref_id;
+      SET_RETURN(obj);
     } else {
-      mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a string");
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a String or JS::Object");
     }
+  } else if (argc == 3){
+    if (v[2].tt == MRBC_TT_OBJECT && v[2].instance->cls == class_JS_Object && v[3].tt == MRBC_TT_OBJECT && v[3].instance->cls == class_JS_Object) {
+      picorb_js_obj *arg_obj_1 = (picorb_js_obj *)v[2].instance->data;
+      picorb_js_obj *arg_obj_2 = (picorb_js_obj *)v[3].instance->data;
+      int new_ref_id = call_method_with_ref_ref(js_obj->ref_id, method_name, arg_obj_1->ref_id, arg_obj_2->ref_id);
+      if (new_ref_id < 0) {
+        SET_NIL_RETURN();
+        return;
+      }
+      mrbc_value obj = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
+      picorb_js_obj *data = (picorb_js_obj *)obj.instance->data;
+      data->ref_id = new_ref_id;
+      SET_RETURN(obj);
+    } else if (v[2].tt == MRBC_TT_STRING && v[3].tt == MRBC_TT_STRING) {
+      int new_ref_id = call_method_str(js_obj->ref_id, method_name, (const char *)GET_STRING_ARG(2), (const char *)GET_STRING_ARG(3));
+      if (new_ref_id < 0) {
+        SET_NIL_RETURN();
+        return;
+      }
+      mrbc_value obj = mrbc_instance_new(vm, class_JS_Object, sizeof(picorb_js_obj));
+      picorb_js_obj *data = (picorb_js_obj *)obj.instance->data;
+      data->ref_id = new_ref_id;
+      SET_RETURN(obj);
+    } else {
+      console_printf("method: %s, argc: %d\n", method_name, argc);
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a JS::Object");
+    }
+
   } else {
+    console_printf("method: %s, argc: %d\n", method_name, argc);
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
   }
 }
@@ -503,6 +660,16 @@ c_global(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(global);
 }
 
+static void
+c_refcount(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (v[0].tt != MRBC_TT_OBJECT) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_INT_RETURN(v[0].instance->ref_count);
+}
+
 
 void
 mrbc_js_init(mrbc_vm *vm)
@@ -520,5 +687,6 @@ mrbc_js_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_JS_Object, "_fetch_and_suspend", c_object__fetch_and_suspend);
   mrbc_define_method(vm, class_JS_Object, "_to_binary_and_suspend", c_object__to_binary_and_suspend);
   mrbc_define_method(vm, class_JS_Object, "to_poro", c_object_to_poro);
+  mrbc_define_method(vm, class_JS_Object, "refcount", c_refcount);
 }
 
