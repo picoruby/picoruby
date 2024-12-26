@@ -8,6 +8,7 @@ module Rapp
     end
 
     def h(tag_name, props = {}, children = [])
+      children = [children] unless children.is_a?(Array)
       Rapp::VNode.new(tag_name, props, children)
     end
 
@@ -17,7 +18,7 @@ module Rapp
 
     def update_vdom
       # Subclass should override this method
-      Rapp::VNode.new('div',{},'dummy')
+      h('div', {}, [h('p', {}, ['Hello, World!'])])
     end
 
     def render(new_vdom)
@@ -25,7 +26,6 @@ module Rapp
       new_element = Rapp::Patcher.apply(@element, patches)
       @element = new_element if new_element
       @current_vdom = new_vdom
-      #puts "@current_vdon: #{@current_vdom.to_s}"
     end
 
     def self.attr_reactive(*attrs)

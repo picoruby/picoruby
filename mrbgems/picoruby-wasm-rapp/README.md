@@ -53,7 +53,8 @@ class Counter < Rapp::Component
     else
       prop, word = {}, num
     end
-    h('div', {id: :counter}, [ h('b', prop, [ h('#text', {}, word)]) ])
+    h('b', prop, [ h('#text', {}, [ word ]) ])
+    # `h('b', prop, h('#text', {}, word))` does also work (not recommended)
   end
 end
 

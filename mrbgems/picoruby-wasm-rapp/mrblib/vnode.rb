@@ -5,7 +5,7 @@ module Rapp
     def initialize(type, props = {}, children = [])
       @type = type
       @props = props
-      @children = (children.is_a?(Array) ? children : [children])
+      @children = children
     end
 
     def to_s

@@ -10,11 +10,11 @@ class Counter < Rapp::Component
 
   def update_vdom
     if @num % 3 == 0 || @num.to_s.include?('3')
-      prop, word = {style: "color: red;"}, "aho"
+      prop, word = {style: "color: red; font-size: 50px;"}, "aho"
     else
       prop, word = {}, num
     end
-    h('div', {id: :counter}, [ h('b', prop, [ h('#text', {}, word)]) ])
+    h('b', prop, [ h('#text', {}, word)])
   end
 end
 
