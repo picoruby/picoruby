@@ -14,9 +14,9 @@ PicoRuby.wasm is a PicoRuby port to WebAssembly.
     <h2 id="container"></h2>
     <script type="text/ruby">
       require 'js'
-      JS.global[:document].getElementById('button').addEventListener('click') do |event|
+      JS.document.getElementById('button').addEventListener('click') do |event|
         event.preventDefault
-        JS.global[:document].getElementById('container').innerText = 'Hello, PicoRuby!'
+        JS.document.getElementById('container').innerText = 'Hello, PicoRuby!'
       end
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js"></script>
@@ -33,9 +33,11 @@ You can also read Ruby scripts from a file:
 ### Fetching
 
 ```ruby
+require 'js'
+logo = JS.document.getElementById('logo')
 JS.global.fetch('some.svg') do |response|
-  if response[:status].to_poro == 200
-    JS.global[:document].getElementById('container').innerHTML = response.to_binary
+  if response.status.to_poro == 200
+    logo.innerHTML = response.to_binary # to_binary blocks until the Promise is resolved
   end
 end
 ```
@@ -102,10 +104,13 @@ Other than `JS::Object#to_poro`, you can use `JS::Object#to_binary` to get a bin
 Inside callbacks of `addEventListener`, you can't refer to variables outside the block:
 
 ```ruby
-document = JS.global[:document]
-document.getElementById('button').addEventListener('click') do |e|
-  document.getElementById('container').innerText = 'Hello, PicoRuby!'
-  #=> NameError: undefined local variable or method `document'
+require 'js'
+button = JS.document.getElementById('button')
+button.addEventListener('click') do |event|
+  event.target.innerText = 'Clicked!'
+  # OK
+  button.innerText = 'Clicked!'
+  # => NameError: undefined local variable or method
 end
 ```
 

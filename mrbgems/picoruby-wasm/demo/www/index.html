@@ -18,23 +18,23 @@
 
     <script type="text/ruby">
       require 'js'
-      require 'dir'
-      JS.global[:document].getElementById('switch').addEventListener('click') do |event_json|
+      JS.document.getElementById('switch').addEventListener('click') do |event_json|
         puts event_json # The `event_json` can be parsed by JSON.parse
         sub_task = Task.get('sub_task')
         if sub_task.status == "SUSPENDED"
           sub_task.resume
-          JS.global[:document].getElementById('switch').innerText = 'Suspend'
+          JS.document.getElementById('switch').innerText = 'Suspend'
           lvar = :hey
+          logo = JS.document.getElementById('logo')
           JS.global.fetch('favicon.ico') do |response|
-            if response[:status].to_poro == 200
-              JS.global[:document].getElementById('logo').innerHTML = response.to_binary
+            if response.status.to_poro == 200
+              logo.innerHTML = response.to_binary
             end
           end
         else
           sub_task.suspend
-          JS.global[:document].getElementById('switch').innerText = 'Resume'
-          JS.global[:document].getElementById('logo').innerHTML = ''
+          JS.document.getElementById('switch').innerText = 'Resume'
+          JS.document.getElementById('logo').innerHTML = ''
         end
       end
     </script>
@@ -44,7 +44,7 @@
       task = Task.current
       task.name = 'sub_task'
       task.suspend
-      container = JS.global[:document].getElementById('container')
+      container = JS.document.getElementById('container')
       i = 1
       while true
         sleep 1
