@@ -127,7 +127,7 @@ EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id
     const obj = window.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
-    
+
     const argObj = window.picorubyRefs[arg_ref_id];
     const result = func.call(obj, argObj);
 
@@ -145,7 +145,7 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
     const obj = window.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
-    
+
     const argObj1 = window.picorubyRefs[arg_ref_1_id];
     const argObj2 = window.picorubyRefs[arg_ref_2_id];
     const result = func.call(obj, argObj1, argObj2);
