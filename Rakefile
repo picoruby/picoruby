@@ -155,11 +155,13 @@ end
 namespace :wasm do
   desc "Start local server for wasm"
   task :server do
-    sh "./mrbgems/picoruby-wasm/npm/bin/server.rb"
+    sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
   end
 
-  desc "Publish to npm"
-  task :publish do
+  desc "Build production and publish it to npm"
+  task :release do
+    sh "MRUBY_CONFIG=wasm rake clean"
+    sh "MRUBY_CONFIG=wasm NDEBUG=yes rake"
     FileUtils.cd "mrbgems/picoruby-wasm/npm" do
       sh "npm install"
       sh "npm publish --access public"
