@@ -8,6 +8,7 @@
     <script type="text/ruby">
       require 'js'
       JS.global[:document].getElementById('button').addEventListener('click') do |event|
+        event.preventDefault
         JS.global[:document].getElementById('container').innerText = 'Hello, PicoRuby!'
       end
     </script>

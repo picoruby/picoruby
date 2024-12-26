@@ -14,7 +14,8 @@ PicoRuby.wasm is a PicoRuby port to WebAssembly.
     <h2 id="container"></h2>
     <script type="text/ruby">
       require 'js'
-      JS.global[:document].getElementById('button').addEventListener('click') do |_e|
+      JS.global[:document].getElementById('button').addEventListener('click') do |event|
+        event.preventDefault
         JS.global[:document].getElementById('container').innerText = 'Hello, PicoRuby!'
       end
     </script>
