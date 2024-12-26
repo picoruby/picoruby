@@ -32,7 +32,7 @@ module Rapp
       attr_reader *attrs
       script = "class #{self.class}\n"
       attrs.each do |attr|
-        script += <<-RUBY
+        script += <<~RUBY
           def #{attr}=(value)
             return if @#{attr} == value
             @#{attr} = value
