@@ -107,7 +107,14 @@ static mrbc_value
 new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
 {
   tz_env_set(vm);
-  mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
+  mrbc_class *cls;
+  if (v->tt == MRBC_TT_CLASS) {
+    cls = v->cls;
+  } else {
+    assert(v->tt == MRBC_TT_OBJECT);
+    cls = v->instance->cls;
+  }
+  mrbc_value value = mrbc_instance_new(vm, cls, sizeof(PICORUBY_TIME));
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
   data->unixtime_us = unixtime_us + unixtime_offset * USEC;
   time_t unixtime = data->unixtime_us / USEC;
@@ -444,6 +451,55 @@ c_gte(struct VM *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_sub(struct VM *vm, mrbc_value v[], int argc)
+{
+  mrbc_int_t self_unixtime_us = ((PICORUBY_TIME *)v[0].instance->data)->unixtime_us;
+  switch (v[1].tt) {
+    case MRBC_TT_INTEGER:
+    {
+      SET_RETURN(new_from_unixtime_us(vm, v, self_unixtime_us - (mrbc_int_t)v[1].i * USEC));
+      break;
+    }
+    case MRBC_TT_FLOAT:
+    {
+      SET_RETURN(new_from_unixtime_us(vm, v, self_unixtime_us - (mrbc_int_t)(v[1].d * USEC)));
+      break;
+    }
+    default:
+    {
+      if (v[0].instance->cls == v[1].instance->cls) {
+        mrbc_int_t other_unixtime_us = ((PICORUBY_TIME *)v[1].instance->data)->unixtime_us;
+        mrbc_float_t result = (mrbc_float_t)(self_unixtime_us - other_unixtime_us) / (mrbc_float_t)USEC;
+        mrbc_value ret = mrbc_float_value(vm, result);
+        SET_RETURN(ret);
+      } else {
+        mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong argument type");
+      }
+    }
+  }
+}
+
+static void
+c_add(struct VM *vm, mrbc_value v[], int argc)
+{
+  mrbc_int_t self_unixtime_us = ((PICORUBY_TIME *)v[0].instance->data)->unixtime_us;
+  switch (v[1].tt) {
+    case MRBC_TT_INTEGER:
+    {
+      SET_RETURN(new_from_unixtime_us(vm, v, self_unixtime_us + (mrbc_int_t)v[1].i * USEC));
+      break;
+    }
+    case MRBC_TT_FLOAT:
+    {
+      SET_RETURN(new_from_unixtime_us(vm, v, self_unixtime_us + (mrbc_int_t)(v[1].d * USEC)));
+      break;
+    }
+    default:
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong argument type");
+  }
+}
+
+static void
 c_time_methods(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   prb_time_methods m = {
@@ -453,6 +509,7 @@ c_time_methods(mrbc_vm *vm, mrbc_value v[], int argc)
   memcpy(methods.instance->data, &m, sizeof(prb_time_methods));
   SET_RETURN(methods);
 }
+
 void
 mrbc_time_class_init(mrbc_vm *vm)
 {
@@ -484,6 +541,8 @@ mrbc_time_class_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_Time, "<=", c_lte);
   mrbc_define_method(vm, class_Time, ">",  c_gt);
   mrbc_define_method(vm, class_Time, ">=", c_gte);
+  mrbc_define_method(vm, class_Time, "-", c_sub);
+  mrbc_define_method(vm, class_Time, "+", c_add);
 
   mrbc_define_method(vm, class_Time, "time_methods", c_time_methods);
 }
