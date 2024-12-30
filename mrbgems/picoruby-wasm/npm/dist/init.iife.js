@@ -30,9 +30,10 @@
           Module.ccall('mrbc_tick', null, [], []);
           lastTime = currentTime;
         }
-        const result = Module.ccall('mrbc_run_step', 'number', [], [], { async: true });
-        if (result < 0) { // All tasks are dormant
-          return; // Finish
+        const until = currentTime + MRBC_TICK_UNIT;
+        const result = Module.ccall('mrbc_run_step', 'number', ['number'], [until]);
+        if (result < 0) {
+          return;
         }
         setTimeout(run, 0);
       }
