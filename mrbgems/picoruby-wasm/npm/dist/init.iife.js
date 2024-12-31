@@ -22,16 +22,12 @@
     // Create and initialize the module
     const Module = await createModule();
     Module.picorubyRun = function() {
-      const MRBC_TICK_UNIT = 8.1;
-      let lastTime = performance.now();
+      const tickTimer = setInterval(() => {
+        Module.ccall('mrbc_tick', null, [], []);
+      }, 1000/60);
+
       function run() {
-        const currentTime = performance.now();
-        if (MRBC_TICK_UNIT <= currentTime - lastTime) {
-          Module.ccall('mrbc_tick', null, [], []);
-          lastTime = currentTime;
-        }
-        const until = currentTime + MRBC_TICK_UNIT;
-        const result = Module.ccall('mrbc_run_step', 'number', ['number'], [until]);
+        const result = Module.ccall('mrbc_run_step', 'number', [], []);
         if (result < 0) {
           return;
         }
