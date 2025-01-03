@@ -24,7 +24,7 @@
     Module.picorubyRun = function() {
       const tickTimer = setInterval(() => {
         Module.ccall('mrbc_tick', null, [], []);
-      }, 1000/60);
+      }, 17); // 16.67ms: optimize for 60fps. See MRBC_TICK_UNIT in build_config/wasm.rb
 
       function run() {
         const result = Module.ccall('mrbc_run_step', 'number', [], []);
