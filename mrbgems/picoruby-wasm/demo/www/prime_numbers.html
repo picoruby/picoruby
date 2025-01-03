@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>Prime numbers</h1>
+    <input id="limit" type="limit" value="100000">
+    <button id="start">Start</button>
+    <h2 id="result"></h2>
+
+    <script type="text/ruby">
+      require 'js'
+      require 'time'
+      def count_primes(limit)
+        count = 0
+        (2..limit).each do |n|
+          prime = true
+          (2..Math.sqrt(n)).each do |m|
+            if n % m == 0
+              prime = false
+              break
+            end
+          end
+          count += 1 if prime
+        end
+        count
+      end
+      JS.document.getElementById('start').addEventListener('click') do |event|
+        limit = JS.document.getElementById('limit').value.to_poro.to_i
+        start = Time.now
+        result = count_primes(limit)
+        finish = Time.now
+        pnode = JS.document.createElement('p')
+        pnode.textContent = "#{result} (#{finish - start} sec)"
+        JS.document.getElementById('result').appendChild(pnode)
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>
+
+
