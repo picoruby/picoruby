@@ -8,7 +8,7 @@ end
 
 ROOT = File.expand_path('../../www', __FILE__)
 DIST = File.expand_path('../../../npm/dist', __FILE__)
-RappROOT = File.expand_path('../../../../picoruby-wasm-rapp/demo', __FILE__)
+RubinoROOT = File.expand_path('../../../../picoruby-wasm-rubino/demo', __FILE__)
 
 server = WEBrick::HTTPServer.new(
   Port: 8080,
@@ -28,8 +28,8 @@ ROUTES = {
   '/picoruby.js' => ['picoruby.js', 'application/javascript', DIST],
   '/init.iife.js' => ['init.iife.js', 'application/javascript', DIST],
   '/picoruby.wasm' => ['picoruby.wasm', 'application/wasm', DIST],
-  '/rapp_demo.html' => ['rapp_demo.html', 'text/html', RappROOT],
-  '/rapp_demo.rb' => ['rapp_demo.rb', 'text/ruby', RappROOT],
+  '/rubino_demo.html' => ['rubino_demo.html', 'text/html', RubinoROOT],
+  '/rubino_demo.rb' => ['rubino_demo.rb', 'text/ruby', RubinoROOT],
 }
 
 ROUTES.each do |path, (filename, content_type, dir)|
