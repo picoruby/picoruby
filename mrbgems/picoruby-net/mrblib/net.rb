@@ -155,4 +155,27 @@ class Net
     end
   end
 
+  class MQTTClient
+    def initialize(host, port = 1883, client_id = "picoruby_mqtt")
+      @host = host
+      @port = port
+      @client_id = client_id
+    end
+  
+    def connect
+      _connect_impl(@host, @port, @client_id, false)
+    end
+  
+    def publish(topic, payload)
+      _publish_impl(payload, topic)
+    end
+  
+    def subscribe(topic)
+      _subscribe_impl(topic)
+    end
+  
+    def disconnect
+      _disconnect_impl
+    end
+  end
 end

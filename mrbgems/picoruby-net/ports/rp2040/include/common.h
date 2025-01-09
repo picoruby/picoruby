@@ -1,6 +1,9 @@
 #ifndef NET_COMMON_DEFINED_H_
 #define NET_COMMON_DEFINED_H_
 
+#include "lwip/err.h" // err_t の定義
+#include "lwip/ip_addr.h" // ip_addr_t の定義
+
 #ifdef __cplusplus
 extern "C" {
 #endif

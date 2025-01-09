@@ -4,6 +4,12 @@ type httpreturn = {
   headers: header_t,
   body: String
 }
+type mqtt_client_options = {
+  client_id: String,
+  username: String?,
+  password: String?,
+  use_tls: bool
+}
 
 class Net
   class HTTPUtil
@@ -40,5 +46,22 @@ class Net
     def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
     def post: (String path, header_t headers, String body) -> (httpreturn | nil)
     def put:  (String path, header_t headers, String body) -> (httpreturn | nil)
+  end
+
+  class MQTTClient
+    @host: String
+    @port: Integer
+    @client_id: String
+
+    def initialize: (String host, ?Integer port, ?String client_id) -> void
+    def connect: () -> bool
+    def publish: (String topic, String payload) -> nil
+    def subscribe: (String topic) -> nil
+    def disconnect: () -> nil
+    private
+    def _connect_impl: (String host, Integer port, String client_id, bool use_tls) -> bool
+    def _publish_impl: (String payload, String topic) -> nil
+    def _subscribe_impl: (String topic) -> nil
+    def _disconnect_impl: () -> nil
   end
 end
