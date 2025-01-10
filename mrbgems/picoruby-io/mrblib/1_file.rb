@@ -14,6 +14,14 @@ class File < IO
     end
   end
 
+  # Alternative to File.read
+  def self.load_file(path, length = nil, offset = nil)
+    File.open(path) do |f|
+      f.seek(offset) if offset
+      f.read(length)
+    end
+  end
+
   def expand(_size)
     # no-op. For compatibility with FAT filesystems.
     size

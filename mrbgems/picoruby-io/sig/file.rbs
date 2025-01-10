@@ -1088,6 +1088,7 @@ class File < IO
 
   def eof?: () -> bool
 
+  def self.load_file: (string fd_or_path, ?Integer length, ?String outbuf) -> String?
   def read: (?Integer length, ?String outbuf) -> String?
 
   def write: (*String string) -> Integer
