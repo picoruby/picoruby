@@ -15,7 +15,7 @@ MRuby::Gem::Specification.new('picoruby-bin-microruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
   spec.add_dependency 'picoruby-mruby'
-  spec.cc.include_paths << "#{build.gems['picoruby-mruby'].dir}/include"
+  spec.cc.include_paths << "#{build.gems['picoruby-mruby'].dir}/lib/mruby/include"
 
   microruby_src = "#{dir}/tools/microruby/microruby.c"
   microruby_obj = objfile(microruby_src.pathmap("#{build_dir}/tools/microruby/%n"))
@@ -33,11 +33,9 @@ MRuby::Gem::Specification.new('picoruby-bin-microruby') do |spec|
     t.name.match? /picoruby-mruby.+\.o\z/
   }.map(&:name)
 
-  file exec => mruby_objs + [picoruby_obj] do |f|
+  file exec => mruby_objs + [microruby_obj] do |f|
     build.linker.run f.name, f.prerequisites
   end
 
   build.bins << BINNAME
 end
-
-

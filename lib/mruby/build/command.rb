@@ -25,11 +25,7 @@ module MRuby
     end
 
     def shellquote(s)
-      if ENV['OS'] == 'Windows_NT'
-        "\"#{s}\""
-      else
-        "#{s}"
-      end
+      "\"#{s}\""
     end
 
     private
@@ -51,7 +47,7 @@ module MRuby
       @flags = [ENV['CFLAGS'] || []]
       @source_exts = source_exts
       @include_paths = ["#{MRUBY_ROOT}/include"]
-      @defines = %w()
+      @defines = []
       @option_include_path = %q[-I"%s"]
       @option_define = %q[-D"%s"]
       @compile_options = %q[%{flags} -o "%{outfile}" -c "%{infile}"]
@@ -77,7 +73,7 @@ module MRuby
     end
 
     def all_flags(_defines=[], _include_paths=[], _flags=[])
-      define_flags = [defines, _defines].flatten.map{ |d| option_define % d }
+      define_flags = [defines, _defines, build.defines].flatten.map{ |d| option_define % d }
       include_path_flags = [include_paths, _include_paths].flatten.map do |f|
         option_include_path % filename(f)
       end
@@ -103,12 +99,16 @@ module MRuby
       gemrake = File.join(source_dir, "mrbgem.rake")
       rakedep = File.exist?(gemrake) ? [ gemrake ] : []
 
-      if build_dir.include? "mrbgems/"
-        generated_file_matcher = Regexp.new("^#{Regexp.escape build_dir}/(.*)#{Regexp.escape out_ext}$")
-      else
-        generated_file_matcher = Regexp.new("^#{Regexp.escape build_dir}/(?!mrbgems/.+/)(.*)#{Regexp.escape out_ext}$")
+      bd = build_dir
+      if bd.start_with?(MRUBY_ROOT)
+        bd = bd.sub(MRUBY_ROOT, '')
       end
-      source_exts.each do |ext, compile|
+      if bd.include? "mrbgems/"
+        generated_file_matcher = Regexp.new("^#{Regexp.escape build_dir}/(?!mrbc/)(.*)#{Regexp.escape out_ext}$")
+      else
+        generated_file_matcher = Regexp.new("^#{Regexp.escape build_dir}/(?!mrbc/|mrbgems/.+/)(.*)#{Regexp.escape out_ext}$")
+      end
+      source_exts.each do |ext|
         rule generated_file_matcher => [
           proc { |file|
             file.sub(generated_file_matcher, "#{source_dir}/\\1#{ext}")
@@ -131,6 +131,12 @@ module MRuby
           run t.name, t.prerequisites.first
         end
       end
+    end
+
+    # This method can be redefined as a singleton method where appropriate.
+    # Manipulate `flags`, `include_paths` and/or more if necessary.
+    def setup_debug(conf)
+      nil
     end
 
     private
@@ -214,7 +220,6 @@ module MRuby
       library_flags = [libraries, _libraries].flatten.map { |d| option_library % d }
 
       _pp "LD", outfile.relative_path
-
       _run link_options, { :flags => all_flags(_library_paths, _flags),
                             :outfile => filename(outfile) , :objs => filename(objfiles).map{|f| %Q["#{f}"]}.join(' '),
                             :flags_before_libraries => [flags_before_libraries, _flags_before_libraries].flatten.join(' '),
@@ -233,7 +238,6 @@ module MRuby
     end
 
     def run(outfile, objfiles)
-      return if objfiles.empty?
       mkdir_p File.dirname(outfile)
       _pp "AR", outfile.relative_path
       _run archive_options, { :outfile => filename(outfile), :objs => filename(objfiles).map{|f| %Q["#{f}"]}.join(' ') }
@@ -245,7 +249,7 @@ module MRuby
 
     def initialize(build)
       super
-      @command = 'bison'
+      @command = "ruby #{MRUBY_ROOT}/tools/lrama/exe/lrama"
       @compile_options = %q[-o "%{outfile}" "%{infile}"]
     end
 
@@ -279,7 +283,7 @@ module MRuby
     def initialize(build)
       super
       @command = 'git'
-      @flags = %w[]
+      @flags = []
       @clone_options = "clone %{flags} %{url} %{dir}"
       @pull_options = "--git-dir %{repo_dir}/.git --work-tree %{repo_dir} pull"
       @checkout_options = "--git-dir %{repo_dir}/.git --work-tree %{repo_dir} checkout %{checksum_hash}"
@@ -313,7 +317,7 @@ module MRuby
     end
 
     def commit_hash(dir)
-      `#{@command} --git-dir #{shellquote(dir +'/.git')} --work-tree #{shellquote(dir)} rev-parse --verify HEAD`.strip
+      `#{@command} --git-dir #{shellquote(dir + '/.git')} --work-tree #{shellquote(dir)} rev-parse --verify HEAD`.strip
     end
 
     def current_branch(dir)
@@ -330,15 +334,18 @@ module MRuby
       @compile_options = "-B%{funcname} -o-"
     end
 
-    def run(out, infiles, funcname, cdump = true)
+    def run(out, infiles, funcname, cdump: true, static: false)
       @command ||= @build.mrbcfile
       infiles = [infiles].flatten
       infiles.each_with_index do |f, i|
         _pp i == 0 ? "MRBC" : "", f.relative_path, indent: 2
       end
-      cmd = %Q["#{filename @command}" #{cdump ? "-S" : ""} #{@compile_options % {:funcname => funcname}} #{filename(infiles).map{|f| %Q["#{f}"]}.join(' ')}]
+      opt = @compile_options % {funcname: funcname}
+      opt << " -S" if cdump
+      opt << " -s" if static
+      cmd = %["#{filename @command}" #{opt} #{filename(infiles).map{|f| %["#{f}"]}.join(' ')}]
       puts cmd if Rake.verbose
-      IO.popen(cmd, 'r+') do |io|
+      IO.popen(cmd, 'r') do |io|
         out.puts io.read
       end
       # if mrbc execution fail, drop the file
@@ -360,6 +367,11 @@ module MRuby
       @runner_options = '%{flags} %{infile}'
       @verbose_flag = ''
       @flags = []
+    end
+
+    def emulator
+      return "" unless @command
+      return [@command, *@flags].map{|c| shellquote(c)}.join(' ')
     end
 
     def run(testbinfile)

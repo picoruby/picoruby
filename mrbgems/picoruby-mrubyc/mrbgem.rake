@@ -41,7 +41,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
   # Regenerate mrblib.c from mrblib/*.rb
   mrblib_rbs = %w[enum.rb array.rb global.rb hash.rb numeric.rb object.rb range.rb string.rb].map{|f|"#{mrubyc_dir}/mrblib/#{f}"}.freeze
   file "#{mrblib_build_dir}/mrblib.c" => [build.mrbcfile, mrblib_build_dir] + mrblib_rbs do |f|
-    sh "#{build.mrbcfile} -B mrblib_bytecode -o #{f.name} #{mrblib_rbs.join(' ')}"
+    sh "#{build.mrbcfile} -B mrblib_bytecode -S -o #{f.name} #{mrblib_rbs.join(' ')}"
   end
 
   mrblib_c = "#{mrblib_build_dir}/mrblib.c"

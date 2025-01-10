@@ -20,12 +20,20 @@ MRuby::Toolchain.new(:gcc) do |conf, params|
     compiler.cxx_compile_flag = '-x c++ -std=gnu++03'
     compiler.cxx_exception_flag = '-fexceptions'
     compiler.cxx_invalid_flags = c_mandatory_flags + cxx_invalid_flags
+
+    def compiler.setup_debug(conf)
+      self.flags << %w(-g3 -O0)
+    end
   end
 
   conf.linker do |linker|
     linker.command = ENV['LD'] || ENV['CXX'] || ENV['CC'] || default_command
     linker.flags = [ENV['LDFLAGS'] || %w()]
-    linker.libraries = %w(m)
+    if ENV['OS'] == 'Windows_NT'
+      linker.libraries = []
+    else
+      linker.libraries = %w(m)
+    end
     linker.library_paths = []
     linker.option_library = '-l%s'
     linker.option_library_path = '-L%s'

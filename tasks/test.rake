@@ -10,7 +10,7 @@ namespace :test do |test_ns|
   end
 
   desc "build and run command binaries tests"
-  task :bin => :all do
+  task :bin => "rake:all" do
     test_ns["run:bin"].invoke
   end
 
@@ -19,9 +19,10 @@ namespace :test do |test_ns|
 
   namespace :build do |test_build_ns|
     desc "build library tests"
-    task :lib => :all do
+    task :lib => "rake:all" do
       MRuby.each_target{|build| build.gem(core: 'mruby-test')}
-      test_build_ns["lib_without_loading_gem"].invoke
+      test = test_build_ns["lib_without_loading_gem"]
+      test.invoke if test
     end
   end
 
@@ -34,6 +35,21 @@ namespace :test do |test_ns|
 
     desc "run command binaries tests"
     task :bin
+  end
+
+  desc "run all mruby tests serially"
+  task "run:serial" => "build" do
+    Rake::Task["test:run"].prerequisite_tasks.each(&:invoke)
+  end
+
+  desc "run library tests serially"
+  task "run:serial:bin" => "build:bin" do
+    Rake::Task["test:run:lib"].prerequisite_tasks.each(&:invoke)
+  end
+
+  desc "run command binaries tests serially"
+  task "run:serial:lib" => "build:lib" do
+    Rake::Task["test:run:bin"].prerequisite_tasks.each(&:invoke)
   end
 end
 

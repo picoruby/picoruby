@@ -8,11 +8,15 @@ module MRuby
     def build_mrbc_exec
       gem github: 'picoruby/mruby-compiler2' unless @gems['mruby-compiler2']
       gem github: 'picoruby/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
-      gem core: 'picoruby-mrubyc'
+#      gem core: 'picoruby-mrubyc'
       cc.defines << "MRBC_USE_HAL_POSIX"
       cc.defines << "MRBC_ALLOC_LIBC"
       cc.defines << "DISABLE_MRUBY"
       self.mrbcfile = "#{build_dir}/bin/picorbc"
+    end
+
+    def create_mrbc_build
+      build_mrbc_exec
     end
 
     def mrubyc_lib_dir

@@ -11,8 +11,12 @@ extern "C" {
 #endif
 
 typedef mrc_bool      mrb_bool;
-typedef mrc_ccontext  mrb_ccontext;
-typedef mrc_irep      mrb_irep;
+//typedef mrc_ccontext  mrb_ccontext;
+//typedef mrc_irep      mrb_irep;
+
+#define mrbc_raw_alloc    malloc
+#define mrbc_raw_realloc  realloc
+#define mrbc_raw_free     free
 
 #ifdef __cplusplus
 }

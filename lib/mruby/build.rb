@@ -1,11 +1,15 @@
 require "mruby/core_ext"
 require "mruby/build/load_gems"
 require "mruby/build/command"
+autoload :Find, "find"
 
 module MRuby
   autoload :Gem, "mruby/gem"
   autoload :Lockfile, "mruby/lockfile"
   autoload :Presym, "mruby/presym"
+
+  INSTALL_PREFIX = ENV['PREFIX'] || ENV['INSTALL_PREFIX'] || '/usr/local'
+  INSTALL_DESTDIR = ENV['DESTDIR'] || ''
 
   class << self
     def targets
@@ -71,8 +75,9 @@ module MRuby
 
     include Rake::DSL
     include LoadGems
-    attr_accessor :name, :bins, :exts, :file_separator, :build_dir, :gem_clone_dir
+    attr_accessor :name, :bins, :exts, :file_separator, :build_dir, :gem_clone_dir, :defines, :libdir_name
     attr_reader :products, :libmruby_core_objs, :libmruby_objs, :gems, :toolchains, :presym, :mrbc_build, :gem_dir_to_repo_url
+    attr_reader :install_excludes
 
     alias libmruby libmruby_objs
 
@@ -97,6 +102,10 @@ module MRuby
         @file_separator = '/'
         @build_dir = "#{build_dir}/#{@name}"
         @gem_clone_dir = "#{build_dir}/repos/#{@name}"
+        @libdir_name = (self.kind_of?(MRuby::CrossBuild) ? nil : ENV["MRUBY_SYSTEM_LIBDIR_NAME"]) || "lib"
+        @install_prefix = nil
+        @install_excludes = []
+        @defines = []
         @cc = Command::Compiler.new(self, %w(.c), label: "CC")
         @cxx = Command::Compiler.new(self, %w(.cc .cxx .cpp), label: "CXX")
         @objc = Command::Compiler.new(self, %w(.m), label: "OBJC")
@@ -122,24 +131,35 @@ module MRuby
         @enable_test = false
         @enable_lock = true
         @enable_presym = true
+        @enable_benchmark = true
         @mrbcfile_external = false
         @internal = internal
         @toolchains = []
         @gem_dir_to_repo_url = {}
 
+        # Add lambda instead of string because libdir_name or lib may be changed by user configuration
+        libmruby_core_name = nil
+        @install_excludes << ->(file) {
+          libmruby_core_name ||= File.join(libdir_name, libfile("libmruby_core"))
+          file == libmruby_core_name
+        }
+
         MRuby.targets[@name] = current = self
       end
 
       MRuby::Build.current = current
-      current.instance_eval(&block)
-      if current.libmruby_enabled? && !current.mrbcfile_external?
-        if current.presym_enabled?
-          current.create_mrbc_build if current.host? || current.gems["mruby-bin-mrbc"]
-        elsif current.host?
-          current.build_mrbc_exec
+      begin
+        current.instance_eval(&block)
+      ensure
+        if current.libmruby_enabled? && !current.mrbcfile_external?
+          if current.presym_enabled?
+            current.create_mrbc_build if current.host? || current.gems["mruby-bin-mrbc"]
+          elsif current.host?
+            current.build_mrbc_exec
+          end
         end
+        current.presym = Presym.new(current) if current.presym_enabled?
       end
-      current.presym = Presym.new(current) if current.presym_enabled?
     end
 
     def libmruby_enabled?
@@ -157,9 +177,7 @@ module MRuby
     def enable_debug
       compilers.each do |c|
         c.defines += %w(MRB_DEBUG)
-        if toolchains.any? { |toolchain| toolchain == "gcc" }
-          c.flags += %w(-g3 -O0)
-        end
+        c.setup_debug(self)
       end
       @mrbc.compile_options += ' -g'
 
@@ -228,6 +246,14 @@ module MRuby
       @cxx_abi_enabled = true
     end
 
+    def benchmark_enabled?
+      @enable_benchmark
+    end
+
+    def disable_benchmark
+      @enable_benchmark = false
+    end
+
     def compile_as_cxx(src, cxx_src = nil, obj = nil, includes = [])
       #
       # If `cxx_src` is specified, this method behaves the same as before as
@@ -248,7 +274,7 @@ module MRuby
           end
         end
       else
-        cxx_src = "#{build_dir}/#{src.relative_path})".ext << "-cxx.cxx"
+        cxx_src = "#{build_dir}/#{src.relative_path.to_s.remove_leading_parents}".ext << "-cxx.cxx"
         obj = cxx_src.ext(@exts.object)
       end
 
@@ -320,12 +346,16 @@ EOS
       return @mrbcfile if @mrbcfile
 
       gem_name = "mruby-bin-mrbc"
-      gem = @gems[gem_name]
-      gem ||= (host = MRuby.targets["host"]) && host.gems[gem_name]
-      unless gem
-        fail "external mrbc or mruby-bin-mrbc gem in current('#{@name}') or 'host' build is required"
+      if (gem = @gems[gem_name])
+        @mrbcfile = exefile("#{gem.build.build_dir}/bin/mrbc")
+      elsif !host? && (host = MRuby.targets["host"])
+        if (gem = host.gems[gem_name])
+          @mrbcfile = exefile("#{gem.build.build_dir}/bin/mrbc")
+        elsif host.mrbcfile_external?
+          @mrbcfile = host.mrbcfile
+        end
       end
-      @mrbcfile = exefile("#{gem.build.build_dir}/bin/mrbc")
+      @mrbcfile || fail("external mrbc or mruby-bin-mrbc gem in current('#{@name}') or 'host' build is required")
     end
 
     def mrbcfile=(path)
@@ -344,14 +374,8 @@ EOS
     end
 
     def define_rules
-      use_mrdb = @gems["mruby-bin-debugger"]
       compilers.each do |compiler|
-        if respond_to?(:enable_gems?) && enable_gems?
-          compiler.defines -= %w(MRB_NO_GEMS)
-        else
-          compiler.defines += %w(MRB_NO_GEMS)
-        end
-        compiler.defines |= %w(MRB_USE_DEBUG_HOOK) if use_mrdb
+        compiler.defines << "MRB_NO_GEMS" unless enable_gems? && libmruby_enabled?
       end
       [@cc, *(@cxx if cxx_exception_enabled?)].each do |compiler|
         compiler.define_rules(@build_dir, MRUBY_ROOT, @exts.object)
@@ -359,12 +383,33 @@ EOS
       end
     end
 
-    def define_installer(src)
-      dst = "#{self.class.install_dir}/#{File.basename(src)}"
+    def define_installer_outline(src, dst)
       file dst => src do
-        install_D src, dst
+        _pp "GEN", src.relative_path, dst.relative_path
+        mkdir_p(File.dirname(dst))
+        yield dst
       end
       dst
+    end
+
+    if ENV['OS'] == 'Windows_NT'
+      def define_installer(src)
+        dst = "#{self.class.install_dir}/#{File.basename(src)}".pathmap("%X.bat")
+        define_installer_outline(src, dst) do
+          File.write dst, <<~BATCHFILE
+            @echo off
+            call "#{File.expand_path(src)}" %*
+          BATCHFILE
+        end
+      end
+    else
+      def define_installer(src)
+        dst = "#{self.class.install_dir}/#{File.basename(src)}"
+        define_installer_outline(src, dst) do
+          File.unlink(dst) rescue nil
+          File.symlink(src.relative_path_from(self.class.install_dir), dst)
+        end
+      end
     end
 
     def define_installer_if_needed(bin)
@@ -429,10 +474,10 @@ EOS
     def run_bintest
       puts ">>> Bintest #{name} <<<"
       targets = @gems.select { |v| File.directory? "#{v.dir}/bintest" }.map { |v| filename v.dir }
-      targets << filename(".") if File.directory? "./bintest"
       mrbc = @gems["mruby-bin-mrbc"] ? exefile("#{@build_dir}/bin/mrbc") : mrbcfile
       env = {"BUILD_DIR" => @build_dir, "MRBCFILE" => mrbc}
-      sh env, "ruby test/bintest.rb#{verbose_flag} #{targets.join ' '}"
+      bintest = File.join(MRUBY_ROOT, "test/bintest.rb")
+      sh env, "ruby #{bintest}#{verbose_flag} #{targets.join ' '}"
     end
 
     def print_build_summary
@@ -455,11 +500,11 @@ EOS
     end
 
     def libmruby_static
-      libfile("#{build_dir}/lib/libmruby")
+      libfile("#{build_dir}/#{libdir_name}/libmruby")
     end
 
     def libmruby_core_static
-      libfile("#{build_dir}/lib/libmruby_core")
+      libfile("#{build_dir}/#{libdir_name}/libmruby_core")
     end
 
     def libraries
@@ -474,12 +519,35 @@ EOS
       @internal
     end
 
+    def each_header_files(&block)
+      return to_enum(__method__) unless block
+
+      basedir = File.join(MRUBY_ROOT, "include")
+      Find.find(basedir) do |d|
+        next unless File.file? d
+        yield d
+      end
+
+      @gems.each { |g| g.each_header_files(&block) }
+
+      self
+    end
+
+    def install_prefix
+      @install_prefix || (self.name == "host" ? MRuby::INSTALL_PREFIX :
+                                                File.join(MRuby::INSTALL_PREFIX, "mruby/#{self.name}"))
+    end
+
+    def install_prefix=(dir)
+      @install_prefix = dir&.to_s
+    end
+
     protected
 
     attr_writer :presym
 
     def create_mrbc_build
-      exclusions = %i[@name @build_dir @gems @enable_test @enable_bintest @internal]
+      exclusions = %i[@name @build_dir @gems @enable_test @enable_bintest @internal @install_excludes]
       name = "#{@name}/mrbc"
       MRuby.targets.delete(name)
       build = self.class.new(name, internal: true){}
@@ -489,7 +557,8 @@ EOS
         v = instance_variable_get(n)
         v = case v
             when nil, true, false, Numeric; v
-            when String, Command; v.clone
+            when String; v.clone
+            when Command; v.clone.tap { |u| u.build = build }
             else Marshal.load(Marshal.dump(v))  # deep clone
             end
         build.instance_variable_set(n, v)
@@ -537,6 +606,23 @@ EOS
       else
         @test_runner.run(mrbtest)
       end
+    end
+
+    def run_bintest
+      puts ">>> Bintest #{name} <<<"
+      targets = @gems.select { |v| File.directory? "#{v.dir}/bintest" }.map { |v| filename v.dir }
+      mrbc = @gems["mruby-bin-mrbc"] ? exefile("#{@build_dir}/bin/mrbc") : mrbcfile
+
+      emulator = @test_runner.command
+      emulator = @test_runner.shellquote(emulator) if emulator
+
+      env = {
+        "BUILD_DIR" => @build_dir,
+        "MRBCFILE" => mrbc,
+        "EMULATOR" => @test_runner.emulator,
+      }
+      bintest = File.join(MRUBY_ROOT, "test/bintest.rb")
+      sh env, "ruby #{bintest}#{verbose_flag} #{targets.join ' '}"
     end
 
     protected

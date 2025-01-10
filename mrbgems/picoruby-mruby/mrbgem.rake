@@ -3,5 +3,14 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.authors = 'HASUMI Hitoshi'
   spec.summary = 'mruby library'
 
-end
+  spec.add_conflict 'picoruby-mrubyc'
 
+  dir_for_enhanced_rule = "lib/mruby/src"
+  Dir.glob(File.join(dir, "#{dir_for_enhanced_rule}/*.c")).each do |file|
+    obj = objfile(file.pathmap("#{build_dir}/#{dir_for_enhanced_rule}/%n"))
+    build.libmruby_objs << obj
+    file obj => [file] do |t|
+      cc.run t.name, t.prerequisites.first
+    end
+  end
+end
