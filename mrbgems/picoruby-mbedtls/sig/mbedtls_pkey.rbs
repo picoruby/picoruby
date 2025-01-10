@@ -1,0 +1,16 @@
+module MbedTLS
+  module PKey
+    class PKeyError < StandardError
+    end
+
+    class PKeyBase
+      def sign: (MbedTLS::Digest digest, String input) -> String
+      def verify: (MbedTLS::Digest digest, String input, String signature) -> bool
+    end
+
+    class RSA < MbedTLS::PKey::PKeyBase
+      def self.new: (String key) -> MbedTLS::PKey::RSA
+    end
+  end
+end
+

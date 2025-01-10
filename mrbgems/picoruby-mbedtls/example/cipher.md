@@ -1,5 +1,5 @@
 
-The example below shows how to encrypt plaintext with PicoRuby's `mbedtls` and decrypt ciphertext with CRuby's `openssl`.
+The example below shows how to encrypt plaintext with PicoRuby and  MbedTLS and decrypt ciphertext with CRuby and OpenSSL.
 
 ## Encryption and decription with PicoRuby's mbedtls
 
@@ -58,7 +58,7 @@ p plaintext
 ```
 
 
-## Decryption with CRuby's openssl
+### Decryption with CRuby's openssl
 
 ```ruby
 require 'base64'

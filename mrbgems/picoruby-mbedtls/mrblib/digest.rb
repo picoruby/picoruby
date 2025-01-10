@@ -1,6 +1,7 @@
 module MbedTLS
   class Digest
     SUPPORTED_ALGORITHMS = {
+      :none => 0x00,
       :sha256 => 0x01
     }
 

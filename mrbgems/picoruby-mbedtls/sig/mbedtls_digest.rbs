@@ -1,6 +1,6 @@
 module MbedTLS
   class Digest
-    type algorithm_t = :sha256
+    type algorithm_t = :none | :sha256
     SUPPORTED_ALGORITHMS: Hash[algorithm_t, Integer]
 
     def self.new: (algorithm_t algorithm) -> MbedTLS::Digest

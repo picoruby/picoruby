@@ -5,6 +5,7 @@
 #include "hmac.h"
 #include "cipher.h"
 #include "digest.h"
+#include "pkey.h"
 
 void
 mrbc_mbedtls_init(mrbc_vm *vm)
@@ -15,5 +16,6 @@ mrbc_mbedtls_init(mrbc_vm *vm)
   gem_mbedtls_hmac_init(vm, module_MbedTLS);
   gem_mbedtls_cipher_init(vm, module_MbedTLS);
   gem_mbedtls_digest_init(vm, module_MbedTLS);
+  gem_mbedtls_pkey_init(vm, module_MbedTLS);
 }
 
