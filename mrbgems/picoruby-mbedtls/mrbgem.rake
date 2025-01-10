@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.authors = ['HASUMI Hitoshi', 'Ryo Kajiwara']
   spec.summary = 'Mbed-TLS porting for PicoRuby'
 
+  spec.add_dependency 'picoruby-rng'
+
   # Alternative to `mbedtls/include/mbedtls/mbedtls_config.h`
   #   You'll need to define flags according to your needs and
   #   it requires more RAM consumption.

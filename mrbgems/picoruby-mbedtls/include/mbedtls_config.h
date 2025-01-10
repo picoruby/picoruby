@@ -5,8 +5,6 @@
  */
 #define MBEDTLS_PLATFORM_C
 
-#define MBEDTLS_NO_PLATFORM_ENTROPY
-
 /*
  * For MbedTLS::CMAC being required at least
  * MBEDTLS_CIPHER_C and ( MBEDTLS_AES_C or MBEDTLS_DES_C )
@@ -37,20 +35,28 @@
 /* PKey */
 #define MBEDTLS_PK_C
 #define MBEDTLS_PK_PARSE_C
+#define MBEDTLS_PK_WRITE_C
+#define MBEDTLS_PEM_WRITE_C
+#define MBEDTLS_ASN1_WRITE_C
 #define MBEDTLS_ASN1_PARSE_C
 #define MBEDTLS_OID_C
 #define MBEDTLS_RSA_C
 #define MBEDTLS_PEM_PARSE_C
 #define MBEDTLS_BASE64_C
-#define PSA_WANT_ALG_SHA_256
 #define MBEDTLS_BIGNUM_C
 #define MBEDTLS_FS_IO
 #define MBEDTLS_PKCS1_V15
+#define MBEDTLS_ENTROPY_C
+#define MBEDTLS_CTR_DRBG_C
+#define MBEDTLS_SHA512_C
+#define MBEDTLS_GENPRIME
 
 #if defined(PICORUBY_DEBUG)
 #define MBEDTLS_DEBUG_C
 #define MBEDTLS_ERROR_C
 #define MBEDTLS_ERROR_STRERROR_DUMMY
 #endif
+
+#include "mbedtls/check_config.h"
 
 #endif

@@ -1,15 +1,203 @@
+#include <stdbool.h>
 #include <mrubyc.h>
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/error.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/bignum.h"
 
 static mrbc_class *class_MbedTLS_PKey_PKeyError;
+
+static void
+c_mbedtls_pkey_rsa_public_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
+  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
+  if (rsa->N.p != NULL && rsa->E.p != NULL) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_mbedtls_pkey_rsa_private_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
+  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
+  if (rsa->D.p != NULL) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_mbedtls_pkey_rsa_generate(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc < 1 || 2 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  mrbc_value arg = GET_ARG(1);
+  if (mrbc_type(arg) != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "argument must be Integer");
+    return;
+  }
+
+  int exponent = 65537;
+  if (v[2].tt == MRBC_TT_INTEGER) {
+    exponent = v[2].i;
+  }
+
+  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_pk_context));
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)self.instance->data;
+  mbedtls_pk_init(pk);
+
+  mbedtls_entropy_context entropy;
+  mbedtls_ctr_drbg_context ctr_drbg;
+  int ret = 1;
+
+  mbedtls_entropy_init(&entropy);
+  mbedtls_ctr_drbg_init(&ctr_drbg);
+  mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
+  const char *pers = (const char *)mbedtls_pers->string->data;
+  ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
+                              (const unsigned char *)pers,
+                              strlen(pers));
+  if (ret != 0) {
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError,
+                "Failed to seed RNG. ret=%d (0x%x): %s",
+                ret, (unsigned int)-ret, error_buf);
+    goto cleanup;
+  }
+
+  ret = mbedtls_pk_setup(pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+  if (ret != 0) {
+    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
+    goto cleanup;
+  }
+
+  ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(*pk),
+                           mbedtls_ctr_drbg_random,
+                           &ctr_drbg,
+                           mrbc_integer(arg),
+                           exponent);
+  if (ret != 0) {
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError,
+                "Failed to generate RSA key. ret=%d (0x%x): %s",
+                ret, (unsigned int)-ret, error_buf);
+    goto cleanup;
+  }
+
+cleanup:
+  mbedtls_ctr_drbg_free(&ctr_drbg);
+  mbedtls_entropy_free(&entropy);
+
+  if (ret != 0) {
+    mbedtls_pk_free(pk);
+    return;
+  }
+
+  SET_RETURN(self);
+}
+
+static void
+c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  mbedtls_pk_context *orig_pk = (mbedtls_pk_context *)v->instance->data;
+  mrbc_value new_obj = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_pk_context));
+  mbedtls_pk_context *new_pk = (mbedtls_pk_context *)new_obj.instance->data;
+  mbedtls_pk_init(new_pk);
+
+  int ret = mbedtls_pk_setup(new_pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+  if (ret != 0) {
+    mbedtls_pk_free(new_pk);
+    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
+    return;
+  }
+
+  mbedtls_rsa_context *orig_rsa = mbedtls_pk_rsa(*orig_pk);
+  mbedtls_rsa_context *new_rsa = mbedtls_pk_rsa(*new_pk);
+
+  // 公開鍵コンポーネントのコピー
+  if ((ret = mbedtls_mpi_copy(&new_rsa->N, &orig_rsa->N)) != 0 ||
+      (ret = mbedtls_mpi_copy(&new_rsa->E, &orig_rsa->E)) != 0) {
+    mbedtls_pk_free(new_pk);
+    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to copy public key components");
+    return;
+  }
+
+  // 秘密鍵コンポーネントは0にする
+  mbedtls_mpi_init(&new_rsa->D);
+  mbedtls_mpi_init(&new_rsa->P);
+  mbedtls_mpi_init(&new_rsa->Q);
+  mbedtls_mpi_init(&new_rsa->DP);
+  mbedtls_mpi_init(&new_rsa->DQ);
+  mbedtls_mpi_init(&new_rsa->QP);
+
+  SET_RETURN(new_obj);
+}
+
+static void
+c_mbedtls_pkey_rsa_to_pem(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
+  unsigned char buf[16000];  // 十分な大きさのバッファ
+  int ret;
+
+  // 秘密鍵が含まれているかチェック
+  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
+  bool has_private = (mbedtls_rsa_check_privkey(rsa) == 0);
+
+  // PEM形式に変換
+  size_t len = 0;
+  if (has_private) {
+    ret = mbedtls_pk_write_key_pem(pk, buf, sizeof(buf));
+  } else {
+    ret = mbedtls_pk_write_pubkey_pem(pk, buf, sizeof(buf));
+  }
+
+  if (ret != 0) {
+    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to export key to PEM");
+    return;
+  }
+
+  len = strlen((char *)buf);  // PEMは文字列なのでstrlenで長さを取得可能
+  mrbc_value str = mrbc_string_new(vm, (char *)buf, len);
+  SET_RETURN(str);
+}
 
 static void
 c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  if (v[1].tt == MRBC_TT_INTEGER) {
+    c_mbedtls_pkey_rsa_generate(vm, v, argc);
+    return;
+  }
+  if (v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "argument must be String or Integer");
     return;
   }
  
@@ -106,16 +294,29 @@ c_mbedtls_pkey_pkeybase_verify(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_mbedtls_pkey_pkeybase_sign(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Not implemented");
+}
+
 void
 gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
 {
   mrbc_class *module_MbedTLS_PKey = mrbc_define_module_under(vm, module_MbedTLS, "PKey");
   mrbc_class *class_MbedTLS_PKey_PKeyBase = mrbc_define_class_under(vm, module_MbedTLS_PKey, "PKey", mrbc_class_object);
-//  mrbc_define_method(vm, class_MbedTLS_PKey_PKeyBase, "sign", c_mbedtls_pkey_pkeybase_sign);
+  mrbc_define_method(vm, class_MbedTLS_PKey_PKeyBase, "sign", c_mbedtls_pkey_pkeybase_sign);
   mrbc_define_method(vm, class_MbedTLS_PKey_PKeyBase, "verify", c_mbedtls_pkey_pkeybase_verify);
 
   mrbc_class *class_MbedTLS_PKey_RSA = mrbc_define_class_under(vm, module_MbedTLS_PKey, "RSA", class_MbedTLS_PKey_PKeyBase);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "new", c_mbedtls_pkey_rsa_new);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "generate", c_mbedtls_pkey_rsa_generate);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "public_key", c_mbedtls_pkey_rsa_public_key);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "export", c_mbedtls_pkey_rsa_to_pem);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "to_pem", c_mbedtls_pkey_rsa_to_pem);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "to_s", c_mbedtls_pkey_rsa_to_pem);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "public?", c_mbedtls_pkey_rsa_public_q);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "private?", c_mbedtls_pkey_rsa_private_q);
 
   class_MbedTLS_PKey_PKeyError = mrbc_define_class_under(vm, module_MbedTLS_PKey, "PKeyError", MRBC_CLASS(StandardError));
 }
