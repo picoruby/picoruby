@@ -381,28 +381,29 @@ c_kernel_eval(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
-#define PATH_MAX 1024
+#define METAPROG_PATH_MAX 1024
+
 static void
 c_rbconfig_ruby(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   char *picoruby_path = NULL;
 #ifdef _WIN32
-  char path[PATH_MAX];
-  if (GetModuleFileName(NULL, path, PATH_MAX) != 0) {
+  char path[METAPROG_PATH_MAX];
+  if (GetModuleFileName(NULL, path, METAPROG_PATH_MAX) != 0) {
     picoruby_path = _strdup(path);
   }
 #elif defined(__linux__)
-  char path[PATH_MAX];
+  char path[METAPROG_PATH_MAX];
   ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
   if (len != -1) {
     path[len] = '\0';
     picoruby_path = strdup(path);
   }
 #elif defined(__APPLE__)
-  char path[PATH_MAX];
+  char path[METAPROG_PATH_MAX];
   uint32_t size = sizeof(path);
   if (_NSGetExecutablePath(path, &size) == 0) {
-    char real_path[PATH_MAX];
+    char real_path[METAPROG_PATH_MAX];
     if (realpath(path, real_path) != NULL) {
       picoruby_path = strdup(real_path);
     }
