@@ -51,9 +51,10 @@
 #define MBEDTLS_SHA512_C
 #define MBEDTLS_GENPRIME
 
+#define MBEDTLS_ERROR_C
+
 #if defined(PICORUBY_DEBUG)
 #define MBEDTLS_DEBUG_C
-#define MBEDTLS_ERROR_C
 #define MBEDTLS_ERROR_STRERROR_DUMMY
 #endif
 
