@@ -1,5 +1,5 @@
-#ifndef NET_COMMON_DEFINED_H_
-#define NET_COMMON_DEFINED_H_
+#ifndef MQTT_COMMON_DEFINED_H_
+#define MQTT_COMMON_DEFINED_H_
 
 #include "lwip/err.h"
 #include "lwip/ip_addr.h"
@@ -14,4 +14,4 @@ err_t Net_get_ip(const char *name, ip_addr_t *ip);
 }
 #endif
 
-#endif // NET_COMMON_DEFINED_H_
+#endif // MQTT_COMMON_DEFINED_H_

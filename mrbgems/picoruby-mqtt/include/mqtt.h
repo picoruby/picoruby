@@ -1,5 +1,5 @@
-#ifndef NET_DEFINED_H_
-#define NET_DEFINED_H_
+#ifndef MQTT_DEFINED_H_
+#define MQTT_DEFINED_H_
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -20,4 +20,4 @@ void MQTT_callback(void);
 }
 #endif
 
-#endif /* NET_DEFINED_H_ */
+#endif /* MQTT_DEFINED_H_ */
