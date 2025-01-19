@@ -1,0 +1,20 @@
+class MQTTClient
+  @host: String
+  @port: Integer
+  @client_id: String
+
+
+  $_mqtt_singleton: MQTTClient
+
+  def initialize: (String host, ?Integer port, ?String client_id) -> void
+  def connect: () -> bool
+  def publish: (String topic, String payload) -> nil
+  def subscribe: (String topic) -> nil
+  def disconnect: () -> nil
+  def blink_led: () -> void
+  private
+  def _connect_impl: (String host, Integer port, String client_id, bool use_tls) -> bool
+  def _publish_impl: (String payload, String topic) -> nil
+  def _subscribe_impl: (String topic) -> nil
+  def _disconnect_impl: () -> nil
+end
