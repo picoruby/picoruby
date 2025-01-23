@@ -1739,5 +1739,8 @@ class Array[unchecked out Elem] < Object
 
   def reject: () { (Elem item) -> boolish } -> ::Array[Elem]
   def reject!: () { (Elem item) -> boolish } -> self
+
+  def uniq: () -> ::Array[Elem]
+  def uniq!: () -> self
 end
 
