@@ -1,9 +1,6 @@
 #ifndef NET_COMMON_DEFINED_H_
 #define NET_COMMON_DEFINED_H_
 
-#include "lwip/err.h"
-#include "lwip/ip_addr.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
