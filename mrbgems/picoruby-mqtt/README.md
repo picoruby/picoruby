@@ -1,5 +1,5 @@
 # picoruby-mqtt
-A lightweight MQTT client implementation for PicoRuby, designed specifically for Raspberry Pi Pico W.
+A MQTT client implementation for PicoRuby.
 
 ## Features
 Current features:
@@ -7,11 +7,13 @@ Current features:
 - MQTT 3.1.1 protocol support
 - Basic publish/subscribe functionality
 - Automatic connection keep-alive with PING
-- Ruby-based callback system
-- Built-in LED status indication for message reception
-- Customizable message handling
+- Built-in LED status indication for message reception (default callback)
+- Customizable callback function
 
 ## Usage
+
+Must be connected to WiFi in advance.
+Basic example.
 
 ```ruby
 require 'mqtt'
@@ -28,16 +30,32 @@ client.publish("test/topic", "Hello from PicoRuby!")
 # Subscribe to topic
 client.subscribe("test/topic")
 
+# Disconnect when done
+client.disconnect
+```
+
+Example of overriding callback.
+
+
+```ruby
+require 'mqtt'
+
 # By default, the onboard LED toggles when a message is received
 # You can customize message handling by overriding the callback method
 class DemoMQTTClient < MQTTClient
   def callback
-    # Your custom message handling logic here
     puts "Message received!"
   end
 end
 
-# Disconnect when done
+client = DemoMQTTClient.new("YOUR_IP_ADDRESS", 1883, "picoruby_test")
+
+client.connect
+
+client.publish("test/topic", "Hello from PicoRuby!")
+
+client.subscribe("test/topic")
+
 client.disconnect
 ```
 
@@ -49,7 +67,6 @@ client.disconnect
 - Publish/Subscribe operations
 - Keep-alive mechanism
 - Ruby callback
-- LED status indication
 
 ### Planned
 - TLS encryption support
@@ -58,7 +75,7 @@ client.disconnect
 - QoS levels 1 and 2 support
 - MQTT over WebSocket
 - Last Will and Testament
-- Over-the-Air (OTA) updates (Callback script only)
+- Over-the-Air (OTA) updates (callback script only)
 
 ### Not Planned
 - MQTT-SN protocol
