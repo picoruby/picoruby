@@ -28,17 +28,6 @@
 #define MQTT_MESSAGE_QUEUE_SIZE 8
 
 typedef struct {
-  char *topic;
-  char *payload;
-} mqtt_queued_message_t;
-
-typedef struct {
-  int head;
-  int tail;
-  mqtt_queued_message_t queue[MQTT_MESSAGE_QUEUE_SIZE];
-} mqtt_message_queue_t;
-
-typedef struct {
   int state;
   struct altcp_pcb *pcb;
   mrbc_value client_id;
@@ -49,7 +38,6 @@ typedef struct {
   uint32_t last_message_time;
   uint16_t keep_alive_interval;
   mrbc_value self;
-  mqtt_message_queue_t msg_queue;
 } mqtt_client_state_t;
 
 static mqtt_client_state_t *current_mqtt_state = NULL;
@@ -171,63 +159,7 @@ static err_t mqtt_client_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, 
       break;
 
     case MQTT_PUBLISH: {
-      uint8_t remaining_length_bytes = 1;
-      size_t remaining_length = 0;
-      size_t multiplier = 1;
-
-      do {
-        remaining_length += (data[remaining_length_bytes] & 0x7F) * multiplier;
-        multiplier *= 128;
-      } while ((data[remaining_length_bytes++] & 0x80) != 0);
-
-      if ((p->len - remaining_length_bytes) < 2) {
-        break;
-      }
-      uint16_t topic_length = (data[remaining_length_bytes] << 8) | data[remaining_length_bytes + 1];
-      remaining_length_bytes += 2;
-
-      char *topic = (char *)mrbc_alloc(mqtt->vm, topic_length + 1);
-      if (!topic) {
-        console_printf("MQTT: Failed to allocate memory for topic\n");
-        break;
-      }
-      if ((remaining_length_bytes + topic_length) > p->len) {
-        mrbc_free(mqtt->vm, topic);
-        break;
-      }
-      memcpy(topic, &data[remaining_length_bytes], topic_length);
-      topic[topic_length] = '\0';
-
-      size_t payload_offset = remaining_length_bytes + topic_length;
-      if (payload_offset > p->len) {
-        mrbc_free(mqtt->vm, topic);
-        break;
-      }
-      size_t payload_length = p->len - payload_offset;
-
-      char *payload = (char *)mrbc_alloc(mqtt->vm, payload_length + 1);
-      if (!payload) {
-        console_printf("MQTT: Failed to allocate memory for payload\n");
-        mrbc_free(mqtt->vm, topic);
-        break;
-      }
-      memcpy(payload, &data[payload_offset], payload_length);
-      payload[payload_length] = '\0';
-
-      console_printf("MQTT: Received message => topic=\"%s\", payload=\"%s\"\n", topic, payload);
-
-      int next_tail = (mqtt->msg_queue.tail + 1) % MQTT_MESSAGE_QUEUE_SIZE;
-      if (next_tail == mqtt->msg_queue.head) {
-        mrbc_free(mqtt->vm, topic);
-        mrbc_free(mqtt->vm, payload);
-      } else {
-        mqtt->msg_queue.queue[mqtt->msg_queue.tail].topic = topic;
-        mqtt->msg_queue.queue[mqtt->msg_queue.tail].payload = payload;
-        mqtt->msg_queue.tail = next_tail;
-      }
-
       mqtt_client_update_message_time(mqtt);
-
       break;
     }
 
@@ -374,46 +306,6 @@ static err_t mqtt_client_poll(void *arg, struct altcp_pcb *pcb) {
   mqtt_client_state_t *mqtt = (mqtt_client_state_t*)arg;
   if (!mqtt || !mqtt->connected) {
     return ERR_OK;
-  }
-
-  console_printf("MQTT: poll => ENTER, head=%d, tail=%d\n", mqtt->msg_queue.head, mqtt->msg_queue.tail);
-
-  while (mqtt->msg_queue.head != mqtt->msg_queue.tail) {
-    mqtt_queued_message_t *msg = &mqtt->msg_queue.queue[mqtt->msg_queue.head];
-    console_printf("MQTT: poll => Dequeued (index=%d): topic=\"%s\", payload=\"%s\"\n",
-      mqtt->msg_queue.head, msg->topic, msg->payload);
-
-    // Ruby callback
-    console_printf("MQTT: poll => about to call Ruby callback\n");
-    if (mqtt->vm) {
-      mrbc_sym sym_id = mrbc_str_to_symid("message_callback");
-      mrbc_value proc = mrbc_instance_getiv(&mqtt->self, sym_id);
-      if (mrbc_type(proc) == MRBC_TT_PROC) {
-        console_printf("MQTT: poll => calling mrbc_send()...\n");
-        mrbc_value topic_str = mrbc_string_new_cstr(mqtt->vm, msg->topic);
-        mrbc_value payload_str = mrbc_string_new_cstr(mqtt->vm, msg->payload);
-
-        console_printf("MQTT: poll => topic_str='%s', payload_str='%s' (just before send)\n",
-                       topic_str.string->data, payload_str.string->data);
-
-        mrbc_value *regs = mqtt->vm->cur_regs;
-        regs[0] = proc;
-        regs[1] = topic_str;
-        regs[2] = payload_str;
-
-        mrbc_send(mqtt->vm, regs, 0, &proc, "call", 2, topic_str, payload_str);
-        console_printf("MQTT: poll => mrbc_send DONE.\n");
-      } else {
-        console_printf("MQTT: poll => no valid callback found.\n");
-      }
-    } else {
-      console_printf("MQTT: poll => mqtt->vm is NULL?\n");
-    }
-
-    mrbc_free(mqtt->vm, msg->topic);
-    mrbc_free(mqtt->vm, msg->payload);
-
-    mqtt->msg_queue.head = (mqtt->msg_queue.head + 1) % MQTT_MESSAGE_QUEUE_SIZE;
   }
 
   uint32_t current_time = to_ms_since_boot(get_absolute_time()) / 1000;
