@@ -11,17 +11,12 @@
 #include "symbol.h"
 #include "class.h"
 
-#define NODE_BOX_SIZE 10
-#define VM_REGS_SIZE 110 // can be reduced?
-
-static const char *mrbc_symbol_table[MAX_SYMBOLS_COUNT];
+static mrbc_tcb *callback_task = NULL;
 
 void save_compiled_code(uint8_t *mrb, size_t mrb_size);
 
 static uint8_t *compiled_code = NULL;
 static size_t compiled_code_size = 0;
-
-static mrbc_vm *callback_vm = NULL;
 
 static mrbc_vm *
 prepare_vm(const char *code)
@@ -52,13 +47,14 @@ void save_compiled_code(uint8_t *mrb, size_t mrb_size) {
 
 void MQTT_callback(void)
 {
-  console_printf("MQTT: compiled_code: %d\n", compiled_code);
-  mrbc_tcb *tcb = mrbc_create_task(compiled_code, NULL);
-  tcb->vm.flag_preemption = 0;
-  mrbc_vm_begin(&tcb->vm);
-  mrbc_vm_run(&tcb->vm);
-  mrbc_vm_end(&tcb->vm);
-  mrbc_delete_task(tcb);
+  if (!callback_task) {
+    callback_task = mrbc_create_task(compiled_code, NULL);
+  }
+
+  callback_task->vm.flag_preemption = 0;
+  mrbc_vm_begin(&callback_task->vm);
+  mrbc_vm_run(&callback_task->vm);
+  mrbc_vm_end(&callback_task->vm);
 }
 
 static void c_mqtt_client_connect(mrbc_vm *vm, mrbc_value *v, int argc) {
