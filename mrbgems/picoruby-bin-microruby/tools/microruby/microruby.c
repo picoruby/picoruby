@@ -2,29 +2,15 @@
 # error picoruby-bin-picoruby conflicts 'picorb_NO_STDIO' in your build configuration
 #endif
 
+#include "picoruby.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
-//#include <mrubyc.h>
-#include <mrc_common.h>
-#include <mrc_ccontext.h>
-#include <mrc_compile.h>
-#include <mrc_dump.h>
-//#include <picogem_init.c>
-
-
-
-#undef mrb_state
-#define MRUBY_IREP_H 1
-#include <mruby.h>
-#include "../include/microruby.h"
-#include <mruby/value.h>
-#include <mruby/proc.h>
-#include <mruby/array.h>
-#include <mruby/variable.h>
-#include <mruby/presym.h>
-#include <mruby/error.h>
+#if defined(PICORB_VM_MRUBY)
+# define EXECUTABLE_NAME "microruby"
+# define VM_NAME "mruby"
 
 struct RProc* read_irep(mrb_state *mrb, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
@@ -40,10 +26,20 @@ mrb_mruby_compiler2_gem_final(mrb_state *mrb)
 {
 }
 
-#define picorb_value mrb_value
-#define picorb_array_new(v,c) mrb_ary_new_capa(mrb,c)
-#define picorb_string_new(v,s,l) mrb_str_new(mrb,s,l)
-#define picorb_bool_value(v) mrb_bool_value(v)
+#elif defined(PICORB_VM_MRUBYC)
+
+#define EXECUTABLE_NAME "picoruby"
+#define VM_NAME "mruby/c"
+#ifndef HEAP_SIZE
+#define HEAP_SIZE (1024 * 6400 - 1)
+#endif
+static uint8_t mrbc_heap[HEAP_SIZE];
+#ifndef MAX_REGS_SIZE
+#define MAX_REGS_SIZE 255
+#endif
+
+#endif
+
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */
@@ -54,6 +50,7 @@ mrb_mruby_compiler2_gem_final(mrb_state *mrb)
 #include <stdlib.h>
 #include <malloc.h>
 #include <windows.h>
+
 char*
 picorb_utf8_from_locale(const char *str, int len)
 {
@@ -66,14 +63,14 @@ picorb_utf8_from_locale(const char *str, int len)
   if (len == -1)
     len = (int)strlen(str);
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len,  NULL, 0);
-  wcsp = (wchar_t*) mrbc_raw_alloc((wcssize + 1) * sizeof(wchar_t));
+  wcsp = (wchar_t*) picorb_alloc((wcssize + 1) * sizeof(wchar_t));
   if (!wcsp)
     return NULL;
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len, wcsp, wcssize + 1);
   wcsp[wcssize] = 0;
 
   mbssize = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR) wcsp, -1, NULL, 0, NULL, NULL);
-  mbsp = (char*) mrbc_raw_alloc((mbssize + 1));
+  mbsp = (char*) picorb_alloc((mbssize + 1));
   if (!mbsp) {
     free(wcsp);
     return NULL;
@@ -89,23 +86,14 @@ picorb_utf8_from_locale(const char *str, int len)
 #define picorb_utf8_free(p)
 #endif
 
-#ifndef HEAP_SIZE
-#define HEAP_SIZE (1024 * 6400 - 1)
-#endif
-static uint8_t mrbc_heap[HEAP_SIZE];
-
-#ifndef MAX_REGS_SIZE
-#define MAX_REGS_SIZE 255
-#endif
-
 struct _args {
   char *cmdline;
   const char *fname;
-  mrc_bool mrbfile      : 1;
-  mrc_bool check_syntax : 1;
-  mrc_bool verbose      : 1;
-  mrc_bool version      : 1;
-  mrc_bool debug        : 1;
+  picorb_bool mrbfile      : 1;
+  picorb_bool check_syntax : 1;
+  picorb_bool verbose      : 1;
+  picorb_bool version      : 1;
+  picorb_bool debug        : 1;
   int argc;
   char **argv;
   int libc;
@@ -120,21 +108,19 @@ struct options {
   char short_opt[2];
 };
 
-#define PICORUBY_VERSION "3.3.0"
-
 static void
 picorb_show_version(void)
 {
-  fprintf(stdout, "picoruby %s\n", PICORUBY_VERSION);
+  fprintf(stdout, EXECUTABLE_NAME " %s\n", PICORUBY_VERSION);
 }
 
 static void
 picorb_show_copyright(void)
 {
   picorb_show_version();
-  fprintf(stdout, "picoruby is a lightweight implementation of the Ruby language.\n");
-  fprintf(stdout, "picoruby is based on mruby/c.\n");
-  fprintf(stdout, "picoruby is released under the MIT License.\n");
+  fprintf(stdout, EXECUTABLE_NAME " is a lightweight implementation of the Ruby language.\n");
+  fprintf(stdout, EXECUTABLE_NAME " is based on " VM_NAME ".\n");
+  fprintf(stdout, EXECUTABLE_NAME " is released under the MIT License.\n");
 }
 
 static void
@@ -165,12 +151,12 @@ usage(const char *name)
  * In order to be recognized as a `.mrb` file, the following three points must be satisfied:
  * - File starts with "RITE"
  */
-static mrc_bool
+static picorb_bool
 picorb_mrb_p(const char *path)
 {
   FILE *fp;
   char buf[4];
-  mrc_bool ret = FALSE;
+  picorb_bool ret = FALSE;
 
   if ((fp = fopen(path, "rb")) == NULL) {
     return FALSE;
@@ -246,7 +232,7 @@ static char *
 dup_arg_item(const char *item)
 {
   size_t buflen = strlen(item) + 1;
-  char *buf = (char*)mrbc_raw_alloc(buflen);
+  char *buf = (char*)picorb_alloc(buflen);
   memcpy(buf, item, buflen);
   return buf;
 }
@@ -281,7 +267,7 @@ parse_args(int argc, char **argv, struct _args *args)
 
           cmdlinelen = strlen(args->cmdline);
           itemlen = strlen(item);
-          args->cmdline = (char*)mrbc_raw_realloc(args->cmdline, cmdlinelen + itemlen + 2);
+          args->cmdline = (char*)picorb_realloc(args->cmdline, cmdlinelen + itemlen + 2);
           args->cmdline[cmdlinelen] = '\n';
           memcpy(args->cmdline + cmdlinelen + 1, item, itemlen + 1);
         }
@@ -298,10 +284,10 @@ parse_args(int argc, char **argv, struct _args *args)
     else if (strcmp(opt, "r") == 0) {
       if ((item = options_arg(opts))) {
         if (args->libc == 0) {
-          args->libv = (char**)mrbc_raw_alloc(sizeof(char*));
+          args->libv = (char**)picorb_alloc(sizeof(char*));
         }
         else {
-          args->libv = (char**)mrbc_raw_realloc(args->libv, sizeof(char*) * (args->libc + 1));
+          args->libv = (char**)picorb_realloc(args->libv, sizeof(char*) * (args->libc + 1));
         }
         args->libv[args->libc++] = dup_arg_item(item);
       }
@@ -348,7 +334,7 @@ parse_args(int argc, char **argv, struct _args *args)
       argc--; argv++;
     }
   }
-  args->argv = (char **)mrbc_raw_alloc(sizeof(char*) * (argc + 1));
+  args->argv = (char **)picorb_alloc(sizeof(char*) * (argc + 1));
   memcpy(args->argv, argv, (argc+1) * sizeof(char*));
   args->argc = argc;
 
@@ -359,18 +345,18 @@ static void
 cleanup(struct _args *args)
 {
   if (!args->fname)
-    mrbc_raw_free(args->cmdline);
-  mrbc_raw_free(args->argv);
+    picorb_free(args->cmdline);
+  picorb_free(args->argv);
   if (args->libc) {
     while (args->libc--) {
-      mrbc_raw_free(args->libv[args->libc]);
+      picorb_free(args->libv[args->libc]);
     }
-    mrbc_raw_free(args->libv);
+    picorb_free(args->libv);
   }
 //  mrb_close(mrb);
 }
 
-//static mrc_bool
+//static picorb_bool
 //picorb_undef_p(picorb_value *v)
 //{
 //  if (!v) return TRUE;
@@ -399,7 +385,7 @@ cleanup(struct _args *args)
 static mrc_irep *
 picorb_load_rb_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source)
 {
-  char *filenames[2];// = (char**)mrbc_raw_alloc(sizeof(char*) * 2);
+  char *filenames[2];// = (char**)picorb_alloc(sizeof(char*) * 2);
   filenames[0] = (char *)fname;
   filenames[1] = NULL;
   mrc_irep *irep = mrc_load_file_cxt(c, (const char **)filenames, source);
@@ -418,7 +404,7 @@ picorb_print_error(void)
 static void
 resolve_intern(mrb_state *mrb, pm_constant_pool_t *constant_pool, mrc_irep *irep)
 {
-  mrb_sym *new_syms = mrbc_raw_alloc(sizeof(mrb_sym) *irep->slen);
+  mrb_sym *new_syms = picorb_alloc(sizeof(mrb_sym) *irep->slen);
   for (int i = 0; i < irep->slen; i++) {
     mrc_sym sym = irep->syms[i];
     pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
@@ -452,21 +438,18 @@ main(int argc, char **argv)
   }
 
 //  int ai = mrb_gc_arena_save(mrb);
-  ARGV = picorb_array_new(NULL, args.argc);
+  ARGV = picorb_array_new(mrb, args.argc);
   for (int i = 0; i < args.argc; i++) {
     char* utf8 = picorb_utf8_from_locale(args.argv[i], -1);
     if (utf8) {
-      picorb_value str = picorb_string_new(NULL, utf8, strlen(utf8));
-      //mrbc_array_push(&ARGV, &str);
-      mrb_ary_push(mrb, ARGV, str);
+      picorb_value str = picorb_string_new(mrb, utf8, strlen(utf8));
+      picorb_array_push(mrb, ARGV, str);
       picorb_utf8_free(utf8);
     }
   }
-  //mrbc_set_const(mrbc_str_to_symid("ARGV"), &ARGV);
-  mrb_define_global_const(mrb, "ARGV", ARGV);
+  picorb_define_const(mrb, "ARGV", ARGV);
   picorb_value debug = picorb_bool_value(args.debug);
-  //mrbc_set_global(mrbc_str_to_symid("$DEBUG"), &debug);
-  mrb_define_global_const(mrb, "$DEBUG", debug);
+  picorb_define_global_const(mrb, "$DEBUG", debug);
 
   /* Set $0 */
   const char *cmdline;
@@ -476,9 +459,8 @@ main(int argc, char **argv)
   else {
     cmdline = "-e";
   }
-  picorb_value cmd = picorb_string_new(NULL, cmdline, strlen(cmdline));
-  //mrbc_set_global(mrbc_str_to_symid("$0"), &cmd);
-  mrb_define_global_const(mrb, "$0", cmd);
+  picorb_value cmd = picorb_string_new(mrb, cmdline, strlen(cmdline));
+  picorb_define_global_const(mrb, "$0", cmd);
 
   uint8_t *source = NULL;
 
@@ -512,7 +494,7 @@ main(int argc, char **argv)
 //      fseek(fp, 0, SEEK_END);
 //      size = ftell(fp);
 //      fseek(fp, 0, SEEK_SET);
-//      mrb = (uint8_t *)mrbc_raw_alloc(size);
+//      mrb = (uint8_t *)picorb_alloc(size);
 //      if (fread(mrb, 1, size, fp) != size) {
 //        fprintf(stderr, "cannot read file: %s\n", args.libv[i]);
 //        exit(EXIT_FAILURE);
@@ -544,7 +526,7 @@ main(int argc, char **argv)
 //    }
 //    if (source) {
 //      // TODO refactor
-//      mrbc_raw_free(source);
+//      picorb_free(source);
 //      source = NULL;
 //    }
 //  }
@@ -572,7 +554,7 @@ main(int argc, char **argv)
   char *token = strtok((char *)cmdline, ",");
   int index = 0;
   while (token != NULL) {
-    fnames[index] = mrbc_raw_alloc(strlen(token) + 1);
+    fnames[index] = picorb_alloc(strlen(token) + 1);
     if (fnames[index] == NULL) {
       fprintf(stderr, "Failed to allocate memory");
       exit(EXIT_FAILURE);
@@ -599,7 +581,7 @@ main(int argc, char **argv)
     }
     else if (args.fname) {
       // TODO refactor
-      source = mrbc_raw_alloc(sizeof(uint8_t) * 2);
+      source = picorb_alloc(sizeof(uint8_t) * 2);
       source[0] = 0x0;
       source[1] = 0x0;
       irep = picorb_load_rb_file_cxt(c, fnames[i], &source);
@@ -620,7 +602,7 @@ main(int argc, char **argv)
       fseek(fp, 0, SEEK_END);
       mrb_size = ftell(fp);
       fseek(fp, 0, SEEK_SET);
-      mrbcode = (uint8_t *)mrbc_raw_alloc(mrb_size);
+      mrbcode = (uint8_t *)picorb_alloc(mrb_size);
       if (fread(mrbcode, 1, mrb_size, fp) != mrb_size) {
         fprintf(stderr, "cannot read file: %s\n", fnames[i]);
         exit(EXIT_FAILURE);
@@ -700,13 +682,13 @@ main(int argc, char **argv)
 //    mrbc_vm_close(lib_vm_list[i]);
 //  }
 //  for (int i = 0; i < lib_mrb_list_size; i++) {
-//    mrbc_raw_free(lib_mrb_list[i]);
+//    picorb_free(lib_mrb_list[i]);
 //  }
 //  for (int i = 0; i < tasks_mrb_list_size; i++) {
-//    mrbc_raw_free(task_mrb_list[i]);
+//    picorb_free(task_mrb_list[i]);
 //  }
 //  for (int i = 0; i < taskc; i++) {
-//    mrbc_raw_free(fnames[i]);
+//    picorb_free(fnames[i]);
 //  }
 //  for (int i = 0; i < tcb_list_size; i++) {
 //    mrbc_vm_close(&tcb_list[i]->vm);

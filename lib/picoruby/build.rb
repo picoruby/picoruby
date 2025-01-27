@@ -58,6 +58,7 @@ module MRuby
 
       disable_presym
 
+      cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << "DISABLE_MRUBY"
       cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`

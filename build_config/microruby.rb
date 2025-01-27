@@ -11,5 +11,5 @@ MRuby::Build.new do |conf|
 
   conf.cc.include_paths << conf.gems['picoruby-mruby'].dir + '/lib/mruby/include'
   conf.cc.flags << '-O0'
-#  conf.cc.defines << "MRC_TARGET_MRUBY=1"
+  conf.cc.defines << "PICORB_VM_MRUBY"
 end
