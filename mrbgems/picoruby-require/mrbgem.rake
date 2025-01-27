@@ -37,7 +37,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           mkdir_p File.dirname(t.name)
           File.open(t.name, 'w') do |f|
             name = File.basename(t.name, ".c").gsub('-','_')
-            mrbc.run(f, t.prerequisites, name, false)
+            mrbc.run(f, t.prerequisites, name, cdump: false)
             if initializer != "NULL"
               f.puts
               f.puts "void #{initializer}(mrbc_vm *vm);"
