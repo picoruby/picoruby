@@ -40,10 +40,10 @@ mrb_mruby_compiler2_gem_final(mrb_state *mrb)
 {
 }
 
-#define mrbc_value mrb_value
-#define mrbc_array_new(v,c) mrb_ary_new_capa(mrb,c)
-#define mrbc_string_new(v,s,l) mrb_str_new(mrb,s,l)
-#define mrbc_bool_value(v) mrb_bool_value(v)
+#define picorb_value mrb_value
+#define picorb_array_new(v,c) mrb_ary_new_capa(mrb,c)
+#define picorb_string_new(v,s,l) mrb_str_new(mrb,s,l)
+#define picorb_bool_value(v) mrb_bool_value(v)
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */
@@ -371,7 +371,7 @@ cleanup(struct _args *args)
 }
 
 //static mrc_bool
-//picorb_undef_p(mrbc_value *v)
+//picorb_undef_p(picorb_value *v)
 //{
 //  if (!v) return TRUE;
 //  return v->tt == MRBC_TT_EMPTY;
@@ -442,7 +442,7 @@ main(int argc, char **argv)
 
   int n = -1;
   struct _args args;
-  mrbc_value ARGV;
+  picorb_value ARGV;
   mrc_irep *irep = NULL;
 
   n = parse_args(argc, argv, &args);
@@ -452,11 +452,11 @@ main(int argc, char **argv)
   }
 
 //  int ai = mrb_gc_arena_save(mrb);
-  ARGV = mrbc_array_new(NULL, args.argc);
+  ARGV = picorb_array_new(NULL, args.argc);
   for (int i = 0; i < args.argc; i++) {
     char* utf8 = picorb_utf8_from_locale(args.argv[i], -1);
     if (utf8) {
-      mrbc_value str = mrbc_string_new(NULL, utf8, strlen(utf8));
+      picorb_value str = picorb_string_new(NULL, utf8, strlen(utf8));
       //mrbc_array_push(&ARGV, &str);
       mrb_ary_push(mrb, ARGV, str);
       picorb_utf8_free(utf8);
@@ -464,7 +464,7 @@ main(int argc, char **argv)
   }
   //mrbc_set_const(mrbc_str_to_symid("ARGV"), &ARGV);
   mrb_define_global_const(mrb, "ARGV", ARGV);
-  mrbc_value debug = mrbc_bool_value(args.debug);
+  picorb_value debug = picorb_bool_value(args.debug);
   //mrbc_set_global(mrbc_str_to_symid("$DEBUG"), &debug);
   mrb_define_global_const(mrb, "$DEBUG", debug);
 
@@ -476,7 +476,7 @@ main(int argc, char **argv)
   else {
     cmdline = "-e";
   }
-  mrbc_value cmd = mrbc_string_new(NULL, cmdline, strlen(cmdline));
+  picorb_value cmd = picorb_string_new(NULL, cmdline, strlen(cmdline));
   //mrbc_set_global(mrbc_str_to_symid("$0"), &cmd);
   mrb_define_global_const(mrb, "$0", cmd);
 
