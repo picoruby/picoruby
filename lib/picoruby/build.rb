@@ -59,6 +59,7 @@ module MRuby
       disable_presym
 
       cc.defines << "DISABLE_MRUBY"
+      cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
 
       gem github: "picoruby/mruby-compiler2"
@@ -120,4 +121,5 @@ module MRuby
       end
     end
   end
+
 end
