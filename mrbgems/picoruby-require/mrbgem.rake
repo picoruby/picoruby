@@ -127,7 +127,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         picoruby_load_model_by_name(const char *gem)
         {
           int i = gem_index(gem);
-          if (i < 0) return -1;
+          if (i < 0) return false;
           return picoruby_load_model(prebuilt_gems[i].mrb);
         }
 

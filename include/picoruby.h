@@ -19,28 +19,31 @@
 
 #define picorb_vm_init()  do { \
   mrbc_init(mrbc_heap, HEAP_SIZE); \
-  picoruby_init_require(NULL); \
+  vm = mrbc_vm_open(NULL); \
+  picoruby_init_require(vm); \
 } while(0)
 
+#define picorb_state    mrbc_vm
 #define picorb_value    mrbc_value
 #define picorb_bool     mrc_bool
 #define picorb_sym      mrbc_sym
 #define picorb_alloc    mrbc_raw_alloc
 #define picorb_realloc  mrbc_raw_realloc
 #define picorb_free     mrbc_raw_free
-#define picorb_gc_arena_save(mrb)       0;(void)ai
-#define picorb_gc_arena_restore(mrb,ai)
+#define picorb_gc_arena_save(vm)       0;(void)ai
+#define picorb_gc_arena_restore(vm,ai)
 #define picorb_array_new(vm,size)       mrbc_array_new(vm,size)
-#define picorb_array_push(mrb,a,v)      mrbc_array_push(&a,&v)
+#define picorb_array_push(vm,a,v)      mrbc_array_push(&a,&v)
 #define picorb_string_new(vm,src,len)   mrbc_string_new(vm,src,len)
 #define picorb_bool_value(n)            mrbc_bool_value(n)
-#define picorb_define_const(mrb,name,value) \
+#define picorb_define_const(vm,name,value) \
         mrbc_set_const(mrbc_str_to_symid(name),&value)
-#define picorb_define_global_const(mrb,name,value) \
+#define picorb_define_global_const(vm,name,value) \
         mrbc_set_global(mrbc_str_to_symid(name),&value)
 
 #elif defined(PICORB_VM_MRUBY)
 
+#define picorb_state mrb_state
 #define picorb_value mrb_value
 
 #undef mrb_state
@@ -54,8 +57,8 @@
 #include <mruby/error.h>
 
 #define picorb_vm_init()  do { \
-  mrb = mrb_open(); \
-  if (mrb == NULL) { \
+  vm = mrb_open(); \
+  if (vm == NULL) { \
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
     return EXIT_FAILURE; \
   } \
@@ -67,17 +70,17 @@
 #define picorb_realloc  realloc
 #define picorb_free     free
 
-#define picorb_gc_arena_save(mrb)         mrb_gc_arena_save(mrb)
-#define picorb_gc_arena_restore(mrb,ai)   mrb_gc_arena_restore(mrb,ai)
+#define picorb_gc_arena_save(vm)         mrb_gc_arena_save(vm)
+#define picorb_gc_arena_restore(vm,ai)   mrb_gc_arena_restore(vm,ai)
 
-#define picorb_array_new(mrb,size)      mrb_ary_new_capa(mrb,size)
-#define picorb_array_push(mrb,a,v)      mrb_ary_push(mrb,a,v)
-#define picorb_string_new(mrb,src,len)  mrb_str_new(mrb,src,len)
+#define picorb_array_new(vm,size)      mrb_ary_new_capa(vm,size)
+#define picorb_array_push(vm,a,v)      mrb_ary_push(vm,a,v)
+#define picorb_string_new(vm,src,len)  mrb_str_new(vm,src,len)
 #define picorb_bool_value(n)            mrb_bool_value(n)
-#define picorb_define_const(mrb,name,value) \
-          mrb_define_global_const(mrb,name,value)
-#define picorb_define_global_const(mrb,name,value) \
-          mrb_define_global_const(mrb,name,value)
+#define picorb_define_const(vm,name,value) \
+          mrb_define_global_const(vm,name,value)
+#define picorb_define_global_const(vm,name,value) \
+          mrb_define_global_const(vm,name,value)
 
 #else /* PICORB_VM_MRUBY */
 
