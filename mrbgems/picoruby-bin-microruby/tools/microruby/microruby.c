@@ -669,7 +669,7 @@ main(int argc, char **argv)
 #if defined(PICORB_VM_MRUBYC)
     task_mrb_list[tasks_mrb_list_size++] = vm_code;
     if (irep) mrc_irep_free(c, irep);
-    if (source) mrc_free(source);
+    if (source) mrc_free(c, source);
 
     mrbc_tcb *tcb = mrbc_create_task(vm_code, NULL);
     if (!tcb) {
@@ -691,7 +691,7 @@ main(int argc, char **argv)
 #if defined(PICORB_VM_MRUBY)
     n = mrb_lib_run(vm, c, irep);
     if (irep) mrc_irep_free(c, irep);
-    if (source) mrc_free(source);
+    if (source) mrc_free(c, source);
 #else
     if (mrbc_run() != 0) {
       if (!picorb_undef_p(NULL)) {
