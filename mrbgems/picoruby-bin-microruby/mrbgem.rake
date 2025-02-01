@@ -12,6 +12,7 @@ MRuby::Gem::Specification.new('picoruby-bin-microruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
   if spec.cc.defines.include? 'PICORB_VM_MRUBY'
+    spec.cc.defines << 'MRC_TARGET_MRUBY'
     BINNAME = 'microruby'
     spec.add_dependency 'picoruby-mruby'
     spec.cc.include_paths << "#{build.gems['picoruby-mruby'].dir}/lib/mruby/include"
