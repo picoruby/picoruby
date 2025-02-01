@@ -9,8 +9,11 @@
 #include <stdio.h>
 
 #if defined(PICORB_VM_MRUBY)
-# define EXECUTABLE_NAME "microruby"
-# define VM_NAME "mruby"
+  #if defined(MRC_CUSTOM_ALLOC)
+    #include "prism_xallocator.h"
+  #endif
+  #define EXECUTABLE_NAME "microruby"
+  #define VM_NAME "mruby"
 
 struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
@@ -448,6 +451,8 @@ picorb_load_rb_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source)
   }
   return irep;
 }
+
+mrb_state *global_mrb = NULL;
 
 int
 main(int argc, char **argv)

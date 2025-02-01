@@ -62,6 +62,7 @@
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
     return EXIT_FAILURE; \
   } \
+  global_mrb = vm; \
 } while(0)
 
 #define picorb_bool     mrb_bool
