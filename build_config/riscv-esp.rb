@@ -16,6 +16,7 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "MRC_CUSTOM_ALLOC"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
+  conf.cc.defines << "USE_FAT_FLASH_DISK"
   conf.cc.defines << "NDEBUG"
 
   conf.gem core: "picoruby-machine"
