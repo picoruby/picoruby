@@ -34,8 +34,6 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m33") do |conf|
   # These defines should correspond to
   # the platform's configuration
   conf.cc.defines << "PICORUBY_INT64"
-  conf.cc.defines << "MRBC_USE_ALLOC_PROF"
-  conf.cc.defines << 'MRC_CUSTOM_ALLOC'
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
@@ -56,7 +54,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m33") do |conf|
   conf.gembox "prk_firmware"
 
   conf.mrubyc_hal_arm
-  conf.picoruby
+  conf.picoruby(alloc_libc: false)
 
 end
 

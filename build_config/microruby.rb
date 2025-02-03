@@ -12,5 +12,4 @@ MRuby::Build.new do |conf|
   conf.cc.include_paths << conf.gems['picoruby-mruby'].dir + '/lib/mruby/include'
   conf.cc.flags << "-O0" if ENV['PICORUBY_DEBUG']
   conf.cc.defines << "PICORB_VM_MRUBY"
-  conf.cc.defines << "MRC_CUSTOM_ALLOC"
 end

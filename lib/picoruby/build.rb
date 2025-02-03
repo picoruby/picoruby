@@ -54,10 +54,15 @@ module MRuby
       end
     end
 
-    def picoruby
+    def picoruby(alloc_libc: true)
 
       disable_presym
 
+      if alloc_libc
+        cc.defines << "MRBC_ALLOC_LIBC"
+      else
+        cc.defines << "MRBC_USE_ALLOC_PROF"
+      end
       cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << "DISABLE_MRUBY"
       cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"

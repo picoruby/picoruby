@@ -9,11 +9,7 @@
 #include <stdio.h>
 
 #if defined(PICORB_VM_MRUBY)
-  #if defined(MRC_CUSTOM_ALLOC)
-    #include "prism_xallocator.h"
-  #endif
   #define EXECUTABLE_NAME "microruby"
-  #define VM_NAME "mruby"
 
 struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
@@ -50,7 +46,6 @@ resolve_intern(mrb_state *vm, pm_constant_pool_t *constant_pool, mrc_irep *irep)
 #elif defined(PICORB_VM_MRUBYC)
 
 #define EXECUTABLE_NAME "picoruby"
-#define VM_NAME "mruby/c"
 #ifndef HEAP_SIZE
 #define HEAP_SIZE (1024 * 6400 - 1)
 #endif

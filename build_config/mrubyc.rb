@@ -5,6 +5,6 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
-  conf.picoruby :minimum # or :default
+  conf.picoruby(alloc_libc: true)
 
 end

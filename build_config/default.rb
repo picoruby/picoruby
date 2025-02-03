@@ -2,14 +2,8 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
+  conf.cc.defines << "PICORUBY_VM_MRUBYC"
   conf.cc.defines << "PICORUBY_PLATFORM=posix"
-
-  if ENV['PICORUBY_NO_LIBC_ALLOC']
-    conf.cc.defines << "MRBC_USE_ALLOC_PROF"
-    conf.cc.defines << 'MRC_CUSTOM_ALLOC'
-  else
-    conf.cc.defines << "MRBC_ALLOC_LIBC"
-  end
 
   conf.cc.defines << "MRBC_NO_STDIO"
   conf.cc.defines << "PICORUBY_INT64"
@@ -22,7 +16,7 @@ MRuby::Build.new do |conf|
   # Net::NTTPSClient needs -lssl -lcrypto
   conf.gem core: "picoruby-net"
 
-  conf.picoruby
+  conf.picoruby(alloc_libc: true)
 
 end
 

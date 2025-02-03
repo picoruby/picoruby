@@ -6,9 +6,7 @@ MRuby::Build.new do |conf|
     conf.toolchain :gcc
   end
 
-  conf.cc.defines << "MRC_PARSER_PRISM"
-
-  conf.picoruby
+  conf.picoruby(alloc_libc: true)
 
   conf.gem core: 'picoruby-mrubyc'
   conf.gem github: "picoruby/mruby-bin-mrbc2"

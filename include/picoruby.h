@@ -4,7 +4,14 @@
 #include "version.h"
 
 #if !defined(PICORB_VM_MRUBYC) && !defined(PICORB_VM_MRUBY)
-# define PICORB_VM_MRUBY
+  #define PICORB_VM_MRUBY
+  #define VM_NAME "mruby"
+#else
+  #define VM_NAME "mrubyc"
+#endif
+
+#if !defined(PRISM_XALLOCATOR)
+  #define PRISM_XALLOCATOR
 #endif
 
 #include <mrc_common.h>
@@ -28,7 +35,19 @@
 #define picorb_bool     mrc_bool
 #define picorb_sym      mrbc_sym
 #define picorb_alloc    mrbc_raw_alloc
-#define picorb_realloc  mrbc_raw_realloc
+/*
+ * mrbc_raw_realloc() warns if ptr is NULL.
+ * So, we need to implement our own realloc.
+ */
+void*
+picorb_realloc(void *ptr, unsigned int size)
+{
+  if (ptr == NULL) {
+    return mrbc_raw_alloc(size);
+  } else {
+    return mrbc_raw_realloc(ptr, size);
+  }
+}
 #define picorb_free     mrbc_raw_free
 #define picorb_gc_arena_save(vm)       0;(void)ai
 #define picorb_gc_arena_restore(vm,ai)
