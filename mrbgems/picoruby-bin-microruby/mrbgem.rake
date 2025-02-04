@@ -21,7 +21,7 @@ MRuby::Gem::Specification.new('picoruby-bin-microruby') do |spec|
     spec.cc.include_paths << "#{build_dir}/.."
   end
 
-  build.bins = [BINNAME]
+  build.bins << BINNAME
 
   microruby_src = "#{dir}/tools/microruby/microruby.c"
   bin_obj = objfile(microruby_src.pathmap("#{build_dir}/tools/microruby/%n"))
