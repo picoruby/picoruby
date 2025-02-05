@@ -102,9 +102,9 @@ picorb_realloc(void *ptr, unsigned int size)
 #define picorb_define_global_const(vm,name,value) \
           mrb_define_global_const(vm,name,value)
 
-#else /* PICORB_VM_MRUBY */
+#else
 
-# error "This should not happen"
+  #error "Must define PICORB_VM_MRUBYC or PICORB_VM_MRUBY"
 
 #endif
 
