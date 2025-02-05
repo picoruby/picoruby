@@ -18,6 +18,7 @@
 #include <mrc_ccontext.h>
 #include <mrc_compile.h>
 #include <mrc_dump.h>
+#include "../mrbgems/picoruby-mruby/include/mrc_utils.h"
 
 #if defined(PICORB_VM_MRUBYC)
 

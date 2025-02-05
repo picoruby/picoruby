@@ -15,16 +15,6 @@ struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8
 
 mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
 
-void
-mrb_mruby_compiler2_gem_init(mrb_state *vm)
-{
-}
-
-void
-mrb_mruby_compiler2_gem_final(mrb_state *vm)
-{
-}
-
 static void
 resolve_intern(mrb_state *vm, pm_constant_pool_t *constant_pool, mrc_irep *irep)
 {
@@ -396,7 +386,7 @@ mrb_lib_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
   if (mrb->c->cibase && mrb->c->cibase->proc == proc->upper) {
     proc->upper = NULL;
   }
-    MRB_PROC_SET_TARGET_CLASS(proc, target);
+  MRB_PROC_SET_TARGET_CLASS(proc, target);
   if (mrb->c->ci) {
     mrb_vm_ci_target_class_set(mrb->c->ci, target);
   }

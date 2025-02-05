@@ -50,6 +50,12 @@ module MRuby
       end
     end
 
+    def microruby
+      cc.include_paths << "#{gems['picoruby-mruby'].dir}/lib/mruby/include"
+      cc.flags << "-O0" if ENV['PICORUBY_DEBUG']
+      cc.defines << "PICORB_VM_MRUBY"
+    end
+
     def picoruby(alloc_libc: true)
 
       disable_presym
