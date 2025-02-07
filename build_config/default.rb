@@ -2,8 +2,7 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
-  conf.cc.defines << "PICORUBY_VM_MRUBYC"
-  conf.cc.defines << "PICORUBY_PLATFORM=posix"
+  conf.cc.defines << "PICORB_VM_MRUBYC"
 
   conf.cc.defines << "MRBC_NO_STDIO"
   conf.cc.defines << "PICORUBY_INT64"

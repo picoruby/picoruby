@@ -3,5 +3,5 @@ MRuby::Gem::Specification.new('picoruby-rng') do |spec|
   spec.author  = 'Ryo Kajiwara'
   spec.summary = 'Random Number Generator for PicoRuby'
 
-  build.porting(dir)
+  spec.posix
 end

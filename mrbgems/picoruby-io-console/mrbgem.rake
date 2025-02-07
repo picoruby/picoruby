@@ -7,7 +7,7 @@ MRuby::Gem::Specification.new('picoruby-io-console') do |spec|
 
   spec.require_name = 'io/console'
 
-  build.porting(dir)
+  spec.posix
 end
 
 

@@ -14,8 +14,6 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.linker.flags << '-Wl,-rpath,/usr/arm-linux-gnueabihf/lib'
   conf.archiver.command = 'arm-linux-gnueabihf-ar'
 
-  conf.cc.defines << "PICORUBY_PLATFORM=posix"
-
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
 
   conf.cc.defines << "MRBC_NO_STDIO"

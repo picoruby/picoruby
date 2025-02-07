@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-yaml') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'YAML parser for PicoRuby'
 
-  if cc.defines.flatten.include?('PICORUBY_PLATFORM=posix')
+  if build.name == 'host'
     spec.add_dependency 'picoruby-io'
   else
     spec.add_dependency 'picoruby-filesystem-fat'

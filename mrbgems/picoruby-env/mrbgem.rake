@@ -3,5 +3,5 @@ MRuby::Gem::Specification.new('picoruby-env') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'ENV'
 
-  build.porting dir
+  spec.posix
 end
