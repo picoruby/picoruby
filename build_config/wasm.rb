@@ -26,5 +26,5 @@ MRuby::CrossBuild.new("wasm") do |conf|
   conf.gem core: 'picoruby-rng'
   conf.gem core: 'picoruby-yaml'
 
-  conf.picoruby
+  conf.picoruby(alloc_libc: true)
 end

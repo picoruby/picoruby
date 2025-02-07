@@ -37,7 +37,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           mkdir_p File.dirname(t.name)
           File.open(t.name, 'w') do |f|
             name = File.basename(t.name, ".c").gsub('-','_')
-            mrbc.run(f, t.prerequisites, name, false)
+            mrbc.run(f, t.prerequisites, name, cdump: false)
             if initializer != "NULL"
               f.puts
               f.puts "void #{initializer}(mrbc_vm *vm);"
@@ -127,7 +127,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         picoruby_load_model_by_name(const char *gem)
         {
           int i = gem_index(gem);
-          if (i < 0) return -1;
+          if (i < 0) return false;
           return picoruby_load_model(prebuilt_gems[i].mrb);
         }
 

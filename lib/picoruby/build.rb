@@ -8,11 +8,11 @@ module MRuby
     def build_mrbc_exec
       gem github: 'picoruby/mruby-compiler2' unless @gems['mruby-compiler2']
       gem github: 'picoruby/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
-      gem core: 'picoruby-mrubyc'
-      cc.defines << "MRBC_USE_HAL_POSIX"
-      cc.defines << "MRBC_ALLOC_LIBC"
-      cc.defines << "DISABLE_MRUBY"
       self.mrbcfile = "#{build_dir}/bin/picorbc"
+    end
+
+    def create_mrbc_build
+      build_mrbc_exec
     end
 
     def mrubyc_lib_dir
@@ -50,11 +50,24 @@ module MRuby
       end
     end
 
-    def picoruby
+    def microruby
+      cc.include_paths << "#{gems['picoruby-mruby'].dir}/lib/mruby/include"
+      cc.flags << "-O0" if ENV['PICORUBY_DEBUG']
+      cc.defines << "PICORB_VM_MRUBY"
+    end
+
+    def picoruby(alloc_libc: true)
 
       disable_presym
 
+      if alloc_libc
+        cc.defines << "MRBC_ALLOC_LIBC"
+      else
+        cc.defines << "MRBC_USE_ALLOC_PROF"
+      end
+      cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << "DISABLE_MRUBY"
+      cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
 
       gem github: "picoruby/mruby-compiler2"
@@ -116,4 +129,5 @@ module MRuby
       end
     end
   end
+
 end

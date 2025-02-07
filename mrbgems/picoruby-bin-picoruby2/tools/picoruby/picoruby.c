@@ -6,7 +6,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <mrubyc.h>
+//#include <mrubyc.h>
+#include <mruby.h>
 
 #include <mrc_common.h>
 #include <mrc_ccontext.h>

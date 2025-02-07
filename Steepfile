@@ -25,4 +25,6 @@ target :mrbgems do
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/range.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/string.rb"
   ignore "mrbgems/picoruby-task-ext/mrblib/task.rb"
+  ignore "mrbgems/picoruby-mruby/lib/mruby"
+  ignore "mrblib"
 end

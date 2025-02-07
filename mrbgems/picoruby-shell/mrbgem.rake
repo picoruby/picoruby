@@ -18,7 +18,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     file mrbfile => [rbfile, executable_dir] do |t|
       File.open(t.name, 'w') do |f|
         mrbc.compile_options = "--remove-lv -B%{funcname} -o-"
-        mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", false)
+        mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", cdump: false)
       end
     end
     executable_mrbfiles << mrbfile
