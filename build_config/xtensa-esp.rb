@@ -23,5 +23,5 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: "picoruby-machine"
   conf.gem core: "picoruby-shell"
   conf.gem core: "picoruby-picorubyvm"
-  conf.picoruby
+  conf.picoruby(alloc_libc: false)
 end
