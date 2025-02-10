@@ -36,24 +36,26 @@
 #define picorb_bool     mrc_bool
 #define picorb_sym      mrbc_sym
 #define picorb_alloc    mrbc_raw_alloc
-/*
- * mrbc_raw_realloc() warns if ptr is NULL.
- * So, we need to implement our own realloc.
- */
-void*
+static inline void*
 picorb_realloc(void *ptr, unsigned int size)
 {
+  /* mrbc_raw_realloc() fails when ptr=NULL but it should be allowed in C99 */
   if (ptr == NULL) {
     return mrbc_raw_alloc(size);
   } else {
     return mrbc_raw_realloc(ptr, size);
   }
 }
-#define picorb_free     mrbc_raw_free
+static inline void picorb_free(void *ptr)
+{
+  /* mrbc_raw_free() warns when ptr=NULL but it should be allowed in C99 */
+  if (ptr == NULL) return;
+  mrbc_raw_free(ptr);
+}
 #define picorb_gc_arena_save(vm)       0;(void)ai
 #define picorb_gc_arena_restore(vm,ai)
 #define picorb_array_new(vm,size)       mrbc_array_new(vm,size)
-#define picorb_array_push(vm,a,v)      mrbc_array_push(&a,&v)
+#define picorb_array_push(vm,a,v)       mrbc_array_push(&a,&v)
 #define picorb_string_new(vm,src,len)   mrbc_string_new(vm,src,len)
 #define picorb_bool_value(n)            mrbc_bool_value(n)
 #define picorb_define_const(vm,name,value) \
