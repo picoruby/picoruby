@@ -5,10 +5,10 @@ require 'base64'
 module JWT
   class VerificationError < StandardError; end
 
-  def self.encode(paylaod, secret = nil, algorithm = 'none')
-    header = { 'alg' => algorithm }
+  def self.encode(paylaod, secret = nil, algorithm = 'none', headers = {})
+    headers['alg'] = algorithm
     segments = []
-    segments << Base64.urlsafe_encode64(JSON.generate header)
+    segments << Base64.urlsafe_encode64(JSON.generate headers)
     segments << Base64.urlsafe_encode64(JSON.generate paylaod)
     signing_input = segments.join('.')
     case algorithm.to_s.downcase

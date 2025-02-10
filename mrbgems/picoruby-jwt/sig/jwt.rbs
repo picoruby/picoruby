@@ -3,6 +3,6 @@ module JWT
   class VerificationError < StandardError
   end
 
-  def self.encode: (String payload, ?String|nil secret, ?String algorithm) -> String
+  def self.encode: (String payload, ?String|nil secret, ?String algorithm, ?Hash[String ,String] headers ) -> String
   def self.decode: (String token, ?String|nil secret, ?bool validate) -> [Object, Hash[String, Object]]
 end
