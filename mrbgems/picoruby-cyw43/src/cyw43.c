@@ -84,8 +84,8 @@ c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  const char *ssid = GET_STRING_ARG(1);
-  const char *pass = GET_STRING_ARG(2);
+  const char *ssid = (const char *)GET_STRING_ARG(1);
+  const char *pass = (const char *)GET_STRING_ARG(2);
   int auth = GET_INT_ARG(3);
   int timeout_ms = 3 < argc ? GET_INT_ARG(4)*1000 : 60*1000;
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
