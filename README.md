@@ -81,6 +81,9 @@ and
 
 See also [picoruby/picoruby/wiki](https://github.com/picoruby/picoruby/wiki).
 
+### Stargazers over time
+[![Stargazers over time](https://starchart.cc/picoruby/picoruby.svg?variant=adaptive)](https://starchart.cc/picoruby/picoruby)
+
 ### License
 
 Copyright © 2020-2024 HASUMI Hitoshi. See MIT-LICENSE for further details.
