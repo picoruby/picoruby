@@ -3,6 +3,9 @@
 
 #include "version.h"
 
+#if defined(PICORB_VM_MRUBYC) && defined(PICORB_VM_MRUBY)
+  #error "Must define PICORB_VM_MRUBYC or PICORB_VM_MRUBY"
+#endif
 #if !defined(PICORB_VM_MRUBYC) && !defined(PICORB_VM_MRUBY)
   #define PICORB_VM_MRUBY
   #define VM_NAME "mruby"
