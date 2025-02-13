@@ -40,7 +40,7 @@ module MRuby
         cc.defines << define if cc.defines.none? { _1.start_with? key }
       end
 
-      cc.defines << "PICORUBY_COMMIT_TIMESTAMP=#{`git log -1 --format=%cd --date=iso-strict`.strip}"
+      cc.defines << "PICORUBY_COMMIT_TIMESTAMP=#{Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')}"
       cc.defines << "PICORUBY_COMMIT_BRANCH=#{`git branch --show-current`.strip}"
       cc.defines << "PICORUBY_COMMIT_HASH=#{`git log -1 --format=%h`.strip}"
 
