@@ -57,7 +57,11 @@ class IO
         end
       end
     end
-    return [row.to_i, col.to_i]
+    if row == 0 || col == 0
+      [24, 80] # default size
+    else
+      [row.to_i, col.to_i]
+    end
   end
 
   def self.clear_screen
