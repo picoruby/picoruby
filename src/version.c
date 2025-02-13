@@ -3,7 +3,9 @@
 #define TOSTRING(x) #x
 #define EXPAND(x) TOSTRING(x)
 
-const char* picorb_version(void) {
+const char*
+picorb_version(void)
+{
   return(
     "picoruby "
     PICORUBY_VERSION
