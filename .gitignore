@@ -36,4 +36,6 @@ tags
 /doc/api
 /doc/capi
 
+/src/version.c
+
 .r2p2/
