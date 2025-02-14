@@ -5,6 +5,19 @@
 #define MBEDTLS_PLATFORM_C
 
 /*
+* To debug TSL connection, you can use the following code:
+* ```
+* mbedtls_ssl_conf_dbg((mbedtls_ssl_config *)tls_config, mbedtls_debug, NULL);
+* mbedtls_debug_set_threshold(5); # 1-5. Greater values will print more information.
+* ```
+* MBEDTLS_DEBUG_C is required for this.
+*/
+// #define MBEDTLS_DEBUG_C
+
+// See mbedtls/include/mbedtls/config.h about MBEDTLS_ERROR_STRERROR_DUMMY
+// #define MBEDTLS_ERROR_STRERROR_DUMMY
+
+/*
  * For MbedTLS::CMAC being required at least
  * MBEDTLS_CIPHER_C and ( MBEDTLS_AES_C or MBEDTLS_DES_C )
  */
@@ -65,10 +78,5 @@
 #endif
 
 #define MBEDTLS_ERROR_C
-
-#if defined(PICORUBY_DEBUG)
-#define MBEDTLS_DEBUG_C
-#define MBEDTLS_ERROR_STRERROR_DUMMY
-#endif
 
 #include "mbedtls/check_config.h"

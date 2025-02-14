@@ -1,4 +1,5 @@
 #include "../../include/net.h"
+#include "../../include/mbedtls_debug.h"
 #include "lwipopts.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/altcp_tls.h"
