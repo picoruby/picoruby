@@ -16,6 +16,7 @@
 #define NET_TCP_STATE_PACKET_RECVED      4
 #define NET_TCP_STATE_FINISHED           6
 #define NET_TCP_STATE_ERROR              99
+#define NET_TCP_STATE_TIMEOUT            100
 
 /* TCP connection struct */
 typedef struct tcp_connection_state_str
@@ -39,9 +40,37 @@ TCPClient_free_tls_config(tcp_connection_state *cs)
 }
 
 static err_t
+TCPClient_close(tcp_connection_state *cs)
+{
+  err_t err = ERR_OK;
+  if (!cs || !cs->pcb) return ERR_ARG;
+  cyw43_arch_lwip_begin();
+  altcp_arg(cs->pcb, NULL);
+  altcp_recv(cs->pcb, NULL);
+  altcp_sent(cs->pcb, NULL);
+  altcp_err(cs->pcb, NULL);
+  altcp_poll(cs->pcb, NULL, 0);
+  err = altcp_close(cs->pcb);
+  if (err != ERR_OK) {
+    console_printf("altcp_close failed: %d\n", err);
+    altcp_abort(cs->pcb);
+    err = ERR_ABRT;
+  }
+  cyw43_arch_lwip_end();
+  TCPClient_free_tls_config(cs);
+  mrbc_free(cs->vm, cs);
+  return err;
+}
+
+static err_t
 TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
+  if (err != ERR_OK) {
+    console_printf("TCPClient_recv_cb: err=%d\n", err);
+    cs->state = NET_TCP_STATE_ERROR;
+    return TCPClient_close(cs);
+  }
   if (pbuf != NULL) {
     char *tmpbuf = mrbc_alloc(cs->vm, pbuf->tot_len + 1);
     struct pbuf *current_pbuf = pbuf;
@@ -60,7 +89,6 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   } else {
     cs->state = NET_TCP_STATE_FINISHED;
   }
-  TCPClient_free_tls_config(cs);
   return ERR_OK;
 }
 
@@ -74,6 +102,10 @@ TCPClient_sent_cb(void *arg, struct altcp_pcb *pcb, u16_t len)
 static err_t
 TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
+  if (err != ERR_OK) {
+    console_printf("TCPClient_connected_cb: err=%d\n", err);
+    return TCPClient_close((tcp_connection_state *)arg);
+  }
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   cs->state = NET_TCP_STATE_CONNECTED;
   return ERR_OK;
@@ -82,9 +114,10 @@ TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 static err_t
 TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
+  console_printf("TCPClient_poll_cb (timeout)\n");
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  cs->state = NET_TCP_STATE_FINISHED;
-  return ERR_OK;
+  cs->state = NET_TCP_STATE_TIMEOUT;
+  return TCPClient_close(cs);
 }
 
 static void
@@ -93,7 +126,6 @@ TCPClient_err_cb(void *arg, err_t err)
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   console_printf("Error with: %d\n", err);
   cs->state = NET_TCP_STATE_ERROR;
-  TCPClient_free_tls_config(cs);
 }
 
 static tcp_connection_state *
@@ -122,6 +154,11 @@ TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value
 
   struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
+  if (!cs->pcb) {
+    console_printf("altcp_tls_new failed\n");
+    mrbc_free(vm, cs);
+    return NULL;
+  }
   cs->tls_config = tls_config;
   mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), host);
   altcp_recv(cs->pcb, TCPClient_recv_cb);
@@ -138,22 +175,32 @@ TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value
 static tcp_connection_state *
 TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm, bool is_tls)
 {
+  err_t err;
   tcp_connection_state *cs;
   if (is_tls) {
     cs = TCPClient_new_tls_connection(host, send_data, recv_data, vm);
   } else {
     cs = TCPClient_new_connection(send_data, recv_data, vm);
   }
-  cyw43_arch_lwip_begin();
-  altcp_connect(cs->pcb, ip, port, TCPClient_connected_cb);
-  cyw43_arch_lwip_end();
-  cs->state = NET_TCP_STATE_CONNECTION_STARTED;
+  if (cs) {
+    cyw43_arch_lwip_begin();
+    err = altcp_connect(cs->pcb, ip, port, TCPClient_connected_cb);
+    if (err != ERR_OK) {
+      console_printf("altcp_connect failed: %d\n", err);
+      cs->state = NET_TCP_STATE_ERROR;
+      cyw43_arch_lwip_end();
+      return cs;
+    }
+    cyw43_arch_lwip_end();
+    cs->state = NET_TCP_STATE_CONNECTION_STARTED;
+  }
   return cs;
 }
 
 static int
 TCPClient_poll_impl(tcp_connection_state **pcs)
 {
+  err_t err;
   if (*pcs == NULL)
     return 0;
   tcp_connection_state *cs = *pcs;
@@ -168,7 +215,12 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
     case NET_TCP_STATE_CONNECTED:
       cs->state = NET_TCP_STATE_WAITING_PACKET;
       cyw43_arch_lwip_begin();
-      altcp_write(cs->pcb, cs->send_data->string->data, cs->send_data->string->size, 0);
+      err = altcp_write(cs->pcb, cs->send_data->string->data, cs->send_data->string->size, 0);
+      if (err != ERR_OK) {
+        console_printf("altcp_write failed: %d\n", err);
+        cs->state = NET_TCP_STATE_ERROR;
+        return 1;
+      }
       altcp_output(cs->pcb);
       cyw43_arch_lwip_end();
       break;
@@ -176,18 +228,14 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
       cs->state = NET_TCP_STATE_WAITING_PACKET;
       break;
     case NET_TCP_STATE_FINISHED:
-      cyw43_arch_lwip_begin();
-      altcp_close(cs->pcb);
-      cyw43_arch_lwip_end();
-      mrbc_free(cs->vm, cs);
+      TCPClient_close(cs);
       *pcs = NULL;
       return 0;
-      break;
     case NET_TCP_STATE_ERROR:
-      mrbc_free(cs->vm, cs);
-      *pcs = NULL;
+      TCPClient_close(cs);
       return 0;
-      break;
+    case NET_TCP_STATE_TIMEOUT:
+      return 0;
   }
   return cs->state;
 }
@@ -204,12 +252,16 @@ TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
     ipaddr_ntoa_r(&ip, ip_str, 16);
     mrbc_value recv_data = mrbc_string_new(vm, NULL, 0);
     tcp_connection_state *cs = TCPClient_connect_impl(&ip, host, port, send_data, &recv_data, vm, is_tls);
-    while(TCPClient_poll_impl(&cs))
-    {
-      sleep_ms(200);
+    if (!cs) {
+      ret = mrbc_nil_value();
+    } else {
+      while(TCPClient_poll_impl(&cs))
+      {
+        sleep_ms(200);
+      }
+      // recv_data is ready after connection is complete
+      ret = recv_data;
     }
-    // recv_data is ready after connection is complete
-    ret = recv_data;
   } else {
     ret = mrbc_nil_value();
   }
