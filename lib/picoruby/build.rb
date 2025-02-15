@@ -40,6 +40,18 @@ module MRuby
         cc.defines << define if cc.defines.none? { _1.start_with? key }
       end
 
+      timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+      branch = `git branch --show-current`.strip
+      commit_hash = `git log -1 --format=%h`.strip
+
+      File.write(
+        "#{MRUBY_ROOT}/src/version.c",
+        File.read("#{MRUBY_ROOT}/src/version.c.in")
+            .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
+            .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
+      )
+
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
       cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"

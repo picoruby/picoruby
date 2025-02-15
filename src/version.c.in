@@ -1,0 +1,15 @@
+#include "version.h"
+
+#define PICORUBY_COMMIT_TIMESTAMP "@PICORUBY_COMMIT_TIMESTAMP@"
+#define PICORUBY_COMMIT_BRANCH    "@PICORUBY_COMMIT_BRANCH@"
+#define PICORUBY_COMMIT_HASH      "@PICORUBY_COMMIT_HASH@"
+
+const char*
+picorb_version(void)
+{
+  return(
+    "picoruby "
+    PICORUBY_VERSION
+    " (" PICORUBY_COMMIT_TIMESTAMP " " PICORUBY_COMMIT_BRANCH " " PICORUBY_COMMIT_HASH ") "
+  );
+}
