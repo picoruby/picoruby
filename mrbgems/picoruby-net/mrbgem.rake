@@ -8,7 +8,7 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
 
   spec.posix
 
-  if build.name == 'host'
+  if build.posix?
     spec.mruby.linker.flags_after_libraries << '-lssl'
     spec.mruby.linker.flags_after_libraries << '-lcrypto'
   else

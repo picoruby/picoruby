@@ -58,13 +58,17 @@ module MRuby
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
       mrubyc_dir = "#{gems['picoruby-mrubyc'].dir}/lib/mrubyc"
       cc.include_paths << mrubyc_dir + "/src"
-      if cc.build.name == 'host'
+      if cc.build.posix?
         cc.include_paths << mrubyc_dir + "/hal/posix"
       else
         cc.include_paths << gems['picoruby-machine'].dir + '/include'
       end
 
       debug_flag
+    end
+
+    def posix?
+      self.name == 'host' || cc.defines.include?("MRBC_USE_HAL_POSIX")
     end
 
     private def debug_flag
@@ -107,7 +111,7 @@ module MRuby
       end
 
       def posix
-        return unless cc.build.name == "host"
+        return unless cc.build.posix?
         Dir.glob("#{dir}/ports/posix/**/*.c").each do |src|
           obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
           build.libmruby_objs << obj

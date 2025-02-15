@@ -29,5 +29,5 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
   # Net::NTTPSClient needs -lssl -lcrypto
 #  conf.gem core: "picoruby-net"
 
-  conf.picoruby(alloc_libc: false)
+  conf.picoruby(alloc_libc: true)
 end

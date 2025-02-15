@@ -33,7 +33,7 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
     f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
   end
 
-  if build.name == 'host'
+  if build.posix?
     cc.defines << "PICORB_PLATFORM_POSIX"
   end
 end

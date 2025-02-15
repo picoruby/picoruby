@@ -24,7 +24,7 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     end
   end
 
-  if cc.build.name == 'host'
+  if cc.build.posix?
     hal_src = "#{mrubyc_dir}/hal/posix/hal.c"
     obj = objfile(hal_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
