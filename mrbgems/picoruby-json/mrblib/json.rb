@@ -297,7 +297,7 @@ module JSON
       when NilClass
         nil
       else
-        raise JSON::GeneratorError.new("Unsupported element type: #{obj.class}")
+        generate_string(obj.to_s)
       end
     end
 

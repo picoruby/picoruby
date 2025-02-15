@@ -103,7 +103,7 @@ module Picotest
         raise ArgumentError, "At least one exception class must be given"
       end
       message = if 1 < exceptions.size && exceptions[-1].is_a?(String)
-        message = exceptions.pop
+        exceptions.pop
       end
       unless exceptions.all? { |e| e.class? }
         raise TypeError, "All arguments must be classes"
