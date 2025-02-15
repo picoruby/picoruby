@@ -45,8 +45,8 @@ module MRuby
       commit_hash = `git log -1 --format=%h`.strip
 
       File.write(
-        "./src/version.c",
-        File.read("./src/version.c.in")
+        "#{MRUBY_ROOT}/src/version.c",
+        File.read("#{MRUBY_ROOT}/src/version.c.in")
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
             .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
