@@ -2,12 +2,14 @@ class MQTTClient
   @host: String
   @port: Integer
   @client_id: String
-
+  @ssl: bool
 
   $_mqtt_singleton: MQTTClient
 
   def initialize: (String host, ?Integer port, ?String client_id) -> void
-  def connect: () -> bool
+  def connect: (?Hash[Symbol, bool] opts) -> bool
+  def ssl=: (bool) -> bool
+  def ssl?: -> bool
   def publish: (String topic, String payload) -> nil
   def subscribe: (String topic) -> nil
   def disconnect: () -> nil

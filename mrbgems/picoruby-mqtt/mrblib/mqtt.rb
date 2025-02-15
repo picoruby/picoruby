@@ -3,11 +3,20 @@ class MQTTClient
     @host = host
     @port = port
     @client_id = client_id
+    @ssl = false
     $_mqtt_singleton = self
   end
 
   def connect
     _connect_impl(@host, @port, @client_id, false)
+  end
+
+  def ssl=(value)
+    @ssl = value
+  end
+
+  def ssl?
+    @ssl
   end
 
   def publish(topic, payload)
