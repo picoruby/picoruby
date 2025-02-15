@@ -36,7 +36,7 @@ c_Watchdog_disable(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_Watchdog_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 1 ) {
+  if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   }
@@ -44,7 +44,9 @@ c_Watchdog_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type. expected Integer");
     return;
   }
-  Watchdog_reboot(GET_INT_ARG(1));
+  int ms = GET_INT_ARG(1);
+  console_printf("\nRebooting in %d ms\n", ms);
+  Watchdog_reboot(ms);
   SET_INT_RETURN(0);
 }
 

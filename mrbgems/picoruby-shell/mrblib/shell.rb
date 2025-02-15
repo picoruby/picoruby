@@ -198,7 +198,7 @@ class Shell
             Watchdog.reboot 1000
           rescue NameError
             buffer.clear
-            puts "reboot is not available"
+            puts "\nerror: reboot is not available on this platform"
           end
         when ["quit"], ["exit"]
           buffer.clear
