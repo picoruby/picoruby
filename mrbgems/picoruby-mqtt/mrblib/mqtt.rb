@@ -1,34 +1,70 @@
 class MQTTClient
-  def initialize(host, port = 1883, client_id = "picoruby_mqtt")
-    @host = host
-    @port = port || 1883
-    @client_id = client_id
-    @ssl = false
-    @ca_cert = nil
-    $_mqtt_singleton = self
-  end
+  SSL_VERIFY_MODES = {
+    none: 0,
+    peer: 1
+  }.freeze
 
-  def connect(opts = {})
-    @ssl = !!opts[:ssl]
-    @ca_cert = opts[:ca_cert] if opts[:ca_cert]
-    _connect_impl(@host, @port, @client_id, false)
+  SSL_VERSIONS = {
+    TLSv1_2: 0,
+    TLSv1_1: 1,
+    TLSv1: 2
+  }.freeze
+
+  def initialize(host, port = nil, client_id = "picoruby_mqtt", **args)
+    @host = host
+    @port = port
+    @client_id = client_id
+    @ssl = args[:ssl] || false
+    @ssl_context = nil
+    $_mqtt_singleton = self
+
+    setup_ssl_context(args) if @ssl
   end
 
   def ssl=(value)
     @ssl = value
-    @port = 8883 if @ssl && @port == 1883
+    @port = 8883 if @ssl && (@port.nil? || @port == 1883)
   end
 
   def ssl?
     @ssl
   end
 
-  def ca_cert=(cert)
-    @ca_cert = cert
+  def connect(opts = {})
+    @port ||= @ssl ? 8883 : 1883
+
+    if opts.key?(:ssl)
+      @ssl = opts[:ssl]
+      setup_ssl_context(opts) if @ssl
+    end
+
+    _connect_impl(
+      @host,
+      @port,
+      @client_id,
+      @ssl,
+      @ssl_context&.dig(:ca_file),
+      @ssl_context&.dig(:cert_file),
+      @ssl_context&.dig(:key_file),
+      @ssl_context&.dig(:version),
+      @ssl_context&.dig(:verify_mode)
+    )
   end
 
-  def ca_cert
-    @ca_cert
+  def set_ssl_context(opts = {})
+    setup_ssl_context(opts)
+  end
+
+  def setup_ssl_context(args)
+    return unless @ssl
+
+    @ssl_context = {
+      cert_file: args[:cert_file],
+      key_file: args[:key_file],
+      ca_file: args[:ca_file],
+      verify_mode: SSL_VERIFY_MODES[args[:verify_mode] || :peer],
+      version: SSL_VERSIONS[args[:ssl_version] || :TLSv1_2]
+    }
   end
 
   def publish(topic, payload)
@@ -39,11 +75,10 @@ class MQTTClient
     _subscribe_impl(topic)
   end
 
-  def instance
-    $_mqtt_singleton
+  def disconnect
+    _disconnect_impl
   end
 
-  # You can override this method
   def callback
     blink_led
   end
@@ -52,9 +87,5 @@ class MQTTClient
     @led ||= CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on ||= false
     @led&.write((@led_on = !@led_on) ? 1 : 0)
-  end
-
-  def disconnect
-    _disconnect_impl
   end
 end

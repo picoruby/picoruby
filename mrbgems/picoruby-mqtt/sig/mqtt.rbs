@@ -1,23 +1,45 @@
 class MQTTClient
+  SSL_VERIFY_MODES: Hash[Symbol, Integer]
+  SSL_VERSIONS: Hash[Symbol, Integer]
+
+  type ssl_context = {
+    cert_file: String?,
+    key_file: String?,
+    ca_file: String?,
+    verify_mode: Integer?,
+    version: Integer?
+  }
+
+  type ssl_options = {
+    ssl: bool?,
+    cert_file: String?,
+    key_file: String?,
+    ca_file: String?,
+    verify_mode: Symbol?,
+    ssl_version: Symbol?
+  }
+
   @host: String
-  @port: Integer
+  @port: Integer?
   @client_id: String
   @ssl: bool
+  @ssl_context: ssl_context?
 
   $_mqtt_singleton: MQTTClient
 
-  def initialize: (String host, ?Integer port, ?String client_id) -> void
-  def connect: (?Hash[Symbol, bool] opts) -> bool
+  def initialize: (String host, ?Integer? port, ?String client_id, **ssl_options) -> void
   def ssl=: (bool) -> bool
   def ssl?: -> bool
-  def ca_cert=: (String?) -> String?
-  def ca_cert: -> String?
+  def connect: (?ssl_options opts) -> bool
+  def set_ssl_context: (ssl_options opts) -> void
   def publish: (String topic, String payload) -> nil
   def subscribe: (String topic) -> nil
   def disconnect: () -> nil
   def blink_led: () -> void
+
   private
-  def _connect_impl: (String host, Integer port, String client_id, bool use_tls) -> bool
+  def setup_ssl_context: (ssl_options) -> void
+  def _connect_impl: (String host, Integer port, String client_id, bool use_tls, ?String ca_file, ?String cert_file, ?String key_file, ?Integer version, ?Integer verify_mode) -> bool
   def _publish_impl: (String payload, String topic) -> nil
   def _subscribe_impl: (String topic) -> nil
   def _disconnect_impl: () -> nil
