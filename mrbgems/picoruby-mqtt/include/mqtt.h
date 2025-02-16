@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port, const char *client_id, bool use_tls);
+mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port, const char *client_id, bool use_tls, const char *ca_cert);
 mrbc_value MQTTClient_publish(mrbc_vm *vm, mrbc_value *payload, const char *topic);
 mrbc_value MQTTClient_subscribe(mrbc_vm *vm, const char *topic);
 mrbc_value MQTTClient_disconnect(mrbc_vm *vm);

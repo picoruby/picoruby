@@ -58,7 +58,7 @@ void MQTT_callback(void)
 }
 
 static void c_mqtt_client_connect(mrbc_vm *vm, mrbc_value *v, int argc) {
-  if (argc != 4) {
+  if (argc < 4 || argc > 5) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -69,8 +69,9 @@ static void c_mqtt_client_connect(mrbc_vm *vm, mrbc_value *v, int argc) {
   const int port = mrbc_integer(v[2]);
   const char *client_id = mrbc_string_cstr(&v[3]);
   const bool use_tls = (v[4].tt == MRBC_TT_TRUE);
+  const char *ca_cert = (argc == 5 && v[5].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[5]) : NULL;
 
-  mrbc_value ret = MQTTClient_connect(vm, v, host, port, client_id, use_tls);
+  mrbc_value ret = MQTTClient_connect(vm, v, host, port, client_id, use_tls, ca_cert);
   SET_RETURN(ret);
 }
 
