@@ -63,6 +63,11 @@ static err_t mqtt_client_close(void *arg) {
   mqtt_client_state_t *mqtt = (mqtt_client_state_t*)arg;
   if (!mqtt) return ERR_OK;
 
+  if (mqtt->tls_config) {
+    altcp_tls_free_config(mqtt->tls_config);
+    mqtt->tls_config = NULL;
+  }
+
   if (mqtt->pcb != NULL) {
     altcp_arg(mqtt->pcb, NULL);
     altcp_recv(mqtt->pcb, NULL);
@@ -73,11 +78,6 @@ static err_t mqtt_client_close(void *arg) {
     mqtt->pcb = NULL;
   }
 
-  if (mqtt->tls_config) {
-    altcp_tls_free_config(mqtt->tls_config);
-    mqtt->tls_config = NULL;
-  }
-
   mqtt->connected = false;
   return ERR_OK;
 }
@@ -85,7 +85,13 @@ static err_t mqtt_client_close(void *arg) {
 static err_t mqtt_client_connected(void *arg, struct altcp_pcb *pcb, err_t err) {
   mqtt_client_state_t *mqtt = (mqtt_client_state_t*)arg;
   if (err != ERR_OK) {
-    console_printf("MQTT: Connection callback error: %d\n", err);
+    if (err == ERR_SSL_HANDSHAKE) {
+      console_printf("MQTT: SSL handshake failed\n");
+    } else if (err == ERR_SSL_CERT) {
+      console_printf("MQTT: Certificate verification failed\n");
+    } else {
+      console_printf("MQTT: Connection callback error: %d\n", err);
+    }
     return mqtt_client_close(mqtt);
   }
 
@@ -319,8 +325,14 @@ mrbc_value MQTTClient_publish(mrbc_vm *vm, mrbc_value *payload, const char *topi
 
 static err_t mqtt_client_poll(void *arg, struct altcp_pcb *pcb) {
   mqtt_client_state_t *mqtt = (mqtt_client_state_t*)arg;
-  if (!mqtt || !mqtt->connected) {
-    return ERR_OK;
+  if (!mqtt) return ERR_OK;
+
+  if (!mqtt->connected) {
+    uint32_t current_time = to_ms_since_boot(get_absolute_time()) / 1000;
+    if (current_time - mqtt->connect_start_time > MQTT_CONNECT_TIMEOUT) {
+      console_printf("MQTT: Connection timeout\n");
+      return mqtt_client_close(mqtt);
+    }
   }
 
   uint32_t current_time = to_ms_since_boot(get_absolute_time()) / 1000;

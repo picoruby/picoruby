@@ -1,7 +1,7 @@
 class MQTTClient
   def initialize(host, port = 1883, client_id = "picoruby_mqtt")
     @host = host
-    @port = port
+    @port = port || 1883
     @client_id = client_id
     @ssl = false
     @ca_cert = nil
@@ -16,6 +16,7 @@ class MQTTClient
 
   def ssl=(value)
     @ssl = value
+    @port = 8883 if @ssl && @port == 1883
   end
 
   def ssl?
