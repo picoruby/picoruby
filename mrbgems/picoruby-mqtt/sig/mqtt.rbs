@@ -10,6 +10,8 @@ class MQTTClient
   def connect: (?Hash[Symbol, bool] opts) -> bool
   def ssl=: (bool) -> bool
   def ssl?: -> bool
+  def ca_cert=: (String?) -> String?
+  def ca_cert: -> String?
   def publish: (String topic, String payload) -> nil
   def subscribe: (String topic) -> nil
   def disconnect: () -> nil

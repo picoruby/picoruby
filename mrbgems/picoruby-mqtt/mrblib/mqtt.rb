@@ -4,10 +4,13 @@ class MQTTClient
     @port = port
     @client_id = client_id
     @ssl = false
+    @ca_cert = nil
     $_mqtt_singleton = self
   end
 
-  def connect
+  def connect(opts = {})
+    @ssl = !!opts[:ssl]
+    @ca_cert = opts[:ca_cert] if opts[:ca_cert]
     _connect_impl(@host, @port, @client_id, false)
   end
 
@@ -17,6 +20,14 @@ class MQTTClient
 
   def ssl?
     @ssl
+  end
+
+  def ca_cert=(cert)
+    @ca_cert = cert
+  end
+
+  def ca_cert
+    @ca_cert
   end
 
   def publish(topic, payload)

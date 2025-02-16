@@ -179,7 +179,7 @@ static err_t mqtt_client_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, 
   return ERR_OK;
 }
 
-mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port, const char *client_id, bool use_tls) {
+mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port, const char *client_id, bool use_tls, const char *ca_cert) {
   console_printf("MQTT: Starting connection to %s:%d\n", host, port);
   if (current_mqtt_state != NULL) {
     console_printf("MQTT: Closing existing connection\n");
@@ -203,7 +203,19 @@ mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, i
   mqtt->last_ping_time = mqtt->last_message_time;
 
   if (use_tls) {
-    struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
+    struct altcp_tls_config *tls_config;
+    if (ca_cert) {
+      tls_config = altcp_tls_create_config_client((void*)ca_cert, strlen(ca_cert));
+    } else {
+      tls_config = altcp_tls_create_config_client(NULL, 0);
+    }
+
+    if (!tls_config) {
+      console_printf("MQTT: Failed to create TLS config\n");
+      mrbc_free(vm, mqtt);
+      return mrbc_false_value();
+    }
+
     mqtt->tls_config = tls_config;
     mqtt->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   } else {
@@ -211,6 +223,9 @@ mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, i
   }
 
   if (mqtt->pcb == NULL) {
+    if (use_tls && mqtt->tls_config) {
+      altcp_tls_free_config(mqtt->tls_config);
+    }
     mrbc_free(vm, mqtt);
     return mrbc_false_value();
   }
