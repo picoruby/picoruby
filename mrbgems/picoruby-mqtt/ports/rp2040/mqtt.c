@@ -40,6 +40,54 @@ typedef struct {
   mrbc_value self;
 } mqtt_client_state_t;
 
+typedef struct {
+  const char *ca_file;
+  const char *cert_file;
+  const char *key_file;
+  int verify_mode;
+  int version;
+} ssl_ctx_t;
+
+static err_t setup_ssl_context(mqtt_client_state_t *mqtt, ssl_ctx_t *ssl_ctx) {
+  struct altcp_tls_config *tls_config = NULL;
+
+  if (ssl_ctx->ca_file) {
+    tls_config = altcp_tls_create_config_client(
+      (void*)ssl_ctx->ca_file,
+      strlen(ssl_ctx->ca_file)
+    );
+  } else {
+    tls_config = altcp_tls_create_config_client(NULL, 0);
+  }
+
+  if (!tls_config) {
+    console_printf("MQTT: Failed to create TLS config\n");
+    return ERR_MEM;
+  }
+
+  if (ssl_ctx->cert_file && ssl_ctx->key_file) {
+    err_t err = altcp_tls_config_client_cert(
+      tls_config,
+      (void*)ssl_ctx->cert_file,
+      strlen(ssl_ctx->cert_file),
+      (void*)ssl_ctx->key_file,
+      strlen(ssl_ctx->key_file)
+    );
+    if (err != ERR_OK) {
+      console_printf("MQTT: Failed to set client cert/key\n");
+      altcp_tls_free_config(tls_config);
+      return err;
+    }
+  }
+
+  if (ssl_ctx->verify_mode == MQTT_VERIFY_NONE) {
+    altcp_tls_config_skip_verify(tls_config);
+  }
+
+  mqtt->tls_config = tls_config;
+  return ERR_OK;
+}
+
 static mqtt_client_state_t *current_mqtt_state = NULL;
 
 static err_t mqtt_client_poll(void *arg, struct altcp_pcb *pcb);
@@ -185,8 +233,12 @@ static err_t mqtt_client_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, 
   return ERR_OK;
 }
 
-mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port, const char *client_id, bool use_tls, const char *ca_cert) {
+mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port,
+                             const char *client_id, bool use_tls,
+                             const char *ca_file, const char *cert_file, const char *key_file,
+                             int tls_version, int verify_mode) {
   console_printf("MQTT: Starting connection to %s:%d\n", host, port);
+
   if (current_mqtt_state != NULL) {
     console_printf("MQTT: Closing existing connection\n");
     mqtt_client_close(current_mqtt_state);
@@ -207,23 +259,24 @@ mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, i
   mqtt->keep_alive_interval = 60;
   mqtt->last_message_time = to_ms_since_boot(get_absolute_time()) / 1000;
   mqtt->last_ping_time = mqtt->last_message_time;
+  mqtt->connect_start_time = mqtt->last_message_time;
 
   if (use_tls) {
-    struct altcp_tls_config *tls_config;
-    if (ca_cert) {
-      tls_config = altcp_tls_create_config_client((void*)ca_cert, strlen(ca_cert));
-    } else {
-      tls_config = altcp_tls_create_config_client(NULL, 0);
-    }
+    ssl_ctx_t ssl_ctx = {
+      .ca_file = ca_file,
+      .cert_file = cert_file,
+      .key_file = key_file,
+      .verify_mode = verify_mode,
+      .version = tls_version
+    };
 
-    if (!tls_config) {
-      console_printf("MQTT: Failed to create TLS config\n");
+    err_t err = setup_ssl_context(mqtt, &ssl_ctx);
+    if (err != ERR_OK) {
       mrbc_free(vm, mqtt);
       return mrbc_false_value();
     }
 
-    mqtt->tls_config = tls_config;
-    mqtt->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
+    mqtt->pcb = altcp_tls_new(mqtt->tls_config, IPADDR_TYPE_V4);
   } else {
     mqtt->pcb = altcp_new(NULL);
   }
@@ -238,17 +291,18 @@ mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, i
 
   altcp_arg(mqtt->pcb, mqtt);
   altcp_recv(mqtt->pcb, mqtt_client_recv);
+  altcp_err(mqtt->pcb, mqtt_client_err);
+  altcp_poll(mqtt->pcb, mqtt_client_poll, 10);
 
   ip_addr_t remote_addr;
-  ip4_addr_set_zero(&remote_addr);
   err_t err = Net_get_ip(host, &remote_addr);
   if (err != ERR_OK) {
+    console_printf("MQTT: DNS resolution failed\n");
     mqtt_client_close(mqtt);
     mrbc_free(vm, mqtt);
     return mrbc_false_value();
   }
 
-  console_printf("MQTT: Connecting to IP: %s\n", ipaddr_ntoa(&remote_addr));
   err = altcp_connect(mqtt->pcb, &remote_addr, port, mqtt_client_connected);
   if (err != ERR_OK) {
     console_printf("MQTT: Connection failed: %d\n", err);
@@ -256,8 +310,6 @@ mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, i
     mrbc_free(vm, mqtt);
     return mrbc_false_value();
   }
-
-  altcp_poll(mqtt->pcb, mqtt_client_poll, 10);
 
   current_mqtt_state = mqtt;
   return mrbc_true_value();
@@ -321,6 +373,15 @@ mrbc_value MQTTClient_publish(mrbc_vm *vm, mrbc_value *payload, const char *topi
   mqtt_client_update_message_time(current_mqtt_state);
   console_printf("MQTT: Publish completed successfully\n");
   return mrbc_true_value();
+}
+
+static err_t mqtt_client_err(void *arg, err_t err) {
+  mqtt_client_state_t *mqtt = (mqtt_client_state_t*)arg;
+  if (!mqtt) return ERR_OK;
+
+  console_printf("MQTT: Connection error: %d\n", err);
+  mqtt_client_close(mqtt);
+  return ERR_OK;
 }
 
 static err_t mqtt_client_poll(void *arg, struct altcp_pcb *pcb) {
