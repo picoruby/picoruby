@@ -680,7 +680,6 @@ main(int argc, char **argv)
   if (!args.check_syntax) {
 #if defined(PICORB_VM_MRUBY)
     n = mrb_lib_run(vm, c, irep);
-    if (irep) mrc_irep_free(c, irep);
     if (source) mrc_free(c, source);
 #else
     if (mrbc_run() != 0) {

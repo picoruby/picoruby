@@ -5,7 +5,7 @@ MRuby::Build.new do |conf|
   conf.gem github: 'picoruby/mruby-bin-mrbc2'
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: "picoruby-mruby"
-  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-print"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
 
 #  conf.disable_presym
 
