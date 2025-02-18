@@ -125,7 +125,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   int ble_role;
-  int role_symid = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("role")).i;
+  int role_symid = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("role")).sym_id;
   if (role_symid == mrbc_str_to_symid("central")) {
     ble_role = BLE_ROLE_CENTRAL;
   } else if (role_symid == mrbc_str_to_symid("peripheral")) {

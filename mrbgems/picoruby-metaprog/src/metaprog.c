@@ -119,7 +119,7 @@ c_object_instance_variable_get(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_sym sym_id;
   switch (v[1].tt) {
     case MRBC_TT_SYMBOL:
-      sym_id = v[1].i;
+      sym_id = v[1].sym_id;
       name = mrbc_symid_to_str(sym_id);
       break;
     case MRBC_TT_STRING:
@@ -152,7 +152,7 @@ c_object_instance_variable_set(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_sym sym_id;
   switch (v[1].tt) {
     case MRBC_TT_SYMBOL:
-      sym_id = v[1].i;
+      sym_id = v[1].sym_id;
       name = mrbc_symid_to_str(sym_id);
       break;
     case MRBC_TT_STRING:
@@ -249,7 +249,7 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value *value;
   mrbc_sym sym_id;
   if (v[1].tt == MRBC_TT_SYMBOL) {
-    sym_id = v[1].i;
+    sym_id = v[1].sym_id;
   } else if (v[1].tt == MRBC_TT_STRING) {
     sym_id = mrbc_str_to_symid((const char *)GET_STRING_ARG(1));
   } else {

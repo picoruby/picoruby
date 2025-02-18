@@ -39,10 +39,10 @@ search_return_value(struct VM *vm, intptr_t doubled_obj_id, mrbc_sym called_meth
   for (int i = 0 ; i < global_doubles.array->n_stored; i++) {
     mrbc_value double_method = global_doubles.array->data[i];
     if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("doubled_obj_id"))).i == doubled_obj_id &&
-        mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).i == called_method_id) {
+        mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).sym_id == called_method_id) {
       *return_value = mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("return_value")));
       mrbc_incref(return_value);
-      if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("type"))).i == mrbc_str_to_symid("mock")) {
+      if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("type"))).sym_id == mrbc_str_to_symid("mock")) {
         mrbc_value actual_count = mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("actual_count")));
         actual_count.i++;
         mrbc_hash_set(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("actual_count")), &actual_count);
@@ -108,10 +108,10 @@ search_return_value_any_instance_of(struct VM *vm, mrbc_class *cls, mrbc_sym cal
   for (int i = 0 ; i < global_doubles.array->n_stored; i++) {
     mrbc_value double_method = global_doubles.array->data[i];
     if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("doubled_obj_id"))).i == (intptr_t)cls &&
-        mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).i == called_method_id) {
+        mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).sym_id == called_method_id) {
       *return_value = mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("return_value")));
       mrbc_incref(return_value);
-      if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("type"))).i == mrbc_str_to_symid("mock")) {
+      if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("type"))).sym_id == mrbc_str_to_symid("mock")) {
         mrbc_value actual_count = mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("actual_count")));
         actual_count.i++;
         mrbc_hash_set(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("actual_count")), &actual_count);

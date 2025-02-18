@@ -380,7 +380,7 @@ static void
 c_object_get_property(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   picorb_js_obj *parent = (picorb_js_obj *)v[0].instance->data;
-  const mrbc_sym key = v[1].i;
+  const mrbc_sym key = v[1].sym_id;
   const char* key_str = mrbc_symid_to_str(key);
   int ref_id = get_property(parent->ref_id, key_str);
 
@@ -517,7 +517,7 @@ c_object_to_poro(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_object_method_missing(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  mrbc_sym method_sym = v[1].i;
+  mrbc_sym method_sym = v[1].sym_id;
   const char *method_name = mrbc_symid_to_str(method_sym);
   picorb_js_obj *js_obj = (picorb_js_obj *)v[0].instance->data;
 
