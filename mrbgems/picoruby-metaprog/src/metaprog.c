@@ -15,7 +15,7 @@ c_object_send(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_method method;
   const char *method_name;
   if (v[1].tt == MRBC_TT_SYMBOL) {
-    method_name = (const char *)mrbc_symid_to_str(v[1].i);
+    method_name = (const char *)mrbc_symid_to_str(v[1].sym_id);
   } else if (v[1].tt == MRBC_TT_STRING) {
     method_name = (const char *)GET_STRING_ARG(1);
   } else {
@@ -181,7 +181,7 @@ c_object_respond_to_q(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_method method;
   const char *method_name;
   if (v[1].tt == MRBC_TT_SYMBOL) {
-    method_name = (const char *)mrbc_symid_to_str(v[1].i);
+    method_name = (const char *)mrbc_symid_to_str(v[1].sym_id);
   } else {
     method_name = (const char *)GET_STRING_ARG(1);
   }

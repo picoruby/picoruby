@@ -244,7 +244,7 @@ c_double_define_method_any_instance_of(struct VM *vm, mrbc_value v[], int argc)
   mrbc_value doubled_obj = v[2];
   cls = doubled_obj.cls;
   mrbc_value method_id = v[1];
-  const char *method_name = mrbc_symid_to_str(method_id.i);
+  const char *method_name = mrbc_symid_to_str(method_id.sym_id);
   mrbc_define_method(vm, cls, method_name, c__double_method_any_instance_of);
   SET_NIL_RETURN();
 }
@@ -299,7 +299,7 @@ c_double_define_method(struct VM *vm, mrbc_value v[], int argc)
   }
 
   mrbc_value method_id = v[1];
-  const char *method_name = mrbc_symid_to_str(method_id.i);
+  const char *method_name = mrbc_symid_to_str(method_id.sym_id);
 
   if (MRBC_TT_INC_DEC_THRESHOLD < doubled_obj.tt) {
     for (int i = 0; i < vm->regs_size; i++) {
@@ -308,7 +308,7 @@ c_double_define_method(struct VM *vm, mrbc_value v[], int argc)
       }
     }
     char buf[30];
-    sprintf(buf, "S_%p_%08" PRId64, doubled_obj.instance, (int64_t)method_id.i);
+    sprintf(buf, "S_%p_%08" PRId64, doubled_obj.instance, (int64_t)method_id.sym_id);
     char *name = mrbc_alloc(vm, strlen(buf) + 1);
     strcpy(name, buf);
     name[strlen(buf)] = '\0';
