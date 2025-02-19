@@ -28,6 +28,8 @@
 /***** Local variables ******************************************************/
 static sigset_t sigset_, sigset2_;
 
+static mrb_state *mrb_;
+
 
 /***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
@@ -39,7 +41,7 @@ static sigset_t sigset_, sigset2_;
 static void
 sig_alarm(int dummy)
 {
-  mrb_tick();
+  mrb_tick(mrb_);
 }
 
 
@@ -52,8 +54,9 @@ sig_alarm(int dummy)
 
 */
 void
-hal_init(void)
+hal_init(mrb_state *mrb)
 {
+  mrb_ = mrb;
   sigemptyset(&sigset_);
   sigaddset(&sigset_, SIGALRM);
 
