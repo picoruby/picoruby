@@ -16,6 +16,7 @@
 /***** System headers *******************************************************/
 #include <unistd.h>
 #include <picoruby.h>
+#include "task.h"
 
 MRB_BEGIN_DECL
 
@@ -47,9 +48,7 @@ MRB_BEGIN_DECL
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
 
-void mrb_tick(void);
-
-void hal_init(void);
+void hal_init(mrb_state *mrb);
 void hal_enable_irq(void);
 void hal_disable_irq(void);
 #define hal_idle_cpu()    sleep(1) // maybe interrupt by SIGINT
