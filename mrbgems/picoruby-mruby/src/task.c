@@ -20,21 +20,16 @@
 #define MRB2TCB(mrb) ((mrb_tcb *)((uint8_t *)mrb->c - offsetof(mrb_tcb, c)))
 #define MRB_MUTEX_TRACE(...) ((void)0)
 
-
-/***** Typedefs *************************************************************/
-/***** Function prototypes **************************************************/
-/***** Local variables ******************************************************/
-#define NUM_TASK_QUEUE 4
-static mrb_tcb *task_queue_[NUM_TASK_QUEUE];
-#define q_dormant_   (task_queue_[0])
-#define q_ready_     (task_queue_[1])
-#define q_waiting_   (task_queue_[2])
-#define q_suspended_ (task_queue_[3])
-static volatile uint32_t tick_;
-static volatile uint32_t wakeup_tick_ = (1 << 16); // no significant meaning.
+#define task_queues_  mrb->task.queues
+#define q_dormant_    (task_queues_[0])
+#define q_ready_      (task_queues_[1])
+#define q_waiting_    (task_queues_[2])
+#define q_suspended_  (task_queues_[3])
+#define tick_         mrb->task.tick
+#define wakeup_tick_  mrb->task.wakeup_tick
+#define switching_    mrb->task.switching
 
 
-/***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
 /***** Functions ************************************************************/
 //================================================================
@@ -49,13 +44,13 @@ static volatile uint32_t wakeup_tick_ = (1 << 16); // no significant meaning.
   it will be inserted at the end of the same value in queue.
 */
 static void
-q_insert_task(mrb_tcb *p_tcb)
+q_insert_task(mrb_state *mrb, mrb_tcb *p_tcb)
 {
   // select target queue pointer.
   //                    state value = 0  1  2  3  4  5  6  7  8
   //                             /2   0, 0, 1, 1, 2, 2, 3, 3, 4
   static const uint8_t conv_tbl[] = { 0,    1,    2,    0,    3 };
-  mrb_tcb **pp_q = &task_queue_[ conv_tbl[ p_tcb->state / 2 ]];
+  mrb_tcb **pp_q = &task_queues_[ conv_tbl[ p_tcb->state / 2 ]];
 
   // in case of insert on top.
   if((*pp_q == NULL) ||
@@ -84,11 +79,11 @@ q_insert_task(mrb_tcb *p_tcb)
   @param  p_tcb	Pointer to target TCB
 */
 static void
-q_delete_task(mrb_tcb *p_tcb)
+q_delete_task(mrb_state *mrb, mrb_tcb *p_tcb)
 {
   // select target queue pointer. (same as q_insert_task)
   static const uint8_t conv_tbl[] = { 0,    1,    2,    0,    3 };
-  mrb_tcb **pp_q = &task_queue_[ conv_tbl[ p_tcb->state / 2 ]];
+  mrb_tcb **pp_q = &task_queues_[ conv_tbl[ p_tcb->state / 2 ]];
 
   if( *pp_q == p_tcb ) {
     *pp_q       = p_tcb->next;
@@ -119,7 +114,7 @@ inline static void
 preempt_running_task(mrb_state *mrb)
 {
   for( mrb_tcb *t = q_ready_; t != NULL; t = t->next ) {
-    if( t->state == TASKSTATE_RUNNING ) mrb->task_switch = 1;
+    if( t->state == TASKSTATE_RUNNING ) switching_ = TRUE;
   }
 }
 
@@ -137,7 +132,7 @@ mrb_tick(mrb_state *mrb)
   mrb_tcb *tcb = q_ready_;
   if( (tcb != NULL) && (tcb->timeslice != 0) ) {
     tcb->timeslice--;
-    if( tcb->timeslice == 0 ) mrb->task_switch = 1;
+    if( tcb->timeslice == 0 ) switching_ = TRUE;
   }
 
   // Check the wakeup tick.
@@ -153,10 +148,10 @@ mrb_tick(mrb_state *mrb)
       if( t->reason != TASKREASON_SLEEP ) continue;
 
       if( (int32_t)(t->wakeup_tick - tick_) < 0 ) {
-        q_delete_task(t);
+        q_delete_task(mrb, t);
         t->state  = TASKSTATE_READY;
         t->reason = 0;
-        q_insert_task(t);
+        q_insert_task(mrb, t);
         task_switch = 1;
       } else if( (int32_t)(t->wakeup_tick - wakeup_tick_) < 0 ) {
         wakeup_tick_ = t->wakeup_tick;
@@ -235,30 +230,31 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb)
     c->stbase = (mrb_value*)mrb_malloc(mrb, slen*sizeof(mrb_value));
     c->stend = c->stbase + slen;
     {
-      mrb_value *s = c->stbase + 1;
+      mrb_value *s = c->stbase;
       mrb_value *send = c->stend;
-
       while (s < send) {
         SET_NIL_VALUE(*s);
         s++;
       }
     }
 
-    c->ci = mrb->c->ci;
-    c->cibase = mrb->c->cibase;
-    c->ciend = mrb->c->ciend;
 
-    c->ci->proc = proc;
-    c->ci->pc = proc->body.irep->iseq;
-    if (c->cibase && c->cibase->proc == proc->upper) {
-      proc = NULL;
-    }
+    static const mrb_callinfo ci_zero = { 0 };
+    c->cibase = (mrb_callinfo*)mrb_malloc(mrb, TASK_CI_INIT_SIZE * sizeof(mrb_callinfo));
+    c->ciend = c->cibase + TASK_CI_INIT_SIZE;
+    c->ci = c->cibase;
+    c->cibase[0] = ci_zero;
+
     MRB_PROC_SET_TARGET_CLASS(proc, mrb->object_class);
+    mrb_vm_ci_target_class_set(c->ci, MRB_PROC_TARGET_CLASS(proc));
+    mrb_vm_ci_proc_set(c->ci, proc);
+    c->ci->stack = c->stbase;
+
     c->status = MRB_TASK_CREATED;
   }
 
   hal_disable_irq();
-  q_insert_task(tcb);
+  q_insert_task(mrb, tcb);
   if( tcb->state & TASKSTATE_READY ) preempt_running_task(mrb);
   hal_enable_irq();
 
@@ -278,7 +274,7 @@ mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb)
   if( tcb->state != TASKSTATE_DORMANT )  return -1;
 
   hal_disable_irq();
-  q_delete_task(tcb);
+  q_delete_task(mrb, tcb);
   hal_enable_irq();
 
   //mrb_vm_close( &tcb->mrb );
@@ -318,16 +314,16 @@ mrb_tasks_run(mrb_state *mrb)
     tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
     mrb_value ret_vm_run = mrb_vm_exec(mrb, tcb->c.cibase->proc, mrb->c->ci->pc);
     (void)ret_vm_run; // TODO
-    mrb->task_switch = 0;
+    switching_ = FALSE;
 
     /*
       did the task done?
     */
     if (tcb->c.status == MRB_TASK_STOPPED || mrb->exc) {
       hal_disable_irq();
-      q_delete_task(tcb);
+      q_delete_task(mrb, tcb);
       tcb->state = TASKSTATE_DORMANT;
-      q_insert_task(tcb);
+      q_insert_task(mrb, tcb);
       hal_enable_irq();
 
      // if(!tcb->flag_permanence) mrb_free_context(mrb, &tcb->c);
@@ -337,10 +333,10 @@ mrb_tasks_run(mrb_state *mrb)
       for( mrb_tcb *tcb1 = q_waiting_; tcb1 != NULL; tcb1 = tcb1->next ) {
         if( tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb ) {
           hal_disable_irq();
-          q_delete_task(tcb1);
+          q_delete_task(mrb, tcb1);
           tcb1->state = TASKSTATE_READY;
           tcb1->reason = 0;
-          q_insert_task(tcb1);
+          q_insert_task(mrb, tcb1);
           hal_enable_irq();
         }
       }
@@ -363,8 +359,8 @@ mrb_tasks_run(mrb_state *mrb)
       tcb->state = TASKSTATE_READY;
 
       hal_disable_irq();
-      q_delete_task(tcb);       // insert task on queue last.
-      q_insert_task(tcb);
+      q_delete_task(mrb, tcb);       // insert task on queue last.
+      q_insert_task(mrb, tcb);
       hal_enable_irq();
     }
     continue;
@@ -386,7 +382,7 @@ sleep_ms(mrb_state *mrb, mrb_int ms)
   mrb_tcb *tcb = q_ready_;
 
   hal_disable_irq();
-  q_delete_task(tcb);
+  q_delete_task(mrb, tcb);
   tcb->state       = TASKSTATE_WAITING;
   tcb->reason      = TASKREASON_SLEEP;
   tcb->wakeup_tick = tick_ + (ms / MRB_TICK_UNIT) + !!(ms % MRB_TICK_UNIT);
@@ -395,10 +391,10 @@ sleep_ms(mrb_state *mrb, mrb_int ms)
     wakeup_tick_ = tcb->wakeup_tick;
   }
 
-  q_insert_task(tcb);
+  q_insert_task(mrb, tcb);
   hal_enable_irq();
 
-  mrb->task_switch = 1;
+  switching_ = TRUE;
 }
 
 
@@ -413,12 +409,12 @@ mrb_suspend_task(mrb_state *mrb, mrb_tcb *tcb)
   if( tcb->state == TASKSTATE_SUSPENDED ) return;
 
   hal_disable_irq();
-  q_delete_task(tcb);
+  q_delete_task(mrb, tcb);
   tcb->state = TASKSTATE_SUSPENDED;
-  q_insert_task(tcb);
+  q_insert_task(mrb, tcb);
   hal_enable_irq();
 
-  mrb->task_switch = 1;
+  switching_ = TRUE;
 }
 
 
@@ -478,10 +474,12 @@ mrb_init_rrt0(mrb_state *mrb)
   hal_init(mrb);
 
   // initialize task queue.
-  for( int i = 0; i < NUM_TASK_QUEUE; i++ ) {
-    task_queue_[i] = NULL;
+  for( int i = 0; i < MRB_NUM_TASK_QUEUE; i++ ) {
+    task_queues_[i] = NULL;
   }
+  switching_ = FALSE;
   // initialize tick.
+  wakeup_tick_ = (1 << 16); // no significant meaning.
   tick_ = 0;
   // register mrb_sleep
   struct RClass *krn = mrb->kernel_module;
