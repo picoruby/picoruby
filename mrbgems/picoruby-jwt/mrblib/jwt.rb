@@ -4,6 +4,7 @@ require 'base64'
 
 module JWT
   class VerificationError < StandardError; end
+  class DecodeError < StandardError; end
 
   def self.encode(paylaod, secret = nil, algorithm = 'none', headers = {})
     headers['alg'] = algorithm
@@ -66,7 +67,7 @@ module JWT
           raise JWT::VerificationError.new("Signature verification failed")
         end
       else
-        raise "Algorithm: #{header['alg']} not supported"
+        raise JWT::DecodeError.new("Algorithm: #{header['alg']} not supported")
       end
     end
     [payload, header]
