@@ -382,6 +382,32 @@ picorb_print_error(mrb_state *vm)
 static int /* macro needs `mrb` */
 mrb_lib_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
 {
+  struct RClass *target = mrb->object_class;
+  struct RProc *proc = mrb_proc_new(mrb, (mrb_irep *)irep);
+  proc->c = NULL;
+  if (mrb->c->cibase && mrb->c->cibase->proc == proc->upper) {
+    proc->upper = NULL;
+  }
+  MRB_PROC_SET_TARGET_CLASS(proc, target);
+  if (mrb->c->ci) {
+    mrb_vm_ci_target_class_set(mrb->c->ci, target);
+  }
+  resolve_intern(mrb, &c->p->constant_pool, irep);
+  mrb_value v = mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
+  mrb_vm_ci_env_clear(mrb, mrb->c->cibase);
+  if (mrb->exc) {
+    MRB_EXC_CHECK_EXIT(mrb, mrb->exc);
+    if (!mrb_undef_p(v)) {
+      picorb_print_error(mrb);
+    }
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+}
+
+static int /* macro needs `mrb` */
+mrb_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
+{
   //struct RClass *target = mrb->object_class;
   struct RProc *proc = mrb_proc_new(mrb, (mrb_irep *)irep);
   proc->c = NULL;
@@ -390,17 +416,6 @@ mrb_lib_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
   mrb_tcb *tcb = mrb_create_task(mrb, proc, NULL);
   (void)tcb;
 
-//  mrb->c->ci->proc = proc;
-//  mrb->c->ci->pc = irep->iseq;
-//
-//  if (mrb->c->cibase && mrb->c->cibase->proc == proc->upper) {
-//    proc->upper = NULL;
-//  }
-//  MRB_PROC_SET_TARGET_CLASS(proc, target);
-//
-//  if (mrb->c->ci) {
-//    mrb_vm_ci_target_class_set(mrb->c->ci, target);
-//  }
   resolve_intern(mrb, &c->p->constant_pool, irep);
   //mrb_value v = mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
   mrb_value v = mrb_tasks_run(mrb);
@@ -694,7 +709,7 @@ main(int argc, char **argv)
   /* run tasks */
   if (!args.check_syntax) {
 #if defined(PICORB_VM_MRUBY)
-    n = mrb_lib_run(vm, c, irep);
+    n = mrb_run(vm, c, irep);
     mrc_irep_free(c, irep);
     if (source) mrc_free(c, source);
 #else
