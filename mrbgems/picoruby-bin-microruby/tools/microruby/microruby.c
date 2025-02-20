@@ -352,6 +352,7 @@ static void
 cleanup(mrb_state *vm, struct _args *args)
 {
 #if defined(PICORB_VM_MRUBY)
+  // TODO: fix segv
 //  mrb_close(vm);
 #else
   (void)vm;
@@ -563,9 +564,9 @@ main(int argc, char **argv)
       n = mrb_lib_run(vm, c, irep);
 #else /* PICORB_VM_MRUBYC */
       lib_mrb_list[lib_mrb_list_size++] = vm_code;
-      if (irep) mrc_irep_free(c, irep);
       n = mrbc_lib_run(vm, vm_code);
 #endif
+      if (irep) mrc_irep_free(c, irep);
       mrc_ccontext_cleanup_local_variables(c);
     }
     if (source) {
@@ -683,6 +684,8 @@ main(int argc, char **argv)
     }
 #endif
 
+    if (vm_code) picorb_free(vm_code);
+
     if (args.check_syntax) {
       printf("Syntax OK: %s\n", fnames[i]);
     }
@@ -692,6 +695,7 @@ main(int argc, char **argv)
   if (!args.check_syntax) {
 #if defined(PICORB_VM_MRUBY)
     n = mrb_lib_run(vm, c, irep);
+    mrc_irep_free(c, irep);
     if (source) mrc_free(c, source);
 #else
     if (mrbc_run() != 0) {
@@ -709,13 +713,13 @@ main(int argc, char **argv)
   picorb_gc_arena_restore(vm, ai);
   mrc_ccontext_free(c);
 
+  for (int i = 0; i < taskc; i++)
+    picorb_free(fnames[i]);
 #if defined(PICORB_VM_MRUBYC)
   for (int i = 0; i < lib_mrb_list_size; i++)
     picorb_free(lib_mrb_list[i]);
   for (int i = 0; i < tasks_mrb_list_size; i++)
     picorb_free(task_mrb_list[i]);
-  for (int i = 0; i < taskc; i++)
-    picorb_free(fnames[i]);
   for (int i = 0; i < tcb_list_size; i++)
     mrbc_vm_close(&tcb_list[i]->vm);
 #endif
