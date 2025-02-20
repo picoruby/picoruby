@@ -444,12 +444,16 @@ mrb_sleep(mrb_state *mrb, mrb_value self)
 #if !defined(MRB_NO_FLOAT)
   case MRB_TT_FLOAT:
   {
-    sleep_ms(mrb, (mrb_int)(mrb_integer(sec) * 1000));
+    sleep_ms(mrb, (mrb_int)(mrb_float(sec) * 1000));
     break;
   }
 #endif
   default:
+#if !defined(MRB_NO_FLOAT)
     mrb_raisef(mrb, E_TYPE_ERROR, "integer or float required but %S", sec);
+#else
+    mrb_raisef(mrb, E_TYPE_ERROR, "integer required but %S", sec);
+#endif
   }
   return sec;
 }
@@ -463,6 +467,9 @@ static mrb_value
 mrb_sleep_ms(mrb_state *mrb, mrb_value self)
 {
   mrb_value ms = mrb_get_arg1(mrb);
+  if (mrb_type(ms) != MRB_TT_INTEGER) {
+    mrb_raisef(mrb, E_TYPE_ERROR, "integer required but %S", ms);
+  }
   sleep_ms(mrb, mrb_integer(ms));
   return ms;
 }
