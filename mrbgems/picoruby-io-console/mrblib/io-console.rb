@@ -4,6 +4,8 @@
 #   So, we need to use `STDOUT.print` instead of `print` in the IO class.
 #
 
+require 'env'
+
 class IO
   def raw(&block)
     raw!
