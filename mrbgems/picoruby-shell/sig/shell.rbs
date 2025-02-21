@@ -24,9 +24,9 @@ class Shell
   def self.setup_rtc: (rtc_t trc) -> void
   def self.setup_sdcard: (SPI spi) -> void
 
-  def setup_root_volume: (Symbol drive, ?label: String) -> void
-  def setup_system_files: (?(String | nil) root, ?force: bool) -> void
-  def bootstrap: (String file) -> bool
+  def self.setup_root_volume: (Symbol drive, ?label: String) -> void
+  def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
+  def self.bootstrap: (String file) -> bool
 
   def initialize: (?clean: bool) -> void
   def simple_question: (String question) { (String answer) -> boolish } -> void

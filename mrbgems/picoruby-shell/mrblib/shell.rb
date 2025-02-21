@@ -9,13 +9,79 @@ rescue LoadError
   # ignore. maybe POSIX
   require "dir"
 end
-require "editor"
 
 # ENV = {} # This moved to 0_out_of_steep.rb
 ARGV = []
 
 
 class Shell
+  def self.setup_root_volume(device, label: "PicoRuby")
+    sleep 1 if device == :sd
+    return if VFS.volume_index("/")
+    fat = FAT.new(device, label: label)
+    retry_count = 0
+    begin
+      VFS.mount(fat, "/")
+    rescue => e
+      puts e.message
+      puts "Try to format the volume..."
+      fat.mkfs
+      retry_count += 1
+      retry if retry_count == 1
+      raise e
+    end
+  end
+
+  def self.setup_system_files(root = nil, force: false)
+    unless root.nil? || Dir.exist?(root)
+      Dir.mkdir(root)
+      puts "Created root directory: #{root}"
+    end
+    ENV['HOME'] = "#{root}/home"
+    ENV['PATH'] = "#{root}/bin"
+    ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
+    Dir.chdir(root || "/") do
+      %w(bin lib var home etc etc/init.d etc/network).each do |dir|
+        Dir.mkdir(dir) unless Dir.exist?(dir)
+      end
+      while exe = Shell.next_executable
+        path = "#{root}#{exe[:path]}"
+        if force || !File.file?(path)
+          f = File.open path, "w"
+          f.expand exe[:code].length
+          f.write exe[:code]
+          f.close
+        end
+      end
+    end
+    Dir.chdir ENV['HOME']
+  end
+
+  def self.bootstrap(file)
+    unless File.file?(file)
+      puts "File not found: #{file}"
+      return false
+    end
+    puts "Press 's' to skip running #{file}"
+    skip = false
+    20.times do
+      print "."
+      if STDIN.read_nonblock(1) == "s"
+        skip = true
+        break 0
+      end
+      sleep 0.1
+    end
+    STDIN.read_nonblock 1024 # discard remaining input
+    if skip
+      puts "Skip"
+      return false
+    end
+    puts "\nLoading #{file}..."
+    load file
+    return true
+  end
+
   def self.setup_rtc(rtc)
     require "adafruit_pcf8523"
     begin
@@ -44,6 +110,7 @@ class Shell
   end
 
   def initialize(clean: false)
+    require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
   end
@@ -95,73 +162,6 @@ class Shell
       puts line
     end
     puts "\e[0m"
-  end
-
-  def setup_root_volume(device, label: "PicoRuby")
-    sleep 1 if device == :sd
-    return if VFS.volume_index("/")
-    fat = FAT.new(device, label: label)
-    retry_count = 0
-    begin
-      VFS.mount(fat, "/")
-    rescue => e
-      puts e.message
-      puts "Try to format the volume..."
-      fat.mkfs
-      retry_count += 1
-      retry if retry_count == 1
-      raise e
-    end
-  end
-
-  def setup_system_files(root = nil, force: false)
-    unless root.nil? || Dir.exist?(root)
-      Dir.mkdir(root)
-      puts "Created root directory: #{root}"
-    end
-    ENV['HOME'] = "#{root}/home"
-    ENV['PATH'] = "#{root}/bin"
-    ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
-    Dir.chdir(root || "/") do
-      %w(bin lib var home etc etc/init.d etc/network).each do |dir|
-        Dir.mkdir(dir) unless Dir.exist?(dir)
-      end
-      while exe = Shell.next_executable
-        path = "#{root}#{exe[:path]}"
-        if force || !File.file?(path)
-          f = File.open path, "w"
-          f.expand exe[:code].length
-          f.write exe[:code]
-          f.close
-        end
-      end
-    end
-    Dir.chdir ENV['HOME']
-  end
-
-  def bootstrap(file)
-    unless File.file?(file)
-      puts "File not found: #{file}"
-      return false
-    end
-    puts "Press 's' to skip running #{file}"
-    skip = false
-    20.times do
-      print "."
-      if STDIN.read_nonblock(1) == "s"
-        skip = true
-        break 0
-      end
-      sleep 0.1
-    end
-    STDIN.read_nonblock 1024 # discard remaining input
-    if skip
-      puts "Skip"
-      return false
-    end
-    puts "\nLoading #{file}..."
-    load file
-    return true
   end
 
   def start(mode = :shell)

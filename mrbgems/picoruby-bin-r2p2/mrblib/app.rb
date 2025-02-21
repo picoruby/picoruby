@@ -11,9 +11,9 @@ end
 
 begin
   IO.wait_terminal and IO.clear_screen
+  Shell.setup_system_files("#{Dir.pwd}/.r2p2", force: true)
   $shell = Shell.new
   $shell.show_logo
-  $shell.setup_system_files("#{Dir.pwd}/.r2p2", force: true)
   $shell.start
 rescue => e
   puts e.message
