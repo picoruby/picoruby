@@ -1,5 +1,6 @@
 #include <picoruby.h>
 #include <mruby/proc.h>
+#include <task.h>
 
 MRC_API void
 mrb_picoruby_mruby_gem_init(mrb_state *mrb)
@@ -31,7 +32,7 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
 }
 
 MRC_API int
-mrc_string_run_cxt(mrc_ccontext *cc, const char *string)
+mrc_string_run(mrc_ccontext *cc, const char *string)
 {
   mrb_state *mrb = cc->mrb;
   const uint8_t *source = (const uint8_t *)string; mrc_irep *irep = mrc_load_string_cxt(cc, &source, (size_t)strlen((const char *)string));
@@ -57,10 +58,11 @@ mrc_string_run_cxt(mrc_ccontext *cc, const char *string)
   return EXIT_SUCCESS;
 }
 
-MRC_API int
-mrc_string_run(mrb_state *mrb, const char *string)
+MRC_API mrb_tcb *
+mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_tcb *tcb)
 {
-  mrc_ccontext *cc = mrc_ccontext_new(mrb);
-  return mrc_string_run_cxt(cc, string);
+  mrc_resolve_intern(cc, irep);
+  struct RProc *proc = mrb_proc_new(cc->mrb, (mrb_irep *)irep);
+  proc->c = NULL;
+  return mrb_create_task(cc->mrb, proc, tcb);
 }
-
