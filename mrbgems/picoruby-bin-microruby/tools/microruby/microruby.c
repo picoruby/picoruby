@@ -598,6 +598,10 @@ main(int argc, char **argv)
        */
       if (fnames[index][0] == '~' && fnames[index][1] == '/') {
         char *home = getenv("HOME");
+        if (home == NULL) {
+          fprintf(stderr, "Failed to get HOME environment variable. You cannot use '~/' to specify a file path\n");
+          exit(EXIT_FAILURE);
+        }
         if (home) {
           char *tmp = picorb_alloc(strlen(home) + strlen(fnames[index]) + 1);
           if (tmp) {
@@ -647,6 +651,10 @@ main(int argc, char **argv)
       source[0] = 0x0;
       source[1] = 0x0;
       irep = picorb_load_rb_file_cxt(cc, fnames[i], &source);
+      if (irep == NULL) {
+        fprintf(stderr, "irep load error\n");
+        exit(EXIT_FAILURE);
+      }
     }
     else {
       char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
@@ -655,7 +663,8 @@ main(int argc, char **argv)
       picorb_utf8_free(utf8);
     }
 
-    mrc_assert(!(!vm_code && !irep));
+    mrc_assert((vm_code && !irep) || (!vm_code && irep));
+
 #if defined(PICORB_VM_MRUBY)
     if (!irep) {
       irep = mrb_read_irep(vm, vm_code);
