@@ -364,6 +364,7 @@ picorb_print_error(mrb_state *vm)
 static int /* macro needs `mrb` */
 mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
 {
+  mrc_resolve_intern(cc, irep);
   mrb_state *mrb = cc->mrb;
   struct RClass *target = mrb->object_class;
   struct RProc *proc = mrb_proc_new(mrb, (mrb_irep *)irep);
@@ -375,9 +376,9 @@ mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
   if (mrb->c->ci) {
     mrb_vm_ci_target_class_set(mrb->c->ci, target);
   }
-  mrc_resolve_intern(cc, irep);
   mrb_value v = mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
   mrb_vm_ci_env_clear(mrb, mrb->c->cibase);
+  mrc_ccontext_cleanup_local_variables(cc);
   if (mrb->exc) {
     MRB_EXC_CHECK_EXIT(mrb, mrb->exc);
     if (!mrb_undef_p(v)) {

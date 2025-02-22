@@ -238,9 +238,8 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb)
       }
     }
 
-
     static const mrb_callinfo ci_zero = { 0 };
-    c->cibase = (mrb_callinfo*)mrb_malloc(mrb, TASK_CI_INIT_SIZE * sizeof(mrb_callinfo));
+    c->cibase = (mrb_callinfo *)mrb_malloc(mrb, TASK_CI_INIT_SIZE * sizeof(mrb_callinfo));
     c->ciend = c->cibase + TASK_CI_INIT_SIZE;
     c->ci = c->cibase;
     c->cibase[0] = ci_zero;
@@ -255,7 +254,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb)
 
   hal_disable_irq();
   q_insert_task(mrb, tcb);
-  if( tcb->state & TASKSTATE_READY ) preempt_running_task(mrb);
+  if (tcb->state & TASKSTATE_READY) preempt_running_task(mrb);
   hal_enable_irq();
 
   return tcb;
@@ -318,14 +317,17 @@ mrb_tasks_run(mrb_state *mrb)
     tcb->state = TASKSTATE_RUNNING;   // to execute.
     mrb->c = &tcb->c;
     tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
-    mrb_value ret_vm_run = mrb_vm_exec(mrb, tcb->c.cibase->proc, mrb->c->ci->pc);
-    (void)ret_vm_run; // TODO
-    switching_ = FALSE;
+    mrb_value ret_vm_run = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
+    (void)ret_vm_run; // TODO?
 
+    if (mrb->exc) {
+      return mrb_obj_value(mrb->exc);
+    }
+    switching_ = FALSE;
     /*
       did the task done?
     */
-    if (tcb->c.status == MRB_TASK_STOPPED || mrb->exc) {
+    if (tcb->c.status == MRB_TASK_STOPPED) {
       hal_disable_irq();
       q_delete_task(mrb, tcb);
       tcb->state = TASKSTATE_DORMANT;
