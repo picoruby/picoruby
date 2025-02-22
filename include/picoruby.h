@@ -96,6 +96,7 @@ bool picoruby_load_model_by_name(const char *gem);
 #include <mruby/variable.h>
 #include <mruby/presym.h>
 #include <mruby/error.h>
+#include "task.h"
 
 #define picorb_vm_init()  do { \
   vm = mrb_open(); \

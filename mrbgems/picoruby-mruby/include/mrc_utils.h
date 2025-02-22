@@ -1,8 +1,14 @@
 #ifndef MRC_UTILS_H
 #define MRC_UTILS_H
 
-int mrc_string_run_cxt(mrc_ccontext *c, const char *string);
-int mrc_string_run(mrb_state *mrb, const char *string);
-void mrc_resolve_intern(mrc_ccontext *c, mrc_irep *irep);
+#include "task.h"
+
+MRB_BEGIN_DECL
+
+int mrc_string_run(mrc_ccontext *cc, const char *string);
+void mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep);
+mrb_tcb *mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_tcb *tcb);
+
+MRB_END_DECL
 
 #endif
