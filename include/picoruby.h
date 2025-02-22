@@ -93,6 +93,7 @@ static inline void picorb_free(void *ptr)
 #include <mruby/variable.h>
 #include <mruby/presym.h>
 #include <mruby/error.h>
+#include "task.h"
 
 #define picorb_vm_init()  do { \
   vm = mrb_open(); \

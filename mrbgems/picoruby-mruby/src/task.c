@@ -182,7 +182,7 @@ mrb_tick(mrb_state *mrb)
 @endcode
 */
 static mrb_tcb *
-mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority )
+mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
 {
   mrb_tcb *tcb;
 
@@ -261,6 +261,12 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb)
   return tcb;
 }
 
+
+void
+mrb_tcb_free(mrb_state *mrb, mrb_tcb *tcb)
+{
+  // TODO
+}
 
 //================================================================
 /*! Delete a task.
