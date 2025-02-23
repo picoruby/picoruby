@@ -543,11 +543,12 @@ main(int argc, char **argv)
     if (vm_code) {
 #if defined(PICORB_VM_MRUBY)
       n = mrb_lib_run(cc, irep);
+      // TODO GC irep
 #elif defined(PICORB_VM_MRUBYC)
       lib_mrb_list[lib_mrb_list_size++] = vm_code;
       n = mrbc_lib_run(vm, vm_code);
-#endif
       if (irep) mrc_irep_free(cc, irep);
+#endif
       mrc_ccontext_cleanup_local_variables(cc);
     }
     if (source) {
