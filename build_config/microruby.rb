@@ -7,6 +7,9 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-mruby"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
 
+  conf.gem core: "picoruby-json"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
+
 #  conf.disable_presym
 
   conf.microruby
