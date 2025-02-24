@@ -1,9 +1,8 @@
 #ifndef ENV_DEFINED_H_
 #define ENV_DEFINED_H_
 
-#include <mrubyc.h>
-
-void c_env_new(struct VM *vm, mrbc_value v[], int argc);
+void env_get_key_value(char **key, char **value);
+void env_setenv(const char *key, const char *value);
 
 #endif
 
