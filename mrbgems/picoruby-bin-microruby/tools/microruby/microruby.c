@@ -695,8 +695,6 @@ main(int argc, char **argv)
       tcb_list[tcb_list_size++] = tcb;
     }
 
-    if (vm_code) picorb_free(vm_code);
-
     if (args.check_syntax) {
       printf("Syntax OK: %s\n", fnames[i]);
     }
