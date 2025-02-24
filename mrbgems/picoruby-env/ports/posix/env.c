@@ -1,20 +1,28 @@
+#include <stddef.h>
+#include <string.h>
+#include <stdlib.h>
 
-#include "../../include/env.h"
 extern char **environ;
 
 void
-c_env_new(struct VM *vm, mrbc_value v[], int argc)
+env_setenv(const char *key, const char *value)
 {
-  mrbc_value hash = mrbc_hash_new(vm, 0);
-  for (char **env = environ; *env != NULL; env++) {
-    char *key = strtok(*env, "=");
-    char *value = strtok(NULL, "=");
-    mrbc_value key_value = mrbc_string_new_cstr(vm, key);
-    mrbc_value value_value = mrbc_string_new_cstr(vm, value);
-    mrbc_hash_set(&hash, &key_value, &value_value);
-  }
-  mrbc_value self = mrbc_instance_new(vm, v->cls, 0);
-  mrbc_instance_setiv(&self, mrbc_str_to_symid("env"), &hash);
-  SET_RETURN(self);
+  setenv(key, value, 1);
 }
 
+void
+env_get_key_value(char **key, char **value)
+{
+  static char **my_environ;
+  static int first = 1;
+  if (first) {
+    my_environ = environ;
+    first = 0;
+  }
+  if (my_environ == NULL) {
+    return;
+  }
+  *key = strtok(*my_environ, "=");
+  *value = strtok(NULL, "=");
+  my_environ++;
+}
