@@ -106,7 +106,7 @@ module MRuby
       def define_gem_init_builder
         file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
           mkdir_p build_dir
-          if build_dir.include?("mrbgems/picoruby-")
+          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
             rbfiles.clear
           end
           generate_gem_init("#{build_dir}/gem_init.c")
