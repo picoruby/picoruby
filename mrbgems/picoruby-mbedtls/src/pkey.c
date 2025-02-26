@@ -2,6 +2,7 @@
 #include <mrubyc.h>
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
+#include "mbedtls/sha256.h"
 #include "mbedtls/error.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
@@ -131,7 +132,6 @@ c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
   mbedtls_rsa_context *orig_rsa = mbedtls_pk_rsa(*orig_pk);
   mbedtls_rsa_context *new_rsa = mbedtls_pk_rsa(*new_pk);
 
-  // 公開鍵コンポーネントのコピー
   if ((ret = mbedtls_mpi_copy(&new_rsa->N, &orig_rsa->N)) != 0 ||
       (ret = mbedtls_mpi_copy(&new_rsa->E, &orig_rsa->E)) != 0) {
     mbedtls_pk_free(new_pk);
@@ -139,7 +139,7 @@ c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  // 秘密鍵コンポーネントは0にする
+  // set zero to private key components
   mbedtls_mpi_init(&new_rsa->D);
   mbedtls_mpi_init(&new_rsa->P);
   mbedtls_mpi_init(&new_rsa->Q);
@@ -159,7 +159,7 @@ c_mbedtls_pkey_rsa_to_pem(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
-  unsigned char buf[16000];  // 十分な大きさのバッファ
+  unsigned char buf[4096];
   int ret;
 
   // 秘密鍵が含まれているかチェック
@@ -179,7 +179,7 @@ c_mbedtls_pkey_rsa_to_pem(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  len = strlen((char *)buf);  // PEMは文字列なのでstrlenで長さを取得可能
+  len = strlen((char *)buf);
   mrbc_value str = mrbc_string_new(vm, (char *)buf, len);
   SET_RETURN(str);
 }
@@ -224,13 +224,15 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
 
   int ret;
   ret = mbedtls_pk_parse_public_key(pk, (const unsigned char *)key, key_len + 1);
-
+  if (ret != 0) { // retry it as a private key
+    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)key, key_len + 1, NULL, 0);
+  }
   if (ret != 0) {
     mbedtls_pk_free(pk);
     char error_buf[100];
     mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError, 
-                "mbedtls_pk_parse_public_key failed. ret=%d (0x%x): %s", 
+    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError,
+                "Parsing key failed. ret=%d (0x%x): %s",
                 ret, (unsigned int)-ret, error_buf);
     return;
   }
@@ -297,8 +299,66 @@ c_mbedtls_pkey_pkeybase_verify(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_pkey_pkeybase_sign(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Not implemented");
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  int ret;
+  unsigned char hash[32];
+  unsigned char signature[MBEDTLS_PK_SIGNATURE_MAX_SIZE];
+  size_t sig_len;
+
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)v[0].instance->data;
+  const uint8_t *data = v[2].string->data;
+  size_t data_len = v[2].string->size;
+
+  ret = mbedtls_sha256_ret((const unsigned char *)data, data_len, hash, 0);
+  if(ret != 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Failed to calculate SHA-256 hash");
+    return;
+  }
+
+  mbedtls_entropy_context entropy;
+  mbedtls_ctr_drbg_context ctr_drbg; mbedtls_entropy_init(&entropy); mbedtls_ctr_drbg_init(&ctr_drbg);
+
+  mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
+  const char *pers = (const char *)mbedtls_pers->string->data;
+  ret = mbedtls_ctr_drbg_seed(&ctr_drbg,
+                              mbedtls_entropy_func,
+                              &entropy,
+                              (const unsigned char *)pers,
+                              strlen(pers));
+  if (ret != 0) {
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "Failed to seed RNG: %s", error_buf);
+    goto cleanup;
+  }
+
+  ret = mbedtls_pk_sign(pk,
+                        MBEDTLS_MD_SHA256,
+                        hash,
+                        0,
+                        signature,
+                        &sig_len,
+                        mbedtls_ctr_drbg_random,
+                        &ctr_drbg);
+  if (ret != 0) {
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "Failed to sign: %s", error_buf);
+    goto cleanup;
+  }
+
+  mrbc_value result = mrbc_string_new(vm, (const void *)signature, sig_len);
+  SET_RETURN(result);
+
+cleanup:
+  mbedtls_ctr_drbg_free(&ctr_drbg);
+  mbedtls_entropy_free(&entropy);
 }
+
 
 void
 gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
