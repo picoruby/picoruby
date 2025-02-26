@@ -12,15 +12,36 @@
 #include <freertos/task.h>
 
 #include "esp_sleep.h"
+#include "esp_timer.h"
 #include "hal/efuse_hal.h"
 
 #define ESP32_MSEC_PER_TICK       (10)
 #define ESP32_TIMER_UNIT_PER_SEC  (1000000)
 
+#ifdef MRBC_NO_TIMER
+  #error "MRBC_NO_TIMER is not supported"
+#endif
+
+static esp_timer_handle_t periodic_timer;
+
+static void
+alarm_handler(void *arg)
+{
+  mrbc_tick();
+}
+
 void
 hal_init(void)
 {
-  /* Not required for ESP32 */
+  esp_timer_create_args_t timer_create_args;
+  timer_create_args.callback = &alarm_handler;
+  timer_create_args.arg = NULL;
+  timer_create_args.dispatch_method = ESP_TIMER_TASK;
+  timer_create_args.name = "mrbc_tick_timer";
+
+  esp_timer_init();
+  esp_timer_create(&timer_create_args, &periodic_timer);
+  esp_timer_start_periodic(periodic_timer, 1000);
 }
 
 void
