@@ -5,71 +5,97 @@ require 'base64'
 module JWT
   class VerificationError < StandardError; end
   class DecodeError < StandardError; end
+  class IncorrectAlgorithm < StandardError; end
+  class ExpiredSignature < StandardError; end
 
-  def self.encode(paylaod, secret = nil, algorithm = 'none', headers = {})
+  def self.encode(payload, secret = nil, algorithm = 'none', headers = {})
     headers['alg'] = algorithm
     segments = []
     segments << Base64.urlsafe_encode64(JSON.generate headers)
-    segments << Base64.urlsafe_encode64(JSON.generate paylaod)
+    segments << Base64.urlsafe_encode64(JSON.generate payload)
     signing_input = segments.join('.')
+    signature = ''
     case algorithm.to_s.downcase
     when 'none'
-      signature = ''
     when 'hs256'
       raise TypeError, "secret must be a string" unless secret.is_a? String
       hmac = MbedTLS::HMAC.new(secret, "sha256")
       hmac.update(signing_input)
       signature = hmac.digest
     when 'rs256'
-      raise TypeError, "RSA private key required" unless secret.is_a? String
+      raise TypeError, "RSA private key required" unless secret.is_a? MbedTLS::PKey::RSA
       begin
-        private_key = MbedTLS::PKey::RSA.new(secret)
-        signature = private_key.sign(MbedTLS::Digest.new(:sha256), signing_input)
-      rescue => e
-        raise JWT::VerificationError.new(e.message)
+        signature = secret.sign(MbedTLS::Digest.new(:sha256), signing_input)
       end
     else
       raise "Algorithm: #{algorithm} not supported"
     end
-    # @type var signature: String
     segments << Base64.urlsafe_encode64(signature)
     segments.join('.')
   end
 
-  def self.decode(token, key = nil, validate = true)
-    segments = token.split('.')
-    case segments.length
-    when 3
-      # no-op
-    else
-      raise "Invalid token"
-    end
-    header = JSON.parse(Base64.urlsafe_decode64(segments[0]))
-    payload = JSON.parse(Base64.urlsafe_decode64(segments[1]))
+  def self.decode(token, key = nil, validate: true, algorithm: "none", ignore_exp: false)
+    decoder = Decoder.new(token, key, algorithm.to_s)
+
     if validate
-      case header['alg']&.downcase
+      if !ignore_exp && decoder.payload['exp'].is_a?(Integer) && decoder.payload['exp'] < Time.now.to_i
+        raise ExpiredSignature.new("Signature has expired")
+      end
+      case decoder.header['alg'].to_s.downcase
       when 'none'
-        raise JWT::VerificationError.new("Signature verification failed") unless segments[2].empty?
+        raise VerificationError.new("Signature verification failed") unless decoder.payload.empty?
       when 'hs256'
-        raise TypeError, "key must be a string" unless key.is_a? String
-        hmac = MbedTLS::HMAC.new(key, "sha256")
-        hmac.update(segments[0] + '.' + segments[1])
-        signature = hmac.digest
-        if signature != Base64.urlsafe_decode64(segments[2])
-          raise JWT::VerificationError.new("Signature verification failed")
-        end
+        decoder.verify_hmac
       when 'rs256'
-        raise TypeError, "RSA public key required" unless key.is_a? String
-        public_key = MbedTLS::PKey::RSA.new(key)
-        header_payload = segments[0] + '.' + segments[1]
-        decoded_signature = Base64.urlsafe_decode64(segments[2])
-        unless public_key.verify(MbedTLS::Digest.new(:sha256), header_payload, decoded_signature)
-          raise JWT::VerificationError.new("Signature verification failed")
-        end
+        decoder.verify_rsa
       else
-        raise JWT::DecodeError.new("Algorithm: #{header['alg']} not supported")
+        raise DecodeError.new("Algorithm: #{decoder.header['alg']} not supported")
       end
     end
-    [payload, header]
+    [decoder.payload, decoder.header]
+  end
+
+  class Decoder
+    attr_reader :header, :payload
+
+    def initialize(token, key, algorithm)
+      header_b64, payload_b64, @signature_b64 = token.split(".")
+      @data = "#{header_b64}.#{payload_b64}"
+      @header = JSON.parse(Base64.urlsafe_decode64(header_b64.to_s))
+      unless @header["alg"] == algorithm
+        raise JWT::IncorrectAlgorithm.new("Expected a different algorithm")
+      end
+      @payload = JSON.parse(Base64.urlsafe_decode64(payload_b64.to_s))
+      if @payload['exp'].nil?
+        raise JWT::DecodeError.new("Missing expiration time in header")
+      end
+      @key = key
+    end
+
+    def verify_hmac
+      raise TypeError, "HMAC secret must be a String" unless @key.is_a? String
+      # @type ivar @key: String
+      hmac = MbedTLS::HMAC.new(@key, "sha256")
+      hmac.update(@data)
+      if @signature_b64 != Base64.urlsafe_encode64(hmac.digest)
+        raise JWT::VerificationError.new("Signature verification failed")
+      end
+    end
+
+    def verify_rsa
+      raise TypeError.new("RSA public key required") unless @key.is_a?(MbedTLS::PKey::RSA)
+      signature = base64_url_decode(@signature_b64.to_s)
+      # @type ivar @key: MbedTLS::PKey::RSA
+      unless @key.verify(MbedTLS::Digest.new(:sha256), signature, @data)
+        raise JWT::VerificationError.new("Signature verification failed")
+      end
+    end
+
+    # private
+
+    def base64_url_decode(str)
+      str += '=' * ((4 - str.size % 4) % 4)
+      Base64.urlsafe_decode64(str)
+    end
   end
 end

@@ -3,9 +3,36 @@ module JWT
   class VerificationError < StandardError
   end
   # @sidebar error
+  class IncorrectAlgorithm < StandardError
+  end
+  # @sidebar error
+  class ExpiredSignature < StandardError
+  end
+  # @sidebar error
   class DecodeError < StandardError
   end
 
-  def self.encode: (String payload, ?String|nil secret, ?String algorithm, ?Hash[String ,String] headers ) -> String
-  def self.decode: (String token, ?String|nil secret, ?bool validate) -> [Object, Hash[String, Object]]
+  type secret_t = MbedTLS::PKey::RSA | String | nil
+  type key_t = MbedTLS::PKey::RSA | String | nil
+  type alg_t = "rs256" | "RS256" | "hs256" | "HS256" | "none" | "NONE"
+
+  type header_t = Hash[String, Object]
+  type payload_t = Hash[String, Object]
+
+  def self.encode: (String payload, ?secret_t secret, ?String algorithm, ?Hash[String ,String] headers ) -> String
+  def self.decode: (String token, ?key_t key, ?validate: bool, ?algorithm: alg_t, ?ignore_exp: bool) -> [payload_t, header_t]
+
+  class Decoder
+    @signature_b64: String | nil
+    @data: String
+    @key: key_t | String
+
+    attr_reader header: Hash[String, Object]
+    attr_reader payload: Hash[String, Object]
+
+    def initialize: (String token, key_t key, String algorithm) -> void
+    def verify_hmac: () -> nil
+    def verify_rsa: () -> nil
+    private def base64_url_decode: (String) -> String
+  end
 end
