@@ -31,6 +31,9 @@ module MRuby
       gem core: "picoruby-mrubyc" unless @gems['picoruby-mrubyc']
       disable_presym
 
+      # Override by environment variable
+      alloc_libc = false if ENV["PICORUBY_NO_LIBC_ALLOC"]
+
       cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
