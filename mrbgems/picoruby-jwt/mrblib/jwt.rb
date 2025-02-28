@@ -42,7 +42,7 @@ module JWT
   end
 
   def self.decode(token, key = nil, validate: true, algorithm: "none", ignore_exp: false)
-    decoder = Decoder.new(token, key, algorithm.to_s)
+    decoder = Decoder.new(token, key, algorithm.to_s.downcase)
 
     if validate
       if !ignore_exp && decoder.payload['exp'].is_a?(Integer) && decoder.payload['exp'] < Time.now.to_i
@@ -69,8 +69,8 @@ module JWT
       header_b64, payload_b64, @signature_b64 = token.split(".")
       @data = "#{header_b64}.#{payload_b64}"
       @header = JSON.parse(Base64.urlsafe_decode64(header_b64.to_s))
-      unless @header["alg"] == algorithm
-        raise JWT::IncorrectAlgorithm.new("Expected a different algorithm")
+      unless @header["alg"].to_s.downcase == algorithm
+        raise JWT::IncorrectAlgorithm.new("Expected a different algorithm. Expected: #{algorithm}, Got: #{@header['alg']}")
       end
       @payload = JSON.parse(Base64.urlsafe_decode64(payload_b64.to_s))
       if @payload['exp'].nil?
