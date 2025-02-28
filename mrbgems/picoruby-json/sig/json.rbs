@@ -76,5 +76,6 @@ module JSON
     private def parse_integer: (Integer, Integer) -> void
     private def parse_float: (Integer, Integer) -> void
     private def is_digit?: (String | nil) -> bool
+    private def replace_escape_sequence: (String) -> String
   end
 end

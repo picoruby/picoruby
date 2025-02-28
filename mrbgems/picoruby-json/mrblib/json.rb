@@ -416,6 +416,49 @@ module JSON
         end
       end
       @index += 1  # Skip closing quote
+      replace_escape_sequence(result)
+    end
+
+    def replace_escape_sequence(str)
+      result = ''
+      i = 0
+      str_len = str.length
+      while i < str_len
+        char = str[i]
+        if char == '\\'
+          i += 1
+          case str[i]
+          when '"'
+            result += '"'
+          when '\\'
+            result += '\\'
+          when '/'
+            result += '/'
+          when 'b'
+            result += "\b"
+          when 'f'
+            result += "\f"
+          when 'n'
+            result += "\n"
+          when 'r'
+            result += "\r"
+          when 't'
+            result += "\t"
+          when 'u'
+            # TODO: Implement Unicode escape sequence
+            # result += [str[i + 2, 4].to_i(16)].pack('U')
+          when nil
+            raise JSON::ParserError.new("Unterminated escape sequence")
+          else
+            raise JSON::ParserError.new("Unknown escape sequence: \\#{str[i]}")
+          end
+        elsif char.nil?
+          raise JSON::ParserError.new("Unterminated string")
+        else
+          result += char
+        end
+        i += 1
+      end
       result
     end
 
