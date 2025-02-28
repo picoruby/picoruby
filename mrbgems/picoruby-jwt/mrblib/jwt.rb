@@ -93,7 +93,10 @@ module JWT
       raise TypeError.new("RSA public key required") unless @key.is_a?(MbedTLS::PKey::RSA)
       signature = base64_url_decode(@signature_b64.to_s)
       # @type ivar @key: MbedTLS::PKey::RSA
-      unless @key.verify(MbedTLS::Digest.new(:sha256), signature, @data)
+      digest = MbedTLS::Digest.new(:sha256)
+      result = @key.verify(digest, signature, @data)
+      digest.free
+      unless result
         raise JWT::VerificationError.new("Signature verification failed")
       end
     end

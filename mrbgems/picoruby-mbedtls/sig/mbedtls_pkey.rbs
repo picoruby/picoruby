@@ -14,12 +14,13 @@ module MbedTLS
       def self.new: (String key) -> MbedTLS::PKey::RSA
                   | (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
       def self.generate: (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
-      def to_pem: -> String
+      def to_pem: () -> String
       alias to_s to_pem
       alias export to_pem
-      def public_key: -> MbedTLS::PKey::PKeyBase
-      def public?: -> bool
-      def private?: -> bool
+      def public_key: () -> MbedTLS::PKey::PKeyBase
+      def public?: () -> bool
+      def private?: () -> bool
+      def free: () -> self
     end
   end
 end

@@ -35,6 +35,19 @@ c_mbedtls_pkey_rsa_private_q(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_mbedtls_pkey_rsa_free(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
+  if (pk == NULL) {
+    return;
+  }
+  if (mbedtls_pk_get_type(pk) == MBEDTLS_PK_RSA) {
+    mbedtls_pk_free(pk);
+  }
+  *v->instance->data = NULL;
+}
+
+static void
 c_mbedtls_pkey_rsa_generate(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc < 1 || 2 < argc) {
@@ -202,19 +215,13 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
  
   mrbc_value key_str = GET_ARG(1);
-  const char *key = (const char *)key_str.string->data;
+  char *key = (char *)key_str.string->data;
   size_t key_len = key_str.string->size;
 
-  if (key_len <= 0 || key[key_len - 1] != '\n') {
-    char *new_key = mrbc_alloc(vm, key_len + 2);
-    if (new_key == NULL) {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "memory allocation failed");
-      return;
-    }
-    memcpy(new_key, key, key_len);
-    new_key[key_len] = '\n';
-    new_key[key_len + 1] = '\0';
-    key = new_key;
+  if (0 < key_len && key[key_len - 1] != '\n') {
+    key = mrbc_realloc(vm, key, key_len + 2);
+    key[key_len] = '\n';
+    key[key_len + 1] = '\0';
     key_len++;
   }
 
@@ -377,6 +384,7 @@ gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "to_s", c_mbedtls_pkey_rsa_to_pem);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "public?", c_mbedtls_pkey_rsa_public_q);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "private?", c_mbedtls_pkey_rsa_private_q);
+  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "free", c_mbedtls_pkey_rsa_free);
 
   class_MbedTLS_PKey_PKeyError = mrbc_define_class_under(vm, module_MbedTLS_PKey, "PKeyError", MRBC_CLASS(StandardError));
 }

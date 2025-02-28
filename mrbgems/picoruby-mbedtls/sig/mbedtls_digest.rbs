@@ -7,5 +7,6 @@ module MbedTLS
     private def self._init_ctx: (Integer algorithm) -> MbedTLS::Digest
     def update: (String input) -> MbedTLS::Digest
     def finish: () -> String
+    def free: () -> self
   end
 end

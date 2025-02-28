@@ -37,15 +37,27 @@ c_mbedtls_digest__init_ctx(mrbc_vm *vm, mrbc_value *v, int argc)
   ret = mbedtls_md_setup(ctx, md_info, 0);
   if (ret != 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_setup failed");
+    mbedtls_md_free(ctx);
     return;
   }
   ret = mbedtls_md_starts(ctx);
   if (ret != 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_starts failed");
+    mbedtls_md_free(ctx);
     return;
   }
 
   SET_RETURN(self);
+}
+
+static void
+c_mbedtls_digest_free(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
+  if (ctx != NULL) {
+    mbedtls_md_free(ctx);
+  }
+  *v->instance->data = NULL;
 }
 
 static void
@@ -100,4 +112,5 @@ gem_mbedtls_digest_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
   mrbc_define_method(vm, class_MbedTLS_Digest, "_init_ctx", c_mbedtls_digest__init_ctx);
   mrbc_define_method(vm, class_MbedTLS_Digest, "update", c_mbedtls_digest_update);
   mrbc_define_method(vm, class_MbedTLS_Digest, "finish", c_mbedtls_digest_finish);
+  mrbc_define_method(vm, class_MbedTLS_Digest, "free", c_mbedtls_digest_free);
 }

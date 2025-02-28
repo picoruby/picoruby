@@ -43,11 +43,13 @@ signature_base64 = File.open("signature_base64.txt") {|f| f.read}
 public_key = MbedTLS::PKey::RSA.new(PUBLIC_KEY_PEM)
 data = "Hello World!"
 signature = Base64.decode64(signature_base64)
-if public_key.verify(MbedTLS::Digest.new(:sha256), signature, data)
+digest = MbedTLS::Digest.new(:sha256)
+if public_key.verify(digest, signature, data)
   p "Verified"
 else
   p "Not verified"
 end
+digest.free
 ```
 
 ## Create key pair in PicoRuby and MbedTLS
