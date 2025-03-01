@@ -1,3 +1,6 @@
+#include <stdlib.h>
+#include "../include/env.h"
+
 #if defined(PICORB_VM_MRUBY)
 
 #include "mruby/env.c"
