@@ -1,8 +1,3 @@
-#if defined(PICORB_VM_MRUBY)
-
-#include <stdlib.h>
-#include "../include/env.h"
-
 #include <mruby.h>
 #include <mruby/presym.h>
 #include <mruby/variable.h>
@@ -52,5 +47,3 @@ void
 mrb_picoruby_env_gem_final(mrb_state* mrb)
 {
 }
-
-#endif
