@@ -1,6 +1,3 @@
-#include <stdlib.h>
-#include "../include/env.h"
-
 #include <mrubyc.h>
 
 static void
