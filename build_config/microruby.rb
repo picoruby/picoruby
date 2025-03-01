@@ -13,6 +13,8 @@ MRuby::Build.new do |conf|
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-time"
   conf.gem core: "picoruby-env"
 
+  conf.gem core: "picoruby-io-console"
+
 #  conf.disable_presym
 
   conf.microruby
