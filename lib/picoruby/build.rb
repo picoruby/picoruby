@@ -21,6 +21,8 @@ module MRuby
     end
 
     def microruby
+      cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
+      cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
       cc.include_paths << "#{gems['picoruby-mruby'].dir}/lib/mruby/include"
       cc.defines << "PICORB_VM_MRUBY"
       debug_flag
