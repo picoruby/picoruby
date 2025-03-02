@@ -47,7 +47,6 @@ c_eval(struct VM *vm, mrbc_value v[], int argc)
 void
 mrbc_instruction_sequence_init(mrbc_vm *vm, mrbc_class *class_PicoRubyVM)
 {
-   = mrbc_define_class(vm, "PicoRubyVM", mrbc_class_object);
   mrbc_class *class_InstructionSequence = mrbc_define_class_under(0, class_PicoRubyVM, "InstructionSequence", mrbc_class_object);
   mrbc_define_method(vm, class_InstructionSequence, "compile", c_compile);
   mrbc_define_method(vm, class_InstructionSequence, "to_binary", c_to_binary);

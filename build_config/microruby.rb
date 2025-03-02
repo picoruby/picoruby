@@ -15,6 +15,7 @@ MRuby::Build.new do |conf|
 
   conf.gem core: "picoruby-io-console"
   conf.gem core: "picoruby-picorubyvm"
+  conf.gem core: "picoruby-sandbox"
 
 #  conf.disable_presym
 

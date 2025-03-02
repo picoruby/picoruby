@@ -25,6 +25,7 @@ module MRuby
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
       cc.include_paths << "#{gems['picoruby-mruby'].dir}/lib/mruby/include"
       cc.defines << "PICORB_VM_MRUBY"
+      cc.defines << "MRB_USE_TASK_SCHEDULER"
       debug_flag
     end
 

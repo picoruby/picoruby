@@ -9,6 +9,8 @@
 */
 
 #include <picoruby.h>
+#include <mruby/class.h>
+#include <mruby/data.h>
 #include "hal.h"
 #include "task.h"
 
@@ -163,6 +165,14 @@ mrb_tick(mrb_state *mrb)
 }
 
 
+static void
+mrb_task_tcb_free(mrb_state *mrb, void *ptr) {
+ // TODO
+}
+struct mrb_data_type mrb_task_tcb_type = {
+  "TCB", mrb_task_tcb_free
+};
+
 //================================================================
 /*! create (allocate) TCB.
 
@@ -181,7 +191,7 @@ mrb_tick(mrb_state *mrb)
   mrb_create_task( byte_code, tcb );
 @endcode
 */
-static mrb_tcb *
+mrb_tcb *
 mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
 {
   mrb_tcb *tcb;
@@ -197,6 +207,12 @@ mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
   tcb->priority = priority;
   tcb->state = task_state;
 
+  struct RClass *class_Task = mrb_class_get(mrb, "Task");
+  mrb_value task = mrb_obj_new(mrb, class_Task, 0, NULL);
+  DATA_PTR(task) = tcb;
+  DATA_TYPE(task) = &mrb_task_tcb_type;
+
+  tcb->task = task;
   return tcb;
 }
 
@@ -426,6 +442,45 @@ mrb_suspend_task(mrb_state *mrb, mrb_tcb *tcb)
 }
 
 
+void
+mrb_resume_task(mrb_state *mrb, mrb_tcb *tcb)
+{
+  if (tcb->state != TASKSTATE_SUSPENDED) return;
+
+  uint8_t flag_to_ready_state = (tcb->reason == 0);
+
+  hal_disable_irq();
+
+  if (flag_to_ready_state) preempt_running_task(mrb);
+
+  q_delete_task(mrb, tcb);
+  tcb->state = flag_to_ready_state ? TASKSTATE_READY : TASKSTATE_WAITING;
+  q_insert_task(mrb, tcb);
+
+  hal_enable_irq();
+
+  if (tcb->reason & TASKREASON_SLEEP) {
+    if ((int32_t)(tcb->wakeup_tick - wakeup_tick_) < 0) {
+      wakeup_tick_ = tcb->wakeup_tick;
+    }
+  }
+}
+
+void
+mrb_terminate_task(mrb_state *mrb, mrb_tcb *tcb)
+{
+  if (tcb->state == TASKSTATE_DORMANT) return;
+
+  hal_disable_irq();
+  q_delete_task(mrb, tcb);
+  tcb->state = TASKSTATE_DORMANT;
+  q_insert_task(mrb, tcb);
+  hal_enable_irq();
+
+  //tcb->flag_preemption = 1;
+  mrb->c->status = MRB_TASK_STOPPED;
+}
+
 //================================================================
 /*! (method) sleep for a specified number of seconds (CRuby compatible)
 
@@ -482,6 +537,23 @@ mrb_sleep_ms(mrb_state *mrb, mrb_value self)
   return ms;
 }
 
+static mrb_value
+mrb_task_s_current(mrb_state *mrb, mrb_value klass)
+{
+  mrb_tcb *tcb = MRB2TCB(mrb);
+  return tcb->task;
+}
+
+static mrb_value
+mrb_task_suspend(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  if (tcb == NULL) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "task does not have tcb");
+  }
+  mrb_suspend_task(mrb, tcb);
+  return mrb_nil_value();
+}
 
 void
 mrb_init_rrt0(mrb_state *mrb)
@@ -504,4 +576,10 @@ mrb_init_rrt0(mrb_state *mrb)
   }
   mrb_define_method(mrb, krn, "sleep", mrb_sleep, MRB_ARGS_OPT(1));
   mrb_define_method(mrb, krn, "sleep_ms", mrb_sleep_ms, MRB_ARGS_REQ(1));
+
+  struct RClass *class_Task = mrb_define_class_id(mrb, MRB_SYM(Task), mrb->object_class);
+  MRB_SET_INSTANCE_TT(class_Task, MRB_TT_CDATA);
+
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(current), mrb_task_s_current, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(suspend), mrb_task_suspend, MRB_ARGS_NONE());
 }
