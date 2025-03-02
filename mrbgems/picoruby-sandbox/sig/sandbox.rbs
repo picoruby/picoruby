@@ -13,8 +13,8 @@ class Sandbox
   attr_accessor error: Exception?
 
   def self.new: (?String name) -> instance
-  def compile: (String script) -> bool
-  def compile_from_memory: (Integer address, Integer size) -> bool
+  def compile: (String script, ?remove_lv: bool) -> bool
+  def compile_from_memory: (Integer address, Integer size, ?remove_lv: bool) -> bool
   def suspend: () -> nil
   def terminate: () -> nil
   def free_parser: () -> nil
