@@ -11,6 +11,8 @@
 #ifndef MRUBY_TASK_H
 #define MRUBY_TASK_H
 
+typedef struct RTcb mrb_tcb;
+
 #include <picoruby.h>
 
 MRB_BEGIN_DECL
@@ -77,6 +79,7 @@ typedef struct RTcb {
   const struct RTcb *tcb_join;  //!< joined task.
 
   uint8_t flag_permanence;
+  mrb_value task;
   struct mrb_context c; // Each TCB has its own context
 
 } mrb_tcb;
@@ -97,6 +100,7 @@ typedef struct RMutex {
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
 void mrb_tick(mrb_state *mrb);
+mrb_tcb *mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority);
 mrb_tcb *mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb);
 int mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb);
 //void mrb_set_task_name(mrb_tcb *tcb, const char *name);
@@ -107,8 +111,8 @@ void sleep_ms(mrb_state *mrb, mrb_int ms);
 //void mrb_relinquish(mrb_tcb *tcb);
 //void mrb_change_priority(mrb_tcb *tcb, int priority);
 void mrb_suspend_task(mrb_state *mrb, mrb_tcb *tcb);
-//void mrb_resume_task(mrb_tcb *tcb);
-//void mrb_terminate_task(mrc_tcb *tcb);
+void mrb_resume_task(mrb_state *mrb, mrb_tcb *tcb);
+void mrb_terminate_task(mrb_state *mrb, mrb_tcb *tcb);
 //void mrb_join_task(mrb_tcb *tcb, const mrb_tcb *tcb_join);
 //mrb_mutex *mrb_mutex_init(mrb_mutex *mutex);
 //int mrb_mutex_lock(mrb_mutex *mutex, mrb_tcb *tcb);

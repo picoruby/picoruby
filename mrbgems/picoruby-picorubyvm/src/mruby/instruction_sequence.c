@@ -21,17 +21,16 @@ mrb_instruction_sequence_s_compile(mrb_state *mrb, mrb_value klass)
 {
   mrb_value self = mrb_obj_new(mrb, mrb_class_ptr(klass), 0, NULL);
 
-
   uint32_t kw_num = 1;
   uint32_t kw_required = 0;
   mrb_sym kw_names[] = { MRB_SYM(remove_lv) };
   mrb_value kw_values[kw_num];
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
-  if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_true_value(); }
 
   const char *code;
   mrb_get_args(mrb, "z:", &code, &kwargs);
   size_t code_size = strlen(code);
+  if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_true_value(); }
 
   mrc_ccontext *c = mrc_ccontext_new(mrb);
   if (c == NULL) {
