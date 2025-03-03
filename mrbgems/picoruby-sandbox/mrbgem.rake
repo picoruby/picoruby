@@ -4,9 +4,9 @@ MRuby::Gem::Specification.new('picoruby-sandbox') do |spec|
   spec.summary = 'Sandbox class for shell and picoirb'
 
   spec.add_dependency 'picoruby-io-console'
-  if spec.cc.defines.include?("PICORB_VM_MRUBYC")
+  if build.vm_mrubyc?
     spec.add_dependency 'picoruby-metaprog'
-  elsif spec.cc.defines.include?("PICORB_VM_MRUBY")
+  elsif build.vm_mruby?
     spec.cc.include_paths << "#{build.gems['picoruby-mruby'].dir}/include"
   end
 end
