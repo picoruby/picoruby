@@ -20,6 +20,14 @@ module MRuby
       cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
     end
 
+    def vm_mruby?
+      cc.defines.include?("PICORB_VM_MRUBY")
+    end
+
+    def vm_mrubyc?
+      cc.defines.include?("PICORB_VM_MRUBYC")
+    end
+
     def microruby
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
