@@ -2,7 +2,7 @@ MRuby::Gem::Specification.new 'picoruby-bin-r2p2' do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'R2P2 executable for POSIX'
-  spec.add_dependency 'picoruby-require'
+
   spec.add_dependency 'picoruby-shell'
 
   spec.cc.defines << "MRBC_USE_HAL_POSIX"
