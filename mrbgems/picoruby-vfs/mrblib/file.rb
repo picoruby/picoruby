@@ -74,9 +74,16 @@ class File
       VFS::File.utime(atime, mtime, *filename)
     end
 
-
     def contiguous?(path)
       VFS.contiguous?(path)
+    end
+
+    # Alternative to File.read
+    def load_file(path, length = nil, offset = nil)
+      File.open(path) do |f|
+        f.seek(offset) if offset
+        f.read(length)
+      end
     end
   end
 
