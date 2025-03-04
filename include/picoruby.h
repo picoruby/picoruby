@@ -26,7 +26,6 @@
 #if defined(PICORB_VM_MRUBYC)
 
 #include <mrubyc.h>
-#include <picogem_init.c>
 
 #define picorb_vm_init()  do { \
   mrbc_init(mrbc_heap, HEAP_SIZE); \
@@ -65,6 +64,10 @@ static inline void picorb_free(void *ptr)
         mrbc_set_const(mrbc_str_to_symid(name),&value)
 #define picorb_define_global_const(vm,name,value) \
         mrbc_set_global(mrbc_str_to_symid(name),&value)
+
+void picoruby_init_executables(mrbc_vm *vm);
+void picoruby_init_require(mrbc_vm *vm);
+bool picoruby_load_model_by_name(const char *gem);
 
 #elif defined(PICORB_VM_MRUBY)
 

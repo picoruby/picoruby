@@ -1,6 +1,5 @@
-#include <mrubyc.h>
+#include <picoruby.h>
 #include <picogem_init.c>
-#include <executables_init.c>
 
 #define MRBC_MEMORY_SIZE (1024*1024)
 static uint8_t heap[MRBC_MEMORY_SIZE];

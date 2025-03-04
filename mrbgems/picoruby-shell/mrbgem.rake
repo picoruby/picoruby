@@ -26,10 +26,13 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
 
   mrbgems_dir = File.expand_path "..", build_dir
 
-  build.libmruby_objs << objfile("#{mrbgems_dir}/executables_init")
-  file objfile("#{mrbgems_dir}/executables_init") => ["#{mrbgems_dir}/executables_init.c"]
-
-  file "#{mrbgems_dir}/executables_init.c" => executable_mrbfiles do |t|
+  init_src = "#{build_dir}/executables_init.c"
+  init_obj = objfile(init_src.pathmap('%X'))
+  build.libmruby_objs << init_obj
+  file init_obj => init_src do |t|
+    build.cc.run(t.name, t.prerequisites[0])
+  end
+  file init_src => executable_mrbfiles do |t|
     mkdir_p File.dirname t.name
     pathmap = File.read("#{dir}/shell_executables/_path.txt").lines.map(&:chomp).map do
       p = Pathname.new(_1)
@@ -40,7 +43,6 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
         #include <stdio.h>
         #include <stdbool.h>
         #include <mrubyc.h>
-        #include <alloc.h>
       PICOGEM
       # shell executables
       executable_mrbfiles.each do |mrb|
