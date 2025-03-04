@@ -1434,6 +1434,7 @@ c_io_closed_q(mrbc_vm *vm, mrbc_value v[], int argc)
   fptr = (struct picorb_io*)io_data_get_ptr(v[0]);
   if (fptr == NULL || fptr->fd >= 0) {
     SET_FALSE_RETURN();
+    return;
   }
   SET_TRUE_RETURN();
 }
@@ -1500,6 +1501,7 @@ c_io_pid(mrbc_vm *vm, mrbc_value v[], int argc)
 
   if (fptr->pid > 0) {
     SET_INT_RETURN(fptr->pid);
+    return;
   }
 
   SET_NIL_RETURN();

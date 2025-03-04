@@ -390,6 +390,7 @@ c_file__gethome(mrbc_vm *vm, mrbc_value v[], int argc)
     struct passwd *pwd = getpwnam(cuser);
     if (pwd == NULL) {
       SET_NIL_RETURN();
+      return;
     }
     home = pwd->pw_dir;
     if (!file_is_absolute_path(home)) {
@@ -406,6 +407,7 @@ c_file__gethome(mrbc_vm *vm, mrbc_value v[], int argc)
     home = getenv("USERPROFILE");
     if (home == NULL) {
       SET_NIL_RETURN();
+      return;
     }
     if (!file_is_absolute_path(home)) {
       mrbc_raise(vm, MRBC_CLASS(ArgumentError), "non-absolute home");
