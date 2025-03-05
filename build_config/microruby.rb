@@ -17,6 +17,8 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-picorubyvm"
   conf.gem core: "picoruby-sandbox"
 
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
+
 #  conf.disable_presym
 
   conf.microruby
