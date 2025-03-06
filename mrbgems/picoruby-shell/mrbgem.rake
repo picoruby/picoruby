@@ -61,7 +61,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
       executable_mrbfiles.each do |mrb|
         basename = File.basename(mrb, ".c")
         dirname = pathmap.find { _1[:basename] == basename }[:dir]
-        f.puts "  {\"#{dirname}/#{basename}\", executable_#{basename}}," if File.exist?(mrb)
+        f.puts "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}}," if File.exist?(mrb)
       end
       f.puts "  {NULL, NULL} /* sentinel */"
       f.puts "};"

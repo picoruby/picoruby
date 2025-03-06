@@ -16,5 +16,6 @@
 /bin/install
 /bin/mkdir
 /bin/setup_sdcard
+/bin/machine-id
 /etc/init.d/r2p2
 /etc/init.d/r2p2-wifi
