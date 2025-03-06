@@ -19,6 +19,9 @@ MRuby::Build.new do |conf|
 
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
 
+  conf.gem core: "picoruby-shell"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
+
 #  conf.disable_presym
 
   conf.microruby
