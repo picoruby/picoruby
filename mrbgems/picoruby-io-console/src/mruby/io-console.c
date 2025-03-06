@@ -13,7 +13,7 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
     */
   mrb_int maxlen;
   mrb_value outbuf;
-  mrb_get_args(mrb, "iS", &maxlen, &outbuf);
+  mrb_get_args(mrb, "i|S", &maxlen, &outbuf);
   char buf[maxlen + 1];
   mrb_int len;
   io_raw_bang(true);
@@ -101,7 +101,7 @@ mrb_picoruby_io_console_gem_init(mrb_state* mrb)
 {
   struct RClass *class_IO = mrb_class_get(mrb, "IO");
 
-  mrb_define_method_id(mrb, class_IO, MRB_SYM(read_read_nonblock), mrb_io_read_nonblock, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(read_nonblock), mrb_io_read_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(raw), mrb_io_raw_b, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(coocked), mrb_io_coocked_b, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(_restore_termios), mrb_io__restore_termios, MRB_ARGS_NONE());
