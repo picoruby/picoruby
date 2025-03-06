@@ -33,11 +33,11 @@ class IO
     end
   end
 
-  def get_cursor_position
+  def self.get_cursor_position
     return [0, 0] if ENV['TERM'] == "dumb"
     row, col = 0, 0
     STDIN.read_nonblock(100) # discard buffer
-    raw do
+    STDOUT.raw do
       STDOUT.print "\e[6n"
       while true
         c = STDIN.read_nonblock(1)&.ord || 0
