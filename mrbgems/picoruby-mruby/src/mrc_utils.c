@@ -16,6 +16,9 @@ MRC_API void
 mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
 {
   pm_constant_pool_t *constant_pool = &cc->p->constant_pool;
+  if (constant_pool->constants == NULL) {
+    return;
+  }
   picorb_sym *new_syms = mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
   for (int i = 0; i < irep->slen; i++) {
     mrc_sym sym = irep->syms[i];
