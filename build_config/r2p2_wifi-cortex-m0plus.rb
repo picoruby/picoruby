@@ -47,6 +47,7 @@ MRuby::CrossBuild.new("r2p2_wifi-cortex-m0plus") do |conf|
   conf.gembox "utils"
   conf.gem core: 'picoruby-jwt'
   conf.gem core: 'picoruby-net'
+  conf.gem core: 'picoruby-mqtt'
   # For some reason, picoruby-net doesn't have dependency on picoruby-cyw43
   conf.gem core: 'picoruby-cyw43'
 
