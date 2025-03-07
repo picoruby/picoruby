@@ -10,8 +10,6 @@
 
 #if defined(PICORB_VM_MRUBY)
 #define EXECUTABLE_NAME "microruby"
-// created in mruby/src/load.c
-mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
 struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
 mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
