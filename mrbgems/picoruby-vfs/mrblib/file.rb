@@ -247,7 +247,8 @@ class File
   end
 
   def expand(size)
-    @file.expand(size)
+    @file.expand(size) if @file.respond_to? :expand
+    size
   end
 
   def fsync
