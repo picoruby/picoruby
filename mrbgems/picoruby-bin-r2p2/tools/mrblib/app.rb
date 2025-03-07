@@ -1,13 +1,6 @@
 #! /usr/bin/env ruby
 
-case RUBY_ENGINE
-when "ruby"
-  require_relative "../../picoruby-shell/mrblib/shell"
-  require_relative "../../picoruby-vim/mrblib/vim"
-when "mruby/c"
-  require "dir"
-  require "shell"
-end
+require "shell"
 
 begin
   IO.wait_terminal and IO.clear_screen
@@ -19,4 +12,3 @@ rescue => e
   puts e.message
   exit
 end
-

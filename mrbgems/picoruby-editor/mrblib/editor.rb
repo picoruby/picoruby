@@ -113,7 +113,7 @@ module Editor
     end
 
     def history_head
-      @history_index = @history.count - 1
+      @history_index = @history.size - 1
     end
 
     def save_history
@@ -121,7 +121,7 @@ module Editor
         @history[@history.size - 1] = @buffer.lines
         @history << [""]
       end
-      if MAX_HISTORY_COUNT < @history.count
+      if MAX_HISTORY_COUNT < @history.size
         @history.shift
       end
       history_head
@@ -132,7 +132,7 @@ module Editor
         return if @history_index == 0
         @history_index -= 1
       else # :down
-        return if @history_index == @history.count - 1
+        return if @history_index == @history.size - 1
         @history_index += 1
       end
       unless @history.empty?
