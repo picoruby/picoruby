@@ -48,7 +48,7 @@ class Shell
         path = "#{root}#{exe[:path]}"
         if force || !File.file?(path)
           f = File.open path, "w"
-          f.expand exe[:code].length
+          f.expand exe[:code].length if f.respond_to? :expand
           f.write exe[:code]
           f.close
         end
