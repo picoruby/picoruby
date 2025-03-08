@@ -220,6 +220,40 @@ mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
 #define TASK_STACK_INIT_SIZE 64
 #define TASK_CI_INIT_SIZE 8
 
+void
+mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc)
+{
+  size_t slen = TASK_STACK_INIT_SIZE;
+  if (proc->body.irep->nregs > slen) {
+    slen += proc->body.irep->nregs;
+  }
+
+  c->stbase = (mrb_value*)mrb_malloc(mrb, slen*sizeof(mrb_value));
+  c->stend = c->stbase + slen;
+  {
+    mrb_value *s = c->stbase;
+    mrb_value *send = c->stend;
+    while (s < send) {
+      SET_NIL_VALUE(*s);
+      s++;
+    }
+  }
+
+  static const mrb_callinfo ci_zero = { 0 };
+  c->cibase = (mrb_callinfo *)mrb_malloc(mrb, TASK_CI_INIT_SIZE * sizeof(mrb_callinfo));
+  c->ciend = c->cibase + TASK_CI_INIT_SIZE;
+  c->ci = c->cibase;
+  c->cibase[0] = ci_zero;
+
+  MRB_PROC_SET_TARGET_CLASS(proc, mrb->object_class);
+  mrb_vm_ci_target_class_set(c->ci, MRB_PROC_TARGET_CLASS(proc));
+  mrb_vm_ci_proc_set(c->ci, proc);
+  c->ci->stack = c->stbase;
+
+  c->status = MRB_TASK_CREATED;
+}
+
+
 //================================================================
 /*! Create a task specifying bytecode to be executed.
 
@@ -236,37 +270,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb)
   tcb->priority_preemption = tcb->priority;
 
   // TODO: assign CTX ID?
-  { // TODO: separate function
-    struct mrb_context *c = &tcb->c;
-    size_t slen = TASK_STACK_INIT_SIZE;
-    if (proc->body.irep->nregs > slen) {
-      slen += proc->body.irep->nregs;
-    }
-
-    c->stbase = (mrb_value*)mrb_malloc(mrb, slen*sizeof(mrb_value));
-    c->stend = c->stbase + slen;
-    {
-      mrb_value *s = c->stbase;
-      mrb_value *send = c->stend;
-      while (s < send) {
-        SET_NIL_VALUE(*s);
-        s++;
-      }
-    }
-
-    static const mrb_callinfo ci_zero = { 0 };
-    c->cibase = (mrb_callinfo *)mrb_malloc(mrb, TASK_CI_INIT_SIZE * sizeof(mrb_callinfo));
-    c->ciend = c->cibase + TASK_CI_INIT_SIZE;
-    c->ci = c->cibase;
-    c->cibase[0] = ci_zero;
-
-    MRB_PROC_SET_TARGET_CLASS(proc, mrb->object_class);
-    mrb_vm_ci_target_class_set(c->ci, MRB_PROC_TARGET_CLASS(proc));
-    mrb_vm_ci_proc_set(c->ci, proc);
-    c->ci->stack = c->stbase;
-
-    c->status = MRB_TASK_CREATED;
-  }
+  mrb_tcb_init_context(mrb, &tcb->c, proc);
 
   hal_disable_irq();
   q_insert_task(mrb, tcb);
