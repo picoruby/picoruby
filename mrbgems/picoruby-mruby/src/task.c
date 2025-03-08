@@ -337,11 +337,12 @@ mrb_tasks_run(mrb_state *mrb)
     tcb->state = TASKSTATE_RUNNING;   // to execute.
     mrb->c = &tcb->c;
     tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
-    mrb_value ret_vm_run = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
-    (void)ret_vm_run; // TODO?
+    tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
 
     if (mrb->exc) {
-      return mrb_obj_value(mrb->exc);
+      tcb->value = mrb_obj_value(mrb->exc);
+      mrb->exc = NULL;
+      tcb->c.status = MRB_TASK_STOPPED;
     }
     switching_ = FALSE;
     /*

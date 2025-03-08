@@ -40,6 +40,7 @@ main(void)
   mrc_irep *irep = mrb_read_irep(mrb, app);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
   mrb_tcb *tcb = mrc_create_task(cc, irep, NULL);
+  tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
   if (!tcb) {
     fprintf(stderr, "mrbc_create_task failed\n");
     ret = 1;
