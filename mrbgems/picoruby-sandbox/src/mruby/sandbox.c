@@ -31,6 +31,7 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
 //  free_ccontext(ss);
 
   ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL);
+  ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
   ss->tcb->flag_permanence = 1;
   {
     char *name;
@@ -117,7 +118,7 @@ mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
   mrc_resolve_intern(ss->cc, ss->irep);
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
   proc->c = NULL;
-  mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
+  mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
   reset_context(&ss->tcb->c); mrb_resume_task(mrb, ss->tcb);
   return mrb_true_value();
 }
@@ -133,15 +134,15 @@ static mrb_value
 mrb_sandbox_result(mrb_state *mrb, mrb_value self)
 {
   SS();
-  mrb_value last_value = *(ss->tcb->c.stend - 1);
-  return last_value;
+  return ss->tcb->value;
 }
 
 static mrb_value
 mrb_sandbox_error(mrb_state *mrb, mrb_value self)
 {
-  if (mrb->exc) {
-    return mrb_obj_value(mrb->exc);
+  SS();
+  if (mrb_obj_is_kind_of(mrb, ss->tcb->value, mrb->eException_class)) {
+    return ss->tcb->value;
   }
   else {
     return mrb_nil_value();
