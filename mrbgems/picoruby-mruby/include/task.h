@@ -80,6 +80,7 @@ typedef struct RTcb {
 
   uint8_t flag_permanence;
   mrb_value task;
+  mrb_value value;
   struct mrb_context c; // Each TCB has its own context
 
 } mrb_tcb;
