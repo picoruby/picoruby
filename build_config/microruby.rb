@@ -6,6 +6,7 @@ MRuby::Build.new do |conf|
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: "picoruby-mruby"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
+  conf.gem core: "mruby-file-stat"
 
   conf.gem core: "picoruby-json"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
