@@ -48,7 +48,7 @@ mrb_io_raw_b(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_io_coocked_b(mrb_state *mrb, mrb_value self)
+mrb_io_cooked_b(mrb_state *mrb, mrb_value self)
 {
   io_cooked_bang();
   return self;
@@ -103,7 +103,7 @@ mrb_picoruby_io_console_gem_init(mrb_state* mrb)
 
   mrb_define_method_id(mrb, class_IO, MRB_SYM(read_nonblock), mrb_io_read_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(raw), mrb_io_raw_b, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_IO, MRB_SYM_B(coocked), mrb_io_coocked_b, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM_B(cooked), mrb_io_cooked_b, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(_restore_termios), mrb_io__restore_termios, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM_E(echo), mrb_io_echo_e, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_Q(echo), mrb_io_echo_q, MRB_ARGS_NONE());
