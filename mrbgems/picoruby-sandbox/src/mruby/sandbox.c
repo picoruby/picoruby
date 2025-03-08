@@ -75,7 +75,7 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_true_value(); }
 
   const size_t size = strlen(script);
-  if (sandbox_compile_sub(mrb, ss, (const uint8_t *)script, size, kw_values[0]) != 0) {
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, size, kw_values[0])) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
   }
   return mrb_true_value();
@@ -97,7 +97,7 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "ii:", &address, &size, &kwargs);
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_true_value(); }
 
-  if (sandbox_compile_sub(mrb, ss, (const uint8_t *)(intptr_t)address, size, kw_values[0]) != 0) {
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(intptr_t)address, size, kw_values[0])) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
   }
   return mrb_true_value();
@@ -114,7 +114,10 @@ static mrb_value
 mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
 {
   SS();
-  ss->tcb = mrc_create_task(ss->cc, ss->irep, ss->tcb);
+  mrc_resolve_intern(ss->cc, ss->irep);
+  struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  proc->c = NULL;
+  mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
   reset_context(&ss->tcb->c); mrb_resume_task(mrb, ss->tcb);
   return mrb_true_value();
 }
@@ -170,7 +173,9 @@ mrb_sandbox_free_parser(mrb_state *mrb, mrb_value self)
 static mrb_bool
 sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss)
 {
-  ss->tcb = mrc_create_task(ss->cc, ss->irep, ss->tcb);
+  struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  proc->c = NULL;
+  mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
   reset_context(&ss->tcb->c);
   mrb_resume_task(mrb, ss->tcb);
   return TRUE;
