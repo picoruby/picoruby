@@ -101,6 +101,7 @@ typedef struct RMutex {
 /***** Function prototypes **************************************************/
 void mrb_tick(mrb_state *mrb);
 mrb_tcb *mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority);
+void mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc);
 mrb_tcb *mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb);
 int mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb);
 //void mrb_set_task_name(mrb_tcb *tcb, const char *name);
