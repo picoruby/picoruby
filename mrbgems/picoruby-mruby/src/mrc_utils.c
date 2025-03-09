@@ -19,16 +19,18 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
   if (constant_pool->constants == NULL) {
     return;
   }
-  picorb_sym *new_syms = mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
-  for (int i = 0; i < irep->slen; i++) {
-    mrc_sym sym = irep->syms[i];
-    pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
-    const char *lit = (const char *)constant->start;
-    size_t len = constant->length;
-    new_syms[i] = mrb_intern(cc->mrb, lit, len);
+  if (0 < irep->slen) {
+    picorb_sym *new_syms = mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
+    for (int i = 0; i < irep->slen; i++) {
+      mrc_sym sym = irep->syms[i];
+      pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
+      const char *lit = (const char *)constant->start;
+      size_t len = constant->length;
+      new_syms[i] = mrb_intern(cc->mrb, lit, len);
+    }
+    mrc_free(cc, (mrc_sym *)irep->syms); // discard const
+    irep->syms = new_syms;
   }
-  mrc_free(cc, (mrc_sym *)irep->syms); // discard const
-  irep->syms = new_syms;
   for (int i = 0; i < irep->rlen; i++) {
     mrc_resolve_intern(cc, (mrc_irep *)irep->reps[i]);
   }
