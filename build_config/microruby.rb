@@ -19,6 +19,7 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-sandbox"
 
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
 
   conf.gem core: "picoruby-shell"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
