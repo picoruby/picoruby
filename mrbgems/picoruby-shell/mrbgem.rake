@@ -23,6 +23,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
 
   executable_mrbfiles = Array.new
   executable_dir = "#{build_dir}/shell_executables"
+  binding.irb
   directory executable_dir
   Dir.glob("#{dir}/shell_executables/*.rb") do |rbfile|
     mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"

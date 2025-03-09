@@ -3,7 +3,11 @@ MRuby::Gem::Specification.new('picoruby-filesystem-fat') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'FAT filesystem'
 
-  spec.add_dependency 'picoruby-time-class'
+  if build.vm_mrubyc?
+    spec.add_dependency 'picoruby-time-class'
+  elsif build.vm_mruby?
+    spec.add_dependency 'mruby-time'
+  end
 
   # TODO: use #porting instead
   Dir.glob("#{dir}/src/hal/*.c").each do |src|
