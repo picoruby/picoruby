@@ -1,7 +1,11 @@
 #ifndef FAT_DEFINED_H_
 #define FAT_DEFINED_H_
 
-#include <mrubyc.h>
+#if defined(PICORB_VM_MRUBY)
+  #include <mruby.h>
+#elif defined(PICORB_VM_MRUBYC)
+  #include <mrubyc.h>
+#endif
 
 #include "../lib/ff14b/source/ff.h"
 
@@ -12,6 +16,21 @@ extern "C" {
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
+
+void FILE_physical_address(FIL *fp, uint8_t **addr);
+int FILE_sector_size(void);
+
+#if defined(PICORB_VM_MRUBY)
+
+void mrb__exist_p(mrb_state *mrb, mrb_value klass);
+void mrb__unlink(mrb_state *mrb, mrb_value klass);
+void mrb__rename(mrb_state *mrb, mrb_value klass);
+
+void mrb_raise_iff_f_error(mrb_state *mrb, FRESULT res, const char *func);
+void mrb_init_class_FAT_File(mrb_state *mrb, struct RClass *class_FAT);
+void mrb_init_class_FAT_Dir(mrb_state *mrb, struct RClass *class_FAT);
+
+#elif defined(PICORB_VM_MRUBYC)
 
 void c__exist_q(mrbc_vm *vm, mrbc_value v[], int argc);
 void c__unlink(mrbc_vm *vm, mrbc_value v[], int argc);
@@ -36,12 +55,13 @@ void mrbc_raise_iff_f_error(mrbc_vm *vm, FRESULT res, const char *func);
 void mrbc_init_class_FAT_File(mrbc_vm *vm, mrbc_class *class_FAT);
 void mrbc_init_class_FAT_Dir(mrbc_vm *vm, mrbc_class *class_FAT);
 
-void FILE_physical_address(FIL *fp, uint8_t **addr);
-int FILE_sector_size(void);
-
 #ifdef USE_FAT_SD_DISK
-void c_FAT_init_spi();
+int 
+FAT_set_spi_unit(const char* name, int sck, int cipo, int copi, int cs)
+;
 #endif
+
+#endif /* PICORB_VM_MRUBYC */
 
 #ifdef __cplusplus
 }
