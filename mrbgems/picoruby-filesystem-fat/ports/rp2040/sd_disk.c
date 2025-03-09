@@ -13,12 +13,10 @@
 /
 /-------------------------------------------------------------------------*/
 
-#include "pico/stdlib.h"
-#include "hardware/spi.h"
+#include <pico/stdlib.h>
+#include <hardware/spi.h>
 
 #include "disk.h"
-
-#include <mrubyc.h>
 
 static spi_inst_t* SPI_UNIT = NULL;
 static int SPI_SCK_PIN  = -1;
@@ -40,23 +38,21 @@ static int SPI_CS_PIN   = -1;
 
 volatile int conter1;
 
-void
-c_FAT_init_spi(struct VM *vm, mrbc_value v[], int argc)
+int
+FAT_set_spi_unit(const char* name, int sck, int cipo, int copi, int cs)
 {
-  const char *unit_name = (const char *)GET_STRING_ARG(1);
-  if (strcmp(unit_name, "RP2040_SPI0") == 0) {
+  if (strcmp(name, "RP2040_SPI0") == 0) {
     SPI_UNIT = PICORUBY_SPI_RP2040_SPI0;
-  } else if (strcmp(unit_name, "RP2040_SPI1") == 0) {
+  } else if (strcmp(name, "RP2040_SPI1") == 0) {
     SPI_UNIT = PICORUBY_SPI_RP2040_SPI1;
   } else {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Invalid SPI unit.");
+    return -1;
   }
-  SPI_SCK_PIN  = GET_INT_ARG(2);
-  SPI_CIPO_PIN = GET_INT_ARG(3);
-  SPI_COPI_PIN = GET_INT_ARG(4);
-  SPI_CS_PIN   = GET_INT_ARG(5);
-
-  SET_INT_RETURN(0);
+  SPI_SCK_PIN  = sck;
+  SPI_CIPO_PIN = cipo;
+  SPI_COPI_PIN = copi;
+  SPI_CS_PIN   = sc;
+  return 0;
 }
 
 
