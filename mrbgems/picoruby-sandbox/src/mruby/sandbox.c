@@ -72,8 +72,8 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
   mrb_value kw_values[kw_num];
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
-  mrb_get_args(mrb, "z", &script, &kwargs);
-  if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_true_value(); }
+  mrb_get_args(mrb, "z:", &script, &kwargs);
+  if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
   const size_t size = strlen(script);
   if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, size, kw_values[0])) {
@@ -96,7 +96,7 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
   mrb_get_args(mrb, "ii:", &address, &size, &kwargs);
-  if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_true_value(); }
+  if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
   if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(intptr_t)address, size, kw_values[0])) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
