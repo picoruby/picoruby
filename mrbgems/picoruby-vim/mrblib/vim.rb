@@ -3,7 +3,7 @@
 case RUBY_ENGINE
 when "ruby", "jruby"
   require_relative "../../picoruby-editor/mrblib/editor"
-when "mruby/c"
+when "mruby/c", "mruby"
   require "editor"
 else
   raise "Unknown RUBY_ENGINE: #{RUBY_ENGINE}"

@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 int hal_getchar(void);
+int hal_write(int fd, const void *buf, int nbytes);
 
 bool io_raw_q(void);
 void io_raw_bang(bool nonblock);

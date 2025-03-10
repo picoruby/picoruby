@@ -8,6 +8,10 @@ MRuby::Gem::Specification.new('picoruby-io-console') do |spec|
   spec.require_name = 'io/console'
 
   spec.posix
+
+  if build.posix?
+    cc.defines << "PICORB_PLATFORM_POSIX"
+  end
 end
 
 

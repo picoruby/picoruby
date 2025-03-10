@@ -1,10 +1,14 @@
 MRuby::Build.new do |conf|
   conf.toolchain :gcc
 
+  conf.cc.defines << "MRB_TICK_UNIT=4"
+  conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
+
   conf.gem github: 'picoruby/mruby-compiler2'
   conf.gem github: 'picoruby/mruby-bin-mrbc2'
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: "picoruby-mruby"
+  conf.gem core: "picoruby-machine"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
   conf.gem core: "mruby-file-stat"
 
@@ -22,11 +26,12 @@ MRuby::Build.new do |conf|
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
 
   conf.gem core: "picoruby-shell"
+  conf.gem core: "picoruby-vim"
+  conf.gem core: "picoruby-picoline"
+  conf.gem core: "picoruby-yaml"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
 
   conf.gem core: "picoruby-bin-r2p2"
-
-#  conf.disable_presym
 
   conf.microruby
 end

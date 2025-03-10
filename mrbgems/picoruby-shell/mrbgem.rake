@@ -19,11 +19,11 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     spec.add_dependency 'picoruby-machine' # for shell executables
   end
 
-  executables_src = "#{dir}/src/shell_executables.c.inc"
+  executables_src = "#{build_dir}/shell_executables.c.inc"
+  cc.include_paths << build_dir
 
   executable_mrbfiles = Array.new
   executable_dir = "#{build_dir}/shell_executables"
-  binding.irb
   directory executable_dir
   Dir.glob("#{dir}/shell_executables/*.rb") do |rbfile|
     mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"
