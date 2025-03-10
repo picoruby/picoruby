@@ -125,7 +125,6 @@ void mrb_terminate_task(mrb_state *mrb, mrb_tcb *tcb);
 //void pq(const mrb_tcb *p_tcb);
 //void pqall(void);
 
-void mrb_init_rrt0(mrb_state *mrb);
 void mrb_tcb_free(mrb_state *mrb, mrb_tcb *tcb);
 
 MRB_END_DECL

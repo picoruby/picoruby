@@ -561,7 +561,7 @@ mrb_task_suspend(mrb_state *mrb, mrb_value self)
 }
 
 void
-mrb_init_rrt0(mrb_state *mrb)
+mrb_picoruby_mruby_gem_init(mrb_state* mrb)
 {
   hal_init(mrb);
 
@@ -587,4 +587,9 @@ mrb_init_rrt0(mrb_state *mrb)
 
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(current), mrb_task_s_current, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(suspend), mrb_task_suspend, MRB_ARGS_NONE());
+}
+
+void
+mrb_picoruby_mruby_gem_final(mrb_state* mrb)
+{
 }
