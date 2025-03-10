@@ -5,7 +5,6 @@ class Shell
     end
 
     BUILTIN = %w(
-      free
       alias
       cd
       echo
@@ -61,10 +60,6 @@ class Shell
           return false
         end
         Dir.chdir(dir)
-      when "free"
-        PicoRubyVM.memory_statistics.each do |k, v|
-          puts "#{k.to_s.ljust(5)}: #{v.to_s.rjust(8)}"
-        end
       else
         if exefile = find_executable(command)
           @sandbox.load_file(exefile, signal: (command != "irb"))

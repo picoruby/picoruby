@@ -22,9 +22,24 @@ int FILE_sector_size(void);
 
 #if defined(PICORB_VM_MRUBY)
 
-void mrb__exist_p(mrb_state *mrb, mrb_value klass);
-void mrb__unlink(mrb_state *mrb, mrb_value klass);
-void mrb__rename(mrb_state *mrb, mrb_value klass);
+mrb_value mrb__exist_p(mrb_state *mrb, mrb_value klass);
+mrb_value mrb__unlink(mrb_state *mrb, mrb_value klass);
+mrb_value mrb__rename(mrb_state *mrb, mrb_value klass);
+
+typedef struct prb_vfs_methods
+{
+  mrb_value (*file_new)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_close)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_read)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_write)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_seek)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_tell)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_size)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_fsync)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_exist_q)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_unlink)(mrb_state *mrb, mrb_value self);
+  mrb_value (*file_stat)(mrb_state *mrb, mrb_value self);
+} prb_vfs_methods;
 
 void mrb_raise_iff_f_error(mrb_state *mrb, FRESULT res, const char *func);
 void mrb_init_class_FAT_File(mrb_state *mrb, struct RClass *class_FAT);

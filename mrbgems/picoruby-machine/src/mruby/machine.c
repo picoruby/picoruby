@@ -1,5 +1,6 @@
 #include "mruby.h"
 #include "mruby/string.h"
+#include "mruby/presym.h"
 
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
@@ -77,7 +78,7 @@ mrb_s_deep_sleep(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_s_unique_id(mrb_state *mrb, mrb_value klass)
 {
-  char id[32] = {0};
+  char id[33] = {0};
   if (Machine_get_unique_id(id)) {
     mrb_value ret = mrb_str_new_cstr(mrb, (const char *)id);
     return ret;
@@ -89,10 +90,9 @@ mrb_s_unique_id(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_s_read_memory(mrb_state *mrb, mrb_value klass)
 {
-  const void *addr = (const void *)(uintptr_t)GET_INT_ARG(1);
   mrb_int addr, size;
   mrb_get_args(mrb, "ii", &addr, &size);
-  return mrb_string_new(mrb, (const void *)(uintptr_t)addr, size);
+  return mrb_str_new(mrb, (const void *)(uintptr_t)addr, size);
 }
 
 void
@@ -108,7 +108,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(sleep), mrb_s_sleep, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(deep_sleep), mrb_s_deep_sleep, MRB_ARGS_REQ(3));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2);
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
 }
 
 void
