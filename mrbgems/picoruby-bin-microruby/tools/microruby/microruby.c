@@ -430,10 +430,6 @@ main(int argc, char **argv)
 {
   mrb_state *vm = NULL;
   picorb_vm_init();
-#if defined(PICORB_VM_MRUBY)
-  mrb_init_rrt0(vm);
-#elif defined(PICORB_VM_MRUBYC)
-#endif
 
   int n = -1;
   struct _args args;

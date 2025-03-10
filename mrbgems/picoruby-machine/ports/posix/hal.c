@@ -41,6 +41,7 @@ static mrb_state *mrb_;
 static void
 sig_alarm(int dummy)
 {
+  (void)dummy;
   mrb_tick(mrb_);
 }
 

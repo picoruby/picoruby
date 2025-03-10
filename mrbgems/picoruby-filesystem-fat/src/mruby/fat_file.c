@@ -1,10 +1,13 @@
-#include <mruby/string.h>
-#include <mruby/class.h>
-#include <mruby/data.h>
+#include <string.h>
+#include "mruby/presym.h"
+#include "mruby/string.h"
+#include "mruby/class.h"
+#include "mruby/data.h"
 
 static void
 mrb_fat_file_free(mrb_state *mrb, void *ptr) {
   f_close((FIL *)ptr);
+  mrb_free(mrb, ptr);
 }
 
 struct mrb_data_type mrb_fat_file_type = {
@@ -19,10 +22,8 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
   const char *path;
   const char *mode_str;
   mrb_get_args(mrb, "zz", &path, &mode_str);
-  mrb_value file = mrb_instance_new(mrb, klass);
-  FIL *fp = (FILE *)mrb_malloc(mrb, sizeof(FIL));
-  MRB_PTR(file) = fp;
-  MRB_TYPE(file) = &mrb_fat_file_type;
+  FIL *fp = (FIL *)mrb_malloc(mrb, sizeof(FIL));
+  mrb_value file = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class(mrb, klass), &mrb_fat_file_type, fp));
   BYTE mode = 0;
   if (strcmp(mode_str, "r") == 0) {
     mode = FA_READ;
@@ -86,8 +87,9 @@ static mrb_value
 mrb_seek(mrb_state *mrb, mrb_value self)
 {
   FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
-  int ofs = GET_INT_ARG(1);
-  int whence = GET_INT_ARG(2);
+  int ofs;
+  int whence;
+  mrb_get_args(mrb, "ii", &ofs, &whence);
   FSIZE_t size = f_size(fp);
   FSIZE_t new_pos;
 
@@ -119,7 +121,7 @@ static mrb_value
 mrb_size(mrb_state *mrb, mrb_value self)
 {
   FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
-  return mrb_fixnum_value(f_size(fp))
+  return mrb_fixnum_value(f_size(fp));
 }
 
 
@@ -156,17 +158,18 @@ static mrb_value
 mrb_write(mrb_state *mrb, mrb_value self)
 {
   FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
-  mrb_value str = v[1];
+  mrb_value str;
+  mrb_get_args(mrb, "S", &str);
   UINT bw;
   FRESULT res;
-  res = f_write(fp, str.string->data, str.string->size, &bw);
+  res = f_write(fp, RSTRING_PTR(str), RSTRING_LEN(str), &bw);
   if (res == FR_OK) res = f_sync(fp);
   mrb_raise_iff_f_error(mrb, res, "f_write|f_sync");
   return mrb_fixnum_value(bw);
 }
 
 static mrb_value
-mrb_close(mrb_state *mrb, mrb_value self)
+mrb_File_close(mrb_state *mrb, mrb_value self)
 {
   FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
   FRESULT res;
@@ -212,32 +215,30 @@ mrb_s_vfs_methods(mrb_state *mrb, mrb_value klass)
 {
   prb_vfs_methods m = {
     mrb_s_new,
-    mrb_close,
+    mrb_File_close,
     mrb_read,
     mrb_write,
     mrb_seek,
     mrb_tell,
     mrb_size,
     mrb_fsync,
-    mrb__exist_q,
+    mrb__exist_p,
     mrb__unlink
   };
-  mrb_value methods = mrb_instance_new(mrb, klass);
-  prb_vfs_methods mm = (prb_vfs_methods *)mrb_malloc(mrb, sizeof(prb_vfs_methods));
+  prb_vfs_methods *mm = (prb_vfs_methods *)mrb_malloc(mrb, sizeof(prb_vfs_methods));
   memcpy(mm, &m, sizeof(prb_vfs_methods));
-  MRB_PTR(methods) = &mm;
-  MRB_TYPE(methods) = &mrb_vfs_methods_type;
-  SET_RETURN(methods);
+  mrb_value methods = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class(mrb, klass), &mrb_vfs_methods_type, mm));
+  return methods;
 }
 
 void
-mrb_init_class_FAT_File(mrb_vm *mrb ,struct RClass *class_FAT)
+mrb_init_class_FAT_File(mrb_state *mrb ,struct RClass *class_FAT)
 {
 
-  struct RClass class_FAT_File = mrb_define_class_under_id(mrb, class_FAT, MRB_SYM(File), mrb->object_classs);
+  struct RClass *class_FAT_File = mrb_define_class_under_id(mrb, class_FAT, MRB_SYM(File), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_FAT_File, MRB_TT_CDATA);
 
-  struct RClass class_FAT_VFSMethods = mrb_define_class_under_id(mrb, class_FAT, MRB_SYM(VFSMethods), mrb->object_classs);
+  struct RClass *class_FAT_VFSMethods = mrb_define_class_under_id(mrb, class_FAT, MRB_SYM(VFSMethods), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_FAT_VFSMethods, MRB_TT_CDATA);
 
   mrb_define_class_method_id(mrb, class_FAT_File, MRB_SYM(new), mrb_s_new, MRB_ARGS_REQ(2));
@@ -247,7 +248,7 @@ mrb_init_class_FAT_File(mrb_vm *mrb ,struct RClass *class_FAT)
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM_Q(eof), mrb_eof_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(read), mrb_read, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(write), mrb_write, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(close), mrb_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(close), mrb_File_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(size), mrb_size, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(expand), mrb_expand, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(fsync), mrb_fsync, MRB_ARGS_NONE());

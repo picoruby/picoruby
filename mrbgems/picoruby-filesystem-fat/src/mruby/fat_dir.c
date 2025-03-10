@@ -1,3 +1,4 @@
+#include <mruby/presym.h>
 #include <mruby/string.h>
 #include <mruby/class.h>
 #include <mruby/data.h>
@@ -5,6 +6,7 @@
 static void
 mrb_fat_dir_free(mrb_state *mrb, void *ptr) {
   f_closedir((DIR *)ptr);
+  mrb_free(mrb, ptr);
 }
 
 struct mrb_data_type mrb_fat_dir_type = {
@@ -17,7 +19,7 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
 {
   FRESULT res;
   FILINFO fno = {0};
-  const chat *path;
+  const char *path;
   mrb_get_args(mrb, "z", &path);
 
   res = f_stat((const TCHAR *)path, &fno);
@@ -30,20 +32,17 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
       mrb, E_RUNTIME_ERROR, // Errno::ENOTDIR in CRuby
       "Not a directory @ dir_initialize"
     );
-    return;
   }
 
-  mrb_value dir = mrb_instance_new(mrb, klass);
-  DIR *dp = (DIR *)mrb_alloc(mrb, sizeof(DIR));
-  DATA_PTR(dir) = dp;
-  DATA_TYPE(dir) = &mrb_fat_dir_type;
+  DIR *dp = (DIR *)mrb_malloc(mrb, sizeof(DIR));
+  mrb_value dir = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class(mrb, klass), &mrb_fat_dir_type, dp));
   res = f_opendir(dp, path);
   mrb_raise_iff_f_error(mrb, res, "f_opendir");
   return dir;
 }
 
 static mrb_value
-mrb_close(struct mrb *mrb, mrb_value self)
+mrb_Dir_close(mrb_state *mrb, mrb_value self)
 {
   DIR *dp = (DIR *)mrb_data_get_ptr(mrb, self, &mrb_fat_dir_type);
   FRESULT res = f_closedir(dp);
@@ -52,7 +51,7 @@ mrb_close(struct mrb *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_findnext(struct mrb *mrb, mrb_value self)
+mrb_findnext(mrb_state *mrb, mrb_value self)
 {
   DIR *dp = (DIR *)mrb_data_get_ptr(mrb, self, &mrb_fat_dir_type);
   FRESULT fr;
@@ -67,15 +66,15 @@ mrb_findnext(struct mrb *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_pat_e(struct mrb *mrb, mrb_value self)
+mrb_pat_e(mrb_state *mrb, mrb_value self)
 {
   DIR *dp = (DIR *)mrb_data_get_ptr(mrb, self, &mrb_fat_dir_type);
-  dp->pat = (const TCHAR *)GET_STRING_ARG(1);
+  mrb_get_args(mrb, "z", &dp->pat);
   return mrb_fixnum_value(0);
 }
 
 static mrb_value
-mrb_read(struct mrb *mrb, mrb_value self)
+mrb_read(mrb_state *mrb, mrb_value self)
 {
   DIR *dp = (DIR *)mrb_data_get_ptr(mrb, self, &mrb_fat_dir_type);
   FILINFO fno = {0};
@@ -84,13 +83,13 @@ mrb_read(struct mrb *mrb, mrb_value self)
   if (fno.fname[0] == 0) {
     return mrb_nil_value();
   } else {
-    mrb_value value = mrb_string_new_cstr(mrb, (const char *)(fno.fname));
+    mrb_value value = mrb_str_new_cstr(mrb, (const char *)(fno.fname));
     return value;
   }
 }
 
 static mrb_value
-mrb_rewind(struct mrb *mrb, mrb_value self)
+mrb_rewind(mrb_state *mrb, mrb_value self)
 {
   DIR *dp = (DIR *)mrb_data_get_ptr(mrb, self, &mrb_fat_dir_type);
   f_rewinddir(dp);
@@ -105,7 +104,7 @@ mrb_init_class_FAT_Dir(mrb_state *mrb, struct RClass *class_FAT)
   MRB_SET_INSTANCE_TT(class_FAT_Dir, MRB_TT_CDATA);
 
   mrb_define_class_method_id(mrb, class_FAT_Dir, MRB_SYM(new), mrb_s_new, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(close), mrb_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(close), mrb_Dir_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM_E(pat), mrb_pat_e, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(findnext), mrb_findnext, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(read), mrb_read, MRB_ARGS_NONE());

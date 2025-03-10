@@ -1,6 +1,45 @@
+#include <string.h>
+#include "mruby/data.h"
+#include "mruby/class.h"
 #include "mruby/hash.h"
-#include <mruby/string.h>
+#include "mruby/string.h"
 #include "mruby/presym.h"
+#include "mruby/variable.h"
+
+typedef struct {
+  FATFS *fs;
+  char *prefix;
+} fatfs_t;
+
+static void
+mrb_fatfs_free(mrb_state *mrb, void *ptr) {
+  FRESULT res;
+  fatfs_t *mrb_fs = (fatfs_t *)ptr;
+  if (mrb_fs) {
+    if (mrb_fs->prefix) {
+      res = f_mount(0, (const TCHAR *)mrb_fs->prefix, 0);
+      mrb_raise_iff_f_error(mrb, res, "f_mount");
+    } else {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "Prefix not found in FATFS#_unmount");
+    }
+    mrb_free(mrb, mrb_fs);
+  }
+}
+
+struct mrb_data_type mrb_fatfs_type = {
+  "FATFS", mrb_fatfs_free
+};
+
+
+void
+mrb_raise_iff_f_error(mrb_state *mrb, FRESULT res, const char *func)
+{
+  char buff[64];
+  if (FAT_prepare_exception(res, buff, func) < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, buff);
+  }
+}
+
 
 static mrb_value
 mrb_unixtime_offset_e(mrb_state *mrb, mrb_value klass)
@@ -37,7 +76,7 @@ mrb__erase(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__mkfs(mrb_state *mrb, mrb_value self)
 {
-  void *work = mrb_alloc(mrb, FF_MAX_SS);
+  void *work = mrb_malloc(mrb, FF_MAX_SS);
   const MKFS_PARM opt = {
     FM_FAT,  // fmt
     1,       // n_fat: number of FAT copies
@@ -57,10 +96,11 @@ mrb__mkfs(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_getfree(mrb_state *mrb, mrb_value self)
 {
-  FATFS *fs = (FATFS *)v->instance->data;
   DWORD fre_clust, fre_sect, tot_sect;
   const char *path;
   mrb_get_args(mrb, "z", &path);
+  fatfs_t *mrb_fs = (fatfs_t *)mrb_data_get_ptr(mrb, self, &mrb_fatfs_type);
+  FATFS *fs = mrb_fs->fs;
   FRESULT res = f_getfree((const TCHAR *)path, &fre_clust, &fs);
   mrb_raise_iff_f_error(mrb, res, "f_getfree");
   tot_sect = (fs->n_fatent - 2) * fs->csize;
@@ -71,8 +111,15 @@ mrb_getfree(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__mount(mrb_state *mrb, mrb_value self)
 {
-  mrb_value fatfs = mrb_instance_new(mrb, v->cls, sizeof(FATFS));
-  FATFS *fs = (FATFS *)fatfs.instance->data;
+  fatfs_t *mrb_fs = (fatfs_t *)mrb_malloc(mrb, sizeof(FATFS));
+  DATA_PTR(self) = mrb_fs;
+  DATA_TYPE(self) = &mrb_fatfs_type;
+  FATFS *fs = mrb_fs->fs;
+  mrb_value prefix = mrb_iv_get(mrb, self, MRB_SYM(prefix));
+  if (mrb_nil_p(prefix)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Prefix not found in FATFS#_mount");
+  }
+  mrb_fs->prefix = RSTRING_PTR(prefix);
   FRESULT res;
   const char *path;
   mrb_get_args(mrb, "z", &path);
@@ -84,11 +131,11 @@ mrb__mount(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__unmount(mrb_state *mrb, mrb_value self)
 {
-  FRESULT res;
-  const char *path;
-  mrb_get_args(mrb, "z", &path);
-  res = f_mount(0, (const TCHAR *)path, 0);
-  mrb_raise_iff_f_error(mrb, res, "f_unmount");
+  const char *prefix;
+  mrb_get_args(mrb, "z", &prefix);
+  (void)prefix;
+  fatfs_t *mrb_fs = (fatfs_t *)mrb_data_get_ptr(mrb, self, &mrb_fatfs_type);
+  mrb_fatfs_free(mrb, mrb_fs);
   return mrb_fixnum_value(0);
 }
 
@@ -110,7 +157,7 @@ mrb__utime(mrb_state *mrb, mrb_value self)
   mrb_int unixtime;
   const char *name;
   mrb_get_args(mrb, "iz", &unixtime, &name);
-  unixtime2fno(&(const time_t )unixtime, &fno);
+  unixtime2fno((const time_t *)&unixtime, &fno);
   FRESULT res = f_utime((const TCHAR *)name, &fno);
   mrb_raise_iff_f_error(mrb, res, "f_utime");
   return mrb_fixnum_value(1);
@@ -157,11 +204,11 @@ mrb__stat(mrb_state *mrb, mrb_value self)
   mrb_hash_set(mrb,
     stat,
     mrb_symbol_value(MRB_SYM(unixtime)),
-    mrb_fixnum_value((mrb_int_t)unixtime)
+    mrb_fixnum_value((mrb_int)unixtime)
   );
   mrb_hash_set(mrb,
     stat,
-    mrb_symbol_value(MRB_SYM(mode),
+    mrb_symbol_value(MRB_SYM(mode)),
     mrb_fixnum_value(fno.fattrib)
   );
   return stat;
@@ -256,15 +303,6 @@ mrb__contiguous_q(mrb_state *mrb, mrb_value self)
 }
 
 
-void
-mrb_raise_iff_f_error(mrb_state *mrb, FRESULT res, const char *func)
-{
-  char buff[64];
-  if (FAT_prepare_exception(res, buff, func) < 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, buff);
-  }
-}
-
 
 #ifdef USE_FAT_SD_DISK
 void
@@ -286,6 +324,9 @@ void
 mrb_picoruby_filesystem_fat_gem_init(mrb_state* mrb)
 {
   struct RClass *class_FAT = mrb_define_class_id(mrb, MRB_SYM(FAT), mrb->object_class);
+
+  MRB_SET_INSTANCE_TT(class_FAT, MRB_TT_CDATA);
+
   mrb_define_class_method_id(mrb, class_FAT, MRB_SYM_E(unixtime_offset), mrb_unixtime_offset_e, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_erase), mrb__erase, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_mkfs), mrb__mkfs, MRB_ARGS_REQ(1));
@@ -298,7 +339,7 @@ mrb_picoruby_filesystem_fat_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_unlink), mrb__unlink, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_rename), mrb__rename, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_chmod), mrb__chmod, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_exist), mrb__exist_q, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_exist), mrb__exist_p, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_directory), mrb__directory_q, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_setlabel), mrb__setlabel, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_getlabel), mrb__getlabel, MRB_ARGS_REQ(1));
@@ -307,7 +348,7 @@ mrb_picoruby_filesystem_fat_gem_init(mrb_state* mrb)
   mrb_init_class_FAT_File(mrb, class_FAT);
 
   struct RClass *class_FAT_Stat = mrb_define_class_under_id(mrb, class_FAT, MRB_SYM(Stat), mrb->object_class);
-  mrb_define_method_id(mrb, class_FAT_Stat, MRB_SYM(_stat), mrb__stat, MRB_ARGS_REQ(1);
+  mrb_define_method_id(mrb, class_FAT_Stat, MRB_SYM(_stat), mrb__stat, MRB_ARGS_REQ(1));
 
 #ifdef USE_FAT_SD_DISK
   mrb_define_method(mrb, class_FAT, MRB_SYM(init_spi), mrb_FAT_init_spi, MRB_ARGS_REQ(5));
@@ -346,7 +387,7 @@ mrb__unlink(mrb_state *mrb, mrb_value self)
 mrb_value
 mrb__rename(mrb_state *mrb, mrb_value self)
 {
-  const char *from. *to;
+  const char *from, *to;
   mrb_get_args(mrb, "zz", &from, &to);
   FRESULT res = f_rename((TCHAR *)from, (TCHAR *)to);
   mrb_raise_iff_f_error(mrb, res, "f_rename");
