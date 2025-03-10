@@ -100,7 +100,7 @@ c_Machine_unique_id(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  char id[32] = {0};
+  char id[33] = {0};
   if (Machine_get_unique_id(id)) {
     mrbc_value ret = mrbc_string_new_cstr(vm, (const char *)id);
     SET_RETURN(ret);

@@ -3,6 +3,7 @@
 #include <mruby/class.h>
 #include <mruby/data.h>
 #include <mruby/string.h>
+#include <mruby/variable.h>
 
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
@@ -28,26 +29,27 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
-//  free_ccontext(ss);
 
   ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL);
   ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
   ss->tcb->flag_permanence = 1;
-  {
-    char *name;
-    mrb_get_args(mrb, "|z", &name);
-    // TODO name should be ivar of Task instance
-    //mrbc_set_task_name(ss->tcb, name == NULL ? "sandbox" : name);
+
+  mrb_value name;
+  mrb_get_args(mrb, "|S", &name);
+  if (mrb_nil_p(name)) {
+    name = mrb_str_new_cstr(mrb, "sandbox");
   }
+  mrb_iv_set(mrb, self, MRB_SYM(name), name);
+
   return self;
 }
 
 static mrb_bool
 sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, const size_t size, mrb_value remove_lv)
 {
-  free_ccontext(ss);
+//  free_ccontext(ss);
   init_options(ss->options);
-  ss->cc = mrc_ccontext_new(mrb);
+//  ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
@@ -117,9 +119,26 @@ mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
   SS();
   mrc_resolve_intern(ss->cc, ss->irep);
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
-  proc->c = NULL;
-  mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
-  reset_context(&ss->tcb->c); mrb_resume_task(mrb, ss->tcb);
+  //proc->c = NULL;
+  reset_context(&ss->tcb->c);
+  //mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
+
+  {
+    if (ss->tcb->c.cibase && ss->tcb->c.cibase->u.env) {
+      struct REnv *e = mrb_vm_ci_env(ss->tcb->c.cibase);
+      if (e && MRB_ENV_LEN(e) < proc->body.irep->nlocals) {
+        MRB_ENV_SET_LEN(e, proc->body.irep->nlocals);
+      }
+    }
+
+    if (!ss->tcb->c.stbase) {
+      mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
+    } else {
+      mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
+    }
+  }
+
+  mrb_resume_task(mrb, ss->tcb);
   return mrb_true_value();
 }
 

@@ -3,16 +3,6 @@
 #include <task.h>
 
 MRC_API void
-mrb_picoruby_mruby_gem_init(mrb_state *mrb)
-{
-}
-
-MRC_API void
-mrb_picoruby_mruby_gem_final(mrb_state *mrb)
-{
-}
-
-MRC_API void
 mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
 {
   pm_constant_pool_t *constant_pool = &cc->p->constant_pool;

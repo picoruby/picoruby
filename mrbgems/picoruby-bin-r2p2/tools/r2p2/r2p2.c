@@ -36,7 +36,6 @@ main(void)
   int ret = 0;
   mrb_state *mrb = mrb_open();
   global_mrb = mrb;
-  mrb_init_rrt0(mrb);
   mrc_irep *irep = mrb_read_irep(mrb, app);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
   mrb_tcb *tcb = mrc_create_task(cc, irep, NULL);

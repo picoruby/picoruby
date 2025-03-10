@@ -7,6 +7,9 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
 
   conf.toolchain("gcc")
 
+  conf.cc.defines << "MRB_TICK_UNIT=1"
+  conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
+
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
   conf.linker.flags << "-static"
