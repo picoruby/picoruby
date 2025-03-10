@@ -240,7 +240,7 @@ class Shell
           else
             editor.feed_at_bottom
             editor.save_history
-            echo_save = STDIN.echo?
+           # echo_save = STDIN.echo?
             result = STDIN.cooked do
               r = sandbox.execute
               sandbox.wait(timeout: nil)

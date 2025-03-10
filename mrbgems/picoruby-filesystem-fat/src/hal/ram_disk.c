@@ -1,8 +1,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(PICORB_VM_MRUBY)
+#define mrbc_raw_alloc malloc   // TODO FIX
+#define mrbc_raw_free  free
+#elif defined(PICORB_VM_MRUBYC)
 /* mruby/c */
 #include <alloc.h>
+#endif
 
 #include "ram_disk.h"
 
