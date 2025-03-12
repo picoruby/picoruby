@@ -41,7 +41,7 @@ hal_init(void)
 
   esp_timer_init();
   esp_timer_create(&timer_create_args, &periodic_timer);
-  esp_timer_start_periodic(periodic_timer, 1000);
+  esp_timer_start_periodic(periodic_timer, MRBC_TICK_UNIT * 1000);
 }
 
 void
