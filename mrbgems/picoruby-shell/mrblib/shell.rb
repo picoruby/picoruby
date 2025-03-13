@@ -181,6 +181,7 @@ class Shell
       @editor.prompt = "irb"
       run_irb
       puts
+      puts Task.stat
     when :shell
       run_shell
       print "\nbye\e[0m"
