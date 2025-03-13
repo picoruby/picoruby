@@ -665,7 +665,7 @@ main(int argc, char **argv)
     if (!irep) {
       irep = mrb_read_irep(vm, vm_code);
     }
-    mrb_tcb *tcb = mrc_create_task(cc, irep, NULL);
+    mrb_tcb *tcb = mrc_create_task(cc, irep, NULL, "main");
 #elif defined(PICORB_VM_MRUBYC)
     if (!vm_code) {
       int result;
