@@ -72,6 +72,11 @@ class Shell
       return true
     rescue => e
       puts "#{e.message} (#{e.class})"
+      if e.respond_to?(:backtrace)
+        e.backtrace.each do |line|
+          puts "  #{line}"
+        end
+      end
       return false
     end
 
