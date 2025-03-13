@@ -11,6 +11,7 @@
 #include <picoruby.h>
 #include <mruby/class.h>
 #include <mruby/data.h>
+#include <mruby/string.h>
 #include "hal.h"
 #include "task.h"
 
@@ -132,9 +133,11 @@ mrb_tick(mrb_state *mrb)
 
   // Decrease the time slice value for running tasks.
   mrb_tcb *tcb = q_ready_;
-  if( (tcb != NULL) && (tcb->timeslice != 0) ) {
+  if (tcb && 0 < tcb->timeslice) {
     tcb->timeslice--;
-    if( tcb->timeslice == 0 ) switching_ = TRUE;
+    if (tcb->timeslice == 0) {
+      switching_ = TRUE;
+    }
   }
 
   // Check the wakeup tick.
@@ -144,30 +147,30 @@ mrb_tick(mrb_state *mrb)
 
     // Find a wake up task in waiting task queue.
     tcb = q_waiting_;
-    while( tcb != NULL ) {
+    while (tcb != NULL) {
       mrb_tcb *t = tcb;
       tcb = tcb->next;
-      if( t->reason != TASKREASON_SLEEP ) continue;
+      if (t->reason != TASKREASON_SLEEP) continue;
 
-      if( (int32_t)(t->wakeup_tick - tick_) < 0 ) {
-        q_delete_task(mrb, t);
-        t->state  = TASKSTATE_READY;
-        t->reason = 0;
-        q_insert_task(mrb, t);
-        task_switch = 1;
-      } else if( (int32_t)(t->wakeup_tick - wakeup_tick_) < 0 ) {
+      if ((int32_t)(t->wakeup_tick - tick_) < 0) {
+          q_delete_task(mrb, t);
+          t->state  = TASKSTATE_READY;
+          t->reason = 0;
+          q_insert_task(mrb, t);
+          task_switch = 1;
+      } else if ((int32_t)(t->wakeup_tick - wakeup_tick_) < 0) {
         wakeup_tick_ = t->wakeup_tick;
       }
     }
 
-    if( task_switch ) preempt_running_task(mrb);
+    if (task_switch) preempt_running_task(mrb);
   }
 }
 
 
 static void
 mrb_task_tcb_free(mrb_state *mrb, void *ptr) {
- // TODO
+  mrb_gc_unregister(mrb, ((mrb_tcb *)ptr)->task);
 }
 struct mrb_data_type mrb_task_tcb_type = {
   "TCB", mrb_task_tcb_free
@@ -211,6 +214,8 @@ mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
   mrb_value task = mrb_obj_new(mrb, class_Task, 0, NULL);
   DATA_PTR(task) = tcb;
   DATA_TYPE(task) = &mrb_task_tcb_type;
+
+  mrb_gc_register(mrb, task);
 
   tcb->task = task;
   return tcb;
@@ -262,12 +267,20 @@ mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc)
   @return Pointer to mrb_tcb or NULL.
 */
 mrb_tcb *
-mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb)
+mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *name)
 {
+  static uint8_t context_id = 0;
+  context_id++;
+
   if(!tcb) tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATE, MRB_TASK_DEFAULT_PRIORITY);
   if(!tcb) return NULL;	// ENOMEM
 
+  tcb->context_id = context_id;
   tcb->priority_preemption = tcb->priority;
+  size_t len = strlen(name);
+  if (len > MRB_TASK_NAME_LEN) len = MRB_TASK_NAME_LEN;
+  memcpy(tcb->name, name, len);
+  tcb->name[len] = '\0';
 
   // TODO: assign CTX ID?
   mrb_tcb_init_context(mrb, &tcb->c, proc);
@@ -560,6 +573,95 @@ mrb_task_suspend(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+mrb_value
+stat_sub(mrb_state *mrb, const mrb_tcb *p_tcb)
+{
+  mrb_value str = mrb_str_new_lit(mrb, "");
+  if (p_tcb == NULL) return str;
+
+  char buf[32];
+
+  for (const mrb_tcb *t = p_tcb; t; t = t->next) {
+    snprintf(buf, sizeof(buf), "%02d:%08x %-8.8s ", t->context_id,
+#if defined(UINTPTR_MAX)
+                (uint32_t)(uintptr_t)t,
+#else
+                (uint32_t)t,
+#endif
+                t->name[0] ? t->name : "(noname)");
+    mrb_str_cat_cstr(mrb, str, buf);
+  }
+  mrb_str_cat_lit(mrb, str, "\n");
+
+  // mrb_context address
+  for (const mrb_tcb *t = p_tcb; t; t = t->next) {
+    snprintf(buf, sizeof(buf), " c:%08x          ",
+#if defined(UINTPTR_MAX)
+        (uint32_t)(uintptr_t)&t->c);
+#else
+        (uint32_t)&t->c);
+#endif
+    mrb_str_cat_cstr(mrb, str, buf);
+  }
+  mrb_str_cat_lit(mrb, str, "\n");
+
+
+  // task priority, state.
+  //  st:SsRr
+  //     ^ suspended -> S:suspended
+  //      ^ waiting  -> s:sleep m:mutex J:join (uppercase is suspend state)
+  //       ^ ready   -> R:ready
+  //        ^ running-> r:running
+  for (const mrb_tcb *t = p_tcb; t; t = t->next) {
+    snprintf(buf, sizeof(buf), " pri:%3d", t->priority_preemption);
+    mrb_str_cat_cstr(mrb, str, buf);
+    mrb_tcb t1 = *t;               // Copy the value at this timing.
+    snprintf(buf, sizeof(buf), " st:%c%c%c%c     ",
+      (t1.state & TASKSTATE_SUSPENDED) ? 'S' : '-',
+      (t1.state & TASKSTATE_SUSPENDED) ? ("-SM!J"[t1.reason]) :
+      (t1.state & TASKSTATE_WAITING)   ? ("!sm!j"[t1.reason]) : '-',
+      (t1.state & TASKSTATE_READY)     ? 'R' : '-',
+      (t1.state & 0x01)                ? 'r' : '-');
+    mrb_str_cat_cstr(mrb, str, buf);
+  }
+  mrb_str_cat_lit(mrb, str, "\n");
+
+  // timeslice, mrb_context->status, wakeup tick
+  for (const mrb_tcb *t = p_tcb; t; t = t->next) {
+    snprintf(buf, sizeof(buf), " ts:%-2d lv:%d ", t->timeslice,
+      t->c.status == MRB_TASK_CREATED ? 1 : 0);
+    mrb_str_cat_cstr(mrb, str, buf);
+    if (t->reason & TASKREASON_SLEEP) {
+      snprintf(buf, sizeof(buf), "w:%-6d ", t->wakeup_tick);
+      mrb_str_cat_cstr(mrb, str, buf);
+    } else {
+      mrb_str_cat_lit(mrb, str, "w:--     ");
+    }
+  }
+  mrb_str_cat_lit(mrb, str, "\n");
+  return str;
+}
+
+static mrb_value
+mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value result = mrb_str_new_lit(mrb, "");
+  int ai = mrb_gc_arena_save(mrb);
+  hal_disable_irq();
+  mrb_str_cat_str(mrb, result, mrb_format(mrb, "<< tick_ = %d, wakeup_tick_ = %d >>\n", tick_, wakeup_tick_));
+  mrb_str_cat_cstr(mrb, result, "<<< DORMANT >>>\n");
+  mrb_str_cat_str(mrb, result, stat_sub(mrb, q_dormant_));
+  mrb_str_cat_cstr(mrb, result, "<<< READY >>>\n");
+  mrb_str_cat_str(mrb, result, stat_sub(mrb, q_ready_));
+  mrb_str_cat_cstr(mrb, result, "<<< WAITING >>>\n");
+  mrb_str_cat_str(mrb, result, stat_sub(mrb, q_waiting_));
+  mrb_str_cat_cstr(mrb, result, "<<< SUSPENDED >>>\n");
+  mrb_str_cat_str(mrb, result, stat_sub(mrb, q_suspended_));
+  hal_enable_irq();
+  mrb_gc_arena_restore(mrb, ai);
+  return result;
+}
+
 void
 mrb_picoruby_mruby_gem_init(mrb_state* mrb)
 {
@@ -587,6 +689,7 @@ mrb_picoruby_mruby_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(current), mrb_task_s_current, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(suspend), mrb_task_suspend, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(stat), mrb_task_s_stat, MRB_ARGS_NONE());
 }
 
 void

@@ -30,16 +30,16 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   size_t size = strlen((const char *)script);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
 
-  ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL);
-  ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
-  ss->tcb->flag_permanence = 1;
-
   mrb_value name;
   mrb_get_args(mrb, "|S", &name);
   if (mrb_nil_p(name)) {
     name = mrb_str_new_cstr(mrb, "sandbox");
   }
   mrb_iv_set(mrb, self, MRB_SYM(name), name);
+
+  ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL, RSTRING_PTR(name));
+  ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
+  ss->tcb->flag_permanence = 1;
 
   return self;
 }
@@ -51,6 +51,7 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
   init_options(ss->options);
 //  ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
+  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
   ss->options = ss->cc->options;
