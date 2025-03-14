@@ -285,6 +285,43 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *na
   // TODO: assign CTX ID?
   mrb_tcb_init_context(mrb, &tcb->c, proc);
 
+#define TASK_LIST_UNIT_SIZE 5
+  if (mrb->c_list_len == 0) {
+    struct mrb_context **new_list = (struct mrb_context **)mrb_malloc(mrb, sizeof(struct mrb_context *) * TASK_LIST_UNIT_SIZE);
+    if (!new_list) return NULL;
+    mrb->c_list = new_list;
+    mrb->c_list_len = TASK_LIST_UNIT_SIZE;
+    mrb->c_list[0] = mrb->root_c;
+    mrb->c_list[1] = &tcb->c;
+    for (int i = 2; i < TASK_LIST_UNIT_SIZE; i++) {
+      mrb->c_list[i] = NULL;
+    }
+  } else {
+    int free_idx = -1;
+    for (int i = 0; i < mrb->c_list_len; i++) {
+      if (mrb->c_list[i] == NULL) {
+        free_idx = i;
+        break;
+      }
+    }
+
+    if (free_idx < 0) {
+      int new_len = mrb->c_list_len + TASK_LIST_UNIT_SIZE;
+      struct mrb_context **new_list = (struct mrb_context **)mrb_realloc(mrb,
+                                      mrb->c_list,
+                                      sizeof(struct mrb_context *) * new_len);
+      if (!new_list) return NULL;
+      mrb->c_list = new_list;
+      free_idx = mrb->c_list_len;
+      for (int i = 0; i < TASK_LIST_UNIT_SIZE; i++) {
+        mrb->c_list[mrb->c_list_len + i] = NULL;
+      }
+      mrb->c_list_len = new_len;
+    }
+    mrb->c_list[free_idx] = &tcb->c;
+  }
+#undef TASK_LIST_UNIT_SIZE
+
   hal_disable_irq();
   q_insert_task(mrb, tcb);
   if (tcb->state & TASKSTATE_READY) preempt_running_task(mrb);
