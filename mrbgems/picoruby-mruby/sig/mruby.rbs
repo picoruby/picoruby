@@ -1,0 +1,12 @@
+class GC
+  def self.enable: () -> bool
+  def self.disable: () -> bool
+end
+
+class ObjectSpace
+  def self.count_objects: () -> Hash[Symbol, Integer]
+end
+
+class Task
+  def self.stat: () -> String
+end
