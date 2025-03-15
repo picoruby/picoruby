@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
-#include <mrubyc.h>
-
 /*-------------------------------------
  *
  *  IO::Console
