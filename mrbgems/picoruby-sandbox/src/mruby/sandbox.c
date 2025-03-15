@@ -47,9 +47,9 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
 static mrb_bool
 sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, const size_t size, mrb_value remove_lv)
 {
-//  free_ccontext(ss);
+  free_ccontext(ss);
   init_options(ss->options);
-//  ss->cc = mrc_ccontext_new(mrb);
+  ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
   if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
@@ -80,7 +80,7 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
 
   const size_t size = strlen(script);
   if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, size, kw_values[0])) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
+    return mrb_false_value();
   }
   return mrb_true_value();
 }
