@@ -47,5 +47,8 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.gem core: "picoruby-vfs"
   conf.gem core: "picoruby-filesystem-fat"
 
+  conf.gem core: "picoruby-watchdog"
+  conf.gem core: "picoruby-rng"
+
   conf.microruby
 end
