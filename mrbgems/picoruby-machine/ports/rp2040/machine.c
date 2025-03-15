@@ -40,7 +40,11 @@ static volatile uint32_t interrupt_nesting = 0;
 static volatile bool in_tick_processing = false;
 
 static void
+#if defined(PICORB_VM_MRUBY)
+alarm_handler(mrb_state *mrb)
+#elif defined(PICORB_VM_MRUBYC)
 alarm_handler(void)
+#endif
 {
   if (in_tick_processing) {
     timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
@@ -56,7 +60,13 @@ alarm_handler(void)
   timer_hw->alarm[ALARM_NUM] = next_time;
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 
+#if defined(PICORB_VM_MRUBY)
+  mrb_tick(mrb);
+#elif defined(PICORB_VM_MRUBYC)
   mrbc_tick();
+#else
+#error "One of PICORB_VM_MRUBY or PICORB_VM_MRUBYC must be defined"
+#endif
 
   __dmb();
   in_tick_processing = false;
@@ -68,7 +78,11 @@ usb_irq_handler(void) {
 }
 
 void
+#if defined(PICORB_VM_MRUBY)
+hal_init(mrb_state *mrb)
+#elif defined(PICORB_VM_MRUBYC)
 hal_init(void)
+#endif
 {
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
