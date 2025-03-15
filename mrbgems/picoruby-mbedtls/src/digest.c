@@ -57,7 +57,6 @@ c_mbedtls_digest_free(mrbc_vm *vm, mrbc_value *v, int argc)
   if (ctx != NULL) {
     mbedtls_md_free(ctx);
   }
-  *v->instance->data = NULL;
 }
 
 static void
