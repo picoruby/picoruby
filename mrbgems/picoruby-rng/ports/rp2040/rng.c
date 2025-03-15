@@ -2,7 +2,7 @@
 #include "hardware/structs/rosc.h"
 #include "pico/time.h"
 
-uint8_t c_rng_random_byte_impl(void)
+uint8_t rng_random_byte_impl(void)
 {
   uint32_t random = 0;
   uint32_t bit = 0;
