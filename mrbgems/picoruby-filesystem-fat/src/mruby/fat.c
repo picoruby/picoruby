@@ -215,7 +215,7 @@ mrb__stat(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb__directory_q(mrb_state *mrb, mrb_value self)
+mrb__directory_p(mrb_state *mrb, mrb_value self)
 {
   const char *path;
   mrb_get_args(mrb, "z", &path);
@@ -255,7 +255,7 @@ mrb__getlabel(mrb_state *mrb, mrb_value self)
  * Check if file is contiguous in the FAT sectors
  */
 static mrb_value
-mrb__contiguous_q(mrb_state *mrb, mrb_value self)
+mrb__contiguous_p(mrb_state *mrb, mrb_value self)
 {
   FRESULT res;
   FSIZE_t file_size;
@@ -340,10 +340,10 @@ mrb_picoruby_filesystem_fat_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_rename), mrb__rename, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_chmod), mrb__chmod, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_exist), mrb__exist_p, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_directory), mrb__directory_q, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_directory), mrb__directory_p, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_setlabel), mrb__setlabel, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_getlabel), mrb__getlabel, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_contiguous), mrb__contiguous_q, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_FAT, MRB_SYM_Q(_contiguous), mrb__contiguous_p, MRB_ARGS_REQ(1));
   mrb_init_class_FAT_Dir(mrb, class_FAT);
   mrb_init_class_FAT_File(mrb, class_FAT);
 
@@ -361,7 +361,7 @@ mrb_picoruby_filesystem_fat_gem_final(mrb_state* mrb)
 }
 
 mrb_value
-mrb__exist_q(mrb_state *mrb, mrb_value self)
+mrb__exist_p(mrb_state *mrb, mrb_value self)
 {
   const char *path;
   mrb_get_args(mrb, "z", &path);
