@@ -110,7 +110,6 @@ int mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb);
 //mrb_tcb *mrb_find_task(const char *name);
 //int mrb_start_task(mrb_tcb *tcb);
 mrb_value mrb_tasks_run(mrb_state *mrb); // <- int mrbc_run(void);
-void sleep_ms(mrb_state *mrb, mrb_int ms);
 //void mrb_relinquish(mrb_tcb *tcb);
 //void mrb_change_priority(mrb_tcb *tcb, int priority);
 void mrb_suspend_task(mrb_state *mrb, mrb_tcb *tcb);

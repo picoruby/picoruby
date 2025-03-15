@@ -453,8 +453,8 @@ mrb_tasks_run(mrb_state *mrb)
   @param  tcb     target task.
   @param  ms      sleep milliseconds.
 */
-void
-sleep_ms(mrb_state *mrb, mrb_int ms)
+static void
+sleep_ms_impl(mrb_state *mrb, mrb_int ms)
 {
   //mrb_tcb *tcb = MRB2TCB(mrb);
   //mrb_tcb *tcb = (mrb_tcb *)((uint8_t *)mrb->c + sizeof(mrb_tcb));
@@ -556,13 +556,13 @@ mrb_sleep(mrb_state *mrb, mrb_value self)
   switch(mrb_type(sec)) {
   case MRB_TT_INTEGER:
   {
-    sleep_ms(mrb, mrb_integer(sec) * 1000);
+    sleep_ms_impl(mrb, mrb_integer(sec) * 1000);
     break;
   }
 #if !defined(MRB_NO_FLOAT)
   case MRB_TT_FLOAT:
   {
-    sleep_ms(mrb, (mrb_int)(mrb_float(sec) * 1000));
+    sleep_ms_impl(mrb, (mrb_int)(mrb_float(sec) * 1000));
     break;
   }
 #endif
@@ -588,7 +588,7 @@ mrb_sleep_ms(mrb_state *mrb, mrb_value self)
   if (mrb_type(ms) != MRB_TT_INTEGER) {
     mrb_raisef(mrb, E_TYPE_ERROR, "integer required but %S", ms);
   }
-  sleep_ms(mrb, mrb_integer(ms));
+  sleep_ms_impl(mrb, mrb_integer(ms));
   return ms;
 }
 
