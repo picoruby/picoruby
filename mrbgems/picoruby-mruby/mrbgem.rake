@@ -16,4 +16,8 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
       cc.run t.name, t.prerequisites.first
     end
   end
+
+  if build.posix?
+    cc.defines << "PICORB_PLATFORM_POSIX"
+  end
 end

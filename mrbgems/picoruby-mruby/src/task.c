@@ -377,7 +377,7 @@ mrb_tasks_run(mrb_state *mrb)
   while( 1 ) {
     mrb_tcb *tcb = q_ready_;
     if( tcb == NULL ) {		// no task to run.
-      hal_idle_cpu();
+      hal_idle_cpu(mrb);
       continue;
     }
 
