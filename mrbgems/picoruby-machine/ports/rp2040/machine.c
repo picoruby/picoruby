@@ -39,12 +39,10 @@ static volatile uint32_t interrupt_nesting = 0;
 
 static volatile bool in_tick_processing = false;
 
+static mrb_state *mrb_;
+
 static void
-#if defined(PICORB_VM_MRUBY)
-alarm_handler(mrb_state *mrb)
-#elif defined(PICORB_VM_MRUBYC)
 alarm_handler(void)
-#endif
 {
   if (in_tick_processing) {
     timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
@@ -61,7 +59,7 @@ alarm_handler(void)
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_tick(mrb);
+  mrb_tick(mrb_);
 #elif defined(PICORB_VM_MRUBYC)
   mrbc_tick();
 #else
@@ -84,6 +82,9 @@ hal_init(mrb_state *mrb)
 hal_init(void)
 #endif
 {
+#if defined(PICORB_VM_MRUBY)
+  mrb_ = (mrb_state *)mrb;
+#endif
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
