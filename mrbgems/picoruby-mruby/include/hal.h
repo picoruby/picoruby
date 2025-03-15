@@ -51,7 +51,12 @@ MRB_BEGIN_DECL
 void hal_init(mrb_state *mrb);
 void hal_enable_irq(void);
 void hal_disable_irq(void);
-#define hal_idle_cpu()    sleep(1) // maybe interrupt by SIGINT
+
+#if defined(PICORB_PLATFORM_POSIX)
+#define hal_idle_cpu(mrb)    sleep(1) // maybe interrupt by SIGINT
+#else
+void hal_idle_cpu(mrb_state *mrb);
+#endif
 
 
 MRB_END_DECL
