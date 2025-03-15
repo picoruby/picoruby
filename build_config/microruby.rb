@@ -14,6 +14,7 @@ MRuby::Build.new do |conf|
 
   conf.gem core: "picoruby-json"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-array-ext"
 
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-time"
   conf.gem core: "picoruby-env"
