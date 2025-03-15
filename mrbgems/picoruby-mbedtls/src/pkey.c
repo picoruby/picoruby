@@ -44,7 +44,6 @@ c_mbedtls_pkey_rsa_free(mrbc_vm *vm, mrbc_value *v, int argc)
   if (mbedtls_pk_get_type(pk) == MBEDTLS_PK_RSA) {
     mbedtls_pk_free(pk);
   }
-  *v->instance->data = NULL;
 }
 
 static void
