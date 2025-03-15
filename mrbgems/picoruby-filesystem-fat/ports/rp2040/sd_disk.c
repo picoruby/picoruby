@@ -15,6 +15,7 @@
 
 #include <pico/stdlib.h>
 #include <hardware/spi.h>
+#include <string.h>
 
 #include "disk.h"
 
