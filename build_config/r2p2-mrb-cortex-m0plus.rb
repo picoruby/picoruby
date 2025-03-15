@@ -34,6 +34,7 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   #conf.gem core: "mruby-file-stat"
   conf.gem core: "picoruby-json"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-array-ext"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-time"
   conf.gem core: "picoruby-env"
   conf.gem core: "picoruby-io-console"
