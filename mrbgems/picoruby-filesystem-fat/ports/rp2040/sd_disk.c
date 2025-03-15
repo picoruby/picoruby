@@ -51,7 +51,7 @@ FAT_set_spi_unit(const char* name, int sck, int cipo, int copi, int cs)
   SPI_SCK_PIN  = sck;
   SPI_CIPO_PIN = cipo;
   SPI_COPI_PIN = copi;
-  SPI_CS_PIN   = sc;
+  SPI_CS_PIN   = cs;
   return 0;
 }
 
