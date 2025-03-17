@@ -2,6 +2,8 @@
 #include "mruby/string.h"
 #include "mruby/presym.h"
 
+#include "../../include/hal.h"
+
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
 {
@@ -95,6 +97,50 @@ mrb_s_read_memory(mrb_state *mrb, mrb_value klass)
   return mrb_str_new(mrb, (const void *)(uintptr_t)addr, size);
 }
 
+static void
+print_sub(mrb_state *mrb, mrb_value obj)
+{
+  mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
+  const char *cstr = RSTRING_PTR(str);
+  size_t len = RSTRING_LEN(str);
+  hal_write(0, cstr, len);
+}
+
+#if !defined(PICORB_PLATFORM_POSIX)
+static mrb_value
+mrb_puts(mrb_state *mrb, mrb_value self)
+{
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  if (argc == 0) {
+    hal_write(0, "\n", 1);
+  } else {
+    int ai = mrb_gc_arena_save(mrb);
+    for (mrb_int i = 0; i < argc; i++) {
+      print_sub(mrb, argv[i]);
+      hal_write(0, "\n", 1);
+    }
+    mrb_gc_arena_restore(mrb, ai);
+  }
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_print(mrb_state *mrb, mrb_value self)
+{
+  mrb_value *argv;
+  mrb_int argc;
+  int ai = mrb_gc_arena_save(mrb);
+  mrb_get_args(mrb, "*", &argv, &argc);
+  for (mrb_int i = 0; i < argc; i++) {
+    print_sub(mrb, argv[i]);
+  }
+  mrb_gc_arena_restore(mrb, ai);
+  return mrb_nil_value();
+}
+#endif
+
 void
 mrb_picoruby_machine_gem_init(mrb_state* mrb)
 {
@@ -109,6 +155,12 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(deep_sleep), mrb_s_deep_sleep, MRB_ARGS_REQ(3));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
+
+#if !defined(PICORB_PLATFORM_POSIX)
+  struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
+  mrb_define_method_id(mrb, module_Kernel, MRB_SYM(puts), mrb_puts, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, module_Kernel, MRB_SYM(print), mrb_print, MRB_ARGS_ANY());
+#endif
 }
 
 void
