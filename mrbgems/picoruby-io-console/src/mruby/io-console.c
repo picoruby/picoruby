@@ -137,7 +137,7 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_io_console_gem_init(mrb_state* mrb)
 {
-  struct RClass *class_IO = mrb_class_get(mrb, "IO");
+  struct RClass *class_IO = mrb_define_class_id(mrb, MRB_SYM(IO), mrb->object_class);
 
   mrb_define_method_id(mrb, class_IO, MRB_SYM(read_nonblock), mrb_io_read_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(raw), mrb_io_raw_b, MRB_ARGS_NONE());
