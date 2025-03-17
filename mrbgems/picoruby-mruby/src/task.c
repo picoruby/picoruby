@@ -20,6 +20,9 @@
 #define MRB_SCHEDULER_EXIT 0
 #endif
 
+#define TASK_LIST_UNIT_SIZE 5
+#define TASK_LIST_MAX_SIZE  100
+
 #define MRB2TCB(mrb) ((mrb_tcb *)((uint8_t *)mrb->c - offsetof(mrb_tcb, c)))
 #define MRB_MUTEX_TRACE(...) ((void)0)
 
@@ -285,42 +288,27 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *na
   // TODO: assign CTX ID?
   mrb_tcb_init_context(mrb, &tcb->c, proc);
 
-#define TASK_LIST_UNIT_SIZE 5
-  if (mrb->c_list_len == 0) {
+  if (mrb->c_list_capa == 0) {
     struct mrb_context **new_list = (struct mrb_context **)mrb_malloc(mrb, sizeof(struct mrb_context *) * TASK_LIST_UNIT_SIZE);
     if (!new_list) return NULL;
     mrb->c_list = new_list;
-    mrb->c_list_len = TASK_LIST_UNIT_SIZE;
+    mrb->c_list_capa = TASK_LIST_UNIT_SIZE;
     mrb->c_list[0] = mrb->root_c;
     mrb->c_list[1] = &tcb->c;
-    for (int i = 2; i < TASK_LIST_UNIT_SIZE; i++) {
-      mrb->c_list[i] = NULL;
-    }
+    mrb->c_list_len = 2;
   } else {
-    int free_idx = -1;
-    for (int i = 0; i < mrb->c_list_len; i++) {
-      if (mrb->c_list[i] == NULL) {
-        free_idx = i;
-        break;
+    if (mrb->c_list_capa <= mrb->c_list_len) {
+      int new_capa = mrb->c_list_capa + TASK_LIST_UNIT_SIZE;
+      if (TASK_LIST_MAX_SIZE < new_capa) {
+        mrb_warn(mrb, "Too many tasks");
       }
-    }
-
-    if (free_idx < 0) {
-      int new_len = mrb->c_list_len + TASK_LIST_UNIT_SIZE;
-      struct mrb_context **new_list = (struct mrb_context **)mrb_realloc(mrb,
-                                      mrb->c_list,
-                                      sizeof(struct mrb_context *) * new_len);
+      struct mrb_context **new_list = (struct mrb_context **)mrb_realloc(mrb, mrb->c_list, sizeof(struct mrb_context *) * (new_capa));
       if (!new_list) return NULL;
-      mrb->c_list = new_list;
-      free_idx = mrb->c_list_len;
-      for (int i = 0; i < TASK_LIST_UNIT_SIZE; i++) {
-        mrb->c_list[mrb->c_list_len + i] = NULL;
-      }
-      mrb->c_list_len = new_len;
+      mrb->c_list_capa = new_capa;
     }
-    mrb->c_list[free_idx] = &tcb->c;
+    mrb->c_list[mrb->c_list_len] = &tcb->c;
+    mrb->c_list_len++;
   }
-#undef TASK_LIST_UNIT_SIZE
 
   hal_disable_irq();
   q_insert_task(mrb, tcb);
