@@ -71,7 +71,8 @@ alarm_handler(void)
 }
 
 static void
-usb_irq_handler(void) {
+usb_irq_handler(void)
+{
   tud_task();
 }
 
