@@ -23,7 +23,7 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
   const char *mode_str;
   mrb_get_args(mrb, "zz", &path, &mode_str);
   FIL *fp = (FIL *)mrb_malloc(mrb, sizeof(FIL));
-  mrb_value file = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class(mrb, klass), &mrb_fat_file_type, fp));
+  mrb_value file = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class_ptr(klass), &mrb_fat_file_type, fp));
   BYTE mode = 0;
   if (strcmp(mode_str, "r") == 0) {
     mode = FA_READ;

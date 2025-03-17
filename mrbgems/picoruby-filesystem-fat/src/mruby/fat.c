@@ -7,7 +7,7 @@
 #include "mruby/variable.h"
 
 typedef struct {
-  FATFS *fs;
+  FATFS fs;
   char *prefix;
 } fatfs_t;
 
@@ -19,8 +19,6 @@ mrb_fatfs_free(mrb_state *mrb, void *ptr) {
     if (mrb_fs->prefix) {
       res = f_mount(0, (const TCHAR *)mrb_fs->prefix, 0);
       mrb_raise_iff_f_error(mrb, res, "f_mount");
-    } else {
-      mrb_raise(mrb, E_RUNTIME_ERROR, "Prefix not found in FATFS#_unmount");
     }
     mrb_free(mrb, mrb_fs);
   }
@@ -100,7 +98,7 @@ mrb_getfree(mrb_state *mrb, mrb_value self)
   const char *path;
   mrb_get_args(mrb, "z", &path);
   fatfs_t *mrb_fs = (fatfs_t *)mrb_data_get_ptr(mrb, self, &mrb_fatfs_type);
-  FATFS *fs = mrb_fs->fs;
+  FATFS *fs = &mrb_fs->fs;
   FRESULT res = f_getfree((const TCHAR *)path, &fre_clust, &fs);
   mrb_raise_iff_f_error(mrb, res, "f_getfree");
   tot_sect = (fs->n_fatent - 2) * fs->csize;
@@ -114,9 +112,10 @@ mrb__mount(mrb_state *mrb, mrb_value self)
   fatfs_t *mrb_fs = (fatfs_t *)mrb_malloc(mrb, sizeof(FATFS));
   DATA_PTR(self) = mrb_fs;
   DATA_TYPE(self) = &mrb_fatfs_type;
-  FATFS *fs = mrb_fs->fs;
-  mrb_value prefix = mrb_iv_get(mrb, self, MRB_SYM(prefix));
+  FATFS *fs = &mrb_fs->fs;
+  mrb_value prefix = mrb_iv_get(mrb, self, MRB_IVSYM(prefix));
   if (mrb_nil_p(prefix)) {
+    mrb_fs->prefix = NULL;
     mrb_raise(mrb, E_RUNTIME_ERROR, "Prefix not found in FATFS#_mount");
   }
   mrb_fs->prefix = RSTRING_PTR(prefix);
@@ -167,7 +166,9 @@ static mrb_value
 mrb__mkdir(mrb_state *mrb, mrb_value self)
 {
   const char *name;
-  mrb_get_args(mrb, "z", &name);
+  mrb_int mode = 0;
+  mrb_get_args(mrb, "z|i", &name, &mode);
+  (void)mode;
   FRESULT res = f_mkdir((const TCHAR *)name);
   mrb_raise_iff_f_error(mrb, res, "f_mkdir");
   return mrb_fixnum_value(0);
@@ -335,7 +336,7 @@ mrb_picoruby_filesystem_fat_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_unmount), mrb__unmount, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_chdir), mrb__chdir, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_utime), mrb__utime, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_FAT, MRB_SYM(_mkdir), mrb__mkdir, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_FAT, MRB_SYM(_mkdir), mrb__mkdir, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_unlink), mrb__unlink, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_rename), mrb__rename, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_FAT, MRB_SYM(_chmod), mrb__chmod, MRB_ARGS_REQ(2));
