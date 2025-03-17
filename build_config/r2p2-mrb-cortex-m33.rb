@@ -50,6 +50,7 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
   conf.gem core: "picoruby-sandbox"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-error"
   conf.gem core: "picoruby-shell"
   #conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
 
