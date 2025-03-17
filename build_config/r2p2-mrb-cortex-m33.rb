@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -6,9 +6,6 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   ###############################################################
 
   conf.toolchain("gcc")
-
-  conf.cc.defines << "MRB_TICK_UNIT=1"
-  conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
@@ -18,9 +15,18 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.cc.host_command = "gcc"
 
   conf.cc.flags.flatten!
-  conf.cc.flags << "-mcpu=cortex-m0plus"
+  conf.cc.flags << "-mcpu=cortex-m33"
+#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
+#  conf.cc.flags << "-mabi=aapcs-linux"
+#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
+
+  conf.cc.flags << "-fno-strict-aliasing"
+  conf.cc.flags << "-fno-unroll-loops"
+  conf.cc.flags << "-mslow-flash-data"
+
   conf.cc.flags << "-fshort-enums"
+
   conf.cc.flags << "-Wall"
   conf.cc.flags << "-Wno-format"
   conf.cc.flags << "-Wno-unused-function"
@@ -55,3 +61,5 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
 
   conf.microruby
 end
+
+
