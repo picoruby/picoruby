@@ -27,4 +27,5 @@ target :mrbgems do
   ignore "mrbgems/picoruby-task-ext/mrblib/task.rb"
   ignore "mrbgems/picoruby-mruby/lib/mruby"
   ignore "mrblib"
+  ignore "build"
 end

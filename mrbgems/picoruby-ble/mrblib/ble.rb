@@ -115,8 +115,7 @@ class BLE
 
   def blink_led
     @led ||= CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
-    @led_on ||= false
-    @led&.write((@led_on = !@led_on) ? 1 : 0)
+    @led.write(@led.low? ? 1 : 0)
   end
 
   POLLING_UNIT_MS = 100
