@@ -53,6 +53,9 @@ CYW43_tcpip_link_status(void)
 int
 CYW43_arch_init_with_country(const uint8_t *country)
 {
+  if (country == NULL) {
+    return cyw43_arch_init();
+  }
   return cyw43_arch_init_with_country(CYW43_COUNTRY(country[0], country[1], 0));
 }
 

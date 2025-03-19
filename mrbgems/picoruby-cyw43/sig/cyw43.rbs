@@ -20,7 +20,7 @@ class CYW43
   def self.disable_sta_mode: () -> bool
   def self.tcpip_link_status: () -> Integer
   def self.link_connected?: (?bool print_status) -> bool
-  private def self._init: (String country, bool force) -> bool
+  private def self._init: (String | nil country, bool force) -> bool
 
   # @sidebar hardware_device
   class GPIO
@@ -29,6 +29,8 @@ class CYW43
     def initialize: (Integer pin) -> void
     def write: (Integer) -> 0
     def read: () -> GPIO::gpio_logic_t
+    def high?: () -> bool
+    def low?: () -> bool
   end
 
   # @sidebar hardware_device

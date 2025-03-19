@@ -1,9 +1,9 @@
 class CYW43
-  def self.init(country = "XX", force: false)
-    if (!country.is_a?(String) || country.length != 2)
+  def self.init(country = nil, force: false)
+    if country.is_a?(String) && country.length != 2
       raise ArgumentError, "country must be a 2-character string"
     end
-    self._init(country.upcase, force)
+    self._init(country&.upcase, force)
   end
 
   def self.link_connected?(print_status = false)
@@ -35,8 +35,18 @@ class CYW43
   class GPIO
     LED_PIN = 0
     def initialize(pin)
-      CYW43.init unless CYW43.initialized?
+      unless CYW43.initialized?
+        raise RuntimeError, "CYW43 not initialized"
+      end
       @pin = pin
+    end
+
+    def high?
+      read == 1
+    end
+
+    def low?
+      read == 0
     end
   end
 

@@ -14,26 +14,29 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   /*
    * https://www.raspberrypi.com/documentation/pico-sdk/networking.html#CYW43_COUNTRY_
    */
-  if (!cyw43_arch_init_flag || GET_ARG(2).tt == MRBC_TT_TRUE) {
-    if (CYW43_arch_init_with_country(GET_STRING_ARG(1)) < 0) {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43_arch_init_with_country() failed");
-      return;
-    }
-    cyw43_arch_init_flag = true;
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
+  int res = -1;
+  if (cyw43_arch_init_flag && (argc < 2 || (1 < argc && GET_ARG(2).tt == MRBC_TT_FALSE))) {
+    goto init_end;
   }
+  if (0 < argc && GET_ARG(1).tt == MRBC_TT_STRING) {
+    res = CYW43_arch_init_with_country(GET_STRING_ARG(1));
+  } else {
+    res = CYW43_arch_init_with_country(NULL);
+  }
+  if (res < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43_arch_init() failed");
+    return;
+  }
+  cyw43_arch_init_flag = true;
+ init_end:
+  SET_BOOL_RETURN(!cyw43_arch_init_flag);
+  return;
 }
 
 static void
 c_CYW43_initialized_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (cyw43_arch_init_flag) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
+  SET_BOOL_RETURN(cyw43_arch_init_flag);
 }
 
 #ifdef USE_WIFI
