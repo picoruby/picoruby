@@ -1,0 +1,27 @@
+class WifiConfigPeripheral < BLE
+  APP_AD_FLAGS: Integer
+  BLUETOOTH_DATA_TYPE_FLAGS: Integer
+  BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME: Integer
+  BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS: Integer
+  WIFI_CONFIG: Integer
+  CHARACTERISTIC_SSID: Integer
+  CHARACTERISTIC_PASSWORD: Integer
+  CHARACTERISTIC_COUNTRY: Integer
+  CHARACTERISTIC_WATCHDOG: Integer
+
+  class Utils < BLE::Utils
+  end
+  READ: Integer
+  WRITE: Integer
+  DYNAMIC: Integer
+
+  BTSTACK_EVENT_STATE: Integer
+  HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+  ATT_EVENT_CAN_SEND_NOW: Integer
+  ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
+  GATT_CHARACTERISTIC_USER_DESCRIPTION: Integer
+
+  def initialize: () -> void
+  def save_wifi_config: () -> void
+  def encrypt_password: (String password) -> String
+end

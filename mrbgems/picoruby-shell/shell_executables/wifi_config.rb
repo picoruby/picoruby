@@ -11,11 +11,7 @@ encrypt_proc = Proc.new do |password|
   cipher.encrypt
   key_len = cipher.key_len
   iv_len = cipher.iv_len
-  begin
-    unique_id = Machine.unique_id
-  rescue NameError # On POSIX
-    unique_id = "0123456789abcdef"
-  end
+  unique_id = Machine.unique_id
   len = unique_id.length
   cipher.key = (unique_id * ((key_len / len + 1) * len))[0, key_len].to_s
   cipher.iv = (unique_id * ((iv_len / len + 1) * len))[0, iv_len].to_s
