@@ -3,10 +3,10 @@ require 'ble'
 require 'lcd'
 require 'thermo'
 
-class DemoBroadcaster < BLE::Broadcaster
+class DemoBroadcaster < BLE
 
   def initialize
-    super(nil)
+    super(:broadcaster, nil)
     led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @lcd = LCD.new(i2c: I2C.new(unit: :RP2040_I2C1, sda_pin: 26, scl_pin: 27))
     @thermo = THERMO.new(unit: :RP2040_SPI0, cipo_pin: 16, cs_pin: 17, sck_pin: 18, copi_pin: 19)

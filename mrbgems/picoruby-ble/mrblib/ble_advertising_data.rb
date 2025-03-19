@@ -40,7 +40,7 @@ class BLE
       block.call(instance)
       adv_data = instance.data
       if 31 < adv_data.length
-        raise ArgumentError, "too long AdvData. It must be less than 32 bytes."
+        raise ArgumentError, "too long AdvData: (#{adv_data.length} bytes). It must be less than 32 bytes."
       end
       adv_data
     end

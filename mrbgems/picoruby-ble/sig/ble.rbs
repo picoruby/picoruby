@@ -74,10 +74,13 @@ class BLE
   @led_on: bool
   @ensure_proc: Proc
 
+  type role_t = :central | :peripheral | :observer | :broadcaster
   attr_accessor debug: bool
-  attr_reader role: (:central | :peripheral | :observer | :broadcaster)
+  attr_reader role: role_t
 
-  def self.new: (?(String|nil)) -> instance
+  def self.instance: () -> BLE
+
+  def initialize: (role_t role, ?(String|nil) profile_data) -> void
   def ensure: () { () -> void }-> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
@@ -146,22 +149,24 @@ class BLE
     def flag_by_uuid: (uuid_t, Integer) -> String
   end
 
-  class Peripheral < BLE
-    def advertise: (String) -> void
+  def advertise: (String) -> 0
+
+  # class Peripheral < BLE
+    def peripheral_advertise: (String) -> 0
     def notify: (Integer) -> void
 
     def request_can_send_now_event: () -> void
-  end
+  # end
 
-  class Broadcaster < BLE
-    def advertise: (String) -> 0
-  end
+  # class Broadcaster < BLE
+    def broadcaster_advertise: (String) -> 0
+  # end
 
-  class Observer < BLE::Central
-    def self.new: () -> instance
-  end
+  # class Observer < BLE::Central
+    def init_central: () -> void
+  #end
 
-  class Central < BLE
+  # class Central < BLE
 
     HCI_SUBEVENT_LE_CONNECTION_COMPLETE: Integer
     HCI_EVENT_DISCONNECTION_COMPLETE: Integer
@@ -216,6 +221,7 @@ class BLE
     attr_reader state: Symbol
     attr_reader services: Array[service_t]
 
+    def restrict_central: () -> void
     def reset_state: () -> Symbol
     def scan: (
       ?scan_type: scan_type_t,
@@ -235,7 +241,7 @@ class BLE
     def read_value_of_characteristic_using_value_handle: (Integer, Integer) -> Integer
     def discover_characteristic_descriptors: (Integer, Integer, Integer) -> Integer
     def discover_characteristics_for_service: (Integer, Integer, Integer) -> Integer
-  end
+  # end
 
   class AdvertisingData
     attr_reader data: String

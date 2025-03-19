@@ -75,24 +75,37 @@ class BLE
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
-  def initialize(profile_data = nil)
+  def self.instance
+    $_btstack_singleton
+  end
+
+  def initialize(role, profile_data = nil)
+    @role = role
     @debug = false
     @_read_values = {}
     @_write_values = {}
     CYW43.init unless CYW43.initialized?
     _init(profile_data)
     $_btstack_singleton = self
+    init_central if @role == :central
   end
 
   attr_reader :role
   attr_accessor :debug
 
-  def ensure(&block)
-    @ensure_proc = block
+  def advertise(adv_data)
+    case @role
+    when :peripheral
+      peripheral_advertise(adv_data)
+    when :broadcaster
+      broadcaster_advertise(adv_data)
+    else
+      raise "Unknown role for advertise: #{@role}"
+    end
   end
 
-  def instance
-    $_btstack_singleton
+  def ensure(&block)
+    @ensure_proc = block
   end
 
   # You can override this method

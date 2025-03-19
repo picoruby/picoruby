@@ -1,8 +1,9 @@
 #include <stdbool.h>
-#include <mrubyc.h>
-#include <picorbc.h>
+#include "picoruby.h"
 #include "../include/ble.h"
 #include "../include/ble_central.h"
+
+#include "../../picoruby-machine/include/machine.h"
 
 static mrbc_vm *packet_callback_vm = NULL;
 static mrbc_vm *heartbeat_callback_vm = NULL;
@@ -12,24 +13,37 @@ mrbc_value singleton = {.tt = MRBC_TT_NIL};
 #define VM_REGS_SIZE 110 // can be reduced?
 
 static mrbc_vm *
-prepare_vm(const char *script)
+prepare_vm(mrbc_vm *vm, const char *script)
 {
-  ParserState *p = (ParserState *)mrbc_alloc(vm, sizeof(ParserState));
-  Compiler_parseInitState(p, NODE_BOX_SIZE);
-  StreamInterface *si = StreamInterface_new(NULL, script, STREAM_TYPE_MEMORY);
-  Compiler_compile(p, si, NULL);
-  StreamInterface_free(si);
-  uint8_t *vm_code = mrbc_alloc(vm, p->scope->vm_code_size);
-  memcpy(vm_code, p->scope->vm_code, p->scope->vm_code_size);
-  Compiler_parserStateFree(p);
-  mrbc_vm *vm = mrbc_vm_new(VM_REGS_SIZE);
-  if (mrbc_load_mrb(vm, vm_code)) {
-    mrbc_print_exception(&vm->exception);
+  Machine_tud_task();
+  mrc_ccontext *cc = mrc_ccontext_new(NULL);
+  Machine_tud_task();
+  mrc_irep *irep = mrc_load_string_cxt(cc, (const uint8_t **)&script, strlen(script));
+  uint8_t flags = 0;
+  uint8_t *vm_code = NULL;
+  size_t vm_code_size = 0;
+  Machine_tud_task();
+  int result = mrc_dump_irep(cc, irep, flags, &vm_code, &vm_code_size);
+  if (result != MRC_DUMP_OK) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Failed to dump VM code");
+    mrc_ccontext_free(cc);
     return NULL;
   }
-  mrbc_vm_begin(vm);
-  return vm;
+  Machine_tud_task();
+  mrbc_vm *new_vm = mrbc_vm_new(VM_REGS_SIZE);
+  Machine_tud_task();
+  result = mrbc_load_mrb(new_vm, vm_code);
+  mrc_irep_free(cc, irep);
+  mrc_ccontext_free(cc);
+  if (result) {
+    mrbc_print_exception(&new_vm->exception);
+    return NULL;
+  }
+  mrbc_vm_begin(new_vm);
+  Machine_tud_task();
+  return new_vm;
 }
+
 
 /*
  * Workaround: To avoid deadlock
@@ -106,11 +120,13 @@ BLE_read_data(BLE_read_value_t *read_value)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  Machine_tud_task();
   if (packet_callback_vm == NULL) {
-    packet_callback_vm = prepare_vm("BLE.instance&.packet_callback($_btstack_event_packet)");
+    packet_callback_vm = prepare_vm(vm, "BLE.instance&.packet_callback($_btstack_event_packet)");
   }
+  Machine_tud_task();
   if (heartbeat_callback_vm == NULL) {
-    heartbeat_callback_vm = prepare_vm("BLE.instance&.heartbeat_callback");
+    heartbeat_callback_vm = prepare_vm(vm, "BLE.instance&.heartbeat_callback");
   }
   singleton.instance = v[0].instance;
   const uint8_t *profile_data;
@@ -138,10 +154,12 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong role type");
     return;
   }
+  Machine_tud_task();
   if (BLE_init(profile_data, ble_role) < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
+  Machine_tud_task();
 }
 
 static void
@@ -163,12 +181,12 @@ c_gap_local_bd_addr(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_ble_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_BLE = mrbc_define_class(vm, "BLE", mrbc_class_object);
-  mrbc_define_method(vm, mrbc_class_BLE, "_init", c__init);
-  mrbc_define_method(vm, mrbc_class_BLE, "hci_power_control", c_hci_power_control);
-  mrbc_define_method(vm, mrbc_class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
+  mrbc_class *class_BLE = mrbc_define_class(vm, "BLE", mrbc_class_object);
+  mrbc_define_method(vm, class_BLE, "_init", c__init);
+  mrbc_define_method(vm, class_BLE, "hci_power_control", c_hci_power_control);
+  mrbc_define_method(vm, class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
 
-  mrbc_init_class_BLE_Peripheral(vm);
-  mrbc_init_class_BLE_Broadcaster(vm);
-  mrbc_init_class_BLE_Central(vm);
+  mrbc_init_class_BLE_Peripheral(vm, class_BLE);
+  mrbc_init_class_BLE_Broadcaster(vm, class_BLE);
+  mrbc_init_class_BLE_Central(vm, class_BLE);
 }

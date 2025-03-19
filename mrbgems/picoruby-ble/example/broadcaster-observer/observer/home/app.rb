@@ -3,9 +3,9 @@ require 'ble'
 require 'uart'
 require 'led'
 
-class DemoObserver < BLE::Observer
+class DemoObserver < BLE
   def initialize
-    super
+    super(:observer)
     @led = LED.new
     @uart = UART.new(unit: :RP2040_UART0, txd_pin: 16, rxd_pin: 17, baudrate: 115200)
     @uart.puts 'Start BLE Observer Demo'

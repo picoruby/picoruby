@@ -10,7 +10,7 @@ extern "C" {
 #endif
 
 enum BLE_role_t {
-  BLE_ROLE_NONE,
+  BLE_ROLE_NONE = 0,
   BLE_ROLE_CENTRAL,
   BLE_ROLE_PERIPHERAL,
   BLE_ROLE_BROADCASTER,

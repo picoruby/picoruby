@@ -108,6 +108,19 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
 static bool heartbeat_active = false;
 
 static void
+blink_led(int count)
+{
+  // For debug
+  for (int i = 0; i < count; i++) {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    sleep_ms(100);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    sleep_ms(100);
+  }
+  sleep_ms(500);
+}
+
+static void
 heartbeat_handler(struct btstack_timer_source *ts)
 {
   BLE_heartbeat();

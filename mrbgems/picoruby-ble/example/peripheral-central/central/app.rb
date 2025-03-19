@@ -1,10 +1,10 @@
 require 'ble'
 
-class DemoCentral < BLE::Central
+class DemoCentral < BLE
   def initialize
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
-    super
+    super(:central)
   end
 
   def heartbeat_callback

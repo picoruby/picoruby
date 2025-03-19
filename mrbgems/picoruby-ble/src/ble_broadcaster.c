@@ -16,10 +16,8 @@ c_advertise(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 void
-mrbc_init_class_BLE_Broadcaster(mrbc_vm *vm, mrbc_class *class_BLE);
+mrbc_init_class_BLE_Broadcaster(mrbc_vm *vm, mrbc_class *class_BLE)
 {
-  mrbc_class *mrbc_class_BLE_Broadcaster = mrbc_define_class_under(vm, class_BLE, "Broadcaster", mrbc_class_object);
-
-  mrbc_define_method(vm, mrbc_class_BLE_Broadcaster, "advertise", c_advertise);
+  mrbc_define_method(vm, class_BLE, "broadcaster_advertise", c_advertise);
 }
 
