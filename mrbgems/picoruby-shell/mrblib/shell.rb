@@ -53,6 +53,12 @@ class Shell
           f.close
         end
       end
+      path = "#{root}/etc/machine-id"
+      unless File.file?(path)
+        f = File.open path, "w"
+        f.write Machine.unique_id
+        f.close
+      end
     end
     Dir.chdir ENV['HOME']
   end
