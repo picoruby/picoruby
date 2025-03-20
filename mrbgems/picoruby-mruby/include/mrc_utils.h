@@ -1,5 +1,5 @@
-#ifndef MRC_UTILS_H
-#define MRC_UTILS_H
+#ifndef TLSF_UTILS_H
+#define TLSF_UTILS_H
 
 #if defined(PICORB_VM_MRUBY)
 #include "task.h"
@@ -9,4 +9,4 @@ void mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep);
 mrb_tcb *mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_tcb *tcb, const char *name);
 #endif
 
-#endif
+#endif // TLSF_UTILS_H
