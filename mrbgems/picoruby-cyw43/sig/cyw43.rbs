@@ -13,7 +13,7 @@ class CYW43
   LINK_NONET:   Integer
   LINK_BADAUTH: Integer
 
-  def self.init: (?String country, ?force: bool) -> void
+  def self.init: (?String country, ?force: bool) -> 0
   def self.initialized?: () -> bool
   def self.connect_timeout: (String ssid, String password, Integer augh, ?Integer timeout) -> bool
   def self.enable_sta_mode: () -> bool

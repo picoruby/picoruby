@@ -3,7 +3,10 @@ class CYW43
     if country.is_a?(String) && country.length != 2
       raise ArgumentError, "country must be a 2-character string"
     end
-    self._init(country&.upcase, force)
+    unless self._init(country&.upcase, force)
+      raise RuntimeError, "CYW43.init failed. No CYW43 module is connected?"
+    end
+    return 0
   end
 
   def self.link_connected?(print_status = false)

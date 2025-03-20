@@ -53,10 +53,23 @@ CYW43_tcpip_link_status(void)
 int
 CYW43_arch_init_with_country(const uint8_t *country)
 {
+  int res;
   if (country == NULL) {
-    return cyw43_arch_init();
+    res = cyw43_arch_init();
+  } else {
+    res = cyw43_arch_init_with_country(CYW43_COUNTRY(country[0], country[1], 0));
   }
-  return cyw43_arch_init_with_country(CYW43_COUNTRY(country[0], country[1], 0));
+  if (res != 0) {
+    return res; // error
+  }
+  // Confirm whether the LED connecting to CYW43 works
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+  sleep_ms(5);
+  if (cyw43_arch_gpio_get(CYW43_WL_GPIO_LED_PIN) == 1) {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    return 0;
+  }
+  return -1; // Maybe No CYW43 module on the board
 }
 
 #ifdef USE_WIFI
