@@ -41,3 +41,9 @@ Machine_get_unique_id(char *id_str)
   }
   return true;
 }
+
+uint32_t
+Machine_stack_usage(void)
+{
+  return 0;
+}

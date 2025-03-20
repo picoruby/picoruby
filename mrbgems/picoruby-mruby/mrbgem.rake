@@ -20,4 +20,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   if build.posix?
     cc.defines << "PICORB_PLATFORM_POSIX"
   end
+  if cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG=1") }
+    cc.defines << "_DEBUG" # for tlsf.c
+  end
 end
