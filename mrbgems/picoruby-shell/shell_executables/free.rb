@@ -3,7 +3,7 @@ when "mruby/c"
   require 'picorubyvm'
   p PicoRubyVM.memory_statistics
 when "mruby"
-  GC.disable
+  require 'picorubyvm'
+  p PicoRubyVM.memory_statistics
   p ObjectSpace.count_objects
-  GC.enable
 end
