@@ -7,13 +7,13 @@
 
 #include "app.c"
 
-#if defined(PICORB_VM_MRUBYC)
-
 #ifndef HEAP_SIZE
 #define HEAP_SIZE (1024 * 2000)
 #endif
 
 static uint8_t heap_pool[HEAP_SIZE];
+
+#if defined(PICORB_VM_MRUBYC)
 
 int
 main(void)
@@ -34,7 +34,7 @@ int
 main(void)
 {
   int ret = 0;
-  mrb_state *mrb = mrb_open();
+  mrb_state *mrb = mrb_open_with_tlsf(heap_pool, HEAP_SIZE);
   global_mrb = mrb;
   mrc_irep *irep = mrb_read_irep(mrb, app);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);

@@ -393,3 +393,13 @@ Machine_get_unique_id(char *id_str)
   pico_get_unique_board_id_string(id_str, PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1);
   return 1;
 }
+
+extern uint32_t _estack;
+
+uint32_t
+Machine_stack_usage(void)
+{
+  uint32_t sp;
+  __asm volatile ("MRS %0, MSP" : "=r" (sp));
+  return ((uint32_t)&_estack - sp);
+}

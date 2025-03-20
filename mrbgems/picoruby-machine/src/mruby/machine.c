@@ -97,6 +97,18 @@ mrb_s_read_memory(mrb_state *mrb, mrb_value klass)
   return mrb_str_new(mrb, (const void *)(uintptr_t)addr, size);
 }
 
+static mrb_value
+mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
+{
+  mrb_int usage = Machine_stack_usage();
+  if (0 < usage) {
+    return mrb_fixnum_value(usage);
+  } else {
+    return mrb_nil_value();
+  }
+}
+
+#if !defined(PICORB_PLATFORM_POSIX)
 static void
 print_sub(mrb_state *mrb, mrb_value obj)
 {
@@ -106,7 +118,6 @@ print_sub(mrb_state *mrb, mrb_value obj)
   hal_write(0, cstr, len);
 }
 
-#if !defined(PICORB_PLATFORM_POSIX)
 static mrb_value
 mrb_puts(mrb_state *mrb, mrb_value self)
 {
@@ -155,6 +166,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(deep_sleep), mrb_s_deep_sleep, MRB_ARGS_REQ(3));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(stack_usage), mrb_s_stack_usage, MRB_ARGS_NONE());
 
 #if !defined(PICORB_PLATFORM_POSIX)
   struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
