@@ -58,7 +58,7 @@ void MQTT_callback(void)
 }
 
 static void c_mqtt_client_connect(mrbc_vm *vm, mrbc_value *v, int argc) {
-  if (argc < 4 || argc > 5) {
+  if (argc < 4 || argc > 14) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -69,9 +69,23 @@ static void c_mqtt_client_connect(mrbc_vm *vm, mrbc_value *v, int argc) {
   const int port = mrbc_integer(v[2]);
   const char *client_id = mrbc_string_cstr(&v[3]);
   const bool use_tls = (v[4].tt == MRBC_TT_TRUE);
-  const char *ca_cert = (argc == 5 && v[5].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[5]) : NULL;
 
-  mrbc_value ret = MQTTClient_connect(vm, v, host, port, client_id, use_tls, ca_cert);
+  const char *ca_file = (argc > 4 && v[5].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[5]) : NULL;
+  const char *cert_file = (argc > 5 && v[6].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[6]) : NULL;
+  const char *key_file = (argc > 6 && v[7].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[7]) : NULL;
+  int tls_version = (argc > 7 && v[8].tt == MRBC_TT_FIXNUM) ? mrbc_integer(v[8]) : 0;
+  int verify_mode = (argc > 8 && v[9].tt == MRBC_TT_FIXNUM) ? mrbc_integer(v[9]) : 1;
+  const char *ca_cert = (argc > 9 && v[10].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[10]) : NULL;
+  const char *client_cert = (argc > 10 && v[11].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[11]) : NULL;
+  const char *client_key = (argc > 11 && v[12].tt == MRBC_TT_STRING) ? mrbc_string_cstr(&v[12]) : NULL;
+  bool verify_hostname = (argc > 12) ? (v[13].tt == MRBC_TT_TRUE) : true;
+  uint32_t handshake_timeout_ms = (argc > 13 && v[14].tt == MRBC_TT_FIXNUM) ? mrbc_integer(v[14]) : 30000;
+
+  mrbc_value ret = MQTTClient_connect(vm, v, host, port, client_id, use_tls,
+                                    ca_file, cert_file, key_file,
+                                    tls_version, verify_mode,
+                                    ca_cert, client_cert, client_key,
+                                    verify_hostname, handshake_timeout_ms);
   SET_RETURN(ret);
 }
 
