@@ -2,7 +2,12 @@ class MQTTClient
   SSL_VERIFY_MODES: Hash[Symbol, Integer]
   SSL_VERSIONS: Hash[Symbol, Integer]
 
-  type ssl_context = {
+  interface _HashInterface
+    def []: (Symbol) -> untyped
+    def key?: (Symbol) -> bool
+  end
+
+  type ssl_context = _HashInterface & {
     cert_file: String?,
     key_file: String?,
     ca_file: String?,
@@ -10,13 +15,13 @@ class MQTTClient
     version: Integer?
   }
 
-  type ssl_options = {
-    ssl: bool?,
-    cert_file: String?,
-    key_file: String?,
-    ca_file: String?,
-    verify_mode: Symbol?,
-    ssl_version: Symbol?
+  type opts_hash = _HashInterface & {
+    ssl?: bool?,
+    cert_file?: String?,
+    key_file?: String?,
+    ca_file?: String?,
+    verify_mode?: Symbol?,
+    ssl_version?: Symbol?
   }
 
   @host: String
@@ -27,19 +32,21 @@ class MQTTClient
 
   $_mqtt_singleton: MQTTClient
 
-  def initialize: (String host, ?Integer? port, ?String client_id, **ssl_options) -> void
+  def initialize: (String host, ?Integer? port, ?String client_id, **opts_hash) -> void
   def ssl=: (bool) -> bool
   def ssl?: -> bool
-  def connect: (?ssl_options opts) -> bool
-  def set_ssl_context: (ssl_options opts) -> void
+  def connect: (?opts_hash opts) -> bool
+  def set_ssl_context: (opts_hash opts) -> void
   def publish: (String topic, String payload) -> nil
   def subscribe: (String topic) -> nil
   def disconnect: () -> nil
   def blink_led: () -> void
+  def callback: () -> void
 
   private
-  def setup_ssl_context: (ssl_options) -> void
-  def _connect_impl: (String host, Integer port, String client_id, bool use_tls, ?String ca_file, ?String cert_file, ?String key_file, ?Integer version, ?Integer verify_mode) -> bool
+  def setup_ssl_context: (opts_hash args) -> void
+
+  def _connect_impl: (String host, Integer? port, String client_id, bool use_tls, ?String? ca_file, ?String? cert_file, ?String? key_file, ?Integer? version, ?Integer? verify_mode) -> bool
   def _publish_impl: (String payload, String topic) -> nil
   def _subscribe_impl: (String topic) -> nil
   def _disconnect_impl: () -> nil

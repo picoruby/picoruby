@@ -48,13 +48,13 @@ typedef struct {
   int version;
 } ssl_ctx_t;
 
-static err_t setup_ssl_context(mqtt_client_state_t *mqtt, ssl_ctx_t *ssl_ctx) {
+static err_t setup_ssl_context(mqtt_client_state_t *mqtt, const mqtt_ssl_context_t *ssl_ctx) {
   struct altcp_tls_config *tls_config = NULL;
 
-  if (ssl_ctx->ca_file) {
+  if (ssl_ctx->ca_cert.data) {
     tls_config = altcp_tls_create_config_client(
-      (void*)ssl_ctx->ca_file,
-      strlen(ssl_ctx->ca_file)
+      (void*)ssl_ctx->ca_cert.data,
+      ssl_ctx->ca_cert.len
     );
   } else {
     tls_config = altcp_tls_create_config_client(NULL, 0);
@@ -62,26 +62,36 @@ static err_t setup_ssl_context(mqtt_client_state_t *mqtt, ssl_ctx_t *ssl_ctx) {
 
   if (!tls_config) {
     console_printf("MQTT: Failed to create TLS config\n");
-    return ERR_MEM;
+    return MQTT_ERR_TLS_INIT;
   }
 
-  if (ssl_ctx->cert_file && ssl_ctx->key_file) {
+  if (ssl_ctx->client_cert.data && ssl_ctx->client_key.data) {
     err_t err = altcp_tls_config_client_cert(
       tls_config,
-      (void*)ssl_ctx->cert_file,
-      strlen(ssl_ctx->cert_file),
-      (void*)ssl_ctx->key_file,
-      strlen(ssl_ctx->key_file)
+      (void*)ssl_ctx->client_cert.data,
+      ssl_ctx->client_cert.len,
+      (void*)ssl_ctx->client_key.data,
+      ssl_ctx->client_key.len
     );
     if (err != ERR_OK) {
       console_printf("MQTT: Failed to set client cert/key\n");
       altcp_tls_free_config(tls_config);
-      return err;
+      return MQTT_ERR_TLS_CERT;
     }
   }
 
   if (ssl_ctx->verify_mode == MQTT_VERIFY_NONE) {
     altcp_tls_config_skip_verify(tls_config);
+  } else if (ssl_ctx->verify_mode == MQTT_VERIFY_FAIL_IF_NO_PEER_CERT) {
+    altcp_tls_config_set_verify_mode(tls_config, ALTCP_TLS_VERIFY_STRICT);
+  }
+
+  if (ssl_ctx->handshake_timeout_ms > 0) {
+    altcp_tls_config_set_handshake_timeout(tls_config, ssl_ctx->handshake_timeout_ms);
+  }
+
+  if (ssl_ctx->verify_hostname) {
+    altcp_tls_config_enable_hostname_verify(tls_config);
   }
 
   mqtt->tls_config = tls_config;
@@ -236,7 +246,11 @@ static err_t mqtt_client_recv(void *arg, struct altcp_pcb *pcb, struct pbuf *p, 
 mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port,
                              const char *client_id, bool use_tls,
                              const char *ca_file, const char *cert_file, const char *key_file,
-                             int tls_version, int verify_mode) {
+                             int tls_version, int verify_mode,
+                             const char *ca_cert_data, int ca_cert_format,
+                             const char *client_cert_data, int client_cert_format,
+                             const char *client_key_data, int client_key_format,
+                             bool verify_hostname, uint32_t handshake_timeout_ms) {
   console_printf("MQTT: Starting connection to %s:%d\n", host, port);
 
   if (current_mqtt_state != NULL) {
@@ -262,12 +276,26 @@ mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, i
   mqtt->connect_start_time = mqtt->last_message_time;
 
   if (use_tls) {
-    ssl_ctx_t ssl_ctx = {
-      .ca_file = ca_file,
-      .cert_file = cert_file,
-      .key_file = key_file,
+    mqtt_ssl_context_t ssl_ctx = {
+      .ca_cert = {
+        .data = ca_cert_data ? ca_cert_data : ca_file,
+        .len = ca_cert_data ? strlen(ca_cert_data) : (ca_file ? strlen(ca_file) : 0),
+        .format = ca_cert_format
+      },
+      .client_cert = {
+        .data = client_cert_data ? client_cert_data : cert_file,
+        .len = client_cert_data ? strlen(client_cert_data) : (cert_file ? strlen(cert_file) : 0),
+        .format = client_cert_format
+      },
+      .client_key = {
+        .data = client_key_data ? client_key_data : key_file,
+        .len = client_key_data ? strlen(client_key_data) : (key_file ? strlen(key_file) : 0),
+        .format = client_key_format
+      },
       .verify_mode = verify_mode,
-      .version = tls_version
+      .version = tls_version,
+      .verify_hostname = verify_hostname,
+      .handshake_timeout_ms = handshake_timeout_ms
     };
 
     err_t err = setup_ssl_context(mqtt, &ssl_ctx);
