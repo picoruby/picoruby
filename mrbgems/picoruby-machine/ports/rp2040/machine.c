@@ -394,12 +394,9 @@ Machine_get_unique_id(char *id_str)
   return 1;
 }
 
-extern uint32_t _estack;
-
 uint32_t
 Machine_stack_usage(void)
 {
-  uint32_t sp;
-  __asm volatile ("MRS %0, MSP" : "=r" (sp));
-  return ((uint32_t)&_estack - sp);
+  // TODO
+  return 0;
 }
