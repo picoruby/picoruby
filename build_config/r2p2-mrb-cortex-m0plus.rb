@@ -29,6 +29,7 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.cc.flags << "-fdata-sections"
 
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "POOL_ALIGNMENT=4"
 
   conf.gem github: 'picoruby/mruby-compiler2'
   conf.gem core: "picoruby-mruby"
