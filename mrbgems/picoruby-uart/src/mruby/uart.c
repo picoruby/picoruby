@@ -43,7 +43,9 @@ mrb_open_connection(mrb_state *mrb, mrb_value self)
 {
   const char *unit_name;
   mrb_int txd_pin, rxd_pin;
-  mrb_get_args(mrb, "zii", &unit_name, &txd_pin, &rxd_pin);
+  mrb_value rx_buffer;
+  mrb_get_args(mrb, "ziio", &unit_name, &txd_pin, &rxd_pin, &rx_buffer);
+  (void)rx_buffer; // for compatibility with mruby/c
   int unit_num = UART_unit_name_to_unit_num(unit_name);
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
   UART_init(unit_num, txd_pin, rxd_pin, rx);
