@@ -27,7 +27,7 @@ class CYW43
     LED_PIN: Integer
     @pin: Integer
     def initialize: (Integer pin) -> void
-    def write: (Integer) -> 0
+    def write: (Integer) -> Integer
     def read: () -> GPIO::gpio_logic_t
     def high?: () -> bool
     def low?: () -> bool
