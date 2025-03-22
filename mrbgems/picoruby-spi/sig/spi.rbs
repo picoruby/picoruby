@@ -37,6 +37,6 @@ class SPI
   # private
   def params_to_array: (*(Integer|String)|Array[Integer] params) -> Array[Integer]
   private def _write: (Array[Integer]) -> Integer
-  private def _read: (Integer repeated_tx_data, Integer len) -> (String|Integer)
-  private def _transfer: (Array[Integer]) -> (String|Integer)
+  private def _read: (Integer len, Integer repeated_tx_data) -> (String|Integer)
+  private def _transfer: (Array[Integer] value) -> (String|Integer)
 end
