@@ -61,6 +61,7 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.gem core: "picoruby-pwm"
   conf.gem core: "picoruby-spi"
   conf.gem core: "picoruby-uart"
+  conf.gem core: "picoruby-cyw43"
 
   conf.microruby
 end
