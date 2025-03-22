@@ -51,8 +51,8 @@ ADC_read_raw(uint8_t input)
   return adc_read();
 }
 
-#if MRBC_USE_FLOAT
-mrbc_float_t
+#ifndef PICORB_NO_FLOAT
+picorb_float_t
 ADC_read_voltage(uint8_t input)
 {
   adc_select_input(input);

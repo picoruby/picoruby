@@ -58,7 +58,7 @@ class SPI
     additional_read_bytes.times do
       ary << 0
     end
-    ret = _transfer(params_to_array(*params))
+    ret = _transfer(params_to_array(*ary))
     return ret if ret.is_a?(String)
     GPIO::Error.peripheral_error(ret, "SPI#transfer")
     return ""

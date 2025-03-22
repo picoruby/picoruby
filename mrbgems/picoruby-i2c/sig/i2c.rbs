@@ -32,7 +32,7 @@ class I2C
     Integer i2c_adrs_7,
     Integer len,
     *outputs_t outputs
-  ) -> String
+  ) -> String | nil
   private def _read: (
     Integer unit_num,
     Integer i2c_adrs_7,
