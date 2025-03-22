@@ -5,8 +5,6 @@
 #include "hardware/uart.h"
 #include "pico/stdlib.h"
 
-#include <mrubyc.h>
-
 #include "../../include/uart.h"
 
 #define UNIT_SELECT() \
