@@ -55,5 +55,12 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.gem core: "picoruby-watchdog"
   conf.gem core: "picoruby-rng"
 
+  conf.gem core: "picoruby-gpio"
+  conf.gem core: "picoruby-adc"
+  conf.gem core: "picoruby-i2c"
+  conf.gem core: "picoruby-pwm"
+  conf.gem core: "picoruby-spi"
+  conf.gem core: "picoruby-uart"
+
   conf.microruby
 end
