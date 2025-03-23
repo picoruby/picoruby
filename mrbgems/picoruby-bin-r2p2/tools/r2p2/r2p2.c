@@ -35,6 +35,10 @@ main(void)
 {
   int ret = 0;
   mrb_state *mrb = mrb_open_with_tlsf(heap_pool, HEAP_SIZE);
+  if (mrb == NULL) {
+    fprintf(stderr, "mrb_open failed\n");
+    return 1;
+  }
   global_mrb = mrb;
   mrc_irep *irep = mrb_read_irep(mrb, app);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
