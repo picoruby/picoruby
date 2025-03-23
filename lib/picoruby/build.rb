@@ -82,7 +82,7 @@ module MRuby
     end
 
     def posix?
-      self.name == 'host' || cc.defines.include?("MRBC_USE_HAL_POSIX")
+      self.name == 'host' || cc.defines.include?("MRBC_USE_HAL_POSIX") || cc.defines.include?("PICORB_PLATFORM_POSIX")
     end
 
     private def debug_flag
