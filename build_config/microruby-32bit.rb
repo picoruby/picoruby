@@ -5,6 +5,20 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
+  #conf.cc.defines << "PICORB_ALLOC_TLSF"
+  #conf.cc.defines << "POOL_ALIGNMENT=8"
+  #conf.cc.defines << "PICORB_ALLOC_TINYALLOC"
+  conf.cc.defines << "PICORB_ALLOC_O1HEAP"
+  n = 13 # Chenge this value to adjust the heap size
+  ptr_size = 4 # 32-bit
+  rvalue_words = 6 # word boxing
+  rvalue_size = ptr_size * rvalue_words
+  mrb_heap_header_size = ptr_size * 4 # see mruby/src/gc.c
+  o1heap_header_size = ptr_size * 4 # see o1heap.c
+  optimal_heap_page_size = 2 ** n # This should be power of 2 or just little bit smaller
+  heap_page_size = (optimal_heap_page_size - mrb_heap_header_size - o1heap_header_size) / rvalue_size
+  conf.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
+
   conf.cc.flags << '-m32'
   conf.cc.flags << '-Wall'
   conf.cc.flags << '-Wextra'

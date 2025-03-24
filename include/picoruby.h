@@ -97,8 +97,14 @@ bool picoruby_load_model_by_name(const char *gem);
 #include <mruby/presym.h>
 #include <mruby/error.h>
 #include "task.h"
-#include "tlsf.h"
-#include "tlsf_utils.h"
+#if defined(PICORB_ALOC_TLSF)
+#include "../mrbgems/picoruby-mruby/lib/tlsf/tlsf.h"
+#elif defined(PICORB_ALLOC_O1HEAP)
+#include "../mrbgems/picoruby-mruby/lib/o1heap/o1heap/o1heap.h"
+#elif defined(PICORB_ALLOC_TINYALLOC)
+#include "../mrbgems/picoruby-mruby/lib/tinyalloc/tinyalloc.h"
+#endif
+#include "alloc.h"
 
 #define picorb_vm_init()  do { \
   vm = mrb_open(); \
