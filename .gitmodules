@@ -4,3 +4,9 @@
 [submodule "mrbgems/picoruby-mruby/lib/mruby"]
 	path = mrbgems/picoruby-mruby/lib/mruby
 	url = https://github.com/hasumikin/mruby.git
+[submodule "mrbgems/picoruby-mruby/lib/tlsf"]
+	path = mrbgems/picoruby-mruby/lib/tlsf
+	url = https://github.com/mattconte/tlsf
+[submodule "mrbgems/picoruby-mruby/lib/o1heap"]
+	path = mrbgems/picoruby-mruby/lib/o1heap
+	url = https://github.com/pavel-kirienko/o1heap
