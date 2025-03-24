@@ -36,6 +36,16 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
 
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "POOL_ALIGNMENT=4"
+  conf.cc.defines << "PICORB_ALLOC_O1HEAP"
+  n = 13 # Chenge this value to adjust the heap size
+  ptr_size = 4 # 32-bit
+  rvalue_words = 6 # word boxing
+  rvalue_size = ptr_size * rvalue_words
+  mrb_heap_header_size = ptr_size * 4 # see mruby/src/gc.c
+  o1heap_header_size = ptr_size * 4 # see o1heap.c
+  optimal_heap_page_size = 2 ** n # This should be power of 2 or just little bit smaller
+  heap_page_size = (optimal_heap_page_size - mrb_heap_header_size - o1heap_header_size) / rvalue_size
+  conf.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
 
   conf.gem github: 'picoruby/mruby-compiler2'
   conf.gem core: "picoruby-mruby"
