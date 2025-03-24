@@ -13,6 +13,7 @@
 
 static uint8_t heap_pool[HEAP_SIZE];
 
+
 #if defined(PICORB_VM_MRUBYC)
 
 int
@@ -34,7 +35,11 @@ int
 main(void)
 {
   int ret = 0;
-  mrb_state *mrb = mrb_open_with_tlsf(heap_pool, HEAP_SIZE);
+#if 1
+  mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
+#else
+  mrb_state *mrb = mrb_open();
+#endif
   if (mrb == NULL) {
     fprintf(stderr, "mrb_open failed\n");
     return 1;

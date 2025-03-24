@@ -1,11 +1,11 @@
 #include <mruby.h>
 #include <mruby/presym.h>
-#include "tlsf_utils.h"
+#include "alloc.h"
 
 static mrb_value
 mrb_picorubyvm_s_memory_statistics(mrb_state *mrb, mrb_value klass)
 {
-  return mrb_tlsf_statistics(mrb);
+  return mrb_alloc_statistics(mrb);
 }
 
 static mrb_value
