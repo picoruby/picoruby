@@ -28,6 +28,8 @@ typedef enum {
   ERROR_INVALID_MODE      = -2,
   ERROR_INVALID_FIRST_BIT = -3,
   ERROR_NOT_IMPLEMENTED   = -4,
+  ERROR_FAILED_TO_INIT    = -5,
+  ERROR_FAILED_TO_ADD_DEV = -6,
 } spi_status_t;
 
 typedef struct spi_unit_info {

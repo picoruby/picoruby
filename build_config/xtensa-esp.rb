@@ -25,5 +25,6 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: "picoruby-gpio"
   conf.gem core: "picoruby-adc"
   conf.gem core: "picoruby-rng"
+  conf.gem core: "picoruby-spi"
   conf.picoruby(alloc_libc: false)
 end

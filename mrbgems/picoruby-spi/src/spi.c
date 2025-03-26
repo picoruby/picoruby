@@ -100,9 +100,10 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     .sck_pin   = (int8_t) GET_INT_ARG(3),
     .cipo_pin  = (int8_t) GET_INT_ARG(4),
     .copi_pin  = (int8_t) GET_INT_ARG(5),
-    .mode      = (uint8_t)GET_INT_ARG(6),
-    .first_bit = (uint8_t)GET_INT_ARG(7),
-    .data_bits = (uint8_t)GET_INT_ARG(8)
+    .cs_pin    = (int8_t) GET_INT_ARG(6),
+    .mode      = (uint8_t)GET_INT_ARG(7),
+    .first_bit = (uint8_t)GET_INT_ARG(8),
+    .data_bits = (uint8_t)GET_INT_ARG(9)
   };
   mrbc_value value = mrbc_string_new(vm, (const char *)&unit_info, sizeof(spi_unit_info_t));
   unit_info_symid = mrbc_str_to_symid("_unit_info");
@@ -114,6 +115,9 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
       case ERROR_INVALID_UNIT: { strcpy(message, "Invalid SPI unit"); break; }
       case ERROR_INVALID_MODE: { strcpy(message, "Invalid SPI mode"); break; }
       case ERROR_INVALID_FIRST_BIT: { strcpy(message, "Invalid SPI firt bit"); break; }
+      case ERROR_NOT_IMPLEMENTED: { strcpy(message, "Not implemented"); break; }
+      case ERROR_FAILED_TO_INIT: { strcpy(message, "Failed to initialize"); break; }
+      case ERROR_FAILED_TO_ADD_DEV: { strcpy(message, "Failed to add device"); break; }
       default: { strcpy(message, "Unknows SPI error"); }
       mrbc_raise(vm, MRBC_CLASS(IOError), message);
       return;
