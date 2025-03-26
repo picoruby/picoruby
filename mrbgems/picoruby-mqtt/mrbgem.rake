@@ -6,9 +6,9 @@ MRuby::Gem::Specification.new('picoruby-mqtt') do |spec|
   spec.add_dependency 'picoruby-time-class'
   spec.add_dependency 'picoruby-pack'
 
-  build.porting(dir)
+  spec.posix
 
-  if cc.defines.include?('PICORUBY_PLATFORM=posix')
+  if build.posix?
     spec.mruby.linker.flags_after_libraries << '-lssl'
     spec.mruby.linker.flags_after_libraries << '-lcrypto'
   else
