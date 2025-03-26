@@ -1,53 +1,38 @@
 class MQTTClient
-  SSL_VERIFY_MODES: Hash[Symbol, Integer]
-  SSL_VERSIONS: Hash[Symbol, Integer]
+  VERIFY_NONE: Integer
+  VERIFY_PEER: Integer
+  VERIFY_FAIL_IF_NO_PEER_CERT: Integer
 
-  interface _HashInterface
-    def []: (Symbol) -> untyped
-    def key?: (Symbol) -> bool
-  end
-
-  type ssl_context = _HashInterface & {
-    cert_file: String?,
-    key_file: String?,
-    ca_file: String?,
-    verify_mode: Integer?,
-    version: Integer?
-  }
-
-  type opts_hash = _HashInterface & {
-    ssl?: bool?,
-    cert_file?: String?,
-    key_file?: String?,
-    ca_file?: String?,
-    verify_mode?: Symbol?,
-    ssl_version?: Symbol?
-  }
+  TLS_V1_2: Integer
+  TLS_V1_1: Integer
+  TLS_V1: Integer
 
   @host: String
-  @port: Integer?
+  @port: Integer
   @client_id: String
   @ssl: bool
-  @ssl_context: ssl_context?
+  @ssl_context: Hash[Symbol, untyped]
+  @led: CYW43::GPIO?
+  @led_on: bool?
 
   $_mqtt_singleton: MQTTClient
 
-  def initialize: (String host, ?Integer? port, ?String client_id, **opts_hash) -> void
-  def ssl=: (bool) -> bool
-  def ssl?: -> bool
-  def connect: (?opts_hash opts) -> bool
-  def set_ssl_context: (opts_hash opts) -> void
-  def publish: (String topic, String payload) -> nil
-  def subscribe: (String topic) -> nil
-  def disconnect: () -> nil
+  def initialize: (String host, ?Integer? port, ?String client_id, **untyped args) -> void
+  def ssl=: (bool value) -> bool
+  def ssl?: () -> bool
+  def connect: (?Hash[Symbol, untyped] opts) -> untyped
+  def set_ssl_context: (?Hash[Symbol, untyped] opts) -> Hash[Symbol, untyped]?
+
+  private def setup_ssl_context: (Hash[Symbol, untyped] args) -> Hash[Symbol, untyped]?
+
+  def publish: (String topic, String payload) -> untyped
+  def subscribe: (String topic) -> untyped
+  def disconnect: () -> untyped
+  def callback: () -> untyped
   def blink_led: () -> void
-  def callback: () -> void
 
-  private
-  def setup_ssl_context: (opts_hash args) -> void
-
-  def _connect_impl: (String host, Integer? port, String client_id, bool use_tls, ?String? ca_file, ?String? cert_file, ?String? key_file, ?Integer? version, ?Integer? verify_mode) -> bool
-  def _publish_impl: (String payload, String topic) -> nil
-  def _subscribe_impl: (String topic) -> nil
-  def _disconnect_impl: () -> nil
+  private def _connect_impl: (String, Integer, String, bool, String?, String?, String?, Integer, Integer, String?, String?, String?, bool, Integer) -> untyped
+  private def _publish_impl: (String, String) -> untyped
+  private def _subscribe_impl: (String) -> untyped
+  private def _disconnect_impl: () -> untyped
 end
