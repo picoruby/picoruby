@@ -11,6 +11,7 @@ MRuby::Gem::Specification.new('picoruby-mqtt') do |spec|
   if build.posix?
     spec.mruby.linker.flags_after_libraries << '-lssl'
     spec.mruby.linker.flags_after_libraries << '-lcrypto'
+    spec.mruby.linker.flags_after_libraries << '-lpaho-mqtt3c'
   else
     # TODO refactor
     # cyw43 is only for pico_w but picoruby-net is also for POSIX
