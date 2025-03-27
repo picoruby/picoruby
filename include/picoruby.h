@@ -103,6 +103,8 @@ bool picoruby_load_model_by_name(const char *gem);
 #include "../mrbgems/picoruby-mruby/lib/o1heap/o1heap/o1heap.h"
 #elif defined(PICORB_ALLOC_TINYALLOC)
 #include "../mrbgems/picoruby-mruby/lib/tinyalloc/tinyalloc.h"
+#elif defined(PICORB_ALLOC_ESTALLOC)
+#include "../mrbgems/picoruby-mruby/lib/estalloc/estalloc.h"
 #endif
 #include "alloc.h"
 
