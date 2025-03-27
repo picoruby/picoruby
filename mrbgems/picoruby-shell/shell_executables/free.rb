@@ -3,7 +3,6 @@ when "mruby/c"
   require 'picorubyvm'
   p PicoRubyVM.memory_statistics
 when "mruby"
-  require 'picorubyvm'
   p PicoRubyVM.memory_statistics
   p ObjectSpace.count_objects
 end
