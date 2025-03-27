@@ -150,6 +150,19 @@ mrb_print(mrb_state *mrb, mrb_value self)
   mrb_gc_arena_restore(mrb, ai);
   return mrb_nil_value();
 }
+
+static mrb_value
+mrb_kernel_p(mrb_state *mrb, mrb_value self)
+{
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  for (mrb_int i = 0; i < argc; i++) {
+    print_sub(mrb, mrb_inspect(mrb, argv[i]));
+    hal_write(0, "\n", 1);
+  }
+  return mrb_nil_value();
+}
 #endif
 
 void
@@ -172,6 +185,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
   mrb_define_method_id(mrb, module_Kernel, MRB_SYM(puts), mrb_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, module_Kernel, MRB_SYM(print), mrb_print, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, module_Kernel, MRB_SYM(p), mrb_kernel_p, MRB_ARGS_ANY());
 #endif
 }
 
