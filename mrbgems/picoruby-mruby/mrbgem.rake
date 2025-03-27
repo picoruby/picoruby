@@ -1,3 +1,13 @@
+def o1heap_page_size(n)
+  optimal_heap_page_size = 2 ** n # This should be power of 2 or just little bit smaller
+  ptr_size = 4 # 32-bit
+  rvalue_words = 6 # word boxing
+  rvalue_size = ptr_size * rvalue_words
+  mrb_heap_header_size = ptr_size * 4 # see mruby/src/gc.c
+  o1heap_header_size = ptr_size * 4 # see o1heap.c
+  (optimal_heap_page_size - mrb_heap_header_size - o1heap_header_size) / rvalue_size
+end
+
 MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.license = ['MIT', 'Apache-2.0', 'BSD-3-Clause', 'BSD']
   spec.authors = 'HASUMI Hitoshi'
@@ -8,18 +18,41 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
-  alloc_dir = if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
-    "#{dir}/lib/tinyalloc"
+  if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
+    alloc_dir = "#{dir}/lib/tinyalloc"
+    if spec.cc.defines.none?{ _1.start_with?("POOL_ALIGNMENT") }
+      spec.cc.defines << "POOL_ALIGNMENT=8"
+    end
   elsif spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
-    "#{dir}/lib/o1heap/o1heap"
+    alloc_dir = "#{dir}/lib/o1heap/o1heap"
+    unless File.directory?(alloc_dir)
+      FileUtils.cd "#{dir}/lib" do
+        sh "git clone https://github.com/pavel-kirienko/o1heap"
+      end
+    end
+    spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{o1heap_page_size(13)}"
   elsif spec.cc.defines.include?("PICORB_ALLOC_TLSF")
-    "#{dir}/lib/tlsf"
+    alloc_dir = "#{dir}/lib/tlsf"
+    unless File.directory?(alloc_dir)
+      FileUtils.cd "#{dir}/lib" do
+        sh "git clone https://github.com/mattconte/tlsf"
+      end
+    end
+    if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
+      spec.cc.defines << "_DEBUG"
+    end
+  elsif spec.cc.defines.include?("PICORB_ALLOC_ESTALLOC")
+    spec.cc.defines << "ESTALLOC_ALIGNMENT=8"
+    if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
+      spec.cc.defines << "ESTALLOC_DEBUG=1"
+    end
+    alloc_dir = "#{dir}/lib/estalloc"
   end
   if alloc_dir
     Dir.glob("#{alloc_dir}/*.c").each do |src|
       obj = objfile(src.pathmap("#{build_dir}/allocator/%n"))
       build.libmruby_objs << obj
-      file obj => src do |t|
+      file obj => [src, alloc_dir] do |t|
         cc.run t.name, t.prerequisites.first
       end
     end
@@ -36,8 +69,5 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   if build.posix?
     cc.defines << "PICORB_PLATFORM_POSIX"
-  end
-  if cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG=1") }
-    cc.defines << "_DEBUG" # for tlsf.c
   end
 end
