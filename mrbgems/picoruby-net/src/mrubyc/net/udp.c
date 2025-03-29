@@ -1,11 +1,3 @@
-#include "../../include/net.h"
-#include "lwipopts.h"
-#include "pico/cyw43_arch.h"
-#include "lwip/udp.h"
-#include "include/common.h"
-#include <mrubyc.h>
-
-/* platform-dependent definitions */
 
 /* state values for UDP connection */
 #define NET_UDP_STATE_NONE          0
@@ -80,9 +72,9 @@ UDPClient_send_impl(ip_addr_t *ip, int port, mrbc_value *send_data, mrbc_value *
   struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, cs->send_data->string->size, PBUF_RAM);
   if (p != NULL) {
     memcpy(p->payload, cs->send_data->string->data, cs->send_data->string->size);
-    cyw43_arch_lwip_begin();
+    lwip_begin();
     err_t err = udp_sendto(cs->pcb, p, ip, port);
-    cyw43_arch_lwip_end();
+    lwip_end();
     pbuf_free(p);
 
     if (err == ERR_OK) {
@@ -115,17 +107,17 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       break;
     case NET_UDP_STATE_RECEIVED:
       cs->state = NET_UDP_STATE_NONE;
-      cyw43_arch_lwip_begin();
+      lwip_begin();
       udp_remove(cs->pcb);
-      cyw43_arch_lwip_end();
+      lwip_end();
       mrbc_free(cs->vm, cs);
       *pcs = NULL;
       return 0;
     case NET_UDP_STATE_ERROR:
       console_printf("Error occurred, cleaning up\n");
-      cyw43_arch_lwip_begin();
+      lwip_begin();
       udp_remove(cs->pcb);
-      cyw43_arch_lwip_end();
+      lwip_end();
       mrbc_free(cs->vm, cs);
       *pcs = NULL;
       return 0;
@@ -163,9 +155,9 @@ UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
       }
       if (cs != NULL) {
         console_printf("Connection state not NULL after polling, cleaning up\n");
-        cyw43_arch_lwip_begin();
+        lwip_begin();
         udp_remove(cs->pcb);
-        cyw43_arch_lwip_end();
+        lwip_end();
         mrbc_free(cs->vm, cs);
       }
       ret = recv_data;
