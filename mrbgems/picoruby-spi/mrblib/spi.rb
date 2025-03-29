@@ -14,11 +14,12 @@ class SPI
       sck_pin,
       cipo_pin,
       copi_pin,
+      cs_pin,
       mode,
       first_bit,
       DATA_BITS # Data bit size. No support other than 8
     )
-    if -1 < cs_pin
+    if -1 < cs_pin && !@unit.start_with?("ESP32")
       @cs = GPIO.new(cs_pin, GPIO::OUT)
       @cs.write(1)
     end
