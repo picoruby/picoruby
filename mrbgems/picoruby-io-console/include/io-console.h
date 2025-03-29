@@ -6,7 +6,9 @@ extern "C" {
 #endif
 
 int hal_getchar(void);
+#if defined(PICORB_VM_MRUBY)
 int hal_write(int fd, const void *buf, int nbytes);
+#endif
 
 bool io_raw_q(void);
 void io_raw_bang(bool nonblock);
