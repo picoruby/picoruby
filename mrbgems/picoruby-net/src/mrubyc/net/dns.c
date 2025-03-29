@@ -1,9 +1,5 @@
-#include "../../include/net.h"
-#include "lwipopts.h"
-#include "pico/cyw43_arch.h"
-#include "lwip/pbuf.h"
 
-#include "include/common.h"
+//#include "include/common.h"
 
 mrbc_value
 DNS_resolve(mrbc_vm *vm, const char *name, bool is_tcp)
