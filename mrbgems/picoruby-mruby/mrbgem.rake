@@ -18,11 +18,11 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
+  align = spec.cc.defines.include?("MRB_NAN_BOXING") ? 4 : 8
+
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
     alloc_dir = "#{dir}/lib/tinyalloc"
-    if spec.cc.defines.none?{ _1.start_with?("POOL_ALIGNMENT") }
-      spec.cc.defines << "POOL_ALIGNMENT=8"
-    end
+    spec.cc.defines << "TA_ALIGNMENT=#{align}"
   elsif spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
     alloc_dir = "#{dir}/lib/o1heap/o1heap"
     unless File.directory?(alloc_dir)
@@ -42,7 +42,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
       spec.cc.defines << "_DEBUG"
     end
   elsif spec.cc.defines.include?("PICORB_ALLOC_ESTALLOC")
-    spec.cc.defines << "ESTALLOC_ALIGNMENT=8"
+    spec.cc.defines << "ESTALLOC_ALIGNMENT=#{align}"
     if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
       spec.cc.defines << "ESTALLOC_DEBUG=1"
     end

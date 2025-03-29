@@ -229,7 +229,7 @@ mrb_state *
 mrb_open_with_custom_alloc(void* mem, size_t bytes)
 {
   void *limit = (void *)((size_t)mem + bytes -1);
-  ta_init(mem, limit, 3000, 16, POOL_ALIGNMENT);
+  ta_init(mem, limit, 3000, 16, TA_ALIGNMENT);
   return mrb_open_allocf(mrb_ta_allocf, NULL);
 }
 
