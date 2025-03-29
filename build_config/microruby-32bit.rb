@@ -6,9 +6,8 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
   #conf.cc.defines << "PICORB_ALLOC_TLSF"
-  #conf.cc.defines << "PICORB_ALLOC_TINYALLOC"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-  #conf.cc.defines << "PICORB_ALLOC_O1HEAP"
+  conf.cc.defines << "MRB_NAN_BOXING"
 
   conf.cc.flags << '-m32'
   conf.cc.flags << '-Wall'
