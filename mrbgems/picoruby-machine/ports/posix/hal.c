@@ -28,8 +28,14 @@
 /***** Local variables ******************************************************/
 static sigset_t sigset_, sigset2_;
 
+#if defined(PICORB_VM_MRUBY)
 static mrb_state *mrb_;
-
+#elif defined(PICORB_VM_MRUBYC)
+typedef void mrb_state;
+#define mrb_tick(mrb) mrbc_tick()
+#define hal_init(mrb) mrbc_init()
+#define MRB_TICK_UNIT MRBC_TICK_UNIT
+#endif
 
 /***** Global variables *****************************************************/
 /***** Signal catching functions ********************************************/
@@ -57,7 +63,9 @@ sig_alarm(int dummy)
 void
 hal_init(mrb_state *mrb)
 {
+#if defined(PICORB_VM_MRUBY)
   mrb_ = mrb;
+#endif
   sigemptyset(&sigset_);
   sigaddset(&sigset_, SIGALRM);
 
