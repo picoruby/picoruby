@@ -10,6 +10,10 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=1"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
+  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+#  conf.cc.defines << "MRB_NAN_BOXING"
+
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
   conf.linker.flags << "-static"
@@ -27,9 +31,6 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.cc.flags << "-Wno-maybe-uninitialized"
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
-
-  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
-  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
 
   conf.gem github: 'picoruby/mruby-compiler2'
   conf.gem core: "picoruby-mruby"
