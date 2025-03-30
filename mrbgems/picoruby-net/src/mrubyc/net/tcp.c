@@ -15,7 +15,6 @@ typedef struct tcp_connection_state_str
   struct altcp_pcb *pcb;
   mrbc_value *send_data;
   mrbc_value *recv_data;
-  mrbc_vm *vm;
   struct altcp_tls_config *tls_config;
 } tcp_connection_state;
 
@@ -48,7 +47,7 @@ TCPClient_close(tcp_connection_state *cs)
   }
   lwip_end();
   TCPClient_free_tls_config(cs);
-  mrbc_free(cs->vm, cs);
+  mrbc_raw_free(cs);
   return err;
 }
 
@@ -62,7 +61,7 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     return TCPClient_close(cs);
   }
   if (pbuf != NULL) {
-    char *tmpbuf = mrbc_alloc(cs->vm, pbuf->tot_len + 1);
+    char *tmpbuf = mrbc_raw_alloc(pbuf->tot_len + 1);
     struct pbuf *current_pbuf = pbuf;
     int offset = 0;
     while (current_pbuf != NULL) {
@@ -72,7 +71,7 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     }
     tmpbuf[pbuf->tot_len] = '\0';
     mrbc_string_append_cbuf(cs->recv_data, tmpbuf, pbuf->tot_len);
-    mrbc_free(cs->vm, tmpbuf);
+    mrbc_raw_free(tmpbuf);
     altcp_recved(pcb, pbuf->tot_len);
     cs->state = NET_TCP_STATE_PACKET_RECVED;
     pbuf_free(pbuf);
@@ -119,7 +118,7 @@ TCPClient_err_cb(void *arg, err_t err)
 }
 
 static tcp_connection_state *
-TCPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
+TCPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data)
 {
   tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
   cs->tls_config = NULL;
@@ -132,12 +131,11 @@ TCPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *
   altcp_arg(cs->pcb, cs);
   cs->send_data = send_data;
   cs->recv_data = recv_data;
-  cs->vm        = vm;
   return cs;
 }
 
 static tcp_connection_state *
-TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
+TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value *recv_data)
 {
   tcp_connection_state *cs = (tcp_connection_state *)mrbc_raw_alloc(sizeof(tcp_connection_state));
   cs->state = NET_TCP_STATE_NONE;
@@ -146,7 +144,7 @@ TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   if (!cs->pcb) {
     console_printf("altcp_tls_new failed\n");
-    mrbc_free(vm, cs);
+    mrbc_raw_free(cs);
     return NULL;
   }
   cs->tls_config = tls_config;
@@ -158,19 +156,18 @@ TCPClient_new_tls_connection(const char *host, mrbc_value *send_data, mrbc_value
   altcp_arg(cs->pcb, cs);
   cs->send_data = send_data;
   cs->recv_data = recv_data;
-  cs->vm        = vm;
   return cs;
 }
 
 static tcp_connection_state *
-TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm, bool is_tls)
+TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrbc_value *send_data, mrbc_value *recv_data, bool is_tls)
 {
   err_t err;
   tcp_connection_state *cs;
   if (is_tls) {
-    cs = TCPClient_new_tls_connection(host, send_data, recv_data, vm);
+    cs = TCPClient_new_tls_connection(host, send_data, recv_data);
   } else {
-    cs = TCPClient_new_connection(send_data, recv_data, vm);
+    cs = TCPClient_new_connection(send_data, recv_data);
   }
   if (cs) {
     lwip_begin();
@@ -231,7 +228,7 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
 }
 
 mrbc_value
-TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_tls)
+TCPClient_send(const char *host, int port, mrbc_value *send_data, bool is_tls)
 {
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
@@ -240,8 +237,8 @@ TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
   if(!ip4_addr_isloopback(&ip)) {
     char ip_str[16];
     ipaddr_ntoa_r(&ip, ip_str, 16);
-    mrbc_value recv_data = mrbc_string_new(vm, NULL, 0);
-    tcp_connection_state *cs = TCPClient_connect_impl(&ip, host, port, send_data, &recv_data, vm, is_tls);
+    mrbc_value recv_data = mrbc_string_new(NULL, NULL, 0);
+    tcp_connection_state *cs = TCPClient_connect_impl(&ip, host, port, send_data, &recv_data, is_tls);
     if (!cs) {
       ret = mrbc_nil_value();
     } else {
@@ -257,5 +254,3 @@ TCPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
   }
   return ret;
 }
-
-
