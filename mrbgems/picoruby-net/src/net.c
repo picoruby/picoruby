@@ -59,7 +59,6 @@ DNS_resolve(const char *name, char* ipaddr, bool is_tcp)
 #if defined(PICORB_VM_MRUBY)
 
 #include "mruby.h"
-#include "mruby/mbedtls_debug.c"
 #include "mruby/net/dns.c"
 #include "mruby/net/tcp.c"
 #include "mruby/net/udp.c"
@@ -68,7 +67,12 @@ DNS_resolve(const char *name, char* ipaddr, bool is_tcp)
 #elif defined(PICORB_VM_MRUBYC)
 
 #include "mrubyc.h"
-#include "mrubyc/mbedtls_debug.c"
+static void
+mbedtls_debug(void *ctx, int level, const char *file, int line, const char *str)
+{
+  ((void) level);
+  console_printf("%s:%04d: %s", file, line, str);
+}
 #include "mrubyc/net/dns.c"
 #include "mrubyc/net/tcp.c"
 #include "mrubyc/net/udp.c"
