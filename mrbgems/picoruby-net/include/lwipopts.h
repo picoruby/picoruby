@@ -21,17 +21,36 @@
 #define MEM_LIBC_MALLOC 0
 #endif
 
-#include "mrubyc.h"
+#if defined(PIRORB_VM_MRUBYC) && !defined(LWIP_PLATFORM_DIAG)
+# include "mrubyc.h"
+# define LWIP_PLATFORM_DIAG(x) do { console_printf x; } while(0)
+#endif
+
+#if defined(PIRORB_VM_MRUBY) && !defined(LWIP_PLATFORM_DIAG)
+# include "mruby.h"
+# define LWIP_PLATFORM_DIAG(x) do { mrb_p(mrb, x); } while(0)
+#endif
 
 // You can show stats by `stats_display();`
 #define LWIP_STATS_DISPLAY 1
-#define LWIP_PLATFORM_DIAG(x) do { console_printf x; } while(0)
+#if !defined(S16_F)
 #define S16_F "d"
+#endif
+#if !defined(U16_F)
 #define U16_F "u"
+#endif
+#if !defined(U32_F)
 #define U32_F "ul"
+#endif
+#if !defined(S32_F)
 #define S32_F "ld"
+#endif
+#if !defined(X16_F)
 #define X16_F "04x"
+#endif
+#if !defined(X32_F)
 #define X32_F "08x"
+#endif
 
 #define MEM_ALIGNMENT 4
 #define MEM_SIZE 4000

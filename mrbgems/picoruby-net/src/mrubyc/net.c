@@ -12,8 +12,14 @@ c_net_dns_resolve(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_value ret = DNS_resolve(vm, (const char *)GET_STRING_ARG(1), (GET_ARG(2).tt == MRBC_TT_TRUE));
-  SET_RETURN(ret);
+  char ipaddr[16] = {0};
+  DNS_resolve((const char *)GET_STRING_ARG(1), (GET_ARG(2).tt == MRBC_TT_TRUE), ipaddr);
+  if (ipaddr[0] != '\0') {
+    mrbc_value ret = mrbc_string_new_cstr(vm, ipaddr);
+    SET_RETURN(ret);
+  } else {
+    SET_NIL_RETURN();
+  }
 }
 
 static void
@@ -44,7 +50,7 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_value ret = TCPClient_send((const char *)GET_STRING_ARG(1), port.i, vm, &input, (is_tls.tt == MRBC_TT_TRUE));
+  mrbc_value ret = TCPClient_send((const char *)GET_STRING_ARG(1), port.i, &input, (is_tls.tt == MRBC_TT_TRUE));
   SET_RETURN(ret);
 }
 
@@ -76,7 +82,7 @@ c_net_udpclient__send_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_value ret = UDPClient_send((const char *)GET_STRING_ARG(1), port.i, vm, &data, (use_dtls.tt == MRBC_TT_TRUE));
+  mrbc_value ret = UDPClient_send((const char *)GET_STRING_ARG(1), port.i, &data, (use_dtls.tt == MRBC_TT_TRUE));
   SET_RETURN(ret);
 }
 

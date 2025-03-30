@@ -13,7 +13,6 @@ typedef struct udp_connection_state_str
   struct udp_pcb *pcb;
   mrbc_value *send_data;
   mrbc_value *recv_data;
-  mrbc_vm *vm;
   ip_addr_t remote_ip;
   u16_t remote_port;
 } udp_connection_state;
@@ -26,11 +25,11 @@ UDPClient_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_
   udp_connection_state *cs = (udp_connection_state *)arg;
 
   if (p != NULL) {
-    char *tmpbuf = mrbc_alloc(cs->vm, p->tot_len + 1);
+    char *tmpbuf = mrbc_raw_alloc(p->tot_len + 1);
     pbuf_copy_partial(p, tmpbuf, p->tot_len, 0);
     tmpbuf[p->tot_len] = '\0';
     mrbc_string_append_cbuf(cs->recv_data, tmpbuf, p->tot_len);
-    mrbc_free(cs->vm, tmpbuf);
+    mrbc_raw_free(tmpbuf);
     cs->state = NET_UDP_STATE_RECEIVED;
     pbuf_free(p);
   } else {
@@ -40,7 +39,7 @@ UDPClient_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_
 }
 
 static udp_connection_state *
-UDPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm)
+UDPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data)
 {
   udp_connection_state *cs = (udp_connection_state *)mrbc_raw_alloc(sizeof(udp_connection_state));
   cs->state = NET_UDP_STATE_NONE;
@@ -52,15 +51,14 @@ UDPClient_new_connection(mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *
   udp_recv(cs->pcb, UDPClient_recv_cb, cs);
   cs->send_data = send_data;
   cs->recv_data = recv_data;
-  cs->vm = vm;
   return cs;
 }
 
 static udp_connection_state *
-UDPClient_send_impl(ip_addr_t *ip, int port, mrbc_value *send_data, mrbc_value *recv_data, mrbc_vm *vm, bool is_dtls)
+UDPClient_send_impl(ip_addr_t *ip, int port, mrbc_value *send_data, mrbc_value *recv_data, bool is_dtls)
 {
   (void)is_dtls;
-  udp_connection_state *cs = UDPClient_new_connection(send_data, recv_data, vm);
+  udp_connection_state *cs = UDPClient_new_connection(send_data, recv_data);
   if (cs == NULL) {
     console_printf("Failed to create new connection\n");
     return NULL;
@@ -110,7 +108,7 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       lwip_begin();
       udp_remove(cs->pcb);
       lwip_end();
-      mrbc_free(cs->vm, cs);
+      mrbc_raw_free(cs);
       *pcs = NULL;
       return 0;
     case NET_UDP_STATE_ERROR:
@@ -118,7 +116,7 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       lwip_begin();
       udp_remove(cs->pcb);
       lwip_end();
-      mrbc_free(cs->vm, cs);
+      mrbc_raw_free(cs);
       *pcs = NULL;
       return 0;
   }
@@ -126,7 +124,7 @@ UDPClient_poll_impl(udp_connection_state **pcs)
 }
 
 mrbc_value
-UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, bool is_dtls)
+UDPClient_send(const char *host, int port, mrbc_value *send_data, bool is_dtls)
 {
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
@@ -135,8 +133,8 @@ UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
   Net_get_ip(host, &ip);
 
   if(!ip4_addr_isloopback(&ip)) {
-    mrbc_value recv_data = mrbc_string_new(vm, NULL, 0);
-    udp_connection_state *cs = UDPClient_send_impl(&ip, port, send_data, &recv_data, vm, is_dtls);
+    mrbc_value recv_data = mrbc_string_new(NULL, NULL, 0);
+    udp_connection_state *cs = UDPClient_send_impl(&ip, port, send_data, &recv_data, is_dtls);
 
     if (cs == NULL) {
       console_printf("Failed to create UDP connection\n");
@@ -158,7 +156,7 @@ UDPClient_send(const char *host, int port, mrbc_vm *vm, mrbc_value *send_data, b
         lwip_begin();
         udp_remove(cs->pcb);
         lwip_end();
-        mrbc_free(cs->vm, cs);
+        mrbc_raw_free(cs);
       }
       ret = recv_data;
     }
