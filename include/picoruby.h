@@ -33,6 +33,8 @@
   picoruby_init_require(vm); \
 } while(0)
 
+#define picorb_warn(fmt, ...)   console_printf(fmt, ##__VA_ARGS__)
+
 #define picorb_state    mrbc_vm
 #define picorb_value    mrbc_value
 #define picorb_bool     mrc_bool
@@ -117,11 +119,13 @@ bool picoruby_load_model_by_name(const char *gem);
   global_mrb = vm; \
 } while(0)
 
+#define picorb_warn(fmt, ...)   mrb_warn(mrb, fmt, ##__VA_ARGS__)
+
 #define picorb_bool     mrb_bool
 #define picorb_sym      mrc_sym
-#define picorb_alloc    malloc
-#define picorb_realloc  realloc
-#define picorb_free     free
+#define picorb_alloc()    mrb_malloc(mrb)
+#define picorb_realloc()  mrb_realloc(mrb)
+#define picorb_free()     mrb_free(mrb)
 
 #define picorb_gc_arena_save(vm)         mrb_gc_arena_save(vm)
 #define picorb_gc_arena_restore(vm,ai)   mrb_gc_arena_restore(vm,ai)
