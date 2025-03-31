@@ -50,14 +50,14 @@ picorb_utf8_from_locale(const char *str, int len)
   if (len == -1)
     len = (int)strlen(str);
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len,  NULL, 0);
-  wcsp = (wchar_t*) picorb_alloc((wcssize + 1) * sizeof(wchar_t));
+  wcsp = (wchar_t*) picorb_alloc(vm, (wcssize + 1) * sizeof(wchar_t));
   if (!wcsp)
     return NULL;
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len, wcsp, wcssize + 1);
   wcsp[wcssize] = 0;
 
   mbssize = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR) wcsp, -1, NULL, 0, NULL, NULL);
-  mbsp = (char*) picorb_alloc((mbssize + 1));
+  mbsp = (char*) picorb_alloc(vm, (mbssize + 1));
   if (!mbsp) {
     free(wcsp);
     return NULL;
@@ -67,10 +67,10 @@ picorb_utf8_from_locale(const char *str, int len)
   free(wcsp);
   return mbsp;
 }
-#define picorb_utf8_free(p) free(p)
+#define picorb_utf8_free(vm,p) picorb_free(vm,p)
 #else
 #define picorb_utf8_from_locale(p, l) ((char*)(p))
-#define picorb_utf8_free(p)
+#define picorb_utf8_free(vm,p)
 #endif
 
 struct _args {
@@ -216,16 +216,16 @@ options_arg(struct options *opts)
 }
 
 static char *
-dup_arg_item(const char *item)
+dup_arg_item(void *vm, const char *item)
 {
   size_t buflen = strlen(item) + 1;
-  char *buf = (char*)picorb_alloc(buflen);
+  char *buf = (char*)picorb_alloc(vm, buflen);
   memcpy(buf, item, buflen);
   return buf;
 }
 
 static int
-parse_args(int argc, char **argv, struct _args *args)
+parse_args(void *vm, int argc, char **argv, struct _args *args)
 {
   static const struct _args args_zero = { 0 };
   struct options opts[1];
@@ -246,7 +246,7 @@ parse_args(int argc, char **argv, struct _args *args)
     else if (strcmp(opt, "e") == 0) {
       if ((item = options_arg(opts))) {
         if (!args->cmdline) {
-          args->cmdline = dup_arg_item(item);
+          args->cmdline = dup_arg_item(vm, item);
         }
         else {
           size_t cmdlinelen;
@@ -254,7 +254,7 @@ parse_args(int argc, char **argv, struct _args *args)
 
           cmdlinelen = strlen(args->cmdline);
           itemlen = strlen(item);
-          args->cmdline = (char*)picorb_realloc(args->cmdline, cmdlinelen + itemlen + 2);
+          args->cmdline = (char*)picorb_realloc(vm, args->cmdline, cmdlinelen + itemlen + 2);
           args->cmdline[cmdlinelen] = '\n';
           memcpy(args->cmdline + cmdlinelen + 1, item, itemlen + 1);
         }
@@ -271,12 +271,12 @@ parse_args(int argc, char **argv, struct _args *args)
     else if (strcmp(opt, "r") == 0) {
       if ((item = options_arg(opts))) {
         if (args->libc == 0) {
-          args->libv = (char**)picorb_alloc(sizeof(char*));
+          args->libv = (char**)picorb_alloc(vm, sizeof(char*));
         }
         else {
-          args->libv = (char**)picorb_realloc(args->libv, sizeof(char*) * (args->libc + 1));
+          args->libv = (char**)picorb_realloc(vm, args->libv, sizeof(char*) * (args->libc + 1));
         }
-        args->libv[args->libc++] = dup_arg_item(item);
+        args->libv[args->libc++] = dup_arg_item(vm, item);
       }
       else {
         fprintf(stderr, "%s: No library specified for -r\n", opts->program);
@@ -321,7 +321,7 @@ parse_args(int argc, char **argv, struct _args *args)
       argc--; argv++;
     }
   }
-  args->argv = (char **)picorb_alloc(sizeof(char*) * (argc + 1));
+  args->argv = (char **)picorb_alloc(vm, sizeof(char*) * (argc + 1));
   memcpy(args->argv, argv, (argc+1) * sizeof(char*));
   args->argc = argc;
 
@@ -338,13 +338,13 @@ cleanup(mrb_state *vm, struct _args *args)
   (void)vm;
 #endif
   if (!args->fname)
-    picorb_free(args->cmdline);
-  picorb_free(args->argv);
+    picorb_free(vm, args->cmdline);
+  picorb_free(vm, args->argv);
   if (args->libc) {
     while (args->libc--) {
-      picorb_free(args->libv[args->libc]);
+      picorb_free(vm, args->libv[args->libc]);
     }
-    picorb_free(args->libv);
+    picorb_free(vm, args->libv);
   }
 }
 
@@ -413,7 +413,7 @@ mrbc_lib_run(mrbc_vm *vm, uint8_t *vm_code)
 static mrc_irep *
 picorb_load_rb_file_cxt(mrc_ccontext *cc, const char *fname, uint8_t **source)
 {
-  char *filenames[2];// = (char**)picorb_alloc(sizeof(char*) * 2);
+  char *filenames[2];// = (char**)picorb_alloc(vm, sizeof(char*) * 2);
   filenames[0] = (char *)fname;
   filenames[1] = NULL;
   mrc_irep *irep = mrc_load_file_cxt(cc, (const char **)filenames, source);
@@ -436,7 +436,7 @@ main(int argc, char **argv)
   picorb_value ARGV;
   mrc_irep *irep = NULL;
 
-  n = parse_args(argc, argv, &args);
+  n = parse_args(vm, argc, argv, &args);
   if (n == EXIT_FAILURE || (args.cmdline == NULL)) {
     cleanup(vm, &args);
     return n;
@@ -450,7 +450,7 @@ main(int argc, char **argv)
     if (utf8) {
       picorb_value str = picorb_string_new(vm, utf8, strlen(utf8));
       picorb_array_push(vm, ARGV, str);
-      picorb_utf8_free(utf8);
+      picorb_utf8_free(vm, utf8);
     }
   }
   picorb_define_const(vm, "ARGV", ARGV);
@@ -513,7 +513,7 @@ main(int argc, char **argv)
       fseek(fp, 0, SEEK_END);
       size_t size = ftell(fp);
       fseek(fp, 0, SEEK_SET);
-      vm_code = (uint8_t *)picorb_alloc(size);
+      vm_code = (uint8_t *)picorb_alloc(vm, size);
       if (fread(vm_code, 1, size, fp) != size) {
         fprintf(stderr, "cannot read file: %s\n", args.libv[i]);
         exit(EXIT_FAILURE);
@@ -547,7 +547,7 @@ main(int argc, char **argv)
     }
     if (source) {
       // TODO refactor
-      picorb_free(source);
+      picorb_free(vm, source);
       source = NULL;
     }
   }
@@ -581,7 +581,7 @@ main(int argc, char **argv)
   char *token = strtok((char *)cmdline, ",");
   int index = 0;
   while (token != NULL) {
-    fnames[index] = picorb_alloc(strlen(token) + 1);
+    fnames[index] = picorb_alloc(vm, strlen(token) + 1);
     if (fnames[index] == NULL) {
       fprintf(stderr, "Failed to allocate memory");
       exit(EXIT_FAILURE);
@@ -599,11 +599,11 @@ main(int argc, char **argv)
           exit(EXIT_FAILURE);
         }
         if (home) {
-          char *tmp = picorb_alloc(strlen(home) + strlen(fnames[index]) + 1);
+          char *tmp = picorb_alloc(vm, strlen(home) + strlen(fnames[index]) + 1);
           if (tmp) {
             strcpy(tmp, home);
             strcat(tmp, fnames[index] + 1);
-            picorb_free(fnames[index]);
+            picorb_free(vm, fnames[index]);
             fnames[index] = tmp;
           }
         }
@@ -634,7 +634,7 @@ main(int argc, char **argv)
       fseek(fp, 0, SEEK_END);
       vm_code_size = ftell(fp);
       fseek(fp, 0, SEEK_SET);
-      vm_code = (uint8_t *)picorb_alloc(vm_code_size);
+      vm_code = (uint8_t *)picorb_alloc(vm, vm_code_size);
       if (fread(vm_code, 1, vm_code_size, fp) != vm_code_size) {
         fprintf(stderr, "cannot read file: %s\n", fnames[i]);
         exit(EXIT_FAILURE);
@@ -643,7 +643,7 @@ main(int argc, char **argv)
     }
     else if (args.fname) {
       // TODO refactor
-      source = picorb_alloc(sizeof(uint8_t) * 2);
+      source = picorb_alloc(vm, sizeof(uint8_t) * 2);
       source[0] = 0x0;
       source[1] = 0x0;
       irep = picorb_load_rb_file_cxt(cc, fnames[i], &source);
@@ -656,7 +656,7 @@ main(int argc, char **argv)
       char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
       if (!utf8) abort();
       irep = mrc_load_string_cxt(cc, (const uint8_t **)&utf8, strlen(utf8));
-      picorb_utf8_free(utf8);
+      picorb_utf8_free(vm, utf8);
     }
 
     mrc_assert((vm_code && !irep) || (!vm_code && irep));
@@ -727,15 +727,15 @@ main(int argc, char **argv)
   mrc_ccontext_free(cc);
 
   for (int i = 0; i < taskc; i++)
-    picorb_free(fnames[i]);
+    picorb_free(vm, fnames[i]);
 #if defined(PICORB_VM_MRUBY)
   for (int i = 0; i < tcb_list_size; i++)
     mrb_tcb_free(vm, tcb_list[i]);
 #elif defined(PICORB_VM_MRUBYC)
   for (int i = 0; i < lib_mrb_list_size; i++)
-    picorb_free(lib_mrb_list[i]);
+    picorb_free(vm, lib_mrb_list[i]);
   for (int i = 0; i < tasks_mrb_list_size; i++)
-    picorb_free(task_mrb_list[i]);
+    picorb_free(vm, task_mrb_list[i]);
   for (int i = 0; i < tcb_list_size; i++)
     mrbc_vm_close(&tcb_list[i]->vm);
 #endif

@@ -3,7 +3,11 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.authors = ['Ryo Kajiwara', 'HASUMI Hitoshi']
   spec.summary = 'Network functionality for PicoRuby'
 
-  spec.add_dependency 'picoruby-time-class'
+  if build.vm_mrubyc?
+    spec.add_dependency 'picoruby-time-class'
+  elsif build.vm_mruby?
+    spec.add_dependency 'mruby-time'
+  end
   spec.add_dependency 'picoruby-pack'
   spec.add_dependency 'picoruby-mbedtls'
 
@@ -21,19 +25,13 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
 
   Dir.glob("#{lwip_dir}/src/**/*.c").each do |src|
     next if src.end_with?('makefsdata.c')
-    obj = src.relative_path_from("#{lwip_dir}/src").pathmap("#{build_dir}/lwip/%X.o")
+    obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
     spec.objs << obj
-    task obj => src do |t|
-      cc.run t.name, t.prerequisites.first
-    end
   end
 
   if build.posix?
     src = "#{lwip_dir}/contrib/ports/unix/port/sys_arch.c"
-    obj = src.relative_path_from("#{lwip_dir}/src").pathmap("#{build_dir}/lwip/%X.o")
-    task obj => src do |t|
-      cc.run t.name, t.prerequisites.first
-    end
+    obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
     spec.objs << obj
   end
 
