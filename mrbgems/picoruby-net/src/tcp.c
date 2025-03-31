@@ -10,6 +10,14 @@
 #define NET_TCP_STATE_ERROR              99
 #define NET_TCP_STATE_TIMEOUT            100
 
+#if defined(PICORB_VM_MRUBY)
+# define CS_MRB_WARN CS_MRB
+# define CS_MRB mrb_state *mrb = cs->mrb
+#else
+# define CS_MRB_WARN
+# define CS_MRB mrbc_vm *mrb = cs->mrb
+#endif
+
 /* TCP connection struct */
 typedef struct tcp_connection_state_str
 {
@@ -19,6 +27,7 @@ typedef struct tcp_connection_state_str
   size_t send_data_len;
   recv_data_t *recv_data;
   struct altcp_tls_config *tls_config;
+  mrb_state *mrb;
 } tcp_connection_state;
 
 /* end of platform-dependent definitions */
@@ -26,6 +35,7 @@ typedef struct tcp_connection_state_str
 static err_t
 TCPClient_close(tcp_connection_state *cs)
 {
+  CS_MRB;
   err_t err = ERR_OK;
   if (!cs || !cs->pcb) return ERR_ARG;
   lwip_begin();
@@ -44,7 +54,7 @@ TCPClient_close(tcp_connection_state *cs)
   if (cs->tls_config) {
     altcp_tls_free_config(cs->tls_config);
   }
-  picorb_free(cs);
+  picorb_free(mrb, cs);
   return err;
 }
 
@@ -52,6 +62,7 @@ static err_t
 TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
+  CS_MRB;
   if (err != ERR_OK) {
     picorb_warn("TCPClient_recv_cb: err=%d\n", err);
     cs->state = NET_TCP_STATE_ERROR;
@@ -60,9 +71,9 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   if (pbuf != NULL) {
     recv_data_t *recv_data = cs->recv_data;
     if (recv_data->data == NULL) {
-      recv_data->data = (char *)picorb_alloc(pbuf->tot_len + 1);
+      recv_data->data = (char *)picorb_alloc(mrb, pbuf->tot_len + 1);
     } else {
-      recv_data->data = (char *)picorb_realloc(recv_data->data, pbuf->tot_len + 1);
+      recv_data->data = (char *)picorb_realloc(mrb, recv_data->data, pbuf->tot_len + 1);
     }
     struct pbuf *current_pbuf = pbuf;
     size_t offset = recv_data->len;
@@ -92,11 +103,13 @@ TCPClient_sent_cb(void *arg, struct altcp_pcb *pcb, u16_t len)
 static err_t
 TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
+  tcp_connection_state *cs = (tcp_connection_state *)arg;
   if (err != ERR_OK) {
+#
+    CS_MRB_WARN;
     picorb_warn("TCPClient_connected_cb: err=%d\n", err);
     return TCPClient_close((tcp_connection_state *)arg);
   }
-  tcp_connection_state *cs = (tcp_connection_state *)arg;
   cs->state = NET_TCP_STATE_CONNECTED;
   return ERR_OK;
 }
@@ -104,8 +117,9 @@ TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 static err_t
 TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
-  picorb_warn("TCPClient_poll_cb (timeout)\n");
   tcp_connection_state *cs = (tcp_connection_state *)arg;
+  CS_MRB_WARN;
+  picorb_warn("TCPClient_poll_cb (timeout)\n");
   cs->state = NET_TCP_STATE_TIMEOUT;
   return TCPClient_close(cs);
 }
@@ -114,20 +128,22 @@ static void
 TCPClient_err_cb(void *arg, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
+  CS_MRB_WARN;
   picorb_warn("Error with: %d\n", err);
   cs->state = NET_TCP_STATE_ERROR;
 }
 
 static tcp_connection_state *
-TCPClient_new_connection(const char *host, bool is_tls, const char *send_data, size_t send_data_len, recv_data_t *recv_data)
+TCPClient_new_connection(void *mrb, const char *host, bool is_tls, const char *send_data, size_t send_data_len, recv_data_t *recv_data)
 {
-  tcp_connection_state *cs = (tcp_connection_state *)picorb_alloc(sizeof(tcp_connection_state));
+  tcp_connection_state *cs = (tcp_connection_state *)picorb_alloc(mrb, sizeof(tcp_connection_state));
+    cs->mrb = mrb;
 
   if (is_tls) {
     struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
     cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
     if (!cs->pcb) {
-      picorb_free(cs);
+      picorb_free(mrb, cs);
       return NULL;
     }
     cs->tls_config = tls_config;
@@ -170,9 +186,9 @@ static int
 TCPClient_poll_impl(tcp_connection_state **pcs)
 {
   err_t err;
-  if (*pcs == NULL)
-    return 0;
+  if (*pcs == NULL) return 0;
   tcp_connection_state *cs = *pcs;
+  CS_MRB_WARN;
   switch(cs->state)
   {
     case NET_TCP_STATE_NONE:
@@ -210,7 +226,7 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
 }
 
 void
-TCPClient_send(const char *host, int port, const char *send_data, size_t send_data_len, bool is_tls, recv_data_t *recv_data)
+TCPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_tls, recv_data_t *recv_data)
 {
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
@@ -218,7 +234,8 @@ TCPClient_send(const char *host, int port, const char *send_data, size_t send_da
   if(!ip4_addr_isloopback(&ip)) {
     char ip_str[16];
     ipaddr_ntoa_r(&ip, ip_str, 16);
-    tcp_connection_state *cs = TCPClient_new_connection(host, is_tls, send_data, send_data_len, recv_data);
+    tcp_connection_state *cs = TCPClient_new_connection(mrb, host, is_tls, send_data, send_data_len, recv_data);
+    CS_MRB_WARN;
     if (cs == NULL) {
       picorb_warn("TCPClient_new_connection failed\n");
       return;

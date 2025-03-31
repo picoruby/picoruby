@@ -39,22 +39,22 @@
 #define picorb_value    mrbc_value
 #define picorb_bool     mrc_bool
 #define picorb_sym      mrbc_sym
-#define picorb_alloc    mrbc_raw_alloc
+#define picorb_alloc    mrbc_alloc
 static inline void*
-picorb_realloc(void *ptr, unsigned int size)
+picorb_realloc(mrbc_vm *vm, void *ptr, unsigned int size)
 {
   /* mrbc_raw_realloc() fails when ptr=NULL but it should be allowed in C99 */
   if (ptr == NULL) {
-    return mrbc_raw_alloc(size);
+    return mrbc_alloc(vm, size);
   } else {
     return mrbc_raw_realloc(ptr, size);
   }
 }
-static inline void picorb_free(void *ptr)
+static inline void picorb_free(mrbc_vm *vm, void *ptr)
 {
   /* mrbc_raw_free() warns when ptr=NULL but it should be allowed in C99 */
   if (ptr == NULL) return;
-  mrbc_raw_free(ptr);
+  mrbc_free(vm, ptr);
 }
 #define picorb_gc_arena_save(vm)       0;(void)ai
 #define picorb_gc_arena_restore(vm,ai)
@@ -123,9 +123,9 @@ bool picoruby_load_model_by_name(const char *gem);
 
 #define picorb_bool     mrb_bool
 #define picorb_sym      mrc_sym
-#define picorb_alloc()    mrb_malloc(mrb)
-#define picorb_realloc()  mrb_realloc(mrb)
-#define picorb_free()     mrb_free(mrb)
+#define picorb_alloc(mrb,size)        mrb_malloc(mrb,size)
+#define picorb_realloc(mrb,ptr,size)  mrb_realloc(mrb,ptr,size)
+#define picorb_free(mrb,ptr)          mrb_free(mrb,ptr)
 
 #define picorb_gc_arena_save(vm)         mrb_gc_arena_save(vm)
 #define picorb_gc_arena_restore(vm,ai)   mrb_gc_arena_restore(vm,ai)

@@ -62,7 +62,7 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
   recv_data_t *recv_data = (recv_data_t *)mrbc_alloc(vm, sizeof(recv_data_t));
   recv_data->data = NULL;
   recv_data->len = 0;
-  TCPClient_send((const char *)GET_STRING_ARG(1), port.i, send_data, send_data_len, (is_tls.tt == MRBC_TT_TRUE), recv_data);
+  TCPClient_send(vm, (const char *)GET_STRING_ARG(1), port.i, send_data, send_data_len, (is_tls.tt == MRBC_TT_TRUE), recv_data);
   if (recv_data->data == NULL) {
     SET_NIL_RETURN();
   } else {
@@ -104,7 +104,7 @@ c_net_udpclient__send_impl(mrbc_vm *vm, mrbc_value *v, int argc)
   recv_data_t *recv_data = (recv_data_t *)mrbc_alloc(vm, sizeof(recv_data_t));
   recv_data->data = NULL;
   recv_data->len = 0;
-  UDPClient_send((const char *)GET_STRING_ARG(1), port.i, data, data_len, (use_dtls.tt == MRBC_TT_TRUE), recv_data);
+  UDPClient_send(vm, (const char *)GET_STRING_ARG(1), port.i, data, data_len, (use_dtls.tt == MRBC_TT_TRUE), recv_data);
   if (recv_data->data == NULL) {
     SET_NIL_RETURN();
   } else {
