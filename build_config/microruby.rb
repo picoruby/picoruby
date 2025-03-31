@@ -34,5 +34,7 @@ MRuby::Build.new do |conf|
 
   conf.gem core: "picoruby-bin-r2p2"
 
+  conf.gem core: "picoruby-net"
+
   conf.microruby
 end

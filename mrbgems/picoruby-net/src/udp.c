@@ -7,6 +7,14 @@
 #define NET_UDP_STATE_RECEIVED      3
 #define NET_UDP_STATE_ERROR         99
 
+#if defined(PICORB_VM_MRUBY)
+# define CS_MRB_WARN CS_MRB
+# define CS_MRB mrb_state *mrb = cs->mrb
+#else
+# define CS_MRB_WARN
+# define CS_MRB mrbc_vm *mrb = cs->mrb
+#endif
+
 /* UDP connection struct */
 typedef struct udp_connection_state_str
 {
@@ -17,6 +25,7 @@ typedef struct udp_connection_state_str
   recv_data_t *recv_data;
   ip_addr_t remote_ip;
   u16_t remote_port;
+  mrb_state *mrb;
 } udp_connection_state;
 
 /* end of platform-dependent definitions */
@@ -25,13 +34,14 @@ static void
 UDPClient_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_addr_t *addr, u16_t port)
 {
   udp_connection_state *cs = (udp_connection_state *)arg;
+  CS_MRB;
 
   if (pbuf != NULL) {
     recv_data_t *recv_data = cs->recv_data;
     if (recv_data->data == NULL) {
-      recv_data->data = (char *)picorb_alloc(pbuf->tot_len + 1);
+      recv_data->data = (char *)picorb_alloc(mrb, pbuf->tot_len + 1);
     } else {
-      recv_data->data = (char *)picorb_realloc(recv_data->data, pbuf->tot_len + 1);
+      recv_data->data = (char *)picorb_realloc(mrb, recv_data->data, pbuf->tot_len + 1);
     }
     size_t offset = recv_data->len;
 
@@ -47,9 +57,10 @@ UDPClient_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf, const ip_ad
 }
 
 static udp_connection_state *
-UDPClient_new_connection(const char *send_data, size_t send_data_len, recv_data_t *recv_data)
+UDPClient_new_connection(void *mrb, const char *send_data, size_t send_data_len, recv_data_t *recv_data)
 {
-  udp_connection_state *cs = (udp_connection_state *)picorb_alloc(sizeof(udp_connection_state));
+  udp_connection_state *cs = (udp_connection_state *)picorb_alloc(mrb, sizeof(udp_connection_state));
+  cs->mrb = mrb;
   cs->state = NET_UDP_STATE_NONE;
   cs->pcb = udp_new();
   if (cs->pcb == NULL) {
@@ -67,6 +78,7 @@ static err_t
 UDPClient_send_impl(udp_connection_state *cs, ip_addr_t *ip, int port, bool is_dtls)
 {
   (void)is_dtls;
+  CS_MRB_WARN;
   cs->remote_ip = *ip;
   cs->remote_port = port;
 
@@ -102,6 +114,7 @@ UDPClient_poll_impl(udp_connection_state **pcs)
   }
 
   udp_connection_state *cs = *pcs;
+  CS_MRB;
 
   switch(cs->state)
   {
@@ -113,7 +126,7 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       lwip_begin();
       udp_remove(cs->pcb);
       lwip_end();
-      picorb_free(cs);
+      picorb_free(mrb, cs);
       *pcs = NULL;
       return 0;
     case NET_UDP_STATE_ERROR:
@@ -121,7 +134,7 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       lwip_begin();
       udp_remove(cs->pcb);
       lwip_end();
-      picorb_free(cs);
+      picorb_free(mrb, cs);
       *pcs = NULL;
       return 0;
   }
@@ -129,14 +142,14 @@ UDPClient_poll_impl(udp_connection_state **pcs)
 }
 
 void
-UDPClient_send(const char *host, int port, const char *send_data, size_t send_data_len, bool is_dtls, recv_data_t *recv_data)
+UDPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_dtls, recv_data_t *recv_data)
 {
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
   Net_get_ip(host, &ip);
 
   if(!ip4_addr_isloopback(&ip)) {
-    udp_connection_state *cs = UDPClient_new_connection(send_data, send_data_len, recv_data);
+    udp_connection_state *cs = UDPClient_new_connection(mrb, send_data, send_data_len, recv_data);
     if (cs == NULL) {
       picorb_warn("Failed to create UDP connection\n");
       return;
@@ -160,7 +173,7 @@ UDPClient_send(const char *host, int port, const char *send_data, size_t send_da
         lwip_begin();
         udp_remove(cs->pcb);
         lwip_end();
-        picorb_free(cs);
+        picorb_free(mrb, cs);
       }
       return;
     }
