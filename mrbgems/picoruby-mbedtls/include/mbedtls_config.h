@@ -61,10 +61,15 @@
 #define MBEDTLS_SHA512_C
 
 /* custom allocator */
-#include "alloc.h"
 #define MBEDTLS_PLATFORM_MEMORY
-#define MBEDTLS_PLATFORM_CALLOC_MACRO   mrbc_raw_calloc
-#define MBEDTLS_PLATFORM_FREE_MACRO     mrbc_raw_free
+#if defined(PICORB_VM_MRUBY)
+# define MBEDTLS_PLATFORM_CALLOC_MACRO   calloc
+# define MBEDTLS_PLATFORM_FREE_MACRO     free
+#elif defined(PICORB_VM_MRUBYC)
+# include "alloc.h"
+# define MBEDTLS_PLATFORM_CALLOC_MACRO   mrbc_raw_calloc
+# define MBEDTLS_PLATFORM_FREE_MACRO     mrbc_raw_free
+#endif
 
 /* PKey */
 #define MBEDTLS_PK_C
