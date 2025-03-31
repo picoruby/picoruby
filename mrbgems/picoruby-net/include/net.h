@@ -32,8 +32,8 @@ void lwip_begin(void);
 void lwip_end(void);
 
 err_t Net_get_ip(const char *name, ip_addr_t *ip);
-void TCPClient_send(const char *host, int port, const char *send_data, size_t send_data_len, bool is_tls, recv_data_t *recv_data);
-void UDPClient_send(const char *host, int port, const char *send_data, size_t send_data_len, bool is_dtls, recv_data_t *recv_data);
+void TCPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_tls, recv_data_t *recv_data);
+void UDPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_dtls, recv_data_t *recv_data);
 
 #ifdef __cplusplus
 }
