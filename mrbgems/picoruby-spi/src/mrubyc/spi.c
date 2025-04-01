@@ -98,9 +98,10 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     .sck_pin   = (int8_t) GET_INT_ARG(3),
     .cipo_pin  = (int8_t) GET_INT_ARG(4),
     .copi_pin  = (int8_t) GET_INT_ARG(5),
-    .mode      = (uint8_t)GET_INT_ARG(6),
-    .first_bit = (uint8_t)GET_INT_ARG(7),
-    .data_bits = (uint8_t)GET_INT_ARG(8)
+    .cs_pin    = (int8_t) GET_INT_ARG(6),
+    .mode      = (uint8_t)GET_INT_ARG(7),
+    .first_bit = (uint8_t)GET_INT_ARG(8),
+    .data_bits = (uint8_t)GET_INT_ARG(9)
   };
   mrbc_value value = mrbc_string_new(vm, (const char *)&unit_info, sizeof(spi_unit_info_t));
   unit_info_symid = mrbc_str_to_symid("_unit_info");
