@@ -28,7 +28,7 @@ class SPI
     ?mode: spi_mode_t,
     ?first_bit: spi_first_bit_t
   ) -> instance
-  private def _init: (String unit, Integer frequency, Integer sck_pin, Integer cipo_pin, Integer copo_pin, Integer mode, Integer first_bit, Integer data_bits) -> Integer
+  private def _init: (String unit, Integer frequency, Integer sck_pin, Integer cipo_pin, Integer copo_pin, Integer cs_pin, Integer mode, Integer first_bit, Integer data_bits) -> Integer
   def select: () ?{ (SPI) -> untyped } -> untyped
   def deselect: () -> void
   def write: (*(Integer|String)|Array[Integer] outputs) -> Integer
