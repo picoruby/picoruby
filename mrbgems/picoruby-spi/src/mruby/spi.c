@@ -110,8 +110,8 @@ mrb__init(mrb_state *mrb, mrb_value self)
 {
   int unit_num = PICORUBY_SPI_BITBANG;
   const char *unit_name;
-  mrb_int frequency, sck_pin, cipo_pin, copi_pin, mode, first_bit, data_bits;
-  mrb_get_args(mrb, "siiiiiii", &unit_name, &frequency, &sck_pin, &cipo_pin, &copi_pin, &mode, &first_bit, &data_bits);
+  mrb_int frequency, sck_pin, cipo_pin, copi_pin, cs_pin, mode, first_bit, data_bits;
+  mrb_get_args(mrb, "siiiiiiii", &unit_name, &frequency, &sck_pin, &cipo_pin, &copi_pin, &cs_pin, &mode, &first_bit, &data_bits);
   if (strcmp(unit_name, "BITBANG") != 0) {
     unit_num = SPI_unit_name_to_unit_num(unit_name);
   }
@@ -125,6 +125,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
   unit_info->sck_pin   = (int8_t) sck_pin;
   unit_info->cipo_pin  = (int8_t) cipo_pin;
   unit_info->copi_pin  = (int8_t) copi_pin;
+  unit_info->cs_pin    = (int8_t) cs_pin;
   unit_info->mode      = (uint8_t)mode;
   unit_info->first_bit = (uint8_t)first_bit;
   unit_info->data_bits = (uint8_t)data_bits;
@@ -154,7 +155,7 @@ mrb_picoruby_spi_gem_init(mrb_state* mrb)
 
   MRB_SET_INSTANCE_TT(class_SPI, MRB_TT_CDATA);
 
-  mrb_define_method_id(mrb, class_SPI, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(8));
+  mrb_define_method_id(mrb, class_SPI, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(9));
   mrb_define_method_id(mrb, class_SPI, MRB_SYM(_write), mrb__write, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_SPI, MRB_SYM(_read), mrb__read, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_SPI, MRB_SYM(_transfer), mrb__transfer, MRB_ARGS_REQ(1));
