@@ -19,7 +19,7 @@ static mrb_value
 mrb_mbedtls_cipher_initialize(mrb_state *mrb, mrb_value self)
 {
   const char *cipher_name;
-  mrb_get_args(mrb, "s", &cipher_name);
+  mrb_get_args(mrb, "z", &cipher_name);
 
   mbedtls_cipher_type_t cipher_type;
   uint8_t key_len, iv_len;
