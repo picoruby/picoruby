@@ -10,7 +10,9 @@ extern "C" {
  * Fully exhausts Raspberry Pi Pico ROM because it's 2 MiB.
  * (Other RP2040 board may have a bigger ROM)
  */
+#if !defined(FLASH_TARGET_OFFSET)
 #define FLASH_TARGET_OFFSET  0x00140000  /* 1280 KiB for program code */
+#endif
 #define FLASH_MMAP_ADDR      (XIP_BASE + FLASH_TARGET_OFFSET)
 //#define FLASH_SECTOR_SIZE  4096  /* Already defined in hardware/flash.h */
 #define FLASH_SECTOR_COUNT  192 /* Seems FatFS allows 192 as the minimum */
