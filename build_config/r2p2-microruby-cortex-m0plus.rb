@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2-microruby-cortex-m0plus") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -10,9 +10,11 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m0plus") do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=1"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
+  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+  conf.cc.defines << "MRB_32BIT"
+
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-#  conf.cc.defines << "MRB_NAN_BOXING"
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
