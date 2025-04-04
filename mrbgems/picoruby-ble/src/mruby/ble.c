@@ -1,0 +1,136 @@
+#include "mruby.h"
+#include "mruby/presym.h"
+#include "mruby/string.h"
+#include "mruby/hash.h"
+
+static mrb_state *_mrb = NULL;
+static mrb_value _singleton;
+
+/*
+ * Workaround: To avoid deadlock
+ */
+static bool mutex_locked = false;
+
+void
+BLE_push_event(uint8_t *packet, uint16_t size)
+{
+  if (mutex_locked) return;
+  mutex_locked = true;
+  mrb_value str = mrb_str_new(_mrb, (const void *)packet, size);
+  mrb_funcall_id(_mrb, _singleton, MRB_SYM(packet_callback), 1, &str);
+  mutex_locked = false;
+}
+
+void
+BLE_heartbeat(void)
+{
+  if (mutex_locked) return;
+  mrb_funcall_id(_mrb, _singleton, MRB_SYM(heatbeat_callback), 0);
+}
+
+int
+BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
+{
+  if (att_handle == 0 || size == 0 || _mrb == NULL) {
+    return -1;
+  }
+  mrb_value write_values_hash = mrb_iv_get(_mrb, _singleton, MRB_IVSYM(_write_values));
+  if (mrb_hash_p(write_values_hash) == false) {
+    return -1;
+  }
+  mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
+  mrb_hash_set(_mrb, write_values_hash, mrb_fixnum_value(att_handle), write_value);
+  return 0;
+}
+
+int
+BLE_read_data(BLE_read_value_t *read_value)
+{
+  if (_mrb == NULL) return -1;
+  mrb_value read_values_hash = mrb_iv_get(_mrb, _singleton, MRB_IVSYM(_read_values));
+  if (mrb_hash_p(read_values_hash) == false) return -1;
+  mrb_value value = mrb_hash_get(_mrb, read_values_hash, mrb_fixnum_value(read_value->att_handle));
+  if (mrb_string_p(value) == false) return -1;
+  read_value->data = (uint8_t *)RSTRING_PTR(value);
+  read_value->size = (uint16_t)RSTRING_LEN(value);
+  return 0;
+}
+
+
+static mrb_value
+mrb__init(mrb_state *mrb, mrb_value self)
+{
+  _mrb = mrb;
+  _singleton = self;
+  mrb_value profile;
+  const uint8_t *profile_data;
+  mrb_get_args(mrb, "o", &profile);
+
+  if (mrb_string_p(profile)) {
+    /* Protect profile_data from GC */
+    //mrbc_incref(&v[1]);
+    profile_data = (const uint8_t *)RSTRING_PTR(profile);
+  } else if (mrb_nil_p(profile)) {
+    profile_data = NULL;
+  } else {
+    mrb_raise(mrb, E_TYPE_ERROR, "BLE._init: wrong argument type");
+  }
+  int ble_role;
+  mrb_value role = mrb_iv_get(mrb, self, MRB_IVSYM(role));
+  switch (mrb_symbol(role)) {
+    case MRB_SYM(central):
+      ble_role = BLE_ROLE_CENTRAL;
+      break;
+    case MRB_SYM(peripheral):
+      ble_role = BLE_ROLE_PERIPHERAL;
+      break;
+    case MRB_SYM(observer):
+      ble_role = BLE_ROLE_OBSERVER;
+      break;
+    case MRB_SYM(broadcaster):
+      ble_role = BLE_ROLE_BROADCASTER;
+      break;
+    default:
+      mrb_raise(mrb, E_TYPE_ERROR, "BLE._init: wrong role type");
+  }
+  if (BLE_init(profile_data, ble_role) < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "BLE init failed");
+  }
+  return self;
+}
+
+static mrb_value
+mrb_hci_power_control(mrb_state *mrb, mrb_value self)
+{
+  mrb_int power_mode;
+  mrb_get_args(mrb, "i", &power_mode);
+  BLE_hci_power_control((uint8_t)power_mode);
+  return mrb_fixnum_value(0);
+}
+
+static mrb_value
+mrb_gap_local_bd_addr(mrb_state *mrb, mrb_value self)
+{
+  uint8_t addr[6];
+  BLE_gap_local_bd_addr(addr);
+  return mrb_str_new(mrb, (const char *)addr, 6);
+}
+
+void
+mrb_picoruby_ble_gem_init(mrb_state* mrb)
+{
+  struct RClass *class_BLE = mrb_define_class_id(mrb, MRB_SYM(BLE), mrb->object_class);
+
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(hci_power_control), mrb_hci_power_control, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(gap_local_bd_addr), mrb_gap_local_bd_addr, MRB_ARGS_NONE());
+
+  mrb_init_class_BLE_Peripheral(mrb, class_BLE);
+  mrb_init_class_BLE_Broadcaster(mrb, class_BLE);
+  mrb_init_class_BLE_Central(mrb, class_BLE);
+}
+
+void
+mrb_picoruby_ble_gem_final(mrb_state* mrb)
+{
+}

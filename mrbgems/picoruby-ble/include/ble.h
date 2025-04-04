@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <mrubyc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,11 +16,17 @@ enum BLE_role_t {
   BLE_ROLE_OBSERVER
 };
 
-extern mrbc_value singleton;
-
+#if defined(PICORB_VM_MRUBY)
+#include "mruby.h"
+void mrb_init_class_BLE_Peripheral(mrb_state *mrb, struct RClass *class_BLE);
+void mrb_init_class_BLE_Broadcaster(mrb_state *mrb, struct RClass *class_BLE);
+void mrb_init_class_BLE_Central(mrb_state *mrb, struct RClass *class_BLE);
+#elif defined(PICORB_VM_MRUBYC)
+#include "mrubyc.h"
 void mrbc_init_class_BLE_Peripheral(mrbc_vm *vm, mrbc_class *class_BLE);
 void mrbc_init_class_BLE_Broadcaster(mrbc_vm *vm, mrbc_class *class_BLE);
 void mrbc_init_class_BLE_Central(mrbc_vm *vm, mrbc_class *class_BLE);
+#endif
 
 typedef struct {
   uint16_t att_handle;
