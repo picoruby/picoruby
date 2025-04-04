@@ -84,7 +84,7 @@ class BLE
   def ensure: () { () -> void }-> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
-  def hci_power_control: (Integer) -> 0
+  def hci_power_control: (Integer power_mode) -> 0
   def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
   def packet_callback: (String) -> void
   def heartbeat_callback: () -> void
@@ -92,7 +92,7 @@ class BLE
   def gap_local_bd_addr: () -> String
   def get_write_value: (Integer handle) -> (String|nil)
   def set_read_value: (Integer handle, String value) -> void
-  def gap_connect: (String, Integer) -> Integer
+  def gap_connect: (String addr, Integer addr_time) -> Integer
 
   class Utils
     def self.bd_addr_to_str: (String) -> String
@@ -149,17 +149,17 @@ class BLE
     def flag_by_uuid: (uuid_t, Integer) -> String
   end
 
-  def advertise: (String) -> 0
+  def advertise: (String | nil) -> 0
 
   # class Peripheral < BLE
-    def peripheral_advertise: (String) -> 0
-    def notify: (Integer) -> void
+    def peripheral_advertise: (String | nil) -> 0
+    def notify: (Integer) -> 0
 
-    def request_can_send_now_event: () -> void
+    def request_can_send_now_event: () -> 0
   # end
 
   # class Broadcaster < BLE
-    def broadcaster_advertise: (String) -> 0
+    def broadcaster_advertise: (String | nil) -> 0
   # end
 
   # class Observer < BLE::Central
@@ -237,10 +237,10 @@ class BLE
     def stop_scan: () -> 0
     def connect: (BLE::AdvertisingReport) -> bool
     def get_packet: () -> String
-    def discover_primary_services: (Integer) -> Integer
-    def read_value_of_characteristic_using_value_handle: (Integer, Integer) -> Integer
-    def discover_characteristic_descriptors: (Integer, Integer, Integer) -> Integer
-    def discover_characteristics_for_service: (Integer, Integer, Integer) -> Integer
+    def discover_primary_services: (Integer conn_handle) -> Integer
+    def read_value_of_characteristic_using_value_handle: (Integer conn_handle, Integer value_handle) -> Integer
+    def discover_characteristic_descriptors: (Integer conn_handle, Integer value_handle, Integer end_handle) -> Integer
+    def discover_characteristics_for_service: (Integer conn_handle, Integer start_handle, Integer end_handle) -> Integer
   # end
 
   class AdvertisingData

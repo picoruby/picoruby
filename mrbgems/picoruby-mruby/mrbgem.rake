@@ -15,6 +15,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   spec.add_conflict 'picoruby-mrubyc'
 
+  build.cc.include_paths << "#{dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
