@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
+MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -10,9 +10,11 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=1"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
-  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-#  conf.cc.defines << "MRB_NAN_BOXING"
+  conf.cc.defines << "ESTALLOC_DEBUG"
+  conf.cc.defines << "MRB_32BIT"
+  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "FLASH_TARGET_OFFSET=0x00340000" # for 4MB flash
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
@@ -23,9 +25,6 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
 
   conf.cc.flags.flatten!
   conf.cc.flags << "-mcpu=cortex-m33"
-#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
-#  conf.cc.flags << "-mabi=aapcs-linux"
-#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
 
   conf.cc.flags << "-fno-strict-aliasing"
@@ -65,7 +64,18 @@ MRuby::CrossBuild.new("r2p2-mrb-cortex-m33") do |conf|
   conf.gem core: "picoruby-watchdog"
   conf.gem core: "picoruby-rng"
 
+  conf.gem core: "picoruby-gpio"
+  conf.gem core: "picoruby-adc"
+  conf.gem core: "picoruby-i2c"
+  conf.gem core: "picoruby-pwm"
+  conf.gem core: "picoruby-spi"
+  conf.gem core: "picoruby-uart"
+
+  conf.gem core: "picoruby-mbedtls"
+  conf.gem core: "picoruby-net"
+  conf.gem core: "picoruby-base16"
+  conf.gem core: "picoruby-base64"
+  conf.gem core: "picoruby-ble"
+
   conf.microruby
 end
-
-
