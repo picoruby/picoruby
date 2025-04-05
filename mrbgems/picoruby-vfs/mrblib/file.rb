@@ -126,7 +126,7 @@ class File
   end
 
   def gets(*args, chomp: false)
-    case args.count
+    case args.size
     when 0
       rs = "\n"
       limit = nil
