@@ -210,7 +210,7 @@ class Vim
 
   def exec_command(buffer)
     params = @command_buffer.lines[0].split(" ")
-    case params.count
+    case params.size
     when 0
       # should not happen
     when 1

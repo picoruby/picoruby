@@ -775,7 +775,7 @@ class Keyboard
     pins.each do |pin|
       GPIO.new(pin, GPIO::IN|GPIO::PULL_UP)
     end
-    @cols_size = pins.count
+    @cols_size = pins.size
     @direct_pins = pins
     @offset_a = (@cols_size / 2.0).ceil_to_i
     @offset_b = @cols_size * 2 - @offset_a - 1
@@ -1043,7 +1043,7 @@ class Keyboard
 
   def signal_partner(key, &block)
     return unless @split
-    if SIGNALS_MAX_INDEX == @partner_signals.count
+    if SIGNALS_MAX_INDEX == @partner_signals.size
       puts "No more signals can register"
       return
     end
