@@ -14,7 +14,7 @@ mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value klass)
 {
   const char *host;
   mrb_bool is_tcp;
-  mrb_get_args(mrb, "sb", &host, &is_tcp);
+  mrb_get_args(mrb, "zb", &host, &is_tcp);
 
   char ipaddr[16] = {0};
   DNS_resolve(host, ipaddr, is_tcp);
@@ -31,7 +31,7 @@ mrb_net_tcpclient__request_impl(mrb_state *mrb, mrb_value self)
   mrb_int port;
   mrb_value content;
   mrb_bool is_tls;
-  mrb_get_args(mrb, "siSb", &host, &port, &content, &is_tls);
+  mrb_get_args(mrb, "ziSb", &host, &port, &content, &is_tls);
 
   recv_data_t *recv_data = (recv_data_t *)mrb_malloc(mrb, sizeof(recv_data_t));
   recv_data->data = NULL;
@@ -54,7 +54,7 @@ mrb_net_udpclient__send_impl(mrb_state *mrb, mrb_value self)
   mrb_int port;
   mrb_value content;
   mrb_bool is_dtls;
-  mrb_get_args(mrb, "siSb", &host, &port, &content, &is_dtls);
+  mrb_get_args(mrb, "ziSb", &host, &port, &content, &is_dtls);
 
   recv_data_t *recv_data = (recv_data_t *)mrb_malloc(mrb, sizeof(recv_data_t));
   recv_data->data = NULL;

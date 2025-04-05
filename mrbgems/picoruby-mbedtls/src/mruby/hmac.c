@@ -14,7 +14,7 @@ mrb_initialize(mrb_state *mrb, mrb_value self)
 {
   const char *algorithm;
   mrb_value key;
-  mrb_get_args(mrb, "sS", &algorithm, &key);
+  mrb_get_args(mrb, "zS", &algorithm, &key);
 
   if (strcmp(algorithm, "sha256") != 0) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "unsupported hash algorithm");
