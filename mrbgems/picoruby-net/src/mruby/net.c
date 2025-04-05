@@ -10,7 +10,7 @@ mbedtls_debug(void *ctx, int level, const char *file, int line, const char *str)
 }
 
 static mrb_value
-mrb_net_dns_resolve(mrb_state *mrb, mrb_value self)
+mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value klass)
 {
   const char *host;
   mrb_bool is_tcp;
@@ -76,7 +76,7 @@ mrb_picoruby_net_gem_init(mrb_state* mrb)
   struct RClass *class_Net = mrb_define_class_id(mrb, MRB_SYM(Net), mrb->object_class);
 
   struct RClass *class_Net_DNS = mrb_define_class_under_id(mrb, class_Net, MRB_SYM(DNS), mrb->object_class);
-  mrb_define_method_id(mrb, class_Net_DNS, MRB_SYM(resolve), mrb_net_dns_resolve, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_Net_DNS, MRB_SYM(resolve), mrb_net_dns_s_resolve, MRB_ARGS_REQ(1));
 
   struct RClass *class_Net_TCPClient = mrb_define_class_under_id(mrb, class_Net, MRB_SYM(TCPClient), mrb->object_class);
   mrb_define_method_id(mrb, class_Net_TCPClient, MRB_SYM(_request_impl), mrb_net_tcpclient__request_impl, MRB_ARGS_REQ(4));
