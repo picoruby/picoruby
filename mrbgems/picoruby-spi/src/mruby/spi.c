@@ -111,7 +111,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
   int unit_num = PICORUBY_SPI_BITBANG;
   const char *unit_name;
   mrb_int frequency, sck_pin, cipo_pin, copi_pin, cs_pin, mode, first_bit, data_bits;
-  mrb_get_args(mrb, "siiiiiiii", &unit_name, &frequency, &sck_pin, &cipo_pin, &copi_pin, &cs_pin, &mode, &first_bit, &data_bits);
+  mrb_get_args(mrb, "ziiiiiiii", &unit_name, &frequency, &sck_pin, &cipo_pin, &copi_pin, &cs_pin, &mode, &first_bit, &data_bits);
   if (strcmp(unit_name, "BITBANG") != 0) {
     unit_num = SPI_unit_name_to_unit_num(unit_name);
   }
