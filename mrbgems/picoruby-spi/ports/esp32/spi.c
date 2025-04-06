@@ -54,12 +54,14 @@ SPI_unit_name_to_unit_num(const char *unit_name)
 {
   if (strcmp(unit_name, "ESP32_SPI2_HOST") == 0) {
     return SPI2_HOST;
-  } else if (strcmp(unit_name, "ESP32_SPI3_HOST") == 0) {
-    return SPI3_HOST;
   } if (strcmp(unit_name, "ESP32_HSPI_HOST") == 0) {
     return SPI2_HOST;
+#if (SOC_SPI_PERIPH_NUM == 3)
+  } else if (strcmp(unit_name, "ESP32_SPI3_HOST") == 0) {
+    return SPI3_HOST;
   } else if (strcmp(unit_name, "ESP32_VSPI_HOST") == 0) {
     return SPI3_HOST;
+#endif
   } else {
     return ERROR_INVALID_UNIT;
   }
