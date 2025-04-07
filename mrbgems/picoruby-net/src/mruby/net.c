@@ -25,7 +25,7 @@ mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value klass)
 }
 
 static mrb_value
-mrb_net_tcpclient__request_impl(mrb_state *mrb, mrb_value self)
+mrb_net_tcpclient_s__request_impl(mrb_state *mrb, mrb_value self)
 {
   const char *host;
   mrb_int port;
@@ -48,7 +48,7 @@ mrb_net_tcpclient__request_impl(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_net_udpclient__send_impl(mrb_state *mrb, mrb_value self)
+mrb_net_udpclient_s__send_impl(mrb_state *mrb, mrb_value self)
 {
   const char *host;
   mrb_int port;
@@ -79,10 +79,10 @@ mrb_picoruby_net_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Net_DNS, MRB_SYM(resolve), mrb_net_dns_s_resolve, MRB_ARGS_REQ(1));
 
   struct RClass *class_Net_TCPClient = mrb_define_class_under_id(mrb, class_Net, MRB_SYM(TCPClient), mrb->object_class);
-  mrb_define_method_id(mrb, class_Net_TCPClient, MRB_SYM(_request_impl), mrb_net_tcpclient__request_impl, MRB_ARGS_REQ(4));
+  mrb_define_class_method_id(mrb, class_Net_TCPClient, MRB_SYM(_request_impl), mrb_net_tcpclient_s__request_impl, MRB_ARGS_REQ(4));
 
   struct RClass *class_Net_UDPClient = mrb_define_class_under_id(mrb, class_Net, MRB_SYM(UDPClient), mrb->object_class);
-  mrb_define_method_id(mrb, class_Net_UDPClient, MRB_SYM(_send_impl), mrb_net_udpclient__send_impl, MRB_ARGS_REQ(4));
+  mrb_define_class_method_id(mrb, class_Net_UDPClient, MRB_SYM(_send_impl), mrb_net_udpclient_s__send_impl, MRB_ARGS_REQ(4));
 }
 
 void
