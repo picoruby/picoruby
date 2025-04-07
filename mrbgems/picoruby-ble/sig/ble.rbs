@@ -1,7 +1,5 @@
 class BLE
 
-  $_btstack_singleton: BLE
-
   HCI_STATE_OFF: Integer
   HCI_STATE_INITIALIZING: Integer
   HCI_STATE_WORKING: Integer
@@ -76,15 +74,15 @@ class BLE
   attr_accessor debug: bool
   attr_reader role: role_t
 
-  def self.instance: () -> BLE
-
   def initialize: (role_t role, ?(String|nil) profile_data) -> void
   def ensure: () { () -> void }-> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer power_mode) -> 0
   def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
+  def pop_packet: () -> (String | nil)
   def packet_callback: (String) -> void
+  def pop_heartbeat: () -> bool
   def heartbeat_callback: () -> void
   def blink_led: () -> void
   def gap_local_bd_addr: () -> String

@@ -75,16 +75,11 @@ class BLE
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
-  def self.instance
-    $_btstack_singleton
-  end
-
   def initialize(role, profile_data = nil)
     @role = role
     @debug = false
     CYW43.init unless CYW43.initialized?
     _init(profile_data)
-    $_btstack_singleton = self
     init_central if @role == :central
   end
 
@@ -132,6 +127,9 @@ class BLE
         puts "Stopped by state: #{stop_state}"
         break
       end
+      packet = pop_packet
+      packet_callback(packet) if packet
+      heartbeat_callback if pop_heartbeat
       sleep_ms POLLING_UNIT_MS
       total_timeout_ms += POLLING_UNIT_MS
     end

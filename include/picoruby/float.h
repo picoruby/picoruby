@@ -18,7 +18,8 @@ typedef mrb_float picorb_float_t;
 #elif defined(PICORB_VM_MRUBYC)
 
 #if defined(MRBC_USE_FLOAT)
-typedef mrbc_fload_t picorb_float_t;
+#include "mrubyc.h"
+typedef mrbc_float_t picorb_float_t;
 #else
 #define PICORB_NO_FLOAT 1
 #endif
