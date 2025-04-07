@@ -33,7 +33,7 @@ static mrb_state *mrb_;
 #elif defined(PICORB_VM_MRUBYC)
 typedef void mrb_state;
 #define mrb_tick(mrb) mrbc_tick()
-#define hal_init(mrb) mrbc_init()
+#define hal_init(mrb) hal_init()
 #define MRB_TICK_UNIT MRBC_TICK_UNIT
 #endif
 
