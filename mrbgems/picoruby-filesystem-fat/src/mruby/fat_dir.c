@@ -15,7 +15,7 @@ struct mrb_data_type mrb_fat_dir_type = {
 
 
 static mrb_value
-mrb_s_new(mrb_state *mrb, mrb_value klass)
+mrb_s_initialize(mrb_state *mrb, mrb_value self)
 {
   FRESULT res;
   FILINFO fno = {0};
@@ -35,10 +35,11 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
   }
 
   DIR *dp = (DIR *)mrb_malloc(mrb, sizeof(DIR));
-  mrb_value dir = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class(mrb, klass), &mrb_fat_dir_type, dp));
+  DATA_PTR(self) = dp;
+  DATA_TYPE(self) = &mrb_fat_dir_type;
   res = f_opendir(dp, path);
   mrb_raise_iff_f_error(mrb, res, "f_opendir");
-  return dir;
+  return self;
 }
 
 static mrb_value
@@ -103,7 +104,7 @@ mrb_init_class_FAT_Dir(mrb_state *mrb, struct RClass *class_FAT)
 
   MRB_SET_INSTANCE_TT(class_FAT_Dir, MRB_TT_CDATA);
 
-  mrb_define_class_method_id(mrb, class_FAT_Dir, MRB_SYM(new), mrb_s_new, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(initialize), mrb_s_initialize, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(close), mrb_Dir_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM_E(pat), mrb_pat_e, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT_Dir, MRB_SYM(findnext), mrb_findnext, MRB_ARGS_NONE());
