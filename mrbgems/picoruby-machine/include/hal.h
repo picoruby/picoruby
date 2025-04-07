@@ -9,7 +9,6 @@ extern "C" {
 #include "mruby.h"
 void mrb_tick(mrb_state *mrb);
 void hal_init(mrb_state *mrb);
-int hal_write(int fd, const void *buf, int nbytes);
 //#elif defined(PICORB_VM_MRUBYC)
 //#include "mrubyc.h"
 //typedef void mrb_state;
@@ -17,7 +16,11 @@ int hal_write(int fd, const void *buf, int nbytes);
 //void hal_init(mrb_state *mrb);
 //#define mrb_tick(mrb) mrbc_tick()
 //#define MRB_TICK_UNIT MRBC_TICK_UNIT
+#elif defined(PICORB_VM_MRUBYC)
+void hal_init(void);
 #endif
+
+int hal_write(int fd, const void *buf, int nbytes);
 
 void hal_enable_irq(void);
 void hal_disable_irq(void);
