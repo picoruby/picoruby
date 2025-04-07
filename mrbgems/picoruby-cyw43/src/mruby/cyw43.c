@@ -2,6 +2,7 @@
 #include <mruby/presym.h>
 #include <mruby/variable.h>
 #include <mruby/string.h>
+#include <mruby/class.h>
 
 static bool cyw43_arch_init_flag = false;
 
@@ -91,6 +92,7 @@ mrb_s_connect_timeout(mrb_state *mrb, mrb_value klass)
   }
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
     if (CYW43_arch_wifi_connect_timeout_ms(ssid, pass, auth, timeout_ms) != 0) {
+      struct RClass *class_CYW43 = mrb_class_ptr(klass);
       struct RClass *class_ConnectTimeout = mrb_define_class_under_id(mrb, class_CYW43, MRB_SYM(ConnectTimeout), E_RUNTIME_ERROR);
       mrb_raise(mrb, class_ConnectTimeout, "CYW43_arch_wifi_connect_timeout_ms() failed");
     }
@@ -141,7 +143,7 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_sta_mode), mrb_s_enable_sta_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disable_sta_mode), mrb_s_disable_sta_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(connect_timeout), mrb_s_connect_timeout, MRB_ARGS_ARG(3, 1));
-  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(tcpip_link_status), mrb_s_tcpip_link_status);
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(tcpip_link_status), mrb_s_tcpip_link_status, MRB_ARGS_NONE());
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_DOWN), mrb_fixnum_value(CYW43_CONST_link_down()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_JOIN), mrb_fixnum_value(CYW43_CONST_link_join()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NOIP), mrb_fixnum_value(CYW43_CONST_link_noip()));
