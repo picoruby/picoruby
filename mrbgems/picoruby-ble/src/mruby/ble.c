@@ -4,7 +4,6 @@
 #include "mruby/hash.h"
 
 static mrb_state *_mrb = NULL;
-static mrb_value _singleton;
 static mrb_value write_values;
 static mrb_value read_values;
 
@@ -12,14 +11,23 @@ static mrb_value read_values;
  * Workaround: To avoid deadlock
  */
 static bool mutex_locked = false;
+static bool heatbeat_flag = false;
+static bool packet_flag = false;
+static uint8_t *packet = NULL;
+static uint16_t packet_size = 0;
 
 void
-BLE_push_event(uint8_t *packet, uint16_t size)
+BLE_push_event(uint8_t *data, uint16_t size)
 {
   if (mutex_locked) return;
   mutex_locked = true;
-  mrb_value str = mrb_str_new(_mrb, (const void *)packet, size);
-  mrb_funcall_id(_mrb, _singleton, MRB_SYM(packet_callback), 1, &str);
+  packet_flag = true;
+  packet_size = size;
+  if (packet != NULL) {
+    mrb_free(_mrb, packet);
+  }
+  packet = mrb_malloc(_mrb, packet_size);
+  memcpy(packet, data, packet_size);
   mutex_locked = false;
 }
 
@@ -27,13 +35,13 @@ void
 BLE_heartbeat(void)
 {
   if (mutex_locked) return;
-  mrb_funcall_id(_mrb, _singleton, MRB_SYM(heatbeat_callback), 0);
+  heatbeat_flag = true;
 }
 
 int
 BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
 {
-  if (att_handle == 0 || size == 0 || _mrb == NULL || mrb_hash_p(write_value) == false) {
+  if (att_handle == 0 || size == 0 || _mrb == NULL || mrb_hash_p(write_values) == false) {
     return -1;
   }
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
@@ -52,6 +60,30 @@ BLE_read_data(BLE_read_value_t *read_value)
   return 0;
 }
 
+
+static mrb_value
+mrb_pop_heartbeat(mrb_state *mrb, mrb_value self)
+{
+  if (heatbeat_flag) {
+    heatbeat_flag = false;
+    return mrb_true_value();
+  }
+  return mrb_false_value();
+}
+
+static mrb_value
+mrb_pop_packet(mrb_state *mrb, mrb_value self)
+{
+  mrb_value packet_value = mrb_nil_value();
+  if (mutex_locked || !packet_flag) return packet_value;
+  mutex_locked = true;
+  packet_flag = false;
+  packet_value = mrb_str_new(mrb, (const char *)packet, packet_size);
+  mrb_free(mrb, packet);
+  packet = NULL;
+  mutex_locked = false;
+  return packet_value;
+}
 
 static mrb_value
 mrb_get_write_value(mrb_state *mrb, mrb_value self)
@@ -75,7 +107,6 @@ static mrb_value
 mrb__init(mrb_state *mrb, mrb_value self)
 {
   _mrb = mrb;
-  _singleton = self;
   write_values = mrb_hash_new(mrb);
   mrb_gc_register(mrb, write_values);
   read_values = mrb_hash_new(mrb);
@@ -145,6 +176,8 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(gap_local_bd_addr), mrb_gap_local_bd_addr, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(get_write_value), mrb_get_write_value, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(set_read_value), mrb_set_read_value, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_heartbeat), mrb_pop_heartbeat, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_packet), mrb_pop_packet, MRB_ARGS_NONE());
 
   mrb_init_class_BLE_Peripheral(mrb, class_BLE);
   mrb_init_class_BLE_Broadcaster(mrb, class_BLE);
