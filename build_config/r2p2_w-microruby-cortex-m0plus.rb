@@ -14,6 +14,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m0plus") do |conf|
   conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "USE_WIFI"
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
