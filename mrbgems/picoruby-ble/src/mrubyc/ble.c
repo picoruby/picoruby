@@ -1,6 +1,8 @@
 static mrbc_vm *packet_callback_vm = NULL;
 static mrbc_vm *heartbeat_callback_vm = NULL;
-mrbc_value singleton = {.tt = MRBC_TT_NIL};
+static mrbc_value singleton = {.tt = MRBC_TT_NIL};
+static mrbc_value write_values = {.tt = MRBC_TT_NIL};
+static mrbc_value read_values = {.tt = MRBC_TT_NIL};
 
 #define NODE_BOX_SIZE 10
 #define VM_REGS_SIZE 110 // can be reduced?
@@ -89,25 +91,40 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   if (att_handle == 0 || size == 0 || singleton.instance == NULL) {
     return -1;
   }
-  mrbc_value write_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_write_values"));
-  if (write_values_hash.tt != MRBC_TT_HASH) {
-    return -1;
-  }
-  mrbc_value write_value = mrbc_string_new(NULL, data, size);
-  return mrbc_hash_set(&write_values_hash, &mrbc_integer_value(att_handle), &write_value);
+  mrbc_value write_value = mrbc_string_new(NULL, (const void *)data, size);
+  return mrbc_hash_set(&write_values, &mrbc_integer_value(att_handle), &write_value);
 }
 
 int
 BLE_read_data(BLE_read_value_t *read_value)
 {
   if (singleton.instance == NULL) return -1;
-  mrbc_value read_values_hash = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_read_values"));
-  if (read_values_hash.tt != MRBC_TT_HASH) return -1;
-  mrbc_value value = mrbc_hash_get(&read_values_hash, &mrbc_integer_value(read_value->att_handle));
+  mrbc_value value = mrbc_hash_get(&read_value, &mrbc_integer_value(read_value->att_handle));
   if (value.tt != MRBC_TT_STRING) return -1;
   read_value->data = value.string->data;
   read_value->size = value.string->size;
   return 0;
+}
+
+static void
+c_get_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrb_value handle = GET_ARG(1);
+  mrbc_value write_value = mrbc_hash_get(&write_values, &handle);
+  SET_RETURN(write_value);
+}
+
+static void
+c_set_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  int handle= GET_INT_ARG(1);
+  mrb_value read_value = GET_ARG(2);
+  mrbc_hash_set(&read_values, handle, &read_value);
+  SET_RETURN(read_value);
 }
 
 static void
@@ -122,6 +139,8 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     heartbeat_callback_vm = prepare_vm(vm, "BLE.instance&.heartbeat_callback");
   }
   singleton.instance = v[0].instance;
+  write_values = mrbc_hash_new(vm, 0);
+  read_values = mrbc_hash_new(vm, 0);
   const uint8_t *profile_data;
   if (GET_TT_ARG(1) == MRBC_TT_STRING) {
     /* Protect profile_data from GC */
@@ -178,6 +197,8 @@ mrbc_ble_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_BLE, "_init", c__init);
   mrbc_define_method(vm, class_BLE, "hci_power_control", c_hci_power_control);
   mrbc_define_method(vm, class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
+  mrbc_define_method(vm, class_BLE, "get_write_value", c_get_write_value);
+  mrbc_define_method(vm, class_BLE, "set_read_value", c_set_read_value);
 
   mrbc_init_class_BLE_Peripheral(vm, class_BLE);
   mrbc_init_class_BLE_Broadcaster(vm, class_BLE);

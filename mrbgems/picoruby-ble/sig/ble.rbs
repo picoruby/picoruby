@@ -68,8 +68,6 @@ class BLE
 
   POLLING_UNIT_MS: Integer
 
-  @_write_values: Hash[Integer, String]
-  @_read_values: Hash[Integer, String]
   @led: CYW43::GPIO
   @led_on: bool
   @ensure_proc: Proc
