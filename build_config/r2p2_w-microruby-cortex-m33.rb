@@ -14,7 +14,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
-  conf.cc.defines << "FLASH_TARGET_OFFSET=0x00340000" # for 4MB flash
+  conf.cc.defines << "USE_WIFI"
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
@@ -55,6 +55,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-error"
+  conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-sprintf"
   conf.gem core: "picoruby-shell"
   #conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
 
@@ -76,6 +77,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.gem core: "picoruby-base16"
   conf.gem core: "picoruby-base64"
   conf.gem core: "picoruby-ble"
+  conf.gem core: "picoruby-yaml"
 
   conf.microruby
 end
