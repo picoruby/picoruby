@@ -20,20 +20,24 @@
 extern "C" {
 #endif
 
-typedef struct {
-  char *data;
-  size_t len;
-} recv_data_t;
+//typedef struct {
+//  char *data;
+//  size_t len;
+//} recv_data_t;
+//
+//#if !defined(sleep_ms)
+//int sleep_ms(long milliseconds);
+//#endif
+//void lwip_begin(void);
+//void lwip_end(void);
+//
+//err_t Net_get_ip(const char *name, ip_addr_t *ip);
+//void TCPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_tls, recv_data_t *recv_data);
+//void UDPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_dtls, recv_data_t *recv_data);
 
-#if !defined(sleep_ms)
-int sleep_ms(long milliseconds);
-#endif
-void lwip_begin(void);
-void lwip_end(void);
-
-err_t Net_get_ip(const char *name, ip_addr_t *ip);
-void TCPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_tls, recv_data_t *recv_data);
-void UDPClient_send(void *mrb, const char *host, int port, const char *send_data, size_t send_data_len, bool is_dtls, recv_data_t *recv_data);
+mrb_value DNS_resolve(mrb_state *mrb, const char *name, bool is_tcp);
+mrb_value TCPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, bool is_tls);
+mrb_value UDPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, bool is_dtls);
 
 #ifdef __cplusplus
 }
