@@ -134,6 +134,9 @@ class WifiConfigPeripheral < BLE
   end
 end
 
+puts "\nLaunching BLE peripheral to configure WiFi connection."
+puts "Open https://picoruby.github.io/wifi in a web browser\n"
+
 # Start BLE Peripheral
 peri = WifiConfigPeripheral.new
 peri.debug = true

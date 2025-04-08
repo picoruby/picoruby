@@ -33,12 +33,14 @@ class GPIO
   end
 
   def initialize(pin, flags, alt_function = 0)
+    @initializing = true
     @pin = pin
     _init(pin)
     setmode(flags, alt_function)
     unless @dir || @alt_function
       raise ArgumentError.new("You must specify one of IN, OUT, HIGH_Z, and ALT")
     end
+    @initializing = false
   end
 
   def setmode(flags, alt_function = 0)
@@ -62,7 +64,7 @@ class GPIO
 
   def set_dir(flags)
     dir = (flags & (IN|OUT|HIGH_Z))
-    return 0 if dir == 0 && !on_initialize?
+    return 0 if dir == 0 && !@initializing
     mode_dir = ((flags & IN) + ((flags & OUT)>>1) + ((flags & HIGH_Z)>>2))
     @dir = case mode_dir
     when 0
@@ -78,7 +80,7 @@ class GPIO
 
   def set_pull(flags)
     pull = (flags & (PULL_UP|PULL_DOWN))
-    return 0 if 0 == pull && !on_initialize?
+    return 0 if 0 == pull && !@initializing
     @pull = case pull
     when 0
       nil
@@ -96,14 +98,11 @@ class GPIO
 
   def open_drain(flags)
     @open_drain = (0 < (flags & OPEN_DRAIN))
-    if on_initialize? || @open_drain
+    if @initializing || @open_drain
       GPIO.open_drain_at(@pin) if @open_drain
     end
     0
   end
 
-  def on_initialize?
-    @dir.nil?
-  end
 end
 
