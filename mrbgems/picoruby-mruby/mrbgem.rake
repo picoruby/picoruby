@@ -19,6 +19,8 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
+  spec.cc.defines << "MRB_INT64"
+
   align = 4
 
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")

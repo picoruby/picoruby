@@ -89,7 +89,7 @@ static mrb_value
 mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const mrb_int *address;
+  const mrb_int address;
   const size_t size;
 
   uint32_t kw_num = 1;
@@ -224,7 +224,7 @@ static mrb_value
 mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const mrb_int *address;
+  const mrb_int address;
   mrb_get_args(mrb, "i", &address);
   ss->irep = mrb_read_irep(mrb, (const uint8_t *)(intptr_t)address);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
