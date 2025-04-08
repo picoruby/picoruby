@@ -35,7 +35,7 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   if (mrb_nil_p(name)) {
     name = mrb_str_new_cstr(mrb, "sandbox");
   }
-  mrb_iv_set(mrb, self, MRB_SYM(name), name);
+  mrb_iv_set(mrb, self, MRB_IVSYM(name), name);
 
   ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL, RSTRING_PTR(name));
   ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
