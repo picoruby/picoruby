@@ -1,8 +1,6 @@
-#include "../../include/net.h"
+#include "../include/net.h"
 #include "lwipopts.h"
-#include "pico/cyw43_arch.h"
 #include "lwip/udp.h"
-#include "include/common.h"
 
 #include "mruby.h"
 #include "mruby/string.h"
@@ -82,9 +80,9 @@ UDPClient_send_impl(ip_addr_t *ip, int port, mrb_value send_data, mrb_value recv
   struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, RSTRING_LEN(cs->send_data), PBUF_RAM);
   if (p != NULL) {
     memcpy(p->payload, RSTRING_PTR(cs->send_data), RSTRING_LEN(cs->send_data));
-    cyw43_arch_lwip_begin();
+    lwip_begin();
     err_t err = udp_sendto(cs->pcb, p, ip, port);
-    cyw43_arch_lwip_end();
+    lwip_end();
     pbuf_free(p);
 
     if (err == ERR_OK) {
@@ -117,17 +115,17 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       break;
     case NET_UDP_STATE_RECEIVED:
       cs->state = NET_UDP_STATE_NONE;
-      cyw43_arch_lwip_begin();
+      lwip_begin();
       udp_remove(cs->pcb);
-      cyw43_arch_lwip_end();
+      lwip_end();
       mrb_free(cs->mrb, cs);
       *pcs = NULL;
       return 0;
     case NET_UDP_STATE_ERROR:
       mrb_warn(cs->mrb, "Error occurred, cleaning up\n");
-      cyw43_arch_lwip_begin();
+      lwip_begin();
       udp_remove(cs->pcb);
-      cyw43_arch_lwip_end();
+      lwip_end();
       mrb_free(cs->mrb, cs);
       *pcs = NULL;
       return 0;
@@ -156,7 +154,7 @@ UDPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, 
       while(UDPClient_poll_impl(&cs))
       {
         poll_count++;
-        sleep_ms(200);
+        Net_sleep_ms(200);
         // Add a timeout mechanism to prevent infinite loop
         if (poll_count > 50) { // 10 seconds timeout (50 * 200ms)
           mrb_warn(cs->mrb, "Polling timeout reached\n");
@@ -165,9 +163,9 @@ UDPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, 
       }
       if (cs != NULL) {
         mrb_warn(cs->mrb, "Connection state not NULL after polling, cleaning up\n");
-        cyw43_arch_lwip_begin();
+        lwip_begin();
         udp_remove(cs->pcb);
-        cyw43_arch_lwip_end();
+        lwip_end();
         mrb_free(cs->mrb, cs);
       }
       ret = recv_data;
