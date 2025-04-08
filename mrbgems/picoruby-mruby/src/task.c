@@ -304,6 +304,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *na
       }
       struct mrb_context **new_list = (struct mrb_context **)mrb_realloc(mrb, mrb->c_list, sizeof(struct mrb_context *) * (new_capa));
       if (!new_list) return NULL;
+      mrb->c_list = new_list;
       mrb->c_list_capa = new_capa;
     }
     mrb->c_list[mrb->c_list_len] = &tcb->c;
