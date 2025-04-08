@@ -1,4 +1,16 @@
-load "/etc/init.d/r2p2_wifi"
+begin
+  require "cyw43"
+  if CYW43.respond_to?(:enable_sta_mode)
+    ENV['WIFI_MODULE'] = "cwy43"
+    pin = GPIO.new(22, GPIO::IN|GPIO::PULL_UP)
+    if pin.low?
+      system "nmble"
+    end
+    system "wifi_connect --check-auto-connect"
+  end
+rescue LoadError
+  # No WiFi module
+end
 
 if File.exist?("#{ENV['HOME']}/app.mrb")
   puts "Loading app.mrb"
