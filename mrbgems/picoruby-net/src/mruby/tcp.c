@@ -1,10 +1,7 @@
-#include "../../include/net.h"
-#include "../../include/mbedtls_debug.h"
+#include "../include/net.h"
+#include "../include/mbedtls_debug.h"
 #include "lwipopts.h"
-#include "pico/cyw43_arch.h"
 #include "lwip/altcp_tls.h"
-
-#include "include/common.h"
 
 #include "mruby.h"
 #include "mruby/string.h"
@@ -47,7 +44,7 @@ TCPClient_close(tcp_connection_state *cs)
 {
   err_t err = ERR_OK;
   if (!cs || !cs->pcb) return ERR_ARG;
-  cyw43_arch_lwip_begin();
+  lwip_begin();
   altcp_arg(cs->pcb, NULL);
   altcp_recv(cs->pcb, NULL);
   altcp_sent(cs->pcb, NULL);
@@ -59,7 +56,7 @@ TCPClient_close(tcp_connection_state *cs)
     altcp_abort(cs->pcb);
     err = ERR_ABRT;
   }
-  cyw43_arch_lwip_end();
+  lwip_end();
   TCPClient_free_tls_config(cs);
   mrb_free(cs->mrb, cs);
   return err;
@@ -186,15 +183,15 @@ TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrb_value send
     cs = TCPClient_new_connection(send_data, recv_data, mrb);
   }
   if (cs) {
-    cyw43_arch_lwip_begin();
+    lwip_begin();
     err = altcp_connect(cs->pcb, ip, port, TCPClient_connected_cb);
     if (err != ERR_OK) {
       mrb_warn(cs->mrb, "altcp_connect failed: %d\n", err);
       cs->state = NET_TCP_STATE_ERROR;
-      cyw43_arch_lwip_end();
+      lwip_end();
       return cs;
     }
-    cyw43_arch_lwip_end();
+    lwip_end();
     cs->state = NET_TCP_STATE_CONNECTION_STARTED;
   }
   return cs;
@@ -217,7 +214,7 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
       break;
     case NET_TCP_STATE_CONNECTED:
       cs->state = NET_TCP_STATE_WAITING_PACKET;
-      cyw43_arch_lwip_begin();
+      lwip_begin();
       err = altcp_write(cs->pcb, RSTRING_PTR(cs->send_data), RSTRING_LEN(cs->send_data), 0);
       if (err != ERR_OK) {
         mrb_warn(cs->mrb, "altcp_write failed: %d\n", err);
@@ -225,7 +222,7 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
         return 1;
       }
       altcp_output(cs->pcb);
-      cyw43_arch_lwip_end();
+      lwip_end();
       break;
     case NET_TCP_STATE_PACKET_RECVED:
       cs->state = NET_TCP_STATE_WAITING_PACKET;
@@ -261,7 +258,7 @@ TCPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, 
     } else {
       while(TCPClient_poll_impl(&cs))
       {
-        sleep_ms(200);
+        Net_sleep_ms(200);
       }
       // recv_data is ready after connection is complete
       ret = recv_data;
