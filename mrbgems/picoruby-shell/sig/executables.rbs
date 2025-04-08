@@ -1,3 +1,4 @@
+# @private
 class WifiConfigPeripheral < BLE
   APP_AD_FLAGS: Integer
   BLUETOOTH_DATA_TYPE_FLAGS: Integer
@@ -9,6 +10,7 @@ class WifiConfigPeripheral < BLE
   CHARACTERISTIC_COUNTRY: Integer
   CHARACTERISTIC_WATCHDOG: Integer
 
+  # @private
   class Utils < BLE::Utils
   end
   READ: Integer
