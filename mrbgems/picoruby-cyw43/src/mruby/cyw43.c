@@ -116,7 +116,7 @@ mrb_s_tcpip_link_status(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_GPIO_write(mrb_state *mrb, mrb_value self)
 {
-  mrb_value pin = mrb_iv_get(mrb, self, MRB_SYM(pin));
+  mrb_value pin = mrb_iv_get(mrb, self, MRB_IVSYM(pin));
   mrb_int val;
   mrb_get_args(mrb, "i", &val);
   CYW43_GPIO_write(mrb_fixnum(pin), val);
@@ -126,7 +126,7 @@ mrb_GPIO_write(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_GPIO_read(mrb_state *mrb, mrb_value self)
 {
-  mrb_value pin = mrb_iv_get(mrb, self, MRB_SYM(pin));
+  mrb_value pin = mrb_iv_get(mrb, self, MRB_IVSYM(pin));
   return mrb_fixnum_value(CYW43_GPIO_read(mrb_fixnum(pin)));
 }
 
