@@ -93,10 +93,12 @@ mrb_alloc_statistics(mrb_state *mrb)
   return hash;
 }
 
+static tlsf_t tlsf __attribute__((aligned(8)));
+
 mrb_state *
 mrb_open_with_custom_alloc(void* mem, size_t bytes)
 {
-  tlsf_t tlsf = tlsf_create_with_pool(mem, bytes);
+  tlsf = tlsf_create_with_pool(mem, bytes);
   return mrb_open_allocf(mrb_tlsf_allocf, &tlsf);
 }
 
@@ -286,7 +288,12 @@ static size_t current_usage = 0;
 static void *
 mrb_libc_allocf(mrb_state *mrb, void *p, size_t size, void *ud)
 {
-  size_t old_size = malloc_usable_size(p);
+  size_t old_size;
+  if (p == NULL) {
+    old_size = 0;
+  } else {
+    old_size = malloc_usable_size(p);
+  }
   if (size == 0) {
     current_usage -= old_size;
     free(p);
