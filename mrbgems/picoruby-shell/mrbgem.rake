@@ -62,4 +62,5 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     end
   end
 
+  Rake::FileTask[executables_src].invoke
 end
