@@ -1,9 +1,6 @@
-#include "../../include/net.h"
+#include "../include/net.h"
 #include "lwipopts.h"
-#include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
-
-#include "include/common.h"
 
 #include "mruby.h"
 
