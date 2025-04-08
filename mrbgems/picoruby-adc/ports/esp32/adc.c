@@ -100,10 +100,10 @@ init_adc(void)
   adc_unit_t units[UNIT_NUM] = { ADC_UNIT_1, ADC_UNIT_2 };
   
   for (int i = 0; i < UNIT_NUM ; i++) {
-    adc_oneshot_unit_init_cfg_t init_config;
-    init_config.unit_id = units[i];
-    init_config.clk_src = ADC_DIGI_CLK_SRC_PLL_F160M;
-    init_config.ulp_mode = ADC_ULP_MODE_DISABLE;
+    adc_oneshot_unit_init_cfg_t init_config = {
+      .unit_id = units[i],
+      .ulp_mode = ADC_ULP_MODE_DISABLE,
+    };
     if (adc_oneshot_new_unit(&init_config, &adc_handles[i]) != ESP_OK) {
       return -1;
     }
@@ -134,9 +134,10 @@ ADC_init(uint8_t pin)
     return -1;
   }
 
-  adc_oneshot_chan_cfg_t config;
-  config.atten = ADC_ATTEN_DB_12;
-  config.bitwidth = ADC_BITWIDTH_DEFAULT;
+  adc_oneshot_chan_cfg_t config = {
+    .atten = ADC_ATTEN_DB_12,
+    .bitwidth = ADC_BITWIDTH_DEFAULT,
+  };
 
   adc_oneshot_unit_handle_t handle = pin_to_unit_handle(pin);
   if (adc_oneshot_config_channel(handle, channel, &config) != ESP_OK) {
