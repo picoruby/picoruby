@@ -3,21 +3,6 @@
 #include "../include/ble.h"
 #include "../include/ble_central.h"
 
-void
-BLE_central_push_service(uint16_t start_group_handle, uint16_t end_group_handle, uint16_t uuid16, const uint8_t *uuid128)
-{
-  if (singleton.instance == NULL) return;
-  mrbc_value _services = mrbc_instance_getiv(&singleton, mrbc_str_to_symid("_services"));
-  if (_services.tt != MRBC_TT_ARRAY) return;
-  mrbc_value hash = mrbc_hash_new(NULL, 4);
-  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("start_group_handle")), &mrbc_integer_value(start_group_handle));
-  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("end_group_handle")), &mrbc_integer_value(end_group_handle));
-  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("uuid16")), &mrbc_integer_value(uuid16));
-  mrbc_value uuid128_value = mrbc_string_new(NULL, uuid128, 16);
-  mrbc_hash_set(&hash, &mrbc_symbol_value(mrbc_str_to_symid("uuid128")), &uuid128_value);
-  mrbc_array_push(&_services, &hash);
-}
-
 static void
 c_discover_primary_services(mrbc_vm *vm, mrbc_value *v, int argc)
 {
