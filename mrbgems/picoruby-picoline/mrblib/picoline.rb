@@ -57,8 +57,8 @@ class PicoLine
           break buffer.lines[0].chomp
         end
       end
-      answer = q.default.to_s if answer.empty?
-      break if !answer.empty? || allow_empty
+      answer = q.default.to_s if answer.to_s.empty?
+      break if !answer.to_s.empty? || allow_empty
     end
     return(@answer = answer)
   end

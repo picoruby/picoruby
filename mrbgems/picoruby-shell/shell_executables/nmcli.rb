@@ -20,6 +20,7 @@ encrypt_proc = Proc.new do |password|
   tag + ciphertext
 end
 
+puts "Ctrd-D to exit"
 cli = PicoLine.new
 answers = {"wifi" => {}}
 
@@ -28,10 +29,10 @@ answers["country_code"] = cli.ask("Country Code?") do |q|
 end
 answers["wifi"]["ssid"] = cli.ask("WiFi SSID?")
 password = cli.ask("WiFi Password? (leave blank if no password required)", allow_empty: true)
-answers["wifi"]["encoded_password"] = if !password.empty?
-  Base64.encode64(encrypt_proc.call(password))
-else
+answers["wifi"]["encoded_password"] = if password.nil? || password.empty?
   nil
+else
+  Base64.encode64(encrypt_proc.call(password))
 end
 answers["wifi"]["auto_connect"] = cli.ask("Auto Connect? (y/n)") do |q|
   q.default = "y"
