@@ -223,7 +223,8 @@ module Editor
             history_head
           when 4 # Ctrl-D logout
             puts
-            return
+            puts "^D\e[0J"
+            raise "Abort"
           when 5 # Ctrl-E
             @buffer.tail
           when 9
