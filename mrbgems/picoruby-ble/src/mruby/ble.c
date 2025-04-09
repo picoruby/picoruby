@@ -86,15 +86,15 @@ mrb_pop_packet(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_get_write_value(mrb_state *mrb, mrb_value self)
+mrb_pop_write_value(mrb_state *mrb, mrb_value self)
 {
   mrb_int handle;
   mrb_get_args(mrb, "i", &handle);
-  return mrb_hash_get(mrb, write_values, mrb_fixnum_value(handle));
+  return mrb_hash_delete_key(mrb, write_values, mrb_fixnum_value(handle));
 }
 
 static mrb_value
-mrb_set_read_value(mrb_state *mrb, mrb_value self)
+mrb_push_read_value(mrb_state *mrb, mrb_value self)
 {
   mrb_int handle;
   mrb_value read_value;
@@ -174,8 +174,8 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(hci_power_control), mrb_hci_power_control, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(gap_local_bd_addr), mrb_gap_local_bd_addr, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(get_write_value), mrb_get_write_value, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(set_read_value), mrb_set_read_value, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_write_value), mrb_pop_write_value, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(push_read_value), mrb_push_read_value, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_heartbeat), mrb_pop_heartbeat, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_packet), mrb_pop_packet, MRB_ARGS_NONE());
 

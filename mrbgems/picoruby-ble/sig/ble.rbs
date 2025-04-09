@@ -86,8 +86,8 @@ class BLE
   def heartbeat_callback: () -> void
   def blink_led: () -> void
   def gap_local_bd_addr: () -> String
-  def get_write_value: (Integer handle) -> (String|nil)
-  def set_read_value: (Integer handle, String value) -> void
+  def pop_write_value: (Integer handle) -> (String|nil)
+  def push_read_value: (Integer handle, String value) -> void
   def gap_connect: (String addr, Integer addr_time) -> Integer
 
   class Utils

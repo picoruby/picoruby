@@ -63,19 +63,19 @@ class WifiConfigPeripheral < BLE
   def heartbeat_callback
     blink_led if @led_blink
 
-    if (ssid_value = get_write_value(@ssid_handle)) && ssid_value != @ssid
+    if (ssid_value = pop_write_value(@ssid_handle)) && ssid_value != @ssid
       @ssid = ssid_value
       debug_puts "Received SSID: #{ssid_value}"
     end
-    if (password_value = get_write_value(@password_handle)) && password_value != @password
+    if (password_value = pop_write_value(@password_handle)) && password_value != @password
       @password = password_value
       debug_puts "Received Password: ******"
     end
-    if (country_value = get_write_value(@country_handle)) && country_value != @country
+    if (country_value = pop_write_value(@country_handle)) && country_value != @country
       @country = country_value
       debug_puts "Received Country Code: #{country_value}"
     end
-    if (watchdog_value = get_write_value(@watchdog_handle)) && watchdog_value != @watchdog
+    if (watchdog_value = pop_write_value(@watchdog_handle)) && watchdog_value != @watchdog
       @watchdog = watchdog_value
       debug_puts "Received Watchdog: #{watchdog_value}"
     end
@@ -96,7 +96,10 @@ class WifiConfigPeripheral < BLE
         "watchdog" => (@watchdog == 'y')
       }
     }
-    File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f| f.write YAML.dump(doc) end end
+    File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f|
+      f.write YAML.dump(doc)
+    end
+  end
 
   def encrypt_password(password)
     cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -113,7 +116,6 @@ class WifiConfigPeripheral < BLE
   end
 
   def packet_callback(event_packet)
-    puts "packet_callback"
     case event_packet[0]&.ord # event type
     when BTSTACK_EVENT_STATE
       return unless event_packet[2]&.ord == BLE::HCI_STATE_WORKING

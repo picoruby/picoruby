@@ -122,7 +122,15 @@ class BLE
     total_timeout_ms = 0
     hci_power_control(HCI_POWER_ON)
     while true
-      break if timeout_ms && timeout_ms <= total_timeout_ms
+      line = STDIN.read_nonblock(2)
+      if line && line[0].ord == 0x03
+        puts "Stopped by Ctrl-C"
+        break
+      end
+      if timeout_ms && timeout_ms <= total_timeout_ms
+        puts "Stopped by timeout: #{timeout_ms} ms"
+        break
+      end
       if @state == stop_state
         puts "Stopped by state: #{stop_state}"
         break

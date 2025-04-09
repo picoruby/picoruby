@@ -87,15 +87,15 @@ c_pop_packet(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_get_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
+c_pop_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrb_value handle = GET_ARG(1);
-  mrbc_value write_value = mrbc_hash_get(&write_values, &handle);
+  mrbc_value write_value = mrbc_hash_remove(&write_values, &handle);
   SET_RETURN(write_value);
 }
 
 static void
-c_set_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
+c_push_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -169,8 +169,8 @@ mrbc_ble_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_BLE, "_init", c__init);
   mrbc_define_method(vm, class_BLE, "hci_power_control", c_hci_power_control);
   mrbc_define_method(vm, class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
-  mrbc_define_method(vm, class_BLE, "get_write_value", c_get_write_value);
-  mrbc_define_method(vm, class_BLE, "set_read_value", c_set_read_value);
+  mrbc_define_method(vm, class_BLE, "pop_write_value", c_pop_write_value);
+  mrbc_define_method(vm, class_BLE, "push_read_value", c_push_read_value);
   mrbc_define_method(vm, class_BLE, "pop_heartbeat", c_pop_heartbeat);
   mrbc_define_method(vm, class_BLE, "pop_packet", c_pop_packet);
 
