@@ -2,6 +2,7 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
+
   conf.cc.defines << "PICORB_VM_MRUBYC"
 
   conf.cc.defines << "MRBC_NO_STDIO"
@@ -14,6 +15,7 @@ MRuby::Build.new do |conf|
   conf.gembox "utils"
   # Net::NTTPSClient needs -lssl -lcrypto
   conf.gem core: "picoruby-net"
+  conf.gem core: "picoruby-mqtt"
 
   conf.picoruby(alloc_libc: true)
 
