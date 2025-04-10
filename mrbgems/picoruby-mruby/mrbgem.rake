@@ -21,7 +21,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   spec.cc.defines << "MRB_INT64"
 
-  align = 4
+  align = 8
 
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
     alloc_dir = "#{dir}/lib/tinyalloc"

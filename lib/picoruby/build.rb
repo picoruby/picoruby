@@ -48,7 +48,7 @@ module MRuby
       cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
-      cc.defines << "MRBC_INT64" if cc.defines.include?("PICORUBY_INT64")
+      cc.defines << "MRBC_INT64" unless cc.defines.include?("PICORB_INT32")
       %w(MRBC_USE_MATH=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|
         key, _value = define.split("=")
         cc.defines << define if cc.defines.none? { _1.start_with? key }

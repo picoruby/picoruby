@@ -17,7 +17,6 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
 
   conf.cc.defines << "MRBC_NO_STDIO"
-  conf.cc.defines << "PICORUBY_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
 
   conf.gembox "minimum"
