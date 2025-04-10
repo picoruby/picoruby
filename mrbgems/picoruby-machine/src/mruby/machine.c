@@ -221,7 +221,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, module_Kernel, MRB_SYM(p), mrb_kernel_p, MRB_ARGS_ANY());
 
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
 #endif
 }
 

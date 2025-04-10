@@ -137,5 +137,6 @@ end
 # Start BLE Peripheral
 peri = WifiConfigPeripheral.new
 peri.debug = true
+puts "\nOpen https://picoruby.github.io/wifi\n"
 peri.start
 
