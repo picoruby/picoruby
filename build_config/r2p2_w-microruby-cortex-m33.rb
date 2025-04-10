@@ -10,8 +10,9 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=1"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
-  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-  conf.cc.defines << "ESTALLOC_DEBUG"
+  conf.cc.defines << "PICORB_ALLOC_DEFAULT"
+#  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+#  conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "FLASH_TARGET_OFFSET=0x00340000" # for 4MB flash
