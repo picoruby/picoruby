@@ -140,5 +140,6 @@ puts "Open https://picoruby.github.io/wifi in a web browser\n"
 # Start BLE Peripheral
 peri = WifiConfigPeripheral.new
 peri.debug = true
+puts "\nOpen https://picoruby.github.io/wifi\n"
 peri.start
 
