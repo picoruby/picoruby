@@ -15,7 +15,10 @@
 #include "hardware/clocks.h"
 #include "hardware/structs/scb.h"
 #include "hardware/sync.h"
+#include "pico/util/datetime.h"
 #include <tusb.h>
+
+#include "pico/aon_timer.h"
 
 /*-------------------------------------
  *
@@ -399,4 +402,19 @@ Machine_stack_usage(void)
 {
   // TODO
   return 0;
+}
+
+bool
+Machine_set_hwclock(const struct timespec *ts)
+{
+  if (aon_timer_is_running()) {
+    return aon_timer_set_time(ts);
+  }
+  return aon_timer_start(ts);
+}
+
+bool
+Machine_get_hwclock(struct timespec *ts)
+{
+  return aon_timer_get_time(ts);
 }

@@ -9,6 +9,8 @@ class Machine
   def self.read_memory: (Integer address, Integer size) -> String
   def self.tud_task: () -> void
   def self.tud_mounted?: () -> bool
+  def self.set_hwclock: (Integer tv_sec, Integer tv_nsec) -> Integer
+  def self.get_hwclock: () -> [Integer, Integer]
 end
 
 $machine_delay: Symbol?
