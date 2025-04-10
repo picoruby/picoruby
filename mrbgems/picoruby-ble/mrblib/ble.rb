@@ -123,7 +123,7 @@ class BLE
     hci_power_control(HCI_POWER_ON)
     while true
       line = STDIN.read_nonblock(2)
-      if line && line[0].ord == 0x03
+      if line && line[0]&.ord == 0x03
         puts "Stopped by Ctrl-C"
         break
       end
