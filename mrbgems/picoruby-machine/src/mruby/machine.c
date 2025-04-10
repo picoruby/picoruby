@@ -1,6 +1,7 @@
 #include "mruby.h"
 #include "mruby/string.h"
 #include "mruby/presym.h"
+#include "mruby/array.h"
 
 #include "../../include/hal.h"
 
@@ -163,6 +164,38 @@ mrb_kernel_p(mrb_state *mrb, mrb_value self)
   }
   return mrb_nil_value();
 }
+
+#include <time.h>
+
+static mrb_value
+mrb_s_set_hwclock(mrb_state *mrb, mrb_value self)
+{
+  mrb_int tv_sec, tv_nsec;
+  mrb_get_args(mrb, "ii", &tv_sec, &tv_nsec);
+  const struct timespec ts = {
+    .tv_sec = (time_t)tv_sec,
+    .tv_nsec = (long)tv_nsec,
+  };
+  if (Machine_set_hwclock(&ts)) {
+    return mrb_true_value();
+  } else {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to set hwclock");
+  }
+}
+
+static mrb_value
+mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
+{
+  struct timespec ts = {0};
+  if (Machine_get_hwclock(&ts)) {
+    mrb_value ary = mrb_ary_new_capa(mrb, 2);
+    mrb_ary_set(mrb, ary, 0, mrb_int_value(mrb, (mrb_int)ts.tv_sec));
+    mrb_ary_set(mrb, ary, 1, mrb_int_value(mrb, (mrb_int)ts.tv_nsec));
+    return ary;
+  } else {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to get hwclock");
+  }
+}
 #endif
 
 void
@@ -186,6 +219,9 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, module_Kernel, MRB_SYM(puts), mrb_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, module_Kernel, MRB_SYM(print), mrb_print, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, module_Kernel, MRB_SYM(p), mrb_kernel_p, MRB_ARGS_ANY());
+
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_REQ(1));
 #endif
 }
 
