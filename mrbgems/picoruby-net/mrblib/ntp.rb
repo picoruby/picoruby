@@ -1,42 +1,41 @@
-require 'pack'
-require 'time'
-
 class Net
   class NTP
-    class Response
-      def initialize(unix_time)
-        @unixtime = unix_time
-      end
-
-      def time
-        Time.at(@unixtime)
-      end
-    end
-
     NTP_SERVER = "pool.ntp.org"
     NTP_PORT = 123
     NTP_PACKET_SIZE = 48
 
-    def self.set_hwclock
-      Time.set_hwclock(Net::NTP.get.time)
-    end
-
     def self.get(ntp_server = NTP_SERVER, ntp_port = NTP_PORT)
       # Create a NTP packet
-      ntp_packet = String.pack('C', 0x1b) + ("\0" * 47)
+      ntp_packet = "\e" + "\0" * 47
 
       r = UDPClient.send(ntp_server, ntp_port, ntp_packet, false)
 
-      if r && r.size == NTP_PACKET_SIZE
+      if r&.size == NTP_PACKET_SIZE
         # Extract NTP timestamp (seconds from 1900-01-01)
-        seconds = ((r[40]&.ord||0) << 24) | ((r[41]&.ord||0) << 16) | ((r[42]&.ord||0) << 8) | (r[43]&.ord||0)
-        fraction = ((r[44]&.ord||0) << 24) | ((r[45]&.ord||0) << 16) | ((r[46]&.ord||0) << 8) | (r[47]&.ord||0)
+        # @type var r: String
+        r40 = r[40]
+        r41 = r[41]
+        r42 = r[42]
+        r43 = r[43]
+        # @type var r40: String
+        # @type var r41: String
+        # @type var r42: String
+        # @type var r43: String
+        seconds = ( r40.ord << 24 | r41.ord << 16 | r42.ord << 8 | r43.ord ) - 2_208_988_800
+        # Extract NTP fraction (nanoseconds)
+        r44 = r[44]
+        r45 = r[45]
+        r46 = r[46]
+        r47 = r[47]
+        # @type var r44: String
+        # @type var r45: String
+        # @type var r46: String
+        # @type var r47: String
+        fraction = r44.ord << 24 | r45.ord << 16 | r46.ord << 8 | r47.ord
+        # Calculate nanoseconds
+        nanoseconds = (fraction * 1_000_000_000) >> 32
+        return [seconds, nanoseconds]
 
-        # Convert NTP timestamp to UNIX timestamp
-        unixtime = (seconds - 2_208_988_800 + (fraction / 2.0**32)).to_i
-
-        # Convert UNIX timestamp to human-readable time
-        Response.new(unixtime)
       else
         raise "Failed to retrieve time from NTP server."
       end

@@ -121,5 +121,6 @@ if config["wifi"]["watchdog"]
   puts "Watchdog disabled"
 end
 
-Net::NTP.set_hwclock
+tv = Net::NTP.get
+Machine.set_hwclock(tv[0], tv[1])
 puts "Time set to #{Time.now}"
