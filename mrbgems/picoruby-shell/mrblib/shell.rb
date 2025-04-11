@@ -213,6 +213,7 @@ class Shell
           puts
         when ["reboot"]
           begin
+            puts "\nrebooting..."
             Watchdog.reboot 1000
           rescue NameError
             buffer.clear
