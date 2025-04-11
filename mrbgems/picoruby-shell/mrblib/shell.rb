@@ -84,7 +84,7 @@ class Shell
       return false
     end
     puts "\nLoading #{file}..."
-    load file
+    system file
     return true
   end
 
@@ -213,6 +213,7 @@ class Shell
           puts
         when ["reboot"]
           begin
+            puts "\nrebooting..."
             Watchdog.reboot 1000
           rescue NameError
             buffer.clear

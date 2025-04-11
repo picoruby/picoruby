@@ -20,6 +20,9 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   end
 
   executables_src = "#{build_dir}/shell_executables.c.inc"
+  if File.exist?(executables_src)
+    File.delete(executables_src)
+  end
   cc.include_paths << build_dir
 
   executable_mrbfiles = Array.new
