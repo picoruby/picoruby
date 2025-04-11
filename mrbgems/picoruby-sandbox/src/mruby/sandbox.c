@@ -89,7 +89,7 @@ static mrb_value
 mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const mrb_int *address;
+  const mrb_int address;
   const size_t size;
 
   uint32_t kw_num = 1;
@@ -101,7 +101,7 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "ii:", &address, &size, &kwargs);
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(intptr_t)address, size, kw_values[0])) {
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(uintptr_t)address, size, kw_values[0])) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
   }
   return mrb_true_value();
@@ -224,9 +224,9 @@ static mrb_value
 mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const mrb_int *address;
+  const mrb_int address;
   mrb_get_args(mrb, "i", &address);
-  ss->irep = mrb_read_irep(mrb, (const uint8_t *)(intptr_t)address);
+  ss->irep = mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
   } else {
