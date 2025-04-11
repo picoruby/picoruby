@@ -4,20 +4,11 @@ static mrbc_value read_values = {.tt = MRBC_TT_NIL};
 #define NODE_BOX_SIZE 10
 #define VM_REGS_SIZE 110 // can be reduced?
 
-/*
- * Workaround: To avoid deadlock
- */
-static bool mutex_locked = false;
-static bool heatbeat_flag = false;
-static bool packet_flag = false;
-static uint8_t *packet = NULL;
-static uint16_t packet_size = 0;
-
 void
 BLE_push_event(uint8_t *data, uint16_t size)
 {
-  if (mutex_locked) return;
-  mutex_locked = true;
+  if (packet_mutex) return;
+  packet_mutex = true;
   packet_flag = true;
   packet_size = size;
   if (packet != NULL) {
@@ -25,13 +16,13 @@ BLE_push_event(uint8_t *data, uint16_t size)
   }
   packet = mrbc_raw_alloc(packet_size);
   memcpy(packet, data, packet_size);
-  mutex_locked = false;
+  packet_mutex = false;
 }
 
 void
 BLE_heartbeat(void)
 {
-  if (mutex_locked) return;
+  if (packet_mutex) return;
   heatbeat_flag = true;
 }
 
@@ -41,7 +32,9 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   if (att_handle == 0 || size == 0 || write_values.tt == MRBC_TT_NIL) {
     return -1;
   }
+  write_values_mutex = true;
   mrbc_value write_value = mrbc_string_new(NULL, (const void *)data, size);
+  write_values_mutex = false;
   return mrbc_hash_set(&write_values, &mrbc_integer_value(att_handle), &write_value);
 }
 
@@ -73,29 +66,33 @@ c_pop_heartbeat(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_pop_packet(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (mutex_locked || !packet_flag) {
+  if (packet_mutex || !packet_flag) {
     SET_NIL_RETURN();
     return;
   }
-  mutex_locked = true;
+  packet_mutex = true;
   packet_flag = false;
   mrb_value packet_value = mrbc_string_new(vm, (const char *)packet, packet_size);
   mrbc_raw_free(packet);
   packet = NULL;
-  mutex_locked = false;
+  packet_mutex = false;
   SET_RETURN(packet_value);
 }
 
 static void
-c_get_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
+c_pop_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  if (write_values_mutex) {
+    SET_NIL_RETURN();
+    return;
+  }
   mrb_value handle = GET_ARG(1);
-  mrbc_value write_value = mrbc_hash_get(&write_values, &handle);
+  mrbc_value write_value = mrbc_hash_remove(&write_values, &handle);
   SET_RETURN(write_value);
 }
 
 static void
-c_set_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
+c_push_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -169,8 +166,8 @@ mrbc_ble_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_BLE, "_init", c__init);
   mrbc_define_method(vm, class_BLE, "hci_power_control", c_hci_power_control);
   mrbc_define_method(vm, class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
-  mrbc_define_method(vm, class_BLE, "get_write_value", c_get_write_value);
-  mrbc_define_method(vm, class_BLE, "set_read_value", c_set_read_value);
+  mrbc_define_method(vm, class_BLE, "pop_write_value", c_pop_write_value);
+  mrbc_define_method(vm, class_BLE, "push_read_value", c_push_read_value);
   mrbc_define_method(vm, class_BLE, "pop_heartbeat", c_pop_heartbeat);
   mrbc_define_method(vm, class_BLE, "pop_packet", c_pop_packet);
 

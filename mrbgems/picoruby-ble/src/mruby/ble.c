@@ -7,20 +7,11 @@ static mrb_state *_mrb = NULL;
 static mrb_value write_values;
 static mrb_value read_values;
 
-/*
- * Workaround: To avoid deadlock
- */
-static bool mutex_locked = false;
-static bool heatbeat_flag = false;
-static bool packet_flag = false;
-static uint8_t *packet = NULL;
-static uint16_t packet_size = 0;
-
 void
 BLE_push_event(uint8_t *data, uint16_t size)
 {
-  if (mutex_locked) return;
-  mutex_locked = true;
+  if (packet_mutex) return;
+  packet_mutex = true;
   packet_flag = true;
   packet_size = size;
   if (packet != NULL) {
@@ -28,13 +19,13 @@ BLE_push_event(uint8_t *data, uint16_t size)
   }
   packet = mrb_malloc(_mrb, packet_size);
   memcpy(packet, data, packet_size);
-  mutex_locked = false;
+  packet_mutex = false;
 }
 
 void
 BLE_heartbeat(void)
 {
-  if (mutex_locked) return;
+  if (packet_mutex) return;
   heatbeat_flag = true;
 }
 
@@ -45,7 +36,9 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
     return -1;
   }
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
+  write_values_mutex = true;
   mrb_hash_set(_mrb, write_values, mrb_fixnum_value(att_handle), write_value);
+  write_values_mutex = false;
   return 0;
 }
 
@@ -75,26 +68,27 @@ static mrb_value
 mrb_pop_packet(mrb_state *mrb, mrb_value self)
 {
   mrb_value packet_value = mrb_nil_value();
-  if (mutex_locked || !packet_flag) return packet_value;
-  mutex_locked = true;
+  if (packet_mutex || !packet_flag) return packet_value;
+  packet_mutex = true;
   packet_flag = false;
   packet_value = mrb_str_new(mrb, (const char *)packet, packet_size);
   mrb_free(mrb, packet);
   packet = NULL;
-  mutex_locked = false;
+  packet_mutex = false;
   return packet_value;
 }
 
 static mrb_value
-mrb_get_write_value(mrb_state *mrb, mrb_value self)
+mrb_pop_write_value(mrb_state *mrb, mrb_value self)
 {
+  if (write_values_mutex) return mrb_nil_value();
   mrb_int handle;
   mrb_get_args(mrb, "i", &handle);
-  return mrb_hash_get(mrb, write_values, mrb_fixnum_value(handle));
+  return mrb_hash_delete_key(mrb, write_values, mrb_fixnum_value(handle));
 }
 
 static mrb_value
-mrb_set_read_value(mrb_state *mrb, mrb_value self)
+mrb_push_read_value(mrb_state *mrb, mrb_value self)
 {
   mrb_int handle;
   mrb_value read_value;
@@ -174,8 +168,8 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(hci_power_control), mrb_hci_power_control, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(gap_local_bd_addr), mrb_gap_local_bd_addr, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(get_write_value), mrb_get_write_value, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(set_read_value), mrb_set_read_value, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_write_value), mrb_pop_write_value, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(push_read_value), mrb_push_read_value, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_heartbeat), mrb_pop_heartbeat, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_packet), mrb_pop_packet, MRB_ARGS_NONE());
 
