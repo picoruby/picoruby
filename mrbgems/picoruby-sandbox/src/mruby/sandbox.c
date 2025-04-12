@@ -89,8 +89,8 @@ static mrb_value
 mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const mrb_int address;
-  const size_t size;
+  mrb_int address;
+  mrb_int size;
 
   uint32_t kw_num = 1;
   uint32_t kw_required = 0;
@@ -99,6 +99,12 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
   mrb_get_args(mrb, "ii:", &address, &size, &kwargs);
+  if (size <= 0) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid size: %S", mrb_fixnum_value(size));
+  }
+  if (address <= 0) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid address: %S", mrb_fixnum_value(address));
+  }
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
   if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(uintptr_t)address, size, kw_values[0])) {
@@ -172,7 +178,9 @@ mrb_sandbox_error(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_sandbox_interrupt(mrb_state *mrb, mrb_value self)
 {
-  mrb_notimplement(mrb);
+  SS();
+  // TODO: Should fix this workaround?
+  ss->tcb->c.status = MRB_TASK_STOPPED;
   return mrb_nil_value();
 }
 
@@ -224,7 +232,7 @@ static mrb_value
 mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const mrb_int address;
+  mrb_int address;
   mrb_get_args(mrb, "i", &address);
   ss->irep = mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
@@ -251,8 +259,8 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   MRB_SET_INSTANCE_TT(class_Sandbox, MRB_TT_CDATA);
 
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(initialize), mrb_sandbox_initialize, MRB_ARGS_OPT(1));
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile_from_memory), mrb_sandbox_compile_from_memory, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1)|MRB_ARGS_KEY(1,1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile_from_memory), mrb_sandbox_compile_from_memory, MRB_ARGS_REQ(2)|MRB_ARGS_KEY(1,1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(execute), mrb_sandbox_execute, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(state), mrb_sandbox_state, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(result), mrb_sandbox_result, MRB_ARGS_NONE());
@@ -261,7 +269,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(suspend), mrb_sandbox_suspend, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb_from_memory), mrb_sandbox_exec_vm_code_from_memory, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb_from_memory), mrb_sandbox_exec_vm_code_from_memory, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(terminate), mrb_sandbox_terminate, MRB_ARGS_NONE());
 }
 
