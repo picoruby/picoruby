@@ -38,8 +38,7 @@ Watchdog_update(void)
 bool
 Watchdog_caused_reboot(void)
 {
-  /* Not implemented */
-  return false;
+  return esp_reset_reason() == ESP_RST_TASK_WDT;
 }
 
 bool
