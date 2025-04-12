@@ -42,7 +42,7 @@ mrb__read(mrb_state *mrb, mrb_value self)
 
   mrb_value duration_1byte = mrb_iv_get(mrb, self, MRB_IVSYM(duration_1byte));
 
-  int ary_len = RARRAY_LEN(outputs);
+  mrb_int ary_len = RARRAY_LEN(outputs);
   uint8_t rxdata[ary_len];
   int ret = I2C_read_timeout_us(
               (uint8_t)i2c_adrs_7,

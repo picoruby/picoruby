@@ -87,8 +87,8 @@ static mrb_value
 mrb_seek(mrb_state *mrb, mrb_value self)
 {
   FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
-  int ofs;
-  int whence;
+  mrb_int ofs;
+  mrb_int whence;
   mrb_get_args(mrb, "ii", &ofs, &whence);
   FSIZE_t size = f_size(fp);
   FSIZE_t new_pos;
