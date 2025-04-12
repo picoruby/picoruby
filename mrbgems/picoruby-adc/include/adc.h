@@ -2,7 +2,7 @@
 #define ADC_DEFINED_H_
 
 #include <stdint.h>
-#include "picoruby/float.h"
+#include "picoruby.h"
 
 #ifdef __cplusplus
 extern "C" {

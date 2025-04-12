@@ -35,7 +35,7 @@ PWM_init(uint32_t gpio)
 }
 
 void
-PWM_set_frequency_and_duty(uint32_t gpio, float frequency, float duty_cycle)
+PWM_set_frequency_and_duty(uint32_t gpio, picorb_float_t frequency, picorb_float_t duty_cycle)
 {
   if (gpio >= GPIO_NUM_MAX) return;
 
