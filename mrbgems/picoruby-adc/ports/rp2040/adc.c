@@ -48,7 +48,7 @@ uint32_t
 ADC_read_raw(uint8_t input)
 {
   adc_select_input(input);
-  return adc_read();
+  return (uint32_t)adc_read();
 }
 
 #ifndef PICORB_NO_FLOAT
@@ -56,6 +56,6 @@ picorb_float_t
 ADC_read_voltage(uint8_t input)
 {
   adc_select_input(input);
-  return adc_read() * VOLTAGE_MAX / RESOLUTION;
+  return (picorb_float_t)adc_read() * VOLTAGE_MAX / RESOLUTION;
 }
 #endif

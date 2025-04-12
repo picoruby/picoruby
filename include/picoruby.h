@@ -35,6 +35,12 @@
 
 #define picorb_warn(fmt, ...)   console_printf(fmt, ##__VA_ARGS__)
 
+#if MRBC_USE_FLOAT == 1
+  typedef float picorb_float_t;
+#else
+  typedef double picorb_float_t;
+#endif
+
 #define picorb_state    mrbc_vm
 #define picorb_value    mrbc_value
 #define picorb_bool     mrc_bool
@@ -120,6 +126,12 @@ bool picoruby_load_model_by_name(const char *gem);
 } while(0)
 
 #define picorb_warn(fmt, ...)   mrb_warn(mrb, fmt, ##__VA_ARGS__)
+
+#ifdef MRB_USE_FLOAT32
+  typedef float picorb_float_t;
+#else
+  typedef double picorb_float_t;
+#endif
 
 #define picorb_bool     mrb_bool
 #define picorb_sym      mrc_sym

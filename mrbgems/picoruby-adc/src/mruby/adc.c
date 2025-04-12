@@ -57,6 +57,7 @@ mrb_read_voltage(mrb_state *mrb, mrb_value self)
   return mrb_float_value(mrb, ADC_read_voltage(mrb_fixnum(ivar_input)));
 #else
   mrb_notimplement(mrb);
+  return mrb_nil_value();
 #endif
 }
 
