@@ -310,7 +310,7 @@ void
 mrb_FAT_init_spi(mrb_state *mrb, mrb_value self)
 {
   const char *unit_name;
-  int sck, cipo, copi, cs;
+  mrb_int sck, cipo, copi, cs;
   mrb_get_args(mrb, "ziiii", &unit_name, &sck, &cipo, &copi, &cs);
   if (FAT_set_spi_unit(unit_name, sck, cipo, copi, cs) < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Invalid SPI unit.");
