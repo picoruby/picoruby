@@ -19,11 +19,20 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
-  align = 4
+  ALIGN = 4 # or 8
+
+  build.cc.defines << "MRB_INT64"
+
+  if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
+    heap_page_size = o1heap_page_size(13)
+  else
+    heap_page_size = 256
+  end
+  spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
 
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
     alloc_dir = "#{dir}/lib/tinyalloc"
-    spec.cc.defines << "TA_ALIGNMENT=#{align}"
+    spec.cc.defines << "TA_ALIGNMENT=#{ALIGN}"
   elsif spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
     alloc_dir = "#{dir}/lib/o1heap/o1heap"
     unless File.directory?(alloc_dir)
@@ -31,7 +40,6 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
         sh "git clone https://github.com/pavel-kirienko/o1heap"
       end
     end
-    spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{o1heap_page_size(13)}"
   elsif spec.cc.defines.include?("PICORB_ALLOC_TLSF")
     alloc_dir = "#{dir}/lib/tlsf"
     unless File.directory?(alloc_dir)
@@ -43,7 +51,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
       spec.cc.defines << "_DEBUG"
     end
   elsif spec.cc.defines.include?("PICORB_ALLOC_ESTALLOC")
-    spec.cc.defines << "ESTALLOC_ALIGNMENT=#{align}"
+    spec.cc.defines << "ESTALLOC_ALIGNMENT=#{ALIGN}"
     if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
       spec.cc.defines << "ESTALLOC_DEBUG=1"
     end
