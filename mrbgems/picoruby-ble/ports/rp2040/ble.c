@@ -137,6 +137,10 @@ BLE_init(const uint8_t *profile_data, int ble_role)
   l2cap_init();
   sm_init();
 
+  sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+  sm_set_authentication_requirements(SM_AUTHREQ_BONDING);
+  sm_set_secure_connections_only_mode(false); // If true, LEGACY pairing will fail
+
   role = ble_role;
 
   switch (role) {
