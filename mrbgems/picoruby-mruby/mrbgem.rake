@@ -19,9 +19,13 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
   spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
-  ALIGN = 4 # or 8
+  # I don't know why but removing this causes a problem
+  # even if build_config has the same define
+  spec.cc.defines << "MRB_INT64"
 
-  build.cc.defines << "MRB_INT64"
+  align = build.cc.defines.find{_1.start_with?("PICORB_ALLOC_ALIGN=")}.then do |define|
+    define&.split("=")&.last || 4
+  end
 
   if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
     heap_page_size = o1heap_page_size(13)
@@ -32,7 +36,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
     alloc_dir = "#{dir}/lib/tinyalloc"
-    spec.cc.defines << "TA_ALIGNMENT=#{ALIGN}"
+    spec.cc.defines << "TA_ALIGNMENT=#{align}"
   elsif spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
     alloc_dir = "#{dir}/lib/o1heap/o1heap"
     unless File.directory?(alloc_dir)
@@ -51,7 +55,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
       spec.cc.defines << "_DEBUG"
     end
   elsif spec.cc.defines.include?("PICORB_ALLOC_ESTALLOC")
-    spec.cc.defines << "ESTALLOC_ALIGNMENT=#{ALIGN}"
+    spec.cc.defines << "ESTALLOC_ALIGNMENT=#{align}"
     if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
       spec.cc.defines << "ESTALLOC_DEBUG=1"
     end
