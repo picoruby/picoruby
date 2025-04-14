@@ -42,10 +42,12 @@ Net_get_ip(const char *name, ip_addr_t *ip)
 
 #elif defined(PICORB_VM_MRUBYC)
 
-//#include "mrubyc/net.c"
-int mbedtls_hardware_poll (void *data, unsigned char *output, size_t len, size_t *olen){
-  return 0;
-}
 void mrbc_net_init(mrbc_vm *vm){}
+
+//TODO
+//#include "mrubyc/dns.c"
+//#include "mrubyc/net.c"
+//#include "mrubyc/tcp.c"
+//#include "mrubyc/udp.c"
 
 #endif
