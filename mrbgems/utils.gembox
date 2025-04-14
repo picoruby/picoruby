@@ -2,6 +2,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-picoline"
   conf.gem core: "picoruby-rng"
   conf.gem core: "picoruby-vim"
-  conf.gem core: "picoruby-data"
 end
 

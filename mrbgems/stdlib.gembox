@@ -1,4 +1,5 @@
 MRuby::GemBox.new do |conf|
+  conf.gem core: 'picoruby-machine'
   conf.gem core: 'picoruby-base16'
   conf.gem core: 'picoruby-base64'
   conf.gem core: 'picoruby-json'
