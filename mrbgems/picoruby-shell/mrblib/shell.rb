@@ -43,6 +43,7 @@ class Shell
     Dir.chdir(root || "/") do
       %w(bin lib var home etc etc/init.d etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
+        sleep_ms 100
       end
       while exe = Shell.next_executable
         path = "#{root}#{exe[:path]}"
@@ -51,6 +52,7 @@ class Shell
           f.expand exe[:code].length if f.respond_to? :expand
           f.write exe[:code]
           f.close
+          sleep_ms 100
         end
       end
       path = "#{root}/etc/machine-id"
