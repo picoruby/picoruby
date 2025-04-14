@@ -19,6 +19,14 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     spec.add_dependency 'picoruby-machine' # for shell executables
   end
 
+  exe_dir = "#{build_dir}/shell_executables"
+  if Dir.exist?(exe_dir)
+    Dir.each_child(exe_dir) do |filename|
+      filepath = File.join(exe_dir, filename)
+      FileUtils.rm(filepath)
+    end
+  end
+
   executables_src = "#{build_dir}/shell_executables.c.inc"
   if File.exist?(executables_src)
     File.delete(executables_src)
@@ -45,20 +53,21 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   file executables_src do |t|
     mkdir_p File.dirname t.name
     pathmap = File.read("#{dir}/shell_executables/_path.txt").lines.map(&:chomp).map do
-      p = Pathname.new(_1)
-      { dir: p.dirname.to_s, basename: p.basename.to_s }
+      pn = Pathname.new(_1)
+      { dir: pn.dirname.to_s, basename: pn.basename.to_s }
     end
-    open(t.name, 'w+') do |f|
+    open(t.name, 'w') do |f|
       executable_mrbfiles.each do |vm_code|
         Rake::FileTask[vm_code].invoke
-        f.puts "#include \"#{vm_code}\"" if File.exist?(vm_code)
+        f.puts "#include \"#{vm_code}\""
       end
       f.puts
       f.puts "static shell_executables executables[] = {"
       executable_mrbfiles.each do |vm_code|
         basename = File.basename(vm_code, ".c")
         dirname = pathmap.find { _1[:basename] == basename }[:dir]
-        f.puts "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}}," if File.exist?(vm_code)
+        line = "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}},"
+        f.puts line
       end
       f.puts "  {NULL, NULL} /* sentinel */"
       f.puts "};"
