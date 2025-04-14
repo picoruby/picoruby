@@ -169,7 +169,7 @@ mrb_mbedtls_pkey_rsa_to_pem(mrb_state *mrb, mrb_value self)
   mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
   bool has_private = (mbedtls_rsa_check_privkey(rsa) == 0);
 
-  size_t len = 0;
+  mrb_int len = 0;
   if (has_private) {
     ret = mbedtls_pk_write_key_pem(pk, buf, sizeof(buf));
   } else {

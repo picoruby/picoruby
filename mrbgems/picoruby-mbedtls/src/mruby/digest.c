@@ -69,7 +69,7 @@ mrb_mbedtls_digest_finish(mrb_state *mrb, mrb_value self)
   if (ret != 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_digest_finish failed");
   }
-  mrb_value ret_value = mrb_str_new(mrb, (const char *)output, out_len);
+  mrb_value ret_value = mrb_str_new(mrb, (const char *)output, (mrb_int)out_len);
   mrb_free(mrb, output);
   //mrb_incref(&v[0]);
   return ret_value;
