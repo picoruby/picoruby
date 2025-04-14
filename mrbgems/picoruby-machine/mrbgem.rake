@@ -9,5 +9,3 @@ MRuby::Gem::Specification.new('picoruby-machine') do |spec|
     cc.defines << "PICORB_PLATFORM_POSIX"
   end
 end
-
-
