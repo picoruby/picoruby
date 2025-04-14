@@ -34,12 +34,16 @@ Machine_get_unique_id(char *id_str)
 {
   FILE *fp = fopen("/etc/machine-id", "r");
   if (fp) {
-    fgets(id_str, 32, fp);
+    if (fgets(id_str, 32, fp) == NULL) {
+      perror("Failed to read /etc/machine-id");
+      fclose(fp);
+      return false;
+    }
     fclose(fp);
-  } else {
-    perror("Failed to open /etc/machine-id");
+    return true;
   }
-  return true;
+  perror("Failed to open /etc/machine-id");
+  return false;
 }
 
 uint32_t
