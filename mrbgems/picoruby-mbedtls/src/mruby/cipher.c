@@ -204,7 +204,7 @@ mrb_mbedtls_cipher_update(mrb_state *mrb, mrb_value self)
   if (ret != 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_update failed");
   }
-  mrb_value ret_value = mrb_str_new(mrb, (const char *)output, out_len);
+  mrb_value ret_value = mrb_str_new(mrb, (const char *)output, (mrb_int)out_len);
   mrb_free(mrb, output);
   //mrb_incref(&v[0]);
   return ret_value;
@@ -224,7 +224,7 @@ mrb_mbedtls_cipher_finish(mrb_state *mrb, mrb_value self)
   if (ret != 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_finish failed");
   }
-  mrb_value ret_value = mrb_str_new(mrb, (const char *)output, out_len);
+  mrb_value ret_value = mrb_str_new(mrb, (const char *)output, (mrb_int)out_len);
   //mrb_incref(&v[0]);
   return ret_value;
 }
@@ -244,7 +244,7 @@ mrb_mbedtls_cipher_write_tag(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_write_tag failed");
   }
 
-  mrb_value ret_value = mrb_str_new(mrb, (const char *)tag, tag_len);
+  mrb_value ret_value = mrb_str_new(mrb, (const char *)tag, (mrb_int)tag_len);
   //mrb_incref(&v[0]);
   return ret_value;
 }
