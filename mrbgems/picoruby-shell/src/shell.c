@@ -7,6 +7,7 @@
 typedef struct shell_executables {
   const char *path;
   const uint8_t *vm_code;
+  const uint32_t crc;
 } shell_executables;
 
 #include "shell_executables.c.inc"

@@ -17,16 +17,19 @@ mrb_next_executable(mrb_state *mrb, mrb_value self)
   static int i = 0;
   if (executables[i].path) {
     const uint8_t *vm_code = executables[i].vm_code;
-    mrb_value hash = mrb_hash_new_capa(mrb, 2);
+    mrb_value hash = mrb_hash_new_capa(mrb, 3);
     mrb_value path = mrb_str_new_cstr(mrb, (char *)executables[i].path);
     mrb_hash_set(mrb, hash,
-                mrb_symbol_value(mrb_intern_cstr(mrb, "path")),
+                mrb_symbol_value(MRB_SYM(path)),
                 mrb_str_dup(mrb, path));
     uint32_t codesize = (vm_code[8] << 24) + (vm_code[9] << 16) + (vm_code[10] << 8) + vm_code[11];
     mrb_value code_val = mrb_str_new(mrb, (char *)vm_code, codesize);
     mrb_hash_set(mrb, hash,
-                mrb_symbol_value(mrb_intern_cstr(mrb, "code")),
+                mrb_symbol_value(MRB_SYM(code)),
                 mrb_str_dup(mrb, code_val));
+    mrb_hash_set(mrb, hash,
+                mrb_symbol_value(MRB_SYM(crc)),
+                mrb_int_value(mrb, executables[i].crc));
     i++;
     return hash;
   } else {

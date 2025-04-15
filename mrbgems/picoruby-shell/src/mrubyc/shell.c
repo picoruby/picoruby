@@ -13,7 +13,7 @@ c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
   static int i = 0;
   if (executables[i].path) {
     const uint8_t *vm_code = executables[i].vm_code;
-    mrbc_value hash = mrbc_hash_new(vm, 2);
+    mrbc_value hash = mrbc_hash_new(vm, 3);
     mrbc_value path = mrbc_string_new_cstr(vm, (char *)executables[i].path);
     mrbc_hash_set(&hash,
       &mrbc_symbol_value(mrbc_str_to_symid("path")),
@@ -24,6 +24,10 @@ c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_hash_set(&hash,
       &mrbc_symbol_value(mrbc_str_to_symid("code")),
       &code_val
+    );
+    mrbc_hash_set(&hash,
+      &mrbc_symbol_value(mrbc_str_to_symid("crc")),
+      &mrbc_integer_value(executables[i].crc)
     );
     SET_RETURN(hash);
     i++;

@@ -32,6 +32,37 @@ class Shell
     end
   end
 
+  def self.ensure_system_file(path, code, crc = nil)
+    10.times do
+      if File.file?(path)
+        puts "Checking: #{path}"
+        File.open(path, "r") do |f|
+          actual_len = f.size
+          actual_code = f.read if 0 < actual_len
+          sleep_ms 10
+          actual_crc = CRC.crc32(actual_code)
+          if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
+            puts "  OK (#{code.length} bytes)"
+            return
+          else
+            puts "  NG. Updating... (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
+          end
+        end
+        File.unlink(path)
+        sleep_ms 100
+      else
+        File.open(path, "w") do |f|
+          puts "Creating: #{path}"
+          f.expand(code.length) if f.respond_to?(:expand)
+          f.write(code)
+        end
+        sleep_ms 10
+      end
+    end
+    File.unlink(path) if File.file?(path)
+    puts "Failed to save: #{path} (#{code.length} bytes)"
+  end
+
   def self.setup_system_files(root = nil, force: false)
     unless root.nil? || Dir.exist?(root)
       Dir.mkdir(root)
@@ -43,24 +74,14 @@ class Shell
     Dir.chdir(root || "/") do
       %w(bin lib var home etc etc/init.d etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
-        sleep_ms 100
+        sleep_ms 10
       end
       while exe = Shell.next_executable
         path = "#{root}#{exe[:path]}"
-        if force || !File.file?(path)
-          f = File.open path, "w"
-          f.expand exe[:code].length if f.respond_to? :expand
-          f.write exe[:code]
-          f.close
-          sleep_ms 100
-        end
+        self.ensure_system_file(path, exe[:code], exe[:crc])
       end
       path = "#{root}/etc/machine-id"
-      unless File.file?(path)
-        f = File.open path, "w"
-        f.write Machine.unique_id
-        f.close
-      end
+      self.ensure_system_file(path, Machine.unique_id, nil)
     end
     Dir.chdir ENV['HOME']
   end

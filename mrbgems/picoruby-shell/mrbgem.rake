@@ -1,3 +1,6 @@
+require 'stringio'
+require 'zlib'
+
 MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
@@ -9,6 +12,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-editor'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
+  spec.add_dependency 'picoruby-crc'
   if build.posix?
     if build.vm_mrubyc?
       spec.add_dependency('picoruby-dir')
@@ -44,7 +48,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
         mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", cdump: false)
       end
     end
-    executable_mrbfiles << mrbfile
+    executable_mrbfiles << { mrbfile: mrbfile, rbfile: rbfile }
     objfile = "#{build_dir}/shell_executables/#{rbfile.pathmap('%n')}.o"
     file objfile => mrbfile
     build.libmruby_objs << objfile
@@ -58,15 +62,22 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     end
     open(t.name, 'w') do |f|
       executable_mrbfiles.each do |vm_code|
-        Rake::FileTask[vm_code].invoke
-        f.puts "#include \"#{vm_code}\""
+        Rake::FileTask[vm_code[:mrbfile]].invoke
+        f.puts "#include \"#{vm_code[:mrbfile]}\""
       end
       f.puts
       f.puts "static shell_executables executables[] = {"
       executable_mrbfiles.each do |vm_code|
-        basename = File.basename(vm_code, ".c")
+        sio = StringIO.new("hoge", 'w+')
+        sio.set_encoding('ASCII-8BIT')
+        mrbc.compile_options = "--remove-lv -o-"
+        mrbc.run(sio, vm_code[:rbfile], "", cdump: false)
+        sio.rewind
+        crc = Zlib.crc32(sio.read.chomp)
+        sio.close
+        basename = File.basename(vm_code[:mrbfile], ".c")
         dirname = pathmap.find { _1[:basename] == basename }[:dir]
-        line = "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}},"
+        line = "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}, #{crc}},"
         f.puts line
       end
       f.puts "  {NULL, NULL} /* sentinel */"
