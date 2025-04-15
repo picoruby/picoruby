@@ -1,0 +1,3 @@
+module CRC
+  def self.crc32: (?String string, ?Integer crc) -> Integer
+end
