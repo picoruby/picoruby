@@ -39,7 +39,7 @@ class Shell
         File.open(path, "r") do |f|
           actual_len = f.size
           actual_code = f.read if 0 < actual_len
-          sleep_ms 10
+          sleep_ms 100
           actual_crc = CRC.crc32(actual_code)
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
             puts "  OK (#{code.length} bytes)"
