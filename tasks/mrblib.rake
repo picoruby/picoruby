@@ -25,15 +25,21 @@ MRuby.each_target do
       f.puts %Q[ *   All manual changes will get lost.]
       f.puts %Q[ */]
       unless presym_enabled?
-        f.puts %Q[#include <mruby.h>]
-        f.puts %Q[#include <mruby/irep.h>]
+        if cc.defines.include?("PICORB_VM_MRUBY")
+          f.puts %Q[#include <mruby.h>]
+          f.puts %Q[#include <mruby/irep.h>]
+        else
+          f.puts %Q[#include <picoruby.h>]
+        end
       end
       mrbc.run f, rbfiles, "mrblib_#{suffix}", cdump: cdump, static: true
       f.puts %Q[void]
       f.puts %Q[mrb_init_mrblib(mrb_state *mrb)]
       f.puts %Q[{]
       f.puts %Q[  mrblib_#{suffix}_init_syms(mrb);] if cdump
-      f.puts %Q[  mrb_load_#{suffix}(mrb, mrblib_#{suffix});]
+      if cc.defines.include?("PICORB_VM_MRUBY")
+        f.puts %Q[  mrb_load_#{suffix}(mrb, mrblib_#{suffix});]
+      end
       f.puts %Q[}]
     end
   end

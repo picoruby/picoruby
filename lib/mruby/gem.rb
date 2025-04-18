@@ -248,7 +248,11 @@ module MRuby
       def print_gem_init_header(f)
         print_gem_comment(f)
         if rbfiles.empty?
-          f.puts %Q[#include <mruby.h>]
+          if cc.defines.include?("PICORB_VM_MRUBY")
+            f.puts %Q[#include <mruby.h>]
+          else
+            f.puts %Q[#include <picoruby.h>]
+          end
         else
           f.puts %Q[#include <stdlib.h>]
           unless cdump?
