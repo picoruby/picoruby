@@ -10,12 +10,12 @@ c_crc_crc32(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_value string = GET_ARG(1);
   mrbc_int_t crc = GET_INT_ARG(2);
   if (string.tt == MRBC_TT_NIL) {
-    return mrb_fixnum_value(0);
+    return;
   } else if (string.tt != MRBC_TT_STRING) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "string expected");
     return;
   }
-  uint32_t crc_value = generate_crc32((uint8_t *)string.string->data, string.string->len, crc);
+  uint32_t crc_value = generate_crc32((uint8_t *)string.string->data, string.string->size, crc);
   SET_INT_RETURN(crc_value);
 }
 
