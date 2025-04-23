@@ -6,12 +6,12 @@
 #define READ(pin)        GPIO_read(pin_num(vm, pin))
 #define WRITE(pin, val)  GPIO_write(pin_num(vm, pin), val)
 
-static int
+static uint8_t
 pin_num(mrbc_vm *vm, mrbc_value pin)
 {
   switch (mrbc_type(pin)) {
     case MRBC_TT_INTEGER: {
-      return pin.i;
+      return (uint8_t)pin.i;
     }
     case MRBC_TT_STRING: {
       return GPIO_pin_num_from_char(pin.string->data);
@@ -31,7 +31,7 @@ pin_num(mrbc_vm *vm, mrbc_value pin)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int pin_number = pin_num(vm, v[1]);
+  uint8_t pin_number = pin_num(vm, v[1]);
   if (-1 < pin_number) GPIO_init(pin_number);
   SET_INT_RETURN(0);
 }
