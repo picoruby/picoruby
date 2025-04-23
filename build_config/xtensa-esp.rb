@@ -28,5 +28,7 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: "picoruby-spi"
   conf.gem core: "picoruby-pwm"
   conf.gem core: "picoruby-watchdog"
+  conf.gem core: "picoruby-rmt"
+  conf.gem core: "picoruby-adafruit_sk6812"
   conf.picoruby(alloc_libc: false)
 end
