@@ -9,14 +9,8 @@ extern "C" {
 #include "mruby.h"
 void mrb_tick(mrb_state *mrb);
 void hal_init(mrb_state *mrb);
-//#elif defined(PICORB_VM_MRUBYC)
-//#include "mrubyc.h"
-//typedef void mrb_state;
-//void mrbc_tick();
-//void hal_init(mrb_state *mrb);
-//#define mrb_tick(mrb) mrbc_tick()
-//#define MRB_TICK_UNIT MRBC_TICK_UNIT
 #elif defined(PICORB_VM_MRUBYC)
+void mrbc_tick();
 void hal_init(void);
 #endif
 

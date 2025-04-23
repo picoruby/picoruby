@@ -66,6 +66,7 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
       )
 
+      cc.include_paths << "#{gems['picoruby-mrubyc'].dir}/include"
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
       cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"

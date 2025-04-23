@@ -42,7 +42,9 @@ static volatile uint32_t interrupt_nesting = 0;
 
 static volatile bool in_tick_processing = false;
 
+#if defined(PICORB_VM_MRUBY)
 static mrb_state *mrb_;
+#endif
 
 static void
 alarm_handler(void)

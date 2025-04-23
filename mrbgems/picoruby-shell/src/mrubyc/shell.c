@@ -44,3 +44,10 @@ mrbc_shell_init(mrbc_vm *vm)
   mrbc_class *mrbc_class_Shell = mrbc_define_class(vm, "Shell", mrbc_class_object);
   mrbc_define_method(vm, mrbc_class_Shell, "next_executable", c_next_executable);
 }
+
+void
+picoruby_init_executables(mrbc_vm *vm)
+{
+  mrbc_class *mrbc_class_Shell = mrbc_define_class(vm, "Shell", mrbc_class_object);
+  mrbc_define_method(vm, mrbc_class_Shell, "next_executable", c_next_executable);
+}
