@@ -8,7 +8,12 @@ static void
 c_crc_crc32(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_value string = GET_ARG(1);
-  mrbc_int_t crc = GET_INT_ARG(2);
+  mrbc_int_t crc;
+  if (argc < 2) {
+    crc = 0;
+  } else {
+    crc = GET_INT_ARG(2);
+  }
   if (string.tt == MRBC_TT_NIL) {
     SET_INT_RETURN(0);
     return;
@@ -16,7 +21,7 @@ c_crc_crc32(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "string expected");
     return;
   }
-  uint32_t crc_value = generate_crc32((uint8_t *)string.string->data, string.string->size, crc);
+  uint32_t crc_value = generate_crc32((uint8_t *)string.string->data, (size_t)string.string->size, (uint32_t)crc);
   SET_INT_RETURN(crc_value);
 }
 
