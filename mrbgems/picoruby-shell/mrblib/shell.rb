@@ -2,6 +2,8 @@ require "env"
 require "metaprog"
 require "picorubyvm"
 require "sandbox"
+require "crc"
+require "machine"
 begin
   require "filesystem-fat"
   require "vfs"

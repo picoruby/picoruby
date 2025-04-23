@@ -13,14 +13,13 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-crc'
+  spec.add_dependency 'picoruby-machine'
   if build.posix?
     if build.vm_mrubyc?
       spec.add_dependency('picoruby-dir')
     elsif build.vm_mruby?
       spec.add_dependency('mruby-dir')
     end
-  else
-    spec.add_dependency 'picoruby-machine' # for shell executables
   end
 
   exe_dir = "#{build_dir}/shell_executables"
