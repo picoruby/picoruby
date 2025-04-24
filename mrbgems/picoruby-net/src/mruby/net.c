@@ -9,7 +9,13 @@ mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value self)
   const char *host;
   mrb_bool is_tls;
   mrb_get_args(mrb, "zb", &host, &is_tls);
-  return DNS_resolve(mrb, host, is_tls);
+  char outbuf[OUTBUF_SIZE];
+  DNS_resolve(host, is_tls, outbuf, sizeof(outbuf));
+  if (outbuf[0] == '\0') {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, outbuf);
+  }
 }
 
 static mrb_value

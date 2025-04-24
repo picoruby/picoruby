@@ -44,6 +44,7 @@ TCPClient_close(tcp_connection_state *cs)
 {
   err_t err = ERR_OK;
   if (!cs || !cs->pcb) return ERR_ARG;
+  mrb_state *mrb = cs->mrb;
   lwip_begin();
   altcp_arg(cs->pcb, NULL);
   altcp_recv(cs->pcb, NULL);
@@ -52,13 +53,13 @@ TCPClient_close(tcp_connection_state *cs)
   altcp_poll(cs->pcb, NULL, 0);
   err = altcp_close(cs->pcb);
   if (err != ERR_OK) {
-    mrb_warn(cs->mrb, "altcp_close failed: %d\n", err);
+    picorb_warn("altcp_close failed: %d\n", err);
     altcp_abort(cs->pcb);
     err = ERR_ABRT;
   }
   lwip_end();
   TCPClient_free_tls_config(cs);
-  mrb_free(cs->mrb, cs);
+  mrb_free(mrb, cs);
   return err;
 }
 
@@ -66,13 +67,14 @@ static err_t
 TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
+  mrb_state *mrb = cs->mrb;
   if (err != ERR_OK) {
-    mrb_warn(cs->mrb, "TCPClient_recv_cb: err=%d\n", err);
+    picorb_warn("TCPClient_recv_cb: err=%d\n", err);
     cs->state = NET_TCP_STATE_ERROR;
     return TCPClient_close(cs);
   }
   if (pbuf != NULL) {
-    char *tmpbuf = mrb_malloc(cs->mrb, pbuf->tot_len + 1);
+    char *tmpbuf = mrb_malloc(mrb, pbuf->tot_len + 1);
     struct pbuf *current_pbuf = pbuf;
     int offset = 0;
     while (current_pbuf != NULL) {
@@ -81,8 +83,8 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
       current_pbuf = current_pbuf->next;
     }
     tmpbuf[pbuf->tot_len] = '\0';
-    mrb_str_cat(cs->mrb, cs->recv_data, tmpbuf, pbuf->tot_len);
-    mrb_free(cs->mrb, tmpbuf);
+    mrb_str_cat(mrb, cs->recv_data, tmpbuf, pbuf->tot_len);
+    mrb_free(mrb, tmpbuf);
     altcp_recved(pcb, pbuf->tot_len);
     cs->state = NET_TCP_STATE_PACKET_RECVED;
     pbuf_free(pbuf);
@@ -102,11 +104,12 @@ TCPClient_sent_cb(void *arg, struct altcp_pcb *pcb, u16_t len)
 static err_t
 TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
+  tcp_connection_state *cs = (tcp_connection_state *)arg;
+  mrb_state *mrb = cs->mrb;
   if (err != ERR_OK) {
-    printf("TCPClient_connected_cb: err=%d\n", err);
+    picorb_warn("TCPClient_connected_cb: err=%d\n", err);
     return TCPClient_close((tcp_connection_state *)arg);
   }
-  tcp_connection_state *cs = (tcp_connection_state *)arg;
   cs->state = NET_TCP_STATE_CONNECTED;
   return ERR_OK;
 }
@@ -115,7 +118,8 @@ static err_t
 TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  mrb_warn(cs->mrb, "TCPClient_poll_cb (timeout)\n");
+  mrb_state *mrb = cs->mrb;
+  picorb_warn("TCPClient_poll_cb (timeout)\n");
   cs->state = NET_TCP_STATE_TIMEOUT;
   return ERR_OK;
 }
@@ -124,7 +128,8 @@ static void
 TCPClient_err_cb(void *arg, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  mrb_warn(cs->mrb, "Error with: %d\n", err);
+  mrb_state *mrb = cs->mrb;
+  picorb_warn("Error with: %d\n", err);
   cs->state = NET_TCP_STATE_ERROR;
 }
 
@@ -155,7 +160,7 @@ TCPClient_new_tls_connection(const char *host, mrb_value send_data, mrb_value re
   struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   if (!cs->pcb) {
-    mrb_warn(cs->mrb, "altcp_tls_new failed\n");
+    picorb_warn("altcp_tls_new failed\n");
     mrb_free(mrb, cs);
     return NULL;
   }
@@ -186,7 +191,7 @@ TCPClient_connect_impl(ip_addr_t *ip, const char *host, int port, mrb_value send
     lwip_begin();
     err = altcp_connect(cs->pcb, ip, port, TCPClient_connected_cb);
     if (err != ERR_OK) {
-      mrb_warn(cs->mrb, "altcp_connect failed: %d\n", err);
+      picorb_warn("altcp_connect failed: %d\n", err);
       cs->state = NET_TCP_STATE_ERROR;
       lwip_end();
       return cs;
@@ -217,7 +222,8 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
       lwip_begin();
       err = altcp_write(cs->pcb, RSTRING_PTR(cs->send_data), RSTRING_LEN(cs->send_data), 0);
       if (err != ERR_OK) {
-        mrb_warn(cs->mrb, "altcp_write failed: %d\n", err);
+        mrb_state *mrb = cs->mrb;
+        picorb_warn("altcp_write failed: %d\n", err);
         cs->state = NET_TCP_STATE_ERROR;
         return 1;
       }

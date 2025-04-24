@@ -32,9 +32,10 @@ static void
 UDPClient_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port)
 {
   udp_connection_state *cs = (udp_connection_state *)arg;
+  mrb_state *mrb = cs->mrb;
 
   if (p != NULL) {
-    char *tmpbuf = mrb_malloc(cs->mrb, p->tot_len + 1);
+    char *tmpbuf = mrb_malloc(mrb, p->tot_len + 1);
     pbuf_copy_partial(p, tmpbuf, p->tot_len, 0);
     tmpbuf[p->tot_len] = '\0';
     mrb_str_cat(cs->mrb, cs->recv_data, tmpbuf, p->tot_len);
@@ -43,7 +44,7 @@ UDPClient_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_
     pbuf_free(p);
   } else {
     cs->state = NET_UDP_STATE_ERROR;
-    mrb_warn(cs->mrb, "State changed to NET_UDP_STATE_ERROR\n");
+    picorb_warn("State changed to NET_UDP_STATE_ERROR\n");
   }
 }
 
@@ -54,7 +55,7 @@ UDPClient_new_connection(mrb_value send_data, mrb_value recv_data, mrb_state *mr
   cs->state = NET_UDP_STATE_NONE;
   cs->pcb = udp_new();
   if (cs->pcb == NULL) {
-    mrb_warn(cs->mrb, "Failed to create new UDP PCB\n");
+    picorb_warn("Failed to create new UDP PCB\n");
     return NULL;
   }
   udp_recv(cs->pcb, UDPClient_recv_cb, cs);
@@ -70,7 +71,7 @@ UDPClient_send_impl(ip_addr_t *ip, int port, mrb_value send_data, mrb_value recv
   (void)is_dtls;
   udp_connection_state *cs = UDPClient_new_connection(send_data, recv_data, mrb);
   if (cs == NULL) {
-    mrb_warn(cs->mrb, "Failed to create new connection\n");
+    picorb_warn("Failed to create new connection\n");
     return NULL;
   }
 
@@ -89,11 +90,11 @@ UDPClient_send_impl(ip_addr_t *ip, int port, mrb_value send_data, mrb_value recv
       cs->state = NET_UDP_STATE_WAITING;
     } else {
       cs->state = NET_UDP_STATE_ERROR;
-      mrb_warn(cs->mrb, "Failed to send UDP packet, error: %d\n", err);
+      picorb_warn("Failed to send UDP packet, error: %d\n", err);
     }
   } else {
     cs->state = NET_UDP_STATE_ERROR;
-    mrb_warn(cs->mrb, "Failed to allocate pbuf for send data\n");
+    picorb_warn("Failed to allocate pbuf for send data\n");
   }
 
   return cs;
@@ -122,7 +123,8 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       *pcs = NULL;
       return 0;
     case NET_UDP_STATE_ERROR:
-      mrb_warn(cs->mrb, "Error occurred, cleaning up\n");
+      mrb_state *mrb = cs->mrb;
+      picorb_warn("Error occurred, cleaning up\n");
       lwip_begin();
       udp_remove(cs->pcb);
       lwip_end();
@@ -145,9 +147,10 @@ UDPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, 
   if(!ip4_addr_isloopback(&ip)) {
     mrb_value recv_data = mrb_str_new_capa(mrb, 0);
     udp_connection_state *cs = UDPClient_send_impl(&ip, port, send_data, recv_data, mrb, is_dtls);
+    mrb_state *mrb = cs->mrb;
 
     if (cs == NULL) {
-      mrb_warn(cs->mrb, "Failed to create UDP connection\n");
+      picorb_warn("Failed to create UDP connection\n");
       ret = mrb_nil_value();
     } else {
       int poll_count = 0;
@@ -157,21 +160,21 @@ UDPClient_send(const char *host, int port, mrb_state *mrb, mrb_value send_data, 
         Net_sleep_ms(200);
         // Add a timeout mechanism to prevent infinite loop
         if (poll_count > 50) { // 10 seconds timeout (50 * 200ms)
-          mrb_warn(cs->mrb, "Polling timeout reached\n");
+          picorb_warn("Polling timeout reached\n");
           break;
         }
       }
       if (cs != NULL) {
-        mrb_warn(cs->mrb, "Connection state not NULL after polling, cleaning up\n");
+        picorb_warn("Connection state not NULL after polling, cleaning up\n");
         lwip_begin();
         udp_remove(cs->pcb);
         lwip_end();
-        mrb_free(cs->mrb, cs);
+        mrb_free(mrb, cs);
       }
       ret = recv_data;
     }
   } else {
-    mrb_warn(mrb, "IP is loopback, not sending\n");
+    picorb_warn("IP is loopback, not sending\n");
     ret = mrb_nil_value();
   }
   return ret;

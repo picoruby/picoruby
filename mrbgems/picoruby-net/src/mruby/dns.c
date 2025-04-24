@@ -4,21 +4,17 @@
 
 #include "mruby.h"
 
-mrb_value
-DNS_resolve(mrb_state *mrb, const char *name, bool is_tcp)
+void
+DNS_resolve(const char *name, bool is_tcp, char *outbuf, size_t outlen)
 {
   (void)is_tcp;
   ip_addr_t ip;
-  mrb_value ret;
   ip4_addr_set_zero(&ip);
   Net_get_ip(name, &ip);
-  if(!ip4_addr_isloopback(&ip)) {
-    char buf[16];
-    ipaddr_ntoa_r(&ip, buf, 16);
-    ret = mrb_str_new(mrb, buf, strlen(buf));
+  if (!ip4_addr_isloopback(&ip)) {
+    ipaddr_ntoa_r(&ip, outbuf, outlen);
   } else {
-    ret = mrb_nil_value();
+    outbuf[0] = '\0';
   }
-  return ret;
 }
 
