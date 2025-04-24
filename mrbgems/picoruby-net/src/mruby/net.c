@@ -1,7 +1,9 @@
+#include "../include/net.h"
 #include "mruby.h"
 #include "mruby/presym.h"
-#include "mruby.h"
-#include "../include/net.h"
+#include "mruby/string.h"
+
+#define DNS_OUTBUF_SIZE 16
 
 static mrb_value
 mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value self)
@@ -9,8 +11,8 @@ mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value self)
   const char *host;
   mrb_bool is_tls;
   mrb_get_args(mrb, "zb", &host, &is_tls);
-  char outbuf[OUTBUF_SIZE];
-  DNS_resolve(host, is_tls, outbuf, sizeof(outbuf));
+  char outbuf[DNS_OUTBUF_SIZE];
+  DNS_resolve(host, is_tls, outbuf, DNS_OUTBUF_SIZE);
   if (outbuf[0] == '\0') {
     return mrb_nil_value();
   } else {
@@ -25,8 +27,27 @@ mrb_net_tcpclient_s__request_impl(mrb_state *mrb, mrb_value self)
   mrb_int port;
   mrb_value data;
   mrb_bool use_dtls;
+  mrb_value ret;
   mrb_get_args(mrb, "ziob", &host, &port, &data, &use_dtls);
-  return TCPClient_send(host, port, mrb, data, use_dtls);
+  net_request_t req = {
+    .host = host,
+    .port = port,
+    .send_data = RSTRING_PTR(data),
+    .send_data_len = RSTRING_LEN(data),
+    .is_tls = use_dtls
+  };
+  net_response_t res = {
+    .recv_data = NULL,
+    .recv_data_len = 0
+  };
+  TCPClient_send(mrb, &req, &res);
+  if (res.recv_data == NULL) {
+    ret = mrb_nil_value();
+  } else {
+    ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
+    picorb_free(mrb, res.recv_data);
+  }
+  return ret;
 }
 
 static mrb_value
@@ -36,8 +57,27 @@ mrb_net_udpclient_s__send_impl(mrb_state *mrb, mrb_value self)
   mrb_int port;
   mrb_value data;
   mrb_bool use_dtls;
+  mrb_value ret;
   mrb_get_args(mrb, "ziob", &host, &port, &data, &use_dtls);
-  return UDPClient_send(host, port, mrb, data, use_dtls);
+  net_request_t req = {
+    .host = host,
+    .port = port,
+    .send_data = RSTRING_PTR(data),
+    .send_data_len = RSTRING_LEN(data),
+    .is_tls = use_dtls
+  };
+  net_response_t res = {
+    .recv_data = NULL,
+    .recv_data_len = 0
+  };
+  UDPClient_send(mrb, &req, &res);
+  if (res.recv_data == NULL) {
+    ret = mrb_nil_value();
+  } else {
+    ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
+    picorb_free(mrb, res.recv_data);
+  }
+  return ret;
 }
 
 void

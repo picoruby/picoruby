@@ -4,6 +4,9 @@
  */
 #define MBEDTLS_PLATFORM_C
 
+#define MBEDTLS_TIMING_C
+#define MBEDTLS_TIMING_ALT
+
 /*
 * To debug TSL connection, you can use the following code:
 * ```

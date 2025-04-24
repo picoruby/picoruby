@@ -35,10 +35,7 @@ Net_get_ip(const char *name, ip_addr_t *ip)
 
 #if defined(PICORB_VM_MRUBY)
 
-#include "mruby/dns.c"
 #include "mruby/net.c"
-#include "mruby/tcp.c"
-#include "mruby/udp.c"
 
 #elif defined(PICORB_VM_MRUBYC)
 

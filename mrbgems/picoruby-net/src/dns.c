@@ -1,8 +1,5 @@
 #include "../include/net.h"
-#include "lwipopts.h"
 #include "lwip/pbuf.h"
-
-#include "mruby.h"
 
 void
 DNS_resolve(const char *name, bool is_tcp, char *outbuf, size_t outlen)
