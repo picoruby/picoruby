@@ -112,7 +112,7 @@ static err_t
 TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  mrb_state *mrb = cs->mrb;
+  MRB;
   if (err != ERR_OK) {
     picorb_warn("TCPClient_connected_cb: err=%d\n", err);
     return TCPClient_close(cs);
@@ -125,7 +125,7 @@ static err_t
 TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  mrb_state *mrb = cs->mrb;
+  MRB;
   picorb_warn("TCPClient_poll_cb (timeout)\n");
   cs->state = NET_TCP_STATE_TIMEOUT;
   return ERR_OK;
@@ -136,7 +136,7 @@ TCPClient_err_cb(void *arg, err_t err)
 {
   if (!arg) return;
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  mrb_state *mrb = cs->mrb;
+  MRB;
   picorb_warn("Error with: %d\n", err);
   cs->state = NET_TCP_STATE_ERROR;
 }
@@ -235,7 +235,7 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
       lwip_begin();
       err = altcp_write(cs->pcb, cs->send_data, cs->send_data_len, 0);
       if (err != ERR_OK) {
-        mrb_state *mrb = cs->mrb;
+        MRB;
         picorb_warn("altcp_write failed: %d\n", err);
         cs->state = NET_TCP_STATE_ERROR;
         return 1;

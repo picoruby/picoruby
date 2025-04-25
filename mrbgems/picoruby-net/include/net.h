@@ -16,8 +16,12 @@
 extern "C" {
 #endif
 
-#if defined(PICORB_VM_MRUBYC)
-#define mrb_state mrbc_vm
+#define DNS_OUTBUF_SIZE 16
+
+#if defined(PICORB_VM_MRUBY)
+#define MRB mrb_state *mrb = cs->mrb
+#else
+#define MRB
 #endif
 
 typedef struct {

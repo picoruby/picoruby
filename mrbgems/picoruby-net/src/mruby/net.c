@@ -3,8 +3,6 @@
 #include "mruby/presym.h"
 #include "mruby/string.h"
 
-#define DNS_OUTBUF_SIZE 16
-
 static mrb_value
 mrb_net_dns_s_resolve(mrb_state *mrb, mrb_value self)
 {
@@ -69,7 +67,7 @@ mrb_net_udpclient_s__send_impl(mrb_state *mrb, mrb_value self)
     .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
-  if (UDPClient_send(mrb, &req, &res) && res.recv_data) {
+  if (UDPClient_send(mrb, &req, &res)) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
   } else {
     ret = mrb_nil_value();
