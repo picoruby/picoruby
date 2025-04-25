@@ -80,7 +80,7 @@ class WifiConfigPeripheral < BLE
       debug_puts "Received Watchdog: #{watchdog_value}"
     end
 
-    if @ssid && @password #&& @country && @watchdog
+    if @ssid && @password && @country && @watchdog
       save_wifi_config
       @ssid = @password = @country = @watchdog = nil
       puts "\nConfiguration saved. Please reboot the device.\n"
