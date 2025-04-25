@@ -1,4 +1,4 @@
-class Net
+module Net
   class NTP
     NTP_SERVER = "pool.ntp.org"
     NTP_PORT = 123

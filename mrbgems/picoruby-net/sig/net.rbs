@@ -5,7 +5,7 @@ type httpreturn = {
   body: String
 }
 
-class Net
+module Net
   class HTTPUtil
     def self.format_response: (String?) -> (httpreturn | nil)
   end

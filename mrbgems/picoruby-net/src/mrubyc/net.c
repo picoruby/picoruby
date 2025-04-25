@@ -84,14 +84,14 @@ c_net_udpclient__send_impl(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_net_init(mrbc_vm *vm)
 {
-  mrbc_class *class_Net = mrbc_define_class(vm, "Net", mrbc_class_object);
+  mrbc_class *module_Net = mrbc_define_module(vm, "Net");
 
-  mrbc_class *class_Net_DNS = mrbc_define_class_under(vm, class_Net, "DNS", mrbc_class_object);
+  mrbc_class *class_Net_DNS = mrbc_define_class_under(vm, module_Net, "DNS", mrbc_class_object);
   mrbc_define_method(vm, class_Net_DNS, "resolve", c_net_dns_resolve);
 
-  mrbc_class *class_Net_TCPClient = mrbc_define_class_under(vm, class_Net, "TCPClient", mrbc_class_object);
+  mrbc_class *class_Net_TCPClient = mrbc_define_class_under(vm, module_Net, "TCPClient", mrbc_class_object);
   mrbc_define_method(vm, class_Net_TCPClient, "_request_impl", c_net_tcpclient__request_impl);
 
-  mrbc_class *class_Net_UDPClient = mrbc_define_class_under(vm, class_Net, "UDPClient", mrbc_class_object);
+  mrbc_class *class_Net_UDPClient = mrbc_define_class_under(vm, module_Net, "UDPClient", mrbc_class_object);
   mrbc_define_method(vm, class_Net_UDPClient, "_send_impl", c_net_udpclient__send_impl);
 }
