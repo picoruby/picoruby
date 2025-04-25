@@ -37,17 +37,17 @@ class Shell
   def self.ensure_system_file(path, code, crc = nil)
     10.times do
       if File.file?(path)
-        puts "Checking: #{path}"
+        print "Checking: #{path}"
         File.open(path, "r") do |f|
           actual_len = f.size
           actual_code = f.read if 0 < actual_len
           sleep_ms 100
           actual_crc = CRC.crc32(actual_code)
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
-            puts "  OK (#{code.length} bytes)"
+            puts " ... OK (#{code.length} bytes)"
             return
           else
-            puts "  NG. Updating... (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
+            puts " ... NG. Updating... (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
           end
         end
         File.unlink(path)
