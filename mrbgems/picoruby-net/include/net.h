@@ -34,8 +34,8 @@ typedef struct {
 } net_response_t;
 
 void DNS_resolve(const char *name, bool is_tcp, char *outbuf, size_t outlen);
-void TCPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res);
-void UDPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res);
+bool TCPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res);
+bool UDPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res);
 
 void lwip_begin(void);
 void lwip_end(void);

@@ -37,16 +37,15 @@ mrb_net_tcpclient_s__request_impl(mrb_state *mrb, mrb_value self)
     .is_tls = use_dtls
   };
   net_response_t res = {
-    .recv_data = NULL,
+    .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
-  TCPClient_send(mrb, &req, &res);
-  if (res.recv_data == NULL) {
-    ret = mrb_nil_value();
-  } else {
+  if (TCPClient_send(mrb, &req, &res)) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
-    picorb_free(mrb, res.recv_data);
+  } else {
+    ret = mrb_nil_value();
   }
+  mrb_free(mrb, res.recv_data);
   return ret;
 }
 
@@ -67,16 +66,15 @@ mrb_net_udpclient_s__send_impl(mrb_state *mrb, mrb_value self)
     .is_tls = use_dtls
   };
   net_response_t res = {
-    .recv_data = NULL,
+    .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
-  UDPClient_send(mrb, &req, &res);
-  if (res.recv_data == NULL) {
-    ret = mrb_nil_value();
-  } else {
+  if (UDPClient_send(mrb, &req, &res) && res.recv_data) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
-    picorb_free(mrb, res.recv_data);
+  } else {
+    ret = mrb_nil_value();
   }
+  mrb_free(mrb, res.recv_data);
   return ret;
 }
 

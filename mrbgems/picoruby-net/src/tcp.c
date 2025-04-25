@@ -65,9 +65,6 @@ static err_t
 TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-printf("cs->state = %d\n", cs->state);
-printf("cs->pcb = %p\n", cs->pcb);
-printf("cs->send_data = %p, len = %zu\n", cs->send_data, cs->send_data_len);
   mrb_state *mrb = cs->mrb;
   if (err != ERR_OK) {
     picorb_warn("TCPClient_recv_cb: err=%d\n", err);
@@ -85,21 +82,15 @@ printf("cs->send_data = %p, len = %zu\n", cs->send_data, cs->send_data_len);
       current_pbuf = current_pbuf->next;
     }
     tmpbuf[pbuf->tot_len] = '\0';
-    if (cs->recv_data == NULL) {
-      cs->recv_data = picorb_alloc(mrb, pbuf->tot_len + 1);
-      cs->recv_data_len = pbuf->tot_len;
-      memcpy(cs->recv_data, tmpbuf, pbuf->tot_len);
-    } else {
-      char *new_recv_data = (char *)picorb_realloc(mrb, cs->recv_data, cs->recv_data_len + pbuf->tot_len + 1);
-      if (new_recv_data == NULL) {
-        picorb_free(mrb, tmpbuf);
-        picorb_free(mrb, cs->recv_data);
-        return ERR_MEM;
-      }
-      cs->recv_data = new_recv_data;
-      memcpy(cs->recv_data + cs->recv_data_len, tmpbuf, pbuf->tot_len);
-      cs->recv_data_len += pbuf->tot_len;
+    assert(cs->recv_data);
+    char *new_recv_data = (char *)picorb_realloc(mrb, cs->recv_data, cs->recv_data_len + pbuf->tot_len + 1);
+    if (new_recv_data == NULL) {
+      picorb_free(mrb, tmpbuf);
+      return ERR_MEM;
     }
+    cs->recv_data = new_recv_data;
+    memcpy(cs->recv_data + cs->recv_data_len, tmpbuf, pbuf->tot_len);
+    cs->recv_data_len += pbuf->tot_len;
     picorb_free(mrb, tmpbuf);
     altcp_recved(pcb, pbuf->tot_len);
     cs->state = NET_TCP_STATE_PACKET_RECVED;
@@ -121,9 +112,6 @@ static err_t
 TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-printf("cs->state = %d\n", cs->state);
-printf("cs->pcb = %p\n", cs->pcb);
-printf("cs->send_data = %p, len = %zu\n", cs->send_data, cs->send_data_len);
   mrb_state *mrb = cs->mrb;
   if (err != ERR_OK) {
     picorb_warn("TCPClient_connected_cb: err=%d\n", err);
@@ -137,9 +125,6 @@ static err_t
 TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-printf("cs->state = %d\n", cs->state);
-printf("cs->pcb = %p\n", cs->pcb);
-printf("cs->send_data = %p, len = %zu\n", cs->send_data, cs->send_data_len);
   mrb_state *mrb = cs->mrb;
   picorb_warn("TCPClient_poll_cb (timeout)\n");
   cs->state = NET_TCP_STATE_TIMEOUT;
@@ -151,9 +136,6 @@ TCPClient_err_cb(void *arg, err_t err)
 {
   if (!arg) return;
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-printf("cs->state = %d\n", cs->state);
-printf("cs->pcb = %p\n", cs->pcb);
-printf("cs->send_data = %p, len = %zu\n", cs->send_data, cs->send_data_len);
   mrb_state *mrb = cs->mrb;
   picorb_warn("Error with: %d\n", err);
   cs->state = NET_TCP_STATE_ERROR;
@@ -189,6 +171,7 @@ TCPClient_new_tls_connection(mrb_state *mrb, const net_request_t *req, net_respo
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   if (!cs->pcb) {
     picorb_warn("altcp_tls_new failed\n");
+    altcp_tls_free_config(tls_config);
     picorb_free(mrb, cs);
     return NULL;
   }
@@ -271,31 +254,35 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
   return cs->state;
 }
 
-void
+bool
 TCPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res)
 {
+  bool ret = false;
   ip_addr_t ip;
   ip4_addr_set_zero(&ip);
   Net_get_ip(req->host, &ip);
-  if(!ip4_addr_isloopback(&ip)) {
+  if (!ip4_addr_isloopback(&ip)) {
     char ip_str[16];
     ipaddr_ntoa_r(&ip, ip_str, 16);
     tcp_connection_state *cs = TCPClient_connect_impl(mrb, &ip, req, res);
     if (cs) {
-      int max_wait = 1000;
+      int max_wait = 200;
       while (TCPClient_poll_impl(&cs) && 0 < max_wait--) {
         // res->recv_data is ready after connection is complete
         Net_sleep_ms(100);
       }
       if (max_wait <= 0) {
         picorb_warn("TCPClient_send: timeout\n");
-        picorb_free(mrb, cs->recv_data);
       } else {
         res->recv_data = cs->recv_data;
         res->recv_data_len = cs->recv_data_len;
       }
-     TCPClient_close(cs);
+      if (cs->state == NET_TCP_STATE_FINISHED) {
+        ret = true;
+      }
+      TCPClient_close(cs);
     }
   }
+  return ret;
 }
 
