@@ -40,25 +40,28 @@ class Shell
         print "Checking: #{path}"
         File.open(path, "r") do |f|
           actual_len = f.size
-          actual_code = f.read if 0 < actual_len
-          sleep_ms 100
-          actual_crc = CRC.crc32(actual_code)
+          actual_crc = if f.respond_to?(:physical_address)
+                         CRC.crc32_from_address(f.physical_address, code.size)
+                       else
+                         actual_code = f.read if 0 < actual_len
+                         CRC.crc32(actual_code)
+                       end
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
             puts " ... OK (#{code.length} bytes)"
             return
           else
-            puts " ... NG. Updating... (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
+            puts " ... NG! (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
           end
         end
         File.unlink(path)
         sleep_ms 100
       else
         File.open(path, "w") do |f|
-          puts "Creating: #{path}"
+          puts " Writing: #{path}"
           f.expand(code.length) if f.respond_to?(:expand)
           f.write(code)
         end
-        sleep_ms 10
+        sleep_ms 100
       end
     end
     File.unlink(path) if File.file?(path)
