@@ -48,7 +48,6 @@ TCPClient_close(tcp_connection_state *cs)
   altcp_recv(cs->pcb, NULL);
   altcp_sent(cs->pcb, NULL);
   altcp_err(cs->pcb, NULL);
-  altcp_poll(cs->pcb, NULL, 0);
   err = altcp_close(cs->pcb);
   if (err != ERR_OK) {
     picorb_warn("altcp_close failed: %d\n", err);
