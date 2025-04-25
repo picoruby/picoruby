@@ -80,7 +80,10 @@ if CYW43.initialized?
   puts "CYW43 already initialized. Skipping country code setting."
 else
   puts "Setting country code to #{country_code}"
-  CYW43.init country_code
+  unless CYW43.init country_code
+    puts "Failed to initialize CYW43"
+    return # raising an exception here may cause a crash
+  end
 end
 
 if check_auto_connect && !config["wifi"]["auto_connect"]

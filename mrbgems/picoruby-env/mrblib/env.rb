@@ -17,5 +17,5 @@ end
 ENV = ENVClass.new
 ENV["PWD"]  ||= ""      # Should be set in Shell.setup_system_files
 ENV["TERM"] ||= "ansi"  # may be overwritten by IO.wait_terminal
-ENV["TZ"]   ||= "JST-9"
-ENV["WIFI_MODULE"] ||= ""
+ENV["TZ"]   ||= "JST-9" # TODO. maybe in CYW43
+ENV["WIFI_MODULE"] ||= "none" # possibly overwritten in CYW43.init

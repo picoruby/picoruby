@@ -78,7 +78,10 @@ class BLE
   def initialize(role, profile_data = nil)
     @role = role
     @debug = false
-    CYW43.init unless CYW43.initialized?
+    unless CYW43.init
+      puts "Failed to initialize CYW43"
+      return # raising an exception here may cause a crash
+    end
     _init(profile_data)
     init_central if @role == :central
   end
