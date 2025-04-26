@@ -20,9 +20,20 @@ module MRuby
       cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
     end
 
+    def vm_mruby?
+      cc.defines.include?("PICORB_VM_MRUBY")
+    end
+
+    def vm_mrubyc?
+      cc.defines.include?("PICORB_VM_MRUBYC")
+    end
+
     def microruby
+      cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
+      cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
       cc.include_paths << "#{gems['picoruby-mruby'].dir}/lib/mruby/include"
       cc.defines << "PICORB_VM_MRUBY"
+      cc.defines << "MRB_USE_TASK_SCHEDULER"
       debug_flag
     end
 
@@ -55,6 +66,7 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
       )
 
+      cc.include_paths << "#{gems['picoruby-mrubyc'].dir}/include"
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
       cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
       cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"
@@ -71,7 +83,7 @@ module MRuby
     end
 
     def posix?
-      self.name == 'host' || cc.defines.include?("MRBC_USE_HAL_POSIX")
+      self.name == 'host' || cc.defines.include?("MRBC_USE_HAL_POSIX") || cc.defines.include?("PICORB_PLATFORM_POSIX")
     end
 
     private def debug_flag
@@ -106,7 +118,7 @@ module MRuby
       def define_gem_init_builder
         file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
           mkdir_p build_dir
-          if build_dir.include?("mrbgems/picoruby-")
+          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
             rbfiles.clear
           end
           generate_gem_init("#{build_dir}/gem_init.c")

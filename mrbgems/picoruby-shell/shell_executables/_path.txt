@@ -5,6 +5,7 @@
 /bin/install
 /bin/irb
 /bin/ls
+/bin/machine-id
 /bin/mkdir
 /bin/mv
 /bin/nmble
@@ -13,6 +14,7 @@
 /bin/rm
 /bin/setup_rtc
 /bin/setup_sdcard
+/bin/taskstat
 /bin/touch
 /bin/vim
 /bin/wifi_connect

@@ -36,5 +36,7 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   if build.posix?
     cc.defines << "PICORB_PLATFORM_POSIX"
   end
+
+  spec.posix
 end
 

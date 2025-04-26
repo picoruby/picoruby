@@ -22,11 +22,11 @@ class WifiConfigPeripheral < BLE
   CHARACTERISTIC_COUNTRY = 0x2AAD
   CHARACTERISTIC_WATCHDOG = 0x2AAE
 
-  def initialize
+  def initialize(name = "R2P2 BLE")
     # Setup BLE advertising data
     @adv_data = BLE::AdvertisingData.build do |a|
       a.add(BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS)
-      a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, "R2P2 BLE")
+      a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, name)
       a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, WIFI_CONFIG)
     end
 
@@ -63,26 +63,27 @@ class WifiConfigPeripheral < BLE
   def heartbeat_callback
     blink_led if @led_blink
 
-    if (ssid_value = get_write_value(@ssid_handle)) && ssid_value != @ssid
+    if (ssid_value = pop_write_value(@ssid_handle)) && ssid_value != @ssid
       @ssid = ssid_value
       debug_puts "Received SSID: #{ssid_value}"
     end
-    if (password_value = get_write_value(@password_handle)) && password_value != @password
+    if (password_value = pop_write_value(@password_handle)) && password_value != @password
       @password = password_value
       debug_puts "Received Password: ******"
     end
-    if (country_value = get_write_value(@country_handle)) && country_value != @country
+    if (country_value = pop_write_value(@country_handle)) && country_value != @country
       @country = country_value
       debug_puts "Received Country Code: #{country_value}"
     end
-    if (watchdog_value = get_write_value(@watchdog_handle)) && watchdog_value != @watchdog
+    if (watchdog_value = pop_write_value(@watchdog_handle)) && watchdog_value != @watchdog
       @watchdog = watchdog_value
       debug_puts "Received Watchdog: #{watchdog_value}"
     end
 
-    if @ssid && @password #&& @country && @watchdog
+    if @ssid && @password && @country && @watchdog
       save_wifi_config
       @ssid = @password = @country = @watchdog = nil
+      puts "\nConfiguration saved. Please reboot the device.\n"
     end
   end
 
@@ -96,7 +97,10 @@ class WifiConfigPeripheral < BLE
         "watchdog" => (@watchdog == 'y')
       }
     }
-    File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f| f.write YAML.dump(doc) end end
+    File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f|
+      f.write YAML.dump(doc)
+    end
+  end
 
   def encrypt_password(password)
     cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -135,10 +139,13 @@ class WifiConfigPeripheral < BLE
 end
 
 puts "\nLaunching BLE peripheral to configure WiFi connection."
-puts "Open https://picoruby.github.io/wifi in a web browser\n"
 
 # Start BLE Peripheral
-peri = WifiConfigPeripheral.new
+require 'rng'
+name = "R2P2 BLE #{RNG.random_int.abs.to_s[0,4]}"
+peri = WifiConfigPeripheral.new(name)
 peri.debug = true
+puts "\nOpen https://picoruby.github.io/wifi"
+puts "and find the device with name: '#{name}'\n"
 peri.start
 

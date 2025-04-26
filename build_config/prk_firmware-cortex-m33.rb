@@ -27,7 +27,6 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m33") do |conf|
   conf.cc.flags << "-Wall"
   conf.cc.flags << "-Wno-format"
   conf.cc.flags << "-Wno-unused-function"
-  conf.cc.flags << "-Wno-maybe-uninitialized"
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
 

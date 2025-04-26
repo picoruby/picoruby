@@ -12,7 +12,7 @@ else
   begin
     mrb = PicoRubyVM::InstructionSequence.compile(script).to_binary
     File.open(ARGV[1], "w") do |f|
-      f.expand(mrb.length)
+      f.expand(mrb.length) if f.respond_to? :expand
       f.write(mrb)
     end
   rescue => e

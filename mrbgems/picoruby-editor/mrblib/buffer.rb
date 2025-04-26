@@ -10,7 +10,7 @@ if RUBY_ENGINE == "mruby/c"
         self[index_int + i] = val
       end
       if tail
-        tail_at = index_int + vals.count
+        tail_at = index_int + vals.size
         tail.each do |elem|
           self[tail_at] = elem
           tail_at += 1
@@ -65,7 +65,7 @@ module Editor
     end
 
     def bottom
-      @cursor_y = @lines.count - 1
+      @cursor_y = @lines.size - 1
     end
 
     def left

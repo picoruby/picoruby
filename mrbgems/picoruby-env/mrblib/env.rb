@@ -5,6 +5,7 @@ class ENVClass
       raise TypeError, "Both key and value must be strings"
     end
     setenv(key, value)
+    @env[key] = value
   end
 
   def [](key)
@@ -14,3 +15,7 @@ class ENVClass
 end
 
 ENV = ENVClass.new
+ENV["PWD"]  ||= ""      # Should be set in Shell.setup_system_files
+ENV["TERM"] ||= "ansi"  # may be overwritten by IO.wait_terminal
+ENV["TZ"]   ||= "JST-9" # TODO. maybe in CYW43
+ENV["WIFI_MODULE"] ||= "none" # possibly overwritten in CYW43.init

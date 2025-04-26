@@ -36,12 +36,12 @@ class GPIO
   def setmode: (Integer flags, ?Integer alt_function) -> 0
 
   # C function
-  def self.read_at: (gpio_pin_t) -> gpio_logic_t
-  def self.high_at?: (gpio_pin_t) -> bool
+  def self.read_at: (gpio_pin_t pin) -> gpio_logic_t
+  def self.high_at?: (gpio_pin_t pin) -> bool
   def self.low_at?: (Integer) -> bool
-  def self.write_at: (gpio_pin_t, Integer) -> 0
+  def self.write_at: (gpio_pin_t pin, Integer value) -> 0
   def read: () -> gpio_logic_t
-  def write: (Integer) -> 0
+  def write: (Integer value) -> 0
   def high?: () -> bool
   def low?: () -> bool
 
@@ -50,10 +50,10 @@ class GPIO
   def set_pull: (Integer flags) -> 0
   def open_drain: (Integer flags) -> 0
   private def on_initialize?: () -> bool
-  private def _init: (gpio_pin_t) -> 0
-  def self.set_function_at: (gpio_pin_t, Integer) -> 0
-  def self.set_dir_at: (gpio_pin_t, Integer) -> 0
-  def self.pull_up_at: (gpio_pin_t) -> 0
-  def self.pull_down_at: (gpio_pin_t) -> 0
-  def self.open_drain_at: (gpio_pin_t) -> 0
+  private def _init: (gpio_pin_t pin) -> 0
+  def self.set_function_at: (gpio_pin_t pin, Integer alt_function) -> 0
+  def self.set_dir_at: (gpio_pin_t pin, Integer flags) -> 0
+  def self.pull_up_at: (gpio_pin_t pin) -> 0
+  def self.pull_down_at: (gpio_pin_t pin) -> 0
+  def self.open_drain_at: (gpio_pin_t pin) -> 0
 end

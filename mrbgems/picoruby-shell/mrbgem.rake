@@ -1,105 +1,87 @@
+require 'stringio'
+require 'zlib'
+
 MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby Shell library'
+
+  if build.vm_mrubyc?
+    spec.add_dependency 'picoruby-require'
+  end
   spec.add_dependency 'picoruby-editor'
-  spec.add_dependency 'picoruby-require'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
-  if cc.defines.flatten.include? 'MRBC_USE_HAL_POSIX'
-    spec.add_dependency 'picoruby-dir'
+  spec.add_dependency 'picoruby-crc'
+  spec.add_dependency 'picoruby-machine'
+  if build.posix?
+    if build.vm_mrubyc?
+      spec.add_dependency('picoruby-dir')
+    elsif build.vm_mruby?
+      spec.add_dependency('mruby-dir')
+    end
   end
+
+  exe_dir = "#{build_dir}/shell_executables"
+  if Dir.exist?(exe_dir)
+    Dir.each_child(exe_dir) do |filename|
+      filepath = File.join(exe_dir, filename)
+      FileUtils.rm(filepath)
+    end
+  end
+
+  executables_src = "#{build_dir}/shell_executables.c.inc"
+  if File.exist?(executables_src)
+    File.delete(executables_src)
+  end
+  cc.include_paths << build_dir
 
   executable_mrbfiles = Array.new
   executable_dir = "#{build_dir}/shell_executables"
   directory executable_dir
   Dir.glob("#{dir}/shell_executables/*.rb") do |rbfile|
     mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"
-    file mrbfile => [rbfile, executable_dir] do |t|
+    file mrbfile => [rbfile, executable_dir, executables_src] do |t|
       File.open(t.name, 'w') do |f|
         mrbc.compile_options = "--remove-lv -B%{funcname} -o-"
         mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", cdump: false)
       end
     end
-    executable_mrbfiles << mrbfile
+    executable_mrbfiles << { mrbfile: mrbfile, rbfile: rbfile }
+    objfile = "#{build_dir}/shell_executables/#{rbfile.pathmap('%n')}.o"
+    file objfile => mrbfile
+    build.libmruby_objs << objfile
   end
 
-  mrbgems_dir = File.expand_path "..", build_dir
-
-  init_src = "#{build_dir}/executables_init.c"
-  init_obj = objfile(init_src.pathmap('%X'))
-  build.libmruby_objs << init_obj
-  file init_obj => init_src do |t|
-    build.cc.run(t.name, t.prerequisites[0])
-  end
-  file init_src => executable_mrbfiles do |t|
+  file executables_src do |t|
     mkdir_p File.dirname t.name
     pathmap = File.read("#{dir}/shell_executables/_path.txt").lines.map(&:chomp).map do
-      p = Pathname.new(_1)
-      { dir: p.dirname.to_s, basename: p.basename.to_s }
+      pn = Pathname.new(_1)
+      { dir: pn.dirname.to_s, basename: pn.basename.to_s }
     end
-    open(t.name, 'w+') do |f|
-      f.puts <<~PICOGEM
-        #include <stdio.h>
-        #include <stdbool.h>
-        #include <mrubyc.h>
-      PICOGEM
-      # shell executables
-      executable_mrbfiles.each do |mrb|
-        Rake::FileTask[mrb].invoke
-        f.puts "#include \"#{mrb}\"" if File.exist?(mrb)
+    open(t.name, 'w') do |f|
+      executable_mrbfiles.each do |vm_code|
+        Rake::FileTask[vm_code[:mrbfile]].invoke
+        f.puts "#include \"#{vm_code[:mrbfile]}\""
       end
       f.puts
-      f.puts <<~PICOGEM
-        typedef struct shell_executables {
-          const char *path;
-          const uint8_t *mrb;
-        } shell_executables;
-      PICOGEM
-      f.puts
       f.puts "static shell_executables executables[] = {"
-      executable_mrbfiles.each do |mrb|
-        basename = File.basename(mrb, ".c")
+      executable_mrbfiles.each do |vm_code|
+        sio = StringIO.new("hoge", 'w+')
+        sio.set_encoding('ASCII-8BIT')
+        mrbc.compile_options = "--remove-lv -o-"
+        mrbc.run(sio, vm_code[:rbfile], "", cdump: false)
+        sio.rewind
+        crc = Zlib.crc32(sio.read.chomp)
+        sio.close
+        basename = File.basename(vm_code[:mrbfile], ".c")
         dirname = pathmap.find { _1[:basename] == basename }[:dir]
-        f.puts "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}}," if File.exist?(mrb)
+        line = "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}, #{crc}},"
+        f.puts line
       end
       f.puts "  {NULL, NULL} /* sentinel */"
       f.puts "};"
-      f.puts
-      f.puts <<~PICOGEM
-        static void
-        c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
-        {
-          static int i = 0;
-          if (executables[i].path) {
-            const uint8_t *mrb = executables[i].mrb;
-            mrbc_value hash = mrbc_hash_new(vm, 2);
-            mrbc_value path = mrbc_string_new_cstr(vm, (char *)executables[i].path);
-            mrbc_hash_set(&hash,
-              &mrbc_symbol_value(mrbc_str_to_symid("path")),
-              &path
-            );
-            uint32_t codesize = (mrb[8] << 24) + (mrb[9] << 16) + (mrb[10] << 8) + mrb[11];
-            mrbc_value code_val = mrbc_string_new(vm, mrb, codesize);
-            mrbc_hash_set(&hash,
-              &mrbc_symbol_value(mrbc_str_to_symid("code")),
-              &code_val
-            );
-            SET_RETURN(hash);
-            i++;
-          } else {
-            SET_NIL_RETURN();
-          }
-        }
-      PICOGEM
-      f.puts <<~PICOGEM
-        void
-        picoruby_init_executables(mrbc_vm *vm)
-        {
-          mrbc_class *mrbc_class_Shell = mrbc_define_class(vm, "Shell", mrbc_class_object);
-          mrbc_define_method(vm, mrbc_class_Shell, "next_executable", c_next_executable);
-        }
-      PICOGEM
     end
   end
+
 end

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -15,6 +16,9 @@ void Machine_busy_wait_ms(uint32_t ms);
 int Machine_get_unique_id(char *id_str);
 void Machine_tud_task(void);
 bool Machine_tud_mounted_q(void);
+uint32_t Machine_stack_usage(void);
+bool Machine_set_hwclock(const struct timespec *ts);
+bool Machine_get_hwclock(struct timespec *ts);
 
 #ifdef __cplusplus
 }

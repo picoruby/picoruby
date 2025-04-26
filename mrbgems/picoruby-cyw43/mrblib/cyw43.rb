@@ -1,12 +1,21 @@
+require 'env'
+
 class CYW43
   def self.init(country = nil, force: false)
+    if CYW43.initialized?
+      puts "CYW43 already initialized"
+      return true
+    end
     if country.is_a?(String) && country.length != 2
-      raise ArgumentError, "country must be a 2-character string"
+      puts "country must be a 2-character string"
+      return false
     end
     unless self._init(country&.upcase, force)
-      raise RuntimeError, "CYW43.init failed. No CYW43 module is connected?"
+      puts "CYW43.init failed. No CYW43 module is connected?"
+      return false
     end
-    return 0
+    ENV['WIFI_MODULE'] = "CWY43"
+    return true
   end
 
   def self.link_connected?(print_status = false)

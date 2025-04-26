@@ -20,11 +20,12 @@ class Shell
   AUTHOR_COLOR: String
   @editor: Editor::Line
 
-  def self.next_executable: -> {code: String, path: String}
+  def self.next_executable: -> {code: String, path: String, crc: Integer}
   def self.setup_rtc: (rtc_t trc) -> void
   def self.setup_sdcard: (SPI spi) -> void
 
   def self.setup_root_volume: (Symbol drive, ?label: String) -> void
+  def self.ensure_system_file: (String path, String code, ?(Integer | nil) crc) -> void
   def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
   def self.bootstrap: (String file) -> bool
 

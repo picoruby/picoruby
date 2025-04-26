@@ -75,18 +75,14 @@ class BLE
   CLIENT_CHARACTERISTIC_CONFIGURATION = 0x2902
   CHARACTERISTIC_DATABASE_HASH = 0x2b2a
 
-  def self.instance
-    $_btstack_singleton
-  end
-
   def initialize(role, profile_data = nil)
     @role = role
     @debug = false
-    @_read_values = {}
-    @_write_values = {}
-    CYW43.init unless CYW43.initialized?
+    unless CYW43.init
+      puts "Failed to initialize CYW43"
+      return # raising an exception here may cause a crash
+    end
     _init(profile_data)
-    $_btstack_singleton = self
     init_central if @role == :central
   end
 
@@ -134,6 +130,9 @@ class BLE
         puts "Stopped by state: #{stop_state}"
         break
       end
+      packet = pop_packet
+      packet_callback(packet) if packet
+      heartbeat_callback if pop_heartbeat
       sleep_ms POLLING_UNIT_MS
       total_timeout_ms += POLLING_UNIT_MS
     end
@@ -146,22 +145,6 @@ class BLE
 
   def debug_puts(*args)
     puts(*args) if @debug
-  end
-
-  def get_write_value(handle)
-    @_write_values.delete(handle)
-  end
-
-  def set_read_value(handle, value)
-    # @type var handle: untyped
-    unless handle.is_a?(Integer)
-      raise TypeError, "handle must be Integer"
-    end
-    # @type var value: untyped
-    unless value.is_a?(String)
-      raise TypeError, "value must be String"
-    end
-    @_read_values[handle] = value
   end
 
 end

@@ -4,6 +4,9 @@
  */
 #define MBEDTLS_PLATFORM_C
 
+#define MBEDTLS_TIMING_C
+#define MBEDTLS_TIMING_ALT
+
 /*
 * To debug TSL connection, you can use the following code:
 * ```
@@ -61,10 +64,15 @@
 #define MBEDTLS_SHA512_C
 
 /* custom allocator */
-#include "alloc.h"
 #define MBEDTLS_PLATFORM_MEMORY
-#define MBEDTLS_PLATFORM_CALLOC_MACRO   mrbc_raw_calloc
-#define MBEDTLS_PLATFORM_FREE_MACRO     mrbc_raw_free
+#if defined(PICORB_VM_MRUBY)
+# define MBEDTLS_PLATFORM_CALLOC_MACRO   calloc
+# define MBEDTLS_PLATFORM_FREE_MACRO     free
+#elif defined(PICORB_VM_MRUBYC)
+# include "alloc.h"
+# define MBEDTLS_PLATFORM_CALLOC_MACRO   mrbc_raw_calloc
+# define MBEDTLS_PLATFORM_FREE_MACRO     mrbc_raw_free
+#endif
 
 /* PKey */
 #define MBEDTLS_PK_C
@@ -84,7 +92,7 @@
 #define MBEDTLS_SHA512_C
 #define MBEDTLS_GENPRIME
 
-#if !defined(PICORB_PLATFORM_POSIX)
+//#if !defined(PICORB_PLATFORM_POSIX)
   #define MBEDTLS_NO_PLATFORM_ENTROPY
   #define MBEDTLS_ENTROPY_HARDWARE_ALT
   #define MBEDTLS_HAVE_TIME
@@ -95,7 +103,9 @@
   #define MBEDTLS_SSL_CLI_C
   #define MBEDTLS_SSL_SERVER_NAME_INDICATION
   #define MBEDTLS_SSL_PROTO_TLS1_2
-#endif
+#define MBEDTLS_SSL_ALPN
+#define MBEDTLS_SSL_MAX_FRAGMENT_LENGTH
+//#endif
 
 #define MBEDTLS_ERROR_C
 

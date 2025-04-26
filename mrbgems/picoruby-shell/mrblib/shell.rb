@@ -2,6 +2,8 @@ require "env"
 require "metaprog"
 require "picorubyvm"
 require "sandbox"
+require "crc"
+require "machine"
 begin
   require "filesystem-fat"
   require "vfs"
@@ -32,6 +34,40 @@ class Shell
     end
   end
 
+  def self.ensure_system_file(path, code, crc = nil)
+    10.times do
+      if File.file?(path)
+        print "Checking: #{path}"
+        File.open(path, "r") do |f|
+          actual_len = f.size
+          actual_crc = if f.respond_to?(:physical_address)
+                         CRC.crc32_from_address(f.physical_address, code.size)
+                       else
+                         actual_code = f.read if 0 < actual_len
+                         CRC.crc32(actual_code)
+                       end
+          if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
+            puts " ... OK (#{code.length} bytes)"
+            return
+          else
+            puts " ... NG! (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
+          end
+        end
+        File.unlink(path)
+        sleep_ms 100
+      else
+        File.open(path, "w") do |f|
+          puts " Writing: #{path}"
+          f.expand(code.length) if f.respond_to?(:expand)
+          f.write(code)
+        end
+        sleep_ms 100
+      end
+    end
+    File.unlink(path) if File.file?(path)
+    puts "Failed to save: #{path} (#{code.length} bytes)"
+  end
+
   def self.setup_system_files(root = nil, force: false)
     unless root.nil? || Dir.exist?(root)
       Dir.mkdir(root)
@@ -43,22 +79,14 @@ class Shell
     Dir.chdir(root || "/") do
       %w(bin lib var home etc etc/init.d etc/network).each do |dir|
         Dir.mkdir(dir) unless Dir.exist?(dir)
+        sleep_ms 10
       end
       while exe = Shell.next_executable
         path = "#{root}#{exe[:path]}"
-        if force || !File.file?(path)
-          f = File.open path, "w"
-          f.expand exe[:code].length
-          f.write exe[:code]
-          f.close
-        end
+        self.ensure_system_file(path, exe[:code], exe[:crc])
       end
       path = "#{root}/etc/machine-id"
-      unless File.file?(path)
-        f = File.open path, "w"
-        f.write Machine.unique_id
-        f.close
-      end
+      self.ensure_system_file(path, Machine.unique_id, nil)
     end
     Dir.chdir ENV['HOME']
   end
@@ -141,14 +169,25 @@ class Shell
 
   LOGO_COLOR = "\e[32;1m"
   AUTHOR_COLOR = "\e[36;1m"
-  LOGO_LINES = [
-    ' ____  _           ____        _',
-    '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
-    '| |_) | |/ __/ _ \| |_) | | | | \'_ \| | | |',
-    '|  __/| | (_| (_) |  _ <| |_| | |_) | |_| |',
-    '|_|   |_|\___\___/|_| \_\\___,_|_.__/ \__, |',
-    "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
-  ]
+  if RUBY_ENGINE == "mruby/c"
+    LOGO_LINES = [
+      ' ____  _           ____        _',
+      '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
+      '| |_) | |/ __/ _ \| |_) | | | | \'_ \| | | |',
+      '|  __/| | (_| (_) |  _ <| |_| | |_) | |_| |',
+      '|_|   |_|\___\___/|_| \_\\___,_|_.__/ \__, |',
+      "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
+    ]
+  elsif RUBY_ENGINE == "mruby"
+    LOGO_LINES = [
+      ' __  __ _                ____        _',
+      '|  \/  (_) ___ _ __ ___ |  _ \ _   _| |__  _   _',
+      '| |\/| | |/ __| \'__/ _ \| |_) | | | | \'_ \| | | |',
+      '| |  | | | (__| | | (_) |  _ <| |_| | |_) | |_| |',
+      '|_|  |_|_|\___|_|  \___/|_| \_\\\\__,_|_.__/ \__, |',
+      "                  #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}             |___/"
+    ]
+  end
   SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
 
   def show_logo
@@ -176,6 +215,7 @@ class Shell
       @editor.prompt = "irb"
       run_irb
       puts
+      # puts Task.stat
     when :shell
       run_shell
       print "\nbye\e[0m"
@@ -201,6 +241,7 @@ class Shell
           puts
         when ["reboot"]
           begin
+            puts "\nrebooting..."
             Watchdog.reboot 1000
           rescue NameError
             buffer.clear
@@ -235,7 +276,7 @@ class Shell
           else
             editor.feed_at_bottom
             editor.save_history
-            echo_save = STDIN.echo?
+           # echo_save = STDIN.echo?
             result = STDIN.cooked do
               r = sandbox.execute
               sandbox.wait(timeout: nil)

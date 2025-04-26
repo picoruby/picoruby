@@ -1,16 +1,9 @@
-class Net
+module Net
   class NTP
-    class Response
-      @unixtime: Integer
-      def initialize: (Integer unixtime) -> void
-      def time: () -> Time
-    end
-
     NTP_SERVER: String
     NTP_PORT: Integer
-    NTP_PACKET_SIZE: Integer
+    UNIX_TIME_BASE: Integer
 
-    def self.get: (?String ntp_server, ?Integer ntp_port) -> Response
-    def self.set_hwclock: () -> void
+    def self.get: (?String ntp_server, ?Integer ntp_port) -> [Integer, Integer]
   end
 end

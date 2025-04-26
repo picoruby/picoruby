@@ -1,4 +1,4 @@
-class Net
+module Net
   class HTTPUtil
     def self.format_response(raw_response)
       if raw_response.is_a?(String)

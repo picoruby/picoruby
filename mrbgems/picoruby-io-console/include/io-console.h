@@ -1,18 +1,21 @@
 #ifndef IO_CONSOLE_DEFINED_H_
 #define IO_CONSOLE_DEFINED_H_
 
-#include <mrubyc.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 int hal_getchar(void);
+#if defined(PICORB_VM_MRUBY)
+int hal_write(int fd, const void *buf, int nbytes);
+#endif
 
-void c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc);
-void c_cooked_bang(mrbc_vm *vm, mrbc_value *v, int argc);
-void c__restore_termios(mrbc_vm *vm, mrbc_value *v, int argc);
-void io_console_port_init(mrbc_vm *vm, mrbc_class *class_IO);
+bool io_raw_q(void);
+void io_raw_bang(bool nonblock);
+void io_cooked_bang(void);
+void io_echo_eq(bool flag);
+bool io_echo_q(void);
+void io__restore_termios(void);
 
 #ifdef __cplusplus
 }

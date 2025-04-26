@@ -21,14 +21,14 @@ when "ruby", "jruby"
     _size = res.split(";")
     return [_size[0][2, 3].to_i, _size[1].to_i]
   end
-when "mruby/c"
+when "mruby/c", "mruby"
   begin
     require "filesystem-fat"
     require "vfs"
   rescue LoadError
   end
 else
-  raise RuntimeError.new("Unknown RUBY_ENGINE")
+  raise RuntimeError.new("Unknown RUBY_ENGINE: #{RUBY_ENGINE}")
 end
 
 module Editor
@@ -113,7 +113,7 @@ module Editor
     end
 
     def history_head
-      @history_index = @history.count - 1
+      @history_index = @history.size - 1
     end
 
     def save_history
@@ -121,7 +121,7 @@ module Editor
         @history[@history.size - 1] = @buffer.lines
         @history << [""]
       end
-      if MAX_HISTORY_COUNT < @history.count
+      if MAX_HISTORY_COUNT < @history.size
         @history.shift
       end
       history_head
@@ -132,7 +132,7 @@ module Editor
         return if @history_index == 0
         @history_index -= 1
       else # :down
-        return if @history_index == @history.count - 1
+        return if @history_index == @history.size - 1
         @history_index += 1
       end
       unless @history.empty?
@@ -223,7 +223,8 @@ module Editor
             history_head
           when 4 # Ctrl-D logout
             puts
-            return
+            puts "^D\e[0J"
+            raise "Abort"
           when 5 # Ctrl-E
             @buffer.tail
           when 9

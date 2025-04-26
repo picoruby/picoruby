@@ -9,29 +9,10 @@
 #include <stdio.h>
 
 #if defined(PICORB_VM_MRUBY)
-  #define EXECUTABLE_NAME "microruby"
-
+#define EXECUTABLE_NAME "microruby"
 struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
 mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
-
-static void
-resolve_intern(mrb_state *vm, pm_constant_pool_t *constant_pool, mrc_irep *irep)
-{
-  picorb_sym *new_syms = picorb_alloc(sizeof(picorb_sym) *irep->slen);
-  for (int i = 0; i < irep->slen; i++) {
-    mrc_sym sym = irep->syms[i];
-    pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
-    const char *lit = (const char *)constant->start;
-    size_t len = constant->length;
-    new_syms[i] = mrb_intern(vm, lit, len);
-  }
-  free((mrc_sym *)irep->syms); // discard const
-  irep->syms = new_syms;
-  for (int i = 0; i < irep->rlen; i++) {
-    resolve_intern(vm, constant_pool, (mrc_irep *)irep->reps[i]);
-  }
-}
 
 #elif defined(PICORB_VM_MRUBYC)
 
@@ -69,14 +50,14 @@ picorb_utf8_from_locale(const char *str, int len)
   if (len == -1)
     len = (int)strlen(str);
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len,  NULL, 0);
-  wcsp = (wchar_t*) picorb_alloc((wcssize + 1) * sizeof(wchar_t));
+  wcsp = (wchar_t*) picorb_alloc(vm, (wcssize + 1) * sizeof(wchar_t));
   if (!wcsp)
     return NULL;
   wcssize = MultiByteToWideChar(GetACP(), 0, str, len, wcsp, wcssize + 1);
   wcsp[wcssize] = 0;
 
   mbssize = WideCharToMultiByte(CP_UTF8, 0, (LPCWSTR) wcsp, -1, NULL, 0, NULL, NULL);
-  mbsp = (char*) picorb_alloc((mbssize + 1));
+  mbsp = (char*) picorb_alloc(vm, (mbssize + 1));
   if (!mbsp) {
     free(wcsp);
     return NULL;
@@ -86,10 +67,10 @@ picorb_utf8_from_locale(const char *str, int len)
   free(wcsp);
   return mbsp;
 }
-#define picorb_utf8_free(p) free(p)
+#define picorb_utf8_free(vm,p) picorb_free(vm,p)
 #else
 #define picorb_utf8_from_locale(p, l) ((char*)(p))
-#define picorb_utf8_free(p)
+#define picorb_utf8_free(vm,p)
 #endif
 
 struct _args {
@@ -235,16 +216,16 @@ options_arg(struct options *opts)
 }
 
 static char *
-dup_arg_item(const char *item)
+dup_arg_item(void *vm, const char *item)
 {
   size_t buflen = strlen(item) + 1;
-  char *buf = (char*)picorb_alloc(buflen);
+  char *buf = (char*)picorb_alloc(vm, buflen);
   memcpy(buf, item, buflen);
   return buf;
 }
 
 static int
-parse_args(int argc, char **argv, struct _args *args)
+parse_args(void *vm, int argc, char **argv, struct _args *args)
 {
   static const struct _args args_zero = { 0 };
   struct options opts[1];
@@ -265,7 +246,7 @@ parse_args(int argc, char **argv, struct _args *args)
     else if (strcmp(opt, "e") == 0) {
       if ((item = options_arg(opts))) {
         if (!args->cmdline) {
-          args->cmdline = dup_arg_item(item);
+          args->cmdline = dup_arg_item(vm, item);
         }
         else {
           size_t cmdlinelen;
@@ -273,7 +254,7 @@ parse_args(int argc, char **argv, struct _args *args)
 
           cmdlinelen = strlen(args->cmdline);
           itemlen = strlen(item);
-          args->cmdline = (char*)picorb_realloc(args->cmdline, cmdlinelen + itemlen + 2);
+          args->cmdline = (char*)picorb_realloc(vm, args->cmdline, cmdlinelen + itemlen + 2);
           args->cmdline[cmdlinelen] = '\n';
           memcpy(args->cmdline + cmdlinelen + 1, item, itemlen + 1);
         }
@@ -290,12 +271,12 @@ parse_args(int argc, char **argv, struct _args *args)
     else if (strcmp(opt, "r") == 0) {
       if ((item = options_arg(opts))) {
         if (args->libc == 0) {
-          args->libv = (char**)picorb_alloc(sizeof(char*));
+          args->libv = (char**)picorb_alloc(vm, sizeof(char*));
         }
         else {
-          args->libv = (char**)picorb_realloc(args->libv, sizeof(char*) * (args->libc + 1));
+          args->libv = (char**)picorb_realloc(vm, args->libv, sizeof(char*) * (args->libc + 1));
         }
-        args->libv[args->libc++] = dup_arg_item(item);
+        args->libv[args->libc++] = dup_arg_item(vm, item);
       }
       else {
         fprintf(stderr, "%s: No library specified for -r\n", opts->program);
@@ -340,7 +321,7 @@ parse_args(int argc, char **argv, struct _args *args)
       argc--; argv++;
     }
   }
-  args->argv = (char **)picorb_alloc(sizeof(char*) * (argc + 1));
+  args->argv = (char **)picorb_alloc(vm, sizeof(char*) * (argc + 1));
   memcpy(args->argv, argv, (argc+1) * sizeof(char*));
   args->argc = argc;
 
@@ -351,18 +332,19 @@ static void
 cleanup(mrb_state *vm, struct _args *args)
 {
 #if defined(PICORB_VM_MRUBY)
-  mrb_close(vm);
-#else
+  // TODO: fix segv
+//  mrb_close(vm);
+#elif defined(PICORB_VM_MRUBYC)
   (void)vm;
 #endif
   if (!args->fname)
-    picorb_free(args->cmdline);
-  picorb_free(args->argv);
+    picorb_free(vm, args->cmdline);
+  picorb_free(vm, args->argv);
   if (args->libc) {
     while (args->libc--) {
-      picorb_free(args->libv[args->libc]);
+      picorb_free(vm, args->libv[args->libc]);
     }
-    picorb_free(args->libv);
+    picorb_free(vm, args->libv);
   }
 }
 
@@ -371,15 +353,17 @@ picorb_print_error(mrb_state *vm)
 {
 #if defined(PICORB_VM_MRUBY)
   mrb_print_error(vm);
-#else
+#elif defined(PICORB_VM_MRUBYC)
   //TODO
 #endif
 }
 
 #if defined(PICORB_VM_MRUBY)
 static int /* macro needs `mrb` */
-mrb_lib_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
+mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
 {
+  mrc_resolve_intern(cc, irep);
+  mrb_state *mrb = cc->mrb;
   struct RClass *target = mrb->object_class;
   struct RProc *proc = mrb_proc_new(mrb, (mrb_irep *)irep);
   proc->c = NULL;
@@ -390,9 +374,9 @@ mrb_lib_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
   if (mrb->c->ci) {
     mrb_vm_ci_target_class_set(mrb->c->ci, target);
   }
-  resolve_intern(mrb, &c->p->constant_pool, irep);
   mrb_value v = mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
   mrb_vm_ci_env_clear(mrb, mrb->c->cibase);
+  mrc_ccontext_cleanup_local_variables(cc);
   if (mrb->exc) {
     MRB_EXC_CHECK_EXIT(mrb, mrb->exc);
     if (!mrb_undef_p(v)) {
@@ -402,7 +386,9 @@ mrb_lib_run(mrb_state *mrb, mrc_ccontext *c, mrc_irep *irep)
   }
   return EXIT_SUCCESS;
 }
-#else
+
+#elif defined(PICORB_VM_MRUBYC)
+
 static picorb_bool
 picorb_undef_p(picorb_value *v)
 {
@@ -425,12 +411,12 @@ mrbc_lib_run(mrbc_vm *vm, uint8_t *vm_code)
 #endif
 
 static mrc_irep *
-picorb_load_rb_file_cxt(mrc_ccontext *c, const char *fname, uint8_t **source)
+picorb_load_rb_file_cxt(mrc_ccontext *cc, const char *fname, uint8_t **source)
 {
-  char *filenames[2];// = (char**)picorb_alloc(sizeof(char*) * 2);
+  char *filenames[2];// = (char**)picorb_alloc(vm, sizeof(char*) * 2);
   filenames[0] = (char *)fname;
   filenames[1] = NULL;
-  mrc_irep *irep = mrc_load_file_cxt(c, (const char **)filenames, source);
+  mrc_irep *irep = mrc_load_file_cxt(cc, (const char **)filenames, source);
   if (irep == NULL) {
     fprintf(stderr, "irep load error\n");
   }
@@ -450,7 +436,7 @@ main(int argc, char **argv)
   picorb_value ARGV;
   mrc_irep *irep = NULL;
 
-  n = parse_args(argc, argv, &args);
+  n = parse_args(vm, argc, argv, &args);
   if (n == EXIT_FAILURE || (args.cmdline == NULL)) {
     cleanup(vm, &args);
     return n;
@@ -464,7 +450,7 @@ main(int argc, char **argv)
     if (utf8) {
       picorb_value str = picorb_string_new(vm, utf8, strlen(utf8));
       picorb_array_push(vm, ARGV, str);
-      picorb_utf8_free(utf8);
+      picorb_utf8_free(vm, utf8);
     }
   }
   picorb_define_const(vm, "ARGV", ARGV);
@@ -485,19 +471,21 @@ main(int argc, char **argv)
   uint8_t *source = NULL;
 
   /* Load libraries */
-#if defined(PICORB_VM_MRUBYC)
+#if defined(PICORB_VM_MRUBY)
+#elif defined(PICORB_VM_MRUBYC)
   uint8_t *lib_mrb_list[args.libc];
   int lib_mrb_list_size = 0;
 #endif
 
-  mrc_ccontext *c = mrc_ccontext_new(vm);
+  mrc_ccontext *cc = mrc_ccontext_new(vm);
   if (args.verbose)
-    c->dump_result = TRUE;
+    cc->dump_result = TRUE;
   if (args.check_syntax)
-    c->no_exec = TRUE;
+    cc->no_exec = TRUE;
 
   for (int i = 0; i < args.libc; i++) {
-#if defined(PICORB_VM_MRUBYC)
+#if defined(PICORB_VM_MRUBY)
+#elif defined(PICORB_VM_MRUBYC)
     if (picoruby_load_model_by_name(args.libv[i])) {
       /* built-in library */
       continue;
@@ -505,12 +493,12 @@ main(int argc, char **argv)
 #endif
     if (access(args.libv[i], R_OK) != 0) {
       fprintf(stderr, "%s: Cannot open library file: %s\n", *argv, args.libv[i]);
-      mrc_ccontext_free(c);
+      mrc_ccontext_free(cc);
       cleanup(vm, &args);
       exit(EXIT_FAILURE);
     }
 
-    mrc_ccontext_filename(c, args.libv[i]);
+    mrc_ccontext_filename(cc, args.libv[i]);
     irep = NULL;
     uint8_t *vm_code = NULL;
 
@@ -518,14 +506,14 @@ main(int argc, char **argv)
       FILE *fp = fopen(args.libv[i], "rb");
       if (fp == NULL) {
         fprintf(stderr, "%s: Cannot open file: %s\n", *argv, args.libv[i]);
-        mrc_ccontext_free(c);
+        mrc_ccontext_free(cc);
         cleanup(vm, &args);
         exit(EXIT_FAILURE);
       }
       fseek(fp, 0, SEEK_END);
       size_t size = ftell(fp);
       fseek(fp, 0, SEEK_SET);
-      vm_code = (uint8_t *)picorb_alloc(size);
+      vm_code = (uint8_t *)picorb_alloc(vm, size);
       if (fread(vm_code, 1, size, fp) != size) {
         fprintf(stderr, "cannot read file: %s\n", args.libv[i]);
         exit(EXIT_FAILURE);
@@ -533,13 +521,13 @@ main(int argc, char **argv)
       fclose(fp);
     }
     else {
-      irep = picorb_load_rb_file_cxt(c, args.libv[i], &source);
+      irep = picorb_load_rb_file_cxt(cc, args.libv[i], &source);
     }
 
     if (irep) {
-      size_t mrb_size = 0;
+      size_t vm_code_size = 0;
       int result;
-      result = mrc_dump_irep(c, irep, 0, &vm_code, &mrb_size);
+      result = mrc_dump_irep(cc, irep, 0, &vm_code, &vm_code_size);
       if (result != MRC_DUMP_OK) {
         fprintf(stderr, "irep dump error: %d\n", result);
         exit(EXIT_FAILURE);
@@ -548,17 +536,18 @@ main(int argc, char **argv)
 
     if (vm_code) {
 #if defined(PICORB_VM_MRUBY)
-      n = mrb_lib_run(vm, c, irep);
-#else /* PICORB_VM_MRUBYC */
+      n = mrb_lib_run(cc, irep);
+      // TODO GC irep
+#elif defined(PICORB_VM_MRUBYC)
       lib_mrb_list[lib_mrb_list_size++] = vm_code;
-      if (irep) mrc_irep_free(c, irep);
       n = mrbc_lib_run(vm, vm_code);
+      if (irep) mrc_irep_free(cc, irep);
 #endif
-      mrc_ccontext_cleanup_local_variables(c);
+      mrc_ccontext_cleanup_local_variables(cc);
     }
     if (source) {
       // TODO refactor
-      picorb_free(source);
+      picorb_free(vm, source);
       source = NULL;
     }
   }
@@ -567,9 +556,6 @@ main(int argc, char **argv)
    * [tasks]
    * args.fname possibly looks like `a.rb,b.rb,c.rb` (comma separated file names)
    */
-#if defined(PICORB_VM_MRUBY)
-  const int taskc = 1;
-#else /* PICORB_VM_MRUBYC */
   int taskc = 1;
   if (args.fname) {
     for (int i = 0; args.fname[i]; i++) {
@@ -581,87 +567,120 @@ main(int argc, char **argv)
   else {
     /* -e option */
   }
-#endif
 
-#if defined(PICORB_VM_MRUBYC)
+  int tcb_list_size = 0;
+#if defined(PICORB_VM_MRUBY)
+  mrb_tcb *tcb_list[taskc];
+#elif defined(PICORB_VM_MRUBYC)
   uint8_t *task_mrb_list[taskc];
   int tasks_mrb_list_size = 0;
   mrbc_tcb *tcb_list[taskc];
-  int tcb_list_size = 0;
 #endif
 
   char *fnames[taskc];
   char *token = strtok((char *)cmdline, ",");
   int index = 0;
   while (token != NULL) {
-    fnames[index] = picorb_alloc(strlen(token) + 1);
+    fnames[index] = picorb_alloc(vm, strlen(token) + 1);
     if (fnames[index] == NULL) {
       fprintf(stderr, "Failed to allocate memory");
       exit(EXIT_FAILURE);
     }
     strcpy(fnames[index], token);
+    { /* If fnames[index] starts with "~/", replace it with absolute path
+       * This happens when 1 < taskc
+       *   User inputs : `ruby ~/a.rb,~/b.rb`
+       *   Program gets: `ruby /home/USER/a.rb,~/b.rb`
+       */
+      if (fnames[index][0] == '~' && fnames[index][1] == '/') {
+        char *home = getenv("HOME");
+        if (home == NULL) {
+          fprintf(stderr, "Failed to get HOME environment variable. You cannot use '~/' to specify a file path\n");
+          exit(EXIT_FAILURE);
+        }
+        if (home) {
+          char *tmp = picorb_alloc(vm, strlen(home) + strlen(fnames[index]) + 1);
+          if (tmp) {
+            strcpy(tmp, home);
+            strcat(tmp, fnames[index] + 1);
+            picorb_free(vm, fnames[index]);
+            fnames[index] = tmp;
+          }
+        }
+      }
+    }
     token = strtok(NULL, ",");
     index++;
   }
-  uint8_t *vm_code = NULL;
+  uint8_t *vm_code;
+  size_t vm_code_size;
   for (int i = 0; i < taskc; i++) {
     /* set program file name */
-    if (args.verbose) c->dump_result = TRUE;
-    if (args.check_syntax) c->no_exec = TRUE;
-    mrc_ccontext_filename(c, fnames[i]);
+    if (args.verbose) cc->dump_result = TRUE;
+    if (args.check_syntax) cc->no_exec = TRUE;
+    mrc_ccontext_filename(cc, fnames[i]);
 
     vm_code = NULL;
-    size_t mrb_size = 0;
+    vm_code_size = 0;
+    irep = NULL;
 
     /* Load program */
     if (args.mrbfile || picorb_mrb_p(fnames[i])) {
-      irep = NULL; // TODO: load_irep_file_cxt
-    }
-    else if (args.fname) {
-      // TODO refactor
-      source = picorb_alloc(sizeof(uint8_t) * 2);
-      source[0] = 0x0;
-      source[1] = 0x0;
-      irep = picorb_load_rb_file_cxt(c, fnames[i], &source);
-    }
-    else {
-      char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
-      if (!utf8) abort();
-      irep = mrc_load_string_cxt(c, (const uint8_t **)&utf8, strlen(utf8));
-      picorb_utf8_free(utf8);
-    }
-
-    if (!irep) { // *.vm file
       FILE *fp = fopen(fnames[i], "rb");
       if (fp == NULL) {
         fprintf(stderr, "cannot open file: %s\n", fnames[i]);
         exit(EXIT_FAILURE);
       }
       fseek(fp, 0, SEEK_END);
-      mrb_size = ftell(fp);
+      vm_code_size = ftell(fp);
       fseek(fp, 0, SEEK_SET);
-      vm_code = (uint8_t *)picorb_alloc(mrb_size);
-      if (fread(vm_code, 1, mrb_size, fp) != mrb_size) {
+      vm_code = (uint8_t *)picorb_alloc(vm, vm_code_size);
+      if (fread(vm_code, 1, vm_code_size, fp) != vm_code_size) {
         fprintf(stderr, "cannot read file: %s\n", fnames[i]);
         exit(EXIT_FAILURE);
       }
       fclose(fp);
     }
+    else if (args.fname) {
+      // TODO refactor
+      source = picorb_alloc(vm, sizeof(uint8_t) * 2);
+      source[0] = 0x0;
+      source[1] = 0x0;
+      irep = picorb_load_rb_file_cxt(cc, fnames[i], &source);
+      if (irep == NULL) {
+        fprintf(stderr, "irep load error\n");
+        exit(EXIT_FAILURE);
+      }
+    }
     else {
+      char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
+      if (!utf8) abort();
+      irep = mrc_load_string_cxt(cc, (const uint8_t **)&utf8, strlen(utf8));
+      picorb_utf8_free(vm, utf8);
+    }
+
+    mrc_assert((vm_code && !irep) || (!vm_code && irep));
+
+#if defined(PICORB_VM_MRUBY)
+    if (!irep) {
+      irep = mrb_read_irep(vm, vm_code);
+    }
+    mrb_tcb *tcb = mrc_create_task(cc, irep, NULL, "main");
+#elif defined(PICORB_VM_MRUBYC)
+    if (!vm_code) {
       int result;
-      result = mrc_dump_irep(c, irep, 0, &vm_code, &mrb_size);
+      result = mrc_dump_irep(cc, irep, 0, &vm_code, &vm_code_size);
       if (result != MRC_DUMP_OK) {
         fprintf(stderr, "irep dump error: %d\n", result);
         exit(EXIT_FAILURE);
       }
     }
-
-#if defined(PICORB_VM_MRUBYC)
     task_mrb_list[tasks_mrb_list_size++] = vm_code;
-    if (irep) mrc_irep_free(c, irep);
-    if (source) mrc_free(c, source);
+    if (irep) mrc_irep_free(cc, irep);
+    if (source) mrc_free(cc, source);
 
     mrbc_tcb *tcb = mrbc_create_task(vm_code, NULL);
+#endif
     if (!tcb) {
       fprintf(stderr, "mrbc_create_task failed\n");
       exit(EXIT_FAILURE);
@@ -669,7 +688,6 @@ main(int argc, char **argv)
     else {
       tcb_list[tcb_list_size++] = tcb;
     }
-#endif
 
     if (args.check_syntax) {
       printf("Syntax OK: %s\n", fnames[i]);
@@ -679,9 +697,20 @@ main(int argc, char **argv)
   /* run tasks */
   if (!args.check_syntax) {
 #if defined(PICORB_VM_MRUBY)
-    n = mrb_lib_run(vm, c, irep);
-    if (source) mrc_free(c, source);
-#else
+    mrb_value v = mrb_tasks_run(vm);
+    mrb_vm_ci_env_clear(vm, vm->c->cibase);
+    if (vm->exc) {
+      MRB_EXC_CHECK_EXIT(vm, vm->exc);
+      if (!mrb_undef_p(v)) {
+        picorb_print_error(vm);
+      }
+      n = EXIT_FAILURE;
+    }
+    n = EXIT_SUCCESS;
+
+    mrc_irep_free(cc, irep);
+    if (source) mrc_free(cc, source);
+#elif defined(PICORB_VM_MRUBYC)
     if (mrbc_run() != 0) {
       if (!picorb_undef_p(NULL)) {
         picorb_print_error(vm);
@@ -695,15 +724,18 @@ main(int argc, char **argv)
   }
 
   picorb_gc_arena_restore(vm, ai);
-  mrc_ccontext_free(c);
+  mrc_ccontext_free(cc);
 
-#if defined(PICORB_VM_MRUBYC)
-  for (int i = 0; i < lib_mrb_list_size; i++)
-    picorb_free(lib_mrb_list[i]);
-  for (int i = 0; i < tasks_mrb_list_size; i++)
-    picorb_free(task_mrb_list[i]);
   for (int i = 0; i < taskc; i++)
-    picorb_free(fnames[i]);
+    picorb_free(vm, fnames[i]);
+#if defined(PICORB_VM_MRUBY)
+  for (int i = 0; i < tcb_list_size; i++)
+    mrb_tcb_free(vm, tcb_list[i]);
+#elif defined(PICORB_VM_MRUBYC)
+  for (int i = 0; i < lib_mrb_list_size; i++)
+    picorb_free(vm, lib_mrb_list[i]);
+  for (int i = 0; i < tasks_mrb_list_size; i++)
+    picorb_free(vm, task_mrb_list[i]);
   for (int i = 0; i < tcb_list_size; i++)
     mrbc_vm_close(&tcb_list[i]->vm);
 #endif

@@ -1,0 +1,4 @@
+module CRC
+  def self.crc32: (?String string, ?Integer crc) -> Integer
+  def self.crc32_from_address: (Integer address, Integer length, ?Integer crc) -> Integer
+end

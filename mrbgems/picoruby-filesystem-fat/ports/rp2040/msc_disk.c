@@ -29,8 +29,6 @@
 #include <bsp/board.h>
 #include <tusb.h>
 
-#include <mrubyc.h>
-
 #include "../../lib/ff14b/source/ff.h"
 #include "../../lib/ff14b/source/diskio.h"
 #include "disk.h"
@@ -154,8 +152,8 @@ tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint
    * CFG_TUD_MSC_EP_BUFSIZE has to be equal to MSC_SECTOR_SIZE.
    */
   if (0 < offset || bufsize != MSC_SECTOR_SIZE) {
-    console_printf("Failed in tud_msc_read10_cb()\n");
-    console_printf("offset: %d, bufsize: %d\n", offset, bufsize);
+    printf("Failed in tud_msc_read10_cb()\n");
+    printf("offset: %d, bufsize: %d\n", offset, bufsize);
     tud_task();
     abort();
   }
@@ -185,8 +183,8 @@ tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* buffer, 
    * CFG_TUD_MSC_EP_BUFSIZE has to be equal to MSC_SECTOR_SIZE.
    */
   if (0 < offset || bufsize != MSC_SECTOR_SIZE) {
-    console_printf("Failed in tud_msc_write10_cb()\n");
-    console_printf("offset: %d, bufsize: %d\n", offset, bufsize);
+    printf("Failed in tud_msc_write10_cb()\n");
+    printf("offset: %d, bufsize: %d\n", offset, bufsize);
     tud_task();
     abort();
   }

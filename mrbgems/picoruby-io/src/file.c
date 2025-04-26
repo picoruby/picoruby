@@ -113,13 +113,14 @@ c_file_unlink(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_int_t i;
 
   for (i = 0; i < argc; i++) {
-    mrbc_value pathv = GET_ARG(i);
+    mrbc_value pathv = GET_ARG(i + 1);
     if (pathv.tt != MRBC_TT_STRING) {
       mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type");
     }
-    const char *utf8_path = (const char *)GET_STRING_ARG(i);
+    const char *utf8_path = (const char *)pathv.string->data;
     char *path = picorb_locale_from_utf8(utf8_path, -1);
-    if (UNLINK(path) < 0) {
+    int res = UNLINK(path);
+    if (res < 0) {
       picorb_locale_free(path);
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "unlink failed");
       return;

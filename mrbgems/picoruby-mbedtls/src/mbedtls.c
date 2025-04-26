@@ -1,21 +1,10 @@
-#include <stdbool.h>
-#include <mrubyc.h>
+#if defined(PICORB_VM_MRUBY)
 
-#include "cmac.h"
-#include "hmac.h"
-#include "cipher.h"
-#include "digest.h"
-#include "pkey.h"
+#include "mruby/mbedtls.c"
 
-void
-mrbc_mbedtls_init(mrbc_vm *vm)
-{
-  mrbc_class *module_MbedTLS = mrbc_define_module(vm, "MbedTLS");
+#elif defined(PICORB_VM_MRUBYC)
 
-  gem_mbedtls_cmac_init(vm, module_MbedTLS);
-  gem_mbedtls_hmac_init(vm, module_MbedTLS);
-  gem_mbedtls_cipher_init(vm, module_MbedTLS);
-  gem_mbedtls_digest_init(vm, module_MbedTLS);
-  gem_mbedtls_pkey_init(vm, module_MbedTLS);
-}
+#include "mrubyc/mbedtls.c"
+
+#endif
 

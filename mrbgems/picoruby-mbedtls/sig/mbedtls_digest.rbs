@@ -3,8 +3,7 @@ module MbedTLS
     type algorithm_t = :none | :sha256
     SUPPORTED_ALGORITHMS: Hash[algorithm_t, Integer]
 
-    def self.new: (algorithm_t algorithm) -> MbedTLS::Digest
-    private def self._init_ctx: (Integer algorithm) -> MbedTLS::Digest
+    def initialize: (algorithm_t algorithm) -> void
     def update: (String input) -> MbedTLS::Digest
     def finish: () -> String
     def free: () -> self

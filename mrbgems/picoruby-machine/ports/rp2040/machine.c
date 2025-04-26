@@ -15,7 +15,10 @@
 #include "hardware/clocks.h"
 #include "hardware/structs/scb.h"
 #include "hardware/sync.h"
+#include "pico/util/datetime.h"
 #include <tusb.h>
+
+#include "pico/aon_timer.h"
 
 /*-------------------------------------
  *
@@ -39,6 +42,10 @@ static volatile uint32_t interrupt_nesting = 0;
 
 static volatile bool in_tick_processing = false;
 
+#if defined(PICORB_VM_MRUBY)
+static mrb_state *mrb_;
+#endif
+
 static void
 alarm_handler(void)
 {
@@ -56,20 +63,34 @@ alarm_handler(void)
   timer_hw->alarm[ALARM_NUM] = next_time;
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 
+#if defined(PICORB_VM_MRUBY)
+  mrb_tick(mrb_);
+#elif defined(PICORB_VM_MRUBYC)
   mrbc_tick();
+#else
+#error "One of PICORB_VM_MRUBY or PICORB_VM_MRUBYC must be defined"
+#endif
 
   __dmb();
   in_tick_processing = false;
 }
 
 static void
-usb_irq_handler(void) {
+usb_irq_handler(void)
+{
   tud_task();
 }
 
 void
+#if defined(PICORB_VM_MRUBY)
+hal_init(mrb_state *mrb)
+#elif defined(PICORB_VM_MRUBYC)
 hal_init(void)
+#endif
 {
+#if defined(PICORB_VM_MRUBY)
+  mrb_ = (mrb_state *)mrb;
+#endif
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
@@ -376,4 +397,26 @@ Machine_get_unique_id(char *id_str)
 {
   pico_get_unique_board_id_string(id_str, PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1);
   return 1;
+}
+
+uint32_t
+Machine_stack_usage(void)
+{
+  // TODO
+  return 0;
+}
+
+bool
+Machine_set_hwclock(const struct timespec *ts)
+{
+  if (aon_timer_is_running()) {
+    return aon_timer_set_time(ts);
+  }
+  return aon_timer_start(ts);
+}
+
+bool
+Machine_get_hwclock(struct timespec *ts)
+{
+  return aon_timer_get_time(ts);
 }

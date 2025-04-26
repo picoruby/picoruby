@@ -22,5 +22,3 @@ uint32_t Watchdog_get_count(void);
 #endif
 
 #endif /* WATCHDOG_DEFINED_H_ */
-
-

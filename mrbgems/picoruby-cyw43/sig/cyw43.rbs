@@ -13,7 +13,7 @@ class CYW43
   LINK_NONET:   Integer
   LINK_BADAUTH: Integer
 
-  def self.init: (?String country, ?force: bool) -> 0
+  def self.init: (?String country, ?force: bool) -> bool
   def self.initialized?: () -> bool
   def self.connect_timeout: (String ssid, String password, Integer augh, ?Integer timeout) -> bool
   def self.enable_sta_mode: () -> bool
@@ -27,7 +27,7 @@ class CYW43
     LED_PIN: Integer
     @pin: Integer
     def initialize: (Integer pin) -> void
-    def write: (Integer) -> 0
+    def write: (Integer) -> Integer
     def read: () -> GPIO::gpio_logic_t
     def high?: () -> bool
     def low?: () -> bool
