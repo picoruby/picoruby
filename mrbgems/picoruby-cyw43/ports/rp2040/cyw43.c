@@ -72,7 +72,6 @@ CYW43_arch_init_with_country(const uint8_t *country)
   return -1; // Maybe No CYW43 module on the board
 }
 
-#ifdef USE_WIFI
 void
 CYW43_arch_enable_sta_mode(void)
 {
@@ -90,7 +89,6 @@ CYW43_arch_wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t au
 {
   return cyw43_arch_wifi_connect_timeout_ms(ssid, pw, auth, timeout_ms);
 }
-#endif
 
 void
 CYW43_GPIO_write(uint8_t pin, uint8_t val)
