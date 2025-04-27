@@ -127,7 +127,6 @@ UDPClient_poll_impl(udp_connection_state **pcs)
       cs->state = NET_UDP_STATE_FINISHED;
       return 0;
     case NET_UDP_STATE_ERROR:
-      MRB;
       return 0;
   }
   return cs->state;
