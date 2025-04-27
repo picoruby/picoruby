@@ -7,3 +7,9 @@
 [submodule "mrbgems/picoruby-mruby/lib/estalloc"]
 	path = mrbgems/picoruby-mruby/lib/estalloc
 	url = https://github.com/picoruby/estalloc
+[submodule "mrbgems/mruby-compiler2"]
+	path = mrbgems/mruby-compiler2
+	url = git@github.com:picoruby/mruby-compiler2
+[submodule "mrbgems/mruby-bin-mrbc2"]
+	path = mrbgems/mruby-bin-mrbc2
+	url = git@github.com:picoruby/mruby-bin-mrbc2

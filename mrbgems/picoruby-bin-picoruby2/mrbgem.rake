@@ -6,7 +6,7 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby2') do |spec|
   spec.author  = 'picoruby developers'
   spec.summary = 'picoruby command'
   spec.bins = [BINNAME]
-  spec.add_dependency('mruby-compiler2', :github => 'picoruby/mruby-compiler2')
+  spec.add_dependency('mruby-compiler2')
   spec.add_conflict 'picoruby-bin-picoruby'
 
   if build.cxx_exception_enabled?

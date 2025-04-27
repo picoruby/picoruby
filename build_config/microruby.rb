@@ -8,8 +8,8 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "ESTALLOC_DEBUG"
 
-  conf.gem github: 'picoruby/mruby-compiler2'
-  conf.gem github: 'picoruby/mruby-bin-mrbc2'
+  conf.gem core: 'mruby-compiler2'
+  conf.gem core: 'mruby-bin-mrbc2'
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: 'picoruby-net'
   conf.gem core: 'picoruby-mbedtls'

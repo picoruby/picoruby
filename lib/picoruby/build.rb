@@ -6,8 +6,8 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem github: 'picoruby/mruby-compiler2' unless @gems['mruby-compiler2']
-      gem github: 'picoruby/mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
+      gem core: 'mruby-compiler2' unless @gems['mruby-compiler2']
+      gem core: 'mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
       self.mrbcfile = "#{build_dir}/bin/picorbc"
     end
 
@@ -38,7 +38,7 @@ module MRuby
     end
 
     def picoruby(alloc_libc: true)
-      gem github: "picoruby/mruby-compiler2" unless @gems['mruby-compiler2']
+      gem core: "mruby-compiler2" unless @gems['mruby-compiler2']
       gem core: "picoruby-mrubyc" unless @gems['picoruby-mrubyc']
       disable_presym
 

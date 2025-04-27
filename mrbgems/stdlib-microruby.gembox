@@ -1,5 +1,5 @@
 MRuby::GemBox.new do |conf|
-  conf.gem github: 'picoruby/mruby-compiler2'
+  conf.gem core: 'mruby-compiler2'
   conf.gem core: 'picoruby-machine'
   conf.gem core: "picoruby-mruby"
   conf.gem core: "picoruby-base16"

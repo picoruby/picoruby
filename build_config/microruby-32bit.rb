@@ -21,8 +21,8 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.flags << '-falign-labels=2'
   conf.linker.flags << '-m32'
 
-  conf.gem github: 'picoruby/mruby-compiler2'
-  conf.gem github: 'picoruby/mruby-bin-mrbc2'
+  conf.gem core: 'mruby-compiler2'
+  conf.gem core: 'mruby-bin-mrbc2'
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: "picoruby-mruby"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"

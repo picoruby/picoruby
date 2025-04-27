@@ -40,7 +40,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
 
-  conf.gem github: 'picoruby/mruby-compiler2'
+  conf.gem core: 'mruby-compiler2'
   conf.gem core: "picoruby-mruby"
   conf.gem core: "picoruby-json"
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
@@ -76,7 +76,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
 
 #  # stdlib-microruby
 ##  conf.gembox "stdlib-microruby"
-#  conf.gem github: 'picoruby/mruby-compiler2'
+#  conf.gem core: 'mruby-compiler2'
 #  conf.gem core: 'picoruby-machine'
 #  conf.gem core: "picoruby-mruby"
 #  conf.gem core: "picoruby-base16"
