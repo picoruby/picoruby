@@ -1,9 +1,11 @@
 require "env"
+require 'gpio'
 require "metaprog"
 require "picorubyvm"
 require "sandbox"
 require "crc"
 require "machine"
+require 'yaml'
 begin
   require "filesystem-fat"
   require "vfs"
@@ -17,6 +19,25 @@ ARGV = []
 
 
 class Shell
+
+  DeviceInstances = {}
+
+  def self.get_device(type, name)
+    key = "#{type}_#{name}".upcase
+    DeviceInstances[key] ||= case key
+    when 'GPIO_TRIGGER_NMBLE'
+      GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
+    when 'GPIO_LED_BLE', 'GPIO_LED_WIFI'
+      if ENV[key].nil? || ENV[key] == 'cyw43_led'
+        CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+      else
+        GPIO.new(ENV[key].to_i, GPIO::OUT)
+      end
+    else
+      raise "Unknown GPIO key: #{key}"
+    end
+  end
+
   def self.setup_root_volume(device, label: "PicoRuby")
     sleep 1 if device == :sd
     return if VFS.volume_index("/")
@@ -89,6 +110,38 @@ class Shell
       self.ensure_system_file(path, Machine.unique_id, nil)
     end
     Dir.chdir ENV['HOME']
+
+    config_file = "/etc/config.yml"
+    # example of `config.yml`:
+    #
+    # device:
+    #   gpio:
+    #     trigger_nmble: 22
+    #     led_ble: cyw43_led
+    #     led_wifi: 23
+    begin
+      config = YAML.load_file(config_file)
+      # @type var config: Hash[String, untyped]
+      device = config['device']
+      if device&.respond_to?(:each)
+        device.each do |type, values|
+          values&.each do |key, value|
+            ENV["#{type}_#{key}".upcase] = value.to_s
+          end
+        end
+      end
+    rescue => e
+      puts "Failed to load config file: #{config_file}"
+      puts "  #{e.message} (#{e.class})"
+    end
+
+    begin
+      require "cyw43"
+      if CYW43.respond_to?(:enable_sta_mode)
+        ENV['WIFI_MODULE'] = "cwy43"
+      end
+    rescue
+    end
   end
 
   def self.bootstrap(file)
@@ -178,6 +231,7 @@ class Shell
       '|_|   |_|\___\___/|_| \_\\___,_|_.__/ \__, |',
       "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
     ]
+    SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
   elsif RUBY_ENGINE == "mruby"
     LOGO_LINES = [
       ' __  __ _                ____        _',
@@ -187,8 +241,8 @@ class Shell
       '|_|  |_|_|\___|_|  \___/|_| \_\\\\__,_|_.__/ \__, |',
       "                  #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}             |___/"
     ]
+    SHORT_LOGO_LINES = ["MicroRuby", "   by", "hasumikin"]
   end
-  SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
 
   def show_logo
     return nil if ENV['TERM'] == "dumb"

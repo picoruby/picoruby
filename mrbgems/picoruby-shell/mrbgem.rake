@@ -14,6 +14,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-crc'
   spec.add_dependency 'picoruby-machine'
+  spec.add_dependency 'picoruby-yaml'
   if build.posix?
     if build.vm_mrubyc?
       spec.add_dependency('picoruby-dir')

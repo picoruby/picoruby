@@ -1,16 +1,8 @@
-begin
-  require "cyw43"
-  if CYW43.respond_to?(:enable_sta_mode)
-    ENV['WIFI_MODULE'] = "cwy43"
-    require 'gpio'
-    pin = GPIO.new(22, GPIO::IN|GPIO::PULL_UP)
-    if pin.low?
-      system "nmble"
-    end
-    system "wifi_connect --check-auto-connect"
+if ENV['WIFI_MODULE'] == "cwy43"
+  if Shell.get_device(:gpio, 'TRIGGER_NMBLE').low?
+    system "nmble"
   end
-rescue => e
-  puts "No WiFi module. Ignore: #{e.message}"
+  system "wifi_connect --check-auto-connect"
 end
 
 if File.exist?("#{ENV['HOME']}/app.mrb")

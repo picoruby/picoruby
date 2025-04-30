@@ -9,6 +9,17 @@ $LOAD_PATH: Array[String]
 ARGV: Array[String]
 
 class Shell
+  type rtc_t = PCF8523
+
+  type device_t = GPIO | ADC | I2C | SPI | UART | PWM
+  DeviceInstances: Hash[String, device_t]
+  def self.get_device: (:gpio, String | Symbol name) -> GPIO
+                     | (:adc,  String | Symbol name) -> ADC
+                     | (:i2c,  String | Symbol name) -> I2C
+                     | (:spi,  String | Symbol name) -> SPI
+                     | (:uart, String | Symbol name) -> UART
+                     | (:pwm,  String | Symbol name) -> PWM
+
   LOGO_LINES: [String]
   SHORT_LOGO_LINES: [String]
   LOGO_COLOR: String

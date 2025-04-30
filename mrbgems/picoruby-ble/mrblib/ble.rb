@@ -110,7 +110,7 @@ class BLE
   end
 
   def blink_led
-    @led ||= CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+    @led ||= Shell.get_device(:gpio, 'LED_BLE')
     @led.write(@led.low? ? 1 : 0)
   end
 
