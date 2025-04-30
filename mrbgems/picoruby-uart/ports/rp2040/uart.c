@@ -51,8 +51,8 @@ UART_unit_name_to_unit_num(const char *name)
 void
 UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer)
 {
-  uint irq;
-  uart_inst_t *unit;
+  uint irq = UART0_IRQ;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_init(unit, DEFAULT_BAUDRATE);
 
@@ -75,7 +75,7 @@ UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buf
 uint32_t
 UART_set_baudrate(int unit_num, uint32_t baudrate)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   return uart_set_baudrate(unit, baudrate);
 }
@@ -83,7 +83,7 @@ UART_set_baudrate(int unit_num, uint32_t baudrate)
 void
 UART_set_flow_control(int unit_num, bool cts, bool rts)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_hw_flow(unit, cts, rts);
 }
@@ -91,7 +91,7 @@ UART_set_flow_control(int unit_num, bool cts, bool rts)
 void
 UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_format(unit, data_bits, stop_bits, (uart_parity_t)parity);
 }
@@ -105,7 +105,7 @@ UART_set_function(uint32_t pin)
 bool
 UART_is_writable(int unit_num)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   return uart_is_writable(unit);
 }
@@ -113,7 +113,7 @@ UART_is_writable(int unit_num)
 void
 UART_write_blocking(int unit_num, const uint8_t *src, size_t len)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_write_blocking(unit, src, len);
 }
@@ -121,7 +121,7 @@ UART_write_blocking(int unit_num, const uint8_t *src, size_t len)
 bool
 UART_is_readable(int unit_num)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   return uart_is_readable(unit);
 }
@@ -130,7 +130,7 @@ size_t
 UART_read_nonblocking(int unit_num, uint8_t *dst, size_t maxlen)
 {
   size_t actual_len = 0;
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   while (uart_is_readable(unit)) {
     dst[actual_len++] = uart_getc(unit);
@@ -144,7 +144,7 @@ UART_read_nonblocking(int unit_num, uint8_t *dst, size_t maxlen)
 void
 UART_break(int unit_num, uint32_t interval)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_break(unit, true);
   sleep_ms(interval);
@@ -154,7 +154,7 @@ UART_break(int unit_num, uint32_t interval)
 void
 UART_flush(int unit_num)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_tx_wait_blocking(unit);
 }
@@ -162,7 +162,7 @@ UART_flush(int unit_num)
 void
 UART_clear_rx_buffer(int unit_num)
 {
-  uart_inst_t *unit;
+  uart_inst_t *unit = NULL;
   UNIT_SELECT();
   while (uart_is_readable(unit)) {
     uart_getc(unit);
