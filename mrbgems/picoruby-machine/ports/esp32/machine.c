@@ -163,3 +163,24 @@ Machine_get_unique_id(char *id_str)
   sprintf(id_str, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   return 1;
 }
+
+uint32_t
+Machine_stack_usage(void)
+{
+  // Not implemented
+  return 0;
+}
+
+bool
+Machine_set_hwclock(const struct timespec *ts)
+{
+  // Not implemented
+  return false;
+}
+
+bool
+Machine_get_hwclock(struct timespec *ts)
+{
+  // Not implemented
+  return false;
+}

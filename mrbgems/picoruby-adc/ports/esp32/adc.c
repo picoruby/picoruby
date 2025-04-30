@@ -161,7 +161,7 @@ ADC_read_raw(uint8_t input)
 }
 
 #if MRBC_USE_FLOAT
-picobc_float_t
+picorb_float_t
 ADC_read_voltage(uint8_t input)
 {
   uint32_t raw = ADC_read_raw(input);
