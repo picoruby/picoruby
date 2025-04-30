@@ -143,13 +143,7 @@ class Shell
     end
   end
 
-  def initialize(clean: false)
-    require 'editor' # To save memory
-    clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
-    @editor = Editor::Line.new
-  end
-
-  def simple_question(question, &block)
+  def self.simple_question(question, &block)
     while true
       print question
       answer = ""
@@ -165,6 +159,12 @@ class Shell
       end
       break if block.call(answer)
     end
+  end
+
+  def initialize(clean: false)
+    require 'editor' # To save memory
+    clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
+    @editor = Editor::Line.new
   end
 
   LOGO_COLOR = "\e[32;1m"

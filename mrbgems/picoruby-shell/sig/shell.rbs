@@ -3,11 +3,6 @@
 # Revealed types
 #  /home/hasumi/work/prk_firmware/lib/picoruby/mrbgems/picoruby-shell/mrblib/command.rb:69 #=> nil
 
-type rtc_t = PCF8523
-
-$shell: Shell
-$sandbox: Sandbox
-
 # Classes
 
 $LOAD_PATH: Array[String]
@@ -28,9 +23,9 @@ class Shell
   def self.ensure_system_file: (String path, String code, ?(Integer | nil) crc) -> void
   def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
   def self.bootstrap: (String file) -> bool
+  def self.simple_question: (String question) { (String answer) -> boolish } -> void
 
   def initialize: (?clean: bool) -> void
-  def simple_question: (String question) { (String answer) -> boolish } -> void
   def show_logo: -> nil
   def start: (?Symbol mode) -> nil
   def run_shell: -> void

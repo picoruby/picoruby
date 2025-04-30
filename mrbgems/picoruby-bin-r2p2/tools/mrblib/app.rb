@@ -8,9 +8,9 @@ begin
 
   Shell.bootstrap("../etc/init.d/r2p2")
 
-  $shell = Shell.new
-  $shell.show_logo
-  $shell.start
+  shell = Shell.new
+  shell.show_logo
+  shell.start
 rescue => e
   puts e.message
   exit
