@@ -77,8 +77,8 @@ class Shell
         File.unlink(path)
         sleep_ms 100
       else
+        puts "Writing : #{path}"
         File.open(path, "w") do |f|
-          puts " Writing: #{path}"
           f.expand(code.length) if f.respond_to?(:expand)
           f.write(code)
         end
@@ -98,9 +98,12 @@ class Shell
     ENV['PATH'] = "#{root}/bin"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     Dir.chdir(root || "/") do
-      %w(bin lib var home etc etc/init.d etc/network).each do |dir|
-        Dir.mkdir(dir) unless Dir.exist?(dir)
-        sleep_ms 10
+      %w(bin home etc etc/init.d etc/network var lib).each do |dir|
+        unless Dir.exist?(dir)
+          puts "Creating directory: #{dir}"
+          Dir.mkdir(dir)
+          sleep 1 # This ensure the directory is created
+        end
       end
       while exe = Shell.next_executable
         path = "#{root}#{exe[:path]}"

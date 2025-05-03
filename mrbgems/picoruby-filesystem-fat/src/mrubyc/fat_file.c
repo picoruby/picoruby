@@ -30,7 +30,7 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Unknown file open mode");
   }
   res = f_open(fp, path, mode);
-  mrbc_raise_iff_f_error(vm, res, "f_open");
+  mrbc_raise_iff_f_error(vm, res, path);
   _file.instance->cls = class_FAT_File;
   SET_RETURN(_file);
 }

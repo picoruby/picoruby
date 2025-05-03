@@ -45,7 +45,7 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "Unknown file open mode");
   }
   res = f_open(fp, (const TCHAR *)path, mode);
-  mrb_raise_iff_f_error(mrb, res, "f_open");
+  mrb_raise_iff_f_error(mrb, res, path);
   return file;
 }
 

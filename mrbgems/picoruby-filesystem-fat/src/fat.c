@@ -79,8 +79,10 @@ FAT_prepare_exception(FRESULT res, char *buff, const char *func)
       PREPARE_EXCEPTION("Storage device not ready");
       break;
     case FR_NO_FILE:
+      PREPARE_EXCEPTION("No such file");
+      break;
     case FR_NO_PATH:
-      PREPARE_EXCEPTION("No such file or directory");
+      PREPARE_EXCEPTION("No such path");
       break;
     case FR_INVALID_NAME:
       PREPARE_EXCEPTION("Invalid as a path name");
