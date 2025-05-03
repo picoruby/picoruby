@@ -49,8 +49,10 @@ class SPI
 
   def write(*params)
     ret = _write(params_to_array(*params))
-    return ret if -1 < ret
-    GPIO::Error.peripheral_error(ret, "SPI#write")
+    unless -1 < ret
+      GPIO::Error.peripheral_error(ret, "SPI#write")
+    end
+    return ret
   end
 
   def transfer(*params, additional_read_bytes: 0)

@@ -6,12 +6,10 @@
 static mrb_value
 mrb__write(mrb_state *mrb, mrb_value self)
 {
-  mrb_int unit_num, i2c_adrs_7, ary_len;
+  mrb_int unit_num, i2c_adrs_7, ary_len, timeout_ms;
   mrb_value outputs;
   mrb_bool nostop;
-  mrb_get_args(mrb, "iiAb", &unit_num, &i2c_adrs_7,  &outputs, &nostop);
-
-  mrb_value duration_1byte = mrb_iv_get(mrb, self, MRB_IVSYM(duration_1byte));
+  mrb_get_args(mrb, "iiAbi", &unit_num, &i2c_adrs_7,  &outputs, &nostop, &timeout_ms);
 
   ary_len = RARRAY_LEN(outputs);
   uint8_t src[ary_len];
@@ -26,9 +24,9 @@ mrb__write(mrb_state *mrb, mrb_value self)
       (uint8_t)unit_num,
       (uint8_t)i2c_adrs_7,
       src,
-      ary_len,
+      (size_t)ary_len,
       nostop,
-      mrb_fixnum(duration_1byte) * ary_len
+      (uint32_t)timeout_ms * 1000
     );
   return mrb_fixnum_value(res);
 }
@@ -36,11 +34,9 @@ mrb__write(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__read(mrb_state *mrb, mrb_value self)
 {
-  mrb_int i2c_adrs_7, len;
+  mrb_int i2c_adrs_7, len, timeout;
   mrb_value outputs;
-  mrb_get_args(mrb, "iiA", &i2c_adrs_7, &len, &outputs);
-
-  mrb_value duration_1byte = mrb_iv_get(mrb, self, MRB_IVSYM(duration_1byte));
+  mrb_get_args(mrb, "iiAi", &i2c_adrs_7, &len, &outputs, &timeout_ms);
 
   mrb_int ary_len = RARRAY_LEN(outputs);
   uint8_t rxdata[ary_len];
@@ -48,9 +44,9 @@ mrb__read(mrb_state *mrb, mrb_value self)
               (uint8_t)i2c_adrs_7,
               (uint8_t)len,
               rxdata,
-              ary_len,
+              (size_t)ary_len,
               false,
-              mrb_fixnum(duration_1byte) * ary_len
+              (uint32_t)timeout_ms * 1000
             );
   if (0 < ret) {
     return mrb_str_new(mrb, (const char *)rxdata, ret);
@@ -67,7 +63,6 @@ mrb__init(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "ziii", &unit, &frequency, &sda_pin, &scl_pin);
 
   int unit_num = I2C_unit_name_to_unit_num(unit);
-  mrb_iv_set(mrb, self, MRB_IVSYM(duration_1byte), mrb_fixnum_value(1000000 / frequency * 8 * 4));
   i2c_status_t status = I2C_gpio_init(unit_num, (uint32_t)frequency, (uint8_t)sda_pin, (uint8_t)scl_pin);
   if (status < 0) {
     const char *message;
@@ -87,8 +82,8 @@ mrb_picoruby_i2c_gem_init(mrb_state* mrb)
   struct RClass *class_I2C = mrb_define_class_id(mrb, MRB_SYM(I2C), mrb->object_class);
 
   mrb_define_method_id(mrb, class_I2C, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(4));
-  mrb_define_method_id(mrb, class_I2C, MRB_SYM(_write), mrb__write, MRB_ARGS_REQ(4));
-  mrb_define_method_id(mrb, class_I2C, MRB_SYM(_read), mrb__read, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_I2C, MRB_SYM(_write), mrb__write, MRB_ARGS_REQ(5));
+  mrb_define_method_id(mrb, class_I2C, MRB_SYM(_read), mrb__read, MRB_ARGS_REQ(4));
 }
 
 void

@@ -1,12 +1,11 @@
 #include <mrubyc.h>
 
-static uint32_t duration_1byte = 0;
-
 static void
 c__write(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_array value_ary = *(GET_ARY_ARG(3).array);
-  int len = value_ary.n_stored;
+  mrbc_int_t timeout_ms = GET_INT_ARG(5);
+  mrbc_int_t len = value_ary.n_stored;
   uint8_t src[len];
   for (int i = 0; i < len; i++) {
     src[i] = mrbc_integer(value_ary.data[i]);
@@ -16,9 +15,9 @@ c__write(mrbc_vm *vm, mrbc_value *v, int argc)
       (uint8_t)GET_INT_ARG(1),
       (uint8_t)GET_INT_ARG(2),
       src,
-      len,
+      (size_t)len,
       (bool)(GET_ARG(4).tt == MRBC_TT_TRUE),
-      duration_1byte * len
+      (uint32_t)timeout_ms * 1000
     )
   );
 }
@@ -26,15 +25,16 @@ c__write(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int len = GET_INT_ARG(3);
+  mrbc_int_t len = GET_INT_ARG(3);
+  mrbc_int_t timeout_ms = GET_INT_ARG(4);
   uint8_t rxdata[len];
   int ret = I2C_read_timeout_us(
               (uint8_t)GET_INT_ARG(1),
               (uint8_t)GET_INT_ARG(2),
               rxdata,
-              len,
+              (size_t)len,
               false,
-              duration_1byte * len
+              (uint32_t)timeout_ms * 1000
             );
   if (0 < ret) {
     mrbc_value value = mrbc_string_new(vm, (const char *)rxdata, ret);
@@ -49,7 +49,6 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int unit_num = I2C_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
   uint32_t frequency = (uint32_t)GET_INT_ARG(2);
-  duration_1byte = 1000000 / frequency * 8 * 4;
   i2c_status_t status = I2C_gpio_init(unit_num, frequency, (uint8_t)GET_INT_ARG(3), (uint8_t)GET_INT_ARG(4));
   if (status < 0) {
     char message[30];

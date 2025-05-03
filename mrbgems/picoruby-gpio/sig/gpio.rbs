@@ -11,7 +11,7 @@ class GPIO
     ERROR_INVALID_ARG:   -5
     ERROR_IO:            -6
 
-    def self.peripheral_error: (Integer code, ?String name) -> Integer
+    def self.peripheral_error: (Integer code, ?String name) -> void
   end
 
   IN:          1 # 0b0000001
