@@ -73,7 +73,6 @@ static inline void picorb_free(mrbc_vm *vm, void *ptr)
 #define picorb_define_global_const(vm,name,value) \
         mrbc_set_global(mrbc_str_to_symid(name),&value)
 
-void picoruby_init_executables(mrbc_vm *vm);
 void picoruby_init_require(mrbc_vm *vm);
 bool picoruby_load_model_by_name(const char *gem);
 
