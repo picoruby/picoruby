@@ -2,15 +2,18 @@
 class I2C
   type outputs_t = Integer|String|Array[Integer]
 
-  DEFAULT_FREQUENCY: 100_000
+  DEFAULT_FREQUENCY: Integer
+  DEFAULT_TIMEOUT: Integer
 
   @unit_num: Integer
+  @timeout: Integer
 
   def self.new: (
     unit: Symbol|nil,
     ?frequency: Integer,
     ?sda_pin: Integer,
-    ?scl_pin: Integer
+    ?scl_pin: Integer,
+    ?timeout: Integer
   ) -> instance
   private def _init: (
     String unit,
@@ -20,26 +23,30 @@ class I2C
   ) -> Integer
   def write: (
     Integer i2c_adrs_7,
-    *outputs_t outputs
+    *outputs_t outputs,
+    ?timeout: Integer,
   ) -> Integer
   private def _write: (
     Integer unit_num,
     Integer i2c_adrs_7,
     Array[Integer] output_array,
-    bool nostop
+    bool nostop,
+    Integer timeout
   ) -> Integer
   def read: (
     Integer i2c_adrs_7,
     Integer len,
-    *outputs_t outputs
+    *outputs_t outputs,
+    ?timeout: Integer,
   ) -> String
   private def _read: (
     Integer unit_num,
     Integer i2c_adrs_7,
-    Integer len
+    Integer len,
+    Integer timeout
   ) -> (String | Integer)
   def outputs_array: (
     Array[outputs_t] outputs
   ) -> Array[Integer]
-  def scan: () -> nil
+  def scan: (?timeout: Integer) -> nil
 end
