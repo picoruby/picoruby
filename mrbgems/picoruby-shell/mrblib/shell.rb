@@ -99,10 +99,21 @@ class Shell
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     Dir.chdir(root || "/") do
       %w(bin home etc etc/init.d etc/network var lib).each do |dir|
-        unless Dir.exist?(dir)
-          puts "Creating directory: #{dir}"
-          Dir.mkdir(dir)
-          sleep 1 # This ensure the directory is created
+        4.times do |i|
+          break i if Dir.exist?(dir)
+          begin
+            puts "Creating directory: #{dir} (trial #{i + 1})"
+            Dir.mkdir(dir)
+            sleep 1
+          rescue
+            if i < 3
+              puts " Failed to create directory: #{dir}. Retrying..."
+              sleep 1
+            else
+              raise "Failed to create directory: #{dir}. Please reboot"
+            end
+          end
+          sleep 1 # This likely ensure the directory is created
         end
       end
       while exe = Shell.next_executable
