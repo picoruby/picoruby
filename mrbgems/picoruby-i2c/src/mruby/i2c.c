@@ -34,7 +34,7 @@ mrb__write(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__read(mrb_state *mrb, mrb_value self)
 {
-  mrb_int i2c_adrs_7, len, timeout;
+  mrb_int i2c_adrs_7, len, timeout_ms;
   mrb_value outputs;
   mrb_get_args(mrb, "iiAi", &i2c_adrs_7, &len, &outputs, &timeout_ms);
 
