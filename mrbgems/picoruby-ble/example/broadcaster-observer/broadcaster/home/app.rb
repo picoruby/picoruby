@@ -25,14 +25,15 @@ class DemoBroadcaster < BLE
   end
 
   def heartbeat_callback
-    Machine.using_delay do
+    # Machine.using_delay is deprecated. TODO: confirm if this is needed
+    # Machine.using_delay do
       temperature = @thermo.read
       @lcd.clear
       @lcd.print sprintf("%5.2f \xdfC", temperature)
       @lcd.break_line
       @lcd.print "+" * (@counter % 9)
       advertise(adv_data (temperature * 100).to_i.to_s)
-    end
+    # end
     @counter += 1
     Watchdog.update
   end

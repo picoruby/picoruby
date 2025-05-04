@@ -3,20 +3,10 @@ class Machine
   def self.busy_wait_ms: (Integer ms) -> Integer
   def self.sleep: (Integer | Float sec) -> Integer
   def self.deep_sleep: (Integer gpio_pin, bool edge, bool high) -> 0
-  def self.using_delay: () { () -> void } -> void
-  def self.using_busy_wait: () { () -> void } -> void
   def self.unique_id: () -> String
   def self.read_memory: (Integer address, Integer size) -> String
   def self.tud_task: () -> void
   def self.tud_mounted?: () -> bool
   def self.set_hwclock: (Integer tv_sec, Integer tv_nsec) -> Integer
   def self.get_hwclock: () -> [Integer, Integer]
-end
-
-$machine_delay: Symbol?
-
-# @private
-class Object
-  def sleep_ms_orig: (Integer ms) -> Integer
-  def sleep_orig: (Integer | Float sec) -> Integer
 end
