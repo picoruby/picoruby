@@ -220,6 +220,7 @@ mrb_sandbox_exec_vm_code(mrb_state *mrb, mrb_value self)
   mrb_value vm_code;
   mrb_get_args(mrb, "S", &vm_code);
   const uint8_t *code = (const uint8_t *)RSTRING_PTR(vm_code);
+  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
   ss->irep = mrb_read_irep(mrb, code);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
@@ -234,6 +235,7 @@ mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
   SS();
   mrb_int address;
   mrb_get_args(mrb, "i", &address);
+  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
   ss->irep = mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();

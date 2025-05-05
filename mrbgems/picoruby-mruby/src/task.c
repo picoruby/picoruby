@@ -224,6 +224,19 @@ mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
   return tcb;
 }
 
+static void
+cleanup_context(mrb_state *mrb, struct mrb_context *c)
+{
+  if (c->stbase) {
+    mrb_free(mrb, c->stbase);
+    c->stbase = NULL;
+  }
+  if (c->cibase) {
+    mrb_free(mrb, c->cibase);
+    c->cibase = NULL;
+  }
+}
+
 
 #define TASK_STACK_INIT_SIZE 64
 #define TASK_CI_INIT_SIZE 8
@@ -231,6 +244,7 @@ mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
 void
 mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc)
 {
+  cleanup_context(mrb, c);
   size_t slen = TASK_STACK_INIT_SIZE;
   if (proc->body.irep->nregs > slen) {
     slen += proc->body.irep->nregs;
