@@ -2,6 +2,7 @@ MRuby::Build.new do |conf|
 
   conf.toolchain
 
+
   conf.cc.defines << "PICORB_VM_MRUBYC"
 
 #  conf.cc.defines << "MRBC_NO_STDIO"
@@ -17,6 +18,7 @@ MRuby::Build.new do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
   conf.gem core: "picoruby-net"
+  conf.gem core: "picoruby-mqtt"
   conf.gem core: "picoruby-machine"
   conf.gem core: "picoruby-mbedtls"
 
