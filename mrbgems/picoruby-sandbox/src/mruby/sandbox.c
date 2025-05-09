@@ -67,7 +67,7 @@ static mrb_value
 mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const char *script;
+  mrb_value script;
 
   uint32_t kw_num = 1;
   uint32_t kw_required = 0;
@@ -75,11 +75,14 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
   mrb_value kw_values[kw_num];
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
-  mrb_get_args(mrb, "z:", &script, &kwargs);
+  mrb_get_args(mrb, "S:", &script, &kwargs);
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
-  const size_t size = strlen(script);
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, size, kw_values[0])) {
+  char *p = (char *)mrb_malloc(mrb, RSTRING_LEN(script));
+  memcpy(p, RSTRING_PTR(script), RSTRING_LEN(script));
+
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)p, RSTRING_LEN(script), kw_values[0])) {
+    mrb_free(mrb, p);
     return mrb_false_value();
   }
   return mrb_true_value();
@@ -200,8 +203,11 @@ mrb_sandbox_free_parser(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_bool
-sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss)
+sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *code)
 {
+  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
+  ss->irep = mrb_read_irep(mrb, code);
+
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
   proc->c = NULL;
   mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
@@ -220,9 +226,7 @@ mrb_sandbox_exec_vm_code(mrb_state *mrb, mrb_value self)
   mrb_value vm_code;
   mrb_get_args(mrb, "S", &vm_code);
   const uint8_t *code = (const uint8_t *)RSTRING_PTR(vm_code);
-  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
-  ss->irep = mrb_read_irep(mrb, code);
-  if (sandbox_exec_vm_code_sub(mrb, ss)) {
+  if (sandbox_exec_vm_code_sub(mrb, ss, code)) {
     return mrb_true_value();
   } else {
     return mrb_false_value();
@@ -235,9 +239,7 @@ mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
   SS();
   mrb_int address;
   mrb_get_args(mrb, "i", &address);
-  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
-  ss->irep = mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
-  if (sandbox_exec_vm_code_sub(mrb, ss)) {
+  if (sandbox_exec_vm_code_sub(mrb, ss,(const uint8_t *)(uintptr_t)address )) {
     return mrb_true_value();
   } else {
     return mrb_false_value();
@@ -251,7 +253,6 @@ mrb_sandbox_terminate(mrb_state *mrb, mrb_value self)
   mrb_terminate_task(mrb, ss->tcb);
   return mrb_nil_value();
 }
-
 
 void
 mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
