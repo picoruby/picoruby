@@ -6,6 +6,9 @@
 #include "picoruby.h"
 #include "net.h"
 
+// WIP: TLS/SSL support is planned but not yet implemented.
+// Dependencies (picoruby-mbedtls) are added in mrbgem.rake.
+
 // MQTT packet types
 #define MQTT_CONNECT     1
 #define MQTT_CONNACK     2
