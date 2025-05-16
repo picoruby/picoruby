@@ -18,6 +18,11 @@ MRuby::Gem::Specification.new('picoruby-mqtt') do |spec|
   spec.cc.include_paths << "#{lwip_dir}/src/include"
   spec.cc.include_paths << "#{lwip_dir}/contrib/ports/unix/port/include"
 
+  if build.vm_mrubyc?
+    mrubyc_dir = "#{build.gems['picoruby-mrubyc'].dir}/lib/mrubyc"
+    spec.cc.include_paths << "#{mrubyc_dir}/src"
+  end
+
   spec.objs << "#{dir}/src/mqtt.o"
   file "#{dir}/src/mqtt.o" => "#{dir}/src/mqtt.c" do |t|
     cc.run t.name, t.prerequisites.first
