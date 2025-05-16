@@ -4,6 +4,7 @@ MRuby::Gem::Specification.new('picoruby-mqtt') do |spec|
   spec.summary = 'MQTT client for PicoRuby'
 
   spec.add_dependency 'picoruby-net'
+  # WIP: TLS/SSL support is planned but not yet implemente
   spec.add_dependency 'picoruby-mbedtls'
   spec.add_dependency 'picoruby-cyw43'
 

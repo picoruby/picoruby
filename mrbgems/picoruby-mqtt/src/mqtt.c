@@ -302,6 +302,9 @@ mqtt_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 bool
 MQTT_connect(struct VM *vm, const char *host, int port, const char *client_id)
 {
+  // WIP: TLS/SSL support is planned but not yet implemented.
+  // Current implementation uses unencrypted connection only.
+
   if (g_mqtt_client) {
     MQTT_disconnect(vm);
   }
