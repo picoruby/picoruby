@@ -3,30 +3,61 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <mrubyc.h>
+#include "picoruby.h"
+#include "net.h"
+
+// MQTT packet types
+#define MQTT_CONNECT     1
+#define MQTT_CONNACK     2
+#define MQTT_PUBLISH     3
+#define MQTT_PUBACK      4
+#define MQTT_SUBSCRIBE   8
+#define MQTT_SUBACK      9
+#define MQTT_DISCONNECT  14
+
+// MQTT connection states
+#define MQTT_STATE_DISCONNECTED  0
+#define MQTT_STATE_CONNECTING    1
+#define MQTT_STATE_CONNECTED     2
+#define MQTT_STATE_DISCONNECTING 3
+
+// MQTT client structure
+typedef struct {
+  const char *host;
+  int port;
+  const char *client_id;
+  int state;
+  struct altcp_pcb *pcb;
+  struct VM *vm;
+  char *recv_buffer;
+  size_t recv_buffer_len;
+  
+  // Packet queue
+  uint8_t *packet_buffer;
+  uint16_t packet_size;
+  bool packet_available;
+  bool packet_mutex;
+} mqtt_client_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-mrbc_value MQTTClient_connect(mrbc_vm *vm, mrbc_value *self, const char *host, int port, const char *client_id);
-mrbc_value MQTTClient_publish(mrbc_vm *vm, mrbc_value *payload, const char *topic);
-mrbc_value MQTTClient_subscribe(mrbc_vm *vm, const char *topic);
-mrbc_value MQTTClient_disconnect(mrbc_vm *vm);
+size_t encode_variable_length(size_t length, uint8_t *buf);
 
-void MQTT_callback(void);
+bool MQTT_connect(struct VM *vm, const char *host, int port, const char *client_id);
+bool MQTT_publish(struct VM *vm, const char *payload, const char *topic);
+bool MQTT_subscribe(struct VM *vm, const char *topic);
+bool MQTT_disconnect(struct VM *vm);
 
-#define MQTT_ERR_OK              0
-#define MQTT_ERR_CONNECT         -1
-#define MQTT_ERR_TIMEOUT         -2
-#define MQTT_ERR_PROTOCOL        -3
-#define MQTT_ERR_MEMORY          -4
+void MQTT_push_event(uint8_t *data, uint16_t size);
+bool MQTT_pop_event(uint8_t **data, uint16_t *size);
 
-// Connection timeout in seconds
-#define MQTT_CONNECT_TIMEOUT     10
+void MQTT_platform_init(void);
+void MQTT_platform_cleanup(void);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* MQTT_DEFINED_H_ */
+#endif

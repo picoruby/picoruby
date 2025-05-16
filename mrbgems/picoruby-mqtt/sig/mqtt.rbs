@@ -1,38 +1,37 @@
 class MQTTClient
-  VERIFY_NONE: Integer
-  VERIFY_PEER: Integer
-  VERIFY_FAIL_IF_NO_PEER_CERT: Integer
+  def initialize: (String host, ?Integer? port, ?String client_id) -> void
 
-  TLS_V1_2: Integer
-  TLS_V1_1: Integer
-  TLS_V1: Integer
+  def connect: () -> bool
+
+  def publish: (String topic, String payload) -> bool
+
+  def subscribe: (String topic) -> bool
+
+  def disconnect: () -> bool
+
+  def process_messages: () -> void
+
+  def wait_for_messages: () -> void
+
+  def on_message: () { (String topic, String payload) -> void } -> void
+
+  private
+
+  def _connect_impl: (String host, Integer port, String client_id) -> bool
+
+  def _publish_impl: (String payload, String topic) -> bool
+
+  def _subscribe_impl: (String topic) -> bool
+
+  def _disconnect_impl: () -> bool
+
+  def _pop_packet_impl: () -> (String | nil)
+
+  def _parse_packet_impl: (String packet) -> ([String, String] | nil)
 
   @host: String
   @port: Integer
   @client_id: String
-  @ssl: bool
-  @ssl_context: Hash[Symbol, untyped]
-  @led: CYW43::GPIO?
-  @led_on: bool?
-
-  $_mqtt_singleton: MQTTClient
-
-  def initialize: (String host, ?Integer? port, ?String client_id, **untyped args) -> void
-  def ssl=: (bool value) -> bool
-  def ssl?: () -> bool
-  def connect: (?Hash[Symbol, untyped] opts) -> untyped
-  def set_ssl_context: (?Hash[Symbol, untyped] opts) -> Hash[Symbol, untyped]?
-
-  private def setup_ssl_context: (Hash[Symbol, untyped] args) -> Hash[Symbol, untyped]?
-
-  def publish: (String topic, String payload) -> untyped
-  def subscribe: (String topic) -> untyped
-  def disconnect: () -> untyped
-  def callback: () -> untyped
-  def blink_led: () -> void
-
-  private def _connect_impl: (String, Integer, String, bool, String?, String?, String?, Integer, Integer, String?, String?, String?, bool, Integer) -> untyped
-  private def _publish_impl: (String, String) -> untyped
-  private def _subscribe_impl: (String) -> untyped
-  private def _disconnect_impl: () -> untyped
+  @connected: bool
+  @message_callback: ^(String, String) -> void
 end
