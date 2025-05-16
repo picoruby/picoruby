@@ -1,6 +1,10 @@
 #include "../include/mqtt.h"
 #include "lwip/tcp.h"
+#ifdef PICORB_VM_MRUBY
+#include "mruby.h"
+#else
 #include "mrubyc.h"
+#endif
 
 static mqtt_client_t *g_mqtt_client = NULL;
 
@@ -300,7 +304,7 @@ mqtt_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 }
 
 bool
-MQTT_connect(struct VM *vm, const char *host, int port, const char *client_id)
+MQTT_connect(picorb_state *vm, const char *host, int port, const char *client_id)
 {
   // WIP: TLS/SSL support is planned but not yet implemented.
   // Current implementation uses unencrypted connection only.
@@ -358,7 +362,7 @@ MQTT_connect(struct VM *vm, const char *host, int port, const char *client_id)
 }
 
 bool
-MQTT_publish(struct VM *vm, const char *payload, const char *topic)
+MQTT_publish(picorb_state *vm, const char *payload, const char *topic)
 {
   if (!g_mqtt_client || g_mqtt_client->state != MQTT_STATE_CONNECTED) return false;
 
@@ -378,7 +382,7 @@ MQTT_publish(struct VM *vm, const char *payload, const char *topic)
 }
 
 bool
-MQTT_subscribe(struct VM *vm, const char *topic)
+MQTT_subscribe(picorb_state *vm, const char *topic)
 {
   if (!g_mqtt_client || g_mqtt_client->state != MQTT_STATE_CONNECTED) return false;
 
@@ -398,7 +402,7 @@ MQTT_subscribe(struct VM *vm, const char *topic)
 }
 
 bool
-MQTT_disconnect(struct VM *vm)
+MQTT_disconnect(picorb_state *vm)
 {
   if (!g_mqtt_client) return false;
 

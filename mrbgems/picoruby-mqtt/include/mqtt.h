@@ -31,7 +31,7 @@ typedef struct {
   const char *client_id;
   int state;
   struct altcp_pcb *pcb;
-  struct VM *vm;
+  picorb_state *vm;
   char *recv_buffer;
   size_t recv_buffer_len;
   
@@ -48,10 +48,10 @@ extern "C" {
 
 size_t encode_variable_length(size_t length, uint8_t *buf);
 
-bool MQTT_connect(struct VM *vm, const char *host, int port, const char *client_id);
-bool MQTT_publish(struct VM *vm, const char *payload, const char *topic);
-bool MQTT_subscribe(struct VM *vm, const char *topic);
-bool MQTT_disconnect(struct VM *vm);
+bool MQTT_connect(picorb_state *vm, const char *host, int port, const char *client_id);
+bool MQTT_publish(picorb_state *vm, const char *payload, const char *topic);
+bool MQTT_subscribe(picorb_state *vm, const char *topic);
+bool MQTT_disconnect(picorb_state *vm);
 
 void MQTT_push_event(uint8_t *data, uint16_t size);
 bool MQTT_pop_event(uint8_t **data, uint16_t *size);
