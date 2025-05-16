@@ -4,7 +4,9 @@ class MQTTClient
     @port = port || 1883
     @client_id = client_id
     @connected = false
-    @message_callback = nil
+    @led_state = false
+    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+    on_message
   end
 
   def connect
@@ -35,14 +37,23 @@ class MQTTClient
       result = _parse_packet_impl(packet)
       if result
         topic, payload = result
-        puts "Received message on topic '#{topic}': #{payload}"
         @message_callback&.call(topic, payload) if @message_callback
       end
     end
   end
 
+  # You can override by passing block
   def on_message(&block)
-    @message_callback = block if block_given?
+    if block_given?
+      @message_callback = block
+    else
+      # default callback
+      @message_callback = Proc.new do |topic, payload|
+        puts "Received message on topic '#{topic}': #{payload}"
+        @led_state = !@led_state
+        @led.write(@led_state ? 1 : 0)
+      end
+    end
   end
 
   def wait_for_messages

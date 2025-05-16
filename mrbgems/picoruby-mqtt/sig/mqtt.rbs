@@ -13,7 +13,7 @@ class MQTTClient
 
   def wait_for_messages: () -> void
 
-  def on_message: () { (String topic, String payload) -> void } -> void
+  def on_message: () ?{ (String topic, String payload) -> void } -> void
 
   private
 
