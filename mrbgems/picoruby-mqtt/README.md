@@ -9,6 +9,8 @@ Current features:
 - Automatic connection keep-alive with PING
 - Built-in LED status indication for message reception (default callback)
 - Customizable callback function
+- QoS 1 support for publish operations
+- POSIX platform compatibility (via LwIP and picoruby-net)
 
 ## Usage
 
@@ -30,33 +32,31 @@ client.publish("test/topic", "Hello from PicoRuby!")
 # Subscribe to topic
 client.subscribe("test/topic")
 
+# Wait for messages in a loop
+client.wait_for_messages
+
 # Disconnect when done
 client.disconnect
 ```
 
 Example of overriding callback.
 
-
 ```ruby
 require 'mqtt'
 
 # By default, the onboard LED toggles when a message is received
 # You can customize message handling by overriding the callback method
-class DemoMQTTClient < MQTTClient
-  def callback
-    puts "Message received!"
-  end
+client = MQTTClient.new("YOUR_IP_ADDRESS", 1883, "picoruby_test")
+
+# Set custom callback
+client.on_message do |topic, payload|
+  puts "Received on #{topic}: #{payload}"
+  # Your custom handling here
 end
 
-client = DemoMQTTClient.new("YOUR_IP_ADDRESS", 1883, "picoruby_test")
-
 client.connect
-
-client.publish("test/topic", "Hello from PicoRuby!")
-
 client.subscribe("test/topic")
-
-client.disconnect
+client.wait_for_messages
 ```
 
 ## Roadmap
@@ -66,13 +66,16 @@ client.disconnect
 - Connection management
 - Publish/Subscribe operations
 - Keep-alive mechanism
-- Ruby callback
+- Ruby callback system
+- QoS 1 for publish operations
+- POSIX platform compatibility (via LwIP abstraction)
+
+### In Progress
+- TLS encryption support (dependencies added, implementation pending)
+- Complete QoS 1 and 2 support (partial QoS 1 implemented)
 
 ### Planned
-- TLS encryption support
-- POSIX support
 - MQTT 5.0 features
-- QoS levels 1 and 2 support
 - MQTT over WebSocket
 - Last Will and Testament
 - Over-the-Air (OTA) updates (callback script only)
@@ -80,3 +83,14 @@ client.disconnect
 ### Not Planned
 - MQTT-SN protocol
 - Custom Certificate Authority (CA) chain support
+
+## Platform Support
+
+- RP2040 (Raspberry Pi Pico): Fully supported and tested
+- POSIX: Basic support via LwIP abstraction layer
+
+## Dependencies
+
+- picoruby-net: Network abstraction layer
+- picoruby-mbedtls: TLS support (for future encrypted connections)
+- picoruby-cyw43: For WiFi connectivity and LED control on Pico W

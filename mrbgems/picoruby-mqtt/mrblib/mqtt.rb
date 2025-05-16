@@ -60,7 +60,7 @@ class MQTTClient
     puts "Waiting for messages... (Press reset button to stop)"
     loop do
       process_messages
-      sleep_ms(100) 
+      sleep_ms(100)
     end
   end
 end
