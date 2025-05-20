@@ -1,5 +1,5 @@
-unless ARGV.count == 2
-  puts "Usage: mv.rb source_file target_file"
+unless ARGV.size == 2
+  puts "Usage: mv source_file target_file"
   return
 end
 

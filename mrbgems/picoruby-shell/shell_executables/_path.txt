@@ -11,6 +11,7 @@
 /bin/nmble
 /bin/nmcli
 /etc/init.d/r2p2
+/bin/rapicco
 /bin/rm
 /bin/setup_rtc
 /bin/setup_sdcard

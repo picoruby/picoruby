@@ -16,6 +16,7 @@ class Sandbox
         puts "^C"
         interrupt
         begin
+          puts "\e[?25h" # show cursor
           Watchdog.disable
           puts "Watchdog disabled"
         rescue NameError

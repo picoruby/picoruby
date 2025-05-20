@@ -4,6 +4,8 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=4"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
 
+  conf.cc.defines << "MRB_GC_STRESS"
+
   conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "ESTALLOC_DEBUG"
@@ -17,6 +19,8 @@ MRuby::Build.new do |conf|
   conf.gembox "posix-microruby"
   conf.gembox "r2p2"
   conf.gembox "utils"
+
+  conf.gem core: "picoruby-rapicco"
 
   conf.microruby
 end
