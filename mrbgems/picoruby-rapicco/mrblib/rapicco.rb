@@ -121,7 +121,6 @@ class Rapicco
           render_usakame
         end
       end
-      sleep 0.1
     end
   rescue => e
     puts e.message
