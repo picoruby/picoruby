@@ -95,7 +95,7 @@ module FontConvert
       <<~C
         /* ---------- ASCII (#{@bytes} bytes/char) ---------- */
         #include <stdint.h>
-        uint8_t ascii_#{@font.name}[#{RANGE.size * @bytes}] = {
+        const uint8_t ascii_#{@font.name}[#{RANGE.size * @bytes}] = {
         #{body}
         };
       C
@@ -141,7 +141,7 @@ module FontConvert
       end.join("\n")
 
       <<~C
-        uint8_t jis208_#{@name}_#{fb_hex}[#{94 * @bytes}] = { // ku:#{ku}, firstbyte:#{fb_hex}
+        const uint8_t jis208_#{@name}_#{fb_hex}[#{94 * @bytes}] = { // ku:#{ku}, firstbyte:#{fb_hex}
         #{lines}
         };
       C
@@ -155,7 +155,7 @@ module FontConvert
       end.join("\n")
 
       <<~C
-        uint8_t *jis208_#{@name}[] = {
+        const uint8_t *jis208_#{@name}[] = {
         #{rows}
         };
       C
