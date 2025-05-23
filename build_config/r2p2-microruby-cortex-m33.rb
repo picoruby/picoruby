@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
+MRuby::CrossBuild.new("r2p2-microruby-cortex-m33") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -44,7 +44,6 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.gembox "baremetal"
   conf.gembox "peripherals"
   conf.gembox "r2p2"
-  conf.gembox "cyw43"
   conf.gembox "peripheral_utils"
   conf.gembox "utils"
 

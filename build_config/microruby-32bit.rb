@@ -5,8 +5,9 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
-  #conf.cc.defines << "PICORB_ALLOC_TLSF"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+  conf.cc.defines << "ESTALLOC_DEBUG"
+  conf.cc.defines << "MRB_INT64"
   conf.cc.defines << "MRB_32BIT"
 
   conf.cc.flags << '-m32'
@@ -50,6 +51,7 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.gem gemdir: "mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
 
   conf.gem core: "picoruby-bin-r2p2"
+  conf.gem core: "picoruby-rapicco"
 
   conf.microruby
 end
