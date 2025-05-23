@@ -18,7 +18,7 @@
 static void
 print_ascii_12(uint8_t asciicode)
 {
-  uint8_t *data = &ascii_12[(asciicode - 0x20) * 9];
+  const uint8_t *data = &ascii_12[(asciicode - 0x20) * 9];
   int pos = 0;
   for (int i = 0; i < 9; i++) {
     uint8_t byte = data[i];
@@ -38,7 +38,7 @@ print_ascii_12(uint8_t asciicode)
 static void
 print_ascii_16(uint8_t asciicode)
 {
-  uint8_t *data = &ascii_16[(asciicode - 0x20) * 16];
+  const uint8_t *data = &ascii_16[(asciicode - 0x20) * 16];
   int pos = 0;
   for (int i = 0; i < 16; i++) {
     uint8_t byte = data[i];
@@ -60,8 +60,8 @@ print_jis208_12(uint16_t jiscode)
 {
   uint8_t first_byte = jiscode >> 8;
   uint8_t second_byte = jiscode & 0xFF;
-  uint8_t *table = jis208_12maru[first_byte - 0x21];
-  uint8_t *data = table + (second_byte - 0x21) * 18;
+  const uint8_t *table = jis208_12maru[first_byte - 0x21];
+  const uint8_t *data = table + (second_byte - 0x21) * 18;
   int pos = 0;
   for (int i = 0; i < 18; i++) {
     uint8_t byte = data[i];
@@ -84,8 +84,8 @@ print_jis208_16(uint16_t jiscode)
 {
   uint8_t first_byte = jiscode >> 8;
   uint8_t second_byte = jiscode & 0xFF;
-  uint8_t *table = jis208_16go[first_byte - 0x21];
-  uint8_t *data = table + (second_byte - 0x21) * 32;
+  const uint8_t *table = jis208_16go[first_byte - 0x21];
+  const uint8_t *data = table + (second_byte - 0x21) * 32;
   int pos = 0;
   for (int i = 0; i < 32; i++) {
     uint8_t byte = data[i];
@@ -186,13 +186,13 @@ mrb_s_test16(mrb_state *mrb, mrb_value self)
 }
 
 static bool
-array_of_shinonome_sub(const char **p, uint64_t *lines, mrb_int size, uint8_t *ascii_table, uint8_t **jis208_table)
+array_of_shinonome_sub(const char **p, uint64_t *lines, mrb_int size, const uint8_t *ascii_table, const uint8_t **jis208_table)
 {
   uint32_t c = utf8_to_unicode(p);
   if (c < 0x80) {
     lines[0] = size / 2;
     if (size == 12) { // size is 6 (half width)
-      uint8_t *data = &ascii_table[(c - 0x20) * 9];
+      const uint8_t *data = &ascii_table[(c - 0x20) * 9];
       // 00000000 00000000 00000000 | repeat 3 times
       // ^^^^^^       ^^^^ ^^       |
       //       ^^ ^^^^       ^^^^^^ |
@@ -203,7 +203,7 @@ array_of_shinonome_sub(const char **p, uint64_t *lines, mrb_int size, uint8_t *a
         lines[i*4+4] = (data[i*3+2]&0x3F);
       }
     } else if (size == 16) { // size is 8 (half width)
-      uint8_t *data = &ascii_table[(c - 0x20) * 16];
+      const uint8_t *data = &ascii_table[(c - 0x20) * 16];
       for (int i = 0; i < 16; i++) {
         lines[i+1] = data[i];
       }
@@ -213,18 +213,18 @@ array_of_shinonome_sub(const char **p, uint64_t *lines, mrb_int size, uint8_t *a
     uint16_t jiscode = unicode_to_jis(c);
     uint8_t first_byte = jiscode >> 8;
     uint8_t second_byte = jiscode & 0xFF;
-    uint8_t *table = jis208_table[first_byte - 0x21];
+    const uint8_t *table = jis208_table[first_byte - 0x21];
     if (size == 12) { // size is 12 (full width)
       // 00000000 00000000 00000000 | repeat 6 times
       // ^^^^^^^^ ^^^^              |
       //              ^^^^ ^^^^^^^^ |
-      uint8_t *data = table + (second_byte - 0x21) * 18;
+      const uint8_t *data = table + (second_byte - 0x21) * 18;
       for (int i = 0; i < 6; i++) {
         lines[i*2+1] = (data[i*3]<<4)|(data[i*3+1]>>4);
         lines[i*2+2] = ((data[i*3+1]&0xF)<<8)|data[i*3+2];
       }
     } else if (size == 16) { // size is 16 (full width)
-      uint8_t *data = table + (second_byte - 0x21) * 32;
+      const uint8_t *data = table + (second_byte - 0x21) * 32;
       for (int i = 0; i < 16; i++) {
         lines[i+1] = data[i*2]<<8|data[i*2+1];
       }
@@ -238,7 +238,7 @@ array_of_shinonome_sub(const char **p, uint64_t *lines, mrb_int size, uint8_t *a
 static uint64_t
 expand_bits(uint64_t src, int bit_count, int scale)
 {
-  uint64_t dst = 0;
+  uint64_t dst __attribute__((aligned(8))) = 0;
   for (int i = 0; i < bit_count; i++) {
     uint8_t bit = (src >> (bit_count - 1 - i)) & 1;
     dst <<= scale;
@@ -256,7 +256,7 @@ expand_bits(uint64_t src, int bit_count, int scale)
 void
 smooth_edges(uint64_t *input, int w, int h)
 {
-  uint64_t tmp[h];
+  uint64_t tmp[h] __attribute__((aligned(8)));
   memcpy(tmp, input, sizeof(uint64_t) * h);
 
   for (int y = 0; y < h - 1; y++) {
@@ -276,7 +276,7 @@ smooth_edges(uint64_t *input, int w, int h)
 }
 
 static mrb_value
-array_of_shinonome(mrb_state *mrb, mrb_int size, uint8_t *ascii_table, uint8_t **jis208_table)
+array_of_shinonome(mrb_state *mrb, mrb_int size, const uint8_t *ascii_table, const uint8_t **jis208_table)
 {
   mrb_value result = mrb_ary_new(mrb);
   mrb_value widths = mrb_ary_new(mrb);
@@ -291,12 +291,12 @@ array_of_shinonome(mrb_state *mrb, mrb_int size, uint8_t *ascii_table, uint8_t *
   mrb_int height = size * scale;
   const char *p = text;
   while (*p) {
-    uint64_t lines[size + 1];
+    uint64_t lines[size + 1] __attribute__((aligned(8)));
     if (!array_of_shinonome_sub(&p, lines, size, ascii_table, jis208_table)) {
       mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid unicode");
     }
     lines[0] *= scale;
-    uint64_t output[height];
+    uint64_t output[height] __attribute__((aligned(8)));
     if (1 < scale) {
       for (int i = 1; i < size + 1; i++) {
         lines[i] = expand_bits(lines[i], size, scale);
@@ -310,19 +310,33 @@ array_of_shinonome(mrb_state *mrb, mrb_int size, uint8_t *ascii_table, uint8_t *
     }
     mrb_value ch = mrb_ary_new_capa(mrb, height + 1);
     total_width += lines[0];
-    mrb_ary_push(mrb, widths, mrb_fixnum_value(lines[0]));
+    if (32 < lines[0]) {
+      mrb_ary_push(mrb, widths, mrb_fixnum_value(lines[0] - 32));
+      mrb_ary_push(mrb, widths, mrb_fixnum_value(32));
+    } else {
+      mrb_ary_push(mrb, widths, mrb_fixnum_value(lines[0]));
+    }
     if (scale == 1) {
       for (int i = 1; i < size + 1; i++) {
-        for (int j = 0; j < scale; j++) {
-          mrb_ary_push(mrb, ch, mrb_fixnum_value(lines[i]));
-        }
+        mrb_ary_push(mrb, ch, mrb_int_value(mrb, lines[i]));
       }
     } else {
       for (int i = 0; i < height; i++) {
-        mrb_ary_push(mrb, ch, mrb_fixnum_value(output[i]));
+        if (32 < lines[0]) {
+          mrb_ary_push(mrb, ch, mrb_int_value(mrb, (mrb_int)(uint32_t)(output[i]>>32)));
+        } else {
+          mrb_ary_push(mrb, ch, mrb_int_value(mrb, (mrb_int)(uint32_t)output[i]));
+        }
       }
     }
     mrb_ary_push(mrb, glyphs, ch);
+    if (32 < lines[0]) {
+      mrb_value ch2 = mrb_ary_new_capa(mrb, height + 1);
+      for (int i = 0; i < height; i++) {
+        mrb_ary_push(mrb, ch2, mrb_int_value(mrb, (mrb_int)(uint32_t)output[i]));
+      }
+      mrb_ary_push(mrb, glyphs, ch2);
+    }
   }
   mrb_ary_push(mrb, result, mrb_fixnum_value(height));
   mrb_ary_push(mrb, result, mrb_fixnum_value(total_width));
