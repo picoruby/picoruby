@@ -80,7 +80,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
         line = "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}, #{crc}},"
         f.puts line
       end
-      f.puts "  {NULL, NULL} /* sentinel */"
+      f.puts "  {NULL, NULL, 0} /* sentinel */"
       f.puts "};"
     end
   end
