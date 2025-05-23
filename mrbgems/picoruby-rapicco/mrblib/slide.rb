@@ -55,10 +55,10 @@ class Rapicco
         end
         text_width = 0
         div_count = line[:text].size
-        line[:text].each_with_index do |text, i|
+        line[:text].each_with_index do |text, div_index|
           Shinonome.draw(line[:font], text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
-            if i == 0
-              print "\e[1G\e[2K\e[B" * height + "\e[#{height}A" # clear the line
+            if div_index == 0
+              print "\e[2K\e[1E" * height + "\e[#{height}A" # clear the line
               if line[:bullet]
                 @bullet.show
                 text_width = @bullet.width
@@ -66,24 +66,21 @@ class Rapicco
               end
             end
             text_width += div_width
-            div_width = 0
             color = @colors[text[:color] || :white]
-            height.times do |h|
-              div_width = 0
+            height.times do |l|
               widths.each_with_index do |width, g|
-                div_width += width
-                scan_line = glyphs[g][h]
+                scan_line = glyphs[g][l]
                 (width - 1).downto(0) do |shift|
                   print((scan_line>>shift)&1 == 1 ? "#{color}  " : "\e[0m\e[2C")
                 end
               end
-              if i == 0
+              if div_index == 0
                 check_height and return
               end
-              # move to the next line's beginning
+              # move to the next scan_line's beginning
               print "\e[0m\e[B\e[#{div_width * 2}D" # down * 1 and left * div_width
             end
-            if i < div_count - 1
+            if div_index < div_count - 1
               # move to the continue position
               print "\e[#{height}A\e[#{div_width * 2 + 1}C"
             else
@@ -104,6 +101,7 @@ class Rapicco
         end
       end
       print "\e[2K\e[E" * @current_page_h
+      GC.start if RUBY_ENGINE == "mruby"
     end
 
     def render_sprite(sprite)

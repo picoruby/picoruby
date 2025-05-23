@@ -38,7 +38,7 @@ class Rapicco
       align  = :left
       scale  = 1
       font   = nil
-      line_color = nil
+      line_color = :white
       skip   = nil
 
       case prefix_char
@@ -58,7 +58,7 @@ class Rapicco
         idx += 1
         attr_s = ""
         while idx < line.length && line[idx] != '}'
-          attr_s << line[idx]
+          attr_s << line[idx].to_s
           idx += 1
         end
         idx += 1  # skip }
@@ -70,17 +70,18 @@ class Rapicco
         align       = attrs[:align].to_sym       if attrs.key?(:align)
         bullet      = (attrs[:bullet] == 'true') if attrs.key?(:bullet)
         line_color  = attrs[:color].to_sym       if attrs.key?(:color)
-        skip        = attrs[:skip].to_i         if attrs.key?(:skip)
+        skip        = attrs[:skip].to_i          if attrs.key?(:skip)
 
         idx += 1 while idx < line.length && line[idx] == ' '
       end
 
       # ---- inline text -------------------------------------------
-      text_segments = self.class.parse_inline(line[idx..-1], line_color, @bold_color)
+      text_segments = self.class.parse_inline(line[idx..-1].to_s, line_color, @bold_color)
 
       if skip
         line = { skip: skip }
       else
+        # @type var line: Hash[Symbol, bool | Integer | Symbol | parser_dump_t]
         line = {
           font: (font || default_font(prefix_char)),
           text: text_segments
@@ -105,7 +106,7 @@ class Rapicco
       str.tr(',', ' ').split(' ').each do |pair|
         eq = pair.index('=')
         next unless eq
-        key = pair[0, eq].to_sym
+        key = pair[0, eq]&.to_sym
         val = pair[eq + 1, pair.length - eq - 1]
         h[key] = val
       end
@@ -121,8 +122,8 @@ class Rapicco
         c = src[i]
 
         # escape sequences: \*, \{, \}
-        if c == '\\' && i + 1 < src.length && ["*", "{", "}"].include?(src[i + 1])
-          buf << src[i + 1]
+        if c == '\\' && i + 1 < src.length && ["*", "{", "}"].include?(src[i + 1].to_s)
+          buf << src[i + 1].to_s
           i += 2
           next
         end
@@ -145,7 +146,7 @@ class Rapicco
             i += 1
             color_buf = ""
             while i < src.length && src[i] != '}'
-              color_buf << src[i]
+              color_buf << src[i].to_s
               i += 1
             end
             span_color = color_buf.to_sym unless color_buf.empty?
@@ -159,12 +160,13 @@ class Rapicco
               span_txt << '*'
               i += 2
             else
-              span_txt << src[i]
+              span_txt << src[i].to_s
               i += 1
             end
           end
           i += 1 # skip closing *
 
+          # @type var seg: Hash[Symbol, Symbol|String]
           seg = { div: span_txt }
           seg[:color] = span_color
           segs << seg
@@ -172,10 +174,11 @@ class Rapicco
         end
 
         # regular char
-        buf << c
+        buf << c.to_s
         i += 1
       end
 
+      # @type var seg: Hash[Symbol, Symbol|String]
       seg = { div: buf }
       seg[:color] = base_color if base_color
       segs << seg unless buf.empty?

@@ -1552,6 +1552,8 @@ class String
 
   def ! : () -> bool
 
+  def each_line: (){( String line) -> void } -> void
+
   private
 
   # <!--

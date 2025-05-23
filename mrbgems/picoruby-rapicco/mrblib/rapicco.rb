@@ -9,7 +9,7 @@ class Rapicco
     'y' => 178,  # dark yellow
     'd' => 22,   # dark green
   }
-  USA = %w[
+  RAPIKO = %w[
     ;......www..ww
     ;......wpw..wp
     ;....wwwpwwwwpw
@@ -22,7 +22,7 @@ class Rapicco
     ;...wpppppppppp
     ;.....www....www
   ]
-  KAME = %w[
+  CAMERLENGO = %w[
     .
     .
     .
@@ -56,9 +56,13 @@ class Rapicco
     else
       raise "File not found: #{path}"
     end
+    if @positions.size < 3
+      raise "Slides must be more than 2 pages"
+    end
+    # @type var config: Hash[String, String]
     config = YAML.load(yaml)
-    @usa = Rapicco::Sprite.new(USA, PALETTE)
-    @kame = Rapicco::Sprite.new(KAME, PALETTE)
+    @rapiko = Rapicco::Sprite.new(RAPIKO, PALETTE)
+    @camerlengo = Rapicco::Sprite.new(CAMERLENGO, PALETTE)
     @parser = Rapicco::Parser.new
     @slide = Rapicco::Slide.new
     @current_page = -1
@@ -73,59 +77,58 @@ class Rapicco
     return if page == @current_page
     @file.seek(@positions[page])
     page_data = @file.read(@positions[page + 1] - @positions[page])
-    page_data.each_line { |line| @parser.parse(line) }
+    page_data&.each_line { |line| @parser.parse(line) }
     @slide.render_slide(@parser.dump)
     @current_page = page
-    @usa.pos = page * 100 / (@positions.size - 2)
+    @rapiko.pos = page * 100 / (@positions.size - 2)
     render_usakame
   end
 
   def prev_page
     page = [0, @current_page - 1].max
-    render_page(page)
+    render_page(page || 0)
   end
 
   def next_page
     page = [@positions.size - 2, @current_page + 1].min
-    render_page(page)
+    render_page(page || 0)
   end
 
   def render_usakame
-    @slide.render_sprite(@usa)
-    @slide.render_sprite(@kame)
+    @slide.render_sprite(@rapiko)
+    @slide.render_sprite(@camerlengo)
   end
 
   def run
     print "\e[?1049h" # DECSET 1049
-    _run
-    print "\e[?1049l" # DECRST 1049
-  end
-
-  def _run
     next_page
     start = now = Time.now.to_i
     while true
-      case c = STDIN.read_nonblock(1)&.ord
-      when 3 # Ctrl-C
-        raise "Interrupted"
-      when 104 # h: prev
-        prev_page
-      when 108 # l: next
-        next_page
+      500.times do
+        sleep_ms 1
+        case c = STDIN.read_nonblock(1)&.ord
+        when 3 # Ctrl-C
+          raise "Interrupted"
+        when 104 # h: prev
+          prev_page
+        when 108 # l: next
+          next_page
+        end
       end
       if now + @interval < Time.now.to_i
-        new_kame_pos = (Time.now.to_i - start) * 100 / @duration
-        if @kame.pos != new_kame_pos
-          @kame.pos = new_kame_pos
-          now += @interval
+        camerlengo_pos = (Time.now.to_i - start) * 100 / @duration
+        if @camerlengo.pos != camerlengo_pos
+          @camerlengo.pos = camerlengo_pos
           render_usakame
         end
+        now += @interval
       end
     end
   rescue => e
     puts e.message
   ensure
     @file.close
-    print "\e[?25h"
+    print "\e[?25h"   # show cursor
+    print "\e[?1049l" # DECRST 1049
   end
 end

@@ -1,0 +1,61 @@
+class Rapicco
+  type parser_dump_t = Array[Hash[Symbol, untyped]]
+
+  PALETTE: Hash[String, Integer]
+  RAPIKO: Array[String]
+  CAMERLENGO: Array[String]
+
+  @positions: Array[Integer]
+  @rapiko: Rapicco::Sprite
+  @camerlengo: Rapicco::Sprite
+  @file: File
+  @parser: Rapicco::Parser
+  @slide: Rapicco::Slide
+  @current_page: Integer
+  @duration: Integer
+  @interval: Float
+
+  def initialize: (String path) -> void
+  def render_page: (Integer page) -> void
+  def render_usakame: () -> void
+  def prev_page: () -> void
+  def next_page: () -> void
+  def run: () -> void
+
+  class Parser
+    @font: Symbol
+    @title_font: Symbol
+    @code_font: Symbol
+    @bold_color: Symbol
+    @lines: parser_dump_t
+    @in_code_block: bool
+    def initialize: (?font: Symbol, ?title_font: Symbol, ?code_font: Symbol, ?bold_color: Symbol) -> void
+    def parse: (String raw_line) -> void
+    def dump: () -> parser_dump_t
+    def self.parse_attrs: (String str) -> Hash[Symbol, String]
+    def self.parse_inline: (String src, Symbol base_color, Symbol bold_color) -> parser_dump_t
+    def default_font: (String | nil str) -> Symbol
+  end
+
+  class Slide
+    COLORS: Hash[Symbol, String]
+    USAKAME_H: Integer
+    PALETTE: Hash[Symbol, Integer]
+    BULLET: Array[String]
+
+    attr_reader page_w: Integer
+
+    def initialize: (?Hash[Symbol, String]|nil colors) -> void
+    def check_height: () -> bool
+    def render_slide: (parser_dump_t lines) -> void
+    def render_sprite: (Sprite sprite) -> void
+  end
+
+  class Sprite
+    attr_accessor pos: Integer
+    attr_reader width: Integer
+    attr_reader height: Integer
+    def initialize: (Array[String] rows, Hash[String, Integer] palette) -> void
+    def show: () -> void
+  end
+end

@@ -697,6 +697,8 @@ class Hash[unchecked out K, unchecked out V] < Object
   #
   def has_key?: (K arg0) -> bool
 
+  def key?: (K arg0) -> bool
+
   # <!--
   #   rdoc-file=hash.c
   #   - hash.has_value?(value) -> true or false

@@ -22,6 +22,8 @@ class Rapicco
             prev = nil
             out << (n == 1 ? "\e[C" : "\e[#{n}C")
             i = j
+          when nil
+            raise "Unexpected nil character in row"
           else
             color = palette[ch]
             if color != prev
