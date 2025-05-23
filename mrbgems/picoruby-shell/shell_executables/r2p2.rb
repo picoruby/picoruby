@@ -1,3 +1,5 @@
+Machine.set_hwclock(0, 0)
+
 if ENV['WIFI_MODULE'] == "cwy43"
   if Shell.get_device(:gpio, 'TRIGGER_NMBLE').low?
     system "nmble"
