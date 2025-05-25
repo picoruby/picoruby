@@ -5,7 +5,7 @@ class IO
   def self.get_cursor_position: -> ([Integer, Integer])
   def self.wait_terminal: (?timeout: Integer|Float) -> String
   def self.clear_screen: () -> nil
-  def read_nonblock: (Integer maxlen) -> String
+  def read_nonblock: (Integer maxlen) -> (String | nil)
   def getch: () -> String
   def raw: () { (IO io) -> untyped } -> untyped
   def raw!: () -> self
