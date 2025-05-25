@@ -1,2 +1,48 @@
-class PSG
+module PSG
+  def self.send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
+  def self.launch_core1: (Integer p1, Integer p2, Integer p3, Integer p4) -> nil
+  def self.stop_core1: () -> nil
+  def self.set_lfo: (Integer ch, Integer depth, Integer rate) -> nil
+  def self.mute: (Integer ch, Integer flag) -> nil
+  def self.millis: () -> Integer
+
+  module Keyboard
+    KEY2NOTE: Hash[String, Integer]
+    TONE_K: Float
+    CH: Integer
+    def self.note_freq: (Integer|Float note) -> Float
+    def self.note_on: (Integer|Float note, ?Integer vol) -> bool
+    def self.note_off: () -> bool
+    def self.start: () -> void
+  end
+
+  type psg_event_t = {tick: Integer, op: Symbol, reg: Integer, val: Integer}
+
+  class Sequencer
+    TICK_HZ: Integer
+    BUF_MARGIN: Integer
+    @events: Array[psg_event_t]
+    @index: Integer
+    @start_ms: Integer
+    def initialize: (Array[psg_event_t] events) -> void
+    def start: () -> void
+    def service: () -> void
+    def finished?: () -> bool
+  end
+
+  class VGMParser
+    VGM_HEADER_SIZE: Integer
+    CLOCK_PSG: Integer
+    VGM_WAIT_735: Integer
+    VGM_WAIT_882: Integer
+    VGM_WAIT_N: Integer
+    VGM_DATA_END: Integer
+    VGM_CMD_SKIP_LENGTH: Hash[Integer, Integer]
+    @buf: Array[psg_event_t]
+    @io: IO
+    def intialize: (IO io) -> void
+    def parse: () -> self
+    def each_event: () { (psg_event_t) -> void } -> self
+                  | () -> Array[psg_event_t]
+  end
 end
