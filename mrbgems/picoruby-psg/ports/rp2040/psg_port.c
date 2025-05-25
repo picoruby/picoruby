@@ -1,17 +1,15 @@
 /*
- * picoruby-psg/ports/rp2040/rp2040_rp2350_psg.c
+ * picoruby-psg/ports/pico/rp2040_rp2350_psg.c
  */
 
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "pico/multicore.h"
-#include "hardware/pwm.h"
 #include "hardware/sync.h"
 
 #include <string.h>
 
 #include "../../include/psg.h"
-#include "../../include/psg_ringbuf.h"
 
 // Critical section
 #if defined(PICO_RP2040)
@@ -21,10 +19,17 @@
 
 static spin_lock_t *psg_spin;
 
+/**
+ * __attribute__((constructor)): Will be called before main() is executed.
+ */
 __attribute__((constructor))
 static void
 psg_port_init(void)
 {
+  /* Obtain a free HW spin-lock for inter-core critical sections:
+   *   1) spin_lock_claim_unused(true)  -> find & reserve an unused lock ID (panic if none)
+   *   2) spin_lock_instance(id)        -> convert that ID into a spin_lock_t* handle
+   * Use the handle with spin_lock_blocking()/spin_unlock() to guard shared PSG state. */
   psg_spin = spin_lock_instance(spin_lock_claim_unused(true));
 }
 
@@ -72,18 +77,6 @@ PSG_exit_critical(psg_cs_token_t token)
 
 static repeating_timer_t audio_timer;
 
-uint32_t
-PSG_save_and_disable_interrupts(void)
-{
-  return save_and_disable_interrupts();
-}
-
-void
-PSG_restore_interrupts(uint32_t irq_state)
-{
-  restore_interrupts(irq_state);
-}
-
 static bool
 audio_cb(repeating_timer_t *t)
 {
@@ -91,22 +84,7 @@ audio_cb(repeating_timer_t *t)
   return PSG_audio_cb();
 }
 
-void
-PSG_pwm_set_gpio_level(uint8_t gpio, uint16_t level)
-{
-  pwm_set_gpio_level((uint)gpio, level);
-}
-
 static void
-audio_pwm_init(uint8_t gpio)
-{
-  gpio_set_function((uint)gpio, GPIO_FUNC_PWM);
-  uint slice = pwm_gpio_to_slice_num((uint)gpio);
-  pwm_set_wrap(slice, MAX_SAMPLE_WIDTH);
-  pwm_set_enabled(slice, true);
-}
-
-void
 PSG_add_repeating_timer(void)
 {
   add_repeating_timer_us(-1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer);
@@ -122,12 +100,9 @@ psg_process_packets(void)
 {
   psg_packet_t pkt;
   while (PSG_rb_peak(&pkt)) {
-    if (pkt.tick != g_tick_ms) break;   /* まだ先のイベント */
+    if (0 < (int16_t)(pkt.tick - g_tick_ms)) break;
     PSG_rb_pop();
-    if (pkt.op == PSG_PKT_REG_WRITE) {
-      PSG_write_reg(pkt.reg, pkt.val);
-    }
-    /* 他 opcode は今回はスキップ */
+    PSG_process_packet(&pkt);
   }
 }
 
@@ -136,13 +111,15 @@ tick_cb(repeating_timer_t *t)
 {
   (void)t;
   g_tick_ms++;
-  psg_process_packets();      /* ← リングバッファ裁定 */
-  return true;                /* keep repeating */
+  psg_process_packets();
+  PSG_tick_1ms();   /* update internal LFO etc. */
+  return true;
 }
 
-void PSG_tick_init_core1(void)
+static void
+PSG_tick_init_core1(void)
 {
-  /* Core1 専用 alarm_pool を確保（クロックは clk_ref=12MHz 固定） */
+  /* Core1 exclusive alarm_pool. clk_ref=12MHz */
   static alarm_pool_t *pool = NULL;
   if (!pool) pool = alarm_pool_create(2 /* hardware timer 2 */, 16 /* IRQ prio */);
   /* 1 kHz = -1000 µs */
@@ -154,25 +131,38 @@ static volatile bool core1_alive = false;
 static void __attribute__((noreturn))
 psg_core1_main(void)
 {
-  /* 1) Core-0 から FIFO で PWM ピン番号を受け取る */
-  uint8_t pin = (uint8_t) multicore_fifo_pop_blocking();
-  /* 2) 出力初期化とタイマ開始 */
-  audio_pwm_init(pin);       /* PWM + wrap */
-  PSG_add_repeating_timer(); /* 22 kHz オーディオ割り込み */
-  /* 3) 1 kHz tick (リングバッファ裁定) */
+  uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
+  uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
+  uint8_t p3 = (uint8_t)multicore_fifo_pop_blocking();
+  uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
+  psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
+  PSG_add_repeating_timer(); /* 22 kHz */
   PSG_tick_init_core1();
-  /* 4) 何もしないループ ― 必要なら省電力 WFE などを挟む */
-  for (;;)  tight_loop_contents();
+  /* WFE? */
+  for (;;) tight_loop_contents();
 }
 
 void
-PSG_tick_start_core1(uint8_t pin)
+PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
 {
   if (!core1_alive) {
-    /* 1) core-1 を起動（引数なし） */
     multicore_launch_core1(psg_core1_main);
-    /* 2) FIFO で pin 番号を送る */
-    multicore_fifo_push_blocking(pin);
+    // send pin via FIFO
+    multicore_fifo_push_blocking(p1);
+    multicore_fifo_push_blocking(p2);
+    multicore_fifo_push_blocking(p3);
+    multicore_fifo_push_blocking(p4);
     core1_alive = true;
+  }
+}
+
+void
+PSG_tick_stop_core1(void)
+{
+  if (core1_alive) {
+    // stop the repeating timer
+    cancel_repeating_timer(&tick_timer);
+    multicore_reset_core1();
+    core1_alive = false;
   }
 }
