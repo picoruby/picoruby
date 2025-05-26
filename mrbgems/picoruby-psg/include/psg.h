@@ -64,7 +64,7 @@ typedef struct {
 bool PSG_audio_cb(void );
 
 // Ring buffer
-bool PSG_rb_peak(psg_packet_t *out);
+bool PSG_rb_peek(psg_packet_t *out);
 void PSG_rb_pop(void);
 
 // Cross core critical section
@@ -97,15 +97,9 @@ typedef struct {
 /* one global pointer, switched at runtime */
 extern const psg_output_api_t *psg_drv;
 extern const psg_output_api_t psg_drv_pwm;
+extern const psg_output_api_t psg_drv_mcp4921;
+extern const psg_output_api_t psg_drv_mcp4922;
 
-/* generic wrappers (inline for zero-cost) */
-static inline void PSG_output_init(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4) { psg_drv->init(p1,p2,p3,p4);  }
-static inline void PSG_output_start(void) { psg_drv->start(); }
-static inline void PSG_output_stop(void)  { psg_drv->stop();  }
-static inline void PSG_output_write(uint16_t l, uint16_t r) { psg_drv->write(l, r); }
-bool PSG_select_driver(psg_drv_t id);   /* returns false if unsupported */
-
-;
 #ifdef __cplusplus
 }
 #endif
