@@ -7,6 +7,7 @@
 #include "mruby.h"
 #include "mruby/presym.h"
 #include "mruby/class.h"
+#include "mruby/hash.h"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -22,6 +23,9 @@
 #    define PSG_COMPILER_BARRIER() /* nothing (best effort) */
 #  endif
 #endif
+
+#define MAX_LFO_DEPTH 127  // 0..127 cent
+#define MAX_LFO_RATE  255  // 0..255 (0.1 Hz steps, 0-25.5 Hz)
 
 typedef struct {
   uint16_t tone_period[3];   // R0–5  (12-bit)
@@ -151,10 +155,11 @@ PSG_process_packet(const psg_packet_t *pkt)
       uint8_t ch    = pkt->reg & 0x03;
       uint8_t depth = pkt->val;   /* cent */
       uint8_t rate  = pkt->arg;   /* 0.1 Hz */
+      if (depth > MAX_LFO_DEPTH || rate > MAX_LFO_RATE) break;
       psg_cs_token_t t = PSG_enter_critical();
       psg.lfo_depth[ch] = depth;
       /* Δphase per 1 ms = rate(0.1 Hz) × 65536 / 1000 */
-      psg.lfo_inc[ch]   = ((uint32_t)rate * 65536u) / 10 / 100;
+      psg.lfo_inc[ch]   = ((uint32_t)rate * 65536u) / 1000;
       PSG_exit_critical(t);
       break;
     }
@@ -194,7 +199,7 @@ PSG_rb_push(const psg_packet_t *p)
 
 /* consumer (core-1) ------------------------------------------------- */
 bool
-PSG_rb_peak(psg_packet_t *out)  // does not consume
+PSG_rb_peek(psg_packet_t *out)  // does not consume
 {
   if (rb.tail == rb.head) return false;
   *out = rb.buf[rb.tail];
@@ -286,7 +291,7 @@ PSG_tick_1ms(void)
   }
 }
 
-const psg_output_api_t *psg_drv  =  &psg_drv_pwm;;
+const psg_output_api_t *psg_drv;
 
 bool
 PSG_audio_cb(void)
@@ -346,14 +351,16 @@ PSG_audio_cb(void)
   if (mix_l > MAX_SAMPLE_WIDTH) mix_l = MAX_SAMPLE_WIDTH;
   if (mix_r > MAX_SAMPLE_WIDTH) mix_r = MAX_SAMPLE_WIDTH;
 
-  psg_drv->write(mix_l, mix_r);
+  if (psg_drv && psg_drv->write) {
+    psg_drv->write(mix_l, mix_r);
+  }
   return true;
 }
 
 // mruby methods
 
 static mrb_value
-mrb_psg_s_send_reg(mrb_state *mrb, mrb_value klass)
+mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
 {
   mrb_int reg, val;
   mrb_int tick_delay = 0;
@@ -371,24 +378,48 @@ mrb_psg_s_send_reg(mrb_state *mrb, mrb_value klass)
 }
 
 static mrb_value
-mrb_psg_s_launch_core1(mrb_state *mrb, mrb_value klass)
+mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
 {
-  mrb_int p1,p2,p3,p4;
-  mrb_get_args(mrb, "iiii", &p1, &p2, &p3, &p4);
-  PSG_tick_start_core1((uint8_t)p1, (uint8_t)p2, (uint8_t)p3, (uint8_t)p4);
+  psg_drv = &psg_drv_pwm;
+  mrb_int left, right;
+  mrb_get_args(mrb, "iiii", &left, &right);
+  PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
   return mrb_nil_value();
 }
 
 static mrb_value
-mrb_psg_s_stop_core1(mrb_state *mrb, mrb_value klass)
+mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 {
+  mrb_int dac, mosi, sck, cs, ldac;
+  mrb_get_args(mrb, "iiiii", &dac, &mosi, &sck, &cs, &ldac);
+  if (dac == 1) {
+    psg_drv = &psg_drv_mcp4921;
+  } else if (dac == 2) {
+    psg_drv = &psg_drv_mcp4921;
+  } else {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid DAC number: %d (1 or 2 expected)", dac);
+  }
+  PSG_tick_start_core1((uint8_t)mosi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_driver_s_initialized_p(mrb_state *mrb, mrb_value klass)
+{
+  return psg_drv ? mrb_true_value() : mrb_false_value();
+}
+
+static mrb_value
+mrb_driver_stop(mrb_state *mrb, mrb_value self)
+{
+  psg_drv->stop();
   PSG_tick_stop_core1();
   return mrb_nil_value();
 }
 
 /* Set LFO: ch, depth(cent), rate(0.1Hz) */
 static mrb_value
-mrb_psg_s_set_lfo(mrb_state *mrb, mrb_value klass)
+mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
 {
   mrb_int ch, depth, rate;
   mrb_get_args(mrb, "iii", &ch, &depth, &rate);
@@ -405,7 +436,7 @@ mrb_psg_s_set_lfo(mrb_state *mrb, mrb_value klass)
 
 /* Mute on/off */
 static mrb_value
-mrb_psg_s_mute(mrb_state *mrb, mrb_value klass)
+mrb_driver_mute(mrb_state *mrb, mrb_value self)
 {
   mrb_int ch, flag;
   mrb_get_args(mrb, "ii", &ch, &flag);
@@ -420,22 +451,136 @@ mrb_psg_s_mute(mrb_state *mrb, mrb_value klass)
 }
 
 static mrb_value
-mrb_psg_s_millis(mrb_state *mrb, mrb_value klass)
+mrb_driver_millis(mrb_state *mrb, mrb_value self)
 {
   return mrb_fixnum_value(g_tick_ms);
+}
+
+/*
+  # Bomb noise example:
+  driver.play_noise(
+    ch: 2,
+    period: 12,
+    volume: 15,
+    duration_ms: 150,
+    envelope: { shape: 0b1000, period: 300 },
+    pan: 8
+  )
+
+  # percussion noise example:
+  driver.play_noise(
+    ch: 1,
+    period: 6,
+    volume: 12,
+    duration_ms: 80,
+    pan: 2
+  )
+*/
+static mrb_value
+mrb_driver_play_noise(mrb_state *mrb, mrb_value self)
+{
+  mrb_int ch, period, volume, duration_ms;
+  mrb_value opts = mrb_nil_value();
+  mrb_get_args(mrb, "iiii|H", &ch, &period, &volume, &duration_ms, &opts);
+
+  if (ch < 0 || ch > 2 || period < 0 || period > 31 || volume < 0 || volume > 15) {
+    return mrb_false_value(); // invalid
+  }
+
+  uint16_t now = g_tick_ms;
+
+  // noise period R6: 0-31
+  psg_packet_t p1 = {
+    .tick = now,
+    .op   = PSG_PKT_REG_WRITE,
+    .reg  = 6,
+    .val  = (uint8_t)period
+  };
+  PSG_rb_push(&p1);
+
+  // mixer R7: disable tone, enable noise
+  uint8_t mask = (1 << ch);       // disable tone
+  uint8_t noise = (1 << (ch + 3)); // enable noise
+  uint8_t mixer = (0x3F & ~noise) | mask;
+  psg_packet_t p2 = {
+    .tick = now,
+    .op   = PSG_PKT_REG_WRITE,
+    .reg  = 7,
+    .val  = mixer
+  };
+  PSG_rb_push(&p2);
+
+  // volume R8–10: set volume for ch
+  psg_packet_t p3 = {
+    .tick = now,
+    .op   = PSG_PKT_REG_WRITE,
+    .reg  = 8 + ch,
+    .val  = (uint8_t)volume
+  };
+  PSG_rb_push(&p3);
+
+  // Optional: pan
+  if (!mrb_nil_p(opts)) {
+    mrb_value pan_val = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(pan)));
+    if (!mrb_nil_p(pan_val)) {
+      mrb_int pan = mrb_int(mrb, pan_val);
+      if (pan >= 0 && pan <= 15) {
+        PSG_rb_push(&(psg_packet_t){
+          .tick = now, .op = PSG_PKT_PAN_SET, .reg = (uint8_t)ch, .val = (uint8_t)pan
+        });
+      }
+    }
+  }
+
+  // Optional: envelope
+  if (!mrb_nil_p(opts)) {
+    mrb_value env_val = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(envelope)));
+    if (!mrb_nil_p(env_val) && mrb_hash_p(env_val)) {
+      mrb_value shape_val  = mrb_hash_get(mrb, env_val, mrb_symbol_value(MRB_SYM(shape)));
+      mrb_value period_val = mrb_hash_get(mrb, env_val, mrb_symbol_value(MRB_SYM(period)));
+      if (!mrb_nil_p(shape_val) && !mrb_nil_p(period_val)) {
+        mrb_int shape = mrb_int(mrb, shape_val);
+        mrb_int env_period = mrb_int(mrb, period_val);
+        PSG_rb_push(&(psg_packet_t){
+          .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 11, .val = (uint8_t)(env_period & 0xFF)
+        });
+        PSG_rb_push(&(psg_packet_t){
+          .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 12, .val = (uint8_t)(env_period >> 8)
+        });
+        PSG_rb_push(&(psg_packet_t){
+          .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 13, .val = (uint8_t)(shape & 0x0F)
+        });
+      }
+    }
+  }
+
+  // set volume to 0 after duration_ms
+  psg_packet_t p4 = {
+    .tick = now + (uint16_t)duration_ms,
+    .op   = PSG_PKT_REG_WRITE,
+    .reg  = 8 + ch,
+    .val  = 0
+  };
+  PSG_rb_push(&p4);
+
+  return mrb_true_value();
 }
 
 void
 mrb_picoruby_psg_gem_init(mrb_state* mrb)
 {
   struct RClass *module_PSG = mrb_define_module_id(mrb, MRB_SYM(PSG));
+  struct RClass *class_Driver = mrb_define_class_under_id(mrb, module_PSG, MRB_SYM(Driver), mrb->object_class);
 
-  mrb_define_class_method_id(mrb, module_PSG, MRB_SYM(send_reg),     mrb_psg_s_send_reg,     MRB_ARGS_ARG(2, 1));
-  mrb_define_class_method_id(mrb, module_PSG, MRB_SYM(launch_core1), mrb_psg_s_launch_core1, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, module_PSG, MRB_SYM(stop_core1),   mrb_psg_s_stop_core1,   MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, module_PSG, MRB_SYM(set_lfo),      mrb_psg_s_set_lfo,      MRB_ARGS_REQ(3));
-  mrb_define_class_method_id(mrb, module_PSG, MRB_SYM(mute),         mrb_psg_s_mute,         MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, module_PSG, MRB_SYM(millis),       mrb_psg_s_millis,       MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
+  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM_Q(initialized), mrb_driver_s_initialized_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(millis), mrb_driver_millis, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(play_noise), mrb_driver_play_noise, MRB_ARGS_ARG(4, 1));
 }
 
 void

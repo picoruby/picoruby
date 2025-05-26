@@ -1,5 +1,5 @@
 module PSG
-  module Keyboard
+  class Keyboard
     KEY2NOTE = {
       'a' => 60, 'w' => 61, 's' => 62, 'e' => 63, 'd' => 64,
       'f' => 65, 't' => 66, 'g' => 67, 'y' => 68, 'h' => 69,
@@ -9,22 +9,26 @@ module PSG
     TONE_K = 3_579_545.0 / 16.0   # AY clock factor
     CH     = 2                    # use channel C
 
-    def self.note_freq(note)
+    def initialize(driver)
+      @driver = driver
+    end
+
+    def note_freq(note)
       440.0 * (2.0 ** ((note - 69) / 12.0))
     end
 
-    def self.note_on(note, vol = 15)
+    def note_on(note, vol = 15)
       period = (TONE_K / note_freq(note)).to_i
-      PSG.send_reg(CH * 2,     period & 0xFF)
-      PSG.send_reg(CH * 2 + 1, period >> 8)
-      PSG.send_reg(8 + CH,     vol)
+      @driver.send_reg(CH * 2,     period & 0xFF)
+      @driver.send_reg(CH * 2 + 1, period >> 8)
+      @driver.send_reg(8 + CH,     vol)
     end
 
-    def self.note_off
-      PSG.send_reg(8 + CH, 0)
+    def note_off
+      @driver.send_reg(8 + CH, 0)
     end
 
-    def self.start
+    def start
       prev_key = nil
       loop do
         key = STDIN.read_nonblock(1)
