@@ -99,7 +99,7 @@ static inline void
 psg_process_packets(void)
 {
   psg_packet_t pkt;
-  while (PSG_rb_peak(&pkt)) {
+  while (PSG_rb_peek(&pkt)) {
     if (0 < (int16_t)(pkt.tick - g_tick_ms)) break;
     PSG_rb_pop();
     PSG_process_packet(&pkt);
@@ -136,6 +136,7 @@ psg_core1_main(void)
   uint8_t p3 = (uint8_t)multicore_fifo_pop_blocking();
   uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
   psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
+  psg_drv->start();
   PSG_add_repeating_timer(); /* 22 kHz */
   PSG_tick_init_core1();
   /* WFE? */
