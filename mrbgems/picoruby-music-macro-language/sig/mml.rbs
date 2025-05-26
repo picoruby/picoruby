@@ -5,11 +5,15 @@ class MML
   @tempo: Integer
   @common_duration: Integer
   @q: Integer
+  @pan: Integer
+  @volume: Integer
+  @env_shape: Integer | nil
+  @env_period: Integer | nil
 
-  def self.new: () -> instance
-  def self.number_str: (String str, Integer i) -> [String, Integer]
-  def self.count_punto: (String str, Integer i) -> [Integer, Integer]
-  def self.coef: (Integer punti) -> Float
-
-  def compile: (String str) { (Float, Integer) -> bool } -> Integer
+  def self.compile_multi: (Hash[Integer, String] tracks) { (Integer delta, Integer channel, Float pitch, Integer duration, Integer pan, Integer volume, (Integer | nil) env_shape, (Integer | nil) env_period) -> untyped } -> Integer
+  def initialize: () -> void
+  def number_str: (String str, Integer i) -> [String, Integer]
+  def count_punto: (String str, Integer i) -> [Integer, Integer]
+  def coef: (Integer punti) -> Float
+  def compile: (String track) { (Float pitch, Integer duration, ?Integer pan, ?Integer volume, ?(Integer | nil) env_shape, ?(Integer | nil) env_period) -> untyped } -> Integer
 end
