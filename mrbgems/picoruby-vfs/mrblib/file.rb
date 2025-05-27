@@ -204,6 +204,10 @@ class File
     end
   end
 
+  def getbyte
+    @file.getbyte
+  end
+
   def write(*args)
     len = 0
     args.each do |arg|
