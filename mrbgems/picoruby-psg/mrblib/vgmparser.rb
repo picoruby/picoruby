@@ -1,7 +1,6 @@
 module PSG
   class VGMParser
     VGM_HEADER_SIZE = 0x100
-    CLOCK_PSG       = 3_579_545  # AY-3-8910 typical master clock
 
     VGM_WAIT_735 = 0x62
     VGM_WAIT_882 = 0x63
@@ -9,24 +8,24 @@ module PSG
     VGM_DATA_END = 0x66
 
     VGM_CMD_SKIP_LENGTH = {
-      0 => 0,  # no command
       0x4F => 1,  # GG stereo latch
       0x50 => 1,  # PSG DAC write
       0x67 => 7,  # data block header (we skip whole file for now)
-      0x51 => 4,  # YM2413 etc. ┐
+      0x51 => 4,  # YM2413 etc.  ┐
       0x52 => 4,  # YM2612       │  (unsupported chips)
       0x53 => 4   # YM2612 port1 ┘
     }
 
-    def initialize(io)
+    def initialize(io, header_size: VGM_HEADER_SIZE)
       @io = io
       @buf = []
+      @header_size = header_size
     end
 
     # Parse entire file into @buf : [{tick:, op:, reg:, val:}, ...]
     def parse
       @io.seek(0)
-      hdr = @io.read(VGM_HEADER_SIZE)
+      hdr = @io.read(@header_size)
       loop_tick = nil
       tick = 0
 
@@ -48,8 +47,8 @@ module PSG
           break
         else
           # Skip unsupported or DAC stream commands
-          len = VGM_CMD_SKIP_LENGTH[cmd || 0]
-          @io.read(len)
+          len = VGM_CMD_SKIP_LENGTH[cmd]
+          @io.read(len) if len
         end
       end
       self

@@ -1,5 +1,5 @@
 /*
- * picoruby-psg/ports/pico/rp2040_rp2350_psg.c
+ * picoruby-psg/ports/pico/psg_port.c
  */
 
 #include "pico/stdlib.h"
@@ -92,7 +92,7 @@ PSG_add_repeating_timer(void)
 
 // Tick
 
-volatile uint16_t g_tick_ms = 0;
+volatile uint32_t g_tick_ms = 0;
 static repeating_timer_t tick_timer;
 
 static inline void
@@ -100,7 +100,7 @@ psg_process_packets(void)
 {
   psg_packet_t pkt;
   while (PSG_rb_peek(&pkt)) {
-    if (0 < (int16_t)(pkt.tick - g_tick_ms)) break;
+    if (0 < (int32_t)(pkt.tick - g_tick_ms)) break;
     PSG_rb_pop();
     PSG_process_packet(&pkt);
   }
@@ -137,7 +137,7 @@ psg_core1_main(void)
   uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
   psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
   psg_drv->start();
-  PSG_add_repeating_timer(); /* 22 kHz */
+  PSG_add_repeating_timer(); /* 22.05 kHz */
   PSG_tick_init_core1();
   /* WFE? */
   for (;;) tight_loop_contents();
