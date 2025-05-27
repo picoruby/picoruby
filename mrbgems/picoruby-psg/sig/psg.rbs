@@ -1,24 +1,36 @@
 module PSG
   class Driver
+    CHIP_CLOCK: Integer
+    SAMPLE_RATE: Integer
+
+    @psg_mixer: Integer
+
     def self.select_pwm: (Integer left, Integer right) -> void
-    def self.select_mcp492x: (Integer dac, Integer mosi, Integer sck, Integer cs, Integer ldac) -> void
+    def self.select_mcp492x: (Integer dac, Integer copi, Integer sck, Integer cs, Integer ldac) -> void
     def self.initialized?: () -> bool
     def initialize: (Symbol type, **Integer opt) -> void
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
     def stop: () -> nil
+    def set_envelope: (Integer ch, Integer shape, Integer period) -> nil
     def set_lfo: (Integer ch, Integer depth, Integer rate) -> nil
+    def set_pan: (Integer ch, Integer pan) -> nil
     def mute: (Integer ch, Integer flag) -> nil
     def millis: () -> Integer
     def play_noise: (Integer ch, Integer period, Integer volume, Integer duration_ms) -> void
+    def play_note: (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer es, Integer ep) -> void
+    private def hz_to_period: (Integer | Float pitch) -> Integer
+    private def update_mixer_bit: (Integer bit, bool enable) -> Integer
   end
 
   class Keyboard
-    KEY2NOTE: Hash[String, Integer]
+    KEY2FREQ: Hash[Integer, Float]
     TONE_K: Float
     CH: Integer
-    def initialize: (Driver driver) -> void
-    def note_freq: (Integer|Float note) -> Float
-    def note_on: (Integer|Float note, ?Integer vol) -> bool
+    @ch: Integer
+    @driver: Driver
+    def self.note_freq: (Integer|Float note) -> Float
+    def initialize: (Driver driver, ?channel: Integer) -> void
+    def note_on: (Float freq) -> bool
     def note_off: () -> bool
     def start: () -> void
   end
@@ -26,28 +38,34 @@ module PSG
   type psg_event_t = {tick: Integer, op: Symbol, reg: Integer, val: Integer}
 
   class Sequencer
-    TICK_HZ: Integer
     BUF_MARGIN: Integer
     @events: Array[psg_event_t]
     @index: Integer
-    @start_ms: Integer
+    @start_ms: Integer | nil
+    @driver: Driver
     def initialize: (Driver driver, Array[psg_event_t] events) -> void
     def start: () -> void
     def service: () -> void
     def finished?: () -> bool
   end
 
+  class VGMCompiler
+    @mml: MML
+    def initialize: (MML mml) -> void
+    def compile: (Hash[Integer, String] tracks) { (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer | nil es, Integer | nil ep) -> Hash[Integer, Integer] } -> String
+  end
+
   class VGMParser
     VGM_HEADER_SIZE: Integer
-    CLOCK_PSG: Integer
     VGM_WAIT_735: Integer
     VGM_WAIT_882: Integer
     VGM_WAIT_N: Integer
     VGM_DATA_END: Integer
-    VGM_CMD_SKIP_LENGTH: Hash[Integer, Integer]
+    VGM_CMD_SKIP_LENGTH: Hash[Integer?, Integer]
     @buf: Array[psg_event_t]
     @io: IO
-    def intialize: (IO io) -> void
+    @header_size: Integer
+    def intialize: (IO io, ?header_size: Integer) -> void
     def parse: () -> self
     def each_event: () { (psg_event_t) -> void } -> self
                   | () -> Array[psg_event_t]
