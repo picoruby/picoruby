@@ -38,7 +38,7 @@ typedef struct {
 
 typedef struct {
   psg_regs_t r;
-  uint32_t tone_inc[3];      // 32.32 fix
+  uint32_t tone_inc[3];      // 32.32 fixed-point number
   uint32_t tone_phase[3];
   uint32_t noise_shift;
   uint32_t noise_cnt;
@@ -63,7 +63,7 @@ typedef struct {
 } psg_t;
 
 static psg_t psg;
-static psg_ringbuf_t rb;   // .BSS
+static psg_ringbuf_t rb;
 
 static inline uint32_t
 calc_inc(uint16_t period)
@@ -291,7 +291,7 @@ PSG_tick_1ms(void)
   }
 }
 
-const psg_output_api_t *psg_drv;
+const psg_output_api_t *psg_drv = NULL;
 
 bool
 PSG_audio_cb(void)
@@ -369,7 +369,7 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
      (reg, val, tick_delay) -> delayed              */
   mrb_get_args(mrb, "ii|i", &reg, &val, &tick_delay);
   psg_packet_t p = {
-    .tick = (g_tick_ms + (uint16_t)tick_delay) & 0xFFFF,
+    .tick = (g_tick_ms + (uint32_t)tick_delay) & 0xFFFF,
     .op   = PSG_PKT_REG_WRITE,
     .reg  = (uint8_t)reg,
     .val  = (uint8_t)val,
@@ -390,8 +390,8 @@ mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 {
-  mrb_int dac, mosi, sck, cs, ldac;
-  mrb_get_args(mrb, "iiiii", &dac, &mosi, &sck, &cs, &ldac);
+  mrb_int dac, copi, sck, cs, ldac;
+  mrb_get_args(mrb, "iiiii", &dac, &copi, &sck, &cs, &ldac);
   if (dac == 1) {
     psg_drv = &psg_drv_mcp4921;
   } else if (dac == 2) {
@@ -399,7 +399,7 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
   } else {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid DAC number: %d (1 or 2 expected)", dac);
   }
-  PSG_tick_start_core1((uint8_t)mosi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
+  PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
   return mrb_nil_value();
 }
 
@@ -417,6 +417,30 @@ mrb_driver_stop(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/* Set envelope shape and period (R11–13) */
+static mrb_value
+mrb_driver_set_envelope(mrb_state *mrb, mrb_value self)
+{
+  mrb_int ch, shape, period;
+  mrb_get_args(mrb, "iii", &ch, &shape, &period);
+
+  (void)ch; // AY chip does not support channel selection
+
+  // R11 (period LSB), R12 (MSB), R13 (shape)
+  uint32_t now = g_tick_ms;
+  PSG_rb_push(&(psg_packet_t){
+    .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 11, .val = (uint8_t)(period & 0xFF)
+  });
+  PSG_rb_push(&(psg_packet_t){
+    .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 12, .val = (uint8_t)(period >> 8)
+  });
+  PSG_rb_push(&(psg_packet_t){
+    .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 13, .val = (uint8_t)(shape & 0x0F)
+  });
+
+  return mrb_nil_value();
+}
+
 /* Set LFO: ch, depth(cent), rate(0.1Hz) */
 static mrb_value
 mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
@@ -429,6 +453,25 @@ mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
     .reg  = (uint8_t)ch,
     .val  = (uint8_t)depth,
     .arg  = (uint8_t)rate,
+  };
+  PSG_rb_push(&p);
+  return mrb_nil_value();
+}
+
+/* Set PAN */
+static mrb_value
+mrb_driver_set_pan(mrb_state *mrb, mrb_value self)
+{
+  mrb_int ch, pan;
+  mrb_get_args(mrb, "ii", &ch, &pan);
+  if (ch < 0 || ch > 2 || pan < 0 || pan > 15) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid channel or pan value: %d, %d", ch, pan);
+  }
+  psg_packet_t p = {
+    .tick = g_tick_ms,        /* immediate */
+    .op   = PSG_PKT_PAN_SET,
+    .reg  = (uint8_t)ch,
+    .val  = (uint8_t)pan,
   };
   PSG_rb_push(&p);
   return mrb_nil_value();
@@ -487,7 +530,7 @@ mrb_driver_play_noise(mrb_state *mrb, mrb_value self)
     return mrb_false_value(); // invalid
   }
 
-  uint16_t now = g_tick_ms;
+  uint32_t now = g_tick_ms;
 
   // noise period R6: 0-31
   psg_packet_t p1 = {
@@ -556,7 +599,7 @@ mrb_driver_play_noise(mrb_state *mrb, mrb_value self)
 
   // set volume to 0 after duration_ms
   psg_packet_t p4 = {
-    .tick = now + (uint16_t)duration_ms,
+    .tick = now + (uint32_t)duration_ms,
     .op   = PSG_PKT_REG_WRITE,
     .reg  = 8 + ch,
     .val  = 0
@@ -572,12 +615,17 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   struct RClass *module_PSG = mrb_define_module_id(mrb, MRB_SYM(PSG));
   struct RClass *class_Driver = mrb_define_class_under_id(mrb, module_PSG, MRB_SYM(Driver), mrb->object_class);
 
+  mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
+  mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_fixnum_value(SAMPLE_RATE));
+
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM_Q(initialized), mrb_driver_s_initialized_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_envelope), mrb_driver_set_envelope, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(millis), mrb_driver_millis, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(play_noise), mrb_driver_play_noise, MRB_ARGS_ARG(4, 1));
