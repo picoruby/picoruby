@@ -1,29 +1,30 @@
-# MML stands for "Music Macro Language"
-
-# Example:
-# tracks = {
-#   0 => "t120 l8 v12 p0 cdef",
-#   1 => "t120 l4 v10 p15 g>ceg<c",
-#   2 => "t120 l2 v8  p8  a2.g2",
-#   3 => "t120 l16 v15 p8  r r r"
-# }
-# len = MML.compile_multi(tracks) do |dt, ch, pitch, dur, pan, vol, es, ep|
-#   sleep_ms dt
-#   puts "#{dt}, #{ch}, #{pitch}, #{dur}, #{pan}, #{vol}, #{es}, #{ep}"
-# end
-# puts "total #{len} ms"
-
 class MML
 
-  def self.compile_multi(tracks, &block)
+  DURATION_BASE = (1000 * 60 * 4).to_f
+
+  def initialize
+    @octave = 4
+    @tempo = 120
+    @common_duration = (DURATION_BASE / @tempo / 4).to_i
+    @q = 8   # # gate-time 1..8
+    @pan = 8 # (0=L)..(8=center)..(15=R)
+    @volume = 15      # 0..15
+    @env_shape = nil  # 0..15
+    @env_period = nil # ms
+    @transpose = 0    # in half-tone
+    @mod_depth = nil  # in half-tone
+    @mod_rate  = nil  # in 0.1Hz
+    @chip_clock = 2_000_000
+  end
+
+  def compile_multi(tracks, &block)
     events   = []                                 # [start, ch, ...payload]
     total_ms = 0
 
     tracks.each do |ch, src|
       cursor = 0                                  # Time in the channel
-      mml    = MML.new
-      mml.compile(src) do |pitch, dur, pan, vol, es, ep|
-        events << [cursor, ch, pitch, dur, pan, vol, es, ep]
+      compile(src) do |pitch, dur, pan, vol, es, ep, md, mr|
+        events << [cursor, ch, pitch, dur, pan, vol, es, ep, md, mr]
         cursor += dur
       end
       total_ms = cursor if cursor > total_ms
@@ -39,8 +40,34 @@ class MML
     end
 
     prev_time = 0
-    events.each do |start, ch, pitch, dur, pan, vol, es, ep|
+    lfo_state = {} # ch => [depth, rate]
+    env_state = {} # ch => [shape, period]
+
+    events.each do |start, ch, pitch, dur, pan, vol, es, ep, md, mr|
       delta = start - prev_time
+
+      # Check if LFO state has changed
+      prev_md, prev_mr = lfo_state[ch]
+      if [md, mr] != [prev_md, prev_mr]
+        lfo_state[ch] = [md, mr]
+        if md && mr
+          yield(delta, ch, :lfo, md, mr)
+        else
+          yield(delta, ch, :lfo_off)
+        end
+        delta = 0
+      end
+
+      # Check if envelope state has changed
+      prev_es, prev_ep = env_state[ch]
+      if [es, ep] != [prev_es, prev_ep]
+        env_state[ch] = [es, ep]
+        if es && ep
+          yield(delta, ch, :env, es, ep)
+          delta = 0
+        end
+      end
+
       yield(delta, ch, pitch, dur, pan, vol, es, ep)
       prev_time = start
     end
@@ -48,20 +75,8 @@ class MML
     total_ms
   end
 
-  DURATION_BASE = (1000 * 60 * 4).to_f
-
-  def initialize
-    @octave = 4
-    @tempo = 120
-    @common_duration = (DURATION_BASE / @tempo / 4).to_i
-    @q = 8   # # gate-time 1..8
-    @pan = 8 # (0=L)..(8=center)..(15=R)
-    @volume = 15      # 0..15
-    @env_shape = nil  # 0..15
-    @env_period = nil # ms
-  end
-
   def compile(str)
+    str = expand_loops(str)
     i = 0
     str.each_char do |c|
       ord = c.ord
@@ -89,37 +104,37 @@ class MML
       when "g"; 10
       else
         case str[i]
-        when "t"
+        when "t" # Tempo
           tempo_str, i = number_str(str, i)
           @tempo = tempo_str.to_i if 0 < tempo_str.size
           @common_duration = (DURATION_BASE / @tempo / 4).to_i
-        when "o"
+        when "o" # Octave
           i += 1
           @octave = str[i].to_i
-        when "q"
+        when "q" # Gate time
           i += 1
           @q = str[i].to_i
           @q = 8 if @q < 1 || 8 < @q
-        when ">"
+        when ">" # Octave down
           @octave -= 1
-        when "<"
+        when "<" # Octave up
           @octave += 1
-        when "l"
+        when "l" # LENGTH
           fraction_str, i = number_str(str, i)
           fraction = 0 < fraction_str.size ? fraction_str.to_i : nil
           if fraction
             punti, i = count_punto(str, i)
             @common_duration = (DURATION_BASE / @tempo / fraction * coef(punti)).to_i
           end
-        when "p" # --------- new: PAN -----------
+        when "p" # Pan
           num, i = number_str(str, i)
           n      = num.empty? ? 8 : num.to_i
           @pan   = [[n, 0].max, 15].min
-        when "v"
+        when "v" # Volume
           num, i = number_str(str, i)
           n      = num.empty? ? 15 : num.to_i
           @volume = [[n, 0].max, 15].min
-        when "s"
+        when "s" # Envelope shape
           shape_str, i = number_str(str, i)
           if 0 < shape_str.size
             @env_shape = shape_str.to_i & 0x0F
@@ -131,6 +146,26 @@ class MML
           else
             @env_shape = nil
             @env_period = nil
+          end
+        when "k" # Transpose
+          sign = str[i + 1]
+          if sign == "+" || sign == "-"
+            num_str, i = number_str(str, i + 1)
+            n = num_str.to_i
+            @transpose = sign == "+" ? n : -n
+          end
+        when "m" # Modulation (LFO)
+          depth_str, i = number_str(str, i)
+          if 0 < depth_str.size
+            @mod_depth = depth_str.to_i * 100
+            if str[i + 1] == ","
+              i += 1
+              rate_str, i = number_str(str, i)
+              @mod_rate = rate_str.to_i if 0 < rate_str.size
+            end
+          else
+            @mod_depth = nil
+            @mod_rate = nil
           end
         end
         -2 # Neither a note nor a rest
@@ -156,29 +191,32 @@ class MML
         # @type var note: Integer
         6.875 * (2<<(@octave + octave_fix)) * 2 ** (note / 12.0)
       end
-        fraction_str, i = number_str(str, i)
-        punti, i = count_punto(str, i)
-        duration = if 0 < fraction_str.size
-          (DURATION_BASE / @tempo / fraction_str.to_i * coef(punti)).to_i
-        else
-          (@common_duration * coef(punti)).to_i
-        end
+      pitch *= 2 ** (@transpose / 12.0) if pitch && pitch > 0
+      fraction_str, i = number_str(str, i)
+      punti, i = count_punto(str, i)
+      duration = if 0 < fraction_str.size
+        (DURATION_BASE / @tempo / fraction_str.to_i * coef(punti)).to_i
+      else
+        (@common_duration * coef(punti)).to_i
+      end
       next unless pitch
       total_duration += duration
       sustain = (pitch == 0 || @q == 8) ? duration : (duration / 8.0 * @q).to_i
       release = duration - sustain
       if pitch == 0
-        yield(0.0, lazy_sustain + sustain, @pan, @volume, @env_shape, @env_period)
+        yield(0.0, lazy_sustain + sustain, @pan, @volume, @env_shape, @env_period, @mod_depth, @mod_rate)
         lazy_sustain = 0
       else
-        yield(0.0, lazy_sustain, @pan, @volume, @env_shape, @env_period) if 0 < lazy_sustain
-        yield(pitch.to_f, sustain, @pan, @volume, @env_shape, @env_period)
+        yield(0.0, lazy_sustain, @pan, @volume, @env_shape, @env_period, @mod_depth, @mod_rate) if 0 < lazy_sustain
+        yield(pitch.to_f, sustain, @pan, @volume, @env_shape, @env_period, @mod_depth, @mod_rate)
       end
       lazy_sustain = release
     end
-    yield(0.0, lazy_sustain, @pan, @volume, @env_shape, @env_period) if 0 < lazy_sustain
+    yield(0.0, lazy_sustain, @pan, @volume, @env_shape, @env_period, @mod_depth, @mod_rate) if 0 < lazy_sustain
     return total_duration
   end
+
+  # private
 
   def number_str(str, i)
     str_number = ""
@@ -208,4 +246,37 @@ class MML
     result
   end
 
+  def expand_loops(str)
+    expand(str, 0)[0]
+  end
+
+  def expand(str, i, depth = 0)
+    raise "Loop nesting too deep" if depth > 8
+    result = ""
+    while i < str.size
+      c = str[i]
+      case c
+      when "["
+        i += 1
+        inner, i = expand(str, i, depth + 1)
+        count = 0
+        while i < str.size
+          o = str[i]&.ord || 0
+          break unless 48 <= o && o <= 57  # '0'..'9'
+          count = count * 10 + (o - 48)
+          i += 1
+        end
+        result << inner * count
+      when "]"
+        return [result, i + 1]
+      when "|"
+        i += 1  # ignore
+      else
+        result << c.to_s
+        i += 1
+      end
+    end
+    [result, i]
+  end
 end
+
