@@ -15,10 +15,10 @@ static int      dac_dma_ch;
 static uint ldac_pin;
 
 static void
-psg_mcp492x_init(uint8_t mosi, uint8_t sck, uint8_t cs, uint8_t ldac)
+psg_mcp492x_init(uint8_t copi, uint8_t sck, uint8_t cs, uint8_t ldac)
 {
   spi_inst_t *spi_unit;
-  switch (mosi) {
+  switch (copi) {
     case 3:
     case 7:
     case 19:
@@ -34,7 +34,7 @@ psg_mcp492x_init(uint8_t mosi, uint8_t sck, uint8_t cs, uint8_t ldac)
       return;
   }
   spi_init(spi_unit, DAC_SPI_BAUD);
-  gpio_set_function(mosi, GPIO_FUNC_SPI);
+  gpio_set_function(copi, GPIO_FUNC_SPI);
   gpio_set_function(sck,  GPIO_FUNC_SPI);
   gpio_init(cs);
   gpio_set_dir(cs, GPIO_OUT);

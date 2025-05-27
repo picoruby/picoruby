@@ -13,7 +13,6 @@
 
 module PSG
   class Sequencer
-    TICK_HZ = 44_100        # same as audio sample rate
     BUF_MARGIN = 256        # packets ahead of audio cursor
 
     def initialize(driver, events)
@@ -28,8 +27,9 @@ module PSG
     end
 
     def service
-      return unless @start_ms
-      now_tick = ((@driver.millis - @start_ms) * TICK_HZ / 1000).to_i
+      return if @start_ms.nil?
+      # @type ivar @start_ms: Integer
+      now_tick = (@driver.millis - @start_ms)
       while (e = @events[@index]) && (e[:tick] - now_tick) < BUF_MARGIN
         case e[:op]
         when :reg
