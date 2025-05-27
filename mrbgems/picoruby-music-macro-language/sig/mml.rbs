@@ -9,11 +9,16 @@ class MML
   @volume: Integer
   @env_shape: Integer | nil
   @env_period: Integer | nil
+  @transpose: Integer
+  @mod_depth: Integer | nil
+  @mod_rate: Integer | nil
 
-  def self.compile_multi: (Hash[Integer, String] tracks) { (Integer delta, Integer channel, Float pitch, Integer duration, Integer pan, Integer volume, (Integer | nil) env_shape, (Integer | nil) env_period) -> untyped } -> Integer
   def initialize: () -> void
-  def number_str: (String str, Integer i) -> [String, Integer]
-  def count_punto: (String str, Integer i) -> [Integer, Integer]
-  def coef: (Integer punti) -> Float
-  def compile: (String track) { (Float pitch, Integer duration, ?Integer pan, ?Integer volume, ?(Integer | nil) env_shape, ?(Integer | nil) env_period) -> untyped } -> Integer
+  def compile_multi: (Hash[Integer, String] tracks) { (Integer delta, Integer channel, *(Symbol | Integer) args) -> untyped } -> Integer
+  def compile: (String track) { (Float pitch, Integer duration, ?Integer pan, ?Integer volume, ?(Integer | nil) env_shape, ?(Integer | nil) env_period, ?(Integer | nil) mod_depth, ?(Integer | nil) mod_rate) -> untyped } -> Integer
+  private def number_str: (String str, Integer i) -> [String, Integer]
+  private def count_punto: (String str, Integer i) -> [Integer, Integer]
+  private def coef: (Integer punti) -> Float
+  private def expand_loops: (String track) -> String
+  private def expand: (String str, Integer index, ?Integer depth) -> [String, Integer]
 end
