@@ -143,6 +143,22 @@ c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  FIL *fp = (FIL *)v->instance->data;
+  char c;
+  UINT br;
+  FRESULT res = f_read(fp, &c, 1, &br);
+  mrbc_raise_iff_f_error(vm, res, "f_read");
+  if (br == 0) {
+    SET_NIL_RETURN();
+  } else {
+    mrbc_value value = mrbc_integer_value((int)c);
+    SET_RETURN(value);
+  }
+}
+
+static void
 c_write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   FIL *fp = (FIL *)v->instance->data;
@@ -220,6 +236,7 @@ mrbc_init_class_FAT_File(mrbc_vm *vm ,mrbc_class *class_FAT)
   mrbc_define_method(vm, class_FAT_File, "seek", c_seek);
   mrbc_define_method(vm, class_FAT_File, "eof?", c_eof_q);
   mrbc_define_method(vm, class_FAT_File, "read", c_read);
+  mrbc_define_method(vm, class_FAT_File, "getbyte", c_getbyte);
   mrbc_define_method(vm, class_FAT_File, "write", c_write);
   mrbc_define_method(vm, class_FAT_File, "close", c_close);
   mrbc_define_method(vm, class_FAT_File, "size", c_size);
