@@ -27,6 +27,28 @@
 #define MAX_LFO_DEPTH 127  // 0..127 cent
 #define MAX_LFO_RATE  255  // 0..255 (0.1 Hz steps, 0-25.5 Hz)
 
+/*
+                                  | B7 | B6 | B5 | B4 | B3 | B2 | B1 | B0 |
+R0  Ch A tone period LSB (0-255)  |             8 bit FT A                |
+R1  Ch A tone period MSB (0-15)   |-------------------|     4 bit FT A    |
+R2  Ch B tone period LSB (0-255)  |             8 bit FT B                |
+R3  Ch B tone period MSB (0-15)   |-------------------|     4 bit FT B    |
+R4  Ch C tone period LSB (0-255)  |             8 bit FT C                |
+R5  Ch C tone period MSB (0-15)   |-------------------|     4 bit FT C    |
+R6  Noise period (0-31)           |--------------|        5 bit NP        |
+                                  | in/out  |     noise    |     tone     |
+R7  Mixer (0-63)                  |IOB |IOA | C  | B  | A  | C  | B  | A  |
+R8  Ch A volume (0-15)            |--------------| M  | L3 | L2 | L1 | L0 |
+R9  Ch B volume (0-15)            |--------------| M  | L3 | L2 | L1 | L0 |
+R10 Ch C volume (0-15)            |--------------| M  | L3 | L2 | L1 | L0 |
+R11 Envelope period LSB (0-255)   |              8 bit FT                 |
+R12 Envelope period MSB (0-255)   |              8 bit CT                 |
+R13 Envelope shape (0-15)         |-------------------| E3 | E2 | E1 | E0 |
+    E3: 0=continue, 1=stop
+    E2: 0=attack, 1=release
+    E1: 0=alternate, 1=sawtooth
+    E0: 0=hold, 1=repeat
+*/
 typedef struct {
   uint16_t tone_period[3];   // R0–5  (12-bit)
   uint8_t  noise_period;     // R6
