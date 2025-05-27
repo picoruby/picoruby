@@ -32,7 +32,7 @@ typedef enum {
 /* ----- packet layout -------------------------------------------------- */
 /* 8-byte slot, naturally aligned to 4 bytes */
 typedef struct __attribute__((packed, aligned(4))) {
-  uint16_t tick;    // 0–65535 ms
+  uint32_t tick;    // 0-4294967295 ms (32-bit for 49 days)
   uint8_t  op;      // psg_opcode_t
   uint8_t  reg;     // 0–13 or channel idx for LFO_SET
   uint8_t  val;     // main parameter
@@ -73,7 +73,7 @@ psg_cs_token_t PSG_enter_critical(void);
 void PSG_exit_critical(psg_cs_token_t token);
 
 // Tick
-extern volatile uint16_t g_tick_ms;
+extern volatile uint32_t g_tick_ms;
 void PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4);
 void PSG_tick_stop_core1(void);
 void PSG_tick_1ms(void);
