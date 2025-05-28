@@ -22,6 +22,7 @@ require 'mqtt'
 
 # Initialize client
 client = MQTTClient.new("YOUR_IP_ADDRESS", 1883, "picoruby_test")
+client.led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN) # Example for Raspi Pico (2) W
 
 # Connect to broker
 client.connect
