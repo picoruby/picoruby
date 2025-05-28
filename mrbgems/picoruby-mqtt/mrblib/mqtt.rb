@@ -5,10 +5,10 @@ class MQTTClient
     @client_id = client_id
     @connected = false
     @led_state = false
-    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     on_message
   end
 
+  attr_accessor :led
   def connect
     @port ||= 1883
     @connected = _connect_impl(@host, @port, @client_id)
