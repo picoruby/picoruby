@@ -23,10 +23,11 @@ extern "C" {
  * Exactly one writer and one reader are assumed — no other locking required.
  */
 typedef enum {
-  PSG_PKT_REG_WRITE = 0,
-  PSG_PKT_LFO_SET   = 1,  // ch, depth, rate
-  PSG_PKT_CH_MUTE   = 2,  // ch, 0/1
-  PSG_PKT_PAN_SET   = 3   // ch, bal(0-15)
+  PSG_PKT_REG_WRITE     = 0,
+  PSG_PKT_LFO_SET       = 1,  // ch, depth, rate
+  PSG_PKT_CH_MUTE       = 2,  // ch, 0/1
+  PSG_PKT_PAN_SET       = 3,  // ch, bal(0-15)
+  PSG_PKT_TONE_TYPE_SET = 4   // ch, tone_type
 } psg_opcode_t;
 
 /* ----- packet layout -------------------------------------------------- */
@@ -58,7 +59,7 @@ typedef struct {
 #define SAMPLE_RATE       22050
 #define CHIP_CLOCK        2000000   // 2 MHz
 #define PWM_BITS          12
-#define MAX_SAMPLE_WIDTH  ((1u << PWM_BITS) - 1)
+#define MAX_SAMPLE_WIDTH  ((1u << PWM_BITS) - 1)  // 4095
 
 // Callback
 bool PSG_audio_cb(void );

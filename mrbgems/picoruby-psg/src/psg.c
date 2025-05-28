@@ -58,6 +58,11 @@ typedef struct {
   uint8_t  envelope_shape;   // R13
 } psg_regs_t;
 
+typedef enum {
+  PSG_TONE_TYPE_SQUARE = 0,  // square wave
+  PSG_TONE_TYPE_TRIANGLE, // triangle wave
+} psg_tone_type_t;
+
 typedef struct {
   psg_regs_t r;
   uint32_t tone_inc[3];      // 32.32 fixed-point number
@@ -82,6 +87,8 @@ typedef struct {
   uint8_t  mute_mask;      /* bit0=A bit1=B bit2=C */
   // pan
   uint8_t pan[3];   // 0 = L-only,  8 = center, 15 = R-only
+  // tone type
+  psg_tone_type_t tone_type[3];
 } psg_t;
 
 static psg_t psg;
@@ -199,6 +206,14 @@ PSG_process_packet(const psg_packet_t *pkt)
       uint8_t bal = pkt->val; // 0..15
       psg_cs_token_t t = PSG_enter_critical();
       psg.pan[ch] = bal & 0x0F;   /* 4bit keep */
+      PSG_exit_critical(t);
+      break;
+    }
+    case PSG_PKT_TONE_TYPE_SET: {
+      uint8_t ch = pkt->reg & 0x03;
+      uint8_t type = pkt->val; // 0=square, 1=triangle
+      psg_cs_token_t t = PSG_enter_critical();
+      psg.tone_type[ch] = (psg_tone_type_t)type;
       PSG_exit_critical(t);
       break;
     }
@@ -347,28 +362,43 @@ PSG_audio_cb(void)
                      ((psg.tone_inc[ch] * frac) >> 16);  /* FM */
       psg.tone_phase[ch] += inc;
     }
-    uint8_t tone_bit = (psg.tone_phase[ch] >> 31) & 1;
 
+    uint32_t tone_amp;
+    switch (psg.tone_type[ch]) {
+      case PSG_TONE_TYPE_TRIANGLE: {
+        bool second = (psg.tone_phase[ch] & 0x80000000);
+        uint32_t ramp = psg.tone_phase[ch] >> 20;  // 32-12 = 20bit右シフトで 0–4095
+        tone_amp = second ? (4095 - ramp) : ramp;
+        break;
+      }
+      default: // PSG_TONE_TYPE_SQUARE & fallback
+        tone_amp = (psg.tone_phase[ch] >> 31) ? 4095 : 0;
+        break;
+    }
+
+    // noise mixing
     bool use_tone  = !(psg.r.mixer & (1 << ch));
     bool use_noise = !(psg.r.mixer & (1 << (ch + 3)));
-
-    uint8_t active = ((use_tone && tone_bit) || (use_noise && noise_bit));
+    uint32_t active_amp = 0;
+    if (use_tone)  active_amp += tone_amp;
+    if (use_noise && noise_bit) active_amp = 4095;
 
     // Channel mute
     if (psg.mute_mask & (1u << ch)) continue;
+    if (active_amp == 0) continue;
 
     // volume: bit4 = envelope
     uint8_t vol = psg.r.volume[ch];
     if (vol & 0x10) vol = psg.env_level;
     vol &= 0x0F;
 
-    if (active) {
-      uint32_t v = vol_tab[vol];
-      // constant-power: ideally `sin(theta) ~= √(bal/15)` but it would be heavy
-      uint8_t bal = psg.pan[ch];          // 0..15
-      mix_l += (v * (15 - bal)) >> 4;     // ×(15-bal)/16
-      mix_r += (v * bal)        >> 4;     // ×bal/16
-    }
+    uint32_t gain = vol_tab[vol];  // 0–4095
+    uint32_t amp = (active_amp * gain) >> 12;
+
+    // pan
+    uint8_t bal = psg.pan[ch];          // 0..15
+    mix_l += (amp * (15 - bal)) >> 4;   // *(15 - bal) / 16
+    mix_r += (amp * bal)        >> 4;   // *bal / 16
   }
   if (mix_l > MAX_SAMPLE_WIDTH) mix_l = MAX_SAMPLE_WIDTH;
   if (mix_r > MAX_SAMPLE_WIDTH) mix_r = MAX_SAMPLE_WIDTH;
@@ -494,6 +524,24 @@ mrb_driver_set_pan(mrb_state *mrb, mrb_value self)
     .op   = PSG_PKT_PAN_SET,
     .reg  = (uint8_t)ch,
     .val  = (uint8_t)pan,
+  };
+  PSG_rb_push(&p);
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_driver_set_tone_type(mrb_state *mrb, mrb_value self)
+{
+  mrb_int ch, tone_type;
+  mrb_get_args(mrb, "ii", &ch, &tone_type);
+  if (ch < 0 || 2 < ch) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid channel: %d (0-2 expected)", ch);
+  }
+  psg_packet_t p = {
+    .tick = g_tick_ms,        /* immediate */
+    .op   = PSG_PKT_TONE_TYPE_SET,
+    .reg  = (uint8_t)ch,
+    .val  = (uint8_t)tone_type
   };
   PSG_rb_push(&p);
   return mrb_nil_value();
@@ -640,6 +688,11 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_fixnum_value(SAMPLE_RATE));
 
+  mrb_value tone_types = mrb_hash_new(mrb);
+  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(square)), mrb_fixnum_value(PSG_TONE_TYPE_SQUARE));
+  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(triangle)), mrb_fixnum_value(PSG_TONE_TYPE_TRIANGLE));
+  mrb_define_const_id(mrb, class_Driver, MRB_SYM(TONE_TYPES), tone_types);
+
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM_Q(initialized), mrb_driver_s_initialized_p, MRB_ARGS_NONE());
@@ -648,6 +701,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_envelope), mrb_driver_set_envelope, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_tone_type), mrb_driver_set_tone_type, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(millis), mrb_driver_millis, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(play_noise), mrb_driver_play_noise, MRB_ARGS_ARG(4, 1));

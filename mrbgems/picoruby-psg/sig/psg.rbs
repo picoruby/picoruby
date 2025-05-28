@@ -2,6 +2,7 @@ module PSG
   class Driver
     CHIP_CLOCK: Integer
     SAMPLE_RATE: Integer
+    TONE_TYPES: Hash[Symbol, Integer]
 
     @psg_mixer: Integer
 
@@ -14,6 +15,7 @@ module PSG
     def set_envelope: (Integer ch, Integer shape, Integer period) -> nil
     def set_lfo: (Integer ch, Integer depth, Integer rate) -> nil
     def set_pan: (Integer ch, Integer pan) -> nil
+    def set_tone_type: (Integer ch, Integer tone_type_index) -> nil
     def mute: (Integer ch, Integer flag) -> nil
     def millis: () -> Integer
     def play_noise: (Integer ch, Integer period, Integer volume, Integer duration_ms) -> void
