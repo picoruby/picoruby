@@ -51,7 +51,7 @@ class MQTTClient
       @message_callback = Proc.new do |topic, payload|
         puts "Received message on topic '#{topic}': #{payload}"
         @led_state = !@led_state
-        @led.write(@led_state ? 1 : 0)
+        @led&.write(@led_state ? 1 : 0)
       end
     end
   end
