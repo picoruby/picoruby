@@ -1,4 +1,7 @@
 class MQTTClient
+
+  attr_accessor led: nil | GPIO | CYW43::GPIO
+
   def initialize: (String host, ?Integer? port, ?String client_id) -> void
 
   def connect: () -> bool
