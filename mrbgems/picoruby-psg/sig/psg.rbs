@@ -1,3 +1,4 @@
+
 module PSG
   class Driver
     CHIP_CLOCK: Integer
@@ -8,10 +9,9 @@ module PSG
 
     def self.select_pwm: (Integer left, Integer right) -> void
     def self.select_mcp492x: (Integer dac, Integer copi, Integer sck, Integer cs, Integer ldac) -> void
-    def self.initialized?: () -> bool
-    def initialize: (Symbol type, **Integer opt) -> void
-    def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
+    def initalize: (Symbol type, **Integer opt) -> void
     def stop: () -> nil
+    def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
     def set_envelope: (Integer ch, Integer shape, Integer period) -> nil
     def set_lfo: (Integer ch, Integer depth, Integer rate) -> nil
     def set_pan: (Integer ch, Integer pan) -> nil
@@ -29,9 +29,9 @@ module PSG
     TONE_K: Float
     CH: Integer
     @ch: Integer
-    @driver: Driver
+    @driver: PSG::Driver
     def self.note_freq: (Integer|Float note) -> Float
-    def initialize: (Driver driver, ?channel: Integer) -> void
+    def initialize: (PSG::Driver driver, ?channel: Integer) -> void
     def note_on: (Float freq) -> bool
     def note_off: () -> bool
     def start: () -> void
@@ -44,8 +44,9 @@ module PSG
     @events: Array[psg_event_t]
     @index: Integer
     @start_ms: Integer | nil
-    @driver: Driver
-    def initialize: (Driver driver, Array[psg_event_t] events) -> void
+    @driver: PSG::Driver
+    def self.note_freq: (Integer|Float note) -> Float
+    def initialize: (PSG::Driver driver, Array[psg_event_t] events) -> void
     def start: () -> void
     def service: () -> void
     def finished?: () -> bool
