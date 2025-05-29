@@ -17,7 +17,7 @@ class MML
     @chip_clock = 2_000_000
   end
 
-  def compile_multi(tracks, &block)
+  def compile_multi(tracks)
     events   = []                                 # [start, ch, ...payload]
     total_ms = 0
 
