@@ -13,6 +13,12 @@
 #include <stdbool.h>
 #include <string.h>
 
+static inline void
+__breakpoint(void)
+{
+  __asm volatile ("bkpt #0");
+}
+
 #ifndef PSG_COMPILER_BARRIER
 #  if defined(__GNUC__) || defined(__clang__)
 #    define PSG_COMPILER_BARRIER() __asm volatile("" ::: "memory")
@@ -28,26 +34,24 @@
 #define MAX_LFO_RATE  255  // 0..255 (0.1 Hz steps, 0-25.5 Hz)
 
 /*
-                                  | B7 | B6 | B5 | B4 | B3 | B2 | B1 | B0 |
-R0  Ch A tone period LSB (0-255)  |             8 bit FT A                |
-R1  Ch A tone period MSB (0-15)   |-------------------|     4 bit FT A    |
-R2  Ch B tone period LSB (0-255)  |             8 bit FT B                |
-R3  Ch B tone period MSB (0-15)   |-------------------|     4 bit FT B    |
-R4  Ch C tone period LSB (0-255)  |             8 bit FT C                |
-R5  Ch C tone period MSB (0-15)   |-------------------|     4 bit FT C    |
-R6  Noise period (0-31)           |--------------|        5 bit NP        |
-                                  | in/out  |     noise    |     tone     |
-R7  Mixer (0-63)                  |IOB |IOA | C  | B  | A  | C  | B  | A  |
-R8  Ch A volume (0-15)            |--------------| M  | L3 | L2 | L1 | L0 |
-R9  Ch B volume (0-15)            |--------------| M  | L3 | L2 | L1 | L0 |
-R10 Ch C volume (0-15)            |--------------| M  | L3 | L2 | L1 | L0 |
-R11 Envelope period LSB (0-255)   |              8 bit FT                 |
-R12 Envelope period MSB (0-255)   |              8 bit CT                 |
-R13 Envelope shape (0-15)         |-------------------| E3 | E2 | E1 | E0 |
-    E3: 0=continue, 1=stop
-    E2: 0=attack, 1=release
-    E1: 0=alternate, 1=sawtooth
-    E0: 0=hold, 1=repeat
+                          | B7 | B6 | B5 | B4 | B3 | B2 | B1 | B0 |
+R0  Ch A tone period      |             LSB (0-255)               |
+R1  Ch A tone period      |-------------------|     MSB (0-15)    |
+R2  Ch B tone period      |             LSB (0-255)               |
+R3  Ch A tone period      |-------------------|     MSB (0-15)    |
+R4  Ch C tone period      |             LSB (0-255)               |
+R5  Ch A tone period      |-------------------|     MSB (0-15)    |
+R6  Noise period (0-31)   |--------------|        5 bit NP        |
+R7  Mixer (0-63)          |(IOB,IOA)| C  | B  | A  | C  | B  | A  |
+     0: on, 1: off                  ^----noise-----^-----tone-----^
+R8  Ch A volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 |
+R9  Ch B volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 |
+R10 Ch C volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 |
+R11 Envelope period       |             LSB (0-255)               |
+R12 Envelope period MSB   |             MSB (0-255)               |
+R13 Envelope shape (0-15) |-------------------| E3 | E2 | E1 | E0 |
+     E3: 0=continue,  1=stop          E2: 0=attack, 1=release
+     E1: 0=alternate, 1=sawtooth      E0: 0=hold,   1=repeat
 */
 typedef struct {
   uint16_t tone_period[3];   // R0–5  (12-bit)
@@ -60,7 +64,7 @@ typedef struct {
 
 typedef enum {
   PSG_TONE_TYPE_SQUARE = 0,  // square wave
-  PSG_TONE_TYPE_TRIANGLE, // triangle wave
+  PSG_TONE_TYPE_TRIANGLE,    // triangle wave
 } psg_tone_type_t;
 
 typedef struct {
@@ -98,8 +102,8 @@ static inline uint32_t
 calc_inc(uint16_t period)
 {
   if (!period) return 0;
-  // f = clk / (16*(N)) -> inc = f / Fs (32.32)
-  uint32_t f = CHIP_CLOCK / (16u * period);
+  // f = clk / (32*(N)) -> inc = f / Fs (32.32)
+  uint32_t f = CHIP_CLOCK / (32u * period);
   return ((uint64_t)f << 32) / SAMPLE_RATE;
 }
 
@@ -121,7 +125,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
     case 1:   /* ch A MSB */
       psg.r.tone_period[0] &= reg ? 0x00FF : 0x0F00;
       psg.r.tone_period[0] |= reg ? ((val & 0x0F) << 8) : val;
-      update_tone_inc(0);
+      if (reg == 1) update_tone_inc(0);
       break;
     case 2:   /* ch B LSB */
     case 3:   /* ch B MSB */
@@ -367,7 +371,7 @@ PSG_audio_cb(void)
     switch (psg.tone_type[ch]) {
       case PSG_TONE_TYPE_TRIANGLE: {
         bool second = (psg.tone_phase[ch] & 0x80000000);
-        uint32_t ramp = psg.tone_phase[ch] >> 20;  // 32-12 = 20bit右シフトで 0–4095
+        uint32_t ramp = psg.tone_phase[ch] >> 20; // 32-12 = 20bit right shift
         tone_amp = second ? (4095 - ramp) : ramp;
         break;
       }
@@ -429,42 +433,55 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
+static void
+reset_psg(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  memset(&psg, 0, sizeof(psg));
+  psg.pan[0] = psg.pan[1] = psg.pan[2] = 8; // center pan
+  memset(&rb, 0, sizeof(rb));
+  g_tick_ms = 0;
+  PSG_exit_critical(t);
+}
+
 static mrb_value
 mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
 {
+  bool need_tick_start = (psg_drv == NULL);
   psg_drv = &psg_drv_pwm;
   mrb_int left, right;
-  mrb_get_args(mrb, "iiii", &left, &right);
-  PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
+  mrb_get_args(mrb, "ii", &left, &right);
+  mrb_warn(mrb, "PSG: PWM left=%d, right=%d\n", left, right);
+  if (need_tick_start) {
+    PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
+  }
+  reset_psg();
   return mrb_nil_value();
 }
 
 static mrb_value
 mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 {
+  bool need_tick_start = (psg_drv == NULL);
   mrb_int dac, copi, sck, cs, ldac;
   mrb_get_args(mrb, "iiiii", &dac, &copi, &sck, &cs, &ldac);
   if (dac == 1) {
     psg_drv = &psg_drv_mcp4921;
   } else if (dac == 2) {
-    psg_drv = &psg_drv_mcp4921;
+    psg_drv = &psg_drv_mcp4922;
   } else {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid DAC number: %d (1 or 2 expected)", dac);
   }
-  PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
+  if (need_tick_start) {
+    PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
+  }
+  reset_psg();
   return mrb_nil_value();
-}
-
-static mrb_value
-mrb_driver_s_initialized_p(mrb_state *mrb, mrb_value klass)
-{
-  return psg_drv ? mrb_true_value() : mrb_false_value();
 }
 
 static mrb_value
 mrb_driver_stop(mrb_state *mrb, mrb_value self)
 {
-  psg_drv->stop();
   PSG_tick_stop_core1();
   return mrb_nil_value();
 }
@@ -695,7 +712,6 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
-  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM_Q(initialized), mrb_driver_s_initialized_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_envelope), mrb_driver_set_envelope, MRB_ARGS_REQ(3));

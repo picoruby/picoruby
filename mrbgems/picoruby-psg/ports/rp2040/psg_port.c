@@ -8,6 +8,7 @@
 #include "hardware/sync.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 #include "../../include/psg.h"
 
@@ -51,24 +52,19 @@ PSG_exit_critical(psg_cs_token_t token)
 #elif defined(PICO_RP2350)
 
 #include "cmsis_gcc.h"
-static volatile uint32_t psg_lock;
+static volatile uint32_t psg_lock = 0;
 
 psg_cs_token_t
 PSG_enter_critical(void)
 {
   uint32_t irq_state = __get_PRIMASK();
   __disable_irq();
-  // spin on lock
-  while (__STREXW(1, &psg_lock)) { __CLREX(); }
-  __DMB();
   return irq_state;
 }
 
 void
 PSG_exit_critical(psg_cs_token_t token)
 {
-  __DMB();
-  psg_lock = 0; // release
   if (!token) __enable_irq();
 }
 
@@ -94,6 +90,7 @@ PSG_add_repeating_timer(void)
 
 volatile uint32_t g_tick_ms = 0;
 static repeating_timer_t tick_timer;
+static bool tick_timer_active = false;
 
 static inline void
 psg_process_packets(void)
@@ -122,11 +119,17 @@ PSG_tick_init_core1(void)
   /* Core1 exclusive alarm_pool. clk_ref=12MHz */
   static alarm_pool_t *pool = NULL;
   if (!pool) pool = alarm_pool_create(2 /* hardware timer 2 */, 16 /* IRQ prio */);
-  /* 1 kHz = -1000 µs */
-  alarm_pool_add_repeating_timer_us(pool, -1000, tick_cb, NULL, &tick_timer);
+  if (!tick_timer_active) {
+    memset(&tick_timer, 0, sizeof(tick_timer));
+    /* 1 kHz = -1000 µs */
+    alarm_pool_add_repeating_timer_us(pool, -1000, tick_cb, NULL, &tick_timer);
+    tick_timer_active = true;
+  }
 }
 
 static volatile bool core1_alive = false;
+
+#define ACK_CORE1_READY 0xA5
 
 static void __attribute__((noreturn))
 psg_core1_main(void)
@@ -139,6 +142,7 @@ psg_core1_main(void)
   psg_drv->start();
   PSG_add_repeating_timer(); /* 22.05 kHz */
   PSG_tick_init_core1();
+  multicore_fifo_push_blocking(ACK_CORE1_READY);
   /* WFE? */
   for (;;) tight_loop_contents();
 }
@@ -153,6 +157,10 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
     multicore_fifo_push_blocking(p2);
     multicore_fifo_push_blocking(p3);
     multicore_fifo_push_blocking(p4);
+    uint32_t ack = multicore_fifo_pop_blocking();
+    if (ack != ACK_CORE1_READY) {
+      //printf("Unexpected core1 ready ack: 0x%08x\n", ack);
+    }
     core1_alive = true;
   }
 }
@@ -160,9 +168,16 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
 void
 PSG_tick_stop_core1(void)
 {
+  if (psg_drv) {
+    psg_drv->stop();
+    psg_drv = NULL;
+  }
   if (core1_alive) {
     // stop the repeating timer
-    cancel_repeating_timer(&tick_timer);
+    //cancel_repeating_timer(&tick_timer);
+    //memset(&tick_timer, 0, sizeof(tick_timer));
+    cancel_repeating_timer(&audio_timer);
+    memset(&audio_timer, 0, sizeof(audio_timer));
     multicore_reset_core1();
     core1_alive = false;
   }

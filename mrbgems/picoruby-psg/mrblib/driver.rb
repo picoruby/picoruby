@@ -1,9 +1,6 @@
 module PSG
   class Driver
     def initialize(type, **opt)
-      if Driver.initialized?
-        raise RuntimeError, "PSG::Driver already initialized"
-      end
       case type
       when :pwm
         if opt[:left].nil? || opt[:right].nil?
@@ -58,7 +55,7 @@ module PSG
 
     def hz_to_period(hz)
       return 1 if hz <= 1
-      raw = (CHIP_CLOCK / (16.0 * hz) + 0.5).to_i # +0.5 is workaround for #round
+      raw = (CHIP_CLOCK / (32.0 * hz) + 0.5).to_i # +0.5 is workaround for #round
       raw < 1 ? 1 : raw > 4095 ? 4095 : raw
     end
 
