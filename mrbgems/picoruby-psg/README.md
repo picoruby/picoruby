@@ -2,7 +2,7 @@
 
 PSG (Programmable Sound Generator) emulator for PicoRuby.
 
-## Wiring
+## Wiring (RP2040 and RP2350)
 
 ### MCP492x --- 12bit DAC (SPI)
 
@@ -57,17 +57,34 @@ You can choose a GPIO combination as follows:
 
 ### Buzzer (PWM)
 ```
-         ┏━━━━━━━┓
-         ┃       ┃   ┏━━━━━━━┓
- >PWM1───┫ Left  ┣───┫330 Ohm┣───GND
-         ┃       ┃   ┗━━━━━━━┛
-         ┗━━━━━━━┛
-         ┏━━━━━━━┓
-         ┃       ┃   ┏━━━━━━━┓
- >PWM2───┫ Right ┣───┫330 Ohm┣───GND
-         ┃       ┃   ┗━━━━━━━┛
-         ┗━━━━━━━┛
+          ┏━━━━━━━┓
+          ┃       ┃   ┏━━━━━━━┓
+ >PWM A───┫ Left  ┣───┫330 Ohm┣───GND
+          ┃       ┃   ┗━━━━━━━┛
+          ┗━━━━━━━┛
+          ┏━━━━━━━┓
+          ┃       ┃   ┏━━━━━━━┓
+ >PWM B───┫ Right ┣───┫330 Ohm┣───GND
+          ┃       ┃   ┗━━━━━━━┛
+          ┗━━━━━━━┛
 ```
 
-Any GPIO on Raspi Pico can be assigned as PWM1 and PWM2
+It'd be preferable to choose a PWM pair that share the same slice:
 
+|Slice|PWM A|PWM B|
+|-----|-----|-----|
+|PWM0 |GPIO0|GPIO1|
+|PWM1 |GPIO2|GPIO3|
+|PWM2 |GPIO4|GPIO5|
+|PWM3 |GPIO6|GPIO7|
+|PWM4 |GPIO8|GPIO9|
+|PWM5 |GPIO10|GPIO11|
+|PWM6 |GPIO12|GPIO13|
+|PWM7 |GPIO14|GPIO15|
+|PWM0 |GPIO16|GPIO17|
+|PWM1 |GPIO18|GPIO19|
+|PWM2 |GPIO20|GPIO21|
+|PWM3 |GPIO22|GPIO23|
+|PWM4 |GPIO24|GPIO25|
+|PWM5 |GPIO26|GPIO27|
+|PWM6 |GPIO28|GPIO29|
