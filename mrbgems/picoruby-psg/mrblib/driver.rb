@@ -28,7 +28,7 @@ module PSG
     end
 
     def play_note(ch, pitch, dur, pan, vol, es, ep)
-      now = millis
+      now = tick_ms
 
       if pitch == 0
         send_reg(8 + ch, 0)
