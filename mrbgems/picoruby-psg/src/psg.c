@@ -582,7 +582,7 @@ mrb_driver_mute(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_driver_millis(mrb_state *mrb, mrb_value self)
+mrb_driver_tick_ms(mrb_state *mrb, mrb_value self)
 {
   return mrb_fixnum_value(g_tick_ms);
 }
@@ -722,7 +722,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_tone_type), mrb_driver_set_tone_type, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(millis), mrb_driver_millis, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(tick_ms), mrb_driver_tick_ms, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(play_noise), mrb_driver_play_noise, MRB_ARGS_ARG(4, 1));
 }
 
