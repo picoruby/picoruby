@@ -439,30 +439,24 @@ reset_psg(void)
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
   psg.pan[0] = psg.pan[1] = psg.pan[2] = 8; // center pan
-  memset(&rb, 0, sizeof(rb));
-  g_tick_ms = 0;
   PSG_exit_critical(t);
 }
 
 static mrb_value
 mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
 {
-  bool need_tick_start = (psg_drv == NULL);
   psg_drv = &psg_drv_pwm;
   mrb_int left, right;
   mrb_get_args(mrb, "ii", &left, &right);
   mrb_warn(mrb, "PSG: PWM left=%d, right=%d\n", left, right);
-  if (need_tick_start) {
-    PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
-  }
   reset_psg();
+  PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
   return mrb_nil_value();
 }
 
 static mrb_value
 mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 {
-  bool need_tick_start = (psg_drv == NULL);
   mrb_int dac, copi, sck, cs, ldac;
   mrb_get_args(mrb, "iiiii", &dac, &copi, &sck, &cs, &ldac);
   if (dac == 1) {
@@ -472,10 +466,8 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
   } else {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid DAC number: %d (1 or 2 expected)", dac);
   }
-  if (need_tick_start) {
-    PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
-  }
   reset_psg();
+  PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
   return mrb_nil_value();
 }
 
