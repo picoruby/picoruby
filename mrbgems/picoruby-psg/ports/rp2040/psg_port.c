@@ -81,7 +81,7 @@ audio_cb(repeating_timer_t *t)
 }
 
 static void
-PSG_add_repeating_timer(void)
+psg_add_repeating_timer(void)
 {
   add_repeating_timer_us(-1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer);
 }
@@ -90,7 +90,6 @@ PSG_add_repeating_timer(void)
 
 volatile uint32_t g_tick_ms = 0;
 static repeating_timer_t tick_timer;
-static bool tick_timer_active = false;
 
 static inline void
 psg_process_packets(void)
@@ -113,17 +112,20 @@ tick_cb(repeating_timer_t *t)
   return true;
 }
 
+static alarm_pool_t *tick_alarm_pool = NULL;
+
 static void
-PSG_tick_init_core1(void)
+psg_tick_init_core1(void)
 {
   /* Core1 exclusive alarm_pool. clk_ref=12MHz */
-  static alarm_pool_t *pool = NULL;
-  if (!pool) pool = alarm_pool_create(2 /* hardware timer 2 */, 16 /* IRQ prio */);
-  if (!tick_timer_active) {
-    memset(&tick_timer, 0, sizeof(tick_timer));
-    /* 1 kHz = -1000 µs */
-    alarm_pool_add_repeating_timer_us(pool, -1000, tick_cb, NULL, &tick_timer);
-    tick_timer_active = true;
+  if (!tick_alarm_pool) {
+    tick_alarm_pool = alarm_pool_create(2 /* hardware timer 2 */, 16 /* IRQ prio */);
+    assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
+  }
+  memset(&tick_timer, 0, sizeof(tick_timer));
+  /* 1 kHz = -1000 µs */
+  if (!alarm_pool_add_repeating_timer_us(tick_alarm_pool, -1000, tick_cb, NULL, &tick_timer)) {
+    assert(false && "Failed to add repeating timer");
   }
 }
 
@@ -140,8 +142,8 @@ psg_core1_main(void)
   uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
   psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
   psg_drv->start();
-  PSG_add_repeating_timer(); /* 22.05 kHz */
-  PSG_tick_init_core1();
+  psg_add_repeating_timer(); /* 22.05 kHz */
+  psg_tick_init_core1();
   multicore_fifo_push_blocking(ACK_CORE1_READY);
   /* WFE? */
   for (;;) tight_loop_contents();
@@ -174,9 +176,17 @@ PSG_tick_stop_core1(void)
   }
   if (core1_alive) {
     // stop the repeating timer
-    //cancel_repeating_timer(&tick_timer);
-    //memset(&tick_timer, 0, sizeof(tick_timer));
-    cancel_repeating_timer(&audio_timer);
+    while (!cancel_repeating_timer(&tick_timer)) {
+      tight_loop_contents();
+    }
+    memset(&tick_timer, 0, sizeof(tick_timer));
+    if (tick_alarm_pool) {
+      alarm_pool_destroy(tick_alarm_pool);
+      tick_alarm_pool = NULL;
+    }
+    while (!cancel_repeating_timer(&audio_timer)) {
+      tight_loop_contents();
+    };
     memset(&audio_timer, 0, sizeof(audio_timer));
     multicore_reset_core1();
     core1_alive = false;
