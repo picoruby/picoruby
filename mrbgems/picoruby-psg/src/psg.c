@@ -65,6 +65,8 @@ typedef struct {
 typedef enum {
   PSG_TONE_TYPE_SQUARE = 0,  // square wave
   PSG_TONE_TYPE_TRIANGLE,    // triangle wave
+  PSG_TONE_TYPE_SAWTOOTH,    // sawtooth wave
+  PSG_TONE_TYPE_INVSAWTOOTH, // inverted sawtooth wave
 } psg_tone_type_t;
 
 typedef struct {
@@ -362,8 +364,7 @@ PSG_audio_cb(void)
       int32_t cent = (depth * tri) >> 15;                /* −depth..+depth */
       /* ln(2)/1200 ≒ 0.0005775  -> use 16.16 fixed ->> 38 */
       int32_t frac = (cent * 38) >> 8;                   /* ~= log2 factor */
-      uint32_t inc = psg.tone_inc[ch] +
-                     ((psg.tone_inc[ch] * frac) >> 16);  /* FM */
+      uint32_t inc = psg.tone_inc[ch] + ((psg.tone_inc[ch] * frac) >> 16);  /* FM */
       psg.tone_phase[ch] += inc;
     }
 
@@ -373,6 +374,14 @@ PSG_audio_cb(void)
         bool second = (psg.tone_phase[ch] & 0x80000000);
         uint32_t ramp = psg.tone_phase[ch] >> 20; // 32-12 = 20bit right shift
         tone_amp = second ? (4095 - ramp) : ramp;
+        break;
+      }
+      case PSG_TONE_TYPE_SAWTOOTH: {
+        tone_amp = psg.tone_phase[ch] >> 20;  // 0->4095
+        break;
+      }
+      case PSG_TONE_TYPE_INVSAWTOOTH: {
+        tone_amp = 4095 - (psg.tone_phase[ch] >> 20);  // 4095->0
         break;
       }
       default: // PSG_TONE_TYPE_SQUARE & fallback
@@ -700,6 +709,8 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_value tone_types = mrb_hash_new(mrb);
   mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(square)), mrb_fixnum_value(PSG_TONE_TYPE_SQUARE));
   mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(triangle)), mrb_fixnum_value(PSG_TONE_TYPE_TRIANGLE));
+  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(sawtooth)), mrb_fixnum_value(PSG_TONE_TYPE_SAWTOOTH));
+  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(invsawtooth)), mrb_fixnum_value(PSG_TONE_TYPE_INVSAWTOOTH));
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(TONE_TYPES), tone_types);
 
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
