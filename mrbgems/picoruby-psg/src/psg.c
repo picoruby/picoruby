@@ -98,7 +98,12 @@ typedef struct {
 } psg_t;
 
 static psg_t psg;
-static psg_ringbuf_t rb;
+
+static psg_ringbuf_t rb = {
+  .head = 0,
+  .tail = 0,
+  .buf = NULL,  // will be allocated later
+};
 
 static inline uint32_t
 calc_inc(uint16_t period)
@@ -443,8 +448,15 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
 }
 
 static void
-reset_psg(void)
+reset_psg(mrb_state *mrb)
 {
+  if (rb.buf) {
+    mrb_free(mrb, rb.buf);
+    rb.buf = NULL;
+  }
+  if (rb.buf == NULL) {
+    rb.buf = mrb_malloc(mrb, sizeof(psg_packet_t) * PSG_PACKET_QUEUE_LEN);
+  }
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
   psg.pan[0] = psg.pan[1] = psg.pan[2] = 8; // center pan
@@ -458,7 +470,7 @@ mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
   mrb_int left, right;
   mrb_get_args(mrb, "ii", &left, &right);
   mrb_warn(mrb, "PSG: PWM left=%d, right=%d\n", left, right);
-  reset_psg();
+  reset_psg(mrb);
   PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
   return mrb_nil_value();
 }
@@ -475,7 +487,7 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
   } else {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid DAC number: %d (1 or 2 expected)", dac);
   }
-  reset_psg();
+  reset_psg(mrb);
   PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
   return mrb_nil_value();
 }
