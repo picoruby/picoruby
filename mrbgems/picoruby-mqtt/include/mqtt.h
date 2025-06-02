@@ -40,6 +40,9 @@ typedef struct {
   uint16_t packet_size;
   bool packet_available;
   bool packet_mutex;
+  
+  // Callback state tracking
+  bool in_callback;  // Tracks if we're currently in a callback context
 } mqtt_client_t;
 
 #ifdef __cplusplus
