@@ -492,6 +492,14 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
   return mrb_nil_value();
 }
 
+//static mrb_value
+//mrb_driver_s_select_usbaudio(mrb_state *mrb, mrb_value klass)
+//{
+//  reset_psg(mrb);
+//  PSG_tick_start_core1(0, 0, 0, 0);
+//  return mrb_nil_value();
+//}
+
 static mrb_value
 mrb_driver_stop(mrb_state *mrb, mrb_value self)
 {
@@ -727,6 +735,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
+//  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_envelope), mrb_driver_set_envelope, MRB_ARGS_REQ(3));

@@ -109,6 +109,9 @@ tick_cb(repeating_timer_t *t)
   g_tick_ms++;
   psg_process_packets();
   PSG_tick_1ms();   /* update internal LFO etc. */
+//  if (psg_drv == &psg_drv_usbaudio) {
+//    audio_task();
+//  }
   return true;
 }
 
