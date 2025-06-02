@@ -100,6 +100,8 @@ extern const psg_output_api_t *psg_drv;
 extern const psg_output_api_t psg_drv_pwm;
 extern const psg_output_api_t psg_drv_mcp4921;
 extern const psg_output_api_t psg_drv_mcp4922;
+//extern const psg_output_api_t psg_drv_usbaudio;
+//void audio_task(void); // For USB audio
 
 #ifdef __cplusplus
 }
