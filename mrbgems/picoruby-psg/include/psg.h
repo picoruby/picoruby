@@ -51,7 +51,7 @@ typedef struct __attribute__((packed, aligned(4))) {
 typedef struct {
   volatile uint16_t head;  // writer cursor (next free)
   volatile uint16_t tail;  // reader cursor (next valid)
-  psg_packet_t buf[PSG_PACKET_QUEUE_LEN];
+  psg_packet_t *buf;
 } psg_ringbuf_t;
 
 
