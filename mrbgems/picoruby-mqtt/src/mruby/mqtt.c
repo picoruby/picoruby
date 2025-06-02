@@ -102,12 +102,20 @@ mrb_mqtt_pop_packet_impl(mrb_state *mrb, mrb_value self)
   uint16_t size;
 
   if (MQTT_pop_event(&data, &size)) {
+    // Now we're in the main loop context, safe to execute Ruby code
     mrb_value packet = mrb_str_new(mrb, (const char *)data, size);
     picorb_free(mrb, data);
     return packet;
   }
 
   return mrb_nil_value();
+}
+
+// Helper function to check if we're in a callback context
+static bool
+is_in_mqtt_callback(void)
+{
+  return g_mqtt_client && g_mqtt_client->in_callback;
 }
 
 static mrb_value

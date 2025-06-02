@@ -22,6 +22,7 @@ MQTT_push_event(uint8_t *data, uint16_t size)
   memcpy(g_mqtt_client->packet_buffer, data, size);
   g_mqtt_client->packet_size = size;
   g_mqtt_client->packet_available = true;
+  g_mqtt_client->in_callback = true;  // Mark that we're in callback context
 
   g_mqtt_client->packet_mutex = false;
 }
@@ -37,6 +38,7 @@ MQTT_pop_event(uint8_t **data, uint16_t *size)
 
   g_mqtt_client->packet_buffer = NULL;
   g_mqtt_client->packet_available = false;
+  g_mqtt_client->in_callback = false;  // Clear callback context flag
 
   g_mqtt_client->packet_mutex = false;
   return true;
@@ -197,7 +199,14 @@ mqtt_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
   }
 
   if (pbuf != NULL) {
+    // Safely allocate and copy data in LwIP context
     char *tmpbuf = picorb_alloc(client->vm, pbuf->tot_len + 1);
+    if (!tmpbuf) {
+      altcp_recved(pcb, pbuf->tot_len);
+      pbuf_free(pbuf);
+      return ERR_MEM;
+    }
+
     struct pbuf *current_pbuf = pbuf;
     int offset = 0;
 
@@ -216,6 +225,12 @@ mqtt_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
     uint8_t digit;
 
     do {
+      if (pos >= pbuf->tot_len) {
+        picorb_free(client->vm, tmpbuf);
+        altcp_recved(pcb, pbuf->tot_len);
+        pbuf_free(pbuf);
+        return ERR_VAL;
+      }
       digit = tmpbuf[pos++];
       remaining_length += (digit & 127) * multiplier;
       multiplier *= 128;
@@ -223,20 +238,21 @@ mqtt_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 
     switch (packet_type) {
       case MQTT_CONNACK:
-        if (tmpbuf[pos + 1] == 0) {
+        if (pos + 1 < pbuf->tot_len && tmpbuf[pos + 1] == 0) {
           client->state = MQTT_STATE_CONNECTED;
         }
         break;
 
       case MQTT_PUBLISH:
         {
+          // Only buffer the data, processing will happen in main loop
           MQTT_push_event((uint8_t *)tmpbuf, pbuf->tot_len);
         }
         break;
 
       case MQTT_PUBACK:
         {
-          if (remaining_length >= 2) {
+          if (remaining_length >= 2 && pos + 1 < pbuf->tot_len) {
             uint16_t packet_id = (tmpbuf[pos] << 8) | tmpbuf[pos + 1];
             (void)packet_id;
           }
@@ -245,7 +261,7 @@ mqtt_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 
       case MQTT_SUBACK:
         {
-          if (remaining_length >= 3) {
+          if (remaining_length >= 3 && pos + 2 < pbuf->tot_len) {
             uint16_t packet_id = (tmpbuf[pos] << 8) | tmpbuf[pos + 1];
             uint8_t return_code = tmpbuf[pos + 2];
             (void)packet_id;
@@ -326,6 +342,7 @@ MQTT_connect(picorb_state *vm, const char *host, int port, const char *client_id
   g_mqtt_client->packet_size = 0;
   g_mqtt_client->packet_available = false;
   g_mqtt_client->packet_mutex = false;
+  g_mqtt_client->in_callback = false;
 
   g_mqtt_client->pcb = altcp_new(NULL);
   if (!g_mqtt_client->pcb) {

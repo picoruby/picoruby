@@ -37,8 +37,17 @@ class MQTTClient
       result = _parse_packet_impl(packet)
       if result
         topic, payload = result
+        # Now we're in the main loop context, safe to execute callback
         @message_callback&.call(topic, payload) if @message_callback
       end
+    end
+  end
+
+  def wait_for_messages
+    puts "Waiting for messages... (Press reset button to stop)"
+    loop do
+      process_messages  # Process messages in main loop context
+      sleep_ms(100)
     end
   end
 
@@ -56,11 +65,4 @@ class MQTTClient
     end
   end
 
-  def wait_for_messages
-    puts "Waiting for messages... (Press reset button to stop)"
-    loop do
-      process_messages
-      sleep_ms(100)
-    end
-  end
 end
