@@ -54,6 +54,7 @@ puts "Total duration: #{total_ms} ms"
 | `pN`            | Pan: 0 = left, 8 = center, 15 = right                           |
 | `vN`            | Volume: 0–15                                                    |
 | `sX,Y`          | Envelope: shape `X` (0–15), period `Y` in milliseconds          |
+| `zN`            | Noise: `z0` = Tone, `z1` = Noise, `z2` = Tone\|Noise            |
 | `k+N` / `k-N`   | Transpose up or down `N` semitones                              |
 | `mD,R`          | Vibrato (LFO): depth `D` (halftones), rate `R` (in 0.1Hz units) |
 | `.`             | Dotted note. Adds 1/2 length (`l4.` = 1.5×, `l4..` = 1.75×)     |

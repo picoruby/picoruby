@@ -13,9 +13,11 @@ class MML
   @mod_depth: Integer | nil
   @mod_rate: Integer | nil
 
+  type command_t = :note | :volume | :envelope | :lfo | :pan | :tone_type | :noise
+
   def initialize: () -> void
-  def compile_multi: (Hash[Integer, String] tracks) { (Integer delta, Integer channel, *(Symbol | Integer) args) -> untyped } -> Integer
-  def compile: (String track) { (Float pitch, Integer duration, ?Integer pan, ?Integer volume, ?(Integer | nil) env_shape, ?(Integer | nil) env_period, ?(Integer | nil) mod_depth, ?(Integer | nil) mod_rate) -> untyped } -> Integer
+  def compile: (String track) { (command_t command, Integer arg1, ?Integer arg2) -> untyped } -> Integer
+  def compile_multi: (Hash[Integer, String] tracks) { (Integer delta, Integer channel, command_t command, Integer arg1, ?Integer arg2) -> untyped } -> Integer
   private def number_str: (String str, Integer i) -> [String, Integer]
   private def count_punto: (String str, Integer i) -> [Integer, Integer]
   private def coef: (Integer punti) -> Float
