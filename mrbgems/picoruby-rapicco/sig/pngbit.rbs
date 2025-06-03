@@ -1,0 +1,4 @@
+module PNGBIT
+  MAGIC: String
+  def self.show: (String filename) -> void
+end
