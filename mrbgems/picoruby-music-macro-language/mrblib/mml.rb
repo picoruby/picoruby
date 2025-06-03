@@ -7,13 +7,13 @@ class MML
     @tempo = 120
     @common_duration = (DURATION_BASE / @tempo / 4).to_i
     @q = 8   # # gate-time 1..8
-    @pan = 8 # (0=L)..(8=center)..(15=R)
+    #@pan = 8 # (0=L)..(8=center)..(15=R)
     @volume = 15      # 0..15
-    @env_shape = nil  # 0..15
-    @env_period = nil # ms
+    #@env_shape = nil  # 0..15
+    #@env_period = nil # ms
     @transpose = 0    # in half-tone
-    @mod_depth = nil  # in half-tone
-    @mod_rate  = nil  # in 0.1Hz
+    #@mod_depth = nil  # in half-tone
+    #@mod_rate  = nil  # in 0.1Hz
     @chip_clock = 2_000_000
   end
 
