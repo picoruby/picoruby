@@ -63,11 +63,11 @@ typedef struct {
 } psg_regs_t;
 
 typedef enum {
-  PSG_TONE_TYPE_SQUARE = 0,  // square wave
-  PSG_TONE_TYPE_TRIANGLE,    // triangle wave
-  PSG_TONE_TYPE_SAWTOOTH,    // sawtooth wave
-  PSG_TONE_TYPE_INVSAWTOOTH, // inverted sawtooth wave
-} psg_tone_type_t;
+  PSG_TIMBRE_SQUARE = 0,  // square wave
+  PSG_TIMBRE_TRIANGLE,    // triangle wave
+  PSG_TIMBRE_SAWTOOTH,    // sawtooth wave
+  PSG_TIMBRE_INVSAWTOOTH, // inverted sawtooth wave
+} psg_timbre_t;
 
 typedef struct {
   psg_regs_t r;
@@ -94,7 +94,7 @@ typedef struct {
   // pan
   uint8_t pan[3];   // 0 = L-only,  8 = center, 15 = R-only
   // tone type
-  psg_tone_type_t tone_type[3];
+  psg_timbre_t timbre[3];
 } psg_t;
 
 static psg_t psg;
@@ -220,11 +220,11 @@ PSG_process_packet(const psg_packet_t *pkt)
       PSG_exit_critical(t);
       break;
     }
-    case PSG_PKT_TONE_TYPE_SET: {
+    case PSG_PKT_TIMBRE_SET: {
       uint8_t ch = pkt->reg & 0x03;
       uint8_t type = pkt->val; // 0=square, 1=triangle
       psg_cs_token_t t = PSG_enter_critical();
-      psg.tone_type[ch] = (psg_tone_type_t)type;
+      psg.timbre[ch] = (psg_timbre_t)type;
       PSG_exit_critical(t);
       break;
     }
@@ -374,22 +374,22 @@ PSG_audio_cb(void)
     }
 
     uint32_t tone_amp;
-    switch (psg.tone_type[ch]) {
-      case PSG_TONE_TYPE_TRIANGLE: {
+    switch (psg.timbre[ch]) {
+      case PSG_TIMBRE_TRIANGLE: {
         bool second = (psg.tone_phase[ch] & 0x80000000);
         uint32_t ramp = psg.tone_phase[ch] >> 20; // 32-12 = 20bit right shift
         tone_amp = second ? (4095 - ramp) : ramp;
         break;
       }
-      case PSG_TONE_TYPE_SAWTOOTH: {
+      case PSG_TIMBRE_SAWTOOTH: {
         tone_amp = psg.tone_phase[ch] >> 20;  // 0->4095
         break;
       }
-      case PSG_TONE_TYPE_INVSAWTOOTH: {
+      case PSG_TIMBRE_INVSAWTOOTH: {
         tone_amp = 4095 - (psg.tone_phase[ch] >> 20);  // 4095->0
         break;
       }
-      default: // PSG_TONE_TYPE_SQUARE & fallback
+      default: // PSG_TIMBRE_SQUARE & fallback
         tone_amp = (psg.tone_phase[ch] >> 31) ? 4095 : 0;
         break;
     }
@@ -568,18 +568,18 @@ mrb_driver_set_pan(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_driver_set_tone_type(mrb_state *mrb, mrb_value self)
+mrb_driver_set_timbre(mrb_state *mrb, mrb_value self)
 {
-  mrb_int ch, tone_type;
-  mrb_get_args(mrb, "ii", &ch, &tone_type);
+  mrb_int ch, timbre;
+  mrb_get_args(mrb, "ii", &ch, &timbre);
   if (ch < 0 || 2 < ch) {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid channel: %d (0-2 expected)", ch);
   }
   psg_packet_t p = {
     .tick = g_tick_ms,        /* immediate */
-    .op   = PSG_PKT_TONE_TYPE_SET,
+    .op   = PSG_PKT_TIMBRE_SET,
     .reg  = (uint8_t)ch,
-    .val  = (uint8_t)tone_type
+    .val  = (uint8_t)timbre
   };
   PSG_rb_push(&p);
   return mrb_nil_value();
@@ -726,12 +726,12 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_fixnum_value(SAMPLE_RATE));
 
-  mrb_value tone_types = mrb_hash_new(mrb);
-  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(square)), mrb_fixnum_value(PSG_TONE_TYPE_SQUARE));
-  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(triangle)), mrb_fixnum_value(PSG_TONE_TYPE_TRIANGLE));
-  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(sawtooth)), mrb_fixnum_value(PSG_TONE_TYPE_SAWTOOTH));
-  mrb_hash_set(mrb, tone_types, mrb_symbol_value(MRB_SYM(invsawtooth)), mrb_fixnum_value(PSG_TONE_TYPE_INVSAWTOOTH));
-  mrb_define_const_id(mrb, class_Driver, MRB_SYM(TONE_TYPES), tone_types);
+  mrb_value timbres = mrb_hash_new(mrb);
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(square)), mrb_fixnum_value(PSG_TIMBRE_SQUARE));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(triangle)), mrb_fixnum_value(PSG_TIMBRE_TRIANGLE));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(sawtooth)), mrb_fixnum_value(PSG_TIMBRE_SAWTOOTH));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(invsawtooth)), mrb_fixnum_value(PSG_TIMBRE_INVSAWTOOTH));
+  mrb_define_const_id(mrb, class_Driver, MRB_SYM(TIMBRES), timbres);
 
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
@@ -741,7 +741,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_envelope), mrb_driver_set_envelope, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_tone_type), mrb_driver_set_tone_type, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(tick_ms), mrb_driver_tick_ms, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(play_noise), mrb_driver_play_noise, MRB_ARGS_ARG(4, 1));
