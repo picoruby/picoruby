@@ -13,7 +13,7 @@ class MML
   @mod_depth: Integer | nil
   @mod_rate: Integer | nil
 
-  type command_t = :note | :volume | :envelope | :lfo | :pan | :tone_type | :noise
+  type command_t = :note | :volume | :envelope | :lfo | :pan | :timbre | :noise
 
   def initialize: () -> void
   def compile: (String track) { (command_t command, Integer arg1, ?Integer arg2) -> untyped } -> Integer

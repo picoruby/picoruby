@@ -27,7 +27,7 @@ typedef enum {
   PSG_PKT_LFO_SET       = 1,  // ch, depth, rate
   PSG_PKT_CH_MUTE       = 2,  // ch, 0/1
   PSG_PKT_PAN_SET       = 3,  // ch, bal(0-15)
-  PSG_PKT_TONE_TYPE_SET = 4   // ch, tone_type
+  PSG_PKT_TIMBRE_SET    = 4   // ch, timbre
 } psg_opcode_t;
 
 /* ----- packet layout -------------------------------------------------- */

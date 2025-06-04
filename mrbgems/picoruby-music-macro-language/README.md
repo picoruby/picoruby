@@ -55,6 +55,7 @@ puts "Total duration: #{total_ms} ms"
 | `vN`            | Volume: 0–15                                                    |
 | `sX,Y`          | Envelope: shape `X` (0–15), period `Y` in milliseconds          |
 | `zN`            | Noise: `z0` = Tone, `z1` = Noise, `z2` = Tone\|Noise            |
+| `iN`            | Timbre: `i0` = Square, `i1` = Triangle, `i2` = Sawtooth, `i3` = Inverse sawtooth |
 | `k+N` / `k-N`   | Transpose up or down `N` semitones                              |
 | `mD,R`          | Vibrato (LFO): depth `D` (halftones), rate `R` (in 0.1Hz units) |
 | `.`             | Dotted note. Adds 1/2 length (`l4.` = 1.5×, `l4..` = 1.75×)     |
