@@ -26,8 +26,6 @@ total_ms = mml.compile_multi(tracks) do |dt, ch, *args|
   case args[0]
   when :lfo
     driver.set_lfo(ch, args[1], args[2])
-  when :lfo_off
-    driver.set_lfo(ch, 0, 0)
   when :env
     driver.set_envelope(ch, args[1], args[2])
   else
@@ -49,8 +47,8 @@ puts "Total duration: #{total_ms} ms"
 | `oN`            | Octave number (`o4` = 4th octave)                               |
 | `lN`            | Default note length (`l4` = quarter note, `l8` = eighth note)   |
 | `qN`            | Gate time (1–8). `q8` = full length, `q4` = 50%                 |
-| `>`             | Decrease octave by 1                                            |
-| `<`             | Increase octave by 1                                            |
+| `<`             | Decrease octave by 1                                            |
+| `>`             | Increase octave by 1                                            |
 | `pN`            | Pan: 0 = left, 8 = center, 15 = right                           |
 | `vN`            | Volume: 0–15                                                    |
 | `sX,Y`          | Envelope: shape `X` (0–15), period `Y` in milliseconds          |
@@ -81,7 +79,6 @@ yield(delta_ms, channel, pitch, duration_ms, pan, volume, env_shape, env_period,
 Additionally, control events are emitted when state changes occur:
 
 - `[:lfo, depth, rate]` : Vibrato (LFO) settings updated
-- `[:lfo_off]` : LFO disabled
 - `[:env, shape, period]` : Envelope settings updated
 
 Use the delta_ms value to determine when to trigger each event.
