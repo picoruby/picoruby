@@ -24,7 +24,7 @@ c4 = notes[:C4]
 e4 = notes[:E4]
 g4 = notes[:G4]
 4.times do |i|
-  driver.set_tone_type(0, i)
+  driver.set_timbre(0, i)
   p driver.send_reg(0, c4 & 0xFF)
   p driver.send_reg(1, (c4 >> 8) & 0x0F)
   sleep_ms 500
