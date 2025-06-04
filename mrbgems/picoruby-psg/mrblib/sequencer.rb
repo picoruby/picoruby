@@ -23,13 +23,13 @@ module PSG
     end
 
     def start
-      @start_ms = @driver.millis        # exported from C side
+      @start_ms = @driver.tick_ms        # exported from C side
     end
 
     def service
       return if @start_ms.nil?
       # @type ivar @start_ms: Integer
-      now_tick = (@driver.millis - @start_ms)
+      now_tick = (@driver.tick_ms - @start_ms)
       while (e = @events[@index]) && (e[:tick] - now_tick) < BUF_MARGIN
         case e[:op]
         when :reg
