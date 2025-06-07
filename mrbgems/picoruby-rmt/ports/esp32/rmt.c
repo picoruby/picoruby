@@ -22,21 +22,21 @@ encoder_callback(const void *data, size_t data_size,
 
   const rmt_symbol_word_t symbol_zero = {
     .level0 = 1,
-    .duration0 = (uint16_t)((float)rmt_symbol_dulation.t0h_ns * RMT_RESOLUTION_HZ / 1000000000),
+    .duration0 = (uint16_t)(((uint64_t)rmt_symbol_dulation.t0h_ns * RMT_RESOLUTION_HZ) / 1000000000),
     .level1 = 0,
-    .duration1 = (uint16_t)((float)rmt_symbol_dulation.t0l_ns * RMT_RESOLUTION_HZ / 1000000000),
+    .duration1 = (uint16_t)(((uint64_t)rmt_symbol_dulation.t0l_ns * RMT_RESOLUTION_HZ) / 1000000000),
   };
   const rmt_symbol_word_t symbol_one = {
     .level0 = 1,
-    .duration0 = (uint16_t)((float)rmt_symbol_dulation.t1h_ns * RMT_RESOLUTION_HZ / 1000000000),
+    .duration0 = (uint16_t)(((uint64_t)rmt_symbol_dulation.t1h_ns * RMT_RESOLUTION_HZ) / 1000000000),
     .level1 = 0,
-    .duration1 = (uint16_t)((float)rmt_symbol_dulation.t1l_ns * RMT_RESOLUTION_HZ / 1000000000),
+    .duration1 = (uint16_t)(((uint64_t)rmt_symbol_dulation.t1l_ns * RMT_RESOLUTION_HZ) / 1000000000),
   };
   const rmt_symbol_word_t symbol_reset = {
     .level0 = 0,
-    .duration0 = (uint16_t)((float)rmt_symbol_dulation.reset_ns * RMT_RESOLUTION_HZ / 1000000000),
+    .duration0 = (uint16_t)(((uint64_t)rmt_symbol_dulation.reset_ns * RMT_RESOLUTION_HZ) / 1000000000),
     .level1 = 0,
-    .duration1 = (uint16_t)((float)rmt_symbol_dulation.reset_ns * RMT_RESOLUTION_HZ / 1000000000),
+    .duration1 = (uint16_t)(((uint64_t)rmt_symbol_dulation.reset_ns * RMT_RESOLUTION_HZ) / 1000000000),
   };
 
   size_t data_pos = symbols_written / 8;
