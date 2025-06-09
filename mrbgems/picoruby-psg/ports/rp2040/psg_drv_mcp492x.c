@@ -57,12 +57,14 @@ psg_mcp492x_stop(void)
 static inline void
 psg_mcp4922_write(uint16_t l, uint16_t r)
 {
-  uint16_t data[2];
-  data[0] = 0x3000 | (l & 0x0FFF);  // Channel A
-  data[1] = 0xB000 | (r & 0x0FFF);  // Channel B
+  uint16_t data_l = 0x3000 | (l & 0x0FFF);  // Channel A
+  uint16_t data_r = 0xB000 | (r & 0x0FFF);  // Channel B
   gpio_put(ldac_pin, 1); // set LDAC high to prepare for transfer
   gpio_put(cs_pin, 0);   // set CS low to start transfer
-  spi_write16_blocking(spi_unit, data, 2); // write stereo values
+  spi_write16_blocking(spi_unit, &data_l, 1); // write left channel
+  gpio_put(cs_pin, 1);   // set CS high to end transfer
+  gpio_put(cs_pin, 0);   // set CS low to start transfer
+  spi_write16_blocking(spi_unit, &data_r, 1); // write right channel
   gpio_put(cs_pin, 1);   // set CS high to end transfer
   gpio_put(ldac_pin, 0); // set LDAC low to latch value
 }
