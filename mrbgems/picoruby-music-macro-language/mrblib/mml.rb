@@ -3,22 +3,17 @@ class MML # Music Macro Language
   DURATION_BASE = (1000 * 60 * 4).to_f
   NOTES = { a: 0, b: 2, c: 3, d: 5, e: 7, f: 8, g: 10 }
 
-  def initialize
-    @octave = 4
-    @tempo = 120
-    @q = 8   # # gate-time 1..8
-    @volume = 8      # 0..15
-    @transpose = 0    # in half-tone
-    update_common_duration(4)
-  end
-
-  def compile_multi(tracks)
+  def self.compile_multi(tracks)
+    parsers = {}
+    tracks.each do |ch, _track|
+      parsers[ch] = MML.new
+    end
     events   = []                                 # [start, ch, ...payload]
     total_ms = 0
 
     tracks.each do |ch, src|
       cursor = 0                                  # Time in the channel
-      compile(src) do |command, *args|
+      parsers[ch].compile(src) do |command, *args|
         events << [cursor, ch, command, *args]
         cursor += args[1].to_i if command == :play || command == :rest
       end
@@ -44,6 +39,17 @@ class MML # Music Macro Language
 
     total_ms
   end
+
+  def initialize
+    @octave = 4
+    @tempo = 120
+    @q = 8   # # gate-time 1..8
+    @volume = 8      # 0..15
+    @transpose = 0    # in half-tone
+    @detune = 0 # 0=no detune, 128=one octave down
+    update_common_duration(4)
+  end
+
   def compile(str)
     str = str.downcase
     str = expand_loops(str)
@@ -58,23 +64,35 @@ class MML # Music Macro Language
         @octave += 1
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
         pitch, pos = get_pitch(c, str[pos + 1], pos)
-        length = case str[pos + 1]
-                 when "1".."9", "."
-                   fraction_str, pos = number_str(str, pos)
-                   punti, pos = count_punto(str, pos)
-                   if !fraction_str.empty?
-                     (DURATION_BASE / @tempo / (fraction_str.to_i * coef(punti)) + 0.5).to_i
-                   else
-                     (@common_duration * coef(punti) + 0.5).to_i
-                   end
-                 else
-                   @common_duration
-                 end
+        case str[pos + 1]
+        when "1".."9", "."
+          fraction_str, pos = number_str(str, pos - 1)
+          punti, pos = count_punto(str, pos)
+          if !fraction_str.empty?
+            length = (DURATION_BASE / @tempo / fraction_str.to_i * coef(punti) + 0.5).to_i
+          else
+            length = (@common_duration * coef(punti) + 0.5).to_i
+          end
+        else
+          length = @common_duration
+        end
       when 105 # 'i' # Timbre
         pos += 1
         timbre = str[pos].to_i
         yield(:timbre, timbre)
-      when 107 # 'k' # Tanpose (Key)
+      when 106 # 'j' # LFO (Modulation)
+        depth_str, pos = number_str(str, pos)
+        unless depth_str.empty?
+          mod_depth = depth_str.to_i * 100
+          mod_rate  = nil
+          if str[pos + 1] == ","
+            pos += 1
+            rate_str, pos = number_str(str, pos)
+            mod_rate = rate_str.to_i unless rate_str.empty?
+          end
+          yield(:lfo, mod_depth, mod_rate || 0)
+        end
+      when 107 # 'k' # Transpose (Key)
         sign = str[pos + 1]
         if sign == "+" || sign == "-"
           num_str, pos = number_str(str, pos + 1)
@@ -88,18 +106,6 @@ class MML # Music Macro Language
           punti, pos = count_punto(str, pos)
           update_common_duration(fraction * coef(punti))
         end
-      when 109 # 'm' # LFO (Modulation)
-        depth_str, pos = number_str(str, pos)
-        unless depth_str.empty?
-          mod_depth = depth_str.to_i * 100
-          mod_rate  = nil
-          if str[pos + 1] == ","
-            pos += 1
-            rate_str, pos = number_str(str, pos)
-            mod_rate = rate_str.to_i unless rate_str.empty?
-          end
-          yield(:lfo, mod_depth, mod_rate || 0)
-        end
       when 111 # 'o' # Octave
         pos += 1
         @octave = str[pos].to_i
@@ -112,18 +118,13 @@ class MML # Music Macro Language
         pos += 1
         @q = str[pos].to_i
         @q = 8 if @q < 1 || 8 < @q
-      when 115 # 's' # Envelope
+      when 115 # 's' # Envelope spape
         shape_str, pos = number_str(str, pos)
-        unless shape_str.empty?
-          env_shape = shape_str.to_i & 0x0F
-          env_period = nil
-          if str[pos + 1] == ","
-            pos += 1
-            period_str, pos = number_str(str, pos)
-            env_period = period_str.to_i unless period_str.empty?
-          end
-          yield(:envelope, env_shape, env_period || 0)
-        end
+        yield(:volume, 16) # Use envelope instead of volume
+        yield(:env_shape, shape_str.to_i & 0x0F)
+      when 109 # 'm' # Envelope period
+        period_str, pos = number_str(str, pos)
+        yield(:env_period, period_str.to_i & 0xFFFF)
       when 116 # 't' # Tempo
         tempo_str, pos = number_str(str, pos)
         @tempo = tempo_str.to_i unless tempo_str.empty?
@@ -133,11 +134,19 @@ class MML # Music Macro Language
         n      = num.empty? ? 15 : num.to_i
         @volume = [[n, 0].max, 15].min
         yield(:volume, @volume)
-      when 122 # 'z' # Noise
+      when 120 # 'x' # Mixer
         pos += 1
-        noise = str[pos].to_i
-        yield(:noise, noise)
+        yield(:mixer, str[pos].to_i)
+      when 121 # 'y' # Noise period
+        pos += 1
+        yield(:noise, str[pos].to_i)
+      when 122 # 'z' # Detune
+        num, pos = number_str(str, pos)
+        @detune = num.to_i
+      else
+        raise "Invalid character: #{c} (#{c.ord}) at position #{pos}"
       end
+
       pos += 1
 
       next if pitch.nil? || length.nil?
@@ -151,6 +160,7 @@ class MML # Music Macro Language
       yield(:rest, 0,     release) if 0 < release
       total_duration += length
     end
+    yield(:mute, 1)
     total_duration
   end
 
@@ -179,7 +189,8 @@ class MML # Music Macro Language
     end
     pitch = 6.875 * (2<<(@octave + octave_fix)) * 2 ** (val / 12.0)
     pitch *= 2 ** (@transpose / 12.0) if @transpose != 0
-    return [pitch, pos + 1]
+    pitch /= (2 ** (@detune / 128.0)) if @detune != 0
+    return [pitch, pos]
   end
 
   def number_str(str, pos)
