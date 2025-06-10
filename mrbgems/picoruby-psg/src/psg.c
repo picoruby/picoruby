@@ -377,8 +377,8 @@ PSG_audio_cb(void)
     switch (psg.timbre[ch]) {
       case PSG_TIMBRE_TRIANGLE: {
         bool second = (psg.tone_phase[ch] & 0x80000000);
-        uint32_t ramp = psg.tone_phase[ch] >> 20; // 32-12 = 20bit right shift
-        tone_amp = second ? (4095 - ramp) : ramp;
+        uint32_t ramp = psg.tone_phase[ch] >> 20;
+        tone_amp = second ? (4095 - ramp) * 2 : ramp * 2; // 0->4095->0
         break;
       }
       case PSG_TIMBRE_SAWTOOTH: {
