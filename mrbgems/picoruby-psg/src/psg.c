@@ -138,13 +138,13 @@ PSG_write_reg(uint8_t reg, uint8_t val)
     case 3:   /* ch B MSB */
       psg.r.tone_period[1] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[1] |= reg & 1 ? ((val & 0x0F) << 8) : val;
-      update_tone_inc(1);
+      if (reg == 3) update_tone_inc(1);
       break;
     case 4:   /* ch C LSB */
     case 5:   /* ch C MSB */
       psg.r.tone_period[2] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[2] |= reg & 1 ? ((val & 0x0F) << 8) : val;
-      update_tone_inc(2);
+      if (reg == 5) update_tone_inc(2);
       break;
     /* ---- Noise ---- */
     case 6:
