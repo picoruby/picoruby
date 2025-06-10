@@ -92,7 +92,7 @@ typedef struct {
   // Mute
   uint8_t  mute_mask;      /* bit0=A bit1=B bit2=C */
   // pan
-  uint8_t pan[3];   // 0 = L-only,  8 = center, 15 = R-only
+  uint8_t pan[3];
   // tone type
   psg_timbre_t timbre[3];
 } psg_t;
@@ -282,6 +282,16 @@ static const uint16_t vol_tab[16] = {
   4095   //   0.0 (full)
 };
 
+// Pan table: 1 = L-only,  8 = center, 15 = R-only. 0 should not be used.
+static const uint16_t pan_tab_l[16] = {
+  // 0,    1,    2,    3,    4,    5,    6,    7,    8,    9,   10,   11,   12,   13,   14,   15
+  4095, 4095, 4069, 3992, 3865, 3689, 3467, 3201, 2895, 2553, 2178, 1776, 1352,  911,  458,    0
+};
+static const uint16_t pan_tab_r[16] = {
+  // 0,    1,    2,    3,    4,    5,    6,    7,    8,    9,   10,   11,   12,   13,   14,   15
+     0,    0,  458,  911, 1352, 1776, 2178, 2553, 2895, 3201, 3467, 3689, 3865, 3992, 4069, 4095
+};
+
 static inline void
 env_tick(void)
 {
@@ -410,13 +420,13 @@ PSG_audio_cb(void)
     if (vol & 0x10) vol = psg.env_level;
     vol &= 0x0F;
 
-    uint32_t gain = vol_tab[vol];  // 0–4095
+    uint32_t gain = vol_tab[vol];  // 0..4095
     uint32_t amp = (active_amp * gain) >> 12;
 
     // pan
-    uint8_t bal = psg.pan[ch];          // 0..15
-    mix_l += (amp * (15 - bal)) >> 4;   // *(15 - bal) / 16
-    mix_r += (amp * bal)        >> 4;   // *bal / 16
+    uint8_t bal = psg.pan[ch];          // 1..15
+    mix_l += (amp * pan_tab_l[bal]) >> 12; // 0..4095
+    mix_r += (amp * pan_tab_r[bal]) >> 12; // 0..4095
   }
   if (mix_l > MAX_SAMPLE_WIDTH) mix_l = MAX_SAMPLE_WIDTH;
   if (mix_r > MAX_SAMPLE_WIDTH) mix_r = MAX_SAMPLE_WIDTH;
