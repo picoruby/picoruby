@@ -542,30 +542,6 @@ mrb_driver_stop(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
-/* Set envelope shape and period (R11–13) */
-static mrb_value
-mrb_driver_set_envelope(mrb_state *mrb, mrb_value self)
-{
-  mrb_int ch, shape, period;
-  mrb_get_args(mrb, "iii", &ch, &shape, &period);
-
-  (void)ch; // AY chip does not support channel selection
-
-  // R11 (period LSB), R12 (MSB), R13 (shape)
-  uint32_t now = g_tick_ms;
-  PSG_rb_push(&(psg_packet_t){
-    .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 11, .val = (uint8_t)(period & 0xFF)
-  });
-  PSG_rb_push(&(psg_packet_t){
-    .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 12, .val = (uint8_t)(period >> 8)
-  });
-  PSG_rb_push(&(psg_packet_t){
-    .tick = now, .op = PSG_PKT_REG_WRITE, .reg = 13, .val = (uint8_t)(shape & 0x0F)
-  });
-
-  return mrb_nil_value();
-}
-
 /* Set LFO: ch, depth(cent), rate(0.1Hz) */
 static mrb_value
 mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
@@ -579,8 +555,7 @@ mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
     .val  = (uint8_t)depth,
     .arg  = (uint8_t)rate,
   };
-  PSG_rb_push(&p);
-  return mrb_nil_value();
+  return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
 /* Set PAN */
@@ -598,8 +573,7 @@ mrb_driver_set_pan(mrb_state *mrb, mrb_value self)
     .reg  = (uint8_t)ch,
     .val  = (uint8_t)pan,
   };
-  PSG_rb_push(&p);
-  return mrb_nil_value();
+  return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
 static mrb_value
@@ -616,8 +590,7 @@ mrb_driver_set_timbre(mrb_state *mrb, mrb_value self)
     .reg  = (uint8_t)ch,
     .val  = (uint8_t)timbre
   };
-  PSG_rb_push(&p);
-  return mrb_nil_value();
+  return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
 /* Mute on/off */
@@ -632,8 +605,7 @@ mrb_driver_mute(mrb_state *mrb, mrb_value self)
     .reg  = (uint8_t)ch,
     .val  = (uint8_t)flag,
   };
-  PSG_rb_push(&p);
-  return mrb_nil_value();
+  return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
 static mrb_value
@@ -773,7 +745,6 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_envelope), mrb_driver_set_envelope, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_REQ(2));

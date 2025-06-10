@@ -23,47 +23,77 @@ module PSG
       else
         raise ArgumentError, "Unsupported driver type: #{type}"
       end
-
-      @psg_mixer = 0b11111111 # All channels are enabled by default
     end
 
-    def play_note(ch, pitch, dur, pan, vol, es, ep)
-      if pitch == 0
-        send_reg(8 + ch, 0)
-        return
+    WAIT_MS = 10 # ms
+
+    def play_mml(tracks)
+      mixer = 0b111000 # Noise all off, Tone all on
+      chip_clock = PSG::Driver::CHIP_CLOCK
+      MML.compile_multi(tracks) do |delta, ch, command, *args|
+        case command
+        when :mute
+          invoke :mute, ch, args[0]
+        when :play
+          tone_period = (chip_clock / (32 * args[0])).to_i
+          invoke :send_reg, ch * 2, tone_period
+          invoke :send_reg, ch * 2 + 1, tone_period, delta
+        when :rest
+          invoke :send_reg, ch * 2, 0
+          invoke :send_reg, ch * 2 + 1, 0, delta
+        when :volume
+          invoke :send_reg, ch + 8, args[0], delta
+        when :env_period
+          invoke :send_reg, 11, args[0] & 0xFF, delta
+          invoke :send_reg, 12, args[0] >> 8, delta
+        when :env_shape
+          invoke :send_reg, 13, args[0], delta
+        when :timbre
+          invoke :set_timbre, ch, args[0]
+        when :pan
+          invoke :set_pan, ch, args[0]
+        when :lfo
+          invoke :set_lfo, ch, args[0], args[1]
+        when :mixer
+          case args[0]
+          when 0 # Tone on, Noise off
+            mixer |= (1 << (ch + 3))  # Set noise bit (off)
+            mixer &= ~(1 << ch)       # Clear tone bit (on)
+          when 1 # Tone off, Noise on
+            mixer &= ~(1 << (ch + 3)) # Clear noise bit (on)
+            mixer |= (1 << ch)        # Set tone bit (off)
+          when 2 # Tone on, Noise on
+            mixer &= ~(1 << ch)       # Clear tone bit (on)
+            mixer &= ~(1 << (ch + 3)) # Clear noise bit (on)
+          end
+          invoke :send_reg, 7, mixer
+        when :noise
+          invoke :send_reg, 6, args[0], delta
+        end
       end
-
-      period = hz_to_period(pitch)
-      send_reg(0 + 2 * ch, period & 0xFF)
-      send_reg(1 + 2 * ch, (period >> 8) & 0x0F)
-
-      update_mixer_bit(ch, false)       # tone on
-      update_mixer_bit(ch + 3, true)    # noise off
-      send_reg(7, @psg_mixer)
-
-      vol_reg = (es && ep) ? (0x10 | vol) : vol
-      send_reg(8 + ch, vol_reg)
-      set_pan(ch, pan)
-
-      # Automaticaly set 0 (mute) after the duration
-      send_reg(8 + ch, 0, dur)
     end
 
     # private
 
-    def hz_to_period(hz)
-      return 1 if hz <= 1
-      raw = (CHIP_CLOCK / (32.0 * hz) + 0.5).to_i # +0.5 is workaround for #round
-      raw < 1 ? 1 : raw > 4095 ? 4095 : raw
-    end
-
-    def update_mixer_bit(bit, enable)
-      if enable
-        @psg_mixer |= (1 << bit)   # invalidate
-      else
-        @psg_mixer &= ~(1 << bit)  # validate
+    def invoke(command, arg1, arg2, arg3 = 0)
+      while true
+        pushed = case command
+        when :mute
+          mute(arg1, arg2)
+        when :send_reg
+          send_reg(arg1, arg2, arg3)
+        when :set_pan
+          set_pan(arg1, arg2)
+        when :set_timbre
+          set_timbre(arg1, arg2)
+        when :set_lfo
+          set_lfo(arg1, arg2, arg3)
+        else
+          raise "Unknown command: #{command}"
+        end
+        return if pushed
+        sleep_ms WAIT_MS
       end
     end
-
   end
 end
