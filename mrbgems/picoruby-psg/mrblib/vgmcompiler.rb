@@ -1,17 +1,13 @@
 module PSG
 
-  class VGMCompiler
-    def initialize(mml)
-      @mml = mml
-    end
-
-    def compile(tracks)
+  module VGMCompiler
+    def self.compile(tracks)
       vgm = "\x00" * 0x100
       tick = 0
 
       sample_rate = PSG::Driver::SAMPLE_RATE
 
-      @mml.compile_multi(tracks) do |delta, ch, pitch, dur, pan, vol, es, ep|
+      MML.compile_multi(tracks) do |delta, ch, pitch, dur, pan, vol, es, ep|
         tick += (delta * sample_rate / 1000.0 + 0.5).to_i # +0.5 is workaround of round
 
         if pitch.is_a?(Symbol)
