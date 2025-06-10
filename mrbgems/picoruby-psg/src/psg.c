@@ -44,15 +44,38 @@ R5  Ch A tone period      |-------------------|     MSB (0-15)    |
 R6  Noise period (0-31)   |--------------|        5 bit NP        |
 R7  Mixer (0-63)          |(IOB,IOA)| C  | B  | A  | C  | B  | A  |
      0: on, 1: off                  ^----noise-----^-----tone-----^
-R8  Ch A volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 |
-R9  Ch B volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 |
-R10 Ch C volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 |
+R8  Ch A volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # If M=1,
+R9  Ch B volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # volume value is ignored
+R10 Ch C volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # and envelope is used instead
 R11 Envelope period       |             LSB (0-255)               |
 R12 Envelope period MSB   |             MSB (0-255)               |
 R13 Envelope shape (0-15) |-------------------| E3 | E2 | E1 | E0 |
      E3: 0=continue,  1=stop          E2: 0=attack, 1=release
      E1: 0=alternate, 1=sawtooth      E0: 0=hold,   1=repeat
+     R13: B3 B2 B1 B0
+           0  0  x  x  _＼___________
+
+           0  1  x  x  _／___________
+
+           1  0  0  0  _＼＼＼＼＼＼＼
+
+           1  0  0  1  _＼___________
+
+           1  0  1  0  _＼／＼／＼／＼
+
+           1  0  1  1  _＼￣￣￣￣￣￣
+
+           1  1  0  0  _／／／／／／／
+
+           1  1  0  1  _／￣￣￣￣￣￣
+
+           1  1  1  0  _／＼／＼／＼／
+
+           1  1  1  1  _／___________
+                        ^^
+                        Period
 */
+
 typedef struct {
   uint16_t tone_period[3];   // R0–5  (12-bit)
   uint8_t  noise_period;     // R6
@@ -77,7 +100,7 @@ typedef struct {
   uint32_t noise_cnt;
   uint32_t env_cnt;          // 24-bit counter: 1step = 1 audio sample
   // envelope state machine
-  uint8_t  env_level;     // 0‒15
+  uint8_t  env_level;     // 0..15
   uint8_t  env_dir;       // 0=down, 1=up
   bool     env_running;   // false -> stop
   // Masked bit for performance
@@ -86,9 +109,9 @@ typedef struct {
   uint8_t  env_alternate;
   uint8_t  env_hold;
   // LFO
-  uint16_t lfo_phase[3];   /* 0-65535 (wrap) */
+  uint16_t lfo_phase[3];   /* 0..65535 (wrap) */
   uint16_t lfo_inc[3];     /* Δphase per 1 ms tick */
-  uint8_t  lfo_depth[3];   /* depth in cent (0-127) */
+  uint8_t  lfo_depth[3];   /* depth in cent (0..127) */
   // Mute
   uint8_t  mute_mask;      /* bit0=A bit1=B bit2=C */
   // pan
@@ -152,11 +175,11 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       break;
     /* ---- Mixer ---- */
     case 7:
-      psg.r.mixer = val;
+      psg.r.mixer = val & 0x3F; // 0b00111111
       break;
     /* ---- Volume ---- */
     case 8:  case 9:  case 10:
-      psg.r.volume[reg - 8] = val & 0x1F;
+      psg.r.volume[reg - 8] = val & 0x1F; // 0b00011111
       break;
     /* ---- Envelope ---- */
     case 11:          /* period LSB */
@@ -469,6 +492,8 @@ reset_psg(mrb_state *mrb)
   }
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
+  psg.r.mixer = 0x38; // all noise off, all tone on
+  psg.r.envelope_period = 0x0B // 0b00000000_00001011
   psg.pan[0] = psg.pan[1] = psg.pan[2] = 8; // center pan
   PSG_exit_critical(t);
 }
