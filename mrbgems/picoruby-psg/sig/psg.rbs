@@ -5,23 +5,21 @@ module PSG
     SAMPLE_RATE: Integer
     TIMBRES: Hash[Symbol, Integer]
 
-    @psg_mixer: Integer
-
     def self.select_pwm: (Integer left, Integer right) -> void
     def self.select_mcp492x: (Integer dac, Integer copi, Integer sck, Integer cs, Integer ldac) -> void
     def initalize: (Symbol type, **Integer opt) -> void
     def stop: () -> nil
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
-    def set_envelope: (Integer ch, Integer shape, Integer period) -> nil
-    def set_lfo: (Integer ch, Integer depth, Integer rate) -> nil
-    def set_pan: (Integer ch, Integer pan) -> nil
-    def set_timbre: (Integer ch, Integer timbre_index) -> nil
-    def mute: (Integer ch, Integer flag) -> nil
+    def set_lfo: (Integer ch, Integer depth, Integer rate) -> bool
+    def set_pan: (Integer ch, Integer pan) -> bool
+    def set_timbre: (Integer ch, Integer timbre_index) -> bool
+    def mute: (Integer ch, Integer flag) -> bool
     def tick_ms: () -> Integer
     def play_noise: (Integer ch, Integer period, Integer volume, Integer duration_ms) -> void
-    def play_note: (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer es, Integer ep) -> void
-    private def hz_to_period: (Integer | Float pitch) -> Integer
-    private def update_mixer_bit: (Integer bit, bool enable) -> Integer
+
+    WAIT_MS: Integer
+    def play_mml: (Hash[Integer, String] tracks) -> void
+    private def invoke: (Symbol command, Integer arg1, Integer arg2, ?Integer arg3) -> void
   end
 
   class Keyboard
@@ -52,10 +50,8 @@ module PSG
     def finished?: () -> bool
   end
 
-  class VGMCompiler
-    @mml: MML
-    def initialize: (MML mml) -> void
-    def compile: (Hash[Integer, String] tracks) { (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer | nil es, Integer | nil ep) -> Hash[Integer, Integer] } -> String
+  module VGMCompiler
+    def self.compile: (Hash[Integer, String] tracks) { (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer | nil es, Integer | nil ep) -> Hash[Integer, Integer] } -> String
   end
 
   class VGMParser
@@ -73,4 +69,5 @@ module PSG
     def each_event: () { (psg_event_t) -> void } -> self
                   | () -> Array[psg_event_t]
   end
+
 end
