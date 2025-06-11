@@ -14,7 +14,6 @@ module PSG
     def set_pan: (Integer ch, Integer pan) -> bool
     def set_timbre: (Integer ch, Integer timbre_index) -> bool
     def mute: (Integer ch, Integer flag) -> bool
-    def tick_ms: () -> Integer
     def play_noise: (Integer ch, Integer period, Integer volume, Integer duration_ms) -> void
 
     WAIT_MS: Integer
@@ -36,19 +35,6 @@ module PSG
   end
 
   type psg_event_t = {tick: Integer, op: Symbol, reg: Integer, val: Integer}
-
-  class Sequencer
-    BUF_MARGIN: Integer
-    @events: Array[psg_event_t]
-    @index: Integer
-    @start_ms: Integer | nil
-    @driver: PSG::Driver
-    def self.note_freq: (Integer|Float note) -> Float
-    def initialize: (PSG::Driver driver, Array[psg_event_t] events) -> void
-    def start: () -> void
-    def service: () -> void
-    def finished?: () -> bool
-  end
 
   module VGMCompiler
     def self.compile: (Hash[Integer, String] tracks) { (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer | nil es, Integer | nil ep) -> Hash[Integer, Integer] } -> String
