@@ -13,7 +13,9 @@ typedef struct {
 // Context for each I2C port (ESP32 has a maximum of 2 ports)
 static i2c_bus_context_t i2c_contexts[2] = {0};
 
-int I2C_unit_name_to_unit_num(const char *unit_name) {
+int
+I2C_unit_name_to_unit_num(const char *unit_name)
+{
   if (strcmp(unit_name, "ESP32_I2C0") == 0) {
     return 0;
   } else if (strcmp(unit_name, "ESP32_I2C1") == 0) {
@@ -23,8 +25,9 @@ int I2C_unit_name_to_unit_num(const char *unit_name) {
   }
 }
 
-i2c_status_t I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin) {
-
+i2c_status_t
+I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
+{
   if (i2c_contexts[unit_num].initialized) {
     i2c_del_master_bus(i2c_contexts[unit_num].bus_handle);
     i2c_contexts[unit_num].initialized = false;
@@ -50,7 +53,9 @@ i2c_status_t I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int
   return ERROR_NONE;
 }
 
-int I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool nostop, uint32_t timeout_us) {
+int
+I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool nostop, uint32_t timeout_us)
+{
   if (!i2c_contexts[unit_num].initialized) {
     return ERROR_INVALID_UNIT;
   }
@@ -84,7 +89,9 @@ int I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bo
   return len;
 }
 
-int I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t* src, size_t len, bool nostop, uint32_t timeout_us) {
+int
+I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t* src, size_t len, bool nostop, uint32_t timeout_us)
+{
   if (!i2c_contexts[unit_num].initialized) {
     return ERROR_INVALID_UNIT;
   }
