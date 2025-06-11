@@ -35,18 +35,18 @@ __breakpoint(void)
 
 /*
                           | B7 | B6 | B5 | B4 | B3 | B2 | B1 | B0 |
-R0  Ch A tone period      |             LSB (0-255)               |
-R1  Ch A tone period      |-------------------|     MSB (0-15)    |
-R2  Ch B tone period      |             LSB (0-255)               |
-R3  Ch A tone period      |-------------------|     MSB (0-15)    |
-R4  Ch C tone period      |             LSB (0-255)               |
-R5  Ch A tone period      |-------------------|     MSB (0-15)    |
+R0  TR A tone period      |             LSB (0-255)               |
+R1  TR A tone period      |-------------------|     MSB (0-15)    |
+R2  TR B tone period      |             LSB (0-255)               |
+R3  TR A tone period      |-------------------|     MSB (0-15)    |
+R4  TR C tone period      |             LSB (0-255)               |
+R5  TR A tone period      |-------------------|     MSB (0-15)    |
 R6  Noise period (0-31)   |--------------|        5 bit NP        |
 R7  Mixer (0-63)          |(IOB,IOA)| C  | B  | A  | C  | B  | A  |
      0: on, 1: off                  ^----noise-----^-----tone-----^
-R8  Ch A volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # If M=1,
-R9  Ch B volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # volume value is ignored
-R10 Ch C volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # and envelope is used instead
+R8  TR A volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # If M=1,
+R9  TR B volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # volume value is ignored
+R10 TR C volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # and envelope is used instead
 R11 Envelope period       |             LSB (0-255)               |
 R12 Envelope period MSB   |             MSB (0-255)               |
 R13 Envelope shape (0-15) |-------------------| E3 | E2 | E1 | E0 |
@@ -138,9 +138,9 @@ calc_inc(uint16_t period)
 }
 
 static inline void
-update_tone_inc(int ch)
+update_tone_inc(int tr)
 {
-  psg.tone_inc[ch] = calc_inc(psg.r.tone_period[ch]);
+  psg.tone_inc[tr] = calc_inc(psg.r.tone_period[tr]);
 }
 
 // AY compatibile registors
@@ -151,20 +151,20 @@ PSG_write_reg(uint8_t reg, uint8_t val)
 
   switch (reg) {
     /* ---- Tone period ---- */
-    case 0:   /* ch A LSB */
-    case 1:   /* ch A MSB */
+    case 0:   /* tr A LSB */
+    case 1:   /* tr A MSB */
       psg.r.tone_period[0] &= reg ? 0x00FF : 0x0F00;
       psg.r.tone_period[0] |= reg ? ((val & 0x0F) << 8) : val;
       if (reg == 1) update_tone_inc(0);
       break;
-    case 2:   /* ch B LSB */
-    case 3:   /* ch B MSB */
+    case 2:   /* tr B LSB */
+    case 3:   /* tr B MSB */
       psg.r.tone_period[1] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[1] |= reg & 1 ? ((val & 0x0F) << 8) : val;
       if (reg == 3) update_tone_inc(1);
       break;
-    case 4:   /* ch C LSB */
-    case 5:   /* ch C MSB */
+    case 4:   /* tr C LSB */
+    case 5:   /* tr C MSB */
       psg.r.tone_period[2] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[2] |= reg & 1 ? ((val & 0x0F) << 8) : val;
       if (reg == 5) update_tone_inc(2);
@@ -215,39 +215,39 @@ PSG_process_packet(const psg_packet_t *pkt)
       PSG_write_reg(pkt->reg, pkt->val);
       break;
     case PSG_PKT_LFO_SET: {
-      uint8_t ch    = pkt->reg & 0x03;
+      uint8_t tr    = pkt->reg & 0x03;
       uint8_t depth = pkt->val;   /* cent */
       uint8_t rate  = pkt->arg;   /* 0.1 Hz */
       if (depth > MAX_LFO_DEPTH || rate > MAX_LFO_RATE) break;
       psg_cs_token_t t = PSG_enter_critical();
-      psg.lfo_depth[ch] = depth;
+      psg.lfo_depth[tr] = depth;
       /* Δphase per 1 ms = rate(0.1 Hz) × 65536 / 1000 */
-      psg.lfo_inc[ch]   = ((uint32_t)rate * 65536u) / 1000;
+      psg.lfo_inc[tr]   = ((uint32_t)rate * 65536u) / 1000;
       PSG_exit_critical(t);
       break;
     }
     case PSG_PKT_CH_MUTE: {
-      uint8_t ch   = pkt->reg & 0x03;
+      uint8_t tr   = pkt->reg & 0x03;
       uint8_t flag = pkt->val;
       psg_cs_token_t t = PSG_enter_critical();
-      if (flag) psg.mute_mask |=  (1u << ch);
-      else psg.mute_mask &= ~(1u << ch);
+      if (flag) psg.mute_mask |=  (1u << tr);
+      else psg.mute_mask &= ~(1u << tr);
       PSG_exit_critical(t);
       break;
     }
     case PSG_PKT_PAN_SET: {
-      uint8_t ch  = pkt->reg & 0x03;
+      uint8_t tr  = pkt->reg & 0x03;
       uint8_t bal = pkt->val; // 0..15
       psg_cs_token_t t = PSG_enter_critical();
-      psg.pan[ch] = bal & 0x0F;   /* 4bit keep */
+      psg.pan[tr] = bal & 0x0F;   /* 4bit keep */
       PSG_exit_critical(t);
       break;
     }
     case PSG_PKT_TIMBRE_SET: {
-      uint8_t ch = pkt->reg & 0x03;
+      uint8_t tr = pkt->reg & 0x03;
       uint8_t type = pkt->val; // 0=square, 1=triangle
       psg_cs_token_t t = PSG_enter_critical();
-      psg.timbre[ch] = (psg_timbre_t)type;
+      psg.timbre[tr] = (psg_timbre_t)type;
       PSG_exit_critical(t);
       break;
     }
@@ -367,8 +367,8 @@ void
 PSG_tick_1ms(void)
 {
   // Advance LFO phase (called from 1 kHz system timer)
-  for (int ch = 0; ch < 3; ++ch) {
-    psg.lfo_phase[ch] += psg.lfo_inc[ch];
+  for (int tr = 0; tr < 3; ++tr) {
+    psg.lfo_phase[tr] += psg.lfo_inc[tr];
   }
 }
 
@@ -391,55 +391,55 @@ PSG_audio_cb(void)
   // mix
   uint32_t mix_l = 0, mix_r = 0;
 
-  for (int ch = 0; ch < 3; ++ch) {
+  for (int tr = 0; tr < 3; ++tr) {
     // phase
-    if (psg.tone_inc[ch]) {
+    if (psg.tone_inc[tr]) {
       /* Vibrato: ±depth cent  -> multiplicative factor ~= 2^(cent/1200) */
-      int8_t depth = (int8_t)psg.lfo_depth[ch];          /* signed */
-      uint16_t ph  = psg.lfo_phase[ch];
+      int8_t depth = (int8_t)psg.lfo_depth[tr];          /* signed */
+      uint16_t ph  = psg.lfo_phase[tr];
       /* simple triangle LFO: 0-32767-0-… */
       int16_t tri = (ph < 32768) ? ph : (65535 - ph);    /* 0-32767 */
       int32_t cent = (depth * tri) >> 15;                /* −depth..+depth */
       /* ln(2)/1200 ≒ 0.0005775  -> use 16.16 fixed ->> 38 */
       int32_t frac = (cent * 38) >> 8;                   /* ~= log2 factor */
-      uint32_t inc = psg.tone_inc[ch] + ((psg.tone_inc[ch] * frac) >> 16);  /* FM */
-      psg.tone_phase[ch] += inc;
+      uint32_t inc = psg.tone_inc[tr] + ((psg.tone_inc[tr] * frac) >> 16);  /* FM */
+      psg.tone_phase[tr] += inc;
     }
 
     uint32_t tone_amp;
-    switch (psg.timbre[ch]) {
+    switch (psg.timbre[tr]) {
       case PSG_TIMBRE_TRIANGLE: {
-        bool second = (psg.tone_phase[ch] & 0x80000000);
-        uint32_t ramp = psg.tone_phase[ch] >> 20;
+        bool second = (psg.tone_phase[tr] & 0x80000000);
+        uint32_t ramp = psg.tone_phase[tr] >> 20;
         tone_amp = second ? (4095 - ramp) * 2 : ramp * 2; // 0->4095->0
         break;
       }
       case PSG_TIMBRE_SAWTOOTH: {
-        tone_amp = psg.tone_phase[ch] >> 20;  // 0->4095
+        tone_amp = psg.tone_phase[tr] >> 20;  // 0->4095
         break;
       }
       case PSG_TIMBRE_INVSAWTOOTH: {
-        tone_amp = 4095 - (psg.tone_phase[ch] >> 20);  // 4095->0
+        tone_amp = 4095 - (psg.tone_phase[tr] >> 20);  // 4095->0
         break;
       }
       default: // PSG_TIMBRE_SQUARE & fallback
-        tone_amp = (psg.tone_phase[ch] >> 31) ? 4095 : 0;
+        tone_amp = (psg.tone_phase[tr] >> 31) ? 4095 : 0;
         break;
     }
 
     // noise mixing
-    bool use_tone  = !(psg.r.mixer & (1 << ch));
-    bool use_noise = !(psg.r.mixer & (1 << (ch + 3)));
+    bool use_tone  = !(psg.r.mixer & (1 << tr));
+    bool use_noise = !(psg.r.mixer & (1 << (tr + 3)));
     uint32_t active_amp = 0;
     if (use_tone)  active_amp += tone_amp;
     if (use_noise && noise_bit) active_amp = 4095;
 
-    // Channel mute
-    if (psg.mute_mask & (1u << ch)) continue;
+    // Track mute
+    if (psg.mute_mask & (1u << tr)) continue;
     if (active_amp == 0) continue;
 
     // volume: bit4 = envelope
-    uint8_t vol = psg.r.volume[ch];
+    uint8_t vol = psg.r.volume[tr];
     if (vol & 0x10) vol = psg.env_level;
     vol &= 0x0F;
 
@@ -447,7 +447,7 @@ PSG_audio_cb(void)
     uint32_t amp = (active_amp * gain) >> 12;
 
     // pan
-    uint8_t bal = psg.pan[ch];          // 1..15
+    uint8_t bal = psg.pan[tr];          // 1..15
     mix_l += (amp * pan_tab_l[bal]) >> 12; // 0..4095
     mix_r += (amp * pan_tab_r[bal]) >> 12; // 0..4095
   }
@@ -543,16 +543,17 @@ mrb_driver_stop(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
-/* Set LFO: ch, depth(cent), rate(0.1Hz) */
+/* Set LFO: tr, depth(cent), rate(0.1Hz) */
 static mrb_value
 mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
 {
-  mrb_int ch, depth, rate;
-  mrb_get_args(mrb, "iii", &ch, &depth, &rate);
+  mrb_int tr, depth, rate;
+  mrb_int tick_delay = 0;
+  mrb_get_args(mrb, "iii|i", &tr, &depth, &rate, &tick_delay);
   psg_packet_t p = {
-    .tick = 0,        /* immediate */
+    .tick = (uint32_t)tick_delay,
     .op   = PSG_PKT_LFO_SET,
-    .reg  = (uint8_t)ch,
+    .reg  = (uint8_t)tr,
     .val  = (uint8_t)depth,
     .arg  = (uint8_t)rate,
   };
@@ -563,15 +564,16 @@ mrb_driver_set_lfo(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_driver_set_pan(mrb_state *mrb, mrb_value self)
 {
-  mrb_int ch, pan;
-  mrb_get_args(mrb, "ii", &ch, &pan);
-  if (ch < 0 || ch > 2 || pan < 0 || pan > 15) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid channel or pan value: %d, %d", ch, pan);
+  mrb_int tr, pan;
+  mrb_int tick_delay = 0;
+  mrb_get_args(mrb, "ii|i", &tr, &pan, &tick_delay);
+  if (tr < 0 || tr > 2 || pan < 0 || pan > 15) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid track or pan value: %d, %d", tr, pan);
   }
   psg_packet_t p = {
-    .tick = 0,        /* immediate */
+    .tick = (uint32_t)tick_delay,
     .op   = PSG_PKT_PAN_SET,
-    .reg  = (uint8_t)ch,
+    .reg  = (uint8_t)tr,
     .val  = (uint8_t)pan,
   };
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
@@ -580,15 +582,16 @@ mrb_driver_set_pan(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_driver_set_timbre(mrb_state *mrb, mrb_value self)
 {
-  mrb_int ch, timbre;
-  mrb_get_args(mrb, "ii", &ch, &timbre);
-  if (ch < 0 || 2 < ch) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid channel: %d (0-2 expected)", ch);
+  mrb_int tr, timbre;
+  mrb_int tick_delay = 0;
+  mrb_get_args(mrb, "ii|i", &tr, &timbre, &tick_delay);
+  if (tr < 0 || 2 < tr) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid track: %d (0-2 expected)", tr);
   }
   psg_packet_t p = {
-    .tick = 0,        /* immediate */
+    .tick = (uint32_t)tick_delay,
     .op   = PSG_PKT_TIMBRE_SET,
-    .reg  = (uint8_t)ch,
+    .reg  = (uint8_t)tr,
     .val  = (uint8_t)timbre
   };
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
@@ -598,12 +601,13 @@ mrb_driver_set_timbre(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_driver_mute(mrb_state *mrb, mrb_value self)
 {
-  mrb_int ch, flag;
-  mrb_get_args(mrb, "ii", &ch, &flag);
+  mrb_int tr, flag;
+  mrb_int tick_delay = 0;
+  mrb_get_args(mrb, "ii|i", &tr, &flag, &tick_delay);
   psg_packet_t p = {
-    .tick = 0,
+    .tick = (uint32_t)tick_delay,
     .op   = PSG_PKT_CH_MUTE,
-    .reg  = (uint8_t)ch,
+    .reg  = (uint8_t)tr,
     .val  = (uint8_t)flag,
   };
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
@@ -630,10 +634,10 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_REQ(3));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_ARG(3, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_ARG(2, 1));
 }
 
 void

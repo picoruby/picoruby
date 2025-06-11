@@ -30,10 +30,12 @@ module PSG
     def play_mml(tracks)
       mixer = 0b111000 # Noise all off, Tone all on
       chip_clock = PSG::Driver::CHIP_CLOCK
+      duration = 0
       MML.compile_multi(tracks) do |delta, tr, command, *args|
+        duration += delta
         case command
         when :mute
-          invoke :mute, tr, args[0]
+          invoke :mute, tr, args[0], delta
         when :play
           tone_period = (chip_clock / (32 * args[0])).to_i
           invoke :send_reg, tr * 2    , tone_period & 0xFF       , delta
@@ -42,18 +44,18 @@ module PSG
           invoke :send_reg, tr * 2    , 0, delta
           invoke :send_reg, tr * 2 + 1, 0, 0
         when :volume
-          invoke :send_reg, tr + 8, args[0], 0
+          invoke :send_reg, tr + 8, args[0], delta
         when :env_period
           invoke :send_reg, 11, args[0] & 0xFF, delta
           invoke :send_reg, 12, args[0] >> 8  , 0
         when :env_shape
           invoke :send_reg, 13, args[0], delta
         when :timbre
-          invoke :set_timbre, tr, args[0]
+          invoke :set_timbre, tr, args[0], delta
         when :pan
-          invoke :set_pan, tr, args[0]
+          invoke :set_pan, tr, args[0], delta
         when :lfo
-          invoke :set_lfo, tr, args[0], args[1]
+          invoke :set_lfo, tr, args[0], args[1], delta
         when :mixer
           case args[0]
           when 0 # Tone on, Noise off
@@ -66,28 +68,29 @@ module PSG
             mixer &= ~(1 << tr)       # Clear tone bit (on)
             mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
           end
-          invoke :send_reg, 7, mixer
+          invoke :send_reg, 7, mixer, delta
         when :noise
           invoke :send_reg, 6, args[0], delta
         end
       end
+      return duration
     end
 
     # private
 
-    def invoke(command, arg1, arg2, arg3 = 0)
+    def invoke(command, arg1, arg2, arg3, arg4 = 0)
       while true
         pushed = case command
         when :mute
-          mute(arg1, arg2)
+          mute(arg1, arg2, arg3)
         when :send_reg
           send_reg(arg1, arg2, arg3)
         when :set_pan
-          set_pan(arg1, arg2)
+          set_pan(arg1, arg2, arg3)
         when :set_timbre
-          set_timbre(arg1, arg2)
+          set_timbre(arg1, arg2, arg3)
         when :set_lfo
-          set_lfo(arg1, arg2, arg3)
+          set_lfo(arg1, arg2, arg3, arg4)
         else
           raise "Unknown command: #{command}"
         end
