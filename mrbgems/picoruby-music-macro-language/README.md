@@ -41,7 +41,7 @@ puts "Total duration: #{total_ms} ms"
 
 | Command         | Description                                                     |
 |-----------------|-----------------------------------------------------------------|
-| `a`..`g`        | Notes. `+` or `-` for sharp and flat. eg: `c+`, `d-`            |
+| `a`..`g`        | Notes. `+`(`#`) or `-` for sharp and flat. eg: `c+`, `a#`, `d-` |
 | `r`             | Rest                                                            |
 | `tN`            | Tempo in BPM. eg: `t120`                                        |
 | `oN`            | Octave number. eg: `o4` = 4th octave                            |
