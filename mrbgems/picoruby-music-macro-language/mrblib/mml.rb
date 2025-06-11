@@ -4,40 +4,60 @@ class MML # Music Macro Language
   NOTES = { a: 0, b: 2, c: 3, d: 5, e: 7, f: 8, g: 10 }
 
   def self.compile_multi(tracks, exception: true)
-    parsers = []
+    parsers = {}
+    tick_table = {}
+    event_table = {}
+
+    # Initialize parsers and get the first event for each track
     tracks.each do |track_id, track|
-      parsers << MML.new(track_id, track, exception: exception)
-    end
-    events   = []                                 # [start, ch, ...payload]
-    total_ms = 0
-
-    parsers.each do |parser|
-      tick = 0                                  # Time in the channel
-      parser.compile do |command, *args|
-        events << [tick, parser.track_id, command, *args]
-        tick += args[1].to_i if command == :play || command == :rest
-      end
-      total_ms = tick if total_ms < tick
-    end
-
-    # Equivalent to `events.sort_by! { |e| [e[0], e[1]] }`
-    events.sort! do |a, b|
-      if a[0] == b[0] # If tick are eq, compare by ch
-        a[1] <=> b[1]
-      else
-        a[0] <=> b[0]
+      parser = MML.new(track_id, track, exception: exception)
+      parsers[track_id] = parser
+      event = parser.reduce_next
+      if event
+        tick_table[track_id] = 0
+        event_table[track_id] = event
       end
     end
 
     prev_time = 0
 
-    events.each do |start, ch, command, *args|
-      delta = start - prev_time
-      yield(delta, ch, command, *args)
-      prev_time = start
+    while true
+      # extract tracks with active events
+      active_tracks = event_table.keys
+      break if active_tracks.empty?
+
+      # find the track with the earliest tick
+      min_track = nil
+      min_tick = nil
+      event_table.keys.each do |tid|
+        if min_tick.nil? || tick_table[tid] < min_tick
+          min_tick = tick_table[tid]
+          min_track = tid
+        end
+      end
+      event = event_table[min_track]
+
+      # @type var min_tick: Integer
+      delta = min_tick - prev_time
+      # @type var min_track: Integer
+      yield(delta, min_track, *event)
+      prev_time = min_tick
+
+      next_event = parsers[min_track].reduce_next
+      if next_event
+        # add tick if play or rest
+        if event[0] == :play || event[0] == :rest
+          tick_table[min_track] += event[-1].to_i
+        end
+        event_table[min_track] = next_event
+      else
+        # delete if no more events
+        tick_table.delete(min_track)
+        event_table.delete(min_track)
+      end
     end
 
-    total_ms
+    prev_time
   end
 
   def initialize(track_id, track, exception: true)
@@ -53,16 +73,25 @@ class MML # Music Macro Language
     @track = expand_loops(track)
     @cursor = 0
     update_common_duration(4)
+    @event_queue = []
   end
 
   attr_reader :track_id
 
-  def compile
+  def push_event(command, *args)
+    @event_queue << [command, *args]
+  end
+
+  def reduce_next
+    return @event_queue.shift unless @event_queue.empty?
+
+    return nil if @finished
+
     while true
       c = @track[@cursor]
       if c.nil?
-        yield(:mute, 1)
-        break
+        @finised = true
+        return nil
       else
         c.downcase!
       end
@@ -73,7 +102,7 @@ class MML # Music Macro Language
       when  62 # '>' # Octave up
         @octave += 1
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
-        pitch, @cursor = get_pitch(c, @track[@cursor + 1], @cursor)
+        pitch = get_pitch(c, @track[@cursor + 1])
         case @track[@cursor + 1]
         when "1".."9", "."
           fraction = subvalue
@@ -88,16 +117,16 @@ class MML # Music Macro Language
       when 105 # 'i' # Timbre
         @cursor += 1
         timbre = @track[@cursor].to_i
-        yield(:timbre, timbre)
+        push_event(:timbre, timbre)
       when 106 # 'j' # LFO (Modulation)
         depth = subvalue
         unless depth.nil?
           mod_depth = depth * 100
           if @track[@cursor + 1] == ","
             @cursor += 1
-            mod_rate = subvalue || 0
+            mod_rate = subvalue
           end
-          yield(:lfo, mod_depth, mod_rate)
+          push_event(:lfo, mod_depth, mod_rate || 0)
         end
       when 107 # 'k' # Transpose (Key)
         sign = @track[@cursor + 1]
@@ -116,28 +145,28 @@ class MML # Music Macro Language
         @octave = @track[@cursor].to_i
       when 112 # 'p' # Pan
         pan = [subvalue, 15].min
-        yield(:pan, pan || 8)
+        push_event(:pan, pan || 8)
       when 113 # 'q' # Gate time
         @cursor += 1
         @q = @track[@cursor].to_i
         @q = 8 if @q < 1 || 8 < @q
       when 115 # 's' # Envelope spape
-        yield(:volume, 16) # Use envelope instead of volume
-        yield(:env_shape, (subvalue || 0) & 0x0F)
+        push_event(:volume, 16) # Use envelope instead of volume
+        push_event(:env_shape, (subvalue || 0) & 0x0F)
       when 109 # 'm' # Envelope period
-        yield(:env_period, (subvalue || 0) & 0xFFFF)
+        push_event(:env_period, (subvalue || 0) & 0xFFFF)
       when 116 # 't' # Tempo
         @tempo = subvalue
         update_common_duration(4) # Note: common fraction is also reset
       when 118 # 'v' # Volume
         @volume = [subvalue, 15].min
-        yield(:volume, @volume || 15)
+        push_event(:volume, @volume || 15)
       when 120 # 'x' # Mixer
         @cursor += 1
-        yield(:mixer, @track[@cursor].to_i)
+        push_event(:mixer, @track[@cursor].to_i)
       when 121 # 'y' # Noise period
         @cursor += 1
-        yield(:noise, @track[@cursor].to_i)
+        push_event(:noise, @track[@cursor].to_i)
       when 122 # 'z' # Detune
         @detune = subvalue
       when 32, 124 # ' ' or '|' to be ignored
@@ -155,17 +184,19 @@ class MML # Music Macro Language
       @cursor += 1
 
       next if pitch.nil? || length.nil?
-      sustain = if pitch == 0
+      sustain = if pitch == 0.0
                   0
                 else
                   (@q == 8) ? length : (length / 8.0 * @q).to_i
                 end
       release = length - sustain
-      yield(:play, pitch, sustain) if 0 < sustain
-      yield(:rest, 0,     release) if 0 < release
+      push_event(:play, pitch, sustain) if 0 < sustain
+      push_event(:rest, 0,     release) if 0 < release
       @total_duration += length
+
+      break unless @event_queue.empty?
     end
-    @total_duration
+    return @event_queue.shift
   end
 
   # private
@@ -174,33 +205,33 @@ class MML # Music Macro Language
     @common_duration = (DURATION_BASE / @tempo / fraction + 0.5).to_i
   end
 
-  def get_pitch(note, semitone, pos)
-    return [0, pos + 1] if note == 'r' # Rest
+  def get_pitch(note, semitone)
+    return 0.0 if note == 'r' # Rest
     octave_fix = (note=='a'||note=='b') ? 1 : 0
     val = NOTES[note.to_sym]
     raise "Invalid note: #{note}" if val.nil?
     case semitone&.ord
     when 45 # '-'
-      pos += 1
+      @cursor += 1
       if note == 'a'
         octave_fix = 0
       else
         val -= 1
       end
     when 43, 35 # '+', '#'
-      pos += 1
+      @cursor += 1
       val += 1
     end
     pitch = 6.875 * (2<<(@octave + octave_fix)) * 2 ** (val / 12.0)
     pitch *= 2 ** (@transpose / 12.0) if @transpose != 0
     pitch /= (2 ** (@detune / 128.0)) if @detune != 0
-    return [pitch, pos]
+    return pitch
   end
 
   def subvalue
     str_number = ""
     @cursor += 1
-    while 47 < (c = (@track[@cursor]&.ord&.to_i).to_i) && c < 58
+    while 48 <= (c = @track[@cursor]&.ord || 0) && c <= 57
       str_number << @track[@cursor].to_s
       @cursor += 1
     end
