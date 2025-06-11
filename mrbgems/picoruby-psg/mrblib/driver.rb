@@ -30,41 +30,41 @@ module PSG
     def play_mml(tracks)
       mixer = 0b111000 # Noise all off, Tone all on
       chip_clock = PSG::Driver::CHIP_CLOCK
-      MML.compile_multi(tracks) do |delta, ch, command, *args|
+      MML.compile_multi(tracks) do |delta, tr, command, *args|
         case command
         when :mute
-          invoke :mute, ch, args[0]
+          invoke :mute, tr, args[0]
         when :play
           tone_period = (chip_clock / (32 * args[0])).to_i
-          invoke :send_reg, ch * 2, tone_period
-          invoke :send_reg, ch * 2 + 1, tone_period, delta
+          invoke :send_reg, tr * 2    , tone_period & 0xFF       , delta
+          invoke :send_reg, tr * 2 + 1, (tone_period >> 8) & 0x0F, 0
         when :rest
-          invoke :send_reg, ch * 2, 0
-          invoke :send_reg, ch * 2 + 1, 0, delta
+          invoke :send_reg, tr * 2    , 0, delta
+          invoke :send_reg, tr * 2 + 1, 0, 0
         when :volume
-          invoke :send_reg, ch + 8, args[0], delta
+          invoke :send_reg, tr + 8, args[0], 0
         when :env_period
           invoke :send_reg, 11, args[0] & 0xFF, delta
-          invoke :send_reg, 12, args[0] >> 8, delta
+          invoke :send_reg, 12, args[0] >> 8  , 0
         when :env_shape
           invoke :send_reg, 13, args[0], delta
         when :timbre
-          invoke :set_timbre, ch, args[0]
+          invoke :set_timbre, tr, args[0]
         when :pan
-          invoke :set_pan, ch, args[0]
+          invoke :set_pan, tr, args[0]
         when :lfo
-          invoke :set_lfo, ch, args[0], args[1]
+          invoke :set_lfo, tr, args[0], args[1]
         when :mixer
           case args[0]
           when 0 # Tone on, Noise off
-            mixer |= (1 << (ch + 3))  # Set noise bit (off)
-            mixer &= ~(1 << ch)       # Clear tone bit (on)
+            mixer |= (1 << (tr + 3))  # Set noise bit (off)
+            mixer &= ~(1 << tr)       # Clear tone bit (on)
           when 1 # Tone off, Noise on
-            mixer &= ~(1 << (ch + 3)) # Clear noise bit (on)
-            mixer |= (1 << ch)        # Set tone bit (off)
+            mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
+            mixer |= (1 << tr)        # Set tone bit (off)
           when 2 # Tone on, Noise on
-            mixer &= ~(1 << ch)       # Clear tone bit (on)
-            mixer &= ~(1 << (ch + 3)) # Clear noise bit (on)
+            mixer &= ~(1 << tr)       # Clear tone bit (on)
+            mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
           end
           invoke :send_reg, 7, mixer
         when :noise
