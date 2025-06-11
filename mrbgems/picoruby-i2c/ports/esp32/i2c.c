@@ -14,46 +14,6 @@ typedef struct {
 static i2c_bus_context_t i2c_contexts[2] = {0};
 
 int
-I2C_unit_name_to_unit_num(const char *unit_name)
-{
-  if (strcmp(unit_name, "ESP32_I2C0") == 0) {
-    return 0;
-  } else if (strcmp(unit_name, "ESP32_I2C1") == 0) {
-    return 1;
-  } else {
-    return ERROR_INVALID_UNIT;
-  }
-}
-
-i2c_status_t
-I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
-{
-  if (i2c_contexts[unit_num].initialized) {
-    i2c_del_master_bus(i2c_contexts[unit_num].bus_handle);
-    i2c_contexts[unit_num].initialized = false;
-  }
-
-  i2c_master_bus_config_t i2c_mst_config = {
-    .clk_source = I2C_CLK_SRC_DEFAULT,
-    .i2c_port = unit_num,
-    .scl_io_num = scl_pin,
-    .sda_io_num = sda_pin,
-    .glitch_ignore_cnt = 7,
-    .flags.enable_internal_pullup = true,
-  };
-
-  esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &i2c_contexts[unit_num].bus_handle);
-  if (err != ESP_OK) {
-    return ERROR_INVALID_UNIT;
-  }
-
-  i2c_contexts[unit_num].initialized = true;
-  i2c_contexts[unit_num].frequency = frequency;
-  
-  return ERROR_NONE;
-}
-
-int
 I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool nostop, uint32_t timeout_us)
 {
   if (!i2c_contexts[unit_num].initialized) {
@@ -123,4 +83,44 @@ I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t* src, size_t len, bool 
   }
 
   return len;
+}
+
+int
+I2C_unit_name_to_unit_num(const char *unit_name)
+{
+  if (strcmp(unit_name, "ESP32_I2C0") == 0) {
+    return 0;
+  } else if (strcmp(unit_name, "ESP32_I2C1") == 0) {
+    return 1;
+  } else {
+    return ERROR_INVALID_UNIT;
+  }
+}
+
+i2c_status_t
+I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
+{
+  if (i2c_contexts[unit_num].initialized) {
+    i2c_del_master_bus(i2c_contexts[unit_num].bus_handle);
+    i2c_contexts[unit_num].initialized = false;
+  }
+
+  i2c_master_bus_config_t i2c_mst_config = {
+    .clk_source = I2C_CLK_SRC_DEFAULT,
+    .i2c_port = unit_num,
+    .scl_io_num = scl_pin,
+    .sda_io_num = sda_pin,
+    .glitch_ignore_cnt = 7,
+    .flags.enable_internal_pullup = true,
+  };
+
+  esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &i2c_contexts[unit_num].bus_handle);
+  if (err != ESP_OK) {
+    return ERROR_INVALID_UNIT;
+  }
+
+  i2c_contexts[unit_num].initialized = true;
+  i2c_contexts[unit_num].frequency = frequency;
+
+  return ERROR_NONE;
 }
