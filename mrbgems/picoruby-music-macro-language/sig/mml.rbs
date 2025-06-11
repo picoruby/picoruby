@@ -5,24 +5,31 @@ class MML
   @octave: Integer
   @tempo: Integer
   @q: Integer
-  @volume: Integer
+  @volume: Integer | nil
   @transpose: Integer
   @common_duration: Integer
+  @raise_err: bool
+  @total_duration: Integer
+  @detune: Integer
+  @track: String
+  @cursor: Integer
+
+  attr_reader track_id: Integer
 
   type command_t = :volume | :env_shape | :env_period | :lfo | :pan | :timbre | :mixer | :noise | :mute
   type play_t    = :play
   type rest_t    = :rest
 
-  def self.compile_multi: (Hash[Integer, String] tracks) { (Integer delta, Integer channel, command_t | play_t | rest_t command, *Integer args) -> untyped } -> Integer
+  def self.compile_multi: (Hash[Integer, String] tracks, ?exception: bool) { (Integer delta, Integer channel, command_t | play_t | rest_t command, *Integer args) -> untyped } -> Integer
 
-  def initialize: () -> void
-  def compile: (String track) { (play_t command, Integer | Float arg1, Integer arg2) -> untyped } -> Integer
-             | (String track) { (rest_t command, 0, Integer arg2) -> untyped } -> Integer
-             | (String track) { (command_t command, Integer arg1, ?Integer arg2) -> untyped } -> Integer
+  def initialize: (Integer track_id, String track, ?exception: bool) -> void
+  def compile: () { (play_t command, Integer | Float arg1, Integer arg2) -> untyped } -> Integer
+             | () { (rest_t command, 0, Integer arg2) -> untyped } -> Integer
+             | () { (command_t command, Integer arg1, ?Integer arg2) -> untyped } -> Integer
   private def get_pitch: (String note, String | nil semitone, Integer pos) -> [Integer | Float, Integer]
-  private def number_str: (String str, Integer i) -> [String, Integer]
-  private def count_punto: (String str, Integer i) -> [Integer, Integer]
-  private def coef: (Integer punti) -> Float
+  private def subvalue: () -> (Integer | nil)
+  private def punti: () -> Integer
+  private def coef: (Integer count) -> Float
   private def expand_loops: (String track) -> String
   private def expand: (String str, Integer index, ?Integer depth) -> [String, Integer]
   private def update_common_duration: (Integer | Float fraction) -> void
