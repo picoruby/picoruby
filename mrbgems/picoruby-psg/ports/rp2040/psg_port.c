@@ -88,7 +88,7 @@ psg_add_repeating_timer(void)
 
 // Tick
 
-volatile uint32_t g_tick_ms = 0;
+static volatile uint32_t g_tick_ms = 0;
 static repeating_timer_t tick_timer;
 
 static inline void

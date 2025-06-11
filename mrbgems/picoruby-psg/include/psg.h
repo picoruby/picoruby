@@ -74,7 +74,6 @@ psg_cs_token_t PSG_enter_critical(void);
 void PSG_exit_critical(psg_cs_token_t token);
 
 // Tick
-extern volatile uint32_t g_tick_ms;
 void PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4);
 void PSG_tick_stop_core1(void);
 void PSG_tick_1ms(void);
