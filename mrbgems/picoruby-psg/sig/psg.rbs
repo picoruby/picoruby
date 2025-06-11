@@ -10,15 +10,15 @@ module PSG
     def initalize: (Symbol type, **Integer opt) -> void
     def stop: () -> nil
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
-    def set_lfo: (Integer ch, Integer depth, Integer rate) -> bool
-    def set_pan: (Integer ch, Integer pan) -> bool
-    def set_timbre: (Integer ch, Integer timbre_index) -> bool
-    def mute: (Integer ch, Integer flag) -> bool
+    def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
+    def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool
+    def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool
+    def mute: (Integer ch, Integer flag, ?Integer tick_delay) -> bool
     def play_noise: (Integer ch, Integer period, Integer volume, Integer duration_ms) -> void
 
     WAIT_MS: Integer
     def play_mml: (Hash[Integer, String] tracks) -> void
-    private def invoke: (Symbol command, Integer arg1, Integer arg2, ?Integer arg3) -> void
+    private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end
 
   class Keyboard
