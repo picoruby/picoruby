@@ -25,6 +25,7 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: "picoruby-adc"
   conf.gem core: "picoruby-rng"
   conf.gem core: "picoruby-spi"
+  conf.gem core: "picoruby-uart"
   conf.gem core: "picoruby-pwm"
   conf.gem core: "picoruby-watchdog"
   conf.gem core: "picoruby-rmt"
@@ -33,6 +34,7 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: "picoruby-picoline"
   conf.gem core: "picoruby-base64"
   conf.gem core: "picoruby-mbedtls"
+  conf.gem core: "picoruby-i2c"
   conf.gem core: "picoruby-adafruit_ws2812"
   conf.picoruby(alloc_libc: false)
 end
