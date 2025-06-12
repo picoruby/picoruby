@@ -143,6 +143,14 @@ update_tone_inc(int tr)
   psg.tone_inc[tr] = calc_inc(psg.r.tone_period[tr]);
 }
 
+#define RESET_ENVELOPE() \
+  do { \
+    psg.env_dir       = psg.env_attack; \
+    psg.env_level     = psg.env_attack ? 0 : 15; \
+    psg.env_running   = true; \
+    psg.env_cnt       = 0; \
+  } while (0)
+
 // AY compatibile registors
 static void
 PSG_write_reg(uint8_t reg, uint8_t val)
@@ -156,18 +164,21 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       psg.r.tone_period[0] &= reg ? 0x00FF : 0x0F00;
       psg.r.tone_period[0] |= reg ? ((val & 0x0F) << 8) : val;
       if (reg == 1) update_tone_inc(0);
+      if (psg.r.volume[0] & 0x10) RESET_ENVELOPE();
       break;
     case 2:   /* tr B LSB */
     case 3:   /* tr B MSB */
       psg.r.tone_period[1] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[1] |= reg & 1 ? ((val & 0x0F) << 8) : val;
       if (reg == 3) update_tone_inc(1);
+      if (psg.r.volume[1] & 0x10) RESET_ENVELOPE();
       break;
     case 4:   /* tr C LSB */
     case 5:   /* tr C MSB */
       psg.r.tone_period[2] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[2] |= reg & 1 ? ((val & 0x0F) << 8) : val;
       if (reg == 5) update_tone_inc(2);
+      if (psg.r.volume[2] & 0x10) RESET_ENVELOPE();
       break;
     /* ---- Noise ---- */
     case 6:
@@ -195,10 +206,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       psg.env_attack    = (val >> 2) & 1;
       psg.env_alternate = (val >> 1) & 1;
       psg.env_hold      =  val       & 1;
-      psg.env_dir       = psg.env_attack;
-      psg.env_level     = psg.env_attack ? 0 : 15;
-      psg.env_running   = true;
-      psg.env_cnt       = 0;
+      RESET_ENVELOPE();
       break;
     default:
       break;
