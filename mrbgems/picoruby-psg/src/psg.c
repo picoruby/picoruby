@@ -491,6 +491,7 @@ reset_psg(mrb_state *mrb)
   psg.r.volume[0] = psg.r.volume[1] = psg.r.volume[2] = 15; // max volume. no envelope
   psg.r.mixer = 0x38; // all noise off, all tone on
   psg.r.envelope_period = 0x0B; // 0b00000000_00001011
+  psg.mute_mask = 0x07; // all tracks muted. The driver must unmute first!
   psg.pan[0] = psg.pan[1] = psg.pan[2] = 8; // center pan
   PSG_exit_critical(t);
 }
@@ -533,7 +534,17 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 //}
 
 static mrb_value
-mrb_driver_stop(mrb_state *mrb, mrb_value self)
+mrb_driver_mute_all_p(mrb_state *mrb, mrb_value self)
+{
+  if (psg.mute_mask & 0x07 == 0x07) {
+    return mrb_true_value(); // all tracks muted
+  } else {
+    return mrb_false_value(); // at least one track is unmuted
+  }
+}
+
+static mrb_value
+mrb_driver_deinit(mrb_state *mrb, mrb_value self)
 {
   PSG_tick_stop_core1();
   return mrb_nil_value();
@@ -629,7 +640,8 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM(stop), mrb_driver_stop, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(mute_all), mrb_driver_mute_all_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(deinit), mrb_driver_deinit, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_ARG(3, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_ARG(2, 1));
