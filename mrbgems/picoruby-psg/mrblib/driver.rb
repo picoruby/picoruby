@@ -27,7 +27,7 @@ module PSG
 
     WAIT_MS = 10 # ms
 
-    def play_mml(tracks)
+    def play_mml(tracks, terminate: true)
       mixer = 0b111000 # Noise all off, Tone all on
       chip_clock = PSG::Driver::CHIP_CLOCK
       duration = 0
@@ -73,7 +73,18 @@ module PSG
           invoke :send_reg, 6, args[0], delta
         end
       end
-      return duration
+      join if terminate
+      return self
+    end
+
+    def join
+      while true
+        if mute_all?
+          deinit
+          break
+        end
+        sleep_ms 100
+      end
     end
 
     # private
