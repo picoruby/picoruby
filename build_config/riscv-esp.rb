@@ -31,6 +31,7 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: "picoruby-rmt"
   conf.gem core: "picoruby-adafruit_sk6812"
   conf.gem core: "picoruby-yaml"
+  conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-picoline"
   conf.gem core: "picoruby-base64"
   conf.gem core: "picoruby-mbedtls"
