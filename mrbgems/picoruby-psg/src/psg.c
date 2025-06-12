@@ -285,34 +285,17 @@ PSG_rb_pop(void)  // consumes one slot
 }
 
 
-// volume table: AY dB curve -> 12-bit linear
+// volume table: 1.5 dB steps with 3.0 dB headroom for 12-bit range
 static const uint16_t vol_tab[16] = {
-  0,     //  -inf dB
-  33,    // −24.1 dB
-  46,    // −19.1
-  65,    // −15.0
-  92,    // −12.0
-  132,   //  −9.5
-  186,   //  −7.5
-  263,   //  −6.0
-  372,   //  −4.8
-  528,   //  −3.8
-  747,   //  −3.0
-  1059,  //  −2.2
-  1499,  //  −1.6
-  2123,  //  −1.0
-  3006,  //  −0.6
-  4095   //   0.0 (full)
+  0, 258, 307, 365, 434, 516, 613, 728, 865, 1029, 1223, 1453, 1727, 2052, 2439, 2899
 };
 
-// Pan table: 1 = L-only,  8 = center, 15 = R-only. 0 should not be used.
+// Pan table: 1 = L-only,  8 = center, 15 = R-only. 0 is not supposed to be used.
 static const uint16_t pan_tab_l[16] = {
-  // 0,    1,    2,    3,    4,    5,    6,    7,    8,    9,   10,   11,   12,   13,   14,   15
-  4095, 4095, 4069, 3992, 3865, 3689, 3467, 3201, 2895, 2553, 2178, 1776, 1352,  911,  458,    0
+  4095, 4095, 4069, 3992, 3865, 3689, 3467, 3202, 2896, 2553, 2179, 1777, 1352,  911,  458,    0
 };
 static const uint16_t pan_tab_r[16] = {
-  // 0,    1,    2,    3,    4,    5,    6,    7,    8,    9,   10,   11,   12,   13,   14,   15
-     0,    0,  458,  911, 1352, 1776, 2178, 2553, 2895, 3201, 3467, 3689, 3865, 3992, 4069, 4095
+     0,    0,  458,  911, 1352, 1777, 2179, 2553, 2896, 3202, 3467, 3689, 3865, 3992, 4069, 4095
 };
 
 static inline void
@@ -373,6 +356,18 @@ PSG_tick_1ms(void)
 }
 
 const psg_output_api_t *psg_drv = NULL;
+
+// Soft clip by tanh approximation to avoid hard clipping
+static inline uint32_t
+soft_clip(uint32_t x)
+{
+  const uint32_t knee = 3600;
+  if (x <= knee) return (uint16_t)x;
+  uint32_t d = x - knee;
+  // 0.117 ~= (1/8 − 1/128) -> (d>>3) − (d>>7)
+  uint32_t y = knee + ((d >> 3) - (d >> 7));
+  return (y > MAX_SAMPLE_WIDTH) ? MAX_SAMPLE_WIDTH : (uint16_t)y;
+}
 
 bool
 PSG_audio_cb(void)
@@ -443,7 +438,7 @@ PSG_audio_cb(void)
     if (vol & 0x10) vol = psg.env_level;
     vol &= 0x0F;
 
-    uint32_t gain = vol_tab[vol];  // 0..4095
+    uint32_t gain = vol_tab[vol];
     uint32_t amp = (active_amp * gain) >> 12;
 
     // pan
@@ -451,8 +446,9 @@ PSG_audio_cb(void)
     mix_l += (amp * pan_tab_l[bal]) >> 12; // 0..4095
     mix_r += (amp * pan_tab_r[bal]) >> 12; // 0..4095
   }
-  if (mix_l > MAX_SAMPLE_WIDTH) mix_l = MAX_SAMPLE_WIDTH;
-  if (mix_r > MAX_SAMPLE_WIDTH) mix_r = MAX_SAMPLE_WIDTH;
+
+  mix_l = soft_clip(mix_l);
+  mix_r = soft_clip(mix_r);
 
   if (psg_drv && psg_drv->write) {
     psg_drv->write(mix_l, mix_r);
