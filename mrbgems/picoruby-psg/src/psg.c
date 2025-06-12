@@ -98,7 +98,7 @@ typedef struct {
   uint32_t tone_phase[3];
   uint32_t noise_shift;
   uint32_t noise_cnt;
-  uint32_t env_cnt;          // 24-bit counter: 1step = 1 audio sample
+  uint16_t env_cnt;          // 24-bit counter: 1step = 1 audio sample
   // envelope state machine
   uint8_t  env_level;     // 0..15
   uint8_t  env_dir;       // 0=down, 1=up
@@ -298,13 +298,19 @@ static const uint16_t pan_tab_r[16] = {
      0,    0,  458,  911, 1352, 1777, 2179, 2553, 2896, 3202, 3467, 3689, 3865, 3992, 4069, 4095
 };
 
+
+// T = 1 / 22050 * 16 * EP
+//   = 0.000723       * EP (s)
+//   = 0.723          * EP (ms)
+//   = 723            * EP (µs)
+// FYI: T in MSX is `0.000143 * EP (s)` (256 / 1_789_770 * EP)
 static inline void
 update_envelope(void)
 {
   if (!psg.env_running || !psg.r.envelope_period) return;
 
-  uint32_t target = ((uint32_t)psg.r.envelope_period + 1) << 8; /* 256× */
-  if (++psg.env_cnt < target) return;
+  if (++psg.env_cnt < psg.r.envelope_period) return;
+
   psg.env_cnt = 0;
 
   /* 4µs - 1s (from datasheet): 1 period = 1 step (0‒15) */
@@ -490,7 +496,6 @@ reset_psg(mrb_state *mrb)
   memset(&psg, 0, sizeof(psg));
   psg.r.volume[0] = psg.r.volume[1] = psg.r.volume[2] = 15; // max volume. no envelope
   psg.r.mixer = 0x38; // all noise off, all tone on
-  psg.r.envelope_period = 0x0B; // 0b00000000_00001011
   psg.mute_mask = 0x07; // all tracks muted. The driver must unmute first!
   psg.pan[0] = psg.pan[1] = psg.pan[2] = 8; // center pan
   PSG_exit_critical(t);
