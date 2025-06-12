@@ -541,7 +541,7 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_driver_mute_all_p(mrb_state *mrb, mrb_value self)
 {
-  if (psg.mute_mask & 0x07 == 0x07) {
+  if ((psg.mute_mask & 0x07) == 0x07) {
     return mrb_true_value(); // all tracks muted
   } else {
     return mrb_false_value(); // at least one track is unmuted
