@@ -268,11 +268,13 @@ PSG_process_packet(const psg_packet_t *pkt)
 static bool
 PSG_rb_push(const psg_packet_t *p)
 {
+  psg_cs_token_t t = PSG_enter_critical();
   uint16_t next = (rb.head + 1) & PSG_PACKET_QUEUE_MASK;
   if (next == rb.tail) return false;  // full -> drop
   rb.buf[rb.head] = *p;
   PSG_COMPILER_BARRIER();
   rb.head = next;
+  PSG_exit_critical(t);
   return true;
 }
 
@@ -495,11 +497,10 @@ reset_psg(mrb_state *mrb)
 {
   if (rb.buf) {
     mrb_free(mrb, rb.buf);
-    rb.buf = NULL;
   }
-  if (rb.buf == NULL) {
-    rb.buf = mrb_malloc(mrb, sizeof(psg_packet_t) * PSG_PACKET_QUEUE_LEN);
-  }
+  rb.buf = mrb_malloc(mrb, sizeof(psg_packet_t) * PSG_PACKET_QUEUE_LEN);
+  rb.head = 0;
+  rb.tail = 0;
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
   psg.r.volume[0] = psg.r.volume[1] = psg.r.volume[2] = 15; // max volume. no envelope
@@ -560,6 +561,10 @@ static mrb_value
 mrb_driver_deinit(mrb_state *mrb, mrb_value self)
 {
   PSG_tick_stop_core1();
+  if (rb.buf) {
+    mrb_free(mrb, rb.buf);
+    rb.buf = NULL;
+  }
   return mrb_nil_value();
 }
 
