@@ -28,6 +28,16 @@ module PSG
       end
     end
 
+    def join
+      while true
+        if mute_all?
+          deinit
+          break
+        end
+        sleep_ms WAIT_MS
+      end
+    end
+
     def play_mml(tracks, terminate: true)
       mixer = 0b111000 # Noise all off, Tone all on
       chip_clock = PSG::Driver::CHIP_CLOCK
@@ -35,6 +45,8 @@ module PSG
       tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
       MML.compile_multi(tracks) do |delta, tr, command, *args|
         case command
+        when :segno
+          # ignore. `$` macro only works in PRS format
         when :mute
           invoke :mute, tr, args[0], delta
         when :play
@@ -83,14 +95,52 @@ module PSG
       return self
     end
 
-    def join
+    def play_prs(filename, terminate: true)
+      file = File.open(filename, "r")
+      header = file.read(PRS::HEADER_SIZE)
+      length, loop_start_pos = PRS.check_header(header.to_s)
+      delta = 0
       while true
-        if mute_all?
-          deinit
-          break
+        op, val = file.read(2)&.bytes
+        if op.nil? || val.nil?
+          if 0 < loop_start_pos
+            file.seek(loop_start_pos)
+            3.times do |tr|
+              invoke :mute, tr, 0, 0
+            end
+            next
+          else
+            join if terminate
+            break
+          end
         end
-        sleep_ms WAIT_MS
+        case op & 0xF0
+        when PRS::OP_WAIT
+          val2, val3 = file.read(2)&.bytes
+          break if val2.nil? || val3.nil?
+          delta = val | (val2 << 8) | (val3 << 16)
+          next
+        when PRS::OP_MUTE
+          invoke :mute, op & 0x0F, val, delta
+        when PRS::OP_SEND_REG
+          invoke :send_reg, op & 0x0F, val, delta
+        when PRS::OP_SET_PAN
+          invoke :set_pan, op & 0x0F, val, delta
+        when PRS::OP_SET_TIMBRE
+          invoke :set_timbre, op & 0x0F, val, delta
+        when PRS::OP_SET_LFO
+          val2, val3 = file.read(2)&.bytes
+          break if val2.nil? || val3.nil?
+          invoke :set_lfo, val, val2, val3, delta
+        end
+        delta = 0
       end
+    rescue => e
+      puts "Error during MML playback: #{e.message}"
+      3.times { |tr| invoke :mute, tr, 1, 0 }
+      deinit
+    ensure
+      file&.close
     end
 
     # private
