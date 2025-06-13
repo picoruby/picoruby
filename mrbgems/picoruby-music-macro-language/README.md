@@ -13,28 +13,13 @@ It supports multi-track sequencing, tempo and envelope control, vibrato (LFO), p
 ## ✅ Basic Usage
 
 ```ruby
-tracks = {
-  0 => "t120 o4 l8 p0 v12 cdefgab>c",
-  1 => "t120 o3 l4 p15 v10 g>ceg<c",
-  2 => "t120 o2 l2 p8  v8  a2.g2",
-}
+tracks = [
+  'T200 S0 M500 O5 L8 | E  E  R E  R C  E  R |  G4 R4 < G4 R4',
+  'T200 S0      O4 L8 | F# F# R F# R F# F# R |  B4 R4   R2   ',
+  'T200 S0      O3 L8 | D  D  R D  R D  D  R |> G4 R4 < G4 R4',
+]
 
-mml = MML.new
-driver = PSG::Driver.new
-
-total_ms = mml.compile_multi(tracks) do |dt, ch, *args|
-  case args[0]
-  when :lfo
-    driver.set_lfo(ch, args[1], args[2])
-  when :env
-    driver.set_envelope(ch, args[1], args[2])
-  else
-    driver.play_note(ch, *args)
-  end
-  sleep_ms dt
-end
-
-puts "Total duration: #{total_ms} ms"
+driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
 ```
 
 ## 🎼 Supported MML Commands
