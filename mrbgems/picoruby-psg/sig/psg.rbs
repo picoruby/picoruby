@@ -18,7 +18,7 @@ module PSG
     def mute: (Integer ch, Integer flag, ?Integer tick_delay) -> bool
 
     WAIT_MS: Integer
-    def play_mml: (Hash[Integer, String] tracks, ?terminate: bool) -> self
+    def play_mml: (Array[String] tracks, ?terminate: bool) -> self
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end
 
@@ -33,28 +33,6 @@ module PSG
     def note_on: (Float freq) -> bool
     def note_off: () -> bool
     def start: () -> void
-  end
-
-  type psg_event_t = {tick: Integer, op: Symbol, reg: Integer, val: Integer}
-
-  module VGMCompiler
-    def self.compile: (Hash[Integer, String] tracks) { (Integer ch, Integer pitch, Integer dur, Integer pan, Integer vol, Integer | nil es, Integer | nil ep) -> Hash[Integer, Integer] } -> String
-  end
-
-  class VGMParser
-    VGM_HEADER_SIZE: Integer
-    VGM_WAIT_735: Integer
-    VGM_WAIT_882: Integer
-    VGM_WAIT_N: Integer
-    VGM_DATA_END: Integer
-    VGM_CMD_SKIP_LENGTH: Hash[Integer?, Integer]
-    @buf: Array[psg_event_t]
-    @io: IO
-    @header_size: Integer
-    def intialize: (IO io, ?header_size: Integer) -> void
-    def parse: () -> self
-    def each_event: () { (psg_event_t) -> void } -> self
-                  | () -> Array[psg_event_t]
   end
 
 end
