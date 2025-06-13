@@ -19,18 +19,19 @@ module PSG
 
     WAIT_MS: Integer
     def play_mml: (Array[String] tracks, ?terminate: bool) -> self
+    def play_prs: (String filename, ?terminate: bool) -> void
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end
 
   class Keyboard
-    KEY2FREQ: Hash[Integer, Float]
+    KEY2PERIOD: Hash[Integer, Integer]
     TONE_K: Float
     CH: Integer
-    @ch: Integer
+    @ch_reg: Integer
     @driver: PSG::Driver
-    def self.note_freq: (Integer|Float note) -> Float
+    def self.note_to_period: (Integer note) -> Integer
     def initialize: (PSG::Driver driver, ?channel: Integer) -> void
-    def note_on: (Float freq) -> bool
+    def note_on: (Integer period) -> bool
     def note_off: () -> bool
     def start: () -> void
   end
