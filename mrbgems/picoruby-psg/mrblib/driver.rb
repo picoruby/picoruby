@@ -1,5 +1,8 @@
 module PSG
   class Driver
+
+    WAIT_MS = 10
+
     def initialize(type, **opt)
       case type
       when :pwm
@@ -25,14 +28,14 @@ module PSG
       end
     end
 
-    WAIT_MS = 10 # ms
-
     def play_mml(tracks, terminate: true)
       mixer = 0b111000 # Noise all off, Tone all on
       chip_clock = PSG::Driver::CHIP_CLOCK
-      duration = 0
+      tracks.each do |tr, _|
+        # Give the ring buffer time to fill with some amount of packets
+        invoke :mute, tr, 0, WAIT_MS
+      end
       MML.compile_multi(tracks) do |delta, tr, command, *args|
-        duration += delta
         case command
         when :mute
           invoke :mute, tr, args[0], delta
@@ -75,6 +78,13 @@ module PSG
       end
       join if terminate
       return self
+    rescue => e
+      puts "Error during MML playback: #{e.message}"
+      tracks.each do |tr, _|
+        invoke :mute, tr, 1, 0
+      end
+      deinit
+      return self
     end
 
     def join
@@ -83,7 +93,7 @@ module PSG
           deinit
           break
         end
-        sleep_ms 100
+        sleep_ms WAIT_MS
       end
     end
 
