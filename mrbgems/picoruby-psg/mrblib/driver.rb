@@ -31,10 +31,8 @@ module PSG
     def play_mml(tracks, terminate: true)
       mixer = 0b111000 # Noise all off, Tone all on
       chip_clock = PSG::Driver::CHIP_CLOCK
-      tracks.each do |tr, _|
-        # Give the ring buffer time to fill with some amount of packets
-        invoke :mute, tr, 0, WAIT_MS
-      end
+      # Give the ring buffer time to fill with some amount of packets
+      tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
       MML.compile_multi(tracks) do |delta, tr, command, *args|
         case command
         when :mute
@@ -80,9 +78,7 @@ module PSG
       return self
     rescue => e
       puts "Error during MML playback: #{e.message}"
-      tracks.each do |tr, _|
-        invoke :mute, tr, 1, 0
-      end
+      tracks.size.times { |tr| invoke :mute, tr, 1, 0 }
       deinit
       return self
     end
