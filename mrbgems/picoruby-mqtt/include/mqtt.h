@@ -49,6 +49,9 @@ typedef struct {
 extern "C" {
 #endif
 
+// Global MQTT client instance
+extern mqtt_client_t *g_mqtt_client;
+
 size_t encode_variable_length(size_t length, uint8_t *buf);
 
 bool MQTT_connect(picorb_state *vm, const char *host, int port, const char *client_id);

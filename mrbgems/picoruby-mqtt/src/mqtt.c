@@ -6,7 +6,7 @@
 #include "mrubyc.h"
 #endif
 
-static mqtt_client_t *g_mqtt_client = NULL;
+mqtt_client_t *g_mqtt_client = NULL;
 
 void
 MQTT_push_event(uint8_t *data, uint16_t size)
