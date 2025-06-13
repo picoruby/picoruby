@@ -104,9 +104,11 @@ class MML # Music Macro Language
       end
       pitch = nil
       case c.ord
-      when  60 # '<' # Octave down
+      when 36 # '$' # Segno = Loop start
+        push_event(:segno)
+      when 60 # '<' # Octave down
         @octave -= 1
-      when  62 # '>' # Octave up
+      when 62 # '>' # Octave up
         @octave += 1
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
         pitch = get_pitch(c, @track[@cursor + 1])
