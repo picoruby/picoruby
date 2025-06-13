@@ -8,8 +8,14 @@ class MML # Music Macro Language
     tick_table = {}
     event_table = {}
 
+    if tracks.empty?
+      raise "No tracks provided for MML compilation"
+    elsif 3 < tracks.size
+      raise "Too many tracks for MML compilation: #{tracks.size} (maximum is 3)"
+    end
+
     # Initialize parsers and get the first event for each track
-    tracks.each do |track_id, track|
+    tracks.each_with_index do |track, track_id|
       parser = MML.new(track_id, track, exception: exception)
       parsers[track_id] = parser
       event = parser.reduce_next
