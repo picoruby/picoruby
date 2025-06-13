@@ -74,7 +74,6 @@ class MML # Music Macro Language
     @cursor = 0
     update_common_duration(4)
     @event_queue = []
-    push_event(:mute, @track_id, 0) # Unmute the track (initially muted)
   end
 
   attr_reader :track_id
@@ -91,7 +90,7 @@ class MML # Music Macro Language
     while true
       c = @track[@cursor]
       if c.nil?
-        push_event(:mute, @track_id, 1) # Mute the track
+        push_event(:mute, 1) # Mute the track
         @finished = true
         break
       else
