@@ -1,5 +1,5 @@
 # picoruby-mqtt
-A MQTT client implementation for PicoRuby.
+A MQTT client implementation for PicoRuby with API compatibility with ruby-mqtt.
 
 ## Features
 Current features:
@@ -11,53 +11,40 @@ Current features:
 - Customizable callback function
 - QoS 1 support for publish operations
 - POSIX platform compatibility (via LwIP and picoruby-net)
+- ruby-mqtt compatible API
 
 ## Usage
 
 Must be connected to WiFi in advance.
-Basic example.
+
+### Ruby-MQTT Style API
 
 ```ruby
 require 'mqtt'
 
-# Initialize client
-client = MQTTClient.new("YOUR_IP_ADDRESS", 1883, "picoruby_test")
-client.led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN) # Example for Raspi Pico (2) W
+# Using block style (automatically disconnects)
+MQTT::Client.connect('test.mosquitto.org') do |client|
+  # Publish a message
+  client.publish('test/topic', 'Hello from PicoRuby!')
 
-# Connect to broker
-client.connect
-
-# Publish message
-client.publish("test/topic", "Hello from PicoRuby!")
-
-# Subscribe to topic
-client.subscribe("test/topic")
-
-# Wait for messages in a loop
-client.wait_for_messages
-
-# Disconnect when done
-client.disconnect
-```
-
-Example of overriding callback.
-
-```ruby
-require 'mqtt'
-
-# By default, the onboard LED toggles when a message is received
-# You can customize message handling by overriding the callback method
-client = MQTTClient.new("YOUR_IP_ADDRESS", 1883, "picoruby_test")
-
-# Set custom callback
-client.on_message do |topic, payload|
-  puts "Received on #{topic}: #{payload}"
-  # Your custom handling here
+  # Subscribe and receive messages
+  client.get('test/topic') do |topic, message|
+    puts "#{topic}: #{message}"
+  end
 end
 
+# Or without block
+client = MQTT::Client.connect('test.mosquitto.org')
+client.publish('test/topic', 'Hello!')
+client.disconnect
+
+# Hash style initialization
+client = MQTT::Client.new(
+  host: 'test.mosquitto.org',
+  port: 1883,
+  client_id: 'picoruby_test'
+)
 client.connect
-client.subscribe("test/topic")
-client.wait_for_messages
 ```
 
 ## Roadmap
@@ -70,6 +57,7 @@ client.wait_for_messages
 - Ruby callback system
 - QoS 1 for publish operations
 - POSIX platform compatibility (via LwIP abstraction)
+- ruby-mqtt compatible API
 
 ### In Progress
 - TLS encryption support (dependencies added, implementation pending)
@@ -95,3 +83,4 @@ client.wait_for_messages
 - picoruby-net: Network abstraction layer
 - picoruby-mbedtls: TLS support (for future encrypted connections)
 - picoruby-cyw43: For WiFi connectivity and LED control on Pico W
+

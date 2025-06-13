@@ -46,12 +46,19 @@ static void c_mqtt_disconnect_impl(struct VM *vm, mrbc_value v[], int argc)
   }
 }
 
+// Helper function to check if we're in a callback context
+static bool is_in_mqtt_callback(void)
+{
+  return g_mqtt_client && g_mqtt_client->in_callback;
+}
+
 static void c_mqtt_pop_packet_impl(struct VM *vm, mrbc_value v[], int argc)
 {
   uint8_t *data;
   uint16_t size;
 
   if (MQTT_pop_event(&data, &size)) {
+    // Now we're in the main loop context, safe to execute Ruby code
     mrbc_value packet = mrbc_string_new(vm, (const char *)data, size);
     picorb_free(vm, data);
     SET_RETURN(packet);
@@ -125,12 +132,13 @@ static void c_mqtt_parse_packet_impl(struct VM *vm, mrbc_value v[], int argc)
 
 void mrbc_mqtt_init(void)
 {
-  mrbc_class *class_MQTTClient = mrbc_define_class(NULL, "MQTTClient", mrbc_class_object);
+  mrbc_class *mqtt_module = mrbc_define_module(NULL, "MQTT");
+  mrbc_class *mqtt_client = mrbc_define_class_under(NULL, mqtt_module, "Client", mrbc_class_object);
 
-  mrbc_define_method(NULL, class_MQTTClient, "_connect_impl", c_mqtt_connect_impl);
-  mrbc_define_method(NULL, class_MQTTClient, "_publish_impl", c_mqtt_publish_impl);
-  mrbc_define_method(NULL, class_MQTTClient, "_subscribe_impl", c_mqtt_subscribe_impl);
-  mrbc_define_method(NULL, class_MQTTClient, "_disconnect_impl", c_mqtt_disconnect_impl);
-  mrbc_define_method(NULL, class_MQTTClient, "_pop_packet_impl", c_mqtt_pop_packet_impl);
-  mrbc_define_method(NULL, class_MQTTClient, "_parse_packet_impl", c_mqtt_parse_packet_impl);
+  mrbc_define_method(NULL, mqtt_client, "_connect_impl", c_mqtt_connect_impl);
+  mrbc_define_method(NULL, mqtt_client, "_publish_impl", c_mqtt_publish_impl);
+  mrbc_define_method(NULL, mqtt_client, "_subscribe_impl", c_mqtt_subscribe_impl);
+  mrbc_define_method(NULL, mqtt_client, "_disconnect_impl", c_mqtt_disconnect_impl);
+  mrbc_define_method(NULL, mqtt_client, "_pop_packet_impl", c_mqtt_pop_packet_impl);
+  mrbc_define_method(NULL, mqtt_client, "_parse_packet_impl", c_mqtt_parse_packet_impl);
 }

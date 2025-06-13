@@ -142,14 +142,15 @@ mrb_mqtt_parse_packet_impl(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_mqtt_gem_init(mrb_state* mrb)
 {
-  struct RClass *class_MQTTClient = mrb_define_class_id(mrb, MRB_SYM(MQTTClient), mrb->object_class);
+  struct RClass *mqtt_module = mrb_define_module_id(mrb, MRB_SYM(MQTT));
+  struct RClass *mqtt_client = mrb_define_class_under_id(mrb, mqtt_module, MRB_SYM(Client), mrb->object_class);
 
-  mrb_define_method_id(mrb, class_MQTTClient, MRB_SYM(_connect_impl), mrb_mqtt_connect_impl, MRB_ARGS_REQ(3));
-  mrb_define_method_id(mrb, class_MQTTClient, MRB_SYM(_publish_impl), mrb_mqtt_publish_impl, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_MQTTClient, MRB_SYM(_subscribe_impl), mrb_mqtt_subscribe_impl, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_MQTTClient, MRB_SYM(_disconnect_impl), mrb_mqtt_disconnect_impl, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MQTTClient, MRB_SYM(_pop_packet_impl), mrb_mqtt_pop_packet_impl, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MQTTClient, MRB_SYM(_parse_packet_impl), mrb_mqtt_parse_packet_impl, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, mqtt_client, MRB_SYM(_connect_impl), mrb_mqtt_connect_impl, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, mqtt_client, MRB_SYM(_publish_impl), mrb_mqtt_publish_impl, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, mqtt_client, MRB_SYM(_subscribe_impl), mrb_mqtt_subscribe_impl, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, mqtt_client, MRB_SYM(_disconnect_impl), mrb_mqtt_disconnect_impl, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, mqtt_client, MRB_SYM(_pop_packet_impl), mrb_mqtt_pop_packet_impl, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, mqtt_client, MRB_SYM(_parse_packet_impl), mrb_mqtt_parse_packet_impl, MRB_ARGS_REQ(1));
 }
 
 void

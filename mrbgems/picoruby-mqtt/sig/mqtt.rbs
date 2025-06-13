@@ -1,40 +1,58 @@
-class MQTTClient
+module MQTT
+  class Client
+    attr_accessor led: nil | GPIO | CYW43::GPIO
 
-  attr_accessor led: nil | GPIO | CYW43::GPIO
+    def self.connect: (String host, ?Integer? port, ?String? client_id) { (Client) -> void } -> void
+                   | (String host, ?Integer? port, ?String? client_id) -> Client
+                   | (Hash[Symbol | String, untyped]) { (Client) -> void } -> void
+                   | (Hash[Symbol | String, untyped]) -> Client
 
-  def initialize: (String host, ?Integer? port, ?String client_id) -> void
+    def initialize: (String host, ?Integer? port, ?String? client_id) -> void
+                 | (Hash[Symbol | String, untyped]) -> void
 
-  def connect: () -> bool
+    def connect: () -> bool
 
-  def publish: (String topic, String payload) -> bool
+    def publish: (String topic, String payload, ?bool retain) -> bool
 
-  def subscribe: (String topic) -> bool
+    def subscribe: (String topic) -> bool
 
-  def disconnect: () -> bool
+    def get: (String? topic) { (String topic, String message) -> void } -> void
+           | (String? topic) -> ([String, String] | nil)
 
-  def process_messages: () -> void
+    def disconnect: () -> bool
 
-  def wait_for_messages: () -> void
+    def process_messages: () -> void
 
-  def on_message: () ?{ (String topic, String payload) -> void } -> void
+    def wait_for_messages: () -> void
 
-  private
+    def on_message: () { (String topic, String payload) -> void } -> void
 
-  def _connect_impl: (String host, Integer port, String client_id) -> bool
+    def instance: () -> (Client | nil)
 
-  def _publish_impl: (String payload, String topic) -> bool
+    private
 
-  def _subscribe_impl: (String topic) -> bool
+    def _connect_impl: (String host, Integer port, String client_id, bool) -> bool
 
-  def _disconnect_impl: () -> bool
+    def _publish_impl: (String payload, String topic) -> bool
 
-  def _pop_packet_impl: () -> (String | nil)
+    def _subscribe_impl: (String topic) -> bool
 
-  def _parse_packet_impl: (String packet) -> ([String, String] | nil)
+    def _disconnect_impl: () -> bool
 
-  @host: String
-  @port: Integer
-  @client_id: String
-  @connected: bool
-  @message_callback: ^(String, String) -> void
+    def _pop_packet_impl: () -> (String | nil)
+
+    def _parse_packet_impl: (String packet) -> ([String, String] | nil)
+
+    @host: String
+    @port: Integer
+    @client_id: String
+    @connected: bool
+    @message_callback: ^(String, String) -> void
+    @last_message: ([String, String] | nil)
+
+    def assert_hash: (untyped) -> Hash[Symbol | String, untyped]
+  end
 end
+
+# Global variable declaration
+$_mqtt_singleton: MQTT::Client?
