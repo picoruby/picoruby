@@ -19,19 +19,16 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK"
   conf.cc.defines << "NDEBUG"
 
+  conf.gembox 'peripherals'
+  conf.gembox 'r2p2'
   conf.gem core: "picoruby-machine"
-  conf.gem core: "picoruby-shell"
   conf.gem core: "picoruby-picorubyvm"
-  conf.gem core: "picoruby-gpio"
-  conf.gem core: "picoruby-adc"
   conf.gem core: "picoruby-rng"
-  conf.gem core: "picoruby-spi"
-  conf.gem core: "picoruby-uart"
-  conf.gem core: "picoruby-pwm"
   conf.gem core: "picoruby-watchdog"
   conf.gem core: "picoruby-rmt"
   conf.gem core: "picoruby-adafruit_sk6812"
   conf.gem core: "picoruby-yaml"
+  conf.gem core: "picoruby-vim"
   conf.gem core: "picoruby-picoline"
   conf.gem core: "picoruby-base64"
   conf.gem core: "picoruby-mbedtls"

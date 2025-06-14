@@ -39,7 +39,6 @@ hal_init(void)
   timer_create_args.dispatch_method = ESP_TIMER_TASK;
   timer_create_args.name = "mrbc_tick_timer";
 
-  esp_timer_init();
   esp_timer_create(&timer_create_args, &periodic_timer);
   esp_timer_start_periodic(periodic_timer, MRBC_TICK_UNIT * 1000);
 }
