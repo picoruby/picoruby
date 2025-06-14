@@ -109,6 +109,13 @@ mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
   }
 }
 
+static void
+c_Machine_mcu_name(mrb_state *mrb, mrb_value klass)
+{
+  const char *name = Machine_mcu_name();
+  return mrb_str_new_cstr(mrb, name);
+}
+
 #if !defined(PICORB_PLATFORM_POSIX)
 #include <time.h>
 #endif
