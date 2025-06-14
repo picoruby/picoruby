@@ -64,11 +64,11 @@ module MQTT
       _subscribe_impl(topic)
     end
 
-    def get(topic = nil)
+    def get(topic = nil, &block)
       subscribe(topic) if topic
 
       if block_given?
-        @message_callback = Proc.new
+        @message_callback = block
         wait_for_messages
         nil
       else
