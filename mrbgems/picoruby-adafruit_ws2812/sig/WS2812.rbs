@@ -1,8 +1,5 @@
 class WS2812
   def initialize: (Integer pin) -> void
-
-  def show: (*[Integer | [Integer, Integer, Integer]]) -> void
-
-  def parse_color: (Integer color) -> [Integer, Integer, Integer]
-               | ([Integer, Integer, Integer] color) -> [Integer, Integer, Integer]
+  def show_rgb: (*[Integer, Integer, Integer] colors) -> void
+  def show_hex: (*Integer colors) -> void
 end
