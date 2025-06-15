@@ -409,7 +409,11 @@ Machine_stack_usage(void)
 const char *
 Machine_mcu_name(void)
 {
+#if defined(PICO_RP2040)
   return "RP2040";
+#elif defined(PICORB_VM_MRUBYC)
+  return "RP2350";
+#endif
 }
 
 bool
