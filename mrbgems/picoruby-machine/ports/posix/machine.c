@@ -55,5 +55,5 @@ Machine_stack_usage(void)
 const char *
 Machine_mcu_name(void)
 {
-  return "";
+  return "POSIX";
 }
