@@ -40,17 +40,17 @@ module PSG
 
     def play_mml(tracks, terminate: true)
       mixer = 0b111000 # Noise all off, Tone all on
-      chip_clock = PSG::Driver::CHIP_CLOCK
+      period_factor = PSG::Driver::CHIP_CLOCK / 32
       # Give the ring buffer time to fill with some amount of packets
       tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
-      MML.compile_multi(tracks) do |delta, tr, command, *args|
+      MML.compile_multi(tracks, loop: true) do |delta, tr, command, *args|
         case command
         when :segno
-          # ignore. `$` macro only works in PRS format
+          # Ignore. MML takes care of `$` macro
         when :mute
           invoke :mute, tr, args[0], delta
         when :play
-          tone_period = (chip_clock / (32 * args[0])).to_i
+          tone_period = (period_factor / args[0]).to_i
           invoke :send_reg, tr * 2    , tone_period & 0xFF       , delta
           invoke :send_reg, tr * 2 + 1, (tone_period >> 8) & 0x0F, 0
         when :volume

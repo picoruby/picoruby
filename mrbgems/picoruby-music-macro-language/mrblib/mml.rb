@@ -3,7 +3,7 @@ class MML # Music Macro Language
   DURATION_BASE = (1000 * 60 * 4).to_f
   NOTES = { a: 0, b: 2, c: 3, d: 5, e: 7, f: 8, g: 10 }
 
-  def self.compile_multi(tracks, exception: true)
+  def self.compile_multi(tracks, exception: true, loop: false)
     parsers = {}
     tick_table = {}
     event_table = {}
@@ -16,7 +16,7 @@ class MML # Music Macro Language
 
     # Initialize parsers and get the first event for each track
     tracks.each_with_index do |track, track_id|
-      parser = MML.new(track_id, track, exception: exception)
+      parser = MML.new(track_id, track, exception: exception, loop: loop)
       parsers[track_id] = parser
       event = parser.reduce_next
       if event
@@ -66,7 +66,7 @@ class MML # Music Macro Language
     prev_time
   end
 
-  def initialize(track_id, track, exception: true)
+  def initialize(track_id, track, exception: true, loop: false)
     @track_id = track_id
     @raise_err = exception
     @octave = 4
@@ -80,6 +80,8 @@ class MML # Music Macro Language
     @cursor = 0
     update_common_duration(4)
     @event_queue = []
+    @loop = loop
+    @segno_pos = 0
   end
 
   attr_reader :track_id
@@ -96,20 +98,26 @@ class MML # Music Macro Language
     while true
       c = @track[@cursor]
       if c.nil?
-        push_event(:mute, 1) # Mute the track
-        @finished = true
-        break
+        if @loop && 0 < @segno_pos
+          @cursor = @segno_pos
+          next
+        else
+          push_event(:mute, 1) # Mute the track
+          @finished = true
+          break
+        end
       else
         c.downcase!
       end
       pitch = nil
       case c.ord
       when 36 # '$' # Segno = Loop start
+        @segno_pos = @cursor + 1
         push_event(:segno)
       when 60 # '<' # Octave down
-        @octave -= 1
+        @octave -= 1 if 1 < @octave
       when 62 # '>' # Octave up
-        @octave += 1
+        @octave += 1 if @octave < 8
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
         pitch = get_pitch(c, @track[@cursor + 1])
         case @track[@cursor + 1]
