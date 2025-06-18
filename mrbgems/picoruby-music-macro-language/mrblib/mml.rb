@@ -52,8 +52,8 @@ class MML # Music Macro Language
       next_event = parsers[min_track].reduce_next
       if next_event
         # add tick if play or rest
-        if event[0] == :play || event[0] == :rest
-          tick_table[min_track] += event[-1].to_i
+        if event[0] == :play || event[0] == :mute # mute acts as rest
+          tick_table[min_track] += (event[-1] || 0)
         end
         event_table[min_track] = next_event
       else
@@ -200,7 +200,10 @@ class MML # Music Macro Language
                 end
       release = length - sustain
       push_event(:play, pitch, sustain) if 0 < sustain
-      push_event(:rest, 0,     release) if 0 < release
+      if 0 < release
+        push_event(:mute, 1, release) # mute once
+        push_event(:mute, 0, 0)       # unmute after release
+      end
       @total_duration += length
 
       break unless @event_queue.empty?

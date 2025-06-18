@@ -548,12 +548,12 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 //}
 
 static mrb_value
-mrb_driver_mute_all_p(mrb_state *mrb, mrb_value self)
+mrb_driver_buffer_empty_p(mrb_state *mrb, mrb_value self)
 {
-  if ((psg.mute_mask & 0x07) == 0x07) {
-    return mrb_true_value(); // all tracks muted
+  if (rb.head == rb.tail) {
+    return mrb_true_value();
   } else {
-    return mrb_false_value(); // at least one track is unmuted
+    return mrb_false_value();
   }
 }
 
@@ -658,7 +658,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
-  mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(mute_all), mrb_driver_mute_all_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(buffer_empty), mrb_driver_buffer_empty_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(deinit), mrb_driver_deinit, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_ARG(3, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_ARG(2, 1));
