@@ -44,12 +44,8 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.gembox "r2p2"
   conf.gembox "stdlib"
   conf.gembox "utils"
+  conf.gembox "cyw43"
   conf.gem core: 'picoruby-jwt'
-  conf.gem core: 'picoruby-net'
-  conf.gem core: 'picoruby-mbedtls'
-  # For some reason, picoruby-net doesn't have dependency on picoruby-cyw43
-  conf.gem core: 'picoruby-cyw43'
-  conf.gem core: 'picoruby-ble'
 
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)
