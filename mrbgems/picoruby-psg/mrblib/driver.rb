@@ -30,7 +30,7 @@ module PSG
 
     def join
       while true
-        if mute_all?
+        if buffer_empty?
           deinit
           break
         end
@@ -53,9 +53,6 @@ module PSG
           tone_period = (chip_clock / (32 * args[0])).to_i
           invoke :send_reg, tr * 2    , tone_period & 0xFF       , delta
           invoke :send_reg, tr * 2 + 1, (tone_period >> 8) & 0x0F, 0
-        when :rest
-          invoke :send_reg, tr * 2    , 0, delta
-          invoke :send_reg, tr * 2 + 1, 0, 0
         when :volume
           invoke :send_reg, tr + 8, args[0], delta
         when :env_period
