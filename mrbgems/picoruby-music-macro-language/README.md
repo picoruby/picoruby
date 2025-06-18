@@ -46,7 +46,7 @@ driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
 | `jD,R`          | Vibrato (LFO): depth `D` (halftones), rate `R` (in 0.1Hz units) |
 | `.`             | Dotted note. Adds 1/2 length (`l4.` = x1.5, `l4..` = x1.75)     |
 | `[ ... ]N`      | Repeat enclosed block `N` times (supports nesting)              |
-| `$`             | Segno. Loop start position. Valid only for PRS                  |
+| `$`             | Segno. Loop start position                                      |
 | `\|`            | Barline (purely visual; ignored by parser)                      |
 
 
