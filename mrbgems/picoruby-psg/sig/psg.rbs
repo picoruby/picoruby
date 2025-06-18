@@ -9,7 +9,7 @@ module PSG
     def self.select_mcp492x: (Integer dac, Integer copi, Integer sck, Integer cs, Integer ldac) -> void
     def initalize: (Symbol type, **Integer opt) -> void
     def join: () -> void
-    def mute_all?: () -> bool
+    def buffer_empty?: () -> bool
     def deinit: () -> nil
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
     def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
