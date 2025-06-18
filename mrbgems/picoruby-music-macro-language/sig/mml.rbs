@@ -19,12 +19,14 @@ class MML
   @cursor: Integer
   @finished: boolish
   @event_queue: Array[event_t]
+  @loop: bool
+  @segno_pos: Integer
 
   attr_reader track_id: Integer
 
-  def self.compile_multi: (Array[String] tracks, ?exception: bool) { (Integer delta, Integer channel, command_t | play_t command, *Integer args) -> untyped } -> Integer
+  def self.compile_multi: (Array[String] tracks, ?exception: bool, ?loop: bool) { (Integer delta, Integer channel, command_t | play_t command, *Integer args) -> untyped } -> Integer
 
-  def initialize: (Integer track_id, String track, ?exception: bool) -> void
+  def initialize: (Integer track_id, String track, ?exception: bool, ?loop: bool) -> void
   def reduce_next: () -> (event_t | nil)
   private def push_event: (play_t command, Integer | Float arg1, Integer arg2) -> void
                         | (command_t command, ?Integer arg1, ?Integer arg2) -> void
