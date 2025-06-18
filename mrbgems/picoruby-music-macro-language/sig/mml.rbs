@@ -1,8 +1,7 @@
 class MML
   type command_t = :volume | :env_shape | :env_period | :lfo | :pan | :timbre | :mixer | :noise | :mute | :segno
   type play_t    = :play
-  type rest_t    = :rest
-  type event_t   = [(play_t | rest_t | command_t), Array[Integer | Float | 0 | nil]]
+  type event_t   = [(play_t | command_t), Array[Integer | Float | 0 | nil]]
 
   DURATION_BASE: Float
   NOTES: Hash[Symbol, Integer]
@@ -23,14 +22,11 @@ class MML
 
   attr_reader track_id: Integer
 
-  def self.compile_multi: (Array[String] tracks, ?exception: bool) { (Integer delta, Integer channel, command_t | play_t | rest_t command, *Integer args) -> untyped } -> Integer
+  def self.compile_multi: (Array[String] tracks, ?exception: bool) { (Integer delta, Integer channel, command_t | play_t command, *Integer args) -> untyped } -> Integer
 
   def initialize: (Integer track_id, String track, ?exception: bool) -> void
-  def reduce_next: () { (play_t command, Integer | Float arg1, Integer arg2) -> untyped } -> (event_t | nil)
-                 | () { (rest_t command, 0, Integer arg2) -> untyped } -> (event_t | nil)
-                 | () { (command_t command, Integer arg1, ?Integer arg2) -> untyped } -> (event_t | nil)
+  def reduce_next: () -> (event_t | nil)
   private def push_event: (play_t command, Integer | Float arg1, Integer arg2) -> void
-                        | (rest_t command, 0, Integer arg2) -> void
                         | (command_t command, ?Integer arg1, ?Integer arg2) -> void
   private def get_pitch: (String note, String | nil semitone) -> Float
   private def subvalue: () -> (Integer | nil)
