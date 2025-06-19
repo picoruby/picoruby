@@ -420,9 +420,15 @@ PSG_audio_cb(void)
     uint32_t tone_amp;
     switch (psg.timbre[tr]) {
       case PSG_TIMBRE_TRIANGLE: {
-        bool second = (psg.tone_phase[tr] & 0x80000000);
-        uint32_t ramp = psg.tone_phase[tr] >> 20;
-        tone_amp = second ? (4095 - ramp) * 2 : ramp * 2; // 0->4095->0
+        // Extract upper 13 bits from 32 bit phase -> 0..8191
+        uint32_t idx = psg.tone_phase[tr] >> 19; // = 32 - 13
+        // XOR flipping by MSB: convert sawtooth to triangle
+        idx ^= (idx >> 12);   // 0xxxxxxxxxxxx -> 0xxxxxxxxxxxx (as is)
+                              // 1xxxxxxxxxxxx -> 0yyyyyyyyyyyy (flipped)
+        // Extract lower 13 bits: 0..8191
+        uint32_t tri = idx & 0x1FFF;
+        // Normalize to 0..4095 (includes both even and odd)
+        tone_amp = tri >> 1;
         break;
       }
       case PSG_TIMBRE_SAWTOOTH: {
