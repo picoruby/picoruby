@@ -270,7 +270,9 @@ PSG_rb_push(const psg_packet_t *p)
 {
   psg_cs_token_t t = PSG_enter_critical();
   uint16_t next = (rb.head + 1) & PSG_PACKET_QUEUE_MASK;
-  if (next == rb.tail) return false;  // full -> drop
+  if (next == rb.tail) {
+    return false;  // full -> drop
+  }
   rb.buf[rb.head] = *p;
   PSG_COMPILER_BARRIER();
   rb.head = next;
@@ -290,8 +292,10 @@ PSG_rb_peek(psg_packet_t *out)  // does not consume
 void
 PSG_rb_pop(void)  // consumes one slot
 {
+  psg_cs_token_t t = PSG_enter_critical();
   rb.tail = (rb.tail + 1) & PSG_PACKET_QUEUE_MASK;
   PSG_COMPILER_BARRIER();
+  PSG_exit_critical(t);
 }
 
 
