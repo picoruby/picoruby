@@ -1,6 +1,7 @@
 class GC
   def self.enable: () -> bool
   def self.disable: () -> bool
+  def self.start: () -> bool
 end
 
 class ObjectSpace
