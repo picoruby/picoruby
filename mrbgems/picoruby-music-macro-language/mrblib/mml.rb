@@ -81,6 +81,7 @@ class MML # Music Macro Language
     @cursor = 0
     update_common_duration(4)
     @event_queue = []
+    @queue_index =  0
     @loop = loop
     @segno_pos = 0
   end
@@ -91,8 +92,27 @@ class MML # Music Macro Language
     @event_queue << [command, *args]
   end
 
+  # mruby's Array#shift causes memory leak, so we implement our own shift
+  def shift_event
+    if @queue_index < @event_queue.size
+      event = @event_queue[@queue_index]
+      @queue_index += 1
+    else
+      event = nil
+    end
+    if 10 <= @queue_index
+      @event_queue = @event_queue[@queue_index..-1] # Keep memory usage low
+      @queue_index = 0
+    end
+    return event
+  end
+
+  def event_exist?
+    @queue_index < @event_queue.size
+  end
+
   def reduce_next
-    return @event_queue.shift unless @event_queue.empty?
+    return shift_event if event_exist?
 
     return nil if @finished
 
@@ -213,9 +233,9 @@ class MML # Music Macro Language
       end
       @total_duration += length
 
-      break unless @event_queue.empty?
+      break if event_exist?
     end
-    return @event_queue.shift
+    return shift_event
   end
 
   # private
