@@ -51,3 +51,9 @@ Machine_stack_usage(void)
 {
   return 0;
 }
+
+const char *
+Machine_mcu_name(void)
+{
+  return "POSIX";
+}
