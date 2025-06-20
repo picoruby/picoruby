@@ -4,7 +4,7 @@ class MML
   type event_t   = [(play_t | command_t), Array[Integer | Float | 0 | nil]]
 
   DURATION_BASE: Float
-  NOTES: Hash[Symbol, Integer]
+  NOTES: Hash[Integer, Integer]
 
   @octave: Integer
   @tempo: Integer
@@ -30,7 +30,7 @@ class MML
   def reduce_next: () -> (event_t | nil)
   private def push_event: (play_t command, Integer | Float arg1, Integer arg2) -> void
                         | (command_t command, ?Integer arg1, ?Integer arg2) -> void
-  private def get_pitch: (String note, String | nil semitone) -> Float
+  private def get_pitch: (Integer note, Integer | nil semitone) -> Float
   private def subvalue: () -> (Integer | nil)
   private def punti: () -> Integer
   private def coef: (Integer count) -> Float
