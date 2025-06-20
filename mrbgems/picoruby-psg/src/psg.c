@@ -271,6 +271,7 @@ PSG_rb_push(const psg_packet_t *p)
   psg_cs_token_t t = PSG_enter_critical();
   uint16_t next = (rb.head + 1) & PSG_PACKET_QUEUE_MASK;
   if (next == rb.tail) {
+    PSG_exit_critical(t);
     return false;  // full -> drop
   }
   rb.buf[rb.head] = *p;
