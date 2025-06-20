@@ -1,7 +1,8 @@
 class MML # Music Macro Language
 
   DURATION_BASE = (1000 * 60 * 4).to_f
-  NOTES = { a: 0, b: 2, c: 3, d: 5, e: 7, f: 8, g: 10 }
+  NOTES = { 97 => 0, 98 => 2, 99 => 3, 100 => 5, 101 => 7, 102 => 8, 103 => 10 }
+  #         a        b        c        d        e        f        g
 
   def self.compile_multi(tracks, exception: true, loop: false)
     parsers = {}
@@ -76,7 +77,7 @@ class MML # Music Macro Language
     @transpose = 0  # in half-tone
     @detune = 0     # 0=no detune, 128=one octave down
     @total_duration = 0
-    @track = expand_loops(track)
+    @track = expand_loops(track).downcase
     @cursor = 0
     update_common_duration(4)
     @event_queue = []
@@ -96,7 +97,7 @@ class MML # Music Macro Language
     return nil if @finished
 
     while true
-      c = @track[@cursor]
+      c = @track.getbyte(@cursor)
       if c.nil?
         if @loop && 0 < @segno_pos
           @cursor = @segno_pos
@@ -106,11 +107,9 @@ class MML # Music Macro Language
           @finished = true
           break
         end
-      else
-        c.downcase!
       end
       pitch = nil
-      case c.ord
+      case c
       when 36 # '$' # Segno = Loop start
         @segno_pos = @cursor + 1
         push_event(:segno)
@@ -119,9 +118,9 @@ class MML # Music Macro Language
       when 62 # '>' # Octave up
         @octave += 1 if @octave < 8
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
-        pitch = get_pitch(c, @track[@cursor + 1])
-        case @track[@cursor + 1]
-        when "1".."9", "."
+        pitch = get_pitch(c, @track.getbyte(@cursor + 1))
+        case @track.getbyte(@cursor + 1)
+        when 49..57, 46 # '1'..'9', '.'
           fraction = subvalue
           if fraction.nil?
             length = (@common_duration * coef(punti) + 0.5).to_i
@@ -133,21 +132,21 @@ class MML # Music Macro Language
         end
       when 105 # 'i' # Timbre
         @cursor += 1
-        timbre = @track[@cursor].to_i
+        timbre = (@track.getbyte(@cursor) || 48) - 48 # Convert one letter ASCII number to integer
         push_event(:timbre, timbre)
       when 106 # 'j' # LFO (Modulation)
         depth = subvalue
         unless depth.nil?
           mod_depth = depth * 100
-          if @track[@cursor + 1] == ","
+          if @track.getbyte(@cursor + 1) == 44 # ','
             @cursor += 1
             mod_rate = subvalue
           end
           push_event(:lfo, mod_depth, mod_rate || 0)
         end
       when 107 # 'k' # Transpose (Key)
-        sign = @track[@cursor + 1]
-        if sign == "+" || sign == "-"
+        sign = @track.getbyte(@cursor + 1)
+        if sign == 43 || sign == 45 # '+' or '-'
           @cursor += 1
           n = subvalue || 0
           @transpose = sign == "+" ? n : -n
@@ -159,13 +158,13 @@ class MML # Music Macro Language
         end
       when 111 # 'o' # Octave
         @cursor += 1
-        @octave = @track[@cursor].to_i
+        @octave = (@track.getbyte(@cursor) || 52) - 48 # Convert one letter ASCII number to integer
       when 112 # 'p' # Pan
         pan = [subvalue, 15].min
         push_event(:pan, pan || 8)
       when 113 # 'q' # Gate time
         @cursor += 1
-        @q = @track[@cursor].to_i
+        @q = (@track.getbyte(@cursor) || 56) - 48 # Convert one letter ASCII number to integer
         @q = 8 if @q < 1 || 8 < @q
       when 115 # 's' # Envelope spape
         push_event(:volume, 16) # Use envelope instead of volume
@@ -180,16 +179,16 @@ class MML # Music Macro Language
         push_event(:volume, @volume || 15)
       when 120 # 'x' # Mixer
         @cursor += 1
-        push_event(:mixer, @track[@cursor].to_i)
+        push_event(:mixer, @track.getbyte(@cursor) || 0)
       when 121 # 'y' # Noise period
         @cursor += 1
-        push_event(:noise, @track[@cursor].to_i)
+        push_event(:noise, @track.getbyte(@cursor) || 0)
       when 122 # 'z' # Detune
-        @detune = subvalue
+        @detune = subvalue || 0
       when 32, 124 # ' ' or '|' to be ignored
         # skip
       else
-        message = "TR: #{@track_id} Invalid character: #{c} (#{c.ord}) at position #{@cursor}"
+        message = "TR: #{@track_id} Invalid character: `#{c.chr}` at position #{@cursor}"
         if @raise_err
           raise message
         else
@@ -226,14 +225,14 @@ class MML # Music Macro Language
   end
 
   def get_pitch(note, semitone)
-    return 0.0 if note == 'r' # Rest
-    octave_fix = (note=='a'||note=='b') ? 1 : 0
-    val = NOTES[note.to_sym]
+    return 0.0 if note == 114 # 'r':Rest
+    octave_fix = (note==97||note==98) ? 1 : 0 # 'a', 'b'
+    val = NOTES[note]
     raise "Invalid note: #{note}" if val.nil?
-    case semitone&.ord
+    case semitone
     when 45 # '-'
       @cursor += 1
-      if note == 'a'
+      if note == 97
         octave_fix = 0
       else
         val -= 1
@@ -249,20 +248,20 @@ class MML # Music Macro Language
   end
 
   def subvalue
-    str_number = ""
+    val = 0
     @cursor += 1
-    while 48 <= (c = @track[@cursor]&.ord || 0) && c <= 57
-      str_number << @track[@cursor].to_s
+    while (c = @track.getbyte(@cursor)) && 48 <= c && c <= 57
+      val = val * 10 + (c - 48)
       @cursor += 1
     end
     @cursor -= 1
-    return str_number.empty? ? nil : str_number.to_i
+    val == 0 ? nil : val
   end
 
   def punti
     count = 0
     @cursor += 1
-    while @track[@cursor] == "."
+    while @track.getbyte(@cursor) == 46 # '.'
       count += 1
       @cursor += 1
     end
