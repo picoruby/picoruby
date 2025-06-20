@@ -118,11 +118,7 @@ typedef struct {
   uint8_t pan[3];
   // tone type
   psg_timbre_t timbre[3];
-  // Smoothing to void clicks
-  uint16_t smooth_amp[3];
 } psg_t;
-
-#define SLEW_STEP  128 // ~= 1.5ms
 
 static psg_t psg;
 
@@ -407,24 +403,24 @@ PSG_audio_cb(void)
   }
   uint8_t noise_bit = psg.noise_shift & 1;
 
+  // mix
   uint32_t mix_l = 0, mix_r = 0;
 
   for (int tr = 0; tr < 3; ++tr) {
-
-    /* ---- phase accumulator & vibrato --------------------------- */
+    // phase
     if (psg.tone_inc[tr]) {
-      /* Vibrato: -depth..+depth cent  -> multiplicative factor ~= 2^(cent/1200) */
+      /* Vibrato: ±depth cent  -> multiplicative factor ~= 2^(cent/1200) */
       int8_t depth = (int8_t)psg.lfo_depth[tr];          /* signed */
       uint16_t ph  = psg.lfo_phase[tr];
-      /* simple triangle LFO: 0-32767-0-.. */
+      /* simple triangle LFO: 0-32767-0-… */
       int16_t tri = (ph < 32768) ? ph : (65535 - ph);    /* 0-32767 */
-      int32_t cent = (depth * tri) >> 15;                /* -epth..+depth */
-      /* ln(2)/1200 ~= 0.0005775  -> use 16.16 fixed ->> 38 */
+      int32_t cent = (depth * tri) >> 15;                /* −depth..+depth */
+      /* ln(2)/1200 ≒ 0.0005775  -> use 16.16 fixed ->> 38 */
       int32_t frac = (cent * 38) >> 8;                   /* ~= log2 factor */
       uint32_t inc = psg.tone_inc[tr] + ((psg.tone_inc[tr] * frac) >> 16);  /* FM */
+      psg.tone_phase[tr] += inc;
     }
 
-    /* ---- base waveform (0..4095) ------------------------------- */
     uint32_t tone_amp;
     switch (psg.timbre[tr]) {
       case PSG_TIMBRE_TRIANGLE: {
@@ -452,51 +448,29 @@ PSG_audio_cb(void)
         break;
     }
 
-    /* ---- tone / noise selector -------------------------------- */
+    // noise mixing
     bool use_tone  = !(psg.r.mixer & (1 << tr));
     bool use_noise = !(psg.r.mixer & (1 << (tr + 3)));
+    uint32_t active_amp = 0;
+    if (use_tone)  active_amp += tone_amp;
+    if (use_noise && noise_bit) active_amp = 4095;
 
-    uint32_t inst_amp = 0;                       /* instantaneous 0..4095 */
-    if (use_tone)                  inst_amp += tone_amp;
-    if (use_noise && noise_bit)    inst_amp  = 4095;  /* noise overrides */
+    // Track mute
+    if (psg.mute_mask & (1u << tr)) continue;
+    if (active_amp == 0) continue;
 
-    /* ---- software mute ---------------------------------------- */
-    if (psg.mute_mask & (1u << tr)) {
-      use_tone = use_noise = false;
-      inst_amp = 0;
-    }
-
-    /* ---- click-less gate envelope ----------------------------- */
-    bool gate_on = use_tone || (use_noise && noise_bit);
-    uint16_t target = gate_on ? 4095 : 0;
-    uint16_t cur    = psg.smooth_amp[tr];
-
-    if (cur < target) {
-      uint16_t tmp = cur + SLEW_STEP;
-      cur = (tmp > target) ? target : tmp;
-    } else if (cur > target) {
-      cur = (cur <= SLEW_STEP) ? 0 : cur - SLEW_STEP;
-    }
-    psg.smooth_amp[tr] = cur;
-
-    if (cur == 0) { // Completely faded out
-      continue;
-    }
-
-    /* ---- volume / envelope ------------------------------------ */
+    // volume: bit4 = envelope
     uint8_t vol = psg.r.volume[tr];
     if (vol & 0x10) vol = psg.env_level;
     vol &= 0x0F;
+
     uint32_t gain = vol_tab[vol];
+    uint32_t amp = (active_amp * gain) >> 12;
 
-    /* apply gate envelope then volume */
-    uint32_t amp = ((inst_amp * cur) >> 12);     /* gate  */
-    amp          = (amp * gain) >> 12;           /* vol   */
-
-    /* ---- pan & accumulation ----------------------------------- */
-    uint8_t bal = psg.pan[tr];                   /* 1..15 */
-    mix_l += (amp * pan_tab_l[bal]) >> 12;
-    mix_r += (amp * pan_tab_r[bal]) >> 12;
+    // pan
+    uint8_t bal = psg.pan[tr];          // 1..15
+    mix_l += (amp * pan_tab_l[bal]) >> 12; // 0..4095
+    mix_r += (amp * pan_tab_r[bal]) >> 12; // 0..4095
   }
 
   mix_l = soft_clip(mix_l);
