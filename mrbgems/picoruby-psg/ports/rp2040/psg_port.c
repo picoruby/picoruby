@@ -80,12 +80,6 @@ audio_cb(repeating_timer_t *t)
   return PSG_audio_cb();
 }
 
-static void
-psg_add_repeating_timer(void)
-{
-  add_repeating_timer_us(-1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer);
-}
-
 // Tick
 
 static volatile uint32_t g_tick_ms = 0;
@@ -97,7 +91,7 @@ psg_process_packets(void)
   psg_packet_t pkt;
   while (PSG_rb_peek(&pkt)) {
     if (0 < (int32_t)(pkt.tick - g_tick_ms)) break;
-    g_tick_ms = 0;
+    g_tick_ms -= pkt.tick;
     PSG_rb_pop();
     PSG_process_packet(&pkt);
   }
@@ -126,7 +120,7 @@ psg_tick_init_core1(void)
     tick_alarm_pool = alarm_pool_create(2 /* hardware timer 2 */, 16 /* IRQ prio */);
     assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
   }
-  memset(&tick_timer, 0, sizeof(tick_timer));
+  memset(&tick_timer, 0, sizeof(repeating_timer_t));
   /* 1 kHz = -1000 µs */
   if (!alarm_pool_add_repeating_timer_us(tick_alarm_pool, -1000, tick_cb, NULL, &tick_timer)) {
     assert(false && "Failed to add repeating timer");
@@ -146,7 +140,8 @@ psg_core1_main(void)
   uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
   psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
   psg_drv->start();
-  psg_add_repeating_timer(); /* 22.05 kHz */
+  /* 22.05 kHz */
+  add_repeating_timer_us(-1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer);
   psg_tick_init_core1();
   multicore_fifo_push_blocking(ACK_CORE1_READY);
   /* WFE? */
@@ -183,7 +178,7 @@ PSG_tick_stop_core1(void)
     while (!cancel_repeating_timer(&tick_timer)) {
       tight_loop_contents();
     }
-    memset(&tick_timer, 0, sizeof(tick_timer));
+    memset(&tick_timer, 0, sizeof(repeating_timer_t));
     if (tick_alarm_pool) {
       alarm_pool_destroy(tick_alarm_pool);
       tick_alarm_pool = NULL;
@@ -191,7 +186,7 @@ PSG_tick_stop_core1(void)
     while (!cancel_repeating_timer(&audio_timer)) {
       tight_loop_contents();
     };
-    memset(&audio_timer, 0, sizeof(audio_timer));
+    memset(&audio_timer, 0, sizeof(repeating_timer_t));
     multicore_reset_core1();
     core1_alive = false;
   }
