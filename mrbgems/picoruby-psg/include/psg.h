@@ -41,7 +41,7 @@ typedef struct __attribute__((packed, aligned(4))) {
 } psg_packet_t;
 
 #ifndef PSG_PACKET_QUEUE_BITS
-#define PSG_PACKET_QUEUE_BITS 9 // 2^9 = 512
+#define PSG_PACKET_QUEUE_BITS 8 // 2^8 = 256 packets
 #endif
 
 #define PSG_PACKET_QUEUE_LEN  (1u << PSG_PACKET_QUEUE_BITS)
