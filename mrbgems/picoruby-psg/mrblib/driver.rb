@@ -43,31 +43,31 @@ module PSG
       period_factor = PSG::Driver::CHIP_CLOCK / 32
       # Give the ring buffer time to fill with some amount of packets
       tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
-      MML.compile_multi(tracks, loop: true) do |delta, tr, command, *args|
+      MML.compile_multi(tracks, loop: true) do |delta, tr, command, arg0, arg1 = 0|
         case command
         when :segno
           # Ignore. MML takes care of `$` macro
         when :mute
-          invoke :mute, tr, args[0], delta
+          invoke :mute, tr, arg0, delta
         when :play
-          tone_period = (period_factor / args[0]).to_i
+          tone_period = (period_factor / arg0).to_i
           invoke :send_reg, tr * 2    , tone_period & 0xFF       , delta
           invoke :send_reg, tr * 2 + 1, (tone_period >> 8) & 0x0F, 0
         when :volume
-          invoke :send_reg, tr + 8, args[0], delta
+          invoke :send_reg, tr + 8, arg0, delta
         when :env_period
-          invoke :send_reg, 11, args[0] & 0xFF, delta
-          invoke :send_reg, 12, args[0] >> 8  , 0
+          invoke :send_reg, 11, arg0 & 0xFF, delta
+          invoke :send_reg, 12, arg0 >> 8  , 0
         when :env_shape
-          invoke :send_reg, 13, args[0], delta
+          invoke :send_reg, 13, arg0, delta
         when :timbre
-          invoke :set_timbre, tr, args[0], delta
+          invoke :set_timbre, tr, arg0, delta
         when :pan
-          invoke :set_pan, tr, args[0], delta
+          invoke :set_pan, tr, arg0, delta
         when :lfo
-          invoke :set_lfo, tr, args[0], args[1], delta
+          invoke :set_lfo, tr, arg0, arg1, delta
         when :mixer
-          case args[0]
+          case arg0
           when 0 # Tone on, Noise off
             mixer |= (1 << (tr + 3))  # Set noise bit (off)
             mixer &= ~(1 << tr)       # Clear tone bit (on)
@@ -80,7 +80,7 @@ module PSG
           end
           invoke :send_reg, 7, mixer, delta
         when :noise
-          invoke :send_reg, 6, args[0], delta
+          invoke :send_reg, 6, arg0, delta
         end
       end
       join if terminate
