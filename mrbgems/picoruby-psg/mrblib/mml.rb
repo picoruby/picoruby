@@ -47,7 +47,7 @@ class MML # Music Macro Language
       # @type var min_tick: Integer
       delta = min_tick - prev_time
       # @type var min_track: Integer
-      yield(delta, min_track, *event)
+      yield(delta, min_track, event[0], event[1])
       prev_time = min_tick
 
       next_event = parsers[min_track].reduce_next
@@ -81,34 +81,23 @@ class MML # Music Macro Language
     @cursor = 0
     update_common_duration(4)
     @event_queue = []
-    @queue_index =  0
     @loop = loop
     @segno_pos = 0
   end
 
   attr_reader :track_id
 
-  def push_event(command, *args)
-    @event_queue << [command, *args]
+  def push_event(command, arg0 = 0, arg1 = 0)
+    @event_queue << [command, arg0 || 0, arg1 || 0]
   end
 
   # mruby's Array#shift causes memory leak, so we implement our own shift
   def shift_event
-    if @queue_index < @event_queue.size
-      event = @event_queue[@queue_index]
-      @queue_index += 1
-    else
-      event = nil
-    end
-    if 10 <= @queue_index
-      @event_queue = @event_queue[@queue_index..-1] # Keep memory usage low
-      @queue_index = 0
-    end
-    return event
+    @event_queue.shift
   end
 
   def event_exist?
-    @queue_index < @event_queue.size
+    !@event_queue.empty?
   end
 
   def reduce_next
@@ -289,12 +278,10 @@ class MML # Music Macro Language
     return count
   end
 
-  def coef(count)
-    result = 1.0
-    count.times do |index|
-      result += 0.5 ** (index + 1)
-    end
-    result
+  COEF_TABLE = [1.0, 1.5, 1.75, 1.875]
+
+  def coef(punti)
+    COEF_TABLE[punti] || 2.0
   end
 
   def expand_loops(str)
