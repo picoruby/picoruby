@@ -134,13 +134,15 @@ class Shell
     #     led_ble: cyw43_led
     #     led_wifi: 23
     begin
-      config = YAML.load_file(config_file)
-      # @type var config: Hash[String, untyped]
-      device = config['device']
-      if device&.respond_to?(:each)
-        device.each do |type, values|
-          values&.each do |key, value|
-            ENV["#{type}_#{key}".upcase] = value.to_s
+      if File.file?(config_file)
+        config = YAML.load_file(config_file)
+        # @type var config: Hash[String, untyped]
+        device = config['device']
+        if device&.respond_to?(:each)
+          device.each do |type, values|
+            values&.each do |key, value|
+              ENV["#{type}_#{key}".upcase] = value.to_s
+            end
           end
         end
       end
