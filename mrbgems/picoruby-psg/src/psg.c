@@ -151,7 +151,7 @@ update_tone_inc(int tr)
     psg.env_cnt[tr]     = 0; \
   } while (0)
 
-// AY compatibile registors
+// AY compatible registors
 static void
 PSG_write_reg(uint8_t reg, uint8_t val)
 {
@@ -160,24 +160,33 @@ PSG_write_reg(uint8_t reg, uint8_t val)
   switch (reg) {
     /* ---- Tone period ---- */
     case 0:   /* tr A LSB */
+      psg.r.tone_period[0] &= 0x0F00;
+      psg.r.tone_period[0] |= val;
+      break;
     case 1:   /* tr A MSB */
-      psg.r.tone_period[0] &= reg ? 0x00FF : 0x0F00;
-      psg.r.tone_period[0] |= reg ? ((val & 0x0F) << 8) : val;
-      if (reg == 1) update_tone_inc(0);
+      psg.r.tone_period[0] &= 0x00FF;
+      psg.r.tone_period[0] |= ((val & 0x0F) << 8);
+      update_tone_inc(0);
       if (psg.r.volume[0] & 0x10) RESET_ENVELOPE(0);
       break;
     case 2:   /* tr B LSB */
+      psg.r.tone_period[1] &= 0x0F00;
+      psg.r.tone_period[1] |= val;
+      break;
     case 3:   /* tr B MSB */
-      psg.r.tone_period[1] &= reg & 1 ? 0x00FF : 0x0F00;
-      psg.r.tone_period[1] |= reg & 1 ? ((val & 0x0F) << 8) : val;
-      if (reg == 3) update_tone_inc(1);
+      psg.r.tone_period[1] &= 0x00FF;
+      psg.r.tone_period[1] |= ((val & 0x0F) << 8);
+      update_tone_inc(1);
       if (psg.r.volume[1] & 0x10) RESET_ENVELOPE(1);
       break;
     case 4:   /* tr C LSB */
+      psg.r.tone_period[2] &= 0x0F00;
+      psg.r.tone_period[2] |= val;
+      break;
     case 5:   /* tr C MSB */
-      psg.r.tone_period[2] &= reg & 1 ? 0x00FF : 0x0F00;
-      psg.r.tone_period[2] |= reg & 1 ? ((val & 0x0F) << 8) : val;
-      if (reg == 5) update_tone_inc(2);
+      psg.r.tone_period[2] &= 0x00FF;
+      psg.r.tone_period[2] |= ((val & 0x0F) << 8);
+      update_tone_inc(2);
       if (psg.r.volume[2] & 0x10) RESET_ENVELOPE(2);
       break;
     /* ---- Noise ---- */
@@ -201,12 +210,16 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       break;
     case 13:          /* shape */
       psg.r.envelope_shape = val & 0x0F;
+      uint8_t cont      = (val >> 3) & 1; // `continue` is a keyword
+      uint8_t attack    = (val >> 2) & 1;
+      uint8_t alternate = (val >> 1) & 1;
+      uint8_t hold      =  val       & 1;
       for (int tr = 0; tr < 3; ++tr) {
         // Reset state machine on shape setting
-        psg.env_continue[tr]  = (val >> 3) & 1;
-        psg.env_attack[tr]    = (val >> 2) & 1;
-        psg.env_alternate[tr] = (val >> 1) & 1;
-        psg.env_hold[tr]      =  val       & 1;
+        psg.env_continue[tr]  = cont;
+        psg.env_attack[tr]    = attack;
+        psg.env_alternate[tr] = alternate;
+        psg.env_hold[tr]      = hold;
         RESET_ENVELOPE(tr);
       }
       break;
@@ -325,8 +338,8 @@ static inline void
 update_envelope(void)
 {
   for (int tr = 0; tr < 3; ++tr) {
+    if ((psg.r.volume[tr] & 0x10) == 0) continue; // no envelope
     if (!psg.env_running[tr] || !psg.r.envelope_period) continue;
-
     if (++psg.env_cnt[tr] < psg.r.envelope_period) continue;
 
     psg.env_cnt[tr] = 0;
