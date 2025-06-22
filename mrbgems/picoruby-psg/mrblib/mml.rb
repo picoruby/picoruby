@@ -117,7 +117,8 @@ class MML # Music Macro Language
           break
         end
       end
-      pitch = nil
+      tone_period = nil
+      length = 0
       case c
       when 36 # '$' # Segno = Loop start
         @segno_pos = @cursor + 1
@@ -127,14 +128,14 @@ class MML # Music Macro Language
       when 62 # '>' # Octave up
         @octave += 1 if @octave < 8
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
-        pitch = get_pitch(c, @track.getbyte(@cursor + 1))
+        tone_period = get_tone_period(c, @track.getbyte(@cursor + 1))
         case @track.getbyte(@cursor + 1)
         when 49..57, 46 # '1'..'9', '.'
           fraction = subvalue
           if fraction.nil?
-            length = (@common_duration * coef(punti) + 0.5).to_i
+            length = (@common_duration * punti_coef + 0.5).to_i
           else
-            length = (DURATION_BASE / @tempo / fraction * coef(punti) + 0.5).to_i
+            length = (DURATION_BASE / @tempo / fraction * punti_coef + 0.5).to_i
           end
         else
           length = @common_duration
@@ -163,7 +164,7 @@ class MML # Music Macro Language
       when 108 # 'l' # Length
         fraction = subvalue
         if fraction
-          update_common_duration(fraction * coef(punti))
+          update_common_duration(fraction * punti_coef)
         end
       when 111 # 'o' # Octave
         @cursor += 1
@@ -208,14 +209,14 @@ class MML # Music Macro Language
 
       @cursor += 1
 
-      next if pitch.nil? || length.nil?
-      sustain = if pitch == 0.0
+      next if tone_period.nil?
+      sustain = if tone_period < 0
                   0
                 else
                   (@q == 8) ? length : (length / 8.0 * @q).to_i
                 end
       release = length - sustain
-      push_event(:play, pitch, sustain) if 0 < sustain
+      push_event(:play, tone_period, sustain) if 0 < sustain
       if 0 < release
         push_event(:mute, 1, release) # mute once
         push_event(:mute, 0, 0)       # unmute after release
@@ -233,8 +234,10 @@ class MML # Music Macro Language
     @common_duration = (DURATION_BASE / @tempo / fraction + 0.5).to_i
   end
 
-  def get_pitch(note, semitone)
-    return 0.0 if note == 114 # 'r':Rest
+  PERIOD_FACTOR = PSG::Driver::CHIP_CLOCK / 32
+
+  def get_tone_period(note, semitone)
+    return -1 if note == 114 # 'r':Rest
     octave_fix = (note==97||note==98) ? 1 : 0 # 'a', 'b'
     val = NOTES[note]
     raise "Invalid note: #{note}" if val.nil?
@@ -253,7 +256,7 @@ class MML # Music Macro Language
     pitch = 6.875 * (2<<(@octave + octave_fix)) * 2 ** (val / 12.0)
     pitch *= 2 ** (@transpose / 12.0) if @transpose != 0
     pitch /= (2 ** (@detune / 128.0)) if @detune != 0
-    return pitch
+    (PERIOD_FACTOR / pitch).to_i
   end
 
   def subvalue
@@ -267,20 +270,16 @@ class MML # Music Macro Language
     val == 0 ? nil : val
   end
 
-  def punti
-    count = 0
+  COEF_TABLE = [1.0, 1.5, 1.75, 1.875]
+
+  def punti_coef
+    punti = 0
     @cursor += 1
     while @track.getbyte(@cursor) == 46 # '.'
-      count += 1
+      punti += 1
       @cursor += 1
     end
     @cursor -= 1
-    return count
-  end
-
-  COEF_TABLE = [1.0, 1.5, 1.75, 1.875]
-
-  def coef(punti)
     COEF_TABLE[punti] || 2.0
   end
 

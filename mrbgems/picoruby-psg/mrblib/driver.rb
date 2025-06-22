@@ -40,7 +40,6 @@ module PSG
 
     def play_mml(tracks, terminate: true)
       mixer = 0b111000 # Noise all off, Tone all on
-      period_factor = PSG::Driver::CHIP_CLOCK / 32
       # Give the ring buffer time to fill with some amount of packets
       tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
       MML.compile_multi(tracks, loop: true) do |delta, tr, command, arg0, arg1 = 0|
@@ -50,9 +49,8 @@ module PSG
         when :mute
           invoke :mute, tr, arg0, delta
         when :play
-          tone_period = (period_factor / arg0).to_i
-          invoke :send_reg, tr * 2    , tone_period & 0xFF       , delta
-          invoke :send_reg, tr * 2 + 1, (tone_period >> 8) & 0x0F, 0
+          invoke :send_reg, tr * 2    , arg0 & 0xFF       , delta
+          invoke :send_reg, tr * 2 + 1, (arg0 >> 8) & 0x0F, 0
         when :volume
           invoke :send_reg, tr + 8, arg0, delta
         when :env_period
