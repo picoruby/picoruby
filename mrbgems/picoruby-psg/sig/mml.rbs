@@ -2,11 +2,12 @@ class MML
   type command_t = :volume | :env_shape | :env_period | :lfo | :pan | :timbre | :mixer | :noise | :mute
   type play_t    = :play
   type segno_t   = :segno
-  type event_t   = [(play_t | segno_t | command_t), Integer | Float, Integer]
+  type event_t   = [(play_t | segno_t | command_t), Integer, Integer]
 
   DURATION_BASE: Float
   NOTES: Hash[Integer, Integer]
   COEF_TABLE: Array[Float]
+  PERIOD_FACTOR: Integer
 
   @octave: Integer
   @tempo: Integer
@@ -30,15 +31,14 @@ class MML
 
   def initialize: (Integer track_id, String track, ?exception: bool, ?loop: bool) -> void
   def reduce_next: () -> (event_t | nil)
-  private def push_event: (play_t command, Integer | Float arg1, Integer arg2) -> void
+  private def push_event: (play_t command, Integer arg1, Integer arg2) -> void
                         | (segno_t command) -> void
                         | (command_t command, Integer arg1, ?Integer arg2) -> void
   private def shift_event: () -> (event_t | nil)
   private def event_exist?: () -> bool
-  private def get_pitch: (Integer note, Integer | nil semitone) -> Float
+  private def get_tone_period: (Integer note, Integer | nil semitone) -> Integer
   private def subvalue: () -> (Integer | nil)
-  private def punti: () -> Integer
-  private def coef: (Integer punti) -> Float
+  private def punti_coef: () -> Float
   private def expand_loops: (String track) -> String
   private def expand: (String str, Integer index, ?Integer depth) -> [String, Integer]
   private def update_common_duration: (Integer | Float fraction) -> void
