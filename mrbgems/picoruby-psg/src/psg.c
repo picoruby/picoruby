@@ -98,16 +98,16 @@ typedef struct {
   uint32_t tone_phase[3];
   uint32_t noise_shift;
   uint32_t noise_cnt;
-  uint16_t env_cnt;          // 24-bit counter: 1step = 1 audio sample
+  uint16_t env_cnt[3];       // 24-bit counter: 1step = 1 audio sample
   // envelope state machine
-  uint8_t  env_level;     // 0..15
-  uint8_t  env_dir;       // 0=down, 1=up
-  bool     env_running;   // false -> stop
+  uint8_t  env_level[3];     // 0..15
+  uint8_t  env_dir[3];       // 0=down, 1=up
+  bool     env_running[3];   // false -> stop
   // Masked bit for performance
-  uint8_t  env_continue;
-  uint8_t  env_attack;
-  uint8_t  env_alternate;
-  uint8_t  env_hold;
+  uint8_t  env_continue[3];
+  uint8_t  env_attack[3];
+  uint8_t  env_alternate[3];
+  uint8_t  env_hold[3];
   // LFO
   uint16_t lfo_phase[3];   /* 0..65535 (wrap) */
   uint16_t lfo_inc[3];     /* Δphase per 1 ms tick */
@@ -143,12 +143,12 @@ update_tone_inc(int tr)
   psg.tone_inc[tr] = calc_inc(psg.r.tone_period[tr]);
 }
 
-#define RESET_ENVELOPE() \
+#define RESET_ENVELOPE(tr) \
   do { \
-    psg.env_dir       = psg.env_attack; \
-    psg.env_level     = psg.env_attack ? 0 : 15; \
-    psg.env_running   = true; \
-    psg.env_cnt       = 0; \
+    psg.env_dir[tr]     = psg.env_attack[tr]; \
+    psg.env_level[tr]   = psg.env_attack[tr] ? 0 : 15; \
+    psg.env_running[tr] = true; \
+    psg.env_cnt[tr]     = 0; \
   } while (0)
 
 // AY compatibile registors
@@ -164,21 +164,21 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       psg.r.tone_period[0] &= reg ? 0x00FF : 0x0F00;
       psg.r.tone_period[0] |= reg ? ((val & 0x0F) << 8) : val;
       if (reg == 1) update_tone_inc(0);
-      if (psg.r.volume[0] & 0x10) RESET_ENVELOPE();
+      if (psg.r.volume[0] & 0x10) RESET_ENVELOPE(0);
       break;
     case 2:   /* tr B LSB */
     case 3:   /* tr B MSB */
       psg.r.tone_period[1] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[1] |= reg & 1 ? ((val & 0x0F) << 8) : val;
       if (reg == 3) update_tone_inc(1);
-      if (psg.r.volume[1] & 0x10) RESET_ENVELOPE();
+      if (psg.r.volume[1] & 0x10) RESET_ENVELOPE(1);
       break;
     case 4:   /* tr C LSB */
     case 5:   /* tr C MSB */
       psg.r.tone_period[2] &= reg & 1 ? 0x00FF : 0x0F00;
       psg.r.tone_period[2] |= reg & 1 ? ((val & 0x0F) << 8) : val;
       if (reg == 5) update_tone_inc(2);
-      if (psg.r.volume[2] & 0x10) RESET_ENVELOPE();
+      if (psg.r.volume[2] & 0x10) RESET_ENVELOPE(2);
       break;
     /* ---- Noise ---- */
     case 6:
@@ -201,12 +201,14 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       break;
     case 13:          /* shape */
       psg.r.envelope_shape = val & 0x0F;
-      // Reset state machine on shape setting
-      psg.env_continue  = (val >> 3) & 1;
-      psg.env_attack    = (val >> 2) & 1;
-      psg.env_alternate = (val >> 1) & 1;
-      psg.env_hold      =  val       & 1;
-      RESET_ENVELOPE();
+      for (int tr = 0; tr < 3; ++tr) {
+        // Reset state machine on shape setting
+        psg.env_continue[tr]  = (val >> 3) & 1;
+        psg.env_attack[tr]    = (val >> 2) & 1;
+        psg.env_alternate[tr] = (val >> 1) & 1;
+        psg.env_hold[tr]      =  val       & 1;
+        RESET_ENVELOPE(tr);
+      }
       break;
     default:
       break;
@@ -322,48 +324,50 @@ static const uint16_t pan_tab_r[16] = {
 static inline void
 update_envelope(void)
 {
-  if (!psg.env_running || !psg.r.envelope_period) return;
+  for (int tr = 0; tr < 3; ++tr) {
+    if (!psg.env_running[tr] || !psg.r.envelope_period) continue;
 
-  if (++psg.env_cnt < psg.r.envelope_period) return;
+    if (++psg.env_cnt[tr] < psg.r.envelope_period) continue;
 
-  psg.env_cnt = 0;
+    psg.env_cnt[tr] = 0;
 
-  /* 4µs - 1s (from datasheet): 1 period = 1 step (0‒15) */
-  if (psg.env_dir) {                // up
-    if (psg.env_level < 15) {
-      ++psg.env_level;
+    /* 4µs - 1s (from datasheet): 1 period = 1 step (0‒15) */
+    if (psg.env_dir[tr]) {                // up
+      if (psg.env_level[tr] < 15) {
+        ++psg.env_level[tr];
+        return;
+      }
+    } else {                          // down
+      if (psg.env_level[tr] > 0) {
+        --psg.env_level[tr];
+        return;
+      }
+    }
+
+    // Reached the end of the envelope
+    if (!psg.env_continue[tr]) {          // C = 0   -> Stop
+      psg.env_running[tr] = false;
       return;
     }
-  } else {                          // down
-    if (psg.env_level > 0) {
-      --psg.env_level;
+
+    if (psg.env_hold[tr]) {               // C=1, H=1 -> No repeat
+      psg.env_running[tr] = false;
       return;
     }
-  }
 
-  // Reached the end of the envelope
-  if (!psg.env_continue) {          // C = 0   -> Stop
-    psg.env_running = false;
-    return;
-  }
+    if (psg.env_alternate[tr])            // Reverse direction
+      psg.env_dir[tr] ^= 1;
 
-  if (psg.env_hold) {               // C=1, H=1 -> No repeat
-    psg.env_running = false;
-    return;
-  }
+    // Attack bit is valid only for the first cycle
+    if (!psg.env_alternate[tr])
+      psg.env_dir[tr] = psg.env_attack[tr]; // Sawtooth
 
-  if (psg.env_alternate)            // Reverse direction
-    psg.env_dir ^= 1;
-
-  // Attack bit is valid only for the first cycle
-  if (!psg.env_alternate)
-    psg.env_dir = psg.env_attack; // Sawtooth
-
-  // In order to be faithful to the datasheet, advance one step after reversal
-  if (psg.env_dir) {
-    psg.env_level = 0;
-  } else {
-    psg.env_level = 15;
+    // In order to be faithful to the datasheet, advance one step after reversal
+    if (psg.env_dir[tr]) {
+      psg.env_level[tr] = 0;
+    } else {
+      psg.env_level[tr] = 15;
+    }
   }
 }
 
@@ -462,7 +466,7 @@ PSG_audio_cb(void)
 
     // volume: bit4 = envelope
     uint8_t vol = psg.r.volume[tr];
-    if (vol & 0x10) vol = psg.env_level;
+    if (vol & 0x10) vol = psg.env_level[tr];
     vol &= 0x0F;
 
     uint32_t gain = vol_tab[vol];
