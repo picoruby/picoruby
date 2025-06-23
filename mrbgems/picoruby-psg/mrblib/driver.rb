@@ -58,6 +58,8 @@ module PSG
           invoke :send_reg, 12, arg0 >> 8  , 0
         when :env_shape
           invoke :send_reg, 13, arg0, delta
+        when :legato
+          invoke :set_legato, tr, arg0, delta
         when :timbre
           invoke :set_timbre, tr, arg0, delta
         when :pan
@@ -119,6 +121,8 @@ module PSG
           invoke :mute, op & 0x0F, val, delta
         when PRS::OP_SEND_REG
           invoke :send_reg, op & 0x0F, val, delta
+        when PRS::OP_SET_LEGATO
+          invoke :set_legato, op & 0x0F, val, delta
         when PRS::OP_SET_PAN
           invoke :set_pan, op & 0x0F, val, delta
         when PRS::OP_SET_TIMBRE
@@ -147,6 +151,8 @@ module PSG
           mute(arg1, arg2, arg3)
         when :send_reg
           send_reg(arg1, arg2, arg3)
+        when :set_legato
+          set_legato(arg1, arg2, arg3)
         when :set_pan
           set_pan(arg1, arg2, arg3)
         when :set_timbre

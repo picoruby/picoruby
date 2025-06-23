@@ -38,6 +38,7 @@ driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
 | `vN`            | Volume: `v0`..`v15`.                                            |
 | `sN`            | Envelope shape: `s0`..`s15`. Volume will be ignored             |
 | `mN`            | Envelope period: `m0`..`m65535`                                 |
+| `{ ... }`       | Legato section: `c<{ba#a}` (portamento from "Do" to "La")       |
 | `xN`            | Mixer: `x0` = Tone, `x1` = Noise, `x2` = Tone\|Noise            |
 | `yN`            | Noise period: `y0`..`y31`                                       |
 | `zN`            | Detune: `z0`..`z128`. `z128` lowers one octave                  |

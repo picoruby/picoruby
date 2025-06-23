@@ -8,6 +8,7 @@ module PRS
   HEADER_SIZE: Integer
   OP_MUTE: Integer
   OP_SEND_REG: Integer
+  OP_SET_LEGATO: Integer
   OP_SET_PAN: Integer
   OP_SET_TIMBRE: Integer
   OP_SET_LFO: Integer
