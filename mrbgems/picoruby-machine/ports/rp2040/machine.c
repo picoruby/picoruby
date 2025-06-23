@@ -411,7 +411,7 @@ Machine_mcu_name(void)
 {
 #if defined(PICO_RP2040)
   return "RP2040";
-#elif defined(PICORB_VM_MRUBYC)
+#elif defined(PICO_RP2350)
   return "RP2350";
 #endif
 }
