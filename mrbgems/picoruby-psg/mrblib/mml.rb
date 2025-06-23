@@ -132,7 +132,11 @@ class MML # Music Macro Language
         timbre = (@track.getbyte(@cursor) || 48) - 48 # Convert one letter ASCII number to integer
         push_event(:timbre, timbre)
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
-        tone_period = get_tone_period(c, @track.getbyte(@cursor + 1))
+        if c == 114 # 'r':Rest
+          tone_period = -1
+        else
+          tone_period = get_tone_period(c, @track.getbyte(@cursor + 1))
+        end
         case @track.getbyte(@cursor + 1)
         when 49..57, 46 # '1'..'9', '.'
           fraction = subvalue
@@ -241,10 +245,9 @@ class MML # Music Macro Language
   PERIOD_FACTOR = PSG::Driver::CHIP_CLOCK / 32
 
   def get_tone_period(note, semitone)
-    return -1 if note == 114 # 'r':Rest
-    octave_fix = (note==97||note==98) ? 1 : 0 # 'a', 'b'
     val = NOTES[note]
     raise "Invalid note: #{note}" if val.nil?
+    octave_fix = (note==97||note==98) ? 1 : 0 # 'a', 'b'
     case semitone
     when 45 # '-'
       @cursor += 1
