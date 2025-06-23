@@ -246,6 +246,7 @@ class MML # Music Macro Language
       @cursor += 1
       if note == 97
         octave_fix = 0
+        val += 11
       else
         val -= 1
       end
