@@ -41,7 +41,7 @@ driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
 | `xN`            | Mixer: `x0` = Tone, `x1` = Noise, `x2` = Tone\|Noise            |
 | `yN`            | Noise period: `y0`..`y31`                                       |
 | `zN`            | Detune: `z0`..`z128`. `z128` lowers one octave                  |
-| `iN`            | Timbre: `i0` = Square, `i1` = Triangle, `i2` = Sawtooth, `i3` = Inverse sawtooth |
+| `@N`            | Timbre: `i0` = Square, `i1` = Triangle, `i2` = Sawtooth, `i3` = Inverse sawtooth |
 | `k+N` / `k-N`   | Transpose up or down `N` semitones                              |
 | `jD,R`          | Vibrato (LFO): depth `D` (halftones), rate `R` (in 0.1Hz units) |
 | `.`             | Dotted note. Adds 1/2 length (`l4.` = x1.5, `l4..` = x1.75)     |

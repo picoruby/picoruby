@@ -127,6 +127,10 @@ class MML # Music Macro Language
         @octave -= 1 if 1 < @octave
       when 62 # '>' # Octave up
         @octave += 1 if @octave < 8
+      when 64 # '@' # Timbre
+        @cursor += 1
+        timbre = (@track.getbyte(@cursor) || 48) - 48 # Convert one letter ASCII number to integer
+        push_event(:timbre, timbre)
       when 97..103, 114 # 'a'..'g', 'r' # Note and Rest
         tone_period = get_tone_period(c, @track.getbyte(@cursor + 1))
         case @track.getbyte(@cursor + 1)
@@ -140,10 +144,6 @@ class MML # Music Macro Language
         else
           length = @common_duration
         end
-      when 105 # 'i' # Timbre
-        @cursor += 1
-        timbre = (@track.getbyte(@cursor) || 48) - 48 # Convert one letter ASCII number to integer
-        push_event(:timbre, timbre)
       when 106 # 'j' # LFO (Modulation)
         depth = subvalue
         unless depth.nil?
