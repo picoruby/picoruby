@@ -1,5 +1,5 @@
 class MML
-  type command_t = :volume | :env_shape | :env_period | :lfo | :pan | :timbre | :mixer | :noise | :mute
+  type command_t = :volume | :env_shape | :env_period | :legato | :lfo | :pan | :timbre | :mixer | :noise | :mute
   type play_t    = :play
   type segno_t   = :segno
   type event_t   = [(play_t | segno_t | command_t), Integer, Integer]

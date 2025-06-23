@@ -22,10 +22,11 @@ module PRS
   HEADER_SIZE = 32
   OP_MUTE       = 0x10 # uint16_t: (OP & track), flag
   OP_SEND_REG   = 0x20 # uint16_t: (OP & reg),   value
-  OP_SET_PAN    = 0x30 # uint16_t: (OP & track), pan
-  OP_SET_TIMBRE = 0x40 # uint16_t: (OP & track), timbre
-  OP_SET_LFO    = 0x50 # uint32_t: OP, track, depth, rate
-  OP_WAIT       = 0x60 # uint32_t: OP, (0x000000..0xFFFFFF)
+  OP_SET_LEGATO = 0x30 # uint16_t: (OP & track), legato
+  OP_SET_PAN    = 0x40 # uint16_t: (OP & track), pan
+  OP_SET_TIMBRE = 0x50 # uint16_t: (OP & track), timbre
+  OP_SET_LFO    = 0x60 # uint32_t: OP, track, depth, rate
+  OP_WAIT       = 0x70 # uint32_t: OP, (0x000000..0xFFFFFF)
   SONGNAME_MAX_LEN = 16
 
   def self.check_header(header)

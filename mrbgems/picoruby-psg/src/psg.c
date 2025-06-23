@@ -108,6 +108,8 @@ typedef struct {
   uint8_t  env_attack[3];
   uint8_t  env_alternate[3];
   uint8_t  env_hold[3];
+  // Whether to reset envelope on next updating tone_period
+  bool  legato[3];
   // LFO
   uint16_t lfo_phase[3];   /* 0..65535 (wrap) */
   uint16_t lfo_inc[3];     /* Δphase per 1 ms tick */
@@ -167,7 +169,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       psg.r.tone_period[0] &= 0x00FF;
       psg.r.tone_period[0] |= ((val & 0x0F) << 8);
       update_tone_inc(0);
-      if (psg.r.volume[0] & 0x10) RESET_ENVELOPE(0);
+      if ((psg.r.volume[0] & 0x10) && !psg.legato[0]) RESET_ENVELOPE(0);
       break;
     case 2:   /* tr B LSB */
       psg.r.tone_period[1] &= 0x0F00;
@@ -177,7 +179,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       psg.r.tone_period[1] &= 0x00FF;
       psg.r.tone_period[1] |= ((val & 0x0F) << 8);
       update_tone_inc(1);
-      if (psg.r.volume[1] & 0x10) RESET_ENVELOPE(1);
+      if ((psg.r.volume[1] & 0x10)  && !psg.legato[1]) RESET_ENVELOPE(1);
       break;
     case 4:   /* tr C LSB */
       psg.r.tone_period[2] &= 0x0F00;
@@ -187,7 +189,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
       psg.r.tone_period[2] &= 0x00FF;
       psg.r.tone_period[2] |= ((val & 0x0F) << 8);
       update_tone_inc(2);
-      if (psg.r.volume[2] & 0x10) RESET_ENVELOPE(2);
+      if ((psg.r.volume[2] & 0x10) && !psg.legato[2]) RESET_ENVELOPE(2);
       break;
     /* ---- Noise ---- */
     case 6:
@@ -271,6 +273,14 @@ PSG_process_packet(const psg_packet_t *pkt)
       uint8_t type = pkt->val; // 0=square, 1=triangle
       psg_cs_token_t t = PSG_enter_critical();
       psg.timbre[tr] = (psg_timbre_t)type;
+      PSG_exit_critical(t);
+      break;
+    }
+    case PSG_PKT_LEGATO_SET: {
+      uint8_t tr = pkt->reg & 0x03;
+      uint8_t legato = pkt->val; // 0=reset envelope, 1=no reset
+      psg_cs_token_t t = PSG_enter_critical();
+      psg.legato[tr] = (bool)legato;
       PSG_exit_critical(t);
       break;
     }
@@ -650,6 +660,24 @@ mrb_driver_set_timbre(mrb_state *mrb, mrb_value self)
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
+static mrb_value
+mrb_driver_set_legato(mrb_state *mrb, mrb_value self)
+{
+  mrb_int tr, legato;
+  mrb_int tick_delay = 0;
+  mrb_get_args(mrb, "ii|i", &tr, &legato, &tick_delay);
+  if (tr < 0 || 2 < tr) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid track: %d (0-2 expected)", tr);
+  }
+  psg_packet_t p = {
+    .tick = (uint32_t)tick_delay,
+    .op   = PSG_PKT_LEGATO_SET,
+    .reg  = (uint8_t)tr,
+    .val  = (uint8_t)legato
+  };
+  return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
+}
+
 /* Mute on/off */
 static mrb_value
 mrb_driver_mute(mrb_state *mrb, mrb_value self)
@@ -691,6 +719,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_ARG(3, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_legato), mrb_driver_set_legato, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_ARG(2, 1));
 }
 
