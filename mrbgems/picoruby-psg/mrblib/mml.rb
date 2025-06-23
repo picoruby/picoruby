@@ -195,6 +195,10 @@ class MML # Music Macro Language
         push_event(:noise, @track.getbyte(@cursor) || 0)
       when 122 # 'z' # Detune
         @detune = subvalue || 0
+      when 123 # '{' # Start envelope non-reset section
+        push_event(:legato, 1)
+      when 125 # '}' # End envelope non-reset section
+        push_event(:legato, 0)
       when 32, 124 # ' ' or '|' to be ignored
         # skip
       else
