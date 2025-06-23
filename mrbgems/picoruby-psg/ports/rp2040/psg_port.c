@@ -70,6 +70,8 @@ PSG_exit_critical(psg_cs_token_t token)
 
 #endif
 
+#define TIMER_IRQ_AUDIO 1
+#define TIMER_IRQ_TICK  2
 
 static repeating_timer_t audio_timer;
 
@@ -110,26 +112,17 @@ tick_cb(repeating_timer_t *t)
   return true;
 }
 
+static alarm_pool_t *audio_alarm_pool = NULL;
 static alarm_pool_t *tick_alarm_pool = NULL;
-
-static void
-psg_tick_init_core1(void)
-{
-  /* Core1 exclusive alarm_pool. clk_ref=12MHz */
-  if (!tick_alarm_pool) {
-    tick_alarm_pool = alarm_pool_create(2 /* hardware timer 2 */, 16 /* IRQ prio */);
-    assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
-  }
-  memset(&tick_timer, 0, sizeof(repeating_timer_t));
-  /* 1 kHz = -1000 µs */
-  if (!alarm_pool_add_repeating_timer_us(tick_alarm_pool, -1000, tick_cb, NULL, &tick_timer)) {
-    assert(false && "Failed to add repeating timer");
-  }
-}
 
 static volatile bool core1_alive = false;
 
-#define ACK_CORE1_READY 0xA5
+enum {
+  ACK_CORE1_READY = 0xA5,
+  CMD_NONE,
+  CMD_CLEANUP,
+  ACK_DONE,
+};
 
 static void __attribute__((noreturn))
 psg_core1_main(void)
@@ -140,11 +133,27 @@ psg_core1_main(void)
   uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
   psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
   psg_drv->start();
-  /* 22.05 kHz */
-  add_repeating_timer_us(-1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer);
-  psg_tick_init_core1();
+
+  if (!tick_alarm_pool) {
+    tick_alarm_pool = alarm_pool_create(TIMER_IRQ_TICK, 2);
+    assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
+  }
+  memset(&tick_timer, 0, sizeof(repeating_timer_t));
+  /* 1 kHz = -1000 µs */
+  if (!alarm_pool_add_repeating_timer_us(tick_alarm_pool, -1000, tick_cb, NULL, &tick_timer)) {
+    assert(false && "Failed to add repeating timer");
+  }
+
   multicore_fifo_push_blocking(ACK_CORE1_READY);
-  /* WFE? */
+
+  uint32_t cmd = multicore_fifo_pop_blocking();
+  if (cmd == CMD_CLEANUP) {
+    cancel_repeating_timer(&tick_timer);
+    alarm_pool_destroy(tick_alarm_pool);
+    tick_alarm_pool  = NULL;
+
+    multicore_fifo_push_blocking(ACK_DONE);
+  }
   for (;;) tight_loop_contents();
 }
 
@@ -164,6 +173,16 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
     }
     core1_alive = true;
   }
+
+  if (!audio_alarm_pool) {
+    audio_alarm_pool = alarm_pool_create(TIMER_IRQ_AUDIO, 2);
+    assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
+  }
+  memset(&audio_timer, 0, sizeof(repeating_timer_t));
+  /* 22.05 kHz */
+  if (!alarm_pool_add_repeating_timer_us(audio_alarm_pool, -1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer)) {
+    assert(false && "Failed to add repeating timer");
+  }
 }
 
 void
@@ -174,20 +193,15 @@ PSG_tick_stop_core1(void)
     psg_drv = NULL;
   }
   if (core1_alive) {
-    // stop the repeating timer
-    while (!cancel_repeating_timer(&tick_timer)) {
-      tight_loop_contents();
+    multicore_fifo_push_blocking(CMD_CLEANUP);
+    while (multicore_fifo_pop_blocking() != ACK_DONE) {
+      // wait
     }
-    memset(&tick_timer, 0, sizeof(repeating_timer_t));
-    if (tick_alarm_pool) {
-      alarm_pool_destroy(tick_alarm_pool);
-      tick_alarm_pool = NULL;
-    }
-    while (!cancel_repeating_timer(&audio_timer)) {
-      tight_loop_contents();
-    };
-    memset(&audio_timer, 0, sizeof(repeating_timer_t));
     multicore_reset_core1();
+
+    cancel_repeating_timer(&audio_timer);
+    alarm_pool_destroy(audio_alarm_pool);
+    audio_alarm_pool = NULL;
     core1_alive = false;
   }
 }
