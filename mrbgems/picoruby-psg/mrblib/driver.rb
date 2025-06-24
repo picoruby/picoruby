@@ -1,7 +1,7 @@
 module PSG
   class Driver
 
-    WAIT_MS = 10
+    WAIT_MS = 500
 
     def initialize(type, **opt)
       case type
@@ -163,6 +163,12 @@ module PSG
           raise "Unknown command: #{command}"
         end
         return if pushed
+        GC.start
+        if $DEBUG
+          puts "Buffer full, retrying command: #{command} with args: #{arg1}, #{arg2}, #{arg3}, #{arg4}"
+          p PicoRubyVM.memory_statistics
+          p ObjectSpace.count_objects
+        end
         sleep_ms WAIT_MS
       end
     end
