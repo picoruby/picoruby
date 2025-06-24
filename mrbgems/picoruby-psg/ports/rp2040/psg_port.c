@@ -6,6 +6,7 @@
 #include "pico/time.h"
 #include "pico/multicore.h"
 #include "hardware/sync.h"
+#include "hardware/irq.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -70,19 +71,10 @@ PSG_exit_critical(psg_cs_token_t token)
 
 #endif
 
-#define TIMER_IRQ_AUDIO 1
-#define TIMER_IRQ_TICK  2
+#define ALARM_AUDIO 1
+#define ALARM_TICK  2
 
-static repeating_timer_t audio_timer;
-
-static bool
-audio_cb(repeating_timer_t *t)
-{
-  (void)t;
-  return PSG_audio_cb();
-}
-
-// Tick
+// Tick timer
 
 static volatile uint32_t g_tick_ms = 0;
 static repeating_timer_t tick_timer;
@@ -135,8 +127,9 @@ psg_core1_main(void)
   psg_drv->start();
 
   if (!tick_alarm_pool) {
-    tick_alarm_pool = alarm_pool_create(TIMER_IRQ_TICK, 2);
+    tick_alarm_pool = alarm_pool_create(ALARM_TICK, 2);
     assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
+    irq_set_priority(TIMER1_IRQ_2, 3);
   }
   memset(&tick_timer, 0, sizeof(repeating_timer_t));
   /* 1 kHz = -1000 µs */
@@ -146,20 +139,71 @@ psg_core1_main(void)
 
   multicore_fifo_push_blocking(ACK_CORE1_READY);
 
-  uint32_t cmd = multicore_fifo_pop_blocking();
-  if (cmd == CMD_CLEANUP) {
-    cancel_repeating_timer(&tick_timer);
-    alarm_pool_destroy(tick_alarm_pool);
-    tick_alarm_pool  = NULL;
+  for (;;) {
+    // core1 is responsible for rendering audio samples (heavy load)
+    uint32_t used = (wr_idx - rd_idx) & BUF_MASK; // 0..511
+    if (BUF_WORDS / 2 <= BUF_WORDS - used) {
+      uint32_t dst_pos = wr_idx & BUF_MASK;  // Start position to write
+      // How many words can we write at the end of the buffer?
+      uint32_t first_len = MIN(BUF_WORDS - dst_pos, BUF_WORDS / 2);
+      PSG_render_block(&pcm_buf[dst_pos], first_len / 2);
+      // If there are remaining words, write them at the beginning of the buffer
+      if (first_len < BUF_WORDS / 2) {
+        PSG_render_block(pcm_buf, (BUF_WORDS / 2 - first_len) / 2);
+      }
+      wr_idx += BUF_WORDS / 2;
+    }
 
-    multicore_fifo_push_blocking(ACK_DONE);
+    tight_loop_contents();
+
+    if (multicore_fifo_rvalid()) {
+      uint32_t cmd = multicore_fifo_pop_blocking();
+      if (cmd == CMD_CLEANUP) {
+        cancel_repeating_timer(&tick_timer);
+        alarm_pool_destroy(tick_alarm_pool);
+        tick_alarm_pool  = NULL;
+        multicore_fifo_push_blocking(ACK_DONE);
+        for (;;) tight_loop_contents();
+      }
+    }
   }
-  for (;;) tight_loop_contents();
+
+}
+
+
+// Audio timer
+
+static repeating_timer_t audio_timer;
+
+#if 1
+#define DBG_PIN  5
+#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << DBG_PIN)
+#else
+#define DBG_TOGGLE()
+#endif
+
+static bool
+audio_cb(repeating_timer_t *t)
+{
+  (void)t;
+  DBG_TOGGLE();
+  PSG_audio_cb();
+  DBG_TOGGLE();
+  return true;
 }
 
 void
 PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
 {
+#if 1
+  gpio_init(DBG_PIN);
+  gpio_set_dir(DBG_PIN, GPIO_OUT);
+  gpio_put(DBG_PIN, 0);
+#endif
+
+  PSG_render_block(pcm_buf, BUF_SAMPLES);
+  wr_idx = BUF_WORDS / 2;
+
   if (!core1_alive) {
     multicore_launch_core1(psg_core1_main);
     // send pin via FIFO
@@ -175,8 +219,9 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
   }
 
   if (!audio_alarm_pool) {
-    audio_alarm_pool = alarm_pool_create(TIMER_IRQ_AUDIO, 2);
+    audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
     assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
+    irq_set_priority(TIMER1_IRQ_1, 0);
   }
   memset(&audio_timer, 0, sizeof(repeating_timer_t));
   /* 22.05 kHz */

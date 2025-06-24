@@ -63,7 +63,8 @@ typedef struct {
 #define MAX_SAMPLE_WIDTH  ((1u << PWM_BITS) - 1)  // 4095
 
 // Callback
-bool PSG_audio_cb(void );
+bool PSG_audio_cb(void);
+void PSG_render_block(uint16_t *dst, uint32_t samples);
 
 // Ring buffer
 bool PSG_rb_peek(psg_packet_t *out);
@@ -102,6 +103,14 @@ extern const psg_output_api_t psg_drv_mcp4921;
 extern const psg_output_api_t psg_drv_mcp4922;
 //extern const psg_output_api_t psg_drv_usbaudio;
 //void audio_task(void); // For USB audio
+
+/* Audio sampling buffer */
+#define BUF_SAMPLES   256
+#define BUF_WORDS     (BUF_SAMPLES << 1)
+#define BUF_MASK      (BUF_WORDS - 1)
+extern uint16_t pcm_buf[BUF_WORDS];
+extern volatile uint32_t wr_idx; // only core0 writes
+extern volatile uint32_t rd_idx; // only core1 writes
 
 #ifdef __cplusplus
 }
