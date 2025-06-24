@@ -170,6 +170,12 @@ Machine_stack_usage(void)
   return 0;
 }
 
+const char *
+Machine_mcu_name(void)
+{
+  return "ESP32";
+}
+
 bool
 Machine_set_hwclock(const struct timespec *ts)
 {

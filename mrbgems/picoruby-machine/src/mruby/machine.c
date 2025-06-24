@@ -109,6 +109,13 @@ mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
   }
 }
 
+static void
+mrb_s_mcu_name(mrb_state *mrb, mrb_value klass)
+{
+  const char *name = Machine_mcu_name();
+  return mrb_str_new_cstr(mrb, name);
+}
+
 #if !defined(PICORB_PLATFORM_POSIX)
 #include <time.h>
 #endif
@@ -225,6 +232,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(stack_usage), mrb_s_stack_usage, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(mcu_name), mrb_s_mcu_name, MRB_ARGS_NONE());
 
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());

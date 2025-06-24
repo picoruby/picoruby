@@ -406,6 +406,16 @@ Machine_stack_usage(void)
   return 0;
 }
 
+const char *
+Machine_mcu_name(void)
+{
+#if defined(PICO_RP2040)
+  return "RP2040";
+#elif defined(PICO_RP2350)
+  return "RP2350";
+#endif
+}
+
 bool
 Machine_set_hwclock(const struct timespec *ts)
 {
