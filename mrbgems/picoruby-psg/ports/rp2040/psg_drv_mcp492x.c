@@ -6,7 +6,7 @@
 
 #define DAC_SPI0      spi0
 #define DAC_SPI1      spi1
-#define DAC_SPI_BAUD  10000000   /* 10 MHz */
+#define DAC_SPI_BAUD  16000000   /* 16 MHz */
 
 static spi_inst_t *spi_unit;
 static uint ldac_pin;

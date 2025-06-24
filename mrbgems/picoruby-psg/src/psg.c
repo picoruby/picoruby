@@ -417,8 +417,8 @@ soft_clip(uint32_t x)
   return (y > MAX_SAMPLE_WIDTH) ? MAX_SAMPLE_WIDTH : (uint16_t)y;
 }
 
-bool
-PSG_audio_cb(void)
+static inline void
+PSG_calc_sample(uint16_t *l, uint16_t *r)
 {
   update_envelope();
 
@@ -501,11 +501,35 @@ PSG_audio_cb(void)
     mix_r += (amp * pan_tab_r[bal]) >> 12; // 0..4095
   }
 
-  mix_l = soft_clip(mix_l);
-  mix_r = soft_clip(mix_r);
+  *l = (uint16_t)soft_clip(mix_l);
+  *r = (uint16_t)soft_clip(mix_r);
+}
 
+void
+PSG_render_block(uint16_t *dst, uint32_t samples)
+{
+  for (uint32_t i = 0; i < samples; i++) {
+    uint16_t l, r;
+    PSG_calc_sample(&l, &r);
+    dst[i*2    ] = l;
+    dst[i*2 + 1] = r;
+  }
+}
+
+uint16_t pcm_buf[BUF_WORDS] = {0};
+volatile uint32_t wr_idx = 0;
+volatile uint32_t rd_idx = 0;
+
+bool
+PSG_audio_cb(void)
+{
   if (psg_drv && psg_drv->write) {
-    psg_drv->write(mix_l, mix_r);
+    if (((rd_idx + 1) & BUF_MASK) != wr_idx) {
+      uint16_t wl = pcm_buf[rd_idx];
+      uint16_t wr = pcm_buf[(rd_idx + 1) & BUF_MASK];
+      rd_idx = (rd_idx + 2) & BUF_MASK;
+      psg_drv->write(wl, wr);
+    }
   }
   return true;
 }
