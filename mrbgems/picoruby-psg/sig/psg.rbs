@@ -7,7 +7,7 @@ module PSG
     TIMBRES: Hash[Symbol, Integer]
 
     def self.select_pwm: (Integer left, Integer right) -> void
-    def self.select_mcp492x: (Integer dac, Integer copi, Integer sck, Integer cs, Integer ldac) -> void
+    def self.select_mcp4922: (Integer ldac) -> void
     def initalize: (Symbol type, **Integer opt) -> void
     def join: () -> void
     def buffer_empty?: () -> bool
