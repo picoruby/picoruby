@@ -10,19 +10,15 @@ module PSG
           raise ArgumentError, "Missing required options for PWM driver"
         end
         Driver.select_pwm(opt[:left], opt[:right])
-      when :mcp4921, :mcp4922
-        if opt[:copi].nil? || opt[:sck].nil? || opt[:cs].nil? || opt[:ldac].nil?
+      when :mcp4922
+        ldac = opt[:ldac]
+        if ldac.nil?
           raise ArgumentError, "Missing required options for MCP4922 driver"
         end
-        dac = case type
-              when :mcp4921
-                1
-              when :mcp4922
-                2
-              else
-                -1
-              end
-        Driver.select_mcp492x(dac, opt[:copi], opt[:sck], opt[:cs], opt[:ldac])
+        if opt[:cs] != ldac + 1 || opt[:sck] != ldac + 2 || opt[:copi] != ldac + 3
+          raise ArgumentError, "Invalid pin configuration for MCP4922 driver"
+        end
+        Driver.select_mcp4922(ldac)
       else
         raise ArgumentError, "Unsupported driver type: #{type}"
       end

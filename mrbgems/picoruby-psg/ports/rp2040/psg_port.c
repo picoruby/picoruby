@@ -121,9 +121,7 @@ psg_core1_main(void)
 {
   uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
   uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
-  uint8_t p3 = (uint8_t)multicore_fifo_pop_blocking();
-  uint8_t p4 = (uint8_t)multicore_fifo_pop_blocking();
-  psg_drv->init(p1, p2, p3, p4); /* init PSG driver */
+  psg_drv->init(p1, p2); /* init PSG driver */
   psg_drv->start();
 
   if (!tick_alarm_pool) {
@@ -193,7 +191,7 @@ audio_cb(repeating_timer_t *t)
 }
 
 void
-PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
+PSG_tick_start_core1(uint8_t p1, uint8_t p2)
 {
 #if 1
   gpio_init(DBG_PIN);
@@ -209,8 +207,6 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
     // send pin via FIFO
     multicore_fifo_push_blocking(p1);
     multicore_fifo_push_blocking(p2);
-    multicore_fifo_push_blocking(p3);
-    multicore_fifo_push_blocking(p4);
     uint32_t ack = multicore_fifo_pop_blocking();
     if (ack != ACK_CORE1_READY) {
       //printf("Unexpected core1 ready ack: 0x%08x\n", ack);
