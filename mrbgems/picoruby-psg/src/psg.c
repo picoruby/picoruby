@@ -506,17 +506,16 @@ PSG_calc_sample(uint16_t *l, uint16_t *r)
 }
 
 void
-PSG_render_block(uint16_t *dst, uint32_t samples)
+PSG_render_block(uint32_t *dst, uint32_t samples)
 {
   for (uint32_t i = 0; i < samples; i++) {
     uint16_t l, r;
     PSG_calc_sample(&l, &r);
-    dst[i*2    ] = l;
-    dst[i*2 + 1] = r;
+    dst[i] = ((uint32_t)l << 16) | r;
   }
 }
 
-uint16_t pcm_buf[BUF_WORDS] = {0};
+uint32_t pcm_buf[BUF_SAMPLES] = {0};
 volatile uint32_t wr_idx = 0;
 volatile uint32_t rd_idx = 0;
 
@@ -525,10 +524,9 @@ PSG_audio_cb(void)
 {
   if (psg_drv && psg_drv->write) {
     if (((rd_idx + 1) & BUF_MASK) != wr_idx) {
-      uint16_t wl = pcm_buf[rd_idx];
-      uint16_t wr = pcm_buf[(rd_idx + 1) & BUF_MASK];
-      rd_idx = (rd_idx + 2) & BUF_MASK;
-      psg_drv->write(wl, wr);
+      uint32_t val = pcm_buf[rd_idx];
+      rd_idx = (rd_idx + 1) & BUF_MASK;
+      psg_drv->write(val>>16, val & 0xFFFF);
     }
   }
   return true;
