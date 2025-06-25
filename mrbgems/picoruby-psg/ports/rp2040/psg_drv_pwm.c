@@ -7,9 +7,8 @@ static uint l_gpio;
 static uint r_gpio;
 
 static void
-psg_pwm_init(uint8_t lpin, uint8_t rpin, uint8_t _v1, uint8_t _v2)
+psg_pwm_init(uint8_t lpin, uint8_t rpin)
 {
-  (void)_v1; (void)_v2;
   l_gpio = (uint)lpin;
   r_gpio = (uint)rpin;
 
