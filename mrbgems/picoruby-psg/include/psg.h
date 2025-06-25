@@ -64,7 +64,7 @@ typedef struct {
 
 // Callback
 bool PSG_audio_cb(void);
-void PSG_render_block(uint16_t *dst, uint32_t samples);
+void PSG_render_block(uint32_t *dst, uint32_t samples);
 
 // Ring buffer
 bool PSG_rb_peek(psg_packet_t *out);
@@ -106,9 +106,8 @@ extern const psg_output_api_t psg_drv_mcp4922;
 
 /* Audio sampling buffer */
 #define BUF_SAMPLES   256
-#define BUF_WORDS     (BUF_SAMPLES << 1)
-#define BUF_MASK      (BUF_WORDS - 1)
-extern uint16_t pcm_buf[BUF_WORDS];
+#define BUF_MASK      (BUF_SAMPLES - 1)
+extern uint32_t pcm_buf[BUF_SAMPLES]; // 32-bit stereo samples
 extern volatile uint32_t wr_idx; // only core0 writes
 extern volatile uint32_t rd_idx; // only core1 writes
 

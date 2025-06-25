@@ -141,17 +141,17 @@ psg_core1_main(void)
 
   for (;;) {
     // core1 is responsible for rendering audio samples (heavy load)
-    uint32_t used = (wr_idx - rd_idx) & BUF_MASK; // 0..511
-    if (BUF_WORDS / 2 <= BUF_WORDS - used) {
+    uint32_t used = (wr_idx - rd_idx) & BUF_MASK; // 0..255
+    if (BUF_SAMPLES / 2 <= BUF_SAMPLES - used) {
       uint32_t dst_pos = wr_idx & BUF_MASK;  // Start position to write
       // How many words can we write at the end of the buffer?
-      uint32_t first_len = MIN(BUF_WORDS - dst_pos, BUF_WORDS / 2);
-      PSG_render_block(&pcm_buf[dst_pos], first_len / 2);
+      uint32_t first_len = MIN(BUF_SAMPLES - dst_pos, BUF_SAMPLES / 2);
+      PSG_render_block(&pcm_buf[dst_pos], first_len);
       // If there are remaining words, write them at the beginning of the buffer
-      if (first_len < BUF_WORDS / 2) {
-        PSG_render_block(pcm_buf, (BUF_WORDS / 2 - first_len) / 2);
+      if (first_len < BUF_SAMPLES / 2) {
+        PSG_render_block(pcm_buf, (BUF_SAMPLES / 2 - first_len) / 2);
       }
-      wr_idx += BUF_WORDS / 2;
+      wr_idx += BUF_SAMPLES / 2;
     }
 
     tight_loop_contents();
@@ -202,7 +202,7 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4)
 #endif
 
   PSG_render_block(pcm_buf, BUF_SAMPLES);
-  wr_idx = BUF_WORDS / 2;
+  wr_idx = BUF_SAMPLES;
 
   if (!core1_alive) {
     multicore_launch_core1(psg_core1_main);
