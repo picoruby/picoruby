@@ -578,24 +578,18 @@ mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
   mrb_get_args(mrb, "ii", &left, &right);
   mrb_warn(mrb, "PSG: PWM left=%d, right=%d\n", left, right);
   reset_psg(mrb);
-  PSG_tick_start_core1((uint8_t)left, (uint8_t)right, 0, 0);
+  PSG_tick_start_core1((uint8_t)left, (uint8_t)right);
   return mrb_nil_value();
 }
 
 static mrb_value
-mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
+mrb_driver_s_select_mcp4922(mrb_state *mrb, mrb_value klass)
 {
-  mrb_int dac, copi, sck, cs, ldac;
-  mrb_get_args(mrb, "iiiii", &dac, &copi, &sck, &cs, &ldac);
-  if (dac == 1) {
-    psg_drv = &psg_drv_mcp4921;
-  } else if (dac == 2) {
-    psg_drv = &psg_drv_mcp4922;
-  } else {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid DAC number: %d (1 or 2 expected)", dac);
-  }
+  mrb_int ldac;
+  mrb_get_args(mrb, "i", &ldac);
+  psg_drv = &psg_drv_mcp4922;
   reset_psg(mrb);
-  PSG_tick_start_core1((uint8_t)copi, (uint8_t)sck, (uint8_t)cs, (uint8_t)ldac);
+  PSG_tick_start_core1((uint8_t)ldac, 0);
   return mrb_nil_value();
 }
 
@@ -603,7 +597,7 @@ mrb_driver_s_select_mcp492x(mrb_state *mrb, mrb_value klass)
 //mrb_driver_s_select_usbaudio(mrb_state *mrb, mrb_value klass)
 //{
 //  reset_psg(mrb);
-//  PSG_tick_start_core1(0, 0, 0, 0);
+//  PSG_tick_start_core1(0, 0);
 //  return mrb_nil_value();
 //}
 
@@ -733,7 +727,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(TIMBRES), timbres);
 
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp492x), mrb_driver_s_select_mcp492x, MRB_ARGS_REQ(5));
+  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp4922), mrb_driver_s_select_mcp4922, MRB_ARGS_REQ(1));
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(buffer_empty), mrb_driver_buffer_empty_p, MRB_ARGS_NONE());

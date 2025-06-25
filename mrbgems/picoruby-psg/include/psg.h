@@ -76,7 +76,7 @@ psg_cs_token_t PSG_enter_critical(void);
 void PSG_exit_critical(psg_cs_token_t token);
 
 // Tick
-void PSG_tick_start_core1(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4);
+void PSG_tick_start_core1(uint8_t p1, uint8_t p2);
 void PSG_tick_stop_core1(void);
 void PSG_tick_1ms(void);
 
@@ -90,7 +90,7 @@ void PSG_process_packet(const psg_packet_t *pkt);
 typedef enum { PSG_DRV_PWM, PSG_DRV_DAC } psg_drv_t;
 
 typedef struct {
-  void (*init)(uint8_t p1, uint8_t p2, uint8_t p3, uint8_t p4);
+  void (*init)(uint8_t p1, uint8_t p2);
   void (*start)(void);
   void (*stop)(void);
   void (*write)(uint16_t l, uint16_t r);
@@ -99,7 +99,6 @@ typedef struct {
 /* one global pointer, switched at runtime */
 extern const psg_output_api_t *psg_drv;
 extern const psg_output_api_t psg_drv_pwm;
-extern const psg_output_api_t psg_drv_mcp4921;
 extern const psg_output_api_t psg_drv_mcp4922;
 //extern const psg_output_api_t psg_drv_usbaudio;
 //void audio_task(void); // For USB audio
