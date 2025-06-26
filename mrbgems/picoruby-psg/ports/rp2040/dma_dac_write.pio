@@ -1,0 +1,33 @@
+; File: dma_dac_write.pio
+.program dma_dac_write
+
+; This program takes a 32-bit word from the OSR (fed by DMA's autopull)
+; and serializes it out using the same pin configuration as before.
+.side_set 1 opt
+
+.wrap_target
+  ; -- Channel A --
+  set pins, 0b01      side 0        ; CS=0, LDAC=1
+  set x, 15
+bitloop_a:
+  out pins, 1         side 0 [1]
+  jmp x-- bitloop_a   side 1 [1]
+
+  ; -- Post-chA --
+  set pins, 0b11      side 0        ; CS=1, LDAC=1
+  nop                 side 0 [3]
+
+  ; -- Channel B --
+  set pins, 0b01      side 0        ; CS=0, LDAC=1
+  set x, 15
+bitloop_b:
+  out pins, 1         side 0 [1]
+  jmp x-- bitloop_b   side 1 [1]
+
+  ; -- Post-chB & LDAC Pulse --
+  set pins, 0b11      side 0        ; CS=1, LDAC=1
+  nop                 side 0 [3]
+  set pins, 0b10      side 0        ; CS=1, LDAC=0
+  nop                 side 0 [3]
+  set pins, 0b11      side 0        ; CS=1, LDAC=1
+.wrap

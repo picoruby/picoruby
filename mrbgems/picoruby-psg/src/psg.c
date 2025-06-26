@@ -511,26 +511,13 @@ PSG_render_block(uint32_t *dst, uint32_t samples)
   for (uint32_t i = 0; i < samples; i++) {
     uint16_t l, r;
     PSG_calc_sample(&l, &r);
+    l = 0x3000 | (l & 0x0FFF);
+    r = 0xB000 | (r & 0x0FFF);
     dst[i] = ((uint32_t)l << 16) | r;
   }
 }
 
 uint32_t pcm_buf[BUF_SAMPLES] = {0};
-volatile uint32_t wr_idx = 0;
-volatile uint32_t rd_idx = 0;
-
-bool
-PSG_audio_cb(void)
-{
-  if (psg_drv && psg_drv->write) {
-    if (((rd_idx + 1) & BUF_MASK) != wr_idx) {
-      uint32_t val = pcm_buf[rd_idx];
-      rd_idx = (rd_idx + 1) & BUF_MASK;
-      psg_drv->write(val>>16, val & 0xFFFF);
-    }
-  }
-  return true;
-}
 
 // mruby methods
 
@@ -578,7 +565,7 @@ mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
   mrb_get_args(mrb, "ii", &left, &right);
   mrb_warn(mrb, "PSG: PWM left=%d, right=%d\n", left, right);
   reset_psg(mrb);
-  PSG_tick_start_core1((uint8_t)left, (uint8_t)right);
+  PSG_tick_start((uint8_t)left, (uint8_t)right);
   return mrb_nil_value();
 }
 
@@ -589,7 +576,7 @@ mrb_driver_s_select_mcp4922(mrb_state *mrb, mrb_value klass)
   mrb_get_args(mrb, "i", &ldac);
   psg_drv = &psg_drv_mcp4922;
   reset_psg(mrb);
-  PSG_tick_start_core1((uint8_t)ldac, 0);
+  PSG_tick_start((uint8_t)ldac, 0);
   return mrb_nil_value();
 }
 
@@ -597,7 +584,7 @@ mrb_driver_s_select_mcp4922(mrb_state *mrb, mrb_value klass)
 //mrb_driver_s_select_usbaudio(mrb_state *mrb, mrb_value klass)
 //{
 //  reset_psg(mrb);
-//  PSG_tick_start_core1(0, 0);
+//  PSG_tick_start(0, 0);
 //  return mrb_nil_value();
 //}
 
@@ -614,7 +601,7 @@ mrb_driver_buffer_empty_p(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_driver_deinit(mrb_state *mrb, mrb_value self)
 {
-  PSG_tick_stop_core1();
+  PSG_tick_stop();
   if (rb.buf) {
     mrb_free(mrb, rb.buf);
     rb.buf = NULL;

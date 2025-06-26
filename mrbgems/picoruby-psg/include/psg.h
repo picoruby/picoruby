@@ -63,7 +63,6 @@ typedef struct {
 #define MAX_SAMPLE_WIDTH  ((1u << PWM_BITS) - 1)  // 4095
 
 // Callback
-bool PSG_audio_cb(void);
 void PSG_render_block(uint32_t *dst, uint32_t samples);
 
 // Ring buffer
@@ -76,8 +75,8 @@ psg_cs_token_t PSG_enter_critical(void);
 void PSG_exit_critical(psg_cs_token_t token);
 
 // Tick
-void PSG_tick_start_core1(uint8_t p1, uint8_t p2);
-void PSG_tick_stop_core1(void);
+void PSG_tick_start(uint8_t p1, uint8_t p2);
+void PSG_tick_stop(void);
 void PSG_tick_1ms(void);
 
 // Packet dispatcher
@@ -107,8 +106,15 @@ extern const psg_output_api_t psg_drv_mcp4922;
 #define BUF_SAMPLES   256
 #define BUF_MASK      (BUF_SAMPLES - 1)
 extern uint32_t pcm_buf[BUF_SAMPLES]; // 32-bit stereo samples
-extern volatile uint32_t wr_idx; // only core0 writes
-extern volatile uint32_t rd_idx; // only core1 writes
+
+
+#if 1
+#define DBG_PIN  25
+#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << DBG_PIN)
+#else
+#define DBG_TOGGLE()
+
+#endif
 
 #ifdef __cplusplus
 }

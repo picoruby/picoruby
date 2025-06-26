@@ -7,11 +7,14 @@
 #include "pico/multicore.h"
 #include "hardware/sync.h"
 #include "hardware/irq.h"
+#include "pico/util/queue.h"
 
 #include <string.h>
 #include <stdlib.h>
 
 #include "../../include/psg.h"
+
+queue_t fill_request_queue;
 
 // Critical section
 #if defined(PICO_RP2040)
@@ -104,7 +107,6 @@ tick_cb(repeating_timer_t *t)
   return true;
 }
 
-static alarm_pool_t *audio_alarm_pool = NULL;
 static alarm_pool_t *tick_alarm_pool = NULL;
 
 static volatile bool core1_alive = false;
@@ -119,10 +121,7 @@ enum {
 static void __attribute__((noreturn))
 psg_core1_main(void)
 {
-  uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
-  uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
-  psg_drv->init(p1, p2); /* init PSG driver */
-  psg_drv->start();
+  queue_init(&fill_request_queue, sizeof(uint8_t), 2);
 
   if (!tick_alarm_pool) {
     tick_alarm_pool = alarm_pool_create(ALARM_TICK, 2);
@@ -138,18 +137,12 @@ psg_core1_main(void)
   multicore_fifo_push_blocking(ACK_CORE1_READY);
 
   for (;;) {
-    // core1 is responsible for rendering audio samples (heavy load)
-    uint32_t used = (wr_idx - rd_idx) & BUF_MASK; // 0..255
-    if (BUF_SAMPLES / 2 <= BUF_SAMPLES - used) {
-      uint32_t dst_pos = wr_idx & BUF_MASK;  // Start position to write
-      // How many words can we write at the end of the buffer?
-      uint32_t first_len = MIN(BUF_SAMPLES - dst_pos, BUF_SAMPLES / 2);
-      PSG_render_block(&pcm_buf[dst_pos], first_len);
-      // If there are remaining words, write them at the beginning of the buffer
-      if (first_len < BUF_SAMPLES / 2) {
-        PSG_render_block(pcm_buf, (BUF_SAMPLES / 2 - first_len) / 2);
-      }
-      wr_idx += BUF_SAMPLES / 2;
+    uint8_t buffer_index_to_fill;
+
+    // Try to get a request from the queue
+    if (queue_try_remove(&fill_request_queue, &buffer_index_to_fill)) {
+      uint32_t* target_buf = &pcm_buf[buffer_index_to_fill * (BUF_SAMPLES / 2)];
+      PSG_render_block(target_buf, BUF_SAMPLES / 2);
     }
 
     tight_loop_contents();
@@ -171,42 +164,24 @@ psg_core1_main(void)
 
 // Audio timer
 
-static repeating_timer_t audio_timer;
-
-#if 1
-#define DBG_PIN  5
-#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << DBG_PIN)
-#else
-#define DBG_TOGGLE()
-#endif
-
-static bool
-audio_cb(repeating_timer_t *t)
-{
-  (void)t;
-  DBG_TOGGLE();
-  PSG_audio_cb();
-  DBG_TOGGLE();
-  return true;
-}
-
 void
-PSG_tick_start_core1(uint8_t p1, uint8_t p2)
+PSG_tick_start(uint8_t p1, uint8_t p2)
 {
 #if 1
-  gpio_init(DBG_PIN);
-  gpio_set_dir(DBG_PIN, GPIO_OUT);
-  gpio_put(DBG_PIN, 0);
+  gpio_init(16);
+  gpio_set_dir(16, GPIO_OUT);
+  gpio_put(16, 0);
+  gpio_init(17);
+  gpio_set_dir(17, GPIO_OUT);
+  gpio_put(17, 0);
 #endif
 
+  psg_drv->init(p1, p2);
   PSG_render_block(pcm_buf, BUF_SAMPLES);
-  wr_idx = BUF_SAMPLES;
 
   if (!core1_alive) {
     multicore_launch_core1(psg_core1_main);
     // send pin via FIFO
-    multicore_fifo_push_blocking(p1);
-    multicore_fifo_push_blocking(p2);
     uint32_t ack = multicore_fifo_pop_blocking();
     if (ack != ACK_CORE1_READY) {
       //printf("Unexpected core1 ready ack: 0x%08x\n", ack);
@@ -214,20 +189,11 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2)
     core1_alive = true;
   }
 
-  if (!audio_alarm_pool) {
-    audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
-    assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
-    irq_set_priority(TIMER1_IRQ_1, 0);
-  }
-  memset(&audio_timer, 0, sizeof(repeating_timer_t));
-  /* 22.05 kHz */
-  if (!alarm_pool_add_repeating_timer_us(audio_alarm_pool, -1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer)) {
-    assert(false && "Failed to add repeating timer");
-  }
+  psg_drv->start();
 }
 
 void
-PSG_tick_stop_core1(void)
+PSG_tick_stop(void)
 {
   if (psg_drv) {
     psg_drv->stop();
@@ -240,9 +206,6 @@ PSG_tick_stop_core1(void)
     }
     multicore_reset_core1();
 
-    cancel_repeating_timer(&audio_timer);
-    alarm_pool_destroy(audio_alarm_pool);
-    audio_alarm_pool = NULL;
     core1_alive = false;
   }
 }
