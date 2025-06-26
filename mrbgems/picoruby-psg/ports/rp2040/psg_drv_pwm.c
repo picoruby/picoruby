@@ -38,7 +38,7 @@ psg_pwm_init(uint8_t lpin, uint8_t rpin)
 }
 
 static void
-psg_pwm_start(void)
+psg_pwm_start(void (*unused_irq_handler)(void))
 {
 }
 

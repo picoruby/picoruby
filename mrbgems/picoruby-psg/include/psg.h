@@ -90,7 +90,7 @@ typedef enum { PSG_DRV_PWM, PSG_DRV_DAC } psg_drv_t;
 
 typedef struct {
   void (*init)(uint8_t p1, uint8_t p2);
-  void (*start)(void);
+  void (*start)(void (*irq_handler)(void));
   void (*stop)(void);
   void (*write)(uint16_t l, uint16_t r);
 } psg_output_api_t;
@@ -106,6 +106,7 @@ extern const psg_output_api_t psg_drv_mcp4922;
 #define BUF_SAMPLES   256
 #define BUF_MASK      (BUF_SAMPLES - 1)
 extern uint32_t pcm_buf[BUF_SAMPLES]; // 32-bit stereo samples
+
 
 
 #if 1

@@ -14,8 +14,6 @@
 
 #include "../../include/psg.h"
 
-queue_t fill_request_queue;
-
 // Critical section
 #if defined(PICO_RP2040)
 
@@ -118,78 +116,75 @@ enum {
   ACK_DONE,
 };
 
+queue_t fill_request_queue;
+
+// Forward declaration for the driver
+void dma_irq_feed_and_repoint(queue_t *q);
+
+// This is the IRQ handler that will run on Core 1
+static void __not_in_flash_func(core1_dma_irq_handler)(void) {
+  dma_irq_feed_and_repoint(&fill_request_queue);
+}
+
+// Helper to format data before placing in DMA buffer
+void format_and_fill_pcm_buf(int buffer_index) {
+    uint32_t* target_buf = &pcm_buf[buffer_index * (BUF_SAMPLES / 2)];
+    PSG_render_block(target_buf, BUF_SAMPLES / 2);
+    for (int i = 0; i < BUF_SAMPLES / 2; i++) {
+        uint16_t l = (target_buf[i] >> 16) & 0xFFFF;
+        uint16_t r = target_buf[i] & 0xFFFF;
+        uint16_t chA_cmd = 0x3000 | (l & 0x0FFF);
+        uint16_t chB_cmd = 0xB000 | (r & 0x0FFF);
+        target_buf[i] = ((uint32_t)chA_cmd << 16) | chB_cmd;
+    }
+}
 static void __attribute__((noreturn))
-psg_core1_main(void)
-{
+psg_core1_main(void) {
+  // 1. Pop pin config from Core 0
+  uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
+  uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
+
+  // 2. Initialize communication queue
   queue_init(&fill_request_queue, sizeof(uint8_t), 2);
 
-  if (!tick_alarm_pool) {
-    tick_alarm_pool = alarm_pool_create(ALARM_TICK, 2);
-    assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
-    irq_set_priority(TIMER1_IRQ_2, 3);
-  }
-  memset(&tick_timer, 0, sizeof(repeating_timer_t));
-  /* 1 kHz = -1000 µs */
-  if (!alarm_pool_add_repeating_timer_us(tick_alarm_pool, -1000, tick_cb, NULL, &tick_timer)) {
-    assert(false && "Failed to add repeating timer");
-  }
+  // 3. Initialize the driver (PIO and DMA setup)
+  psg_drv->init(p1, p2);
 
-  multicore_fifo_push_blocking(ACK_CORE1_READY);
+  // 4. Pre-fill both halves of the buffer with initial audio data
+  format_and_fill_pcm_buf(0);
+  format_and_fill_pcm_buf(1);
+  
+  // 5. Setup the 1ms tick timer for music logic
+  tick_alarm_pool = alarm_pool_create(2, 1);
+  alarm_pool_add_repeating_timer_us(tick_alarm_pool, -1000, tick_cb, NULL, &tick_timer);
 
+  // 6. Signal Core 0 that we are ready
+  multicore_fifo_push_blocking(0xA5A5);
+
+  // 7. Start the driver, passing a pointer to OUR IRQ handler.
+  // This is the crucial step that registers the IRQ on Core 1.
+  psg_drv->start(core1_dma_irq_handler);
+
+  // 8. Enter the main processing loop
   for (;;) {
     uint8_t buffer_index_to_fill;
-
-    // Try to get a request from the queue
-    if (queue_try_remove(&fill_request_queue, &buffer_index_to_fill)) {
-      uint32_t* target_buf = &pcm_buf[buffer_index_to_fill * (BUF_SAMPLES / 2)];
-      PSG_render_block(target_buf, BUF_SAMPLES / 2);
-    }
-
-    tight_loop_contents();
-
-    if (multicore_fifo_rvalid()) {
-      uint32_t cmd = multicore_fifo_pop_blocking();
-      if (cmd == CMD_CLEANUP) {
-        cancel_repeating_timer(&tick_timer);
-        alarm_pool_destroy(tick_alarm_pool);
-        tick_alarm_pool  = NULL;
-        multicore_fifo_push_blocking(ACK_DONE);
-        for (;;) tight_loop_contents();
-      }
-    }
+    queue_remove_blocking(&fill_request_queue, &buffer_index_to_fill);
+    format_and_fill_pcm_buf(buffer_index_to_fill);
   }
-
 }
 
 
 // Audio timer
 
-void
-PSG_tick_start(uint8_t p1, uint8_t p2)
-{
-#if 1
-  gpio_init(16);
-  gpio_set_dir(16, GPIO_OUT);
-  gpio_put(16, 0);
-  gpio_init(17);
-  gpio_set_dir(17, GPIO_OUT);
-  gpio_put(17, 0);
-#endif
-
-  psg_drv->init(p1, p2);
-  PSG_render_block(pcm_buf, BUF_SAMPLES);
-
+void PSG_tick_start(uint8_t p1, uint8_t p2) {
+  static bool core1_alive = false;
   if (!core1_alive) {
     multicore_launch_core1(psg_core1_main);
-    // send pin via FIFO
-    uint32_t ack = multicore_fifo_pop_blocking();
-    if (ack != ACK_CORE1_READY) {
-      //printf("Unexpected core1 ready ack: 0x%08x\n", ack);
-    }
+    multicore_fifo_push_blocking(p1);
+    multicore_fifo_push_blocking(p2);
+    (void)multicore_fifo_pop_blocking(); // Wait for Core 1 to be ready
     core1_alive = true;
   }
-
-  psg_drv->start();
 }
 
 void
