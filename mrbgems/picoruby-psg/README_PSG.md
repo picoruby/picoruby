@@ -69,7 +69,8 @@ You can choose a GPIO combination as follows:
           ┗━━━━━━━┛
 ```
 
-It'd be preferable to choose a PWM pair that share the same slice:
+For stereo output, you must choose a PWM pair that shares the same slice.
+This ensures that both left and right channels are updated simultaneously.
 
 |Slice|PWM A|PWM B|
 |-----|-----|-----|
