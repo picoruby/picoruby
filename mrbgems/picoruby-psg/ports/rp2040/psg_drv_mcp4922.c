@@ -5,7 +5,7 @@
 #include "hardware/clocks.h"
 
 #include "../../include/psg.h"
-#include "hardware/dma.h"
+
 
 #include "psg_drv_mcp4922_pio.pio.h"
 
@@ -76,18 +76,7 @@ mcp4922_pio_write_blocking(mcp4922_pio_config_t *config, uint16_t left, uint16_t
   pio_sm_put_blocking(config->pio, config->sm, data);
 }
 
-// Non-blocking version with DMA support preparation
-static inline bool
-mcp4922_pio_write_ready(mcp4922_pio_config_t *config)
-{
-  return !pio_sm_is_tx_fifo_full(config->pio, config->sm);
-}
 
-static inline void
-mcp4922_pio_write_nonblocking(mcp4922_pio_config_t *config, uint16_t data)
-{
-  pio_sm_put(config->pio, config->sm, data);
-}
 
 static void
 psg_mcp4922_init(uint8_t ldac, uint8_t _v)
