@@ -109,7 +109,7 @@ mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
   }
 }
 
-static void
+static mrb_value
 mrb_s_mcu_name(mrb_state *mrb, mrb_value klass)
 {
   const char *name = Machine_mcu_name();
