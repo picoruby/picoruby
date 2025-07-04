@@ -38,7 +38,7 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   mrb_iv_set(mrb, self, MRB_IVSYM(name), name);
 
   ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL, RSTRING_PTR(name));
-  ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
+  ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->object_class);
   ss->tcb->flag_permanence = 1;
 
   return self;
@@ -114,10 +114,11 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
 }
 
 static void
-reset_context(struct mrb_context *c)
+reset_context(mrb_state *mrb, struct mrb_context *c)
 {
   c->ci = c->cibase;
   c->status = MRB_TASK_CREATED;
+  c->ci->u.target_class = mrb->object_class;
 }
 
 static mrb_value
@@ -126,8 +127,9 @@ mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
   SS();
   mrc_resolve_intern(ss->cc, ss->irep);
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  proc->e.target_class = mrb->object_class;
   //proc->c = NULL;
-  reset_context(&ss->tcb->c);
+  reset_context(mrb, &ss->tcb->c);
   //mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
 
   {
@@ -203,9 +205,10 @@ static mrb_bool
 sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss)
 {
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  proc->e.target_class = mrb->object_class;
   proc->c = NULL;
   mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
-  reset_context(&ss->tcb->c);
+  reset_context(mrb, &ss->tcb->c);
   mrb_resume_task(mrb, ss->tcb);
   return TRUE;
 }
