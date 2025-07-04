@@ -1,5 +1,4 @@
 require "env"
-require 'gpio'
 require "metaprog"
 require "picorubyvm"
 require "sandbox"
@@ -7,6 +6,7 @@ require "crc"
 require "machine"
 require 'yaml'
 begin
+  require 'gpio'
   require "filesystem-fat"
   require "vfs"
 rescue LoadError
@@ -236,43 +236,36 @@ class Shell
     @editor = Editor::Line.new
   end
 
-  LOGO_COLOR = "\e[32;1m"
-  AUTHOR_COLOR = "\e[36;1m"
+  AUTHOR_COLOR = "\e[38;5;217m"
   if RUBY_ENGINE == "mruby/c"
     LOGO_LINES = [
-      ' ____  _           ____        _',
-      '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
-      '| |_) | |/ __/ _ \| |_) | | | | \'_ \| | | |',
-      '|  __/| | (_| (_) |  _ <| |_| | |_) | |_| |',
-      '|_|   |_|\___\___/|_| \_\\___,_|_.__/ \__, |',
-      "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
+      "\e[38;5;197m ██████\e[38;5;198m╗\e[38;5;204m  ██╗  ██████╗  ████\e[38;5;210m██╗  ██████╗  ██╗   █\e[38;5;217m█╗ ██████╗  ██╗   ██╗\e[39m",
+      "\e[38;5;197m ██╔══█\e[38;5;198m█\e[38;5;204m╗ ██║ ██╔════╝ ██╔══\e[38;5;210m═██╗ ██╔══██╗ ██║   █\e[38;5;217m█║ ██╔══██╗ ╚██╗ ██╔╝\e[39m",
+      "\e[38;5;197m ██████\e[38;5;198m╔\e[38;5;204m╝ ██║ ██║      ██║  \e[38;5;210m ██║ ██████╔╝ ██║   █\e[38;5;217m█║ ██████╔╝  ╚████╔╝ \e[39m",
+      "\e[38;5;197m ██╔═══\e[38;5;198m╝\e[38;5;204m  ██║ ██║      ██║  \e[38;5;210m ██║ ██╔══██╗ ██║   █\e[38;5;217m█║ ██╔══██╗   ╚██╔╝  \e[39m",
+      "\e[38;5;197m ██║   \e[38;5;198m \e[38;5;204m  ██║ ╚██████╗ ╚████\e[38;5;210m██╔╝ ██║  ██║ ╚██████\e[38;5;217m╔╝ ██████╔╝    ██║   \e[39m",
+      "\e[38;5;197m ╚═╝   \e[38;5;198m \e[38;5;204m  ╚═╝  ╚═════╝  ╚═══\e[38;5;210m══╝  ╚═╝  ╚═╝  ╚═════\e[38;5;217m╝  ╚═════╝     ╚═╝   \e[39m",
+      "                            #{AUTHOR_COLOR}by hasumikin\e[39m"
     ]
-    SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
+    LOGO_WIDTH = 70
   elsif RUBY_ENGINE == "mruby"
     LOGO_LINES = [
-      ' __  __ _                ____        _',
-      '|  \/  (_) ___ _ __ ___ |  _ \ _   _| |__  _   _',
-      '| |\/| | |/ __| \'__/ _ \| |_) | | | | \'_ \| | | |',
-      '| |  | | | (__| | | (_) |  _ <| |_| | |_) | |_| |',
-      '|_|  |_|_|\___|_|  \___/|_| \_\\\\__,_|_.__/ \__, |',
-      "                  #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}             |___/"
+      "\e[38;5;197m ███╗   \e[38;5;198m█\e[38;5;204m██╗ ██╗  ██████╗ ██████\e[38;5;210m╗   ██████╗  ██████╗  █\e[38;5;211m█\e[38;5;217m╗   ██╗ ██████╗  ██╗   \e[39m\e[38;5;197m█\e[38;5;210m█\e[38;5;217m╗\e[39m",
+      "\e[38;5;197m ████╗ █\e[38;5;204m███║ ██║ ██╔════╝ ██╔══█\e[38;5;210m█╗ ██╔═══██╗ ██╔══██╗ \e[38;5;211m█\e[38;5;217m█║   ██║ ██╔══██╗ ╚██╗ \e[39m\e[38;5;197m█\e[38;5;204m█\e[38;5;210m╔\e[38;5;217m╝\e[39m",
+      "\e[38;5;197m ██╔████\e[38;5;204m╔██║ ██║ ██║      ████\e[38;5;210m██╔╝ ██║   ██║ ██████╔\e[38;5;217m╝ ██║   ██║ ██████╔╝  \e[39m\e[38;5;197m╚\e[38;5;204m██\e[38;5;210m██\e[38;5;217m╔╝ \e[39m",
+      "\e[38;5;197m ██║╚██╔\e[38;5;198m╝\e[38;5;204m██║ ██║ ██║      ██╔══██\e[38;5;210m╗ ██║   ██║ ██╔══██╗ ██\e[38;5;217m║   ██║ ██╔══██╗   ╚██╔╝\e[39m\e[38;5;197m \e[38;5;217m \e[39m",
+      "\e[38;5;197m ██║ ╚═╝\e[38;5;198m \e[38;5;204m██║ ██║ ╚██████╗ ██║  ██\e[38;5;210m║ ╚██████╔╝ ██║  ██║ ╚█\e[38;5;217m█████╔╝ ██████╔╝    ██║ \e[39m\e[38;5;197m \e[38;5;217m \e[39m",
+      "\e[38;5;197m ╚═╝    \e[38;5;198m \e[38;5;204m╚═╝ ╚═╝  ╚═════╝ ╚═╝  ╚═\e[38;5;210m╝  ╚═════╝  ╚═╝  ╚═╝  ╚\e[38;5;217m═════╝  ╚═════╝     ╚═╝ \e[39m\e[38;5;197m \e[38;5;217m \e[39m",
+      "                               #{AUTHOR_COLOR}by hasumikin\e[39m"
     ]
-    SHORT_LOGO_LINES = ["MicroRuby", "   by", "hasumikin"]
+    LOGO_WIDTH = 81
   end
 
   def show_logo
     return nil if ENV['TERM'] == "dumb"
-    logo_width = LOGO_LINES[0, LOGO_LINES.size - 1]&.map{|l| l.length}&.max || 0
-    if logo_width < @editor.width
-      logo_lines = LOGO_LINES
-    else
-      logo_width = SHORT_LOGO_LINES.map{|l| l.length}.max || 0
-      logo_lines = SHORT_LOGO_LINES
-    end
-    return nil if @editor.width < logo_width
-    margin = " " * ((@editor.width - logo_width) / 2)
-    puts LOGO_COLOR
-    logo_lines.each do |line|
+    return nil if @editor.width < LOGO_WIDTH
+    margin = " " * ((@editor.width - LOGO_WIDTH) / 2)
+    LOGO_LINES.each do |line|
       print margin
       puts line
     end

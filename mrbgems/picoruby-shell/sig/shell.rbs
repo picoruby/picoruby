@@ -20,6 +20,7 @@ class Shell
                      | (:uart, String | Symbol name) -> UART
                      | (:pwm,  String | Symbol name) -> PWM
 
+  LOGO_WIDTH: Integer
   LOGO_LINES: [String]
   SHORT_LOGO_LINES: [String]
   LOGO_COLOR: String
