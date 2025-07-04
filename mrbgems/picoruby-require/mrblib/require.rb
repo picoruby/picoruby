@@ -21,7 +21,11 @@ class Object
       return !!result
     end
     unless File.file?(path)
-      raise LoadError, "cannot load such file -- #{path}"
+      if RUBY_ENGINE == 'mruby/c'
+        raise LoadError, "cannot load such file -- #{path}"
+      else
+        return nil # TODO: for microruby
+      end
     end
     load_file(path)
   end
@@ -58,9 +62,13 @@ class Object
         end
       end
     end
-    raise LoadError, "cannot load such file -- #{name}"
+    if RUBY_ENGINE == 'mruby/c'
+      raise LoadError, "cannot load such file -- #{name}"
+    end
   end
 
 end
 
-require "sandbox"
+if RUBY_ENGINE == 'mruby/c'
+  require "sandbox"
+end
