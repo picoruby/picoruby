@@ -1,8 +1,6 @@
 class LoadError < StandardError; end
 
-$LOADED_FEATURES = ["require"]
-
-class Object
+module Kernel
 
   def require(name)
     return false if required?(name)
@@ -20,10 +18,8 @@ class Object
       $LOADED_FEATURES << path
       return !!result
     end
-    unless File.file?(path)
-      raise LoadError, "cannot load such file -- #{path}"
-    end
-    load_file(path)
+    File.file?(path) and return load_file(path)
+    raise LoadError, "cannot load such file -- #{path}"
   end
 
   # private
@@ -63,4 +59,10 @@ class Object
 
 end
 
-require "sandbox"
+if RUBY_ENGINE == 'mruby/c'
+  class Object
+    include Kernel
+  end
+  $LOADED_FEATURES = ["require"]
+  require "sandbox"
+end
