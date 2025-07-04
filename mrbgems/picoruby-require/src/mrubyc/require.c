@@ -12,8 +12,7 @@ typedef struct picogems {
 
 extern picogems prebuilt_gems[];
 
-/* public API */
-bool
+static bool
 picoruby_load_model(const uint8_t *mrb)
 {
   mrbc_vm *vm = mrbc_vm_open(NULL);
@@ -51,14 +50,6 @@ gem_index(const char *name)
   }
 }
 
-bool
-picoruby_load_model_by_name(const char *gem)
-{
-  int i = gem_index(gem);
-  if (i < 0) return false;
-  return picoruby_load_model(prebuilt_gems[i].mrb);
-}
-
 static void
 c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -93,6 +84,16 @@ c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+/* public API */
+
+bool
+picoruby_load_model_by_name(const char *gem)
+{
+  int i = gem_index(gem);
+  if (i < 0) return false;
+  return picoruby_load_model(prebuilt_gems[i].mrb);
+}
+
 void
 picoruby_init_require(mrbc_vm *vm)
 {
@@ -116,3 +117,4 @@ mrbc_require_init(mrbc_vm *vm)
   // which should be called from the application's main entry point
   // after the VM is initialized.
 }
+
