@@ -7,7 +7,7 @@ end
 
 # @sidebar builtin
 # @added_by picoruby-require
-class Object
+module Kernel
   def require: (String name) -> bool
   def load: (String path) -> bool
   private def required?: (String name) -> bool

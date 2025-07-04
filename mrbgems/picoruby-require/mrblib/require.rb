@@ -2,7 +2,7 @@ class LoadError < StandardError; end
 
 $LOADED_FEATURES = ["require"]
 
-class Object
+module Kernel
 
   def require(name)
     return false if required?(name)
@@ -67,6 +67,10 @@ class Object
     end
   end
 
+end
+
+class Object
+  include Kernel
 end
 
 if RUBY_ENGINE == 'mruby/c'

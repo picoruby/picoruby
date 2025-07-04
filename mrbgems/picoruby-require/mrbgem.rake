@@ -173,7 +173,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         void
         picoruby_init_require(mrbc_vm *vm)
         {
-          mrbc_define_method(vm, mrbc_class_object, "extern", c_extern);
+          mrbc_class *module_Kernel = mrbc_define_module(vm, "Kernel");
+          mrbc_define_method(vm, module_Kernel, "extern", c_extern);
           mrbc_value self = mrbc_instance_new(vm, mrbc_class_object, 0);
           mrbc_instance_call_initialize(vm, &self, 0);
           mrbc_value args[2];
