@@ -20,14 +20,12 @@ module Kernel
       $LOADED_FEATURES << path
       return !!result
     end
-    unless File.file?(path)
-      if RUBY_ENGINE == 'mruby/c'
-        raise LoadError, "cannot load such file -- #{path}"
-      else
-        return nil # TODO: for microruby
-      end
+    File.file?(path) and return load_file(path)
+    if RUBY_ENGINE == 'mruby/c'
+      raise LoadError, "cannot load such file -- #{path}"
+    else
+      return false # TODO: for microruby
     end
-    load_file(path)
   end
 
   # private
@@ -64,6 +62,8 @@ module Kernel
     end
     if RUBY_ENGINE == 'mruby/c'
       raise LoadError, "cannot load such file -- #{name}"
+    else
+      false # TODO: for microruby
     end
   end
 

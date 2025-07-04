@@ -1,4 +1,4 @@
-//#include "../include/require.h"
+#include "../include/require.h"
 
 #if defined(PICORB_VM_MRUBY)
 
