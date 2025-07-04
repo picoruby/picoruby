@@ -14,6 +14,7 @@ MRuby::Build.new do |conf|
   conf.gem core: 'picoruby-net'
   conf.gem core: 'picoruby-mbedtls'
   conf.gem core: 'picoruby-require'
+  conf.gem core: 'picoruby-picotest'
   conf.gembox "stdlib-microruby"
   conf.gembox "posix-microruby"
   conf.gembox "r2p2"

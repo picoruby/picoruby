@@ -33,5 +33,7 @@ def run_tests(runner_binary)
 
   # The test runner script will be a separate file that uses Picotest::Runner
   # Use `system` to avoid aborting the rake task on failure, so we can see the output
-  system("#{runner_binary} #{File.expand_path('tools/test_runner.rb')}")
+  cmd = "#{runner_binary} #{File.expand_path('tools/test_runner.rb')}"
+  puts "Running test command: #{cmd}"
+  system cmd
 end

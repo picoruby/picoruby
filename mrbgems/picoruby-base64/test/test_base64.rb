@@ -19,3 +19,4 @@ class TestBase64 < Picotest::Test
     assert_equal long_string, decoded
   end
 end
+
