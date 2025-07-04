@@ -1,0 +1,10 @@
+#include <mruby.h>
+
+const char *prebuilt_gems[] = {
+<%- picogems.each do |require_name, v| -%>
+<%- if File.exist?(v[:mrbfile]) -%>
+  "<%= require_name %>",
+<%- end -%>
+<%- end -%>
+  NULL
+};

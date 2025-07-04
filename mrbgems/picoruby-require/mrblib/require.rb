@@ -1,7 +1,5 @@
 class LoadError < StandardError; end
 
-$LOADED_FEATURES = ["require"]
-
 module Kernel
 
   def require(name)
@@ -21,11 +19,7 @@ module Kernel
       return !!result
     end
     File.file?(path) and return load_file(path)
-    if RUBY_ENGINE == 'mruby/c'
-      raise LoadError, "cannot load such file -- #{path}"
-    else
-      return false # TODO: for microruby
-    end
+    raise LoadError, "cannot load such file -- #{path}"
   end
 
   # private
@@ -60,19 +54,15 @@ module Kernel
         end
       end
     end
-    if RUBY_ENGINE == 'mruby/c'
-      raise LoadError, "cannot load such file -- #{name}"
-    else
-      false # TODO: for microruby
-    end
+    raise LoadError, "cannot load such file -- #{name}"
   end
 
 end
 
-class Object
-  include Kernel
-end
-
 if RUBY_ENGINE == 'mruby/c'
+  class Object
+    include Kernel
+  end
+  $LOADED_FEATURES = ["require"]
   require "sandbox"
 end

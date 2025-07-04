@@ -1,5 +1,5 @@
 require 'io/console'
-require 'metaprog'
+require 'metaprog' if RUBY_ENGINE == 'mruby/c'
 
 class Sandbox
 

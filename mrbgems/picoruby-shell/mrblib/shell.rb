@@ -1,5 +1,4 @@
 require "env"
-require "metaprog"
 require "picorubyvm"
 require "sandbox"
 require "crc"
@@ -11,7 +10,7 @@ begin
   require "vfs"
 rescue LoadError
   # ignore. maybe POSIX
-  require "dir"
+  require "dir" if RUBY_ENGINE == 'mruby/c'
 end
 
 # ENV = {} # This moved to 0_out_of_steep.rb

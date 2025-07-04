@@ -7,14 +7,14 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
 
   spec.add_dependency 'picoruby-sandbox'
 
-  next if build.vm_mruby?
-
-  if cc.defines.flatten.any?{ _1.match? /\AMRBC_USE_HAL_POSIX(=\d+)?\z/ }
-    # TODO: in Wasm, you may need to implement File class with File System Access API
-    spec.add_dependency 'picoruby-io'
-  else
-    spec.add_dependency 'picoruby-vfs'
-    spec.add_dependency 'picoruby-filesystem-fat'
+  if build.vm_mrubyc?
+    if cc.defines.flatten.any?{ _1.match? /\AMRBC_USE_HAL_POSIX(=\d+)?\z/ }
+      # TODO: in Wasm, you may need to implement File class with File System Access API
+      spec.add_dependency 'picoruby-io'
+    else
+      spec.add_dependency 'picoruby-vfs'
+      spec.add_dependency 'picoruby-filesystem-fat'
+    end
   end
 
   mrbgems_dir = File.expand_path "..", build_dir
@@ -60,7 +60,12 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
     picogems.each do |_require_name, v|
       Rake::FileTask[v[:mrbfile]].invoke
     end
-    template = ERB.new(File.read(File.join(spec.dir, "templates/mrubyc/picogem_init.c.erb")), trim_mode: "%-")
+    template_path = if build.vm_mruby?
+                      File.join(spec.dir, "templates/mruby/picogem_init.c.erb")
+                    else
+                      File.join(spec.dir, "templates/mrubyc/picogem_init.c.erb")
+                    end
+    template = ERB.new(File.read(template_path), trim_mode: "%-")
     File.write(t.name, template.result(binding))
   end
 
