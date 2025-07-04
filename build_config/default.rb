@@ -19,6 +19,7 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-net"
   conf.gem core: "picoruby-machine"
   conf.gem core: "picoruby-mbedtls"
+  conf.gem core: 'picoruby-base64'
 
   conf.picoruby(alloc_libc: true)
 
