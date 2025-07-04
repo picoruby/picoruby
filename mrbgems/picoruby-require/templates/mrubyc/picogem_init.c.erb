@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <mrubyc.h>
-
-<% picogems.each do |_require_name, v| %>
-<% if File.exist?(v[:mrbfile]) %>
+<%- picogems.each do |_require_name, v| -%>
+<%- if File.exist?(v[:mrbfile]) -%>
 #include "<%= v[:mrbfile] %>"
-<% end %>
-<% end %>
+<%- end -%>
+<%- end -%>
 
 typedef struct picogems {
   const char *name;
@@ -16,11 +15,11 @@ typedef struct picogems {
 } picogems;
 
 picogems prebuilt_gems[] = {
-<% picogems.each do |require_name, v| %>
-<% if File.exist?(v[:mrbfile]) %>
+<%- picogems.each do |require_name, v| -%>
+<%- if File.exist?(v[:mrbfile]) -%>
   {"<%= require_name %>", <%= File.basename(v[:mrbfile], ".c").gsub('-','_') %>, <%= v[:initializer] %>, false},
-<% end %>
-<% end %>
+<%- end -%>
+<%- end -%>
   {NULL, NULL, NULL, true} /* sentinel */
 };
 
