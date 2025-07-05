@@ -409,8 +409,13 @@ module JSON
       @index += 1  # Skip opening quote
       result = ''
       while @json[@index] != '"'
-        result += @json[@index].to_s
-        @index += 1
+        if @json[@index] == '\\'
+          result += @json[@index, 2]
+          @index += 2
+        else
+          result += @json[@index].to_s
+          @index += 1
+        end
         if @index >= @json.length
           raise JSON::ParserError.new("Unterminated string")
         end
