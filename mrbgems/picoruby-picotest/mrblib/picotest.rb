@@ -4,6 +4,12 @@ if RUBY_ENGINE == "mruby/c"
   require "metaprog"
   require 'dir'
   require 'env'
+elsif RUBY_ENGINE == "mruby"
+  class Object
+    def class?
+      self.class == Class
+    end
+  end
 elsif RUBY_ENGINE == "ruby"
   class Object
     def class?

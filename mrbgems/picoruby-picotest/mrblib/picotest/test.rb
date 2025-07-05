@@ -133,6 +133,8 @@ module Picotest
       @result["exceptions"] << data
     end
 
+    alias report_exception exception_report
+
     # private
 
     def report(result, error_message, expected, actual)

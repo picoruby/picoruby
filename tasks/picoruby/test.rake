@@ -2,54 +2,73 @@ require 'tempfile'
 require_relative "#{MRUBY_ROOT}/mrbgems/picoruby-picotest/mrblib/picotest.rb"
 
 namespace :test do
-  namespace :full do
-    desc "Run full-build test for a gem on PicoRuby"
-    task :picoruby, [:gem_name] do |t, args|
-      gem_name = args[:gem_name]
-      raise "gem_name is required" unless gem_name
+  desc "Run test for a gem on PicoRuby"
+  task :picoruby, [:gem_name] do |t, args|
+    run_test_for_gem(args[:gem_name], 'picoruby')
+  end
 
-      config_path = create_temp_build_config('picoruby-test.rb', gem_name)
+  desc "Run test for a gem on MicroRuby"
+  task :microruby, [:gem_name] do |t, args|
+    run_test_for_gem(args[:gem_name], 'microruby')
+  end
+end
 
-      puts "Building test binary for #{gem_name} on PicoRuby..."
+def run_test_for_gem(gem_name, vm_type)
+  raise "gem_name is required" unless gem_name
+
+  gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
+  has_c_extension = Dir.exist?("#{gem_dir}/src")
+  is_platform_dependent = Dir.exist?("#{gem_dir}/ports")
+  mock_dir = "#{gem_dir}/test/mock"
+  has_mock = Dir.exist?(mock_dir)
+
+  load_paths = []
+  lib_name = gem_name.gsub('picoruby-', '')
+
+  if has_c_extension && !is_platform_dependent
+    # Case 1: Full build for gems with C extensions
+    puts "Strategy: Full build for '#{gem_name}'"
+    config_path = create_temp_build_config("#{vm_type}-test.rb", gem_name)
+    begin
+      puts "Building test binary for #{gem_name} on #{vm_type}..."
       sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
       sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
-
-      ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/picoruby")
-      unless run_cruby_test_runner(gem_name)
-        exit 1
-      end
+      ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
     ensure
       File.unlink(config_path) if config_path && File.exist?(config_path)
     end
+  else
+    # Case 2 & 3: Use generic runner based on a clean build
+    strategy = has_c_extension ? "Mocking" : "Dynamic require"
+    puts "Strategy: #{strategy} for '#{gem_name}'"
+    config_path = "#{MRUBY_ROOT}/build_config/#{vm_type}-test.rb"
+    puts "Building a generic test runner with #{config_path}..."
+    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
+    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
+    ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
 
-    desc "Run full-build test for a gem on MicroRuby"
-    task :microruby, [:gem_name] do |t, args|
-      gem_name = args[:gem_name]
-      raise "gem_name is required" unless gem_name
-
-      config_path = create_temp_build_config('microruby-test.rb', gem_name)
-
-      puts "Building test binary for #{gem_name} on MicroRuby..."
-      sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-      sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
-
-      ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/microruby")
-      unless run_cruby_test_runner(gem_name)
-        exit 1
-      end
-    ensure
-      File.unlink(config_path) if config_path && File.exist?(config_path)
+    if has_mock
+      puts "Found mock files in #{mock_dir}"
+      load_paths += Dir.glob("#{mock_dir}/**/*.rb")
     end
+    # Add mrblib files to load_paths for dynamic loading
+    mrblib_dir = "#{gem_dir}/mrblib"
+    load_paths += Dir.glob("#{mrblib_dir}/**/*.rb") if Dir.exist?(mrblib_dir)
+    lib_name = nil # Not needed as we load files directly
+  end
+
+  unless run_picotest_runner(gem_name, lib_name, load_paths)
+    exit 1
   end
 end
 
 def create_temp_build_config(base_config_name, gem_name)
   config_file = Tempfile.new(['test_config_', '.rb'])
-  base_config_path = File.expand_path("../../../build_config/#{base_config_name}", __FILE__)
+  base_config_path = File.expand_path("#{MRUBY_ROOT}/build_config/#{base_config_name}")
   config_content = File.read(base_config_path)
 
   injection_point = /conf\.(picoruby|microruby)/
-  injection_text = "conf.gem core: '#{gem_name}'\n  conf.gem core: 'picoruby-picotest'\n  "
+  injection_text = "conf.gem core: '#{gem_name}'\n  "
   config_content.sub!(injection_point, injection_text + '\1')
 
   config_file.write(config_content)
@@ -57,27 +76,23 @@ def create_temp_build_config(base_config_name, gem_name)
   config_file.path
 end
 
-def run_cruby_test_runner(gem_name)
-  gem_dir = File.expand_path("../../../mrbgems/#{gem_name}", __FILE__)
-
-  unless gem_dir && Dir.exist?(gem_dir)
-    puts "ERROR: Gem directory not found at `#{gem_dir}`"
-    exit 1
-  end
-
-  gem_name = File.basename(gem_dir)
-  lib_name = gem_name.gsub('picoruby-', '')
+def run_picotest_runner(gem_name, lib_name, load_paths = [])
+  gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
   test_dir = File.join(gem_dir, 'test')
+
+  unless Dir.exist?(test_dir)
+    puts "WARNING: Test directory not found for #{gem_name}. Skipping."
+    return true
+  end
 
   puts "Target VM: #{ENV['PICORUBY_TEST_TARGET_VM']}"
   puts "Test directory: #{test_dir}"
-  puts "Library to require: #{lib_name}"
+  puts "Library to require: #{lib_name || 'none'}"
+  puts "Files to load: #{load_paths.join(', ')}" unless load_paths.empty?
 
-  # Set the RUBY environment variable so that Picotest::Runner's IO.popen
-  # uses the correct VM binary (PicoRuby or MicroRuby).
   ENV['RUBY'] = ENV['PICORUBY_TEST_TARGET_VM']
 
-  # Initialize and run the Picotest runner
-  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name)
-  runner.run
+  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name, load_paths)
+  error_count = runner.run
+  return error_count == 0
 end
