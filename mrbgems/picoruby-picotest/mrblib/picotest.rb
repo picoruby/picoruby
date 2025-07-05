@@ -12,7 +12,7 @@ elsif RUBY_ENGINE == "ruby"
   end
   require_relative "./picotest/test"
   require_relative "./picotest/runner"
-  require_relative "./workaround_dev"
+#  require_relative "./workaround_dev"
 end
 
 module Picotest

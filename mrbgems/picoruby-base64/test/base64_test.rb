@@ -1,4 +1,4 @@
-class TestBase64 < Picotest::Test
+class Base64Test < Picotest::Test
   def setup
     # require the library to be tested using its absolute path
     require "base64"
