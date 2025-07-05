@@ -295,7 +295,7 @@ module JSON
       when FalseClass
         false
       when NilClass
-        nil
+        'null'
       else
         generate_string(obj.to_s)
       end
