@@ -132,7 +132,7 @@ task :test_compiler_with_mrubyVM => :debug do
   ENV['PICORBC_COMMAND'] = picorbcfile
   ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.3.0 rbenv which mruby`.chomp
   if ENV['MRUBY_COMMAND'] && ENV['MRUBY_COMMAND'] != ""
-    sh "mrbgems/mruby-compiler2/test/helper/test.rb"
+    sh "mrbgems/mruby-compiler2/old_style_test/helper/test.rb"
   else
     puts "[WARN] test_compiler_with_mrubyVM skipped because no mruby found"
   end
@@ -141,7 +141,7 @@ end
 desc "run compiler tests with mruby/c VM"
 task :test_compiler_with_mrubycVM => :debug do
   ENV['MRUBY_COMMAND'] = picorubyfile
-  sh "mrbgems/mruby-compiler2/test/helper/test.rb"
+  sh "mrbgems/mruby-compiler2/old_style_test/helper/test.rb"
   ENV['MRUBY_COMMAND'] = nil
 end
 
