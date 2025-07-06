@@ -123,31 +123,10 @@ task :debug do
   Rake::Task[:all].invoke
 end
 
-desc "run all tests"
-task :test => [:steep, :test_compiler_with_mrubycVM, :test_compiler_with_mrubyVM]
-
-desc "run compiler tests with mruby VM"
-task :test_compiler_with_mrubyVM => :debug do
-  ENV['USE_MRUBY'] = "yes"
-  ENV['PICORBC_COMMAND'] = picorbcfile
-  ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.3.0 rbenv which mruby`.chomp
-  if ENV['MRUBY_COMMAND'] && ENV['MRUBY_COMMAND'] != ""
-    sh "mrbgems/mruby-compiler2/old_style_test/helper/test.rb"
-  else
-    puts "[WARN] test_compiler_with_mrubyVM skipped because no mruby found"
-  end
-end
-
-desc "run compiler tests with mruby/c VM"
-task :test_compiler_with_mrubycVM => :debug do
-  ENV['MRUBY_COMMAND'] = picorubyfile
-  sh "mrbgems/mruby-compiler2/old_style_test/helper/test.rb"
-  ENV['MRUBY_COMMAND'] = nil
-end
-
-desc "steep check"
-task :steep do
-  sh "bundle exec steep check"
+desc "create picorbc debug build"
+task :picorbc do
+  sh "MRUBY_CONFIG=picorbc PICORUBY_DEBUG=yes rake clean"
+  sh "MRUBY_CONFIG=picorbc PICORUBY_DEBUG=yes rake"
 end
 
 namespace :wasm do

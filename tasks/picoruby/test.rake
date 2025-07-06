@@ -2,14 +2,59 @@ require 'tempfile'
 require_relative "#{MRUBY_ROOT}/mrbgems/picoruby-picotest/mrblib/picotest.rb"
 
 namespace :test do
-  desc "Run test for a gem on PicoRuby"
-  task :picoruby, [:gem_name] do |t, args|
-    run_test_for_gem(args[:gem_name], 'picoruby')
+
+  desc "run all tests"
+  task :all => ["compiler:picoruby", "compiler:microruby", "gems:steep"]
+
+  task :build_picoruby_test do
+    puts "Building test runner with picoruby-test.rb..."
+    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake clean"
+    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake all"
   end
 
-  desc "Run test for a gem on MicroRuby"
-  task :microruby, [:gem_name] do |t, args|
-    run_test_for_gem(args[:gem_name], 'microruby')
+  task :build_microruby_test do
+    puts "Building test runner with microruby-test.rb..."
+    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake clean"
+    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake all"
+  end
+
+  namespace :compiler do
+    desc "run compiler tests with mruby VM"
+    task :microruby => :picorbc do
+      ENV['USE_MRUBY'] = "yes"
+      ENV['PICORBC_COMMAND'] = picorbcfile
+      ENV['MRUBY_COMMAND'] ||= `RBENV_VERSION=mruby-3.4.0 rbenv which mruby`.chomp
+      if ENV['MRUBY_COMMAND'] && ENV['MRUBY_COMMAND'] != ""
+        sh "mrbgems/mruby-compiler2/compiler_test/helper/test.rb"
+      else
+        puts "[WARN] test_compiler_with_mrubyVM skipped because no mruby found"
+      end
+    end
+
+    desc "run compiler tests with mruby/c VM"
+    task :picoruby => :build_picoruby_test do
+      ENV['MRUBY_COMMAND'] = picorubyfile
+      sh "mrbgems/mruby-compiler2/compiler_test/helper/test.rb"
+      ENV['MRUBY_COMMAND'] = nil
+    end
+  end
+
+  namespace :gems do
+    desc "steep check"
+    task :steep do
+      sh "bundle exec steep check"
+    end
+
+    desc "Run test for a gem on PicoRuby"
+    task :picoruby, [:gem_name] => :build_picoruby_test do |t, args|
+      run_test_for_gem(args[:gem_name], 'picoruby')
+    end
+
+    desc "Run test for a gem on MicroRuby"
+    task :microruby, [:gem_name] => :build_microruby_test do |t, args|
+      run_test_for_gem(args[:gem_name], 'microruby')
+    end
+
   end
 end
 
@@ -96,3 +141,4 @@ def run_picotest_runner(gem_name, lib_name, load_paths = [])
   error_count = runner.run
   return error_count == 0
 end
+
