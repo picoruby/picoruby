@@ -45,12 +45,6 @@ mrb_base64_s_encode(mrb_state *mrb, mrb_value klass)
     mrb_str_cat_cstr(mrb, output, encoded);
   }
 
-  // create padding
-   int padding = (3 - (in_size % 3)) % 3;
-   for (int i = 0; i < padding; i++) {
-     mrb_str_cat_cstr(mrb, output, "=");
-   }
-
   return output;
 }
 
