@@ -394,7 +394,6 @@ mrb_tasks_run(mrb_state *mrb)
 
     if (mrb->exc) {
       tcb->value = mrb_obj_value(mrb->exc);
-      mrb->exc = NULL;
       tcb->c.status = MRB_TASK_STOPPED;
     }
     switching_ = FALSE;
@@ -408,7 +407,7 @@ mrb_tasks_run(mrb_state *mrb)
       q_insert_task(mrb, tcb);
       hal_enable_irq();
 
-     // if(!tcb->flag_permanence) mrb_free_context(mrb, &tcb->c);
+      // if(!tcb->flag_permanence) mrb_free_context(mrb, &tcb->c);
       if(mrb->exc) ret = mrb_obj_value(mrb->exc);
 
       // find task that called join.

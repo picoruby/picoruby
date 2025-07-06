@@ -699,6 +699,7 @@ main(int argc, char **argv)
 #if defined(PICORB_VM_MRUBY)
     mrb_value v = mrb_tasks_run(vm);
     mrb_vm_ci_env_clear(vm, vm->c->cibase);
+    n = EXIT_SUCCESS;
     if (vm->exc) {
       MRB_EXC_CHECK_EXIT(vm, vm->exc);
       if (!mrb_undef_p(v)) {
@@ -706,8 +707,6 @@ main(int argc, char **argv)
       }
       n = EXIT_FAILURE;
     }
-    n = EXIT_SUCCESS;
-
     mrc_irep_free(cc, irep);
     if (source) mrc_free(cc, source);
 #elif defined(PICORB_VM_MRUBYC)
