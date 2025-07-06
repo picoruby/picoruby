@@ -25,7 +25,11 @@ module Picotest
 
     def run
       load_tests(@entries)
-      summarize
+      return summarize
+    ensure
+      @test_classes.each do |klass|
+        Object.send(:remove_const, klass.to_s) if Object.const_defined?(klass.to_s)
+      end
     end
 
     # private

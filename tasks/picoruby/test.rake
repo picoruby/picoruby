@@ -4,18 +4,18 @@ require_relative "#{MRUBY_ROOT}/mrbgems/picoruby-picotest/mrblib/picotest.rb"
 namespace :test do
 
   desc "run all tests"
-  task :all => ["compiler:picoruby", "compiler:microruby", "gems:steep"]
+  task :all => ["compiler:picoruby", "compiler:microruby", "gems:steep", "gems:microruby", "gems:picoruby"]
 
   task :build_picoruby_test do
     puts "Building test runner with picoruby-test.rb..."
     sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake clean"
-    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake all"
+    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake --silent all"
   end
 
   task :build_microruby_test do
     puts "Building test runner with microruby-test.rb..."
     sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake clean"
-    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake all"
+    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake --silent all"
   end
 
   namespace :compiler do
@@ -45,66 +45,83 @@ namespace :test do
       sh "bundle exec steep check"
     end
 
-    desc "Run test for a gem on PicoRuby"
-    task :picoruby, [:gem_name] => :build_picoruby_test do |t, args|
-      run_test_for_gem(args[:gem_name], 'picoruby')
+    desc "run test for a gem on PicoRuby"
+    task :picoruby, [:specified_gem] do |t, args|
+      unless run_test_for_gems('picoruby', args[:specified_gem])
+        exit 1
+      end
     end
 
-    desc "Run test for a gem on MicroRuby"
-    task :microruby, [:gem_name] => :build_microruby_test do |t, args|
-      run_test_for_gem(args[:gem_name], 'microruby')
+    desc "run test for a gem on MicroRuby"
+    task :microruby, [:specified_gem] do |t, args|
+      unless run_test_for_gems('microruby', args[:specified_gem])
+        exit 1
+      end
     end
 
   end
 end
 
-def run_test_for_gem(gem_name, vm_type)
-  raise "gem_name is required" unless gem_name
-
-  gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
-  has_c_extension = Dir.exist?("#{gem_dir}/src")
-  is_platform_dependent = Dir.exist?("#{gem_dir}/ports")
-  mock_dir = "#{gem_dir}/test/mock"
-  has_mock = Dir.exist?(mock_dir)
-
-  load_paths = []
-  lib_name = gem_name.gsub('picoruby-', '')
-
-  if has_c_extension && !is_platform_dependent
-    # Case 1: Full build for gems with C extensions
+def run_test_for_gems(vm_type, specified_gem)
+  all_success = true
+  gems = collect_gems(specified_gem)
+  ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+  gems[:need_build].each do |gem_name|
     puts "Strategy: Full build for '#{gem_name}'"
     config_path = create_temp_build_config("#{vm_type}-test.rb", gem_name)
+    lib_name = gem_name.gsub('picoruby-', '')
     begin
       puts "Building test binary for #{gem_name} on #{vm_type}..."
       sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-      sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
-      ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+      sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake --silent all"
+      unless run_picotest_runner(gem_name, lib_name, [])
+        all_success = false
+      end
     ensure
       File.unlink(config_path) if config_path && File.exist?(config_path)
     end
-  else
-    # Case 2 & 3: Use generic runner based on a clean build
-    strategy = has_c_extension ? "Mocking" : "Dynamic require"
-    puts "Strategy: #{strategy} for '#{gem_name}'"
-    config_path = "#{MRUBY_ROOT}/build_config/#{vm_type}-test.rb"
-    puts "Building a generic test runner with #{config_path}..."
-    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
-    ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
-
-    if has_mock
+  end
+  # clean build test runner for no_need_build just once
+  unless gems[:no_need_build].empty?
+    Rake::Task["test:build_#{vm_type}_test"].invoke
+  end
+  gems[:no_need_build].each do |gem_name|
+    gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
+    mock_dir = "#{gem_dir}/test/mock"
+    mrblib_dir = "#{gem_dir}/mrblib"
+    load_paths = Dir.glob("#{mrblib_dir}/**/*.rb") if Dir.exist?(mrblib_dir)
+    if Dir.exist?(mock_dir)
       puts "Found mock files in #{mock_dir}"
       load_paths += Dir.glob("#{mock_dir}/**/*.rb")
     end
-    # Add mrblib files to load_paths for dynamic loading
-    mrblib_dir = "#{gem_dir}/mrblib"
-    load_paths += Dir.glob("#{mrblib_dir}/**/*.rb") if Dir.exist?(mrblib_dir)
-    lib_name = nil # Not needed as we load files directly
+    unless run_picotest_runner(gem_name, nil, load_paths)
+      all_success = false
+    end
   end
+  unless all_success
+    print Picotest::RED
+    puts "Some tests failed. Please check the output above."
+    print Picotest::RESET
+  end
+  return all_success
+end
 
-  unless run_picotest_runner(gem_name, lib_name, load_paths)
-    exit 1
+def collect_gems(specified_gem = nil)
+  gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
+  gems = {
+    need_build: [], # C extentions && No platform dependent
+    no_need_build: [] # (C extentions && Platform dependent) || No C extentions (possibly has mock)
+  }
+  Dir.glob("#{gems_dir}/picoruby-*").each do |gem_path|
+    next unless Dir.exist?("#{gem_path}/test")
+    next if specified_gem && File.basename(gem_path) != specified_gem
+    if Dir.exist?("#{gem_path}/src") && !Dir.exist?("#{gem_path}/ports")
+      gems[:need_build] << File.basename(gem_path)
+    else
+      gems[:no_need_build] << File.basename(gem_path)
+    end
   end
+  gems
 end
 
 def create_temp_build_config(base_config_name, gem_name)
@@ -121,7 +138,7 @@ def create_temp_build_config(base_config_name, gem_name)
   config_file.path
 end
 
-def run_picotest_runner(gem_name, lib_name, load_paths = [])
+def run_picotest_runner(gem_name, lib_name, load_paths)
   gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
   test_dir = File.join(gem_dir, 'test')
 

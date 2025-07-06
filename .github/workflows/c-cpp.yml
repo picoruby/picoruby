@@ -55,6 +55,7 @@ jobs:
 
     - name: Test all
       env:
+        MRUBY_DIR: ${{ runner.temp }}/mruby
         PICORBC_COMMAND: $PWD/bin/picorbc
         MRUBY_COMMAND: $MRUBY_DIR/bin/mruby
       run: rake test:all
