@@ -74,4 +74,6 @@ end
 
 The test runner is implemented in `mrbgems/picoruby-picotest/mrblib/picotest/runner.rb`. It is responsible for loading test files, running the tests, and summarizing the results.
 
+Note that the test runner itself runs in a CRuby process, while the dispatched test runs in a PicoRuby or MicroRuby process.
+
 A key feature of the runner is that it cleans up defined test classes after each run. This is done in an `ensure` block to prevent test definitions from leaking between different test files, which ensures test isolation.
