@@ -66,7 +66,7 @@ class Sandbox
         end
         execute
       end
-      if join && started && wait(signal: signal, timeout: nil) && error
+      if join && started && wait(signal: signal, timeout: nil) && error = self.error
         puts "#{error.message} (#{error})"
       end
     ensure

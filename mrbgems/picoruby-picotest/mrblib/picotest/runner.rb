@@ -4,12 +4,14 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter = nil, tmpdir = TMPDIR)
+    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_paths = [])
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
       puts "Running tests in #{dir}"
       @tmpdir = tmpdir
+      @lib_to_require = lib_name
+      @load_paths = load_paths
       @entries = find_tests(dir, filter)
       @result = {}
       @test_classes = []
@@ -23,13 +25,17 @@ module Picotest
 
     def run
       load_tests(@entries)
-      0 < summarize and raise "Test failed"
+      return summarize
+    ensure
+      @test_classes.each do |klass|
+        Object.send(:remove_const, klass.to_s) if Object.const_defined?(klass.to_s)
+      end
     end
 
     # private
 
     def run_test(entry)
-      test_classes = Object.constants.map{|c| Object.const_get(c)}
+      test_classes = Object.constants.select{|c| c.to_s.end_with?('Test')}.map{|c| Object.const_get(c)}
       test_classes.reject! do |c|
         !c.class? || !c.ancestors.include?(Picotest::Test) || @test_classes.include?(c)
       end
@@ -39,6 +45,10 @@ module Picotest
         tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
         File.open(tmpfile, "w") do |f|
           f.puts "require 'picotest'"
+          @load_paths.each do |path|
+            f.puts "load '#{path}'"
+          end
+          f.puts "require '#{@lib_to_require}'" if @lib_to_require
           f.puts "load '#{entry}'"
           f.puts "my_test = #{klass}.new"
           f.puts "puts"
@@ -61,7 +71,9 @@ module Picotest
         end
         error_file = "#{@tmpdir}/#{klass.to_s}_error"
         File.open(error_file, "w") do |error|
-          IO.popen("#{@ruby_path} #{tmpfile}", err: error.fileno) do |io|
+          cmd = "#{@ruby_path} #{tmpfile}"
+          puts "Running: #{cmd}"
+          IO.popen(cmd, err: error.fileno) do |io|
             outputs = io.read&.split("----\n") || []
             print Picotest::RESET
             puts outputs[0]
@@ -145,7 +157,7 @@ module Picotest
           rescue => e
             @load_crashes << {
               entry: entry,
-              message: e.message
+              message: "#{e.class}: #{e.message}"
             }
           end
         end
