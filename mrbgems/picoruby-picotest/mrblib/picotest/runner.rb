@@ -4,14 +4,15 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_paths = [])
+    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_files = [])
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
       puts "Running tests in #{dir}"
+      @mock_dir = "#{dir}/mock"
       @tmpdir = tmpdir
       @lib_to_require = lib_name
-      @load_paths = load_paths
+      @load_files = load_files
       @entries = find_tests(dir, filter)
       @result = {}
       @test_classes = []
@@ -44,9 +45,10 @@ module Picotest
         test = klass.new
         tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
         File.open(tmpfile, "w") do |f|
+          f.puts "$LOAD_PATH = ['#{@mock_dir}']"
           f.puts "require 'picotest'"
-          @load_paths.each do |path|
-            f.puts "load '#{path}'"
+          @load_files.each do |file|
+            f.puts "load '#{file}'"
           end
           f.puts "require '#{@lib_to_require}'" if @lib_to_require
           f.puts "load '#{entry}'"
@@ -81,6 +83,9 @@ module Picotest
             unless outputs[1].nil?
               @result[klass.to_s] = JSON.parse(outputs[1])
             end
+          end
+          if $?.exitstatus != 0
+            raise "Crash in running #{klass.to_s} tests. See #{error_file} for details."
           end
         end
         if FileTest.size?(error_file)

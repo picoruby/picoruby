@@ -89,12 +89,12 @@ def run_test_for_gems(vm_type, specified_gem)
     gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
     mock_dir = "#{gem_dir}/test/mock"
     mrblib_dir = "#{gem_dir}/mrblib"
-    load_paths = Dir.glob("#{mrblib_dir}/**/*.rb") if Dir.exist?(mrblib_dir)
+    load_files = Dir.glob("#{mrblib_dir}/**/*.rb") if Dir.exist?(mrblib_dir)
     if Dir.exist?(mock_dir)
       puts "Found mock files in #{mock_dir}"
-      load_paths += Dir.glob("#{mock_dir}/**/*.rb")
+      load_files += Dir.glob("#{mock_dir}/**/*.rb")
     end
-    unless run_picotest_runner(gem_name, nil, load_paths)
+    unless run_picotest_runner(gem_name, nil, load_files)
       all_success = false
     end
   end
@@ -138,7 +138,7 @@ def create_temp_build_config(base_config_name, gem_name)
   config_file.path
 end
 
-def run_picotest_runner(gem_name, lib_name, load_paths)
+def run_picotest_runner(gem_name, lib_name, load_files)
   gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
   test_dir = File.join(gem_dir, 'test')
 
@@ -150,11 +150,11 @@ def run_picotest_runner(gem_name, lib_name, load_paths)
   puts "Target VM: #{ENV['PICORUBY_TEST_TARGET_VM']}"
   puts "Test directory: #{test_dir}"
   puts "Library to require: #{lib_name || 'none'}"
-  puts "Files to load: #{load_paths.join(', ')}" unless load_paths.empty?
+  puts "Files to load: #{load_files.join(', ')}" unless load_files.empty?
 
   ENV['RUBY'] = ENV['PICORUBY_TEST_TARGET_VM']
 
-  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name, load_paths)
+  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name, load_files)
   error_count = runner.run
   return error_count == 0
 end
