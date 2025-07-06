@@ -65,6 +65,10 @@ end
 def run_test_for_gems(vm_type, specified_gem)
   all_success = true
   gems = collect_gems(specified_gem)
+  if gems[:need_build].empty? && gems[:no_need_build].empty?
+    puts "No gems found for testing."
+    return false
+  end
   ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
   gems[:need_build].each do |gem_name|
     puts "Strategy: Full build for '#{gem_name}'"
