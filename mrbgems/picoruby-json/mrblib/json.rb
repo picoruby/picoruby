@@ -410,8 +410,10 @@ module JSON
       result = ''
       while @json[@index] != '"'
         if @json[@index] == '\\'
-          result += @json[@index, 2]
-          @index += 2
+          if snip = @json[@index, 2]
+            result += snip
+            @index += snip.length
+          end
         else
           result += @json[@index].to_s
           @index += 1
