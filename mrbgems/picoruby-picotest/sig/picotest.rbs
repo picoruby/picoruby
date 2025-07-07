@@ -60,14 +60,17 @@ module Picotest
     TMPDIR: String
     SEPARATOR: String
 
+    @load_path: String | nil
     @tmpdir: String
+    @lib_to_require: String | nil
+    @load_files: Array[String]
     @entries: Array[untyped]
     @result: Hash[String, picotest_error_t]
     @test_classes: Array[Class]
     @load_crashes: Array[{ entry: String, message: String }]
     @ruby_path: String
 
-    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir) -> void
+    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir, ?String lib_name, ?Array[String] load_files, ?String load_path) -> void
     def run: () -> void
     private def run_test: (String entry) -> void
     private def summarize: () -> Integer

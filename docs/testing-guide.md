@@ -53,6 +53,8 @@ This strategy is used for two types of gems:
 
 For these gems, a single, generic test runner is built for each VM (PicoRuby and MicroRuby). The test runner then dynamically loads the gem's Ruby files (`mrblib/**/*.rb`). If a `test/mock` directory exists, its contents are also loaded, which is useful for mocking hardware-dependent C extensions when testing on the host.
 
+A key aspect of this strategy is that the `require` method within the test runner is designed to ignore `LoadError` when attempting to load pre-built gems. This allows the test runner to proceed even if a pre-built gem is not available in the test environment. In such cases, if the gem under test depends on a pre-built gem that is not present, developers have two options: either provide a mock implementation of that dependency within the gem's `test/mock/` directory (e.g., if `picoruby-adc` requires `gpio`, and `gpio` is a pre-built gem not available, a mock `gpio.rb` should be placed in `picoruby-adc/test/mock/`), or utilize the mocking features provided by Picotest itself within the test files.
+
 This strategy is significantly faster because it avoids rebuilding the test runner for each gem.
 
 ## Test Implementation

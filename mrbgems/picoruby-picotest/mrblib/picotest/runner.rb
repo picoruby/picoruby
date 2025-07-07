@@ -4,12 +4,12 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_files = [])
+    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_files = [], load_path = nil)
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
       puts "Running tests in #{dir}"
-      @mock_dir = "#{dir}/mock"
+      @load_path = load_path
       @tmpdir = tmpdir
       @lib_to_require = lib_name
       @load_files = load_files
@@ -45,14 +45,29 @@ module Picotest
         test = klass.new
         tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
         File.open(tmpfile, "w") do |f|
-          f.puts "$LOAD_PATH = ['#{@mock_dir}']"
-          f.puts "require 'picotest'"
+          f.puts <<~KERNEL
+            module Kernel
+              alias :require_original :require
+              def require(name)
+                return require_original(name)
+              rescue LoadError => e
+                # ignore LoadError
+              end
+            end
+          KERNEL
+          f.puts "require 'picotest' # pre-built gem"
+          f.puts "$LOAD_PATH = ['#{@load_path}']" if @load_path
+          f.puts "\n# implementation and mock"
           @load_files.each do |file|
             f.puts "load '#{file}'"
           end
-          f.puts "require '#{@lib_to_require}'" if @lib_to_require
+          if @lib_to_require
+            f.puts "\n# library to require"
+            f.puts "require '#{@lib_to_require}'"
+          end
+          f.puts "\n# test file to load"
           f.puts "load '#{entry}'"
-          f.puts "my_test = #{klass}.new"
+          f.puts "\nmy_test = #{klass}.new"
           f.puts "puts"
           f.puts "print 'From #{entry}:'"
           test.list_tests.each do |t|

@@ -1,6 +1,12 @@
 require 'tempfile'
 require_relative "#{MRUBY_ROOT}/mrbgems/picoruby-picotest/mrblib/picotest.rb"
 
+desc "shorthand for test:gems:steep"
+task :steep => "test:gems:steep"
+
+desc "shorthand for test:all"
+task :test => "test:all"
+
 namespace :test do
 
   desc "run all tests"
@@ -91,12 +97,13 @@ def run_test_for_gems(vm_type, specified_gem)
   end
   gems[:no_need_build].each do |gem_name|
     gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
-    mock_dir = "#{gem_dir}/test/mock"
-    mrblib_dir = "#{gem_dir}/mrblib"
-    load_files = Dir.glob("#{mrblib_dir}/**/*.rb") if Dir.exist?(mrblib_dir)
-    if Dir.exist?(mock_dir)
-      puts "Found mock files in #{mock_dir}"
-      load_files += Dir.glob("#{mock_dir}/**/*.rb")
+    unless Dir.exist?("#{gem_dir}/mrblib")
+      raise "No mrblib directory found for gem '#{gem_name}'."
+    end
+    load_files = []
+    FileUtils.cd(gem_dir) do
+      load_files += Dir.glob("mrblib/**/*.rb")
+      load_files += Dir.glob("test/mock/**/*.rb")
     end
     unless run_picotest_runner(gem_name, nil, load_files)
       all_success = false
@@ -158,7 +165,7 @@ def run_picotest_runner(gem_name, lib_name, load_files)
 
   ENV['RUBY'] = ENV['PICORUBY_TEST_TARGET_VM']
 
-  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name, load_files)
+  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name, load_files, gem_dir)
   error_count = runner.run
   return error_count == 0
 end
