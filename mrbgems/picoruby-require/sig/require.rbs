@@ -10,6 +10,7 @@ end
 module Kernel
   def require: (String name) -> bool
   def load: (String path) -> bool
+  private def load_paths: (String name) -> Array[String]
   private def required?: (String name) -> bool
   private def load_file: (String path) -> bool
   private def require_file: (String name) -> bool
