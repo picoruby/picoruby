@@ -430,3 +430,9 @@ Machine_get_hwclock(struct timespec *ts)
 {
   return aon_timer_get_time(ts);
 }
+
+void
+Machine_exit(int status)
+{
+  (void)status; // no-op
+}

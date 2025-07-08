@@ -311,7 +311,8 @@ class Shell
           end
         when ["quit"], ["exit"]
           buffer.clear
-          return
+          print "\nbye\n\e[0m"
+          Machine.exit(0)
         else
           puts
           command.exec(*args)

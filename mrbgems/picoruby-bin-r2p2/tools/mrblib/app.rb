@@ -13,5 +13,5 @@ begin
   shell.start
 rescue => e
   puts e.message
-  exit
+  Machine.exit(1)
 end

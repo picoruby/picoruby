@@ -216,6 +216,14 @@ mrb_kernel_p(mrb_state *mrb, mrb_value self)
 }
 #endif
 
+static mrb_value
+mrb_s_exit(mrb_state *mrb, mrb_value self)
+{
+  mrb_int status = 0;
+  mrb_get_args(mrb, "|i", &status);
+  Machine_exit(status);
+  return mrb_nil_value(); // This line will never be reached.
+}
 
 void
 mrb_picoruby_machine_gem_init(mrb_state* mrb)
@@ -236,6 +244,8 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
+
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
 
 #if !defined(PICORB_PLATFORM_POSIX)
   struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));

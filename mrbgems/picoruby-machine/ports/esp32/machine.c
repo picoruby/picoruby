@@ -189,3 +189,9 @@ Machine_get_hwclock(struct timespec *ts)
   // Not implemented
   return false;
 }
+
+void
+Machine_exit(int status)
+{
+  (void)status; // no-op
+}

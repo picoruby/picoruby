@@ -5,8 +5,23 @@
 #include <stdbool.h>
 #include <time.h>
 
+#if defined(PICORB_PLATFORM_POSIX)
+#include <signal.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if defined(PICORB_PLATFORM_POSIX)
+__attribute__((weak)) volatile sig_atomic_t sigint_status;
+__attribute__((weak)) int exit_status;
+
+enum {
+  MACHINE_SIGINT_NONE = 0,
+  MACHINE_SIGINT_RECEIVED = 1,
+  MACHINE_SIGINT_EXIT = 2
+};
 #endif
 
 void Machine_sleep(uint32_t seconds);
@@ -20,6 +35,7 @@ uint32_t Machine_stack_usage(void);
 const char* Machine_mcu_name(void);
 bool Machine_set_hwclock(const struct timespec *ts);
 bool Machine_get_hwclock(struct timespec *ts);
+void Machine_exit(int status);
 
 #ifdef __cplusplus
 }

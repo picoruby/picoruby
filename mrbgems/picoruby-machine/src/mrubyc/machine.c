@@ -185,6 +185,25 @@ c_Machine_get_hwclock(mrbc_vm *vm, mrbc_value *v, int argc)
 #endif
 }
 
+static void
+c_Machine_exit(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  int status;
+  if (argc == 0) {
+    status = 0;
+  } else if (argc == 1) {
+    if (GET_TT_ARG(1) != MRBC_TT_INTEGER) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong type of arguments");
+      return;
+    }
+    status = GET_INT_ARG(1);
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  Machine_exit(status);
+  SET_NIL_RETURN();
+}
 
 void
 mrbc_machine_init(mrbc_vm *vm)
@@ -205,4 +224,6 @@ mrbc_machine_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, mrbc_class_Machine, "set_hwclock", c_Machine_set_hwclock);
   mrbc_define_method(vm, mrbc_class_Machine, "get_hwclock", c_Machine_get_hwclock);
+
+  mrbc_define_method(vm, mrbc_class_Machine, "exit", c_Machine_exit);
 }

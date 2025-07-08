@@ -1,9 +1,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
+#include <signal.h>
+#include <termios.h>
 
 #include "picoruby.h"
 #include "mruby_compiler.h"
+
+#if !defined(PICORB_PLATFORM_POSIX)
+#define PICORB_PLATFORM_POSIX 1
+#endif
+#include "../../../picoruby-machine/include/machine.h"
 
 #include "app.c"
 
@@ -13,12 +20,43 @@
 
 static uint8_t heap_pool[HEAP_SIZE];
 
+// from machine.h
+volatile sig_atomic_t sigint_status = MACHINE_SIGINT_NONE;
+int exit_status = 0;
+
+static struct termios orig_termios;
+
+static void
+sigint_handler(int signum)
+{
+  (void)signum;
+  if (sigint_status == MACHINE_SIGINT_EXIT) {
+    tcsetattr(0, TCSANOW, &orig_termios);
+    exit(exit_status);
+  }
+  sigint_status = MACHINE_SIGINT_RECEIVED;
+}
+
+static void
+init_posix(void)
+{
+  tcgetattr(0, &orig_termios);
+
+  struct sigaction sa = {0};
+  sa.sa_handler = sigint_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+  sigaction(SIGINT, &sa, NULL);
+}
+
 
 #if defined(PICORB_VM_MRUBYC)
 
 int
 main(void)
 {
+  init_posix();
+
   mrbc_init(heap_pool, HEAP_SIZE);
   mrbc_tcb *tcb = mrbc_create_task(app, 0);
   mrbc_vm *vm = &tcb->vm;
@@ -34,6 +72,8 @@ mrb_state *global_mrb = NULL;
 int
 main(void)
 {
+  init_posix();
+
   int ret = 0;
 #if 1
   mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);

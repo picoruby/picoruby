@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <stdlib.h>
 #include <mruby.h>
 #include <mruby/presym.h>
 #include <mruby/class.h>
@@ -181,8 +183,10 @@ static mrb_value
 mrb_sandbox_interrupt(mrb_state *mrb, mrb_value self)
 {
   SS();
-  // TODO: Should fix this workaround?
   ss->tcb->c.status = MRB_TASK_STOPPED;
+  struct RClass *sandbox = mrb_class_get_id(mrb, MRB_SYM(Sandbox));
+  struct RClass *abort = mrb_class_get_under_id(mrb, sandbox, MRB_SYM(Abort));
+  mrb_raise(mrb, abort, "interrupt");
   return mrb_nil_value();
 }
 
