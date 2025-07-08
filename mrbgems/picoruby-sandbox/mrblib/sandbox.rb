@@ -3,7 +3,7 @@ require 'metaprog' if RUBY_ENGINE == 'mruby/c'
 
 class Sandbox
 
-  class Abort < StandardError
+  class Interrupt < StandardError
   end
 
   TIMEOUT = 10_000 # 10 sec

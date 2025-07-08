@@ -43,7 +43,7 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_sandbox_interrupt(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrbc_value *abort = mrbc_get_class_const(v->instance->cls, mrbc_search_symid("Abort"));
+  mrbc_value *abort = mrbc_get_class_const(v->instance->cls, mrbc_search_symid("Interrupt"));
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   mrbc_raise(sandbox_vm, abort->cls, "interrupt");

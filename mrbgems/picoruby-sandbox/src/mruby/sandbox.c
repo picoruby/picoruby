@@ -185,7 +185,7 @@ mrb_sandbox_interrupt(mrb_state *mrb, mrb_value self)
   SS();
   ss->tcb->c.status = MRB_TASK_STOPPED;
   struct RClass *sandbox = mrb_class_get_id(mrb, MRB_SYM(Sandbox));
-  struct RClass *abort = mrb_class_get_under_id(mrb, sandbox, MRB_SYM(Abort));
+  struct RClass *abort = mrb_class_get_under_id(mrb, sandbox, MRB_SYM(Interrupt));
   mrb_raise(mrb, abort, "interrupt");
   return mrb_nil_value();
 }

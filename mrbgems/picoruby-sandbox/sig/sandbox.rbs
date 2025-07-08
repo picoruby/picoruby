@@ -1,7 +1,7 @@
 class Sandbox
 
   # @sidebar error
-  class Abort < Exception
+  class Interrupt < StandardError
   end
 
   TIMEOUT: Integer
