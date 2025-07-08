@@ -154,13 +154,13 @@ Machine_busy_wait_ms(uint32_t ms)
 {
 }
 
-int
+bool
 Machine_get_unique_id(char *id_str)
 {
   uint8_t mac[6];
   efuse_hal_get_mac(mac);
   sprintf(id_str, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  return 1;
+  return true;
 }
 
 uint32_t
