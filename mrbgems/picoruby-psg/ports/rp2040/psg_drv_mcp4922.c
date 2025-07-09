@@ -94,6 +94,14 @@ psg_mcp4922_start(void)
 void
 psg_mcp4922_stop(void)
 {
+  if (dac_config.initialized) {
+    // Disable the state machine
+    pio_sm_set_enabled(dac_config.pio, dac_config.sm, false);
+    // Remove the program from PIO memory
+    pio_remove_program(dac_config.pio, &mcp4922_dual_program, dac_config.offset);
+    // Reset the initialized flag
+    dac_config.initialized = false;
+  }
 }
 
 static inline void
