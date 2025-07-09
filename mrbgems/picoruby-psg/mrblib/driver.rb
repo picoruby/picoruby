@@ -35,6 +35,7 @@ module PSG
     end
 
     def play_mml(tracks, terminate: true)
+      trap
       mixer = 0b111000 # Noise all off, Tone all on
       # Give the ring buffer time to fill with some amount of packets
       tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
@@ -139,6 +140,14 @@ module PSG
     end
 
     # private
+
+    def trap
+      Signal.trap(:INT) do
+        puts "Interrupt received, stopping playback..."
+        deinit
+        Signal.trap(:INT, "DEFAULT") # Reset the trap
+      end
+    end
 
     def invoke(command, arg1, arg2, arg3, arg4 = 0)
       while true
