@@ -259,6 +259,7 @@ class Integer < Object
   #     Raises an exception if the comparison cannot be made.
   #
   def <: (Integer) -> bool
+       | (Float) -> bool
 
   # <!--
   #   rdoc-file=numeric.c
@@ -293,6 +294,7 @@ class Integer < Object
   # Raises an exception if the comparison cannot be made.
   #
   def <=: (Integer) -> bool
+        | (Float) -> bool
 
   # <!--
   #   rdoc-file=numeric.c
@@ -364,6 +366,7 @@ class Integer < Object
   #     Raises an exception if the comparison cannot be made.
   #
   def >: (Integer) -> bool
+       | (Float) -> bool
 
   # <!--
   #   rdoc-file=numeric.c
@@ -381,6 +384,7 @@ class Integer < Object
   # Raises an exception if the comparison cannot be made.
   #
   def >=: (Integer) -> bool
+        | (Float) -> bool
 
   # <!--
   #   rdoc-file=numeric.c
