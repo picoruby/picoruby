@@ -60,7 +60,7 @@ module Editor
 
     def initialize: -> void
     attr_accessor footer_height: Integer
-    attr_accessor quit_by_ctrl_c: bool
+    attr_accessor quit_by_sigint: bool
     def load_file_into_buffer: (untyped filepath) -> bool
     def save_file_from_buffer: (untyped filepath) -> String
     def refresh: -> void

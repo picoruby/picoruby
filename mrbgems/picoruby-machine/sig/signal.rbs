@@ -1,0 +1,16 @@
+# @sidebar error
+class Interrupt < Exception
+end
+
+module Signal
+  type signal_t = Integer | String | Symbol
+  type handler_t = String | Proc | nil
+
+  HANDLERS: Hash[Integer, handler_t]
+  LIST: Hash[String, Integer]
+
+  def self.trap: (signal_t signal) { () -> void } -> handler_t
+  def self.list: () -> Hash[String, Integer]
+  def self.raise: (signal_t signal) -> void
+  private def self.signum: (signal_t signal) -> Integer
+end

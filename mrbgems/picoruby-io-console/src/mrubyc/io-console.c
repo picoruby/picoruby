@@ -1,6 +1,13 @@
 #include <mrubyc.h>
 
 static void
+raise_interrupt(mrbc_vm *vm)
+{
+  mrbc_class *interrupt = mrbc_get_class_by_name("Interrupt");
+  mrbc_raise(vm, interrupt, "Interrupted");
+}
+
+static void
 c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   io_raw_bang(false);
@@ -52,7 +59,10 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   int c;
   for (len = 0; len < maxlen; len++) {
     c = hal_getchar();
-    if (c < 0) {
+    if (c == 3) {
+      raise_interrupt(vm);
+      return;
+    } else if (c < 0) {
       break;
     } else {
       buf[len] = c;
@@ -94,7 +104,7 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
   while (true) {
     int c = hal_getchar();
     if (c == 3) { // Ctrl-C
-      mrbc_raise(vm, MRBC_CLASS(IOError), "Interrupted");
+      raise_interrupt(vm);
       return;
     }
     if (c == 27) { // ESC
@@ -125,7 +135,10 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
   if (io_raw_q()) {
     char buf[1];
     int c = hal_getchar();
-    if (-1 < c) {
+    if (c == 3) { // Ctrl-C
+      raise_interrupt(vm);
+      return;
+    } else if (-1 < c) {
       buf[0] = c;
       mrb_value str = mrbc_string_new(vm, buf, 1);
       SET_RETURN(str);

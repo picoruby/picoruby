@@ -3,28 +3,14 @@ require 'metaprog' if RUBY_ENGINE == 'mruby/c'
 
 class Sandbox
 
-  class Interrupt < StandardError
-  end
-
   TIMEOUT = 10_000 # 10 sec
 
   def wait(signal: true, timeout: TIMEOUT)
     n = 0
     # state 0: TASKSTATE_DORMANT == finished
     while self.state != 0 do
-      if signal && (line = STDIN.read_nonblock(1)) && line[0]&.ord == 3
-        puts "^C"
-        interrupt
-        begin
-          Watchdog.disable
-          puts "Watchdog disabled"
-        rescue NameError
-          # ignore. maybe POSIX
-        end
-        return false
-      end
+      STDIN.read_nonblock(1) # To get SIGINT
       sleep_ms 5
-      #Machine.delay_ms 50
       if timeout
         n += 5
         if timeout < n
@@ -34,6 +20,19 @@ class Sandbox
       end
     end
     return true
+  rescue Interrupt
+    if signal
+      Signal.raise(:INT)
+      stop
+      begin
+        Watchdog.disable
+        puts "Watchdog disabled"
+      rescue NameError
+        # ignore. maybe POSIX
+      end
+      return false
+    end
+    return true # should be false?
   end
 
   def load_file(path, signal: true, join: true)

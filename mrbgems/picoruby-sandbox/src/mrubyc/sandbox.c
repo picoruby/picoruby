@@ -41,12 +41,9 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_sandbox_interrupt(mrbc_vm *vm, mrbc_value *v, int argc)
+c_sandbox_stop(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrbc_value *abort = mrbc_get_class_const(v->instance->cls, mrbc_search_symid("Interrupt"));
-  SS();
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  mrbc_raise(sandbox_vm, abort->cls, "interrupt");
+  // no-op
 }
 
 static void
@@ -246,7 +243,7 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Sandbox, "state",   c_sandbox_state);
   mrbc_define_method(vm, mrbc_class_Sandbox, "result",  c_sandbox_result);
   mrbc_define_method(vm, mrbc_class_Sandbox, "error",   c_sandbox_error);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "interrupt", c_sandbox_interrupt);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "stop",    c_sandbox_stop);
   mrbc_define_method(vm, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
   mrbc_define_method(vm, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
   mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);

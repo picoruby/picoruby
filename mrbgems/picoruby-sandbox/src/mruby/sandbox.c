@@ -180,13 +180,10 @@ mrb_sandbox_error(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_sandbox_interrupt(mrb_state *mrb, mrb_value self)
+mrb_sandbox_stop(mrb_state *mrb, mrb_value self)
 {
   SS();
   ss->tcb->c.status = MRB_TASK_STOPPED;
-  struct RClass *sandbox = mrb_class_get_id(mrb, MRB_SYM(Sandbox));
-  struct RClass *abort = mrb_class_get_under_id(mrb, sandbox, MRB_SYM(Interrupt));
-  mrb_raise(mrb, abort, "interrupt");
   return mrb_nil_value();
 }
 
@@ -274,7 +271,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(state), mrb_sandbox_state, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(result), mrb_sandbox_result, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(error), mrb_sandbox_error, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(interrupt), mrb_sandbox_interrupt, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(stop), mrb_sandbox_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(suspend), mrb_sandbox_suspend, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));

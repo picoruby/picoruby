@@ -11,6 +11,9 @@ begin
   shell = Shell.new
   shell.show_logo
   shell.start
+rescue Interrupt
+  puts "\nExiting as Interrupted"
+  Machine.exit(0)
 rescue => e
   puts e.message
   Machine.exit(1)

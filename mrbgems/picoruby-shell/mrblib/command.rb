@@ -70,6 +70,9 @@ class Shell
         end
       end
       return true
+    rescue Interrupt
+      puts "^C"
+      return false
     rescue => e
       puts "#{e.message} (#{e.class})"
       if e.respond_to?(:backtrace)

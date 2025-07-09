@@ -1,9 +1,5 @@
 class Sandbox
 
-  # @sidebar error
-  class Interrupt < StandardError
-  end
-
   TIMEOUT: Integer
 
   @result: Object | nil
@@ -18,7 +14,7 @@ class Sandbox
   def suspend: () -> nil
   def terminate: () -> nil
   def free_parser: () -> nil
-  def interrupt: () -> void
+  def stop: () -> void
   def state: () -> Integer
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil), ?signal: bool) -> bool

@@ -206,7 +206,17 @@ module Editor
     def start
       refresh
       while true
-        line = STDIN.read_nonblock(256)
+        begin
+          line = STDIN.read_nonblock(256)
+        rescue Interrupt
+          @buffer.bottom
+          @buffer.tail
+          puts "", "^C\e[0J"
+          @prev_cursor_y = 0
+          @buffer.clear
+          history_head
+          refresh
+        end
         next unless line
         while true
           break unless c = line[0]&.ord
@@ -214,13 +224,6 @@ module Editor
           case c
           when 1 # Ctrl-A
             @buffer.head
-          when 3 # Ctrl-C
-            @buffer.bottom
-            @buffer.tail
-            puts "", "^C\e[0J"
-            @prev_cursor_y = 0
-            @buffer.clear
-            history_head
           when 4 # Ctrl-D logout
             puts
             puts "^D\e[0J"
@@ -280,11 +283,11 @@ module Editor
       @visual_offset = 0
       @visual_cursor_x = 0
       @visual_cursor_y = 0
-      @quit_by_ctrl_c = true
+      @quit_by_sigint = true
       super
     end
 
-    attr_accessor :footer_height, :quit_by_ctrl_c
+    attr_accessor :footer_height, :quit_by_sigint
 
     def load_file_into_buffer(filepath)
       if File.file?(filepath)
@@ -421,14 +424,19 @@ module Editor
       print "\e[m"
       while true
         refresh
-        case c = STDIN.getch.ord
-        when 3 # Ctrl-C
-          return if @quit_by_ctrl_c
+        begin
+          c = STDIN.getch.ord
+        rescue Interrupt
+          return if @quit_by_sigint
+        end
+        case c
         when 4 # Ctrl-D logout
           return
         when 12 # Ctrl-L
           # FIXME: in case that cursor has to relocate
           @height, @width = Editor.get_screen_size
+        when nil
+          # should not happen
         else
           begin
             yield self, @buffer, c
