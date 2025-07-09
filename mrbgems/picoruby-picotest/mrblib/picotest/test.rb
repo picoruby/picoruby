@@ -129,11 +129,9 @@ module Picotest
       report((expected - actual).abs < delta, "Expected #{expected} but got #{actual}", expected, actual)
     end
 
-    def exception_report(data)
+    def report_exception(data)
       @result["exceptions"] << data
     end
-
-    alias report_exception exception_report
 
     # private
 

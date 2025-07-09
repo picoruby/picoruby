@@ -52,6 +52,7 @@ module Picotest
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
     def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
+    def report_exeption: (untyped data) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end
 
