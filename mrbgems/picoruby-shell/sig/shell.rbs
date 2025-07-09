@@ -37,7 +37,7 @@ class Shell
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
 
   def initialize: (?clean: bool) -> void
-  def show_logo: -> void
+  def show_logo: (?Integer color_num)-> void
   def start: (?Symbol mode) -> nil
   def run_shell: -> void
   def run_irb: -> void

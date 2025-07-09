@@ -260,7 +260,7 @@ class Shell
   AUTHOR = space + author + space
   AUTHOR_COLOR = 207
 
-  def show_logo
+  def show_logo(color_num = 6) # color_num: 0..11
     return if ENV['TERM'] == "dumb"
     return if @editor.width < LOGO_WIDTH
     margin = " " * ((@editor.width - LOGO_WIDTH) / 2)
@@ -275,10 +275,10 @@ class Shell
       end
     end
 
-    grad_start = 196
-    grad_end = 201
-    resolution = LOGO[0].length / (grad_end - grad_start)
-    gray_offset = 196 - 52
+    grad_start = 160 + (6 * color_num)
+    grad_end = grad_start + 5
+    grad_slice = LOGO[0].length / 5
+    shadow_offset = 144
     shadow = "\e[38;5;235m:"
 
     LOGO.size.times do |y|
@@ -286,8 +286,8 @@ class Shell
       split_line = []
       i = 0
       while i < LOGO[y].length
-        split_line << LOGO[y][i, resolution]
-        i += resolution
+        split_line << LOGO[y][i, grad_slice]
+        i += grad_slice
       end
       x = 0
       split_line.each_with_index do |snip, i|
@@ -302,7 +302,7 @@ class Shell
           elsif c == '1'
             print "\e[48;5;#{color}m\e[38;5;226m:\e[0m"
           elsif c == '2'
-            print "\e[48;5;#{color-gray_offset}m"
+            print "\e[48;5;#{color - shadow_offset}m"
             if y == LOGO.size - 1
               a = AUTHOR[x]
               if a == " "
