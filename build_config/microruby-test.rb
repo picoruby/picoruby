@@ -17,7 +17,9 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-picorubyvm"
   conf.gem core: 'picoruby-picotest'
   dir = "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems"
+  conf.gem gemdir: "#{dir}/mruby-toplevel-ext"
   conf.gem gemdir: "#{dir}/mruby-kernel-ext"
+  conf.gem gemdir: "#{dir}/mruby-object-ext"
   conf.gem gemdir: "#{dir}/mruby-string-ext"
   conf.gem gemdir: "#{dir}/mruby-array-ext"
   conf.gem gemdir: "#{dir}/mruby-time"

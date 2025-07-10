@@ -79,6 +79,10 @@ def picorubyfile
   "#{`pwd`.chomp}/bin/picoruby"
 end
 
+def microrubyfile
+  "#{`pwd`.chomp}/bin/microruby"
+end
+
 def picorbcfile
   "#{`pwd`.chomp}/bin/picorbc"
 end
