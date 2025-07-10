@@ -13,7 +13,6 @@ rescue LoadError
   require "dir" if RUBY_ENGINE == 'mruby/c'
 end
 
-# ENV = {} # This moved to 0_out_of_steep.rb
 ARGV = []
 
 
@@ -96,6 +95,8 @@ class Shell
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
+    ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
+    ENV["TZ"] = "JST-9" # TODO. maybe in CYW43
     Dir.chdir(root || "/") do
       %w(bin home etc etc/init.d etc/network var lib).each do |dir|
         4.times do |i|

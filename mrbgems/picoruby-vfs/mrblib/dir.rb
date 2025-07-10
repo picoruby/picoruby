@@ -52,7 +52,7 @@ class Dir
       if block_given?
         VFS.chdir(path)
         result = yield("")
-        VFS.chdir(_pwd)
+        VFS.chdir(_pwd) if _pwd
         result
       else
         VFS.chdir(path)

@@ -215,7 +215,7 @@ c_dir__chdir(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   path = (const char *)GET_STRING_ARG(1);
   if (chdir(path) == -1) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "cannot change directory");
+    mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "cannot change directory: %s", path);
     return;
   }
   SET_INT_RETURN(0);
