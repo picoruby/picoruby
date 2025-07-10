@@ -1,3 +1,5 @@
+ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+
 require "spi"
 
 # TODO: move /etc/init.c/r2p2-sdcard

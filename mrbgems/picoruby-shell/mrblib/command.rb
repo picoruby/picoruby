@@ -62,7 +62,7 @@ class Shell
         Dir.chdir(dir)
       else
         if exefile = find_executable(command)
-          @sandbox.load_file(exefile, signal: (command != "irb"))
+          @sandbox.load_file(exefile)
           @sandbox.suspend
         else
           puts "#{command}: command not found"

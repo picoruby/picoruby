@@ -17,9 +17,9 @@ class Sandbox
   def stop: () -> void
   def state: () -> Integer
   def result: () -> untyped
-  def wait: (?timeout: (Integer|nil), ?signal: bool) -> bool
+  def wait: (?timeout: (Integer|nil)) -> bool
   def execute: () -> bool
   def exec_mrb: (String mrb) -> bool
   def exec_mrb_from_memory: (Integer address) -> bool
-  def load_file: (String path, ?signal: bool, ?join: bool) -> void
+  def load_file: (String path, ?join: bool) -> void
 end

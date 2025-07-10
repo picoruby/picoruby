@@ -5,11 +5,13 @@ class Sandbox
 
   TIMEOUT = 10_000 # 10 sec
 
-  def wait(signal: true, timeout: TIMEOUT)
-    n = 0
+  def wait(timeout: TIMEOUT)
+    sleep_ms 5
+    signal_self_manage = ENV.delete('SIGNAL_SELF_MANAGE')
+    n = 5
     # state 0: TASKSTATE_DORMANT == finished
     while self.state != 0 do
-      STDIN.read_nonblock(1) # To get SIGINT
+      STDIN.read_nonblock(1) unless signal_self_manage
       sleep_ms 5
       if timeout
         n += 5
@@ -21,7 +23,7 @@ class Sandbox
     end
     return true
   rescue Interrupt
-    if signal
+    unless signal_self_manage
       Signal.raise(:INT)
       stop
       begin
@@ -35,7 +37,7 @@ class Sandbox
     return true # should be false?
   end
 
-  def load_file(path, signal: true, join: true)
+  def load_file(path, join: true)
     f = File.open(path, "r")
     # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
     # See Shell#setup_system_files
@@ -65,7 +67,7 @@ class Sandbox
         end
         execute
       end
-      if join && started && wait(signal: signal, timeout: nil) && error = self.error
+      if join && started && wait(timeout: nil) && error = self.error
         puts "#{error.message} (#{error})"
       end
     ensure
