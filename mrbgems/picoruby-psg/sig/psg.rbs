@@ -22,6 +22,7 @@ module PSG
     WAIT_MS: Integer
     def play_mml: (Array[String] tracks, ?terminate: bool) -> self
     def play_prs: (String filename, ?terminate: bool) -> void
+    private def trap: () -> void
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end
 
