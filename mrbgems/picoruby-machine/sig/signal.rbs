@@ -10,6 +10,7 @@ module Signal
   LIST: Hash[String, Integer]
 
   def self.trap: (signal_t signal) { () -> void } -> handler_t
+               | (signal_t signal, String command) -> handler_t
   def self.list: () -> Hash[String, Integer]
   def self.raise: (signal_t signal) -> void
   private def self.signum: (signal_t signal) -> Integer
