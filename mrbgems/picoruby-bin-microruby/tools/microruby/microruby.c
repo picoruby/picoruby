@@ -17,16 +17,16 @@ mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
 #elif defined(PICORB_VM_MRUBYC)
 
 #define EXECUTABLE_NAME "picoruby"
-#ifndef HEAP_SIZE
-#define HEAP_SIZE (1024 * 6400 - 1)
-#endif
-static uint8_t mrbc_heap[HEAP_SIZE];
 #ifndef MAX_REGS_SIZE
 #define MAX_REGS_SIZE 255
 #endif
 
 #endif /* PICORB_VM_MRUBYC */
 
+#ifndef HEAP_SIZE
+#define HEAP_SIZE (1024 * 6400 - 1)
+#endif
+static uint8_t vm_heap[HEAP_SIZE];
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */

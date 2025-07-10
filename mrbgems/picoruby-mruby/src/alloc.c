@@ -240,22 +240,24 @@ mrb_open_with_custom_alloc(void* mem, size_t bytes)
 
 #include "../lib/estalloc/estalloc.h"
 
-static void *
-mrb_estalloc_allocf(mrb_state *mrb, void *p, size_t size, void *est)
+static ESTALLOC *est = NULL;
+
+void *
+//mrb_estalloc_allocf(mrb_state *mrb, void *p, size_t size, void *est)
+mrb_basic_alloc_func(void* ptr, size_t size)
 {
   if (size == 0) {
     /* `free(NULL)` should be no-op */
-    est_free(est, p);
+    est_free(est, ptr);
     return NULL;
   }
   /* `ralloc(NULL, size)` works as `malloc(size)` */
-  return est_realloc(est, p, size);
+  return est_realloc(est, ptr, size);
 }
 
 mrb_value
 mrb_alloc_statistics(mrb_state *mrb)
 {
-  ESTALLOC *est = (ESTALLOC *)mrb->allocf_ud;
   est_take_statistics(est);
   ESTALLOC_STAT *stat = &est->stat;
   mrb_value hash = mrb_hash_new_capa(mrb, 5);
@@ -270,8 +272,8 @@ mrb_alloc_statistics(mrb_state *mrb)
 mrb_state *
 mrb_open_with_custom_alloc(void* mem, size_t bytes)
 {
-  ESTALLOC *est = est_init(mem, bytes);
-  return mrb_open_allocf(mrb_estalloc_allocf, est);
+  est = est_init(mem, bytes);
+  return mrb_open();
 }
 
 // PICORB_ALLOC_ESTALLOC
