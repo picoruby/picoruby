@@ -255,6 +255,8 @@ mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc)
   {
     mrb_value *s = c->stbase;
     mrb_value *send = c->stend;
+    *s = mrb_top_self(mrb);
+    s++;
     while (s < send) {
       SET_NIL_VALUE(*s);
       s++;
