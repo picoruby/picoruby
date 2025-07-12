@@ -29,7 +29,7 @@ MRB_BEGIN_DECL
           | Waiting
           Suspended
 */
-enum MrbTaskState {
+enum TASKSTATE {
   TASKSTATE_DORMANT   = 0x00,	//!< Domant
   TASKSTATE_READY     = 0x02,	//!< Ready
   TASKSTATE_RUNNING   = 0x03,	//!< Running
@@ -37,7 +37,8 @@ enum MrbTaskState {
   TASKSTATE_SUSPENDED = 0x08,	//!< Suspended
 };
 
-enum MrbTaskReason {
+enum TASKREASON {
+  TASKREASON_NONE  = 0x00,
   TASKREASON_SLEEP = 0x01,
   TASKREASON_MUTEX = 0x02,
   TASKREASON_JOIN  = 0x04,
@@ -45,10 +46,6 @@ enum MrbTaskReason {
 
 static const int MRB_TASK_DEFAULT_PRIORITY = 128;
 static const int MRB_TASK_DEFAULT_STATE = TASKSTATE_READY;
-
-#if !defined(MRB_TASK_NAME_LEN)
-#define MRB_TASK_NAME_LEN 15
-#endif
 
 
 /***** Macros ***************************************************************/
@@ -70,7 +67,7 @@ typedef struct RTcb {
   volatile uint8_t timeslice;   //!< time slice counter.
   uint8_t state;                //!< task state. defined in MrbcTaskState.
   uint8_t reason;               //!< sub state. defined in MrbcTaskReason.
-  char name[MRB_TASK_NAME_LEN+1]; //!< task name (optional)
+  mrb_value name;               //!< task name (optional)
 
   union {
     uint32_t wakeup_tick;       //!< wakeup time for sleep state.
@@ -102,9 +99,9 @@ typedef struct RMutex {
 /***** Global variables *****************************************************/
 /***** Function prototypes **************************************************/
 void mrb_tick(mrb_state *mrb);
-mrb_tcb *mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority);
+mrb_tcb *mrb_tcb_new(mrb_state *mrb, enum TASKSTATE task_state, int priority);
 void mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc);
-mrb_tcb *mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *name);
+mrb_value mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, mrb_value name);
 int mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb);
 //void mrb_set_task_name(mrb_tcb *tcb, const char *name);
 //mrb_tcb *mrb_find_task(const char *name);

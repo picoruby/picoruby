@@ -35,6 +35,11 @@
 #define wakeup_tick_  mrb->task.wakeup_tick
 #define switching_    mrb->task.switching
 
+void mrb_task_tcb_free(mrb_state *mrb, void *ptr);
+
+struct mrb_data_type mrb_task_tcb_type = {
+  "TCB", mrb_task_tcb_free
+};
 
 /***** Signal catching functions ********************************************/
 /***** Functions ************************************************************/
@@ -158,7 +163,7 @@ mrb_tick(mrb_state *mrb)
       if ((int32_t)(t->wakeup_tick - tick_) < 0) {
           q_delete_task(mrb, t);
           t->state  = TASKSTATE_READY;
-          t->reason = 0;
+          t->reason = TASKREASON_NONE;
           q_insert_task(mrb, t);
           task_switch = 1;
       } else if ((int32_t)(t->wakeup_tick - wakeup_tick_) < 0) {
@@ -171,13 +176,13 @@ mrb_tick(mrb_state *mrb)
 }
 
 
-static void
+void
 mrb_task_tcb_free(mrb_state *mrb, void *ptr) {
-  mrb_gc_unregister(mrb, ((mrb_tcb *)ptr)->task);
+  mrb_tcb *tcb = (mrb_tcb *)ptr;
+  mrb_gc_unregister(mrb, tcb->name);
+  mrb_free(mrb, tcb);
 }
-struct mrb_data_type mrb_task_tcb_type = {
-  "TCB", mrb_task_tcb_free
-};
+
 
 //================================================================
 /*! create (allocate) TCB.
@@ -192,13 +197,12 @@ struct mrb_data_type mrb_task_tcb_type = {
   //  If you want specify default value, see below.
   //    task_state: MRB_TASK_DEFAULT_STATE
   //    priority:   MRB_TASK_DEFAULT_PRIORITY
-  mrb_tcb *tcb;
-  tcb = mrb_tcb_new( mrb, MRB_TASK_DEFAULT_STATE, MRB_TASK_DEFAULT_PRIORITY );
-  mrb_create_task( byte_code, tcb );
+  mrb_tcb *tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATE, MRB_TASK_DEFAULT_PRIORITY);
+  mrb_create_task(mrb, proc, tcb, mrb_str_new_cstr(mrb, "task_name"));
 @endcode
 */
 mrb_tcb *
-mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
+mrb_tcb_new(mrb_state *mrb, enum TASKSTATE task_state, int priority)
 {
   mrb_tcb *tcb;
 
@@ -213,14 +217,6 @@ mrb_tcb_new(mrb_state *mrb, enum MrbTaskState task_state, int priority)
   tcb->priority = priority;
   tcb->state = task_state;
 
-  struct RClass *class_Task = mrb_class_get(mrb, "Task");
-  mrb_value task = mrb_obj_new(mrb, class_Task, 0, NULL);
-  DATA_PTR(task) = tcb;
-  DATA_TYPE(task) = &mrb_task_tcb_type;
-
-  mrb_gc_register(mrb, task);
-
-  tcb->task = task;
   return tcb;
 }
 
@@ -283,30 +279,32 @@ mrb_tcb_init_context(mrb_state *mrb, struct mrb_context *c, struct RProc *proc)
 
   @param  proc      pointer to RProc
   @param  tcb       Task control block with parameter, or NULL.
-  @return Pointer to mrb_tcb or NULL.
+  @return mrb_value
 */
-mrb_tcb *
-mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *name)
+mrb_value
+mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, mrb_value name)
 {
   static uint8_t context_id = 0;
   context_id++;
 
-  if(!tcb) tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATE, MRB_TASK_DEFAULT_PRIORITY);
-  if(!tcb) return NULL;	// ENOMEM
+  if (!tcb) tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATE, MRB_TASK_DEFAULT_PRIORITY);
+  if (!tcb) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to allocate TCB");
+  }
 
   tcb->context_id = context_id;
   tcb->priority_preemption = tcb->priority;
-  size_t len = strlen(name);
-  if (len > MRB_TASK_NAME_LEN) len = MRB_TASK_NAME_LEN;
-  memcpy(tcb->name, name, len);
-  tcb->name[len] = '\0';
+  tcb->name = mrb_str_dup(mrb, name);
+  mrb_gc_register(mrb, tcb->name);
 
   // TODO: assign CTX ID?
   mrb_tcb_init_context(mrb, &tcb->c, proc);
 
   if (mrb->c_list_capa == 0) {
     struct mrb_context **new_list = (struct mrb_context **)mrb_malloc(mrb, sizeof(struct mrb_context *) * TASK_LIST_UNIT_SIZE);
-    if (!new_list) return NULL;
+    if (!new_list) {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to allocate context list");
+    }
     mrb->c_list = new_list;
     mrb->c_list_capa = TASK_LIST_UNIT_SIZE;
     mrb->c_list[0] = mrb->root_c;
@@ -319,7 +317,9 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *na
         mrb_warn(mrb, "Too many tasks");
       }
       struct mrb_context **new_list = (struct mrb_context **)mrb_realloc(mrb, mrb->c_list, sizeof(struct mrb_context *) * (new_capa));
-      if (!new_list) return NULL;
+      if (!new_list) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to reallocate context list");
+      }
       mrb->c_list = new_list;
       mrb->c_list_capa = new_capa;
     }
@@ -332,7 +332,11 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_tcb *tcb, const char *na
   if (tcb->state & TASKSTATE_READY) preempt_running_task(mrb);
   hal_enable_irq();
 
-  return tcb;
+  struct RClass *klass = mrb_class_get_id(mrb, MRB_SYM(Task));
+  mrb_value task = mrb_obj_value(Data_Wrap_Struct(mrb, klass, &mrb_task_tcb_type, tcb));
+  tcb->task = task;
+
+  return task;
 }
 
 
@@ -418,14 +422,14 @@ mrb_tasks_run(mrb_state *mrb)
           hal_disable_irq();
           q_delete_task(mrb, tcb1);
           tcb1->state = TASKSTATE_READY;
-          tcb1->reason = 0;
+          tcb1->reason = TASKREASON_NONE;
           q_insert_task(mrb, tcb1);
           hal_enable_irq();
         }
       }
       for( mrb_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next ) {
         if( tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb ) {
-          tcb1->reason = 0;
+          tcb1->reason = TASKREASON_NONE;
         }
       }
 
@@ -596,25 +600,203 @@ mrb_sleep_ms(mrb_state *mrb, mrb_value self)
   return ms;
 }
 
+
+/*================================================================
+* Methods for Task class
+*/
+
+static mrb_value
+mrb_task_s_new(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value proc = mrb_nil_value();
+  mrb_int kw_num = 2;
+  mrb_int kw_required = 0;
+  mrb_sym kw_names[] = { MRB_SYM(name), MRB_SYM(priority) };
+  mrb_value kw_values[kw_num];
+  mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
+  mrb_get_args(mrb, ":&", &kwargs, &proc);
+  if (mrb_undef_p(kw_values[0])) {
+    kw_values[0] = mrb_nil_value();
+  }
+  if (mrb_undef_p(kw_values[1])) {
+    kw_values[1] = mrb_fixnum_value(MRB_TASK_DEFAULT_PRIORITY);
+  }
+
+  mrb_tcb *tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATE, mrb_integer(kw_values[1]));
+  struct RProc *proc_ptr = mrb_proc_ptr(proc);
+  return mrb_create_task(mrb, proc_ptr, tcb, kw_values[0]);
+}
+
+static mrb_value
+mrb_task_s_list(mrb_state *mrb, mrb_value klass)
+{
+  mrb_tcb **queues = task_queues_;
+  mrb_value list = mrb_ary_new(mrb);
+  mrb_tcb *queue = queues[0];
+  for (int i = 0; i < 4; i++) {
+    queue = queues[i];
+    while (queue) {
+      mrb_value task = queue->task;
+      mrb_ary_push(mrb, list, task);
+      queue = queue->next;
+    }
+  }
+  return list;
+}
+
 static mrb_value
 mrb_task_s_current(mrb_state *mrb, mrb_value klass)
 {
   mrb_tcb *tcb = MRB2TCB(mrb);
   return tcb->task;
+  mrb_tcb **queues = mrb->task.queues;
+  mrb_tcb *queue = queues[0];
+  for (int i = 0; i < 4; i++) {
+    queue = queues[i];
+    while (queue) {
+      if (queue->state == TASKSTATE_RUNNING) {
+        return queue->task;
+      }
+      queue = queue->next;
+    }
+  }
+}
+
+static mrb_value
+mrb_task_s_get(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value name;
+  mrb_get_args(mrb, "S", &name);
+  mrb_tcb **queues = task_queues_;
+  mrb_tcb *queue = queues[0];
+  for (int i = 0; i < 4; i++) {
+    queue = queues[i];
+    while (queue) {
+      if (mrb_str_cmp(mrb, queue->name, name) == 0) {
+      return queue->task;
+      }
+      queue = queue->next;
+    }
+  }
+  return mrb_nil_value();
+}
+
+static void
+mrb_tcb_status(mrb_state *mrb, mrb_tcb *tcb, char *buf)
+{
+  sprintf(buf, "%s",
+          (tcb->state == TASKSTATE_RUNNING)   ? "running"   :
+          (tcb->state == TASKSTATE_READY)     ? "ready"     :
+          (tcb->state == TASKSTATE_WAITING)   ? "waiting"   :
+          (tcb->state == TASKSTATE_SUSPENDED) ? "suspended" :
+          (tcb->state == TASKSTATE_DORMANT)   ? "dormant"   :
+                                                "unknown"); // This should not happen
+  if (strlen(buf) < 1) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Task status buffer is empty");
+  }
+}
+
+static mrb_value
+mrb_task_status(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  char status[10];
+  mrb_tcb_status(mrb, tcb, status);
+  return mrb_str_new_cstr(mrb, status);
+}
+
+static mrb_value
+mrb_task_inspect(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  char status[10];
+  mrb_tcb_status(mrb, tcb, status);
+  char buf[64];
+  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(tcb->name), status);
+  return mrb_str_new_cstr(mrb, buf);
+}
+
+static mrb_value
+mrb_task_name(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  if (mrb_nil_p(tcb->name)) {
+    return mrb_nil_value();
+  }
+  return mrb_str_dup(mrb, tcb->name);
+}
+
+static mrb_value
+mrb_task_name_set(mrb_state *mrb, mrb_value self)
+{
+  mrb_value name;
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  mrb_get_args(mrb, "S", &name);
+  tcb->name = mrb_str_dup(mrb, name);
+  return name;
+}
+
+static mrb_value
+mrb_task_prioriry(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  return mrb_fixnum_value(tcb->priority);
+}
+
+static mrb_value
+mrb_task_priority_set(mrb_state *mrb, mrb_value self)
+{
+  mrb_int priority;
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  mrb_get_args(mrb, "i", &priority);
+  tcb->priority = priority;
+  return mrb_fixnum_value(tcb->priority);
 }
 
 static mrb_value
 mrb_task_suspend(mrb_state *mrb, mrb_value self)
 {
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
-  if (tcb == NULL) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "task does not have tcb");
-  }
   mrb_suspend_task(mrb, tcb);
-  return mrb_nil_value();
+  return self;
 }
 
-mrb_value
+static mrb_value
+mrb_task_resume(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  mrb_resume_task(mrb, tcb);
+  return self;
+}
+
+static mrb_value
+mrb_task_terminate(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  mrb_terminate_task(mrb, tcb);
+  return self;
+}
+
+static mrb_value
+mrb_task_join(mrb_state *mrb, mrb_value self)
+{
+  mrb_tcb *current_tcb = MRB2TCB(mrb);
+  mrb_tcb *tcb_to_join = (mrb_tcb *)mrb_data_get_ptr(mrb, self, &mrb_task_tcb_type);
+  if (tcb_to_join->state == TASKSTATE_DORMANT) return self;
+
+  hal_disable_irq();
+  q_delete_task(mrb, current_tcb);
+  current_tcb->state = TASKSTATE_WAITING;
+  current_tcb->reason = TASKREASON_JOIN;
+  current_tcb->tcb_join = tcb_to_join;
+  q_insert_task(mrb, current_tcb);
+  hal_enable_irq();
+
+  current_tcb->priority_preemption = 1;
+  return self;
+}
+
+static mrb_value
 stat_sub(mrb_state *mrb, const mrb_tcb *p_tcb)
 {
   mrb_value str = mrb_str_new_lit(mrb, "");
@@ -629,7 +811,7 @@ stat_sub(mrb_state *mrb, const mrb_tcb *p_tcb)
 #else
                 (uint32_t)t,
 #endif
-                t->name[0] ? t->name : "(noname)");
+                RSTRING_PTR(t->name));
     mrb_str_cat_cstr(mrb, str, buf);
   }
   mrb_str_cat_lit(mrb, str, "\n");
@@ -728,9 +910,21 @@ mrb_picoruby_mruby_gem_init(mrb_state* mrb)
   struct RClass *class_Task = mrb_define_class_id(mrb, MRB_SYM(Task), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_Task, MRB_TT_CDATA);
 
-  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(current), mrb_task_s_current, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Task, MRB_SYM(suspend), mrb_task_suspend, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(new), mrb_task_s_new, MRB_ARGS_KEY(2, 0)|MRB_ARGS_BLOCK());
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(stat), mrb_task_s_stat, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(current), mrb_task_s_current, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(get), mrb_task_s_get, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(list), mrb_task_s_list, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(status), mrb_task_status, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(inspect), mrb_task_inspect, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(name), mrb_task_name, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM_E(name), mrb_task_name_set, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(priority), mrb_task_prioriry, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM_E(priority), mrb_task_priority_set, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(suspend), mrb_task_suspend, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(resume), mrb_task_resume, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(terminate), mrb_task_terminate, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Task, MRB_SYM(join), mrb_task_join, MRB_ARGS_NONE());
 }
 
 void

@@ -53,8 +53,8 @@ mrc_string_run(mrc_ccontext *cc, const char *string)
   return EXIT_SUCCESS;
 }
 
-MRC_API mrb_tcb *
-mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_tcb *tcb, const char *name)
+MRC_API mrb_value
+mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_tcb *tcb, mrb_value name)
 {
   mrc_resolve_intern(cc, irep);
   struct RProc *proc = mrb_proc_new(cc->mrb, (mrb_irep *)irep);

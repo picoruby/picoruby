@@ -39,7 +39,9 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   }
   mrb_iv_set(mrb, self, MRB_IVSYM(name), name);
 
-  ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL, RSTRING_PTR(name));
+  mrb_value task = mrc_create_task(ss->cc, ss->irep, NULL, name);
+  mrb_gc_register(mrb, task);
+  ss->tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
   ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->object_class);
   ss->tcb->flag_permanence = 1;
 

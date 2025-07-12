@@ -153,6 +153,9 @@ bool picoruby_load_model_by_name(const char *gem);
 // created in mruby/src/load.c
 mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
 
+#include <mruby/data.h>
+extern struct mrb_data_type mrb_task_tcb_type;
+
 #else
 
   #error "Must define PICORB_VM_MRUBYC or PICORB_VM_MRUBY"
