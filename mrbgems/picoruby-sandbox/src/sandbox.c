@@ -8,7 +8,7 @@ typedef struct sandbox_state {
   mrc_ccontext *cc;
   mrc_irep *irep;
 #if defined(PICORB_VM_MRUBY)
-  mrb_tcb *tcb;
+  mrb_value task;
 #elif defined(PICORB_VM_MRUBYC)
   mrbc_tcb *tcb;
 #endif

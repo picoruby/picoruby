@@ -330,7 +330,6 @@ class Shell
       @editor.prompt = "irb"
       run_irb
       puts
-      # puts Task.stat
     when :shell
       run_shell
       print "\nbye\e[0m"
@@ -392,7 +391,6 @@ class Shell
           else
             editor.feed_at_bottom
             editor.save_history
-           # echo_save = STDIN.echo?
             result = STDIN.cooked do
               r = sandbox.execute
               sandbox.wait(timeout: nil)
@@ -405,7 +403,6 @@ class Shell
               else
                 puts "=> #{sandbox.result.inspect}"
               end
-          #    $sandbox.free_parser
             end
             buffer.clear
             editor.history_head
@@ -415,6 +412,9 @@ class Shell
         editor.debug c
       end
     end
+  ensure
+    puts
+    sandbox.terminate
   end
 end
 
