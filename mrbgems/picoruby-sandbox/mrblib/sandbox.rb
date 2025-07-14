@@ -9,8 +9,7 @@ class Sandbox
     sleep_ms 5
     signal_self_manage = ENV.delete('SIGNAL_SELF_MANAGE')
     n = 5
-    # state 0: TASKSTATE_DORMANT == finished
-    while self.state != 0 do
+    while self.state != :DORMANT do
       STDIN.read_nonblock(1) unless signal_self_manage
       sleep_ms 5
       if timeout

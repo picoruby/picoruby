@@ -7,7 +7,3 @@ end
 class ObjectSpace
   def self.count_objects: () -> Hash[Symbol, Integer]
 end
-
-class Task
-  def self.stat: () -> String
-end

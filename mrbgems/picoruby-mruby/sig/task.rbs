@@ -1,0 +1,24 @@
+class Task
+  def self.new: (?name: String, ?priority: Integer) {() -> void} -> Task
+  def self.stat: () -> Task::Stat
+  def self.pp_status: () -> void
+  def self.current: () -> Task
+  def self.get: (String name) -> Task?
+  def self.list: () -> Array[Task]
+  def self.pass: () -> nil
+  def status: () -> Symbol
+  def name: () -> (String | nil)
+  def name=: (String name) -> String
+  def priority: () -> Integer
+  def priority=: (Integer priority) -> Integer
+  def suspend: () -> self
+  def resume: () -> self
+  def terminate: () -> self
+  def join: () -> self
+
+  class Stat
+    @data: Hash[Symbol, untyped]
+    def []: (Symbol key) -> untyped
+    def to_s: () -> String
+  end
+end

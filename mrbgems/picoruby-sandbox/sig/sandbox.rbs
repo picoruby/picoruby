@@ -15,7 +15,7 @@ class Sandbox
   def terminate: () -> nil
   def free_parser: () -> nil
   def stop: () -> void
-  def state: () -> Integer
+  def state: () -> (Integer | Symbol) # Symbol in MicoRuby
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil)) -> bool
   def execute: () -> bool

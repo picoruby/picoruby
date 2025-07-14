@@ -7,7 +7,27 @@ static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  SET_INT_RETURN(ss->tcb->state);
+  mrbc_value state;
+  switch (ss->tcb->state) {
+    case TASKSTATE_DORMANT:
+      state = mrbc_symbol_value(mrbc_str_to_symid("DORMANT"));
+      break;
+    case TASKSTATE_READY:
+      state = mrbc_symbol_value(mrbc_str_to_symid("READY"));
+      break;
+    case TASKSTATE_RUNNING:
+      state = mrbc_symbol_value(mrbc_str_to_symid("RUNNING"));
+      break;
+    case TASKSTATE_WAITING:
+      state = mrbc_symbol_value(mrbc_str_to_symid("WAITING"));
+      break;
+    case TASKSTATE_SUSPENDED:
+      state = mrbc_symbol_value(mrbc_str_to_symid("SUSPENDED"));
+      break;
+    default:
+      state = mrbc_symbol_value(mrbc_str_to_symid("UNKNOWN")); // this should not happen
+  }
+  SET_RETURN(state);
 }
 
 static void
