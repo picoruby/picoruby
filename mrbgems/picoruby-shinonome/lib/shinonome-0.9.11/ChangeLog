@@ -1,0 +1,325 @@
+2003-10-05  Kazuhiko  <kazuhiko@fdiary.net>
+
+	* 14/kanjic/font_src.bit (Bugfix): 0x5824 (report from KANOU
+	Hiroki <kanou@khdd.net>).
+	* 14/mincho/font_src_diff.bit: Ditto.
+
+2003-07-26  Yoichi NAKAYAMA <yoichi@geiin.org>
+
+	* 12/kanjic/font_src.bit: Fix typo.
+
+2003-07-12  Kazuhiko  <kazuhiko@fdiary.net>
+
+	* 14/kanjic/font_src.bit, 14/latin1/font_src.bit,
+	16/kanjic/font_src.bit, 16/latin1/font_src.bit,
+	18/latin1/font_src.bit: Revise STARTCHAR values (report from
+	Yoichi NAKAYAMA <yoichi@geiin.org> and Kaz Aoshima
+	<aoshimak@mail.cc.tohoku.ac.jp>).
+
+2003-05-30  Yoichi NAKAYAMA <yoichi@geiin.org>
+
+	* 16/kanjic/font_src.bit: Fix typo.
+
+2003-02-08  SUNAGAWA Keiki <kei_sun@ba2.so-net.ne.jp>
+
+	* 12/mincho/font_src_diff.bit (Modify): 0x2540
+
+2003-01-14  Kazuhiko  <kazuhiko@fdiary.net>
+
+	* 18/hankaku/font_src_diff.bit (Bugfix): 0x007e (report from
+	YAMANO-UCHI Hidetoshi <mer@din.or.jp>).
+
+2002-12-09  Kenji Kano  <kc@ring.gr.jp>
+
+	* Version 0.9.9 released.
+
+2002-11-16  Fujii Hironori <fujii@chi.its.hiroshima-cu.ac.jp>
+
+	* 12/latin1/font_src.bit (Modify): 0x00ec, 0x00ed, 0x00ee, 0x00ef.
+	* 14/latin1/font_src.bit (Modify): Ditto.
+	* 16/latin1/font_src.bit (Modify): Ditto.
+
+2002-05-28  Kenji Kano  <kc@ring.gr.jp>
+
+	* Version 0.9.8 released.
+
+2002-05-28  KANOU Hiroki  <kanou@mil.allnet.ne.jp>
+
+	* 12/hankaku/font_src_diff.bit (Modify): 0x005c 0x007e.
+	* 14/hankaku/font_src_diff.bit (Modify): Ditto.
+	* 16/hankaku/font_src_diff.bit (Modify): Ditto.
+	* 18/hankaku/font_src_diff.bit (Modify): Ditto.
+
+2002-02-05  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* 12/kanjic/font_src.bit (Modify): 0x6e4f (report from KANOU
+	Hiroki <kanou@mil.allnet.ne.jp>.
+
+2002-02-03  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* Version 0.9.7 released.
+
+	* Makefile.in.dist (BDFFILES): Add 18 dots iso8859-1 and
+	jisx0201.1976-0 fonts.
+
+	* Makefile.in (ARCHIVEEXTRA): Add LICENSE (report from Yusuke
+	Shinyama <yusuke@cs.nyu.edu>).
+
+2002-01-15  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* 14/mincho/font_src_diff.bit (Modify): 0x6e4f.
+	* 12/kanjic/font_src.bit (Modify): 0x6a5d, 0x6e4f.
+
+	* 12/kanjic/font_src.bit: (Modify): 0x217b, 0x217c, 0x217d,
+	0x217e, 0x2221, 0x2222, 0x2223
+
+	* 12/kanjic/Makefile.in (MKBOLD): Change the option to '-r'.
+	* 12/kanjip/Makefile.in (MKBOLD): Ditto.
+	* 12/mincho/Makefile.in (MKBOLD): Ditto.
+
+2002-01-15  KIHARA Hideo  <gel@gelgoog.org>
+
+	* 14/kanjic/font_src.bit (Modify): 0x6a5d, 0x6d5b, 0x6e41.
+
+2001-11-06  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Makefile : now source target copys DISTOVERLAP files.
+
+2001-11-02  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Version 0.9.6 released.
+
+2001-11-01  Itou Hiroki  <itouh@bb.din.or.jp>
+
+	* 12/latin1/font_src.bit: Fix SIZE (6 75 75 -> 12 75 75).
+	* 12/hankaku/font_src_diff.bit: Ditto.
+
+2001-09-16  Kenzi Cano  <kc@ring.gr.jp>
+
+	* 16/kanjic/font_src.bit : fix inconsistency of STARTCHAR and ENCODING
+
+2001-08-17  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Version 0.9.5 released.
+	* 16/latin1/font_src.bit (Modify): 0x0028, 0x0029
+	* 16/kanjic/font_src.bit (Modify): 0x214a, 0x214b
+
+2001-07-24  Kenzi Cano  <kc@ring.gr.jp>
+
+	* tools/bdf2bit.in: small but serious typo fix.
+
+2001-07-19  SUNAGAWA Keiki  <kei_sun@ba2.so-net.ne.jp>
+
+	* 12/latin1/font_src.bit (Modify): 0x0023
+	* 14/latin1/font_src.bit (Modify): 0x00d7, 0x00f7
+
+2001-07-11  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Version 0.9.4 released.
+	
+2001-07-11  SHINYAMA Yusuke  <euske@cl.cs.titech.ac.jp>
+
+	* tools/mkitalic.in: small fix treatment white space.
+
+2001-07-03  SUNAGAWA Keiki  <kei_sun@ba2.so-net.ne.jp>
+
+	* 12/latin1/font_src.bit (Modify): 0x007c
+
+2001-07-02  SHINYAMA Yusuke  <euske@cl.cs.titech.ac.jp>
+
+	* tools/bdfmerge.in: fix treatment of CHARS 
+
+2001-07-01  Yasuyuki Furukawa  <Furukawa.Yasuyuki@fujixerox.co.jp>
+
+	* 12/kanjic/font_src.bit (Modify): 0x377d
+
+2001-06-21  Kenzi Cano  <kc@ring.gr.jp>
+
+	* 14/kanjic/font_src.bit (Modify): 0x377d
+	* tools/bdfmerge.in: typo fix.
+
+2001-06-19  Kenzi Cano  <kc@ring.gr.jp>
+
+	* tools/bdf2bit.in: licence notation.
+
+2001-06-19  SHINYAMA Yusuke  <euske@cl.cs.titech.ac.jp>
+
+	* tools/bdfmerge.in: perl version.
+
+2001-06-18  SHINYAMA Yusuke  <euske@cl.cs.titech.ac.jp>
+
+	* tools/mkitalic.in: perl version.
+	
+2001-06-17  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Version 0.9.3 released.
+
+2001-06-17  KANOU Hiroki  <kanou@mil.allnet.ne.jp>
+
+	* 16/kanjic/font_src.bit (Modify): 0x5255
+
+2001-05-31  Kenzi Cano  <kc@ring.gr.jp>
+
+	* 16/mincho/font_src_diff.bit (Modify): 0x4f2d and 0x4f3c
+	report from SUDA kenzi<suda@ne.phy.saitama-u.ac.jp>
+	* Version 0.9.2 released.
+
+2001-05-04  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* fonts.alias.in: Add 18 dots iso8859-1 and jisx0201.1976-0
+	entries.
+
+	* configure.in: Fix typo.
+	* 18/hankaku/Makefile.in: Import from 14/hankaku/Makefile.in
+	* 18/latin1/Makefile.in: Import from 14/latin1/Makefile.in
+
+	* 16/hankaku/font_src_diff.bit (Modify): 0xde, df.
+	* 14/hankaku/font_src_diff.bit (Modify): 0xde, df.
+
+2001-05-04  Kenzi Cano  <kc@ring.gr.jp>
+
+	* 18/latin1/font_src.bit: New file.
+	* 18/latin1/Makefile.in: New file.
+	* 18/hankaku/font_src_diff.bit: New file.
+	* 18/hankaku/Makefile.in: New file.
+	* Makefine.in: add 18dot hankaku and latin1 support.
+	* configure.in: add 18dot hankaku and latin1 support.
+	* README: add 18dot hankaku and latin1 support.
+	* INSTALL: add 18dot hankaku and latin1 support.
+	* AUTHORS: add my name....
+	* DESIGN.18: New file.
+	
+2001-05-01  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Version 0.9.1 released,
+
+2001-04-30  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* 14/hankaku/font_src_diff.bit (Modify): 0xd5, d6, de.
+
+2001-04-29  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* 14/mincho/font_src_diff.bit: Modify copyright notice.
+
+	* AUTHORS: Revise.
+
+	* 14/hankaku/font_src_diff.bit (Modify): 0xa0, a3-a4, a8-a9, ab-ad,
+	af, b2-b3, b5-b9, bb, be, c0-c1, c4-c5, c7-ce, d0-d2, d4-d6,
+	d8-d9, dc, de-df.
+
+	* 16/hankaku/font_src_diff.bit (Modify): 0xde.
+
+2001-04-26  Kenzi Cano  <kc@ring.gr.jp>
+
+	* INSTALL: Revise binary install section.
+	* Makefile.in.dist: Revise install section.
+	* configure.in.dist: Revise install section.
+	
+2001-04-21  Kenzi Cano  <kc@ring.gr.jp>
+
+	* INSTALL: Add description for binary archive.
+
+2001-04-19  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Makefine.in.dist: New file.
+	* configure.in.dist: New file.	
+	* Makefile.in: Now dist target includes configure script and Makefile.
+	
+2001-04-19  Kenzi Cano  <kc@ring.gr.jp>
+
+	* Version 0.9 released,
+
+2001-04-18  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* tools/bdfmerge.in: Rename from bdfmarge.in. Also revise all
+	Makefile.in.
+
+2001-04-17  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* 14/mincho/font_src_diff.bit: Merge k14-screen.bdf contributed by
+	Yasuyuki Furukawa.
+
+2001-04-17  Kenzi Cano  <kc@ring.gr.jp>
+
+	* LICENSE: New file.
+	* Maefile.in: Add DESIGN.12  DESIGN.14  DESIGN.16 to ARCHIVEEXTRA.
+	* README: Revised.
+	* INSTALL: Merge INSTALL.12 and INSTALL.16.
+	* BUGS: Merge BUGS.12 and BUGS.16.
+	* remame (README -> DESIGN.14)
+	* remame (README.12 -> DESIGN.12)
+	* remame (README.16 -> DESIGN.16)
+
+2001-04-15  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* Makefile.in (source): New target.
+	(dist): New target.
+	(distclean): Add output files of source and dist targets.
+
+	* {12,14,16}/[a-z]*/Makefile.in: Keep all bdf files for dist
+	target.
+
+	* 14/mincho/font_src_diff.bit: Add dummy entry to avoid compile
+	failure.
+
+	* configure.in: Fix typos.
+
+	* 12/hankaku/font_src_diff.bit: Modify copyright notice.
+	* 12/kanjic/font_src.bit: Ditto.
+	* 12/kanjip/font_src_diff.bit: Ditto.
+	* 12/latin1/font_src.bit: Ditto.
+	* 12/marumoji/font_src_diff.bit: Ditto.
+	* 12/mincho/font_src_diff.bit: Ditto.
+	* 14/hankaku/font_src_diff.bit: Ditto.
+	* 14/kanjic/font_src.bit: Ditto.
+	* 16/kanjic/font_src.bit: Ditto.
+	* 16/latin1/font_src.bit: Ditto.
+	* 16/mincho/font_src_diff.bit: Ditto.
+	* 12/mincho/font_src_diff.bit: Ditto.
+
+	* 14/latin1/font_src.bit: Add copyright notice.
+	* 16/hankaku/font_src_diff.bit: Ditto.
+
+	* 14/latin1/font_src.bit (MODIFY): 0x1c, 1e, 1f, 43(C), 6a(j), b5,
+	b6.
+
+2001-04-14  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* fonts.alias.in: Fix problems in 14dot iso8859-1 and
+	jisx0201.1976-0 entries.
+
+	* 14/latin1/font_src.bit (Remove): 0x00, a0.
+	(Add): 0x10, 11, 13, 14.
+	(Modify): 0x22("), 27('), 2e(.), 3a(:), 47(G), 49(I), 4a(J),
+	4b(K), 57(W), 60(`), 69(i), 6a(j), 77(w), 79(y), c0-c6, cc-cf,
+	ec-ef, fd, ff.
+	
+	* 14/hankaku/font_src_diff.bit (Remove): 5c(~), 7e(\).
+
+	* configre.in: Add mincho, latin1, and hankaku entry of 14px.
+	* Makefile.in: Ditto.
+	* fonts.alias.in: Remove k14goth related aliases. Add shinonome14
+	aliases.
+
+	* 14/mincho: New directory. Temporary empty font_src_diff.bit.
+	* 14/latin1: New directory. Import 7x14-ISO8859-1.
+	* 14/hankaku: New directory. Import 7x14-JISX0201.1976-0.
+
+2001-04-13  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* configure.in: Making bold-italic is enabled by default.
+
+	* {12,14,16}/[a-z]*/Makefile.in ($(TARGET)i.bdf): New
+	target. Because italic bdf file is useful for making bold-italic
+	much faster.
+	($(TARGET)i.pcf.gz): Convert from $(TARGET)i.bdf.
+	($(TARGET)i.pcf.Z): Ditto.
+	($(TARGET)bi.pcf.gz): Ditto.
+	($(TARGET)bi.pcf.Z): Ditto.
+	(clean): Add $(TARGET)i.bdf.
+	
+2001-04-12  Kazuhiko  <kazuhiko@ring.gr.jp>
+
+	* shinonome: New project. This archive includes shinonome12,
+	k14goth, and shinonome16 by Yasuyuki Furukawa
+	<Furukawa.Yasuyuki@fujixerox.co.jp>.
