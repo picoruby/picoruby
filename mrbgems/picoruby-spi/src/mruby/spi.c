@@ -137,9 +137,9 @@ mrb__init(mrb_state *mrb, mrb_value self)
   if (status < 0) {
     const char *message;
     switch (status) {
-      case ERROR_INVALID_UNIT: message = "Invalid SPI unit"; break;
-      case ERROR_INVALID_MODE: message = "Invalid SPI mode"; break;
-      case ERROR_INVALID_FIRST_BIT: message = "Invalid SPI first bit"; break;
+      case SPI_ERROR_INVALID_UNIT: message = "Invalid SPI unit"; break;
+      case SPI_ERROR_INVALID_MODE: message = "Invalid SPI mode"; break;
+      case SPI_ERROR_INVALID_FIRST_BIT: message = "Invalid SPI first bit"; break;
       default: message = "Unknown SPI error"; break;
     }
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));

@@ -20,8 +20,8 @@ extern "C" {
 #define PICORUBY_UART_RP2040_UART1      1
 
 typedef enum {
- ERROR_NONE              =  0,
- ERROR_INVALID_UNIT      = -1,
+ UART_ERROR_NONE          =  0,
+ UART_ERROR_INVALID_UNIT  = -1,
 } uart_status_t;
 
 typedef struct {

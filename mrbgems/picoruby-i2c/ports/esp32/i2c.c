@@ -17,7 +17,7 @@ int
 I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool nostop, uint32_t timeout_us)
 {
   if (!i2c_contexts[unit_num].initialized) {
-    return ERROR_INVALID_UNIT;
+    return I2C_ERROR_INVALID_UNIT;
   }
 
   i2c_device_config_t dev_cfg = {
@@ -53,7 +53,7 @@ int
 I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t* src, size_t len, bool nostop, uint32_t timeout_us)
 {
   if (!i2c_contexts[unit_num].initialized) {
-    return ERROR_INVALID_UNIT;
+    return I2C_ERROR_INVALID_UNIT;
   }
 
   i2c_device_config_t dev_cfg = {
@@ -93,7 +93,7 @@ I2C_unit_name_to_unit_num(const char *unit_name)
   } else if (strcmp(unit_name, "ESP32_I2C1") == 0) {
     return 1;
   } else {
-    return ERROR_INVALID_UNIT;
+    return I2C_ERROR_INVALID_UNIT;
   }
 }
 
@@ -116,11 +116,11 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
 
   esp_err_t err = i2c_new_master_bus(&i2c_mst_config, &i2c_contexts[unit_num].bus_handle);
   if (err != ESP_OK) {
-    return ERROR_INVALID_UNIT;
+    return I2C_ERROR_INVALID_UNIT;
   }
 
   i2c_contexts[unit_num].initialized = true;
   i2c_contexts[unit_num].frequency = frequency;
 
-  return ERROR_NONE;
+  return I2C_ERROR_NONE;
 }
