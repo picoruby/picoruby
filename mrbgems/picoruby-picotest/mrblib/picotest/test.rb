@@ -112,7 +112,7 @@ module Picotest
       begin
         block.call
         report(false, "Expected #{exception} but nothing raised", exception, nil)
-      rescue => e
+      rescue Exception => e
         if exceptions.include?(e.class) && (message.nil? || e.message == message)
           report(true, nil, nil, nil)
         else
