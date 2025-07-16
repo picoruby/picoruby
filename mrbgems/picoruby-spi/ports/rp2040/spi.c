@@ -80,7 +80,7 @@ SPI_transfer(spi_unit_info_t *unit_info, uint8_t *txdata, uint8_t *rxdata, size_
   if (PICORUBY_SPI_BITBANG < unit) {
     return spi_write_read_blocking(unit, txdata, rxdata, len);
   } else {
-    return ERROR_NOT_IMPLEMENTED;
+    return SPI_ERROR_NOT_IMPLEMENTED;
   }
 }
 
@@ -92,7 +92,7 @@ SPI_unit_name_to_unit_num(const char *unit_name)
   } else if (strcmp(unit_name, "RP2040_SPI1") == 0) {
     return PICORUBY_SPI_RP2040_SPI1;
   } else {
-    return ERROR_INVALID_UNIT;
+    return SPI_ERROR_INVALID_UNIT;
   }
 }
 
@@ -115,7 +115,7 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
     /* mode */
     if (unit_info->first_bit != SPI_MSB_FIRST) {
       /* RP2040 supports only MSB first */
-      return ERROR_INVALID_FIRST_BIT;
+      return SPI_ERROR_INVALID_FIRST_BIT;
     }
     spi_cpol_t cpol;
     spi_cpha_t cpha;
@@ -124,7 +124,7 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
       case 1: { cpol = 0; cpha = 1; break; }
       case 2: { cpol = 1; cpha = 0; break; }
       case 3: { cpol = 1; cpha = 1; break; }
-      default: { return ERROR_INVALID_MODE; }
+      default: { return SPI_ERROR_INVALID_MODE; }
     }
     spi_set_format(unit, unit_info->data_bits, cpol, cpha, unit_info->first_bit);
   } else {
@@ -140,6 +140,6 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
     }
   }
 
-  return ERROR_NONE;
+  return SPI_ERROR_NONE;
 }
 

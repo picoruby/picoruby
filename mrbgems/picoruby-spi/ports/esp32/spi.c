@@ -63,7 +63,7 @@ SPI_unit_name_to_unit_num(const char *unit_name)
     return SPI3_HOST;
 #endif
   } else {
-    return ERROR_INVALID_UNIT;
+    return SPI_ERROR_INVALID_UNIT;
   }
 }
 
@@ -71,7 +71,7 @@ spi_status_t
 SPI_gpio_init(spi_unit_info_t *unit_info)
 {
   if (spi_handles[unit_info->unit_num] != NULL) {
-    return ERROR_NONE;
+    return SPI_ERROR_NONE;
   }
 
   spi_bus_config_t buscfg = {
@@ -84,7 +84,7 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
 
   esp_err_t ret = spi_bus_initialize(unit_info->unit_num, &buscfg, SPI_DMA_CH_AUTO);
   if (ret != ESP_OK) {
-    return ERROR_FAILED_TO_INIT;
+    return SPI_ERROR_FAILED_TO_INIT;
   }
 
   spi_device_interface_config_t devcfg = {
@@ -98,7 +98,7 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
   if (ret != ESP_OK) {
     spi_bus_free(unit_info->unit_num);
     spi_handles[unit_info->unit_num] = NULL;
-    return ERROR_FAILED_TO_ADD_DEV;
+    return SPI_ERROR_FAILED_TO_ADD_DEV;
   }
-  return ERROR_NONE;
+  return SPI_ERROR_NONE;
 }

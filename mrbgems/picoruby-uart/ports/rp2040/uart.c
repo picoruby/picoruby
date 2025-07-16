@@ -44,7 +44,7 @@ UART_unit_name_to_unit_num(const char *name)
   } else if (strcmp(name, "RP2040_UART1") == 0) {
     return PICORUBY_UART_RP2040_UART1;
   } else {
-    return ERROR_INVALID_UNIT;
+    return UART_ERROR_INVALID_UNIT;
   }
 }
 

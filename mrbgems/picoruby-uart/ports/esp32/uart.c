@@ -63,7 +63,7 @@ UART_unit_name_to_unit_num(const char *name)
     return PICORUBY_UART_ESP32_UART2;
   }
 #endif
-  return ERROR_INVALID_UNIT;
+  return UART_ERROR_INVALID_UNIT;
 }
 
 

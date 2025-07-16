@@ -18,18 +18,18 @@ extern "C" {
       case PICORUBY_SPI_BITBANG:     { unit = NULL; break; } \
       case PICORUBY_SPI_RP2040_SPI0: { unit = spi0; break; } \
       case PICORUBY_SPI_RP2040_SPI1: { unit = spi1; break; } \
-      default: { return ERROR_INVALID_UNIT; } \
+      default: { return SPI_ERROR_INVALID_UNIT; } \
     } \
   } while (0)
 
 typedef enum {
-  ERROR_NONE              =  0,
-  ERROR_INVALID_UNIT      = -1,
-  ERROR_INVALID_MODE      = -2,
-  ERROR_INVALID_FIRST_BIT = -3,
-  ERROR_NOT_IMPLEMENTED   = -4,
-  ERROR_FAILED_TO_INIT    = -5,
-  ERROR_FAILED_TO_ADD_DEV = -6,
+  SPI_ERROR_NONE              =  0,
+  SPI_ERROR_INVALID_UNIT      = -1,
+  SPI_ERROR_INVALID_MODE      = -2,
+  SPI_ERROR_INVALID_FIRST_BIT = -3,
+  SPI_ERROR_NOT_IMPLEMENTED   = -4,
+  SPI_ERROR_FAILED_TO_INIT    = -5,
+  SPI_ERROR_FAILED_TO_ADD_DEV = -6,
 } spi_status_t;
 
 typedef struct spi_unit_info {
