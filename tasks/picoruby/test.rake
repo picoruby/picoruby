@@ -66,7 +66,7 @@ end
 
 def run_test_for_gems(vm_type, specified_gem)
   all_success = true
-  gems = collect_gems(specified_gem)
+  gems = collect_gems(vm_type, specified_gem)
   if gems[:need_build].empty? && gems[:no_need_build].empty?
     puts "No gems found for testing."
     return false
@@ -94,7 +94,9 @@ def run_test_for_gems(vm_type, specified_gem)
   gems[:no_need_build].each do |gem_name|
     gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
     unless Dir.exist?("#{gem_dir}/mrblib")
-      raise "No mrblib directory found for gem '#{gem_name}'."
+      puts "No mrblib directory found for gem '#{gem_name}'."
+      puts "Skipping tests for this gem."
+      next
     end
     load_files = []
     FileUtils.cd(gem_dir) do
@@ -113,7 +115,8 @@ def run_test_for_gems(vm_type, specified_gem)
   return all_success
 end
 
-def collect_gems(specified_gem = nil)
+def collect_gems(vm_type, specified_gem = nil)
+  vm = vm_type == 'picoruby' ? 'mrubyc' : 'mruby'
   gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
   gems = {
     need_build: [], # C extentions && No platform dependent
@@ -122,7 +125,7 @@ def collect_gems(specified_gem = nil)
   Dir.glob("#{gems_dir}/picoruby-*").each do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
-    if Dir.exist?("#{gem_path}/src") && !Dir.exist?("#{gem_path}/ports")
+    if Dir.exist?("#{gem_path}/src/#{vm}") && !Dir.exist?("#{gem_path}/ports")
       gems[:need_build] << File.basename(gem_path)
     else
       gems[:no_need_build] << File.basename(gem_path)
