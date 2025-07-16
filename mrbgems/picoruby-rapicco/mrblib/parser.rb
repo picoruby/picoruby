@@ -69,12 +69,12 @@ class Rapicco
 
         attrs = self.class.parse_attrs(attr_s)
 
-        font        = attrs[:font].to_sym        if attrs.key?(:font)
-        scale       = attrs[:scale].to_i         if attrs.key?(:scale)
-        align       = attrs[:align].to_sym       if attrs.key?(:align)
-        bullet      = (attrs[:bullet] == 'true') if attrs.key?(:bullet)
-        line_color  = attrs[:color].to_sym       if attrs.key?(:color)
-        skip        = attrs[:skip].to_i          if attrs.key?(:skip)
+        font        = attrs[:font].to_sym        if attrs.has_key?(:font)
+        scale       = attrs[:scale].to_i         if attrs.has_key?(:scale)
+        align       = attrs[:align].to_sym       if attrs.has_key?(:align)
+        bullet      = (attrs[:bullet] == 'true') if attrs.has_key?(:bullet)
+        line_color  = attrs[:color].to_sym       if attrs.has_key?(:color)
+        skip        = attrs[:skip].to_i          if attrs.has_key?(:skip)
 
         idx += 1 while idx < line.length && line[idx] == ' '
       end

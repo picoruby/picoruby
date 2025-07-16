@@ -80,6 +80,7 @@ class Rapicco
     return if page == @current_page
     @file.seek(@positions[page])
     page_data = @file.read(@positions[page + 1] - @positions[page])
+    # Note: mruby/c does not support String#each_line
     page_data&.each_line { |line| @parser.parse(line) }
     @slide.render_slide(@parser.dump)
     @current_page = page

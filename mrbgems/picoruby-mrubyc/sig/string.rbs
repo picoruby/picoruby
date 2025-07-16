@@ -632,6 +632,8 @@ class String
 
   public
 
+  def each_line: () { (String line) -> untyped } -> String
+
   # <!--
   #   rdoc-file=string.c
   #   - string * integer -> new_string
