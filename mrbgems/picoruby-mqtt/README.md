@@ -41,6 +41,14 @@ end
 client.disconnect
 ```
 
+Or you can use Non-Blocking style.
+
+```ruby
+client.get do |topic, payload|
+  puts "#{topic}: #{payload}"
+end
+```
+
 ## Roadmap
 
 ### Implemented
