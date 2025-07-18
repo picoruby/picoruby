@@ -1,0 +1,25 @@
+module MQTT
+  class Client
+    @host: String
+    @port: Integer
+    @client_id: String?
+    @connected: bool
+
+    def initialize: (host: String, ?port: Integer) -> void
+    def connect: (?String? client_id) -> bool
+    def disconnect: () -> void
+    def connected?: () -> bool
+    def publish: (String topic, String payload) -> bool
+    def subscribe: (String topic) -> bool
+    def get: () -> [String, String]?
+           | () { (String, String) -> void } -> void
+
+    private
+
+    def _connect_impl: (String host, Integer port, String? client_id) -> bool
+    def _disconnect_impl: () -> void
+    def _publish_impl: (String topic, String payload) -> bool
+    def _subscribe_impl: (String topic) -> bool
+    def _get_message_impl: () -> [String, String]?
+  end
+end
