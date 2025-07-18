@@ -46,26 +46,6 @@ static void
 c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-
-  pm_options_t *options = (pm_options_t *)mrc_calloc(ss->cc, 1, sizeof(pm_options_t));
-  pm_options_scopes_init(options, 1);
-  pm_options_scope_t *scope = &options->scopes[0];
-  const struct mrc_irep *ir = ss->irep;
-  size_t nlocals = ir->nlocals;
-  pm_options_scope_init(scope, nlocals);
-  const mrc_sym *sym = ir->lv;
-  if (sym) {
-    const char *name;
-    for (size_t j = 0; j < nlocals; j++, sym++) {
-      //name = mrb_sym_name(ss->cc->mrb, *sym);
-      if (*sym == 0) continue;
-      name = mrbc_symid_to_str(*sym);
-      if (name == NULL) continue;
-      pm_string_constant_init(&scope->locals[j], name, strlen(name));
-    }
-  }
-  ss->options = options;
-
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   if (sandbox_vm->regs[ss->cc->scope_sp].tt == MRBC_TT_EMPTY) {
     /*
@@ -117,7 +97,7 @@ sandbox_compile_sub(mrbc_vm *vm, mrbc_value *v, uint8_t *script, size_t size)
   ss->cc = mrc_ccontext_new(NULL);
   ss->cc->options = ss->options;
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
-//  if (ss->irep) mrc_irep_remove_lv(ss->cc, ss->irep);
+  if (ss->irep) mrc_irep_remove_lv(ss->cc, ss->irep);
   ss->options = ss->cc->options;
   ss->cc->options = NULL;
   if (!ss->irep) {
