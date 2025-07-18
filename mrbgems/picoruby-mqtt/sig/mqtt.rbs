@@ -15,7 +15,7 @@ module MQTT
 
     private
 
-    def _connect_impl: (String host, Integer port, String client_id) -> bool
+    def _connect_impl: (String host, Integer port, String? client_id) -> bool
     def _disconnect_impl: () -> void
     def _publish_impl: (String topic, String payload) -> bool
     def _subscribe_impl: (String topic) -> bool
