@@ -5,36 +5,34 @@
 static void
 c_mqtt_connect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-
   if (argc != 3) {
     console_printf("[MQTT ERROR] Wrong argument count: expected 3, got %d\n", argc);
     SET_FALSE_RETURN();
     return;
   }
 
-                 v[1].tt, MRBC_TT_STRING, v[2].tt, MRBC_TT_INTEGER, v[3].tt, MRBC_TT_STRING);
-
   if (v[1].tt != MRBC_TT_STRING) {
     console_printf("[MQTT ERROR] Host parameter is not string\n");
     SET_FALSE_RETURN();
     return;
   }
-
+  
   if (v[2].tt != MRBC_TT_INTEGER) {
     console_printf("[MQTT ERROR] Port parameter is not integer\n");
     SET_FALSE_RETURN();
     return;
   }
-
+  
   if (v[3].tt != MRBC_TT_STRING) {
     console_printf("[MQTT ERROR] Client_id parameter is not string\n");
     SET_FALSE_RETURN();
     return;
   }
-
+  
   const char *host = mrbc_string_cstr(&v[1]);
   int port = mrbc_integer(v[2]);
   const char *client_id = mrbc_string_cstr(&v[3]);
+  
   if (!host || !client_id) {
     console_printf("[MQTT ERROR] NULL string parameter: host=%p, client_id=%p\n", host, client_id);
     SET_FALSE_RETURN();

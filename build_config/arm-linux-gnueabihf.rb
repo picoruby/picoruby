@@ -27,6 +27,7 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   # Net::NTTPSClient needs -lssl -lcrypto
   conf.gem core: "picoruby-mbedtls"
   conf.gem core: "picoruby-net"
+  conf.gem core: "picoruby-mqtt"
 
   conf.picoruby(alloc_libc: true)
 

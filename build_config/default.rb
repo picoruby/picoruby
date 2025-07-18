@@ -17,6 +17,7 @@ MRuby::Build.new do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
   conf.gem core: "picoruby-net"
+  conf.gem core: "picoruby-mqtt"
   conf.gem core: "picoruby-machine"
   conf.gem core: "picoruby-mbedtls"
   conf.gem core: 'picoruby-base64'
