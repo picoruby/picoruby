@@ -1,16 +1,13 @@
 module MQTT
   class Client
-    def initialize(host:, port: 1883, client_id: nil)
+    def initialize(host:, port: 1883)
       @host = host
       @port = port
-      @client_id = client_id || "picoruby-#{Time.now.to_i}"
       @connected = false
     end
 
-    def connect(host = nil, port = nil, client_id = nil)
-      @host = host if host
-      @port = port if port
-      @client_id = client_id if client_id
+    def connect(client_id = nil)
+      @client_id = client_id || "picoruby-#{Time.now.to_i}"
 
       @connected = _connect_impl(@host, @port, @client_id)
     end
@@ -35,16 +32,11 @@ module MQTT
       _subscribe_impl(topic)
     end
 
-    def get(&block)
-      return unless @connected && block_given?
+    def get
+      return unless @connected
 
-      loop do
-        message = _get_message_impl
-        if message
-          block.call(message[0], message[1])
-        end
-        sleep_ms 10
-      end
+      # return topic, payload
+      return _get_message_impl
     end
   end
 end
