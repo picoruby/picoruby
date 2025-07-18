@@ -140,6 +140,23 @@ static mrb_value
 mrb_sandbox_result(mrb_state *mrb, mrb_value self)
 {
   SS();
+
+  pm_options_t *options = (pm_options_t *)mrc_calloc(ss->cc, 1, sizeof(pm_options_t));
+  pm_options_scopes_init(options, 1);
+  pm_options_scope_t *scope = &options->scopes[0];
+  const struct mrc_irep *ir = ss->irep;
+  size_t nlocals = ir->nlocals;
+  pm_options_scope_init(scope, nlocals);
+  const mrc_sym *v = ir->lv;
+  if (v) {
+    const char *name;
+    for (size_t j = 0; j < nlocals; j++, v++) {
+      name = mrb_sym_name(ss->cc->mrb, *v);
+      pm_string_constant_init(&scope->locals[j], name, strlen(name));
+    }
+  }
+  ss->options = options;
+
   return mrb_task_value(mrb, ss->task);
 }
 
