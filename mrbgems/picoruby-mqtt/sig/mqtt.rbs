@@ -2,16 +2,16 @@ module MQTT
   class Client
     @host: String
     @port: Integer
-    @client_id: String
+    @client_id: String?
     @connected: bool
 
-    def initialize: (host: String, port: Integer, client_id: String?) -> void
-    def connect: (String host, ?Integer? port, ?String? client_id) -> bool
+    def initialize: (host: String, ?port: Integer) -> void
+    def connect: (?String? client_id) -> bool
     def disconnect: () -> void
     def connected?: () -> bool
     def publish: (String topic, String payload) -> bool
     def subscribe: (String topic) -> bool
-    def get: () { (String, String) -> void } -> void
+    def get: () -> [String, String]?
 
     private
 
