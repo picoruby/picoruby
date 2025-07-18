@@ -3,7 +3,7 @@
 #include "lwip/dns.h"
 
 static void
-ds_found(const char *name, const ip_addr_t *ip, void *arg)
+dns_found(const char *name, const ip_addr_t *ip, void *arg)
 {
   ip_addr_t *result = (ip_addr_t *)arg;
   if (ip) {
@@ -32,15 +32,13 @@ Net_get_ip(const char *name, ip_addr_t *ip)
   return ERR_OK;
 }
 
-void
-mrbc_net_init(mrbc_vm *vm)
-{
-  mrbc_class *class_Net = mrbc_define_class(vm, "Net", mrbc_class_object);
 
 #if defined(PICORB_VM_MRUBY)
 
 #include "mruby/net.c"
 
-  mrbc_class *class_Net_UDPClient = mrbc_define_class_under(vm, class_Net, "UDPClient", mrbc_class_object);
-  mrbc_define_method(vm, class_Net_UDPClient, "_send_impl", c_net_udpclient__send_impl);
-}
+#elif defined(PICORB_VM_MRUBYC)
+
+#include "mrubyc/net.c"
+
+#endif
