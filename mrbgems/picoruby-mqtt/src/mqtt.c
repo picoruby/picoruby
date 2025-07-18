@@ -48,11 +48,10 @@ static bool poll_state() {
       console_printf("[MQTT POLL] State is ERROR or TIMEOUT, returning false\n");
       return false;
     default:
-      // Add debug for connection states
       if (g_ctx.fsm_state == MQTT_STATE_CONNECTING) {
         static int poll_count = 0;
         poll_count++;
-        if (poll_count % 100 == 0) { // Print every 100 polls (~1 second)
+        if (poll_count % 100 == 0) {
           console_printf("[MQTT POLL] Still in CONNECTING state, poll count: %d\n", poll_count);
         }
       }
@@ -94,7 +93,6 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
 
   console_printf("[MQTT] Setting FSM state to CONNECTING\n");
   g_ctx.fsm_state = MQTT_STATE_CONNECTING;
-
   console_printf("[MQTT] Calling mqtt_client_connect (with lwIP locking)\n");
 #ifdef PICO_BUILD
   cyw43_arch_lwip_begin();
@@ -117,7 +115,6 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
   int timeout_ms = 10000;
   int elapsed = 0;
   while (g_ctx.fsm_state != MQTT_STATE_ACTIVE && g_ctx.fsm_state != MQTT_STATE_ERROR && timeout_ms > 0) {
-    // Ensure network processing happens
 #ifdef PICO_BUILD
     cyw43_arch_poll();
 #endif
@@ -168,7 +165,6 @@ int MQTT_publish_impl(const char *topic, const char *payload, int len) {
     Net_sleep_ms(10);
     timeout_ms -= 10;
   }
-  // Wait for PUBACK (if QoS > 0, though we don't wait here)
   while (g_ctx.fsm_state == MQTT_STATE_PUBLISHING && timeout_ms > 0) {
     poll_state();
     Net_sleep_ms(10);
@@ -206,7 +202,6 @@ int MQTT_get_message_impl(char **topic, char **payload) {
 // lwIP callback implementations
 static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
-                 client, status, MQTT_CONNECT_ACCEPTED);
 
   if (status == MQTT_CONNECT_ACCEPTED) {
     ctx->fsm_state = MQTT_STATE_ACTIVE;
@@ -254,7 +249,7 @@ void MQTT_init_context(void *vm) {
   g_ctx.vm = (mrbc_vm *)vm;
   g_ctx.callback_proc = mrbc_nil_value();
 #endif
-j
+}
 
 #if defined(PICORB_VM_MRUBY)
 #include "mruby/mqtt.c"
