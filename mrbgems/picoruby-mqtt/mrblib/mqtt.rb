@@ -32,11 +32,22 @@ module MQTT
       _subscribe_impl(topic)
     end
 
-    def get
+    def get(&block)
       return unless @connected
 
-      # return topic, payload
-      return _get_message_impl
+      if block_given?
+        # Non-Blocking
+        loop do
+          message = _get_message_impl
+          if message
+            yield(message[0], message[1])
+          end
+          sleep_ms 10
+        end
+      else
+        # Blocking
+        _get_message_impl
+      end
     end
   end
 end

@@ -12,6 +12,7 @@ module MQTT
     def publish: (String topic, String payload) -> bool
     def subscribe: (String topic) -> bool
     def get: () -> [String, String]?
+           | () { (String, String) -> void } -> void
 
     private
 
