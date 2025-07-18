@@ -375,8 +375,6 @@ mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
     mrb_vm_ci_target_class_set(mrb->c->ci, target);
   }
   mrb_value v = mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
-  mrb_vm_ci_env_clear(mrb, mrb->c->cibase);
-  mrc_ccontext_cleanup_local_variables(cc);
   if (mrb->exc) {
     MRB_EXC_CHECK_EXIT(mrb, mrb->exc);
     if (!mrb_undef_p(v)) {
@@ -537,6 +535,7 @@ main(int argc, char **argv)
     if (vm_code) {
 #if defined(PICORB_VM_MRUBY)
       n = mrb_lib_run(cc, irep);
+      mrb_vm_ci_env_clear(vm, vm->c->cibase);
       // TODO GC irep
 #elif defined(PICORB_VM_MRUBYC)
       lib_mrb_list[lib_mrb_list_size++] = vm_code;
@@ -612,6 +611,7 @@ main(int argc, char **argv)
     token = strtok(NULL, ",");
     index++;
   }
+
   uint8_t *vm_code;
   size_t vm_code_size;
   for (int i = 0; i < taskc; i++) {

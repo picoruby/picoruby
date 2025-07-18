@@ -9,6 +9,8 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
   if (constant_pool->constants == NULL) {
     return;
   }
+
+  // Symbols
   if (0 < irep->slen) {
     picorb_sym *new_syms = mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
     for (int i = 0; i < irep->slen; i++) {
@@ -21,6 +23,19 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
     mrc_free(cc, (mrc_sym *)irep->syms); // discard const
     irep->syms = new_syms;
   }
+
+  // Local variables
+  if (0 < irep->nlocals) {
+    for (int i = 0; i < irep->nlocals - 1; i++) {
+      //                              ^^^ ignore a space for self. see scope_new() in codegen.c
+      mrc_sym sym = irep->lv[i];
+      pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
+      const char *lit = (const char *)constant->start;
+      size_t len = constant->length;
+      irep->lv[i] = mrb_intern(cc->mrb, lit, len);
+    }
+  }
+
   for (int i = 0; i < irep->rlen; i++) {
     mrc_resolve_intern(cc, (mrc_irep *)irep->reps[i]);
   }
@@ -61,3 +76,4 @@ mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_value name, mrb_value prio
   proc->c = NULL;
   return mrb_create_task(cc->mrb, proc, name, priority, top_self);
 }
+
