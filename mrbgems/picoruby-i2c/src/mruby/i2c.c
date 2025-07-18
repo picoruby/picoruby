@@ -34,17 +34,14 @@ mrb__write(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__read(mrb_state *mrb, mrb_value self)
 {
-  mrb_int i2c_adrs_7, len, timeout_ms;
-  mrb_value outputs;
-  mrb_get_args(mrb, "iiAi", &i2c_adrs_7, &len, &outputs, &timeout_ms);
-
-  mrb_int ary_len = RARRAY_LEN(outputs);
-  uint8_t rxdata[ary_len];
+  mrb_int unit, i2c_adrs_7, len, timeout_ms;
+  mrb_get_args(mrb, "iiii", &unit, &i2c_adrs_7, &len, &timeout_ms);
+  uint8_t rxdata[len];
   int ret = I2C_read_timeout_us(
+              (uint8_t)unit,
               (uint8_t)i2c_adrs_7,
-              (uint8_t)len,
               rxdata,
-              (size_t)ary_len,
+              (size_t)len,
               false,
               (uint32_t)timeout_ms * 1000
             );

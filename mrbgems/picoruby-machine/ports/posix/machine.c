@@ -1,6 +1,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <signal.h>
+
+#include "../../include/machine.h"
 
 
 void
@@ -50,4 +53,18 @@ uint32_t
 Machine_stack_usage(void)
 {
   return 0;
+}
+
+const char *
+Machine_mcu_name(void)
+{
+  return "POSIX";
+}
+
+void
+Machine_exit(int status)
+{
+  sigint_status = MACHINE_SIGINT_EXIT;
+  exit_status = status;
+  raise(SIGINT);
 }

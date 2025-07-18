@@ -388,4 +388,6 @@ class Object < BasicObject
 
   # mrbc
   def relinquish : -> bool
+
+  def private: (?Symbol) -> void
 end

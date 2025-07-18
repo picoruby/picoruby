@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <stdlib.h>
 #include <mruby.h>
 #include <mruby/presym.h>
 #include <mruby/class.h>
@@ -7,7 +9,8 @@
 
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
-  mrb_free(mrb, ptr);
+  SandboxState *ss = (SandboxState *)ptr;
+  mrb_free(mrb, ss);
 }
 struct mrb_data_type mrb_sandbox_state_type = {
   "SandboxState", mrb_sandbox_state_free
@@ -37,9 +40,8 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   }
   mrb_iv_set(mrb, self, MRB_IVSYM(name), name);
 
-  ss->tcb = mrc_create_task(ss->cc, ss->irep, NULL, RSTRING_PTR(name));
-  ss->tcb->c.ci->stack[0] = mrb_obj_value(mrb->top_self);
-  ss->tcb->flag_permanence = 1;
+  mrb_value task = mrc_create_task(ss->cc, ss->irep, name, mrb_nil_value(), mrb_obj_value(mrb->object_class));
+  ss->task = task;
 
   return self;
 }
@@ -113,39 +115,17 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   return mrb_true_value();
 }
 
-static void
-reset_context(struct mrb_context *c)
-{
-  c->ci = c->cibase;
-  c->status = MRB_TASK_CREATED;
-}
-
 static mrb_value
 mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
 {
   SS();
   mrc_resolve_intern(ss->cc, ss->irep);
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
-  //proc->c = NULL;
-  reset_context(&ss->tcb->c);
-  //mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
+  proc->e.target_class = mrb->object_class;
+  mrb_task_proc_set(mrb, ss->task, proc);
+  mrb_task_reset_context(mrb, ss->task);
 
-  {
-    if (ss->tcb->c.cibase && ss->tcb->c.cibase->u.env) {
-      struct REnv *e = mrb_vm_ci_env(ss->tcb->c.cibase);
-      if (e && MRB_ENV_LEN(e) < proc->body.irep->nlocals) {
-        MRB_ENV_SET_LEN(e, proc->body.irep->nlocals);
-      }
-    }
-
-    if (!ss->tcb->c.stbase) {
-      mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
-    } else {
-      mrb_vm_ci_proc_set(ss->tcb->c.ci, proc);
-    }
-  }
-
-  mrb_resume_task(mrb, ss->tcb);
+  mrb_resume_task(mrb, ss->task);
   return mrb_true_value();
 }
 
@@ -153,22 +133,23 @@ static mrb_value
 mrb_sandbox_state(mrb_state *mrb, mrb_value self)
 {
   SS();
-  return mrb_int_value(mrb, ss->tcb->state);
+  return mrb_task_status(mrb, ss->task);
 }
 
 static mrb_value
 mrb_sandbox_result(mrb_state *mrb, mrb_value self)
 {
   SS();
-  return ss->tcb->value;
+  return mrb_task_value(mrb, ss->task);
 }
 
 static mrb_value
 mrb_sandbox_error(mrb_state *mrb, mrb_value self)
 {
   SS();
-  if (mrb_obj_is_kind_of(mrb, ss->tcb->value, mrb->eException_class)) {
-    return ss->tcb->value;
+  mrb_value value = mrb_task_value(mrb, ss->task);
+  if (mrb_obj_is_kind_of(mrb, value, mrb->eException_class)) {
+    return value;
   }
   else {
     return mrb_nil_value();
@@ -176,19 +157,20 @@ mrb_sandbox_error(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_sandbox_interrupt(mrb_state *mrb, mrb_value self)
+mrb_sandbox_stop(mrb_state *mrb, mrb_value self)
 {
   SS();
-  // TODO: Should fix this workaround?
-  ss->tcb->c.status = MRB_TASK_STOPPED;
-  return mrb_nil_value();
+  if (!mrb_stop_task(mrb, ss->task)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Already stopped");
+  }
+  return mrb_true_value();
 }
 
 static mrb_value
 mrb_sandbox_suspend(mrb_state *mrb, mrb_value self)
 {
   SS();
-  mrb_suspend_task(mrb, ss->tcb);
+  mrb_suspend_task(mrb, ss->task);
   return mrb_nil_value();
 }
 
@@ -203,10 +185,10 @@ static mrb_bool
 sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss)
 {
   struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  proc->e.target_class = mrb->object_class;
   proc->c = NULL;
-  mrb_tcb_init_context(mrb, &ss->tcb->c, proc);
-  reset_context(&ss->tcb->c);
-  mrb_resume_task(mrb, ss->tcb);
+  mrb_task_init_context(mrb, ss->task, proc);
+  mrb_resume_task(mrb, ss->task);
   return TRUE;
 }
 
@@ -248,7 +230,7 @@ static mrb_value
 mrb_sandbox_terminate(mrb_state *mrb, mrb_value self)
 {
   SS();
-  mrb_terminate_task(mrb, ss->tcb);
+  mrb_terminate_task(mrb, ss->task);
   return mrb_nil_value();
 }
 
@@ -267,7 +249,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(state), mrb_sandbox_state, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(result), mrb_sandbox_result, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(error), mrb_sandbox_error, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(interrupt), mrb_sandbox_interrupt, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(stop), mrb_sandbox_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(suspend), mrb_sandbox_suspend, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));

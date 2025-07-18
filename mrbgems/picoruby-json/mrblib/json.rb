@@ -295,7 +295,7 @@ module JSON
       when FalseClass
         false
       when NilClass
-        nil
+        'null'
       else
         generate_string(obj.to_s)
       end
@@ -409,8 +409,15 @@ module JSON
       @index += 1  # Skip opening quote
       result = ''
       while @json[@index] != '"'
-        result += @json[@index].to_s
-        @index += 1
+        if @json[@index] == '\\'
+          if snip = @json[@index, 2]
+            result += snip
+            @index += snip.length
+          end
+        else
+          result += @json[@index].to_s
+          @index += 1
+        end
         if @index >= @json.length
           raise JSON::ParserError.new("Unterminated string")
         end

@@ -1,6 +1,8 @@
 # wifi_config.rb
 #   To create a wifi configuration file
 
+ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+
 require "yaml"
 require "picoline"
 require "mbedtls"

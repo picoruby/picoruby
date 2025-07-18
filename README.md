@@ -29,6 +29,10 @@ PicoRuby is an alternative mruby implementation which is:
 
 - [picoruby.wasm](https://www.npmjs.com/package/@picoruby/wasm-wasi): PicoRuby WASI runtime for WebAssembly
 
+## Testing
+
+For detailed information on testing PicoRuby, refer to the [Testing Guide](docs/testing-guide.md).
+
 ### Build
 
 - Prerequisites

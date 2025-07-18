@@ -112,7 +112,7 @@ module Picotest
       begin
         block.call
         report(false, "Expected #{exception} but nothing raised", exception, nil)
-      rescue => e
+      rescue Exception => e
         if exceptions.include?(e.class) && (message.nil? || e.message == message)
           report(true, nil, nil, nil)
         else
@@ -129,7 +129,7 @@ module Picotest
       report((expected - actual).abs < delta, "Expected #{expected} but got #{actual}", expected, actual)
     end
 
-    def exception_report(data)
+    def report_exception(data)
       @result["exceptions"] << data
     end
 

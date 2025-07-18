@@ -17,16 +17,16 @@ mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
 #elif defined(PICORB_VM_MRUBYC)
 
 #define EXECUTABLE_NAME "picoruby"
-#ifndef HEAP_SIZE
-#define HEAP_SIZE (1024 * 6400 - 1)
-#endif
-static uint8_t mrbc_heap[HEAP_SIZE];
 #ifndef MAX_REGS_SIZE
 #define MAX_REGS_SIZE 255
 #endif
 
 #endif /* PICORB_VM_MRUBYC */
 
+#ifndef HEAP_SIZE
+#define HEAP_SIZE (1024 * 6400 - 1)
+#endif
+static uint8_t vm_heap[HEAP_SIZE];
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */
@@ -570,7 +570,7 @@ main(int argc, char **argv)
 
   int tcb_list_size = 0;
 #if defined(PICORB_VM_MRUBY)
-  mrb_tcb *tcb_list[taskc];
+  mrb_value tcb_list[taskc];
 #elif defined(PICORB_VM_MRUBYC)
   uint8_t *task_mrb_list[taskc];
   int tasks_mrb_list_size = 0;
@@ -665,7 +665,13 @@ main(int argc, char **argv)
     if (!irep) {
       irep = mrb_read_irep(vm, vm_code);
     }
-    mrb_tcb *tcb = mrc_create_task(cc, irep, NULL, "main");
+    mrb_value name = mrb_str_new_cstr(vm, "main");
+    mrb_value task = mrc_create_task(cc, irep, name, mrb_nil_value(), mrb_obj_value(vm->top_self));
+    if (mrb_nil_p(task)) {
+      fprintf(stderr, "mrc_create_task failed\n");
+      exit(EXIT_FAILURE);
+    }
+    tcb_list[tcb_list_size++] = task;
 #elif defined(PICORB_VM_MRUBYC)
     if (!vm_code) {
       int result;
@@ -680,14 +686,16 @@ main(int argc, char **argv)
     if (source) mrc_free(cc, source);
 
     mrbc_tcb *tcb = mrbc_create_task(vm_code, NULL);
-#endif
     if (!tcb) {
       fprintf(stderr, "mrbc_create_task failed\n");
       exit(EXIT_FAILURE);
     }
-    else {
-      tcb_list[tcb_list_size++] = tcb;
-    }
+    tcb_list[tcb_list_size++] = tcb;
+#endif
+
+#if defined(PICORB_VM_MRUBY)
+#elif defined(PICORB_VM_MRUBYC)
+#endif
 
     if (args.check_syntax) {
       printf("Syntax OK: %s\n", fnames[i]);
@@ -699,6 +707,7 @@ main(int argc, char **argv)
 #if defined(PICORB_VM_MRUBY)
     mrb_value v = mrb_tasks_run(vm);
     mrb_vm_ci_env_clear(vm, vm->c->cibase);
+    n = EXIT_SUCCESS;
     if (vm->exc) {
       MRB_EXC_CHECK_EXIT(vm, vm->exc);
       if (!mrb_undef_p(v)) {
@@ -706,8 +715,6 @@ main(int argc, char **argv)
       }
       n = EXIT_FAILURE;
     }
-    n = EXIT_SUCCESS;
-
     mrc_irep_free(cc, irep);
     if (source) mrc_free(cc, source);
 #elif defined(PICORB_VM_MRUBYC)
@@ -730,7 +737,7 @@ main(int argc, char **argv)
     picorb_free(vm, fnames[i]);
 #if defined(PICORB_VM_MRUBY)
   for (int i = 0; i < tcb_list_size; i++)
-    mrb_tcb_free(vm, tcb_list[i]);
+    mrb_gc_unregister(vm, tcb_list[i]);
 #elif defined(PICORB_VM_MRUBYC)
   for (int i = 0; i < lib_mrb_list_size; i++)
     picorb_free(vm, lib_mrb_list[i]);

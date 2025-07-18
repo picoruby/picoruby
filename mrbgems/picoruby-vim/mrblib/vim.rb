@@ -16,7 +16,7 @@ class Vim
     end
     @mode = :normal
     @editor = Editor::Screen.new
-    @editor.quit_by_ctrl_c = false
+    @editor.quit_by_sigint = false
     @editor.footer_height = 2
     @command_buffer = Editor::Buffer.new
     @message = nil

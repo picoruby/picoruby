@@ -52,6 +52,7 @@ module Picotest
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
     def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
+    def report_exeption: (untyped data) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end
 
@@ -60,14 +61,17 @@ module Picotest
     TMPDIR: String
     SEPARATOR: String
 
+    @load_path: String | nil
     @tmpdir: String
+    @lib_to_require: String | nil
+    @load_files: Array[String]
     @entries: Array[untyped]
     @result: Hash[String, picotest_error_t]
     @test_classes: Array[Class]
     @load_crashes: Array[{ entry: String, message: String }]
     @ruby_path: String
 
-    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir) -> void
+    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir, ?String lib_name, ?Array[String] load_files, ?String load_path) -> void
     def run: () -> void
     private def run_test: (String entry) -> void
     private def summarize: () -> Integer

@@ -1,8 +1,6 @@
 class LoadError < StandardError; end
 
-$LOADED_FEATURES = ["require"]
-
-class Object
+module Kernel
 
   def require(name)
     return false if required?(name)
@@ -20,9 +18,6 @@ class Object
       $LOADED_FEATURES << path
       return !!result
     end
-    unless File.file?(path)
-      raise LoadError, "cannot load such file -- #{path}"
-    end
     load_file(path)
   end
 
@@ -32,25 +27,34 @@ class Object
     $LOADED_FEATURES.include?(name)
   end
 
-  def load_file(path)
-    sandbox = Sandbox.new('require')
-    begin
-      sandbox.load_file(path)
-    rescue => e
-      sandbox.terminate
-      raise e
+  def load_paths(name)
+    if name.start_with?("/")
+      [""] # Absolute paths are not relative to any load path
+    else
+      $LOAD_PATH || []
     end
-    $LOADED_FEATURES << path unless required?(path)
-    true
+  end
+
+  def load_file(name_with_ext)
+    sandbox = Sandbox.new('require')
+    load_paths(name_with_ext).each do |load_path|
+      path = File.expand_path(name_with_ext, load_path)
+      if File.file?(path)
+        begin
+          sandbox.load_file(path)
+          $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
+          return true
+        rescue => e
+          sandbox.terminate
+          raise e
+        end
+      end
+    end
+    raise LoadError, "cannot load such file -- #{name_with_ext}"
   end
 
   def require_file(name)
-    load_paths = if name.start_with?("/")
-                   [""]
-                 else
-                   $LOAD_PATH || []
-                 end
-    load_paths.each do |load_path|
+    load_paths(name).each do |load_path|
       ["mrb", "rb"].each do |ext|
         path = File.expand_path("#{name}.#{ext}", load_path)
         if File.file?(path)
@@ -63,4 +67,10 @@ class Object
 
 end
 
-require "sandbox"
+if RUBY_ENGINE == 'mruby/c'
+  class Object
+    include Kernel
+  end
+  $LOADED_FEATURES = ["require"]
+  require "sandbox"
+end

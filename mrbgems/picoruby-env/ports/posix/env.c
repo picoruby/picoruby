@@ -5,12 +5,6 @@
 extern char **environ;
 
 void
-env_setenv(const char *key, const char *value)
-{
-  setenv(key, value, 1);
-}
-
-void
 env_get_key_value(char **key, char **value)
 {
   static char **my_environ;

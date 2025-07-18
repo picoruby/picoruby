@@ -1,30 +1,17 @@
 require 'io/console'
-require 'metaprog'
+require 'metaprog' if RUBY_ENGINE == 'mruby/c'
 
 class Sandbox
 
-  class Abort < Exception
-  end
-
   TIMEOUT = 10_000 # 10 sec
 
-  def wait(signal: true, timeout: TIMEOUT)
-    n = 0
-    # state 0: TASKSTATE_DORMANT == finished
-    while self.state != 0 do
-      if signal && (line = STDIN.read_nonblock(1)) && line[0]&.ord == 3
-        puts "^C"
-        interrupt
-        begin
-          Watchdog.disable
-          puts "Watchdog disabled"
-        rescue NameError
-          # ignore. maybe POSIX
-        end
-        return false
-      end
+  def wait(timeout: TIMEOUT)
+    sleep_ms 5
+    signal_self_manage = ENV.delete('SIGNAL_SELF_MANAGE')
+    n = 5
+    while self.state != :DORMANT do
+      STDIN.read_nonblock(1) unless signal_self_manage
       sleep_ms 5
-      #Machine.delay_ms 50
       if timeout
         n += 5
         if timeout < n
@@ -34,9 +21,22 @@ class Sandbox
       end
     end
     return true
+  rescue Interrupt
+    unless signal_self_manage
+      Signal.raise(:INT)
+      stop
+      begin
+        Watchdog.disable
+        puts "Watchdog disabled"
+      rescue NameError
+        # ignore. maybe POSIX
+      end
+      return false
+    end
+    return true # should be false?
   end
 
-  def load_file(path, signal: true, join: true)
+  def load_file(path, join: true)
     f = File.open(path, "r")
     # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
     # See Shell#setup_system_files
@@ -66,7 +66,7 @@ class Sandbox
         end
         execute
       end
-      if join && started && wait(signal: signal, timeout: nil) && error
+      if join && started && wait(timeout: nil) && error = self.error
         puts "#{error.message} (#{error})"
       end
     ensure

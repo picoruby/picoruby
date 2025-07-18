@@ -28,7 +28,7 @@
 #include <mrubyc.h>
 
 #define picorb_vm_init()  do { \
-  mrbc_init(mrbc_heap, HEAP_SIZE); \
+  mrbc_init(vm_heap, HEAP_SIZE); \
   vm = mrbc_vm_open(NULL); \
   picoruby_init_require(vm); \
 } while(0)
@@ -116,7 +116,7 @@ bool picoruby_load_model_by_name(const char *gem);
 #include "../mrbgems/picoruby-mruby/include/alloc.h"
 
 #define picorb_vm_init()  do { \
-  vm = mrb_open(); \
+  vm = mrb_open_with_custom_alloc(vm_heap, HEAP_SIZE); \
   if (vm == NULL) { \
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
     return EXIT_FAILURE; \
@@ -158,5 +158,8 @@ mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
   #error "Must define PICORB_VM_MRUBYC or PICORB_VM_MRUBY"
 
 #endif
+
+// For debugging purposes, assumed to be implemented by app like R2P2
+void d(const char *fmt, ...);
 
 #endif // PICORUBY_H

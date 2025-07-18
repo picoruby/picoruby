@@ -4,12 +4,15 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter = nil, tmpdir = TMPDIR)
+    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_files = [], load_path = nil)
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
       puts "Running tests in #{dir}"
+      @load_path = load_path
       @tmpdir = tmpdir
+      @lib_to_require = lib_name
+      @load_files = load_files
       @entries = find_tests(dir, filter)
       @result = {}
       @test_classes = []
@@ -23,13 +26,17 @@ module Picotest
 
     def run
       load_tests(@entries)
-      0 < summarize and raise "Test failed"
+      return summarize
+    ensure
+      @test_classes.each do |klass|
+        Object.send(:remove_const, klass.to_s) if Object.const_defined?(klass.to_s)
+      end
     end
 
     # private
 
     def run_test(entry)
-      test_classes = Object.constants.map{|c| Object.const_get(c)}
+      test_classes = Object.constants.select{|c| c.to_s.end_with?('Test')}.map{|c| Object.const_get(c)}
       test_classes.reject! do |c|
         !c.class? || !c.ancestors.include?(Picotest::Test) || @test_classes.include?(c)
       end
@@ -38,9 +45,29 @@ module Picotest
         test = klass.new
         tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
         File.open(tmpfile, "w") do |f|
-          f.puts "require 'picotest'"
+          f.puts <<~KERNEL
+            module Kernel
+              alias :require_original :require
+              def require(name)
+                return require_original(name)
+              rescue LoadError => e
+                # ignore LoadError
+              end
+            end
+          KERNEL
+          f.puts "require 'picotest' # pre-built gem"
+          f.puts "$LOAD_PATH = ['#{@load_path}']" if @load_path
+          f.puts "\n# implementation and mock"
+          @load_files.each do |file|
+            f.puts "load '#{file}'"
+          end
+          if @lib_to_require
+            f.puts "\n# library to require"
+            f.puts "require '#{@lib_to_require}'"
+          end
+          f.puts "\n# test file to load"
           f.puts "load '#{entry}'"
-          f.puts "my_test = #{klass}.new"
+          f.puts "\nmy_test = #{klass}.new"
           f.puts "puts"
           f.puts "print 'From #{entry}:'"
           test.list_tests.each do |t|
@@ -61,7 +88,9 @@ module Picotest
         end
         error_file = "#{@tmpdir}/#{klass.to_s}_error"
         File.open(error_file, "w") do |error|
-          IO.popen("#{@ruby_path} #{tmpfile}", err: error.fileno) do |io|
+          cmd = "#{@ruby_path} #{tmpfile}"
+          puts "Running: #{cmd}"
+          IO.popen(cmd, err: error.fileno) do |io|
             outputs = io.read&.split("----\n") || []
             print Picotest::RESET
             puts outputs[0]
@@ -69,6 +98,9 @@ module Picotest
             unless outputs[1].nil?
               @result[klass.to_s] = JSON.parse(outputs[1])
             end
+          end
+          if $?.exitstatus != 0
+            raise "Crash in running #{klass.to_s} tests. See #{error_file} for details."
           end
         end
         if FileTest.size?(error_file)
@@ -145,7 +177,7 @@ module Picotest
           rescue => e
             @load_crashes << {
               entry: entry,
-              message: e.message
+              message: "#{e.class}: #{e.message}"
             }
           end
         end

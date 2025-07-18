@@ -62,7 +62,7 @@ class Shell
         Dir.chdir(dir)
       else
         if exefile = find_executable(command)
-          @sandbox.load_file(exefile, signal: (command != "irb"))
+          @sandbox.load_file(exefile)
           @sandbox.suspend
         else
           puts "#{command}: command not found"
@@ -70,6 +70,9 @@ class Shell
         end
       end
       return true
+    rescue Interrupt
+      puts "^C"
+      return false
     rescue => e
       puts "#{e.message} (#{e.class})"
       if e.respond_to?(:backtrace)

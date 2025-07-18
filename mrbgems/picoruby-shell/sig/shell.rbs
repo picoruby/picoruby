@@ -20,10 +20,10 @@ class Shell
                      | (:uart, String | Symbol name) -> UART
                      | (:pwm,  String | Symbol name) -> PWM
 
-  LOGO_LINES: [String]
-  SHORT_LOGO_LINES: [String]
-  LOGO_COLOR: String
-  AUTHOR_COLOR: String
+  LOGO_WIDTH: Integer
+  LOGO: Array[String]
+  AUTHOR: String
+  AUTHOR_COLOR: Integer
   @editor: Editor::Line
 
   def self.next_executable: -> {code: String, path: String, crc: Integer}
@@ -37,7 +37,7 @@ class Shell
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
 
   def initialize: (?clean: bool) -> void
-  def show_logo: -> nil
+  def show_logo: (?Integer color_num)-> void
   def start: (?Symbol mode) -> nil
   def run_shell: -> void
   def run_irb: -> void

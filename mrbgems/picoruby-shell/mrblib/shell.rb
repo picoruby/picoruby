@@ -1,20 +1,18 @@
 require "env"
-require 'gpio'
-require "metaprog"
 require "picorubyvm"
 require "sandbox"
 require "crc"
 require "machine"
 require 'yaml'
 begin
+  require 'gpio'
   require "filesystem-fat"
   require "vfs"
 rescue LoadError
   # ignore. maybe POSIX
-  require "dir"
+  require "dir" if RUBY_ENGINE == 'mruby/c'
 end
 
-# ENV = {} # This moved to 0_out_of_steep.rb
 ARGV = []
 
 
@@ -97,6 +95,8 @@ class Shell
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
+    ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
+    ENV["TZ"] = "JST-9" # TODO. maybe in CYW43
     Dir.chdir(root || "/") do
       %w(bin home etc etc/init.d etc/network var lib).each do |dir|
         4.times do |i|
@@ -134,13 +134,15 @@ class Shell
     #     led_ble: cyw43_led
     #     led_wifi: 23
     begin
-      config = YAML.load_file(config_file)
-      # @type var config: Hash[String, untyped]
-      device = config['device']
-      if device&.respond_to?(:each)
-        device.each do |type, values|
-          values&.each do |key, value|
-            ENV["#{type}_#{key}".upcase] = value.to_s
+      if File.file?(config_file)
+        config = YAML.load_file(config_file)
+        # @type var config: Hash[String, untyped]
+        device = config['device']
+        if device&.respond_to?(:each)
+          device.each do |type, values|
+            values&.each do |key, value|
+              ENV["#{type}_#{key}".upcase] = value.to_s
+            end
           end
         end
       end
@@ -234,45 +236,90 @@ class Shell
     @editor = Editor::Line.new
   end
 
-  LOGO_COLOR = "\e[32;1m"
-  AUTHOR_COLOR = "\e[36;1m"
-  if RUBY_ENGINE == "mruby/c"
-    LOGO_LINES = [
-      ' ____  _           ____        _',
-      '|  _ \(_) ___ ___ |  _ \ _   _| |,_  _   _',
-      '| |_) | |/ __/ _ \| |_) | | | | \'_ \| | | |',
-      '|  __/| | (_| (_) |  _ <| |_| | |_) | |_| |',
-      '|_|   |_|\___\___/|_| \_\\___,_|_.__/ \__, |',
-      "               #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}          |___/"
+  LOGO = if RUBY_ENGINE == "mruby"
+    [
+      "01110000111001100011111100111111000011111100011111100011000011001111110011000011",
+      "01111001111001100110000000110001100110000110011000110011000011001100011001100110",
+      "01101111011001100110000000111111000110000110011111100011000011001111110000111100",
+      "01100110011001100110000000110001100110000110011000110011000011001100011000011000",
+      "01100000011001100011111100110001100011111100011000110001111110001111110000011000",
+      "00000000000000000000000000000000000000000000000000000000000000000000000000000000"
     ]
-    SHORT_LOGO_LINES = ["PicoRuby", "   by", "hasumikin"]
-  elsif RUBY_ENGINE == "mruby"
-    LOGO_LINES = [
-      ' __  __ _                ____        _',
-      '|  \/  (_) ___ _ __ ___ |  _ \ _   _| |__  _   _',
-      '| |\/| | |/ __| \'__/ _ \| |_) | | | | \'_ \| | | |',
-      '| |  | | | (__| | | (_) |  _ <| |_| | |_) | |_| |',
-      '|_|  |_|_|\___|_|  \___/|_| \_\\\\__,_|_.__/ \__, |',
-      "                  #{AUTHOR_COLOR}by hasumikin#{LOGO_COLOR}             |___/"
+  else
+    [
+      "01111110001100011111100011111100011111100011000011001111110011000011",
+      "01100011001100110000000110000110011000110011000011001100011001100110",
+      "01111110001100110000000110000110011111100011000011001111110000111100",
+      "01100000001100110000000110000110011000110011000011001100011000011000",
+      "01100000001100011111100011111100011000110001111110001111110000011000",
+      "00000000000000000000000000000000000000000000000000000000000000000000"
     ]
-    SHORT_LOGO_LINES = ["MicroRuby", "   by", "hasumikin"]
   end
+  LOGO_WIDTH = LOGO[0].length
+  author = "@hasumikin"
+  space = " " * ((LOGO_WIDTH - author.length) / 2)
+  AUTHOR = space + author + space
+  AUTHOR_COLOR = 207
 
-  def show_logo
-    return nil if ENV['TERM'] == "dumb"
-    logo_width = LOGO_LINES[0, LOGO_LINES.size - 1]&.map{|l| l.length}&.max || 0
-    if logo_width < @editor.width
-      logo_lines = LOGO_LINES
-    else
-      logo_width = SHORT_LOGO_LINES.map{|l| l.length}.max || 0
-      logo_lines = SHORT_LOGO_LINES
+  def show_logo(color_num = 6) # color_num: 0..11
+    return if ENV['TERM'] == "dumb"
+    return if @editor.width < LOGO_WIDTH
+    margin = " " * ((@editor.width - LOGO_WIDTH) / 2)
+
+    # Add shadow
+    LOGO.size.times do |y|
+      break if LOGO[y+1].nil?
+      LOGO[y].length.times do |x|
+        if LOGO[y][x] == '1' && LOGO[y+1][x-1] == '0'
+          LOGO[y+1][x-1] = '2'
+        end
+      end
     end
-    return nil if @editor.width < logo_width
-    margin = " " * ((@editor.width - logo_width) / 2)
-    puts LOGO_COLOR
-    logo_lines.each do |line|
+
+    grad_start = 160 + (6 * color_num)
+    grad_end = grad_start + 5
+    grad_slice = LOGO[0].length / 5
+    shadow_offset = 144
+    shadow = "\e[38;5;235m:"
+
+    LOGO.size.times do |y|
       print margin
-      puts line
+      split_line = []
+      i = 0
+      while i < LOGO[y].length
+        split_line << LOGO[y][i, grad_slice]
+        i += grad_slice
+      end
+      x = 0
+      split_line.each_with_index do |snip, i|
+        color = grad_start + i
+        snip.each_char do |c|
+          if c == '0'
+            if y == LOGO.size - 1
+              print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}"
+            else
+              print " "
+            end
+          elsif c == '1'
+            print "\e[48;5;#{color}m\e[38;5;226m:\e[0m"
+          elsif c == '2'
+            print "\e[48;5;#{color - shadow_offset}m"
+            if y == LOGO.size - 1
+              a = AUTHOR[x]
+              if a == " "
+                print shadow
+              else
+                print "\e[38;5;#{AUTHOR_COLOR}m#{a}"
+              end
+            else
+              print shadow
+            end
+            print "\e[0m"
+          end
+          x += 1
+        end
+      end
+      puts
     end
     puts "\e[0m"
   end
@@ -283,7 +330,6 @@ class Shell
       @editor.prompt = "irb"
       run_irb
       puts
-      # puts Task.stat
     when :shell
       run_shell
       print "\nbye\e[0m"
@@ -317,7 +363,8 @@ class Shell
           end
         when ["quit"], ["exit"]
           buffer.clear
-          return
+          print "\nbye\n\e[0m"
+          Machine.exit(0)
         else
           puts
           command.exec(*args)
@@ -344,7 +391,6 @@ class Shell
           else
             editor.feed_at_bottom
             editor.save_history
-           # echo_save = STDIN.echo?
             result = STDIN.cooked do
               r = sandbox.execute
               sandbox.wait(timeout: nil)
@@ -357,7 +403,6 @@ class Shell
               else
                 puts "=> #{sandbox.result.inspect}"
               end
-          #    $sandbox.free_parser
             end
             buffer.clear
             editor.history_head
@@ -367,6 +412,9 @@ class Shell
         editor.debug c
       end
     end
+  ensure
+    puts
+    sandbox.terminate
   end
 end
 

@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <termios.h>
 #include <fcntl.h>
+#include "../../../picoruby-machine/include/machine.h"
 
 static struct termios save_settings;
 static int save_flags;
@@ -9,6 +10,10 @@ static int save_flags;
 int
 hal_getchar(void)
 {
+  if (sigint_status) {
+    sigint_status = MACHINE_SIGINT_NONE;
+    return 3; // Ctrl-C
+  }
   int c = getchar();
   if (c == EOF) {
     return -1;

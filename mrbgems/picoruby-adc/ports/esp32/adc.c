@@ -46,6 +46,29 @@ pin_to_unit(uint8_t pin)
     case 26:
     case 27:
       return ADC_UNIT_2;
+#elif (CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32S2)
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+      return ADC_UNIT_1;
+    case 11:
+    case 12:
+    case 13:
+    case 14:
+    case 15:
+    case 16:
+    case 17:
+    case 18:
+    case 19:
+    case 20:
+      return ADC_UNIT_2;
 #endif
   }
   return -1;
@@ -89,6 +112,27 @@ pin_to_channel(uint8_t pin)
     case 27: return ADC_CHANNEL_7;
     case 25: return ADC_CHANNEL_8;
     case 26: return ADC_CHANNEL_9;
+#elif (CONFIG_IDF_TARGET_ESP32S3 || CONFIG_IDF_TARGET_ESP32S2)
+    case 1:  return ADC_CHANNEL_0;
+    case 2:  return ADC_CHANNEL_1;
+    case 3:  return ADC_CHANNEL_2;
+    case 4:  return ADC_CHANNEL_3;
+    case 5:  return ADC_CHANNEL_4;
+    case 6:  return ADC_CHANNEL_5;
+    case 7:  return ADC_CHANNEL_6;
+    case 8:  return ADC_CHANNEL_7;
+    case 9:  return ADC_CHANNEL_8;
+    case 10: return ADC_CHANNEL_9;
+    case 11: return ADC_CHANNEL_0;
+    case 12: return ADC_CHANNEL_1;
+    case 13: return ADC_CHANNEL_2;
+    case 14: return ADC_CHANNEL_3;
+    case 15: return ADC_CHANNEL_4;
+    case 16: return ADC_CHANNEL_5;
+    case 17: return ADC_CHANNEL_6;
+    case 18: return ADC_CHANNEL_7;
+    case 19: return ADC_CHANNEL_8;
+    case 20: return ADC_CHANNEL_9;
 #endif
   }
   return -1;

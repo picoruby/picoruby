@@ -392,11 +392,11 @@ Machine_busy_wait_ms(uint32_t ms)
   busy_wait_us_32(1000 * ms);
 }
 
-int
+bool
 Machine_get_unique_id(char *id_str)
 {
   pico_get_unique_board_id_string(id_str, PICO_UNIQUE_BOARD_ID_SIZE_BYTES * 2 + 1);
-  return 1;
+  return true;
 }
 
 uint32_t
@@ -404,6 +404,16 @@ Machine_stack_usage(void)
 {
   // TODO
   return 0;
+}
+
+const char *
+Machine_mcu_name(void)
+{
+#if defined(PICO_RP2040)
+  return "RP2040";
+#elif defined(PICO_RP2350)
+  return "RP2350";
+#endif
 }
 
 bool
@@ -419,4 +429,10 @@ bool
 Machine_get_hwclock(struct timespec *ts)
 {
   return aon_timer_get_time(ts);
+}
+
+void
+Machine_exit(int status)
+{
+  (void)status; // no-op
 }

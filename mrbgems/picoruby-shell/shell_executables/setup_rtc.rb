@@ -1,3 +1,5 @@
+ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+
 require "i2c"
 
 # TODO: move /etc/init.c/r2p2-rtc

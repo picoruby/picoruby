@@ -45,11 +45,11 @@ mrb_frequency(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_period_us(mrb_state *mrb, mrb_value self)
 {
-  mrb_int freq;
-  mrb_get_args(mrb, "i", &freq);
-  picorb_float_t duty = 1000000.0 / freq;
-  set_freq_and_start(mrb, self, duty);
-  return mrb_float_value(mrb, duty);
+  mrb_int period_us;
+  mrb_get_args(mrb, "i", &period_us);
+  picorb_float_t freq = 1000000.0 / period_us;
+  set_freq_and_start(mrb, self, freq);
+  return mrb_float_value(mrb, freq);
 }
 
 static void
