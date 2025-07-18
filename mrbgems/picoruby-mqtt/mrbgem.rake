@@ -11,16 +11,6 @@ MRuby::Gem::Specification.new('picoruby-mqtt') do |spec|
     spec.add_dependency 'mruby-time'
   end
 
-  spec.cc.defines << 'LWIP_TCP=1'
-  spec.cc.defines << 'LWIP_CALLBACK_API=1'
-  spec.cc.defines << 'LWIP_MQTT=1'
-  spec.cc.defines << 'MQTT_REQ_MAX_IN_FLIGHT=4'
-  spec.cc.defines << 'MQTT_CYCLIC_TIMER_TIMEOUT=5'
-  spec.cc.defines << 'MQTT_REQ_TIMEOUT=30'
-  spec.cc.defines << 'MQTT_CONNECT_TIMOUT=100'
-  spec.cc.defines << 'MQTT_VAR_HEADER_BUFFER_LEN=128'
-  spec.cc.defines << 'MQTT_OUTPUT_RINGBUF_SIZE=256'
-
   lwip_dir = "#{build.gems['picoruby-net'].dir}/lib/lwip"
   spec.cc.include_paths << "#{lwip_dir}/src/include"
   spec.cc.include_paths << "#{lwip_dir}/contrib/ports/unix/port/include"
