@@ -1,144 +1,113 @@
-#include "../../include/mqtt.h"
 #include "mrubyc.h"
 
-static void c_mqtt_connect_impl(struct VM *vm, mrbc_value v[], int argc)
-{
-  const char *host = mrbc_string_cstr(&v[1]);
-  int port = mrbc_integer(v[2]);
-  const char *client_id = mrbc_string_cstr(&v[3]);
+#include "../../include/mqtt.h"
 
-  if (MQTT_connect(vm, host, port, client_id)) {
-    SET_TRUE_RETURN();
-  } else {
+static void
+c_mqtt_connect(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+
+  if (argc != 3) {
+    console_printf("[MQTT ERROR] Wrong argument count: expected 3, got %d\n", argc);
     SET_FALSE_RETURN();
-  }
-}
-
-static void c_mqtt_publish_impl(struct VM *vm, mrbc_value v[], int argc)
-{
-  const char *payload = mrbc_string_cstr(&v[1]);
-  const char *topic = mrbc_string_cstr(&v[2]);
-
-  if (MQTT_publish(vm, payload, topic)) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-static void c_mqtt_subscribe_impl(struct VM *vm, mrbc_value v[], int argc)
-{
-  const char *topic = mrbc_string_cstr(&v[1]);
-
-  if (MQTT_subscribe(vm, topic)) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-static void c_mqtt_disconnect_impl(struct VM *vm, mrbc_value v[], int argc)
-{
-  if (MQTT_disconnect(vm)) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-// Helper function to check if we're in a callback context
-static bool is_in_mqtt_callback(void)
-{
-  return g_mqtt_client && g_mqtt_client->in_callback;
-}
-
-static void c_mqtt_pop_packet_impl(struct VM *vm, mrbc_value v[], int argc)
-{
-  uint8_t *data;
-  uint16_t size;
-
-  if (MQTT_pop_event(&data, &size)) {
-    // Now we're in the main loop context, safe to execute Ruby code
-    mrbc_value packet = mrbc_string_new(vm, (const char *)data, size);
-    picorb_free(vm, data);
-    SET_RETURN(packet);
-  } else {
-    SET_NIL_RETURN();
-  }
-}
-
-static bool parse_mqtt_packet(const uint8_t *packet, uint16_t packet_size, char **topic, uint16_t *topic_len, char **payload, uint16_t *payload_len)
-{
-  if (packet_size < 2) return false;
-
-  uint8_t packet_type = (packet[0] >> 4) & 0x0F;
-  if (packet_type != MQTT_PUBLISH) return false;
-
-  uint8_t pos = 1;
-  size_t remaining_length = 0;
-  uint32_t multiplier = 1;
-  uint8_t digit;
-
-  do {
-    if (pos >= packet_size) return false;
-    digit = packet[pos++];
-    remaining_length += (digit & 127) * multiplier;
-    multiplier *= 128;
-  } while ((digit & 128) != 0);
-
-  if (pos + 2 > packet_size) return false;
-  *topic_len = (packet[pos] << 8) | packet[pos + 1];
-  pos += 2;
-
-  if (pos + *topic_len > packet_size) return false;
-  *topic = (char *)packet + pos;
-  pos += *topic_len;
-
-  // Skip packet ID if QoS > 0
-  uint8_t qos = (packet[0] & 0x06) >> 1;
-  if (qos > 0) {
-    if (pos + 2 > packet_size) return false;
-    pos += 2;
-  }
-
-  // Extract payload
-  *payload_len = packet_size - pos;
-  *payload = (char *)packet + pos;
-
-  return true;
-}
-
-static void c_mqtt_parse_packet_impl(struct VM *vm, mrbc_value v[], int argc)
-{
-  const char *packet = mrbc_string_cstr(&v[1]);
-  uint16_t packet_len = mrbc_string_size(&v[1]);
-
-  char *topic, *payload;
-  uint16_t topic_len, payload_len;
-
-  if (!parse_mqtt_packet((const uint8_t *)packet, packet_len, &topic, &topic_len, &payload, &payload_len)) {
-    SET_NIL_RETURN();
     return;
   }
 
-  mrbc_value result = mrbc_array_new(vm, 2);
-  mrbc_value topic_str = mrbc_string_new(vm, topic, topic_len);
-  mrbc_value payload_str = mrbc_string_new(vm, payload, payload_len);
-  mrbc_array_set(&result, 0, &topic_str);
-  mrbc_array_set(&result, 1, &payload_str);
-  
-  SET_RETURN(result);
+                 v[1].tt, MRBC_TT_STRING, v[2].tt, MRBC_TT_INTEGER, v[3].tt, MRBC_TT_STRING);
+
+  if (v[1].tt != MRBC_TT_STRING) {
+    console_printf("[MQTT ERROR] Host parameter is not string\n");
+    SET_FALSE_RETURN();
+    return;
+  }
+
+  if (v[2].tt != MRBC_TT_INTEGER) {
+    console_printf("[MQTT ERROR] Port parameter is not integer\n");
+    SET_FALSE_RETURN();
+    return;
+  }
+
+  if (v[3].tt != MRBC_TT_STRING) {
+    console_printf("[MQTT ERROR] Client_id parameter is not string\n");
+    SET_FALSE_RETURN();
+    return;
+  }
+
+  const char *host = mrbc_string_cstr(&v[1]);
+  int port = mrbc_integer(v[2]);
+  const char *client_id = mrbc_string_cstr(&v[3]);
+  if (!host || !client_id) {
+    console_printf("[MQTT ERROR] NULL string parameter: host=%p, client_id=%p\n", host, client_id);
+    SET_FALSE_RETURN();
+    return;
+  }
+
+  MQTT_init_context(vm);
+
+  int result = MQTT_connect_impl(host, port, client_id);
+
+  if (result == 0) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
 }
 
-void mrbc_mqtt_init(void)
+static void
+c_mqtt_subscribe(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  mrbc_class *mqtt_module = mrbc_define_module(NULL, "MQTT");
-  mrbc_class *mqtt_client = mrbc_define_class_under(NULL, mqtt_module, "Client", mrbc_class_object);
+  const char *topic = mrbc_string_cstr(&v[1]);
+  if (MQTT_subscribe_impl(topic) == 0) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
 
-  mrbc_define_method(NULL, mqtt_client, "_connect_impl", c_mqtt_connect_impl);
-  mrbc_define_method(NULL, mqtt_client, "_publish_impl", c_mqtt_publish_impl);
-  mrbc_define_method(NULL, mqtt_client, "_subscribe_impl", c_mqtt_subscribe_impl);
-  mrbc_define_method(NULL, mqtt_client, "_disconnect_impl", c_mqtt_disconnect_impl);
-  mrbc_define_method(NULL, mqtt_client, "_pop_packet_impl", c_mqtt_pop_packet_impl);
-  mrbc_define_method(NULL, mqtt_client, "_parse_packet_impl", c_mqtt_parse_packet_impl);
+static void
+c_mqtt_publish(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  const char *topic = mrbc_string_cstr(&v[1]);
+  const char *payload = mrbc_string_cstr(&v[2]);
+  if (MQTT_publish_impl(topic, payload, mrbc_string_size(&v[2])) == 0) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  MQTT_disconnect_impl();
+  SET_NIL_RETURN();
+}
+
+static void
+c_mqtt_get_message(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  char *topic, *payload;
+  int len = MQTT_get_message_impl(&topic, &payload);
+  if (len >= 0) {
+    mrbc_value ary = mrbc_array_new(vm, 2);
+    mrbc_value topic_val = mrbc_string_new_cstr(vm, topic);
+    mrbc_value payload_val = mrbc_string_new(vm, payload, len);
+    mrbc_array_set(&ary, 0, &topic_val);
+    mrbc_array_set(&ary, 1, &payload_val);
+    SET_RETURN(ary);
+  } else {
+    SET_NIL_RETURN();
+  }
+}
+
+void
+mrbc_mqtt_init(void)
+{
+  mrbc_class *mqtt_module = mrbc_define_module(0, "MQTT");
+  mrbc_class *client_class = mrbc_define_class_under(0, mqtt_module, "Client", mrbc_class_object);
+
+  mrbc_define_method(0, client_class, "_connect_impl", c_mqtt_connect);
+  mrbc_define_method(0, client_class, "_subscribe_impl", c_mqtt_subscribe);
+  mrbc_define_method(0, client_class, "_publish_impl", c_mqtt_publish);
+  mrbc_define_method(0, client_class, "_disconnect_impl", c_mqtt_disconnect);
+  mrbc_define_method(0, client_class, "_get_message_impl", c_mqtt_get_message);
 }

@@ -1,69 +1,63 @@
-#ifndef MQTT_DEFINED_H_
-#define MQTT_DEFINED_H_
+#ifndef MQTT_H_
+#define MQTT_H_
 
 #include <stdint.h>
 #include <stdbool.h>
+
 #include "picoruby.h"
-#include "net.h"
-
-// WIP: TLS/SSL support is planned but not yet implemented.
-// Dependencies (picoruby-mbedtls) are added in mrbgem.rake.
-
-// MQTT packet types
-#define MQTT_CONNECT     1
-#define MQTT_CONNACK     2
-#define MQTT_PUBLISH     3
-#define MQTT_PUBACK      4
-#define MQTT_SUBSCRIBE   8
-#define MQTT_SUBACK      9
-#define MQTT_DISCONNECT  14
-
-// MQTT connection states
-#define MQTT_STATE_DISCONNECTED  0
-#define MQTT_STATE_CONNECTING    1
-#define MQTT_STATE_CONNECTED     2
-#define MQTT_STATE_DISCONNECTING 3
-
-// MQTT client structure
-typedef struct {
-  const char *host;
-  int port;
-  const char *client_id;
-  int state;
-  struct altcp_pcb *pcb;
-  picorb_state *vm;
-  char *recv_buffer;
-  size_t recv_buffer_len;
-  
-  // Packet queue
-  uint8_t *packet_buffer;
-  uint16_t packet_size;
-  bool packet_available;
-  bool packet_mutex;
-  
-  // Callback state tracking
-  bool in_callback;  // Tracks if we're currently in a callback context
-} mqtt_client_t;
+#include "lwip/apps/mqtt.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Global MQTT client instance
-extern mqtt_client_t *g_mqtt_client;
+#define MQTT_TOPIC_MAX_LEN 64
+#define MQTT_PAYLOAD_MAX_LEN 256
 
-size_t encode_variable_length(size_t length, uint8_t *buf);
+typedef enum {
+  MQTT_STATE_IDLE,
+  MQTT_STATE_CONNECTING,
+  MQTT_STATE_CONNACK_WAIT,
+  MQTT_STATE_ACTIVE,
+  MQTT_STATE_SUBSCRIBING,
+  MQTT_STATE_PUBLISHING,
+  MQTT_STATE_DISCONNECTING,
+  MQTT_STATE_ERROR,
+  MQTT_STATE_TIMEOUT
+} mqtt_fsm_state_t;
 
-bool MQTT_connect(picorb_state *vm, const char *host, int port, const char *client_id);
-bool MQTT_publish(picorb_state *vm, const char *payload, const char *topic);
-bool MQTT_subscribe(picorb_state *vm, const char *topic);
-bool MQTT_disconnect(picorb_state *vm);
+typedef struct {
+  mqtt_client_t *client;
+  mqtt_fsm_state_t fsm_state;
 
-void MQTT_push_event(uint8_t *data, uint16_t size);
-bool MQTT_pop_event(uint8_t **data, uint16_t *size);
+  char topic_to_sub[MQTT_TOPIC_MAX_LEN];
+  char topic_to_pub[MQTT_TOPIC_MAX_LEN];
+  char payload_to_pub[MQTT_PAYLOAD_MAX_LEN];
+  int payload_to_pub_len;
 
-void MQTT_platform_init(void);
-void MQTT_platform_cleanup(void);
+  char recv_topic[MQTT_TOPIC_MAX_LEN];
+  char recv_payload[MQTT_PAYLOAD_MAX_LEN];
+  int recv_payload_len;
+  bool message_arrived;
+
+#if defined(PICORB_VM_MRUBY)
+  mrb_state *mrb;
+  mrb_value callback_proc;
+#elif defined(PICORB_VM_MRUBYC)
+  mrbc_vm *vm;
+  mrbc_value callback_proc;
+#endif
+} mqtt_context_t;
+
+int MQTT_connect_impl(const char *host, int port, const char *client_id);
+int MQTT_subscribe_impl(const char *topic);
+int MQTT_publish_impl(const char *topic, const char *payload, int len);
+void MQTT_disconnect_impl(void);
+int MQTT_get_message_impl(char **topic, char **payload);
+
+void MQTT_init_context(void *vm);
+void MQTT_set_callback(void *proc);
+
 
 #ifdef __cplusplus
 }
