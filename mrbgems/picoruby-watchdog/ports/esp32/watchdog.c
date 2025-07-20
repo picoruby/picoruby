@@ -20,7 +20,8 @@ Watchdog_disable(void)
 void
 Watchdog_reboot(uint32_t delay_ms)
 {
-  /* Not implemented */
+  vTaskDelay(pdMS_TO_TICKS(delay_ms));
+  esp_restart();
 }
 
 void
