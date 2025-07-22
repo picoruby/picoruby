@@ -12,8 +12,8 @@ extern "C" {
 #define PICORUBY_I2C_RP2040_I2C1      1
 
 typedef enum {
- ERROR_NONE              =  0,
- ERROR_INVALID_UNIT      = -1,
+ I2C_ERROR_NONE          =  0,
+ I2C_ERROR_INVALID_UNIT  = -1,
 } i2c_status_t;
 
 int I2C_unit_name_to_unit_num(const char *);

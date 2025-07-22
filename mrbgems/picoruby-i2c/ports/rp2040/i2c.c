@@ -11,7 +11,7 @@
     switch (unit_num) { \
       case PICORUBY_I2C_RP2040_I2C0: { unit = i2c0; break; } \
       case PICORUBY_I2C_RP2040_I2C1: { unit = i2c1; break; } \
-      default: { return ERROR_INVALID_UNIT; } \
+      default: { return I2C_ERROR_INVALID_UNIT; } \
     } \
   } while (0)
 
@@ -39,7 +39,7 @@ I2C_unit_name_to_unit_num(const char *unit_name)
   } else if (strcmp(unit_name, "RP2040_I2C1") == 0) {
     return PICORUBY_I2C_RP2040_I2C1;
   } else {
-    return ERROR_INVALID_UNIT;
+    return I2C_ERROR_INVALID_UNIT;
   }
 }
 
@@ -57,6 +57,6 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
   gpio_pull_up(sda_pin);
   gpio_pull_up(scl_pin);
 
-  return ERROR_NONE;
+  return I2C_ERROR_NONE;
 }
 

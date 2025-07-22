@@ -64,7 +64,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
   if (status < 0) {
     const char *message;
     switch (status) {
-      case ERROR_INVALID_UNIT: message = "Invalid I2C unit"; break;
+      case I2C_ERROR_INVALID_UNIT: message = "Invalid I2C unit"; break;
       default: message = "Unknows I2C error"; break;
     }
     struct RClass *IOError = mrb_define_class_id(mrb, MRB_SYM(IOError), E_STANDARD_ERROR);

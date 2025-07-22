@@ -3,13 +3,13 @@ class GPIO
 
   # @sidebar error
   class Error
-    ERROR_NONE:           0
-    ERROR_TIMEOUT:       -1
-    ERROR_GENERIC:       -2
-    ERROR_NO_DATA:       -3
-    ERROR_NOT_PERMITTED: -4
-    ERROR_INVALID_ARG:   -5
-    ERROR_IO:            -6
+    GPIO_ERROR_NONE:           0
+    GPIO_ERROR_TIMEOUT:       -1
+    GPIO_ERROR_GENERIC:       -2
+    GPIO_ERROR_NO_DATA:       -3
+    GPIO_ERROR_NOT_PERMITTED: -4
+    GPIO_ERROR_INVALID_ARG:   -5
+    GPIO_ERROR_IO:            -6
 
     def self.peripheral_error: (Integer code, ?String name) -> void
   end

@@ -110,9 +110,9 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   if (status < 0) {
     char message[30];
     switch (status) {
-      case ERROR_INVALID_UNIT: { strcpy(message, "Invalid SPI unit"); break; }
-      case ERROR_INVALID_MODE: { strcpy(message, "Invalid SPI mode"); break; }
-      case ERROR_INVALID_FIRST_BIT: { strcpy(message, "Invalid SPI firt bit"); break; }
+      case SPI_ERROR_INVALID_UNIT: { strcpy(message, "Invalid SPI unit"); break; }
+      case SPI_ERROR_INVALID_MODE: { strcpy(message, "Invalid SPI mode"); break; }
+      case SPI_ERROR_INVALID_FIRST_BIT: { strcpy(message, "Invalid SPI firt bit"); break; }
       default: { strcpy(message, "Unknows SPI error"); }
       mrbc_raise(vm, MRBC_CLASS(IOError), message);
       return;
