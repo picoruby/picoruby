@@ -48,5 +48,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.gembox "peripheral_utils"
   conf.gembox "utils"
 
+  conf.gem core: "picoruby-rapicco"
+
   conf.microruby
 end

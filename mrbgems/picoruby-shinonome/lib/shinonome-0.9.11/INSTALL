@@ -1,0 +1,272 @@
+●東雲フォントファミリー
+                                                                    2001
+                                     The Electronic Font Open Laboratory
+                                        http://openlab.ring.gr.jp/efont/
+
+
+このドキュメントは、フォントのインストール方法、フォントデータの生成
+(ここではあえてコンパイルと呼びます)、インストール手順およびパターンの
+カスタマイズ方法について説明します。
+
+バイナリアーカイブと、ソースアーカイブを入手した方で手順が異なりますの
+で、入手したアーカイブにあった項目をお読み下さい。
+
+
+□ バイナリアーカイブを入手した方
+
+● インストール手順
+
+例えば、PCF フォントのみを gzip 圧縮で使用する場合、以下のような手順に
+なります。
+
+	$ ./configure --with-pcf --without-bdf --enable-compress=gzip \
+	--prefix=/usr
+	$ make
+	$ make install
+
+	(オプション: bdfファイルをインストールしたいとき)
+	$ make install-bdf
+
+● configure のオプションについて
+
+○ --with-fontdir=DIR
+	DIR にフォントをインストールしたいディレクトリを指定。
+
+○ --enable-compress[=ARG]
+	ARG に圧縮に使いたいコマンドを指定、デフォルトは gzip 。
+
+● ソースアーカイブについて
+
+バイナリアーカイブは、ソースアーカイブをデフォルトで make したものが入っ
+ています。いくつかのフォントが必要なかったり、XLFD を変更したい場合に
+はソースアーカイブをご利用下さい。
+
+
+□ ソースアーカイブを入手した方
+
+● ディレクトリ構成
+
+全部で三つある各サブディレクトリには、
+
+12/: 12 ドットフォント
+	hankaku/	JISX0201.1976 ASCII フォント + 半角カタカナ
+			(latin1 との差分)
+	kanjic/		JISX0208.1983 固定長漢字フォント
+	kanjip/		JISX0208.1983 可変長漢字フォント
+	latin1/		ISO8859-1 ASCII フォント
+	mincho/		JISX0208.1983 固定長漢字フォント明朝体
+			(kanjic との差分)
+	marumoji/	JISX0208.1983 固定長漢字フォント丸文字
+			(kanjic との差分)
+
+14/: 14 ドットフォント
+	hankaku/	JISX0201.1976 ASCII フォント + 半角カタカナ
+			(latin1 との差分)
+	kanjic/		JISX0208.1983 固定長漢字フォント
+	latin1/		ISO8859-1 ASCII フォント
+	mincho/		JISX0208.1983 固定長漢字フォント明朝体
+			(kanjic との差分)
+
+16/: 16 ドットフォント
+	hankaku/	JISX0201.1976 ASCII フォント + 半角カタカナ
+			(latin1 との差分)
+	kanjic/		JISX0208.1983 固定長漢字フォント
+	latin1/		ISO8859-1 ASCII フォント
+	mincho/		JISX0208.1983 固定長漢字フォント明朝体
+			(kanjic との差分)
+
+18/: 18 ドットフォント
+	hankaku/	JISX0201.1976 ASCII フォント + 半角カタカナ
+			(latin1 との差分)
+	latin1/		ISO8859-1 ASCII フォント
+
+tools/:
+			コンパイルに必要なフィルタ郡
+
+が含まれています。
+
+
+● コンパイルに必要なもの
+
+tools ディレクトリ以下にあるフィルタを動かすには、最低限、
+
+	- Perl           5.00503 以上
+	- GNU awk (gawk) 3.0.4 以上
+
+が必要です (もう少し古いバージョンでも動くと思いますが、確認しておりま
+せん‥‥)。共に、日本語拡張されている必要は特にありません。ご自分のシ
+ステムにインストールされているか、確認してください。
+
+
+● コンパイル・インストール手順
+
+製作作業の都合上、独自形式のフォントのソースしか用意しておりませんので、
+コンパイルして、BDF および PCF ファイルを作成してください。GNU awk お
+よび Perl が必要です。一般的な Linux システムの場合、以下のようにコマ
+ンドを実行します。
+
+	$ ./configure --with-fontdir=/usr/X11R6/lib/X11/font/japanese
+	$ make
+	$ make install
+
+さらに、エイリアスを定義する fonts.alias ファイルもインストールする場合、
+
+	$ make install-alias
+
+を実行しますが、必ずしも必要なものではありません。jisx0208.1990 から、
+jisx0208.1983 へエイリアスをはったり、東雲をフォントセットで指定しやす
+いように、それら用に iso8859-1 フォントのエイリアスを作ったりします。
+むしろ、既存の fonts.alias を変に上書きする可能性があるので、注意して
+実行した方がいいでしょう。
+
+デフォルトでは、普段使われるローマン体の他に、ボールド体 (太字)、イタ
+リック体 (斜体) がインストールされます。ただし、イタリック生成には大変
+時間がかかります。そのため、これを省略したい場合、configure のオプショ
+ンに、
+	--disable-italic --disable-bolditalic
+を追加します。
+
+インストール前に、プレビューを閲覧するには、
+
+	$ ./configure
+	$ make test
+
+によって、XFD アプリケーションが起動しますので、デザインを一通り確認で
+きます。
+
+尚、申し訳ございませんが、FreeBSD では make ではなく、gmake を用いてく
+ださい。
+
+
+● configure のオプションについて
+
+〜お願い〜
+
+configure は必ず、make する前に行ってください。make 後に行っても、
+configure へのオプションが反映されません。
+
+
+○ XLFD 変更オプション
+
+デフォルトではフォント名が "-Shinonome-Gothic-" で作成されますが、
+configure へのオプションによって変更することができます。
+
+	$ ./conifgure  --with-foundry=フォント・ファンダリ名 \
+		  --with-family=フォント・ファミリ名
+
+例えば、東雲フォントを、"Hoge-Fixed" のフォントとして利用する場合、
+
+	$ ./conifgure  --with-foundry=Hoge \
+		       --with-family=Fixed
+
+というようにしてください。
+
+
+○出力ファイル名 変更オプション
+
+出力されるファイル名を変更することができます。
+それぞれのオプションとデフォルト値は以下のとおりです。
+	
+	オプション			デフォルト値
+	--with-kanjic12_outfile		"shnmk12"
+	--with-kanjip12_outfile		"shnmk12p"
+	--with-mincho12_outfile		"shnmk12min"
+	--with-marumoji12_outfile	"shnmk12maru"
+	--with-latin112_outfile		"shnm6x12a"
+	--with-hankaku12_outfile	"shnm6x12r"
+	--with-kanjic14_outfile		"shnmk14"
+	--with-mincho14_outfile		"shnmk14min"
+	--with-latin114_outfile		"shnm7x14a"
+	--with-hankaku14_outfile	"shnm7x14r"
+	--with-kanjic16_outfile		"shnmk16"
+	--with-mincho16_outfile		"shnmk16min"
+	--with-latin116_outfile		"shnm8x16a"
+	--with-hankaku16_outfile	"shnm8x16r"
+	--with-latin118_outfile		"shnm9x18a"
+	--with-hankaku18_outfile	"shnm9x18r"
+
+ここで、オプションの文字列はそれぞれ
+
+	kanjic		JISX0208 ゴシック体固定長
+	kanjip		JISX0208 ゴシック体プロポーショナル
+	mincho		JISX0208 明朝体固定長
+	marumoji	JISX0208 丸文字体固定長
+	latin1		ISO-8859 固定長
+
+を表しています。
+ファイル名には、拡張子 .pcf.gz を除いてください。
+
+○フォント生成抑制オプション
+
+	--disable-mincho	明朝体を生成しない
+	--disable-marumoji	丸文字体を生成しない
+	--disable-bold		ボールドを生成しない
+	--disable-italic	イタリックを生成しない
+	--disable-bolditalic	ボールドイタリックを生成しない
+
+○表示オプション
+
+	--disable-progressbar	プログレスバーを表示しない
+
+リモートで make するときなどに有効です。
+
+
+●文字パターンのカスタマイズについて
+
+おそらく、私のデザインセンスが明らかに不足しているために、自分でパター
+ンを変更したい場合も多分にあるかと思います。この手順を説明します。
+
+1. 一旦、
+
+	$ make src
+
+  を行ってください。各サブディレクトリに、font_src.bit が用意されます (明
+  朝および丸文字データに関しては、差分しか含まれてないので、上記命令によっ
+  てで復元します)。
+
+2. これをテキストエディタから直接変更してください。特定の漢字データの
+   探し方は、付属スクリプトで、例えば
+
+	$ $(top_srcdir)/tools/kcode 漢字 (全角 2 文字まで)
+
+   とすれば、漢字コードが 10 進で表示されるので、これをエディタ上で検索
+   します。フォントソースにも各文字データに対応する漢字が EUC で埋め込ま
+   れているので、emacs などの漢字対応のエディタから直接検索することも可
+   能です。編集する際、横幅数や、"."の","への打ち間違いなどは許容するよ
+   うになっていますのである程度ラフに行うことができます。デザインパター
+   ンのプレビューは、作業しているサブディレクトリ上で、
+
+	$ make test
+
+   とすることで見ることができるでしょう。
+
+3. 最終的に確定したら、フォントソースのトップディレクトリで、
+
+	$ make renew
+	$ make distclean
+
+  とすれば、上記のラフな打ち間違いの整理や、差分ファイルの生成・中間ファ
+  イルの完全な削除などを行い、このオリジナルアーカイブの配布形態と同一
+  の状態にすることができます。
+
+こんなダサい方法ではなく、xmbdfed 等の GUI アプリケーションを利用して
+スマートに修正する場合は、
+
+1. 一旦、
+	$ make bdf
+
+  とすれば、一般的な X のフォントソース形式である、BDF ファイルが各サブ
+  ディレクトリに作成されます。
+
+2. この BDF ファイルを xmbdfed なり GUI のエディタで編集してください。
+
+3. 最終的に、上記の 3 と同じように
+
+	$ make renew
+	$ make distclean
+
+   を行います。	
+
+尚、このフォントを個人的に修正を加えたものを配布してそれにソースもつけ
+たい場合、配布形式は BDF だけでも、この形式に従ってもどちらでも構いま
+せん。どちらでもご自由に行って下さい。

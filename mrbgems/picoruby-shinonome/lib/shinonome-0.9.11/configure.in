@@ -1,0 +1,44 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT()
+
+AC_PROG_INSTALL
+AC_SUBST(INSTALL)
+
+dnl
+dnl Fonts installation directory.
+dnl
+AC_ARG_WITH(fontdir,
+    [  --with-fontdir=DIR      install fonts in DIR [PREFIX/X11R6/lib/X11/fonts/japanese]])
+fontdir=${with_fontdir}
+if test -z "$fontdir" -o "${fontdir}" = yes; then
+  theprefix=$prefix
+  if test "x$theprefix" = "xNONE"; then
+    theprefix=$ac_default_prefix
+  fi
+  fontdir="${theprefix}/X11R6/lib/X11/fonts/japanese"
+fi
+AC_MSG_CHECKING([where fonts should go])
+AC_MSG_RESULT(${fontdir})
+AC_SUBST(fontdir)
+
+dnl
+dnl Compress fonts nor not
+dnl
+AC_ARG_ENABLE(compress,
+  [  --enable-compress[=ARG] whether to compress PCF fonts or not [ARG=gzip]])
+if test -z "${enable_compress}"; then
+  compress=no
+elif test "${enable_compress}" = "yes"; then
+  compress=gzip
+else
+  compress=${enable_compress}
+fi
+AC_MSG_CHECKING(whether to compress fonts or not)
+if test "${compress}" = "no" ; then
+  AC_MSG_RESULT(no)
+else
+  AC_MSG_RESULT([yes, by ${compress}])
+fi
+AC_SUBST(compress)
+
+AC_OUTPUT(Makefile)

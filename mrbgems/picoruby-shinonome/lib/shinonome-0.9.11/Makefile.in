@@ -1,0 +1,92 @@
+fontdir = @fontdir@
+srcdir = @srcdir@
+
+BDFTOPCF  = bdftopcf
+MKFONTDIR = mkfontdir
+COMPRESS  = @compress@
+
+RM        = rm -f
+SHELL	  = /bin/sh
+
+INSTALL   = @INSTALL@
+
+BDFFILES = \
+	shnm6x12a.bdf    shnm6x12ab.bdf   shnm6x12ai.bdf   shnm6x12abi.bdf   \
+	shnm6x12r.bdf    shnm6x12rb.bdf   shnm6x12ri.bdf   shnm6x12rbi.bdf   \
+	shnm7x14a.bdf    shnm7x14ab.bdf   shnm7x14ai.bdf   shnm7x14abi.bdf   \
+	shnm7x14r.bdf    shnm7x14rb.bdf   shnm7x14ri.bdf   shnm7x14rbi.bdf   \
+	shnm8x16a.bdf    shnm8x16ab.bdf   shnm8x16ai.bdf   shnm8x16abi.bdf   \
+	shnm8x16r.bdf    shnm8x16rb.bdf   shnm8x16ri.bdf   shnm8x16rbi.bdf   \
+	shnm9x18a.bdf    shnm9x18ab.bdf   shnm9x18ai.bdf   shnm9x18abi.bdf   \
+	shnm9x18r.bdf    shnm9x18rb.bdf   shnm9x18ri.bdf   shnm9x18rbi.bdf   \
+	shnmk12.bdf      shnmk12b.bdf     shnmk12i.bdf     shnmk12bi.bdf     \
+	shnmk12p.bdf     shnmk12pb.bdf    shnmk12pi.bdf    shnmk12pbi.bdf    \
+	shnmk12min.bdf   shnmk12minb.bdf  shnmk12mini.bdf  shnmk12minbi.bdf  \
+	shnmk12maru.bdf  shnmk12marub.bdf shnmk12marui.bdf shnmk12marubi.bdf \
+	shnmk14.bdf      shnmk14b.bdf     shnmk14i.bdf     shnmk14bi.bdf     \
+	shnmk14min.bdf   shnmk14minb.bdf  shnmk14mini.bdf  shnmk14minbi.bdf  \
+	shnmk16.bdf      shnmk16b.bdf     shnmk16i.bdf     shnmk16bi.bdf     \
+	shnmk16min.bdf   shnmk16minb.bdf  shnmk16mini.bdf  shnmk16minbi.bdf
+
+PCFFILES = $(BDFFILES:.bdf=.pcf)
+
+pcf: $(PCFFILES)
+
+all: pcf
+
+%.pcf: bdf/%.bdf
+	bdftopcf $<  > $@
+
+install: install-pcf
+
+install-pcf: pcf
+	@if [ -d ${fontdir} ] ; then \
+	  rm -f ${fontdir}/fonts.alias ; \
+	else \
+	  $(INSTALL) -d ${fontdir} ; \
+	fi
+	@for f in $(PCFFILES) ; do \
+	  $(INSTALL) -m 0444 $${f} ${fontdir} ; \
+	done
+	@if [ "${COMPRESS}" != "no" ] ; then \
+	  echo "Compressing PCF fonts by ${COMPRESS}..." ; \
+	  rm -f ${fontdir}/*.pcf.* ; \
+	  ${COMPRESS} ${fontdir}/*.pcf ; \
+	fi
+	$(MKFONTDIR) ${fontdir}
+
+install-bdf:
+	@if [ -d ${fontdir} ] ; then \
+	  rm -f ${fontdir}/fonts.alias ; \
+	else \
+	  $(INSTALL) -d ${fontdir} ; \
+	fi
+	@echo "Installing BDF fonts..."
+	@for f in ${srcdir}/bdf/*.bdf; do \
+	  $(INSTALL) -m 0444 $${f} ${fontdir} ; \
+	done
+	$(MKFONTDIR) ${fontdir}
+
+install-alias:
+	@if [ -d ${fontdir} ] ; then \
+	  rm -f ${fontdir}/fonts.alias ; \
+	else \
+	  $(INSTALL) -d ${fontdir} ; \
+	fi
+	cp -f fonts.alias  ${fontdir}/fonts.alias
+
+clean:
+	$(RM) -f *.pcf
+
+distclean: clean
+	$(RM) config.* Makefile
+
+# Automatic makefile rebuilding
+Makefile: $(srcdir)/Makefile.in config.status
+	./config.status
+
+$(srcdir)/configure: $(srcdir)/configure.in
+	cd $(srcdir) && autoreconf
+
+./config.status: $(srcdir)/configure
+	cd . && ./config.status --recheck
