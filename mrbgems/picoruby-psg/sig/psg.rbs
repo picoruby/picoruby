@@ -1,0 +1,42 @@
+$DEBUG: bool
+
+module PSG
+  class Driver
+    CHIP_CLOCK: Integer
+    SAMPLE_RATE: Integer
+    TIMBRES: Hash[Symbol, Integer]
+
+    def self.select_pwm: (Integer left, Integer right) -> void
+    def self.select_mcp4922: (Integer ldac) -> void
+    def initalize: (Symbol type, **Integer opt) -> void
+    def join: () -> void
+    def buffer_empty?: () -> bool
+    def deinit: () -> nil
+    def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
+    def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
+    def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool
+    def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool
+    def set_legato: (Integer ch, Integer legato, ?Integer tick_delay) -> bool
+    def mute: (Integer ch, Integer flag, ?Integer tick_delay) -> bool
+
+    WAIT_MS: Integer
+    def play_mml: (Array[String] tracks, ?terminate: bool) -> self
+    def play_prs: (String filename, ?terminate: bool) -> void
+    private def trap: () -> void
+    private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
+  end
+
+  class Keyboard
+    KEY2PERIOD: Hash[Integer, Integer]
+    TONE_K: Float
+    CH: Integer
+    @ch_reg: Integer
+    @driver: PSG::Driver
+    def self.note_to_period: (Integer note) -> Integer
+    def initialize: (PSG::Driver driver, ?channel: Integer) -> void
+    def note_on: (Integer period) -> bool
+    def note_off: () -> bool
+    def start: () -> void
+  end
+
+end

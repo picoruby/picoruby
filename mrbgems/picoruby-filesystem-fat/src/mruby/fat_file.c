@@ -155,6 +155,21 @@ mrb_read(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_getbyte(mrb_state *mrb, mrb_value self)
+{
+  FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
+  char buff[1];
+  UINT br;
+  FRESULT res = f_read(fp, buff, 1, &br);
+  mrb_raise_iff_f_error(mrb, res, "f_read");
+  if (br == 1) {
+    return mrb_fixnum_value((unsigned char)buff[0]);
+  } else {
+    return mrb_nil_value();
+  }
+}
+
+static mrb_value
 mrb_write(mrb_state *mrb, mrb_value self)
 {
   FIL *fp = (FIL *)mrb_data_get_ptr(mrb, self, &mrb_fat_file_type);
@@ -217,6 +232,7 @@ mrb_s_vfs_methods(mrb_state *mrb, mrb_value klass)
     mrb_s_new,
     mrb_File_close,
     mrb_read,
+    mrb_getbyte,
     mrb_write,
     mrb_seek,
     mrb_tell,
@@ -247,6 +263,7 @@ mrb_init_class_FAT_File(mrb_state *mrb ,struct RClass *class_FAT)
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(seek), mrb_seek, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM_Q(eof), mrb_eof_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(read), mrb_read, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(getbyte), mrb_getbyte, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(write), mrb_write, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(close), mrb_File_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_FAT_File, MRB_SYM(size), mrb_size, MRB_ARGS_NONE());

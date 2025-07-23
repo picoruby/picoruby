@@ -1,0 +1,33 @@
+module PRS
+  SIGNATURE: String
+  VERSION: String
+  NUMBER_OF_TRACKS: String
+  RESERVED: String
+  LENGTH_OFFSET: Integer
+  LOOP_START_OFFSET: Integer
+  HEADER_SIZE: Integer
+  OP_MUTE: Integer
+  OP_SEND_REG: Integer
+  OP_SET_LEGATO: Integer
+  OP_SET_PAN: Integer
+  OP_SET_TIMBRE: Integer
+  OP_SET_LFO: Integer
+  OP_WAIT: Integer
+  SONGNAME_MAX_LEN: Integer
+
+  def self.check_header: (String header) -> [Integer, Integer]
+
+  class Compiler
+    def self.save: (Array[String] tracks, String filename, ?songname: String) -> void
+    attr_accessor tracks: Array[String]
+    attr_reader songname: String
+    @file: File
+    @length: Integer
+    def initialize: () -> void
+    def songname=: (String name) -> String
+    def save_to: (String filename) -> void
+    private def gen2: (Integer op, Integer reg, Integer value) -> void
+    private def gen4: (Integer op, Integer reg, Integer val1, Integer val2, Integer val3) -> void
+  end
+end
+
