@@ -119,8 +119,8 @@ def collect_gems(vm_type, specified_gem = nil)
   vm = vm_type == 'picoruby' ? 'mrubyc' : 'mruby'
   gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
   gems = {
-    need_build: [], # C extentions && No platform dependent
-    no_need_build: [] # (C extentions && Platform dependent) || No C extentions (possibly has mock)
+    need_build: [], # C extensions && No platform dependent
+    no_need_build: [] # (C extensions && Platform dependent) || No C extensions (possibly has mock)
   }
   Dir.glob("#{gems_dir}/picoruby-*").each do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
