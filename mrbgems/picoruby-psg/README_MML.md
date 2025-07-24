@@ -14,12 +14,18 @@ It supports multi-track sequencing, tempo and envelope control, vibrato (LFO), p
 
 ```ruby
 tracks = [
-  'T200 S0 M500 O5 L8 | E  E  R E  R C  E  R |  G4 R4 < G4 R4',
-  'T200 S0      O4 L8 | F# F# R F# R F# F# R |  B4 R4   R2   ',
-  'T200 S0      O3 L8 | D  D  R D  R D  D  R |> G4 R4 < G4 R4',
+  '@0 T120 S0 M800 L4 O5 f  f >c   c |  d    d   c2    |<b-  b-  a  a | g  g f2|>c  c <b- b-| a  a  g2     |>c   c  <b- b- | a  a g2        |f  f> c   c |  d    d   c2    | <b- b-  a  a | g  g f2',
+  '@0 T120 S0      L4 O4 a >c  f   f |  f    f   g   f | e   c   f  c |<b- b-a2|>a  a  g  g | f  f  e2     | g   f   d  e  | c  f e8d8c8<b-8|a >c  f   f |  f    f   g   f |  e  c   f  c |<b- b-a2',
+  '@1 T120 S0      L8 O3 f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2| f>ca4<cg>e4|<f>ca4<cg>e<b-| a>f>c4<<g>eb-4|<f>ca4c4 <c4    |f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2'
 ]
 
 driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
+
+# Instead of using a DAC, you can use PWM output
+# driver = PSG::Driver.new(:pwm, left: 10, right: 11)
+
+driver.play_mml(tracks)
+
 ```
 
 ## 🎼 Supported MML Commands
