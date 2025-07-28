@@ -8,5 +8,6 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-quectel_ec21'
   conf.gem core: 'picoruby-aht25'
   conf.gem core: 'picoruby-adafruit_pcf8523'
+  conf.gem core: 'picoruby-hcsr04'
 end
 

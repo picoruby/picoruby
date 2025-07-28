@@ -1,0 +1,15 @@
+# @sidebar hardware_device
+class HCSR04
+  class TimeoutError < StandardError
+  end
+  class WraparoundError < StandardError
+  end
+
+  TIMEOUT_USEC: Integer
+
+  @trig: GPIO
+  @echo: GPIO
+
+  def initialize: (trig: Integer, echo: Integer) -> void
+  def distance_cm: () -> Integer
+end
