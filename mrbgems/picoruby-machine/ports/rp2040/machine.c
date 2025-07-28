@@ -419,6 +419,10 @@ Machine_mcu_name(void)
 bool
 Machine_set_hwclock(const struct timespec *ts)
 {
+  struct timeval tv;
+  tv.tv_sec = ts->tv_sec;
+  tv.tv_usec = ts->tv_nsec / 1000; // Convert nanoseconds to microseconds
+  settimeofday(&tv, NULL);
   if (aon_timer_is_running()) {
     return aon_timer_set_time(ts);
   }
