@@ -46,8 +46,7 @@ PSG_enter_critical(void)
 void
 PSG_exit_critical(psg_cs_token_t token)
 {
-  spin_unlock(psg_spin);
-  restore_interrupts(token);
+  spin_unlock(psg_spin, token);
 }
 
 #elif defined(PICO_RP2350)
@@ -116,6 +115,14 @@ enum {
   ACK_DONE,
 };
 
+#if defined(PICO_RP2350)
+#define PICORB_IRQ_1 TIMER1_IRQ_1
+#define PICORB_IRQ_2 TIMER1_IRQ_2
+#elif defined(PICO_RP2040)
+#define PICORB_IRQ_1 TIMER_IRQ_1
+#define PICORB_IRQ_2 TIMER_IRQ_2
+#endif
+
 static void __attribute__((noreturn))
 psg_core1_main(void)
 {
@@ -127,7 +134,7 @@ psg_core1_main(void)
   if (!tick_alarm_pool) {
     tick_alarm_pool = alarm_pool_create(ALARM_TICK, 2);
     assert(tick_alarm_pool && "Failed to create alarm tick_alarm_pool");
-    irq_set_priority(TIMER1_IRQ_2, 3);
+    irq_set_priority(PICORB_IRQ_2, 3);
   }
   memset(&tick_timer, 0, sizeof(repeating_timer_t));
   /* 1 kHz = -1000 µs */
@@ -217,7 +224,7 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2)
   if (!audio_alarm_pool) {
     audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
     assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
-    irq_set_priority(TIMER1_IRQ_1, 0);
+    irq_set_priority(PICORB_IRQ_1, 0);
   }
   memset(&audio_timer, 0, sizeof(repeating_timer_t));
   /* 22.05 kHz */
