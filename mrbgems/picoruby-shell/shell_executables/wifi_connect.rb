@@ -129,12 +129,5 @@ if config["wifi"]["watchdog"]
 end
 
 ts = Net::NTP.get
-case RUBY_ENGINE
-when "mruby"
-  Machine.set_hwclock(ts[0], ts[1])
-when "mruby/c"
-  Time.set_hwclock(Time.at ts[0])
-else
-  raise "Unsupported Ruby engine: #{RUBY_ENGINE}"
-end
+Machine.set_hwclock(ts[0], ts[1])
 puts "Time set to #{Time.now}"
