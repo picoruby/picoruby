@@ -9,5 +9,7 @@ class ADC
       raise e
     end
   end
+
+  attr_reader :input
 end
 

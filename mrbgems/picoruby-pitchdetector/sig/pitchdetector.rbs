@@ -1,0 +1,9 @@
+class PitchDetector
+  @adc_input: Integer
+
+  def initialize: (Integer pin) -> void
+  def start: () -> void
+  def stop: () -> void
+  def detect_pitch: () -> (Float | nil)
+  def volume_threshold=: (Integer value) -> Integer
+end
