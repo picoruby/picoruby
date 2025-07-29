@@ -11,4 +11,13 @@ class Float
     n = self.to_i
     (self > n) ? (n + 1) : n
   end
+
+  def round
+    if 0 <= self
+      (self + 0.5).to_i
+    else
+      (self - 0.5).to_i
+    end
+  end
+
 end
