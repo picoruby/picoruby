@@ -3,7 +3,7 @@
 require 'adc'
 
 class PitchDetector
-  def initialize(pin, volume_threshold: 200)
+  def initialize(pin, volume_threshold: 50)
     adc = ADC.new(pin)
     @adc_input = adc.input
     self.volume_threshold = volume_threshold

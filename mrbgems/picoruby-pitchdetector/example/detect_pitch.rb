@@ -5,7 +5,6 @@ pd = PitchDetector.new(26, volume_threshold: 50)
 pd.start
 
 Signal.trap(:INT) do
-  puts "Pitch Detector stopping."
   pd.stop
   puts "Pitch Detector stopped."
 end

@@ -20,5 +20,3 @@ void PITCHDETECTOR_set_volume_threshold(uint16_t value);
 #endif
 
 #endif /* PITCHDETECTOR_DEFINED_H_ */
-
-
