@@ -31,7 +31,7 @@ static mrb_value
 mrb_detect_pitch(mrb_state *mrb, mrb_value self)
 {
   float pitch = PITCHDETECTOR_detect_pitch();
-  if (0 < pitch) {
+  if (0.0f < pitch) {
     return mrb_float_value(mrb, pitch);
   } else {
     return mrb_nil_value();

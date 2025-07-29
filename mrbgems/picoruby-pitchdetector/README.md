@@ -16,19 +16,22 @@ A high-precision pitch detection library for embedded systems, designed specific
 ```ruby
 require 'pitchdetector'
 
-# Initialize with ADC pin and volume threshold
-pd = PitchDetector.new(26, volume_threshold: 50)
+# Initialize with ADC pin
+pd = PitchDetector.new(26)
+
+# Default volume_threshold is 300
+pd.volume_threshold = 100 # Make it more sensitive
 
 # Start pitch detection
 pd.start
 
 # Detect pitch in a loop
-while true
+10.times do
   freq = pd.detect_pitch
   if freq
     puts "Detected frequency: #{freq} Hz"
   end
-  sleep_ms 200
+  sleep_ms 10
 end
 
 # Stop detection

@@ -129,6 +129,6 @@ PITCHDETECTOR_detect_pitch(void)
    return frequency;
  }
 
- return -1.0;  // No data ready
+ return 0.0f;  // No data ready
 }
 

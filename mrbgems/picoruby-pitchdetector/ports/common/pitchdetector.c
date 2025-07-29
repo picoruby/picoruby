@@ -2,6 +2,8 @@
 #include <math.h>
 #include "../../include/pitchdetector.h"
 
+#include "picoruby/debug.h"
+
 static uint16_t volume_threshold;
 
 // YIN algorithm constants
@@ -11,7 +13,7 @@ static uint16_t volume_threshold;
 #define MIN_PERIOD (SAMPLE_RATE / 800)  // 800Hz max
 #define MAX_PERIOD (BUFFER_SIZE / 2)    // Nyquist limit
 #define LOW_FREQ_THRESHOLD 120.0f       // Below this use extended analysis
-#define POWER_THRESHOLD 0.01f
+#define POWER_THRESHOLD 0.001f
 
 // Adaptive filtering constants
 #define SIGNAL_HISTORY_SIZE 8
@@ -165,18 +167,32 @@ parabolic_interpolation(int tau)
 }
 
 // Check if a period is likely a harmonic of a lower fundamental
+//static bool
+//is_harmonic(int period, int fundamental_period)
+//{
+//  if (fundamental_period == 0) return false;
+//
+//  for (int h = 2; h <= MAX_HARMONICS; h++) {
+//    float expected_period = (float)fundamental_period / h;
+//    float tolerance = expected_period * HARMONIC_TOLERANCE;
+//
+//    if (fabsf(period - expected_period) <= tolerance) {
+//      return true;
+//    }
+//  }
+//  return false;
+//}
 static bool
-is_harmonic(int period, int fundamental_period)
-{
-  if (fundamental_period == 0) return false;
-
-  for (int h = 2; h <= MAX_HARMONICS; h++) {
-    float expected_period = (float)fundamental_period / h;
-    float tolerance = expected_period * HARMONIC_TOLERANCE;
-
-    if (fabsf(period - expected_period) <= tolerance) {
-      return true;
-    }
+is_harmonic(float p1, float p2, float tolerance, float strength1, float strength2) {
+  // freq1がfreq2の2倍音または3倍音かどうか判定
+  float freq1 = (float)SAMPLE_RATE / p1;
+  float freq2 = (float)SAMPLE_RATE / p2;
+  float ratio = freq1 / freq2;
+  if (fabsf(ratio - 2.0f) < tolerance && strength1 < strength2) {
+    return true;
+  }
+  if (fabsf(ratio - 3.0f) < tolerance && strength1 < strength2) {
+   return true;
   }
   return false;
 }
@@ -235,8 +251,9 @@ find_fundamental_period(float adaptive_threshold)
 
     // Check if other candidates are harmonics of this one
     for (int j = 0; j < candidate_count; j++) {
-      if (i != j && is_harmonic(candidates[j].period, current_period)) {
-        fundamental_confidence += candidates[j].strength * 0.3f;  // Bonus for harmonic support
+      //if (i != j && is_harmonic(candidates[j].period, current_period)) {
+      if (i != j && is_harmonic(candidates[i].period, candidates[j].period, HARMONIC_TOLERANCE, candidates[i].strength, candidates[j].strength)) {
+        fundamental_confidence += candidates[j].strength * 0.2f;  // Bonus for harmonic support
       }
     }
 
@@ -318,6 +335,7 @@ detect_pitch_core(uint16_t *buffer)
 
   // Additional power-based filtering for better noise rejection
   float normalized_power = signal_power / (4096.0f * 4096.0f);  // 12-bit ADC normalization
+//  D("Normalized power: %f\n", normalized_power);
   if (normalized_power < POWER_THRESHOLD) {
     return 0.0f;
   }
