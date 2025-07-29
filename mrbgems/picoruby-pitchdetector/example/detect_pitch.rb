@@ -1,6 +1,6 @@
 require 'pitchdetector'
 
-pd = PitchDetector.new(26, volume_threshold: 50)
+pd = PitchDetector.new(26, volume_threshold: 0)
 
 pd.start
 
