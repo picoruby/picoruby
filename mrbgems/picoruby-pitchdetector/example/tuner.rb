@@ -1,6 +1,8 @@
 require 'pitchdetector'
 
-pd = PitchDetector.new(26, volume_threshold: 50)
+pd = PitchDetector.new(26)
+
+note = PitchDetector::Note.new
 
 pd.start
 
@@ -14,7 +16,7 @@ puts "Pitch Detector started. Press Ctrl-C to stop."
 while true
   freq = pd.detect_pitch
   if freq
-    puts "Detected frequency: #{freq} Hz"
+    puts note.freq_to_note(freq)
   end
-  sleep_ms 200
+  sleep_ms 10
 end

@@ -15,4 +15,5 @@ MRuby::GemBox.new do |conf|
   conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
   conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-error"
   conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-sprintf"
+  conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
 end
