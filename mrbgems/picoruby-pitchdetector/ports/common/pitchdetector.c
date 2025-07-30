@@ -33,7 +33,24 @@ static float noise_estimate = 0;
 static int history_index = 0;
 static bool history_filled = false;
 
-// Enhanced signal power calculation with DC offset removal
+
+/* ==================================================================
+  How It All Works Together
+  1. Input: Audio buffer with digital samples
+  2. Preprocessing: Remove noise, filter signal
+  3. YIN Analysis: Find repeating patterns
+  4. Candidate Selection: Identify possible pitches
+  5. Harmonic Analysis: Determine fundamental frequency
+  6. Refinement: Improve accuracy with interpolation
+  7. Output: Frequency in Hz or 0 if no clear pitch
+================================================================== */
+
+
+
+// Measures how "loud" the audio signal is and removes any DC bias.
+// - Calculates the average value (DC offset) of the audio samples
+// - Computes signal power (how much the signal varies from the average)
+// - Used to determine if the signal is strong enough to analyze
 static float
 calculate_signal_power(uint16_t *buffer, int size, float *dc_offset)
 {
@@ -56,7 +73,10 @@ calculate_signal_power(uint16_t *buffer, int size, float *dc_offset)
   return sum / size;
 }
 
-// Update noise estimate using signal history
+// Learns about background noise levels over time.
+// - Keeps track of recent signal power measurements
+// - Finds the quietest recent measurement as the noise floor
+// - Helps distinguish between actual music and background noise
 static void
 update_noise_estimate(float signal_power)
 {
@@ -79,7 +99,10 @@ update_noise_estimate(float signal_power)
   }
 }
 
-// Calculate adaptive YIN threshold based on signal quality
+// Decides how strict to be when finding pitch.
+// - For loud, clear signals: be more sensitive (lower threshold)
+// - For weak, noisy signals: be less sensitive (higher threshold)
+// - Prevents false detections in noisy environments
 static float
 calculate_adaptive_threshold(float signal_power)
 {
@@ -102,7 +125,10 @@ calculate_adaptive_threshold(float signal_power)
   }
 }
 
-// Simple high-pass filter to remove DC and low-frequency noise
+// Removes low-frequency noise and rumble.
+// - Simple digital filter implementation
+// - Filters out very low frequencies that aren't musical notes
+// - Helps focus on the actual pitch content
 static void
 apply_highpass_filter(uint16_t *buffer, float dc_offset)
 {
@@ -119,7 +145,10 @@ apply_highpass_filter(uint16_t *buffer, float dc_offset)
   }
 }
 
-// YIN difference function - core of the YIN algorithm
+// Core of the YIN pitch detection algorithm.
+// - Compares the signal with delayed versions of itself
+// - Finds repeating patterns (which indicate pitch)
+// - Creates a "difference function" that has valleys at pitch periods
 static void
 yin_difference_function(uint16_t *buffer, float dc_offset)
 {
@@ -143,7 +172,10 @@ yin_difference_function(uint16_t *buffer, float dc_offset)
   }
 }
 
-// Parabolic interpolation for sub-sample precision
+// Makes pitch detection more precise.
+// - Takes the rough pitch estimate and refines it
+// - Uses mathematical curve-fitting for sub-sample accuracy
+// - Improves tuning precision
 static float
 parabolic_interpolation(int tau)
 {
@@ -166,38 +198,38 @@ parabolic_interpolation(int tau)
   return tau + x0;
 }
 
-// Check if a period is likely a harmonic of a lower fundamental
-//static bool
-//is_harmonic(int period, int fundamental_period)
-//{
-//  if (fundamental_period == 0) return false;
-//
-//  for (int h = 2; h <= MAX_HARMONICS; h++) {
-//    float expected_period = (float)fundamental_period / h;
-//    float tolerance = expected_period * HARMONIC_TOLERANCE;
-//
-//    if (fabsf(period - expected_period) <= tolerance) {
-//      return true;
-//    }
-//  }
-//  return false;
-//}
+// Determines if two detected frequencies are related.
+// - Checks if one frequency is an even harmonic (2x, 4x, 6x, 8x) of another
+// - Specifically avoids odd harmonics (3x, 5x, 7x) for chromatic tuner accuracy
+// - Helps identify the fundamental (root) frequency
 static bool
-is_harmonic(float p1, float p2, float tolerance, float strength1, float strength2) {
-  // freq1がfreq2の2倍音または3倍音かどうか判定
+is_harmonic(float p1, float p2, float strength1, float strength2) {
   float freq1 = (float)SAMPLE_RATE / p1;
   float freq2 = (float)SAMPLE_RATE / p2;
   float ratio = freq1 / freq2;
-  if (fabsf(ratio - 2.0f) < tolerance && strength1 < strength2) {
-    return true;
+
+  // Check for even harmonics (2, 4, 6, 8...)
+  for (int h = 2; h <= 8; h += 2) {
+    if (fabsf(ratio - (float)h) < HARMONIC_TOLERANCE && strength1 < strength2) {
+      return true;
+    }
   }
-  if (fabsf(ratio - 3.0f) < tolerance && strength1 < strength2) {
-   return true;
+
+  // Check reverse relationship (fundamental vs harmonic)
+  float inv_ratio = freq2 / freq1;
+  for (int h = 2; h <= 8; h += 2) {
+    if (fabsf(inv_ratio - (float)h) < HARMONIC_TOLERANCE && strength2 < strength1) {
+      return true;
+    }
   }
+
   return false;
 }
 
-// Find multiple period candidates and verify fundamental frequency
+// Finds the main pitch among multiple candidates.
+// - Looks for several possible pitch candidates
+// - Uses harmonic analysis to identify the true fundamental frequency
+// - Returns the most confident pitch detection
 static int
 find_fundamental_period(float adaptive_threshold)
 {
@@ -251,8 +283,7 @@ find_fundamental_period(float adaptive_threshold)
 
     // Check if other candidates are harmonics of this one
     for (int j = 0; j < candidate_count; j++) {
-      //if (i != j && is_harmonic(candidates[j].period, current_period)) {
-      if (i != j && is_harmonic(candidates[i].period, candidates[j].period, HARMONIC_TOLERANCE, candidates[i].strength, candidates[j].strength)) {
+      if (i != j && is_harmonic(candidates[i].period, candidates[j].period, candidates[i].strength, candidates[j].strength)) {
         fundamental_confidence += candidates[j].strength * 0.2f;  // Bonus for harmonic support
       }
     }
@@ -266,7 +297,10 @@ find_fundamental_period(float adaptive_threshold)
   return candidates[0].period;
 }
 
-// Enhanced analysis for low frequencies using longer correlation window
+// Special processing for low notes (bass frequencies).
+// - Uses longer analysis windows for better low-frequency accuracy
+// - Employs correlation analysis for improved precision
+// - Essential for detecting bass notes accurately
 static float
 analyze_low_frequency(uint16_t *buffer, float dc_offset, int estimated_period)
 {
@@ -318,7 +352,13 @@ analyze_low_frequency(uint16_t *buffer, float dc_offset, int estimated_period)
   return (float)SAMPLE_RATE / estimated_period;
 }
 
-// Enhanced YIN-based pitch detection with adaptive processing
+// The main entry point that orchestrates everything.
+// 1. Checks if signal is strong enough to analyze
+// 2. Applies noise filtering
+// 3. Runs YIN algorithm to find pitch candidates
+// 4. Uses harmonic analysis to find fundamental frequency
+// 5. Applies special processing for low frequencies
+// 6. Returns the detected frequency in Hz (or 0 if no pitch found)
 float
 detect_pitch_core(uint16_t *buffer)
 {
@@ -377,6 +417,10 @@ detect_pitch_core(uint16_t *buffer)
   return frequency;
 }
 
+// Allows adjustment of sensitivity.
+// - Sets minimum signal level required for pitch detection
+// - Higher values = less sensitive (ignores quiet sounds)
+// - Lower values = more sensitive (detects quiet sounds)
 void
 PITCHDETECTOR_set_volume_threshold(uint16_t value)
 {
