@@ -159,7 +159,4 @@ mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
 
 #endif
 
-// For debugging purposes, assumed to be implemented by app like R2P2
-void d(const char *fmt, ...);
-
 #endif // PICORUBY_H

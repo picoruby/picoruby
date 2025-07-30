@@ -5,6 +5,7 @@
 #include "../include/psg.h"
 
 #include "picoruby.h"
+#include "picoruby/debug.h"
 #include "mruby/presym.h"
 #include "mruby/class.h"
 #include "mruby/hash.h"
@@ -555,7 +556,7 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
 static void
 reset_psg(mrb_state *mrb)
 {
-  d("PSG: Resetting...");
+  D("PSG: Resetting...\n");
   if (rb.buf) {
     mrb_free(mrb, rb.buf);
   }

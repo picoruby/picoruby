@@ -2,5 +2,6 @@
 # @added_by picoruby-float-ext
 class Float
   def ceil_to_i: () -> Integer
+  def round: () -> Integer
 end
 

@@ -1,0 +1,22 @@
+class PitchDetector
+  @adc_input: Integer
+
+  def initialize: (Integer pin) -> void
+  def start: () -> void
+  def stop: () -> void
+  def detect_pitch: () -> (Float | nil)
+  def volume_threshold=: (Integer value) -> Integer
+
+  class Note
+    type note_t = { note: String, octave: Integer, cents: Integer, frequency: String }
+
+    A4_FREQUENCY: Float
+    NAMES: Array[String]
+
+    @a4_frequency: Float
+
+    def initialize: (Float | Integer reference) -> void
+    def freq_to_note: (Float | Integer frequency) -> note_t
+    def note_to_freq: (String note, Integer octave) -> (Float | nil)
+  end
+end
