@@ -1,41 +1,7 @@
 require 'yaml'
 
 class Rapicco
-  PALETTE = {
-    'w' => 231,  # white
-    'p' => 217,  # pink
-    'b' => 232,  # black
-    'g' => 34,   # shell green
-    'y' => 178,  # dark yellow
-    'd' => 22,   # dark green
-  }
-  RAPIKO = %w[
-    ;......www..ww
-    ;......wpw..wp
-    ;....wwwpwwwwpw
-    ;...wwwwwwwwwwww
-    ;...wwwwwbwwwwbw
-    ;....wwwwwwwbwww
-    ;.....wwwwwwwww
-    ;.....pppppppppp
-    ;....ppwwppppppww
-    ;...wpppppppppp
-    ;.....www....www
-  ]
-  CAMERLENGO = %w[
-    .
-    .
-    .
-    .
-    .............yyyyy
-    ............yyyddyy
-    ....ggggggggyyyyyyy
-    ...ggggggggggyyyyy
-    ..gggggggggggg
-    yygggggggggggg
-    ...yyy......yyy
-  ]
-
+  USAKAME_H = 5
   def initialize(path)
     yaml = ""
     @positions = []
@@ -64,10 +30,12 @@ class Rapicco
     end
     # @type var config: Hash[String, String]
     config = YAML.load(yaml)
-    @rapiko = Rapicco::Sprite.new(RAPIKO, PALETTE)
-    @camerlengo = Rapicco::Sprite.new(CAMERLENGO, PALETTE)
+    sprite = config["sprite"] || "hasumikin"
+    @rapiko = Rapicco::Sprite.new(:rapiko, sprite)
+    @camerlengo = Rapicco::Sprite.new(:camerlengo, sprite)
     @parser = Rapicco::Parser.new
-    @slide = Rapicco::Slide.new
+    @slide = Rapicco::Slide.new(usakame_h: USAKAME_H)
+    @slide.bullet = Rapicco::Sprite.new(:bullet, sprite)
     @current_page = -1
     @duration = config["duration"] || 60*30
     @interval = @duration.to_f / @slide.page_w

@@ -10,34 +10,17 @@ class Rapicco
       white:   "\e[48;5;7m",
     }
 
-    USAKAME_H = 12
-
-    PALETTE = {
-      'r' => 196,  # red
-    }
-    BULLET = %w[
-      .
-      .
-      ......rrrrrr
-      ....rrrrrrrrrr
-      ..rrrrrrrrrrrrrr.....
-      ....rrrrrrrrrr
-      ......rrrrrr
-      ........rr
-    ]
-
-    def initialize(colors = nil)
-      @bullet = Rapicco::Sprite.new(BULLET, PALETTE)
+    def initialize(usakame_h: 12, colors: nil)
       @colors = colors || COLORS
       print "\e[999B\e[999C" # down * 999 and right * 999
       @page_h, @page_w = IO.get_cursor_position
-      @page_h -= USAKAME_H
+      @page_h -= usakame_h
       print "\e[2J" # clear screen
       print "\e[?25l" # hide cursor
       @line_margin = 3
     end
 
-    attr_accessor :line_margin
+    attr_accessor :line_margin, :bullet
     attr_reader :page_w
 
     def check_height

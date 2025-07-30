@@ -1,9 +1,7 @@
 class Rapicco
   type parser_dump_t = Array[Hash[Symbol, untyped]]
 
-  PALETTE: Hash[String, Integer]
-  RAPIKO: Array[String]
-  CAMERLENGO: Array[String]
+  USAKAME_H: Integer
 
   @positions: Array[Integer]
   @rapiko: Rapicco::Sprite
@@ -39,23 +37,24 @@ class Rapicco
 
   class Slide
     COLORS: Hash[Symbol, String]
-    USAKAME_H: Integer
-    PALETTE: Hash[Symbol, Integer]
-    BULLET: Array[String]
 
     attr_reader page_w: Integer
+    attr_accessor bullet: Sprite
 
-    def initialize: (?Hash[Symbol, String]|nil colors) -> void
+    def initialize: (?usakame_h: Integer, ?colors: Hash[Symbol, String]|nil) -> void
     def check_height: () -> bool
     def render_slide: (parser_dump_t lines) -> void
     def render_sprite: (Sprite sprite) -> void
   end
 
   class Sprite
+    type sprite_t = Hash[Symbol, Array[String]]
+    type palette_t = Hash[String, Integer]
+    DATA: Hash[String, sprite_t | palette_t]
     attr_accessor pos: Integer
     attr_reader width: Integer
     attr_reader height: Integer
-    def initialize: (Array[String] rows, Hash[String, Integer] palette) -> void
+    def initialize: (Symbol name, String author) -> void
     def show: () -> void
   end
 end

@@ -1,6 +1,99 @@
 class Rapicco
   class Sprite
-    def initialize(rows, palette)
+    DATA = {
+      "hasumikin" => {
+        rapiko: %w[
+          ;......www..ww
+          ;......wpw..wp
+          ;....wwwpwwwwpw
+          ;...wwwwwwwwwwww
+          ;...wwwwwbwwwwbw
+          ;....wwwwwwwbwww
+          ;.....wwwwwwwww
+          ;.....pppppppppp
+          ;....ppwwppppppww
+          ;...wpppppppppp
+          ;.....www....www
+        ],
+        camerlengo: %w[
+          .
+          .
+          .
+          .
+          .............yyyyy
+          ............yyyddyy
+          ....ggggggggyyyyyyy
+          ...ggggggggggyyyyy
+          ..gggggggggggg
+          yygggggggggggg
+          ...yyy......yyy
+        ],
+        bullet: %w[
+          .
+          .
+          ......rrrrrr
+          ....rrrrrrrrrr
+          ..rrrrrrrrrrrrrr.....
+          ....rrrrrrrrrr
+          ......rrrrrr
+          ........rr
+        ],
+        palette: {
+          'w' => 231,  # white
+          'p' => 217,  # pink
+          'b' => 232,  # black
+          'g' => 34,   # shell green
+          'y' => 178,  # dark yellow
+          'd' => 22,   # dark green
+          'r' => 196,  # red
+        }
+      },
+      "picochobishiba" => {
+        rapiko: %w[
+          ;.w.w
+          ;.w.w
+          ;.wwvw
+          ;.www
+          ;wwlwl
+        ],
+        camerlengo: %w[
+          .
+          ...yd
+          .ggyy
+          gggg
+          y..y
+        ],
+        bullet: %w[
+          .
+          ...rrr
+          ..rrrrr..
+          ...rrr
+          ....r
+        ],
+       palette: {
+          'w' => 231,
+          'g' => 34,
+          'y' => 178,
+          'd' => 22,
+          'r' => 196,
+          'l' => 252,
+          'v' => 124,
+        }
+      },
+      "" => {
+        rapiko: %w[
+        ],
+        camerlengo: %w[
+        ],
+        bullet: %w[
+        ],
+        palette: {
+        }
+      },
+    }
+    def initialize(name, author)
+      rows = DATA[author][name]
+      palette = DATA[author][:palette]
       @pos = 0
       @data = rows.map do |row|
         out = ""
