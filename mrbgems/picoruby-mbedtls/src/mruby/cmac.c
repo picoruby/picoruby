@@ -17,9 +17,10 @@ struct mrb_data_type mrb_cipher_context_type = {
 };
 
 static mrb_value
-mrb__init_aes(mrb_state *mrb, mrb_value self)
+mrb__init_aes(mrb_state *mrb, mrb_value klass)
 {
   mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)mrb_malloc(mrb, sizeof(mbedtls_cipher_context_t));
+  mrb_value self = mrb_obj_new(mrb, mrb_class_ptr(klass), 0, NULL);
   DATA_PTR(self) = ctx;
   DATA_TYPE(self) = &mrb_cipher_context_type;
   mbedtls_cipher_init(ctx);
@@ -86,7 +87,7 @@ gem_mbedtls_cmac_init(mrb_state *mrb, struct RClass *module_MbedTLS)
 
   MRB_SET_INSTANCE_TT(class_MbedTLS_CMAC, MRB_TT_CDATA);
 
-  mrb_define_method_id(mrb, class_MbedTLS_CMAC, MRB_SYM(_init_aes),  mrb__init_aes, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_MbedTLS_CMAC, MRB_SYM(_init_aes),  mrb__init_aes, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_MbedTLS_CMAC, MRB_SYM(update),     mrb_update, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_MbedTLS_CMAC, MRB_SYM(reset),      mrb_reset, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_MbedTLS_CMAC, MRB_SYM(digest),     mrb_digest, MRB_ARGS_NONE());
