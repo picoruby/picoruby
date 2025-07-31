@@ -9,7 +9,7 @@ module MbedTLS
         unless key.length == 16
           raise ArgumentError, "Invalid key length: `#{key.inspect}`"
         end
-        instance = self._init_aes(key)
+        instance = _init_aes(key)
         instance._digest = "aes"
         return instance
       else
