@@ -1,7 +1,7 @@
 require 'yaml'
 
 class Rapicco
-  USAKAME_H = 5
+
   def initialize(path)
     yaml = ""
     @positions = []
@@ -34,7 +34,7 @@ class Rapicco
     @rapiko = Rapicco::Sprite.new(:rapiko, sprite)
     @camerlengo = Rapicco::Sprite.new(:camerlengo, sprite)
     @parser = Rapicco::Parser.new
-    @slide = Rapicco::Slide.new(usakame_h: USAKAME_H)
+    @slide = Rapicco::Slide.new(usakame_h: @rapiko.height)
     @slide.bullet = Rapicco::Sprite.new(:bullet, sprite)
     @current_page = -1
     @duration = config["duration"] || 60*30

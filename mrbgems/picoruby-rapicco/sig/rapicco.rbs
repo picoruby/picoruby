@@ -1,8 +1,6 @@
 class Rapicco
   type parser_dump_t = Array[Hash[Symbol, untyped]]
 
-  USAKAME_H: Integer
-
   @positions: Array[Integer]
   @rapiko: Rapicco::Sprite
   @camerlengo: Rapicco::Sprite
@@ -27,6 +25,7 @@ class Rapicco
     @bold_color: Symbol
     @lines: parser_dump_t
     @in_code_block: bool
+
     def initialize: (?font: Symbol, ?title_font: Symbol, ?code_font: Symbol, ?bold_color: Symbol) -> void
     def parse: (String raw_line) -> void
     def dump: () -> parser_dump_t
@@ -50,7 +49,12 @@ class Rapicco
   class Sprite
     type sprite_t = Hash[Symbol, Array[String]]
     type palette_t = Hash[String, Integer]
-    DATA: Hash[String, sprite_t | palette_t]
+
+    DATA: Hash[String, sprite_t]
+    PALETTE: Hash[String, palette_t]
+
+    @data: Array[String]
+
     attr_accessor pos: Integer
     attr_reader width: Integer
     attr_reader height: Integer

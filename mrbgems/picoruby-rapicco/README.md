@@ -18,23 +18,7 @@ Rapicco is a Ruby-based presentation tool that runs in terminal emulators, inspi
 
 ## Dependencies
 
-- `picoruby-shinonome`: Japanese font rendering library
-
-## File Structure
-
-```
-mrbgems/picoruby-rapicco/
-├── mrbgem.rake          # Gem specification
-├── mrblib/              # Ruby source files
-│   ├── rapicco.rb       # Main presentation class
-│   ├── parser.rb        # Markdown-like text parser
-│   ├── slide.rb         # Slide rendering engine
-│   ├── sprite.rb        # Sprite animation system
-│   └── pngbit.rb        # PNGBIT image format support
-├── sig/                 # RBS type signatures
-├── utils/               # Utilities and assets
-└── example/             # Example presentations
-```
+- `picoruby-shinonome`: Japanese bitmap font rendering library
 
 ## Usage
 
@@ -44,9 +28,10 @@ Create a presentation file with YAML front matter and markdown-like content.
 
 `slide.md`:
 
-```yaml
+````markdown
 ---
-duration: 1800  # 30 minutes in seconds
+duration: 1800    # 30 minutes in seconds for example
+sprite: hasumikin # Sprite author's name. See mrblib/sprite.rb
 ---
 
 # Welcome to Rapicco
@@ -56,11 +41,12 @@ duration: 1800  # 30 minutes in seconds
 - *Bold text* with emphasis
 - *{red}Colored text* in red
 
-```code
+```
 def hello_world
   puts "Hello, World!"
 end
 ```
+````
 
 ### Running a Presentation
 
@@ -83,29 +69,29 @@ presentation.run
 ### Text Formatting Syntax
 
 #### Headers
-```
+```markdown
 # Title Text
 {align=center, scale=2}
 ```
 
 #### Bullet Points
-```
+```markdown
 - Bullet item
 - Another item
 ```
 
 #### Inline Formatting
-```
+```markdown
 *Bold text*
 *{color}Colored text*
 ```
 
 #### Code Blocks
+````markdown
 ```
-```ruby
 puts "Hello World"
 ```
-```
+````
 
 #### Attributes
 Text lines can include attribute blocks `{key=value, key2=value2}`:
@@ -151,10 +137,12 @@ PNGBIT is a simple image format designed for terminal display:
 ## Animation
 
 Rapicco includes two animated sprites:
-- **Rapiko**: A rabbit character that moves based on slide progression
-- **Camerlengo**: A character that moves based on time progression
+- **Rapiko**: A rabbit character that moves based on slide progression. Note that she is `Rapi*k*o`, not `Rapi*c*o`
+- **Camerlengo**: He is a tortoise character that moves based on time progression
 
 Both sprites use ASCII art with color palettes and support positioning along the bottom of the terminal.
+
+![](usakame.png)
 
 ## Color Support
 
