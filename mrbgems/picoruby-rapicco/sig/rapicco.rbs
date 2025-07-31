@@ -1,10 +1,6 @@
 class Rapicco
   type parser_dump_t = Array[Hash[Symbol, untyped]]
 
-  PALETTE: Hash[String, Integer]
-  RAPIKO: Array[String]
-  CAMERLENGO: Array[String]
-
   @positions: Array[Integer]
   @rapiko: Rapicco::Sprite
   @camerlengo: Rapicco::Sprite
@@ -25,11 +21,11 @@ class Rapicco
   class Parser
     @font: Symbol
     @title_font: Symbol
-    @code_font: Symbol
     @bold_color: Symbol
     @lines: parser_dump_t
     @in_code_block: bool
-    def initialize: (?font: Symbol, ?title_font: Symbol, ?code_font: Symbol, ?bold_color: Symbol) -> void
+
+    def initialize: (?font: Symbol, ?title_font: Symbol, ?bold_color: Symbol) -> void
     def parse: (String raw_line) -> void
     def dump: () -> parser_dump_t
     def self.parse_attrs: (String str) -> Hash[Symbol, String]
@@ -39,23 +35,33 @@ class Rapicco
 
   class Slide
     COLORS: Hash[Symbol, String]
-    USAKAME_H: Integer
-    PALETTE: Hash[Symbol, Integer]
-    BULLET: Array[String]
+
+    @page_h: Integer
+    @current_page_h: Integer
 
     attr_reader page_w: Integer
+    attr_accessor bullet: Sprite
+    attr_accessor code_indent: Integer
 
-    def initialize: (?Hash[Symbol, String]|nil colors) -> void
+    def initialize: (?usakame_h: Integer, ?colors: Hash[Symbol, String]|nil) -> void
     def check_height: () -> bool
     def render_slide: (parser_dump_t lines) -> void
     def render_sprite: (Sprite sprite) -> void
   end
 
   class Sprite
+    type sprite_t = Hash[Symbol, Array[String]]
+    type palette_t = Hash[String, Integer]
+
+    DATA: Hash[String, sprite_t]
+    PALETTE: Hash[String, palette_t]
+
+    @data: Array[String]
+
     attr_accessor pos: Integer
     attr_reader width: Integer
     attr_reader height: Integer
-    def initialize: (Array[String] rows, Hash[String, Integer] palette) -> void
+    def initialize: (Symbol name, String author) -> void
     def show: () -> void
   end
 end
