@@ -1,35 +1,30 @@
 class Rapicco
   class Parser
-    def initialize(font: :go12, title_font: :go16, code_font: :min12, bold_color: :red);
+    def initialize(font: :go12, title_font: :go16, bold_color: :red);
       @font = font
       @title_font = title_font
-      @code_font = code_font
       @bold_color = bold_color
       @lines = []
       @in_code_block = false
     end
 
+
     # Parse one raw line (with or without "\n"). Blank lines are ignored.
     def parse(raw_line)
       return if raw_line.nil? || raw_line.empty?
       line = raw_line.chomp
-      return if line.empty?
+      return if line.empty? && !@in_code_block
 
       # -------- code fence check ----------------------------------
       if line.start_with?('```')
         @in_code_block = !@in_code_block
-        @lines << {
-          font:   @code_font,
-          text:   [{ div: line }]
-        }
         return                          # fence lines themselves are ignored
       end
 
       if @in_code_block
         # treat entire line as verbatim code, no inline parsing
         @lines << {
-          font:   @code_font,
-          text:   [{ div: line }]
+          code: line
         }
         return
       end

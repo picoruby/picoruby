@@ -18,10 +18,12 @@ class Rapicco
       print "\e[2J" # clear screen
       print "\e[?25l" # hide cursor
       @line_margin = 3
+      @code_indent = 4
     end
 
     attr_accessor :line_margin, :bullet
     attr_reader :page_w
+    attr_accessor :code_indent
 
     def check_height
       (@current_page_h -= 1) < 1
@@ -36,6 +38,11 @@ class Rapicco
             print "\e[2K\e[E"
             check_height and return
           end
+          next
+        end
+        if line[:code]
+          print "\e[0m", (" " * @code_indent), line[:code], "\e[0K\e[E"
+          check_height and return
           next
         end
         text_width = 0

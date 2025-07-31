@@ -21,12 +21,11 @@ class Rapicco
   class Parser
     @font: Symbol
     @title_font: Symbol
-    @code_font: Symbol
     @bold_color: Symbol
     @lines: parser_dump_t
     @in_code_block: bool
 
-    def initialize: (?font: Symbol, ?title_font: Symbol, ?code_font: Symbol, ?bold_color: Symbol) -> void
+    def initialize: (?font: Symbol, ?title_font: Symbol, ?bold_color: Symbol) -> void
     def parse: (String raw_line) -> void
     def dump: () -> parser_dump_t
     def self.parse_attrs: (String str) -> Hash[Symbol, String]
@@ -37,8 +36,12 @@ class Rapicco
   class Slide
     COLORS: Hash[Symbol, String]
 
+    @page_h: Integer
+    @current_page_h: Integer
+
     attr_reader page_w: Integer
     attr_accessor bullet: Sprite
+    attr_accessor code_indent: Integer
 
     def initialize: (?usakame_h: Integer, ?colors: Hash[Symbol, String]|nil) -> void
     def check_height: () -> bool
