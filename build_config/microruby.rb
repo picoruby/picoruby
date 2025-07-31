@@ -12,6 +12,7 @@ MRuby::Build.new do |conf|
   conf.gem core: 'mruby-bin-mrbc2'
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: 'picoruby-net'
+  conf.gem core: 'picoruby-mqtt'
   conf.gem core: 'picoruby-mbedtls'
   conf.gem core: 'picoruby-require'
   conf.gem core: 'picoruby-picotest'
