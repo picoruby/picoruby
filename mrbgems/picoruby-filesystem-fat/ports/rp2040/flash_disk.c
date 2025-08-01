@@ -9,18 +9,21 @@
 
 #include "disk.h"
 
-static int is_rp2040js() {
+static int
+is_rp2040js() {
   // Read SYSINFO PLATFORM register
   const uint32_t* p = (const uint32_t*)(0x40000000 + 0x4);
   return (*p & 0x01000000) != 0;
 }
 
-static void break_flash_range_program(uint32_t flash_offs, const uint8_t *data, size_t count) {
+static void
+break_flash_range_program(uint32_t flash_offs, const uint8_t *data, size_t count) {
   asm("bkpt 27");
   return;
 }
 
-static void custom_flash_range_program(uint32_t flash_offs, const uint8_t *data, size_t count) {
+static void
+custom_flash_range_program(uint32_t flash_offs, const uint8_t *data, size_t count) {
   if (is_rp2040js()) {
     break_flash_range_program(flash_offs, data, count);
   } else {
