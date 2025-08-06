@@ -34,10 +34,16 @@ class Rapicco
     @rapiko = Rapicco::Sprite.new(:rapiko, sprite)
     @camerlengo = Rapicco::Sprite.new(:camerlengo, sprite)
     @parser = Rapicco::Parser.new
+    @parser.title_font = config["title_font"] if config["title_font"]
+    @parser.font = config["font"] if config["font"]
+    @parser.bold_color = config["bold_color"] if config["bold_color"]
+    @parser.align = config["align"].to_sym if config["align"]
     @slide = Rapicco::Slide.new(usakame_h: @rapiko.height)
+    @slide.line_margin = config["line_margin"].to_i if config["line_margin"]
+    @slide.code_indent = config["code_indent"].to_i if config["code_indent"]
     @slide.bullet = Rapicco::Sprite.new(:bullet, sprite)
     @current_page = -1
-    @duration = config["duration"] || 60*30
+    @duration = config["duration"].to_i || 60*30
     @interval = @duration.to_f / @slide.page_w
   rescue => e
     puts e.message

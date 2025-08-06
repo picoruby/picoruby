@@ -1,12 +1,15 @@
 class Rapicco
   class Parser
-    def initialize(font: :go12, title_font: :go16, bold_color: :red);
-      @font = font
-      @title_font = title_font
-      @bold_color = bold_color
+    def initialize
+      @font = :go12
+      @title_font = :go16
+      @bold_color = :red
+      @align = :left
       @lines = []
       @in_code_block = false
     end
+
+    attr_accessor :font, :title_font, :bold_color, :align
 
 
     # Parse one raw line (with or without "\n"). Blank lines are ignored.
@@ -34,7 +37,7 @@ class Rapicco
 
       # ---- defaults by prefix -------------------------------------
       bullet = false
-      align  = :left
+      align  = @align
       scale  = 1
       font   = nil
       line_color = :white

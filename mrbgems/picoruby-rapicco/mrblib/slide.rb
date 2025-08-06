@@ -17,7 +17,7 @@ class Rapicco
       @page_h -= usakame_h
       print "\e[2J" # clear screen
       print "\e[?25l" # hide cursor
-      @line_margin = 3
+      @line_margin = 2
       @code_indent = 4
     end
 
@@ -32,6 +32,7 @@ class Rapicco
     def render_slide(lines)
       @current_page_h = @page_h
       print "\e[1;1H" # home
+      in_code = false
       lines.each do |line|
         if line[:skip]
           line[:skip].times do
@@ -41,6 +42,13 @@ class Rapicco
           next
         end
         if line[:code]
+          unless in_code
+            @line_margin.times do
+              print "\e[2K\e[1E"
+              check_height and return
+            end
+            in_code = true
+          end
           print "\e[0m", (" " * @code_indent), line[:code], "\e[0K\e[E"
           check_height and return
           next
@@ -97,7 +105,7 @@ class Rapicco
     end
 
     def render_sprite(sprite)
-      x = [@page_w - 18, @page_w * sprite.pos / 100].min
+      x = [@page_w - sprite.width, @page_w * sprite.pos / 100].min
       print "\e[#{@page_h + 1};#{x}H"
       sprite.show
     end
