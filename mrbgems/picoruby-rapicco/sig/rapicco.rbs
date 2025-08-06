@@ -12,25 +12,28 @@ class Rapicco
   @interval: Float
 
   def initialize: (String path) -> void
-  def render_page: (Integer page) -> void
-  def render_usakame: () -> void
-  def prev_page: () -> void
-  def next_page: () -> void
   def run: () -> void
+  private def render_page: (Integer page) -> void
+  private def render_usakame: () -> void
+  private def prev_page: () -> void
+  private def next_page: () -> void
+  private def refresh: () -> void
 
   class Parser
-    @font: Symbol
-    @title_font: Symbol
-    @bold_color: Symbol
     @lines: parser_dump_t
     @in_code_block: bool
 
-    def initialize: (?font: Symbol, ?title_font: Symbol, ?bold_color: Symbol) -> void
+    attr_accessor align: (Symbol | String)
+    attr_accessor title_font: (Symbol | String)
+    attr_accessor font: (Symbol | String)
+    attr_accessor bold_color: (Symbol | String)
+
+    def initialize: () -> void
     def parse: (String raw_line) -> void
     def dump: () -> parser_dump_t
     def self.parse_attrs: (String str) -> Hash[Symbol, String]
-    def self.parse_inline: (String src, Symbol base_color, Symbol bold_color) -> parser_dump_t
-    def default_font: (String | nil str) -> Symbol
+    def self.parse_inline: (String src, Symbol base_color, Symbol | String bold_color) -> parser_dump_t
+    def default_font: (String | nil str) -> (Symbol | String)
   end
 
   class Slide
@@ -42,11 +45,13 @@ class Rapicco
     attr_reader page_w: Integer
     attr_accessor bullet: Sprite
     attr_accessor code_indent: Integer
+    attr_accessor line_margin: Integer
 
     def initialize: (?usakame_h: Integer, ?colors: Hash[Symbol, String]|nil) -> void
-    def check_height: () -> bool
+    def get_screen_size: () -> void
     def render_slide: (parser_dump_t lines) -> void
     def render_sprite: (Sprite sprite) -> void
+    private def check_height: () -> bool
   end
 
   class Sprite

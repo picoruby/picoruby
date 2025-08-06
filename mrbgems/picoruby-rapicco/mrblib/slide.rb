@@ -11,10 +11,9 @@ class Rapicco
     }
 
     def initialize(usakame_h: 12, colors: nil)
+      @usakame_h = usakame_h
       @colors = colors || COLORS
-      print "\e[999B\e[999C" # down * 999 and right * 999
-      @page_h, @page_w = IO.get_cursor_position
-      @page_h -= usakame_h
+      get_screen_size
       print "\e[2J" # clear screen
       print "\e[?25l" # hide cursor
       @line_margin = 2
@@ -25,8 +24,10 @@ class Rapicco
     attr_reader :page_w
     attr_accessor :code_indent
 
-    def check_height
-      (@current_page_h -= 1) < 1
+    def get_screen_size
+      print "\e[999B\e[999C" # down * 999 and right * 999
+      @page_h, @page_w = IO.get_cursor_position
+      @page_h -= @usakame_h
     end
 
     def render_slide(lines)
@@ -109,5 +110,12 @@ class Rapicco
       print "\e[#{@page_h + 1};#{x}H"
       sprite.show
     end
+
+    private
+
+    def check_height
+      (@current_page_h -= 1) < 1
+    end
+
   end
 end

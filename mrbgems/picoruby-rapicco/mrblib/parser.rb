@@ -90,7 +90,7 @@ class Rapicco
         }
         line[:bullet] = true if bullet
         line[:scale] = scale if 1 < scale
-        line[:align] = align if align != :left
+        line[:align] = align.to_sym if align != :left
       end
       @lines << line
     end
