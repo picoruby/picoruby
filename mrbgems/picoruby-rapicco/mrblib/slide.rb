@@ -21,7 +21,7 @@ class Rapicco
     end
 
     attr_accessor :line_margin, :bullet
-    attr_reader :page_w
+    attr_reader :page_w, :page_h
     attr_accessor :code_indent
 
     def get_screen_size
@@ -35,6 +35,7 @@ class Rapicco
       print "\e[1;1H" # home
       in_code = false
       lines.each do |line|
+        next if line[:note]
         if line[:skip]
           line[:skip].times do
             print "\e[2K\e[E"

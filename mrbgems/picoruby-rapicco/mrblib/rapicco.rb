@@ -57,10 +57,19 @@ class Rapicco
     page_data = @file.read(@positions[page + 1] - @positions[page])
     # Note: mruby/c does not support String#each_line
     page_data&.each_line { |line| @parser.parse(line) }
-    @slide.render_slide(@parser.dump)
+    lines = @parser.dump
+    @slide.render_slide(lines)
     @current_page = page
     @rapiko.pos = page * 100 / (@positions.size - 2)
     render_usakame
+    if note = lines[-1][:note]
+      render_note(note)
+    end
+  end
+
+  def render_note(note)
+    print "\e[#{@slide.page_h};#{@slide.code_indent + 1}H"
+    print note
   end
 
   def prev_page

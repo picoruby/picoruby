@@ -13,6 +13,7 @@ class Rapicco
 
   def initialize: (String path) -> void
   def run: () -> void
+  private def render_note: (String note) -> void
   private def render_page: (Integer page) -> void
   private def render_usakame: () -> void
   private def prev_page: () -> void
@@ -39,9 +40,9 @@ class Rapicco
   class Slide
     COLORS: Hash[Symbol, String]
 
-    @page_h: Integer
     @current_page_h: Integer
 
+    attr_reader page_h: Integer
     attr_reader page_w: Integer
     attr_accessor bullet: Sprite
     attr_accessor code_indent: Integer
