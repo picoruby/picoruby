@@ -1,6 +1,16 @@
 require 'yaml'
 
 class Rapicco
+  COLORS = {
+    reset:   "\e[0m",
+    red:     "\e[31m",
+    green:   "\e[32m",
+    yellow:  "\e[33m",
+    blue:    "\e[34m",
+    magenta: "\e[35m",
+    cyan:    "\e[36m",
+    white:   "\e[37m",
+  }
 
   def initialize(path)
     @path = path
@@ -68,8 +78,10 @@ class Rapicco
   end
 
   def render_note(note)
-    print "\e[#{@slide.page_h};#{@slide.code_indent + 1}H"
-    print note
+    print COLORS[@note_color],
+            "\e[#{@slide.page_h};1H",
+            note,
+            COLORS[:reset]
   end
 
   def prev_page
@@ -129,6 +141,7 @@ class Rapicco
     @current_page = -1
     @duration = config["duration"].to_i || 60*30
     @interval = @duration.to_f / @slide.page_w
+    @note_color = config["note_color"].to_sym || :white
   end
 
 end

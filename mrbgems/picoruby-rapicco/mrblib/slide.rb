@@ -1,6 +1,7 @@
 class Rapicco
   class Slide
     COLORS = {
+      reset:   "\e[0m",
       red:     "\e[48;5;1m",
       green:   "\e[48;5;2m",
       yellow:  "\e[48;5;3m",
