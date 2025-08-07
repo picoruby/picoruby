@@ -18,12 +18,6 @@ class Rapicco
       line = raw_line.chomp
       return if line.empty? && !@in_code_block
 
-      # -------- note -----------------------------------
-      if line.start_with?('> ')
-        @lines << { note: line }
-        return
-      end
-
       # -------- code fence check ----------------------------------
       if line.start_with?('```')
         @in_code_block = !@in_code_block
@@ -35,6 +29,17 @@ class Rapicco
         @lines << {
           code: line
         }
+        return
+      end
+
+      # -------- note -----------------------------------
+      if line.start_with?('> ')
+        @lines << { note: line }
+        return
+      end
+
+      # -------- comment ---------------------------------
+      if line.start_with?('<!--')
         return
       end
 

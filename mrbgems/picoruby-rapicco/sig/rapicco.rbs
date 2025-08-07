@@ -1,4 +1,6 @@
 class Rapicco
+  COLORS: Hash[Symbol, String]
+
   type parser_dump_t = Array[Hash[Symbol, untyped]]
 
   @positions: Array[Integer]
