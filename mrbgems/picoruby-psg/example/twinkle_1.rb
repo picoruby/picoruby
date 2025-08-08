@@ -4,10 +4,8 @@ tracks = [
   '@1 T120 S0      L8 O3 f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2| f>ca4<cg>e4|<f>ca4<cg>e<b-| a>f>c4<<g>eb-4|<f>ca4c4 <c4    |f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2'
 ]
 
-driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
-
-# Instead of using a DAC, you can use PWM output
-# driver = PSG::Driver.new(:pwm, left: 10, right: 11)
+driver = PSG::Driver.new(:pwm, left: 10, right: 11)
 
 driver.play_mml(tracks)
+
 
