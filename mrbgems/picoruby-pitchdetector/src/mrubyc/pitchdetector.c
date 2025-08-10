@@ -4,7 +4,7 @@ static void
 c_volume_threshold_set(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_int_t volume_threshold = GET_INT_ARG(1);
-  PITCHDETECTOR_set_volume_threshold((uint16_t)value);
+  PITCHDETECTOR_set_volume_threshold((uint16_t)volume_threshold);
   SET_INT_RETURN(volume_threshold);
 }
 
