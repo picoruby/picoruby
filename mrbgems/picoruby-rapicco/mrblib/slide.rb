@@ -37,6 +37,7 @@ class Rapicco
       in_code = false
       lines.each do |line|
         next if line[:note]
+        total_width_remaining = @page_w
         if line[:skip]
           line[:skip].times do
             print "\e[2K\e[E"
@@ -56,7 +57,6 @@ class Rapicco
           check_height and return
           next
         end
-        text_width = 0
         div_count = line[:text].size
         line[:text].each_with_index do |text, div_index|
           Shinonome.draw(line[:font], text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
@@ -64,25 +64,37 @@ class Rapicco
               print "\e[2K\e[1E" * (height + @line_margin) + "\e[#{height}A" # clear the line
               if line[:bullet]
                 @bullet.show
-                text_width = @bullet.width
-                print "\e[#{@bullet.height+1}A\e[#{text_width}C"
+                print "\e[#{@bullet.height+1}A\e[#{@bullet.width}C"
+                total_width_remaining -= @bullet.width
               end
             end
-            text_width += div_width
             color = @colors[text[:color] || :white]
+            overflow = false
             height.times do |l|
+              width_remaining = total_width_remaining
+              overflow = false
+              width_drew = 0
               widths.each_with_index do |width, g|
                 scan_line = glyphs[g][l]
                 (width - 1).downto(0) do |shift|
                   print((scan_line>>shift)&1 == 1 ? "#{color}  " : "\e[0m\e[2C")
+                  width_drew += 2
+                  width_remaining -= 2
+                  if width_remaining <= 1 # Just before wrapping
+                    overflow = true
+                    break 0
+                  end
                 end
+                break [0] if overflow
               end
               if div_index == 0
                 check_height and return
               end
               # move to the next scan_line's beginning
-              print "\e[0m\e[B\e[#{div_width * 2}D" # down * 1 and left * div_width
+              print "\e[0m\e[B\e[#{width_drew}D" # down * 1 and left * width_drew
             end
+            next if overflow
+            total_width_remaining -= div_width * 2
             if div_index < div_count - 1
               # move to the continue position
               print "\e[#{height}A\e[#{div_width * 2 + 1}C"
@@ -90,10 +102,10 @@ class Rapicco
               # last text element
               padding = case line[:align]
               when :center
-                @page_w / 2 - text_width
+                total_width_remaining / 2
               when :right
-                @page_w - text_width * 2
-              else
+                total_width_remaining
+              else # :left
                 0
               end
               if 0 < padding
