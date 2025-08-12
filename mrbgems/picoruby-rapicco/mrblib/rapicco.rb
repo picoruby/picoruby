@@ -81,6 +81,7 @@ class Rapicco
     print COLORS[@note_color],
             "\e[#{@slide.page_h};1H",
             note,
+            "\e[0K", # clear to end of line
             COLORS[:reset]
   end
 
