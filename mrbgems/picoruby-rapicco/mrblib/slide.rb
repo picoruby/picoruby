@@ -45,16 +45,22 @@ class Rapicco
           end
           next
         end
-        if line[:code]
+        if code_block = line[:code] || line[:eval]
           unless in_code
             @line_margin.times do
               print "\e[2K\e[1E"
               check_height and return
             end
             in_code = true
+            print "\e[0m"
           end
-          print "\e[0m", (" " * @code_indent), line[:code], "\e[0K\e[E"
-          check_height and return
+          if eval_code = line[:eval]&.join("\n")
+            eval eval_code
+          end
+          code_block.each do |code_line|
+            print (" " * @code_indent), code_line, "\e[0K\e[E"
+            check_height and return
+          end
           next
         end
         div_count = line[:text].size

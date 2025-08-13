@@ -6,7 +6,7 @@ class Rapicco
       @bold_color = :red
       @align = :left
       @lines = []
-      @in_code_block = false
+      @in_code_block = nil
     end
 
     attr_accessor :font, :title_font, :bold_color, :align
@@ -20,15 +20,26 @@ class Rapicco
 
       # -------- code fence check ----------------------------------
       if line.start_with?('```')
-        @in_code_block = !@in_code_block
+        if @in_code_block
+          @in_code_block = nil
+        else
+          if line.start_with?('```eval')
+            @in_code_block = :eval
+          else
+            @in_code_block = :code
+          end
+        end
         return                          # fence lines themselves are ignored
       end
 
-      if @in_code_block
+      unless @in_code_block.nil?
         # treat entire line as verbatim code, no inline parsing
-        @lines << {
-          code: line
-        }
+        key = @in_code_block || :this_should_not_happen # to avoid steep check failure
+        if @lines[-1][key]
+          @lines[-1][key] << line
+        else
+          @lines << { key => [line] }
+        end
         return
       end
 

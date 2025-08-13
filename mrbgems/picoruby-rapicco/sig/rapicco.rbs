@@ -24,7 +24,7 @@ class Rapicco
 
   class Parser
     @lines: parser_dump_t
-    @in_code_block: bool
+    @in_code_block: nil | :code | :eval
 
     attr_accessor align: (Symbol | String)
     attr_accessor title_font: (Symbol | String)
