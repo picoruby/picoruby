@@ -25,14 +25,19 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
   }
 
   // Local variables
-  if (0 < irep->nlocals) {
-    for (int i = 0; i < irep->nlocals - 1; i++) {
-      //                              ^^^ ignore a space for self. see scope_new() in codegen.c
-      mrc_sym sym = irep->lv[i];
-      pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
-      const char *lit = (const char *)constant->start;
-      size_t len = constant->length;
-      irep->lv[i] = mrb_intern(cc->mrb, lit, len);
+  if (0 < irep->nlocals && irep->lv != NULL) {
+    int lv_size = irep->nlocals - 1; // exclude self
+    if (0 < lv_size) {
+      picorb_sym *new_lv = mrc_malloc(cc, sizeof(picorb_sym) * lv_size);
+      for (int i = 0; i < lv_size; i++) {
+        mrc_sym sym = irep->lv[i];
+        pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
+        const char *lit = (const char *)constant->start;
+        size_t len = constant->length;
+        new_lv[i] = mrb_intern(cc->mrb, lit, len);
+      }
+      mrc_free(cc, (mrc_sym *)irep->lv); // discard const
+      irep->lv = new_lv;
     }
   }
 
