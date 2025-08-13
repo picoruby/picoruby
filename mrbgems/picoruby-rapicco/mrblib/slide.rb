@@ -2,13 +2,13 @@ class Rapicco
   class Slide
     COLORS = {
       reset:   "\e[0m",
-      red:     "\e[48;5;1m",
-      green:   "\e[48;5;2m",
-      yellow:  "\e[48;5;3m",
-      blue:    "\e[48;5;4m",
-      magenta: "\e[48;5;5m",
-      cyan:    "\e[48;5;6m",
-      white:   "\e[48;5;7m",
+      red:     "\e[31m",
+      green:   "\e[32m",
+      yellow:  "\e[33m",
+      blue:    "\e[34m",
+      magenta: "\e[35m",
+      cyan:    "\e[36m",
+      white:   "\e[37m",
     }
 
     def initialize(usakame_h: 12, colors: nil)
@@ -60,6 +60,7 @@ class Rapicco
         div_count = line[:text].size
         line[:text].each_with_index do |text, div_index|
           Shinonome.draw(line[:font], text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
+            height /= 2
             if div_index == 0
               print "\e[2K\e[1E" * (height + @line_margin) + "\e[#{height}A" # clear the line
               if line[:bullet]
@@ -68,18 +69,31 @@ class Rapicco
                 total_width_remaining -= @bullet.width
               end
             end
-            color = @colors[text[:color] || :white]
+            print @colors[text[:color] || :white]
             overflow = false
-            height.times do |l|
+            (height).times do |l|
               width_remaining = total_width_remaining
               overflow = false
               width_drew = 0
               widths.each_with_index do |width, g|
-                scan_line = glyphs[g][l]
+                scan_line_upper = glyphs[g][l*2]
+                scan_line_lower = glyphs[g][l*2+1]
                 (width - 1).downto(0) do |shift|
-                  print((scan_line>>shift)&1 == 1 ? "#{color}  " : "\e[0m\e[2C")
-                  width_drew += 2
-                  width_remaining -= 2
+                  if (scan_line_upper>>shift)&1 == 1
+                    if (scan_line_lower>>shift)&1 == 1
+                      print "\xE2\x96\x88" # Full Block U+2588
+                    else
+                      print "\xE2\x96\x80" # Upper Half Block U+2580
+                    end
+                  else
+                    if (scan_line_lower>>shift)&1 == 1
+                      print "\xE2\x96\x84" # Lower Half Block U+2584
+                    else
+                      print " "
+                    end
+                  end
+                  width_drew += 1
+                  width_remaining -= 1
                   if width_remaining <= 1 # Just before wrapping
                     overflow = true
                     break 0
@@ -91,13 +105,14 @@ class Rapicco
                 check_height and return
               end
               # move to the next scan_line's beginning
-              print "\e[0m\e[B\e[#{width_drew}D" # down * 1 and left * width_drew
+              print "\e[B\e[#{width_drew}D" # down * 1 and left * width_drew
             end
+       #     print "\e[0m"
             next if overflow
-            total_width_remaining -= div_width * 2
+            total_width_remaining -= div_width
             if div_index < div_count - 1
               # move to the continue position
-              print "\e[#{height}A\e[#{div_width * 2 + 1}C"
+              print "\e[#{height}A\e[#{div_width + 1}C"
             else
               # last text element
               padding = case line[:align]

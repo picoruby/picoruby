@@ -43,6 +43,8 @@ class Rapicco
     COLORS: Hash[Symbol, String]
 
     @current_page_h: Integer
+    @colors: Hash[Symbol, String]
+    @usakame_h: Integer
 
     attr_reader page_h: Integer
     attr_reader page_w: Integer

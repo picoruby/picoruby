@@ -20,6 +20,10 @@ Rapicco is a Ruby-based presentation tool that runs in terminal emulators, inspi
 
 - `picoruby-shinonome`: Japanese bitmap font rendering library
 
+### Terminal Requirements
+
+Terminal emulator should be able to handle Unicode API and configure Ambiguous width characters as single-cell (half width) size
+
 ## Usage
 
 ### Creating a Presentation
