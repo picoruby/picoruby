@@ -561,9 +561,6 @@ mrb_terminate_task(mrb_state *mrb, mrb_value task)
   tcb->status = TASKSTATUS_DORMANT;
   q_insert_task(mrb, tcb);
   hal_enable_irq();
-
-  //tcb->flag_preemption = 1;
-  mrb->c->status = MRB_TASK_STOPPED;
 }
 
 //================================================================
