@@ -1,0 +1,4 @@
+# @added_by picoruby-eval
+module Kernel
+  def self?.eval: (String code) -> Object
+end
