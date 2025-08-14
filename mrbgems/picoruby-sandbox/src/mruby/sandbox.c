@@ -6,6 +6,7 @@
 #include <mruby/data.h>
 #include <mruby/string.h>
 #include <mruby/variable.h>
+// #include <mruby/debug.h>
 
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
@@ -65,6 +66,7 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
     free_ccontext(ss);
     return FALSE;
   }
+//  mrb_debug_info_alloc(mrb, ss->irep);
   return TRUE;
 }
 

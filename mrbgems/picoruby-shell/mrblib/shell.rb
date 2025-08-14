@@ -386,23 +386,19 @@ class Shell
         when "quit", "exit"
           break
         else
-          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("_ = (#{script})")
+          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("begin; _ = (#{script}); rescue => _; end; _")
             buffer.put :ENTER
           else
             editor.feed_at_bottom
             editor.save_history
-            result = STDIN.cooked do
-              r = sandbox.execute
+            executed = false
+            STDIN.cooked do
+              executed = sandbox.execute
               sandbox.wait(timeout: nil)
               sandbox.suspend
-              r
             end
-            if result
-              if e = sandbox.error
-                puts "=> #{e.message} (#{e.class})"
-              else
-                puts "=> #{sandbox.result.inspect}"
-              end
+            if executed
+              puts "=> #{sandbox.result.inspect}"
             end
             buffer.clear
             editor.history_head
