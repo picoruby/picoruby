@@ -1,8 +1,7 @@
 #include <stdbool.h>
 #include <math.h>
+#include "picoruby.h"
 #include "../../include/pitchdetector.h"
-
-#include "picoruby/debug.h"
 
 static uint16_t volume_threshold;
 

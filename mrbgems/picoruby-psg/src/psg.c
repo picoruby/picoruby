@@ -5,7 +5,6 @@
 #include "../include/psg.h"
 
 #include "picoruby.h"
-#include "picoruby/debug.h"
 #include "mruby/presym.h"
 #include "mruby/class.h"
 #include "mruby/hash.h"

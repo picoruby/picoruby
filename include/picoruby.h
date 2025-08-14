@@ -2,6 +2,7 @@
 #define PICORUBY_H
 
 #include "version.h"
+#include "picoruby/debug.h"
 
 #if defined(PICORB_VM_MRUBYC) && defined(PICORB_VM_MRUBY)
   #error "Must define PICORB_VM_MRUBYC or PICORB_VM_MRUBY"
