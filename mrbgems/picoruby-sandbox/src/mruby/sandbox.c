@@ -10,6 +10,7 @@
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
+  mrb_gc_unregister(mrb, ss->task);
   mrb_free(mrb, ss);
 }
 struct mrb_data_type mrb_sandbox_state_type = {
@@ -41,6 +42,8 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   mrb_iv_set(mrb, self, MRB_IVSYM(name), name);
 
   mrb_value task = mrc_create_task(ss->cc, ss->irep, name, mrb_nil_value(), mrb_obj_value(mrb->object_class));
+
+  mrb_gc_register(mrb, task);
   ss->task = task;
 
   return self;

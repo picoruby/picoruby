@@ -180,7 +180,6 @@ static void
 mrb_task_tcb_free(mrb_state *mrb, void *ptr)
 {
   mrb_tcb *tcb = (mrb_tcb *)ptr;
-  mrb_gc_unregister(mrb, tcb->name);
   mrb_gc_unregister(mrb, tcb->task);
   mrb_free(mrb, tcb);
 }
@@ -311,12 +310,10 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
   if (mrb_nil_p(name)) {
     name = mrb_str_new_lit(mrb, "(noname)");
   }
-  tcb->name = mrb_str_dup(mrb, name);
-  mrb_gc_register(mrb, tcb->name);
 
   struct RClass *klass = mrb_class_get_id(mrb, MRB_SYM(Task));
   mrb_value task = mrb_obj_value(Data_Wrap_Struct(mrb, klass, &mrb_task_tcb_type, tcb));
-  mrb_gc_register(mrb, task);
+  mrb_iv_set(mrb, task, MRB_IVSYM(name), name);
 
   mrb_task_init_context(mrb, task, proc);
   tcb->task = task;
@@ -744,30 +741,9 @@ mrb_task_inspect(mrb_state *mrb, mrb_value self)
   mrb_tcb *tcb = mrb_task_get_tcb(mrb, self);
   mrb_value status = mrb_task_status(mrb, self);
   char buf[64];
-  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(tcb->name), mrb_sym_name(mrb, mrb_symbol(status)));
+  mrb_value name = mrb_iv_get(mrb, self, MRB_IVSYM(name));
+  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(name), mrb_sym_name(mrb, mrb_symbol(status)));
   return mrb_str_new_cstr(mrb, buf);
-}
-
-static mrb_value
-mrb_task_name(mrb_state *mrb, mrb_value self)
-{
-  mrb_tcb *tcb = mrb_task_get_tcb(mrb, self);
-  if (mrb_nil_p(tcb->name)) {
-    return mrb_nil_value();
-  }
-  return mrb_str_dup(mrb, tcb->name);
-}
-
-static mrb_value
-mrb_task_name_set(mrb_state *mrb, mrb_value self)
-{
-  mrb_value name;
-  mrb_tcb *tcb = mrb_task_get_tcb(mrb, self);
-  mrb_get_args(mrb, "S", &name);
-  mrb_gc_unregister(mrb, tcb->name);
-  tcb->name = mrb_str_dup(mrb, name);
-  mrb_gc_register(mrb, tcb->name);
-  return name;
 }
 
 static mrb_value
@@ -932,8 +908,6 @@ mrb_picoruby_mruby_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(pass), mrb_task_s_pass, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(status), mrb_task_status, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(inspect), mrb_task_inspect, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Task, MRB_SYM(name), mrb_task_name, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Task, MRB_SYM_E(name), mrb_task_name_set, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Task, MRB_SYM(priority), mrb_task_priority, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM_E(priority), mrb_task_priority_set, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Task, MRB_SYM(suspend), mrb_task_suspend, MRB_ARGS_NONE());
