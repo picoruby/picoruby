@@ -145,7 +145,7 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
   pm_options_scopes_init(options, 1);
   pm_options_scope_t *scope = &options->scopes[0];
   const struct mrc_irep *ir = ss->irep;
-  size_t nlocals = ir->nlocals;
+  size_t nlocals = ir->nlocals - 1; // exclude self
   pm_options_scope_init(scope, nlocals);
   const mrc_sym *v = ir->lv;
   if (v) {
