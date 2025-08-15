@@ -39,6 +39,7 @@ class IO
   def write: (String input) -> Integer
   private def hash: () -> Integer
   def <<: (String input) -> self
+  def p: (*untyped objs) -> Object
   def puts: (*_ToS line) -> nil
   def print: (*_ToS args) -> nil
   def printf: (*String str) -> nil

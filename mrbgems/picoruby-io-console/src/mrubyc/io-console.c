@@ -94,69 +94,6 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-#if !defined(PICORB_PLATFORM_POSIX)
-static void
-c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  mrb_value str = mrbc_string_new(vm, NULL, 0);
-  char buf[2];
-  buf[1] = '\0';
-  while (true) {
-    int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
-      raise_interrupt(vm);
-      return;
-    }
-    if (c == 27) { // ESC
-      continue;
-    }
-    if (c == 8 || c == 127) { // Backspace
-      if (0 < str.string->size) {
-        str.string->size--;
-        mrbc_realloc(vm, str.string->data, str.string->size);
-        hal_write(1, "\b \b", 3);
-      }
-    } else
-    if (-1 < c) {
-      buf[0] = c;
-      mrbc_string_append_cstr(&str, buf);
-      hal_write(1, buf, 1);
-      if (c == '\n' || c == '\r') {
-        break;
-      }
-    }
-  }
-  SET_RETURN(str);
-}
-
-static void
-c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (io_raw_q()) {
-    char buf[1];
-    int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
-      raise_interrupt(vm);
-      return;
-    } else if (-1 < c) {
-      buf[0] = c;
-      mrb_value str = mrbc_string_new(vm, buf, 1);
-      SET_RETURN(str);
-    } else {
-      SET_NIL_RETURN();
-    }
-  }
-  else {
-    c_gets(vm, v, argc);
-    mrbc_value str = v[0];
-    if (1 < str.string->size) {
-      mrbc_realloc(vm, str.string->data, 1);
-      str.string->size = 1;
-    }
-  }
-}
-
-#endif
 
 
 void
@@ -169,8 +106,4 @@ mrbc_io_console_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_IO, "_restore_termios", c__restore_termios);
   mrbc_define_method(vm, class_IO, "echo=", c_echo_eq);
   mrbc_define_method(vm, class_IO, "echo?", c_echo_q);
-#if !defined(PICORB_PLATFORM_POSIX)
-  mrbc_define_method(vm, class_IO, "gets", c_gets);
-  mrbc_define_method(vm, class_IO, "getc", c_getc);
-#endif
 }

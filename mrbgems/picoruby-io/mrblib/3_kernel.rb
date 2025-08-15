@@ -13,35 +13,8 @@ module Kernel
     end
   end
 
-  def print(*args)
-    $stdout.print(*args)
-  end
-
-  def puts(*args)
-    $stdout.puts(*args)
-  end
-
   def printf(*args)
     $stdout.printf(*args)
-  end
-
-  def gets(rs = nil)
-    $stdin.gets(rs)
-  end
-
-  def p(*args)
-    case args.size
-    when 0
-      return nil
-    when 1
-      $stdout.puts args[0].inspect
-      args[0]
-    else
-      args.each do|arg|
-        $stdout.puts arg.inspect
-      end
-      args
-    end
   end
 
 end

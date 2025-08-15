@@ -170,7 +170,7 @@ print_sub(mrb_state *mrb, mrb_value obj)
 }
 
 static mrb_value
-mrb_puts(mrb_state *mrb, mrb_value self)
+mrb_io_puts(mrb_state *mrb, mrb_value self)
 {
   mrb_value *argv;
   mrb_int argc;
@@ -189,7 +189,7 @@ mrb_puts(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_print(mrb_state *mrb, mrb_value self)
+mrb_io_print(mrb_state *mrb, mrb_value self)
 {
   mrb_value *argv;
   mrb_int argc;
@@ -203,7 +203,7 @@ mrb_print(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_kernel_p(mrb_state *mrb, mrb_value self)
+mrb_io_p(mrb_state *mrb, mrb_value self)
 {
   mrb_value *argv;
   mrb_int argc;
@@ -214,7 +214,60 @@ mrb_kernel_p(mrb_state *mrb, mrb_value self)
   }
   return mrb_nil_value();
 }
+
+static mrb_value
+mrb_io_gets(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str = mrb_str_new(mrb, "", 0);
+  char buf[2];
+  buf[1] = '\0';
+  while (true) {
+    int c = hal_getchar();
+    if (c == 3) { // Ctrl-C
+      raise_interrupt(mrb); // mrb_noreturn
+    } if (c == 27) { // ESC continue;
+    }
+    if (c == 8 || c == 127) { // Backspace
+      if (0 < RSTRING_LEN(str)) { mrb_str_resize(mrb, str, RSTRING_LEN(str) - 1); hal_write(1, "\b \b", 3);
+      }
+    } else
+    if (-1 < c) {
+      buf[0] = c;
+      mrb_str_cat(mrb, str, (const char *)buf, 1);
+      hal_write(1, buf, 1);
+      if (c == '\n' || c == '\r') {
+        break;
+      }
+    }
+  }
+  return str;
+}
+
+static mrb_value
+mrb_io_getc(mrb_state *mrb, mrb_value self)
+{
+  if (io_raw_q()) {
+    char buf[1];
+    int c = hal_getchar();
+    if (c == 3) {
+      raise_interrupt(mrb); // mrb_noreturn
+    } else if (-1 < c) {
+      buf[0] = c;
+      return mrb_str_new(mrb, buf, 1);
+    } else {
+      return mrb_nil_value();
+    }
+  }
+  else {
+    mrb_value str = mrb_io_gets(mrb, self);
+    if (1 < RSTRING_LEN(str)) {
+      mrb_str_resize(mrb, str, 1);
+    }
+    return str;
+  }
+}
 #endif
+
 
 static mrb_value
 mrb_s_exit(mrb_state *mrb, mrb_value self)
@@ -248,10 +301,12 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
 
 #if !defined(PICORB_PLATFORM_POSIX)
-  struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
-  mrb_define_private_method_id(mrb, module_Kernel, MRB_SYM(puts), mrb_puts, MRB_ARGS_ANY());
-  mrb_define_private_method_id(mrb, module_Kernel, MRB_SYM(print), mrb_print, MRB_ARGS_ANY());
-  mrb_define_private_method_id(mrb, module_Kernel, MRB_SYM(p), mrb_kernel_p, MRB_ARGS_ANY());
+  struct RClass *class_IO = mrb_define_class_id(mrb, MRB_SYM(IO), mrb->object_class);
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(puts), mrb_io_puts, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(print), mrb_io_print, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(p), mrb_io_p, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif
 }
 

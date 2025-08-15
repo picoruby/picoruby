@@ -90,60 +90,6 @@ mrb_io_echo_q(mrb_state *mrb, mrb_value self)
   }
 }
 
-#if !defined(PICORB_PLATFORM_POSIX)
-static mrb_value
-mrb_io_gets(mrb_state *mrb, mrb_value self)
-{
-  mrb_value str = mrb_str_new(mrb, "", 0);
-  char buf[2];
-  buf[1] = '\0';
-  while (true) {
-    int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
-      raise_interrupt(mrb); // mrb_noreturn
-    } if (c == 27) { // ESC continue;
-    }
-    if (c == 8 || c == 127) { // Backspace
-      if (0 < RSTRING_LEN(str)) { mrb_str_resize(mrb, str, RSTRING_LEN(str) - 1); hal_write(1, "\b \b", 3);
-      }
-    } else
-    if (-1 < c) {
-      buf[0] = c;
-      mrb_str_cat(mrb, str, (const char *)buf, 1);
-      hal_write(1, buf, 1);
-      if (c == '\n' || c == '\r') {
-        break;
-      }
-    }
-  }
-  return str;
-}
-
-static mrb_value
-mrb_io_getc(mrb_state *mrb, mrb_value self)
-{
-  if (io_raw_q()) {
-    char buf[1];
-    int c = hal_getchar();
-    if (c == 3) {
-      raise_interrupt(mrb); // mrb_noreturn
-    } else if (-1 < c) {
-      buf[0] = c;
-      return mrb_str_new(mrb, buf, 1);
-    } else {
-      return mrb_nil_value();
-    }
-  }
-  else {
-    mrb_value str = mrb_io_gets(mrb, self);
-    if (1 < RSTRING_LEN(str)) {
-      mrb_str_resize(mrb, str, 1);
-    }
-    return str;
-  }
-}
-#endif
-
 
 void
 mrb_picoruby_io_console_gem_init(mrb_state* mrb)
@@ -156,10 +102,6 @@ mrb_picoruby_io_console_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_IO, MRB_SYM(_restore_termios), mrb_io__restore_termios, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM_E(echo), mrb_io_echo_e, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_Q(echo), mrb_io_echo_q, MRB_ARGS_NONE());
-#if !defined(PICORB_PLATFORM_POSIX)
-  mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
-#endif
 }
 
 void
