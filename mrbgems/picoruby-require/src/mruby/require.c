@@ -28,7 +28,7 @@ mrb_picoruby_require_gem_init(mrb_state* mrb)
 {
   struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
 
-  mrb_define_method_id(mrb, module_Kernel, MRB_SYM(extern), mrb_extern, MRB_ARGS_ARG(1,1));
+  mrb_define_private_method_id(mrb, module_Kernel, MRB_SYM(extern), mrb_extern, MRB_ARGS_ARG(1,1));
 
   mrb_value loaded_features = mrb_ary_new(mrb);
   mrb_gv_set(mrb, MRB_GVSYM(LOADED_FEATURES), loaded_features);

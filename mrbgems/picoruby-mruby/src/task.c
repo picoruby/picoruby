@@ -892,8 +892,8 @@ mrb_picoruby_mruby_gem_init(mrb_state* mrb)
     krn = mrb_define_module_id(mrb, MRB_SYM(Kernel));
     mrb->kernel_module = krn;
   }
-  mrb_define_method_id(mrb, krn, MRB_SYM(sleep), mrb_sleep, MRB_ARGS_OPT(1));
-  mrb_define_method_id(mrb, krn, MRB_SYM(sleep_ms), mrb_sleep_ms, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, krn, MRB_SYM(sleep), mrb_sleep, MRB_ARGS_OPT(1));
+  mrb_define_private_method_id(mrb, krn, MRB_SYM(sleep_ms), mrb_sleep_ms, MRB_ARGS_REQ(1));
 
   struct RClass *class_Task = mrb_define_class_id(mrb, MRB_SYM(Task), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_Task, MRB_TT_CDATA);

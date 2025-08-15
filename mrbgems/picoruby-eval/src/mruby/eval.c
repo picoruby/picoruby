@@ -152,7 +152,7 @@ mrb_kernel_eval(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_eval_gem_init(mrb_state *mrb)
 {
-  mrb_define_method_id(mrb, mrb->kernel_module, MRB_SYM(eval), mrb_kernel_eval, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, mrb->kernel_module, MRB_SYM(eval), mrb_kernel_eval, MRB_ARGS_REQ(1));
 }
 
 void

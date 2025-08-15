@@ -41,7 +41,7 @@ void
 mrb_picoruby_shell_gem_init(mrb_state *mrb)
 {
   struct RClass *krn = mrb->kernel_module;
-  mrb_define_method(mrb, krn, "exit", mrb_exit, MRB_ARGS_NONE());
+  mrb_define_private_method(mrb, krn, "exit", mrb_exit, MRB_ARGS_NONE());
 
   struct RClass *class_Shell = mrb_define_class_id(mrb, MRB_SYM(Shell), mrb->object_class);
   mrb_define_class_method_id(mrb, class_Shell, MRB_SYM(next_executable), mrb_next_executable, MRB_ARGS_NONE());
