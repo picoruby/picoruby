@@ -10,12 +10,10 @@ when "ruby", "jruby"
 
   def IO.get_cursor_position
     res = ""
-    STDIN.raw do |stdin|
-      STDOUT << "\e[6n"
-      STDOUT.flush
-      while (c = stdin.getc) != 'R'
-        res << c if c
-      end
+    STDOUT << "\e[6n"
+    STDOUT.flush
+    while (c = STDIN.read_nonblock(1)) != 'R'
+      res << c if c
     end
     STDIN.iflush
     _size = res.split(";")
@@ -207,7 +205,7 @@ module Editor
       refresh
       while true
         begin
-          line = STDIN.read_nonblock(256)
+          line = STDIN.read_nonblock(10)
         rescue Interrupt
           @buffer.bottom
           @buffer.tail

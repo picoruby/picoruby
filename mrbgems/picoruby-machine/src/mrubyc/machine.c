@@ -1,6 +1,14 @@
 #include "mrubyc.h"
 
 static void
+raise_interrupt(mrbc_vm *vm)
+{
+  mrbc_class *interrupt = mrbc_get_class_by_name("Interrupt");
+  mrbc_raise(vm, interrupt, "Interrupted");
+}
+
+
+static void
 c_Machine_tud_task(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   Machine_tud_task();
@@ -243,27 +251,11 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (io_raw_q()) {
-    char buf[1];
-    int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
-      raise_interrupt(vm);
-      return;
-    } else if (-1 < c) {
-      buf[0] = c;
-      mrb_value str = mrbc_string_new(vm, buf, 1);
-      SET_RETURN(str);
-    } else {
-      SET_NIL_RETURN();
-    }
-  }
-  else {
-    c_gets(vm, v, argc);
-    mrbc_value str = v[0];
-    if (1 < str.string->size) {
-      mrbc_realloc(vm, str.string->data, 1);
-      str.string->size = 1;
-    }
+  c_gets(vm, v, argc);
+  mrbc_value str = v[0];
+  if (1 < str.string->size) {
+    mrbc_realloc(vm, str.string->data, 1);
+    str.string->size = 1;
   }
 }
 #endif

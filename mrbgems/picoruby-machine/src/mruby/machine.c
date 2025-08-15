@@ -3,7 +3,13 @@
 #include "mruby/presym.h"
 #include "mruby/array.h"
 
-#include "../../include/hal.h"
+static mrb_noreturn void
+raise_interrupt(mrb_state *mrb)
+{
+  struct RClass *abort = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
+  mrb_raise(mrb, abort, "Interrupted");
+}
+
 
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
@@ -246,25 +252,11 @@ mrb_io_gets(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_io_getc(mrb_state *mrb, mrb_value self)
 {
-  if (io_raw_q()) {
-    char buf[1];
-    int c = hal_getchar();
-    if (c == 3) {
-      raise_interrupt(mrb); // mrb_noreturn
-    } else if (-1 < c) {
-      buf[0] = c;
-      return mrb_str_new(mrb, buf, 1);
-    } else {
-      return mrb_nil_value();
-    }
+  mrb_value str = mrb_io_gets(mrb, self);
+  if (1 < RSTRING_LEN(str)) {
+    mrb_str_resize(mrb, str, 1);
   }
-  else {
-    mrb_value str = mrb_io_gets(mrb, self);
-    if (1 < RSTRING_LEN(str)) {
-      mrb_str_resize(mrb, str, 1);
-    }
-    return str;
-  }
+  return str;
 }
 #endif
 

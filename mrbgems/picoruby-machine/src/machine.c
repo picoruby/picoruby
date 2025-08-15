@@ -4,7 +4,7 @@
 #include "../include/machine.h"
 
 #if !defined(PICORB_PLATFORM_POSIX)
-#include "../include/hal.h"
+#include "hal.h"
 #endif
 
 int

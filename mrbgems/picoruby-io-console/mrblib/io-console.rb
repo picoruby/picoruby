@@ -24,13 +24,17 @@ class IO
   end
 
   def getch
-    raw do |io|
-      while true
-        c = io.getc
-        break if 0 < c.to_s.length
+    while true
+      begin
+        c = STDIN.read_nonblock(1)
+      rescue Interrupt
+        return "\x03"
       end
-      c
+      next if c.nil?
+      # @type var c: String
+      return c
     end
+    "" # unreachable. Just for steep
   end
 
   def self.get_cursor_position
