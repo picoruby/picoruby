@@ -1,6 +1,0 @@
-irb.c
-buffer.c
-sandbox_task.c
-command.c
-shell.c
-terminal.c
