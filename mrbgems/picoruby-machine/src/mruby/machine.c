@@ -3,13 +3,6 @@
 #include "mruby/presym.h"
 #include "mruby/array.h"
 
-static mrb_noreturn void
-raise_interrupt(mrb_state *mrb)
-{
-  struct RClass *abort = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
-  mrb_raise(mrb, abort, "Interrupted");
-}
-
 
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
@@ -166,6 +159,13 @@ mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
 #endif
 }
 #if !defined(PICORB_PLATFORM_POSIX)
+static mrb_noreturn void
+raise_interrupt(mrb_state *mrb)
+{
+  struct RClass *abort = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
+  mrb_raise(mrb, abort, "Interrupted");
+}
+
 static void
 print_sub(mrb_state *mrb, mrb_value obj)
 {

@@ -1,12 +1,5 @@
 #include "mrubyc.h"
 
-static void
-raise_interrupt(mrbc_vm *vm)
-{
-  mrbc_class *interrupt = mrbc_get_class_by_name("Interrupt");
-  mrbc_raise(vm, interrupt, "Interrupted");
-}
-
 
 static void
 c_Machine_tud_task(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -214,6 +207,13 @@ c_Machine_exit(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 #if !defined(PICORB_PLATFORM_POSIX)
+static void
+raise_interrupt(mrbc_vm *vm)
+{
+  mrbc_class *interrupt = mrbc_get_class_by_name("Interrupt");
+  mrbc_raise(vm, interrupt, "Interrupted");
+}
+
 static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
