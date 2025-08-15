@@ -85,7 +85,7 @@ mrb_picoruby_picotest_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, double_class, MRB_SYM(remove_singleton), picotest_double_remove_singleton, MRB_ARGS_NONE());
 
   // Initialize the global array to store double data
-  mrb_gv_set(mrb, mrb_intern_lit(mrb, "$picotest_doubles"), mrb_ary_new(mrb));
+  mrb_gv_set(mrb, MRB_GVSYM(picotest_doubles), mrb_ary_new(mrb));
 }
 
 void
