@@ -1,2 +1,0 @@
-class Machine
-end
