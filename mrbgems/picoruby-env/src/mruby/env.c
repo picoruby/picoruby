@@ -89,6 +89,7 @@ void
 mrb_picoruby_env_gem_init(mrb_state* mrb)
 {
   struct RClass *class_ENVClass = mrb_define_class_id(mrb, MRB_SYM(ENVClass), mrb->object_class);
+  MRB_SET_INSTANCE_TT(class_ENVClass, MRB_TT_CDATA);
 
   mrb_define_class_method_id(mrb, class_ENVClass, MRB_SYM(new), mrb_env_s_new, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_ENVClass, MRB_OPSYM(aset), mrb_env_aset, MRB_ARGS_REQ(2));
