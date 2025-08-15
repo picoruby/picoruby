@@ -15,7 +15,7 @@ mruby_method_missing_for_double(mrb_state *mrb, mrb_value self)
   mrb_sym mid = mrb->c->ci->mid;
 
   // Get the global doubles array
-  mrb_value global_doubles = mrb_gv_get(mrb, mrb_intern_lit(mrb, "$picotest_doubles"));
+  mrb_value global_doubles = mrb_gv_get(mrb, MRB_GVSYM(picotest_doubles));
   if (mrb_nil_p(global_doubles)) {
     return mrb_nil_value(); // Should not happen
   }
