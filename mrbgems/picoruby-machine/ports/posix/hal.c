@@ -94,7 +94,7 @@ hal_init(mrb_state *mrb)
 
 */
 void
-hal_enable_irq(void)
+mrb_task_enable_irq(void)
 {
   sigprocmask(SIG_SETMASK, &sigset2_, 0);
 }
@@ -106,7 +106,7 @@ hal_enable_irq(void)
 
 */
 void
-hal_disable_irq(void)
+mrb_task_disable_irq(void)
 {
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
 }
