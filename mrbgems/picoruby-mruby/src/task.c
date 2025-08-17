@@ -237,6 +237,10 @@ mrb_task_init_context(mrb_state *mrb, mrb_value task, struct RProc *proc)
   cleanup_context(mrb, c);
   size_t slen = TASK_STACK_INIT_SIZE;
   if (proc->body.irep->nregs > slen) {
+    /* Prevent excessive stack allocation */
+    if (1024 < proc->body.irep->nregs) {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "Task stack size too large");
+    }
     slen += proc->body.irep->nregs;
   }
 
@@ -248,6 +252,10 @@ mrb_task_init_context(mrb_state *mrb, mrb_value task, struct RProc *proc)
     *s = mrb_top_self(mrb);
     s++;
     while (s < send) {
+      /* Add boundary check during initialization */
+      if (c->stend <= s) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "Stack boundary corruption during init");
+      }
       SET_NIL_VALUE(*s);
       s++;
     }
@@ -322,9 +330,12 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
     tcb->c.ci->stack[0] = top_self;
   }
 
+  mrb_task_disable_irq();
+
   if (mrb->c_list_capa == 0) {
     struct mrb_context **new_list = (struct mrb_context **)mrb_malloc(mrb, sizeof(struct mrb_context *) * TASK_LIST_UNIT_SIZE);
     if (!new_list) {
+      mrb_task_enable_irq();
       mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to allocate context list");
     }
     mrb->c_list = new_list;
@@ -340,6 +351,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
       }
       struct mrb_context **new_list = (struct mrb_context **)mrb_realloc(mrb, mrb->c_list, sizeof(struct mrb_context *) * (new_capa));
       if (!new_list) {
+        mrb_task_enable_irq();
         mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to reallocate context list");
       }
       mrb->c_list = new_list;
@@ -349,10 +361,10 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
     mrb->c_list_len++;
   }
 
-  hal_disable_irq();
   q_insert_task(mrb, tcb);
   if (tcb->status & TASKSTATUS_READY) preempt_running_task(mrb);
-  hal_enable_irq();
+
+  mrb_task_enable_irq();
 
   return task;
 }
@@ -370,9 +382,9 @@ mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb)
 {
   if (tcb->status != TASKSTATUS_DORMANT) return FALSE;
 
-  hal_disable_irq();
+  mrb_task_disable_irq();
   q_delete_task(mrb, tcb);
-  hal_enable_irq();
+  mrb_task_enable_irq();
 
   //mrb_vm_close( &tcb->mrb );
   //mrb_free_context(mrb, &tcb->c);
@@ -409,6 +421,9 @@ mrb_tasks_run(mrb_state *mrb)
     tcb->status = TASKSTATUS_RUNNING;   // to execute.
     mrb->c = &tcb->c;
     tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
+
+    /* Ensure GC sees current context before executing */
+    mrb_gc_protect(mrb, tcb->task);
     tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
 
     if (mrb->exc) {
@@ -420,17 +435,17 @@ mrb_tasks_run(mrb_state *mrb)
       did the task done?
     */
     if (tcb->c.status == MRB_TASK_STOPPED) {
-      hal_disable_irq();
+      mrb_task_disable_irq();
       q_delete_task(mrb, tcb);
       tcb->status = TASKSTATUS_DORMANT;
       q_insert_task(mrb, tcb);
-      hal_enable_irq();
+      mrb_task_enable_irq();
 
       // if(!tcb->flag_permanence) mrb_free_context(mrb, &tcb->c);
       if (mrb->exc) ret = mrb_obj_value(mrb->exc);
 
       // find task that called join.
-      hal_disable_irq();
+      mrb_task_disable_irq();
       mrb_tcb *tcb1 = q_waiting_;
       while (tcb1 != NULL) {
         mrb_tcb *next = tcb1->next;
@@ -447,7 +462,7 @@ mrb_tasks_run(mrb_state *mrb)
           tcb1->reason = TASKREASON_NONE;
         }
       }
-      hal_enable_irq();
+      mrb_task_enable_irq();
 
 #if MRB_SCHEDULER_EXIT
       if (!q_ready_ && !q_waiting_ && !q_suspended_) return ret;
@@ -461,10 +476,10 @@ mrb_tasks_run(mrb_state *mrb)
     if (tcb->status == TASKSTATUS_RUNNING) {
       tcb->status = TASKSTATUS_READY;
 
-      hal_disable_irq();
+      mrb_task_disable_irq();
       q_delete_task(mrb, tcb);       // insert task on queue last.
       q_insert_task(mrb, tcb);
-      hal_enable_irq();
+      mrb_task_enable_irq();
     }
     continue;
   }
@@ -484,7 +499,7 @@ sleep_ms_impl(mrb_state *mrb, mrb_int ms)
   //mrb_tcb *tcb = (mrb_tcb *)((uint8_t *)mrb->c + sizeof(mrb_tcb));
   mrb_tcb *tcb = q_ready_;
 
-  hal_disable_irq();
+  mrb_task_disable_irq();
   q_delete_task(mrb, tcb);
   tcb->status       = TASKSTATUS_WAITING;
   tcb->reason      = TASKREASON_SLEEP;
@@ -495,7 +510,7 @@ sleep_ms_impl(mrb_state *mrb, mrb_int ms)
   }
 
   q_insert_task(mrb, tcb);
-  hal_enable_irq();
+  mrb_task_enable_irq();
 
   switching_ = TRUE;
 }
@@ -512,11 +527,11 @@ mrb_suspend_task(mrb_state *mrb, mrb_value task)
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
   if (tcb->status == TASKSTATUS_SUSPENDED) return;
 
-  hal_disable_irq();
+  mrb_task_disable_irq();
   q_delete_task(mrb, tcb);
   tcb->status = TASKSTATUS_SUSPENDED;
   q_insert_task(mrb, tcb);
-  hal_enable_irq();
+  mrb_task_enable_irq();
 
   switching_ = TRUE;
 }
@@ -530,7 +545,7 @@ mrb_resume_task(mrb_state *mrb, mrb_value task)
 
   uint8_t flag_to_ready_status = (tcb->reason == 0);
 
-  hal_disable_irq();
+  mrb_task_disable_irq();
 
   if (flag_to_ready_status) preempt_running_task(mrb);
 
@@ -538,7 +553,7 @@ mrb_resume_task(mrb_state *mrb, mrb_value task)
   tcb->status = flag_to_ready_status ? TASKSTATUS_READY : TASKSTATUS_WAITING;
   q_insert_task(mrb, tcb);
 
-  hal_enable_irq();
+  mrb_task_enable_irq();
 
   if (tcb->reason & TASKREASON_SLEEP) {
     if ((int32_t)(tcb->wakeup_tick - wakeup_tick_) < 0) {
@@ -553,11 +568,11 @@ mrb_terminate_task(mrb_state *mrb, mrb_value task)
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
   if (tcb->status == TASKSTATUS_DORMANT) return;
 
-  hal_disable_irq();
+  mrb_task_disable_irq();
   q_delete_task(mrb, tcb);
   tcb->status = TASKSTATUS_DORMANT;
   q_insert_task(mrb, tcb);
-  hal_enable_irq();
+  mrb_task_enable_irq();
 }
 
 //================================================================
@@ -671,6 +686,11 @@ mrb_task_s_pass(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_task_s_current(mrb_state *mrb, mrb_value klass)
 {
+  /* Validate current context before using MRB2TCB */
+  if (mrb->c == NULL) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "No current context");
+  }
+
   mrb_tcb *tcb = MRB2TCB(mrb);
   return tcb->task;
 }
@@ -797,13 +817,13 @@ mrb_task_join(mrb_state *mrb, mrb_value self)
   }
   if (tcb_to_join->status == TASKSTATUS_DORMANT) return self;
 
-  hal_disable_irq();
+  mrb_task_disable_irq();
   q_delete_task(mrb, current_tcb);
   current_tcb->status = TASKSTATUS_WAITING;
   current_tcb->reason = TASKREASON_JOIN;
   current_tcb->tcb_join = tcb_to_join;
   q_insert_task(mrb, current_tcb);
-  hal_enable_irq();
+  mrb_task_enable_irq();
 
   switching_ = TRUE;
   return self;
@@ -857,14 +877,14 @@ mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
 {
   mrb_value data = mrb_hash_new(mrb);
   int ai = mrb_gc_arena_save(mrb);
-  hal_disable_irq();
+  mrb_task_disable_irq();
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(tick)), mrb_fixnum_value(tick_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(wakeup_tick)), mrb_fixnum_value(wakeup_tick_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(dormant)), mrb_stat_sub(mrb, q_dormant_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(ready)), mrb_stat_sub(mrb, q_ready_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(waiting)), mrb_stat_sub(mrb, q_waiting_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(suspended)), mrb_stat_sub(mrb, q_suspended_));
-  hal_enable_irq();
+  mrb_task_enable_irq();
   mrb_gc_arena_restore(mrb, ai);
 
   struct RClass *class_Stat = mrb_class_get_under_id(mrb, mrb_class_ptr(klass), MRB_SYM(Stat));

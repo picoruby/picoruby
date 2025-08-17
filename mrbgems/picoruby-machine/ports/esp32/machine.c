@@ -44,13 +44,13 @@ hal_init(void)
 }
 
 void
-hal_enable_irq()
+mrb_task_enable_irq()
 {
   portENABLE_INTERRUPTS();
 }
 
 void
-hal_disable_irq()
+mrb_task_disable_irq()
 {
   portDISABLE_INTERRUPTS();
 }
