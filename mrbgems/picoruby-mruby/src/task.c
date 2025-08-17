@@ -325,6 +325,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
 
   mrb_task_init_context(mrb, task, proc);
   tcb->task = task;
+  mrb_gc_register(mrb, task);
 
   if (!mrb_nil_p(top_self)) {
     tcb->c.ci->stack[0] = top_self;
@@ -422,8 +423,6 @@ mrb_tasks_run(mrb_state *mrb)
     mrb->c = &tcb->c;
     tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
 
-    /* Ensure GC sees current context before executing */
-    mrb_gc_protect(mrb, tcb->task);
     tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
 
     if (mrb->exc) {
