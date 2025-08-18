@@ -875,7 +875,6 @@ static mrb_value
 mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
 {
   mrb_value data = mrb_hash_new(mrb);
-  int ai = mrb_gc_arena_save(mrb);
   mrb_task_disable_irq();
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(tick)), mrb_fixnum_value(tick_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(wakeup_tick)), mrb_fixnum_value(wakeup_tick_));
@@ -884,7 +883,6 @@ mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(waiting)), mrb_stat_sub(mrb, q_waiting_));
   mrb_hash_set(mrb, data, mrb_symbol_value(MRB_SYM(suspended)), mrb_stat_sub(mrb, q_suspended_));
   mrb_task_enable_irq();
-  mrb_gc_arena_restore(mrb, ai);
 
   struct RClass *class_Stat = mrb_class_get_under_id(mrb, mrb_class_ptr(klass), MRB_SYM(Stat));
   mrb_value stat = mrb_obj_new(mrb, class_Stat, 0, NULL);

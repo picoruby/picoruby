@@ -19,6 +19,5 @@ class Task
   class Stat
     @data: Hash[Symbol, untyped]
     def []: (Symbol key) -> untyped
-    def to_s: () -> String
   end
 end
