@@ -30,7 +30,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
     heap_page_size = o1heap_page_size(13)
   else
-    heap_page_size = 256
+    heap_page_size = 128
   end
   spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
 
