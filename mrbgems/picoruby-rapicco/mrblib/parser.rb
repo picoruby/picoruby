@@ -38,7 +38,11 @@ class Rapicco
         if @lines[-1][key]
           @lines[-1][key] << line
         else
-          @lines << { key => [line] }
+          if @in_code_block = :eval
+            @lines << { key => ["# ==== eval ====",line] }
+          else
+            @lines << { key => [line] }
+          end
         end
         return
       end
