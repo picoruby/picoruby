@@ -55,7 +55,95 @@ typedef struct {
   psg_packet_t *buf;
 } psg_ringbuf_t;
 
+typedef enum {
+  PSG_TIMBRE_SQUARE = 0,  // square wave
+  PSG_TIMBRE_TRIANGLE,    // triangle wave
+  PSG_TIMBRE_SAWTOOTH,    // sawtooth wave
+  PSG_TIMBRE_INVSAWTOOTH, // inverted sawtooth wave
+} psg_timbre_t;
 
+typedef struct {
+  uint16_t tone_period[3];   // R0–5  (12-bit)
+  uint8_t  noise_period;     // R6
+  uint8_t  mixer;            // R7
+  uint8_t  volume[3];        // R8–10
+  uint16_t envelope_period;  // R11–12
+  uint8_t  envelope_shape;   // R13
+} psg_regs_t;
+
+/*
+                          | B7 | B6 | B5 | B4 | B3 | B2 | B1 | B0 |
+R0  TR A tone period      |             LSB (0-255)               |
+R1  TR A tone period      |-------------------|     MSB (0-15)    |
+R2  TR B tone period      |             LSB (0-255)               |
+R3  TR A tone period      |-------------------|     MSB (0-15)    |
+R4  TR C tone period      |             LSB (0-255)               |
+R5  TR A tone period      |-------------------|     MSB (0-15)    |
+R6  Noise period (0-31)   |--------------|        5 bit NP        |
+R7  Mixer (0-63)          |(IOB,IOA)| C  | B  | A  | C  | B  | A  |
+     0: on, 1: off                  ^----noise-----^-----tone-----^
+R8  TR A volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # If M=1,
+R9  TR B volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # volume value is ignored
+R10 TR C volume (0-15)    |--------------| M  | L3 | L2 | L1 | L0 | # and envelope is used instead
+R11 Envelope period       |             LSB (0-255)               |
+R12 Envelope period MSB   |             MSB (0-255)               |
+R13 Envelope shape (0-15) |-------------------| E3 | E2 | E1 | E0 |
+     E3: 0=continue,  1=stop          E2: 0=attack, 1=release
+     E1: 0=alternate, 1=sawtooth      E0: 0=hold,   1=repeat
+     R13: B3 B2 B1 B0
+           0  0  x  x  _＼___________
+
+           0  1  x  x  _／___________
+
+           1  0  0  0  _＼＼＼＼＼＼＼
+
+           1  0  0  1  _＼___________
+
+           1  0  1  0  _＼／＼／＼／＼
+
+           1  0  1  1  _＼￣￣￣￣￣￣
+
+           1  1  0  0  _／／／／／／／
+
+           1  1  0  1  _／￣￣￣￣￣￣
+
+           1  1  1  0  _／＼／＼／＼／
+
+           1  1  1  1  _／___________
+                        ^^
+                        Period
+*/
+
+
+typedef struct {
+  psg_regs_t r;
+  uint32_t tone_inc[3];      // 32.32 fixed-point number
+  uint32_t tone_phase[3];
+  uint32_t noise_shift;
+  uint32_t noise_cnt;
+  uint16_t env_cnt[3];       // 24-bit counter: 1step = 1 audio sample
+  // envelope state machine
+  uint8_t  env_level[3];     // 0..15
+  uint8_t  env_dir[3];       // 0=down, 1=up
+  bool     env_running[3];   // false -> stop
+  // Masked bit for performance
+  uint8_t  env_continue[3];
+  uint8_t  env_attack[3];
+  uint8_t  env_alternate[3];
+  uint8_t  env_hold[3];
+  // Whether to reset envelope on next updating tone_period
+  bool  legato[3];
+  // LFO
+  uint16_t lfo_phase[3];   /* 0..65535 (wrap) */
+  uint16_t lfo_inc[3];     /* Δphase per 1 ms tick */
+  uint8_t  lfo_depth[3];   /* depth in cent (0..127) */
+  // Mute
+  uint8_t  mute_mask;      /* bit0=A bit1=B bit2=C */
+  // pan
+  uint8_t pan[3];
+  // tone type
+  psg_timbre_t timbre[3];
+} psg_t;
 
 #define SAMPLE_RATE       22050
 #define CHIP_CLOCK        2000000   // 2 MHz
@@ -69,6 +157,7 @@ void PSG_render_block(uint32_t *dst, uint32_t samples);
 // Ring buffer
 bool PSG_rb_peek(psg_packet_t *out);
 void PSG_rb_pop(void);
+bool PSG_rb_push(const psg_packet_t *p);
 
 // Cross core critical section
 typedef uint32_t psg_cs_token_t;
@@ -109,6 +198,10 @@ extern const psg_output_api_t psg_drv_mcp4922;
 extern uint32_t pcm_buf[BUF_SAMPLES]; // 32-bit stereo samples
 extern volatile uint32_t wr_idx; // only core0 writes
 extern volatile uint32_t rd_idx; // only core1 writes
+
+/* PSG global state */
+extern psg_t psg;
+extern psg_ringbuf_t rb;
 
 #ifdef __cplusplus
 }
