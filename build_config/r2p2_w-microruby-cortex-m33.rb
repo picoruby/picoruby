@@ -13,6 +13,7 @@ MRuby::CrossBuild.new("r2p2_w-microruby-cortex-m33") do |conf|
   conf.cc.defines << "MRB_INT64"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+  conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
   conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "USE_WIFI"
