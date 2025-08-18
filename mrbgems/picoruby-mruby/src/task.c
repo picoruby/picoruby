@@ -17,6 +17,11 @@
 #include "hal.h"
 #include "task.h"
 
+#include <mruby/gc.h>
+#ifndef MAX_GC_STEPS_PER_TICK
+  #define MAX_GC_STEPS_PER_TICK 5
+#endif
+
 /***** Macros ***************************************************************/
 #ifndef MRB_SCHEDULER_EXIT
 #define MRB_SCHEDULER_EXIT 0
@@ -467,6 +472,15 @@ mrb_tasks_run(mrb_state *mrb)
       if (!q_ready_ && !q_waiting_ && !q_suspended_) return ret;
 #endif
       continue;
+    }
+
+    if (mrb->gc.state != MRB_GC_STATE_ROOT) {
+      int gc_steps = 0;
+      while (mrb->gc.state != MRB_GC_STATE_ROOT && gc_steps < MAX_GC_STEPS_PER_TICK)
+      {
+        mrb_incremental_gc(mrb);
+        gc_steps++;
+      }
     }
 
     /*
