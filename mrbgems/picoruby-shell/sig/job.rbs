@@ -1,11 +1,6 @@
-# TypeProf 0.21.3
-
-# Revealed types
-#  lib/picoruby/mrbgems/picoruby-shell/mrblib/command.rb:69 #=> nil
-
 # Classes
 class Shell
-  class Command
+  class Job
     @sandbox: untyped
 
     def self.new: () -> instance

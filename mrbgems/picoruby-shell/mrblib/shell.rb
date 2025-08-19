@@ -346,7 +346,7 @@ class Shell
       puts
     when :shell
       run_shell
-      print "\nbye\e[0m"
+      print "bye\e[0m"
       exit
       return
     else
@@ -359,7 +359,7 @@ class Shell
   end
 
   def run_shell
-    command = Command.new
+    job = Job.new
     @editor.start do |editor, buffer, c|
       case c
       when 10, 13
@@ -370,7 +370,7 @@ class Shell
         if builtin?("_#{args[0]}")
           send("_#{args[0]}", *args[1, args.size-1] || [])
         else
-          command.exec(*args)
+          job.exec(*args)
         end
       end
     end
@@ -410,7 +410,6 @@ class Shell
       end
     end
   ensure
-    puts
     sandbox.terminate
   end
 
@@ -469,7 +468,7 @@ class Shell
         raise NameError
       end
     rescue NameError
-      puts "\nerror: reboot is not available on this platform"
+      puts "error: reboot is not available on this platform"
     end
   end
 
@@ -499,7 +498,7 @@ class Shell
   end
 
   def _exit(*args)
-    print "\nbye\n\e[0m"
+    print "bye\n\e[0m"
     Machine.exit(0)
   end
   alias _quit _exit

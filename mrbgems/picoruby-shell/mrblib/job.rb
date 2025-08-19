@@ -1,5 +1,5 @@
 class Shell
-  class Command
+  class Job
     def initialize
       @sandbox = Sandbox.new('command')
     end

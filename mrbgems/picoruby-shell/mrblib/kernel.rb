@@ -1,6 +1,6 @@
 module Kernel
   def system(command)
-    Shell::Command.new.exec(*command.split)
+    Shell::Job.new.exec(*command.split)
   end
 end
 
