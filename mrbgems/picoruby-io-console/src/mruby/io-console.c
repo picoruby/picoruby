@@ -7,8 +7,8 @@
 static mrb_noreturn void
 raise_interrupt(mrb_state *mrb)
 {
-  struct RClass *abort = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
-  mrb_raise(mrb, abort, "Interrupted");
+  struct RClass *class_Interrupt = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
+  mrb_raise(mrb, class_Interrupt, "Interrupted");
 }
 
 static mrb_value

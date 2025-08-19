@@ -359,7 +359,6 @@ class Shell
   end
 
   def run_shell
-    job = Job.new
     @editor.start do |editor, buffer, c|
       case c
       when 10, 13
@@ -370,7 +369,8 @@ class Shell
         if builtin?("_#{args[0]}")
           send("_#{args[0]}", *args[1, args.size-1] || [])
         else
-          job.exec(*args)
+          job = Job.new(*args)
+          job.exec
         end
       end
     end

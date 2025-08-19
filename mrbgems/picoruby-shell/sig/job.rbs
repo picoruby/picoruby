@@ -2,8 +2,9 @@
 class Shell
   class Job
     @sandbox: untyped
+    @params: Array[String]
 
-    def self.new: () -> instance
-    def exec: (*untyped params) -> bool
+    def self.new: (*String params) -> instance
+    def exec: () -> bool
   end
 end

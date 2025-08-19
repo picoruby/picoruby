@@ -1,15 +1,22 @@
 class Shell
   class Job
-    def initialize
-      @sandbox = Sandbox.new('command')
+    def initialize(*params)
+      if params.empty?
+        raise ArgumentError, "Job requires at least one parameter"
+      end
+      @params = params
+      @sandbox = Sandbox.new(@params[0])
     end
 
-    def exec(*params)
+    def exec
+      command = @params.shift
+      if command.nil?
+        raise ArgumentError, "Job requires a command to execute"
+      end
       ARGV.clear
-      params[1, params.length - 1]&.each do |param|
+      @params&.each do |param|
         ARGV << param
       end
-      command = params[0]
       if exefile = Shell.find_executable(command)
         @sandbox.load_file(exefile)
         @sandbox.suspend
@@ -18,16 +25,14 @@ class Shell
         return false
       end
       return true
-    rescue Interrupt
-      puts "^C"
-      return false
-    rescue => e
+    rescue Exception => e
       puts "#{e.message} (#{e.class})"
-      if e.respond_to?(:backtrace)
-        e.backtrace.each do |line|
-          puts "  #{line}"
-        end
-      end
+      # backtrace uses a lot of memory
+      #if e.respond_to?(:backtrace)
+      #  e.backtrace.each do |line|
+      #    puts "  #{line}"
+      #  end
+      #end
       return false
     end
 

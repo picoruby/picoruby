@@ -23,6 +23,7 @@ class Sandbox
     return true
   rescue Interrupt
     unless signal_self_manage
+      puts "^C"
       Signal.raise(:INT)
       stop
       begin
