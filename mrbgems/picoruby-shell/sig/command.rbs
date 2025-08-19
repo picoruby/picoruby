@@ -6,13 +6,9 @@
 # Classes
 class Shell
   class Command
-    BUILTIN: Array[String]
     @sandbox: untyped
 
     def self.new: () -> instance
-    def find_executable: (String name) -> String?
     def exec: (*untyped params) -> bool
-    private def _type: -> nil
-    private def _echo: -> nil
   end
 end

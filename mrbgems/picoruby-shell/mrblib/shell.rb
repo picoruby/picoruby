@@ -15,7 +15,6 @@ end
 
 ARGV = []
 
-
 class Shell
 
   DeviceInstances = {}
@@ -230,6 +229,21 @@ class Shell
     end
   end
 
+  def self.find_executable(name)
+    if name.start_with?("/")
+      return File.file?(name) ? name : nil
+    end
+    if name.start_with?("./") || name.start_with?("../")
+      file = File.expand_path(name, Dir.pwd)
+      return File.file?(name) ? name : nil
+    end
+    ENV['PATH']&.split(";")&.each do |path|
+      file = "#{path}/#{name}"
+      return file if File.file? file
+    end
+    nil
+  end
+
   def initialize(clean: false)
     require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
@@ -344,32 +358,19 @@ class Shell
     raise # to restart
   end
 
-
   def run_shell
     command = Command.new
     @editor.start do |editor, buffer, c|
       case c
       when 10, 13
-        case args = buffer.dump.chomp.strip.split(" ")
-        when []
-          puts
-        when ["reboot"]
-          begin
-            puts "\nrebooting..."
-            Watchdog.reboot 1000
-          rescue NameError
-            buffer.clear
-            puts "\nerror: reboot is not available on this platform"
-          end
-        when ["quit"], ["exit"]
-          buffer.clear
-          print "\nbye\n\e[0m"
-          Machine.exit(0)
+        puts
+        args = buffer.dump.chomp.strip.split(" ")
+        editor.save_history
+        buffer.clear
+        if builtin?("_#{args[0]}")
+          send("_#{args[0]}", *args[1, args.size-1] || [])
         else
-          puts
           command.exec(*args)
-          editor.save_history
-          buffer.clear
         end
       end
     end
@@ -412,5 +413,96 @@ class Shell
     puts
     sandbox.terminate
   end
+
+  def builtin?(name)
+    self.respond_to?(name)
+  end
+
+  private
+
+  # Builtin command wishlist:
+  #  alias
+  #  cd
+  #  echo
+  #  export
+  #  exec
+  #  exit
+  #  fc
+  #  fg
+  #  help
+  #  history
+  #  jobs
+  #  kill
+  #  pwd
+  #  reboot
+  #  type
+  #  unset
+
+  def _type(*args)
+    args.each_with_index do |name, index|
+      puts if 0 < index
+      if builtin?("_#{name}")
+        print "#{name} is a shell builtin"
+      elsif path = Shell.find_executable(name)
+        print "#{name} is #{path}"
+      else
+        print "type: #{name}: not found"
+      end
+    end
+    puts
+  end
+
+  def _echo(*args)
+    args.each_with_index do |param, index|
+      print " " if 0 < index
+      print param
+    end
+    puts
+  end
+
+  def _reboot(*args)
+    begin
+      if Watchdog.respond_to?(:reboot)
+        puts "\nrebooting..."
+        Watchdog.reboot 1000
+      else
+        raise NameError
+      end
+    rescue NameError
+      puts "\nerror: reboot is not available on this platform"
+    end
+  end
+
+  def _pwd(*args)
+    puts(ENV['PWD'] = Dir.pwd)
+  end
+
+  def _cd(*args)
+    dir = case args[0]
+    when nil
+      ENV['HOME']
+    when "-"
+      ENV['OLDPWD'] || Dir.pwd
+    else
+      args[0]
+    end
+    if File.file?(dir)
+      puts "cd: #{dir}: Not a directory"
+      return false
+    elsif !Dir.exist?(dir)
+      puts "cd: #{dir}: No such file or directory"
+      return false
+    end
+    ENV['OLDPWD'] = Dir.pwd
+    ENV['PWD'] = dir
+    Dir.chdir(dir)
+  end
+
+  def _exit(*args)
+    print "\nbye\n\e[0m"
+    Machine.exit(0)
+  end
+  alias _quit _exit
+
 end
 

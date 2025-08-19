@@ -35,10 +35,20 @@ class Shell
   def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
   def self.bootstrap: (String file) -> bool
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
+  def self.find_executable: (String name) -> String?
 
   def initialize: (?clean: bool) -> void
   def show_logo: (?Integer color_num)-> void
   def start: (?Symbol mode) -> nil
   def run_shell: -> void
   def run_irb: -> void
+
+  def builtin?: (String name) -> bool
+  private def _type: () -> void
+  private def _echo: () -> void
+  private def _pwd: () -> void
+  private def _cd: () -> void
+  private def _exit: () -> void
+  private def _quit: () -> void
+  private def _reboot: () -> void
 end
