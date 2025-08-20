@@ -16,10 +16,13 @@ void hal_init(void);
 
 int hal_write(int fd, const void *buf, int nbytes);
 
-void mrb_task_enable_irq(void);
-void mrb_task_disable_irq(void);
-#define hal_enable_irq() mrb_task_enable_irq()
-#define hal_disable_irq() mrb_task_disable_irq()
+#if defined(PICORB_VM_MRUBYC)
+  void hal_enable_irq(void);
+  void hal_disable_irq(void);
+#else
+  void mrb_task_enable_irq(void);
+  void mrb_task_disable_irq(void);
+#endif
 
 void hal_idle_cpu(void);
 void hal_abort(const char *s);

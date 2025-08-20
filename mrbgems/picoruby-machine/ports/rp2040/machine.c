@@ -127,9 +127,12 @@ hal_init(void)
 }
 
 void
-mrb_task_enable_irq()
+#if defined(PICORB_VM_MRUBYC)
+hal_enable_irq(void)
+#elif defined(PICORB_VM_MRUBYC)
+mrb_task_enable_irq(void)
+#endif
 {
-
   if (interrupt_nesting == 0) {
 //    return; // wrong state???
   }
@@ -142,7 +145,11 @@ mrb_task_enable_irq()
 }
 
 void
-mrb_task_disable_irq()
+#if defined(PICORB_VM_MRUBYC)
+hal_disable_irq(void)
+#elif defined(PICORB_VM_MRUBYC)
+mrb_task_disable_irq(void)
+#endif
 {
   asm volatile ("cpsid i" : : : "memory");
   __dmb();
