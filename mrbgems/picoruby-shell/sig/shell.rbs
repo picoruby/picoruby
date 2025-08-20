@@ -25,6 +25,7 @@ class Shell
   AUTHOR: String
   AUTHOR_COLOR: Integer
   @editor: Editor::Line
+  @jobs: Array[Job]
 
   def self.next_executable: -> {code: String, path: String, crc: Integer}
   def self.setup_rtc: (rtc_t trc) -> void
@@ -51,4 +52,5 @@ class Shell
   private def _exit: () -> void
   private def _quit: () -> void
   private def _reboot: () -> void
+  private def cleanup_jobs: () -> void
 end

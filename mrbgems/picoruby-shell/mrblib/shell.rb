@@ -248,6 +248,7 @@ class Shell
     require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
+    @jobs = []
   end
 
   LOGO = if RUBY_ENGINE == "mruby"
@@ -366,12 +367,21 @@ class Shell
         args = buffer.dump.chomp.strip.split(" ")
         editor.save_history
         buffer.clear
+        cleanup_jobs
         if builtin?("_#{args[0]}")
           send("_#{args[0]}", *args[1, args.size-1] || [])
         else
-          job = Job.new(*args)
-          job.exec
+          begin
+            job = Job.new(*args)
+            @jobs << job
+            job.exec
+          rescue => e
+            puts e.message
+          end
         end
+      when 26 # Ctrl-Z
+        puts "\n^Z\e[0J"
+        Machine.exit(0)
       end
     end
   end
@@ -380,6 +390,12 @@ class Shell
     sandbox = Sandbox.new('irb')
     @editor.start do |editor, buffer, c|
       case c
+      when 26 # Ctrl-Z
+        Signal.trap(:CONT) do
+          ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+        end
+        puts "\n^Z\e[0J"
+        Signal.raise(:TSTP)
       when 10, 13 # LF(\n)=10, CR(\r)=13
         case script = buffer.dump.chomp
         when ""
@@ -502,6 +518,40 @@ class Shell
     Machine.exit(0)
   end
   alias _quit _exit
+
+  def _jobs(*args)
+    @jobs.each_with_index do |job, index|
+      mark = if index == @jobs.size - 1
+               "+"
+             else
+               " "
+             end
+      puts "[#{index}]#{mark}  #{job.state.to_s.ljust(16, ' ')}#{job.name}"
+    end
+  end
+
+  def _bg(*args)
+    # TODO
+    puts "bg: not implemented"
+  end
+
+  def _fg(*args)
+    if @jobs.empty?
+      puts "fg: no jobs"
+      return
+    end
+    num = args[0]&.to_i
+    if num.nil?
+      num = @jobs.size - 1
+    end
+    @jobs[num].resume
+  end
+
+  def cleanup_jobs
+    @jobs.reject! do |job|
+      job.state == :DORMANT
+    end
+  end
 
 end
 

@@ -10,9 +10,12 @@ static int save_flags;
 int
 hal_getchar(void)
 {
-  if (sigint_status) {
-    sigint_status = MACHINE_SIGINT_NONE;
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
     return 3; // Ctrl-C
+  } else if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 26; // Ctrl-Z
   }
   int c = getchar();
   if (c == EOF) {

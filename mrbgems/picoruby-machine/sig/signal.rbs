@@ -1,5 +1,9 @@
 # @sidebar error
-class Interrupt < Exception
+class SignalException < Exception
+end
+
+# @sidebar error
+class Interrupt < SignalException
 end
 
 module Signal

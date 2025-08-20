@@ -18,35 +18,57 @@
 #define HEAP_SIZE (1024 * 2000)
 #endif
 
-static uint8_t heap_pool[HEAP_SIZE];
+static uint8_t heap_pool[HEAP_SIZE] __attribute__((aligned(16)));;
 
 // from machine.h
-volatile sig_atomic_t sigint_status = MACHINE_SIGINT_NONE;
+volatile sig_atomic_t sigint_status = MACHINE_SIG_NONE;
 int exit_status = 0;
 
 static struct termios orig_termios;
 
 static void
-sigint_handler(int signum)
+signal_handler(int signum)
 {
-  (void)signum;
-  if (sigint_status == MACHINE_SIGINT_EXIT) {
-    tcsetattr(0, TCSANOW, &orig_termios);
-    exit(exit_status);
+  switch (signum) {
+    case SIGINT:
+      if (sigint_status == MACHINE_SIGINT_EXIT) {
+        tcsetattr(0, TCSANOW, &orig_termios);
+        exit(exit_status);
+      }
+      sigint_status = MACHINE_SIGINT_RECEIVED;
+      break;
+    case SIGTSTP:
+      sigint_status = MACHINE_SIGTSTP_RECEIVED;
+      break;
+    default:
+      // Ignore other signals
   }
-  sigint_status = MACHINE_SIGINT_RECEIVED;
 }
 
 static void
 init_posix(void)
 {
+  // Get the original terminal attributes
   tcgetattr(0, &orig_termios);
 
-  struct sigaction sa = {0};
-  sa.sa_handler = sigint_handler;
+  // Copy the original attributes to modify them
+  struct termios newt = orig_termios;
+
+  // Set the terminal to raw mode
+  newt.c_lflag &= ~(ICANON | ECHO | ISIG);
+  tcsetattr(0, TCSANOW, &newt);
+
+  // Set up signal handlers
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.sa_handler = signal_handler;
   sigemptyset(&sa.sa_mask);
+  // Set the flags to 0 to use default behavior
   sa.sa_flags = 0;
+
+  // Register signal handlers for SIGINT and SIGTSTP
   sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTSTP, &sa, NULL);
 }
 
 

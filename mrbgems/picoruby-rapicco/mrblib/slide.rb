@@ -15,8 +15,6 @@ class Rapicco
       @usakame_h = usakame_h
       @colors = colors || COLORS
       get_screen_size
-      print "\e[2J" # clear screen
-      print "\e[?25l" # hide cursor
       @line_margin = 2
       @code_indent = 4
     end

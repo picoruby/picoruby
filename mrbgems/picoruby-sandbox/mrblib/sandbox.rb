@@ -8,33 +8,7 @@ class Sandbox
   def wait(timeout: TIMEOUT)
     sleep_ms 5
     signal_self_manage = ENV.delete('SIGNAL_SELF_MANAGE')
-    n = 5
-    while self.state != :DORMANT do
-      STDIN.read_nonblock(1) unless signal_self_manage
-      sleep_ms 5
-      if timeout
-        n += 5
-        if timeout < n
-          puts "Error: Timeout (sandbox.state: #{self.state})"
-          return false
-        end
-      end
-    end
-    return true
-  rescue Interrupt
-    unless signal_self_manage
-      puts "^C"
-      Signal.raise(:INT)
-      stop
-      begin
-        Watchdog.disable
-        puts "Watchdog disabled"
-      rescue NameError
-        # ignore. maybe POSIX
-      end
-      return false
-    end
-    return true # should be false?
+    loop(timeout, signal_self_manage)
   end
 
   def load_file(path, join: true)
@@ -67,11 +41,46 @@ class Sandbox
         end
         execute
       end
-      if join && started && wait(timeout: nil) && error = self.error
-        puts "#{error.message} (#{error})"
+      if join && started
+        wait(timeout: nil)
       end
     ensure
       f.close
     end
   end
+
+  private
+
+  def loop(timeout, signal_self_manage)
+    n = 5
+    while self.state != :DORMANT && self.state != :SUSPENDED do
+      STDIN.read_nonblock(1) unless signal_self_manage
+      sleep_ms 5
+      if timeout
+        n += 5
+        if timeout < n
+          puts "Error: Timeout (sandbox.state: #{self.state})"
+          return false
+        end
+      end
+    end
+    return true
+  rescue Interrupt
+    puts "^C"
+    Signal.raise(:INT)
+    self.stop
+    begin
+      Watchdog.disable
+      puts "Watchdog disabled"
+    rescue NameError
+      # ignore. maybe POSIX
+    end
+    return true # should be false?
+  rescue SignalException => e
+    if e.message == "SIGTSTP"
+      Signal.raise(:TSTP)
+    end
+    return false
+  end
+
 end

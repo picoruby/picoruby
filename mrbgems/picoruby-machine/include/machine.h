@@ -18,9 +18,10 @@ __attribute__((weak)) volatile sig_atomic_t sigint_status;
 __attribute__((weak)) int exit_status;
 
 enum {
-  MACHINE_SIGINT_NONE = 0,
-  MACHINE_SIGINT_RECEIVED = 1,
-  MACHINE_SIGINT_EXIT = 2
+  MACHINE_SIG_NONE = 0,
+  MACHINE_SIGINT_EXIT,
+  MACHINE_SIGINT_RECEIVED,
+  MACHINE_SIGTSTP_RECEIVED,
 };
 #endif
 

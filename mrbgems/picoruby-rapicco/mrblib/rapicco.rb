@@ -21,15 +21,32 @@ class Rapicco
   end
 
   def run
+    print "\e[?25l" # hide cursor
     print "\e[?1049h" # DECSET 1049
+    print "\e[2J" # clear screen
     next_page
     start = now = Time.now.to_i
     while true
-      500.times do
+      100.times do
         sleep_ms 1
-        case c = STDIN.read_nonblock(1)&.ord
-        when 3 # Ctrl-C
-          raise Interrupt
+        begin
+          c = STDIN.read_nonblock(1)&.ord
+        rescue Interrupt
+          return
+        rescue SignalException => e
+          if e.message == "SIGTSTP"
+            print "\e[?25h"   # show cursor
+            print "\e[?1049l" # DECRST 1049
+            puts "\nSuspended"
+            Signal.trap(:CONT) do
+              print "\e[?25l" # hide cursor
+              print "\e[?1049h" # DECSET 1049
+              ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+            end
+            Signal.raise(:TSTP)
+          end
+        end
+        case c
         when 12 # Ctrl-L
           @slide.get_screen_size
           current_page = @current_page
@@ -57,6 +74,7 @@ class Rapicco
     @file.close
     print "\e[?25h"   # show cursor
     print "\e[?1049l" # DECRST 1049
+    puts "\nInterrupted"
   end
 
   private

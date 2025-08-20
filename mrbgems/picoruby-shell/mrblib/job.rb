@@ -4,25 +4,47 @@ class Shell
       if params.empty?
         raise ArgumentError, "Job requires at least one parameter"
       end
+      @name = params.join(" ")
+      command = params.shift
+      if command.nil?
+        raise ArgumentError, "Job requires a command"
+      end
       @params = params
-      @sandbox = Sandbox.new(@params[0])
+      unless @exefile = Shell.find_executable(command)
+        raise "#{command}: command not found"
+      end
+      @sandbox = Sandbox.new(command)
+    end
+
+    attr_reader :name
+
+    def resume
+      Signal.raise(:CONT)
+      trap
+      @sandbox.resume
+      @sandbox.wait(timeout: nil)
+      if error = @sandbox.error
+        puts "#{error.message} (#{error.class})"
+      end
+      return true
+    rescue Exception => e
+      puts "#{e.message} (#{e.class})"
+      return false
+    end
+
+    def state
+      @sandbox.state
     end
 
     def exec
-      command = @params.shift
-      if command.nil?
-        raise ArgumentError, "Job requires a command to execute"
-      end
       ARGV.clear
-      @params&.each do |param|
+      @params.each do |param|
         ARGV << param
       end
-      if exefile = Shell.find_executable(command)
-        @sandbox.load_file(exefile)
-        @sandbox.suspend
-      else
-        puts "#{command}: command not found"
-        return false
+      trap
+      @sandbox.load_file(@exefile)
+      if error = @sandbox.error
+        puts "\n#{error.message} (#{error.class})"
       end
       return true
     rescue Exception => e
@@ -36,5 +58,13 @@ class Shell
       return false
     end
 
+    private
+
+    def trap
+      Signal.trap(:TSTP) do
+        @sandbox.suspend
+        puts "Suspended"
+      end
+    end
   end
 end

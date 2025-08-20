@@ -162,9 +162,17 @@ mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
 static mrb_noreturn void
 raise_interrupt(mrb_state *mrb)
 {
-  struct RClass *abort = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
-  mrb_raise(mrb, abort, "Interrupted");
+  struct RClass *classInterrupt = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
+  mrb_raise(mrb, classInterrupt, "SIGINT");
 }
+
+static mrb_noreturn void
+raise_sigtstp(mrb_state *mrb)
+{
+  struct RClass *class_SignalException = mrb_class_get_id(mrb, MRB_SYM(SignalException));
+  mrb_raise(mrb, class_SignalException, "SIGTSTP");
+}
+
 
 static void
 print_sub(mrb_state *mrb, mrb_value obj)
@@ -231,6 +239,8 @@ mrb_io_gets(mrb_state *mrb, mrb_value self)
     int c = hal_getchar();
     if (c == 3) { // Ctrl-C
       raise_interrupt(mrb); // mrb_noreturn
+    } else if (c == 26) { // Ctrl-Z
+      raise_sigtstp(mrb); // mrb_noreturn
     } if (c == 27) { // ESC continue;
     }
     if (c == 8 || c == 127) { // Backspace

@@ -4,11 +4,20 @@
 
 #include <string.h>
 
+// for POSIX
 static mrb_noreturn void
 raise_interrupt(mrb_state *mrb)
 {
   struct RClass *class_Interrupt = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
-  mrb_raise(mrb, class_Interrupt, "Interrupted");
+  mrb_raise(mrb, class_Interrupt, "SIGINT");
+}
+
+// for POSIX
+static mrb_noreturn void
+raise_sigtstp(mrb_state *mrb)
+{
+  struct RClass *class_SignalException = mrb_class_get_id(mrb, MRB_SYM(SignalException));
+  mrb_raise(mrb, class_SignalException, "SIGTSTP");
 }
 
 static mrb_value
@@ -29,6 +38,8 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
     c = hal_getchar();
     if (c == 3) {
       raise_interrupt(mrb); // mrb_noreturn
+    } else if (c == 26) {
+      raise_sigtstp(mrb); // mrb_noreturn
     } else if (c < 0) {
       break;
     } else {
