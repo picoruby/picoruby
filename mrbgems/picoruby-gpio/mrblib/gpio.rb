@@ -43,6 +43,8 @@ class GPIO
     @initializing = false
   end
 
+  attr_reader :pin
+
   def setmode(flags, alt_function = 0)
     set_dir(flags)
     set_pull(flags)
