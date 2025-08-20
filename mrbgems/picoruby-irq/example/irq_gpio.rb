@@ -16,8 +16,8 @@ loop do
 end
 
 # Note:
-# For mruby/c's technical reasons, local variables outside
-# irq block are not accessible inside the irq block.
-# Thsi is why we use `$led` global variable here.
+# For mruby/c's technical reasons, local variables outside 
+# the irq block are not accessible from the block.
+# This is why we use `$led` global variable here.
 # On the other hand, you can use `led` local variable in
 # mruby-based PicoRuby (MicroRuby)
