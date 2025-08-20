@@ -45,12 +45,15 @@ class Shell
   def run_irb: -> void
 
   def builtin?: (String name) -> bool
-  private def _type: () -> void
-  private def _echo: () -> void
-  private def _pwd: () -> void
-  private def _cd: () -> void
-  private def _exit: () -> void
-  private def _quit: () -> void
-  private def _reboot: () -> void
+  private def _type: (*untyped args) -> void
+  private def _echo: (*untyped args) -> void
+  private def _pwd: (*untyped args) -> void
+  private def _cd: (*untyped args) -> void
+  private def _exit: (*untyped args) -> void
+  private def _quit: (*untyped args) -> void
+  private def _reboot: (*untyped args) -> void
+  private def _jobs: (*untyped args) -> void
+  private def _fg: (*untyped args) -> void
+  private def _bg: (*untyped args) -> void
   private def cleanup_jobs: () -> void
 end

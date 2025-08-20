@@ -435,6 +435,33 @@ class Shell
 
   private
 
+  if RUBY_ENGINE == "mruby/c"
+    def send(name, *args)
+      case name
+      when "_type"
+        _type(*args)
+      when "_echo"
+        _echo(*args)
+      when "_reboot"
+        _reboot(*args)
+      when "_pwd"
+        _pwd(*args)
+      when "_cd"
+        _cd(*args)
+      when "_exit", "_quit"
+        _exit(*args)
+      when "_jobs"
+        _jobs(*args)
+      when "_bg"
+        _bg(*args)
+      when "_fg"
+        _fg(*args)
+      else
+        raise NameError.new("undefined method `#{name}' for #{self.class}")
+      end
+    end
+  end
+
   # Builtin command wishlist:
   #  alias
   #  cd
