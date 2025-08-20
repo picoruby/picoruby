@@ -3,6 +3,7 @@
 #include <string.h>
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
+#include "pico/time.h"
 
 #include "../../include/irq.h"
 
@@ -13,6 +14,9 @@ typedef struct {
   int pin;
   uint32_t event_mask;
   bool enabled;
+  uint32_t debounce_ms;
+  uint32_t last_event_time;
+  uint32_t last_event_type;
 } mrb_irq_handler_t;
 
 typedef struct {
@@ -29,9 +33,24 @@ static int next_irq_id = 1;
 static void
 gpio_irq_callback(uint gpio, uint32_t events)
 {
+  uint32_t current_time = time_us_32() / 1000;  /* Convert to milliseconds */
+  
   /* Find handler for this GPIO pin and matching event */
   for (int i = 0; i < MAX_IRQ_HANDLERS; i++) {
     if (irq_handlers[i].enabled && irq_handlers[i].pin == gpio && (events & irq_handlers[i].event_mask)) {
+      /* Check debounce */
+      if (irq_handlers[i].debounce_ms > 0) {
+        uint32_t time_diff = (current_time - irq_handlers[i].last_event_time) & 0xFFFFFFFF;
+        if (time_diff < irq_handlers[i].debounce_ms && 
+            events == irq_handlers[i].last_event_type) {
+          continue;  /* Skip due to debounce */
+        }
+      }
+      
+      /* Update event history */
+      irq_handlers[i].last_event_time = current_time;
+      irq_handlers[i].last_event_type = events;
+      
       /* Add event to queue */
       int next_tail = (queue_tail + 1) & (IRQ_EVENT_QUEUE_SIZE - 1);
       if (next_tail != queue_head) {  /* Queue not full */
@@ -45,7 +64,7 @@ gpio_irq_callback(uint gpio, uint32_t events)
 }
 
 int
-IRQ_register_gpio(int pin, int event_type)
+IRQ_register_gpio(int pin, int event_type, uint32_t debounce_ms)
 {
   /* Find free slot */
   int slot = -1;
@@ -74,6 +93,9 @@ IRQ_register_gpio(int pin, int event_type)
   irq_handlers[slot].pin = pin;
   irq_handlers[slot].event_mask = event_mask;
   irq_handlers[slot].enabled = true;
+  irq_handlers[slot].debounce_ms = debounce_ms;
+  irq_handlers[slot].last_event_time = 0;
+  irq_handlers[slot].last_event_type = 0;
 
   return slot + 1;  /* Return 1-based ID */
 }

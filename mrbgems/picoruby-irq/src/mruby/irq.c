@@ -18,9 +18,16 @@ mrb_s_register_gpio(mrb_state *mrb, mrb_value self)
   mrb_value opts;
   mrb_get_args(mrb, "iiH", &pin, &event_type, &opts);
 
-  (void)opts; // Currently unused, but can be used for future options
+  /* Extract debounce from opts hash */
+  uint32_t debounce_ms = 0;
+  if (!mrb_nil_p(opts)) {
+    mrb_value debounce_val = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(debounce)));
+    if (!mrb_nil_p(debounce_val)) {
+      debounce_ms = (uint32_t)mrb_integer(debounce_val);
+    }
+  }
 
-  int irq_id = IRQ_register_gpio(pin, event_type);
+  int irq_id = IRQ_register_gpio(pin, event_type, debounce_ms);
 
   if (irq_id < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to register GPIO IRQ");
@@ -65,12 +72,12 @@ mrb_s_peek_event(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_irq_gem_init(mrb_state *mrb)
 {
-  struct RClass *irq_module = mrb_define_module(mrb, "IRQ");
+  struct RClass *module_IRQ = mrb_define_module(mrb, "IRQ");
 
   /* Define singleton methods */
-  mrb_define_module_function_id(mrb, irq_module, "register_gpio", mrb_s_register_gpio, MRB_ARGS_REQ(3));
-  mrb_define_module_function_id(mrb, irq_module, "unregister_gpio", mrb_s_unregister_gpio, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, irq_module, "peek_event", mrb_s_peek_event, MRB_ARGS_NONE());
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(register_gpio), mrb_s_register_gpio, MRB_ARGS_REQ(3));
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unregister_gpio), mrb_s_unregister_gpio, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_IRQ, MRB_SYM(peek_event), mrb_s_peek_event, MRB_ARGS_NONE());
 
   IRQ_init(); // Initialize the IRQ system
 }

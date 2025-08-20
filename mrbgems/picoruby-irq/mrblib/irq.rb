@@ -1,3 +1,5 @@
+require 'gpio'
+
 module IRQ
   MAX_PROCESS_COUNT = 5
   HANDLER = {}
