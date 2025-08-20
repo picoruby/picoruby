@@ -38,7 +38,7 @@ c_env_delete(struct VM *vm, mrbc_value v[], int argc)
   mrbc_value value = mrbc_hash_remove(&env->hash, &key);
   mrbc_incref(&value);
   SET_RETURN(value);
-  unsetenv((const char *)GET_STRING_ARG(1));
+  ENV_unsetenv((const char *)GET_STRING_ARG(1));
 }
 
 static void
@@ -60,7 +60,7 @@ c_env_aset(struct VM *vm, mrbc_value v[], int argc)
   mrbc_incref(&value);
   mrbc_hash_set(&env->hash, &key, &value);
   SET_RETURN(value);
-  setenv((const char *)key.string->data, (const char *)value.string->data, 1);
+  ENV_setenv((const char *)key.string->data, (const char *)value.string->data, 1);
 }
 
 static void
@@ -72,7 +72,7 @@ c_env_new(struct VM *vm, mrbc_value v[], int argc)
 
   char *key, *value;
   while (1) {
-    env_get_key_value(&key, &value);
+    ENV_get_key_value(&key, &value);
     if (key == NULL) {
       break;
     }

@@ -36,7 +36,7 @@ mrb_env_s_new(mrb_state *mrb, mrb_value klass)
   char *key, *value;
   int ai = mrb_gc_arena_save(mrb);
   while (1) {
-    env_get_key_value(&key, &value);
+    ENV_get_key_value(&key, &value);
     if (key == NULL) {
       break;
     }
@@ -57,7 +57,7 @@ mrb_env_aset(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "SS", &key, &value);
   ENV *env = (ENV *)mrb_data_get_ptr(mrb, self, &mrb_env_type);
   mrb_hash_set(mrb, env->hash, key, value);
-  setenv(RSTRING_PTR(key), RSTRING_PTR(value), 1);
+  ENV_setenv(RSTRING_PTR(key), RSTRING_PTR(value), 1);
   return value;
 }
 
@@ -80,7 +80,7 @@ mrb_env_delete(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "S", &key);
   ENV *env = (ENV *)mrb_data_get_ptr(mrb, self, &mrb_env_type);
   value = mrb_hash_delete_key(mrb, env->hash, key);
-  unsetenv(RSTRING_PTR(key));
+  ENV_unsetenv(RSTRING_PTR(key));
   return value;
 }
 
