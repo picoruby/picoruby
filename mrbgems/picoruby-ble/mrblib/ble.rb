@@ -110,8 +110,8 @@ class BLE
   end
 
   def blink_led
-    @led ||= Shell.get_device(:gpio, 'LED_BLE')
-    @led.write(@led.low? ? 1 : 0)
+    @led ||= Shell.get_device(:gpio, 'GPIO_LED_BLE')
+    @led&.write(@led&.low? ? 1 : 0)
   end
 
   POLLING_UNIT_MS = 100

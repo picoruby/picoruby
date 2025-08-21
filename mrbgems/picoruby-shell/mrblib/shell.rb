@@ -25,13 +25,21 @@ class Shell
     when 'GPIO_TRIGGER_NMBLE'
       GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
     when 'GPIO_LED_BLE', 'GPIO_LED_WIFI'
-      if ENV[key].nil? || ENV[key] == 'cyw43_led'
-        CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
-      else
-        GPIO.new(ENV[key].to_i, GPIO::OUT)
+      begin
+        if ENV[key].nil? || ENV[key] == 'cyw43_led'
+          CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+        else
+          if pin = ENV[key]
+            GPIO.new(pin.to_i, GPIO::OUT)
+          else
+            nil
+          end
+        end
+      rescue NameError
+        nil
       end
     else
-      raise "Unknown GPIO key: #{key}"
+      nil
     end
   end
 
