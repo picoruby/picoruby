@@ -28,7 +28,8 @@ decrypt_proc = Proc.new do |decoded_password|
   len = unique_id.length
   cipher.key = (unique_id * ((key_len / len + 1) * len))[0, key_len].to_s
   cipher.iv = (unique_id * ((iv_len / len + 1) * len))[0, iv_len].to_s
-  ciphertext = decoded_password[16, decoded_password.length - 16]
+  # Based on successful debug run: CBC mode has empty tag, so entire data is ciphertext
+  ciphertext = decoded_password
   cipher.update(ciphertext) + cipher.finish
 end
 

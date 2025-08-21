@@ -33,7 +33,7 @@ c_new(mrbc_vm *vm, mrbc_value *v, int argc)
 static int
 check_finished(mrbc_vm *vm, mbedtls_md_context_t *ctx)
 {
-  if (ctx->md_info == NULL) { // mbedtls_md_free() did make md_info NULL
+  if (mbedtls_md_info_from_ctx(ctx) == NULL) { // mbedtls_md_free() makes md_info NULL
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
     return -1;
   }

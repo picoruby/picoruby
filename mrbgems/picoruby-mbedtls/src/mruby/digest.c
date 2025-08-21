@@ -61,7 +61,8 @@ mrb_mbedtls_digest_finish(mrb_state *mrb, mrb_value self)
 {
   mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)mrb_data_get_ptr(mrb, self, &mrb_md_context_type);
 
-  size_t out_len = mbedtls_md_get_size(ctx->md_info);
+  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_ctx(ctx);
+  size_t out_len = mbedtls_md_get_size(md_info);
   unsigned char* output = mrb_malloc(mrb, out_len); // need at least block size
   int ret;
 
