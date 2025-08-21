@@ -129,7 +129,7 @@ hal_init(void)
 void
 #if defined(PICORB_VM_MRUBYC)
 hal_enable_irq(void)
-#elif defined(PICORB_VM_MRUBYC)
+#elif defined(PICORB_VM_MRUBY)
 mrb_task_enable_irq(void)
 #endif
 {
@@ -147,7 +147,7 @@ mrb_task_enable_irq(void)
 void
 #if defined(PICORB_VM_MRUBYC)
 hal_disable_irq(void)
-#elif defined(PICORB_VM_MRUBYC)
+#elif defined(PICORB_VM_MRUBY)
 mrb_task_disable_irq(void)
 #endif
 {
