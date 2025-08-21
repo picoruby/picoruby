@@ -205,7 +205,7 @@ module Editor
       refresh
       while true
         begin
-          line = STDIN.read_nonblock(10)
+          line = STDIN.read_nonblock(255) # This size affects pasting text
         rescue Interrupt
           @buffer.bottom
           @buffer.tail
