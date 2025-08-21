@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new('picoruby-machine') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Machine class'
 
+  spec.add_dependency 'picoruby-io-console'
+
   spec.posix
 
   if build.posix?
