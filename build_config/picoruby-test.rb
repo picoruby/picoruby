@@ -16,7 +16,7 @@ MRuby::Build.new do |conf|
   conf.gem core: 'picoruby-bin-microruby'
   conf.gem core: 'picoruby-mrubyc'
   conf.gem core: 'picoruby-require'
-  conf.gem core: 'picoruby-io'
+  conf.gem core: 'picoruby-posix-io'
   conf.gem core: 'picoruby-dir'
   conf.gem core: "picoruby-picotest"
   conf.gem core: "picoruby-picorubyvm"

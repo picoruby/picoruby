@@ -5,7 +5,7 @@ MRuby::Gem::Specification.new('picoruby-editor') do |spec|
 
   if build.posix?
     if build.vm_mrubyc?
-      spec.add_dependency('picoruby-io')
+      spec.add_dependency('picoruby-posix-io')
     elsif build.vm_mruby?
       spec.add_dependency('mruby-io')
     end

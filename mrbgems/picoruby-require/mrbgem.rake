@@ -10,7 +10,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
   if build.vm_mrubyc?
     if cc.defines.flatten.any?{ _1.match? /\AMRBC_USE_HAL_POSIX(=\d+)?\z/ }
       # TODO: in Wasm, you may need to implement File class with File System Access API
-      spec.add_dependency 'picoruby-io'
+      spec.add_dependency 'picoruby-posix-io'
     else
       spec.add_dependency 'picoruby-vfs'
       spec.add_dependency 'picoruby-filesystem-fat'
