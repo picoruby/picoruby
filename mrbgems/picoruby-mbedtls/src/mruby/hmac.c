@@ -41,7 +41,7 @@ mrb_initialize(mrb_state *mrb, mrb_value self)
 static int
 check_finished(mrb_state *mrb, mbedtls_md_context_t *ctx)
 {
-  if (ctx->md_info == NULL) { // mbedtls_md_free() did make md_info NULL
+  if (mbedtls_md_info_from_ctx(ctx) == NULL) { // mbedtls_md_free() makes md_info NULL
     return -1;
   }
   return 0;

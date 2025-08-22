@@ -4,6 +4,7 @@
 #include "mruby/array.h"
 #include "mruby/data.h"
 #include "mruby/class.h"
+#include "mbedtls/error.h"
 
 static void
 mrb_cipher_free(mrb_state *mrb, void *ptr)
@@ -23,8 +24,17 @@ mrb_mbedtls_cipher_initialize(mrb_state *mrb, mrb_value self)
 
   mbedtls_cipher_type_t cipher_type;
   uint8_t key_len, iv_len;
+#ifdef PICORUBY_DEBUG
+  printf("Cipher.new: cipher_name='%s'\n", cipher_name);
+#endif
   mbedtls_cipher_type_key_iv_len(cipher_name, &cipher_type, &key_len, &iv_len);
+#ifdef PICORUBY_DEBUG
+  printf("Cipher.new: cipher_type=%d, key_len=%d, iv_len=%d\n", cipher_type, key_len, iv_len);
+#endif
   if (cipher_type == MBEDTLS_CIPHER_NONE) {
+#ifdef PICORUBY_DEBUG
+    printf("Cipher.new: unsupported cipher suite '%s'\n", cipher_name);
+#endif
     mrb_raise(mrb, E_ARGUMENT_ERROR, "unsupported cipher suite");
   }
 
@@ -222,7 +232,10 @@ mrb_mbedtls_cipher_finish(mrb_state *mrb, mrb_value self)
 
   ret = mbedtls_cipher_finish(ctx, output, &out_len);
   if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_finish failed");
+    char error_buf[200];
+    mbedtls_strerror(ret, error_buf, 100);
+    snprintf(error_buf + strlen(error_buf), 100, " (error code: %d)", ret);
+    mrb_raise(mrb, E_RUNTIME_ERROR, error_buf);
   }
   mrb_value ret_value = mrb_str_new(mrb, (const char *)output, (mrb_int)out_len);
   //mrb_incref(&v[0]);
@@ -233,19 +246,54 @@ static mrb_value
 mrb_mbedtls_cipher_write_tag(mrb_state *mrb, mrb_value self)
 {
   int ret;
-  size_t tag_len = 16;
-  unsigned char tag[tag_len];
-
   cipher_instance_t *instance_data = (cipher_instance_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_type);
   mbedtls_cipher_context_t *ctx = &instance_data->ctx;
 
+  // Get the appropriate tag length for the cipher
+  size_t tag_len = 16; // Default for most AEAD modes
+  mbedtls_cipher_type_t cipher_type = mbedtls_cipher_get_type(ctx);
+  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(cipher_type);
+  if (cipher_info != NULL) {
+    mbedtls_cipher_mode_t mode = mbedtls_cipher_info_get_mode(cipher_info);
+    if (mode == MBEDTLS_MODE_CCM) {
+      tag_len = 16; // CCM typically uses 16-byte tags
+    } else if (mode == MBEDTLS_MODE_GCM) {
+      tag_len = 16; // GCM uses 16-byte tags
+    } else if (mode == MBEDTLS_MODE_CHACHAPOLY) {
+      tag_len = 16; // ChaCha20-Poly1305 uses 16-byte tags
+    }
+  }
+
+  // Check if this is an AEAD cipher that supports tags
+  if (cipher_info != NULL) {
+    mbedtls_cipher_mode_t mode = mbedtls_cipher_info_get_mode(cipher_info);
+    const char *cipher_name = mbedtls_cipher_info_get_name(cipher_info);
+#ifdef PICORUBY_DEBUG
+    printf("Cipher: %s, Mode: %d (CBC=2, GCM=%d, CCM=%d, CHACHAPOLY=%d)\n", 
+           cipher_name ? cipher_name : "unknown",
+           mode, MBEDTLS_MODE_GCM, MBEDTLS_MODE_CCM, MBEDTLS_MODE_CHACHAPOLY);
+#endif
+    if (mode != MBEDTLS_MODE_GCM && mode != MBEDTLS_MODE_CCM && mode != MBEDTLS_MODE_CHACHAPOLY) {
+      // For non-AEAD modes, return empty string as no tag is available
+      return mrb_str_new_cstr(mrb, "");
+    }
+  }
+
+  unsigned char *tag = mrb_malloc(mrb, tag_len);
   ret = mbedtls_cipher_write_tag(ctx, tag, tag_len);
   if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_write_tag failed");
+    mrb_free(mrb, tag);
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+#ifdef PICORUBY_DEBUG
+    printf("mbedtls_cipher_write_tag failed: %s (ret=%d, 0x%x)\n", error_buf, ret, -ret);
+    printf("cipher_type: %d, tag_len: %zu\n", cipher_type, tag_len);
+#endif
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_write_tag failed: %s", error_buf);
   }
 
   mrb_value ret_value = mrb_str_new(mrb, (const char *)tag, (mrb_int)tag_len);
-  //mrb_incref(&v[0]);
+  mrb_free(mrb, tag);
   return ret_value;
 }
 
@@ -255,11 +303,21 @@ mrb_mbedtls_cipher_check_tag(mrb_state *mrb, mrb_value self)
   mrb_value input;
   mrb_get_args(mrb, "S", &input);
 
-  int ret;
   cipher_instance_t *instance_data = (cipher_instance_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_type);
   mbedtls_cipher_context_t *ctx = &instance_data->ctx;
 
-  ret = mbedtls_cipher_check_tag(ctx, (const unsigned char *)RSTRING_PTR(input), RSTRING_LEN(input));
+  // Check if this is an AEAD cipher that supports tags
+  mbedtls_cipher_type_t cipher_type = mbedtls_cipher_get_type(ctx);
+  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(cipher_type);
+  if (cipher_info != NULL) {
+    mbedtls_cipher_mode_t mode = mbedtls_cipher_info_get_mode(cipher_info);
+    if (mode != MBEDTLS_MODE_GCM && mode != MBEDTLS_MODE_CCM && mode != MBEDTLS_MODE_CHACHAPOLY) {
+      // For non-AEAD modes, tag verification is not applicable, assume success
+      return mrb_true_value();
+    }
+  }
+
+  int ret = mbedtls_cipher_check_tag(ctx, (const unsigned char *)RSTRING_PTR(input), RSTRING_LEN(input));
   if (ret == MBEDTLS_ERR_CIPHER_AUTH_FAILED) {
     //mrb_incref(&v[0]);
     return mrb_false_value();

@@ -39,7 +39,7 @@ mrb_mbedtls_pkey_rsa_public_p(mrb_state *mrb, mrb_value self)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)mrb_data_get_ptr(mrb, self, &mrb_pkey_type);
   mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  if (rsa->N.p != NULL && rsa->E.p != NULL) {
+  if (mbedtls_rsa_check_pubkey(rsa) == 0) {
     return mrb_true_value();
   } else {
     return mrb_false_value();
@@ -51,7 +51,7 @@ mrb_mbedtls_pkey_rsa_private_p(mrb_state *mrb, mrb_value self)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)mrb_data_get_ptr(mrb, self, &mrb_pkey_type);
   mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  if (rsa->D.p != NULL) {
+  if (mbedtls_rsa_check_privkey(rsa) == 0) {
     return mrb_true_value();
   } else {
     return mrb_false_value();
@@ -140,21 +140,19 @@ mrb_mbedtls_pkey_rsa_public_key(mrb_state *mrb, mrb_value self) {
     mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
   }
 
-  mbedtls_rsa_context *orig_rsa = mbedtls_pk_rsa(*orig_pk);
-  mbedtls_rsa_context *new_rsa = mbedtls_pk_rsa(*new_pk);
-
-  if ((ret = mbedtls_mpi_copy(&new_rsa->N, &orig_rsa->N)) != 0 ||
-      (ret = mbedtls_mpi_copy(&new_rsa->E, &orig_rsa->E)) != 0) {
-    mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Failed to copy public key components");
+  // Extract public key from original and import to new context
+  unsigned char pubkey_buf[2048];
+  size_t pubkey_len;
+  ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
+  if (ret < 0) {
+    mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Failed to export public key");
   }
+  pubkey_len = ret;
 
-  // set zero to private key components
-  mbedtls_mpi_init(&new_rsa->D);
-  mbedtls_mpi_init(&new_rsa->P);
-  mbedtls_mpi_init(&new_rsa->Q);
-  mbedtls_mpi_init(&new_rsa->DP);
-  mbedtls_mpi_init(&new_rsa->DQ);
-  mbedtls_mpi_init(&new_rsa->QP);
+  ret = mbedtls_pk_parse_public_key(new_pk, pubkey_buf + sizeof(pubkey_buf) - pubkey_len, pubkey_len);
+  if (ret != 0) {
+    mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Failed to import public key");
+  }
 
   return new_obj;
 }
@@ -215,7 +213,7 @@ mrb_mbedtls_pkey_rsa_s_new(mrb_state *mrb, mrb_value klass)
   int ret;
   ret = mbedtls_pk_parse_public_key(pk, (const unsigned char *)RSTRING_PTR(arg1), key_len + 1);
   if (ret != 0) { // retry it as a private key
-    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)RSTRING_PTR(arg1), key_len + 1, NULL, 0);
+    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)RSTRING_PTR(arg1), key_len + 1, NULL, 0, NULL, NULL);
   }
   if (ret != 0) {
     char error_buf[100];
@@ -243,7 +241,8 @@ mrb_mbedtls_pkey_pkeybase_verify(mrb_state *mrb, mrb_value self)
   mbedtls_pk_context *pk = (mbedtls_pk_context *)mrb_data_get_ptr(mrb, self, &mrb_pkey_type);
 
   mbedtls_md_context_t *md_ctx = (mbedtls_md_context_t *)mrb_data_get_ptr(mrb, digest, &mrb_md_context_type);
-  mbedtls_md_type_t md_type = mbedtls_md_get_type(md_ctx->md_info);
+  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_ctx(md_ctx);
+  mbedtls_md_type_t md_type = mbedtls_md_get_type(md_info);
 
   const unsigned char *signature = (const unsigned char *)RSTRING_PTR(sig_str);
   size_t sig_len = RSTRING_LEN(sig_str);
@@ -251,9 +250,9 @@ mrb_mbedtls_pkey_pkeybase_verify(mrb_state *mrb, mrb_value self)
   const unsigned char *input = (const unsigned char *)RSTRING_PTR(input_str);
   size_t input_len = RSTRING_LEN(input_str);
 
-  size_t hash_len = mbedtls_md_get_size(mbedtls_md_info_from_type(md_type));
+  size_t hash_len = mbedtls_md_get_size(md_info);
   unsigned char hash[hash_len];
-  int ret = mbedtls_md(md_ctx->md_info, input, input_len, hash);
+  int ret = mbedtls_md(md_info, input, input_len, hash);
   if (ret != 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Hash calculation failed");
   }
@@ -295,7 +294,7 @@ mrb_mbedtls_pkey_pkeybase_sign(mrb_state *mrb, mrb_value self)
 
   mbedtls_pk_context *pk = (mbedtls_pk_context *)mrb_data_get_ptr(mrb, self, &mrb_pkey_type);
 
-  ret = mbedtls_sha256_ret((const unsigned char *)RSTRING_PTR(inuput), RSTRING_LEN(inuput), hash, 0);
+  ret = mbedtls_sha256((const unsigned char *)RSTRING_PTR(inuput), RSTRING_LEN(inuput), hash, 0);
   if(ret != 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to calculate SHA-256 hash");
   }
@@ -322,6 +321,7 @@ mrb_mbedtls_pkey_pkeybase_sign(mrb_state *mrb, mrb_value self)
                         hash,
                         0,
                         signature,
+                        MBEDTLS_PK_SIGNATURE_MAX_SIZE,
                         &sig_len,
                         mbedtls_ctr_drbg_random,
                         &ctr_drbg);

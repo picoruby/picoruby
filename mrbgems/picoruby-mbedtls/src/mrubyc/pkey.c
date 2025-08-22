@@ -1,5 +1,5 @@
 #include <stdbool.h>
-#include <mrubyc.h>
+#include "mrubyc.h"
 #include "mbedtls/md.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/sha256.h"
@@ -15,7 +15,7 @@ c_mbedtls_pkey_rsa_public_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
   mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  if (rsa->N.p != NULL && rsa->E.p != NULL) {
+  if (mbedtls_rsa_check_pubkey(rsa) == 0) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -27,7 +27,7 @@ c_mbedtls_pkey_rsa_private_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
   mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  if (rsa->D.p != NULL) {
+  if (mbedtls_rsa_check_privkey(rsa) == 0) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -141,23 +141,21 @@ c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mbedtls_rsa_context *orig_rsa = mbedtls_pk_rsa(*orig_pk);
-  mbedtls_rsa_context *new_rsa = mbedtls_pk_rsa(*new_pk);
-
-  if ((ret = mbedtls_mpi_copy(&new_rsa->N, &orig_rsa->N)) != 0 ||
-      (ret = mbedtls_mpi_copy(&new_rsa->E, &orig_rsa->E)) != 0) {
-    mbedtls_pk_free(new_pk);
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to copy public key components");
+  // Extract public key from original and import to new context
+  unsigned char pubkey_buf[2048];
+  size_t pubkey_len;
+  ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
+  if (ret < 0) {
+    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to export public key");
     return;
   }
+  pubkey_len = ret;
 
-  // set zero to private key components
-  mbedtls_mpi_init(&new_rsa->D);
-  mbedtls_mpi_init(&new_rsa->P);
-  mbedtls_mpi_init(&new_rsa->Q);
-  mbedtls_mpi_init(&new_rsa->DP);
-  mbedtls_mpi_init(&new_rsa->DQ);
-  mbedtls_mpi_init(&new_rsa->QP);
+  ret = mbedtls_pk_parse_public_key(new_pk, pubkey_buf + sizeof(pubkey_buf) - pubkey_len, pubkey_len);
+  if (ret != 0) {
+    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to import public key");
+    return;
+  }
 
   SET_RETURN(new_obj);
 }
@@ -231,7 +229,7 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
   int ret;
   ret = mbedtls_pk_parse_public_key(pk, (const unsigned char *)key, key_len + 1);
   if (ret != 0) { // retry it as a private key
-    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)key, key_len + 1, NULL, 0);
+    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)key, key_len + 1, NULL, 0, NULL, NULL);
   }
   if (ret != 0) {
     mbedtls_pk_free(pk);
@@ -262,7 +260,8 @@ c_mbedtls_pkey_pkeybase_verify(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   mbedtls_md_context_t *md_ctx = (mbedtls_md_context_t *)v[1].instance->data;
-  mbedtls_md_type_t md_type = mbedtls_md_get_type(md_ctx->md_info);
+  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_ctx(md_ctx);
+  mbedtls_md_type_t md_type = mbedtls_md_get_type(md_info);
 
   mrbc_value sig_str = GET_ARG(2);
   const unsigned char *signature = (const unsigned char *)sig_str.string->data;
@@ -272,9 +271,9 @@ c_mbedtls_pkey_pkeybase_verify(mrbc_vm *vm, mrbc_value *v, int argc)
   const unsigned char *input = (const unsigned char *)input_str.string->data;
   size_t input_len = input_str.string->size;
 
-  size_t hash_len = mbedtls_md_get_size(mbedtls_md_info_from_type(md_type));
+  size_t hash_len = mbedtls_md_get_size(md_info);
   unsigned char hash[hash_len];
-  int ret = mbedtls_md(md_ctx->md_info, input, input_len, hash);
+  int ret = mbedtls_md(md_info, input, input_len, hash);
   if (ret != 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Hash calculation failed");
     return;
@@ -319,7 +318,7 @@ c_mbedtls_pkey_pkeybase_sign(mrbc_vm *vm, mrbc_value *v, int argc)
   const uint8_t *data = v[2].string->data;
   size_t data_len = v[2].string->size;
 
-  ret = mbedtls_sha256_ret((const unsigned char *)data, data_len, hash, 0);
+  ret = mbedtls_sha256((const unsigned char *)data, data_len, hash, 0);
   if(ret != 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Failed to calculate SHA-256 hash");
     return;
@@ -347,6 +346,7 @@ c_mbedtls_pkey_pkeybase_sign(mrbc_vm *vm, mrbc_value *v, int argc)
                         hash,
                         0,
                         signature,
+                        MBEDTLS_PK_SIGNATURE_MAX_SIZE,
                         &sig_len,
                         mbedtls_ctr_drbg_random,
                         &ctr_drbg);
