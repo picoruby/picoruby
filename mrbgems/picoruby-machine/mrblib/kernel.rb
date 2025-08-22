@@ -19,7 +19,14 @@ module Kernel
   end
 
   def p(*args)
-    $stdout.p(*args)
+    for e in args
+      $stdout.write e.inspect
+      $stdout.write "\n"
+    end
+    len = args.size
+    return nil if len == 0
+    return args[0] if len == 1
+    args
   end
 end
 

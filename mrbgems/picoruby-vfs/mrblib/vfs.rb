@@ -21,7 +21,7 @@ class VFS
       unless index = volume_index(mountpoint)
         raise "Mountpoint `#{mountpoint}` doesn't exist"
       end
-      if !force && ENV["PWD"].start_with?(mountpoint)
+      if !force && ENV["PWD"]&.start_with?(mountpoint)
         raise "Can't unmount where you are"
       end
       driver.unmount
@@ -47,7 +47,10 @@ class VFS
     end
 
     def pwd
-      ENV["PWD"]
+      if path = ENV["PWD"]
+        return path
+      else
+        raise "No current working directory"
     end
 
     def mkdir(path, mode = 0777)

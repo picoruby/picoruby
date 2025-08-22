@@ -130,7 +130,7 @@ class Shell
       path = "#{root}/etc/machine-id"
       self.ensure_system_file(path, Machine.unique_id, nil)
     end
-    Dir.chdir ENV['HOME']
+    Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
     config_file = "/etc/config.yml"
     # example of `config.yml`:
@@ -530,7 +530,7 @@ class Shell
   def _cd(*args)
     dir = case args[0]
     when nil
-      ENV['HOME']
+      ENV['HOME'] || ENV_DEFAULT_HOME
     when "-"
       ENV['OLDPWD'] || Dir.pwd
     else

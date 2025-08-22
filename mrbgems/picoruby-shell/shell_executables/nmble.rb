@@ -97,7 +97,7 @@ class WifiConfigPeripheral < BLE
         "watchdog" => (@watchdog == 'y')
       }
     }
-    File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f|
+    File.open(ENV['WIFI_CONFIG_PATH'] || ENV_DEFAULT_WIFI_CONFIG_PATH, "w") do |f|
       f.write YAML.dump(doc)
     end
   end

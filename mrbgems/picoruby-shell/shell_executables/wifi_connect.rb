@@ -43,8 +43,10 @@ ARGV.each do |arg|
   end
 end
 
-unless File.file?(ENV['WIFI_CONFIG_PATH'])
-  puts "File #{ENV['WIFI_CONFIG_PATH']} does not exist"
+wifi_config_path = ENV['WIFI_CONFIG_PATH'] || ENV_DEFAULT_WIFI_CONFIG_PATH
+
+unless File.file?(wifi_config_path)
+  puts "File #{wifi_config_path} does not exist"
   return
 end
 
@@ -59,7 +61,7 @@ end
 #        },
 #        "country_code": String
 #       }
-config = File.open(ENV['WIFI_CONFIG_PATH'], "r") do |f|
+config = File.open(wifi_config_path, "r") do |f|
   YAML.load(f.read.to_s)
 end
 

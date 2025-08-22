@@ -1,5 +1,5 @@
 if ENV['WIFI_MODULE'] == "cwy43"
-  if Shell.get_device(:gpio, 'TRIGGER_NMBLE').low?
+  if Shell.get_device(:gpio, 'TRIGGER_NMBLE')&.low?
     system "nmble"
   end
   system "wifi_connect --check-auto-connect"

@@ -46,9 +46,11 @@ answers["wifi"]["watchdog"] = cli.ask("Use Watchdog? (y/n)") do |q|
   q.default = "n"
 end == "y"
 
-File.open(ENV['WIFI_CONFIG_PATH'], "w") do |f|
+wifi_config_path = ENV['WIFI_CONFIG_PATH'] || ENV_DEFAULT_WIFI_CONFIG_PATH
+
+File.open(wifi_config_path, "w") do |f|
   f.write YAML.dump(answers)
 end
 
 puts
-puts "Successfully saved to #{ENV['WIFI_CONFIG_PATH']}"
+puts "Successfully saved to #{wifi_config_path}"
