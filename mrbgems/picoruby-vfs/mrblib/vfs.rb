@@ -51,6 +51,7 @@ class VFS
         return path
       else
         raise "No current working directory"
+      end
     end
 
     def mkdir(path, mode = 0777)

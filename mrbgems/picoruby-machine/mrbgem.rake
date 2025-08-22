@@ -15,6 +15,8 @@ MRuby::Gem::Specification.new('picoruby-machine') do |spec|
     # Workaround:
     #   Locate mruby-io at the top of gem_init.c
     #   to define IO.open earlier than this gems
-    spec.add_dependency 'mruby-io'
+    if build.posix?
+      spec.add_dependency 'mruby-io'
+    end
   end
 end
