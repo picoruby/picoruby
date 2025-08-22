@@ -123,7 +123,7 @@ class VFS
       end
       if dirs[0] != "" # path.start_with?("/")
         # Relative path
-        dirs = ENV["PWD"].split("/") + dirs
+        dirs = (ENV["PWD"] || "").split("/") + dirs
       end
       sanitized_dirs = []
       prefix_dirs = []
