@@ -49,7 +49,11 @@ class VFS
     def pwd
       if path = ENV["PWD"]
         return path
+      elsif path = ENV_DEFAULT_HOME
+        ENV["PWD"] = path
+        return path
       else
+        # This should not happen
         raise "No current working directory"
       end
     end
