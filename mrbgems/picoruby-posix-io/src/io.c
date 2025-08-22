@@ -1908,7 +1908,7 @@ c_io_sync_eq(mrbc_vm *vm, mrbc_value v[], int argc)
 /* initialization */
 
 void
-mrbc_io_init(mrbc_vm *vm)
+mrbc_posix_io_init(mrbc_vm *vm)
 {
   mrbc_class_EOFError = mrbc_define_class(vm, "EOFError", MRBC_CLASS(IOError));
   mrbc_class *mrbc_class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
