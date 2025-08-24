@@ -22,17 +22,32 @@
   #error "MRBC_NO_TIMER is not supported"
 #endif
 
+#if defined(PICORB_VM_MRUBY)
+static mrb_state *mrb_;
+#endif
+
 static esp_timer_handle_t periodic_timer;
 
 static void
 alarm_handler(void *arg)
 {
+#if defined(PICORB_VM_MRUBYC)
   mrbc_tick();
+#else
+  mrb_tick(mrb_);
+#endif
 }
 
 void
+#if defined(PICORB_VM_MRUBY)
+hal_init(mrb_state *mrb)
+#elif defined(PICORB_VM_MRUBYC)
 hal_init(void)
+#endif
 {
+#if defined(PICORB_VM_MRUBY)
+  mrb_ = (mrb_state *)mrb;
+#endif
   esp_timer_create_args_t timer_create_args;
   timer_create_args.callback = &alarm_handler;
   timer_create_args.arg = NULL;
