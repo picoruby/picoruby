@@ -16,6 +16,8 @@ MRuby::CrossBuild.new("r2p2-microruby-cortex-m33") do |conf|
   conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
   conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "MRB_USE_CUSTOM_RO_DATA_P"
+  conf.cc.defines << "MRB_LINK_TIME_RO_DATA_P"
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
