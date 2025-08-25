@@ -287,5 +287,8 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
   mrbc_define_method(vm, class_IO, "gets", c_gets);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
+  /*
+   * puts, print, p are implemented in mrubyc/src/c_object.c
+   */
 #endif
 }

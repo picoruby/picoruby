@@ -174,13 +174,14 @@ raise_sigtstp(mrb_state *mrb)
 }
 
 
-static void
+static size_t
 print_sub(mrb_state *mrb, mrb_value obj)
 {
   mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
   const char *cstr = RSTRING_PTR(str);
   size_t len = RSTRING_LEN(str);
   hal_write(0, cstr, len);
+  return len;
 }
 
 static mrb_value
@@ -217,16 +218,16 @@ mrb_io_print(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_io_p(mrb_state *mrb, mrb_value self)
+mrb_io_write(mrb_state *mrb, mrb_value self)
 {
   mrb_value *argv;
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
+  size_t total = 0;
   for (mrb_int i = 0; i < argc; i++) {
-    print_sub(mrb, mrb_inspect(mrb, argv[i]));
-    hal_write(0, "\n", 1);
+    total += print_sub(mrb, argv[i]);
   }
-  return mrb_nil_value();
+  return mrb_fixnum_value(total);
 }
 
 static mrb_value
@@ -306,7 +307,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   struct RClass *class_IO = mrb_define_class_id(mrb, MRB_SYM(IO), mrb->object_class);
   mrb_define_method_id(mrb, class_IO, MRB_SYM(puts), mrb_io_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(print), mrb_io_print, MRB_ARGS_ANY());
-  mrb_define_method_id(mrb, class_IO, MRB_SYM(p), mrb_io_p, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(write), mrb_io_write, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif
