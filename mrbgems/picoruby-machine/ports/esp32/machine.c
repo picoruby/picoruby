@@ -59,13 +59,21 @@ hal_init(void)
 }
 
 void
+#if defined(PICORB_VM_MRUBYC)
+hal_enable_irq(void)
+#elif defined(PICORB_VM_MRUBY)
 mrb_task_enable_irq()
+#endif
 {
   portENABLE_INTERRUPTS();
 }
 
 void
+#if defined(PICORB_VM_MRUBYC)
+hal_disable_irq(void)
+#elif defined(PICORB_VM_MRUBY)
 mrb_task_disable_irq()
+#endif
 {
   portDISABLE_INTERRUPTS();
 }
