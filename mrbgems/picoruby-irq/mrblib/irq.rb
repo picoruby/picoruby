@@ -54,14 +54,16 @@ module IRQ
       @callback = callback
       @event_type = event_type
       @enabled = true
+      @capture = opts.delete(:capture)
       @id = IRQ.register(self, opts)
     end
 
+    attr_accessor :capture
     attr_reader :peripheral, :event_type
 
     def call(event_type)
       return unless @enabled
-      @callback&.call(@peripheral, event_type)
+      @callback&.call(@peripheral, event_type, @capture)
     end
 
     def enabled?

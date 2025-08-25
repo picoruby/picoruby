@@ -12,7 +12,7 @@ module IRQ
   def self.unregister: (irq_id_t id) -> bool
   private def self.register_gpio: (gpio_pin_t pin, irq_event_type_t event_type, Hash[Symbol, untyped] opts) -> irq_id_t
   private def self.unregister_gpio: (irq_id_t id) -> bool
-  def irq: (irq_event_type_t event_type, **untyped opts) { (irq_peri_t peri, irq_event_type_t event_type) -> void } -> void
+  def irq: (irq_event_type_t event_type, **untyped opts) { (irq_peri_t peri, irq_event_type_t event_type, Object capture) -> void } -> void
 
   class IRQInstance
     @id: irq_id_t
@@ -20,6 +20,7 @@ module IRQ
     @callback: Proc
     @enabled: bool
 
+    attr_accessor capture: Object
     attr_reader peripheral: irq_peri_t
     attr_reader event_type: irq_event_type_t
 

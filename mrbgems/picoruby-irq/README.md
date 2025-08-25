@@ -20,8 +20,8 @@ require 'irq'
 gpio = GPIO.new(17, GPIO::IN|GPIO::PULL_UP)  # GPIO pin
 
 # Register IRQ handler for falling edge
-irq_instance = gpio.irq(GPIO::EDGE_FALL) do |peripheral, event_type|
-  puts "Button pressed! Event: #{event_type}"
+irq_instance = gpio.irq(GPIO::EDGE_FALL, capture: "My IRQ") do |peripheral, event_type, capture|
+  puts "#{capture} -- Button pressed! Event: #{event_type}"
 end
 
 # Process IRQ events in main loop
@@ -30,6 +30,8 @@ loop do
   sleep_ms(10)
 end
 ```
+
+For `capture`, see [example/irq_gpio.rb](example/irq_gpio.rb)
 
 ### IRQ with Debouncing
 

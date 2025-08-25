@@ -2,11 +2,11 @@ require 'irq'
 
 button = GPIO.new(17, GPIO::IN|GPIO::PULL_UP)
 
-$led = GPIO.new(16, GPIO::OUT)
+led = GPIO.new(16, GPIO::OUT)
 
-button.irq(GPIO::EDGE_FALL, debounce: 100) do |gpio, event|
+button.irq(GPIO::EDGE_FALL, debounce: 100, capture: {led: led}) do |button, event, cap|
   puts "Button pressed, toggling LED"
-  $led.write($led.high? ? 0 : 1)
+  cap[:led].write(cap[:led].high? ? 0 : 1)
 end
 
 # Main loop
@@ -16,8 +16,16 @@ loop do
 end
 
 # Note:
-# For mruby/c's technical reasons, local variables outside 
-# the irq block are not accessible from the block.
-# This is why we use `$led` global variable here.
-# On the other hand, you can use `led` local variable in
-# mruby-based PicoRuby (MicroRuby)
+# For mruby/c's technical reasons, local variables outside
+# the irq block are not accessible from the callback.
+# `capture` is a way to pass local variables into the block.
+#
+# If you can use mruby-based PicoRuby (MicroRuby), you can
+# write the code simply like below:
+# ```mruby
+# led = GPIO.new(16, GPIO::OUT)
+# button.irq(GPIO::EDGE_FALL, debounce: 100) do |button, event|
+#   puts "Button pressed, toggling LED"
+#   led.write(led.high? ? 0 : 1)
+# end
+# ```
