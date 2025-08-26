@@ -1,0 +1,12 @@
+class VRAM
+  type page_t = [Integer, Integer, String]
+  attr_accessor name: String
+
+  def initialize: (w: Integer, h: Integer, cols: Integer, rows: Integer) -> void
+  def pages: () -> Array[page_t]
+  def dirty_pages: () -> Array[page_t]
+  def set_pixel: (Integer x, Integer y, Integer color) -> self
+  def draw_rect: (Integer x, Integer y, Integer w, Integer h, Integer color) -> self
+  def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, Integer color) -> self
+  def fill: (Integer color) -> self
+end
