@@ -284,6 +284,8 @@ mrb_s_exit(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_machine_gem_init(mrb_state* mrb)
 {
+  mrb_define_class_id(mrb, MRB_SYM(IOError), E_STANDARD_ERROR);
+
   struct RClass *class_Machine = mrb_define_class_id(mrb, MRB_SYM(Machine), mrb->object_class);
 
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(tud_task), mrb_s_tud_task, MRB_ARGS_NONE());
