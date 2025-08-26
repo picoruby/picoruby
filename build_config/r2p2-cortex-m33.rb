@@ -52,6 +52,8 @@ MRuby::CrossBuild.new("r2p2-cortex-m33") do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
 
+  conf.gem core: "picoruby-rapicco"
+
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)
 

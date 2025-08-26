@@ -60,22 +60,76 @@ mrbgems/picoruby-shinonome/
 ```ruby
 require 'shinonome'
 
-# Render text with a specific font
-Shinonome.draw(:go12, "Hello, 世界", 1) do |height, width, widths, glyphs|
+# Method 1: Using block for immediate processing (recommended for performance)
+Shinonome.draw(:go12, "Hello, 世界", 1) do |height, total_width, widths, glyphs|
   # height: font height in pixels
-  # width: total width of the text
-  # widths: array of character widths
-  # glyphs: array of bitmap data for each character
+  # total_width: total width of all characters combined
+  # widths: array of individual character widths
+  # glyphs: array of bitmap data arrays for each character
   
-  # Render the bitmap data
-  height.times do |y|
-    widths.each_with_index do |char_width, i|
-      char_width.times do |x|
-        bit = (glyphs[i][y] >> (char_width - 1 - x)) & 1
-        print bit == 1 ? "██" : "  "
+  # Process each character
+  widths.each_with_index do |char_width, char_idx|
+    height.times do |row|
+      char_width.times do |col|
+        # Extract pixel bit from bitmap
+        pixel = (glyphs[char_idx][row] >> (char_width - 1 - col)) & 1
+        # Process pixel (pixel == 1 means foreground, 0 means background)
       end
     end
-    puts
+  end
+end
+
+# Method 2: Return values directly (less efficient)
+height, total_width, widths, glyphs = Shinonome.go12("Hello, 世界", 1)
+# Process the returned data...
+```
+
+### Display Integration Examples
+
+#### SSD1306 OLED Display
+
+```ruby
+# Draw text on SSD1306 display
+def draw_text(x, y, text, fontname = :min12, scale = 1)
+  Shinonome.draw(fontname, text, scale) do |height, total_width, widths, glyphs|
+    glyph_x = x
+    widths.each_with_index do |char_width, char_idx|
+      height.times do |row|
+        char_width.times do |col|
+          if (glyphs[char_idx][row] >> (char_width - 1 - col)) & 1 == 1
+            set_pixel(glyph_x + col, y + row, 1)
+          end
+        end
+      end
+      glyph_x += char_width
+    end
+  end
+end
+
+# Usage examples
+draw_text(0, 0, "いろはにほへと", :maru12)
+draw_text(0, 16, "黒暗森林", :min16, 2)  # scaled 2x
+draw_text(0, 52, "Hello World!", :min12)
+```
+
+#### Custom Display Driver
+
+```ruby
+# Generic bitmap display integration
+def render_text_to_display(display, x, y, text, font = :go12)
+  Shinonome.draw(font, text) do |height, total_width, widths, glyphs|
+    current_x = x
+    widths.each_with_index do |char_width, char_idx|
+      height.times do |row|
+        char_width.times do |col|
+          if (glyphs[char_idx][row] >> (char_width - 1 - col)) & 1 == 1
+            display.set_pixel(current_x + col, y + row, true)
+          end
+        end
+      end
+      current_x += char_width
+    end
+    display.update
   end
 end
 ```
