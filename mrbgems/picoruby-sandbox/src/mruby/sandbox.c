@@ -166,6 +166,9 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
     for (size_t j = 0; j < nlocals; j++, v++) {
       name = mrb_sym_name(ss->cc->mrb, *v);
       pm_string_constant_init(&scope->locals[j], name, strlen(name));
+      if (name == ss->cc->mrb->symbuf) {
+        pm_string_ensure_owned(&scope->locals[j]); // copy name
+      }
     }
   }
   ss->options = options;
