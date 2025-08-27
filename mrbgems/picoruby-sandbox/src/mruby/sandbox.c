@@ -8,6 +8,11 @@
 #include <mruby/variable.h>
 // #include <mruby/debug.h>
 
+// Workaround for picoruby.h defines MRUBY_IREP_H
+void mrb_irep_incref(mrb_state *, struct mrb_irep *);
+void mrb_irep_decref(mrb_state *, struct mrb_irep *);
+void mrb_irep_cutref(mrb_state *, struct mrb_irep *);
+
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
@@ -57,9 +62,11 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
   init_options(ss->options);
   ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
-  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
+  // TODO: Ask Matz
+  // if (ss->irep) mrb_irep_decref(mrb, ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
+  mrb_irep_incref(mrb, ss->irep);
   ss->options = ss->cc->options;
   ss->cc->options = NULL;
   if (!ss->irep) {
