@@ -5,7 +5,7 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
 
   spec.add_dependency 'picoruby-rng'
 
-  MBEDTLS_VERSION = "v3.6.1"
+  MBEDTLS_VERSION = "v3.6.2"
   MBEDTLS_REPO = "https://github.com/Mbed-TLS/mbedtls.git"
   mbedtls_dir = "#{dir}/lib/mbedtls"
 

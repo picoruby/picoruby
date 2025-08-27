@@ -42,10 +42,12 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
 
   spec.cc.include_paths << "#{lwip_dir}/src/include"
   spec.cc.include_paths << "#{lwip_dir}/contrib/ports/unix/port/include"
+  spec.cc.include_paths << "#{lwip_dir}/src/apps/altcp_tls"
   spec.cc.include_paths << "#{build.gems['picoruby-mbedtls'].dir}/lib/mbedtls/include"
 
   Dir.glob("#{lwip_dir}/src/**/*.c").each do |src|
     next if src.end_with?('makefsdata.c')
+    next if src.end_with?('altcp_tls_mbedtls.c')
     obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
     spec.objs << obj
   end

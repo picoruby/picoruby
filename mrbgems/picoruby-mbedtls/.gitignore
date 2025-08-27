@@ -4,14 +4,12 @@ lib/mbedtls/
 # Generated symlinks in include directory
 include/mbedtls/certs.h
 include/mbedtls/ssl_internal.h
-include/psa_util_internal.h
-include/ssl_ciphersuites_internal.h
-include/x509_internal.h
+include/alignment.h
+include/common.h
 include/pk_internal.h
 include/psa_crypto_core.h
 include/psa_crypto_invasive.h
 include/psa_crypto_its.h
-include/ssl_invasive.h
-include/ssl_debug_helpers_generated.h
-include/common.h
-include/alignment.h
+include/psa_util_internal.h
+include/ssl_ciphersuites_internal.h
+include/x509_internal.h
