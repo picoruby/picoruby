@@ -52,12 +52,12 @@ class Rapicco
             in_code = true
             print "\e[0m"
           end
-          if eval_code = line[:eval]&.join("\n")
-            eval eval_code
-          end
           code_block.each do |code_line|
             print (" " * @code_indent), code_line, "\e[0K\e[E"
             check_height and return
+          end
+          if eval_code = line[:eval]&.join("\n")
+            eval eval_code
           end
           next
         end

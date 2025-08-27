@@ -160,7 +160,7 @@ class Rapicco
     @current_page = -1
     @duration = config["duration"].to_i || 60*30
     @interval = @duration.to_f / @slide.page_w
-    @note_color = config["note_color"].to_sym || :white
+    @note_color = config["note_color"]&.to_sym || :white
   end
 
 end
