@@ -72,5 +72,10 @@ if RUBY_ENGINE == 'mruby/c'
     include Kernel
   end
   $LOADED_FEATURES = ["require"]
+  begin
+    require "posix-io"
+  rescue LoadError
+    # maybe non-posix
+  end
   require "sandbox"
 end
