@@ -178,6 +178,10 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
       }
     }
   }
+  if (ss->options) {
+    pm_options_free(ss->options);
+    mrc_free(ss->cc, ss->options);
+  }
   ss->options = options;
 
   return mrb_task_value(mrb, ss->task);
