@@ -1,4 +1,4 @@
-class GC
+module GC
   def self.enable: () -> bool
   def self.disable: () -> bool
   def self.start: () -> bool
