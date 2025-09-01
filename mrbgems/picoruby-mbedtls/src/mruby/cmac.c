@@ -3,12 +3,12 @@
 #include "mruby/data.h"
 #include "mruby/class.h"
 #include "mruby/string.h"
-#include "mbedtls/cmac.h"
+#include "cmac.h"
 
 static void
 mrb_cipher_context_free(mrb_state *mrb, void *ptr)
 {
-  mbedtls_cipher_free(ptr);
+  MbedTLS_cmac_free(ptr);
   mrb_free(mrb, ptr);
 }
 
@@ -19,22 +19,15 @@ struct mrb_data_type mrb_cipher_context_type = {
 static mrb_value
 mrb__init_aes(mrb_state *mrb, mrb_value klass)
 {
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)mrb_malloc(mrb, sizeof(mbedtls_cipher_context_t));
+  uint8_t *cmac_instance = mrb_malloc(mrb, MbedTLS_cmac_instance_size());
   mrb_value self = mrb_obj_new(mrb, mrb_class_ptr(klass), 0, NULL);
-  DATA_PTR(self) = ctx;
+  DATA_PTR(self) = cmac_instance;
   DATA_TYPE(self) = &mrb_cipher_context_type;
-  mbedtls_cipher_init(ctx);
-  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
-  int ret;
-  ret = mbedtls_cipher_setup(ctx, cipher_info);
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_setup failed");
-  }
   mrb_value key;
   mrb_get_args(mrb, "S", &key);
-  ret = mbedtls_cipher_cmac_starts(ctx, (const unsigned char *)RSTRING_PTR(key), RSTRING_LEN(key) * 8); /* last arg is keybits */
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_cmac_starts failed");
+  int ret = MbedTLS_cmac_init_aes(cmac_instance, (const unsigned char *)RSTRING_PTR(key), RSTRING_LEN(key) * 8);
+  if (ret != CMAC_SUCCESS) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CMAC init failed");
   }
   return self;
 }
@@ -45,11 +38,11 @@ mrb_update(mrb_state *mrb, mrb_value self)
   mrb_value input;
   mrb_get_args(mrb, "S", &input);
 
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_context_type);
+  uint8_t *cmac_instance = (uint8_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_context_type);
   int ret;
-  ret = mbedtls_cipher_cmac_update(ctx, (const unsigned char *)RSTRING_PTR(input), RSTRING_LEN(input));
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_cmac_update failed");
+  ret = MbedTLS_cmac_update(cmac_instance, (const unsigned char *)RSTRING_PTR(input), RSTRING_LEN(input));
+  if (ret != CMAC_SUCCESS) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CMAC update failed");
   }
   return self;
 }
@@ -57,10 +50,10 @@ mrb_update(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_reset(mrb_state *mrb, mrb_value self)
 {
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_context_type);
-  int ret = mbedtls_cipher_cmac_reset(ctx);
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_cmac_reset failed");
+  uint8_t *cmac_instance = (uint8_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_context_type);
+  int ret = MbedTLS_cmac_reset(cmac_instance);
+  if (ret != CMAC_SUCCESS) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CMAC reset failed");
   }
   return self;
 }
@@ -68,12 +61,12 @@ mrb_reset(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_digest(mrb_state *mrb, mrb_value self)
 {
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_context_type);
+  uint8_t *cmac_instance = (uint8_t *)mrb_data_get_ptr(mrb, self, &mrb_cipher_context_type);
   unsigned char output[16];
   int ret;
-  ret = mbedtls_cipher_cmac_finish(ctx, output);
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_cipher_cmac_finish failed");
+  ret = MbedTLS_cmac_finish(cmac_instance, output);
+  if (ret != CMAC_SUCCESS) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CMAC finish failed");
   }
   mrb_value digest = mrb_str_new(mrb, (const char *)output, sizeof(output));
   //mrb_incref(&v[0]);
