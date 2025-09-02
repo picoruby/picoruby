@@ -51,7 +51,7 @@ bin/picoruby -e 'puts "Hello World!"'
 
 #### Cross compilation
 
-See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby/picoruby/blob/master/build_config/r2p2-cortex-m0plus.rb)
+See an example: [build_config/r2p2-picoruby-pico.rb](build_config/r2p2-picoruby-pico.rb)
 
 ### Binaries
 
@@ -63,7 +63,7 @@ See an example: [build_config/r2p2-cortex-m0plus.rb](https://github.com/picoruby
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
   - You can do like `bin/picoruby path/to/your_script.rb` to run your script
 - bin/r2p2
-  - POSIX version of R2P2 (https://github.com/picoruby/R2P2)
+  - POSIX version of R2P2 (See https://github.com/picoruby/R2P2 for the Raspi Pico edition)
 
 ### Roadmap
 
