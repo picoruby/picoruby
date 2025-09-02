@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2-picoruby-pico") do |conf|
 
   ###############################################################
   # You need following tools:

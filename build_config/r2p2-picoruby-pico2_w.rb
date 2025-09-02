@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
+MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -15,9 +15,18 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.cc.host_command = "gcc"
 
   conf.cc.flags.flatten!
-  conf.cc.flags << "-mcpu=cortex-m0plus"
+  conf.cc.flags << "-mcpu=cortex-m33"
+#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
+#  conf.cc.flags << "-mabi=aapcs-linux"
+#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
+
+  conf.cc.flags << "-fno-strict-aliasing"
+  conf.cc.flags << "-fno-unroll-loops"
+  conf.cc.flags << "-mslow-flash-data"
+
   conf.cc.flags << "-fshort-enums"
+
   conf.cc.flags << "-Wall"
   conf.cc.flags << "-Wno-format"
   conf.cc.flags << "-Wno-unused-function"
@@ -35,7 +44,6 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
-  conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"
 
   conf.gembox "baremetal"
@@ -45,7 +53,8 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m0plus") do |conf|
   conf.gembox "stdlib"
   conf.gembox "utils"
   conf.gembox "cyw43"
-  conf.gem core: 'picoruby-jwt'
+
+  conf.gem core: "picoruby-rapicco"
 
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)

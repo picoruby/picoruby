@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2_w-cortex-m33") do |conf|
+MRuby::CrossBuild.new("r2p2-microruby-pico2_w") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -6,6 +6,19 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m33") do |conf|
   ###############################################################
 
   conf.toolchain("gcc")
+
+  conf.cc.defines << "MRB_TICK_UNIT=1"
+  conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
+
+  conf.cc.defines << "MRB_INT64"
+  conf.cc.defines << "MRB_32BIT"
+  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+  conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
+  conf.cc.defines << "ESTALLOC_DEBUG"
+  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
+  conf.cc.defines << "USE_WIFI"
+  conf.cc.defines << "MRB_USE_CUSTOM_RO_DATA_P"
+  conf.cc.defines << "MRB_LINK_TIME_RO_DATA_P"
 
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
@@ -16,9 +29,6 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m33") do |conf|
 
   conf.cc.flags.flatten!
   conf.cc.flags << "-mcpu=cortex-m33"
-#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
-#  conf.cc.flags << "-mabi=aapcs-linux"
-#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
 
   conf.cc.flags << "-fno-strict-aliasing"
@@ -33,31 +43,16 @@ MRuby::CrossBuild.new("r2p2_w-cortex-m33") do |conf|
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
 
-  # These defines should not contradict platform's configuration
-  conf.cc.defines << "PICORUBY_INT64"
-  conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
-  conf.cc.defines << "MRBC_CONVERT_CRLF=1"
-  conf.cc.defines << "MRBC_USE_MATH=1"
-  conf.cc.defines << "MRBC_TICK_UNIT=1"
-  conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
-  conf.cc.defines << "USE_FAT_FLASH_DISK=1"
-  conf.cc.defines << "NO_CLOCK_GETTIME=1"
-  conf.cc.defines << "USE_FAT_SD_DISK=1"
-  conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
-  conf.cc.defines << "USE_WIFI"
-
+  conf.gembox "stdlib-microruby"
   conf.gembox "baremetal"
-  conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
   conf.gembox "r2p2"
-  conf.gembox "stdlib"
-  conf.gembox "utils"
   conf.gembox "cyw43"
+  conf.gembox "peripheral_utils"
+  conf.gembox "utils"
 
   conf.gem core: "picoruby-rapicco"
+  conf.gem core: 'picoruby-psg'
 
-  conf.mrubyc_hal_arm
-  conf.picoruby(alloc_libc: false)
-
+  conf.microruby
 end
-
