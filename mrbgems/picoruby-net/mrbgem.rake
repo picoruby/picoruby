@@ -39,6 +39,7 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   end
 
   spec.cc.defines << 'PICO_CYW43_ARCH_POLL=1'
+#  spec.cc.defines << 'LWIP_EXCLUDE_DIRS=netif/ppp'
 
   spec.cc.include_paths << "#{lwip_dir}/src/include"
   spec.cc.include_paths << "#{lwip_dir}/contrib/ports/unix/port/include"

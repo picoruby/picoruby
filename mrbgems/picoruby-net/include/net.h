@@ -37,7 +37,7 @@ typedef struct {
   size_t recv_data_len;
 } net_response_t;
 
-void DNS_resolve(const char *name, bool is_tcp, char *outbuf, size_t outlen);
+err_t DNS_resolve(const char *name, bool is_tcp, char *outbuf, size_t outlen);
 bool TCPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res);
 bool UDPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res);
 

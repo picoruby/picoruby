@@ -1,6 +1,8 @@
 #ifndef _LWIPOPTS_EXAMPLE_COMMONH_H
 #define _LWIPOPTS_EXAMPLE_COMMONH_H
 
+#ifndef LWIPOPTS_H
+#define LWIPOPTS_H
 // Common settings used in most of the pico_w examples
 // (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html for details)
 
@@ -11,7 +13,18 @@
 
 // allow override in some examples
 #ifndef LWIP_SOCKET
-#define LWIP_SOCKET 0
+  #if defined(PICORB_PLATFORM_POSIX)
+    #define LWIP_SOCKET             0
+    #define LWIP_NETCONN            0
+    #define LWIP_NETIF_API          0
+    #define LWIP_NETIFAPI_SOCKET    0
+    #define LWIP_IP                 1
+    #define LWIP_STATS              0
+    #define LWIP_DEBUG              0
+  #else
+    #define LWIP_SOCKET 0
+    #define LWIP_NETCONN 0
+  #endif
 #endif
 
 #if PICO_CYW43_ARCH_POLL
@@ -61,14 +74,13 @@
 #define LWIP_ETHERNET 1
 #define LWIP_ICMP 1
 #define LWIP_RAW 1
-#define TCP_WND 16384
 #define TCP_MSS 1460
+#define TCP_WND                 (4 * TCP_MSS)
 #define TCP_SND_BUF (8 * TCP_MSS)
 #define TCP_SND_QUEUELEN ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
 #define LWIP_NETIF_STATUS_CALLBACK 1
 #define LWIP_NETIF_LINK_CALLBACK 1
 #define LWIP_NETIF_HOSTNAME 1
-#define LWIP_NETCONN 0
 #define MEM_STATS 1
 #define SYS_STATS 0
 #define MEMP_STATS 0
@@ -88,4 +100,6 @@
 #define LWIP_ALTCP_TLS 1
 #define LWIP_ALTCP_TLS_MBEDTLS 1
 
-#endif /* __LWIPOPTS_H__ */
+#endif /* LWIPOPTS_H */
+
+#endif /* _LWIPOPTS_EXAMPLE_COMMONH_H */
