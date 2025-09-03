@@ -24,21 +24,26 @@ module Net
     private def self._request_impl: (String host, Integer port, String content, bool is_tls) -> String?
   end
 
-  class HTTPClient
+  class HTTPClientBase
     @host: String
     def initialize: (String host) -> void
+    private def build_request: (String method, String path, ?header_t headers, ?String body) -> String
+    private def make_request: (String method, String path, ?header_t headers, ?String body) -> (httpreturn | nil)
+    private def port: -> Integer
+    private def use_tls: -> bool
     def get: (String path) -> (httpreturn | nil)
     def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
     def post: (String path, header_t headers, String body) -> (httpreturn | nil)
     def put:  (String path, header_t headers, String body) -> (httpreturn | nil)
   end
 
-  class HTTPSClient
-    @host: String
-    def initialize: (String host) -> void
-    def get: (String path) -> (httpreturn | nil)
-    def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
-    def post: (String path, header_t headers, String body) -> (httpreturn | nil)
-    def put:  (String path, header_t headers, String body) -> (httpreturn | nil)
+  class HTTPClient < HTTPClientBase
+    private def port: -> Integer
+    private def use_tls: -> bool
+  end
+
+  class HTTPSClient < HTTPClientBase
+    private def port: -> Integer
+    private def use_tls: -> bool
   end
 end

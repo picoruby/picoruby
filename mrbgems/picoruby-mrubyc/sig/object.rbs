@@ -390,4 +390,5 @@ class Object < BasicObject
   def relinquish : -> bool
 
   def private: (?Symbol) -> void
+  def public: (?Symbol) -> void
 end
