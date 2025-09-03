@@ -265,6 +265,114 @@ mrb_vram_fill(mrb_state* mrb, mrb_value self)
   return self;
 }
 
+static mrb_value
+mrb_vram_draw_bitmap(mrb_state* mrb, mrb_value self)
+{
+  const mrb_sym kw_names[] = { MRB_SYM(x), MRB_SYM(y), MRB_SYM(w), MRB_SYM(h), MRB_SYM(data) };
+  mrb_value kw_values[5];
+  mrb_value kw_rest;
+  mrb_kwargs kwargs = { 5, 5, kw_names, kw_values, &kw_rest };
+  mrb_get_args(mrb, ":", &kwargs);
+
+  display_t *disp = (display_t *)mrb_data_get_ptr(mrb, self, &mrb_vram_type);
+  if (!disp) return self;
+
+  if (!mrb_integer_p(kw_values[0]) || !mrb_integer_p(kw_values[1]) ||
+      !mrb_integer_p(kw_values[2]) || !mrb_integer_p(kw_values[3]) ||
+      !mrb_array_p(kw_values[4])) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid arguments for draw_bitmap");
+  }
+
+  mrb_int x = mrb_integer(kw_values[0]);
+  mrb_int y = mrb_integer(kw_values[1]);
+  mrb_int width = mrb_integer(kw_values[2]);
+  mrb_int height = mrb_integer(kw_values[3]);
+  mrb_value data_val = kw_values[4];
+
+  if (width <= 0 || height <= 0) return self;
+
+  mrb_int data_len = RARRAY_LEN(data_val);
+
+  for (mrb_int img_y = 0; img_y < height && img_y < data_len; img_y++) {
+    mrb_value row_val = mrb_ary_ref(mrb, data_val, img_y);
+    if (mrb_integer_p(row_val)) {
+      uint64_t row_data = (uint64_t)mrb_integer(row_val);
+      for (mrb_int img_x = 0; img_x < width; img_x++) {
+        uint8_t pixel = (row_data >> (width - 1 - img_x)) & 1;
+        mrb_int screen_x = x + img_x;
+        mrb_int screen_y = y + img_y;
+
+        for (mrb_int i = 0; i < disp->page_count; i++) {
+          display_page_t *page = &disp->pages[i];
+          if (screen_x >= page->x && screen_x < page->x + page->w &&
+              screen_y >= page->y && screen_y < page->y + page->h) {
+            page->set_pixel(page, screen_x - page->x, screen_y - page->y, pixel);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return self;
+}
+
+static mrb_value
+mrb_vram_draw_bytes(mrb_state* mrb, mrb_value self)
+{
+  const mrb_sym kw_names[] = { MRB_SYM(x), MRB_SYM(y), MRB_SYM(w), MRB_SYM(h), MRB_SYM(data) };
+  mrb_value kw_values[5];
+  mrb_value kw_rest;
+  mrb_kwargs kwargs = { 5, 5, kw_names, kw_values, &kw_rest };
+  mrb_get_args(mrb, ":", &kwargs);
+
+  display_t *disp = (display_t *)mrb_data_get_ptr(mrb, self, &mrb_vram_type);
+  if (!disp) return self;
+
+  if (!mrb_integer_p(kw_values[0]) || !mrb_integer_p(kw_values[1]) ||
+      !mrb_integer_p(kw_values[2]) || !mrb_integer_p(kw_values[3]) ||
+      !mrb_string_p(kw_values[4])) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid arguments for draw_bytes");
+  }
+
+  mrb_int x = mrb_integer(kw_values[0]);
+  mrb_int y = mrb_integer(kw_values[1]);
+  mrb_int width = mrb_integer(kw_values[2]);
+  mrb_int height = mrb_integer(kw_values[3]);
+  mrb_value data_val = kw_values[4];
+
+  if (width <= 0 || height <= 0) return self;
+
+  const uint8_t *image_data = (const uint8_t *)RSTRING_PTR(data_val);
+  mrb_int data_size = RSTRING_LEN(data_val);
+
+  for (mrb_int img_y = 0; img_y < height; img_y++) {
+    for (mrb_int img_x = 0; img_x < width; img_x++) {
+      mrb_int byte_idx = (img_y * ((width + 7) / 8)) + (img_x / 8);
+      mrb_int bit_idx = 7 - (img_x % 8);
+
+      uint8_t pixel = 0;
+      if (byte_idx < data_size) {
+        pixel = (image_data[byte_idx] >> bit_idx) & 1;
+      }
+
+      mrb_int screen_x = x + img_x;
+      mrb_int screen_y = y + img_y;
+
+      for (mrb_int i = 0; i < disp->page_count; i++) {
+        display_page_t *page = &disp->pages[i];
+        if (screen_x >= page->x && screen_x < page->x + page->w &&
+            screen_y >= page->y && screen_y < page->y + page->h) {
+          page->set_pixel(page, screen_x - page->x, screen_y - page->y, pixel);
+          break;
+        }
+      }
+    }
+  }
+
+  return self;
+}
+
 
 void
 mrb_picoruby_vram_gem_init(mrb_state* mrb)
@@ -277,6 +385,8 @@ mrb_picoruby_vram_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(dirty_pages), mrb_vram_dirty_pages, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_line), mrb_vram_draw_line, MRB_ARGS_REQ(5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_rect), mrb_vram_draw_rect, MRB_ARGS_REQ(5));
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bitmap), mrb_vram_draw_bitmap, MRB_ARGS_KEY(5, 5));
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bytes), mrb_vram_draw_bytes, MRB_ARGS_KEY(5, 5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(set_pixel), mrb_vram_set_pixel, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(fill), mrb_vram_fill, MRB_ARGS_REQ(1));
 }

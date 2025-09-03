@@ -1,5 +1,5 @@
 module Shinonome
-  type shinonome_t = [Integer, Integer,     Array[Integer], Array[Integer]]
+  type shinonome_t = [Integer, Integer,     Array[Integer], Array[Array[Integer]]]
   #                   height,  total_width, widths,         glyphs
   def self.test12: (String text) -> nil
   def self.test16: (String text) -> nil

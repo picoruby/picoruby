@@ -44,7 +44,7 @@ vram.set_pixel(10, 20, 1)  # x=10, y=20, color=1
 vram.draw_line(0, 0, 127, 63, 1)  # diagonal line
 
 # Draw filled rectangles
-vram.draw_rect(10, 10, 30, 20, 1)  # x, y, width, height, color
+vram.draw_rect(10, 10, 30, 20, 1)  # x, y, w, h, color
 ```
 
 ### Page Management
@@ -116,4 +116,4 @@ The library automatically tracks which pages have been modified:
 
 ## Examples
 
-See [example/ssd1306.rb](example/ssd1306.rb)
+See [../picoruby-ssd1306/example/ssd1306_demo.rb](../picoruby-ssd1306/example/ssd1306_demo.rb)
