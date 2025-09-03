@@ -10,5 +10,6 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-adafruit_pcf8523'
   conf.gem core: 'picoruby-hcsr04'
   conf.gem core: 'picoruby-pitchdetector'
+  conf.gem core: 'picoruby-ssd1306'
 end
 
