@@ -231,7 +231,6 @@ class Rapicco
         ],
         camerlengo: %w[
           .
-          .
           .....rrrs.....yyyy
           ....rlrrrs...yyydyy
           ......rs.....yyyyyy
@@ -240,6 +239,7 @@ class Rapicco
           ..gggogogogggyy
           .gggoooooooggg
           yygggogogogggg
+          ...yyy......yyy
         ],
         bullet: %w[
           .
