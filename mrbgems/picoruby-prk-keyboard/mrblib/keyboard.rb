@@ -752,7 +752,7 @@ class Keyboard
         end
       end
     end
-    @offset_a = (@cols_size / 2.0).ceil_to_i
+    @offset_a = (@cols_size / 2.0).ceil
     @offset_b = @cols_size * 2 - @offset_a - 1
   end
 
@@ -777,7 +777,7 @@ class Keyboard
     end
     @cols_size = pins.size
     @direct_pins = pins
-    @offset_a = (@cols_size / 2.0).ceil_to_i
+    @offset_a = (@cols_size / 2.0).ceil
     @offset_b = @cols_size * 2 - @offset_a - 1
   end
 

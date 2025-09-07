@@ -32,7 +32,7 @@ class PitchDetector
       # Get note name
       note_name = NAMES[note_index]
       # Calculate cents (pitch deviation)
-      cents = ((semitones_from_a4 - rounded_semitones) * 100 + 0.5).to_i
+      cents = ((semitones_from_a4 - rounded_semitones) * 100).round
       {
         octave: octave.to_i,
         note: note_name,

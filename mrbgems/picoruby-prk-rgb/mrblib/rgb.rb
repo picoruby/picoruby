@@ -1,4 +1,4 @@
-require "float-ext"
+require "numeric-ext"
 
 class RGB
   KEYCODE = {
@@ -60,9 +60,9 @@ class RGB
           else
             [c, 0, x]
           end
-    ((rgb[0] + m) * 255).ceil_to_i << 16 |
-      ((rgb[1] + m) * 255).ceil_to_i << 8 |
-      ((rgb[2] + m) * 255).ceil_to_i
+    ((rgb[0] + m) * 255).ceil << 16 |
+      ((rgb[1] + m) * 255).ceil << 8 |
+      ((rgb[2] + m) * 255).ceil
   end
 
   EFFECTS = %i|swirl rainbow_mood breath nokogiri static circle|
@@ -217,7 +217,7 @@ class RGB
     @delay = (33 - @speed) * 10
     unless @anchor
       # speed tuning (partner is slower due to blocking UART)
-      @delay = (@delay * 0.97).ceil_to_i
+      @delay = (@delay * 0.97).ceil
     end
   end
 
