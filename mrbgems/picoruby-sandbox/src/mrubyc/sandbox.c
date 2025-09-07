@@ -63,7 +63,8 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_sandbox_stop(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  // no-op
+  SS();
+  mrbc_terminate_task(ss->tcb);
   SET_TRUE_RETURN();
 }
 
