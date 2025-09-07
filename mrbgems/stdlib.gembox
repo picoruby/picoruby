@@ -7,7 +7,7 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-picorubyvm"
   conf.gem core: "picoruby-metaprog"
   conf.gem core: "picoruby-eval"
-  conf.gem core: "picoruby-float-ext"
+  conf.gem core: "picoruby-numeric-ext"
   conf.gem core: "picoruby-pack"
   conf.gem core: "picoruby-time-class"
   conf.gem core: "picoruby-vram"
