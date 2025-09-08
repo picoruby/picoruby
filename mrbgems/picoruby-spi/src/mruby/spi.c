@@ -34,7 +34,7 @@ mrb_spi_calculate_buffer_size(mrb_state *mrb, mrb_value *args, mrb_int argc, siz
         total_size += RSTRING_LEN(arg);
         break;
       default:
-        return 0;
+        mrb_raise(mrb, E_ARGUMENT_ERROR, "argument must be Integer, Array or String");
     }
   }
   return total_size;
