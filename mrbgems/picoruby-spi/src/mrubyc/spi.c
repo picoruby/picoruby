@@ -55,7 +55,7 @@ mrbc_spi_fill_buffer(mrbc_vm *vm, uint8_t *buffer, mrbc_value *args, int argc, s
         break;
       }
       default:
-        mrbc_raise(vm, MRBC_CLASS(ArgumentError), "argument must be Integer, Array or String");
+        mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be Integer, Array or String");
         return;
     }
   }
