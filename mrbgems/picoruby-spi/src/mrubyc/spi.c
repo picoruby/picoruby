@@ -249,7 +249,7 @@ c_s_init(mrbc_vm *vm, mrbc_value *v, int argc)
       case SPI_ERROR_INVALID_UNIT: { message = "Invalid SPI unit"; break; }
       case SPI_ERROR_INVALID_MODE: { message = "Invalid SPI mode"; break; }
       case SPI_ERROR_INVALID_FIRST_BIT: { message = "Invalid SPI firt bit"; break; }
-      default: { message = "Unknow SPI error"; }
+      default: { message = "Unknown SPI error"; }
     }
     mrbc_raise(vm, MRBC_CLASS(IOError), message);
     return;
