@@ -12,8 +12,8 @@ require 'openssl'
 rsa_key = OpenSSL::PKey::RSA.new(2048)
 PRIVATE_KEY_PEM = rsa_key.to_pem
 PUBLIC_KEY_PEM = rsa_key.public_key.to_pem
-P PRIVATE_KEY_PEm
-P PUBLIC_KEY_PEM
+p PRIVATE_KEY_PEM
+p PUBLIC_KEY_PEM
 ```
 
 ### Sign with RSA private key in CRuby and OpenSSL
