@@ -11,4 +11,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-pack"
   conf.gem core: "picoruby-time-class"
   conf.gem core: "picoruby-vram"
+  conf.gem core: "picoruby-terminus"
 end
