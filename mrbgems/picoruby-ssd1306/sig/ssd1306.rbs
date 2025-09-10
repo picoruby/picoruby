@@ -28,14 +28,14 @@ class SSD1306
 
   def initialize: (i2c: I2C, address: Integer, w: Integer, h: Integer) -> void
   private def init_display: () -> void
-  def clear: () -> void
-  def fill_screen: (?Integer pattern) -> void
+  def clear: () -> Integer
+  def fill_screen: (?Integer pattern) -> Integer
   def set_pixel: (Integer x, Integer y, ?Integer color) -> void
-  def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color) -> void
-  def draw_rect: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color, ?bool fill) -> void
-  def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> void
-  def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> void
-  def draw_text: (Integer x, Integer y, String text, ?Symbol fontname, ?Integer scale) -> void
-  def update_display: () -> void
-  def update_display_optimized: () -> void
+  def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color) -> nil
+  def draw_rect: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color, ?bool fill) -> nil
+  def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
+  def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> nil
+  def draw_text: (Integer x, Integer y, String text, ?Symbol fontname, ?Integer scale) -> nil
+  def update_display: () -> Integer
+  def update_display_optimized: () -> Integer # Returns number of pages updated
 end

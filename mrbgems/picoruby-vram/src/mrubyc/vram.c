@@ -124,6 +124,10 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
 static mrbc_value
 vram_pages_sub(mrbc_vm *vm, mrbc_value *v, int argc, bool dirty)
 {
+  bool clear_dirty = true;
+  if (argc != 0 && mrbc_type(v[1]) == MRBC_TT_FALSE) {
+    clear_dirty = false;
+  }
   display_t *disp = (display_t *)v[0].instance->data;
   mrbc_value result = mrbc_array_new(vm, 0);
 
@@ -137,14 +141,13 @@ vram_pages_sub(mrbc_vm *vm, mrbc_value *v, int argc, bool dirty)
       int cols = disp->w / page->w;
       int col = i % cols;
       int row = i / cols;
-
       mrbc_value entry = mrbc_array_new(vm, 3);
       mrbc_incref(&entry);
       mrbc_array_set(&entry, 0, &mrbc_integer_value(col));
       mrbc_array_set(&entry, 1, &mrbc_integer_value(row));
       mrbc_array_set(&entry, 2, &page->buffer);
       mrbc_array_push(&result, &entry);
-      if (dirty) page->dirty = false;
+      if (clear_dirty) page->dirty = false;
     }
   }
   return result;

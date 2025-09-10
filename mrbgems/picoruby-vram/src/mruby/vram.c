@@ -130,6 +130,8 @@ mrb_vram_s_new(mrb_state* mrb, mrb_value klass)
 static mrb_value
 mrb_vram_pages_sub(mrb_state* mrb, mrb_value self, mrb_bool dirty)
 {
+  mrb_bool clear_dirty = true;
+  mrb_get_args(mrb, "|b", &clear_dirty);
   mrb_value result = mrb_ary_new(mrb);
   display_t *disp = (display_t *)mrb_data_get_ptr(mrb, self, &mrb_vram_type);
   for (mrb_int i = 0; i < disp->page_count; i++) {
@@ -143,7 +145,7 @@ mrb_vram_pages_sub(mrb_state* mrb, mrb_value self, mrb_bool dirty)
       mrb_ary_push(mrb, entry, mrb_fixnum_value(row));
       mrb_ary_push(mrb, entry, page->buffer);
       mrb_ary_push(mrb, result, entry);
-      if (dirty) page->dirty = false;
+      if (clear_dirty) page->dirty = false;
     }
   }
   return result;
@@ -381,8 +383,8 @@ mrb_picoruby_vram_gem_init(mrb_state* mrb)
   MRB_SET_INSTANCE_TT(class_VRAM, MRB_TT_CDATA);
 
   mrb_define_class_method_id(mrb, class_VRAM, MRB_SYM(new), mrb_vram_s_new, MRB_ARGS_KEY(4, 4));
-  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(pages), mrb_vram_pages, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(dirty_pages), mrb_vram_dirty_pages, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(pages), mrb_vram_pages, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(dirty_pages), mrb_vram_dirty_pages, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_line), mrb_vram_draw_line, MRB_ARGS_REQ(5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_rect), mrb_vram_draw_rect, MRB_ARGS_REQ(5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bitmap), mrb_vram_draw_bitmap, MRB_ARGS_KEY(5, 5));

@@ -78,6 +78,7 @@ class SSD1306
 
   def draw_line(x0, y0, x1, y1, color = 1)
     @vram.draw_line(x0, y0, x1, y1, color)
+    nil
   end
 
   def draw_rect(x, y, w, h, color = 1, fill = false)
@@ -90,14 +91,17 @@ class SSD1306
       draw_line(x, y, x, y + h - 1, color)                   # Left
       draw_line(x + w - 1, y, x + w - 1, y + h - 1, color)   # Right
     end
+    nil
   end
 
   def draw_bitmap(x:, y:, w:, h:, data:)
     @vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data)
+    nil
   end
 
   def draw_bytes(x:, y:, w:, h:, data:)
     @vram.draw_bytes(x: x, y: y, w: w, h: h, data: data)
+    nil
   end
 
   begin
@@ -113,9 +117,12 @@ class SSD1306
           glyph_x += char_width
         end
       end
+      nil
     end
   rescue LoadError
-    # Shinonome gem not available, skip text rendering
+    def draw_text(x, y, text, fontname = :min12, scale = 1)
+      puts "Shinonome gem not available, skip text rendering"
+    end
   end
 
   def update_display
@@ -126,12 +133,13 @@ class SSD1306
     @vram.pages.each do |col, row, data|
       @i2c.write(@address, 0x40, data)
     end
+    @vram.pages.size
   end
 
   # Update only dirty pages for better performance
   def update_display_optimized
     dirty_pages = @vram.dirty_pages
-    return if dirty_pages.empty?
+    return 0 if dirty_pages.empty?
     dirty_pages.each do |col, row, data|
       # Set addressing range for this page only
       @i2c.write(@address, 0x00, COLUMNADDR, 0, @width - 1)
@@ -139,6 +147,7 @@ class SSD1306
       # Send page data
       @i2c.write(@address, 0x40, data)
     end
+    dirty_pages.size
   end
 
 end
