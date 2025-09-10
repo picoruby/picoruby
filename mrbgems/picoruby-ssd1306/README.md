@@ -20,8 +20,11 @@ display.draw_rect(50, 20, 25, 15, 1, true)   # filled
 display.update_display
 
 # Text with Shinonome fonts
-display.draw_text(0, 0, "Hello World!", :min12)
-display.draw_text(0, 16, "黒暗森林", :min16, 2)  # scale x2
+display.draw_text(:shinonome_min12, 0, 0, "Hello World!")
+display.draw_text(:shinonome_min16, 0, 16, "黒暗森林", 2)  # scale x2
+
+# Text with Terminus fonts
+display.draw_text(:terminus_6x12, 0, 48, "Terminus Font")  # No scaling available
 
 # Bitmap drawing
 icon = [0b01111110, 0b11100111, 0b11000011, 0b10111101]
@@ -41,7 +44,7 @@ display.draw_bytes(x: 0, y: 0, w: 16, h: 2, data: image_data)
 - `draw_rect(x, y, w, h, color, fill)` - Draw rectangle
 - `draw_bitmap(x:, y:, w:, h:, data:)` - Draw from integer array
 - `draw_bytes(x:, y:, w:, h:, data:)` - Draw from byte string
-- `draw_text(x, y, text, font, scale)` - Draw text (requires shinonome gem)
+- `draw_text(font, x, y, text, scale)` - Draw text (requires shinonome gem)
 - `update_display` - Update entire display
 - `update_display_optimized` - Update only changed areas
 

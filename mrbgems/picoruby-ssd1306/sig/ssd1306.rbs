@@ -35,7 +35,9 @@ class SSD1306
   def draw_rect: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color, ?bool fill) -> nil
   def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
   def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> nil
-  def draw_text: (Integer x, Integer y, String text, ?Symbol fontname, ?Integer scale) -> nil
+  def draw_text: (Symbol | String fontname, Integer x, Integer y, String text, ?Integer scale) -> nil
+  def draw_shinonome: (String size, Integer x, Integer y, String text, ?Integer scale) -> nil
+  def draw_terminus: (String size, Integer x, Integer y, String text) -> nil
   def update_display: () -> Integer
   def update_display_optimized: () -> Integer # Returns number of pages updated
 end

@@ -1,5 +1,6 @@
 require "i2c"
 require "vram"
+require "terminus"
 
 class SSD1306
   DISPLAYOFF = 0xAE
@@ -104,11 +105,36 @@ class SSD1306
     nil
   end
 
+  def draw_text(fontname_size, x, y, text, scale = 1)
+    fontname, size = fontname_size.to_s.split("_")
+    case fontname
+    when 'shinonome'
+      draw_shinonome(size.to_s, x, y, text, scale)
+    when 'terminus'
+      draw_terminus("_#{size}", x, y, text)
+    else
+      raise "Unsupported font: #{fontname}"
+    end
+  end
+
+  def draw_terminus(size, x, y, text)
+    Terminus.draw(size, text) do |height, total_width, widths, glyphs|
+      glyph_x = x
+      widths.each_with_index do |char_width, char_idx|
+        # Use optimized draw_bitmap for each character
+        char_data = glyphs[char_idx]
+        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
+        glyph_x += char_width
+      end
+    end
+    nil
+  end
+
   begin
     require "shinonome"
     shinonome_available = true
-    def draw_text(x, y, text, fontname = :min12, scale = 1)
-      Shinonome.draw(fontname, text, scale) do |height, total_width, widths, glyphs|
+    def draw_shinonome(size, x, y, text, scale = 1)
+      Shinonome.draw(size, text, scale) do |height, total_width, widths, glyphs|
         glyph_x = x
         widths.each_with_index do |char_width, char_idx|
           # Use optimized draw_bitmap for each character
@@ -120,7 +146,7 @@ class SSD1306
       nil
     end
   rescue LoadError
-    def draw_text(x, y, text, fontname = :min12, scale = 1)
+    def draw_shinonome(fontname, x, y, text, scale = 1)
       puts "Shinonome gem not available, skip text rendering"
     end
   end

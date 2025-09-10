@@ -74,11 +74,11 @@ GC.start
 
 puts "Test 8: Text display with shinonome font"
 display.clear
-display.draw_text(0, 0, "Hello PicoRubyWorld!!")
+display.draw_text(:termius_6x12, 0, 0, "Hello PicoRubyWorld!!")
 display.update_display_optimized
-display.draw_text(0, 16, "黒暗森林", :min16, 2)
+display.draw_text(:shinonome_min16, 0, 16, "黒暗森林", 2)
 display.update_display_optimized
-display.draw_text(0, 52, "いろはにほへとちりぬる", :maru12)
+display.draw_text(:shinonome_maru12, 0, 52, "いろはにほへとちりぬる")
 display.update_display_optimized
 GC.start
 
