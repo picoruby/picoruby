@@ -52,15 +52,43 @@ display.update_display
 sleep 2
 GC.start
 
-puts "Test 6: Performance test with optimized dirty page updates"
+puts "Test 6: Bouncing rectangle animation using erase method"
 display.clear
-11.times do |i|
-  # Only update a small area
-  display.draw_rect(i * 10, i * 5, 15, 10, 1, true)
-  display.update_display_optimized  # Only update dirty pages
-  sleep 0.1
+
+# Rectangle properties
+rect_w = 12
+rect_h = 8
+rect_x = 10.0
+rect_y = 10.0
+velocity_x = 2.5
+velocity_y = 1.8
+
+# Animation loop
+60.times do |frame|
+  # Erase previous rectangle position
+  display.erase(rect_x.to_i, rect_y.to_i, rect_w, rect_h) unless frame == 0
+  # Update position
+  rect_x += velocity_x
+  rect_y += velocity_y
+  # Bounce off edges
+  if rect_x <= 0 || rect_x >= (width - rect_w)
+    velocity_x = -velocity_x
+    rect_x = rect_x <= 0 ? 0 : width - rect_w
+  end
+  if rect_y <= 0 || rect_y >= (height - rect_h)
+    velocity_y = -velocity_y
+    rect_y = rect_y <= 0 ? 0 : height - rect_h
+  end
+
+  # Draw rectangle at new position
+  display.draw_rect(rect_x.to_i, rect_y.to_i, rect_w, rect_h, 1, true)
+  display.update_display_optimized
+
+  sleep 0.08  # ~12 FPS animation
+  GC.start if frame % 10 == 0  # Periodic garbage collection
 end
-sleep 2
+
+sleep 1
 GC.start
 
 puts "Test 7: Custom bitmap with draw_bytes (bytes method)"
@@ -74,7 +102,7 @@ GC.start
 
 puts "Test 8: Text display with shinonome font"
 display.clear
-display.draw_text(:termius_6x12, 0, 0, "Hello PicoRubyWorld!!")
+display.draw_text(:terminus_6x12, 0, 0, "Hello PicoRubyWorld!!")
 display.update_display_optimized
 display.draw_text(:shinonome_min16, 0, 16, "黒暗森林", 2)
 display.update_display_optimized

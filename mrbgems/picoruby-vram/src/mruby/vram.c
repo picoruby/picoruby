@@ -375,6 +375,32 @@ mrb_vram_draw_bytes(mrb_state* mrb, mrb_value self)
   return self;
 }
 
+static mrb_value
+mrb_vram_erase(mrb_state* mrb, mrb_value self)
+{
+  mrb_int x, y, w, h;
+  mrb_get_args(mrb, "iiii", &x, &y, &w, &h);
+
+  display_t *disp = (display_t *)mrb_data_get_ptr(mrb, self, &mrb_vram_type);
+
+  for (mrb_int i = 0; i < h; i++) {
+    for (mrb_int j = 0; j < w; j++) {
+      mrb_int px = x + j;
+      mrb_int py = y + i;
+      for (mrb_int k = 0; k < disp->page_count; k++) {
+        display_page_t *page = &disp->pages[k];
+        if (px >= page->x && px < page->x + page->w &&
+            py >= page->y && py < page->y + page->h) {
+          page->set_pixel(page, px - page->x, py - page->y, 0);
+          break;
+        }
+      }
+    }
+  }
+
+  return self;
+}
+
 
 void
 mrb_picoruby_vram_gem_init(mrb_state* mrb)
@@ -391,6 +417,7 @@ mrb_picoruby_vram_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(draw_bytes), mrb_vram_draw_bytes, MRB_ARGS_KEY(5, 5));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(set_pixel), mrb_vram_set_pixel, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_VRAM, MRB_SYM(fill), mrb_vram_fill, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_VRAM, MRB_SYM(erase), mrb_vram_erase, MRB_ARGS_REQ(4));
 }
 
 void

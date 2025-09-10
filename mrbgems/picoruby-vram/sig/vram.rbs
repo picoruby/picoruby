@@ -11,4 +11,5 @@ class VRAM
   def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> self
   def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> self
   def fill: (Integer color) -> self
+  def erase: (Integer x, Integer y, Integer w, Integer h) -> self
 end
