@@ -29,6 +29,7 @@ class SSD1306
   def initialize: (i2c: I2C, address: Integer, w: Integer, h: Integer) -> void
   private def init_display: () -> void
   def clear: () -> Integer
+  def erase: (Integer x, Integer y, Integer w, Integer h) -> nil
   def fill_screen: (?Integer pattern) -> Integer
   def set_pixel: (Integer x, Integer y, ?Integer color) -> void
   def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color) -> nil

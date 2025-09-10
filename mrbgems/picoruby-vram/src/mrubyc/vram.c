@@ -415,6 +415,36 @@ c_vram_draw_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+/*
+ * vram.erase(x, y, w, h)
+ */
+static void
+c_vram_erase(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  display_t *disp = (display_t *)v[0].instance->data;
+  if (!disp) return;
+
+  int x = GET_INT_ARG(1);
+  int y = GET_INT_ARG(2);
+  int w = GET_INT_ARG(3);
+  int h = GET_INT_ARG(4);
+
+  for (int i = 0; i < h; i++) {
+    for (int j = 0; j < w; j++) {
+      int px = x + j;
+      int py = y + i;
+      for (int k = 0; k < disp->page_count; k++) {
+        display_page_t *page = &disp->pages[k];
+        if (px >= page->x && px < page->x + page->w &&
+            py >= page->y && py < page->y + page->h) {
+          page->set_pixel(page, px - page->x, py - page->y, 0);
+          break;
+        }
+      }
+    }
+  }
+}
+
 void
 mrbc_vram_init(struct VM *vm)
 {
@@ -430,4 +460,5 @@ mrbc_vram_init(struct VM *vm)
   mrbc_define_method(0, class_VRAM, "draw_bitmap", c_vram_draw_bitmap);
   mrbc_define_method(0, class_VRAM, "draw_bytes", c_vram_draw_bytes);
   mrbc_define_method(0, class_VRAM, "fill", c_vram_fill);
+  mrbc_define_method(0, class_VRAM, "erase", c_vram_erase);
 }

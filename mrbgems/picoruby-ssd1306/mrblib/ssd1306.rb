@@ -67,6 +67,18 @@ class SSD1306
     update_display
   end
 
+  def erase(x, y, w, h)
+    return if x < 0 || y < 0 || w <= 0 || h <= 0
+    return if x >= @width || y >= @height
+    # Clip the erase area to display bounds
+    w = [@width - x, w].min
+    h = [@height - y, h].min
+    # @type var w: Integer
+    # @type var h: Integer
+    @vram.erase(x, y, w, h)
+    nil
+  end
+
   def fill_screen(pattern = 0xFF)
     @vram.fill(pattern)
     update_display
