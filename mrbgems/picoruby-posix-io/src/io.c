@@ -1191,10 +1191,10 @@ c_io_sysseek(mrbc_vm *vm, mrbc_value v[], int argc)
   off_t pos;
   mrbc_int_t offset = 0, whence = -1;
 
-  if (1 < argc) {
+  if (1 <= argc) {
     offset = GET_INT_ARG(1);
   }
-  if (2 < argc) {
+  if (2 <= argc) {
     whence = GET_INT_ARG(2);
   }
   if (whence < 0) {
@@ -1218,12 +1218,16 @@ c_io_sysseek(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_io_seek(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  c_io_sysseek(vm, v, argc);
   struct picorb_io *fptr = io_get_open_fptr(vm, v[0]);
   if (fptr->buf) {
     fptr->buf->start = 0;
     fptr->buf->len = 0;
   }
+  c_io_sysseek(vm, v, argc);
+  if (vm->exception.tt == MRBC_TT_EXCEPTION) {
+    return; /* raise error */
+  }
+  SET_INT_RETURN(0);
 }
 
 static void
