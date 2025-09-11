@@ -117,20 +117,20 @@ class SSD1306
     nil
   end
 
-  def draw_text(fontname_size, x, y, text, scale = 1)
-    fontname, size = fontname_size.to_s.split("_")
-    case fontname
+  def draw_text(fontname, x, y, text, scale = 1)
+    font, name = fontname.to_s.split("_")
+    case font
     when 'shinonome'
-      draw_shinonome(size.to_s, x, y, text, scale)
+      draw_shinonome(name.to_s, x, y, text, scale)
     when 'terminus'
-      draw_terminus("_#{size}", x, y, text)
+      draw_terminus(name.to_s, x, y, text)
     else
-      raise "Unsupported font: #{fontname}"
+      raise "Unsupported font: #{font}"
     end
   end
 
-  def draw_terminus(size, x, y, text)
-    Terminus.draw(size, text) do |height, total_width, widths, glyphs|
+  def draw_terminus(name, x, y, text)
+    Terminus.draw(name, text) do |height, total_width, widths, glyphs|
       glyph_x = x
       widths.each_with_index do |char_width, char_idx|
         # Use optimized draw_bitmap for each character
@@ -145,8 +145,8 @@ class SSD1306
   begin
     require "shinonome"
     shinonome_available = true
-    def draw_shinonome(size, x, y, text, scale = 1)
-      Shinonome.draw(size, text, scale) do |height, total_width, widths, glyphs|
+    def draw_shinonome(name, x, y, text, scale = 1)
+      Shinonome.draw(name, text, scale) do |height, total_width, widths, glyphs|
         glyph_x = x
         widths.each_with_index do |char_width, char_idx|
           # Use optimized draw_bitmap for each character
