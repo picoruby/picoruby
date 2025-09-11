@@ -63,7 +63,20 @@ class Rapicco
         end
         div_count = line[:text].size
         line[:text].each_with_index do |text, div_index|
-          Shinonome.draw(line[:font], text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
+          font, fontname = line[:font].to_s.split('_')
+          case font.downcase
+          when "shinonome"
+            begin
+              font_class = Shinonome
+            rescue NameError
+              raise "Shinonome font is not available"
+            end
+          when "terminus"
+            font_class = Terminus
+          else
+            raise "Unknown font: #{text[:font]}"
+          end
+          font_class&.draw(fontname, text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
             height /= 2
             if div_index == 0
               print "\e[2K\e[1E" * (height + @line_margin) + "\e[#{height}A" # clear the line
@@ -111,7 +124,6 @@ class Rapicco
               # move to the next scan_line's beginning
               print "\e[B\e[#{width_drew}D" # down * 1 and left * width_drew
             end
-       #     print "\e[0m"
             next if overflow
             total_width_remaining -= div_width
             if div_index < div_count - 1

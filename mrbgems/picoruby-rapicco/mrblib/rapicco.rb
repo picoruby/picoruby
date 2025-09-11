@@ -1,4 +1,10 @@
 require 'yaml'
+require 'terminus'
+begin
+  require 'shinonome'
+rescue LoadError
+  # ignore. mayby MicroRuby
+end
 
 class Rapicco
   COLORS = {
@@ -69,12 +75,12 @@ class Rapicco
       end
     end
   rescue => e
-    puts e.message
   ensure
     @file.close
     print "\e[?25h"   # show cursor
     print "\e[?1049l" # DECRST 1049
-    puts "\nInterrupted"
+    puts "Interrupted"
+    puts "Error: #{e.message}" if e
   end
 
   private
@@ -83,7 +89,6 @@ class Rapicco
     return if page == @current_page
     @file.seek(@positions[page])
     page_data = @file.read(@positions[page + 1] - @positions[page])
-    # Note: mruby/c does not support String#each_line
     page_data&.each_line { |line| @parser.parse(line) }
     lines = @parser.dump
     @slide.render_slide(lines)

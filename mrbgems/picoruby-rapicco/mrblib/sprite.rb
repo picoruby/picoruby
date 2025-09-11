@@ -307,7 +307,10 @@ class Rapicco
       rows = DATA[author][name]
       palette = PALETTE[author]
       @pos = 0
-      @data = rows.map do |row|
+      @data = []
+      # Bug in mruby/c where calling Array#map within initialize
+      # So Array#each is used instead.
+      rows.each do |row|
         out = (name == :rapiko) ? "\e[2K" : ""
         i = 0
         prev = nil
@@ -336,9 +339,11 @@ class Rapicco
         end
         out << "\e[0m" if prev
         out << "\e[#{row.length}D\e[B" # Carriage return
-        out
+        @data << out
       end
-      @width = rows.map(&:length).max
+      w = []
+      rows.each {|row| w << row.length}
+      @width = w.max
       @height = @data.size
     end
 

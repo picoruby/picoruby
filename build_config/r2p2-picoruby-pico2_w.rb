@@ -54,8 +54,6 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.gembox "utils"
   conf.gembox "cyw43"
 
-  conf.gem core: "picoruby-rapicco"
-
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)
 

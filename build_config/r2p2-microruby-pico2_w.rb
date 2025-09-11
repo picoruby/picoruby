@@ -51,7 +51,6 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2_w") do |conf|
   conf.gembox "peripheral_utils"
   conf.gembox "utils"
 
-  conf.gem core: "picoruby-rapicco"
   conf.gem core: 'picoruby-psg'
 
   conf.microruby

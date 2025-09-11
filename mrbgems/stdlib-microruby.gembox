@@ -9,6 +9,8 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-picorubyvm"
   conf.gem core: "picoruby-eval"
   conf.gem core: "picoruby-vram"
+  conf.gem core: "picoruby-rapicco"
+  conf.gem core: "picoruby-shinonome"
   conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-kernel-ext"
   conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
   conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-array-ext"
