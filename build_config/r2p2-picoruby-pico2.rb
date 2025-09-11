@@ -51,6 +51,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2") do |conf|
   conf.gembox "r2p2"
   conf.gembox "stdlib"
   conf.gembox "utils"
+  conf.gem core: 'picoruby-shinonome'
 
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)

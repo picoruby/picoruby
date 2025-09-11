@@ -64,9 +64,7 @@ velocity_x = 2.5
 velocity_y = 1.8
 
 # Animation loop
-60.times do |frame|
-  # Erase previous rectangle position
-  display.erase(rect_x.to_i, rect_y.to_i, rect_w, rect_h) unless frame == 0
+300.times do |frame|
   # Update position
   rect_x += velocity_x
   rect_y += velocity_y
@@ -83,9 +81,13 @@ velocity_y = 1.8
   # Draw rectangle at new position
   display.draw_rect(rect_x.to_i, rect_y.to_i, rect_w, rect_h, 1, true)
   display.update_display_optimized
+  display.erase(rect_x.to_i, rect_y.to_i, rect_w, rect_h)
 
-  sleep 0.08  # ~12 FPS animation
-  GC.start if frame % 10 == 0  # Periodic garbage collection
+  if RUBY_ENGINE == "mruby"
+    GC.start
+  else
+    sleep_ms 2
+  end
 end
 
 sleep 1
