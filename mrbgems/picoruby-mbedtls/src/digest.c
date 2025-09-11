@@ -1,20 +1,4 @@
-#include "mbedtls/md.h"
-#include "mbedtls/sha256.h"
-#include <string.h>
-
-static int
-mbedtls_digest_algorithm_name(const char * name)
-{
-  int ret;
-  if (strcmp(name, "sha256") == 0) {
-    ret = (int)MBEDTLS_MD_SHA256;
-  } else if (strcmp(name, "none") == 0) {
-    ret = (int)MBEDTLS_MD_NONE;
-  } else {
-    ret = -1;
-  }
-  return ret;
-}
+#include "digest.h"
 
 #if defined(PICORB_VM_MRUBY)
 
@@ -25,4 +9,3 @@ mbedtls_digest_algorithm_name(const char * name)
 #include "mrubyc/digest.c"
 
 #endif
-
