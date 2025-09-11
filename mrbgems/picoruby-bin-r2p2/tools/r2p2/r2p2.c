@@ -42,6 +42,7 @@ signal_handler(int signum)
       break;
     default:
       // Ignore other signals
+      break;
   }
 }
 
