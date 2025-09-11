@@ -6,6 +6,6 @@ module Terminus
   def self._12x24: (String text) -> terminus_t
   def self._16x32: (String text) -> terminus_t
 
-  def self.draw: (Symbol | String fontname, String line, ?Integer scale) { (terminus_t) -> void } -> void
-               | (Symbol | String fontname, String line, ?Integer scale) -> terminus_t
+  def self.draw: (String name, String line, ?Integer scale) { (terminus_t) -> void } -> void
+               | (String name, String line, ?Integer scale) -> terminus_t
 end
