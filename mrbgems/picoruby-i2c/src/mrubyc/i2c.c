@@ -72,6 +72,11 @@ mrbc_i2c_write_outputs(mrbc_vm *vm, mrbc_int_t unit_num, mrbc_int_t i2c_adrs_7, 
         pos += str_len;
         break;
       }
+      default:
+        // This case should never be reached due to earlier checks
+        if (needs_free) mrbc_free(vm, buffer);
+        mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be Integer, Array or String");
+        return -1;
     }
   }
 
