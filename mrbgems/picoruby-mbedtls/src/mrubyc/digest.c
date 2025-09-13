@@ -1,4 +1,5 @@
 #include "mrubyc.h"
+#include "digest.h"
 
 static void
 c_mbedtls_digest_new(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -12,28 +13,21 @@ c_mbedtls_digest_new(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
     return;
   }
-  int alg = mbedtls_digest_algorithm_name(mrbc_symid_to_str(algorithm.sym_id));
+  int alg = MbedTLS_digest_algorithm_name(mrbc_symid_to_str(algorithm.sym_id));
   if (alg == -1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid algorithm");
     return;
   }
 
-  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_md_context_t));
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)self.instance->data;
-  mbedtls_md_init(ctx);
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_digest_instance_size());
+  unsigned char *ctx = (unsigned char *)self.instance->data;
 
-  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type((mbedtls_md_type_t)alg);
-  int ret;
-  ret = mbedtls_md_setup(ctx, md_info, 0);
-  if (ret != 0) {
+  int ret = MbedTLS_digest_new(ctx, alg);
+  if (ret == DIGEST_FAILED_TO_SETUP) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_setup failed");
-    mbedtls_md_free(ctx);
     return;
-  }
-  ret = mbedtls_md_starts(ctx);
-  if (ret != 0) {
+  } else if (ret == DIGEST_FAILED_TO_START) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_starts failed");
-    mbedtls_md_free(ctx);
     return;
   }
 
@@ -43,10 +37,7 @@ c_mbedtls_digest_new(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_digest_free(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
-  if (ctx != NULL) {
-    mbedtls_md_free(ctx);
-  }
+  MbedTLS_digest_free((unsigned char *)v->instance->data);
 }
 
 static void
@@ -62,10 +53,8 @@ c_mbedtls_digest_update(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  int ret;
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
-  ret = mbedtls_md_update(ctx, input.string->data, input.string->size);
-  if (ret != 0) {
+  unsigned char *ctx = (unsigned char *)v->instance->data;
+  if (MbedTLS_digest_update(ctx, input.string->data, input.string->size) != 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_update failed");
     return;
   }
@@ -76,15 +65,13 @@ c_mbedtls_digest_update(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_digest_finish(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
+  unsigned char *ctx = (unsigned char *)v->instance->data;
 
-  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_ctx(ctx);
-  size_t out_len = mbedtls_md_get_size(md_info);
-  unsigned char* output = mrbc_alloc(vm, out_len); // need at least block size
-  int ret;
+  size_t out_len = MbedTLS_digest_get_size(ctx);
+  unsigned char* output = mrbc_alloc(vm, out_len);
 
-  ret = mbedtls_md_finish(ctx, output);
-  if (ret != 0) {
+  if (MbedTLS_digest_finish(ctx, output) != 0) {
+    mrbc_free(vm, output);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_digest_finish failed");
     return;
   }
