@@ -8,10 +8,12 @@
 extern "C" {
 #endif
 
+void MbedTLS_md_free(void *p);
+
 static void
 mrb_md_context_free(mrb_state *mrb, void *ptr)
 {
-  mbedtls_md_free(ptr);
+  MbedTLS_md_free(ptr);
   mrb_free(mrb, ptr);
 }
 
