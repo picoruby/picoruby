@@ -415,7 +415,7 @@ Machine_sleep(uint32_t seconds)
 
   // Save current VREG setting and switch to power-saving mode
   uint32_t vreg_orig = vreg_get_voltage();
-  vreg_set_voltage(VREG_VOLTAGE_1_10); // Same as RP2040 for stability
+  vreg_set_voltage(VREG_VOLTAGE_1_10); // Same voltage as RP2040 for stability
 
   // Switch to low-power clock source for dormant mode
   sleep_run_from_lposc();
