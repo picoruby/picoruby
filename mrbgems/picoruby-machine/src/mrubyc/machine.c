@@ -69,7 +69,7 @@ c_Machine_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
     // Hangs if you attempt to sleep for 1 second.
     console_printf("Cannot sleep less than 2 sec\n");
   } else {
-    console_printf("Going to sleep %d sec (USC-CDC will not be back)\n", sec);
+    console_printf("Going to sleep %d sec\n", sec);
     Machine_sleep(sec);
   }
   SET_INT_RETURN(sec);
