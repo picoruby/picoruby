@@ -1,23 +1,14 @@
 #include "mrubyc.h"
-#include "mbedtls/cmac.h"
+#include "cmac.h"
 
 static void
 c__init_aes(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_cipher_context_t));
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)self.instance->data;
-  mbedtls_cipher_init(ctx);
-  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(MBEDTLS_CIPHER_AES_128_ECB);
-  int ret;
-  ret = mbedtls_cipher_setup(ctx, cipher_info);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setup failed");
-    return;
-  }
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_cmac_instance_size());
   mrbc_value key = GET_ARG(1);
-  ret = mbedtls_cipher_cmac_starts(ctx, key.string->data, key.string->size * 8); /* last arg is keybits */
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_cmac_starts failed");
+  int ret = MbedTLS_cmac_init_aes(self.instance->data, key.string->data, key.string->size * 8);
+  if (ret != CMAC_SUCCESS) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CMAC init failed");
     return;
   }
   SET_RETURN(self);
@@ -35,11 +26,11 @@ c_update(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
     return;
   }
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
+  uint8_t *cmac_instance = v->instance->data;
   int ret;
-  ret = mbedtls_cipher_cmac_update(ctx, input.string->data, input.string->size);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_cmac_update failed");
+  ret = MbedTLS_cmac_update(cmac_instance, input.string->data, input.string->size);
+  if (ret != CMAC_SUCCESS) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CMAC update failed");
     return;
   }
   SET_RETURN(*v);
@@ -48,10 +39,10 @@ c_update(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_reset(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
-  int ret = mbedtls_cipher_cmac_reset(ctx);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_cmac_reset failed");
+  uint8_t *cmac_instance = v->instance->data;
+  int ret = MbedTLS_cmac_reset(cmac_instance);
+  if (ret != CMAC_SUCCESS) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CMAC reset failed");
     return;
   }
   SET_RETURN(*v);
@@ -60,18 +51,18 @@ c_reset(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_cipher_context_t *ctx = (mbedtls_cipher_context_t *)v->instance->data;
+  uint8_t *cmac_instance = v->instance->data;
   unsigned char output[16];
   int ret;
-  ret = mbedtls_cipher_cmac_finish(ctx, output);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_cmac_finish failed");
+  ret = MbedTLS_cmac_finish(cmac_instance, output);
+  if (ret != CMAC_SUCCESS) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CMAC finish failed");
     return;
   }
+  MbedTLS_cmac_free(cmac_instance);
   mrbc_value digest = mrbc_string_new(vm, output, sizeof(output));
   mrbc_incref(&v[0]);
   SET_RETURN(digest);
-  mbedtls_cipher_free(ctx);
 }
 
 void
