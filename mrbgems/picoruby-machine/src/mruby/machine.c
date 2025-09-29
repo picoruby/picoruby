@@ -59,7 +59,7 @@ mrb_s_sleep(mrb_state *mrb, mrb_value klass)
     // Hangs if you attempt to sleep for 1 second.
     mrb_warn(mrb, "Cannot sleep less than 2 sec\n");
   } else {
-    mrb_warn(mrb, "Going to sleep %d sec (USC-CDC will not be back)\n", sec);
+    mrb_warn(mrb, "Going to sleep %d sec\n", sec);
     Machine_sleep(sec);
   }
   return mrb_fixnum_value(sec);

@@ -1,24 +1,25 @@
 #include "../../include/hal.h"
 
-//#if !defined(PICO_RP2350)
-#if 0
-  #include "pico/sleep.h"
+#if defined(PICO_RP2040)
   #include "hardware/rosc.h"
+  #include "hardware/rtc.h"
 #endif
-
+#include "hardware/vreg.h"
+#include "hardware/timer.h"
+#include "pico/sleep.h"
 #include "pico/stdlib.h"
 #include "pico/unique_id.h"
+#include "hardware/clocks.h"
+#include "hardware/structs/scb.h"
+#include "hardware/sync.h"
+#include "pico/aon_timer.h"
+
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
-#include "hardware/clocks.h"
-#include "hardware/structs/scb.h"
-#include "hardware/sync.h"
-#include "pico/util/datetime.h"
 #include <tusb.h>
 
-#include "pico/aon_timer.h"
 
 /*-------------------------------------
  *
@@ -242,34 +243,17 @@ Machine_tud_mounted_q(void)
 
 /*-------------------------------------
  *
- * RTC
+ * Sleep in low power mode
  *
  *------------------------------------*/
 
-/*
- * References:
- *   https://github.com/ghubcoder/PicoSleepDemo
- *   https://ghubcoder.github.io/posts/awaking-the-pico/
- */
+#if defined(PICO_RP2040)
 
-/*
- * Current implementation can not restore USB-CDC.
- * This article might help:
- *   https://elehobica.blogspot.com/2021/08/raspberry-pi-pico-2.html
- */
-
-#define YEAR  2020
-#define MONTH    6
-#define DAY      5
-#define DOTW     5
-
-//#if !defined(PICO_RP2350)
-#if 0
-  static const uint32_t PIN_DCDC_PSM_CTRL = 23;
-  static uint32_t _scr;
-  static uint32_t _sleep_en0;
-  static uint32_t _sleep_en1;
-#endif
+static const uint32_t PIN_DCDC_PSM_CTRL = 23;
+static uint32_t _scr;
+static uint32_t _sleep_en0;
+static uint32_t _sleep_en1;
+static volatile bool sleep_wakeup_flag = false;
 
 /*
  * deep_sleep doesn't work yet
@@ -277,8 +261,6 @@ Machine_tud_mounted_q(void)
 void
 Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
 {
-//#if !defined(PICO_RP2350)
-#if 0
   bool psm = gpio_get(PIN_DCDC_PSM_CTRL);
   gpio_put(PIN_DCDC_PSM_CTRL, 0); // PFM mode for better efficiency
   uint32_t ints = save_and_disable_interrupts();
@@ -301,41 +283,19 @@ Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
   }
   restore_interrupts(ints);
   gpio_put(PIN_DCDC_PSM_CTRL, psm); // recover PWM mode
-#endif
 }
 
 static void
-sleep_callback(void)
+sleep_callback(uint alarm_num)
 {
-  return;
+  // This callback is called when the hardware alarm expires and wakes up the system
+  (void)alarm_num; // Suppress unused parameter warning
+  sleep_wakeup_flag = true;
 }
-
-static void
-rtc_sleep(uint32_t seconds)
-{
-//#if !defined(PICO_RP2350)
-#if 0
-  datetime_t t;
-  rtc_get_datetime(&t);
-  t.sec += seconds;
-  if (t.sec >= 60) {
-    t.min += t.sec / 60;
-    t.sec %= 60;
-  }
-  if (t.min >= 60) {
-    t.hour += t.min / 60;
-    t.min %= 60;
-  }
-  sleep_goto_sleep_until(&t, &sleep_callback);
-#endif
-}
-
 
 static void
 recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
 {
-//#if !defined(PICO_RP2350)
-#if 0
   //Re-enable ring Oscillator control
   rosc_write(&rosc_hw->ctrl, ROSC_CTRL_ENABLE_BITS);
   //reset procs back to default
@@ -346,44 +306,134 @@ recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
   set_sys_clock_khz(125000, true);
   // Re-initialize peripherals
   stdio_init_all();
-#endif
 }
+
+#elif defined(PICO_RP2350)
+void
+Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
+{
+}
+#endif
 
 void
 Machine_sleep(uint32_t seconds)
 {
-//#if !defined(PICO_RP2350)
-#if 0
-  // save values for later
+#if defined(PICO_RP2040)
+  // RP2040 implementation with deep power saving
+  // Reset wakeup flag
+  sleep_wakeup_flag = false;
+
+  // Stop system alarm_handler (ALARM_NUM 0) during deep sleep
+  irq_set_enabled(ALARM_IRQ, false);
+
+  // Save current system state for recovery
   uint scb_orig = scb_hw->scr;
   uint clock0_orig = clocks_hw->sleep_en0;
   uint clock1_orig = clocks_hw->sleep_en1;
 
-  // Start the Real time clock
-  rtc_init();
+  // Use a fixed alarm number (1) to avoid conflict with hal_init's alarm 0
+  int alarm_num = 1;
+
+  // Try to claim alarm 1
+  hardware_alarm_claim(alarm_num);
+
+  // Set up the alarm callback
+  hardware_alarm_set_callback(alarm_num, sleep_callback);
+
+  // Set target time
+  absolute_time_t target = make_timeout_time_ms(seconds * 1000);
+  if (hardware_alarm_set_target(alarm_num, target)) {
+    // Failed to set target, clean up and fallback
+    hardware_alarm_set_callback(alarm_num, NULL);
+    hardware_alarm_unclaim(alarm_num);
+    sleep_ms(seconds * 1000);
+    return;
+  }
+
+  // Prepare for deep sleep - switch to low-power clock source
   sleep_run_from_xosc();
 
-  // Get current time and set alarm
-  datetime_t t;
-  rtc_get_datetime(&t);
+  // Configure clocks for maximum power saving
+  // Disable all non-essential clocks for deep power saving
+  clocks_hw->sleep_en0 = 0x0; // Disable all clocks in sleep_en0
 
-  rtc_sleep(seconds);
+  // Keep only the absolute minimum for wakeup functionality
+  clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS; // Timer for wakeup alarm
 
-  // reset processor and clocks back to defaults
+  // Flush any pending output before sleep
+  stdio_flush();
+
+  // Save current VREG setting and switch to power-saving mode
+  uint32_t vreg_orig = vreg_get_voltage();
+  vreg_set_voltage(VREG_VOLTAGE_1_10); // Reduce voltage for power saving
+
+  // Enable deep sleep mode at the processor level
+  scb_hw->scr |= M0PLUS_SCR_SLEEPDEEP_BITS;
+
+  // Enter deep sleep - wait for alarm interrupt
+  while (!sleep_wakeup_flag) {
+    __wfi();
+  }
+
+  // Wakeup - restore system clocks and peripherals
+  sleep_power_up();
+
+  // Restore VREG voltage to normal operating level
+  vreg_set_voltage(vreg_orig);
+
+  // Wait for voltage to stabilize before continuing
+  busy_wait_us(100);
+
   recover_from_sleep(scb_orig, clock0_orig, clock1_orig);
 
-  // システムクロックをリセットし、デフォルト設定に戻す
-  clock_configure(clk_sys,
-                  CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
-                  CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_XOSC_CLKSRC,
-                  12 * MHZ,  // XOSC frequency
-                  12 * MHZ);
+  // Clean up alarm
+  hardware_alarm_set_callback(alarm_num, NULL);
+  hardware_alarm_unclaim(alarm_num);
 
-  // PLLを使用して通常の動作周波数に戻す
-  set_sys_clock_khz(133000, true);  // 133 MHz、デフォルトの周波数
+  // Restart system alarm_handler (ALARM_NUM 0) after deep sleep
+  irq_set_enabled(ALARM_IRQ, true);
+#elif defined(PICO_RP2350)
+  // RP2350 implementation using dormant mode with AON timer
+  stdio_flush();
 
-  // Re-enable interrupts
-  irq_set_enabled(RTC_IRQ, true);
+  // Stop system alarm_handler (ALARM_NUM 0) during deep sleep
+  irq_set_enabled(ALARM_IRQ, false);
+
+  // Get current time from AON timer
+  struct timespec current_time;
+  if (!aon_timer_get_time(&current_time)) {
+    // Fallback to simple sleep if AON timer not available
+    sleep_ms(seconds * 1000);
+    irq_set_enabled(ALARM_IRQ, true);
+    return;
+  }
+
+  // Calculate wake time
+  struct timespec wake_time;
+  wake_time.tv_sec = current_time.tv_sec + seconds;
+  wake_time.tv_nsec = current_time.tv_nsec;
+
+  // Save current VREG setting and switch to power-saving mode
+  uint32_t vreg_orig = vreg_get_voltage();
+  vreg_set_voltage(VREG_VOLTAGE_1_10); // Same as RP2040 for stability
+
+  // Switch to low-power clock source for dormant mode
+  sleep_run_from_lposc();
+
+  // Enter dormant mode until specified wake time (with NULL callback)
+  sleep_goto_dormant_until(&wake_time, NULL);
+
+  // Restore clocks after wake up
+  sleep_power_up();
+
+  // Restore VREG voltage to normal operating level
+  vreg_set_voltage(vreg_orig);
+
+  // Wait for voltage to stabilize before continuing
+  busy_wait_us(100);
+
+  // Restart system alarm_handler (ALARM_NUM 0) after deep sleep
+  irq_set_enabled(ALARM_IRQ, true);
 #endif
 }
 
