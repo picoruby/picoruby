@@ -74,7 +74,7 @@ class Rapicco
           when "terminus"
             font_class = Terminus
           else
-            raise "Unknown font: #{text[:font]}"
+            raise "Unknown font: #{line[:font]}"
           end
           font_class&.draw(fontname, text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
             height /= 2

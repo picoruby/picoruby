@@ -78,7 +78,7 @@ class Rapicco
   ensure
     @file.close
     print "\e[?25h"   # show cursor
-    print "\e[?1049l" # DECRST 1049
+    puts "\e[?1049l" # DECRST 1049
     puts "Interrupted"
     puts "Error: #{e.message}" if e
   end
