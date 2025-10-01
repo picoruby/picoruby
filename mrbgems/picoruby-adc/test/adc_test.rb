@@ -5,7 +5,7 @@ class ADCTest < Picotest::Test
 
   def test_initialize
     adc = ADC.new(26)
-    assert_equal 26, ADC.mock_get_pin
+    assert_equal 26, adc.input
   end
 
   def test_read_u16
