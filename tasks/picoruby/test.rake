@@ -80,7 +80,12 @@ def run_test_for_gems(vm_type, specified_gem)
       puts "Building test binary for #{gem_name} on #{vm_type}..."
       sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
       sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake --silent all"
-      unless run_picotest_runner(gem_name, lib_name, [])
+      gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
+      load_files = []
+      FileUtils.cd(gem_dir) do
+        load_files += Dir.glob("test/mock/**/*.rb")
+      end
+      unless run_picotest_runner(gem_name, lib_name, load_files)
         all_success = false
       end
     ensure
@@ -125,7 +130,7 @@ def collect_gems(vm_type, specified_gem = nil)
   Dir.glob("#{gems_dir}/picoruby-*").each do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
-    if Dir.exist?("#{gem_path}/src/#{vm}") && !Dir.exist?("#{gem_path}/ports")
+    if Dir.exist?("#{gem_path}/src/#{vm}")
       gems[:need_build] << File.basename(gem_path)
     else
       gems[:no_need_build] << File.basename(gem_path)
