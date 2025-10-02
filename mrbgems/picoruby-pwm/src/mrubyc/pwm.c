@@ -14,13 +14,13 @@ static void
 set_freq_and_start(mrbc_value *v, picorb_float_t freq)
 {
   SETIV(frequency, &mrbc_float_value(vm, freq));
-  uint32_t gpio = GETIV(gpio).i;
+  uint32_t pin = GETIV(pin).i;
   picorb_float_t duty = GETIV(duty).d;
-  PWM_set_frequency_and_duty(gpio, freq, duty);
+  PWM_set_frequency_and_duty(pin, freq, duty);
   if (0 < freq) {
-    PWM_set_enabled(gpio, true);
+    PWM_set_enabled(pin, true);
   } else {
-    PWM_set_enabled(gpio, false);
+    PWM_set_enabled(pin, false);
   }
   SET_FLOAT_RETURN(freq);
 }
@@ -69,7 +69,7 @@ set_duty(mrbc_value *v, picorb_float_t duty)
     duty = 100.0;
   }
   SETIV(duty, &mrbc_float_value(vm, duty));
-  PWM_set_frequency_and_duty(GETIV(gpio).i, GETIV(frequency).d, duty);
+  PWM_set_frequency_and_duty(GETIV(pin).i, GETIV(frequency).d, duty);
   SET_FLOAT_RETURN(duty);
 }
 
