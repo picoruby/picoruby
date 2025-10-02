@@ -183,10 +183,12 @@ c_double_remove_singleton(struct VM *vm, mrbc_value v[], int argc)
     if (singleton_class_name.tt == MRBC_TT_STRING) {
       mrbc_class *singleton_class = mrbc_get_class_by_name((const char *)singleton_class_name.string->data);
       mrbc_class **cls = &doubled_obj.instance->cls;
-      while (*cls != singleton_class) {
+      while (*cls && *cls != singleton_class) {
         cls = &(*cls)->super;
       }
-      *cls = singleton_class->super;
+      if (*cls == singleton_class) {
+        *cls = singleton_class->super;
+      }
     }
   }
   else {
