@@ -1,6 +1,5 @@
 class ADCTest < Picotest::Test
   def setup
-    ADC.mock_reset
   end
 
   def test_initialize
@@ -8,9 +7,9 @@ class ADCTest < Picotest::Test
     assert_equal 26, adc.input
   end
 
-  def test_read_u16
-    ADC.mock_set_value(12345)
+  def test_read_raw
     adc = ADC.new(27)
-    assert_equal 12345, adc.read_u16
+    stub(adc).read_raw { 12345 }
+    assert_equal 12345, adc.read_raw
   end
 end
