@@ -103,6 +103,7 @@ picotest_double_define_method(mrb_state *mrb, mrb_value self)
     case MRB_TT_STRING:
     case MRB_TT_RANGE:
     case MRB_TT_HASH:
+    case MRB_TT_CDATA:
     case MRB_TT_EXCEPTION:
       super_class = mrb_class(mrb, doubled_obj);
       break;
@@ -169,7 +170,8 @@ void
 mrb_picoruby_picotest_gem_init(mrb_state* mrb)
 {
   struct RClass *picotest_module = mrb_define_module_id(mrb, MRB_SYM(Picotest));
-  struct RClass *double_class = mrb_define_class_under_id(mrb, picotest_module, MRB_SYM(Double), mrb->object_class);
+  struct RClass *basicobject_class = mrb_class_get_id(mrb, MRB_SYM(BasicObject));
+  struct RClass *double_class = mrb_define_class_under_id(mrb, picotest_module, MRB_SYM(Double), basicobject_class);
 
   mrb_define_class_method_id(mrb, double_class, MRB_SYM(_alloc), picotest_double_s__alloc, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, double_class, MRB_SYM(define_method), picotest_double_define_method, MRB_ARGS_REQ(2));

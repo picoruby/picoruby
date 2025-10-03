@@ -12,6 +12,8 @@ module Picotest
   RED: String
   RESET: String
 
+  BasicObject: Object
+
   class Double
     type type_t = :stub | :mock | :any_instance_of
     type double_data_t = {

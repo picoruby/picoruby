@@ -1,6 +1,10 @@
 module Picotest
 
-  class Double
+  if RUBY_ENGINE == 'mruby/c'
+    BasicObject = Object
+  end
+
+  class Double < BasicObject
     attr_accessor :double_data, :doubled_obj, :singleton_class_name
 
     def self._init(type, doubled_obj, any_instance_of: false)
@@ -42,19 +46,26 @@ module Picotest
       return self
     end
 
-    self.instance_methods.each do |m|
-      %i(method_missing
-        instance_methods
+    if RUBY_ENGINE == 'mruby/c'
+      protect_methods = %i(
+        alias_method
+        method_missing
         _init
         _alloc
-        double_data
-        doubled_obj
-        singleton_class_name
+        remove_singleton
         define_method
         define_method_any_instance_of
-        remove_singleton
-      ).include?(m) and next
-      alias m :method_missing
+        double_data
+        double_data=
+        doubled_obj
+        doubled_obj=
+        singleton_class_name
+        singleton_class_name=
+      )
+      self.methods.uniq.sort.each do |m|
+        protect_methods.include?(m) and next
+        alias_method m, :method_missing
+      end
     end
 
   end
