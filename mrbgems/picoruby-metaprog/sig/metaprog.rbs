@@ -16,6 +16,7 @@ class Object
   def class?: () -> bool # Alternative to #class==Class
   def self.ancestors: () -> Array[Class]
   def instance_eval: () { (self) -> untyped } -> Object
+  def alias_method: (Symbol|String new_name, Symbol|String old_name) -> Symbol
 end
 
 # @added_by picoruby-metaprog

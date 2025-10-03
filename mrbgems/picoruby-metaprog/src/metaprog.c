@@ -313,6 +313,99 @@ c_proc__set_self(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+sub_irep_incref(mrbc_irep *irep, int inc_dec)
+{
+  for (int i = 0; i < irep->rlen; i++) {
+    sub_irep_incref(mrbc_irep_child_irep(irep, i), inc_dec);
+  }
+
+  irep->ref_count += inc_dec;
+}
+
+static void
+sub_def_alias(mrbc_class *cls, mrbc_method *method, mrbc_sym sym_id)
+{
+  method->next = cls->method_link;
+  cls->method_link = method;
+
+  if (!method->c_func) sub_irep_incref(method->irep, +1);
+
+  // checking same method
+  for (; method->next != NULL; method = method->next) {
+    if (method->next->sym_id == sym_id) {
+      // Found it. Unchain it in linked list and remove.
+      mrbc_method *del_method = method->next;
+
+      method->next = del_method->next;
+      if (del_method->type == 'M') {
+        if (!del_method->c_func) sub_irep_incref(del_method->irep, -1);
+        mrbc_raw_free(del_method);
+      }
+
+      break;
+    }
+  }
+}
+
+static void
+c_alias_method(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  // Get new method name
+  mrbc_sym sym_id_new;
+  if (v[1].tt == MRBC_TT_SYMBOL) {
+    sym_id_new = v[1].sym_id;
+  } else if (v[1].tt == MRBC_TT_STRING) {
+    sym_id_new = mrbc_str_to_symid((const char *)GET_STRING_ARG(1));
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
+    return;
+  }
+
+  // Get original method name
+  mrbc_sym sym_id_org;
+  if (v[2].tt == MRBC_TT_SYMBOL) {
+    sym_id_org = v[2].sym_id;
+  } else if (v[2].tt == MRBC_TT_STRING) {
+    sym_id_org = mrbc_str_to_symid((const char *)GET_STRING_ARG(2));
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
+    return;
+  }
+
+  // Get target class
+  mrbc_class *cls = vm->target_class;
+
+  // Allocate new method structure
+  mrbc_method *method = (vm->vm_id == 0) ?
+    mrbc_raw_alloc_no_free(sizeof(mrbc_method)) :
+    mrbc_raw_alloc(sizeof(mrbc_method));
+  if (!method) return; // ENOMEM
+
+  // Find original method
+  if (mrbc_find_method(method, cls, sym_id_org) == 0) {
+    mrbc_raisef(vm, MRBC_CLASS(NameError), "undefined method '%s'",
+      mrbc_symid_to_str(sym_id_org));
+    if (vm->vm_id != 0) mrbc_raw_free(method);
+    return;
+  }
+
+  // Set new method name
+  method->type = (vm->vm_id == 0) ? 'm' : 'M';
+  method->sym_id = sym_id_new;
+
+  // Add to class method list
+  sub_def_alias(cls, method, sym_id_new);
+
+  mrbc_value return_sym = mrbc_symbol_value(sym_id_new);
+  SET_RETURN(return_sym);
+}
+
 #define MAX_CALLINFO 100
 
 static void
@@ -413,6 +506,8 @@ mrbc_metaprog_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, mrbc_class_object, "_get_self", c_proc__get_self);
   mrbc_define_method(vm, mrbc_class_object, "_set_self", c_proc__set_self);
+
+  mrbc_define_method(vm, mrbc_class_object, "alias_method", c_alias_method);
 
   mrbc_class *module_Kernel = mrbc_get_class_by_name("Kernel");
   mrbc_define_method(vm, module_Kernel, "caller", c_kernel_caller);
