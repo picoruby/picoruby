@@ -130,6 +130,7 @@ module Picotest
     end
 
     def report_exception(data)
+      print "#{Picotest::RED}E#{Picotest::RESET}"
       @result["exceptions"] << data
     end
 

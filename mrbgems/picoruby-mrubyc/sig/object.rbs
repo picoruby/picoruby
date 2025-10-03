@@ -391,4 +391,6 @@ class Object < BasicObject
 
   def private: (?Symbol) -> void
   def public: (?Symbol) -> void
+
+  def instance_methods: (?bool inherited_too) -> Array[Symbol]
 end

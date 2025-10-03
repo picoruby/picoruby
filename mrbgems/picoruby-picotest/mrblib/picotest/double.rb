@@ -42,6 +42,20 @@ module Picotest
       return self
     end
 
-  end
+    self.instance_methods.each do |m|
+      %i(method_missing
+        instance_methods
+        _init
+        _alloc
+        double_data
+        doubled_obj
+        singleton_class_name
+        define_method
+        define_method_any_instance_of
+        remove_singleton
+      ).include?(m) and next
+      alias m :method_missing
+    end
 
+  end
 end
