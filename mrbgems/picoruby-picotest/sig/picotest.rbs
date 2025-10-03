@@ -1,3 +1,5 @@
+$picotest_doubles: Array[untyped]
+
 module Picotest
   type picotest_error_t = {
     "success_count" => Integer,
@@ -28,7 +30,6 @@ module Picotest
     @method_id: Symbol
     def self._init: (type_t type, untyped untyped, ?any_instance_of: bool) -> Double
     private def self._alloc: (untyped untyped) -> Double
-    private def self.global_doubles: () -> Array[double_data_t]
     private def define_method: (Symbol method_id, untyped doubled_obj) -> String
     private def define_method_any_instance_of: (Symbol method_id, untyped doubled_obj) -> String
     private def method_missing: (?Symbol method_id, ?Integer expected_count) { () -> void } -> void

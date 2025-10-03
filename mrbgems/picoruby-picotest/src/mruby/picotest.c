@@ -17,17 +17,17 @@ mruby_method_missing_for_double(mrb_state *mrb, mrb_value self)
   mrb_sym mid = mrb->c->ci->mid;
 
   // Get the global doubles array
-  mrb_value global_doubles = mrb_gv_get(mrb, MRB_GVSYM(picotest_doubles));
-  if (mrb_nil_p(global_doubles)) {
+  mrb_value picotest_doubles = mrb_gv_get(mrb, MRB_GVSYM(picotest_doubles));
+  if (mrb_nil_p(picotest_doubles)) {
     return mrb_nil_value(); // Should not happen
   }
 
   struct RClass *self_class = mrb_class(mrb, self);
 
   // Find the correct double_data for this object and method
-  mrb_int len = RARRAY_LEN(global_doubles);
+  mrb_int len = RARRAY_LEN(picotest_doubles);
   for (mrb_int i = 0; i < len; i++) {
-    mrb_value double_data_val = mrb_ary_ref(mrb, global_doubles, i);
+    mrb_value double_data_val = mrb_ary_ref(mrb, picotest_doubles, i);
     if (mrb_hash_p(double_data_val)) {
       mrb_value doubled_obj_id_val = mrb_hash_get(mrb, double_data_val, mrb_symbol_value(MRB_SYM(doubled_obj_id)));
       mrb_value method_id_val = mrb_hash_get(mrb, double_data_val, mrb_symbol_value(MRB_SYM(method_id)));
@@ -165,17 +165,6 @@ picotest_double_remove_singleton(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
-static mrb_value
-picotest_double_s_global_doubles(mrb_state *mrb, mrb_value klass)
-{
-  mrb_value global_doubles = mrb_gv_get(mrb, MRB_GVSYM(picotest_doubles));
-  if (mrb_nil_p(global_doubles)) {
-    global_doubles = mrb_ary_new(mrb);
-    mrb_gv_set(mrb, MRB_GVSYM(picotest_doubles), global_doubles);
-  }
-  return global_doubles;
-}
-
 void
 mrb_picoruby_picotest_gem_init(mrb_state* mrb)
 {
@@ -183,14 +172,9 @@ mrb_picoruby_picotest_gem_init(mrb_state* mrb)
   struct RClass *double_class = mrb_define_class_under_id(mrb, picotest_module, MRB_SYM(Double), mrb->object_class);
 
   mrb_define_class_method_id(mrb, double_class, MRB_SYM(_alloc), picotest_double_s__alloc, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, double_class, MRB_SYM(global_doubles), picotest_double_s_global_doubles, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, double_class, MRB_SYM(define_method), picotest_double_define_method, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, double_class, MRB_SYM(define_method_any_instance_of), picotest_double_define_method_any_instance_of, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, double_class, MRB_SYM(remove_singleton), picotest_double_remove_singleton, MRB_ARGS_NONE());
-
-  // Initialize the global array to store double data
-  mrb_gv_set(mrb, MRB_GVSYM(picotest_doubles), mrb_ary_new(mrb));
-  mrb_gv_set(mrb, MRB_GVSYM(global_doubles), mrb_nil_value());
 }
 
 void

@@ -5,7 +5,7 @@
 #include <inttypes.h>
 
 /*
- * global_doubles = [
+ * picotest_doubles = [
  *   {
  *     type: any_instance_of,
  *     doubled_obj_id: doubled_obj_id,
@@ -31,13 +31,13 @@
  *   }
  * ]
  */
-static mrbc_value global_doubles = mrbc_nil_value();
 
 static bool
 search_return_value(struct VM *vm, intptr_t doubled_obj_id, mrbc_sym called_method_id, mrbc_value *return_value)
 {
-  for (int i = 0 ; i < global_doubles.array->n_stored; i++) {
-    mrbc_value double_method = global_doubles.array->data[i];
+  mrbc_value *picotest_doubles = mrbc_get_global(mrbc_str_to_symid("$picotest_doubles"));
+  for (int i = 0 ; i < picotest_doubles->array->n_stored; i++) {
+    mrbc_value double_method = picotest_doubles->array->data[i];
     if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("doubled_obj_id"))).i == doubled_obj_id &&
         mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).sym_id == called_method_id) {
       *return_value = mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("return_value")));
@@ -97,16 +97,15 @@ c__double_method(struct VM *vm, mrbc_value v[], int argc)
     return;
   }
 
-//  mrbc_incref(&v[0]);
-  mrbc_incref(&global_doubles);
   SET_RETURN(return_value);
 }
 
 static bool
 search_return_value_any_instance_of(struct VM *vm, mrbc_class *cls, mrbc_sym called_method_id, mrbc_value *return_value)
 {
-  for (int i = 0 ; i < global_doubles.array->n_stored; i++) {
-    mrbc_value double_method = global_doubles.array->data[i];
+  mrbc_value *picotest_doubles = mrbc_get_global(mrbc_str_to_symid("$picotest_doubles"));
+  for (int i = 0 ; i < picotest_doubles->array->n_stored; i++) {
+    mrbc_value double_method = picotest_doubles->array->data[i];
     if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("doubled_obj_id"))).i == (intptr_t)cls &&
         mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).sym_id == called_method_id) {
       *return_value = mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("return_value")));
@@ -156,20 +155,7 @@ c__double_method_any_instance_of(struct VM *vm, mrbc_value v[], int argc)
     return;
   }
 
-//  mrbc_incref(&v[0]);
-  mrbc_incref(&global_doubles);
   SET_RETURN(return_value);
-}
-
-static void
-c_get_global_doubles(struct VM *vm, mrbc_value v[], int argc)
-{
-  if (global_doubles.tt == MRBC_TT_NIL) {
-    global_doubles = mrbc_array_new(vm, 0);
-    mrbc_incref(&global_doubles);
-  }
-  mrbc_incref(&global_doubles);
-  SET_RETURN(global_doubles);
 }
 
 static void
@@ -301,12 +287,21 @@ c_double_define_method(struct VM *vm, mrbc_value v[], int argc)
   }
 
   mrbc_value method_id = v[1];
-  const char *method_name = mrbc_symid_to_str(method_id.sym_id);
+  const char *method_name;
+  if (method_id.tt == MRBC_TT_SYMBOL) {
+    method_name = mrbc_symid_to_str(method_id.sym_id);
+  } else if (method_id.tt == MRBC_TT_STRING) {
+    method_name = (const char *)method_id.string->data;
+  } else {
+    mrbc_raisef(vm, MRBC_CLASS(TypeError), "method_id must be Symbol but %d", method_id.tt);
+    return;
+  }
 
   if (MRBC_TT_INC_DEC_THRESHOLD < doubled_obj.tt) {
     for (int i = 0; i < vm->regs_size; i++) {
       if (vm->regs[i].i == doubled_obj.i) {
         vm->regs[i].tt = MRBC_TT_OBJECT;
+        break;
       }
     }
     char buf[30];
@@ -318,7 +313,7 @@ c_double_define_method(struct VM *vm, mrbc_value v[], int argc)
     doubled_obj.instance->cls = singleton_class;
     doubled_obj.instance->ref_count++;
     mrbc_define_method(vm, singleton_class, method_name, c__double_method);
-    mrbc_value singleton_class_name = mrbc_string_new_cstr(vm, buf);
+    mrbc_value singleton_class_name = mrbc_string_new(vm, name, strlen(name));
     SET_RETURN(singleton_class_name);
   }
   else {
@@ -335,7 +330,6 @@ mrbc_picotest_init(mrbc_vm *vm)
 
   mrbc_class *class_Picotest_Double = mrbc_define_class_under(vm, module_Picotest, "Double", mrbc_class_object);
   mrbc_define_method(vm, class_Picotest_Double, "remove_singleton", c_double_remove_singleton);
-  mrbc_define_method(vm, class_Picotest_Double, "global_doubles", c_get_global_doubles);
   mrbc_define_method(vm, class_Picotest_Double, "_alloc", c_double__alloc);
   mrbc_define_method(vm, class_Picotest_Double, "define_method", c_double_define_method);
   mrbc_define_method(vm, class_Picotest_Double, "define_method_any_instance_of", c_double_define_method_any_instance_of);
