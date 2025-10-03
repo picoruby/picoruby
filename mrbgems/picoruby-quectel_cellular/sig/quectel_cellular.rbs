@@ -17,7 +17,7 @@ class QuectelCellular
   def initialize: (uart: UART, ?log_size: Integer) -> void
   def perst=: (GPIO gpio) -> GPIO
   def reset: () -> void
-  def configure_and_activate_context: () -> bool
+  def configure_and_activate_context: () -> void
   def uart_read: () -> String
   def command: (String cmd, (String|nil) expected_response, ?(String|nil) error_response, ?Integer timeout) -> bool
   def command!: (String cmd, (String|nil) expected_response, ?(String|nil) error_response, ?Integer timeout) -> void
