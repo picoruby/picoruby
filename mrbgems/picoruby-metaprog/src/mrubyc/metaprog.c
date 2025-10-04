@@ -411,64 +411,6 @@ c_alias_method(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(return_sym);
 }
 
-static void
-c_undef_method(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
-
-  // Get method name
-  mrbc_sym sym_id;
-  if (v[1].tt == MRBC_TT_SYMBOL) {
-    sym_id = v[1].sym_id;
-  } else if (v[1].tt == MRBC_TT_STRING) {
-    sym_id = mrbc_str_to_symid((const char *)GET_STRING_ARG(1));
-  } else {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
-    return;
-  }
-
-  // Get target class
-  mrbc_class *cls;
-  if (v[0].tt == MRBC_TT_CLASS) {
-    cls = v[0].cls;
-  } else {
-    cls = vm->target_class;
-  }
-
-  // Find and remove method from the class method list
-  mrbc_method *method = cls->method_link;
-  mrbc_method *prev = NULL;
-
-  while (method != NULL) {
-    if (method->sym_id == sym_id) {
-      // Found the method, remove it
-      if (prev == NULL) {
-        cls->method_link = method->next;
-      } else {
-        prev->next = method->next;
-      }
-
-      if (method->type == 'M') {
-        if (!method->c_func) sub_irep_incref(method->irep, -1);
-        mrbc_raw_free(method);
-      }
-
-      mrbc_value return_sym = mrbc_symbol_value(sym_id);
-      SET_RETURN(return_sym);
-      return;
-    }
-    prev = method;
-    method = method->next;
-  }
-
-  // Method not found
-  mrbc_raisef(vm, MRBC_CLASS(NameError), "undefined method '%s'",
-    mrbc_symid_to_str(sym_id));
-}
-
 #define MAX_CALLINFO 100
 
 static void
@@ -571,7 +513,6 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "_set_self", c_proc__set_self);
 
   mrbc_define_method(vm, mrbc_class_object, "alias_method", c_alias_method);
-  mrbc_define_method(vm, mrbc_class_object, "undef_method", c_undef_method);
 
   mrbc_class *module_Kernel = mrbc_get_class_by_name("Kernel");
   mrbc_define_method(vm, module_Kernel, "caller", c_kernel_caller);
