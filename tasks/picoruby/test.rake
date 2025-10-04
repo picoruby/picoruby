@@ -102,7 +102,15 @@ def collect_gems(vm_type, specified_gem = nil)
   Dir.glob("#{gems_dir}/picoruby-*").map do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
-    File.basename(gem_path)
+    if Dir.exist?("#{gem_path}/src/#{vm}")
+      # C extension exists for the target VM
+      File.basename(gem_path)
+    elsif !Dir.exist?("#{gem_path}/src/mruby") && !Dir.exist?("#{gem_path}/src/mrubyc")
+      # Only pure Ruby implementation
+      File.basename(gem_path)
+    else
+      nil
+    end
   end.compact
 end
 
