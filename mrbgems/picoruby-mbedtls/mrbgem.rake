@@ -4,6 +4,7 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.summary = 'Mbed-TLS porting for PicoRuby'
 
   spec.add_dependency 'picoruby-rng'
+  spec.add_dependency 'picoruby-base64'
 
   MBEDTLS_VERSION = "v3.6.2"
   MBEDTLS_REPO = "https://github.com/Mbed-TLS/mbedtls.git"
