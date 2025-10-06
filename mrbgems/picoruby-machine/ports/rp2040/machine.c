@@ -1,4 +1,5 @@
 #include "../../include/hal.h"
+#include "../../include/machine.h"
 
 #if defined(PICO_RP2040)
   #include "hardware/rosc.h"
@@ -19,7 +20,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <tusb.h>
-
 
 /*-------------------------------------
  *
@@ -179,13 +179,25 @@ hal_idle_cpu()
 int
 hal_write(int fd, const void *buf, int nbytes)
 {
+#if CFG_TUD_CDC >= 2
+  // Use separate CDC instances: stdout -> CDC0, stderr -> CDC1
+  uint8_t cdc_instance = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
+  tud_cdc_n_write(cdc_instance, buf, nbytes);
+  int len = tud_cdc_n_write_flush(cdc_instance);
+#else
   tud_cdc_write(buf, nbytes);
   int len = tud_cdc_write_flush();
+#endif
   return len;
 }
 
 int hal_flush(int fd) {
+#if CFG_TUD_CDC >= 2
+  uint8_t cdc_instance = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
+  int len = tud_cdc_n_write_flush(cdc_instance);
+#else
   int len = tud_cdc_write_flush();
+#endif
   return len;
 }
 

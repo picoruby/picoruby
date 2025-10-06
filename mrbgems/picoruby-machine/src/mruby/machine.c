@@ -180,7 +180,17 @@ print_sub(mrb_state *mrb, mrb_value obj)
   mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
   const char *cstr = RSTRING_PTR(str);
   size_t len = RSTRING_LEN(str);
-  hal_write(0, cstr, len);
+  hal_write(1, cstr, len);
+  return len;
+}
+
+static size_t
+debug_print_sub(mrb_state *mrb, mrb_value obj)
+{
+  mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
+  const char *cstr = RSTRING_PTR(str);
+  size_t len = RSTRING_LEN(str);
+  hal_write(2, cstr, len);
   return len;
 }
 
@@ -191,12 +201,12 @@ mrb_io_puts(mrb_state *mrb, mrb_value self)
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
   if (argc == 0) {
-    hal_write(0, "\n", 1);
+    hal_write(1, "\n", 1);
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
       print_sub(mrb, argv[i]);
-      hal_write(0, "\n", 1);
+      hal_write(1, "\n", 1);
     }
     mrb_gc_arena_restore(mrb, ai);
   }
@@ -271,6 +281,26 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
 }
 #endif
 
+#if !defined(PICORB_PLATFORM_POSIX)
+static mrb_value
+mrb_s_debug_puts(mrb_state *mrb, mrb_value self)
+{
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  if (argc == 0) {
+    hal_write(2, "\n", 1);
+  } else {
+    int ai = mrb_gc_arena_save(mrb);
+    for (mrb_int i = 0; i < argc; i++) {
+      debug_print_sub(mrb, argv[i]);
+      hal_write(2, "\n", 1);
+    }
+    mrb_gc_arena_restore(mrb, ai);
+  }
+  return mrb_nil_value();
+}
+#endif
 
 static mrb_value
 mrb_s_exit(mrb_state *mrb, mrb_value self)
@@ -306,6 +336,8 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
 
 #if !defined(PICORB_PLATFORM_POSIX)
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(debug_puts), mrb_s_debug_puts, MRB_ARGS_ANY());
+
   struct RClass *class_IO = mrb_define_class_id(mrb, MRB_SYM(IO), mrb->object_class);
   mrb_define_method_id(mrb, class_IO, MRB_SYM(puts), mrb_io_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(print), mrb_io_print, MRB_ARGS_ANY());
