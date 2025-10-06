@@ -9,6 +9,12 @@
 #include <signal.h>
 #endif
 
+/* File descriptor to CDC instance mapping for dual CDC configuration */
+#define FD_STDOUT 1
+#define FD_STDERR 2
+#define CDC_INSTANCE_STDOUT 0
+#define CDC_INSTANCE_STDERR 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif

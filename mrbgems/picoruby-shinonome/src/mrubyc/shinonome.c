@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include "picoruby/debug.h"
 
 static void
 test_print(mrbc_vm *vm, mrbc_value *v, mrbc_int_t size)
@@ -23,7 +24,7 @@ test_print(mrbc_vm *vm, mrbc_value *v, mrbc_int_t size)
         }
       }
     } else {
-      printf("unicode: %04X\n", c);
+      D("unicode: %04X\n", c);
     }
   }
 }

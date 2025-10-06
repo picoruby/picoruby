@@ -2,6 +2,7 @@
 #include <mruby/presym.h>
 #include <mruby/string.h>
 #include <mruby/array.h>
+#include "picoruby/debug.h"
 
 static void
 test_print(mrb_state *mrb, mrb_int size)
@@ -27,7 +28,7 @@ test_print(mrb_state *mrb, mrb_int size)
         }
       }
     } else {
-      printf("unicode: %04X\n", c);
+      D("unicode: %04X\n", c);
     }
   }
 }

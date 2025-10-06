@@ -13,12 +13,12 @@ debug_printf(const char *format, ...)
   va_list args;
   va_start(args, format);
 #if defined(PICORB_PLATFORM_POSIX)
-  int len = vprintf(format, args);
+  int len = vfprintf(stderr, format, args);
 #else
   char buffer[256];
   int len = vsnprintf(buffer, sizeof(buffer), format, args);
-  hal_write(1, buffer, len);
-  hal_flush(1);
+  hal_write(2, buffer, len);
+  hal_flush(2);
 #endif
   va_end(args);
   return len;

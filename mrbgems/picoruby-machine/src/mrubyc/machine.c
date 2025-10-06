@@ -187,6 +187,23 @@ c_Machine_get_hwclock(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_Machine_debug_puts(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc == 0) {
+    hal_write(2, "\n", 1);
+  } else {
+    for (int i = 1; i <= argc; i++) {
+      mrbc_value arg = GET_ARG(i);
+      mrbc_value str = mrbc_send(vm, v, argc, &arg, "to_s", 0);
+      if (str.tt == MRBC_TT_STRING) {
+        hal_write(2, (const char *)str.string->data, str.string->size);
+        hal_write(2, "\n", 1);
+      }
+    }
+  }
+}
+
+static void
 c_Machine_exit(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int status;
@@ -282,6 +299,7 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Machine, "get_hwclock", c_Machine_get_hwclock);
 
   mrbc_define_method(vm, mrbc_class_Machine, "exit", c_Machine_exit);
+  mrbc_define_method(vm, mrbc_class_Machine, "debug_puts", c_Machine_debug_puts);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
