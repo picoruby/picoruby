@@ -87,15 +87,17 @@ hal_idle_cpu()
 int
 hal_write(int fd, const void *buf, int nbytes)
 {
+  FILE *stream = (fd == 1) ? stdout : stderr;
   for (int i = 0 ; i < nbytes ; i++) {
-    putchar(((char*)buf)[i]);
+    fputc(((char*)buf)[i], stream);
   }
-  fflush(stdout);
+  fflush(stream);
   return nbytes;
 }
 
 int hal_flush(int fd) {
-  return fflush(stdout);
+  FILE *stream = (fd == 1) ? stdout : stderr;
+  return fflush(stream);
 }
 
 int
