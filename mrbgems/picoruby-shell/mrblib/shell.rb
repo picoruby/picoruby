@@ -99,6 +99,7 @@ class Shell
       Dir.mkdir(root)
       puts "Created root directory: #{root}"
     end
+    $LOAD_PATH = ["#{root}/lib"]
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"

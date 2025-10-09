@@ -11,7 +11,7 @@ MRuby::Gem::Specification.new('picoruby-shinonome') do |spec|
   directory include_dir
 
   SHINONOME_DIR = File.join(dir, "lib", "shinonome-0.9.11", "bdf")
-  FONTS = [
+  SHINONOME_FONTS = [
     {name: "12",     w:  6, h: 12, src: "shnm6x12a.bdf",   dst: "ascii_12_table.h",     type: :ascii},
     {name: "16",     w:  8, h: 16, src: "shnm8x16a.bdf",   dst: "ascii_16_table.h",     type: :ascii},
     {name: "12maru", w: 12, h: 12, src: "shnmk12maru.bdf", dst: "jis208_12maru_table.h",type: :jis},
@@ -20,7 +20,7 @@ MRuby::Gem::Specification.new('picoruby-shinonome') do |spec|
     {name: "16go",   w: 16, h: 16, src: "shnmk16.bdf",     dst: "jis208_16go_table.h",  type: :jis},
     {name: "16min",  w: 16, h: 16, src: "shnmk16min.bdf",  dst: "jis208_16min_table.h", type: :jis},
   ]
-  FONTS.each do |font|
+  SHINONOME_FONTS.each do |font|
     font[:src] = "#{SHINONOME_DIR}/#{font[:src]}"
     font[:dst] = "#{include_dir}/#{font[:dst]}"
     file font[:dst] => [font[:src], include_dir] do

@@ -21,6 +21,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
 
   # picogems to be required in Ruby
   picogems = Hash.new
+  mgems = Array.new
   task :collect_gems => "#{mrbgems_dir}/gem_init.c" do
     build.gems.each do |gem|
       if gem.name.start_with?("picoruby-") && !gem.name.start_with?("picoruby-bin-")
@@ -49,6 +50,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             end
           end
         end
+      elsif gem.name.start_with?("mruby-")
+        mgems << gem.name.sub(/\Amruby-?/,'')
       end
     end
   end

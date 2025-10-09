@@ -6,5 +6,9 @@ const char *prebuilt_gems[] = {
   "<%= require_name %>",
 <%- end -%>
 <%- end -%>
+  // mgems
+<%- mgems.each do |require_name| -%>
+  "<%= require_name %>",
+<%- end -%>
   NULL
 };

@@ -6,9 +6,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby Shell library'
 
-  if build.vm_mrubyc?
-    spec.add_dependency 'picoruby-require'
-  end
+  spec.add_dependency 'picoruby-require'
   spec.add_dependency 'picoruby-editor'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
