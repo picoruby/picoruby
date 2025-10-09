@@ -1,6 +1,10 @@
 module Picotest
 
-  class Double
+  if RUBY_ENGINE == 'mruby/c'
+    BasicObject = Object
+  end
+
+  class Double < BasicObject
     attr_accessor :double_data, :doubled_obj, :singleton_class_name
 
     def self._init(type, doubled_obj, any_instance_of: false)
@@ -18,7 +22,10 @@ module Picotest
         instance.double_data[:expected_count] = 0
         instance.double_data[:actual_count] = 0
       end
-      global_doubles << instance.double_data
+      unless $picotest_doubles
+        $picotest_doubles = []
+      end
+      $picotest_doubles << instance.double_data
       instance
     end
 
@@ -39,57 +46,27 @@ module Picotest
       return self
     end
 
-    alias ! method_missing
-    alias != method_missing
-    alias <=> method_missing
-    alias == method_missing
-    alias === method_missing
-    alias __id__ method_missing
-    alias ` method_missing
-    alias ancestors method_missing
-    alias attr_accessor method_missing
-    alias attr_reader method_missing
-    alias block_given? method_missing
-    alias caller method_missing
-    alias class method_missing
-    alias class? method_missing
-    alias const_get method_missing
-    alias dup method_missing
-    alias extend method_missing
-    alias extern method_missing
-    alias gets method_missing
-    alias include method_missing
-    alias inspect method_missing
-    alias instance_methods method_missing
-    alias instance_of? method_missing
-    alias instance_variable_get method_missing
-    alias instance_variable_set method_missing
-    alias instance_variables method_missing
-    alias instance_variables method_missing
-    alias is_a? method_missing
-    alias kind_of? method_missing
-    alias load method_missing
-    alias load_file method_missing
-    alias loop method_missing
-    alias methods method_missing
-    alias new method_missing
-    alias nil? method_missing
-    alias object_id method_missing
-    alias open method_missing
-    alias p method_missing
-    alias print method_missing
-    alias printf method_missing
-    alias puts method_missing
-    alias raise method_missing
-    alias require method_missing
-    alias require_file method_missing
-    alias required? method_missing
-    alias respond_to? method_missing
-    alias send method_missing
-    alias sleep method_missing
-    alias sleep_ms method_missing
-    alias sprintf method_missing
-    alias to_s method_missing
-  end
+    if RUBY_ENGINE == 'mruby/c'
+      protect_methods = %i(
+        alias_method
+        method_missing
+        _init
+        _alloc
+        remove_singleton
+        define_method
+        define_method_any_instance_of
+        double_data
+        double_data=
+        doubled_obj
+        doubled_obj=
+        singleton_class_name
+        singleton_class_name=
+      )
+      self.methods.uniq.sort.each do |m|
+        protect_methods.include?(m) and next
+        alias_method m, :method_missing
+      end
+    end
 
+  end
 end

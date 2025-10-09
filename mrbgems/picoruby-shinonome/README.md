@@ -88,29 +88,7 @@ height, total_width, widths, glyphs = Shinonome.go12("Hello, 世界", 1)
 
 #### SSD1306 OLED Display
 
-```ruby
-# Draw text on SSD1306 display
-def draw_text(x, y, text, fontname = :min12, scale = 1)
-  Shinonome.draw(fontname, text, scale) do |height, total_width, widths, glyphs|
-    glyph_x = x
-    widths.each_with_index do |char_width, char_idx|
-      height.times do |row|
-        char_width.times do |col|
-          if (glyphs[char_idx][row] >> (char_width - 1 - col)) & 1 == 1
-            set_pixel(glyph_x + col, y + row, 1)
-          end
-        end
-      end
-      glyph_x += char_width
-    end
-  end
-end
-
-# Usage examples
-draw_text(0, 0, "いろはにほへと", :maru12)
-draw_text(0, 16, "黒暗森林", :min16, 2)  # scaled 2x
-draw_text(0, 52, "Hello World!", :min12)
-```
+See picoruby-ssd1306
 
 #### Custom Display Driver
 

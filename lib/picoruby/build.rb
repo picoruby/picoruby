@@ -127,11 +127,13 @@ module MRuby
 
       def posix
         return unless cc.build.posix?
-        Dir.glob("#{dir}/ports/posix/**/*.c").each do |src|
-          obj = objfile(src.pathmap("#{build_dir}/ports/posix/%n"))
-          build.libmruby_objs << obj
-          file obj => src do |f|
-            cc.run f.name, f.prerequisites.first
+        ["posix", "common"].each do |subdir|
+          Dir.glob("#{dir}/ports/#{subdir}/**/*.c").each do |src|
+            obj = objfile(src.pathmap("#{build_dir}/ports/#{subdir}/%n"))
+            build.libmruby_objs << obj
+            file obj => src do |f|
+              cc.run f.name, f.prerequisites.first
+            end
           end
         end
       end

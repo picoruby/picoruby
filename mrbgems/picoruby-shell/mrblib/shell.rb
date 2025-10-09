@@ -579,7 +579,11 @@ class Shell
     if num.nil?
       num = @jobs.size - 1
     end
-    @jobs[num].resume
+    if job = @jobs[num]
+      job.resume
+    else
+      puts "fg: #{num}: no such job"
+    end
   end
 
   def cleanup_jobs

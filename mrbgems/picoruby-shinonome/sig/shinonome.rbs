@@ -1,5 +1,5 @@
 module Shinonome
-  type shinonome_t = [Integer, Integer,     Array[Integer], Array[Integer]]
+  type shinonome_t = [Integer, Integer,     Array[Integer], Array[Array[Integer]]]
   #                   height,  total_width, widths,         glyphs
   def self.test12: (String text) -> nil
   def self.test16: (String text) -> nil
@@ -9,6 +9,6 @@ module Shinonome
   def self.min16: (String text, ?Integer scale) -> shinonome_t
   def self.go16: (String text, ?Integer scale) -> shinonome_t
 
-  def self.draw: (Symbol | String fontname, String line, Integer scale) { (shinonome_t) -> void } -> void
-               | (Symbol | String fontname, String line, Integer scale) -> shinonome_t
+  def self.draw: (Symbol | String name, String line, Integer scale) { (shinonome_t) -> void } -> void
+               | (Symbol | String name, String line, Integer scale) -> shinonome_t
 end

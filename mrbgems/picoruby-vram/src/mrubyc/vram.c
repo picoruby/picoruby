@@ -124,6 +124,10 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
 static mrbc_value
 vram_pages_sub(mrbc_vm *vm, mrbc_value *v, int argc, bool dirty)
 {
+  bool clear_dirty = true;
+  if (argc != 0 && mrbc_type(v[1]) == MRBC_TT_FALSE) {
+    clear_dirty = false;
+  }
   display_t *disp = (display_t *)v[0].instance->data;
   mrbc_value result = mrbc_array_new(vm, 0);
 
@@ -137,14 +141,13 @@ vram_pages_sub(mrbc_vm *vm, mrbc_value *v, int argc, bool dirty)
       int cols = disp->w / page->w;
       int col = i % cols;
       int row = i / cols;
-
       mrbc_value entry = mrbc_array_new(vm, 3);
       mrbc_incref(&entry);
       mrbc_array_set(&entry, 0, &mrbc_integer_value(col));
       mrbc_array_set(&entry, 1, &mrbc_integer_value(row));
       mrbc_array_set(&entry, 2, &page->buffer);
       mrbc_array_push(&result, &entry);
-      if (dirty) page->dirty = false;
+      if (clear_dirty) page->dirty = false;
     }
   }
   return result;
@@ -302,6 +305,146 @@ c_vram_fill(mrbc_vm *vm, mrbc_value *v, int argc)
   //SET_RETURN(v[0]);
 }
 
+/*
+ * vram.draw_bitmap(x:, y:, w:, h:, data:)
+ * data: Array[Integer] - each element represents a row's bit pattern
+ */
+static void
+c_vram_draw_bitmap(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  display_t *disp = (display_t *)v[0].instance->data;
+  if (!disp) return;
+
+  mrbc_value x_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("x")));
+  mrbc_value y_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("y")));
+  mrbc_value width_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
+  mrbc_value height_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("h")));
+  mrbc_value data_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("data")));
+
+  if (mrbc_type(x_val) != MRBC_TT_INTEGER || mrbc_type(y_val) != MRBC_TT_INTEGER ||
+      mrbc_type(width_val) != MRBC_TT_INTEGER || mrbc_type(height_val) != MRBC_TT_INTEGER ||
+      mrbc_type(data_val) != MRBC_TT_ARRAY) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Invalid arguments for draw_bitmap");
+    return;
+  }
+
+  int x = x_val.i;
+  int y = y_val.i;
+  int width = width_val.i;
+  int height = height_val.i;
+
+  if (width <= 0 || height <= 0) return;
+
+  for (int img_y = 0; img_y < height && img_y < data_val.array->n_stored; img_y++) {
+    mrbc_value row_val = mrbc_array_get(&data_val, img_y);
+    if (mrbc_type(row_val) == MRBC_TT_INTEGER) {
+      uint64_t row_data = (uint64_t)row_val.i;
+      for (int img_x = 0; img_x < width; img_x++) {
+        uint8_t pixel = (row_data >> (width - 1 - img_x)) & 1;
+        int screen_x = x + img_x;
+        int screen_y = y + img_y;
+
+        for (int i = 0; i < disp->page_count; i++) {
+          display_page_t *page = &disp->pages[i];
+          if (screen_x >= page->x && screen_x < page->x + page->w &&
+              screen_y >= page->y && screen_y < page->y + page->h) {
+            page->set_pixel(page, screen_x - page->x, screen_y - page->y, pixel);
+            break;
+          }
+        }
+      }
+    }
+  }
+}
+
+/*
+ * vram.draw_bytes(x:, y:, w:, h:, data:)
+ * data: String - packed byte array
+ */
+static void
+c_vram_draw_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  display_t *disp = (display_t *)v[0].instance->data;
+  if (!disp) return;
+
+  mrbc_value x_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("x")));
+  mrbc_value y_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("y")));
+  mrbc_value width_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
+  mrbc_value height_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("h")));
+  mrbc_value data_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("data")));
+
+  if (mrbc_type(x_val) != MRBC_TT_INTEGER || mrbc_type(y_val) != MRBC_TT_INTEGER ||
+      mrbc_type(width_val) != MRBC_TT_INTEGER || mrbc_type(height_val) != MRBC_TT_INTEGER ||
+      mrbc_type(data_val) != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "Invalid arguments for draw_bytes");
+    return;
+  }
+
+  int x = x_val.i;
+  int y = y_val.i;
+  int width = width_val.i;
+  int height = height_val.i;
+
+  if (width <= 0 || height <= 0) return;
+
+  const uint8_t *image_data = (const uint8_t *)data_val.string->data;
+  int data_size = data_val.string->size;
+
+  for (int img_y = 0; img_y < height; img_y++) {
+    for (int img_x = 0; img_x < width; img_x++) {
+      int byte_idx = (img_y * ((width + 7) / 8)) + (img_x / 8);
+      int bit_idx = 7 - (img_x % 8);
+
+      uint8_t pixel = 0;
+      if (byte_idx < data_size) {
+        pixel = (image_data[byte_idx] >> bit_idx) & 1;
+      }
+
+      int screen_x = x + img_x;
+      int screen_y = y + img_y;
+
+      for (int i = 0; i < disp->page_count; i++) {
+        display_page_t *page = &disp->pages[i];
+        if (screen_x >= page->x && screen_x < page->x + page->w &&
+            screen_y >= page->y && screen_y < page->y + page->h) {
+          page->set_pixel(page, screen_x - page->x, screen_y - page->y, pixel);
+          break;
+        }
+      }
+    }
+  }
+}
+
+/*
+ * vram.erase(x, y, w, h)
+ */
+static void
+c_vram_erase(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  display_t *disp = (display_t *)v[0].instance->data;
+  if (!disp) return;
+
+  int x = GET_INT_ARG(1);
+  int y = GET_INT_ARG(2);
+  int w = GET_INT_ARG(3);
+  int h = GET_INT_ARG(4);
+
+  for (int i = 0; i < h; i++) {
+    for (int j = 0; j < w; j++) {
+      int px = x + j;
+      int py = y + i;
+      for (int k = 0; k < disp->page_count; k++) {
+        display_page_t *page = &disp->pages[k];
+        if (px >= page->x && px < page->x + page->w &&
+            py >= page->y && py < page->y + page->h) {
+          page->set_pixel(page, px - page->x, py - page->y, 0);
+          break;
+        }
+      }
+    }
+  }
+}
+
 void
 mrbc_vram_init(struct VM *vm)
 {
@@ -314,5 +457,8 @@ mrbc_vram_init(struct VM *vm)
   mrbc_define_method(0, class_VRAM, "set_pixel", c_vram_set_pixel);
   mrbc_define_method(0, class_VRAM, "draw_line", c_vram_draw_line);
   mrbc_define_method(0, class_VRAM, "draw_rect", c_vram_draw_rect);
+  mrbc_define_method(0, class_VRAM, "draw_bitmap", c_vram_draw_bitmap);
+  mrbc_define_method(0, class_VRAM, "draw_bytes", c_vram_draw_bytes);
   mrbc_define_method(0, class_VRAM, "fill", c_vram_fill);
+  mrbc_define_method(0, class_VRAM, "erase", c_vram_erase);
 }

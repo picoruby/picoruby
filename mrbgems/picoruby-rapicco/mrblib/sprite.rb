@@ -231,7 +231,6 @@ class Rapicco
         ],
         camerlengo: %w[
           .
-          .
           .....rrrs.....yyyy
           ....rlrrrs...yyydyy
           ......rs.....yyyyyy
@@ -240,6 +239,7 @@ class Rapicco
           ..gggogogogggyy
           .gggoooooooggg
           yygggogogogggg
+          ...yyy......yyy
         ],
         bullet: %w[
           .
@@ -338,7 +338,7 @@ class Rapicco
         out << "\e[#{row.length}D\e[B" # Carriage return
         out
       end
-      @width = rows.map(&:length).max
+      @width = rows.map {|row| row.length}.max
       @height = @data.size
     end
 

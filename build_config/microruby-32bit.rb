@@ -37,7 +37,5 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.gembox "r2p2"
   conf.gembox "utils"
 
-  #conf.gem  core: "picoruby-rapicco"
-
   conf.microruby
 end

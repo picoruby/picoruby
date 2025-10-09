@@ -33,16 +33,18 @@ typedef enum {
 } spi_status_t;
 
 typedef struct spi_unit_info {
+  uint32_t frequency;
   uint8_t  unit_num;
   int8_t   sck_pin;
   int8_t   copi_pin;
   int8_t   cipo_pin;
   int8_t   cs_pin;
-  uint32_t frequency;
   uint8_t  mode;
   uint8_t  first_bit;
   uint8_t  data_bits;
 } spi_unit_info_t;
+
+#define MAX_STACK_BUFFER_SIZE 256
 
 int SPI_unit_name_to_unit_num(const char *);
 spi_status_t SPI_gpio_init(spi_unit_info_t*);

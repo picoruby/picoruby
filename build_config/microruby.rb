@@ -20,7 +20,5 @@ MRuby::Build.new do |conf|
   conf.gembox "r2p2"
   conf.gembox "utils"
 
-  conf.gem  core: "picoruby-rapicco"
-
   conf.microruby
 end

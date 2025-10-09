@@ -1,0 +1,11 @@
+module Terminus
+  type terminus_t = [Integer, Integer,     Array[Integer], Array[Array[Integer]]]
+  #                   height,  total_width, widths,         glyphs
+  def self._6x12: (String text) -> terminus_t
+  def self._8x16: (String text) -> terminus_t
+  def self._12x24: (String text) -> terminus_t
+  def self._16x32: (String text) -> terminus_t
+
+  def self.draw: (String name, String line, ?Integer scale) { (terminus_t) -> void } -> void
+               | (String name, String line, ?Integer scale) -> terminus_t
+end

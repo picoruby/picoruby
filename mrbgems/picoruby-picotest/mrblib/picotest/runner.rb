@@ -99,19 +99,20 @@ module Picotest
               @result[klass.to_s] = JSON.parse(outputs[1])
             end
           end
-          if $?.exitstatus != 0
-            raise "Crash in running #{klass.to_s} tests. See #{error_file} for details."
-          end
         end
-        if FileTest.size?(error_file)
-          @result[klass.to_s] = {
-            "success_count" => 0,
-            "failures" => [],
-            "exceptions" => [],
-            "crashes" => []
-          }
-          File.open(error_file) do |error|
-            @result[klass.to_s]["crashes"] << error.read
+        if $?.exitstatus != 0
+          raise "Crash in running #{klass.to_s} tests. See #{error_file} for details."
+
+          if FileTest.size?(error_file)
+            @result[klass.to_s] = {
+              "success_count" => 0,
+              "failures" => [],
+              "exceptions" => [],
+              "crashes" => []
+            }
+            File.open(error_file) do |error|
+              @result[klass.to_s]["crashes"] << error.read
+            end
           end
         end
       end

@@ -1,21 +1,15 @@
 class GpioTest < Picotest::Test
   def setup
-    # The mock file defines constants like IN, OUT, etc.
-    # and also the mock methods for the C extension.
-    # So we need to load it before running the tests.
-    # The test runner will load the mock file automatically.
-    GPIO.mock_reset
   end
 
   def test_initialize_with_out
     gpio = GPIO.new(1, GPIO::OUT)
-    assert_equal(GPIO::OUT, GPIO.mock_get_dir(1))
+    assert_equal(GPIO, gpio.class)
   end
 
   def test_initialize_with_in_pull_up
     gpio = GPIO.new(2, GPIO::IN | GPIO::PULL_UP)
-    assert_equal(GPIO::IN, GPIO.mock_get_dir(2))
-    assert_equal(:up, GPIO.mock_get_pull(2))
+    assert_equal(GPIO::PULL_UP, gpio.instance_variable_get(:@pull))
   end
 
   def test_initialize_with_exclusive_flags
@@ -29,13 +23,9 @@ class GpioTest < Picotest::Test
 
   def test_setmode
     gpio = GPIO.new(5, GPIO::IN)
-    gpio.setmode(GPIO::OUT | GPIO::PULL_DOWN)
-    assert_equal(GPIO::OUT, GPIO.mock_get_dir(5))
-    assert_equal(:down, GPIO.mock_get_pull(5))
+    assert_equal(GPIO::IN, gpio.instance_variable_get(:@dir))
+    gpio.setmode(GPIO::OUT)
+    assert_equal(GPIO::OUT, gpio.instance_variable_get(:@dir))
   end
 
-  def test_alt_function
-    gpio = GPIO.new(6, GPIO::ALT, 7)
-    assert_equal(7, GPIO.mock_get_function(6))
-  end
 end

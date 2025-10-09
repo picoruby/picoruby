@@ -9,6 +9,7 @@ MRuby::Gem::Specification.new('picoruby-rapicco') do |spec|
   ]
   spec.summary = 'Rabbit-like presentation tool for terminal emulator'
 
-  spec.add_dependency 'picoruby-shinonome'
+  spec.add_dependency 'picoruby-terminus'
+  # picoruby-shinonome is optional for a large ROM
 end
 

@@ -17,64 +17,190 @@ struct mrb_data_type mrb_spi_type = {
 };
 
 
-static mrb_value
-mrb__write(mrb_state *mrb, mrb_value self)
+static size_t
+mrb_spi_calculate_buffer_size(mrb_state *mrb, mrb_value *args, mrb_int argc, size_t additional_bytes)
 {
-  spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  mrb_value value_ary;
-  mrb_get_args(mrb, "A", &value_ary);
-  mrb_int len = RARRAY_LEN(value_ary);
-  uint8_t txdata[len];
-  for (int i = 0; i < len; i++) {
-    mrb_value value = mrb_ary_ref(mrb, value_ary, i);
-    if (mrb_fixnum_p(value)) {
-      txdata[i] = mrb_fixnum(value);
-    } else {
-      mrb_raise(mrb, E_ARGUMENT_ERROR, "value must be Fixnum");
+  size_t total_size = additional_bytes;
+  for (mrb_int i = 0; i < argc; i++) {
+    mrb_value arg = args[i];
+    switch (mrb_type(arg)) {
+      case MRB_TT_ARRAY:
+        total_size += RARRAY_LEN(arg);
+        break;
+      case MRB_TT_FIXNUM:
+        total_size += 1;
+        break;
+      case MRB_TT_STRING:
+        total_size += RSTRING_LEN(arg);
+        break;
+      default:
+        mrb_raise(mrb, E_ARGUMENT_ERROR, "argument must be Integer, Array or String");
     }
   }
-  mrb_int res = SPI_write_blocking(unit_info, txdata, len);
-  return mrb_fixnum_value(res);
+  return total_size;
+}
+
+static void
+mrb_spi_fill_buffer(mrb_state *mrb, uint8_t *buffer, mrb_value *args, mrb_int argc, size_t additional_zeros)
+{
+  size_t pos = 0;
+  for (mrb_int i = 0; i < argc; i++) {
+    mrb_value arg = args[i];
+    switch (mrb_type(arg)) {
+      case MRB_TT_ARRAY: {
+        mrb_int ary_len = RARRAY_LEN(arg);
+        for (mrb_int j = 0; j < ary_len; j++) {
+          mrb_value data = RARRAY_PTR(arg)[j];
+          if (!mrb_fixnum_p(data)) {
+            mrb_raise(mrb, E_TYPE_ERROR, "array element must be Fixnum");
+          }
+          buffer[pos++] = (uint8_t)mrb_fixnum(data);
+        }
+        break;
+      }
+      case MRB_TT_FIXNUM: {
+        buffer[pos++] = (uint8_t)mrb_fixnum(arg);
+        break;
+      }
+      case MRB_TT_STRING: {
+        const char *str = RSTRING_PTR(arg);
+        mrb_int str_len = RSTRING_LEN(arg);
+        memcpy(&buffer[pos], str, str_len);
+        pos += str_len;
+        break;
+      }
+      default:
+        mrb_raise(mrb, E_ARGUMENT_ERROR, "argument must be Integer, Array or String");
+        return;
+    }
+  }
+
+  // Fill remaining bytes with zeros (for additional read bytes)
+  for (size_t i = 0; i < additional_zeros; i++) {
+    buffer[pos++] = 0;
+  }
+}
+
+static mrb_int
+mrb_spi_write_outputs(mrb_state *mrb, spi_unit_info_t *unit_info, mrb_value *args, mrb_int argc)
+{
+  size_t total_size = mrb_spi_calculate_buffer_size(mrb, args, argc, 0);
+  if (total_size == 0) return -1;
+
+  // Choose buffer allocation strategy
+  uint8_t stack_buffer[MAX_STACK_BUFFER_SIZE];
+  uint8_t *buffer;
+  mrb_bool needs_free = false;
+
+  if (total_size < MAX_STACK_BUFFER_SIZE) {
+    buffer = stack_buffer;
+  } else {
+    buffer = (uint8_t *)mrb_malloc(mrb, total_size);
+    needs_free = true;
+  }
+
+  // Fill buffer with all arguments
+  mrb_spi_fill_buffer(mrb, buffer, args, argc, 0);
+
+  mrb_int res = SPI_write_blocking(unit_info, buffer, total_size);
+
+  if (needs_free) {
+    mrb_free(mrb, buffer);
+  }
+
+  return res;
 }
 
 static mrb_value
-mrb__read(mrb_state *mrb, mrb_value self)
+mrb_write(mrb_state *mrb, mrb_value self)
 {
   spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  mrb_int len, repeated_tx_data;
-  mrb_get_args(mrb, "ii", &len, &repeated_tx_data);
+  mrb_value *args;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &args, &argc);
+
+  mrb_int total_bytes = mrb_spi_write_outputs(mrb, unit_info, args, argc);
+
+  if (total_bytes < 0) {
+    struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+    mrb_raise(mrb, IOError, "SPI write failed");
+  }
+
+  return mrb_fixnum_value(total_bytes);
+}
+
+static mrb_value
+mrb_read(mrb_state *mrb, mrb_value self)
+{
+  spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
+  mrb_int len;
+  mrb_int repeated_tx_data = 0;
+  mrb_get_args(mrb, "i|i", &len, &repeated_tx_data);
   uint8_t rxdata[len];
   int ret_len = SPI_read_blocking(unit_info, rxdata, len, repeated_tx_data);
   if (-1 < ret_len) {
     return mrb_str_new(mrb, (const char *)rxdata, ret_len);
   } else {
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
-    mrb_raise(mrb, IOError, "SPI read error");
+    mrb_raise(mrb, IOError, "SPI read failed");
   }
 }
 
 static mrb_value
-mrb__transfer(mrb_state *mrb, mrb_value self)
+mrb_transfer(mrb_state *mrb, mrb_value self)
 {
   spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  mrb_value value_ary;
-  mrb_get_args(mrb, "A", &value_ary);
-  mrb_int len = RARRAY_LEN(value_ary);
-  uint8_t txdata[len];
-  uint8_t rxdata[len];
-  for (int i = 0; i < len; i++) {
-    mrb_value value = mrb_ary_ref(mrb, value_ary, i);
-    if (!mrb_fixnum_p(value)) {
-      mrb_raise(mrb, E_ARGUMENT_ERROR, "value must be Fixnum");
-    }
-    txdata[i] = mrb_fixnum(value);
+  mrb_value *args;
+  mrb_int argc;
+  mrb_int additional_read_bytes = 0;
+
+  const mrb_sym kw_names[] = { MRB_SYM(additional_read_bytes) };
+  mrb_value kw_values[1];
+  mrb_value kw_rest = mrb_nil_value();
+  mrb_kwargs kwargs = { 1, 0, kw_names, kw_values, &kw_rest };
+
+  mrb_get_args(mrb, "*:", &args, &argc, &kwargs);
+
+  if (!mrb_undef_p(kw_values[0])) {
+    additional_read_bytes = mrb_fixnum(kw_values[0]);
   }
-  int ret_len = SPI_transfer(unit_info, txdata, rxdata, len);
-  if (ret_len == len) {
-    return mrb_str_new(mrb, (const char *)rxdata, ret_len);
+
+  size_t total_size = mrb_spi_calculate_buffer_size(mrb, args, argc, additional_read_bytes);
+
+  // Choose buffer allocation strategy
+  uint8_t stack_tx_buffer[MAX_STACK_BUFFER_SIZE];
+  uint8_t stack_rx_buffer[MAX_STACK_BUFFER_SIZE];
+  uint8_t *txdata, *rxdata;
+  mrb_bool needs_free = false;
+
+  if (total_size < MAX_STACK_BUFFER_SIZE) {
+    txdata = stack_tx_buffer;
+    rxdata = stack_rx_buffer;
+  } else {
+    txdata = (uint8_t *)mrb_malloc(mrb, total_size * 2);
+    rxdata = txdata + total_size;
+    needs_free = true;
   }
-  struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
-  mrb_raise(mrb, IOError, "SPI transfer error");
+
+  // Fill buffer with all arguments plus additional zeros
+  mrb_spi_fill_buffer(mrb, txdata, args, argc, additional_read_bytes);
+
+  int ret_len = SPI_transfer(unit_info, txdata, rxdata, total_size);
+
+  mrb_value result;
+  if (ret_len == total_size) {
+    result = mrb_str_new(mrb, (const char *)rxdata, ret_len);
+  } else {
+    struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+    if (needs_free) mrb_free(mrb, txdata);
+    mrb_raise(mrb, IOError, "SPI transfer failed");
+  }
+
+  if (needs_free) {
+    mrb_free(mrb, txdata);
+  }
+
+  return result;
 }
 
 static mrb_value
@@ -106,7 +232,7 @@ mrb_cs_pin(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb__init(mrb_state *mrb, mrb_value self)
+mrb_s_init(mrb_state *mrb, mrb_value klass)
 {
   int unit_num = PICORUBY_SPI_BITBANG;
   const char *unit_name;
@@ -130,9 +256,8 @@ mrb__init(mrb_state *mrb, mrb_value self)
   unit_info->first_bit = (uint8_t)first_bit;
   unit_info->data_bits = (uint8_t)data_bits;
 
-  DATA_PTR(self) = unit_info;
-  DATA_TYPE(self) = &mrb_spi_type;
-  
+  mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, mrb_class_ptr(klass), &mrb_spi_type, unit_info));
+
   spi_status_t status = SPI_gpio_init(unit_info);
   if (status < 0) {
     const char *message;
@@ -145,7 +270,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
     mrb_raise(mrb, IOError, message);
   }
-  return mrb_fixnum_value(unit_num);
+  return self;
 }
 
 void
@@ -155,10 +280,10 @@ mrb_picoruby_spi_gem_init(mrb_state* mrb)
 
   MRB_SET_INSTANCE_TT(class_SPI, MRB_TT_CDATA);
 
-  mrb_define_method_id(mrb, class_SPI, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(9));
-  mrb_define_method_id(mrb, class_SPI, MRB_SYM(_write), mrb__write, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_SPI, MRB_SYM(_read), mrb__read, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_SPI, MRB_SYM(_transfer), mrb__transfer, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_SPI, MRB_SYM(init), mrb_s_init, MRB_ARGS_REQ(9));
+  mrb_define_method_id(mrb, class_SPI, MRB_SYM(write), mrb_write, MRB_ARGS_REST());
+  mrb_define_method_id(mrb, class_SPI, MRB_SYM(read), mrb_read, MRB_ARGS_ARG(1,1));
+  mrb_define_method_id(mrb, class_SPI, MRB_SYM(transfer), mrb_transfer, MRB_ARGS_REST()|MRB_ARGS_KEY(1, 0));
   mrb_define_method_id(mrb, class_SPI, MRB_SYM(sck_pin), mrb_sck_pin, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SPI, MRB_SYM(cipo_pin), mrb_cipo_pin, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SPI, MRB_SYM(copi_pin), mrb_copi_pin, MRB_ARGS_NONE());

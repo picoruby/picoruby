@@ -1,6 +1,6 @@
 # @sidebar io_peripheral
 class PWM
-  @gpio: Integer
+  @pin: Integer
   @frequency: Float
   @duty: Float
 
