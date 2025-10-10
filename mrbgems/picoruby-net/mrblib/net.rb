@@ -112,10 +112,18 @@ module Net
   end
 
   class HTTPClient < HTTPClientBase
+    DEFAULT_HTTP_PORT = 80
+
+    def initialize(host, port = DEFAULT_HTTP_PORT)
+      @port = port
+
+      super(host)
+    end
+
     private
 
     def port
-      80
+      @port
     end
 
     def use_tls
@@ -124,10 +132,18 @@ module Net
   end
 
   class HTTPSClient < HTTPClientBase
+    DEFAULT_HTTPS_PORT = 443
+
+    def initialize(host, port = DEFAULT_HTTPS_PORT)
+      @port = port
+
+      super(host)
+    end
+
     private
 
     def port
-      443
+      @port
     end
 
     def use_tls
