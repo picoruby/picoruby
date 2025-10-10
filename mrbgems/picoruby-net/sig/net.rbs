@@ -38,11 +38,17 @@ module Net
   end
 
   class HTTPClient < HTTPClientBase
+    DEFAULT_HTTP_PORT: Integer
+    @port: Integer
+    def initialize: (String host, Integer port) -> void
     private def port: -> Integer
     private def use_tls: -> bool
   end
 
   class HTTPSClient < HTTPClientBase
+    DEFAULT_HTTPS_PORT: Integer
+    @port: Integer
+    def initialize: (String host, Integer port) -> void
     private def port: -> Integer
     private def use_tls: -> bool
   end
