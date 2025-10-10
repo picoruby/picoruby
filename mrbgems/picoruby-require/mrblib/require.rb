@@ -67,11 +67,12 @@ module Kernel
 
 end
 
+$LOADED_FEATURES = ["require"]
+
 if RUBY_ENGINE == 'mruby/c'
   class Object
     include Kernel
   end
-  $LOADED_FEATURES = ["require"]
   begin
     require "posix-io"
   rescue LoadError

@@ -10,13 +10,13 @@ MRuby::Gem::Specification.new('picoruby-terminus') do |spec|
   directory include_dir
 
   TERMINUS_DIR = File.join(dir, "lib", "terminus-font-4.49.1")
-  FONTS = [
+  TERMINUS_FONTS = [
     {name: "6x12",   w:  6, h: 12, src: "ter-u12n.bdf", dst: "terminus_6x12_table.h"},
     {name: "8x16",   w:  8, h: 16, src: "ter-u16n.bdf", dst: "terminus_8x16_table.h"},
     {name: "12x24",  w: 12, h: 24, src: "ter-u24n.bdf", dst: "terminus_12x24_table.h"},
     {name: "16x32",  w: 16, h: 32, src: "ter-u32n.bdf", dst: "terminus_16x32_table.h"},
   ]
-  FONTS.each do |font|
+  TERMINUS_FONTS.each do |font|
     font[:src] = "#{TERMINUS_DIR}/#{font[:src]}"
     font[:dst] = "#{include_dir}/#{font[:dst]}"
     file font[:dst] => [font[:src], include_dir] do
