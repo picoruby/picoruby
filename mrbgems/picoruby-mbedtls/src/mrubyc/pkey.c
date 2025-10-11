@@ -130,21 +130,14 @@ c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   mbedtls_pk_context *orig_pk = (mbedtls_pk_context *)v->instance->data;
-  mrbc_value new_obj = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_pk_context));
+  mrbc_value new_obj = mrbc_instance_new(vm, v->instance->cls, sizeof(mbedtls_pk_context));
   mbedtls_pk_context *new_pk = (mbedtls_pk_context *)new_obj.instance->data;
   mbedtls_pk_init(new_pk);
-
-  int ret = mbedtls_pk_setup(new_pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
-  if (ret != 0) {
-    mbedtls_pk_free(new_pk);
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
-    return;
-  }
 
   // Extract public key from original and import to new context
   unsigned char pubkey_buf[2048];
   size_t pubkey_len;
-  ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
+  int ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
   if (ret < 0) {
     mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to export public key");
     return;
