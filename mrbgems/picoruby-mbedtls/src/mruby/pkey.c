@@ -135,15 +135,10 @@ mrb_mbedtls_pkey_rsa_public_key(mrb_state *mrb, mrb_value self) {
   DATA_TYPE(new_obj) = &mrb_pkey_type;
   mbedtls_pk_init(new_pk);
 
-  int ret = mbedtls_pk_setup(new_pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
-  if (ret != 0) {
-    mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
-  }
-
   // Extract public key from original and import to new context
   unsigned char pubkey_buf[2048];
   size_t pubkey_len;
-  ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
+  int ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
   if (ret < 0) {
     mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Failed to export public key");
   }
