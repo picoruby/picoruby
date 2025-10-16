@@ -3,6 +3,7 @@ class Shell
     class PipeIO
       def initialize
         @buffer = []
+        @remainder = ""
       end
 
       def puts(str = "")
@@ -10,10 +11,7 @@ class Shell
       end
 
       def print(str)
-        if @buffer.empty?
-          @buffer << ""
-        end
-        @buffer[-1] = (@buffer[-1] || "") + str.to_s
+        @remainder << str.to_s
       end
 
       def write(str)
@@ -26,7 +24,27 @@ class Shell
       end
 
       def gets
-        @buffer.shift
+        # First, try to get a complete line from remainder
+        if idx = @remainder.index("\n")
+          line = @remainder[0..idx-1]
+          @remainder = @remainder[idx+1..-1]
+          return line
+        end
+
+        # If no newline in remainder, check buffer
+        if !@buffer.empty?
+          return @buffer.shift
+        end
+
+        # If remainder has content but no newline, return it all
+        if !@remainder.empty?
+          line = @remainder
+          @remainder = ""
+          return line
+        end
+
+        # No more data
+        nil
       end
 
       def each_line
@@ -36,11 +54,12 @@ class Shell
       end
 
       def empty?
-        @buffer.empty?
+        @buffer.empty? && @remainder.empty?
       end
 
       def clear
         @buffer.clear
+        @remainder = ""
       end
     end
 
