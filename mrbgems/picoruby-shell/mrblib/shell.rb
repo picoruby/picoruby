@@ -378,28 +378,15 @@ class Shell
         buffer.clear
         cleanup_jobs
 
-        # Check if command line contains pipe
-        if command_line.include?("|")
-          commands = Pipeline.parse(command_line)
+        # Parse command line using new parser
+        unless command_line.empty?
           begin
-            pipeline = Pipeline.new(commands)
-            pipeline.exec
+            parser = Parser.new(command_line)
+            ast = parser.parse
+
+            execute_ast(ast) if ast
           rescue => e
             puts e.message
-          end
-        else
-          # Single command execution (original behavior)
-          args = command_line.split(" ")
-          if builtin?("_#{args[0]}")
-            send("_#{args[0]}", *args[1, args.size-1] || [])
-          else
-            begin
-              job = Job.new(*args)
-              @jobs << job
-              job.exec
-            rescue => e
-              puts e.message
-            end
           end
         end
       when 26 # Ctrl-Z
@@ -454,6 +441,193 @@ class Shell
 
   def builtin?(name)
     self.respond_to?(name)
+  end
+
+  def execute_ast(ast)
+    case ast.type
+    when :command
+      execute_command_node(ast)
+    when :pipeline
+      execute_pipeline_node(ast)
+    else
+      raise "Unknown AST node type: #{ast.type}"
+    end
+  end
+
+  def execute_command_node(node)
+    data = node.data
+    name = data[:name]
+    args = data[:args]
+    redirects = data[:redirects]
+
+    # Handle redirections
+    redirect_in = nil
+    redirect_out = nil
+    redirect_mode = nil
+
+    redirects.each do |redir|
+      case redir.data[:type]
+      when :input
+        redirect_in = redir.data[:target]
+      when :output
+        redirect_out = redir.data[:target]
+        redirect_mode = :write
+      when :append
+        redirect_out = redir.data[:target]
+        redirect_mode = :append
+      end
+    end
+
+    # Check if builtin command
+    if builtin?("_#{name}")
+      if redirect_in || redirect_out
+        # Execute builtin with file redirection
+        execute_builtin_with_redirect(name, args, redirect_in, redirect_out, redirect_mode)
+      else
+        # Normal builtin execution
+        send("_#{name}", *args)
+      end
+    else
+      # Execute external command
+      cmd_args = [name] + args
+
+      if redirect_in || redirect_out
+        # Execute with file redirection
+        execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
+      else
+        # Normal execution
+        job = Job.new(*cmd_args)
+        @jobs << job
+        job.exec
+      end
+    end
+  end
+
+  def execute_pipeline_node(node)
+    commands = node.data[:commands]
+
+    # Extract redirects from the last command
+    last_cmd = commands.last
+    redirects = last_cmd.data[:redirects]
+
+    redirect_in = nil
+    redirect_out = nil
+    redirect_mode = nil
+
+    redirects.each do |redir|
+      case redir.data[:type]
+      when :input
+        redirect_in = redir.data[:target]
+      when :output
+        redirect_out = redir.data[:target]
+        redirect_mode = :write
+      when :append
+        redirect_out = redir.data[:target]
+        redirect_mode = :append
+      end
+    end
+
+    cmd_arrays = commands.map do |cmd_node|
+      [cmd_node.data[:name]] + cmd_node.data[:args]
+    end
+
+    if redirect_in || redirect_out
+      # Execute pipeline with file redirection
+      old_stdin = $stdin
+      old_stdout = $stdout
+
+      begin
+        if redirect_in
+          if File.exist?(redirect_in)
+            $stdin = File.open(redirect_in, 'r')
+          else
+            puts "#{redirect_in}: No such file or directory"
+            return
+          end
+        end
+
+        if redirect_out
+          mode = redirect_mode == :append ? 'a' : 'w'
+          $stdout = File.open(redirect_out, mode)
+        end
+
+        pipeline = Pipeline.new(cmd_arrays)
+        pipeline.exec
+      ensure
+        $stdin.close if redirect_in && $stdin != old_stdin
+        $stdout.close if redirect_out && $stdout != old_stdout
+        $stdin = old_stdin
+        $stdout = old_stdout
+      end
+    else
+      pipeline = Pipeline.new(cmd_arrays)
+      pipeline.exec
+    end
+  end
+
+  def execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
+    old_stdin = $stdin
+    old_stdout = $stdout
+
+    begin
+      # Setup input redirection
+      if redirect_in
+        if File.exist?(redirect_in)
+          $stdin = File.open(redirect_in, 'r')
+        else
+          puts "#{redirect_in}: No such file or directory"
+          return
+        end
+      end
+
+      # Setup output redirection
+      if redirect_out
+        mode = redirect_mode == :append ? 'a' : 'w'
+        $stdout = File.open(redirect_out, mode)
+      end
+
+      # Execute command
+      job = Job.new(*cmd_args)
+      job.exec
+    ensure
+      # Close and restore
+      $stdin.close if redirect_in && $stdin != old_stdin
+      $stdout.close if redirect_out && $stdout != old_stdout
+      $stdin = old_stdin
+      $stdout = old_stdout
+    end
+  end
+
+  def execute_builtin_with_redirect(name, args, redirect_in, redirect_out, redirect_mode)
+    old_stdin = $stdin
+    old_stdout = $stdout
+
+    begin
+      # Setup input redirection
+      if redirect_in
+        if File.exist?(redirect_in)
+          $stdin = File.open(redirect_in, 'r')
+        else
+          puts "#{redirect_in}: No such file or directory"
+          return
+        end
+      end
+
+      # Setup output redirection
+      if redirect_out
+        mode = redirect_mode == :append ? 'a' : 'w'
+        $stdout = File.open(redirect_out, mode)
+      end
+
+      # Execute builtin command
+      send("_#{name}", *args)
+    ensure
+      # Close and restore
+      $stdin.close if redirect_in && $stdin != old_stdin
+      $stdout.close if redirect_out && $stdout != old_stdout
+      $stdin = old_stdin
+      $stdout = old_stdout
+    end
   end
 
   private
