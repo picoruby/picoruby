@@ -12,4 +12,5 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-time-class"
   conf.gem core: "picoruby-vram"
   conf.gem core: "picoruby-rapicco"
+  conf.gem core: 'picoruby-data'
 end
