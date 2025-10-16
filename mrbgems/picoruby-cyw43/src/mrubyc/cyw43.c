@@ -90,11 +90,32 @@ c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
   int auth = GET_INT_ARG(3);
   int timeout_ms = 3 < argc ? GET_INT_ARG(4)*1000 : 60*1000;
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
-    if (CYW43_arch_wifi_connect_timeout_ms(ssid, pass, auth, timeout_ms) != 0) {
-      mrbc_raise(vm, ConnectTimeout, "CYW43_arch_wifi_connect_timeout_ms() failed");
+    if (CYW43_wifi_connect_with_dhcp(ssid, pass, auth, timeout_ms) != 0) {
+      mrbc_raise(vm, ConnectTimeout, "CYW43_wifi_connect_with_dhcp() failed");
       return;
     }
     cyw43_arch_connected = true;
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_CYW43_disconnect(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43 not initialized");
+    return;
+  }
+  int result = CYW43_wifi_disconnect();
+  if (result == 0) {
+    cyw43_arch_connected = false;
+    // Reset STA mode to allow clean reconnection
+    if (cyw43_arch_sta_mode_enabled) {
+      CYW43_arch_disable_sta_mode();
+      cyw43_arch_sta_mode_enabled = false;
+    }
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -109,6 +130,16 @@ c_CYW43_tcpip_link_status(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   SET_INT_RETURN(CYW43_tcpip_link_status());
+}
+
+static void
+c_CYW43_dhcp_supplied_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    SET_FALSE_RETURN();
+    return;
+  }
+  SET_BOOL_RETURN(CYW43_dhcp_supplied());
 }
 #endif
 
@@ -137,7 +168,9 @@ mrbc_cyw43_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_CYW43, "enable_sta_mode", c_CYW43_enable_sta_mode);
   mrbc_define_method(vm, class_CYW43, "disable_sta_mode", c_CYW43_disable_sta_mode);
   mrbc_define_method(vm, class_CYW43, "connect_timeout", c_CYW43_connect_timeout);
+  mrbc_define_method(vm, class_CYW43, "disconnect", c_CYW43_disconnect);
   mrbc_define_method(vm, class_CYW43, "tcpip_link_status", c_CYW43_tcpip_link_status);
+  mrbc_define_method(vm, class_CYW43, "dhcp_supplied?", c_CYW43_dhcp_supplied_q);
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_DOWN"), &mrbc_integer_value(CYW43_CONST_link_down()));
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_JOIN"), &mrbc_integer_value(CYW43_CONST_link_join()));
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_NOIP"), &mrbc_integer_value(CYW43_CONST_link_noip()));

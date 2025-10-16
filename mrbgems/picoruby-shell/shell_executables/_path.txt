@@ -19,3 +19,4 @@
 /bin/touch
 /bin/vim
 /bin/wifi_connect
+/bin/wifi_disconnect

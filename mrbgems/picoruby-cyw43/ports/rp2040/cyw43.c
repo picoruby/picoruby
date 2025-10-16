@@ -1,6 +1,8 @@
 #include "../../include/cyw43.h"
 
 #include "pico/cyw43_arch.h"
+#include "lwip/dhcp.h"
+#include "lwip/netif.h"
 
 int
 CYW43_CONST_link_down(void)
@@ -50,6 +52,13 @@ CYW43_tcpip_link_status(void)
   return cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
 }
 
+bool
+CYW43_dhcp_supplied(void)
+{
+  struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
+  return dhcp_supplied_address(netif);
+}
+
 int
 CYW43_arch_init_with_country(const uint8_t *country)
 {
@@ -85,9 +94,26 @@ CYW43_arch_disable_sta_mode(void)
 }
 
 int
-CYW43_arch_wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms)
+CYW43_wifi_connect_with_dhcp(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms)
 {
-  return cyw43_arch_wifi_connect_timeout_ms(ssid, pw, auth, timeout_ms);
+  int result = cyw43_arch_wifi_connect_timeout_ms(ssid, pw, auth, timeout_ms);
+  if (result == 0) {
+    struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
+    if (!dhcp_supplied_address(netif)) {
+      dhcp_set_struct(netif, &cyw43_state.dhcp_client);
+      dhcp_start(netif);
+    }
+  }
+  return result;
+}
+
+int
+CYW43_wifi_disconnect(void)
+{
+  struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
+  dhcp_release_and_stop(netif);
+  int result = cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+  return result;
 }
 
 void

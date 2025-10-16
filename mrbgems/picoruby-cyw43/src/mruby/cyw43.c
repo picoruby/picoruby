@@ -91,15 +91,39 @@ mrb_s_connect_timeout(mrb_state *mrb, mrb_value klass)
     timeout_ms = mrb_fixnum(timeout) * 1000;
   }
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
-    if (CYW43_arch_wifi_connect_timeout_ms(ssid, pass, auth, timeout_ms) != 0) {
+    if (CYW43_wifi_connect_with_dhcp(ssid, pass, auth, timeout_ms) != 0) {
       struct RClass *class_CYW43 = mrb_class_ptr(klass);
       struct RClass *class_ConnectTimeout = mrb_define_class_under_id(mrb, class_CYW43, MRB_SYM(ConnectTimeout), E_RUNTIME_ERROR);
-      mrb_raise(mrb, class_ConnectTimeout, "CYW43_arch_wifi_connect_timeout_ms() failed");
+      mrb_raise(mrb, class_ConnectTimeout, "CYW43_wifi_connect_with_dhcp() failed");
     }
     cyw43_arch_connected = true;
     return mrb_true_value();
   } else {
     return mrb_false_value();
+  }
+}
+
+static mrb_value
+mrb_s_disconnect(mrb_state *mrb, mrb_value klass)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  if (cyw43_arch_connected) {
+    int result = CYW43_wifi_disconnect();
+    if (result == 0) {
+      cyw43_arch_connected = false;
+      // Reset STA mode to allow clean reconnection
+      if (cyw43_arch_sta_mode_enabled) {
+        CYW43_arch_disable_sta_mode();
+        cyw43_arch_sta_mode_enabled = false;
+      }
+      return mrb_true_value();
+    } else {
+      return mrb_false_value();
+    }
+  } else {
+    return mrb_true_value();
   }
 }
 
@@ -110,6 +134,15 @@ mrb_s_tcpip_link_status(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
   }
   return mrb_fixnum_value(CYW43_tcpip_link_status());
+}
+
+static mrb_value
+mrb_s_dhcp_supplied_p(mrb_state *mrb, mrb_value klass)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_false_value();
+  }
+  return mrb_bool_value(CYW43_dhcp_supplied());
 }
 #endif
 
@@ -143,7 +176,9 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_sta_mode), mrb_s_enable_sta_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disable_sta_mode), mrb_s_disable_sta_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(connect_timeout), mrb_s_connect_timeout, MRB_ARGS_ARG(3, 1));
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disconnect), mrb_s_disconnect, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(tcpip_link_status), mrb_s_tcpip_link_status, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM_Q(dhcp_supplied), mrb_s_dhcp_supplied_p, MRB_ARGS_NONE());
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_DOWN), mrb_fixnum_value(CYW43_CONST_link_down()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_JOIN), mrb_fixnum_value(CYW43_CONST_link_join()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NOIP), mrb_fixnum_value(CYW43_CONST_link_noip()));
