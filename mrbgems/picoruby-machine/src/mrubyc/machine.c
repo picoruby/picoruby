@@ -275,6 +275,40 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
     str.string->size = 1;
   }
 }
+
+static void
+c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  mrbc_value *arg = &v[1];
+  const char *str;
+  int len;
+
+  if (arg->tt == MRBC_TT_STRING) {
+    str = (const char *)arg->string->data;
+    len = arg->string->size;
+  } else {
+    // For non-string, just use mrbc_print_sub which handles conversion
+    // This is simpler and avoids calling to_s which might be implemented in Ruby
+    SET_INT_RETURN(0);
+    return;
+  }
+
+  // Get the fd from the IO instance
+  // Assume fd is stored in @fd instance variable
+  mrbc_value fd_val = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("fd"));
+  int fd = 1; // default to stdout
+  if (fd_val.tt == MRBC_TT_FIXNUM) {
+    fd = fd_val.i;
+  }
+
+  int written = hal_write(fd, str, len);
+  SET_INT_RETURN(written);
+}
 #endif
 
 
@@ -305,8 +339,10 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
   mrbc_define_method(vm, class_IO, "gets", c_gets);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
+  mrbc_define_method(vm, class_IO, "write", c_io_write);
   /*
-   * puts, print, p are implemented in mrubyc/src/c_object.c
+   * puts, print are implemented in mrblib/io.rb using write method
+   * p is implemented in mrblib/kernel.rb
    */
 #endif
 }

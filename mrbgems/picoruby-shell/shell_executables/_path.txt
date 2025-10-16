@@ -3,6 +3,7 @@
 /bin/date
 /bin/df
 /bin/free
+/bin/head
 /bin/hello
 /bin/ifconfig
 /bin/install
@@ -19,6 +20,7 @@
 /bin/rm
 /bin/setup_rtc
 /bin/setup_sdcard
+/bin/tail
 /bin/taskstat
 /bin/touch
 /bin/uptime

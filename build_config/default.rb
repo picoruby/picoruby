@@ -4,7 +4,6 @@ MRuby::Build.new do |conf|
 
   conf.cc.defines << "PICORB_VM_MRUBYC"
 
-#  conf.cc.defines << "MRBC_NO_STDIO"
   conf.cc.defines << "PICORUBY_INT64"
   conf.cc.defines << "MRBC_USE_HAL_POSIX"
 

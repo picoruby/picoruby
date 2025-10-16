@@ -46,6 +46,7 @@ module MRuby
       alloc_libc = false if ENV["PICORUBY_NO_LIBC_ALLOC"]
 
       cc.defines << "PICORB_VM_MRUBYC"
+      cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
       cc.defines << "MRBC_INT64" if cc.defines.include?("PICORUBY_INT64")

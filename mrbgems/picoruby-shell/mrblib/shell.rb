@@ -373,19 +373,33 @@ class Shell
       case c
       when 10, 13
         puts
-        args = buffer.dump.chomp.strip.split(" ")
+        command_line = buffer.dump.chomp.strip
         editor.save_history
         buffer.clear
         cleanup_jobs
-        if builtin?("_#{args[0]}")
-          send("_#{args[0]}", *args[1, args.size-1] || [])
-        else
+
+        # Check if command line contains pipe
+        if command_line.include?("|")
+          commands = Pipeline.parse(command_line)
           begin
-            job = Job.new(*args)
-            @jobs << job
-            job.exec
+            pipeline = Pipeline.new(commands)
+            pipeline.exec
           rescue => e
             puts e.message
+          end
+        else
+          # Single command execution (original behavior)
+          args = command_line.split(" ")
+          if builtin?("_#{args[0]}")
+            send("_#{args[0]}", *args[1, args.size-1] || [])
+          else
+            begin
+              job = Job.new(*args)
+              @jobs << job
+              job.exec
+            rescue => e
+              puts e.message
+            end
           end
         end
       when 26 # Ctrl-Z
