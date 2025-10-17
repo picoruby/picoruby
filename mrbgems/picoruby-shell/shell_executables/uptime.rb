@@ -1,7 +1,7 @@
 # uptime - show how long the system has been running
 
 begin
-  uptime_ms = VM.tick
+  uptime_ms = (RUBY_ENGINE == 'mruby/c') ? VM.tick : Task.tick
   uptime_sec = uptime_ms / 1000
   uptime_min = uptime_sec / 60
   uptime_hour = uptime_min / 60

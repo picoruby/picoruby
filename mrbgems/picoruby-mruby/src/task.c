@@ -697,6 +697,12 @@ mrb_task_s_pass(mrb_state *mrb, mrb_value klass)
 }
 
 static mrb_value
+mrb_task_s_tick(mrb_state *mrb, mrb_value klass)
+{
+  return mrb_fixnum_value(tick_ * MRB_TICK_UNIT);
+}
+
+static mrb_value
 mrb_task_s_current(mrb_state *mrb, mrb_value klass)
 {
   /* Validate current context before using MRB2TCB */
@@ -937,6 +943,7 @@ mrb_picoruby_mruby_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(get), mrb_task_s_get, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(list), mrb_task_s_list, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Task, MRB_SYM(pass), mrb_task_s_pass, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Task, MRB_SYM(tick), mrb_task_s_tick, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(status), mrb_task_status, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(inspect), mrb_task_inspect, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Task, MRB_SYM(priority), mrb_task_priority, MRB_ARGS_NONE());
