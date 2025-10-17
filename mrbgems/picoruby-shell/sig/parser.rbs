@@ -1,0 +1,53 @@
+# Classes
+class Shell
+  class Tokenizer
+    SPECIAL_CHARS: Array[String]
+
+    @input: String
+    @position: Integer
+
+    def initialize: (String input) -> void
+    def next_token: () -> token_hash?
+
+    private
+
+    def tokenize_whitespace: (Integer start_pos) -> token_hash
+    def skip_whitespace: () -> void
+    def eof?: () -> bool
+    def create_token: (Symbol type, Integer start_pos, Integer length) -> token_hash
+    def tokenize_quoted_string: (String quote_char, Integer start_pos) -> token_hash
+    def tokenize_word: (Integer start_pos) -> token_hash
+  end
+
+  type token_hash = Hash[Symbol, untyped]
+
+  class Parser
+    class Node < Data
+      def self.define: (:type, :data, :token) -> singleton(Node)
+
+      attr_reader type: Symbol
+      attr_reader data: Hash[Symbol, untyped]
+      attr_reader token: String
+    end
+
+    @tokenizer: Tokenizer
+    @current_token: token_hash?
+    @input: String
+
+    def initialize: (String input) -> void
+    def parse: () -> Node?
+
+    private
+
+    def parse_program: () -> Node?
+    def parse_command: () -> Node
+    def parse_argument: () -> String
+    def parse_redirection: () -> Node?
+    def skip_whitespace: () -> void
+    def advance: () -> void
+    def consume: (Symbol type, ?String? value) -> token_hash?
+    def expect: (Symbol type, ?String? value) -> token_hash
+    def expect_word_or_quoted_string: () -> token_hash
+    def token_value: (?token_hash? token) -> String
+  end
+end

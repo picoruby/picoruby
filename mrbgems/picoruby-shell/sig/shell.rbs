@@ -45,6 +45,12 @@ class Shell
   def run_irb: -> void
 
   def builtin?: (String name) -> bool
+  def execute_ast: (Parser::Node ast) -> void
+  def execute_command_node: (Parser::Node node) -> void
+  def execute_pipeline_node: (Parser::Node node) -> void
+  def execute_with_file_redirect: (Array[String] cmd_args, String? redirect_in, String? redirect_out, Symbol? redirect_mode) -> void
+  def execute_builtin_with_redirect: (String name, Array[String] args, String? redirect_in, String? redirect_out, Symbol? redirect_mode) -> void
+
   private def _type: (*untyped args) -> void
   private def _echo: (*untyped args) -> void
   private def _pwd: (*untyped args) -> void

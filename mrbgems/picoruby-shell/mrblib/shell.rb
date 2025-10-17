@@ -538,17 +538,21 @@ class Shell
 
       begin
         if redirect_in
-          if File.exist?(redirect_in)
-            $stdin = File.open(redirect_in, 'r')
+          input_file = redirect_in
+          # @type var input_file: String
+          if File.exist?(input_file)
+            $stdin = File.open(input_file, 'r')
           else
-            puts "#{redirect_in}: No such file or directory"
+            puts "#{input_file}: No such file or directory"
             return
           end
         end
 
         if redirect_out
+          output_file = redirect_out
           mode = redirect_mode == :append ? 'a' : 'w'
-          $stdout = File.open(redirect_out, mode)
+          # @type var output_file: String
+          $stdout = File.open(output_file, mode)
         end
 
         pipeline = Pipeline.new(cmd_arrays)

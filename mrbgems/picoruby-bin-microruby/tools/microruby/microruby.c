@@ -481,6 +481,10 @@ main(int argc, char **argv)
   if (args.check_syntax)
     cc->no_exec = TRUE;
 
+#if defined(PICORB_VM_MRUBYC)
+  picoruby_load_model_by_name("machine"); // Includes Kernel.puts etc. for PicoRuby
+#endif
+
   for (int i = 0; i < args.libc; i++) {
 #if defined(PICORB_VM_MRUBY)
 #elif defined(PICORB_VM_MRUBYC)

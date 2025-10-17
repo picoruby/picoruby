@@ -1,0 +1,29 @@
+# Classes
+class Shell
+  class Pipeline
+    class PipeIO
+      @buffer: Array[String]
+      @remainder: String
+
+      def initialize: () -> void
+      def puts: (?String str) -> void
+      def print: (String str) -> void
+      def write: (String str) -> Integer
+      def flush: () -> self
+      def gets: () -> String?
+      def each_line: () { (String line) -> void } -> void
+      def empty?: () -> bool
+      def clear: () -> void
+    end
+
+    @commands: Array[Array[String]]
+
+    def self.parse: (String command_line) -> Array[Array[String]]
+    def initialize: (Array[Array[String]] commands) -> void
+    def exec: () -> void
+
+    private
+
+    def execute_with_redirect: (Array[String] cmd_args, PipeIO? input, PipeIO? output) -> void
+  end
+end

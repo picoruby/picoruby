@@ -36,14 +36,16 @@ class Shell
     private
 
     def tokenize_whitespace(start_pos)
-      while !eof? && [' ', "\t", "\n"].include?(@input[@position])
+      while !eof? && [' ', "\t", "\n"].include?(@input[@position] || '')
         @position += 1
       end
       create_token(:special, start_pos, @position - start_pos)
     end
 
     def skip_whitespace
-      @position += 1 while !eof? && [' ', "\t", "\n"].include?(@input[@position])
+      while !eof? && [' ', "\t", "\n"].include?(@input[@position] || '')
+        @position += 1
+      end
     end
 
     def eof?
@@ -66,7 +68,7 @@ class Shell
     end
 
     def tokenize_word(start_pos)
-      while @position < @input.length && !SPECIAL_CHARS.include?(@input[@position])
+      while @position < @input.length && !SPECIAL_CHARS.include?(@input[@position] || '')
         @position += 1
       end
       create_token(:word, start_pos, @position - start_pos)
@@ -92,14 +94,17 @@ class Shell
 
     def parse_program
       commands = []
-      start_pos = @current_token[:pos]
+      current = @current_token
+      return nil unless current
+      start_pos = current[:pos]
       while @current_token
         commands << parse_command
         break unless consume(:special, '|')
       end
 
-      end_pos = @current_token ? @current_token[:pos] : @input.length
-      token = @input[start_pos...end_pos]
+      current = @current_token
+      end_pos = current ? current[:pos] : @input.length
+      token = @input[start_pos...end_pos] || ""
 
       if commands.length > 1
         Node.new(:pipeline, { commands: commands }, token)
@@ -115,12 +120,16 @@ class Shell
       start_pos = name[:pos]
 
       while @current_token
-        case @current_token[:type]
+        current = @current_token
+        break unless current
+        token_type = current[:type]
+        case token_type
         when :word, :quoted_string
           args << parse_argument
         when :special
           if ['>', '<', '>>', '<<'].include?(token_value)
-            redirects << parse_redirection
+            redir = parse_redirection
+            redirects << redir if redir
           else
             break
           end
@@ -129,8 +138,9 @@ class Shell
         end
       end
 
-      end_pos = @current_token ? @current_token[:pos] : @input.length
-      token = @input[start_pos...end_pos]
+      current = @current_token
+      end_pos = current ? current[:pos] : @input.length
+      token = @input[start_pos...end_pos] || ""
 
       name_value = token_value(name)
       Node.new(:command, { name: name_value, args: args, redirects: redirects }, token)
@@ -142,7 +152,9 @@ class Shell
     end
 
     def parse_redirection
-      start_pos = @current_token[:pos]
+      current = @current_token
+      return nil unless current
+      start_pos = current[:pos]
       type_token = expect(:special)
       type = case token_value(type_token)
              when '>' then :output
@@ -154,14 +166,21 @@ class Shell
 
       skip_whitespace
       target = expect_word_or_quoted_string()
-      end_pos = @current_token ? @current_token[:pos] : @input.length
+      current = @current_token
+      end_pos = current ? current[:pos] : @input.length
 
-      full_token = @input[start_pos...end_pos].strip
+      full_token = (@input[start_pos...end_pos] || "").strip
       Node.new(:redirection, { type: type, target: token_value(target) }, full_token)
     end
 
     def skip_whitespace
-      advance while @current_token && @current_token[:type] == :special && token_value.strip.empty?
+      while @current_token
+        current = @current_token
+        break unless current
+        token_type = current[:type]
+        break unless token_type == :special && token_value.strip.empty?
+        advance
+      end
     end
 
     def advance
@@ -169,9 +188,12 @@ class Shell
     end
 
     def consume(type, value = nil)
-      return unless @current_token && @current_token[:type] == type
-      return unless value.nil? || token_value == value
-      token = @current_token
+      current = @current_token
+      return nil unless current
+      token_type = current[:type]
+      return nil unless token_type == type
+      return nil unless value.nil? || token_value == value
+      token = current
       advance
       token
     end
@@ -189,10 +211,11 @@ class Shell
     end
 
     def token_value(token = @current_token)
-      value = @input[token[:pos], token[:length]]
-      if token[:type] == :quoted_string
+      return "" unless token
+      value = @input[token[:pos], token[:length]] || ""
+      if token[:type] == :quoted_string && value.length >= 2
         # Remove surrounding quotes
-        value[1...-1]
+        value[1...-1] || ""
       else
         value
       end

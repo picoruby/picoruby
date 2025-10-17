@@ -1,3 +1,5 @@
+$0: String
+
 module GC
   def self.enable: () -> bool
   def self.disable: () -> bool

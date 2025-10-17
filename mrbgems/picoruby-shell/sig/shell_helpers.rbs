@@ -1,0 +1,4 @@
+# Helper methods for shell executables
+module Kernel
+  def each_line_from_files_or_stdin: () { (String line) -> void } -> void
+end
