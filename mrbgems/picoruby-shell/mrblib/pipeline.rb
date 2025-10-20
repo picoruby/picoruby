@@ -60,7 +60,7 @@ class Shell
 
       def append(str)
         while idx = str.index("\n")
-          line = @remainder + str[0..idx]
+          line = @remainder + (str[0..idx] || "")
           @buffer << line
           str = str[(idx + 1)..-1] || ""
           @remainder = ""

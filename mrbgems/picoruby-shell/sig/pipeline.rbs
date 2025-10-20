@@ -14,6 +14,7 @@ class Shell
       def each_line: () { (String line) -> void } -> void
       def empty?: () -> bool
       def clear: () -> void
+      private def append: (String str) -> void
     end
 
     @commands: Array[Array[String]]
