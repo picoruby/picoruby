@@ -10,6 +10,9 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   end
   spec.add_dependency 'picoruby-pack'
   spec.add_dependency 'picoruby-mbedtls'
+  unless spec.cc.defines.include? "PICORB_PLATFORM_POSIX"
+    spec.add_dependency 'picoruby-cyw43'
+  end
 
   LWIP_VERSION = "STABLE-2_2_1_RELEASE"
   LWIP_REPO = "https://github.com/lwip-tcpip/lwip"
@@ -43,7 +46,7 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.cc.include_paths << "#{lwip_dir}/src/include"
   spec.cc.include_paths << "#{lwip_dir}/contrib/ports/unix/port/include"
   spec.cc.include_paths << "#{lwip_dir}/src/apps/altcp_tls"
-  spec.cc.include_paths << "#{build.gems['picoruby-mbedtls'].dir}/lib/mbedtls/include"
+  spec.cc.include_paths << "#{File.expand_path('..', dir)}/picoruby-mbedtls/lib/mbedtls/include"
 
   Dir.glob("#{lwip_dir}/src/**/*.c").each do |src|
     next if src.end_with?('makefsdata.c')

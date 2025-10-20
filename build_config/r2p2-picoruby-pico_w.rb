@@ -44,8 +44,10 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   conf.gembox "r2p2"
   conf.gembox "stdlib"
   conf.gembox "utils"
-  conf.gembox "cyw43"
-  conf.gem core: 'picoruby-jwt'
+
+  # Rapi Pico's flash ROM (2MB) can't hold both net and ble
+  conf.gem core: 'picoruby-net'
+  # conf.gem core: 'picoruby-ble'
 
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)

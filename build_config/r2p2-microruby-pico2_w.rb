@@ -47,9 +47,10 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2_w") do |conf|
   conf.gembox "baremetal"
   conf.gembox "peripherals"
   conf.gembox "r2p2"
-  conf.gembox "cyw43"
   conf.gembox "peripheral_utils"
   conf.gembox "utils"
+  conf.gem core: 'picoruby-net'
+  conf.gem core: 'picoruby-ble'
 
   conf.gem core: 'picoruby-psg'
 

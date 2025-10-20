@@ -52,7 +52,8 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.gembox "r2p2"
   conf.gembox "stdlib"
   conf.gembox "utils"
-  conf.gembox "cyw43"
+  conf.gem core: 'picoruby-net'
+  conf.gem core: 'picoruby-ble'
   conf.gem core: 'picoruby-shinonome'
 
   conf.mrubyc_hal_arm
