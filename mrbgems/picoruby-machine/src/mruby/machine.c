@@ -255,7 +255,9 @@ mrb_io_gets(mrb_state *mrb, mrb_value self)
     } if (c == 27) { // ESC continue;
     }
     if (c == 8 || c == 127) { // Backspace
-      if (0 < RSTRING_LEN(str)) { mrb_str_resize(mrb, str, RSTRING_LEN(str) - 1); hal_write(1, "\b \b", 3);
+      if (0 < RSTRING_LEN(str)) {
+        mrb_str_resize(mrb, str, RSTRING_LEN(str) - 1);
+        hal_write(1, "\b \b", 3);
       }
     } else
     if (-1 < c) {
