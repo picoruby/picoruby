@@ -509,3 +509,9 @@ Machine_exit(int status)
 {
   (void)status; // no-op
 }
+
+uint64_t
+Machine_uptime_us(void)
+{
+  return time_us_64();
+}

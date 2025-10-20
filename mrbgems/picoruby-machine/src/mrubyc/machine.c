@@ -187,6 +187,12 @@ c_Machine_get_hwclock(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_Machine_uptime_us(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_INT_RETURN((mrbc_uint_t)Machine_uptime_us());
+}
+
+static void
 c_Machine_debug_puts(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc == 0) {
@@ -331,6 +337,7 @@ mrbc_machine_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, mrbc_class_Machine, "set_hwclock", c_Machine_set_hwclock);
   mrbc_define_method(vm, mrbc_class_Machine, "get_hwclock", c_Machine_get_hwclock);
+  mrbc_define_method(vm, mrbc_class_Machine, "uptime_us", c_Machine_uptime_us);
 
   mrbc_define_method(vm, mrbc_class_Machine, "exit", c_Machine_exit);
   mrbc_define_method(vm, mrbc_class_Machine, "debug_puts", c_Machine_debug_puts);

@@ -220,3 +220,9 @@ Machine_exit(int status)
 {
   (void)status; // no-op
 }
+
+uint64_t
+Machine_uptime_us(void)
+{
+  return (uint64_t)esp_timer_get_time();
+}
