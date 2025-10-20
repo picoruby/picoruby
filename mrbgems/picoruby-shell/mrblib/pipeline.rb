@@ -7,11 +7,13 @@ class Shell
       end
 
       def puts(str = "")
-        @buffer << str.to_s
+        append "#{str}\n"
+        nil
       end
 
       def print(str)
-        @remainder << str.to_s
+        append str.to_s
+        nil
       end
 
       def write(str)
@@ -24,26 +26,18 @@ class Shell
       end
 
       def gets
-        # First, try to get a complete line from remainder
-        if idx = @remainder.index("\n")
-          line = @remainder[0..idx-1]
-          @remainder = @remainder[idx+1..-1]
+        if line = @buffer.shift
           return line
         end
 
-        # If no newline in remainder, check buffer
-        if !@buffer.empty?
-          return @buffer.shift
-        end
-
-        # If remainder has content but no newline, return it all
+        # If remainder has content, return it all
         if !@remainder.empty?
           line = @remainder
           @remainder = ""
           return line
         end
 
-        # No more data
+        # No data
         nil
       end
 
@@ -60,6 +54,18 @@ class Shell
       def clear
         @buffer.clear
         @remainder = ""
+      end
+
+      private
+
+      def append(str)
+        while idx = str.index("\n")
+          line = @remainder + str[0..idx]
+          @buffer << line
+          str = str[(idx + 1)..-1] || ""
+          @remainder = ""
+        end
+        @remainder += str
       end
     end
 
