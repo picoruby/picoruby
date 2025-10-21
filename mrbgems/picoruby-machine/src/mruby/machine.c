@@ -165,6 +165,14 @@ mrb_s_uptime_us(mrb_state *mrb, mrb_value self)
   return mrb_int_value(mrb, (mrb_int)Machine_uptime_us());
 }
 
+static mrb_value
+mrb_s_uptime_formatted(mrb_state *mrb, mrb_value self)
+{
+  char buf[20] = {0};
+  Machine_uptime_formatted(buf, sizeof(buf));
+  return mrb_str_new_cstr(mrb, buf);
+}
+
 
 #if !defined(PICORB_PLATFORM_POSIX)
 static mrb_noreturn void
@@ -343,6 +351,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_us), mrb_s_uptime_us, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_formatted), mrb_s_uptime_formatted, MRB_ARGS_NONE());
 
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
 

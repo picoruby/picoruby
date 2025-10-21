@@ -44,6 +44,7 @@ bool Machine_set_hwclock(const struct timespec *ts);
 bool Machine_get_hwclock(struct timespec *ts);
 void Machine_exit(int status);
 uint64_t Machine_uptime_us(void);
+void Machine_uptime_formatted(char *buf, int maxlen);
 
 #ifdef __cplusplus
 }
