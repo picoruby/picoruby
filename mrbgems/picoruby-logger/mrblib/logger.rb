@@ -52,11 +52,7 @@ class Logger
         raise IOError, "Logger is closed"
       end
       if @level_num <= level_num
-        uptime_sec = Machine.uptime_us / 1_000_000
-        uptime_min = uptime_sec / 60
-        uptime_hour = uptime_min / 60
-        uptime_day = uptime_hour / 24
-        time_stamp = "#{Time.now.inspect} (uptime: #{uptime_day}d #{uptime_hour % 24}h #{uptime_min % 60}m #{uptime_sec % 60}s)"
+        time_stamp = "#{Time.now.inspect} (uptime: #{Machine.uptime_formatted})"
         if block
           program_name = args.first
           message = block.call.to_s
