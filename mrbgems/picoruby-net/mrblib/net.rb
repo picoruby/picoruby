@@ -81,7 +81,7 @@ module Net
       req = "#{method} #{path} HTTP/1.1\r\n"
       req += "Host: #{@host}\r\n"
 
-      unless headers.keys.any?{|k| k.downcase == "connection" }
+      unless headers.keys.any?{|k| k.to_s.downcase == "connection" }
         req += "Connection: close\r\n"
       end
 
