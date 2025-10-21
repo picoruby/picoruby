@@ -145,6 +145,12 @@ class Shell
       if File.file?(config_file)
         config = YAML.load_file(config_file)
         # @type var config: Hash[String, untyped]
+        env = config['env']
+        if env&.respond_to?(:each)
+          env.each do |key, value|
+            ENV[key.upcase] = value.to_s
+          end
+        end
         device = config['device']
         if device&.respond_to?(:each)
           device.each do |type, values|
