@@ -1,7 +1,10 @@
 # PicoRuby Simple Logger class implementation
 # Usage:
-#  logger = Logger.new(level: :info)
+#  logger = Logger.new("filename.log", level: :info)
 #  logger.info("This is an info message")
+#  logger.debug("This is a debug message") # Will not be logged if level is :info
+#  logger.fatal("Unrecoverable error occurred!")
+#  logger.close
 
 require 'time'
 
@@ -10,21 +13,19 @@ class Logger
 
   def initialize(io_or_filename, level: :info)
     if io_or_filename.is_a?(String)
-      @filename = io_or_filename
+      @io = File.open(io_or_filename, "a")
     elsif io_or_filename.respond_to?(:write)
       @io = io_or_filename
-      @filename = ""
     else
       raise ArgumentError, "Invalid argument: must be a filename or IO object"
     end
+    @fsync_supported = @io.respond_to?(:fsync)
     @open = true
     update_level(level)
   end
 
   def close
-    if @io&.respond_to?(:close)
-      @io.close
-    end
+    @io.close if @io.respond_to?(:close)
     @open = false
   end
 
@@ -51,7 +52,7 @@ class Logger
         raise IOError, "Logger is closed"
       end
       if @level_num <= level_num
-        uptime_sec = Machine.uptime_us / 1000_000
+        uptime_sec = Machine.uptime_us / 1_000_000
         uptime_min = uptime_sec / 60
         uptime_hour = uptime_min / 60
         uptime_day = uptime_hour / 24
@@ -63,14 +64,8 @@ class Logger
           program_name = ""
           message = args.first
         end
-        log_message = "[#{time_stamp}] #{method_name.to_s.upcase} -- #{program_name}: #{message}\n"
-        if @io
-          @io.write log_message
-        elsif !@filename.empty?
-          File.open(@filename, "a") do |file|
-            file.write log_message
-          end
-        end
+        @io.write "[#{time_stamp}] #{method_name.to_s.upcase} -- #{program_name}: #{message}\n"
+        @io.fsync if @fsync_supported
         true
       else
         false

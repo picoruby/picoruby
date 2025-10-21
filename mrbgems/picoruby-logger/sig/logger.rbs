@@ -3,8 +3,8 @@ class Logger
 
   LOG_LEVELS: Array[level_t]
 
-  @filename: String
-  @io: IO
+  @io: File
+  @fcync_supported: bool
   @open: bool
   @level_num: Integer
 
