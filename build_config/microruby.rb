@@ -9,17 +9,12 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
-  conf.gem core: 'mruby-compiler2'
-  conf.gem core: 'mruby-bin-mrbc2'
-  conf.gem core: 'picoruby-bin-microruby'
-  conf.gem core: 'picoruby-net'
-  conf.gem core: 'picoruby-mbedtls'
-  conf.gem core: 'picoruby-require'
-  conf.gem core: 'picoruby-picotest'
-  conf.gembox "stdlib-microruby"
-  conf.gembox "posix-microruby"
-  conf.gembox "r2p2"
-  conf.gembox "utils"
-
   conf.microruby
+
+  conf.gembox "minimum"
+  conf.gembox "core"
+  conf.gembox "stdlib"
+  conf.gembox "shell"
+  conf.gem core: "picoruby-shinonome"
+  conf.gem core: "picoruby-bin-r2p2"
 end

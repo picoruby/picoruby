@@ -20,14 +20,10 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
 
   conf.cc.defines << "MRBC_BIG_ENDIAN"
   conf.cc.defines << "MRBC_NO_STDIO"
-  conf.cc.defines << "MRBC_USE_HAL_POSIX"
+
+  conf.posix
+  conf.picoruby(alloc_libc: true)
 
   conf.gembox "minimum"
-  conf.gembox "posix"
-  conf.gembox "stdlib"
-  conf.gembox "utils"
-  # Net::NTTPSClient needs -lssl -lcrypto
-#  conf.gem core: "picoruby-net"
-
-  conf.picoruby(alloc_libc: true)
+  conf.gembox "core"
 end

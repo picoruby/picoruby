@@ -660,6 +660,10 @@ main(int argc, char **argv)
       char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
       if (!utf8) abort();
       irep = mrc_load_string_cxt(cc, (const uint8_t **)&utf8, strlen(utf8));
+      if (irep == NULL) {
+        fprintf(stderr, "irep load error\n");
+        exit(EXIT_FAILURE);
+      }
       picorb_utf8_free(vm, utf8);
     }
 

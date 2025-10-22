@@ -7,6 +7,6 @@ MRuby::Gem::Specification.new('picoruby-vfs') do |spec|
   if build.vm_mrubyc?
     spec.add_dependency 'picoruby-time-class'
   elsif build.vm_mruby?
-    spec.add_dependency 'mruby-time'
+    spec.add_dependency 'mruby-time', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-time"
   end
 end

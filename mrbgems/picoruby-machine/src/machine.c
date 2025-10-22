@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include "../include/machine.h"
+#include "../include/hal.h"
 
 #if !defined(PICORB_PLATFORM_POSIX)
 #include "hal.h"

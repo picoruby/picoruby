@@ -3,7 +3,6 @@
 #include "mruby/presym.h"
 #include "mruby/array.h"
 
-
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
 {

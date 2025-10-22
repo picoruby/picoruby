@@ -9,16 +9,14 @@ MRuby::Gem::Specification.new('picoruby-bin-microruby') do |spec|
   end
 
   spec.add_dependency('mruby-compiler2')
-  spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
 
   if build.vm_mruby?
     BINNAME = 'microruby'
     spec.add_dependency 'picoruby-mruby'
-    spec.cc.include_paths << "#{build.gems['picoruby-mruby'].dir}/lib/mruby/include"
+    spec.add_dependency 'mruby-io', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
   elsif build.vm_mrubyc?
     BINNAME = 'picoruby'
     spec.add_dependency 'picoruby-mrubyc'
-    spec.cc.include_paths << "#{build_dir}/.."
   end
 
   build.bins << BINNAME

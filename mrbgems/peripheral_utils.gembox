@@ -1,15 +1,4 @@
 MRuby::GemBox.new do |conf|
-  conf.gem core: 'picoruby-dip_switch'
-  conf.gem core: 'picoruby-iir_filter'
-  conf.gem core: 'picoruby-mcp3x0x'
-  conf.gem core: 'picoruby-mcp3424'
-  conf.gem core: 'picoruby-rtd'
-  conf.gem core: 'picoruby-akizukidenshi_aqm0802a'
-  conf.gem core: 'picoruby-quectel_ec21'
-  conf.gem core: 'picoruby-aht25'
-  conf.gem core: 'picoruby-adafruit_pcf8523'
-  conf.gem core: 'picoruby-hcsr04'
-  conf.gem core: 'picoruby-pitchdetector'
-  conf.gem core: 'picoruby-ssd1306'
+  conf.gembox 'peripheral_utils_1'
+  conf.gembox 'peripheral_utils_2'
 end
-

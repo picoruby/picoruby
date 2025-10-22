@@ -24,7 +24,6 @@ int hal_write(int fd, const void *buf, int nbytes);
   void mrb_task_disable_irq(void);
 #endif
 
-void hal_idle_cpu(void);
 void hal_abort(const char *s);
 int hal_flush(int fd);
 int hal_read_available(void);

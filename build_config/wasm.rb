@@ -5,13 +5,15 @@ MRuby::CrossBuild.new("wasm") do |conf|
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "MRBC_ALLOC_LIBC=1"
   conf.cc.defines << "MRBC_NO_TIMER=1"
-  conf.cc.defines << "MRBC_USE_HAL_POSIX=1"
   conf.cc.defines << "MRBC_TICK_UNIT=17"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=1"
 
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
+
+  conf.posix
+  conf.picoruby(alloc_libc: true)
 
   conf.gem core: 'picoruby-mrubyc'
   conf.gem core: 'picoruby-require'
@@ -24,6 +26,4 @@ MRuby::CrossBuild.new("wasm") do |conf|
   conf.gem core: 'picoruby-picorubyvm'
   conf.gem core: 'picoruby-rng'
   conf.gem core: 'picoruby-yaml'
-
-  conf.picoruby(alloc_libc: true)
 end

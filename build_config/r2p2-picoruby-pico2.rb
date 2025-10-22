@@ -45,12 +45,12 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2") do |conf|
   conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
 
-  conf.gembox "baremetal"
+  conf.gembox "minimum"
+  conf.gembox "core"
+  conf.gembox "stdlib"
+  conf.gembox "shell"
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
-  conf.gembox "r2p2"
-  conf.gembox "stdlib"
-  conf.gembox "utils"
   conf.gem core: 'picoruby-shinonome'
 
   conf.mrubyc_hal_arm
