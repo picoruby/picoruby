@@ -7,7 +7,7 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-eval"
   conf.gem core: "picoruby-pack"
   conf.gem core: 'picoruby-data'
-  #conf.gem core: 'picoruby-logger'
+  conf.gem core: 'picoruby-logger'
   if vm_mrubyc?
     conf.gem core: "picoruby-numeric-ext"
     conf.gem core: "picoruby-metaprog"

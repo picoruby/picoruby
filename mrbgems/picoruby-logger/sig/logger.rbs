@@ -1,0 +1,29 @@
+class Logger
+  type level_t = [ :debug, :info, :warn, :error, :fatal ]
+
+  LOG_LEVELS: Array[level_t]
+
+  @io: File
+  @fcync_supported: bool
+  @open: bool
+  @level_num: Integer
+
+  def initialize: (String | untyped io_or_filename, ?level: level_t) -> void
+
+  def close: () -> void
+  def level=: (level_t level_name) -> level_t
+  def level: () -> level_t
+  def debug: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+  def info: (String message) -> bool
+          | (String program_name) { () -> void } -> bool
+  def warn: (String message) -> bool
+          | (String program_name) { () -> void } -> bool
+  def error: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+  def fatal: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+
+  private def update_level: (level_t new_level) -> void
+  private def method_missing: (level_t method_name, String program_name_or_message) ?{ () -> void } -> bool
+end
