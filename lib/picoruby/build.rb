@@ -28,18 +28,25 @@ module MRuby
       cc.defines.include?("PICORB_VM_MRUBYC")
     end
 
+    def common
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include"
+      # Workaround: To avoid error in compiling gem_init.c
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
+    end
+
     def microruby
-      cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
-      cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
-      cc.include_paths << "#{gems['picoruby-mruby'].dir}/lib/mruby/include"
+      # Place picoruby-mruby at the top so that Kernel#require is defined first
+      gems.first&.add_dependency 'picoruby-mruby'
+      common
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/include"
       cc.defines << "PICORB_VM_MRUBY"
       cc.defines << "MRB_USE_TASK_SCHEDULER"
       debug_flag
     end
 
     def picoruby(alloc_libc: true)
-      gem core: "mruby-compiler2" unless @gems['mruby-compiler2']
-      gem core: "picoruby-mrubyc" unless @gems['picoruby-mrubyc']
+      common
       disable_presym
 
       # Override by environment variable
@@ -67,24 +74,21 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
       )
 
-      cc.include_paths << "#{gems['picoruby-mrubyc'].dir}/include"
-      cc.include_paths << "#{gems['mruby-compiler2'].dir}/include"
-      cc.include_paths << "#{gems['mruby-compiler2'].dir}/lib/prism/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/include"
       cc.include_paths << "#{MRUBY_ROOT}/include/picoruby"
       cc.include_paths << "#{build_dir}/mrbgems" # for `#include <picogem_init.c>`
-      mrubyc_dir = "#{gems['picoruby-mrubyc'].dir}/lib/mrubyc"
-      cc.include_paths << mrubyc_dir + "/src"
-      if cc.build.posix?
-        cc.include_paths << mrubyc_dir + "/hal/posix"
-      else
-        cc.include_paths << gems['picoruby-machine'].dir + '/include'
-      end
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mrubyc/lib/mrubyc/src"
 
       debug_flag
     end
 
+    def posix
+      cc.defines << "PICORB_PLATFORM_POSIX"
+    end
+
     def posix?
-      self.name == 'host' || cc.defines.include?("MRBC_USE_HAL_POSIX") || cc.defines.include?("PICORB_PLATFORM_POSIX")
+      cc.defines.include?("PICORB_PLATFORM_POSIX")
     end
 
     private def debug_flag

@@ -18,7 +18,7 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK"
   conf.cc.defines << "NDEBUG"
 
-  conf.gembox 'r2p2'
+  conf.gembox 'shell'
   conf.gem core: "picoruby-machine"
   conf.gem core: "picoruby-picorubyvm"
   conf.gem core: "picoruby-rng"

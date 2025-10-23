@@ -42,13 +42,13 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2") do |conf|
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
 
-  conf.gembox "stdlib-microruby"
-  conf.gembox "baremetal"
-  conf.gembox "peripherals"
-  conf.gembox "r2p2"
+  conf.gembox "minimum"
+  conf.gembox "core"
+  conf.gembox "stdlib"
+  conf.gembox "shell"
   conf.gembox "peripheral_utils"
-  conf.gembox "utils"
-
+  conf.gembox "peripherals"
+  conf.gem core: 'picoruby-shinonome'
   conf.gem core: 'picoruby-psg'
 
   conf.microruby

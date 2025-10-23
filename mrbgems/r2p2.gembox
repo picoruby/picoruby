@@ -1,3 +1,0 @@
-MRuby::GemBox.new do |conf|
-  conf.gem core: "picoruby-shell"
-end

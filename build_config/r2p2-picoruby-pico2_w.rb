@@ -46,18 +46,16 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "USE_WIFI"
 
-  conf.gembox "baremetal"
-  conf.gembox "peripheral_utils"
-  conf.gembox "peripherals"
-  conf.gembox "r2p2"
-  conf.gembox "stdlib"
-  conf.gembox "utils"
-  conf.gem core: 'picoruby-net'
-  conf.gem core: 'picoruby-ble'
-  conf.gem core: 'picoruby-shinonome'
-
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)
 
+  conf.gembox "minimum"
+  conf.gembox "core"
+  conf.gembox "stdlib"
+  conf.gembox "shell"
+  conf.gembox "peripheral_utils"
+  conf.gembox "peripherals"
+  conf.gem core: 'picoruby-shinonome'
+  conf.gem core: 'picoruby-net'
+  conf.gem core: 'picoruby-ble'
 end
-

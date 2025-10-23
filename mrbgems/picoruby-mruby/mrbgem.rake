@@ -15,10 +15,6 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   spec.add_conflict 'picoruby-mrubyc'
 
-  build.cc.include_paths << "#{dir}/include"
-  spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/include"
-  spec.cc.include_paths << "#{build.gems['mruby-compiler2'].dir}/lib/prism/include"
-
   # I don't know why but removing this causes a problem
   # even if build_config has the same define
   spec.cc.defines << "MRB_INT64"
