@@ -12,6 +12,7 @@ void hal_init(mrb_state *mrb);
 #elif defined(PICORB_VM_MRUBYC)
 void mrbc_tick();
 void hal_init(void);
+void hal_idle_cpu(void);
 #endif
 
 int hal_write(int fd, const void *buf, int nbytes);
