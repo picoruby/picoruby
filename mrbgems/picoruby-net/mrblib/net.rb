@@ -55,9 +55,14 @@ module Net
   end
 
   class HTTPClientBase
-    def initialize(host)
+    DEFAULT_PORT = 80
+
+    def initialize(host, port = nil)
       @host = host
+      @port = port || self.class::DEFAULT_PORT
     end
+
+    attr_reader :port
 
     def get(path)
       make_request("GET", path)
@@ -101,10 +106,6 @@ module Net
       Net::HTTPUtil.format_response(response)
     end
 
-    def port
-      raise NotImplementedError, "Subclass must implement port method"
-    end
-
     def use_tls
       raise NotImplementedError, "Subclass must implement use_tls method"
     end
@@ -112,19 +113,9 @@ module Net
   end
 
   class HTTPClient < HTTPClientBase
-    DEFAULT_HTTP_PORT = 80
-
-    def initialize(host, port = DEFAULT_HTTP_PORT)
-      @port = port
-
-      super(host)
-    end
+    DEFAULT_PORT = 80
 
     private
-
-    def port
-      @port
-    end
 
     def use_tls
       false
@@ -132,19 +123,9 @@ module Net
   end
 
   class HTTPSClient < HTTPClientBase
-    DEFAULT_HTTPS_PORT = 443
-
-    def initialize(host, port = DEFAULT_HTTPS_PORT)
-      @port = port
-
-      super(host)
-    end
+    DEFAULT_PORT = 443
 
     private
-
-    def port
-      @port
-    end
 
     def use_tls
       true

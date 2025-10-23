@@ -25,11 +25,12 @@ module Net
   end
 
   class HTTPClientBase
+    DEFAULT_PORT: Integer
     @host: String
+    attr_reader port: Integer
     def initialize: (String host) -> void
     private def build_request: (String method, String path, ?header_t headers, ?String body) -> String
     private def make_request: (String method, String path, ?header_t headers, ?String body) -> (httpreturn | nil)
-    private def port: -> Integer
     private def use_tls: -> bool
     def get: (String path) -> (httpreturn | nil)
     def get_with_headers: (String path, header_t headers) -> (httpreturn | nil)
@@ -38,18 +39,16 @@ module Net
   end
 
   class HTTPClient < HTTPClientBase
-    DEFAULT_HTTP_PORT: Integer
+    DEFAULT_PORT: Integer
     @port: Integer
     def initialize: (String host, Integer port) -> void
-    private def port: -> Integer
     private def use_tls: -> bool
   end
 
   class HTTPSClient < HTTPClientBase
-    DEFAULT_HTTPS_PORT: Integer
+    DEFAULT_PORT: Integer
     @port: Integer
     def initialize: (String host, Integer port) -> void
-    private def port: -> Integer
     private def use_tls: -> bool
   end
 end
