@@ -71,10 +71,6 @@ PicoRuby is still developing halfway towards finishing as of 2024.
 
 See implementation roadmap on [issue/6](https://github.com/picoruby/picoruby/issues/6)
 
-### Contributing to PicoRuby
-
-Fork, patch, then send a pull request.
-
 ### Acknowledgement
 
 Part of this project was coded by [Monstarlab](https://monstar-lab.com/) with the support of
