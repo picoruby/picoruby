@@ -66,15 +66,15 @@ class Sandbox
     end
     return true
   rescue Interrupt
-    puts "^C"
-    Signal.raise(:INT)
-    self.stop
     begin
       Watchdog.disable
       puts "Watchdog disabled"
     rescue NameError
       # ignore. maybe POSIX
     end
+    puts "^C"
+    Signal.raise(:INT)
+    self.stop
     return true # should be false?
   rescue SignalException => e
     if e.message == "SIGTSTP"
