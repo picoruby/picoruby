@@ -10,8 +10,11 @@ require 'time'
 
 class Logger
   LOG_LEVELS = [ :debug, :info, :warn, :error, :fatal ]
+  DEFAULT_BUFFER_MAX = 32
 
-  def initialize(io_or_filename, level: :info)
+  def initialize(io_or_filename, level: :info, buffer_max: DEFAULT_BUFFER_MAX)
+    @buffer_max = buffer_max
+    @buffer = []
     if io_or_filename.is_a?(String)
       @io = File.open(io_or_filename, "a")
     elsif io_or_filename.respond_to?(:write)
@@ -22,6 +25,7 @@ class Logger
     @fsync_supported = @io.respond_to?(:fsync)
     @open = true
     update_level(level)
+    update_flush_level(:error)
   end
 
   def close
@@ -37,6 +41,23 @@ class Logger
     LOG_LEVELS[@level_num]
   end
 
+  def flush_level=(level_name)
+    update_flush_level(level_name)
+  end
+
+  def flush_level
+    LOG_LEVELS[@flush_level_num]
+  end
+
+  def flush
+    return unless @open
+    while buf = @buffer.shift
+      @io.write buf
+      @io.write "\n"
+      @io.fsync if @fsync_supported
+    end
+  end
+
   private
 
   def update_level(level_name)
@@ -46,22 +67,26 @@ class Logger
     @level_num = level_num
   end
 
+  def update_flush_level(level_name)
+    unless level_num = LOG_LEVELS.index(level_name)
+      raise ArgumentError, "Invalid flush level: #{level_name}"
+    end
+    @flush_level_num = level_num
+  end
+
   def method_missing(method_name, *args, &block)
     if level_num = LOG_LEVELS.index(method_name)
       unless @open
         raise IOError, "Logger is closed"
       end
       if @level_num <= level_num
-        time_stamp = "#{Time.now.inspect} (uptime: #{Machine.uptime_formatted})"
         if block
-          program_name = args.first
-          message = block.call.to_s
+          message = "#{args.first}: #{block.call.to_s}"
         else
-          program_name = ""
-          message = args.first
+          message = args.first || ''
         end
-        @io.write "[#{time_stamp}] #{method_name.to_s.upcase} -- #{program_name}: #{message}\n"
-        @io.fsync if @fsync_supported
+        log "#{Machine.uptime_formatted},#{method_name.to_s.upcase[0]},#{message.chomp}"
+        flush if @flush_level_num <= level_num
         true
       else
         false
@@ -69,5 +94,13 @@ class Logger
     else
       super
     end
+  end
+
+  def log(entry)
+    if @io != STDOUT
+      @buffer << entry
+      @buffer.shift if @buffer_max <= @buffer.size
+    end
+    STDOUT.puts entry
   end
 end
