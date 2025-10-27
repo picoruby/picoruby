@@ -10,5 +10,5 @@ Machine_uptime_formatted(char *buf, int maxlen)
   uint32_t min = sec / 60;
   uint32_t hour  = min / 60;
   uint32_t day  = hour / 24;
-  snprintf(buf, maxlen, "%udays %02u:%02u:%02u", day, hour % 24, min % 60, sec % 60);
+  snprintf(buf, maxlen, "%ud%02u:%02u:%02u.%02u", day, hour % 24, min % 60, sec % 60, (unsigned int)(us % 1000000) / 10000);
 }
