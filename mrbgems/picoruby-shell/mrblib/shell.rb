@@ -106,22 +106,17 @@ class Shell
     ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
     ENV["TZ"] = "JST-9" # TODO. maybe in CYW43
     Dir.chdir(root || "/") do
-      %w(bin home etc etc/init.d etc/network var lib).each do |dir|
-        4.times do |i|
-          break i if Dir.exist?(dir)
-          begin
-            puts "Creating directory: #{dir} (trial #{i + 1})"
-            Dir.mkdir(dir)
-            sleep 1
-          rescue
-            if i < 3
-              puts " Failed to create directory: #{dir}. Retrying..."
-              sleep 1
-            else
-              raise "Failed to create directory: #{dir}. Please reboot"
-            end
+      %w(bin home etc etc/init.d etc/network var var/log lib).each do |dir|
+        next if Dir.exist?(dir)
+        puts "Creating directory: #{dir}"
+        Dir.mkdir(dir)
+        i = 0
+        while !Dir.exist?(dir)
+          sleep_ms 200
+          i += 1
+          if 10 < i
+            raise "Failed to create directory: #{dir}. Please reboot"
           end
-          sleep 1 # This likely ensure the directory is created
         end
       end
       while exe = Shell.next_executable
