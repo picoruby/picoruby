@@ -263,6 +263,45 @@ c_sandbox_terminate(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
+static void
+c_sandbox_reset(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SS();
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
+
+  /* Free IREP first (requires cc) */
+  if (ss->irep && ss->cc) {
+    mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
+  }
+
+  /* Free parser/compiler context (this also frees cc->options if not NULL) */
+  free_ccontext(ss);
+
+  /* Free parser options (separate from cc->options after compile) */
+  if (ss->options) {
+    pm_options_free(ss->options);
+    ss->options = NULL;
+  }
+
+  /* Free compiled bytecode */
+  if (ss->vm_code) {
+    mrbc_raw_free(ss->vm_code);
+    ss->vm_code = NULL;
+  }
+
+  /* Reset VM state while preserving TCB and register array */
+  reset_vm(sandbox_vm);
+
+  /* Clear exception */
+  sandbox_vm->exception = mrbc_nil_value();
+
+  /* Suspend task until next use */
+  mrbc_suspend_task(ss->tcb);
+
+  SET_TRUE_RETURN();
+}
+
 void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
@@ -279,6 +318,7 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
   mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
   mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);
+  mrbc_define_method(vm, mrbc_class_Sandbox, "reset", c_sandbox_reset);
   mrbc_define_method(vm, mrbc_class_Sandbox, "new",     c_sandbox_new);
   mrbc_define_method(vm, mrbc_class_Sandbox, "terminate", c_sandbox_terminate);
 }

@@ -1,6 +1,6 @@
 class Shell
   class Job
-    def initialize(*params)
+    def initialize(*params, pool: nil)
       if params.empty?
         raise ArgumentError, "Job requires at least one parameter"
       end
@@ -13,7 +13,9 @@ class Shell
       unless @exefile = Shell.find_executable(command)
         raise "#{command}: command not found"
       end
-      @sandbox = Sandbox.new(command)
+      @pool = pool
+      @sandbox = nil
+      @command = command
     end
 
     attr_reader :name
@@ -33,10 +35,17 @@ class Shell
     end
 
     def state
-      @sandbox.state
+      @sandbox.state || :DORMANT
     end
 
     def exec
+      # Acquire sandbox from pool or create new one
+      @sandbox = if @pool
+        @pool&.acquire
+      else
+        Sandbox.new(@command)
+      end
+
       ARGV.clear
       @params.each do |param|
         ARGV << param
@@ -56,6 +65,16 @@ class Shell
       #  end
       #end
       return false
+    end
+
+    def release_sandbox
+      if @pool && @sandbox
+        @pool&.release(@sandbox)
+        @sandbox = nil
+      elsif @sandbox
+        @sandbox.terminate
+        @sandbox = nil
+      end
     end
 
     private

@@ -1,0 +1,15 @@
+class Shell
+  class SandboxPool
+    @pool: Array[Sandbox]
+    @available: Array[Sandbox]
+    @in_use: Array[Sandbox]
+
+    def initialize: (?size: Integer) -> void
+
+    def acquire: () -> Sandbox
+
+    def release: (Sandbox sandbox) -> void
+
+    def cleanup: () -> void
+  end
+end

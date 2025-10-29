@@ -1,15 +1,19 @@
 # Classes
 class Shell
   class Job
-    @sandbox: untyped
+    @sandbox: Sandbox
     @params: Array[String]
+    @pool: SandboxPool
+    @command: String
+    @exefile: String
 
     attr_reader name: String
 
-    def self.new: (*String params) -> instance
+    def self.new: (*String params, ?pool: SandboxPool?) -> instance
     def exec: () -> bool
-    def resume: () -> void
-    def state: () -> Symbol
+    def resume: () -> bool
+    def state: () -> (Symbol | Integer) # Symbol in MicroRuby
+    def release_sandbox: () -> void
     private def trap: () -> void
   end
 end

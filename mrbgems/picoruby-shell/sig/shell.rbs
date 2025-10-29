@@ -26,6 +26,7 @@ class Shell
   AUTHOR_COLOR: Integer
   @editor: Editor::Line
   @jobs: Array[Job]
+  @sandbox_pool: SandboxPool
 
   def self.next_executable: -> {code: String, path: String, crc: Integer}
   def self.setup_rtc: (rtc_t trc) -> void

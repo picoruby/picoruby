@@ -1,3 +1,5 @@
+$shell_sandbox_pool: Shell::SandboxPool?
+
 module Kernel
   def system: (String command) -> bool
   def gets: () -> String?

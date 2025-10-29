@@ -85,8 +85,9 @@ class Shell
       commands
     end
 
-    def initialize(commands)
+    def initialize(commands, pool: nil)
       @commands = commands
+      @pool = pool
     end
 
     def exec
@@ -94,8 +95,9 @@ class Shell
 
       if @commands.size == 1
         # Single command - no pipeline needed
-        job = Job.new(*@commands[0])
+        job = Job.new(*@commands[0], pool: @pool)
         job.exec
+        job.release_sandbox
         return
       end
 
@@ -133,8 +135,10 @@ class Shell
         $stdout = output if output
 
         # Execute command using Job (which uses Sandbox)
-        job = Job.new(*cmd_args)
+        job = Job.new(*cmd_args, pool: @pool)
         job.exec
+        # Release sandbox immediately after pipeline stage completes
+        job.release_sandbox
       ensure
         $stdin = old_stdin
         $stdout = old_stdout

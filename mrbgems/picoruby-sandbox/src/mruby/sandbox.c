@@ -278,6 +278,36 @@ mrb_sandbox_terminate(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+static mrb_value
+mrb_sandbox_reset(mrb_state *mrb, mrb_value self)
+{
+  SS();
+
+  /* Free IREP (decrement reference count) */
+  if (ss->irep) {
+    mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
+    ss->irep = NULL;
+  }
+
+  /* Free parser/compiler context */
+  free_ccontext(ss);
+
+  /* Free parser options */
+  if (ss->options) {
+    pm_options_free(ss->options);
+    mrc_free(ss->cc, ss->options);
+    ss->options = NULL;
+  }
+
+  /* Reset task context */
+  mrb_task_reset_context(mrb, ss->task);
+
+  /* Suspend task until next use */
+  mrb_suspend_task(mrb, ss->task);
+
+  return mrb_true_value();
+}
+
 
 void
 mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
@@ -299,6 +329,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb_from_memory), mrb_sandbox_exec_vm_code_from_memory, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(reset), mrb_sandbox_reset, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(terminate), mrb_sandbox_terminate, MRB_ARGS_NONE());
 }
 

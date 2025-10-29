@@ -18,9 +18,10 @@ class Shell
     end
 
     @commands: Array[Array[String]]
+    @pool: SandboxPool?
 
     def self.parse: (String command_line) -> Array[Array[String]]
-    def initialize: (Array[Array[String]] commands) -> void
+    def initialize: (Array[Array[String]] commands, ?pool: SandboxPool?) -> void
     def exec: () -> void
 
     private

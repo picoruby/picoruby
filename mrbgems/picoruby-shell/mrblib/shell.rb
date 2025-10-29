@@ -259,6 +259,7 @@ class Shell
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
     @jobs = []
+    @sandbox_pool = SandboxPool.new(size: 3)
   end
 
   LOGO = if RUBY_ENGINE == "mruby"
@@ -497,7 +498,7 @@ class Shell
         execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
       else
         # Normal execution
-        job = Job.new(*cmd_args)
+        job = Job.new(*cmd_args, pool: @sandbox_pool)
         @jobs << job
         job.exec
       end
@@ -556,7 +557,7 @@ class Shell
           $stdout = File.open(output_file, mode)
         end
 
-        pipeline = Pipeline.new(cmd_arrays)
+        pipeline = Pipeline.new(cmd_arrays, pool: @sandbox_pool)
         pipeline.exec
       ensure
         $stdin.close if redirect_in && $stdin != old_stdin
@@ -565,7 +566,7 @@ class Shell
         $stdout = old_stdout
       end
     else
-      pipeline = Pipeline.new(cmd_arrays)
+      pipeline = Pipeline.new(cmd_arrays, pool: @sandbox_pool)
       pipeline.exec
     end
   end
@@ -592,8 +593,10 @@ class Shell
       end
 
       # Execute command
-      job = Job.new(*cmd_args)
+      job = Job.new(*cmd_args, pool: @sandbox_pool)
       job.exec
+      # Release sandbox immediately for redirected commands
+      job.release_sandbox
     ensure
       # Close and restore
       $stdin.close if redirect_in && $stdin != old_stdin
@@ -782,7 +785,12 @@ class Shell
 
   def cleanup_jobs
     @jobs.reject! do |job|
-      job.state == :DORMANT
+      if job.state == :DORMANT
+        job.release_sandbox
+        true
+      else
+        false
+      end
     end
   end
 
