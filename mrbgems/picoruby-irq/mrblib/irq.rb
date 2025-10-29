@@ -72,13 +72,13 @@ module IRQ
 
     def enable
       previous = @enabled
-      @enabled = false
+      @enabled = true
       return previous
     end
 
     def disable
       previous = @enabled
-      @enabled = true
+      @enabled = false
       return previous
     end
 
