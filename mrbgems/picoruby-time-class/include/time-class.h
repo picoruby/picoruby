@@ -8,17 +8,7 @@
 extern "C" {
 #endif
 
-typedef struct
-{
-  struct tm   tm;
-  mrbc_int_t  unixtime_us;
-  long int    timezone;
-} PICORUBY_TIME;
-
-typedef struct
-{
-  void (*time_now)(mrbc_vm *vm, mrbc_value *v, int argc);
-} prb_time_methods;
+#define USEC 1000000
 
 #ifdef __cplusplus
 }
