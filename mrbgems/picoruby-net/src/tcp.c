@@ -262,8 +262,6 @@ TCPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res)
   ip4_addr_set_zero(&ip);
   Net_get_ip(req->host, &ip);
   if (!ip4_addr_isloopback(&ip)) {
-    char ip_str[16];
-    ipaddr_ntoa_r(&ip, ip_str, 16);
     tcp_connection_state *cs = TCPClient_connect_impl(mrb, &ip, req, res);
     if (cs) {
       int max_wait = 200;

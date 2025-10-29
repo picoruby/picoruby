@@ -45,6 +45,7 @@ void lwip_begin(void);
 void lwip_end(void);
 void Net_sleep_ms(int);
 err_t Net_get_ip(const char *name, ip_addr_t *ip);
+const char *Net_ipaddr(char *buf, size_t buflen);
 
 #ifdef __cplusplus
 }

@@ -7,7 +7,7 @@ type httpreturn = {
 
 module Net
   class HTTPUtil
-    def self.format_response: (String?) -> (httpreturn | nil)
+    def self.format_response: (String? raw_response) -> (httpreturn | nil)
   end
 
   class DNS
