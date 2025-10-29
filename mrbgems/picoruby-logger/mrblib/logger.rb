@@ -29,6 +29,7 @@ class Logger
   end
 
   def close
+    flush
     @io.close if @io.respond_to?(:close)
     @open = false
   end
@@ -85,7 +86,7 @@ class Logger
         else
           message = args.first || ''
         end
-        log "#{Machine.uptime_formatted},#{method_name.to_s.upcase[0]},#{message.chomp}"
+        log "#{Time.now},#{Machine.uptime_formatted},#{method_name.to_s.upcase[0]},#{message.chomp}"
         flush if @flush_level_num <= level_num
         true
       else
