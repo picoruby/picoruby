@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include "../include/time-class.h"
 
 #if !defined(PICORB_PLATFORM_POSIX)

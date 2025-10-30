@@ -1,9 +1,5 @@
 #include <mrubyc.h>
 
-#include <stdlib.h>
-#include <stdio.h>
-#include "../include/time-class.h"
-
 typedef struct
 {
   struct tm   tm;
