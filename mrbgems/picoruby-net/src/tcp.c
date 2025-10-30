@@ -74,6 +74,12 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   }
   if (pbuf != NULL) {
     char *tmpbuf = picorb_alloc(mrb, pbuf->tot_len + 1);
+    if (tmpbuf == NULL) {
+      picorb_warn("TCPClient_recv_cb: out of memory (tmpbuf allocation failed)\n");
+      cs->state = NET_TCP_STATE_ERROR;
+      pbuf_free(pbuf);
+      return ERR_MEM;
+    }
     struct pbuf *current_pbuf = pbuf;
     int offset = 0;
     while (current_pbuf != NULL) {
@@ -85,7 +91,10 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     assert(cs->recv_data);
     char *new_recv_data = (char *)picorb_realloc(mrb, cs->recv_data, cs->recv_data_len + pbuf->tot_len + 1);
     if (new_recv_data == NULL) {
+      picorb_warn("TCPClient_recv_cb: out of memory (recv_data reallocation failed)\n");
       picorb_free(mrb, tmpbuf);
+      pbuf_free(pbuf);
+      cs->state = NET_TCP_STATE_ERROR;
       return ERR_MEM;
     }
     cs->recv_data = new_recv_data;
@@ -141,23 +150,36 @@ TCPClient_err_cb(void *arg, err_t err)
   cs->state = NET_TCP_STATE_ERROR;
 }
 
+static void
+TCPClient_setup_callbacks(struct altcp_pcb *pcb, tcp_connection_state *cs, u8_t poll_interval)
+{
+  altcp_recv(pcb, TCPClient_recv_cb);
+  altcp_sent(pcb, TCPClient_sent_cb);
+  altcp_err(pcb, TCPClient_err_cb);
+  altcp_poll(pcb, TCPClient_poll_cb, poll_interval);
+  altcp_arg(pcb, cs);
+}
+
+static void
+TCPClient_init_state(tcp_connection_state *cs, mrb_state *mrb,
+                     const net_request_t *req, net_response_t *res)
+{
+  cs->state = NET_TCP_STATE_NONE;
+  cs->send_data = req->send_data;
+  cs->send_data_len = req->send_data_len;
+  cs->recv_data = res->recv_data;
+  cs->recv_data_len = res->recv_data_len;
+  cs->mrb = mrb;
+}
+
 static tcp_connection_state *
 TCPClient_new_connection(mrb_state *mrb, const net_request_t *req, net_response_t *res)
 {
   tcp_connection_state *cs = (tcp_connection_state *)picorb_alloc(mrb, sizeof(tcp_connection_state));
   cs->tls_config = NULL;
-  cs->state = NET_TCP_STATE_NONE;
   cs->pcb = altcp_new(NULL);
-  altcp_recv(cs->pcb, TCPClient_recv_cb);
-  altcp_sent(cs->pcb, TCPClient_sent_cb);
-  altcp_err(cs->pcb, TCPClient_err_cb);
-  altcp_poll(cs->pcb, TCPClient_poll_cb, 30);
-  altcp_arg(cs->pcb, cs);
-  cs->send_data = req->send_data;
-  cs->send_data_len = req->send_data_len;
-  cs->recv_data = res->recv_data;
-  cs->recv_data_len = res->recv_data_len;
-  cs->mrb       = mrb;
+  TCPClient_setup_callbacks(cs->pcb, cs, 30);
+  TCPClient_init_state(cs, mrb, req, res);
   return cs;
 }
 
@@ -165,7 +187,6 @@ static tcp_connection_state *
 TCPClient_new_tls_connection(mrb_state *mrb, const net_request_t *req, net_response_t *res)
 {
   tcp_connection_state *cs = (tcp_connection_state *)picorb_alloc(mrb, sizeof(tcp_connection_state));
-  cs->state = NET_TCP_STATE_NONE;
 
   struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
@@ -177,16 +198,8 @@ TCPClient_new_tls_connection(mrb_state *mrb, const net_request_t *req, net_respo
   }
   cs->tls_config = tls_config;
   mbedtls_ssl_set_hostname(altcp_tls_context(cs->pcb), req->host);
-  altcp_recv(cs->pcb, TCPClient_recv_cb);
-  altcp_sent(cs->pcb, TCPClient_sent_cb);
-  altcp_err(cs->pcb, TCPClient_err_cb);
-  altcp_poll(cs->pcb, TCPClient_poll_cb, 10);
-  altcp_arg(cs->pcb, cs);
-  cs->send_data = req->send_data;
-  cs->send_data_len = req->send_data_len;
-  cs->recv_data = res->recv_data;
-  cs->recv_data_len = res->recv_data_len;
-  cs->mrb       = mrb;
+  TCPClient_setup_callbacks(cs->pcb, cs, 10);
+  TCPClient_init_state(cs, mrb, req, res);
   return cs;
 }
 
