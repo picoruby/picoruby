@@ -1,3 +1,6 @@
+#include <time.h>
+#include <string.h>
+
 #include <mruby.h>
 #include <mruby/presym.h>
 #include <mruby/hash.h>
@@ -34,14 +37,15 @@ mrb_env_s_new(mrb_state *mrb, mrb_value klass)
   mrb_gc_register(mrb, env->hash);
 
   char *key, *value;
+  size_t key_len, value_len;
   int ai = mrb_gc_arena_save(mrb);
   while (1) {
-    ENV_get_key_value(&key, &value);
+    ENV_get_key_value(&key, &key_len, &value, &value_len);
     if (key == NULL) {
       break;
     }
-    mrb_value key_value = mrb_str_new_cstr(mrb, key);
-    mrb_value value_value = mrb_str_new_cstr(mrb, value);
+    mrb_value key_value = mrb_str_new(mrb, key, key_len);
+    mrb_value value_value = mrb_str_new(mrb, value, key_len);
     mrb_hash_set(mrb, env->hash, key_value, value_value);
   }
   mrb_gc_arena_restore(mrb, ai);
@@ -58,6 +62,9 @@ mrb_env_aset(mrb_state *mrb, mrb_value self)
   ENV *env = (ENV *)mrb_data_get_ptr(mrb, self, &mrb_env_type);
   mrb_hash_set(mrb, env->hash, key, value);
   ENV_setenv(RSTRING_PTR(key), RSTRING_PTR(value), 1);
+  if (strcmp((const char *)RSTRING_PTR(key), "TZ") == 0) {
+    tzset(); // Necessary for POSIX timezone change
+  }
   return value;
 }
 
