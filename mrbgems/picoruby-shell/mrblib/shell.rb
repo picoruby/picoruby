@@ -104,7 +104,6 @@ class Shell
     ENV['PATH'] = "#{root}/bin"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
-    ENV["TZ"] = "JST-9" # TODO. maybe in CYW43
     Dir.chdir(root || "/") do
       %w(bin home etc etc/init.d etc/network var var/log lib).each do |dir|
         next if Dir.exist?(dir)

@@ -50,38 +50,10 @@ error:
   mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid value for Integer()");
   return 0;
 }
+
 #define Integer(n) mrbc_Integer(vm, n)
 
-
 static time_t unixtime_offset = 0;
-
-static void
-tz_env_set(struct VM *vm)
-{
-  mrbc_value *env_instance = mrbc_get_const(mrbc_search_symid("ENV"));
-  mrbc_value env = mrbc_instance_getiv(env_instance, mrbc_str_to_symid("env"));
-  mrbc_decref(&env);
-  if (env.tt != MRBC_TT_HASH) return;
-  mrbc_value key = mrbc_string_new_cstr(vm, "TZ");
-  mrbc_value tz = mrbc_hash_get(&env, &key);
-  mrbc_decref(&key);
-  if (tz.tt != MRBC_TT_STRING) return;
-#if defined(_BSD_SOURCE) || \
-    (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200112L) || \
-    (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE >= 600)
-  setenv("TZ", (const char *)tz.string->data, 1);
-#elif defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
-  char *tzstr[4 + tz.string->size] = {0};
-  tzstr[0] = 'T';
-  tzstr[1] = 'Z';
-  tzstr[2] = '=';
-  memcpy(&tzstr[3], tz.string->data, tz.string->size);
-  putenv(tzstr);
-#endif
-#if defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
-  tzset();
-#endif
-}
 
 /*
  * Singleton methods
@@ -96,7 +68,6 @@ c_unixtime_offset(struct VM *vm, mrbc_value v[], int argc)
 static mrbc_value
 new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
 {
-  tz_env_set(vm);
   mrbc_class *cls;
   if (v->tt == MRBC_TT_CLASS) {
     cls = v->cls;
@@ -112,7 +83,9 @@ new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
 #if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;  /* global variable from time.h of glibc */
 #else
-  data->timezone = _timezone; /* newlib? */
+  /* For non-POSIX platforms (e.g., RP2040 with newlib),
+   * calculate timezone offset by comparing localtime and gmtime */
+  data->timezone = calculate_timezone_offset(unixtime);
 #endif
   return value;
 }
@@ -120,15 +93,17 @@ new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
 inline static mrbc_value
 new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
 {
-  tz_env_set(vm);
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
   PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
-  data->unixtime_us = mktime(tm) * USEC;
+  time_t unixtime = mktime(tm);
+  data->unixtime_us = unixtime * USEC;
   memcpy(&data->tm, tm, sizeof(struct tm));
 #if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;
 #else
-  data->timezone = _timezone;
+  /* For non-POSIX platforms (e.g., RP2040 with newlib),
+   * calculate timezone offset by comparing localtime and gmtime */
+  data->timezone = calculate_timezone_offset(unixtime);
 #endif
   return value;
 }
