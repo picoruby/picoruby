@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include "picoruby/debug.h"
 
 #define SS() \
   SandboxState *ss = (SandboxState *)v->instance->data
@@ -173,6 +174,10 @@ static void
 c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
+  if (ss->irep) {
+    D("Warning: leaking irep\n");
+    mrc_irep_free(ss->cc, ss->irep);
+  }
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   ss->vm_code = GET_STRING_ARG(1);
   if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
@@ -186,6 +191,10 @@ static void
 c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
+  if (ss->irep) {
+    D("Warning: leaking irep\n");
+    mrc_irep_free(ss->cc, ss->irep);
+  }
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   ss->vm_code = (uint8_t *)(intptr_t)GET_INT_ARG(1);
   if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
