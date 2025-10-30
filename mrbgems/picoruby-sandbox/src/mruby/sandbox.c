@@ -17,6 +17,7 @@ static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
   mrb_gc_unregister(mrb, ss->task);
+  free_ccontext(ss);
   mrb_free(mrb, ss);
 }
 struct mrb_data_type mrb_sandbox_state_type = {

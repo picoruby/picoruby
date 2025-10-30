@@ -4,6 +4,15 @@
   SandboxState *ss = (SandboxState *)v->instance->data
 
 static void
+mrbc_sandbox_free(mrbc_value *self)
+{
+  SandboxState *ss = (SandboxState *)self->instance->data;
+//  mrc_irep_free(ss->cc, ss->irep); // Can't free code in ROM
+  free_ccontext(ss);
+}
+
+
+static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
@@ -165,10 +174,7 @@ c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  mrbc_value mrb = v[1];
-  ss->vm_code = mrb.string->data;
-  mrb.string->data = NULL;
-  mrb.string->size = 0;
+  ss->vm_code = GET_STRING_ARG(1);
   if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
     SET_TRUE_RETURN();
   } else {
@@ -267,6 +273,8 @@ void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
   mrbc_class *mrbc_class_Sandbox = mrbc_define_class(vm, "Sandbox", mrbc_class_object);
+  mrbc_define_destructor(mrbc_class_Sandbox, mrbc_sandbox_free);
+
   mrbc_define_method(vm, mrbc_class_Sandbox, "compile", c_sandbox_compile);
   mrbc_define_method(vm, mrbc_class_Sandbox, "compile_from_memory", c_sandbox_compile_from_memory);
   mrbc_define_method(vm, mrbc_class_Sandbox, "resume",  c_sandbox_resume);
