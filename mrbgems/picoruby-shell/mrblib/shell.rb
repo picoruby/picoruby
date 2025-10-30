@@ -425,7 +425,11 @@ class Shell
               sandbox.suspend
             end
             if executed
-              puts "=> #{sandbox.result.inspect}"
+              if sandbox.result.is_a?(Exception)
+                puts "#{sandbox.result.message} (#{sandbox.result.class})"
+              else
+                puts "=> #{sandbox.result.inspect}"
+              end
             end
             buffer.clear
             editor.history_head
