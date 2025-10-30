@@ -32,9 +32,12 @@ typedef struct {
   bool is_tls;
 } net_request_t;
 
+#define NET_ERROR_MESSAGE_SIZE 128
+
 typedef struct {
   char *recv_data;
   size_t recv_data_len;
+  char error_message[NET_ERROR_MESSAGE_SIZE];
 } net_response_t;
 
 void DNS_resolve(const char *name, bool is_tcp, char *outbuf, size_t outlen);

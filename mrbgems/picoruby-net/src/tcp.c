@@ -1,6 +1,8 @@
 #include "../include/net.h"
 #include "../include/mbedtls_debug.h"
 #include "lwip/altcp_tls.h"
+#include "lwip/err.h"
+#include <stdio.h>
 
 /* platform-dependent definitions */
 
@@ -25,6 +27,7 @@ typedef struct tcp_connection_state_str
   size_t recv_data_len;
   mrb_state *mrb;
   struct altcp_tls_config *tls_config;
+  net_response_t *res;
 } tcp_connection_state;
 
 /* end of platform-dependent definitions */
@@ -50,7 +53,10 @@ TCPClient_close(tcp_connection_state *cs)
   altcp_err(cs->pcb, NULL);
   err = altcp_close(cs->pcb);
   if (err != ERR_OK) {
-    picorb_warn("altcp_close failed: %d\n", err);
+    if (cs->res && cs->res->error_message[0] == '\0') {
+      snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "altcp_close failed: %s", lwip_strerr(err));
+    }
     altcp_abort(cs->pcb);
     cs->pcb = NULL;
     err = ERR_ABRT;
@@ -67,7 +73,10 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   mrb_state *mrb = cs->mrb;
   if (err != ERR_OK) {
-    picorb_warn("TCPClient_recv_cb: err=%d\n", err);
+    if (cs->res && cs->res->error_message[0] == '\0') {
+      snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "TCP receive callback error: %s", lwip_strerr(err));
+    }
     cs->state = NET_TCP_STATE_ERROR;
     pbuf_free(pbuf);
     return TCPClient_close(cs);
@@ -75,7 +84,10 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   if (pbuf != NULL) {
     char *tmpbuf = picorb_alloc(mrb, pbuf->tot_len + 1);
     if (tmpbuf == NULL) {
-      picorb_warn("TCPClient_recv_cb: out of memory (tmpbuf allocation failed)\n");
+      if (cs->res && cs->res->error_message[0] == '\0') {
+        snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+                 "Out of memory (tmpbuf allocation failed)");
+      }
       cs->state = NET_TCP_STATE_ERROR;
       pbuf_free(pbuf);
       return ERR_MEM;
@@ -91,7 +103,10 @@ TCPClient_recv_cb(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     assert(cs->recv_data);
     char *new_recv_data = (char *)picorb_realloc(mrb, cs->recv_data, cs->recv_data_len + pbuf->tot_len + 1);
     if (new_recv_data == NULL) {
-      picorb_warn("TCPClient_recv_cb: out of memory (recv_data reallocation failed)\n");
+      if (cs->res && cs->res->error_message[0] == '\0') {
+        snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+                 "Out of memory (recv_data reallocation failed)");
+      }
       picorb_free(mrb, tmpbuf);
       pbuf_free(pbuf);
       cs->state = NET_TCP_STATE_ERROR;
@@ -123,7 +138,10 @@ TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   MRB;
   if (err != ERR_OK) {
-    picorb_warn("TCPClient_connected_cb: err=%d\n", err);
+    if (cs->res && cs->res->error_message[0] == '\0') {
+      snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "TCP connection callback error: %s", lwip_strerr(err));
+    }
     return TCPClient_close(cs);
   }
   cs->state = NET_TCP_STATE_CONNECTED;
@@ -135,7 +153,10 @@ TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   MRB;
-  picorb_warn("TCPClient_poll_cb (timeout)\n");
+  if (cs->res && cs->res->error_message[0] == '\0') {
+    snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+             "TCP poll timeout");
+  }
   cs->state = NET_TCP_STATE_TIMEOUT;
   return ERR_OK;
 }
@@ -146,7 +167,10 @@ TCPClient_err_cb(void *arg, err_t err)
   if (!arg) return;
   tcp_connection_state *cs = (tcp_connection_state *)arg;
   MRB;
-  picorb_warn("Error with: %d\n", err);
+  if (cs->res && cs->res->error_message[0] == '\0') {
+    snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+             "TCP error callback: %s", lwip_strerr(err));
+  }
   cs->state = NET_TCP_STATE_ERROR;
 }
 
@@ -170,6 +194,7 @@ TCPClient_init_state(tcp_connection_state *cs, mrb_state *mrb,
   cs->recv_data = res->recv_data;
   cs->recv_data_len = res->recv_data_len;
   cs->mrb = mrb;
+  cs->res = res;
 }
 
 static tcp_connection_state *
@@ -191,7 +216,10 @@ TCPClient_new_tls_connection(mrb_state *mrb, const net_request_t *req, net_respo
   struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
   cs->pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   if (!cs->pcb) {
-    picorb_warn("altcp_tls_new failed\n");
+    if (res && res->error_message[0] == '\0') {
+      snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "Failed to create TLS connection");
+    }
     altcp_tls_free_config(tls_config);
     picorb_free(mrb, cs);
     return NULL;
@@ -217,7 +245,10 @@ TCPClient_connect_impl(mrb_state *mrb, ip_addr_t *ip, const net_request_t *req, 
     lwip_begin();
     err = altcp_connect(cs->pcb, ip, req->port, TCPClient_connected_cb);
     if (err != ERR_OK) {
-      picorb_warn("altcp_connect failed: %d\n", err);
+      if (res && res->error_message[0] == '\0') {
+        snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+                 "Failed to connect: %s", lwip_strerr(err));
+      }
       cs->state = NET_TCP_STATE_ERROR;
       lwip_end();
       return cs;
@@ -249,7 +280,10 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
       err = altcp_write(cs->pcb, cs->send_data, cs->send_data_len, 0);
       if (err != ERR_OK) {
         MRB;
-        picorb_warn("altcp_write failed: %d\n", err);
+        if (cs->res && cs->res->error_message[0] == '\0') {
+          snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
+                   "Failed to write data: %s", lwip_strerr(err));
+        }
         cs->state = NET_TCP_STATE_ERROR;
         return 1;
       }
@@ -283,7 +317,10 @@ TCPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res)
         Net_sleep_ms(100);
       }
       if (max_wait <= 0) {
-        picorb_warn("TCPClient_send: timeout\n");
+        if (res->error_message[0] == '\0') {
+          snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+                   "TCP send timeout");
+        }
       } else {
         res->recv_data = cs->recv_data;
         res->recv_data_len = cs->recv_data_len;

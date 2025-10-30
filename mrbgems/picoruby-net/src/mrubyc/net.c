@@ -65,11 +65,17 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     .recv_data = mrbc_raw_calloc(1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
 
   if (TCPClient_send(vm, &req, &res)) {
     mrb_value ret = mrbc_string_new(vm, res.recv_data, res.recv_data_len);
     SET_RETURN(ret);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrbc_free(vm, res.recv_data);
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), res.error_message);
+      return;
+    }
     SET_NIL_RETURN();
   }
   mrbc_free(vm, res.recv_data);
@@ -114,11 +120,17 @@ c_net_udpclient__send_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     .recv_data = mrbc_raw_calloc(1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
 
   if (UDPClient_send(vm, &req, &res)) {
     mrb_value ret = mrbc_string_new(vm, res.recv_data, res.recv_data_len);
     SET_RETURN(ret);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrbc_free(vm, res.recv_data);
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), res.error_message);
+      return;
+    }
     SET_NIL_RETURN();
   }
   mrbc_free(vm, res.recv_data);

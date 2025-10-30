@@ -38,9 +38,14 @@ mrb_net_tcpclient_s__request_impl(mrb_state *mrb, mrb_value self)
     .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
   if (TCPClient_send(mrb, &req, &res)) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrb_free(mrb, res.recv_data);
+      mrb_raise(mrb, E_RUNTIME_ERROR, res.error_message);
+    }
     ret = mrb_nil_value();
   }
   mrb_free(mrb, res.recv_data);
@@ -67,9 +72,14 @@ mrb_net_udpclient_s__send_impl(mrb_state *mrb, mrb_value self)
     .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
   if (UDPClient_send(mrb, &req, &res)) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrb_free(mrb, res.recv_data);
+      mrb_raise(mrb, E_RUNTIME_ERROR, res.error_message);
+    }
     ret = mrb_nil_value();
   }
   mrb_free(mrb, res.recv_data);
