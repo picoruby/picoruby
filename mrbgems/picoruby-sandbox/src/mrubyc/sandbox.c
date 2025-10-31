@@ -174,9 +174,10 @@ static void
 c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  if (ss->irep) {
+  if (ss->irep && ss->cc) {
     D("Warning: leaking irep\n");
     mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
   }
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   ss->vm_code = GET_STRING_ARG(1);
@@ -191,9 +192,10 @@ static void
 c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  if (ss->irep) {
+  if (ss->irep && ss->cc) {
     D("Warning: leaking irep\n");
     mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
   }
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   ss->vm_code = (uint8_t *)(intptr_t)GET_INT_ARG(1);
@@ -250,7 +252,9 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
     }
     suspend_vm_code = ss->vm_code;
     mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
     free_ccontext(ss);
+    ss->cc = NULL;
   }
   if (!suspend_vm_code) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to compile suspend_vm_code");
