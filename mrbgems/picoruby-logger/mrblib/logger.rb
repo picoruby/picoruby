@@ -25,7 +25,7 @@ class Logger
     @fsync_supported = @io.respond_to?(:fsync)
     @open = true
     update_level(level)
-    update_flush_level(:error)
+    update_flush_level(:warn)
   end
 
   def close

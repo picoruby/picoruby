@@ -62,10 +62,10 @@ class RotateLogger
     logs = []
     Dir.open(@dir) do |dir|
       while entry = dir.read
-        if File.file?("#{dir}/#{entry}") &&
-             entry.start_with?(@basename) &&
-             entry.end_with?(".#{@ext}")
-          logs << entry
+        if File.file?("#{@dir}/#{entry}")
+          if (@basename.empty? || entry.start_with?(@basename)) && entry.end_with?(".#{@ext}")
+            logs << entry
+          end
         end
       end
     end
