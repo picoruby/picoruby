@@ -36,21 +36,24 @@ module Kernel
   end
 
   def load_file(name_with_ext)
-    sandbox = Sandbox.new('require')
+    path = ""
     load_paths(name_with_ext).each do |load_path|
       path = File.expand_path(name_with_ext, load_path)
-      if File.file?(path)
-        begin
-          sandbox.load_file(path)
-          $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
-          return true
-        rescue => e
-          sandbox.terminate
-          raise e
-        end
-      end
+      File.file?(path) ? break : path = ""
     end
-    raise LoadError, "cannot load such file -- #{name_with_ext}"
+    if path.empty?
+      raise LoadError, "cannot load such file -- #{name_with_ext}"
+    else
+      sandbox = Sandbox.new('require')
+      begin
+        sandbox.load_file(path)
+        err = sandbox.error and raise err
+        $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
+      ensure
+        sandbox.terminate
+      end
+      true
+    end
   end
 
   def require_file(name)
