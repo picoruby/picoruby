@@ -6,6 +6,7 @@ MRuby::Gem::Specification.new('picoruby-time-class') do |spec|
   spec.summary = 'Time class'
 
   spec.add_dependency 'picoruby-env'
+  spec.add_conflict 'mruby-time'
 
   spec.cc.defines << "_POSIX_TIMERS" # for clock_gettime()
 
