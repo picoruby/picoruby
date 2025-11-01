@@ -18,18 +18,15 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK"
   conf.cc.defines << "NDEBUG"
 
+  conf.picoruby(alloc_libc: false)
+  conf.gembox 'minimum'
+  conf.gembox 'core'
   conf.gembox 'shell'
-  conf.gem core: "picoruby-machine"
-  conf.gem core: "picoruby-picorubyvm"
-  conf.gem core: "picoruby-rng"
-  conf.gem core: "picoruby-watchdog"
-  conf.gem core: "picoruby-rmt"
-  conf.gem core: "picoruby-adafruit_sk6812"
-  conf.gem core: "picoruby-yaml"
-  conf.gem core: "picoruby-vim"
-  conf.gem core: "picoruby-picoline"
-  conf.gem core: "picoruby-base64"
-  conf.gem core: "picoruby-mbedtls"
+
+  # stdlib
+  conf.gem core: 'picoruby-rng'
+  conf.gem core: 'picoruby-base64'
+  conf.gem core: 'picoruby-yaml'
 
   # peripherals
   conf.gem core: 'picoruby-gpio'
@@ -39,5 +36,8 @@ MRuby::CrossBuild.new("esp32") do |conf|
   conf.gem core: 'picoruby-uart'
   conf.gem core: 'picoruby-pwm'
 
-  conf.picoruby(alloc_libc: false)
+  # others
+  conf.gem core: 'picoruby-rmt'
+  conf.gem core: 'picoruby-mbedtls'
+  conf.gem core: 'picoruby-adafruit_sk6812'
 end
