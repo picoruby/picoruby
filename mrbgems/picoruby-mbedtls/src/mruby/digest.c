@@ -10,10 +10,10 @@
 static mrb_value
 mrb_mbedtls_digest_initialize(mrb_state *mrb, mrb_value self)
 {
-  mrb_value algorithm;
+  mrb_sym algorithm;
   mrb_get_args(mrb, "n", &algorithm);
 
-  int alg = MbedTLS_digest_algorithm_name((const char *)mrb_sym_name(mrb, mrb_symbol(algorithm)));
+  int alg = MbedTLS_digest_algorithm_name((const char *)mrb_sym_name(mrb, algorithm));
   if (alg == -1) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "invalid algorithm");
   }
