@@ -95,14 +95,11 @@ class Rapicco
           ...yyy......yyy
         ],
         bullet: %w[
-          .
-          .
-          ......rrrrrr
-          ....rrrrrrrrrr
-          ..rrrrrrrrrrrrrr....
-          ....rrrrrrrrrr
-          ......rrrrrr
-          ........rr
+          ......rrrr
+          ....rrwwrrrr
+          ...rrrrrrrrrr...
+          .....rrrrrr
+          .......rr
         ]
       },
       "picochobishiba" => { # https://github.com/picoruby/usakame/pull/3
@@ -158,16 +155,12 @@ class Rapicco
           ....yy..............yy
         ],
         bullet: %w[
-          ....vvvvwwrrrrrrvvvvvv
-          ..vvvvwwrrrrrrrrrrvvvvvv
-          vvvvvvvvrrrrrrrrrrvvvvvvvv....
-          vvwwwwrrwwrrwwwwwwrrwwwwvv....
-          ..vvvvrrrrrrrrrrrrrrvvvv
-          ....vvvvrrrrrrrrrrvvvv
-          ......vvrrrrrrrrrrvv
-          ........vvrrrrrrvv
-          ..........rrrrrr
-          ............rr
+          ....vvwwrrvv
+          ..vvwwrrrrrrvv
+          vvwwrrwwrrwwrrvv..
+          ..vvrrrrrrrrvv
+          ....vvrrrrvv
+          ......vvvv
         ]
       },
       "ydah" => { # https://github.com/picoruby/usakame/pull/2
@@ -204,16 +197,12 @@ class Rapicco
           ........kkkkkkkkkk..kkkkkkkk
         ],
         bullet: %w[
-          .
-          .
-          ........kkkkkk
-          ......kkrrrrrrkk
-          ....kkrwwwwrrrrrkk
-          ..kkrrrrrrrrrrrrrrkk....
-          ....kkrrrrrrrrrrkk
-          ......kkrrrrrrkk
-          ........kkrrkk
-          ..........kk
+          ......kkrrkk
+          ....kkrwwwrrkk
+          ..kkrrrrrrrrrrkk..
+          ....kkrrrrrrkk
+          ......kkrrkk
+          ........kk
         ]
       },
       "youchan" => { # https://github.com/picoruby/usakame/pull/4
@@ -242,15 +231,12 @@ class Rapicco
           ...yyy......yyy
         ],
         bullet: %w[
-          .
-          .
-          .....llrrrrrs
-          ...llrrrrrrrsss
-          ..rllrrrssssssss....
-          ...rrrrrrrrssss
-          .....rrrrrsss
-          .......rrss
-          ........rs
+          .....llrrrs
+          ...llrrrrrsss
+          ..rllrrsssssss..
+          ...rrrrrrssss
+          .....rrrsss
+          .......rs
         ]
       },
       "ogom" => { # https://github.com/picoruby/usakame/pull/5
@@ -289,16 +275,12 @@ class Rapicco
           ..yyyykk......yyyyyy
         ],
         bullet: %w[
-          .
-          .
-          .
-          ......rrpprrpprr
-          ....rrwwrrpprrpprr
-          ..rrpprrpprrpprrpprr....
-          ....rrpprrpprrpprr
-          ......rrpprrpprr
-          ........rrpprr
-          ..........rr
+          ......rrpprr
+          ....rrwwrrpprr
+          ..rrpprrpprrpprr..
+          ....rrpprrpprr
+          ......rrpprr
+          ........rr
         ]
       },
     }
