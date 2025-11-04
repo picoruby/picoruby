@@ -168,8 +168,16 @@ smooth_edges(uint64_t *input, int w, int h)
       int b = GET_BIT(input[y], x + 1, w);
       int c = GET_BIT(input[y + 1], x, w);
       int d = GET_BIT(input[y + 1], x + 1, w);
-      if ((a && d && !b && !c) || (b && c && !a && !d)) {
-        SET_BIT(tmp[y + 1], x + 1, w);
+
+      // Diagonal pattern: top-right and bottom-left are on
+      if (b && c && !a && !d) {
+        SET_BIT(tmp[y], x, w);         // left-top
+        SET_BIT(tmp[y + 1], x + 1, w); // right-bottom
+      }
+      // Diagonal pattern: top-left and bottom-right are on
+      if (a && d && !b && !c) {
+        SET_BIT(tmp[y], x + 1, w);   // right-top
+        SET_BIT(tmp[y + 1], x, w);   // left-bottom
       }
     }
   }
