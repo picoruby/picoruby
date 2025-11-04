@@ -135,14 +135,18 @@ class Rapicco
               print "\e[#{height}A\e[#{div_width + 1}C"
             else
               # last text element
-              padding = case line[:align]
-              when :center
-                total_width_remaining / 2
-              when :right
-                total_width_remaining
-              else # :left
-                0
-              end
+              padding = if line[:bullet]
+                          0
+                        else
+                          case line[:align]
+                          when :center
+                            total_width_remaining / 2
+                          when :right
+                            total_width_remaining
+                          else # :left
+                            0
+                          end
+                        end
               if 0 < padding
                 print "\e[F\e[#{padding}@" * height + "\e[#{height}B"
               end
