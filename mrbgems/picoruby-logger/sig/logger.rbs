@@ -3,6 +3,7 @@ class Logger
 
   LOG_LEVELS: Array[level_t]
   DEFAULT_BUFFER_MAX: Integer
+  DEFAULT_TRAILING_LINES: Integer
 
   @io: File
   @fcync_supported: bool
@@ -11,8 +12,12 @@ class Logger
   @buffer: Array[String]
   @level_num: Integer
   @flush_level_num: Integer
+  @trailing_counter: Integer
+  @trailing_active: bool
 
-  def initialize: (String | untyped io_or_filename, ?level: level_t, ?buffer_max: Integer) -> void
+  attr_accessor trailing_lines: Integer
+
+  def initialize: (String | untyped io_or_filename, ?level: level_t, ?buffer_max: Integer, ?trailing_lines: Integer) -> void
 
   def close: () -> void
   def level=: (level_t level_name) -> level_t

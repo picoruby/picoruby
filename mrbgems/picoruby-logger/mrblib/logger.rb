@@ -11,10 +11,14 @@ require 'time'
 class Logger
   LOG_LEVELS = [ :debug, :info, :warn, :error, :fatal ]
   DEFAULT_BUFFER_MAX = 32
+  DEFAULT_TRAILING_LINES = 5
 
-  def initialize(io_or_filename, level: :info, buffer_max: DEFAULT_BUFFER_MAX)
+  def initialize(io_or_filename, level: :info, buffer_max: DEFAULT_BUFFER_MAX, trailing_lines: DEFAULT_TRAILING_LINES)
     @buffer_max = buffer_max
     @buffer = []
+    @trailing_lines = trailing_lines
+    @trailing_counter = 0
+    @trailing_active = false
     if io_or_filename.is_a?(String)
       @io = File.open(io_or_filename, "a")
     elsif io_or_filename.respond_to?(:write)
@@ -27,6 +31,8 @@ class Logger
     update_level(level)
     update_flush_level(:warn)
   end
+
+  attr_accessor :trailing_lines
 
   def close
     flush
@@ -87,7 +93,19 @@ class Logger
           message = args.first || ''
         end
         log "#{Time.now},#{Machine.uptime_formatted},#{method_name.to_s.upcase[0]},#{message.chomp}"
-        flush if @flush_level_num <= level_num
+        if @flush_level_num <= level_num
+          flush
+          if @trailing_lines > 0
+            @trailing_active = true
+            @trailing_counter = 0
+          end
+        elsif @trailing_active
+          flush
+          @trailing_counter += 1
+          if @trailing_counter >= @trailing_lines
+            @trailing_active = false
+          end
+        end
         true
       else
         false

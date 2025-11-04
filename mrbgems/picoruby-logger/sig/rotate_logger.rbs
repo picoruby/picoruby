@@ -8,6 +8,9 @@ class RotateLogger
   @logger: Logger
 
   def initialize: (dir: String, ?basename: String, ?ext: String, ?interval: Integer, ?keep_size: Integer | nil) -> void
+  def level=: (Logger::level_t level) -> Integer
+  def flush_level=: (Logger::level_t level) -> Integer
+  def trailing_lines=: (Integer lines) -> Integer
   private def method_missing: (Symbol | String methodname, *untyped) -> untyped
   private def open: () -> void
   private def new_name: () -> void

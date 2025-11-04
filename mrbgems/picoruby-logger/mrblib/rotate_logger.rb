@@ -14,6 +14,18 @@ class RotateLogger
     open
   end
 
+  def level=(val)
+    @logger&.level = val
+  end
+
+  def flush_level=(val)
+    @logger&.flush_level = val
+  end
+
+  def trailing_lines=(val)
+    @logger&.trailing_lines = val
+  end
+
   private
 
   def method_missing(name, *args, &block)
