@@ -1,3 +1,7 @@
+if RUBY_ENGINE == "mruby/c"
+  require 'eval'
+end
+
 class Rapicco
   class Slide
     COLORS = {
