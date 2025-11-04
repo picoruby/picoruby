@@ -11,6 +11,18 @@ class RotateLogger
   def level=: (Logger::level_t level) -> Integer
   def flush_level=: (Logger::level_t level) -> Integer
   def trailing_lines=: (Integer lines) -> Integer
+  def close: () -> void
+  def flush: () -> void
+  def debug: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+  def info: (String message) -> bool
+          | (String program_name) { () -> void } -> bool
+  def warn: (String message) -> bool
+          | (String program_name) { () -> void } -> bool
+  def error: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+  def fatal: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
   private def method_missing: (Symbol | String methodname, *untyped) -> untyped
   private def open: () -> void
   private def new_name: () -> void
