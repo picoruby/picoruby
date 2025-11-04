@@ -152,7 +152,9 @@ class Rapicco
     config = YAML.load(yaml)
     sprite_author = config["sprite"] || "hasumikin"
     @rapiko = Rapicco::Sprite.new(:rapiko, sprite_author)
+    came_pos = @camerlengo&.pos
     @camerlengo = Rapicco::Sprite.new(:camerlengo, sprite_author)
+    @camerlengo.pos = came_pos if came_pos
     @parser = Rapicco::Parser.new
     @parser.title_font = config["title_font"] if config["title_font"]
     @parser.font = config["font"] if config["font"]
