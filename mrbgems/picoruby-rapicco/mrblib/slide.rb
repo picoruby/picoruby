@@ -19,7 +19,7 @@ class Rapicco
       @usakame_h = usakame_h
       @colors = colors || COLORS
       get_screen_size
-      @line_margin = 2
+      @line_margin = 3
       @code_indent = 4
     end
 
