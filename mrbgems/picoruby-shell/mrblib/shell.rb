@@ -661,6 +661,8 @@ class Shell
         _bg(*args)
       when "_fg"
         _fg(*args)
+      when "_export"
+        _export(*args)
       else
         raise NameError.new("undefined method `#{name}' for #{self.class}")
       end
@@ -780,6 +782,34 @@ class Shell
       job.resume
     else
       puts "fg: #{num}: no such job"
+    end
+  end
+
+  # export KEY=VALUE
+  #  => args[0] = "KEY=VALUE"
+  # export KEY="VALUE"
+  #  => args[0] = "KEY"
+  #     args[1] = "VALUE"
+  # export KEY="VALUE=A"
+  #  => args[0] = "KEY="
+  #     args[1] = "VALUE=A"
+  def _export(*args)
+    if args.empty?
+      ENV.each do |key, value|
+        puts "#{key}=\"#{value}\""
+      end
+      return
+    end
+    while arg = args.shift
+      key, value = arg.split("=", 2)
+      if value.nil?
+        if arg = args.shift
+          value = arg
+        else
+          value = nil
+        end
+      end
+      ENV[key] = value || ""
     end
   end
 

@@ -91,6 +91,15 @@ c_env_new(struct VM *vm, mrbc_value v[], int argc)
   SET_RETURN(self);
 }
 
+static void
+c_env__hash(struct VM *vm, mrbc_value v[], int argc)
+{
+  ENV *env = (ENV *)v->instance->data;
+  mrbc_incref(&env->hash);
+  SET_RETURN(env->hash);
+}
+
+
 void
 mrbc_env_init(mrbc_vm *vm)
 {
@@ -100,4 +109,6 @@ mrbc_env_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_ENVClass, "[]=", c_env_aset);
   mrbc_define_method(vm, class_ENVClass, "[]", c_env_aref);
   mrbc_define_method(vm, class_ENVClass, "delete", c_env_delete);
+  // private
+  mrbc_define_method(vm, class_ENVClass, "_hash", c_env__hash);
 }

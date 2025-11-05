@@ -61,5 +61,6 @@ class Shell
   private def _jobs: (*untyped args) -> void
   private def _fg: (*untyped args) -> void
   private def _bg: (*untyped args) -> void
+  private def _export: (*untyped args) -> void
   private def cleanup_jobs: () -> void
 end
