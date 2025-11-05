@@ -66,7 +66,9 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
     console_printf("Oops, return value is gone\n");
     SET_NIL_RETURN();
   } else {
-    SET_RETURN(sandbox_vm->regs[ss->cc->scope_sp]);
+    mrbc_value result = sandbox_vm->regs[ss->cc->scope_sp];
+    mrbc_incref(&result);
+    SET_RETURN(result);
   }
 }
 
