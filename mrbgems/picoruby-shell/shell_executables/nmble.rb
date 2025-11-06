@@ -145,7 +145,7 @@ require 'rng'
 name = "R2P2 BLE #{RNG.random_int.abs.to_s[0,4]}"
 peri = WifiConfigPeripheral.new(name)
 peri.debug = true
-puts "\nOpen https://picoruby.github.io/wifi"
+puts "\nOpen https://picoruby.org/wifi"
 puts "and find the device with name: '#{name}'\n"
 peri.start
 
