@@ -1,1 +1,0 @@
-$LOAD_PATH = ["/lib"]

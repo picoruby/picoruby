@@ -1,10 +1,12 @@
 MRuby::GemBox.new do |conf|
-
   conf.gem core: 'mruby-compiler2'
-  conf.gem core: 'mruby-bin-mrbc2'
-  conf.gem core: 'picoruby-bin-microruby'
-  conf.gem core: 'picoruby-mrubyc'
-  conf.gem core: 'picoruby-require'
-
+  if posix?
+    conf.gem core: 'mruby-bin-mrbc2'
+    conf.gem core: 'picoruby-bin-microruby'
+  end
+  if vm_mrubyc?
+    conf.gem core: 'picoruby-mrubyc'
+  elsif vm_mruby?
+    conf.gem core: 'picoruby-mruby'
+  end
 end
-

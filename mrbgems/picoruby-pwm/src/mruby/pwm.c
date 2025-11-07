@@ -15,13 +15,13 @@ static void
 set_freq_and_start(mrb_state *mrb, mrb_value self, picorb_float_t freq)
 {
   mrb_iv_set(mrb, self, MRB_IVSYM(frequency), mrb_float_value(mrb, freq));
-  uint32_t gpio = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(gpio)));
+  uint32_t pin = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(pin)));
   picorb_float_t duty = mrb_float(mrb_iv_get(mrb, self, MRB_IVSYM(duty)));
-  PWM_set_frequency_and_duty(gpio, freq, duty);
+  PWM_set_frequency_and_duty(pin, freq, duty);
   if (0 < freq) {
-    PWM_set_enabled(gpio, true);
+    PWM_set_enabled(pin, true);
   } else {
-    PWM_set_enabled(gpio, false);
+    PWM_set_enabled(pin, false);
   }
 }
 
@@ -61,9 +61,9 @@ set_duty(mrb_state *mrb, mrb_value self, picorb_float_t duty)
     duty = 100.0;
   }
   mrb_iv_set(mrb, self, MRB_IVSYM(duty), mrb_float_value(mrb, duty));
-  mrb_value gpio = mrb_iv_get(mrb, self, MRB_IVSYM(gpio));
+  mrb_value pin = mrb_iv_get(mrb, self, MRB_IVSYM(pin));
   mrb_value frequency = mrb_iv_get(mrb, self, MRB_IVSYM(frequency));
-  PWM_set_frequency_and_duty(mrb_fixnum(gpio), mrb_float(frequency), duty);
+  PWM_set_frequency_and_duty(mrb_fixnum(pin), mrb_float(frequency), duty);
 }
 
 static mrb_value

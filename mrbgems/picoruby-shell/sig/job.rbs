@@ -1,0 +1,15 @@
+# Classes
+class Shell
+  class Job
+    @sandbox: untyped
+    @params: Array[String]
+
+    attr_reader name: String
+
+    def self.new: (*String params) -> instance
+    def exec: () -> bool
+    def resume: () -> void
+    def state: () -> Symbol
+    private def trap: () -> void
+  end
+end

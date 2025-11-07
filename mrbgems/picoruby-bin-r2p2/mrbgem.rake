@@ -3,16 +3,8 @@ MRuby::Gem::Specification.new 'picoruby-bin-r2p2' do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'R2P2 executable for POSIX'
 
+  spec.add_dependency 'picoruby-numeric-ext'
   spec.add_dependency 'picoruby-shell'
-
-  if build.vm_mruby?
-    spec.add_dependency 'picoruby-mruby'
-    build.cc.include_paths << "#{build.gems['picoruby-mruby'].dir}/include"
-  elsif build.vm_mrubyc?
-    spec.add_dependency 'picoruby-mrubyc'
-  end
-
-  spec.cc.defines << "MRBC_USE_HAL_POSIX"
 
   app_dir = "#{build_dir}/tools/mrblib"
   build.cc.include_paths << app_dir

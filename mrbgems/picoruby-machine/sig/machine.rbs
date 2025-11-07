@@ -11,4 +11,7 @@ class Machine
   def self.set_hwclock: (Integer tv_sec, Integer tv_nsec) -> Integer
   def self.get_hwclock: () -> [Integer, Integer]
   def self.exit: (Integer status) -> void
+  def self.debug_puts: (String str) -> nil
+  def self.uptime_us: () -> Integer
+  def self.uptime_formatted: () -> String
 end

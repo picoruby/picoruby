@@ -28,7 +28,8 @@ decrypt_proc = Proc.new do |decoded_password|
   len = unique_id.length
   cipher.key = (unique_id * ((key_len / len + 1) * len))[0, key_len].to_s
   cipher.iv = (unique_id * ((iv_len / len + 1) * len))[0, iv_len].to_s
-  ciphertext = decoded_password[16, decoded_password.length - 16]
+  # Based on successful debug run: CBC mode has empty tag, so entire data is ciphertext
+  ciphertext = decoded_password
   cipher.update(ciphertext) + cipher.finish
 end
 
@@ -43,8 +44,10 @@ ARGV.each do |arg|
   end
 end
 
-unless File.file?(ENV['WIFI_CONFIG_PATH'])
-  puts "File #{ENV['WIFI_CONFIG_PATH']} does not exist"
+wifi_config_path = ENV['WIFI_CONFIG_PATH'] || ENV_DEFAULT_WIFI_CONFIG_PATH
+
+unless File.file?(wifi_config_path)
+  puts "File #{wifi_config_path} does not exist"
   return
 end
 
@@ -59,7 +62,7 @@ end
 #        },
 #        "country_code": String
 #       }
-config = File.open(ENV['WIFI_CONFIG_PATH'], "r") do |f|
+config = File.open(wifi_config_path, "r") do |f|
   YAML.load(f.read.to_s)
 end
 

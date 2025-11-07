@@ -15,6 +15,7 @@
 #include <string.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 
 /***** Local headers ********************************************************/
@@ -44,12 +45,6 @@ typedef void mrb_state;
   alarm signal handler
 
 */
-static void
-sig_alarm(int dummy)
-{
-  (void)dummy;
-  mrb_tick(mrb_);
-}
 
 
 /***** Local functions ******************************************************/
@@ -60,12 +55,18 @@ sig_alarm(int dummy)
   initialize
 
 */
+#if defined(PICORB_VM_MRUBY)
+static void
+sig_alarm(int dummy)
+{
+  (void)dummy;
+  mrb_tick(mrb_);
+}
+
 void
 hal_init(mrb_state *mrb)
 {
-#if defined(PICORB_VM_MRUBY)
   mrb_ = mrb;
-#endif
   sigemptyset(&sigset_);
   sigaddset(&sigset_, SIGALRM);
 
@@ -86,6 +87,14 @@ hal_init(mrb_state *mrb)
   tval.it_value.tv_usec    = usec;
   setitimer(ITIMER_REAL, &tval, 0);
 }
+#endif
+
+
+int
+hal_write(int fd, const void *buf, int nbytes)
+{
+  return (int)write(1, buf, nbytes);
+}
 
 
 //================================================================
@@ -94,7 +103,7 @@ hal_init(mrb_state *mrb)
 
 */
 void
-hal_enable_irq(void)
+mrb_task_enable_irq(void)
 {
   sigprocmask(SIG_SETMASK, &sigset2_, 0);
 }
@@ -106,7 +115,7 @@ hal_enable_irq(void)
 
 */
 void
-hal_disable_irq(void)
+mrb_task_disable_irq(void)
 {
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
 }

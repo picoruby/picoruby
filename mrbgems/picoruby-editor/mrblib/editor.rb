@@ -205,15 +205,17 @@ module Editor
       refresh
       while true
         begin
-          line = STDIN.read_nonblock(10)
+          line = STDIN.read_nonblock(255) # This size affects pasting text
         rescue Interrupt
           @buffer.bottom
           @buffer.tail
-          puts "", "^C\e[0J"
+          puts "\n^C\e[0J"
           @prev_cursor_y = 0
           @buffer.clear
           history_head
           refresh
+        rescue SignalException
+          line = "\x1a" # Ctrl-Z
         end
         next unless line
         while true
@@ -233,10 +235,6 @@ module Editor
           when 12 # Ctrl-L
             @height, @width = Editor.get_screen_size
             refresh
-          when 26 # Ctrl-Z
-            puts
-            print "shunt" # Shunt into the background
-            return
           when 27 # ESC
             rest = line[0, 2]
             line[0, 2] = ''
@@ -426,6 +424,8 @@ module Editor
           c = STDIN.getch.ord
         rescue Interrupt
           return if @quit_by_sigint
+        rescue SignalException
+          c = 26 # Ctrl-Z
         end
         case c
         when 4 # Ctrl-D logout

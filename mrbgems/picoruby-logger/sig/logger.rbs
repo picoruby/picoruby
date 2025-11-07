@@ -1,0 +1,43 @@
+class Logger
+  type level_t = :debug | :info | :warn | :error | :fatal
+
+  LOG_LEVELS: Array[level_t]
+  DEFAULT_BUFFER_MAX: Integer
+  DEFAULT_TRAILING_LINES: Integer
+
+  @io: File
+  @fcync_supported: bool
+  @open: bool
+  @buffer_max: Integer
+  @buffer: Array[String]
+  @level_num: Integer
+  @flush_level_num: Integer
+  @trailing_counter: Integer
+  @trailing_active: bool
+
+  attr_accessor trailing_lines: Integer
+
+  def initialize: (String | untyped io_or_filename, ?level: level_t, ?buffer_max: Integer, ?trailing_lines: Integer) -> void
+
+  def close: () -> void
+  def level=: (level_t level_name) -> level_t
+  def level: () -> level_t
+  def flush_level=: (level_t level_name) -> level_t
+  def flush_level: () -> level_t
+  def flush: () -> void
+  def debug: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+  def info: (String message) -> bool
+          | (String program_name) { () -> void } -> bool
+  def warn: (String message) -> bool
+          | (String program_name) { () -> void } -> bool
+  def error: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+  def fatal: (String message) -> bool
+           | (String program_name) { () -> void } -> bool
+
+  private def update_level: (level_t new_level) -> void
+  private def update_flush_level: (level_t new_level) -> void
+  private def method_missing: (level_t method_name, String program_name_or_message) ?{ () -> void } -> bool
+  private def log: (String) -> void
+end

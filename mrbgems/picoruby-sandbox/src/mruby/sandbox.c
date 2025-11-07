@@ -8,10 +8,16 @@
 #include <mruby/variable.h>
 // #include <mruby/debug.h>
 
+// Workaround for picoruby.h defines MRUBY_IREP_H
+void mrb_irep_incref(mrb_state *, struct mrb_irep *);
+void mrb_irep_decref(mrb_state *, struct mrb_irep *);
+void mrb_irep_cutref(mrb_state *, struct mrb_irep *);
+
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
   mrb_gc_unregister(mrb, ss->task);
+  free_ccontext(ss);
   mrb_free(mrb, ss);
 }
 struct mrb_data_type mrb_sandbox_state_type = {
@@ -57,9 +63,11 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
   init_options(ss->options);
   ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
-  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
+  // TODO: Ask Matz
+  // if (ss->irep) mrb_irep_decref(mrb, ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
+  mrb_irep_incref(mrb, ss->irep);
   ss->options = ss->cc->options;
   ss->cc->options = NULL;
   if (!ss->irep) {
@@ -121,6 +129,14 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_sandbox_resume(mrb_state *mrb, mrb_value self)
+{
+  SS();
+  mrb_resume_task(mrb, ss->task);
+  return mrb_true_value();
+}
+
+static mrb_value
 mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
 {
   SS();
@@ -158,7 +174,14 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
     for (size_t j = 0; j < nlocals; j++, v++) {
       name = mrb_sym_name(ss->cc->mrb, *v);
       pm_string_constant_init(&scope->locals[j], name, strlen(name));
+      if (name == ss->cc->mrb->symbuf) {
+        pm_string_ensure_owned(&scope->locals[j]); // copy name
+      }
     }
+  }
+  if (ss->options) {
+    pm_options_free(ss->options);
+    mrc_free(ss->cc, ss->options);
   }
   ss->options = options;
 
@@ -267,6 +290,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(initialize), mrb_sandbox_initialize, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1)|MRB_ARGS_KEY(1,1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile_from_memory), mrb_sandbox_compile_from_memory, MRB_ARGS_REQ(2)|MRB_ARGS_KEY(1,1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(resume), mrb_sandbox_resume, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(execute), mrb_sandbox_execute, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(state), mrb_sandbox_state, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(result), mrb_sandbox_result, MRB_ARGS_NONE());

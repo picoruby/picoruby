@@ -1,0 +1,11 @@
+# @sidebar builtin
+# @added_by picoruby-numeric-ext
+class Float
+  def floor: () -> Integer
+           | (Integer digits) -> (Integer | Float)
+  def ceil: () -> Integer
+          | (?Integer digits) -> (Integer | Float)
+  def round: () -> Integer
+           | (?Integer digits) -> (Integer | Float)
+end
+

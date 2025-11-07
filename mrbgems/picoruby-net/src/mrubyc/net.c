@@ -65,11 +65,17 @@ c_net_tcpclient__request_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     .recv_data = mrbc_raw_calloc(1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
 
   if (TCPClient_send(vm, &req, &res)) {
     mrb_value ret = mrbc_string_new(vm, res.recv_data, res.recv_data_len);
     SET_RETURN(ret);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrbc_free(vm, res.recv_data);
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), res.error_message);
+      return;
+    }
     SET_NIL_RETURN();
   }
   mrbc_free(vm, res.recv_data);
@@ -114,20 +120,41 @@ c_net_udpclient__send_impl(mrbc_vm *vm, mrbc_value *v, int argc)
     .recv_data = mrbc_raw_calloc(1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
 
   if (UDPClient_send(vm, &req, &res)) {
     mrb_value ret = mrbc_string_new(vm, res.recv_data, res.recv_data_len);
     SET_RETURN(ret);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrbc_free(vm, res.recv_data);
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), res.error_message);
+      return;
+    }
     SET_NIL_RETURN();
   }
   mrbc_free(vm, res.recv_data);
 }
 
+static void
+c_cyw43_ipv4_address(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char ip_str[16] = {0};
+  if (!Net_get_ipv4_address(ip_str, 16)) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, ip_str));
+}
+
+
 void
 mrbc_net_init(mrbc_vm *vm)
 {
   mrbc_class *module_Net = mrbc_define_module(vm, "Net");
+
+  mrbc_class *class_CYW43 = mrbc_define_class(vm, "CYW43", mrbc_class_object);
+  mrbc_define_method(vm, class_CYW43, "ipv4_address", c_cyw43_ipv4_address);
 
   mrbc_class *class_Net_DNS = mrbc_define_class_under(vm, module_Net, "DNS", mrbc_class_object);
   mrbc_define_method(vm, class_Net_DNS, "resolve", c_net_dns_resolve);

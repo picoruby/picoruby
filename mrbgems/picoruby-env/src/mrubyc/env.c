@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include <time.h>
 
 typedef struct ENV {
   mrbc_value hash;
@@ -38,7 +39,7 @@ c_env_delete(struct VM *vm, mrbc_value v[], int argc)
   mrbc_value value = mrbc_hash_remove(&env->hash, &key);
   mrbc_incref(&value);
   SET_RETURN(value);
-  unsetenv((const char *)GET_STRING_ARG(1));
+  ENV_unsetenv((const char *)GET_STRING_ARG(1));
 }
 
 static void
@@ -60,7 +61,10 @@ c_env_aset(struct VM *vm, mrbc_value v[], int argc)
   mrbc_incref(&value);
   mrbc_hash_set(&env->hash, &key, &value);
   SET_RETURN(value);
-  setenv((const char *)key.string->data, (const char *)value.string->data, 1);
+  ENV_setenv((const char *)key.string->data, (const char *)value.string->data, 1);
+  if (strcmp((const char *)key.string->data, "TZ") == 0) {
+    tzset(); // Necessary for POSIX timezone change
+  }
 }
 
 static void
@@ -71,13 +75,14 @@ c_env_new(struct VM *vm, mrbc_value v[], int argc)
   env->hash = mrbc_hash_new(vm, 5);
 
   char *key, *value;
+  size_t key_len, value_len;
   while (1) {
-    env_get_key_value(&key, &value);
+    ENV_get_key_value(&key, &key_len, &value, &value_len);
     if (key == NULL) {
       break;
     }
-    mrbc_value key_value = mrbc_string_new_cstr(vm, key);
-    mrbc_value value_value = mrbc_string_new_cstr(vm, value);
+    mrbc_value key_value = mrbc_string_new(vm, key, key_len);
+    mrbc_value value_value = mrbc_string_new(vm, value, value_len);
     mrbc_incref(&key_value);
     mrbc_incref(&value_value);
     mrbc_hash_set(&env->hash, &key_value, &value_value);
@@ -85,6 +90,15 @@ c_env_new(struct VM *vm, mrbc_value v[], int argc)
 
   SET_RETURN(self);
 }
+
+static void
+c_env__hash(struct VM *vm, mrbc_value v[], int argc)
+{
+  ENV *env = (ENV *)v->instance->data;
+  mrbc_incref(&env->hash);
+  SET_RETURN(env->hash);
+}
+
 
 void
 mrbc_env_init(mrbc_vm *vm)
@@ -95,4 +109,6 @@ mrbc_env_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_ENVClass, "[]=", c_env_aset);
   mrbc_define_method(vm, class_ENVClass, "[]", c_env_aref);
   mrbc_define_method(vm, class_ENVClass, "delete", c_env_delete);
+  // private
+  mrbc_define_method(vm, class_ENVClass, "_hash", c_env__hash);
 }

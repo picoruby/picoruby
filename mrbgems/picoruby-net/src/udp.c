@@ -1,5 +1,7 @@
 #include "../include/net.h"
 #include "lwip/udp.h"
+#include "lwip/err.h"
+#include <stdio.h>
 
 /* platform-dependent definitions */
 
@@ -23,6 +25,7 @@ typedef struct udp_connection_state_str
   mrb_state *mrb;
   ip_addr_t remote_ip;
   u16_t remote_port;
+  net_response_t *res;
 } udp_connection_state;
 
 /* end of platform-dependent definitions */
@@ -63,7 +66,10 @@ UDPClient_new_connection(mrb_state *mrb, const net_request_t *req, net_response_
   cs->state = NET_UDP_STATE_NONE;
   cs->pcb = udp_new();
   if (cs->pcb == NULL) {
-    picorb_warn("Failed to create new UDP PCB\n");
+    if (res && res->error_message[0] == '\0') {
+      snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "Failed to create UDP PCB");
+    }
     return NULL;
   }
   udp_recv(cs->pcb, UDPClient_recv_cb, cs);
@@ -72,6 +78,7 @@ UDPClient_new_connection(mrb_state *mrb, const net_request_t *req, net_response_
   cs->recv_data = res->recv_data;
   cs->recv_data_len = res->recv_data_len;
   cs->mrb = mrb;
+  cs->res = res;
   return cs;
 }
 
@@ -80,7 +87,10 @@ UDPClient_send_impl(mrb_state *mrb, ip_addr_t *ip, const net_request_t *req, net
 {
   udp_connection_state *cs = UDPClient_new_connection(mrb, req, res);
   if (cs == NULL) {
-    picorb_warn("Failed to create new connection\n");
+    if (res && res->error_message[0] == '\0') {
+      snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "Failed to create new UDP connection");
+    }
     return NULL;
   }
 
@@ -99,11 +109,17 @@ UDPClient_send_impl(mrb_state *mrb, ip_addr_t *ip, const net_request_t *req, net
       cs->state = NET_UDP_STATE_WAITING;
     } else {
       cs->state = NET_UDP_STATE_ERROR;
-      picorb_warn("Failed to send UDP packet, error: %d\n", err);
+      if (res && res->error_message[0] == '\0') {
+        snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+                 "Failed to send UDP packet: %s", lwip_strerr(err));
+      }
     }
   } else {
     cs->state = NET_UDP_STATE_ERROR;
-    picorb_warn("Failed to allocate pbuf for send data\n");
+    if (res && res->error_message[0] == '\0') {
+      snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+               "Failed to allocate pbuf for send data");
+    }
   }
 
   return cs;
@@ -161,7 +177,10 @@ UDPClient_send(mrb_state *mrb, const net_request_t *req, net_response_t *res)
         Net_sleep_ms(100);
       }
       if (max_wait <= 0) {
-        picorb_warn("UDPClient_send: timeout\n");
+        if (res->error_message[0] == '\0') {
+          snprintf(res->error_message, NET_ERROR_MESSAGE_SIZE,
+                   "UDP send timeout");
+        }
       } else {
         res->recv_data = cs->recv_data;
         res->recv_data_len = cs->recv_data_len;

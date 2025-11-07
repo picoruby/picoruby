@@ -5,7 +5,7 @@ MRuby::Gem::Specification.new('picoruby-yaml') do |spec|
 
   if build.posix?
     if build.vm_mrubyc?
-      spec.add_dependency 'picoruby-io'
+      spec.add_dependency 'picoruby-posix-io'
     else
       spec.add_dependency 'mruby-io'
     end

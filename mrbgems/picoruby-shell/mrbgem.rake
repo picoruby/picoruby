@@ -6,20 +6,19 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby Shell library'
 
-  if build.vm_mrubyc?
-    spec.add_dependency 'picoruby-require'
-  end
+  spec.add_dependency 'picoruby-require'
   spec.add_dependency 'picoruby-editor'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-crc'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-yaml'
+  spec.add_dependency 'picoruby-data'
   if build.posix?
     if build.vm_mrubyc?
-      spec.add_dependency('picoruby-dir')
+      spec.add_dependency 'picoruby-dir'
     elsif build.vm_mruby?
-      spec.add_dependency('mruby-dir')
+      spec.add_dependency 'mruby-dir', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
     end
   end
 

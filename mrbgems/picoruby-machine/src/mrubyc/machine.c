@@ -69,7 +69,7 @@ c_Machine_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
     // Hangs if you attempt to sleep for 1 second.
     console_printf("Cannot sleep less than 2 sec\n");
   } else {
-    console_printf("Going to sleep %d sec (USC-CDC will not be back)\n", sec);
+    console_printf("Going to sleep %d sec\n", sec);
     Machine_sleep(sec);
   }
   SET_INT_RETURN(sec);
@@ -187,6 +187,38 @@ c_Machine_get_hwclock(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_Machine_uptime_us(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_INT_RETURN((mrbc_uint_t)Machine_uptime_us());
+}
+
+static void
+c_Machine_uptime_formatted(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char buf[20] = {0};
+  Machine_uptime_formatted(buf, sizeof(buf));
+  mrbc_value ret = mrbc_string_new_cstr(vm, buf);
+  SET_RETURN(ret);
+}
+
+static void
+c_Machine_debug_puts(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc == 0) {
+    hal_write(2, "\n", 1);
+  } else {
+    for (int i = 1; i <= argc; i++) {
+      mrbc_value arg = GET_ARG(i);
+      mrbc_value str = mrbc_send(vm, v, argc, &arg, "to_s", 0);
+      if (str.tt == MRBC_TT_STRING) {
+        hal_write(2, (const char *)str.string->data, str.string->size);
+        hal_write(2, "\n", 1);
+      }
+    }
+  }
+}
+
+static void
 c_Machine_exit(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   int status;
@@ -258,6 +290,40 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
     str.string->size = 1;
   }
 }
+
+static void
+c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  mrbc_value *arg = &v[1];
+  const char *str;
+  int len;
+
+  if (arg->tt == MRBC_TT_STRING) {
+    str = (const char *)arg->string->data;
+    len = arg->string->size;
+  } else {
+    // For non-string, just use mrbc_print_sub which handles conversion
+    // This is simpler and avoids calling to_s which might be implemented in Ruby
+    SET_INT_RETURN(0);
+    return;
+  }
+
+  // Get the fd from the IO instance
+  // Assume fd is stored in @fd instance variable
+  mrbc_value fd_val = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("fd"));
+  int fd = 1; // default to stdout
+  if (fd_val.tt == MRBC_TT_FIXNUM) {
+    fd = fd_val.i;
+  }
+
+  int written = hal_write(fd, str, len);
+  SET_INT_RETURN(written);
+}
 #endif
 
 
@@ -280,12 +346,20 @@ mrbc_machine_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, mrbc_class_Machine, "set_hwclock", c_Machine_set_hwclock);
   mrbc_define_method(vm, mrbc_class_Machine, "get_hwclock", c_Machine_get_hwclock);
+  mrbc_define_method(vm, mrbc_class_Machine, "uptime_us", c_Machine_uptime_us);
+  mrbc_define_method(vm, mrbc_class_Machine, "uptime_formatted", c_Machine_uptime_formatted);
 
   mrbc_define_method(vm, mrbc_class_Machine, "exit", c_Machine_exit);
+  mrbc_define_method(vm, mrbc_class_Machine, "debug_puts", c_Machine_debug_puts);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
   mrbc_define_method(vm, class_IO, "gets", c_gets);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
+  mrbc_define_method(vm, class_IO, "write", c_io_write);
+  /*
+   * puts, print are implemented in mrblib/io.rb using write method
+   * p is implemented in mrblib/kernel.rb
+   */
 #endif
 }

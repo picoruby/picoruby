@@ -38,12 +38,9 @@ load "#{MRUBY_ROOT}/tasks/benchmark.rake"
 load "#{MRUBY_ROOT}/tasks/gitlab.rake"
 load "#{MRUBY_ROOT}/tasks/doc.rake"
 
-task :runtime_gems do
-  RuntimeGems.export(
-    output_dir: "#{MRUBY_ROOT}/runtime_gems",
-    compiler: picorbcfile
-  )
-end
+task :runtime_gems => RuntimeGems.export(
+  output_dir: "#{MRUBY_ROOT}/runtime_gems",
+)
 
 ##############################
 # generic build targets, rules

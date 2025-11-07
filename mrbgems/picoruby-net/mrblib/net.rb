@@ -54,104 +54,81 @@ module Net
     end
   end
 
-  class HTTPClient
-    def initialize(host)
+  class HTTPClientBase
+    DEFAULT_PORT = 80
+
+    def initialize(host, port = nil)
       @host = host
+      @port = port || self.class::DEFAULT_PORT
     end
 
-    def get(path)
-      req =  "GET #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      req += "Connection: close\r\n"
-      req += "\r\n"
+    attr_reader :port
 
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
+    def get(path)
+      make_request("GET", path)
     end
 
     def get_with_headers(path, headers)
-      req =  "GET #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      headers.each do |k, v|
-        req += "#{k}: #{v}\r\n"
-      end
-      req += "\r\n"
-
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
+      make_request("GET", path, headers)
     end
 
     def post(path, headers, body)
-      req =  "POST #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      headers.each do |k, v|
-        req += "#{k}: #{v}\r\n"
-      end
-      req += "\r\n"
-      req += body
-
-
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
+      make_request("POST", path, headers, body)
     end
 
     def put(path, headers, body)
-      req =  "PUT #{path} HTTP/1.1\r\n"
+      make_request("PUT", path, headers, body)
+    end
+
+    private
+
+    def build_request(method, path, headers = {}, body = nil)
+      req = "#{method} #{path} HTTP/1.1\r\n"
       req += "Host: #{@host}\r\n"
+
+      unless headers.keys.any?{|k| k.to_s.downcase == "connection" }
+        req += "Connection: close\r\n"
+      end
+
       headers.each do |k, v|
         req += "#{k}: #{v}\r\n"
       end
-      req += "\r\n"
-      req += body
 
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 80, req, false))
+      req += "\r\n"
+      req += body if body
+
+      req
+    end
+
+    def make_request(method, path, headers = {}, body = nil)
+      request = build_request(method, path, headers, body)
+      response = TCPClient.request(@host, port, request, use_tls)
+      Net::HTTPUtil.format_response(response)
+    end
+
+    def use_tls
+      raise NotImplementedError, "Subclass must implement use_tls method"
+    end
+
+  end
+
+  class HTTPClient < HTTPClientBase
+    DEFAULT_PORT = 80
+
+    private
+
+    def use_tls
+      false
     end
   end
 
-  class HTTPSClient
-    def initialize(host)
-      @host = host
-    end
+  class HTTPSClient < HTTPClientBase
+    DEFAULT_PORT = 443
 
-    def get(path)
-      req =  "GET #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      req += "Connection: close\r\n"
-      req += "\r\n"
+    private
 
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
-    end
-
-    def get_with_headers(path, headers)
-      req =  "GET #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      headers.each do |k, v|
-        req += "#{k}: #{v}\r\n"
-      end
-      req += "\r\n"
-
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
-    end
-
-    def post(path, headers, body)
-      req =  "POST #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      headers.each do |k, v|
-        req += "#{k}: #{v}\r\n"
-      end
-      req += "\r\n"
-      req += body
-
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
-    end
-
-    def put(path, headers, body)
-      req =  "PUT #{path} HTTP/1.1\r\n"
-      req += "Host: #{@host}\r\n"
-      headers.each do |k, v|
-        req += "#{k}: #{v}\r\n"
-      end
-      req += "\r\n"
-      req += body
-
-      return Net::HTTPUtil.format_response(TCPClient.request(@host, 443, req, true))
+    def use_tls
+      true
     end
   end
 

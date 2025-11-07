@@ -38,9 +38,14 @@ mrb_net_tcpclient_s__request_impl(mrb_state *mrb, mrb_value self)
     .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
   if (TCPClient_send(mrb, &req, &res)) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrb_free(mrb, res.recv_data);
+      mrb_raise(mrb, E_RUNTIME_ERROR, res.error_message);
+    }
     ret = mrb_nil_value();
   }
   mrb_free(mrb, res.recv_data);
@@ -67,19 +72,39 @@ mrb_net_udpclient_s__send_impl(mrb_state *mrb, mrb_value self)
     .recv_data = mrb_calloc(mrb, 1, 1),
     .recv_data_len = 0
   };
+  res.error_message[0] = '\0';
   if (UDPClient_send(mrb, &req, &res)) {
     ret = mrb_str_new(mrb, (const char*)res.recv_data, res.recv_data_len);
   } else {
+    if (res.error_message[0] != '\0') {
+      mrb_free(mrb, res.recv_data);
+      mrb_raise(mrb, E_RUNTIME_ERROR, res.error_message);
+    }
     ret = mrb_nil_value();
   }
   mrb_free(mrb, res.recv_data);
   return ret;
 }
 
+static mrb_value
+mrb_cyw43_s_ipv4_address(mrb_state *mrb, mrb_value self)
+{
+  char addr_str[16] = {0};
+  if (!Net_get_ipv4_address(addr_str, 16)) {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, addr_str);
+  }
+}
+
+
 void
 mrb_picoruby_net_gem_init(mrb_state* mrb)
 {
   struct RClass *module_Net = mrb_define_module_id(mrb, MRB_SYM(Net));
+
+  struct RClass *class_CYW43 = mrb_define_class_id(mrb, MRB_SYM(CYW43), mrb->object_class);
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_address), mrb_cyw43_s_ipv4_address, MRB_ARGS_NONE());
 
   struct RClass *class_Net_DNS = mrb_define_class_under_id(mrb, module_Net, MRB_SYM(DNS), mrb->object_class);
   mrb_define_class_method_id(mrb, class_Net_DNS, MRB_SYM(resolve), mrb_net_dns_s_resolve, MRB_ARGS_REQ(2));

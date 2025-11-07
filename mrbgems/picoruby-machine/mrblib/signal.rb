@@ -1,14 +1,21 @@
-class Interrupt < Exception
+class SignalException < Exception
+end
+
+class Interrupt < SignalException
 end
 
 module Signal
   HANDLERS = {
     0 => "DEFAULT",
-    2 => "DEFAULT"
+    2 => "DEFAULT",
+    18 => "DEFAULT",
+    20 => "DEFAULT",
   }
   LIST = {
     "EXIT" => 0,
-    "INT" => 2
+    "INT" => 2,
+    "CONT" => 18,
+    "TSTP" => 20,
   }
 
   def self.trap(signal, command = nil, &block)

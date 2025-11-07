@@ -94,12 +94,24 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+#if !defined(PICORB_PLATFORM_POSIX)
+static void
+c_open(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrbc_value self = mrbc_instance_new(vm, v->cls, 0);
+  SET_RETURN(self);
+}
+#endif
 
 
 void
 mrbc_io_console_init(mrbc_vm *vm)
 {
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
+
+#if !defined(PICORB_PLATFORM_POSIX)
+  mrbc_define_method(vm, class_IO, "open", c_open);
+#endif
   mrbc_define_method(vm, class_IO, "read_nonblock", c_read_nonblock);
   mrbc_define_method(vm, class_IO, "raw!", c_raw_bang);
   mrbc_define_method(vm, class_IO, "cooked!", c_cooked_bang);

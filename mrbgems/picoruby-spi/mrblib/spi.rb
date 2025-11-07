@@ -6,10 +6,11 @@ class SPI
   DATA_BITS = 8
   DEFAULT_FREQUENCY = 100_000
 
-  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, cs_pin: -1, mode: 0, first_bit: MSB_FIRST)
-    @unit = unit.to_s
-    _init(
-      @unit,
+  attr_accessor :unit, :cs
+
+  def self.new(unit:, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, cs_pin: -1, mode: 0, first_bit: MSB_FIRST)
+    spi = self.init(
+      unit.to_s,
       frequency,
       sck_pin,
       cipo_pin,
@@ -19,17 +20,20 @@ class SPI
       first_bit,
       DATA_BITS # Data bit size. No support other than 8
     )
-    if -1 < cs_pin && !@unit.start_with?("ESP32")
-      @cs = GPIO.new(cs_pin, GPIO::OUT)
-      @cs.write(1)
+    spi.unit = unit.to_s
+    if -1 < cs_pin && !spi.unit.start_with?("ESP32")
+      cs = GPIO.new(cs_pin, GPIO::OUT)
+      cs.write(1)
+      spi.cs = cs
     end
+    return spi
   end
 
   def select
-    @cs&.write(0)
+    @cs&.write 0
     if block_given?
       begin
-        yield(self)
+        yield self
       ensure
         deselect
       end
@@ -37,51 +41,7 @@ class SPI
   end
 
   def deselect
-    @cs&.write(1)
+    @cs&.write 1
   end
 
-  def read(len, repeated_tx_data = 0)
-    ret = _read(len, repeated_tx_data)
-    return ret if ret.is_a?(String)
-    GPIO::Error.peripheral_error(ret, "SPI#read")
-    return ""
-  end
-
-  def write(*params)
-    ret = _write(params_to_array(*params))
-    unless -1 < ret
-      GPIO::Error.peripheral_error(ret, "SPI#write")
-    end
-    return ret
-  end
-
-  def transfer(*params, additional_read_bytes: 0)
-    ary = params_to_array(*params)
-    additional_read_bytes.times do
-      ary << 0
-    end
-    ret = _transfer(params_to_array(*ary))
-    return ret if ret.is_a?(String)
-    GPIO::Error.peripheral_error(ret, "SPI#transfer")
-    return ""
-  end
-
-  # private
-
-  def params_to_array(*params)
-    ary = []
-    params.each do |param|
-      case param
-      when Array
-        # @type var param: Array[Integer]
-        ary += param
-      when Integer
-        ary << param
-      when String
-        # @type var param: String
-        ary += param.bytes
-      end
-    end
-    return ary
-  end
 end

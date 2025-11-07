@@ -109,7 +109,7 @@ mrb_getfree(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__mount(mrb_state *mrb, mrb_value self)
 {
-  fatfs_t *mrb_fs = (fatfs_t *)mrb_malloc(mrb, sizeof(FATFS));
+  fatfs_t *mrb_fs = (fatfs_t *)mrb_malloc(mrb, sizeof(fatfs_t));
   DATA_PTR(self) = mrb_fs;
   DATA_TYPE(self) = &mrb_fatfs_type;
   FATFS *fs = &mrb_fs->fs;

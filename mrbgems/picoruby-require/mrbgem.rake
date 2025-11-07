@@ -8,9 +8,9 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
   spec.add_dependency 'picoruby-sandbox'
 
   if build.vm_mrubyc?
-    if cc.defines.flatten.any?{ _1.match? /\AMRBC_USE_HAL_POSIX(=\d+)?\z/ }
+    if build.posix?
       # TODO: in Wasm, you may need to implement File class with File System Access API
-      spec.add_dependency 'picoruby-io'
+      spec.add_dependency 'picoruby-posix-io'
     else
       spec.add_dependency 'picoruby-vfs'
       spec.add_dependency 'picoruby-filesystem-fat'
@@ -21,6 +21,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
 
   # picogems to be required in Ruby
   picogems = Hash.new
+  mgems = Array.new
   task :collect_gems => "#{mrbgems_dir}/gem_init.c" do
     build.gems.each do |gem|
       if gem.name.start_with?("picoruby-") && !gem.name.start_with?("picoruby-bin-")
@@ -49,6 +50,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
             end
           end
         end
+      elsif gem.name.start_with?("mruby-")
+        mgems << gem.name.sub(/\Amruby-?/,'')
       end
     end
   end

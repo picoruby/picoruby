@@ -1,8 +1,8 @@
 class Rapicco
   class Parser
     def initialize
-      @font = :go12
-      @title_font = :go16
+      @font = :terminus_6x12
+      @title_font = :terminus_8x16
       @bold_color = :red
       @align = :left
       @lines = []
@@ -38,7 +38,11 @@ class Rapicco
         if @lines[-1][key]
           @lines[-1][key] << line
         else
-          @lines << { key => [line] }
+          if @in_code_block == :eval
+            @lines << { key => ["# ==== eval ====",line] }
+          else
+            @lines << { key => [line] }
+          end
         end
         return
       end
@@ -100,7 +104,7 @@ class Rapicco
       end
 
       # ---- inline text -------------------------------------------
-      text_segments = self.class.parse_inline(line[idx..-1].to_s, line_color, @bold_color)
+      text_segments = self.class.parse_inline(line[idx, line.size-idx].to_s, line_color, @bold_color)
 
       if skip
         line = { skip: skip }

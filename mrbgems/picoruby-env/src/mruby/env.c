@@ -1,3 +1,6 @@
+#include <time.h>
+#include <string.h>
+
 #include <mruby.h>
 #include <mruby/presym.h>
 #include <mruby/hash.h>
@@ -34,14 +37,15 @@ mrb_env_s_new(mrb_state *mrb, mrb_value klass)
   mrb_gc_register(mrb, env->hash);
 
   char *key, *value;
+  size_t key_len, value_len;
   int ai = mrb_gc_arena_save(mrb);
   while (1) {
-    env_get_key_value(&key, &value);
+    ENV_get_key_value(&key, &key_len, &value, &value_len);
     if (key == NULL) {
       break;
     }
-    mrb_value key_value = mrb_str_new_cstr(mrb, key);
-    mrb_value value_value = mrb_str_new_cstr(mrb, value);
+    mrb_value key_value = mrb_str_new(mrb, key, key_len);
+    mrb_value value_value = mrb_str_new(mrb, value, key_len);
     mrb_hash_set(mrb, env->hash, key_value, value_value);
   }
   mrb_gc_arena_restore(mrb, ai);
@@ -57,7 +61,10 @@ mrb_env_aset(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "SS", &key, &value);
   ENV *env = (ENV *)mrb_data_get_ptr(mrb, self, &mrb_env_type);
   mrb_hash_set(mrb, env->hash, key, value);
-  setenv(RSTRING_PTR(key), RSTRING_PTR(value), 1);
+  ENV_setenv(RSTRING_PTR(key), RSTRING_PTR(value), 1);
+  if (strcmp((const char *)RSTRING_PTR(key), "TZ") == 0) {
+    tzset(); // Necessary for POSIX timezone change
+  }
   return value;
 }
 
@@ -80,10 +87,16 @@ mrb_env_delete(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "S", &key);
   ENV *env = (ENV *)mrb_data_get_ptr(mrb, self, &mrb_env_type);
   value = mrb_hash_delete_key(mrb, env->hash, key);
-  unsetenv(RSTRING_PTR(key));
+  ENV_unsetenv(RSTRING_PTR(key));
   return value;
 }
 
+static mrb_value
+mrb_env__hash(mrb_state *mrb, mrb_value self)
+{
+  ENV *env = (ENV *)mrb_data_get_ptr(mrb, self, &mrb_env_type);
+  return env->hash;
+}
 
 void
 mrb_picoruby_env_gem_init(mrb_state* mrb)
@@ -95,6 +108,7 @@ mrb_picoruby_env_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_ENVClass, MRB_OPSYM(aset), mrb_env_aset, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_ENVClass, MRB_OPSYM(aref), mrb_env_aref, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_ENVClass, MRB_SYM(delete), mrb_env_delete, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, class_ENVClass, MRB_SYM(_hash), mrb_env__hash, MRB_ARGS_NONE());
 }
 
 void

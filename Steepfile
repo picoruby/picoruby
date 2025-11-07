@@ -8,7 +8,7 @@ target :mrbgems do
 
   signature "sig/prk_firmware"
   Dir.glob("**/sig/").each do |dir|
-    unless dir.include?("lib/prism/sig") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext")
+    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext")
       signature dir
     end
   end

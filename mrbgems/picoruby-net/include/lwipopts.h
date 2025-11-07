@@ -88,4 +88,8 @@
 #define LWIP_ALTCP_TLS 1
 #define LWIP_ALTCP_TLS_MBEDTLS 1
 
+#ifndef LWIP_DEBUG
+#define LWIP_DEBUG 1
+#endif
+
 #endif /* __LWIPOPTS_H__ */

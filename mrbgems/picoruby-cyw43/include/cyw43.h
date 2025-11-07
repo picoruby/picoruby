@@ -12,8 +12,10 @@ int CYW43_arch_init_with_country(const uint8_t *);
 #ifdef USE_WIFI
 void CYW43_arch_enable_sta_mode(void);
 void CYW43_arch_disable_sta_mode(void);
-int CYW43_arch_wifi_connect_timeout_ms(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms);
+int CYW43_wifi_connect_with_dhcp(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms);
+int CYW43_wifi_disconnect(void);
 int CYW43_tcpip_link_status(void);
+bool CYW43_dhcp_supplied(void);
 int CYW43_CONST_link_down(void);
 int CYW43_CONST_link_join(void);
 int CYW43_CONST_link_noip(void);

@@ -32,6 +32,21 @@ Net_get_ip(const char *name, ip_addr_t *ip)
   return ERR_OK;
 }
 
+const char *
+Net_get_ipv4_address(char *buf, size_t buflen)
+{
+  const char *res;
+  lwip_begin();
+  const ip4_addr_t *ip = netif_ip4_addr(netif_default);
+  if (ip && ip->addr != 0) {
+    res = ipaddr_ntoa_r(ip, buf, buflen);
+  } else {
+    return NULL;
+  }
+  lwip_end();
+  return res;
+}
+
 
 #if defined(PICORB_VM_MRUBY)
 

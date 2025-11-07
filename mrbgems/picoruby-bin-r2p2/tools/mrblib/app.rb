@@ -1,5 +1,6 @@
 #! /usr/bin/env ruby
 
+require "numeric-ext"
 require "shell"
 
 begin

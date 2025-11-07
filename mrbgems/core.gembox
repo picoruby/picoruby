@@ -1,0 +1,19 @@
+MRuby::GemBox.new do |conf|
+  conf.gem core: 'picoruby-require'
+  conf.gem core: "picoruby-machine"
+  conf.gem core: "picoruby-picorubyvm"
+  conf.gem core: "picoruby-time-class"
+  if posix?
+    if vm_mrubyc?
+      conf.gem core: 'picoruby-posix-io'
+      conf.gem core: 'picoruby-dir'
+    elsif vm_mruby?
+      conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
+      conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-io"
+    end
+  else
+    conf.gem core: "picoruby-vfs"
+    conf.gem core: "picoruby-filesystem-fat"
+    conf.gem core: "picoruby-watchdog"
+  end
+end

@@ -1,4 +1,6 @@
-class GC
+$0: String
+
+module GC
   def self.enable: () -> bool
   def self.disable: () -> bool
   def self.start: () -> bool

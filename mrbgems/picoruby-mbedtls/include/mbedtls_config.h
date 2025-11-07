@@ -4,8 +4,12 @@
  */
 #define MBEDTLS_PLATFORM_C
 
-#define MBEDTLS_TIMING_C
-#define MBEDTLS_TIMING_ALT
+/* DTLS Connection ID feature and compatibility setting for MbedTLS v3 */
+#define MBEDTLS_SSL_DTLS_CONNECTION_ID
+#define MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT 0
+
+// #define MBEDTLS_TIMING_C
+// #define MBEDTLS_TIMING_ALT
 
 /*
 * To debug TSL connection, you can use the following code:
@@ -48,6 +52,9 @@
 #define MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
 #define MBEDTLS_X509_CRT_PARSE_C
 #define MBEDTLS_X509_USE_C
+
+/* Required for ECDHE key exchanges */
+#define MBEDTLS_ECDH_LEGACY_CONTEXT
 
 /* This is needed for AES-CBC and AES-GCM */
 #define MBEDTLS_CIPHER_MODE_CBC
@@ -92,10 +99,14 @@
 #define MBEDTLS_SHA512_C
 #define MBEDTLS_GENPRIME
 
+/* Required for ENTROPY_C when NO_PLATFORM_ENTROPY is defined */
+#define MBEDTLS_ENTROPY_FORCE_SHA256
+
 //#if !defined(PICORB_PLATFORM_POSIX)
   #define MBEDTLS_NO_PLATFORM_ENTROPY
   #define MBEDTLS_ENTROPY_HARDWARE_ALT
   #define MBEDTLS_HAVE_TIME
+  #define MBEDTLS_PLATFORM_MS_TIME_ALT
   #define MBEDTLS_KEY_EXCHANGE_RSA_ENABLED
   #define MBEDTLS_CCM_C
   #define MBEDTLS_AES_FEWER_TABLES
@@ -103,10 +114,12 @@
   #define MBEDTLS_SSL_CLI_C
   #define MBEDTLS_SSL_SERVER_NAME_INDICATION
   #define MBEDTLS_SSL_PROTO_TLS1_2
+  #define MBEDTLS_SSL_PROTO_DTLS
+
+  /* Required for SSL_TLS_C */
+  #define MBEDTLS_MD5_C
 #define MBEDTLS_SSL_ALPN
-#define MBEDTLS_SSL_MAX_FRAGMENT_LENGTH
+// #define MBEDTLS_SSL_MAX_FRAGMENT_LENGTH
 //#endif
 
 #define MBEDTLS_ERROR_C
-
-#include "mbedtls/check_config.h"

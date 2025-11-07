@@ -1,4 +1,7 @@
 # @sidebar io_peripheral
+
+type gpio_pin_t = (Integer|String|Symbol)
+
 class GPIO
 
   # @sidebar error
@@ -22,10 +25,10 @@ class GPIO
   OPEN_DRAIN: 32 # 0b0100000
   ALT:        64 # 0b1000000
 
-  type gpio_pin_t = (Integer|String|Symbol)
   type gpio_logic_t = (0 | 1)
 
-  @pin: gpio_pin_t
+  attr_reader pin: gpio_pin_t
+
   @dir: (Integer|nil)
   @alt_function: (Integer|nil)
   @pull: (Integer|nil)

@@ -1,14 +1,24 @@
 #include <mruby.h>
 #include <mruby/string.h>
 #include <mruby/presym.h>
+#include <mruby/class.h>
 
 #include <string.h>
 
+// for POSIX
 static mrb_noreturn void
 raise_interrupt(mrb_state *mrb)
 {
-  struct RClass *abort = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
-  mrb_raise(mrb, abort, "Interrupted");
+  struct RClass *class_Interrupt = mrb_class_get_id(mrb, MRB_SYM(Interrupt));
+  mrb_raise(mrb, class_Interrupt, "SIGINT");
+}
+
+// for POSIX
+static mrb_noreturn void
+raise_sigtstp(mrb_state *mrb)
+{
+  struct RClass *class_SignalException = mrb_class_get_id(mrb, MRB_SYM(SignalException));
+  mrb_raise(mrb, class_SignalException, "SIGTSTP");
 }
 
 static mrb_value
@@ -29,6 +39,8 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
     c = hal_getchar();
     if (c == 3) {
       raise_interrupt(mrb); // mrb_noreturn
+    } else if (c == 26) {
+      raise_sigtstp(mrb); // mrb_noreturn
     } else if (c < 0) {
       break;
     } else {
@@ -90,12 +102,22 @@ mrb_io_echo_q(mrb_state *mrb, mrb_value self)
   }
 }
 
+#if !defined(PICORB_PLATFORM_POSIX)
+static mrb_value
+mrb_io_s_open(mrb_state *mrb, mrb_value klass)
+{
+  return mrb_obj_new(mrb, mrb_class_ptr(klass), 0, NULL);
+}
+#endif
 
 void
 mrb_picoruby_io_console_gem_init(mrb_state* mrb)
 {
   struct RClass *class_IO = mrb_define_class_id(mrb, MRB_SYM(IO), mrb->object_class);
 
+#if !defined(PICORB_PLATFORM_POSIX)
+  mrb_define_class_method_id(mrb, class_IO, MRB_SYM(open), mrb_io_s_open, MRB_ARGS_ARG(1, 1));
+#endif
   mrb_define_method_id(mrb, class_IO, MRB_SYM(read_nonblock), mrb_io_read_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(raw), mrb_io_raw_b, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(cooked), mrb_io_cooked_b, MRB_ARGS_NONE());

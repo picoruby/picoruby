@@ -28,9 +28,9 @@ module Picotest
       result
     end
 
-    # stub(obj).method_name().returns(return_value)
+    # stub(obj).method_name() { return_value }
     def stub(doubled_obj)
-      double = Picotest::Double._init(:stub,  doubled_obj)
+      double = Picotest::Double._init(:stub, doubled_obj)
       @doubles << double
       double
     end
@@ -130,6 +130,7 @@ module Picotest
     end
 
     def report_exception(data)
+      print "#{Picotest::RED}E#{Picotest::RESET}"
       @result["exceptions"] << data
     end
 

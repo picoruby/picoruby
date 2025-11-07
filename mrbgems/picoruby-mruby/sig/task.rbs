@@ -6,6 +6,7 @@ class Task
   def self.get: (String name) -> Task?
   def self.list: () -> Array[Task]
   def self.pass: () -> nil
+  def self.tick: () -> Integer
   def status: () -> Symbol
   def name: () -> (String | nil)
   def name=: (String name) -> String
@@ -19,6 +20,5 @@ class Task
   class Stat
     @data: Hash[Symbol, untyped]
     def []: (Symbol key) -> untyped
-    def to_s: () -> String
   end
 end

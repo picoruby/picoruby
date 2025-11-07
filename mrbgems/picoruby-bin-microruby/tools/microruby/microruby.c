@@ -481,6 +481,10 @@ main(int argc, char **argv)
   if (args.check_syntax)
     cc->no_exec = TRUE;
 
+#if defined(PICORB_VM_MRUBYC)
+  picoruby_load_model_by_name("machine"); // Includes Kernel.puts etc. for PicoRuby
+#endif
+
   for (int i = 0; i < args.libc; i++) {
 #if defined(PICORB_VM_MRUBY)
 #elif defined(PICORB_VM_MRUBYC)
@@ -656,6 +660,10 @@ main(int argc, char **argv)
       char* utf8 = picorb_utf8_from_locale(args.cmdline, -1);
       if (!utf8) abort();
       irep = mrc_load_string_cxt(cc, (const uint8_t **)&utf8, strlen(utf8));
+      if (irep == NULL) {
+        fprintf(stderr, "irep load error\n");
+        exit(EXIT_FAILURE);
+      }
       picorb_utf8_free(vm, utf8);
     }
 

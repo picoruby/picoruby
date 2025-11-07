@@ -1,5 +1,6 @@
 module Kernel
   def system: (String command) -> bool
+  def gets: () -> String?
 end
 
 # @private
@@ -7,4 +8,5 @@ class Object
   # Workaround.
   # I don't know why `include Kernel` doesn't work.
   def system: (String command) -> bool
+  def gets: () -> String?
 end

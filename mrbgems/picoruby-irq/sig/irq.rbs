@@ -1,0 +1,42 @@
+module IRQ
+  type irq_id_t = Integer
+  type irq_event_type_t = Integer
+  type irq_peri_t = GPIO
+
+  MAX_PROCESS_COUNT: Integer
+  HANDLER: Hash[irq_id_t, IRQInstance]
+
+  private def self.peek_event: () -> [(irq_id_t | nil), irq_event_type_t]
+  def self.process: (?Integer max_count) -> Integer
+  def self.register: (IRQInstance irq, Hash[Symbol, untyped] opts) -> irq_id_t
+  def self.unregister: (irq_id_t id) -> bool
+  private def self.register_gpio: (gpio_pin_t pin, irq_event_type_t event_type, Hash[Symbol, untyped] opts) -> irq_id_t
+  private def self.unregister_gpio: (irq_id_t id) -> bool
+  def irq: (irq_event_type_t event_type, **untyped opts) { (irq_peri_t peri, irq_event_type_t event_type, Object capture) -> void } -> void
+
+  class IRQInstance
+    @id: irq_id_t
+    @opts: Hash[untyped, untyped]
+    @callback: Proc
+    @enabled: bool
+
+    attr_accessor capture: Object
+    attr_reader peripheral: irq_peri_t
+    attr_reader event_type: irq_event_type_t
+
+    def initialize: (irq_peri_t peripheral, irq_event_type_t event_type, Hash[Symbol, untyped] opts, Proc callback) -> void
+    def disable: () -> bool   # returns previous state
+    def enable: () -> bool    # returns previous state
+    def enabled?: () -> bool  # returns current state
+    def call: (irq_event_type_t event_type) -> void
+    def unregister: () -> bool
+  end
+end
+
+class GPIO
+  include IRQ
+  LEVEL_LOW: Integer
+  LEVEL_HIGH: Integer
+  EDGE_FALL: Integer
+  EDGE_RISE: Integer
+end

@@ -49,8 +49,11 @@ MRB_BEGIN_DECL
 /***** Function prototypes **************************************************/
 
 void hal_init(mrb_state *mrb);
-void hal_enable_irq(void);
-void hal_disable_irq(void);
+void mrb_task_enable_irq(void);
+void mrb_task_disable_irq(void);
+
+#define hal_enable_irq() mrb_task_enable_irq()
+#define hal_disable_irq() mrb_task_disable_irq()
 
 #if defined(PICORB_PLATFORM_POSIX)
 #define hal_idle_cpu(mrb)    sleep(1) // maybe interrupt by SIGINT

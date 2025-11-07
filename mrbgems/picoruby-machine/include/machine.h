@@ -9,6 +9,12 @@
 #include <signal.h>
 #endif
 
+/* File descriptor to CDC instance mapping for dual CDC configuration */
+#define FD_STDOUT 1
+#define FD_STDERR 2
+#define CDC_INSTANCE_STDOUT 0
+#define CDC_INSTANCE_STDERR 1
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -18,9 +24,10 @@ __attribute__((weak)) volatile sig_atomic_t sigint_status;
 __attribute__((weak)) int exit_status;
 
 enum {
-  MACHINE_SIGINT_NONE = 0,
-  MACHINE_SIGINT_RECEIVED = 1,
-  MACHINE_SIGINT_EXIT = 2
+  MACHINE_SIG_NONE = 0,
+  MACHINE_SIGINT_EXIT,
+  MACHINE_SIGINT_RECEIVED,
+  MACHINE_SIGTSTP_RECEIVED,
 };
 #endif
 
@@ -36,6 +43,8 @@ const char* Machine_mcu_name(void);
 bool Machine_set_hwclock(const struct timespec *ts);
 bool Machine_get_hwclock(struct timespec *ts);
 void Machine_exit(int status);
+uint64_t Machine_uptime_us(void);
+void Machine_uptime_formatted(char *buf, int maxlen);
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,14 @@
+To assign environment variables (e.g., CC, CFLAGS...), specify them as
+NAME=VALUE.  See README for a description of all options and targets.
+
+The default values are specified in brackets.
+
+Configuration:
+  --help            display this help and exit
+  --version         display version information and exit
+
+Installation directories:
+  --prefix=PREFIX   prefix for all directories [/usr/local]
+  --psfdir=DIR      PC screen fonts directory [PREFIX/share/consolefonts]
+  --x11dir=DIR      X11 fonts directory [PREFIX/share/fonts/terminus]
+  --otbdir=DIR      TrueType/OTB fonts directory [PREFIX/share/fonts/terminus]

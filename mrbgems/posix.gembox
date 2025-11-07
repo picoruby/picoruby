@@ -1,6 +1,0 @@
-MRuby::GemBox.new do |conf|
-  conf.gem core: "picoruby-bin-r2p2"
-  conf.gem core: 'picoruby-io'
-  conf.gem core: 'picoruby-dir'
-  conf.gem core: "picoruby-picotest"
-end

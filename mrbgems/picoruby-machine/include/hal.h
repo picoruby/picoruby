@@ -12,14 +12,19 @@ void hal_init(mrb_state *mrb);
 #elif defined(PICORB_VM_MRUBYC)
 void mrbc_tick();
 void hal_init(void);
+void hal_idle_cpu(void);
 #endif
 
 int hal_write(int fd, const void *buf, int nbytes);
 
-void hal_enable_irq(void);
-void hal_disable_irq(void);
+#if defined(PICORB_VM_MRUBYC)
+  void hal_enable_irq(void);
+  void hal_disable_irq(void);
+#else
+  void mrb_task_enable_irq(void);
+  void mrb_task_disable_irq(void);
+#endif
 
-void hal_idle_cpu(void);
 void hal_abort(const char *s);
 int hal_flush(int fd);
 int hal_read_available(void);

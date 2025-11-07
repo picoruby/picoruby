@@ -1,6 +1,7 @@
 require 'json'
 
 if RUBY_ENGINE == "mruby/c"
+  require "posix-io"
   require "metaprog"
   require 'dir'
   require 'env'

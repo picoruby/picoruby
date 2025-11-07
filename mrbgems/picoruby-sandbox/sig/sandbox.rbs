@@ -11,10 +11,11 @@ class Sandbox
   def self.new: (?String name) -> instance
   def compile: (String script, ?remove_lv: bool) -> bool
   def compile_from_memory: (Integer address, Integer size, ?remove_lv: bool) -> bool
-  def suspend: () -> nil
-  def terminate: () -> nil
+  def resume: () -> bool
+  def suspend: () -> bool
+  def terminate: () -> bool
+  def stop: () -> bool
   def free_parser: () -> nil
-  def stop: () -> void
   def state: () -> (Integer | Symbol) # Symbol in MicoRuby
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil)) -> bool
@@ -22,4 +23,5 @@ class Sandbox
   def exec_mrb: (String mrb) -> bool
   def exec_mrb_from_memory: (Integer address) -> bool
   def load_file: (String path, ?join: bool) -> void
+  private def loop: (Integer | nil timeout, boolish signal_self_management) -> bool
 end

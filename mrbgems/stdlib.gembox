@@ -1,13 +1,24 @@
 MRuby::GemBox.new do |conf|
-  conf.gem core: 'picoruby-machine'
+  conf.gem core: "picoruby-rng"
   conf.gem core: 'picoruby-base16'
   conf.gem core: 'picoruby-base64'
   conf.gem core: 'picoruby-json'
   conf.gem core: 'picoruby-yaml'
-  conf.gem core: "picoruby-picorubyvm"
-  conf.gem core: "picoruby-metaprog"
   conf.gem core: "picoruby-eval"
-  conf.gem core: "picoruby-float-ext"
   conf.gem core: "picoruby-pack"
-  conf.gem core: "picoruby-time-class"
+  conf.gem core: 'picoruby-data'
+  conf.gem core: 'picoruby-logger'
+  if vm_mrubyc?
+    conf.gem core: "picoruby-numeric-ext"
+    conf.gem core: "picoruby-metaprog"
+  elsif vm_mruby?
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-kernel-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-array-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-error"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-sprintf"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
+  end
 end

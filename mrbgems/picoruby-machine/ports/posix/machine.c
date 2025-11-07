@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <signal.h>
+#include <time.h>
 
 #include "../../include/machine.h"
 
@@ -67,4 +68,12 @@ Machine_exit(int status)
   sigint_status = MACHINE_SIGINT_EXIT;
   exit_status = status;
   raise(SIGINT);
+}
+
+uint64_t
+Machine_uptime_us(void)
+{
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000;
 }

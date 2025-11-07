@@ -22,17 +22,32 @@
   #error "MRBC_NO_TIMER is not supported"
 #endif
 
+#if defined(PICORB_VM_MRUBY)
+static mrb_state *mrb_;
+#endif
+
 static esp_timer_handle_t periodic_timer;
 
 static void
 alarm_handler(void *arg)
 {
+#if defined(PICORB_VM_MRUBYC)
   mrbc_tick();
+#else
+  mrb_tick(mrb_);
+#endif
 }
 
 void
+#if defined(PICORB_VM_MRUBY)
+hal_init(mrb_state *mrb)
+#elif defined(PICORB_VM_MRUBYC)
 hal_init(void)
+#endif
 {
+#if defined(PICORB_VM_MRUBY)
+  mrb_ = (mrb_state *)mrb;
+#endif
   esp_timer_create_args_t timer_create_args;
   timer_create_args.callback = &alarm_handler;
   timer_create_args.arg = NULL;
@@ -44,13 +59,21 @@ hal_init(void)
 }
 
 void
-hal_enable_irq()
+#if defined(PICORB_VM_MRUBYC)
+hal_enable_irq(void)
+#elif defined(PICORB_VM_MRUBY)
+mrb_task_enable_irq()
+#endif
 {
   portENABLE_INTERRUPTS();
 }
 
 void
-hal_disable_irq()
+#if defined(PICORB_VM_MRUBYC)
+hal_disable_irq(void)
+#elif defined(PICORB_VM_MRUBY)
+mrb_task_disable_irq()
+#endif
 {
   portDISABLE_INTERRUPTS();
 }
@@ -64,15 +87,17 @@ hal_idle_cpu()
 int
 hal_write(int fd, const void *buf, int nbytes)
 {
+  FILE *stream = (fd == 1) ? stdout : stderr;
   for (int i = 0 ; i < nbytes ; i++) {
-    putchar(((char*)buf)[i]);
+    fputc(((char*)buf)[i], stream);
   }
-  fflush(stdout);
+  fflush(stream);
   return nbytes;
 }
 
 int hal_flush(int fd) {
-  return fflush(stdout);
+  FILE *stream = (fd == 1) ? stdout : stderr;
+  return fflush(stream);
 }
 
 int
@@ -194,4 +219,10 @@ void
 Machine_exit(int status)
 {
   (void)status; // no-op
+}
+
+uint64_t
+Machine_uptime_us(void)
+{
+  return (uint64_t)esp_timer_get_time();
 }

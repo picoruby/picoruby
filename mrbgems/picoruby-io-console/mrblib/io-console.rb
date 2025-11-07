@@ -86,7 +86,3 @@ class IO
     ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb"
   end
 end
-
-## To save current termios state
-#IO.raw!
-#IO.cooked!

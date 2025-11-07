@@ -15,7 +15,6 @@ end
 
 ARGV = []
 
-
 class Shell
 
   DeviceInstances = {}
@@ -26,13 +25,21 @@ class Shell
     when 'GPIO_TRIGGER_NMBLE'
       GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
     when 'GPIO_LED_BLE', 'GPIO_LED_WIFI'
-      if ENV[key].nil? || ENV[key] == 'cyw43_led'
-        CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
-      else
-        GPIO.new(ENV[key].to_i, GPIO::OUT)
+      begin
+        if ENV[key].nil? || ENV[key] == 'cyw43_led'
+          CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+        else
+          if pin = ENV[key]
+            GPIO.new(pin.to_i, GPIO::OUT)
+          else
+            nil
+          end
+        end
+      rescue NameError
+        nil
       end
     else
-      raise "Unknown GPIO key: #{key}"
+      nil
     end
   end
 
@@ -92,28 +99,23 @@ class Shell
       Dir.mkdir(root)
       puts "Created root directory: #{root}"
     end
+    $LOAD_PATH = ["#{root}/lib"]
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
-    ENV["TZ"] = "JST-9" # TODO. maybe in CYW43
     Dir.chdir(root || "/") do
-      %w(bin home etc etc/init.d etc/network var lib).each do |dir|
-        4.times do |i|
-          break i if Dir.exist?(dir)
-          begin
-            puts "Creating directory: #{dir} (trial #{i + 1})"
-            Dir.mkdir(dir)
-            sleep 1
-          rescue
-            if i < 3
-              puts " Failed to create directory: #{dir}. Retrying..."
-              sleep 1
-            else
-              raise "Failed to create directory: #{dir}. Please reboot"
-            end
+      %w(bin home etc etc/init.d etc/network var var/log lib).each do |dir|
+        next if Dir.exist?(dir)
+        puts "Creating directory: #{dir}"
+        Dir.mkdir(dir)
+        i = 0
+        while !Dir.exist?(dir)
+          sleep_ms 200
+          i += 1
+          if 10 < i
+            raise "Failed to create directory: #{dir}. Please reboot"
           end
-          sleep 1 # This likely ensure the directory is created
         end
       end
       while exe = Shell.next_executable
@@ -123,7 +125,7 @@ class Shell
       path = "#{root}/etc/machine-id"
       self.ensure_system_file(path, Machine.unique_id, nil)
     end
-    Dir.chdir ENV['HOME']
+    Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
     config_file = "/etc/config.yml"
     # example of `config.yml`:
@@ -137,6 +139,12 @@ class Shell
       if File.file?(config_file)
         config = YAML.load_file(config_file)
         # @type var config: Hash[String, untyped]
+        env = config['env']
+        if env&.respond_to?(:each)
+          env.each do |key, value|
+            ENV[key.upcase] = value.to_s
+          end
+        end
         device = config['device']
         if device&.respond_to?(:each)
           device.each do |type, values|
@@ -230,10 +238,26 @@ class Shell
     end
   end
 
+  def self.find_executable(name)
+    if name.start_with?("/")
+      return File.file?(name) ? name : nil
+    end
+    if name.start_with?("./") || name.start_with?("../")
+      file = File.expand_path(name, Dir.pwd)
+      return File.file?(name) ? name : nil
+    end
+    ENV['PATH']&.split(";")&.each do |path|
+      file = "#{path}/#{name}"
+      return file if File.file? file
+    end
+    nil
+  end
+
   def initialize(clean: false)
     require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
+    @jobs = []
   end
 
   LOGO = if RUBY_ENGINE == "mruby"
@@ -332,7 +356,7 @@ class Shell
       puts
     when :shell
       run_shell
-      print "\nbye\e[0m"
+      print "bye\e[0m"
       exit
       return
     else
@@ -344,33 +368,30 @@ class Shell
     raise # to restart
   end
 
-
   def run_shell
-    command = Command.new
     @editor.start do |editor, buffer, c|
       case c
       when 10, 13
-        case args = buffer.dump.chomp.strip.split(" ")
-        when []
-          puts
-        when ["reboot"]
+        puts
+        command_line = buffer.dump.chomp.strip
+        editor.save_history
+        buffer.clear
+        cleanup_jobs
+
+        # Parse command line using new parser
+        unless command_line.empty?
           begin
-            puts "\nrebooting..."
-            Watchdog.reboot 1000
-          rescue NameError
-            buffer.clear
-            puts "\nerror: reboot is not available on this platform"
+            parser = Parser.new(command_line)
+            ast = parser.parse
+
+            execute_ast(ast) if ast
+          rescue => e
+            puts e.message
           end
-        when ["quit"], ["exit"]
-          buffer.clear
-          print "\nbye\n\e[0m"
-          Machine.exit(0)
-        else
-          puts
-          command.exec(*args)
-          editor.save_history
-          buffer.clear
         end
+      when 26 # Ctrl-Z
+        puts "\n^Z\e[0J"
+        Machine.exit(0)
       end
     end
   end
@@ -379,6 +400,12 @@ class Shell
     sandbox = Sandbox.new('irb')
     @editor.start do |editor, buffer, c|
       case c
+      when 26 # Ctrl-Z
+        Signal.trap(:CONT) do
+          ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+        end
+        puts "\n^Z\e[0J"
+        Signal.raise(:TSTP)
       when 10, 13 # LF(\n)=10, CR(\r)=13
         case script = buffer.dump.chomp
         when ""
@@ -398,7 +425,11 @@ class Shell
               sandbox.suspend
             end
             if executed
-              puts "=> #{sandbox.result.inspect}"
+              if sandbox.result.is_a?(Exception)
+                puts "#{sandbox.result.message} (#{sandbox.result.class})"
+              else
+                puts "=> #{sandbox.result.inspect}"
+              end
             end
             buffer.clear
             editor.history_head
@@ -409,8 +440,384 @@ class Shell
       end
     end
   ensure
-    puts
     sandbox.terminate
   end
+
+  def builtin?(name)
+    self.respond_to?(name)
+  end
+
+  def execute_ast(ast)
+    case ast.type
+    when :command
+      execute_command_node(ast)
+    when :pipeline
+      execute_pipeline_node(ast)
+    else
+      raise "Unknown AST node type: #{ast.type}"
+    end
+  end
+
+  def execute_command_node(node)
+    data = node.data
+    name = data[:name]
+    args = data[:args]
+    redirects = data[:redirects]
+
+    # Handle redirections
+    redirect_in = nil
+    redirect_out = nil
+    redirect_mode = nil
+
+    redirects.each do |redir|
+      case redir.data[:type]
+      when :input
+        redirect_in = redir.data[:target]
+      when :output
+        redirect_out = redir.data[:target]
+        redirect_mode = :write
+      when :append
+        redirect_out = redir.data[:target]
+        redirect_mode = :append
+      end
+    end
+
+    # Check if builtin command
+    if builtin?("_#{name}")
+      if redirect_in || redirect_out
+        # Execute builtin with file redirection
+        execute_builtin_with_redirect(name, args, redirect_in, redirect_out, redirect_mode)
+      else
+        # Normal builtin execution
+        send("_#{name}", *args)
+      end
+    else
+      # Execute external command
+      cmd_args = [name] + args
+
+      if redirect_in || redirect_out
+        # Execute with file redirection
+        execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
+      else
+        # Normal execution
+        job = Job.new(*cmd_args)
+        @jobs << job
+        job.exec
+      end
+    end
+  end
+
+  def execute_pipeline_node(node)
+    commands = node.data[:commands]
+
+    # Extract redirects from the last command
+    last_cmd = commands.last
+    redirects = last_cmd.data[:redirects]
+
+    redirect_in = nil
+    redirect_out = nil
+    redirect_mode = nil
+
+    redirects.each do |redir|
+      case redir.data[:type]
+      when :input
+        redirect_in = redir.data[:target]
+      when :output
+        redirect_out = redir.data[:target]
+        redirect_mode = :write
+      when :append
+        redirect_out = redir.data[:target]
+        redirect_mode = :append
+      end
+    end
+
+    cmd_arrays = commands.map do |cmd_node|
+      [cmd_node.data[:name]] + cmd_node.data[:args]
+    end
+
+    if redirect_in || redirect_out
+      # Execute pipeline with file redirection
+      old_stdin = $stdin
+      old_stdout = $stdout
+
+      begin
+        if redirect_in
+          input_file = redirect_in
+          # @type var input_file: String
+          if File.exist?(input_file)
+            $stdin = File.open(input_file, 'r')
+          else
+            puts "#{input_file}: No such file or directory"
+            return
+          end
+        end
+
+        if redirect_out
+          output_file = redirect_out
+          mode = redirect_mode == :append ? 'a' : 'w'
+          # @type var output_file: String
+          $stdout = File.open(output_file, mode)
+        end
+
+        pipeline = Pipeline.new(cmd_arrays)
+        pipeline.exec
+      ensure
+        $stdin.close if redirect_in && $stdin != old_stdin
+        $stdout.close if redirect_out && $stdout != old_stdout
+        $stdin = old_stdin
+        $stdout = old_stdout
+      end
+    else
+      pipeline = Pipeline.new(cmd_arrays)
+      pipeline.exec
+    end
+  end
+
+  def execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
+    old_stdin = $stdin
+    old_stdout = $stdout
+
+    begin
+      # Setup input redirection
+      if redirect_in
+        if File.exist?(redirect_in)
+          $stdin = File.open(redirect_in, 'r')
+        else
+          puts "#{redirect_in}: No such file or directory"
+          return
+        end
+      end
+
+      # Setup output redirection
+      if redirect_out
+        mode = redirect_mode == :append ? 'a' : 'w'
+        $stdout = File.open(redirect_out, mode)
+      end
+
+      # Execute command
+      job = Job.new(*cmd_args)
+      job.exec
+    ensure
+      # Close and restore
+      $stdin.close if redirect_in && $stdin != old_stdin
+      $stdout.close if redirect_out && $stdout != old_stdout
+      $stdin = old_stdin
+      $stdout = old_stdout
+    end
+  end
+
+  def execute_builtin_with_redirect(name, args, redirect_in, redirect_out, redirect_mode)
+    old_stdin = $stdin
+    old_stdout = $stdout
+
+    begin
+      # Setup input redirection
+      if redirect_in
+        if File.exist?(redirect_in)
+          $stdin = File.open(redirect_in, 'r')
+        else
+          puts "#{redirect_in}: No such file or directory"
+          return
+        end
+      end
+
+      # Setup output redirection
+      if redirect_out
+        mode = redirect_mode == :append ? 'a' : 'w'
+        $stdout = File.open(redirect_out, mode)
+      end
+
+      # Execute builtin command
+      send("_#{name}", *args)
+    ensure
+      # Close and restore
+      $stdin.close if redirect_in && $stdin != old_stdin
+      $stdout.close if redirect_out && $stdout != old_stdout
+      $stdin = old_stdin
+      $stdout = old_stdout
+    end
+  end
+
+  private
+
+  if RUBY_ENGINE == "mruby/c"
+    def send(name, *args)
+      case name
+      when "_type"
+        _type(*args)
+      when "_echo"
+        _echo(*args)
+      when "_reboot"
+        _reboot(*args)
+      when "_pwd"
+        _pwd(*args)
+      when "_cd"
+        _cd(*args)
+      when "_exit", "_quit"
+        _exit(*args)
+      when "_jobs"
+        _jobs(*args)
+      when "_bg"
+        _bg(*args)
+      when "_fg"
+        _fg(*args)
+      when "_export"
+        _export(*args)
+      else
+        raise NameError.new("undefined method `#{name}' for #{self.class}")
+      end
+    end
+  end
+
+  # Builtin command wishlist:
+  #  alias
+  #  cd
+  #  echo
+  #  export
+  #  exec
+  #  exit
+  #  fc
+  #  fg
+  #  help
+  #  history
+  #  jobs
+  #  kill
+  #  pwd
+  #  reboot
+  #  type
+  #  unset
+
+  def _type(*args)
+    args.each_with_index do |name, index|
+      puts if 0 < index
+      if builtin?("_#{name}")
+        print "#{name} is a shell builtin"
+      elsif path = Shell.find_executable(name)
+        print "#{name} is #{path}"
+      else
+        print "type: #{name}: not found"
+      end
+    end
+    puts
+  end
+
+  def _echo(*args)
+    args.each_with_index do |param, index|
+      print " " if 0 < index
+      print param
+    end
+    puts
+  end
+
+  def _reboot(*args)
+    begin
+      if Watchdog.respond_to?(:reboot)
+        puts "\nrebooting..."
+        Watchdog.reboot 1000
+      else
+        raise NameError
+      end
+    rescue NameError
+      puts "error: reboot is not available on this platform"
+    end
+  end
+
+  def _pwd(*args)
+    puts(ENV['PWD'] = Dir.pwd)
+  end
+
+  def _cd(*args)
+    dir = case args[0]
+    when nil
+      ENV['HOME'] || ENV_DEFAULT_HOME
+    when "-"
+      ENV['OLDPWD'] || Dir.pwd
+    else
+      args[0]
+    end
+    if File.file?(dir)
+      puts "cd: #{dir}: Not a directory"
+      return false
+    elsif !Dir.exist?(dir)
+      puts "cd: #{dir}: No such file or directory"
+      return false
+    end
+    ENV['OLDPWD'] = Dir.pwd
+    ENV['PWD'] = dir
+    Dir.chdir(dir)
+  end
+
+  def _exit(*args)
+    print "bye\n\e[0m"
+    Machine.exit(0)
+  end
+  alias _quit _exit
+
+  def _jobs(*args)
+    @jobs.each_with_index do |job, index|
+      mark = if index == @jobs.size - 1
+               "+"
+             else
+               " "
+             end
+      puts "[#{index}]#{mark}  #{job.state.to_s.ljust(16, ' ')}#{job.name}"
+    end
+  end
+
+  def _bg(*args)
+    # TODO
+    puts "bg: not implemented"
+  end
+
+  def _fg(*args)
+    if @jobs.empty?
+      puts "fg: no jobs"
+      return
+    end
+    num = args[0]&.to_i
+    if num.nil?
+      num = @jobs.size - 1
+    end
+    if job = @jobs[num]
+      job.resume
+    else
+      puts "fg: #{num}: no such job"
+    end
+  end
+
+  # export KEY=VALUE
+  #  => args[0] = "KEY=VALUE"
+  # export KEY="VALUE"
+  #  => args[0] = "KEY"
+  #     args[1] = "VALUE"
+  # export KEY="VALUE=A"
+  #  => args[0] = "KEY="
+  #     args[1] = "VALUE=A"
+  def _export(*args)
+    if args.empty?
+      ENV.each do |key, value|
+        puts "#{key}=\"#{value}\""
+      end
+      return
+    end
+    while arg = args.shift
+      key, value = arg.split("=", 2)
+      if value.nil?
+        if arg = args.shift
+          value = arg
+        else
+          value = nil
+        end
+      end
+      ENV[key] = value || ""
+    end
+  end
+
+  def cleanup_jobs
+    @jobs.reject! do |job|
+      job.state == :DORMANT
+    end
+  end
+
 end
 

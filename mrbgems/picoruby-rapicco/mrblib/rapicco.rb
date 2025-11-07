@@ -1,4 +1,10 @@
 require 'yaml'
+require 'terminus'
+begin
+  require 'shinonome'
+rescue LoadError
+  # ignore. mayby MicroRuby
+end
 
 class Rapicco
   COLORS = {
@@ -21,15 +27,32 @@ class Rapicco
   end
 
   def run
+    print "\e[?25l" # hide cursor
     print "\e[?1049h" # DECSET 1049
+    print "\e[2J" # clear screen
     next_page
     start = now = Time.now.to_i
     while true
-      500.times do
+      100.times do
         sleep_ms 1
-        case c = STDIN.read_nonblock(1)&.ord
-        when 3 # Ctrl-C
-          raise Interrupt
+        begin
+          c = STDIN.read_nonblock(1)&.ord
+        rescue Interrupt
+          return
+        rescue SignalException => e
+          if e.message == "SIGTSTP"
+            print "\e[?25h"   # show cursor
+            print "\e[?1049l" # DECRST 1049
+            puts "\nSuspended"
+            Signal.trap(:CONT) do
+              print "\e[?25l" # hide cursor
+              print "\e[?1049h" # DECSET 1049
+              ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+            end
+            Signal.raise(:TSTP)
+          end
+        end
+        case c
         when 12 # Ctrl-L
           @slide.get_screen_size
           current_page = @current_page
@@ -52,11 +75,12 @@ class Rapicco
       end
     end
   rescue => e
-    puts e.message
   ensure
     @file.close
     print "\e[?25h"   # show cursor
-    print "\e[?1049l" # DECRST 1049
+    puts "\e[?1049l" # DECRST 1049
+    puts "Interrupted"
+    puts "Error: #{e.message}" if e
   end
 
   private
@@ -65,7 +89,6 @@ class Rapicco
     return if page == @current_page
     @file.seek(@positions[page])
     page_data = @file.read(@positions[page + 1] - @positions[page])
-    # Note: mruby/c does not support String#each_line
     page_data&.each_line { |line| @parser.parse(line) }
     lines = @parser.dump
     @slide.render_slide(lines)
@@ -129,7 +152,9 @@ class Rapicco
     config = YAML.load(yaml)
     sprite_author = config["sprite"] || "hasumikin"
     @rapiko = Rapicco::Sprite.new(:rapiko, sprite_author)
+    came_pos = @camerlengo&.pos
     @camerlengo = Rapicco::Sprite.new(:camerlengo, sprite_author)
+    @camerlengo.pos = came_pos if came_pos
     @parser = Rapicco::Parser.new
     @parser.title_font = config["title_font"] if config["title_font"]
     @parser.font = config["font"] if config["font"]
@@ -142,7 +167,7 @@ class Rapicco
     @current_page = -1
     @duration = config["duration"].to_i || 60*30
     @interval = @duration.to_f / @slide.page_w
-    @note_color = config["note_color"].to_sym || :white
+    @note_color = config["note_color"]&.to_sym || :white
   end
 
 end

@@ -1,7 +1,17 @@
 #include <mrubyc.h>
+#include "picoruby/debug.h"
 
 #define SS() \
   SandboxState *ss = (SandboxState *)v->instance->data
+
+static void
+mrbc_sandbox_free(mrbc_value *self)
+{
+  SandboxState *ss = (SandboxState *)self->instance->data;
+//  mrc_irep_free(ss->cc, ss->irep); // Can't free code in ROM
+  free_ccontext(ss);
+}
+
 
 static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -56,14 +66,18 @@ c_sandbox_result(mrbc_vm *vm, mrbc_value *v, int argc)
     console_printf("Oops, return value is gone\n");
     SET_NIL_RETURN();
   } else {
-    SET_RETURN(sandbox_vm->regs[ss->cc->scope_sp]);
+    mrbc_value result = sandbox_vm->regs[ss->cc->scope_sp];
+    mrbc_incref(&result);
+    SET_RETURN(result);
   }
 }
 
 static void
 c_sandbox_stop(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  // no-op
+  SS();
+  mrbc_terminate_task(ss->tcb);
+  SET_TRUE_RETURN();
 }
 
 static void
@@ -162,11 +176,13 @@ static void
 c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
+  if (ss->irep && ss->cc) {
+    D("Warning: leaking irep\n");
+    mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
+  }
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  mrbc_value mrb = v[1];
-  ss->vm_code = mrb.string->data;
-  mrb.string->data = NULL;
-  mrb.string->size = 0;
+  ss->vm_code = GET_STRING_ARG(1);
   if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
     SET_TRUE_RETURN();
   } else {
@@ -178,6 +194,11 @@ static void
 c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
+  if (ss->irep && ss->cc) {
+    D("Warning: leaking irep\n");
+    mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
+  }
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
   ss->vm_code = (uint8_t *)(intptr_t)GET_INT_ARG(1);
   if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
@@ -185,6 +206,14 @@ c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
   } else {
     SET_FALSE_RETURN();
   }
+}
+
+static void
+c_sandbox_resume(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SS();
+  mrbc_resume_task(ss->tcb);
+  SET_TRUE_RETURN();
 }
 
 static void
@@ -204,12 +233,12 @@ c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  static uint8_t *sandbox_task = NULL;
+  static uint8_t *suspend_vm_code = NULL;
   mrbc_value sandbox = mrbc_instance_new(vm, v->cls, sizeof(SandboxState));
   SandboxState *ss = (SandboxState *)sandbox.instance->data;
   memset(ss, 0, sizeof(SandboxState));
 
-  if (!sandbox_task) {
+  if (!suspend_vm_code) {
     ss->cc = mrc_ccontext_new(NULL);
 
     const uint8_t *script = (const uint8_t *)"Task.current.suspend";
@@ -223,17 +252,19 @@ c_sandbox_new(mrbc_vm *vm, mrbc_value *v, int argc)
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
       return;
     }
-    sandbox_task = ss->vm_code;
+    suspend_vm_code = ss->vm_code;
     mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
     free_ccontext(ss);
+    ss->cc = NULL;
   }
-  if (!sandbox_task) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to compile sandbox_task");
+  if (!suspend_vm_code) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to compile suspend_vm_code");
     return;
   }
 
   ss->tcb = mrbc_tcb_new(MAX_REGS_SIZE, MRBC_TASK_DEFAULT_STATE, MRBC_TASK_DEFAULT_PRIORITY);
-  mrbc_create_task(sandbox_task, ss->tcb);
+  mrbc_create_task(suspend_vm_code, ss->tcb);
   ss->tcb->vm.flag_permanence = 1;
   const char *name;
   if (0 == argc) {
@@ -256,18 +287,21 @@ c_sandbox_terminate(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Sandbox = mrbc_define_class(vm, "Sandbox", mrbc_class_object);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "compile", c_sandbox_compile);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "compile_from_memory", c_sandbox_compile_from_memory);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "execute", c_sandbox_execute);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "state",   c_sandbox_state);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "result",  c_sandbox_result);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "error",   c_sandbox_error);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "stop",    c_sandbox_stop);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "suspend", c_sandbox_suspend);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "free_parser", c_sandbox_free_parser);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "new",     c_sandbox_new);
-  mrbc_define_method(vm, mrbc_class_Sandbox, "terminate", c_sandbox_terminate);
+  mrbc_class *class_Sandbox = mrbc_define_class(vm, "Sandbox", mrbc_class_object);
+  mrbc_define_destructor(class_Sandbox, mrbc_sandbox_free);
+
+  mrbc_define_method(vm, class_Sandbox, "compile", c_sandbox_compile);
+  mrbc_define_method(vm, class_Sandbox, "compile_from_memory", c_sandbox_compile_from_memory);
+  mrbc_define_method(vm, class_Sandbox, "resume",  c_sandbox_resume);
+  mrbc_define_method(vm, class_Sandbox, "execute", c_sandbox_execute);
+  mrbc_define_method(vm, class_Sandbox, "state",   c_sandbox_state);
+  mrbc_define_method(vm, class_Sandbox, "result",  c_sandbox_result);
+  mrbc_define_method(vm, class_Sandbox, "error",   c_sandbox_error);
+  mrbc_define_method(vm, class_Sandbox, "stop",    c_sandbox_stop);
+  mrbc_define_method(vm, class_Sandbox, "suspend", c_sandbox_suspend);
+  mrbc_define_method(vm, class_Sandbox, "free_parser", c_sandbox_free_parser);
+  mrbc_define_method(vm, class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
+  mrbc_define_method(vm, class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);
+  mrbc_define_method(vm, class_Sandbox, "new",     c_sandbox_new);
+  mrbc_define_method(vm, class_Sandbox, "terminate", c_sandbox_terminate);
 }

@@ -18,6 +18,27 @@ class CYW43
     return true
   end
 
+  def self.tcpip_link_status_name
+    case tcpip_link_status
+    when LINK_DOWN
+      "LINK_DOWN"
+    when LINK_JOIN
+      "LINK_JOIN"
+    when LINK_NOIP
+      "LINK_NOIP"
+    when LINK_UP
+      "LINK_UP"
+    when LINK_FAIL
+      "LINK_FAIL"
+    when LINK_NONET
+      "LINK_NONET"
+    when LINK_BADAUTH
+      "LINK_BADAUTH"
+    else
+      "UNKNOWN_STATUS"
+    end
+  end
+
   def self.link_connected?(print_status = false)
     result = false
     status = case tcpip_link_status

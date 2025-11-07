@@ -12,19 +12,20 @@ class Shell
   type rtc_t = PCF8523
 
   type device_t = GPIO | ADC | I2C | SPI | UART | PWM
-  DeviceInstances: Hash[String, device_t]
-  def self.get_device: (:gpio, String | Symbol name) -> GPIO
-                     | (:adc,  String | Symbol name) -> ADC
-                     | (:i2c,  String | Symbol name) -> I2C
-                     | (:spi,  String | Symbol name) -> SPI
-                     | (:uart, String | Symbol name) -> UART
-                     | (:pwm,  String | Symbol name) -> PWM
+  DeviceInstances: Hash[String, device_t | nil]
+  def self.get_device: (:gpio, String | Symbol name) -> GPIO?
+                     | (:adc,  String | Symbol name) -> ADC?
+                     | (:i2c,  String | Symbol name) -> I2C?
+                     | (:spi,  String | Symbol name) -> SPI?
+                     | (:uart, String | Symbol name) -> UART?
+                     | (:pwm,  String | Symbol name) -> PWM?
 
   LOGO_WIDTH: Integer
   LOGO: Array[String]
   AUTHOR: String
   AUTHOR_COLOR: Integer
   @editor: Editor::Line
+  @jobs: Array[Job]
 
   def self.next_executable: -> {code: String, path: String, crc: Integer}
   def self.setup_rtc: (rtc_t trc) -> void
@@ -35,10 +36,31 @@ class Shell
   def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
   def self.bootstrap: (String file) -> bool
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
+  def self.find_executable: (String name) -> String?
 
   def initialize: (?clean: bool) -> void
   def show_logo: (?Integer color_num)-> void
   def start: (?Symbol mode) -> nil
   def run_shell: -> void
   def run_irb: -> void
+
+  def builtin?: (String name) -> bool
+  def execute_ast: (Parser::Node ast) -> void
+  def execute_command_node: (Parser::Node node) -> void
+  def execute_pipeline_node: (Parser::Node node) -> void
+  def execute_with_file_redirect: (Array[String] cmd_args, String? redirect_in, String? redirect_out, Symbol? redirect_mode) -> void
+  def execute_builtin_with_redirect: (String name, Array[String] args, String? redirect_in, String? redirect_out, Symbol? redirect_mode) -> void
+
+  private def _type: (*untyped args) -> void
+  private def _echo: (*untyped args) -> void
+  private def _pwd: (*untyped args) -> void
+  private def _cd: (*untyped args) -> void
+  private def _exit: (*untyped args) -> void
+  private def _quit: (*untyped args) -> void
+  private def _reboot: (*untyped args) -> void
+  private def _jobs: (*untyped args) -> void
+  private def _fg: (*untyped args) -> void
+  private def _bg: (*untyped args) -> void
+  private def _export: (*untyped args) -> void
+  private def cleanup_jobs: () -> void
 end

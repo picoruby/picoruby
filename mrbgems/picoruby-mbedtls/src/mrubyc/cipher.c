@@ -1,4 +1,6 @@
-#include <mrubyc.h>
+#include <stdio.h>
+#include "mrubyc.h"
+#include "picoruby/debug.h"
 
 static void
 c_mbedtls_cipher_new(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -17,34 +19,24 @@ c_mbedtls_cipher_new(mrbc_vm *vm, mrbc_value *v, int argc)
       mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
       return;
   }
-  mbedtls_cipher_type_t cipher_type;
+  int cipher_type;
   uint8_t key_len, iv_len;
-  mbedtls_cipher_type_key_iv_len(cipher_name, &cipher_type, &key_len, &iv_len);
-  if (cipher_type == MBEDTLS_CIPHER_NONE) {
+  D("Cipher.new: cipher_name='%s'\n", cipher_name);
+  Mbedtls_cipher_type_key_iv_len(cipher_name, &cipher_type, &key_len, &iv_len);
+  D("Cipher.new: cipher_type=%d, key_len=%d, iv_len=%d\n", cipher_type, key_len, iv_len);
+  if (cipher_type == 0) {
+    D("Cipher.new: unsupported cipher suite '%s'\n", cipher_name);
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unsupported cipher suite");
     return;
   }
 
-  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(cipher_instance_t));
-  cipher_instance_t *instance_data = (cipher_instance_t *)self.instance->data;
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
-  mbedtls_cipher_init(ctx);
-  instance_data->cipher_type = cipher_type;
-  instance_data->operation = MBEDTLS_OPERATION_NONE;
-  instance_data->key_len = key_len;
-  instance_data->iv_len = iv_len;
-  instance_data->key_set = false;
-  instance_data->iv_set = false;
-
-  const mbedtls_cipher_info_t *cipher_info = mbedtls_cipher_info_from_type(cipher_type);
-  int ret;
-  ret = mbedtls_cipher_setup(ctx, cipher_info);
-  if (ret != 0) {
-    if (ret == MBEDTLS_ERR_CIPHER_BAD_INPUT_DATA) {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setup failed (bad input data)");
-    } else {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setup failed");
-    }
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_cipher_instance_size());
+  int ret = MbedTLS_cipher_new(self.instance->data, cipher_type, key_len, iv_len);
+  if (ret == CIPHER_BAD_INPUT_DATA) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setup failed (bad input data)");
+    return;
+  } else if (ret == CIPHER_FAILED_TO_SETUP) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setup failed");
     return;
   }
   SET_RETURN(self);
@@ -55,7 +47,8 @@ c_mbedtls_cipher_ciphers(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_value ret = mrbc_array_new(vm, CIPHER_SUITES_COUNT);
   for (int i = 0; i < CIPHER_SUITES_COUNT; i++) {
-    mrbc_value str = mrbc_string_new_cstr(vm, cipher_suites[i].name);
+    const char *cipher_name = MbedTLS_cipher_cipher_name(i);
+    mrbc_value str = mrbc_string_new_cstr(vm, cipher_name);
     mrbc_array_set(&ret, i, &str);
   }
   SET_RETURN(ret);
@@ -64,22 +57,22 @@ c_mbedtls_cipher_ciphers(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_cipher_encrypt(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  instance_data->operation = MBEDTLS_ENCRYPT;
+  uint8_t *cipher_instance = v->instance->data;
+  MbedTLS_cipher_set_encrypt_to_operation(cipher_instance);
 }
 
 static void
 c_mbedtls_cipher_decrypt(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  instance_data->operation = MBEDTLS_DECRYPT;
+  uint8_t *cipher_instance = v->instance->data;
+  MbedTLS_cipher_set_decrypt_to_operation(cipher_instance);
 }
 
 static void
 c_mbedtls_cipher_key_len(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  SET_INT_RETURN(instance_data->key_len);
+  uint8_t *cipher_instance = v->instance->data;
+  SET_INT_RETURN(MbedTLS_cipher_get_key_len(cipher_instance));
 }
 
 static void
@@ -95,37 +88,20 @@ c_mbedtls_cipher_key_eq(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  if (instance_data->key_set) {
-    console_printf("[WARN] key should be set once per instance, ignoring\n");
-    return;
-  }
-  if (instance_data->operation == MBEDTLS_OPERATION_NONE) {
+  uint8_t *cipher_instance = v->instance->data;
+
+  int ret = MbedTLS_cipher_set_key(cipher_instance, (const uint8_t *)key.string->data, key.string->size * 8);
+
+  if (ret == CIPHER_ALREADY_SET) {
+    D("[WARN] key should be set once per instance, ignoring\n");
+  } else if (ret == CIPHER_OPERATION_NOT_SET) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "operation is not set");
-    return;
-  }
-  if (key.string->size != instance_data->key_len) {
+  } else if (ret == CIPHER_INVALID_LENGTH) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "key length is invalid");
-    return;
-  }
-
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
-
-  int ret;
-  ret = mbedtls_cipher_setkey(ctx, key.string->data, key.string->size * 8, instance_data->operation); /* last arg is keybits */
-  if (ret != 0) {
+  } else if (ret != CIPHER_SUCCESS) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_setkey failed");
-    return;
-  }
-  if (mbedtls_cipher_is_cbc(instance_data->cipher_type)) {
-    ret = mbedtls_cipher_set_padding_mode(ctx, MBEDTLS_PADDING_PKCS7);
-    if (ret != 0) {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_set_padding_mode failed");
-      return;
-    }
   }
 
-  instance_data->key_set = true;
   mrbc_incref(&v[0]);
   mrbc_incref(&key);
   SET_RETURN(key);
@@ -134,8 +110,8 @@ c_mbedtls_cipher_key_eq(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_cipher_iv_len(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  SET_INT_RETURN(instance_data->iv_len);
+  uint8_t *cipher_instance = v->instance->data;
+  SET_INT_RETURN(MbedTLS_cipher_get_iv_len(cipher_instance));
 }
 
 static void
@@ -151,35 +127,20 @@ c_mbedtls_cipher_iv_eq(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  if (instance_data->iv_set) {
-    console_printf("[WARN] iv should be set once per instance, ignoring\n");
-    return;
-  }
-  if (instance_data->operation == MBEDTLS_OPERATION_NONE) {
+  uint8_t *cipher_instance = v->instance->data;
+
+  int ret = MbedTLS_cipher_set_iv(cipher_instance, (const uint8_t *)iv.string->data, iv.string->size);
+
+  if (ret == CIPHER_ALREADY_SET) {
+    D("[WARN] iv should be set once per instance, ignoring\n");
+  } else if (ret == CIPHER_OPERATION_NOT_SET) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "operation is not set");
-    return;
-  }
-  if (iv.string->size != instance_data->iv_len) {
+  } else if (ret == CIPHER_INVALID_LENGTH) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "iv length is invalid");
-    return;
-  }
-
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
-
-  int ret;
-  ret = mbedtls_cipher_set_iv(ctx, iv.string->data, iv.string->size);
-  if (ret != 0) {
+  } else if (ret != CIPHER_SUCCESS) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_set_iv failed");
-    return;
-  }
-  ret = mbedtls_cipher_reset(ctx);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_reset failed");
-    return;
   }
 
-  instance_data->iv_set = true;
   mrbc_incref(&v[0]);
   mrbc_incref(&iv);
   SET_RETURN(iv);
@@ -198,12 +159,9 @@ c_mbedtls_cipher_update_ad(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  int ret;
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
+  uint8_t *cipher_instance = v->instance->data;
 
-  ret = mbedtls_cipher_update_ad(ctx, input.string->data, input.string->size);
-  if (ret != 0) {
+  if (MbedTLS_cipher_update_ad(cipher_instance, (const uint8_t *)input.string->data, input.string->size) != CIPHER_SUCCESS) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_update_ad failed");
     return;
   }
@@ -225,18 +183,17 @@ c_mbedtls_cipher_update(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  unsigned char* output = mrbc_alloc(vm, input.string->size + 16); // need at least input length + block size
   size_t out_len = input.string->size + 16;
-  int ret;
+  unsigned char* output = mrbc_alloc(vm, out_len);
 
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
+  uint8_t *cipher_instance = v->instance->data;
 
-  ret = mbedtls_cipher_update(ctx, input.string->data, input.string->size, output, &out_len);
-  if (ret != 0) {
+  if (MbedTLS_cipher_update(cipher_instance, (const uint8_t *)input.string->data, input.string->size, output, &out_len) != CIPHER_SUCCESS) {
+    mrbc_free(vm, output);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_update failed");
     return;
   }
+
   mrbc_value ret_value = mrbc_string_new(vm, output, out_len);
   mrbc_free(vm, output);
   mrbc_incref(&v[0]);
@@ -246,16 +203,17 @@ c_mbedtls_cipher_update(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_cipher_finish(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  unsigned char* output = mrbc_alloc(vm, 16); // need at least block size
   size_t out_len = 16;
-  int ret;
+  unsigned char* output = mrbc_alloc(vm, out_len);
+  int mbedtls_err;
 
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
+  uint8_t *cipher_instance = v->instance->data;
 
-  ret = mbedtls_cipher_finish(ctx, output, &out_len);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_finish failed");
+  if (MbedTLS_cipher_finish(cipher_instance, output, &out_len, &mbedtls_err) != CIPHER_SUCCESS) {
+    char error_buf[200];
+    MbedTLS_strerror(mbedtls_err, error_buf, 100);
+    snprintf(error_buf + strlen(error_buf), 100, " (error code: %d)", mbedtls_err);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), error_buf);
     return;
   }
   mrbc_value ret_value = mrbc_string_new(vm, output, out_len);
@@ -267,15 +225,20 @@ c_mbedtls_cipher_finish(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_cipher_write_tag(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int ret;
   size_t tag_len = 16;
-  unsigned char* tag = mrbc_alloc(vm, tag_len); // tag size is 16 for AES-*-GCM and ChaCha20-Poly1305
-                                                //
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
+  unsigned char* tag = mrbc_alloc(vm, tag_len);
+  uint8_t *cipher_instance = v->instance->data;
 
-  ret = mbedtls_cipher_write_tag(ctx, tag, tag_len);
-  if (ret != 0) {
+  int ret = MbedTLS_cipher_write_tag(cipher_instance, tag, &tag_len);
+
+  if (ret == CIPHER_NOT_AEAD) {
+    mrbc_free(vm, tag);
+    mrbc_value ret_value = mrbc_string_new_cstr(vm, "");
+    SET_RETURN(ret_value);
+    return;
+  }
+  if (ret != CIPHER_SUCCESS) {
+    mrbc_free(vm, tag);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_write_tag failed");
     return;
   }
@@ -299,19 +262,15 @@ c_mbedtls_cipher_check_tag(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  int ret;
-  cipher_instance_t *instance_data = (cipher_instance_t *)v->instance->data;
-  mbedtls_cipher_context_t *ctx = &instance_data->ctx;
+  uint8_t *cipher_instance = v->instance->data;
 
-  ret = mbedtls_cipher_check_tag(ctx, input.string->data, input.string->size);
-  if (ret == MBEDTLS_ERR_CIPHER_AUTH_FAILED) {
-    mrbc_incref(&v[0]);
+  int ret = MbedTLS_cipher_check_tag(cipher_instance, (const unsigned char *)input.string->data, input.string->size);
+
+  if (ret == CIPHER_AUTH_FAILED) {
     SET_BOOL_RETURN(MRBC_TT_FALSE);
-  } else if (ret != 0) {
+  } else if (ret != CIPHER_SUCCESS) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_cipher_check_tag failed");
-    return;
   } else {
-    mrbc_incref(&v[0]);
     SET_BOOL_RETURN(MRBC_TT_TRUE);
   }
 }
