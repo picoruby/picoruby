@@ -8,7 +8,7 @@
 #include "../../include/irq.h"
 
 /*
- * IRQ.register_gpio(event_type, opts)
+ * IRQ.register_gpio(pin, event_type, opts)
  */
 static mrb_value
 mrb_s_register_gpio(mrb_state *mrb, mrb_value self)
