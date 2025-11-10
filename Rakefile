@@ -13,6 +13,7 @@ $LOAD_PATH << File.join(MRUBY_ROOT, "lib")
 require "mruby/core_ext"
 require "mruby/build"
 require "picoruby/build"
+require "picoruby/runtime_gems"
 
 # load configuration file
 MRUBY_CONFIG = MRuby::Build.mruby_config_path
@@ -37,6 +38,9 @@ load "#{MRUBY_ROOT}/tasks/benchmark.rake"
 load "#{MRUBY_ROOT}/tasks/gitlab.rake"
 load "#{MRUBY_ROOT}/tasks/doc.rake"
 
+task :runtime_gems => RuntimeGems.export(
+  output_dir: "#{MRUBY_ROOT}/runtime_gems",
+)
 
 ##############################
 # generic build targets, rules
