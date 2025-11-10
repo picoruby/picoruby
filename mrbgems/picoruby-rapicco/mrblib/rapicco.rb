@@ -18,8 +18,10 @@ class Rapicco
     white:   "\e[37m",
   }
 
-  def initialize(path)
+  def initialize(path, cols: nil, rows: nil)
     @path = path
+    @export_cols = cols
+    @export_rows = rows
     refresh
   rescue => e
     puts e.message
@@ -160,7 +162,7 @@ class Rapicco
     @parser.font = config["font"] if config["font"]
     @parser.bold_color = config["bold_color"] if config["bold_color"]
     @parser.align = config["align"].to_sym if config["align"]
-    @slide = Rapicco::Slide.new(usakame_h: @rapiko.height)
+    @slide = Rapicco::Slide.new(usakame_h: @rapiko.height, cols: @export_cols, rows: @export_rows)
     @slide.line_margin = config["line_margin"].to_i if config["line_margin"]
     @slide.code_indent = config["code_indent"].to_i if config["code_indent"]
     @slide.bullet = Rapicco::Sprite.new(:bullet, sprite_author)
