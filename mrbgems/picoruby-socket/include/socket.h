@@ -56,13 +56,17 @@ const char* TCPSocket_remote_host(picorb_socket_t *sock);
 int TCPSocket_remote_port(picorb_socket_t *sock);
 bool TCPSocket_closed(picorb_socket_t *sock);
 
-/* UDP Socket API (to be implemented in Phase 2) */
+/* UDP Socket API */
 bool UDPSocket_create(picorb_socket_t *sock);
+bool UDPSocket_bind(picorb_socket_t *sock, const char *host, int port);
+bool UDPSocket_connect(picorb_socket_t *sock, const char *host, int port);
+ssize_t UDPSocket_send(picorb_socket_t *sock, const void *data, size_t len);
 ssize_t UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
                           const char *host, int port);
 ssize_t UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
-                            char *host, int *port);
+                            char *host, size_t host_len, int *port);
 bool UDPSocket_close(picorb_socket_t *sock);
+bool UDPSocket_closed(picorb_socket_t *sock);
 
 /* TCP Server API (to be implemented in Phase 3) */
 typedef struct picorb_tcp_server picorb_tcp_server_t;
