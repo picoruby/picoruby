@@ -448,7 +448,7 @@ mrb_tcp_server_close(mrb_state *mrb, mrb_value self)
 
 /* Initialize gem */
 void
-mrb_picoruby_socket_gem_init(mrb_state *mrb)
+mrb_picoruby_socket_class_gem_init(mrb_state *mrb)
 {
   struct RClass *basic_socket_class;
   struct RClass *tcp_socket_class;
@@ -492,7 +492,7 @@ mrb_picoruby_socket_gem_init(mrb_state *mrb)
 }
 
 void
-mrb_picoruby_socket_gem_final(mrb_state *mrb)
+mrb_picoruby_socket_class_gem_final(mrb_state *mrb)
 {
   /* Nothing to do */
 }

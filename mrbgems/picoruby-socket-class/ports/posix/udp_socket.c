@@ -15,6 +15,11 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+/* Prevent name collision with embedded Ruby bytecode */
+#ifdef socket
+#undef socket
+#endif
+
 /*
  * Create a new UDP socket
  */

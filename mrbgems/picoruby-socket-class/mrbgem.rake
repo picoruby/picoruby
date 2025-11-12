@@ -1,8 +1,10 @@
-MRuby::Gem::Specification.new('picoruby-socket') do |spec|
+MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
   spec.license = 'MIT'
   spec.author  = 'PicoRuby developers'
   spec.summary = 'CRuby-compatible Socket implementation for PicoRuby'
   spec.description = 'Provides TCPSocket, UDPSocket, and TCPServer classes compatible with CRuby'
+
+  spec.require_name = 'socket'
 
   # Add include directory
   spec.cc.include_paths << "#{dir}/include"
