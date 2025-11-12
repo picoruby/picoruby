@@ -7,7 +7,9 @@
 class NetHTTPTest < Picotest::Test
   # Test 1: Net::HTTP class exists
   def test_net_http_class_exists
-    assert_true defined?(Net::HTTP)
+    # Just try to instantiate it - if class doesn't exist, this will fail
+    http = Net::HTTP.new('example.com', 80)
+    assert_true http.is_a?(Net::HTTP)
   end
 
   # Test 2: Net::HTTP can be instantiated
@@ -59,7 +61,9 @@ class NetHTTPTest < Picotest::Test
 
   # Test 10: HTTPResponse class exists
   def test_http_response_class_exists
-    assert_true defined?(Net::HTTPResponse)
+    # Just try to instantiate it - if class doesn't exist, this will fail
+    response = Net::HTTPResponse.new('200', 'OK', '1.1')
+    assert_true response.is_a?(Net::HTTPResponse)
   end
 
   # Test 11: HTTPResponse can be instantiated
@@ -85,7 +89,9 @@ class NetHTTPTest < Picotest::Test
 
   # Test 14: HTTPRequest class exists
   def test_http_request_class_exists
-    assert_true defined?(Net::Get)
+    # Just try to instantiate it - if class doesn't exist, this will fail
+    req = Net::Get.new('/')
+    assert_true req.is_a?(Net::HTTPGenericRequest)
   end
 
   # Test 15: HTTPRequest can be instantiated
