@@ -492,7 +492,14 @@ module Net
 
       # Create socket connection
       begin
-        @socket = TCPSocket.new(@address, @port)
+        tcp_socket = TCPSocket.new(@address, @port)
+
+        # Wrap with SSLSocket if SSL is enabled
+        if @use_ssl
+          @socket = SSLSocket.new(tcp_socket, @address)
+        else
+          @socket = tcp_socket
+        end
       rescue => e
         raise IOError, "Failed to connect to #{@address}:#{@port} - #{e.message}"
       end

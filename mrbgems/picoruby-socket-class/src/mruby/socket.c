@@ -446,6 +446,198 @@ mrb_tcp_server_close(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/* Data type for SSLSocket */
+static void
+mrb_ssl_socket_free(mrb_state *mrb, void *ptr)
+{
+  if (ptr) {
+    picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)ptr;
+    if (!SSLSocket_closed(ssl_sock)) {
+      SSLSocket_close(ssl_sock);
+    }
+  }
+}
+
+static const struct mrb_data_type mrb_ssl_socket_type = {
+  "SSLSocket", mrb_ssl_socket_free,
+};
+
+/* SSLSocket.new(tcp_socket, hostname) */
+static mrb_value
+mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
+{
+  mrb_value tcp_socket_obj;
+  const char *hostname = NULL;
+  picorb_socket_t *tcp_socket;
+  picorb_ssl_socket_t *ssl_sock;
+
+  mrb_get_args(mrb, "o|z", &tcp_socket_obj, &hostname);
+
+  /* Get underlying TCP socket */
+  tcp_socket = (picorb_socket_t *)mrb_data_get_ptr(mrb, tcp_socket_obj, &mrb_tcp_socket_type);
+  if (!tcp_socket) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "first argument must be a TCPSocket");
+  }
+
+  if (!tcp_socket->connected) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "TCP socket is not connected");
+  }
+
+  /* Create SSL socket wrapping TCP socket */
+  ssl_sock = SSLSocket_create(tcp_socket, hostname);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
+  }
+
+  /* Initialize SSL/TLS and perform handshake */
+  if (!SSLSocket_init(ssl_sock)) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL handshake failed");
+  }
+
+  mrb_data_init(self, ssl_sock, &mrb_ssl_socket_type);
+
+  return self;
+}
+
+/* ssl_socket.write(data) */
+static mrb_value
+mrb_ssl_socket_write(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+  mrb_value data;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  mrb_get_args(mrb, "S", &data);
+
+  ssize_t sent = SSLSocket_send(ssl_sock, RSTRING_PTR(data), RSTRING_LEN(data));
+  if (sent < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL send failed");
+  }
+
+  return mrb_fixnum_value(sent);
+}
+
+/* ssl_socket.read(maxlen = nil) */
+static mrb_value
+mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+  mrb_int maxlen = 4096;  /* Default buffer size */
+  mrb_value buf;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  mrb_get_args(mrb, "|i", &maxlen);
+
+  if (maxlen <= 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "maxlen must be positive");
+  }
+
+  /* Allocate buffer */
+  char *read_buf = (char *)mrb_malloc(mrb, maxlen);
+  if (!read_buf) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
+  }
+
+  ssize_t received = SSLSocket_recv(ssl_sock, read_buf, maxlen);
+  if (received < 0) {
+    mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL recv failed");
+  }
+
+  /* EOF */
+  if (received == 0) {
+    mrb_free(mrb, read_buf);
+    return mrb_nil_value();
+  }
+
+  buf = mrb_str_new(mrb, read_buf, received);
+  mrb_free(mrb, read_buf);
+
+  return buf;
+}
+
+/* ssl_socket.close */
+static mrb_value
+mrb_ssl_socket_close(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  if (!SSLSocket_close(ssl_sock)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL close failed");
+  }
+
+  /* Clear the data pointer to prevent double-free */
+  DATA_PTR(self) = NULL;
+
+  return mrb_nil_value();
+}
+
+/* ssl_socket.closed? */
+static mrb_value
+mrb_ssl_socket_closed_p(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    return mrb_true_value();
+  }
+
+  return mrb_bool_value(SSLSocket_closed(ssl_sock));
+}
+
+/* ssl_socket.remote_host */
+static mrb_value
+mrb_ssl_socket_remote_host(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  const char *host = SSLSocket_remote_host(ssl_sock);
+  if (!host) {
+    return mrb_nil_value();
+  }
+
+  return mrb_str_new_cstr(mrb, host);
+}
+
+/* ssl_socket.remote_port */
+static mrb_value
+mrb_ssl_socket_remote_port(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  int port = SSLSocket_remote_port(ssl_sock);
+  if (port < 0) {
+    return mrb_nil_value();
+  }
+
+  return mrb_fixnum_value(port);
+}
+
 /* Initialize gem */
 void
 mrb_picoruby_socket_class_gem_init(mrb_state *mrb)
@@ -454,6 +646,7 @@ mrb_picoruby_socket_class_gem_init(mrb_state *mrb)
   struct RClass *tcp_socket_class;
   struct RClass *udp_socket_class;
   struct RClass *tcp_server_class;
+  struct RClass *ssl_socket_class;
 
   /* BasicSocket class */
   basic_socket_class = mrb_define_class(mrb, "BasicSocket", mrb->object_class);
@@ -489,6 +682,18 @@ mrb_picoruby_socket_class_gem_init(mrb_state *mrb)
   mrb_define_method(mrb, tcp_server_class, "initialize", mrb_tcp_server_initialize, MRB_ARGS_ARG(1, 1));
   mrb_define_method(mrb, tcp_server_class, "accept", mrb_tcp_server_accept, MRB_ARGS_NONE());
   mrb_define_method(mrb, tcp_server_class, "close", mrb_tcp_server_close, MRB_ARGS_NONE());
+
+  /* SSLSocket class */
+  ssl_socket_class = mrb_define_class(mrb, "SSLSocket", basic_socket_class);
+  MRB_SET_INSTANCE_TT(ssl_socket_class, MRB_TT_DATA);
+
+  mrb_define_method(mrb, ssl_socket_class, "initialize", mrb_ssl_socket_initialize, MRB_ARGS_ARG(1, 1));
+  mrb_define_method(mrb, ssl_socket_class, "write", mrb_ssl_socket_write, MRB_ARGS_REQ(1));
+  mrb_define_method(mrb, ssl_socket_class, "read", mrb_ssl_socket_read, MRB_ARGS_OPT(1));
+  mrb_define_method(mrb, ssl_socket_class, "close", mrb_ssl_socket_close, MRB_ARGS_NONE());
+  mrb_define_method(mrb, ssl_socket_class, "closed?", mrb_ssl_socket_closed_p, MRB_ARGS_NONE());
+  mrb_define_method(mrb, ssl_socket_class, "remote_host", mrb_ssl_socket_remote_host, MRB_ARGS_NONE());
+  mrb_define_method(mrb, ssl_socket_class, "remote_port", mrb_ssl_socket_remote_port, MRB_ARGS_NONE());
 }
 
 void

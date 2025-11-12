@@ -75,6 +75,18 @@ picorb_tcp_server_t* TCPServer_create(int port, int backlog);
 picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_tcp_server_t *server);
 
+/* SSL Socket API (Phase 5) */
+typedef struct picorb_ssl_socket picorb_ssl_socket_t;
+
+picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, const char *hostname);
+bool SSLSocket_init(picorb_ssl_socket_t *ssl_sock);
+ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
+ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
+bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock);
+bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock);
+const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock);
+int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock);
+
 /* Address resolution */
 bool resolve_address(const char *host, char *ip, size_t ip_len);
 

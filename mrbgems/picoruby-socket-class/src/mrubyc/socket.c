@@ -20,6 +20,9 @@
 /* Instance variable name for server handle */
 #define SERVER_HANDLE_IV "_server_handle"
 
+/* Instance variable name for SSL socket handle */
+#define SSL_SOCKET_HANDLE_IV "_ssl_socket_handle"
+
 /* Global reference to TCPSocket class for accept() */
 static mrbc_class *g_class_TCPSocket = NULL;
 
@@ -67,6 +70,29 @@ set_server_ptr(mrbc_value *self, picorb_tcp_server_t *server)
 {
   mrbc_value handle_val = mrbc_integer_value((intptr_t)server);
   mrbc_instance_setiv(self, mrbc_str_to_symid(SERVER_HANDLE_IV), &handle_val);
+}
+
+/*
+ * Get SSL socket pointer from instance variable
+ */
+static picorb_ssl_socket_t*
+get_ssl_socket_ptr(mrbc_value *self)
+{
+  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SSL_SOCKET_HANDLE_IV));
+  if (handle_val.tt != MRBC_TT_INTEGER) {
+    return NULL;
+  }
+  return (picorb_ssl_socket_t *)(intptr_t)handle_val.i;
+}
+
+/*
+ * Set SSL socket pointer to instance variable
+ */
+static void
+set_ssl_socket_ptr(mrbc_value *self, picorb_ssl_socket_t *ssl_sock)
+{
+  mrbc_value handle_val = mrbc_integer_value((intptr_t)ssl_sock);
+  mrbc_instance_setiv(self, mrbc_str_to_symid(SSL_SOCKET_HANDLE_IV), &handle_val);
 }
 
 /*
@@ -718,6 +744,267 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
+ * SSLSocket.new(tcp_socket, hostname=nil) -> SSLSocket
+ */
+static void
+c_ssl_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc < 1 || argc > 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get TCP socket argument */
+  mrbc_value tcp_socket_obj = GET_ARG(1);
+  picorb_socket_t *tcp_socket = get_socket_ptr(&tcp_socket_obj);
+
+  if (!tcp_socket) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "first argument must be a TCPSocket");
+    return;
+  }
+
+  if (!tcp_socket->connected) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "TCP socket is not connected");
+    return;
+  }
+
+  /* Get hostname argument (optional) */
+  const char *hostname = NULL;
+  if (argc == 2) {
+    mrbc_value hostname_arg = GET_ARG(2);
+    if (hostname_arg.tt == MRBC_TT_STRING) {
+      hostname = (const char *)hostname_arg.string->data;
+    }
+  }
+
+  /* Create SSL socket wrapping TCP socket */
+  picorb_ssl_socket_t *ssl_sock = SSLSocket_create(tcp_socket, hostname);
+  if (!ssl_sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
+    return;
+  }
+
+  /* Initialize SSL/TLS and perform handshake */
+  if (!SSLSocket_init(ssl_sock)) {
+    SSLSocket_close(ssl_sock);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL handshake failed");
+    return;
+  }
+
+  /* Store SSL socket pointer in instance variable */
+  set_ssl_socket_ptr(&v[0], ssl_sock);
+}
+
+/*
+ * ssl_socket.write(data) -> Integer
+ */
+static void
+c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
+    return;
+  }
+
+  /* Check argument type */
+  mrbc_value data = GET_ARG(1);
+  if (data.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "data must be a String");
+    return;
+  }
+
+  /* Send data */
+  ssize_t sent = SSLSocket_send(ssl_sock, (const void *)data.string->data, data.string->size);
+  if (sent < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL send failed");
+    return;
+  }
+
+  SET_INT_RETURN(sent);
+}
+
+/*
+ * ssl_socket.read(maxlen = 4096) -> String or nil
+ */
+static void
+c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc > 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
+    return;
+  }
+
+  /* Get maxlen parameter (default: 4096) */
+  int maxlen = 4096;
+  if (argc == 1) {
+    mrbc_value maxlen_arg = GET_ARG(1);
+    if (maxlen_arg.tt != MRBC_TT_INTEGER) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
+      return;
+    }
+    maxlen = (int)maxlen_arg.i;
+    if (maxlen <= 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "maxlen must be positive");
+      return;
+    }
+  }
+
+  /* Allocate buffer */
+  char *buffer = (char *)mrbc_raw_alloc(maxlen);
+  if (!buffer) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
+    return;
+  }
+
+  /* Receive data */
+  ssize_t received = SSLSocket_recv(ssl_sock, buffer, maxlen);
+
+  if (received < 0) {
+    mrbc_raw_free(buffer);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL recv failed");
+    return;
+  }
+
+  if (received == 0) {
+    /* EOF */
+    mrbc_raw_free(buffer);
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Create string and return */
+  mrbc_value ret = mrbc_string_new(vm, buffer, received);
+  mrbc_raw_free(buffer);
+  SET_RETURN(ret);
+}
+
+/*
+ * ssl_socket.close -> nil
+ */
+static void
+c_ssl_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    /* Already closed or not initialized */
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Close SSL socket */
+  SSLSocket_close(ssl_sock);
+
+  /* Clear instance variable */
+  mrbc_value zero_val = mrbc_integer_value(0);
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(SSL_SOCKET_HANDLE_IV), &zero_val);
+
+  SET_NIL_RETURN();
+}
+
+/*
+ * ssl_socket.closed? -> true or false
+ */
+static void
+c_ssl_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    SET_TRUE_RETURN();
+    return;
+  }
+
+  /* Check if SSL socket is closed */
+  bool is_closed = SSLSocket_closed(ssl_sock);
+  if (is_closed) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+/*
+ * ssl_socket.remote_host -> String
+ */
+static void
+c_ssl_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Get remote host */
+  const char *host = SSLSocket_remote_host(ssl_sock);
+  if (!host || host[0] == '\0') {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  SET_RETURN(mrbc_string_new_cstr(vm, host));
+}
+
+/*
+ * ssl_socket.remote_port -> Integer
+ */
+static void
+c_ssl_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Get remote port */
+  int port = SSLSocket_remote_port(ssl_sock);
+  if (port < 0) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  SET_INT_RETURN(port);
+}
+
+/*
  * Initialize mruby/c socket bindings
  */
 void
@@ -758,4 +1045,16 @@ mrbc_socket_class_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_TCPServer, "initialize", c_tcp_server_initialize);
   mrbc_define_method(vm, class_TCPServer, "accept", c_tcp_server_accept);
   mrbc_define_method(vm, class_TCPServer, "close", c_tcp_server_close);
+
+  /* Define SSLSocket class */
+  mrbc_class *class_SSLSocket = mrbc_define_class(vm, "SSLSocket", class_BasicSocket);
+
+  /* SSLSocket methods */
+  mrbc_define_method(vm, class_SSLSocket, "initialize", c_ssl_socket_initialize);
+  mrbc_define_method(vm, class_SSLSocket, "write", c_ssl_socket_write);
+  mrbc_define_method(vm, class_SSLSocket, "read", c_ssl_socket_read);
+  mrbc_define_method(vm, class_SSLSocket, "close", c_ssl_socket_close);
+  mrbc_define_method(vm, class_SSLSocket, "closed?", c_ssl_socket_closed_q);
+  mrbc_define_method(vm, class_SSLSocket, "remote_host", c_ssl_socket_remote_host);
+  mrbc_define_method(vm, class_SSLSocket, "remote_port", c_ssl_socket_remote_port);
 }
