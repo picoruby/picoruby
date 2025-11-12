@@ -606,9 +606,10 @@ module Net
         use_ssl = false
       end
 
-      start(host, port) do |http|
-        http.use_ssl = use_ssl if use_ssl
-        response = http.get(path)
+      http = new(host, port)
+      http.use_ssl = use_ssl if use_ssl
+      http.start do |h|
+        response = h.get(path)
         return response.body
       end
     end
@@ -629,9 +630,10 @@ module Net
         use_ssl = false
       end
 
-      start(host, port) do |http|
-        http.use_ssl = use_ssl if use_ssl
-        http.get(path)
+      http = new(host, port)
+      http.use_ssl = use_ssl if use_ssl
+      http.start do |h|
+        h.get(path)
       end
     end
 
@@ -642,16 +644,11 @@ module Net
       req['content-type'] = 'application/x-www-form-urlencoded'
       req.body = URI.encode_www_form(params)
 
-      start(uri.host, uri.port) do |http|
-        http.use_ssl = (uri.scheme == 'https')
-        http.request(req)
+      http = new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == 'https')
+      http.start do |h|
+        h.request(req)
       end
-    end
-
-    # Class method: Start HTTP session
-    def self.start(address, port = nil, &block)
-      http = new(address, port)
-      http.start(&block)
     end
 
     private
