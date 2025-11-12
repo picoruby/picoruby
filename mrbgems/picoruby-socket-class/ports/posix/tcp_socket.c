@@ -8,6 +8,11 @@
 #include <errno.h>
 #include <fcntl.h>
 
+/* Prevent name collision with embedded Ruby bytecode */
+#ifdef socket
+#undef socket
+#endif
+
 /* Create a new TCP socket */
 bool
 TCPSocket_create(picorb_socket_t *sock)

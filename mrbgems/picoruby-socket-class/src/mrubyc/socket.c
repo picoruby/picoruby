@@ -107,6 +107,10 @@ c_tcp_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  /* Initialize socket structure to zero */
+  memset(sock, 0, sizeof(picorb_socket_t));
+  sock->fd = -1;
+
   /* Connect to remote host */
   const char *host_str = (const char *)host.string->data;
   int port_num = (int)port.i;
@@ -717,7 +721,7 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
  * Initialize mruby/c socket bindings
  */
 void
-mrbc_socket_init(mrbc_vm *vm)
+mrbc_socket_class_init(mrbc_vm *vm)
 {
   /* Define BasicSocket class */
   mrbc_class *class_BasicSocket = mrbc_define_class(vm, "BasicSocket", mrbc_class_object);

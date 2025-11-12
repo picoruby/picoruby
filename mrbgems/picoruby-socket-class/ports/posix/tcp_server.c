@@ -7,6 +7,11 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Prevent name collision with embedded Ruby bytecode */
+#ifdef socket
+#undef socket
+#endif
+
 /* TCP Server structure for POSIX */
 typedef struct picorb_tcp_server {
   int listen_fd;
