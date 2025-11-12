@@ -17,6 +17,12 @@
 /* Instance variable name for socket handle */
 #define SOCKET_HANDLE_IV "_socket_handle"
 
+/* Instance variable name for server handle */
+#define SERVER_HANDLE_IV "_server_handle"
+
+/* Global reference to TCPSocket class for accept() */
+static mrbc_class *g_class_TCPSocket = NULL;
+
 /*
  * Get socket pointer from instance variable
  */
@@ -38,6 +44,29 @@ set_socket_ptr(mrbc_value *self, picorb_socket_t *sock)
 {
   mrbc_value handle_val = mrbc_integer_value((intptr_t)sock);
   mrbc_instance_setiv(self, mrbc_str_to_symid(SOCKET_HANDLE_IV), &handle_val);
+}
+
+/*
+ * Get server pointer from instance variable
+ */
+static picorb_tcp_server_t*
+get_server_ptr(mrbc_value *self)
+{
+  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SERVER_HANDLE_IV));
+  if (handle_val.tt != MRBC_TT_INTEGER) {
+    return NULL;
+  }
+  return (picorb_tcp_server_t *)(intptr_t)handle_val.i;
+}
+
+/*
+ * Set server pointer to instance variable
+ */
+static void
+set_server_ptr(mrbc_value *self, picorb_tcp_server_t *server)
+{
+  mrbc_value handle_val = mrbc_integer_value((intptr_t)server);
+  mrbc_instance_setiv(self, mrbc_str_to_symid(SERVER_HANDLE_IV), &handle_val);
 }
 
 /*
@@ -568,6 +597,123 @@ c_udp_socket_recvfrom(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
+ * TCPServer.new(port, backlog=5) -> TCPServer
+ */
+static void
+c_tcp_server_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc < 1 || argc > 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get port argument */
+  mrbc_value port = GET_ARG(1);
+  if (port.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "port must be an Integer");
+    return;
+  }
+
+  /* Validate port range */
+  if (port.i <= 0 || port.i > 65535) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
+    return;
+  }
+
+  /* Get backlog argument (default: 5) */
+  int backlog = 5;
+  if (argc == 2) {
+    mrbc_value backlog_arg = GET_ARG(2);
+    if (backlog_arg.tt != MRBC_TT_INTEGER) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "backlog must be an Integer");
+      return;
+    }
+    backlog = (int)backlog_arg.i;
+    if (backlog <= 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "backlog must be positive");
+      return;
+    }
+  }
+
+  /* Create TCP server */
+  picorb_tcp_server_t *server = TCPServer_create((int)port.i, backlog);
+  if (!server) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create TCP server");
+    return;
+  }
+
+  /* Store server pointer in instance variable */
+  set_server_ptr(&v[0], server);
+}
+
+/*
+ * server.accept -> TCPSocket
+ */
+static void
+c_tcp_server_accept(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get server pointer */
+  picorb_tcp_server_t *server = get_server_ptr(&v[0]);
+  if (!server) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "server is not initialized");
+    return;
+  }
+
+  /* Check if TCPSocket class is available */
+  if (!g_class_TCPSocket) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "TCPSocket class not initialized");
+    return;
+  }
+
+  /* Accept client connection (blocking) */
+  picorb_socket_t *client = TCPServer_accept(server);
+  if (!client) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to accept client");
+    return;
+  }
+
+  /* Create TCPSocket object */
+  mrbc_value client_obj = mrbc_instance_new(vm, g_class_TCPSocket, 0);
+  set_socket_ptr(&client_obj, client);
+
+  SET_RETURN(client_obj);
+}
+
+/*
+ * server.close -> nil
+ */
+static void
+c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get server pointer */
+  picorb_tcp_server_t *server = get_server_ptr(&v[0]);
+  if (!server) {
+    /* Already closed or not initialized */
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Close server */
+  TCPServer_close(server);
+
+  /* Clear instance variable */
+  mrbc_value zero_val = mrbc_integer_value(0);
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(SERVER_HANDLE_IV), &zero_val);
+
+  SET_NIL_RETURN();
+}
+
+/*
  * Initialize mruby/c socket bindings
  */
 void
@@ -578,6 +724,7 @@ mrbc_socket_init(mrbc_vm *vm)
 
   /* Define TCPSocket class */
   mrbc_class *class_TCPSocket = mrbc_define_class(vm, "TCPSocket", class_BasicSocket);
+  g_class_TCPSocket = class_TCPSocket;  /* Save for accept() */
 
   /* TCPSocket methods */
   mrbc_define_method(vm, class_TCPSocket, "initialize", c_tcp_socket_initialize);
@@ -599,4 +746,12 @@ mrbc_socket_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_UDPSocket, "recvfrom", c_udp_socket_recvfrom);
   mrbc_define_method(vm, class_UDPSocket, "close", c_tcp_socket_close);
   mrbc_define_method(vm, class_UDPSocket, "closed?", c_tcp_socket_closed_q);
+
+  /* Define TCPServer class */
+  mrbc_class *class_TCPServer = mrbc_define_class(vm, "TCPServer", class_BasicSocket);
+
+  /* TCPServer methods */
+  mrbc_define_method(vm, class_TCPServer, "initialize", c_tcp_server_initialize);
+  mrbc_define_method(vm, class_TCPServer, "accept", c_tcp_server_accept);
+  mrbc_define_method(vm, class_TCPServer, "close", c_tcp_server_close);
 }
