@@ -13,7 +13,7 @@ MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
   spec.add_dependency 'picoruby-mbedtls'  # Phase 5: SSL/TLS support
 
   # Add mbedtls include path for SSL support
-  mbedtls_dir = "#{MRUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls"
+  mbedtls_dir = "#{dir}/../picoruby-mbedtls/lib/mbedtls"
   if File.directory?(mbedtls_dir)
     spec.cc.include_paths << "#{mbedtls_dir}/include"
   end
