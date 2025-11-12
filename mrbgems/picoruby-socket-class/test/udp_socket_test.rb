@@ -1,6 +1,11 @@
+require 'socket'
+
 class UDPSocketTest < Picotest::Test
   def test_udp_socket_class_exists
-    assert_equal(Class, UDPSocket.class)
+    # Just try to instantiate it - if class doesn't exist, this will fail
+    socket = UDPSocket.new
+    assert_true socket.is_a?(UDPSocket)
+    socket.close
   end
 
   def test_udp_socket_new

@@ -1,3 +1,5 @@
+require 'socket'
+
 class TCPSocketTest < Picotest::Test
   def test_basic_socket_methods_exist
     # Ruby-defined methods should be visible

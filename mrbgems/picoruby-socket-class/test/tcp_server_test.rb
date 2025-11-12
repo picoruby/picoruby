@@ -4,6 +4,8 @@
 # Full client-server integration tests require threading or
 # non-blocking I/O which may not be available in all environments.
 
+require 'socket'
+
 class TCPServerTest < Picotest::Test
   # Test 1: TCPServer class exists
   def test_tcp_server_class_exists
