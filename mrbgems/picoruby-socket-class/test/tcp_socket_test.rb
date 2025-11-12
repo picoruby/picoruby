@@ -19,10 +19,12 @@ class TCPSocketTest < Picotest::Test
     assert_true(methods.include?(:addr))
   end
 
-  # Note: The following tests require network connectivity
-  # and may fail in isolated environments.
-  # They are commented out to allow tests to pass in CI/isolated environments.
-  # Uncomment when running in an environment with network access.
+  # Note: The following tests require external network connectivity
+  # They are commented out because:
+  # 1. They depend on external services (example.com)
+  # 2. Integration tests with TCPServer require threading/async support
+  #    which is not available in the current test environment
+  # Uncomment when running in an environment with network access
 
   # def test_tcp_socket_connect
   #   socket = TCPSocket.new('example.com', 80)

@@ -67,11 +67,23 @@ class UDPSocketTest < Picotest::Test
     assert_true(sock.eof?)
   end
 
-  # Note: recvfrom tests are temporarily disabled due to implementation issues
-  # These will be implemented in Phase 2.5
+  # Note: recvfrom is not yet implemented in UDPSocket
+  # Uncomment when recvfrom is implemented
   # def test_udp_socket_recvfrom
   #   receiver = UDPSocket.new
-  #   receiver.bind('127.0.0.1', 9998)
-  #   ...
+  #   receiver.bind('127.0.0.1', 19005)
+  #
+  #   sender = UDPSocket.new
+  #   test_data = "Test message"
+  #   sender.send(test_data, 0, '127.0.0.1', 19005)
+  #
+  #   # Receive data with recvfrom
+  #   data, addr = receiver.recvfrom(100)
+  #   assert_equal(test_data, data)
+  #   assert_true(addr.is_a?(Array))
+  #   assert_equal(2, addr.length)  # [host, port]
+  #
+  #   sender.close
+  #   receiver.close
   # end
 end
