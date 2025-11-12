@@ -123,3 +123,8 @@
 //#endif
 
 #define MBEDTLS_ERROR_C
+
+#ifdef PICORB_PLATFORM_POSIX
+/* POSIX-specific configuration for network sockets */
+#define MBEDTLS_NET_C
+#endif
