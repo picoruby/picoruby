@@ -1,0 +1,325 @@
+/*
+ * mruby/c VM bindings for picoruby-socket
+ *
+ * This provides socket functionality for the mruby/c VM (PicoRuby)
+ */
+
+#include "../../include/socket.h"
+#include "mrubyc.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+/* Helper macros for instance variables */
+#define GETIV(str)      mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
+#define SETIV(str, val) mrbc_instance_setiv(&v[0], mrbc_str_to_symid(#str), val)
+
+/* Instance variable name for socket handle */
+#define SOCKET_HANDLE_IV "_socket_handle"
+
+/*
+ * Get socket pointer from instance variable
+ */
+static picorb_socket_t*
+get_socket_ptr(mrbc_value *self)
+{
+  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SOCKET_HANDLE_IV));
+  if (handle_val.tt != MRBC_TT_INTEGER) {
+    return NULL;
+  }
+  return (picorb_socket_t *)(intptr_t)handle_val.i;
+}
+
+/*
+ * Set socket pointer to instance variable
+ */
+static void
+set_socket_ptr(mrbc_value *self, picorb_socket_t *sock)
+{
+  mrbc_value handle_val = mrbc_integer_value((intptr_t)sock);
+  mrbc_instance_setiv(self, mrbc_str_to_symid(SOCKET_HANDLE_IV), &handle_val);
+}
+
+/*
+ * TCPSocket.new(host, port)
+ */
+static void
+c_tcp_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Check argument types */
+  mrbc_value host = GET_ARG(1);
+  mrbc_value port = GET_ARG(2);
+
+  if (host.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "host must be a String");
+    return;
+  }
+
+  if (port.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "port must be an Integer");
+    return;
+  }
+
+  /* Validate port range */
+  if (port.i <= 0 || port.i > 65535) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
+    return;
+  }
+
+  /* Allocate socket structure */
+  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
+  if (!sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
+    return;
+  }
+
+  /* Connect to remote host */
+  const char *host_str = (const char *)host.string->data;
+  int port_num = (int)port.i;
+
+  if (!TCPSocket_connect(sock, host_str, port_num)) {
+    mrbc_raw_free(sock);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to connect");
+    return;
+  }
+
+  /* Store socket pointer in instance variable */
+  set_socket_ptr(&v[0], sock);
+}
+
+/*
+ * socket.write(data) -> Integer
+ */
+static void
+c_tcp_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer */
+  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  if (!sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
+    return;
+  }
+
+  /* Check argument type */
+  mrbc_value data = GET_ARG(1);
+  if (data.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "data must be a String");
+    return;
+  }
+
+  /* Send data */
+  ssize_t sent = TCPSocket_send(sock, (const void *)data.string->data, data.string->size);
+  if (sent < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "send failed");
+    return;
+  }
+
+  SET_INT_RETURN(sent);
+}
+
+/*
+ * socket.read(maxlen = 4096) -> String or nil
+ */
+static void
+c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc > 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer */
+  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  if (!sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
+    return;
+  }
+
+  /* Get maxlen parameter (default: 4096) */
+  int maxlen = 4096;
+  if (argc == 1) {
+    mrbc_value maxlen_arg = GET_ARG(1);
+    if (maxlen_arg.tt != MRBC_TT_INTEGER) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
+      return;
+    }
+    maxlen = (int)maxlen_arg.i;
+    if (maxlen <= 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "maxlen must be positive");
+      return;
+    }
+  }
+
+  /* Allocate buffer */
+  char *buffer = (char *)mrbc_raw_alloc(maxlen);
+  if (!buffer) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
+    return;
+  }
+
+  /* Receive data */
+  ssize_t received = TCPSocket_recv(sock, buffer, maxlen);
+
+  if (received < 0) {
+    mrbc_raw_free(buffer);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "recv failed");
+    return;
+  }
+
+  if (received == 0) {
+    /* EOF */
+    mrbc_raw_free(buffer);
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Create string and return */
+  mrbc_value ret = mrbc_string_new(vm, buffer, received);
+  mrbc_raw_free(buffer);
+  SET_RETURN(ret);
+}
+
+/*
+ * socket.close -> nil
+ */
+static void
+c_tcp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer */
+  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  if (!sock) {
+    /* Already closed or not initialized */
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Close socket */
+  TCPSocket_close(sock);
+  mrbc_raw_free(sock);
+
+  /* Clear instance variable */
+  mrbc_value zero_val = mrbc_integer_value(0);
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(SOCKET_HANDLE_IV), &zero_val);
+
+  SET_NIL_RETURN();
+}
+
+/*
+ * socket.closed? -> true or false
+ */
+static void
+c_tcp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer */
+  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  if (!sock) {
+    SET_TRUE_RETURN();
+    return;
+  }
+
+  /* Check if socket is closed */
+  bool is_closed = TCPSocket_closed(sock);
+  if (is_closed) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+/*
+ * socket.remote_host -> String
+ */
+static void
+c_tcp_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer */
+  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  if (!sock) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Get remote host */
+  const char *host = TCPSocket_remote_host(sock);
+  if (!host || host[0] == '\0') {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  SET_RETURN(mrbc_string_new_cstr(vm, host));
+}
+
+/*
+ * socket.remote_port -> Integer
+ */
+static void
+c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer */
+  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  if (!sock) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  /* Get remote port */
+  int port = TCPSocket_remote_port(sock);
+  if (port < 0) {
+    SET_NIL_RETURN();
+    return;
+  }
+
+  SET_INT_RETURN(port);
+}
+
+/*
+ * Initialize mruby/c socket bindings
+ */
+void
+mrbc_socket_init(mrbc_vm *vm)
+{
+  /* Define BasicSocket class */
+  mrbc_class *class_BasicSocket = mrbc_define_class(vm, "BasicSocket", mrbc_class_object);
+
+  /* Define TCPSocket class */
+  mrbc_class *class_TCPSocket = mrbc_define_class(vm, "TCPSocket", class_BasicSocket);
+
+  /* TCPSocket methods */
+  mrbc_define_method(vm, class_TCPSocket, "initialize", c_tcp_socket_initialize);
+  mrbc_define_method(vm, class_TCPSocket, "write", c_tcp_socket_write);
+  mrbc_define_method(vm, class_TCPSocket, "read", c_tcp_socket_read);
+  mrbc_define_method(vm, class_TCPSocket, "close", c_tcp_socket_close);
+  mrbc_define_method(vm, class_TCPSocket, "closed?", c_tcp_socket_closed_q);
+  mrbc_define_method(vm, class_TCPSocket, "remote_host", c_tcp_socket_remote_host);
+  mrbc_define_method(vm, class_TCPSocket, "remote_port", c_tcp_socket_remote_port);
+}

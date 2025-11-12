@@ -8,18 +8,141 @@
 
 ## 📋 目次
 
-1. [プロジェクト概要](#プロジェクト概要)
-2. [背景と動機](#背景と動機)
-3. [設計方針](#設計方針)
-4. [アーキテクチャ](#アーキテクチャ)
-5. [picoruby-socketの詳細設計](#picoruby-socketの詳細設計)
-6. [picoruby-net-httpの詳細設計](#picoruby-net-httpの詳細設計)
-7. [IOとSocketの関係](#ioとsocketの関係)
-8. [TCPServerの実装](#tcpserverの実装)
-9. [TLS/SSL統合](#tlsssl統合)
-10. [実装計画とマイルストーン](#実装計画とマイルストーン)
-11. [CRuby互換性](#cruby互換性)
-12. [実現可能性の評価](#実現可能性の評価)
+1. [開発環境のセットアップ](#開発環境のセットアップ)
+2. [プロジェクト概要](#プロジェクト概要)
+3. [背景と動機](#背景と動機)
+4. [設計方針](#設計方針)
+5. [アーキテクチャ](#アーキテクチャ)
+6. [picoruby-socketの詳細設計](#picoruby-socketの詳細設計)
+7. [picoruby-net-httpの詳細設計](#picoruby-net-httpの詳細設計)
+8. [IOとSocketの関係](#ioとsocketの関係)
+9. [TCPServerの実装](#tcpserverの実装)
+10. [TLS/SSL統合](#tlsssl統合)
+11. [実装計画とマイルストーン](#実装計画とマイルストーン)
+12. [CRuby互換性](#cruby互換性)
+13. [実現可能性の評価](#実現可能性の評価)
+
+---
+
+## 開発環境のセットアップ
+
+### 初回セットアップ手順
+
+作業を開始する前に、以下の手順でリポジトリをセットアップしてください：
+
+#### 1. ブランチの取得
+
+```bash
+# リモートブランチをフェッチ
+git fetch origin <branch-name>
+
+# ブランチをチェックアウト
+git checkout <branch-name>
+```
+
+#### 2. サブモジュールの初期化
+
+PicoRubyプロジェクトは複数のサブモジュールに依存しています。初回セットアップ時や、サブモジュールエラーが発生した場合は以下を実行してください：
+
+```bash
+# すべてのサブモジュールを初期化して更新
+git submodule update --init --recursive
+```
+
+**必須サブモジュール**:
+- `mrbgems/mruby-compiler2` - mrubyコンパイラ
+- `mrbgems/mruby-bin-mrbc2` - mrbc実行ファイル
+- `mrbgems/picoruby-mrubyc/lib/mrubyc` - mruby/c VM
+- `mrbgems/picoruby-mruby/lib/mruby` - mruby VM
+- その他
+
+#### 3. Rakeコマンドのパス設定
+
+環境によってはrakeコマンドがPATHに含まれていない場合があります。以下の方法で解決してください：
+
+**方法1: rbenv環境の場合（推奨）**
+```bash
+export PATH="/opt/rbenv/versions/3.3.6/bin:$PATH"
+```
+
+**方法2: gem execを使用**
+```bash
+gem exec rake <task>
+```
+
+**恒久的な解決方法**:
+```bash
+# .bashrc または .zshrc に追加
+echo 'export PATH="/opt/rbenv/versions/3.3.6/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### 開発ワークフローのルール
+
+#### コミット管理
+
+**重要**: 各Phaseの作業は最終的に **1つのコミット** にまとめてください。
+
+**理由**:
+- 変更履歴が明確になる
+- レビューが容易になる
+- 必要に応じてPhase単位でrevertできる
+- プロジェクトの進捗が追いやすい
+
+**手順**:
+```bash
+# 作業中は通常通りコミット
+git add .
+git commit -m "WIP: implement feature X"
+git commit -m "WIP: fix issue Y"
+
+# Phase完了時に、コミットをまとめる
+git reset --soft <phase開始前のcommit-hash>
+git commit -m "Implement Phase N: <phase description>"
+
+# リモートにプッシュ（force pushが必要な場合）
+git push -u origin <branch-name> --force
+```
+
+#### コミットメッセージのルール
+
+**すべてのコミットメッセージは英語で記述してください**
+
+**良い例**:
+```
+Implement Phase 1: POSIX socket foundation
+Add mruby/c bindings for TCPSocket
+Fix memory leak in socket cleanup
+```
+
+**悪い例**:
+```
+Phase 1完了: POSIXソケット基盤
+TCPSocketのバインディング追加  # 日本語は使用しない
+```
+
+**コミットメッセージのフォーマット**:
+```
+<Type> Phase N: <Short description>
+
+<Optional detailed description>
+
+<Optional reference to issues/PRs>
+```
+
+**Type**:
+- `Implement` - 新機能実装
+- `Fix` - バグ修正
+- `Update` - 既存機能の更新
+- `Refactor` - リファクタリング
+- `Test` - テスト追加・修正
+- `Docs` - ドキュメント更新
+
+#### ブランチ運用
+
+- ブランチ名は `claude/<feature-name>-<session-id>` の形式
+- セッションIDが一致しない場合、pushは403エラーになる
+- 各Phaseは指定されたブランチで開発
 
 ---
 
@@ -1699,6 +1822,274 @@ end
 - ✅ HTTPS対応
 - ✅ マイコンでも動作する軽量実装
 - ✅ 豊富なドキュメントとサンプルコード
+
+---
+
+## テストとビルド
+
+### テスト方法
+
+PicoRubyには2つのVM実装があり、それぞれ異なるテストコマンドを使用します：
+
+#### mruby/c VM (PicoRuby) のテスト
+
+```bash
+# mruby/c実装をテスト
+rake test:gems:picoruby[picoruby-socket]
+```
+
+- **対象**: `src/mrubyc/socket.c` の実装
+- **用途**: 組み込み環境（Raspberry Pi Pico等）向け
+- **制約**: 限られた組み込みライブラリ、メタプログラミング機能が限定
+
+#### mruby VM (MicroRuby) のテスト
+
+```bash
+# mruby実装をテスト
+rake test:gems:microruby[picoruby-socket]
+```
+
+- **対象**: `src/mruby/socket.c` の実装
+- **用途**: POSIX環境（Linux/macOS）向け
+- **機能**: フル機能のRuby互換性
+
+#### VM切り替え時の注意
+
+VM実装を切り替える前には、必ず `rake clean` を実行してください：
+
+```bash
+# VM切り替え前にクリーン
+rake clean
+
+# その後、テストを実行
+rake test:gems:picoruby[picoruby-socket]
+# または
+rake test:gems:microruby[picoruby-socket]
+```
+
+#### テスト実行のベストプラクティス
+
+**重要**: ある程度まとまった作業が完了したら、必ず両方のVM実装に対してテストを実行してください。
+
+```bash
+# mruby/c実装のテスト
+rake clean && rake test:gems:picoruby[picoruby-socket]
+
+# mruby実装のテスト
+rake clean && rake test:gems:microruby[picoruby-socket]
+```
+
+**テストを実行すべきタイミング**:
+- 新しい機能を実装した後
+- バグ修正を行った後
+- リファクタリングを行った後
+- Phase完了時（コミット前に必須）
+- Pull Request作成前
+
+**理由**:
+- 両VM実装で動作を確認することで、互換性の問題を早期発見できる
+- mruby/c特有の制約による問題を見逃さない
+- ビルドキャッシュのクリーンにより、正確なテスト結果が得られる
+
+---
+
+## 開発TIPS
+
+このセクションでは、実際の開発中に発見した重要なヒントとベストプラクティスをまとめます。
+
+### ビルドシステムの仕組み
+
+#### VM別ソースファイルの自動切り替え
+
+PicoRubyのビルドシステムは、VM実装（mruby / mruby/c）に応じて自動的にソースファイルを切り替えます。
+
+**仕組み**:
+
+1. `src/socket.c` がビルド対象として自動的にコンパイルされる
+2. この中で `PICORB_VM_MRUBY` または `PICORB_VM_MRUBYC` マクロによって、適切なVMバインディングファイルをincludeする
+3. **重要**: `mrbgem.rake` で手動で objfile を追加する必要はない
+
+**ファイル構造例**:
+```
+mrbgems/picoruby-socket/
+├── src/
+│   ├── socket.c           # メインファイル（自動コンパイル対象）
+│   ├── mruby/
+│   │   └── socket.c       # mruby VM用バインディング
+│   └── mrubyc/
+│       └── socket.c       # mruby/c VM用バインディング
+└── ports/
+    └── posix/
+        └── tcp_socket.c   # POSIX実装（自動コンパイル対象）
+```
+
+**src/socket.c の実装パターン**:
+```c
+#include "../include/socket.h"
+
+#if defined(PICORB_VM_MRUBY)
+#include "mruby/socket.c"
+
+#elif defined(PICORB_VM_MRUBYC)
+#include "mrubyc/socket.c"
+
+#endif
+```
+
+**mrbgem.rake での設定**:
+```ruby
+MRuby::Gem::Specification.new('picoruby-socket') do |spec|
+  spec.license = 'MIT'
+  spec.author  = 'PicoRuby developers'
+
+  spec.cc.include_paths << "#{dir}/include"
+
+  # POSIX対応の宣言のみでOK
+  spec.posix
+
+  if build.posix?
+    spec.cc.defines << 'PICORB_PLATFORM_POSIX'
+  end
+
+  # 注意: objfile の手動追加は不要！
+  # ビルドシステムが src/ と ports/ 配下を自動で処理
+end
+```
+
+### 命名規則
+
+#### gem初期化関数の命名規則
+
+mruby VMでのgem初期化関数は、**gemの名前**に基づいて自動的に決定されます。
+
+**規則**:
+- gem名が `picoruby-socket` の場合
+- 初期化関数: `mrb_picoruby_socket_gem_init`（アンダースコアに変換）
+- 終了関数: `mrb_picoruby_socket_gem_final`
+
+**例**:
+
+```c
+// ❌ 間違い（mrubyという名前を使用）
+void mrb_mruby_socket_gem_init(mrb_state *mrb) { ... }
+void mrb_mruby_socket_gem_final(mrb_state *mrb) { ... }
+
+// ✅ 正しい（picorubyという名前を使用）
+void mrb_picoruby_socket_gem_init(mrb_state *mrb) { ... }
+void mrb_picoruby_socket_gem_final(mrb_state *mrb) { ... }
+```
+
+**エラーの症状**:
+関数名が正しくない場合、リンカーエラーが発生します：
+```
+undefined reference to `mrb_picoruby_socket_gem_init'
+undefined reference to `mrb_picoruby_socket_gem_final'
+```
+
+---
+
+### mruby/c (PicoRuby) の制約
+
+#### 限定された組み込みライブラリ
+
+mruby/c VMは組み込み環境向けに最適化されているため、以下の制約があります：
+
+1. **メタプログラミング機能が限定**
+   - `define_method`、`method_missing` 等は使用不可
+   - 動的なクラス定義に制約
+
+2. **使用可能なメタプログラミング機能**
+   - `picoruby-metaprog` gemの機能は使用可能
+   - 必要に応じて `mrbgem.rake` の依存関係に追加：
+
+   ```ruby
+   MRuby::Gem::Specification.new('picoruby-socket') do |spec|
+     # ... other config ...
+
+     # メタプログラミング機能が必要な場合
+     spec.add_dependency 'picoruby-metaprog'
+   end
+   ```
+
+3. **標準ライブラリの制約**
+   - File I/O、正規表現等の一部機能は制限される場合がある
+   - ソケット実装ではC言語レベルで実装
+
+4. **メモリ制約**
+   - 組み込み環境では数KB〜数百KB程度のメモリ
+   - バッファサイズや接続数に制限
+
+#### mruby/c実装の方針
+
+1. **シンプルなAPI**
+   - 複雑なメタプログラミングを避ける
+   - 直接的なメソッド定義
+
+2. **C言語での実装を優先**
+   - 複雑なロジックはC側で実装
+   - Ruby側は薄いラッパーに留める
+
+3. **エラーハンドリング**
+   - 例外よりも戻り値でのエラー通知を検討
+   - メモリ不足等の組み込み特有のエラーに対応
+
+### ビルド設定
+
+#### POSIX環境
+
+```ruby
+# mrbgem.rake
+if RUBY_PLATFORM =~ /linux|darwin|bsd|unix/i
+  spec.cc.defines << 'PICORB_PLATFORM_POSIX'
+  spec.objs += Dir.glob("#{dir}/ports/posix/*.c").map { |f|
+    objfile(f.pathmap("#{build_dir}/ports/posix/%n"))
+  }
+end
+```
+
+#### LwIP環境（Phase 6で実装）
+
+```ruby
+# mrbgem.rake
+else
+  # LwIP platform
+  spec.cc.defines << 'PICORB_PLATFORM_LWIP'
+  spec.objs += Dir.glob("#{dir}/src/*.c").map { |f|
+    objfile(f.pathmap("#{build_dir}/src/%n"))
+  }
+end
+```
+
+### デバッグ
+
+#### printfデバッグ
+
+```c
+#include <stdio.h>
+
+// mruby実装
+fprintf(stderr, "[DEBUG] socket fd=%d\n", sock->fd);
+
+// mruby/c実装
+// 環境によってはprintfが使えない場合がある
+#ifdef DEBUG
+  hal_write(1, "[DEBUG] socket connected\n", 26);
+#endif
+```
+
+#### ログレベル
+
+```c
+// socket.h
+#define SOCKET_LOG_ERROR   1
+#define SOCKET_LOG_WARN    2
+#define SOCKET_LOG_INFO    3
+#define SOCKET_LOG_DEBUG   4
+
+#ifndef SOCKET_LOG_LEVEL
+  #define SOCKET_LOG_LEVEL SOCKET_LOG_ERROR
+#endif
+```
 
 ---
 
