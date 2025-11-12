@@ -16,5 +16,6 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-shinonome"
   conf.gem core: "picoruby-bin-r2p2"
   conf.gem core: "picoruby-socket-class"
+  conf.gem core: "picoruby-net-http"
 end
 
