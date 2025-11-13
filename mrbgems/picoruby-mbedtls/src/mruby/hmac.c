@@ -1,13 +1,21 @@
 #include <stdio.h>
-#include <string.h>
 #include "mruby.h"
 #include "mruby/presym.h"
 #include "mruby/string.h"
 #include "mruby/data.h"
 #include "mruby/class.h"
-#include "mbedtls/md.h"
+#include "hmac.h"
 
-#include "md_context.h"
+static void
+mrb_hmac_context_free(mrb_state *mrb, void *ptr)
+{
+  MbedTLS_hmac_free(ptr);
+  mrb_free(mrb, ptr);
+}
+
+static const struct mrb_data_type mrb_hmac_context_type = {
+  "HmacContext", mrb_hmac_context_free,
+};
 
 static mrb_value
 mrb_initialize(mrb_state *mrb, mrb_value self)
@@ -16,35 +24,17 @@ mrb_initialize(mrb_state *mrb, mrb_value self)
   mrb_value key;
   mrb_get_args(mrb, "Sz", &key, &algorithm);
 
-  if (strcmp(algorithm, "sha256") != 0) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "unsupported hash algorithm");
+  void *hmac_instance = mrb_malloc(mrb, MbedTLS_hmac_instance_size());
+  DATA_PTR(self) = hmac_instance;
+  DATA_TYPE(self) = &mrb_hmac_context_type;
+
+  int ret = MbedTLS_hmac_init(hmac_instance, algorithm, (const unsigned char *)RSTRING_PTR(key), RSTRING_LEN(key));
+  if (ret != HMAC_SUCCESS) {
+    // TODO: more specific error message
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "HMAC init failed");
   }
 
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)mrb_malloc(mrb, sizeof(mbedtls_md_context_t));
-  DATA_PTR(self) = ctx;
-  DATA_TYPE(self) = &mrb_md_context_type;
-  mbedtls_md_init(ctx);
-  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  int ret;
-  ret = mbedtls_md_setup(ctx, md_info, 1); // 1 for HMAC
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_setup failed");
-  }
-
-  ret = mbedtls_md_hmac_starts(ctx, (const unsigned char *)RSTRING_PTR(key), RSTRING_LEN(key));
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_hmac_starts failed");
-  }
   return self;
-}
-
-static int
-check_finished(mrb_state *mrb, mbedtls_md_context_t *ctx)
-{
-  if (mbedtls_md_info_from_ctx(ctx) == NULL) { // mbedtls_md_free() makes md_info NULL
-    return -1;
-  }
-  return 0;
 }
 
 static mrb_value
@@ -53,14 +43,14 @@ mrb_update(mrb_state *mrb, mrb_value self)
   mrb_value input;
   mrb_get_args(mrb, "S", &input);
 
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)mrb_data_get_ptr(mrb, self, &mrb_md_context_type);
-  if (check_finished(mrb, ctx) != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "already finished");
-  }
-  int ret;
-  ret = mbedtls_md_hmac_update(ctx, (const unsigned char *)RSTRING_PTR(input), RSTRING_LEN(input));
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_hmac_update failed");
+  void *hmac_instance = mrb_data_get_ptr(mrb, self, &mrb_hmac_context_type);
+  int ret = MbedTLS_hmac_update(hmac_instance, (const unsigned char *)RSTRING_PTR(input), RSTRING_LEN(input));
+  if (ret != HMAC_SUCCESS) {
+    if (ret == HMAC_ALREADY_FINISHED) {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "already finished");
+    } else {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "HMAC update failed");
+    }
   }
   return self;
 }
@@ -68,55 +58,45 @@ mrb_update(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_reset(mrb_state *mrb, mrb_value self)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)mrb_data_get_ptr(mrb, self, &mrb_md_context_type);
-  int ret = mbedtls_md_hmac_reset(ctx);
-  if (ret != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_hmac_reset failed");
+  void *hmac_instance = mrb_data_get_ptr(mrb, self, &mrb_hmac_context_type);
+  int ret = MbedTLS_hmac_reset(hmac_instance);
+  if (ret != HMAC_SUCCESS) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "HMAC reset failed");
   }
   return self;
-}
-
-static int
-finish(mrb_state *mrb, unsigned char *output, mbedtls_md_context_t *ctx)
-{
-  int ret;
-  if (check_finished(mrb, ctx) != 0) {
-    return -1;
-  }
-  ret = mbedtls_md_hmac_finish(ctx, output);
-  if (ret != 0) {
-    return -1;
-  }
-  return 0;
 }
 
 static mrb_value
 mrb_digest(mrb_state *mrb, mrb_value self)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)mrb_data_get_ptr(mrb, self, &mrb_md_context_type);
+  void *hmac_instance = mrb_data_get_ptr(mrb, self, &mrb_hmac_context_type);
   unsigned char output[32]; // SHA256 produces 32 bytes output
-  if (finish(mrb, output, ctx) != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_hmac_finish failed");
+  int ret = MbedTLS_hmac_finish(hmac_instance, output);
+  if (ret != HMAC_SUCCESS) {
+    if (ret == HMAC_ALREADY_FINISHED) {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "already finished");
+    } else {
+      mrb_raise(mrb, E_RUNTIME_ERROR, "HMAC finish failed");
+    }
   }
   mrb_value digest = mrb_str_new(mrb, (const char *)output, sizeof(output));
-  //mrb_incref(&v[0]);
   return digest;
 }
 
 static mrb_value
 mrb_hexdigest(mrb_state *mrb, mrb_value self)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)mrb_data_get_ptr(mrb, self, &mrb_md_context_type);
+  void *hmac_instance = mrb_data_get_ptr(mrb, self, &mrb_hmac_context_type);
   unsigned char output[32]; // SHA256 produces 32 bytes output
-  if (finish(mrb, output, ctx) != 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_hmac_finish failed");
+  if (MbedTLS_hmac_finish(hmac_instance, output) != HMAC_SUCCESS) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "HMAC finish failed");
   }
-  char hexdigest[64]; // 32 bytes * 2
+  char hexdigest[65]; // 32 bytes * 2 + 1
   for (int i = 0; i < 32; i++) {
     sprintf(hexdigest + i * 2, "%02x", output[i]);
   }
+  hexdigest[64] = '\0';
   mrb_value result = mrb_str_new_cstr(mrb, hexdigest);
-  //mrb_incref(&v[0]);
   return result;
 }
 
