@@ -1,0 +1,81 @@
+require 'socket'
+
+module DRb
+  class DRbServer
+    def initialize(uri, front, config = {})
+      @uri = uri
+      @front = front
+      @config = config
+      @running = false
+
+      # Parse URI to get host and port
+      if uri =~ /druby:\/\/([^:]+):(\d+)/
+        @host = $1
+        @port = $2.to_i
+      else
+        raise DRbBadURI, "invalid URI: #{uri}"
+      end
+    end
+
+    attr_reader :uri, :front
+
+    def start
+      @running = true
+      @server = TCPServer.new(@host, @port)
+      puts "DRb server started on #{@uri}"
+      self
+    end
+
+    def stop
+      @running = false
+      @server.close if @server
+    end
+
+    def alive?
+      @running
+    end
+
+    def run
+      while @running
+        client = @server.accept
+        handle_client(client)
+      end
+    rescue => e
+      puts "Server error: #{e.message}"
+    ensure
+      stop
+    end
+
+    def accept
+      return nil unless @running
+      client = @server.accept
+      handle_client(client)
+    end
+
+    private
+
+    def handle_client(client)
+      msg = DRbMessage.new(client)
+
+      begin
+        # Receive request
+        ref, msg_id, args, block = msg.recv_request
+
+        # Determine the target object
+        obj = (ref.nil? || ref == @front) ? @front : ref
+
+        # Invoke the method
+        result = obj.send(msg_id, *args, &block)
+
+        # Send success reply
+        msg.send_reply(true, result)
+
+      rescue => e
+        # Send error reply
+        msg.send_reply(false, e)
+      ensure
+        client.close
+      end
+    end
+  end
+end
