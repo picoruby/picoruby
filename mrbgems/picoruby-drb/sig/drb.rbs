@@ -1,0 +1,115 @@
+class TCPSocket
+  def self.new: (String host, Integer port) -> TCPSocket
+  def write: (String data) -> Integer
+  def read: (Integer length) -> String?
+  def close: () -> void
+end
+
+class TCPServer
+  def self.new: (String host, Integer port) -> TCPServer
+  def accept: () -> TCPSocket
+  def close: () -> void
+end
+
+module DRb
+  class DRbError < StandardError
+  end
+
+  class DRbConnError < DRbError
+  end
+
+  class DRbBadURI < DRbError
+  end
+
+  class DRbUnknownError < DRbError
+    def initialize: (untyped err, String buf) -> void
+
+    attr_reader err: untyped
+    attr_reader buf: String
+  end
+
+  class DRbMessage
+    def initialize: (TCPSocket socket) -> void
+
+    def send_request: (untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> void
+
+    def recv_request: () -> ::Marshal::marshallable
+
+    def send_reply: (bool success, untyped result) -> void
+
+    def recv_reply: () -> ::Marshal::marshallable
+
+    private
+
+    def send_message: (String data) -> void
+
+    def recv_message: () -> String
+  end
+
+  class DRbObject
+    def initialize: (String uri, ?untyped? ref) -> void
+
+    attr_reader uri: String
+    attr_reader ref: untyped
+
+    def method_missing: (Symbol msg_id, *untyped args) ?{ (*untyped) -> untyped } -> untyped
+
+    def respond_to_missing?: (Symbol msg_id, ?bool include_private) -> bool
+
+    def ==: (untyped other) -> bool
+
+    def eql?: (untyped other) -> bool
+
+    def hash: () -> Integer
+  end
+
+  class DRbUnknown
+    def initialize: (untyped err, String buf) -> void
+
+    attr_reader err: untyped
+    attr_reader buf: String
+
+    def exception: () -> DRbUnknownError
+  end
+
+  class DRbServer
+    def initialize: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
+
+    attr_reader uri: String
+    attr_reader front: untyped
+
+    def start: () -> self
+
+    def stop: () -> void
+
+    def alive?: () -> bool
+
+    def run: () -> void
+
+    def accept: () -> void
+
+    private
+
+    def handle_client: (TCPSocket client) -> void
+  end
+
+  @primary_server: DRbServer?
+  @uri: String?
+
+  def self.primary_server: () -> DRbServer?
+  def self.primary_server=: (DRbServer? server) -> DRbServer?
+
+  def self.start_service: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
+
+  def self.stop_service: () -> void
+
+  def self.uri: () -> String?
+
+  def self.front: () -> untyped
+
+  def self.ref_object: (String uri) -> DRbObject
+
+  def self.send_message: (String uri, untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> untyped
+
+  def self.thread: () -> void
+end

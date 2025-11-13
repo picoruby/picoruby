@@ -24,8 +24,8 @@ module Marshal
     def load(data)
       raise ArgumentError, "marshal data too short" if data.size < 2
 
-      major = data[0].ord
-      minor = data[1].ord
+      major = data[0]&.ord || 0
+      minor = data[1]&.ord || 0
 
       if major != MAJOR_VERSION || minor != MINOR_VERSION
         raise TypeError, "incompatible marshal file format (can't be read)\n\tformat version #{major}.#{minor} required; #{MAJOR_VERSION}.#{MINOR_VERSION} given"
@@ -47,10 +47,13 @@ module Marshal
       when FalseClass
         TYPE_FALSE
       when Integer
+        # @type var obj: Integer
         dump_integer(obj)
       when String
+        # @type var obj: String
         dump_string(obj)
       when Symbol
+        # @type var obj: Symbol
         dump_symbol(obj)
       when Array
         dump_array(obj)
@@ -146,7 +149,7 @@ module Marshal
       when TYPE_HASH
         load_hash(data, pos)
       else
-        raise ArgumentError, "unsupported type: #{type.ord.to_s(16)}"
+        raise ArgumentError, "unsupported type: #{(type&.ord || 0).to_s(16)}"
       end
     end
 
@@ -158,7 +161,7 @@ module Marshal
     def decode_fixnum(data, pos)
       raise ArgumentError, "marshal data too short" if pos >= data.size
 
-      c = data[pos].ord
+      c = data[pos]&.ord || 0
       pos += 1
 
       if c == 0
@@ -169,41 +172,41 @@ module Marshal
         return [c - 251, pos]
       elsif c == 1
         raise ArgumentError, "marshal data too short" if pos >= data.size
-        n = data[pos].ord
+        n = data[pos]&.ord || 0
         return [n, pos + 1]
       elsif c == 2
         raise ArgumentError, "marshal data too short" if pos + 1 >= data.size
-        n = data[pos, 2].unpack('v')[0]
+        n = (data[pos, 2] || '').unpack('v')[0]
         return [n, pos + 2]
       elsif c == 3
         raise ArgumentError, "marshal data too short" if pos + 2 >= data.size
-        bytes = data[pos, 3].unpack('CCC')
+        bytes = (data[pos, 3] || '').unpack('CCC')
         n = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16)
         return [n, pos + 3]
       elsif c == 4
         raise ArgumentError, "marshal data too short" if pos + 3 >= data.size
-        n = data[pos, 4].unpack('V')[0]
+        n = (data[pos, 4] || '').unpack('V')[0]
         return [n, pos + 4]
       elsif c == 255
         raise ArgumentError, "marshal data too short" if pos >= data.size
-        n = data[pos].unpack('c')[0]
+        n = (data[pos] || '').unpack('c')[0]
         return [n, pos + 1]
       elsif c == 254
         raise ArgumentError, "marshal data too short" if pos + 1 >= data.size
-        n = data[pos, 2].unpack('v')[0]
+        n = (data[pos, 2] || '').unpack('v')[0]
         # Convert to signed
         n = n - 65536 if n > 32767
         return [n, pos + 2]
       elsif c == 253
         raise ArgumentError, "marshal data too short" if pos + 2 >= data.size
-        bytes = data[pos, 3].unpack('CCC')
+        bytes = (data[pos, 3] || '').unpack('CCC')
         n = bytes[0] | (bytes[1] << 8) | (bytes[2] << 16)
         # Convert to signed 24-bit
         n = n - 16777216 if n > 8388607
         return [n, pos + 3]
       elsif c == 252
         raise ArgumentError, "marshal data too short" if pos + 3 >= data.size
-        n = data[pos, 4].unpack('V')[0]
+        n = (data[pos, 4] || '').unpack('V')[0]
         # Convert to signed 32-bit
         n = n - 4294967296 if n > 2147483647
         return [n, pos + 4]
@@ -216,13 +219,16 @@ module Marshal
       len, pos = decode_fixnum(data, pos)
       raise ArgumentError, "marshal data too short" if pos + len > data.size
       str = data[pos, len]
-      [str, pos + len]
+      [str || '', pos + len]
     end
 
     def load_symbol(data, pos)
       len, pos = decode_fixnum(data, pos)
       raise ArgumentError, "marshal data too short" if pos + len > data.size
       name = data[pos, len]
+      if name.nil?
+        raise ArgumentError, "marshal data too short"
+      end
       [name.to_sym, pos + len]
     end
 

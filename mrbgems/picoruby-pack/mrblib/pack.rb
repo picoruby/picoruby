@@ -13,5 +13,3 @@ class String
     PackHelper.unpack_string(self, format)
   end
 end
-
-

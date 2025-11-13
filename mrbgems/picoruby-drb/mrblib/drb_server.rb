@@ -9,10 +9,16 @@ module DRb
       @running = false
 
       # Parse URI to get host and port
-      if uri =~ /druby:\/\/([^:]+):(\d+)/
-        @host = $1
-        @port = $2.to_i
-      else
+      if uri.start_with?("druby://")
+        if domain = uri[7..-1]
+          port_index = domain.index(':')
+          if port_index
+            @host = domain[0..port_index - 1]
+            @port = domain[(port_index + 1)..-1]&.to_i
+          end
+        end
+      end
+      if @host.nil? || @port.nil?
         raise DRbBadURI, "invalid URI: #{uri}"
       end
     end
