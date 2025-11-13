@@ -25,7 +25,18 @@ module DRb
     end
 
     def hash
-      [@uri, @ref].hash
+      h = 0
+      @uri.each_byte { |b| h = h * 31 + b }
+      if @ref.is_a?(String)
+        @ref.each_byte { |b| h = h * 31 + b }
+      elsif @ref.is_a?(Symbol)
+        @ref.to_s.each_byte { |b| h = h * 31 + b }
+      elsif @ref.is_a?(Integer)
+        h = h * 31 + @ref
+      else
+        h = h * 31 + @ref.object_id
+      end
+      h
     end
   end
 
