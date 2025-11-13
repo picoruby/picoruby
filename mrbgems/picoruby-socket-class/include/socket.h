@@ -24,24 +24,40 @@ typedef struct {
 } picorb_socket_t;
 #endif
 
-/* Socket structure for LwIP (to be implemented in Phase 6) */
+/* Socket structure for LwIP (rp2040 and other microcontrollers) */
 #ifndef PICORB_PLATFORM_POSIX
-struct altcp_pcb;  /* Forward declaration */
+
+/* Forward declarations for LwIP types */
+struct altcp_pcb;
+struct ip_addr;
+
+/* Socket states */
+#define SOCKET_STATE_NONE        0
+#define SOCKET_STATE_CONNECTING  1
+#define SOCKET_STATE_CONNECTED   2
+#define SOCKET_STATE_CLOSING     3
+#define SOCKET_STATE_CLOSED      4
+#define SOCKET_STATE_ERROR       99
 
 typedef struct {
   struct altcp_pcb *pcb;     /* LwIP control block */
-  char *recv_buf;
-  size_t recv_len;
-  size_t recv_capacity;
-  enum {
-    SOCKET_STATE_NONE,
-    SOCKET_STATE_CONNECTING,
-    SOCKET_STATE_CONNECTED,
-    SOCKET_STATE_CLOSED
-  } state;
-  char remote_host[256];
-  int remote_port;
+  char *recv_buf;            /* Receive buffer */
+  size_t recv_len;           /* Current data in buffer */
+  size_t recv_capacity;      /* Buffer capacity */
+  int state;                 /* Connection state */
+  char remote_host[256];     /* Remote hostname */
+  int remote_port;           /* Remote port */
+  int socktype;              /* SOCK_STREAM or SOCK_DGRAM */
 } picorb_socket_t;
+
+/* LwIP helper functions - implemented in ports/rp2040/ */
+#ifndef PICORB_NO_LWIP_HELPERS
+extern void lwip_begin(void);
+extern void lwip_end(void);
+extern void Net_sleep_ms(int ms);
+extern int Net_get_ip(const char *name, struct ip_addr *ip);
+#endif
+
 #endif
 
 /* TCP Socket API */
