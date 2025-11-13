@@ -1,7 +1,12 @@
+class PackHelper
+  def self.pack_array: (untyped array, String format) -> String
+  def self.unpack_string: (String string, String format) -> Array[Integer]
+end
+
 # @sidebar builtin
 # @added_by picoruby-pack
 class String
-  def self.pack: (String format, *untyped args) -> String
+  def unpack: (String format) -> Array[Integer]
 end
 
 # @sidebar builtin
