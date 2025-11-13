@@ -1947,10 +1947,6 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
   # POSIX対応の宣言のみでOK
   spec.posix
 
-  if build.posix?
-    spec.cc.defines << 'PICORB_PLATFORM_POSIX'
-  end
-
   # 注意: objfile の手動追加は不要！
   # ビルドシステムが src/ と ports/ 配下を自動で処理
 end
@@ -2034,18 +2030,6 @@ mruby/c VMは組み込み環境向けに最適化されているため、以下�
    - メモリ不足等の組み込み特有のエラーに対応
 
 ### ビルド設定
-
-#### POSIX環境
-
-```ruby
-# mrbgem.rake
-if RUBY_PLATFORM =~ /linux|darwin|bsd|unix/i
-  spec.cc.defines << 'PICORB_PLATFORM_POSIX'
-  spec.objs += Dir.glob("#{dir}/ports/posix/*.c").map { |f|
-    objfile(f.pathmap("#{build_dir}/ports/posix/%n"))
-  }
-end
-```
 
 #### LwIP環境（Phase 6で実装）
 

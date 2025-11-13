@@ -6,43 +6,20 @@ MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
 
   spec.require_name = 'socket'
 
+  # Dependencies
+  spec.add_dependency 'picoruby-mbedtls'  # Phase 5: SSL/TLS support
+  spec.add_conflict 'picoruby-net'
+
   # Add include directory
   spec.cc.include_paths << "#{dir}/include"
 
-  # Dependencies
-  spec.add_dependency 'picoruby-mbedtls'  # Phase 5: SSL/TLS support
-
   # Add mbedtls include path for SSL support
-  mbedtls_dir = "#{dir}/../picoruby-mbedtls/lib/mbedtls"
+  mbedtls_dir = "#{MRUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls"
   if File.directory?(mbedtls_dir)
     spec.cc.include_paths << "#{mbedtls_dir}/include"
   end
 
-  # Platform detection and conditional compilation
-  spec.posix
-
-  if build.posix?
-    #
-    # POSIX Build: Use standard UNIX sockets
-    #
-    puts "Building picoruby-socket-class for POSIX (using UNIX sockets)"
-    spec.cc.defines << 'PICORB_PLATFORM_POSIX'
-
-    # Add POSIX implementation files
-    %w[tcp_socket udp_socket tcp_server ssl_socket].each do |name|
-      src = "#{dir}/ports/posix/#{name}.c"
-      if File.exist?(src)
-        obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
-        spec.objs << obj
-      end
-    end
-
-  else
-    #
-    # Microcontroller Build (rp2040): Use LwIP network stack
-    #
-    puts "Building picoruby-socket-class for microcontroller (using LwIP)"
-
+  unless build.posix?
     # LwIP configuration
     LWIP_VERSION = "STABLE-2_2_1_RELEASE"
     LWIP_REPO = "https://github.com/lwip-tcpip/lwip"
@@ -68,18 +45,34 @@ MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
       sh "git clone -b #{LWIP_VERSION} #{LWIP_REPO} #{lwip_dir}"
     end
 
+    # Apply patches to LwIP
+    patch_file = "#{dir}/patches/lwip-altcp-proxyconnect.patch"
+    if File.exist?(patch_file)
+      proxyconnect_file = "#{lwip_dir}/src/apps/http/altcp_proxyconnect.c"
+      if File.exist?(proxyconnect_file)
+        patch_applied = `cd #{lwip_dir} && git apply --check #{patch_file} 2>&1`.strip
+        if patch_applied.empty?
+          sh "cd #{lwip_dir} && git apply #{patch_file}"
+          puts "Applied patch: lwip-altcp-proxyconnect.patch"
+        end
+      end
+    end
+
+    spec.cc.defines << 'PICO_CYW43_ARCH_POLL=1'
+
     # Add LwIP include paths
     spec.cc.include_paths << "#{lwip_dir}/src/include"
     spec.cc.include_paths << "#{lwip_dir}/contrib/ports/unix/port/include"
     spec.cc.include_paths << "#{lwip_dir}/src/apps/altcp_tls"
 
-    # Add rp2040 implementation files
-    %w[tcp_socket udp_socket tcp_server ssl_socket net_helpers].each do |name|
-      src = "#{dir}/ports/rp2040/#{name}.c"
-      if File.exist?(src)
-        obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
-        spec.objs << obj
-      end
+    # Compile LwIP source files
+    Dir.glob("#{lwip_dir}/src/**/*.c").each do |src|
+      next if src.end_with?('makefsdata.c')
+      next if src.end_with?('altcp_tls_mbedtls.c')
+      obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
+      spec.objs << obj
     end
   end
+
+  spec.posix
 end

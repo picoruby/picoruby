@@ -48,6 +48,8 @@ typedef struct {
   char remote_host[256];     /* Remote hostname */
   int remote_port;           /* Remote port */
   int socktype;              /* SOCK_STREAM or SOCK_DGRAM */
+  bool connected;
+  bool closed;
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -55,7 +57,8 @@ typedef struct {
 extern void lwip_begin(void);
 extern void lwip_end(void);
 extern void Net_sleep_ms(int ms);
-extern int Net_get_ip(const char *name, struct ip_addr *ip);
+/* Note: ip parameter type depends on LwIP configuration (ip_addr_t in implementation) */
+extern int Net_get_ip(const char *name, void *ip);
 #endif
 
 #endif
