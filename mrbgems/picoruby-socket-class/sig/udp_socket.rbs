@@ -1,0 +1,12 @@
+class UDPSocket
+  def initialize: (?Integer port) -> void
+  def bind: (String host, Integer port) -> void
+  def connect: (String host, Integer port) -> void
+  def send: (String data, Integer flags, ?String? host, ?Integer? port) -> Integer
+  def recvfrom: (Integer maxlen) -> [String, Array[String | Integer]]
+  def read: (?Integer maxlen) -> String?
+  def write: (String data) -> Integer
+  def eof?: () -> bool
+  def close: () -> void
+  def closed?: () -> bool
+end

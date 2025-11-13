@@ -689,8 +689,8 @@ module Net
       end
 
       # Parse headers to determine body reading strategy
-      header_end = response.index("\r\n\r\n")
-      headers_part = response[0..header_end + 3]
+      header_end = response.index("\r\n\r\n") || 0
+      headers_part = response[0..header_end + 3] || ''
 
       # Check for Content-Length (case-insensitive search)
       headers_lower = headers_part.downcase
@@ -700,7 +700,7 @@ module Net
         start_idx = cl_idx + 15  # length of "content-length:"
         line_end = headers_part.index("\r\n", start_idx)
         if line_end
-          value_str = headers_part[start_idx..(line_end - 1)].strip
+          value_str = headers_part[start_idx..(line_end - 1)]&.strip || ''
           # Parse integer from string
           content_length = 0
           value_str.each_char do |c|
