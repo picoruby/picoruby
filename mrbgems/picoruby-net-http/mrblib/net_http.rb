@@ -395,13 +395,19 @@ module Net
         lines << "#{formatted_key}: #{value}"
       end
 
-      # Empty line between headers and body
-      lines << ""
+      # Join headers with CRLF
+      result = lines.join("\r\n")
+
+      # Add CRLF after headers
+      result += "\r\n"
+
+      # Add empty line to separate headers from body
+      result += "\r\n"
 
       # Body (if present)
-      lines << @body if @body
+      result += @body if @body
 
-      lines.join("\r\n")
+      result
     end
 
     # Check if request expects a response body
