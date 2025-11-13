@@ -591,7 +591,9 @@ module Net
     end
 
     # Class method: Simple GET request
-    def self.get(uri_or_host, path = nil, port = nil)
+    # Note: Renamed from 'get' to avoid mruby/c limitation where class methods
+    # and instance methods cannot have the same name
+    def self.get_content(uri_or_host, path = nil, port = nil)
       if uri_or_host.is_a?(String) && uri_or_host.start_with?('http')
         # Parse URI
         uri = URI.parse(uri_or_host)
@@ -615,6 +617,7 @@ module Net
     end
 
     # Class method: Get response object
+    # Note: Safe from mruby/c limitation as no instance method with same name exists
     def self.get_response(uri_or_host, path = nil, port = nil)
       if uri_or_host.is_a?(String) && uri_or_host.start_with?('http')
         # Parse URI
@@ -638,6 +641,7 @@ module Net
     end
 
     # Class method: POST form data
+    # Note: Safe from mruby/c limitation as no instance method with same name exists
     def self.post_form(url, params)
       uri = URI.parse(url)
       req = Post.new(uri.request_uri)
