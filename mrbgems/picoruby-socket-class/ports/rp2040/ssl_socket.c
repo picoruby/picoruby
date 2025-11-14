@@ -66,7 +66,8 @@ ssl_recv_callback(void *ctx, unsigned char *buf, size_t len)
 /*
  * Create SSL context
  */
-picorb_ssl_context_t* SSLContext_create(void)
+picorb_ssl_context_t*
+SSLContext_create(void)
 {
   picorb_ssl_context_t *ctx = (picorb_ssl_context_t *)picorb_alloc(NULL, sizeof(picorb_ssl_context_t));
   if (!ctx) {
@@ -83,7 +84,8 @@ picorb_ssl_context_t* SSLContext_create(void)
 /*
  * Set CA certificate file (not implemented for rp2040)
  */
-bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+bool
+SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 {
   if (!ctx || !ca_file) {
     return false;
@@ -108,7 +110,8 @@ bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 /*
  * Set verification mode (stored but not enforced on rp2040)
  */
-bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
+bool
+SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
 {
   if (!ctx) {
     return false;
@@ -121,7 +124,8 @@ bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
 /*
  * Get verification mode
  */
-int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
+int
+SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
 {
   if (!ctx) {
     return -1;
@@ -132,7 +136,8 @@ int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
 /*
  * Free SSL context
  */
-void SSLContext_free(picorb_ssl_context_t *ctx)
+void
+SSLContext_free(picorb_ssl_context_t *ctx)
 {
   if (!ctx) {
     return;

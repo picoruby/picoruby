@@ -419,7 +419,7 @@ mrb_tcp_server_accept(mrb_state *mrb, mrb_value self)
   }
 
   /* Create TCPSocket object for client */
-  tcp_socket_class = mrb_class_get(mrb, "TCPSocket");
+  tcp_socket_class = mrb_class_get_id(mrb, MRB_SYM(TCPSocket));
   client_obj = mrb_obj_value(mrb_data_object_alloc(mrb, tcp_socket_class, client, &mrb_tcp_socket_type));
 
   return client_obj;

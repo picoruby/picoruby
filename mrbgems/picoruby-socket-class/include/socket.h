@@ -87,27 +87,62 @@ ssize_t UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
 bool UDPSocket_close(picorb_socket_t *sock);
 bool UDPSocket_closed(picorb_socket_t *sock);
 
-/* TCP Server API (to be implemented in Phase 3) */
+/* TCP Server API */
+#ifdef PICORB_PLATFORM_POSIX
+typedef struct picorb_tcp_server {
+  int listen_fd;
+  int port;
+  int backlog;
+  bool listening;
+} picorb_tcp_server_t;
+#else
 typedef struct picorb_tcp_server picorb_tcp_server_t;
+#endif
 
 picorb_tcp_server_t* TCPServer_create(int port, int backlog);
 picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_tcp_server_t *server);
+bool TCPServer_init(picorb_tcp_server_t *server, int port, int backlog);
 
 /* SSL Context API */
-typedef struct picorb_ssl_context picorb_ssl_context_t;
-
 #define SSL_VERIFY_NONE 0
 #define SSL_VERIFY_PEER 1
+
+#ifdef PICORB_PLATFORM_POSIX
+/* Forward declaration for OpenSSL types */
+typedef struct ssl_ctx_st SSL_CTX;
+
+typedef struct picorb_ssl_context {
+  SSL_CTX *ctx;
+  char *ca_file;
+  int verify_mode;
+} picorb_ssl_context_t;
+#else
+typedef struct picorb_ssl_context picorb_ssl_context_t;
+#endif
 
 picorb_ssl_context_t* SSLContext_create(void);
 bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file);
 bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode);
 int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx);
 void SSLContext_free(picorb_ssl_context_t *ctx);
+bool SSLContext_init(picorb_ssl_context_t *ctx);
 
 /* SSL Socket API */
+#ifdef PICORB_PLATFORM_POSIX
+/* Forward declaration for OpenSSL types */
+typedef struct ssl_st SSL;
+
+typedef struct picorb_ssl_socket {
+  picorb_socket_t *base_socket;
+  picorb_ssl_context_t *ssl_ctx;
+  SSL *ssl;
+  char *hostname;
+  bool connected;
+} picorb_ssl_socket_t;
+#else
 typedef struct picorb_ssl_socket picorb_ssl_socket_t;
+#endif
 
 picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx);
 bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname);

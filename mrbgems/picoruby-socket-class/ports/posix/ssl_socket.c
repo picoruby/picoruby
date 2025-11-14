@@ -15,35 +15,18 @@
 #include <openssl/err.h>
 #include <openssl/x509.h>
 
-/*
- * SSL Context structure (POSIX)
- */
-struct picorb_ssl_context {
-  SSL_CTX *ctx;
-  char *ca_file;
-  int verify_mode;  // SSL_VERIFY_NONE or SSL_VERIFY_PEER
-};
-
-/*
- * SSL socket structure (POSIX)
- */
-struct picorb_ssl_socket {
-  picorb_socket_t *base_socket;  // Underlying TCP socket
-  picorb_ssl_context_t *ssl_ctx; // SSL context
-  SSL *ssl;                      // OpenSSL connection
-  char *hostname;                // Hostname for SNI
-  bool connected;                // SSL handshake complete
-};
+/* SSL Context and SSL Socket structures are now defined in socket.h */
 
 /*
  * Initialize OpenSSL library (call once)
  */
-static void ssl_init_once(void) {
+static void
+ssl_init_once(void)
+{
   static bool initialized = false;
   if (!initialized) {
-    SSL_load_error_strings();
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
+    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS, NULL);
+    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
     initialized = true;
   }
 }
@@ -51,7 +34,9 @@ static void ssl_init_once(void) {
 /*
  * Create SSL context
  */
-picorb_ssl_context_t* SSLContext_create(void) {
+picorb_ssl_context_t*
+SSLContext_create(void)
+{
   ssl_init_once();
 
   picorb_ssl_context_t *ctx = (picorb_ssl_context_t*)malloc(sizeof(picorb_ssl_context_t));
@@ -85,7 +70,9 @@ picorb_ssl_context_t* SSLContext_create(void) {
 /*
  * Set CA certificate file
  */
-bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file) {
+bool
+SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+{
   if (!ctx || !ca_file) {
     return false;
   }
@@ -115,7 +102,9 @@ bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file) {
 /*
  * Set verification mode
  */
-bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode) {
+bool
+SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
+{
   if (!ctx) {
     return false;
   }
@@ -134,7 +123,9 @@ bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode) {
 /*
  * Get verification mode
  */
-int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx) {
+int
+SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
+{
   if (!ctx) {
     return -1;
   }
@@ -144,7 +135,9 @@ int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx) {
 /*
  * Free SSL context
  */
-void SSLContext_free(picorb_ssl_context_t *ctx) {
+void
+SSLContext_free(picorb_ssl_context_t *ctx)
+{
   if (!ctx) {
     return;
   }
@@ -163,7 +156,9 @@ void SSLContext_free(picorb_ssl_context_t *ctx) {
 /*
  * Create SSL socket wrapping a TCP socket
  */
-picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx) {
+picorb_ssl_socket_t*
+SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
+{
   if (!tcp_socket || !tcp_socket->connected || !ssl_ctx || !ssl_ctx->ctx) {
     return NULL;
   }
@@ -202,7 +197,9 @@ picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_co
 /*
  * Set hostname for SNI (Server Name Indication)
  */
-bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname) {
+bool
+SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
+{
   if (!ssl_sock || !hostname) {
     return false;
   }
@@ -237,7 +234,9 @@ bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
 /*
  * Perform SSL/TLS handshake
  */
-bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock) {
+bool
+SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
+{
   if (!ssl_sock || ssl_sock->connected) {
     return false;
   }
@@ -267,7 +266,9 @@ bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock) {
 /*
  * Send data over SSL socket
  */
-ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len) {
+ssize_t
+SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
+{
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
   }
@@ -286,7 +287,9 @@ ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t l
 /*
  * Receive data from SSL socket
  */
-ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len) {
+ssize_t
+SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+{
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
   }
@@ -309,7 +312,9 @@ ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len) {
 /*
  * Close SSL socket
  */
-bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock) {
+bool
+SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
+{
   if (!ssl_sock) {
     return false;
   }
@@ -344,7 +349,9 @@ bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock) {
 /*
  * Check if SSL socket is closed
  */
-bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock) {
+bool
+SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
+{
   if (!ssl_sock || !ssl_sock->base_socket) {
     return true;
   }
@@ -354,7 +361,9 @@ bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock) {
 /*
  * Get remote host from underlying TCP socket
  */
-const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock) {
+const char*
+SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
+{
   if (!ssl_sock || !ssl_sock->base_socket) {
     return NULL;
   }
@@ -364,7 +373,9 @@ const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock) {
 /*
  * Get remote port from underlying TCP socket
  */
-int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock) {
+int
+SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock)
+{
   if (!ssl_sock || !ssl_sock->base_socket) {
     return -1;
   }

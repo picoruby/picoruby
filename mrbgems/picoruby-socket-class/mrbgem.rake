@@ -78,11 +78,5 @@ MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
     end
   end
 
-  # POSIX: Link with OpenSSL for SSL/TLS support
-  if build.posix?
-    spec.linker.libraries << 'ssl'
-    spec.linker.libraries << 'crypto'
-  end
-
   spec.posix
 end

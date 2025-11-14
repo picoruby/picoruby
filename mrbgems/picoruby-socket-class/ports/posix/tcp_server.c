@@ -12,17 +12,13 @@
 #undef socket
 #endif
 
-/* TCP Server structure for POSIX */
-typedef struct picorb_tcp_server {
-  int listen_fd;
-  int port;
-  int backlog;
-  bool listening;
-} picorb_tcp_server_posix_t;
+/* TCP Server structure is now defined in socket.h */
 
 /* Create and start a TCP server */
-picorb_tcp_server_t* TCPServer_create(int port, int backlog) {
-  picorb_tcp_server_posix_t *server = malloc(sizeof(picorb_tcp_server_posix_t));
+picorb_tcp_server_t*
+TCPServer_create(int port, int backlog)
+{
+  picorb_tcp_server_t *server = malloc(sizeof(picorb_tcp_server_t));
   if (!server) return NULL;
 
   /* Create socket */
@@ -67,8 +63,10 @@ picorb_tcp_server_t* TCPServer_create(int port, int backlog) {
 }
 
 /* Accept a client connection (blocking) */
-picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server) {
-  picorb_tcp_server_posix_t *srv = (picorb_tcp_server_posix_t*)server;
+picorb_socket_t*
+TCPServer_accept(picorb_tcp_server_t *server)
+{
+  picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
 
   if (!srv || !srv->listening) {
     return NULL;
@@ -109,8 +107,10 @@ picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server) {
 }
 
 /* Close the TCP server */
-bool TCPServer_close(picorb_tcp_server_t *server) {
-  picorb_tcp_server_posix_t *srv = (picorb_tcp_server_posix_t*)server;
+bool
+TCPServer_close(picorb_tcp_server_t *server)
+{
+  picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
 
   if (!srv) return false;
 
@@ -125,13 +125,17 @@ bool TCPServer_close(picorb_tcp_server_t *server) {
 }
 
 /* Get server port */
-int TCPServer_port(picorb_tcp_server_t *server) {
-  picorb_tcp_server_posix_t *srv = (picorb_tcp_server_posix_t*)server;
+int
+TCPServer_port(picorb_tcp_server_t *server)
+{
+  picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
   return srv ? srv->port : -1;
 }
 
 /* Check if server is listening */
-bool TCPServer_listening(picorb_tcp_server_t *server) {
-  picorb_tcp_server_posix_t *srv = (picorb_tcp_server_posix_t*)server;
+bool
+TCPServer_listening(picorb_tcp_server_t *server)
+{
+  picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
   return srv ? srv->listening : false;
 }

@@ -21,12 +21,12 @@
 #define MEM_LIBC_MALLOC 0
 #endif
 
-#if defined(PIRORB_VM_MRUBYC) && !defined(LWIP_PLATFORM_DIAG)
+#if defined(PICORB_VM_MRUBYC) && !defined(LWIP_PLATFORM_DIAG)
 # include "mrubyc.h"
 # define LWIP_PLATFORM_DIAG(x) do { console_printf x; } while(0)
 #endif
 
-#if defined(PIRORB_VM_MRUBY) && !defined(LWIP_PLATFORM_DIAG)
+#if defined(PICORB_VM_MRUBY) && !defined(LWIP_PLATFORM_DIAG)
 # include "mruby.h"
 # define LWIP_PLATFORM_DIAG(x) do { mrb_p(mrb, x); } while(0)
 #endif

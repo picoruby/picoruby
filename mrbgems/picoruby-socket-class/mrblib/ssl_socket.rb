@@ -7,6 +7,9 @@ class SSLSocket < BasicSocket
   # SSLSocket is mostly implemented in C
   # This file provides additional Ruby-level methods
 
+  # Keep references to prevent GC
+  attr_accessor :tcp_socket, :ssl_context
+
   # Class methods
 
   def self.open(tcp_socket, ssl_context)

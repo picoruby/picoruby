@@ -10,122 +10,78 @@
 #include <string.h>
 #include <stdint.h>
 
-/* Helper macros for instance variables */
-#define GETIV(str)      mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
-#define SETIV(str, val) mrbc_instance_setiv(&v[0], mrbc_str_to_symid(#str), val)
-
-/* Instance variable name for socket handle */
-#define SOCKET_HANDLE_IV "_socket_handle"
-
-/* Instance variable name for server handle */
-#define SERVER_HANDLE_IV "_server_handle"
-
-/* Instance variable name for SSL context handle */
-#define SSL_CONTEXT_HANDLE_IV "_ssl_context_handle"
-
-/* Instance variable name for SSL socket handle */
-#define SSL_SOCKET_HANDLE_IV "_ssl_socket_handle"
-
 /* Global reference to TCPSocket class for accept() */
 static mrbc_class *g_class_TCPSocket = NULL;
 
-/*
- * Get socket pointer from instance variable
- */
-static picorb_socket_t*
-get_socket_ptr(mrbc_value *self)
-{
-  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SOCKET_HANDLE_IV));
-  if (handle_val.tt != MRBC_TT_INTEGER) {
-    return NULL;
-  }
-  return (picorb_socket_t *)(intptr_t)handle_val.i;
-}
+/* Wrapper structures for storing pointers in instance->data */
+typedef struct {
+  picorb_tcp_server_t *ptr;
+} tcp_server_wrapper_t;
+
+typedef struct {
+  picorb_ssl_context_t *ptr;
+} ssl_context_wrapper_t;
+
+typedef struct {
+  picorb_ssl_socket_t *ptr;
+} ssl_socket_wrapper_t;
 
 /*
- * Set socket pointer to instance variable
+ * Destructor for TCPSocket and UDPSocket
  */
 static void
-set_socket_ptr(mrbc_value *self, picorb_socket_t *sock)
+mrbc_socket_free(mrbc_value *self)
 {
-  mrbc_value handle_val = mrbc_integer_value((intptr_t)sock);
-  mrbc_instance_setiv(self, mrbc_str_to_symid(SOCKET_HANDLE_IV), &handle_val);
-}
-
-/*
- * Get server pointer from instance variable
- */
-static picorb_tcp_server_t*
-get_server_ptr(mrbc_value *self)
-{
-  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SERVER_HANDLE_IV));
-  if (handle_val.tt != MRBC_TT_INTEGER) {
-    return NULL;
+  picorb_socket_t *sock = (picorb_socket_t *)self->instance->data;
+  if (sock && !sock->closed) {
+    TCPSocket_close(sock);
   }
-  return (picorb_tcp_server_t *)(intptr_t)handle_val.i;
 }
 
 /*
- * Set server pointer to instance variable
+ * Destructor for TCPServer
  */
 static void
-set_server_ptr(mrbc_value *self, picorb_tcp_server_t *server)
+mrbc_tcp_server_free(mrbc_value *self)
 {
-  mrbc_value handle_val = mrbc_integer_value((intptr_t)server);
-  mrbc_instance_setiv(self, mrbc_str_to_symid(SERVER_HANDLE_IV), &handle_val);
-}
-
-/*
- * Get SSL context pointer from instance variable
- */
-static picorb_ssl_context_t*
-get_ssl_context_ptr(mrbc_value *self)
-{
-  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SSL_CONTEXT_HANDLE_IV));
-  if (handle_val.tt != MRBC_TT_INTEGER) {
-    return NULL;
+  tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)self->instance->data;
+  if (wrapper->ptr) {
+    TCPServer_close(wrapper->ptr);
+    wrapper->ptr = NULL;
   }
-  return (picorb_ssl_context_t *)(intptr_t)handle_val.i;
 }
 
 /*
- * Set SSL context pointer to instance variable
+ * Destructor for SSLContext
  */
 static void
-set_ssl_context_ptr(mrbc_value *self, picorb_ssl_context_t *ctx)
+mrbc_ssl_context_free(mrbc_value *self)
 {
-  mrbc_value handle_val = mrbc_integer_value((intptr_t)ctx);
-  mrbc_instance_setiv(self, mrbc_str_to_symid(SSL_CONTEXT_HANDLE_IV), &handle_val);
-}
-
-/*
- * Get SSL socket pointer from instance variable
- */
-static picorb_ssl_socket_t*
-get_ssl_socket_ptr(mrbc_value *self)
-{
-  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SSL_SOCKET_HANDLE_IV));
-  if (handle_val.tt != MRBC_TT_INTEGER) {
-    return NULL;
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)self->instance->data;
+  if (wrapper->ptr) {
+    SSLContext_free(wrapper->ptr);
+    wrapper->ptr = NULL;
   }
-  return (picorb_ssl_socket_t *)(intptr_t)handle_val.i;
 }
 
 /*
- * Set SSL socket pointer to instance variable
+ * Destructor for SSLSocket
  */
 static void
-set_ssl_socket_ptr(mrbc_value *self, picorb_ssl_socket_t *ssl_sock)
+mrbc_ssl_socket_free(mrbc_value *self)
 {
-  mrbc_value handle_val = mrbc_integer_value((intptr_t)ssl_sock);
-  mrbc_instance_setiv(self, mrbc_str_to_symid(SSL_SOCKET_HANDLE_IV), &handle_val);
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)self->instance->data;
+  if (wrapper->ptr && !SSLSocket_closed(wrapper->ptr)) {
+    SSLSocket_close(wrapper->ptr);
+    wrapper->ptr = NULL;
+  }
 }
 
 /*
  * TCPSocket.new(host, port)
  */
 static void
-c_tcp_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -152,12 +108,9 @@ c_tcp_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Allocate socket structure */
-  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
-  if (!sock) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
-    return;
-  }
+  /* Create instance with socket structure embedded in instance->data */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t));
+  picorb_socket_t *sock = (picorb_socket_t *)instance.instance->data;
 
   /* Initialize socket structure to zero */
   memset(sock, 0, sizeof(picorb_socket_t));
@@ -168,13 +121,11 @@ c_tcp_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
   int port_num = (int)port.i;
 
   if (!TCPSocket_connect(sock, host_str, port_num)) {
-    mrbc_raw_free(sock);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to connect");
     return;
   }
 
-  /* Store socket pointer in instance variable */
-  set_socket_ptr(&v[0], sock);
+  SET_RETURN(instance);
 }
 
 /*
@@ -188,8 +139,8 @@ c_tcp_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -223,8 +174,8 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -285,8 +236,8 @@ c_tcp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     /* Already closed or not initialized */
     SET_NIL_RETURN();
@@ -295,11 +246,6 @@ c_tcp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Close socket */
   TCPSocket_close(sock);
-  mrbc_raw_free(sock);
-
-  /* Clear instance variable */
-  mrbc_value zero_val = mrbc_integer_value(0);
-  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(SOCKET_HANDLE_IV), &zero_val);
 
   SET_NIL_RETURN();
 }
@@ -315,8 +261,8 @@ c_tcp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     SET_TRUE_RETURN();
     return;
@@ -342,8 +288,8 @@ c_tcp_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     SET_NIL_RETURN();
     return;
@@ -370,8 +316,8 @@ c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     SET_NIL_RETURN();
     return;
@@ -391,29 +337,24 @@ c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
  * UDPSocket.new -> UDPSocket
  */
 static void
-c_udp_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+c_udp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 0) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
-  /* Allocate socket structure */
-  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
-  if (!sock) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
-    return;
-  }
+  /* Create instance with socket structure embedded in instance->data */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t));
+  picorb_socket_t *sock = (picorb_socket_t *)instance.instance->data;
 
   /* Create UDP socket */
   if (!UDPSocket_create(sock)) {
-    mrbc_raw_free(sock);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create UDP socket");
     return;
   }
 
-  /* Store socket pointer in instance variable */
-  set_socket_ptr(&v[0], sock);
+  SET_RETURN(instance);
 }
 
 /*
@@ -427,8 +368,8 @@ c_udp_socket_bind(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -477,8 +418,8 @@ c_udp_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -527,8 +468,8 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -591,8 +532,8 @@ c_udp_socket_recvfrom(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer */
-  picorb_socket_t *sock = get_socket_ptr(&v[0]);
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -656,7 +597,7 @@ c_udp_socket_recvfrom(mrbc_vm *vm, mrbc_value *v, int argc)
  * TCPServer.new(port, backlog=5) -> TCPServer
  */
 static void
-c_tcp_server_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc < 1 || argc > 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -691,15 +632,18 @@ c_tcp_server_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
 
-  /* Create TCP server */
-  picorb_tcp_server_t *server = TCPServer_create((int)port.i, backlog);
-  if (!server) {
+  /* Create instance with wrapper structure */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(tcp_server_wrapper_t));
+  tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)instance.instance->data;
+
+  /* Create TCP server and store pointer */
+  wrapper->ptr = TCPServer_create((int)port.i, backlog);
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create TCP server");
     return;
   }
 
-  /* Store server pointer in instance variable */
-  set_server_ptr(&v[0], server);
+  SET_RETURN(instance);
 }
 
 /*
@@ -713,9 +657,9 @@ c_tcp_server_accept(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get server pointer */
-  picorb_tcp_server_t *server = get_server_ptr(&v[0]);
-  if (!server) {
+  /* Get server pointer from wrapper */
+  tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "server is not initialized");
     return;
   }
@@ -727,15 +671,21 @@ c_tcp_server_accept(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Accept client connection (blocking) */
-  picorb_socket_t *client = TCPServer_accept(server);
+  picorb_socket_t *client = TCPServer_accept(wrapper->ptr);
   if (!client) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to accept client");
     return;
   }
 
-  /* Create TCPSocket object */
-  mrbc_value client_obj = mrbc_instance_new(vm, g_class_TCPSocket, 0);
-  set_socket_ptr(&client_obj, client);
+  /* Create TCPSocket object with socket structure embedded in instance->data */
+  mrbc_value client_obj = mrbc_instance_new(vm, g_class_TCPSocket, sizeof(picorb_socket_t));
+  picorb_socket_t *client_sock = (picorb_socket_t *)client_obj.instance->data;
+
+  /* Copy socket data from malloc'd pointer to instance->data */
+  memcpy(client_sock, client, sizeof(picorb_socket_t));
+
+  /* Free the malloc'd pointer since we copied the data */
+  free(client);
 
   SET_RETURN(client_obj);
 }
@@ -751,20 +701,19 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get server pointer */
-  picorb_tcp_server_t *server = get_server_ptr(&v[0]);
-  if (!server) {
+  /* Get server pointer from wrapper */
+  tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     /* Already closed or not initialized */
     SET_NIL_RETURN();
     return;
   }
 
-  /* Close server */
-  TCPServer_close(server);
+  /* Close server (also frees the server structure) */
+  TCPServer_close(wrapper->ptr);
 
-  /* Clear instance variable */
-  mrbc_value zero_val = mrbc_integer_value(0);
-  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(SERVER_HANDLE_IV), &zero_val);
+  /* Clear the pointer */
+  wrapper->ptr = NULL;
 
   SET_NIL_RETURN();
 }
@@ -773,22 +722,25 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
  * SSLContext.new() -> SSLContext
  */
 static void
-c_ssl_context_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+c_ssl_context_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 0) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
-  /* Create SSL context */
-  picorb_ssl_context_t *ctx = SSLContext_create();
-  if (!ctx) {
+  /* Create instance with wrapper structure */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(ssl_context_wrapper_t));
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)instance.instance->data;
+
+  /* Create SSL context and store pointer */
+  wrapper->ptr = SSLContext_create();
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL context");
     return;
   }
 
-  /* Store SSL context pointer in instance variable */
-  set_ssl_context_ptr(&v[0], ctx);
+  SET_RETURN(instance);
 }
 
 /*
@@ -802,9 +754,9 @@ c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL context pointer */
-  picorb_ssl_context_t *ctx = get_ssl_context_ptr(&v[0]);
-  if (!ctx) {
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
     return;
   }
@@ -819,11 +771,12 @@ c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *ca_file = (const char *)ca_file_arg.string->data;
 
   /* Set CA file */
-  if (!SSLContext_set_ca_file(ctx, ca_file)) {
+  if (!SSLContext_set_ca_file(wrapper->ptr, ca_file)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA file");
     return;
   }
 
+  mrbc_incref(&ca_file_arg);
   SET_RETURN(ca_file_arg);
 }
 
@@ -838,9 +791,9 @@ c_ssl_context_set_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL context pointer */
-  picorb_ssl_context_t *ctx = get_ssl_context_ptr(&v[0]);
-  if (!ctx) {
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
     return;
   }
@@ -855,11 +808,12 @@ c_ssl_context_set_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
   int mode = mode_arg.i;
 
   /* Set verify mode */
-  if (!SSLContext_set_verify_mode(ctx, mode)) {
+  if (!SSLContext_set_verify_mode(wrapper->ptr, mode)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set verify mode");
     return;
   }
 
+  mrbc_incref(&mode_arg);
   SET_RETURN(mode_arg);
 }
 
@@ -874,15 +828,15 @@ c_ssl_context_get_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL context pointer */
-  picorb_ssl_context_t *ctx = get_ssl_context_ptr(&v[0]);
-  if (!ctx) {
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
     return;
   }
 
   /* Get verify mode */
-  int mode = SSLContext_get_verify_mode(ctx);
+  int mode = SSLContext_get_verify_mode(wrapper->ptr);
   if (mode < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to get verify mode");
     return;
@@ -895,7 +849,7 @@ c_ssl_context_get_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
  * SSLSocket.new(tcp_socket, ssl_context) -> SSLSocket
  */
 static void
-c_ssl_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -904,7 +858,7 @@ c_ssl_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Get TCP socket argument */
   mrbc_value tcp_socket_obj = GET_ARG(1);
-  picorb_socket_t *tcp_socket = get_socket_ptr(&tcp_socket_obj);
+  picorb_socket_t *tcp_socket = (picorb_socket_t *)tcp_socket_obj.instance->data;
 
   if (!tcp_socket) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "first argument must be a TCPSocket");
@@ -918,22 +872,28 @@ c_ssl_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Get SSL context argument */
   mrbc_value ssl_context_obj = GET_ARG(2);
-  picorb_ssl_context_t *ssl_ctx = get_ssl_context_ptr(&ssl_context_obj);
+  ssl_context_wrapper_t *ctx_wrapper = (ssl_context_wrapper_t *)ssl_context_obj.instance->data;
 
-  if (!ssl_ctx) {
+  if (!ctx_wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "second argument must be an SSLContext");
     return;
   }
 
-  /* Create SSL socket wrapping TCP socket */
-  picorb_ssl_socket_t *ssl_sock = SSLSocket_create(tcp_socket, ssl_ctx);
-  if (!ssl_sock) {
+  /* Create instance with wrapper structure */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(ssl_socket_wrapper_t));
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)instance.instance->data;
+
+  /* Create SSL socket wrapping TCP socket and store pointer */
+  wrapper->ptr = SSLSocket_create(tcp_socket, ctx_wrapper->ptr);
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
     return;
   }
 
-  /* Store SSL socket pointer in instance variable */
-  set_ssl_socket_ptr(&v[0], ssl_sock);
+  mrbc_incref(&tcp_socket_obj);
+  //mrbc_incref(&ssl_context_obj);
+
+  SET_RETURN(instance);
 }
 
 /*
@@ -947,9 +907,9 @@ c_ssl_socket_set_hostname(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
     return;
   }
@@ -964,11 +924,12 @@ c_ssl_socket_set_hostname(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *hostname = (const char *)hostname_arg.string->data;
 
   /* Set hostname */
-  if (!SSLSocket_set_hostname(ssl_sock, hostname)) {
+  if (!SSLSocket_set_hostname(wrapper->ptr, hostname)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set hostname");
     return;
   }
 
+  mrbc_incref(&hostname_arg);
   SET_RETURN(hostname_arg);
 }
 
@@ -983,20 +944,18 @@ c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
     return;
   }
 
   /* Perform SSL handshake */
-  if (!SSLSocket_connect(ssl_sock)) {
+  if (!SSLSocket_connect(wrapper->ptr)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL handshake failed");
     return;
   }
-
-  SET_RETURN(v[0]);
 }
 
 /*
@@ -1010,9 +969,9 @@ c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
     return;
   }
@@ -1025,7 +984,7 @@ c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Send data */
-  ssize_t sent = SSLSocket_send(ssl_sock, (const void *)data.string->data, data.string->size);
+  ssize_t sent = SSLSocket_send(wrapper->ptr, (const void *)data.string->data, data.string->size);
   if (sent < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL send failed");
     return;
@@ -1045,9 +1004,9 @@ c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
     return;
   }
@@ -1075,7 +1034,7 @@ c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Receive data */
-  ssize_t received = SSLSocket_recv(ssl_sock, buffer, maxlen);
+  ssize_t received = SSLSocket_recv(wrapper->ptr, buffer, maxlen);
 
   if (received < 0) {
     mrbc_raw_free(buffer);
@@ -1107,20 +1066,19 @@ c_ssl_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     /* Already closed or not initialized */
     SET_NIL_RETURN();
     return;
   }
 
-  /* Close SSL socket */
-  SSLSocket_close(ssl_sock);
+  /* Close SSL socket (also frees the SSL socket structure) */
+  SSLSocket_close(wrapper->ptr);
 
-  /* Clear instance variable */
-  mrbc_value zero_val = mrbc_integer_value(0);
-  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(SSL_SOCKET_HANDLE_IV), &zero_val);
+  /* Clear the pointer */
+  wrapper->ptr = NULL;
 
   SET_NIL_RETURN();
 }
@@ -1136,15 +1094,15 @@ c_ssl_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     SET_TRUE_RETURN();
     return;
   }
 
   /* Check if SSL socket is closed */
-  bool is_closed = SSLSocket_closed(ssl_sock);
+  bool is_closed = SSLSocket_closed(wrapper->ptr);
   if (is_closed) {
     SET_TRUE_RETURN();
   } else {
@@ -1163,15 +1121,15 @@ c_ssl_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     SET_NIL_RETURN();
     return;
   }
 
   /* Get remote host */
-  const char *host = SSLSocket_remote_host(ssl_sock);
+  const char *host = SSLSocket_remote_host(wrapper->ptr);
   if (!host || host[0] == '\0') {
     SET_NIL_RETURN();
     return;
@@ -1191,15 +1149,15 @@ c_ssl_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get SSL socket pointer */
-  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
-  if (!ssl_sock) {
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
     SET_NIL_RETURN();
     return;
   }
 
   /* Get remote port */
-  int port = SSLSocket_remote_port(ssl_sock);
+  int port = SSLSocket_remote_port(wrapper->ptr);
   if (port < 0) {
     SET_NIL_RETURN();
     return;
@@ -1220,9 +1178,10 @@ mrbc_socket_class_init(mrbc_vm *vm)
   /* Define TCPSocket class */
   mrbc_class *class_TCPSocket = mrbc_define_class(vm, "TCPSocket", class_BasicSocket);
   g_class_TCPSocket = class_TCPSocket;  /* Save for accept() */
+  mrbc_define_destructor(class_TCPSocket, mrbc_socket_free);
 
   /* TCPSocket methods */
-  mrbc_define_method(vm, class_TCPSocket, "initialize", c_tcp_socket_initialize);
+  mrbc_define_method(vm, class_TCPSocket, "new", c_tcp_socket_new);
   mrbc_define_method(vm, class_TCPSocket, "write", c_tcp_socket_write);
   mrbc_define_method(vm, class_TCPSocket, "read", c_tcp_socket_read);
   mrbc_define_method(vm, class_TCPSocket, "close", c_tcp_socket_close);
@@ -1232,9 +1191,10 @@ mrbc_socket_class_init(mrbc_vm *vm)
 
   /* Define UDPSocket class */
   mrbc_class *class_UDPSocket = mrbc_define_class(vm, "UDPSocket", class_BasicSocket);
+  mrbc_define_destructor(class_UDPSocket, mrbc_socket_free);
 
   /* UDPSocket methods */
-  mrbc_define_method(vm, class_UDPSocket, "initialize", c_udp_socket_initialize);
+  mrbc_define_method(vm, class_UDPSocket, "new", c_udp_socket_new);
   mrbc_define_method(vm, class_UDPSocket, "bind", c_udp_socket_bind);
   mrbc_define_method(vm, class_UDPSocket, "connect", c_udp_socket_connect);
   mrbc_define_method(vm, class_UDPSocket, "send", c_udp_socket_send);
@@ -1244,17 +1204,19 @@ mrbc_socket_class_init(mrbc_vm *vm)
 
   /* Define TCPServer class */
   mrbc_class *class_TCPServer = mrbc_define_class(vm, "TCPServer", class_BasicSocket);
+  mrbc_define_destructor(class_TCPServer, mrbc_tcp_server_free);
 
   /* TCPServer methods */
-  mrbc_define_method(vm, class_TCPServer, "initialize", c_tcp_server_initialize);
+  mrbc_define_method(vm, class_TCPServer, "new", c_tcp_server_new);
   mrbc_define_method(vm, class_TCPServer, "accept", c_tcp_server_accept);
   mrbc_define_method(vm, class_TCPServer, "close", c_tcp_server_close);
 
   /* Define SSLContext class */
   mrbc_class *class_SSLContext = mrbc_define_class(vm, "SSLContext", mrbc_class_object);
+  mrbc_define_destructor(class_SSLContext, mrbc_ssl_context_free);
 
   /* SSLContext methods */
-  mrbc_define_method(vm, class_SSLContext, "initialize", c_ssl_context_initialize);
+  mrbc_define_method(vm, class_SSLContext, "new", c_ssl_context_new);
   mrbc_define_method(vm, class_SSLContext, "ca_file=", c_ssl_context_set_ca_file);
   mrbc_define_method(vm, class_SSLContext, "verify_mode=", c_ssl_context_set_verify_mode);
   mrbc_define_method(vm, class_SSLContext, "verify_mode", c_ssl_context_get_verify_mode);
@@ -1267,9 +1229,10 @@ mrbc_socket_class_init(mrbc_vm *vm)
 
   /* Define SSLSocket class */
   mrbc_class *class_SSLSocket = mrbc_define_class(vm, "SSLSocket", class_BasicSocket);
+  mrbc_define_destructor(class_SSLSocket, mrbc_ssl_socket_free);
 
   /* SSLSocket methods */
-  mrbc_define_method(vm, class_SSLSocket, "initialize", c_ssl_socket_initialize);
+  mrbc_define_method(vm, class_SSLSocket, "new", c_ssl_socket_new);
   mrbc_define_method(vm, class_SSLSocket, "hostname=", c_ssl_socket_set_hostname);
   mrbc_define_method(vm, class_SSLSocket, "connect", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "write", c_ssl_socket_write);
