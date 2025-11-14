@@ -1,3 +1,4 @@
+require 'machine'
 require 'json'
 
 module JS

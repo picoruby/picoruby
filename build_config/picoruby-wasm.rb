@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("wasm") do |conf|
+MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   toolchain :clang
 
   conf.cc.defines << "PICORUBY_INT64=1"
@@ -15,7 +15,9 @@ MRuby::CrossBuild.new("wasm") do |conf|
   conf.posix
   conf.picoruby(alloc_libc: true)
 
+  conf.gem core: 'mruby-compiler2'
   conf.gem core: 'picoruby-mrubyc'
+  conf.gem core: 'picoruby-machine'
   conf.gem core: 'picoruby-require'
   conf.gem core: 'picoruby-wasm'
   conf.gem core: 'picoruby-base16'
