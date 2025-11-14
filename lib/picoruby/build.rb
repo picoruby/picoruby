@@ -37,7 +37,11 @@ module MRuby
 
     def microruby
       # Place picoruby-mruby at the top so that Kernel#require is defined first
-      gems.first&.add_dependency 'picoruby-mruby'
+      if gems.first
+        gems.first.add_dependency 'picoruby-mruby'
+      else
+        gem core: 'picoruby-mruby'
+      end
       common
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/include"
       cc.defines << "PICORB_VM_MRUBY"
