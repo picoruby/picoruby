@@ -1,6 +1,6 @@
 /*
  * SSLSocket implementation for PicoRuby (POSIX)
- * Uses mbedTLS for TLS/SSL support over TCP sockets
+ * Uses OpenSSL for TLS/SSL support over TCP sockets
  */
 
 #include "../../include/socket.h"
@@ -11,72 +11,160 @@
 #include <errno.h>
 #include <sys/socket.h>
 
-#include "mbedtls/ssl.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/error.h"
-
-#define SSL_RECV_BUFFER_SIZE 8192
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/x509.h>
 
 /*
- * Custom send function for mbedtls that uses POSIX socket
+ * SSL Context structure (POSIX)
  */
-static int ssl_send_callback(void *ctx, const unsigned char *buf, size_t len) {
-  int fd = *(int*)ctx;
-  int ret = send(fd, buf, len, 0);
-
-  if (ret < 0) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      return MBEDTLS_ERR_SSL_WANT_WRITE;
-    }
-    // Return generic error for other send failures
-    return -1;
-  }
-
-  return ret;
-}
-
-/*
- * Custom receive function for mbedtls that uses POSIX socket
- */
-static int ssl_recv_callback(void *ctx, unsigned char *buf, size_t len) {
-  int fd = *(int*)ctx;
-  int ret = recv(fd, buf, len, 0);
-
-  if (ret < 0) {
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-      return MBEDTLS_ERR_SSL_WANT_READ;
-    }
-    // Return generic error for other recv failures
-    return -1;
-  }
-
-  if (ret == 0) {
-    return MBEDTLS_ERR_SSL_CONN_EOF;
-  }
-
-  return ret;
-}
+struct picorb_ssl_context {
+  SSL_CTX *ctx;
+  char *ca_file;
+  int verify_mode;  // SSL_VERIFY_NONE or SSL_VERIFY_PEER
+};
 
 /*
  * SSL socket structure (POSIX)
  */
-typedef struct picorb_ssl_socket {
-  picorb_socket_t *base_socket;      // Underlying TCP socket
-  mbedtls_ssl_context ssl;
-  mbedtls_ssl_config conf;
-  mbedtls_entropy_context entropy;
-  mbedtls_ctr_drbg_context ctr_drbg;
-  bool ssl_initialized;
-  bool handshake_done;
-  char hostname[256];
-} picorb_ssl_socket_t;
+struct picorb_ssl_socket {
+  picorb_socket_t *base_socket;  // Underlying TCP socket
+  picorb_ssl_context_t *ssl_ctx; // SSL context
+  SSL *ssl;                      // OpenSSL connection
+  char *hostname;                // Hostname for SNI
+  bool connected;                // SSL handshake complete
+};
+
+/*
+ * Initialize OpenSSL library (call once)
+ */
+static void ssl_init_once(void) {
+  static bool initialized = false;
+  if (!initialized) {
+    SSL_load_error_strings();
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();
+    initialized = true;
+  }
+}
+
+/*
+ * Create SSL context
+ */
+picorb_ssl_context_t* SSLContext_create(void) {
+  ssl_init_once();
+
+  picorb_ssl_context_t *ctx = (picorb_ssl_context_t*)malloc(sizeof(picorb_ssl_context_t));
+  if (!ctx) {
+    return NULL;
+  }
+
+  memset(ctx, 0, sizeof(picorb_ssl_context_t));
+
+  // Create SSL_CTX with TLS client method
+  ctx->ctx = SSL_CTX_new(TLS_client_method());
+  if (!ctx->ctx) {
+    fprintf(stderr, "SSL: SSL_CTX_new failed\n");
+    ERR_print_errors_fp(stderr);
+    free(ctx);
+    return NULL;
+  }
+
+  // Default: verify peer
+  ctx->verify_mode = SSL_VERIFY_PEER;
+  SSL_CTX_set_verify(ctx->ctx, SSL_VERIFY_PEER, NULL);
+
+  // Load default CA certificates from system
+  if (SSL_CTX_set_default_verify_paths(ctx->ctx) != 1) {
+    fprintf(stderr, "SSL: Warning - failed to load default CA certificates\n");
+  }
+
+  return ctx;
+}
+
+/*
+ * Set CA certificate file
+ */
+bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file) {
+  if (!ctx || !ca_file) {
+    return false;
+  }
+
+  // Free previous ca_file if set
+  if (ctx->ca_file) {
+    free(ctx->ca_file);
+    ctx->ca_file = NULL;
+  }
+
+  // Store ca_file path
+  ctx->ca_file = strdup(ca_file);
+  if (!ctx->ca_file) {
+    return false;
+  }
+
+  // Load CA certificate file
+  if (SSL_CTX_load_verify_locations(ctx->ctx, ca_file, NULL) != 1) {
+    fprintf(stderr, "SSL: Failed to load CA file: %s\n", ca_file);
+    ERR_print_errors_fp(stderr);
+    return false;
+  }
+
+  return true;
+}
+
+/*
+ * Set verification mode
+ */
+bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode) {
+  if (!ctx) {
+    return false;
+  }
+
+  ctx->verify_mode = mode;
+
+  if (mode == SSL_VERIFY_NONE) {
+    SSL_CTX_set_verify(ctx->ctx, SSL_VERIFY_NONE, NULL);
+  } else {
+    SSL_CTX_set_verify(ctx->ctx, SSL_VERIFY_PEER, NULL);
+  }
+
+  return true;
+}
+
+/*
+ * Get verification mode
+ */
+int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx) {
+  if (!ctx) {
+    return -1;
+  }
+  return ctx->verify_mode;
+}
+
+/*
+ * Free SSL context
+ */
+void SSLContext_free(picorb_ssl_context_t *ctx) {
+  if (!ctx) {
+    return;
+  }
+
+  if (ctx->ctx) {
+    SSL_CTX_free(ctx->ctx);
+  }
+
+  if (ctx->ca_file) {
+    free(ctx->ca_file);
+  }
+
+  free(ctx);
+}
 
 /*
  * Create SSL socket wrapping a TCP socket
  */
-picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, const char *hostname) {
-  if (!tcp_socket || !tcp_socket->connected) {
+picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx) {
+  if (!tcp_socket || !tcp_socket->connected || !ssl_ctx || !ssl_ctx->ctx) {
     return NULL;
   }
 
@@ -87,162 +175,135 @@ picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, const char *h
 
   memset(ssl_sock, 0, sizeof(picorb_ssl_socket_t));
   ssl_sock->base_socket = tcp_socket;
-  ssl_sock->ssl_initialized = false;
-  ssl_sock->handshake_done = false;
+  ssl_sock->ssl_ctx = ssl_ctx;
+  ssl_sock->connected = false;
 
-  if (hostname) {
-    strncpy(ssl_sock->hostname, hostname, sizeof(ssl_sock->hostname) - 1);
-    ssl_sock->hostname[sizeof(ssl_sock->hostname) - 1] = '\0';
+  // Create SSL structure
+  ssl_sock->ssl = SSL_new(ssl_ctx->ctx);
+  if (!ssl_sock->ssl) {
+    fprintf(stderr, "SSL: SSL_new failed\n");
+    ERR_print_errors_fp(stderr);
+    free(ssl_sock);
+    return NULL;
+  }
+
+  // Set file descriptor for SSL
+  if (SSL_set_fd(ssl_sock->ssl, tcp_socket->fd) != 1) {
+    fprintf(stderr, "SSL: SSL_set_fd failed\n");
+    ERR_print_errors_fp(stderr);
+    SSL_free(ssl_sock->ssl);
+    free(ssl_sock);
+    return NULL;
   }
 
   return ssl_sock;
 }
 
 /*
- * Initialize SSL/TLS context and perform handshake
+ * Set hostname for SNI (Server Name Indication)
  */
-bool SSLSocket_init(picorb_ssl_socket_t *ssl_sock) {
-  if (!ssl_sock || ssl_sock->ssl_initialized) {
+bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname) {
+  if (!ssl_sock || !hostname) {
     return false;
   }
 
-  int ret;
-  const char *pers = "picoruby_ssl_socket";
-
-  // Initialize structures
-  mbedtls_ssl_init(&ssl_sock->ssl);
-  mbedtls_ssl_config_init(&ssl_sock->conf);
-  mbedtls_entropy_init(&ssl_sock->entropy);
-  mbedtls_ctr_drbg_init(&ssl_sock->ctr_drbg);
-
-  // Seed the RNG
-  ret = mbedtls_ctr_drbg_seed(&ssl_sock->ctr_drbg,
-                               mbedtls_entropy_func,
-                               &ssl_sock->entropy,
-                               (const unsigned char *)pers,
-                               strlen(pers));
-  if (ret != 0) {
-    fprintf(stderr, "SSL: ctr_drbg_seed failed: -0x%04x\n", -ret);
-    goto error;
+  // Free previous hostname if set
+  if (ssl_sock->hostname) {
+    free(ssl_sock->hostname);
   }
 
-  // Setup SSL/TLS config
-  ret = mbedtls_ssl_config_defaults(&ssl_sock->conf,
-                                     MBEDTLS_SSL_IS_CLIENT,
-                                     MBEDTLS_SSL_TRANSPORT_STREAM,
-                                     MBEDTLS_SSL_PRESET_DEFAULT);
-  if (ret != 0) {
-    fprintf(stderr, "SSL: config_defaults failed: -0x%04x\n", -ret);
-    goto error;
+  ssl_sock->hostname = strdup(hostname);
+  if (!ssl_sock->hostname) {
+    return false;
   }
 
-  // Configure SSL/TLS settings
-  // Note: VERIFY_NONE for now (can be made configurable later)
-  mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_NONE);
-  mbedtls_ssl_conf_rng(&ssl_sock->conf, mbedtls_ctr_drbg_random, &ssl_sock->ctr_drbg);
-
-  // Setup SSL context
-  ret = mbedtls_ssl_setup(&ssl_sock->ssl, &ssl_sock->conf);
-  if (ret != 0) {
-    fprintf(stderr, "SSL: setup failed: -0x%04x\n", -ret);
-    goto error;
+  // Set SNI hostname
+  if (SSL_set_tlsext_host_name(ssl_sock->ssl, hostname) != 1) {
+    fprintf(stderr, "SSL: SSL_set_tlsext_host_name failed\n");
+    ERR_print_errors_fp(stderr);
+    return false;
   }
 
-  // Set hostname for SNI (Server Name Indication)
-  if (ssl_sock->hostname[0] != '\0') {
-    ret = mbedtls_ssl_set_hostname(&ssl_sock->ssl, ssl_sock->hostname);
-    if (ret != 0) {
-      fprintf(stderr, "SSL: set_hostname failed: -0x%04x\n", -ret);
-      goto error;
-    }
+  // Set hostname for certificate verification
+  if (SSL_set1_host(ssl_sock->ssl, hostname) != 1) {
+    fprintf(stderr, "SSL: SSL_set1_host failed\n");
+    ERR_print_errors_fp(stderr);
+    return false;
   }
 
-  // Set BIO callbacks to use underlying TCP socket
-  mbedtls_ssl_set_bio(&ssl_sock->ssl,
-                      &ssl_sock->base_socket->fd,
-                      ssl_send_callback,
-                      ssl_recv_callback,
-                      NULL);
-
-  ssl_sock->ssl_initialized = true;
-
-  // Perform SSL/TLS handshake
-  while ((ret = mbedtls_ssl_handshake(&ssl_sock->ssl)) != 0) {
-    if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-      fprintf(stderr, "SSL: handshake failed: -0x%04x\n", -ret);
-      goto error;
-    }
-  }
-
-  ssl_sock->handshake_done = true;
   return true;
+}
 
-error:
-  if (ssl_sock->ssl_initialized) {
-    mbedtls_ssl_free(&ssl_sock->ssl);
-    mbedtls_ssl_config_free(&ssl_sock->conf);
-    mbedtls_ctr_drbg_free(&ssl_sock->ctr_drbg);
-    mbedtls_entropy_free(&ssl_sock->entropy);
-    ssl_sock->ssl_initialized = false;
+/*
+ * Perform SSL/TLS handshake
+ */
+bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock) {
+  if (!ssl_sock || ssl_sock->connected) {
+    return false;
   }
-  return false;
+
+  // Perform SSL handshake
+  int ret = SSL_connect(ssl_sock->ssl);
+  if (ret != 1) {
+    int err = SSL_get_error(ssl_sock->ssl, ret);
+    fprintf(stderr, "SSL: SSL_connect failed with error %d\n", err);
+    ERR_print_errors_fp(stderr);
+    return false;
+  }
+
+  // Verify certificate if in VERIFY_PEER mode
+  if (ssl_sock->ssl_ctx->verify_mode == SSL_VERIFY_PEER) {
+    long verify_result = SSL_get_verify_result(ssl_sock->ssl);
+    if (verify_result != X509_V_OK) {
+      fprintf(stderr, "SSL: Certificate verification failed: %ld\n", verify_result);
+      return false;
+    }
+  }
+
+  ssl_sock->connected = true;
+  return true;
 }
 
 /*
  * Send data over SSL socket
  */
 ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len) {
-  if (!ssl_sock || !ssl_sock->handshake_done) {
+  if (!ssl_sock || !ssl_sock->connected) {
     return -1;
   }
 
-  int ret;
-  size_t written = 0;
-
-  while (written < len) {
-    ret = mbedtls_ssl_write(&ssl_sock->ssl,
-                            (const unsigned char *)data + written,
-                            len - written);
-
-    if (ret < 0) {
-      if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-        fprintf(stderr, "SSL: write failed: -0x%04x\n", -ret);
-        return -1;
-      }
-      // Would block, retry
-      continue;
-    }
-
-    written += ret;
+  int ret = SSL_write(ssl_sock->ssl, data, (int)len);
+  if (ret <= 0) {
+    int err = SSL_get_error(ssl_sock->ssl, ret);
+    fprintf(stderr, "SSL: SSL_write failed with error %d\n", err);
+    ERR_print_errors_fp(stderr);
+    return -1;
   }
 
-  return (ssize_t)written;
+  return (ssize_t)ret;
 }
 
 /*
  * Receive data from SSL socket
  */
 ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len) {
-  if (!ssl_sock || !ssl_sock->handshake_done) {
+  if (!ssl_sock || !ssl_sock->connected) {
     return -1;
   }
 
-  int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
-
+  int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
   if (ret < 0) {
-    if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+    int err = SSL_get_error(ssl_sock->ssl, ret);
+    if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
       // Would block
       return 0;
     }
-    if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-      // Connection closed by peer
-      return 0;
-    }
-    fprintf(stderr, "SSL: read failed: -0x%04x\n", -ret);
+    fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
+    ERR_print_errors_fp(stderr);
     return -1;
   }
 
-  return ret;
+  return (ssize_t)ret;
 }
 
 /*
@@ -253,17 +314,21 @@ bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock) {
     return false;
   }
 
-  // Send close_notify alert
-  if (ssl_sock->handshake_done) {
-    mbedtls_ssl_close_notify(&ssl_sock->ssl);
+  // Send close_notify alert if connected
+  if (ssl_sock->connected && ssl_sock->ssl) {
+    SSL_shutdown(ssl_sock->ssl);
   }
 
-  // Free SSL resources
-  if (ssl_sock->ssl_initialized) {
-    mbedtls_ssl_free(&ssl_sock->ssl);
-    mbedtls_ssl_config_free(&ssl_sock->conf);
-    mbedtls_ctr_drbg_free(&ssl_sock->ctr_drbg);
-    mbedtls_entropy_free(&ssl_sock->entropy);
+  // Free SSL structure
+  if (ssl_sock->ssl) {
+    SSL_free(ssl_sock->ssl);
+    ssl_sock->ssl = NULL;
+  }
+
+  // Free hostname
+  if (ssl_sock->hostname) {
+    free(ssl_sock->hostname);
+    ssl_sock->hostname = NULL;
   }
 
   // Close underlying TCP socket

@@ -12,16 +12,23 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/error.h"
 
+/* SSL Context structure (rp2040 - mbedTLS) */
+struct picorb_ssl_context {
+  int verify_mode;  // SSL_VERIFY_NONE or SSL_VERIFY_PEER (currently ignored)
+  char *ca_file;    // CA file path (currently ignored)
+};
+
 /* SSL socket structure */
 struct picorb_ssl_socket {
   picorb_socket_t *base_socket;
+  picorb_ssl_context_t *ssl_ctx;
   mbedtls_ssl_context ssl;
   mbedtls_ssl_config conf;
   mbedtls_entropy_context entropy;
   mbedtls_ctr_drbg_context ctr_drbg;
   bool ssl_initialized;
-  bool handshake_done;
-  char hostname[256];
+  bool connected;
+  char *hostname;
 };
 
 /* Send callback for mbedTLS */
@@ -56,11 +63,93 @@ ssl_recv_callback(void *ctx, unsigned char *buf, size_t len)
   return (int)received;
 }
 
+/*
+ * Create SSL context
+ */
+picorb_ssl_context_t* SSLContext_create(void)
+{
+  picorb_ssl_context_t *ctx = (picorb_ssl_context_t *)picorb_alloc(NULL, sizeof(picorb_ssl_context_t));
+  if (!ctx) {
+    return NULL;
+  }
+
+  memset(ctx, 0, sizeof(picorb_ssl_context_t));
+  // Default: VERIFY_NONE for rp2040 (certificate verification not implemented)
+  ctx->verify_mode = SSL_VERIFY_NONE;
+
+  return ctx;
+}
+
+/*
+ * Set CA certificate file (not implemented for rp2040)
+ */
+bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+{
+  if (!ctx || !ca_file) {
+    return false;
+  }
+
+  // Free previous ca_file if set
+  if (ctx->ca_file) {
+    picorb_free(NULL, ctx->ca_file);
+    ctx->ca_file = NULL;
+  }
+
+  // Store ca_file path (but don't actually use it on rp2040)
+  ctx->ca_file = (char *)picorb_alloc(NULL, strlen(ca_file) + 1);
+  if (!ctx->ca_file) {
+    return false;
+  }
+  strcpy(ctx->ca_file, ca_file);
+
+  return true;
+}
+
+/*
+ * Set verification mode (stored but not enforced on rp2040)
+ */
+bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
+{
+  if (!ctx) {
+    return false;
+  }
+
+  ctx->verify_mode = mode;
+  return true;
+}
+
+/*
+ * Get verification mode
+ */
+int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
+{
+  if (!ctx) {
+    return -1;
+  }
+  return ctx->verify_mode;
+}
+
+/*
+ * Free SSL context
+ */
+void SSLContext_free(picorb_ssl_context_t *ctx)
+{
+  if (!ctx) {
+    return;
+  }
+
+  if (ctx->ca_file) {
+    picorb_free(NULL, ctx->ca_file);
+  }
+
+  picorb_free(NULL, ctx);
+}
+
 /* Create SSL socket */
 picorb_ssl_socket_t*
-SSLSocket_create(picorb_socket_t *tcp_socket, const char *hostname)
+SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
 {
-  if (!tcp_socket || tcp_socket->state != SOCKET_STATE_CONNECTED) {
+  if (!tcp_socket || tcp_socket->state != SOCKET_STATE_CONNECTED || !ssl_ctx) {
     return NULL;
   }
 
@@ -71,22 +160,40 @@ SSLSocket_create(picorb_socket_t *tcp_socket, const char *hostname)
 
   memset(ssl_sock, 0, sizeof(picorb_ssl_socket_t));
   ssl_sock->base_socket = tcp_socket;
+  ssl_sock->ssl_ctx = ssl_ctx;
   ssl_sock->ssl_initialized = false;
-  ssl_sock->handshake_done = false;
-
-  if (hostname) {
-    strncpy(ssl_sock->hostname, hostname, sizeof(ssl_sock->hostname) - 1);
-    ssl_sock->hostname[sizeof(ssl_sock->hostname) - 1] = '\0';
-  }
+  ssl_sock->connected = false;
 
   return ssl_sock;
 }
 
+/* Set hostname for SNI */
+bool
+SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
+{
+  if (!ssl_sock || !hostname) {
+    return false;
+  }
+
+  // Free previous hostname if set
+  if (ssl_sock->hostname) {
+    picorb_free(NULL, ssl_sock->hostname);
+  }
+
+  ssl_sock->hostname = (char *)picorb_alloc(NULL, strlen(hostname) + 1);
+  if (!ssl_sock->hostname) {
+    return false;
+  }
+  strcpy(ssl_sock->hostname, hostname);
+
+  return true;
+}
+
 /* Initialize SSL context and perform handshake */
 bool
-SSLSocket_init(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || ssl_sock->ssl_initialized) {
+  if (!ssl_sock || ssl_sock->connected) {
     return false;
   }
 
@@ -114,7 +221,8 @@ SSLSocket_init(picorb_ssl_socket_t *ssl_sock)
     goto cleanup;
   }
 
-  mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
+  // Use VERIFY_NONE for rp2040 (certificate verification not implemented)
+  mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_NONE);
   mbedtls_ssl_conf_rng(&ssl_sock->conf, mbedtls_ctr_drbg_random, &ssl_sock->ctr_drbg);
 
   ret = mbedtls_ssl_setup(&ssl_sock->ssl, &ssl_sock->conf);
@@ -122,7 +230,7 @@ SSLSocket_init(picorb_ssl_socket_t *ssl_sock)
     goto cleanup;
   }
 
-  if (ssl_sock->hostname[0]) {
+  if (ssl_sock->hostname) {
     mbedtls_ssl_set_hostname(&ssl_sock->ssl, ssl_sock->hostname);
   }
 
@@ -139,7 +247,7 @@ SSLSocket_init(picorb_ssl_socket_t *ssl_sock)
   }
 
   ssl_sock->ssl_initialized = true;
-  ssl_sock->handshake_done = true;
+  ssl_sock->connected = true;
   return true;
 
 cleanup:
@@ -154,7 +262,7 @@ cleanup:
 ssize_t
 SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 {
-  if (!ssl_sock || !ssl_sock->handshake_done || !data) {
+  if (!ssl_sock || !ssl_sock->connected || !data) {
     return -1;
   }
 
@@ -170,7 +278,7 @@ SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 ssize_t
 SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
 {
-  if (!ssl_sock || !ssl_sock->handshake_done || !buf) {
+  if (!ssl_sock || !ssl_sock->connected || !buf) {
     return -1;
   }
 
@@ -200,6 +308,10 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
     mbedtls_ssl_config_free(&ssl_sock->conf);
     mbedtls_ctr_drbg_free(&ssl_sock->ctr_drbg);
     mbedtls_entropy_free(&ssl_sock->entropy);
+  }
+
+  if (ssl_sock->hostname) {
+    picorb_free(NULL, ssl_sock->hostname);
   }
 
   picorb_free(NULL, ssl_sock);

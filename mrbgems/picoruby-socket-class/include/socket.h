@@ -94,11 +94,24 @@ picorb_tcp_server_t* TCPServer_create(int port, int backlog);
 picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_tcp_server_t *server);
 
-/* SSL Socket API (Phase 5) */
+/* SSL Context API */
+typedef struct picorb_ssl_context picorb_ssl_context_t;
+
+#define SSL_VERIFY_NONE 0
+#define SSL_VERIFY_PEER 1
+
+picorb_ssl_context_t* SSLContext_create(void);
+bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file);
+bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode);
+int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx);
+void SSLContext_free(picorb_ssl_context_t *ctx);
+
+/* SSL Socket API */
 typedef struct picorb_ssl_socket picorb_ssl_socket_t;
 
-picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, const char *hostname);
-bool SSLSocket_init(picorb_ssl_socket_t *ssl_sock);
+picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx);
+bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname);
+bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock);
 ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
 ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
 bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock);

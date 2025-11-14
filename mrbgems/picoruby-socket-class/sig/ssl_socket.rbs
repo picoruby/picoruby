@@ -1,6 +1,8 @@
 class SSLSocket < BasicSocket
-  def initialize: (TCPSocket tcp_socket, ?String? hostname) -> void
-  def self.open: (TCPSocket tcp_socket, ?String? hostname) -> SSLSocket
+  def initialize: (TCPSocket tcp_socket, SSLContext ssl_context) -> void
+  def self.open: (TCPSocket tcp_socket, SSLContext ssl_context) -> SSLSocket
+  def hostname=: (String hostname) -> String
+  def connect: () -> self
   def addr: () -> Array[String | Integer]
   def connected?: () -> bool
   def peer_cert: () -> nil

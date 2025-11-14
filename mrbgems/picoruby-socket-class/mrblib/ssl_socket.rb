@@ -1,11 +1,25 @@
+class SSLContext
+  # SSLContext is mostly implemented in C
+  # This file provides additional Ruby-level methods
+
+  # Class methods
+
+  def self.new
+    # Implemented in C
+    super
+  end
+end
+
 class SSLSocket < BasicSocket
   # SSLSocket is mostly implemented in C
   # This file provides additional Ruby-level methods
 
   # Class methods
 
-  def self.open(tcp_socket, hostname = nil)
-    new(tcp_socket, hostname)
+  def self.open(tcp_socket, ssl_context)
+    sock = new(tcp_socket, ssl_context)
+    sock.connect
+    sock
   end
 
   # Instance methods

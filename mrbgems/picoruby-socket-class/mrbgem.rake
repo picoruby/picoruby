@@ -7,16 +7,20 @@ MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
   spec.require_name = 'socket'
 
   # Dependencies
-  spec.add_dependency 'picoruby-mbedtls'  # Phase 5: SSL/TLS support
+  unless build.posix?
+    spec.add_dependency 'picoruby-mbedtls'  # SSL/TLS support for non-POSIX platforms
+  end
   spec.add_conflict 'picoruby-net'
 
   # Add include directory
   spec.cc.include_paths << "#{dir}/include"
 
-  # Add mbedtls include path for SSL support
-  mbedtls_dir = "#{MRUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls"
-  if File.directory?(mbedtls_dir)
-    spec.cc.include_paths << "#{mbedtls_dir}/include"
+  # Add mbedtls include path for SSL support (non-POSIX only)
+  unless build.posix?
+    mbedtls_dir = "#{MRUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls"
+    if File.directory?(mbedtls_dir)
+      spec.cc.include_paths << "#{mbedtls_dir}/include"
+    end
   end
 
   unless build.posix?
@@ -72,6 +76,12 @@ MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
       obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
       spec.objs << obj
     end
+  end
+
+  # POSIX: Link with OpenSSL for SSL/TLS support
+  if build.posix?
+    spec.linker.libraries << 'ssl'
+    spec.linker.libraries << 'crypto'
   end
 
   spec.posix
