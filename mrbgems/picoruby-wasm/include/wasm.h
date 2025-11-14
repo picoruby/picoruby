@@ -5,10 +5,12 @@
 extern "C" {
 #endif
 
-#if defined(PICORUBY_VM_MRUBYC)
-void mrbc_js_init(mrbc_vm *vm);
+#if defined(PICORB_VM_MRUBYC)
+struct VM;
+void mrbc_js_init(struct VM *vm);
 #else
-// TODO for mruby (MicroRuby)
+struct mrb_state;
+void mrb_js_init(struct mrb_state *mrb);
 #endif
 
 #ifdef __cplusplus

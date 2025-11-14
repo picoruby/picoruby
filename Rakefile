@@ -143,18 +143,52 @@ namespace :wasm do
     sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
   end
 
-  desc "Build production and publish it to npm"
-  task :release do
-    sh "MRUBY_CONFIG=wasm rake clean"
-    sh "MRUBY_CONFIG=wasm NDEBUG=yes rake"
-    FileUtils.cd "mrbgems/picoruby-wasm/npm" do
-      sh "npm install"
-      sh "npm publish --access public"
-    end
-  end
-
   desc "Check versions"
   task :versions do
     sh "npm view @picoruby/wasm-wasi versions"
+  end
+
+  namespace :picoruby do
+    desc "Build PicoRuby WASM"
+    task :debug do
+      sh "CONFIG=picoruby-wasm PICORUBY_DEBUG=1 rake"
+    end
+
+    desc "Clean PicoRuby WASM build"
+    task :clean do
+      sh "CONFIG=picoruby-wasm rake clean"
+    end
+
+    desc "Build production and publish it to npm"
+    task :release do
+      sh "CONFIG=picoruby-wasm rake clean"
+      sh "CONFIG=picoruby-wasm rake"
+      FileUtils.cd "mrbgems/picoruby-wasm/npm-picoruby" do
+        sh "npm install"
+        sh "npm publish --access public"
+      end
+    end
+  end
+
+  namespace :microruby do
+    desc "Build MicroRuby WASM"
+    task :debug do
+      sh "CONFIG=microruby-wasm PICORUBY_DEBUG=1 rake"
+    end
+
+    desc "Clean MicroRuby WASM build"
+    task :clean do
+      sh "CONFIG=microruby-wasm rake clean"
+    end
+
+    desc "Build production and publish it to npm"
+    task :release do
+      sh "CONFIG=microruby-wasm rake clean"
+      sh "CONFIG=microruby-wasm rake"
+      FileUtils.cd "mrbgems/picoruby-wasm/npm-microruby" do
+        sh "npm install"
+        sh "npm publish --access public"
+      end
+    end
   end
 end
