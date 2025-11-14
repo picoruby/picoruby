@@ -16,12 +16,7 @@ class TCPServer
   # @param backlog [Integer] Maximum number of pending connections (default: 5)
   # @raise [ArgumentError] if port is invalid
   # @raise [RuntimeError] if server creation fails
-  def initialize(port, backlog = 5)
-    # Implementation is in C bindings
-    # - Creates listening socket
-    # - Binds to INADDR_ANY:port
-    # - Starts listening with specified backlog
-  end
+  # (Implementation is in C bindings)
 
   # Accept an incoming client connection (blocking)
   #
@@ -30,11 +25,7 @@ class TCPServer
   #
   # @return [TCPSocket] Connected client socket
   # @raise [RuntimeError] if accept fails
-  def accept
-    # Implementation is in C bindings
-    # - Blocks until client connects
-    # - Returns TCPSocket object for client
-  end
+  # (Implementation is in C bindings)
 
   # Accept connections in a loop, yielding each client to the block
   #
@@ -64,7 +55,5 @@ class TCPServer
   # new connections. Any existing client connections remain open.
   #
   # @return [nil]
-  def close
-    # Implementation is in C bindings
-  end
+  # (Implementation is in C bindings)
 end
