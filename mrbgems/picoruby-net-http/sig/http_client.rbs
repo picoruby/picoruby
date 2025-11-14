@@ -1,0 +1,31 @@
+module Net
+  class HTTP
+    attr_accessor address: String
+    attr_accessor port: Integer
+    attr_accessor open_timeout: Integer
+    attr_accessor read_timeout: Integer
+    attr_accessor use_ssl: bool
+    attr_accessor verify_mode: Integer?
+    attr_accessor ca_file: String?
+    attr_accessor ca_path: String?
+    attr_reader started: bool
+
+    def initialize: (String address, ?Integer? port) -> void
+    def start: () { (HTTP) -> untyped } -> HTTP
+             | () -> HTTP
+    def finish: () -> void
+    def active?: () -> bool
+    def get: (String path, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
+    def head: (String path, ?Hash[String, String]? initheader) -> HTTPResponse
+    def post: (String path, String data, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
+    def put: (String path, String data, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
+    def delete: (String path, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
+    def request: (HTTPGenericRequest req, ?String? body) ?{ (String) -> void } -> HTTPResponse
+    def self.get_content: (String uri_or_host, String path, ?Integer? port) -> String?
+    def self.get_response: (String uri_or_host, ?String? path, ?Integer? port) -> HTTPResponse
+    def self.post_form: (String url, Hash[untyped, untyped] params) -> HTTPResponse
+    def use_ssl?: () -> bool
+
+    private def read_response: () -> String
+  end
+end

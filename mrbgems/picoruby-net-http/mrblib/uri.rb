@@ -2,7 +2,7 @@
 # URI Module - Simplified URI parsing for HTTP/HTTPS URLs
 # ============================================================================
 module URI
-  class URI
+  class URIClass
     attr_reader :scheme, :host, :port, :path, :query, :fragment
 
     def initialize(scheme, host, port, path, query = nil, fragment = nil)
@@ -43,7 +43,9 @@ module URI
 
   # Parse a URI string
   def self.parse(uri_string)
-    return nil unless uri_string
+    unless uri_string
+      raise ArgumentError, "URI string cannot be nil"
+    end
 
     # Extract scheme
     scheme = nil
@@ -61,24 +63,24 @@ module URI
 
     # Extract fragment
     fragment = nil
-    fragment_idx = rest.index('#')
-    if fragment_idx
+    fragment_idx = rest&.index('#')
+    if fragment_idx && rest
       fragment = rest[(fragment_idx + 1)..-1]
       rest = rest[0..(fragment_idx - 1)]
     end
 
     # Extract query
     query = nil
-    query_idx = rest.index('?')
-    if query_idx
+    query_idx = rest&.index('?')
+    if query_idx && rest
       query = rest[(query_idx + 1)..-1]
       rest = rest[0..(query_idx - 1)]
     end
 
     # Extract path
     path = '/'
-    slash_idx = rest.index('/')
-    if slash_idx
+    slash_idx = rest&.index('/')
+    if slash_idx && rest
       host_port = rest[0..(slash_idx - 1)]
       path = rest[slash_idx..-1]
     else
@@ -86,13 +88,13 @@ module URI
     end
 
     # Extract host and port
-    colon_idx = host_port.index(':')
-    if colon_idx
+    colon_idx = host_port&.index(':')
+    if colon_idx && host_port
       host = host_port[0..(colon_idx - 1)]
       port_str = host_port[(colon_idx + 1)..-1]
       # Convert port string to integer manually
       port = 0
-      port_str.each_char do |c|
+      port_str&.each_char do |c|
         if c >= '0' && c <= '9'
           port = port * 10 + (c.ord - '0'.ord)
         end
@@ -102,13 +104,13 @@ module URI
       port = scheme == 'https' ? 443 : 80
     end
 
-    URI.new(scheme, host, port, path, query, fragment)
+    URIClass.new(scheme, host || '', port, path || '', query, fragment)
   end
 
   # Encode URI component (simple version)
   def self.encode_www_form_component(str)
     result = ''
-    str.to_s.each_char do |char|
+    str.each_char do |char|
       # Check if char is alphanumeric or in safe set: - _ . ~
       if (char >= 'a' && char <= 'z') ||
          (char >= 'A' && char <= 'Z') ||
