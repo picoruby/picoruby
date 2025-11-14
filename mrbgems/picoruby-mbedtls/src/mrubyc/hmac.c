@@ -1,43 +1,22 @@
 #include <stdio.h>
 #include <string.h>
 #include "mrubyc.h"
-#include "mbedtls/md.h"
+#include "hmac.h"
 
 static void
 c_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (strcmp((const char *)GET_STRING_ARG(2), "sha256") != 0) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unsupported hash algorithm");
-    return;
-  }
-
-  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_md_context_t));
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)self.instance->data;
-  mbedtls_md_init(ctx);
-  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
-  int ret;
-  ret = mbedtls_md_setup(ctx, md_info, 1); // 1 for HMAC
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_setup failed");
-    return;
-  }
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_hmac_instance_size());
+  void *hmac_instance = self.instance->data;
   mrbc_value key = GET_ARG(1);
-  ret = mbedtls_md_hmac_starts(ctx, key.string->data, key.string->size);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_hmac_starts failed");
+  const char *algorithm = (const char *)GET_STRING_ARG(2);
+
+  int ret = MbedTLS_hmac_init(hmac_instance, algorithm, key.string->data, key.string->size);
+  if (ret != HMAC_SUCCESS) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "HMAC init failed");
     return;
   }
   SET_RETURN(self);
-}
-
-static int
-check_finished(mrbc_vm *vm, mbedtls_md_context_t *ctx)
-{
-  if (mbedtls_md_info_from_ctx(ctx) == NULL) { // mbedtls_md_free() makes md_info NULL
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
-    return -1;
-  }
-  return 0;
 }
 
 static void
@@ -52,58 +31,42 @@ c_update(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
     return;
   }
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
-  if (check_finished(vm, ctx) != 0) {
-    return;
-  }
-  int ret;
-  ret = mbedtls_md_hmac_update(ctx, input.string->data, input.string->size);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_hmac_update failed");
-    return;
+  void *hmac_instance = v->instance->data;
+  int ret = MbedTLS_hmac_update(hmac_instance, input.string->data, input.string->size);
+  if (ret != HMAC_SUCCESS) {
+    if (ret == HMAC_ALREADY_FINISHED) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
+    } else {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "HMAC update failed");
+    }
   }
 }
 
 static void
 c_reset(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
-  int ret = mbedtls_md_hmac_reset(ctx);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_hmac_reset failed");
-    return;
+  void *hmac_instance = v->instance->data;
+  int ret = MbedTLS_hmac_reset(hmac_instance);
+  if (ret != HMAC_SUCCESS) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "HMAC reset failed");
   }
-}
-
-static int
-finish(mrbc_vm *vm, unsigned char *output, mbedtls_md_context_t *ctx)
-{
-  int ret;
-  if (check_finished(vm, ctx) != 0) {
-    return -1;
-  }
-  ret = mbedtls_md_hmac_finish(ctx, output);
-  /*
-   * Because mruby/c doesn't have a callback in mrbc_decref(),
-   * we need to free the context here.
-   * So `digest` and `hexdigest` methods should be called only once.
-   */
-  mbedtls_md_free(ctx);
-  if (ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "mbedtls_md_hmac_finish failed");
-    return -1;
-  }
-  return 0;
 }
 
 static void
 c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
+  void *hmac_instance = v->instance->data;
   unsigned char output[32]; // SHA256 produces 32 bytes output
-  if (finish(vm, output, ctx) != 0) {
+  int ret = MbedTLS_hmac_finish(hmac_instance, output);
+  if (ret != HMAC_SUCCESS) {
+    if (ret == HMAC_ALREADY_FINISHED) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
+    } else {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "HMAC finish failed");
+    }
     return;
   }
+  MbedTLS_hmac_free(hmac_instance);
   mrbc_value digest = mrbc_string_new(vm, output, sizeof(output));
   mrbc_incref(&v[0]);
   SET_RETURN(digest);
@@ -112,15 +75,23 @@ c_digest(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_hexdigest(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_md_context_t *ctx = (mbedtls_md_context_t *)v->instance->data;
+  void *hmac_instance = v->instance->data;
   unsigned char output[32]; // SHA256 produces 32 bytes output
-  if (finish(vm, output, ctx) != 0) {
+  int ret = MbedTLS_hmac_finish(hmac_instance, output);
+  if (ret != HMAC_SUCCESS) {
+    if (ret == HMAC_ALREADY_FINISHED) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "already finished");
+    } else {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "HMAC finish failed");
+    }
     return;
   }
-  char hexdigest[64]; // 32 bytes * 2
+  MbedTLS_hmac_free(hmac_instance);
+  char hexdigest[65]; // 32 bytes * 2 + 1
   for (int i = 0; i < 32; i++) {
     sprintf(hexdigest + i * 2, "%02x", output[i]);
   }
+  hexdigest[64] = '\0';
   mrbc_value result = mrbc_string_new_cstr(vm, hexdigest);
   mrbc_incref(&v[0]);
   SET_RETURN(result);
