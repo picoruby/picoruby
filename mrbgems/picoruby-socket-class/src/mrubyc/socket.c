@@ -20,6 +20,9 @@
 /* Instance variable name for server handle */
 #define SERVER_HANDLE_IV "_server_handle"
 
+/* Instance variable name for SSL context handle */
+#define SSL_CONTEXT_HANDLE_IV "_ssl_context_handle"
+
 /* Instance variable name for SSL socket handle */
 #define SSL_SOCKET_HANDLE_IV "_ssl_socket_handle"
 
@@ -70,6 +73,29 @@ set_server_ptr(mrbc_value *self, picorb_tcp_server_t *server)
 {
   mrbc_value handle_val = mrbc_integer_value((intptr_t)server);
   mrbc_instance_setiv(self, mrbc_str_to_symid(SERVER_HANDLE_IV), &handle_val);
+}
+
+/*
+ * Get SSL context pointer from instance variable
+ */
+static picorb_ssl_context_t*
+get_ssl_context_ptr(mrbc_value *self)
+{
+  mrbc_value handle_val = mrbc_instance_getiv(self, mrbc_str_to_symid(SSL_CONTEXT_HANDLE_IV));
+  if (handle_val.tt != MRBC_TT_INTEGER) {
+    return NULL;
+  }
+  return (picorb_ssl_context_t *)(intptr_t)handle_val.i;
+}
+
+/*
+ * Set SSL context pointer to instance variable
+ */
+static void
+set_ssl_context_ptr(mrbc_value *self, picorb_ssl_context_t *ctx)
+{
+  mrbc_value handle_val = mrbc_integer_value((intptr_t)ctx);
+  mrbc_instance_setiv(self, mrbc_str_to_symid(SSL_CONTEXT_HANDLE_IV), &handle_val);
 }
 
 /*
@@ -744,12 +770,134 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * SSLSocket.new(tcp_socket, hostname=nil) -> SSLSocket
+ * SSLContext.new() -> SSLContext
+ */
+static void
+c_ssl_context_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Create SSL context */
+  picorb_ssl_context_t *ctx = SSLContext_create();
+  if (!ctx) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL context");
+    return;
+  }
+
+  /* Store SSL context pointer in instance variable */
+  set_ssl_context_ptr(&v[0], ctx);
+}
+
+/*
+ * ssl_context.ca_file = path -> String
+ */
+static void
+c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer */
+  picorb_ssl_context_t *ctx = get_ssl_context_ptr(&v[0]);
+  if (!ctx) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get ca_file argument */
+  mrbc_value ca_file_arg = GET_ARG(1);
+  if (ca_file_arg.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "ca_file must be a String");
+    return;
+  }
+
+  const char *ca_file = (const char *)ca_file_arg.string->data;
+
+  /* Set CA file */
+  if (!SSLContext_set_ca_file(ctx, ca_file)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA file");
+    return;
+  }
+
+  SET_RETURN(ca_file_arg);
+}
+
+/*
+ * ssl_context.verify_mode = mode -> Integer
+ */
+static void
+c_ssl_context_set_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer */
+  picorb_ssl_context_t *ctx = get_ssl_context_ptr(&v[0]);
+  if (!ctx) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get verify_mode argument */
+  mrbc_value mode_arg = GET_ARG(1);
+  if (mode_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "verify_mode must be an Integer");
+    return;
+  }
+
+  int mode = mode_arg.i;
+
+  /* Set verify mode */
+  if (!SSLContext_set_verify_mode(ctx, mode)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set verify mode");
+    return;
+  }
+
+  SET_RETURN(mode_arg);
+}
+
+/*
+ * ssl_context.verify_mode -> Integer
+ */
+static void
+c_ssl_context_get_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer */
+  picorb_ssl_context_t *ctx = get_ssl_context_ptr(&v[0]);
+  if (!ctx) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get verify mode */
+  int mode = SSLContext_get_verify_mode(ctx);
+  if (mode < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to get verify mode");
+    return;
+  }
+
+  SET_INT_RETURN(mode);
+}
+
+/*
+ * SSLSocket.new(tcp_socket, ssl_context) -> SSLSocket
  */
 static void
 c_ssl_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc < 1 || argc > 2) {
+  if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -768,31 +916,87 @@ c_ssl_socket_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get hostname argument (optional) */
-  const char *hostname = NULL;
-  if (argc == 2) {
-    mrbc_value hostname_arg = GET_ARG(2);
-    if (hostname_arg.tt == MRBC_TT_STRING) {
-      hostname = (const char *)hostname_arg.string->data;
-    }
+  /* Get SSL context argument */
+  mrbc_value ssl_context_obj = GET_ARG(2);
+  picorb_ssl_context_t *ssl_ctx = get_ssl_context_ptr(&ssl_context_obj);
+
+  if (!ssl_ctx) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "second argument must be an SSLContext");
+    return;
   }
 
   /* Create SSL socket wrapping TCP socket */
-  picorb_ssl_socket_t *ssl_sock = SSLSocket_create(tcp_socket, hostname);
+  picorb_ssl_socket_t *ssl_sock = SSLSocket_create(tcp_socket, ssl_ctx);
   if (!ssl_sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
     return;
   }
 
-  /* Initialize SSL/TLS and perform handshake */
-  if (!SSLSocket_init(ssl_sock)) {
-    SSLSocket_close(ssl_sock);
+  /* Store SSL socket pointer in instance variable */
+  set_ssl_socket_ptr(&v[0], ssl_sock);
+}
+
+/*
+ * ssl_socket.hostname = hostname -> String
+ */
+static void
+c_ssl_socket_set_hostname(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
+    return;
+  }
+
+  /* Get hostname argument */
+  mrbc_value hostname_arg = GET_ARG(1);
+  if (hostname_arg.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "hostname must be a String");
+    return;
+  }
+
+  const char *hostname = (const char *)hostname_arg.string->data;
+
+  /* Set hostname */
+  if (!SSLSocket_set_hostname(ssl_sock, hostname)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set hostname");
+    return;
+  }
+
+  SET_RETURN(hostname_arg);
+}
+
+/*
+ * ssl_socket.connect -> self
+ */
+static void
+c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer */
+  picorb_ssl_socket_t *ssl_sock = get_ssl_socket_ptr(&v[0]);
+  if (!ssl_sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
+    return;
+  }
+
+  /* Perform SSL handshake */
+  if (!SSLSocket_connect(ssl_sock)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL handshake failed");
     return;
   }
 
-  /* Store SSL socket pointer in instance variable */
-  set_ssl_socket_ptr(&v[0], ssl_sock);
+  SET_RETURN(v[0]);
 }
 
 /*
@@ -1046,11 +1250,28 @@ mrbc_socket_class_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_TCPServer, "accept", c_tcp_server_accept);
   mrbc_define_method(vm, class_TCPServer, "close", c_tcp_server_close);
 
+  /* Define SSLContext class */
+  mrbc_class *class_SSLContext = mrbc_define_class(vm, "SSLContext", mrbc_class_object);
+
+  /* SSLContext methods */
+  mrbc_define_method(vm, class_SSLContext, "initialize", c_ssl_context_initialize);
+  mrbc_define_method(vm, class_SSLContext, "ca_file=", c_ssl_context_set_ca_file);
+  mrbc_define_method(vm, class_SSLContext, "verify_mode=", c_ssl_context_set_verify_mode);
+  mrbc_define_method(vm, class_SSLContext, "verify_mode", c_ssl_context_get_verify_mode);
+
+  /* SSLContext constants */
+  mrbc_value verify_none = mrbc_integer_value(SSL_VERIFY_NONE);
+  mrbc_define_const(vm, class_SSLContext, "VERIFY_NONE", &verify_none);
+  mrbc_value verify_peer = mrbc_integer_value(SSL_VERIFY_PEER);
+  mrbc_define_const(vm, class_SSLContext, "VERIFY_PEER", &verify_peer);
+
   /* Define SSLSocket class */
   mrbc_class *class_SSLSocket = mrbc_define_class(vm, "SSLSocket", class_BasicSocket);
 
   /* SSLSocket methods */
   mrbc_define_method(vm, class_SSLSocket, "initialize", c_ssl_socket_initialize);
+  mrbc_define_method(vm, class_SSLSocket, "hostname=", c_ssl_socket_set_hostname);
+  mrbc_define_method(vm, class_SSLSocket, "connect", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "write", c_ssl_socket_write);
   mrbc_define_method(vm, class_SSLSocket, "read", c_ssl_socket_read);
   mrbc_define_method(vm, class_SSLSocket, "close", c_ssl_socket_close);

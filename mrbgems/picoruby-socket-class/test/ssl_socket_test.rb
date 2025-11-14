@@ -1,6 +1,25 @@
 require 'socket'
 
 class SSLSocketTest < Picotest::Test
+  def test_ssl_context_class_exists
+    # Check if SSLContext class exists
+    assert_true(Object.const_defined?(:SSLContext))
+  end
+
+  def test_ssl_context_constants
+    # Check if SSLContext constants are defined
+    assert_equal(0, SSLContext::VERIFY_NONE)
+    assert_equal(1, SSLContext::VERIFY_PEER)
+  end
+
+  def test_ssl_context_methods_exist
+    # Check if SSLContext methods exist
+    methods = SSLContext.instance_methods
+    assert_true(methods.include?(:ca_file=))
+    assert_true(methods.include?(:verify_mode=))
+    assert_true(methods.include?(:verify_mode))
+  end
+
   def test_ssl_socket_class_exists
     # Just try to check if the class exists
     assert_true(Object.const_defined?(:SSLSocket))
@@ -9,6 +28,8 @@ class SSLSocketTest < Picotest::Test
   def test_ssl_socket_methods_exist
     # Ruby-defined methods should be visible
     methods = SSLSocket.instance_methods
+    assert_true(methods.include?(:hostname=))
+    assert_true(methods.include?(:connect))
     assert_true(methods.include?(:write))
     assert_true(methods.include?(:read))
     assert_true(methods.include?(:close))
@@ -46,7 +67,11 @@ class SSLSocketTest < Picotest::Test
 
   # def test_ssl_socket_connect_and_close
   #   tcp_socket = TCPSocket.new('example.com', 443)
-  #   ssl_socket = SSLSocket.new(tcp_socket, 'example.com')
+  #   ctx = SSLContext.new
+  #   ctx.verify_mode = SSLContext::VERIFY_NONE
+  #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
+  #   ssl_socket.hostname = 'example.com'
+  #   ssl_socket.connect
   #   assert_false(ssl_socket.closed?)
   #   assert_equal('example.com', ssl_socket.remote_host)
   #   assert_equal(443, ssl_socket.remote_port)
@@ -56,7 +81,11 @@ class SSLSocketTest < Picotest::Test
 
   # def test_ssl_socket_write_and_read
   #   tcp_socket = TCPSocket.new('example.com', 443)
-  #   ssl_socket = SSLSocket.new(tcp_socket, 'example.com')
+  #   ctx = SSLContext.new
+  #   ctx.verify_mode = SSLContext::VERIFY_NONE
+  #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
+  #   ssl_socket.hostname = 'example.com'
+  #   ssl_socket.connect
   #
   #   # Send HTTPS request
   #   request = "GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n"
@@ -73,14 +102,20 @@ class SSLSocketTest < Picotest::Test
 
   # def test_ssl_socket_open
   #   tcp_socket = TCPSocket.open('example.com', 443)
-  #   ssl_socket = SSLSocket.open(tcp_socket, 'example.com')
+  #   ctx = SSLContext.new
+  #   ctx.verify_mode = SSLContext::VERIFY_NONE
+  #   ssl_socket = SSLSocket.open(tcp_socket, ctx)
   #   assert_false(ssl_socket.closed?)
   #   ssl_socket.close
   # end
 
   # def test_ssl_socket_connected
   #   tcp_socket = TCPSocket.new('example.com', 443)
-  #   ssl_socket = SSLSocket.new(tcp_socket, 'example.com')
+  #   ctx = SSLContext.new
+  #   ctx.verify_mode = SSLContext::VERIFY_NONE
+  #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
+  #   ssl_socket.hostname = 'example.com'
+  #   ssl_socket.connect
   #   assert_true(ssl_socket.connected?)
   #   ssl_socket.close
   #   assert_false(ssl_socket.connected?)
@@ -88,7 +123,11 @@ class SSLSocketTest < Picotest::Test
 
   # def test_ssl_socket_io_compatible_methods
   #   tcp_socket = TCPSocket.new('example.com', 443)
-  #   ssl_socket = SSLSocket.new(tcp_socket, 'example.com')
+  #   ctx = SSLContext.new
+  #   ctx.verify_mode = SSLContext::VERIFY_NONE
+  #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
+  #   ssl_socket.hostname = 'example.com'
+  #   ssl_socket.connect
   #
   #   # Test puts
   #   ssl_socket.puts("GET / HTTP/1.1")
