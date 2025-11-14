@@ -1,5 +1,3 @@
-#include "../include/wasm.h"
-
 #if defined(PICORB_VM_MRUBY)
 
 #include "mruby/wasm.c"

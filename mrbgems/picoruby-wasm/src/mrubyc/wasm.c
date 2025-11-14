@@ -6,7 +6,9 @@
 #include <mrc_ccontext.h>
 #include <mrc_compile.h>
 #include <mrc_dump.h>
-#include <picogem_init.c>
+#include "../../include/wasm.h"
+
+extern void picoruby_init_require(struct VM *vm);
 
 #define picorb_utf8_from_locale(p, l) ((char*)(p))
 #define picorb_utf8_free(p)
