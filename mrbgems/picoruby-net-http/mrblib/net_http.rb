@@ -502,7 +502,25 @@ module Net
 
         # Wrap with SSLSocket if SSL is enabled
         if @use_ssl
-          @socket = SSLSocket.new(tcp_socket, @address)
+          # Create SSL context
+          ssl_ctx = SSLContext.new
+
+          # Set CA file if provided
+          if @ca_file
+            ssl_ctx.ca_file = @ca_file
+          end
+
+          # Set verify mode (default to VERIFY_PEER if not specified)
+          if @verify_mode
+            ssl_ctx.verify_mode = @verify_mode
+          else
+            ssl_ctx.verify_mode = SSLContext::VERIFY_PEER
+          end
+
+          # Create SSL socket with context
+          @socket = SSLSocket.new(tcp_socket, ssl_ctx)
+          @socket.hostname = @address
+          @socket.connect
         else
           @socket = tcp_socket
         end
