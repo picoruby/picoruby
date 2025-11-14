@@ -1261,9 +1261,9 @@ mrbc_socket_class_init(mrbc_vm *vm)
 
   /* SSLContext constants */
   mrbc_value verify_none = mrbc_integer_value(SSL_VERIFY_NONE);
-  mrbc_define_const(vm, class_SSLContext, "VERIFY_NONE", &verify_none);
+  mrbc_set_class_const(class_SSLContext, mrbc_str_to_symid("VERIFY_NONE"), &verify_none);
   mrbc_value verify_peer = mrbc_integer_value(SSL_VERIFY_PEER);
-  mrbc_define_const(vm, class_SSLContext, "VERIFY_PEER", &verify_peer);
+  mrbc_set_class_const(class_SSLContext, mrbc_str_to_symid("VERIFY_PEER"), &verify_peer);
 
   /* Define SSLSocket class */
   mrbc_class *class_SSLSocket = mrbc_define_class(vm, "SSLSocket", class_BasicSocket);
