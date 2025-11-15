@@ -58,7 +58,7 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Validate port range */
-  if (port <= 0 || port > 65535) {
+  if (port = 0 || 65535 < port) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
     return;
   }

@@ -1,6 +1,6 @@
 MRuby::Gem::Specification.new('picoruby-socket-class') do |spec|
   spec.license = 'MIT'
-  spec.author  = 'PicoRuby developers'
+  spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'CRuby-compatible Socket implementation for PicoRuby'
   spec.description = 'Provides TCPSocket, UDPSocket, and TCPServer classes compatible with CRuby'
 

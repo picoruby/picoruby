@@ -59,7 +59,7 @@ c_udp_socket_bind(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Validate port range */
-  if (port.i <= 0 || port.i > 65535) {
+  if (port.i < 0 || 65535 < port.i) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
     return;
   }
@@ -109,7 +109,7 @@ c_udp_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Validate port range */
-  if (port.i <= 0 || port.i > 65535) {
+  if (port.i < 0 || 65535 < port.i) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
     return;
   }
@@ -168,7 +168,7 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
       return;
     }
 
-    if (port.i <= 0 || port.i > 65535) {
+    if (port.i < 0 || 65535 < port.i) {
       mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
       return;
     }

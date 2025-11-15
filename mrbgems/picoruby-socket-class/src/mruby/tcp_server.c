@@ -48,7 +48,7 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
   int port = (int)service;
 
   /* Validate port range */
-  if (port <= 0 || port > 65535) {
+  if (port < 0 || 65535 < port) {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid port number: %i", port);
   }
 

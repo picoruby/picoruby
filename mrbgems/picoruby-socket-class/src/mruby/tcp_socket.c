@@ -13,7 +13,7 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "zi", &host, &port);
 
-  if (port <= 0 || port > 65535) {
+  if (port < 0 || 65535 < port) {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid port number: %i", port);
   }
 

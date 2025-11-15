@@ -60,23 +60,35 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
 
-  /* Parse host address */
-  if (!host || strcmp(host, "0.0.0.0") == 0 || strcmp(host, "") == 0) {
-    /* Bind to all interfaces */
+  if (!host || strcmp(host, "") == 0 ||
+      strcmp(host, "0.0.0.0") == 0) {
     addr.sin_addr.s_addr = INADDR_ANY;
+
   } else {
-    /* Try to parse as IP address */
+    /* Try numeric IP first */
     if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {
-      /* Not an IP address, try DNS resolution */
-      struct hostent *he = gethostbyname(host);
-      if (!he) {
+
+      /* Not numeric → use getaddrinfo() */
+      struct addrinfo hints;
+      struct addrinfo *res = NULL;
+
+      memset(&hints, 0, sizeof(hints));
+      hints.ai_family = AF_UNSPEC;      // IPv4/IPv6
+      hints.ai_socktype = SOCK_DGRAM;   // UDP
+      hints.ai_flags = AI_PASSIVE;      // For wildcard IP address
+
+      int err = getaddrinfo(host, NULL, &hints, &res);
+      if (err != 0 || !res) {
         return false;
       }
-      memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(struct in_addr));
+
+      struct sockaddr_in *ai_addr = (struct sockaddr_in *)res->ai_addr;
+      addr.sin_addr = ai_addr->sin_addr;
+
+      freeaddrinfo(res);
     }
   }
 
-  /* Bind socket */
   if (bind(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
     return false;
   }
