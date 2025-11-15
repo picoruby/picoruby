@@ -383,6 +383,7 @@ c_ssl_context_new(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+#ifdef PICORB_PLATFORM_POSIX
   if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
@@ -412,6 +413,11 @@ c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
 
   mrbc_incref(&ca_file_arg);
   SET_RETURN(ca_file_arg);
+#else
+  (void)argc;
+  (void)v;
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "ca_file= is not supported on this platform. Use set_ca_cert instead");
+#endif
 }
 
 /* ssl_context.set_ca_cert(addr, size) */

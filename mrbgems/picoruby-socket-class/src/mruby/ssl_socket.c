@@ -38,6 +38,7 @@ mrb_ssl_context_initialize(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_ssl_context_set_ca_file(mrb_state *mrb, mrb_value self)
 {
+#ifdef PICORB_PLATFORM_POSIX
   picorb_ssl_context_t *ctx;
   const char *ca_file;
 
@@ -53,6 +54,11 @@ mrb_ssl_context_set_ca_file(mrb_state *mrb, mrb_value self)
   }
 
   return mrb_str_new_cstr(mrb, ca_file);
+#else
+  (void)self;
+  mrb_raise(mrb, E_NOTIMP_ERROR, "ca_file= is not supported on this platform. Use set_ca_cert instead");
+  return mrb_nil_value();
+#endif
 }
 
 /* ssl_context.set_ca_cert(addr, size) */

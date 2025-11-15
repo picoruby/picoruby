@@ -38,7 +38,9 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Initialize socket structure to zero */
   memset(sock, 0, sizeof(picorb_socket_t));
+#ifdef PICORB_PLATFORM_POSIX
   sock->fd = -1;
+#endif
 
   /* Connect to remote host */
   const char *host_str = (const char *)host.string->data;

@@ -84,6 +84,18 @@ SSLContext_create(void)
 }
 
 /*
+ * Set CA certificate file (not supported on rp2040)
+ * Use set_ca_cert with memory address instead
+ */
+bool
+SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+{
+  (void)ctx;
+  (void)ca_file;
+  return false;
+}
+
+/*
  * Set CA certificate from memory (ROM or RAM)
  * addr: pointer to PEM-formatted certificate data
  * size: size of certificate data in bytes (must include null terminator for PEM)
