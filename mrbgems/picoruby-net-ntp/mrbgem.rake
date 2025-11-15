@@ -7,9 +7,5 @@ MRuby::Gem::Specification.new('picoruby-net-ntp') do |spec|
   spec.require_name = 'net/ntp'
 
   spec.add_dependency 'picoruby-socket-class'
-  if build.vm_mrubyc?
-    spec.add_dependency 'picoruby-time-class'
-  else
-    spec.add_dependency 'mruby-time'
-  end
+  spec.add_dependency 'picoruby-time-class'
 end
