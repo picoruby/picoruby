@@ -414,6 +414,47 @@ c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(ca_file_arg);
 }
 
+/* ssl_context.set_ca_cert(addr, size) */
+static void
+c_ssl_context_set_ca_cert(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get addr and size arguments */
+  mrbc_value addr_arg = GET_ARG(1);
+  mrbc_value size_arg = GET_ARG(2);
+
+  if (addr_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "addr must be an Integer");
+    return;
+  }
+  if (size_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "size must be an Integer");
+    return;
+  }
+
+  const void *addr = (const void *)(intptr_t)addr_arg.i;
+  size_t size = (size_t)size_arg.i;
+
+  /* Set CA certificate */
+  if (!SSLContext_set_ca_cert(wrapper->ptr, addr, size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA certificate");
+    return;
+  }
+
+  SET_NIL_RETURN();
+}
+
 /*
  * ssl_context.verify_mode = mode -> Integer
  */
@@ -504,6 +545,7 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 
   mrbc_define_method(vm, class_SSLContext, "new", c_ssl_context_new);
   mrbc_define_method(vm, class_SSLContext, "ca_file=", c_ssl_context_set_ca_file);
+  mrbc_define_method(vm, class_SSLContext, "set_ca_cert", c_ssl_context_set_ca_cert);
   mrbc_define_method(vm, class_SSLContext, "verify_mode=", c_ssl_context_set_verify_mode);
   mrbc_define_method(vm, class_SSLContext, "verify_mode", c_ssl_context_get_verify_mode);
 

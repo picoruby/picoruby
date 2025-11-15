@@ -4,6 +4,7 @@ class SSLContext
 
   def initialize: () -> void
   def ca_file=: (String path) -> String
+  def set_ca_cert: (Integer addr, Integer size) -> nil
   def verify_mode=: (Integer mode) -> Integer
   def verify_mode: () -> Integer
 end

@@ -14,8 +14,9 @@
 
 /* SSL Context structure (rp2040 - mbedTLS) */
 struct picorb_ssl_context {
-  int verify_mode;  // SSL_VERIFY_NONE or SSL_VERIFY_PEER (currently ignored)
-  char *ca_file;    // CA file path (currently ignored)
+  int verify_mode;
+  mbedtls_x509_crt ca_cert;       /* Parsed CA certificate chain */
+  bool ca_cert_loaded;
 };
 
 /* SSL socket structure */
@@ -75,35 +76,41 @@ SSLContext_create(void)
   }
 
   memset(ctx, 0, sizeof(picorb_ssl_context_t));
-  // Default: VERIFY_NONE for rp2040 (certificate verification not implemented)
-  ctx->verify_mode = SSL_VERIFY_NONE;
+  ctx->verify_mode = SSL_VERIFY_PEER;  /* Default to VERIFY_PEER for security */
+  ctx->ca_cert_loaded = false;
+  mbedtls_x509_crt_init(&ctx->ca_cert);
 
   return ctx;
 }
 
 /*
- * Set CA certificate file (not implemented for rp2040)
+ * Set CA certificate from memory (ROM or RAM)
+ * addr: pointer to PEM-formatted certificate data
+ * size: size of certificate data in bytes (must include null terminator for PEM)
  */
 bool
-SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
-  if (!ctx || !ca_file) {
+  if (!ctx || !addr || size == 0) {
     return false;
   }
 
-  // Free previous ca_file if set
-  if (ctx->ca_file) {
-    picorb_free(NULL, ctx->ca_file);
-    ctx->ca_file = NULL;
+  /* Free previous certificate if loaded */
+  if (ctx->ca_cert_loaded) {
+    mbedtls_x509_crt_free(&ctx->ca_cert);
+    mbedtls_x509_crt_init(&ctx->ca_cert);
+    ctx->ca_cert_loaded = false;
   }
 
-  // Store ca_file path (but don't actually use it on rp2040)
-  ctx->ca_file = (char *)picorb_alloc(NULL, strlen(ca_file) + 1);
-  if (!ctx->ca_file) {
+  /* Parse PEM certificate from memory */
+  int ret = mbedtls_x509_crt_parse(&ctx->ca_cert,
+                                    (const unsigned char *)addr,
+                                    size);
+  if (ret != 0) {
     return false;
   }
-  strcpy(ctx->ca_file, ca_file);
 
+  ctx->ca_cert_loaded = true;
   return true;
 }
 
@@ -143,8 +150,8 @@ SSLContext_free(picorb_ssl_context_t *ctx)
     return;
   }
 
-  if (ctx->ca_file) {
-    picorb_free(NULL, ctx->ca_file);
+  if (ctx->ca_cert_loaded) {
+    mbedtls_x509_crt_free(&ctx->ca_cert);
   }
 
   picorb_free(NULL, ctx);
@@ -226,8 +233,17 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     goto cleanup;
   }
 
-  // Use VERIFY_NONE for rp2040 (certificate verification not implemented)
-  mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_NONE);
+  /* Configure certificate verification based on context settings */
+  if (ssl_sock->ssl_ctx->verify_mode == SSL_VERIFY_PEER) {
+    mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+    /* Set CA certificate chain if loaded */
+    if (ssl_sock->ssl_ctx->ca_cert_loaded) {
+      mbedtls_ssl_conf_ca_chain(&ssl_sock->conf, &ssl_sock->ssl_ctx->ca_cert, NULL);
+    }
+  } else {
+    mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_NONE);
+  }
+
   mbedtls_ssl_conf_rng(&ssl_sock->conf, mbedtls_ctr_drbg_random, &ssl_sock->ctr_drbg);
 
   ret = mbedtls_ssl_setup(&ssl_sock->ssl, &ssl_sock->conf);

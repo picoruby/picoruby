@@ -100,6 +100,20 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 }
 
 /*
+ * Set CA certificate from memory
+ * Not supported on POSIX - use set_ca_file instead
+ */
+bool
+SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  (void)ctx;
+  (void)addr;
+  (void)size;
+  fprintf(stderr, "Warning: SSLContext#set_ca_cert is not supported on POSIX platforms. Use ca_file= instead.\n");
+  return true;  /* Return true to avoid errors, but do nothing */
+}
+
+/*
  * Set verification mode
  */
 bool

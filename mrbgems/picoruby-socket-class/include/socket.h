@@ -127,6 +127,7 @@ typedef struct picorb_ssl_context picorb_ssl_context_t;
 
 picorb_ssl_context_t* SSLContext_create(void);
 bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file);
+bool SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size);
 bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode);
 int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx);
 void SSLContext_free(picorb_ssl_context_t *ctx);

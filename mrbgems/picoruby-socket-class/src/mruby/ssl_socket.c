@@ -55,6 +55,27 @@ mrb_ssl_context_set_ca_file(mrb_state *mrb, mrb_value self)
   return mrb_str_new_cstr(mrb, ca_file);
 }
 
+/* ssl_context.set_ca_cert(addr, size) */
+static mrb_value
+mrb_ssl_context_set_ca_cert(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_context_t *ctx;
+  mrb_int addr, size;
+
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "ii", &addr, &size);
+
+  if (!SSLContext_set_ca_cert(ctx, (const void *)addr, (size_t)size)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
+  }
+
+  return mrb_nil_value();
+}
+
 /* ssl_context.verify_mode = mode */
 static mrb_value
 mrb_ssl_context_set_verify_mode(mrb_state *mrb, mrb_value self)
@@ -339,6 +360,7 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 
   mrb_define_method(mrb, ssl_context_class, "initialize", mrb_ssl_context_initialize, MRB_ARGS_NONE());
   mrb_define_method(mrb, ssl_context_class, "ca_file=", mrb_ssl_context_set_ca_file, MRB_ARGS_REQ(1));
+  mrb_define_method(mrb, ssl_context_class, "set_ca_cert", mrb_ssl_context_set_ca_cert, MRB_ARGS_REQ(2));
   mrb_define_method(mrb, ssl_context_class, "verify_mode=", mrb_ssl_context_set_verify_mode, MRB_ARGS_REQ(1));
   mrb_define_method(mrb, ssl_context_class, "verify_mode", mrb_ssl_context_get_verify_mode, MRB_ARGS_NONE());
 

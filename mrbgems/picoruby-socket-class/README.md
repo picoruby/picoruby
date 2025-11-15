@@ -10,12 +10,15 @@ CRuby-compatible Socket implementation for PicoRuby.
 
 - ✅ **CRuby-compatible API**: Use familiar Ruby socket methods
 - ✅ **TCPSocket**: TCP client connections
+- ✅ **UDPSocket**: UDP communication with send/receive/bind
+- ✅ **TCPServer**: TCP server with accept and backlog support
+- ✅ **SSLSocket**: Secure TLS/SSL connections
+- ✅ **Certificate Verification**: VERIFY_PEER support on all platforms
 - ✅ **IO-compatible**: Works with code expecting IO-like objects
-- ✅ **POSIX support**: Native socket support on Linux/macOS/Unix
-- 🚧 **UDPSocket**: UDP communication (Phase 2)
-- 🚧 **TCPServer**: TCP server functionality (Phase 3)
-- 🚧 **SSL/TLS**: Secure connections via mbedTLS (Phase 5)
-- 🚧 **LwIP support**: Embedded/microcontroller support (Phase 6)
+- ✅ **POSIX support**: Native sockets on Linux/macOS/Unix with OpenSSL
+- ✅ **RP2040 support**: LwIP stack with MbedTLS for microcontrollers
+- ✅ **ROM Certificates**: Efficient certificate loading from flash memory
+- ✅ **Dual VM support**: Works with both mruby and mruby/c
 
 ## Installation
 
@@ -75,6 +78,78 @@ socket.close
 puts socket.closed?      # => true
 ```
 
+### SSL/TLS Connections with Certificate Verification
+
+#### On POSIX Platforms (Linux/macOS)
+
+Use file paths to CA certificates:
+
+```ruby
+require 'socket'
+
+# Create SSL context
+ctx = SSLContext.new
+ctx.ca_file = "/etc/ssl/certs/ca-certificates.crt"  # Path to CA bundle
+ctx.verify_mode = SSLContext::VERIFY_PEER            # Enable verification (default)
+
+# Connect to HTTPS server
+tcp = TCPSocket.new("example.com", 443)
+ssl = SSLSocket.new(tcp, ctx)
+ssl.hostname = "example.com"  # Required for SNI and hostname verification
+ssl.connect
+
+# Use SSL socket like regular socket
+ssl.write("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+response = ssl.read(1024)
+
+ssl.close
+```
+
+#### On RP2040/Microcontrollers
+
+Use ROM-based certificates with physical memory addresses:
+
+```ruby
+require 'socket'
+require 'fat'  # picoruby-filesystem-fat
+
+# Open CA certificate file from flash
+file = FAT::File.new("/flash/ca-bundle.crt", "r")
+addr = file.physical_address  # Get ROM address
+size = file.size
+file.close
+
+# Create SSL context with ROM certificate
+ctx = SSLContext.new
+ctx.set_ca_cert(addr, size)  # Load certificate from ROM address
+ctx.verify_mode = SSLContext::VERIFY_PEER
+
+# Connect to HTTPS server
+tcp = TCPSocket.new("example.com", 443)
+ssl = SSLSocket.new(tcp, ctx)
+ssl.hostname = "example.com"
+ssl.connect
+
+# Use SSL socket
+ssl.write("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
+response = ssl.read(1024)
+
+ssl.close
+```
+
+**Note**: On RP2040, `ctx.ca_file=` is not supported. Use `ctx.set_ca_cert(addr, size)` instead to load certificates directly from ROM/flash memory.
+
+#### Disable Certificate Verification (Not Recommended)
+
+```ruby
+ctx = SSLContext.new
+ctx.verify_mode = SSLContext::VERIFY_NONE  # Disable verification
+
+# Rest of the code...
+```
+
+**Security Warning**: Disabling certificate verification makes your connection vulnerable to man-in-the-middle attacks. Only use `VERIFY_NONE` for testing purposes.
+
 ## API Reference
 
 ### TCPSocket
@@ -104,44 +179,95 @@ puts socket.closed?      # => true
 
 Base class for all socket types. Provides common socket and IO-compatible methods.
 
+### SSLContext
+
+#### Class Methods
+
+- `SSLContext.new()` - Create new SSL context
+
+#### Constants
+
+- `SSLContext::VERIFY_NONE` - Disable certificate verification
+- `SSLContext::VERIFY_PEER` - Enable certificate verification (default)
+
+#### Instance Methods
+
+- `ca_file=(path)` - Set CA certificate file path (POSIX only)
+- `set_ca_cert(addr, size)` - Set CA certificate from ROM address (RP2040 only)
+- `verify_mode=(mode)` - Set verification mode (VERIFY_NONE or VERIFY_PEER)
+- `verify_mode` - Get current verification mode
+
+### SSLSocket
+
+#### Class Methods
+
+- `SSLSocket.new(tcp_socket, ssl_context)` - Create SSL socket wrapping TCP socket
+
+#### Instance Methods
+
+- `hostname=(name)` - Set hostname for SNI and certificate verification
+- `connect` - Perform SSL/TLS handshake
+- `write(data)` - Send encrypted data
+- `read(maxlen = nil)` - Read encrypted data
+- `close` - Close SSL connection
+- `closed?` - Check if closed
+- `remote_host` - Get remote hostname
+- `remote_port` - Get remote port
+
+All IO-compatible methods from BasicSocket are also available.
+
 ## Implementation Status
 
-### Phase 1 ✅ (Current)
+### Phase 1 ✅ Completed
 - TCPSocket with POSIX implementation
 - Basic read/write/close operations
 - IO-compatible methods
-- mruby VM bindings
+- Dual VM bindings (mruby and mruby/c)
 
-### Phase 2 🚧 (Planned)
+### Phase 2 ✅ Completed
 - UDPSocket implementation
-- UDP send/receive
+- UDP send/receive/sendto operations
+- Bind functionality
 
-### Phase 3 🚧 (Planned)
+### Phase 3 ✅ Completed
 - TCPServer implementation
 - Accept connections
-- Server examples
+- Server backlog support
 
-### Phase 4 🚧 (Planned)
+### Phase 4 ✅ Completed
 - Net::HTTP implementation (separate gem: picoruby-net-http)
+- GET, POST, PUT, DELETE support
+- Regex-free implementation for VM compatibility
 
-### Phase 5 🚧 (Planned)
-- SSLSocket with mbedTLS
-- HTTPS support
+### Phase 5 ✅ Completed
+- SSLSocket with OpenSSL (POSIX) and MbedTLS (RP2040)
+- HTTPS support via Net::HTTP
+- Certificate verification with VERIFY_PEER
+- SNI (Server Name Indication) support
+- ROM-based certificates for microcontrollers
 
-### Phase 6 🚧 (Planned)
-- LwIP implementation for embedded systems
+### Phase 6 ✅ Completed
+- LwIP implementation for RP2040
 - Raspberry Pi Pico support
+- Callback-based async architecture
+- Platform abstraction layer
 
 ## Platform Support
 
-### Currently Supported
+### POSIX Platforms
 - ✅ Linux
 - ✅ macOS
-- ✅ Unix-like systems (POSIX)
+- ✅ Unix-like systems
+- Uses native POSIX sockets
+- OpenSSL for SSL/TLS
+- File-based CA certificates
 
-### Planned Support
-- 🚧 Raspberry Pi Pico (LwIP)
-- 🚧 Other embedded platforms with LwIP
+### Embedded Platforms
+- ✅ Raspberry Pi Pico (RP2040/RP2350)
+- Uses LwIP TCP/IP stack
+- MbedTLS for SSL/TLS
+- ROM-based CA certificates via `FAT::File#physical_address`
+- Supports both mruby and mruby/c VMs
 
 ## Architecture
 
