@@ -18,7 +18,7 @@ module Net
     end
 
     # Parse raw HTTP response
-    private def self.parse(response_string)
+    def self.parse(response_string)
       unless response_string && !response_string.empty?
         raise HTTPBadResponse, "Empty HTTP response"
       end
