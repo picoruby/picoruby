@@ -88,8 +88,20 @@ module Net
     end
 
     # Send GET request
-    def get(path, initheader = nil, dest = nil, &block)
-      request(Get.new(path, initheader), &block)
+    if RUBY_ENGINE == 'mruby'
+      def get(path, initheader = nil, dest = nil, &block)
+        request(Get.new(path, initheader), &block)
+      end
+    else # mruby/c
+      def get(path, initheader = nil, dest = nil, &block)
+        if self.class? # picoruby-metaprog
+          # @type var initheader: String
+          res = Net::HTTP._get(path, initheader, dest)
+          # @type var res: Net::HTTPResponse
+          return res # Truth: It's a String
+        end
+        request(Get.new(path, initheader), &block)
+      end
     end
 
     # Send HEAD request
@@ -148,7 +160,10 @@ module Net
     # Class method: Simple GET request
     # Note: Renamed from 'get' to avoid mruby/c limitation where class methods
     # and instance methods cannot have the same name
-    def self.get_content(host, path, port = nil)
+    def self._get(host, path, port = nil)
+      if path.nil?
+        raise ArgumentError, "Path cannot be nil"
+      end
       if host.start_with?('http')
         # Parse URI
         uri = URI.parse(host)
@@ -165,6 +180,12 @@ module Net
       http.start do |h|
         response = h.get(path)
         return response.body
+      end
+    end
+
+    if RUBY_ENGINE == 'mruby'
+      class << self
+        alias get _get
       end
     end
 

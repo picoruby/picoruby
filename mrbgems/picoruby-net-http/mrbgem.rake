@@ -8,4 +8,7 @@ MRuby::Gem::Specification.new('picoruby-net-http') do |spec|
 
   # Dependency on picoruby-socket-class for TCP/SSL socket support
   spec.add_dependency 'picoruby-socket-class'
+  if build.vm_mrubyc?
+    spec.add_dependency 'picoruby-metaprog'
+  end
 end

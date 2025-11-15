@@ -21,7 +21,8 @@ module Net
     def put: (String path, String data, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
     def delete: (String path, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
     def request: (HTTPGenericRequest req, ?String? body) ?{ (String) -> void } -> HTTPResponse
-    def self.get_content: (String uri_or_host, String path, ?Integer? port) -> String?
+    def self.get: (String uri_or_host, String path, ?Integer? port) -> String?
+    alias self._get self.get
     def self.get_response: (String uri_or_host, ?String? path, ?Integer? port) -> HTTPResponse
     def self.post_form: (String url, Hash[untyped, untyped] params) -> HTTPResponse
     def use_ssl?: () -> bool
