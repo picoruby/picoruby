@@ -69,7 +69,7 @@ mrb_ssl_context_set_ca_cert(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "ii", &addr, &size);
 
-  if (!SSLContext_set_ca_cert(ctx, (const void *)addr, (size_t)size)) {
+  if (!SSLContext_set_ca_cert(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
   }
 
