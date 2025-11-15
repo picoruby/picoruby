@@ -199,14 +199,9 @@ UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
 {
   if (!sock || !buf) return -1;
 
-  /* Wait for data */
-  int max_wait = 100; /* 10 seconds */
-  while (sock->recv_len == 0 && max_wait-- > 0) {
-    Net_sleep_ms(100);
-  }
-
+  /* Check if data is available (non-blocking) */
   if (sock->recv_len == 0) {
-    return 0; /* Timeout */
+    return 0; /* No data available */
   }
 
   /* Copy data */

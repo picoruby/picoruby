@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -75,7 +76,7 @@ TCPServer_accept(picorb_tcp_server_t *server)
   struct sockaddr_in client_addr;
   socklen_t addr_len = sizeof(client_addr);
 
-  /* Accept incoming connection (blocks until client connects) */
+  /* Accept incoming connection (blocking) */
   int client_fd = accept(srv->listen_fd,
                          (struct sockaddr*)&client_addr,
                          &addr_len);
