@@ -9,50 +9,76 @@ typedef struct {
 
 
 /*
- * TCPServer.new(port, backlog=5) -> TCPServer
+ * TCPServer.new(host=nil, service, backlog=5) -> TCPServer
+ *
+ * CRuby compatible signature with optional backlog extension.
+ * Examples:
+ *   TCPServer.new(nil, 8080)         # host=nil, service=8080
+ *   TCPServer.new("127.0.0.1", 8080) # host="127.0.0.1", service=8080
+ *   TCPServer.new(nil, 8080, 10)     # host=nil, service=8080, backlog=10
  */
 static void
 c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc < 1 || argc > 2) {
+  if (argc < 2 || argc > 3) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
-  /* Get port argument */
-  mrbc_value port = GET_ARG(1);
-  if (port.tt != MRBC_TT_INTEGER) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "port must be an Integer");
-    return;
-  }
-
-  /* Validate port range */
-  if (port.i <= 0 || port.i > 65535) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
-    return;
-  }
-
-  /* Get backlog argument (default: 5) */
+  const char *host = NULL;
+  int port = 0;
   int backlog = 5;
-  if (argc == 2) {
-    mrbc_value backlog_arg = GET_ARG(2);
+
+  mrbc_value host_arg = GET_ARG(1);
+  mrbc_value service_arg = GET_ARG(2);
+
+  /* Parse host argument */
+  if (host_arg.tt == MRBC_TT_STRING) {
+    host = (const char *)host_arg.string->data;
+  } else if (host_arg.tt != MRBC_TT_NIL) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "host must be a String or nil");
+    return;
+  }
+
+  /* Parse service argument */
+  if (service_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "service must be an Integer");
+    return;
+  }
+  port = (int)service_arg.i;
+
+  /* Parse optional backlog argument */
+  if (argc == 3) {
+    mrbc_value backlog_arg = GET_ARG(3);
     if (backlog_arg.tt != MRBC_TT_INTEGER) {
       mrbc_raise(vm, MRBC_CLASS(TypeError), "backlog must be an Integer");
       return;
     }
     backlog = (int)backlog_arg.i;
-    if (backlog <= 0) {
-      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "backlog must be positive");
-      return;
-    }
   }
+
+  /* Validate port range */
+  if (port <= 0 || port > 65535) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
+    return;
+  }
+
+  /* Validate backlog */
+  if (backlog <= 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "backlog must be positive");
+    return;
+  }
+
+  /* Note: host parameter is currently ignored in embedded implementation */
+  /* All interfaces are bound regardless of host parameter */
+  (void)host;
 
   /* Create instance with wrapper structure */
   mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(tcp_server_wrapper_t));
   tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)instance.instance->data;
 
   /* Create TCP server and store pointer */
-  wrapper->ptr = TCPServer_create((int)port.i, backlog);
+  wrapper->ptr = TCPServer_create(port, backlog);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create TCP server");
     return;

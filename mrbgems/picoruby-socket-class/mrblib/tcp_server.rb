@@ -1,7 +1,14 @@
 # TCPServer class - CRuby compatible TCP server implementation
 #
 # Usage:
-#   server = TCPServer.new(8080)
+#   # CRuby compatible
+#   server = TCPServer.new(nil, 8080)
+#   server = TCPServer.new("127.0.0.1", 8080)
+#
+#   # PicoRuby extension with backlog
+#   server = TCPServer.new(nil, 8080, 10)
+#   server = TCPServer.new("127.0.0.1", 8080, 15)
+#
 #   loop do
 #     client = server.accept
 #     # handle client...
@@ -12,9 +19,15 @@
 class TCPServer
   # Create a new TCP server listening on the specified port
   #
-  # @param port [Integer] Port number to listen on (1-65535)
+  # CRuby compatible signature with optional backlog extension:
+  #   new(host, service)           - Listen on the specified host and port
+  #   new(host, service, backlog)  - Full parameters with backlog
+  #
+  # @param host [String, nil] Hostname or IP address (currently ignored in embedded impl)
+  # @param service [Integer] Port number to listen on (1-65535)
   # @param backlog [Integer] Maximum number of pending connections (default: 5)
-  # @raise [ArgumentError] if port is invalid
+  # @raise [ArgumentError] if port is invalid or wrong number of arguments
+  # @raise [TypeError] if arguments have wrong types
   # @raise [RuntimeError] if server creation fails
   # (Implementation is in C bindings)
 
