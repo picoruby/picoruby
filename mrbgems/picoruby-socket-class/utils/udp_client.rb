@@ -6,7 +6,7 @@ PORT = 5000
 sock = UDPSocket.new
 sock.connect(HOST, PORT)
 
-sock.write("Hello, UDP server!")
+sock.send("Hello, UDP server!", 0)
 
 begin
   sock.recv(1024) do |data|
