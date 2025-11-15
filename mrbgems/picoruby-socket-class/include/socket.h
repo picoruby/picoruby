@@ -48,8 +48,11 @@ typedef struct {
   char remote_host[256];     /* Remote hostname */
   int remote_port;           /* Remote port */
   int socktype;              /* SOCK_STREAM or SOCK_DGRAM */
-  bool connected;
-  bool closed;
+  bool connected;            /* For POSIX compatibility */
+  bool closed;               /* For POSIX compatibility */
+  /* For UDP recvfrom - store last sender info */
+  char last_sender_host[256];
+  int last_sender_port;
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -102,7 +105,8 @@ typedef struct picorb_tcp_server picorb_tcp_server_t;
 picorb_tcp_server_t* TCPServer_create(int port, int backlog);
 picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_tcp_server_t *server);
-bool TCPServer_init(picorb_tcp_server_t *server, int port, int backlog);
+int TCPServer_port(picorb_tcp_server_t *server);
+bool TCPServer_listening(picorb_tcp_server_t *server);
 
 /* SSL Context API */
 #define SSL_VERIFY_NONE 0
@@ -126,7 +130,6 @@ bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file);
 bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode);
 int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx);
 void SSLContext_free(picorb_ssl_context_t *ctx);
-bool SSLContext_init(picorb_ssl_context_t *ctx);
 
 /* SSL Socket API */
 #ifdef PICORB_PLATFORM_POSIX

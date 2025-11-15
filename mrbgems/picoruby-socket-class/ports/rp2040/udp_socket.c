@@ -23,6 +23,20 @@ udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
     return;
   }
 
+  /* Store sender information */
+  if (addr) {
+    snprintf(sock->last_sender_host, sizeof(sock->last_sender_host),
+             "%u.%u.%u.%u",
+             (unsigned int)(ip4_addr1(addr)),
+             (unsigned int)(ip4_addr2(addr)),
+             (unsigned int)(ip4_addr3(addr)),
+             (unsigned int)(ip4_addr4(addr)));
+    sock->last_sender_port = port;
+  } else {
+    sock->last_sender_host[0] = '\0';
+    sock->last_sender_port = 0;
+  }
+
   /* Allocate/expand buffer */
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
@@ -72,6 +86,10 @@ UDPSocket_create(picorb_socket_t *sock)
   sock->recv_len = 0;
   sock->recv_capacity = 0;
   sock->socktype = 2; /* SOCK_DGRAM equivalent */
+  sock->connected = false;
+  sock->closed = false;
+  sock->last_sender_host[0] = '\0';
+  sock->last_sender_port = 0;
 
   lwip_begin();
   udp_recv((struct udp_pcb *)sock->pcb, udp_recv_callback, sock);
@@ -122,6 +140,7 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
     sock->remote_host[sizeof(sock->remote_host) - 1] = '\0';
     sock->remote_port = port;
     sock->state = SOCKET_STATE_CONNECTED;
+    sock->connected = true;
   }
 
   return err == ERR_OK;
@@ -194,21 +213,21 @@ UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
   size_t to_copy = (len < sock->recv_len) ? len : sock->recv_len;
   memcpy(buf, sock->recv_buf, to_copy);
 
+  /* Copy sender information if requested */
+  if (host && host_len > 0) {
+    strncpy(host, sock->last_sender_host, host_len - 1);
+    host[host_len - 1] = '\0';
+  }
+  if (port) {
+    *port = sock->last_sender_port;
+  }
+
   /* Update buffer */
   if (to_copy < sock->recv_len) {
     memmove(sock->recv_buf, sock->recv_buf + to_copy, sock->recv_len - to_copy);
     sock->recv_len -= to_copy;
   } else {
     sock->recv_len = 0;
-  }
-
-  /* Note: LwIP UDP callback doesn't provide source info easily,
-   * so we can't fill host/port here. This is a limitation. */
-  if (host && host_len > 0) {
-    host[0] = '\0';
-  }
-  if (port) {
-    *port = 0;
   }
 
   return (ssize_t)to_copy;
@@ -233,6 +252,8 @@ UDPSocket_close(picorb_socket_t *sock)
   }
 
   sock->state = SOCKET_STATE_CLOSED;
+  sock->connected = false;
+  sock->closed = true;
   sock->recv_len = 0;
   sock->recv_capacity = 0;
 

@@ -36,7 +36,7 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
   mrb_int backlog = 5;
   const char *host = NULL;
 
-  int argc = mrb_get_args(mrb, "oi|i", &host_arg, &service, &backlog);
+  mrb_get_args(mrb, "oi|i", &host_arg, &service, &backlog);
 
   /* Parse host argument */
   if (mrb_string_p(host_arg)) {

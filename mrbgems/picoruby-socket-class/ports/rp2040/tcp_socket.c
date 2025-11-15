@@ -42,6 +42,8 @@ TCPSocket_create(picorb_socket_t *sock)
   sock->socktype = 1; /* SOCK_STREAM equivalent */
   sock->remote_host[0] = '\0';
   sock->remote_port = 0;
+  sock->connected = false;
+  sock->closed = false;
 
   return true;
 }
@@ -55,10 +57,12 @@ tcp_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
 
   if (err != ERR_OK) {
     sock->state = SOCKET_STATE_ERROR;
+    sock->connected = false;
     return err;
   }
 
   sock->state = SOCKET_STATE_CONNECTED;
+  sock->connected = true;
   return ERR_OK;
 }
 
@@ -73,12 +77,15 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   if (err != ERR_OK) {
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
+    sock->connected = false;
     return err;
   }
 
   /* NULL pbuf means connection closed */
   if (!pbuf) {
     sock->state = SOCKET_STATE_CLOSED;
+    sock->connected = false;
+    sock->closed = true;
     return ERR_OK;
   }
 
@@ -131,6 +138,7 @@ tcp_err_callback(void *arg, err_t err)
   if (!sock) return;
 
   sock->state = SOCKET_STATE_ERROR;
+  sock->connected = false;
   sock->pcb = NULL; /* PCB is already freed by LwIP */
 }
 
@@ -282,6 +290,8 @@ TCPSocket_close(picorb_socket_t *sock)
   }
 
   sock->state = SOCKET_STATE_CLOSED;
+  sock->connected = false;
+  sock->closed = true;
   sock->recv_len = 0;
   sock->recv_capacity = 0;
 

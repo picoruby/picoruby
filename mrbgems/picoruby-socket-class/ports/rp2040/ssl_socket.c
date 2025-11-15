@@ -253,6 +253,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 
   ssl_sock->ssl_initialized = true;
   ssl_sock->connected = true;
+  ssl_sock->base_socket->connected = true;
   return true;
 
 cleanup:
