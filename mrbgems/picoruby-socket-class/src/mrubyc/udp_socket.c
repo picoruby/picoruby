@@ -246,17 +246,24 @@ c_udp_socket_recvfrom(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Create address info array [family, port, host, host] */
   mrbc_value addr_info = mrbc_array_new(vm, 4);
+  mrbc_incref(&addr_info);
   mrbc_value family_val = mrbc_string_new_cstr(vm, "AF_INET");
+  mrbc_incref(&family_val);
   mrbc_array_set(&addr_info, 0, &family_val);
   mrbc_value port_val = mrbc_integer_value(port);
   mrbc_array_set(&addr_info, 1, &port_val);
   mrbc_value host_val = mrbc_string_new_cstr(vm, host);
+  mrbc_incref(&host_val);
   mrbc_array_set(&addr_info, 2, &host_val);
+  mrbc_incref(&host_val);
   mrbc_array_set(&addr_info, 3, &host_val);
 
   /* Return [data, addr_info] */
   mrbc_value result = mrbc_array_new(vm, 2);
+  mrbc_incref(&result);
+  mrbc_incref(&data);
   mrbc_array_set(&result, 0, &data);
+  mrbc_incref(&addr_info);
   mrbc_array_set(&result, 1, &addr_info);
 
   SET_RETURN(result);
