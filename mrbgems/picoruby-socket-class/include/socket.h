@@ -157,4 +157,19 @@ int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock);
 /* Address resolution */
 bool resolve_address(const char *host, char *ip, size_t ip_len);
 
+#if defined(PICORB_VM_MRUBYC)
+  #include "mrubyc.h"
+  void tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
+  void udp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
+  void ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
+  void tcp_server_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
+  void mrbc_socket_free(mrbc_value *self);
+#elif defined(PICORB_VM_MRBY)
+  #include "mruby.h"
+  void tcp_socket_init(mrb_state *mrb, struct RClass *class_BasicSocket);
+  void udp_socket_init(mrb_state *mrb, struct RClass *class_BasicSocket);
+  void ssl_socket_init(mrb_state *mrb, struct RClass *class_BasicSocket);
+  void tcp_server_init(mrb_state *mrb, struct RClass *class_BasicSocket);
+#endif
+
 #endif /* PICORB_SOCKET_H */
