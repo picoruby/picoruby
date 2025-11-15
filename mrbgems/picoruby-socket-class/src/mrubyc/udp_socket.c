@@ -240,6 +240,13 @@ c_udp_socket_recvfrom(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  /* If no data available (non-blocking socket), return nil */
+  if (received == 0) {
+    mrbc_raw_free(buffer);
+    SET_NIL_RETURN();
+    return;
+  }
+
   /* Create data string */
   mrbc_value data = mrbc_string_new(vm, buffer, received);
   mrbc_raw_free(buffer);

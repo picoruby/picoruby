@@ -14,6 +14,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <sys/select.h>
+#include <fcntl.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -42,6 +44,12 @@ UDPSocket_create(picorb_socket_t *sock)
   sock->fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
   if (sock->fd < 0) {
     return false;
+  }
+
+  /* Set socket to non-blocking mode to prevent recvfrom from blocking forever */
+  int flags = fcntl(sock->fd, F_GETFL, 0);
+  if (flags >= 0) {
+    fcntl(sock->fd, F_SETFL, flags | O_NONBLOCK);
   }
 
   return true;
@@ -204,6 +212,12 @@ UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
   ssize_t received = recvfrom(sock->fd, buf, len, 0,
                                (struct sockaddr *)&addr, &addr_len);
   if (received < 0) {
+    /* For non-blocking sockets, EAGAIN/EWOULDBLOCK means no data available */
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      /* Return 0 to indicate no data available (not an error) */
+      return 0;
+    }
+    /* Other errors */
     return -1;
   }
 

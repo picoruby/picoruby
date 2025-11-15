@@ -150,6 +150,12 @@ mrb_udp_socket_recvfrom(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "recvfrom failed");
   }
 
+  /* If no data available (non-blocking socket), return nil */
+  if (received == 0) {
+    mrb_free(mrb, buf);
+    return mrb_nil_value();
+  }
+
   /* Create data string */
   data = mrb_str_new(mrb, buf, received);
   mrb_free(mrb, buf);

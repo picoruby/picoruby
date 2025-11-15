@@ -224,15 +224,15 @@ module Net
         end
 
         # Try to receive data
-        # recvfrom returns [data, addr_info]
+        # recvfrom returns [data, addr_info] or nil if no data available
         begin
-          # TODO: Sometimes this blocks forever
           result = socket.recvfrom(48)
+          # result is nil when no data is available (non-blocking socket)
           if result && result[0] && 48 <= result[0].length
             response_data = result[0]
             break
           end
-        rescue
+        rescue => e
           # Receive failed, continue waiting
         end
         sleep_ms 100
