@@ -9,9 +9,8 @@ sock.connect(HOST, PORT)
 sock.send("Hello, UDP server!", 0)
 
 begin
-  sock.recv(1024) do |data|
-    puts "Received: #{data}"
-  end
+  data = sock.recv(1024)
+  puts "Received: #{data}"
 rescue => e
   puts "No reply: #{e}"
 end

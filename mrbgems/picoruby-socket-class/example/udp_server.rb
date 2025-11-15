@@ -1,16 +1,10 @@
-#!/usr/bin/env ruby
-
-# UDP server for CRuby
-#
-# Client example:
-#   curl -u -X POST udp://
-
 require 'socket'
 
+HOST = '0.0.0.0'
 PORT = 5000
 
 sock = UDPSocket.new
-sock.bind("0.0.0.0", PORT)
+sock.bind(HOST, PORT)
 
 puts "UDP server started"
 
