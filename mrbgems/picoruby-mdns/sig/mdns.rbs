@@ -1,0 +1,141 @@
+module MDNS
+  # @sidebar error
+  class MDNSError < StandardError
+  end
+  # @sidebar error
+  class ParseError < MDNSError
+  end
+  # @sidebar error
+  class EncodeError < MDNSError
+  end
+
+  MDNS_PORT: Integer
+  MDNS_ADDR: String
+
+  TYPE_A: Integer
+  TYPE_PTR: Integer
+  TYPE_TXT: Integer
+  TYPE_SRV: Integer
+  TYPE_ANY: Integer
+
+  CLASS_IN: Integer
+  CLASS_ANY: Integer
+
+  CACHE_FLUSH: Integer
+
+  type srv_data_t = {
+    priority: Integer,
+    weight: Integer,
+    port: Integer,
+    target: String
+  }
+
+  type txt_data_t = Array[String] | Hash[String, String] | String
+
+  type rdata_t = String | Array[String] | srv_data_t | txt_data_t
+
+  type service_info_t = {
+    name: String,
+    type: Integer,
+    data: rdata_t,
+    ttl: Integer
+  }
+
+  class Message
+    @id: Integer
+    @qr: Integer
+    @opcode: Integer
+    @aa: Integer
+    @tc: Integer
+    @rd: Integer
+    @ra: Integer
+    @rcode: Integer
+    @questions: Array[Question]
+    @answers: Array[ResourceRecord]
+    @authorities: Array[ResourceRecord]
+    @additionals: Array[ResourceRecord]
+
+    attr_accessor id: Integer
+    attr_accessor qr: Integer
+    attr_accessor opcode: Integer
+    attr_accessor aa: Integer
+    attr_accessor tc: Integer
+    attr_accessor rd: Integer
+    attr_accessor ra: Integer
+    attr_accessor rcode: Integer
+    attr_accessor questions: Array[Question]
+    attr_accessor answers: Array[ResourceRecord]
+    attr_accessor authorities: Array[ResourceRecord]
+    attr_accessor additionals: Array[ResourceRecord]
+
+    def initialize: () -> void
+    def encode: () -> String
+    def self.decode: (String) -> Message
+  end
+
+  class Question
+    @qname: String
+    @qtype: Integer
+    @qclass: Integer
+
+    attr_accessor qname: String
+    attr_accessor qtype: Integer
+    attr_accessor qclass: Integer
+
+    def initialize: (String, Integer, ?Integer) -> void
+    def encode: () -> String
+    def self.decode: (String, Integer) -> [Question, Integer]
+    private def encode_name: (String) -> String
+    private def self.decode_name: (String, Integer) -> [String, Integer]
+  end
+
+  class ResourceRecord
+    @name: String
+    @rtype: Integer
+    @rclass: Integer
+    @ttl: Integer
+    @rdata: rdata_t
+
+    attr_accessor name: String
+    attr_accessor rtype: Integer
+    attr_accessor rclass: Integer
+    attr_accessor ttl: Integer
+    attr_accessor rdata: rdata_t
+
+    def initialize: (String, Integer, Integer, Integer, rdata_t) -> void
+    def encode: () -> String
+    def self.decode: (String, Integer) -> [ResourceRecord, Integer]
+    private def encode_name: (String) -> String
+    private def encode_rdata: () -> String
+    private def self.decode_rdata: (Integer, String, String, Integer) -> rdata_t
+  end
+
+  class Client
+    @socket: UDPSocket
+
+    def initialize: () -> void
+    def query: (String, ?timeout: Numeric) -> Array[service_info_t]
+    def resolve: (String, ?timeout: Numeric) -> String?
+    def close: () -> void
+  end
+
+  class Responder
+    type service_t = {
+      name: String,
+      type: String,
+      port: Integer,
+      txt: Hash[String, String]
+    }
+
+    @hostname: String
+    @ip_address: String
+    @services: Array[service_t]
+    @socket: UDPSocket
+
+    def initialize: (String, String) -> void
+    def advertise: (service_name: String, service_type: String, port: Integer, ?txt_records: Hash[String, String]) -> void
+    def run: () -> void
+    def close: () -> void
+    private def handle_query: (String, [String, Integer, String, String]) -> void
+  end
+end
