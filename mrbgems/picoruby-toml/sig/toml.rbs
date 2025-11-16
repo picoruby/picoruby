@@ -1,0 +1,56 @@
+module TOML
+  # @sidebar error
+  class TOMLError < StandardError
+  end
+  # @sidebar error
+  class ParseError < TOMLError
+  end
+  # @sidebar error
+  class GeneratorError < TOMLError
+  end
+
+  def self.parse: (String) -> Hash[String, untyped]
+  def self.generate: (Hash[String, untyped]) -> String
+
+  class Parser
+    @toml: String
+    @lines: Array[String]
+    @line_num: Integer
+    @result: Hash[String, untyped]
+    @current_table: Hash[String, untyped]
+    @table_path: Array[String]
+
+    def initialize: (String) -> void
+    def parse: () -> Hash[String, untyped]
+    private def parse_line: (String) -> void
+    private def strip_comment: (String) -> String
+    private def parse_table_header: (String) -> void
+    private def parse_array_table: (String) -> void
+    private def parse_key_value: (String) -> void
+    private def find_equals_sign: (String) -> Integer?
+    private def parse_key: (String) -> String
+    private def parse_value: (String) -> untyped
+    private def parse_basic_string: (String) -> String
+    private def parse_literal_string: (String) -> String
+    private def parse_multiline_string: (String) -> String
+    private def parse_multiline_literal_string: (String) -> String
+    private def unescape_string: (String) -> String
+    private def parse_boolean: (String) -> bool
+    private def parse_number_or_datetime: (String) -> (Integer | Float | String)
+    private def parse_integer: (String) -> Integer
+    private def parse_float: (String) -> Float
+    private def parse_array: (String) -> Array[untyped]
+    private def split_array_elements: (String) -> Array[String]
+  end
+
+  class Generator
+    @obj: Hash[String, untyped]
+
+    def initialize: (Hash[String, untyped]) -> void
+    def generate: (?Hash[String, untyped], ?Array[String]) -> String
+    private def format_key: (String) -> String
+    private def format_value: (untyped) -> String
+    private def format_string: (String) -> String
+    private def format_array: (Array[untyped]) -> String
+  end
+end
