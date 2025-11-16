@@ -36,12 +36,15 @@ module WebSocket
 
   class Client
     attr_reader :url, :host, :port, :path
+    attr_accessor :ssl_context
 
     def initialize(url)
       @url = url
       @socket = nil
       @headers = {}
       @fragments = []
+      @use_ssl = false
+      @ssl_context = nil
       parse_url(url)
     end
 
@@ -65,7 +68,23 @@ module WebSocket
 
     def connect
       # Open TCP connection
-      @socket = TCPSocket.new(@host, @port)
+      tcp_socket = TCPSocket.new(@host, @port)
+
+      # Wrap with SSL if using wss://
+      if @use_ssl
+        # Create default SSL context if not provided
+        unless @ssl_context
+          @ssl_context = SSLContext.new
+          @ssl_context.verify_mode = SSLContext::VERIFY_PEER
+        end
+
+        # Create SSL socket
+        @socket = SSLSocket.new(tcp_socket, @ssl_context)
+        @socket.hostname = @host  # For SNI
+        @socket.connect  # Perform SSL handshake
+      else
+        @socket = tcp_socket
+      end
 
       # Perform WebSocket handshake
       perform_handshake
@@ -153,11 +172,18 @@ module WebSocket
     private
 
     def parse_url(url)
-      # Simple URL parser for ws://host:port/path
-      if url.start_with?("ws://")
+      # Simple URL parser for ws://host:port/path or wss://host:port/path
+      if url.start_with?("wss://")
+        @use_ssl = true
+        url = url[6..-1]
+        default_port = 443
+      elsif url.start_with?("ws://")
+        @use_ssl = false
         url = url[5..-1]
-      elsif url.start_with?("wss://")
-        raise WebSocketError.new("WSS (secure WebSocket) not yet supported")
+        default_port = 80
+      else
+        @use_ssl = false
+        default_port = 80
       end
 
       # Split host:port and path
@@ -171,7 +197,7 @@ module WebSocket
         @port = port_str.to_i
       else
         @host = host_port
-        @port = 80
+        @port = default_port
       end
     end
 

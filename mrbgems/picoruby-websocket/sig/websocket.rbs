@@ -37,14 +37,17 @@ module WebSocket
     @host: String
     @port: Integer
     @path: String
-    @socket: TCPSocket?
+    @socket: (TCPSocket | SSLSocket)?
     @headers: Hash[String, String]
     @fragments: Array[fragment_t]
+    @use_ssl: bool
+    @ssl_context: SSLContext?
 
     attr_reader url: String
     attr_reader host: String
     attr_reader port: Integer
     attr_reader path: String
+    attr_accessor ssl_context: SSLContext?
 
     def initialize: (String) -> void
 

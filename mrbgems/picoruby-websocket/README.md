@@ -116,6 +116,41 @@ ws.add_header("X-Custom-Header", "value")
 ws.connect
 ```
 
+### Secure WebSocket (WSS)
+
+```ruby
+require 'websocket'
+
+# Connect to wss:// (secure WebSocket)
+ws = WebSocket::Client.new("wss://secure.example.com/socket")
+
+# Optional: Configure custom SSL context
+ctx = SSLContext.new
+ctx.verify_mode = SSLContext::VERIFY_PEER
+ctx.ca_file = "/etc/ssl/certs/ca-certificates.crt"  # On POSIX systems
+ws.ssl_context = ctx
+
+ws.connect  # Performs SSL handshake and WebSocket handshake
+
+ws.send_text("Secure message")
+response = ws.receive
+
+ws.close
+```
+
+### WSS with Self-Signed Certificate
+
+```ruby
+# Disable certificate verification (not recommended for production)
+ws = WebSocket::Client.new("wss://localhost:8443/socket")
+
+ctx = SSLContext.new
+ctx.verify_mode = SSLContext::VERIFY_NONE  # Disable verification
+ws.ssl_context = ctx
+
+ws.connect
+```
+
 ## API Reference
 
 ### WebSocket::Client
@@ -127,7 +162,7 @@ ws.connect
 
 #### Instance Methods
 
-- `connect` - Perform WebSocket handshake
+- `connect` - Perform WebSocket handshake (and SSL handshake if wss://)
 - `connected?` - Check connection status
 - `send_text(text)` - Send text message
 - `send_binary(data)` - Send binary message
@@ -136,6 +171,7 @@ ws.connect
 - `ping(payload = "")` - Send ping frame
 - `close(code = 1000, reason = "")` - Close connection
 - `add_header(name, value)` - Add custom HTTP header
+- `ssl_context=(ctx)` - Set custom SSLContext for wss:// connections
 
 ## Supported Features
 
@@ -149,7 +185,7 @@ ws.connect
 - ✅ Frame masking
 - ✅ Fragmented messages
 - ✅ Custom headers
-- ⚠️ SSL/TLS (wss://) not yet supported
+- ✅ SSL/TLS (wss://) supported via SSLSocket
 - ⚠️ Server-side not implemented
 - ⚠️ Extensions not supported
 
