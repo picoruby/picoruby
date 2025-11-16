@@ -1,0 +1,54 @@
+module MessagePack
+  # @sidebar error
+  class MessagePackError < StandardError
+  end
+  # @sidebar error
+  class PackError < MessagePackError
+  end
+  # @sidebar error
+  class UnpackError < MessagePackError
+  end
+
+  def self.pack: (untyped) -> String
+  def self.unpack: (String) -> untyped
+
+  class Packer
+    @result: String
+
+    def initialize: () -> void
+    def pack: (untyped) -> String
+    private def pack_value: (untyped) -> void
+    private def pack_nil: () -> void
+    private def pack_true: () -> void
+    private def pack_false: () -> void
+    private def pack_integer: (Integer) -> void
+    private def pack_float: (Float) -> void
+    private def pack_string: (String) -> void
+    private def pack_array: (Array[untyped]) -> void
+    private def pack_hash: (Hash[untyped, untyped]) -> void
+  end
+
+  class Unpacker
+    @data: String
+    @index: Integer
+
+    def initialize: (String) -> void
+    def unpack: () -> untyped
+    private def unpack_value: () -> untyped
+    private def read_byte: () -> Integer
+    private def read_bytes: (Integer) -> String
+    private def read_uint16: () -> Integer
+    private def read_uint32: () -> Integer
+    private def read_uint64: () -> Integer
+    private def read_int8: () -> Integer
+    private def read_int16: () -> Integer
+    private def read_int32: () -> Integer
+    private def read_int64: () -> Integer
+    private def read_float32: () -> Float
+    private def unpack_float32: () -> Float
+    private def unpack_float64: () -> Float
+    private def unpack_string: (Integer) -> String
+    private def unpack_array: (Integer) -> Array[untyped]
+    private def unpack_map: (Integer) -> Hash[untyped, untyped]
+  end
+end
