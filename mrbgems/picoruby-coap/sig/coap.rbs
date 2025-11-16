@@ -1,0 +1,130 @@
+module CoAP
+  # @sidebar error
+  class CoAPError < StandardError
+  end
+  # @sidebar error
+  class ParseError < CoAPError
+  end
+  # @sidebar error
+  class EncodeError < CoAPError
+  end
+
+  DEFAULT_PORT: Integer
+
+  TYPE_CON: Integer
+  TYPE_NON: Integer
+  TYPE_ACK: Integer
+  TYPE_RST: Integer
+
+  CODE_EMPTY: Integer
+  CODE_GET: Integer
+  CODE_POST: Integer
+  CODE_PUT: Integer
+  CODE_DELETE: Integer
+
+  CODE_CREATED: Integer
+  CODE_DELETED: Integer
+  CODE_VALID: Integer
+  CODE_CHANGED: Integer
+  CODE_CONTENT: Integer
+  CODE_BAD_REQUEST: Integer
+  CODE_NOT_FOUND: Integer
+  CODE_INTERNAL_ERROR: Integer
+
+  OPTION_IF_MATCH: Integer
+  OPTION_URI_HOST: Integer
+  OPTION_ETAG: Integer
+  OPTION_IF_NONE_MATCH: Integer
+  OPTION_URI_PORT: Integer
+  OPTION_LOCATION_PATH: Integer
+  OPTION_URI_PATH: Integer
+  OPTION_CONTENT_FORMAT: Integer
+  OPTION_MAX_AGE: Integer
+  OPTION_URI_QUERY: Integer
+  OPTION_ACCEPT: Integer
+  OPTION_LOCATION_QUERY: Integer
+  OPTION_PROXY_URI: Integer
+  OPTION_PROXY_SCHEME: Integer
+  OPTION_SIZE1: Integer
+
+  FORMAT_TEXT_PLAIN: Integer
+  FORMAT_APP_LINK_FORMAT: Integer
+  FORMAT_APP_XML: Integer
+  FORMAT_APP_OCTET_STREAM: Integer
+  FORMAT_APP_EXI: Integer
+  FORMAT_APP_JSON: Integer
+
+  type option_t = {
+    number: Integer,
+    value: String | Integer
+  }
+
+  class Message
+    @version: Integer
+    @mtype: Integer
+    @token_length: Integer
+    @code: Integer
+    @message_id: Integer
+    @token: String
+    @options: Array[option_t]
+    @payload: String
+
+    attr_accessor version: Integer
+    attr_accessor mtype: Integer
+    attr_accessor token_length: Integer
+    attr_accessor code: Integer
+    attr_accessor message_id: Integer
+    attr_accessor token: String
+    attr_accessor options: Array[option_t]
+    attr_accessor payload: String
+
+    def initialize: () -> void
+    def encode: () -> String
+    def self.decode: (String) -> Message
+    def get_option: (Integer) -> (String | Integer)?
+    def add_option: (Integer, String | Integer) -> void
+    def method_name: () -> String
+    def response_code_string: () -> String
+  end
+
+  class Request < Message
+    def initialize: (Integer) -> void
+    def uri_path=: (String) -> void
+    def uri_path: () -> String
+  end
+
+  class Response < Message
+    def initialize: (?code: Integer, ?payload: String) -> void
+  end
+
+  class Client
+    @socket: UDPSocket
+    @message_id: Integer
+    @token_counter: Integer
+
+    def initialize: () -> void
+    def get: (String, ?timeout: Numeric) -> Message
+    def post: (String, String, ?timeout: Numeric) -> Message
+    def put: (String, String, ?timeout: Numeric) -> Message
+    def delete: (String, ?timeout: Numeric) -> Message
+    def close: () -> void
+    private def request: (Integer, String, String?, Numeric) -> Message
+    private def parse_uri: (String) -> [String, Integer, String]
+    private def next_message_id: () -> Integer
+    private def next_token: () -> String
+  end
+
+  class Server
+    type handler_t = ^(Message) -> Response
+
+    @port: Integer
+    @socket: UDPSocket
+    @resources: Hash[String, handler_t]
+
+    def initialize: (?port: Integer) -> void
+    def add_resource: (String) { (Message) -> Response } -> void
+    def run: () -> void
+    def close: () -> void
+    private def handle_request: (String, [String, Integer, String, String]) -> void
+  end
+end
