@@ -1,0 +1,76 @@
+module CBOR
+  # @sidebar error
+  class CBORError < StandardError
+  end
+  # @sidebar error
+  class EncodeError < CBORError
+  end
+  # @sidebar error
+  class DecodeError < CBORError
+  end
+
+  TYPE_UINT: Integer
+  TYPE_NEGINT: Integer
+  TYPE_BYTES: Integer
+  TYPE_TEXT: Integer
+  TYPE_ARRAY: Integer
+  TYPE_MAP: Integer
+  TYPE_TAG: Integer
+  TYPE_SIMPLE: Integer
+
+  SIMPLE_FALSE: Integer
+  SIMPLE_TRUE: Integer
+  SIMPLE_NULL: Integer
+  SIMPLE_UNDEFINED: Integer
+
+  AI_UINT8: Integer
+  AI_UINT16: Integer
+  AI_UINT32: Integer
+  AI_UINT64: Integer
+  AI_INDEFINITE: Integer
+
+  def self.encode: (untyped) -> String
+  def self.decode: (String) -> untyped
+
+  class Tagged
+    @tag: Integer
+    @value: untyped
+
+    attr_accessor tag: Integer
+    attr_accessor value: untyped
+
+    def initialize: (Integer, untyped) -> void
+    def ==: (untyped) -> bool
+  end
+
+  class Encoder
+    @output: String
+
+    def initialize: () -> void
+    def encode: (untyped) -> String
+    private def encode_value: (untyped) -> void
+    private def encode_integer: (Integer) -> void
+    private def encode_type_value: (Integer, Integer) -> void
+    private def encode_float: (Float) -> void
+    private def encode_string: (String) -> void
+    private def encode_array: (Array[untyped]) -> void
+    private def encode_map: (Hash[untyped, untyped]) -> void
+    private def encode_simple: (Integer) -> void
+    private def encode_tagged: (Tagged) -> void
+  end
+
+  class Decoder
+    @data: String
+    @offset: Integer
+
+    def initialize: (String) -> void
+    def decode: () -> untyped
+    private def decode_value: () -> untyped
+    private def decode_uint: (Integer) -> Integer
+    private def decode_array: (Integer) -> Array[untyped]
+    private def decode_map: (Integer) -> Hash[untyped, untyped]
+    private def decode_simple: (Integer) -> (bool | nil | Float)
+    private def read_byte: () -> Integer
+    private def read_bytes: (Integer) -> String
+  end
+end
