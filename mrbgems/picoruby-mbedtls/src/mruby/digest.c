@@ -5,7 +5,19 @@
 #include "mruby/class.h"
 
 #include "digest.h"
+#include "md.h"
 #include "md_context.h"
+
+struct mrb_data_type mrb_md_context_type = {
+  "MdContext", mrb_md_context_free,
+};
+
+void
+mrb_md_context_free(mrb_state *mrb, void *ptr)
+{
+  MbedTLS_md_free(ptr);
+  mrb_free(mrb, ptr);
+}
 
 static mrb_value
 mrb_mbedtls_digest_initialize(mrb_state *mrb, mrb_value self)
