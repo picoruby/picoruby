@@ -26,10 +26,25 @@ class WebSocketTest < Picotest::Test
     assert_equal("/ws", client.path)
   end
 
-  def test_wss_not_supported
-    assert_raise(WebSocket::WebSocketError) do
-      WebSocket::Client.new("wss://secure.example.com")
-    end
+  def test_wss_url_parsing
+    client = WebSocket::Client.new("wss://secure.example.com")
+    assert_equal("secure.example.com", client.host)
+    assert_equal(443, client.port)
+    assert_equal("/", client.path)
+  end
+
+  def test_wss_url_with_port
+    client = WebSocket::Client.new("wss://secure.example.com:8443/socket")
+    assert_equal("secure.example.com", client.host)
+    assert_equal(8443, client.port)
+    assert_equal("/socket", client.path)
+  end
+
+  def test_wss_url_with_path
+    client = WebSocket::Client.new("wss://api.example.com/v1/stream")
+    assert_equal("api.example.com", client.host)
+    assert_equal(443, client.port)
+    assert_equal("/v1/stream", client.path)
   end
 
   def test_connected_returns_false_initially
@@ -43,6 +58,16 @@ class WebSocketTest < Picotest::Test
     client.add_header("X-Custom", "value")
     # Headers are stored internally
     assert(true)
+  end
+
+  def test_ssl_context_accessor
+    client = WebSocket::Client.new("wss://example.com")
+    assert_equal(nil, client.ssl_context)
+
+    # Can set custom SSL context
+    # (In real usage, would create SSLContext.new)
+    client.ssl_context = "mock_context"
+    assert_equal("mock_context", client.ssl_context)
   end
 
   def test_mask_data
@@ -179,6 +204,9 @@ class WebSocketTest < Picotest::Test
       ["ws://host/", "host", 80, "/"],
       ["ws://host:1234", "host", 1234, "/"],
       ["ws://host:1234/path", "host", 1234, "/path"],
+      ["wss://host", "host", 443, "/"],
+      ["wss://host:8443", "host", 8443, "/"],
+      ["wss://host/secure", "host", 443, "/secure"],
       ["host:9000", "host", 9000, "/"]
     ]
 
