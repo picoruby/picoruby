@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.authors = ['Ryo Kajiwara', 'HASUMI Hitoshi']
   spec.summary = 'Network functionality for PicoRuby'
 
-  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-time'
   spec.add_dependency 'picoruby-pack'
   spec.add_dependency 'picoruby-mbedtls'
   spec.add_dependency 'picoruby-jwt'

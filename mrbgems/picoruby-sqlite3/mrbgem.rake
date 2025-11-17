@@ -5,7 +5,7 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
 
   spec.add_dependency 'picoruby-mrubyc'
   spec.add_dependency 'picoruby-vfs'
-  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-time'
 
   # SQLite build configuration https://sqlite.org/compile.html
   spec.cc.defines << "SQLITE_OS_OTHER=1" # You need to implement sqlite3_os_init() and sqlite3_os_end()

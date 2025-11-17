@@ -529,7 +529,7 @@ mrb_time_methods(mrb_state *mrb, mrb_value self)
 }
 
 void
-mrb_picoruby_time_class_gem_init(mrb_state *mrb)
+mrb_picoruby_time_gem_init(mrb_state *mrb)
 {
   struct RClass *class_Time = mrb_define_class_id(mrb, MRB_SYM(Time), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_Time, MRB_TT_CDATA);
@@ -567,6 +567,6 @@ mrb_picoruby_time_class_gem_init(mrb_state *mrb)
 }
 
 void
-mrb_picoruby_time_class_gem_final(mrb_state *mrb)
+mrb_picoruby_time_gem_final(mrb_state *mrb)
 {
 }

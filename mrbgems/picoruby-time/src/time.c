@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "../include/time-class.h"
+#include "../include/picogem_time.h"
 
 #if !defined(PICORB_PLATFORM_POSIX)
 static long

@@ -472,7 +472,7 @@ c_time_methods(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_time_class_init(mrbc_vm *vm)
+mrbc_time_init(mrbc_vm *vm)
 {
   mrbc_class *class_Time = mrbc_define_class(vm, "Time", mrbc_class_object);
   class_TimeMethods = mrbc_define_class_under(vm, class_Time, "TimeMethods", mrbc_class_object);
