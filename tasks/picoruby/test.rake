@@ -74,7 +74,7 @@ def run_test_for_gems(vm_type, specified_gem)
   ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
   puts "Strategy: Full build for"
   # workaround. TODO: delete this after removal of picoruby-net
-  if gems.any?{|gem| gem[:name] == 'picoruby-net' } && gems.any?{|gem| gem[:name] == 'picoruby-socket-class' }
+  if gems.any?{|gem| gem[:name] == 'picoruby-net' } && gems.any?{|gem| gem[:name] == 'picoruby-socket' }
     gems.reject!{|gem| gem[:name] == 'picoruby-net' }
   end
   gems.each { |gem| puts "  - #{gem[:name]}" }

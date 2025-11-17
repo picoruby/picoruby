@@ -1,9 +1,10 @@
-module Net
-  class NTP
-    NTP_SERVER: String
-    NTP_PORT: Integer
-    UNIX_TIME_BASE: Integer
-
-    def self.get: (?String ntp_server, ?Integer ntp_port) -> [Integer, Integer]
-  end
-end
+# deprecated by picoruby-net-ntp
+#module Net
+#  class NTP
+#    NTP_SERVER: String
+#    NTP_PORT: Integer
+#    UNIX_TIME_BASE: Integer
+#
+#    def self.get: (?String ntp_server, ?Integer ntp_port) -> [Integer, Integer]
+#  end
+#end

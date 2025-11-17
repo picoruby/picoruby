@@ -136,7 +136,6 @@ static err_t
 TCPClient_connected_cb(void *arg, struct altcp_pcb *pcb, err_t err)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  MRB;
   if (err != ERR_OK) {
     if (cs->res && cs->res->error_message[0] == '\0') {
       snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
@@ -152,7 +151,6 @@ static err_t
 TCPClient_poll_cb(void *arg, struct altcp_pcb *pcb)
 {
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  MRB;
   if (cs->res && cs->res->error_message[0] == '\0') {
     snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
              "TCP poll timeout");
@@ -166,7 +164,6 @@ TCPClient_err_cb(void *arg, err_t err)
 {
   if (!arg) return;
   tcp_connection_state *cs = (tcp_connection_state *)arg;
-  MRB;
   if (cs->res && cs->res->error_message[0] == '\0') {
     snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
              "TCP error callback: %s", lwip_strerr(err));
@@ -279,7 +276,6 @@ TCPClient_poll_impl(tcp_connection_state **pcs)
       lwip_begin();
       err = altcp_write(cs->pcb, cs->send_data, cs->send_data_len, 0);
       if (err != ERR_OK) {
-        MRB;
         if (cs->res && cs->res->error_message[0] == '\0') {
           snprintf(cs->res->error_message, NET_ERROR_MESSAGE_SIZE,
                    "Failed to write data: %s", lwip_strerr(err));

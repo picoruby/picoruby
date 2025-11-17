@@ -27,8 +27,8 @@
 #endif
 
 #if defined(PIRORB_VM_MRUBY) && !defined(LWIP_PLATFORM_DIAG)
-# include "mruby.h"
-# define LWIP_PLATFORM_DIAG(x) do { mrb_p(mrb, x); } while(0)
+# include "picoruby/debug.h"
+# define LWIP_PLATFORM_DIAG(x) do { debug_printf x; } while(0)
 #endif
 
 // You can show stats by `stats_display();`

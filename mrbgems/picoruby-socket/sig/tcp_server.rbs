@@ -1,0 +1,6 @@
+class TCPServer
+  def initialize: (String? host, Integer service, ?Integer backlog) -> void
+  def accept: () -> TCPSocket
+  def accept_loop: () { (TCPSocket) -> void } -> void
+  def close: () -> nil
+end
