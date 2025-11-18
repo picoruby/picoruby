@@ -121,9 +121,8 @@ mrb_data_subclass_new(mrb_state *mrb, mrb_value self)
                argc, member_count);
   }
 
-  struct RObject *obj = (struct RObject*)mrb_obj_alloc(mrb, MRB_TT_OBJECT, subclass_data->cls);
-  mrb_value instance = mrb_obj_value(obj);
   data_instance_t *instance_data = (data_instance_t *)mrb_malloc(mrb, sizeof(data_instance_t));
+  mrb_value instance = mrb_obj_value(Data_Wrap_Struct(mrb, subclass_data->cls, &data_instance_type, instance_data));
 
   mrb_value members = mrb_hash_new_capa(mrb, member_count);
   for (mrb_int i = 0; i < member_count; i++) {
@@ -131,7 +130,6 @@ mrb_data_subclass_new(mrb_state *mrb, mrb_value self)
     mrb_hash_set(mrb, members, key, args[i]);
   }
 
-  mrb_data_init(instance, instance_data, &data_instance_type);
   mrb_iv_set(mrb, instance, MRB_IVSYM(members), members);
 
   return instance;
@@ -189,7 +187,8 @@ mrb_data_define(mrb_state *mrb, mrb_value self)
 
   data->cls = cls;
 
-  mrb_data_init(subclass, data, &data_subclass_type);
+  DATA_PTR(subclass) = data;
+  DATA_TYPE(subclass) = &data_subclass_type;
   mrb_iv_set(mrb, subclass, MRB_IVSYM(member_keys), member_keys);
 
   mrb_define_method_id(mrb, cls, MRB_SYM(method_missing), mrb_data_method_missing, MRB_ARGS_ANY());
@@ -209,6 +208,7 @@ void
 mrb_picoruby_data_gem_init(mrb_state *mrb)
 {
   class_Data = mrb_define_class_id(mrb, MRB_SYM(Data), mrb->object_class);
+  MRB_SET_INSTANCE_TT(class_Data, MRB_TT_CDATA);
 
   mrb_define_class_method_id(mrb, class_Data, MRB_SYM(define), mrb_data_define, MRB_ARGS_ANY());
 }
