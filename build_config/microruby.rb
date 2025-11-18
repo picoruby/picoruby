@@ -6,8 +6,12 @@ MRuby::Build.new do |conf|
 
   conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-  conf.cc.defines << "ESTALLOC_DEBUG"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
+
+  if ENV['PICORUBY_DEBUG']
+    conf.cc.defines << "ESTALLOC_DEBUG"
+    conf.enable_debug
+  end
 
   conf.microruby
 

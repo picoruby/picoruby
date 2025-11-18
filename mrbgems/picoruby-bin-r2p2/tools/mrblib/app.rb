@@ -16,6 +16,7 @@ rescue Interrupt
   puts "\nExiting as Interrupted"
   Machine.exit(0)
 rescue => e
-  puts e.message
+  puts "#{e.message} (#{e.class})"
+  puts e.backtrace if e.respond_to?(:backtrace)
   Machine.exit(1)
 end

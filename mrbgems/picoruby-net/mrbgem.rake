@@ -7,10 +7,7 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.add_dependency 'picoruby-pack'
   spec.add_dependency 'picoruby-mbedtls'
   spec.add_dependency 'picoruby-jwt'
-
-  unless spec.cc.defines.include? "PICORB_PLATFORM_POSIX"
-    spec.add_dependency 'picoruby-cyw43'
-  end
+  spec.add_dependency 'picoruby-cyw43' unless build.posix?
 
   if build.posix?
     #
