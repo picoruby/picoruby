@@ -11,8 +11,10 @@
 void
 Net_sleep_ms(int ms)
 {
+  /* Poll before and after sleep to ensure events are processed */
   cyw43_arch_poll();
   sleep_ms(ms);
+  cyw43_arch_poll();
 }
 
 /* Lock LwIP for thread safety */

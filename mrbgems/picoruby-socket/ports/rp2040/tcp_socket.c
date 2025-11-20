@@ -4,6 +4,7 @@
 
 #include "../../include/socket.h"
 #include "picoruby.h"
+#include "picoruby/debug.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -142,27 +143,42 @@ tcp_err_callback(void *arg, err_t err)
   sock->pcb = NULL; /* PCB is already freed by LwIP */
 }
 
+/* Poll callback - called periodically by LwIP */
+static err_t
+tcp_poll_callback(void *arg, struct altcp_pcb *pcb)
+{
+  /* Just return OK to keep connection alive */
+  return ERR_OK;
+}
+
 /* Connect to remote host */
 bool
 TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 {
+  D("TCP connect: port=%d\n", port);
+
   if (!sock || !host || port <= 0 || port > 65535) {
+    D("TCP: bad params\n");
     return false;
   }
 
   /* Create socket if not already created */
   if (!sock->pcb) {
     if (!TCPSocket_create(sock)) {
+      D("TCP: create failed\n");
       return false;
     }
   }
 
   /* Resolve hostname to IP address */
   ip_addr_t ip_addr;
+  D("TCP: DNS lookup\n");
   int dns_result = Net_get_ip(host, &ip_addr);
   if (dns_result != 0) {
+    D("TCP: DNS failed\n");
     return false;
   }
+  D("TCP: DNS ok\n");
 
   /* Setup callbacks */
   lwip_begin();
@@ -170,12 +186,15 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   altcp_recv(sock->pcb, tcp_recv_callback);
   altcp_sent(sock->pcb, tcp_sent_callback);
   altcp_err(sock->pcb, tcp_err_callback);
+  altcp_poll(sock->pcb, tcp_poll_callback, 4);  /* Poll every 2 seconds (4 * 500ms) */
 
   /* Initiate connection */
+  D("TCP: connecting\n");
   err_t err = altcp_connect(sock->pcb, &ip_addr, port, tcp_connected_callback);
   lwip_end();
 
   if (err != ERR_OK) {
+    D("TCP: connect err=%d\n", err);
     return false;
   }
 
@@ -186,12 +205,27 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   sock->state = SOCKET_STATE_CONNECTING;
 
   /* Wait for connection to establish */
-  int max_wait = 100; /* 10 seconds */
+  D("TCP: waiting\n");
+  int max_wait = 1000; /* 10 seconds (10ms * 1000) */
   while (sock->state == SOCKET_STATE_CONNECTING && max_wait-- > 0) {
-    Net_sleep_ms(100);
+    Net_sleep_ms(10);  /* Poll more frequently */
   }
 
-  return sock->state == SOCKET_STATE_CONNECTED;
+  if (sock->state == SOCKET_STATE_CONNECTED) {
+    D("TCP: connected\n");
+    return true;
+  } else {
+    D("TCP: timeout state=%d\n", sock->state);
+    /* Cleanup on timeout */
+    if (sock->pcb) {
+      lwip_begin();
+      altcp_abort(sock->pcb);
+      lwip_end();
+      sock->pcb = NULL;
+    }
+    sock->state = SOCKET_STATE_ERROR;
+    return false;
+  }
 }
 
 /* Send data */

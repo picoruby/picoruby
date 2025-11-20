@@ -4,6 +4,7 @@
 
 #include "../../include/socket.h"
 #include "picoruby.h"
+#include "picoruby/debug.h"
 #include <string.h>
 
 /* mbedTLS includes */
@@ -247,12 +248,18 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 
   /* Configure certificate verification based on context settings */
   if (ssl_sock->ssl_ctx->verify_mode == SSL_VERIFY_PEER) {
-    mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
-    /* Set CA certificate chain if loaded */
+    /* Only require verification if CA certificate is loaded */
     if (ssl_sock->ssl_ctx->ca_cert_loaded) {
+      D("SSL: verify req\n");
+      mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
       mbedtls_ssl_conf_ca_chain(&ssl_sock->conf, &ssl_sock->ssl_ctx->ca_cert, NULL);
+    } else {
+      /* No CA cert loaded - use optional verification (allows connection without verification) */
+      D("SSL: verify opt\n");
+      mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
     }
   } else {
+    D("SSL: verify none\n");
     mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_NONE);
   }
 
