@@ -148,17 +148,17 @@ c_Machine_set_hwclock(mrbc_vm *vm, mrbc_value *v, int argc)
 #if defined(PICORB_PLATFORM_POSIX)
   mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Not implemented");
 #else
-  if (argc != 2) {
+  if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_INTEGER) {
+  if (GET_TT_ARG(1) != MRBC_TT_INTEGER) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong type of arguments");
     return;
   }
   const struct timespec ts = {
     .tv_sec = (time_t)GET_INT_ARG(1),
-    .tv_nsec = (long)GET_INT_ARG(2)
+    .tv_nsec = 0
   };
   if (Machine_set_hwclock(&ts)) {
     SET_TRUE_RETURN();

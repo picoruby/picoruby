@@ -17,7 +17,7 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-require 'net'
+require 'net/ntp'
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -131,6 +131,45 @@ if config["wifi"]["watchdog"]
   puts "Watchdog disabled"
 end
 
-ts = Net::NTP.get
-Machine.set_hwclock(ts[0], ts[1])
-puts "Time set to #{Time.now}"
+puts "Waiting for IP address..."
+retry_count = 0
+max_retries = 20
+until CYW43.link_connected?
+  sleep_ms 100
+  retry_count += 1
+  if retry_count >= max_retries
+    puts "Failed to get IP address after #{max_retries * 100}ms"
+    return
+  end
+end
+puts "IP address obtained (#{CYW43.tcpip_link_status_name})"
+
+NTP_HOST = "pool.ntp.org"
+NTP_PORT = 123
+
+puts "Initializing DNS..."
+retry_count = 0
+max_dns_retries = 10
+dns_ready = false
+while retry_count < max_dns_retries && !dns_ready
+  begin
+    test_socket = UDPSocket.new
+    test_socket.connect(NTP_HOST, NTP_PORT)
+    test_socket.close
+    dns_ready = true
+    puts "DNS ready"
+  rescue => e
+    retry_count += 1
+    sleep_ms 100
+  end
+end
+
+unless dns_ready
+  puts "DNS initialization failed after #{max_dns_retries * 100}ms"
+  return
+end
+
+puts "Getting time from NTP server..."
+ts = Net::NTP.get(NTP_HOST, NTP_PORT)
+Machine.set_hwclock(ts) if ts
+puts "Current time: #{Time.now}"
