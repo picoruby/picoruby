@@ -246,6 +246,21 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
 }
 
 /*
+ * Set port for SSL socket
+ */
+bool
+SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
+{
+  if (!ssl_sock || port <= 0 || port > 65535) {
+    return false;
+  }
+
+  /* For POSIX, port is set via TCPSocket connection, so this is a no-op */
+  /* Just return true for API compatibility */
+  return true;
+}
+
+/*
  * Perform SSL/TLS handshake
  */
 bool

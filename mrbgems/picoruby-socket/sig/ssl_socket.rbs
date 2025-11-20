@@ -1,5 +1,5 @@
 class SSLSocket < BasicSocket
-  def initialize: (TCPSocket tcp_socket, SSLContext ssl_context) -> void
+  def initialize: (SSLContext ssl_context) -> void
   def self.open: (TCPSocket tcp_socket, SSLContext ssl_context) -> SSLSocket
   def hostname=: (String hostname) -> String
   def connect: () -> self

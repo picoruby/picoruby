@@ -93,8 +93,7 @@ ctx.ca_file = "/etc/ssl/certs/ca-certificates.crt"  # Path to CA bundle
 ctx.verify_mode = SSLContext::VERIFY_PEER            # Enable verification (default)
 
 # Connect to HTTPS server
-tcp = TCPSocket.new("example.com", 443)
-ssl = SSLSocket.new(tcp, ctx)
+ssl = SSLSocket.new(ctx)
 ssl.hostname = "example.com"  # Required for SNI and hostname verification
 ssl.connect
 
@@ -125,8 +124,7 @@ ctx.set_ca_cert(addr, size)  # Load certificate from ROM address
 ctx.verify_mode = SSLContext::VERIFY_PEER
 
 # Connect to HTTPS server
-tcp = TCPSocket.new("example.com", 443)
-ssl = SSLSocket.new(tcp, ctx)
+ssl = SSLSocket.new(ctx)
 ssl.hostname = "example.com"
 ssl.connect
 
@@ -201,7 +199,7 @@ Base class for all socket types. Provides common socket and IO-compatible method
 
 #### Class Methods
 
-- `SSLSocket.new(tcp_socket, ssl_context)` - Create SSL socket wrapping TCP socket
+- `SSLSocket.new(ssl_context)` - Create SSL socket wrapping TCP context
 
 #### Instance Methods
 

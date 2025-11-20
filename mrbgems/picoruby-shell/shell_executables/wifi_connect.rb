@@ -17,7 +17,7 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-require 'net/ntp'
+#require 'net/ntp'
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -169,7 +169,7 @@ unless dns_ready
   return
 end
 
-puts "Getting time from NTP server..."
-ts = Net::NTP.get(NTP_HOST, NTP_PORT)
-Machine.set_hwclock(ts) if ts
-puts "Current time: #{Time.now}"
+#puts "Getting time from NTP server..."
+#ts = Net::NTP.get(NTP_HOST, NTP_PORT)
+#Machine.set_hwclock(ts) if ts
+#puts "Current time: #{Time.now}"

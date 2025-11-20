@@ -1,5 +1,6 @@
 /*
- * SSL Socket implementation for rp2040 using mbedTLS and LwIP
+ * SSL Socket implementation for rp2040 using LwIP altcp_tls
+ * Similar approach to picoruby-net for stability
  */
 
 #include "../../include/socket.h"
@@ -7,67 +8,157 @@
 #include "picoruby/debug.h"
 #include <string.h>
 
-/* mbedTLS includes */
+/* LwIP altcp_tls includes */
+#define PICORB_NO_LWIP_HELPERS
+#include "lwip/altcp.h"
+#include "lwip/altcp_tls.h"
+#include "lwip/dns.h"
+#include "lwip/err.h"
 #include "mbedtls/ssl.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/error.h"
 
-/* SSL Context structure (rp2040 - mbedTLS) */
+/* SSL connection states */
+#define SSL_STATE_NONE           0
+#define SSL_STATE_CONNECTING     1
+#define SSL_STATE_CONNECTED      2
+#define SSL_STATE_ERROR          3
+
+/* SSL Context structure */
 struct picorb_ssl_context {
   int verify_mode;
-  mbedtls_x509_crt ca_cert;       /* Parsed CA certificate chain */
-  bool ca_cert_loaded;
+  struct altcp_tls_config *tls_config;
+  const unsigned char *ca_cert_data;
+  size_t ca_cert_len;
 };
 
 /* SSL socket structure */
 struct picorb_ssl_socket {
-  picorb_socket_t *base_socket;
+  picorb_socket_t *base_socket;   /* For buffer compatibility */
   picorb_ssl_context_t *ssl_ctx;
-  mbedtls_ssl_context ssl;
-  mbedtls_ssl_config conf;
-  mbedtls_entropy_context entropy;
-  mbedtls_ctr_drbg_context ctr_drbg;
-  bool ssl_initialized;
+  struct altcp_pcb *tls_pcb;
+  int state;
   bool connected;
   char *hostname;
+  int port;
 };
 
-/* Send callback for mbedTLS */
-static int
-ssl_send_callback(void *ctx, const unsigned char *buf, size_t len)
-{
-  picorb_socket_t *sock = (picorb_socket_t *)ctx;
-  ssize_t sent = TCPSocket_send(sock, buf, len);
+/* Forward declarations */
+static err_t ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err);
+static err_t ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err);
+static err_t ssl_sent_callback(void *arg, struct altcp_pcb *pcb, u16_t len);
+static void ssl_err_callback(void *arg, err_t err);
+static err_t ssl_poll_callback(void *arg, struct altcp_pcb *pcb);
 
-  if (sent < 0) {
-    return MBEDTLS_ERR_SSL_WANT_WRITE;
+/* ========================================================================
+ * Callback Functions
+ * ======================================================================== */
+
+static err_t
+ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
+{
+  D("SSL callback: connected\n");
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)arg;
+  if (!ssl_sock) {
+    D("SSL callback: no sock\n");
+    return ERR_ARG;
   }
 
-  return (int)sent;
+  if (err != ERR_OK) {
+    D("SSL callback: error\n");
+    ssl_sock->state = SSL_STATE_ERROR;
+    ssl_sock->connected = false;
+    return err;
+  }
+
+  D("SSL callback: success\n");
+  ssl_sock->state = SSL_STATE_CONNECTED;
+  ssl_sock->connected = true;
+  return ERR_OK;
 }
 
-/* Receive callback for mbedTLS */
-static int
-ssl_recv_callback(void *ctx, unsigned char *buf, size_t len)
+static err_t
+ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
-  picorb_socket_t *sock = (picorb_socket_t *)ctx;
-  ssize_t received = TCPSocket_recv(sock, buf, len);
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)arg;
+  if (!ssl_sock || !ssl_sock->base_socket) return ERR_ARG;
 
-  if (received < 0) {
-    return MBEDTLS_ERR_SSL_WANT_READ;
+  /* Handle errors */
+  if (err != ERR_OK) {
+    if (pbuf) pbuf_free(pbuf);
+    ssl_sock->state = SSL_STATE_ERROR;
+    ssl_sock->connected = false;
+    return err;
   }
 
-  if (received == 0) {
-    return MBEDTLS_ERR_SSL_CONN_EOF;
+  /* NULL pbuf means connection closed */
+  if (!pbuf) {
+    ssl_sock->state = SSL_STATE_NONE;
+    ssl_sock->connected = false;
+    return ERR_OK;
   }
 
-  return (int)received;
+  /* Allocate or expand receive buffer in base_socket */
+  picorb_socket_t *sock = ssl_sock->base_socket;
+  size_t total_len = pbuf->tot_len;
+  size_t new_size = sock->recv_len + total_len;
+
+  if (new_size > sock->recv_capacity) {
+    char *new_buf = (char *)picorb_realloc(NULL, sock->recv_buf, new_size + 1);
+    if (!new_buf) {
+      pbuf_free(pbuf);
+      ssl_sock->state = SSL_STATE_ERROR;
+      return ERR_MEM;
+    }
+    sock->recv_buf = new_buf;
+    sock->recv_capacity = new_size;
+  }
+
+  /* Copy data from pbuf chain */
+  struct pbuf *current = pbuf;
+  size_t offset = sock->recv_len;
+  while (current) {
+    memcpy(sock->recv_buf + offset, current->payload, current->len);
+    offset += current->len;
+    current = current->next;
+  }
+  sock->recv_len = offset;
+  sock->recv_buf[sock->recv_len] = '\0';
+
+  /* Tell LwIP we processed the data */
+  altcp_recved(pcb, total_len);
+  pbuf_free(pbuf);
+
+  return ERR_OK;
 }
 
-/*
- * Create SSL context
- */
+static err_t
+ssl_sent_callback(void *arg, struct altcp_pcb *pcb, u16_t len)
+{
+  return ERR_OK;
+}
+
+static void
+ssl_err_callback(void *arg, err_t err)
+{
+  D("SSL callback: error code=");
+  debug_printf("%d\n", (int)err);
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)arg;
+  if (!ssl_sock) return;
+
+  ssl_sock->state = SSL_STATE_ERROR;
+  ssl_sock->connected = false;
+  ssl_sock->tls_pcb = NULL;  /* PCB is already freed by LwIP */
+}
+
+static err_t
+ssl_poll_callback(void *arg, struct altcp_pcb *pcb)
+{
+  return ERR_OK;
+}
+
+/* ========================================================================
+ * SSLContext Functions
+ * ======================================================================== */
+
 picorb_ssl_context_t*
 SSLContext_create(void)
 {
@@ -77,30 +168,22 @@ SSLContext_create(void)
   }
 
   memset(ctx, 0, sizeof(picorb_ssl_context_t));
-  ctx->verify_mode = SSL_VERIFY_PEER;  /* Default to VERIFY_PEER for security */
-  ctx->ca_cert_loaded = false;
-  mbedtls_x509_crt_init(&ctx->ca_cert);
+  ctx->verify_mode = SSL_VERIFY_PEER;
+  ctx->tls_config = NULL;
+  ctx->ca_cert_data = NULL;
+  ctx->ca_cert_len = 0;
 
   return ctx;
 }
 
-/*
- * Set CA certificate file (not supported on rp2040)
- * Use set_ca_cert with memory address instead
- */
 bool
 SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 {
   (void)ctx;
   (void)ca_file;
-  return false;
+  return false;  /* Not supported on rp2040 */
 }
 
-/*
- * Set CA certificate from memory (ROM or RAM)
- * addr: pointer to PEM-formatted certificate data
- * size: size of certificate data in bytes (must include null terminator for PEM)
- */
 bool
 SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
@@ -108,28 +191,12 @@ SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
     return false;
   }
 
-  /* Free previous certificate if loaded */
-  if (ctx->ca_cert_loaded) {
-    mbedtls_x509_crt_free(&ctx->ca_cert);
-    mbedtls_x509_crt_init(&ctx->ca_cert);
-    ctx->ca_cert_loaded = false;
-  }
+  ctx->ca_cert_data = (const unsigned char *)addr;
+  ctx->ca_cert_len = size;
 
-  /* Parse PEM certificate from memory */
-  int ret = mbedtls_x509_crt_parse(&ctx->ca_cert,
-                                    (const unsigned char *)addr,
-                                    size);
-  if (ret != 0) {
-    return false;
-  }
-
-  ctx->ca_cert_loaded = true;
   return true;
 }
 
-/*
- * Set verification mode (stored but not enforced on rp2040)
- */
 bool
 SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
 {
@@ -141,9 +208,6 @@ SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
   return true;
 }
 
-/*
- * Get verification mode
- */
 int
 SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
 {
@@ -153,9 +217,6 @@ SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
   return ctx->verify_mode;
 }
 
-/*
- * Free SSL context
- */
 void
 SSLContext_free(picorb_ssl_context_t *ctx)
 {
@@ -163,18 +224,29 @@ SSLContext_free(picorb_ssl_context_t *ctx)
     return;
   }
 
-  if (ctx->ca_cert_loaded) {
-    mbedtls_x509_crt_free(&ctx->ca_cert);
+  if (ctx->tls_config) {
+    altcp_tls_free_config(ctx->tls_config);
+    ctx->tls_config = NULL;
   }
 
   picorb_free(NULL, ctx);
 }
 
-/* Create SSL socket */
+/* ========================================================================
+ * SSLSocket Functions
+ * ======================================================================== */
+
+/*
+ * Create SSL socket
+ * NOTE: tcp_socket is ignored - we create our own TLS PCB
+ */
 picorb_ssl_socket_t*
 SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
 {
-  if (!tcp_socket || tcp_socket->state != SOCKET_STATE_CONNECTED || !ssl_ctx) {
+  /* tcp_socket is intentionally ignored for API compatibility */
+  (void)tcp_socket;
+
+  if (!ssl_ctx) {
     return NULL;
   }
 
@@ -184,15 +256,25 @@ SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
   }
 
   memset(ssl_sock, 0, sizeof(picorb_ssl_socket_t));
-  ssl_sock->base_socket = tcp_socket;
+
+  /* Create a dummy base_socket for buffer management */
+  ssl_sock->base_socket = (picorb_socket_t *)picorb_alloc(NULL, sizeof(picorb_socket_t));
+  if (!ssl_sock->base_socket) {
+    picorb_free(NULL, ssl_sock);
+    return NULL;
+  }
+  memset(ssl_sock->base_socket, 0, sizeof(picorb_socket_t));
+
   ssl_sock->ssl_ctx = ssl_ctx;
-  ssl_sock->ssl_initialized = false;
+  ssl_sock->tls_pcb = NULL;
+  ssl_sock->state = SSL_STATE_NONE;
   ssl_sock->connected = false;
+  ssl_sock->hostname = NULL;
+  ssl_sock->port = 0;
 
   return ssl_sock;
 }
 
-/* Set hostname for SNI */
 bool
 SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
 {
@@ -200,7 +282,6 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
     return false;
   }
 
-  // Free previous hostname if set
   if (ssl_sock->hostname) {
     picorb_free(NULL, ssl_sock->hostname);
   }
@@ -214,128 +295,204 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
   return true;
 }
 
-/* Initialize SSL context and perform handshake */
 bool
-SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
 {
-  if (!ssl_sock || ssl_sock->connected) {
+  if (!ssl_sock || port <= 0 || port > 65535) {
     return false;
   }
 
-  /* Initialize mbedTLS structures */
-  mbedtls_ssl_init(&ssl_sock->ssl);
-  mbedtls_ssl_config_init(&ssl_sock->conf);
-  mbedtls_entropy_init(&ssl_sock->entropy);
-  mbedtls_ctr_drbg_init(&ssl_sock->ctr_drbg);
+  ssl_sock->port = port;
+  return true;
+}
 
-  /* Seed RNG */
-  const char *pers = "picoruby_ssl";
-  int ret = mbedtls_ctr_drbg_seed(&ssl_sock->ctr_drbg, mbedtls_entropy_func,
-                                   &ssl_sock->entropy,
-                                   (const unsigned char *)pers, strlen(pers));
-  if (ret != 0) {
-    goto cleanup;
+/*
+ * Connect SSL socket
+ * Performs DNS resolution, creates TLS PCB, and initiates connection
+ */
+bool
+SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
+{
+  D("SSL connect start\n");
+
+  if (!ssl_sock || ssl_sock->connected || !ssl_sock->hostname) {
+    D("SSL: bad params\n");
+    return false;
   }
 
-  /* Configure SSL */
-  ret = mbedtls_ssl_config_defaults(&ssl_sock->conf,
-                                     MBEDTLS_SSL_IS_CLIENT,
-                                     MBEDTLS_SSL_TRANSPORT_STREAM,
-                                     MBEDTLS_SSL_PRESET_DEFAULT);
-  if (ret != 0) {
-    goto cleanup;
+  /* Get port from base_socket if set, otherwise use 443 */
+  if (ssl_sock->port == 0) {
+    ssl_sock->port = 443;  /* Default HTTPS port */
   }
 
-  /* Configure certificate verification based on context settings */
-  if (ssl_sock->ssl_ctx->verify_mode == SSL_VERIFY_PEER) {
-    /* Only require verification if CA certificate is loaded */
-    if (ssl_sock->ssl_ctx->ca_cert_loaded) {
-      D("SSL: verify req\n");
-      mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_REQUIRED);
-      mbedtls_ssl_conf_ca_chain(&ssl_sock->conf, &ssl_sock->ssl_ctx->ca_cert, NULL);
-    } else {
-      /* No CA cert loaded - use optional verification (allows connection without verification) */
-      D("SSL: verify opt\n");
-      mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
-    }
-  } else {
-    D("SSL: verify none\n");
-    mbedtls_ssl_conf_authmode(&ssl_sock->conf, MBEDTLS_SSL_VERIFY_NONE);
+  D("SSL: resolving DNS\n");
+  /* Resolve hostname to IP */
+  ip_addr_t ip_addr;
+  ip4_addr_set_zero(&ip_addr);
+  int dns_result = Net_get_ip(ssl_sock->hostname, &ip_addr);
+  if (dns_result != 0) {
+    D("SSL: DNS failed\n");
+    return false;
   }
+  D("SSL: DNS ok, IP=");
+  debug_printf("%u.%u.%u.%u\n",
+    (unsigned int)ip4_addr1(&ip_addr),
+    (unsigned int)ip4_addr2(&ip_addr),
+    (unsigned int)ip4_addr3(&ip_addr),
+    (unsigned int)ip4_addr4(&ip_addr));
 
-  mbedtls_ssl_conf_rng(&ssl_sock->conf, mbedtls_ctr_drbg_random, &ssl_sock->ctr_drbg);
-
-  ret = mbedtls_ssl_setup(&ssl_sock->ssl, &ssl_sock->conf);
-  if (ret != 0) {
-    goto cleanup;
+  /* Create TLS config (always create new one, like picoruby-net) */
+  D("SSL: creating TLS config\n");
+  struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
+  if (!tls_config) {
+    D("SSL: TLS config failed\n");
+    return false;
   }
+  D("SSL: TLS config ok\n");
 
-  if (ssl_sock->hostname) {
-    mbedtls_ssl_set_hostname(&ssl_sock->ssl, ssl_sock->hostname);
+  /* Create TLS PCB */
+  D("SSL: creating TLS PCB\n");
+  ssl_sock->tls_pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
+  if (!ssl_sock->tls_pcb) {
+    D("SSL: TLS PCB failed\n");
+    altcp_tls_free_config(tls_config);
+    return false;
   }
+  D("SSL: TLS PCB ok\n");
 
-  /* Set I/O callbacks */
-  mbedtls_ssl_set_bio(&ssl_sock->ssl, ssl_sock->base_socket,
-                       ssl_send_callback, ssl_recv_callback, NULL);
+  /* Store config for cleanup */
+  if (ssl_sock->ssl_ctx->tls_config) {
+    altcp_tls_free_config(ssl_sock->ssl_ctx->tls_config);
+  }
+  ssl_sock->ssl_ctx->tls_config = tls_config;
 
-  /* Perform handshake */
-  while ((ret = mbedtls_ssl_handshake(&ssl_sock->ssl)) != 0) {
-    if (ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
-      goto cleanup;
-    }
+  /* Set hostname for SNI */
+  D("SSL: setting hostname\n");
+  mbedtls_ssl_context *ssl_ctx = altcp_tls_context(ssl_sock->tls_pcb);
+  if (!ssl_ctx) {
+    D("SSL: altcp_tls_context failed\n");
+    altcp_tls_free_config(tls_config);
+    return false;
+  }
+  mbedtls_ssl_set_hostname(ssl_ctx, ssl_sock->hostname);
+
+  /* Setup callbacks (same order as picoruby-net, with altcp_arg last) */
+  D("SSL: setting callbacks\n");
+  altcp_recv(ssl_sock->tls_pcb, ssl_recv_callback);
+  altcp_sent(ssl_sock->tls_pcb, ssl_sent_callback);
+  altcp_err(ssl_sock->tls_pcb, ssl_err_callback);
+  altcp_poll(ssl_sock->tls_pcb, ssl_poll_callback, 10);
+  altcp_arg(ssl_sock->tls_pcb, ssl_sock);
+
+  /* Small delay before connecting (like picoruby-net's function boundary) */
+  D("SSL: waiting before connect\n");
+  Net_sleep_ms(100);
+
+  /* Initiate connection */
+  D("SSL: initiating connection to port ");
+  debug_printf("%d\n", ssl_sock->port);
+  lwip_begin();
+  err_t err = altcp_connect(ssl_sock->tls_pcb, &ip_addr, ssl_sock->port, ssl_connected_callback);
+  if (err != ERR_OK) {
+    D("SSL: altcp_connect failed\n");
+    ssl_sock->state = SSL_STATE_ERROR;
+    lwip_end();
+    return false;
+  }
+  lwip_end();
+  D("SSL: altcp_connect ok\n");
+
+  ssl_sock->state = SSL_STATE_CONNECTING;
+
+  /* Wait for connection to establish */
+  D("SSL: waiting for connection\n");
+  int max_wait = 1000;  /* 10 seconds (10ms * 1000) */
+  while (ssl_sock->state == SSL_STATE_CONNECTING && max_wait-- > 0) {
     Net_sleep_ms(10);
   }
 
-  ssl_sock->ssl_initialized = true;
-  ssl_sock->connected = true;
-  ssl_sock->base_socket->connected = true;
-  return true;
-
-cleanup:
-  mbedtls_ssl_free(&ssl_sock->ssl);
-  mbedtls_ssl_config_free(&ssl_sock->conf);
-  mbedtls_ctr_drbg_free(&ssl_sock->ctr_drbg);
-  mbedtls_entropy_free(&ssl_sock->entropy);
-  return false;
+  if (ssl_sock->state == SSL_STATE_CONNECTED) {
+    D("SSL: connected\n");
+    return true;
+  } else {
+    D("SSL: timeout or error, state=");
+    debug_printf("%d\n", ssl_sock->state);
+    /* Cleanup on timeout */
+    if (ssl_sock->tls_pcb) {
+      lwip_begin();
+      altcp_abort(ssl_sock->tls_pcb);
+      lwip_end();
+      ssl_sock->tls_pcb = NULL;
+    }
+    ssl_sock->state = SSL_STATE_ERROR;
+    return false;
+  }
 }
 
-/* Send data */
 ssize_t
 SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 {
-  if (!ssl_sock || !ssl_sock->connected || !data) {
+  if (!ssl_sock || !ssl_sock->connected || !ssl_sock->tls_pcb || !data) {
     return -1;
   }
 
-  int ret = mbedtls_ssl_write(&ssl_sock->ssl, (const unsigned char *)data, len);
-  if (ret < 0) {
+  lwip_begin();
+  err_t err = altcp_write(ssl_sock->tls_pcb, data, len, TCP_WRITE_FLAG_COPY);
+  if (err != ERR_OK) {
+    lwip_end();
     return -1;
   }
 
-  return (ssize_t)ret;
+  err = altcp_output(ssl_sock->tls_pcb);
+  lwip_end();
+
+  if (err != ERR_OK) {
+    return -1;
+  }
+
+  return (ssize_t)len;
 }
 
-/* Receive data */
 ssize_t
 SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
 {
-  if (!ssl_sock || !ssl_sock->connected || !buf) {
+  if (!ssl_sock || !ssl_sock->base_socket || !buf) {
     return -1;
   }
 
-  int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
-  if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+  picorb_socket_t *sock = ssl_sock->base_socket;
+
+  /* Wait for data with timeout */
+  int max_wait = 600;  /* 60 seconds */
+  while (sock->recv_len == 0 && ssl_sock->connected && max_wait-- > 0) {
+    Net_sleep_ms(100);
+  }
+
+  /* Check if connection was closed */
+  if (sock->recv_len == 0 && !ssl_sock->connected) {
+    return 0;  /* EOF */
+  }
+
+  /* Check for timeout */
+  if (sock->recv_len == 0) {
     return 0;
   }
 
-  if (ret < 0) {
-    return -1;
+  /* Copy available data */
+  size_t to_copy = (len < sock->recv_len) ? len : sock->recv_len;
+  memcpy(buf, sock->recv_buf, to_copy);
+
+  /* Remove copied data from buffer */
+  if (to_copy < sock->recv_len) {
+    memmove(sock->recv_buf, sock->recv_buf + to_copy, sock->recv_len - to_copy);
+    sock->recv_len -= to_copy;
+  } else {
+    sock->recv_len = 0;
   }
 
-  return (ssize_t)ret;
+  return (ssize_t)to_copy;
 }
 
-/* Close SSL socket */
 bool
 SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
 {
@@ -343,48 +500,62 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
     return false;
   }
 
-  if (ssl_sock->ssl_initialized) {
-    mbedtls_ssl_close_notify(&ssl_sock->ssl);
-    mbedtls_ssl_free(&ssl_sock->ssl);
-    mbedtls_ssl_config_free(&ssl_sock->conf);
-    mbedtls_ctr_drbg_free(&ssl_sock->ctr_drbg);
-    mbedtls_entropy_free(&ssl_sock->entropy);
+  if (ssl_sock->tls_pcb) {
+    lwip_begin();
+    altcp_arg(ssl_sock->tls_pcb, NULL);
+    altcp_recv(ssl_sock->tls_pcb, NULL);
+    altcp_sent(ssl_sock->tls_pcb, NULL);
+    altcp_err(ssl_sock->tls_pcb, NULL);
+
+    err_t err = altcp_close(ssl_sock->tls_pcb);
+    if (err != ERR_OK) {
+      altcp_abort(ssl_sock->tls_pcb);
+    }
+    lwip_end();
+
+    ssl_sock->tls_pcb = NULL;
   }
 
   if (ssl_sock->hostname) {
     picorb_free(NULL, ssl_sock->hostname);
+    ssl_sock->hostname = NULL;
+  }
+
+  if (ssl_sock->base_socket) {
+    if (ssl_sock->base_socket->recv_buf) {
+      picorb_free(NULL, ssl_sock->base_socket->recv_buf);
+    }
+    picorb_free(NULL, ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
   }
 
   picorb_free(NULL, ssl_sock);
   return true;
 }
 
-/* Check if closed */
 bool
 SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || !ssl_sock->base_socket) {
+  if (!ssl_sock) {
     return true;
   }
-  return TCPSocket_closed(ssl_sock->base_socket);
+  return !ssl_sock->connected;
 }
 
-/* Get remote host */
 const char*
 SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || !ssl_sock->base_socket) {
+  if (!ssl_sock) {
     return NULL;
   }
-  return TCPSocket_remote_host(ssl_sock->base_socket);
+  return ssl_sock->hostname;
 }
 
-/* Get remote port */
 int
 SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || !ssl_sock->base_socket) {
+  if (!ssl_sock) {
     return -1;
   }
-  return TCPSocket_remote_port(ssl_sock->base_socket);
+  return ssl_sock->port;
 }

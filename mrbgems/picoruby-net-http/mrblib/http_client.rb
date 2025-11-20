@@ -29,8 +29,6 @@ module Net
 
       # Create socket connection
       begin
-        tcp_socket = TCPSocket.new(@address, @port)
-
         # Wrap with SSLSocket if SSL is enabled
         if @use_ssl
           # Create SSL context
@@ -49,11 +47,12 @@ module Net
           end
 
           # Create SSL socket with context
-          @socket = SSLSocket.new(tcp_socket, ssl_ctx)
+          @socket = SSLSocket.new(ssl_ctx)
           @socket.hostname = @address
+          @socket.port = @port
           @socket.connect
         else
-          @socket = tcp_socket
+          @socket = TCPSocket.new(@address, @port)
         end
       rescue => e
         raise IOError, "Failed to connect to #{@address}:#{@port} - #{e.message}"

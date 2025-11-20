@@ -143,22 +143,14 @@ static const struct mrb_data_type mrb_ssl_socket_type = {
 static mrb_value
 mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
 {
-  mrb_value tcp_socket_obj, ssl_context_obj;
+  mrb_value ssl_context_obj;
   picorb_socket_t *tcp_socket;
   picorb_ssl_context_t *ssl_ctx;
   picorb_ssl_socket_t *ssl_sock;
 
-  mrb_get_args(mrb, "oo", &tcp_socket_obj, &ssl_context_obj);
+  mrb_get_args(mrb, "o", &ssl_context_obj);
 
-  /* Get underlying TCP socket */
-  tcp_socket = (picorb_socket_t *)mrb_data_get_ptr(mrb, tcp_socket_obj, &mrb_tcp_socket_type);
-  if (!tcp_socket) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "first argument must be a TCPSocket");
-  }
-
-  if (!tcp_socket->connected) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "TCP socket is not connected");
-  }
+  /* First argument is ignored (for API compatibility) */
 
   /* Get SSL context */
   ssl_ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, ssl_context_obj, &mrb_ssl_context_type);
@@ -166,8 +158,8 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "second argument must be an SSLContext");
   }
 
-  /* Create SSL socket wrapping TCP socket */
-  ssl_sock = SSLSocket_create(tcp_socket, ssl_ctx);
+  /* Create SSL socket (tcp_socket argument is NULL/ignored) */
+  ssl_sock = SSLSocket_create(NULL, ssl_ctx);
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
   }
@@ -196,6 +188,27 @@ mrb_ssl_socket_set_hostname(mrb_state *mrb, mrb_value self)
   }
 
   return mrb_str_new_cstr(mrb, hostname);
+}
+
+/* ssl_socket.port = port */
+static mrb_value
+mrb_ssl_socket_set_port(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+  mrb_int port;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  mrb_get_args(mrb, "i", &port);
+
+  if (!SSLSocket_set_port(ssl_sock, (int)port)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
+  }
+
+  return mrb_fixnum_value(port);
 }
 
 /* ssl_socket.connect */
@@ -378,8 +391,9 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   ssl_socket_class = mrb_define_class(mrb, "SSLSocket", basic_socket_class);
   MRB_SET_INSTANCE_TT(ssl_socket_class, MRB_TT_DATA);
 
-  mrb_define_method(mrb, ssl_socket_class, "initialize", mrb_ssl_socket_initialize, MRB_ARGS_REQ(2));
+  mrb_define_method(mrb, ssl_socket_class, "initialize", mrb_ssl_socket_initialize, MRB_ARGS_REQ(1));
   mrb_define_method(mrb, ssl_socket_class, "hostname=", mrb_ssl_socket_set_hostname, MRB_ARGS_REQ(1));
+  mrb_define_method(mrb, ssl_socket_class, "port=", mrb_ssl_socket_set_port, MRB_ARGS_REQ(1));
   mrb_define_method(mrb, ssl_socket_class, "connect", mrb_ssl_socket_connect, MRB_ARGS_NONE());
   mrb_define_method(mrb, ssl_socket_class, "write", mrb_ssl_socket_write, MRB_ARGS_REQ(1));
   mrb_define_method(mrb, ssl_socket_class, "read", mrb_ssl_socket_read, MRB_ARGS_OPT(1));

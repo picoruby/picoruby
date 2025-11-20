@@ -72,7 +72,7 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
     # Compile LwIP source files
     Dir.glob("#{lwip_dir}/src/**/*.c").each do |src|
       next if src.end_with?('makefsdata.c')
-      next if src.end_with?('altcp_tls_mbedtls.c')
+      next if src.end_with?('altcp_tls_mbedtls.c')  # Use custom version from ports/rp2040
       obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
       spec.objs << obj
     end
