@@ -168,12 +168,13 @@ SSLContext_free(picorb_ssl_context_t *ctx)
 }
 
 /*
- * Create SSL socket wrapping a TCP socket
+ * Create SSL socket
+ * NOTE: tcp_socket is ignored - we create our own TCP socket and SSL connection
  */
 picorb_ssl_socket_t*
-SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
+SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
 {
-  if (!tcp_socket || !tcp_socket->connected || !ssl_ctx || !ssl_ctx->ctx) {
+  if (!ssl_ctx || !ssl_ctx->ctx) {
     return NULL;
   }
 
@@ -183,33 +184,19 @@ SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
   }
 
   memset(ssl_sock, 0, sizeof(picorb_ssl_socket_t));
-  ssl_sock->base_socket = tcp_socket;
+  ssl_sock->base_socket = NULL;
   ssl_sock->ssl_ctx = ssl_ctx;
+  ssl_sock->ssl = NULL;
+  ssl_sock->hostname = NULL;
+  ssl_sock->port = 0;
   ssl_sock->connected = false;
-
-  // Create SSL structure
-  ssl_sock->ssl = SSL_new(ssl_ctx->ctx);
-  if (!ssl_sock->ssl) {
-    fprintf(stderr, "SSL: SSL_new failed\n");
-    ERR_print_errors_fp(stderr);
-    free(ssl_sock);
-    return NULL;
-  }
-
-  // Set file descriptor for SSL
-  if (SSL_set_fd(ssl_sock->ssl, tcp_socket->fd) != 1) {
-    fprintf(stderr, "SSL: SSL_set_fd failed\n");
-    ERR_print_errors_fp(stderr);
-    SSL_free(ssl_sock->ssl);
-    free(ssl_sock);
-    return NULL;
-  }
 
   return ssl_sock;
 }
 
 /*
  * Set hostname for SNI (Server Name Indication)
+ * Note: SNI is actually set during connect() when SSL structure is created
  */
 bool
 SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
@@ -218,27 +205,13 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
     return false;
   }
 
-  // Free previous hostname if set
+  /* Free previous hostname if set */
   if (ssl_sock->hostname) {
     free(ssl_sock->hostname);
   }
 
   ssl_sock->hostname = strdup(hostname);
   if (!ssl_sock->hostname) {
-    return false;
-  }
-
-  // Set SNI hostname
-  if (SSL_set_tlsext_host_name(ssl_sock->ssl, hostname) != 1) {
-    fprintf(stderr, "SSL: SSL_set_tlsext_host_name failed\n");
-    ERR_print_errors_fp(stderr);
-    return false;
-  }
-
-  // Set hostname for certificate verification
-  if (SSL_set1_host(ssl_sock->ssl, hostname) != 1) {
-    fprintf(stderr, "SSL: SSL_set1_host failed\n");
-    ERR_print_errors_fp(stderr);
     return false;
   }
 
@@ -255,35 +228,121 @@ SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
     return false;
   }
 
-  /* For POSIX, port is set via TCPSocket connection, so this is a no-op */
-  /* Just return true for API compatibility */
+  ssl_sock->port = port;
   return true;
 }
 
 /*
- * Perform SSL/TLS handshake
+ * Connect SSL socket
+ * Performs TCP connection and SSL/TLS handshake
  */
 bool
 SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || ssl_sock->connected) {
+  if (!ssl_sock || ssl_sock->connected || !ssl_sock->hostname) {
     return false;
   }
 
-  // Perform SSL handshake
+  /* Use default HTTPS port if not set */
+  if (ssl_sock->port == 0) {
+    ssl_sock->port = 443;
+  }
+
+  /* Create underlying TCP socket */
+  ssl_sock->base_socket = (picorb_socket_t*)malloc(sizeof(picorb_socket_t));
+  if (!ssl_sock->base_socket) {
+    fprintf(stderr, "SSL: Failed to allocate TCP socket\n");
+    return false;
+  }
+
+  if (!TCPSocket_create(ssl_sock->base_socket)) {
+    fprintf(stderr, "SSL: Failed to create TCP socket\n");
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
+    return false;
+  }
+
+  /* Connect TCP socket */
+  if (!TCPSocket_connect(ssl_sock->base_socket, ssl_sock->hostname, ssl_sock->port)) {
+    fprintf(stderr, "SSL: Failed to connect TCP socket to %s:%d\n",
+            ssl_sock->hostname, ssl_sock->port);
+    TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
+    return false;
+  }
+
+  /* Create SSL structure */
+  ssl_sock->ssl = SSL_new(ssl_sock->ssl_ctx->ctx);
+  if (!ssl_sock->ssl) {
+    fprintf(stderr, "SSL: SSL_new failed\n");
+    ERR_print_errors_fp(stderr);
+    TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
+    return false;
+  }
+
+  /* Set file descriptor for SSL */
+  if (SSL_set_fd(ssl_sock->ssl, ssl_sock->base_socket->fd) != 1) {
+    fprintf(stderr, "SSL: SSL_set_fd failed\n");
+    ERR_print_errors_fp(stderr);
+    SSL_free(ssl_sock->ssl);
+    ssl_sock->ssl = NULL;
+    TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
+    return false;
+  }
+
+  /* Set SNI hostname */
+  if (SSL_set_tlsext_host_name(ssl_sock->ssl, ssl_sock->hostname) != 1) {
+    fprintf(stderr, "SSL: SSL_set_tlsext_host_name failed\n");
+    ERR_print_errors_fp(stderr);
+    SSL_free(ssl_sock->ssl);
+    ssl_sock->ssl = NULL;
+    TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
+    return false;
+  }
+
+  /* Set hostname for certificate verification */
+  if (SSL_set1_host(ssl_sock->ssl, ssl_sock->hostname) != 1) {
+    fprintf(stderr, "SSL: SSL_set1_host failed\n");
+    ERR_print_errors_fp(stderr);
+    SSL_free(ssl_sock->ssl);
+    ssl_sock->ssl = NULL;
+    TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
+    return false;
+  }
+
+  /* Perform SSL handshake */
   int ret = SSL_connect(ssl_sock->ssl);
   if (ret != 1) {
     int err = SSL_get_error(ssl_sock->ssl, ret);
     fprintf(stderr, "SSL: SSL_connect failed with error %d\n", err);
     ERR_print_errors_fp(stderr);
+    SSL_free(ssl_sock->ssl);
+    ssl_sock->ssl = NULL;
+    TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
+    ssl_sock->base_socket = NULL;
     return false;
   }
 
-  // Verify certificate if in VERIFY_PEER mode
+  /* Verify certificate if in VERIFY_PEER mode */
   if (ssl_sock->ssl_ctx->verify_mode == SSL_VERIFY_PEER) {
     long verify_result = SSL_get_verify_result(ssl_sock->ssl);
     if (verify_result != X509_V_OK) {
       fprintf(stderr, "SSL: Certificate verification failed: %ld\n", verify_result);
+      SSL_free(ssl_sock->ssl);
+      ssl_sock->ssl = NULL;
+      TCPSocket_close(ssl_sock->base_socket);
+      free(ssl_sock->base_socket);
+      ssl_sock->base_socket = NULL;
       return false;
     }
   }
@@ -348,26 +407,27 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
     return false;
   }
 
-  // Send close_notify alert if connected
+  /* Send close_notify alert if connected */
   if (ssl_sock->connected && ssl_sock->ssl) {
     SSL_shutdown(ssl_sock->ssl);
   }
 
-  // Free SSL structure
+  /* Free SSL structure */
   if (ssl_sock->ssl) {
     SSL_free(ssl_sock->ssl);
     ssl_sock->ssl = NULL;
   }
 
-  // Free hostname
+  /* Free hostname */
   if (ssl_sock->hostname) {
     free(ssl_sock->hostname);
     ssl_sock->hostname = NULL;
   }
 
-  // Close underlying TCP socket
+  /* Close and free underlying TCP socket */
   if (ssl_sock->base_socket) {
     TCPSocket_close(ssl_sock->base_socket);
+    free(ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
   }
 
@@ -381,32 +441,32 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
 bool
 SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || !ssl_sock->base_socket) {
+  if (!ssl_sock) {
     return true;
   }
-  return ssl_sock->base_socket->closed;
+  return !ssl_sock->connected;
 }
 
 /*
- * Get remote host from underlying TCP socket
+ * Get remote host
  */
 const char*
 SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || !ssl_sock->base_socket) {
+  if (!ssl_sock) {
     return NULL;
   }
-  return ssl_sock->base_socket->remote_host;
+  return ssl_sock->hostname;
 }
 
 /*
- * Get remote port from underlying TCP socket
+ * Get remote port
  */
 int
 SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock)
 {
-  if (!ssl_sock || !ssl_sock->base_socket) {
+  if (!ssl_sock) {
     return -1;
   }
-  return ssl_sock->base_socket->remote_port;
+  return ssl_sock->port;
 }

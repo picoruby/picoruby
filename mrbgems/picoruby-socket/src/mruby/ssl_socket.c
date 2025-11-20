@@ -139,12 +139,11 @@ static const struct mrb_data_type mrb_ssl_socket_type = {
   "SSLSocket", mrb_ssl_socket_free,
 };
 
-/* SSLSocket.new(tcp_socket, ssl_context) */
+/* SSLSocket.new(ssl_context) */
 static mrb_value
 mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
 {
   mrb_value ssl_context_obj;
-  picorb_socket_t *tcp_socket;
   picorb_ssl_context_t *ssl_ctx;
   picorb_ssl_socket_t *ssl_sock;
 
@@ -158,8 +157,8 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "second argument must be an SSLContext");
   }
 
-  /* Create SSL socket (tcp_socket argument is NULL/ignored) */
-  ssl_sock = SSLSocket_create(NULL, ssl_ctx);
+  /* Create SSL socket */
+  ssl_sock = SSLSocket_create(ssl_ctx);
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
   }

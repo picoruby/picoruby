@@ -56,7 +56,7 @@ c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)instance.instance->data;
 
   /* Create SSL socket (tcp_socket argument is NULL/ignored) */
-  wrapper->ptr = SSLSocket_create(NULL, ctx_wrapper->ptr);
+  wrapper->ptr = SSLSocket_create(ctx_wrapper->ptr);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
     return;

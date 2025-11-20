@@ -142,13 +142,14 @@ typedef struct picorb_ssl_socket {
   picorb_ssl_context_t *ssl_ctx;
   SSL *ssl;
   char *hostname;
+  int port;
   bool connected;
 } picorb_ssl_socket_t;
 #else
 typedef struct picorb_ssl_socket picorb_ssl_socket_t;
 #endif
 
-picorb_ssl_socket_t* SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx);
+picorb_ssl_socket_t* SSLSocket_create(picorb_ssl_context_t *ssl_ctx);
 bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname);
 bool SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port);
 bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock);

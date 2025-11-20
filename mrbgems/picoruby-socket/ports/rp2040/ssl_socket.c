@@ -238,14 +238,10 @@ SSLContext_free(picorb_ssl_context_t *ctx)
 
 /*
  * Create SSL socket
- * NOTE: tcp_socket is ignored - we create our own TLS PCB
  */
 picorb_ssl_socket_t*
-SSLSocket_create(picorb_socket_t *tcp_socket, picorb_ssl_context_t *ssl_ctx)
+SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
 {
-  /* tcp_socket is intentionally ignored for API compatibility */
-  (void)tcp_socket;
-
   if (!ssl_ctx) {
     return NULL;
   }
