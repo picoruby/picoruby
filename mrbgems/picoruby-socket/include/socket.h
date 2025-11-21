@@ -103,7 +103,7 @@ typedef struct picorb_tcp_server picorb_tcp_server_t;
 #endif
 
 picorb_tcp_server_t* TCPServer_create(int port, int backlog);
-picorb_socket_t* TCPServer_accept(picorb_tcp_server_t *server);
+picorb_socket_t* TCPServer_accept_nonblock(picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_tcp_server_t *server);
 int TCPServer_port(picorb_tcp_server_t *server);
 bool TCPServer_listening(picorb_tcp_server_t *server);

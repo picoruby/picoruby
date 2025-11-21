@@ -4,6 +4,7 @@
 
 #include "../../include/socket.h"
 #include "picoruby.h"
+#include "picoruby/debug.h"
 #include <string.h>
 
 /* LwIP includes */
@@ -162,22 +163,17 @@ TCPServer_create(int port, int backlog)
   return server;
 }
 
-/* Accept connection */
+/* Accept connection (non-blocking) */
 picorb_socket_t*
-TCPServer_accept(picorb_tcp_server_t *server)
+TCPServer_accept_nonblock(picorb_tcp_server_t *server)
 {
   if (!server) {
     return NULL;
   }
 
-  /* Wait for connection */
-  int max_wait = 1000; /* 100 seconds */
-  while (!server->accepted_pcb && max_wait-- > 0) {
-    Net_sleep_ms(100);
-  }
-
+  /* Check for connection immediately without blocking */
   if (!server->accepted_pcb) {
-    return NULL; /* Timeout */
+    return NULL; /* No pending connection */
   }
 
   /* Create socket for accepted connection */
@@ -207,6 +203,9 @@ TCPServer_accept(picorb_tcp_server_t *server)
   altcp_sent(sock->pcb, tcp_sent_callback);
   altcp_err(sock->pcb, tcp_err_callback);
   lwip_end();
+
+  D("TCPServer_accept_nonblock: created socket %p, state=%d, pcb=%p\n",
+    (void*)sock, sock->state, (void*)sock->pcb);
 
   server->accepted_pcb = NULL;
   server->state = 0;

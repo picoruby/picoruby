@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "mruby/presym.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
@@ -72,9 +73,9 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
   return self;
 }
 
-/* server.accept -> TCPSocket */
+/* server.accept_nonblock -> TCPSocket or nil */
 static mrb_value
-mrb_tcp_server_accept(mrb_state *mrb, mrb_value self)
+mrb_tcp_server_accept_nonblock(mrb_state *mrb, mrb_value self)
 {
   picorb_tcp_server_t *server;
   picorb_socket_t *client;
@@ -86,15 +87,17 @@ mrb_tcp_server_accept(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "server is not initialized");
   }
 
-  /* Accept client connection (blocking) */
-  client = TCPServer_accept(server);
+  /* Accept client connection (non-blocking) */
+  client = TCPServer_accept_nonblock(server);
+  fprintf(stderr, "DEBUG mruby: TCPServer_accept_nonblock returned %p\n", (void*)client);
   if (!client) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to accept client connection");
+    return mrb_nil_value();
   }
 
   /* Create TCPSocket object for client */
   tcp_socket_class = mrb_class_get_id(mrb, MRB_SYM(TCPSocket));
   client_obj = mrb_obj_value(mrb_data_object_alloc(mrb, tcp_socket_class, client, &mrb_tcp_socket_type));
+  fprintf(stderr, "DEBUG mruby: returning client_obj\n");
 
   return client_obj;
 }
@@ -129,6 +132,6 @@ tcp_server_init(mrb_state *mrb, struct RClass *basic_socket_class)
   MRB_SET_INSTANCE_TT(tcp_server_class, MRB_TT_DATA);
 
   mrb_define_method(mrb, tcp_server_class, "initialize", mrb_tcp_server_initialize, MRB_ARGS_ARG(1, 2));
-  mrb_define_method(mrb, tcp_server_class, "accept", mrb_tcp_server_accept, MRB_ARGS_NONE());
+  mrb_define_method(mrb, tcp_server_class, "accept_nonblock", mrb_tcp_server_accept_nonblock, MRB_ARGS_NONE());
   mrb_define_method(mrb, tcp_server_class, "close", mrb_tcp_server_close, MRB_ARGS_NONE());
 }

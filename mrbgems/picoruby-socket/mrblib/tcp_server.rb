@@ -31,12 +31,32 @@ class TCPServer
   # @raise [RuntimeError] if server creation fails
   # (Implementation is in C bindings)
 
-  # Accept an incoming client connection (blocking)
+  # Accept an incoming client connection (blocking, interruptible)
   #
   # This method blocks until a client connects to the server.
-  # Returns a TCPSocket object representing the client connection.
+  # Can be interrupted by raising Interrupt exception from another task or Ctrl-C.
   #
   # @return [TCPSocket] Connected client socket
+  # @raise [Interrupt] if interrupted by signal or external task
+  def accept
+    Signal.trap(:INT) do
+      self.close
+    end
+    loop do
+      client = accept_nonblock
+      if client
+        return client
+      end
+      sleep_ms 10
+    end
+  end
+
+  # Accept an incoming client connection (non-blocking)
+  #
+  # This method returns immediately. If a client is waiting, returns the client socket.
+  # Otherwise returns nil.
+  #
+  # @return [TCPSocket, nil] Connected client socket or nil if no connection available
   # @raise [RuntimeError] if accept fails
   # (Implementation is in C bindings)
 

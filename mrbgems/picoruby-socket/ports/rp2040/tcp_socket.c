@@ -72,13 +72,19 @@ static err_t
 tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
   picorb_socket_t *sock = (picorb_socket_t *)arg;
-  if (!sock) return ERR_ARG;
+  if (!sock) {
+    D("tcp_recv_callback: sock is NULL\n");
+    return ERR_ARG;
+  }
+
+  D("tcp_recv_callback: sock=%p, pbuf=%p, err=%d\n", (void*)sock, (void*)pbuf, err);
 
   /* Handle errors */
   if (err != ERR_OK) {
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
+    D("tcp_recv_callback: error, state set to ERROR\n");
     return err;
   }
 
@@ -87,12 +93,14 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
+    D("tcp_recv_callback: connection closed\n");
     return ERR_OK;
   }
 
   /* Allocate or expand receive buffer */
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
+  D("tcp_recv_callback: receiving %zu bytes, current recv_len=%zu\n", total_len, sock->recv_len);
 
   if (new_size > sock->recv_capacity) {
     char *new_buf = (char *)picorb_realloc(NULL, sock->recv_buf, new_size + 1);
@@ -258,8 +266,13 @@ ssize_t
 TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
 {
   if (!sock || !buf || sock->state == SOCKET_STATE_ERROR) {
+    D("TCPSocket_recv: sock=%p, buf=%p, state=%d (ERROR)\n",
+      (void*)sock, buf, sock ? sock->state : -1);
     return -1;
   }
+
+  D("TCPSocket_recv: start, state=%d, recv_len=%zu, connected=%d\n",
+    sock->state, sock->recv_len, sock->connected);
 
   /* Wait for data with timeout */
   int max_wait = 600; /* 60 seconds */
@@ -269,13 +282,18 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
     Net_sleep_ms(100);
   }
 
+  D("TCPSocket_recv: after wait, recv_len=%zu, state=%d, max_wait=%d\n",
+    sock->recv_len, sock->state, max_wait);
+
   /* Check if connection was closed */
   if (sock->recv_len == 0 && sock->state == SOCKET_STATE_CLOSED) {
+    D("TCPSocket_recv: connection closed (EOF)\n");
     return 0; /* EOF */
   }
 
   /* Check for timeout or error */
   if (sock->recv_len == 0) {
+    D("TCPSocket_recv: timeout or no data\n");
     return 0;
   }
 

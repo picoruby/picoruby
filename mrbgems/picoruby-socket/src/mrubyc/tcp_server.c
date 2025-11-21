@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "picoruby.h"
 
 /* Wrapper structures for storing pointers in instance->data */
 typedef struct {
@@ -88,10 +89,10 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * server.accept -> TCPSocket
+ * server.accept_nonblock -> TCPSocket or nil
  */
 static void
-c_tcp_server_accept(mrbc_vm *vm, mrbc_value *v, int argc)
+c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 0) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -105,10 +106,10 @@ c_tcp_server_accept(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Accept client connection (blocking) */
-  picorb_socket_t *client = TCPServer_accept(wrapper->ptr);
+  /* Accept client connection (non-blocking) */
+  picorb_socket_t *client = TCPServer_accept_nonblock(wrapper->ptr);
   if (!client) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to accept client");
+    SET_NIL_RETURN();
     return;
   }
 
@@ -117,11 +118,17 @@ c_tcp_server_accept(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(picorb_socket_t));
   picorb_socket_t *client_sock = (picorb_socket_t *)client_obj.instance->data;
 
-  /* Copy socket data from malloc'd pointer to instance->data */
+  /*
+   * Copy socket data from malloc'd pointer to instance->data.
+   * NOTE: This is a shallow copy. The recv_buf pointer is shared.
+   */
   memcpy(client_sock, client, sizeof(picorb_socket_t));
 
-  /* Free the malloc'd pointer since we copied the data */
-  free(client);
+  /*
+   * Free only the picorb_socket_t structure itself, not the recv_buf it points to.
+   * The recv_buf will be freed when the TCPSocket object is garbage collected.
+   */
+  picorb_free(NULL, client);
 
   SET_RETURN(client_obj);
 }
@@ -169,6 +176,6 @@ tcp_server_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_destructor(class_TCPServer, mrbc_tcp_server_free);
 
   mrbc_define_method(vm, class_TCPServer, "new", c_tcp_server_new);
-  mrbc_define_method(vm, class_TCPServer, "accept", c_tcp_server_accept);
+  mrbc_define_method(vm, class_TCPServer, "accept_nonblock", c_tcp_server_accept_nonblock);
   mrbc_define_method(vm, class_TCPServer, "close", c_tcp_server_close);
 }
