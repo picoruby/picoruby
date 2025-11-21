@@ -3,7 +3,7 @@ class BasicSocket
   def gets: (?String sep) -> String?
   def print: (*untyped args) -> nil
   def eof?: () -> bool
-  def send: (String data, ?Integer flags) -> Integer
+  def send: (String data, Integer flags) -> Integer
   def recv: (Integer maxlen, ?Integer flags) -> String?
   def peeraddr: () -> Array[String | Integer]
   def remote_address: () -> String

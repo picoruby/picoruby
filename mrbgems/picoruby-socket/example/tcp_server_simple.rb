@@ -10,7 +10,7 @@ loop do
   data = client.recv(1024)
   puts "Received: #{data.inspect}"
 
-  client.send("ACK")
+  client.send("ACK", 0)
   client.close
   puts "Client disconnected"
 end

@@ -33,7 +33,7 @@ class BasicSocket
 
   # Socket-specific methods
 
-  def send(data, flags = 0)
+  def send(data, flags)
     # For now, ignore flags (not supported in basic implementation)
     write(data)
   end
