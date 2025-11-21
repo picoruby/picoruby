@@ -1,0 +1,27 @@
+{
+  "name": "@microruby/wasm",
+  "version": "0.1.0",
+  "description": "MicroRuby WebAssembly - mruby VM powered Ruby for WebAssembly",
+  "main": "dist/init.iife.js",
+  "files": ["README.md", "dist/init.iife.js", "dist/microruby.js", "dist/microruby.wasm"],
+  "exports": {
+    ".": "./dist/init.iife.js",
+    "./microruby.js": "./dist/microruby.js",
+    "./microruby.wasm": "./dist/microruby.wasm"
+  },
+  "author": "HASUMI Hitoshi",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/picoruby/picoruby"
+  },
+  "homepage": "https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm/npm-microruby",
+  "keywords": [
+    "Ruby",
+    "MicroRuby",
+    "PicoRuby",
+    "mruby",
+    "WASM",
+    "WebAssembly"
+  ]
+}

@@ -13,7 +13,7 @@
 #define picorb_utf8_from_locale(p, l) ((char*)(p))
 #define picorb_utf8_free(p)
 
-extern void mrb_init_picoruby_gems(mrb_state *mrb);
+//extern void mrb_init_picoruby_gems(mrb_state *mrb);
 extern void mrb_js_init(mrb_state *mrb);
 
 mrb_state *global_mrb = NULL;
@@ -31,8 +31,17 @@ FILE_sector_size(void* p)
   return 1;
 }
 
-static void
-picorb_main_loop(void)
+EMSCRIPTEN_KEEPALIVE
+void
+mrb_tick_wasm(void)
+{
+  if (!global_mrb) return;
+  mrb_tick(global_mrb);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void
+mrb_run_step(void)
 {
   if (!global_mrb) return;
 
@@ -55,7 +64,7 @@ picorb_init(void)
     return -1;
   }
 
-  mrb_init_picoruby_gems(global_mrb);
+ // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
@@ -75,8 +84,6 @@ picorb_init(void)
   main_task = mrc_create_task(cc, irep, mrb_str_new_lit(global_mrb, "main"),
                                mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
   mrc_ccontext_free(cc);
-
-  emscripten_set_main_loop(picorb_main_loop, 0, 1);
 
   return 0;
 }

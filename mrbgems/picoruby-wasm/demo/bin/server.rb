@@ -6,8 +6,15 @@ gemfile do
   gem 'webrick'
 end
 
+# Accept 'picoruby' or 'microruby' as argument (default: picoruby)
+variant = ARGV[0] || 'picoruby'
+unless ['picoruby', 'microruby'].include?(variant)
+  puts "Usage: #{$0} [picoruby|microruby]"
+  exit 1
+end
+
 ROOT = File.expand_path('../../www', __FILE__)
-DIST = File.expand_path('../../../npm-picoruby/dist', __FILE__)
+DIST = File.expand_path("../../../npm-#{variant}/dist", __FILE__)
 RubinoROOT = File.expand_path('../../../../picoruby-wasm-rubino/demo', __FILE__)
 
 server = WEBrick::HTTPServer.new(
@@ -24,10 +31,13 @@ server = WEBrick::HTTPServer.new(
 
 server.config[:MimeTypes]['wasm'] = 'application/wasm'
 
+js_filename = "#{variant}.js"
+wasm_filename = "#{variant}.wasm"
+
 ROUTES = {
-  '/picoruby.js' => ['picoruby.js', 'application/javascript', DIST],
+  "/#{js_filename}" => [js_filename, 'application/javascript', DIST],
   '/init.iife.js' => ['init.iife.js', 'application/javascript', DIST],
-  '/picoruby.wasm' => ['picoruby.wasm', 'application/wasm', DIST],
+  "/#{wasm_filename}" => [wasm_filename, 'application/wasm', DIST],
   '/rubino_demo.html' => ['rubino_demo.html', 'text/html', RubinoROOT],
   '/rubino_demo.rb' => ['rubino_demo.rb', 'text/ruby', RubinoROOT],
 }
@@ -41,6 +51,10 @@ ROUTES.each do |path, (filename, content_type, dir)|
     res['Expires'] = '0'
   end
 end
+
+puts "Starting server for #{variant} on http://localhost:8080"
+puts "Available routes:"
+ROUTES.keys.each { |path| puts "  http://localhost:8080#{path}" }
 
 trap('INT') { server.shutdown }
 server.start
