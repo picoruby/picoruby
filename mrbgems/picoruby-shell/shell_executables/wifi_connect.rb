@@ -17,7 +17,7 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-#require 'net/ntp'
+require 'net/ntp'
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -159,17 +159,18 @@ while retry_count < max_dns_retries && !dns_ready
     dns_ready = true
     puts "DNS ready"
   rescue => e
+    print "."
     retry_count += 1
-    sleep_ms 100
+    sleep_ms 500
   end
 end
 
-unless dns_ready
-  puts "DNS initialization failed after #{max_dns_retries * 100}ms"
-  return
+if dns_ready
+  sleep 1 # This may avoid unexpected hardfault
+  puts "Getting time from NTP server..."
+  ts = Net::NTP.get(NTP_HOST, NTP_PORT)
+  Machine.set_hwclock(ts) if ts
+  puts "Current time: #{Time.now}"
+else
+  puts "DNS initialization failed after #{max_dns_retries * 500}ms"
 end
-
-#puts "Getting time from NTP server..."
-#ts = Net::NTP.get(NTP_HOST, NTP_PORT)
-#Machine.set_hwclock(ts) if ts
-#puts "Current time: #{Time.now}"
