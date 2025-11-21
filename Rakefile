@@ -138,16 +138,6 @@ task :picorbc do
 end
 
 namespace :wasm do
-  desc "Start local server for wasm"
-  task :server do
-    sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
-  end
-
-  desc "Check versions"
-  task :versions do
-    sh "npm view @picoruby/wasm-wasi versions"
-  end
-
   namespace :picoruby do
     desc "Build PicoRuby WASM"
     task :debug do
@@ -167,6 +157,16 @@ namespace :wasm do
         sh "npm install"
         sh "npm publish --access public"
       end
+    end
+
+    desc "Start local server for PicoRuby WASM"
+    task :server do
+      sh "./mrbgems/picoruby-wasm/demo/bin/server.rb picoruby"
+    end
+
+    desc "Check PicoRuby WASM npm versions"
+    task :versions do
+      sh "npm view @picoruby/wasm-wasi versions"
     end
   end
 
@@ -190,5 +190,22 @@ namespace :wasm do
         sh "npm publish --access public"
       end
     end
+
+    desc "Start local server for MicroRuby WASM"
+    task :server do
+      sh "./mrbgems/picoruby-wasm/demo/bin/server.rb microruby"
+    end
+
+    desc "Check MicroRuby WASM npm versions"
+    task :versions do
+      sh "npm view @microruby/wasm versions"
+    end
   end
+
+  # Backward compatibility: default to picoruby
+  desc "Start local server for wasm (PicoRuby)"
+  task :server => 'picoruby:server'
+
+  desc "Check versions (PicoRuby)"
+  task :versions => 'picoruby:versions'
 end
