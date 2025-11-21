@@ -155,6 +155,28 @@ mrb_cyw43_s_ipv4_address(mrb_state *mrb, mrb_value self)
     return mrb_str_new_cstr(mrb, addr_str);
   }
 }
+
+static mrb_value
+mrb_cyw43_s_ipv4_netmask(mrb_state *mrb, mrb_value self)
+{
+  char netmask_str[16] = {0};
+  if (!CYW43_ipv4_netmask(netmask_str, 16)) {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, netmask_str);
+  }
+}
+
+static mrb_value
+mrb_cyw43_s_ipv4_gateway(mrb_state *mrb, mrb_value self)
+{
+  char gateway_str[16] = {0};
+  if (!CYW43_ipv4_gateway(gateway_str, 16)) {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, gateway_str);
+  }
+}
 #endif
 
 static mrb_value
@@ -191,6 +213,8 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(tcpip_link_status), mrb_s_tcpip_link_status, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM_Q(dhcp_supplied), mrb_s_dhcp_supplied_p, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_address), mrb_cyw43_s_ipv4_address, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_netmask), mrb_cyw43_s_ipv4_netmask, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_gateway), mrb_cyw43_s_ipv4_gateway, MRB_ARGS_NONE());
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_DOWN), mrb_fixnum_value(CYW43_CONST_link_down()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_JOIN), mrb_fixnum_value(CYW43_CONST_link_join()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NOIP), mrb_fixnum_value(CYW43_CONST_link_noip()));

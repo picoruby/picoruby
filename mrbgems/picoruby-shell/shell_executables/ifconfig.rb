@@ -19,6 +19,8 @@ if CYW43.link_connected?
   if CYW43.dhcp_supplied?
     puts "  DHCP: Active"
     puts "  IP Address: #{CYW43.ipv4_address || 'unassigned'}"
+    puts "  Netmask:    #{CYW43.ipv4_netmask || 'unassigned'}"
+    puts "  Gateway:    #{CYW43.ipv4_gateway || 'unassigned'}"
   else
     puts "  DHCP: Inactive"
   end
