@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,6 +24,9 @@ int CYW43_CONST_link_up(void);
 int CYW43_CONST_link_fail(void);
 int CYW43_CONST_link_nonet(void);
 int CYW43_CONST_link_badauth(void);
+extern void lwip_begin(void);
+extern void lwip_end(void);
+const char *CYW43_ipv4_address(char *buf, size_t buflen);
 #endif
 void CYW43_GPIO_write(uint8_t, uint8_t);
 uint8_t CYW43_GPIO_read(uint8_t pin);

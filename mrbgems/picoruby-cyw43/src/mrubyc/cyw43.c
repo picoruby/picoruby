@@ -141,6 +141,17 @@ c_CYW43_dhcp_supplied_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   SET_BOOL_RETURN(CYW43_dhcp_supplied());
 }
+
+static void
+c_CYW43_ipv4_address(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char ip_str[16] = {0};
+  if (!CYW43_ipv4_address(ip_str, 16)) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, ip_str));
+}
 #endif
 
 static void
@@ -171,6 +182,7 @@ mrbc_cyw43_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_CYW43, "disconnect", c_CYW43_disconnect);
   mrbc_define_method(vm, class_CYW43, "tcpip_link_status", c_CYW43_tcpip_link_status);
   mrbc_define_method(vm, class_CYW43, "dhcp_supplied?", c_CYW43_dhcp_supplied_q);
+  mrbc_define_method(vm, class_CYW43, "ipv4_address", c_CYW43_ipv4_address);
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_DOWN"), &mrbc_integer_value(CYW43_CONST_link_down()));
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_JOIN"), &mrbc_integer_value(CYW43_CONST_link_join()));
   mrbc_set_class_const(class_CYW43, mrbc_str_to_symid("LINK_NOIP"), &mrbc_integer_value(CYW43_CONST_link_noip()));
