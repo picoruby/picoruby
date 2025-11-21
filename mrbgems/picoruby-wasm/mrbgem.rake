@@ -30,7 +30,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     exported_funcs = if build.vm_mrubyc?
       '["_picorb_init", "_picorb_create_task", "_mrbc_tick", "_mrbc_run_step"]'
     else
-      '["_picorb_init", "_picorb_create_task"]'
+      '["_picorb_init", "_picorb_create_task", "_mrb_tick_wasm", "_mrb_run_step"]'
     end
     sh <<~CMD
       emcc #{optdebug} \
