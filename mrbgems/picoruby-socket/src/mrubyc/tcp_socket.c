@@ -1,6 +1,37 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+
+/* Magic number to identify wrapper pattern */
+#define SOCKET_WRAPPER_MAGIC 0x534F434B  /* "SOCK" in hex */
+
+/* Wrapper for sockets created by accept (pointer-based) */
+typedef struct {
+  uint32_t magic;  /* Must be SOCKET_WRAPPER_MAGIC */
+  picorb_socket_t *ptr;
+} socket_wrapper_t;
+
+/*
+ * Helper function to get socket pointer from instance->data.
+ * Handles both patterns:
+ * - Direct embedding (from TCPSocket.new)
+ * - Wrapper pattern (from TCPServer.accept)
+ */
+static inline picorb_socket_t*
+get_socket_ptr(mrbc_value *v)
+{
+  void *data = v[0].instance->data;
+  socket_wrapper_t *potential_wrapper = (socket_wrapper_t *)data;
+
+  /* Check magic number to identify wrapper pattern */
+  if (potential_wrapper->magic == SOCKET_WRAPPER_MAGIC) {
+    return potential_wrapper->ptr;
+  }
+
+  /* Otherwise it's direct embedding from TCPSocket.new */
+  return (picorb_socket_t *)data;
+}
+
 /*
  * TCPSocket.new(host, port)
  */
@@ -64,8 +95,8 @@ c_tcp_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  /* Get socket pointer (handles both patterns) */
+  picorb_socket_t *sock = get_socket_ptr(v);
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -100,7 +131,7 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_socket_ptr(v);
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -162,7 +193,7 @@ c_tcp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_socket_ptr(v);
   if (!sock) {
     /* Already closed or not initialized */
     SET_NIL_RETURN();
@@ -187,7 +218,7 @@ c_tcp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_socket_ptr(v);
   if (!sock) {
     SET_TRUE_RETURN();
     return;
@@ -214,7 +245,7 @@ c_tcp_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_socket_ptr(v);
   if (!sock) {
     SET_NIL_RETURN();
     return;
@@ -242,7 +273,7 @@ c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_socket_ptr(v);
   if (!sock) {
     SET_NIL_RETURN();
     return;

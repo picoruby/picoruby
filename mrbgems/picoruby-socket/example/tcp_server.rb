@@ -16,7 +16,7 @@ begin
       data = client.recv(1024)
       if data && data.length > 0
         puts "Received: #{data.inspect}"
-        client.send("Echo: #{data}")
+        client.send("Echo: #{data}", 0)
       end
     rescue => e
       puts "Error handling client: #{e.message}"

@@ -65,7 +65,9 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
   /* Create TCP server */
   picorb_tcp_server_t *server = TCPServer_create(port, (int)backlog);
   if (!server) {
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to create TCP server on port %i", port);
+    mrb_raisef(mrb, E_RUNTIME_ERROR,
+               "failed to create TCP server on port %i (port may be in TIME_WAIT state, wait ~2 minutes and retry)",
+               port);
   }
 
   mrb_data_init(self, server, &mrb_tcp_server_type);

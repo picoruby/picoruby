@@ -8,6 +8,14 @@ typedef struct {
   picorb_tcp_server_t *ptr;
 } tcp_server_wrapper_t;
 
+/* Magic number to identify wrapper pattern */
+#define SOCKET_WRAPPER_MAGIC 0x534F434B  /* "SOCK" in hex */
+
+typedef struct {
+  uint32_t magic;  /* Must be SOCKET_WRAPPER_MAGIC */
+  picorb_socket_t *ptr;
+} socket_wrapper_t;
+
 
 /*
  * TCPServer.new(host=nil, service, backlog=5) -> TCPServer
@@ -81,7 +89,8 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Create TCP server and store pointer */
   wrapper->ptr = TCPServer_create(port, backlog);
   if (!wrapper->ptr) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create TCP server");
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError),
+               "failed to create TCP server (port may be in TIME_WAIT state, wait ~2 minutes and retry)");
     return;
   }
 
@@ -113,22 +122,15 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Create TCPSocket object with socket structure embedded in instance->data */
+  /*
+   * Create TCPSocket object with wrapper pattern.
+   * Store the pointer directly without copying to preserve LwIP callback arg.
+   */
   mrbc_class *class_TCPSocket = mrbc_get_class_by_name("TCPSocket");
-  mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(picorb_socket_t));
-  picorb_socket_t *client_sock = (picorb_socket_t *)client_obj.instance->data;
-
-  /*
-   * Copy socket data from malloc'd pointer to instance->data.
-   * NOTE: This is a shallow copy. The recv_buf pointer is shared.
-   */
-  memcpy(client_sock, client, sizeof(picorb_socket_t));
-
-  /*
-   * Free only the picorb_socket_t structure itself, not the recv_buf it points to.
-   * The recv_buf will be freed when the TCPSocket object is garbage collected.
-   */
-  picorb_free(NULL, client);
+  mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(socket_wrapper_t));
+  socket_wrapper_t *sock_wrapper = (socket_wrapper_t *)client_obj.instance->data;
+  sock_wrapper->magic = SOCKET_WRAPPER_MAGIC;
+  sock_wrapper->ptr = client;
 
   SET_RETURN(client_obj);
 }

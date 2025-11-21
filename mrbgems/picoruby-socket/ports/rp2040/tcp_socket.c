@@ -322,6 +322,7 @@ TCPSocket_close(picorb_socket_t *sock)
 
   if (sock->pcb) {
     lwip_begin();
+
     altcp_arg(sock->pcb, NULL);
     altcp_recv(sock->pcb, NULL);
     altcp_sent(sock->pcb, NULL);
@@ -329,6 +330,7 @@ TCPSocket_close(picorb_socket_t *sock)
 
     err_t err = altcp_close(sock->pcb);
     if (err != ERR_OK) {
+      D("TCPSocket_close: close failed (err=%d), aborting\n", err);
       altcp_abort(sock->pcb);
     }
     lwip_end();
