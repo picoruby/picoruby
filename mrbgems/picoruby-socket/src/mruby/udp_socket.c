@@ -21,7 +21,7 @@ mrb_udp_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create UDP socket");
   }
 
-  mrb_data_init(self, sock, &mrb_tcp_socket_type);
+  mrb_data_init(self, sock, &mrb_socket_type);
 
   return self;
 }
@@ -34,7 +34,7 @@ mrb_udp_socket_bind(mrb_state *mrb, mrb_value self)
   const char *host;
   mrb_int port;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -60,7 +60,7 @@ mrb_udp_socket_connect(mrb_state *mrb, mrb_value self)
   const char *host;
   mrb_int port;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -89,7 +89,7 @@ mrb_udp_socket_send(mrb_state *mrb, mrb_value self)
   mrb_int port = 0;
   int argc;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -127,7 +127,7 @@ mrb_udp_socket_recvfrom_nonblock(mrb_state *mrb, mrb_value self)
   char host[256];
   int port;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -181,7 +181,7 @@ mrb_udp_socket_close(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -199,7 +199,7 @@ mrb_udp_socket_closed_p(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     return mrb_true_value();
   }

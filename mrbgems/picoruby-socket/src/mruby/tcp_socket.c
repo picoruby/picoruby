@@ -29,7 +29,7 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to connect to %s:%i", host, port);
   }
 
-  mrb_data_init(self, sock, &mrb_tcp_socket_type);
+  mrb_data_init(self, sock, &mrb_socket_type);
 
   return self;
 }
@@ -41,7 +41,7 @@ mrb_tcp_socket_write(mrb_state *mrb, mrb_value self)
   picorb_socket_t *sock;
   mrb_value data;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -64,7 +64,7 @@ mrb_tcp_socket_read(mrb_state *mrb, mrb_value self)
   mrb_int maxlen = 4096;
   mrb_value buf;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -105,7 +105,7 @@ mrb_tcp_socket_close(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -123,7 +123,7 @@ mrb_tcp_socket_closed_p(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     return mrb_true_value();
   }
@@ -137,7 +137,7 @@ mrb_tcp_socket_remote_host(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
@@ -156,7 +156,7 @@ mrb_tcp_socket_remote_port(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
 
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_socket_type);
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }

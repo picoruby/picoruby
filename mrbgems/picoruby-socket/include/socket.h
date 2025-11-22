@@ -172,7 +172,7 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   void mrbc_socket_free(mrbc_value *self);
 #elif defined(PICORB_VM_MRUBY)
   #include "mruby.h"
-  void mrb_tcp_socket_free(mrb_state *mrb, void *ptr);
+  void mrb_socket_free(mrb_state *mrb, void *ptr);
   void tcp_socket_init(mrb_state *mrb, struct RClass *class_BasicSocket);
   void udp_socket_init(mrb_state *mrb, struct RClass *class_BasicSocket);
   void ssl_socket_init(mrb_state *mrb, struct RClass *class_BasicSocket);
@@ -180,7 +180,7 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
 
   /* Forward declaration for mruby data type */
   struct mrb_data_type;
-  extern const struct mrb_data_type mrb_tcp_socket_type;
+  extern const struct mrb_data_type mrb_socket_type;
 #endif
 
 #endif /* PICORB_SOCKET_H */

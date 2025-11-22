@@ -6,6 +6,12 @@
 /* Magic number to identify wrapper pattern */
 #define SOCKET_WRAPPER_MAGIC 0x534F434B  /* "SOCK" in hex */
 
+/* Socket type constants (matching socket.h) */
+#ifndef PICORB_PLATFORM_POSIX
+#define SOCK_STREAM 1
+#define SOCK_DGRAM  2
+#endif
+
 /* Wrapper for sockets created by accept (pointer-based) */
 typedef struct {
   uint32_t magic;  /* Must be SOCKET_WRAPPER_MAGIC */
@@ -26,12 +32,17 @@ mrbc_socket_free(mrbc_value *self)
     sock = potential_wrapper->ptr;
     is_wrapper = true;
   } else {
-    /* Direct embedding (from TCPSocket.new) */
+    /* Direct embedding (from TCPSocket.new or UDPSocket.new) */
     sock = (picorb_socket_t *)data;
   }
 
   if (sock && !sock->closed) {
-    TCPSocket_close(sock);
+    /* Close socket based on socket type */
+    if (sock->socktype == SOCK_DGRAM) {
+      UDPSocket_close(sock);
+    } else {
+      TCPSocket_close(sock);
+    }
   }
 
   /* If wrapper pattern, free the allocated socket structure */

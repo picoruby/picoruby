@@ -54,6 +54,12 @@ Net_get_ip(const char *name, void *ip)
 
   ip_addr_t *addr = (ip_addr_t *)ip;
 
+  /* First try to parse as numeric IP address */
+  if (ip4addr_aton(name, addr)) {
+    return 0;
+  }
+
+  /* Not a numeric IP, try DNS resolution */
   lwip_begin();
   err_t err = dns_gethostbyname(name, addr, dns_callback, addr);
   lwip_end();

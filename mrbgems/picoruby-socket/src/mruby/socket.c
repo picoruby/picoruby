@@ -1,18 +1,29 @@
 #include "../../include/socket.h"
 #include "mruby/data.h"
 
-const struct mrb_data_type mrb_tcp_socket_type = {
-  "TCPSocket", mrb_tcp_socket_free,
+/* Socket type constants (matching socket.h) */
+#ifndef PICORB_PLATFORM_POSIX
+#define SOCK_STREAM 1
+#define SOCK_DGRAM  2
+#endif
+
+const struct mrb_data_type mrb_socket_type = {
+  "Socket", mrb_socket_free,
 };
 
-/* Data type for TCPSocket */
+/* Data type for sockets (shared by TCP and UDP) */
 void
-mrb_tcp_socket_free(mrb_state *mrb, void *ptr)
+mrb_socket_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
     picorb_socket_t *sock = (picorb_socket_t *)ptr;
     if (!sock->closed) {
-      TCPSocket_close(sock);
+      /* Close socket based on socket type */
+      if (sock->socktype == SOCK_DGRAM) {
+        UDPSocket_close(sock);
+      } else {
+        TCPSocket_close(sock);
+      }
     }
     mrb_free(mrb, sock);
   }
