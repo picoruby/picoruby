@@ -2,7 +2,9 @@
 #include "mruby/data.h"
 
 /* Socket type constants (matching socket.h) */
-#ifndef PICORB_PLATFORM_POSIX
+#if defined(PICORB_PLATFORM_POSIX)
+#include <sys/socket.h>
+#else
 #define SOCK_STREAM 1
 #define SOCK_DGRAM  2
 #endif
