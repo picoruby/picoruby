@@ -23,6 +23,9 @@ class CYW43
   def self.tcpip_link_status_name: () -> String
   def self.dhcp_supplied?: () -> bool
   def self.link_connected?: (?bool print_status) -> bool
+  def self.ipv4_address: () -> (String | nil)
+  def self.ipv4_netmask: () -> (String | nil)
+  def self.ipv4_gateway: () -> (String | nil)
   private def self._init: (String | nil country, bool force) -> bool
 
   # @sidebar hardware_device

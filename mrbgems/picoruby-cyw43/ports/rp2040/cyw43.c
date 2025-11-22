@@ -127,3 +127,48 @@ CYW43_GPIO_read(uint8_t pin)
 {
   return(cyw43_arch_gpio_get(pin) ? 1 : 0);
 }
+
+const char *
+CYW43_ipv4_address(char *buf, size_t buflen)
+{
+  const char *res;
+  lwip_begin();
+  const ip4_addr_t *ip = netif_ip4_addr(netif_default);
+  if (ip && ip->addr != 0) {
+    res = ipaddr_ntoa_r(ip, buf, buflen);
+  } else {
+    return NULL;
+  }
+  lwip_end();
+  return res;
+}
+
+const char *
+CYW43_ipv4_netmask(char *buf, size_t buflen)
+{
+  const char *res;
+  lwip_begin();
+  const ip4_addr_t *netmask = netif_ip4_netmask(netif_default);
+  if (netmask && netmask->addr != 0) {
+    res = ipaddr_ntoa_r(netmask, buf, buflen);
+  } else {
+    return NULL;
+  }
+  lwip_end();
+  return res;
+}
+
+const char *
+CYW43_ipv4_gateway(char *buf, size_t buflen)
+{
+  const char *res;
+  lwip_begin();
+  const ip4_addr_t *gateway = netif_ip4_gw(netif_default);
+  if (gateway && gateway->addr != 0) {
+    res = ipaddr_ntoa_r(gateway, buf, buflen);
+  } else {
+    return NULL;
+  }
+  lwip_end();
+  return res;
+}

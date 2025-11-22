@@ -1,0 +1,49 @@
+module Net
+  class HTTPGenericRequest
+    attr_reader method: String
+    attr_reader path: String
+    attr_accessor body: String?
+
+    def initialize: (String method, String path, ?Hash[String, String]? initheader) -> void
+    def []: (String key) -> String?
+    def []=: (String key, String value) -> String
+    def delete: (String key) -> String?
+    def each_header: () { (String, String) -> void } -> void
+    def set_default_headers: (String host, Integer port) -> void
+    def to_s: () -> String
+    def response_body_permitted?: () -> bool
+    def request_body_permitted?: () -> bool
+  end
+
+  class HTTPRequest < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Get < HTTPRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Head < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Post < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Put < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Delete < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Patch < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+
+  class Options < HTTPGenericRequest
+    def initialize: (String path, ?Hash[String, String]? initheader) -> void
+  end
+end

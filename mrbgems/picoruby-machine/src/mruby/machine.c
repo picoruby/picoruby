@@ -125,11 +125,11 @@ mrb_s_set_hwclock(mrb_state *mrb, mrb_value self)
   mrb_notimplement(mrb);
   return mrb_nil_value();
 #else
-  mrb_int tv_sec, tv_nsec;
-  mrb_get_args(mrb, "ii", &tv_sec, &tv_nsec);
+  mrb_int tv_sec;
+  mrb_get_args(mrb, "i", &tv_sec);
   const struct timespec ts = {
     .tv_sec = (time_t)tv_sec,
-    .tv_nsec = (long)tv_nsec,
+    .tv_nsec = 0
   };
   if (Machine_set_hwclock(&ts)) {
     return mrb_true_value();
@@ -347,7 +347,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(stack_usage), mrb_s_stack_usage, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(mcu_name), mrb_s_mcu_name, MRB_ARGS_NONE());
 
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_us), mrb_s_uptime_us, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_formatted), mrb_s_uptime_formatted, MRB_ARGS_NONE());

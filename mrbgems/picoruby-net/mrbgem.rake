@@ -9,6 +9,8 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.add_dependency 'picoruby-jwt'
   spec.add_dependency 'picoruby-cyw43' unless build.posix?
 
+  spec.add_conflict 'picoruby-socket'
+
   if build.posix?
     #
     # POSIX Build: Use standard UNIX network stack + mbedTLS

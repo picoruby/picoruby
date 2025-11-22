@@ -1241,6 +1241,7 @@ class String
   # String#size is an alias for String#length.
   #
   alias size length
+  alias bytesize length
 
   # <!--
   #   rdoc-file=string.c

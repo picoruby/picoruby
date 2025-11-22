@@ -25,7 +25,7 @@ us = Machine.uptime_us
 formatted = Machine.uptime_formatted  # "1d 2h 3m 4s" format
 
 # Hardware clock
-Machine.set_hwclock(tv_sec, tv_nsec)
+Machine.set_hwclock(tv_sec)
 sec, nsec = Machine.get_hwclock
 
 # Memory access
@@ -62,7 +62,7 @@ Machine.debug_puts("Debug message")
 
 ### Hardware Clock
 
-- `Machine.set_hwclock(tv_sec, tv_nsec)` - Set hardware clock
+- `Machine.set_hwclock(tv_sec)` - Set hardware clock
 - `Machine.get_hwclock()` - Get hardware clock, returns `[sec, nsec]`
 
 ### Memory and USB
