@@ -149,7 +149,7 @@ static mrb_value
 mrb_cyw43_s_ipv4_address(mrb_state *mrb, mrb_value self)
 {
   char addr_str[16] = {0};
-  if (!Net_get_ipv4_address(addr_str, 16)) {
+  if (!CYW43_ipv4_address(addr_str, 16)) {
     return mrb_nil_value();
   } else {
     return mrb_str_new_cstr(mrb, addr_str);
