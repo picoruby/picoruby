@@ -1,12 +1,11 @@
 require 'socket'
 
-HOST = '0.0.0.0'
-PORT = 5000
+host = ARGV[0] || '0.0.0.0'
+port = 5000
 
 sock = UDPSocket.new
-sock.bind(HOST, PORT)
-
-puts "UDP server started"
+sock.bind(host, port)
+puts "UDP server started on #{host}:#{port}"
 
 loop do
   message, sender = sock.recvfrom(1024)

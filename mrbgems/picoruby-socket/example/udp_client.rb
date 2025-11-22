@@ -1,6 +1,6 @@
 require 'socket'
 
-HOST = '0.0.0.0'
+HOST = ARGV[0] || '0.0.0.0'
 PORT = 5000
 
 sock = UDPSocket.new

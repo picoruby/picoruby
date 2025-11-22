@@ -10,7 +10,7 @@ begin
   puts "Connected to server at #{HOST}:#{PORT}"
 
   message = "Hello, TCP server!"
-  sock.send(message)
+  sock.send(message, 0)
   puts "Sent: #{message.inspect}"
 
   response = sock.recv(1024)
