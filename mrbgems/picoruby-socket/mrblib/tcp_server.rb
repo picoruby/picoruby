@@ -42,13 +42,13 @@ class TCPServer
     Signal.trap(:INT) do
       self.close
     end
-    loop do
+    while true
       client = accept_nonblock
-      if client
-        return client
-      end
+      break if client
       sleep_ms 10
     end
+    # @type var client: TCPSocket
+    return client
   end
 
   # Accept an incoming client connection (non-blocking)

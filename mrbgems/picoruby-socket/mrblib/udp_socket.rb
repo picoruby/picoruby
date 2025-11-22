@@ -8,13 +8,13 @@ class UDPSocket
     Signal.trap(:INT) do
       self.close
     end
-    loop do
+    while true
       result = recvfrom_nonblock(maxlen, flags)
-      if result
-        return result
-      end
+      break if result
       sleep_ms 10
     end
+    # @type var result: [String, Array[String | Integer]]
+    return result
   end
 
   # Read data from any source (simplified version of recvfrom)
