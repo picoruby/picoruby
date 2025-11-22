@@ -2,6 +2,21 @@ class UDPSocket
   # UDPSocket is already defined in C
   # This file adds convenience methods
 
+  # Receive data with blocking behavior
+  # Continuously polls recvfrom_nonblock until data is available
+  def recvfrom(maxlen, flags = 0)
+    Signal.trap(:INT) do
+      self.close
+    end
+    loop do
+      result = recvfrom_nonblock(maxlen, flags)
+      if result
+        return result
+      end
+      sleep_ms 10
+    end
+  end
+
   # Read data from any source (simplified version of recvfrom)
   def read(maxlen = 4096)
     data, _addr = recvfrom(maxlen)

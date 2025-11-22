@@ -191,10 +191,10 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * socket.recvfrom(maxlen, flags=0) -> [data, [family, port, host, host]]
+ * socket.recvfrom_nonblock(maxlen, flags=0) -> [data, [family, port, host, host]] or nil
  */
 static void
-c_udp_socket_recvfrom(mrbc_vm *vm, mrbc_value *v, int argc)
+c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc < 1 || argc > 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -338,7 +338,7 @@ udp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_UDPSocket, "bind", c_udp_socket_bind);
   mrbc_define_method(vm, class_UDPSocket, "connect", c_udp_socket_connect);
   mrbc_define_method(vm, class_UDPSocket, "send", c_udp_socket_send);
-  mrbc_define_method(vm, class_UDPSocket, "recvfrom", c_udp_socket_recvfrom);
+  mrbc_define_method(vm, class_UDPSocket, "recvfrom_nonblock", c_udp_socket_recvfrom_nonblock);
   mrbc_define_method(vm, class_UDPSocket, "close", c_udp_socket_close);
   mrbc_define_method(vm, class_UDPSocket, "closed?", c_udp_socket_closed_q);
 }

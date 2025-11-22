@@ -115,9 +115,9 @@ mrb_udp_socket_send(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(sent);
 }
 
-/* socket.recvfrom(maxlen, flags=0) -> [data, [family, port, host, host]] */
+/* socket.recvfrom_nonblock(maxlen, flags=0) -> [data, [family, port, host, host]] or nil */
 static mrb_value
-mrb_udp_socket_recvfrom(mrb_state *mrb, mrb_value self)
+mrb_udp_socket_recvfrom_nonblock(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
   mrb_int maxlen;
@@ -219,7 +219,7 @@ udp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method(mrb, udp_socket_class, "bind", mrb_udp_socket_bind, MRB_ARGS_REQ(2));
   mrb_define_method(mrb, udp_socket_class, "connect", mrb_udp_socket_connect, MRB_ARGS_REQ(2));
   mrb_define_method(mrb, udp_socket_class, "send", mrb_udp_socket_send, MRB_ARGS_ARG(1, 3));
-  mrb_define_method(mrb, udp_socket_class, "recvfrom", mrb_udp_socket_recvfrom, MRB_ARGS_ARG(1, 1));
+  mrb_define_method(mrb, udp_socket_class, "recvfrom_nonblock", mrb_udp_socket_recvfrom_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method(mrb, udp_socket_class, "close", mrb_udp_socket_close, MRB_ARGS_NONE());
   mrb_define_method(mrb, udp_socket_class, "closed?", mrb_udp_socket_closed_p, MRB_ARGS_NONE());
 }
