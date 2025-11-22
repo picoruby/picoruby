@@ -68,10 +68,8 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
 
-  if (!host || strcmp(host, "") == 0 ||
-      strcmp(host, "0.0.0.0") == 0) {
+  if (!host || strcmp(host, "") == 0 || strcmp(host, "0.0.0.0") == 0) {
     addr.sin_addr.s_addr = INADDR_ANY;
-
   } else {
     /* Try numeric IP first */
     if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {

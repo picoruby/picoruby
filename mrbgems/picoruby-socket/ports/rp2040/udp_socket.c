@@ -4,6 +4,7 @@
 
 #include "../../include/socket.h"
 #include "picoruby.h"
+#include "picoruby/debug.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -78,6 +79,7 @@ UDPSocket_create(picorb_socket_t *sock)
   lwip_end();
 
   if (!sock->pcb) {
+    D("UDPSocket_create: udp_new failed\n");
     return false;
   }
 
@@ -102,13 +104,17 @@ UDPSocket_create(picorb_socket_t *sock)
 bool
 UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
 {
-  if (!sock || !sock->pcb) return false;
+  if (!sock || !sock->pcb) {
+    D("UDPSocket_bind: sock or pcb is NULL\n");
+    return false;
+  }
 
   ip_addr_t addr;
   if (!host || strcmp(host, "0.0.0.0") == 0 || strcmp(host, "") == 0) {
     ip_addr_set_any(false, &addr);
   } else {
     if (Net_get_ip(host, &addr) != 0) {
+      D("UDPSocket_bind: failed to resolve host %s\n", host);
       return false;
     }
   }
@@ -116,6 +122,10 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
   lwip_begin();
   err_t err = udp_bind((struct udp_pcb *)sock->pcb, &addr, port);
   lwip_end();
+
+  if (err != ERR_OK) {
+    D("UDPSocket_bind: udp_bind failed with error %d\n", err);
+  }
 
   return err == ERR_OK;
 }

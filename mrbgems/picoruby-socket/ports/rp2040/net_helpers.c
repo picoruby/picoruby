@@ -3,6 +3,7 @@
  */
 
 #include "../../include/socket.h"
+#include "picoruby/debug.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/dns.h"
@@ -73,6 +74,9 @@ Net_get_ip(const char *name, void *ip)
     if (!ip_addr_isany(addr)) {
       return 0;
     }
+    D("Net_get_ip: DNS resolution timed out for %s\n", name);
+  } else {
+    D("Net_get_ip: DNS failed for %s with error %d\n", name, err);
   }
 
   return -1;
