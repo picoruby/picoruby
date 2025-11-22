@@ -2,6 +2,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby for WebAssembly'
+  spec.add_dependency 'mruby-compiler2'
   spec.add_dependency 'picoruby-json'
   spec.add_dependency 'picoruby-dir'
   spec.require_name = 'js'
@@ -31,7 +32,6 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     CMD
 
     picoruby_wasm = Pathname(picoruby_js).sub_ext('.wasm')
-    dist_dir = File.join(dir, 'dist')
     sh "cp #{picoruby_js} #{dir}/npm/dist/"
     sh "cp #{picoruby_wasm} #{dir}/npm/dist/"
     sh "brotli -f #{dir}/npm/dist/picoruby.wasm"

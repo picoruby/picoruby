@@ -6,7 +6,8 @@
 #include <mrc_ccontext.h>
 #include <mrc_compile.h>
 #include <mrc_dump.h>
-#include <picogem_init.c>
+
+#include <picoruby.h>
 
 #include "../include/js.h"
 
