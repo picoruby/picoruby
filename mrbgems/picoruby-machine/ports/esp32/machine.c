@@ -40,9 +40,9 @@ alarm_handler(void *arg)
 
 void
 #if defined(PICORB_VM_MRUBY)
-hal_init(mrb_state *mrb)
+machine_hal_init(mrb_state *mrb)
 #elif defined(PICORB_VM_MRUBYC)
-hal_init(void)
+machine_hal_init(void)
 #endif
 {
 #if defined(PICORB_VM_MRUBY)

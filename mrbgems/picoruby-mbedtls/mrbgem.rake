@@ -72,10 +72,13 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.cc.defines << "MBEDTLS_CONFIG_FILE='\"#{dir}/include/mbedtls_config.h\"'"
   spec.cc.include_paths << "#{mbedtls_dir}/include"
   spec.cc.include_paths << "#{dir}/include"
-  spec.objs += Dir.glob("#{mbedtls_dir}/library/*.{c,cpp,m,asm,S}").map do |f|
-    f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
+
+  # For ESP32, use Mbed TLS provided by ESP-IDF
+  unless build.name == "esp32"
+    spec.objs += Dir.glob("#{mbedtls_dir}/library/*.{c,cpp,m,asm,S}").map do |f|
+      f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
+    end
   end
 
   spec.posix
 end
-
