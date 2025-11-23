@@ -1,0 +1,29 @@
+# @sidebar hardware_device
+class ESP32
+
+  # @sidebar error
+  class ConnectTimeout < RuntimeError
+  end
+
+  class WiFi
+    LINK_DOWN:    Integer
+    LINK_NOIP:    Integer
+    LINK_UP:      Integer
+    LINK_NONET:   Integer
+
+    def self.init: () -> bool
+    def self.initialized?: () -> bool
+    def self.connect_timeout: (String ssid, String password, Integer augh, ?Integer timeout) -> bool
+    def self.disconnect: () -> bool
+    def self.tcpip_link_status: () -> Integer
+    def self.tcpip_link_status_name: () -> String
+  end
+
+  # @sidebar hardware_device
+  class Auth
+    OPEN: Integer
+    WPA_TKIP_PSK: Integer
+    WPA2_AES_PSK: Integer
+    WPA2_MIXED_PSK: Integer
+  end
+end

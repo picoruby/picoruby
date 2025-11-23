@@ -9,9 +9,23 @@ extern "C" {
 #include "mruby.h"
 void mrb_tick(mrb_state *mrb);
 void hal_init(mrb_state *mrb);
+
+/* Avoid conflict with hal_init() from libpp used in ESP-IDF. */
+#ifdef ESP32_PLATFORM
+void machine_hal_init(mrb_state *mrb);
+#define hal_init(mrb) machine_hal_init(mrb)
+#endif
+
 #elif defined(PICORB_VM_MRUBYC)
 void mrbc_tick();
 void hal_init(void);
+
+/* Avoid conflict with hal_init() from libpp used in ESP-IDF. */
+#ifdef ESP32_PLATFORM
+void machine_hal_init(void);
+#define hal_init() machine_hal_init()
+#endif
+
 void hal_idle_cpu(void);
 #endif
 
