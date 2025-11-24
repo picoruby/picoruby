@@ -177,7 +177,7 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
   }
 });
 
-EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintptr_t mrb_ptr), {
+EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintptr_t mrb_ptr, uintptr_t task_ptr), {
   const promise = globalThis.picorubyRefs[promise_id];
   promise.then(
     (result) => {
@@ -186,8 +186,8 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
       ccall(
         'resume_promise_task',
         'void',
-        ['number', 'number', 'number'],
-        [mrb_ptr, callback_id, resultId]
+        ['number', 'number', 'number', 'number'],
+        [mrb_ptr, task_ptr, callback_id, resultId]
       );
     }
   );
@@ -207,7 +207,7 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
   });
 });
 
-EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t callback_id), {
+EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id), {
   const response = window.picorubyRefs[ref_id];
   if (!response || typeof response.arrayBuffer !== 'function') {
     console.error('Invalid response object:', response);
@@ -221,8 +221,8 @@ EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t callb
     ccall(
       'resume_binary_task',
       'void',
-      ['number', 'number', 'number', 'number'],
-      [mrb_ptr, callback_id, ptr, uint8Array.length]
+      ['number', 'number', 'number', 'number', 'number'],
+      [mrb_ptr, task_ptr, callback_id, ptr, uint8Array.length]
     );
   }).catch(error => {
     console.error('Error in arrayBuffer processing:', error);
@@ -385,10 +385,13 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
 
 EMSCRIPTEN_KEEPALIVE
 void
-resume_promise_task(uintptr_t mrb_ptr, uintptr_t callback_id, int result_id)
+resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, int result_id)
 {
   mrb_state *mrb = (mrb_state *)mrb_ptr;
-  if (!mrb) return;
+  if (!mrb) {
+    fprintf(stderr, "DEBUG: mrb is NULL\n");
+    return;
+  }
 
   mrb_value responses = mrb_gv_get(mrb, mrb_intern_lit(mrb, "$promise_responses"));
   if (mrb_nil_p(responses)) {
@@ -402,12 +405,13 @@ resume_promise_task(uintptr_t mrb_ptr, uintptr_t callback_id, int result_id)
 
   mrb_hash_set(mrb, responses, mrb_fixnum_value(callback_id), response);
 
-  mrb_resume_task(mrb, main_task);
+  mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
+  mrb_resume_task(mrb, task);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void
-resume_binary_task(uintptr_t mrb_ptr, uintptr_t callback_id, void *binary, int length)
+resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, void *binary, int length)
 {
   mrb_state *mrb = (mrb_state *)mrb_ptr;
   if (!mrb) {
@@ -425,7 +429,8 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t callback_id, void *binary, int l
   mrb_hash_set(mrb, responses, mrb_fixnum_value(callback_id), str);
   free(binary);
 
-  mrb_resume_task(mrb, main_task);
+  mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
+  mrb_resume_task(mrb, task);
 }
 
 
@@ -465,9 +470,12 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_int callback_id;
   mrb_get_args(mrb, "i", &callback_id);
 
-  setup_binary_handler(js_obj->ref_id, (uintptr_t)mrb, (uintptr_t)callback_id);
+  mrb_value current_task = mrb_funcall(mrb, mrb_obj_value(mrb_class_get(mrb, "Task")), "current", 0);
 
-  mrb_suspend_task(mrb, main_task);
+  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+
+  mrb_suspend_task(mrb, current_task);
+  setup_binary_handler(js_obj->ref_id, (uintptr_t)mrb, task_ptr, (uintptr_t)callback_id);
 
   return mrb_nil_value();
 }
@@ -701,9 +709,12 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "zi", &url, &callback_id);
   int promise_id = call_method(obj->ref_id, "fetch", url);
 
-  setup_promise_handler(promise_id, (uintptr_t)callback_id, (uintptr_t)mrb);
+  mrb_value current_task = mrb_funcall(mrb, mrb_obj_value(mrb_class_get(mrb, "Task")), "current", 0);
 
-  mrb_suspend_task(mrb, main_task);
+  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+
+  mrb_suspend_task(mrb, current_task);
+  setup_promise_handler(promise_id, (uintptr_t)callback_id, (uintptr_t)mrb, task_ptr);
 
   return mrb_nil_value();
 }
