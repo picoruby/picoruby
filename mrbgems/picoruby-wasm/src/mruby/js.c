@@ -354,10 +354,10 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
   data->ref_id = event_ref_id;
   mrb_value event = mrb_obj_value(Data_Wrap_Struct(global_mrb, class_JS_Object, &picorb_js_obj_type, data));
 
-  mrb_value events = mrb_gv_get(global_mrb, mrb_intern_lit(global_mrb, "$js_events"));
+  mrb_value events = mrb_gv_get(global_mrb, MRB_GVSYM(js_events));
   if (mrb_nil_p(events)) {
     events = mrb_hash_new(global_mrb);
-    mrb_gv_set(global_mrb, mrb_intern_lit(global_mrb, "$js_events"), events);
+    mrb_gv_set(global_mrb, MRB_GVSYM(js_events), events);
   }
   mrb_hash_set(global_mrb, events, mrb_fixnum_value(event_ref_id), event);
 
@@ -398,10 +398,10 @@ resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id
     return;
   }
 
-  mrb_value responses = mrb_gv_get(mrb, mrb_intern_lit(mrb, "$promise_responses"));
+  mrb_value responses = mrb_gv_get(mrb, MRB_GVSYM(promise_responses));
   if (mrb_nil_p(responses)) {
     responses = mrb_hash_new(mrb);
-    mrb_gv_set(mrb, mrb_intern_lit(mrb, "$promise_responses"), responses);
+    mrb_gv_set(mrb, MRB_GVSYM(promise_responses), responses);
   }
 
   picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
@@ -424,10 +424,10 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id,
     return;
   }
 
-  mrb_value responses = mrb_gv_get(mrb, mrb_intern_lit(mrb, "$promise_responses"));
+  mrb_value responses = mrb_gv_get(mrb, MRB_GVSYM(promise_responses));
   if (mrb_nil_p(responses)) {
     responses = mrb_hash_new(mrb);
-    mrb_gv_set(mrb, mrb_intern_lit(mrb, "$promise_responses"), responses);
+    mrb_gv_set(mrb, MRB_GVSYM(promise_responses), responses);
   }
 
   mrb_value str = mrb_str_new(mrb, (const char *)binary, length);
