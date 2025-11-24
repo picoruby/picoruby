@@ -210,7 +210,7 @@ mrb_tcb_new(mrb_state *mrb, enum TASKSTATUS task_status, int priority)
 {
   static uint8_t context_id = 0;
 
-  mrb_tcb *tcb = mrb_calloc(mrb, 1, sizeof(mrb_tcb) + sizeof(struct mrb_context));
+  mrb_tcb *tcb = (mrb_tcb *)mrb_calloc(mrb, 1, sizeof(mrb_tcb) + sizeof(struct mrb_context));
   if (!tcb) return NULL;  // ENOMEM
 #if defined(PICORUBY_DEBUG)
   memcpy(tcb->type, "TCB", 4);
@@ -326,7 +326,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
   } else if (!mrb_integer_p(priority)) {
     mrb_raise(mrb, E_TYPE_ERROR, "priority must be an Integer");
   }
-  mrb_tcb *tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATUS, mrb_integer(priority));
+  mrb_tcb *tcb = mrb_tcb_new(mrb, (enum TASKSTATUS)MRB_TASK_DEFAULT_STATUS, mrb_integer(priority));
   if (mrb_nil_p(name)) {
     name = mrb_str_new_lit(mrb, "(noname)");
   }

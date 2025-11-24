@@ -16,7 +16,7 @@ mrb_s_random_string(mrb_state *mrb, mrb_value klass)
 {
   mrb_int len;
   mrb_get_args(mrb, "i", &len);
-  unsigned char* buf = mrb_malloc(mrb, len);
+  unsigned char *buf = (unsigned char *)mrb_malloc(mrb, len);
   for (int i = 0; i < len; i++) {
     buf[i] = (unsigned char)rng_random_byte_impl();
   }
