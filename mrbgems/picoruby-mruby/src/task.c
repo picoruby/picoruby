@@ -426,6 +426,12 @@ mrb_task_run_once(mrb_state *mrb)
   mrb->c = &tcb->c;
   tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
 
+//  if (!mrb_nil_p(tcb->pending_exception)) {
+//    mrb_value exc = tcb->pending_exception;
+//    tcb->pending_exception = mrb_nil_value();
+//    mrb_exc_raise(mrb, exc);
+//  }
+
   tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
 
   if (mrb->exc) {
@@ -663,6 +669,14 @@ mrb_resume_task(mrb_state *mrb, mrb_value task)
     }
   }
 }
+
+//void
+//mrb_resume_task_with_raise(mrb_state *mrb, mrb_value task, mrb_value exc)
+//{
+//  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
+//  tcb->pending_exception = exc;
+//  mrb_resume_task(mrb, task);
+//}
 
 void
 mrb_terminate_task(mrb_state *mrb, mrb_value task)
