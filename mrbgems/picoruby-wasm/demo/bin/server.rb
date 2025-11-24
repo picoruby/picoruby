@@ -33,11 +33,13 @@ server.config[:MimeTypes]['wasm'] = 'application/wasm'
 
 js_filename = "#{variant}.js"
 wasm_filename = "#{variant}.wasm"
+wasm_map_filename = "#{variant}.wasm.map"
 
 ROUTES = {
   "/#{js_filename}" => [js_filename, 'application/javascript', DIST],
   '/init.iife.js' => ['init.iife.js', 'application/javascript', DIST],
   "/#{wasm_filename}" => [wasm_filename, 'application/wasm', DIST],
+  "/#{wasm_map_filename}" => [wasm_map_filename, 'application/json', DIST],
   '/rubino_demo.html' => ['rubino_demo.html', 'text/html', RubinoROOT],
   '/rubino_demo.rb' => ['rubino_demo.rb', 'text/ruby', RubinoROOT],
 }
