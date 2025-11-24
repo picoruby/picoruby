@@ -5,8 +5,10 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_dependency 'mruby-compiler2'
 
   spec.add_dependency 'picoruby-json'
+  spec.add_dependency 'picoruby-sandbox'
+  spec.add_dependency 'picoruby-time'
   if build.vm_mruby?
-    spec.add_dependency 'picoruby-sandbox'
+    spec.add_dependency 'mruby-math', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-math"
   elsif build.vm_mrubyc?
     spec.add_dependency 'picoruby-dir'
   end
