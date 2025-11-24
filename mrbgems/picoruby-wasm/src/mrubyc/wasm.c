@@ -13,10 +13,10 @@ extern void picoruby_init_require(struct VM *vm);
 #define picorb_utf8_from_locale(p, l) ((char*)(p))
 #define picorb_utf8_free(p)
 
-#if !defined(PICORUBY_MEMORY_SIZE)
-#define PICORUBY_MEMORY_SIZE (1024*1000)
+#if !defined(PICORB_MEMORY_SIZE)
+#define PICORB_MEMORY_SIZE (1024*1000)
 #endif
-static uint8_t memory_pool[PICORUBY_MEMORY_SIZE];
+static uint8_t memory_pool[PICORB_MEMORY_SIZE];
 
 void*
 FILE_physical_address(void* p)
@@ -34,7 +34,7 @@ EMSCRIPTEN_KEEPALIVE
 int
 picorb_init(void)
 {
-  mrbc_init(memory_pool, PICORUBY_MEMORY_SIZE);
+  mrbc_init(memory_pool, PICORB_MEMORY_SIZE);
   picoruby_init_require(NULL);
   return 0;
 }

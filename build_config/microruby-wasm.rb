@@ -6,9 +6,6 @@ MRuby::CrossBuild.new("microruby-wasm") do |conf|
 
   conf.cc.defines << "MRB_INT64"
 
-  conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
-  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
