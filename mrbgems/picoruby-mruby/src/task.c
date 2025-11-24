@@ -813,8 +813,14 @@ mrb_task_s_get(mrb_state *mrb, mrb_value klass)
   for (int i = 0; i < 4; i++) {
     queue = queues[i];
     while (queue) {
+      mrb_value task_ivar_name = mrb_iv_get(mrb, queue->task, MRB_IVSYM(name));
+      if (mrb_string_p(task_ivar_name)) {
+        if (mrb_str_cmp(mrb, task_ivar_name, name) == 0) {
+          return queue->task;
+        }
+      }
       if (mrb_str_cmp(mrb, queue->name, name) == 0) {
-      return queue->task;
+        return queue->task;
       }
       queue = queue->next;
     }
@@ -844,13 +850,31 @@ mrb_value
 mrb_task_status(mrb_state *mrb, mrb_value task)
 {
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
-  return mrb_symbol_value(
-          (tcb->status == TASKSTATUS_RUNNING)   ? MRB_SYM(RUNNING)   :
-          (tcb->status == TASKSTATUS_READY)     ? MRB_SYM(READY)     :
-          (tcb->status == TASKSTATUS_WAITING)   ? MRB_SYM(WAITING)   :
-          (tcb->status == TASKSTATUS_SUSPENDED) ? MRB_SYM(SUSPENDED) :
-          (tcb->status == TASKSTATUS_DORMANT)   ? MRB_SYM(DORMANT)   :
-                                                  MRB_SYM(UNKNOWN)); // This should not happen
+
+  const char *status_str;
+  switch (tcb->status) {
+    case TASKSTATUS_DORMANT:   status_str = "DORMANT";   break;
+    case TASKSTATUS_READY:     status_str = "READY";     break;
+    case TASKSTATUS_RUNNING:   status_str = "RUNNING";   break;
+    case TASKSTATUS_WAITING:   status_str = "WAITING";   break;
+    case TASKSTATUS_SUSPENDED: status_str = "SUSPENDED"; break;
+    default:                   status_str = "UNKNOWN";   break;
+  }
+
+  mrb_value ret = mrb_str_new_cstr(mrb, status_str);
+
+  if (tcb->status == TASKSTATUS_WAITING) {
+    const char *reason_str;
+    switch (tcb->reason) {
+      case TASKREASON_SLEEP: reason_str = "SLEEP"; break;
+      case TASKREASON_MUTEX: reason_str = "MUTEX"; break;
+      case TASKREASON_JOIN:  reason_str = "JOIN";  break;
+      default:               reason_str = "";      break;
+    }
+    mrb_str_cat_cstr(mrb, ret, reason_str);
+  }
+
+  return ret;
 }
 
 static mrb_tcb *
@@ -870,7 +894,7 @@ mrb_task_inspect(mrb_state *mrb, mrb_value self)
   mrb_value status = mrb_task_status(mrb, self);
   char buf[64];
   mrb_value name = mrb_iv_get(mrb, self, MRB_IVSYM(name));
-  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(name), mrb_sym_name(mrb, mrb_symbol(status)));
+  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(name), RSTRING_PTR(status));
   return mrb_str_new_cstr(mrb, buf);
 }
 

@@ -341,7 +341,9 @@ EMSCRIPTEN_KEEPALIVE
 void
 call_ruby_callback(uintptr_t callback_id, int event_ref_id)
 {
-  if (!global_mrb) return;
+  if (!global_mrb) {
+    return;
+  }
 
   picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(global_mrb, sizeof(picorb_js_obj));
   data->ref_id = event_ref_id;
@@ -355,23 +357,23 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
   mrb_hash_set(global_mrb, events, mrb_fixnum_value(event_ref_id), event);
 
   char *script = callback_script(callback_id, event_ref_id);
+
   mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
   const uint8_t *script_ptr = (const uint8_t *)script;
   size_t size = strlen(script);
   mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
 
   if (!irep) {
-    fprintf(stderr, "Failed to compile callback script\n");
     mrc_ccontext_free(cc);
     return;
   }
 
-  mrc_resolve_intern(cc, irep);
-  struct RProc *proc = mrb_proc_new(global_mrb, irep);
-  proc->e.target_class = global_mrb->object_class;
-  mrb_vm_run(global_mrb, proc, mrb_top_self(global_mrb), 0);
-
+  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
   mrc_ccontext_free(cc);
+
+  if (mrb_nil_p(task)) {
+    return;
+  }
 
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);

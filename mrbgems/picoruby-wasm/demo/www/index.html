@@ -27,11 +27,11 @@
           JS.document.getElementById('switch').innerText = 'Suspend'
           lvar = :hey
           logo = JS.document.getElementById('logo')
-          JS.global.fetch('favicon.ico') do |response|
-            if response.status.to_poro == 200
-              logo.innerHTML = response.to_binary
-            end
-          end
+          #JS.global.fetch('favicon.ico') do |response|
+          #  if response.status.to_poro == 200
+          #    logo.innerHTML = response.to_binary
+          #  end
+          #end
         else
           sub_task.suspend
           JS.document.getElementById('switch').innerText = 'Resume'
