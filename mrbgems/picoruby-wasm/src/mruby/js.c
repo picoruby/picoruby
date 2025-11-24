@@ -252,6 +252,11 @@ typedef struct {
   char* string_value;
 } js_type_info;
 
+#ifdef __cplusplus
+enum { TYPE_UNDEFINED, TYPE_NULL, TYPE_BOOLEAN, TYPE_NUMBER, TYPE_BIGINT,
+       TYPE_STRING, TYPE_SYMBOL, TYPE_ARRAY, TYPE_OBJECT, TYPE_FUNCTION };
+#endif
+
 // Functions calcluate the offsets of the fields in js_type_info struct
 static const size_t TYPE_OFFSET = offsetof(js_type_info, type);
 static const size_t VALUE_OFFSET = offsetof(js_type_info, value);
@@ -425,7 +430,7 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id,
     mrb_gv_set(mrb, mrb_intern_lit(mrb, "$promise_responses"), responses);
   }
 
-  mrb_value str = mrb_str_new(mrb, binary, length);
+  mrb_value str = mrb_str_new(mrb, (const char *)binary, length);
   mrb_hash_set(mrb, responses, mrb_fixnum_value(callback_id), str);
   free(binary);
 
@@ -487,7 +492,7 @@ static mrb_value
 mrb_object_to_poro(mrb_state *mrb, mrb_value self)
 {
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  js_type_info info = { 0 };
+  js_type_info info = {};
   js_get_type_info(obj->ref_id, &info);
 
   switch (info.type) {
@@ -611,14 +616,12 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
 
   if (argc == 0) { // No argument
     new_ref_id = get_property(js_obj->ref_id, method_name);
-    if (new_ref_id < 0) {
-      goto FUNCTION;
+    if (new_ref_id >= 0) {
+      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+      data->ref_id = new_ref_id;
+      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+      return obj;
     }
-    picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-    data->ref_id = new_ref_id;
-    mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-    return obj;
-FUNCTION:
     new_ref_id = call_method(js_obj->ref_id, method_name, "");
     if (new_ref_id < 0) {
       return mrb_nil_value();

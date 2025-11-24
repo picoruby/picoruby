@@ -6,6 +6,13 @@ MRuby::CrossBuild.new("microruby-wasm") do |conf|
 
   conf.cc.defines << "MRB_INT64"
 
+  #conf.cc.defines << "MRB_USE_CXX_EXCEPTION=1"
+  #conf.cc.flags << '-Wno-deprecated'
+  #conf.cc.flags << '-Wno-reorder-init-list'
+  #conf.linker.flags << '-Wno-reorder-init-list'
+  #conf.cc.command = 'em++'
+  #conf.linker.command = 'em++'
+
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'

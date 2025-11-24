@@ -93,7 +93,7 @@ mrb_s_read_memory(mrb_state *mrb, mrb_value klass)
 {
   mrb_int addr, size;
   mrb_get_args(mrb, "ii", &addr, &size);
-  return mrb_str_new(mrb, (const void *)(uintptr_t)addr, size);
+  return mrb_str_new(mrb, (const char *)(uintptr_t)addr, size);
 }
 
 static mrb_value

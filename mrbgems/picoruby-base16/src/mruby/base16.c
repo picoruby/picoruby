@@ -56,7 +56,7 @@ mrb_base16_s_decode(mrb_state *mrb, mrb_value klass)
     } else {
       n1 = 0;
     }
-    mrb_str_cat_cstr(mrb, output, (char[]){(n0 << 4) | n1, '\0'});
+    mrb_str_cat_cstr(mrb, output, (char[]){ (char)((n0 << 4) | n1), '\0' });
   }
 
   return output;
