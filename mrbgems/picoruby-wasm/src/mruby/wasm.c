@@ -46,6 +46,7 @@ mrb_run_step(void)
   if (!global_mrb) return -1;
 
   mrb_value result = mrb_task_run_once(global_mrb);
+  (void)result;
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
     mrb_value exc_str = mrb_inspect(global_mrb, exc);

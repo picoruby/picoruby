@@ -12,7 +12,7 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
 
   // Symbols
   if (0 < irep->slen) {
-    picorb_sym *new_syms = mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
+    picorb_sym *new_syms = (picorb_sym *)mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
     for (int i = 0; i < irep->slen; i++) {
       mrc_sym sym = irep->syms[i];
       pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
@@ -27,7 +27,7 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
   // Local variables
   int lv_size = irep->nlocals - 1; // exclude self
   if (0 < lv_size) {
-    picorb_sym *new_lv = mrc_malloc(cc, sizeof(picorb_sym) * lv_size);
+    picorb_sym *new_lv = (picorb_sym *)mrc_malloc(cc, sizeof(picorb_sym) * lv_size);
     for (int i = 0; i < lv_size; i++) {
       mrc_sym sym = irep->lv[i];
       pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
