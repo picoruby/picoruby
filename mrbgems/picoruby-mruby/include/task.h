@@ -79,6 +79,7 @@ typedef struct RTcb {
   uint8_t context_id;
   mrb_value task;
   mrb_value value;
+//  mrb_value pending_exception;
   struct mrb_context c; // Each TCB has its own context
 
 } mrb_tcb;
@@ -111,6 +112,7 @@ mrb_value mrb_task_run_once(mrb_state *mrb); // for WASM event loop integration
 mrb_value mrb_tasks_run(mrb_state *mrb); // <- int mrbc_run(void);
 void mrb_suspend_task(mrb_state *mrb, mrb_value task);
 void mrb_resume_task(mrb_state *mrb, mrb_value task);
+//void mrb_resume_task_with_raise(mrb_state *mrb, mrb_value task, mrb_value exc);
 void mrb_terminate_task(mrb_state *mrb, mrb_value task);
 /* TODO
 mrb_value mrb_mutex_new(mrb_state *mrb);
