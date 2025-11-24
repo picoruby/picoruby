@@ -40,18 +40,21 @@ mrb_tick_wasm(void)
 }
 
 EMSCRIPTEN_KEEPALIVE
-void
+int
 mrb_run_step(void)
 {
-  if (!global_mrb) return;
+  if (!global_mrb) return -1;
 
-  (void)mrb_tasks_run(global_mrb);
+  mrb_value result = mrb_task_run_once(global_mrb);
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
     mrb_value exc_str = mrb_inspect(global_mrb, exc);
     fprintf(stderr, "Exception in main loop: %s\n", RSTRING_PTR(exc_str));
     global_mrb->exc = NULL;
+    return -1;
   }
+
+  return mrb_nil_p(result) ? -1 : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

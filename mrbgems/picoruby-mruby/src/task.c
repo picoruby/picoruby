@@ -407,6 +407,90 @@ mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb)
 
 
 //================================================================
+/*! execute one task step (for WASM event loop integration)
+
+  @return  mrb_true if tasks are still running, mrb_nil if no tasks
+*/
+mrb_value
+mrb_task_run_once(mrb_state *mrb)
+{
+  mrb_tcb *tcb = q_ready_;
+  if (tcb == NULL) {
+    return mrb_nil_value();
+  }
+
+  /*
+    run the task.
+  */
+  tcb->status = TASKSTATUS_RUNNING;
+  mrb->c = &tcb->c;
+  tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
+
+  tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
+
+  if (mrb->exc) {
+    tcb->value = mrb_obj_value(mrb->exc);
+    tcb->c.status = MRB_TASK_STOPPED;
+  }
+  switching_ = FALSE;
+
+  /*
+    did the task done?
+  */
+  if (tcb->c.status == MRB_TASK_STOPPED) {
+    mrb_task_disable_irq();
+    q_delete_task(mrb, tcb);
+    tcb->status = TASKSTATUS_DORMANT;
+    q_insert_task(mrb, tcb);
+    mrb_task_enable_irq();
+
+    // find task that called join.
+    mrb_task_disable_irq();
+    mrb_tcb *tcb1 = q_waiting_;
+    while (tcb1 != NULL) {
+      mrb_tcb *next = tcb1->next;
+      if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        q_delete_task(mrb, tcb1);
+        tcb1->status = TASKSTATUS_READY;
+        tcb1->reason = TASKREASON_NONE;
+        q_insert_task(mrb, tcb1);
+      }
+      tcb1 = next;
+    }
+    for (mrb_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next) {
+      if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        tcb1->reason = TASKREASON_NONE;
+      }
+    }
+    mrb_task_enable_irq();
+
+    return mrb_true_value();
+  }
+
+  if (mrb->gc.state != MRB_GC_STATE_ROOT) {
+    int gc_steps = 0;
+    while (mrb->gc.state != MRB_GC_STATE_ROOT && gc_steps < MAX_GC_STEPS_PER_TICK)
+    {
+      mrb_incremental_gc(mrb);
+      gc_steps++;
+    }
+  }
+
+  /*
+    Switch task.
+  */
+  if (tcb->status == TASKSTATUS_RUNNING) {
+    mrb_task_disable_irq();
+    q_delete_task(mrb, tcb);
+    tcb->status = TASKSTATUS_READY;
+    q_insert_task(mrb, tcb);
+    mrb_task_enable_irq();
+  }
+
+  return mrb_true_value();
+}
+
+//================================================================
 /*! execute
 
 */

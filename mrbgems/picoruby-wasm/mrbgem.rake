@@ -5,7 +5,9 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_dependency 'mruby-compiler2'
 
   spec.add_dependency 'picoruby-json'
-  if build.vm_mrubyc?
+  if build.vm_mruby?
+    spec.add_dependency 'picoruby-sandbox'
+  elsif build.vm_mrubyc?
     spec.add_dependency 'picoruby-dir'
   end
   spec.require_name = 'js'
@@ -51,11 +53,15 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     CMD
 
     output_wasm = Pathname(output_js).sub_ext('.wasm')
+    output_wasm_map = Pathname(output_wasm).sub_ext('.wasm.map')
     npm_dir = build.vm_mrubyc? ? 'npm-picoruby' : 'npm-microruby'
     dist_dir = File.join(dir, npm_dir, 'dist')
     FileUtils.mkdir_p(dist_dir)
     sh "cp #{output_js} #{dist_dir}/"
     sh "cp #{output_wasm} #{dist_dir}/"
+    if File.exist?(output_wasm_map)
+      sh "cp #{output_wasm_map} #{dist_dir}/"
+    end
     sh "brotli -f #{dist_dir}/#{output_wasm.basename}"
   end
 
