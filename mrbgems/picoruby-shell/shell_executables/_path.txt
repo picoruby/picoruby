@@ -14,6 +14,7 @@
 /bin/mv
 /bin/nmble
 /bin/nmcli
+/bin/ntpdate
 /bin/ping
 /etc/init.d/r2p2
 /bin/rapicco

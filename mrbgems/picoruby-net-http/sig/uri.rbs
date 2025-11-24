@@ -1,0 +1,19 @@
+module URI
+  class URIClass
+    attr_reader scheme: String
+    attr_reader host: String
+    attr_reader port: Integer
+    attr_reader path: String
+    attr_reader query: String?
+    attr_reader fragment: String?
+
+    def self.new: (String scheme, String host, Integer port, String path, ?String? query, ?String? fragment) -> URIClass
+    def to_s: () -> String
+    def default_port: () -> Integer?
+    def request_uri: () -> String
+  end
+
+  def self.parse: (String uri_string) -> URIClass
+  def self.encode_www_form_component: (untyped str) -> String
+  def self.encode_www_form: (Hash[untyped, untyped] params) -> String
+end

@@ -21,6 +21,7 @@ target :mrbgems do
   ]).each { |dir| check dir }
 
   # Skip checking String as #each_char and #each_byte raise error
+  ignore "mrbgems/picoruby-net/mrblib/ntp.rb"
   ignore "mrbgems/picoruby-picotest/mrblib/picotest/runner.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/array.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/range.rb"
@@ -29,4 +30,7 @@ target :mrbgems do
   ignore "mrbgems/picoruby-mruby/lib/mruby"
   ignore "mrblib"
   ignore "build"
+
+  # TODO: Fix after removal of picoruby-net
+  ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
 end

@@ -1,0 +1,21 @@
+module Net
+  class NTP
+    NTP_EPOCH_OFFSET: Integer
+
+    class Packet
+      def self.new: (?String? data) -> Net::NTP::Packet
+      def to_binary: () -> String
+      def parse: (String data) -> void
+      def transmit_time: () -> (Integer | nil)
+      def receive_time: () -> (Integer | nil)
+      def reference_time: () -> (Integer | nil)
+      private def current_ntp_time: () -> Array[Integer]
+      private def unix_to_ntp: (Integer unix_time) -> Array[Integer]
+      private def ntp_to_unix: (Integer ntp_seconds) -> Integer
+      private def pack_u32: (Integer value) -> Array[Integer]
+      private def unpack_u32: (Array[Integer] bytes, Integer offset) -> Integer
+    end
+
+    def self.get: (?String host, ?Integer port, ?Integer timeout) -> (Integer | nil)
+  end
+end

@@ -8,20 +8,12 @@
 extern "C" {
 #endif
 
-static void
-mrb_md_context_free(mrb_state *mrb, void *ptr)
-{
-  mbedtls_md_free(ptr);
-  mrb_free(mrb, ptr);
-}
+extern struct mrb_data_type mrb_md_context_type;
 
-static struct mrb_data_type mrb_md_context_type = {
-  "MdContext", mrb_md_context_free,
-};
+void mrb_md_context_free(mrb_state *mrb, void *ptr);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

@@ -2,12 +2,19 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
+      - ci-test
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
 
 env:
   GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   build:
@@ -20,7 +27,7 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
-        fetch-depth:  p
+        fetch-depth: 0
 
     - name: Debug submodules
       working-directory: ${{ github.workspace }}
@@ -60,3 +67,31 @@ jobs:
         MRUBY_COMMAND: $MRUBY_DIR/bin/mruby
       run: rake test:all
 
+    - name: Set up Git user
+      if: github.event_name == 'push'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Run `rake runtime_gems`
+      if: github.event_name == 'push'
+      run: |
+        rake runtime_gems
+
+    - name: Commit RuntimeGems
+      if: github.event_name == 'push'
+      run: |
+        git add runtime_gems/
+        if ! git diff --cached --quiet; then
+          git commit -m "Update RuntimeGems [skip ci]"
+        fi
+
+    - name: Create Pull Request for RuntimeGems update
+      if: github.event_name == 'push'
+      uses: peter-evans/create-pull-request@v5
+      with:
+        commit-message: "Update RuntimeGems [skip ci]"
+        title: "Update RuntimeGems"
+        body: "Automated update of RuntimeGems."
+        branch: "auto/update-runtimegems"
+        delete-branch: true

@@ -2,7 +2,10 @@ if ENV['WIFI_MODULE'] == "cwy43"
   if Shell.get_device(:gpio, 'TRIGGER_NMBLE')&.low?
     system "nmble"
   end
-  system "wifi_connect --check-auto-connect"
+  ARGV[0] = "--check-auto-connect"
+  load "/bin/wifi_connect"
+  ARGV.clear
+  load "/bin/ntpdate"
 end
 
 if File.exist?("#{ENV['HOME']}/app.mrb")

@@ -15,11 +15,17 @@ class Rapicco
       white:   "\e[37m",
     }
 
-    def initialize(usakame_h: 12, colors: nil)
+    # cols and rows are used by CRubyGem Rapicco
+    def initialize(usakame_h: 12, colors: nil, cols: nil, rows: nil)
       @usakame_h = usakame_h
       @colors = colors || COLORS
-      get_screen_size
-      @line_margin = 2
+      if cols && rows
+        @page_w = cols
+        @page_h = rows - usakame_h
+      else
+        get_screen_size
+      end
+      @line_margin = 3
       @code_indent = 4
     end
 

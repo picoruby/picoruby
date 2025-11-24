@@ -15,7 +15,7 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### API documentation with some demo videos
 
-[https://picoruby.github.io/](https://picoruby.github.io/)
+[https://picoruby.org/](https://picoruby.org/)
 
 <img src="docs/logos/fukuokarubyaward.png" width="212">
 

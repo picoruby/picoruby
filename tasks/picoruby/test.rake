@@ -73,13 +73,17 @@ def run_test_for_gems(vm_type, specified_gem)
   end
   ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
   puts "Strategy: Full build for"
-  gems.each { |gem_name| puts "  - #{gem_name}" }
+  # workaround. TODO: delete this after removal of picoruby-net
+  if gems.any?{|gem| gem[:name] == 'picoruby-net' } && gems.any?{|gem| gem[:name] == 'picoruby-socket' }
+    gems.reject!{|gem| gem[:name] == 'picoruby-net' }
+  end
+  gems.each { |gem| puts "  - #{gem[:name]}" }
   config_path = create_temp_build_config("#{vm_type}-test.rb", gems)
   puts "Building test binary on #{vm_type}..."
   sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
   sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
-  gems.each do |gem_name|
-    unless run_picotest_runner(gem_name, [])
+  gems.each do |gem|
+    unless run_picotest_runner(gem, [])
       all_success = false
     end
   rescue
@@ -104,14 +108,17 @@ def collect_gems(vm_type, specified_gem = nil)
     next if specified_gem && File.basename(gem_path) != specified_gem
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM
-      File.basename(gem_path)
+      name = File.basename(gem_path)
     elsif !Dir.exist?("#{gem_path}/src/mruby") && !Dir.exist?("#{gem_path}/src/mrubyc")
       # Only pure Ruby implementation
-      File.basename(gem_path)
+      name = File.basename(gem_path)
     else
-      nil
+      next
     end
-  end.compact
+    matchdata = File.read("#{gem_path}/mrbgem.rake").match(/require_name\s*=\s*['"](.+)['"]/)
+    gems << {name: name, require_name: matchdata ? matchdata[1] : nil}
+  end
+  gems
 end
 
 def create_temp_build_config(base_config_name, gems)
@@ -120,7 +127,7 @@ def create_temp_build_config(base_config_name, gems)
   config_content = File.read(base_config_path)
 
   injection_point = /conf\.(picoruby|microruby)/
-  injection_text = gems.map { |gem_name| "conf.gem core: '#{gem_name}'" }.join("\n  ") + "\n  "
+  injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
   config_content.sub!(injection_point, injection_text + '\1')
 
   config_file.write(config_content)
@@ -128,7 +135,8 @@ def create_temp_build_config(base_config_name, gems)
   config_file.path
 end
 
-def run_picotest_runner(gem_name, load_files)
+def run_picotest_runner(gem, load_files)
+  gem_name = gem[:name]
   gem_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/#{gem_name}")
   test_dir = File.join(gem_dir, 'test')
 
@@ -137,7 +145,7 @@ def run_picotest_runner(gem_name, load_files)
     return true
   end
 
-  lib_name = gem_name.sub(/^picoruby-/, '')
+  lib_name = gem[:require_name] || gem_name.sub(/^picoruby-/, '')
 
   puts "Target VM: #{ENV['PICORUBY_TEST_TARGET_VM']}"
   puts "Test directory: #{test_dir}"

@@ -1,21 +1,24 @@
 #include <stdbool.h>
+#include <string.h>
 #include "mrubyc.h"
-#include "mbedtls/md.h"
-#include "mbedtls/pk.h"
-#include "mbedtls/sha256.h"
-#include "mbedtls/error.h"
-#include "mbedtls/entropy.h"
-#include "mbedtls/ctr_drbg.h"
-#include "mbedtls/bignum.h"
+
+#include "pkey.h"
 
 static mrbc_class *class_MbedTLS_PKey_PKeyError;
 
 static void
+raise_pkey_error(mrbc_vm *vm, int ret)
+{
+  char error_buf[100];
+  MbedTLS_pkey_strerror(ret, error_buf, sizeof(error_buf));
+  mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError, "PKey error: %s (ret=%d)", error_buf, ret);
+}
+
+static void
 c_mbedtls_pkey_rsa_public_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
-  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  if (mbedtls_rsa_check_pubkey(rsa) == 0) {
+  void *pk = v->instance->data;
+  if (MbedTLS_pkey_is_public(pk)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -25,9 +28,8 @@ c_mbedtls_pkey_rsa_public_q(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_pkey_rsa_private_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
-  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  if (mbedtls_rsa_check_privkey(rsa) == 0) {
+  void *pk = v->instance->data;
+  if (MbedTLS_pkey_is_private(pk)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -37,84 +39,41 @@ c_mbedtls_pkey_rsa_private_q(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_pkey_rsa_free(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
-  if (pk == NULL) {
-    return;
+  void *pk = v->instance->data;
+  if (pk) {
+    MbedTLS_pkey_free(pk);
+    // The instance itself is freed by GC
   }
-  if (mbedtls_pk_get_type(pk) == MBEDTLS_PK_RSA) {
-    mbedtls_pk_free(pk);
-  }
+  SET_NIL_RETURN();
 }
 
 static void
 c_mbedtls_pkey_rsa_generate(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc < 1 || 2 < argc) {
+  if (argc < 1 || argc > 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-
-  mrbc_value arg = GET_ARG(1);
-  if (mrbc_type(arg) != MRBC_TT_INTEGER) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "argument must be Integer");
+  if (GET_ARG(1).tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of argument");
     return;
   }
-
+  int bits = GET_INT_ARG(1);
   int exponent = 65537;
-  if (v[2].tt == MRBC_TT_INTEGER) {
-    exponent = v[2].i;
+  if (argc == 2 && GET_ARG(2).tt == MRBC_TT_INTEGER) {
+    exponent = GET_INT_ARG(2);
   }
 
-  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_pk_context));
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)self.instance->data;
-  mbedtls_pk_init(pk);
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_pkey_instance_size());
+  void *pk = self.instance->data;
+  MbedTLS_pkey_init(pk);
 
-  mbedtls_entropy_context entropy;
-  mbedtls_ctr_drbg_context ctr_drbg;
-  int ret = 1;
-
-  mbedtls_entropy_init(&entropy);
-  mbedtls_ctr_drbg_init(&ctr_drbg);
   mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
-  const char *pers = (const char *)mbedtls_pers->string->data;
-  ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                              (const unsigned char *)pers,
-                              strlen(pers));
-  if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError,
-                "Failed to seed RNG. ret=%d (0x%x): %s",
-                ret, (unsigned int)-ret, error_buf);
-    goto cleanup;
-  }
-
-  ret = mbedtls_pk_setup(pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
-  if (ret != 0) {
-    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
-    goto cleanup;
-  }
-
-  ret = mbedtls_rsa_gen_key(mbedtls_pk_rsa(*pk),
-                           mbedtls_ctr_drbg_random,
-                           &ctr_drbg,
-                           mrbc_integer(arg),
-                           exponent);
-  if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError,
-                "Failed to generate RSA key. ret=%d (0x%x): %s",
-                ret, (unsigned int)-ret, error_buf);
-    goto cleanup;
-  }
-
-cleanup:
-  mbedtls_ctr_drbg_free(&ctr_drbg);
-  mbedtls_entropy_free(&entropy);
+  int ret = MbedTLS_pkey_generate_rsa(pk, bits, exponent, (const unsigned char *)mbedtls_pers->string->data, mbedtls_pers->string->size);
 
   if (ret != 0) {
-    mbedtls_pk_free(pk);
+    MbedTLS_pkey_free(pk);
+    raise_pkey_error(vm, ret);
     return;
   }
 
@@ -124,36 +83,16 @@ cleanup:
 static void
 c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 0) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
+  void *orig_pk = v->instance->data;
 
-  mbedtls_pk_context *orig_pk = (mbedtls_pk_context *)v->instance->data;
-  mrbc_value new_obj = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_pk_context));
-  mbedtls_pk_context *new_pk = (mbedtls_pk_context *)new_obj.instance->data;
-  mbedtls_pk_init(new_pk);
+  mrbc_value new_obj = mrbc_instance_new(vm, v->instance->cls, MbedTLS_pkey_instance_size());
+  void *new_pk = new_obj.instance->data;
+  MbedTLS_pkey_init(new_pk);
 
-  int ret = mbedtls_pk_setup(new_pk, mbedtls_pk_info_from_type(MBEDTLS_PK_RSA));
+  int ret = MbedTLS_pkey_get_public_key(new_pk, orig_pk);
   if (ret != 0) {
-    mbedtls_pk_free(new_pk);
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to setup RSA context");
-    return;
-  }
-
-  // Extract public key from original and import to new context
-  unsigned char pubkey_buf[2048];
-  size_t pubkey_len;
-  ret = mbedtls_pk_write_pubkey_der(orig_pk, pubkey_buf, sizeof(pubkey_buf));
-  if (ret < 0) {
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to export public key");
-    return;
-  }
-  pubkey_len = ret;
-
-  ret = mbedtls_pk_parse_public_key(new_pk, pubkey_buf + sizeof(pubkey_buf) - pubkey_len, pubkey_len);
-  if (ret != 0) {
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to import public key");
+    MbedTLS_pkey_free(new_pk);
+    raise_pkey_error(vm, ret);
     return;
   }
 
@@ -163,35 +102,17 @@ c_mbedtls_pkey_rsa_public_key(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_pkey_rsa_to_pem(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 0) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
-
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
+  void *pk = v->instance->data;
   unsigned char buf[4096];
-  int ret;
 
-  // 秘密鍵が含まれているかチェック
-  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  bool has_private = (mbedtls_rsa_check_privkey(rsa) == 0);
-
-  // PEM形式に変換
-  size_t len = 0;
-  if (has_private) {
-    ret = mbedtls_pk_write_key_pem(pk, buf, sizeof(buf));
-  } else {
-    ret = mbedtls_pk_write_pubkey_pem(pk, buf, sizeof(buf));
-  }
-
+  int ret = MbedTLS_pkey_to_pem(pk, buf, sizeof(buf));
   if (ret != 0) {
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Failed to export key to PEM");
+    raise_pkey_error(vm, ret);
     return;
   }
 
-  len = strlen((char *)buf);
-  mrbc_value str = mrbc_string_new(vm, (char *)buf, len);
-  SET_RETURN(str);
+  mrbc_value pem = mrbc_string_new_cstr(vm, (const char *)buf);
+  SET_RETURN(pem);
 }
 
 static void
@@ -201,49 +122,36 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
+  mrbc_value arg1 = GET_ARG(1);
 
-  if (v[1].tt == MRBC_TT_INTEGER) {
+  if (arg1.tt == MRBC_TT_INTEGER) {
     c_mbedtls_pkey_rsa_generate(vm, v, argc);
     return;
   }
-  if (v[1].tt != MRBC_TT_STRING) {
+  if (arg1.tt != MRBC_TT_STRING) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "argument must be String or Integer");
     return;
   }
- 
-  mrbc_value key_str = GET_ARG(1);
-  char *key = (char *)key_str.string->data;
-  size_t key_len = key_str.string->size;
 
-  if (0 < key_len && key[key_len - 1] != '\n') {
-    key = mrbc_realloc(vm, key, key_len + 2);
-    key[key_len] = '\n';
-    key[key_len + 1] = '\0';
-    key_len++;
-  }
+  // mbedtls expects a null-terminated string for PEM parsing
+  char *pem_cstr = mrbc_alloc(vm, arg1.string->size + 1);
+  memcpy(pem_cstr, arg1.string->data, arg1.string->size);
+  pem_cstr[arg1.string->size] = '\0';
 
-  mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(mbedtls_pk_context));
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)self.instance->data;
-  mbedtls_pk_init(pk);
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_pkey_instance_size());
+  void *pk = self.instance->data;
+  MbedTLS_pkey_init(pk);
 
-  int ret;
-  ret = mbedtls_pk_parse_public_key(pk, (const unsigned char *)key, key_len + 1);
-  if (ret != 0) { // retry it as a private key
-    ret = mbedtls_pk_parse_key(pk, (const unsigned char *)key, key_len + 1, NULL, 0, NULL, NULL);
-  }
+  int ret = MbedTLS_pkey_from_pem(pk, (const unsigned char *)pem_cstr, strlen(pem_cstr) + 1);
+  mrbc_free(vm, pem_cstr);
+
   if (ret != 0) {
-    mbedtls_pk_free(pk);
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    mrbc_raisef(vm, class_MbedTLS_PKey_PKeyError,
-                "Parsing key failed. ret=%d (0x%x): %s",
-                ret, (unsigned int)-ret, error_buf);
-    return;
-  }
-
-  if (mbedtls_pk_get_type(pk) != MBEDTLS_PK_RSA) {
-    mbedtls_pk_free(pk);
-    mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Key type is not RSA");
+    MbedTLS_pkey_free(pk);
+    if (ret == PKEY_ERR_KEY_TYPE_NOT_RSA) {
+      mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Key type is not RSA");
+    } else {
+      raise_pkey_error(vm, ret);
+    }
     return;
   }
 
@@ -253,51 +161,26 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_mbedtls_pkey_pkeybase_verify(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)v->instance->data;
   if (argc != 3) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-
-  mbedtls_md_context_t *md_ctx = (mbedtls_md_context_t *)v[1].instance->data;
-  const mbedtls_md_info_t *md_info = mbedtls_md_info_from_ctx(md_ctx);
-  mbedtls_md_type_t md_type = mbedtls_md_get_type(md_info);
-
+  void *pk = v->instance->data;
+  mrbc_value digest_obj = GET_ARG(1);
   mrbc_value sig_str = GET_ARG(2);
-  const unsigned char *signature = (const unsigned char *)sig_str.string->data;
-  size_t sig_len = sig_str.string->size;
-
   mrbc_value input_str = GET_ARG(3);
-  const unsigned char *input = (const unsigned char *)input_str.string->data;
-  size_t input_len = input_str.string->size;
 
-  size_t hash_len = mbedtls_md_get_size(md_info);
-  unsigned char hash[hash_len];
-  int ret = mbedtls_md(md_info, input, input_len, hash);
-  if (ret != 0) {
+  // This part is tricky because we need the md_context from another object.
+  // Assuming the digest object is compatible.
+  const unsigned char *md_ctx = digest_obj.instance->data;
+
+  int ret = MbedTLS_pkey_verify(pk, md_ctx, (const unsigned char *)input_str.string->data, input_str.string->size, (const unsigned char *)sig_str.string->data, sig_str.string->size);
+  if (ret == PKEY_CREATE_MD_FAILED) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Hash calculation failed");
-    return;
-  }
-
-  ret = mbedtls_pk_verify(pk, md_type, hash, hash_len, signature, sig_len);
-
-  if (ret != 0) {
-#ifdef PICORUBY_DEBUG
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    console_printf("Verification failed: %s (ret=%d, 0x%x)\n", error_buf, ret, -ret);
-    console_printf("hash_len: %d, sig_len: %d\n", hash_len, sig_len);
-    console_printf("key_type: %d, key_size: %d\n", 
-                  mbedtls_pk_get_type(pk), mbedtls_pk_get_len(pk));
-    console_printf("Hash: ");
-    for(size_t i = 0; i < hash_len; i++) {
-        console_printf("%02x", hash[i]);
-    }
-    console_printf("\n");
-#endif
-    SET_FALSE_RETURN();
-  } else {
+  } else if (ret == PKEY_SUCCESS) {
     SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
   }
 }
 
@@ -308,63 +191,26 @@ c_mbedtls_pkey_pkeybase_sign(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
+  void *pk = v->instance->data;
+  mrbc_value digest_obj = GET_ARG(1);
+  mrbc_value input_str = GET_ARG(2);
 
-  int ret;
-  unsigned char hash[32];
-  unsigned char signature[MBEDTLS_PK_SIGNATURE_MAX_SIZE];
+  const unsigned char *md_ctx = digest_obj.instance->data;
+  unsigned char sig[PKEY_SIGNATURE_MAX_SIZE];
   size_t sig_len;
+  mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
 
-  mbedtls_pk_context *pk = (mbedtls_pk_context *)v[0].instance->data;
-  const uint8_t *data = v[2].string->data;
-  size_t data_len = v[2].string->size;
-
-  ret = mbedtls_sha256((const unsigned char *)data, data_len, hash, 0);
-  if(ret != 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Failed to calculate SHA-256 hash");
+  int ret = MbedTLS_pkey_sign(pk, md_ctx, (const unsigned char *)input_str.string->data, input_str.string->size, sig, sizeof(sig), &sig_len, (const unsigned char *)mbedtls_pers->string->data, mbedtls_pers->string->size);
+  if (ret == PKEY_CREATE_MD_FAILED) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Failed to calculate hash");
+  } else if (ret != 0) {
+    raise_pkey_error(vm, ret);
     return;
   }
 
-  mbedtls_entropy_context entropy;
-  mbedtls_ctr_drbg_context ctr_drbg; mbedtls_entropy_init(&entropy); mbedtls_ctr_drbg_init(&ctr_drbg);
-
-  mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
-  const char *pers = (const char *)mbedtls_pers->string->data;
-  ret = mbedtls_ctr_drbg_seed(&ctr_drbg,
-                              mbedtls_entropy_func,
-                              &entropy,
-                              (const unsigned char *)pers,
-                              strlen(pers));
-  if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "Failed to seed RNG: %s", error_buf);
-    goto cleanup;
-  }
-
-  ret = mbedtls_pk_sign(pk,
-                        MBEDTLS_MD_SHA256,
-                        hash,
-                        0,
-                        signature,
-                        MBEDTLS_PK_SIGNATURE_MAX_SIZE,
-                        &sig_len,
-                        mbedtls_ctr_drbg_random,
-                        &ctr_drbg);
-  if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    mrbc_raisef(vm, MRBC_CLASS(RuntimeError), "Failed to sign: %s", error_buf);
-    goto cleanup;
-  }
-
-  mrbc_value result = mrbc_string_new(vm, (const void *)signature, sig_len);
+  mrbc_value result = mrbc_string_new(vm, (const char *)sig, sig_len);
   SET_RETURN(result);
-
-cleanup:
-  mbedtls_ctr_drbg_free(&ctr_drbg);
-  mbedtls_entropy_free(&entropy);
 }
-
 
 void
 gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
@@ -387,4 +233,3 @@ gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
 
   class_MbedTLS_PKey_PKeyError = mrbc_define_class_under(vm, module_MbedTLS_PKey, "PKeyError", MRBC_CLASS(StandardError));
 }
-

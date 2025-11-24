@@ -198,7 +198,7 @@ class Shell
     begin
       print "Initializing RTC... "
       ENV['TZ'] = "JST-9"
-      Machine.set_hwclock(rtc.current_time.to_i, 0)
+      Machine.set_hwclock(rtc.current_time.to_i)
       FAT.unixtime_offset = Time.unixtime_offset
       puts "Available (#{Time.now})"
     rescue => e

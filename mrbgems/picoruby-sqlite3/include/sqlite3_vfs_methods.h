@@ -2,7 +2,7 @@
 #define SQLITE3_VFS_DEFINED_H_
 
 #include <mrubyc.h>
-#include "../../picoruby-time-class/include/time-class.h"
+#include "../../picoruby-time/include/picogem_time.h"
 #include "../../picoruby-filesystem-fat/include/fat.h"
 #include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
 #include "sqlite3_prb_methods.h"
