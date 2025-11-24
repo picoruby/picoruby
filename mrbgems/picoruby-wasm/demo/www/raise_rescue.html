@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>Raise - Rescue</h1>
+    <button id="raise">Raise an error</button>
+    <h2 id="result"></h2>
+
+    <script type="text/ruby">
+      require 'js'
+      def my_method
+        puts "Hello from my_method!"
+        raise "An error occurred in my_method!"
+        puts "This line will not be executed."
+      end
+      JS.document.getElementById('raise').addEventListener('click') do |event_json|
+        logo = JS.document.getElementById('logo')
+        JS.global.fetch('favicon.ico') do |response|
+          my_method
+        rescue => e
+          puts "Rescue an exception: #{e.message}"
+        end
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>
