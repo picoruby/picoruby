@@ -27,7 +27,9 @@
 /***** Typedefs *************************************************************/
 /***** Function prototypes **************************************************/
 /***** Local variables ******************************************************/
+#ifndef __EMSCRIPTEN__
 static sigset_t sigset_, sigset2_;
+#endif
 
 #if defined(PICORB_VM_MRUBY)
 static mrb_state *mrb_;
@@ -55,12 +57,14 @@ typedef void mrb_state;
   initialize
 
 */
+#ifndef __EMSCRIPTEN__
 static void
 sig_alarm(int dummy)
 {
   (void)dummy;
   mrb_tick(mrb_);
 }
+#endif
 
 #if defined(PICORB_VM_MRUBY)
 void
@@ -72,6 +76,7 @@ void
 hal_init(void)
 {
 #endif
+#ifndef __EMSCRIPTEN__
   sigemptyset(&sigset_);
   sigaddset(&sigset_, SIGALRM);
 
@@ -89,6 +94,7 @@ hal_init(void)
   tval.it_value.tv_sec     = sec;
   tval.it_value.tv_usec    = usec;
   setitimer(ITIMER_REAL, &tval, 0);
+#endif
 }
 
 #if defined(PICORB_VM_MRUBYC)
@@ -123,7 +129,9 @@ hal_write(int fd, const void *buf, int nbytes)
 void
 mrb_task_enable_irq(void)
 {
+#ifndef __EMSCRIPTEN__
   sigprocmask(SIG_SETMASK, &sigset2_, 0);
+#endif
 }
 
 
@@ -135,5 +143,7 @@ mrb_task_enable_irq(void)
 void
 mrb_task_disable_irq(void)
 {
+#ifndef __EMSCRIPTEN__
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
+#endif
 }

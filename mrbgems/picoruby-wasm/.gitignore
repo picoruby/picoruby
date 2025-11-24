@@ -1,7 +1,9 @@
+npm-picoruby/dist/picoruby.wasm.map
 npm-picoruby/dist/picoruby.wasm
 npm-picoruby/dist/picoruby.wasm.br
 npm-picoruby/dist/picoruby.js
 npm-picoruby/*.tgz
+npm-microruby/dist/microruby.wasm.map
 npm-microruby/dist/microruby.wasm
 npm-microruby/dist/microruby.wasm.br
 npm-microruby/dist/microruby.js

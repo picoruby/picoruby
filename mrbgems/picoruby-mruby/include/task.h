@@ -107,6 +107,7 @@ mrb_value mrb_task_value(mrb_state *mrb, mrb_value task);
 mrb_bool mrb_stop_task(mrb_state *mrb, mrb_value task);
 mrb_value mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value priority, mrb_value top_self);
 mrb_bool mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb);
+mrb_value mrb_task_run_once(mrb_state *mrb); // for WASM event loop integration
 mrb_value mrb_tasks_run(mrb_state *mrb); // <- int mrbc_run(void);
 void mrb_suspend_task(mrb_state *mrb, mrb_value task);
 void mrb_resume_task(mrb_state *mrb, mrb_value task);
