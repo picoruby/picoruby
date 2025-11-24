@@ -190,6 +190,18 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
         [mrb_ptr, task_ptr, callback_id, resultId]
       );
     }
+//  ).catch(
+//    (error) => {
+//      console.error('Promise rejected:', error);
+//      const errorString = (error && error.toString) ? error.toString() : 'Unknown error';
+//      const errPtr = stringToUTF8(errorString);
+//      ccall(
+//        'resume_promise_error_task',
+//        'void',
+//        ['number', 'number', 'number', 'number'],
+//        [mrb_ptr, task_ptr, callback_id, errPtr]
+//      );
+//    }
   );
 });
 
@@ -413,6 +425,19 @@ resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id
   mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
   mrb_resume_task(mrb, task);
 }
+
+//EMSCRIPTEN_KEEPALIVE
+//void
+//resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, char *errmsg)
+//{
+//  fprintf(stderr, "Promise rejected: %s\n", errmsg);
+//  mrb_state *mrb = (mrb_state *)mrb_ptr;
+//  if (!mrb) return;
+//  mrb_value exc = mrb_exc_new_str(mrb, E_RUNTIME_ERROR, mrb_str_new_cstr(mrb, errmsg));
+//  mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
+//  mrb_resume_task_with_raise(mrb, task, exc);
+//  free(errmsg);
+//}
 
 EMSCRIPTEN_KEEPALIVE
 void
