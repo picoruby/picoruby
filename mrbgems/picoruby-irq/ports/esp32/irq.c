@@ -10,6 +10,13 @@
 #define MAX_IRQ_HANDLERS 16
 #define IRQ_EVENT_QUEUE_SIZE (1<<5)
 
+enum gpio_irq_level {
+  GPIO_IRQ_LEVEL_LOW = 1,
+  GPIO_IRQ_LEVEL_HIGH = 2,
+  GPIO_IRQ_EDGE_FALL = 4,
+  GPIO_IRQ_EDGE_RISE = 8
+};
+
 typedef struct {
   int pin;
   uint32_t event_mask;
@@ -49,10 +56,10 @@ gpio_isr_handler(void* arg)
 
   if (current_level == 0) {
     /* Pin is LOW */
-    if (handler->event_mask & 4) {
-      events = 4;  /* EDGE_FALL */
-    } else if (handler->event_mask & 1) {
-      events = 1;  /* LEVEL_LOW */
+    if (handler->event_mask & GPIO_IRQ_EDGE_FALL) {
+      events = GPIO_IRQ_EDGE_FALL;
+    } else if (handler->event_mask & GPIO_IRQ_LEVEL_LOW) {
+      events = GPIO_IRQ_LEVEL_LOW;
     } else {
       gpio_set_intr_type(handler->pin, GPIO_INTR_HIGH_LEVEL);
       return;
@@ -60,10 +67,10 @@ gpio_isr_handler(void* arg)
     next_intr_type = GPIO_INTR_HIGH_LEVEL;
   } else {
     /* Pin is HIGH */
-    if (handler->event_mask & 8) {
-      events = 8;  /* EDGE_RISE */
-    } else if (handler->event_mask & 2) {
-      events = 2;  /* LEVEL_HIGH */
+    if (handler->event_mask & GPIO_IRQ_EDGE_RISE) {
+      events = GPIO_IRQ_EDGE_RISE;
+    } else if (handler->event_mask & GPIO_IRQ_LEVEL_HIGH) {
+      events = GPIO_IRQ_LEVEL_HIGH;
     } else {
       gpio_set_intr_type(handler->pin, GPIO_INTR_LOW_LEVEL);
       return;
