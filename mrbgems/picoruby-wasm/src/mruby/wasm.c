@@ -54,7 +54,9 @@ mrb_run_step(void)
     return -1;
   }
 
-  return mrb_nil_p(result) ? -1 : 0;
+  // Even if there is no task to run, return 0
+  // so to wait for callbacks like event listener
+  return 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -125,14 +127,13 @@ picorb_create_task(const char *code)
     return -1;
   }
 
-  mrc_resolve_intern(cc, irep);
-  struct RProc *proc = mrb_proc_new(global_mrb, irep);
-  proc->e.target_class = global_mrb->object_class;
-  mrb_task_proc_set(global_mrb, main_task, proc);
-  mrb_task_reset_context(global_mrb, main_task);
-  mrb_resume_task(global_mrb, main_task);
-
+  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
   mrc_ccontext_free(cc);
+
+  if (mrb_nil_p(task)) {
+    fprintf(stderr, "Failed to create task\n");
+    return -1;
+  }
 
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
