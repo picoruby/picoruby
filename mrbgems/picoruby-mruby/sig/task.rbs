@@ -7,7 +7,7 @@ class Task
   def self.list: () -> Array[Task]
   def self.pass: () -> nil
   def self.tick: () -> Integer
-  def status: () -> Symbol
+  def status: () -> String
   def name: () -> (String | nil)
   def name=: (String name) -> String
   def priority: () -> Integer

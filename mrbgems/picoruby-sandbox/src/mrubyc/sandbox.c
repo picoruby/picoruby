@@ -17,27 +17,27 @@ static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_value state;
+  const char *status_str;
   switch (ss->tcb->state) {
-    case TASKSTATE_DORMANT:
-      state = mrbc_symbol_value(mrbc_str_to_symid("DORMANT"));
-      break;
-    case TASKSTATE_READY:
-      state = mrbc_symbol_value(mrbc_str_to_symid("READY"));
-      break;
-    case TASKSTATE_RUNNING:
-      state = mrbc_symbol_value(mrbc_str_to_symid("RUNNING"));
-      break;
-    case TASKSTATE_WAITING:
-      state = mrbc_symbol_value(mrbc_str_to_symid("WAITING"));
-      break;
-    case TASKSTATE_SUSPENDED:
-      state = mrbc_symbol_value(mrbc_str_to_symid("SUSPENDED"));
-      break;
-    default:
-      state = mrbc_symbol_value(mrbc_str_to_symid("UNKNOWN")); // this should not happen
+    case TASKSTATE_DORMANT:   status_str = "DORMANT";   break;
+    case TASKSTATE_READY:     status_str = "READY";     break;
+    case TASKSTATE_RUNNING:   status_str = "RUNNING";   break;
+    case TASKSTATE_WAITING:   status_str = "WAITING";   break;
+    case TASKSTATE_SUSPENDED: status_str = "SUSPENDED"; break;
+    default:                  status_str = "UNKNOWN";   break;
   }
-  SET_RETURN(state);
+  mrbc_value str_val = mrbc_string_new_cstr(vm, status_str);
+  if (ss->tcb->state == TASKSTATE_WAITING) {
+    const char *reason_str;
+    switch (ss->tcb->reason) {
+      case TASKREASON_SLEEP: reason_str = "SLEEP"; break;
+      case TASKREASON_MUTEX: reason_str = "MUTEX"; break;
+      case TASKREASON_JOIN:  reason_str = "JOIN";  break;
+      default:               reason_str = "";      break;
+    }
+    mrbc_string_append_cstr(&str_val, reason_str);
+  }
+  SET_RETURN(mrbc_symbol_value(mrbc_str_to_symid((const char *)str_val.string->data)));
 }
 
 static void

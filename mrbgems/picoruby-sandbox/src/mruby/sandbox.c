@@ -154,7 +154,8 @@ static mrb_value
 mrb_sandbox_state(mrb_state *mrb, mrb_value self)
 {
   SS();
-  return mrb_task_status(mrb, ss->task);
+  mrb_value status_str = mrb_task_status(mrb, ss->task);
+  return mrb_str_intern(mrb, status_str);
 }
 
 static mrb_value
