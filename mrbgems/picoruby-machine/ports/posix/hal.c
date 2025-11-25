@@ -55,7 +55,6 @@ typedef void mrb_state;
   initialize
 
 */
-#if defined(PICORB_VM_MRUBY)
 static void
 sig_alarm(int dummy)
 {
@@ -63,21 +62,25 @@ sig_alarm(int dummy)
   mrb_tick(mrb_);
 }
 
+#if defined(PICORB_VM_MRUBY)
 void
 hal_init(mrb_state *mrb)
 {
   mrb_ = mrb;
+#else
+void
+hal_init(void)
+{
+#endif
   sigemptyset(&sigset_);
   sigaddset(&sigset_, SIGALRM);
 
-  // タイマー用シグナル準備
   struct sigaction sa;
   sa.sa_handler = sig_alarm;
   sa.sa_flags   = SA_RESTART;
   sa.sa_mask    = sigset_;
   sigaction(SIGALRM, &sa, 0);
 
-  // タイマー設定
   struct itimerval tval;
   int sec  = 0;
   int usec = MRB_TICK_UNIT * 1000;
@@ -87,8 +90,23 @@ hal_init(mrb_state *mrb)
   tval.it_value.tv_usec    = usec;
   setitimer(ITIMER_REAL, &tval, 0);
 }
-#endif
 
+#if defined(PICORB_VM_MRUBYC)
+void hal_enable_irq(void)
+{
+  sigprocmask(SIG_SETMASK, &sigset2_, 0);
+}
+
+void hal_disable_irq(void)
+{
+  sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
+}
+
+void
+hal_idle_cpu(void){
+  sleep(1);
+}
+#endif
 
 int
 hal_write(int fd, const void *buf, int nbytes)
