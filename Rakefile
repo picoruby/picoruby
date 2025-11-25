@@ -144,15 +144,18 @@ namespace :wasm do
       sh "CONFIG=picoruby-wasm PICORUBY_DEBUG=1 rake"
     end
 
+    task :prod do
+      sh "CONFIG=picoruby-wasm rake clean"
+      sh "CONFIG=picoruby-wasm rake"
+    end
+
     desc "Clean PicoRuby WASM build"
     task :clean do
       sh "CONFIG=picoruby-wasm rake clean"
     end
 
     desc "Build production and publish it to npm"
-    task :release do
-      sh "CONFIG=picoruby-wasm rake clean"
-      sh "CONFIG=picoruby-wasm rake"
+    task :release => :prod do
       FileUtils.cd "mrbgems/picoruby-wasm/npm-picoruby" do
         sh "npm install"
         sh "npm publish --access public"
@@ -176,15 +179,18 @@ namespace :wasm do
       sh "CONFIG=microruby-wasm PICORUBY_DEBUG=1 rake"
     end
 
+    task :prod do
+      sh "CONFIG=microruby-wasm rake clean"
+      sh "CONFIG=microruby-wasm rake"
+    end
+
     desc "Clean MicroRuby WASM build"
     task :clean do
       sh "CONFIG=microruby-wasm rake clean"
     end
 
     desc "Build production and publish it to npm"
-    task :release do
-      sh "CONFIG=microruby-wasm rake clean"
-      sh "CONFIG=microruby-wasm rake"
+    task :release => :prod do
       FileUtils.cd "mrbgems/picoruby-wasm/npm-microruby" do
         sh "npm install"
         sh "npm publish --access public"
