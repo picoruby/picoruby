@@ -26,7 +26,10 @@ void machine_hal_init(void);
 #define hal_init() machine_hal_init()
 #endif
 
-void hal_idle_cpu(void);
+#ifndef MRBC_SCHEDULER_EXIT
+#define MRBC_SCHEDULER_EXIT 1
+#endif
+
 #endif
 
 int hal_write(int fd, const void *buf, int nbytes);
@@ -39,6 +42,7 @@ int hal_write(int fd, const void *buf, int nbytes);
   void mrb_task_disable_irq(void);
 #endif
 
+void hal_idle_cpu(void);
 void hal_abort(const char *s);
 int hal_flush(int fd);
 int hal_read_available(void);
