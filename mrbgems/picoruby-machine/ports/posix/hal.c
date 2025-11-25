@@ -100,12 +100,16 @@ hal_init(void)
 #if defined(PICORB_VM_MRUBYC)
 void hal_enable_irq(void)
 {
+#ifndef __EMSCRIPTEN__
   sigprocmask(SIG_SETMASK, &sigset2_, 0);
+#endif
 }
 
 void hal_disable_irq(void)
 {
+#ifndef __EMSCRIPTEN__
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
+#endif
 }
 
 void
