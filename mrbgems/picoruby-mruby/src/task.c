@@ -27,6 +27,13 @@
 #define MRB_SCHEDULER_EXIT 0
 #endif
 
+#define scheduler_exit() do { \
+    hal_disable_irq(); \
+    int __flag_exit = !q_ready_ && !q_waiting_ && !q_suspended_; \
+    hal_enable_irq(); \
+    if (__flag_exit) return ret; \
+  } while (0)
+
 #define TASK_LIST_UNIT_SIZE 5
 #define TASK_LIST_MAX_SIZE  100
 
@@ -409,7 +416,7 @@ mrb_tasks_run(mrb_state *mrb)
   mrb_value ret = mrb_nil_value();
 
 #if MRB_SCHEDULER_EXIT
-  if (!q_ready_ && !q_waiting_ && !q_suspended_) return ret;
+  scheduler_exit();
 #else
   (void)ret;
 #endif
@@ -469,7 +476,7 @@ mrb_tasks_run(mrb_state *mrb)
       mrb_task_enable_irq();
 
 #if MRB_SCHEDULER_EXIT
-      if (!q_ready_ && !q_waiting_ && !q_suspended_) return ret;
+      scheduler_exit();
 #endif
       continue;
     }
