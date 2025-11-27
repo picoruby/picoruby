@@ -2,16 +2,15 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby for WebAssembly'
-  spec.add_dependency 'mruby-compiler2'
 
-  spec.add_dependency 'picoruby-json'
+  spec.add_conflict 'picoruby-mrubyc'
+
+  spec.add_dependency 'mruby-compiler2'
+  spec.add_dependency 'picoruby-machine'
+  spec.add_dependency 'picoruby-jwt'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-time'
-  if build.vm_mruby?
-    spec.add_dependency 'mruby-math', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-math"
-  elsif build.vm_mrubyc?
-    spec.add_dependency 'picoruby-dir'
-  end
+
   spec.require_name = 'js'
 
   # Ensure EM_NODE_JS is set for Emscripten
@@ -24,7 +23,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   end
 
   bin_dir = File.join(build.build_dir, 'bin')
-  output_name = build.vm_mrubyc? ? 'picoruby.js' : 'microruby.js'
+  output_name = 'picoruby.js'
   output_js = File.join(bin_dir, output_name)
 
   directory bin_dir
@@ -56,7 +55,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
     output_wasm = Pathname(output_js).sub_ext('.wasm')
     output_wasm_map = Pathname(output_wasm).sub_ext('.wasm.map')
-    npm_dir = build.vm_mrubyc? ? 'npm-picoruby' : 'npm-microruby'
+    npm_dir = 'npm'
     dist_dir = File.join(dir, npm_dir, 'dist')
     FileUtils.mkdir_p(dist_dir)
     sh "cp #{output_js} #{dist_dir}/"

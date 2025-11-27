@@ -6,15 +6,10 @@ gemfile do
   gem 'webrick'
 end
 
-# Accept 'picoruby' or 'microruby' as argument (default: picoruby)
-variant = ARGV[0] || 'picoruby'
-unless ['picoruby', 'microruby'].include?(variant)
-  puts "Usage: #{$0} [picoruby|microruby]"
-  exit 1
-end
+variant = 'picoruby'
 
 ROOT = File.expand_path('../../www', __FILE__)
-DIST = File.expand_path("../../../npm-#{variant}/dist", __FILE__)
+DIST = File.expand_path("../../../npm/dist", __FILE__)
 RubinoROOT = File.expand_path('../../../../picoruby-wasm-rubino/demo', __FILE__)
 
 server = WEBrick::HTTPServer.new(
