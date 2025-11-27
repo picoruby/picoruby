@@ -26,17 +26,18 @@ MRuby::Gem::Specification.new('picoruby-shinonome') do |spec|
     file font[:dst] => [font[:src], include_dir] do
       FontConvert.make(font)
     end
-    unless %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
-      Rake::Task[font[:dst]].invoke
-    end
   end
-
 
   unicode2jis = "#{include_dir}/unicode2jis.h"
   file unicode2jis => ["#{dir}/lib/JIS0208.TXT", include_dir] do |f|
     Unicode2JIS.make f.prerequisites.first, f.name
   end
-  unless %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
+
+  tasks = Rake.application.top_level_tasks
+  if (tasks & %w(default build all)).any?
+    SHINONOME_FONTS.each do |font|
+      Rake::Task[font[:dst]].invoke
+    end
     Rake::Task[unicode2jis].invoke
   end
 end

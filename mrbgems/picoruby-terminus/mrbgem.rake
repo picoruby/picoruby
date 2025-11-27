@@ -22,7 +22,11 @@ MRuby::Gem::Specification.new('picoruby-terminus') do |spec|
     file font[:dst] => [font[:src], include_dir] do
       TerminusFontConvert.make(font)
     end
-    unless %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
+  end
+
+  tasks = Rake.application.top_level_tasks
+  if (tasks & %w(default build all)).any?
+    TERMINUS_FONTS.each do |font|
       Rake::Task[font[:dst]].invoke
     end
   end
