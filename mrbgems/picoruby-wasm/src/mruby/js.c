@@ -500,7 +500,7 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_int callback_id;
   mrb_get_args(mrb, "i", &callback_id);
 
-  mrb_value current_task = mrb_funcall(mrb, mrb_obj_value(mrb_class_get(mrb, "Task")), "current", 0);
+  mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
   uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
 
@@ -737,7 +737,7 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "zi", &url, &callback_id);
   int promise_id = call_method(obj->ref_id, "fetch", url);
 
-  mrb_value current_task = mrb_funcall(mrb, mrb_obj_value(mrb_class_get(mrb, "Task")), "current", 0);
+  mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
   uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
 
