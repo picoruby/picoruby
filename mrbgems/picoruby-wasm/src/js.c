@@ -4,6 +4,6 @@
 
 #elif defined(PICORB_VM_MRUBYC)
 
-#include "mrubyc/js.c"
+#error "mrubyc does not support JavaScript integration."
 
 #endif

@@ -1,8 +1,8 @@
 (async function(global) {
-  async function initMicroRuby() {
+  async function initPicoRuby() {
     // Import the factory function
     const baseURL = document.currentScript?.src ? new URL('.', document.currentScript.src).href : '';
-    const { default: createModule } = await import(baseURL + 'microruby.js');
+    const { default: createModule } = await import(baseURL + 'picoruby.js');
 
     async function collectRubyScripts() {
       const rubyScripts = document.querySelectorAll('script[type="text/ruby"]');
@@ -21,7 +21,7 @@
 
     // Create and initialize the module
     const Module = await createModule();
-    Module.microrubyRun = function() {
+    Module.picorubyRun = function() {
       const tickTimer = setInterval(() => {
         Module.ccall('mrb_tick_wasm', null, [], []);
       }, 17); // 16.67ms: optimize for 60fps
@@ -56,11 +56,11 @@
       });
     }
 
-    // Start MicroRuby execution
-    Module.microrubyRun();
+    // Start PicoRuby execution
+    Module.picorubyRun();
   }
 
-  global.initMicroRuby = initMicroRuby;
+  global.initPicooRuby = initPicoRuby;
 
-  await initMicroRuby();
+  await initPicooRuby();
 })(typeof window !== 'undefined' ? window : this).catch(console.error);

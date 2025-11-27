@@ -1,10 +1,10 @@
-# MicroRuby.wasm
+# PicoRuby.wasm
 
-MicroRuby WebAssembly - Ruby for the browser powered by mruby VM
+PicoRuby WebAssembly - Ruby for the browser powered by mruby VM
 
-## What is MicroRuby?
+## What is PicoRuby?
 
-MicroRuby is a WebAssembly build of [PicoRuby](https://github.com/picoruby/picoruby) using the full **mruby VM** (as opposed to PicoRuby.wasm which uses mruby/c).
+PicoRuby is a WebAssembly build of [PicoRuby](https://github.com/picoruby/picoruby) using the full **mruby VM** (as opposed to PicoRuby.wasm which uses mruby/c).
 
 ### Key Features
 
@@ -17,7 +17,7 @@ MicroRuby is a WebAssembly build of [PicoRuby](https://github.com/picoruby/picor
 ## Installation
 
 ```bash
-npm install @microruby/wasm
+npm install @picoruby/wasm
 ```
 
 ## Usage
@@ -28,11 +28,11 @@ npm install @microruby/wasm
 <!DOCTYPE html>
 <html>
 <head>
-  <script type="module" src="node_modules/@microruby/wasm/dist/init.iife.js"></script>
+  <script type="module" src="node_modules/@picoruby/wasm/dist/init.iife.js"></script>
 </head>
 <body>
   <script type="text/ruby">
-    puts "Hello from MicroRuby!"
+    puts "Hello from PicoRuby!"
 
     # JavaScript interop
     js_global = JS.global
@@ -55,7 +55,7 @@ npm install @microruby/wasm
 
 ```javascript
 // Initialize manually
-await window.initMicroRuby();
+await window.initPicoRuby();
 
 // Access the module
 const Module = window.Module;
@@ -66,7 +66,7 @@ Module.ccall('picorb_create_task', 'number', ['string'], ['puts "Hello!"']);
 
 ## Differences from PicoRuby.wasm
 
-| Feature | PicoRuby (mruby/c) | MicroRuby (mruby) |
+| Feature | PicoRuby (mruby/c) | PicoRuby (mruby) |
 |---------|-------------------|-------------------|
 | VM | mruby/c (compact) | mruby (full-featured) |
 | Size | ~780KB | ~1.6MB |
@@ -76,7 +76,7 @@ Module.ccall('picorb_create_task', 'number', ['string'], ['puts "Hello!"']);
 
 ## Architecture
 
-MicroRuby uses **explicit execution loop model**:
+PicoRuby uses **explicit execution loop model**:
 
 ```
 JavaScript (60fps)
@@ -96,13 +96,13 @@ This architecture:
 
 ```bash
 # Build debug version
-rake wasm:microruby:debug
+rake wasm:debug
 
 # Build production version
-rake wasm:microruby:release
+rake wasm:prod
 
 # Start local server
-rake wasm:microruby:server
+rake wasm:server
 ```
 
 ### Testing
