@@ -138,79 +138,39 @@ task :picorbc do
 end
 
 namespace :wasm do
-  namespace :picoruby do
-    desc "Build PicoRuby WASM"
-    task :debug do
-      sh "CONFIG=picoruby-wasm PICORUBY_DEBUG=1 rake"
-    end
+  desc "Build PicroRuby WASM (mruby VM)"
+  task :debug do
+    sh "CONFIG=picoruby-wasm PICORUBY_DEBUG=1 rake"
+  end
 
-    task :prod do
-      sh "CONFIG=picoruby-wasm rake clean"
-      sh "CONFIG=picoruby-wasm rake"
-    end
+  desc "Build PicoRuby WASM production"
+  task :prod do
+    sh "CONFIG=picoruby-wasm rake clean"
+    sh "CONFIG=picoruby-wasm rake"
+  end
 
-    desc "Clean PicoRuby WASM build"
-    task :clean do
-      sh "CONFIG=picoruby-wasm rake clean"
-    end
+  desc "Clean PicoRuby WASM build"
+  task :clean do
+    sh "CONFIG=picoruby-wasm rake clean"
+  end
 
-    desc "Build production and publish it to npm"
-    task :release => :prod do
-      FileUtils.cd "mrbgems/picoruby-wasm/npm-picoruby" do
-        sh "npm install"
-        sh "npm publish --access public"
-      end
-    end
-
-    desc "Start local server for PicoRuby WASM"
-    task :server do
-      sh "./mrbgems/picoruby-wasm/demo/bin/server.rb picoruby"
-    end
-
-    desc "Check PicoRuby WASM npm versions"
-    task :versions do
-      sh "npm view @picoruby/wasm-wasi versions"
+  desc "Build production and publish it to npm"
+  task :release => :prod do
+    FileUtils.cd "mrbgems/picoruby-wasm/npm" do
+      sh "npm install"
+      sh "npm publish --access public"
     end
   end
 
-  namespace :microruby do
-    desc "Build MicroRuby WASM"
-    task :debug do
-      sh "CONFIG=microruby-wasm PICORUBY_DEBUG=1 rake"
-    end
-
-    task :prod do
-      sh "CONFIG=microruby-wasm rake clean"
-      sh "CONFIG=microruby-wasm rake"
-    end
-
-    desc "Clean MicroRuby WASM build"
-    task :clean do
-      sh "CONFIG=microruby-wasm rake clean"
-    end
-
-    desc "Build production and publish it to npm"
-    task :release => :prod do
-      FileUtils.cd "mrbgems/picoruby-wasm/npm-microruby" do
-        sh "npm install"
-        sh "npm publish --access public"
-      end
-    end
-
-    desc "Start local server for MicroRuby WASM"
-    task :server do
-      sh "./mrbgems/picoruby-wasm/demo/bin/server.rb microruby"
-    end
-
-    desc "Check MicroRuby WASM npm versions"
-    task :versions do
-      sh "npm view @microruby/wasm versions"
-    end
+  desc "Start local server for PicoRuby WASM"
+  task :server do
+    sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
   end
 
-  # Backward compatibility: default to picoruby
-  desc "Start local server for wasm (PicoRuby)"
-  task :server => 'picoruby:server'
+  desc "Check PicoRuby WASM npm versions"
+  task :versions do
+    sh "npm view @picoruby/wasm versions"
+  end
 
   desc "Check versions (PicoRuby)"
   task :versions => 'picoruby:versions'
