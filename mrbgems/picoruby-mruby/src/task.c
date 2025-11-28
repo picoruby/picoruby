@@ -188,11 +188,67 @@ mrb_tick(mrb_state *mrb)
   }
 }
 
+//================================================================
+/*! Remove context from c_list
+
+  @param  mrb     mrb_state
+  @param  c       context to remove
+*/
+static void
+remove_context_from_list(mrb_state *mrb, struct mrb_context *c)
+{
+  if (!mrb->c_list || mrb->c_list_len == 0) return;
+
+  mrb_task_disable_irq();
+
+  int index = -1;
+  for (int i = 0; i < mrb->c_list_len; i++) {
+    if (mrb->c_list[i] == c) {
+      index = i;
+      break;
+    }
+  }
+
+  if (0 <= index) {
+    for (int i = index; i < mrb->c_list_len - 1; i++) {
+      mrb->c_list[i] = mrb->c_list[i + 1];
+    }
+    mrb->c_list[mrb->c_list_len - 1] = NULL;
+    mrb->c_list_len--;
+  }
+
+  mrb_task_enable_irq();
+}
+
+static void
+cleanup_context(mrb_state *mrb, struct mrb_context *c)
+{
+  if (c->stbase) {
+    mrb_free(mrb, c->stbase);
+    c->stbase = NULL;
+  }
+  if (c->cibase) {
+    mrb_free(mrb, c->cibase);
+    c->cibase = NULL;
+  }
+}
+
 static void
 mrb_task_tcb_free(mrb_state *mrb, void *ptr)
 {
   mrb_tcb *tcb = (mrb_tcb *)ptr;
-  mrb_gc_unregister(mrb, tcb->task);
+
+  mrb_task_disable_irq();
+  q_delete_task(mrb, tcb);
+  mrb_task_enable_irq();
+
+  cleanup_context(mrb, &tcb->c);
+
+  if (tcb->irep && tcb->cc) {
+    mrc_irep_free((mrc_ccontext *)tcb->cc, (mrc_irep *)tcb->irep);
+    mrc_ccontext_free((mrc_ccontext *)tcb->cc);
+  }
+
   mrb_free(mrb, tcb);
 }
 
@@ -221,20 +277,10 @@ mrb_tcb_new(mrb_state *mrb, enum TASKSTATUS task_status, int priority)
   context_id++;
   tcb->context_id = context_id;
 
-  return tcb;
-}
+  tcb->irep = NULL;
+  tcb->cc = NULL;
 
-static void
-cleanup_context(mrb_state *mrb, struct mrb_context *c)
-{
-  if (c->stbase) {
-    mrb_free(mrb, c->stbase);
-    c->stbase = NULL;
-  }
-  if (c->cibase) {
-    mrb_free(mrb, c->cibase);
-    c->cibase = NULL;
-  }
+  return tcb;
 }
 
 
@@ -451,11 +497,13 @@ mrb_task_run_once(mrb_state *mrb)
     mrb_task_enable_irq();
 
     // find task that called join.
+    mrb_bool has_join_waiter = FALSE;
     mrb_task_disable_irq();
     mrb_tcb *tcb1 = q_waiting_;
     while (tcb1 != NULL) {
       mrb_tcb *next = tcb1->next;
       if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        has_join_waiter = TRUE;
         q_delete_task(mrb, tcb1);
         tcb1->status = TASKSTATUS_READY;
         tcb1->reason = TASKREASON_NONE;
@@ -465,10 +513,16 @@ mrb_task_run_once(mrb_state *mrb)
     }
     for (mrb_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next) {
       if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        has_join_waiter = TRUE;
         tcb1->reason = TASKREASON_NONE;
       }
     }
     mrb_task_enable_irq();
+
+    if (!has_join_waiter && !tcb->flag_permanence) {
+      remove_context_from_list(mrb, &tcb->c);
+      mrb_gc_unregister(mrb, tcb->task);
+    }
 
     return mrb_true_value();
   }
@@ -546,11 +600,13 @@ mrb_tasks_run(mrb_state *mrb)
       if (mrb->exc) ret = mrb_obj_value(mrb->exc);
 
       // find task that called join.
+      mrb_bool has_join_waiter = FALSE;
       mrb_task_disable_irq();
       mrb_tcb *tcb1 = q_waiting_;
       while (tcb1 != NULL) {
         mrb_tcb *next = tcb1->next;
         if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+          has_join_waiter = TRUE;
           q_delete_task(mrb, tcb1);
           tcb1->status = TASKSTATUS_READY;
           tcb1->reason = TASKREASON_NONE;
@@ -560,10 +616,16 @@ mrb_tasks_run(mrb_state *mrb)
       }
       for (mrb_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next) {
         if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+          has_join_waiter = TRUE;
           tcb1->reason = TASKREASON_NONE;
         }
       }
       mrb_task_enable_irq();
+
+      if (!has_join_waiter && !tcb->flag_permanence) {
+        remove_context_from_list(mrb, &tcb->c);
+        mrb_gc_unregister(mrb, tcb->task);
+      }
 
 #if MRB_SCHEDULER_EXIT
       scheduler_exit();
