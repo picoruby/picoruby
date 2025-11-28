@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body>
+    <h1>Custom Exception Class Test</h1>
+    <button id="test">Run Test</button>
+    <pre id="output"></pre>
+
+    <!-- Expected Result:
+Starting custom exception test...
+Raising custom exception
+Caught CustomError: Custom error message, code=42
+    -->
+
+    <script type="text/ruby">
+      require 'js'
+
+      class CustomError < StandardError
+        attr_reader :code
+
+        def initialize(message, code)
+          super(message)
+          @code = code
+        end
+      end
+
+      def log(msg)
+        output = JS.document.getElementById('output')
+        current = output.innerText.to_poro
+        output.innerText = current + msg + "\n"
+      end
+
+      JS.document.getElementById('test').addEventListener('click') do
+        log "Starting custom exception test..."
+
+        JS.global.fetch('favicon.ico') do
+          begin
+            log "Raising custom exception"
+            raise CustomError.new("Custom error message", 42)
+          rescue CustomError => e
+            log "Caught CustomError: #{e.message}, code=#{e.code}"
+          rescue => e
+            log "Caught generic: #{e.message}"
+          end
+        end
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>

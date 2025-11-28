@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body>
+    <h1>Deep Recursion + Async Test</h1>
+    <button id="test">Run Test</button>
+    <pre id="output"></pre>
+
+    <!-- Expected Result:
+Starting deep recursion test...
+Depth: 0
+Depth: 1
+Depth: 2
+Depth: 3
+Depth: 4
+Depth: 5
+Depth: 6
+Depth: 7
+Depth: 8
+Depth: 9
+Depth: 10
+Caught: Reached depth limit
+    -->
+
+    <script type="text/ruby">
+      require 'js'
+
+      def log(msg)
+        output = JS.document.getElementById('output')
+        current = output.innerText.to_poro
+        output.innerText = current + msg + "\n"
+      end
+
+      def recursive_method(depth)
+        log "Depth: #{depth}"
+        if depth >= 10
+          raise "Reached depth limit"
+        end
+        recursive_method(depth + 1)
+      end
+
+      JS.document.getElementById('test').addEventListener('click') do
+        log "Starting deep recursion test..."
+
+        JS.global.fetch('favicon.ico') do
+          begin
+            recursive_method(0)
+          rescue => e
+            log "Caught: #{e.message}"
+          end
+        end
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>

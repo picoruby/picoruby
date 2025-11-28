@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="utf-8"></head>
+  <body>
+    <h1>Nested Async Exception Test</h1>
+    <button id="test">Run Test</button>
+    <pre id="output"></pre>
+
+    <!-- Expected Result:
+Starting nested async test...
+Level 1: Got response
+Level 2: Got response
+Level 3: About to raise
+Caught at level 1: Error at level 3
+    -->
+
+    <script type="text/ruby">
+      require 'js'
+
+      def log(msg)
+        output = JS.document.getElementById('output')
+        current = output.innerText.to_poro
+        output.innerText = current + msg + "\n"
+      end
+
+      JS.document.getElementById('test').addEventListener('click') do
+        log "Starting nested async test..."
+
+        JS.global.fetch('favicon.ico') do |response1|
+          log "Level 1: Got response"
+
+          JS.global.fetch('favicon.ico') do |response2|
+            log "Level 2: Got response"
+
+            JS.global.fetch('favicon.ico') do |response3|
+              log "Level 3: About to raise"
+              raise "Error at level 3"
+              log "Level 3: After raise (should not print)"
+            end
+            log "Level 2: After inner fetch (should not print)"
+          end
+          log "Level 1: After middle fetch (should not print)"
+        rescue => e
+          log "Caught at level 1: #{e.message}"
+        end
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>
