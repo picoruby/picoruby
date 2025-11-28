@@ -386,9 +386,14 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
   }
 
   mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
-  mrc_ccontext_free(cc);
 
-  if (mrb_nil_p(task)) {
+  if (!mrb_nil_p(task)) {
+    mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(global_mrb, task, &mrb_task_tcb_type);
+    tcb->irep = irep;
+    tcb->cc = cc;
+  } else {
+    mrc_irep_free(cc, irep);
+    mrc_ccontext_free(cc);
     return;
   }
 
