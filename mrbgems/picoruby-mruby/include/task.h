@@ -80,6 +80,10 @@ typedef struct RTcb {
   mrb_value task;
   mrb_value value;
 //  mrb_value pending_exception;
+
+  const void *irep;
+  void *cc;
+
   struct mrb_context c; // Each TCB has its own context
 
 } mrb_tcb;
@@ -98,6 +102,8 @@ typedef struct RMutex {
 
 
 /***** Global variables *****************************************************/
+extern struct mrb_data_type mrb_task_tcb_type;
+
 /***** Function prototypes **************************************************/
 void mrb_tick(mrb_state *mrb);
 void mrb_task_init_context(mrb_state *mrb, mrb_value task, struct RProc *proc);
