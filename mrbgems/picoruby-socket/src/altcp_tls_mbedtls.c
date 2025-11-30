@@ -51,7 +51,7 @@
  * - some unhandled/untested things might be caught by LWIP_ASSERTs...
  */
 
-#if !defined(PICORB_PLATFORM_POSIX)
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(ESP32_PLATFORM)
 
 #include "lwip/opt.h"
 #include "lwip/sys.h"
@@ -1366,4 +1366,4 @@ const struct altcp_functions altcp_mbedtls_functions = {
 #endif /* LWIP_ALTCP_TLS && LWIP_ALTCP_TLS_MBEDTLS */
 #endif /* LWIP_ALTCP */
 
-#endif /* !PICORB_PLATFORM_POSIX */
+#endif /* !PICORB_PLATFORM_POSIX && !ESP32_PLATFORM */
