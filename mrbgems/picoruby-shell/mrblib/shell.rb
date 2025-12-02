@@ -189,7 +189,7 @@ class Shell
       return false
     end
     puts "\nLoading #{file}..."
-    system file
+    load file
     return true
   end
 
