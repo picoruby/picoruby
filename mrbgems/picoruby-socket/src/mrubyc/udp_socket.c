@@ -1,6 +1,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "picoruby.h"
+
+/*
+ * Helper function to get socket pointer from instance->data.
+ */
+static inline picorb_socket_t*
+get_udp_socket_ptr(mrbc_value *v)
+{
+  void *data = v[0].instance->data;
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
+  return *sock_ptr;
+}
 
 /*
  * UDPSocket.new -> UDPSocket
@@ -13,15 +25,24 @@ c_udp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Create instance with socket structure embedded in instance->data */
-  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t));
-  picorb_socket_t *sock = (picorb_socket_t *)instance.instance->data;
+  /* Allocate socket structure on heap */
+  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
+  if (!sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
+    return;
+  }
 
   /* Create UDP socket */
   if (!UDPSocket_create(sock)) {
+    mrbc_raw_free(sock);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create UDP socket");
     return;
   }
+
+  /* Create instance with pointer to socket structure */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t *));
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)instance.instance->data;
+  *sock_ptr = sock;
 
   SET_RETURN(instance);
 }
@@ -38,7 +59,7 @@ c_udp_socket_bind(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_udp_socket_ptr(v);
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -88,7 +109,7 @@ c_udp_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_udp_socket_ptr(v);
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -138,7 +159,7 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_udp_socket_ptr(v);
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -202,7 +223,7 @@ c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_udp_socket_ptr(v);
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "socket is not initialized");
     return;
@@ -288,7 +309,7 @@ c_udp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_udp_socket_ptr(v);
   if (!sock) {
     /* Already closed or not initialized */
     SET_NIL_RETURN();
@@ -313,7 +334,7 @@ c_udp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get socket pointer from instance->data */
-  picorb_socket_t *sock = (picorb_socket_t *)v[0].instance->data;
+  picorb_socket_t *sock = get_udp_socket_ptr(v);
   if (!sock) {
     SET_TRUE_RETURN();
     return;

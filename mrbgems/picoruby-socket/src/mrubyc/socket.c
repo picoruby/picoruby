@@ -3,9 +3,6 @@
 #include <stdint.h>
 #include "picoruby.h"
 
-/* Magic number to identify wrapper pattern */
-#define SOCKET_WRAPPER_MAGIC 0x534F434B  /* "SOCK" in hex */
-
 /* Socket type constants (matching socket.h) */
 #if defined(PICORB_PLATFORM_POSIX)
 #include <sys/socket.h>
@@ -14,31 +11,23 @@
 #define SOCK_DGRAM  2
 #endif
 
-/* Wrapper for sockets created by accept (pointer-based) */
-typedef struct {
-  uint32_t magic;  /* Must be SOCKET_WRAPPER_MAGIC */
-  picorb_socket_t *ptr;
-} socket_wrapper_t;
-
 void
 mrbc_socket_free(mrbc_value *self)
 {
   void *data = self->instance->data;
-  picorb_socket_t *sock = NULL;
-  bool is_wrapper = false;
-  socket_wrapper_t *potential_wrapper = (socket_wrapper_t *)data;
-
-  /* Check magic number to identify wrapper pattern */
-  if (potential_wrapper->magic == SOCKET_WRAPPER_MAGIC) {
-    /* Wrapper pattern (from accept) */
-    sock = potential_wrapper->ptr;
-    is_wrapper = true;
-  } else {
-    /* Direct embedding (from TCPSocket.new or UDPSocket.new) */
-    sock = (picorb_socket_t *)data;
+  if (!data) {
+    return;
   }
 
-  if (sock && !sock->closed) {
+  /* Get socket pointer (always stored as pointer now) */
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
+  picorb_socket_t *sock = *sock_ptr;
+
+  if (!sock) {
+    return;
+  }
+
+  if (!sock->closed) {
     /* Close socket based on socket type */
     if (sock->socktype == SOCK_DGRAM) {
       UDPSocket_close(sock);
@@ -47,10 +36,8 @@ mrbc_socket_free(mrbc_value *self)
     }
   }
 
-  /* If wrapper pattern, free the allocated socket structure */
-  if (is_wrapper && sock) {
-    picorb_free(NULL, sock);
-  }
+  /* Free the allocated socket structure */
+  mrbc_raw_free(sock);
 }
 
 void

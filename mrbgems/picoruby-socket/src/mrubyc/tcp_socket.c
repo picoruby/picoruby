@@ -1,35 +1,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-
-/* Magic number to identify wrapper pattern */
-#define SOCKET_WRAPPER_MAGIC 0x534F434B  /* "SOCK" in hex */
-
-/* Wrapper for sockets created by accept (pointer-based) */
-typedef struct {
-  uint32_t magic;  /* Must be SOCKET_WRAPPER_MAGIC */
-  picorb_socket_t *ptr;
-} socket_wrapper_t;
+#include "picoruby.h"
 
 /*
  * Helper function to get socket pointer from instance->data.
- * Handles both patterns:
- * - Direct embedding (from TCPSocket.new)
- * - Wrapper pattern (from TCPServer.accept)
  */
 static inline picorb_socket_t*
 get_socket_ptr(mrbc_value *v)
 {
   void *data = v[0].instance->data;
-  socket_wrapper_t *potential_wrapper = (socket_wrapper_t *)data;
-
-  /* Check magic number to identify wrapper pattern */
-  if (potential_wrapper->magic == SOCKET_WRAPPER_MAGIC) {
-    return potential_wrapper->ptr;
-  }
-
-  /* Otherwise it's direct embedding from TCPSocket.new */
-  return (picorb_socket_t *)data;
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
+  return *sock_ptr;
 }
 
 /*
@@ -63,9 +45,12 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Create instance with socket structure embedded in instance->data */
-  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t));
-  picorb_socket_t *sock = (picorb_socket_t *)instance.instance->data;
+  /* Allocate socket structure on heap */
+  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
+  if (!sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
+    return;
+  }
 
   /* Initialize socket structure to zero */
   memset(sock, 0, sizeof(picorb_socket_t));
@@ -78,9 +63,15 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   int port_num = (int)port.i;
 
   if (!TCPSocket_connect(sock, host_str, port_num)) {
+    mrbc_raw_free(sock);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to connect");
     return;
   }
+
+  /* Create instance with pointer to socket structure */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t *));
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)instance.instance->data;
+  *sock_ptr = sock;
 
   SET_RETURN(instance);
 }

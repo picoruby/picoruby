@@ -3,18 +3,10 @@
 #include <stdint.h>
 #include "picoruby.h"
 
-/* Wrapper structures for storing pointers in instance->data */
+/* Wrapper structure for storing TCP server pointer in instance->data */
 typedef struct {
   picorb_tcp_server_t *ptr;
 } tcp_server_wrapper_t;
-
-/* Magic number to identify wrapper pattern */
-#define SOCKET_WRAPPER_MAGIC 0x534F434B  /* "SOCK" in hex */
-
-typedef struct {
-  uint32_t magic;  /* Must be SOCKET_WRAPPER_MAGIC */
-  picorb_socket_t *ptr;
-} socket_wrapper_t;
 
 
 /*
@@ -123,14 +115,13 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /*
-   * Create TCPSocket object with wrapper pattern.
-   * Store the pointer directly without copying to preserve LwIP callback arg.
+   * Create TCPSocket object with pointer pattern.
+   * Store the pointer directly to preserve LwIP callback arg.
    */
   mrbc_class *class_TCPSocket = mrbc_get_class_by_name("TCPSocket");
-  mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(socket_wrapper_t));
-  socket_wrapper_t *sock_wrapper = (socket_wrapper_t *)client_obj.instance->data;
-  sock_wrapper->magic = SOCKET_WRAPPER_MAGIC;
-  sock_wrapper->ptr = client;
+  mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(picorb_socket_t *));
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)client_obj.instance->data;
+  *sock_ptr = client;
 
   SET_RETURN(client_obj);
 }
