@@ -37,12 +37,13 @@ int hal_write(int fd, const void *buf, int nbytes);
 #if defined(PICORB_VM_MRUBYC)
   void hal_enable_irq(void);
   void hal_disable_irq(void);
+  void hal_idle_cpu(void);
 #else
   void mrb_task_enable_irq(void);
   void mrb_task_disable_irq(void);
+  void hal_idle_cpu(mrb_state *mrb);
 #endif
 
-void hal_idle_cpu(void);
 void hal_abort(const char *s);
 int hal_flush(int fd);
 int hal_read_available(void);

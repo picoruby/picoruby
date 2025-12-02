@@ -158,7 +158,11 @@ mrb_task_disable_irq(void)
 }
 
 void
+#if defined(PICORB_VM_MRUBYC)
 hal_idle_cpu()
+#elif defined(PICORB_VM_MRUBY)
+hal_idle_cpu(mrb_state *mrb)
+#endif
 {
 #if defined(PICO_RP2040)
   __wfi();

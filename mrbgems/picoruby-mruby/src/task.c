@@ -28,9 +28,9 @@
 #endif
 
 #define scheduler_exit() do { \
-    hal_disable_irq(); \
+    mrb_task_disable_irq(); \
     int __flag_exit = !q_ready_ && !q_waiting_ && !q_suspended_; \
-    hal_enable_irq(); \
+    mrb_task_enable_irq(); \
     if (__flag_exit) return ret; \
   } while (0)
 
@@ -515,9 +515,7 @@ mrb_tasks_run(mrb_state *mrb)
 static void
 sleep_ms_impl(mrb_state *mrb, mrb_int ms)
 {
-  //mrb_tcb *tcb = MRB2TCB(mrb);
-  //mrb_tcb *tcb = (mrb_tcb *)((uint8_t *)mrb->c + sizeof(mrb_tcb));
-  mrb_tcb *tcb = q_ready_;
+  mrb_tcb *tcb = MRB2TCB(mrb);
 
   mrb_task_disable_irq();
   q_delete_task(mrb, tcb);
