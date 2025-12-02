@@ -107,6 +107,7 @@ c_tcp_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  mrbc_incref(&v[0]);
   SET_INT_RETURN(sent);
 }
 
@@ -169,6 +170,7 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Create string and return */
   mrbc_value ret = mrbc_string_new(vm, buffer, received);
   mrbc_raw_free(buffer);
+  mrbc_incref(&v[0]);
   SET_RETURN(ret);
 }
 
@@ -194,6 +196,7 @@ c_tcp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Close socket */
   TCPSocket_close(sock);
 
+  mrbc_incref(&v[0]);
   SET_NIL_RETURN();
 }
 
@@ -217,6 +220,7 @@ c_tcp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Check if socket is closed */
   bool is_closed = TCPSocket_closed(sock);
+  mrbc_incref(&v[0]);
   if (is_closed) {
     SET_TRUE_RETURN();
   } else {
@@ -249,6 +253,7 @@ c_tcp_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  mrbc_incref(&v[0]);
   SET_RETURN(mrbc_string_new_cstr(vm, host));
 }
 
@@ -277,6 +282,7 @@ c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  mrbc_incref(&v[0]);
   SET_INT_RETURN(port);
 }
 void

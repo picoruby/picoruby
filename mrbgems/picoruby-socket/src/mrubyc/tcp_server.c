@@ -123,6 +123,7 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   picorb_socket_t **sock_ptr = (picorb_socket_t **)client_obj.instance->data;
   *sock_ptr = client;
 
+  mrbc_incref(&v[0]);
   SET_RETURN(client_obj);
 }
 
@@ -151,6 +152,7 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Clear the pointer */
   wrapper->ptr = NULL;
 
+  mrbc_incref(&v[0]);
   SET_NIL_RETURN();
 }
 static void
