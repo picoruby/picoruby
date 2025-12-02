@@ -17,7 +17,7 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-require 'net/ntp'
+require 'cyw43'
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")

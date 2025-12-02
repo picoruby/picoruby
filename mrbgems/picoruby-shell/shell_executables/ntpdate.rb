@@ -1,3 +1,5 @@
+require 'net/ntp'
+
 ntp_host = ARGV[0] || "pool.ntp.org"
 ntp_port = 123
 
