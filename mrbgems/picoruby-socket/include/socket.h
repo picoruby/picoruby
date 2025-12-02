@@ -59,7 +59,7 @@ typedef struct {
 #ifndef PICORB_NO_LWIP_HELPERS
 extern void lwip_begin(void);
 extern void lwip_end(void);
-extern void Net_sleep_ms(int ms);
+extern void Net_busy_wait_ms(int ms);
 /* Note: ip parameter type depends on LwIP configuration (ip_addr_t in implementation) */
 extern int Net_get_ip(const char *name, void *ip);
 #endif

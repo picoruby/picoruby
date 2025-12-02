@@ -216,7 +216,7 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   D("TCP: waiting\n");
   int max_wait = 1000; /* 10 seconds (10ms * 1000) */
   while (sock->state == SOCKET_STATE_CONNECTING && max_wait-- > 0) {
-    Net_sleep_ms(10);  /* Poll more frequently */
+    Net_busy_wait_ms(10);  /* Poll more frequently */
   }
 
   if (sock->state == SOCKET_STATE_CONNECTED) {
@@ -279,7 +279,7 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
   while (sock->recv_len == 0 &&
          sock->state == SOCKET_STATE_CONNECTED &&
          max_wait-- > 0) {
-    Net_sleep_ms(100);
+    Net_busy_wait_ms(100);
   }
 
   D("TCPSocket_recv: after wait, recv_len=%zu, state=%d, max_wait=%d\n",

@@ -208,8 +208,7 @@ TCPServer_create(int port, int backlog)
     }
     if (err == ERR_USE && i < max_retries) {
       lwip_end();
-      cyw43_arch_poll();
-      sleep_ms(100);
+      Net_busy_wait_ms(100);
       lwip_begin();
     } else {
       altcp_close(server->listen_pcb);
@@ -289,10 +288,7 @@ TCPServer_close(picorb_tcp_server_t *server)
     lwip_end();
 
     /* Poll LwIP to process cleanup */
-    for (int i = 0; i < 3; i++) {
-      cyw43_arch_poll();
-      sleep_ms(20);
-    }
+    Net_busy_wait_ms(50);
   }
 
   picorb_free(NULL, server);

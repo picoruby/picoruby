@@ -382,7 +382,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 
   /* Small delay before connecting (like picoruby-net's function boundary) */
   D("SSL: waiting before connect\n");
-  Net_sleep_ms(100);
+  Net_busy_wait_ms(100);
 
   /* Initiate connection */
   D("SSL: initiating connection to port ");
@@ -404,7 +404,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   D("SSL: waiting for connection\n");
   int max_wait = 1000;  /* 10 seconds (10ms * 1000) */
   while (ssl_sock->state == SSL_STATE_CONNECTING && max_wait-- > 0) {
-    Net_sleep_ms(10);
+    Net_busy_wait_ms(10);
   }
 
   if (ssl_sock->state == SSL_STATE_CONNECTED) {
@@ -461,7 +461,7 @@ SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
   /* Wait for data with timeout */
   int max_wait = 600;  /* 60 seconds */
   while (sock->recv_len == 0 && ssl_sock->connected && max_wait-- > 0) {
-    Net_sleep_ms(100);
+    Net_busy_wait_ms(100);
   }
 
   /* Check if connection was closed */

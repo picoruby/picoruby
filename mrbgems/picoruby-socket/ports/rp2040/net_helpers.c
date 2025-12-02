@@ -8,13 +8,12 @@
 #include "pico/cyw43_arch.h"
 #include "lwip/dns.h"
 
-/* Sleep with CYW43 polling for rp2040 */
+/* Busy wait with CYW43 polling for rp2040 */
 void
-Net_sleep_ms(int ms)
+Net_busy_wait_ms(int ms)
 {
-  /* Poll before and after sleep to ensure events are processed */
   cyw43_arch_poll();
-  sleep_ms(ms);
+  busy_wait_ms(ms);
   cyw43_arch_poll();
 }
 
@@ -74,7 +73,7 @@ Net_get_ip(const char *name, void *ip)
     /* Wait for DNS callback */
     int max_wait = 100; /* 10 seconds */
     while (ip_addr_isany(addr) && max_wait-- > 0) {
-      Net_sleep_ms(100);
+      Net_busy_wait_ms(100);
     }
 
     if (!ip_addr_isany(addr)) {
