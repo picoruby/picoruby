@@ -91,6 +91,67 @@ EM_JS(bool, set_property, (int ref_id, const char* key, const char* value), {
   }
 });
 
+EM_JS(bool, set_property_int, (int ref_id, const char* key, int value), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    if (!obj) return false;
+    obj[UTF8ToString(key)] = value;
+    return true;
+  } catch(e) {
+    console.error('Error in set_property_int:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, set_property_double, (int ref_id, const char* key, double value), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    if (!obj) return false;
+    obj[UTF8ToString(key)] = value;
+    return true;
+  } catch(e) {
+    console.error('Error in set_property_double:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, set_property_bool, (int ref_id, const char* key, bool value), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    if (!obj) return false;
+    obj[UTF8ToString(key)] = value ? true : false;
+    return true;
+  } catch(e) {
+    console.error('Error in set_property_bool:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, set_property_null, (int ref_id, const char* key), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    if (!obj) return false;
+    obj[UTF8ToString(key)] = null;
+    return true;
+  } catch(e) {
+    console.error('Error in set_property_null:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, set_property_ref, (int ref_id, const char* key, int value_ref_id), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    const value = globalThis.picorubyRefs[value_ref_id];
+    if (!obj) return false;
+    obj[UTF8ToString(key)] = value;
+    return true;
+  } catch(e) {
+    console.error('Error in set_property_ref:', e);
+    return false;
+  }
+});
+
 EM_JS(int, get_property, (int ref_id, const char* key), {
   try {
     const obj = window.picorubyRefs[ref_id];
@@ -208,7 +269,7 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
 EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const char* event_type), {
   const target = globalThis.picorubyRefs[ref_id];
   const type = UTF8ToString(event_type);
-  target.addEventListener(type, (event) => {
+  const handler = (event) => {
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
     ccall(
       'call_ruby_callback',
@@ -216,7 +277,126 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
       ['number', 'number'],
       [callback_id, eventRefId]
     );
-  });
+  };
+  target.addEventListener(type, handler);
+  if (!globalThis.picorubyEventHandlers) {
+    globalThis.picorubyEventHandlers = {};
+  }
+  globalThis.picorubyEventHandlers[callback_id] = { target, type, handler };
+});
+
+EM_JS(bool, js_remove_event_listener, (uintptr_t callback_id), {
+  try {
+    if (!globalThis.picorubyEventHandlers) return false;
+    const info = globalThis.picorubyEventHandlers[callback_id];
+    if (!info) return false;
+    info.target.removeEventListener(info.type, info.handler);
+    delete globalThis.picorubyEventHandlers[callback_id];
+    return true;
+  } catch(e) {
+    console.error('Error in js_remove_event_listener:', e);
+    return false;
+  }
+});
+
+EM_JS(int, js_create_element, (const char* tag_name), {
+  try {
+    const element = document.createElement(UTF8ToString(tag_name));
+    const refId = globalThis.picorubyRefs.push(element) - 1;
+    return refId;
+  } catch(e) {
+    console.error('Error in js_create_element:', e);
+    return -1;
+  }
+});
+
+EM_JS(int, js_create_text_node, (const char* text), {
+  try {
+    const node = document.createTextNode(UTF8ToString(text));
+    const refId = globalThis.picorubyRefs.push(node) - 1;
+    return refId;
+  } catch(e) {
+    console.error('Error in js_create_text_node:', e);
+    return -1;
+  }
+});
+
+EM_JS(bool, js_append_child, (int parent_ref_id, int child_ref_id), {
+  try {
+    const parent = globalThis.picorubyRefs[parent_ref_id];
+    const child = globalThis.picorubyRefs[child_ref_id];
+    if (!parent || !child) return false;
+    parent.appendChild(child);
+    return true;
+  } catch(e) {
+    console.error('Error in js_append_child:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, js_remove_child, (int parent_ref_id, int child_ref_id), {
+  try {
+    const parent = globalThis.picorubyRefs[parent_ref_id];
+    const child = globalThis.picorubyRefs[child_ref_id];
+    if (!parent || !child) return false;
+    parent.removeChild(child);
+    return true;
+  } catch(e) {
+    console.error('Error in js_remove_child:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, js_replace_child, (int parent_ref_id, int new_child_ref_id, int old_child_ref_id), {
+  try {
+    const parent = globalThis.picorubyRefs[parent_ref_id];
+    const newChild = globalThis.picorubyRefs[new_child_ref_id];
+    const oldChild = globalThis.picorubyRefs[old_child_ref_id];
+    if (!parent || !newChild || !oldChild) return false;
+    parent.replaceChild(newChild, oldChild);
+    return true;
+  } catch(e) {
+    console.error('Error in js_replace_child:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, js_insert_before, (int parent_ref_id, int new_child_ref_id, int ref_child_ref_id), {
+  try {
+    const parent = globalThis.picorubyRefs[parent_ref_id];
+    const newChild = globalThis.picorubyRefs[new_child_ref_id];
+    const refChild = globalThis.picorubyRefs[ref_child_ref_id];
+    if (!parent || !newChild) return false;
+    parent.insertBefore(newChild, refChild);
+    return true;
+  } catch(e) {
+    console.error('Error in js_insert_before:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, js_set_attribute, (int ref_id, const char* name, const char* value), {
+  try {
+    const element = globalThis.picorubyRefs[ref_id];
+    if (!element || !element.setAttribute) return false;
+    element.setAttribute(UTF8ToString(name), UTF8ToString(value));
+    return true;
+  } catch(e) {
+    console.error('Error in js_set_attribute:', e);
+    return false;
+  }
+});
+
+EM_JS(bool, js_remove_attribute, (int ref_id, const char* name), {
+  try {
+    const element = globalThis.picorubyRefs[ref_id];
+    if (!element || !element.removeAttribute) return false;
+    element.removeAttribute(UTF8ToString(name));
+    return true;
+  } catch(e) {
+    console.error('Error in js_remove_attribute:', e);
+    return false;
+  }
 });
 
 EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id), {
@@ -630,16 +810,30 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     char property_name[100];
     strncpy(property_name, method_name, strlen(method_name) - 1);
     property_name[strlen(method_name) - 1] = '\0';
+
+    bool success = false;
     if (mrb_string_p(argv[0])) {
-      bool success = set_property(js_obj->ref_id, property_name, RSTRING_PTR(argv[0]));
-      if (!success) {
-        return mrb_nil_value();
-      }
-      return argv[0];
+      success = set_property(js_obj->ref_id, property_name, RSTRING_PTR(argv[0]));
+    } else if (mrb_integer_p(argv[0])) {
+      success = set_property_int(js_obj->ref_id, property_name, mrb_integer(argv[0]));
+    } else if (mrb_float_p(argv[0])) {
+      success = set_property_double(js_obj->ref_id, property_name, mrb_float(argv[0]));
+    } else if (mrb_true_p(argv[0]) || mrb_false_p(argv[0])) {
+      success = set_property_bool(js_obj->ref_id, property_name, mrb_bool(argv[0]));
+    } else if (mrb_nil_p(argv[0])) {
+      success = set_property_null(js_obj->ref_id, property_name);
+    } else if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object)) {
+      picorb_js_obj *value_obj = (picorb_js_obj *)DATA_PTR(argv[0]);
+      success = set_property_ref(js_obj->ref_id, property_name, value_obj->ref_id);
     } else {
-      mrb_raise(mrb, E_TYPE_ERROR, "value must be a String");
+      mrb_raisef(mrb, E_TYPE_ERROR, "unsupported type for property value: %T", argv[0]);
       return mrb_nil_value();
     }
+
+    if (!success) {
+      return mrb_nil_value();
+    }
+    return argv[0];
   }
 
   int new_ref_id;
@@ -753,6 +947,154 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#_removeEventListener
+ */
+static mrb_value
+mrb_object__remove_event_listener(mrb_state *mrb, mrb_value self)
+{
+  mrb_int callback_id;
+  mrb_get_args(mrb, "i", &callback_id);
+  bool success = js_remove_event_listener((uintptr_t)callback_id);
+  return mrb_bool_value(success);
+}
+
+/*
+ * JS::Object#createElement
+ */
+static mrb_value
+mrb_object_create_element(mrb_state *mrb, mrb_value self)
+{
+  char *tag_name;
+  mrb_get_args(mrb, "z", &tag_name);
+  int ref_id = js_create_element(tag_name);
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+  data->ref_id = ref_id;
+  return mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+}
+
+/*
+ * JS::Object#createTextNode
+ */
+static mrb_value
+mrb_object_create_text_node(mrb_state *mrb, mrb_value self)
+{
+  char *text;
+  mrb_get_args(mrb, "z", &text);
+  int ref_id = js_create_text_node(text);
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+  data->ref_id = ref_id;
+  return mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+}
+
+/*
+ * JS::Object#appendChild
+ */
+static mrb_value
+mrb_object_append_child(mrb_state *mrb, mrb_value self)
+{
+  mrb_value child;
+  mrb_get_args(mrb, "o", &child);
+  if (!mrb_obj_is_kind_of(mrb, child, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "argument must be JS::Object");
+    return mrb_nil_value();
+  }
+  picorb_js_obj *parent_obj = (picorb_js_obj *)DATA_PTR(self);
+  picorb_js_obj *child_obj = (picorb_js_obj *)DATA_PTR(child);
+  bool success = js_append_child(parent_obj->ref_id, child_obj->ref_id);
+  return mrb_bool_value(success);
+}
+
+/*
+ * JS::Object#removeChild
+ */
+static mrb_value
+mrb_object_remove_child(mrb_state *mrb, mrb_value self)
+{
+  mrb_value child;
+  mrb_get_args(mrb, "o", &child);
+  if (!mrb_obj_is_kind_of(mrb, child, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "argument must be JS::Object");
+    return mrb_nil_value();
+  }
+  picorb_js_obj *parent_obj = (picorb_js_obj *)DATA_PTR(self);
+  picorb_js_obj *child_obj = (picorb_js_obj *)DATA_PTR(child);
+  bool success = js_remove_child(parent_obj->ref_id, child_obj->ref_id);
+  return mrb_bool_value(success);
+}
+
+/*
+ * JS::Object#replaceChild
+ */
+static mrb_value
+mrb_object_replace_child(mrb_state *mrb, mrb_value self)
+{
+  mrb_value new_child, old_child;
+  mrb_get_args(mrb, "oo", &new_child, &old_child);
+  if (!mrb_obj_is_kind_of(mrb, new_child, class_JS_Object) ||
+      !mrb_obj_is_kind_of(mrb, old_child, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "arguments must be JS::Object");
+    return mrb_nil_value();
+  }
+  picorb_js_obj *parent_obj = (picorb_js_obj *)DATA_PTR(self);
+  picorb_js_obj *new_child_obj = (picorb_js_obj *)DATA_PTR(new_child);
+  picorb_js_obj *old_child_obj = (picorb_js_obj *)DATA_PTR(old_child);
+  bool success = js_replace_child(parent_obj->ref_id, new_child_obj->ref_id, old_child_obj->ref_id);
+  return mrb_bool_value(success);
+}
+
+/*
+ * JS::Object#insertBefore
+ */
+static mrb_value
+mrb_object_insert_before(mrb_state *mrb, mrb_value self)
+{
+  mrb_value new_child, ref_child;
+  mrb_get_args(mrb, "oo", &new_child, &ref_child);
+  if (!mrb_obj_is_kind_of(mrb, new_child, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "new_child must be JS::Object");
+    return mrb_nil_value();
+  }
+  picorb_js_obj *parent_obj = (picorb_js_obj *)DATA_PTR(self);
+  picorb_js_obj *new_child_obj = (picorb_js_obj *)DATA_PTR(new_child);
+  int ref_child_ref_id = mrb_nil_p(ref_child) ? -1 :
+    ((picorb_js_obj *)DATA_PTR(ref_child))->ref_id;
+  bool success = js_insert_before(parent_obj->ref_id, new_child_obj->ref_id, ref_child_ref_id);
+  return mrb_bool_value(success);
+}
+
+/*
+ * JS::Object#setAttribute
+ */
+static mrb_value
+mrb_object_set_attribute(mrb_state *mrb, mrb_value self)
+{
+  char *name, *value;
+  mrb_get_args(mrb, "zz", &name, &value);
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  bool success = js_set_attribute(obj->ref_id, name, value);
+  return mrb_bool_value(success);
+}
+
+/*
+ * JS::Object#removeAttribute
+ */
+static mrb_value
+mrb_object_remove_attribute(mrb_state *mrb, mrb_value self)
+{
+  char *name;
+  mrb_get_args(mrb, "z", &name);
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  bool success = js_remove_attribute(obj->ref_id, name);
+  return mrb_bool_value(success);
+}
+
+/*
  * JS.global
  */
 static mrb_value
@@ -792,4 +1134,13 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_poro), mrb_object_to_poro, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createTextNode), mrb_object_create_text_node, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(appendChild), mrb_object_append_child, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeChild), mrb_object_remove_child, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(replaceChild), mrb_object_replace_child, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(insertBefore), mrb_object_insert_before, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(setAttribute), mrb_object_set_attribute, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeAttribute), mrb_object_remove_attribute, MRB_ARGS_REQ(1));
 }
