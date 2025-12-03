@@ -15,6 +15,7 @@
 
 //extern void mrb_init_picoruby_gems(mrb_state *mrb);
 extern void mrb_js_init(mrb_state *mrb);
+extern void mrb_websocket_init(mrb_state *mrb);
 
 mrb_state *global_mrb = NULL;
 mrb_value main_task = {0};
@@ -72,6 +73,7 @@ picorb_init(void)
 
  // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);
+  mrb_websocket_init(global_mrb);
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
@@ -151,6 +153,7 @@ void
 mrb_picoruby_wasm_gem_init(mrb_state* mrb)
 {
   mrb_js_init(mrb);
+  mrb_websocket_init(mrb);
 }
 
 void
