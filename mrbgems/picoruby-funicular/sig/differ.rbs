@@ -1,0 +1,12 @@
+module Funicular
+  module VDOM
+    class Differ
+      def self.diff: (untyped old_node, untyped new_node) -> Array[patch_t]
+
+      private def self.diff_text: (untyped old_node, untyped new_node) -> Array[patch_t]
+      private def self.diff_element: (untyped old_node, untyped new_node) -> Array[patch_t]
+      private def self.diff_props: (Hash[Symbol, String] old_props, Hash[Symbol, String] new_props) -> Hash[Symbol, String?]
+      private def self.diff_children: (untyped old_children, untyped new_children) -> Array[patch_t]
+    end
+  end
+end
