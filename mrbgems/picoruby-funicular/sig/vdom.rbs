@@ -1,0 +1,42 @@
+module Funicular
+  module VDOM
+    type patch_t = Array[untyped]
+    type child_t = VNode | String | Array[VNode | String]
+
+    class VNode
+      attr_reader type: Symbol
+
+      def self.new: (Symbol type) -> VNode
+    end
+
+    class Element < VNode
+      attr_reader tag: String
+      attr_reader props: Hash[Symbol, String]
+      attr_reader children: Array[child_t]
+
+      def self.new: (String tag, ?Hash[Symbol, String] props, ?Array[child_t] children) -> Element
+      def ==: (untyped other) -> bool
+    end
+
+    class Text < VNode
+      attr_reader content: String
+
+      def self.new: (String content) -> Text
+      def ==: (untyped other) -> bool
+    end
+
+    class Renderer
+      def self.new: (?JS::Object? doc) -> Renderer
+      def render: (VNode vnode, ?JS::Object? parent) -> JS::Object
+
+      private def render_element: (untyped element, JS::Object? parent) -> JS::Object
+      private def render_text: (untyped text, JS::Object? parent) -> JS::Object
+    end
+
+    def self.create_element: (String tag, ?Hash[Symbol, String] props, *child_t children) -> Element
+    def self.create_text: (String content) -> Text
+    def self.render: (VNode vnode, JS::Object container) -> JS::Object
+    def self.diff: (VNode? old_vnode, VNode? new_vnode) -> Array[patch_t]
+    def self.patch: (JS::Object element, Array[patch_t] patches) -> JS::Object
+  end
+end
