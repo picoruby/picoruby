@@ -1,0 +1,5 @@
+module Funicular
+  VERSION: String
+
+  def self.version: () -> String
+end
