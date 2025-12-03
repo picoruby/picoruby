@@ -57,9 +57,9 @@ gpio_isr_handler(void* arg)
   if (current_level == 0) {
     /* Pin is LOW */
     if (handler->event_mask & GPIO_IRQ_EDGE_FALL) {
-      events = GPIO_IRQ_EDGE_FALL;
+      events = PICORB_GPIO_IRQ_EVENT_EDGE_FALL;
     } else if (handler->event_mask & GPIO_IRQ_LEVEL_LOW) {
-      events = GPIO_IRQ_LEVEL_LOW;
+      events = PICORB_GPIO_IRQ_EVENT_LEVEL_LOW;
     } else {
       gpio_set_intr_type(handler->pin, GPIO_INTR_HIGH_LEVEL);
       return;
@@ -68,9 +68,9 @@ gpio_isr_handler(void* arg)
   } else {
     /* Pin is HIGH */
     if (handler->event_mask & GPIO_IRQ_EDGE_RISE) {
-      events = GPIO_IRQ_EDGE_RISE;
+      events = PICORB_GPIO_IRQ_EVENT_EDGE_RISE;
     } else if (handler->event_mask & GPIO_IRQ_LEVEL_HIGH) {
-      events = GPIO_IRQ_LEVEL_HIGH;
+      events = PICORB_GPIO_IRQ_EVENT_LEVEL_HIGH;
     } else {
       gpio_set_intr_type(handler->pin, GPIO_INTR_LOW_LEVEL);
       return;

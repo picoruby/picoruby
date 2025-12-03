@@ -90,7 +90,7 @@ end
 
 class GPIO
   include IRQ
-  # pico-sdk/src/rp2_common/hardware_gpio/include/hardware/gpio.h
+  # Corresponding to ENUM in picoruby-irq/include/irq.h
   LEVEL_LOW = 1
   LEVEL_HIGH = 2
   EDGE_FALL = 4
