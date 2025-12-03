@@ -320,9 +320,34 @@ module JSON
     end
 
     def generate_string(obj)
-      # PicoRuby does not support gsub nor Regexp
-      #"\"#{obj.gsub(/["\\]/, '\\\\\0')}\""
-      "\"#{obj.to_s.tr('"\\', '""\\\\')}\""
+      # Manually escape special characters since PicoRuby does not support gsub nor Regexp
+      str = obj.to_s
+      result = '"'
+      i = 0
+      while i < str.length
+        char = str[i]
+        case char
+        when '"'
+          result += '\\"'
+        when '\\'
+          result += '\\\\'
+        when "\b"
+          result += '\\b'
+        when "\f"
+          result += '\\f'
+        when "\n"
+          result += '\\n'
+        when "\r"
+          result += '\\r'
+        when "\t"
+          result += '\\t'
+        else
+          result += char if char
+        end
+        i += 1
+      end
+      result += '"'
+      result
     end
 
     def generate_number(obj)
