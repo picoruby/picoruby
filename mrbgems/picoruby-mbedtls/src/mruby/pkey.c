@@ -50,13 +50,6 @@ mrb_mbedtls_pkey_rsa_private_p(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_mbedtls_pkey_rsa_free(mrb_state *mrb, mrb_value self)
-{
-  // For mruby, GC handles freeing. This is for mruby/c compatibility.
-  return mrb_nil_value();
-}
-
-static mrb_value
 mrb_mbedtls_pkey_rsa_s_generate(mrb_state *mrb, mrb_value klass)
 {
   mrb_int bits;
@@ -209,7 +202,6 @@ gem_mbedtls_pkey_init(mrb_state *mrb, struct RClass *module_MbedTLS)
   mrb_define_method_id(mrb, class_MbedTLS_PKey_RSA, MRB_SYM(to_s),        mrb_mbedtls_pkey_rsa_to_pem, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_MbedTLS_PKey_RSA, MRB_SYM_Q(public),    mrb_mbedtls_pkey_rsa_public_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_MbedTLS_PKey_RSA, MRB_SYM_Q(private),   mrb_mbedtls_pkey_rsa_private_p, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MbedTLS_PKey_RSA, MRB_SYM(free),        mrb_mbedtls_pkey_rsa_free, MRB_ARGS_NONE());
 
   class_MbedTLS_PKey_PKeyError = mrb_define_class_under_id(mrb, module_MbedTLS_PKey, MRB_SYM(PKeyError), E_STANDARD_ERROR);
 }

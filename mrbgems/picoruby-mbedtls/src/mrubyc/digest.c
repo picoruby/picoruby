@@ -2,6 +2,12 @@
 #include "digest.h"
 
 static void
+mrbc_digest_free(mrbc_value *self)
+{
+  MbedTLS_digest_free((unsigned char *)self->instance->data);
+}
+
+static void
 c_mbedtls_digest_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
@@ -32,12 +38,6 @@ c_mbedtls_digest_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   SET_RETURN(self);
-}
-
-static void
-c_mbedtls_digest_free(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  MbedTLS_digest_free((unsigned char *)v->instance->data);
 }
 
 static void
@@ -85,9 +85,9 @@ void
 gem_mbedtls_digest_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
 {
   mrbc_class *class_MbedTLS_Digest = mrbc_define_class_under(vm, module_MbedTLS, "Digest", mrbc_class_object);
+  mrbc_define_destructor(class_MbedTLS_Digest, mrbc_digest_free);
 
   mrbc_define_method(vm, class_MbedTLS_Digest, "new", c_mbedtls_digest_new);
   mrbc_define_method(vm, class_MbedTLS_Digest, "update", c_mbedtls_digest_update);
   mrbc_define_method(vm, class_MbedTLS_Digest, "finish", c_mbedtls_digest_finish);
-  mrbc_define_method(vm, class_MbedTLS_Digest, "free", c_mbedtls_digest_free);
 }

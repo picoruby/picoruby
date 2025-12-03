@@ -44,13 +44,6 @@ mrb_mbedtls_digest_initialize(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_mbedtls_digest_free(mrb_state *mrb, mrb_value self)
-{
-  // no-op for compatibility with mruby/c
-  return mrb_nil_value();
-}
-
-static mrb_value
 mrb_mbedtls_digest_update(mrb_state *mrb, mrb_value self)
 {
   mrb_value input;
@@ -90,5 +83,4 @@ gem_mbedtls_digest_init(mrb_state *mrb, struct RClass *module_MbedTLS)
   mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(initialize),  mrb_mbedtls_digest_initialize, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(update),      mrb_mbedtls_digest_update, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(finish),      mrb_mbedtls_digest_finish, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(free),        mrb_mbedtls_digest_free, MRB_ARGS_NONE());
 }
