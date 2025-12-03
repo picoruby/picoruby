@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Diff/Patch - PicoRuby Funicular</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+    #test-results {
+      margin-top: 20px;
+    }
+    .test-case {
+      margin: 10px 0;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .test-case.pass {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    .test-case.fail {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+    #container {
+      margin: 20px 0;
+      padding: 10px;
+      border: 2px solid #007bff;
+      min-height: 50px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Diff/Patch Test Suite</h1>
+  <div id="test-results"></div>
+  <div id="container"></div>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'funicular'
+
+    doc = JS.document
+    results = doc.getElementById('test-results')
+    container = doc.getElementById('container')
+
+    def test_case(name, &block)
+      doc = JS.document
+      results = doc.getElementById('test-results')
+      div = doc.createElement('div')
+      div.className = 'test-case'
+
+      begin
+        block.call
+        div.className = 'test-case pass'
+        div.textContent = "PASS: #{name}"
+      rescue => e
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: #{name} - #{e.message}"
+      end
+
+      results.appendChild(div)
+    end
+
+    test_case("Diff text change") do
+      old = Funicular::VDOM.create_text('Hello')
+      new = Funicular::VDOM.create_text('World')
+      patches = Funicular::VDOM.diff(old, new)
+      raise "Diff failed" if patches.empty?
+      raise "Wrong patch type" unless patches[0][0] == :replace
+    end
+
+    test_case("Diff props change") do
+      old = Funicular::VDOM.create_element('button', { class: 'red' })
+      new = Funicular::VDOM.create_element('button', { class: 'blue' })
+      patches = Funicular::VDOM.diff(old, new)
+      raise "Diff failed" if patches.empty?
+      raise "Wrong patch type" unless patches[0][0] == :props
+      raise "Wrong prop value" unless patches[0][1][:class] == 'blue'
+    end
+
+    test_case("Diff no change") do
+      old = Funicular::VDOM.create_element('div', { id: 'test' }, 'Same')
+      new = Funicular::VDOM.create_element('div', { id: 'test' }, 'Same')
+      patches = Funicular::VDOM.diff(old, new)
+      raise "Should have no patches" unless patches.empty?
+    end
+
+    test_case("Diff tag change") do
+      old = Funicular::VDOM.create_element('div')
+      new = Funicular::VDOM.create_element('span')
+      patches = Funicular::VDOM.diff(old, new)
+      raise "Diff failed" if patches.empty?
+      raise "Wrong patch type" unless patches[0][0] == :replace
+    end
+
+    test_case("Diff child addition") do
+      old = Funicular::VDOM.create_element('ul')
+      new = Funicular::VDOM.create_element('ul', {},
+        Funicular::VDOM.create_element('li', {}, 'Item 1')
+      )
+      patches = Funicular::VDOM.diff(old, new)
+      raise "Diff failed" if patches.empty?
+      raise "Wrong patch structure" unless patches[0].is_a?(Array)
+      raise "Wrong child index" unless patches[0][0] == 0
+    end
+
+    test_case("Patch text content") do
+      container = doc.getElementById('container')
+      container.innerHTML = ''
+
+      old_vnode = Funicular::VDOM.create_element('p', {}, 'Old text')
+      dom_node = Funicular::VDOM.render(old_vnode, container)
+
+      new_vnode = Funicular::VDOM.create_element('p', {}, 'New text')
+      patches = Funicular::VDOM.diff(old_vnode, new_vnode)
+
+      child = container.children.to_poro[0]
+      Funicular::VDOM.patch(child, patches)
+
+      updated_text = child[:textContent].to_poro
+      raise "Patch failed: got '#{updated_text}'" unless updated_text == 'New text'
+    end
+
+    test_case("Patch attributes") do
+      container = doc.getElementById('container')
+      container.innerHTML = ''
+
+      old_vnode = Funicular::VDOM.create_element('div', { class: 'old', id: 'test' })
+      dom_node = Funicular::VDOM.render(old_vnode, container)
+
+      new_vnode = Funicular::VDOM.create_element('div', { class: 'new', id: 'test' })
+      patches = Funicular::VDOM.diff(old_vnode, new_vnode)
+
+      child = container.children.to_poro[0]
+      Funicular::VDOM.patch(child, patches)
+
+      updated_class = child[:className].to_poro
+      raise "Patch failed: got '#{updated_class}'" unless updated_class == 'new'
+    end
+
+    test_case("Patch nested elements") do
+      container = doc.getElementById('container')
+      container.innerHTML = ''
+
+      old_vnode = Funicular::VDOM.create_element('div', {},
+        Funicular::VDOM.create_element('p', {}, 'Old')
+      )
+      dom_node = Funicular::VDOM.render(old_vnode, container)
+
+      new_vnode = Funicular::VDOM.create_element('div', {},
+        Funicular::VDOM.create_element('p', {}, 'New')
+      )
+      patches = Funicular::VDOM.diff(old_vnode, new_vnode)
+
+      child = container.children.to_poro[0]
+      Funicular::VDOM.patch(child, patches)
+
+      p_element = child[:children].to_poro[0]
+      updated_text = p_element[:textContent].to_poro
+      raise "Patch failed: got '#{updated_text}'" unless updated_text == 'New'
+    end
+
+    summary = doc.createElement('h2')
+    summary.textContent = 'All tests completed!'
+    summary.style = 'color: green; margin-top: 20px;'
+    results.appendChild(summary)
+  </script>
+  <script src="../init.iife.js"></script>
+</body>
+</html>
