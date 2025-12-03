@@ -7,6 +7,14 @@
 
 #include <string.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+
+EM_JS(double, emscripten_date_now, (), {
+  return Date.now();
+});
+#endif
+
 typedef struct
 {
   struct tm   tm;
@@ -192,7 +200,11 @@ mrb_s_at(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_s_now(mrb_state *mrb, mrb_value klass)
 {
-#if defined(NO_CLOCK_GETTIME)
+#ifdef __EMSCRIPTEN__
+  double ms = emscripten_date_now();
+  mrb_int unixtime_us = (mrb_int)(ms * 1000.0);
+  return new_from_unixtime_us(mrb, klass, unixtime_us);
+#elif defined(NO_CLOCK_GETTIME)
   struct timeval tv;
   gettimeofday(&tv, 0);
   return new_from_unixtime_us(mrb, klass, (mrb_int)(tv.tv_sec * USEC + tv.tv_usec));
@@ -228,7 +240,7 @@ static mrb_value
 mrb_to_i(mrb_state *mrb, mrb_value self)
 {
   PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value((mrb_int)data->unixtime_us / USEC);
+  return mrb_int_value(mrb, (mrb_int)data->unixtime_us / USEC);
 }
 
 static mrb_value
