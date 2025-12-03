@@ -49,7 +49,6 @@ if public_key.verify(digest, signature, data)
 else
   p "Not verified"
 end
-digest.free
 ```
 
 ## Create key pair in PicoRuby and MbedTLS

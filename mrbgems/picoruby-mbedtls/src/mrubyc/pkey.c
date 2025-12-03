@@ -37,14 +37,12 @@ c_mbedtls_pkey_rsa_private_q(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_mbedtls_pkey_rsa_free(mrbc_vm *vm, mrbc_value *v, int argc)
+mrbc_pkey_rsa_free(mrbc_value *self)
 {
-  void *pk = v->instance->data;
+  void *pk = self->instance->data;
   if (pk) {
     MbedTLS_pkey_free(pk);
-    // The instance itself is freed by GC
   }
-  SET_NIL_RETURN();
 }
 
 static void
@@ -221,6 +219,8 @@ gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
   mrbc_define_method(vm, class_MbedTLS_PKey_PKeyBase, "verify", c_mbedtls_pkey_pkeybase_verify);
 
   mrbc_class *class_MbedTLS_PKey_RSA = mrbc_define_class_under(vm, module_MbedTLS_PKey, "RSA", class_MbedTLS_PKey_PKeyBase);
+  mrbc_define_destructor(class_MbedTLS_PKey_RSA, mrbc_pkey_rsa_free);
+
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "new", c_mbedtls_pkey_rsa_new);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "generate", c_mbedtls_pkey_rsa_generate);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "public_key", c_mbedtls_pkey_rsa_public_key);
@@ -229,7 +229,6 @@ gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "to_s", c_mbedtls_pkey_rsa_to_pem);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "public?", c_mbedtls_pkey_rsa_public_q);
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "private?", c_mbedtls_pkey_rsa_private_q);
-  mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "free", c_mbedtls_pkey_rsa_free);
 
   class_MbedTLS_PKey_PKeyError = mrbc_define_class_under(vm, module_MbedTLS_PKey, "PKeyError", MRBC_CLASS(StandardError));
 }
