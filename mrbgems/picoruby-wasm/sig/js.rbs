@@ -12,19 +12,27 @@ module JS
 
     def []: (Symbol name) -> JS::Object
     def fetch: (String url) { (::Object response) -> void } -> void
-    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer # callback_id
+    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer
+    def removeEventListener: (Integer callback_id) -> bool
     def to_binary: () -> String
+    def call: (*untyped args) -> untyped
 
-
-    # Methods
-    def querySelector: (String selector) -> JS::Object
-    def appendChild: (JS::Object child) -> JS::Object
-    def removeChild: (JS::Object child) -> JS::Object
-    def setAttribute: (String name, String value) -> void
-    def removeAttribute: (String name) -> void
-    def replaceChild: (JS::Object new_child, JS::Object old_child) -> JS::Object
+    # DOM manipulation methods
     def createElement: (String tag_name) -> JS::Object
     def createTextNode: (String text) -> JS::Object
+    def appendChild: (JS::Object child) -> bool
+    def removeChild: (JS::Object child) -> bool
+    def replaceChild: (JS::Object new_child, JS::Object old_child) -> bool
+    def insertBefore: (JS::Object new_child, JS::Object? ref_child) -> bool
+    def setAttribute: (String name, String value) -> bool
+    def removeAttribute: (String name) -> bool
+
+    # Event methods
+    def preventDefault: () -> void
+    def stopPropagation: () -> void
+
+    # Common DOM methods
+    def querySelector: (String selector) -> JS::Object
 
     # Properties
     def className: () -> JS::Object
@@ -41,6 +49,7 @@ module JS
 
     private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
+    private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
   end
