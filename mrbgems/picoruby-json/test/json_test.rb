@@ -32,4 +32,27 @@ class JsonTest < Picotest::Test
     assert_equal("\r", JSON.parse('"\\r"'))
     assert_equal("\t", JSON.parse('"\\t"'))
   end
+
+  def test_generate_with_special_characters
+    assert_equal('"\\"hello\\""', JSON.generate('"hello"'))
+    assert_equal('"\\\\"', JSON.generate('\\'))
+    assert_equal('"\\b"', JSON.generate("\b"))
+    assert_equal('"\\f"', JSON.generate("\f"))
+    assert_equal('"\\n"', JSON.generate("\n"))
+    assert_equal('"\\r"', JSON.generate("\r"))
+    assert_equal('"\\t"', JSON.generate("\t"))
+  end
+
+  def test_generate_nested_json_string
+    # Test for ActionCable-like nested JSON
+    inner = JSON.generate({channel: "ChatChannel", room: "lobby"})
+    outer = JSON.generate({command: "subscribe", identifier: inner})
+    # Should be valid JSON
+    parsed = JSON.parse(outer)
+    assert_equal("subscribe", parsed["command"])
+    # identifier should be a JSON string that can be parsed again
+    identifier_parsed = JSON.parse(parsed["identifier"])
+    assert_equal("ChatChannel", identifier_parsed["channel"])
+    assert_equal("lobby", identifier_parsed["room"])
+  end
 end
