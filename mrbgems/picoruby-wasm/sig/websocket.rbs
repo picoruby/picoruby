@@ -1,0 +1,27 @@
+class WebSocket
+  CONNECTING: Integer
+  OPEN: Integer
+  CLOSING: Integer
+  CLOSED: Integer
+
+  def self.new: (String url) -> WebSocket
+  def send: (String data) -> nil
+  def send_binary: (String bytes) -> nil
+  def close: () -> nil
+  def ready_state: () -> Integer
+
+  def onopen: () { (JS::Object event) -> void } -> void
+  def onmessage: () { (JS::Object event) -> void } -> void
+  def onerror: () { (JS::Object event) -> void } -> void
+  def onclose: () { (JS::Object event) -> void } -> void
+
+  def connecting?: () -> bool
+  def open?: () -> bool
+  def closing?: () -> bool
+  def closed?: () -> bool
+
+  private def _set_onopen: (Integer callback_id) -> nil
+  private def _set_onmessage: (Integer callback_id) -> nil
+  private def _set_onerror: (Integer callback_id) -> nil
+  private def _set_onclose: (Integer callback_id) -> nil
+end
