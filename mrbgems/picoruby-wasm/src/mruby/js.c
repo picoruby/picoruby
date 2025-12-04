@@ -654,16 +654,12 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id,
  *****************************************************/
 
 /*
- * JS::Object#[]
+ * Common function to get JS property and wrap as JS::Object
  */
 static mrb_value
-mrb_object_get_property(mrb_state *mrb, mrb_value self)
+get_js_property(mrb_state *mrb, int parent_ref_id, const char* property_name)
 {
-  picorb_js_obj *parent = (picorb_js_obj *)DATA_PTR(self);
-  mrb_sym key;
-  mrb_get_args(mrb, "n", &key);
-  const char* key_str = mrb_sym_name(mrb, key);
-  int ref_id = get_property(parent->ref_id, key_str);
+  int ref_id = get_property(parent_ref_id, property_name);
 
   if (ref_id < 0) {
     return mrb_nil_value();
@@ -673,6 +669,65 @@ mrb_object_get_property(mrb_state *mrb, mrb_value self)
   data->ref_id = ref_id;
   mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
   return obj;
+}
+
+/*
+ * JS::Object#[]
+ */
+static mrb_value
+mrb_object_get_property(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *parent = (picorb_js_obj *)DATA_PTR(self);
+  mrb_sym key;
+  mrb_get_args(mrb, "n", &key);
+  const char* key_str = mrb_sym_name(mrb, key);
+
+  return get_js_property(mrb, parent->ref_id, key_str);
+}
+
+/*
+ * Common function to set JS property
+ */
+static bool
+set_js_property(mrb_state *mrb, int ref_id, const char* property_name, mrb_value value)
+{
+  bool success = false;
+  if (mrb_string_p(value)) {
+    success = set_property(ref_id, property_name, RSTRING_PTR(value));
+  } else if (mrb_integer_p(value)) {
+    success = set_property_int(ref_id, property_name, mrb_integer(value));
+  } else if (mrb_float_p(value)) {
+    success = set_property_double(ref_id, property_name, mrb_float(value));
+  } else if (mrb_true_p(value) || mrb_false_p(value)) {
+    success = set_property_bool(ref_id, property_name, mrb_bool(value));
+  } else if (mrb_nil_p(value)) {
+    success = set_property_null(ref_id, property_name);
+  } else if (mrb_obj_is_kind_of(mrb, value, class_JS_Object)) {
+    picorb_js_obj *value_obj = (picorb_js_obj *)DATA_PTR(value);
+    success = set_property_ref(ref_id, property_name, value_obj->ref_id);
+  } else {
+    mrb_raisef(mrb, E_TYPE_ERROR, "unsupported type for property value: %T", value);
+  }
+  return success;
+}
+
+/*
+ * JS::Object#[]=
+ */
+static mrb_value
+mrb_object_set_property(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
+  mrb_sym key;
+  mrb_value value;
+  mrb_get_args(mrb, "no", &key, &value);
+  const char* key_str = mrb_sym_name(mrb, key);
+
+  bool success = set_js_property(mrb, js_obj->ref_id, key_str, value);
+  if (!success) {
+    return mrb_nil_value();
+  }
+  return value;
 }
 
 /*
@@ -811,25 +866,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     strncpy(property_name, method_name, strlen(method_name) - 1);
     property_name[strlen(method_name) - 1] = '\0';
 
-    bool success = false;
-    if (mrb_string_p(argv[0])) {
-      success = set_property(js_obj->ref_id, property_name, RSTRING_PTR(argv[0]));
-    } else if (mrb_integer_p(argv[0])) {
-      success = set_property_int(js_obj->ref_id, property_name, mrb_integer(argv[0]));
-    } else if (mrb_float_p(argv[0])) {
-      success = set_property_double(js_obj->ref_id, property_name, mrb_float(argv[0]));
-    } else if (mrb_true_p(argv[0]) || mrb_false_p(argv[0])) {
-      success = set_property_bool(js_obj->ref_id, property_name, mrb_bool(argv[0]));
-    } else if (mrb_nil_p(argv[0])) {
-      success = set_property_null(js_obj->ref_id, property_name);
-    } else if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object)) {
-      picorb_js_obj *value_obj = (picorb_js_obj *)DATA_PTR(argv[0]);
-      success = set_property_ref(js_obj->ref_id, property_name, value_obj->ref_id);
-    } else {
-      mrb_raisef(mrb, E_TYPE_ERROR, "unsupported type for property value: %T", argv[0]);
-      return mrb_nil_value();
-    }
-
+    bool success = set_js_property(mrb, js_obj->ref_id, property_name, argv[0]);
     if (!success) {
       return mrb_nil_value();
     }
@@ -839,13 +876,12 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   int new_ref_id;
 
   if (argc == 0) { // No argument
-    new_ref_id = get_property(js_obj->ref_id, method_name);
-    if (new_ref_id >= 0) {
-      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-      data->ref_id = new_ref_id;
-      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-      return obj;
+    // Try to get property first
+    mrb_value property_obj = get_js_property(mrb, js_obj->ref_id, method_name);
+    if (!mrb_nil_p(property_obj)) {
+      return property_obj;
     }
+    // If property doesn't exist, try calling as method
     new_ref_id = call_method(js_obj->ref_id, method_name, "");
     if (new_ref_id < 0) {
       return mrb_nil_value();
@@ -1128,6 +1164,7 @@ mrb_js_init(mrb_state *mrb)
   MRB_SET_INSTANCE_TT(class_JS_Object, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aref), mrb_object_get_property, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aset), mrb_object_set_property, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(method_missing), mrb_object_method_missing, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_add_event_listener), mrb_object__add_event_listener, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
