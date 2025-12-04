@@ -1,0 +1,21 @@
+module Funicular
+  class Router
+    attr_reader routes: Hash[String, singleton(Component)]
+    attr_reader current_component: Component?
+    attr_reader current_path: String?
+
+    def self.new: (JS::Object container) -> Router
+    def add_route: (String path, singleton(Component) component_class) -> void
+    def set_default: (String path) -> void
+    def start: () -> void
+    def stop: () -> void
+    def navigate: (String path) -> void
+    def current_hash_path: () -> String
+
+    private def handle_route_change: () -> void
+    private def unmount_current_component: () -> void
+  end
+
+  def self.router: () -> Router?
+  def self.start: (?singleton(Component)? component_class, ?container: String | JS::Object, ?props: Hash[Symbol, untyped]) ?{ (Router router) -> void } -> (Component | Router)
+end

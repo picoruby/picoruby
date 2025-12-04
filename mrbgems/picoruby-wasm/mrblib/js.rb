@@ -41,11 +41,11 @@ module JS
     end
 
     def preventDefault
-      self[:preventDefault].call(self)
+      self[:preventDefault].call()
     end
 
     def stopPropagation
-      self[:stopPropagation].call(self)
+      self[:stopPropagation].call()
     end
   end
 end
