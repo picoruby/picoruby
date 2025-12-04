@@ -62,8 +62,11 @@ module Funicular
         element.props.each do |key, value|
           key_str = key.to_s
           if key_str.start_with?('on')
-            # Event handler
-            # Store for later event binding
+            # Event handlers are handled by Funicular::Component and should not be set as attributes.
+            # warn "Funicular: Attempted to set event handler '#{key_str}' as an attribute. This will be ignored."
+          elsif (key_str == 'href' || key_str == 'src') && value.to_s.start_with?('javascript:')
+            # Prevent XSS attacks by blocking javascript: URIs in href/src attributes
+            puts "[WARN] Funicular: Blocked potentially malicious value '#{value}' for attribute '#{key_str}'."
           else
             # Attribute
             dom_node.setAttribute(key_str, value.to_s)
