@@ -9,3 +9,11 @@ end
 class ObjectSpace
   def self.count_objects: () -> Hash[Symbol, Integer]
 end
+
+class Module
+  def define_method: (String | Symbol symbol, ^() [self: instance] -> untyped method) -> Symbol
+                   | (String | Symbol symbol) { () [self: instance] -> untyped } -> Symbol
+end
+
+class Class < Module
+end
