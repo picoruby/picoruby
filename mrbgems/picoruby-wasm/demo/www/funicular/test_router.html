@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Funicular Router Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    nav { margin-bottom: 20px; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+    nav a { margin-right: 15px; text-decoration: none; color: #007bff; }
+    nav a:hover { text-decoration: underline; }
+    #app { padding: 20px; border: 2px solid #007bff; border-radius: 5px; min-height: 200px; }
+    .page-title { color: #333; margin-bottom: 15px; }
+    button { padding: 8px 16px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+    button:hover { background: #0056b3; }
+    .status { margin-top: 10px; padding: 10px; background: #e7f3ff; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div><a href="../index.html">Back</a></div>
+  <h1>Funicular Router Test</h1>
+
+  <nav>
+    <a href="#/login">Login</a>
+    <a href="#/home">Home</a>
+    <a href="#/settings">Settings</a>
+  </nav>
+
+  <div id="app"></div>
+
+  <script type="text/ruby">
+    class LoginComponent < Funicular::Component
+      def initialize_state
+        { username: '' }
+      end
+
+      def on_username_input(event)
+        update(username: event.target[:value].to_poro)
+      end
+
+      def on_login_click(event)
+        event.preventDefault
+        Funicular.router.navigate('/home')
+      end
+
+      def render
+        div(class: 'login-page') do
+          h2(class: 'page-title') { 'Login Page' }
+
+          div do
+            input(
+              type: 'text',
+              placeholder: 'Username',
+              value: @state[:username],
+              oninput: :on_username_input
+            )
+          end
+
+          div do
+            button(onclick: :on_login_click) { 'Login' }
+          end
+
+          div(class: 'status') do
+            "Username: #{@state[:username]}"
+          end
+        end
+      end
+    end
+
+    class HomeComponent < Funicular::Component
+      def initialize_state
+        { count: 0 }
+      end
+
+      def increment(event)
+        event.preventDefault
+        update(count: @state[:count] + 1)
+      end
+
+      def go_to_settings(event)
+        event.preventDefault
+        Funicular.router.navigate('/settings')
+      end
+
+      def render
+        div(class: 'home-page') do
+          h2(class: 'page-title') { 'Home Page' }
+
+          div do
+            "Counter: #{@state[:count]}"
+          end
+
+          div do
+            button(onclick: :increment) { 'Increment' }
+            button(onclick: :go_to_settings) { 'Go to Settings' }
+          end
+
+          div(class: 'status') do
+            "You are on the home page. Click around to test routing!"
+          end
+        end
+      end
+    end
+
+    class SettingsComponent < Funicular::Component
+      def initialize_state
+        { theme: 'light', notifications: true }
+      end
+
+      def toggle_theme(event)
+        event.preventDefault
+        new_theme = @state[:theme] == 'light' ? 'dark' : 'light'
+        update(theme: new_theme)
+      end
+
+      def toggle_notifications(event)
+        event.preventDefault
+        update(notifications: !@state[:notifications])
+      end
+
+      def go_to_home(event)
+        event.preventDefault
+        Funicular.router.navigate('/home')
+      end
+
+      def render
+        div(class: 'settings-page') do
+          h2(class: 'page-title') { 'Settings Page' }
+
+          div do
+            span { "Theme: #{@state[:theme]}" }
+            button(onclick: :toggle_theme) { 'Toggle Theme' }
+          end
+
+          div do
+            span { "Notifications: #{@state[:notifications] ? 'ON' : 'OFF'}" }
+            button(onclick: :toggle_notifications) { 'Toggle Notifications' }
+          end
+
+          div do
+            button(onclick: :go_to_home) { 'Back to Home' }
+          end
+
+          div(class: 'status') do
+            "Configure your settings here"
+          end
+        end
+      end
+    end
+
+    # Start router
+    puts "Starting Funicular Router..."
+    Funicular.start(container: 'app') do |router|
+      router.add_route('/login', LoginComponent)
+      router.add_route('/home', HomeComponent)
+      router.add_route('/settings', SettingsComponent)
+      router.set_default('/login')
+    end
+    puts "Router started!"
+  </script>
+  <script src="../init.iife.js"></script>
+</body>
+</html>
