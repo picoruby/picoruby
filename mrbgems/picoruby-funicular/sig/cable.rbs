@@ -1,0 +1,49 @@
+module Funicular
+  module Cable
+    def self.create_consumer: (String url) -> Consumer
+
+    class Consumer
+      attr_reader url: String
+      attr_reader subscriptions: Subscriptions
+
+      def initialize: (String url) -> void
+      def connect: () -> void
+      def send_command: (Hash[Symbol, untyped] command) -> void
+      def disconnect: () -> void
+
+      private
+
+      def handle_message: (String data) -> void
+      def flush_pending_commands: () -> void
+      def schedule_reconnect: () -> void
+      def calculate_backoff_delay: () -> Integer
+    end
+
+    class Subscriptions
+      def initialize: (Consumer consumer) -> void
+      def create: (Hash[Symbol, untyped] params) ?{ (untyped message) -> void } -> Subscription
+      def find: (String identifier) -> Subscription?
+      def remove: (Subscription subscription) -> void
+      def notify_subscription_confirmed: (String identifier) -> void
+      def notify_subscription_rejected: (String identifier) -> void
+      def notify_message: (String identifier, untyped message) -> void
+    end
+
+    class Subscription
+      attr_reader consumer: Consumer
+      attr_reader identifier: String
+      attr_reader params: Hash[Symbol, untyped]
+
+      def self.new: (Consumer consumer, String identifier, Hash[Symbol, untyped] params) ?{ (untyped message) -> void } -> Subscription
+      def subscribe: () -> void
+      def unsubscribe: () -> void
+      def perform: (String action, ?Hash[Symbol, untyped] data) -> void
+      def on_connected: () { () -> void } -> void
+      def on_disconnected: () { () -> void } -> void
+      def on_rejected: () { () -> void } -> void
+      def notify_connected: () -> void
+      def notify_rejected: () -> void
+      def notify_received: (untyped message) -> void
+    end
+  end
+end

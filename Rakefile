@@ -168,6 +168,13 @@ namespace :wasm do
     sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
   end
 
+  desc "Start ActionCable test server for Funicular"
+  task :cable_server do
+    FileUtils.cd "mrbgems/picoruby-funicular/demo/cable_server" do
+      sh "./server.rb"
+    end
+  end
+
   desc "Check PicoRuby WASM npm versions"
   task :versions do
     sh "npm view @picoruby/wasm versions"
