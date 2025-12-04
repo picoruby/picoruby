@@ -26,6 +26,7 @@ module JS
     def insertBefore: (JS::Object new_child, JS::Object? ref_child) -> bool
     def setAttribute: (String name, String value) -> bool
     def removeAttribute: (String name) -> bool
+    def getElementById: (String id) -> JS::Object
 
     # Event methods
     def preventDefault: () -> void
