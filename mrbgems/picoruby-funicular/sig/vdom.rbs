@@ -11,10 +11,10 @@ module Funicular
 
     class Element < VNode
       attr_reader tag: String
-      attr_reader props: Hash[Symbol, String]
+      attr_reader props: Hash[Symbol, untyped]
       attr_reader children: Array[child_t]
 
-      def self.new: (String tag, ?Hash[Symbol, String] props, ?Array[child_t] children) -> Element
+      def self.new: (String tag, ?Hash[Symbol, untyped] props, ?Array[child_t] children) -> Element
       def ==: (untyped other) -> bool
     end
 
@@ -33,7 +33,7 @@ module Funicular
       private def render_text: (untyped text, JS::Object? parent) -> JS::Object
     end
 
-    def self.create_element: (String tag, ?Hash[Symbol, String] props, *child_t children) -> Element
+    def self.create_element: (String tag, ?Hash[Symbol, untyped] props, *child_t children) -> Element
     def self.create_text: (String content) -> Text
     def self.render: (VNode vnode, JS::Object container) -> JS::Object
     def self.diff: (VNode? old_vnode, VNode? new_vnode) -> Array[patch_t]
