@@ -371,6 +371,255 @@ Task contexts (TCB) are properly managed:
 
 No known issues with task memory management.
 
+## JS::Object Programming Guide
+
+### Overview
+
+`JS::Object` provides Ruby-JavaScript interoperability. It wraps JavaScript objects and allows calling their methods from Ruby code.
+
+### Supported Method Call Patterns
+
+```ruby
+# Get property
+obj[:propertyName]
+
+# Set property
+obj[:propertyName] = value
+
+# Call method with no arguments
+obj.methodName()
+
+# Call method with String argument
+obj.methodName("string")
+
+# Call method with Integer argument (added in latest version)
+obj.methodName(42)
+
+# Call method with JS::Object argument
+obj.methodName(another_js_object)
+
+# Call method with two String arguments
+obj.methodName("arg1", "arg2")
+
+# Call method with two JS::Object arguments
+obj.methodName(obj1, obj2)
+```
+
+### Known Limitations and Workarounds
+
+#### 1. FormData and "Illegal Invocation" Errors
+
+**Problem**: Some JavaScript APIs like `FormData.append()` fail with "Illegal invocation" when called directly from Ruby.
+
+```ruby
+# DOES NOT WORK
+form_data = JS.global[:FormData].new
+form_data.append("key", "value")  # TypeError: Illegal invocation
+```
+
+**Root Cause**: JavaScript's `this` binding. Even though we use `func.call(obj, ...)` in the C code, some native APIs validate that they're called in the correct context.
+
+**Workaround**: Define JavaScript helper functions in HTML:
+
+```html
+<script>
+  window.createFormData = function(fieldsObj) {
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(fieldsObj)) {
+      formData.append(key, value);
+    }
+    return formData;
+  };
+</script>
+```
+
+```ruby
+# Use the helper
+fields_js = JS.global[:Object].new
+fields.each { |k, v| fields_js[k.to_sym] = v }
+form_data = JS.global[:createFormData].call(fields_js)
+```
+
+#### 2. Cannot Assign Proc to JavaScript Properties
+
+**Problem**: JavaScript callback properties (like `onload`, `onclick`) cannot accept Ruby Proc objects.
+
+```ruby
+# DOES NOT WORK
+reader = JS.global[:FileReader].new
+reader[:onload] = -> (e) { puts "loaded" }  # TypeError: unsupported type
+```
+
+**Root Cause**: Ruby Proc objects cannot be directly converted to JavaScript functions.
+
+**Workaround 1**: Use `addEventListener` for DOM elements:
+
+```ruby
+element.addEventListener("click") do |event|
+  puts "Clicked!"
+end
+```
+
+**Workaround 2**: Use alternative APIs that don't require callbacks:
+
+```ruby
+# Instead of FileReader with onload callback:
+reader = JS.global[:FileReader].new
+reader[:onload] = -> (e) { ... }  # DOESN'T WORK
+
+# Use URL.createObjectURL instead:
+url = JS.global[:URL].createObjectURL(file)  # Synchronous, no callback needed
+```
+
+#### 3. Promise Handling
+
+**Built-in Support**: `fetch()` method handles Promises automatically:
+
+```ruby
+JS.global.fetch("https://api.example.com/data") do |response|
+  json_text = response.to_binary
+  data = JSON.parse(json_text)
+  puts data
+end
+```
+
+**Generic Promises**: Use the `then` method (polling-based):
+
+```ruby
+promise = some_js_function_that_returns_promise()
+promise.then do |result|
+  puts "Promise resolved: #{result.inspect}"
+end
+```
+
+**Note**: The `then` method uses polling (`sleep 0.05`) internally. For better performance, prefer using the built-in `fetch()` method when possible.
+
+#### 4. Integer Arguments
+
+**Supported** (as of latest version):
+
+```ruby
+# Array/NodeList access
+files = input[:files]
+file = files.item(0)  # Integer argument works
+
+# Indexed access
+element = array[5]  # Integer argument works
+```
+
+### Best Practices
+
+#### 1. Minimize JavaScript Object Creation
+
+Ruby wrappers are created for each JavaScript object reference. In long-running apps, this can accumulate:
+
+```ruby
+# AVOID in loops
+10000.times do
+  element = JS.document.getElementById('button')
+  # Creates 10000 Ruby wrappers (memory leak)
+end
+
+# BETTER
+element = JS.document.getElementById('button')
+10000.times do
+  # Reuse the wrapper
+  element[:textContent] = "Click #{i}"
+end
+```
+
+#### 2. Use Native Ruby When Possible
+
+```ruby
+# AVOID excessive JS interop
+items = js_array.to_poro  # Convert once
+items.each do |item|      # Process in Ruby
+  process(item)
+end
+
+# INSTEAD OF
+js_array[:forEach].call(-> (item) {  # Repeated JS calls
+  # Processing
+})
+```
+
+#### 3. Handle Errors Gracefully
+
+```ruby
+element = JS.document.getElementById('nonexistent')
+if element
+  # Element exists
+else
+  # Element not found - many JS methods return nil for errors
+end
+```
+
+#### 4. Clean Up Event Listeners
+
+```ruby
+# Store callback ID
+callback_id = element.addEventListener("click") do |e|
+  # Handle click
+end
+
+# Later, remove listener
+element.removeEventListener(callback_id)
+```
+
+### Common Patterns
+
+#### File Upload with Preview
+
+```ruby
+# Get file from input
+input = JS.document.getElementById('file-input')
+files = input[:files]
+file = files.item(0)
+
+# Create preview URL (no callback needed!)
+preview_url = JS.global[:URL].createObjectURL(file)
+img[:src] = preview_url.to_poro
+```
+
+#### FormData with File Upload
+
+```ruby
+# Define helper in HTML first (see limitation #1 above)
+
+# Use from Ruby
+Funicular::FileUpload.upload_with_formdata(
+  "/upload",
+  fields: { name: "John" },
+  file_field: 'avatar',
+  file: file_object
+) do |result|
+  puts "Upload complete: #{result}"
+end
+```
+
+#### Fetch with JSON
+
+```ruby
+JS.global.fetch("/api/users", {
+  method: "POST",
+  headers: { "Content-Type" => "application/json" },
+  body: JSON.generate({ name: "Alice" })
+}) do |response|
+  data = JSON.parse(response.to_binary)
+  puts "Created user: #{data['id']}"
+end
+```
+
+### Debugging Tips
+
+1. **Check Browser Console**: JavaScript errors appear in the browser console, not Ruby output
+2. **Inspect Objects**: Use `obj.inspect` to see JS::Object wrapper details
+3. **Use `.to_poro`**: Convert JS objects to Plain Old Ruby Objects for inspection:
+   ```ruby
+   js_obj.to_poro  # Returns Ruby String, Integer, Array, Hash, etc.
+   ```
+4. **Enable Debug Output**: Use `puts` liberally to trace execution flow
+
 ## References
 
 - [Emscripten setjmp/longjmp Support](https://emscripten.org/docs/porting/setjmp-longjmp.html)
