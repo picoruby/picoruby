@@ -301,56 +301,22 @@ class SettingsComponent < Funicular::Component
   end
 
   def handle_avatar_change(event)
-    doc = JS.document
-    script = doc.createElement("script")
-
-    js_code = "
-      (function() {
-        var input = document.getElementById('avatar-input');
-        if (!input || !input.files || input.files.length === 0) {
-          window._selectedAvatarFile = null;
-          return;
-        }
-
-        var file = input.files[0];
-        window._selectedAvatarFile = file;
-
-        var reader = new FileReader();
-        reader.onload = function(e) {
-          window._avatarPreview = e.target.result;
-        };
-        reader.readAsDataURL(file);
-      })();
-    "
-
-    script[:textContent] = js_code
-    doc[:body].appendChild(script)
-
-    sleep 0.1
-
-    preview = JS.global[:_avatarPreview]
-    if preview
-      setState(avatar_preview: preview.to_poro)
-      JS.global[:_avatarPreview] = nil
+    Funicular::FileUpload.select_file_with_preview('avatar-input') do |file, preview_url|
+      if file && preview_url
+        @selected_avatar_file = file
+        setState(avatar_preview: preview_url)
+      else
+        @selected_avatar_file = nil
+        setState(avatar_preview: nil)
+      end
     end
   end
 
   def handle_save(event)
     event.preventDefault
-
-    # Check if avatar file is selected
-    has_avatar_file = false
-    doc = JS.document
-    script = doc.createElement("script")
-    script[:textContent] = "window._hasAvatarFile = !!window._selectedAvatarFile;"
-    doc[:body].appendChild(script)
-    sleep 0.01
-    has_avatar_file = JS.global[:_hasAvatarFile].to_poro if JS.global[:_hasAvatarFile]
-    JS.global[:_hasAvatarFile] = nil
-
     setState(saving: true, message: nil)
 
-    if has_avatar_file
+    if @selected_avatar_file
       # If avatar file exists, use FormData to upload both display_name and avatar
       save_with_formdata
     else
@@ -375,79 +341,39 @@ class SettingsComponent < Funicular::Component
   end
 
   def save_with_formdata
-    doc = JS.document
-    script = doc.createElement("script")
+    url = "/users/#{@state[:user].id}"
+    fields = { display_name: @state[:display_name] }
 
-    display_name_escaped = @state[:display_name].gsub("'", "\\\\'").gsub("\n", "\\n")
-    user_id = @state[:user].id
-
-    js_code = "
-      (function() {
-        var form = new FormData();
-        form.append('display_name', '#{display_name_escaped}');
-
-        if (window._selectedAvatarFile) {
-          form.append('avatar', window._selectedAvatarFile);
-          window._selectedAvatarFile = null;
-        }
-
-        fetch('/users/#{user_id}', {
-          method: 'PATCH',
-          body: form
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          window._saveResult = JSON.stringify(data);
-        })
-        .catch(function(err) {
-          window._saveError = err.message;
-        });
-      })();
-    "
-    script[:textContent] = js_code
-    doc[:body].appendChild(script)
-
-    wait_for_save_result
+    Funicular::FileUpload.upload_with_formdata(
+      url,
+      fields: fields,
+      file_field: 'avatar',
+      file: @selected_avatar_file
+    ) do |result|
+      @selected_avatar_file = nil
+      handle_formdata_response(result)
+    end
   end
 
-  def wait_for_save_result(attempts = 0)
-    if attempts > 50
-      setState(saving: false, message: "Request timeout")
-      return
-    end
-
-    sleep 0.1
-
-    if JS.global[:_saveResult]
-      result_json = JS.global[:_saveResult].to_poro
-      JS.global[:_saveResult] = nil
-      result = JSON.parse(result_json)
-
-      if result.nil?
-        setState(saving: false, message: "Failed to parse response")
-      elsif result["error"] || result["errors"]
-        setState(saving: false, message: "Failed to save settings")
-      else
-        # Update user instance with new data
-        updated_user = @state[:user]
-        updated_user.instance_variable_set("@display_name", result["display_name"])
-        if result["avatar_updated"]
-          updated_user.instance_variable_set("@has_avatar", true)
-        end
-
-        setState(
-          saving: false,
-          message: "Settings saved successfully!",
-          user: updated_user,
-          avatar_preview: nil
-        )
-      end
-    elsif JS.global[:_saveError]
-      error_msg = JS.global[:_saveError].to_poro
-      JS.global[:_saveError] = nil
-      setState(saving: false, message: "Error: #{error_msg}")
+  def handle_formdata_response(result)
+    if result.nil?
+      setState(saving: false, message: "Failed to parse response")
+    elsif result["error"] || result["errors"]
+      setState(saving: false, message: "Failed to save settings")
     else
-      wait_for_save_result(attempts + 1)
+      # Update user instance with new data
+      updated_user = @state[:user]
+      updated_user.instance_variable_set("@display_name", result["display_name"])
+      if result["avatar_updated"]
+        updated_user.instance_variable_set("@has_avatar", true)
+      end
+
+      setState(
+        saving: false,
+        message: "Settings saved successfully!",
+        user: updated_user,
+        avatar_preview: nil
+      )
     end
   end
 
