@@ -25,9 +25,14 @@ module JS
       result
     end
 
-    def fetch(url, &block)
+    def fetch(url, options = nil, &block)
       callback_id = block.object_id
-      _fetch_and_suspend(url, callback_id)
+      if options
+        options_json = JSON.generate(options)
+        _fetch_with_options_and_suspend(url, options_json, callback_id)
+      else
+        _fetch_and_suspend(url, callback_id)
+      end
       block.call($promise_responses[callback_id])
       $promise_responses.delete(callback_id)
     end

@@ -15,7 +15,31 @@ module Funicular
         super(:element)
         @tag = tag.to_s
         @props = props || {}
-        @children = children || []
+        @children = normalize_children(children || [])
+      end
+
+      private
+
+      def normalize_children(children)
+        result = []
+        children.each do |child|
+          case child
+          when VNode
+            result << child
+          when String
+            result << child
+          when Array
+            # Flatten arrays (typically from .each or .map return values)
+            # Recursively normalize nested arrays
+            result.concat(normalize_children(child))
+          when nil
+            # Skip nil values
+          else
+            # Convert other types to strings
+            result << child.to_s
+          end
+        end
+        result
       end
 
       def ==(other)
