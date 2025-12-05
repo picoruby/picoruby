@@ -1,0 +1,26 @@
+<div id="app"></div>
+
+<script type="text/ruby" src="/models/user.rb"></script>
+<script type="text/ruby" src="/components.rb"></script>
+
+<script type="text/ruby">
+puts "Funicular Chat App initializing..."
+
+# Load User model schema before starting the app
+Funicular::HTTP.get("/api/schema/user") do |response|
+  if response.error?
+    puts "Failed to load schema: #{response.error_message}"
+  else
+    User.load_schema(response.data)
+    puts "[Schema] User model initialized with attributes: #{User.schema.keys.join(', ')}"
+
+    # Start the application after schema is loaded
+    Funicular.start(container: 'app') do |router|
+      router.add_route('/login', LoginComponent)
+      router.add_route('/chat', ChatComponent)
+      router.add_route('/settings', SettingsComponent)
+      router.set_default('/login')
+    end
+  end
+end
+</script>
