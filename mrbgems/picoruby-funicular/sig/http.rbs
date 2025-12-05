@@ -1,0 +1,20 @@
+module Funicular
+  module HTTP
+    class Response
+      attr_reader data: untyped
+      attr_reader status: Integer
+      attr_reader ok: bool
+
+      def self.new: (Integer status, untyped data) -> Response
+      def error?: () -> bool
+      def error_message: () -> String?
+    end
+
+    def self.get: (String url) { (Response) -> void } -> void
+    def self.post: (String url, ?Hash[untyped, untyped]? body) { (Response) -> void } -> void
+    def self.patch: (String url, ?Hash[untyped, untyped]? body) { (Response) -> void } -> void
+    def self.delete: (String url) { (Response) -> void } -> void
+
+    private def self.request: (String method, String url, Hash[untyped, untyped]? body) { (Response) -> void } -> void
+  end
+end
