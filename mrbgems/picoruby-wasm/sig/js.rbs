@@ -11,7 +11,8 @@ module JS
     def to_poro: () -> poro_t
 
     def []: (Symbol name) -> JS::Object
-    def fetch: (String url) { (::Object response) -> void } -> void
+    def []=: (Symbol name, untyped value) -> untyped
+    def fetch: (String url, ?Hash[Symbol, untyped]? options) { (::Object response) -> void } -> void
     def addEventListener: (String event_type) { (String event_json) -> void } -> Integer
     def removeEventListener: (Integer callback_id) -> bool
     def to_binary: () -> String
@@ -58,6 +59,7 @@ module JS
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
+    private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
   end
 
