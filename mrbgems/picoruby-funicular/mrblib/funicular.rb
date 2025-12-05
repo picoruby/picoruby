@@ -45,5 +45,9 @@ module Funicular
     end
 
     raise "Either component_class or block must be provided"
+  rescue => e
+    puts "Exception in Funicular.start: #{e.message}"
+    puts e.backtrace
+    raise e
   end
 end
