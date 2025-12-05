@@ -50,10 +50,11 @@ module Funicular
 
     # Get current path from hash
     def current_hash_path
+      # @type var hash: String
       hash = JS.global[:location][:hash].to_poro
       # Remove leading '#' if present
       if hash && !hash.empty? && hash[0] == '#'
-        hash[1..-1]
+        hash[1..-1] || ''
       else
         hash || ''
       end
@@ -88,6 +89,7 @@ module Funicular
       # Mount new component
       @current_path = path
       @current_component = component_class.new
+      # @type ivar @current_component: Funicular::Component
       @current_component.mount(@container)
 
       puts "[Router] Navigated to: #{path}"
@@ -95,10 +97,8 @@ module Funicular
 
     # Unmount current component
     def unmount_current_component
-      if @current_component
-        @current_component.unmount
-        @current_component = nil
-      end
+      @current_component&.unmount
+      @current_component = nil
       @current_path = nil
     end
   end

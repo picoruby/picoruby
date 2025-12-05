@@ -31,6 +31,7 @@ module Funicular
           when Array
             # Flatten arrays (typically from .each or .map return values)
             # Recursively normalize nested arrays
+            # @type var child: Array[Funicular::VDOM::VNode]
             result.concat(normalize_children(child))
           when nil
             # Skip nil values
@@ -68,13 +69,13 @@ module Funicular
       end
 
       def render(vnode, parent = nil)
-        case vnode.type
+        case vnode&.type
         when :element
           render_element(vnode, parent)
         when :text
           render_text(vnode, parent)
         else
-          raise "Unknown vnode type: #{vnode.type}"
+          raise "Unknown vnode type: #{vnode&.type}"
         end
       end
 
