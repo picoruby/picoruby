@@ -27,7 +27,13 @@ module Funicular
         @updating = true
         component_will_update if respond_to?(:component_will_update)
 
-        @state = @state.merge(new_state)
+        # Convert JS::Object values to Ruby native types automatically
+        normalized_state = {}
+        new_state.each do |key, value|
+          normalized_state[key] = normalize_state_value(value)
+        end
+
+        @state = @state.merge(normalized_state)
         re_render
 
         component_updated if respond_to?(:component_updated)
@@ -90,6 +96,32 @@ module Funicular
 
     private
 
+    # Normalize state value by converting JS::Object to Ruby native types
+    def normalize_state_value(value)
+      # Check if value has to_poro method (JS::Object)
+      if value.respond_to?(:to_poro)
+        begin
+          value.to_poro
+        rescue
+          # If to_poro fails, return the original value
+          value
+        end
+      elsif value.is_a?(Hash)
+        # Recursively normalize hash values
+        normalized = {}
+        value.each do |k, v|
+          normalized[k] = normalize_state_value(v)
+        end
+        normalized
+      elsif value.is_a?(Array)
+        # Recursively normalize array elements
+        value.map { |v| normalize_state_value(v) }
+      else
+        # Return as-is for Ruby native types
+        value
+      end
+    end
+
     # Re-render component (called by update)
     def re_render
       return unless @mounted
@@ -128,8 +160,10 @@ module Funicular
       when Integer, Float
         VDOM::Text.new(value.to_s)
       when Array
-        children = value.map { |v| normalize_vnode(v) }.compact
-        VDOM::Element.new("div", {}, children)
+        # Arrays are typically return values from iterators like .each or .map
+        # The elements have already been added to @current_children during iteration
+        # Return nil to avoid duplicate rendering
+        nil
       when nil
         puts "[WARN] Render returned nil, rendering empty text node"
         VDOM::Text.new("")
@@ -164,7 +198,14 @@ module Funicular
           dom_element.addEventListener(event_name) do |event|
             begin
               # @type var value: Proc
-              value.call(event)
+              # Check if Proc expects arguments (arity)
+              # arity == 0: no arguments expected, call without event
+              # arity >= 1 or arity < 0: arguments expected, call with event
+              if value.arity == 0
+                value.call()
+              else
+                value.call(event)
+              end
             rescue => e
               component_raised(e) if respond_to?(:component_raised)
               raise e
@@ -226,7 +267,7 @@ module Funicular
       h1 h2 h3 h4 h5 h6
       ul ol li
       table thead tbody tr th td
-      form input textarea button select option
+      form input textarea button select option label
       header footer nav section article aside
       img video audio
       br hr
@@ -254,8 +295,8 @@ module Funicular
         element = VDOM::Element.new(tag, props, children)
 
         # If we're inside another element's block, add this element to parent's children
-        if @rendering && prev_children
-          prev_children << element
+        if @rendering && @current_children
+          @current_children << element
         end
 
         element
