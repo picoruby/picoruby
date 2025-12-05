@@ -66,7 +66,8 @@ module Funicular
 
           # Skip updating value for focused input/textarea elements
           if key_str == "value"
-            tag_name = element[:tagName].to_poro.downcase
+            tag_name = element[:tagName].to_poro
+            tag_name = tag_name.downcase if tag_name.is_a?(String)
             if (tag_name == "input" || tag_name == "textarea")
               active_element = @doc[:activeElement].to_poro
               if active_element && element == active_element

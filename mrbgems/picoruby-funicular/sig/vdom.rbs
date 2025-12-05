@@ -16,6 +16,7 @@ module Funicular
 
       def self.new: (String tag, ?Hash[Symbol, untyped] props, ?Array[child_t] children) -> Element
       def ==: (untyped other) -> bool
+      def normalize_children: (Array[child_t] children) -> Array[child_t]
     end
 
     class Text < VNode
@@ -27,7 +28,7 @@ module Funicular
 
     class Renderer
       def self.new: (?JS::Object? doc) -> Renderer
-      def render: (VNode vnode, ?JS::Object? parent) -> JS::Object
+      def render: (VDOM::VNode | VDOM::Text | nil vnode, ?JS::Object? parent) -> JS::Object
 
       private def render_element: (untyped element, JS::Object? parent) -> JS::Object
       private def render_text: (untyped text, JS::Object? parent) -> JS::Object
