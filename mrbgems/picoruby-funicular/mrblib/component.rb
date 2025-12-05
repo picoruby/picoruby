@@ -19,7 +19,7 @@ module Funicular
     end
 
     # Update state and trigger re-render
-    def update(new_state)
+    def setState(new_state)
       return unless @mounted
       return if @updating
 
