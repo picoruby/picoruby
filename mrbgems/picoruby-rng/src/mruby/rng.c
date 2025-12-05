@@ -8,7 +8,7 @@ mrb_s_random_int(mrb_state *mrb, mrb_value klass)
   for (int i = 0; i < 4; i++) {
     ret = (ret << 8) | rng_random_byte_impl();
   }
-  return mrb_fixnum_value(ret);
+  return mrb_int_value(mrb, (mrb_int)ret);
 }
 
 static mrb_value
