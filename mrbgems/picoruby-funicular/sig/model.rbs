@@ -1,0 +1,15 @@
+module Funicular
+  class Model
+    attr_reader id: untyped
+
+    def self.new: (?Hash[untyped, untyped] attributes) -> Model
+    def self.schema: () -> Hash[String, Hash[String, untyped]]
+    def self.schema=: (Hash[String, Hash[String, untyped]] schema) -> Hash[String, Hash[String, untyped]]
+    def self.endpoints: () -> Hash[String, Hash[String, String]]
+    def self.endpoints=: (Hash[String, Hash[String, String]] endpoints) -> Hash[String, Hash[String, String]]
+    def self.load_schema: (Hash[String, untyped] schema_data) -> void
+    def self.find: (untyped id) { (Model? instance, String? error) -> void } -> void
+    def update: (?Hash[untyped, untyped]? attrs) { (bool success, untyped result) -> void } -> void
+    def reload: () { (Model? instance, String? error) -> void } -> void
+  end
+end

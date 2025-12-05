@@ -43,7 +43,9 @@ module Funicular
       options = { method: method }
 
       if body
-        options[:headers] = { "Content-Type" => "application/json" }
+        h = { "Content-Type" => "application/json" }
+        # @type var h: String # steep's bug ?
+        options[:headers] = h
         options[:body] = JSON.generate(body)
       end
 
@@ -51,6 +53,7 @@ module Funicular
         status = response.status.to_poro
         json_text = response.to_binary
         data = JSON.parse(json_text)
+        # @type var status: Integer
         http_response = Response.new(status, data)
         block.call(http_response) if block
       end

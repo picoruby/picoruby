@@ -10,7 +10,7 @@ module Funicular
       @schema = schema_data["attributes"]
       @endpoints = schema_data["endpoints"]
 
-      # 動的にattr_accessorを生成
+      # Generate attr_accessor dynamically based on schema
       @schema.each do |name, config|
         attr_reader name.to_sym
 
@@ -26,8 +26,7 @@ module Funicular
 
     def initialize(attributes = {})
       @changed_attributes = {}
-
-      # スキーマに基づいて属性を設定
+      # Set attributes based on schema
       self.class.schema.each do |name, config|
         value = attributes[name] || attributes[name.to_sym]
         instance_variable_set("@#{name}", value)
@@ -49,15 +48,12 @@ module Funicular
     end
 
     def update(attrs = nil, &block)
-      # 引数で属性を指定
       if attrs
         attrs.each { |k, v| send("#{k}=", v) }
       end
 
-      # 変更された属性だけ送信
       return if @changed_attributes.empty?
 
-      # バイナリ属性を除外してJSON送信
       json_attrs = @changed_attributes.reject do |name, value|
         schema = self.class.schema[name]
         schema && schema["type"] == "binary"
@@ -72,7 +68,7 @@ module Funicular
         if response.error?
           block.call(false, response.error_message) if block
         else
-          # サーバーから返されたデータで更新
+          # Update attributes with response data
           response.data.each do |key, value|
             instance_variable_set("@#{key}", value)
           end
@@ -85,7 +81,6 @@ module Funicular
     def reload(&block)
       self.class.find(@id) do |instance, error|
         if instance
-          # 自分自身を更新
           instance.instance_variables.each do |var|
             instance_variable_set(var, instance.instance_variable_get(var))
           end

@@ -11,6 +11,34 @@
 
     <!-- PicoRuby WASM -->
     <script src="/assets/init.iife.js"></script>
+
+    <!-- Funicular Helpers -->
+    <script>
+      // FormData upload helper to avoid "Illegal invocation" errors
+      // Returns a Promise that resolves to the parsed JSON data (not Response)
+      window.funicularFormDataUpload = function(url, fieldsObj, fileFieldName, fileRefId) {
+        const formData = new FormData();
+
+        // Add text fields
+        for (const [key, value] of Object.entries(fieldsObj)) {
+          formData.append(key, String(value));
+        }
+
+        // Add file if provided
+        if (fileFieldName && fileRefId !== null && fileRefId !== undefined) {
+          const file = window.picorubyRefs[fileRefId];
+          if (file) {
+            formData.append(fileFieldName, file);
+          }
+        }
+
+        // Return Promise that resolves to JSON data
+        return fetch(url, {
+          method: 'PATCH',
+          body: formData
+        }).then(response => response.json());
+      };
+    </script>
   </head>
 
   <body class="bg-gray-50">

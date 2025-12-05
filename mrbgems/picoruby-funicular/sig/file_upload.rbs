@@ -1,0 +1,13 @@
+module Funicular
+  module FileUpload
+    def self.select_file_with_preview: (String input_id) { (untyped file, String? preview_url) -> void } -> void
+    def self.upload_with_formdata: (
+      String url,
+      ?fields: Hash[untyped, untyped],
+      ?file_field: String?,
+      ?file: untyped
+    ) { (Hash[untyped, untyped] result) -> void } -> void
+    def self.store_file: (String input_id, ?String storage_key) -> untyped
+    def self.retrieve_file: (?String storage_key) -> untyped
+  end
+end

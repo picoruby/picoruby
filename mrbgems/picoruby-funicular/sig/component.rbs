@@ -17,11 +17,12 @@ module Funicular
 
     private def re_render: () -> void
 
-    private def build_vdom: () -> VDOM::VNode
-    private def normalize_vnode: (untyped value) -> VDOM::VNode
-    private def bind_events: (JS::Object dom_element, VDOM::VNode vnode) -> void
+    private def build_vdom: () -> (VDOM::VNode | VDOM::Text | nil)
+    private def normalize_vnode: (untyped value) -> (VDOM::VNode | VDOM::Text | nil)
+    private def normalize_state_value: (JS::Object value) -> untyped
+    private def bind_events: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode) -> void
     private def create_event_handler: (Symbol | Proc handler_value) -> Proc
-    private def collect_refs: (JS::Object dom_element, VDOM::VNode vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
+    private def collect_refs: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
     private def cleanup_events: () -> void
     private def add_child: (untyped child) -> void
 
