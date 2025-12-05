@@ -3,7 +3,7 @@ require 'json'
 
 module JS
   def self.document
-    $js_document ||= global[:document]
+    global[:document]
   end
 
   class Object
@@ -43,6 +43,50 @@ module JS
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)
       result.to_s
+    end
+
+    # Promise#then support
+    # This allows calling .then on Promise objects returned from JavaScript
+    def then(&block)
+      # Store promise in global variable temporarily
+      callback_id = block.object_id
+      JS.global[:"_tempPromise_#{callback_id}"] = self
+
+      # Create a JavaScript callback that will store the result
+      script = JS.document.createElement("script")
+      script[:textContent] = <<~JAVASCRIPT
+        (function() {
+          var promise = window._tempPromise_#{callback_id};
+          if (promise && typeof promise.then === 'function') {
+            promise.then(function(result) {
+              var resultId = window.picorubyRefs.push(result) - 1;
+              window._promiseResult_#{callback_id} = resultId;
+            }).catch(function(error) {
+              console.error('Promise rejected:', error);
+              window._promiseResult_#{callback_id} = -1;
+            });
+          } else {
+            window._promiseResult_#{callback_id} = -1;
+          }
+        })();
+      JAVASCRIPT
+      JS.document.body.appendChild(script)
+      JS.document.body.removeChild(script)
+
+      # Poll for result
+      sleep 0.05 until JS.global[:"_promiseResult_#{callback_id}"]
+
+      result_id = JS.global[:"_promiseResult_#{callback_id}"].to_poro
+      JS.global[:"_promiseResult_#{callback_id}"] = nil
+      JS.global[:"_tempPromise_#{callback_id}"] = nil
+
+      # @type var result_id: Integer
+      if 0 <= result_id
+        # Create JS::Object from result_id
+        result_obj = JS.global[:picorubyRefs][result_id]
+        # @type var block: Proc
+        block.call(result_obj) if block
+      end
     end
 
     def preventDefault
