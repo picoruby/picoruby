@@ -23,22 +23,32 @@ module Funicular
           when Integer
             child_index = patch[0]
             child_patches = patch[1]
-            children = element.children.to_poro
+            # Use childNodes instead of children to include text nodes
+            children = element[:childNodes].to_poro
             child_element = children.is_a?(Array) ? children[child_index] : nil
             if child_element.nil?
-              case child_patches[0][0]
-              when :replace
-                new_child_element = create_element(child_patches[0][1])
-                element.innerHTML = ""
-                element.appendChild(new_child_element)
-              when :remove
-                element.innerHTML = ""
-              when Integer
-                new_child_element = create_element(child_patches[0][1])
-                element.appendChild(new_child_element)
+              # No existing child at this index - we need to create new elements
+              child_patches.each do |child_patch|
+                case child_patch[0]
+                when :replace
+                  new_child_element = create_element(child_patch[1])
+                  element.appendChild(new_child_element)
+                when :remove
+                  # Nothing to remove if child doesn't exist
+                when Integer
+                  # This shouldn't happen at the top level of child_patches
+                  # But if it does, recursively process it
+                end
               end
             else
-              apply(child_element, child_patches)
+              # Check if this is a simple replace patch
+              if child_patches.size == 1 && child_patches[0][0] == :replace
+                new_child_element = create_element(child_patches[0][1])
+                element.replaceChild(new_child_element, child_element)
+              else
+                # Recursively apply patches to the child
+                apply(child_element, child_patches)
+              end
             end
           end
         end
@@ -49,10 +59,29 @@ module Funicular
 
       def update_props(element, props_patch)
         props_patch.each do |key, value|
+          key_str = key.to_s
+
+          # Skip event handlers (handled by bind_events)
+          next if key_str.start_with?('on')
+
+          # Skip updating value for focused input/textarea elements
+          if key_str == "value"
+            tag_name = element[:tagName].to_poro.downcase
+            if (tag_name == "input" || tag_name == "textarea")
+              active_element = @doc[:activeElement].to_poro
+              if active_element && element == active_element
+                next
+              end
+              # Use property instead of attribute for value
+              element[:value] = value.to_s
+              next
+            end
+          end
+
           if value.nil?
-            element.removeAttribute(key.to_s)
+            element.removeAttribute(key_str)
           else
-            element.setAttribute(key.to_s, value.to_s)
+            element.setAttribute(key_str, value.to_s)
           end
         end
       end
@@ -60,6 +89,20 @@ module Funicular
       def create_element(vnode)
         if vnode.is_a?(String)
           return @doc.createTextNode(vnode)
+        end
+
+        if vnode.is_a?(Array)
+          # Arrays should have been flattened in VDOM::Element.normalize_children
+          # Create a wrapper div as fallback
+          wrapper = @doc.createElement("div")
+          vnode.each do |child|
+            if child.is_a?(VNode)
+              wrapper.appendChild(create_element(child))
+            elsif child.is_a?(String)
+              wrapper.appendChild(@doc.createTextNode(child))
+            end
+          end
+          return wrapper
         end
 
         unless vnode.is_a?(VNode)
@@ -78,7 +121,15 @@ module Funicular
             element = @doc.createElement(vnode.tag)
 
             vnode.props.each do |key, value|
-              element.setAttribute(key.to_s, value.to_s)
+              key_str = key.to_s
+              # Skip event handlers (handled by bind_events)
+              next if key_str.start_with?('on')
+              # Use property instead of attribute for value on input/textarea
+              if key_str == "value" && (vnode.tag == "input" || vnode.tag == "textarea")
+                element[:value] = value.to_s
+              else
+                element.setAttribute(key_str, value.to_s)
+              end
             end
 
             vnode.children.each do |child|
