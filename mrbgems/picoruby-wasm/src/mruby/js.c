@@ -187,6 +187,20 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   }
 });
 
+EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    const func = obj[UTF8ToString(method)];
+    const result = func.call(obj, arg);
+    const newRefId = window.picorubyRefs.length;
+    window.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
 EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, const char *arg2), {
   try {
     const obj = window.picorubyRefs[ref_id];
@@ -767,6 +781,54 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#type for debug
+ */
+static mrb_value
+mrb_object_type(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  js_type_info info = {};
+  js_get_type_info(obj->ref_id, &info);
+  mrb_value type_sym;
+  switch (info.type) {
+    case TYPE_UNDEFINED:
+      type_sym = mrb_symbol_value(MRB_SYM(undefined));
+      break;
+    case TYPE_NULL:
+      type_sym = mrb_symbol_value(MRB_SYM(null));
+      break;
+    case TYPE_BOOLEAN:
+      type_sym = mrb_symbol_value(MRB_SYM(boolean));
+      break;
+    case TYPE_NUMBER:
+      type_sym = mrb_symbol_value(MRB_SYM(number));
+      break;
+    case TYPE_BIGINT:
+      type_sym = mrb_symbol_value(MRB_SYM(bigint));
+      break;
+    case TYPE_STRING:
+      type_sym = mrb_symbol_value(MRB_SYM(string));
+      break;
+    case TYPE_SYMBOL:
+      type_sym = mrb_symbol_value(MRB_SYM(symbol));
+      break;
+    case TYPE_ARRAY:
+      type_sym = mrb_symbol_value(MRB_SYM(array));
+      break;
+    case TYPE_OBJECT:
+      type_sym = mrb_symbol_value(MRB_SYM(object));
+      break;
+    case TYPE_FUNCTION:
+      type_sym = mrb_symbol_value(MRB_SYM(function));
+      break;
+    default:
+      type_sym = mrb_symbol_value(MRB_SYM(unknown));
+      break;
+  }
+  return type_sym;
+}
+
+/*
  * JS::Object#to_poro
  */
 static mrb_value
@@ -912,6 +974,15 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       data->ref_id = new_ref_id;
       mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
       return obj;
+    } else if (mrb_integer_p(argv[0])) {
+      int new_ref_id = call_method_int(js_obj->ref_id, method_name, mrb_integer(argv[0]));
+      if (new_ref_id < 0) {
+        return mrb_nil_value();
+      }
+      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+      data->ref_id = new_ref_id;
+      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+      return obj;
     } else if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object)) {
       picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[0]);
       int new_ref_id = call_method_with_ref(js_obj->ref_id, method_name, arg_obj->ref_id);
@@ -923,7 +994,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
       return obj;
     } else {
-      mrb_raise(mrb, E_TYPE_ERROR, "argument must be a String or JS::Object");
+      mrb_raise(mrb, E_TYPE_ERROR, "argument must be a String, Integer, or JS::Object");
       return mrb_nil_value();
     }
   } else if (argc == 2){
@@ -1209,6 +1280,7 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_poro), mrb_object_to_poro, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));

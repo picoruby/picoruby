@@ -1,18 +1,17 @@
-$js_document: JS::Object
-
 module JS
   class Object
     type poro_t = JS::Object | String | Symbol | Array[JS::Object] | Integer | Float | nil | bool
 
-    $promise_responses: Hash[Integer, ::Object]
-    $js_events: Hash[Integer, ::Object]
+    $promise_responses: Hash[Integer, JS::Object]
+    $js_events: Hash[Integer, JS::Object]
     CALLBACKS: Hash[Integer, Proc]
 
+    def type: () -> Symbol
     def to_poro: () -> poro_t
 
-    def []: (Symbol name) -> JS::Object
-    def []=: (Symbol name, untyped value) -> untyped
-    def fetch: (String url, ?Hash[Symbol, untyped]? options) { (::Object response) -> void } -> void
+    def []: (String | Symbol | Integer name) -> JS::Object
+    def []=: (String | Symbol name, untyped value) -> untyped
+    def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
     def addEventListener: (String event_type) { (String event_json) -> void } -> Integer
     def removeEventListener: (Integer callback_id) -> bool
     def to_binary: () -> String
@@ -28,6 +27,7 @@ module JS
     def setAttribute: (String name, String value) -> bool
     def removeAttribute: (String name) -> bool
     def getElementById: (String id) -> JS::Object
+    def createObjectURL: (JS::Object blob) -> JS::Object
 
     # Event methods
     def preventDefault: () -> void
@@ -54,6 +54,9 @@ module JS
     def style=: (String style) -> String
     def textContent: () -> JS::Object
     def textContent=: (String text) -> String
+    def status: () -> JS::Object
+    def body: () -> JS::Object
+    def item: (String num) -> JS::Object
 
     private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
