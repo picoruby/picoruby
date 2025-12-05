@@ -238,6 +238,22 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
   }
 });
 
+EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const char* options_json), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    const urlStr = UTF8ToString(url);
+    const optionsStr = UTF8ToString(options_json);
+    const options = JSON.parse(optionsStr);
+    const result = obj.fetch(urlStr, options);
+    const newRefId = window.picorubyRefs.length;
+    window.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
 EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintptr_t mrb_ptr, uintptr_t task_ptr), {
   const promise = globalThis.picorubyRefs[promise_id];
   promise.then(
@@ -983,6 +999,29 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#_fetch_with_options_and_suspend
+ */
+static mrb_value
+mrb_object__fetch_with_options_and_suspend(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  char *url;
+  char *options_json;
+  mrb_int callback_id;
+  mrb_get_args(mrb, "zzi", &url, &options_json, &callback_id);
+  int promise_id = call_fetch_with_json_options(obj->ref_id, url, options_json);
+
+  mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
+
+  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+
+  mrb_suspend_task(mrb, current_task);
+  setup_promise_handler(promise_id, (uintptr_t)callback_id, (uintptr_t)mrb, task_ptr);
+
+  return mrb_nil_value();
+}
+
+/*
  * JS::Object#_removeEventListener
  */
 static mrb_value
@@ -1168,6 +1207,7 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(method_missing), mrb_object_method_missing, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_add_event_listener), mrb_object__add_event_listener, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_poro), mrb_object_to_poro, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
