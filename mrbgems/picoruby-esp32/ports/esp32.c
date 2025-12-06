@@ -36,6 +36,17 @@ wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, voi
   }
 }
 
+static void
+ESP32_WIFI_log_level_set(esp_log_level_t level)
+{
+  esp_log_level_set("wifi", level);
+  esp_log_level_set("wifi_init", level);
+  esp_log_level_set("phy_init", level);
+  esp_log_level_set("pp", level);
+  esp_log_level_set("net80211", level);
+  esp_log_level_set("esp_netif_handlers", level);
+}
+
 int
 ESP32_WIFI_init()
 {
@@ -43,6 +54,8 @@ ESP32_WIFI_init()
     ESP_LOGI(TAG, "WiFi already initialized");
     return 0;
   }
+
+  ESP32_WIFI_log_level_set(ESP_LOG_WARN)
 
   esp_err_t ret = esp_netif_init();
   if (ret != ESP_OK) {
