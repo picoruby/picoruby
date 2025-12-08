@@ -40,7 +40,7 @@ module Funicular
     private
 
     def self.request(method, url, body, &block)
-      options = { method: method }
+      options = { method: method, credentials: "include" }
 
       if body
         h = { "Content-Type" => "application/json" }
