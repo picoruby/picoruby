@@ -19,6 +19,23 @@
       return Promise.all(taskPromises);
     }
 
+    async function collectMrbVMCode() {
+      const mrbScripts = document.querySelectorAll('script[type="application/x-mrb"]');
+      const taskPromises = Array.from(mrbScripts).map(async script => {
+        const src = script.src;
+        if (src) {
+          const response = await fetch(src);
+          if (!response.ok) {
+            throw new Error(`Failed to load ${src}: ${response.statusText}`);
+          }
+          return await response.arrayBuffer();
+        }
+        return null;
+      });
+      const results = await Promise.all(taskPromises);
+      return results.filter(Boolean);
+    }
+
     // Create and initialize the module
     const Module = await createModule();
     Module.picorubyRun = function() {
@@ -49,6 +66,28 @@
       console.error('Error loading Ruby tasks:', error);
     }
 
+    // Collect and create tasks from MRB data tags
+    try {
+      const mrbTasks = await collectMrbVMCode();
+      mrbTasks.forEach(function(buffer) {
+        const ptr = Module._malloc(buffer.byteLength);
+        if (ptr === 0) {
+          throw new Error('Failed to allocate memory in Wasm heap.');
+        }
+        try {
+          Module.HEAPU8.set(new Uint8Array(buffer), ptr);
+          const result = Module.ccall('picorb_create_task_from_mrb', 'number', ['number', 'number'], [ptr, buffer.byteLength]);
+          if (result !== 0) {
+            console.error('Failed to create task from mrb.');
+          }
+        } finally {
+          Module._free(ptr);
+        }
+      });
+    } catch (error) {
+      console.error('Error loading MRB tasks:', error);
+    }
+
     // Also support window.userTasks if present (for backward compatibility)
     if (window.userTasks) {
       window.userTasks.forEach(function(task) {
@@ -60,7 +99,7 @@
     Module.picorubyRun();
   }
 
-  global.initPicooRuby = initPicoRuby;
+  global.initPicoRuby = initPicoRuby;
 
-  await initPicooRuby();
+  await initPicoRuby();
 })(typeof window !== 'undefined' ? window : this).catch(console.error);
