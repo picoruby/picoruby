@@ -13,7 +13,7 @@ module JS
     def []=: (String | Symbol name, untyped value) -> untyped
     def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
     def addEventListener: (String event_type) { (String event_json) -> void } -> Integer
-    def removeEventListener: (Integer callback_id) -> bool
+    def self.removeEventListener: (Integer callback_id) -> bool
     def to_binary: () -> String
     def call: (*untyped args) -> untyped
 
@@ -30,8 +30,8 @@ module JS
     def createObjectURL: (JS::Object blob) -> JS::Object
 
     # Event methods
-    def preventDefault: () -> void
-    def stopPropagation: () -> void
+    def preventDefault: () -> nil
+    def stopPropagation: () -> nil
 
     # Timer methods
     def setTimeout: (Integer milliseconds) { () -> void } -> Integer

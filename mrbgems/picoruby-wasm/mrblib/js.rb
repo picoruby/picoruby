@@ -18,11 +18,17 @@ module JS
       callback_id
     end
 
-    def removeEventListener(callback_id)
+    def self.removeEventListener(callback_id)
       return false unless callback_id
-      result = _removeEventListener(callback_id)
-      CALLBACKS.delete(callback_id) if result
-      result
+      begin
+        result = JS.global._js_remove_event_listener_wrapper(callback_id)
+        CALLBACKS.delete(callback_id) if result
+        result
+      rescue
+        # Ignore errors if wrapper doesn't exist
+        CALLBACKS.delete(callback_id)
+        false
+      end
     end
 
     def fetch(url, options = nil, &block)
@@ -87,14 +93,6 @@ module JS
         # @type var block: Proc
         block.call(result_obj) if block
       end
-    end
-
-    def preventDefault
-      self[:preventDefault].call()
-    end
-
-    def stopPropagation
-      self[:stopPropagation].call()
     end
   end
 end

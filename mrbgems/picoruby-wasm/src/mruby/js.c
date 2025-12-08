@@ -40,6 +40,18 @@ EM_JS(void, init_js_refs, (), {
     globalThis.picorubyRefs = [];
     globalThis.picorubyRefs.push(window);
   }
+
+  // Helper to remove event listeners from Ruby code
+  if (typeof window._js_remove_event_listener_wrapper === 'undefined') {
+    window._js_remove_event_listener_wrapper = function(callback_id) {
+      if (!globalThis.picorubyEventHandlers) return false;
+      const info = globalThis.picorubyEventHandlers[callback_id];
+      if (!info) return false;
+      info.target.removeEventListener(info.type, info.handler);
+      delete globalThis.picorubyEventHandlers[callback_id];
+      return true;
+    };
+  }
 });
 
 EM_JS(bool, is_array_like, (int ref_id), {
@@ -187,6 +199,19 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   }
 });
 
+EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
+  try {
+    const obj = window.picorubyRefs[ref_id];
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+    if (typeof func === 'function') {
+      func.call(obj);
+    }
+  } catch(e) {
+    console.error('call_method_no_return error:', e);
+  }
+});
+
 EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
   try {
     const obj = window.picorubyRefs[ref_id];
@@ -300,6 +325,14 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
   const target = globalThis.picorubyRefs[ref_id];
   const type = UTF8ToString(event_type);
   const handler = (event) => {
+    // Check if handler still exists before calling
+    if (!globalThis.picorubyEventHandlers || !globalThis.picorubyEventHandlers[callback_id]) {
+      return;
+    }
+    // For submit events, prevent default immediately
+    if (type === 'submit') {
+      event.preventDefault();
+    }
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
     ccall(
       'call_ruby_callback',
@@ -1241,6 +1274,28 @@ mrb_object_remove_attribute(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#_preventDefault
+ */
+static mrb_value
+mrb_object_prevent_default(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  call_method_no_return(obj->ref_id, "preventDefault");
+  return mrb_nil_value();
+}
+
+/*
+ * JS::Object#_stopPropagation
+ */
+static mrb_value
+mrb_object_stop_propagation(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  call_method_no_return(obj->ref_id, "stopPropagation");
+  return mrb_nil_value();
+}
+
+/*
  * JS.global
  */
 static mrb_value
@@ -1292,4 +1347,6 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(insertBefore), mrb_object_insert_before, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(setAttribute), mrb_object_set_attribute, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeAttribute), mrb_object_remove_attribute, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_preventDefault), mrb_object_prevent_default, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_stopPropagation), mrb_object_stop_propagation, MRB_ARGS_NONE());
 }

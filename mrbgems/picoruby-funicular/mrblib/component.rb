@@ -129,12 +129,15 @@ module Funicular
       new_vdom = build_vdom
       patches = VDOM::Differ.diff(@vdom, new_vdom)
 
+      # Always cleanup and rebind events to avoid stale event listeners
+      cleanup_events
+
       unless patches.empty?
-        cleanup_events
         @dom_element = VDOM::Patcher.new.apply(@dom_element, patches)
-        bind_events(@dom_element, new_vdom)
-        collect_refs(@dom_element, new_vdom)
       end
+
+      bind_events(@dom_element, new_vdom)
+      collect_refs(@dom_element, new_vdom)
 
       @vdom = new_vdom
     end
@@ -256,7 +259,7 @@ module Funicular
     # Cleanup event listeners
     def cleanup_events
       @event_listeners.each do |callback_id|
-        JS.global.removeEventListener(callback_id)
+        JS::Object.removeEventListener(callback_id)
       end
       @event_listeners = []
     end
