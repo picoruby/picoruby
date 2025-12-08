@@ -281,7 +281,7 @@ end
 # SettingsComponent - User settings
 class SettingsComponent < Funicular::Component
   def initialize_state
-    { user: nil, display_name: "", message: nil, avatar_preview: nil, saving: false }
+    { user: nil, display_name: "", message: nil, avatar_preview: nil, saving: false, avatar_cache_buster: Time.now.to_i }
   end
 
   def component_mounted
@@ -372,7 +372,8 @@ class SettingsComponent < Funicular::Component
         saving: false,
         message: "Settings saved successfully!",
         user: updated_user,
-        avatar_preview: nil
+        avatar_preview: nil,
+        avatar_cache_buster: Time.now.to_i
       )
     end
   end
@@ -426,7 +427,7 @@ class SettingsComponent < Funicular::Component
                 end
               elsif @state[:user].has_avatar
                 div(class: "mb-2") do
-                  img(src: "/users/#{@state[:user].id}/avatar", class: "w-24 h-24 rounded-full object-cover")
+                  img(src: "/users/#{@state[:user].id}/avatar?t=#{@state[:avatar_cache_buster]}", class: "w-24 h-24 rounded-full object-cover")
                 end
               end
               input(
