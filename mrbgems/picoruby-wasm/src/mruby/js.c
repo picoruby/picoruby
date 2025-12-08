@@ -589,8 +589,12 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
 inline static char*
 callback_script(uintptr_t callback_id, int event_ref_id)
 {
-  static char script[255];
-  snprintf(script, sizeof(script), "JS::Object::CALLBACKS[%lu].call($js_events[%d]);", callback_id, event_ref_id);
+  static char script[512];
+  snprintf(script, sizeof(script),
+    // Use safe navigation operator (&.) to avoid errors if callback is removed
+    // Chrome's autofill triggers events after removing listeners
+    "JS::Object::CALLBACKS[%lu]&.call($js_events[%d])",
+    callback_id, event_ref_id);
   return script;
 }
 
