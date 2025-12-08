@@ -4,11 +4,11 @@ class Api::SchemaController < ApplicationController
       attributes: {
         "id" => { type: "integer", readonly: true },
         "username" => { type: "string", readonly: true },
-        "display_name" => { type: "string", editable: true },
+        "display_name" => { type: "string", readonly: false },
         "has_avatar" => { type: "boolean", readonly: true },
         "avatar" => {
           type: "binary",
-          editable: false,
+          readonly: true,
           upload_endpoint: "/users/:id/avatar"
         }
       },
