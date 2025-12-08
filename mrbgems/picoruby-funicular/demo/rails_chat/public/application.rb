@@ -5,22 +5,22 @@ class LoginComponent < Funicular::Component
   end
 
   def handle_username_change(event)
-    setState(username: event.target[:value])
+    patch(username: event.target[:value])
   end
 
   def handle_password_change(event)
-    setState(password: event.target[:value])
+    patch(password: event.target[:value])
   end
 
   def handle_submit(event)
     event.preventDefault
 
     if @state[:username].empty? || @state[:password].empty?
-      setState(error: "Please enter username and password")
+      patch(error: "Please enter username and password")
       return
     end
 
-    setState(loading: true, error: nil)
+    patch(loading: true, error: nil)
 
     # Login API call
     Funicular::HTTP.post("/login", {
@@ -28,7 +28,7 @@ class LoginComponent < Funicular::Component
       password: @state[:password]
     }) do |response|
       if response.error?
-        setState(loading: false, error: response.error_message)
+        patch(loading: false, error: response.error_message)
       else
         puts "Login successful: #{response.data['username']}"
         Funicular.router.navigate("/chat")
@@ -105,7 +105,7 @@ class ChatComponent < Funicular::Component
       if response.error?
         Funicular.router.navigate("/login")
       else
-        setState(current_user: response.data)
+        patch(current_user: response.data)
         load_channels
       end
     end
@@ -114,10 +114,10 @@ class ChatComponent < Funicular::Component
   def load_channels
     Funicular::HTTP.get("/channels") do |response|
       if response.error?
-        setState(loading: false)
+        patch(loading: false)
       else
         channels = response.data
-        setState(channels: channels, loading: false)
+        patch(channels: channels, loading: false)
         if channels.size > 0 && !@state[:current_channel]
           select_channel(channels[0])
         end
@@ -126,7 +126,7 @@ class ChatComponent < Funicular::Component
   end
 
   def select_channel(channel)
-    setState(current_channel: channel, messages: [], loading: true)
+    patch(current_channel: channel, messages: [], loading: true)
 
     # Subscribe to ActionCable channel
     if @subscription
@@ -139,11 +139,11 @@ class ChatComponent < Funicular::Component
     ) do |data|
       case data["type"]
       when "initial_messages"
-        setState(messages: data["messages"], loading: false)
+        patch(messages: data["messages"], loading: false)
         scroll_to_bottom
       when "new_message"
         messages = @state[:messages] + [data["message"]]
-        setState(messages: messages)
+        patch(messages: messages)
         scroll_to_bottom
       end
     end
@@ -158,7 +158,7 @@ class ChatComponent < Funicular::Component
   end
 
   def handle_message_input(event)
-    setState(message_input: event.target[:value])
+    patch(message_input: event.target[:value])
   end
 
   def handle_send_message(event)
@@ -169,7 +169,7 @@ class ChatComponent < Funicular::Component
     end
 
     content = @state[:message_input]
-    setState(message_input: "")
+    patch(message_input: "")
 
     @subscription.perform("send_message", { content: content })
   end
@@ -291,30 +291,30 @@ class SettingsComponent < Funicular::Component
       else
         # Create User model instance from response data
         user = User.new(response.data)
-        setState(user: user, display_name: user.display_name)
+        patch(user: user, display_name: user.display_name)
       end
     end
   end
 
   def handle_display_name_change(event)
-    setState(display_name: event.target[:value])
+    patch(display_name: event.target[:value])
   end
 
   def handle_avatar_change(event)
     Funicular::FileUpload.select_file_with_preview('avatar-input') do |file, preview_url|
       if file && preview_url
         @selected_avatar_file = file
-        setState(avatar_preview: preview_url)
+        patch(avatar_preview: preview_url)
       else
         @selected_avatar_file = nil
-        setState(avatar_preview: nil)
+        patch(avatar_preview: nil)
       end
     end
   end
 
   def handle_save(event)
     event.preventDefault
-    setState(saving: true, message: nil)
+    patch(saving: true, message: nil)
 
     if @selected_avatar_file
       # If avatar file exists, use FormData to upload both display_name and avatar
@@ -329,13 +329,13 @@ class SettingsComponent < Funicular::Component
     @state[:user].display_name = @state[:display_name]
     @state[:user].update do |success, result|
       if success
-        setState(
+        patch(
           saving: false,
           message: "Settings saved successfully!",
           user: User.new(result)
         )
       else
-        setState(saving: false, message: "Error: #{result}")
+        patch(saving: false, message: "Error: #{result}")
       end
     end
   end
@@ -357,9 +357,9 @@ class SettingsComponent < Funicular::Component
 
   def handle_formdata_response(result)
     if result.nil?
-      setState(saving: false, message: "Failed to parse response")
+      patch(saving: false, message: "Failed to parse response")
     elsif result["error"] || result["errors"]
-      setState(saving: false, message: "Failed to save settings")
+      patch(saving: false, message: "Failed to save settings")
     else
       # Update user instance with new data
       updated_user = @state[:user]
@@ -368,7 +368,7 @@ class SettingsComponent < Funicular::Component
         updated_user.instance_variable_set("@has_avatar", true)
       end
 
-      setState(
+      patch(
         saving: false,
         message: "Settings saved successfully!",
         user: updated_user,
