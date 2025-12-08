@@ -10,7 +10,7 @@ module Funicular
 
     def self.new: (?props_t props) -> Component
     def initialize_state: () -> Hash[Symbol, untyped]
-    def update: (Hash[Symbol, untyped] new_state) -> void
+    def patch: (Hash[Symbol, untyped] new_state) -> void
     def mount: (JS::Object container) -> void
     def unmount: () -> void
     def render: () -> (VDOM::VNode | String | Integer | Float | Array[untyped])
