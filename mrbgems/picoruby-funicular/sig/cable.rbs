@@ -6,7 +6,7 @@ module Funicular
       attr_reader url: String
       attr_reader subscriptions: Subscriptions
 
-      def initialize: (String url) -> void
+      def self.new: (String url) -> Consumer
       def connect: () -> void
       def send_command: (Hash[Symbol, untyped] command) -> void
       def disconnect: () -> void
@@ -20,7 +20,7 @@ module Funicular
     end
 
     class Subscriptions
-      def initialize: (Consumer consumer) -> void
+      def self.new: (Consumer consumer) -> Subscriptions
       def create: (Hash[Symbol, untyped] params) ?{ (untyped message) -> void } -> Subscription
       def find: (String identifier) -> Subscription?
       def remove: (Subscription subscription) -> void
