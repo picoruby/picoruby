@@ -5,7 +5,6 @@ module Funicular
 
     class VNode
       attr_reader type: Symbol
-
       def self.new: (Symbol type) -> VNode
     end
 
@@ -16,7 +15,7 @@ module Funicular
 
       def self.new: (String tag, ?Hash[Symbol, untyped] props, ?Array[child_t] children) -> Element
       def ==: (untyped other) -> bool
-      def normalize_children: (Array[child_t] children) -> Array[child_t]
+      private def normalize_children: (Array[child_t] children) -> Array[child_t]
     end
 
     class Text < VNode
@@ -30,13 +29,13 @@ module Funicular
       def self.new: (?JS::Object? doc) -> Renderer
       def render: (VDOM::VNode | VDOM::Text | nil vnode, ?JS::Object? parent) -> JS::Object
 
-      private def render_element: (untyped element, JS::Object? parent) -> JS::Object
-      private def render_text: (untyped text, JS::Object? parent) -> JS::Object
+      private def render_element: (Element element, JS::Object? parent) -> JS::Object
+      private def render_text: (VDOM::Text text, JS::Object? parent) -> JS::Object
     end
 
     def self.create_element: (String tag, ?Hash[Symbol, untyped] props, *child_t children) -> Element
     def self.create_text: (String content) -> Text
-    def self.render: (VNode vnode, JS::Object container) -> JS::Object
+    def self.render: (VNode vnode, JS::Object container) -> void
     def self.diff: (VNode? old_vnode, VNode? new_vnode) -> Array[patch_t]
     def self.patch: (JS::Object element, Array[patch_t] patches) -> JS::Object
   end
