@@ -1,5 +1,8 @@
 puts "Funicular Chat App initializing..."
 
+# Mount JavaScript helpers
+Funicular::FileUpload.mount
+
 # Load all model schemas before starting the app
 Funicular.load_schemas({ User => "user", Session => "session", Channel => "channel" }) do
   # Start the application after all schemas are loaded
