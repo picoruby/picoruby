@@ -31,16 +31,16 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   file output_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
     optdebug = ENV['NDEBUG'] ? '-g0' : '-gsource-map --source-map-base http://127.0.0.1:8080/'
     exported_funcs = if build.vm_mrubyc?
-      '["_picorb_init", "_picorb_create_task", "_mrbc_tick", "_mrbc_run_step"]'
+      '["_picorb_init", "_picorb_create_task", "_mrbc_tick", "_mrbc_run_step", "_malloc", "_free"]'
     else
-      '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step"]'
+      '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free"]'
     end
     sh <<~CMD
       emcc #{optdebug} \
       -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \
-      -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "UTF8ToString", "stringToUTF8", "lengthBytesUTF8"]' \
+      -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap", "UTF8ToString", "stringToUTF8", "lengthBytesUTF8", "HEAPU8"]' \
       -s EXPORTED_FUNCTIONS='#{exported_funcs}' \
       -s INITIAL_MEMORY=16MB \
       -s ALLOW_MEMORY_GROWTH=1 \
