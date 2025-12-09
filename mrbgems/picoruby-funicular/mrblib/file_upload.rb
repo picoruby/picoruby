@@ -2,6 +2,41 @@ require 'rng'
 
 module Funicular
   module FileUpload
+    JS_HELPER_CODE = <<~JAVASCRIPT
+      (function() {
+        'use strict';
+        // Avoid duplicate mounting
+        if (window.funicularFormDataUpload) {
+          return;
+        }
+        // FormData upload helper
+        window.funicularFormDataUpload = function(url, fieldsObj, fileFieldName, fileRefId) {
+          const formData = new FormData();
+          for (const [key, value] of Object.entries(fieldsObj)) {
+            formData.append(key, String(value));
+          }
+          if (fileFieldName && fileRefId !== null && fileRefId !== undefined) {
+            const file = window.picorubyRefs[fileRefId];
+            if (file) {
+              formData.append(fileFieldName, file);
+            }
+          }
+          return fetch(url, {
+            method: 'PATCH',
+            body: formData
+          }).then(response => response.json());
+        };
+        console.log('Funicular helpers mounted');
+      })();
+    JAVASCRIPT
+
+    def self.mount
+      script = JS.document.createElement("script")
+      script[:textContent] = JS_HELPER_CODE
+      JS.document.body.appendChild(script)
+      JS.document.body.removeChild(script)
+    end
+
     # Select a file from input element and generate preview
     # @param input_id [String] DOM element ID of the file input
     # @param block [Proc] Callback with preview data URL (or nil if no file)
