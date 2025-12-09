@@ -53,4 +53,5 @@ class ChatChannel < ApplicationCable::Channel
   rescue ActiveRecord::RecordInvalid => e
     transmit({ type: "error", message: e.message })
   end
+
 end
