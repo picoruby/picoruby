@@ -14,6 +14,8 @@ Rails.application.routes.draw do
 
   namespace :api do
     get "schema/user", to: "schema#user"
+    get "schema/session", to: "schema#session"
+    get "schema/channel", to: "schema#channel"
   end
 
   get "up" => "rails/health#show", as: :rails_health_check
