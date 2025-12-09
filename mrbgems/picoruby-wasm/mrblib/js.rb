@@ -95,4 +95,42 @@ module JS
       end
     end
   end
+
+  module Bridge
+    # Deep convert Ruby value to JS value
+    # @param value [Object] Ruby object (Hash, Array, or primitive)
+    # @return [JS::Object | Object] JS object or primitive value
+    def self.to_js(value)
+      case value
+      when Hash
+        hash_to_js_object(value)
+      when Array
+        array_to_js_array(value)
+      else
+        value
+      end
+    end
+
+    private
+
+    # Convert Ruby Hash to JS object
+    # @param hash [Hash] Ruby hash
+    # @return [JS::Object] JS object
+    def self.hash_to_js_object(hash)
+      js_obj = JS.global.create_object
+      hash.each do |key, val|
+        js_obj[key.to_s.to_sym] = to_js(val)
+      end
+      js_obj
+    end
+
+    # Convert Ruby Array to JS array
+    # @param array [Array] Ruby array
+    # @return [JS::Object] JS array
+    def self.array_to_js_array(array)
+      js_array = JS.global.create_array
+      array.each { |item| js_array.push(to_js(item)) }
+      js_array
+    end
+  end
 end
