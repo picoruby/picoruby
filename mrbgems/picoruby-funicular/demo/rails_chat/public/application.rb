@@ -15,7 +15,7 @@ class LoginComponent < Funicular::Component
   def handle_submit(event)
     event.preventDefault
 
-    if @state[:username].empty? || @state[:password].empty?
+    if state.username.empty? || state.password.empty?
       patch(error: "Please enter username and password")
       return
     end
@@ -23,7 +23,7 @@ class LoginComponent < Funicular::Component
     patch(loading: true, error: nil)
 
     # Login using Session model
-    Session.login(@state[:username], @state[:password]) do |user, error|
+    Session.login(state.username, state.password) do |user, error|
       if error
         patch(loading: false, error: error)
       else
@@ -38,9 +38,9 @@ class LoginComponent < Funicular::Component
       div(class: "bg-white p-8 rounded-lg shadow-2xl w-96") do
         h1(class: "text-3xl font-bold text-center mb-8 text-gray-800") { "Funicular Chat" }
 
-        if @state[:error]
+        if state.error
           div(class: "bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4") do
-            span { @state[:error] }
+            span { state.error }
           end
         end
 
@@ -49,7 +49,7 @@ class LoginComponent < Funicular::Component
             label(class: "block text-sm font-medium text-gray-700 mb-2") { "Username" }
             input(
               type: "text",
-              value: @state[:username],
+              value: state.username,
               oninput: :handle_username_change,
               class: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500",
               placeholder: "Enter your username"
@@ -60,7 +60,7 @@ class LoginComponent < Funicular::Component
             label(class: "block text-sm font-medium text-gray-700 mb-2") { "Password" }
             input(
               type: "password",
-              value: @state[:password],
+              value: state.password,
               oninput: :handle_password_change,
               class: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500",
               placeholder: "Enter your password"
@@ -69,9 +69,9 @@ class LoginComponent < Funicular::Component
 
           button(
             type: "submit",
-            class: "w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-semibold #{'opacity-50 cursor-not-allowed' if @state[:loading]}"
+            class: "w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-semibold #{'opacity-50 cursor-not-allowed' if state.loading}"
           ) do
-            span { @state[:loading] ? "Logging in..." : "Login" }
+            span { state.loading ? "Logging in..." : "Login" }
           end
         end
 
@@ -115,7 +115,7 @@ class ChatComponent < Funicular::Component
         patch(loading: false)
       else
         patch(channels: channels, loading: false)
-        if channels.size > 0 && !@state[:current_channel]
+        if channels.size > 0 && !state.current_channel
           select_channel(channels[0])
         end
       end
@@ -139,7 +139,7 @@ class ChatComponent < Funicular::Component
         patch(messages: data["messages"], loading: false)
         scroll_to_bottom
       when "new_message"
-        messages = @state[:messages] + [data["message"]]
+        messages = state.messages + [data["message"]]
         patch(messages: messages)
         scroll_to_bottom
       end
@@ -161,11 +161,11 @@ class ChatComponent < Funicular::Component
   def handle_send_message(event)
     event.preventDefault
 
-    if @state[:message_input].empty?
+    if state.message_input.empty?
       return
     end
 
-    content = @state[:message_input]
+    content = state.message_input
     patch(message_input: "")
 
     @subscription.perform("send_message", { content: content })
@@ -190,10 +190,10 @@ class ChatComponent < Funicular::Component
         end
 
         div(class: "flex-1 overflow-y-auto") do
-          @state[:channels].each do |channel|
+          state.channels.each do |channel|
             div(
               onclick: -> { select_channel(channel) },
-              class: "p-4 hover:bg-gray-700 cursor-pointer #{@state[:current_channel] && @state[:current_channel].id == channel.id ? 'bg-gray-700' : ''}"
+              class: "p-4 hover:bg-gray-700 cursor-pointer #{state.current_channel && state.current_channel.id == channel.id ? 'bg-gray-700' : ''}"
             ) do
               div(class: "font-semibold") { "# #{channel.name}" }
               div(class: "text-sm text-gray-400 truncate") { channel.description }
@@ -201,10 +201,10 @@ class ChatComponent < Funicular::Component
           end
         end
 
-        if @state[:current_user]
+        if state.current_user
           div(class: "p-4 bg-gray-900 border-t border-gray-700") do
-            div(class: "text-sm font-semibold") { @state[:current_user].display_name }
-            div(class: "text-xs text-gray-400") { "@#{@state[:current_user].username}" }
+            div(class: "text-sm font-semibold") { state.current_user.display_name }
+            div(class: "text-xs text-gray-400") { "@#{state.current_user.username}" }
             button(onclick: :handle_logout, class: "mt-2 text-sm text-red-400 hover:text-red-300") do
               span { "Logout" }
             end
@@ -214,19 +214,19 @@ class ChatComponent < Funicular::Component
 
       # Main chat area
       div(class: "flex-1 flex flex-col") do
-        if @state[:current_channel]
+        if state.current_channel
           # Chat header
           div(class: "bg-white border-b border-gray-200 p-4") do
-            h3(class: "text-xl font-bold text-gray-800") { "# #{@state[:current_channel].name}" }
-            div(class: "text-sm text-gray-600") { @state[:current_channel].description }
+            h3(class: "text-xl font-bold text-gray-800") { "# #{state.current_channel.name}" }
+            div(class: "text-sm text-gray-600") { state.current_channel.description }
           end
 
           # Messages area
           div(ref: :messages_container, class: "flex-1 overflow-y-auto p-4 space-y-4") do
-            if @state[:loading]
+            if state.loading
               div(class: "text-center text-gray-500") { "Loading messages..." }
             else
-              @state[:messages].each do |message|
+              state.messages.each do |message|
                 div(class: "flex items-start space-x-3") do
                   # Avatar
                   if message["user"]["has_avatar"]
@@ -253,7 +253,7 @@ class ChatComponent < Funicular::Component
             form(onsubmit: :handle_send_message, class: "flex space-x-2") do
               input(
                 type: "text",
-                value: @state[:message_input],
+                value: state.message_input,
                 oninput: :handle_message_input,
                 placeholder: "Type a message...",
                 class: "flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -323,8 +323,8 @@ class SettingsComponent < Funicular::Component
   end
 
   def save_with_model
-    @state[:user].display_name = @state[:display_name]
-    @state[:user].update do |success, result|
+    state.user.display_name = state.display_name
+    state.user.update do |success, result|
       if success
         patch(
           saving: false,
@@ -338,8 +338,8 @@ class SettingsComponent < Funicular::Component
   end
 
   def save_with_formdata
-    url = "/users/#{@state[:user].id}"
-    fields = { display_name: @state[:display_name] }
+    url = "/users/#{state.user.id}"
+    fields = { display_name: state.display_name }
 
     Funicular::FileUpload.upload_with_formdata(
       url,
@@ -359,7 +359,7 @@ class SettingsComponent < Funicular::Component
       patch(saving: false, message: "Failed to save settings")
     else
       # Update user instance with new data
-      updated_user = @state[:user]
+      updated_user = state.user
       updated_user.instance_variable_set("@display_name", result["display_name"])
       if result["avatar_updated"]
         updated_user.instance_variable_set("@has_avatar", true)
@@ -388,19 +388,19 @@ class SettingsComponent < Funicular::Component
           end
         end
 
-        if @state[:message]
+        if state.message
           div(class: "mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded") do
-            span { @state[:message] }
+            span { state.message }
           end
         end
 
-        if @state[:user]
+        if state.user
           form(onsubmit: :handle_save, class: "space-y-6") do
             div do
               label(class: "block text-sm font-medium text-gray-700 mb-2") { "Username" }
               input(
                 type: "text",
-                value: @state[:user].username,
+                value: state.user.username,
                 disabled: true,
                 class: "w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
               )
@@ -410,7 +410,7 @@ class SettingsComponent < Funicular::Component
               label(class: "block text-sm font-medium text-gray-700 mb-2") { "Display Name" }
               input(
                 type: "text",
-                value: @state[:display_name],
+                value: state.display_name,
                 oninput: :handle_display_name_change,
                 class: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               )
@@ -418,13 +418,13 @@ class SettingsComponent < Funicular::Component
 
             div do
               label(class: "block text-sm font-medium text-gray-700 mb-2") { "Avatar" }
-              if @state[:avatar_preview]
+              if state.avatar_preview
                 div(class: "mb-2") do
-                  img(src: @state[:avatar_preview], class: "w-24 h-24 rounded-full object-cover")
+                  img(src: state.avatar_preview, class: "w-24 h-24 rounded-full object-cover")
                 end
-              elsif @state[:user].has_avatar
+              elsif state.user.has_avatar
                 div(class: "mb-2") do
-                  img(src: "/users/#{@state[:user].id}/avatar?t=#{@state[:avatar_cache_buster]}", class: "w-24 h-24 rounded-full object-cover")
+                  img(src: "/users/#{state.user.id}/avatar?t=#{state.avatar_cache_buster}", class: "w-24 h-24 rounded-full object-cover")
                 end
               end
               input(
@@ -438,9 +438,9 @@ class SettingsComponent < Funicular::Component
 
             button(
               type: "submit",
-              class: "w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-semibold #{@state[:saving] ? 'opacity-50 cursor-not-allowed' : ''}"
+              class: "w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-semibold #{state.saving ? 'opacity-50 cursor-not-allowed' : ''}"
             ) do
-              span { @state[:saving] ? "Saving..." : "Save Changes" }
+              span { state.saving ? "Saving..." : "Save Changes" }
             end
           end
         end

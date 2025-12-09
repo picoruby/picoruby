@@ -1,16 +1,41 @@
 module Funicular
   class Component
-    attr_reader :state, :props, :refs
+    class StateAccessor
+      def initialize(state_hash)
+        @state = state_hash
+      end
+
+      def method_missing(method, *args)
+        if method.to_s.end_with?('=')
+          key = method.to_s[0..-2].to_sym
+          raise "Use patch(#{key}: value) to update state"
+        else
+          @state[method]
+        end
+      end
+
+      def respond_to_missing?(method, include_private = false)
+        return false if method.to_s.end_with?('=')
+        @state.key?(method) || super
+      end
+    end
+
+    attr_reader :props, :refs
 
     def initialize(props = {})
       @props = props
       @state = initialize_state || {}
+      @state_accessor = nil
       @vdom = nil
       @dom_element = nil
       @refs = {}
       @event_listeners = []
       @mounted = false
       @updating = false
+    end
+
+    def state
+      @state_accessor ||= StateAccessor.new(@state)
     end
 
     # Override this method in subclasses to define initial state
@@ -34,6 +59,7 @@ module Funicular
         end
 
         @state = @state.merge(normalized_state)
+        @state_accessor = nil  # Invalidate accessor to reflect new state
         re_render
 
         component_updated if respond_to?(:component_updated)
