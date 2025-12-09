@@ -35,7 +35,7 @@ module Funicular
     # Stop listening to hash changes
     def stop
       if @callback_id
-        JS.global.removeEventListener(@callback_id)
+        JS::Object.removeEventListener(@callback_id)
         @callback_id = nil
       end
 
