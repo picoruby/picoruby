@@ -33,16 +33,64 @@ module Funicular
       end
     end
 
-    def self.find(id, &block)
-      endpoint = @endpoints["find"]
-      path = endpoint["path"].gsub(":id", id.to_s)
+    def self.all(params = {}, &block)
+      endpoint = @endpoints["all"]
+      return unless endpoint
+
+      HTTP.get(endpoint["path"]) do |response|
+        if response.error?
+          block.call(nil, response.error_message) if block
+        else
+          instances = response.data.map { |attrs| new(attrs) }
+          block.call(instances, nil) if block
+        end
+      end
+    end
+
+    def self.find(id = nil, endpoint_name: "find", model_class: nil, &block)
+      endpoint = @endpoints[endpoint_name]
+      return unless endpoint
+
+      path = endpoint["path"]
+      path = path.gsub(":id", id.to_s) if id
 
       HTTP.get(path) do |response|
         if response.error?
           block.call(nil, response.error_message) if block
         else
-          instance = new(response.data)
+          klass = model_class || self
+          instance = klass.new(response.data)
           block.call(instance, nil) if block
+        end
+      end
+    end
+
+    def self.create(attrs, model_class: nil, &block)
+      endpoint = @endpoints["create"]
+      return unless endpoint
+
+      HTTP.post(endpoint["path"], attrs) do |response|
+        if response.error?
+          block.call(nil, response.error_message) if block
+        else
+          klass = model_class || self
+          instance = klass.new(response.data)
+          block.call(instance, nil) if block
+        end
+      end
+    end
+
+    def self.destroy(id = nil, &block)
+      endpoint = @endpoints["destroy"]
+      return unless endpoint
+
+      path = id ? endpoint["path"].gsub(":id", id.to_s) : endpoint["path"]
+
+      HTTP.delete(path) do |response|
+        if response.error?
+          block.call(false, response.error_message) if block
+        else
+          block.call(true, response.data) if block
         end
       end
     end
@@ -76,6 +124,10 @@ module Funicular
           block.call(true, response.data) if block
         end
       end
+    end
+
+    def destroy(&block)
+      self.class.destroy(@id, &block)
     end
 
     def reload(&block)
