@@ -14,6 +14,9 @@ gem "bootsnap", require: false
 # Funicular - Local development
 gem "funicular", path: "~/work/funicular"
 
+# Tailwind CSS
+gem "tailwindcss-rails"
+
 group :development do
   gem "debug", platforms: %i[ mri windows ]
   gem "web-console"
