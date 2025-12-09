@@ -298,7 +298,7 @@ module Funicular
       table thead tbody tr th td
       form input textarea button select option label
       header footer nav section article aside
-      img video audio
+      img video audio canvas
       br hr
     ]
 
