@@ -13,6 +13,36 @@ module Funicular
     @router
   end
 
+  # Load schemas for models
+  # Usage:
+  #   Funicular.load_schemas({ User => "user", Session => "session" }) do
+  #     Funicular.start(container: 'app') { |router| ... }
+  #   end
+  def self.load_schemas(models, &block)
+    schemas_loaded = 0
+    total_schemas = models.size
+
+    check_completion = -> {
+      if schemas_loaded >= total_schemas
+        puts "[Funicular] All schemas loaded (#{schemas_loaded}/#{total_schemas})"
+        block.call if block
+      end
+    }
+
+    models.each do |model_class, schema_name|
+      HTTP.get("/api/schema/#{schema_name}") do |response|
+        if response.error?
+          puts "[Schema] Failed to load #{schema_name} schema: #{response.error_message}"
+        else
+          model_class.load_schema(response.data)
+          puts "[Schema] #{schema_name} model initialized"
+          schemas_loaded += 1
+          check_completion.call
+        end
+      end
+    end
+  end
+
   # Start Funicular application
   # Usage:
   #   Funicular.start(MyComponent, container: 'app')
