@@ -22,15 +22,12 @@ class LoginComponent < Funicular::Component
 
     patch(loading: true, error: nil)
 
-    # Login API call
-    Funicular::HTTP.post("/login", {
-      username: @state[:username],
-      password: @state[:password]
-    }) do |response|
-      if response.error?
-        patch(loading: false, error: response.error_message)
+    # Login using Session model
+    Session.login(@state[:username], @state[:password]) do |user, error|
+      if error
+        patch(loading: false, error: error)
       else
-        puts "Login successful: #{response.data['username']}"
+        puts "Login successful: #{user.username}"
         Funicular.router.navigate("/chat")
       end
     end
@@ -100,23 +97,23 @@ class ChatComponent < Funicular::Component
   end
 
   def component_mounted
-    # Check if logged in
-    Funicular::HTTP.get("/current_user") do |response|
-      if response.error?
+    # Check if logged in using Session model
+    Session.current_user do |user, error|
+      if error
         Funicular.router.navigate("/login")
       else
-        patch(current_user: response.data)
+        patch(current_user: user)
         load_channels
       end
     end
   end
 
   def load_channels
-    Funicular::HTTP.get("/channels") do |response|
-      if response.error?
+    # Load channels using Channel model
+    Channel.all do |channels, error|
+      if error
         patch(loading: false)
       else
-        channels = response.data
         patch(channels: channels, loading: false)
         if channels.size > 0 && !@state[:current_channel]
           select_channel(channels[0])
@@ -135,7 +132,7 @@ class ChatComponent < Funicular::Component
 
     consumer = Funicular::Cable.create_consumer("/cable")
     @subscription = consumer.subscriptions.create(
-      { channel: "ChatChannel", channel_id: channel["id"] }
+      { channel: "ChatChannel", channel_id: channel.id }
     ) do |data|
       case data["type"]
       when "initial_messages"
@@ -175,7 +172,8 @@ class ChatComponent < Funicular::Component
   end
 
   def handle_logout(event)
-    Funicular::HTTP.delete("/logout") do |response|
+    # Logout using Session model
+    Session.logout do |success, error|
       Funicular.router.navigate("/login")
     end
   end
@@ -195,18 +193,18 @@ class ChatComponent < Funicular::Component
           @state[:channels].each do |channel|
             div(
               onclick: -> { select_channel(channel) },
-              class: "p-4 hover:bg-gray-700 cursor-pointer #{@state[:current_channel] && @state[:current_channel]['id'] == channel['id'] ? 'bg-gray-700' : ''}"
+              class: "p-4 hover:bg-gray-700 cursor-pointer #{@state[:current_channel] && @state[:current_channel].id == channel.id ? 'bg-gray-700' : ''}"
             ) do
-              div(class: "font-semibold") { "# #{channel['name']}" }
-              div(class: "text-sm text-gray-400 truncate") { channel["description"] }
+              div(class: "font-semibold") { "# #{channel.name}" }
+              div(class: "text-sm text-gray-400 truncate") { channel.description }
             end
           end
         end
 
         if @state[:current_user]
           div(class: "p-4 bg-gray-900 border-t border-gray-700") do
-            div(class: "text-sm font-semibold") { @state[:current_user]["display_name"] }
-            div(class: "text-xs text-gray-400") { "@#{@state[:current_user]['username']}" }
+            div(class: "text-sm font-semibold") { @state[:current_user].display_name }
+            div(class: "text-xs text-gray-400") { "@#{@state[:current_user].username}" }
             button(onclick: :handle_logout, class: "mt-2 text-sm text-red-400 hover:text-red-300") do
               span { "Logout" }
             end
@@ -219,8 +217,8 @@ class ChatComponent < Funicular::Component
         if @state[:current_channel]
           # Chat header
           div(class: "bg-white border-b border-gray-200 p-4") do
-            h3(class: "text-xl font-bold text-gray-800") { "# #{@state[:current_channel]['name']}" }
-            div(class: "text-sm text-gray-600") { @state[:current_channel]["description"] }
+            h3(class: "text-xl font-bold text-gray-800") { "# #{@state[:current_channel].name}" }
+            div(class: "text-sm text-gray-600") { @state[:current_channel].description }
           end
 
           # Messages area
@@ -285,12 +283,11 @@ class SettingsComponent < Funicular::Component
   end
 
   def component_mounted
-    Funicular::HTTP.get("/current_user") do |response|
-      if response.error?
+    # Get current user using Session model
+    Session.current_user do |user, error|
+      if error
         Funicular.router.navigate("/login")
       else
-        # Create User model instance from response data
-        user = User.new(response.data)
         patch(user: user, display_name: user.display_name)
       end
     end
