@@ -188,8 +188,19 @@ EM_JS(int, get_length, (int ref_id), {
 EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   try {
     const obj = window.picorubyRefs[ref_id];
-    const func = obj[UTF8ToString(method)];
-    const result = func.call(obj, UTF8ToString(arg));
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+    const argString = UTF8ToString(arg);
+
+    let result;
+    if (methodName === 'new') {
+      // Call as constructor
+      result = new obj(argString);
+    } else {
+      // Call as method
+      result = func.call(obj, argString);
+    }
+
     const newRefId = window.picorubyRefs.length;
     window.picorubyRefs.push(result);
     return newRefId;
@@ -215,8 +226,18 @@ EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
 EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
   try {
     const obj = window.picorubyRefs[ref_id];
-    const func = obj[UTF8ToString(method)];
-    const result = func.call(obj, arg);
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+
+    let result;
+    if (methodName === 'new') {
+      // Call as constructor
+      result = new obj(arg);
+    } else {
+      // Call as method
+      result = func.call(obj, arg);
+    }
+
     const newRefId = window.picorubyRefs.length;
     window.picorubyRefs.push(result);
     return newRefId;
@@ -229,8 +250,20 @@ EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
 EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, const char *arg2), {
   try {
     const obj = window.picorubyRefs[ref_id];
-    const func = obj[UTF8ToString(method)];
-    const result = func.call(obj, UTF8ToString(arg1), UTF8ToString(arg2));
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+    const argString1 = UTF8ToString(arg1);
+    const argString2 = UTF8ToString(arg2);
+
+    let result;
+    if (methodName === 'new') {
+      // Call as constructor
+      result = new obj(argString1, argString2);
+    } else {
+      // Call as method
+      result = func.call(obj, argString1, argString2);
+    }
+
     const newRefId = window.picorubyRefs.length;
     window.picorubyRefs.push(result);
     return newRefId;
@@ -247,7 +280,15 @@ EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id
     const func = obj[methodName];
 
     const argObj = window.picorubyRefs[arg_ref_id];
-    const result = func.call(obj, argObj);
+
+    let result;
+    if (methodName === 'new') {
+      // Call as constructor
+      result = new obj(argObj);
+    } else {
+      // Call as method
+      result = func.call(obj, argObj);
+    }
 
     const newRefId = window.picorubyRefs.length;
     window.picorubyRefs.push(result);
@@ -266,7 +307,15 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
 
     const argObj1 = window.picorubyRefs[arg_ref_1_id];
     const argObj2 = window.picorubyRefs[arg_ref_2_id];
-    const result = func.call(obj, argObj1, argObj2);
+
+    let result;
+    if (methodName === 'new') {
+      // Call as constructor
+      result = new obj(argObj1, argObj2);
+    } else {
+      // Call as method
+      result = func.call(obj, argObj1, argObj2);
+    }
 
     const newRefId = window.picorubyRefs.length;
     window.picorubyRefs.push(result);
@@ -380,6 +429,28 @@ EM_JS(int, js_create_text_node, (const char* text), {
     return refId;
   } catch(e) {
     console.error('Error in js_create_text_node:', e);
+    return -1;
+  }
+});
+
+EM_JS(int, js_create_object, (), {
+  try {
+    const obj = {};
+    const refId = globalThis.picorubyRefs.push(obj) - 1;
+    return refId;
+  } catch(e) {
+    console.error('Error in js_create_object:', e);
+    return -1;
+  }
+});
+
+EM_JS(int, js_create_array, (), {
+  try {
+    const arr = [];
+    const refId = globalThis.picorubyRefs.push(arr) - 1;
+    return refId;
+  } catch(e) {
+    console.error('Error in js_create_array:', e);
     return -1;
   }
 });
@@ -745,9 +816,23 @@ static mrb_value
 mrb_object_get_property(mrb_state *mrb, mrb_value self)
 {
   picorb_js_obj *parent = (picorb_js_obj *)DATA_PTR(self);
-  mrb_sym key;
-  mrb_get_args(mrb, "n", &key);
-  const char* key_str = mrb_sym_name(mrb, key);
+  mrb_value key;
+  mrb_get_args(mrb, "o", &key);
+
+  const char* key_str;
+  char int_buf[32];
+
+  if (mrb_integer_p(key)) {
+    // Convert integer to string
+    snprintf(int_buf, sizeof(int_buf), "%lld", (long long)mrb_integer(key));
+    key_str = int_buf;
+  } else if (mrb_symbol_p(key)) {
+    key_str = mrb_sym_name(mrb, mrb_symbol(key));
+  } else if (mrb_string_p(key)) {
+    key_str = RSTRING_PTR(key);
+  } else {
+    mrb_raisef(mrb, E_TYPE_ERROR, "%v is not a symbol nor a string", key);
+  }
 
   return get_js_property(mrb, parent->ref_id, key_str);
 }
@@ -785,10 +870,24 @@ static mrb_value
 mrb_object_set_property(mrb_state *mrb, mrb_value self)
 {
   picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
-  mrb_sym key;
+  mrb_value key;
   mrb_value value;
-  mrb_get_args(mrb, "no", &key, &value);
-  const char* key_str = mrb_sym_name(mrb, key);
+  mrb_get_args(mrb, "oo", &key, &value);
+
+  const char* key_str;
+  char int_buf[32];
+
+  if (mrb_integer_p(key)) {
+    // Convert integer to string
+    snprintf(int_buf, sizeof(int_buf), "%lld", (long long)mrb_integer(key));
+    key_str = int_buf;
+  } else if (mrb_symbol_p(key)) {
+    key_str = mrb_sym_name(mrb, mrb_symbol(key));
+  } else if (mrb_string_p(key)) {
+    key_str = RSTRING_PTR(key);
+  } else {
+    mrb_raisef(mrb, E_TYPE_ERROR, "%v is not a symbol nor a string", key);
+  }
 
   bool success = set_js_property(mrb, js_obj->ref_id, key_str, value);
   if (!success) {
@@ -1176,6 +1275,40 @@ mrb_object_create_text_node(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#_create_object
+ * Create a new JavaScript object {}
+ */
+static mrb_value
+mrb_object_create_object(mrb_state *mrb, mrb_value self)
+{
+  mrb_get_args(mrb, "");
+  int ref_id = js_create_object();
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+  data->ref_id = ref_id;
+  return mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+}
+
+/*
+ * JS::Object#_create_array
+ * Create a new JavaScript array []
+ */
+static mrb_value
+mrb_object_create_array(mrb_state *mrb, mrb_value self)
+{
+  mrb_get_args(mrb, "");
+  int ref_id = js_create_array();
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+  data->ref_id = ref_id;
+  return mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+}
+
+/*
  * JS::Object#appendChild
  */
 static mrb_value
@@ -1345,6 +1478,8 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createTextNode), mrb_object_create_text_node, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(create_object), mrb_object_create_object, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(create_array), mrb_object_create_array, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(appendChild), mrb_object_append_child, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeChild), mrb_object_remove_child, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(replaceChild), mrb_object_replace_child, MRB_ARGS_REQ(2));

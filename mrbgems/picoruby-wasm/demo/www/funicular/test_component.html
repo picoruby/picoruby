@@ -29,7 +29,7 @@
       end
 
       def component_mounted
-        update(mounted: true)
+        patch(mounted: true)
       end
 
       def component_will_update
@@ -40,12 +40,12 @@
 
       def increment(event)
         event.preventDefault if event
-        update(count: @state[:count] + 1)
+        patch(count: @state[:count] + 1)
       end
 
       def decrement(event)
         event.preventDefault if event
-        update(count: @state[:count] - 1)
+        patch(count: @state[:count] - 1)
       end
 
       def render
@@ -89,7 +89,7 @@
       # Test 2: Initial state
       begin
         counter = TestCounter.new
-        initial_state = counter.state[:count] == 0
+        initial_state = counter.state.count == 0
         log_test("Initial state", initial_state)
       rescue => e
         log_test("Initial state", false)
@@ -114,7 +114,7 @@
         container.innerHTML = ''
         counter = Funicular.start(TestCounter, container: container)
         sleep 0.1
-        counter.update(count: 5)
+        counter.patch(count: 5)
         sleep 0.1
         h2_element = JS.document.querySelector('#counter-app h2')
         text = h2_element.textContent.to_poro
@@ -139,13 +139,13 @@
         has_button = btn != nil
 
         # Test handler logic by calling it directly (standard testing approach)
-        initial_count = counter.state[:count]
+        initial_count = counter.state.count
         counter.increment(nil)
         sleep 0.05
 
         h2_element = JS.document.querySelector('#counter-app h2')
         text = h2_element.textContent.to_poro
-        handler_works = counter.state[:count] == initial_count + 1 && text.include?("#{initial_count + 1}")
+        handler_works = counter.state.count == initial_count + 1 && text.include?("#{initial_count + 1}")
 
         log_test("Event handler (click)", has_button && handler_works)
       rescue => e
@@ -175,11 +175,11 @@
         counter = Funicular.start(TestCounter, container: container)
         sleep 0.1
 
-        counter.update(count: 10)
+        counter.patch(count: 10)
         sleep 0.05
-        counter.update(count: 20)
+        counter.patch(count: 20)
         sleep 0.05
-        counter.update(count: 30)
+        counter.patch(count: 30)
         sleep 0.1
 
         h2_element = JS.document.querySelector('#counter-app h2')
