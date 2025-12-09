@@ -53,7 +53,11 @@ module Funicular
 
       # Use URL.createObjectURL instead of FileReader for preview
       # This is simpler and doesn't require async callbacks
-      preview_url = JS.global[:URL].createObjectURL(file)
+      if file.nil?
+        raise "Selected file is nil"
+      else
+        preview_url = JS.global[:URL].createObjectURL(file)
+      end
 
       # Call the block with file and preview URL
       preview_url_str = preview_url.to_poro

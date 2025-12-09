@@ -1,71 +1,63 @@
 module JS
   class Object
-    type poro_t = JS::Object | String | Symbol | Array[JS::Object] | Integer | Float | nil | bool
+    type poro_t = untyped
 
     $promise_responses: Hash[Integer, JS::Object]
     $js_events: Hash[Integer, JS::Object]
     CALLBACKS: Hash[Integer, Proc]
 
-    def type: () -> Symbol
-    def to_poro: () -> poro_t
-
     def []: (String | Symbol | Integer name) -> JS::Object
     def []=: (String | Symbol name, untyped value) -> untyped
-    def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
-    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer
-    def self.removeEventListener: (Integer callback_id) -> bool
-    def to_binary: () -> String
-    def call: (*untyped args) -> untyped
 
-    # DOM manipulation methods
+    def addEventListener: (String event_type) { (JS::Object event) -> void } -> Integer
+    def self.removeEventListener: (Integer callback_id) -> bool
+    def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
+    def then: () { (JS::Object result) -> void } -> void
+    def to_binary: () -> String
+    def to_poro: () -> poro_t
+
+    # Debugging
+    def type: () -> Symbol
+    def refcount: () -> Integer
+
+    # DOM manipulation methods defined in C
     def createElement: (String tag_name) -> JS::Object
     def createTextNode: (String text) -> JS::Object
     def appendChild: (JS::Object child) -> bool
     def removeChild: (JS::Object child) -> bool
     def replaceChild: (JS::Object new_child, JS::Object old_child) -> bool
-    def insertBefore: (JS::Object new_child, JS::Object? ref_child) -> bool
+    def insertBefore: (JS::Object new_child, ?JS::Object? ref_child) -> bool
     def setAttribute: (String name, String value) -> bool
     def removeAttribute: (String name) -> bool
-    def getElementById: (String id) -> JS::Object
-    def createObjectURL: (JS::Object blob) -> JS::Object
 
-    # Event methods
-    def preventDefault: () -> nil
-    def stopPropagation: () -> nil
-
-    # Timer methods
-    def setTimeout: (Integer milliseconds) { () -> void } -> Integer
-    def setInterval: (Integer milliseconds) { () -> void } -> Integer
-    def clearTimeout: (Integer timer_id) -> void
-    def clearInterval: (Integer timer_id) -> void
-
-    # Common DOM methods
-    def querySelector: (String selector) -> JS::Object
-
-    # Properties
-    def className: () -> JS::Object
-    def classList: () -> JS::Object
-    def children: () -> JS::Object
-    def parentElement: () -> JS::Object
+    # Common properties/methods often handled by method_missing
+    def getElementById: (String id) -> JS::Object?
+    def querySelector: (String selector) -> JS::Object?
+    def children: () -> JS::Object # Returns an array-like object
+    def parentElement: () -> JS::Object?
     def tagName: () -> JS::Object
-    def innerHTML: () -> JS::Object
-    def innerHTML=: (String html) -> String
     def style: () -> JS::Object
-    def style=: (String style) -> String
-    def textContent: () -> JS::Object
+    def item: (String | Integer num) -> JS::Object?
+    def innerHTML=: (String html) -> String
     def textContent=: (String text) -> String
-    def status: () -> JS::Object
     def body: () -> JS::Object
-    def item: (String num) -> JS::Object
+    def status: () -> JS::Object
 
-    private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
+    # New methods for fixing steep errors
+    def createObjectURL: (JS::Object blob) -> JS::Object
+    def _js_remove_event_listener_wrapper: (Integer callback_id) -> bool
+
+    private def method_missing: (Symbol method_name, *untyped args) -> untyped
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
+    private def _preventDefault: () -> nil
+    private def _stopPropagation: () -> nil
   end
 
   def self.global: () -> JS::Object
   def self.document: () -> JS::Object
 end
+

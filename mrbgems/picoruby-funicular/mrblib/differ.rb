@@ -12,8 +12,12 @@ module Funicular
 
           case old_node.type
           when :text
+            # @type var old_node: Funicular::VDOM::Text
+            # @type var new_node: Funicular::VDOM::Text
             diff_text(old_node, new_node)
           when :element
+            # @type var old_node: Funicular::VDOM::Element
+            # @type var new_node: Funicular::VDOM::Element
             diff_element(old_node, new_node)
           else
             [[:replace, new_node]]
@@ -67,7 +71,7 @@ module Funicular
       def self.diff_children(old_children, new_children)
         patches = []
         max_length = [old_children.length, new_children.length].max
-        max_length.times do |i|
+        max_length&.times do |i|
           old_child = old_children[i]
           new_child = new_children[i]
           child_patches = diff(old_child, new_child)
