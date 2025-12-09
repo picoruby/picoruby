@@ -71,8 +71,10 @@ module Funicular
       def render(vnode, parent = nil)
         case vnode&.type
         when :element
+          # @type var vnode: Funicular::VDOM::Element
           render_element(vnode, parent)
         when :text
+          # @type var vnode: Funicular::VDOM::Text
           render_text(vnode, parent)
         else
           raise "Unknown vnode type: #{vnode&.type}"

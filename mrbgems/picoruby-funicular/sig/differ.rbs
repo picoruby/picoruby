@@ -3,10 +3,10 @@ module Funicular
     class Differ
       def self.diff: (untyped old_node, untyped new_node) -> Array[patch_t]
 
-      private def self.diff_text: (untyped old_node, untyped new_node) -> Array[patch_t]
-      private def self.diff_element: (untyped old_node, untyped new_node) -> Array[patch_t]
-      private def self.diff_props: (Hash[Symbol, String] old_props, Hash[Symbol, String] new_props) -> Hash[Symbol, String?]
-      private def self.diff_children: (untyped old_children, untyped new_children) -> Array[patch_t]
+      private def self.diff_text: (Text old_node, Text new_node) -> Array[patch_t]
+      private def self.diff_element: (Element old_node, Element new_node) -> Array[patch_t]
+      private def self.diff_props: (Hash[Symbol, untyped] old_props, Hash[Symbol, untyped] new_props) -> Hash[Symbol, untyped]
+      private def self.diff_children: (Array[untyped] old_children, Array[untyped] new_children) -> Array[patch_t]
     end
   end
 end

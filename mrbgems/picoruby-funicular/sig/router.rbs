@@ -15,7 +15,4 @@ module Funicular
     private def handle_route_change: () -> void
     private def unmount_current_component: () -> void
   end
-
-  def self.router: () -> Router?
-  def self.start: (?singleton(Component)? component_class, ?container: String | JS::Object, ?props: Hash[Symbol, untyped]) ?{ (Router router) -> void } -> (Component | Router)
 end

@@ -19,7 +19,7 @@ module Funicular
           when :props
             update_props(element, patch[1])
           when :remove
-            element.parentElement.removeChild(element)
+            element.parentElement&.removeChild(element)
           when Integer
             child_index = patch[0]
             child_patches = patch[1]
@@ -42,6 +42,7 @@ module Funicular
               end
             else
               # Check if this is a simple replace patch
+              # @type var child_element: JS::Object
               if child_patches.size == 1 && child_patches[0][0] == :replace
                 new_child_element = create_element(child_patches[0][1])
                 element.replaceChild(new_child_element, child_element)

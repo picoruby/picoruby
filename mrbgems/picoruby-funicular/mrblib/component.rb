@@ -7,7 +7,7 @@ module Funicular
 
       def method_missing(method, *args)
         if method.to_s.end_with?('=')
-          key = method.to_s[0..-2].to_sym
+          key = method.to_s[0..-2] || method
           raise "Use patch(#{key}: value) to update state"
         else
           @state[method]
