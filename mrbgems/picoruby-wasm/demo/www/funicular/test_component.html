@@ -40,26 +40,26 @@
 
       def increment(event)
         event.preventDefault if event
-        patch(count: @state[:count] + 1)
+        patch(count: state.count + 1)
       end
 
       def decrement(event)
         event.preventDefault if event
-        patch(count: @state[:count] - 1)
+        patch(count: state.count - 1)
       end
 
       def render
         div(id: "counter-app") do
-          h2 { "Counter: #{@state[:count]}" }
+          h2 { "Counter: #{state.count}" }
           div(id: "status") do
-            "Mounted: #{@state[:mounted]}"
+            "Mounted: #{state.mounted}"
           end
           div do
             button(id: "increment-btn", onclick: :increment) { "+1" }
             button(id: "decrement-btn", onclick: :decrement) { "-1" }
           end
           div(ref: :display, id: "display") do
-            "Current value: #{@state[:count]}"
+            "Current value: #{state.count}"
           end
         end
       end

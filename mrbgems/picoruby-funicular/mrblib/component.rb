@@ -5,6 +5,11 @@ module Funicular
         @state = state_hash
       end
 
+      # Support dynamic key access: state[:key] or state[variable_key]
+      def [](key)
+        @state[key]
+      end
+
       def method_missing(method, *args)
         if method.to_s.end_with?('=')
           key = method.to_s[0..-2] || method

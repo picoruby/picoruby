@@ -34,7 +34,7 @@
       end
 
       def on_username_input(event)
-        update(username: event.target[:value].to_poro)
+        patch(username: event.target[:value].to_poro)
       end
 
       def on_login_click(event)
@@ -50,7 +50,7 @@
             input(
               type: 'text',
               placeholder: 'Username',
-              value: @state[:username],
+              value: state.username,
               oninput: :on_username_input
             )
           end
@@ -60,7 +60,7 @@
           end
 
           div(class: 'status') do
-            "Username: #{@state[:username]}"
+            "Username: #{state.username}"
           end
         end
       end
@@ -73,7 +73,7 @@
 
       def increment(event)
         event.preventDefault
-        update(count: @state[:count] + 1)
+        patch(count: state.count + 1)
       end
 
       def go_to_settings(event)
@@ -86,7 +86,7 @@
           h2(class: 'page-title') { 'Home Page' }
 
           div do
-            "Counter: #{@state[:count]}"
+            "Counter: #{state.count}"
           end
 
           div do
@@ -108,13 +108,13 @@
 
       def toggle_theme(event)
         event.preventDefault
-        new_theme = @state[:theme] == 'light' ? 'dark' : 'light'
-        update(theme: new_theme)
+        new_theme = state.theme == 'light' ? 'dark' : 'light'
+        patch(theme: new_theme)
       end
 
       def toggle_notifications(event)
         event.preventDefault
-        update(notifications: !@state[:notifications])
+        patch(notifications: !state.notifications)
       end
 
       def go_to_home(event)
@@ -127,12 +127,12 @@
           h2(class: 'page-title') { 'Settings Page' }
 
           div do
-            span { "Theme: #{@state[:theme]}" }
+            span { "Theme: #{state.theme}" }
             button(onclick: :toggle_theme) { 'Toggle Theme' }
           end
 
           div do
-            span { "Notifications: #{@state[:notifications] ? 'ON' : 'OFF'}" }
+            span { "Notifications: #{state.notifications ? 'ON' : 'OFF'}" }
             button(onclick: :toggle_notifications) { 'Toggle Notifications' }
           end
 

@@ -2,6 +2,7 @@ module Funicular
   class Component
     class StateAccessor
       def self.new: (Hash[Symbol, untyped] state_hash) -> StateAccessor
+      def []: (Symbol key) -> untyped
       def method_missing: (Symbol method, *untyped args) -> untyped
       def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
     end
