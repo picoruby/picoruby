@@ -364,8 +364,8 @@ mrb_task_proc_set(mrb_state *mrb, mrb_value task, struct RProc *proc)
   @param  tcb       Task control block with parameter, or NULL.
   @return mrb_value
 */
-mrb_value
-mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value priority, mrb_value top_self)
+static mrb_value
+__mrb_create_task_internal(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value priority, mrb_value top_self)
 {
   if (mrb_nil_p(priority)) {
     priority = mrb_fixnum_value(MRB_TASK_DEFAULT_PRIORITY);
@@ -426,6 +426,15 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
   mrb_task_enable_irq();
 
   return task;
+}
+
+mrb_value
+mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value priority, mrb_value top_self)
+{
+  if (0 < mrb->scheduler_lock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Cannot use Task.new during synchronous execution");
+  }
+  return __mrb_create_task_internal(mrb, proc, name, priority, top_self);
 }
 
 
@@ -667,6 +676,9 @@ mrb_tasks_run(mrb_state *mrb)
 static void
 sleep_ms_impl(mrb_state *mrb, mrb_int ms)
 {
+  if (0 < mrb->scheduler_lock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Cannot use asynchronous Task API during synchronous execution");
+  }
   mrb_tcb *tcb = MRB2TCB(mrb);
 
   mrb_task_disable_irq();
@@ -694,6 +706,9 @@ sleep_ms_impl(mrb_state *mrb, mrb_int ms)
 void
 mrb_suspend_task(mrb_state *mrb, mrb_value task)
 {
+  if (0 < mrb->scheduler_lock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Cannot use asynchronous Task API during synchronous execution");
+  }
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
   if (tcb->status == TASKSTATUS_SUSPENDED) return;
 
@@ -710,6 +725,9 @@ mrb_suspend_task(mrb_state *mrb, mrb_value task)
 void
 mrb_resume_task(mrb_state *mrb, mrb_value task)
 {
+  if (0 < mrb->scheduler_lock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Cannot use asynchronous Task API during synchronous execution");
+  }
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
   if (tcb->status != TASKSTATUS_SUSPENDED) return;
 
@@ -1018,6 +1036,9 @@ mrb_task_terminate(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_task_join(mrb_state *mrb, mrb_value self)
 {
+  if (0 < mrb->scheduler_lock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Cannot use asynchronous Task API during synchronous execution");
+  }
   mrb_tcb *current_tcb = MRB2TCB(mrb);
   mrb_tcb *tcb_to_join = mrb_task_get_tcb(mrb, self);
   if (tcb_to_join == current_tcb) {
@@ -1097,6 +1118,68 @@ mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
   mrb_value stat = mrb_obj_new(mrb, class_Stat, 0, NULL);
   mrb_obj_iv_set(mrb, mrb_obj_ptr(stat), MRB_IVSYM(data), data);
   return stat;
+}
+
+//================================================================
+/*! Execute a proc synchronously
+
+  @param  mrb     mrb_state
+  @param  proc_val  RProc object
+  @return mrb_value
+*/
+mrb_value
+mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val)
+{
+  struct RProc *proc = mrb_proc_ptr(proc_val);
+
+  // --- 1. Lock scheduler and save context ---
+  mrb->scheduler_lock++;
+  struct mrb_context *original_c = mrb->c;
+
+  // --- 2. Create a temporary task (calling internal function directly) ---
+  mrb_value task_obj = __mrb_create_task_internal(mrb, proc, mrb_str_new_lit(mrb, "(sync)"), mrb_fixnum_value(0), mrb_top_self(mrb));
+  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task_obj, &mrb_task_tcb_type);
+
+  // --- 3. Move task from DORMANT to READY ---
+  mrb_task_disable_irq();
+  q_delete_task(mrb, tcb);        // Remove from DORMANT queue
+  tcb->status = TASKSTATUS_READY;
+  q_insert_task(mrb, tcb);        // Insert into the READY queue
+  mrb_task_enable_irq();
+
+  // --- 4. Execute the task in a dedicated loop ---
+  tcb->status = TASKSTATUS_RUNNING;
+  mrb->c = &tcb->c; // Set VM context to this task
+
+  // Execute until the task stops or an exception occurs in the VM
+  while (tcb->c.status != MRB_TASK_STOPPED && !mrb->exc) {
+    mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
+  }
+
+  if (mrb->exc) {
+    tcb->value = mrb_obj_value(mrb->exc);
+  }
+
+  // --- 5. Get result and clean up ---
+  mrb_value result = tcb->value;
+  if (mrb_obj_ptr(result) == mrb->exc) {
+    mrb->exc = NULL; // Catch the exception and restore the VM state to normal
+  }
+
+  // --- 6. Free the temporary task's resources ---
+  mrb_task_disable_irq();
+  q_delete_task(mrb, tcb);                // Remove from queue just in case
+  mrb_task_enable_irq();
+  remove_context_from_list(mrb, &tcb->c); // Remove from the global context list
+  mrb_gc_unregister(mrb, tcb->task);      // Unregister from GC
+  cleanup_context(mrb, &tcb->c);          // Free stack area, etc.
+  mrb_free(mrb, tcb);                     // Free the TCB struct itself
+
+  // --- 7. Restore context and unlock ---
+  mrb->c = original_c;
+  mrb->scheduler_lock--;
+
+  return result;
 }
 
 void
