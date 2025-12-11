@@ -129,4 +129,6 @@ mrb_bool mrb_mutex_trylock(mrb_value mutex, mrb_value task);
 
 MRB_END_DECL
 
+MRB_API mrb_value mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc);
+
 #endif /* MRUBY_TASK_H */
