@@ -110,8 +110,8 @@
         @chart[:data][:datasets][0][:data] = new_data
 
         # Verify the data was set
-        puts "update_chart: Chart labels after setting: #{@chart[:data][:labels][0].to_poro}"
-        puts "update_chart: Chart data after setting: #{@chart[:data][:datasets][0][:data][0].to_poro}"
+        puts "update_chart: Chart labels after setting: #{@chart[:data][:labels][0]}"
+        puts "update_chart: Chart data after setting: #{@chart[:data][:datasets][0][:data][0]}"
 
         # Call update() method with explicit argument to ensure method call
         @chart.update("active")
@@ -152,7 +152,7 @@
       begin
         hash = { a: 1, b: "test", c: true }
         js_obj = JS::Bridge.to_js(hash)
-        test1 = js_obj[:a].to_poro == 1 && js_obj[:b].to_poro == "test"
+        test1 = js_obj[:a] == 1 && js_obj[:b] == "test"
         log_test("JS::Bridge.to_js(Hash)", test1)
       rescue => e
         log_test("JS::Bridge.to_js(Hash)", false)
@@ -163,7 +163,7 @@
       begin
         nested = { outer: { inner: 42 } }
         js_nested = JS::Bridge.to_js(nested)
-        test2 = js_nested[:outer][:inner].to_poro == 42
+        test2 = js_nested[:outer][:inner] == 42
         log_test("JS::Bridge.to_js(nested Hash)", test2)
       rescue => e
         log_test("JS::Bridge.to_js(nested Hash)", false)
@@ -174,7 +174,7 @@
       begin
         array = [1, 2, 3]
         js_array = JS::Bridge.to_js(array)
-        test3 = js_array[0].to_poro == 1 && js_array[2].to_poro == 3
+        test3 = js_array[0] == 1 && js_array[2] == 3
         log_test("JS::Bridge.to_js(Array)", test3)
       rescue => e
         log_test("JS::Bridge.to_js(Array)", false)
@@ -185,7 +185,7 @@
       begin
         complex = [{ x: 10 }, { x: 20 }]
         js_complex = JS::Bridge.to_js(complex)
-        test4 = js_complex[0][:x].to_poro == 10 && js_complex[1][:x].to_poro == 20
+        test4 = js_complex[0][:x] == 10 && js_complex[1][:x] == 20
         log_test("JS::Bridge.to_js(Array of Hashes)", test4)
       rescue => e
         log_test("JS::Bridge.to_js(Array of Hashes)", false)

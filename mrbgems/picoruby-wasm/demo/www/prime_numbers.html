@@ -29,7 +29,7 @@
         count
       end
       JS.document.getElementById('start').addEventListener('click') do |event|
-        limit = JS.document.getElementById('limit').value.to_poro.to_i
+        limit = JS.document.getElementById('limit').value.to_i
         start = Time.now
         result = count_primes(limit)
         finish = Time.now
