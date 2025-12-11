@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PicoRuby WASM Generic Callback Tests</title>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="test.css">
+  <style>
+    .test-case { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+    .result { margin-top: 5px; font-family: monospace; background-color: #f0f0f0; padding: 5px; }
+  </style>
+</head>
+<body>
+  <p><a href="index.html">Back</a></p>
+
+  <h1>PicoRuby WASM Generic Callback Tests</h1>
+
+  <!-- Test Case 1: Simple String Return -->
+  <div class="test-case">
+    <h2>Test 1: String Return Callback</h2>
+    <p>Ruby callback returns a formatted string.</p>
+    <button id="test1-button">Run String Return Test</button>
+    <div id="test1-result" class="result">Result: (not run)</div>
+  </div>
+  <script type="text/ruby">
+    # Register a callback that returns a formatted string
+    JS::Object.register_callback('rubyFormatLabel') do |value|
+      "Value: #{value}"
+    end
+  </script>
+  <script>
+    document.getElementById('test1-button').addEventListener('click', () => {
+      const result = globalThis.picorubyGenericCallbacks['rubyFormatLabel'](43);
+      document.getElementById('test1-result').textContent = `Result: ${result}`;
+    });
+  </script>
+
+  <!-- Test Case 2: Number Calculation -->
+  <div class="test-case">
+    <h2>Test 2: Number Calculation Callback</h2>
+    <p>Ruby callback performs calculation and returns a number.</p>
+    <button id="test2-button">Run Number Calculation Test</button>
+    <div id="test2-result" class="result">Result: (not run)</div>
+  </div>
+  <script type="text/ruby">
+    # Register a callback that calculates sum
+    JS::Object.register_callback('rubyCalculate') do |a, b|
+      a + b
+    end
+  </script>
+  <script>
+    document.getElementById('test2-button').addEventListener('click', () => {
+      const result = globalThis.picorubyGenericCallbacks['rubyCalculate'](10, 20);
+      document.getElementById('test2-result').textContent = `Result: 10 + 20 = ${result}`;
+    });
+  </script>
+
+  <!-- Test Case 3: Array Return -->
+  <div class="test-case">
+    <h2>Test 3: Array Return Callback</h2>
+    <p>Ruby callback filters and returns an array.</p>
+    <button id="test3-button">Run Array Return Test</button>
+    <div id="test3-result" class="result">Result: (not run)</div>
+  </div>
+  <script type="text/ruby">
+    # Register a callback that filters even numbers
+    JS::Object.register_callback('rubyFilterEven') do |arr|
+      len = arr[:length]
+      puts "[Ruby] about to call times"
+      len.times do |i|
+        puts "[Ruby] iteration #{i}"
+      end
+      puts "[Ruby] times finished"
+      [2, 4, 6]
+    end
+  </script>
+  <script>
+    document.getElementById('test3-button').addEventListener('click', () => {
+      const input = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const result = globalThis.picorubyGenericCallbacks['rubyFilterEven'](input);
+      document.getElementById('test3-result').textContent = `Result: ${JSON.stringify(result)}`;
+    });
+  </script>
+
+  <!-- Test Case 4: Hash/Object Return -->
+  <div class="test-case">
+    <h2>Test 4: Hash/Object Return Callback</h2>
+    <p>Ruby callback returns a hash (converted to JS object).</p>
+    <button id="test4-button">Run Hash Return Test</button>
+    <div id="test4-result" class="result">Result: (not run)</div>
+  </div>
+  <script type="text/ruby">
+    # Register a callback that returns a hash
+    JS::Object.register_callback('rubyCreateObject') do |name, age|
+      {
+        name: name,
+        age: age,
+        greeting: "Hello, I'm #{name}"
+      }
+    end
+  </script>
+  <script>
+    document.getElementById('test4-button').addEventListener('click', () => {
+      const result = globalThis.picorubyGenericCallbacks['rubyCreateObject']('Alice', 30);
+      document.getElementById('test4-result').textContent = `Result: ${JSON.stringify(result)}`;
+    });
+  </script>
+
+  <!-- Test Case 5: Multiple Arguments -->
+  <div class="test-case">
+    <h2>Test 5: Multiple Arguments Callback</h2>
+    <p>Ruby callback receives multiple arguments of different types.</p>
+    <button id="test5-button">Run Multiple Arguments Test</button>
+    <div id="test5-result" class="result">Result: (not run)</div>
+  </div>
+  <script type="text/ruby">
+    # Register a callback with multiple arguments
+    JS::Object.register_callback('rubyMultiArgs') do |str, num, bool, arr|
+      {
+        str_upper: str.upcase,
+        num_doubled: num * 2,
+        bool_negated: !bool,
+        arr_length: arr[:length]
+      }
+    end
+  </script>
+  <script>
+    document.getElementById('test5-button').addEventListener('click', () => {
+      const result = globalThis.picorubyGenericCallbacks['rubyMultiArgs'](
+        'hello',
+        21,
+        true,
+        [1, 2, 3]
+      );
+      document.getElementById('test5-result').textContent = `Result: ${JSON.stringify(result)}`;
+    });
+  </script>
+
+  <script src="init.iife.js"></script>
+</body>
+</html>
