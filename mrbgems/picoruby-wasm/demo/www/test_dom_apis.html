@@ -59,26 +59,26 @@
       elem.setAttribute('id', 'test-id')
       elem.setAttribute('class', 'test-class')
       doc.getElementById('container').appendChild(elem)
-      raise "setAttribute failed" unless elem[:id].to_poro == 'test-id'
+      raise "setAttribute failed" unless elem[:id] == 'test-id'
     end
 
     test_case("Property setter - string") do
       elem = doc.createElement('div')
       elem.textContent = 'String property'
-      raise "String property failed" unless elem[:textContent].to_poro == 'String property'
+      raise "String property failed" unless elem[:textContent] == 'String property'
     end
 
     test_case("Property setter - integer") do
       elem = doc.createElement('div')
       elem.tabIndex = 42
-      raise "Integer property failed" unless elem[:tabIndex].to_poro == 42
+      raise "Integer property failed" unless elem[:tabIndex] == 42
     end
 
     test_case("Property setter - boolean") do
       elem = doc.createElement('input')
       elem.setAttribute('type', 'checkbox')
       elem.checked = true
-      raise "Boolean property failed" unless elem.checked.to_poro == true
+      raise "Boolean property failed" unless elem.checked == true
     end
 
     test_case("removeChild") do
@@ -121,18 +121,18 @@
       end
 
       raise "addEventListener failed" unless callback_id
-      btn.removeEventListener(callback_id)
+      JS::Object.removeEventListener(callback_id)
     end
 
     test_case("removeAttribute") do
       elem = doc.createElement('div')
       elem.setAttribute('data-test', 'value')
       attr = elem.getAttribute('data-test')
-      raise "setAttribute failed" unless attr.to_poro == 'value'
+      raise "setAttribute failed (got #{attr.inspect})" unless attr == 'value'
 
       elem.removeAttribute('data-test')
       attr_value = elem.getAttribute('data-test')
-      raise "removeAttribute failed" unless attr_value.to_poro == nil
+      raise "removeAttribute failed" unless attr_value == nil
     end
 
     summary = doc.createElement('h2')
