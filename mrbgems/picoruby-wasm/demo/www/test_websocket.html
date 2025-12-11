@@ -93,7 +93,7 @@
       end
 
       ws.onmessage do |event|
-        message = event[:data].to_poro
+        message = event[:data]
         log_message("Received: #{message}")
         message_count += 1
         if message_count == 1

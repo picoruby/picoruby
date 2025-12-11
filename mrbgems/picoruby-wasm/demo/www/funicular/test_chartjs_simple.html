@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chart.js Simple Callback Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .chart-container {
+      width: 100%;
+      height: 400px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div><a href="../index.html">Back</a></div>
+  <h1>Chart.js Simple Callback Test</h1>
+
+  <div class="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
+
+  <script src="../init.iife.js"></script>
+  <script type="text/ruby">
+    require 'js'
+
+    # Register a simple callback
+    JS::Object.register_callback('formatYen') do |value|
+      num = value.to_i
+      result = "¥#{num}"
+      puts "[Ruby] formatYen called with #{value}, returning #{result}"
+      result
+    end
+
+    puts "[Ruby] Callback registered"
+
+    # Create chart
+    chart_data = {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar'],
+        datasets: [{
+          label: 'Revenue',
+          data: [12000, 19000, 15000],
+          borderColor: 'rgb(75, 192, 192)',
+          tension: 0.1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            ticks: {
+              callback: JS.global[:picorubyGenericCallbacks][:formatYen]
+            }
+          }
+        }
+      }
+    }
+
+    canvas = JS.document.getElementById('myChart')
+    chart_config = JS::Bridge.to_js(chart_data)
+    chart = JS.global[:Chart].new(canvas, chart_config)
+    puts "[Ruby] Chart created"
+  </script>
+</body>
+</html>

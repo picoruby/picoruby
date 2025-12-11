@@ -1142,12 +1142,11 @@ mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val, mrb_int argc,
   mrb_value task_obj = __mrb_create_task_internal(mrb, proc, mrb_str_new_lit(mrb, "(sync)"), mrb_fixnum_value(0), mrb_top_self(mrb));
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task_obj, &mrb_task_tcb_type);
 
-  // Set arguments on the stack
-  if (argc > 0 && argv) {
-    for (mrb_int i = 0; i < argc; i++) {
-      tcb->c.ci->stack[i + 1] = argv[i];
-    }
-  }
+  // Note: Arguments (argc, argv) are currently unused in this implementation.
+  // Arguments should be passed via global variables or script generation,
+  // not directly on the call stack.
+  (void)argc;  // Suppress unused parameter warning
+  (void)argv;  // Suppress unused parameter warning
 
   // --- 3. Move task from DORMANT to READY ---
   mrb_task_disable_irq();
@@ -1161,7 +1160,7 @@ mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val, mrb_int argc,
   mrb->c = &tcb->c; // Set VM context to this task
 
   while (tcb->c.status != MRB_TASK_STOPPED) {
-    mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
+    tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
   }
 
   // If there's an unhandled exception after VM stops, save it as result

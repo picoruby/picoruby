@@ -90,10 +90,10 @@
       new_vnode = Funicular::VDOM.create_element('p', {}, 'New text')
       patches = Funicular::VDOM.diff(old_vnode, new_vnode)
 
-      child = container.children.to_poro[0]
+      child = container.children[0]
       Funicular::VDOM.patch(child, patches)
 
-      updated_text = child[:textContent].to_poro
+      updated_text = child[:textContent]
       raise "Patch failed: got '#{updated_text}'" unless updated_text == 'New text'
     end
 
@@ -107,10 +107,10 @@
       new_vnode = Funicular::VDOM.create_element('div', { class: 'new', id: 'test' })
       patches = Funicular::VDOM.diff(old_vnode, new_vnode)
 
-      child = container.children.to_poro[0]
+      child = container.children[0]
       Funicular::VDOM.patch(child, patches)
 
-      updated_class = child[:className].to_poro
+      updated_class = child[:className]
       raise "Patch failed: got '#{updated_class}'" unless updated_class == 'new'
     end
 
@@ -128,11 +128,11 @@
       )
       patches = Funicular::VDOM.diff(old_vnode, new_vnode)
 
-      child = container.children.to_poro[0]
+      child = container.children[0]
       Funicular::VDOM.patch(child, patches)
 
-      p_element = child[:children].to_poro[0]
-      updated_text = p_element[:textContent].to_poro
+      p_element = child[:children][0]
+      updated_text = p_element[:textContent]
       raise "Patch failed: got '#{updated_text}'" unless updated_text == 'New'
     end
 

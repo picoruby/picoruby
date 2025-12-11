@@ -51,7 +51,7 @@ module Funicular
     # Get current path from hash
     def current_hash_path
       # @type var hash: String
-      hash = JS.global[:location][:hash].to_poro
+      hash = JS.global[:location][:hash]
       # Remove leading '#' if present
       if hash && !hash.empty? && hash[0] == '#'
         hash[1..-1] || ''
