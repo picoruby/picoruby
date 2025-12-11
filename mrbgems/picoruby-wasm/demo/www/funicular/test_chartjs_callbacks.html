@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Chart.js with Ruby Callbacks Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+    .demo-section {
+      margin: 30px 0;
+      padding: 20px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .demo-section h2 {
+      color: #667eea;
+      margin-top: 0;
+    }
+    .demo-description {
+      color: #666;
+      margin-bottom: 15px;
+      font-style: italic;
+    }
+    .chart-container {
+      width: 100%;
+      max-width: 800px;
+      height: 400px;
+      margin: 20px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .stat-card {
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #667eea;
+    }
+    .stat-label {
+      color: #666;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    .code-example {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      margin: 15px 0;
+    }
+    .highlight { color: #f92672; }
+    .string { color: #e6db74; }
+    .keyword { color: #66d9ef; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div><a href="../index.html">Back</a></div>
+    <h1>Chart.js with Pure Ruby Callbacks</h1>
+    <p class="subtitle">Demonstrating synchronous Ruby callbacks for Chart.js customization</p>
+
+    <!-- Demo 1: Currency Formatter -->
+    <div class="demo-section">
+      <h2>Demo 1: Currency Formatter</h2>
+      <p class="demo-description">
+        Y-axis labels are formatted as Japanese Yen using a Ruby callback
+      </p>
+      <div class="chart-container">
+        <canvas id="chart1"></canvas>
+      </div>
+      <div class="code-example">
+<span class="keyword">JS::Object</span>.register_callback(<span class="string">'formatYen'</span>) <span class="keyword">do</span> |value|
+  <span class="string">"¥</span>#{value.to_i.to_s.reverse.scan(/\d{1,3}/).join(<span class="string">','</span>).reverse}<span class="string">"</span>
+<span class="keyword">end</span>
+      </div>
+    </div>
+
+    <!-- Demo 2: Dynamic Tooltip -->
+    <div class="demo-section">
+      <h2>Demo 2: Smart Tooltips</h2>
+      <p class="demo-description">
+        Tooltips show different messages based on data values (Ruby logic)
+      </p>
+      <div class="chart-container">
+        <canvas id="chart2"></canvas>
+      </div>
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div class="stat-value">-</div>
+          <div class="stat-label">Average</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">-</div>
+          <div class="stat-label">Max</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">-</div>
+          <div class="stat-label">Min</div>
+        </div>
+      </div>
+      <div class="code-example">
+<span class="keyword">JS::Object</span>.register_callback(<span class="string">'smartTooltip'</span>) <span class="keyword">do</span> |context|
+  value = context[<span class="keyword">:parsed</span>][<span class="keyword">:y</span>]
+  label = context[<span class="keyword">:label</span>]
+  emoji = value > <span class="highlight">70</span> ? <span class="string">"🔥"</span> : value > <span class="highlight">50</span> ? <span class="string">"📈"</span> : <span class="string">"📉"</span>
+  <span class="string">"</span>#{emoji} #{label}: #{value}%<span class="string">"</span>
+<span class="keyword">end</span>
+      </div>
+    </div>
+
+    <!-- Demo 3: Conditional Colors -->
+    <div class="demo-section">
+      <h2>Demo 3: Dynamic Bar Colors</h2>
+      <p class="demo-description">
+        Bar colors change based on performance thresholds (Ruby calculations)
+      </p>
+      <div class="chart-container">
+        <canvas id="chart3"></canvas>
+      </div>
+      <div class="controls">
+        <button id="randomize-btn">Randomize Data</button>
+      </div>
+      <div class="code-example">
+<span class="keyword">JS::Object</span>.register_callback(<span class="string">'barColor'</span>) <span class="keyword">do</span> |context|
+  value = context[<span class="keyword">:parsed</span>][<span class="keyword">:y</span>]
+  <span class="keyword">if</span> value >= <span class="highlight">80</span>
+    <span class="string">'rgb(34, 197, 94)'</span>  <span class="comment"># Green - Excellent</span>
+  <span class="keyword">elsif</span> value >= <span class="highlight">60</span>
+    <span class="string">'rgb(59, 130, 246)'</span> <span class="comment"># Blue - Good</span>
+  <span class="keyword">elsif</span> value >= <span class="highlight">40</span>
+    <span class="string">'rgb(251, 191, 36)'</span> <span class="comment"># Yellow - Fair</span>
+  <span class="keyword">else</span>
+    <span class="string">'rgb(239, 68, 68)'</span>  <span class="comment"># Red - Poor</span>
+  <span class="keyword">end</span>
+<span class="keyword">end</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="../init.iife.js"></script>
+  <script type="text/ruby">
+    require 'js'
+
+    # Callback 1: Currency formatter (Japanese Yen with thousands separator)
+    JS::Object.register_callback('formatYen') do |value|
+      num = value.to_i
+      str = num.to_s.reverse
+      groups = []
+      while str.length > 0
+        groups << str[0, 3]
+        str = str[3..-1] || ""
+      end
+      "¥#{groups.join(',').reverse}"
+    end
+
+    # Callback 2: Smart tooltip with emoji based on value
+    JS::Object.register_callback('smartTooltip') do |context|
+      value = context[:parsed][:y]
+      label = context[:label]
+      emoji = value > 70 ? "🔥" : value > 50 ? "📈" : "📉"
+      "#{emoji} #{label}: #{value}%"
+    end
+
+    puts "[Ruby] All callbacks registered successfully!"
+
+    # Chart 1: Line chart with currency formatter
+    chart1_data = {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+        datasets: [{
+          label: 'Monthly Revenue',
+          data: [12000, 19000, 15000, 25000, 22000, 30000],
+          borderColor: 'rgb(102, 126, 234)',
+          backgroundColor: 'rgba(102, 126, 234, 0.1)',
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true }
+        },
+        scales: {
+          y: {
+            ticks: {
+              callback: JS.global[:picorubyGenericCallbacks][:formatYen]
+            }
+          }
+        }
+      }
+    }
+
+    canvas1 = JS.document.getElementById('chart1')
+    chart1_config = JS::Bridge.to_js(chart1_data)
+    chart1 = JS.global[:Chart].new(canvas1, chart1_config)
+    puts "[Ruby] Chart 1 created"
+
+    # Chart 2: Performance chart with smart tooltips and stats
+    performance_data = [45, 78, 62, 88, 35, 92, 58]
+    chart2_data = {
+      type: 'bar',
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [{
+          label: 'Performance Score',
+          data: performance_data,
+          backgroundColor: 'rgba(102, 126, 234, 0.8)',
+          borderColor: 'rgb(102, 126, 234)',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: JS.global[:picorubyGenericCallbacks][:smartTooltip]
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100
+          }
+        }
+      }
+    }
+
+    canvas2 = JS.document.getElementById('chart2')
+    chart2_config = JS::Bridge.to_js(chart2_data)
+    chart2 = JS.global[:Chart].new(canvas2, chart2_config)
+    puts "[Ruby] Chart 2 created"
+
+    # Calculate and display stats
+    sum = 0
+    max_val = performance_data[0]
+    min_val = performance_data[0]
+    performance_data.each do |val|
+      sum += val
+      max_val = val if val > max_val
+      min_val = val if val < min_val
+    end
+    avg = sum / performance_data.size
+
+    stats = JS.document.getElementById('stats')
+    stat_cards = stats.querySelectorAll('.stat-value')
+    stat_cards[0][:textContent] = "#{avg}%"
+    stat_cards[1][:textContent] = "#{max_val}%"
+    stat_cards[2][:textContent] = "#{min_val}%"
+
+    # Chart 3: Dynamic colored bars
+    def get_bar_color(value)
+      if value >= 80
+        'rgb(34, 197, 94)'
+      elsif value >= 60
+        'rgb(59, 130, 246)'
+      elsif value >= 40
+        'rgb(251, 191, 36)'
+      else
+        'rgb(239, 68, 68)'
+      end
+    end
+
+    initial_data = [45, 78, 62, 88, 35, 92, 58, 71]
+    initial_colors = initial_data.map { |v| get_bar_color(v) }
+
+    chart3_data = {
+      type: 'bar',
+      data: {
+        labels: ['Product A', 'Product B', 'Product C', 'Product D',
+                 'Product E', 'Product F', 'Product G', 'Product H'],
+        datasets: [{
+          label: 'Quality Score',
+          data: initial_data,
+          backgroundColor: initial_colors,
+          borderColor: 'rgba(0, 0, 0, 0.1)',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: true }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100
+          }
+        }
+      }
+    }
+
+    canvas3 = JS.document.getElementById('chart3')
+    chart3_config = JS::Bridge.to_js(chart3_data)
+    chart3 = JS.global[:Chart].new(canvas3, chart3_config)
+    puts "[Ruby] Chart 3 created"
+
+    # Randomize button for Chart 3
+    randomize_btn = JS.document.getElementById('randomize-btn')
+    randomize_btn.addEventListener('click') do |event|
+      new_data = []
+      8.times do
+        rand_val = RNG.random_int % 100 / 100.0
+        new_data << (20 + (rand_val * 80).to_i)
+      end
+      new_colors = new_data.map { |v| get_bar_color(v) }
+
+      # Update chart data by creating new JS arrays
+      new_data_js = JS::Bridge.to_js(new_data)
+      new_colors_js = JS::Bridge.to_js(new_colors)
+
+      chart3[:data][:datasets][0][:data] = new_data_js
+      chart3[:data][:datasets][0][:backgroundColor] = new_colors_js
+
+      chart3.update
+      puts "[Ruby] Chart 3 updated with new random data"
+    end
+
+    puts "[Ruby] All demos initialized successfully!"
+    puts "[Ruby] Try hovering over data points and clicking the Randomize button!"
+  </script>
+</body>
+</html>
