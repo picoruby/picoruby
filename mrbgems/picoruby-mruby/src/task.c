@@ -1121,14 +1121,16 @@ mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
 }
 
 //================================================================
-/*! Execute a proc synchronously
+/*! Execute a proc synchronously with arguments
 
   @param  mrb     mrb_state
   @param  proc_val  RProc object
+  @param  argc    number of arguments
+  @param  argv    array of arguments
   @return mrb_value
 */
 mrb_value
-mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val)
+mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val, mrb_int argc, const mrb_value *argv)
 {
   struct RProc *proc = mrb_proc_ptr(proc_val);
 
@@ -1139,6 +1141,13 @@ mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val)
   // --- 2. Create a temporary task (calling internal function directly) ---
   mrb_value task_obj = __mrb_create_task_internal(mrb, proc, mrb_str_new_lit(mrb, "(sync)"), mrb_fixnum_value(0), mrb_top_self(mrb));
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task_obj, &mrb_task_tcb_type);
+
+  // Set arguments on the stack
+  if (argc > 0 && argv) {
+    for (mrb_int i = 0; i < argc; i++) {
+      tcb->c.ci->stack[i + 1] = argv[i];
+    }
+  }
 
   // --- 3. Move task from DORMANT to READY ---
   mrb_task_disable_irq();
@@ -1151,11 +1160,11 @@ mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc_val)
   tcb->status = TASKSTATUS_RUNNING;
   mrb->c = &tcb->c; // Set VM context to this task
 
-  // Execute until the task stops or an exception occurs in the VM
-  while (tcb->c.status != MRB_TASK_STOPPED && !mrb->exc) {
+  while (tcb->c.status != MRB_TASK_STOPPED) {
     mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
   }
 
+  // If there's an unhandled exception after VM stops, save it as result
   if (mrb->exc) {
     tcb->value = mrb_obj_value(mrb->exc);
   }

@@ -55,7 +55,7 @@ EM_JS(void, init_js_refs, (), {
 });
 
 EM_JS(bool, is_array_like, (int ref_id), {
-  const obj = window.picorubyRefs[ref_id];
+  const obj = globalThis.picorubyRefs[ref_id];
   // NodeList or HTMLCollection
   return obj instanceof NodeList ||
          obj instanceof HTMLCollection ||
@@ -68,12 +68,12 @@ EM_JS(bool, is_array_like, (int ref_id), {
 
 EM_JS(int, get_element, (int ref_id, int index), {
   try {
-    const nodeList = window.picorubyRefs[ref_id];
+    const nodeList = globalThis.picorubyRefs[ref_id];
     const element = nodeList[index];
     if (element === undefined) {
       return -1;
     }
-    const newRefId = window.picorubyRefs.push(element) - 1;
+    const newRefId = globalThis.picorubyRefs.push(element) - 1;
     return newRefId;
   } catch(e) {
     return -1;
@@ -166,19 +166,52 @@ EM_JS(bool, set_property_ref, (int ref_id, const char* key, int value_ref_id), {
 
 EM_JS(int, get_property, (int ref_id, const char* key), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const value = obj[UTF8ToString(key)];
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(value);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(value);
     return newRefId;
   } catch(e) {
     return -1;
   }
 });
 
+EM_JS(int, get_js_type, (int ref_id), {
+  try {
+    const value = globalThis.picorubyRefs[ref_id];
+    const type = typeof value;
+    if (value === null) return 0; // NULL
+    if (value === undefined) return 1; // UNDEFINED
+    if (type === 'boolean') return 2; // BOOLEAN
+    if (type === 'number') return 3; // NUMBER
+    if (type === 'string') return 4; // STRING
+    return 5; // OBJECT
+  } catch(e) {
+    return 1; // UNDEFINED
+  }
+});
+
+EM_JS(bool, get_boolean_value, (int ref_id), {
+  return globalThis.picorubyRefs[ref_id] ? true : false;
+});
+
+EM_JS(double, get_number_value, (int ref_id), {
+  return globalThis.picorubyRefs[ref_id];
+});
+
+EM_JS(int, get_string_value_length, (int ref_id), {
+  const str = globalThis.picorubyRefs[ref_id];
+  return lengthBytesUTF8(str);
+});
+
+EM_JS(void, copy_string_value, (int ref_id, char* buffer, int buffer_size), {
+  const str = globalThis.picorubyRefs[ref_id];
+  stringToUTF8(str, buffer, buffer_size);
+});
+
 EM_JS(int, get_length, (int ref_id), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     return obj.length || 0;
   } catch(e) {
     return -1;
@@ -187,7 +220,7 @@ EM_JS(int, get_length, (int ref_id), {
 
 EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
     const argString = UTF8ToString(arg);
@@ -201,8 +234,8 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
       result = func.call(obj, argString);
     }
 
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
     console.error(e);
@@ -212,7 +245,7 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
 
 EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
     if (typeof func === 'function') {
@@ -225,7 +258,7 @@ EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
 
 EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
 
@@ -238,8 +271,8 @@ EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
       result = func.call(obj, arg);
     }
 
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
     console.error(e);
@@ -249,7 +282,7 @@ EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
 
 EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, const char *arg2), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
     const argString1 = UTF8ToString(arg1);
@@ -264,8 +297,8 @@ EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, c
       result = func.call(obj, argString1, argString2);
     }
 
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
     console.error(e);
@@ -275,11 +308,11 @@ EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, c
 
 EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
 
-    const argObj = window.picorubyRefs[arg_ref_id];
+    const argObj = globalThis.picorubyRefs[arg_ref_id];
 
     let result;
     if (methodName === 'new') {
@@ -290,8 +323,8 @@ EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id
       result = func.call(obj, argObj);
     }
 
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
     console.error(e);
@@ -301,12 +334,12 @@ EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id
 
 EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_ref_1_id, int arg_ref_2_id), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
 
-    const argObj1 = window.picorubyRefs[arg_ref_1_id];
-    const argObj2 = window.picorubyRefs[arg_ref_2_id];
+    const argObj1 = globalThis.picorubyRefs[arg_ref_1_id];
+    const argObj2 = globalThis.picorubyRefs[arg_ref_2_id];
 
     let result;
     if (methodName === 'new') {
@@ -317,8 +350,8 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
       result = func.call(obj, argObj1, argObj2);
     }
 
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
     console.error(e);
@@ -328,13 +361,13 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
 
 EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const char* options_json), {
   try {
-    const obj = window.picorubyRefs[ref_id];
+    const obj = globalThis.picorubyRefs[ref_id];
     const urlStr = UTF8ToString(url);
     const optionsStr = UTF8ToString(options_json);
     const options = JSON.parse(optionsStr);
     const result = obj.fetch(urlStr, options);
-    const newRefId = window.picorubyRefs.length;
-    window.picorubyRefs.push(result);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
     console.error(e);
@@ -396,6 +429,7 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
   }
   globalThis.picorubyEventHandlers[callback_id] = { target, type, handler };
 });
+
 
 EM_JS(bool, js_remove_event_listener, (uintptr_t callback_id), {
   try {
@@ -534,7 +568,7 @@ EM_JS(bool, js_remove_attribute, (int ref_id, const char* name), {
 });
 
 EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id), {
-  const response = window.picorubyRefs[ref_id];
+  const response = globalThis.picorubyRefs[ref_id];
   if (!response || typeof response.arrayBuffer !== 'function') {
     console.error('Invalid response object:', response);
     return 0;
@@ -723,6 +757,7 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
   }
 }
 
+
 EMSCRIPTEN_KEEPALIVE
 void
 resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, int result_id)
@@ -803,10 +838,47 @@ get_js_property(mrb_state *mrb, int parent_ref_id, const char* property_name)
     return mrb_nil_value();
   }
 
-  picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-  data->ref_id = ref_id;
-  mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-  return obj;
+  // Check the type of the JavaScript value
+  int js_type = get_js_type(ref_id);
+
+  switch (js_type) {
+    case 0: // NULL
+    case 1: // UNDEFINED
+      return mrb_nil_value();
+
+    case 2: // BOOLEAN
+      return get_boolean_value(ref_id) ? mrb_true_value() : mrb_false_value();
+
+    case 3: // NUMBER
+      {
+        double num = get_number_value(ref_id);
+        // Check if it's an integer
+        if (num == (int)num) {
+          return mrb_fixnum_value((mrb_int)num);
+        } else {
+          return mrb_float_value(mrb, num);
+        }
+      }
+
+    case 4: // STRING
+      {
+        int str_len = get_string_value_length(ref_id);
+        char *buffer = (char *)mrb_malloc(mrb, str_len + 1);
+        copy_string_value(ref_id, buffer, str_len + 1);
+        mrb_value str = mrb_str_new_cstr(mrb, buffer);
+        mrb_free(mrb, buffer);
+        return str;
+      }
+
+    case 5: // OBJECT
+    default:
+      {
+        picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+        data->ref_id = ref_id;
+        mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+        return obj;
+      }
+  }
 }
 
 /*
