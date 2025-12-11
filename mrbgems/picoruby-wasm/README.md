@@ -531,9 +531,9 @@ end
 #### 2. Use Native Ruby When Possible
 
 ```ruby
-# AVOID excessive JS interop
-items = js_array.to_poro  # Convert once
-items.each do |item|      # Process in Ruby
+# JS values are automatically converted to Ruby types
+items = js_array  # Already a Ruby-accessible array
+items.each do |item|  # Process in Ruby
   process(item)
 end
 
@@ -578,7 +578,7 @@ file = files.item(0)
 
 # Create preview URL (no callback needed!)
 preview_url = JS.global[:URL].createObjectURL(file)
-img[:src] = preview_url.to_poro
+img[:src] = preview_url
 ```
 
 #### FormData with File Upload
@@ -614,9 +614,9 @@ end
 
 1. **Check Browser Console**: JavaScript errors appear in the browser console, not Ruby output
 2. **Inspect Objects**: Use `obj.inspect` to see JS::Object wrapper details
-3. **Use `.to_poro`**: Convert JS objects to Plain Old Ruby Objects for inspection:
+3. **Access Properties**: JavaScript primitive values are automatically converted to Ruby types when accessed via `[]`:
    ```ruby
-   js_obj.to_poro  # Returns Ruby String, Integer, Array, Hash, etc.
+   obj[:propertyName]  # Returns Ruby String, Integer, true/false, nil, etc.
    ```
 4. **Enable Debug Output**: Use `puts` liberally to trace execution flow
 

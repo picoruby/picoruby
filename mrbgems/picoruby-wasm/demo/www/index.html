@@ -14,6 +14,7 @@
       <li><a href="prime_numbers.html">Prime numbers</a></li>
       <li><a href="test_index.html">setjmp/longjmp tests</a></li>
       <li><a href="test_websocket.html">WebSocket test</a></li>
+      <li><a href="test_generic_callback.html">Generic callback test</a></li>
     </ul>
     <div>Funicular tests</div>
     <ul>
@@ -24,6 +25,7 @@
       <li><a href="funicular/test_component.html">Component test</a></li>
       <li><a href="funicular/test_router.html">Router test</a></li>
       <li><a href="funicular/test_chartjs.html">Chart.js test</a></li>
+      <li><a href="funicular/test_chartjs_callbacks.html">Callbacks in Chart.js test</a></li>
     </ul>
     <h1>PicoRuby WASM Demo</h1>
     <h2 id="container">0</h2>
@@ -41,7 +43,7 @@
           lvar = :hey
           logo = JS.document.getElementById('logo')
           JS.global.fetch('favicon.ico') do |response|
-            if response.status.to_poro == 200
+            if response.status == 200
               logo.innerHTML = response.to_binary
             end
           end

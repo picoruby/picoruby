@@ -45,9 +45,6 @@ module Funicular
               data_obj
             elsif data_obj.is_a?(Hash)
               JSON.generate(data_obj)
-            elsif data_obj.respond_to?(:to_poro)
-              result = data_obj.to_poro
-              result.is_a?(String) ? result : JSON.generate(result)
             else
               data_obj.to_s
             end

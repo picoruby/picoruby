@@ -117,7 +117,7 @@
         counter.patch(count: 5)
         sleep 0.1
         h2_element = JS.document.querySelector('#counter-app h2')
-        text = h2_element.textContent.to_poro
+        text = h2_element.textContent
         state_updated = text.include?("5")
         log_test("State update", state_updated)
       rescue => e
@@ -144,7 +144,7 @@
         sleep 0.05
 
         h2_element = JS.document.querySelector('#counter-app h2')
-        text = h2_element.textContent.to_poro
+        text = h2_element.textContent
         handler_works = counter.state.count == initial_count + 1 && text.include?("#{initial_count + 1}")
 
         log_test("Event handler (click)", has_button && handler_works)
@@ -161,7 +161,7 @@
         sleep 0.1
 
         ref_element = counter.refs[:display]
-        has_ref = ref_element != nil && ref_element.id.to_poro == "display"
+        has_ref = ref_element != nil && ref_element.id == "display"
         log_test("Ref attribute", has_ref)
       rescue => e
         log_test("Ref attribute", false)
@@ -183,7 +183,7 @@
         sleep 0.1
 
         h2_element = JS.document.querySelector('#counter-app h2')
-        text = h2_element.textContent.to_poro
+        text = h2_element.textContent
         multiple_updates = text.include?("30")
         log_test("Multiple updates", multiple_updates)
       rescue => e

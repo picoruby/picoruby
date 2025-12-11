@@ -185,6 +185,25 @@ EM_JS(int, get_js_type, (int ref_id), {
     if (type === 'boolean') return 2; // BOOLEAN
     if (type === 'number') return 3; // NUMBER
     if (type === 'string') return 4; // STRING
+    if (type === 'function') return 6; // FUNCTION
+    return 5; // OBJECT
+  } catch(e) {
+    return 1; // UNDEFINED
+  }
+});
+
+EM_JS(int, get_js_property_type, (int ref_id, const char* property_name), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    const propName = UTF8ToString(property_name);
+    const value = obj[propName];
+    const type = typeof value;
+    if (value === null) return 0; // NULL
+    if (value === undefined) return 1; // UNDEFINED
+    if (type === 'boolean') return 2; // BOOLEAN
+    if (type === 'number') return 3; // NUMBER
+    if (type === 'string') return 4; // STRING
+    if (type === 'function') return 6; // FUNCTION
     return 5; // OBJECT
   } catch(e) {
     return 1; // UNDEFINED
@@ -428,6 +447,42 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
     globalThis.picorubyEventHandlers = {};
   }
   globalThis.picorubyEventHandlers[callback_id] = { target, type, handler };
+});
+
+EM_JS(void, js_register_generic_callback, (uintptr_t callback_id, const char* callback_name), {
+  const name = UTF8ToString(callback_name);
+  if (!globalThis.picorubyGenericCallbacks) {
+    globalThis.picorubyGenericCallbacks = {};
+  }
+  globalThis.picorubyGenericCallbacks[name] = function(...args) {
+    // Convert JavaScript arguments to ref_ids
+    const argRefIds = args.map(arg => {
+      const refId = globalThis.picorubyRefs.push(arg) - 1;
+      return refId;
+    });
+
+    // Allocate memory for int array
+    const argRefIdsPtr = _malloc(argRefIds.length * 4);
+    for (let i = 0; i < argRefIds.length; i++) {
+      HEAP32[(argRefIdsPtr >> 2) + i] = argRefIds[i];
+    }
+
+    // Call Ruby callback synchronously
+    const resultRefId = ccall(
+      'call_ruby_callback_sync_generic',
+      'number',
+      ['number', 'number', 'number'],
+      [callback_id, argRefIdsPtr, argRefIds.length]
+    );
+
+    _free(argRefIdsPtr);
+
+    // Return the result
+    if (resultRefId >= 0 && resultRefId < globalThis.picorubyRefs.length) {
+      return globalThis.picorubyRefs[resultRefId];
+    }
+    return undefined;
+  };
 });
 
 
@@ -688,6 +743,134 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
 
 
 /*****************************************************
+ * Ruby <-> JavaScript value conversion functions
+ *****************************************************/
+
+/*
+ * Convert Ruby value to JavaScript reference ID
+ * Returns ref_id on success, -1 on error
+ */
+static int
+ruby_value_to_js_ref(mrb_state *mrb, mrb_value value)
+{
+  if (mrb_nil_p(value)) {
+    int ref_id = js_create_object();
+    if (ref_id < 0) return -1;
+    // Set to null explicitly
+    EM_ASM_({ globalThis.picorubyRefs[$0] = null; }, ref_id);
+    return ref_id;
+  }
+
+  if (mrb_true_p(value)) {
+    int ref_id = js_create_object();
+    if (ref_id < 0) return -1;
+    EM_ASM_({ globalThis.picorubyRefs[$0] = true; }, ref_id);
+    return ref_id;
+  }
+
+  if (mrb_false_p(value)) {
+    int ref_id = js_create_object();
+    if (ref_id < 0) return -1;
+    EM_ASM_({ globalThis.picorubyRefs[$0] = false; }, ref_id);
+    return ref_id;
+  }
+
+  if (mrb_integer_p(value)) {
+    mrb_int num = mrb_integer(value);
+    int ref_id = js_create_object();
+    if (ref_id < 0) return -1;
+    EM_ASM_({ globalThis.picorubyRefs[$0] = $1; }, ref_id, (int)num);
+    return ref_id;
+  }
+
+  if (mrb_float_p(value)) {
+    mrb_float num = mrb_float(value);
+    int ref_id = js_create_object();
+    if (ref_id < 0) return -1;
+    EM_ASM_({ globalThis.picorubyRefs[$0] = $1; }, ref_id, num);
+    return ref_id;
+  }
+
+  if (mrb_string_p(value)) {
+    const char *str = RSTRING_PTR(value);
+    int ref_id = js_create_object();
+    if (ref_id < 0) return -1;
+    EM_ASM_({
+      const str = UTF8ToString($1);
+      globalThis.picorubyRefs[$0] = str;
+    }, ref_id, str);
+    return ref_id;
+  }
+
+  if (mrb_array_p(value)) {
+    int array_ref_id = js_create_array();
+    if (array_ref_id < 0) return -1;
+
+    mrb_int len = RARRAY_LEN(value);
+    for (mrb_int i = 0; i < len; i++) {
+      mrb_value elem = mrb_ary_ref(mrb, value, i);
+      int elem_ref_id = ruby_value_to_js_ref(mrb, elem);
+      if (elem_ref_id < 0) return -1;
+
+      // Push element to JavaScript array, then delete the temporary ref
+      EM_ASM_({
+        const arr = globalThis.picorubyRefs[$0];
+        const elem = globalThis.picorubyRefs[$1];
+        arr.push(elem);
+        delete globalThis.picorubyRefs[$1];
+      }, array_ref_id, elem_ref_id);
+    }
+    return array_ref_id;
+  }
+
+  if (mrb_hash_p(value)) {
+    int obj_ref_id = js_create_object();
+    if (obj_ref_id < 0) return -1;
+
+    mrb_value keys = mrb_hash_keys(mrb, value);
+    mrb_int len = RARRAY_LEN(keys);
+    for (mrb_int i = 0; i < len; i++) {
+      mrb_value key = mrb_ary_ref(mrb, keys, i);
+      mrb_value val = mrb_hash_get(mrb, value, key);
+
+      const char *key_str;
+      if (mrb_string_p(key)) {
+        key_str = RSTRING_PTR(key);
+      } else if (mrb_symbol_p(key)) {
+        key_str = mrb_sym_name(mrb, mrb_symbol(key));
+      } else {
+        // Convert other types to string
+        mrb_value key_s = mrb_funcall(mrb, key, "to_s", 0);
+        key_str = RSTRING_PTR(key_s);
+      }
+
+      int val_ref_id = ruby_value_to_js_ref(mrb, val);
+      if (val_ref_id < 0) return -1;
+
+      EM_ASM_({
+        const obj = globalThis.picorubyRefs[$0];
+        const key = UTF8ToString($1);
+        const val = globalThis.picorubyRefs[$2];
+        obj[key] = val;
+        delete globalThis.picorubyRefs[$2];
+      }, obj_ref_id, key_str, val_ref_id);
+    }
+    return obj_ref_id;
+  }
+
+  // JS::Object - already has ref_id
+  if (mrb_obj_is_kind_of(mrb, value, class_JS_Object)) {
+    picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(value);
+    return js_obj->ref_id;
+  }
+
+  // Unsupported type - convert to string
+  mrb_value str = mrb_funcall(mrb, value, "to_s", 0);
+  return ruby_value_to_js_ref(mrb, str);
+}
+
+
+/*****************************************************
  * callback functions
  *****************************************************/
 
@@ -821,6 +1004,114 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id,
   mrb_resume_task(mrb, task);
 }
 
+EMSCRIPTEN_KEEPALIVE
+int
+call_ruby_callback_sync_generic(uintptr_t callback_id, int *arg_ref_ids, int argc)
+{
+  if (!global_mrb) {
+    return -1;
+  }
+
+  // Convert JavaScript arguments to Ruby array
+  mrb_value args_array = mrb_ary_new_capa(global_mrb, argc);
+  for (int i = 0; i < argc; i++) {
+    int ref_id = arg_ref_ids[i];
+    int js_type = get_js_type(ref_id);
+    mrb_value arg_value;
+
+    switch (js_type) {
+      case 0: // NULL
+      case 1: // UNDEFINED
+        arg_value = mrb_nil_value();
+        break;
+      case 2: // BOOLEAN
+        arg_value = get_boolean_value(ref_id) ? mrb_true_value() : mrb_false_value();
+        break;
+      case 3: // NUMBER
+        {
+          double num = get_number_value(ref_id);
+          if (num == (int)num) {
+            arg_value = mrb_fixnum_value((mrb_int)num);
+          } else {
+            arg_value = mrb_float_value(global_mrb, num);
+          }
+        }
+        break;
+      case 4: // STRING
+        {
+          int str_len = get_string_value_length(ref_id);
+          char *buffer = (char *)mrb_malloc(global_mrb, str_len + 1);
+          copy_string_value(ref_id, buffer, str_len + 1);
+          arg_value = mrb_str_new_cstr(global_mrb, buffer);
+          mrb_free(global_mrb, buffer);
+        }
+        break;
+      case 5: // OBJECT
+      default:
+        {
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(global_mrb, sizeof(picorb_js_obj));
+          data->ref_id = ref_id;
+          arg_value = mrb_obj_value(Data_Wrap_Struct(global_mrb, class_JS_Object, &picorb_js_obj_type, data));
+        }
+        break;
+    }
+    mrb_ary_push(global_mrb, args_array, arg_value);
+  }
+
+  // Store arguments in global variable $js_callback_args
+  mrb_value callback_args = mrb_gv_get(global_mrb, MRB_GVSYM(js_callback_args));
+  if (mrb_nil_p(callback_args)) {
+    callback_args = mrb_hash_new(global_mrb);
+    mrb_gv_set(global_mrb, MRB_GVSYM(js_callback_args), callback_args);
+  }
+  int args_id = (int)callback_id;
+  mrb_hash_set(global_mrb, callback_args, mrb_fixnum_value(args_id), args_array);
+
+  // Generate script to call the callback
+  static char script[512];
+  snprintf(script, sizeof(script),
+    "JS::Object::CALLBACKS[%lu]&.call(*$js_callback_args[%d])",
+    callback_id, args_id);
+
+  // Compile the script
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  const uint8_t *script_ptr = (const uint8_t *)script;
+  size_t size = strlen(script);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
+
+  if (!irep) {
+    mrc_ccontext_free(cc);
+    return -1;
+  }
+
+  // Create a Proc from the compiled irep
+  mrc_resolve_intern(cc, irep);
+  struct RProc *proc = mrb_proc_new(global_mrb, irep);
+  proc->c = NULL;
+  mrb_value proc_val = mrb_obj_value(proc);
+
+  // Execute the proc synchronously (no additional arguments needed)
+  mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
+
+  // Clean up
+  mrb_hash_delete_key(global_mrb, callback_args, mrb_fixnum_value(args_id));
+  mrc_irep_free(cc, irep);
+  mrc_ccontext_free(cc);
+
+  // Handle exception
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    fprintf(stderr, "Generic callback exception: %s\n", RSTRING_PTR(exc_str));
+    global_mrb->exc = NULL;
+    return -1;
+  }
+
+  // Convert result to JavaScript ref_id
+  int result_ref_id = ruby_value_to_js_ref(global_mrb, result);
+  return result_ref_id;
+}
+
 
 /*****************************************************
  * methods for JS::Object
@@ -870,9 +1161,78 @@ get_js_property(mrb_state *mrb, int parent_ref_id, const char* property_name)
         return str;
       }
 
+    case 6: // FUNCTION
+      // Functions should remain as JS::Object
+      {
+        picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+        data->ref_id = ref_id;
+        mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+        return obj;
+      }
+
     case 5: // OBJECT
     default:
       {
+        // Check if it's an array-like object (has length property and numeric indices)
+        // Note: We need to distinguish between strings (which have length) and array-like objects
+        int length_ref_id = get_property(ref_id, "length");
+        if (length_ref_id >= 0) {
+          int length_type = get_js_type(length_ref_id);
+          if (length_type == 3) { // NUMBER
+            int length = (int)get_number_value(length_ref_id);
+            // Convert to Ruby Array
+            mrb_value array = mrb_ary_new_capa(mrb, length);
+            for (int i = 0; i < length; i++) {
+              int element_ref_id = get_element(ref_id, i);
+              if (element_ref_id < 0) {
+                mrb_ary_push(mrb, array, mrb_nil_value());
+                continue;
+              }
+              // Recursively convert element
+              int element_type = get_js_type(element_ref_id);
+              mrb_value element;
+              switch (element_type) {
+                case 0: // NULL
+                case 1: // UNDEFINED
+                  element = mrb_nil_value();
+                  break;
+                case 2: // BOOLEAN
+                  element = get_boolean_value(element_ref_id) ? mrb_true_value() : mrb_false_value();
+                  break;
+                case 3: // NUMBER
+                  {
+                    double num = get_number_value(element_ref_id);
+                    if (num == (int)num) {
+                      element = mrb_fixnum_value((mrb_int)num);
+                    } else {
+                      element = mrb_float_value(mrb, num);
+                    }
+                  }
+                  break;
+                case 4: // STRING
+                  {
+                    int str_len = get_string_value_length(element_ref_id);
+                    char *buffer = (char *)mrb_malloc(mrb, str_len + 1);
+                    copy_string_value(element_ref_id, buffer, str_len + 1);
+                    element = mrb_str_new_cstr(mrb, buffer);
+                    mrb_free(mrb, buffer);
+                  }
+                  break;
+                default: // OBJECT or FUNCTION - wrap as JS::Object
+                  {
+                    picorb_js_obj *elem_data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+                    elem_data->ref_id = element_ref_id;
+                    element = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, elem_data));
+                  }
+                  break;
+              }
+              mrb_ary_push(mrb, array, element);
+            }
+            return array;
+          }
+        }
+
+        // Not array-like, return as JS::Object
         picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
         data->ref_id = ref_id;
         mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
@@ -1036,99 +1396,6 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
   return type_sym;
 }
 
-/*
- * JS::Object#to_poro
- */
-static mrb_value
-mrb_object_to_poro(mrb_state *mrb, mrb_value self)
-{
-  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  js_type_info info = {};
-  js_get_type_info(obj->ref_id, &info);
-
-  switch (info.type) {
-    case TYPE_UNDEFINED:
-    case TYPE_NULL:
-      return mrb_nil_value();
-    case TYPE_BOOLEAN:
-      if (info.value.boolean) {
-        return mrb_true_value();
-      } else {
-        return mrb_false_value();
-      }
-    case TYPE_NUMBER:
-      if (info.is_integer) {
-        return mrb_fixnum_value((mrb_int)info.value.number);
-      } else {
-        return mrb_float_value(mrb, info.value.number);
-      }
-    case TYPE_BIGINT:
-      if (info.string_value) {
-        mrb_int val = atoi(info.string_value);
-        free(info.string_value);
-        return mrb_fixnum_value(val);
-      } else {
-        return mrb_fixnum_value(0);
-      }
-    case TYPE_STRING:
-      if (info.string_value) {
-        mrb_value str = mrb_str_new_cstr(mrb, info.string_value);
-        free(info.string_value);
-        return str;
-      } else {
-        return mrb_str_new_cstr(mrb, "");
-      }
-    case TYPE_SYMBOL:
-      if (info.string_value) {
-        mrb_sym sym = mrb_intern_cstr(mrb, info.string_value);
-        free(info.string_value);
-        return mrb_symbol_value(sym);
-      } else {
-        return mrb_symbol_value(mrb_intern_cstr(mrb, ""));
-      }
-    case TYPE_ARRAY:
-      {
-        mrb_value array = mrb_ary_new_capa(mrb, info.value.array_length);
-        // No recursive conversion for now
-        for (int i = 0; i < info.value.array_length; i++) {
-          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-          char key[10];
-          snprintf(key, sizeof(key), "%d", i);
-          data->ref_id = get_property(obj->ref_id, key);
-          mrb_value element = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-          mrb_ary_push(mrb, array, element);
-        }
-        return array;
-      }
-    case TYPE_OBJECT:
-      {
-        // Create an Array if it is nodeList, otherwise create a Hash
-        if (is_array_like(obj->ref_id)) {
-          int length = get_length(obj->ref_id);
-          mrb_value array = mrb_ary_new_capa(mrb, length);
-          for (int i = 0; i < length; i++) {
-            int element_ref_id = get_element(obj->ref_id, i);
-            if (element_ref_id < 0) {
-              mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to get element");
-              return mrb_nil_value();
-            }
-            picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-            data->ref_id = element_ref_id;
-            mrb_value element = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-            mrb_ary_push(mrb, array, element);
-          }
-          return array;
-        } else {
-          mrb_value hash = mrb_hash_new(mrb);
-          return hash;
-        }
-      }
-    case TYPE_FUNCTION:
-      return self;
-  }
-
-  return mrb_nil_value();
-}
 
 /*
  * JS::Object#method_missing
@@ -1162,7 +1429,14 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   int new_ref_id;
 
   if (argc == 0) { // No argument
-    // Try to get property first
+    // Check if property is a function
+    int js_type = get_js_property_type(js_obj->ref_id, method_name);
+    if (js_type == 6) { // FUNCTION type
+      // Call as method
+      call_method_no_return(js_obj->ref_id, method_name);
+      return mrb_nil_value();
+    }
+    // Try to get property
     mrb_value property_obj = get_js_property(mrb, js_obj->ref_id, method_name);
     if (!mrb_nil_p(property_obj)) {
       return property_obj;
@@ -1173,62 +1447,179 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       return mrb_nil_value();
     }
   } else if (argc == 1) { // One argument
+    int new_ref_id = -1;
     if (mrb_string_p(argv[0])) {
-      int new_ref_id = call_method(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]));
-      if (new_ref_id < 0) {
-        return mrb_nil_value();
-      }
-      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-      data->ref_id = new_ref_id;
-      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-      return obj;
+      new_ref_id = call_method(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]));
     } else if (mrb_integer_p(argv[0])) {
-      int new_ref_id = call_method_int(js_obj->ref_id, method_name, mrb_integer(argv[0]));
-      if (new_ref_id < 0) {
-        return mrb_nil_value();
-      }
-      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-      data->ref_id = new_ref_id;
-      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-      return obj;
+      new_ref_id = call_method_int(js_obj->ref_id, method_name, mrb_integer(argv[0]));
     } else if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object)) {
       picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[0]);
-      int new_ref_id = call_method_with_ref(js_obj->ref_id, method_name, arg_obj->ref_id);
-      if (new_ref_id < 0) {
-        return mrb_nil_value();
-      }
-      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-      data->ref_id = new_ref_id;
-      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-      return obj;
+      new_ref_id = call_method_with_ref(js_obj->ref_id, method_name, arg_obj->ref_id);
     } else {
       mrb_raise(mrb, E_TYPE_ERROR, "argument must be a String, Integer, or JS::Object");
       return mrb_nil_value();
     }
+
+    if (new_ref_id < 0) {
+      return mrb_nil_value();
+    }
+
+    // Apply automatic type conversion based on JavaScript type
+    int js_type = get_js_type(new_ref_id);
+    switch (js_type) {
+      case 0: // NULL
+        return mrb_nil_value();
+      case 1: // UNDEFINED
+        return mrb_nil_value();
+      case 2: // BOOLEAN
+        {
+          bool value = get_boolean_value(new_ref_id);
+          return mrb_bool_value(value);
+        }
+      case 3: // NUMBER
+        {
+          double value = get_number_value(new_ref_id);
+          return mrb_float_value(mrb, value);
+        }
+      case 4: // STRING
+        {
+          int str_len = get_string_value_length(new_ref_id);
+          char *buffer = (char *)mrb_malloc(mrb, str_len + 1);
+          copy_string_value(new_ref_id, buffer, str_len + 1);
+          mrb_value result = mrb_str_new_cstr(mrb, buffer);
+          mrb_free(mrb, buffer);
+          return result;
+        }
+      case 5: // OBJECT
+      default:
+        {
+          // Check if it's an array-like object (has length property)
+          int length_ref_id = get_property(new_ref_id, "length");
+          if (length_ref_id >= 0) {
+            int length_type = get_js_type(length_ref_id);
+            if (length_type == 3) { // NUMBER
+              int length = (int)get_number_value(length_ref_id);
+
+              // Check if it's a string (strings also have length)
+              js_type = get_js_type(new_ref_id);
+              if (js_type == 4) { // STRING
+                int str_len = get_string_value_length(new_ref_id);
+                char *buffer = (char *)mrb_malloc(mrb, str_len + 1);
+                copy_string_value(new_ref_id, buffer, str_len + 1);
+                mrb_value result = mrb_str_new_cstr(mrb, buffer);
+                mrb_free(mrb, buffer);
+                return result;
+              }
+
+              // Convert to Ruby Array
+              mrb_value array = mrb_ary_new_capa(mrb, length);
+              for (int i = 0; i < length; i++) {
+                int item_ref_id = get_element(new_ref_id, i);
+                if (item_ref_id < 0) {
+                  mrb_ary_push(mrb, array, mrb_nil_value());
+                  continue;
+                }
+                int item_type = get_js_type(item_ref_id);
+                switch (item_type) {
+                  case 0: // NULL
+                  case 1: // UNDEFINED
+                    mrb_ary_push(mrb, array, mrb_nil_value());
+                    break;
+                  case 2: // BOOLEAN
+                    {
+                      bool value = get_boolean_value(item_ref_id);
+                      mrb_ary_push(mrb, array, mrb_bool_value(value));
+                    }
+                    break;
+                  case 3: // NUMBER
+                    {
+                      double value = get_number_value(item_ref_id);
+                      mrb_ary_push(mrb, array, mrb_float_value(mrb, value));
+                    }
+                    break;
+                  case 4: // STRING
+                    {
+                      int str_len = get_string_value_length(item_ref_id);
+                      char *buffer = (char *)mrb_malloc(mrb, str_len + 1);
+                      copy_string_value(item_ref_id, buffer, str_len + 1);
+                      mrb_ary_push(mrb, array, mrb_str_new_cstr(mrb, buffer));
+                      mrb_free(mrb, buffer);
+                    }
+                    break;
+                  case 5: // OBJECT
+                  case 6: // FUNCTION
+                  default:
+                    {
+                      picorb_js_obj *item_data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+                      item_data->ref_id = item_ref_id;
+                      mrb_value item_obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, item_data));
+                      mrb_ary_push(mrb, array, item_obj);
+                    }
+                    break;
+                }
+              }
+              return array;
+            }
+          }
+          // Not array-like, return as JS::Object
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
+        }
+    }
   } else if (argc == 2){
+    int new_ref_id = -1;
     if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object) && mrb_obj_is_kind_of(mrb, argv[1], class_JS_Object)) {
       picorb_js_obj *arg_obj_1 = (picorb_js_obj *)DATA_PTR(argv[0]);
       picorb_js_obj *arg_obj_2 = (picorb_js_obj *)DATA_PTR(argv[1]);
-      int new_ref_id = call_method_with_ref_ref(js_obj->ref_id, method_name, arg_obj_1->ref_id, arg_obj_2->ref_id);
-      if (new_ref_id < 0) {
-        return mrb_nil_value();
-      }
-      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-      data->ref_id = new_ref_id;
-      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-      return obj;
+      new_ref_id = call_method_with_ref_ref(js_obj->ref_id, method_name, arg_obj_1->ref_id, arg_obj_2->ref_id);
     } else if (mrb_string_p(argv[0]) && mrb_string_p(argv[1])) {
-      int new_ref_id = call_method_str(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_PTR(argv[1]));
-      if (new_ref_id < 0) {
-        return mrb_nil_value();
-      }
-      picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
-      data->ref_id = new_ref_id;
-      mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
-      return obj;
+      new_ref_id = call_method_str(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_PTR(argv[1]));
     } else {
       mrb_raisef(mrb, E_TYPE_ERROR, "method: %s, argc: %d", method_name, argc);
       return mrb_nil_value();
+    }
+
+    if (new_ref_id < 0) {
+      return mrb_nil_value();
+    }
+
+    // Apply automatic type conversion based on JavaScript type
+    int js_type = get_js_type(new_ref_id);
+    switch (js_type) {
+      case 0: // NULL
+        return mrb_nil_value();
+      case 1: // UNDEFINED
+        return mrb_nil_value();
+      case 2: // BOOLEAN
+        {
+          bool value = get_boolean_value(new_ref_id);
+          return mrb_bool_value(value);
+        }
+      case 3: // NUMBER
+        {
+          double value = get_number_value(new_ref_id);
+          return mrb_float_value(mrb, value);
+        }
+      case 4: // STRING
+        {
+          int str_len = get_string_value_length(new_ref_id);
+          char *buffer = (char *)mrb_malloc(mrb, str_len + 1);
+          copy_string_value(new_ref_id, buffer, str_len + 1);
+          mrb_value result = mrb_str_new_cstr(mrb, buffer);
+          mrb_free(mrb, buffer);
+          return result;
+        }
+      case 5: // OBJECT
+      default:
+        // Return as JS::Object (no array-like conversion for 2-arg methods)
+        {
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
+        }
     }
 
   } else {
@@ -1254,6 +1645,20 @@ mrb_object__add_event_listener(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+
+/*
+ * JS::Object.register_callback
+ * Register a Ruby block as a callable JavaScript function
+ */
+static mrb_value
+mrb_object_s__register_callback(mrb_state *mrb, mrb_value self)
+{
+  mrb_int callback_id;
+  char *callback_name;
+  mrb_get_args(mrb, "iz", &callback_id, &callback_name);
+  js_register_generic_callback((uintptr_t)callback_id, callback_name);
+  return mrb_nil_value();
+}
 
 /*
  * JS::Object#_fetch
@@ -1541,11 +1946,11 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aset), mrb_object_set_property, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(method_missing), mrb_object_method_missing, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_add_event_listener), mrb_object__add_event_listener, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_JS_Object, MRB_SYM(_register_callback), mrb_object_s__register_callback, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_poro), mrb_object_to_poro, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
@@ -1558,6 +1963,6 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(insertBefore), mrb_object_insert_before, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(setAttribute), mrb_object_set_attribute, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeAttribute), mrb_object_remove_attribute, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_preventDefault), mrb_object_prevent_default, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_stopPropagation), mrb_object_stop_propagation, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(preventDefault), mrb_object_prevent_default, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(stopPropagation), mrb_object_stop_propagation, MRB_ARGS_NONE());
 }

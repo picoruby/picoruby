@@ -141,7 +141,7 @@
 
       begin
         input = JS.document.getElementById('messageInput')
-        message_text = input[:value].to_poro
+        message_text = input[:value]
 
         $subscription.perform('speak', message: message_text)
 

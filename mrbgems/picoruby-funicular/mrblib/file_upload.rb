@@ -45,11 +45,11 @@ module Funicular
       return block.call(nil, nil) unless input
 
       files = input[:files]
-      if !files || files[:length].to_poro == 0
+      if !files || files.length == 0
         return block.call(nil, nil)
       end
 
-      file = files.item("0")
+      file = files[0]
 
       # Use URL.createObjectURL instead of FileReader for preview
       # This is simpler and doesn't require async callbacks
@@ -60,9 +60,8 @@ module Funicular
       end
 
       # Call the block with file and preview URL
-      preview_url_str = preview_url.to_poro
-      # @type var preview_url_str: String
-      block.call(file, preview_url_str) if block
+      # @type var preview_url: String
+      block.call(file, preview_url) if block
     end
 
     # Upload data with FormData (supports file upload)
@@ -117,20 +116,20 @@ module Funicular
 
       # Poll for result (simple polling approach)
       counter = 0
+      json_str = nil
       while true
         counter += 1
         sleep 0.1
-        next unless JS.global[:"_funicularUploadResult_#{callback_id}"]
-        break if JS.global[:"_funicularUploadResult_#{callback_id}"].type != :undefined
+        json_str = JS.global[:"_funicularUploadResult_#{callback_id}"]
+        break if json_str && !json_str.to_s.empty?
         if 100 < counter
           puts "[WARN] Timeout waiting for upload result. Return without calling block."
           return
         end
       end
 
-      # Get JSON string from global variable
-      json_str = JS.global[:"_funicularUploadResult_#{callback_id}"].to_poro
-      result = JSON.parse(json_str.to_s) # TODO: JS::Object#to_s
+      # Get JSON string from global variable (already retrieved above)
+      result = JSON.parse(json_str.to_s)
 
       block.call(result) if block
       puts "[DEBUG] Block called"
@@ -150,12 +149,12 @@ module Funicular
       return nil unless input
 
       files = input[:files]
-      if !files || files[:length].to_poro == 0
+      if !files || files.length == 0
         JS.global[storage_key] = nil
         return nil
       end
 
-      file = files.item("0")
+      file = files[0]
       JS.global[storage_key] = file
       file
     end

@@ -1,7 +1,5 @@
 module JS
   class Object
-    type poro_t = untyped
-
     $promise_responses: Hash[Integer, JS::Object]
     $js_events: Hash[Integer, JS::Object]
     CALLBACKS: Hash[Integer, Proc]
@@ -11,10 +9,10 @@ module JS
 
     def addEventListener: (String event_type) { (JS::Object event) -> void } -> Integer
     def self.removeEventListener: (Integer callback_id) -> bool
+    def self.register_callback: (String name) { (*untyped args) -> untyped } -> Integer
     def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
     def then: () { (JS::Object result) -> void } -> void
     def to_binary: () -> String
-    def to_poro: () -> poro_t
 
     # Debugging
     def type: () -> Symbol
@@ -29,6 +27,8 @@ module JS
     def insertBefore: (JS::Object new_child, ?JS::Object? ref_child) -> bool
     def setAttribute: (String name, String value) -> bool
     def removeAttribute: (String name) -> bool
+    def preventDefault: () -> nil
+    def stopPropagation: () -> nil
 
     # Common properties/methods often handled by method_missing
     def getElementById: (String id) -> JS::Object?
@@ -52,12 +52,11 @@ module JS
 
     private def method_missing: (Symbol method_name, *untyped args) -> untyped
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
+    private def _register_callback: (Integer callback_id, String name) -> nil
     private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
-    private def _preventDefault: () -> nil
-    private def _stopPropagation: () -> nil
   end
 
   def self.global: () -> JS::Object

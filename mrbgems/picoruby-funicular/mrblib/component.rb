@@ -129,15 +129,7 @@ module Funicular
 
     # Normalize state value by converting JS::Object to Ruby native types
     def normalize_state_value(value)
-      # Check if value has to_poro method (JS::Object)
-      if value.respond_to?(:to_poro)
-        begin
-          value.to_poro
-        rescue
-          # If to_poro fails, return the original value
-          value
-        end
-      elsif value.is_a?(Hash)
+      if value.is_a?(Hash)
         # Recursively normalize hash values
         normalized = {}
         value.each do |k, v|
@@ -254,7 +246,7 @@ module Funicular
 
       # Recursively bind events for children
       if vnode.children && dom_element.children
-        children = dom_element.children.to_poro
+        children = dom_element.children
         vnode.children.each_with_index do |child_vnode, index|
           if child_vnode.is_a?(VDOM::Element) && children.is_a?(Array)
             child_element = children[index]
@@ -275,7 +267,7 @@ module Funicular
       end
 
       if vnode.children && dom_element.children
-        children = dom_element.children.to_poro
+        children = dom_element.children
         vnode.children.each_with_index do |child_vnode, index|
           if child_vnode.is_a?(VDOM::Element) && children.is_a?(Array)
             child_element = children[index]

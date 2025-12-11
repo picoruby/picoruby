@@ -18,6 +18,13 @@ module JS
       callback_id
     end
 
+    def self.register_callback(name, &block)
+      callback_id = block.object_id
+      _register_callback(callback_id, name)
+      CALLBACKS[callback_id] = block
+      callback_id
+    end
+
     def self.removeEventListener(callback_id)
       return false unless callback_id
       begin
@@ -82,7 +89,7 @@ module JS
       # Poll for result
       sleep 0.05 until JS.global[:"_promiseResult_#{callback_id}"]
 
-      result_id = JS.global[:"_promiseResult_#{callback_id}"].to_poro
+      result_id = JS.global[:"_promiseResult_#{callback_id}"]
       JS.global[:"_promiseResult_#{callback_id}"] = nil
       JS.global[:"_tempPromise_#{callback_id}"] = nil
 

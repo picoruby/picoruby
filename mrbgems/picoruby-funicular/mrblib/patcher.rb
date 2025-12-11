@@ -24,7 +24,7 @@ module Funicular
             child_index = patch[0]
             child_patches = patch[1]
             # Use childNodes instead of children to include text nodes
-            children = element[:childNodes].to_poro
+            children = element[:childNodes]
             child_element = children.is_a?(Array) ? children[child_index] : nil
             if child_element.nil?
               # No existing child at this index - we need to create new elements
@@ -67,10 +67,10 @@ module Funicular
 
           # Skip updating value for focused input/textarea elements
           if key_str == "value"
-            tag_name = element[:tagName].to_poro
+            tag_name = element[:tagName]
             tag_name = tag_name.downcase if tag_name.is_a?(String)
             if (tag_name == "input" || tag_name == "textarea")
-              active_element = @doc[:activeElement].to_poro
+              active_element = @doc[:activeElement]
               if active_element && element == active_element
                 next
               end
