@@ -1,7 +1,7 @@
 {
-  "name": "@picoruby/wasm",
+  "name": "@picoruby/wasm-wasi",
   "version": "0.10.0",
-  "description": "PicoRuby WebAssembly - mruby VM powered Ruby for WebAssembly",
+  "description": "PicoRuby WebAssembly WASI",
   "main": "dist/init.iife.js",
   "files": ["README.md", "dist/init.iife.js", "dist/picoruby.js", "dist/picoruby.wasm"],
   "exports": {
@@ -19,8 +19,8 @@
   "keywords": [
     "Ruby",
     "PicoRuby",
-    "mruby",
     "WASM",
-    "WebAssembly"
+    "WebAssembly",
+    "WASI"
   ]
 }
