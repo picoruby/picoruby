@@ -55,7 +55,7 @@ ESP32_WIFI_init()
     return 0;
   }
 
-  ESP32_WIFI_log_level_set(ESP_LOG_WARN)
+  ESP32_WIFI_log_level_set(ESP_LOG_WARN);
 
   esp_err_t ret = esp_netif_init();
   if (ret != ESP_OK) {
