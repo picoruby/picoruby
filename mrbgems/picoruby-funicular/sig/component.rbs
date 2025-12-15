@@ -13,7 +13,15 @@ module Funicular
     attr_reader refs: Hash[Symbol, JS::Object]
 
     def self.new: (?Hash[Symbol, untyped] props) -> Component
+
+    # Styles DSL class methods
+    def self.styles: () { (StyleBuilder) -> void } -> void
+    def self.styles_definitions: () -> Hash[Symbol, Hash[Symbol, untyped]]
+
     def state: () -> StateAccessor
+
+    # Styles DSL instance method
+    def s: () -> StyleAccessor
 
     # Public API
     def initialize_state: () -> Hash[Symbol, untyped]

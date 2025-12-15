@@ -31,6 +31,7 @@ module Funicular
       @props = props
       @state = initialize_state || {}
       @state_accessor = nil
+      @style_accessor = nil
       @vdom = nil
       @dom_element = nil
       @refs = {}
@@ -46,6 +47,22 @@ module Funicular
     # Override this method in subclasses to define initial state
     def initialize_state
       {}
+    end
+
+    # Class methods for styles DSL
+    def self.styles(&block)
+      builder = StyleBuilder.new
+      builder.instance_eval(&block)
+      @styles_definitions = builder.to_definitions
+    end
+
+    def self.styles_definitions
+      @styles_definitions ||= {}
+    end
+
+    # Instance method to access styles
+    def s
+      @style_accessor ||= StyleAccessor.new(self.class.styles_definitions)
     end
 
     # Update state and trigger re-render
@@ -317,8 +334,19 @@ module Funicular
           end
         end
 
+        # Normalize props (convert StyleValue to String for :class)
+        normalized_props = {}
         # @type var props: Hash[Symbol, String]
-        element = VDOM::Element.new(tag, props, children)
+        props.each do |key, value|
+          if key == :class && value.is_a?(StyleValue)
+            normalized_props[key] = value.to_s
+          else
+            normalized_props[key] = value
+          end
+        end
+
+        # @type var normalized_props: Hash[Symbol, String]
+        element = VDOM::Element.new(tag, normalized_props, children)
 
         # If we're inside another element's block, add this element to parent's children
         if @rendering && @current_children
