@@ -6,6 +6,10 @@ module JS
     global[:document]
   end
 
+  def self.generic_callbacks
+    global[:picorubyGenericCallbacks]
+  end
+
   class Object
     CALLBACKS = {}
     $promise_responses = {}

@@ -113,7 +113,7 @@ chart_config = {
     scales: {
       y: {
         ticks: {
-          callback: JS.global[:picorubyGenericCallbacks][:formatYen]
+          callback: JS.generic_callbacks[:formatYen]
         }
       }
     }
@@ -205,7 +205,7 @@ Example of what to avoid:
 # BAD - called many times per render
 chart_data = {
   datasets: [{
-    backgroundColor: JS.global[:picorubyGenericCallbacks][:barColor]  # Don't do this
+    backgroundColor: JS.generic_callbacks[:barColor]  # Don't do this
   }]
 }
 
