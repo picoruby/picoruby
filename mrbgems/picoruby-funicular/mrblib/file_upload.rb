@@ -44,6 +44,7 @@ module Funicular
       input = JS.document.getElementById(input_id)
       return block.call(nil, nil) unless input
 
+      # @type var files: Array[JS::Object]
       files = input[:files]
       if !files || files.length == 0
         return block.call(nil, nil)
@@ -148,6 +149,7 @@ module Funicular
       input = JS.document.getElementById(input_id)
       return nil unless input
 
+      # @type var files: Array[JS::Object]
       files = input[:files]
       if !files || files.length == 0
         JS.global[storage_key] = nil
