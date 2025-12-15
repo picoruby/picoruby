@@ -1,0 +1,23 @@
+module Funicular
+  # StyleValue represents a CSS class string that can be combined with other styles
+  class StyleValue
+    attr_reader value: String
+    def self.new: (String | untyped value) -> StyleValue
+    def |: (StyleValue | String | nil other) -> StyleValue
+    def to_s: () -> String
+  end
+
+  # StyleAccessor provides access to defined styles via method calls
+  class StyleAccessor
+    def self.new: (Hash[Symbol, Hash[Symbol, untyped]] definitions) -> StyleAccessor
+    private def method_missing: (Symbol name, *untyped args) -> StyleValue
+    private def respond_to_missing?: (Symbol name, ?bool include_private) -> bool
+  end
+
+  # StyleBuilder is used to define styles within the styles {} block
+  class StyleBuilder
+    def self.new: () -> StyleBuilder
+    def to_definitions: () -> Hash[Symbol, Hash[Symbol, untyped]]
+    private def method_missing: (Symbol name, *untyped args) -> void
+  end
+end
