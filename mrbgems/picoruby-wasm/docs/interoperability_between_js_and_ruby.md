@@ -339,7 +339,7 @@ chart_config = {
   scales: {
     y: {
       ticks: {
-        callback: JS.global[:picorubyGenericCallbacks][:formatValue]
+        callback: JS.generic_callbacks[:formatValue]
       }
     }
   }
