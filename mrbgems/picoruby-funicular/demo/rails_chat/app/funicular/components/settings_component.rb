@@ -1,4 +1,25 @@
 class SettingsComponent < Funicular::Component
+  styles do
+    container "min-h-screen bg-gray-100 py-8"
+    card "max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8"
+    header "flex items-center justify-between mb-6"
+    title "text-2xl font-bold text-gray-800"
+    back_button "text-blue-600 hover:text-blue-800"
+    message "mb-4 p-4 border rounded bg-green-100 border-green-400 text-green-700"
+    form "space-y-6"
+    label "block text-sm font-medium text-gray-700 mb-2"
+    input "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    input_disabled "w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+    avatar_container "mb-2"
+    avatar "w-24 h-24 rounded-full object-cover"
+
+    submit_button base: "w-full py-2 px-4 rounded-md transition duration-200 font-semibold",
+                  variants: {
+                    normal: "bg-blue-600 text-white hover:bg-blue-700",
+                    saving: "bg-blue-600 text-white hover:bg-blue-700 opacity-50 cursor-not-allowed"
+                  }
+  end
+
   def initialize_state
     { user: nil, display_name: "", message: nil, avatar_preview: nil, saving: false, avatar_cache_buster: Time.now.to_i }
   end
@@ -97,55 +118,55 @@ class SettingsComponent < Funicular::Component
   end
 
   def render
-    div(class: "min-h-screen bg-gray-100 py-8") do
-      div(class: "max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8") do
-        div(class: "flex items-center justify-between mb-6") do
-          h1(class: "text-2xl font-bold text-gray-800") { "Settings" }
+    div(class: s.container) do
+      div(class: s.card) do
+        div(class: s.header) do
+          h1(class: s.title) { "Settings" }
           button(
             onclick: -> { Funicular.router.navigate("/chat") },
-            class: "text-blue-600 hover:text-blue-800"
+            class: s.back_button
           ) do
             span { "← Back to Chat" }
           end
         end
 
         if state.message
-          div(class: "mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded") do
+          div(class: s.message) do
             span { state.message }
           end
         end
 
         if state.user
-          form(onsubmit: :handle_save, class: "space-y-6") do
+          form(onsubmit: :handle_save, class: s.form) do
             div do
-              label(class: "block text-sm font-medium text-gray-700 mb-2") { "Username" }
+              label(class: s.label) { "Username" }
               input(
                 type: "text",
                 value: state.user.username,
                 disabled: true,
-                class: "w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+                class: s.input_disabled
               )
             end
 
             div do
-              label(class: "block text-sm font-medium text-gray-700 mb-2") { "Display Name" }
+              label(class: s.label) { "Display Name" }
               input(
                 type: "text",
                 value: state.display_name,
                 oninput: :handle_display_name_change,
-                class: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class: s.input
               )
             end
 
             div do
-              label(class: "block text-sm font-medium text-gray-700 mb-2") { "Avatar" }
+              label(class: s.label) { "Avatar" }
               if state.avatar_preview
-                div(class: "mb-2") do
-                  img(src: state.avatar_preview, class: "w-24 h-24 rounded-full object-cover")
+                div(class: s.avatar_container) do
+                  img(src: state.avatar_preview, class: s.avatar)
                 end
               elsif state.user.has_avatar
-                div(class: "mb-2") do
-                  img(src: "/users/#{state.user.id}/avatar?t=#{state.avatar_cache_buster}", class: "w-24 h-24 rounded-full object-cover")
+                div(class: s.avatar_container) do
+                  img(src: "/users/#{state.user.id}/avatar?t=#{state.avatar_cache_buster}", class: s.avatar)
                 end
               end
               input(
@@ -153,13 +174,13 @@ class SettingsComponent < Funicular::Component
                 type: "file",
                 accept: "image/*",
                 onchange: :handle_avatar_change,
-                class: "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class: s.input
               )
             end
 
             button(
               type: "submit",
-              class: "w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-semibold #{state.saving ? 'opacity-50 cursor-not-allowed' : ''}"
+              class: s.submit_button(state.saving ? :saving : :normal)
             ) do
               span { state.saving ? "Saving..." : "Save Changes" }
             end
