@@ -1,4 +1,13 @@
 class ChartComponent < Funicular::Component
+  styles do
+    container "w-80 bg-white border-l border-gray-200 p-4 flex flex-col"
+    title "text-lg font-bold text-gray-800 mb-4"
+    chart_area "flex-1 flex items-center justify-center"
+    empty_message "text-center text-gray-500"
+    chart_wrapper "w-full h-64"
+    caption "mt-4 text-xs text-gray-500 text-center"
+  end
+
   def initialize(props = {})
     super(props)
     @channel_id = props[:channel_id]
@@ -81,22 +90,22 @@ class ChartComponent < Funicular::Component
   end
 
   def render
-    div(class: "w-80 bg-white border-l border-gray-200 p-4 flex flex-col") do
-      h3(class: "text-lg font-bold text-gray-800 mb-4") { "Activity (24h)" }
+    div(class: s.container) do
+      h3(class: s.title) { "Activity (24h)" }
 
-      div(class: "flex-1 flex items-center justify-center") do
+      div(class: s.chart_area) do
         if state.stats.empty?
-          div(class: "text-center text-gray-500") do
+          div(class: s.empty_message) do
             span { "No messages yet" }
           end
         else
-          div(class: "w-full h-64") do
+          div(class: s.chart_wrapper) do
             canvas(ref: :chart_canvas)
           end
         end
       end
 
-      div(class: "mt-4 text-xs text-gray-500 text-center") do
+      div(class: s.caption) do
         span { "Messages per user in the last 24 hours" }
       end
     end

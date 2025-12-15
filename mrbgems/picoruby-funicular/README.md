@@ -103,6 +103,105 @@ Funicular is designed to be a perfect companion for your Ruby on Rails applicati
 - **Effortless API Communication:** The Object-REST Mapper works beautifully with Rails APIs. You can even set up a simple `schema` endpoint in your Rails app to dynamically define your models' attributes on the frontend.
 - **"Zero JS" Workflow:** By combining Funicular on the frontend with Rails on the backend, you can build modern, interactive web applications without ever leaving the comfort of the Ruby ecosystem.
 
+### CSS-in-Ruby with Styles DSL
+
+Funicular provides a powerful CSS-in-Ruby DSL that keeps your styles organized and scoped within each component. This eliminates the need to scatter Tailwind classes throughout your render methods, improving maintainability and readability.
+
+#### Basic Usage
+
+Define styles using the `styles` block at the top of your component:
+
+```ruby
+class LoginComponent < Funicular::Component
+  styles do
+    container "min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600"
+    card "bg-white p-8 rounded-lg shadow-2xl w-96"
+    title "text-3xl font-bold text-center mb-8 text-gray-800"
+    input "w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+  end
+
+  def render
+    div(class: s.container) do
+      div(class: s.card) do
+        h1(class: s.title) { "Welcome" }
+        input(class: s.input, type: "text", placeholder: "Username")
+      end
+    end
+  end
+end
+```
+
+#### Conditional Styles with Boolean Arguments
+
+For styles that toggle based on state (like active/inactive), use the `active:` key:
+
+```ruby
+styles do
+  channel_item base: "p-4 hover:bg-gray-700 cursor-pointer",
+               active: "bg-gray-700"
+end
+
+def render
+  div(class: s.channel_item(is_active)) { "Channel Name" }
+end
+```
+
+When `is_active` is `true`, the result is `"p-4 hover:bg-gray-700 cursor-pointer bg-gray-700"`. When `false`, only the base classes are applied.
+
+#### Multiple State Variants with Symbols
+
+For styles with multiple states (e.g., primary/danger buttons), use `variants:`:
+
+```ruby
+styles do
+  button base: "px-4 py-2 rounded font-semibold",
+         variants: {
+           primary: "bg-blue-600 text-white hover:bg-blue-700",
+           danger: "bg-red-600 text-white hover:bg-red-700",
+           secondary: "bg-gray-600 text-white hover:bg-gray-700"
+         }
+end
+
+def render
+  button(class: s.button(:primary)) { "Submit" }
+  button(class: s.button(:danger)) { "Delete" }
+end
+```
+
+#### Combining Styles with the `|` Operator
+
+Chain multiple styles together using the `|` operator:
+
+```ruby
+styles do
+  flex "flex"
+  items_center "items-center"
+  gap_2 "gap-2"
+  sidebar "w-64 bg-gray-800 text-white"
+end
+
+def render
+  # Combine utility classes
+  div(class: s.flex | s.items_center | s.gap_2) { "Content" }
+
+  # Mix with custom classes
+  div(class: s.sidebar | "custom-shadow") { "Sidebar" }
+
+  # Combine with conditional styles
+  div(class: s.channel_item(is_active) | "mb-2") { "Channel" }
+end
+```
+
+The `|` operator automatically filters out `nil` values, making it perfect for conditional styling.
+
+#### Key Benefits
+
+- **Scoped Styles**: Styles are defined within components, avoiding global namespace pollution
+- **Readability**: `s.button(:primary)` is more semantic than raw Tailwind classes
+- **Maintainability**: Change styles in one place rather than hunting through render methods
+- **Type Safety**: The DSL ensures style names are consistent throughout your component
+- **Flexibility**: Mix DSL styles with raw strings when needed
+
 ### JS Integration via Delegation Model
 
 For complex UI interactions or data visualizations requiring existing JavaScript libraries (e.g., Chart.js, D3.js), Funicular adopts a "delegation model."
