@@ -247,7 +247,7 @@
         scales: {
           y: {
             ticks: {
-              callback: JS.global[:picorubyGenericCallbacks][:formatYen]
+              callback: JS.generic_callbacks[:formatYen]
             }
           }
         }
@@ -279,7 +279,7 @@
         plugins: {
           tooltip: {
             callbacks: {
-              label: JS.global[:picorubyGenericCallbacks][:smartTooltip]
+              label: JS.generic_callbacks[:smartTooltip]
             }
           }
         },
