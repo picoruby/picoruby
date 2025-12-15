@@ -38,6 +38,7 @@ module Funicular
       @event_listeners = []
       @mounted = false
       @updating = false
+      @child_components = []
     end
 
     def state
@@ -105,9 +106,16 @@ module Funicular
         @dom_element = VDOM::Renderer.new.render(new_vdom)
         bind_events(@dom_element, new_vdom)
         collect_refs(@dom_element, new_vdom)
+        collect_child_components(new_vdom)
         container.appendChild(@dom_element)
         @vdom = new_vdom
         @mounted = true
+
+        # Mark child components as mounted and call their lifecycle hooks
+        @child_components.each do |child|
+          child.instance_variable_set(:@mounted, true)
+          child.component_mounted if child.respond_to?(:component_mounted)
+        end
 
         component_mounted if respond_to?(:component_mounted)
       rescue => e
@@ -122,6 +130,12 @@ module Funicular
 
       begin
         component_will_unmount if respond_to?(:component_will_unmount)
+
+        # Unmount child components first
+        @child_components.each do |child|
+          child.unmount if child.respond_to?(:unmount)
+        end
+        @child_components = []
 
         cleanup_events
         @container.removeChild(@dom_element) if @container && @dom_element
@@ -178,6 +192,15 @@ module Funicular
 
       bind_events(@dom_element, new_vdom)
       collect_refs(@dom_element, new_vdom)
+      collect_child_components(new_vdom)
+
+      # Mark child components as mounted and call their lifecycle hooks
+      @child_components.each do |child|
+        unless child.instance_variable_get(:@mounted)
+          child.instance_variable_set(:@mounted, true)
+          child.component_mounted if child.respond_to?(:component_mounted)
+        end
+      end
 
       @vdom = new_vdom
     end
@@ -208,16 +231,23 @@ module Funicular
         # Return nil to avoid duplicate rendering
         nil
       when nil
-        puts "[WARN] Render returned nil, rendering empty text node"
         VDOM::Text.new("")
+      when Class
+        # If it's a component class, create a component VNode
+        if value.ancestors.include?(Funicular::Component)
+          VDOM::Component.new(value, {})
+        else
+          VDOM::Text.new(value.to_s)
+        end
       else
-        puts "[WARN] Unknown render value type: #{value.class}, converting to string"
         VDOM::Text.new(value.to_s)
       end
     end
 
     # Bind event handlers to DOM elements
     def bind_events(dom_element, vnode)
+      # Skip Component vnodes - they manage their own events
+      return if vnode.is_a?(VDOM::Component)
       return unless vnode.is_a?(VDOM::Element)
 
       vnode.props.each do |key, value|
@@ -229,7 +259,7 @@ module Funicular
         # addEventListener expects a block, not a Proc
         callback_id = case value
         when Symbol
-          dom_element.addEventListener(event_name) do |event|
+          result = dom_element.addEventListener(event_name) do |event|
             begin
               self.send(value, event)
             rescue => e
@@ -237,15 +267,14 @@ module Funicular
               raise e
             end
           end
+          result
         when Proc
-          dom_element.addEventListener(event_name) do |event|
+          result = dom_element.addEventListener(event_name) do |event|
             begin
               # @type var value: Proc
               # Check if Proc expects arguments (arity)
-              # arity == 0: no arguments expected, call without event
-              # arity >= 1 or arity < 0: arguments expected, call with event
               if value.arity == 0
-                value.call()
+                value.call
               else
                 value.call(event)
               end
@@ -254,6 +283,7 @@ module Funicular
               raise e
             end
           end
+          result
         else
           raise "Invalid event handler: #{value.class}"
         end
@@ -268,6 +298,9 @@ module Funicular
           if child_vnode.is_a?(VDOM::Element) && children.is_a?(Array)
             child_element = children[index]
             bind_events(child_element, child_vnode) if child_element
+          elsif child_vnode.is_a?(VDOM::Component)
+            # Component vnodes handle their own events in render_component
+            # Skip them here to avoid duplicate event binding
           end
         end
       end
@@ -275,6 +308,8 @@ module Funicular
 
     # Collect ref elements from VDOM
     def collect_refs(dom_element, vnode, refs_map = {})
+      # Skip Component vnodes - they manage their own refs
+      return refs_map if vnode.is_a?(VDOM::Component)
       return refs_map unless vnode.is_a?(VDOM::Element)
 
       if vnode.props[:ref]
@@ -289,11 +324,35 @@ module Funicular
           if child_vnode.is_a?(VDOM::Element) && children.is_a?(Array)
             child_element = children[index]
             collect_refs(child_element, child_vnode, refs_map) if child_element
+          elsif child_vnode.is_a?(VDOM::Component)
+            # Component vnodes handle their own refs in render_component
+            # Skip them here to avoid duplicate processing
           end
         end
       end
 
       refs_map
+    end
+
+    # Collect child component instances from VDOM tree
+    def collect_child_components(vnode)
+      @child_components = []
+      collect_child_components_recursive(vnode, @child_components)
+    end
+
+    def collect_child_components_recursive(vnode, components)
+      if vnode.is_a?(VDOM::Component)
+        components << vnode.instance if vnode.instance
+        # Recursively collect from child component's vdom
+        if vnode.instance && vnode.instance.instance_variable_get(:@vdom)
+          child_vdom = vnode.instance.instance_variable_get(:@vdom)
+          collect_child_components_recursive(child_vdom, components)
+        end
+      elsif vnode.is_a?(VDOM::Element)
+        vnode.children&.each do |child|
+          collect_child_components_recursive(child, components)
+        end
+      end
     end
 
     # Cleanup event listeners
@@ -302,6 +361,10 @@ module Funicular
         JS::Object.removeEventListener(callback_id)
       end
       @event_listeners = []
+
+      # NOTE: Do NOT cleanup child component events here!
+      # Child components manage their own events and will cleanup
+      # when they themselves re-render or unmount
     end
 
     # DSL methods for HTML elements
@@ -363,6 +426,22 @@ module Funicular
 
       normalized = normalize_vnode(child)
       @current_children << normalized if normalized
+    end
+
+    # Helper method to render child components in DSL
+    def component(component_class, props = {})
+      unless component_class.is_a?(Class) && component_class.ancestors.include?(Funicular::Component)
+        raise "component() expects a Funicular::Component class"
+      end
+
+      vnode = VDOM::Component.new(component_class, props)
+
+      # If we're inside another element's block, add this component to parent's children
+      if @rendering && @current_children
+        @current_children << vnode
+      end
+
+      vnode
     end
   end
 end

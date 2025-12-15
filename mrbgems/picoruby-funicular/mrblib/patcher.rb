@@ -18,6 +18,34 @@ module Funicular
             end
           when :props
             update_props(element, patch[1])
+          when :update_and_rebind
+            instance, internal_patches = patch[1], patch[2]
+            old_dom_element = instance.instance_variable_get(:@dom_element)
+
+            # Apply internal patches and get the potentially new root element
+            new_dom_element = Patcher.new(@doc).apply(old_dom_element, internal_patches)
+
+            # Update the instance's reference to its root DOM element if it changed
+            if new_dom_element != old_dom_element
+              instance.instance_variable_set(:@dom_element, new_dom_element)
+            end
+
+            vdom = instance.instance_variable_get(:@vdom)
+
+            # Re-collect refs using the new DOM element
+            instance.send(:collect_refs, new_dom_element, vdom)
+
+            # Re-bind events using the new DOM element
+            instance.send(:cleanup_events)
+            instance.send(:bind_events, new_dom_element, vdom)
+
+            # Call component_updated on the child instance
+            instance.component_updated if instance.respond_to?(:component_updated)
+          when :update_props
+            # Update component props - element is the component's DOM element
+            # The component instance needs to be retrieved and updated
+            # This is handled at a higher level (in Component#re_render)
+            # For now, we just return the element as-is
           when :remove
             element.parentElement&.removeChild(element)
           when Integer
@@ -155,6 +183,14 @@ module Funicular
             element
           else
             raise "Expected Element vnode"
+          end
+        when :component
+          if vnode.is_a?(Component)
+            # Create component instance and render it
+            renderer = Renderer.new(@doc)
+            renderer.render(vnode, nil)
+          else
+            raise "Expected Component vnode"
           end
         else
           raise "Unknown vnode type: #{vnode.type}"
