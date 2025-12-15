@@ -42,8 +42,8 @@ module JS
     def textContent=: (String text) -> String
     def body: () -> JS::Object
     def status: () -> JS::Object
+    def push: (JS::Object item) -> JS::Object # When an array-like object
 
-    # New methods for fixing steep errors
     def createObjectURL: (JS::Object blob) -> JS::Object
     def create_object: () -> JS::Object
     def create_array: () -> JS::Object
@@ -52,7 +52,7 @@ module JS
 
     private def method_missing: (Symbol method_name, *untyped args) -> untyped
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
-    private def _register_callback: (Integer callback_id, String name) -> nil
+    private def self._register_callback: (Integer callback_id, String name) -> nil
     private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
@@ -60,6 +60,7 @@ module JS
   end
 
   def self.global: () -> JS::Object
+  def self.generic_callbacks: () -> JS::Object
   def self.document: () -> JS::Object
 
   module Bridge
