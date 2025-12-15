@@ -63,6 +63,23 @@ module Funicular
       end
     end
 
+    class Component < VNode
+      attr_reader :component_class, :props
+      attr_accessor :instance
+
+      def initialize(component_class, props = {})
+        super(:component)
+        @component_class = component_class
+        @props = props
+        @instance = nil
+      end
+
+      def ==(other)
+        return false unless other.is_a?(Component)
+        @component_class == other.component_class && @props == other.props
+      end
+    end
+
     class Renderer
       def initialize(doc = nil)
         @doc = doc || JS.document
@@ -76,6 +93,9 @@ module Funicular
         when :text
           # @type var vnode: Funicular::VDOM::Text
           render_text(vnode, parent)
+        when :component
+          # @type var vnode: Funicular::VDOM::Component
+          render_component(vnode, parent)
         else
           raise "Unknown vnode type: #{vnode&.type}"
         end
@@ -128,6 +148,24 @@ module Funicular
       def render_text(text, parent)
         dom_node = @doc.createTextNode(text.content)
         parent.appendChild(dom_node) if parent
+        dom_node
+      end
+
+      def render_component(component_vnode, parent)
+        instance = component_vnode.component_class.new(component_vnode.props)
+        component_vnode.instance = instance
+
+        component_vdom = instance.send(:build_vdom)
+        dom_node = render(component_vdom, parent)
+
+        # Store VDOM and DOM element in the child component instance
+        instance.instance_variable_set(:@vdom, component_vdom)
+        instance.instance_variable_set(:@dom_element, dom_node)
+
+        # Bind events and collect refs for the child component
+        instance.send(:bind_events, dom_node, component_vdom)
+        instance.send(:collect_refs, dom_node, component_vdom)
+
         dom_node
       end
     end
