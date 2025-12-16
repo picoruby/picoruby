@@ -57,7 +57,12 @@ module Funicular
       if file.nil?
         raise "Selected file is nil"
       else
-        preview_url = JS.global[:URL].createObjectURL(file)
+        url = JS.global[:URL]
+        if url.is_a?(JS::Object)
+          preview_url = url.createObjectURL(file)
+        else
+          preview_url = nil
+        end
       end
 
       # Call the block with file and preview URL
@@ -165,7 +170,11 @@ module Funicular
     def self.retrieve_file(storage_key = '_selectedFile')
       file = JS.global[storage_key]
       JS.global[storage_key] = nil if file
-      file
+      if file.is_a?(JS::Object)
+        file
+      else
+        nil
+      end
     end
   end
 end
