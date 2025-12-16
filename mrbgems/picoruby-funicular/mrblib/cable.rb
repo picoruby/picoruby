@@ -40,14 +40,7 @@ module Funicular
             # event is a JS::Object wrapping MessageEvent
             # Access data property and convert to Ruby string
             data_obj = event[:data]
-            # data_obj might already be a String or Hash depending on the JS bridge
-            data_str = if data_obj.is_a?(String)
-              data_obj
-            elsif data_obj.is_a?(Hash)
-              JSON.generate(data_obj)
-            else
-              data_obj.to_s
-            end
+            data_str = data_obj.to_s # Always convert JS::Object to Ruby String
             handle_message(data_str)
           rescue => e
             puts "[Cable] Error in onmessage: #{e.class}: #{e.message}"

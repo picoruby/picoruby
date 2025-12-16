@@ -46,7 +46,7 @@ module Funicular
 
       # @type var files: Array[JS::Object]
       files = input[:files]
-      if !files || files.length == 0
+      if !files || files.length.to_i == 0
         return block.call(nil, nil)
       end
 
@@ -151,7 +151,7 @@ module Funicular
 
       # @type var files: Array[JS::Object]
       files = input[:files]
-      if !files || files.length == 0
+      if !files || files.length.to_i == 0
         JS.global[storage_key] = nil
         return nil
       end

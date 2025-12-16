@@ -52,8 +52,8 @@ module Funicular
             child_index = patch[0]
             child_patches = patch[1]
             # Use childNodes instead of children to include text nodes
-            children = element[:childNodes]
-            child_element = children.is_a?(Array) ? children[child_index] : nil
+            children = element[:childNodes].to_a
+            child_element = children[child_index]
             if child_element.nil?
               # No existing child at this index - we need to create new elements
               child_patches.each do |child_patch|

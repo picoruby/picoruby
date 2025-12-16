@@ -9,7 +9,6 @@ module Funicular
       def [](key)
         @state[key]
       end
-
       def method_missing(method, *args)
         if method.to_s.end_with?('=')
           key = method.to_s[0..-2] || method
@@ -170,6 +169,28 @@ module Funicular
       elsif value.is_a?(Array)
         # Recursively normalize array elements
         value.map { |v| normalize_state_value(v) }
+      elsif value.is_a?(JS::Object)
+        # Convert JS::Object to appropriate Ruby type
+        case value.type
+        when :string
+          value.to_s
+        when :number
+          # Check if it's an integer or float
+          num = value.to_f
+          num == num.to_i ? num.to_i : num
+        when :boolean
+          # JS::Object boolean should be converted to Ruby true/false
+          value.to_s == "true"
+        when :null, :undefined
+          nil
+        when :array
+          value.to_a.map { |v| normalize_state_value(v) }
+        when :object
+          # For plain objects, keep as JS::Object or convert to hash if needed
+          value
+        else
+          value
+        end
       else
         # Return as-is for Ruby native types
         value
@@ -293,9 +314,9 @@ module Funicular
 
       # Recursively bind events for children
       if vnode.children && dom_element.children
-        children = dom_element.children
+        children = dom_element.children.to_a
         vnode.children.each_with_index do |child_vnode, index|
-          if child_vnode.is_a?(VDOM::Element) && children.is_a?(Array)
+          if child_vnode.is_a?(VDOM::Element)
             child_element = children[index]
             bind_events(child_element, child_vnode) if child_element
           elsif child_vnode.is_a?(VDOM::Component)
@@ -319,9 +340,9 @@ module Funicular
       end
 
       if vnode.children && dom_element.children
-        children = dom_element.children
+        children = dom_element.children.to_a
         vnode.children.each_with_index do |child_vnode, index|
-          if child_vnode.is_a?(VDOM::Element) && children.is_a?(Array)
+          if child_vnode.is_a?(VDOM::Element)
             child_element = children[index]
             collect_refs(child_element, child_vnode, refs_map) if child_element
           elsif child_vnode.is_a?(VDOM::Component)
