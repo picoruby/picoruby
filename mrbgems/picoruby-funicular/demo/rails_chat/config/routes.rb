@@ -19,4 +19,8 @@ Rails.application.routes.draw do
   end
 
   get "up" => "rails/health#show", as: :rails_health_check
+
+  get '*path', to: 'home#index', constraints: ->(req) do
+    !req.xhr? && req.format.html?
+  end
 end
