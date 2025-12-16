@@ -24,7 +24,7 @@
   <script type="text/ruby">
     # Register a callback that returns a formatted string
     JS::Object.register_callback('rubyFormatLabel') do |value|
-      "Value: #{value}"
+      "Value: #{value.to_i}"
     end
   </script>
   <script>
@@ -44,7 +44,7 @@
   <script type="text/ruby">
     # Register a callback that calculates sum
     JS::Object.register_callback('rubyCalculate') do |a, b|
-      a + b
+      a.to_i + b.to_i
     end
   </script>
   <script>
@@ -64,9 +64,9 @@
   <script type="text/ruby">
     # Register a callback that filters even numbers
     JS::Object.register_callback('rubyFilterEven') do |arr|
-      len = arr[:length]
+      len = arr[:length].to_i
       puts "[Ruby] about to call times"
-      len.times do |i|
+      len.to_i.times do |i|
         puts "[Ruby] iteration #{i}"
       end
       puts "[Ruby] times finished"
@@ -116,10 +116,10 @@
     # Register a callback with multiple arguments
     JS::Object.register_callback('rubyMultiArgs') do |str, num, bool, arr|
       {
-        str_upper: str.upcase,
-        num_doubled: num * 2,
+        str_upper: str.to_s.upcase,
+        num_doubled: num.to_i * 2,
         bool_negated: !bool,
-        arr_length: arr[:length]
+        arr_length: arr[:length].to_i
       }
     end
   </script>
