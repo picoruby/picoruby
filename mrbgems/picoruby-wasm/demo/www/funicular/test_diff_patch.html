@@ -93,7 +93,7 @@
       child = container.children[0]
       Funicular::VDOM.patch(child, patches)
 
-      updated_text = child[:textContent]
+      updated_text = child[:textContent].to_s
       raise "Patch failed: got '#{updated_text}'" unless updated_text == 'New text'
     end
 
@@ -110,7 +110,7 @@
       child = container.children[0]
       Funicular::VDOM.patch(child, patches)
 
-      updated_class = child[:className]
+      updated_class = child[:className].to_s
       raise "Patch failed: got '#{updated_class}'" unless updated_class == 'new'
     end
 
@@ -132,7 +132,7 @@
       Funicular::VDOM.patch(child, patches)
 
       p_element = child[:children][0]
-      updated_text = p_element[:textContent]
+      updated_text = p_element[:textContent].to_s
       raise "Patch failed: got '#{updated_text}'" unless updated_text == 'New'
     end
 

@@ -99,7 +99,7 @@
         if message_count == 1
           # First message is "Request served by ..."
           log_message("Skipping server info message")
-        elsif message == "Hello from PicoRuby!"
+        elsif message.to_s == "Hello from PicoRuby!"
           div.className = 'test-case pass'
           div.textContent = "PASS: WebSocket send and receive"
           ws.close

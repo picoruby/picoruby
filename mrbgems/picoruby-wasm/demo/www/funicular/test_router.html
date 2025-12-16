@@ -34,7 +34,7 @@
       end
 
       def on_username_input(event)
-        patch(username: event.target[:value])
+        patch(username: event.target[:value].to_s)
       end
 
       def on_login_click(event)

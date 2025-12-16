@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="test.css">
+    <link rel="stylesheet" href="../test.css">
   </head>
   <body>
     <div><a href="index.html">Back</a></div>
@@ -22,7 +22,7 @@ Caught in outer: Error in chain
 
       def log(msg)
         output = JS.document.getElementById('output')
-        current = output.innerText
+        current = output.innerText.to_s
         output.innerText = current + msg + "\n"
       end
 
@@ -30,7 +30,7 @@ Caught in outer: Error in chain
         log "Starting promise chain test..."
 
         begin
-          JS.global.fetch('favicon.ico') do |r1|
+          JS.global.fetch('../favicon.ico') do |r1|
             log "Step 1: Got first response"
 
             JS.global.fetch('favicon.ico') do |r2|
@@ -45,6 +45,6 @@ Caught in outer: Error in chain
         end
       end
     </script>
-    <script src="init.iife.js"></script>
+    <script src="../init.iife.js"></script>
   </body>
 </html>
