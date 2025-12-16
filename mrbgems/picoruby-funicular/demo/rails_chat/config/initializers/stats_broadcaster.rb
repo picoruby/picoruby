@@ -1,7 +1,7 @@
 Rails.application.config.after_initialize do
   Thread.new do
     loop do
-      sleep 15
+      sleep 30
       begin
         BroadcastStatsJob.perform_now
       rescue => e
