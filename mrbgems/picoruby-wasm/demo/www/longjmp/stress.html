@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="test.css">
+    <link rel="stylesheet" href="../test.css">
   </head>
   <body>
     <div><a href="index.html">Back</a></div>
@@ -22,7 +22,7 @@ All 100 tasks launched
 
       def log(msg)
         output = JS.document.getElementById('output')
-        current = output.innerText
+        current = output.innerText.to_s
         output.innerText = current + msg + "\n"
       end
 
@@ -33,7 +33,7 @@ All 100 tasks launched
         error_count = 0
 
         100.times do |i|
-          JS.global.fetch('favicon.ico') do
+          JS.global.fetch('../favicon.ico') do
             if i % 3 == 0
               raise "Error in task #{i}"
             end
@@ -48,6 +48,6 @@ All 100 tasks launched
         log "All 100 tasks launched"
       end
     </script>
-    <script src="init.iife.js"></script>
+    <script src="../init.iife.js"></script>
   </body>
 </html>

@@ -59,19 +59,19 @@
       elem.setAttribute('id', 'test-id')
       elem.setAttribute('class', 'test-class')
       doc.getElementById('container').appendChild(elem)
-      raise "setAttribute failed" unless elem[:id] == 'test-id'
+      raise "setAttribute failed" unless elem[:id].to_s == 'test-id'
     end
 
     test_case("Property setter - string") do
       elem = doc.createElement('div')
       elem.textContent = 'String property'
-      raise "String property failed" unless elem[:textContent] == 'String property'
+      raise "String property failed" unless elem[:textContent].to_s == 'String property'
     end
 
     test_case("Property setter - integer") do
       elem = doc.createElement('div')
       elem.tabIndex = 42
-      raise "Integer property failed" unless elem[:tabIndex] == 42
+      raise "Integer property failed" unless elem[:tabIndex].to_i == 42
     end
 
     test_case("Property setter - boolean") do
@@ -128,7 +128,7 @@
       elem = doc.createElement('div')
       elem.setAttribute('data-test', 'value')
       attr = elem.getAttribute('data-test')
-      raise "setAttribute failed (got #{attr.inspect})" unless attr == 'value'
+      raise "setAttribute failed (got #{attr.inspect})" unless attr.to_s == 'value'
 
       elem.removeAttribute('data-test')
       attr_value = elem.getAttribute('data-test')

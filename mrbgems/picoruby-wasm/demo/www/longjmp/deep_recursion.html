@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="test.css">
+    <link rel="stylesheet" href="../test.css">
   </head>
   <body>
     <div><a href="index.html">Back</a></div>
@@ -31,7 +31,7 @@ Caught: Reached depth limit
 
       def log(msg)
         output = JS.document.getElementById('output')
-        current = output.innerText
+        current = output.innerText.to_s
         output.innerText = current + msg + "\n"
       end
 
@@ -46,7 +46,7 @@ Caught: Reached depth limit
       JS.document.getElementById('test').addEventListener('click') do
         log "Starting deep recursion test..."
 
-        JS.global.fetch('favicon.ico') do
+        JS.global.fetch('../favicon.ico') do
           begin
             recursive_method(0)
           rescue => e
@@ -55,6 +55,6 @@ Caught: Reached depth limit
         end
       end
     </script>
-    <script src="init.iife.js"></script>
+    <script src="../init.iife.js"></script>
   </body>
 </html>

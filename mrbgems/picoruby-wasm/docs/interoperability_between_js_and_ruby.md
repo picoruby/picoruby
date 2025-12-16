@@ -1,24 +1,25 @@
 # JavaScript-Ruby Interoperability in PicoRuby.wasm
 
-This document explains how PicoRuby.wasm handles interoperability between JavaScript and Ruby code, including automatic type conversion, property access, and best practices.
+This document explains how PicoRuby.wasm handles interoperability between JavaScript and Ruby code, focusing on a design that prioritizes explicitness and predictability.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Accessing Data from JavaScript (JS to Ruby)](#accessing-data-from-javascript-js-to-ruby)
-3. [Passing Data to JavaScript (Ruby to JS) with `JS::Bridge`](#passing-data-to-javascript-ruby-to-js-with-jsbridge)
-4. [Best Practices](#best-practices)
-5. [Common Pitfalls](#common-pitfalls)
-6. [Advanced Topics](#advanced-topics)
-7. [Summary](#summary)
+2. [Guiding Principles](#guiding-principles)
+3. [Accessing Data from JavaScript (JS to Ruby)](#accessing-data-from-javascript-js-to-ruby)
+4. [Explicit Conversion Methods](#explicit-conversion-methods)
+5. [Passing Data to JavaScript (Ruby to JS)](#passing-data-to-javascript-ruby-to-js)
+6. [Best Practices](#best-practices)
+7. [Common Pitfalls](#common-pitfalls)
+8. [Summary](#summary)
 
 ## Overview
 
 PicoRuby.wasm provides seamless interoperability between JavaScript and Ruby through the `JS` module. This allows you to manipulate the DOM and interact with JavaScript libraries using idiomatic Ruby code.
 
 The core of this interoperability lies in two main concepts:
-1.  **Accessing and Reading** JavaScript objects in Ruby (`JS::Object`).
-2.  **Passing and Converting** Ruby data structures for use in JavaScript (`JS::Bridge`).
+1.  **Accessing and Reading** JavaScript objects in Ruby via a wrapper class, `JS::Object`.
+2.  **Passing and Converting** Ruby data structures for use in JavaScript, which is handled automatically by setters.
 
 ```ruby
 require 'js'
@@ -29,343 +30,203 @@ global = JS.global
 # Access the document object
 doc = JS.document
 
-# Get a DOM element, which becomes a JS::Object in Ruby
+# Get a DOM element, which is always wrapped in a JS::Object
 element = doc.getElementById('myElement')
 ```
 
+## Guiding Principles
+
+The API is designed around two principles:
+
+1.  **Explicitness over Implicitness (for Getters):** When retrieving data from the JavaScript world, ambiguity is avoided. Instead of automatically converting JS objects to their potential Ruby equivalents, we almost always return a `JS::Object` wrapper. This forces the developer to be explicit about the desired Ruby type (e.g., String, Array), preventing unexpected behavior.
+
+2.  **Convenience over Strictness (for Setters):** When passing data into the JavaScript world, the API prioritizes convenience. Ruby primitives like `String`, `Integer`, `Array`, and `Hash` are automatically converted to their JavaScript counterparts, allowing for natural and intuitive assignment.
+
 ## Accessing Data from JavaScript (JS to Ruby)
 
-When you access JavaScript objects from Ruby, they are typically wrapped in a `JS::Object`, which acts as a reference or pointer to the live JavaScript object. PicoRuby automatically converts primitive values and array-like objects to their Ruby equivalents for convenience.
+When you access JavaScript objects from Ruby, they are wrapped in a `JS::Object`, which acts as a reference to the live JavaScript object.
 
-### Automatic Type Conversion (JS to Ruby)
+### Type Conversion on Read (Getters)
 
-When you read properties or get return values from methods, automatic conversion occurs:
+To ensure predictability, automatic type conversion is kept to a minimum.
 
 | JavaScript Type | Ruby Type | Example |
 |-----------------|-----------|---------|
 | `null` | `nil` | `element.getAttribute('missing')` -> `nil` |
 | `undefined` | `nil` | `obj[:nonExistent]` -> `nil` |
 | `boolean` | `true`/`false` | `checkbox[:checked]` -> `true` |
-| `number` | `Float` or `Integer` | `element[:offsetWidth]` -> `100.0` |
-| `string` | `String` | `element.getAttribute('id')` -> `"myId"` |
-| Array-like | `Array` | `element[:children]` -> `[...]` |
+| `number` | `JS::Object` | `element[:offsetWidth]` -> `#<JS::Object>` |
+| `string` | `JS::Object` | `element.getAttribute('id')` -> `#<JS::Object>` |
+| Array-like | `JS::Object` | `element[:children]` -> `#<JS::Object>` |
 | Other objects | `JS::Object` | `element[:style]` -> `#<JS::Object>` |
+
+As you can see, any value that is not `null`, `undefined`, or a `boolean` is returned as a `JS::Object`. To use these values as standard Ruby types, you must use the explicit conversion methods described below.
 
 ### Accessing `JS::Object` Properties and Methods
 
 You can interact with `JS::Object` instances as if they were Ruby objects.
 
-**Property Access with `[]`:**
-Use the `[]` operator with Symbols (recommended) or Strings.
+**Property Access:**
+Use the `[]` operator for reading and `[]=` for writing.
 ```ruby
-# Read property
-element[:textContent]
+# Read property (returns a JS::Object)
+text_content_obj = element[:textContent]
 
-# Assign property
+# Assign property (accepts a Ruby String)
 element[:className] = "highlighted"
 ```
 
 **Method Calls:**
-JavaScript methods can be called directly.
+JavaScript methods can be called directly. The return value will be a `JS::Object` (or `nil`/`boolean`).
 ```ruby
 # No arguments
 element.focus
 
-# With arguments
+# With arguments (accepts Ruby primitives)
 element.setAttribute('class', 'active')
 ```
 
-### Array-like Objects
+## Explicit Conversion Methods
 
-JavaScript objects that are "array-like" (e.g., `NodeList`, `HTMLCollection`) are automatically converted into a Ruby `Array` of `JS::Object` instances. This allows you to use powerful Ruby `Enumerable` methods.
+To convert a `JS::Object` wrapper into a native Ruby type, use one of the `to_*` methods.
 
+### `.to_s` -> String
+Converts a JS `string` object to a Ruby `String`.
 ```ruby
-# querySelectorAll returns a Ruby Array of JS::Objects
-buttons = doc.querySelectorAll('.button')
+# Get the text content of an element
+text_obj = element[:textContent]  #=> <JS::Object>
+text_str = text_obj.to_s         #=> "Some text"
+```
 
-# Now you can use standard Ruby methods
-buttons.each do |button|
-  button[:textContent] = "Click me"
+### `.to_i` and `.to_f` -> Integer and Float
+Converts a JS `number` object to a Ruby `Integer` or `Float`.
+```ruby
+# Get the width of an element
+width_obj = element[:offsetWidth] #=> <JS::Object>
+width_int = width_obj.to_i        #=> 100
+width_float = width_obj.to_f      #=> 100.0
+```
+
+### `.to_a` -> Array
+Converts a JS `Array` or array-like object (e.g., `NodeList`, `HTMLCollection`) to a Ruby `Array` of `JS::Object` instances. This allows you to use powerful `Enumerable` methods.
+```ruby
+# querySelectorAll returns a JS::Object (representing a NodeList)
+buttons_obj = doc.querySelectorAll('.button')
+
+# Convert to a Ruby Array to use .each, .map, etc.
+buttons_array = buttons_obj.to_a
+buttons_array.each do |button|
+  button[:textContent] = "Click me" # Setter accepts a Ruby String
 end
 
-button_count = buttons.length
-active_buttons = buttons.select { |btn| btn[:classList].contains('active') }
+button_count = buttons_array.length
 ```
-**Note:** Because this is a conversion, modifying the Ruby `Array` (e.g., `children.clear`) will **not** affect the original JavaScript object or the DOM. You must operate on the parent `JS::Object` to make changes.
+**Note:** `.to_a` performs a conversion. Modifying the returned Ruby `Array` (e.g., `buttons_array.clear`) will **not** affect the original JavaScript object or the DOM.
 
+## Passing Data to JavaScript (Ruby to JS)
 
-## Passing Data to JavaScript (Ruby to JS) with `JS::Bridge`
+When calling a `setter` method (e.g., `element[:className] = "active"` or `element.value = "text"`) or passing arguments to a JS method (e.g., `element.setAttribute('class', 'active')`), PicoRuby automatically and recursively converts Ruby objects to their JavaScript counterparts.
 
-While `JS::Object` is for referencing existing JavaScript objects, `JS::Bridge.to_js` is for **creating new JavaScript objects from Ruby data structures**. This is a crucial concept when you need to pass complex data like nested Hashes and Arrays to JavaScript libraries, which often expect plain JavaScript objects.
+| Ruby Type | JavaScript Type |
+|-----------|-----------------|
+| `nil` | `null` |
+| `true`/`false` | `boolean` |
+| `Integer`/`Float`| `number` |
+| `String` | `string` |
+| `Array` | `Array` |
+| `Hash` | `Object` |
+| `JS::Object` | The original JS object it refers to |
 
-### Deep Conversion of Ruby Objects
-
-`JS::Bridge.to_js` performs a "deep" or "recursive" conversion:
-- A Ruby `Hash` becomes a JavaScript `Object`.
-- A Ruby `Array` becomes a JavaScript `Array`.
-- This process is applied to all nested elements.
-
-**Example: Converting a Complex Hash**
-Imagine you are configuring a chart library.
+This design allows for intuitive and convenient code when writing to the JavaScript world.
 ```ruby
-# A complex Ruby Hash with nested data
+# Automatic conversion on assignment
+element[:textContent] = "Hello, World!"
+element[:value] = 123
+element[:hidden] = false
+
+# Automatic conversion for method arguments
+doc.body.appendChild(another_element) # another_element is a JS::Object
+```
+
+For creating new, complex JavaScript objects from Ruby Hashes or Arrays to pass to JS library constructors (e.g., for charts or maps), you can use `JS::Bridge.to_js`.
+
+```ruby
+# A complex Ruby Hash
 chart_config_ruby = {
   type: 'bar',
   data: {
     labels: ['Jan', 'Feb', 'Mar'],
-    datasets: [{
-      label: 'Sales',
-      data: [10, 20, 30],
-      backgroundColor: 'rgba(54, 162, 235, 0.6)'
-    }]
-  },
-  options: {
-    responsive: true
+    datasets: [{ data: [10, 20, 30] }]
   }
 }
 
-# Convert the entire structure into a plain JavaScript object
+# Convert the entire structure into a new JavaScript object
 chart_config_js = JS::Bridge.to_js(chart_config_ruby)
 
-# Now, you can pass this new JS object to a JavaScript library
-canvas = doc.getElementById('myChart')
-chart = JS.global[:Chart].new(canvas, chart_config_js)
+# Pass the new JS object to a JavaScript library
+chart = JS.global.Chart.new(canvas, chart_config_js)
 ```
-
-### `JS::Object` vs. `JS::Bridge.to_js`
-
-It's important to understand the difference:
-
--   **`JS::Object`**: A **reference** to an *existing* JavaScript object. It's a live link. Changes made in Ruby are reflected in JavaScript and vice-versa.
--   **`JS::Bridge.to_js(ruby_obj)`**: Creates a **new, plain** JavaScript object by **copying** data from a Ruby object. It's a one-time conversion, not a live link.
-
-### When to Use `JS::Bridge.to_js`
-
-Use it whenever you construct data in Ruby that needs to be handed over to a JavaScript function or property.
-
-1.  **Assigning to JavaScript object properties:**
-    ```ruby
-    chart[:data][:datasets][0][:data] = JS::Bridge.to_js([10, 20, 30])
-    ```
-
-2.  **Passing complex configurations to JS libraries:**
-    ```ruby
-    # The Chart.js constructor expects a plain JS object for its config
-    chart = JS.global[:Chart].new(canvas, JS::Bridge.to_js(ruby_config))
-    ```
 
 ## Best Practices
 
-### 1. Use Symbol Keys for Property Access
-
+### 1. Be Explicit with Getters, Be Direct with Setters
+This is the core philosophy. When reading, expect a `JS::Object` and convert it. When writing, use Ruby types directly.
 ```ruby
-# Good - clear and concise
-element[:textContent]
-element[:className]
-
-# Avoid - string keys are less idiomatic
-element['textContent']
+# Good: Explicit getter conversion, direct setter assignment
+text = element[:textContent].to_s
+element[:textContent] = text + " (updated)"
 ```
 
-### 2. Trust Automatic Conversion
-
-Don't manually check types when automatic conversion handles it:
-
+### 2. Use `.to_a` to Iterate
+To use `Enumerable` methods like `.each` or `.map` on a `NodeList`, convert it to a Ruby `Array` first.
 ```ruby
-# Good - automatic conversion
-value = element[:value]
-if value.empty?
-  # ...
-end
-
-# Unnecessary - avoid manual type checking
-value = element[:value]
-if value.is_a?(String) && value.empty?
-  # ...
+# Good: Convert to Array before iterating
+nodes = doc.querySelectorAll('.item').to_a
+nodes.each do |node|
+  node[:className] = 'processed'
 end
 ```
 
-### 3. Use Ruby Array Methods with Array-like Objects
-
+### 3. Chain Method Calls
+Since getters return a `JS::Object`, you can chain calls that exist on the underlying JavaScript object.
 ```ruby
-# Good - leverage Ruby's powerful Array methods
-buttons = doc.querySelectorAll('.button')
-active_buttons = buttons.select { |btn| btn[:classList].contains('active') }
-
-# Good - use each for iteration
-buttons.each do |button|
-  button[:disabled] = true
-end
-```
-
-### 4. Convert Ruby Data Before Assigning to JavaScript
-
-```ruby
-# Good - explicit conversion
-new_data = [10, 20, 30, 40]
-chart[:data][:datasets][0][:data] = JS::Bridge.to_js(new_data)
-
-# Bad - assigning Ruby array directly may not work as expected
-chart[:data][:datasets][0][:data] = [10, 20, 30, 40]
-```
-
-### 5. Handle Nil Values Appropriately
-
-```ruby
-# Good - check for nil
-attr = element.getAttribute('data-value')
-if attr
-  process(attr)
-else
-  # Handle missing attribute
-end
-
-# Good - use safe navigation
-element.getAttribute('data-value')&.upcase
+# Get the first child's tag name
+tag_name = doc.body.firstChild.tagName.to_s
 ```
 
 ## Common Pitfalls
 
-### 1. Array-like Objects are Converted to Ruby Arrays
-
-**Problem:** Trying to access JavaScript properties on converted arrays
-
+### 1. Calling Ruby Methods on `JS::Object`
+**Problem:** `JS::Object` only proxies methods that exist on the underlying JavaScript object.
 ```ruby
-# WRONG - files is now a Ruby Array
-files = input[:files]
-files[:length] = 0  # TypeError: Symbol cannot be converted to Integer
+# WRONG
+nodes = doc.querySelectorAll('.item')
+nodes.each { |n| ... } #=> NoMethodError: undefined method `each' for #<JS::Object>
 
-# CORRECT - use Ruby array methods
-files = input[:files]
-files.clear
-# Or get the original JS object if needed for specific JS operations
+# CORRECT
+nodes = doc.querySelectorAll('.item').to_a
+nodes.each { |n| ... }
 ```
 
-### 2. Forgetting to Convert Ruby Arrays
-
-**Problem:** Assigning Ruby arrays directly to JavaScript object properties
-
+### 2. Modifying the Array from `.to_a`
+**Problem:** Expecting changes to the converted Ruby `Array` to affect the DOM.
 ```ruby
-# May not work correctly
-chart[:data][:datasets][0][:data] = [1, 2, 3]
+# Get a converted Ruby Array
+children = element[:children].to_a
 
-# CORRECT - explicit conversion
-chart[:data][:datasets][0][:data] = JS::Bridge.to_js([1, 2, 3])
-```
+# This only clears the Ruby array, NOT the actual DOM children
+children.clear
 
-### 3. Checking for Undefined vs Nil
-
-**Problem:** JavaScript `undefined` is converted to Ruby `nil`
-
-```ruby
-# JavaScript: returns undefined
-value = obj[:nonExistentProperty]
-
-# In Ruby, this becomes nil
-puts value.nil?  # => true
-
-# Cannot distinguish between null and undefined
-# Both become nil in Ruby
-```
-
-### 4. String Conversion Assumptions
-
-**Problem:** Assuming `.to_s` is needed
-
-```ruby
-# WRONG - unnecessary conversion
-element = doc.getElementById('myElement')
-text = element[:textContent].to_s  # Already a String!
-
-# CORRECT - automatic conversion handles it
-text = element[:textContent]  # Returns Ruby String
-```
-
-### 5. Modifying Converted Arrays
-
-**Problem:** Expecting changes to affect the original JavaScript array
-
-```ruby
-# Get array-like object (converted to Ruby Array)
-children = element[:children]
-
-# Modifying the Ruby array doesn't affect the DOM
-children.clear  # Only clears the Ruby array copy
-
-# To modify the actual DOM:
-while element[:childNodes].length > 0
-  element.removeChild(element[:childNodes][0])
-end
-
-# Or work with the JS object directly if needed
-child_nodes = element[:childNodes]  # Ruby Array of JS::Objects
-child_nodes.each do |child|
-  element.removeChild(child)
-end
-```
-
-## Advanced Topics
-
-### Working with Events
-
-Event handlers receive event objects that are automatically converted:
-
-```ruby
-button.addEventListener('click') do |event|
-  # event is a JS::Object
-  event.preventDefault
-
-  # Properties are automatically converted
-  target = event[:target]
-  value = target[:value]  # Ruby String
-
-  puts "Button clicked: #{value}"
-end
-```
-
-### Callbacks to JavaScript Libraries
-
-When registering callbacks with JavaScript libraries, use `JS::Object.register_callback`:
-
-```ruby
-# Register a Ruby callback that JavaScript can call
-JS::Object.register_callback('formatValue') do |value|
-  # value is automatically converted from JavaScript
-  "¥#{value.to_i.to_s.reverse.scan(/.{1,3}/).join(',').reverse}"
-end
-
-# Use in JavaScript library
-chart_config = {
-  scales: {
-    y: {
-      ticks: {
-        callback: JS.generic_callbacks[:formatValue]
-      }
-    }
-  }
-}
-```
-
-### Direct JavaScript Execution
-
-For advanced cases, you can execute JavaScript directly:
-
-```ruby
-# Create and execute script
-script = doc.createElement('script')
-script[:textContent] = "console.log('Hello from JavaScript');"
-doc.body.appendChild(script)
-doc.body.removeChild(script)
+# To modify the actual DOM, you must call methods on the JS::Object
+element.innerHTML = ""
 ```
 
 ## Summary
 
-PicoRuby WASM provides powerful and convenient JavaScript-Ruby interoperability with automatic type conversion. Key points to remember:
+PicoRuby.wasm provides powerful and predictable JavaScript-Ruby interoperability. Key points to remember:
 
-1. **Automatic conversion** handles most type conversions transparently
-2. **Array-like objects** become Ruby Arrays automatically
-3. **Use `JS::Bridge.to_js`** when passing Ruby data to JavaScript
-4. **Trust the conversion** - don't manually check types unnecessarily
-5. **Leverage Ruby idioms** - use Ruby array methods, safe navigation, etc.
+1.  **Getters are strict:** When reading from JS, you almost always get a `JS::Object`.
+2.  **Setters are convenient:** When writing to JS, you can use native Ruby types, which are converted automatically.
+3.  **Be explicit:** Use `.to_s`, `.to_i`, `.to_f`, and `.to_a` to convert `JS::Object` wrappers into the Ruby types you need.
 
-By following these guidelines, you can write clean, idiomatic Ruby code that seamlessly interacts with JavaScript libraries and the DOM.
+By following these guidelines, you can write clean, robust, and predictable Ruby code that seamlessly interacts with JavaScript libraries and the DOM.

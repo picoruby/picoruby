@@ -54,7 +54,7 @@
       container = doc.getElementById('container')
       vnode = Funicular::VDOM.create_element('p', {}, 'Test paragraph')
       Funicular::VDOM.render(vnode, container)
-      raise "Rendering failed" unless container.children.length > 0
+      raise "Rendering failed" unless container.children.length.to_i > 0
     end
 
     test_case("Render element with attributes") do
@@ -62,7 +62,7 @@
       vnode = Funicular::VDOM.create_element('div', { id: 'test-id', class: 'test-class' })
       Funicular::VDOM.render(vnode, container)
       child = container.children[0]
-      raise "Attribute not set" unless child && child[:id] == 'test-id'
+      raise "Attribute not set" unless child && child[:id].to_s == 'test-id'
     end
 
     test_case("Render nested elements") do
@@ -75,7 +75,7 @@
       )
       Funicular::VDOM.render(vnode, container)
       child = container.children[0]
-      raise "Nested rendering failed" unless child && child[:children].length == 2
+      raise "Nested rendering failed" unless child && child[:children].length.to_i == 2
     end
 
     test_case("Render text nodes") do
@@ -87,7 +87,7 @@
       )
       Funicular::VDOM.render(vnode, container)
       child = container.children[0]
-      raise "Text rendering failed" unless child && child[:textContent] == 'Plain text'
+      raise "Text rendering failed" unless child && child[:textContent].to_s == 'Plain text'
     end
 
     summary = doc.createElement('h2')

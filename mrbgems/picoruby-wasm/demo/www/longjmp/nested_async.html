@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="test.css">
+    <link rel="stylesheet" href="../test.css">
   </head>
   <body>
     <div><a href="index.html">Back</a></div>
@@ -23,14 +23,14 @@ Caught at level 1: Error at level 3
 
       def log(msg)
         output = JS.document.getElementById('output')
-        current = output.innerText
+        current = output.innerText.to_s
         output.innerText = current + msg + "\n"
       end
 
       JS.document.getElementById('test').addEventListener('click') do
         log "Starting nested async test..."
 
-        JS.global.fetch('favicon.ico') do |response1|
+        JS.global.fetch('../favicon.ico') do |response1|
           log "Level 1: Got response"
 
           JS.global.fetch('favicon.ico') do |response2|
@@ -49,6 +49,6 @@ Caught at level 1: Error at level 3
         end
       end
     </script>
-    <script src="init.iife.js"></script>
+    <script src="../init.iife.js"></script>
   </body>
 </html>

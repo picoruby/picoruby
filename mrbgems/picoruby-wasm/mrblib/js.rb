@@ -3,11 +3,21 @@ require 'json'
 
 module JS
   def self.document
-    global[:document]
+    document = global[:document]
+    if document.is_a?(JS::Object)
+      document
+    else
+      raise 'Document object is not available'
+    end
   end
 
   def self.generic_callbacks
-    global[:picorubyGenericCallbacks]
+    callbacks = global[:picorubyGenericCallbacks]
+    if callbacks.is_a?(JS::Object)
+      return callbacks
+    else
+      raise 'Generic callbacks object is not available'
+    end
   end
 
   class Object
@@ -100,9 +110,14 @@ module JS
       # @type var result_id: Integer
       if 0 <= result_id
         # Create JS::Object from result_id
-        result_obj = JS.global[:picorubyRefs][result_id]
-        # @type var block: Proc
-        block.call(result_obj) if block
+        refs = JS.global[:picorubyRefs]
+        if refs.is_a?(JS::Object)
+          result_obj = refs[result_id]
+          # @type var block: Proc
+          block.call(result_obj) if block
+        else
+          raise 'picorubyRefs is not available'
+        end
       end
     end
   end

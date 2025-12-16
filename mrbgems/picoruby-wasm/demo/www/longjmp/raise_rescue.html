@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <link rel="stylesheet" href="test.css">
+    <link rel="stylesheet" href="../test.css">
   </head>
   <body>
     <div><a href="index.html">Back</a></div>
@@ -19,13 +19,13 @@
       end
       JS.document.getElementById('raise').addEventListener('click') do |event_json|
         logo = JS.document.getElementById('logo')
-        JS.global.fetch('favicon.ico') do |response|
+        JS.global.fetch('../favicon.ico') do |response|
           my_method
         rescue => e
           puts "Rescue an exception: #{e.message}"
         end
       end
     </script>
-    <script src="init.iife.js"></script>
+    <script src="../init.iife.js"></script>
   </body>
 </html>

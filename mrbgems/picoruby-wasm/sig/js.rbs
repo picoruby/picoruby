@@ -1,15 +1,28 @@
 module JS
   class Object
+    # Global state (consider refactoring)
     $promise_responses: Hash[Integer, JS::Object]
     $js_events: Hash[Integer, JS::Object]
     CALLBACKS: Hash[Integer, Proc]
 
-    def []: (String | Symbol | Integer name) -> JS::Object
+    # Property Access
+    # Returns a JS::Object wrapper, or a boolean/nil for primitive types.
+    def []: (String | Symbol | Integer name) -> (JS::Object | bool | nil)
+    # Setter automatically converts Ruby types to JS types.
     def []=: (String | Symbol name, untyped value) -> untyped
 
+    # Explicit Type Conversion Methods
+    def to_s: () -> String
+    def to_i: () -> Integer
+    def to_f: () -> Float
+    def to_a: () -> Array[JS::Object]
+
+    # Event Handling
     def addEventListener: (String event_type) { (JS::Object event) -> void } -> Integer
     def self.removeEventListener: (Integer callback_id) -> bool
     def self.register_callback: (String name) { (*untyped args) -> untyped } -> Integer
+
+    # Async operations
     def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
     def then: () { (JS::Object result) -> void } -> void
     def to_binary: () -> String
@@ -30,19 +43,21 @@ module JS
     def preventDefault: () -> nil
     def stopPropagation: () -> nil
 
-    # Common properties/methods often handled by method_missing
+    # Common properties/methods (examples)
+    # Note: All of these now return a JS::Object wrapper that may need explicit conversion.
     def getElementById: (String id) -> JS::Object?
     def querySelector: (String selector) -> JS::Object?
-    def children: () -> JS::Object # Returns an array-like object
+    def querySelectorAll: (String selector) -> JS::Object # Use .to_a to iterate
+    def children: () -> JS::Object # Use .to_a to iterate
     def parentElement: () -> JS::Object?
-    def tagName: () -> JS::Object
+    def tagName: () -> JS::Object # Use .to_s
     def style: () -> JS::Object
     def item: (String | Integer num) -> JS::Object?
     def innerHTML=: (String html) -> String
     def textContent=: (String text) -> String
     def body: () -> JS::Object
-    def status: () -> JS::Object
-    def push: (JS::Object item) -> JS::Object # When an array-like object
+    def status: () -> JS::Object # Use .to_i
+    def push: (JS::Object item) -> JS::Object
 
     def createObjectURL: (JS::Object blob) -> JS::Object
     def create_object: () -> JS::Object
@@ -50,7 +65,7 @@ module JS
 
     def _js_remove_event_listener_wrapper: (Integer callback_id) -> bool
 
-    private def method_missing: (Symbol method_name, *untyped args) -> untyped
+    private def method_missing: (Symbol method_name, *untyped args) -> (JS::Object | bool | nil)
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def self._register_callback: (Integer callback_id, String name) -> nil
     private def _removeEventListener: (Integer callback_id) -> bool
