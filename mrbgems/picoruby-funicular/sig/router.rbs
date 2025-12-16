@@ -11,8 +11,10 @@ module Funicular
     def stop: () -> void
     def navigate: (String path) -> void
     def current_hash_path: () -> String
+    def current_location_path: () -> String
 
     private def handle_route_change: () -> void
     private def unmount_current_component: () -> void
+    private def find_route: (String path) -> [singleton(Component) | nil, Hash[Symbol, untyped]]
   end
 end

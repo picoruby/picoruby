@@ -7,6 +7,7 @@ module Funicular
       private def self.diff_element: (Element old_node, Element new_node) -> Array[patch_t]
       private def self.diff_props: (Hash[Symbol, untyped] old_props, Hash[Symbol, untyped] new_props) -> Hash[Symbol, untyped]
       private def self.diff_children: (Array[untyped] old_children, Array[untyped] new_children) -> Array[patch_t]
+      private def self.diff_component: (VDOM::Component old_node, VDOM::Component new_node) -> Array[patch_t]
     end
   end
 end
