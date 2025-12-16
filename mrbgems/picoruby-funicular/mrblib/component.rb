@@ -371,6 +371,7 @@ module Funicular
         end
       elsif vnode.is_a?(VDOM::Element)
         vnode.children&.each do |child|
+          # @type var child: VDOM::VNode
           collect_child_components_recursive(child, components)
         end
       end

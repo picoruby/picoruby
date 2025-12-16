@@ -1,7 +1,7 @@
 module Funicular
   module VDOM
     type patch_t = Array[untyped]
-    type child_t = VNode | String | Array[VNode | String]
+    type child_t = VNode | Array[VNode]
 
     class VNode
       attr_reader type: Symbol
@@ -31,6 +31,7 @@ module Funicular
 
       private def render_element: (Element element, JS::Object? parent) -> JS::Object
       private def render_text: (VDOM::Text text, JS::Object? parent) -> JS::Object
+      private def render_component: (VDOM::Component component_vnode, JS::Object? parent) -> JS::Object
     end
 
     def self.create_element: (String tag, ?Hash[Symbol, untyped] props, *child_t children) -> Element
@@ -38,5 +39,13 @@ module Funicular
     def self.render: (VNode vnode, JS::Object container) -> void
     def self.diff: (VNode? old_vnode, VNode? new_vnode) -> Array[patch_t]
     def self.patch: (JS::Object element, Array[patch_t] patches) -> JS::Object
+
+    class Component < VNode
+      attr_reader component_class: untyped
+      attr_reader props: Hash[Symbol, untyped]
+      attr_accessor instance: untyped
+      def self.new: (untyped component_class, ?Hash[Symbol, untyped] props) -> Component
+      def ==: (untyped other) -> bool
+    end
   end
 end
