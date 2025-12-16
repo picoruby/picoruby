@@ -59,6 +59,12 @@ module JS
     def status: () -> JS::Object # Use .to_i
     def push: (JS::Object item) -> JS::Object
 
+    def URL: () -> JS::Object
+    def history: () -> JS::Object
+    def location: () -> JS::Object
+    def pathname: () -> JS::Object
+    def pushState: (untyped data, String title, String url) -> void
+    def replaceState: (untyped data, String title, String url) -> void
     def createObjectURL: (JS::Object blob) -> JS::Object
     def create_object: () -> JS::Object
     def create_array: () -> JS::Object

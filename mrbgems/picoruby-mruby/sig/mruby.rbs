@@ -16,6 +16,7 @@ class Module
 end
 
 class Class < Module
+  def ancestors: () -> Array[Module]
 end
 
 class Proc
