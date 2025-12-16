@@ -98,19 +98,21 @@ module Funicular
 
     def find_route(path)
       path_segments = path.split('/').reject { |s| s.empty? }
-
+      params = {}
       @routes.each do |route_pattern, component_class|
         pattern_segments = route_pattern.split('/').reject { |s| s.empty? }
         next if pattern_segments.length != path_segments.length
 
-        params = {}
         match = true
 
         pattern_segments.each_with_index do |pattern_segment, index|
           path_segment = path_segments[index]
 
           if pattern_segment.start_with?(':')
-            param_name = pattern_segment[1..-1].to_sym
+            param_name = pattern_segment[1..-1]&.to_sym
+            if param_name.nil?
+              raise "Invalid parameter name in route pattern: #{route_pattern}"
+            end
             params[param_name] = path_segment
           elsif pattern_segment != path_segment
             match = false
@@ -121,7 +123,7 @@ module Funicular
         return [component_class, params] if match
       end
 
-      [nil, nil] # No route found
+      [nil, params] # No route found
     end
   end
 end

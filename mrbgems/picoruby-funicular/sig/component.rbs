@@ -48,6 +48,8 @@ module Funicular
     private def collect_refs: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
     private def cleanup_events: () -> void
     private def add_child: (untyped child) -> void
+    private def collect_child_components: (VDOM::VNode | VDOM::Text | nil vnode) -> void
+    private def collect_child_components_recursive: (VDOM::VNode | VDOM::Text | nil vnode, Array[Component] components) -> void
 
     # HTML element methods (DSL)
     def div: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
