@@ -74,14 +74,23 @@ module Funicular
 
       def self.diff_children(old_children, new_children)
         patches = []
+        remove_patches = []
         max_length = [old_children.length, new_children.length].max
         max_length&.times do |i|
           old_child = old_children[i]
           new_child = new_children[i]
           child_patches = diff(old_child, new_child)
-          patches << [i, child_patches] unless child_patches.empty?
+          unless child_patches.empty?
+            # Check if this is a simple remove patch
+            if child_patches.length == 1 && child_patches[0] == [:remove]
+              remove_patches << [i, child_patches]
+            else
+              patches << [i, child_patches]
+            end
+          end
         end
-        patches
+        # Add remove patches at the end, sorted by index in descending order
+        patches + remove_patches.sort { |a, b| b[0] <=> a[0] }
       end
 
       def self.diff_component(old_node, new_node)
