@@ -152,7 +152,7 @@
       begin
         hash = { a: 1, b: "test", c: true }
         js_obj = JS::Bridge.to_js(hash)
-        test1 = js_obj[:a] == 1 && js_obj[:b] == "test"
+        test1 = js_obj[:a].to_i == 1 && js_obj[:b].to_s == "test"
         log_test("JS::Bridge.to_js(Hash)", test1)
       rescue => e
         log_test("JS::Bridge.to_js(Hash)", false)
@@ -163,7 +163,7 @@
       begin
         nested = { outer: { inner: 42 } }
         js_nested = JS::Bridge.to_js(nested)
-        test2 = js_nested[:outer][:inner] == 42
+        test2 = js_nested[:outer][:inner].to_i == 42
         log_test("JS::Bridge.to_js(nested Hash)", test2)
       rescue => e
         log_test("JS::Bridge.to_js(nested Hash)", false)
@@ -174,7 +174,7 @@
       begin
         array = [1, 2, 3]
         js_array = JS::Bridge.to_js(array)
-        test3 = js_array[0] == 1 && js_array[2] == 3
+        test3 = js_array[0].to_i == 1 && js_array[2].to_i == 3
         log_test("JS::Bridge.to_js(Array)", test3)
       rescue => e
         log_test("JS::Bridge.to_js(Array)", false)
@@ -185,7 +185,7 @@
       begin
         complex = [{ x: 10 }, { x: 20 }]
         js_complex = JS::Bridge.to_js(complex)
-        test4 = js_complex[0][:x] == 10 && js_complex[1][:x] == 20
+        test4 = js_complex[0][:x].to_i == 10 && js_complex[1][:x].to_i == 20
         log_test("JS::Bridge.to_js(Array of Hashes)", test4)
       rescue => e
         log_test("JS::Bridge.to_js(Array of Hashes)", false)

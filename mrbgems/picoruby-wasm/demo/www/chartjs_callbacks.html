@@ -116,7 +116,7 @@
 </head>
 <body>
   <div class="container">
-    <div><a href="../index.html">Back</a></div>
+    <div><a href="index.html">Back</a></div>
     <h1>Chart.js with Pure Ruby Callbacks</h1>
     <p class="subtitle">Demonstrating synchronous Ruby callbacks for Chart.js customization</p>
 
@@ -198,7 +198,7 @@
     </div>
   </div>
 
-  <script src="../init.iife.js"></script>
+  <script src="init.iife.js"></script>
   <script type="text/ruby">
     require 'js'
 
@@ -216,8 +216,8 @@
 
     # Callback 2: Smart tooltip with emoji based on value
     JS::Object.register_callback('smartTooltip') do |context|
-      value = context[:parsed][:y]
-      label = context[:label]
+      value = context[:parsed][:y].to_i
+      label = context[:label].to_s
       emoji = value > 70 ? "🔥" : value > 50 ? "📈" : "📉"
       "#{emoji} #{label}: #{value}%"
     end
