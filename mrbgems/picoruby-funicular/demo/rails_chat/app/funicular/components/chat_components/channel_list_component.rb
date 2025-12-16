@@ -31,7 +31,7 @@ class ChannelListComponent < Funicular::Component
         props[:channels].each do |channel|
           is_active = props[:current_channel] && props[:current_channel].id == channel.id
           div(
-            onclick: -> { props[:on_select_channel].call(channel) },
+            onclick: -> { Funicular.router.navigate("/chat/#{channel.id}") },
             class: s.channel_item(is_active)
           ) do
             div(class: s.channel_name) { "# #{channel.name}" }
