@@ -7,7 +7,7 @@
   <body>
     <div><a href="index.html">Back</a></div>
     <h1>Prime numbers</h1>
-    <input id="limit" type="limit" value="100000">
+    <input id="limit" type="limit" value="10000">
     <button id="start">Start</button>
     <h2 id="result"></h2>
 
@@ -30,6 +30,7 @@
       end
       JS.document.getElementById('start').addEventListener('click') do |event|
         limit = JS.document.getElementById('limit').value.to_i
+        puts "Calculating primes up to #{limit}..."
         start = Time.now
         result = count_primes(limit)
         finish = Time.now
