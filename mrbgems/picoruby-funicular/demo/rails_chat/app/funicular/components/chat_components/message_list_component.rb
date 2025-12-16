@@ -52,6 +52,7 @@ class MessageListComponent < Funicular::Component
         div(class: s.input_area) do
           form(onsubmit: props[:on_send_message], class: s.input_form) do
             input(
+              ref: :message_input,
               type: "text",
               value: props[:message_input],
               oninput: props[:on_message_input],
