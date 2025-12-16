@@ -111,6 +111,12 @@ class ChatComponent < Funicular::Component
     end
 
     content = state.message_input
+
+    # Clear the form
+    form = event[:target]
+    form.reset if form
+
+    # Clear state
     patch(message_input: "")
 
     @subscription.perform("send_message", { content: content })
