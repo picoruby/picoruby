@@ -73,7 +73,7 @@ module Funicular
       end
 
       # Find matching route
-      component_class = @routes[path]
+      component_class, params = find_route(path)
 
       unless component_class
         puts "[Router] No route found for: #{path}"
@@ -88,7 +88,7 @@ module Funicular
 
       # Mount new component
       @current_path = path
-      @current_component = component_class.new
+      @current_component = component_class.new(params)
       # @type ivar @current_component: Funicular::Component
       @current_component.mount(@container)
 
@@ -100,6 +100,36 @@ module Funicular
       @current_component&.unmount
       @current_component = nil
       @current_path = nil
+    end
+
+    private
+
+    def find_route(path)
+      path_segments = path.split('/').reject { |s| s.empty? }
+
+      @routes.each do |route_pattern, component_class|
+        pattern_segments = route_pattern.split('/').reject { |s| s.empty? }
+        next if pattern_segments.length != path_segments.length
+
+        params = {}
+        match = true
+
+        pattern_segments.each_with_index do |pattern_segment, index|
+          path_segment = path_segments[index]
+
+          if pattern_segment.start_with?(':')
+            param_name = pattern_segment[1..-1].to_sym
+            params[param_name] = path_segment
+          elsif pattern_segment != path_segment
+            match = false
+            break
+          end
+        end
+
+        return [component_class, params] if match
+      end
+
+      [nil, nil] # No route found
     end
   end
 end
