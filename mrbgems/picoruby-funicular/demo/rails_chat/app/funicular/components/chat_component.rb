@@ -4,6 +4,11 @@ class ChatComponent < Funicular::Component
     main_content "flex-1 flex"
   end
 
+  def initialize(params = {})
+    super
+    @requested_channel_id = params[:channel_id]&.to_i
+  end
+
   def initialize_state
     {
       channels: [],
@@ -41,7 +46,13 @@ class ChatComponent < Funicular::Component
       else
         patch(channels: channels, loading: false)
         if channels.size > 0 && !state.current_channel
-          select_channel(channels[0])
+          # Select requested channel if specified, otherwise select first channel
+          if @requested_channel_id
+            selected_channel = channels.find { |ch| ch.id == @requested_channel_id }
+            select_channel(selected_channel) if selected_channel
+          else
+            select_channel(channels[0])
+          end
         end
       end
     end
@@ -49,6 +60,12 @@ class ChatComponent < Funicular::Component
 
   def select_channel(channel)
     patch(current_channel: channel, messages: [], loading: true, stats: [])
+
+    # Update URL to reflect the current channel
+    new_path = "/chat/#{channel.id}"
+    if Funicular.router.current_location_path != new_path
+      JS.global.history.replaceState(JS::Bridge.to_js({}), '', new_path)
+    end
 
     # Subscribe to ActionCable channel
     if @subscription
