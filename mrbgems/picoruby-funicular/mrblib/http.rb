@@ -50,7 +50,7 @@ module Funicular
       end
 
       JS.global.fetch(url, options) do |response|
-        status = response.status
+        status = response.status.to_i
         json_text = response.to_binary
         data = JSON.parse(json_text)
         # @type var status: Integer
