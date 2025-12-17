@@ -43,7 +43,11 @@ class MessageListComponent < Funicular::Component
             div(class: s.loading) { "Loading messages..." }
           else
             props[:messages].each do |message|
-              component(MessageComponent, { message: message })
+              component(MessageComponent, {
+                message: message,
+                current_user: props[:current_user],
+                on_delete: props[:on_message_delete]
+              })
             end
           end
         end

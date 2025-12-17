@@ -9,6 +9,8 @@ class MessageComponent < Funicular::Component
     message_author "font-semibold text-gray-900"
     message_time "text-xs text-gray-500"
     message_text "text-gray-800 mt-1"
+
+    delete_button "ml-2 text-xs text-red-500 hover:text-red-700 cursor-pointer"
   end
 
   def render
@@ -26,9 +28,27 @@ class MessageComponent < Funicular::Component
         div(class: s.message_header) do
           span(class: s.message_author) { props[:message]["user"]["display_name"] }
           span(class: s.message_time) { props[:message]["created_at"] }
+
+          # Show delete button only for own messages
+          if props[:current_user] && props[:current_user].id == props[:message]["user"]["id"]
+            link_to "/messages/#{props[:message]['id']}", method: :delete, class: s.delete_button do
+              span { "Delete" }
+            end
+          end
         end
         div(class: s.message_text) { props[:message]["content"] }
       end
     end
+  end
+
+  # Override handle_link_response to handle successful deletion
+  def handle_link_response(response, path, method)
+    if method.to_s.downcase.to_sym == :delete && !response.error?
+      # Extract message ID from path (e.g., "/messages/123")
+      message_id = path.split('/').last.to_i
+      # Call the on_delete callback if provided
+      props[:on_delete].call(message_id) if props[:on_delete]
+    end
+    super
   end
 end
