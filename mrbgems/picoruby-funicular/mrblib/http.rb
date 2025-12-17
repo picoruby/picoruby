@@ -42,10 +42,16 @@ module Funicular
     end
 
     # Get CSRF token from meta tag
+    # Note: Don't cache the token - Rails may rotate it after each request
     def self.csrf_token
-      @csrf_token ||= begin
-        meta = JS.document.querySelector('meta[name="csrf-token"]')
-        meta ? meta.content.to_s : nil
+      meta = JS.document.querySelector('meta[name="csrf-token"]')
+      if meta
+        # Use getAttribute method (direct method call on JS::Object)
+        token_obj = meta.getAttribute('content')
+        # Convert JS::Object to Ruby string
+        token_obj ? token_obj.to_s : nil
+      else
+        nil
       end
     end
 
@@ -62,8 +68,9 @@ module Funicular
       end
 
       # Add CSRF token for non-GET requests
-      if method != "GET" && csrf_token
-        headers["X-CSRF-Token"] = csrf_token
+      if method != "GET"
+        token = csrf_token
+        headers["X-CSRF-Token"] = token if token
       end
 
       # @type var headers: String # steep's bug ?
