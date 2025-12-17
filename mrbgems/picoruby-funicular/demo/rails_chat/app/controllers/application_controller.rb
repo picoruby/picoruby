@@ -1,4 +1,9 @@
 class ApplicationController < ActionController::Base
+  # Handle CSRF errors with JSON response
+  rescue_from ActionController::InvalidAuthenticityToken do |exception|
+    render json: { error: "Invalid authenticity token" }, status: :unprocessable_entity
+  end
+
   private
 
   def current_user
