@@ -21,7 +21,7 @@ class RuntimeGems
   end
 
   def export(output_dir:)
-    mrb_files = []
+    output_files = []
     FileUtils.mkdir_p(output_dir)
 
     # Check all gems for C source files
@@ -33,7 +33,7 @@ class RuntimeGems
       end
     end
 
-    # Compile Ruby files to mrb
+    # Compile Ruby files to mrb and copy README.md
     gems.each do |gem|
       # Get Ruby source files from mrblib directory
       rb_files = Dir.glob("#{gem.dir}/mrblib/**/*.rb")
@@ -48,15 +48,27 @@ class RuntimeGems
         mrb_file = "#{gem_output_dir}/#{relative_path.sub(/\.rb$/, '.mrb')}"
         mrb_dir = File.dirname(mrb_file)
         FileUtils.mkdir_p(mrb_dir)
-        mrb_files << mrb_file
+        output_files << mrb_file
 
         file mrb_file => rb_file do
           puts "  Compiling #{relative_path}..."
           system("#{picorbcfile} -o #{mrb_file} #{rb_file}") or raise "Compilation failed for #{rb_file}"
         end
       end
+
+      # Copy README.md if it exists
+      readme_src = "#{gem.dir}/README.md"
+      if File.exist?(readme_src)
+        readme_dst = "#{gem_output_dir}/README.md"
+        output_files << readme_dst
+
+        file readme_dst => readme_src do
+          puts "  Copying README.md for #{gem.name}..."
+          FileUtils.cp(readme_src, readme_dst)
+        end
+      end
     end
 
-    mrb_files
+    output_files
   end
 end
