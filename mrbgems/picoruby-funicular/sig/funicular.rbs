@@ -8,4 +8,5 @@ module Funicular
   def self.load_schemas: (Hash[singleton(Model), String] models) ?{ () -> void } -> void
 
   def self.start: (?singleton(Component)? component_class, ?container: String | JS::Object, ?props: Hash[Symbol, untyped]) ?{ (Router router) -> void } -> (Component | Router)
+
 end
