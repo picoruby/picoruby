@@ -1,6 +1,6 @@
 class MessageComponent < Funicular::Component
   styles do
-    message "flex items-start space-x-3"
+    message "flex items-start space-x-3 overflow-hidden transition-[opacity,max-height] duration-500 ease-out opacity-100 max-h-screen"
     avatar_img "flex-shrink-0 w-10 h-10 rounded-full object-cover"
     avatar_placeholder "flex-shrink-0 w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold"
 
@@ -14,7 +14,7 @@ class MessageComponent < Funicular::Component
   end
 
   def render
-    div(class: s.message) do
+    div(class: s.message, id: "message-#{props[:message]['id']}") do
       # Avatar
       if props[:message]["user"]["has_avatar"]
         img(src: "/users/#{props[:message]['user']['id']}/avatar", class: s.avatar_img)
@@ -46,8 +46,9 @@ class MessageComponent < Funicular::Component
     if method.to_s.downcase.to_sym == :delete && !response.error?
       # Extract message ID from path (e.g., "/messages/123")
       message_id = path.split('/').last.to_i
-      # Call the on_delete callback if provided
-      props[:on_delete].call(message_id) if props[:on_delete]
+      # The parent component will receive the delete event via Action Cable
+      # and handle the UI update.
+      # props[:on_delete].call(message_id) if props[:on_delete]
     end
     super
   end

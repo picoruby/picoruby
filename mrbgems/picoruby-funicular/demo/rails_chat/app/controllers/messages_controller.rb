@@ -10,8 +10,16 @@ class MessagesController < ApplicationController
       return
     end
 
-    message.destroy
-    render json: { success: true }
+    channel_id = message.channel_id
+    if message.destroy
+      ActionCable.server.broadcast "chat_#{channel_id}", {
+        type: "delete_message",
+        message_id: message.id
+      }
+      render json: { success: true }
+    else
+      render json: { error: "Failed to delete message" }, status: :unprocessable_entity
+    end
   rescue ActiveRecord::RecordNotFound
     render json: { error: "Message not found" }, status: :not_found
   end

@@ -17,11 +17,12 @@ class MessageListComponent < Funicular::Component
   end
 
   def component_updated
+    return if props[:skip_scroll]
     scroll_to_bottom if props[:messages] && !props[:messages].empty?
   end
 
   def scroll_to_bottom
-    sleep 0.1
+    sleep_ms 100
     if @refs[:messages_container]
       container = @refs[:messages_container]
       container[:scrollTop] = container[:scrollHeight]
