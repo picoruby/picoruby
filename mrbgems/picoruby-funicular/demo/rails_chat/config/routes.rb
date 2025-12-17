@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   get "current_user", to: "sessions#show"
 
   resources :channels, only: [:index, :show]
+  resources :messages, only: [:destroy]
   resources :users, only: [:show, :update] do
     member do
       get :avatar
