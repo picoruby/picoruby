@@ -129,6 +129,12 @@ class ChatComponent < Funicular::Component
     end
   end
 
+  def handle_message_delete(message_id)
+    # Remove the message from the local state immediately
+    updated_messages = state.messages.reject { |m| m["id"] == message_id }
+    patch(messages: updated_messages)
+  end
+
   def render
     div(class: s.layout) do
       # Sidebar - Channel list
@@ -148,8 +154,10 @@ class ChatComponent < Funicular::Component
           messages: state.messages,
           loading: state.loading,
           message_input: state.message_input,
+          current_user: state.current_user,
           on_message_input: ->(event) { handle_message_input(event) },
           on_send_message: ->(event) { handle_send_message(event) },
+          on_message_delete: ->(message_id) { handle_message_delete(message_id) },
           preserve: true
         })
 
