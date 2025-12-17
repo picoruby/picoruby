@@ -14,6 +14,8 @@ module Funicular
     def self.post: (String url, ?Hash[untyped, untyped]? body) { (Response) -> void } -> void
     def self.patch: (String url, ?Hash[untyped, untyped]? body) { (Response) -> void } -> void
     def self.delete: (String url) { (Response) -> void } -> void
+    def self.put: (String url, ?Hash[untyped, untyped]? body) { (Response) -> void } -> void
+    def self.csrf_token: () -> String?
 
     private def self.request: (String method, String url, Hash[untyped, untyped]? body) { (Response) -> void } -> void
   end

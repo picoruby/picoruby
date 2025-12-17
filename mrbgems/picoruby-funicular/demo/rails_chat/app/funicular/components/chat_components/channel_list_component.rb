@@ -4,7 +4,7 @@ class ChannelListComponent < Funicular::Component
 
     sidebar_header "p-4 bg-gray-900 flex justify-between items-center"
     sidebar_title "text-xl font-bold"
-    settings_button "text-gray-400 hover:text-white"
+    settings_button "text-gray-400 hover:text-white cursor-pointer"
     channels_list "flex-1 overflow-y-auto"
 
     channel_item base: "p-4 hover:bg-gray-700 cursor-pointer",
@@ -15,14 +15,14 @@ class ChannelListComponent < Funicular::Component
     user_info "p-4 bg-gray-900 border-t border-gray-700"
     user_name "text-sm font-semibold"
     user_handle "text-xs text-gray-400"
-    logout_button "mt-2 text-sm text-red-400 hover:text-red-300"
+    logout_button "mt-2 text-sm text-red-400 hover:text-red-300 cursor-pointer"
   end
 
   def render
     div(class: s.sidebar) do
       div(class: s.sidebar_header) do
         h2(class: s.sidebar_title) { "Channels" }
-        button(onclick: -> { Funicular.router.navigate("/settings") }, class: s.settings_button) do
+        link_to settings_path, class: s.settings_button do
           span { "⚙️" }
         end
       end
@@ -30,10 +30,7 @@ class ChannelListComponent < Funicular::Component
       div(class: s.channels_list) do
         props[:channels].each do |channel|
           is_active = props[:current_channel] && props[:current_channel].id == channel.id
-          div(
-            onclick: -> { Funicular.router.navigate("/chat/#{channel.id}") },
-            class: s.channel_item(is_active)
-          ) do
+          link_to chat_channel_path(channel), class: s.channel_item(is_active) do
             div(class: s.channel_name) { "# #{channel.name}" }
             div(class: s.channel_desc) { channel.description }
           end
