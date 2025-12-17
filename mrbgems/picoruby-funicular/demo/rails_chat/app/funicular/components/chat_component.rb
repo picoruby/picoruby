@@ -17,7 +17,8 @@ class ChatComponent < Funicular::Component
       message_input: "",
       current_user: nil,
       loading: true,
-      stats: []
+      stats: [],
+      skip_scroll: false
     }
   end
 
@@ -84,7 +85,9 @@ class ChatComponent < Funicular::Component
         patch(messages: data["messages"], loading: false)
       when "new_message"
         messages = state.messages + [data["message"]]
-        patch(messages: messages)
+        patch(messages: messages, skip_scroll: false)
+      when "delete_message"
+        handle_message_delete(data["message_id"])
       end
     end
 
@@ -130,9 +133,17 @@ class ChatComponent < Funicular::Component
   end
 
   def handle_message_delete(message_id)
-    # Remove the message from the local state immediately
+    element = JS.document.getElementById("message-#{message_id}")
+    if element
+      element.classList.remove("opacity-100", "max-h-screen")
+      element.classList.add("opacity-0", "max-h-0")
+    end
+
+    sleep_ms 500 # Wait for CSS animation to complete (0.5 seconds)
+
+    # After animation, remove the message from Funicular's state
     updated_messages = state.messages.reject { |m| m["id"] == message_id }
-    patch(messages: updated_messages)
+    patch(messages: updated_messages, skip_scroll: true)
   end
 
   def render
@@ -155,6 +166,7 @@ class ChatComponent < Funicular::Component
           loading: state.loading,
           message_input: state.message_input,
           current_user: state.current_user,
+          skip_scroll: state.skip_scroll,
           on_message_input: ->(event) { handle_message_input(event) },
           on_send_message: ->(event) { handle_send_message(event) },
           on_message_delete: ->(message_id) { handle_message_delete(message_id) },
