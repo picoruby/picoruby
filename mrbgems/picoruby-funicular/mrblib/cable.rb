@@ -19,7 +19,10 @@ module Funicular
         @reconnect_attempts = 0
         @reconnect_timer = nil
         @pending_commands = []
+        @suspend_timer = nil
+        @suspended = false
         connect
+        setup_visibility_handler
       end
 
       # Establish WebSocket connection
@@ -116,10 +119,12 @@ module Funicular
       # Schedule reconnection with exponential backoff
       def schedule_reconnect
         begin
+          return if @suspended
           delay = calculate_backoff_delay
           puts "[Cable] Reconnecting in #{delay} seconds (attempt #{@reconnect_attempts + 1})"
           sleep delay
           puts "[Cable] Sleep completed, attempting reconnection..."
+          return if @suspended
           @reconnect_attempts += 1
           connect
         rescue => e
@@ -133,6 +138,55 @@ module Funicular
         max_delay = 60
         delay = base_delay * (2 ** @reconnect_attempts)
         delay < max_delay ? delay : max_delay
+      end
+
+      # Setup Page Visibility API handler
+      def setup_visibility_handler
+        JS.global.document.addEventListener("visibilitychange") do
+          if JS.global.document[:hidden]
+            schedule_suspend
+          else
+            cancel_suspend
+            ensure_connected
+          end
+        end
+      end
+
+      # Schedule suspension after 30 seconds in background
+      def schedule_suspend
+        return if @suspended || @suspend_timer
+        puts "[Cable] Page hidden, scheduling suspension in 30 seconds"
+        @suspend_timer = sleep(30) do
+          suspend_connection
+        end
+      end
+
+      # Cancel scheduled suspension
+      def cancel_suspend
+        if @suspend_timer
+          puts "[Cable] Page visible, canceling suspension"
+          # Note: There's no way to cancel sleep in PicoRuby, so we just mark it
+          @suspend_timer = nil
+        end
+      end
+
+      # Suspend connection and subscriptions
+      def suspend_connection
+        return if @suspended
+        return unless @suspend_timer
+        @suspend_timer = nil
+        @suspended = true
+        puts "[Cable] Suspending connection (page in background)"
+        disconnect
+      end
+
+      # Ensure connection is established
+      def ensure_connected
+        if @suspended
+          @suspended = false
+          puts "[Cable] Resuming connection (page visible)"
+          connect
+        end
       end
     end
 
