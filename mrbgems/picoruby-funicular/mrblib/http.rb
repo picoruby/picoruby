@@ -37,17 +37,37 @@ module Funicular
       request("DELETE", url, nil, &block)
     end
 
+    def self.put(url, body = nil, &block)
+      request("PUT", url, body, &block)
+    end
+
+    # Get CSRF token from meta tag
+    def self.csrf_token
+      @csrf_token ||= begin
+        meta = JS.document.querySelector('meta[name="csrf-token"]')
+        meta ? meta.content.to_s : nil
+      end
+    end
+
     private
 
     def self.request(method, url, body, &block)
       options = { method: method, credentials: "include" }
 
+      headers = {}
+
       if body
-        h = { "Content-Type" => "application/json" }
-        # @type var h: String # steep's bug ?
-        options[:headers] = h
+        headers["Content-Type"] = "application/json"
         options[:body] = JSON.generate(body)
       end
+
+      # Add CSRF token for non-GET requests
+      if method != "GET" && csrf_token
+        headers["X-CSRF-Token"] = csrf_token
+      end
+
+      # @type var headers: String # steep's bug ?
+      options[:headers] = headers unless headers.empty?
 
       JS.global.fetch(url, options) do |response|
         status = response.status.to_i

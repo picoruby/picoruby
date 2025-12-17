@@ -39,7 +39,15 @@ module Funicular
     def component_unmounted: () -> void
     def component_raised: (Exception e) -> void
 
+    # Rails-style routing helpers
+    def link_to: (String path, ?method: Symbol, **untyped options) { -> untyped } -> VDOM::Element
+    def method_missing: (Symbol method, *untyped args) -> untyped
+    def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
+
     # Private methods
+    private def handle_link_click: (String path) -> void
+    private def handle_link_with_method: (String path, Symbol method) -> void
+    private def handle_link_response: (HTTP::Response response, String path, Symbol method) -> void
     private def normalize_state_value: (untyped value) -> untyped
     private def re_render: () -> void
     private def build_vdom: () -> (VDOM::VNode | VDOM::Text | nil)

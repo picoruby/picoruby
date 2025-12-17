@@ -465,5 +465,72 @@ module Funicular
 
       vnode
     end
+
+    # Rails-style link_to helper
+    def link_to(path, method: :get, **options, &block)
+      if method == :get || method == 'GET'
+        # GET request: use History API navigation
+        merged_options = options.merge(
+          onclick: -> { handle_link_click(path) }
+        )
+        div(merged_options, &block)
+      else
+        # Non-GET: use Fetch API
+        merged_options = options.merge(
+          onclick: -> { handle_link_with_method(path, method) }
+        )
+        div(merged_options, &block)
+      end
+    end
+
+    # Handle GET link click (navigate using History API)
+    def handle_link_click(path)
+      Funicular.router&.navigate(path)
+    end
+
+    # Handle non-GET link click (use Fetch API)
+    def handle_link_with_method(path, method)
+      # Call appropriate HTTP method
+      case method.to_s.downcase.to_sym
+      when :post
+        HTTP.post(path) { |response| handle_link_response(response, path, method) }
+      when :put
+        HTTP.put(path) { |response| handle_link_response(response, path, method) }
+      when :patch
+        HTTP.patch(path) { |response| handle_link_response(response, path, method) }
+      when :delete
+        HTTP.delete(path) { |response| handle_link_response(response, path, method) }
+      else
+        raise "Unsupported HTTP method: #{method}"
+      end
+    end
+
+    # Handle response from link action (can be overridden by subclasses)
+    def handle_link_response(response, path, method)
+      if response.error?
+        puts "Link action failed (#{method.to_s.upcase} #{path}): #{response.error_message}"
+      end
+    end
+
+    # Enable URL helpers from RouteHelpers module
+    def method_missing(method, *args)
+      if Funicular.const_defined?(:RouteHelpers)
+        helpers = Funicular::RouteHelpers
+        if helpers.instance_methods.include?(method)
+          # Include helpers module and retry
+          self.class.include(helpers) unless self.class.include?(helpers)
+          return send(method, *args)
+        end
+      end
+      super
+    end
+
+    def respond_to_missing?(method, include_private = false)
+      if Funicular.const_defined?(:RouteHelpers)
+        Funicular::RouteHelpers.instance_methods.include?(method) || super
+      else
+        super
+      end
+    end
   end
 end

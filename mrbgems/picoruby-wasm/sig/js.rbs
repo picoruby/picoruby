@@ -58,6 +58,7 @@ module JS
     def body: () -> JS::Object
     def status: () -> JS::Object # Use .to_i
     def push: (JS::Object item) -> JS::Object
+    def content: () -> JS::Object # Use .to_s
 
     def URL: () -> JS::Object
     def history: () -> JS::Object
