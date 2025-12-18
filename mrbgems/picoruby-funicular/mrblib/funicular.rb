@@ -80,4 +80,20 @@ module Funicular
     puts e.backtrace
     raise e
   end
+
+  # Form builder configuration
+  class << self
+    attr_accessor :form_builder_config
+
+    def configure_forms
+      @form_builder_config ||= {
+        error_class: "text-red-600 text-sm mt-1",
+        field_error_class: "border-red-500"
+      }
+      yield @form_builder_config if block_given?
+    end
+  end
+
+  # Initialize default form configuration
+  configure_forms
 end
