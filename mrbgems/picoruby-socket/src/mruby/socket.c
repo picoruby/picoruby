@@ -1,4 +1,5 @@
 #include "../../include/socket.h"
+#include "mruby/presym.h"
 #include "mruby/data.h"
 
 /* Socket type constants (matching socket.h) */
@@ -38,7 +39,7 @@ mrb_picoruby_socket_gem_init(mrb_state *mrb)
   struct RClass *basic_socket_class;
 
   /* BasicSocket class */
-  basic_socket_class = mrb_define_class(mrb, "BasicSocket", mrb->object_class);
+  basic_socket_class = mrb_define_class_id(mrb, MRB_SYM(BasicSocket), mrb->object_class);
 
   /* Initialize each socket type */
   tcp_socket_init(mrb, basic_socket_class);

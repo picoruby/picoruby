@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <string.h>
+#include "mruby/presym.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
 #include "mruby/string.h"
+#include "mruby/variable.h"
 
 /* Data type for SSLContext */
 static void
@@ -139,17 +141,15 @@ static const struct mrb_data_type mrb_ssl_socket_type = {
   "SSLSocket", mrb_ssl_socket_free,
 };
 
-/* SSLSocket.new(ssl_context) */
+/* SSLSocket.new(tcp_socket, ssl_context) */
 static mrb_value
 mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
 {
-  mrb_value ssl_context_obj;
+  mrb_value tcp_socket_obj, ssl_context_obj;
   picorb_ssl_context_t *ssl_ctx;
   picorb_ssl_socket_t *ssl_sock;
 
-  mrb_get_args(mrb, "o", &ssl_context_obj);
-
-  /* First argument is ignored (for API compatibility) */
+  mrb_get_args(mrb, "oo", &tcp_socket_obj, &ssl_context_obj);
 
   /* Get SSL context */
   ssl_ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, ssl_context_obj, &mrb_ssl_context_type);
@@ -163,51 +163,44 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
   }
 
-  mrb_data_init(self, ssl_sock, &mrb_ssl_socket_type);
+  /* Get remote_host and remote_port from TCPSocket */
+  mrb_value host = mrb_funcall(mrb, tcp_socket_obj, "remote_host", 0);
+  mrb_value port = mrb_funcall(mrb, tcp_socket_obj, "remote_port", 0);
 
-  return self;
-}
-
-/* ssl_socket.hostname = hostname */
-static mrb_value
-mrb_ssl_socket_set_hostname(mrb_state *mrb, mrb_value self)
-{
-  picorb_ssl_socket_t *ssl_sock;
-  const char *hostname;
-
-  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
-  if (!ssl_sock) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  if (!mrb_string_p(host)) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "TCPSocket must have remote_host");
   }
 
-  mrb_get_args(mrb, "z", &hostname);
-
-  if (!SSLSocket_set_hostname(ssl_sock, hostname)) {
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to set hostname: %s", hostname);
+  if (!mrb_fixnum_p(port)) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "TCPSocket must have remote_port");
   }
 
-  return mrb_str_new_cstr(mrb, hostname);
-}
-
-/* ssl_socket.port = port */
-static mrb_value
-mrb_ssl_socket_set_port(mrb_state *mrb, mrb_value self)
-{
-  picorb_ssl_socket_t *ssl_sock;
-  mrb_int port;
-
-  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
-  if (!ssl_sock) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  /* Set hostname and port from TCPSocket */
+  if (!SSLSocket_set_hostname(ssl_sock, RSTRING_PTR(host))) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set hostname");
   }
 
-  mrb_get_args(mrb, "i", &port);
-
-  if (!SSLSocket_set_port(ssl_sock, (int)port)) {
+  if (!SSLSocket_set_port(ssl_sock, (int)mrb_fixnum(port))) {
+    SSLSocket_close(ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
   }
 
-  return mrb_fixnum_value(port);
+  /* Close the original TCP socket to avoid resource leak */
+  /* The SSL connection will create its own TCP socket internally */
+  if (!mrb_bool(mrb_funcall(mrb, tcp_socket_obj, "closed?", 0))) {
+    mrb_funcall(mrb, tcp_socket_obj, "close", 0);
+  }
+
+  /* Store references for GC protection */
+  mrb_iv_set(mrb, self, MRB_IVSYM(tcp_socket), tcp_socket_obj);
+  mrb_iv_set(mrb, self, MRB_IVSYM(ssl_context), ssl_context_obj);
+
+  mrb_data_init(self, ssl_sock, &mrb_ssl_socket_type);
+
+  return self;
 }
 
 /* ssl_socket.connect */
@@ -373,31 +366,29 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   struct RClass *ssl_socket_class;
 
   /* SSLContext class */
-  ssl_context_class = mrb_define_class(mrb, "SSLContext", mrb->object_class);
+  ssl_context_class = mrb_define_class_id(mrb, MRB_SYM(SSLContext), mrb->object_class);
   MRB_SET_INSTANCE_TT(ssl_context_class, MRB_TT_DATA);
 
-  mrb_define_method(mrb, ssl_context_class, "initialize", mrb_ssl_context_initialize, MRB_ARGS_NONE());
-  mrb_define_method(mrb, ssl_context_class, "ca_file=", mrb_ssl_context_set_ca_file, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, ssl_context_class, "set_ca_cert", mrb_ssl_context_set_ca_cert, MRB_ARGS_REQ(2));
-  mrb_define_method(mrb, ssl_context_class, "verify_mode=", mrb_ssl_context_set_verify_mode, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, ssl_context_class, "verify_mode", mrb_ssl_context_get_verify_mode, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(initialize), mrb_ssl_context_initialize, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(ca_file), mrb_ssl_context_set_ca_file, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_ca_cert), mrb_ssl_context_set_ca_cert, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(verify_mode), mrb_ssl_context_set_verify_mode, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(verify_mode), mrb_ssl_context_get_verify_mode, MRB_ARGS_NONE());
 
   /* SSLContext constants */
-  mrb_define_const(mrb, ssl_context_class, "VERIFY_NONE", mrb_fixnum_value(SSL_VERIFY_NONE));
-  mrb_define_const(mrb, ssl_context_class, "VERIFY_PEER", mrb_fixnum_value(SSL_VERIFY_PEER));
+  mrb_define_const_id(mrb, ssl_context_class, MRB_SYM(VERIFY_NONE), mrb_fixnum_value(SSL_VERIFY_NONE));
+  mrb_define_const_id(mrb, ssl_context_class, MRB_SYM(VERIFY_PEER), mrb_fixnum_value(SSL_VERIFY_PEER));
 
   /* SSLSocket class */
-  ssl_socket_class = mrb_define_class(mrb, "SSLSocket", basic_socket_class);
+  ssl_socket_class = mrb_define_class_id(mrb, MRB_SYM(SSLSocket), basic_socket_class);
   MRB_SET_INSTANCE_TT(ssl_socket_class, MRB_TT_DATA);
 
-  mrb_define_method(mrb, ssl_socket_class, "initialize", mrb_ssl_socket_initialize, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, ssl_socket_class, "hostname=", mrb_ssl_socket_set_hostname, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, ssl_socket_class, "port=", mrb_ssl_socket_set_port, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, ssl_socket_class, "connect", mrb_ssl_socket_connect, MRB_ARGS_NONE());
-  mrb_define_method(mrb, ssl_socket_class, "write", mrb_ssl_socket_write, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, ssl_socket_class, "read", mrb_ssl_socket_read, MRB_ARGS_OPT(1));
-  mrb_define_method(mrb, ssl_socket_class, "close", mrb_ssl_socket_close, MRB_ARGS_NONE());
-  mrb_define_method(mrb, ssl_socket_class, "closed?", mrb_ssl_socket_closed_p, MRB_ARGS_NONE());
-  mrb_define_method(mrb, ssl_socket_class, "remote_host", mrb_ssl_socket_remote_host, MRB_ARGS_NONE());
-  mrb_define_method(mrb, ssl_socket_class, "remote_port", mrb_ssl_socket_remote_port, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(initialize), mrb_ssl_socket_initialize, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(connect), mrb_ssl_socket_connect, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(write), mrb_ssl_socket_write, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(close), mrb_ssl_socket_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(closed), mrb_ssl_socket_closed_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(remote_host), mrb_ssl_socket_remote_host, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(remote_port), mrb_ssl_socket_remote_port, MRB_ARGS_NONE());
 }

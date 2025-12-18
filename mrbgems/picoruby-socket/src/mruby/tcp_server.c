@@ -130,10 +130,10 @@ tcp_server_init(mrb_state *mrb, struct RClass *basic_socket_class)
 {
   struct RClass *tcp_server_class;
 
-  tcp_server_class = mrb_define_class(mrb, "TCPServer", basic_socket_class);
+  tcp_server_class = mrb_define_class_id(mrb, MRB_SYM(TCPServer), basic_socket_class);
   MRB_SET_INSTANCE_TT(tcp_server_class, MRB_TT_DATA);
 
-  mrb_define_method(mrb, tcp_server_class, "initialize", mrb_tcp_server_initialize, MRB_ARGS_ARG(1, 2));
-  mrb_define_method(mrb, tcp_server_class, "accept_nonblock", mrb_tcp_server_accept_nonblock, MRB_ARGS_NONE());
-  mrb_define_method(mrb, tcp_server_class, "close", mrb_tcp_server_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_server_class, MRB_SYM(initialize), mrb_tcp_server_initialize, MRB_ARGS_ARG(1, 2));
+  mrb_define_method_id(mrb, tcp_server_class, MRB_SYM(accept_nonblock), mrb_tcp_server_accept_nonblock, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_server_class, MRB_SYM(close), mrb_tcp_server_close, MRB_ARGS_NONE());
 }

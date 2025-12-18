@@ -46,10 +46,9 @@ module Net
             ssl_ctx.verify_mode = SSLContext::VERIFY_PEER
           end
 
-          # Create SSL socket with context
-          @socket = SSLSocket.new(ssl_ctx)
-          @socket.hostname = @address
-          @socket.port = @port
+          # Create TCP socket first, then wrap with SSL
+          tcp_socket = TCPSocket.new(@address, @port)
+          @socket = SSLSocket.new(tcp_socket, ssl_ctx)
           @socket.connect
         else
           @socket = TCPSocket.new(@address, @port)

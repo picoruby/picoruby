@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include "mruby/presym.h"
 #include "mruby/string.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
@@ -174,14 +175,14 @@ tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 {
   struct RClass *tcp_socket_class;
 
-  tcp_socket_class = mrb_define_class(mrb, "TCPSocket", basic_socket_class);
+  tcp_socket_class = mrb_define_class_id(mrb, MRB_SYM(TCPSocket), basic_socket_class);
   MRB_SET_INSTANCE_TT(tcp_socket_class, MRB_TT_DATA);
 
-  mrb_define_method(mrb, tcp_socket_class, "initialize", mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
-  mrb_define_method(mrb, tcp_socket_class, "write", mrb_tcp_socket_write, MRB_ARGS_REQ(1));
-  mrb_define_method(mrb, tcp_socket_class, "read", mrb_tcp_socket_read, MRB_ARGS_OPT(1));
-  mrb_define_method(mrb, tcp_socket_class, "close", mrb_tcp_socket_close, MRB_ARGS_NONE());
-  mrb_define_method(mrb, tcp_socket_class, "closed?", mrb_tcp_socket_closed_p, MRB_ARGS_NONE());
-  mrb_define_method(mrb, tcp_socket_class, "remote_host", mrb_tcp_socket_remote_host, MRB_ARGS_NONE());
-  mrb_define_method(mrb, tcp_socket_class, "remote_port", mrb_tcp_socket_remote_port, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(initialize), mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(write), mrb_tcp_socket_write, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(read), mrb_tcp_socket_read, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(close), mrb_tcp_socket_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(closed), mrb_tcp_socket_closed_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(remote_host), mrb_tcp_socket_remote_host, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(remote_port), mrb_tcp_socket_remote_port, MRB_ARGS_NONE());
 }

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include "mruby/presym.h"
 #include "mruby/string.h"
 #include "mruby/array.h"
 #include "mruby/class.h"
@@ -212,14 +213,14 @@ udp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 {
   struct RClass *udp_socket_class;
 
-  udp_socket_class = mrb_define_class(mrb, "UDPSocket", basic_socket_class);
+  udp_socket_class = mrb_define_class_id(mrb, MRB_SYM(UDPSocket), basic_socket_class);
   MRB_SET_INSTANCE_TT(udp_socket_class, MRB_TT_DATA);
 
-  mrb_define_method(mrb, udp_socket_class, "initialize", mrb_udp_socket_initialize, MRB_ARGS_NONE());
-  mrb_define_method(mrb, udp_socket_class, "bind", mrb_udp_socket_bind, MRB_ARGS_REQ(2));
-  mrb_define_method(mrb, udp_socket_class, "connect", mrb_udp_socket_connect, MRB_ARGS_REQ(2));
-  mrb_define_method(mrb, udp_socket_class, "send", mrb_udp_socket_send, MRB_ARGS_ARG(1, 3));
-  mrb_define_method(mrb, udp_socket_class, "recvfrom_nonblock", mrb_udp_socket_recvfrom_nonblock, MRB_ARGS_ARG(1, 1));
-  mrb_define_method(mrb, udp_socket_class, "close", mrb_udp_socket_close, MRB_ARGS_NONE());
-  mrb_define_method(mrb, udp_socket_class, "closed?", mrb_udp_socket_closed_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(initialize), mrb_udp_socket_initialize, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(bind), mrb_udp_socket_bind, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(connect), mrb_udp_socket_connect, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(send), mrb_udp_socket_send, MRB_ARGS_ARG(1, 3));
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(recvfrom_nonblock), mrb_udp_socket_recvfrom_nonblock, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(close), mrb_udp_socket_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, udp_socket_class, MRB_SYM_Q(closed), mrb_udp_socket_closed_p, MRB_ARGS_NONE());
 }

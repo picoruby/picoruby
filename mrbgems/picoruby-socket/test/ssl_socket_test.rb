@@ -18,7 +18,6 @@ class SSLSocketTest < Picotest::Test
   def test_ssl_socket_methods_exist
     # Ruby-defined methods should be visible
     methods = SSLSocket.instance_methods
-    assert_true(methods.include?(:hostname=))
     assert_true(methods.include?(:connect))
     assert_true(methods.include?(:write))
     assert_true(methods.include?(:read))
@@ -27,6 +26,8 @@ class SSLSocketTest < Picotest::Test
     assert_true(methods.include?(:remote_host))
     assert_true(methods.include?(:remote_port))
     assert_true(methods.include?(:connected?))
+    assert_true(methods.include?(:tcp_socket))
+    assert_true(methods.include?(:ssl_context))
   end
 
   def test_ssl_socket_inherits_from_basic_socket
@@ -60,7 +61,6 @@ class SSLSocketTest < Picotest::Test
   #   ctx = SSLContext.new
   #   ctx.verify_mode = SSLContext::VERIFY_NONE
   #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
-  #   ssl_socket.hostname = 'example.com'
   #   ssl_socket.connect
   #   assert_false(ssl_socket.closed?)
   #   assert_equal('example.com', ssl_socket.remote_host)
@@ -74,7 +74,6 @@ class SSLSocketTest < Picotest::Test
   #   ctx = SSLContext.new
   #   ctx.verify_mode = SSLContext::VERIFY_NONE
   #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
-  #   ssl_socket.hostname = 'example.com'
   #   ssl_socket.connect
   #
   #   # Send HTTPS request
@@ -104,7 +103,6 @@ class SSLSocketTest < Picotest::Test
   #   ctx = SSLContext.new
   #   ctx.verify_mode = SSLContext::VERIFY_NONE
   #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
-  #   ssl_socket.hostname = 'example.com'
   #   ssl_socket.connect
   #   assert_true(ssl_socket.connected?)
   #   ssl_socket.close
@@ -116,14 +114,13 @@ class SSLSocketTest < Picotest::Test
   #   ctx = SSLContext.new
   #   ctx.verify_mode = SSLContext::VERIFY_NONE
   #   ssl_socket = SSLSocket.new(tcp_socket, ctx)
-  #   ssl_socket.hostname = 'example.com'
   #   ssl_socket.connect
   #
-  #   # Test puts
-  #   ssl_socket.puts("GET / HTTP/1.1")
-  #   ssl_socket.puts("Host: example.com")
-  #   ssl_socket.puts("Connection: close")
-  #   ssl_socket.puts("")
+  #   # Test write (don't use puts - it calls write twice and may cause SSL errors)
+  #   request = "GET / HTTP/1.1\r\n"
+  #   request += "Host: example.com\r\n"
+  #   request += "Connection: close\r\n\r\n"
+  #   ssl_socket.write(request)
   #
   #   # Test gets
   #   line = ssl_socket.gets

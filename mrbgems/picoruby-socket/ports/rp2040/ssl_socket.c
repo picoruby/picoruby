@@ -238,6 +238,9 @@ SSLContext_free(picorb_ssl_context_t *ctx)
 
 /*
  * Create SSL socket
+ * NOTE: This is called from SSLSocket.new(tcp_socket, ssl_context) in Ruby.
+ * The tcp_socket provides hostname and port via remote_host/remote_port methods,
+ * but we create a new TLS connection internally rather than reusing the existing TCP connection.
  */
 picorb_ssl_socket_t*
 SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
