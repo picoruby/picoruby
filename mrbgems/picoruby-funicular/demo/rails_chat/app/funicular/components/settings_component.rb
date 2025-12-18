@@ -21,7 +21,15 @@ class SettingsComponent < Funicular::Component
   end
 
   def initialize_state
-    { user: nil, display_name: "", message: nil, avatar_preview: nil, saving: false, avatar_cache_buster: Time.now.to_i }
+    {
+      user: { username: "", display_name: "" },
+      user_object: nil,
+      errors: {},
+      message: nil,
+      avatar_preview: nil,
+      saving: false,
+      avatar_cache_buster: Time.now.to_i
+    }
   end
 
   def component_mounted
@@ -30,13 +38,15 @@ class SettingsComponent < Funicular::Component
       if error
         Funicular.router.navigate("/login")
       else
-        patch(user: user, display_name: user.display_name)
+        patch(
+          user_object: user,
+          user: {
+            username: user.username,
+            display_name: user.display_name
+          }
+        )
       end
     end
-  end
-
-  def handle_display_name_change(event)
-    patch(display_name: event.target[:value])
   end
 
   def handle_avatar_change(event)
@@ -51,27 +61,39 @@ class SettingsComponent < Funicular::Component
     end
   end
 
-  def handle_save(event)
-    event.preventDefault
-    patch(saving: true, message: nil)
+  def handle_save(data)
+    patch(saving: true, message: nil, errors: {})
 
     if @selected_avatar_file
       # If avatar file exists, use FormData to upload both display_name and avatar
-      save_with_formdata
+      save_with_formdata(data[:display_name])
     else
       # If no avatar file, use Model layer to update display_name only
-      save_with_model
+      save_with_model(data[:display_name])
     end
   end
 
-  def save_with_model
-    state.user.display_name = state.display_name
-    state.user.update do |success, result|
+  def save_with_model(display_name)
+    # Preserve has_avatar state
+    had_avatar = state.user_object.has_avatar
+
+    state.user_object.display_name = display_name
+    state.user_object.update do |success, result|
       if success
+        updated_user_object = User.new(result)
+        # Preserve has_avatar if not included in response
+        if result["has_avatar"].nil? && had_avatar
+          updated_user_object.instance_variable_set("@has_avatar", true)
+        end
+
         patch(
           saving: false,
           message: "Settings saved successfully!",
-          user: User.new(result)
+          user_object: updated_user_object,
+          user: {
+            username: updated_user_object.username,
+            display_name: updated_user_object.display_name
+          }
         )
       else
         patch(saving: false, message: "Error: #{result}")
@@ -79,9 +101,9 @@ class SettingsComponent < Funicular::Component
     end
   end
 
-  def save_with_formdata
-    url = "/users/#{state.user.id}"
-    fields = { display_name: state.display_name }
+  def save_with_formdata(display_name)
+    url = "/users/#{state.user_object.id}"
+    fields = { display_name: display_name }
 
     Funicular::FileUpload.upload_with_formdata(
       url,
@@ -101,16 +123,20 @@ class SettingsComponent < Funicular::Component
       patch(saving: false, message: "Failed to save settings")
     else
       # Update user instance with new data
-      updated_user = state.user
-      updated_user.instance_variable_set("@display_name", result["display_name"])
+      updated_user_object = state.user_object
+      updated_user_object.instance_variable_set("@display_name", result["display_name"])
       if result["avatar_updated"]
-        updated_user.instance_variable_set("@has_avatar", true)
+        updated_user_object.instance_variable_set("@has_avatar", true)
       end
 
       patch(
         saving: false,
         message: "Settings saved successfully!",
-        user: updated_user,
+        user_object: updated_user_object,
+        user: {
+          username: updated_user_object.username,
+          display_name: result["display_name"]
+        },
         avatar_preview: nil,
         avatar_cache_buster: Time.now.to_i
       )
@@ -136,26 +162,16 @@ class SettingsComponent < Funicular::Component
           end
         end
 
-        if state.user
-          form(onsubmit: :handle_save, class: s.form) do
+        if state.user_object
+          form_for(:user, on_submit: :handle_save, class: s.form) do |f|
             div do
-              label(class: s.label) { "Username" }
-              input(
-                type: "text",
-                value: state.user.username,
-                disabled: true,
-                class: s.input_disabled
-              )
+              f.label :username
+              f.text_field :username, disabled: true, class: s.input_disabled
             end
 
             div do
-              label(class: s.label) { "Display Name" }
-              input(
-                type: "text",
-                value: state.display_name,
-                oninput: :handle_display_name_change,
-                class: s.input
-              )
+              f.label :display_name, "Display Name"
+              f.text_field :display_name, class: s.input
             end
 
             div do
@@ -164,26 +180,18 @@ class SettingsComponent < Funicular::Component
                 div(class: s.avatar_container) do
                   img(src: state.avatar_preview, class: s.avatar)
                 end
-              elsif state.user.has_avatar
+              elsif state.user_object.has_avatar
                 div(class: s.avatar_container) do
-                  img(src: "/users/#{state.user.id}/avatar?t=#{state.avatar_cache_buster}", class: s.avatar)
+                  img(src: "/users/#{state.user_object.id}/avatar?t=#{state.avatar_cache_buster}", class: s.avatar)
                 end
               end
-              input(
-                id: "avatar-input",
-                type: "file",
-                accept: "image/*",
-                onchange: :handle_avatar_change,
-                class: s.input
-              )
+              f.file_field :avatar, id: "avatar-input", accept: "image/*", onchange: :handle_avatar_change, class: s.input
             end
 
-            button(
-              type: "submit",
+            f.submit(
+              state.saving ? "Saving..." : "Save Changes",
               class: s.submit_button(state.saving ? :saving : :normal)
-            ) do
-              span { state.saving ? "Saving..." : "Save Changes" }
-            end
+            )
           end
         end
       end

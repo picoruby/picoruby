@@ -466,6 +466,45 @@ module Funicular
       vnode
     end
 
+    # Rails-style form_for helper
+    def form_for(model_key, options = {}, &block)
+      on_submit = options.delete(:on_submit)
+      form_class = options.delete(:class)
+
+      # Build submit handler
+      submit_handler = if on_submit
+        ->(event) do
+          event.preventDefault
+
+          # Collect form data from state
+          model_data = state.send(model_key)
+          form_data = if model_data.is_a?(Hash)
+            model_data
+          elsif model_data.respond_to?(:instance_variables)
+            data = {}
+            model_data.instance_variables.each do |var|
+              key = var.to_s.sub('@', '').to_sym
+              data[key] = model_data.instance_variable_get(var)
+            end
+            data
+          else
+            {}
+          end
+
+          # Call the submit handler method
+          send(on_submit, form_data)
+        end
+      else
+        ->(event) { event.preventDefault }
+      end
+
+      # Render form
+      form({ onsubmit: submit_handler, class: form_class }.merge(options)) do
+        builder = Funicular::FormBuilder.new(self, model_key, options)
+        block.call(builder)
+      end
+    end
+
     # Rails-style link_to helper
     def link_to(path, method: :get, **options, &block)
       if method == :get || method == 'GET'
