@@ -352,7 +352,7 @@ mrb_picoruby_filesystem_fat_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_FAT_Stat, MRB_SYM(_stat), mrb__stat, MRB_ARGS_REQ(1));
 
 #ifdef USE_FAT_SD_DISK
-  mrb_define_method(mrb, class_FAT, MRB_SYM(init_spi), mrb_FAT_init_spi, MRB_ARGS_REQ(5));
+  mrb_define_method_id(mrb, class_FAT, MRB_SYM(init_spi), mrb_FAT_init_spi, MRB_ARGS_REQ(5));
 #endif
 }
 
