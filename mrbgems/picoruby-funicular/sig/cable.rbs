@@ -11,12 +11,15 @@ module Funicular
       def send_command: (Hash[Symbol, untyped] command) -> void
       def disconnect: () -> void
 
-      private
-
-      def handle_message: (String data) -> void
-      def flush_pending_commands: () -> void
-      def schedule_reconnect: () -> void
-      def calculate_backoff_delay: () -> Integer
+      private def handle_message: (String data) -> void
+      private def flush_pending_commands: () -> void
+      private def schedule_reconnect: () -> void
+      private def calculate_backoff_delay: () -> Integer
+      private def setup_visibility_handler: () -> void
+      private def schedule_suspend: () -> void
+      private def cancel_suspend: () -> void
+      private def suspend_connection: () -> void
+      private def ensure_connected: () -> void
     end
 
     class Subscriptions

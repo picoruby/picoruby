@@ -18,31 +18,25 @@ class LoginComponent < Funicular::Component
   end
 
   def initialize_state
-    { username: "", password: "", error: nil, loading: false }
+    {
+      user: { username: "", password: "" },
+      errors: {},
+      loading: false
+    }
   end
 
-  def handle_username_change(event)
-    patch(username: event.target[:value])
-  end
-
-  def handle_password_change(event)
-    patch(password: event.target[:value])
-  end
-
-  def handle_submit(event)
-    event.preventDefault
-
-    if state.username.empty? || state.password.empty?
-      patch(error: "Please enter username and password")
+  def handle_submit(data)
+    if data[:username].to_s.empty? || data[:password].to_s.empty?
+      patch(errors: { username: "Please enter username and password" })
       return
     end
 
-    patch(loading: true, error: nil)
+    patch(loading: true, errors: {})
 
     # Login using Session model
-    Session.login(state.username, state.password) do |user, error|
+    Session.login(data[:username], data[:password]) do |user, error|
       if error
-        patch(loading: false, error: error)
+        patch(loading: false, errors: { username: error })
       else
         puts "Login successful: #{user.username}"
         Funicular.router.navigate("/chat")
@@ -55,41 +49,21 @@ class LoginComponent < Funicular::Component
       div(class: s.card) do
         h1(class: s.title) { "Funicular Chat" }
 
-        if state.error
-          div(class: s.error_box) do
-            span { state.error }
-          end
-        end
-
-        form(onsubmit: :handle_submit, class: s.form) do
+        form_for(:user, on_submit: :handle_submit, class: s.form) do |f|
           div do
-            label(class: s.label) { "Username" }
-            input(
-              type: "text",
-              value: state.username,
-              oninput: :handle_username_change,
-              class: s.input,
-              placeholder: "Enter your username"
-            )
+            f.label :username
+            f.text_field :username, class: s.input, placeholder: "Enter your username"
           end
 
           div do
-            label(class: s.label) { "Password" }
-            input(
-              type: "password",
-              value: state.password,
-              oninput: :handle_password_change,
-              class: s.input,
-              placeholder: "Enter your password"
-            )
+            f.label :password
+            f.password_field :password, class: s.input, placeholder: "Enter your password"
           end
 
-          button(
-            type: "submit",
+          f.submit(
+            state.loading ? "Logging in..." : "Login",
             class: s.button(state.loading ? :loading : :normal)
-          ) do
-            span { state.loading ? "Logging in..." : "Login" }
-          end
+          )
         end
 
         div(class: s.hint) do

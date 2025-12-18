@@ -5,16 +5,20 @@
 > 🎵Funicu-lì, Funicu-là!🚞🚞🚞
 
 
-**Funicular** is an SPA framework powered by PicoRuby.wasm, featuring:
-- Pure Ruby with no JavaScript or HTML required[^1]
-- Browser-native *Object-REST Mapper* (O**R**M)
-- ActionCable-compatible WebSocket support
-- Seamless Rails integration
-- Flexible JavaScript Integration via Delegation Model
+**Funicular** is a single-page application (SPA) framework powered by PicoRuby.wasm.
+Named after a cable-driven railway, it lets you build apps using pure Ruby, with no JavaScript or HTML required.[^1]
 
 [^1]: 子曰*知止而后有定* / Confucius, *When one knows where to stop, one can be steady.*
 
 ## Features
+
+- [Pure Ruby browser app](#pure-ruby-browser-app)
+- [Object-REST Mapper (O**R**M)](#object-rest-mapper-orm)
+- [ActionCable-compatible WebSocket](#actioncable-compatible-websocket)
+- [Rails integration](#rails-integration)
+- [CSS-in-Ruby with Styles DSL](#css-in-ruby-with-styles-dsl)
+- [Rails-style Form Builder](#rails-style-form-builder)
+- [JS Integration via Delegation Model](#js-integration-via-delegation-model)
 
 ### Pure Ruby browser app
 
@@ -201,6 +205,125 @@ The `|` operator automatically filters out `nil` values, making it perfect for c
 - **Maintainability**: Change styles in one place rather than hunting through render methods
 - **Type Safety**: The DSL ensures style names are consistent throughout your component
 - **Flexibility**: Mix DSL styles with raw strings when needed
+
+### Rails-style Form Builder
+
+Funicular provides a powerful `form_for` helper that brings Rails-style form building to your Pure Ruby frontend. The FormBuilder automatically manages form state, handles two-way data binding, and displays validation errors.
+
+#### Basic Usage
+
+```ruby
+class SignupComponent < Funicular::Component
+  def initialize_state
+    {
+      user: { username: "", email: "", password: "" },
+      errors: {}
+    }
+  end
+
+  def handle_submit(form_data)
+    # Create user via O-R-M or API call
+    User.create(form_data) do |user, errors|
+      if errors
+        update(errors: errors)
+      else
+        # Success: redirect or show success message
+      end
+    end
+  end
+
+  def render
+    form_for(:user, on_submit: method(:handle_submit)) do |f|
+      f.label(:username)
+      f.text_field(:username, class: "form-input")
+
+      f.label(:email)
+      f.email_field(:email, class: "form-input")
+
+      f.label(:password)
+      f.password_field(:password, class: "form-input")
+
+      f.submit("Sign Up", class: "btn btn-primary")
+    end
+  end
+end
+```
+
+#### Available Field Types
+
+The FormBuilder supports all standard HTML input types:
+
+- `text_field` - Text input
+- `password_field` - Password input
+- `email_field` - Email input
+- `number_field` - Number input
+- `textarea` - Multi-line text area
+- `checkbox` - Checkbox input
+- `select` - Dropdown select (pass array of choices)
+- `file_field` - File upload input
+- `label` - Field label (auto-generates from field name)
+- `submit` - Submit button
+
+#### Automatic Error Display
+
+The FormBuilder automatically displays validation errors when they exist in `state.errors`. Errors are displayed below their respective fields with customizable styling:
+
+```ruby
+def initialize_state
+  {
+    user: { email: "" },
+    errors: { email: "Email is invalid" }
+  }
+end
+
+def render
+  form_for(:user) do |f|
+    f.email_field(:email, class: "w-full p-2 border rounded")
+    # Error message automatically displayed in red below the field
+    # Field automatically gets border-red-500 class
+  end
+end
+```
+
+#### Nested Field Support
+
+The FormBuilder supports nested fields using dot notation:
+
+```ruby
+def initialize_state
+  {
+    user: {
+      profile: { bio: "", location: "" }
+    }
+  }
+end
+
+def render
+  form_for(:user) do |f|
+    f.text_field("profile.bio")
+    f.text_field("profile.location")
+  end
+end
+```
+
+#### Customizing Error Styles
+
+Configure error display styles globally:
+
+```ruby
+Funicular.configure_forms do |config|
+  config[:error_class] = "text-red-600 text-sm mt-1"
+  config[:field_error_class] = "border-red-500"
+end
+```
+
+Or per-form:
+
+```ruby
+form_for(:user, error_class: "error-text", field_error_class: "error-border") do |f|
+  # ...
+end
+```
 
 ### JS Integration via Delegation Model
 

@@ -5,6 +5,7 @@ module Funicular
       def []: (Symbol key) -> untyped
       def method_missing: (Symbol method, *untyped args) -> untyped
       def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
+      def errors: () -> Hash[Symbol, String]
     end
 
     HTML_TAGS: Array[String]
@@ -38,6 +39,9 @@ module Funicular
     def component_will_unmount: () -> void
     def component_unmounted: () -> void
     def component_raised: (Exception e) -> void
+
+    # Rails-style form helper
+    def form_for: (Symbol model_key, ?Hash[Symbol, untyped] options) { (FormBuilder) -> void } -> VDOM::Element
 
     # Rails-style routing helpers
     def link_to: (String path, ?method: Symbol, **untyped options) { -> untyped } -> VDOM::Element
