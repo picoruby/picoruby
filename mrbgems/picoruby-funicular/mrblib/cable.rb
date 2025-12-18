@@ -142,8 +142,8 @@ module Funicular
 
       # Setup Page Visibility API handler
       def setup_visibility_handler
-        JS.global.document.addEventListener("visibilitychange") do
-          if JS.global.document[:hidden]
+        JS.document.addEventListener("visibilitychange") do
+          if JS.document[:hidden]
             schedule_suspend
           else
             cancel_suspend

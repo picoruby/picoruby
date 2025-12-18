@@ -1,0 +1,29 @@
+module Funicular
+  class FormBuilder
+    attr_reader component: Component
+    attr_reader model_key: Symbol
+    attr_reader options: Hash[Symbol, untyped]
+
+    def self.new: (Component component, Symbol model_key, ?Hash[Symbol, untyped] options) -> FormBuilder
+
+    # Field builder methods
+    def text_field: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def password_field: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def email_field: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def number_field: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def textarea: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def checkbox: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def select: (Symbol field_name, Array[untyped] choices, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def file_field: (Symbol field_name, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def submit: (?String label, ?Hash[Symbol, untyped] options) -> VDOM::Element
+    def label: (Symbol field_name, ?String? text, ?Hash[Symbol, untyped] options) -> VDOM::Element
+
+    # Generic field builder
+    private def build_field: (Symbol field_name, String field_type, Hash[Symbol, untyped] field_options) -> VDOM::Element
+
+    # Helper methods for nested state access
+    private def get_nested_value: (Component::StateAccessor state, String key_path) -> untyped
+    private def set_nested_value: (Symbol model_key, String field_key, untyped new_value) -> void
+    private def deep_merge_value: (Hash[Symbol, untyped] hash, Array[String] keys, untyped value) -> Hash[Symbol, untyped]
+  end
+end
