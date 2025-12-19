@@ -552,6 +552,45 @@ EM_JS(void, js_register_generic_callback, (uintptr_t callback_id, const char* ca
   };
 });
 
+EM_JS(int, js_set_timeout, (uintptr_t callback_id, int delay_ms), {
+  const timerId = setTimeout(function() {
+    // Check if callback still exists before calling
+    if (!globalThis.picorubyTimeoutHandlers || !globalThis.picorubyTimeoutHandlers[callback_id]) {
+      return;
+    }
+    ccall(
+      'call_ruby_callback',
+      'void',
+      ['number', 'number'],
+      [callback_id, -1]  // -1 means no event object
+    );
+    // Clean up after one-shot timer
+    delete globalThis.picorubyTimeoutHandlers[callback_id];
+  }, delay_ms);
+
+  // Store timer info for cleanup
+  if (!globalThis.picorubyTimeoutHandlers) {
+    globalThis.picorubyTimeoutHandlers = {};
+  }
+  globalThis.picorubyTimeoutHandlers[callback_id] = timerId;
+
+  return timerId;
+});
+
+EM_JS(bool, js_clear_timeout, (uintptr_t callback_id), {
+  try {
+    if (!globalThis.picorubyTimeoutHandlers) return false;
+    const timerId = globalThis.picorubyTimeoutHandlers[callback_id];
+    if (timerId === undefined) return false;
+    clearTimeout(timerId);
+    delete globalThis.picorubyTimeoutHandlers[callback_id];
+    return true;
+  } catch(e) {
+    console.error('Error in js_clear_timeout:', e);
+    return false;
+  }
+});
+
 
 EM_JS(bool, js_remove_event_listener, (uintptr_t callback_id), {
   try {
@@ -1768,6 +1807,33 @@ mrb_object__fetch_with_options_and_suspend(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#_set_timeout
+ * setTimeout implementation using callback pattern
+ */
+static mrb_value
+mrb_object__set_timeout(mrb_state *mrb, mrb_value self)
+{
+  mrb_int callback_id;
+  mrb_int delay_ms;
+  mrb_get_args(mrb, "ii", &callback_id, &delay_ms);
+  int timer_id = js_set_timeout((uintptr_t)callback_id, (int)delay_ms);
+  return mrb_fixnum_value(timer_id);
+}
+
+/*
+ * JS::Object#_clear_timeout
+ * clearTimeout implementation
+ */
+static mrb_value
+mrb_object__clear_timeout(mrb_state *mrb, mrb_value self)
+{
+  mrb_int callback_id;
+  mrb_get_args(mrb, "i", &callback_id);
+  bool success = js_clear_timeout((uintptr_t)callback_id);
+  return mrb_bool_value(success);
+}
+
+/*
  * JS::Object#_removeEventListener
  */
 static mrb_value
@@ -2016,6 +2082,8 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_set_timeout), mrb_object__set_timeout, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_clear_timeout), mrb_object__clear_timeout, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));

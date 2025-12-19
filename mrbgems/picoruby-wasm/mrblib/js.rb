@@ -72,6 +72,20 @@ module JS
       result.to_s
     end
 
+    def setTimeout(delay_ms, &block)
+      callback_id = block.object_id
+      CALLBACKS[callback_id] = block
+      timer_id = _set_timeout(callback_id, delay_ms)
+      callback_id  # Return callback_id to use with clearTimeout
+    end
+
+    def clearTimeout(callback_id)
+      return false unless callback_id
+      success = _clear_timeout(callback_id)
+      CALLBACKS.delete(callback_id) if success
+      success
+    end
+
     # Promise#then support
     # This allows calling .then on Promise objects returned from JavaScript
     def then(&block)
