@@ -9,6 +9,8 @@ task :test => "test:all"
 
 namespace :test do
 
+  ENV['TEST_TASK'] = "yes"
+
   desc "run all tests"
   task :all => ["compiler:picoruby", "compiler:microruby", "gems:steep", "gems:microruby", "gems:picoruby"]
 
@@ -80,8 +82,10 @@ def run_test_for_gems(vm_type, specified_gem)
   gems.each { |gem| puts "  - #{gem[:name]}" }
   config_path = create_temp_build_config("#{vm_type}-test.rb", gems)
   puts "Building test binary on #{vm_type}..."
-  sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-  sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
+  unless ENV['SKIP_BUILD']
+    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
+    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
+  end
   gems.each do |gem|
     unless run_picotest_runner(gem, [])
       all_success = false
@@ -106,6 +110,9 @@ def collect_gems(vm_type, specified_gem = nil)
   Dir.glob("#{gems_dir}/picoruby-*").map do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
+    if File.exist?("#{gem_path}/test/target_vm")
+      next unless File.read("#{gem_path}/test/target_vm").chomp == vm_type
+    end
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM
       name = File.basename(gem_path)
