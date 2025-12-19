@@ -1,7 +1,7 @@
 source "https://rubygems.org"
 
 gem "rails", "~> 8.1.1"
-gem "propshaft"
+gem "sprockets-rails"
 gem "sqlite3", ">= 2.1"
 gem "puma", ">= 5.0"
 
