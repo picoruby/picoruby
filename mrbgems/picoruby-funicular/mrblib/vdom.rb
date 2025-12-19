@@ -1,7 +1,7 @@
 module Funicular
   module VDOM
     class VNode
-      attr_reader :type
+      attr_reader :type, :key
 
       def initialize(type)
         @type = type
@@ -14,6 +14,7 @@ module Funicular
       def initialize(tag, props = {}, children = [])
         super(:element)
         @tag = tag.to_s
+        @key = props.delete(:key)
         @props = props || {}
         @children = normalize_children(children || [])
       end
@@ -31,7 +32,7 @@ module Funicular
           when Array
             # Flatten arrays (typically from .each or .map return values)
             # Recursively normalize nested arrays
-            # @type var child: Array[Funicular::VDOM::VNode]
+            # @type var child: Array[Funicular::VDOM::child_t]
             result.concat(normalize_children(child))
           when nil
             # Skip nil values
@@ -70,6 +71,7 @@ module Funicular
       def initialize(component_class, props = {})
         super(:component)
         @component_class = component_class
+        @key = props.delete(:key)
         @props = props
         @instance = nil
       end

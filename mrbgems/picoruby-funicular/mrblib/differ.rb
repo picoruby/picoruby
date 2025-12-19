@@ -73,6 +73,88 @@ module Funicular
       end
 
       def self.diff_children(old_children, new_children)
+        # Check if any child has a key
+        has_keys = new_children.any? { |child|
+          child.is_a?(VNode) && child.respond_to?(:key) && child.key
+        }
+
+        if has_keys
+          diff_children_with_keys(old_children, new_children)
+        else
+          diff_children_by_index(old_children, new_children)
+        end
+      end
+
+      def self.diff_children_with_keys(old_children, new_children)
+        patches = []
+
+        # 1. Build key map from old children
+        old_key_map = {}
+        old_children.each_with_index do |child, index|
+          if child.is_a?(VNode) && child.respond_to?(:key) && child.key
+            old_key_map[child.key] = [index, child]
+          end
+        end
+
+        # 2. Track matched old indices
+        matched_old_indices = {}
+
+        # 3. Process new children
+        new_children.each_with_index do |new_child, new_index|
+          if new_child.is_a?(VNode) && new_child.respond_to?(:key) && new_child.key
+            key = new_child.key
+
+            if old_key_map[key]
+              old_index, old_child = old_key_map[key]
+              matched_old_indices[old_index] = true
+
+              # Diff existing element
+              child_patches = diff(old_child, new_child)
+              unless child_patches.empty?
+                patches << [new_index, child_patches]
+              end
+            else
+              # Insert new element
+              patches << [new_index, [[:replace, new_child]]]
+            end
+          else
+            # Fallback to index-based for elements without keys
+            old_child = old_children[new_index]
+            child_patches = diff(old_child, new_child)
+            unless child_patches.empty?
+              patches << [new_index, child_patches]
+            end
+          end
+        end
+
+        # 4. Remove unmatched old elements
+        old_children.each_with_index do |old_child, old_index|
+          next unless old_child.is_a?(VNode)
+          next if matched_old_indices[old_index]
+
+          if old_child.respond_to?(:key) && old_child.key
+            patches << [old_index, [[:remove]]]
+          end
+        end
+
+        # Sort patches: updates first, removes last (descending index)
+        patches.sort { |a, b|
+          a_is_remove = a[1].length == 1 && a[1][0] == [:remove]
+          b_is_remove = b[1].length == 1 && b[1][0] == [:remove]
+
+          if a_is_remove && b_is_remove
+            b[0] <=> a[0]
+          elsif a_is_remove
+            1
+          elsif b_is_remove
+            -1
+          else
+            a[0] <=> b[0]
+          end
+        }
+      end
+
+      def self.diff_children_by_index(old_children, new_children)
         patches = []
         remove_patches = []
         max_length = [old_children.length, new_children.length].max

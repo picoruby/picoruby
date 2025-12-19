@@ -45,6 +45,7 @@ class MessageListComponent < Funicular::Component
           else
             props[:messages].each do |message|
               component(MessageComponent, {
+                key: message["id"],
                 message: message,
                 current_user: props[:current_user],
                 on_delete: props[:on_message_delete]

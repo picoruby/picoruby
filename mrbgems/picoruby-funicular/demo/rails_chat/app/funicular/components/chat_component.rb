@@ -169,8 +169,7 @@ class ChatComponent < Funicular::Component
           skip_scroll: state.skip_scroll,
           on_message_input: ->(event) { handle_message_input(event) },
           on_send_message: ->(event) { handle_send_message(event) },
-          on_message_delete: ->(message_id) { handle_message_delete(message_id) },
-          preserve: true
+          on_message_delete: ->(message_id) { handle_message_delete(message_id) }
         })
 
         # Stats chart area
