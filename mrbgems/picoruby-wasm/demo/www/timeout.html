@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>setTimeout and clearTimeout Test</title>
+  <link rel="stylesheet" href="test.css">
+</head>
+<body>
+  <div><a href="index.html">Back</a></div>
+  <h1>setTimeout and clearTimeout Test</h1>
+  <button id="start-button">Start Timer (2 seconds)</button>
+  <button id="cancel-button">Cancel Timer</button>
+  <div id="result"></div>
+
+  <script type="text/ruby">
+    require 'js'
+
+    $callback_id = nil
+
+    JS.document.getElementById('start-button').addEventListener('click') do
+      result = JS.document.getElementById('result')
+      result.textContent = 'Timer started...'
+
+      $callback_id = JS.global.setTimeout(2000) do
+        result.textContent = "Timer fired at #{Time.now}"
+        $callback_id = nil
+      end
+    end
+
+    JS.document.getElementById('cancel-button').addEventListener('click') do
+      result = JS.document.getElementById('result')
+      if $callback_id
+        if JS.global.clearTimeout($callback_id)
+          result.textContent = 'Timer canceled!'
+          $callback_id = nil
+        else
+          result.textContent = 'Failed to cancel timer'
+        end
+      else
+        result.textContent = 'No timer to cancel'
+      end
+    end
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

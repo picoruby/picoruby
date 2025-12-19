@@ -27,6 +27,10 @@ module JS
     def then: () { (JS::Object result) -> void } -> void
     def to_binary: () -> String
 
+    # Timer operations
+    def setTimeout: (Integer delay_ms) { () -> void } -> Integer
+    def clearTimeout: (Integer callback_id) -> bool
+
     # Debugging
     def type: () -> Symbol
     def refcount: () -> Integer
@@ -79,6 +83,8 @@ module JS
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
+    private def _set_timeout: (Integer callback_id, Integer delay_ms) -> Integer
+    private def _clear_timeout: (Integer callback_id) -> bool
   end
 
   def self.global: () -> JS::Object
