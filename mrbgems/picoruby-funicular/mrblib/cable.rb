@@ -27,14 +27,14 @@ module Funicular
 
       # Establish WebSocket connection
       def connect
-        puts "[Cable] Creating WebSocket connection to #{@url}"
+        # puts "[Cable] Creating WebSocket connection to #{@url}"
         @websocket = WebSocket.new(@url)
-        puts "[Cable] WebSocket object created, setting up handlers"
+        # puts "[Cable] WebSocket object created, setting up handlers"
 
         @websocket.onopen do |event|
           @connected = true
           @reconnect_attempts = 0
-          puts "[Cable] Connected to #{@url}"
+          # puts "[Cable] Connected to #{@url}"
           flush_pending_commands
         end
 
@@ -51,12 +51,12 @@ module Funicular
         end
 
         @websocket.onerror do |event|
-          puts "[Cable] Error occurred"
+          # puts "[Cable] Error occurred"
         end
 
         @websocket.onclose do |event|
           @connected = false
-          puts "[Cable] Disconnected"
+          # puts "[Cable] Disconnected"
           schedule_reconnect
         end
       end
@@ -66,10 +66,10 @@ module Funicular
       def send_command(command)
         if @connected && @websocket&.open?
           json = JSON.generate(command)
-          puts "[Cable] Sending command: #{json}"
+          # puts "[Cable] Sending command: #{json}"
           @websocket.send(json)
         else
-          puts "[Cable] Queuing command (not connected): #{command.inspect}"
+          # puts "[Cable] Queuing command (not connected): #{command.inspect}"
           @pending_commands << command
         end
       end
@@ -93,7 +93,7 @@ module Funicular
         when "ping"
           # Heartbeat - no action needed (silent)
         when "welcome"
-          puts "[Cable] Welcome message received"
+          # puts "[Cable] Welcome message received"
         when "confirm_subscription"
           @subscriptions.notify_subscription_confirmed(identifier)
         when "reject_subscription"
@@ -108,7 +108,7 @@ module Funicular
       def flush_pending_commands
         return if @pending_commands.empty?
 
-        puts "[Cable] Flushing #{@pending_commands.size} pending commands"
+        # puts "[Cable] Flushing #{@pending_commands.size} pending commands"
         @pending_commands.each do |command|
           json = JSON.generate(command)
           @websocket.send(json)
@@ -121,9 +121,9 @@ module Funicular
         begin
           return if @suspended
           delay = calculate_backoff_delay
-          puts "[Cable] Reconnecting in #{delay} seconds (attempt #{@reconnect_attempts + 1})"
+          # puts "[Cable] Reconnecting in #{delay} seconds (attempt #{@reconnect_attempts + 1})"
           sleep delay
-          puts "[Cable] Sleep completed, attempting reconnection..."
+          # puts "[Cable] Sleep completed, attempting reconnection..."
           return if @suspended
           @reconnect_attempts += 1
           connect
@@ -155,7 +155,7 @@ module Funicular
       # Schedule suspension after 30 seconds in background
       def schedule_suspend
         return if @suspended || @suspend_timer
-        puts "[Cable] Page hidden, scheduling suspension in 30 seconds"
+        # puts "[Cable] Page hidden, scheduling suspension in 30 seconds"
         @suspend_timer = JS.global.setTimeout(30000) do
           suspend_connection
         end
@@ -164,7 +164,7 @@ module Funicular
       # Cancel scheduled suspension
       def cancel_suspend
         if @suspend_timer
-          puts "[Cable] Page visible, canceling suspension"
+          # puts "[Cable] Page visible, canceling suspension"
           if JS.global.clearTimeout(@suspend_timer)
             @suspend_timer = nil
           end
@@ -177,7 +177,7 @@ module Funicular
         return unless @suspend_timer
         @suspend_timer = nil
         @suspended = true
-        puts "[Cable] Suspending connection (page in background)"
+        # puts "[Cable] Suspending connection (page in background)"
         disconnect
       end
 
@@ -185,7 +185,7 @@ module Funicular
       def ensure_connected
         if @suspended
           @suspended = false
-          puts "[Cable] Resuming connection (page visible)"
+          # puts "[Cable] Resuming connection (page visible)"
           connect
         end
       end
@@ -203,10 +203,10 @@ module Funicular
       # @yield [message] Block to handle incoming messages
       # @return [Subscription]
       def create(params, &block)
-        puts "[Cable] Creating subscription with params: #{params.inspect}"
+        # puts "[Cable] Creating subscription with params: #{params.inspect}"
         identifier = JSON.generate(params)
-        puts "[Cable] Generated identifier: #{identifier}"
-        puts "[Cable] Identifier length: #{identifier.length}"
+        # puts "[Cable] Generated identifier: #{identifier}"
+        # puts "[Cable] Identifier length: #{identifier.length}"
         subscription = Subscription.new(@consumer, identifier, params, &block)
         @subscriptions[identifier] = subscription
         subscription.subscribe
@@ -310,13 +310,13 @@ module Funicular
 
       # Internal: notify subscription connected
       def notify_connected
-        puts "[Cable] Subscription confirmed: #{@identifier}"
+        # puts "[Cable] Subscription confirmed: #{@identifier}"
         @callbacks[:connected]&.call
       end
 
       # Internal: notify subscription rejected
       def notify_rejected
-        puts "[Cable] Subscription rejected: #{@identifier}"
+        # puts "[Cable] Subscription rejected: #{@identifier}"
         @callbacks[:rejected]&.call
       end
 

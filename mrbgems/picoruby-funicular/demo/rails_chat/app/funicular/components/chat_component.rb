@@ -150,6 +150,7 @@ class ChatComponent < Funicular::Component
     div(class: s.layout) do
       # Sidebar - Channel list
       component(ChannelListComponent, {
+        preserve: true,
         channels: state.channels,
         current_channel: state.current_channel,
         current_user: state.current_user,
@@ -161,6 +162,7 @@ class ChatComponent < Funicular::Component
       div(class: s.main_content) do
         # Chat area
         component(MessageListComponent, {
+          preserve: true,
           current_channel: state.current_channel,
           messages: state.messages,
           loading: state.loading,
@@ -175,6 +177,7 @@ class ChatComponent < Funicular::Component
         # Stats chart area
         if state.current_channel
           component(StatsChartComponent, {
+            preserve: true,
             stats: state.stats
           })
         end
