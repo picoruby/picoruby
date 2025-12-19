@@ -64,9 +64,14 @@ module Funicular
       def self.diff_props(old_props, new_props)
         patches = {}
         new_props.each do |key, value|
+          # Skip Proc/Lambda values as they are recreated on each render
+          # and should be handled by event binding, not props patching
+          next if value.is_a?(Proc)
           patches[key] = value if old_props[key] != value
         end
         old_props.keys.each do |key|
+          # Skip Proc/Lambda values
+          next if old_props[key].is_a?(Proc)
           patches[key] = nil unless new_props.keys.include?(key)
         end
         patches
@@ -188,17 +193,25 @@ module Funicular
 
           new_node.instance = instance # Preserve the instance
 
-          # If props are unchanged, no need to diff internal VDOM
-          return [] if old_node.props == new_node.props
+          # Check if data props (excluding Proc/Lambda) have changed
+          # Proc/Lambda props are always considered different between renders,
+          # but we want to ignore them for preservation purposes
+          data_props_changed = props_changed_excluding_procs?(old_node.props, new_node.props)
+
+          # If only Proc props changed, update props but skip VDOM rebuild
+          unless data_props_changed
+            instance.instance_variable_set(:@props, new_node.props)
+            return []
+          end
 
           old_internal_vdom = instance.instance_variable_get(:@vdom)
           instance.instance_variable_set(:@props, new_node.props)
           new_internal_vdom = instance.send(:build_vdom)
-          instance.instance_variable_set(:@vdom, new_internal_vdom)
           internal_patches = diff(old_internal_vdom, new_internal_vdom)
 
           # Return a special patch that instructs the patcher to re-bind events
-          return [[:update_and_rebind, instance, internal_patches]]
+          # Pass new_internal_vdom so patcher can update @vdom after applying patches
+          return [[:update_and_rebind, instance, internal_patches, new_internal_vdom]]
         end
 
         # Original logic: If props changed, replace the entire component
@@ -207,6 +220,19 @@ module Funicular
         end
 
         []
+      end
+
+      # Helper method to check if props changed, excluding Proc/Lambda values
+      def self.props_changed_excluding_procs?(old_props, new_props)
+        # Get keys excluding Proc/Lambda values
+        old_data_keys = old_props.keys.select { |k| !old_props[k].is_a?(Proc) }
+        new_data_keys = new_props.keys.select { |k| !new_props[k].is_a?(Proc) }
+
+        # Check if keys changed
+        return true if old_data_keys.sort != new_data_keys.sort
+
+        # Check if values changed for data keys
+        old_data_keys.any? { |k| old_props[k] != new_props[k] }
       end
     end
   end
