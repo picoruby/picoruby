@@ -156,7 +156,7 @@ module Funicular
       def schedule_suspend
         return if @suspended || @suspend_timer
         puts "[Cable] Page hidden, scheduling suspension in 30 seconds"
-        @suspend_timer = sleep(30) do
+        @suspend_timer = JS.global.setTimeout(30000) do
           suspend_connection
         end
       end
@@ -165,8 +165,9 @@ module Funicular
       def cancel_suspend
         if @suspend_timer
           puts "[Cable] Page visible, canceling suspension"
-          # Note: There's no way to cancel sleep in PicoRuby, so we just mark it
-          @suspend_timer = nil
+          if JS.global.clearTimeout(@suspend_timer)
+            @suspend_timer = nil
+          end
         end
       end
 
