@@ -30,7 +30,7 @@ class ChannelListComponent < Funicular::Component
       div(class: s.channels_list) do
         props[:channels].each do |channel|
           is_active = props[:current_channel] && props[:current_channel].id == channel.id
-          link_to chat_channel_path(channel), class: s.channel_item(is_active) do
+          link_to chat_channel_path(channel), key: channel.id, class: s.channel_item(is_active) do
             div(class: s.channel_name) { "# #{channel.name}" }
             div(class: s.channel_desc) { channel.description }
           end
