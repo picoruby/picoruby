@@ -6,10 +6,19 @@ This document explains how to write callbacks in Pure Ruby when working with Jav
 
 PicoRuby.wasm allows you to write callbacks in Pure Ruby that can be called from JavaScript. There are two main types of callbacks, each with a different execution model:
 
-1.  **Event Listeners (Asynchronous)** - Callbacks triggered by DOM events. These are executed asynchronously via the PicoRuby scheduler and do not block the JavaScript event loop.
+1.  **Async Callbacks** - Callbacks executed asynchronously via the PicoRuby scheduler (event listeners, timers, promises). These do not block the JavaScript event loop.
 2.  **Generic Callbacks (Synchronous)** - General-purpose callbacks that can be registered and called directly from JavaScript. These are executed synchronously, blocking JavaScript execution until the Ruby code completes.
 
 Understanding the difference is key to building responsive applications.
+
+### Async Callback Examples
+
+These patterns use the async callback system:
+- `addEventListener` - DOM events
+- `setTimeout` - Delayed execution
+- `fetch` - HTTP requests (with task suspension)
+
+See [async_operations.md](async_operations.md) for detailed guide on async operations.
 
 ## Event Listeners
 
