@@ -1,5 +1,8 @@
 puts "Funicular Chat App initializing..."
 
+# Configure debug highlighter color
+Funicular.debug_color = "pink"  # Options: "green", "yellow", "pink", "cyan", or nil to disable
+
 # Mount JavaScript helpers
 Funicular::FileUpload.mount
 
