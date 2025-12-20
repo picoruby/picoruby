@@ -63,6 +63,9 @@ module Funicular
   #   Funicular.start(MyComponent, container: 'app')
   #   Funicular.start(MyComponent, container: 'app', props: { name: 'John' })
   def self.start(component_class = nil, container: 'app', props: {}, &block)
+    # Export debug configuration to JavaScript
+    export_debug_config
+
     container_element = if container.is_a?(String)
       JS.document.getElementById(container)
     else
@@ -111,4 +114,24 @@ module Funicular
 
   # Initialize default form configuration
   configure_forms
+
+  # Debug highlighter configuration
+  class << self
+    attr_accessor :debug_color
+
+    def configure_debug
+      @debug_color = 'green'
+      yield self if block_given?
+    end
+  end
+
+  # Initialize default debug configuration
+  configure_debug
+
+  # Export debug_color to JavaScript global variable
+  def self.export_debug_config
+    if JS.global[:window]
+      JS.global[:window][:FUNICULAR_DEBUG_COLOR] = @debug_color
+    end
+  end
 end
