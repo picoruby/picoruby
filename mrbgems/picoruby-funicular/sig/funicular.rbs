@@ -2,6 +2,8 @@ module Funicular
   VERSION: String
 
   def self.version: () -> String
+  def self.env: () -> EnvironmentInquirer
+  def self.env=: (EnvironmentInquirer | String envname) -> EnvironmentInquirer
   def self.router: () -> Router?
   def self.load_schemas: (Hash[singleton(Model), String] models) ?{ () -> void } -> void
   def self.start: (?singleton(Component)? component_class, ?container: String | JS::Object, ?props: Hash[Symbol, untyped]) ?{ (Router router) -> void } -> (Component | Router)
