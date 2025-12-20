@@ -38,5 +38,8 @@ module RailsChat
 
     # Don't generate system test files.
     config.generators.system_tests = nil
+
+    # Funicular middleware for auto-recompilation in development
+    config.middleware.use Funicular::Middleware if Rails.env.development?
   end
 end
