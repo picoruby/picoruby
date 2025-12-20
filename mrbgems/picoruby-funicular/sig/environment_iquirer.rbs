@@ -1,0 +1,9 @@
+module Funicular
+  class EnvironmentInquirer
+    def self.new: (String envname) -> EnvironmentInquirer
+    def to_s: () -> String
+    def inspect: () -> String
+    def ==: (String other) -> bool
+  end
+end
+

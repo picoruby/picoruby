@@ -11,6 +11,8 @@ module Funicular
       private def self.diff_children_with_keys: (children_t old_children, children_t new_children) -> Array[patch_t]
       private def self.diff_children_by_index: (children_t old_children, children_t new_children) -> Array[patch_t]
       private def self.diff_component: (VDOM::Component old_node, VDOM::Component new_node) -> Array[patch_t]
+
+      private def self.props_changed_excluding_procs?: (Hash[Symbol, untyped] old_props, Hash[Symbol, untyped] new_props) -> bool
     end
   end
 end
