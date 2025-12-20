@@ -9,6 +9,11 @@
     <!-- Tailwind CSS -->
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
 
+    <% if Rails.env.development? %>
+      <%= javascript_include_tag "funicular_debug", "data-turbo-track": "reload" %>
+      <%= stylesheet_link_tag "funicular_debug", "data-turbo-track": "reload" %>
+    <% end %>
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 
