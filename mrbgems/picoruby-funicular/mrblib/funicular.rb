@@ -7,6 +7,21 @@ module Funicular
     VERSION
   end
 
+  def self.env
+    @env ||= EnvironmentInquirer.new(ENV['FUNICULAR_ENV'] || ENV['RAILS_ENV'] || 'development')
+  end
+
+  def self.env=(environment)
+    case environment
+    when EnvironmentInquirer
+      @env = environment
+    when nil
+      @env = nil
+    else
+      @env = EnvironmentInquirer.new(environment)
+    end
+  end
+
   @router = nil
 
   def self.router
