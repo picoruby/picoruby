@@ -234,7 +234,20 @@ module Funicular
       @rendering = false
 
       # Convert render result to VNode
-      normalize_vnode(result)
+      vnode = normalize_vnode(result)
+
+      # Add data-component attribute to the root element
+      if Funicular.env.development?
+        add_data_component_attribute(vnode)
+      end
+
+      vnode
+    end
+
+    # Add data-component attribute to the root element
+    def add_data_component_attribute(vnode)
+      return unless vnode.is_a?(VDOM::Element)
+      vnode.props[:'data-component'] = self.class.to_s
     end
 
     # Normalize render result to VNode
