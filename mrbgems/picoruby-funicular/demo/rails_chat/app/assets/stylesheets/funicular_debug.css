@@ -1,0 +1,49 @@
+/* Funicular Component Highlighter - Development Mode Only */
+/* Highlights components with data-component attributes for easier debugging */
+
+.funicular-debug-highlight {
+  outline: 2px solid var(--funicular-highlight-color, #00ff00) !important;
+  outline-offset: -2px !important;
+  position: relative !important;
+  box-shadow: inset 0 0 0 2px rgba(0, 255, 0, 0.2) !important;
+}
+
+.funicular-debug-indicator {
+  position: absolute !important;
+  bottom: 0 !important;
+  right: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  border-style: solid !important;
+  border-width: 0 0 14px 14px !important;
+  border-color: transparent transparent var(--funicular-highlight-color, #00ff00) transparent !important;
+  pointer-events: auto !important;
+  z-index: 999999 !important;
+  cursor: help !important;
+}
+
+.funicular-debug-indicator::before {
+  content: attr(data-tooltip) !important;
+  position: absolute !important;
+  bottom: -14px !important;
+  right: 0 !important;
+  background-color: rgba(0, 0, 0, 0.95) !important;
+  color: white !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--funicular-highlight-color, #00ff00) !important;
+  font-size: 13px !important;
+  font-family: 'Courier New', monospace !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(8px) !important;
+  transition: opacity 0.2s, transform 0.2s !important;
+  z-index: 1000000 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+
+.funicular-debug-indicator:hover::before {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
