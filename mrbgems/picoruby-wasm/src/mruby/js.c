@@ -445,6 +445,57 @@ EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int ar
   }
 });
 
+EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* args_json), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+
+    if (typeof func !== 'function') {
+      console.error('Method not found or not a function:', methodName);
+      return -1;
+    }
+
+    const argsStr = UTF8ToString(args_json);
+    const argsData = JSON.parse(argsStr);
+
+    if (!Array.isArray(argsData)) {
+      console.error('args_json must be a JSON array');
+      return -1;
+    }
+
+    // Convert type-tagged arguments to actual JavaScript values
+    const args = argsData.map(arg => {
+      switch (arg.type) {
+        case 'string':
+          return arg.value;
+        case 'integer':
+          return arg.value;
+        case 'float':
+          return arg.value;
+        case 'boolean':
+          return arg.value;
+        case 'ref':
+          return globalThis.picorubyRefs[arg.value];
+        case 'nil':
+          return null;
+        default:
+          console.error('Unknown argument type:', arg.type);
+          return null;
+      }
+    });
+
+    const result = func.call(obj, ...args);
+
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error('Error in call_method_with_args:', e);
+    return -1;
+  }
+});
+
 EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const char* options_json), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
@@ -1576,8 +1627,85 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     }
 
   } else {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "method: %s, argc: %d", method_name, argc);
-    return mrb_nil_value();
+    // Handle variable-length arguments (argc >= 4) with mixed types
+    // Build JSON array with type tags: [{"type": "string", "value": "foo"}, ...]
+    mrb_value json_array = mrb_str_new_lit(mrb, "[");
+
+    for (int i = 0; i < argc; i++) {
+      if (i > 0) {
+        mrb_str_cat_lit(mrb, json_array, ",");
+      }
+
+      mrb_str_cat_lit(mrb, json_array, "{\"type\":");
+
+      if (mrb_string_p(argv[i])) {
+        mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
+        // Escape quotes and backslashes in the string
+        const char *str = mrb_string_value_cstr(mrb, &argv[i]);
+        for (const char *p = str; *p; p++) {
+          if (*p == '"' || *p == '\\') {
+            char escaped[3] = {'\\', *p, '\0'};
+            mrb_str_cat(mrb, json_array, escaped, 2);
+          } else {
+            mrb_str_cat(mrb, json_array, p, 1);
+          }
+        }
+        mrb_str_cat_lit(mrb, json_array, "\"");
+      } else if (mrb_integer_p(argv[i])) {
+        mrb_str_cat_lit(mrb, json_array, "\"integer\",\"value\":");
+        char num_buf[32];
+        snprintf(num_buf, sizeof(num_buf), "%d", (int)mrb_integer(argv[i]));
+        mrb_str_cat_cstr(mrb, json_array, num_buf);
+      } else if (mrb_float_p(argv[i])) {
+        mrb_str_cat_lit(mrb, json_array, "\"float\",\"value\":");
+        char num_buf[64];
+        snprintf(num_buf, sizeof(num_buf), "%f", mrb_float(argv[i]));
+        mrb_str_cat_cstr(mrb, json_array, num_buf);
+      } else if (mrb_nil_p(argv[i])) {
+        mrb_str_cat_lit(mrb, json_array, "\"nil\",\"value\":null");
+      } else if (mrb_true_p(argv[i]) || mrb_false_p(argv[i])) {
+        mrb_str_cat_lit(mrb, json_array, "\"boolean\",\"value\":");
+        mrb_str_cat_lit(mrb, json_array, mrb_true_p(argv[i]) ? "true" : "false");
+      } else if (mrb_obj_is_kind_of(mrb, argv[i], class_JS_Object)) {
+        picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[i]);
+        mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
+        char ref_buf[32];
+        snprintf(ref_buf, sizeof(ref_buf), "%d", arg_obj->ref_id);
+        mrb_str_cat_cstr(mrb, json_array, ref_buf);
+      } else {
+        mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported argument type for method: %s at position: %d", method_name, i);
+        return mrb_nil_value();
+      }
+
+      mrb_str_cat_lit(mrb, json_array, "}");
+    }
+
+    mrb_str_cat_lit(mrb, json_array, "]");
+
+    int new_ref_id = call_method_with_args(js_obj->ref_id, method_name, RSTRING_PTR(json_array));
+
+    if (new_ref_id < 0) {
+      return mrb_nil_value();
+    }
+
+    int js_type = get_js_type(new_ref_id);
+    switch (js_type) {
+      case JS_TYPE_UNDEFINED:
+      case JS_TYPE_NULL:
+        return mrb_nil_value();
+      case JS_TYPE_BOOLEAN:
+        {
+          bool value = get_boolean_value(new_ref_id);
+          return mrb_bool_value(value);
+        }
+      default:
+        {
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
+        }
+    }
   }
 
   return mrb_nil_value();

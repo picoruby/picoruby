@@ -48,6 +48,10 @@ module Funicular
     def method_missing: (Symbol method, *untyped args) -> untyped
     def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
 
+    # Transition helpers
+    def remove_via: (String element_id, String from, String to, ?duration: Integer) ?{ () -> void } -> void
+    def add_via: (String element_id, String from, String to, ?duration: Integer) ?{ () -> void } -> void
+
     # Private methods
     private def handle_link_click: (String path) -> void
     private def handle_link_with_method: (String path, Symbol method) -> void
