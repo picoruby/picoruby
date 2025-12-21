@@ -133,17 +133,14 @@ class ChatComponent < Funicular::Component
   end
 
   def handle_message_delete(message_id)
-    element = JS.document.getElementById("message-#{message_id}")
-    if element
-      element.classList.remove("opacity-100", "max-h-screen")
-      element.classList.add("opacity-0", "max-h-0")
+    remove_via(
+      "message-#{message_id}",
+      "opacity-100 max-h-screen", "opacity-0 max-h-0",
+      duration: 500,
+    ) do
+      updated_messages = state.messages.reject { |m| m["id"] == message_id }
+      patch(messages: updated_messages, skip_scroll: true)
     end
-
-    sleep_ms 500 # Wait for CSS animation to complete (0.5 seconds)
-
-    # After animation, remove the message from Funicular's state
-    updated_messages = state.messages.reject { |m| m["id"] == message_id }
-    patch(messages: updated_messages, skip_scroll: true)
   end
 
   def render

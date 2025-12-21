@@ -63,6 +63,9 @@ module JS
     def status: () -> JS::Object # Use .to_i
     def push: (JS::Object item) -> JS::Object
     def content: () -> JS::Object # Use .to_s
+    def classList: () -> JS::Object
+    def add: (*String class_names) -> bool
+    def remove: (*String class_names) -> bool
 
     def URL: () -> JS::Object
     def history: () -> JS::Object
