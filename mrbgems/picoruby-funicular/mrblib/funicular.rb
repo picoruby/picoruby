@@ -20,6 +20,8 @@ module Funicular
     else
       @env = EnvironmentInquirer.new(environment)
     end
+    # @type ivar @env: EnvironmentInquirer?
+    @env
   end
 
   @router = nil
@@ -131,7 +133,7 @@ module Funicular
   # Export debug_color to JavaScript global variable
   def self.export_debug_config
     if JS.global[:window]
-      JS.global[:window][:FUNICULAR_DEBUG_COLOR] = @debug_color
+      JS.global[:window][:FUNICULAR_DEBUG_COLOR] = @debug_color # steep:ignore
     end
   end
 end

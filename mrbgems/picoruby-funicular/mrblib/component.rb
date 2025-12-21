@@ -237,7 +237,7 @@ module Funicular
       vnode = normalize_vnode(result)
 
       # Add data-component attribute to the root element
-      if Funicular.env.development?
+      if Funicular.env.development? && vnode
         add_data_component_attribute(vnode)
       end
 
