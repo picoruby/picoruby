@@ -52,6 +52,7 @@ class MessageListComponent < Funicular::Component
                 key: message["id"],
                 message: message,
                 current_user: props[:current_user],
+                avatar_cache_buster: props[:avatar_cache_buster],
                 on_delete: props[:on_message_delete]
               })
             end
