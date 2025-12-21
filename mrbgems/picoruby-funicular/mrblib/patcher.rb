@@ -110,7 +110,14 @@ module Funicular
             end
           end
 
-          if value.nil?
+          # Handle boolean attributes
+          if BOOLEAN_ATTRIBUTES.include?(key_str)
+            if value.nil? || value == false || value == "false"
+              element.removeAttribute(key_str)
+            else
+              element.setAttribute(key_str, key_str)
+            end
+          elsif value.nil?
             element.removeAttribute(key_str)
           else
             element.setAttribute(key_str, value.to_s)
@@ -159,6 +166,13 @@ module Funicular
               # Use property instead of attribute for value on input/textarea
               if key_str == "value" && (vnode.tag == "input" || vnode.tag == "textarea")
                 element[:value] = value.to_s
+              elsif BOOLEAN_ATTRIBUTES.include?(key_str)
+                # Handle boolean attributes
+                if value.nil? || value == false || value == "false"
+                  # Do not set attribute (leave it absent)
+                else
+                  element.setAttribute(key_str, key_str)
+                end
               else
                 element.setAttribute(key_str, value.to_s)
               end

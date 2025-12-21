@@ -1,5 +1,9 @@
 module Funicular
   module VDOM
+    BOOLEAN_ATTRIBUTES = %w[
+      disabled checked selected readonly required autofocus multiple
+    ]
+
     class VNode
       attr_reader :type, :key
 
@@ -116,6 +120,13 @@ module Funicular
           elsif (key_str == 'href' || key_str == 'src') && value.to_s.start_with?('javascript:')
             # Prevent XSS attacks by blocking javascript: URIs in href/src attributes
             puts "[WARN] Funicular: Blocked potentially malicious value '#{value}' for attribute '#{key_str}'."
+          elsif BOOLEAN_ATTRIBUTES.include?(key_str)
+            # Handle boolean attributes
+            if value.nil? || value == false || value == "false"
+              # Do not set attribute (leave it absent)
+            else
+              dom_node.setAttribute(key_str, key_str)
+            end
           else
             # Attribute
             dom_node.setAttribute(key_str, value.to_s)

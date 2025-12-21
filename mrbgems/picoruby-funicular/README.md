@@ -265,6 +265,13 @@ The FormBuilder supports all standard HTML input types:
 - `label` - Field label (auto-generates from field name)
 - `submit` - Submit button
 
+All fields support standard HTML boolean attributes (`autofocus`, `disabled`, `checked`, `readonly`, `required`, etc.) which can be set to `true` or `false`:
+
+```ruby
+f.text_field(:username, autofocus: true)
+f.submit("Send", disabled: state.message.empty?)
+```
+
 #### Automatic Error Display
 
 The FormBuilder automatically displays validation errors when they exist in `state.errors`. Errors are displayed below their respective fields with customizable styling:
