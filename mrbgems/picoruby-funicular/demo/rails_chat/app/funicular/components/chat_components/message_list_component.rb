@@ -11,7 +11,11 @@ class MessageListComponent < Funicular::Component
     input_area "bg-white border-t border-gray-200 p-4"
     input_form "flex space-x-2"
     message_input "flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-    send_button "px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+    send_button base: "px-6 py-2 rounded-lg font-semibold transition-opacity",
+                variants: {
+                  enabled: "bg-blue-600 text-white hover:bg-blue-700",
+                  disabled: "bg-blue-600 text-white opacity-50 cursor-not-allowed"
+                }
 
     empty_state "flex-1 flex items-center justify-center text-gray-500"
   end
@@ -65,9 +69,11 @@ class MessageListComponent < Funicular::Component
               placeholder: "Type a message...",
               class: s.message_input
             )
+            is_disabled = props[:message_input].to_s.empty?
             button(
               type: "submit",
-              class: s.send_button
+              class: s.send_button(is_disabled ? :disabled : :enabled),
+              disabled: is_disabled
             ) do
               span { "Send" }
             end
