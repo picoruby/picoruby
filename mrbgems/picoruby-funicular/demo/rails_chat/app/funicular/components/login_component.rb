@@ -52,7 +52,7 @@ class LoginComponent < Funicular::Component
         form_for(:user, on_submit: :handle_submit, class: s.form) do |f|
           div do
             f.label :username
-            f.text_field :username, class: s.input, placeholder: "Enter your username"
+            f.text_field :username, class: s.input, placeholder: "Enter your username", autofocus: true
           end
 
           div do
