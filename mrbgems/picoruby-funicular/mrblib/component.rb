@@ -584,5 +584,75 @@ module Funicular
         super
       end
     end
+
+    # Transition Helpers
+    # These methods provide a declarative way to animate element removal/addition
+    # using CSS transitions, inspired by Vue.js and Alpine.js transition systems
+
+    # Remove an element via CSS transition animation
+    #
+    # @param element_id [String] DOM element ID (without '#' prefix)
+    # @param from [String] CSS classes to remove before animation
+    # @param to [String] CSS classes to add for leave animation
+    # @param duration [Integer] Animation duration in milliseconds (default: 300)
+    # @param callback [Proc] Block called after animation completes
+    #
+    # @example Remove message with fade out
+    #   remove_via("message-123",
+    #     "opacity-100 max-h-screen"
+    #     "opacity-0 max-h-0",
+    #     duration: 500,
+    #   ) do
+    #     patch(messages: updated_messages)
+    #   end
+    def remove_via(element_id, from, to, duration: 300, &callback)
+      element = JS.document.getElementById(element_id)
+
+      unless element
+        callback.call if callback
+        return
+      end
+
+      element.classList.remove(*from.split(" ")) unless from.empty?
+      element.classList.add(*to.split(" ")) unless to.empty?
+
+      JS.global.setTimeout(duration) do
+        callback&.call
+      end
+    end
+
+    # Add an element via CSS transition animation
+    #
+    # @param element_id [String] DOM element ID (without '#' prefix)
+    # @param from [String] CSS classes to remove before animation
+    # @param to [String] CSS classes to add for leave animation
+    # @param duration [Integer] Animation duration in milliseconds (default: 300)
+    # @param callback [Proc] Block called after animation completes
+    #
+    # @example Add message with fade in
+    #   add_via("message-456",
+    #     "opacity-0 scale-95",
+    #     "opacity-100 scale-100",
+    #     duration: 300
+    #   )
+    def add_via(element_id, from, to, duration: 300, &callback)
+      element = JS.document.getElementById(element_id)
+
+      unless element
+        callback.call if callback
+        return
+      end
+
+      element.classList.add(*from.split(" ")) unless from.empty?
+
+      sleep_ms 10
+
+      element.classList.remove(*from.split(" ")) unless from.empty?
+      element.classList.add(*to.split(" ")) unless to.empty?
+
+      JS.global.setTimeout(duration) do
+        callback&.call
+      end
+    end
   end
 end

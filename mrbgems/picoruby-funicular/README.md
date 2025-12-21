@@ -18,6 +18,7 @@ Named after a cable-driven railway, it lets you build apps using pure Ruby, with
 - [Rails integration](#rails-integration)
 - [CSS-in-Ruby with Styles DSL](#css-in-ruby-with-styles-dsl)
 - [Rails-style Form Builder](#rails-style-form-builder)
+- [CSS Transition Helpers](#css-transition-helpers)
 - [JS Integration via Delegation Model](#js-integration-via-delegation-model)
 
 ### Pure Ruby browser app
@@ -323,6 +324,98 @@ Or per-form:
 form_for(:user, error_class: "error-text", field_error_class: "error-border") do |f|
   # ...
 end
+```
+
+### CSS Transition Helpers
+
+Funicular provides built-in CSS transition helpers to add smooth animations when elements enter or leave the DOM. These helpers make it easy to create polished user experiences with minimal code, leveraging native CSS transitions for GPU-accelerated performance.
+
+#### Adding Elements with Animation
+
+Use `add_via` to smoothly fade in new elements:
+
+```ruby
+class MessageComponent < Funicular::Component
+  def component_mounted
+    add_via(
+      "message-#{props[:message]['id']}",
+      "opacity-0 scale-95",      # from: invisible, slightly smaller
+      "opacity-100 scale-100",   # to: visible, normal size
+      duration: 300
+    )
+  end
+
+  def render
+    div(class: "opacity-0 scale-95", id: "message-#{props[:message]['id']}") do
+      p { props[:message]["content"] }
+    end
+  end
+end
+```
+
+#### Removing Elements with Animation
+
+Use `remove_via` to smoothly fade out elements before removing them from state:
+
+```ruby
+class ChatComponent < Funicular::Component
+  def handle_message_delete(message_id)
+    remove_via(
+      "message-#{message_id}",
+      "opacity-100 max-h-screen",  # from: visible, full height
+      "opacity-0 max-h-0",         # to: invisible, collapsed
+      duration: 500
+    ) do
+      # Callback: update state after animation completes
+      updated_messages = state.messages.reject { |m| m["id"] == message_id }
+      patch(messages: updated_messages)
+    end
+  end
+end
+```
+
+#### How It Works
+
+1. **String-based Class Specification**: CSS classes are specified as space-separated strings (e.g., `"opacity-0 scale-95"`), matching standard CSS syntax
+2. **From-To Transitions**: The first string is the starting state, the second is the ending state
+3. **Callback Support**: Optional blocks execute after animations complete, perfect for state updates
+4. **Native CSS**: Uses browser CSS transitions for smooth, GPU-accelerated animations
+
+#### CSS Setup
+
+Define your transitions using Funicular's Styles DSL:
+
+```ruby
+class MessageComponent < Funicular::Component
+  styles do
+    message "transition-[opacity,max-height,transform] duration-500 ease-out max-h-screen"
+  end
+
+  def render
+    div(class: "#{s.message} opacity-0 scale-95", id: "message-#{props[:message]['id']}") do
+      # Message content
+    end
+  end
+end
+```
+
+The Styles DSL keeps your transition definitions organized alongside other component styles, making them easy to maintain and reuse.
+
+#### Common Animation Patterns
+
+**Fade in from below**:
+```ruby
+add_via(element_id, "opacity-0 translate-y-4", "opacity-100 translate-y-0")
+```
+
+**Slide out to the right**:
+```ruby
+remove_via(element_id, "translate-x-0", "translate-x-full")
+```
+
+**Scale and fade**:
+```ruby
+add_via(element_id, "opacity-0 scale-50", "opacity-100 scale-100")
 ```
 
 ### JS Integration via Delegation Model

@@ -1,6 +1,6 @@
 class MessageComponent < Funicular::Component
   styles do
-    message "flex items-start space-x-3 overflow-hidden transition-[opacity,max-height] duration-500 ease-out opacity-100 max-h-screen"
+    message "flex items-start space-x-3 overflow-hidden transition-[opacity,max-height,transform] duration-500 ease-out max-h-screen"
     avatar_img "flex-shrink-0 w-10 h-10 rounded-full object-cover"
     avatar_placeholder "flex-shrink-0 w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold"
 
@@ -13,8 +13,17 @@ class MessageComponent < Funicular::Component
     delete_button "ml-2 text-xs text-red-500 hover:text-red-700 cursor-pointer"
   end
 
+  def component_mounted
+    add_via(
+      "message-#{props[:message]['id']}",
+      "opacity-0 scale-95",
+      "opacity-100 scale-100",
+      duration: 300
+    )
+  end
+
   def render
-    div(class: s.message, id: "message-#{props[:message]['id']}") do
+    div(class: "#{s.message} opacity-0 scale-95", id: "message-#{props[:message]['id']}") do
       # Avatar
       if props[:message]["user"]["has_avatar"]
         img(src: "/users/#{props[:message]['user']['id']}/avatar", class: s.avatar_img)
