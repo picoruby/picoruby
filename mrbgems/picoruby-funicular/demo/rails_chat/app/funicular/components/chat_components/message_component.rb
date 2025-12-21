@@ -26,7 +26,14 @@ class MessageComponent < Funicular::Component
     div(class: "#{s.message} opacity-0 scale-95", id: "message-#{props[:message]['id']}") do
       # Avatar
       if props[:message]["user"]["has_avatar"]
-        img(src: "/users/#{props[:message]['user']['id']}/avatar", class: s.avatar_img)
+        # Add cache buster for current user's avatar to show updates immediately
+        is_current_user = props[:current_user] && props[:current_user].id == props[:message]["user"]["id"]
+        avatar_url = if is_current_user && props[:avatar_cache_buster]
+          "/users/#{props[:message]['user']['id']}/avatar?t=#{props[:avatar_cache_buster]}"
+        else
+          "/users/#{props[:message]['user']['id']}/avatar"
+        end
+        img(src: avatar_url, class: s.avatar_img)
       else
         div(class: s.avatar_placeholder) do
           span { props[:message]["user"]["display_name"][0].upcase }

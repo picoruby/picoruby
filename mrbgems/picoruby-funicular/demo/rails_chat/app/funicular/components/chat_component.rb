@@ -18,7 +18,8 @@ class ChatComponent < Funicular::Component
       current_user: nil,
       loading: true,
       stats: [],
-      skip_scroll: false
+      skip_scroll: false,
+      avatar_cache_buster: Time.now.to_i
     }
   end
 
@@ -166,6 +167,7 @@ class ChatComponent < Funicular::Component
           message_input: state.message_input,
           current_user: state.current_user,
           skip_scroll: state.skip_scroll,
+          avatar_cache_buster: state.avatar_cache_buster,
           on_message_input: ->(event) { handle_message_input(event) },
           on_send_message: ->(event) { handle_send_message(event) },
           on_message_delete: ->(message_id) { handle_message_delete(message_id) }
