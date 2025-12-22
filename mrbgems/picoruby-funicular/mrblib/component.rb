@@ -519,15 +519,17 @@ module Funicular
     end
 
     # Rails-style link_to helper
-    def link_to(path, method: :get, **options, &block)
-      if method == :get || method == 'GET'
-        # GET request: use History API navigation
+    # Default behavior: Fetch API for same-page actions (SPA-friendly)
+    # Use navigate: true for router navigation (different component tree)
+    def link_to(path, method: :get, navigate: false, **options, &block)
+      if navigate
+        # Router navigation (e.g., Settings page)
         merged_options = options.merge(
           onclick: -> { handle_link_click(path) }
         )
         div(merged_options, &block)
       else
-        # Non-GET: use Fetch API
+        # Fetch API (e.g., channel selection, message deletion)
         merged_options = options.merge(
           onclick: -> { handle_link_with_method(path, method) }
         )
@@ -535,15 +537,17 @@ module Funicular
       end
     end
 
-    # Handle GET link click (navigate using History API)
+    # Handle router navigation (navigate using History API)
     def handle_link_click(path)
       Funicular.router&.navigate(path)
     end
 
-    # Handle non-GET link click (use Fetch API)
+    # Handle link action via Fetch API
     def handle_link_with_method(path, method)
       # Call appropriate HTTP method
       case method.to_s.downcase.to_sym
+      when :get
+        HTTP.get(path) { |response| handle_link_response(response, path, method) }
       when :post
         HTTP.post(path) { |response| handle_link_response(response, path, method) }
       when :put
