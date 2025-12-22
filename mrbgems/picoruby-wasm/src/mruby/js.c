@@ -1092,9 +1092,14 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
 
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    fprintf(stderr, "Callback exception: %s\n", RSTRING_PTR(exc_str));
     global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "Callback exception (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Callback exception: %s\n", RSTRING_PTR(exc_str));
+    }
   }
 }
 
@@ -1258,9 +1263,14 @@ call_ruby_callback_sync_generic(uintptr_t callback_id, int *arg_ref_ids, int arg
   // Handle exception
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    fprintf(stderr, "Generic callback exception: %s\n", RSTRING_PTR(exc_str));
     global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "Generic callback exception (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Generic callback exception: %s\n", RSTRING_PTR(exc_str));
+    }
     return -1;
   }
 
