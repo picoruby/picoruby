@@ -22,7 +22,7 @@ class ChannelListComponent < Funicular::Component
     div(class: s.sidebar) do
       div(class: s.sidebar_header) do
         h2(class: s.sidebar_title) { "Channels" }
-        link_to settings_path, class: s.settings_button do
+        link_to settings_path, navigate: true, class: s.settings_button do
           span { "⚙️" }
         end
       end
