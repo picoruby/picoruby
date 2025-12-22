@@ -29,11 +29,12 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   directory bin_dir
 
   file output_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
-    optdebug = ENV['NDEBUG'] ? '-g0' : '-gsource-map --source-map-base http://127.0.0.1:8080/'
-    exported_funcs = if build.vm_mrubyc?
-      '["_picorb_init", "_picorb_create_task", "_mrbc_tick", "_mrbc_run_step", "_malloc", "_free"]'
+    if ENV['PICORUBY_DEBUG']
+      optdebug = '-O0 -gsource-map --source-map-base http://127.0.0.1:8080/'
+      exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free", "_mrb_get_globals_json", "_mrb_eval_string"]'
     else
-      '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free"]'
+      optdebug = '-g0 -O2'
+      exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free"]'
     end
     sh <<~CMD
       emcc #{optdebug} \
