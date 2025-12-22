@@ -44,7 +44,7 @@ module Funicular
     def form_for: (Symbol model_key, ?Hash[Symbol, untyped] options) { (FormBuilder) -> void } -> VDOM::Element
 
     # Rails-style routing helpers
-    def link_to: (String path, ?method: Symbol, **untyped options) { -> untyped } -> VDOM::Element
+    def link_to: (String path, ?method: Symbol, ?navigate: bool, **untyped options) { -> untyped } -> VDOM::Element
     def method_missing: (Symbol method, *untyped args) -> untyped
     def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
 
