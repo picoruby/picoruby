@@ -18,6 +18,7 @@ Named after a cable-driven railway, it lets you build apps using pure Ruby, with
 - [Rails integration](#rails-integration)
 - [CSS-in-Ruby with Styles DSL](#css-in-ruby-with-styles-dsl)
 - [Rails-style Form Builder](#rails-style-form-builder)
+- [Rails-style link_to Helper](#rails-style-link_to-helper)
 - [CSS Transition Helpers](#css-transition-helpers)
 - [JS Integration via Delegation Model](#js-integration-via-delegation-model)
 
@@ -330,6 +331,90 @@ Or per-form:
 ```ruby
 form_for(:user, error_class: "error-text", field_error_class: "error-border") do |f|
   # ...
+end
+```
+
+### Rails-style link_to Helper
+
+Funicular provides a `link_to` helper that brings Rails-style navigation and actions to your Pure Ruby frontend. It intelligently chooses between navigation (using `<a>` tags) and actions (using `<div>` tags) based on the context.
+
+#### Basic Usage
+
+**Navigation Links** (use `navigate: true` for page transitions):
+
+```ruby
+# Navigate to a different page (uses <a> tag with real href)
+link_to settings_path, navigate: true, class: "nav-link" do
+  span { "Settings" }
+end
+
+# Normal click: SPA navigation via History API
+# Right-click -> New Tab: Opens /settings in new tab
+```
+
+**Action Links** (default behavior for server actions):
+
+```ruby
+# Delete a resource (uses <div> tag, Fetch API)
+link_to message_path(message), method: :delete, class: "delete-btn" do
+  span { "Delete" }
+end
+
+# Supports all HTTP methods: :get, :post, :put, :patch, :delete
+link_to post_path(post), method: :patch, class: "btn" do
+  span { "Update" }
+end
+```
+
+#### Why Different Elements?
+
+Funicular uses semantic HTML to distinguish between navigation and actions:
+
+- **Navigation** (`navigate: true`): Generates `<a href="/path">` tags
+  - Browser features work: right-click menu, link preview, open in new tab
+  - SPA navigation on normal click (uses `preventDefault()` + History API)
+  - Semantically correct for page transitions
+
+- **Actions** (default): Generates `<div>` tags
+  - Fetch API for server communication
+  - Semantically correct for operations (create, update, delete)
+  - No `href` attribute needed
+
+#### Integration with Rails Route Helpers
+
+When using Funicular with Rails, route helpers are automatically available:
+
+```ruby
+# Route helpers work seamlessly
+link_to user_path(user), navigate: true do
+  span { user.name }
+end
+
+link_to post_path(post), method: :delete do
+  span { "Delete Post" }
+end
+
+# Generated routes (from router.get '/settings', as: 'settings')
+link_to settings_path, navigate: true do
+  span { "Go to Settings" }
+end
+```
+
+#### Advanced: Handling Responses
+
+Override `handle_link_response` to customize action response handling:
+
+```ruby
+class MyComponent < Funicular::Component
+  def handle_link_response(response, path, method)
+    if response.error?
+      puts "Action failed: #{response.error_message}"
+      update(error: response.error_message)
+    else
+      puts "Action succeeded!"
+      # Update component state based on response
+    end
+  end
 end
 ```
 
