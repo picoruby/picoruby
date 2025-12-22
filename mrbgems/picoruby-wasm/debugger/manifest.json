@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "PicoRuby Debugger",
+  "version": "0.1.0",
+  "description": "Debug PicoRuby WASM applications in the browser",
+  "devtools_page": "devtools.html",
+  "permissions": [
+    "activeTab"
+  ]
+}
