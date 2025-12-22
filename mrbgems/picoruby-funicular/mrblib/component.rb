@@ -38,6 +38,9 @@ module Funicular
       @mounted = false
       @updating = false
       @child_components = []
+
+      # Register component for debugging in development mode
+      @__debug_id__ = Funicular::Debug.register_component(self) if Funicular::Debug.enabled?
     end
 
     def state
@@ -142,6 +145,9 @@ module Funicular
         @dom_element = nil
         @vdom = nil
         @refs = {}
+
+        # Unregister component from debugging in development mode
+        Funicular::Debug.unregister_component(@__debug_id__) if @__debug_id__
 
         component_unmounted if respond_to?(:component_unmounted)
       rescue => e
@@ -248,6 +254,7 @@ module Funicular
     def add_data_component_attribute(vnode)
       return unless vnode.is_a?(VDOM::Element)
       vnode.props[:'data-component'] = self.class.to_s
+      vnode.props[:'data-component-id'] = @__debug_id__.to_s if @__debug_id__
     end
 
     # Normalize render result to VNode
