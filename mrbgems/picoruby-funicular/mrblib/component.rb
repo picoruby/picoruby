@@ -523,13 +523,19 @@ module Funicular
     # Use navigate: true for router navigation (different component tree)
     def link_to(path, method: :get, navigate: false, **options, &block)
       if navigate
-        # Router navigation (e.g., Settings page)
-        merged_options = options.merge(
-          onclick: -> { handle_link_click(path) }
-        )
-        div(merged_options, &block)
+        # Navigation: Use <a> tag with real href for browser features
+        # (right-click -> open in new tab, link preview, etc.)
+        # Note: preventDefault is automatically called by js_add_event_listener
+        # for <a> tags to enable SPA navigation
+        merged_options = options.merge(href: path)
+        merged_options[:onclick] = ->(event) {
+          event.preventDefault  # Called for clarity, but already handled by JS layer
+          handle_link_click(path)
+        }
+        a(merged_options, &block)
       else
-        # Fetch API (e.g., channel selection, message deletion)
+        # Action: Use <div> tag (semantically more appropriate for actions)
+        # No href needed, purely onclick-driven
         merged_options = options.merge(
           onclick: -> { handle_link_with_method(path, method) }
         )

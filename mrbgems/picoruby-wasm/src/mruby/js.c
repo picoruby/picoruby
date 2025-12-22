@@ -548,8 +548,9 @@ EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const cha
     if (!globalThis.picorubyEventHandlers || !globalThis.picorubyEventHandlers[callback_id]) {
       return;
     }
-    // For submit events, prevent default immediately
-    if (type === 'submit') {
+    // Prevent default for submit events and click events on <a> tags
+    // This allows Ruby event handlers to work as SPA navigation handlers
+    if (type === 'submit' || (type === 'click' && target.tagName === 'A')) {
       event.preventDefault();
     }
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
