@@ -8,6 +8,7 @@
 #include <mruby/string.h>
 #include <mruby/variable.h>
 #include <mruby/proc.h>
+#include <mruby/internal.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -66,31 +67,9 @@ const char* mrb_get_globals_json(void) {
     return "{\"error\":\"VM not initialized\"}";
   }
 
-  // Get list of global variable names
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  if (!cc) {
-    return "{\"error\":\"Failed to create compiler context\"}";
-  }
-
-  const char *code = "global_variables";
-  const uint8_t *script = (const uint8_t *)code;
-  size_t size = strlen(code);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return "{\"error\":\"Failed to compile\"}";
-  }
-
-  mrc_resolve_intern(cc, irep);
-  struct RProc *proc = mrb_proc_new(global_mrb, (const mrb_irep *)irep);
-  proc->e.target_class = global_mrb->object_class;
-
-  mrc_ccontext_free(cc);
-
+  // Get list of global variable names directly without using task system
   global_mrb->exc = NULL;
-  mrb_value proc_val = mrb_obj_value(proc);
-  mrb_value names_ary = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
+  mrb_value names_ary = mrb_f_global_variables(global_mrb, mrb_nil_value());
 
   if (global_mrb->exc || !mrb_array_p(names_ary)) {
     global_mrb->exc = NULL;
@@ -117,15 +96,27 @@ const char* mrb_get_globals_json(void) {
     mrb_sym sym = mrb_intern_cstr(global_mrb, name);
     mrb_value val = mrb_gv_get(global_mrb, sym);
 
-    // Try to inspect the value, skip if it fails
+    // Skip internal variables without a valid class (e.g., _gc_root_)
+    const char *classname = mrb_obj_classname(global_mrb, val);
+    if (!classname) {
+      continue; // Skip variables without a valid class
+    }
+
+    // Convert to string safely without using inspect to avoid potential infinite recursion
+    const char *val_cstr;
+    char fallback_buf[128];
+
     global_mrb->exc = NULL;
     mrb_value val_str = mrb_inspect(global_mrb, val);
     if (global_mrb->exc) {
       global_mrb->exc = NULL;
-      continue; // Skip variables that can't be inspected
+      // Fallback: show class name and object ID instead
+      snprintf(fallback_buf, sizeof(fallback_buf), "#<%s:0x%p>",
+               classname, (void*)mrb_obj_id(val));
+      val_cstr = fallback_buf;
+    } else {
+      val_cstr = mrb_str_to_cstr(global_mrb, val_str);
     }
-
-    const char *val_cstr = mrb_str_to_cstr(global_mrb, val_str);
 
     if (!first && remaining > 2) {
       *p++ = ',';
@@ -194,10 +185,14 @@ const char* mrb_eval_string(const char* code) {
   // Check for exception
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    const char *exc_cstr = mrb_str_to_cstr(global_mrb, exc_str);
-
     global_mrb->exc = NULL;
+
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      global_mrb->exc = NULL;
+      return "{\"error\":\"Exception occurred (failed to inspect)\"}";
+    }
+    const char *exc_cstr = mrb_str_to_cstr(global_mrb, exc_str);
 
     char *p = json_buffer;
     size_t remaining = JSON_BUFFER_SIZE - 1;
@@ -218,6 +213,10 @@ const char* mrb_eval_string(const char* code) {
 
   // Return result
   mrb_value result_str = mrb_inspect(global_mrb, result);
+  if (global_mrb->exc) {
+    global_mrb->exc = NULL;
+    return "{\"error\":\"Failed to inspect result\"}";
+  }
   const char *result_cstr = mrb_str_to_cstr(global_mrb, result_str);
 
   char *p = json_buffer;
