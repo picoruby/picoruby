@@ -47,7 +47,7 @@ class MessageComponent < Funicular::Component
 
           # Show delete button only for own messages
           if props[:current_user] && props[:current_user].id == props[:message]["user"]["id"]
-            link_to "/messages/#{props[:message]['id']}", method: :delete, class: s.delete_button do
+            link_to message_path(props[:message]['id']), method: :delete, class: s.delete_button do
               span { "Delete" }
             end
           end
