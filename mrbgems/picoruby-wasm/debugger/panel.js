@@ -16,6 +16,7 @@ class PicoRubyDebugger {
 
     this.isPaused = false;
     this.selectedComponentId = null;
+    this.expandedComponents = new Set();
     this.setupEventListeners();
     this.checkConnection();
   }
@@ -52,7 +53,6 @@ class PicoRubyDebugger {
     // Confirm the existence of picorubyModule
     this.evalInPage('typeof window.picorubyModule')
       .then(result => {
-        console.log('typeof window.picorubyModule:', result);
         if (result === 'undefined') {
           this.updateStatus('PicoRuby Module not found');
           return;
@@ -76,7 +76,6 @@ class PicoRubyDebugger {
       })
       .then(info => {
         if (!info) return;
-        console.log('PicoRuby Module info:', info);
 
         if (info.hasModule) {
           this.updateStatus('Connected to PicoRuby ✓');
@@ -116,6 +115,8 @@ class PicoRubyDebugger {
     this.getVariables();
 
     this.getGlobals();
+
+    this.refreshComponents();
 
     this.updateStatus('Ready');
   }
@@ -366,7 +367,7 @@ class PicoRubyDebugger {
           return { available: false, reason: 'PicoRuby not loaded' };
         }
         const Module = window.picorubyModule;
-        const code = "defined?($__funicular_debug__) ? 'enabled' : 'disabled'";
+        const code = "global_variables.include?(:$__funicular_debug__) ? 'enabled' : 'disabled'";
         const jsonStr = Module.ccall('mrb_eval_string', 'string', ['string'], [code]);
         const result = JSON.parse(jsonStr);
         return {
@@ -390,16 +391,21 @@ class PicoRubyDebugger {
     if (!this.componentsSection) return;
     this.componentsSection.style.display = 'flex';
     this.updateStatus('Component Debug enabled ✓');
-    this.refreshComponents();
+    setTimeout(() => {
+      this.refreshComponents();
+    }, 100);
   }
 
   showComponentDebugUnavailable(reason) {
     if (!this.componentsSection) return;
     this.componentsSection.style.display = 'none';
-    console.log(`Component Debug: ${reason}`);
   }
 
   refreshComponents() {
+    if (!this.componentsSection || this.componentsSection.style.display === 'none') {
+      this.checkComponentDebugMode();
+      return;
+    }
     this.getComponentTree();
   }
 
@@ -407,14 +413,12 @@ class PicoRubyDebugger {
     this.evalInPage(`
       (function() {
         const Module = window.picorubyModule;
-        const code = "$__funicular_debug__.component_tree.to_json";
-        const jsonStr = Module.ccall('mrb_eval_string', 'string', ['string'], [code]);
-        return jsonStr;
+        const jsonStr = Module.ccall('mrb_get_component_debug_info', 'string', ['string'], ['component_tree']);
+        return JSON.parse(jsonStr);
       })()
-    `).then(result => {
-      const response = JSON.parse(result);
+    `).then(response => {
       if (!response.error) {
-        const components = JSON.parse(response.result);
+        const components = typeof response.result === 'string' ? JSON.parse(response.result) : response.result;
         this.displayComponentTree(components);
       } else {
         console.error('Failed to get component tree:', response.error);
@@ -432,20 +436,73 @@ class PicoRubyDebugger {
       return;
     }
 
-    this.componentTree.innerHTML = components.map(comp => `
-      <div class="component-item ${comp.id === this.selectedComponentId ? 'selected' : ''}"
-           data-component-id="${comp.id}">
-        <span class="component-class">${this.escapeHtml(comp.class)}</span>
-        <span class="component-id">#${comp.id}</span>
-        ${comp.mounted ? '<span class="component-status">●</span>' : '<span class="component-status-unmounted">○</span>'}
-      </div>
-    `).join('');
+    // Build component map for quick lookup
+    const componentMap = {};
+    components.forEach(comp => {
+      componentMap[comp.id] = comp;
+    });
 
-    // Add click listeners
+    // Find root components (components that are not children of any other component)
+    const allChildIds = new Set();
+    components.forEach(comp => {
+      if (comp.children) {
+        comp.children.forEach(childId => allChildIds.add(childId));
+      }
+    });
+
+    const rootComponents = components.filter(comp => !allChildIds.has(comp.id));
+
+    // Render tree recursively
+    const renderComponent = (comp, depth = 0) => {
+      const hasChildren = comp.children && comp.children.length > 0;
+      const isExpanded = this.expandedComponents.has(comp.id);
+
+      let html = `
+        <div class="component-item ${comp.id === this.selectedComponentId ? 'selected' : ''}"
+             data-component-id="${comp.id}"
+             style="padding-left: ${depth * 20}px;">
+          ${hasChildren ? `<span class="tree-toggle ${isExpanded ? 'expanded' : ''}" data-component-id="${comp.id}">${isExpanded ? '▼' : '▶'}</span>` : '<span class="tree-spacer"></span>'}
+          <span class="component-class">${this.escapeHtml(comp.class)}</span>
+          <span class="component-id">#${comp.id}</span>
+          ${comp.mounted ? '<span class="component-status">●</span>' : '<span class="component-status-unmounted">○</span>'}
+        </div>
+      `;
+
+      if (hasChildren && isExpanded) {
+        comp.children.forEach(childId => {
+          const child = componentMap[childId];
+          if (child) {
+            html += renderComponent(child, depth + 1);
+          }
+        });
+      }
+
+      return html;
+    };
+
+    this.componentTree.innerHTML = rootComponents.map(comp => renderComponent(comp)).join('');
+
+    // Add click listeners for component items
     this.componentTree.querySelectorAll('.component-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        // Don't select if clicking on toggle
+        if (e.target.classList.contains('tree-toggle')) return;
         const componentId = parseInt(item.dataset.componentId);
         this.selectComponent(componentId);
+      });
+    });
+
+    // Add click listeners for tree toggles
+    this.componentTree.querySelectorAll('.tree-toggle').forEach(toggle => {
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const componentId = parseInt(toggle.dataset.componentId);
+        if (this.expandedComponents.has(componentId)) {
+          this.expandedComponents.delete(componentId);
+        } else {
+          this.expandedComponents.add(componentId);
+        }
+        this.getComponentTree();
       });
     });
   }
@@ -453,7 +510,7 @@ class PicoRubyDebugger {
   selectComponent(componentId) {
     this.selectedComponentId = componentId;
     this.inspectComponent(componentId);
-    this.displayComponentTree([]); // Refresh to update selection
+    // Refresh tree to update selection UI
     this.getComponentTree();
   }
 
@@ -461,20 +518,12 @@ class PicoRubyDebugger {
     this.evalInPage(`
       (function() {
         const Module = window.picorubyModule;
-        const code = \`
-          debug = $__funicular_debug__
-          state = debug.get_component_state(${componentId})
-          ivars = debug.get_component_instance_variables(${componentId})
-          { state: state, ivars: ivars }.to_json
-        \`;
-        const jsonStr = Module.ccall('mrb_eval_string', 'string', ['string'], [code]);
-        return jsonStr;
+        const jsonStr = Module.ccall('mrb_get_component_state_by_id', 'string', ['number'], [${componentId}]);
+        return JSON.parse(jsonStr);
       })()
-    `).then(result => {
-      const response = JSON.parse(result);
+    `).then(response => {
       if (!response.error) {
-        const data = JSON.parse(response.result);
-        this.displayComponentState(componentId, data);
+        this.displayComponentState(componentId, response.result);
       } else {
         console.error('Failed to inspect component:', response.error);
       }

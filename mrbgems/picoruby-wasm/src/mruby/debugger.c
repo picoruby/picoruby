@@ -143,6 +143,146 @@ const char* mrb_get_globals_json(void) {
   return json_buffer;
 }
 
+// Get component debug info - using mrb_eval_string since mrb_funcall doesn't work in WASM
+EMSCRIPTEN_KEEPALIVE
+const char* mrb_get_component_debug_info(const char* method) {
+  if (!global_mrb) {
+    return "{\"error\":\"VM not initialized\"}";
+  }
+
+  // Build Ruby code to call the method
+  static char code_buffer[256];
+  snprintf(code_buffer, sizeof(code_buffer), "$__funicular_debug__.%s", method);
+
+  // Compile the code
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  if (!cc) {
+    return "{\"error\":\"Failed to create compiler context\"}";
+  }
+
+  const uint8_t *script = (const uint8_t *)code_buffer;
+  size_t size = strlen(code_buffer);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script, size);
+
+  if (!irep) {
+    mrc_ccontext_free(cc);
+    return "{\"error\":\"Syntax error\"}";
+  }
+
+  // Create proc
+  mrc_resolve_intern(cc, irep);
+  struct RProc *proc = mrb_proc_new(global_mrb, (const mrb_irep *)irep);
+  proc->e.target_class = global_mrb->object_class;
+
+  mrc_ccontext_free(cc);
+
+  // Execute synchronously
+  mrb_value proc_val = mrb_obj_value(proc);
+  global_mrb->exc = NULL;
+  mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
+
+  // Check for exception
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      global_mrb->exc = NULL;
+      return "{\"error\":\"Exception occurred\"}";
+    }
+    static char error_buffer[JSON_BUFFER_SIZE];
+    const char *exc_cstr = mrb_str_to_cstr(global_mrb, exc_str);
+    snprintf(error_buffer, JSON_BUFFER_SIZE, "{\"error\":\"%s\"}", exc_cstr);
+    return error_buffer;
+  }
+
+  // Result should be a JSON string
+  if (!mrb_string_p(result)) {
+    const char *type_name = mrb_obj_classname(global_mrb, result);
+    static char type_error_buffer[256];
+    snprintf(type_error_buffer, 256, "{\"error\":\"Invalid result type: %s\"}", type_name ? type_name : "unknown");
+    return type_error_buffer;
+  }
+
+  // Return the string directly
+  static char result_buffer[JSON_BUFFER_SIZE];
+  const char *result_str = mrb_str_to_cstr(global_mrb, result);
+  snprintf(result_buffer, JSON_BUFFER_SIZE, "{\"result\":%s}", result_str);
+  return result_buffer;
+}
+
+// Get component state by ID - using mrb_eval_string since mrb_funcall doesn't work in WASM
+EMSCRIPTEN_KEEPALIVE
+const char* mrb_get_component_state_by_id(int component_id) {
+  if (!global_mrb) {
+    return "{\"error\":\"VM not initialized\"}";
+  }
+
+  // Build Ruby code to get both state and ivars
+  static char code_buffer[512];
+  snprintf(code_buffer, sizeof(code_buffer),
+    "state = $__funicular_debug__.get_component_state(%d); "
+    "ivars = $__funicular_debug__.get_component_instance_variables(%d); "
+    "\"{\\\"state\\\":#{state},\\\"ivars\\\":#{ivars}}\"",
+    component_id, component_id);
+
+  // Compile the code
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  if (!cc) {
+    return "{\"error\":\"Failed to create compiler context\"}";
+  }
+
+  const uint8_t *script = (const uint8_t *)code_buffer;
+  size_t size = strlen(code_buffer);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script, size);
+
+  if (!irep) {
+    mrc_ccontext_free(cc);
+    return "{\"error\":\"Syntax error\"}";
+  }
+
+  // Create proc
+  mrc_resolve_intern(cc, irep);
+  struct RProc *proc = mrb_proc_new(global_mrb, (const mrb_irep *)irep);
+  proc->e.target_class = global_mrb->object_class;
+
+  mrc_ccontext_free(cc);
+
+  // Execute synchronously
+  mrb_value proc_val = mrb_obj_value(proc);
+  global_mrb->exc = NULL;
+  mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
+
+  // Check for exception
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      global_mrb->exc = NULL;
+      return "{\"error\":\"Exception occurred\"}";
+    }
+    static char error_buffer[JSON_BUFFER_SIZE];
+    const char *exc_cstr = mrb_str_to_cstr(global_mrb, exc_str);
+    snprintf(error_buffer, JSON_BUFFER_SIZE, "{\"error\":\"%s\"}", exc_cstr);
+    return error_buffer;
+  }
+
+  // Result should be a JSON string
+  if (!mrb_string_p(result)) {
+    const char *type_name = mrb_obj_classname(global_mrb, result);
+    static char type_error_buffer[256];
+    snprintf(type_error_buffer, 256, "{\"error\":\"Invalid result type: %s\"}", type_name ? type_name : "unknown");
+    return type_error_buffer;
+  }
+
+  // Return the result directly wrapped
+  static char result_buffer[JSON_BUFFER_SIZE];
+  const char *result_str = mrb_str_to_cstr(global_mrb, result);
+  snprintf(result_buffer, JSON_BUFFER_SIZE, "{\"result\":%s}", result_str);
+  return result_buffer;
+}
+
 // Evaluate Ruby code synchronously
 EMSCRIPTEN_KEEPALIVE
 const char* mrb_eval_string(const char* code) {
