@@ -9,7 +9,13 @@ class PicoRubyDebugger {
     this.replOutput = document.getElementById('replOutput');
     this.replInput = document.getElementById('replInput');
 
+    // Component debug elements
+    this.componentsSection = document.getElementById('componentsSection');
+    this.componentTree = document.getElementById('componentTree');
+    this.componentInspector = document.getElementById('componentInspector');
+
     this.isPaused = false;
+    this.selectedComponentId = null;
     this.setupEventListeners();
     this.checkConnection();
   }
@@ -75,6 +81,8 @@ class PicoRubyDebugger {
         if (info.hasModule) {
           this.updateStatus('Connected to PicoRuby ✓');
           this.displayConnectionInfo(info);
+          // Check for component debug mode
+          this.checkComponentDebugMode();
         } else {
           this.updateStatus('PicoRuby not detected');
         }
@@ -348,6 +356,180 @@ class PicoRubyDebugger {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Component Debug Mode
+  checkComponentDebugMode() {
+    this.evalInPage(`
+      (function() {
+        if (typeof window.picorubyModule === 'undefined') {
+          return { available: false, reason: 'PicoRuby not loaded' };
+        }
+        const Module = window.picorubyModule;
+        const code = "defined?($__funicular_debug__) ? 'enabled' : 'disabled'";
+        const jsonStr = Module.ccall('mrb_eval_string', 'string', ['string'], [code]);
+        const result = JSON.parse(jsonStr);
+        return {
+          available: result.result === '"enabled"',
+          reason: result.result === '"enabled"' ? null : 'Not in development mode'
+        };
+      })()
+    `).then(result => {
+      if (result.available) {
+        this.enableComponentDebug();
+      } else {
+        this.showComponentDebugUnavailable(result.reason);
+      }
+    }).catch(err => {
+      console.error('Component debug check error:', err);
+      this.showComponentDebugUnavailable('Error checking debug mode');
+    });
+  }
+
+  enableComponentDebug() {
+    if (!this.componentsSection) return;
+    this.componentsSection.style.display = 'flex';
+    this.updateStatus('Component Debug enabled ✓');
+    this.refreshComponents();
+  }
+
+  showComponentDebugUnavailable(reason) {
+    if (!this.componentsSection) return;
+    this.componentsSection.style.display = 'none';
+    console.log(`Component Debug: ${reason}`);
+  }
+
+  refreshComponents() {
+    this.getComponentTree();
+  }
+
+  getComponentTree() {
+    this.evalInPage(`
+      (function() {
+        const Module = window.picorubyModule;
+        const code = "$__funicular_debug__.component_tree.to_json";
+        const jsonStr = Module.ccall('mrb_eval_string', 'string', ['string'], [code]);
+        return jsonStr;
+      })()
+    `).then(result => {
+      const response = JSON.parse(result);
+      if (!response.error) {
+        const components = JSON.parse(response.result);
+        this.displayComponentTree(components);
+      } else {
+        console.error('Failed to get component tree:', response.error);
+      }
+    }).catch(err => {
+      console.error('getComponentTree error:', err);
+    });
+  }
+
+  displayComponentTree(components) {
+    if (!this.componentTree) return;
+
+    if (components.length === 0) {
+      this.componentTree.innerHTML = '<div class="empty-state">No components</div>';
+      return;
+    }
+
+    this.componentTree.innerHTML = components.map(comp => `
+      <div class="component-item ${comp.id === this.selectedComponentId ? 'selected' : ''}"
+           data-component-id="${comp.id}">
+        <span class="component-class">${this.escapeHtml(comp.class)}</span>
+        <span class="component-id">#${comp.id}</span>
+        ${comp.mounted ? '<span class="component-status">●</span>' : '<span class="component-status-unmounted">○</span>'}
+      </div>
+    `).join('');
+
+    // Add click listeners
+    this.componentTree.querySelectorAll('.component-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const componentId = parseInt(item.dataset.componentId);
+        this.selectComponent(componentId);
+      });
+    });
+  }
+
+  selectComponent(componentId) {
+    this.selectedComponentId = componentId;
+    this.inspectComponent(componentId);
+    this.displayComponentTree([]); // Refresh to update selection
+    this.getComponentTree();
+  }
+
+  inspectComponent(componentId) {
+    this.evalInPage(`
+      (function() {
+        const Module = window.picorubyModule;
+        const code = \`
+          debug = $__funicular_debug__
+          state = debug.get_component_state(${componentId})
+          ivars = debug.get_component_instance_variables(${componentId})
+          { state: state, ivars: ivars }.to_json
+        \`;
+        const jsonStr = Module.ccall('mrb_eval_string', 'string', ['string'], [code]);
+        return jsonStr;
+      })()
+    `).then(result => {
+      const response = JSON.parse(result);
+      if (!response.error) {
+        const data = JSON.parse(response.result);
+        this.displayComponentState(componentId, data);
+      } else {
+        console.error('Failed to inspect component:', response.error);
+      }
+    }).catch(err => {
+      console.error('inspectComponent error:', err);
+    });
+  }
+
+  displayComponentState(componentId, data) {
+    if (!this.componentInspector) return;
+
+    const stateEntries = Object.entries(data.state || {});
+    const ivarEntries = Object.entries(data.ivars || {});
+
+    let html = `<div class="component-inspector-content">`;
+    html += `<h4>Component #${componentId}</h4>`;
+
+    // Display state
+    if (stateEntries.length > 0) {
+      html += `<div class="inspector-section"><strong>State:</strong></div>`;
+      html += `<ul class="variable-list">`;
+      stateEntries.forEach(([key, value]) => {
+        html += `
+          <li class="variable-item">
+            <span class="variable-name">${this.escapeHtml(key)}</span>
+            <span> = </span>
+            <span class="variable-value">${this.escapeHtml(value)}</span>
+          </li>
+        `;
+      });
+      html += `</ul>`;
+    }
+
+    // Display instance variables
+    if (ivarEntries.length > 0) {
+      html += `<div class="inspector-section"><strong>Instance Variables:</strong></div>`;
+      html += `<ul class="variable-list">`;
+      ivarEntries.forEach(([key, value]) => {
+        html += `
+          <li class="variable-item">
+            <span class="variable-name">${this.escapeHtml(key)}</span>
+            <span> = </span>
+            <span class="variable-value">${this.escapeHtml(value)}</span>
+          </li>
+        `;
+      });
+      html += `</ul>`;
+    }
+
+    if (stateEntries.length === 0 && ivarEntries.length === 0) {
+      html += `<div class="empty-state">No state or variables</div>`;
+    }
+
+    html += `</div>`;
+    this.componentInspector.innerHTML = html;
   }
 }
 

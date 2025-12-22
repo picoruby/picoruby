@@ -68,6 +68,9 @@ module Funicular
     # Export debug configuration to JavaScript
     export_debug_config
 
+    # Initialize debug module in development mode
+    Funicular::Debug.expose_to_global if Funicular.env.development?
+
     container_element = if container.is_a?(String)
       JS.document.getElementById(container)
     else

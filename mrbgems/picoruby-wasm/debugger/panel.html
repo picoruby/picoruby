@@ -210,6 +210,73 @@
       text-align: center;
       color: #888;
     }
+
+    /* Component Inspector Styles */
+    #componentsSection {
+      display: none;
+      flex-direction: column;
+      border-right: 1px solid #454545;
+      width: 300px;
+      background: #252526;
+    }
+
+    .component-item {
+      padding: 6px 8px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .component-item:hover {
+      background: #2a2d2e;
+    }
+
+    .component-item.selected {
+      background: #094771;
+      border-left-color: #007acc;
+    }
+
+    .component-class {
+      color: #4ec9b0;
+      flex: 1;
+    }
+
+    .component-id {
+      color: #888;
+      font-size: 10px;
+    }
+
+    .component-status {
+      color: #4ec9b0;
+      font-size: 14px;
+    }
+
+    .component-status-unmounted {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .inspector-section {
+      margin-top: 12px;
+      margin-bottom: 4px;
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .component-inspector-content {
+      padding: 8px;
+    }
+
+    .component-inspector-content h4 {
+      margin: 0 0 12px 0;
+      color: #cccccc;
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -246,6 +313,27 @@
           <ul class="variable-list" id="globals">
             <li class="empty-state">No globals</li>
           </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component Inspector Section (hidden by default) -->
+    <div id="componentsSection">
+      <div class="section">
+        <div class="section-header">Components</div>
+        <div class="section-content">
+          <div id="componentTree">
+            <div class="empty-state">No components</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">Inspector</div>
+        <div class="section-content">
+          <div id="componentInspector">
+            <div class="empty-state">Select a component</div>
+          </div>
         </div>
       </div>
     </div>
