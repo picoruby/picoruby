@@ -38,6 +38,10 @@
 
     // Create and initialize the module
     const Module = await createModule();
+
+    // Expose Module for debugging (used by PicoRuby DevTools extension)
+    window.picorubyModule = Module;
+
     Module.picorubyRun = function() {
       const tickTimer = setInterval(() => {
         Module.ccall('mrb_tick_wasm', null, [], []);
