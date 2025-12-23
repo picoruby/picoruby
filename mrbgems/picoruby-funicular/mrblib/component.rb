@@ -291,11 +291,14 @@ module Funicular
       return if vnode.is_a?(VDOM::Component)
       return unless vnode.is_a?(VDOM::Element)
 
+      event_types = []
+
       vnode.props.each do |key, value|
         key_str = key.to_s
         next unless key_str.start_with?('on')
 
         event_name = key_str[2..-1]&.downcase || ""
+        event_types << event_name
 
         # addEventListener expects a block, not a Proc
         callback_id = case value
@@ -330,6 +333,11 @@ module Funicular
         end
 
         @event_listeners << callback_id
+      end
+
+      # Add debug attribute for DevTools
+      if Funicular::Debug.enabled? && event_types.length > 0
+        dom_element.setAttribute("data-event-listeners", event_types.join(","))
       end
 
       # Recursively bind events for children
