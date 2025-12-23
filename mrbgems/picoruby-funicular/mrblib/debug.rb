@@ -44,7 +44,8 @@ module Funicular
               state_keys = get_state_keys(component)
               class_name = component.class.to_s
               child_ids = get_child_ids(component)
-              %Q({"id":#{id},"class":"#{class_name}","state_keys":#{state_keys.inspect},"mounted":#{mounted},"children":#{child_ids.inspect}})
+              child_ids_json = "[#{child_ids.join(',')}]"
+              %Q({"id":#{id},"class":"#{class_name}","state_keys":#{state_keys.inspect},"mounted":#{mounted},"children":#{child_ids_json}})
             rescue => e
               %Q({"id":#{id},"error":"#{e.message}"})
             end
