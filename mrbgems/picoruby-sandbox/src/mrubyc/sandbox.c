@@ -90,7 +90,7 @@ c_sandbox_free_parser(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   { /*
-       Workaround but causes memory leak ・
+       Workaround but causes memory leak 😔
        To preserve symbol table
     */
     if (ss->vm_code) ss->vm_code = NULL;
