@@ -2,10 +2,10 @@
 // PicoRuby tab creation
 
 chrome.devtools.panels.create(
-  "PicoRuby",
+  "Funicular",
   "icons/icon16.png",
   "panel.html",
   (panel) => {
-    console.log("PicoRuby DevTools panel created");
+    console.log("Funicular DevTools panel created");
   }
 );
