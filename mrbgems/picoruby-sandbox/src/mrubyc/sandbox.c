@@ -10,6 +10,11 @@ mrbc_sandbox_free(mrbc_value *self)
   SandboxState *ss = (SandboxState *)self->instance->data;
 //  mrc_irep_free(ss->cc, ss->irep); // Can't free code in ROM
   free_ccontext(ss);
+
+  mrbc_vm_end((mrbc_vm *)&ss->tcb->vm);
+  mrbc_vm_close((mrbc_vm *)&ss->tcb->vm);
+  mrbc_suspend_task(ss->tcb);
+  mrbc_delete_task(ss->tcb);
 }
 
 
@@ -17,27 +22,27 @@ static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  const char *status_str;
+  mrbc_value state;
   switch (ss->tcb->state) {
-    case TASKSTATE_DORMANT:   status_str = "DORMANT";   break;
-    case TASKSTATE_READY:     status_str = "READY";     break;
-    case TASKSTATE_RUNNING:   status_str = "RUNNING";   break;
-    case TASKSTATE_WAITING:   status_str = "WAITING";   break;
-    case TASKSTATE_SUSPENDED: status_str = "SUSPENDED"; break;
-    default:                  status_str = "UNKNOWN";   break;
+    case TASKSTATE_DORMANT:
+      state = mrbc_symbol_value(mrbc_str_to_symid("DORMANT"));
+      break;
+    case TASKSTATE_READY:
+      state = mrbc_symbol_value(mrbc_str_to_symid("READY"));
+      break;
+    case TASKSTATE_RUNNING:
+      state = mrbc_symbol_value(mrbc_str_to_symid("RUNNING"));
+      break;
+    case TASKSTATE_WAITING:
+      state = mrbc_symbol_value(mrbc_str_to_symid("WAITING"));
+      break;
+    case TASKSTATE_SUSPENDED:
+      state = mrbc_symbol_value(mrbc_str_to_symid("SUSPENDED"));
+      break;
+    default:
+      state = mrbc_symbol_value(mrbc_str_to_symid("UNKNOWN")); // this should not happen
   }
-  mrbc_value str_val = mrbc_string_new_cstr(vm, status_str);
-  if (ss->tcb->state == TASKSTATE_WAITING) {
-    const char *reason_str;
-    switch (ss->tcb->reason) {
-      case TASKREASON_SLEEP: reason_str = "SLEEP"; break;
-      case TASKREASON_MUTEX: reason_str = "MUTEX"; break;
-      case TASKREASON_JOIN:  reason_str = "JOIN";  break;
-      default:               reason_str = "";      break;
-    }
-    mrbc_string_append_cstr(&str_val, reason_str);
-  }
-  SET_RETURN(mrbc_symbol_value(mrbc_str_to_symid((const char *)str_val.string->data)));
+  SET_RETURN(state);
 }
 
 static void
