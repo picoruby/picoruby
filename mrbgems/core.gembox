@@ -10,6 +10,8 @@ MRuby::GemBox.new do |conf|
     elsif vm_mruby?
       conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
       conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-io"
+      conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-proc-ext"
+      conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-method"
     end
   else
     conf.gem core: "picoruby-vfs"
