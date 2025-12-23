@@ -142,8 +142,8 @@ class PicoRubyDebugger {
       try {
         chrome.devtools.inspectedWindow.eval(code, (result, exceptionInfo) => {
           if (exceptionInfo) {
-            console.error('Eval error:', exceptionInfo);
-            reject(new Error(exceptionInfo.description || exceptionInfo.value || 'Eval failed'));
+            console.error('Eval error:', exceptionInfo.value || exceptionInfo);
+            reject(new Error(exceptionInfo.description || 'Eval failed'));
           } else {
             resolve(result);
           }
@@ -156,6 +156,7 @@ class PicoRubyDebugger {
   }
 
   escapeHtml(text) {
+    if (typeof text !== 'string') return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
@@ -227,25 +228,47 @@ class PicoRubyDebugger {
     // Get current component tree hash
     this.evalInPage(`
       (function() {
-        const Module = window.picorubyModule;
-        const jsonStr = Module.ccall('mrb_get_component_debug_info', 'string', ['string'], ['component_tree']);
-        return jsonStr;
+        try {
+          const Module = window.picorubyModule;
+          if (!Module || typeof Module.ccall !== 'function') {
+            return JSON.stringify({ error: "picorubyModule or ccall not available" });
+          }
+          const jsonStr = Module.ccall('mrb_get_component_debug_info', 'string', ['string'], ['component_tree']);
+          return jsonStr;
+        } catch (e) {
+          return JSON.stringify({ error: "ccall failed", message: e.message, stack: e.stack });
+        }
       })()
     `).then(response => {
       if (!response) return;
 
-      // Create a simple hash of the component tree
+      try {
+        const data = JSON.parse(response);
+        if (data.error) {
+          console.error("Error from page-side ccall:", data);
+          return;
+        }
+      } catch(e) {
+        // Not a JSON object, proceed as normal.
+      }
+
       const currentHash = this.simpleHash(response);
 
-      // If hash changed, refresh the display
       if (this.lastComponentTreeHash !== null && this.lastComponentTreeHash !== currentHash) {
-        console.log('Component tree changed, refreshing...');
-        this.getComponentTree();
+        if (this.refreshDebounceTimer) {
+          clearTimeout(this.refreshDebounceTimer);
+        }
+        this.refreshDebounceTimer = setTimeout(() => {
+            console.log('Debounced refresh triggered.');
+            this.getComponentTree();
+        }, 100);
       }
 
       this.lastComponentTreeHash = currentHash;
     }).catch(err => {
       console.error('Error checking component tree:', err);
+      this.updateStatus('Component tree connection lost');
+      this.stopAutoRefresh();
     });
   }
 
@@ -280,9 +303,11 @@ class PicoRubyDebugger {
         this.displayComponentTree(components);
       } else {
         console.error('Failed to get component tree:', response.error);
+        this.componentTree.innerHTML = '<div class="empty-state">Failed to load component tree.</div>';
       }
     }).catch(err => {
       console.error('getComponentTree error:', err);
+      this.componentTree.innerHTML = '<div class="empty-state">Failed to load component tree.</div>';
     });
   }
 
@@ -343,9 +368,15 @@ class PicoRubyDebugger {
     // Add click listeners for component items
     this.componentTree.querySelectorAll('.component-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        // Don't select if clicking on toggle
         if (e.target.classList.contains('tree-toggle')) return;
+
         const componentId = parseInt(item.dataset.componentId);
+        const component = components.find(c => c.id === componentId);
+
+        if (component && component.children && component.children.length > 0 && !this.expandedComponents.has(componentId)) {
+          this.expandedComponents.add(componentId);
+        }
+
         this.selectComponent(componentId);
       });
     });
@@ -514,7 +545,6 @@ class PicoRubyDebugger {
         }
       })()
     `).then(response => {
-      console.log('inspectComponent response:', response);
       if (response && response.ruby) {
         this.displayComponentState(componentId, response.ruby, response.dom || []);
       } else if (response && !response.error) {
@@ -532,9 +562,6 @@ class PicoRubyDebugger {
   displayComponentState(componentId, rubyData, domInfo) {
     if (!this.componentInspector) return;
 
-    console.log('displayComponentState called:', { componentId, rubyData, domInfo });
-
-    // Handle case where rubyData might be the direct result
     const data = rubyData.result || rubyData;
     const stateEntries = Object.entries(data.state || {});
     const ivarEntries = Object.entries(data.ivars || {});
@@ -542,13 +569,12 @@ class PicoRubyDebugger {
     let html = `<div class="component-inspector-content">`;
     html += `<h4>Component #${componentId}</h4>`;
 
-    // Display DOM elements FIRST (highest priority)
     const safedomInfo = domInfo || [];
     if (safedomInfo.length > 0) {
       html += `<div class="inspector-section"><strong>DOM Elements:</strong></div>`;
       safedomInfo.forEach((el, idx) => {
         html += `<div style="margin-bottom: 12px; padding: 8px; background: #1e1e1e; border-radius: 4px;">`;
-        html += `<div style="color: #4ec9b0; margin-bottom: 4px; font-size: 12px;">&lt;${this.escapeHtml(el.tagName)}&gt;`;
+        html += `<div style="color: #4ec9b0; margin-bottom: 4px; font-size: 12px; display: flex; align-items: center;">&lt;${this.escapeHtml(el.tagName)}&gt;`;
         if (el.eventListeners && el.eventListeners.length > 0) {
           el.eventListeners.forEach(type => {
             html += `<span class="event-listener-badge">[on${this.escapeHtml(type)}]</span>`;
@@ -587,7 +613,6 @@ class PicoRubyDebugger {
       });
     }
 
-    // Display state
     if (stateEntries.length > 0) {
       html += `<div class="inspector-section"><strong>State:</strong></div>`;
       html += `<ul class="variable-list">`;
@@ -603,7 +628,6 @@ class PicoRubyDebugger {
       html += `</ul>`;
     }
 
-    // Display instance variables
     if (ivarEntries.length > 0) {
       html += `<div class="inspector-section"><strong>Instance Variables:</strong></div>`;
       html += `<ul class="variable-list">`;
@@ -619,7 +643,6 @@ class PicoRubyDebugger {
       html += `</ul>`;
     }
 
-    // Display Ruby inspect (raw data) - lowest priority
     if (data.inspect) {
       html += `<div class="inspector-section"><strong>Ruby Inspect:</strong></div>`;
       html += `<pre style="padding: 8px; background: #1e1e1e; margin-bottom: 12px; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 11px; color: #ce9178; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">`;
@@ -645,24 +668,26 @@ class PicoRubyDebugger {
 
       const childId = `child-${depth}-${index}`;
       html += `<div style="margin: 4px 0; padding: 4px; background: #2d2d2d; border-radius: 2px; font-size: 10px;">`;
-      html += `<span style="color: #4ec9b0;">&lt;${this.escapeHtml(child.tagName)}&gt;</span>`;
+      html += `<div style="display: flex; align-items: center;"><span style="color: #4ec9b0;">&lt;${this.escapeHtml(child.tagName)}&gt;</span>`;
 
-      if (child.id) {
-        html += ` <span style="color: #888;">id=</span><span style="color: #ce9178;">"${this.escapeHtml(child.id)}"</span>`;
-      }
-      if (child.className) {
-        html += ` <span style="color: #888;">class=</span><span style="color: #ce9178;">"${this.escapeHtml(child.className)}"</span>`;
-      }
-      if (child.textContent) {
-        html += ` <span style="color: #d4d4d4;">${this.escapeHtml(child.textContent)}</span>`;
-      }
-      if (child.hasChildren) {
-        html += ` <span style="color: #666;">(${child.childCount} children)</span>`;
-      }
       if (child.eventListeners && child.eventListeners.length > 0) {
         child.eventListeners.forEach(type => {
           html += `<span class="event-listener-badge">[on${this.escapeHtml(type)}]</span>`;
         });
+      }
+      html += `</div>`
+
+      if (child.id) {
+        html += ` <div style="margin-left: 10px; color: #888;">id=<span style="color: #ce9178;">"${this.escapeHtml(child.id)}"</span></div>`;
+      }
+      if (child.className) {
+        html += ` <div style="margin-left: 10px; color: #888;">class=<span style="color: #ce9178;">"${this.escapeHtml(child.className)}"</span></div>`;
+      }
+      if (child.textContent) {
+        html += ` <div style="margin-left: 10px; color: #d4d4d4;">${this.escapeHtml(child.textContent)}</div>`;
+      }
+      if (child.hasChildren) {
+        html += ` <div style="margin-left: 10px; color: #666;">(${child.childCount} children)</div>`;
       }
 
       if (child.children && child.children.length > 0) {
