@@ -220,6 +220,9 @@ module Funicular
           return [[:replace, new_node, old_node]]
         end
 
+        # Copy instance reference so parent's @vdom keeps valid instance refs
+        # This is needed for debug.rb's collect_direct_children to work correctly
+        new_node.instance = old_node.instance
         []
       end
 
