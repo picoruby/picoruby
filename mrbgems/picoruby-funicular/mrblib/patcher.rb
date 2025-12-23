@@ -11,7 +11,10 @@ module Funicular
         patches.each do |patch|
           case patch[0]
           when :replace
-            new_element = create_element(patch[1])
+            new_vnode = patch[1]
+            old_vnode = patch[2]
+            unmount_component(old_vnode)
+            new_element = create_element(new_vnode)
             if parent = element.parentElement
               parent.replaceChild(new_element, element)
               result = new_element
@@ -48,6 +51,8 @@ module Funicular
             # This is handled at a higher level (in Component#re_render)
             # For now, we just return the element as-is
           when :remove
+            old_vnode = patch[1]
+            unmount_component(old_vnode)
             element.parentElement&.removeChild(element)
           when Integer
             child_index = patch[0]
@@ -71,15 +76,7 @@ module Funicular
                 end
               end
             else
-              # Check if this is a simple replace patch
-              # @type var child_element: JS::Object
-              if child_patches.size == 1 && child_patches[0][0] == :replace
-                new_child_element = create_element(child_patches[0][1])
-                element.replaceChild(new_child_element, child_element)
-              else
-                # Recursively apply patches to the child
-                apply(child_element, child_patches)
-              end
+              apply(child_element, child_patches)
             end
           end
         end
@@ -87,6 +84,11 @@ module Funicular
       end
 
       private
+
+      def unmount_component(vnode)
+        return unless vnode.is_a?(VDOM::Component) && vnode.instance
+        vnode.instance.unmount
+      end
 
       def update_props(element, props_patch)
         props_patch.each do |key, value|
@@ -126,10 +128,7 @@ module Funicular
       end
 
       def create_element(vnode)
-        if vnode.is_a?(String)
-          return @doc.createTextNode(vnode)
-        end
-
+        return @doc.createTextNode(vnode) if vnode.is_a?(String)
         if vnode.is_a?(Array)
           # Arrays should have been flattened in VDOM::Element.normalize_children
           # Create a wrapper div as fallback
@@ -143,71 +142,49 @@ module Funicular
           end
           return wrapper
         end
-
-        unless vnode.is_a?(VNode)
-          raise "Invalid vnode: #{vnode.class}"
-        end
-
+        raise "Invalid vnode: #{vnode.class}" unless vnode.is_a?(VNode)
         case vnode.type
         when :text
-          if vnode.is_a?(Text)
-            @doc.createTextNode(vnode.content)
-          else
-            raise "Expected Text vnode"
-          end
+          raise "Expected Text vnode" unless vnode.is_a?(Text)
+          @doc.createTextNode(vnode.content)
         when :element
-          if vnode.is_a?(Element)
-            element = @doc.createElement(vnode.tag)
-
-            vnode.props.each do |key, value|
-              key_str = key.to_s
-              # Skip event handlers (handled by bind_events)
-              next if key_str.start_with?('on')
-              # Use property instead of attribute for value on input/textarea
-              if key_str == "value" && (vnode.tag == "input" || vnode.tag == "textarea")
-                element[:value] = value.to_s
-              elsif BOOLEAN_ATTRIBUTES.include?(key_str)
-                # Handle boolean attributes
-                if value.nil? || value == false || value == "false"
-                  # Do not set attribute (leave it absent)
-                else
-                  element.setAttribute(key_str, key_str)
-                end
+          raise "Expected Element vnode" unless vnode.is_a?(Element)
+          element = @doc.createElement(vnode.tag)
+          vnode.props.each do |key, value|
+            key_str = key.to_s
+            next if key_str.start_with?('on')
+            if key_str == "value" && (vnode.tag == "input" || vnode.tag == "textarea")
+              element[:value] = value.to_s
+            elsif BOOLEAN_ATTRIBUTES.include?(key_str)
+              if value.nil? || value == false || value == "false"
               else
-                element.setAttribute(key_str, value.to_s)
+                element.setAttribute(key_str, key_str)
               end
+            else
+              element.setAttribute(key_str, value.to_s)
             end
-
-            vnode.children.each do |child|
-              if child.is_a?(VNode)
-                element.appendChild(create_element(child))
-              elsif child.is_a?(String)
-                text_node = @doc.createTextNode(child)
-                element.appendChild(text_node)
-              elsif child.is_a?(Array)
-                child.each do |c|
-                  if c.is_a?(VNode)
-                    element.appendChild(create_element(c))
-                  elsif c.is_a?(String)
-                    text_node = @doc.createTextNode(c)
-                    element.appendChild(text_node)
-                  end
+          end
+          vnode.children.each do |child|
+            if child.is_a?(VNode)
+              element.appendChild(create_element(child))
+            elsif child.is_a?(String)
+              text_node = @doc.createTextNode(child)
+              element.appendChild(text_node)
+            elsif child.is_a?(Array)
+              child.each do |c|
+                if c.is_a?(VNode)
+                  element.appendChild(create_element(c))
+                elsif c.is_a?(String)
+                  text_node = @doc.createTextNode(c)
+                  element.appendChild(text_node)
                 end
               end
             end
-
-            element
-          else
-            raise "Expected Element vnode"
           end
+          element
         when :component
-          if vnode.is_a?(Component)
-            # Create component instance and render it
-            renderer = Renderer.new(@doc)
-            renderer.render(vnode, nil)
-          else
-            raise "Expected Component vnode"
-          end
+          raise "Expected Component vnode" unless vnode.is_a?(Component)
+          Renderer.new(@doc).render(vnode, nil)
         else
           raise "Unknown vnode type: #{vnode.type}"
         end
