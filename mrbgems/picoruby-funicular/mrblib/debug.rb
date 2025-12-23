@@ -84,6 +84,10 @@ module Funicular
         component.instance_variables.each do |var|
           next if var == :@state # State is handled separately
           next if var.to_s.start_with?('@__debug') # Skip debug-internal variables
+          if var == :@vdom || var == :@child_components
+            pairs << %Q("#{var}":"<omitted>")
+            next
+          end
 
           begin
             value = component.instance_variable_get(var)

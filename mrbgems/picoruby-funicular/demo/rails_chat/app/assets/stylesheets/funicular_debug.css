@@ -47,3 +47,27 @@
   opacity: 1 !important;
   transform: translateY(0) !important;
 }
+
+/* PicoRuby DevTools Selected Component Highlight */
+.picoruby-devtools-selected {
+  position: relative !important;
+}
+
+.picoruby-devtools-selected::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: rgba(0, 122, 204, 0.1) !important;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(0, 122, 204, 0.15) 10px,
+    rgba(0, 122, 204, 0.15) 20px
+  ) !important;
+  pointer-events: none !important;
+  z-index: 999998 !important;
+}

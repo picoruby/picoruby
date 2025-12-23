@@ -29,7 +29,7 @@ void mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep);
 MRB_API mrb_value mrb_execute_proc_synchronously(mrb_state *mrb, mrb_value proc, mrb_int argc, const mrb_value *argv);
 
 // Static buffer for JSON output (avoid malloc/free for simplicity)
-#define JSON_BUFFER_SIZE 8192
+#define JSON_BUFFER_SIZE 65536
 static char json_buffer[JSON_BUFFER_SIZE];
 
 // Helper: Escape string for JSON
