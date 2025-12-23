@@ -34,9 +34,11 @@ end
 class String
   def sub: (String pattern, String replacement) -> String
   def capitalize: () -> String
+  def lines: () -> ::Array[String]
 end
 
 class Hash[unchecked out Key, unchecked out Value] < Object
   def key?: (Key) -> bool
   def reject: [K, V] { (Key, Value) -> bool } -> ::Hash[Key, Value]
+  def any?: () ?{ (Key, Value) -> bool } -> bool
 end
