@@ -133,6 +133,7 @@ module Funicular
         elsif vnode.is_a?(VDOM::Element)
           # Keep looking through elements
           vnode.children&.each do |child|
+            # @type var child: VDOM::VNode
             collect_direct_children(child, children)
           end
         end
