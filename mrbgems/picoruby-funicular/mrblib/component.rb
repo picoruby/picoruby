@@ -129,11 +129,13 @@ module Funicular
     # Unmount component from DOM
     def unmount
       return unless @mounted
+      # puts "==> Unmounting: #{self.class} id: #{@__debug_id__}"
 
       begin
         component_will_unmount if respond_to?(:component_will_unmount)
 
         # Unmount child components first
+        # puts "  > Unmounting children: #{@child_components.map(&:class).join(', ')}"
         @child_components.each do |child|
           child.unmount if child.respond_to?(:unmount)
         end
