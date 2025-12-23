@@ -25,32 +25,10 @@
       background: #2d2d2d;
       border-bottom: 1px solid #454545;
       display: flex;
-      gap: 8px;
       align-items: center;
     }
 
-    button {
-      padding: 4px 12px;
-      background: #0e639c;
-      color: white;
-      border: none;
-      border-radius: 2px;
-      cursor: pointer;
-      font-size: 11px;
-    }
-
-    button:hover {
-      background: #1177bb;
-    }
-
-    button:disabled {
-      background: #3d3d3d;
-      color: #888;
-      cursor: not-allowed;
-    }
-
     .status {
-      margin-left: auto;
       color: #888;
       font-size: 11px;
     }
@@ -312,9 +290,6 @@
 </head>
 <body>
   <div class="toolbar">
-    <button id="refreshBtn">🔄 Refresh</button>
-    <button id="pauseBtn">⏸️ Pause</button>
-    <button id="resumeBtn" disabled>▶️ Resume</button>
     <span class="status" id="status">Ready</span>
   </div>
 
