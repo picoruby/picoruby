@@ -366,6 +366,15 @@ class PicoRubyDebugger {
   }
 
   selectComponent(componentId) {
+    if (this.selectedComponentId === componentId) {
+      // Deselect
+      this.selectedComponentId = null;
+      this.clearHighlight();
+      this.componentInspector.innerHTML = '<div class="empty-state">Select a component to inspect</div>';
+      this.getComponentTree(); // to remove selection highlight
+      return;
+    }
+
     this.selectedComponentId = componentId;
 
     // Highlight the selected component in the DOM
@@ -430,9 +439,9 @@ class PicoRubyDebugger {
         const domInfo = [];
 
         function getChildrenInfo(element, maxDepth, currentDepth, maxChildren) {
-          maxDepth = maxDepth || 2;
+          maxDepth = maxDepth || 10;
           currentDepth = currentDepth || 0;
-          maxChildren = maxChildren || 20;
+          maxChildren = maxChildren || 50;
 
           if (currentDepth >= maxDepth) return null;
 
@@ -449,7 +458,8 @@ class PicoRubyDebugger {
                 ? child.textContent.trim().substring(0, 50)
                 : null,
               hasChildren: child.children.length > 0,
-              childCount: child.children.length
+              childCount: child.children.length,
+              eventListeners: (child.getAttribute('data-event-listeners') || '').split(',').filter(Boolean)
             };
 
             if (child.children.length > 0 && currentDepth + 1 < maxDepth) {
@@ -486,7 +496,8 @@ class PicoRubyDebugger {
             attributes: limitedAttrs,
             attributeCount: attrs.length,
             childCount: el.children.length,
-            children: getChildrenInfo(el)
+            children: getChildrenInfo(el),
+            eventListeners: (el.getAttribute('data-event-listeners') || '').split(',').filter(Boolean)
           });
         });
 
@@ -537,7 +548,13 @@ class PicoRubyDebugger {
       html += `<div class="inspector-section"><strong>DOM Elements:</strong></div>`;
       safedomInfo.forEach((el, idx) => {
         html += `<div style="margin-bottom: 12px; padding: 8px; background: #1e1e1e; border-radius: 4px;">`;
-        html += `<div style="color: #4ec9b0; margin-bottom: 4px; font-size: 12px;">&lt;${this.escapeHtml(el.tagName)}&gt;</div>`;
+        html += `<div style="color: #4ec9b0; margin-bottom: 4px; font-size: 12px;">&lt;${this.escapeHtml(el.tagName)}&gt;`;
+        if (el.eventListeners && el.eventListeners.length > 0) {
+          el.eventListeners.forEach(type => {
+            html += `<span class="event-listener-badge">[on${this.escapeHtml(type)}]</span>`;
+          });
+        }
+        html += `</div>`;
         if (el.id) {
           html += `<div style="font-size: 11px; color: #888; margin-bottom: 2px;">id: <span style="color: #ce9178;">${this.escapeHtml(el.id)}</span></div>`;
         }
@@ -618,7 +635,7 @@ class PicoRubyDebugger {
     if (!children || children.length === 0) return '';
 
     let html = '';
-    children.forEach(child => {
+    children.forEach((child, index) => {
       if (child.isPlaceholder) {
         html += `<div style="margin: 4px 0; padding: 4px; color: #666; font-size: 10px; font-style: italic;">`;
         html += this.escapeHtml(child.textContent);
@@ -626,6 +643,7 @@ class PicoRubyDebugger {
         return;
       }
 
+      const childId = `child-${depth}-${index}`;
       html += `<div style="margin: 4px 0; padding: 4px; background: #2d2d2d; border-radius: 2px; font-size: 10px;">`;
       html += `<span style="color: #4ec9b0;">&lt;${this.escapeHtml(child.tagName)}&gt;</span>`;
 
@@ -640,6 +658,11 @@ class PicoRubyDebugger {
       }
       if (child.hasChildren) {
         html += ` <span style="color: #666;">(${child.childCount} children)</span>`;
+      }
+      if (child.eventListeners && child.eventListeners.length > 0) {
+        child.eventListeners.forEach(type => {
+          html += `<span class="event-listener-badge">[on${this.escapeHtml(type)}]</span>`;
+        });
       }
 
       if (child.children && child.children.length > 0) {
