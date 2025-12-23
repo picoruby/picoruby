@@ -3,14 +3,12 @@
 class PicoRubyDebugger {
   constructor() {
     this.status = document.getElementById('status');
-    this.callStack = document.getElementById('callStack');
-    this.variables = document.getElementById('variables');
-    this.globals = document.getElementById('globals');
     this.replOutput = document.getElementById('replOutput');
     this.replInput = document.getElementById('replInput');
 
     // Component debug elements
     this.componentsSection = document.getElementById('componentsSection');
+    this.inspectorSection = document.getElementById('inspectorSection');
     this.componentTree = document.getElementById('componentTree');
     this.componentInspector = document.getElementById('componentInspector');
 
@@ -110,145 +108,11 @@ class PicoRubyDebugger {
   refresh() {
     this.updateStatus('Refreshing...');
 
-    this.getCallStack();
-
-    this.getVariables();
-
-    this.getGlobals();
-
     this.refreshComponents();
 
     this.updateStatus('Ready');
   }
 
-  getCallStack() {
-    this.evalInPage(`
-      (function() {
-        if (typeof window.picorubyModule === 'undefined' || !window.picorubyModule._mrb_get_backtrace) {
-          return null;
-        }
-        try {
-          // TODO: Implement in C side
-          // const ptr = window.picorubyModule._mrb_get_backtrace();
-          // return window.picorubyModule.UTF8ToString(ptr);
-          return JSON.stringify([
-            { method: 'main', file: 'app.rb', line: 1 }
-          ]);
-        } catch(e) {
-          return null;
-        }
-      })()
-    `).then(result => {
-      if (result) {
-        const frames = JSON.parse(result);
-        this.displayCallStack(frames);
-      } else {
-        this.callStack.innerHTML = '<li class="empty-state">Stack trace not available</li>';
-      }
-    }).catch(err => console.error("getCallStack error:", err));
-  }
-
-  displayCallStack(frames) {
-    if (frames.length === 0) {
-      this.callStack.innerHTML = '<li class="empty-state">No stack frames</li>';
-      return;
-    }
-
-    this.callStack.innerHTML = frames.map((frame, i) => `
-      <li class="stack-frame ${i === 0 ? 'active' : ''}" data-frame="${i}">
-        <div class="stack-frame-method">${this.escapeHtml(frame.method)}</div>
-        <div class="stack-frame-location">${this.escapeHtml(frame.file)}:${frame.line}</div>
-      </li>
-    `).join('');
-  }
-
-  getVariables() {
-    this.evalInPage(`
-      (function() {
-        if (typeof window.picorubyModule === 'undefined' || !window.picorubyModule._mrb_get_local_variables) {
-          return null;
-        }
-        try {
-          // TODO: Implement in C side
-          // const ptr = window.picorubyModule._mrb_get_local_variables();
-          // return window.picorubyModule.UTF8ToString(ptr);
-          return JSON.stringify({
-            x: '42',
-            name: '"hello"',
-            array: '[1, 2, 3]'
-          }).catch(err => console.error("getVariables error:", err));
-        } catch(e) {
-          return null;
-        }
-      })()
-    `).then(result => {
-      if (result) {
-        const vars = JSON.parse(result);
-        this.displayVariables(vars);
-      } else {
-        this.variables.innerHTML = '<li class="empty-state">Variables not available</li>';
-      }
-    }).catch(err => console.error("getVariables error:", err));
-  }
-
-  displayVariables(vars) {
-    const entries = Object.entries(vars);
-    if (entries.length === 0) {
-      this.variables.innerHTML = '<li class="empty-state">No local variables</li>';
-      return;
-    }
-
-    this.variables.innerHTML = entries.map(([name, value]) => `
-      <li class="variable-item">
-        <span class="variable-name">${this.escapeHtml(name)}</span>
-        <span> = </span>
-        <span class="variable-value">${this.escapeHtml(value)}</span>
-      </li>
-    `).join('');
-  }
-
-  getGlobals() {
-    this.evalInPage(`
-      (function() {
-        if (typeof window.picorubyModule === 'undefined') {
-          return null;
-        }
-        try {
-          const jsonStr = window.picorubyModule.ccall('mrb_get_globals_json', 'string', [], []);
-          return jsonStr;
-        } catch(e) {
-          return null;
-        }
-      })()
-    `).then(result => {
-      if (result) {
-        try {
-          const vars = JSON.parse(result);
-          this.displayGlobals(vars);
-        } catch(e) {
-          this.globals.innerHTML = '<li class="empty-state">Error parsing globals</li>';
-        }
-      } else {
-        this.globals.innerHTML = '<li class="empty-state">Globals not available</li>';
-      }
-    }).catch(err => console.error("getGlobals error:", err));
-  }
-
-  displayGlobals(vars) {
-    const entries = Object.entries(vars);
-    if (entries.length === 0) {
-      this.globals.innerHTML = '<li class="empty-state">No global variables</li>';
-      return;
-    }
-
-    this.globals.innerHTML = entries.map(([name, value]) => `
-      <li class="variable-item">
-        <span class="variable-name">${this.escapeHtml(name)}</span>
-        <span> = </span>
-        <span class="variable-value">${this.escapeHtml(value)}</span>
-      </li>
-    `).join('');
-  }
 
   evalCode(code) {
     if (!code.trim()) return;
@@ -388,8 +252,9 @@ class PicoRubyDebugger {
   }
 
   enableComponentDebug() {
-    if (!this.componentsSection) return;
+    if (!this.componentsSection || !this.inspectorSection) return;
     this.componentsSection.style.display = 'flex';
+    this.inspectorSection.style.display = 'flex';
     this.updateStatus('Component Debug enabled ✓');
     setTimeout(() => {
       this.refreshComponents();
@@ -509,37 +374,208 @@ class PicoRubyDebugger {
 
   selectComponent(componentId) {
     this.selectedComponentId = componentId;
+
+    // Highlight the selected component in the DOM
+    this.highlightComponent(componentId);
+
     this.inspectComponent(componentId);
     // Refresh tree to update selection UI
     this.getComponentTree();
   }
 
-  inspectComponent(componentId) {
+  highlightComponent(componentId) {
     this.evalInPage(`
       (function() {
-        const Module = window.picorubyModule;
-        const jsonStr = Module.ccall('mrb_get_component_state_by_id', 'string', ['number'], [${componentId}]);
-        return JSON.parse(jsonStr);
+        const cid = ${componentId};
+
+        // Clear previous highlights
+        document.querySelectorAll('.picoruby-devtools-selected').forEach(function(el) {
+          el.classList.remove('picoruby-devtools-selected');
+        });
+
+        // Highlight the selected component
+        const selector = '[data-component-id="' + cid + '"]';
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(function(el) {
+          el.classList.add('picoruby-devtools-selected');
+        });
+
+        // Scroll into view if possible
+        if (elements.length > 0) {
+          elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       })()
-    `).then(response => {
-      if (!response.error) {
-        this.displayComponentState(componentId, response.result);
-      } else {
-        console.error('Failed to inspect component:', response.error);
-      }
-    }).catch(err => {
-      console.error('inspectComponent error:', err);
+    `).catch(err => {
+      console.error('highlightComponent error:', err);
     });
   }
 
-  displayComponentState(componentId, data) {
+  clearHighlight() {
+    this.evalInPage(`
+      (function() {
+        document.querySelectorAll('.picoruby-devtools-selected').forEach(function(el) {
+          el.classList.remove('picoruby-devtools-selected');
+        });
+      })()
+    `).catch(err => {
+      console.error('clearHighlight error:', err);
+    });
+  }
+
+  inspectComponent(componentId) {
+    this.evalInPage(`
+      (function() {
+        try {
+          const Module = window.picorubyModule;
+          const cid = ${componentId};
+          const jsonStr = Module.ccall('mrb_get_component_state_by_id', 'string', ['number'], [cid]);
+          const rubyData = JSON.parse(jsonStr);
+
+        // Get DOM element info
+        const selector = '[data-component-id="' + cid + '"]';
+        const elements = document.querySelectorAll(selector);
+        const domInfo = [];
+
+        function getChildrenInfo(element, maxDepth, currentDepth, maxChildren) {
+          maxDepth = maxDepth || 2;
+          currentDepth = currentDepth || 0;
+          maxChildren = maxChildren || 20;
+
+          if (currentDepth >= maxDepth) return null;
+
+          const childrenArray = Array.from(element.children);
+          const limitedChildren = childrenArray.slice(0, maxChildren);
+          const hasMore = childrenArray.length > maxChildren;
+
+          const children = limitedChildren.map(function(child) {
+            const childInfo = {
+              tagName: child.tagName.toLowerCase(),
+              id: child.id || null,
+              className: child.className ? child.className.substring(0, 100) : null,
+              textContent: child.childNodes.length === 1 && child.childNodes[0].nodeType === 3
+                ? child.textContent.trim().substring(0, 50)
+                : null,
+              hasChildren: child.children.length > 0,
+              childCount: child.children.length
+            };
+
+            if (child.children.length > 0 && currentDepth + 1 < maxDepth) {
+              childInfo.children = getChildrenInfo(child, maxDepth, currentDepth + 1, maxChildren);
+            }
+
+            return childInfo;
+          });
+
+          if (hasMore) {
+            children.push({
+              tagName: 'more',
+              textContent: '... ' + (childrenArray.length - maxChildren) + ' more children',
+              isPlaceholder: true
+            });
+          }
+
+          return children.length > 0 ? children : null;
+        }
+
+        elements.forEach(function(el) {
+          var attrs = Array.from(el.attributes);
+          var limitedAttrs = attrs.slice(0, 30).map(function(attr) {
+            return {
+              name: attr.name,
+              value: attr.value.substring(0, 200)
+            };
+          });
+
+          domInfo.push({
+            tagName: el.tagName.toLowerCase(),
+            id: el.id || null,
+            className: el.className ? el.className.substring(0, 200) : null,
+            attributes: limitedAttrs,
+            attributeCount: attrs.length,
+            childCount: el.children.length,
+            children: getChildrenInfo(el)
+          });
+        });
+
+          return {
+            ruby: rubyData,
+            dom: domInfo
+          };
+        } catch(e) {
+          return {
+            error: e.toString(),
+            message: e.message,
+            stack: e.stack
+          };
+        }
+      })()
+    `).then(response => {
+      console.log('inspectComponent response:', response);
+      if (response && response.ruby) {
+        this.displayComponentState(componentId, response.ruby, response.dom || []);
+      } else if (response && !response.error) {
+        this.displayComponentState(componentId, response, []);
+      } else {
+        console.error('Failed to inspect component:', response ? response.error : 'No response');
+        this.componentInspector.innerHTML = '<div class="empty-state">Error loading component data</div>';
+      }
+    }).catch(err => {
+      console.error('inspectComponent error:', err);
+      this.componentInspector.innerHTML = '<div class="empty-state">Error: ' + err.message + '</div>';
+    });
+  }
+
+  displayComponentState(componentId, rubyData, domInfo) {
     if (!this.componentInspector) return;
 
+    console.log('displayComponentState called:', { componentId, rubyData, domInfo });
+
+    // Handle case where rubyData might be the direct result
+    const data = rubyData.result || rubyData;
     const stateEntries = Object.entries(data.state || {});
     const ivarEntries = Object.entries(data.ivars || {});
 
     let html = `<div class="component-inspector-content">`;
     html += `<h4>Component #${componentId}</h4>`;
+
+    // Display DOM elements FIRST (highest priority)
+    const safedomInfo = domInfo || [];
+    if (safedomInfo.length > 0) {
+      html += `<div class="inspector-section"><strong>DOM Elements:</strong></div>`;
+      safedomInfo.forEach((el, idx) => {
+        html += `<div style="margin-bottom: 12px; padding: 8px; background: #1e1e1e; border-radius: 4px;">`;
+        html += `<div style="color: #4ec9b0; margin-bottom: 4px; font-size: 12px;">&lt;${this.escapeHtml(el.tagName)}&gt;</div>`;
+        if (el.id) {
+          html += `<div style="font-size: 11px; color: #888; margin-bottom: 2px;">id: <span style="color: #ce9178;">${this.escapeHtml(el.id)}</span></div>`;
+        }
+        if (el.className) {
+          html += `<div style="font-size: 11px; color: #888; margin-bottom: 2px;">class: <span style="color: #ce9178;">${this.escapeHtml(el.className)}</span></div>`;
+        }
+
+        html += `<details style="margin-top: 8px;">`;
+        const attrCount = el.attributeCount || el.attributes.length;
+        html += `<summary style="cursor: pointer; color: #888; font-size: 10px;">Attributes (${attrCount})`;
+        if (el.attributeCount && el.attributeCount > el.attributes.length) {
+          html += ` <span style="color: #666;">- showing first ${el.attributes.length}</span>`;
+        }
+        html += `</summary>`;
+        html += `<div style="margin-top: 4px; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 10px;">`;
+        el.attributes.forEach(attr => {
+          html += `<div style="color: #9cdcfe; padding: 2px 0;">${this.escapeHtml(attr.name)}<span style="color: #888;">="</span><span style="color: #ce9178;">${this.escapeHtml(attr.value)}</span><span style="color: #888;">"</span></div>`;
+        });
+        html += `</div></details>`;
+
+        if (el.children && el.children.length > 0) {
+          html += `<details style="margin-top: 8px;" open>`;
+          html += `<summary style="cursor: pointer; color: #888; font-size: 10px;">Children (${el.childCount})</summary>`;
+          html += `<div style="margin-top: 4px; margin-left: 12px;">`;
+          html += this.renderDOMChildren(el.children, 0);
+          html += `</div></details>`;
+        }
+
+        html += `</div>`;
+      });
+    }
 
     // Display state
     if (stateEntries.length > 0) {
@@ -573,12 +609,56 @@ class PicoRubyDebugger {
       html += `</ul>`;
     }
 
-    if (stateEntries.length === 0 && ivarEntries.length === 0) {
-      html += `<div class="empty-state">No state or variables</div>`;
+    // Display Ruby inspect (raw data) - lowest priority
+    if (data.inspect) {
+      html += `<div class="inspector-section"><strong>Ruby Inspect:</strong></div>`;
+      html += `<pre style="padding: 8px; background: #1e1e1e; margin-bottom: 12px; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; font-size: 11px; color: #ce9178; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word;">`;
+      html += this.escapeHtml(data.inspect);
+      html += `</pre>`;
     }
 
     html += `</div>`;
     this.componentInspector.innerHTML = html;
+  }
+
+  renderDOMChildren(children, depth) {
+    if (!children || children.length === 0) return '';
+
+    let html = '';
+    children.forEach(child => {
+      if (child.isPlaceholder) {
+        html += `<div style="margin: 4px 0; padding: 4px; color: #666; font-size: 10px; font-style: italic;">`;
+        html += this.escapeHtml(child.textContent);
+        html += `</div>`;
+        return;
+      }
+
+      html += `<div style="margin: 4px 0; padding: 4px; background: #2d2d2d; border-radius: 2px; font-size: 10px;">`;
+      html += `<span style="color: #4ec9b0;">&lt;${this.escapeHtml(child.tagName)}&gt;</span>`;
+
+      if (child.id) {
+        html += ` <span style="color: #888;">id=</span><span style="color: #ce9178;">"${this.escapeHtml(child.id)}"</span>`;
+      }
+      if (child.className) {
+        html += ` <span style="color: #888;">class=</span><span style="color: #ce9178;">"${this.escapeHtml(child.className)}"</span>`;
+      }
+      if (child.textContent) {
+        html += ` <span style="color: #d4d4d4;">${this.escapeHtml(child.textContent)}</span>`;
+      }
+      if (child.hasChildren) {
+        html += ` <span style="color: #666;">(${child.childCount} children)</span>`;
+      }
+
+      if (child.children && child.children.length > 0) {
+        html += `<div style="margin-left: 12px; margin-top: 4px;">`;
+        html += this.renderDOMChildren(child.children, depth + 1);
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+    });
+
+    return html;
   }
 }
 
