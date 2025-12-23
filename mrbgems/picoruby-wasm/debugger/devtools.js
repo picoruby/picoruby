@@ -3,7 +3,7 @@
 
 chrome.devtools.panels.create(
   "PicoRuby",
-  "",  // No icon
+  "icons/icon16.png",
   "panel.html",
   (panel) => {
     console.log("PicoRuby DevTools panel created");
