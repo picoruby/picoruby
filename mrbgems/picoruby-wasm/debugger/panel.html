@@ -61,14 +61,6 @@
       overflow: hidden;
     }
 
-    .sidebar {
-      width: 300px;
-      background: #252526;
-      border-right: 1px solid #454545;
-      display: flex;
-      flex-direction: column;
-    }
-
     .main {
       flex: 1;
       display: flex;
@@ -216,8 +208,28 @@
       display: none;
       flex-direction: column;
       border-right: 1px solid #454545;
-      width: 300px;
+      width: 350px;
       background: #252526;
+    }
+
+    #inspectorSection {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      background: #252526;
+      min-width: 0;
+    }
+
+    #inspectorSection .section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #inspectorContent {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
 
     .component-item {
@@ -307,36 +319,7 @@
   </div>
 
   <div class="content">
-    <div class="sidebar">
-      <div class="section">
-        <div class="section-header">Call Stack</div>
-        <div class="section-content">
-          <ul class="call-stack" id="callStack">
-            <li class="empty-state">No stack frames</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-header">Variables</div>
-        <div class="section-content">
-          <ul class="variable-list" id="variables">
-            <li class="empty-state">No variables</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-header">Global Variables</div>
-        <div class="section-content">
-          <ul class="variable-list" id="globals">
-            <li class="empty-state">No globals</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-
-    <!-- Component Inspector Section (hidden by default) -->
+    <!-- Component Inspector Section -->
     <div id="componentsSection">
       <div class="section">
         <div class="section-header">Components</div>
@@ -346,10 +329,12 @@
           </div>
         </div>
       </div>
+    </div>
 
+    <div id="inspectorSection">
       <div class="section">
         <div class="section-header">Inspector</div>
-        <div class="section-content">
+        <div class="section-content" id="inspectorContent">
           <div id="componentInspector">
             <div class="empty-state">Select a component</div>
           </div>
@@ -357,7 +342,8 @@
       </div>
     </div>
 
-    <div class="main">
+    <!-- REPL Section (hidden by default) -->
+    <div class="main" style="display: none;">
       <div class="repl">
         <div class="repl-input-container">
           <span class="repl-prompt">&gt;&gt;</span>
