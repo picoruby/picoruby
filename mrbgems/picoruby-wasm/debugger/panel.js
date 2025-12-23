@@ -12,37 +12,20 @@ class PicoRubyDebugger {
     this.componentTree = document.getElementById('componentTree');
     this.componentInspector = document.getElementById('componentInspector');
 
-    this.isPaused = false;
     this.selectedComponentId = null;
     this.expandedComponents = new Set();
+    this.refreshDebounceTimer = null;
+    this.autoRefreshInterval = null;
+    this.lastComponentTreeHash = null;
     this.setupEventListeners();
     this.checkConnection();
   }
 
   setupEventListeners() {
-    document.getElementById('refreshBtn').addEventListener('click', () => {
-      this.refresh();
-    });
-
-    document.getElementById('pauseBtn').addEventListener('click', () => {
-      this.pause();
-    });
-
-    document.getElementById('resumeBtn').addEventListener('click', () => {
-      this.resume();
-    });
-
     this.replInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         this.evalCode(this.replInput.value);
         this.replInput.value = '';
-      }
-    });
-
-    // Message listener to receive notifications from WASM
-    window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'picoruby-event') {
-        this.handlePicoRubyEvent(event.data);
       }
     });
   }
@@ -105,15 +88,6 @@ class PicoRubyDebugger {
     this.status.textContent = message;
   }
 
-  refresh() {
-    this.updateStatus('Refreshing...');
-
-    this.refreshComponents();
-
-    this.updateStatus('Ready');
-  }
-
-
   evalCode(code) {
     if (!code.trim()) return;
 
@@ -162,42 +136,6 @@ class PicoRubyDebugger {
     });
   }
 
-  pause() {
-    this.evalInPage(`
-      if (typeof window.picorubyModule !== 'undefined' && window.picorubyModule._mrb_debug_pause) {
-        window.picorubyModule._mrb_debug_pause();
-      }
-    `);
-    this.isPaused = true;
-    document.getElementById('pauseBtn').disabled = true;
-    document.getElementById('resumeBtn').disabled = false;
-    this.updateStatus('Paused');
-  }
-
-  resume() {
-    this.evalInPage(`
-      if (typeof window.picorubyModule !== 'undefined' && window.picorubyModule._mrb_debug_resume) {
-        window.picorubyModule._mrb_debug_resume();
-      }
-    `);
-    this.isPaused = false;
-    document.getElementById('pauseBtn').disabled = false;
-    document.getElementById('resumeBtn').disabled = true;
-    this.updateStatus('Running');
-  }
-
-  handlePicoRubyEvent(data) {
-    switch(data.event) {
-      case 'breakpoint':
-        this.isPaused = true;
-        this.updateStatus(`Paused at ${data.file}:${data.line}`);
-        this.refresh();
-        break;
-      case 'exception':
-        this.updateStatus(`Exception: ${data.message}`);
-        break;
-    }
-  }
 
   evalInPage(code) {
     return new Promise((resolve, reject) => {
@@ -258,12 +196,67 @@ class PicoRubyDebugger {
     this.updateStatus('Component Debug enabled ✓');
     setTimeout(() => {
       this.refreshComponents();
+      this.startAutoRefresh();
     }, 100);
   }
 
   showComponentDebugUnavailable(reason) {
     if (!this.componentsSection) return;
     this.componentsSection.style.display = 'none';
+    this.stopAutoRefresh();
+  }
+
+  startAutoRefresh() {
+    // Stop existing interval if any
+    this.stopAutoRefresh();
+
+    // Poll every 500ms to check for component changes
+    this.autoRefreshInterval = setInterval(() => {
+      this.checkAndRefreshComponents();
+    }, 500);
+  }
+
+  stopAutoRefresh() {
+    if (this.autoRefreshInterval) {
+      clearInterval(this.autoRefreshInterval);
+      this.autoRefreshInterval = null;
+    }
+  }
+
+  checkAndRefreshComponents() {
+    // Get current component tree hash
+    this.evalInPage(`
+      (function() {
+        const Module = window.picorubyModule;
+        const jsonStr = Module.ccall('mrb_get_component_debug_info', 'string', ['string'], ['component_tree']);
+        return jsonStr;
+      })()
+    `).then(response => {
+      if (!response) return;
+
+      // Create a simple hash of the component tree
+      const currentHash = this.simpleHash(response);
+
+      // If hash changed, refresh the display
+      if (this.lastComponentTreeHash !== null && this.lastComponentTreeHash !== currentHash) {
+        console.log('Component tree changed, refreshing...');
+        this.getComponentTree();
+      }
+
+      this.lastComponentTreeHash = currentHash;
+    }).catch(err => {
+      console.error('Error checking component tree:', err);
+    });
+  }
+
+  simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return hash;
   }
 
   refreshComponents() {
