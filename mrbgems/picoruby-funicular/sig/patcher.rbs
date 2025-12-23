@@ -8,6 +8,7 @@ module Funicular
 
       private def update_props: (JS::Object element, Hash[Symbol, String?] props_patch) -> void
       private def create_element: (untyped vnode) -> JS::Object
+      private def unmount_component: (VDOM::VNode vnode) -> void
     end
 
   end
