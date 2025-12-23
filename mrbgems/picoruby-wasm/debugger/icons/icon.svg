@@ -1,0 +1,54 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="16"
+  height="16"
+  viewBox="0 0 16 16"
+  shape-rendering="crispEdges"
+>
+  <!-- Ruby body -->
+  <path
+    d="
+      M4 2
+      L12 2
+      L14 6
+      L8 14
+      L2 6
+      Z
+    "
+    fill="#e53935"
+  />
+
+  <!-- Facet highlight -->
+  <path
+    d="
+      M4 2
+      L8 6
+      L12 2
+      Z
+    "
+    fill="#ff6f60"
+  />
+
+  <!-- Left facet -->
+  <path
+    d="
+      M2 6
+      L8 6
+      L8 14
+      Z
+    "
+    fill="#d32f2f"
+  />
+
+  <!-- Right facet -->
+  <path
+    d="
+      M14 6
+      L8 6
+      L8 14
+      Z
+    "
+    fill="#b71c1c"
+  />
+</svg>
+
