@@ -1,0 +1,20 @@
+$__funicular_debug__: Funicular::Debug
+
+module Funicular
+  module Debug
+    def self.enabled?: () -> bool
+    def self.component_registry: () -> Hash[Integer, Funicular::Component]
+    def self.register_component: (Funicular::Component) -> Integer?
+    def self.unregister_component: (Integer) -> void
+    def self.get_component: (Integer) -> Funicular::Component?
+    def self.all_components: () -> Array[Funicular::Component]
+    def self.component_tree: () -> String
+    def self.get_component_state: (Integer) -> String
+    def self.get_component_instance_variables: (Integer) -> String
+    def self.expose_to_global: () -> void
+
+    private def self.get_state_keys: (Funicular::Component) -> Array[String]
+    private def self.get_child_ids: (Funicular::Component) -> Array[Integer]
+    private def self.collect_direct_children: (Funicular::VDOM::VNode, Array[Funicular::Component]) -> void
+  end
+end
