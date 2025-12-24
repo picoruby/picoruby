@@ -125,6 +125,30 @@ class Shuttle
     end
   end
 
+  def render_static_page(page_path)
+    @window.fetch("../#{page_path}") do |response|
+      markdown_text = response.to_binary
+      meta, content = parse_front_matter(markdown_text)
+      title = meta['title'] || 'Page'
+
+      html = "<article>"
+      html += "<div class='article-header'>"
+      html += "<h1 class='article-title'>#{title}</h1>"
+      html += "</div>"
+      html += "<div class='article-content'>"
+      html += Markdown.new(content).to_html
+      html += "</div>"
+      html += "<div class='article-footer'>"
+      html += "<a href='/' class='back-link'>"
+      html += "<svg class='back-link-icon' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 19l-7-7m0 0l7-7m-7 7h18'/></svg>"
+      html += "Back to Home"
+      html += "</a>"
+      html += "</div>"
+      html += "</article>"
+      @content_div.innerHTML = html
+    end
+  end
+
   def self.run
     shuttle = Shuttle.new
     shuttle.render
