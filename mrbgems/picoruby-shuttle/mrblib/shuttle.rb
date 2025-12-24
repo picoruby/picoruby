@@ -67,7 +67,7 @@ class Shuttle
   end
 
   def render_index(page = 1)
-    @window.fetch("./articles/index_#{page}.json") do |response|
+    @window.fetch("./generated/index_#{page}.json") do |response|
       json_text = response.to_binary
       begin
         data = JSON.parse(json_text)
