@@ -4,12 +4,20 @@
   "description": "PicoRuby Shuttle example blog",
   "scripts": {
     "build:css": "tailwindcss -i ./dist/assets/input.css -o ./dist/assets/styles.css --minify",
-    "watch:css": "tailwindcss -i ./dist/assets/input.css -o ./dist/assets/styles.css --watch"
+    "watch:css": "tailwindcss -i ./dist/assets/input.css -o ./dist/assets/styles.css --watch",
+    "build:prism": "mkdir -p dist/assets/prism && cp node_modules/prismjs/themes/prism-tomorrow.css dist/assets/prism/ && cp node_modules/prismjs/prism.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-ruby.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-javascript.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-typescript.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-python.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-bash.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-json.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-yaml.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-markdown.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-c.min.js dist/assets/prism/ && cp node_modules/prismjs/components/prism-css.min.js dist/assets/prism/",
+    "build": "npm run build:prism && npm run build:css"
   },
-  "keywords": ["picoruby", "static-site-generator"],
+  "keywords": [
+    "picoruby",
+    "static-site-generator"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
     "tailwindcss": "^3.4.0"
+  },
+  "dependencies": {
+    "prismjs": "^1.30.0"
   }
 }
