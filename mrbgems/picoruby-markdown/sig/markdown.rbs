@@ -4,7 +4,8 @@ class Markdown
   attr_reader footnotes: Hash[String, String]
   def to_html: () -> String
   def is_ordered_list_item: (String line) -> bool
-  def process_list: (Integer start_index, Symbol type) -> [String, Integer]
+  def process_list: (Integer start_index, Symbol type, ?Integer base_indent) -> [String, Integer]
+  def count_leading_spaces: (String line) -> Integer
   def process_inline_formats: (String line) -> String
   def replace_links_and_images: (String line) -> String
   def gsub_with_pairing: (String line, String marker, String open_tag, String close_tag, ?(Symbol | bool) process_content) -> String
