@@ -236,3 +236,55 @@
   margin-right: 0.5rem;
   flex-shrink: 0;
 }
+
+/* Pagination Styles */
+.pagination {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgb(226, 232, 240);
+}
+
+.pagination-info {
+  text-align: center;
+  color: rgb(100, 116, 139);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.pagination-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.pagination-link {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgb(226, 232, 240);
+  border-radius: 0.375rem;
+  text-decoration: none;
+  color: rgb(71, 85, 105);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.pagination-link:hover:not(.pagination-disabled):not(.pagination-current) {
+  background-color: rgb(248, 250, 252);
+  border-color: rgb(147, 51, 234);
+  color: rgb(147, 51, 234);
+}
+
+.pagination-current {
+  background-color: rgb(147, 51, 234);
+  border-color: rgb(147, 51, 234);
+  color: white;
+}
+
+.pagination-disabled {
+  color: rgb(203, 213, 225);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
