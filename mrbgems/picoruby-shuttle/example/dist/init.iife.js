@@ -1,0 +1,1 @@
+../../../picoruby-wasm/npm/dist/init.iife.js

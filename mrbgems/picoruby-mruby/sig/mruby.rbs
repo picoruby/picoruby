@@ -35,6 +35,9 @@ class String
   def sub: (String pattern, String replacement) -> String
   def capitalize: () -> String
   def lines: () -> ::Array[String]
+  def chars: () -> ::Array[String]
+  def slice: (Integer start, Integer length) -> String?
+           | (Range[Integer] range) -> String?
 end
 
 class Hash[unchecked out Key, unchecked out Value] < Object
