@@ -132,6 +132,7 @@ class Shuttle
 
         html += "</div>"
         @content_div.innerHTML = html
+        highlight_code
       rescue JSON::ParserError => e
         @content_div.innerHTML = "<p>Failed to parse index.json: #{e.message}</p>"
       end
@@ -163,6 +164,7 @@ class Shuttle
       html += "</div>"
       html += "</article>"
       @content_div.innerHTML = html
+      highlight_code
     end
   end
 
@@ -187,7 +189,13 @@ class Shuttle
       html += "</div>"
       html += "</article>"
       @content_div.innerHTML = html
+      highlight_code
     end
+  end
+
+  def highlight_code
+    prism = JS.global[:Prism]
+    prism.highlightAll if prism
   end
 
   def self.run
