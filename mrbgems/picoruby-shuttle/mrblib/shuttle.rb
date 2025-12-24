@@ -73,6 +73,11 @@ class Shuttle
         data = JSON.parse(json_text)
         html = "<div class='article-list'>"
         html += "<h2 class='article-list-title'>Recent Articles</h2>"
+
+        total_pages = data['total_pages'] || 1
+        current_page = data['page'] || 1
+        total_articles = data['total_articles'] || 0
+
         html += "<div class='article-list-items'>"
 
         articles = data['articles']
@@ -89,6 +94,42 @@ class Shuttle
           end
         end
         html += "</div>"
+
+        # Pagination
+        if total_pages > 1
+          html += "<nav class='pagination'>"
+          html += "<div class='pagination-info'>"
+          html += "Page #{current_page} of #{total_pages} (#{total_articles} articles total)"
+          html += "</div>"
+          html += "<div class='pagination-links'>"
+
+          # Previous button
+          if current_page > 1
+            html += "<a href='?page=#{current_page - 1}' class='pagination-link'>Previous</a>"
+          else
+            html += "<span class='pagination-link pagination-disabled'>Previous</span>"
+          end
+
+          # Page numbers
+          (1..total_pages).each do |p|
+            if p == current_page
+              html += "<span class='pagination-link pagination-current'>#{p}</span>"
+            else
+              html += "<a href='?page=#{p}' class='pagination-link'>#{p}</a>"
+            end
+          end
+
+          # Next button
+          if current_page < total_pages
+            html += "<a href='?page=#{current_page + 1}' class='pagination-link'>Next</a>"
+          else
+            html += "<span class='pagination-link pagination-disabled'>Next</span>"
+          end
+
+          html += "</div>"
+          html += "</nav>"
+        end
+
         html += "</div>"
         @content_div.innerHTML = html
       rescue JSON::ParserError => e
