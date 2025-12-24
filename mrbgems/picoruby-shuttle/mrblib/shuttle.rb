@@ -31,24 +31,38 @@ class Shuttle
     @content_div = @document.getElementById('content')
   end
 
+  def parse_query_string(query_string)
+    params = {}
+    return params if query_string.nil? || query_string.empty?
+
+    query_string.split('&').each do |pair|
+      key, value = pair.split('=', 2)
+      params[key] = value if key
+    end
+    params
+  end
+
   def render
     full_url = @window.location&.href&.to_s
 
-    hash_part = ""
-    if (hash_index = full_url.index('#'))
-      hash_part = full_url.slice(hash_index + 1 .. -1) || ""
+    query_part = ""
+    if (query_index = full_url.index('?'))
+      query_part = full_url.slice(query_index + 1 .. -1) || ""
+      # Remove hash fragment if present
+      if (hash_index = query_part.index('#'))
+        query_part = query_part.slice(0 .. hash_index - 1)
+      end
     end
 
-    hash = hash_part
+    params = parse_query_string(query_part)
 
-    if hash.empty?
-      render_index(1)
-    elsif hash.start_with?('page')
-      page_str = hash.slice(4..-1)
-      page = is_numeric?(page_str) ? page_str.to_i : 1
+    if params['article']
+      render_article(params['article'])
+    elsif params['page']
+      page = is_numeric?(params['page']) ? params['page'].to_i : 1
       render_index(page)
     else
-      render_article(hash)
+      render_index(1)
     end
   end
 
@@ -67,7 +81,7 @@ class Shuttle
           articles.each do |article|
             puts "Article ID: #{article['id'].inspect}, Class: #{article['id'].class}"
             # `article` is now a Ruby Hash
-            html += "<li><a href='##{article['id']}'>#{article['title']}</a></li>"
+            html += "<li><a href='?article=#{article['id']}'>#{article['title']}</a></li>"
           end
         end
         html += "</ul>"
@@ -92,8 +106,27 @@ class Shuttle
   def self.run
     shuttle = Shuttle.new
     shuttle.render
-    JS.global.addEventListener('hashchange') do
+
+    # Handle browser back/forward buttons
+    JS.global.addEventListener('popstate') do
       shuttle.render
+    end
+
+    # Intercept link clicks to prevent page reload and use History API
+    JS.document.addEventListener('click') do |event|
+      target = event&.target
+      # Check if clicked element is a link
+      if target && target.tagName&.to_s&.upcase == 'A'
+        href = target.getAttribute('href')&.to_s
+        # Only handle query string links (not external or hash links)
+        if href && href.start_with?('?')
+          event.preventDefault
+          # Update URL without page reload
+          JS.global.history&.pushState(JS::Null, '', href)
+          # Render new content
+          shuttle.render
+        end
+      end
     end
   end
 end
