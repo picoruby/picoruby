@@ -25,6 +25,10 @@
   margin-bottom: 1.5rem;
 }
 
+.dark .article-list-title {
+  color: rgb(226, 232, 240);
+}
+
 .article-list-items {
   display: flex;
   flex-direction: column;
@@ -55,8 +59,16 @@
   transition: color 0.2s;
 }
 
+.dark .article-card-link {
+  color: rgb(226, 232, 240);
+}
+
 .article-card:hover .article-card-link {
   color: rgb(147, 51, 234);
+}
+
+.dark .article-card:hover .article-card-link {
+  color: rgb(167, 139, 250);
 }
 
 .article-card-date {
@@ -65,11 +77,19 @@
   color: rgb(100, 116, 139);
 }
 
+.dark .article-card-date {
+  color: rgb(148, 163, 184);
+}
+
 /* Article Detail Styles */
 .article-header {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid rgb(226, 232, 240);
+}
+
+.dark .article-header {
+  border-bottom-color: rgb(71, 85, 105);
 }
 
 .article-title {
@@ -80,15 +100,27 @@
   margin-bottom: 0.75rem;
 }
 
+.dark .article-title {
+  color: rgb(241, 245, 249);
+}
+
 .article-date {
   color: rgb(100, 116, 139);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
 
+.dark .article-date {
+  color: rgb(148, 163, 184);
+}
+
 .article-content {
   color: rgb(51, 65, 85);
   line-height: 1.625;
+}
+
+.dark .article-content {
+  color: rgb(203, 213, 225);
 }
 
 .article-content h1 {
@@ -100,6 +132,10 @@
   margin-bottom: 1rem;
 }
 
+.dark .article-content h1 {
+  color: rgb(241, 245, 249);
+}
+
 .article-content h2 {
   font-size: 1.5rem;
   line-height: 2rem;
@@ -109,6 +145,10 @@
   margin-bottom: 0.75rem;
 }
 
+.dark .article-content h2 {
+  color: rgb(241, 245, 249);
+}
+
 .article-content h3 {
   font-size: 1.25rem;
   line-height: 1.75rem;
@@ -116,6 +156,10 @@
   color: rgb(15, 23, 42);
   margin-top: 1.25rem;
   margin-bottom: 0.5rem;
+}
+
+.dark .article-content h3 {
+  color: rgb(241, 245, 249);
 }
 
 .article-content p {
@@ -128,13 +172,25 @@
   transition: color 0.2s;
 }
 
+.dark .article-content a {
+  color: rgb(167, 139, 250);
+}
+
 .article-content a:hover {
   color: rgb(236, 72, 153);
+}
+
+.dark .article-content a:hover {
+  color: rgb(244, 114, 182);
 }
 
 .article-content strong {
   font-weight: 700;
   color: rgb(15, 23, 42);
+}
+
+.dark .article-content strong {
+  color: rgb(226, 232, 240);
 }
 
 .article-content em {
@@ -151,6 +207,11 @@
   font-family: ui-monospace, monospace;
 }
 
+.dark .article-content code {
+  color: rgb(196, 181, 253);
+  background-color: rgb(30, 27, 75);
+}
+
 .article-content pre {
   background-color: rgb(15, 23, 42);
   color: rgb(248, 250, 252);
@@ -158,6 +219,10 @@
   border-radius: 0.5rem;
   overflow-x: auto;
   margin-bottom: 1rem;
+}
+
+.dark .article-content pre {
+  background-color: rgb(2, 6, 23);
 }
 
 .article-content pre code {
@@ -197,6 +262,11 @@
   margin-bottom: 1rem;
 }
 
+.dark .article-content blockquote {
+  color: rgb(148, 163, 184);
+  border-left-color: rgb(139, 92, 246);
+}
+
 .article-content img {
   border-radius: 0.5rem;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
@@ -212,10 +282,18 @@
   margin-bottom: 2rem;
 }
 
+.dark .article-content hr {
+  border-color: rgb(71, 85, 105);
+}
+
 .article-footer {
   margin-top: 2rem;
   padding-top: 1.5rem;
   border-top: 1px solid rgb(226, 232, 240);
+}
+
+.dark .article-footer {
+  border-top-color: rgb(71, 85, 105);
 }
 
 .back-link {
@@ -226,8 +304,16 @@
   transition: color 0.2s;
 }
 
+.dark .back-link {
+  color: rgb(167, 139, 250);
+}
+
 .back-link:hover {
   color: rgb(236, 72, 153);
+}
+
+.dark .back-link:hover {
+  color: rgb(244, 114, 182);
 }
 
 .back-link-icon {
@@ -244,11 +330,19 @@
   border-top: 1px solid rgb(226, 232, 240);
 }
 
+.dark .pagination {
+  border-top-color: rgb(71, 85, 105);
+}
+
 .pagination-info {
   text-align: center;
   color: rgb(100, 116, 139);
   font-size: 0.875rem;
   margin-bottom: 1rem;
+}
+
+.dark .pagination-info {
+  color: rgb(148, 163, 184);
 }
 
 .pagination-links {
@@ -271,10 +365,21 @@
   transition: all 0.2s;
 }
 
+.dark .pagination-link {
+  border-color: rgb(71, 85, 105);
+  color: rgb(148, 163, 184);
+}
+
 .pagination-link:hover:not(.pagination-disabled):not(.pagination-current) {
   background-color: rgb(248, 250, 252);
   border-color: rgb(147, 51, 234);
   color: rgb(147, 51, 234);
+}
+
+.dark .pagination-link:hover:not(.pagination-disabled):not(.pagination-current) {
+  background-color: rgb(51, 65, 85);
+  border-color: rgb(167, 139, 250);
+  color: rgb(167, 139, 250);
 }
 
 .pagination-current {
@@ -283,8 +388,17 @@
   color: white;
 }
 
+.dark .pagination-current {
+  background-color: rgb(109, 40, 217);
+  border-color: rgb(109, 40, 217);
+}
+
 .pagination-disabled {
   color: rgb(203, 213, 225);
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.dark .pagination-disabled {
+  color: rgb(71, 85, 105);
 }
