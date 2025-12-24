@@ -1,5 +1,6 @@
 require 'json'
 require 'fileutils'
+require 'erb'
 
 def load_config
   config_file = File.expand_path('config.yaml', __dir__)
@@ -26,6 +27,23 @@ namespace :shuttle do
     FileUtils.cd(File.expand_path('dist', __dir__)) do
       system("ruby -r un -e httpd . -p 8000")
     end
+  end
+
+  desc "Generate index.html from template"
+  task :generate_html do
+    config = load_config
+    template_file = File.expand_path('templates/index.html.erb', __dir__)
+    output_file = File.expand_path('dist/index.html', __dir__)
+
+    unless File.exist?(template_file)
+      puts "Warning: Template file #{template_file} not found."
+      next
+    end
+
+    template = ERB.new(File.read(template_file))
+    html = template.result(binding)
+    File.write(output_file, html)
+    puts "Generated #{output_file}"
   end
 
   desc "Generate index.json from articles"
@@ -110,16 +128,17 @@ namespace :shuttle do
 
   desc "Generate static pages from misc directory"
   task :generate_pages do
+    config = load_config
     misc_dir = File.expand_path('misc', __dir__)
     dist_dir = File.expand_path('dist', __dir__)
-    template_file = File.expand_path('dist/index.html', __dir__)
+    template_file = File.expand_path('templates/index.html.erb', __dir__)
 
     unless File.exist?(template_file)
       puts "Warning: Template file #{template_file} not found. Skipping page generation."
       next
     end
 
-    template = File.read(template_file)
+    template = ERB.new(File.read(template_file))
 
     Dir.glob(File.join(misc_dir, "*.md")).each do |md_file_path|
       page_name = File.basename(md_file_path, ".md")
@@ -151,8 +170,9 @@ namespace :shuttle do
       File.write(File.join(misc_dist_dir, File.basename(md_file_path)), File.read(md_file_path))
 
       # Create page HTML with embedded Ruby script
-      page_html = template.dup
-      page_html.sub!(/<title>.*?<\/title>/, "<title>#{title} - PicoRuby Shuttle Blog</title>")
+      page_html = template.result(binding)
+      site_title = config['site_title'] || 'PicoRuby Shuttle Blog'
+      page_html.sub!(/<title>.*?<\/title>/, "<title>#{title} - #{site_title}</title>")
 
       # Replace the Ruby script to render the specific page
       page_html.sub!(/<script type="text\/ruby">.*?<\/script>/m, <<~RUBY)
@@ -184,6 +204,9 @@ namespace :shuttle do
 
     # Build CSS
     Rake::Task['shuttle:build_css'].invoke
+
+    # Generate index.html from template
+    Rake::Task['shuttle:generate_html'].invoke
 
     # Generate article index and copy markdown files
     Rake::Task['shuttle:generate_index'].invoke
