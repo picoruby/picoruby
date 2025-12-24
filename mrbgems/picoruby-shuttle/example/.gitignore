@@ -4,8 +4,6 @@ package-lock.json
 
 # Build artifacts
 dist/articles/*.json
-dist/articles/*.md
-dist/misc/
 dist/*/index.html
 !dist/index.html
 !dist/404.html
