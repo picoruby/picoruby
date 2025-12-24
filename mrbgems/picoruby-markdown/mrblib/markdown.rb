@@ -140,7 +140,7 @@ class Markdown
 
   private
 
-  def process_list(start_index, type)
+  def process_list(start_index, type, base_indent = 0)
     list_html = ""
     tag = type == :ul ? "ul" : "ol"
     list_html << "<#{tag}>\n"
@@ -150,18 +150,60 @@ class Markdown
 
     while i < @lines.length
       line = @lines[i]
+      current_indent = count_leading_spaces(line)
       stripped = line.strip
+
+      # If indent is less than base, we've exited this list level
+      if current_indent < base_indent && !stripped.empty?
+        break
+      end
 
       is_ulist_item = ['* ', '- ', '+ '].any? { |m| stripped.start_with?(m) }
       is_olist_item = is_ordered_list_item(stripped)
 
       is_current_type_item = (type == :ul && is_ulist_item) || (type == :ol && is_olist_item)
 
-      if is_current_type_item
+      # Check if this is a nested list (deeper indent)
+      if !stripped.empty? && current_indent > base_indent && (is_ulist_item || is_olist_item)
+        # This is a nested list, process it recursively
+        nested_type = is_ulist_item ? :ul : :ol
+        nested_html, nested_consumed = process_list(i, nested_type, current_indent)
+        list_html << nested_html
+        i += nested_consumed
+        lines_consumed += nested_consumed
+        next
+      end
+
+      if is_current_type_item && current_indent == base_indent
         marker_length = stripped.index('. ') ? stripped.index('. ') + 2 : 2
         content = stripped[marker_length..-1].strip
         processed_content = process_inline_formats(content)
-        list_html << "<li>#{processed_content}</li>\n"
+        list_html << "<li>#{processed_content}"
+
+        # Check if the next line is a nested list
+        if i + 1 < @lines.length
+          next_line = @lines[i + 1]
+          next_indent = count_leading_spaces(next_line)
+          next_stripped = next_line.strip
+
+          if next_indent > current_indent && !next_stripped.empty?
+            next_is_ulist = ['* ', '- ', '+ '].any? { |m| next_stripped.start_with?(m) }
+            next_is_olist = is_ordered_list_item(next_stripped)
+
+            if next_is_ulist || next_is_olist
+              # Process nested list
+              nested_type = next_is_ulist ? :ul : :ol
+              nested_html, nested_consumed = process_list(i + 1, nested_type, next_indent)
+              list_html << "\n" << nested_html
+              i += nested_consumed + 1
+              lines_consumed += nested_consumed + 1
+              list_html << "</li>\n"
+              next
+            end
+          end
+        end
+
+        list_html << "</li>\n"
         i += 1
         lines_consumed += 1
       elsif stripped.empty?
@@ -179,6 +221,20 @@ class Markdown
 
     list_html << "</#{tag}>\n"
     return list_html, lines_consumed
+  end
+
+  def count_leading_spaces(line)
+    count = 0
+    line.each_char do |char|
+      if char == ' '
+        count += 1
+      elsif char == "\t"
+        count += 4  # Treat tab as 4 spaces
+      else
+        break
+      end
+    end
+    count
   end
 
   def is_ordered_list_item(line)
