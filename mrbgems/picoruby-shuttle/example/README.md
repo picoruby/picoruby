@@ -16,16 +16,39 @@ This is an example blog site built with PicoRuby Shuttle, a static site generato
 .
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml       # GitHub Actions workflow for deployment
-├── articles/                # Your markdown articles
+│       └── deploy.yml           # GitHub Actions workflow for deployment
+├── articles/                    # Your markdown articles
 │   ├── my_first_post.md
 │   └── about_picoruby.md
-├── dist/                    # Generated site (output directory)
-│   ├── index.html
-│   ├── 404.html
-│   └── articles/
-├── Rakefile                 # Build tasks
+├── dist/                        # Generated site (output directory)
+│   ├── index.html               # Main HTML file
+│   ├── 404.html                 # 404 redirect page
+│   ├── assets/                  # Static assets
+│   │   ├── tailwind-config.js   # Tailwind CSS configuration
+│   │   └── styles.css           # Custom styles (customize here!)
+│   └── articles/                # Generated article files
+├── Rakefile                     # Build tasks
 └── README.md
+```
+
+## Customizing Design
+
+You can customize the blog design by editing files in the `dist/assets/` directory:
+
+- **`assets/tailwind-config.js`**: Tailwind CSS configuration (colors, fonts, etc.)
+- **`assets/styles.css`**: Custom CSS styles for articles, cards, and layout
+
+Example customization in `assets/styles.css`:
+```css
+/* Change article card border color */
+.article-card {
+  border-left: 4px solid rgb(37, 99, 235); /* blue-600 */
+}
+
+/* Change link colors */
+.article-content a {
+  color: rgb(37, 99, 235); /* blue-600 */
+}
 ```
 
 ## Getting Started
