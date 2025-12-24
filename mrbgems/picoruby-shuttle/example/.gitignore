@@ -1,5 +1,6 @@
 # Node modules
 node_modules/
+package-lock.json
 
 # Build artifacts
 dist/articles/*.json
@@ -8,6 +9,7 @@ dist/misc/
 dist/*/index.html
 !dist/index.html
 !dist/404.html
+dist/assets/styles.css
 dist/picoruby.wasm
 dist/picoruby.js
 dist/init.iife.js

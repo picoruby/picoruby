@@ -38,21 +38,41 @@ This is an example blog site built with PicoRuby Shuttle, a static site generato
 
 ## Customizing Design
 
-You can customize the blog design by editing files in the `dist/assets/` directory:
+You can customize the blog design by editing:
 
-- **`assets/tailwind-config.js`**: Tailwind CSS configuration (colors, fonts, etc.)
-- **`assets/styles.css`**: Custom CSS styles for articles, cards, and layout
+- **`tailwind.config.js`**: Tailwind CSS configuration (colors, fonts, breakpoints, etc.)
+- **`dist/assets/input.css`**: Custom CSS styles for articles, cards, and layout
 
-Example customization in `assets/styles.css`:
+After making changes, rebuild the CSS:
+```bash
+npm run build:css
+# or watch for changes
+npm run watch:css
+```
+
+Example customization in `dist/assets/input.css`:
 ```css
 /* Change article card border color */
 .article-card {
-  border-left: 4px solid rgb(37, 99, 235); /* blue-600 */
+  border-left: 4px solid theme('colors.blue.600');
 }
 
 /* Change link colors */
 .article-content a {
-  color: rgb(37, 99, 235); /* blue-600 */
+  @apply text-blue-600 hover:text-blue-800;
+}
+```
+
+Example customization in `tailwind.config.js`:
+```javascript
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#3b82f6',
+      },
+    },
+  },
 }
 ```
 
@@ -61,16 +81,25 @@ Example customization in `assets/styles.css`:
 ### Local Development
 
 1. Clone this repository
-2. Add your articles to the `articles/` directory
-3. Generate the article index:
+2. Install dependencies:
    ```bash
-   rake shuttle:generate_index
+   npm install
    ```
-4. Start the local server:
+3. Add your articles to the `articles/` directory
+4. Build the site:
+   ```bash
+   rake shuttle:build
+   ```
+5. Start the local server:
    ```bash
    rake shuttle:server
    ```
-5. Open http://localhost:8000 in your browser
+6. Open http://localhost:8000 in your browser
+
+For CSS development, you can watch for changes:
+```bash
+npm run watch:css
+```
 
 ### Writing Articles
 
@@ -145,13 +174,22 @@ The workflow will:
 ## Build Tasks
 
 ```bash
+# Build CSS with Tailwind
+npm run build:css
+
+# Watch CSS for changes during development
+npm run watch:css
+
 # Generate article index and copy markdown files
 rake shuttle:generate_index
 
 # Generate static pages from misc/*.md
 rake shuttle:generate_pages
 
-# Build site for deployment (runs all generation tasks)
+# Build CSS with Tailwind (via rake)
+rake shuttle:build_css
+
+# Build site for deployment (runs all generation tasks including CSS)
 rake shuttle:build
 
 # Start local development server
@@ -161,10 +199,17 @@ rake shuttle:server
 ## Requirements
 
 - Ruby 3.x
+- Node.js 18.x or later
 - Rake
 - JSON gem
 
-For GitHub Actions deployment, no additional setup is required.
+For local development:
+```bash
+gem install rake
+npm install
+```
+
+For GitHub Actions deployment, dependencies are installed automatically.
 
 ## License
 
