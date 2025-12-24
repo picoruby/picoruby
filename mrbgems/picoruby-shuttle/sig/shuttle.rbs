@@ -1,0 +1,13 @@
+class Shuttle
+  @window: JS::Object
+  @document: JS::Object
+  @content_div: JS::Object
+
+  def is_numeric?: (String? str) -> bool
+  def initialize: () -> void
+  def render: () -> untyped
+  def render_index: (Integer page) -> untyped
+  def render_article: (String article_id) -> untyped
+  def parse_front_matter: (String text) -> [Hash[String, String], String]
+  def self.run: () -> void
+end

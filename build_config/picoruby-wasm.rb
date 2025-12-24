@@ -26,6 +26,7 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.gem core: 'picoruby-wasm'
   conf.gem core: 'picoruby-json'
   conf.gem core: 'picoruby-funicular'
+  conf.gem core: 'picoruby-shuttle'
   conf.gem core: 'picoruby-base16'
   conf.gem core: 'picoruby-base64'
   conf.gem core: 'picoruby-data'
