@@ -3,7 +3,7 @@ node_modules/
 package-lock.json
 
 # Build artifacts
-dist/articles/*.json
+dist/generated/*.json
 dist/*/index.html
 !dist/index.html
 !dist/404.html

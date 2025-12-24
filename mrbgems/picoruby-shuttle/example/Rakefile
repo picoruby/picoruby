@@ -52,11 +52,12 @@ namespace :shuttle do
     per_page = config['per_page'] || 20
 
     dist_articles_dir = File.expand_path('dist/articles', __dir__)
+    generated_dir = File.expand_path('dist/generated', __dir__)
 
-    FileUtils.mkdir_p(dist_articles_dir)
+    FileUtils.mkdir_p(generated_dir)
 
     # Clean up old index files
-    Dir.glob(File.join(dist_articles_dir, "index_*.json")).each do |old_file|
+    Dir.glob(File.join(generated_dir, "index_*.json")).each do |old_file|
       File.delete(old_file)
     end
 
@@ -114,7 +115,7 @@ namespace :shuttle do
         articles: page_articles
       }
 
-      index_file = File.join(dist_articles_dir, "index_#{page_num}.json")
+      index_file = File.join(generated_dir, "index_#{page_num}.json")
       File.write(index_file, JSON.pretty_generate(index_data))
 
       puts "Generated #{index_file} (#{page_articles.length} articles)"
