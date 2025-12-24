@@ -3,6 +3,11 @@ node_modules/
 
 # Build artifacts
 dist/articles/*.json
+dist/articles/*.md
+dist/misc/
+dist/*/index.html
+!dist/index.html
+!dist/404.html
 dist/picoruby.wasm
 dist/picoruby.js
 dist/init.iife.js

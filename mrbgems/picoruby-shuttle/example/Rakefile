@@ -72,6 +72,67 @@ namespace :shuttle do
     end
   end
 
+  desc "Generate static pages from misc directory"
+  task :generate_pages do
+    misc_dir = File.expand_path('misc', __dir__)
+    dist_dir = File.expand_path('dist', __dir__)
+    template_file = File.expand_path('dist/index.html', __dir__)
+
+    unless File.exist?(template_file)
+      puts "Warning: Template file #{template_file} not found. Skipping page generation."
+      next
+    end
+
+    template = File.read(template_file)
+
+    Dir.glob(File.join(misc_dir, "*.md")).each do |md_file_path|
+      page_name = File.basename(md_file_path, ".md")
+      page_dir = File.join(dist_dir, page_name)
+      FileUtils.mkdir_p(page_dir)
+
+      # Read markdown file
+      content = File.read(md_file_path)
+
+      # Parse front matter
+      front_matter = {}
+      if content =~ /\A---\s*\n(?<fm>.*?)\n^---\s*$\n?/m
+        fm_block = Regexp.last_match[:fm]
+        fm_block.each_line do |line|
+          if line =~ /^\s*(\w+):\s*(.*)\s*$/
+            key = $1.strip
+            value = $2.strip
+            front_matter[key] = value
+          end
+        end
+        content = content.sub(/\A---\s*\n(?<fm>.*?)\n^---\s*$\n?/m, '')
+      end
+
+      title = front_matter['title'] || page_name.gsub('_', ' ').capitalize
+
+      # Copy markdown to dist/misc for SPA access
+      misc_dist_dir = File.join(dist_dir, 'misc')
+      FileUtils.mkdir_p(misc_dist_dir)
+      File.write(File.join(misc_dist_dir, File.basename(md_file_path)), File.read(md_file_path))
+
+      # Create page HTML with embedded Ruby script
+      page_html = template.dup
+      page_html.sub!(/<title>.*?<\/title>/, "<title>#{title} - PicoRuby Shuttle Blog</title>")
+
+      # Replace the Ruby script to render the specific page
+      page_html.sub!(/<script type="text\/ruby">.*?<\/script>/m, <<~RUBY)
+        <script type="text/ruby">
+          require 'shuttle'
+          shuttle = Shuttle.new
+          shuttle.render_static_page('misc/#{File.basename(md_file_path)}')
+        </script>
+      RUBY
+
+      # Write the page HTML
+      File.write(File.join(page_dir, 'index.html'), page_html)
+      puts "Generated #{page_dir}/index.html"
+    end
+  end
+
   desc "Build site for deployment"
   task :build do
     dist_dir = File.expand_path('dist', __dir__)
@@ -81,6 +142,9 @@ namespace :shuttle do
 
     # Generate article index and copy markdown files
     Rake::Task['shuttle:generate_index'].invoke
+
+    # Generate static pages
+    Rake::Task['shuttle:generate_pages'].invoke
 
     puts "Build complete! Output in #{dist_dir}"
   end
