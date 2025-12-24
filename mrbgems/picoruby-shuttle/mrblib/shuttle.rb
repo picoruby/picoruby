@@ -68,23 +68,28 @@ class Shuttle
 
   def render_index(page = 1)
     @window.fetch("./articles/index_#{page}.json") do |response|
-      # Following the `funicular` pattern, get the response body as a string and parse it as JSON
       json_text = response.to_binary
       begin
         data = JSON.parse(json_text)
-        html = "<ul>"
+        html = "<div class='article-list'>"
+        html += "<h2 class='article-list-title'>Recent Articles</h2>"
+        html += "<div class='article-list-items'>"
 
-        # Access the key from the parsed Ruby Hash
         articles = data['articles']
 
         if articles.is_a?(Array)
           articles.each do |article|
             puts "Article ID: #{article['id'].inspect}, Class: #{article['id'].class}"
-            # `article` is now a Ruby Hash
-            html += "<li><a href='?article=#{article['id']}'>#{article['title']}</a></li>"
+            html += "<article class='article-card group'>"
+            html += "<h3 class='article-card-title'>"
+            html += "<a href='?article=#{article['id']}' class='article-card-link'>#{article['title']}</a>"
+            html += "</h3>"
+            html += "<p class='article-card-date'>#{article['date']}</p>"
+            html += "</article>"
           end
         end
-        html += "</ul>"
+        html += "</div>"
+        html += "</div>"
         @content_div.innerHTML = html
       rescue JSON::ParserError => e
         @content_div.innerHTML = "<p>Failed to parse index.json: #{e.message}</p>"
@@ -97,8 +102,25 @@ class Shuttle
       markdown_text = response.to_binary
       meta, content = parse_front_matter(markdown_text)
       title = meta['title'] || article_id.gsub('_', ' ').capitalize
-      html = "<h1>#{title}</h1>"
+      date = meta['date'] || ''
+
+      html = "<article>"
+      html += "<div class='article-header'>"
+      html += "<h1 class='article-title'>#{title}</h1>"
+      if !date.empty?
+        html += "<p class='article-date'>#{date}</p>"
+      end
+      html += "</div>"
+      html += "<div class='article-content'>"
       html += Markdown.new(content).to_html
+      html += "</div>"
+      html += "<div class='article-footer'>"
+      html += "<a href='./' class='back-link'>"
+      html += "<svg class='back-link-icon' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 19l-7-7m0 0l7-7m-7 7h18'/></svg>"
+      html += "Back to Home"
+      html += "</a>"
+      html += "</div>"
+      html += "</article>"
       @content_div.innerHTML = html
     end
   end
