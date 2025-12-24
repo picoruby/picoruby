@@ -1,7 +1,7 @@
 {
   "page": 1,
-  "total_pages": 5,
-  "per_page": 5,
+  "total_pages": 2,
+  "per_page": 20,
   "total_articles": 25,
   "articles": [
     {
@@ -28,6 +28,81 @@
       "id": "article_05",
       "title": "Test Article 5",
       "date": "2025-12-21"
+    },
+    {
+      "id": "article_06",
+      "title": "Test Article 6",
+      "date": "2025-12-20"
+    },
+    {
+      "id": "article_07",
+      "title": "Test Article 7",
+      "date": "2025-12-19"
+    },
+    {
+      "id": "article_08",
+      "title": "Test Article 8",
+      "date": "2025-12-18"
+    },
+    {
+      "id": "article_09",
+      "title": "Test Article 9",
+      "date": "2025-12-17"
+    },
+    {
+      "id": "article_10",
+      "title": "Test Article 10",
+      "date": "2025-12-16"
+    },
+    {
+      "id": "article_11",
+      "title": "Test Article 11",
+      "date": "2025-12-15"
+    },
+    {
+      "id": "article_12",
+      "title": "Test Article 12",
+      "date": "2025-12-14"
+    },
+    {
+      "id": "article_13",
+      "title": "Test Article 13",
+      "date": "2025-12-13"
+    },
+    {
+      "id": "article_14",
+      "title": "Test Article 14",
+      "date": "2025-12-12"
+    },
+    {
+      "id": "article_15",
+      "title": "Test Article 15",
+      "date": "2025-12-11"
+    },
+    {
+      "id": "article_16",
+      "title": "Test Article 16",
+      "date": "2025-12-10"
+    },
+    {
+      "id": "article_17",
+      "title": "Test Article 17",
+      "date": "2025-12-09"
+    },
+    {
+      "id": "article_18",
+      "title": "Test Article 18",
+      "date": "2025-12-08"
+    },
+    {
+      "id": "article_19",
+      "title": "Test Article 19",
+      "date": "2025-12-07"
+    },
+    {
+      "id": "article_20",
+      "title": "Test Article 20",
+      "date": "2025-12-06"
     }
   ]
 }
