@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Redirecting...</title>
+    <script>
+      // GitHub Pages SPA redirect trick
+      // This handles direct navigation to paths that don't exist as files
+      (function() {
+        var pathname = window.location.pathname;
+
+        // If accessing /404.html directly, just redirect to home
+        if (pathname === '/404.html') {
+          window.location.replace(window.location.origin + '/');
+          return;
+        }
+
+        var pathSegments = pathname.split('/').filter(function(segment) {
+          return segment !== '' && segment !== '404.html';
+        });
+
+        // If there are path segments (e.g., /article/something)
+        // redirect to root with query string
+        if (pathSegments.length > 0) {
+          var redirect = window.location.origin + '/?' +
+            pathSegments.join('/') +
+            (window.location.search ? '&' + window.location.search.slice(1) : '');
+          window.location.replace(redirect);
+        } else {
+          // Just redirect to root
+          window.location.replace(window.location.origin + '/');
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+  </body>
+</html>
