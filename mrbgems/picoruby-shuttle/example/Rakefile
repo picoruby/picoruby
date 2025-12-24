@@ -1,6 +1,23 @@
 require 'json'
-require 'fileutils' # <- 追加
-# require 'yaml' # YAMLライブラリは使用しない
+require 'fileutils'
+
+def load_config
+  config_file = File.expand_path('config.yaml', __dir__)
+  config = { 'per_page' => 20 }
+
+  if File.exist?(config_file)
+    File.read(config_file).each_line do |line|
+      next if line.strip.empty? || line.strip.start_with?('#')
+      if line =~ /^\s*(\w+):\s*(.+)\s*$/
+        key = $1.strip
+        value = $2.strip
+        config[key] = value.match?(/^\d+$/) ? value.to_i : value
+      end
+    end
+  end
+
+  config
+end
 
 namespace :shuttle do
   desc "Run server"
@@ -13,6 +30,9 @@ namespace :shuttle do
 
   desc "Generate index.json from articles"
   task :generate_index do
+    config = load_config
+    per_page = config['per_page'] || 20
+
     articles_dir = File.expand_path('articles', __dir__)
     dist_articles_dir = File.expand_path('dist/articles', __dir__)
 
@@ -51,16 +71,32 @@ namespace :shuttle do
     # Sort articles by date (newest first)
     articles.sort_by! { |a| a[:date] }.reverse!
 
-    # For now, we only generate page 1
-    index_data = {
-      page: 1,
-      articles: articles
-    }
+    # Calculate total pages
+    total_articles = articles.length
+    total_pages = (total_articles.to_f / per_page).ceil
+    total_pages = 1 if total_pages == 0
 
-    index_file = File.join(dist_articles_dir, "index_1.json")
-    File.write(index_file, JSON.pretty_generate(index_data))
+    puts "Generating #{total_pages} page(s) with #{per_page} articles per page (#{total_articles} total articles)"
 
-    puts "Generated #{index_file}"
+    # Generate paginated index files
+    (1..total_pages).each do |page_num|
+      start_idx = (page_num - 1) * per_page
+      end_idx = [start_idx + per_page - 1, total_articles - 1].min
+      page_articles = articles[start_idx..end_idx]
+
+      index_data = {
+        page: page_num,
+        total_pages: total_pages,
+        per_page: per_page,
+        total_articles: total_articles,
+        articles: page_articles
+      }
+
+      index_file = File.join(dist_articles_dir, "index_#{page_num}.json")
+      File.write(index_file, JSON.pretty_generate(index_data))
+
+      puts "Generated #{index_file} (#{page_articles.length} articles)"
+    end
 
     # Also copy original markdown files to dist
     Dir.glob(File.join(articles_dir, "*.md")).each do |md_file_path|
@@ -68,8 +104,8 @@ namespace :shuttle do
       File.open(dest_file, "w") do |f|
         f.write(File.read(md_file_path))
       end
-      puts "Copied #{md_file_path} to #{dest_file}"
     end
+    puts "Copied #{total_articles} markdown files"
   end
 
   desc "Generate static pages from misc directory"
