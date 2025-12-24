@@ -14,15 +14,17 @@ namespace :shuttle do
   desc "Generate index.json from articles"
   task :generate_index do
     articles_dir = File.expand_path('articles', __dir__)
-    dist_dir = File.expand_path('dist/articles', __dir__)
+    dist_articles_dir = File.expand_path('dist/articles', __dir__)
+
+    FileUtils.mkdir_p(dist_articles_dir)
 
     articles = []
-    Dir.glob(File.join(articles_dir, "*.md")).each do |md_file_path| # Changed variable name to avoid conflict
-      original_content = File.read(md_file_path) # Read original content
+    Dir.glob(File.join(articles_dir, "*.md")).each do |md_file_path|
+      original_content = File.read(md_file_path)
 
       # Manually parse front matter
       front_matter = {}
-      content_without_fm = original_content # Initialize with original content
+      content_without_fm = original_content
       if original_content =~ /\A---\s*\n(?<fm>.*?)\n^---\s*$\n?/m
         # Extract front matter block
         fm_block = Regexp.last_match[:fm]
@@ -55,18 +57,31 @@ namespace :shuttle do
       articles: articles
     }
 
-    index_file = File.join(dist_dir, "index_1.json")
+    index_file = File.join(dist_articles_dir, "index_1.json")
     File.write(index_file, JSON.pretty_generate(index_data))
 
     puts "Generated #{index_file}"
 
     # Also copy original markdown files to dist
     Dir.glob(File.join(articles_dir, "*.md")).each do |md_file_path|
-      dest_file = File.join(dist_dir, File.basename(md_file_path))
+      dest_file = File.join(dist_articles_dir, File.basename(md_file_path))
       File.open(dest_file, "w") do |f|
-        f.write(File.read(md_file_path)) # Write original content
+        f.write(File.read(md_file_path))
       end
       puts "Copied #{md_file_path} to #{dest_file}"
     end
+  end
+
+  desc "Build site for deployment"
+  task :build do
+    dist_dir = File.expand_path('dist', __dir__)
+    FileUtils.mkdir_p(dist_dir)
+
+    puts "Building Shuttle blog..."
+
+    # Generate article index and copy markdown files
+    Rake::Task['shuttle:generate_index'].invoke
+
+    puts "Build complete! Output in #{dist_dir}"
   end
 end

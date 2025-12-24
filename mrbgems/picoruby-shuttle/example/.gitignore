@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/articles/*.json
+dist/picoruby.wasm
+dist/picoruby.js
+dist/init.iife.js
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Rake
+.rake_tasks~
