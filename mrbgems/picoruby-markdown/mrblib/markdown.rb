@@ -52,7 +52,12 @@ class Markdown
           html << "</code></pre>\n"
           in_code_block = false
         else
-          html << "<pre><code>"
+          language = line[3..-1].strip
+          if language.empty?
+            html << "<pre><code>"
+          else
+            html << "<pre><code class=\"language-#{language}\">"
+          end
           in_code_block = true
         end
         next
