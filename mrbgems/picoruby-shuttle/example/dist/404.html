@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Redirecting...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
       // GitHub Pages SPA redirect trick
       // This handles direct navigation to paths that don't exist as files
@@ -33,7 +35,13 @@
       })();
     </script>
   </head>
-  <body>
-    <p>Redirecting...</p>
+  <body class="bg-gradient-to-br from-slate-50 to-slate-100 min-h-screen flex items-center justify-center">
+    <div class="text-center">
+      <div class="mb-8">
+        <div class="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600"></div>
+      </div>
+      <h1 class="text-2xl font-bold text-slate-800 mb-2">Redirecting...</h1>
+      <p class="text-slate-600">Taking you to the home page</p>
+    </div>
   </body>
 </html>
