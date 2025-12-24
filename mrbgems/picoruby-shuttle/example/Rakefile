@@ -133,12 +133,21 @@ namespace :shuttle do
     end
   end
 
+  desc "Build CSS with Tailwind"
+  task :build_css do
+    puts "Building CSS with Tailwind..."
+    system("npm run build:css")
+  end
+
   desc "Build site for deployment"
   task :build do
     dist_dir = File.expand_path('dist', __dir__)
     FileUtils.mkdir_p(dist_dir)
 
     puts "Building Shuttle blog..."
+
+    # Build CSS
+    Rake::Task['shuttle:build_css'].invoke
 
     # Generate article index and copy markdown files
     Rake::Task['shuttle:generate_index'].invoke
