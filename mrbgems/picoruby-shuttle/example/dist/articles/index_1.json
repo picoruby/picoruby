@@ -1,5 +1,8 @@
 {
   "page": 1,
+  "total_pages": 5,
+  "per_page": 5,
+  "total_articles": 25,
   "articles": [
     {
       "id": "about_picoruby",
@@ -10,6 +13,21 @@
       "id": "my_first_post",
       "title": "My First Post",
       "date": "2025-12-24"
+    },
+    {
+      "id": "article_03",
+      "title": "Test Article 3",
+      "date": "2025-12-23"
+    },
+    {
+      "id": "article_04",
+      "title": "Test Article 4",
+      "date": "2025-12-22"
+    },
+    {
+      "id": "article_05",
+      "title": "Test Article 5",
+      "date": "2025-12-21"
     }
   ]
 }
