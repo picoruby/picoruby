@@ -38,7 +38,7 @@ class MarkdownTest < Picotest::Test
     MARKDOWN
     markdown = Markdown.new(text)
     expected = <<~HTML
-      <pre><code>def hello
+      <pre><code class="language-ruby">def hello
         puts "hello"
       end
       </code></pre>
@@ -177,5 +177,77 @@ class MarkdownTest < Picotest::Test
     assert_true html.include?("<p>This is a <a href=\"https://example.com\">link</a>.</p>")
     assert_true html.include?("<p>This is a <img src=\"/logo.png\" alt=\"image\" title=\"Logo Title\">.</p>")
     assert_true html.include?("<p>A link with a title: <a href=\"https://picoruby.github.io\" title=\"Go to site\">PicoRuby</a>.</p>")
+  end
+
+  def test_nested_unordered_list
+    text = <<~MARKDOWN
+      * Item 1
+        * Nested 1-1
+        * Nested 1-2
+      * Item 2
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?("<ul>")
+    assert_true html.include?("<li>Item 1")
+    assert_true html.include?("<li>Nested 1-1</li>")
+    assert_true html.include?("<li>Nested 1-2</li>")
+    assert_true html.include?("<li>Item 2</li>")
+    assert_true html.include?("</ul>")
+  end
+
+  def test_nested_ordered_list
+    text = <<~MARKDOWN
+      1. First item
+         1. Nested 1-1
+         2. Nested 1-2
+      2. Second item
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?("<ol>")
+    assert_true html.include?("<li>First item")
+    assert_true html.include?("<li>Nested 1-1</li>")
+    assert_true html.include?("<li>Nested 1-2</li>")
+    assert_true html.include?("<li>Second item</li>")
+    assert_true html.include?("</ol>")
+  end
+
+  def test_mixed_nested_list
+    text = <<~MARKDOWN
+      * Item 1
+        1. Nested ordered 1
+        2. Nested ordered 2
+      * Item 2
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?("<ul>")
+    assert_true html.include?("<ol>")
+    assert_true html.include?("<li>Item 1")
+    assert_true html.include?("<li>Nested ordered 1</li>")
+    assert_true html.include?("<li>Nested ordered 2</li>")
+    assert_true html.include?("<li>Item 2</li>")
+    assert_true html.include?("</ul>")
+    assert_true html.include?("</ol>")
+  end
+
+  def test_deeply_nested_list
+    text = <<~MARKDOWN
+      * Level 1
+        * Level 2
+          * Level 3
+      * Another Level 1
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?("<li>Level 1")
+    assert_true html.include?("<li>Level 2")
+    assert_true html.include?("<li>Level 3</li>")
+    assert_true html.include?("<li>Another Level 1</li>")
   end
 end
