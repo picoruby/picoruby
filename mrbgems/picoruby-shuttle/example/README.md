@@ -17,19 +17,20 @@ This is an example blog site built with PicoRuby Shuttle, a static site generato
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml           # GitHub Actions workflow for deployment
-├── articles/                    # Your markdown articles
-│   ├── my_first_post.md
-│   └── about_picoruby.md
-├── misc/                        # Static pages (About, Contact, etc.)
-│   └── about.md                 # Example: /about page
-├── dist/                        # Generated site (output directory)
+├── dist/                        # Site output directory
 │   ├── index.html               # Main HTML file
 │   ├── 404.html                 # 404 redirect page
 │   ├── assets/                  # Static assets
 │   │   ├── tailwind-config.js   # Tailwind CSS configuration
 │   │   └── styles.css           # Custom styles (customize here!)
-│   ├── articles/                # Generated article files
-│   ├── misc/                    # Copied markdown files for SPA
+│   ├── articles/                # Your markdown articles (write here!)
+│   │   ├── my_first_post.md
+│   │   └── about_picoruby.md
+│   ├── misc/                    # Static pages (About, Contact, etc.)
+│   │   └── about.md             # Example: /about page
+│   ├── generated/               # Generated index files
+│   │   ├── index_1.json         # Article index for page 1
+│   │   └── index_2.json         # Article index for page 2
 │   └── about/                   # Generated static page
 │       └── index.html           # /about page HTML
 ├── Rakefile                     # Build tasks
@@ -85,7 +86,7 @@ module.exports = {
    ```bash
    npm install
    ```
-3. Add your articles to the `articles/` directory
+3. Add your articles to the `dist/articles/` directory
 4. Build the site:
    ```bash
    rake shuttle:build
@@ -103,7 +104,7 @@ npm run watch:css
 
 ### Writing Articles
 
-Create markdown files in the `articles/` directory with YAML front matter:
+Create markdown files in the `dist/articles/` directory with YAML front matter:
 
 ```markdown
 ---
@@ -118,9 +119,9 @@ This is the content of my first post.
 
 You can add custom static pages (like About, Contact, etc.) without modifying Shuttle:
 
-1. Create a markdown file in the `misc/` directory:
+1. Create a markdown file in the `dist/misc/` directory:
    ```bash
-   # Create misc/about.md
+   # Create dist/misc/about.md
    ```
 
 2. Add content with front matter:
@@ -142,11 +143,11 @@ You can add custom static pages (like About, Contact, etc.) without modifying Sh
 4. The page will be accessible at `/about` (or whatever you named the file)
 
 **Example:**
-- `misc/about.md` → `example.com/about`
-- `misc/contact.md` → `example.com/contact`
-- `misc/privacy.md` → `example.com/privacy`
+- `dist/misc/about.md` → `example.com/about`
+- `dist/misc/contact.md` → `example.com/contact`
+- `dist/misc/privacy.md` → `example.com/privacy`
 
-The build process automatically generates a static HTML page for each `.md` file in the `misc/` directory.
+The build process automatically generates a static HTML page for each `.md` file in the `dist/misc/` directory.
 
 ### Deployment to GitHub Pages
 
@@ -168,8 +169,8 @@ The workflow will:
 - `/` - Home page (article list, page 1)
 - `/?page=2` - Article list, page 2
 - `/?article=my_first_post` - Individual article
-- `/about` - Static page (from `misc/about.md`)
-- `/contact` - Static page (from `misc/contact.md`)
+- `/about` - Static page (from `dist/misc/about.md`)
+- `/contact` - Static page (from `dist/misc/contact.md`)
 
 ## Build Tasks
 
@@ -180,10 +181,10 @@ npm run build:css
 # Watch CSS for changes during development
 npm run watch:css
 
-# Generate article index and copy markdown files
+# Generate article index
 rake shuttle:generate_index
 
-# Generate static pages from misc/*.md
+# Generate static pages from dist/misc/*.md
 rake shuttle:generate_pages
 
 # Build CSS with Tailwind (via rake)
