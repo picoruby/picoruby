@@ -28,10 +28,16 @@ jobs:
         with:
           ruby-version: '3.3'
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install dependencies
         run: |
           gem install rake
           gem install json
+          npm install
 
       - name: Build site
         run: rake shuttle:build
