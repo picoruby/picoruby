@@ -51,13 +51,17 @@ namespace :shuttle do
     config = load_config
     per_page = config['per_page'] || 20
 
-    articles_dir = File.expand_path('articles', __dir__)
     dist_articles_dir = File.expand_path('dist/articles', __dir__)
 
     FileUtils.mkdir_p(dist_articles_dir)
 
+    # Clean up old index files
+    Dir.glob(File.join(dist_articles_dir, "index_*.json")).each do |old_file|
+      File.delete(old_file)
+    end
+
     articles = []
-    Dir.glob(File.join(articles_dir, "*.md")).each do |md_file_path|
+    Dir.glob(File.join(dist_articles_dir, "*.md")).each do |md_file_path|
       original_content = File.read(md_file_path)
 
       # Manually parse front matter
@@ -115,22 +119,13 @@ namespace :shuttle do
 
       puts "Generated #{index_file} (#{page_articles.length} articles)"
     end
-
-    # Also copy original markdown files to dist
-    Dir.glob(File.join(articles_dir, "*.md")).each do |md_file_path|
-      dest_file = File.join(dist_articles_dir, File.basename(md_file_path))
-      File.open(dest_file, "w") do |f|
-        f.write(File.read(md_file_path))
-      end
-    end
-    puts "Copied #{total_articles} markdown files"
   end
 
   desc "Generate static pages from misc directory"
   task :generate_pages do
     config = load_config
-    misc_dir = File.expand_path('misc', __dir__)
     dist_dir = File.expand_path('dist', __dir__)
+    misc_dist_dir = File.join(dist_dir, 'misc')
     template_file = File.expand_path('templates/index.html.erb', __dir__)
 
     unless File.exist?(template_file)
@@ -138,9 +133,11 @@ namespace :shuttle do
       next
     end
 
+    FileUtils.mkdir_p(misc_dist_dir)
+
     template = ERB.new(File.read(template_file))
 
-    Dir.glob(File.join(misc_dir, "*.md")).each do |md_file_path|
+    Dir.glob(File.join(misc_dist_dir, "*.md")).each do |md_file_path|
       page_name = File.basename(md_file_path, ".md")
       page_dir = File.join(dist_dir, page_name)
       FileUtils.mkdir_p(page_dir)
@@ -163,11 +160,6 @@ namespace :shuttle do
       end
 
       title = front_matter['title'] || page_name.gsub('_', ' ').capitalize
-
-      # Copy markdown to dist/misc for SPA access
-      misc_dist_dir = File.join(dist_dir, 'misc')
-      FileUtils.mkdir_p(misc_dist_dir)
-      File.write(File.join(misc_dist_dir, File.basename(md_file_path)), File.read(md_file_path))
 
       # Create page HTML with embedded Ruby script
       page_html = template.result(binding)
