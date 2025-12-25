@@ -151,6 +151,7 @@ class Shuttle
           html += "</div>"
           @content_div.innerHTML = html
           highlight_code
+          setup_external_links
         rescue JSON::ParserError => e
           @content_div.innerHTML = "<p>Failed to parse index.json: #{e.message}</p>"
         end
@@ -190,6 +191,7 @@ class Shuttle
         html += "</article>"
         @content_div.innerHTML = html
         highlight_code
+        setup_external_links
       else
         render_404("Error loading article", "An error occurred while loading the article (HTTP #{status}).")
       end
@@ -222,6 +224,7 @@ class Shuttle
         html += "</article>"
         @content_div.innerHTML = html
         highlight_code
+        setup_external_links
       else
         render_404("Error loading page", "An error occurred while loading the page (HTTP #{status}).")
       end
@@ -231,6 +234,26 @@ class Shuttle
   def highlight_code
     prism = JS.global[:Prism]
     prism.highlightAll if prism
+  end
+
+  def setup_external_links
+    hostname = @window.location&.hostname&.to_s
+    return if hostname.nil? || hostname.empty?
+
+    links = @document.querySelectorAll("a[href^='http']")
+    length = links.length.to_i
+
+    (0...length).each do |i|
+      link = links[i]
+      next unless link
+
+      href = link.getAttribute('href')&.to_s
+      next if href.nil? || href.empty?
+      next if href.include?(hostname)
+
+      link.setAttribute('target', '_blank')
+      link.setAttribute('rel', 'noopener noreferrer')
+    end
   end
 
   def self.run
