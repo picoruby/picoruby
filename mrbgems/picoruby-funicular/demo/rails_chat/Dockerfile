@@ -7,6 +7,7 @@ RUN apt-get update -qq && \
     build-essential \
     git \
     libsqlite3-dev \
+    libyaml-dev \
     pkg-config \
     curl \
     nodejs \
