@@ -272,4 +272,44 @@ class MarkdownTest < Picotest::Test
     assert_true html.include?('<a href="https://example.com/some_path/with_underscores">Link</a>')
     assert_false html.include?('<em>')
   end
+
+  def test_horizontal_rule
+    text = <<~MARKDOWN
+      Paragraph before
+
+      ---
+
+      Paragraph after
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?('<hr>')
+    assert_true html.include?('<p>Paragraph before</p>')
+    assert_true html.include?('<p>Paragraph after</p>')
+  end
+
+  def test_horizontal_rule_variations
+    text = <<~MARKDOWN
+      ---
+      ***
+      ___
+      - - -
+      * * *
+      _ _ _
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    # Count occurrences of <hr>
+    hr_count = 0
+    index = 0
+    while index < html.length
+      pos = html.index('<hr>', index)
+      break unless pos
+      hr_count += 1
+      index = pos + 4
+    end
+    assert_equal 6, hr_count
+  end
 end

@@ -74,6 +74,12 @@ class Markdown
         next
       end
 
+      # Horizontal rule parsing (---, ***, ___)
+      if horizontal_rule?(stripped_line)
+        html << "<hr>\n"
+        next
+      end
+
       # Table parsing
       if stripped_line.start_with?('|')
         separator_line = @lines[index + 1]&.strip
@@ -114,7 +120,7 @@ class Markdown
       else
         # List parsing
         is_ulist_start = ['* ', '- ', '+ '].any? { |m| stripped_line.start_with?(m) }
-        is_olist_start = is_ordered_list_item(stripped_line)
+        is_olist_start = ordered_list_item?(stripped_line)
         if is_ulist_start || is_olist_start
           list_html, lines_consumed = process_list(index, is_ulist_start ? :ul : :ol)
           html << list_html
@@ -159,7 +165,7 @@ class Markdown
       end
 
       is_ulist_item = ['* ', '- ', '+ '].any? { |m| stripped.start_with?(m) }
-      is_olist_item = is_ordered_list_item(stripped)
+      is_olist_item = ordered_list_item?(stripped)
 
       is_current_type_item = (type == :ul && is_ulist_item) || (type == :ol && is_olist_item)
 
@@ -188,7 +194,7 @@ class Markdown
 
           if next_indent > current_indent && !next_stripped.empty?
             next_is_ulist = ['* ', '- ', '+ '].any? { |m| next_stripped.start_with?(m) }
-            next_is_olist = is_ordered_list_item(next_stripped)
+            next_is_olist = ordered_list_item?(next_stripped)
 
             if next_is_ulist || next_is_olist
               # Process nested list
@@ -208,7 +214,7 @@ class Markdown
         lines_consumed += 1
       elsif stripped.empty?
         peek_line = @lines[i+1]&.strip
-        if peek_line && (is_ordered_list_item(peek_line) || ['* ', '- ', '+ '].any? { |m| peek_line.start_with?(m) })
+        if peek_line && (ordered_list_item?(peek_line) || ['* ', '- ', '+ '].any? { |m| peek_line.start_with?(m) })
           i += 1
           lines_consumed += 1
         else
@@ -237,13 +243,27 @@ class Markdown
     count
   end
 
-  def is_ordered_list_item(line)
+  def ordered_list_item?(line)
     return false if line.empty?
     i = 0
     while i < line.length && "0123456789".include?(line[i] || '')
       i += 1
     end
     i > 0 && line[i..i+1] == '. '
+  end
+
+  def horizontal_rule?(line)
+    return false if line.length < 3
+
+    # Remove all spaces
+    cleaned = line.gsub(' ', '')
+    return false if cleaned.length < 3
+
+    # Check if it's all the same character (-, *, or _)
+    char = cleaned[0]
+    return false unless char && ['-', '*', '_'].include?(char)
+
+    cleaned.chars.all? { |c| c == char }
   end
 
   def process_inline_formats(line)
@@ -384,7 +404,9 @@ class Markdown
     i = 0
 
     while i < line.length
-      if line[i] == '<'
+      line_i = line[i]
+      # @type var line_i: String
+      if line_i == '<'
         tag_end = line.index('>', i)
         if tag_end
           tag = line[i..tag_end]
@@ -393,11 +415,11 @@ class Markdown
           output << "<<<HTMLTAG#{index}>>>"
           i = tag_end + 1
         else
-          output << line[i]
+          output << line_i
           i += 1
         end
       else
-        output << line[i]
+        output << line_i
         i += 1
       end
     end
