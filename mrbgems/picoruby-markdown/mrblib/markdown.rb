@@ -250,12 +250,18 @@ class Markdown
     line = replace_footnote_references(line)
     line = replace_links_and_images(line)
 
+    # Protect existing HTML tags from inline formatting
+    line, protected_tags = protect_html_tags(line)
+
     # The order of these operations is important for correctness.
     line = gsub_with_pairing(line, '`', '<code>', '</code>', :escape_html)
     line = gsub_with_pairing(line, '**', '<strong>', '</strong>')
     line = gsub_with_pairing(line, '__', '<strong>', '</strong>')
     line = gsub_with_pairing(line, '*', '<em>', '</em>')
     line = gsub_with_pairing(line, '_', '<em>', '</em>')
+
+    # Restore protected HTML tags
+    line = restore_html_tags(line, protected_tags)
 
     line
   end
@@ -370,5 +376,41 @@ class Markdown
     # A simple escape method.
     # It's not complete, but good enough for code blocks for now.
     text.gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;')
+  end
+
+  def protect_html_tags(line)
+    protected_tags = []
+    output = ""
+    i = 0
+
+    while i < line.length
+      if line[i] == '<'
+        tag_end = line.index('>', i)
+        if tag_end
+          tag = line[i..tag_end]
+          index = protected_tags.length
+          protected_tags << tag
+          output << "<<<HTMLTAG#{index}>>>"
+          i = tag_end + 1
+        else
+          output << line[i]
+          i += 1
+        end
+      else
+        output << line[i]
+        i += 1
+      end
+    end
+
+    [output, protected_tags]
+  end
+
+  def restore_html_tags(line, protected_tags)
+    output = line
+    protected_tags.each_with_index do |tag, index|
+      placeholder = "<<<HTMLTAG#{index}>>>"
+      output = output.gsub(placeholder, tag)
+    end
+    output
   end
 end
