@@ -82,7 +82,8 @@ Rails.application.configure do
   config.hosts = [
     "rails-chat.hasumikin.com",
     /.*\.hasumikin\.com/,
-    "localhost"
+    "localhost",
+    /^[a-f0-9]{12}(:\d+)?$/  # Allow Docker container IDs
   ]
 
   # Skip DNS rebinding protection for the default health check endpoint.
