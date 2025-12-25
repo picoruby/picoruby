@@ -55,14 +55,15 @@ RUN mkdir -p /rails/storage /rails/log && \
 
 USER rails:rails
 
-EXPOSE 3000
+EXPOSE 80
 
 ENV RAILS_ENV=production \
     RAILS_LOG_TO_STDOUT=true \
-    RAILS_SERVE_STATIC_FILES=true
+    RAILS_SERVE_STATIC_FILES=true \
+    PORT=80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s \
-  CMD curl -f http://localhost:3000/up || exit 1
+  CMD curl -f http://localhost:80/up || exit 1
 
 CMD ["bundle", "exec", "puma", "-C", "config/puma.rb"]
