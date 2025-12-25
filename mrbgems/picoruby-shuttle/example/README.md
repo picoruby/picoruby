@@ -1,10 +1,13 @@
 # PicoRuby Shuttle Blog Example
 
-This is an example blog site built with PicoRuby Shuttle, a static site generator powered by PicoRuby WASM.
+This is an example blog site built with PicoRuby Shuttle.
+Shuttle is a hybrid site generator.
+It uses Rake (CRuby) to statically build miscellaneous pages like `about` and article indices, while articles themselves are rendered dynamically in the browser using PicoRuby.wasm.
 
 ## Features
 
-- Static site generation with PicoRuby WASM
+- Dynamic article page generation with PicoRuby.wasm
+- Static page generation by Rake task
 - Query string-based routing (SEO-friendly)
 - GitHub Pages compatible
 - Markdown article support with front matter
@@ -23,12 +26,12 @@ This is an example blog site built with PicoRuby Shuttle, a static site generato
 │   ├── assets/                  # Static assets
 │   │   ├── tailwind-config.js   # Tailwind CSS configuration
 │   │   └── styles.css           # Custom styles (customize here!)
-│   ├── articles/                # Your markdown articles (write here!)
+│   ├── articles/                # Your markdown articles (write here!), dynamically built in browser
 │   │   ├── my_first_post.md
 │   │   └── about_picoruby.md
-│   ├── misc/                    # Static pages (About, Contact, etc.)
+│   ├── misc/                    # Misc pages (About, Contact, etc.), dynamically built in browser
 │   │   └── about.md             # Example: /about page
-│   ├── generated/               # Generated index files
+│   ├── generated/               # Statically generated index files
 │   │   ├── index_1.json         # Article index for page 1
 │   │   └── index_2.json         # Article index for page 2
 │   └── about/                   # Generated static page
@@ -115,9 +118,9 @@ date: 2025-12-24
 This is the content of my first post.
 ```
 
-## Adding Static Pages
+## Adding Misc Pages
 
-You can add custom static pages (like About, Contact, etc.) without modifying Shuttle:
+You can add custom pages (like About, Contact, etc.) without modifying Shuttle:
 
 1. Create a markdown file in the `dist/misc/` directory:
    ```bash
@@ -147,7 +150,7 @@ You can add custom static pages (like About, Contact, etc.) without modifying Sh
 - `dist/misc/contact.md` → `example.com/contact`
 - `dist/misc/privacy.md` → `example.com/privacy`
 
-The build process automatically generates a static HTML page for each `.md` file in the `dist/misc/` directory.
+The build process automatically generates a dynamic HTML page for each `.md` file in the `dist/misc/` directory.
 
 ### Deployment to GitHub Pages
 
@@ -169,8 +172,7 @@ The workflow will:
 - `/` - Home page (article list, page 1)
 - `/?page=2` - Article list, page 2
 - `/?article=my_first_post` - Individual article
-- `/about` - Static page (from `dist/misc/about.md`)
-- `/contact` - Static page (from `dist/misc/contact.md`)
+- `/about` - About page (from `dist/misc/about.md`)
 
 ## Build Tasks
 
@@ -184,7 +186,7 @@ npm run watch:css
 # Generate article index
 rake shuttle:generate_index
 
-# Generate static pages from dist/misc/*.md
+# Generate pages from dist/misc/*.md
 rake shuttle:generate_pages
 
 # Build CSS with Tailwind (via rake)
