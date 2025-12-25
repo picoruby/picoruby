@@ -22,7 +22,7 @@ end
 
 namespace :shuttle do
   desc "Run server"
-  task :server do
+  task :server => :build do
     puts "Starting server..."
     FileUtils.cd(File.expand_path('dist', __dir__)) do
       system("ruby -r un -e httpd . -p 8000")
@@ -43,6 +43,20 @@ namespace :shuttle do
     template = ERB.new(File.read(template_file))
     html = template.result(binding)
     File.write(output_file, html)
+    puts "Generated #{output_file}"
+  end
+
+  desc "Generate 404.html from template"
+  task :generate_404 do
+    template_file = File.expand_path('templates/404.html', __dir__)
+    output_file = File.expand_path('dist/404.html', __dir__)
+
+    unless File.exist?(template_file)
+      puts "Warning: Template file #{template_file} not found."
+      next
+    end
+
+    FileUtils.cp(template_file, output_file)
     puts "Generated #{output_file}"
   end
 
@@ -200,6 +214,9 @@ namespace :shuttle do
 
     # Generate index.html from template
     Rake::Task['shuttle:generate_html'].invoke
+
+    # Generate 404.html from template
+    Rake::Task['shuttle:generate_404'].invoke
 
     # Generate article index and copy markdown files
     Rake::Task['shuttle:generate_index'].invoke
