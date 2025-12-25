@@ -250,4 +250,26 @@ class MarkdownTest < Picotest::Test
     assert_true html.include?("<li>Level 3</li>")
     assert_true html.include?("<li>Another Level 1</li>")
   end
+
+  def test_image_with_underscores_in_path
+    text = <<~MARKDOWN
+      ![](/assets/images/201407/10507977_339098792904456_837411446_n.jpg)
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?('<img src="/assets/images/201407/10507977_339098792904456_837411446_n.jpg" alt="">')
+    assert_false html.include?('<em>')
+  end
+
+  def test_link_with_underscores_in_url
+    text = <<~MARKDOWN
+      [Link](https://example.com/some_path/with_underscores)
+    MARKDOWN
+    markdown = Markdown.new(text)
+    html = markdown.to_html
+
+    assert_true html.include?('<a href="https://example.com/some_path/with_underscores">Link</a>')
+    assert_false html.include?('<em>')
+  end
 end
