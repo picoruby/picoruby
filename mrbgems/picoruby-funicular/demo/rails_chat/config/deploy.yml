@@ -2,39 +2,30 @@
 service: rails_chat
 
 # Name of the container image (use your-user/app-name on external registries).
-image: rails_chat
+image: 574134345704.dkr.ecr.ap-northeast-1.amazonaws.com/rails-chat
 
 # Deploy to these servers.
 servers:
   web:
-    - 192.168.0.1
+    - 54.168.191.153
   # job:
   #   hosts:
-  #     - 192.168.0.1
+  #     - 54.168.191.153
   #   cmd: bin/jobs
 
-# Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# If used with Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
-#
-# Using an SSL proxy like this requires turning on config.assume_ssl and config.force_ssl in production.rb!
-#
-# Don't use this when deploying to multiple web servers (then you have to terminate SSL at your load balancer).
-#
-# proxy:
-#   ssl: true
-#   host: app.example.com
+# Enable SSL auto certification via Let's Encrypt
+# This requires turning on config.assume_ssl and config.force_ssl in production.rb!
+proxy:
+  ssl: true
+  host: rails-chat.hasumikin.com
 
-# Where you keep your container images.
+# Amazon ECR registry
+# Will be updated by bin/deploy_setup script
 registry:
-  # Alternatives: hub.docker.com / registry.digitalocean.com / ghcr.io / ...
-  server: localhost:5555
-
-  # Needed for authenticated registries.
-  # username: your-user
-
-  # Always use an access token rather than real password when possible.
-  # password:
-  #   - KAMAL_REGISTRY_PASSWORD
+  server: 574134345704.dkr.ecr.ap-northeast-1.amazonaws.com
+  username: AWS
+  password:
+    - KAMAL_REGISTRY_PASSWORD
 
 # Inject ENV variables into containers (secrets come from .kamal/secrets).
 env:
@@ -91,9 +82,11 @@ builder:
   #   - GITHUB_TOKEN
   #   - RAILS_MASTER_KEY
 
-# Use a different ssh user than root
-# ssh:
-#   user: app
+# Use ubuntu user for EC2
+ssh:
+  user: ubuntu
+  keys:
+    - ~/.ssh/rails-chat.pem
 
 # Use accessory services (secrets come from .kamal/secrets).
 # accessories:
