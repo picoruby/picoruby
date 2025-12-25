@@ -71,6 +71,8 @@ As of 2026:
 - [(ja) Why Now Is the Right Time for PicoRuby](https://slide.rabbit-shocker.org/authors/hasumikin/RubyWorldConference2025/)
 ### EuRuKo 2025 / Viana do Castelo, Portugal
 - [(en) PicoRuby Hands-on: Internet of Things Edition](https://slide.rabbit-shocker.org/authors/hasumikin/Euruko2025/)
+### RubyConf Taiwan 2025 / Taipei, Taiwan
+- [(en) Well, PicoRuby Can Do That](https://coscup.org/2025/en/sessions/AFH9W3)
 ### RubyKaigi 2025 / Matz-yama, Japan
 - [(ja) MicroRuby: True Microcontroller Ruby](https://rubykaigi.org/2025/presentations/hasumikin.html)
 ### EuRuKo 2024 / Sarajevo, Bosnia and Herzegovina
@@ -98,7 +100,7 @@ As of 2026:
 - [(ja) mruby machine: An Operating System for Microcontoller](https://rubykaigi.org/2020-takeout/presentations/hasumikin.html#sep04)
 ### RubyConf 2019 / Nashville, the US
 - [(en) mruby/c: Running on Less Than 64KB RAM Microcontroller](https://youtu.be/1VFPSHs3WvI)
-### [KRKRB 2019 / Cracow, Poland](https://krk-rb.pl/)
+### KRKRB 2019 / Cracow, Poland
 ### RubyKaigi 2019 / Fukuoka, Japan
 - [(en) Practical mruby/c firmware development with CRuby](https://rubykaigi.org/2019/presentations/hasumikin.html#apr19)
 ### RubyWorld Conference 2018 / Matsue, Japan
