@@ -40,3 +40,13 @@
 
 /app/assets/builds/*
 !/app/assets/builds/.keep
+
+# Kamal
+.kamal/secrets
+
+# Infrastructure
+infrastructure/*.bak
+
+# Docker
+.dockerignore.bak
+config/*.bak

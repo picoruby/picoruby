@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+
+# Development files
+.env*
+.kamal
+
+# Logs and temp files
+log/*
+tmp/*
+storage/*
+
+# Dependencies
+vendor/bundle
+node_modules
+
+# Test files
+test
+spec
+
+# Database files (will use volumes)
+*.sqlite3
+*.sqlite3-*
+
+# IDE
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# CI/CD
+.github
+.circleci
