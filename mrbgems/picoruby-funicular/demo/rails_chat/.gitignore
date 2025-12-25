@@ -28,7 +28,12 @@
 !/tmp/storage/
 !/tmp/storage/.keep
 
-/public/assets
+/public/assets/*
+!/public/assets/init.iife.js
+!/public/assets/picoruby.wasm
+!/public/assets/picoruby.js
+!/public/assets/picoruby.wasm.br
+!/public/assets/picoruby.wasm.map
 
 # Ignore key files for decrypting credentials and more.
 /config/*.key
