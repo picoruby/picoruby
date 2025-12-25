@@ -1,7 +1,7 @@
-# PicoRuby Shuttle Blog Example
+# PicoRuby Buddie Blog Example
 
-This is an example blog site built with PicoRuby Shuttle.
-Shuttle is a hybrid site generator.
+This is an example blog site built with PicoRuby Buddie.
+Buddie is a hybrid site generator.
 It uses Rake (CRuby) to statically build miscellaneous pages like `about` and article indices, while articles themselves are rendered dynamically in the browser using PicoRuby.wasm.
 
 ## Features
@@ -92,11 +92,11 @@ module.exports = {
 3. Add your articles to the `dist/articles/` directory
 4. Build the site:
    ```bash
-   rake shuttle:build
+   rake buddie:build
    ```
 5. Start the local server:
    ```bash
-   rake shuttle:server
+   rake buddie:server
    ```
 6. Open http://localhost:8000 in your browser
 
@@ -120,7 +120,7 @@ This is the content of my first post.
 
 ## Adding Misc Pages
 
-You can add custom pages (like About, Contact, etc.) without modifying Shuttle:
+You can add custom pages (like About, Contact, etc.) without modifying Buddie:
 
 1. Create a markdown file in the `dist/misc/` directory:
    ```bash
@@ -140,7 +140,7 @@ You can add custom pages (like About, Contact, etc.) without modifying Shuttle:
 
 3. Build the site:
    ```bash
-   rake shuttle:build
+   rake buddie:build
    ```
 
 4. The page will be accessible at `/about` (or whatever you named the file)
@@ -184,19 +184,19 @@ npm run build:css
 npm run watch:css
 
 # Generate article index
-rake shuttle:generate_index
+rake buddie:generate_index
 
 # Generate pages from dist/misc/*.md
-rake shuttle:generate_pages
+rake buddie:generate_pages
 
 # Build CSS with Tailwind (via rake)
-rake shuttle:build_css
+rake buddie:build_css
 
 # Build site for deployment (runs all generation tasks including CSS)
-rake shuttle:build
+rake buddie:build
 
 # Start local development server
-rake shuttle:server
+rake buddie:server
 ```
 
 ## Requirements

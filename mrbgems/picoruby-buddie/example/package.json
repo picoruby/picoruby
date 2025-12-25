@@ -1,7 +1,7 @@
 {
-  "name": "picoruby-shuttle-example",
+  "name": "hasumikin.com",
   "version": "1.0.0",
-  "description": "PicoRuby Shuttle example blog",
+  "description": "PicoRuby Buddie example blog",
   "scripts": {
     "build:css": "tailwindcss -i ./dist/assets/input.css -o ./dist/assets/styles.css --minify",
     "watch:css": "tailwindcss -i ./dist/assets/input.css -o ./dist/assets/styles.css --watch",

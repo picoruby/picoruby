@@ -1,4 +1,4 @@
-class Shuttle
+class Buddie
   @window: JS::Object
   @document: JS::Object
   @content_div: JS::Object

@@ -2,7 +2,7 @@ require 'js'
 require 'json'
 require 'markdown'
 
-class Shuttle
+class Buddie
 
   # Simple YAML parser for Front Matter
   def parse_front_matter(text)
@@ -257,12 +257,12 @@ class Shuttle
   end
 
   def self.run
-    shuttle = Shuttle.new
-    shuttle.render
+    buddie = Buddie.new
+    buddie.render
 
     # Handle browser back/forward buttons
     JS.global.addEventListener('popstate') do
-      shuttle.render
+      buddie.render
     end
 
     # Intercept link clicks to prevent page reload and use History API
@@ -277,7 +277,7 @@ class Shuttle
           # Update URL without page reload
           JS.global.history&.pushState(nil, '', href)
           # Render new content
-          shuttle.render
+          buddie.render
         end
       end
     end
