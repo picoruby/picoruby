@@ -4,3 +4,4 @@
 //= link_directory ../javascripts .js
 //= link application.css
 //= link tailwind.css
+//= link application.mrb
