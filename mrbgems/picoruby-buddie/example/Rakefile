@@ -20,7 +20,7 @@ def load_config
   config
 end
 
-namespace :shuttle do
+namespace :buddie do
   desc "Run server"
   task :server => :build do
     puts "Starting server..."
@@ -178,15 +178,15 @@ namespace :shuttle do
 
       # Create page HTML with embedded Ruby script
       page_html = template.result(binding)
-      site_title = config['site_title'] || 'PicoRuby Shuttle Blog'
+      site_title = config['site_title'] || 'PicoRuby Buddie Blog'
       page_html.sub!(/<title>.*?<\/title>/, "<title>#{title} - #{site_title}</title>")
 
       # Replace the Ruby script to render the specific page
       page_html.sub!(/<script type="text\/ruby">.*?<\/script>/m, <<~RUBY)
         <script type="text/ruby">
-          require 'shuttle'
-          shuttle = Shuttle.new
-          shuttle.render_static_page('misc/#{File.basename(md_file_path)}')
+          require 'buddie'
+          buddie = Buddie.new
+          buddie.render_static_page('misc/#{File.basename(md_file_path)}')
         </script>
       RUBY
 
@@ -213,25 +213,25 @@ namespace :shuttle do
     dist_dir = File.expand_path('dist', __dir__)
     FileUtils.mkdir_p(dist_dir)
 
-    puts "Building Shuttle blog..."
+    puts "Building Buddie blog..."
 
     # Build Prism.js bundle
-    Rake::Task['shuttle:build_prism'].invoke
+    Rake::Task['buddie:build_prism'].invoke
 
     # Build CSS
-    Rake::Task['shuttle:build_css'].invoke
+    Rake::Task['buddie:build_css'].invoke
 
     # Generate index.html from template
-    Rake::Task['shuttle:generate_html'].invoke
+    Rake::Task['buddie:generate_html'].invoke
 
     # Generate 404.html from template
-    Rake::Task['shuttle:generate_404'].invoke
+    Rake::Task['buddie:generate_404'].invoke
 
     # Generate article index and copy markdown files
-    Rake::Task['shuttle:generate_index'].invoke
+    Rake::Task['buddie:generate_index'].invoke
 
     # Generate static pages
-    Rake::Task['shuttle:generate_pages'].invoke
+    Rake::Task['buddie:generate_pages'].invoke
 
     puts "Build complete! Output in #{dist_dir}"
   end
