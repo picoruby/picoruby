@@ -414,3 +414,77 @@
 .dark .pagination-disabled {
   color: rgb(71, 85, 105);
 }
+
+/* Error Page Styles */
+.error-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem;
+}
+
+.error-content {
+  text-align: center;
+  max-width: 28rem;
+}
+
+.error-code {
+  font-size: 6rem;
+  line-height: 1;
+  font-weight: 700;
+  background: linear-gradient(to right, rgb(147, 51, 234), rgb(236, 72, 153));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 1rem;
+}
+
+.error-title {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  color: rgb(30, 41, 59);
+  margin-bottom: 1rem;
+}
+
+.dark .error-title {
+  color: rgb(226, 232, 240);
+}
+
+.error-message {
+  color: rgb(100, 116, 139);
+  margin-bottom: 2rem;
+  line-height: 1.625;
+}
+
+.dark .error-message {
+  color: rgb(148, 163, 184);
+}
+
+.error-actions {
+  margin-top: 2rem;
+}
+
+.error-link {
+  display: inline-block;
+  background-color: rgb(147, 51, 234);
+  color: white;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  transition: background-color 0.2s;
+}
+
+.error-link:hover {
+  background-color: rgb(126, 34, 206);
+}
+
+.dark .error-link {
+  background-color: rgb(109, 40, 217);
+}
+
+.dark .error-link:hover {
+  background-color: rgb(91, 33, 182);
+}
