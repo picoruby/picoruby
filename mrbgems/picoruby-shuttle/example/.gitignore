@@ -8,6 +8,8 @@ dist/*/index.html
 !dist/index.html
 !dist/404.html
 dist/assets/styles.css
+dist/assets/prism-bundle.js
+dist/assets/prism.css
 dist/picoruby.wasm
 dist/picoruby.js
 dist/init.iife.js

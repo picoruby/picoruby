@@ -196,6 +196,12 @@ namespace :shuttle do
     end
   end
 
+  desc "Build Prism.js bundle"
+  task :build_prism do
+    puts "Building Prism.js bundle..."
+    system("npm run build:prism")
+  end
+
   desc "Build CSS with Tailwind"
   task :build_css do
     puts "Building CSS with Tailwind..."
@@ -208,6 +214,9 @@ namespace :shuttle do
     FileUtils.mkdir_p(dist_dir)
 
     puts "Building Shuttle blog..."
+
+    # Build Prism.js bundle
+    Rake::Task['shuttle:build_prism'].invoke
 
     # Build CSS
     Rake::Task['shuttle:build_css'].invoke

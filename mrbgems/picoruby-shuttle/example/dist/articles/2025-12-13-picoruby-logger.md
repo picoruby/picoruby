@@ -14,7 +14,7 @@ IoT開発では、動作ログをシリアルコンソールに取り出すこ�
 やはりファイルに記録するタイプのログ機構が必要です。
 そこで、Rubyの標準ライブラリでおなじみのLoggerと互換性のあるAPIを持つ`picoruby-logger`というpicogemを実装しました。
 
-{% highlight ruby %}
+```ruby
 require 'logger'
 
 logger = Logger.new(SDCard.new) # SDCardなどというクラスがあるなら。本文参照
@@ -22,7 +22,7 @@ logger.level = :info
 
 logger.info("Hello, Logger!")
 logger.warn("これは警告です")
-{% endhighlight %}
+```
 
 ## Ruby標準のLoggerとのAPI互換性
 
@@ -50,7 +50,7 @@ Webサーバのログローテーションは日単位や時間単位が一般�
 ベアメタルマイコンにはLinuxのlogrotateのような機能はありません。
 `RotateLogger`クラスは、ログローテーションを実現するためのラッパクラスです。
 
-{% highlight ruby %}
+```ruby
 # 10分（600秒）ごとにログファイルを切り替える
 # 古いログは30世代分まで保持する
 rotate_logger = RotateLogger.new(
@@ -64,7 +64,7 @@ loop do
   rotate_logger.info("センサの値を記録しました")
   sleep 10
 end
-{% endhighlight %}
+```
 
 `RotateLogger`は、指定された`interval`（秒）を過ぎると、タイムスタンプ付きの新しいログファイル（例: `app20251213-103000.log`）を自動で作成します。また、`keep_size`で指定された世代数を超えた古いログファイルは自動的に削除してくれるから、ストレージを圧迫する心配がありません。
 
