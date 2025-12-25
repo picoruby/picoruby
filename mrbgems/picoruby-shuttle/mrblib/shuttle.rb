@@ -43,14 +43,14 @@ class Shuttle
   end
 
   def render
-    full_url = @window.location&.href&.to_s
+    full_url = @window.location&.href.to_s
 
     query_part = ""
     if (query_index = full_url.index('?'))
-      query_part = full_url.slice(query_index + 1 .. -1) || ""
+      query_part = full_url&.slice(query_index + 1 .. -1) || ""
       # Remove hash fragment if present
       if (hash_index = query_part.index('#'))
-        query_part = query_part.slice(0 .. hash_index - 1)
+        query_part = query_part.slice(0 .. hash_index - 1) || ""
       end
     end
 
@@ -233,7 +233,7 @@ class Shuttle
 
   def highlight_code
     prism = JS.global[:Prism]
-    prism.highlightAll if prism
+    prism.highlightAll if prism.is_a?(JS::Object)
   end
 
   def setup_external_links
@@ -245,14 +245,14 @@ class Shuttle
 
     (0...length).each do |i|
       link = links[i]
-      next unless link
+      next unless link.is_a?(JS::Object)
 
       href = link.getAttribute('href')&.to_s
       next if href.nil? || href.empty?
       next if href.include?(hostname)
 
-      link.setAttribute('target', '_blank')
-      link.setAttribute('rel', 'noopener noreferrer')
+      link&.setAttribute('target', '_blank')
+      link&.setAttribute('rel', 'noopener noreferrer')
     end
   end
 
@@ -275,7 +275,7 @@ class Shuttle
         if href && href.start_with?('?')
           event.preventDefault
           # Update URL without page reload
-          JS.global.history&.pushState(JS::Null, '', href)
+          JS.global.history&.pushState(nil, '', href)
           # Render new content
           shuttle.render
         end
