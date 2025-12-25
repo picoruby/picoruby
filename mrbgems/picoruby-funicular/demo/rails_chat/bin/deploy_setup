@@ -1,0 +1,109 @@
+#!/bin/bash
+set -e
+
+echo "Rails Chat Kamal Deployment Setup"
+echo "=================================="
+
+# Check prerequisites
+command -v aws >/dev/null 2>&1 || { echo "AWS CLI is required but not installed. Aborting." >&2; exit 1; }
+command -v kamal >/dev/null 2>&1 || { echo "Kamal is required but not installed. Run: gem install kamal" >&2; exit 1; }
+
+# Prompt for parameters
+read -p "Enter AWS Region (e.g., ap-northeast-1): " AWS_REGION
+read -p "Enter EC2 Key Pair Name: " KEY_PAIR_NAME
+read -p "Enter Route53 Hosted Zone ID: " HOSTED_ZONE_ID
+read -p "Enter VPC ID (default VPC): " VPC_ID
+read -p "Enter Subnet ID (public subnet): " SUBNET_ID
+
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+echo ""
+echo "Configuration:"
+echo "  AWS Account ID: $AWS_ACCOUNT_ID"
+echo "  AWS Region: $AWS_REGION"
+echo "  Key Pair: $KEY_PAIR_NAME"
+echo "  Hosted Zone ID: $HOSTED_ZONE_ID"
+echo "  VPC ID: $VPC_ID"
+echo "  Subnet ID: $SUBNET_ID"
+echo ""
+
+read -p "Proceed with CloudFormation stack creation? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+fi
+
+# Deploy CloudFormation stack
+STACK_NAME="rails-chat-infrastructure"
+
+echo "Creating CloudFormation stack..."
+aws cloudformation create-stack \
+  --stack-name $STACK_NAME \
+  --template-body file://infrastructure/cloudformation.yml \
+  --parameters \
+    ParameterKey=KeyPairName,ParameterValue=$KEY_PAIR_NAME \
+    ParameterKey=HostedZoneId,ParameterValue=$HOSTED_ZONE_ID \
+    ParameterKey=VpcId,ParameterValue=$VPC_ID \
+    ParameterKey=SubnetId,ParameterValue=$SUBNET_ID \
+  --capabilities CAPABILITY_IAM \
+  --region $AWS_REGION
+
+echo "Waiting for stack creation to complete..."
+aws cloudformation wait stack-create-complete \
+  --stack-name $STACK_NAME \
+  --region $AWS_REGION
+
+# Get outputs
+EC2_PUBLIC_IP=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='EC2PublicIP'].OutputValue" \
+  --output text \
+  --region $AWS_REGION)
+
+ECR_URI=$(aws cloudformation describe-stacks \
+  --stack-name $STACK_NAME \
+  --query "Stacks[0].Outputs[?OutputKey=='ECRRepositoryUri'].OutputValue" \
+  --output text \
+  --region $AWS_REGION)
+
+echo ""
+echo "Stack created successfully!"
+echo "  EC2 Public IP: $EC2_PUBLIC_IP"
+echo "  ECR Repository: $ECR_URI"
+echo ""
+
+# Update deploy.yml
+echo "Updating config/deploy.yml..."
+sed -i.bak "s/- 192.168.0.1/- $EC2_PUBLIC_IP/" config/deploy.yml
+sed -i.bak "s|server: localhost:5555|server: $ECR_URI|" config/deploy.yml
+sed -i.bak "s|image: rails_chat|image: $ECR_URI:latest|" config/deploy.yml
+
+# Create .kamal/secrets
+echo "Creating .kamal/secrets..."
+cat > .kamal/secrets <<EOF
+#!/bin/bash
+
+# AWS ECR login password
+export KAMAL_REGISTRY_PASSWORD=\$(aws ecr get-login-password --region $AWS_REGION)
+
+# Rails master key
+export RAILS_MASTER_KEY=\$(cat config/master.key)
+EOF
+
+chmod +x .kamal/secrets
+
+# Update .gitignore
+if ! grep -q ".kamal/secrets" .gitignore; then
+  echo "" >> .gitignore
+  echo "# Kamal secrets" >> .gitignore
+  echo ".kamal/secrets" >> .gitignore
+fi
+
+echo ""
+echo "Setup complete! Next steps:"
+echo "1. Verify config/deploy.yml settings"
+echo "2. Ensure config/master.key exists"
+echo "3. Wait for DNS propagation (~5-10 minutes)"
+echo "   Test with: dig rails-chat.hasumikin.com"
+echo "4. Run: kamal setup"
+echo "5. Run: kamal deploy"
