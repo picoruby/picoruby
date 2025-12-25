@@ -40,6 +40,9 @@ module RailsChat
     config.generators.system_tests = nil
 
     # Funicular middleware for auto-recompilation in development
-    config.middleware.use Funicular::Middleware if Rails.env.development?
+    if Rails.env.development?
+      require 'funicular'
+      config.middleware.use Funicular::Middleware
+    end
   end
 end
