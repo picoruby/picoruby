@@ -40,9 +40,7 @@ jobs:
           npm install
 
       - name: Build site
-        run: |
-          npm run build
-          rake shuttle:build
+        run: rake shuttle:build
 
       - name: Download PicoRuby WASM from npm
         run: |
