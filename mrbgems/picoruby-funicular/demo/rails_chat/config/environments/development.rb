@@ -77,5 +77,7 @@ Rails.application.configure do
   # config.generators.apply_rubocop_autocorrect_after_generate!
 
   # Funicular middleware for auto-recompilation
-  config.middleware.use Funicular::Middleware
+  if defined?(Funicular)
+    config.middleware.use Funicular::Middleware
+  end
 end
