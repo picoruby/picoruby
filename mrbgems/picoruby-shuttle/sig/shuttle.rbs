@@ -9,5 +9,9 @@ class Shuttle
   def render_index: (Integer page) -> untyped
   def render_article: (String article_id) -> untyped
   def parse_front_matter: (String text) -> [Hash[String, String], String]
+  def parse_query_string: (String query_part) -> Hash[String, String]
+  def highlight_code: () -> void
+  def setup_external_links: () -> void
+  def render_404: (?String title, ?String message) -> untyped
   def self.run: () -> void
 end

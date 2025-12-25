@@ -46,6 +46,7 @@ module JS
     def removeAttribute: (String name) -> bool
     def preventDefault: () -> nil
     def stopPropagation: () -> nil
+    def highlightAll: () -> void
 
     # Common properties/methods (examples)
     # Note: All of these now return a JS::Object wrapper that may need explicit conversion.
@@ -66,6 +67,11 @@ module JS
     def classList: () -> JS::Object
     def add: (*String class_names) -> bool
     def remove: (*String class_names) -> bool
+    def target: () -> JS::Object
+    def getAttribute: (String name) -> JS::Object? # Use .to_s
+    def length: () -> JS::Object # Use .to_i
+    def hostname: () -> JS::Object # Use .to_s
+    def href: () -> JS::Object # Use .to_s
 
     def URL: () -> JS::Object
     def history: () -> JS::Object
