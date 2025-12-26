@@ -73,7 +73,7 @@ class Buddie
     html += "<h2 class='error-title'>#{title}</h2>"
     html += "<p class='error-message'>#{message}</p>"
     html += "<div class='error-actions'>"
-    html += "<a href='./' class='error-link'>Go to Home</a>"
+    html += "<a href='/' class='error-link'>Go to Home</a>"
     html += "</div>"
     html += "</div>"
     html += "</div>"
@@ -81,7 +81,7 @@ class Buddie
   end
 
   def render_index(page = 1)
-    @window.fetch("./generated/index_#{page}.json") do |response|
+    @window.fetch("/generated/index_#{page}.json") do |response|
       status = response.status.to_i
       if status == 404
         render_404("Page not found", "The page you are looking for does not exist.")
@@ -162,7 +162,7 @@ class Buddie
   end
 
   def render_article(article_id)
-    @window.fetch("./articles/#{article_id}.md") do |response|
+    @window.fetch("/articles/#{article_id}.md") do |response|
       status = response.status.to_i
       if status == 404
         render_404("Article not found", "The article you are looking for does not exist.")
@@ -183,7 +183,7 @@ class Buddie
         html += Markdown.new(content).to_html
         html += "</div>"
         html += "<div class='article-footer'>"
-        html += "<a href='./' class='back-link'>"
+        html += "<a href='/' class='back-link'>"
         html += "<svg class='back-link-icon' fill='none' stroke='currentColor' viewBox='0 0 24 24'><path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M10 19l-7-7m0 0l7-7m-7 7h18'/></svg>"
         html += "Back to Home"
         html += "</a>"
