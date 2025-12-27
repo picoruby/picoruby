@@ -37,10 +37,10 @@ module Funicular
       if args.empty?
         # No arguments: return base or value
         StyleValue.new(style[:base] || style[:value] || "")
-      elsif args[0] == true || args[0] == false
+      elsif args[0] == true || args[0] == false || (args[0].is_a?(JS::Object) && args[0].type == :boolean)
         # Boolean argument: base + active (if true)
         base = style[:base] || ""
-        active_class = args[0] ? (style[:active] || "") : ""
+        active_class = (args[0] == true || (args[0].is_a?(JS::Object) && args[0].true?)) ? (style[:active] || "") : ""
         StyleValue.new("#{base} #{active_class}".strip)
       elsif args[0].is_a?(Symbol)
         # Symbol argument: base + variants[symbol]
