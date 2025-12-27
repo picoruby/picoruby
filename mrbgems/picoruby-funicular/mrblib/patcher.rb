@@ -99,8 +99,7 @@ module Funicular
 
           # Skip updating value for focused input/textarea elements
           if key_str == "value"
-            tag_name = element[:tagName]
-            tag_name = tag_name.downcase if tag_name.is_a?(String)
+            tag_name = element[:tagName].to_s.downcase
             if (tag_name == "input" || tag_name == "textarea")
               active_element = @doc[:activeElement]
               if active_element && element == active_element
@@ -114,7 +113,7 @@ module Funicular
 
           # Handle boolean attributes
           if BOOLEAN_ATTRIBUTES.include?(key_str)
-            if value.nil? || value == false || value == "false"
+            if value.nil? || value.to_s == "false"
               element.removeAttribute(key_str)
             else
               element.setAttribute(key_str, key_str)
@@ -156,7 +155,7 @@ module Funicular
             if key_str == "value" && (vnode.tag == "input" || vnode.tag == "textarea")
               element[:value] = value.to_s
             elsif BOOLEAN_ATTRIBUTES.include?(key_str)
-              if value.nil? || value == false || value == "false"
+              if value.nil? || value.to_s == "false"
               else
                 element.setAttribute(key_str, key_str)
               end
