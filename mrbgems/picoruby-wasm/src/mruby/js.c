@@ -1188,7 +1188,11 @@ call_ruby_callback_sync_generic(uintptr_t callback_id, int *arg_ref_ids, int arg
         arg_value = mrb_nil_value();
         break;
       case JS_TYPE_BOOLEAN:
-        arg_value = get_boolean_value(ref_id) ? mrb_true_value() : mrb_false_value();
+        {
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(global_mrb, sizeof(picorb_js_obj));
+          data->ref_id = ref_id;
+          arg_value = mrb_obj_value(Data_Wrap_Struct(global_mrb, class_JS_Object, &picorb_js_obj_type, data));
+        }
         break;
       case JS_TYPE_NUMBER:
         {
@@ -1305,7 +1309,12 @@ get_js_property(mrb_state *mrb, int parent_ref_id, const char* property_name)
       return mrb_nil_value();
 
     case JS_TYPE_BOOLEAN:
-      return get_boolean_value(ref_id) ? mrb_true_value() : mrb_false_value();
+      {
+        picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+        data->ref_id = ref_id;
+        mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+        return obj;
+      }
 
     default:
       {
@@ -1429,6 +1438,40 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
   setup_binary_handler(js_obj->ref_id, (uintptr_t)mrb, task_ptr, (uintptr_t)callback_id);
 
   return mrb_nil_value();
+}
+
+/*
+ * JS::Object#true?
+ * Returns true if the wrapped JavaScript value is boolean true
+ */
+static mrb_value
+mrb_object_is_true(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  int js_type = get_js_type(obj->ref_id);
+
+  if (js_type != JS_TYPE_BOOLEAN) {
+    return mrb_false_value();
+  }
+
+  return get_boolean_value(obj->ref_id) ? mrb_true_value() : mrb_false_value();
+}
+
+/*
+ * JS::Object#false?
+ * Returns true if the wrapped JavaScript value is boolean false
+ */
+static mrb_value
+mrb_object_is_false(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  int js_type = get_js_type(obj->ref_id);
+
+  if (js_type != JS_TYPE_BOOLEAN) {
+    return mrb_false_value();
+  }
+
+  return get_boolean_value(obj->ref_id) ? mrb_false_value() : mrb_true_value();
 }
 
 /*
@@ -1557,8 +1600,10 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
         return mrb_nil_value();
       case JS_TYPE_BOOLEAN:
         {
-          bool value = get_boolean_value(new_ref_id);
-          return mrb_bool_value(value);
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
         }
       default:
         {
@@ -1592,8 +1637,10 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
         return mrb_nil_value();
       case JS_TYPE_BOOLEAN:
         {
-          bool value = get_boolean_value(new_ref_id);
-          return mrb_bool_value(value);
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
         }
       default:
         {
@@ -1625,8 +1672,10 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
         return mrb_nil_value();
       case JS_TYPE_BOOLEAN:
         {
-          bool value = get_boolean_value(new_ref_id);
-          return mrb_bool_value(value);
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
         }
       default:
         {
@@ -1706,8 +1755,10 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
         return mrb_nil_value();
       case JS_TYPE_BOOLEAN:
         {
-          bool value = get_boolean_value(new_ref_id);
-          return mrb_bool_value(value);
+          picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+          data->ref_id = new_ref_id;
+          mrb_value obj = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          return obj;
         }
       default:
         {
@@ -1754,7 +1805,11 @@ mrb_object_to_a(mrb_state *mrb, mrb_value self)
           element = mrb_nil_value();
           break;
         case JS_TYPE_BOOLEAN:
-          element = get_boolean_value(element_ref_id) ? mrb_true_value() : mrb_false_value();
+          {
+            picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
+            data->ref_id = element_ref_id;
+            element = mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+          }
           break;
         case JS_TYPE_NUMBER:
           {
@@ -2225,6 +2280,8 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_clear_timeout), mrb_object__clear_timeout, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(true), mrb_object_is_true, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(false), mrb_object_is_false, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createTextNode), mrb_object_create_text_node, MRB_ARGS_REQ(1));

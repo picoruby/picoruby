@@ -122,7 +122,7 @@ module Funicular
             puts "[WARN] Funicular: Blocked potentially malicious value '#{value}' for attribute '#{key_str}'."
           elsif BOOLEAN_ATTRIBUTES.include?(key_str)
             # Handle boolean attributes
-            if value.nil? || value == false || value == "false"
+            if value.nil? || value.to_s == "false"
               # Do not set attribute (leave it absent)
             else
               dom_node.setAttribute(key_str, key_str)

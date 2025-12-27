@@ -6,8 +6,8 @@ module JS
     CALLBACKS: Hash[Integer, Proc]
 
     # Property Access
-    # Returns a JS::Object wrapper, or a boolean/nil for primitive types.
-    def []: (String | Symbol | Integer name) -> (JS::Object | bool | nil)
+    # Returns a JS::Object wrapper, or nil for null/undefined.
+    def []: (String | Symbol | Integer name) -> (JS::Object | nil)
     # Setter automatically converts Ruby types to JS types.
     def []=: (String | Symbol name, untyped value) -> untyped
 
@@ -34,6 +34,10 @@ module JS
     # Debugging
     def type: () -> Symbol
     def refcount: () -> Integer
+
+    # Boolean type checking
+    def true?: () -> bool
+    def false?: () -> bool
 
     # DOM manipulation methods defined in C
     def createElement: (String tag_name) -> JS::Object
@@ -85,7 +89,7 @@ module JS
 
     def _js_remove_event_listener_wrapper: (Integer callback_id) -> bool
 
-    private def method_missing: (Symbol method_name, *untyped args) -> (JS::Object | bool | nil)
+    private def method_missing: (Symbol method_name, *untyped args) -> (JS::Object | nil)
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
     private def self._register_callback: (Integer callback_id, String name) -> nil
     private def _removeEventListener: (Integer callback_id) -> bool
