@@ -54,13 +54,13 @@ To ensure predictability, automatic type conversion is kept to a minimum.
 |-----------------|-----------|---------|
 | `null` | `nil` | `element.getAttribute('missing')` -> `nil` |
 | `undefined` | `nil` | `obj[:nonExistent]` -> `nil` |
-| `boolean` | `true`/`false` | `checkbox[:checked]` -> `true` |
+| `boolean` | `JS::Object` | `checkbox[:checked]` -> `#<JS::Object>` |
 | `number` | `JS::Object` | `element[:offsetWidth]` -> `#<JS::Object>` |
 | `string` | `JS::Object` | `element.getAttribute('id')` -> `#<JS::Object>` |
 | Array-like | `JS::Object` | `element[:children]` -> `#<JS::Object>` |
 | Other objects | `JS::Object` | `element[:style]` -> `#<JS::Object>` |
 
-As you can see, any value that is not `null`, `undefined`, or a `boolean` is returned as a `JS::Object`. To use these values as standard Ruby types, you must use the explicit conversion methods described below.
+As you can see, only `null` and `undefined` are automatically converted to `nil`. All other values, including booleans, are returned as a `JS::Object`. To use these values as standard Ruby types, you must use the explicit conversion methods described below.
 
 ### Accessing `JS::Object` Properties and Methods
 
@@ -77,7 +77,7 @@ element[:className] = "highlighted"
 ```
 
 **Method Calls:**
-JavaScript methods can be called directly. The return value will be a `JS::Object` (or `nil`/`boolean`).
+JavaScript methods can be called directly. The return value will be a `JS::Object` (or `nil` for null/undefined values).
 ```ruby
 # No arguments
 element.focus
@@ -105,6 +105,25 @@ Converts a JS `number` object to a Ruby `Integer` or `Float`.
 width_obj = element[:offsetWidth] #=> <JS::Object>
 width_int = width_obj.to_i        #=> 100
 width_float = width_obj.to_f      #=> 100.0
+```
+
+### `.true?` and `.false?` -> Boolean checks
+Checks if a JS `boolean` object is true or false, returning a Ruby boolean.
+```ruby
+# Get a boolean property
+checked_obj = checkbox[:checked] #=> <JS::Object>
+is_checked = checked_obj.true?   #=> true or false
+is_unchecked = checked_obj.false? #=> true or false
+
+# Common use in conditions
+if element[:hidden].true?
+  puts "Element is hidden"
+end
+
+# Or with safe navigation
+if document[:hidden]&.true?
+  puts "Document is hidden"
+end
 ```
 
 ### `.to_a` -> Array
@@ -225,8 +244,8 @@ element.innerHTML = ""
 
 PicoRuby.wasm provides powerful and predictable JavaScript-Ruby interoperability. Key points to remember:
 
-1.  **Getters are strict:** When reading from JS, you almost always get a `JS::Object`.
+1.  **Getters are strict:** When reading from JS, you get a `JS::Object` for all values except `null` and `undefined` (which become `nil`).
 2.  **Setters are convenient:** When writing to JS, you can use native Ruby types, which are converted automatically.
-3.  **Be explicit:** Use `.to_s`, `.to_i`, `.to_f`, and `.to_a` to convert `JS::Object` wrappers into the Ruby types you need.
+3.  **Be explicit:** Use `.to_s`, `.to_i`, `.to_f`, `.to_a`, `.true?`, and `.false?` to convert `JS::Object` wrappers into the Ruby types you need.
 
 By following these guidelines, you can write clean, robust, and predictable Ruby code that seamlessly interacts with JavaScript libraries and the DOM.
