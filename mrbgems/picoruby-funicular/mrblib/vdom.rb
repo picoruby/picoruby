@@ -180,32 +180,32 @@ module Funicular
         @error_boundary_stack.push(instance) if is_error_boundary
 
         begin
-          component_vdom = instance.send(:build_vdom)
+          component_vdom = instance.build_vdom
           dom_node = render(component_vdom, parent)
 
           # Check if this ErrorBoundary caught an error during child rendering
           # If so, its @vdom was already set to fallback in the rescue block
-          error_was_caught = is_error_boundary && instance.instance_variable_get(:@error_caught_during_render)
+          error_was_caught = is_error_boundary && instance.error_caught_during_render
 
           if error_was_caught
             # ErrorBoundary caught an error - use the fallback vdom/dom that were set in rescue
             # Note: The div.error-boundary-content created during initial render
             # will be orphaned, but that's acceptable as it's not attached to the DOM
-            fallback_vdom = instance.instance_variable_get(:@vdom)
-            fallback_dom = instance.instance_variable_get(:@dom_element)
+            fallback_vdom = instance.vdom
+            fallback_dom = instance.dom_element
 
             # Bind events on the fallback DOM
-            instance.send(:bind_events, fallback_dom, fallback_vdom)
-            instance.send(:collect_refs, fallback_dom, fallback_vdom)
+            instance.bind_events(fallback_dom, fallback_vdom)
+            instance.collect_refs(fallback_dom, fallback_vdom)
 
             # Return the fallback DOM
             fallback_dom
           else
             # Normal case - store VDOM and DOM element
-            instance.instance_variable_set(:@vdom, component_vdom)
-            instance.instance_variable_set(:@dom_element, dom_node)
-            instance.send(:bind_events, dom_node, component_vdom)
-            instance.send(:collect_refs, dom_node, component_vdom)
+            instance.vdom = component_vdom
+            instance.dom_element = dom_node
+            instance.bind_events(dom_node, component_vdom)
+            instance.collect_refs(dom_node, component_vdom)
             dom_node
           end
         rescue => e
@@ -224,14 +224,14 @@ module Funicular
             boundary.catch_error(e, error_info)
 
             # Re-render the error boundary with fallback UI
-            boundary_vdom = boundary.send(:build_vdom)
+            boundary_vdom = boundary.build_vdom
             fallback_dom = render(boundary_vdom, nil)
 
             # Update boundary's internal state
-            boundary.instance_variable_set(:@vdom, boundary_vdom)
-            boundary.instance_variable_set(:@dom_element, fallback_dom)
-            boundary.instance_variable_set(:@mounted, true)
-            boundary.send(:bind_events, fallback_dom, boundary_vdom)
+            boundary.vdom = boundary_vdom
+            boundary.dom_element = fallback_dom
+            boundary.mounted = true
+            boundary.bind_events(fallback_dom, boundary_vdom)
 
             fallback_dom
           else
