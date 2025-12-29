@@ -481,9 +481,16 @@ module Funicular
     end
 
     # Helper method to render child components in DSL
-    def component(component_class, props = {})
+    # Accepts optional block for passing children to the component
+    def component(component_class, props = {}, &block)
       unless component_class.is_a?(Class) && component_class.ancestors.include?(Funicular::Component)
         raise "component() expects a Funicular::Component class"
+      end
+
+      # If a block is provided, store the children builder in props
+      # This allows components like ErrorBoundary to control child rendering
+      if block
+        props = props.merge(children_block: block)
       end
 
       vnode = VDOM::Component.new(component_class, props)

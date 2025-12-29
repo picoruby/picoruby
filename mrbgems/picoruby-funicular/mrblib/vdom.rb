@@ -89,6 +89,7 @@ module Funicular
     class Renderer
       def initialize(doc = nil)
         @doc = doc || JS.document
+        @error_boundary_stack = []
       end
 
       def render(vnode, parent = nil)
@@ -105,6 +106,11 @@ module Funicular
         else
           raise "Unknown vnode type: #{vnode&.type}"
         end
+      end
+
+      # Find the nearest error boundary instance on the stack
+      def current_error_boundary
+        @error_boundary_stack.last
       end
 
       private
@@ -168,18 +174,74 @@ module Funicular
         instance = component_vnode.component_class.new(component_vnode.props)
         component_vnode.instance = instance
 
-        component_vdom = instance.send(:build_vdom)
-        dom_node = render(component_vdom, parent)
+        is_error_boundary = instance.is_a?(Funicular::ErrorBoundary)
 
-        # Store VDOM and DOM element in the child component instance
-        instance.instance_variable_set(:@vdom, component_vdom)
-        instance.instance_variable_set(:@dom_element, dom_node)
+        # Push error boundary to stack if this component is one
+        @error_boundary_stack.push(instance) if is_error_boundary
 
-        # Bind events and collect refs for the child component
-        instance.send(:bind_events, dom_node, component_vdom)
-        instance.send(:collect_refs, dom_node, component_vdom)
+        begin
+          component_vdom = instance.send(:build_vdom)
+          dom_node = render(component_vdom, parent)
 
-        dom_node
+          # Check if this ErrorBoundary caught an error during child rendering
+          # If so, its @vdom was already set to fallback in the rescue block
+          error_was_caught = is_error_boundary && instance.instance_variable_get(:@error_caught_during_render)
+
+          if error_was_caught
+            # ErrorBoundary caught an error - use the fallback vdom/dom that were set in rescue
+            # Note: The div.error-boundary-content created during initial render
+            # will be orphaned, but that's acceptable as it's not attached to the DOM
+            fallback_vdom = instance.instance_variable_get(:@vdom)
+            fallback_dom = instance.instance_variable_get(:@dom_element)
+
+            # Bind events on the fallback DOM
+            instance.send(:bind_events, fallback_dom, fallback_vdom)
+            instance.send(:collect_refs, fallback_dom, fallback_vdom)
+
+            # Return the fallback DOM
+            fallback_dom
+          else
+            # Normal case - store VDOM and DOM element
+            instance.instance_variable_set(:@vdom, component_vdom)
+            instance.instance_variable_set(:@dom_element, dom_node)
+            instance.send(:bind_events, dom_node, component_vdom)
+            instance.send(:collect_refs, dom_node, component_vdom)
+            dom_node
+          end
+        rescue => e
+          # Pop error boundary from stack before handling
+          @error_boundary_stack.pop if is_error_boundary
+
+          # Try to find an error boundary to handle this error
+          boundary = current_error_boundary
+          if boundary && !is_error_boundary
+            error_info = {
+              component_class: component_vnode.component_class.to_s,
+              props: component_vnode.props
+            }
+
+            # Let the error boundary handle the error
+            boundary.catch_error(e, error_info)
+
+            # Re-render the error boundary with fallback UI
+            boundary_vdom = boundary.send(:build_vdom)
+            fallback_dom = render(boundary_vdom, nil)
+
+            # Update boundary's internal state
+            boundary.instance_variable_set(:@vdom, boundary_vdom)
+            boundary.instance_variable_set(:@dom_element, fallback_dom)
+            boundary.instance_variable_set(:@mounted, true)
+            boundary.send(:bind_events, fallback_dom, boundary_vdom)
+
+            fallback_dom
+          else
+            # No error boundary to catch this error, let it propagate
+            raise e
+          end
+        ensure
+          # Pop error boundary from stack after successful render
+          @error_boundary_stack.pop if is_error_boundary && @error_boundary_stack.last == instance
+        end
       end
     end
 

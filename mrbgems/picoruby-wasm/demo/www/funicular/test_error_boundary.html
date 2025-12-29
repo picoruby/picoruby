@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Funicular Error Boundary Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    .test-result {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .test-result.pass {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .test-result.fail {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    #app {
+      margin-top: 20px;
+      padding: 20px;
+      border: 2px solid #007bff;
+      border-radius: 5px;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 16px;
+      cursor: pointer;
+    }
+    .demo-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin: 10px 0;
+      background: #f9f9f9;
+    }
+    .demo-card h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .debug-panel {
+      background: #e9ecef;
+      border-radius: 4px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+    .debug-panel h4 {
+      margin-top: 0;
+      color: #495057;
+    }
+    pre {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div><a href="../index.html">Back</a></div>
+  <h1>Funicular Error Boundary Demo</h1>
+
+  <p>This demo shows how ErrorBoundary catches errors from child components and displays fallback UI.</p>
+
+  <div id="test-results"></div>
+  <div id="app"></div>
+
+  <div class="debug-panel">
+    <h4>Debug Information</h4>
+    <p>Open browser console to see error logs.</p>
+    <button id="show-errors">Show Caught Errors</button>
+    <button id="show-tree">Show Component Tree</button>
+    <pre id="debug-output"></pre>
+  </div>
+
+  <script type="text/ruby">
+    # A component that always throws an error during render
+    class BrokenComponent < Funicular::Component
+      def render
+        raise "BrokenComponent intentionally threw this error!"
+      end
+    end
+
+    # A working component to show mixed content
+    class WorkingComponent < Funicular::Component
+      def initialize_state
+        { count: 0 }
+      end
+
+      def increment(event)
+        event.preventDefault
+        patch(count: state[:count] + 1)
+      end
+
+      def render
+        div(class: 'demo-card') do
+          h3 { "Working Component" }
+          p { "Count: #{state[:count]}" }
+          button(onclick: :increment) { "Increment" }
+        end
+      end
+    end
+
+    # Main demo application
+    class ErrorBoundaryDemo < Funicular::Component
+      def render
+        error_handler = ->(error, info) {
+          puts "[Demo] Error caught by ErrorBoundary:"
+          puts "  Error: #{error.message}"
+          puts "  Component: #{info&.dig(:component_class)}"
+        }
+
+        custom_fallback = ->(error) {
+          div(style: 'background: linear-gradient(135deg, #ff6b6b, #ee5a5a); color: white; padding: 20px; border-radius: 8px;') do
+            h3(style: 'margin-top: 0;') { "Custom Error Handler" }
+            p { "Caught: #{error.message}" }
+            p(style: 'font-size: 12px; opacity: 0.8;') { "This is a custom fallback provided via props." }
+          end
+        }
+
+        div do
+          h2 { "Error Boundary Demonstrations" }
+
+          # Demo 1: Default fallback
+          div(class: 'demo-card') do
+            h3 { "Demo 1: Default Fallback UI" }
+            p { "ErrorBoundary wraps a component that always throws. Default fallback is shown." }
+            component(Funicular::ErrorBoundary, on_error: error_handler) do
+              component(BrokenComponent)
+            end
+          end
+
+          # Demo 2: Custom fallback
+          div(class: 'demo-card') do
+            h3 { "Demo 2: Custom Fallback UI" }
+            p { "ErrorBoundary with a custom fallback prop." }
+            component(Funicular::ErrorBoundary,
+              fallback: custom_fallback,
+              on_error: error_handler
+            ) do
+              component(BrokenComponent)
+            end
+          end
+
+          # Demo 3: Mixed content - some work, some fail
+          div(class: 'demo-card') do
+            h3 { "Demo 3: Isolated Error Boundaries" }
+            p { "Each component has its own ErrorBoundary. One failure doesn't affect others." }
+
+            div(style: 'display: flex; gap: 15px; flex-wrap: wrap;') do
+              div(style: 'flex: 1; min-width: 200px;') do
+                h4 { "Working:" }
+                component(Funicular::ErrorBoundary) do
+                  component(WorkingComponent)
+                end
+              end
+
+              div(style: 'flex: 1; min-width: 200px;') do
+                h4 { "Broken:" }
+                component(Funicular::ErrorBoundary) do
+                  component(BrokenComponent)
+                end
+              end
+
+              div(style: 'flex: 1; min-width: 200px;') do
+                h4 { "Also Working:" }
+                component(Funicular::ErrorBoundary) do
+                  component(WorkingComponent)
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    def log_test(name, passed)
+      results = JS.document.getElementById('test-results')
+      div = JS.document.createElement('div')
+      div.className = passed ? 'test-result pass' : 'test-result fail'
+      div.textContent = "#{passed ? 'PASS' : 'FAIL'}: #{name}"
+      results.appendChild(div)
+      puts "#{passed ? 'PASS' : 'FAIL'}: #{name}"
+    end
+
+    def run_tests
+      puts "Starting Error Boundary tests..."
+
+      # Test 1: ErrorBoundary class exists
+      begin
+        exists = Funicular.const_defined?(:ErrorBoundary) && Funicular::ErrorBoundary.is_a?(Class)
+        log_test("ErrorBoundary class exists", exists)
+      rescue => e
+        log_test("ErrorBoundary class exists", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 2: ErrorBoundary inherits from Component
+      begin
+        inherits = Funicular::ErrorBoundary.ancestors.include?(Funicular::Component)
+        log_test("ErrorBoundary inherits from Component", inherits)
+      rescue => e
+        log_test("ErrorBoundary inherits from Component", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 3: ErrorBoundary has initial state
+      begin
+        boundary = Funicular::ErrorBoundary.new
+        has_state = boundary.state[:has_error] == false && boundary.state[:error].nil?
+        log_test("ErrorBoundary has correct initial state", has_state)
+      rescue => e
+        log_test("ErrorBoundary has correct initial state", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 4: catch_error method works
+      begin
+        boundary = Funicular::ErrorBoundary.new
+        test_error = RuntimeError.new("Test error")
+        boundary.catch_error(test_error, { component_class: "TestComponent" })
+        caught = boundary.state[:has_error] == true && boundary.state[:error] == test_error
+        log_test("catch_error updates state correctly", caught)
+      rescue => e
+        log_test("catch_error updates state correctly", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 5: Debug module tracks errors
+      begin
+        Funicular::Debug.clear_errors
+        boundary = Funicular::ErrorBoundary.new
+        test_error = RuntimeError.new("Debug test error")
+        boundary.catch_error(test_error, { component_class: "DebugTestComponent" })
+
+        last_err = Funicular::Debug.last_error
+        tracked = last_err && last_err[:error_message] == "Debug test error"
+        log_test("Debug module tracks errors", tracked)
+      rescue => e
+        log_test("Debug module tracks errors", false)
+        puts "Error: #{e.message}"
+      end
+
+      puts "Unit tests completed! Starting demo..."
+    end
+
+    # Run tests first
+    run_tests
+
+    # Setup debug panel buttons
+    JS.document.getElementById('show-errors').addEventListener('click') do
+      output = JS.document.getElementById('debug-output')
+      errors = Funicular::Debug.error_list
+      output.textContent = "Caught Errors:\n#{errors}"
+    end
+
+    JS.document.getElementById('show-tree').addEventListener('click') do
+      output = JS.document.getElementById('debug-output')
+      tree = Funicular::Debug.component_tree
+      output.textContent = "Component Tree:\n#{tree}"
+    end
+
+    # Start the demo application
+    container = JS.document.getElementById('app')
+    Funicular.start(ErrorBoundaryDemo, container: container)
+  </script>
+  <script src="../init.iife.js"></script>
+</body>
+</html>
