@@ -17,6 +17,8 @@ module Funicular
   #   - on_error: Optional callback when error is caught (for logging, reporting)
   #
   class ErrorBoundary < Component
+    attr_accessor :error_caught_during_render
+
     def initialize_state
       { has_error: false, error: nil, error_info: nil }
     end
