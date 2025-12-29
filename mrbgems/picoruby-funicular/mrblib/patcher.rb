@@ -23,25 +23,25 @@ module Funicular
             update_props(element, patch[1])
           when :update_and_rebind
             instance, internal_patches, new_vdom = patch[1], patch[2], patch[3]
-            old_dom_element = instance.instance_variable_get(:@dom_element)
+            old_dom_element = instance.dom_element
 
             # Apply internal patches and get the potentially new root element
             new_dom_element = Patcher.new(@doc).apply(old_dom_element, internal_patches)
 
             # Update the instance's reference to its root DOM element if it changed
             if new_dom_element != old_dom_element
-              instance.instance_variable_set(:@dom_element, new_dom_element)
+              instance.dom_element = new_dom_element
             end
 
             # Update the instance's VDOM to the new one AFTER applying patches
-            instance.instance_variable_set(:@vdom, new_vdom)
+            instance.vdom = new_vdom
 
             # Re-collect refs using the new DOM element
-            instance.send(:collect_refs, new_dom_element, new_vdom)
+            instance.collect_refs(new_dom_element, new_vdom)
 
             # Re-bind events using the new DOM element
-            instance.send(:cleanup_events)
-            instance.send(:bind_events, new_dom_element, new_vdom)
+            instance.cleanup_events
+            instance.bind_events(new_dom_element, new_vdom)
 
             # Call component_updated on the child instance
             instance.component_updated if instance.respond_to?(:component_updated)

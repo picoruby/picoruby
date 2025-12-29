@@ -24,7 +24,8 @@ module Funicular
       end
     end
 
-    attr_reader :props, :refs
+    attr_accessor :props, :vdom, :dom_element, :mounted
+    attr_reader :refs
 
     def initialize(props = {})
       @props = props
@@ -115,7 +116,7 @@ module Funicular
 
         # Mark child components as mounted and call their lifecycle hooks
         @child_components.each do |child|
-          child.instance_variable_set(:@mounted, true)
+          child.mounted = true
           child.component_mounted if child.respond_to?(:component_mounted)
         end
 
@@ -163,78 +164,8 @@ module Funicular
       raise "Subclasses must implement the render method"
     end
 
-    private
-
-    # Normalize state value by converting JS::Object to Ruby native types
-    def normalize_state_value(value)
-      if value.is_a?(Hash)
-        # Recursively normalize hash values
-        normalized = {}
-        value.each do |k, v|
-          normalized[k] = normalize_state_value(v)
-        end
-        normalized
-      elsif value.is_a?(Array)
-        # Recursively normalize array elements
-        value.map { |v| normalize_state_value(v) }
-      elsif value.is_a?(JS::Object)
-        # Convert JS::Object to appropriate Ruby type
-        case value.type
-        when :string
-          value.to_s
-        when :number
-          # Check if it's an integer or float
-          num = value.to_f
-          num == num.to_i ? num.to_i : num
-        when :boolean
-          # JS::Object boolean should be converted to Ruby true/false
-          value.to_s == "true"
-        when :null, :undefined
-          nil
-        when :array
-          value.to_a.map { |v| normalize_state_value(v) }
-        when :object
-          # For plain objects, keep as JS::Object or convert to hash if needed
-          value
-        else
-          value
-        end
-      else
-        # Return as-is for Ruby native types
-        value
-      end
-    end
-
-    # Re-render component (called by update)
-    def re_render
-      return unless @mounted
-
-      new_vdom = build_vdom
-      patches = VDOM::Differ.diff(@vdom, new_vdom)
-
-      # Always cleanup and rebind events to avoid stale event listeners
-      cleanup_events
-
-      unless patches.empty?
-        @dom_element = VDOM::Patcher.new.apply(@dom_element, patches)
-      end
-
-      bind_events(@dom_element, new_vdom)
-      collect_refs(@dom_element, new_vdom)
-      collect_child_components(new_vdom)
-
-      # Mark child components as mounted and call their lifecycle hooks
-      @child_components.each do |child|
-        unless child.instance_variable_get(:@mounted)
-          child.instance_variable_set(:@mounted, true)
-          child.component_mounted if child.respond_to?(:component_mounted)
-        end
-      end
-
-      @vdom = new_vdom
-    end
-
     # Build VDOM tree from render method
+    # Called by VDOM::Renderer, Differ, and Patcher
     def build_vdom
       @rendering = true
       @current_children = nil
@@ -252,42 +183,8 @@ module Funicular
       vnode
     end
 
-    # Add data-component attribute to the root element
-    def add_data_component_attribute(vnode)
-      return unless vnode.is_a?(VDOM::Element)
-      vnode.props[:'data-component'] = self.class.to_s
-      vnode.props[:'data-component-id'] = @__debug_id__.to_s if @__debug_id__
-    end
-
-    # Normalize render result to VNode
-    def normalize_vnode(value)
-      case value
-      when VDOM::VNode
-        value
-      when String
-        VDOM::Text.new(value)
-      when Integer, Float
-        VDOM::Text.new(value.to_s)
-      when Array
-        # Arrays are typically return values from iterators like .each or .map
-        # The elements have already been added to @current_children during iteration
-        # Return nil to avoid duplicate rendering
-        nil
-      when nil
-        VDOM::Text.new("")
-      when Class
-        # If it's a component class, create a component VNode
-        if value.ancestors.include?(Funicular::Component)
-          VDOM::Component.new(value, {})
-        else
-          VDOM::Text.new(value.to_s)
-        end
-      else
-        VDOM::Text.new(value.to_s)
-      end
-    end
-
     # Bind event handlers to DOM elements
+    # Called by VDOM::Renderer and Patcher
     def bind_events(dom_element, vnode)
       # Skip Component vnodes - they manage their own events
       return if vnode.is_a?(VDOM::Component)
@@ -358,6 +255,7 @@ module Funicular
     end
 
     # Collect ref elements from VDOM
+    # Called by VDOM::Renderer and Patcher
     def collect_refs(dom_element, vnode, refs_map = {})
       # Skip Component vnodes - they manage their own refs
       return refs_map if vnode.is_a?(VDOM::Component)
@@ -385,6 +283,125 @@ module Funicular
       refs_map
     end
 
+    # Cleanup event listeners
+    # Called by VDOM::Patcher
+    def cleanup_events
+      @event_listeners.each do |callback_id|
+        JS::Object.removeEventListener(callback_id)
+      end
+      @event_listeners = []
+
+      # NOTE: Do NOT cleanup child component events here!
+      # Child components manage their own events and will cleanup
+      # when they themselves re-render or unmount
+    end
+
+    private
+
+    # Normalize state value by converting JS::Object to Ruby native types
+    def normalize_state_value(value)
+      if value.is_a?(Hash)
+        # Recursively normalize hash values
+        normalized = {}
+        value.each do |k, v|
+          normalized[k] = normalize_state_value(v)
+        end
+        normalized
+      elsif value.is_a?(Array)
+        # Recursively normalize array elements
+        value.map { |v| normalize_state_value(v) }
+      elsif value.is_a?(JS::Object)
+        # Convert JS::Object to appropriate Ruby type
+        case value.type
+        when :string
+          value.to_s
+        when :number
+          # Check if it's an integer or float
+          num = value.to_f
+          num == num.to_i ? num.to_i : num
+        when :boolean
+          # JS::Object boolean should be converted to Ruby true/false
+          value.to_s == "true"
+        when :null, :undefined
+          nil
+        when :array
+          value.to_a.map { |v| normalize_state_value(v) }
+        when :object
+          # For plain objects, keep as JS::Object or convert to hash if needed
+          value
+        else
+          value
+        end
+      else
+        # Return as-is for Ruby native types
+        value
+      end
+    end
+
+    # Re-render component (called by update)
+    def re_render
+      return unless @mounted
+
+      new_vdom = build_vdom
+      patches = VDOM::Differ.diff(@vdom, new_vdom)
+
+      # Always cleanup and rebind events to avoid stale event listeners
+      cleanup_events
+
+      unless patches.empty?
+        @dom_element = VDOM::Patcher.new.apply(@dom_element, patches)
+      end
+
+      bind_events(@dom_element, new_vdom)
+      collect_refs(@dom_element, new_vdom)
+      collect_child_components(new_vdom)
+
+      # Mark child components as mounted and call their lifecycle hooks
+      @child_components.each do |child|
+        unless child.mounted
+          child.mounted = true
+          child.component_mounted if child.respond_to?(:component_mounted)
+        end
+      end
+
+      @vdom = new_vdom
+    end
+
+    # Add data-component attribute to the root element
+    def add_data_component_attribute(vnode)
+      return unless vnode.is_a?(VDOM::Element)
+      vnode.props[:'data-component'] = self.class.to_s
+      vnode.props[:'data-component-id'] = @__debug_id__.to_s if @__debug_id__
+    end
+
+    # Normalize render result to VNode
+    def normalize_vnode(value)
+      case value
+      when VDOM::VNode
+        value
+      when String
+        VDOM::Text.new(value)
+      when Integer, Float
+        VDOM::Text.new(value.to_s)
+      when Array
+        # Arrays are typically return values from iterators like .each or .map
+        # The elements have already been added to @current_children during iteration
+        # Return nil to avoid duplicate rendering
+        nil
+      when nil
+        VDOM::Text.new("")
+      when Class
+        # If it's a component class, create a component VNode
+        if value.ancestors.include?(Funicular::Component)
+          VDOM::Component.new(value, {})
+        else
+          VDOM::Text.new(value.to_s)
+        end
+      else
+        VDOM::Text.new(value.to_s)
+      end
+    end
+
     # Collect child component instances from VDOM tree
     def collect_child_components(vnode)
       @child_components = []
@@ -395,9 +412,8 @@ module Funicular
       if vnode.is_a?(VDOM::Component)
         components << vnode.instance if vnode.instance
         # Recursively collect from child component's vdom
-        if vnode.instance && vnode.instance.instance_variable_get(:@vdom)
-          child_vdom = vnode.instance.instance_variable_get(:@vdom)
-          collect_child_components_recursive(child_vdom, components)
+        if vnode.instance && vnode.instance.vdom
+          collect_child_components_recursive(vnode.instance.vdom, components)
         end
       elsif vnode.is_a?(VDOM::Element)
         vnode.children&.each do |child|
@@ -405,18 +421,6 @@ module Funicular
           collect_child_components_recursive(child, components)
         end
       end
-    end
-
-    # Cleanup event listeners
-    def cleanup_events
-      @event_listeners.each do |callback_id|
-        JS::Object.removeEventListener(callback_id)
-      end
-      @event_listeners = []
-
-      # NOTE: Do NOT cleanup child component events here!
-      # Child components manage their own events and will cleanup
-      # when they themselves re-render or unmount
     end
 
     # DSL methods for HTML elements
