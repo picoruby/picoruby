@@ -10,7 +10,10 @@ module Funicular
 
     HTML_TAGS: Array[String]
 
-    attr_reader props: Hash[Symbol, untyped]
+    attr_accessor props: Hash[Symbol, untyped]
+    attr_accessor vdom: VDOM::VNode | VDOM::Text | nil
+    attr_accessor dom_element: JS::Object
+    attr_accessor mounted: bool
     attr_reader refs: Hash[Symbol, JS::Object]
 
     def self.new: (?Hash[Symbol, untyped] props) -> Component
@@ -30,6 +33,8 @@ module Funicular
     def mount: (JS::Object container) -> void
     def unmount: () -> void
     def render: () -> (VDOM::VNode | String | Integer | Float | Array[untyped] | nil)
+    def bind_events: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode) -> void
+    def build_vdom: () -> (VDOM::VNode | VDOM::Text | nil)
 
     # Lifecycle hooks (public, can be overridden in subclasses)
     def component_will_mount: () -> void
@@ -58,10 +63,8 @@ module Funicular
     private def handle_link_response: (HTTP::Response response, String path, Symbol method) -> void
     private def normalize_state_value: (untyped value) -> untyped
     private def re_render: () -> void
-    private def build_vdom: () -> (VDOM::VNode | VDOM::Text | nil)
     private def normalize_vnode: (untyped value) -> (VDOM::VNode | VDOM::Text | nil)
     private def add_data_component_attribute: (VDOM::VNode vnode) -> void
-    private def bind_events: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode) -> void
     private def collect_refs: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
     private def cleanup_events: () -> void
     private def add_child: (untyped child) -> void
