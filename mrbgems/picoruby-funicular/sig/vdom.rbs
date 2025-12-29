@@ -31,6 +31,7 @@ module Funicular
       def self.new: (?JS::Object? doc) -> Renderer
       def render: (VDOM::VNode | VDOM::Text | nil vnode, ?JS::Object? parent) -> JS::Object
 
+      private def current_error_boundary: () -> ErrorBoundary?
       private def render_element: (Element element, JS::Object? parent) -> JS::Object
       private def render_text: (VDOM::Text text, JS::Object? parent) -> JS::Object
       private def render_component: (VDOM::Component component_vnode, JS::Object? parent) -> JS::Object
