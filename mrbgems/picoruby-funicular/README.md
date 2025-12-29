@@ -20,6 +20,7 @@ Named after a cable-driven railway, it lets you build apps using pure Ruby, with
 - [Rails-style Form Builder](#rails-style-form-builder)
 - [Rails-style link_to Helper](#rails-style-link_to-helper)
 - [CSS Transition Helpers](#css-transition-helpers)
+- [Error Boundary](#error-boundary)
 - [JS Integration via Delegation Model](#js-integration-via-delegation-model)
 
 ### Pure Ruby browser app
@@ -509,6 +510,89 @@ remove_via(element_id, "translate-x-0", "translate-x-full")
 ```ruby
 add_via(element_id, "opacity-0 scale-50", "opacity-100 scale-100")
 ```
+
+### Error Boundary
+
+Funicular provides an `ErrorBoundary` component that catches errors from child components and displays a fallback UI instead of crashing the entire application. This is similar to React's Error Boundaries pattern.
+
+#### Basic Usage
+
+Wrap components that might throw errors with `ErrorBoundary`:
+
+```ruby
+class MyApp < Funicular::Component
+  def render
+    div do
+      h1 { "My Application" }
+
+      # If RiskyComponent throws, only this section shows error UI
+      component(Funicular::ErrorBoundary) do
+        component(RiskyComponent)
+      end
+
+      # This component continues to work normally
+      component(SafeComponent)
+    end
+  end
+end
+```
+
+#### Custom Fallback UI
+
+Provide a custom fallback using the `fallback` prop:
+
+```ruby
+component(Funicular::ErrorBoundary,
+  fallback: ->(error) {
+    div(style: 'background: #fee; padding: 20px;') do
+      h3 { "Oops! Something went wrong" }
+      p { "Error: #{error.message}" }
+    end
+  }
+) do
+  component(RiskyComponent)
+end
+```
+
+#### Error Callback
+
+Use `on_error` to log or report errors:
+
+```ruby
+component(Funicular::ErrorBoundary,
+  on_error: ->(error, info) {
+    puts "Error in #{info[:component_class]}: #{error.message}"
+    # Send to error tracking service
+  }
+) do
+  component(RiskyComponent)
+end
+```
+
+#### Isolating Failures
+
+Use multiple ErrorBoundaries to isolate failures. One component's error won't affect others:
+
+```ruby
+div(style: 'display: flex; gap: 20px;') do
+  # Each section is isolated
+  component(Funicular::ErrorBoundary) do
+    component(WidgetA)
+  end
+
+  component(Funicular::ErrorBoundary) do
+    component(WidgetB)  # If this fails, WidgetA still works
+  end
+
+  component(Funicular::ErrorBoundary) do
+    component(WidgetC)
+  end
+end
+```
+
+#### Default Fallback UI
+
+When no custom fallback is provided, ErrorBoundary displays a styled error message showing the error class and message. In development mode, it also shows the component class that threw the error.
 
 ### JS Integration via Delegation Model
 
