@@ -108,12 +108,12 @@ module Funicular
         end
       end
 
+      private
+
       # Find the nearest error boundary instance on the stack
       def current_error_boundary
         @error_boundary_stack.last
       end
-
-      private
 
       def render_element(element, parent)
         dom_node = @doc.createElement(element.tag)
