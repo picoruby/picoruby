@@ -201,13 +201,13 @@ module Funicular
 
           # If only Proc props changed, update props but skip VDOM rebuild
           unless data_props_changed
-            instance.instance_variable_set(:@props, new_node.props)
+            instance.props = new_node.props
             return []
           end
 
-          old_internal_vdom = instance.instance_variable_get(:@vdom)
-          instance.instance_variable_set(:@props, new_node.props)
-          new_internal_vdom = instance.send(:build_vdom)
+          old_internal_vdom = instance.vdom
+          instance.props = new_node.props
+          new_internal_vdom = instance.build_vdom
           internal_patches = diff(old_internal_vdom, new_internal_vdom)
 
           # Return a special patch that instructs the patcher to re-bind events
