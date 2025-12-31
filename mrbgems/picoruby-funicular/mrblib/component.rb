@@ -320,8 +320,8 @@ module Funicular
           num = value.to_f
           num == num.to_i ? num.to_i : num
         when :boolean
-          # JS::Object boolean should be converted to Ruby true/false
-          value.to_s == "true"
+          # JS::Object#== now supports direct comparison with Ruby true/false
+          value == true
         when :null, :undefined
           nil
         when :array

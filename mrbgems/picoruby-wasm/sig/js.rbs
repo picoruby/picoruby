@@ -11,6 +11,18 @@ module JS
     # Setter automatically converts Ruby types to JS types.
     def []=: (String | Symbol name, untyped value) -> untyped
 
+    # Comparison operators
+    # == compares with Ruby native types (String, Integer, Float, true, false)
+    # or with other JS::Object (by ref_id)
+    def ==: (untyped other) -> bool
+
+    # Integer comparison operators (only work when JS type is number/bigint)
+    def <=>: (Integer | JS::Object other) -> Integer?
+    def >: (Integer | JS::Object other) -> bool
+    def >=: (Integer | JS::Object other) -> bool
+    def <: (Integer | JS::Object other) -> bool
+    def <=: (Integer | JS::Object other) -> bool
+
     # Explicit Type Conversion Methods
     def to_s: () -> String
     def to_i: () -> Integer
@@ -34,10 +46,6 @@ module JS
     # Debugging
     def type: () -> Symbol
     def refcount: () -> Integer
-
-    # Boolean type checking
-    def true?: () -> bool
-    def false?: () -> bool
 
     # DOM manipulation methods defined in C
     def createElement: (String tag_name) -> JS::Object

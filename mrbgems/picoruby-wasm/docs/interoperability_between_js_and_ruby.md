@@ -107,25 +107,6 @@ width_int = width_obj.to_i        #=> 100
 width_float = width_obj.to_f      #=> 100.0
 ```
 
-### `.true?` and `.false?` -> Boolean checks
-Checks if a JS `boolean` object is true or false, returning a Ruby boolean.
-```ruby
-# Get a boolean property
-checked_obj = checkbox[:checked] #=> <JS::Object>
-is_checked = checked_obj.true?   #=> true or false
-is_unchecked = checked_obj.false? #=> true or false
-
-# Common use in conditions
-if element[:hidden].true?
-  puts "Element is hidden"
-end
-
-# Or with safe navigation
-if document[:hidden]&.true?
-  puts "Document is hidden"
-end
-```
-
 ### `.to_a` -> Array
 Converts a JS `Array` or array-like object (e.g., `NodeList`, `HTMLCollection`) to a Ruby `Array` of `JS::Object` instances. This allows you to use powerful `Enumerable` methods.
 ```ruby
@@ -141,6 +122,58 @@ end
 button_count = buttons_array.length
 ```
 **Note:** `.to_a` performs a conversion. Modifying the returned Ruby `Array` (e.g., `buttons_array.clear`) will **not** affect the original JavaScript object or the DOM.
+
+### Comparison Operators
+
+`JS::Object` supports direct comparison with Ruby native types, eliminating the need for explicit conversion in many cases.
+
+#### `==` Equality Comparison
+Compares a `JS::Object` with Ruby primitives based on the underlying JavaScript type:
+
+```ruby
+# String comparison
+name_obj = element[:name]         #=> <JS::Object> (JS string)
+if name_obj == "test"             # Direct comparison with Ruby String
+  puts "Name matches!"
+end
+
+# Number comparison
+width_obj = element[:offsetWidth] #=> <JS::Object> (JS number)
+if width_obj == 100               # Direct comparison with Ruby Integer
+  puts "Width is 100"
+end
+
+# Boolean comparison
+checked_obj = checkbox[:checked]  #=> <JS::Object> (JS boolean)
+if checked_obj == true            # Direct comparison with Ruby true/false
+  puts "Checkbox is checked"
+end
+```
+
+#### Numeric Comparison Operators (`>`, `>=`, `<`, `<=`, `<=>`)
+For `JS::Object` instances that wrap JavaScript numbers, you can use comparison operators directly:
+
+```ruby
+width = element[:offsetWidth]     #=> <JS::Object> (JS number)
+
+if width > 100
+  puts "Element is wide"
+end
+
+if width >= 50 && width <= 200
+  puts "Width is in range"
+end
+
+# Spaceship operator returns -1, 0, 1, or nil
+result = width <=> 100
+case result
+when -1 then puts "Less than 100"
+when 0  then puts "Equal to 100"
+when 1  then puts "Greater than 100"
+end
+```
+
+**Note:** Comparison operators only work when the `JS::Object` wraps a JavaScript `number` or `bigint`. Using them on other types (string, object, etc.) will raise a `TypeError`.
 
 ## Passing Data to JavaScript (Ruby to JS)
 
@@ -246,6 +279,7 @@ PicoRuby.wasm provides powerful and predictable JavaScript-Ruby interoperability
 
 1.  **Getters are strict:** When reading from JS, you get a `JS::Object` for all values except `null` and `undefined` (which become `nil`).
 2.  **Setters are convenient:** When writing to JS, you can use native Ruby types, which are converted automatically.
-3.  **Be explicit:** Use `.to_s`, `.to_i`, `.to_f`, `.to_a`, `.true?`, and `.false?` to convert `JS::Object` wrappers into the Ruby types you need.
+3.  **Be explicit:** Use `.to_s`, `.to_i`, `.to_f`, and `.to_a` to convert `JS::Object` wrappers into the Ruby types you need.
+4.  **Compare directly:** Use `==` to compare `JS::Object` with Ruby primitives (String, Integer, Float, true/false). Use `>`, `>=`, `<`, `<=`, `<=>` for numeric comparisons.
 
 By following these guidelines, you can write clean, robust, and predictable Ruby code that seamlessly interacts with JavaScript libraries and the DOM.
