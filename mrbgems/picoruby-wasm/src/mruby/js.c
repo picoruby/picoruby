@@ -249,6 +249,12 @@ EM_JS(void, copy_string_value, (int ref_id, char* buffer, int buffer_size), {
   stringToUTF8(str, buffer, buffer_size);
 });
 
+// String comparison for JS::Object#==
+EM_JS(bool, js_string_equals, (int ref_id, const char* ruby_str), {
+  const js_str = globalThis.picorubyRefs[ref_id];
+  return js_str === UTF8ToString(ruby_str);
+});
+
 EM_JS(int, get_length, (int ref_id), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
@@ -1425,38 +1431,157 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+
 /*
- * JS::Object#true?
- * Returns true if the wrapped JavaScript value is boolean true
+ * JS::Object#==
+ * Compares JS::Object with Ruby native types or other JS::Object
  */
 static mrb_value
-mrb_object_is_true(mrb_state *mrb, mrb_value self)
+mrb_object_eq(mrb_state *mrb, mrb_value self)
 {
-  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  int js_type = get_js_type(obj->ref_id);
+  picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
+  mrb_value other;
+  mrb_get_args(mrb, "o", &other);
 
-  if (js_type != JS_TYPE_BOOLEAN) {
-    return mrb_false_value();
+  int js_type = get_js_type(js_obj->ref_id);
+
+  switch (js_type) {
+    case JS_TYPE_STRING:
+      if (mrb_string_p(other)) {
+        const char *ruby_str = RSTRING_CSTR(mrb, other);
+        return js_string_equals(js_obj->ref_id, ruby_str) ? mrb_true_value() : mrb_false_value();
+      }
+      break;
+
+    case JS_TYPE_NUMBER:
+    case JS_TYPE_BIGINT:
+      if (mrb_integer_p(other)) {
+        double js_num = get_number_value(js_obj->ref_id);
+        return js_num == (double)mrb_integer(other) ? mrb_true_value() : mrb_false_value();
+      }
+      if (mrb_float_p(other)) {
+        double js_num = get_number_value(js_obj->ref_id);
+        return js_num == mrb_float(other) ? mrb_true_value() : mrb_false_value();
+      }
+      break;
+
+    case JS_TYPE_BOOLEAN:
+      if (mrb_true_p(other)) {
+        return get_boolean_value(js_obj->ref_id) ? mrb_true_value() : mrb_false_value();
+      }
+      if (mrb_false_p(other)) {
+        return get_boolean_value(js_obj->ref_id) ? mrb_false_value() : mrb_true_value();
+      }
+      break;
+
+    default:
+      break;
   }
 
-  return get_boolean_value(obj->ref_id) ? mrb_true_value() : mrb_false_value();
+  // Compare ref_id if both are JS::Object
+  if (mrb_obj_is_kind_of(mrb, other, class_JS_Object)) {
+    picorb_js_obj *other_obj = (picorb_js_obj *)DATA_PTR(other);
+    return js_obj->ref_id == other_obj->ref_id ? mrb_true_value() : mrb_false_value();
+  }
+
+  return mrb_false_value();
 }
 
 /*
- * JS::Object#false?
- * Returns true if the wrapped JavaScript value is boolean false
+ * JS::Object#<=>
+ * Comparison operator for numeric JS::Object
+ * Returns -1, 0, 1, or nil
  */
 static mrb_value
-mrb_object_is_false(mrb_state *mrb, mrb_value self)
+mrb_object_cmp(mrb_state *mrb, mrb_value self)
 {
-  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  int js_type = get_js_type(obj->ref_id);
+  picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
+  mrb_value other;
+  mrb_get_args(mrb, "o", &other);
 
-  if (js_type != JS_TYPE_BOOLEAN) {
-    return mrb_false_value();
+  int js_type = get_js_type(js_obj->ref_id);
+
+  if (js_type != JS_TYPE_NUMBER && js_type != JS_TYPE_BIGINT) {
+    return mrb_nil_value();
   }
 
-  return get_boolean_value(obj->ref_id) ? mrb_false_value() : mrb_true_value();
+  double js_num = get_number_value(js_obj->ref_id);
+  double other_num;
+
+  if (mrb_integer_p(other)) {
+    other_num = (double)mrb_integer(other);
+  } else if (mrb_float_p(other)) {
+    other_num = mrb_float(other);
+  } else if (mrb_obj_is_kind_of(mrb, other, class_JS_Object)) {
+    picorb_js_obj *other_obj = (picorb_js_obj *)DATA_PTR(other);
+    int other_type = get_js_type(other_obj->ref_id);
+    if (other_type != JS_TYPE_NUMBER && other_type != JS_TYPE_BIGINT) {
+      return mrb_nil_value();
+    }
+    other_num = get_number_value(other_obj->ref_id);
+  } else {
+    return mrb_nil_value();
+  }
+
+  if (js_num < other_num) {
+    return mrb_fixnum_value(-1);
+  } else if (js_num > other_num) {
+    return mrb_fixnum_value(1);
+  } else {
+    return mrb_fixnum_value(0);
+  }
+}
+
+/*
+ * JS::Object#>
+ */
+static mrb_value
+mrb_object_gt(mrb_state *mrb, mrb_value self)
+{
+  mrb_value cmp_result = mrb_object_cmp(mrb, self);
+  if (mrb_nil_p(cmp_result)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "comparison failed");
+  }
+  return mrb_integer(cmp_result) > 0 ? mrb_true_value() : mrb_false_value();
+}
+
+/*
+ * JS::Object#>=
+ */
+static mrb_value
+mrb_object_ge(mrb_state *mrb, mrb_value self)
+{
+  mrb_value cmp_result = mrb_object_cmp(mrb, self);
+  if (mrb_nil_p(cmp_result)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "comparison failed");
+  }
+  return mrb_integer(cmp_result) >= 0 ? mrb_true_value() : mrb_false_value();
+}
+
+/*
+ * JS::Object#<
+ */
+static mrb_value
+mrb_object_lt(mrb_state *mrb, mrb_value self)
+{
+  mrb_value cmp_result = mrb_object_cmp(mrb, self);
+  if (mrb_nil_p(cmp_result)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "comparison failed");
+  }
+  return mrb_integer(cmp_result) < 0 ? mrb_true_value() : mrb_false_value();
+}
+
+/*
+ * JS::Object#<=
+ */
+static mrb_value
+mrb_object_le(mrb_state *mrb, mrb_value self)
+{
+  mrb_value cmp_result = mrb_object_cmp(mrb, self);
+  if (mrb_nil_p(cmp_result)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "comparison failed");
+  }
+  return mrb_integer(cmp_result) <= 0 ? mrb_true_value() : mrb_false_value();
 }
 
 /*
@@ -2119,6 +2244,12 @@ mrb_js_init(mrb_state *mrb)
 
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aref), mrb_object_get_property, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aset), mrb_object_set_property, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(eq), mrb_object_eq, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(cmp), mrb_object_cmp, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(gt), mrb_object_gt, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(ge), mrb_object_ge, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(lt), mrb_object_lt, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(le), mrb_object_le, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(method_missing), mrb_object_method_missing, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_a), mrb_object_to_a, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_s), mrb_object_to_s, MRB_ARGS_NONE());
@@ -2133,8 +2264,6 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_clear_timeout), mrb_object__clear_timeout, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(true), mrb_object_is_true, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(false), mrb_object_is_false, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createTextNode), mrb_object_create_text_node, MRB_ARGS_REQ(1));
