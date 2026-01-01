@@ -40,6 +40,14 @@ module Funicular
       @updating = false
       @child_components = []
 
+      # Initialize suspense state
+      @suspense_data = {}
+      @suspense_states = {}   # :pending, :loading, :resolved, :rejected
+      @suspense_errors = {}
+      self.class.suspense_definitions.each_key do |name|
+        @suspense_states[name] = :pending
+      end
+
       # Register component for debugging in development mode
       @__debug_id__ = Funicular::Debug.register_component(self) if Funicular::Debug.enabled?
     end
@@ -53,6 +61,136 @@ module Funicular
       {}
     end
 
+    # Load all registered suspense data
+    # Called automatically in component_mounted if suspense definitions exist
+    def load_suspense_data
+      self.class.suspense_definitions.each do |name, loader|
+        load_single_suspense(name, loader)
+      end
+    end
+
+    # Load a single suspense data by name
+    def load_single_suspense(name, definition = nil)
+      definition ||= self.class.suspense_definitions[name]
+      return unless definition
+      return if @suspense_states[name] == :loading
+
+      # Support both old format (just loader) and new format (hash with loader and on_resolve)
+      if definition.is_a?(Hash)
+        loader = definition[:loader]
+        on_resolve = definition[:on_resolve]
+        min_delay = definition[:min_delay]
+      else
+        loader = definition
+        on_resolve = nil
+        min_delay = nil
+      end
+
+      @suspense_states[name] = :loading
+      start_time = Time.now.to_f * 1000  # Convert to milliseconds
+
+      # Helper to finalize resolve
+      do_resolve = ->(data) {
+        @suspense_data[name] = data
+        @suspense_states[name] = :resolved
+        @suspense_errors[name] = nil
+        if on_resolve
+          # on_resolve callback is expected to call patch() which triggers re-render
+          instance_exec(data, &on_resolve)
+        else
+          re_render if @mounted
+        end
+      }
+
+      resolve = ->(data) {
+        if min_delay
+          elapsed = (Time.now.to_f * 1000) - start_time
+          remaining = min_delay - elapsed
+          if remaining > 0
+            # Delay resolve to ensure minimum loading time
+            JS.global.setTimeout(remaining.to_i) do
+              do_resolve.call(data)
+            end
+          else
+            do_resolve.call(data)
+          end
+        else
+          do_resolve.call(data)
+        end
+      }
+
+      reject = ->(error) {
+        @suspense_data[name] = nil
+        @suspense_states[name] = :rejected
+        @suspense_errors[name] = error
+        re_render if @mounted
+      }
+
+      # Execute loader with resolve/reject callbacks
+      instance_exec(resolve, reject, &loader)
+    end
+
+    # Reload suspense data (useful for retry or refresh)
+    def reload_suspense(name)
+      @suspense_states[name] = :pending
+      load_single_suspense(name)
+    end
+
+    # Check if suspense data is loading
+    def suspense_loading?(*names)
+      names = self.class.suspense_definitions.keys if names.empty?
+      names.any? { |name| @suspense_states[name] == :pending || @suspense_states[name] == :loading }
+    end
+
+    # Check if suspense data has error
+    def suspense_error?(name)
+      @suspense_states[name] == :rejected
+    end
+
+    # Get suspense error
+    def suspense_error(name)
+      @suspense_errors[name]
+    end
+
+    # Suspense helper for render method
+    #
+    # @param fallback [Proc] Content to show while loading
+    # @param error [Proc] Optional content to show on error (receives error as argument)
+    # @yield Block to render when data is loaded
+    #
+    # @example
+    #   suspense(fallback: -> { div { "Loading..." } }) do
+    #     div { user.name }
+    #   end
+    #
+    # @example with error handling
+    #   suspense(
+    #     fallback: -> { div { "Loading..." } },
+    #     error: ->(e) { div { "Error: #{e}" } }
+    #   ) do
+    #     div { user.name }
+    #   end
+    def suspense(fallback:, error: nil, &block)
+      # Check for any rejected suspense
+      rejected_name = self.class.suspense_definitions.keys.find { |name| @suspense_states[name] == :rejected }
+      if rejected_name
+        if error
+          error.call(@suspense_errors[rejected_name])
+        else
+          fallback.call
+        end
+      elsif suspense_loading?
+        # Check if any suspense is still loading
+        # Note: Loading is started in mount(), not here
+        fallback.call
+      else
+        # All suspense data loaded, render content
+        block.call
+      end
+      # Note: We don't add result to @current_children because
+      # the DSL methods inside fallback/block already do that
+    end
+
     # Class methods for styles DSL
     def self.styles(&block)
       builder = StyleBuilder.new
@@ -62,6 +200,34 @@ module Funicular
 
     def self.styles_definitions
       @styles_definitions ||= {}
+    end
+
+    # Suspense DSL - register async data loaders
+    #
+    # @param name [Symbol] Name of the suspense data (becomes accessible as method)
+    # @param loader [Proc] Lambda that receives resolve and reject callbacks
+    # @param on_resolve [Proc] Optional callback called with data after resolve, before re-render
+    # @param min_delay [Integer] Minimum time in ms to show loading state (prevents flickering)
+    #
+    # @example
+    #   use_suspense :user, ->(resolve, reject) {
+    #     User.find(props[:id]) do |user, error|
+    #       error ? reject.call(error) : resolve.call(user)
+    #     end
+    #   }
+    #
+    # @example with on_resolve callback and min_delay
+    #   use_suspense :current_user,
+    #     ->(resolve, reject) { Session.current_user { |u, e| ... } },
+    #     on_resolve: ->(user) { patch(user: { username: user.username }) },
+    #     min_delay: 300  # Show loading spinner for at least 300ms
+    def self.use_suspense(name, loader, on_resolve: nil, min_delay: nil)
+      @suspense_definitions ||= {}
+      @suspense_definitions[name] = { loader: loader, on_resolve: on_resolve, min_delay: min_delay }
+    end
+
+    def self.suspense_definitions
+      @suspense_definitions ||= {}
     end
 
     # Instance method to access styles
@@ -113,6 +279,9 @@ module Funicular
         container.appendChild(@dom_element)
         @vdom = new_vdom
         @mounted = true
+
+        # Start loading suspense data after mounted
+        load_suspense_data if self.class.suspense_definitions.any?
 
         # Mark child components as mounted and call their lifecycle hooks
         @child_components.each do |child|
@@ -602,8 +771,13 @@ module Funicular
       end
     end
 
-    # Enable URL helpers from RouteHelpers module
+    # Enable URL helpers from RouteHelpers module and suspense data accessors
     def method_missing(method, *args)
+      # Check for suspense data accessor
+      if self.class.suspense_definitions.key?(method)
+        return @suspense_data[method]
+      end
+
       if Funicular.const_defined?(:RouteHelpers)
         helpers = Funicular::RouteHelpers
         if helpers.instance_methods.include?(method)
@@ -616,6 +790,9 @@ module Funicular
     end
 
     def respond_to_missing?(method, include_private = false)
+      # Check for suspense data accessor
+      return true if self.class.suspense_definitions.key?(method)
+
       if Funicular.const_defined?(:RouteHelpers)
         Funicular::RouteHelpers.instance_methods.include?(method) || super
       else
