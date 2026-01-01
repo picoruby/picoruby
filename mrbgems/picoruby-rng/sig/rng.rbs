@@ -1,4 +1,4 @@
-class RNG
+module RNG
   def self.random_int: () -> Integer
   def self.random_string: (Integer length) -> String
   def self.uuid: () -> String
