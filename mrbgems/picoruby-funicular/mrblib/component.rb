@@ -44,6 +44,7 @@ module Funicular
       @suspense_data = {}
       @suspense_states = {}   # :pending, :loading, :resolved, :rejected
       @suspense_errors = {}
+      @suspense_pending_timers = []  # Track pending setTimeout IDs for cleanup
       self.class.suspense_definitions.each_key do |name|
         @suspense_states[name] = :pending
       end
@@ -108,9 +109,10 @@ module Funicular
           remaining = min_delay - elapsed
           if remaining > 0
             # Delay resolve to ensure minimum loading time
-            JS.global.setTimeout(remaining.to_i) do
-              do_resolve.call(data)
+            timer_id = JS.global.setTimeout(remaining.to_i) do
+              do_resolve.call(data) if @mounted
             end
+            @suspense_pending_timers << timer_id
           else
             do_resolve.call(data)
           end
@@ -312,6 +314,7 @@ module Funicular
         @child_components = []
 
         cleanup_events
+        cleanup_suspense_timers
         @container.removeChild(@dom_element) if @container && @dom_element
         @mounted = false
         @dom_element = nil
@@ -463,6 +466,15 @@ module Funicular
       # NOTE: Do NOT cleanup child component events here!
       # Child components manage their own events and will cleanup
       # when they themselves re-render or unmount
+    end
+
+    # Cleanup pending suspense timers
+    def cleanup_suspense_timers
+      return unless @suspense_pending_timers
+      @suspense_pending_timers.each do |timer_id|
+        JS.global.clearTimeout(timer_id)
+      end
+      @suspense_pending_timers = []
     end
 
     private
