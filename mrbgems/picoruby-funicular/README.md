@@ -21,6 +21,7 @@ Named after a cable-driven railway, it lets you build apps using pure Ruby, with
 - [Rails-style link_to Helper](#rails-style-link_to-helper)
 - [CSS Transition Helpers](#css-transition-helpers)
 - [Error Boundary](#error-boundary)
+- [Suspense / Loading State](#suspense--loading-state)
 - [JS Integration via Delegation Model](#js-integration-via-delegation-model)
 
 ### Pure Ruby browser app
@@ -593,6 +594,161 @@ end
 #### Default Fallback UI
 
 When no custom fallback is provided, ErrorBoundary displays a styled error message showing the error class and message. In development mode, it also shows the component class that threw the error.
+
+### Suspense / Loading State
+
+Funicular provides a Suspense pattern for handling asynchronous data fetching with declarative loading states. This eliminates boilerplate code for managing loading spinners and error states.
+
+#### Basic Usage
+
+Declare async data loaders at the class level using `use_suspense`, then use the `suspense` helper in your render method:
+
+```ruby
+class UserProfile < Funicular::Component
+  use_suspense :user,
+    ->(resolve, reject) {
+      User.find(props[:id]) do |user, error|
+        error ? reject.call(error) : resolve.call(user)
+      end
+    }
+
+  def render
+    div do
+      h1 { "Profile" }
+
+      suspense(
+        fallback: -> { div { "Loading..." } }
+      ) do
+        div { "Name: #{user.name}" }
+        div { "Email: #{user.email}" }
+      end
+    end
+  end
+end
+```
+
+The suspense data (`user` in this example) is automatically accessible as a method within the component.
+
+#### With Error Handling
+
+Provide an `error` callback to display custom error UI:
+
+```ruby
+suspense(
+  fallback: -> { div(class: "spinner") },
+  error: ->(e) {
+    div(class: "error") do
+      span { "Failed to load: #{e}" }
+      button(onclick: -> { reload_suspense(:user) }) { "Retry" }
+    end
+  }
+) do
+  div { user.name }
+end
+```
+
+#### Syncing Form State with on_resolve
+
+When using suspense data with forms, use the `on_resolve` callback to sync the loaded data with form state:
+
+```ruby
+class SettingsComponent < Funicular::Component
+  use_suspense :current_user,
+    ->(resolve, reject) {
+      Session.current_user do |user, error|
+        error ? reject.call(error) : resolve.call(user)
+      end
+    },
+    on_resolve: ->(user) {
+      # Sync form state when data loads
+      patch(
+        form: {
+          username: user.username,
+          display_name: user.display_name
+        }
+      )
+    }
+
+  def initialize_state
+    { form: { username: "", display_name: "" } }
+  end
+
+  def render
+    suspense(fallback: -> { div { "Loading..." } }) do
+      form_for(:form, on_submit: :handle_save) do |f|
+        f.text_field(:username, disabled: true)
+        f.text_field(:display_name)
+        f.submit("Save")
+      end
+    end
+  end
+end
+```
+
+#### Preventing Flickering with min_delay
+
+For fast-loading data, use `min_delay` to ensure the loading state is visible for a minimum duration. This prevents UI flickering:
+
+```ruby
+use_suspense :data,
+  ->(resolve, reject) {
+    API.fetch_data do |data, error|
+      error ? reject.call(error) : resolve.call(data)
+    end
+  },
+  min_delay: 300  # Show loading spinner for at least 300ms
+```
+
+#### Multiple Suspense Sources
+
+You can declare multiple suspense data sources. The `suspense` helper waits for all of them:
+
+```ruby
+class Dashboard < Funicular::Component
+  use_suspense :user, ->(resolve, reject) { ... }
+  use_suspense :stats, ->(resolve, reject) { ... }
+  use_suspense :notifications, ->(resolve, reject) { ... }
+
+  def render
+    suspense(fallback: -> { div { "Loading dashboard..." } }) do
+      # All three are loaded before this block executes
+      div { "Welcome, #{user.name}" }
+      div { "Stats: #{stats.count}" }
+      div { "Notifications: #{notifications.length}" }
+    end
+  end
+end
+```
+
+#### Reloading Data
+
+Use `reload_suspense` to refresh data (useful for retry buttons or refresh actions):
+
+```ruby
+def handle_refresh
+  reload_suspense(:user)
+end
+
+def render
+  suspense(
+    fallback: -> { div { "Loading..." } },
+    error: ->(e) {
+      button(onclick: -> { reload_suspense(:user) }) { "Retry" }
+    }
+  ) do
+    div { user.name }
+    button(onclick: -> { handle_refresh }) { "Refresh" }
+  end
+end
+```
+
+#### Helper Methods
+
+- `suspense_loading?` - Check if any suspense data is still loading
+- `suspense_loading?(:name)` - Check if specific suspense data is loading
+- `suspense_error?(:name)` - Check if suspense data failed to load
+- `suspense_error(:name)` - Get the error for a specific suspense data
+- `reload_suspense(:name)` - Reload specific suspense data
 
 ### JS Integration via Delegation Model
 

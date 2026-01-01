@@ -22,6 +22,12 @@ module Funicular
     def self.styles: () { (StyleBuilder) -> void } -> void
     def self.styles_definitions: () -> Hash[Symbol, Hash[Symbol, untyped]]
 
+    # Suspense DSL class methods
+    # Note: Using untyped for Proc types to avoid instance_exec block type mismatch warnings
+    type suspense_definition = { loader: untyped, on_resolve: untyped, min_delay: Integer? }
+    def self.use_suspense: (Symbol name, untyped loader, ?on_resolve: untyped, ?min_delay: Integer) -> void
+    def self.suspense_definitions: () -> Hash[Symbol, suspense_definition]
+
     def state: () -> StateAccessor
 
     # Styles DSL instance method
@@ -29,6 +35,16 @@ module Funicular
 
     # Public API
     def initialize_state: () -> Hash[Symbol, untyped]
+
+    # Suspense instance methods
+    def load_suspense_data: () -> void
+    def load_single_suspense: (Symbol name, ?suspense_definition? definition) -> void
+    def reload_suspense: (Symbol name) -> void
+    def suspense_loading?: (*Symbol names) -> bool
+    def suspense_error?: (Symbol name) -> bool
+    def suspense_error: (Symbol name) -> untyped
+    def suspense: (fallback: ^() -> void, ?error: ^(untyped) -> void) { () -> void } -> void
+
     def patch: (Hash[Symbol, untyped] new_state) -> void
     def mount: (JS::Object container) -> void
     def unmount: () -> void
@@ -44,6 +60,9 @@ module Funicular
     def component_will_unmount: () -> void
     def component_unmounted: () -> void
     def component_raised: (Exception e) -> void
+
+    # Child component helper
+    def component: (Class component_class, ?Hash[Symbol, untyped] props) ?{ () -> untyped } -> VDOM::Component
 
     # Rails-style form helper
     def form_for: (Symbol model_key, ?Hash[Symbol, untyped] options) { (FormBuilder) -> void } -> VDOM::Element
@@ -107,6 +126,7 @@ module Funicular
     def img: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
     def video: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
     def audio: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def canvas: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
     def br: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
     def hr: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
   end
