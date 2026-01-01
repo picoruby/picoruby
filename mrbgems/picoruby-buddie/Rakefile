@@ -1,9 +1,0 @@
-PICORBC = File.expand_path("../../../bin/picorbc", __FILE__)
-
-desc "Build buddie.mrb"
-task :build do
-  command = "#{PICORBC} -o dist/buddie.mrb mrblib/buddie.rb ext/runner.rb"
-  `#{command}`
-end
-
-task :default => :build
