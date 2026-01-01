@@ -46,6 +46,12 @@ module Funicular
 
     # Start listening to popstate
     def start
+      # Clean up existing listener if any (prevents duplicate registration)
+      if @popstate_callback_id
+        JS::Object.removeEventListener(@popstate_callback_id)
+        @popstate_callback_id = nil
+      end
+
       # Set up popstate listener
       @popstate_callback_id = JS.global.addEventListener('popstate') do |event|
         handle_route_change

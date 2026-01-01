@@ -12,6 +12,8 @@ module Funicular
       def connect: () -> void
       def send_command: (Hash[Symbol, untyped] command) -> void
       def disconnect: () -> void
+      def cleanup: () -> void
+      def cleanup_event_listeners: () -> void
 
       private def handle_message: (String data) -> void
       private def flush_pending_commands: () -> void

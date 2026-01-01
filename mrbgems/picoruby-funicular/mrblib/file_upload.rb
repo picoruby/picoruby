@@ -79,6 +79,7 @@ module Funicular
     def self.upload_with_formdata(url, fields: {}, file_field: nil, file: nil, &block)
       # Store file and callback ID
       @callback_counters ||= []
+      callback_id = nil
       while true
         callback_id = RNG.random_int
         break unless @callback_counters.include?(callback_id)
@@ -140,9 +141,12 @@ module Funicular
       block.call(result) if block
       puts "[DEBUG] Block called"
     ensure
-      @callback_counters.delete(callback_id) if @callback_counters
-      if JS.global[:"_funicularUploadResult_#{callback_id}"]
-        JS.global[:"_funicularUploadResult_#{callback_id}"] = nil
+      # Always cleanup global references, even on timeout or error
+      if callback_id
+        @callback_counters.delete(callback_id) if @callback_counters
+        if JS.global[:"_funicularUploadResult_#{callback_id}"]
+          JS.global[:"_funicularUploadResult_#{callback_id}"] = nil
+        end
       end
       if JS.global[:_tempFileForUpload]
         JS.global[:_tempFileForUpload] = nil

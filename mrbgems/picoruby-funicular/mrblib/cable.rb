@@ -24,6 +24,8 @@ module Funicular
         @pending_commands = load_pending_from_storage
         @suspend_timer = nil
         @suspended = false
+        @visibility_callback_id = nil
+        @beforeunload_callback_id = nil
         connect
         setup_visibility_handler
         setup_beforeunload_handler
@@ -87,6 +89,25 @@ module Funicular
         @websocket&.close if @websocket
         @websocket = nil
         @connected = false
+        cancel_suspend
+      end
+
+      # Full cleanup including event listeners (call when Consumer is no longer needed)
+      def cleanup
+        disconnect
+        cleanup_event_listeners
+      end
+
+      # Remove global event listeners
+      def cleanup_event_listeners
+        if @visibility_callback_id
+          JS::Object.removeEventListener(@visibility_callback_id)
+          @visibility_callback_id = nil
+        end
+        if @beforeunload_callback_id
+          JS::Object.removeEventListener(@beforeunload_callback_id)
+          @beforeunload_callback_id = nil
+        end
       end
 
       private
@@ -151,7 +172,7 @@ module Funicular
 
       # Setup Page Visibility API handler
       def setup_visibility_handler
-        JS.document.addEventListener("visibilitychange") do
+        @visibility_callback_id = JS.document.addEventListener("visibilitychange") do
           if JS.document[:hidden]
             schedule_suspend
           else
@@ -201,7 +222,7 @@ module Funicular
 
       # Setup beforeunload handler to persist pending commands
       def setup_beforeunload_handler
-        JS.global.addEventListener("beforeunload") do
+        @beforeunload_callback_id = JS.global.addEventListener("beforeunload") do
           save_pending_to_storage
         end
       end
@@ -329,6 +350,13 @@ module Funicular
         }
         @consumer.send_command(command)
         @consumer.subscriptions.remove(self)
+        # Clear callbacks to release references
+        @callbacks = {
+          received: nil,
+          connected: nil,
+          disconnected: nil,
+          rejected: nil
+        }
       end
 
       # Perform an action on the channel
