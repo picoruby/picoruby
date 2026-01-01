@@ -49,6 +49,12 @@ MRB_BEGIN_DECL
 /***** Function prototypes **************************************************/
 
 void hal_init(mrb_state *mrb);
+/* Avoid conflict with hal_init() from libpp used in ESP-IDF. */
+#ifdef ESP32_PLATFORM
+void machine_hal_init(mrb_state *mrb);
+#define hal_init(mrb) machine_hal_init(mrb)
+#endif
+
 void mrb_task_enable_irq(void);
 void mrb_task_disable_irq(void);
 

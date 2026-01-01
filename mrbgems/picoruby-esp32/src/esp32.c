@@ -1,6 +1,6 @@
 #if defined(PICORB_VM_MRUBY)
 
-#error "Not supported in mruby"
+#include "mruby/esp32.c"
 
 #elif defined(PICORB_VM_MRUBYC)
 

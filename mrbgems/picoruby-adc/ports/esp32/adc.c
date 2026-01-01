@@ -204,7 +204,7 @@ ADC_read_raw(uint8_t input)
   return (uint32_t)raw;
 }
 
-#if MRBC_USE_FLOAT
+#ifndef PICORB_NO_FLOAT
 picorb_float_t
 ADC_read_voltage(uint8_t input)
 {
