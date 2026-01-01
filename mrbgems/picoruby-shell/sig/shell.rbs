@@ -34,6 +34,7 @@ class Shell
   def self.setup_root_volume: (Symbol drive, ?label: String) -> void
   def self.ensure_system_file: (String path, String code, ?(Integer | nil) crc) -> void
   def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
+  def self.generate_machine_id: -> String
   def self.bootstrap: (String file) -> bool
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
   def self.find_executable: (String name) -> String?

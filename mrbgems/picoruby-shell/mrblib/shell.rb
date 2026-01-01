@@ -123,7 +123,8 @@ class Shell
         self.ensure_system_file(path, exe[:code], exe[:crc])
       end
       path = "#{root}/etc/machine-id"
-      self.ensure_system_file(path, Machine.unique_id, nil)
+      machine_id = Machine.unique_id || self.generate_machine_id
+      self.ensure_system_file(path, machine_id, nil)
     end
     Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
@@ -166,6 +167,18 @@ class Shell
       end
     rescue
     end
+  end
+
+  def self.generate_machine_id
+    x = Time.now.to_i & 0xffffffff
+    bytes = ""
+    16.times do
+      x ^= (x << 13) & 0xffffffff
+      x ^= (x >> 7)
+      x ^= (x << 17) & 0xffffffff
+      bytes << sprintf("%02x", x & 0xff)
+    end
+    bytes
   end
 
   def self.bootstrap(file)
