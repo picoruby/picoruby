@@ -9,6 +9,10 @@ mrbc_sandbox_free(mrbc_value *self)
 {
   SandboxState *ss = (SandboxState *)self->instance->data;
 //  mrc_irep_free(ss->cc, ss->irep); // Can't free code in ROM
+  mrbc_vm_end((mrbc_vm *)&ss->tcb->vm);
+  mrbc_terminate_task(ss->tcb);
+  mrbc_delete_task(ss->tcb);
+  mrbc_raw_free(ss->tcb);
   free_ccontext(ss);
 }
 
