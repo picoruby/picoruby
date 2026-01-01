@@ -1,5 +1,8 @@
 module Funicular
   module Cable
+    # localStorage key for persisting pending commands
+    STORAGE_KEY = "funicular_cable_pending"
+
     # Create a new Consumer instance connected to the specified URL
     # @param url [String] WebSocket URL (e.g., "ws://localhost:3000/cable")
     # @return [Consumer]
@@ -18,11 +21,12 @@ module Funicular
         @connected = false
         @reconnect_attempts = 0
         @reconnect_timer = nil
-        @pending_commands = []
+        @pending_commands = load_pending_from_storage
         @suspend_timer = nil
         @suspended = false
         connect
         setup_visibility_handler
+        setup_beforeunload_handler
       end
 
       # Establish WebSocket connection
@@ -35,7 +39,10 @@ module Funicular
           @connected = true
           @reconnect_attempts = 0
           # puts "[Cable] Connected to #{@url}"
-          flush_pending_commands
+          # Delay flush to ensure connection is stable
+          JS.global.setTimeout(100) do
+            flush_pending_commands if @connected
+          end
         end
 
         @websocket.onmessage do |event|
@@ -71,6 +78,7 @@ module Funicular
         else
           # puts "[Cable] Queuing command (not connected): #{command.inspect}"
           @pending_commands << command
+          save_pending_to_storage
         end
       end
 
@@ -114,6 +122,7 @@ module Funicular
           @websocket.send(json)
         end
         @pending_commands.clear
+        clear_pending_storage
       end
 
       # Schedule reconnection with exponential backoff
@@ -187,6 +196,48 @@ module Funicular
           @suspended = false
           # puts "[Cable] Resuming connection (page visible)"
           connect
+        end
+      end
+
+      # Setup beforeunload handler to persist pending commands
+      def setup_beforeunload_handler
+        JS.global.addEventListener("beforeunload") do
+          save_pending_to_storage
+        end
+      end
+
+      # Save pending commands to localStorage
+      def save_pending_to_storage
+        return if @pending_commands.empty?
+        begin
+          json = JSON.generate(@pending_commands)
+          JS.global[:localStorage]&.setItem(STORAGE_KEY, json)
+        rescue => e
+          puts "[Cable] Error saving to localStorage: #{e.message}"
+        end
+      end
+
+      # Load pending commands from localStorage
+      def load_pending_from_storage
+        begin
+          stored = JS.global[:localStorage]&.getItem(STORAGE_KEY)
+          if stored
+            JSON.parse(stored.to_s)
+          else
+            []
+          end
+        rescue => e
+          puts "[Cable] Error loading from localStorage: #{e.message}"
+          []
+        end
+      end
+
+      # Clear pending commands from localStorage
+      def clear_pending_storage
+        begin
+          JS.global[:localStorage]&.removeItem(STORAGE_KEY)
+        rescue => e
+          puts "[Cable] Error clearing localStorage: #{e.message}"
         end
       end
     end
@@ -284,7 +335,8 @@ module Funicular
       # @param action [String] Action name
       # @param data [Hash] Additional data
       def perform(action, data = {})
-        payload = data.merge(action: action)
+        idempotency_key = generate_idempotency_key
+        payload = data.merge(action: action, _idempotency_key: idempotency_key)
         command = {
           command: "message",
           identifier: @identifier,
@@ -323,6 +375,13 @@ module Funicular
       # Internal: notify message received
       def notify_received(message)
         @callbacks[:received]&.call(message)
+      end
+
+      private
+
+      # Generate a unique idempotency key for message deduplication
+      def generate_idempotency_key
+        RNG.uuid
       end
     end
   end

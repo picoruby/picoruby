@@ -95,6 +95,11 @@ module JS
     def create_object: () -> JS::Object
     def create_array: () -> JS::Object
 
+    # localStorage methods
+    def setItem: (String key, String value) -> void
+    def getItem: (String key) -> JS::Object?
+    def removeItem: (String key) -> void
+
     def _js_remove_event_listener_wrapper: (Integer callback_id) -> bool
 
     private def method_missing: (Symbol method_name, *untyped args) -> (JS::Object | nil)

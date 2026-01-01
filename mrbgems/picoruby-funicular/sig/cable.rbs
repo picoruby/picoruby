@@ -1,5 +1,7 @@
 module Funicular
   module Cable
+    STORAGE_KEY: String
+
     def self.create_consumer: (String url) -> Consumer
 
     class Consumer
@@ -20,6 +22,10 @@ module Funicular
       private def cancel_suspend: () -> void
       private def suspend_connection: () -> void
       private def ensure_connected: () -> void
+      private def setup_beforeunload_handler: () -> void
+      private def save_pending_to_storage: () -> void
+      private def load_pending_from_storage: () -> Array[Hash[Symbol, untyped]]
+      private def clear_pending_storage: () -> void
     end
 
     class Subscriptions
@@ -47,6 +53,8 @@ module Funicular
       def notify_connected: () -> void
       def notify_rejected: () -> void
       def notify_received: (untyped message) -> void
+
+      private def generate_idempotency_key: () -> String
     end
   end
 end
