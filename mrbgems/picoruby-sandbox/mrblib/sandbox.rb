@@ -53,16 +53,21 @@ class Sandbox
   when "mruby/c"
     # For mruby/c: state_code and state_reason are defined in C side
     # state method is composed in Ruby side
-    STATE_CODE = { 0 => :DORMANT, 1 => :READY, 2 => :RUNNING, 3 => :WAITING, 4 => :SUSPENDED }
-    REASON_CODE = { 0 => :SLEEP, 1 => :MUTEX, 2 => :JOIN }
+    # Maps C's TASKSTATUS enum values from picoruby-mruby/include/task.h
+    # TASKSTATUS_DORMANT=0x00, TASKSTATUS_READY=0x02, TASKSTATUS_RUNNING=0x03,
+    # TASKSTATUS_WAITING=0x04, TASKSTATUS_SUSPENDED=0x08
+    TASKSTATUS_CODE = { 0 => :DORMANT, 2 => :READY, 3 => :RUNNING, 4 => :WAITING, 8 => :SUSPENDED }
+    # Maps C's TASKREASON enum values from picoruby-mruby/include/task.h
+    # TASKREASON_SLEEP=0x01, TASKREASON_MUTEX=0x02, TASKREASON_JOIN=0x04
+    TASKREASON_CODE = { 1 => :SLEEP, 2 => :MUTEX, 4 => :JOIN }
 
     def state
       code = state_code
       reason = state_reason
-      state_sym = STATE_CODE[code] || :UNKNOWN
+      state_sym = TASKSTATUS_CODE[code] || :UNKNOWN
 
-      if reason && REASON_CODE[reason]
-        "#{state_sym}#{REASON_CODE[reason]}".to_sym
+      if reason && TASKREASON_CODE[reason]
+        "#{state_sym}#{TASKREASON_CODE[reason]}".to_sym
       else
         state_sym
       end
