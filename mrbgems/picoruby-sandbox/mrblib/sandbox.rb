@@ -49,6 +49,29 @@ class Sandbox
     end
   end
 
+  case RUBY_ENGINE
+  when "mruby/c"
+    # For mruby/c: state_code and state_reason are defined in C side
+    # state method is composed in Ruby side
+    STATE_CODE = { 0 => :DORMANT, 1 => :READY, 2 => :RUNNING, 3 => :WAITING, 4 => :SUSPENDED }
+    REASON_CODE = { 0 => :SLEEP, 1 => :MUTEX, 2 => :JOIN }
+
+    def state
+      code = state_code
+      reason = state_reason
+      state_sym = STATE_CODE[code] || :UNKNOWN
+
+      if reason && REASON_CODE[reason]
+        "#{state_sym}#{REASON_CODE[reason]}".to_sym
+      else
+        state_sym
+      end
+    end
+  when "mruby"
+    # For mruby: state method is implemented in C side
+    # No implementation in Ruby side
+  end
+
   private
 
   def loop(timeout, signal_self_manage)
