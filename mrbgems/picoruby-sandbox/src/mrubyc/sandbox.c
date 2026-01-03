@@ -18,30 +18,21 @@ mrbc_sandbox_free(mrbc_value *self)
 
 
 static void
-c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
+c_sandbox_state_code(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  const char *status_str;
-  switch (ss->tcb->state) {
-    case TASKSTATE_DORMANT:   status_str = "DORMANT";   break;
-    case TASKSTATE_READY:     status_str = "READY";     break;
-    case TASKSTATE_RUNNING:   status_str = "RUNNING";   break;
-    case TASKSTATE_WAITING:   status_str = "WAITING";   break;
-    case TASKSTATE_SUSPENDED: status_str = "SUSPENDED"; break;
-    default:                  status_str = "UNKNOWN";   break;
-  }
-  mrbc_value str_val = mrbc_string_new_cstr(vm, status_str);
+  SET_RETURN(mrbc_integer_value((int)ss->tcb->state));
+}
+
+static void
+c_sandbox_state_reason(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SS();
   if (ss->tcb->state == TASKSTATE_WAITING) {
-    const char *reason_str;
-    switch (ss->tcb->reason) {
-      case TASKREASON_SLEEP: reason_str = "SLEEP"; break;
-      case TASKREASON_MUTEX: reason_str = "MUTEX"; break;
-      case TASKREASON_JOIN:  reason_str = "JOIN";  break;
-      default:               reason_str = "";      break;
-    }
-    mrbc_string_append_cstr(&str_val, reason_str);
+    SET_RETURN(mrbc_integer_value((int)ss->tcb->reason));
+  } else {
+    SET_NIL_RETURN();
   }
-  SET_RETURN(mrbc_symbol_value(mrbc_str_to_symid((const char *)str_val.string->data)));
 }
 
 static void
@@ -298,7 +289,8 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_Sandbox, "compile_from_memory", c_sandbox_compile_from_memory);
   mrbc_define_method(vm, class_Sandbox, "resume",  c_sandbox_resume);
   mrbc_define_method(vm, class_Sandbox, "execute", c_sandbox_execute);
-  mrbc_define_method(vm, class_Sandbox, "state",   c_sandbox_state);
+  mrbc_define_method(vm, class_Sandbox, "state_code",   c_sandbox_state_code);
+  mrbc_define_method(vm, class_Sandbox, "state_reason", c_sandbox_state_reason);
   mrbc_define_method(vm, class_Sandbox, "result",  c_sandbox_result);
   mrbc_define_method(vm, class_Sandbox, "error",   c_sandbox_error);
   mrbc_define_method(vm, class_Sandbox, "stop",    c_sandbox_stop);
