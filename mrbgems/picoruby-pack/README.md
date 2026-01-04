@@ -8,7 +8,7 @@ Array and String pack/unpack methods for PicoRuby.
 require 'pack'
 
 # Pack array into binary string
-data = [1, 2, 3, 4].pack("C*")  # Pack as unsigned chars
+data = [1, 2, 3, 4].pack("CCCC")  # Pack as unsigned chars
 
 # Pack with different formats
 value = [0x12345678].pack("N")  # Network byte order (big-endian) 32-bit
@@ -17,6 +17,14 @@ bytes = [255, 128, 64].pack("CCC")  # Three unsigned 8-bit integers
 # String.pack (class method)
 packed = String.pack("C*", 72, 101, 108, 108, 111)
 puts packed  # => "Hello"
+
+# Unpack binary string into an array
+unpacked_data = "Hello".unpack("CCCCC")
+p unpacked_data  # => [72, 101, 108, 108, 111]
+
+# Unpack with different formats
+value = "\x12\x34\x56\x78".unpack("N")
+p value # => [305419896]
 ```
 
 ## Common Format Specifiers
@@ -39,6 +47,8 @@ puts packed  # => "Hello"
 
 - `Array#pack(format)` - Pack array elements into binary string
 - `String.pack(format, *args)` - Pack arguments into binary string
+- `String#unpack(format)` - Unpack binary string into an array of values
+- `Array.unpack(format, *args)` - Unpack arguments into an array of values
 
 ## Notes
 
