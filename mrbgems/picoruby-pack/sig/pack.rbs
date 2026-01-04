@@ -2,10 +2,12 @@
 # @added_by picoruby-pack
 class String
   def self.pack: (String format, *untyped args) -> String
+  def unpack: (String format) -> Array[untyped]
 end
 
 # @sidebar builtin
 # @added_by picoruby-pack
 class Array[unchecked out Elem] < Object
+  def self.unpack: (String format, String packed_string) -> Array[untyped]
   def pack: (String format) -> String
 end
