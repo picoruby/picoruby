@@ -743,8 +743,8 @@ class Shell
       return false
     end
     ENV['OLDPWD'] = Dir.pwd
-    ENV['PWD'] = dir
     Dir.chdir(dir)
+    ENV['PWD'] = Dir.pwd
   end
 
   def _exit(*args)
