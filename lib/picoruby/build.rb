@@ -114,7 +114,7 @@ module MRuby
         cc.flags << "-fdata-sections"
         cc.flags << "-fomit-frame-pointer"
         # cc.flags << "-flto" # Build fails with -flto
-        unless cc.command == "clang"
+        unless cc.command == "clang" || cc.command == "emcc"
           cc.flags << "-s"
           linker.flags << "-Wl,--gc-sections"
         end
