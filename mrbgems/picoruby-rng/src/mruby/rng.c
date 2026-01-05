@@ -28,10 +28,10 @@ mrb_s_random_string(mrb_state *mrb, mrb_value klass)
 void
 mrb_picoruby_rng_gem_init(mrb_state* mrb)
 {
-  struct RClass *class_RNG = mrb_define_class_id(mrb, MRB_SYM(RNG), mrb->object_class);
+  struct RClass *module_RNG = mrb_define_module_id(mrb, MRB_SYM(RNG));
 
-  mrb_define_class_method_id(mrb, class_RNG, MRB_SYM(random_int), mrb_s_random_int, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_RNG, MRB_SYM(random_string), mrb_s_random_string, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_RNG, MRB_SYM(random_int), mrb_s_random_int, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_RNG, MRB_SYM(random_string), mrb_s_random_string, MRB_ARGS_REQ(1));
 }
 
 void

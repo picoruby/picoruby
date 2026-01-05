@@ -24,9 +24,9 @@ puts uuid  # => "550e8400-e29b-41d4-a716-446655440000"
 
 ### Methods
 
-- `RNG.random_int()` - Generate random Integer (32-bit)
+- `RNG.random_int` - Generate random Integer (32-bit)
 - `RNG.random_string(length)` - Generate random binary string of specified length
-- `RNG.uuid()` - Generate UUID v4 string
+- `RNG.uuid` - Generate UUID v4 string
 
 ## Use Cases
 
