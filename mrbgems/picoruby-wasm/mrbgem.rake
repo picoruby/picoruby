@@ -57,11 +57,15 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     output_wasm = Pathname(output_js).sub_ext('.wasm')
     output_wasm_map = Pathname(output_wasm).sub_ext('.wasm.map')
     npm_dir = 'npm'
-    dist_dir = File.join(dir, npm_dir, 'dist')
+    if ENV['PICORUBY_DEBUG']
+      dist_dir = File.join(dir, npm_dir, 'debug')
+    else
+      dist_dir = File.join(dir, npm_dir, 'dist')
+    end
     FileUtils.mkdir_p(dist_dir)
     sh "cp #{output_js} #{dist_dir}/"
     sh "cp #{output_wasm} #{dist_dir}/"
-    if File.exist?(output_wasm_map)
+    if ENV['PICORUBY_DEBUG'] && File.exist?(output_wasm_map)
       sh "cp #{output_wasm_map} #{dist_dir}/"
     end
     sh "brotli -f #{dist_dir}/#{output_wasm.basename}"
