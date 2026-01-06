@@ -20,6 +20,10 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.posix
   conf.microruby
 
+  if ENV['PICORUBY_DEBUG']
+    conf.cc.defines << "MRB_USE_DEBUG_HOOK"
+    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-binding"
+  end
   # Add mruby-io for POSIX I/O support
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-math"
