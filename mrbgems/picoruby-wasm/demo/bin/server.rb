@@ -9,7 +9,7 @@ end
 variant = 'picoruby'
 
 ROOT = File.expand_path('../../www', __FILE__)
-DIST = File.expand_path("../../../npm/dist", __FILE__)
+DIST = File.expand_path("../../../npm/debug", __FILE__)
 
 server = WEBrick::HTTPServer.new(
   Port: 8080,
