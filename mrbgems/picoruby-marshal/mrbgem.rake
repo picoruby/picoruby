@@ -3,8 +3,9 @@ MRuby::Gem::Specification.new('picoruby-marshal') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Marshal for PicoRuby (for dRuby support)'
 
-  spec.add_dependency 'picoruby-pack'
-
-  # Add test files
-  spec.test_rbfiles = Dir.glob("#{dir}/test/*.rb")
+  if build.vm_mruby?
+    spec.add_dependency 'mruby-pack', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
+  elsif build.vm_mrubyc?
+    spec.add_dependency 'picoruby-pack'
+  end
 end

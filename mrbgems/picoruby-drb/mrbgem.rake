@@ -4,8 +4,5 @@ MRuby::Gem::Specification.new('picoruby-drb') do |spec|
   spec.summary = 'dRuby (Distributed Ruby) for PicoRuby'
 
   spec.add_dependency 'picoruby-marshal'
-  spec.add_dependency 'picoruby-net'
-
-  # Add test files
-  spec.test_rbfiles = Dir.glob("#{dir}/test/*.rb")
+  spec.add_dependency 'picoruby-socket'
 end
