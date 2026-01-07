@@ -1,5 +1,5 @@
 class Markdown
-  def initialize: (String text) -> void
+  def self.new: (String text) -> Markdown
   attr_reader front_matter: Hash[String, untyped]
   attr_reader footnotes: Hash[String, String]
   def to_html: () -> String
