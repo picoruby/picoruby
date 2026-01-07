@@ -349,7 +349,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
   int format_index = 0;
   int data_index = 0;
 
-  while (format_index < format_len && data_index < data_len) {
+  while (format_index < format_len) {
     char directive = format[format_index];
     format_index++;
 
@@ -361,6 +361,15 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
     /* Parse count */
     int count = parse_count(format, &format_index, (data_len - data_index));
     bool use_all = false;
+
+#define CHECK_DATA_SIZE(needed) \
+    if (data_index + (needed) > data_len) { \
+      if (!use_all) { \
+        mrbc_raise(vm, MRBC_CLASS(ArgumentError), "insufficient data"); \
+        return; \
+      } \
+      goto unpack_end; \
+    }
 
     /* Check for '*' modifier */
     if (format_index < format_len && format[format_index] == '*') {
@@ -384,12 +393,16 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
     /* Process directive */
     for (int i = 0; i < count; i++) {
       if (data_index >= data_len) {
+        if (!use_all) {
+          mrbc_raise(vm, MRBC_CLASS(ArgumentError), "insufficient data");
+          return;
+        }
         break;
       }
 
       switch (directive) {
         case 'C': /* Unsigned 8-bit */
-          if (data_index + 1 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(1);
           {
             mrbc_value val = mrbc_integer_value(data[data_index]);
             mrbc_array_push(&result, &val);
@@ -398,7 +411,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'c': /* Signed 8-bit */
-          if (data_index + 1 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(1);
           {
             mrbc_value val = mrbc_integer_value((int8_t)data[data_index]);
             mrbc_array_push(&result, &val);
@@ -407,7 +420,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'S': /* Unsigned 16-bit, native endian */
-          if (data_index + 2 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(2);
           {
             uint16_t uval;
             memcpy(&uval, &data[data_index], 2);
@@ -418,7 +431,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 's': /* Signed 16-bit, native endian */
-          if (data_index + 2 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(2);
           {
             int16_t sval;
             memcpy(&sval, &data[data_index], 2);
@@ -429,7 +442,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'n': /* Unsigned 16-bit, big-endian */
-          if (data_index + 2 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(2);
           {
             uint16_t uval = UNPACK_UINT16_BE(&data[data_index]);
             mrbc_value val = mrbc_integer_value(uval);
@@ -439,7 +452,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'v': /* Unsigned 16-bit, little-endian */
-          if (data_index + 2 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(2);
           {
             uint16_t uval = UNPACK_UINT16_LE(&data[data_index]);
             mrbc_value val = mrbc_integer_value(uval);
@@ -449,7 +462,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'L': /* Unsigned 32-bit, native endian */
-          if (data_index + 4 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(4);
           {
             uint32_t uval;
             memcpy(&uval, &data[data_index], 4);
@@ -460,7 +473,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'l': /* Signed 32-bit, native endian */
-          if (data_index + 4 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(4);
           {
             int32_t sval;
             memcpy(&sval, &data[data_index], 4);
@@ -471,7 +484,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'N': /* Unsigned 32-bit, big-endian */
-          if (data_index + 4 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(4);
           {
             uint32_t uval = UNPACK_UINT32_BE(&data[data_index]);
             mrbc_value val = mrbc_integer_value((mrbc_int_t)uval);
@@ -481,7 +494,7 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
           break;
 
         case 'V': /* Unsigned 32-bit, little-endian */
-          if (data_index + 4 > data_len) goto unpack_end;
+          CHECK_DATA_SIZE(4);
           {
             uint32_t uval = UNPACK_UINT32_LE(&data[data_index]);
             mrbc_value val = mrbc_integer_value((mrbc_int_t)uval);
@@ -496,6 +509,8 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
       }
     }
   }
+
+#undef CHECK_DATA_SIZE
 
 unpack_end:
   SET_RETURN(result);

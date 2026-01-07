@@ -127,4 +127,40 @@ class PackTest < Picotest::Test
       "\x01".unpack('X')
     end
   end
+
+  def test_array_pack_too_few_arguments
+    assert_raise(ArgumentError) do
+      [1, 2].pack('CCC')
+    end
+  end
+
+  def test_array_pack_star_with_insufficient_args
+    # With '*', it should not raise even if fewer elements
+    result = [1, 2].pack('C*')
+    assert_equal "\x01\x02", result
+  end
+
+  def test_string_unpack_insufficient_data
+    assert_raise(ArgumentError) do
+      "\x01\x02".unpack('CCC')
+    end
+  end
+
+  def test_string_unpack_star_with_insufficient_data
+    # With '*', it should not raise even if less data
+    result = "\x01\x02".unpack('C*')
+    assert_equal [1, 2], result
+  end
+
+  def test_string_unpack_insufficient_data_16bit
+    assert_raise(ArgumentError) do
+      "\x01\x02\x03".unpack('nn')
+    end
+  end
+
+  def test_string_unpack_insufficient_data_32bit
+    assert_raise(ArgumentError) do
+      "\x01\x02\x03".unpack('N')
+    end
+  end
 end
