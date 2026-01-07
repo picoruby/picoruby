@@ -16,6 +16,8 @@ class Sandbox
   def stop: () -> bool
   def free_parser: () -> nil
   def state: () -> Symbol
+  def state_code: () -> Integer
+  def state_reason: () -> (Integer | nil)
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil)) -> bool
   def execute: () -> bool

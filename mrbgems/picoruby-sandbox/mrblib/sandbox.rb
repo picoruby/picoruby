@@ -49,6 +49,34 @@ class Sandbox
     end
   end
 
+  case RUBY_ENGINE
+  when "mruby/c"
+    # For mruby/c: state_code and state_reason are defined in C side
+    # state method is composed in Ruby side
+    def state
+      # Maps C's TASKSTATUS enum values from picoruby-mruby/include/task.h
+      # TASKSTATUS_DORMANT=0x00, TASKSTATUS_READY=0x02, TASKSTATUS_RUNNING=0x03,
+      # TASKSTATUS_WAITING=0x04, TASKSTATUS_SUSPENDED=0x08
+      taskstatus_code = { 0 => :DORMANT, 2 => :READY, 3 => :RUNNING, 4 => :WAITING, 8 => :SUSPENDED }
+      # Maps C's TASKREASON enum values from picoruby-mruby/include/task.h
+      # TASKREASON_SLEEP=0x01, TASKREASON_MUTEX=0x02, TASKREASON_JOIN=0x04
+      taskreason_code = { 1 => :SLEEP, 2 => :MUTEX, 4 => :JOIN }
+
+      code = state_code
+      reason = state_reason
+      state_sym = taskstatus_code[code] || :UNKNOWN
+
+      if reason && taskreason_code[reason]
+        "#{state_sym}#{taskreason_code[reason]}".to_sym
+      else
+        state_sym
+      end
+    end
+  when "mruby"
+    # For mruby: state method is implemented in C side
+    # No implementation in Ruby side
+  end
+
   private
 
   def loop(timeout, signal_self_manage)
