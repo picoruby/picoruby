@@ -1,15 +1,5 @@
-class TCPSocket
-  def self.new: (String host, Integer port) -> TCPSocket
-  def write: (String data) -> Integer
-  def read: (Integer length) -> String?
-  def close: () -> void
-end
-
-class TCPServer
-  def self.new: (String host, Integer port) -> TCPServer
-  def accept: () -> TCPSocket
-  def close: () -> void
-end
+$drb_primary_server: DRb::DRbServer?
+$drb_uri: String?
 
 module DRb
   class DRbError < StandardError
@@ -92,9 +82,6 @@ module DRb
 
     def handle_client: (TCPSocket client) -> void
   end
-
-  @primary_server: DRbServer?
-  @uri: String?
 
   def self.primary_server: () -> DRbServer?
   def self.primary_server=: (DRbServer? server) -> DRbServer?

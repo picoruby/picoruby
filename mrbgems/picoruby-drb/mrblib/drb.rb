@@ -16,34 +16,41 @@ module DRb
     attr_reader :err, :buf
   end
 
-  @primary_server = nil
-  @uri = nil
+  # Initialize global variables for mruby/c compatibility
+  $drb_primary_server = nil
+  $drb_uri = nil
 
   class << self
-    attr_accessor :primary_server
+    def primary_server
+      $drb_primary_server
+    end
+
+    def primary_server=(server)
+      $drb_primary_server = server
+    end
 
     # Start a DRb server
     def start_service(uri, front, config = {})
-      @primary_server = DRbServer.new(uri, front, config)
-      @primary_server.start
-      @uri = uri
+      $drb_primary_server = DRbServer.new(uri, front, config)
+      $drb_primary_server&.start
+      $drb_uri = uri
     end
 
     # Stop the primary DRb server
     def stop_service
-      @primary_server.stop if @primary_server
-      @primary_server = nil
-      @uri = nil
+      $drb_primary_server&.stop
+      $drb_primary_server = nil
+      $drb_uri = nil
     end
 
     # Get the URI of the primary server
     def uri
-      @uri
+      $drb_uri
     end
 
     # Get the front object
     def front
-      @primary_server ? @primary_server.front : nil
+      $drb_primary_server&.front
     end
 
     # Create a reference to a remote object
@@ -90,8 +97,7 @@ module DRb
 
     # Run the main loop (for servers)
     def thread
-      return nil unless @primary_server
-      @primary_server.run
+      $drb_primary_server&.run
     end
   end
 end
