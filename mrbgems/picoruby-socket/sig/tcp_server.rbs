@@ -1,5 +1,5 @@
 class TCPServer
-  def initialize: (String? host, Integer service, ?Integer backlog) -> void
+  def self.new: (String? host, Integer service, ?Integer backlog) -> TCPServer
   def accept: () -> TCPSocket
   def accept_nonblock: () -> (TCPSocket | nil)
   def accept_loop: () { (TCPSocket) -> void } -> void

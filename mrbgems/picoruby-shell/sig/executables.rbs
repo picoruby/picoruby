@@ -23,7 +23,7 @@ class WifiConfigPeripheral < BLE
   ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
   GATT_CHARACTERISTIC_USER_DESCRIPTION: Integer
 
-  def initialize: () -> void
+  def self.new: (String name) -> WifiConfigPeripheral
   def save_wifi_config: () -> void
   def encrypt_password: (String password) -> String
 end

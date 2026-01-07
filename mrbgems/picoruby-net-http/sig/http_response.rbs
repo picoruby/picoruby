@@ -9,13 +9,12 @@ module Net
     attr_accessor header: Hash[String, String]
     attr_accessor body: String?
 
-    def initialize: (?String? code, ?String? message, ?String? http_version) -> void
+    def self.new: (?String? code, ?String? message, ?String? http_version) -> HTTPResponse
     def self.parse: (String response_string) -> HTTPResponse
     def []: (String key) -> String?
     def []=: (String key, String value) -> String
     def get_fields: (String key) -> Array[String | nil]
-    def read_body: () { (String) -> void } -> String?
-                  | () -> String?
+    def read_body: () ?{ (String) -> void } -> String?
     def success?: () -> boolish
     def redirect?: () -> boolish
     def client_error?: () -> boolish

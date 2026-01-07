@@ -16,7 +16,7 @@ class Rapicco
   @duration: Integer
   @interval: Float
 
-  def initialize: (String path, ?cols: Integer, ?rows: Integer) -> void
+  def self.new: (String path, ?cols: Integer, ?rows: Integer) -> Rapicco
   def run: () -> void
   private def render_note: (String note) -> void
   private def render_page: (Integer page) -> void
@@ -34,7 +34,7 @@ class Rapicco
     attr_accessor font: (Symbol | String)
     attr_accessor bold_color: (Symbol | String)
 
-    def initialize: () -> void
+    def self.new: () -> Parser
     def parse: (String raw_line) -> void
     def dump: () -> parser_dump_t
     def self.parse_attrs: (String str) -> Hash[Symbol, String]
@@ -55,7 +55,7 @@ class Rapicco
     attr_accessor code_indent: Integer
     attr_accessor line_margin: Integer
 
-    def initialize: (?usakame_h: Integer, ?colors: Hash[Symbol, String]|nil, ?cols: Integer, ?rows: Integer) -> void
+    def self.new: (?usakame_h: Integer, ?colors: Hash[Symbol, String]|nil, cols: Integer | nil, rows: Integer | nil) -> Slide
     def get_screen_size: () -> void
     def render_slide: (parser_dump_t lines) -> void
     def render_sprite: (Sprite sprite) -> void
@@ -74,7 +74,7 @@ class Rapicco
     attr_accessor pos: Integer
     attr_reader width: Integer
     attr_reader height: Integer
-    def initialize: (Symbol name, String author) -> void
+    def self.new: (Symbol name, String author) -> Sprite
     def show: () -> void
   end
 end

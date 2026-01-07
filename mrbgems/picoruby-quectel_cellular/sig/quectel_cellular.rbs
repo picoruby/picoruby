@@ -14,7 +14,7 @@ class QuectelCellular
 
   attr_reader log: Array[log_t]
 
-  def initialize: (uart: UART, ?log_size: Integer) -> void
+  def self.new: (uart: UART, ?log_size: Integer) -> QuectelCellular
   def perst=: (GPIO gpio) -> GPIO
   def reset: () -> void
   def configure_and_activate_context: () -> void
@@ -38,7 +38,7 @@ class QuectelCellular
 
   # @sidebar hardware_device
   class HTTPSClient < QuectelCellular
-    def initialize: (cacert: String, uart: UART, ?log_size: Integer) -> void
+    def self.new: (cacert: String, uart: UART, ?log_size: Integer) -> HTTPSClient
     def post: (String domain, String path, String body, ?Hash[String, String] headers) -> String
   end
 end

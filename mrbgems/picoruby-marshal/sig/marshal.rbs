@@ -15,38 +15,22 @@ module Marshal
   type marshallable = nil | bool | Integer | String | Symbol | Array[marshallable] | Hash[marshallable, marshallable]
 
   def self.dump: (marshallable obj) -> String
-
   def self.load: (String data) -> marshallable
 
-  private
-
-  def self.dump_object: (marshallable obj) -> String
-
-  def self.dump_integer: (Integer n) -> String
-
-  def self.encode_fixnum: (Integer n) -> String
-
-  def self.dump_string: (String s) -> String
-
-  def self.dump_symbol: (Symbol sym) -> String
-
-  #def self.dump_array: (Array[marshallable] ary) -> String
-  def self.dump_array: (untyped ary) -> String
-
-  #def self.dump_hash: (Hash[marshallable, marshallable] hash) -> String
-  def self.dump_hash: (untyped hash) -> String
-
-  def self.load_object: (String data, Integer pos) -> [marshallable, Integer]
-
-  def self.load_integer: (String data, Integer pos) -> [Integer, Integer]
-
-  def self.decode_fixnum: (String data, Integer pos) -> [Integer, Integer]
-
-  def self.load_string: (String data, Integer pos) -> [String, Integer]
-
-  def self.load_symbol: (String data, Integer pos) -> [Symbol, Integer]
-
-  def self.load_array: (String data, Integer pos) -> [Array[marshallable], Integer]
-
-  def self.load_hash: (String data, Integer pos) -> [Hash[marshallable, marshallable], Integer]
+  private def self.dump_object: (marshallable obj) -> String
+  private def self.dump_integer: (Integer n) -> String
+  private def self.encode_fixnum: (Integer n) -> String
+  private def self.dump_string: (String s) -> String
+  private def self.dump_symbol: (Symbol sym) -> String
+  #private def self.dump_array: (Array[marshallable] ary) -> String
+  private def self.dump_array: (untyped ary) -> String
+  #private def self.dump_hash: (Hash[marshallable, marshallable] hash) -> String
+  private def self.dump_hash: (untyped hash) -> String
+  private def self.load_object: (String data, Integer pos) -> [marshallable, Integer]
+  private def self.load_integer: (String data, Integer pos) -> [Integer, Integer]
+  private def self.decode_fixnum: (String data, Integer pos) -> [Integer, Integer]
+  private def self.load_string: (String data, Integer pos) -> [String, Integer]
+  private def self.load_symbol: (String data, Integer pos) -> [Symbol, Integer]
+  private def self.load_array: (String data, Integer pos) -> [Array[marshallable], Integer]
+  private def self.load_hash: (String data, Integer pos) -> [Hash[marshallable, marshallable], Integer]
 end

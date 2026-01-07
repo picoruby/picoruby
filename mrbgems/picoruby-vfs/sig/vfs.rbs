@@ -28,8 +28,7 @@ class VFS
   class File
     def self.open: (String path, String mode) -> file_t
     def self.utime: (Time atime, Time mtime, *String filename) -> Integer
-    def self.new: (String path, String mode) -> void
-    def initialize: (String path, String mode) -> void
+    def self.new: (String path, String mode) -> VFS::File
     def physical_address: () -> Integer
     def sector_size: () -> Integer
   end

@@ -1,3 +1,4 @@
+# @sidebar io_peripheral
 module IRQ
   type irq_id_t = Integer
   type irq_event_type_t = Integer
@@ -24,7 +25,7 @@ module IRQ
     attr_reader peripheral: irq_peri_t
     attr_reader event_type: irq_event_type_t
 
-    def initialize: (irq_peri_t peripheral, irq_event_type_t event_type, Hash[Symbol, untyped] opts, Proc callback) -> void
+    def self.new: (irq_peri_t peripheral, irq_event_type_t event_type, Hash[Symbol, untyped] opts, Proc callback) -> IRQ::IRQInstance
     def disable: () -> bool   # returns previous state
     def enable: () -> bool    # returns previous state
     def enabled?: () -> bool  # returns current state

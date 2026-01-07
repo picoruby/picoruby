@@ -2,7 +2,7 @@ class SSLContext
   VERIFY_NONE: Integer
   VERIFY_PEER: Integer
 
-  def initialize: () -> void
+  def self.new: () -> SSLContext
   def ca_file=: (String path) -> String
   def set_ca_cert: (Integer addr, Integer size) -> nil
   def verify_mode=: (Integer mode) -> Integer

@@ -23,7 +23,7 @@ module PRS
     attr_reader songname: String
     @file: File
     @length: Integer
-    def initialize: () -> void
+    def self.new: () -> PRS::Compiler
     def songname=: (String name) -> String
     def save_to: (String filename) -> void
     private def gen2: (Integer op, Integer reg, Integer value) -> void

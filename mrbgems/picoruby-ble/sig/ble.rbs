@@ -74,7 +74,7 @@ class BLE
   attr_accessor debug: bool
   attr_reader role: role_t
 
-  def initialize: (role_t role, ?(String|nil) profile_data) -> void
+  def self.new: (role_t role, ?(String|nil) profile_data) -> BLE
   def ensure: () { () -> void }-> void
   def _init: (String | nil) -> void
   def debug_puts: (*untyped) -> nil

@@ -71,7 +71,11 @@ module DRb
         obj = (ref.nil? || ref == @front) ? @front : ref
 
         # Invoke the method
-        result = obj.send(msg_id, *args, &block)
+        if msg_id.is_a?(Symbol)
+          result = obj.send(msg_id, *(args || []), &block)
+        else
+          raise DRbError, "invalid message ID"
+        end
 
         # Send success reply
         msg.send_reply(true, result)

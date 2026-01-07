@@ -88,7 +88,7 @@ module DRb
         if success
           result
         else
-          raise result
+          raise result.to_s
         end
       ensure
         socket.close

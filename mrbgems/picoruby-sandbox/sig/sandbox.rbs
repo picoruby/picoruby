@@ -7,7 +7,7 @@ class Sandbox
 
   attr_accessor error: Exception?
 
-  def self.new: (?String name) -> instance
+  def self.new: (?String name) -> Sandbox
   def compile: (String script, ?remove_lv: bool) -> bool
   def compile_from_memory: (Integer address, Integer size, ?remove_lv: bool) -> bool
   def resume: () -> bool

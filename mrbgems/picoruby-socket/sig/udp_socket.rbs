@@ -1,5 +1,5 @@
 class UDPSocket
-  def initialize: (?Integer port) -> void
+  def self.new: (?Integer port) -> UDPSocket
   def bind: (String host, Integer port) -> void
   def connect: (String host, Integer port) -> void
   def send: (String data, Integer flags, ?String? host, ?Integer? port) -> Integer

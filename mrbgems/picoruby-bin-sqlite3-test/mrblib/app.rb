@@ -3,8 +3,8 @@ require "sqlite3"
 require "picorubyvm"
 
 shell = Shell.new
-shell.setup_root_volume(:ram)
-shell.setup_system_files
+shell.setup_root_volume(:ram) # steep:ignore
+shell.setup_system_files # steep:ignore
 
 Dir.open "/" do |dir|
   while ent = dir.read

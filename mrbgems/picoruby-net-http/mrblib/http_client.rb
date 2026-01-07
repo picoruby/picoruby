@@ -36,15 +36,11 @@ module Net
 
           # Set CA file if provided
           if @ca_file
-            ssl_ctx.ca_file = @ca_file
+            ssl_ctx.ca_file = @ca_file # steep:ignore
           end
 
           # Set verify mode (default to VERIFY_PEER if not specified)
-          if @verify_mode
-            ssl_ctx.verify_mode = @verify_mode
-          else
-            ssl_ctx.verify_mode = SSLContext::VERIFY_PEER
-          end
+          ssl_ctx.verify_mode = @verify_mode || SSLContext::VERIFY_PEER
 
           # Create TCP socket first, then wrap with SSL
           tcp_socket = TCPSocket.new(@address, @port)
@@ -175,10 +171,12 @@ module Net
 
       http = new(host, port)
       http.use_ssl = use_ssl if use_ssl
+      body = nil
       http.start do |h|
         response = h.get(path)
-        return response.body
+        body = response.body
       end
+      body
     end
 
     if RUBY_ENGINE == 'mruby'

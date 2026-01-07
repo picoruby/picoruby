@@ -15,7 +15,7 @@ module Editor
     @buffer: Editor::Buffer
     @prompt_margin: Integer
 
-    def initialize: -> void
+    def self.new: -> Base
     attr_reader width: Integer
     attr_reader height: Integer
     def put_buffer: (String | Symbol chr) -> void
@@ -40,7 +40,7 @@ module Editor
     @prompt: String
     @prompt_margin: Integer
 
-    def initialize: -> void
+    def self.new: -> Line
     def prompt=: (String word) -> Integer
     def history_head: -> Integer
     def save_history: -> Integer
@@ -58,7 +58,7 @@ module Editor
     @footer_proc: untyped # FIXME:??? ^(self) -> void
     @cursor_proc: untyped # FIXME:??? ^(self) -> void
 
-    def initialize: -> void
+    def self.new: -> Screen
     attr_accessor footer_height: Integer
     attr_accessor quit_by_sigint: bool
     def load_file_into_buffer: (untyped filepath) -> bool

@@ -51,10 +51,12 @@ class PicoLine
     editor.prompt = prompt
     while true
       editor.clear_buffer
-      answer = editor.start do |_editor, buffer, c|
+      answer = nil
+      editor.start do |_editor, buffer, c|
         if c == 10 || c == 13
           puts
-          break buffer.lines[0].chomp
+          answer = buffer.lines[0].chomp
+          break
         end
       end
       answer = q.default.to_s if answer.to_s.empty?

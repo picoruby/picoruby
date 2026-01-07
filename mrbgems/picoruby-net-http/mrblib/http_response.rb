@@ -52,7 +52,7 @@ module Net
         if colon_idx
           key = line[0..(colon_idx - 1)]&.strip
           value = line[(colon_idx + 1)..-1]&.strip
-          response.header[key&.downcase] = value
+          response.header[key.downcase] = value || '' if key
         end
       end
 

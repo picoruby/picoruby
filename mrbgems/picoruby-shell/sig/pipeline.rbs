@@ -5,7 +5,7 @@ class Shell
       @buffer: Array[String]
       @remainder: String
 
-      def initialize: () -> void
+      def self.new: () -> PipeIO
       def puts: (?String str) -> void
       def print: (String str) -> void
       def write: (String str) -> Integer
@@ -20,7 +20,7 @@ class Shell
     @commands: Array[Array[String]]
 
     def self.parse: (String command_line) -> Array[Array[String]]
-    def initialize: (Array[Array[String]] commands) -> void
+    def self.new: (Array[Array[String]] commands) -> Pipeline
     def exec: () -> void
 
     private

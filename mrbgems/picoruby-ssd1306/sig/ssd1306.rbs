@@ -26,7 +26,7 @@ class SSD1306
   @pages: Integer
   @vram: VRAM
 
-  def initialize: (i2c: I2C, address: Integer, w: Integer, h: Integer) -> void
+  def self.new: (i2c: I2C, address: Integer, w: Integer, h: Integer) -> SSD1306
   private def init_display: () -> void
   def clear: () -> Integer
   def erase: (Integer x, Integer y, Integer w, Integer h) -> nil

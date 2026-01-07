@@ -517,9 +517,9 @@ class Time < Object
   #     More digits will be truncated, as other operations of Time. Ignored unless
   #     the first argument is a string.
   #
-  def initialize: (?Integer? year, ?Integer? month, ?Integer? day, ?Integer? hour, ?Integer? min, ?Integer? sec, ?String | Integer | nil) -> void
-                | (?Integer? year, ?Integer? month, ?Integer? day, ?Integer? hour, ?Integer? min, ?Integer? sec, in: String | Integer | nil) -> void
-                | (String, ?in: string | int | nil, ?precision: int) -> void
+  def self.new: (?Integer? year, ?Integer? month, ?Integer? day, ?Integer? hour, ?Integer? min, ?Integer? sec, ?String | Integer | nil) -> Time
+                | (?Integer? year, ?Integer? month, ?Integer? day, ?Integer? hour, ?Integer? min, ?Integer? sec, in: String | Integer | nil) -> Time
+                | (String, ?in: string | int | nil, ?precision: int) -> Time
 
   # <!--
   #   rdoc-file=time.c

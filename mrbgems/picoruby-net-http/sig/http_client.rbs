@@ -10,12 +10,12 @@ module Net
     attr_accessor ca_path: String?
     attr_reader started: bool
 
-    def initialize: (String address, ?Integer? port) -> void
-    def start: () { (HTTP) -> untyped } -> HTTP
+    def self.new: (String address, ?Integer? port) -> Net::HTTP
+    def start: () { (HTTP) -> untyped } -> HTTPResponse
              | () -> HTTP
     def finish: () -> void
     def active?: () -> bool
-    def get: (String path, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
+    def get: (String path, ?Hash[String, String]? initheader, ?untyped dest) ?{ (String) -> void } -> HTTPResponse
     def head: (String path, ?Hash[String, String]? initheader) -> HTTPResponse
     def post: (String path, String data, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
     def put: (String path, String data, ?Hash[String, String]? initheader, ?untyped dest) { (String) -> void } -> HTTPResponse
