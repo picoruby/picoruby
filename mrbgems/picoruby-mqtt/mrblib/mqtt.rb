@@ -8,6 +8,7 @@
 #
 
 require 'socket'
+require 'pack'
 
 module MQTT
   class MQTTError < StandardError; end
@@ -73,7 +74,7 @@ module MQTT
     def connect(**options)
       @client_id = options[:client_id] || "picoruby_#{Time.now.to_i}"
       @keep_alive = options[:keep_alive] || 60
-      @clean_session = options.fetch(:clean_session, true)
+      @clean_session = options[:clean_session] || true
       @username = options[:username]
       @password = options[:password]
 
@@ -91,7 +92,7 @@ module MQTT
     end
 
     def connected?
-      @socket && !@socket.closed?
+      @socket.nil? ? false : !(@socket.closed?)
     end
 
     def publish(topic, payload, retain: false, qos: 0)
@@ -131,26 +132,25 @@ module MQTT
         end
 
         # Non-blocking receive with short timeout
-        ready = IO.select([@socket], nil, nil, 0.1)
-        if ready && ready[0]
-          packet_type, flags, data = receive_packet
+        packet_type, flags, data = receive_packet
 
-          case packet_type
-          when PUBLISH
-            # Parse PUBLISH packet
-            topic, payload = parse_publish(flags, data)
-            return [topic, payload]
-          when PINGRESP
-            # Update last ping time
-            @last_ping = Time.now
-          else
-            # Unexpected packet, ignore
-          end
+        case packet_type
+        when PUBLISH
+          # Parse PUBLISH packet
+          topic, payload = parse_publish(flags, data)
+          return [topic, payload]
+        when PINGRESP
+          # Update last ping time
+          @last_ping = Time.now
+        else
+          # Unexpected packet, ignore
         end
 
         # Check keepalive even while waiting
         check_keepalive
       end
+
+      nil # never reached
     end
 
     def ping
@@ -213,7 +213,10 @@ module MQTT
       multiplier = 1
       value = 0
       loop do
-        byte = data[offset].ord
+        sliced_data = data[offset]
+        break unless sliced_data.is_a?(String)
+
+        byte = sliced_data.ord
         offset += 1
         value += (byte & 0x7F) * multiplier
         break if (byte & 0x80) == 0
@@ -271,7 +274,8 @@ module MQTT
         raise ProtocolError.new("Invalid CONNACK packet")
       end
 
-      return_code = data[1].ord
+      return_code_data = data[1]
+      return_code = return_code_data.is_a?(String) ? return_code_data.ord : -1
 
       if return_code != CONNACK_ACCEPTED
         error_messages = {
@@ -427,9 +431,10 @@ module MQTT
       offset = 0
 
       # Topic name
-      topic_length = data[offset, 2].unpack("n")[0]
+      topic_data = data[offset, 2] || ''
+      topic_length = topic_data.unpack("n")[0]
       offset += 2
-      topic = data[offset, topic_length]
+      topic = data[offset, topic_length] || ''
       offset += topic_length
 
       # QoS level
@@ -437,12 +442,13 @@ module MQTT
 
       # Packet ID (only for QoS > 0)
       if qos > 0
-        packet_id = data[offset, 2].unpack("n")[0]
+        packet_id_data = data[offset, 2] || ''
+        packet_id = packet_id_data.unpack("n")[0]
         offset += 2
       end
 
       # Payload
-      payload = data[offset..-1]
+      payload = data[offset..-1] || ''
 
       [topic, payload]
     end

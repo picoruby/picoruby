@@ -16,12 +16,9 @@ This is a pure Ruby implementation of MQTT 3.1.1 client for PicoRuby, designed f
 
 ## Installation
 
-Requires `picoruby-socket-class` gem.
-
 Add to your `build_config.rb`:
 
 ```ruby
-conf.gem :core => 'picoruby-socket-class'
 conf.gem :core => 'picoruby-mqtt'
 ```
 

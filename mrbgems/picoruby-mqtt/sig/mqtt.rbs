@@ -32,24 +32,6 @@ module MQTT
   CONNACK_REFUSED_AUTHORIZED: Integer
 
   class Client
-    @host: String
-    @port: Integer
-    @client_id: String?
-    @keep_alive: Integer
-    @clean_session: bool
-    @username: String?
-    @password: String?
-    @socket: TCPSocket?
-    @packet_id: Integer
-    @last_ping: Time?
-
-    attr_reader host: String
-    attr_reader port: Integer
-    attr_accessor client_id: String?
-    attr_accessor keep_alive: Integer
-    attr_accessor clean_session: bool
-    attr_accessor username: String?
-    attr_accessor password: String?
 
     def initialize: (String, ?Integer) -> void
 
@@ -66,7 +48,7 @@ module MQTT
 
     def unsubscribe: (*String) -> void
 
-    def receive: (?timeout: Numeric?) -> [String, String]?
+    def receive: (?timeout: (Integer | Float)?) -> [String, String]?
 
     def ping: () -> bool
 
