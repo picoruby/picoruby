@@ -3,16 +3,13 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
   spec.authors = ['Ryo Kajiwara', 'HASUMI Hitoshi']
   spec.summary = 'Network functionality for PicoRuby'
 
-  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-time'
   spec.add_dependency 'picoruby-pack'
   spec.add_dependency 'picoruby-mbedtls'
   spec.add_dependency 'picoruby-jwt'
+  spec.add_dependency 'picoruby-cyw43' unless build.posix?
 
-  unless spec.cc.defines.include? "PICORB_PLATFORM_POSIX"
-    spec.add_dependency 'picoruby-cyw43'
-  end
-
-  spec.add_conflict 'picoruby-socket-class'
+  spec.add_conflict 'picoruby-socket'
 
   if build.posix?
     #

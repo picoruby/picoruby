@@ -26,16 +26,6 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     end
   end
 
-  if cc.build.posix?
-    cc.include_paths.unshift "#{mrubyc_dir}/hal/posix"
-    hal_src = "#{mrubyc_dir}/hal/posix/hal.c"
-    obj = objfile(hal_src.pathmap("#{build_dir}/src/%n"))
-    build.libmruby_objs << obj
-    file obj => hal_src do |f|
-      cc.run f.name, f.prerequisites.first
-    end
-  end
-
   next if %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
 
 end
