@@ -17,7 +17,7 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-require 'net'
+require 'cyw43'
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -131,6 +131,15 @@ if config["wifi"]["watchdog"]
   puts "Watchdog disabled"
 end
 
-ts = Net::NTP.get
-Machine.set_hwclock(ts[0], ts[1])
-puts "Time set to #{Time.now}"
+puts "Waiting for IP address..."
+retry_count = 0
+max_retries = 20
+until CYW43.link_connected?
+  sleep_ms 100
+  retry_count += 1
+  if retry_count >= max_retries
+    puts "Failed to get IP address after #{max_retries * 100}ms"
+    return
+  end
+end
+puts "IP address obtained (#{CYW43.tcpip_link_status_name})"

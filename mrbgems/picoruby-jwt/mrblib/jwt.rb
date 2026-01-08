@@ -95,7 +95,7 @@ module JWT
       # @type ivar @key: MbedTLS::PKey::RSA
       digest = MbedTLS::Digest.new(:sha256)
       result = @key.verify(digest, signature, @data)
-      digest.free
+      #digest.free # deprecated
       unless result
         raise JWT::VerificationError.new("Signature verification failed")
       end

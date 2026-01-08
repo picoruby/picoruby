@@ -3,5 +3,5 @@ MRuby::Gem::Specification.new('picoruby-logger') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Logger class'
 
-  spec.add_dependency 'picoruby-time-class'
+  spec.add_dependency 'picoruby-time'
 end

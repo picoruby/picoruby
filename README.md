@@ -43,10 +43,17 @@ For detailed information on testing PicoRuby, refer to the [Testing Guide](docs/
 ```console
 git clone --recursive https://github.com/picoruby/picoruby
 cd picoruby/
+git submodule update --init --recursive # If you forget --recursive when git clone
 rake
 # PICORUBY_DEBUG=1 rake                         # for debug build
 # PICORUBY_DEBUG=1 PICORUBY_NO_LIBC_ALLOC=1 rake  # for debug build using mruby/c's memory allocator
 bin/picoruby -e 'puts "Hello World!"'
+```
+- Building on a mac
+  - openssl is not linked in homebrew to avoid mixing with system ssl
+  - extend the C/LD flags to point to the right locations:
+```
+rake LDFLAGS=-L$(brew --prefix openssl@3)/lib CFLAGS=-I$(brew --prefix openssl@3)/include
 ```
 
 #### Cross compilation

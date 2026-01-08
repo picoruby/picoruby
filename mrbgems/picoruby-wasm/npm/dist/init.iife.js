@@ -23,11 +23,11 @@
     const Module = await createModule();
     Module.picorubyRun = function() {
       const tickTimer = setInterval(() => {
-        Module.ccall('mrbc_tick', null, [], []);
-      }, 17); // 16.67ms: optimize for 60fps. See MRBC_TICK_UNIT in build_config/wasm.rb
+        Module.ccall('mrb_tick_wasm', null, [], []);
+      }, 17); // 16.67ms: optimize for 60fps
 
       function run() {
-        const result = Module.ccall('mrbc_run_step', 'number', [], []);
+        const result = Module.ccall('mrb_run_step', 'number', [], []);
         if (result < 0) {
           return;
         }
@@ -52,7 +52,7 @@
     // Also support window.userTasks if present (for backward compatibility)
     if (window.userTasks) {
       window.userTasks.forEach(function(task) {
-        Module.ccall('picoruby_create_task', 'number', ['string'], [task]);
+        Module.ccall('picorb_create_task', 'number', ['string'], [task]);
       });
     }
 
@@ -60,7 +60,7 @@
     Module.picorubyRun();
   }
 
-  global.initPicoRuby = initPicoRuby;
+  global.initPicooRuby = initPicoRuby;
 
-  await initPicoRuby();
+  await initPicooRuby();
 })(typeof window !== 'undefined' ? window : this).catch(console.error);

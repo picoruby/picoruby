@@ -1,0 +1,7 @@
+class TCPSocket < BasicSocket
+  def self.new: (String host, Integer port) -> TCPSocket
+  def self.open: (String host, Integer port) -> TCPSocket
+  def self.gethostbyname: (String host) -> [String, Array[String], Integer, String]
+  def addr: () -> Array[String | Integer]
+  def connected?: () -> bool
+end

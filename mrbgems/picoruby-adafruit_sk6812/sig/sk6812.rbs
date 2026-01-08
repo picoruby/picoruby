@@ -1,5 +1,5 @@
 class SK6812
   @rmt: RMT
-  def initialize: (Integer pin) -> void
+  def self.new: (Integer pin) -> SK6812
   def output: (?r: Integer, ?g: Integer, ?b: Integer) -> void
 end

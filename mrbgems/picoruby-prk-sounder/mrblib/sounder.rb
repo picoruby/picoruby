@@ -39,16 +39,16 @@ class Sounder
     if (name = measures[0]) && name.is_a?(Symbol)
       return if @last_compiled_song == name
       clear_song
-      @total_duration = MML.new.compile SONGS[name].to_s do |pitch, duration|
+      @total_duration = MML.new.compile SONGS[name].to_s do |pitch, duration| # steep:ignore
         add_note pitch, duration
       end
       @last_compiled_song = name
     else
       clear_song
-      mml = MML.new
+      mml = MML.new # steep:ignore
       @total_duration = 0
       measures.each do |measure|
-        @total_duration += (mml.compile measure.to_s do |pitch, duration|
+        @total_duration += (mml.compile measure.to_s do |pitch, duration| # steep:ignore
           add_note pitch, duration
         end)
       end

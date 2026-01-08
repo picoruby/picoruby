@@ -4,14 +4,14 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter = nil, tmpdir = TMPDIR, lib_name = nil, load_files = [], load_path = nil)
+    def initialize(dir, filter = nil, tmpdir = TMPDIR, require_name = nil, load_files = [], load_path = nil)
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
       puts "Running tests in #{dir}"
       @load_path = load_path
       @tmpdir = tmpdir
-      @lib_to_require = lib_name
+      @require_name = require_name
       @load_files = load_files
       @entries = find_tests(dir, filter)
       @result = {}
@@ -61,9 +61,9 @@ module Picotest
           @load_files.each do |file|
             f.puts "load '#{file}'"
           end
-          if @lib_to_require
+          if @require_name
             f.puts "\n# library to require"
-            f.puts "require '#{@lib_to_require}'"
+            f.puts "require '#{@require_name}'"
           end
           f.puts "\n# test file to load"
           f.puts "load '#{entry}'"

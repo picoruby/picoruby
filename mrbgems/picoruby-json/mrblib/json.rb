@@ -291,9 +291,9 @@ module JSON
       when Integer, Float
         generate_number(obj)
       when TrueClass
-        true
+        "true"
       when FalseClass
-        false
+        "false"
       when NilClass
         'null'
       else

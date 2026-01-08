@@ -14,7 +14,7 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-picotest"
   conf.gem core: "picoruby-metaprog"
   conf.gem core: "picoruby-pack"
-  conf.gem core: "picoruby-time-class"
+  conf.gem core: "picoruby-time"
   conf.gem core: "picoruby-mbedtls"
   conf.gem core: "picoruby-jwt"
   conf.gem core: "picoruby-net"

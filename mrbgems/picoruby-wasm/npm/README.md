@@ -1,155 +1,119 @@
 # PicoRuby.wasm
 
-PicoRuby.wasm is a PicoRuby port to WebAssembly.
+PicoRuby WebAssembly - Ruby for the browser powered by mruby VM
+
+## What is PicoRuby?
+
+PicoRuby is a WebAssembly build of [PicoRuby](https://github.com/picoruby/picoruby) using the full **mruby VM** (as opposed to PicoRuby.wasm which uses mruby/c).
+
+### Key Features
+
+- **Full mruby VM**: Complete Ruby implementation with rich features
+- **Task Scheduler**: Built-in cooperative multitasking for concurrent Ruby code
+- **JavaScript Interop**: Seamless integration with JavaScript APIs
+- **Browser Compatible**: Runs directly in modern web browsers
+- **Same API as PicoRuby**: Consistent interface across VM variants
+
+## Installation
+
+```bash
+npm install @picoruby/wasm
+```
 
 ## Usage
 
-```html
-<!DOCTYPE html>
-<html>
-  <head><meta charset="utf-8"></head>
-  <body>
-    <h1>DOM manipulation</h1>
-    <button id="button">Click me!</button>
-    <h2 id="container"></h2>
-    <script type="text/ruby">
-      require 'js'
-      JS.document.getElementById('button').addEventListener('click') do |event|
-        event.preventDefault
-        JS.document.getElementById('container').innerText = 'Hello, PicoRuby!'
-      end
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js"></script>
-  </body>
-</html>
-```
-
-You can also read Ruby scripts from a file:
-
-```html
-    <script type="text/ruby" src="your_script.rb"></script>
-```
-
-### Fetching
-
-```ruby
-require 'js'
-logo = JS.document.getElementById('logo')
-JS.global.fetch('some.svg') do |response|
-  if response.status.to_poro == 200
-    logo.innerHTML = response.to_binary # to_binary blocks until the Promise is resolved
-  end
-end
-```
-
-picoruby.wasm doesn't support async/await so to make the binary small.
-
-As of now, GET method is only supported. We'll wait for your PRs!
-
-### JS::Object#to_poro method
-
-As of now, `JS::Object` class doesn't have methods like `to_i` and `to_s`.
-
-Instead, `to_poro`[^1] method converts a JS object to a Ruby object, fallbacking to a JS::Object when not doable.
-
-[^1]: *poro* stands for *Plain Old Ruby Object*.
-
-Other than `JS::Object#to_poro`, you can use `JS::Object#to_binary` to get a binary data from an arrayBuffer.
-
-### Multi tasks
+### HTML (IIFE)
 
 ```html
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-  </head>
-  <body>
-    <h1>Multi tasks</h1>
-    <div>Open the console and see the output</div>
-    <script type="text/ruby">
-      while !(aho_task = Task.get('aho_task'))
-        # Waiting for aho_task...
-        sleep 0.1
-      end
-      i = 0
-      while true
-        i += 1
-        if i % 3 == 0 || i.to_s.include?('3')
-          aho_task.resume
-        else
-          puts "From main_task: #{i}"
-        end
-        sleep 1
-      end
-    </script>
-    
-    <script type="text/ruby">
-      aho_task = Task.current
-      aho_task.name = 'aho_task'
-      aho_task.suspend
-      while true
-        puts "From aho_task: Aho!"
-        aho_task.suspend
-      end
-    </script>
+<head>
+  <script type="module" src="node_modules/@picoruby/wasm/dist/init.iife.js"></script>
+</head>
+<body>
+  <script type="text/ruby">
+    puts "Hello from PicoRuby!"
 
-    <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js"></script>
-  </body>
+    # JavaScript interop
+    js_global = JS.global
+    document = js_global[:document]
+    document.getElementById("output").innerText = "Hello from Ruby!"
+  </script>
+
+  <div id="output"></div>
+</body>
 </html>
 ```
 
-## Ristriction due to the imlementation
+### Loading External Ruby Files
 
-Inside callbacks of `addEventListener`, you can't refer to variables outside the block:
-
-```ruby
-require 'js'
-button = JS.document.getElementById('button')
-button.addEventListener('click') do |event|
-  event.target.innerText = 'Clicked!'
-  # OK
-  button.innerText = 'Clicked!'
-  # => NameError: undefined local variable or method
-end
+```html
+<script type="text/ruby" src="app.rb"></script>
 ```
 
-The restriction above is only for the `addEventListener`.
-You can refer to variables outside the block in general:
+### JavaScript API
 
-```ruby
-lvar = 'Hello, PicoRuby!'
-3.times do
-  puts lvar
-end
-#=> Hello, PicoRuby! (3 times)
+```javascript
+// Initialize manually
+await window.initPicoRuby();
+
+// Access the module
+const Module = window.Module;
+
+// Execute Ruby code
+Module.ccall('picorb_create_task', 'number', ['string'], ['puts "Hello!"']);
 ```
 
-## Contributing
+## Differences from PicoRuby.wasm
 
-Fork [https://github.com/picoruby/picoruby](https://github.com/picoruby/picoruby), patch, and send a pull request.
+| Feature | PicoRuby (mruby/c) | PicoRuby (mruby) |
+|---------|-------------------|-------------------|
+| VM | mruby/c (compact) | mruby (full-featured) |
+| Size | ~780KB | ~1.6MB |
+| Performance | Faster startup | Richer features |
+| Memory | Lower footprint | More memory needed |
+| API | Same | Same |
 
-### Build
+## Architecture
 
-```sh
-git clone https://github.com/picoruby/picoruby
-cd picoruby
-MRUBY_CONFIG=wasm rake
+PicoRuby uses **explicit execution loop model**:
+
+```
+JavaScript (60fps)
+  ├─ mrb_tick_wasm()  → Timer processing & task wakeup
+  └─ mrb_run_step()   → Execute one task step
 ```
 
-Then, you can start a local server:
+This architecture:
+- ✅ Provides fine-grained control from JavaScript
+- ✅ Enables easy debugging and profiling
+- ✅ Consistent with PicoRuby.wasm interface
+- ✅ Cooperative multitasking via Task Scheduler
 
-```sh
+## Development
+
+### Building
+
+```bash
+# Build debug version
+rake wasm:debug
+
+# Build production version
+rake wasm:prod
+
+# Start local server
 rake wasm:server
 ```
 
-### Files that you may want to dig into
+### Testing
 
-- `picoruby/mrbgems/picoruby-wasm/*`
-- `picoruby/build_config/wasm.rb`
+Visit http://localhost:8080 after starting the server.
 
 ## License
 
-MIT License
+MIT
 
-2024 (c) HASUMI Hitoshi a.k.a. [@hasumikin](https://twitter.com/hasumikin)
+## Links
+
+- [PicoRuby](https://github.com/picoruby/picoruby)
+- [mruby](https://github.com/mruby/mruby)

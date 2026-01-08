@@ -37,7 +37,7 @@ module Signal
       when nil, "", "SIG_IGN", "DEFAULT"
         return
       else
-        raise RuntimeError.new("Unknown signal handler: #{handler}")
+        raise RuntimeError.new("Unknown signal handler: #{handler}") # steep:ignore
       end
     end
   end
@@ -56,7 +56,7 @@ module Signal
             LIST[signal.to_s]
           end
     if num.nil?
-      raise ArgumentError.new("Unknown signal: #{signal}")
+      raise ArgumentError.new("Unknown signal: #{signal}") # steep:ignore
     end
     # @type var num: Integer
     num

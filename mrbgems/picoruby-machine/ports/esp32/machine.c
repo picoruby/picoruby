@@ -40,9 +40,9 @@ alarm_handler(void *arg)
 
 void
 #if defined(PICORB_VM_MRUBY)
-hal_init(mrb_state *mrb)
+machine_hal_init(mrb_state *mrb)
 #elif defined(PICORB_VM_MRUBYC)
-hal_init(void)
+machine_hal_init(void)
 #endif
 {
 #if defined(PICORB_VM_MRUBY)
@@ -55,7 +55,11 @@ hal_init(void)
   timer_create_args.name = "mrbc_tick_timer";
 
   esp_timer_create(&timer_create_args, &periodic_timer);
+#if defined(PICORB_VM_MRUBY)
+  esp_timer_start_periodic(periodic_timer, MRB_TICK_UNIT * 1000);
+#else
   esp_timer_start_periodic(periodic_timer, MRBC_TICK_UNIT * 1000);
+#endif
 }
 
 void
@@ -79,7 +83,11 @@ mrb_task_disable_irq()
 }
 
 void
+#if defined(PICORB_VM_MRUBYC)
 hal_idle_cpu()
+#elif defined(PICORB_VM_MRUBY)
+hal_idle_cpu(mrb_state *mrb)
+#endif
 {
   vTaskDelay(1);
 }

@@ -1,4 +1,4 @@
-class RNG
+module RNG
   def self.uuid
     hex = ""
     32.times { hex << (RNG.random_int % 16).to_s(16) }

@@ -11,7 +11,7 @@ ARGV: Array[String]
 class Shell
   type rtc_t = PCF8523
 
-  type device_t = GPIO | ADC | I2C | SPI | UART | PWM
+  type device_t = GPIO | ADC | I2C | SPI | UART | PWM | CYW43::GPIO
   DeviceInstances: Hash[String, device_t | nil]
   def self.get_device: (:gpio, String | Symbol name) -> GPIO?
                      | (:adc,  String | Symbol name) -> ADC?
@@ -19,6 +19,8 @@ class Shell
                      | (:spi,  String | Symbol name) -> SPI?
                      | (:uart, String | Symbol name) -> UART?
                      | (:pwm,  String | Symbol name) -> PWM?
+                     | (:gpio_led, String | Symbol name) -> CYW43::GPIO?
+                     | (:gpio_trigger, String | Symbol name) -> GPIO?
 
   LOGO_WIDTH: Integer
   LOGO: Array[String]
@@ -38,7 +40,7 @@ class Shell
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
   def self.find_executable: (String name) -> String?
 
-  def initialize: (?clean: bool) -> void
+  def self.new: (?clean: bool) -> Shell
   def show_logo: (?Integer color_num)-> void
   def start: (?Symbol mode) -> nil
   def run_shell: -> void

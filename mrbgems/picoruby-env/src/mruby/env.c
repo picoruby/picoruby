@@ -45,7 +45,7 @@ mrb_env_s_new(mrb_state *mrb, mrb_value klass)
       break;
     }
     mrb_value key_value = mrb_str_new(mrb, key, key_len);
-    mrb_value value_value = mrb_str_new(mrb, value, key_len);
+    mrb_value value_value = mrb_str_new(mrb, value, value_len);
     mrb_hash_set(mrb, env->hash, key_value, value_value);
   }
   mrb_gc_arena_restore(mrb, ai);

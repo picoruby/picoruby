@@ -189,7 +189,7 @@ class Shell
       return false
     end
     puts "\nLoading #{file}..."
-    system file
+    load file
     return true
   end
 
@@ -198,7 +198,7 @@ class Shell
     begin
       print "Initializing RTC... "
       ENV['TZ'] = "JST-9"
-      Machine.set_hwclock(rtc.current_time.to_i, 0)
+      Machine.set_hwclock(rtc.current_time.to_i)
       FAT.unixtime_offset = Time.unixtime_offset
       puts "Available (#{Time.now})"
     rescue => e
@@ -743,8 +743,8 @@ class Shell
       return false
     end
     ENV['OLDPWD'] = Dir.pwd
-    ENV['PWD'] = dir
     Dir.chdir(dir)
+    ENV['PWD'] = Dir.pwd
   end
 
   def _exit(*args)

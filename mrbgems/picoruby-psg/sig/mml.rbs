@@ -29,7 +29,7 @@ class MML
 
   def self.compile_multi: (Array[String] tracks, ?exception: bool, ?loop: bool) { (Integer delta, Integer channel, command_t | play_t | segno_t command, *Integer args) -> untyped } -> Integer
 
-  def initialize: (Integer track_id, String track, ?exception: bool, ?loop: bool) -> void
+  def self.new: (Integer track_id, String track, ?exception: bool, ?loop: bool) -> MML
   def reduce_next: () -> (event_t | nil)
   private def push_event: (play_t command, Integer arg1, Integer arg2) -> void
                         | (segno_t command) -> void

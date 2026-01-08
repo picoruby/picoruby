@@ -10,6 +10,6 @@ class HCSR04
   @trig: GPIO
   @echo: GPIO
 
-  def initialize: (trig: Integer, echo: Integer) -> void
+  def self.new: (trig: Integer, echo: Integer) -> HCSR04
   def distance_cm: () -> Integer
 end

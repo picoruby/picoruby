@@ -27,6 +27,13 @@
 #define MRB_SCHEDULER_EXIT 0
 #endif
 
+#define scheduler_exit() do { \
+    mrb_task_disable_irq(); \
+    int __flag_exit = !q_ready_ && !q_waiting_ && !q_suspended_; \
+    mrb_task_enable_irq(); \
+    if (__flag_exit) return ret; \
+  } while (0)
+
 #define TASK_LIST_UNIT_SIZE 5
 #define TASK_LIST_MAX_SIZE  100
 
@@ -181,11 +188,67 @@ mrb_tick(mrb_state *mrb)
   }
 }
 
+//================================================================
+/*! Remove context from c_list
+
+  @param  mrb     mrb_state
+  @param  c       context to remove
+*/
+static void
+remove_context_from_list(mrb_state *mrb, struct mrb_context *c)
+{
+  if (!mrb->c_list || mrb->c_list_len == 0) return;
+
+  mrb_task_disable_irq();
+
+  int index = -1;
+  for (int i = 0; i < mrb->c_list_len; i++) {
+    if (mrb->c_list[i] == c) {
+      index = i;
+      break;
+    }
+  }
+
+  if (0 <= index) {
+    for (int i = index; i < mrb->c_list_len - 1; i++) {
+      mrb->c_list[i] = mrb->c_list[i + 1];
+    }
+    mrb->c_list[mrb->c_list_len - 1] = NULL;
+    mrb->c_list_len--;
+  }
+
+  mrb_task_enable_irq();
+}
+
+static void
+cleanup_context(mrb_state *mrb, struct mrb_context *c)
+{
+  if (c->stbase) {
+    mrb_free(mrb, c->stbase);
+    c->stbase = NULL;
+  }
+  if (c->cibase) {
+    mrb_free(mrb, c->cibase);
+    c->cibase = NULL;
+  }
+}
+
 static void
 mrb_task_tcb_free(mrb_state *mrb, void *ptr)
 {
   mrb_tcb *tcb = (mrb_tcb *)ptr;
-  mrb_gc_unregister(mrb, tcb->task);
+
+  mrb_task_disable_irq();
+  q_delete_task(mrb, tcb);
+  mrb_task_enable_irq();
+
+  cleanup_context(mrb, &tcb->c);
+
+  if (tcb->irep && tcb->cc) {
+    mrc_irep_free((mrc_ccontext *)tcb->cc, (mrc_irep *)tcb->irep);
+    mrc_ccontext_free((mrc_ccontext *)tcb->cc);
+  }
+
   mrb_free(mrb, tcb);
 }
 
@@ -203,7 +266,7 @@ mrb_tcb_new(mrb_state *mrb, enum TASKSTATUS task_status, int priority)
 {
   static uint8_t context_id = 0;
 
-  mrb_tcb *tcb = mrb_calloc(mrb, 1, sizeof(mrb_tcb) + sizeof(struct mrb_context));
+  mrb_tcb *tcb = (mrb_tcb *)mrb_calloc(mrb, 1, sizeof(mrb_tcb) + sizeof(struct mrb_context));
   if (!tcb) return NULL;  // ENOMEM
 #if defined(PICORUBY_DEBUG)
   memcpy(tcb->type, "TCB", 4);
@@ -214,20 +277,10 @@ mrb_tcb_new(mrb_state *mrb, enum TASKSTATUS task_status, int priority)
   context_id++;
   tcb->context_id = context_id;
 
-  return tcb;
-}
+  tcb->irep = NULL;
+  tcb->cc = NULL;
 
-static void
-cleanup_context(mrb_state *mrb, struct mrb_context *c)
-{
-  if (c->stbase) {
-    mrb_free(mrb, c->stbase);
-    c->stbase = NULL;
-  }
-  if (c->cibase) {
-    mrb_free(mrb, c->cibase);
-    c->cibase = NULL;
-  }
+  return tcb;
 }
 
 
@@ -319,7 +372,7 @@ mrb_create_task(mrb_state *mrb, struct RProc *proc, mrb_value name, mrb_value pr
   } else if (!mrb_integer_p(priority)) {
     mrb_raise(mrb, E_TYPE_ERROR, "priority must be an Integer");
   }
-  mrb_tcb *tcb = mrb_tcb_new(mrb, MRB_TASK_DEFAULT_STATUS, mrb_integer(priority));
+  mrb_tcb *tcb = mrb_tcb_new(mrb, (enum TASKSTATUS)MRB_TASK_DEFAULT_STATUS, mrb_integer(priority));
   if (mrb_nil_p(name)) {
     name = mrb_str_new_lit(mrb, "(noname)");
   }
@@ -400,6 +453,104 @@ mrb_delete_task(mrb_state *mrb, mrb_tcb *tcb)
 
 
 //================================================================
+/*! execute one task step (for WASM event loop integration)
+
+  @return  mrb_true if tasks are still running, mrb_nil if no tasks
+*/
+mrb_value
+mrb_task_run_once(mrb_state *mrb)
+{
+  mrb_tcb *tcb = q_ready_;
+  if (tcb == NULL) {
+    return mrb_nil_value();
+  }
+
+  /*
+    run the task.
+  */
+  tcb->status = TASKSTATUS_RUNNING;
+  mrb->c = &tcb->c;
+  tcb->timeslice = MRB_TIMESLICE_TICK_COUNT;
+
+//  if (!mrb_nil_p(tcb->pending_exception)) {
+//    mrb_value exc = tcb->pending_exception;
+//    tcb->pending_exception = mrb_nil_value();
+//    mrb_exc_raise(mrb, exc);
+//  }
+
+  tcb->value = mrb_vm_exec(mrb, mrb->c->ci->proc, mrb->c->ci->pc);
+
+  if (mrb->exc) {
+    tcb->value = mrb_obj_value(mrb->exc);
+    tcb->c.status = MRB_TASK_STOPPED;
+  }
+  switching_ = FALSE;
+
+  /*
+    did the task done?
+  */
+  if (tcb->c.status == MRB_TASK_STOPPED) {
+    mrb_task_disable_irq();
+    q_delete_task(mrb, tcb);
+    tcb->status = TASKSTATUS_DORMANT;
+    q_insert_task(mrb, tcb);
+    mrb_task_enable_irq();
+
+    // find task that called join.
+    mrb_bool has_join_waiter = FALSE;
+    mrb_task_disable_irq();
+    mrb_tcb *tcb1 = q_waiting_;
+    while (tcb1 != NULL) {
+      mrb_tcb *next = tcb1->next;
+      if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        has_join_waiter = TRUE;
+        q_delete_task(mrb, tcb1);
+        tcb1->status = TASKSTATUS_READY;
+        tcb1->reason = TASKREASON_NONE;
+        q_insert_task(mrb, tcb1);
+      }
+      tcb1 = next;
+    }
+    for (mrb_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next) {
+      if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+        has_join_waiter = TRUE;
+        tcb1->reason = TASKREASON_NONE;
+      }
+    }
+    mrb_task_enable_irq();
+
+    if (!has_join_waiter && !tcb->flag_permanence) {
+      remove_context_from_list(mrb, &tcb->c);
+      mrb_gc_unregister(mrb, tcb->task);
+    }
+
+    return mrb_true_value();
+  }
+
+  if (mrb->gc.state != MRB_GC_STATE_ROOT) {
+    int gc_steps = 0;
+    while (mrb->gc.state != MRB_GC_STATE_ROOT && gc_steps < MAX_GC_STEPS_PER_TICK)
+    {
+      mrb_incremental_gc(mrb);
+      gc_steps++;
+    }
+  }
+
+  /*
+    Switch task.
+  */
+  if (tcb->status == TASKSTATUS_RUNNING) {
+    mrb_task_disable_irq();
+    q_delete_task(mrb, tcb);
+    tcb->status = TASKSTATUS_READY;
+    q_insert_task(mrb, tcb);
+    mrb_task_enable_irq();
+  }
+
+  return mrb_true_value();
+}
+
+//================================================================
 /*! execute
 
 */
@@ -409,7 +560,7 @@ mrb_tasks_run(mrb_state *mrb)
   mrb_value ret = mrb_nil_value();
 
 #if MRB_SCHEDULER_EXIT
-  if (!q_ready_ && !q_waiting_ && !q_suspended_) return ret;
+  scheduler_exit();
 #else
   (void)ret;
 #endif
@@ -449,11 +600,13 @@ mrb_tasks_run(mrb_state *mrb)
       if (mrb->exc) ret = mrb_obj_value(mrb->exc);
 
       // find task that called join.
+      mrb_bool has_join_waiter = FALSE;
       mrb_task_disable_irq();
       mrb_tcb *tcb1 = q_waiting_;
       while (tcb1 != NULL) {
         mrb_tcb *next = tcb1->next;
         if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+          has_join_waiter = TRUE;
           q_delete_task(mrb, tcb1);
           tcb1->status = TASKSTATUS_READY;
           tcb1->reason = TASKREASON_NONE;
@@ -463,13 +616,19 @@ mrb_tasks_run(mrb_state *mrb)
       }
       for (mrb_tcb *tcb1 = q_suspended_; tcb1 != NULL; tcb1 = tcb1->next) {
         if (tcb1->reason == TASKREASON_JOIN && tcb1->tcb_join == tcb) {
+          has_join_waiter = TRUE;
           tcb1->reason = TASKREASON_NONE;
         }
       }
       mrb_task_enable_irq();
 
+      if (!has_join_waiter && !tcb->flag_permanence) {
+        remove_context_from_list(mrb, &tcb->c);
+        mrb_gc_unregister(mrb, tcb->task);
+      }
+
 #if MRB_SCHEDULER_EXIT
-      if (!q_ready_ && !q_waiting_ && !q_suspended_) return ret;
+      scheduler_exit();
 #endif
       continue;
     }
@@ -508,9 +667,7 @@ mrb_tasks_run(mrb_state *mrb)
 static void
 sleep_ms_impl(mrb_state *mrb, mrb_int ms)
 {
-  //mrb_tcb *tcb = MRB2TCB(mrb);
-  //mrb_tcb *tcb = (mrb_tcb *)((uint8_t *)mrb->c + sizeof(mrb_tcb));
-  mrb_tcb *tcb = q_ready_;
+  mrb_tcb *tcb = MRB2TCB(mrb);
 
   mrb_task_disable_irq();
   q_delete_task(mrb, tcb);
@@ -574,6 +731,14 @@ mrb_resume_task(mrb_state *mrb, mrb_value task)
     }
   }
 }
+
+//void
+//mrb_resume_task_with_raise(mrb_state *mrb, mrb_value task, mrb_value exc)
+//{
+//  mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
+//  tcb->pending_exception = exc;
+//  mrb_resume_task(mrb, task);
+//}
 
 void
 mrb_terminate_task(mrb_state *mrb, mrb_value task)
@@ -724,8 +889,14 @@ mrb_task_s_get(mrb_state *mrb, mrb_value klass)
   for (int i = 0; i < 4; i++) {
     queue = queues[i];
     while (queue) {
+      mrb_value task_ivar_name = mrb_iv_get(mrb, queue->task, MRB_IVSYM(name));
+      if (mrb_string_p(task_ivar_name)) {
+        if (mrb_str_cmp(mrb, task_ivar_name, name) == 0) {
+          return queue->task;
+        }
+      }
       if (mrb_str_cmp(mrb, queue->name, name) == 0) {
-      return queue->task;
+        return queue->task;
       }
       queue = queue->next;
     }
@@ -755,13 +926,31 @@ mrb_value
 mrb_task_status(mrb_state *mrb, mrb_value task)
 {
   mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(mrb, task, &mrb_task_tcb_type);
-  return mrb_symbol_value(
-          (tcb->status == TASKSTATUS_RUNNING)   ? MRB_SYM(RUNNING)   :
-          (tcb->status == TASKSTATUS_READY)     ? MRB_SYM(READY)     :
-          (tcb->status == TASKSTATUS_WAITING)   ? MRB_SYM(WAITING)   :
-          (tcb->status == TASKSTATUS_SUSPENDED) ? MRB_SYM(SUSPENDED) :
-          (tcb->status == TASKSTATUS_DORMANT)   ? MRB_SYM(DORMANT)   :
-                                                  MRB_SYM(UNKNOWN)); // This should not happen
+
+  const char *status_str;
+  switch (tcb->status) {
+    case TASKSTATUS_DORMANT:   status_str = "DORMANT";   break;
+    case TASKSTATUS_READY:     status_str = "READY";     break;
+    case TASKSTATUS_RUNNING:   status_str = "RUNNING";   break;
+    case TASKSTATUS_WAITING:   status_str = "WAITING";   break;
+    case TASKSTATUS_SUSPENDED: status_str = "SUSPENDED"; break;
+    default:                   status_str = "UNKNOWN";   break;
+  }
+
+  mrb_value ret = mrb_str_new_cstr(mrb, status_str);
+
+  if (tcb->status == TASKSTATUS_WAITING) {
+    const char *reason_str;
+    switch (tcb->reason) {
+      case TASKREASON_SLEEP: reason_str = "SLEEP"; break;
+      case TASKREASON_MUTEX: reason_str = "MUTEX"; break;
+      case TASKREASON_JOIN:  reason_str = "JOIN";  break;
+      default:               reason_str = "";      break;
+    }
+    mrb_str_cat_cstr(mrb, ret, reason_str);
+  }
+
+  return ret;
 }
 
 static mrb_tcb *
@@ -781,7 +970,7 @@ mrb_task_inspect(mrb_state *mrb, mrb_value self)
   mrb_value status = mrb_task_status(mrb, self);
   char buf[64];
   mrb_value name = mrb_iv_get(mrb, self, MRB_IVSYM(name));
-  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(name), mrb_sym_name(mrb, mrb_symbol(status)));
+  sprintf(buf, "#<Task:%p %s:%s>", (void *)tcb, RSTRING_PTR(name), RSTRING_PTR(status));
   return mrb_str_new_cstr(mrb, buf);
 }
 
@@ -913,7 +1102,11 @@ mrb_task_s_stat(mrb_state *mrb, mrb_value klass)
 void
 mrb_picoruby_mruby_gem_init(mrb_state* mrb)
 {
+#ifdef ESP32_PLATFORM
+  machine_hal_init(mrb);
+#else
   hal_init(mrb);
+#endif
 
   // initialize task queue.
   for (int i = 0; i < MRB_NUM_TASK_QUEUE; i++) {

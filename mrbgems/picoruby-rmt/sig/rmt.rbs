@@ -1,5 +1,5 @@
 class RMT
-  def initialize: (Integer pin, ?t0h_ns: Integer, ?t0l_ns: Integer, ?t1h_ns: Integer, ?t1l_ns: Integer, ?reset_ns: Integer) -> void
+  def self.new: (Integer pin, ?t0h_ns: Integer, ?t0l_ns: Integer, ?t1h_ns: Integer, ?t1l_ns: Integer, ?reset_ns: Integer) -> RMT
   def write: (*untyped params) -> void
   private def params_to_array: (*untyped params) -> Array[untyped]
   private def _init: (Integer pin, Integer t0h_ns, Integer t0l_ns, Integer t1h_ns, Integer t1l_ns, Integer reset_ns) -> void

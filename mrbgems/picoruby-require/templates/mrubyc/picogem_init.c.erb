@@ -17,7 +17,7 @@ typedef struct picogems {
 picogems prebuilt_gems[] = {
 <%- picogems.each do |require_name, v| -%>
 <%- if File.exist?(v[:mrbfile]) -%>
-  {"<%= require_name %>", <%= File.basename(v[:mrbfile], ".c").gsub('-','_') %>, <%= v[:initializer] %>, false},
+  {"<%= require_name %>", picogem_<%= File.basename(v[:mrbfile], ".c").gsub('-','_') %>, <%= v[:initializer] %>, false},
 <%- end -%>
 <%- end -%>
   {NULL, NULL, NULL, true} /* sentinel */

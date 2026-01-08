@@ -5,7 +5,19 @@
 #include "mruby/class.h"
 
 #include "digest.h"
+#include "md.h"
 #include "md_context.h"
+
+struct mrb_data_type mrb_md_context_type = {
+  "MdContext", mrb_md_context_free,
+};
+
+void
+mrb_md_context_free(mrb_state *mrb, void *ptr)
+{
+  MbedTLS_md_free(ptr);
+  mrb_free(mrb, ptr);
+}
 
 static mrb_value
 mrb_mbedtls_digest_initialize(mrb_state *mrb, mrb_value self)
@@ -29,13 +41,6 @@ mrb_mbedtls_digest_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "mbedtls_md_starts failed");
   }
   return self;
-}
-
-static mrb_value
-mrb_mbedtls_digest_free(mrb_state *mrb, mrb_value self)
-{
-  // no-op for compatibility with mruby/c
-  return mrb_nil_value();
 }
 
 static mrb_value
@@ -78,5 +83,4 @@ gem_mbedtls_digest_init(mrb_state *mrb, struct RClass *module_MbedTLS)
   mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(initialize),  mrb_mbedtls_digest_initialize, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(update),      mrb_mbedtls_digest_update, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(finish),      mrb_mbedtls_digest_finish, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MbedTLS_Digest, MRB_SYM(free),        mrb_mbedtls_digest_free, MRB_ARGS_NONE());
 }

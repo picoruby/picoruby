@@ -74,7 +74,7 @@ module Picotest
     @load_crashes: Array[{ entry: String, message: String }]
     @ruby_path: String
 
-    def initialize: (String dir, ?(String | nil) filter, ?String tmpdir, ?String lib_name, ?Array[String] load_files, ?String load_path) -> void
+    def self.new: (String dir, ?(String | nil) filter, ?String tmpdir, ?String lib_name, ?Array[String] load_files, ?String load_path) -> Picotest::Runner
     def run: () -> void
     private def run_test: (String entry) -> void
     private def summarize: () -> Integer

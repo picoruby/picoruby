@@ -44,7 +44,9 @@ module IRQ
   end
 
   def irq(event_type, **opts, &callback)
-    instance = IRQInstance.new(self, event_type, opts, callback)
+    # @type var irq_peri: IRQ::irq_peri_t
+    irq_peri = self
+    instance = IRQInstance.new(irq_peri, event_type, opts, callback)
     return instance
   end
 
@@ -90,7 +92,7 @@ end
 
 class GPIO
   include IRQ
-  # pico-sdk/src/rp2_common/hardware_gpio/include/hardware/gpio.h
+  # Corresponding to ENUM in picoruby-irq/include/irq.h
   LEVEL_LOW = 1
   LEVEL_HIGH = 2
   EDGE_FALL = 4

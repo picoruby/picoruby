@@ -138,23 +138,40 @@ task :picorbc do
 end
 
 namespace :wasm do
-  desc "Start local server for wasm"
-  task :server do
-    sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
+  desc "Build PicroRuby WASM (mruby VM)"
+  task :debug do
+    sh "CONFIG=picoruby-wasm PICORUBY_DEBUG=1 rake"
+  end
+
+  desc "Build PicoRuby WASM production"
+  task :prod do
+    sh "CONFIG=picoruby-wasm rake clean"
+    sh "CONFIG=picoruby-wasm rake"
+  end
+
+  desc "Clean PicoRuby WASM build"
+  task :clean do
+    sh "CONFIG=picoruby-wasm rake clean"
   end
 
   desc "Build production and publish it to npm"
-  task :release do
-    sh "MRUBY_CONFIG=wasm rake clean"
-    sh "MRUBY_CONFIG=wasm NDEBUG=yes rake"
+  task :release => :prod do
     FileUtils.cd "mrbgems/picoruby-wasm/npm" do
       sh "npm install"
       sh "npm publish --access public"
     end
   end
 
-  desc "Check versions"
-  task :versions do
-    sh "npm view @picoruby/wasm-wasi versions"
+  desc "Start local server for PicoRuby WASM"
+  task :server do
+    sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
   end
+
+  desc "Check PicoRuby WASM npm versions"
+  task :versions do
+    sh "npm view @picoruby/wasm versions"
+  end
+
+  desc "Check versions (PicoRuby)"
+  task :versions => 'picoruby:versions'
 end

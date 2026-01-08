@@ -11,6 +11,10 @@ MRuby::Build.new do |conf|
   conf.posix
   conf.microruby
 
+  # Link OpenSSL libraries for socket SSL support
+  conf.linker.libraries << 'ssl'
+  conf.linker.libraries << 'crypto'
+
   conf.gembox "minimum"
   conf.gembox "core"
   conf.gem core: 'picoruby-bin-microruby'

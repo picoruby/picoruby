@@ -1,4 +1,0 @@
-class CYW43
-  def self.ipv4_address: () -> (String | nil)
-end
-

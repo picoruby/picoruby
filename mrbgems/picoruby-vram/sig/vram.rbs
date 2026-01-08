@@ -2,7 +2,7 @@ class VRAM
   type page_t = [Integer, Integer, String]
   attr_accessor name: String
 
-  def initialize: (w: Integer, h: Integer, cols: Integer, rows: Integer) -> void
+  def self.new: (w: Integer, h: Integer, cols: Integer, rows: Integer) -> VRAM
   def pages: (?bool clear_dirty) -> Array[page_t]
   def dirty_pages: (?bool clear_dirty) -> Array[page_t]
   def set_pixel: (Integer x, Integer y, Integer color) -> self

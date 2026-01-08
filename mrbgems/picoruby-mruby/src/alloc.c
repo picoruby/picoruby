@@ -348,7 +348,7 @@ mrb_open_with_custom_alloc(void* mem, size_t bytes)
 {
   (void)mem;
   (void)bytes;
-  return mrb_open_allocf(mrb_libc_allocf, NULL);
+  return mrb_open();
 }
 
 #endif

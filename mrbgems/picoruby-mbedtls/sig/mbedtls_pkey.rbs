@@ -20,7 +20,6 @@ module MbedTLS
       def public_key: () -> MbedTLS::PKey::PKeyBase
       def public?: () -> bool
       def private?: () -> bool
-      def free: () -> self
     end
   end
 end

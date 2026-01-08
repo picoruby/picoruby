@@ -4,6 +4,11 @@
 #include <signal.h>
 #include <time.h>
 
+#ifdef __APPLE__
+#include <unistd.h>
+#include <uuid/uuid.h>
+#endif
+
 #include "../../include/machine.h"
 
 
@@ -36,9 +41,23 @@ Machine_sleep(uint32_t seconds)
 bool
 Machine_get_unique_id(char *id_str)
 {
+#ifdef __APPLE__
+  uuid_t uuid;
+  struct timespec timeout = {0, 0};
+  if (gethostuuid(uuid, &timeout) == 0) {
+    /* Convert 16-byte UUID to 32-character hex string */
+    for (int i = 0; i < 16; i++) {
+      sprintf(&id_str[i * 2], "%02x", uuid[i]);
+    }
+    id_str[32] = '\0';
+    return true;
+  }
+  perror("Failed to get host UUID");
+  return false;
+#else
   FILE *fp = fopen("/etc/machine-id", "r");
   if (fp) {
-    if (fgets(id_str, 32, fp) == NULL) {
+    if (fgets(id_str, 33, fp) == NULL) {
       perror("Failed to read /etc/machine-id");
       fclose(fp);
       return false;
@@ -48,6 +67,7 @@ Machine_get_unique_id(char *id_str)
   }
   perror("Failed to open /etc/machine-id");
   return false;
+#endif
 }
 
 uint32_t

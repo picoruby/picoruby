@@ -1,0 +1,44 @@
+# @sidebar hardware_device
+class QuectelCellular
+  type log_t = { cmd: String, res: String }
+
+  DEFAULT_LOG_SIZE: Integer
+
+  @uart: UART
+  @log_size: Integer
+  @apn: String
+  @username: String
+  @password: String
+  @user_agent: String
+  @perst: GPIO
+
+  attr_reader log: Array[log_t]
+
+  def self.new: (uart: UART, ?log_size: Integer) -> QuectelCellular
+  def perst=: (GPIO gpio) -> GPIO
+  def reset: () -> void
+  def configure_and_activate_context: () -> void
+  def uart_read: () -> String
+  def command: (String cmd, (String|nil) expected_response, ?(String|nil) error_response, ?Integer timeout) -> bool
+  def command!: (String cmd, (String|nil) expected_response, ?(String|nil) error_response, ?Integer timeout) -> void
+  def check_sim_status: () -> void
+  def fupl: (String src, String dst, ?chunk_size: Integer) -> String
+  def flst: (?(String|nil) storage) -> Array[String]
+  def fdel: (String dst) -> String
+
+  # @sidebar hardware_device
+  class UDPClient < QuectelCellular
+    def send: (String host, Integer port, String data) -> void
+  end
+
+  # @sidebar hardware_device
+  class SoracomBeamUDP < UDPClient
+    def send: (String data) -> void
+  end
+
+  # @sidebar hardware_device
+  class HTTPSClient < QuectelCellular
+    def self.new: (cacert: String, uart: UART, ?log_size: Integer) -> HTTPSClient
+    def post: (String domain, String path, String body, ?Hash[String, String] headers) -> String
+  end
+end

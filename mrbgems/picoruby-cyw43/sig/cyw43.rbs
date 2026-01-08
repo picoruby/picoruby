@@ -15,7 +15,7 @@ class CYW43
 
   def self.init: (?String country, ?force: bool) -> bool
   def self.initialized?: () -> bool
-  def self.connect_timeout: (String ssid, String password, Integer augh, ?Integer timeout) -> bool
+  def self.connect_timeout: (String ssid, String password, Integer auth, ?Integer timeout) -> bool
   def self.disconnect: () -> bool
   def self.enable_sta_mode: () -> bool
   def self.disable_sta_mode: () -> bool
@@ -23,13 +23,16 @@ class CYW43
   def self.tcpip_link_status_name: () -> String
   def self.dhcp_supplied?: () -> bool
   def self.link_connected?: (?bool print_status) -> bool
+  def self.ipv4_address: () -> (String | nil)
+  def self.ipv4_netmask: () -> (String | nil)
+  def self.ipv4_gateway: () -> (String | nil)
   private def self._init: (String | nil country, bool force) -> bool
 
   # @sidebar hardware_device
   class GPIO
     LED_PIN: Integer
     @pin: Integer
-    def initialize: (Integer pin) -> void
+    def self.new: (Integer pin) -> CYW43::GPIO
     def write: (Integer) -> Integer
     def read: () -> GPIO::gpio_logic_t
     def high?: () -> bool

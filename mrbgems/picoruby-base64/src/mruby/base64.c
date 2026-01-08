@@ -77,9 +77,9 @@ mrb_base64_s_decode(mrb_state *mrb, mrb_value klass)
     iter++;
     if (iter == 4) {
       char decoded[3] = {
-        (buf >> 16) & 0xFF,
-        (buf >> 8) & 0xFF,
-        buf & 0xFF
+        (char)((buf >> 16) & 0xFF),
+        (char)((buf >> 8) & 0xFF),
+        (char)(buf & 0xFF)
       };
       mrb_str_cat(mrb, output, decoded, 3);
       buf = 0;
@@ -89,13 +89,13 @@ mrb_base64_s_decode(mrb_state *mrb, mrb_value klass)
 
   if (iter == 3) {
     char decoded[2] = {
-      (buf >> 10) & 0xFF,
-      (buf >> 2) & 0xFF
+      (char)((buf >> 10) & 0xFF),
+      (char)((buf >> 2) & 0xFF)
     };
     mrb_str_cat(mrb, output, decoded, 2);
   } else if (iter == 2) {
     char decoded[1] = {
-      (buf >> 4) & 0xFF
+      (char)((buf >> 4) & 0xFF)
     };
     mrb_str_cat(mrb, output, decoded, 1);
   }

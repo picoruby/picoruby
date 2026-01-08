@@ -1,3 +1,9 @@
+npm-old/dist/picoruby.wasm.map
+npm-old/dist/picoruby.wasm
+npm-old/dist/picoruby.wasm.br
+npm-old/dist/picoruby.js
+npm-old/*.tgz
+npm/dist/picoruby.wasm.map
 npm/dist/picoruby.wasm
 npm/dist/picoruby.wasm.br
 npm/dist/picoruby.js

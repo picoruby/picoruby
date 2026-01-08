@@ -42,7 +42,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           next if t.prerequisites.empty?
           mkdir_p File.dirname(t.name)
           File.open(t.name, 'w') do |f|
-            name = File.basename(t.name, ".c").gsub('-','_')
+            name = "picogem_#{File.basename(t.name, ".c").gsub('-','_')}"
             mrbc.run(f, t.prerequisites, name, cdump: false)
             if initializer != "NULL"
               f.puts

@@ -7,7 +7,7 @@ class RotateLogger
   @timestamp: Integer
   @logger: Logger
 
-  def initialize: (dir: String, ?basename: String, ?ext: String, ?interval: Integer, ?keep_size: Integer | nil) -> void
+  def self.new: (dir: String, ?basename: String, ?ext: String, ?interval: Integer, ?keep_size: Integer | nil) -> RotateLogger
   def level=: (Logger::level_t level) -> Integer
   def flush_level=: (Logger::level_t level) -> Integer
   def trailing_lines=: (Integer lines) -> Integer

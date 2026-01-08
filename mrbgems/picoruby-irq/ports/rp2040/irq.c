@@ -81,10 +81,10 @@ IRQ_register_gpio(int pin, int event_type, uint32_t debounce_ms)
 
   /* Convert event_type to GPIO event mask */
   uint32_t event_mask = 0;
-  if (event_type & 1) event_mask |= GPIO_IRQ_LEVEL_LOW;   /* LEVEL_LOW = 1 */
-  if (event_type & 2) event_mask |= GPIO_IRQ_LEVEL_HIGH;  /* LEVEL_HIGH = 2 */
-  if (event_type & 4) event_mask |= GPIO_IRQ_EDGE_FALL;   /* EDGE_FALL = 4 */
-  if (event_type & 8) event_mask |= GPIO_IRQ_EDGE_RISE;   /* EDGE_RISE = 8 */
+  if (event_type & PICORB_GPIO_IRQ_EVENT_LEVEL_LOW)  event_mask |= GPIO_IRQ_LEVEL_LOW;   /* LEVEL_LOW = 1 */
+  if (event_type & PICORB_GPIO_IRQ_EVENT_LEVEL_HIGH) event_mask |= GPIO_IRQ_LEVEL_HIGH;  /* LEVEL_HIGH = 2 */
+  if (event_type & PICORB_GPIO_IRQ_EVENT_EDGE_FALL)  event_mask |= GPIO_IRQ_EDGE_FALL;   /* EDGE_FALL = 4 */
+  if (event_type & PICORB_GPIO_IRQ_EVENT_EDGE_RISE)  event_mask |= GPIO_IRQ_EDGE_RISE;   /* EDGE_RISE = 8 */
 
   /* Configure GPIO IRQ */
   gpio_set_irq_enabled_with_callback(pin, event_mask, true, &gpio_irq_callback);

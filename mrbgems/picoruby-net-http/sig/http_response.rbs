@@ -1,0 +1,98 @@
+module Net
+  class HTTPBadResponse < StandardError
+  end
+
+  class HTTPResponse
+    attr_reader code: String?
+    attr_reader message: String?
+    attr_reader http_version: String?
+    attr_accessor header: Hash[String, String]
+    attr_accessor body: String?
+
+    def self.new: (?String? code, ?String? message, ?String? http_version) -> HTTPResponse
+    def self.parse: (String response_string) -> HTTPResponse
+    def []: (String key) -> String?
+    def []=: (String key, String value) -> String
+    def get_fields: (String key) -> Array[String | nil]
+    def read_body: () ?{ (String) -> void } -> String?
+    def success?: () -> boolish
+    def redirect?: () -> boolish
+    def client_error?: () -> boolish
+    def server_error?: () -> boolish
+    def error?: () -> boolish
+    def code_type: () -> singleton(HTTPResponse)?
+    def to_s: () -> String
+  end
+
+  class HTTPInformation < HTTPResponse
+  end
+
+  class HTTPSuccess < HTTPResponse
+  end
+
+  class HTTPRedirection < HTTPResponse
+  end
+
+  class HTTPClientError < HTTPResponse
+  end
+
+  class HTTPServerError < HTTPResponse
+  end
+
+  class HTTPUnknownResponse < HTTPResponse
+  end
+
+  class HTTPOK < HTTPSuccess
+  end
+
+  class HTTPCreated < HTTPSuccess
+  end
+
+  class HTTPAccepted < HTTPSuccess
+  end
+
+  class HTTPNoContent < HTTPSuccess
+  end
+
+  class HTTPMovedPermanently < HTTPRedirection
+  end
+
+  class HTTPFound < HTTPRedirection
+  end
+
+  class HTTPSeeOther < HTTPRedirection
+  end
+
+  class HTTPNotModified < HTTPRedirection
+  end
+
+  class HTTPTemporaryRedirect < HTTPRedirection
+  end
+
+  class HTTPBadRequest < HTTPClientError
+  end
+
+  class HTTPUnauthorized < HTTPClientError
+  end
+
+  class HTTPForbidden < HTTPClientError
+  end
+
+  class HTTPNotFound < HTTPClientError
+  end
+
+  class HTTPMethodNotAllowed < HTTPClientError
+  end
+
+  class HTTPInternalServerError < HTTPServerError
+  end
+
+  class HTTPNotImplemented < HTTPServerError
+  end
+
+  class HTTPBadGateway < HTTPServerError
+  end
+
+  class HTTPServiceUnavailable < HTTPServerError
+  end
+end

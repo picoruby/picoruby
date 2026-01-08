@@ -2,8 +2,13 @@
 #include <mruby/string.h>
 #include <mruby/presym.h>
 #include <mruby/internal.h>
+#include <mruby/class.h>
 
 #include "mrc_utils.h"
+
+// From mruby-binding gem
+extern const struct RProc *mrb_binding_extract_proc(mrb_state *mrb, mrb_value binding);
+extern struct REnv *mrb_binding_extract_env(mrb_state *mrb, mrb_value binding);
 
 static struct REnv*
 mrb_env_new(mrb_state *mrb, struct mrb_context *c, mrb_callinfo *ci, int nstacks, mrb_value *stack, struct RClass *tc)
@@ -39,18 +44,13 @@ create_proc_from_string(mrb_state *mrb, const char *s, mrb_int len, mrb_value bi
   struct mrb_context *c = mrb->c;
 
   if (!mrb_nil_p(binding)) {
-//    if (!mrb_binding_p(mrb, binding)) {
-//      mrb_raisef(mrb, E_TYPE_ERROR, "wrong argument type %C (expected binding)",
-//                 mrb_obj_class(mrb, binding));
-//    }
-//    scope = mrb_binding_extract_proc(mrb, binding);
-//    if (MRB_PROC_CFUNC_P(scope)) {
-//      e = NULL;
-//    }
-//    else {
-//      e = mrb_binding_extract_env(mrb, binding);
-//      mrb_assert(e != NULL);
-//    }
+    scope = mrb_binding_extract_proc(mrb, binding);
+    if (MRB_PROC_CFUNC_P(scope)) {
+      e = NULL;
+    }
+    else {
+      e = mrb_binding_extract_env(mrb, binding);
+    }
   }
   else {
     ci = (c->ci > c->cibase) ? c->ci - 1 : c->cibase;
@@ -149,10 +149,31 @@ mrb_kernel_eval(mrb_state *mrb, mrb_value self)
   return exec_irep(mrb, self, proc);
 }
 
+static mrb_value
+mrb_binding_eval(mrb_state *mrb, mrb_value self)
+{
+  const char *script;
+  mrb_int len;
+  mrb_get_args(mrb, "s", &script, &len);
+
+  // Get receiver from binding
+  mrb_value recv = mrb_iv_get(mrb, self, MRB_SYM(recv));
+
+  struct RProc *proc = create_proc_from_string(mrb, script, len, self, NULL, 0);
+  mrb_assert(!MRB_PROC_CFUNC_P(proc));
+  return exec_irep(mrb, recv, proc);
+}
+
 void
 mrb_picoruby_eval_gem_init(mrb_state *mrb)
 {
   mrb_define_private_method_id(mrb, mrb->kernel_module, MRB_SYM(eval), mrb_kernel_eval, MRB_ARGS_REQ(1));
+
+  // Add Binding#eval if Binding class exists (requires mruby-binding)
+  struct RClass *binding_class = mrb_class_get_id(mrb, MRB_SYM(Binding));
+  if (binding_class) {
+    mrb_define_method_id(mrb, binding_class, MRB_SYM(eval), mrb_binding_eval, MRB_ARGS_REQ(1));
+  }
 }
 
 void

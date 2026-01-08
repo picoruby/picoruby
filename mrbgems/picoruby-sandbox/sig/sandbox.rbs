@@ -4,11 +4,10 @@ class Sandbox
 
   @result: Object | nil
   @script: String
-  @state: Integer
 
   attr_accessor error: Exception?
 
-  def self.new: (?String name) -> instance
+  def self.new: (?String name) -> Sandbox
   def compile: (String script, ?remove_lv: bool) -> bool
   def compile_from_memory: (Integer address, Integer size, ?remove_lv: bool) -> bool
   def resume: () -> bool
@@ -16,7 +15,7 @@ class Sandbox
   def terminate: () -> bool
   def stop: () -> bool
   def free_parser: () -> nil
-  def state: () -> (Integer | Symbol) # Symbol in MicoRuby
+  def state: () -> Symbol
   def result: () -> untyped
   def wait: (?timeout: (Integer|nil)) -> bool
   def execute: () -> bool

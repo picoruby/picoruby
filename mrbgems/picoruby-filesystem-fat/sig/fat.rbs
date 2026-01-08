@@ -83,7 +83,7 @@ class FAT
   class Dir
     attr_accessor pat: String
 
-    def initialize: (String path) -> void
+    def self.new: (String path) -> Dir
     def rewind: -> self
     def read: -> String?
     def findnext: -> String?
@@ -92,7 +92,7 @@ class FAT
   end
 
   class File
-    def initialize: (String path, String mode) -> void
+    def self.new: (String path, String mode) -> File
     def physical_address: () -> Integer
     def sector_size: () -> Integer
     def each_line: () { (String) -> void } -> nil

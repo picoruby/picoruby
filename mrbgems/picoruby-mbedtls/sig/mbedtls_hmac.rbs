@@ -4,7 +4,7 @@ module MbedTLS
 
     type digest_t = "SHA256" | "sha256"
 
-    def initialze: (String key, digest_t digest) -> void
+    def self.new: (String key, digest_t digest) -> MbedTLS::HMAC
     def update: (String input) -> MbedTLS::HMAC
     def reset: () -> MbedTLS::HMAC
     def digest: () -> String

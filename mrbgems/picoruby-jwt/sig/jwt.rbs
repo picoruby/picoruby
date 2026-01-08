@@ -30,7 +30,7 @@ module JWT
     attr_reader header: Hash[String, Object]
     attr_reader payload: Hash[String, Object]
 
-    def initialize: (String token, key_t key, String algorithm) -> void
+    def self.new: (String token, key_t key, String algorithm) -> JWT::Decoder
     def verify_hmac: () -> nil
     def verify_rsa: () -> nil
     private def base64_url_decode: (String) -> String
