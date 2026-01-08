@@ -1,0 +1,91 @@
+module MQTT
+  # @sidebar error
+  class MQTTError < StandardError
+  end
+  # @sidebar error
+  class ConnectionError < MQTTError
+  end
+  # @sidebar error
+  class ProtocolError < MQTTError
+  end
+
+  CONNECT: Integer
+  CONNACK: Integer
+  PUBLISH: Integer
+  PUBACK: Integer
+  PUBREC: Integer
+  PUBREL: Integer
+  PUBCOMP: Integer
+  SUBSCRIBE: Integer
+  SUBACK: Integer
+  UNSUBSCRIBE: Integer
+  UNSUBACK: Integer
+  PINGREQ: Integer
+  PINGRESP: Integer
+  DISCONNECT: Integer
+
+  CONNACK_ACCEPTED: Integer
+  CONNACK_REFUSED_PROTOCOL: Integer
+  CONNACK_REFUSED_IDENTIFIER: Integer
+  CONNACK_REFUSED_SERVER: Integer
+  CONNACK_REFUSED_CREDENTIALS: Integer
+  CONNACK_REFUSED_AUTHORIZED: Integer
+
+  class Client
+
+    def initialize: (String, ?Integer) -> void
+
+    def self.connect: (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?) { (Client) -> void } -> void
+                    | (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?) -> Client
+
+    def connect: (?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?) -> bool
+
+    def connected?: () -> bool
+
+    def publish: (String, String, ?retain: bool, ?qos: Integer) -> void
+
+    def subscribe: (*String, ?qos: Integer) -> void
+
+    def unsubscribe: (*String) -> void
+
+    def receive: (?timeout: (Integer | Float)?) -> [String, String]?
+
+    def ping: () -> bool
+
+    def disconnect: () -> void
+
+    private def next_packet_id: () -> Integer
+
+    private def check_keepalive: () -> void
+
+    private def encode_length: (Integer) -> String
+
+    private def decode_length: (String, ?Integer) -> [Integer, Integer]
+
+    private def encode_string: (String) -> String
+
+    private def send_connect: () -> void
+
+    private def receive_connack: () -> bool
+
+    private def send_publish: (String, String, retain: bool, qos: Integer) -> void
+
+    private def send_subscribe: (Array[String], Integer) -> void
+
+    private def receive_suback: () -> bool
+
+    private def send_unsubscribe: (Array[String]) -> void
+
+    private def receive_unsuback: () -> bool
+
+    private def send_ping: () -> void
+
+    private def send_disconnect: () -> void
+
+    private def receive_packet: () -> [Integer, Integer, String]
+
+    private def read_remaining_length: () -> [Integer, Integer]
+
+    private def parse_publish: (Integer, String) -> [String, String]
+  end
+end
