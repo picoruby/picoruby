@@ -713,7 +713,7 @@ main(int argc, char **argv)
   /* run tasks */
   if (!args.check_syntax) {
 #if defined(PICORB_VM_MRUBY)
-    mrb_value v = mrb_tasks_run(vm);
+    mrb_value v = mrb_task_run(vm);
     mrb_vm_ci_env_clear(vm, vm->c->cibase);
     n = EXIT_SUCCESS;
     if (vm->exc) {

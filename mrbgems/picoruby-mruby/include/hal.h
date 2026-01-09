@@ -67,6 +67,15 @@ void mrb_task_disable_irq(void);
 void hal_idle_cpu(mrb_state *mrb);
 #endif
 
+/*
+ * HAL functions for mruby-task gem
+ * These are implemented in src/task_hal.c
+ */
+void mrb_hal_task_init(mrb_state *mrb);
+void mrb_hal_task_final(mrb_state *mrb);
+void mrb_hal_task_idle_cpu(mrb_state *mrb);
+void mrb_hal_task_sleep_us(mrb_state *mrb, mrb_int usec);
+
 
 MRB_END_DECL
 
