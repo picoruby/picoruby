@@ -397,7 +397,12 @@ class Shell
   end
 
   def run_irb
+    # Workaround for new mruby-task in mruby/mruby
     sandbox = Sandbox.new('irb')
+    sandbox.compile("_ = nil")
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+    sandbox.suspend
     @editor.start do |editor, buffer, c|
       case c
       when 26 # Ctrl-Z
