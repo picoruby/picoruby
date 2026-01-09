@@ -10,14 +10,18 @@
 #include "mruby/presym.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
+#include "mruby/proc.h"
 
 #include "mruby_compiler.h"
+#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+extern struct mrb_data_type mrb_task_type;
 
 typedef struct picorb_js_obj {
   int ref_id;
@@ -1113,8 +1117,8 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
   mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
 
   if (!mrb_nil_p(task)) {
-    mrb_tcb *tcb = (mrb_tcb *)mrb_data_get_ptr(global_mrb, task, &mrb_task_tcb_type);
-    tcb->irep = irep;
+    mrb_task *tcb = (mrb_task *)mrb_data_get_ptr(global_mrb, task, &mrb_task_type);
+    tcb->irep = (const mrb_irep *)irep;
     tcb->cc = cc;
   } else {
     mrc_irep_free(cc, irep);
@@ -1271,7 +1275,7 @@ call_ruby_callback_sync_generic(uintptr_t callback_id, int *arg_ref_ids, int arg
 
   // Create a Proc from the compiled irep
   mrc_resolve_intern(cc, irep);
-  struct RProc *proc = mrb_proc_new(global_mrb, irep);
+  struct RProc *proc = mrb_proc_new(global_mrb, (const mrb_irep *)irep);
   proc->c = NULL;
   mrb_value proc_val = mrb_obj_value(proc);
 
