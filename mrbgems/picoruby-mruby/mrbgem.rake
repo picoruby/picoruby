@@ -15,6 +15,16 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   spec.add_conflict 'picoruby-mrubyc'
 
+  # Use mruby-task gem instead of src/task.c
+  # NOTE: src/task.c has been moved to deprecated/task.c.bak
+  # Load HAL gem first so mruby-task can find it
+  if build.posix?
+    spec.add_dependency 'hal-posix-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/hal-posix-task"
+  else
+    spec.add_dependency 'hal-picoruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/hal-picoruby-task"
+  end
+  spec.add_dependency 'mruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task"
+
   # I don't know why but removing this causes a problem
   # even if build_config has the same define
   spec.cc.defines << "MRB_INT64"

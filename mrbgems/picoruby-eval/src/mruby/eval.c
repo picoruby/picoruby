@@ -3,6 +3,8 @@
 #include <mruby/presym.h>
 #include <mruby/internal.h>
 #include <mruby/class.h>
+#include <mruby/proc.h>
+#include <mruby/variable.h>
 
 #include "mrc_utils.h"
 
@@ -83,7 +85,7 @@ create_proc_from_string(mrb_state *mrb, const char *s, mrb_int len, mrb_value bi
   }
 
   mrc_resolve_intern(cc, irep);
-  proc = mrb_proc_new(mrb, irep);
+  proc = mrb_proc_new(mrb, (const mrb_irep *)irep);
 
   if (proc == NULL) {
     /* codegen error */
