@@ -4,6 +4,7 @@
 #include "mruby/string.h"
 
 #include "mruby_compiler.h"
+#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdio.h>
