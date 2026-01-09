@@ -68,10 +68,12 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
   ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
   // TODO: Ask Matz
-  // if (ss->irep) mrb_irep_decref(mrb, ss->irep);
+  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
-  mrb_irep_incref(mrb, (struct mrb_irep *)ss->irep);
+  if (ss->irep) {
+    mrb_irep_incref(mrb, (struct mrb_irep *)ss->irep);
+  }
   ss->options = ss->cc->options;
   ss->cc->options = NULL;
   if (!ss->irep) {
