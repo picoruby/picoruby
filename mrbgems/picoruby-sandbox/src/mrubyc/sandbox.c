@@ -21,27 +21,13 @@ static void
 c_sandbox_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  const char *status_str;
-  switch (ss->tcb->state) {
-    case TASKSTATE_DORMANT:   status_str = "DORMANT";   break;
-    case TASKSTATE_READY:     status_str = "READY";     break;
-    case TASKSTATE_RUNNING:   status_str = "RUNNING";   break;
-    case TASKSTATE_WAITING:   status_str = "WAITING";   break;
-    case TASKSTATE_SUSPENDED: status_str = "SUSPENDED"; break;
-    default:                  status_str = "UNKNOWN";   break;
-  }
-  mrbc_value str_val = mrbc_string_new_cstr(vm, status_str);
-  if (ss->tcb->state == TASKSTATE_WAITING) {
-    const char *reason_str;
-    switch (ss->tcb->reason) {
-      case TASKREASON_SLEEP: reason_str = "SLEEP"; break;
-      case TASKREASON_MUTEX: reason_str = "MUTEX"; break;
-      case TASKREASON_JOIN:  reason_str = "JOIN";  break;
-      default:               reason_str = "";      break;
-    }
-    mrbc_string_append_cstr(&str_val, reason_str);
-  }
-  SET_RETURN(mrbc_symbol_value(mrbc_str_to_symid((const char *)str_val.string->data)));
+  SET_RETURN(mrbc_symbol_new(vm,
+    (ss->tcb->state == TASKSTATE_RUNNING)   ? "RUNNING"   :
+    (ss->tcb->state == TASKSTATE_READY)     ? "READY"     :
+    (ss->tcb->state == TASKSTATE_WAITING)   ? "WAITING"   :
+    (ss->tcb->state == TASKSTATE_SUSPENDED) ? "SUSPENDED" :
+    (ss->tcb->state == TASKSTATE_DORMANT)   ? "DORMANT"   :
+                                               "UNKNOWN"));
 }
 
 static void
