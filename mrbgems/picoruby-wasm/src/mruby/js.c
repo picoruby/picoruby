@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern struct mrb_data_type mrb_task_type;
-
 typedef struct picorb_js_obj {
   int ref_id;
 } picorb_js_obj;
@@ -1116,13 +1114,10 @@ call_ruby_callback(uintptr_t callback_id, int event_ref_id)
 
   mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
 
-  if (!mrb_nil_p(task)) {
-    mrb_task *tcb = (mrb_task *)mrb_data_get_ptr(global_mrb, task, &mrb_task_type);
-    tcb->irep = (const mrb_irep *)irep;
-    tcb->cc = cc;
-  } else {
+  if (mrb_nil_p(task)) {
     mrc_irep_free(cc, irep);
     mrc_ccontext_free(cc);
+    fprintf(stderr, "Callback exception (failed to create task)\n");
     return;
   }
 
