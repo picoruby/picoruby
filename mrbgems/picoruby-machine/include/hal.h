@@ -41,7 +41,7 @@ int hal_write(int fd, const void *buf, int nbytes);
 #else
   void mrb_task_enable_irq(void);
   void mrb_task_disable_irq(void);
-  void hal_idle_cpu(mrb_state *mrb);
+  void mrb_hal_task_idle_cpu(mrb_state *mrb);
 #endif
 
 void hal_abort(const char *s);
