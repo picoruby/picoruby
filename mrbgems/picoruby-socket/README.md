@@ -93,8 +93,8 @@ ctx.ca_file = "/etc/ssl/certs/ca-certificates.crt"  # Path to CA bundle
 ctx.verify_mode = SSLContext::VERIFY_PEER            # Enable verification (default)
 
 # Connect to HTTPS server
-ssl = SSLSocket.new(ctx)
-ssl.hostname = "example.com"  # Required for SNI and hostname verification
+tcp = TCPSocket.new('example.com', 443)
+ssl = SSLSocket.new(tcp, ctx)
 ssl.connect
 
 # Use SSL socket like regular socket
@@ -124,8 +124,8 @@ ctx.set_ca_cert(addr, size)  # Load certificate from ROM address
 ctx.verify_mode = SSLContext::VERIFY_PEER
 
 # Connect to HTTPS server
-ssl = SSLSocket.new(ctx)
-ssl.hostname = "example.com"
+tcp = TCPSocket.new('example.com', 443)
+ssl = SSLSocket.new(tcp, ctx)
 ssl.connect
 
 # Use SSL socket
@@ -135,7 +135,7 @@ response = ssl.read(1024)
 ssl.close
 ```
 
-**Note**: On RP2040, `ctx.ca_file=` is not supported. Use `ctx.set_ca_cert(addr, size)` instead to load certificates directly from ROM/flash memory.
+**Note**: On RP2040 and ESP32, `ctx.ca_file=` is not supported. Use `ctx.set_ca_cert(addr, size)` instead to load certificates directly from ROM/flash memory.
 
 #### Disable Certificate Verification (Not Recommended)
 
@@ -199,11 +199,10 @@ Base class for all socket types. Provides common socket and IO-compatible method
 
 #### Class Methods
 
-- `SSLSocket.new(ssl_context)` - Create SSL socket wrapping TCP context
+- `SSLSocket.new(tcp_socket, ssl_context)` - Create SSL socket wrapping TCP context
 
 #### Instance Methods
 
-- `hostname=(name)` - Set hostname for SNI and certificate verification
 - `connect` - Perform SSL/TLS handshake
 - `write(data)` - Send encrypted data
 - `read(maxlen = nil)` - Read encrypted data
