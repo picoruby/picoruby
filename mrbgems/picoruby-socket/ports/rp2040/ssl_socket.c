@@ -198,6 +198,40 @@ SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 }
 
 bool
+SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
+{
+  (void)ctx;
+  (void)cert_file;
+  return false;  /* Not supported on rp2040 */
+}
+
+bool
+SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  (void)ctx;
+  (void)addr;
+  (void)size;
+  return false;  /* Not supported on rp2040 */
+}
+
+bool
+SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
+{
+  (void)ctx;
+  (void)key_file;
+  return false;  /* Not supported on rp2040 */
+}
+
+bool
+SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  (void)ctx;
+  (void)addr;
+  (void)size;
+  return false;  /* Not supported on rp2040 */
+}
+
+bool
 SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
 {
   if (!ctx) {

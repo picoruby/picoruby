@@ -91,6 +91,8 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 
   // Load CA certificate file
   if (SSL_CTX_load_verify_locations(ctx->ctx, ca_file, NULL) != 1) {
+    free(ctx->ca_file);
+    ctx->ca_file = NULL;
     fprintf(stderr, "SSL: Failed to load CA file: %s\n", ca_file);
     ERR_print_errors_fp(stderr);
     return false;
@@ -110,6 +112,102 @@ SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
   (void)addr;
   (void)size;
   fprintf(stderr, "Warning: SSLContext#set_ca_cert is not supported on POSIX platforms. Use ca_file= instead.\n");
+  return true;  /* Return true to avoid errors, but do nothing */
+}
+
+/*
+ * Set certificate file
+ */
+bool
+SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
+{
+  if (!ctx || !cert_file) {
+    return false;
+  }
+
+  // Free previous cert_file if set
+  if (ctx->cert_file) {
+    free(ctx->cert_file);
+    ctx->cert_file = NULL;
+  }
+
+  // Store cert_file path
+  ctx->cert_file = strdup(cert_file);
+  if (!ctx->cert_file) {
+    return false;
+  }
+
+  // Load certificate file
+  if (SSL_CTX_use_certificate_file(ctx->ctx, cert_file, SSL_FILETYPE_PEM) != 1) {
+    free(ctx->cert_file);
+    ctx->cert_file = NULL;
+    fprintf(stderr, "SSL: Failed to load certificate file: %s\n", cert_file);
+    ERR_print_errors_fp(stderr);
+    return false;
+  }
+
+  return true;
+}
+
+/*
+ * Set certificate from memory
+ * Not supported on POSIX - use set_cert_file instead
+ */
+bool
+SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  (void)ctx;
+  (void)addr;
+  (void)size;
+  fprintf(stderr, "Warning: SSLContext#set_cert is not supported on POSIX platforms. Use cert_file= instead.\n");
+  return true;  /* Return true to avoid errors, but do nothing */
+}
+
+/*
+ * Set key file
+ */
+bool
+SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
+{
+  if (!ctx || !key_file) {
+    return false;
+  }
+
+  // Free previous key_file if set
+  if (ctx->key_file) {
+    free(ctx->key_file);
+    ctx->key_file = NULL;
+  }
+
+  // Store key_file path
+  ctx->key_file = strdup(key_file);
+  if (!ctx->key_file) {
+    return false;
+  }
+
+  // Load key file
+  if (SSL_CTX_use_PrivateKey_file(ctx->ctx, key_file, SSL_FILETYPE_PEM) != 1) {
+    free(ctx->key_file);
+    ctx->key_file = NULL;
+    fprintf(stderr, "SSL: Failed to load key file: %s\n", key_file);
+    ERR_print_errors_fp(stderr);
+    return false;
+  }
+
+  return true;
+}
+
+/*
+ * Set key from memory
+ * Not supported on POSIX - use set_key_file instead
+ */
+bool
+SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  (void)ctx;
+  (void)addr;
+  (void)size;
+  fprintf(stderr, "Warning: SSLContext#set_key is not supported on POSIX platforms. Use key_file= instead.\n");
   return true;  /* Return true to avoid errors, but do nothing */
 }
 
@@ -162,6 +260,12 @@ SSLContext_free(picorb_ssl_context_t *ctx)
 
   if (ctx->ca_file) {
     free(ctx->ca_file);
+  }
+  if (ctx->cert_file) {
+    free(ctx->cert_file);
+  }
+  if (ctx->key_file) {
+    free(ctx->key_file);
   }
 
   free(ctx);
