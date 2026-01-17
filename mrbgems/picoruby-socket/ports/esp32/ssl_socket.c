@@ -112,8 +112,6 @@ SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 
   int ret = mbedtls_x509_crt_parse(&ctx->cacert, (const unsigned char *)addr, size + 1);
   if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
     return false;
   }
   mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, &ctx->cacert, NULL);
@@ -135,15 +133,11 @@ SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 
   int ret = mbedtls_x509_crt_parse(&ctx->cert, (const unsigned char *)addr, size + 1);
   if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
     return false;
   }
   if (ctx->client_key_loaded) {
     ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &ctx->cert, &ctx->key);
     if (ret != 0) {
-      char error_buf[100];
-      mbedtls_strerror(ret, error_buf, sizeof(error_buf));
       return false;
     }
   }
@@ -166,15 +160,11 @@ SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 
   int ret = mbedtls_pk_parse_key(&ctx->key, (const unsigned char *)addr, size + 1, NULL, 0, NULL, NULL);
   if (ret != 0) {
-    char error_buf[100];
-    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
     return false;
   }
   if (ctx->client_cert_loaded) {
     ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &ctx->cert, &ctx->key);
     if (ret != 0) {
-      char error_buf[100];
-      mbedtls_strerror(ret, error_buf, sizeof(error_buf));
       return false;
     }
   }
