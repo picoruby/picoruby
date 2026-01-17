@@ -628,7 +628,7 @@ c_ssl_context_set_key(mrbc_vm *vm, mrbc_value *v, int argc)
   const void *addr = (const void *)(intptr_t)addr_arg.i;
   size_t size = (size_t)size_arg.i;
 
-  /* Set certificate */
+  /* Set key */
   if (!SSLContext_set_key(wrapper->ptr, addr, size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key");
     return;
