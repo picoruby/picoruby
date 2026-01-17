@@ -9,6 +9,7 @@
 
 require 'socket'
 require 'pack'
+require 'machine'
 
 module MQTT
   class MQTTError < StandardError; end
@@ -43,23 +44,28 @@ module MQTT
     attr_reader :host, :port
     attr_accessor :client_id, :keep_alive, :clean_session
     attr_accessor :username, :password
+    attr_accessor :ssl, :ca_file, :cert_file, :key_file
 
-    def initialize(host, port = 1883)
+    def initialize(host, port = 1883, **options)
       @host = host
       @port = port
-      @client_id = nil
-      @keep_alive = 60
-      @clean_session = true
-      @username = nil
-      @password = nil
+      @client_id = options[:client_id] || "picoruby_#{Time.now.to_i}"
+      @keep_alive = options[:keep_alive] || 60
+      @clean_session = options[:clean_session] || true
+      @username = options[:username]
+      @password = options[:password]
+      @ssl = options[:ssl] || false
+      @ca_file = options[:ca_file]
+      @cert_file = options[:cert_file]
+      @key_file = options[:key_file]
       @socket = nil
       @packet_id = 0
       @last_ping = nil
     end
 
     def self.connect(host, port = 1883, **options, &block)
-      client = new(host, port)
-      client.connect(**options)
+      client = new(host, port, **options)
+      client.connect
       if block
         begin
           block.call(client)
@@ -71,15 +77,9 @@ module MQTT
       end
     end
 
-    def connect(**options)
-      @client_id = options[:client_id] || "picoruby_#{Time.now.to_i}"
-      @keep_alive = options[:keep_alive] || 60
-      @clean_session = options[:clean_session] || true
-      @username = options[:username]
-      @password = options[:password]
-
-      # Open TCP connection
-      @socket = TCPSocket.new(@host, @port)
+    def connect
+      # Open TCP or SSL connection
+      @socket = @ssl ? ssl_socket(@host, @port) : TCPSocket.new(@host, @port)
 
       # Send CONNECT packet
       send_connect
@@ -177,6 +177,36 @@ module MQTT
     end
 
     private
+
+    def ssl_socket(host, port)
+      ctx = SSLContext.new
+      if Machine.mcu_name == 'POSIX'
+        ctx.ca_file = @ca_file if @ca_file
+        ctx.cert_file = @cert_file if @cert_file
+        ctx.key_file = @key_file if @key_file
+      else
+        if @ca_file
+          ca_file = File.open(@ca_file)
+          ctx.set_ca(ca_file.physical_address, ca_file.size)
+          ca_file.close
+        end
+        if @cert_file
+          cert_file = File.open(@cert_file)
+          ctx.set_cert(cert_file.physical_address, cert_file.size)
+          cert_file.close
+        end
+        if @key_file
+          key_file = File.open(@key_file)
+          ctx.set_key(key_file.physical_address, key_file.size)
+          key_file.close
+        end
+      end
+      ctx.verify_mode = @ca_file ? SSLContext::VERIFY_PEER : SSLContext::VERIFY_NONE
+      tcp = TCPSocket.new(host, port)
+      socket = SSLSocket.new(tcp, ctx)
+      socket.connect
+      socket
+    end
 
     def next_packet_id
       @packet_id = (@packet_id + 1) & 0xFFFF
