@@ -24,6 +24,10 @@ struct picorb_ssl_context {
   mbedtls_entropy_context entropy;
   mbedtls_ctr_drbg_context ctr_drbg;
   mbedtls_x509_crt cacert;
+  mbedtls_x509_crt cert;
+  mbedtls_pk_context key;
+  bool client_cert_loaded;
+  bool client_key_loaded;
   int verify_mode;
 };
 
@@ -51,6 +55,10 @@ SSLContext_create(void)
   mbedtls_entropy_init(&ctx->entropy);
   mbedtls_ctr_drbg_init(&ctx->ctr_drbg);
   mbedtls_x509_crt_init(&ctx->cacert);
+  mbedtls_x509_crt_init(&ctx->cert);
+  mbedtls_pk_init(&ctx->key);
+  ctx->client_cert_loaded = false;
+  ctx->client_key_loaded = false;
   ctx->verify_mode = SSL_VERIFY_PEER;
 
   /* Seed the random number generator */
@@ -81,6 +89,8 @@ SSLContext_free(picorb_ssl_context_t *ctx)
 {
   if (!ctx) return;
   mbedtls_x509_crt_free(&ctx->cacert);
+  mbedtls_x509_crt_free(&ctx->cert);
+  mbedtls_pk_free(&ctx->key);
   mbedtls_ssl_config_free(&ctx->ssl_config);
   mbedtls_ctr_drbg_free(&ctx->ctr_drbg);
   mbedtls_entropy_free(&ctx->entropy);
@@ -107,6 +117,68 @@ SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
     return false;
   }
   mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, &ctx->cacert, NULL);
+  return true;
+}
+
+bool
+SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
+{
+  (void)ctx;
+  (void)cert_file;
+  return false;  /* Not supported on ESP32 */
+}
+
+bool
+SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  if (!ctx || !addr || size == 0) return false;
+
+  int ret = mbedtls_x509_crt_parse(&ctx->cert, (const unsigned char *)addr, size + 1);
+  if (ret != 0) {
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    return false;
+  }
+  if (ctx->client_key_loaded) {
+    ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &ctx->cert, &ctx->key);
+    if (ret != 0) {
+      char error_buf[100];
+      mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+      return false;
+    }
+  }
+  ctx->client_cert_loaded = true;
+  return true;
+}
+
+bool
+SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
+{
+  (void)ctx;
+  (void)key_file;
+  return false;  /* Not supported on ESP32 */
+}
+
+bool
+SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+{
+  if (!ctx || !addr || size == 0) return false;
+
+  int ret = mbedtls_pk_parse_key(&ctx->key, (const unsigned char *)addr, size + 1, NULL, 0, NULL, NULL);
+  if (ret != 0) {
+    char error_buf[100];
+    mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+    return false;
+  }
+  if (ctx->client_cert_loaded) {
+    ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &ctx->cert, &ctx->key);
+    if (ret != 0) {
+      char error_buf[100];
+      mbedtls_strerror(ret, error_buf, sizeof(error_buf));
+      return false;
+    }
+  }
+  ctx->client_key_loaded = true;
   return true;
 }
 

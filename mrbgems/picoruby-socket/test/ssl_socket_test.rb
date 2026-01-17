@@ -11,6 +11,8 @@ class SSLSocketTest < Picotest::Test
     # Check if SSLContext methods exist
     methods = SSLContext.instance_methods
     assert_true(methods.include?(:ca_file=))
+    assert_true(methods.include?(:cert_file=))
+    assert_true(methods.include?(:key_file=))
     assert_true(methods.include?(:verify_mode=))
     assert_true(methods.include?(:verify_mode))
   end
