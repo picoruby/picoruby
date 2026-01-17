@@ -84,6 +84,100 @@ mrb_ssl_context_set_ca_cert(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/* ssl_context.cert_file = path */
+static mrb_value
+mrb_ssl_context_set_cert_file(mrb_state *mrb, mrb_value self)
+{
+#ifdef PICORB_PLATFORM_POSIX
+  picorb_ssl_context_t *ctx;
+  const char *cert_file;
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "z", &cert_file);
+
+  if (!SSLContext_set_cert_file(ctx, cert_file)) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to set cert file: %s", cert_file);
+  }
+
+  return mrb_str_new_cstr(mrb, cert_file);
+#else
+  (void)self;
+  mrb_raise(mrb, E_NOTIMP_ERROR, "cert_file= is not supported on this platform. Use set_cert instead");
+  return mrb_nil_value();
+#endif
+}
+
+/* ssl_context.set_cert(addr, size) */
+static mrb_value
+mrb_ssl_context_set_cert(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_context_t *ctx;
+  mrb_int addr, size;
+
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "ii", &addr, &size);
+
+  if (!SSLContext_set_cert(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set certificate");
+  }
+
+  return mrb_nil_value();
+}
+
+/* ssl_context.key_file = path */
+static mrb_value
+mrb_ssl_context_set_key_file(mrb_state *mrb, mrb_value self)
+{
+#ifdef PICORB_PLATFORM_POSIX
+  picorb_ssl_context_t *ctx;
+  const char *key_file;
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "z", &key_file);
+
+  if (!SSLContext_set_key_file(ctx, key_file)) {
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to set key file: %s", key_file);
+  }
+
+  return mrb_str_new_cstr(mrb, key_file);
+#else
+  (void)self;
+  mrb_raise(mrb, E_NOTIMP_ERROR, "key_file= is not supported on this platform. Use set_key instead");
+  return mrb_nil_value();
+#endif
+}
+
+/* ssl_context.set_key(addr, size) */
+static mrb_value
+mrb_ssl_context_set_key(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_context_t *ctx;
+  mrb_int addr, size;
+
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "ii", &addr, &size);
+
+  if (!SSLContext_set_key(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set key");
+  }
+
+  return mrb_nil_value();
+}
+
 /* ssl_context.verify_mode = mode */
 static mrb_value
 mrb_ssl_context_set_verify_mode(mrb_state *mrb, mrb_value self)
@@ -372,6 +466,10 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(initialize), mrb_ssl_context_initialize, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(ca_file), mrb_ssl_context_set_ca_file, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_ca_cert), mrb_ssl_context_set_ca_cert, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(cert_file), mrb_ssl_context_set_cert_file, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_cert), mrb_ssl_context_set_cert, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(key_file), mrb_ssl_context_set_key_file, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_key), mrb_ssl_context_set_key, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(verify_mode), mrb_ssl_context_set_verify_mode, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(verify_mode), mrb_ssl_context_get_verify_mode, MRB_ARGS_NONE());
 

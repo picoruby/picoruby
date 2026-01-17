@@ -471,6 +471,173 @@ c_ssl_context_set_ca_cert(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
+ * ssl_context.cert_file = path -> String
+ */
+static void
+c_ssl_context_set_cert_file(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#ifdef PICORB_PLATFORM_POSIX
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get cert_file argument */
+  mrbc_value cert_file_arg = GET_ARG(1);
+  if (cert_file_arg.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "cert_file must be a String");
+    return;
+  }
+
+  const char *cert_file = (const char *)cert_file_arg.string->data;
+
+  /* Set certificate file */
+  if (!SSLContext_set_cert_file(wrapper->ptr, cert_file)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate file");
+    return;
+  }
+
+  mrbc_incref(&cert_file_arg);
+  SET_RETURN(cert_file_arg);
+#else
+  (void)argc;
+  (void)v;
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "cert_file= is not supported on this platform. Use set_cert instead");
+#endif
+}
+
+/* ssl_context.set_cert(addr, size) */
+static void
+c_ssl_context_set_cert(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get addr and size arguments */
+  mrbc_value addr_arg = GET_ARG(1);
+  mrbc_value size_arg = GET_ARG(2);
+
+  if (addr_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "addr must be an Integer");
+    return;
+  }
+  if (size_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "size must be an Integer");
+    return;
+  }
+
+  const void *addr = (const void *)(intptr_t)addr_arg.i;
+  size_t size = (size_t)size_arg.i;
+
+  /* Set certificate */
+  if (!SSLContext_set_cert(wrapper->ptr, addr, size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate");
+    return;
+  }
+
+  SET_NIL_RETURN();
+}
+
+/*
+ * ssl_context.key_file = path -> String
+ */
+static void
+c_ssl_context_set_key_file(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#ifdef PICORB_PLATFORM_POSIX
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get key_file argument */
+  mrbc_value key_file_arg = GET_ARG(1);
+  if (key_file_arg.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "key_file must be a String");
+    return;
+  }
+
+  const char *key_file = (const char *)key_file_arg.string->data;
+  /* Set key file */
+  if (!SSLContext_set_key_file(wrapper->ptr, key_file)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key file");
+    return;
+  }
+
+  mrbc_incref(&key_file_arg);
+  SET_RETURN(key_file_arg);
+#else
+  (void)argc;
+  (void)v;
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "key_file= is not supported on this platform. Use set_key instead");
+#endif
+}
+
+/* ssl_context.set_key(addr, size) */
+static void
+c_ssl_context_set_key(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL context pointer from wrapper */
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  /* Get addr and size arguments */
+  mrbc_value addr_arg = GET_ARG(1);
+  mrbc_value size_arg = GET_ARG(2);
+
+  if (addr_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "addr must be an Integer");
+    return;
+  }
+  if (size_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "size must be an Integer");
+    return;
+  }
+
+  const void *addr = (const void *)(intptr_t)addr_arg.i;
+  size_t size = (size_t)size_arg.i;
+
+  /* Set certificate */
+  if (!SSLContext_set_key(wrapper->ptr, addr, size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key");
+    return;
+  }
+
+  SET_NIL_RETURN();
+}
+
+/*
  * ssl_context.verify_mode = mode -> Integer
  */
 static void
@@ -560,6 +727,10 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_SSLContext, "new", c_ssl_context_new);
   mrbc_define_method(vm, class_SSLContext, "ca_file=", c_ssl_context_set_ca_file);
   mrbc_define_method(vm, class_SSLContext, "set_ca_cert", c_ssl_context_set_ca_cert);
+  mrbc_define_method(vm, class_SSLContext, "cert_file=", c_ssl_context_set_cert_file);
+  mrbc_define_method(vm, class_SSLContext, "set_cert", c_ssl_context_set_cert);
+  mrbc_define_method(vm, class_SSLContext, "key_file=", c_ssl_context_set_key_file);
+  mrbc_define_method(vm, class_SSLContext, "set_key", c_ssl_context_set_key);
   mrbc_define_method(vm, class_SSLContext, "verify_mode=", c_ssl_context_set_verify_mode);
   mrbc_define_method(vm, class_SSLContext, "verify_mode", c_ssl_context_get_verify_mode);
 

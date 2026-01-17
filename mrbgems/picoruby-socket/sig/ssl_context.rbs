@@ -5,6 +5,10 @@ class SSLContext
   def self.new: () -> SSLContext
   def ca_file=: (String path) -> String
   def set_ca_cert: (Integer addr, Integer size) -> nil
+  def cert_file=: (String path) -> String
+  def set_cert: (Integer addr, Integer size) -> nil
+  def key_file=: (String path) -> String
+  def set_key: (Integer addr, Integer size) -> nil
   def verify_mode=: (Integer mode) -> Integer
   def verify_mode: () -> Integer
 end
