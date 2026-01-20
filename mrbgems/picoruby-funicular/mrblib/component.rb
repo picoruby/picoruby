@@ -383,6 +383,22 @@ module Funicular
             end
           end
           result
+        when Method
+          result = dom_element.addEventListener(event_name) do |event|
+            begin
+              # @type var value: Method
+              # Check if Method expects arguments (arity)
+              if value.arity == 0
+                value.call
+              else
+                value.call(event)
+              end
+            rescue => e
+              component_raised(e) if respond_to?(:component_raised)
+              raise e
+            end
+          end
+          result
         when Proc
           result = dom_element.addEventListener(event_name) do |event|
             begin
@@ -400,7 +416,7 @@ module Funicular
           end
           result
         else
-          raise "Invalid event handler: #{value.class}"
+          raise "Invalid event handler: #{value.class}. Must be Symbol, Method, or Proc."
         end
 
         @event_listeners << callback_id
@@ -713,8 +729,17 @@ module Funicular
             {}
           end
 
-          # Call the submit handler method
-          send(on_submit, form_data)
+          # Call the submit handler (Symbol, Method, or Proc)
+          case on_submit
+          when Symbol
+            send(on_submit, form_data)
+          when Method
+            on_submit.call(form_data)
+          when Proc
+            on_submit.call(form_data)
+          else
+            raise "on_submit must be Symbol, Method, or Proc, got #{on_submit.class}"
+          end
         end
       else
         ->(event) { event.preventDefault }
