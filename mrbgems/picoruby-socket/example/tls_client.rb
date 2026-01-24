@@ -11,7 +11,7 @@ begin
   ctx.verify_mode = SSLContext::VERIFY_PEER
 
   # Set CA certificate if needed (for embedded platforms)
-  # ctx.set_ca_cert(ca_cert_address, ca_cert_size)
+  # ctx.set_ca(ca_addr, ca_size)
 
   # Create TCP socket
   # Note: The TCP socket is used only to extract hostname and port.

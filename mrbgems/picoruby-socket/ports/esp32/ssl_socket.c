@@ -106,7 +106,7 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 }
 
 bool
-SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   if (!ctx || !addr || size == 0) return false;
 

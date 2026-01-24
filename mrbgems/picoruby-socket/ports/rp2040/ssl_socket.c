@@ -26,8 +26,8 @@
 struct picorb_ssl_context {
   int verify_mode;
   struct altcp_tls_config *tls_config;
-  const unsigned char *ca_cert_data;
-  size_t ca_cert_len;
+  const unsigned char *ca_data;
+  size_t ca_len;
   const unsigned char *cert_data;
   size_t cert_len;
   const unsigned char *key_data;
@@ -174,8 +174,8 @@ SSLContext_create(void)
   memset(ctx, 0, sizeof(picorb_ssl_context_t));
   ctx->verify_mode = SSL_VERIFY_PEER;
   ctx->tls_config = NULL;
-  ctx->ca_cert_data = NULL;
-  ctx->ca_cert_len = 0;
+  ctx->ca_data = NULL;
+  ctx->ca_len = 0;
   ctx->cert_data = NULL;
   ctx->cert_len = 0;
   ctx->key_data = NULL;
@@ -193,14 +193,14 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 }
 
 bool
-SSLContext_set_ca_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   if (!ctx || !addr || size == 0) {
     return false;
   }
 
-  ctx->ca_cert_data = (const unsigned char *)addr;
-  ctx->ca_cert_len = size;
+  ctx->ca_data = (const unsigned char *)addr;
+  ctx->ca_len = size;
 
   return true;
 }
@@ -398,7 +398,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   if (ssl_sock->ssl_ctx->cert_data && ssl_sock->ssl_ctx->key_data) {
     D("SSL: using 2-way auth (client cert)\n");
     tls_config = altcp_tls_create_config_client_2wayauth(
-      ssl_sock->ssl_ctx->ca_cert_data, ssl_sock->ssl_ctx->ca_cert_len,
+      ssl_sock->ssl_ctx->ca_data, ssl_sock->ssl_ctx->ca_len,
       ssl_sock->ssl_ctx->key_data, ssl_sock->ssl_ctx->key_len,
       NULL, 0,  /* No password for private key */
       ssl_sock->ssl_ctx->cert_data, ssl_sock->ssl_ctx->cert_len
@@ -406,7 +406,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   } else {
     D("SSL: using standard client auth\n");
     tls_config = altcp_tls_create_config_client(
-      ssl_sock->ssl_ctx->ca_cert_data, ssl_sock->ssl_ctx->ca_cert_len
+      ssl_sock->ssl_ctx->ca_data, ssl_sock->ssl_ctx->ca_len
     );
   }
 

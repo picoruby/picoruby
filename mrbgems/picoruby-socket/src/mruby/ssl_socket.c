@@ -58,14 +58,14 @@ mrb_ssl_context_set_ca_file(mrb_state *mrb, mrb_value self)
   return mrb_str_new_cstr(mrb, ca_file);
 #else
   (void)self;
-  mrb_raise(mrb, E_NOTIMP_ERROR, "ca_file= is not supported on this platform. Use set_ca_cert instead");
+  mrb_raise(mrb, E_NOTIMP_ERROR, "ca_file= is not supported on this platform. Use set_ca instead");
   return mrb_nil_value();
 #endif
 }
 
-/* ssl_context.set_ca_cert(addr, size) */
+/* ssl_context.set_ca(addr, size) */
 static mrb_value
-mrb_ssl_context_set_ca_cert(mrb_state *mrb, mrb_value self)
+mrb_ssl_context_set_ca(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_context_t *ctx;
   mrb_int addr, size;
@@ -77,7 +77,7 @@ mrb_ssl_context_set_ca_cert(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "ii", &addr, &size);
 
-  if (!SSLContext_set_ca_cert(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
+  if (!SSLContext_set_ca(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
   }
 
@@ -465,7 +465,7 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(initialize), mrb_ssl_context_initialize, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(ca_file), mrb_ssl_context_set_ca_file, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_ca_cert), mrb_ssl_context_set_ca_cert, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_ca), mrb_ssl_context_set_ca, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(cert_file), mrb_ssl_context_set_cert_file, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_cert), mrb_ssl_context_set_cert, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(key_file), mrb_ssl_context_set_key_file, MRB_ARGS_REQ(1));

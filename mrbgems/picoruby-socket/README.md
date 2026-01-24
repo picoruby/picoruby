@@ -120,7 +120,7 @@ file.close
 
 # Create SSL context with ROM certificate
 ctx = SSLContext.new
-ctx.set_ca_cert(addr, size)  # Load certificate from ROM address
+ctx.set_ca(addr, size)  # Load certificate from ROM address
 ctx.verify_mode = SSLContext::VERIFY_PEER
 
 # Connect to HTTPS server
@@ -135,7 +135,7 @@ response = ssl.read(1024)
 ssl.close
 ```
 
-**Note**: On RP2040 and ESP32, `ctx.ca_file=` is not supported. Use `ctx.set_ca_cert(addr, size)` instead to load certificates directly from ROM/flash memory.
+**Note**: On RP2040 and ESP32, `ctx.ca_file=` is not supported. Use `ctx.set_ca(addr, size)` instead to load certificates directly from ROM/flash memory.
 
 #### Disable Certificate Verification (Not Recommended)
 
@@ -191,7 +191,7 @@ Base class for all socket types. Provides common socket and IO-compatible method
 #### Instance Methods
 
 - `ca_file=(path)` - Set CA certificate file path (POSIX only)
-- `set_ca_cert(addr, size)` - Set CA certificate from ROM address (RP2040 only)
+- `set_ca(addr, size)` - Set CA certificate from ROM address (RP2040 only)
 - `verify_mode=(mode)` - Set verification mode (VERIFY_NONE or VERIFY_PEER)
 - `verify_mode` - Get current verification mode
 

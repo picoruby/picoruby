@@ -25,9 +25,9 @@ begin
   #   CERT
   #
   # Then get its address and size:
-  #   ca_cert_addr = CA_CERT.object_id
-  #   ca_cert_size = CA_CERT.bytesize
-  #   ctx.set_ca_cert(ca_cert_addr, ca_cert_size)
+  #   ca_addr = CA_CERT.object_id
+  #   ca_size = CA_CERT.bytesize
+  #   ctx.set_ca(ca_addr, ca_size)
 
   # For testing without certificate validation:
   ctx.verify_mode = SSLContext::VERIFY_NONE
@@ -35,7 +35,7 @@ begin
 
   # For production with certificate validation:
   # ctx.verify_mode = SSLContext::VERIFY_PEER
-  # ctx.set_ca_cert(ca_cert_addr, ca_cert_size)
+  # ctx.set_ca(ca_addr, ca_size)
 
   # Create TCP connection
   tcp_sock = TCPSocket.new(HOST, PORT)
