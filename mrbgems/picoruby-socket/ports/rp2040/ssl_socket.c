@@ -28,6 +28,10 @@ struct picorb_ssl_context {
   struct altcp_tls_config *tls_config;
   const unsigned char *ca_cert_data;
   size_t ca_cert_len;
+  const unsigned char *cert_data;
+  size_t cert_len;
+  const unsigned char *key_data;
+  size_t key_len;
 };
 
 /* SSL socket structure */
@@ -172,6 +176,10 @@ SSLContext_create(void)
   ctx->tls_config = NULL;
   ctx->ca_cert_data = NULL;
   ctx->ca_cert_len = 0;
+  ctx->cert_data = NULL;
+  ctx->cert_len = 0;
+  ctx->key_data = NULL;
+  ctx->key_len = 0;
 
   return ctx;
 }
@@ -208,10 +216,14 @@ SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
 bool
 SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
-  (void)ctx;
-  (void)addr;
-  (void)size;
-  return false;  /* Not supported on rp2040 */
+  if (!ctx || !addr || size == 0) {
+    return false;
+  }
+
+  ctx->cert_data = (const unsigned char *)addr;
+  ctx->cert_len = size;
+
+  return true;
 }
 
 bool
@@ -225,10 +237,14 @@ SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
 bool
 SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
-  (void)ctx;
-  (void)addr;
-  (void)size;
-  return false;  /* Not supported on rp2040 */
+  if (!ctx || !addr || size == 0) {
+    return false;
+  }
+
+  ctx->key_data = (const unsigned char *)addr;
+  ctx->key_len = size;
+
+  return true;
 }
 
 bool
@@ -376,7 +392,24 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 
   /* Create TLS config (always create new one, like picoruby-net) */
   D("SSL: creating TLS config\n");
-  struct altcp_tls_config *tls_config = altcp_tls_create_config_client(NULL, 0);
+  struct altcp_tls_config *tls_config;
+
+  /* Check if client certificate and key are provided for mutual TLS */
+  if (ssl_sock->ssl_ctx->cert_data && ssl_sock->ssl_ctx->key_data) {
+    D("SSL: using 2-way auth (client cert)\n");
+    tls_config = altcp_tls_create_config_client_2wayauth(
+      ssl_sock->ssl_ctx->ca_cert_data, ssl_sock->ssl_ctx->ca_cert_len,
+      ssl_sock->ssl_ctx->key_data, ssl_sock->ssl_ctx->key_len,
+      NULL, 0,  /* No password for private key */
+      ssl_sock->ssl_ctx->cert_data, ssl_sock->ssl_ctx->cert_len
+    );
+  } else {
+    D("SSL: using standard client auth\n");
+    tls_config = altcp_tls_create_config_client(
+      ssl_sock->ssl_ctx->ca_cert_data, ssl_sock->ssl_ctx->ca_cert_len
+    );
+  }
+
   if (!tls_config) {
     D("SSL: TLS config failed\n");
     return false;
