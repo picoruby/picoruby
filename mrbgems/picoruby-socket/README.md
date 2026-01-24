@@ -191,7 +191,7 @@ Base class for all socket types. Provides common socket and IO-compatible method
 #### Instance Methods
 
 - `ca_file=(path)` - Set CA certificate file path (POSIX only)
-- `set_ca(addr, size)` - Set CA certificate from ROM address (RP2040 only)
+- `set_ca(addr, size)` - Set CA certificate from ROM address (RP2040 and ESP32)
 - `verify_mode=(mode)` - Set verification mode (VERIFY_NONE or VERIFY_PEER)
 - `verify_mode` - Get current verification mode
 
