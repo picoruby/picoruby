@@ -425,13 +425,13 @@ c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
 #else
   (void)argc;
   (void)v;
-  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "ca_file= is not supported on this platform. Use set_ca_cert instead");
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "ca_file= is not supported on this platform. Use set_ca instead");
 #endif
 }
 
-/* ssl_context.set_ca_cert(addr, size) */
+/* ssl_context.set_ca(addr, size) */
 static void
-c_ssl_context_set_ca_cert(mrbc_vm *vm, mrbc_value *v, int argc)
+c_ssl_context_set_ca(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -462,7 +462,7 @@ c_ssl_context_set_ca_cert(mrbc_vm *vm, mrbc_value *v, int argc)
   size_t size = (size_t)size_arg.i;
 
   /* Set CA certificate */
-  if (!SSLContext_set_ca_cert(wrapper->ptr, addr, size)) {
+  if (!SSLContext_set_ca(wrapper->ptr, addr, size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA certificate");
     return;
   }
@@ -726,7 +726,7 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 
   mrbc_define_method(vm, class_SSLContext, "new", c_ssl_context_new);
   mrbc_define_method(vm, class_SSLContext, "ca_file=", c_ssl_context_set_ca_file);
-  mrbc_define_method(vm, class_SSLContext, "set_ca_cert", c_ssl_context_set_ca_cert);
+  mrbc_define_method(vm, class_SSLContext, "set_ca", c_ssl_context_set_ca);
   mrbc_define_method(vm, class_SSLContext, "cert_file=", c_ssl_context_set_cert_file);
   mrbc_define_method(vm, class_SSLContext, "set_cert", c_ssl_context_set_cert);
   mrbc_define_method(vm, class_SSLContext, "key_file=", c_ssl_context_set_key_file);
