@@ -395,7 +395,17 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   struct altcp_tls_config *tls_config;
 
   /* Check if client certificate and key are provided for mutual TLS */
-  if (ssl_sock->ssl_ctx->cert_data && ssl_sock->ssl_ctx->key_data) {
+  bool has_cert = (ssl_sock->ssl_ctx->cert_data != NULL);
+  bool has_key = (ssl_sock->ssl_ctx->key_data != NULL);
+  
+  /* Validate that both cert and key are set together */
+  if (has_cert != has_key) {
+    D("SSL: ERROR - client cert and key must both be set for mutual TLS (cert=%s, key=%s)\n",
+      has_cert ? "set" : "not set", has_key ? "set" : "not set");
+    return false;
+  }
+  
+  if (has_cert && has_key) {
     D("SSL: using 2-way auth (client cert)\n");
     tls_config = altcp_tls_create_config_client_2wayauth(
       ssl_sock->ssl_ctx->ca_data, ssl_sock->ssl_ctx->ca_len,
@@ -404,7 +414,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
       ssl_sock->ssl_ctx->cert_data, ssl_sock->ssl_ctx->cert_len
     );
   } else {
-    D("SSL: using standard client auth\n");
+    D("SSL: using standard client auth (no client cert configured)\n");
     tls_config = altcp_tls_create_config_client(
       ssl_sock->ssl_ctx->ca_data, ssl_sock->ssl_ctx->ca_len
     );
