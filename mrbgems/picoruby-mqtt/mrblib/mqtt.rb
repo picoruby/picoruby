@@ -188,24 +188,30 @@ module MQTT
         if @ca_file
           ca_file = File.open(@ca_file)
           ctx.set_ca(ca_file.physical_address, ca_file.size)
-          ca_file.close
+          ca_file&.close
         end
         if @cert_file
           cert_file = File.open(@cert_file)
           ctx.set_cert(cert_file.physical_address, cert_file.size)
-          cert_file.close
+          cert_file&.close
         end
         if @key_file
           key_file = File.open(@key_file)
           ctx.set_key(key_file.physical_address, key_file.size)
-          key_file.close
+          key_file&.close
         end
       end
-      ctx.verify_mode = @ca_file ? SSLContext::VERIFY_PEER : SSLContext::VERIFY_NONE
-      tcp = TCPSocket.new(host, port)
-      socket = SSLSocket.new(tcp, ctx)
-      socket.connect
-      socket
+      ctx.verify_mode = @ssl ? SSLContext::VERIFY_PEER : SSLContext::VERIFY_NONE
+      tcp = nil
+      begin
+        tcp = TCPSocket.new(host, port)
+        socket = SSLSocket.new(tcp, ctx)
+        socket.connect
+        socket
+      rescue => e
+        tcp.close if tcp && !tcp.closed?
+        raise e
+      end
     end
 
     def next_packet_id

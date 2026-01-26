@@ -33,7 +33,7 @@ module MQTT
 
   class Client
 
-    def initialize: (String, ?Integer) -> void
+    def initialize: (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) -> void
 
     def self.connect: (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) { (Client) -> void } -> void
                     | (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) -> Client
@@ -54,7 +54,7 @@ module MQTT
 
     def disconnect: () -> void
 
-    private def ssl_socket: (String, Integer) -> void
+    private def ssl_socket: (String, Integer) -> SSLSocket
 
     private def next_packet_id: () -> Integer
 
