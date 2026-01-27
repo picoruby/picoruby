@@ -185,21 +185,9 @@ module MQTT
         ctx.cert_file = @cert_file if @cert_file
         ctx.key_file = @key_file if @key_file
       else
-        if @ca_file
-          ca_file = File.open(@ca_file)
-          ctx.set_ca(ca_file.physical_address, ca_file.size)
-          ca_file&.close
-        end
-        if @cert_file
-          cert_file = File.open(@cert_file)
-          ctx.set_cert(cert_file.physical_address, cert_file.size)
-          cert_file&.close
-        end
-        if @key_file
-          key_file = File.open(@key_file)
-          ctx.set_key(key_file.physical_address, key_file.size)
-          key_file&.close
-        end
+        File.open(@ca_file) { |f| ctx.set_ca(f.physical_address, f.size) } if @ca_file
+        File.open(@cert_file) { |f| ctx.set_cert(f.physical_address, f.size) } if @cert_file
+        File.open(@key_file) { |f| ctx.set_key(f.physical_address, f.size) } if @key_file
       end
       ctx.verify_mode = @ssl ? SSLContext::VERIFY_PEER : SSLContext::VERIFY_NONE
       tcp = nil
@@ -207,7 +195,7 @@ module MQTT
         tcp = TCPSocket.new(host, port)
         socket = SSLSocket.new(tcp, ctx)
         socket.connect
-        socket
+        return socket
       rescue => e
         tcp.close if tcp && !tcp.closed?
         raise e
