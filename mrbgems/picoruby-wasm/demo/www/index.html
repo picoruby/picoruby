@@ -4,6 +4,64 @@
     <title>PicoRuby WASM Demo</title>
     <meta charset="utf-8">
     <link rel="stylesheet" href="test.css">
+    <style>
+      .led-container {
+        display: flex;
+        justify-content: center;
+        gap: 80px;
+        margin: 30px 0;
+      }
+
+      .led-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .led {
+        width: 60px;
+        height: 80px;
+        background-color: #555;
+        border-radius: 30px 30px 5px 5px;
+        border: 2px solid #333;
+        transition: all 0.3s ease;
+        position: relative;
+      }
+
+      .led.on-red {
+        background-color: #ff0000;
+        box-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
+      }
+
+      .led.on-green {
+        background-color: #00ff00;
+        box-shadow: 0 0 20px #00ff00, 0 0 40px #00ff00;
+      }
+
+      .led-legs {
+        display: flex;
+        gap: 20px;
+        margin-top: 5px;
+      }
+
+      .led-leg {
+        width: 3px;
+        height: 30px;
+        background-color: #888;
+      }
+
+      .led-label {
+        text-align: center;
+        margin-top: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+
+      pre code {
+        padding: 0;
+        background-color: transparent;
+      }
+    </style>
   </head>
   <body>
     <div>Example using published npm package</div>
@@ -31,44 +89,109 @@
       <li><a href="funicular/tic-tac-toe.html">Tic Tac Toe</a></li>
     </ul>
     <h1>PicoRuby WASM Demo</h1>
-    <h2 id="container">0</h2>
-    <button id="switch">Start</button>
-    <div id="logo"></div>
+
+    <div class="led-container">
+      <div class="led-wrapper">
+        <div id="red" class="led"></div>
+        <div class="led-legs">
+          <div class="led-leg"></div>
+          <div class="led-leg"></div>
+        </div>
+        <div class="led-label">Red</div>
+      </div>
+      <div class="led-wrapper">
+        <div id="green" class="led"></div>
+        <div class="led-legs">
+          <div class="led-leg"></div>
+          <div class="led-leg"></div>
+        </div>
+        <div class="led-label">Green</div>
+      </div>
+    </div>
+
+    <div style="margin: 20px 0; text-align: center;">
+      <button id="run-button">Start L-Chika</button>
+    </div>
+
+    <div class="instructions">
+      <h3>Ruby Code (essential part)</h3>
+<pre><code>class LED
+  def initialize(id:)
+    @id = id
+    @element = JS.document.getElementById(id)
+    off
+  end
+
+  def on
+    case @id
+    when 'red'
+      @element.className = 'led on-red'
+    when 'green'
+      @element.className = 'led on-green'
+    end
+  end
+
+  def off
+    @element.className = 'led'
+  end
+end
+
+red = LED.new(id: 'red')
+green = LED.new(id: 'green')
+
+5.times do
+  red.on
+  sleep 0.5
+  red.off
+  green.on
+  sleep 0.5
+  green.off
+end</code></pre>
+      <p>Click the "Start L-Chika" button to run the above Ruby script.</p>
+      <p>The demo uses PicoRuby's <code>sleep</code> method to control timing.</p>
+    </div>
 
     <script type="text/ruby">
       require 'js'
-      JS.document.getElementById('switch').addEventListener('click') do |event_json|
-        puts event_json # The `event_json` can be parsed by JSON.parse
-        sub_task = Task.get('sub_task')
-        if sub_task.status == :SUSPENDED
-          sub_task.resume
-          JS.document.getElementById('switch').innerText = 'Suspend'
-          lvar = :hey
-          logo = JS.document.getElementById('logo')
-          JS.global.fetch('favicon.ico') do |response|
-            if response.status.to_i == 200
-              logo.innerHTML = response.to_binary
-            end
+
+      class LED
+        def initialize(id:)
+          @id = id
+          @element = JS.document.getElementById(id)
+          off
+        end
+
+        def on
+          case @id
+          when 'red'
+            @element.className = 'led on-red'
+          when 'green'
+            @element.className = 'led on-green'
           end
-        else
-          sub_task.suspend
-          JS.document.getElementById('switch').innerText = 'Resume'
-          JS.document.getElementById('logo').innerHTML = ''
+        end
+
+        def off
+          @element.className = 'led'
         end
       end
-    </script>
 
-    <script type="text/ruby">
-      require 'js'
-      task = Task.current
-      task.name = 'sub_task'
-      task.suspend
-      container = JS.document.getElementById('container')
-      i = 1
-      while true
-        sleep 1
-        container.innerText = i.to_s
-        i += 1
+      doc = JS.document
+      button = doc.getElementById('run-button')
+
+      button.addEventListener('click') do |event|
+        event.preventDefault
+
+        red = LED.new(id: 'red')
+        green = LED.new(id: 'green')
+
+        5.times do
+          red.on
+          sleep 0.5
+          red.off
+          green.on
+          sleep 0.5
+          green.off
+        end
       end
     </script>
 
