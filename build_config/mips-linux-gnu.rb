@@ -28,4 +28,7 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
 
   conf.gembox "minimum"
   conf.gembox "core"
+  conf.gem core: "picoruby-picotest"
+  conf.gem core: "picoruby-metaprog"
+  conf.gem core: "picoruby-pack"
 end
