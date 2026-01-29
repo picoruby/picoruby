@@ -151,3 +151,19 @@ mrb_task_disable_irq(void)
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
 #endif
 }
+
+
+//================================================================
+/*!@brief
+  abort program
+
+*/
+void
+hal_abort(const char *s)
+{
+  if (s) {
+    hal_write(1, s, strlen(s));
+  }
+  exit(1);
+}
+
