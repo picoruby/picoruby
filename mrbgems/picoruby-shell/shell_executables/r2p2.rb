@@ -5,7 +5,9 @@ if ENV['WIFI_MODULE'] == "cwy43"
   ARGV[0] = "--check-auto-connect"
   load "/bin/wifi_connect"
   ARGV.clear
-  load "/bin/ntpdate"
+  if CYW43.initialized?
+    load "/bin/ntpdate"
+  end
 end
 
 if File.exist?("#{ENV['HOME']}/app.mrb")
