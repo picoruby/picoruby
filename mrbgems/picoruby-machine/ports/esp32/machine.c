@@ -14,6 +14,7 @@
 #include "esp_sleep.h"
 #include "esp_timer.h"
 #include "hal/efuse_hal.h"
+#include "rom/ets_sys.h"
 
 #define ESP32_MSEC_PER_TICK       (10)
 #define ESP32_TIMER_UNIT_PER_SEC  (1000000)
@@ -185,6 +186,13 @@ Machine_delay_ms(uint32_t ms)
 void
 Machine_busy_wait_ms(uint32_t ms)
 {
+  ets_delay_us(1000 * ms);
+}
+
+void
+Machine_busy_wait_us(uint32_t us)
+{
+  ets_delay_us(us);
 }
 
 bool
