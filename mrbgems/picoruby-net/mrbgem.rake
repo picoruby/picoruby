@@ -67,6 +67,19 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
       sh "git clone -b #{LWIP_VERSION} #{LWIP_REPO} #{lwip_dir}"
     end
 
+    # Apply patches to LwIP
+    patch_file = "#{dir}/patches/lwip-altcp-proxyconnect.patch"
+    if File.exist?(patch_file)
+      proxyconnect_file = "#{lwip_dir}/src/apps/http/altcp_proxyconnect.c"
+      if File.exist?(proxyconnect_file)
+        patch_applied = `cd #{lwip_dir} && git apply --check #{patch_file} 2>&1`.strip
+        if patch_applied.empty?
+          sh "cd #{lwip_dir} && git apply #{patch_file}"
+          puts "Applied patch: lwip-altcp-proxyconnect.patch"
+        end
+      end
+    end
+
     spec.cc.defines << 'PICO_CYW43_ARCH_POLL=1'
 
     spec.cc.include_paths << "#{lwip_dir}/src/include"
