@@ -13,5 +13,6 @@ class Machine
   def self.exit: (Integer status) -> void
   def self.debug_puts: (String str) -> nil
   def self.uptime_us: () -> Integer
+  def self.board_millis: () -> Integer
   def self.uptime_formatted: () -> String
 end
