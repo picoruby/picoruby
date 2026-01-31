@@ -6,6 +6,7 @@ Layer switching functionality for keyboard matrix in PicoRuby.
 
 This gem provides layer management for keyboard matrix, enabling:
 - **Momentary Layer (MO)**: Activate a layer while holding a key
+- **MO with Tap/Hold**: Send a keycode on tap, activate layer on hold
 - **Toggle Layer (TG)**: Toggle a layer on/off with each key press
 - **Layer stacking**: Multiple MO keys can be pressed simultaneously
 - **Transparent keys**: KC_NO falls through to lower layers
@@ -85,6 +86,30 @@ keymap = [
   KC_A, MO(1), KC_C,  # Middle key activates layer 1 while held
   # ...
 ]
+```
+
+### MO(n, keycode) - Momentary Layer with Tap/Hold
+
+Tap/hold behavior: sends `keycode` on quick tap, activates layer `n` on hold.
+
+```ruby
+include LayerKeycode
+
+keymap = [
+  KC_A, MO(1, KC_SPC), KC_C,  # Middle key: tap for space, hold for layer 1
+  # ...
+]
+```
+
+Behavior:
+- **Tap** (quick press/release): Sends the tap keycode
+- **Hold** (press for >200ms): Activates the layer
+- **Hold** (press then another key): Immediately activates the layer
+
+Configuration:
+```ruby
+kb = KeyboardLayer.new([0, 1], [2, 3])
+kb.tap_threshold_ms = 150  # Change tap threshold (default: 200ms)
 ```
 
 ### TG(n) - Toggle Layer
@@ -189,6 +214,10 @@ Add a layer with a name and keymap.
 Set the default layer.
 - `name`: Symbol for layer name
 
+#### `tap_threshold_ms=(value)`
+Set the tap threshold for MO tap/hold keys.
+- `value`: Threshold in milliseconds (default: 200)
+
 #### `on_key_event(&block)`
 Set callback for key events.
 - Block receives event hash: `{row:, col:, keycode:, modifier:, pressed:}`
@@ -198,10 +227,14 @@ Start the scanning loop (blocks forever).
 
 ### LayerKeycode
 
-#### `MO(layer_index)`
+#### `MO(layer_index, tap_keycode = nil)`
 Create momentary layer switch keycode.
-- `layer_index`: Layer index (0-255)
+- `layer_index`: Layer index (0-255 for simple MO, 0-15 for MO with tap)
+- `tap_keycode`: Optional keycode to send on tap (0-255)
 - Returns: Special keycode
+
+Without `tap_keycode`: Simple momentary layer switch
+With `tap_keycode`: Tap/hold behavior (tap sends keycode, hold activates layer)
 
 #### `TG(layer_index)`
 Create toggle layer switch keycode.

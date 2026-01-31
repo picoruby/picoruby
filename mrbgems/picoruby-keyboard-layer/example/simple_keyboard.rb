@@ -14,11 +14,11 @@ kb = KeyboardLayer.new(ROW_PINS, COL_PINS, debounce_time: 5)
 
 # Add base layer
 # Layout:
-#  ESC  1     Fn
+#  ESC  1     Fn (tap for Space, hold for layer 1)
 #  TAB  Q     ToggleNum
 #  CTRL A     S
 kb.add_layer(:base, [
-  KC_ESC,  KC_1,    MO(1),
+  KC_ESC,  KC_1,    MO(1, KC_SPC),  # Tap: Space, Hold: Layer 1
   KC_TAB,  KC_Q,    TG(2),
   KC_LCTL, KC_A,    KC_S
 ])
@@ -59,6 +59,6 @@ end
 
 # Start keyboard scanning
 puts "Starting keyboard with layers..."
-puts "- Press [0,2] for Fn layer (momentary)"
-puts "- Press [1,2] to toggle numpad layer"
+puts "- [0,2]: Tap for Space, Hold for Fn layer (momentary)"
+puts "- [1,2]: Toggle numpad layer"
 kb.start

@@ -19,6 +19,10 @@ class KeyboardLayer
     @layer_stack = []           # Momentary layer stack (LIFO)
     @momentary_keys = {}        # {[row, col] => layer_index} - track MO keys
 
+    # MO tap/hold management
+    @mo_tap_keys = {}           # {[row, col] => mo_tap_state}
+    @tap_threshold_ms = 200     # Tap threshold in milliseconds
+
     # Create empty keymap for KeyboardMatrix
     # We only use row/col from events, not the keycode
     empty_keymap = Array.new(@row_count * @col_count, KC_NO)
@@ -56,6 +60,12 @@ class KeyboardLayer
     @default_layer = name
   end
 
+  # Set tap threshold in milliseconds
+  # @param value [Integer] Tap threshold in milliseconds
+  def tap_threshold_ms=(value)
+    @tap_threshold_ms = value
+  end
+
   # Set event callback
   # @param block [Proc] Callback block that receives event hash
   def on_key_event(&block)
@@ -70,6 +80,7 @@ class KeyboardLayer
 
     @matrix.start do |event|
       handle_event(event)
+      update_mo_tap_keys
     end
   end
 
@@ -91,7 +102,14 @@ class KeyboardLayer
     # Handle special layer keycodes
     if LayerKeycode.is_mo?(keycode)
       layer_index = LayerKeycode.mo_layer(keycode)
-      handle_mo_key(row, col, layer_index, pressed)
+
+      if LayerKeycode.is_mo_tap?(keycode)
+        if tap_keycode = LayerKeycode.mo_tap_keycode(keycode)
+          handle_mo_tap_key(row, col, layer_index, tap_keycode, pressed)
+        end
+      else
+        handle_mo_key(row, col, layer_index, pressed)
+      end
       # MO keys don't generate key events
       return
     elsif LayerKeycode.is_tg?(keycode)
@@ -99,6 +117,11 @@ class KeyboardLayer
       handle_tg_key(layer_index, pressed)
       # TG keys don't generate key events
       return
+    end
+
+    # Track other key presses for MO tap interruption
+    if pressed && keycode != KC_NO
+      mark_other_key_pressed
     end
 
     # Normal key event - pass to user callback
@@ -198,5 +221,109 @@ class KeyboardLayer
     else
       @locked_layer = layer_index
     end
+  end
+
+  # Handle MO tap/hold key press/release
+  # @param row [Integer] Row index
+  # @param col [Integer] Column index
+  # @param layer_index [Integer] Layer index to activate on hold
+  # @param tap_keycode [Integer] Keycode to send on tap
+  # @param pressed [Boolean] true if pressed, false if released
+  def handle_mo_tap_key(row, col, layer_index, tap_keycode, pressed)
+    # @type var key_pos: [Integer, Integer]
+    key_pos = [row, col]
+
+    if pressed
+      @mo_tap_keys[key_pos] = {
+        layer_index: layer_index,
+        tap_keycode: tap_keycode,
+        pressed_at: Machine.board_millis,
+        state: :pressed,
+        other_key_pressed: false
+      }
+    else
+      if mo_state = @mo_tap_keys[key_pos]
+        elapsed = Machine.board_millis - mo_state[:pressed_at]
+
+        case mo_state[:state]
+        when :pressed
+          # Tap action: send tap keycode
+          if elapsed < @tap_threshold_ms && !mo_state[:other_key_pressed]
+            send_tap_keycode(row, col, tap_keycode)
+          end
+        when :holding
+          # Deactivate layer
+          deactivate_layer(key_pos, layer_index)
+        end
+
+        @mo_tap_keys.delete(key_pos)
+      end
+    end
+  end
+
+  # Update MO tap key states (check for timeout and transitions)
+  def update_mo_tap_keys
+    @mo_tap_keys.each do |key_pos, mo_state|
+      next if mo_state[:state] != :pressed
+
+      elapsed = Machine.board_millis - mo_state[:pressed_at]
+
+      if elapsed >= @tap_threshold_ms || mo_state[:other_key_pressed]
+        mo_state[:state] = :holding
+        activate_layer(key_pos, mo_state[:layer_index])
+      end
+    end
+  end
+
+  # Mark that another key was pressed (for MO tap interruption)
+  def mark_other_key_pressed
+    @mo_tap_keys.each do |key_pos, mo_state|
+      if mo_state[:state] == :pressed
+        mo_state[:other_key_pressed] = true
+      end
+    end
+  end
+
+  # Activate a momentary layer
+  # @param key_pos [Array<Integer>] Key position [row, col]
+  # @param layer_index [Integer] Layer index to activate
+  def activate_layer(key_pos, layer_index)
+    unless @momentary_keys.has_key?(key_pos)
+      @layer_stack << layer_index
+      @momentary_keys[key_pos] = layer_index
+    end
+  end
+
+  # Deactivate a momentary layer
+  # @param key_pos [Array<Integer>] Key position [row, col]
+  # @param layer_index [Integer] Layer index to deactivate
+  def deactivate_layer(key_pos, layer_index)
+    if @momentary_keys.has_key?(key_pos)
+      @layer_stack.delete_if { |lyr| lyr == layer_index }
+      @momentary_keys.delete(key_pos)
+    end
+  end
+
+  # Send tap keycode as a quick press/release event
+  # @param row [Integer] Row index
+  # @param col [Integer] Column index
+  # @param keycode [Integer] Keycode to send
+  def send_tap_keycode(row, col, keycode)
+    # Send press event
+    @callback&.call(
+      row: row,
+      col: col,
+      keycode: keycode,
+      modifier: 0,
+      pressed: true
+    )
+    # Send release event
+    @callback&.call(
+      row: row,
+      col: col,
+      keycode: keycode,
+      modifier: 0,
+      pressed: false
+    )
   end
 end

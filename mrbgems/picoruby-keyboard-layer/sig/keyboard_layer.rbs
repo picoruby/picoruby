@@ -19,6 +19,8 @@ class KeyboardLayer
   @locked_layer: Integer | nil
   @layer_stack: Array[Integer]
   @momentary_keys: Hash[[Integer, Integer], Integer]
+  @mo_tap_keys: Hash[[Integer, Integer], Hash[Symbol, untyped]]
+  @tap_threshold_ms: Integer
   @matrix: KeyboardMatrix
   @callback: (^(key_event_t) -> void) | nil
 
@@ -28,6 +30,8 @@ class KeyboardLayer
   def add_layer: (Symbol name, Array[Integer] keymap) -> void
   # Set default layer
   def default_layer=: (Symbol name) -> void
+  # Set tap threshold in milliseconds
+  def tap_threshold_ms=: (Integer value) -> Integer
   # Set event callback
   def on_key_event: () { (key_event_t) -> void } -> void
   # Start scanning loop
@@ -41,4 +45,16 @@ class KeyboardLayer
   private def handle_mo_key: (Integer row, Integer col, Integer layer_index, bool pressed) -> void
   # Handle toggle layer key press
   private def handle_tg_key: (Integer layer_index, bool pressed) -> void
+  # Handle MO tap/hold key press/release
+  private def handle_mo_tap_key: (Integer row, Integer col, Integer layer_index, Integer tap_keycode, bool pressed) -> void
+  # Update MO tap key states
+  private def update_mo_tap_keys: () -> void
+  # Mark that another key was pressed
+  private def mark_other_key_pressed: () -> void
+  # Activate a momentary layer
+  private def activate_layer: ([Integer, Integer] key_pos, Integer layer_index) -> void
+  # Deactivate a momentary layer
+  private def deactivate_layer: ([Integer, Integer] key_pos, Integer layer_index) -> void
+  # Send tap keycode as a quick press/release event
+  private def send_tap_keycode: (Integer row, Integer col, Integer keycode) -> void
 end
