@@ -1,0 +1,44 @@
+# Layer switching functionality for keyboard matrix
+class KeyboardLayer
+  # Transparent key constant
+  KC_NO: Integer
+
+  type key_event_t = {
+    row: Integer,
+    col: Integer,
+    keycode: Integer,
+    modifier: Integer,
+    pressed: bool
+  }
+
+  @row_count: Integer
+  @col_count: Integer
+  @layers: Hash[Symbol, Array[Integer]]
+  @layer_names: Array[Symbol]
+  @default_layer: Symbol | nil
+  @locked_layer: Integer | nil
+  @layer_stack: Array[Integer]
+  @momentary_keys: Hash[[Integer, Integer], Integer]
+  @matrix: KeyboardMatrix
+  @callback: (^(key_event_t) -> void) | nil
+
+  # Initialize keyboard layer manager
+  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_time: Integer) -> KeyboardLayer
+  # Add a layer with name and keymap
+  def add_layer: (Symbol name, Array[Integer] keymap) -> void
+  # Set default layer
+  def default_layer=: (Symbol name) -> void
+  # Set event callback
+  def on_key_event: () { (key_event_t) -> void } -> void
+  # Start scanning loop
+  def start: () -> void
+
+  # Handle key event from KeyboardMatrix
+  private def handle_event: (Hash[Symbol, untyped] event) -> void
+  # Resolve keycode from layer stack
+  private def resolve_keycode: (Integer row, Integer col) -> (Integer | nil)
+  # Handle momentary layer key press/release
+  private def handle_mo_key: (Integer row, Integer col, Integer layer_index, bool pressed) -> void
+  # Handle toggle layer key press
+  private def handle_tg_key: (Integer layer_index, bool pressed) -> void
+end
