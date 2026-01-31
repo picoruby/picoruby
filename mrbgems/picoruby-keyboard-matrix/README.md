@@ -39,14 +39,14 @@ keymap = [
 modifier_map = Array.new(72, 0)
 
 # Create keyboard matrix instance
-kb = KeyboardMatrix.new(row_pins, col_pins, keymap, modifier_map)
+matrix = KeyboardMatrix.new(row_pins, col_pins, keymap, modifier_map)
 
 # Set debounce time (optional, default is 5ms)
-kb.debounce_time = 10
+matrix.debounce_time = 10
 
 # Method 1: Polling mode
 loop do
-  event = kb.scan
+  event = matrix.scan
   if event
     if event[:pressed]
       USB::HID.keyboard_send(event[:modifier], event[:keycode])
@@ -58,15 +58,13 @@ loop do
 end
 
 # Method 2: Callback mode
-kb.on_key_event do |event|
+matrix.start do |event|
   if event[:pressed]
     USB::HID.keyboard_send(event[:modifier], event[:keycode])
   else
     USB::HID.keyboard_release
   end
 end
-
-kb.start  # Start infinite scanning loop
 ```
 
 ## Event Structure

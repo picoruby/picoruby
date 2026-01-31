@@ -10,8 +10,6 @@ class KeyboardMatrix
     pressed: bool
   }
 
-  @callback: (^(key_event) -> void)?
-
   # Initialize keyboard matrix
   # @param row_pins [Array<Integer>] GPIO pin numbers for rows
   # @param col_pins [Array<Integer>] GPIO pin numbers for columns
@@ -27,6 +25,4 @@ class KeyboardMatrix
   def debounce_time=: (Integer ms) -> Integer
   # Start continuous scanning with callback
   def start: () { (key_event) -> void } -> void
-  # Set event callback
-  def on_key_event: () { (key_event) -> void } -> void
 end
