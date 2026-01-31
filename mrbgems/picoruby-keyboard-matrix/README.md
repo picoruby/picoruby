@@ -1,6 +1,6 @@
 # picoruby-keyboard-matrix
 
-GPIO keyboard matrix scanner for R2P2
+GPIO keyboard matrix scanner
 
 ## Features
 
@@ -49,9 +49,9 @@ loop do
   event = kb.scan
   if event
     if event[:pressed]
-      UsbHid.keyboard_send(event[:modifier], event[:keycode])
+      USB::HID.keyboard_send(event[:modifier], event[:keycode])
     else
-      UsbHid.keyboard_release
+      USB::HID.keyboard_release
     end
   end
   sleep_ms(1)
@@ -60,9 +60,9 @@ end
 # Method 2: Callback mode
 kb.on_key_event do |event|
   if event[:pressed]
-    UsbHid.keyboard_send(event[:modifier], event[:keycode])
+    USB::HID.keyboard_send(event[:modifier], event[:keycode])
   else
-    UsbHid.keyboard_release
+    USB::HID.keyboard_release
   end
 end
 

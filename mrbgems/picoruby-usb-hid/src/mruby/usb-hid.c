@@ -81,19 +81,21 @@ static mrb_value c_media_ready(mrb_state *mrb, mrb_value self)
 
 void mrb_picoruby_usb_hid_gem_init(mrb_state *mrb)
 {
-  struct RClass *usb_hid_class = mrb_define_class_id(mrb, MRB_SYM(UsbHid), mrb->object_class);
+  struct RClass *usb_module = mrb_define_module_id(mrb, MRB_SYM(USB));
+  struct RClass *hid_class = mrb_define_class_under_id(mrb, usb_module, MRB_SYM(HID), mrb->object_class);
 
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(keyboard_send), c_keyboard_send, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(keyboard_ready), c_keyboard_ready, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(keyboard_release), c_keyboard_release, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(keyboard_led_state), c_keyboard_led_state, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(keyboard_send), c_keyboard_send, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(keyboard_ready), c_keyboard_ready, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(keyboard_release), c_keyboard_release, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(keyboard_led_state), c_keyboard_led_state, MRB_ARGS_NONE());
 
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(mouse_move), c_mouse_move, MRB_ARGS_REQ(4));
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(mouse_ready), c_mouse_ready, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(mouse_move), c_mouse_move, MRB_ARGS_REQ(4));
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(mouse_ready), c_mouse_ready, MRB_ARGS_NONE());
 
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(media_send), c_media_send, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, usb_hid_class, MRB_SYM(media_ready), c_media_ready, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(media_send), c_media_send, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, hid_class, MRB_SYM(media_ready), c_media_ready, MRB_ARGS_NONE());
 
+  struct RClass *keycode_module = mrb_define_module_under_id(mrb, hid_class, MRB_SYM(Keycode));
   // Include auto-generated keycode definitions
 #include "keycode.inc"
 }

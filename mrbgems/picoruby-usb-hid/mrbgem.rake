@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new('picoruby-usb-hid') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'USB HID (Keyboard, Mouse, Consumer Control) support for R2P2'
 
+  spec.require_name = 'usb/hid'
+
   spec.add_dependency 'picoruby-machine'
 
   # Setup paths
@@ -28,14 +30,14 @@ MRuby::Gem::Specification.new('picoruby-usb-hid') do |spec|
       f.puts ""
       keycodes.each do |line|
         name, value = line.split(',')
-        f.puts "  mrb_define_const_id(mrb, usb_hid_class, MRB_SYM(#{name}), mrb_fixnum_value(#{value}));"
+        f.puts "  mrb_define_const_id(mrb, keycode_module, MRB_SYM(#{name}), mrb_fixnum_value(#{value}));"
       end
       f.puts ""
       f.puts "#elif defined(PICORB_VM_MRUBYC)"
       f.puts ""
       keycodes.each do |line|
         name, value = line.split(',')
-        f.puts "  SET_CLASS_CONST(UsbHid, #{name}, #{value});"
+        f.puts "  SET_CLASS_CONST(mrbc_module_Keycode, #{name}, #{value});"
       end
       f.puts ""
       f.puts "#endif"

@@ -111,25 +111,27 @@ c_media_ready(mrbc_vm *vm, mrbc_value *v, int argc)
 // Initialize
 //================================================================
 
-#define SET_CLASS_CONST(mod, cst, val) \
-  mrbc_set_class_const(mrbc_class_##mod, mrbc_str_to_symid(#cst), &mrbc_integer_value(val))
+#define SET_CLASS_CONST(klass, cst, val) \
+  mrbc_set_class_const(klass, mrbc_str_to_symid(#cst), &mrbc_integer_value(val))
 
 void
 mrbc_usb_hid_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_UsbHid = mrbc_define_class(vm, "UsbHid", mrbc_class_object);
+  mrbc_class *mrbc_module_USB = mrbc_define_module(vm, "USB");
+  mrbc_class *mrbc_class_HID = mrbc_define_class_under(vm, mrbc_module_USB, "HID", mrbc_class_object);
 
-  mrbc_define_method(vm, mrbc_class_UsbHid, "keyboard_send", c_keyboard_send);
-  mrbc_define_method(vm, mrbc_class_UsbHid, "keyboard_ready", c_keyboard_ready);
-  mrbc_define_method(vm, mrbc_class_UsbHid, "keyboard_release", c_keyboard_release);
-  mrbc_define_method(vm, mrbc_class_UsbHid, "keyboard_led_state", c_keyboard_led_state);
+  mrbc_define_method(vm, mrbc_class_HID, "keyboard_send", c_keyboard_send);
+  mrbc_define_method(vm, mrbc_class_HID, "keyboard_ready", c_keyboard_ready);
+  mrbc_define_method(vm, mrbc_class_HID, "keyboard_release", c_keyboard_release);
+  mrbc_define_method(vm, mrbc_class_HID, "keyboard_led_state", c_keyboard_led_state);
 
-  mrbc_define_method(vm, mrbc_class_UsbHid, "mouse_move", c_mouse_move);
-  mrbc_define_method(vm, mrbc_class_UsbHid, "mouse_ready", c_mouse_ready);
+  mrbc_define_method(vm, mrbc_class_HID, "mouse_move", c_mouse_move);
+  mrbc_define_method(vm, mrbc_class_HID, "mouse_ready", c_mouse_ready);
 
-  mrbc_define_method(vm, mrbc_class_UsbHid, "media_send", c_media_send);
-  mrbc_define_method(vm, mrbc_class_UsbHid, "media_ready", c_media_ready);
+  mrbc_define_method(vm, mrbc_class_HID, "media_send", c_media_send);
+  mrbc_define_method(vm, mrbc_class_HID, "media_ready", c_media_ready);
 
+  mrbc_class *mrbc_module_Keycode = mrbc_define_module_under(vm, mrbc_class_HID, "Keycode");
   // Include auto-generated keycode definitions
 #include "keycode.inc"
 }

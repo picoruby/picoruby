@@ -6,9 +6,8 @@ target :mrbgems do
     stdlib_root: "" # Skip loading stdlib RBSs
   )
 
-  signature "sig/prk_firmware"
   Dir.glob("**/sig/").each do |dir|
-    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext")
+    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("-prk-")
       signature dir
     end
   end
@@ -30,6 +29,7 @@ target :mrbgems do
   ignore "mrbgems/picoruby-mruby/lib/mruby"
   ignore "mrblib"
   ignore "build"
+  ignore "mrbgems/picoruby-prk-*/mrblib/*.rb"
 
   # TODO: Fix after removal of picoruby-net
   ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
