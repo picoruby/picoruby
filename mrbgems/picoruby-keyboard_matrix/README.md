@@ -1,4 +1,4 @@
-# picoruby-keyboard-matrix
+# picoruby-keyboard_matrix
 
 GPIO keyboard matrix scanner
 

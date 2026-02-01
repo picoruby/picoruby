@@ -1,12 +1,10 @@
+require 'keyboard_matrix'
+
 # KeyboardLayer class provides layer switching functionality
 # It wraps KeyboardMatrix and manages multiple layers (keymaps)
 class KeyboardLayer
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
-  # Initialize keyboard layer manager
-  # @param row_pins [Array<Integer>] GPIO pin numbers for rows
-  # @param col_pins [Array<Integer>] GPIO pin numbers for columns
-  # @param debounce_time [Integer] Debounce time in milliseconds (default: 5)
   def initialize(row_pins, col_pins, debounce_time: 5)
     @row_count = row_pins.size
     @col_count = col_pins.size
@@ -35,9 +33,6 @@ class KeyboardLayer
     @callback = nil
   end
 
-  # Add a layer with name and keymap
-  # @param name [Symbol] Layer name
-  # @param keymap [Array<Integer>] Keymap array (row_count * col_count)
   def add_layer(name, keymap)
     expected_size = @row_count * @col_count
     if keymap.size != expected_size
@@ -51,8 +46,6 @@ class KeyboardLayer
     @default_layer ||= name
   end
 
-  # Set default layer
-  # @param name [Symbol] Layer name
   def default_layer=(name)
     unless @layers.has_key?(name)
       raise ArgumentError, "Layer :#{name} does not exist"
@@ -60,19 +53,15 @@ class KeyboardLayer
     @default_layer = name
   end
 
-  # Set tap threshold in milliseconds
-  # @param value [Integer] Tap threshold in milliseconds
   def tap_threshold_ms=(value)
     @tap_threshold_ms = value
   end
 
-  # Set event callback
-  # @param block [Proc] Callback block that receives event hash
+
   def on_key_event(&block)
     @callback = block
   end
 
-  # Start scanning loop
   def start
     unless @callback
       raise "Callback block is required. Use on_key_event to set a callback."
@@ -86,8 +75,6 @@ class KeyboardLayer
 
   private
 
-  # Handle key event from KeyboardMatrix
-  # @param event [Hash] Event from KeyboardMatrix with :row, :col, :pressed
   def handle_event(event)
     row = event[:row]
     col = event[:col]
@@ -136,10 +123,6 @@ class KeyboardLayer
     end
   end
 
-  # Resolve keycode from layer stack
-  # @param row [Integer] Row index
-  # @param col [Integer] Column index
-  # @return [Integer, nil] Resolved keycode or nil
   def resolve_keycode(row, col)
     index = row * @col_count + col
 
@@ -182,11 +165,6 @@ class KeyboardLayer
     KC_NO
   end
 
-  # Handle momentary layer key press/release
-  # @param row [Integer] Row index
-  # @param col [Integer] Column index
-  # @param layer_index [Integer] Layer index to activate
-  # @param pressed [Boolean] true if pressed, false if released
   def handle_mo_key(row, col, layer_index, pressed)
     # @type var key_pos: [Integer, Integer]
     key_pos = [row, col]
@@ -208,9 +186,6 @@ class KeyboardLayer
     end
   end
 
-  # Handle toggle layer key press
-  # @param layer_index [Integer] Layer index to toggle
-  # @param pressed [Boolean] true if pressed, false if released
   def handle_tg_key(layer_index, pressed)
     # Only process on key press
     return unless pressed
@@ -223,12 +198,6 @@ class KeyboardLayer
     end
   end
 
-  # Handle MO tap/hold key press/release
-  # @param row [Integer] Row index
-  # @param col [Integer] Column index
-  # @param layer_index [Integer] Layer index to activate on hold
-  # @param tap_keycode [Integer] Keycode to send on tap
-  # @param pressed [Boolean] true if pressed, false if released
   def handle_mo_tap_key(row, col, layer_index, tap_keycode, pressed)
     # @type var key_pos: [Integer, Integer]
     key_pos = [row, col]
@@ -284,9 +253,6 @@ class KeyboardLayer
     end
   end
 
-  # Activate a momentary layer
-  # @param key_pos [Array<Integer>] Key position [row, col]
-  # @param layer_index [Integer] Layer index to activate
   def activate_layer(key_pos, layer_index)
     unless @momentary_keys.has_key?(key_pos)
       @layer_stack << layer_index
@@ -294,9 +260,6 @@ class KeyboardLayer
     end
   end
 
-  # Deactivate a momentary layer
-  # @param key_pos [Array<Integer>] Key position [row, col]
-  # @param layer_index [Integer] Layer index to deactivate
   def deactivate_layer(key_pos, layer_index)
     if @momentary_keys.has_key?(key_pos)
       @layer_stack.delete_if { |lyr| lyr == layer_index }
@@ -305,9 +268,6 @@ class KeyboardLayer
   end
 
   # Send tap keycode as a quick press/release event
-  # @param row [Integer] Row index
-  # @param col [Integer] Column index
-  # @param keycode [Integer] Keycode to send
   def send_tap_keycode(row, col, keycode)
     # Send press event
     @callback&.call(

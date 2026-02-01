@@ -1,3 +1,7 @@
+require 'gpio'
+require 'machine'
+require 'usb/hid'
+
 class KeyboardMatrix
   # Start scanning loop
   def start

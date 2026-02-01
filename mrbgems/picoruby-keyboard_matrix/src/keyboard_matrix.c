@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include "../include/keyboard-matrix.h"
+#include "../include/keyboard_matrix.h"
 #include "../../picoruby-gpio/include/gpio.h"
 #include "../../picoruby-machine/include/machine.h"
 
@@ -21,6 +21,17 @@ static uint8_t row_count = 0;
 static uint8_t col_count = 0;
 static const uint8_t *keymap = NULL;
 static const uint8_t *modifier_map = NULL;
+
+// Data structure for KeyboardMatrix instance
+typedef struct {
+  uint8_t row_pins[16];
+  uint8_t col_pins[16];
+  uint8_t row_count;
+  uint8_t col_count;
+  uint8_t *keymap;
+  uint8_t *modifier_map;
+  bool initialized;
+} picorb_keyboard_matrix_data;
 
 // Key state tracking
 static bool key_state[MAX_ROWS][MAX_COLS];
@@ -161,10 +172,10 @@ keyboard_matrix_set_debounce_time(uint32_t ms)
 
 #if defined(PICORB_VM_MRUBY)
 
-#include "mruby/keyboard-matrix.c"
+#include "mruby/keyboard_matrix.c"
 
 #elif defined(PICORB_VM_MRUBYC)
 
-#include "mrubyc/keyboard-matrix.c"
+#include "mrubyc/keyboard_matrix.c"
 
 #endif

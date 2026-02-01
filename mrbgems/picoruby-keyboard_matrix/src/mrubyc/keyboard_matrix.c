@@ -4,8 +4,6 @@
 
 #include <mrubyc.h>
 
-#include "../../include/keyboard-matrix.h"
-
 // TODO: Implement mruby/c variant
 
 void

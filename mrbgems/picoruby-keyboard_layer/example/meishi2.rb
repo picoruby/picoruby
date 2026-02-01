@@ -1,5 +1,5 @@
 # Meishi2 keyboard example
-# This is a reimplementation of prk_firmware's meishi2 keymap using picoruby-keyboard-layer
+# This is a reimplementation of prk_firmware's meishi2 keymap using picoruby-keyboard_layer
 #
 # Hardware: Meishi2 (2x2 keys)
 # - Rows: GPIO 6, 7
@@ -8,7 +8,6 @@
 # Original PRK firmware keymap: ~/work/prk_firmware/keyboards/prk_meishi2/keymap.rb
 
 require 'keyboard_layer'
-require 'usb/hid'
 
 include Keycode
 include LayerKeycode
@@ -24,7 +23,7 @@ kb = KeyboardLayer.new(ROW_PINS, COL_PINS, debounce_time: 5)
 kb.tap_threshold_ms = 200
 
 # Special keycode definitions for custom actions
-# Since picoruby-keyboard-layer doesn't support Proc directly,
+# Since picoruby-keyboard_layer doesn't support Proc directly,
 # we use high keycode values that won't conflict with standard keycodes
 KC_STATS = 0xF000  # Print allocation stats
 KC_BOOT  = 0xF001  # Enter bootsel mode

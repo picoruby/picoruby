@@ -1,6 +1,5 @@
 # Simple keyboard example with layer switching
 require 'keyboard_layer'
-require 'usb/hid'
 
 include Keycode
 include LayerKeycode

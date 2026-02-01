@@ -1,7 +1,7 @@
 MRuby::Gem::Specification.new('picoruby-usb-hid') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
-  spec.summary = 'USB HID (Keyboard, Mouse, Consumer Control) support for R2P2'
+  spec.summary = 'USB HID (Keyboard, Mouse, Consumer Control) library'
 
   spec.require_name = 'usb/hid'
 

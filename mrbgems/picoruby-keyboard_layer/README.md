@@ -1,4 +1,4 @@
-# picoruby-keyboard-layer
+# picoruby-keyboard_layer
 
 Layer switching functionality for keyboard matrix in PicoRuby.
 
@@ -10,14 +10,6 @@ This gem provides layer management for keyboard matrix, enabling:
 - **Toggle Layer (TG)**: Toggle a layer on/off with each key press
 - **Layer stacking**: Multiple MO keys can be pressed simultaneously
 - **Transparent keys**: KC_NO falls through to lower layers
-
-## Installation
-
-Add to your build configuration:
-
-```ruby
-conf.gem github: 'picoruby/picoruby', path: 'mrbgems/picoruby-keyboard-layer'
-```
 
 ## Basic Usage
 

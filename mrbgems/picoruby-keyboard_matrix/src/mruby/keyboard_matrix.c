@@ -12,23 +12,10 @@
 
 #include <string.h>
 
-#include "../../include/keyboard-matrix.h"
-
-// Data structure for KeyboardMatrix instance
-typedef struct {
-  uint8_t row_pins[16];
-  uint8_t col_pins[16];
-  uint8_t row_count;
-  uint8_t col_count;
-  uint8_t *keymap;
-  uint8_t *modifier_map;
-  bool initialized;
-} mrb_keyboard_matrix_data;
-
 static void
 mrb_keyboard_matrix_free(mrb_state *mrb, void *ptr)
 {
-  mrb_keyboard_matrix_data *data = (mrb_keyboard_matrix_data*)ptr;
+  picorb_keyboard_matrix_data *data = (picorb_keyboard_matrix_data*)ptr;
   if (data->keymap) {
     mrb_free(mrb, data->keymap);
   }
@@ -50,8 +37,8 @@ mrb_initialize(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "AAA|A", &row_pins_ary, &col_pins_ary, &keymap_ary, &modifier_map_ary);
 
-  mrb_keyboard_matrix_data *data = (mrb_keyboard_matrix_data*)mrb_malloc(mrb, sizeof(mrb_keyboard_matrix_data));
-  memset(data, 0, sizeof(mrb_keyboard_matrix_data));
+  picorb_keyboard_matrix_data *data = (picorb_keyboard_matrix_data*)mrb_malloc(mrb, sizeof(picorb_keyboard_matrix_data));
+  memset(data, 0, sizeof(picorb_keyboard_matrix_data));
 
   // Get row pins
   data->row_count = RARRAY_LEN(row_pins_ary);
@@ -95,7 +82,7 @@ mrb_initialize(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_scan(mrb_state *mrb, mrb_value self)
 {
-  mrb_keyboard_matrix_data *data = DATA_PTR(self);
+  picorb_keyboard_matrix_data *data = DATA_PTR(self);
 
   if (!data || !data->initialized) {
     return mrb_nil_value();
