@@ -5,19 +5,20 @@
 #include <mrubyc.h>
 #include <string.h>
 
-/*
- * Helper function to get keyboard_matrix data pointer from instance->data
- */
-static inline picorb_keyboard_matrix_data*
-get_data_ptr(mrbc_value *v)
+static void
+mrbc_kb_matrix_free(mrbc_value *self)
 {
-  void *data = v[0].instance->data;
-  picorb_keyboard_matrix_data **data_ptr = (picorb_keyboard_matrix_data **)data;
-  return *data_ptr;
+  picorb_keyboard_matrix_data *matrix = (picorb_keyboard_matrix_data *)self->instance->data;
+  if (matrix->keymap) {
+    mrbc_raw_free(matrix->keymap);
+  }
+  if (matrix->modifier_map) {
+    mrbc_raw_free(matrix->modifier_map);
+  }
 }
 
 static void
-c_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
+c_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   // Expected args: row_pins_ary, col_pins_ary, keymap_ary, [modifier_map_ary]
   if (argc < 3) {
@@ -36,78 +37,67 @@ c_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  // Allocate data structure
-  picorb_keyboard_matrix_data *data = (picorb_keyboard_matrix_data*)mrbc_raw_alloc(sizeof(picorb_keyboard_matrix_data));
-  if (!data) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "memory allocation failed");
-    return;
-  }
-  memset(data, 0, sizeof(picorb_keyboard_matrix_data));
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_keyboard_matrix_data));
+  picorb_keyboard_matrix_data *matrix = (picorb_keyboard_matrix_data *)instance.instance->data;
+
+  memset(matrix, 0, sizeof(picorb_keyboard_matrix_data));
 
   // Get row pins
-  data->row_count = row_pins_ary.array->n_stored;
-  if (data->row_count > 16) data->row_count = 16;
-  for (int i = 0; i < data->row_count; i++) {
+  matrix->row_count = row_pins_ary.array->n_stored;
+  if (matrix->row_count > 16) matrix->row_count = 16;
+  for (int i = 0; i < matrix->row_count; i++) {
     mrbc_value val = mrbc_array_get(&row_pins_ary, i);
     if (val.tt == MRBC_TT_INTEGER) {
-      data->row_pins[i] = (uint8_t)val.i;
+      matrix->row_pins[i] = (uint8_t)val.i;
     }
   }
 
   // Get col pins
-  data->col_count = col_pins_ary.array->n_stored;
-  if (data->col_count > 16) data->col_count = 16;
-  for (int i = 0; i < data->col_count; i++) {
+  matrix->col_count = col_pins_ary.array->n_stored;
+  if (matrix->col_count > 16) matrix->col_count = 16;
+  for (int i = 0; i < matrix->col_count; i++) {
     mrbc_value val = mrbc_array_get(&col_pins_ary, i);
     if (val.tt == MRBC_TT_INTEGER) {
-      data->col_pins[i] = (uint8_t)val.i;
+      matrix->col_pins[i] = (uint8_t)val.i;
     }
   }
 
   // Get keymap
   int keymap_len = keymap_ary.array->n_stored;
-  data->keymap = (uint8_t*)mrbc_raw_alloc(keymap_len);
-  if (!data->keymap) {
-    mrbc_raw_free(data);
+  matrix->keymap = (uint8_t*)mrbc_raw_alloc(keymap_len);
+  if (!matrix->keymap) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "memory allocation failed");
     return;
   }
   for (int i = 0; i < keymap_len; i++) {
     mrbc_value val = mrbc_array_get(&keymap_ary, i);
     if (val.tt == MRBC_TT_INTEGER) {
-      data->keymap[i] = (uint8_t)val.i;
+      matrix->keymap[i] = (uint8_t)val.i;
     }
   }
 
   // Get modifier map (optional)
   if (modifier_map_ary.tt == MRBC_TT_ARRAY) {
     int mod_len = modifier_map_ary.array->n_stored;
-    data->modifier_map = (uint8_t*)mrbc_raw_alloc(mod_len);
-    if (!data->modifier_map) {
-      mrbc_raw_free(data->keymap);
-      mrbc_raw_free(data);
+    matrix->modifier_map = (uint8_t *)mrbc_raw_alloc(mod_len);
+    if (!matrix->modifier_map) {
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "memory allocation failed");
       return;
     }
     for (int i = 0; i < mod_len; i++) {
       mrbc_value val = mrbc_array_get(&modifier_map_ary, i);
       if (val.tt == MRBC_TT_INTEGER) {
-        data->modifier_map[i] = (uint8_t)val.i;
+        matrix->modifier_map[i] = (uint8_t)val.i;
       }
     }
   }
 
   // Initialize hardware
-  data->initialized = keyboard_matrix_init(
-    data->row_pins, data->row_count,
-    data->col_pins, data->col_count,
-    data->keymap, data->modifier_map
+  matrix->initialized = keyboard_matrix_init(
+    matrix->row_pins, matrix->row_count,
+    matrix->col_pins, matrix->col_count,
+    matrix->keymap, matrix->modifier_map
   );
-
-  // Create instance with pointer to data structure
-  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_keyboard_matrix_data *));
-  picorb_keyboard_matrix_data **data_ptr = (picorb_keyboard_matrix_data **)instance.instance->data;
-  *data_ptr = data;
 
   SET_RETURN(instance);
 }
@@ -115,9 +105,9 @@ c_initialize(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  picorb_keyboard_matrix_data *data = get_data_ptr(v);
+  picorb_keyboard_matrix_data *matrix = (picorb_keyboard_matrix_data *)v->instance->data;
 
-  if (!data || !data->initialized) {
+  if (!matrix || !matrix->initialized) {
     SET_NIL_RETURN();
     return;
   }
@@ -186,8 +176,9 @@ void
 mrbc_keyboard_matrix_init(mrbc_vm *vm)
 {
   mrbc_class *kb_matrix_class = mrbc_define_class(vm, "KeyboardMatrix", mrbc_class_object);
+  mrbc_define_destructor(kb_matrix_class, mrbc_kb_matrix_free);
 
-  mrbc_define_method(vm, kb_matrix_class, "initialize", c_initialize);
+  mrbc_define_method(vm, kb_matrix_class, "new", c_new);
   mrbc_define_method(vm, kb_matrix_class, "scan", c_scan);
   mrbc_define_method(vm, kb_matrix_class, "debounce_time", c_get_debounce_time);
   mrbc_define_method(vm, kb_matrix_class, "debounce_time=", c_set_debounce_time);
