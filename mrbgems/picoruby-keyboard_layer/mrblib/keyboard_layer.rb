@@ -3,6 +3,8 @@ require 'keyboard_matrix'
 # KeyboardLayer class provides layer switching functionality
 # It wraps KeyboardMatrix and manages multiple layers (keymaps)
 class KeyboardLayer
+  include LayerKeycode
+
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
   def initialize(row_pins, col_pins, debounce_time: 5)
@@ -87,11 +89,11 @@ class KeyboardLayer
     end
 
     # Handle special layer keycodes
-    if LayerKeycode.is_mo?(keycode)
-      layer_index = LayerKeycode.mo_layer(keycode)
+    if is_mo?(keycode)
+      layer_index = mo_layer(keycode)
 
-      if LayerKeycode.is_mo_tap?(keycode)
-        if tap_keycode = LayerKeycode.mo_tap_keycode(keycode)
+      if is_mo_tap?(keycode)
+        if tap_keycode = mo_tap_keycode(keycode)
           handle_mo_tap_key(row, col, layer_index, tap_keycode, pressed)
         end
       else
@@ -99,8 +101,8 @@ class KeyboardLayer
       end
       # MO keys don't generate key events
       return
-    elsif LayerKeycode.is_tg?(keycode)
-      layer_index = LayerKeycode.tg_layer(keycode)
+    elsif is_tg?(keycode)
+      layer_index = tg_layer(keycode)
       handle_tg_key(layer_index, pressed)
       # TG keys don't generate key events
       return

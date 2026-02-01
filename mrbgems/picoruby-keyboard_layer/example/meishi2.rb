@@ -36,20 +36,20 @@ KC_BOOT  = 0xF001  # Enter bootsel mode
 #  BOOT           ENT/Layer2
 
 kb.add_layer(:default, [
-  MO(1, KC_SPC),  KC_STATS,
-  KC_BOOT,        MO(2, KC_ENT)
+  MO(1, KC_SPACE),  KC_STATS,
+  KC_BOOT,        MO(2, KC_ENTER)
 ])
 
 # Layer 1: Accessed by holding key[0,0]
 kb.add_layer(:layer1, [
-  MO(1, KC_SPC),  KC_1,
-  KC_2,           MO(2, KC_ENT)
+  MO(1, KC_SPACE),  KC_1,
+  KC_2,           MO(2, KC_ENTER)
 ])
 
 # Layer 2: Accessed by holding key[1,1]
 kb.add_layer(:layer2, [
-  MO(1, KC_SPC),  KC_F1,
-  KC_F2,          MO(2, KC_ENT)
+  MO(1, KC_SPACE),  KC_F1,
+  KC_F2,          MO(2, KC_ENTER)
 ])
 
 # Track key state for long press detection
