@@ -150,14 +150,14 @@ c_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_get_debounce_time(mrbc_vm *vm, mrbc_value *v, int argc)
+c_get_debounce_ms(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  uint32_t time = keyboard_matrix_get_debounce_time();
+  uint32_t time = keyboard_matrix_get_debounce_ms();
   SET_INT_RETURN(time);
 }
 
 static void
-c_set_debounce_time(mrbc_vm *vm, mrbc_value *v, int argc)
+c_set_debounce_ms(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -168,7 +168,7 @@ c_set_debounce_time(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   uint32_t ms = GET_INT_ARG(1);
-  keyboard_matrix_set_debounce_time(ms);
+  keyboard_matrix_set_debounce_ms(ms);
   SET_INT_RETURN(ms);
 }
 
@@ -180,6 +180,6 @@ mrbc_keyboard_matrix_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, kb_matrix_class, "new", c_new);
   mrbc_define_method(vm, kb_matrix_class, "scan", c_scan);
-  mrbc_define_method(vm, kb_matrix_class, "debounce_time", c_get_debounce_time);
-  mrbc_define_method(vm, kb_matrix_class, "debounce_time=", c_set_debounce_time);
+  mrbc_define_method(vm, kb_matrix_class, "debounce_ms", c_get_debounce_ms);
+  mrbc_define_method(vm, kb_matrix_class, "debounce_ms=", c_set_debounce_ms);
 }

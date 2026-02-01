@@ -15,12 +15,12 @@ ROW_PINS = [6, 7]
 COL_PINS = [28, 27]
 
 # Initialize keyboard
-kb = KeyboardLayer.new(ROW_PINS, COL_PINS, debounce_time: 5)
+kb = KeyboardLayer.new(ROW_PINS, COL_PINS, debounce_ms: 40)
 # Tap threshold: 200ms (PRK uses different thresholds per key, but we use global setting)
 kb.tap_threshold_ms = 200
 
 kb.add_layer(:default, [
-  MO(1, KC_SPACE), KC_A, KC_A, MO(2, KC_ENTER)
+  MO(1, KC_SPACE), KC_A, KC_B, MO(2, KC_ENTER)
 ])
 
 # Layer 1: Accessed by holding key[0,0]

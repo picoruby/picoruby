@@ -7,7 +7,7 @@ class KeyboardLayer
 
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
-  def initialize(row_pins, col_pins, debounce_time: 5)
+  def initialize(row_pins, col_pins, debounce_ms: 40)
     @row_count = row_pins.size
     @col_count = col_pins.size
 
@@ -29,7 +29,7 @@ class KeyboardLayer
 
     # Initialize underlying KeyboardMatrix
     @matrix = KeyboardMatrix.new(row_pins, col_pins, empty_keymap)
-    @matrix.debounce_time = debounce_time
+    @matrix.debounce_ms = debounce_ms
 
     # User callback for key events
     @callback = nil

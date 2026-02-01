@@ -41,10 +41,10 @@ bool keyboard_matrix_init(const uint8_t* row_pins, uint8_t row_count,
 bool keyboard_matrix_scan(key_event_t* event);
 
 // Get debounce time in milliseconds
-uint32_t keyboard_matrix_get_debounce_time(void);
+uint32_t keyboard_matrix_get_debounce_ms(void);
 
 // Set debounce time in milliseconds
-void keyboard_matrix_set_debounce_time(uint32_t ms);
+void keyboard_matrix_set_debounce_ms(uint32_t ms);
 
 #ifdef __cplusplus
 }

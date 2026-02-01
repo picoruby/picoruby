@@ -20,9 +20,9 @@ class KeyboardMatrix
   # Scan matrix once and return event if available
   def scan: () -> key_event?
   # Get debounce time in milliseconds
-  def debounce_time: () -> Integer
+  def debounce_ms: () -> Integer
   # Set debounce time in milliseconds
-  def debounce_time=: (Integer ms) -> Integer
+  def debounce_ms=: (Integer ms) -> Integer
   # Start continuous scanning with callback
   def start: () { (key_event) -> void } -> void
 end

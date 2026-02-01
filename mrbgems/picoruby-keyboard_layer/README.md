@@ -123,7 +123,7 @@ keymap = [
 include Keycode
 include LayerKeycode
 
-kb = KeyboardLayer.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_time: 10)
+kb = KeyboardLayer.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 10)
 
 # Base layer with Fn and Numpad toggle
 kb.add_layer(:base, [
@@ -191,11 +191,11 @@ When MO(1) is pressed, all keys fall through to the default layer.
 
 ### KeyboardLayer
 
-#### `initialize(row_pins, col_pins, debounce_time: 5)`
+#### `initialize(row_pins, col_pins, debounce_ms: 40)`
 Create a new keyboard layer manager.
 - `row_pins`: Array of GPIO pin numbers for rows
 - `col_pins`: Array of GPIO pin numbers for columns
-- `debounce_time`: Debounce time in milliseconds (default: 5)
+- `debounce_ms`: Debounce time in milliseconds (default: 40)
 
 #### `add_layer(name, keymap)`
 Add a layer with a name and keymap.

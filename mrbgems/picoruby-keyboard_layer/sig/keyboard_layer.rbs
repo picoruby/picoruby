@@ -27,7 +27,7 @@ class KeyboardLayer
   @callback: (^(key_event_t) -> void) | nil
 
   # Initialize keyboard layer manager
-  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_time: Integer) -> KeyboardLayer
+  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer) -> KeyboardLayer
   # Add a layer with name and keymap
   def add_layer: (Symbol name, Array[Integer] keymap) -> void
   # Set default layer

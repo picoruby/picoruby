@@ -12,7 +12,7 @@
 
 #define MAX_ROWS 16
 #define MAX_COLS 16
-#define DEBOUNCE_TIME_MS 5
+#define DEBOUNCE_MS 5
 
 // Matrix configuration
 static uint8_t row_pins[MAX_ROWS];
@@ -24,8 +24,8 @@ static const uint8_t *modifier_map = NULL;
 
 // Key state tracking
 static bool key_state[MAX_ROWS][MAX_COLS];
-static uint32_t key_debounce_time[MAX_ROWS][MAX_COLS];
-static uint32_t debounce_time_ms = DEBOUNCE_TIME_MS;
+static uint32_t key_debounce_ms[MAX_ROWS][MAX_COLS];
+static uint32_t debounce_ms = DEBOUNCE_MS;
 
 // Event queue (simple ring buffer)
 #define EVENT_QUEUE_SIZE 16
@@ -90,7 +90,7 @@ keyboard_matrix_init(const uint8_t *rows, uint8_t r_count,
 
   // Initialize key state
   memset(key_state, 0, sizeof(key_state));
-  memset(key_debounce_time, 0, sizeof(key_debounce_time));
+  memset(key_debounce_ms, 0, sizeof(key_debounce_ms));
 
   // Initialize queue
   queue_head = 0;
@@ -116,9 +116,9 @@ keyboard_matrix_scan(key_event_t *event)
       // Check if state changed
       if (current != key_state[row][col]) {
         // Debounce check
-        if (now - key_debounce_time[row][col] >= debounce_time_ms) {
+        if (now - key_debounce_ms[row][col] >= debounce_ms) {
           key_state[row][col] = current;
-          key_debounce_time[row][col] = now;
+          key_debounce_ms[row][col] = now;
 
           // Create event
           key_event_t ev;
@@ -148,15 +148,15 @@ keyboard_matrix_scan(key_event_t *event)
 }
 
 uint32_t
-keyboard_matrix_get_debounce_time(void)
+keyboard_matrix_get_debounce_ms(void)
 {
-  return debounce_time_ms;
+  return debounce_ms;
 }
 
 void
-keyboard_matrix_set_debounce_time(uint32_t ms)
+keyboard_matrix_set_debounce_ms(uint32_t ms)
 {
-  debounce_time_ms = ms;
+  debounce_ms = ms;
 }
 
 #if defined(PICORB_VM_MRUBY)

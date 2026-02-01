@@ -41,8 +41,8 @@ modifier_map = Array.new(72, 0)
 # Create keyboard matrix instance
 matrix = KeyboardMatrix.new(row_pins, col_pins, keymap, modifier_map)
 
-# Set debounce time (optional, default is 5ms)
-matrix.debounce_time = 10
+# Set debounce time (optional, default is 40ms)
+matrix.debounce_ms = 20
 
 # Method 1: Polling mode
 loop do
@@ -99,7 +99,7 @@ Row2 ----+-----+-----+----
 
 ## Debouncing
 
-Software debouncing is implemented to filter out key bounce noise. Default is 5ms, configurable via `debounce_time=`.
+Software debouncing is implemented to filter out key bounce noise. Default is 5ms, configurable via `debounce_ms=`.
 
 ## License
 

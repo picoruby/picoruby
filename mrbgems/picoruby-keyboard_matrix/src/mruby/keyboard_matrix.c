@@ -103,18 +103,18 @@ mrb_scan(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_get_debounce_time(mrb_state *mrb, mrb_value self)
+mrb_get_debounce_ms(mrb_state *mrb, mrb_value self)
 {
-  uint32_t time = keyboard_matrix_get_debounce_time();
+  uint32_t time = keyboard_matrix_get_debounce_ms();
   return mrb_fixnum_value(time);
 }
 
 static mrb_value
-mrb_set_debounce_time(mrb_state *mrb, mrb_value self)
+mrb_set_debounce_ms(mrb_state *mrb, mrb_value self)
 {
   mrb_int ms;
   mrb_get_args(mrb, "i", &ms);
-  keyboard_matrix_set_debounce_time(ms);
+  keyboard_matrix_set_debounce_ms(ms);
   return mrb_fixnum_value(ms);
 }
 
@@ -126,8 +126,8 @@ mrb_picoruby_keyboard_matrix_gem_init(mrb_state *mrb)
 
   mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(initialize), mrb_initialize, MRB_ARGS_ARG(3, 1));
   mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(scan), mrb_scan, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(debounce_time), mrb_get_debounce_time, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM_E(debounce_time), mrb_set_debounce_time, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(debounce_ms), mrb_get_debounce_ms, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM_E(debounce_ms), mrb_set_debounce_ms, MRB_ARGS_REQ(1));
 }
 
 void
