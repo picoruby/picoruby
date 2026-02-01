@@ -22,17 +22,6 @@ static uint8_t col_count = 0;
 static const uint8_t *keymap = NULL;
 static const uint8_t *modifier_map = NULL;
 
-// Data structure for KeyboardMatrix instance
-typedef struct {
-  uint8_t row_pins[16];
-  uint8_t col_pins[16];
-  uint8_t row_count;
-  uint8_t col_count;
-  uint8_t *keymap;
-  uint8_t *modifier_map;
-  bool initialized;
-} picorb_keyboard_matrix_data;
-
 // Key state tracking
 static bool key_state[MAX_ROWS][MAX_COLS];
 static uint32_t key_debounce_time[MAX_ROWS][MAX_COLS];

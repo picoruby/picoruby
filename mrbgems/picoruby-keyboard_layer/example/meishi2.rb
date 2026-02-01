@@ -9,7 +9,6 @@
 
 require 'keyboard_layer'
 
-include Keycode
 include LayerKeycode
 
 # Pin configuration for Meishi2

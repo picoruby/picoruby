@@ -2,6 +2,8 @@ require 'gpio'
 require 'machine'
 require 'usb/hid'
 
+include USB::HID::Keycode
+
 class KeyboardMatrix
   # Start scanning loop
   def start
