@@ -22,6 +22,8 @@ class KeyboardLayer
     # MO tap/hold management
     @mo_tap_keys = {}           # {[row, col] => mo_tap_state}
     @tap_threshold_ms = 200     # Tap threshold in milliseconds
+    @repush_threshold_ms = 200  # Repush threshold for double-tap-hold
+    @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
 
     # Create empty keymap for KeyboardMatrix
     # We only use row/col from events, not the keycode
@@ -59,6 +61,9 @@ class KeyboardLayer
     @tap_threshold_ms = value
   end
 
+  def repush_threshold_ms=(value)
+    @repush_threshold_ms = value
+  end
 
   def on_key_event(&block)
     @callback = block
@@ -81,6 +86,14 @@ class KeyboardLayer
     row = event[:row]
     col = event[:col]
     pressed = event[:pressed]
+    key_pos = [row, col]
+
+    # Track physically pressed keys for safety cleanup
+    if pressed
+      @keys_pressed[key_pos] = true
+    else
+      @keys_pressed.delete(key_pos)
+    end
 
     # Track other key presses for MO tap interruption BEFORE resolving keycode
     # This ensures layers are activated immediately when another key is pressed
@@ -206,6 +219,28 @@ class KeyboardLayer
     key_pos = [row, col]
 
     if pressed
+      if mo_state = @mo_tap_keys[key_pos]
+        # Re-press: check if within repush threshold for double-tap-hold
+        if mo_state[:state] == :tapped
+          elapsed = Machine.board_millis - mo_state[:released_at]
+          if elapsed < @repush_threshold_ms
+            # Double-tap-hold: start repeating tap keycode
+            mo_state[:state] = :repeating
+            mo_state[:pressed_at] = Machine.board_millis
+            # Send initial press event
+            @callback&.call(
+              row: row,
+              col: col,
+              keycode: tap_keycode,
+              modifier: 0,
+              pressed: true
+            )
+            return
+          end
+        end
+      end
+
+      # Normal press
       @mo_tap_keys[key_pos] = {
         layer_index: layer_index,
         tap_keycode: tap_keycode,
@@ -219,14 +254,34 @@ class KeyboardLayer
 
         case mo_state[:state]
         when :pressed
-          # Tap action: send tap keycode
+          # Tap action: send tap keycode once and enter tapped state
           if elapsed < @tap_threshold_ms && !mo_state[:other_key_pressed]
-            send_tap_keycode(row, col, tap_keycode)
-            return  # Don't delete yet, release event will be sent in next cycle
+            # Send press event
+            @callback&.call(
+              row: row,
+              col: col,
+              keycode: tap_keycode,
+              modifier: 0,
+              pressed: true
+            )
+            # Enter tapped_releasing state: release will be sent in next cycle, then wait for repush
+            mo_state[:state] = :tapped_releasing
+            mo_state[:released_at] = Machine.board_millis
+            mo_state[:tap_keycode] = tap_keycode
+            return  # Don't delete yet, release will be sent in next cycle
           end
         when :holding
           # Deactivate layer
           deactivate_layer(key_pos, layer_index)
+        when :repeating
+          # Send release event for repeating tap keycode
+          @callback&.call(
+            row: row,
+            col: col,
+            keycode: tap_keycode,
+            modifier: 0,
+            pressed: false
+          )
         end
 
         @mo_tap_keys.delete(key_pos)
@@ -247,6 +302,26 @@ class KeyboardLayer
           mo_state[:state] = :holding
           activate_layer(key_pos, mo_state[:layer_index])
         end
+      when :tapped_releasing
+        # Send release event for tap action, then transition to tapped state
+        row, col = key_pos
+        @callback&.call(
+          row: row,
+          col: col,
+          keycode: mo_state[:tap_keycode],
+          modifier: 0,
+          pressed: false
+        )
+        # Small delay to ensure USB release event is processed
+        sleep_ms(1)
+        # Transition to tapped state and wait for possible repush
+        mo_state[:state] = :tapped
+      when :tapped
+        # Check if repush threshold has expired
+        elapsed = Machine.board_millis - mo_state[:released_at]
+        if elapsed >= @repush_threshold_ms
+          keys_to_delete << key_pos
+        end
       when :releasing
         # Send release event for tap action
         row, col = key_pos
@@ -258,6 +333,25 @@ class KeyboardLayer
           pressed: false
         )
         keys_to_delete << key_pos
+      end
+    end
+
+    # Safety: If no keys are physically pressed, clean up stuck :repeating states
+    if @keys_pressed.empty?
+      @mo_tap_keys.each do |key_pos, mo_state|
+        # Only clean up :repeating state (not :tapped which is waiting for double-tap)
+        if mo_state[:state] == :repeating
+          row, col = key_pos
+          keycode = mo_state[:tap_keycode]
+          @callback&.call(
+            row: row,
+            col: col,
+            keycode: keycode,
+            modifier: 0,
+            pressed: false
+          )
+          keys_to_delete << key_pos
+        end
       end
     end
 
@@ -296,7 +390,6 @@ class KeyboardLayer
   # Send tap keycode as a quick press/release event
   # Schedule release for next scan cycle to ensure proper USB timing
   def send_tap_keycode(row, col, keycode)
-    puts "DEBUG send_tap_keycode: keycode=0x#{keycode.to_s(16)} (#{keycode})"
     # Send press event
     @callback&.call(
       row: row,
