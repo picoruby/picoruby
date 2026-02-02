@@ -82,6 +82,12 @@ class KeyboardLayer
     col = event[:col]
     pressed = event[:pressed]
 
+    # Track other key presses for MO tap interruption BEFORE resolving keycode
+    # This ensures layers are activated immediately when another key is pressed
+    if pressed
+      mark_other_key_pressed
+    end
+
     # Resolve keycode from layers
     unless keycode = resolve_keycode(row, col)
       # No keycode found - ignore
@@ -106,11 +112,6 @@ class KeyboardLayer
       handle_tg_key(layer_index, pressed)
       # TG keys don't generate key events
       return
-    end
-
-    # Track other key presses for MO tap interruption
-    if pressed && keycode != KC_NO
-      mark_other_key_pressed
     end
 
     # Normal key event - pass to user callback
@@ -221,6 +222,7 @@ class KeyboardLayer
           # Tap action: send tap keycode
           if elapsed < @tap_threshold_ms && !mo_state[:other_key_pressed]
             send_tap_keycode(row, col, tap_keycode)
+            return  # Don't delete yet, release event will be sent in next cycle
           end
         when :holding
           # Deactivate layer
@@ -234,23 +236,45 @@ class KeyboardLayer
 
   # Update MO tap key states (check for timeout and transitions)
   def update_mo_tap_keys
+    keys_to_delete = []
+
     @mo_tap_keys.each do |key_pos, mo_state|
-      next if mo_state[:state] != :pressed
+      case mo_state[:state]
+      when :pressed
+        elapsed = Machine.board_millis - mo_state[:pressed_at]
 
-      elapsed = Machine.board_millis - mo_state[:pressed_at]
-
-      if elapsed >= @tap_threshold_ms || mo_state[:other_key_pressed]
-        mo_state[:state] = :holding
-        activate_layer(key_pos, mo_state[:layer_index])
+        if elapsed >= @tap_threshold_ms || mo_state[:other_key_pressed]
+          mo_state[:state] = :holding
+          activate_layer(key_pos, mo_state[:layer_index])
+        end
+      when :releasing
+        # Send release event for tap action
+        row, col = key_pos
+        @callback&.call(
+          row: row,
+          col: col,
+          keycode: mo_state[:tap_keycode],
+          modifier: 0,
+          pressed: false
+        )
+        keys_to_delete << key_pos
       end
+    end
+
+    # Clean up released keys
+    keys_to_delete.each do |key_pos|
+      @mo_tap_keys.delete(key_pos)
     end
   end
 
   # Mark that another key was pressed (for MO tap interruption)
+  # Immediately activate layer when another key is pressed
   def mark_other_key_pressed
     @mo_tap_keys.each do |key_pos, mo_state|
       if mo_state[:state] == :pressed
         mo_state[:other_key_pressed] = true
+        mo_state[:state] = :holding
+        activate_layer(key_pos, mo_state[:layer_index])
       end
     end
   end
@@ -270,7 +294,9 @@ class KeyboardLayer
   end
 
   # Send tap keycode as a quick press/release event
+  # Schedule release for next scan cycle to ensure proper USB timing
   def send_tap_keycode(row, col, keycode)
+    puts "DEBUG send_tap_keycode: keycode=0x#{keycode.to_s(16)} (#{keycode})"
     # Send press event
     @callback&.call(
       row: row,
@@ -279,13 +305,15 @@ class KeyboardLayer
       modifier: 0,
       pressed: true
     )
-    # Send release event
-    @callback&.call(
-      row: row,
-      col: col,
-      keycode: keycode,
-      modifier: 0,
-      pressed: false
-    )
+    # Schedule release event for next update
+    # @type var key_pos: [Integer, Integer]
+    key_pos = [row, col]
+    @mo_tap_keys[key_pos] = {
+      layer_index: nil,
+      tap_keycode: keycode,
+      pressed_at: Machine.board_millis,
+      state: :releasing,
+      other_key_pressed: false
+    }
   end
 end
