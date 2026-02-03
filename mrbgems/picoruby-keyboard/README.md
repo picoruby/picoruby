@@ -1,4 +1,4 @@
-# picoruby-keyboard_layer
+# picoruby-keyboard
 
 Layer switching functionality for keyboard matrix in PicoRuby.
 
@@ -14,13 +14,13 @@ This gem provides layer management for keyboard matrix, enabling:
 ## Basic Usage
 
 ```ruby
-require 'keyboard_layer'
+require 'keyboard'
 
 include USB::HID::Keycode
 include LayerKeycode
 
 # Initialize with row/col pins
-kb = KeyboardLayer.new([0, 1, 2], [3, 4, 5])
+kb = Keyboard.new([0, 1, 2], [3, 4, 5])
 
 # Add default layer
 kb.add_layer(:default, [
@@ -37,14 +37,11 @@ kb.add_layer(:function, [
 ])
 
 # Set callback for key events
-kb.on_key_event do |event|
-  # KeyboardLayer handles press/release internally
+kb.start do |event|
+  # Keyboard handles press/release internally
   # event[:keycode] is 0 on release automatically
   USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
-
-# Start scanning
-kb.start
 ```
 
 ## Layer Priority
@@ -58,7 +55,7 @@ If a key is `KC_NO` (transparent), it falls through to the next layer.
 
 ## Modifier Keys
 
-KeyboardLayer automatically handles modifier keys (Shift, Ctrl, Alt, GUI). Modifier keys use USB HID keycodes 0xE0-0xE7:
+Keyboard automatically handles modifier keys (Shift, Ctrl, Alt, GUI). Modifier keys use USB HID keycodes 0xE0-0xE7:
 
 ```ruby
 KC_LCTL  # 0xE0 - Left Control
@@ -73,7 +70,7 @@ KC_RGUI  # 0xE7 - Right GUI
 
 ### Multiple Modifier Support
 
-Multiple modifiers can be pressed simultaneously. KeyboardLayer automatically accumulates all active modifiers:
+Multiple modifiers can be pressed simultaneously. Keyboard automatically accumulates all active modifiers:
 
 ```ruby
 # Example: Shift + Ctrl + A
@@ -122,7 +119,7 @@ Behavior:
 
 Configuration:
 ```ruby
-kb = KeyboardLayer.new([0, 1], [2, 3])
+kb = Keyboard.new([0, 1], [2, 3])
 kb.tap_threshold_ms = 150  # Change tap threshold (default: 200ms)
 ```
 
@@ -145,7 +142,7 @@ keymap = [
 include USB::HID::Keycode
 include LayerKeycode
 
-kb = KeyboardLayer.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 40)
+kb = Keyboard.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 40)
 
 # Base layer with Fn and Numpad toggle
 kb.add_layer(:base, [
@@ -174,7 +171,7 @@ kb.add_layer(:numpad, [
 kb.default_layer = :base
 
 kb.on_key_event do |event|
-  # Simplified: KeyboardLayer handles press/release internally
+  # Simplified: Keyboard handles press/release internally
   USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
 
@@ -208,7 +205,7 @@ When MO(1) is pressed, all keys fall through to the default layer.
 
 ## API Reference
 
-### KeyboardLayer
+### Keyboard
 
 #### `initialize(row_pins, col_pins, debounce_ms: 40)`
 Create a new keyboard layer manager.

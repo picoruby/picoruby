@@ -13,7 +13,7 @@ GPIO keyboard matrix scanner
 
 ## Usage
 
-**Note:** This gem only scans the physical matrix and reports raw row/col events. For keymap and layer management, use `picoruby-keyboard_layer`.
+**Note:** This gem only scans the physical matrix and reports raw row/col events. For keymap and layer management, use `picoruby-keyboard`.
 
 ```ruby
 # Define GPIO pins

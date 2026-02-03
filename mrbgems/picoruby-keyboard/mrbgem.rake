@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('picoruby-keyboard_layer') do |spec|
+MRuby::Gem::Specification.new('picoruby-keyboard') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Layer switching functionality for keyboard matrix'

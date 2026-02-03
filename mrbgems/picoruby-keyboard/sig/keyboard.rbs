@@ -1,5 +1,5 @@
 # Layer switching functionality for keyboard matrix
-class KeyboardLayer
+class Keyboard
   include USB::HID::Keycode
   include LayerKeycode
 
@@ -28,17 +28,15 @@ class KeyboardLayer
   @callback: (^(key_event_t) -> void) | nil
 
   # Initialize keyboard layer manager
-  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer) -> KeyboardLayer
+  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer) -> Keyboard
   # Add a layer with name and keymap
   def add_layer: (Symbol name, Array[Integer] keymap) -> void
   # Set default layer
   def default_layer=: (Symbol name) -> void
   # Set tap threshold in milliseconds
   def tap_threshold_ms=: (Integer value) -> Integer
-  # Set event callback
-  def on_key_event: () { (key_event_t) -> void } -> void
   # Start scanning loop
-  def start: () -> void
+  def start: () { (key_event_t) -> void } -> void
 
   # Handle key event from KeyboardMatrix
   private def handle_event: (Hash[Symbol, untyped] event) -> void

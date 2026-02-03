@@ -2,9 +2,9 @@ require 'keyboard_matrix'
 require 'usb/hid'
 
 
-# KeyboardLayer class provides layer switching functionality
+# Keyboard class provides layer switching functionality
 # It wraps KeyboardMatrix and manages multiple layers (keymaps)
-class KeyboardLayer
+class Keyboard
   include USB::HID::Keycode
   include LayerKeycode
 
@@ -65,11 +65,9 @@ class KeyboardLayer
     @repush_threshold_ms = value
   end
 
-  def on_key_event(&block)
+  def start(&block)
     @callback = block
-  end
 
-  def start
     unless @callback
       raise "Callback block is required. Use on_key_event to set a callback."
     end
