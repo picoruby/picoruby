@@ -90,7 +90,7 @@ mrb_scan(mrb_state *mrb, mrb_value self)
 
   key_event_t event;
   if (keyboard_matrix_scan(&event)) {
-    mrb_value hash = mrb_hash_new(mrb);
+    mrb_value hash = mrb_hash_new_capa(mrb, 5);
     mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(row)), mrb_fixnum_value(event.row));
     mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(col)), mrb_fixnum_value(event.col));
     mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(keycode)), mrb_fixnum_value(event.keycode));
