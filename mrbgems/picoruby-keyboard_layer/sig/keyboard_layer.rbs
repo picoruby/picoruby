@@ -1,5 +1,6 @@
 # Layer switching functionality for keyboard matrix
 class KeyboardLayer
+  include USB::HID::Keycode
   include LayerKeycode
 
   # Transparent key constant
@@ -41,8 +42,12 @@ class KeyboardLayer
 
   # Handle key event from KeyboardMatrix
   private def handle_event: (Hash[Symbol, untyped] event) -> void
+  # Check if keycode is a modifier key
+  private def is_modifier_key?: (Integer keycode) -> bool
+  # Resolve keycode and modifier from layer stack
+  private def resolve_key: (Integer row, Integer col) -> [Integer, Integer]
   # Resolve keycode from layer stack
-  private def resolve_keycode: (Integer row, Integer col) -> (Integer | nil)
+  private def resolve_keycode: (Integer row, Integer col) -> Integer
   # Handle momentary layer key press/release
   private def handle_mo_key: (Integer row, Integer col, Integer layer_index, bool pressed) -> void
   # Handle toggle layer key press

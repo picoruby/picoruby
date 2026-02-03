@@ -8,31 +8,22 @@
 static void
 mrbc_kb_matrix_free(mrbc_value *self)
 {
-  picorb_keyboard_matrix_data *matrix = (picorb_keyboard_matrix_data *)self->instance->data;
-  if (matrix->keymap) {
-    mrbc_raw_free(matrix->keymap);
-  }
-  if (matrix->modifier_map) {
-    mrbc_raw_free(matrix->modifier_map);
-  }
+  // No dynamic allocations to free anymore
 }
 
 static void
 c_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  // Expected args: row_pins_ary, col_pins_ary, keymap_ary, [modifier_map_ary]
-  if (argc < 3) {
+  // Expected args: row_pins_ary, col_pins_ary
+  if (argc < 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
   mrbc_value row_pins_ary = GET_ARG(1);
   mrbc_value col_pins_ary = GET_ARG(2);
-  mrbc_value keymap_ary = GET_ARG(3);
-  mrbc_value modifier_map_ary = (argc >= 4) ? GET_ARG(4) : mrbc_nil_value();
 
-  if (row_pins_ary.tt != MRBC_TT_ARRAY || col_pins_ary.tt != MRBC_TT_ARRAY ||
-      keymap_ary.tt != MRBC_TT_ARRAY) {
+  if (row_pins_ary.tt != MRBC_TT_ARRAY || col_pins_ary.tt != MRBC_TT_ARRAY) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "arguments must be arrays");
     return;
   }
@@ -62,41 +53,10 @@ c_new(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
 
-  // Get keymap
-  int keymap_len = keymap_ary.array->n_stored;
-  matrix->keymap = (uint8_t*)mrbc_raw_alloc(keymap_len);
-  if (!matrix->keymap) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "memory allocation failed");
-    return;
-  }
-  for (int i = 0; i < keymap_len; i++) {
-    mrbc_value val = mrbc_array_get(&keymap_ary, i);
-    if (val.tt == MRBC_TT_INTEGER) {
-      matrix->keymap[i] = (uint8_t)val.i;
-    }
-  }
-
-  // Get modifier map (optional)
-  if (modifier_map_ary.tt == MRBC_TT_ARRAY) {
-    int mod_len = modifier_map_ary.array->n_stored;
-    matrix->modifier_map = (uint8_t *)mrbc_raw_alloc(mod_len);
-    if (!matrix->modifier_map) {
-      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "memory allocation failed");
-      return;
-    }
-    for (int i = 0; i < mod_len; i++) {
-      mrbc_value val = mrbc_array_get(&modifier_map_ary, i);
-      if (val.tt == MRBC_TT_INTEGER) {
-        matrix->modifier_map[i] = (uint8_t)val.i;
-      }
-    }
-  }
-
   // Initialize hardware
   matrix->initialized = keyboard_matrix_init(
     matrix->row_pins, matrix->row_count,
-    matrix->col_pins, matrix->col_count,
-    matrix->keymap, matrix->modifier_map
+    matrix->col_pins, matrix->col_count
   );
 
   SET_RETURN(instance);
@@ -114,7 +74,7 @@ c_scan(mrbc_vm *vm, mrbc_value *v, int argc)
 
   key_event_t event;
   if (keyboard_matrix_scan(&event)) {
-    mrbc_value hash = mrbc_hash_new(vm, 5);
+    mrbc_value hash = mrbc_hash_new(vm, 3);
 
     mrbc_value key, val;
 
@@ -126,16 +86,6 @@ c_scan(mrbc_vm *vm, mrbc_value *v, int argc)
     // col
     key = mrbc_symbol_value(mrbc_str_to_symid("col"));
     val = mrbc_integer_value(event.col);
-    mrbc_hash_set(&hash, &key, &val);
-
-    // keycode
-    key = mrbc_symbol_value(mrbc_str_to_symid("keycode"));
-    val = mrbc_integer_value(event.keycode);
-    mrbc_hash_set(&hash, &key, &val);
-
-    // modifier
-    key = mrbc_symbol_value(mrbc_str_to_symid("modifier"));
-    val = mrbc_integer_value(event.modifier);
     mrbc_hash_set(&hash, &key, &val);
 
     // pressed

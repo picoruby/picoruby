@@ -8,6 +8,7 @@
 
 require 'keyboard_layer'
 
+include USB::HID::Keycode
 include LayerKeycode
 
 # Pin configuration for Meishi2
@@ -20,12 +21,12 @@ kb = KeyboardLayer.new(ROW_PINS, COL_PINS, debounce_ms: 40)
 kb.tap_threshold_ms = 200
 
 kb.add_layer(:default, [
-  MO(1, KC_SPACE), KC_A, KC_B, KC_LSHIFT
+  MO(1, KC_SPACE), KC_A, KC_B, KC_LSFT
 ])
 
 # Layer 1: Accessed by holding key[0,0]
 kb.add_layer(:layer1, [
-  MO(1, KC_SPACE), KC_1, KC_2, KC_LSHIFT
+  MO(1, KC_SPACE), KC_1, KC_2, KC_LSFT
 ])
 
 # Set up key event handler

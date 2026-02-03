@@ -5,5 +5,4 @@ MRuby::Gem::Specification.new('picoruby-keyboard_matrix') do |spec|
 
   spec.add_dependency 'picoruby-gpio'
   spec.add_dependency 'picoruby-machine'
-  spec.add_dependency 'picoruby-usb-hid'
 end

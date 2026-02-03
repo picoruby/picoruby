@@ -5,17 +5,13 @@ class KeyboardMatrix
   type key_event = {
     row: Integer,
     col: Integer,
-    keycode: Integer,
-    modifier: Integer,
     pressed: bool
   }
 
   # Initialize keyboard matrix
   # @param row_pins [Array<Integer>] GPIO pin numbers for rows
   # @param col_pins [Array<Integer>] GPIO pin numbers for columns
-  # @param keymap [Array<Integer>] Keycode map (row-major order)
-  # @param modifier_map [Array<Integer>] Modifier map (optional)
-  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, Array[Integer] keymap, ?Array[Integer] modifier_map) -> KeyboardMatrix
+  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins) -> KeyboardMatrix
 
   # Scan matrix once and return event if available
   def scan: () -> key_event?

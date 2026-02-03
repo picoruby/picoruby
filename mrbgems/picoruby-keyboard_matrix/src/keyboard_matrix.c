@@ -19,8 +19,6 @@ static uint8_t row_pins[MAX_ROWS];
 static uint8_t col_pins[MAX_COLS];
 static uint8_t row_count = 0;
 static uint8_t col_count = 0;
-static const uint8_t *keymap = NULL;
-static const uint8_t *modifier_map = NULL;
 
 // Key state tracking
 static bool key_state[MAX_ROWS][MAX_COLS];
@@ -58,8 +56,7 @@ queue_pop(key_event_t *event)
 
 bool
 keyboard_matrix_init(const uint8_t *rows, uint8_t r_count,
-                     const uint8_t *cols, uint8_t c_count,
-                     const uint8_t *kmap, uint8_t *mod_map)
+                     const uint8_t *cols, uint8_t c_count)
 {
   if (r_count > MAX_ROWS || c_count > MAX_COLS) {
     return false;
@@ -67,8 +64,6 @@ keyboard_matrix_init(const uint8_t *rows, uint8_t r_count,
 
   row_count = r_count;
   col_count = c_count;
-  keymap = kmap;
-  modifier_map = mod_map;
 
   // Copy pin numbers
   memcpy(row_pins, rows, r_count);
@@ -124,13 +119,6 @@ keyboard_matrix_scan(key_event_t *event)
           key_event_t ev;
           ev.row = row;
           ev.col = col;
-
-          // Get keycode from keymap
-          uint16_t index = row * col_count + col;
-          ev.keycode = keymap[index];
-
-          // Get modifier if modifier_map is provided
-          ev.modifier = modifier_map ? modifier_map[index] : 0;
           ev.pressed = current;
 
           // Push to queue

@@ -1,8 +1,11 @@
 require 'keyboard_matrix'
+require 'usb/hid'
+
 
 # KeyboardLayer class provides layer switching functionality
 # It wraps KeyboardMatrix and manages multiple layers (keymaps)
 class KeyboardLayer
+  include USB::HID::Keycode
   include LayerKeycode
 
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
@@ -25,12 +28,8 @@ class KeyboardLayer
     @repush_threshold_ms = 200  # Repush threshold for double-tap-hold
     @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
 
-    # Create empty keymap for KeyboardMatrix
-    # We only use row/col from events, not the keycode
-    empty_keymap = Array.new(@row_count * @col_count, KC_NO)
-
     # Initialize underlying KeyboardMatrix
-    @matrix = KeyboardMatrix.new(row_pins, col_pins, empty_keymap)
+    @matrix = KeyboardMatrix.new(row_pins, col_pins)
     @matrix.debounce_ms = debounce_ms
 
     # User callback for key events
@@ -82,6 +81,16 @@ class KeyboardLayer
 
   private
 
+  def is_modifier_key?(keycode)
+    case keycode
+    when KC_LCTL, KC_LSFT, KC_LALT, KC_LGUI,
+         KC_RCTL, KC_RSFT, KC_RALT, KC_RGUI
+      true
+    else
+      false
+    end
+  end
+
   def handle_event(event)
     row = event[:row]
     col = event[:col]
@@ -101,11 +110,8 @@ class KeyboardLayer
       mark_other_key_pressed
     end
 
-    # Resolve keycode from layers
-    unless keycode = resolve_keycode(row, col)
-      # No keycode found - ignore
-      return
-    end
+    # Resolve keycode AND modifier from layers
+    keycode, modifier = resolve_key(row, col)
 
     # Handle special layer keycodes
     if is_mo?(keycode)
@@ -128,18 +134,17 @@ class KeyboardLayer
     end
 
     # Normal key event - pass to user callback
-    if keycode && keycode != KC_NO
-      @callback&.call(
-        row: row,
-        col: col,
-        keycode: keycode,
-        modifier: event[:modifier] || 0,
-        pressed: pressed
-      )
-    end
+    # Send event for ALL keys, including modifier-only (keycode=0, modifier!=0)
+    @callback&.call(
+      row: row,
+      col: col,
+      keycode: keycode,
+      modifier: modifier,
+      pressed: pressed
+    )
   end
 
-  def resolve_keycode(row, col)
+  def resolve_key(row, col)
     index = row * @col_count + col
 
     # Build layer priority list: locked -> momentary stack (LIFO) -> default
@@ -151,7 +156,6 @@ class KeyboardLayer
     end
 
     # 2. Momentary layers (LIFO - last pressed has highest priority)
-    #@layer_stack.reverse.each do |layer_index| # mruby/c does not support Array#each in reverse
     i = @layer_stack.size - 1
     while 0 <= i do
       priority_layers << @layer_stack[i]
@@ -173,12 +177,23 @@ class KeyboardLayer
       next unless keymap
 
       keycode = keymap[index]
-      # If not transparent (KC_NO), use this keycode
-      return keycode if keycode != KC_NO
+      next if keycode == KC_NO  # Transparent - try next layer
+
+      # Found a key - check if it's a modifier
+      if is_modifier_key?(keycode)
+        return [0, keycode]  # Return (keycode=0, modifier=keycode)
+      else
+        return [keycode, 0]  # Return (keycode=keycode, modifier=0)
+      end
     end
 
-    # All layers are transparent - return KC_NO
-    KC_NO
+    # All layers transparent
+    return [0, 0]
+  end
+
+  def resolve_keycode(row, col)
+    keycode, _ = resolve_key(row, col)
+    keycode
   end
 
   def handle_mo_key(row, col, layer_index, pressed)
