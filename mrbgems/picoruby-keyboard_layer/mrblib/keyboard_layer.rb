@@ -142,14 +142,16 @@ class KeyboardLayer
       accumulated_modifier |= key_info[:modifier]
     end
 
+    # Prepare keycode for USB HID: 0 on release, actual keycode on press
+    keycode_for_hid = pressed ? keycode : 0
+
     # Send event with accumulated modifier
-    # For modifier-only keys (keycode=0), still send the event to update HID state
     @callback&.call(
       row: row,
       col: col,
-      keycode: keycode,
+      keycode: keycode_for_hid,
       modifier: accumulated_modifier,
-      pressed: pressed
+      pressed: pressed  # Available for debugging/logging
     )
   end
 

@@ -31,11 +31,7 @@ kb.add_layer(:layer1, [
 
 # Set up key event handler
 kb.on_key_event do |event|
-  if event[:pressed]
-    USB::HID.keyboard_send(event[:modifier], event[:keycode])
-  else
-    USB::HID.keyboard_release
-  end
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
 
 # Start keyboard scanning

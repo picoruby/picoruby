@@ -15,9 +15,8 @@ This gem provides layer management for keyboard matrix, enabling:
 
 ```ruby
 require 'keyboard_layer'
-require 'usb/hid'
 
-include Keycode
+include USB::HID::Keycode
 include LayerKeycode
 
 # Initialize with row/col pins
@@ -25,18 +24,12 @@ kb = KeyboardLayer.new([0, 1, 2], [3, 4, 5])
 
 # Add default layer
 kb.add_layer(:default, [
-  KC_ESC,  KC_1,    KC_2,
-  KC_TAB,  KC_Q,    KC_W,
-  KC_LCTL, KC_A,    KC_S
-])
-
-# Add function layer with MO(1) key at position [0, 2]
-kb.add_layer(:default, [
   KC_ESC,  KC_1,    MO(1),     # MO(1): Fn key
   KC_TAB,  KC_Q,    KC_W,
-  KC_LCTL, KC_A,    KC_S
+  KC_LSFT, KC_A,    KC_S       # KC_LSFT: modifier key (0xE1)
 ])
 
+# Add function layer
 kb.add_layer(:function, [
   KC_GRV,  KC_F1,   KC_NO,     # KC_NO: transparent
   KC_NO,   KC_NO,   KC_NO,
@@ -45,11 +38,9 @@ kb.add_layer(:function, [
 
 # Set callback for key events
 kb.on_key_event do |event|
-  if event[:pressed]
-    USB::HID.keyboard_send(event[:modifier], event[:keycode])
-  else
-    USB::HID.keyboard_release
-  end
+  # KeyboardLayer handles press/release internally
+  # event[:keycode] is 0 on release automatically
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
 
 # Start scanning
@@ -64,6 +55,37 @@ When multiple layers are active, keys are resolved in this order:
 3. **Default layer**
 
 If a key is `KC_NO` (transparent), it falls through to the next layer.
+
+## Modifier Keys
+
+KeyboardLayer automatically handles modifier keys (Shift, Ctrl, Alt, GUI). Modifier keys use USB HID keycodes 0xE0-0xE7:
+
+```ruby
+KC_LCTL  # 0xE0 - Left Control
+KC_LSFT  # 0xE1 - Left Shift
+KC_LALT  # 0xE2 - Left Alt
+KC_LGUI  # 0xE3 - Left GUI (Windows/Command)
+KC_RCTL  # 0xE4 - Right Control
+KC_RSFT  # 0xE5 - Right Shift
+KC_RALT  # 0xE6 - Right Alt
+KC_RGUI  # 0xE7 - Right GUI
+```
+
+### Multiple Modifier Support
+
+Multiple modifiers can be pressed simultaneously. KeyboardLayer automatically accumulates all active modifiers:
+
+```ruby
+# Example: Shift + Ctrl + A
+# 1. Press Shift → modifier = 0x02
+# 2. Press Ctrl  → modifier = 0x02 | 0x01 = 0x03
+# 3. Press A     → sends (modifier: 0x03, keycode: KC_A)
+# 4. Release A   → sends (modifier: 0x03, keycode: 0)
+# 5. Release Ctrl → modifier = 0x02
+# 6. Release Shift → modifier = 0x00
+```
+
+Modifier keys placed in different layers will also work correctly with the layer priority system.
 
 ## Special Keycodes
 
@@ -120,17 +142,17 @@ keymap = [
 ## Advanced Example
 
 ```ruby
-include Keycode
+include USB::HID::Keycode
 include LayerKeycode
 
-kb = KeyboardLayer.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 10)
+kb = KeyboardLayer.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 40)
 
 # Base layer with Fn and Numpad toggle
 kb.add_layer(:base, [
   KC_ESC,  KC_1,  KC_2,    KC_3,
   KC_TAB,  KC_Q,  KC_W,    KC_E,
   MO(1),   KC_A,  KC_S,    KC_D,    # MO(1): Fn key
-  KC_LCTL, KC_Z,  TG(2),   KC_C     # TG(2): Numpad toggle
+  KC_LSFT, KC_Z,  TG(2),   KC_C     # TG(2): Numpad toggle, KC_LSFT: Shift
 ])
 
 # Function layer (accessed via MO(1))
@@ -152,11 +174,8 @@ kb.add_layer(:numpad, [
 kb.default_layer = :base
 
 kb.on_key_event do |event|
-  if event[:pressed]
-    USB::HID.keyboard_send(event[:modifier], event[:keycode])
-  else
-    USB::HID.keyboard_release
-  end
+  # Simplified: KeyboardLayer handles press/release internally
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
 
 kb.start
@@ -241,6 +260,10 @@ Create toggle layer switch keycode.
 - Multiple MO keys can be active simultaneously (last pressed has priority)
 - Only one TG layer can be locked at a time
 - KC_NO (0x00) is reserved for transparent keys
+- **Modifier keys** (0xE0-0xE7) are automatically detected and converted to modifier bits
+- Multiple modifiers are accumulated via bitwise OR
+- On key release, `event[:keycode]` is automatically set to 0
+- The `event[:pressed]` field is available for debugging or custom logic
 
 ## License
 
