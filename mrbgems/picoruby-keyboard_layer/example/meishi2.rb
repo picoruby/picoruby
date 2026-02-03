@@ -20,17 +20,12 @@ kb = KeyboardLayer.new(ROW_PINS, COL_PINS, debounce_ms: 40)
 kb.tap_threshold_ms = 200
 
 kb.add_layer(:default, [
-  MO(1, KC_SPACE), KC_A, KC_B, MO(2, KC_ENTER)
+  MO(1, KC_SPACE), KC_A, KC_B, KC_LSHIFT
 ])
 
 # Layer 1: Accessed by holding key[0,0]
 kb.add_layer(:layer1, [
-  MO(1, KC_SPACE), KC_1, KC_2, MO(2, KC_ENTER)
-])
-
-# Layer 2: Accessed by holding key[1,1]
-kb.add_layer(:layer2, [
-  MO(1, KC_SPACE), KC_F1, KC_F2, MO(2, KC_ENTER)
+  MO(1, KC_SPACE), KC_1, KC_2, KC_LSHIFT
 ])
 
 # Set up key event handler
@@ -45,7 +40,6 @@ end
 # Start keyboard scanning
 puts "Meishi2 keyboard starting..."
 puts "Key layout:"
-puts "  default: [Space/L1] [A]  [B]  [Enter/L2]"
-puts "  layer1:  [Space/L1] [1]  [2]  [Enter/L2]"
-puts "  layer2:  [Space/L1] [F1] [F2] [Enter/L2]"
+puts "  default: [Space/L1] [A]  [B]  [Shift]"
+puts "  layer1:  [Space/L1] [1]  [2]  [Shift]"
 kb.start
