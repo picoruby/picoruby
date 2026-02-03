@@ -27,6 +27,7 @@ class KeyboardLayer
     @tap_threshold_ms = 200     # Tap threshold in milliseconds
     @repush_threshold_ms = 200  # Repush threshold for double-tap-hold
     @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
+    @active_keys = {}           # Track active keys with their resolved keycode/modifier: {[row, col] => {keycode:, modifier:}}
 
     # Initialize underlying KeyboardMatrix
     @matrix = KeyboardMatrix.new(row_pins, col_pins)
@@ -82,13 +83,8 @@ class KeyboardLayer
   private
 
   def is_modifier_key?(keycode)
-    case keycode
-    when KC_LCTL, KC_LSFT, KC_LALT, KC_LGUI,
-         KC_RCTL, KC_RSFT, KC_RALT, KC_RGUI
-      true
-    else
-      false
-    end
+    # USB HID modifier keys are in the range 0xE0-0xE7
+    keycode >= 0xE0 && keycode <= 0xE7
   end
 
   def handle_event(event)
@@ -133,13 +129,26 @@ class KeyboardLayer
       return
     end
 
-    # Normal key event - pass to user callback
-    # Send event for ALL keys, including modifier-only (keycode=0, modifier!=0)
+    # Update active keys state
+    if pressed
+      @active_keys[key_pos] = {keycode: keycode, modifier: modifier}
+    else
+      @active_keys.delete(key_pos)
+    end
+
+    # Calculate accumulated modifier from all active keys
+    accumulated_modifier = 0
+    @active_keys.each do |_, key_info|
+      accumulated_modifier |= key_info[:modifier]
+    end
+
+    # Send event with accumulated modifier
+    # For modifier-only keys (keycode=0), still send the event to update HID state
     @callback&.call(
       row: row,
       col: col,
       keycode: keycode,
-      modifier: modifier,
+      modifier: accumulated_modifier,
       pressed: pressed
     )
   end
@@ -181,7 +190,9 @@ class KeyboardLayer
 
       # Found a key - check if it's a modifier
       if is_modifier_key?(keycode)
-        return [0, keycode]  # Return (keycode=0, modifier=keycode)
+        # Convert modifier keycode (0xE0-0xE7) to modifier bit (0x01-0x80)
+        modifier_bit = 1 << (keycode - 0xE0)
+        return [0, modifier_bit]  # Return (keycode=0, modifier=bit)
       else
         return [keycode, 0]  # Return (keycode=keycode, modifier=0)
       end
