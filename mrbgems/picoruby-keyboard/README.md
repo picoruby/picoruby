@@ -288,6 +288,94 @@ Create toggle layer switch keycode.
 - `layer_index`: Layer index (0-255)
 - Returns: Special keycode
 
+## Combos
+
+Combos allow you to trigger a specific action when multiple keys are pressed simultaneously. This is a QMK-compatible feature.
+
+### Basic Usage
+
+```ruby
+include USB::HID::Keycode
+include LayerKeycode
+
+kb = Keyboard.new([0, 1], [2, 3])
+
+# Define combo: A+B pressed together -> sends ESC
+kb.add_combo([KC_A, KC_B], KC_ESC)
+
+# Define combo: C+D pressed together -> sends TAB
+kb.add_combo([KC_C, KC_D], KC_TAB)
+
+# Define combo with 3 keys: A+B+C -> sends ENTER
+kb.add_combo([KC_A, KC_B, KC_C], KC_ENT)
+```
+
+### Configuration
+
+```ruby
+# Set combo detection window (default: 50ms)
+# Keys must be pressed within this time window to trigger combo
+kb.combo_term_ms = 50
+
+# Optional: Force combos to check from specific layer (default: current layer)
+kb.combo_reference_layer = :default
+```
+
+### How Combos Work
+
+1. **Key Press Detection**: When a key that is part of any combo is pressed, it goes into a combo buffer
+2. **Combo Matching**: The system checks if all keys in any defined combo are present in the buffer
+3. **Longest Match Wins**: If multiple combos match (e.g., A+B and A+B+C), the longer combo takes priority
+4. **Timeout**: If combo doesn't complete within `combo_term_ms`, buffered keys are sent as normal key presses
+5. **Early Release**: If a combo key is released before combo triggers, it sends a tap of that key
+
+### Layer Interaction
+
+- By default, combos check keycodes from the **current active layer**
+- Use `combo_reference_layer=` to force combo detection from a specific layer
+
+```ruby
+# Layer setup
+kb.add_layer(:default, [KC_A, KC_B, KC_C, KC_D])
+kb.add_layer(:layer1, [KC_1, KC_2, KC_3, KC_4])
+
+# Combo defined with KC_A and KC_B
+kb.add_combo([KC_A, KC_B], KC_ESC)
+
+# In :default layer: Press physical keys for A+B -> ESC triggers
+# In :layer1 layer: A+B keycodes don't exist on current layer, combo won't trigger
+```
+
+### Combo vs LT/MT Interaction
+
+- Combo detection takes priority over normal key processing
+- LT/MT keys are processed before combo detection, so their base keycodes can be used in combos
+- Combo buffer is cleared when combo triggers, preventing interference
+
+### Example: Gaming Combos
+
+```ruby
+include USB::HID::Keycode
+
+kb = Keyboard.new([0, 1, 2], [3, 4, 5])
+
+kb.add_layer(:default, [
+  KC_W, KC_A, KC_S,
+  KC_D, KC_SPC, KC_LSFT
+])
+
+# Gaming combos
+kb.add_combo([KC_W, KC_A], KC_Q)      # Diagonal movement -> Q ability
+kb.add_combo([KC_W, KC_D], KC_E)      # Diagonal movement -> E ability
+kb.add_combo([KC_SPC, KC_LSFT], KC_R) # Jump + Run -> Ultimate
+
+kb.combo_term_ms = 30  # Faster detection for gaming
+
+kb.start do |event|
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
+end
+```
+
 ## Implementation Notes
 
 - Layer indices are assigned in the order layers are added (0, 1, 2, ...)

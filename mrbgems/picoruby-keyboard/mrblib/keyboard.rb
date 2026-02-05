@@ -29,6 +29,12 @@ class Keyboard
     @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
     @active_keys = {}           # Track active keys with their resolved keycode/modifier: {[row, col] => {keycode:, modifier:}}
 
+    # Combo key management
+    @combos = []                # [{keycodes: [...], action: keycode_or_symbol}, ...]
+    @combo_buffer = []          # [{key_pos: [row, col], pressed_at: timestamp, keycode: keycode}, ...]
+    @combo_term_ms = 50         # Detection window in milliseconds
+    @combo_reference_layer = nil  # nil = current layer, or layer_index
+
     # Initialize underlying KeyboardMatrix
     @matrix = KeyboardMatrix.new(row_pins, col_pins)
     @matrix.debounce_ms = debounce_ms
@@ -63,6 +69,27 @@ class Keyboard
 
   def repush_threshold_ms=(value)
     @repush_threshold_ms = value
+  end
+
+  def combo_term_ms=(value)
+    @combo_term_ms = value
+  end
+
+  def combo_reference_layer=(layer_name)
+    if layer_name && !@layers.has_key?(layer_name)
+      raise ArgumentError, "Layer :#{layer_name} does not exist"
+    end
+    @combo_reference_layer = layer_name ? @layer_names.index(layer_name) : nil
+  end
+
+  # Add a combo definition
+  # @param keycodes [Array<Integer>] Array of keycodes that trigger the combo
+  # @param action [Integer] Keycode to send when combo triggers
+  def add_combo(keycodes, action)
+    unless keycodes.is_a?(Array) && keycodes.size >= 2
+      raise ArgumentError, "Combo requires at least 2 keycodes"
+    end
+    @combos << {keycodes: keycodes.sort, action: action}
   end
 
   def start(&block)
@@ -136,6 +163,24 @@ class Keyboard
       layer_index = tg_layer(keycode)
       handle_tg_key(layer_index, pressed)
       # TG keys don't generate key events
+      return
+    end
+
+    # Combo handling (before normal key processing)
+    # Resolve keycode for combo detection (may use reference layer)
+    combo_keycode = resolve_keycode_for_combo(row, col)
+
+    if pressed && is_combo_keycode?(combo_keycode)
+      add_to_combo_buffer(row, col, combo_keycode)
+      if combo = check_combos
+        execute_combo(combo)
+        return
+      end
+      return  # Wait for combo or timeout
+    end
+
+    if !pressed && combo_buffer_has?(key_pos)
+      handle_combo_key_release(key_pos)
       return
     end
 
@@ -466,6 +511,9 @@ class Keyboard
     keys_to_delete.each do |key_pos|
       @tap_hold_keys.delete(key_pos)
     end
+
+    # Clean up expired combo buffer entries
+    clean_expired_combo_buffer
   end
 
   # Mark that another key was pressed (for tap/hold interruption)
@@ -532,6 +580,182 @@ class Keyboard
       col: key_pos[1],
       keycode: 0,
       modifier: accumulated_modifier,
+      pressed: false
+    )
+  end
+
+  # Combo detection methods
+
+  # Resolve keycode for combo detection (with optional reference layer)
+  def resolve_keycode_for_combo(row, col)
+    if @combo_reference_layer
+      # Use specified layer for combo detection
+      resolve_keycode_from_layer(row, col, @combo_reference_layer) # steep:ignore
+    else
+      # Use current layer (default QMK behavior)
+      resolve_keycode(row, col)
+    end
+  end
+
+  # Resolve keycode from a specific layer
+  def resolve_keycode_from_layer(row, col, layer_index)
+    index = row * @col_count + col
+    return 0 unless layer_index && layer_index < @layer_names.size
+
+    layer_name = @layer_names[layer_index]
+    keymap = @layers[layer_name]
+    return 0 unless keymap
+
+    keycode = keymap[index]
+    keycode == KC_NO ? 0 : keycode
+  end
+
+  # Check if keycode is part of any combo
+  def is_combo_keycode?(keycode)
+    return false if keycode == 0
+    @combos.any? { |combo| combo[:keycodes].include?(keycode) }
+  end
+
+  # Add key press to combo buffer
+  def add_to_combo_buffer(row, col, keycode)
+    # @type var key_pos: [Integer, Integer]
+    key_pos = [row, col]
+    @combo_buffer << {
+      key_pos: key_pos,
+      pressed_at: Machine.board_millis,
+      keycode: keycode
+    }
+  end
+
+  # Check if any combo matches the current buffer
+  # Returns the best matching combo (longest match wins) or nil
+  def check_combos
+    return nil if @combo_buffer.empty?
+
+    buffered_keycodes = @combo_buffer.map { |entry| entry[:keycode] }.sort
+    best_match = nil
+    best_match_size = 0
+
+    @combos.each do |combo|
+      combo_keycodes = combo[:keycodes]
+      # Check if all combo keycodes are present in buffer
+      if combo_keycodes.all? { |kc| buffered_keycodes.include?(kc) }
+        # Prefer longer combos (more keys = higher priority)
+        if combo_keycodes.size > best_match_size
+          best_match = combo
+          best_match_size = combo_keycodes.size
+        end
+      end
+    end
+
+    best_match
+  end
+
+  # Execute combo action
+  def execute_combo(combo)
+    # Clear combo buffer (combo consumed these keys)
+    @combo_buffer.clear
+
+    action = combo[:action]
+    # Send key press and release for combo action
+    @callback&.call(
+      row: 0,
+      col: 0,
+      keycode: action,
+      modifier: 0,
+      pressed: true
+    )
+    sleep_ms 5
+    @callback&.call(
+      row: 0,
+      col: 0,
+      keycode: 0,
+      modifier: 0,
+      pressed: false
+    )
+  end
+
+  # Clean expired entries from combo buffer
+  def clean_expired_combo_buffer
+    return if @combo_buffer.empty?
+
+    now = Machine.board_millis
+    expired_entries = []
+
+    @combo_buffer.each do |entry|
+      if now - entry[:pressed_at] >= @combo_term_ms
+        expired_entries << entry
+      end
+    end
+
+    # Flush expired entries (send original keycodes)
+    expired_entries.each do |entry|
+      flush_buffered_key(entry)
+      @combo_buffer.delete_if { |e| e[:key_pos] == entry[:key_pos] }
+    end
+  end
+
+  # Flush a buffered key (send original keycode because combo timed out)
+  def flush_buffered_key(entry)
+    key_pos = entry[:key_pos]
+    keycode = entry[:keycode]
+
+    # Only send if key is still pressed
+    return unless @keys_pressed[key_pos]
+
+    # Update active keys
+    @active_keys[key_pos] = {keycode: keycode, modifier: 0}
+
+    # Calculate accumulated modifier
+    accumulated_modifier = 0
+    @active_keys.each do |_, key_info|
+      accumulated_modifier |= key_info[:modifier]
+    end
+
+    # Send press event
+    @callback&.call(
+      row: key_pos[0],
+      col: key_pos[1],
+      keycode: keycode,
+      modifier: accumulated_modifier,
+      pressed: true
+    )
+  end
+
+  # Check if key_pos is in combo buffer
+  def combo_buffer_has?(key_pos)
+    @combo_buffer.any? { |entry| entry[:key_pos] == key_pos }
+  end
+
+  # Handle release of a combo-buffered key
+  def handle_combo_key_release(key_pos)
+    # Find entry (mruby/c doesn't have Array#find)
+    entry = nil
+    @combo_buffer.each do |e|
+      if e[:key_pos] == key_pos
+        entry = e
+        break
+      end
+    end
+    return if entry.nil?
+
+    # Remove from buffer
+    @combo_buffer.delete_if { |e| e[:key_pos] == key_pos }
+
+    # If key was in buffer (combo didn't trigger), send tap
+    @callback&.call(
+      row: key_pos[0],
+      col: key_pos[1],
+      keycode: entry[:keycode], # steep:ignore
+      modifier: 0,
+      pressed: true
+    )
+    sleep_ms 5
+    @callback&.call(
+      row: key_pos[0],
+      col: key_pos[1],
+      keycode: 0,
+      modifier: 0,
       pressed: false
     )
   end

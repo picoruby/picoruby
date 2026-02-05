@@ -24,6 +24,10 @@ kb.add_layer(:default, [
   LT(1, KC_SPACE), KC_A, KC_B, MT(KC_LSFT, KC_ENTER)
 ])
 
+# Combos: Press multiple keys simultaneously to trigger action
+kb.add_combo([KC_A, KC_B], KC_C)  # A+B pressed together -> sends C
+kb.combo_term_ms = 30  # Detection window in milliseconds
+
 # Layer 1: Number layer (accessed via future MO key if needed)
 kb.add_layer(:layer1, [
   KC_NO, KC_1, KC_2, KC_NO
@@ -37,6 +41,7 @@ puts "  Tap [0,0]: Space key"
 puts "  Hold [0,0]: Layer 1"
 puts "  Tap [1, 1]: Enter key"
 puts "  Hold [1, 1]: Left Shift key"
+puts "  Combo A+B: C key"
 puts "Press keys to see output..."
 
 kb.start do |event|

@@ -14,6 +14,17 @@ class Keyboard
     pressed: bool
   }
 
+  type combo_entry_t = {
+    keycodes: Array[Integer],
+    action: Integer
+  }
+
+  type combo_buffer_entry_t = {
+    key_pos: [Integer, Integer],
+    pressed_at: Integer,
+    keycode: Integer
+  }
+
   @row_count: Integer
   @col_count: Integer
   @layers: Hash[Symbol, Array[Integer]]
@@ -30,6 +41,12 @@ class Keyboard
   @matrix: KeyboardMatrix
   @callback: (^(key_event_t) -> void) | nil
 
+  # Combo key management
+  @combos: Array[combo_entry_t]
+  @combo_buffer: Array[combo_buffer_entry_t]
+  @combo_term_ms: Integer
+  @combo_reference_layer: Integer | nil
+
   # Initialize keyboard layer manager
   def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer) -> Keyboard
   # Add a layer with name and keymap
@@ -40,6 +57,12 @@ class Keyboard
   def tap_threshold_ms=: (Integer value) -> Integer
   # Set repush threshold in milliseconds
   def repush_threshold_ms=: (Integer value) -> Integer
+  # Set combo detection window in milliseconds
+  def combo_term_ms=: (Integer value) -> Integer
+  # Set reference layer for combo detection
+  def combo_reference_layer=: (Symbol? layer_name) -> (Integer | nil)
+  # Add a combo definition
+  def add_combo: (Array[Integer] keycodes, Integer action) -> void
   # Start scanning loop
   def start: () { (key_event_t) -> void } -> void
 
@@ -71,4 +94,26 @@ class Keyboard
   private def activate_modifier: ([Integer, Integer] key_pos, Integer modifier_index) -> void
   # Deactivate a modifier
   private def deactivate_modifier: ([Integer, Integer] key_pos) -> void
+
+  # Combo detection methods
+  # Resolve keycode for combo detection (with optional reference layer)
+  private def resolve_keycode_for_combo: (Integer row, Integer col) -> Integer
+  # Resolve keycode from a specific layer
+  private def resolve_keycode_from_layer: (Integer row, Integer col, Integer layer_index) -> Integer
+  # Check if keycode is part of any combo
+  private def is_combo_keycode?: (Integer keycode) -> bool
+  # Add key press to combo buffer
+  private def add_to_combo_buffer: (Integer row, Integer col, Integer keycode) -> void
+  # Check if any combo matches the current buffer
+  private def check_combos: () -> (combo_entry_t | nil)
+  # Execute combo action
+  private def execute_combo: (combo_entry_t combo) -> void
+  # Clean expired entries from combo buffer
+  private def clean_expired_combo_buffer: () -> void
+  # Flush a buffered key
+  private def flush_buffered_key: (combo_buffer_entry_t entry) -> void
+  # Check if key_pos is in combo buffer
+  private def combo_buffer_has?: ([Integer, Integer] key_pos) -> bool
+  # Handle release of a combo-buffered key
+  private def handle_combo_key_release: ([Integer, Integer] key_pos) -> void
 end
