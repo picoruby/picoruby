@@ -171,7 +171,7 @@ keymap = [
 include USB::HID::Keycode
 include LayerKeycode
 
-kb = Keyboard.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 40)
+kb = Keyboard.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 5)
 
 # Base layer with Fn and Numpad toggle
 kb.add_layer(:base, [
@@ -233,11 +233,11 @@ When MO(1) is pressed, all keys fall through to the default layer.
 
 ### Keyboard
 
-#### `initialize(row_pins, col_pins, debounce_ms: 40)`
+#### `initialize(row_pins, col_pins, debounce_ms: 5)`
 Create a new keyboard layer manager.
 - `row_pins`: Array of GPIO pin numbers for rows
 - `col_pins`: Array of GPIO pin numbers for columns
-- `debounce_ms`: Debounce time in milliseconds (default: 40)
+- `debounce_ms`: Debounce time in milliseconds (default: 5, same as QMK)
 
 #### `add_layer(name, keymap)`
 Add a layer with a name and keymap.

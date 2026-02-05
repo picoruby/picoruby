@@ -16,7 +16,7 @@ ROW_PINS = [6, 7]
 COL_PINS = [28, 27]
 
 # Initialize keyboard
-kb = Keyboard.new(ROW_PINS, COL_PINS, debounce_ms: 40)
+kb = Keyboard.new(ROW_PINS, COL_PINS)
 # Tap threshold: 200ms (PRK uses different thresholds per key, but we use global setting)
 kb.tap_threshold_ms = 200
 

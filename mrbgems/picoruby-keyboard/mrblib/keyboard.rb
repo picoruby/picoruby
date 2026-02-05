@@ -10,7 +10,7 @@ class Keyboard
 
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
-  def initialize(row_pins, col_pins, debounce_ms: 40)
+  def initialize(row_pins, col_pins, debounce_ms: 5)
     @row_count = row_pins.size
     @col_count = col_pins.size
 
