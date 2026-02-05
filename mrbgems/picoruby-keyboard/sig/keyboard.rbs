@@ -25,8 +25,16 @@ class Keyboard
     keycode: Integer
   }
 
+  type injected_event_t = {
+    row: Integer,
+    col: Integer,
+    pressed: bool
+  }
+
   @row_count: Integer
   @col_count: Integer
+  @keymap_rows: Integer
+  @keymap_cols: Integer
   @layers: Hash[Symbol, Array[Integer]]
   @layer_names: Array[Symbol]
   @default_layer: Symbol | nil
@@ -47,8 +55,11 @@ class Keyboard
   @combo_term_ms: Integer
   @combo_reference_layer: Integer | nil
 
+  # Split keyboard support
+  @injected_events: Array[injected_event_t]
+
   # Initialize keyboard layer manager
-  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer) -> Keyboard
+  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> Keyboard
   # Add a layer with name and keymap
   def add_layer: (Symbol name, Array[Integer] keymap) -> void
   # Set default layer
@@ -63,6 +74,8 @@ class Keyboard
   def combo_reference_layer=: (Symbol? layer_name) -> (Integer | nil)
   # Add a combo definition
   def add_combo: (Array[Integer] keycodes, Integer action) -> void
+  # Inject an external key event (for split keyboard support)
+  def inject_event: (Integer row, Integer col, bool pressed) -> void
   # Start scanning loop
   def start: () { (key_event_t) -> void } -> void
 

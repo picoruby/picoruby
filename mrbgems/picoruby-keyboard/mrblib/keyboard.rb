@@ -10,9 +10,13 @@ class Keyboard
 
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
-  def initialize(row_pins, col_pins, debounce_ms: 5)
+  def initialize(row_pins, col_pins, debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)
     @row_count = row_pins.size
     @col_count = col_pins.size
+
+    # For split keyboards: keymap dimensions can differ from matrix dimensions
+    @keymap_rows = keymap_rows || @row_count
+    @keymap_cols = keymap_cols || @col_count
 
     # Layer management
     @layers = {}                # layer_name => keymap array
@@ -35,6 +39,9 @@ class Keyboard
     @combo_term_ms = 50         # Detection window in milliseconds
     @combo_reference_layer = nil  # nil = current layer, or layer_index
 
+    # Split keyboard support: queue for externally injected events
+    @injected_events = []
+
     # Initialize underlying KeyboardMatrix
     @matrix = KeyboardMatrix.new(row_pins, col_pins)
     @matrix.debounce_ms = debounce_ms
@@ -44,7 +51,7 @@ class Keyboard
   end
 
   def add_layer(name, keymap)
-    expected_size = @row_count * @col_count
+    expected_size = @keymap_rows * @keymap_cols
     if keymap.size != expected_size
       raise ArgumentError, "Keymap size must be #{expected_size}, got #{keymap.size}"
     end
@@ -92,6 +99,17 @@ class Keyboard
     @combos << {keycodes: keycodes.sort, action: action}
   end
 
+  # Inject an external key event (for split keyboard support)
+  # @param row [Integer] Row index in keymap coordinates
+  # @param col [Integer] Column index in keymap coordinates
+  # @param pressed [Boolean] true for press, false for release
+  def inject_event(row, col, pressed)
+    if row < 0 || row >= @keymap_rows || col < 0 || col >= @keymap_cols
+      raise ArgumentError, "Position (#{row}, #{col}) is out of keymap bounds (#{@keymap_rows}x#{@keymap_cols})"
+    end
+    @injected_events << {row: row, col: col, pressed: pressed}
+  end
+
   def start(&block)
     @callback = block
 
@@ -100,6 +118,12 @@ class Keyboard
     end
 
     loop do
+      # Process injected events first (from split keyboard slave)
+      while event = @injected_events.shift
+        handle_event(event)
+      end
+
+      # Then process local matrix events
       if event = @matrix.scan
         handle_event(event)
       end
@@ -211,7 +235,7 @@ class Keyboard
   end
 
   def resolve_key(row, col)
-    index = row * @col_count + col
+    index = row * @keymap_cols + col
 
     # Build layer priority list: locked -> momentary stack (LIFO) -> default
     priority_layers = []
@@ -599,7 +623,7 @@ class Keyboard
 
   # Resolve keycode from a specific layer
   def resolve_keycode_from_layer(row, col, layer_index)
-    index = row * @col_count + col
+    index = row * @keymap_cols + col
     return 0 unless layer_index && layer_index < @layer_names.size
 
     layer_name = @layer_names[layer_index]

@@ -233,16 +233,18 @@ When MO(1) is pressed, all keys fall through to the default layer.
 
 ### Keyboard
 
-#### `initialize(row_pins, col_pins, debounce_ms: 5)`
+#### `initialize(row_pins, col_pins, debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)`
 Create a new keyboard layer manager.
 - `row_pins`: Array of GPIO pin numbers for rows
 - `col_pins`: Array of GPIO pin numbers for columns
 - `debounce_ms`: Debounce time in milliseconds (default: 5, same as QMK)
+- `keymap_rows`: Total rows in keymap (default: row_pins.size). For split keyboards.
+- `keymap_cols`: Total columns in keymap (default: col_pins.size). For split keyboards.
 
 #### `add_layer(name, keymap)`
 Add a layer with a name and keymap.
 - `name`: Symbol for layer name
-- `keymap`: Array of keycodes (size must be row_count * col_count)
+- `keymap`: Array of keycodes (size must be keymap_rows * keymap_cols)
 
 #### `default_layer=(name)`
 Set the default layer.
@@ -255,6 +257,12 @@ Set the tap threshold for LT/MT tap/hold keys.
 #### `repush_threshold_ms=(value)`
 Set the repush threshold for double-tap-hold detection.
 - `value`: Threshold in milliseconds (default: 200)
+
+#### `inject_event(row, col, pressed)`
+Inject an external key event (for split keyboard support).
+- `row`: Row index in keymap coordinates
+- `col`: Column index in keymap coordinates
+- `pressed`: true for press, false for release
 
 #### `start(&block)`
 Start the scanning loop (blocks forever).
@@ -375,6 +383,128 @@ kb.start do |event|
   USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
 ```
+
+## Split Keyboard Support
+
+This gem supports split keyboards where one side (master) holds the entire keymap
+and the other side (slave) sends key events via UART or other communication protocols.
+
+### Architecture
+
+- **Master**: Holds the entire keymap and runs `Keyboard` class
+- **Slave**: Uses `KeyboardMatrix` directly and sends events to master
+- **User**: Implements the communication protocol (UART, I2C, etc.)
+
+### Keymap Size Configuration
+
+For split keyboards, the keymap can be larger than the local matrix:
+
+```ruby
+# Symmetric split: left 2x3, right 2x3
+# Master matrix is 2x3, but keymap covers both sides (2x6)
+kb = Keyboard.new([0, 1], [2, 3, 4], keymap_cols: 6)
+
+# Asymmetric split: left 2x3, right 3x4
+# Keymap needs 3 rows x 7 cols to cover both sides
+kb = Keyboard.new([0, 1], [2, 3, 4], keymap_rows: 3, keymap_cols: 7)
+```
+
+### Event Injection
+
+Use `inject_event` to push slave key events to the master:
+
+```ruby
+# Inject slave key event (row, col, pressed)
+kb.inject_event(0, 3, true)   # Slave row 0, col 3, pressed
+kb.inject_event(0, 3, false)  # Slave row 0, col 3, released
+```
+
+### Example: Symmetric Split Keyboard
+
+```ruby
+# === Master side ===
+require 'keyboard'
+require 'uart'
+
+include USB::HID::Keycode
+include LayerKeycode
+
+# Master: 2x3 matrix, full keymap is 2x6
+kb = Keyboard.new([0, 1], [2, 3, 4], keymap_cols: 6)
+
+kb.add_layer(:default, [
+  # Left (master cols 0-2)    Right (slave cols 3-5)
+  KC_A, KC_B, KC_C,           KC_D, KC_E, KC_F,
+  KC_1, KC_2, KC_3,           KC_4, KC_5, KC_6
+])
+
+# User handles UART protocol
+uart = UART.new(unit: 0, txd: 8, rxd: 9)
+
+def parse_slave_data(data)
+  # User-defined protocol parsing
+  # Returns [row, col, pressed]
+end
+
+kb.start do |event|
+  # Check for slave data
+  if data = uart.read_nonblock
+    row, col, pressed = parse_slave_data(data)
+    kb.inject_event(row, col + 3, pressed)  # Offset col by 3 for right side
+  end
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
+end
+```
+
+```ruby
+# === Slave side ===
+require 'keyboard_matrix'
+require 'uart'
+
+def encode_event(event)
+  # User-defined protocol encoding
+end
+
+matrix = KeyboardMatrix.new([0, 1], [2, 3, 4])
+uart = UART.new(unit: 0, txd: 9, rxd: 8)
+
+loop do
+  if event = matrix.scan
+    uart.write(encode_event(event))
+  end
+  sleep_ms(1)
+end
+```
+
+### Example: Asymmetric Split Keyboard
+
+```ruby
+# Master: 2x3 matrix, slave: 3x4 matrix
+# Full keymap: 3 rows x 7 cols
+kb = Keyboard.new([0, 1], [2, 3, 4], keymap_rows: 3, keymap_cols: 7)
+
+kb.add_layer(:default, [
+  # Cols: 0   1   2        3   4   5   6
+  KC_A, KC_B, KC_C,    KC_D, KC_E, KC_F, KC_G,    # Row 0 (master uses 0-2)
+  KC_1, KC_2, KC_3,    KC_4, KC_5, KC_6, KC_7,    # Row 1 (master uses 0-2)
+  KC_NO, KC_NO, KC_NO, KC_8, KC_9, KC_0, KC_MINS  # Row 2 (slave only)
+])
+
+kb.start do |event|
+  if data = uart.read_nonblock
+    row, col, pressed = parse_slave_data(data)
+    kb.inject_event(row, col + 3, pressed)  # Offset col by 3
+  end
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
+end
+```
+
+### Design Notes
+
+- Master's columns should be at the beginning of the keymap (cols 0, 1, 2...)
+- Slave events are offset when injected via `inject_event`
+- Use `KC_NO` for keymap positions not physically present on master
+- All features (LT, MT, MO, TG, combos) work with split keys
 
 ## Implementation Notes
 
