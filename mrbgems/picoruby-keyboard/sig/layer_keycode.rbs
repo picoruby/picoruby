@@ -3,22 +3,35 @@ module LayerKeycode
   # Base values for special layer keycodes
   MO_BASE: Integer
   TG_BASE: Integer
-  MO_TAP_BASE: Integer
+  LT_BASE: Integer
+  MT_BASE: Integer
 
   # Create a momentary layer switch keycode
-  def MO: (Integer layer_index, ?Integer? tap_keycode) -> Integer
+  def MO: (Integer layer_index) -> Integer
+  # Create a Layer-Tap keycode
+  def LT: (Integer layer_index, Integer tap_keycode) -> Integer
   # Create a toggle layer switch keycode
   def TG: (Integer layer_index) -> Integer
+  # Create a Modifier-Tap keycode
+  def MT: (Integer modifier_keycode, Integer tap_keycode) -> Integer
   # Check if keycode is a momentary layer switch
   def is_mo?: (Integer keycode) -> bool
+  # Check if keycode is a Layer-Tap
+  def is_lt?: (Integer keycode) -> bool
   # Check if keycode is a toggle layer switch
   def is_tg?: (Integer keycode) -> bool
-  # Check if keycode is a momentary layer switch with tap keycode
-  def is_mo_tap?: (Integer keycode) -> bool
+  # Check if keycode is a Modifier-Tap
+  def is_mt?: (Integer keycode) -> bool
   # Extract layer index from MO keycode
   def mo_layer: (Integer keycode) -> Integer
+  # Extract layer index from LT keycode
+  def lt_layer: (Integer keycode) -> Integer
+  # Extract tap keycode from LT keycode
+  def lt_tap_keycode: (Integer keycode) -> Integer
   # Extract layer index from TG keycode
   def tg_layer: (Integer keycode) -> Integer
-  # Extract tap keycode from MO tap keycode
-  def mo_tap_keycode: (Integer keycode) -> Integer?
+  # Extract modifier index from MT keycode
+  def mt_modifier_index: (Integer keycode) -> Integer
+  # Extract tap keycode from MT keycode
+  def mt_tap_keycode: (Integer keycode) -> Integer
 end

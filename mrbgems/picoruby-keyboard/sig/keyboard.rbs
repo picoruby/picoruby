@@ -22,8 +22,11 @@ class Keyboard
   @locked_layer: Integer | nil
   @layer_stack: Array[Integer]
   @momentary_keys: Hash[[Integer, Integer], Integer]
-  @mo_tap_keys: Hash[[Integer, Integer], Hash[Symbol, untyped]]
+  @tap_hold_keys: Hash[[Integer, Integer], Hash[Symbol, untyped]]
   @tap_threshold_ms: Integer
+  @repush_threshold_ms: Integer
+  @keys_pressed: Hash[[Integer, Integer], bool]
+  @active_keys: Hash[[Integer, Integer], Hash[Symbol, Integer]]
   @matrix: KeyboardMatrix
   @callback: (^(key_event_t) -> void) | nil
 
@@ -35,6 +38,8 @@ class Keyboard
   def default_layer=: (Symbol name) -> void
   # Set tap threshold in milliseconds
   def tap_threshold_ms=: (Integer value) -> Integer
+  # Set repush threshold in milliseconds
+  def repush_threshold_ms=: (Integer value) -> Integer
   # Start scanning loop
   def start: () { (key_event_t) -> void } -> void
 
@@ -50,16 +55,20 @@ class Keyboard
   private def handle_mo_key: (Integer row, Integer col, Integer layer_index, bool pressed) -> void
   # Handle toggle layer key press
   private def handle_tg_key: (Integer layer_index, bool pressed) -> void
-  # Handle MO tap/hold key press/release
-  private def handle_mo_tap_key: (Integer row, Integer col, Integer layer_index, Integer tap_keycode, bool pressed) -> void
-  # Update MO tap key states
-  private def update_mo_tap_keys: () -> void
+  # Handle MT tap/hold key press/release
+  private def handle_mt_key: (Integer row, Integer col, Integer modifier_index, Integer tap_keycode, bool pressed) -> void
+  # Handle LT tap/hold key press/release
+  private def handle_lt_key: (Integer row, Integer col, Integer layer_index, Integer tap_keycode, bool pressed) -> void
+  # Update tap/hold key states
+  private def update_tap_hold_keys: () -> void
   # Mark that another key was pressed
   private def mark_other_key_pressed: () -> void
   # Activate a momentary layer
   private def activate_layer: ([Integer, Integer] key_pos, Integer layer_index) -> void
   # Deactivate a momentary layer
   private def deactivate_layer: ([Integer, Integer] key_pos, Integer layer_index) -> void
-  # Send tap keycode as a quick press/release event
-  private def send_tap_keycode: (Integer row, Integer col, Integer keycode) -> void
+  # Activate a modifier
+  private def activate_modifier: ([Integer, Integer] key_pos, Integer modifier_index) -> void
+  # Deactivate a modifier
+  private def deactivate_modifier: ([Integer, Integer] key_pos) -> void
 end

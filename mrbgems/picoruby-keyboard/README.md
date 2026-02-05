@@ -5,9 +5,10 @@ Layer switching functionality for keyboard matrix in PicoRuby.
 ## Overview
 
 This gem provides layer management for keyboard matrix, enabling:
-- **Momentary Layer (MO)**: Activate a layer while holding a key
-- **MO with Tap/Hold**: Send a keycode on tap, activate layer on hold
-- **Toggle Layer (TG)**: Toggle a layer on/off with each key press
+- **MO (Momentary Layer)**: Activate a layer while holding a key
+- **LT (Layer-Tap)**: Send a keycode on tap, activate layer on hold
+- **MT (Mod-Tap)**: Send a keycode on tap, activate modifier on hold
+- **TG (Toggle Layer)**: Toggle a layer on/off with each key press
 - **Layer stacking**: Multiple MO keys can be pressed simultaneously
 - **Transparent keys**: KC_NO falls through to lower layers
 
@@ -74,12 +75,12 @@ Multiple modifiers can be pressed simultaneously. Keyboard automatically accumul
 
 ```ruby
 # Example: Shift + Ctrl + A
-# 1. Press Shift → modifier = 0x02
-# 2. Press Ctrl  → modifier = 0x02 | 0x01 = 0x03
-# 3. Press A     → sends (modifier: 0x03, keycode: KC_A)
-# 4. Release A   → sends (modifier: 0x03, keycode: 0)
-# 5. Release Ctrl → modifier = 0x02
-# 6. Release Shift → modifier = 0x00
+# 1. Press Shift -> modifier = 0x02
+# 2. Press Ctrl  -> modifier = 0x02 | 0x01 = 0x03
+# 3. Press A     -> sends (modifier: 0x03, keycode: KC_A)
+# 4. Release A   -> sends (modifier: 0x03, keycode: 0)
+# 5. Release Ctrl -> modifier = 0x02
+# 6. Release Shift -> modifier = 0x00
 ```
 
 Modifier keys placed in different layers will also work correctly with the layer priority system.
@@ -99,7 +100,7 @@ keymap = [
 ]
 ```
 
-### MO(n, keycode) - Momentary Layer with Tap/Hold
+### LT(n, keycode) - Layer-Tap
 
 Tap/hold behavior: sends `keycode` on quick tap, activates layer `n` on hold.
 
@@ -107,7 +108,7 @@ Tap/hold behavior: sends `keycode` on quick tap, activates layer `n` on hold.
 include LayerKeycode
 
 keymap = [
-  KC_A, MO(1, KC_SPC), KC_C,  # Middle key: tap for space, hold for layer 1
+  KC_A, LT(1, KC_SPC), KC_C,  # Middle key: tap for space, hold for layer 1
   # ...
 ]
 ```
@@ -122,6 +123,34 @@ Configuration:
 kb = Keyboard.new([0, 1], [2, 3])
 kb.tap_threshold_ms = 150  # Change tap threshold (default: 200ms)
 ```
+
+### MT(modifier, keycode) - Mod-Tap
+
+Tap/hold behavior: sends `keycode` on quick tap, activates `modifier` on hold.
+
+```ruby
+include LayerKeycode
+
+keymap = [
+  KC_A, MT(KC_LSFT, KC_ENT), KC_C,  # Middle key: tap for Enter, hold for Shift
+  # ...
+]
+```
+
+Supported modifiers:
+- `KC_LCTL` (0xE0) - Left Control
+- `KC_LSFT` (0xE1) - Left Shift
+- `KC_LALT` (0xE2) - Left Alt
+- `KC_LGUI` (0xE3) - Left GUI
+- `KC_RCTL` (0xE4) - Right Control
+- `KC_RSFT` (0xE5) - Right Shift
+- `KC_RALT` (0xE6) - Right Alt
+- `KC_RGUI` (0xE7) - Right GUI
+
+Behavior:
+- **Tap** (quick press/release): Sends the tap keycode
+- **Hold** (press for >200ms): Activates the modifier
+- **Hold** (press then another key): Immediately activates the modifier
 
 ### TG(n) - Toggle Layer
 
@@ -148,8 +177,8 @@ kb = Keyboard.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 40)
 kb.add_layer(:base, [
   KC_ESC,  KC_1,  KC_2,    KC_3,
   KC_TAB,  KC_Q,  KC_W,    KC_E,
-  MO(1),   KC_A,  KC_S,    KC_D,    # MO(1): Fn key
-  KC_LSFT, KC_Z,  TG(2),   KC_C     # TG(2): Numpad toggle, KC_LSFT: Shift
+  MO(1),   KC_A,  KC_S,    KC_D,                # MO(1): Fn key
+  MT(KC_LSFT, KC_SPC), KC_Z, TG(2), KC_C        # MT: tap=Space, hold=Shift
 ])
 
 # Function layer (accessed via MO(1))
@@ -170,12 +199,9 @@ kb.add_layer(:numpad, [
 
 kb.default_layer = :base
 
-kb.on_key_event do |event|
-  # Simplified: Keyboard handles press/release internally
+kb.start do |event|
   USB::HID.keyboard_send(event[:modifier], event[:keycode])
 end
-
-kb.start
 ```
 
 ## Layer Interaction Examples
@@ -223,26 +249,39 @@ Set the default layer.
 - `name`: Symbol for layer name
 
 #### `tap_threshold_ms=(value)`
-Set the tap threshold for MO tap/hold keys.
+Set the tap threshold for LT/MT tap/hold keys.
 - `value`: Threshold in milliseconds (default: 200)
 
-#### `on_key_event(&block)`
-Set callback for key events.
-- Block receives event hash: `{row:, col:, keycode:, modifier:, pressed:}`
+#### `repush_threshold_ms=(value)`
+Set the repush threshold for double-tap-hold detection.
+- `value`: Threshold in milliseconds (default: 200)
 
-#### `start`
+#### `start(&block)`
 Start the scanning loop (blocks forever).
+- Block receives event hash: `{row:, col:, keycode:, modifier:, pressed:}`
 
 ### LayerKeycode
 
-#### `MO(layer_index, tap_keycode = nil)`
+#### `MO(layer_index)`
 Create momentary layer switch keycode.
-- `layer_index`: Layer index (0-255 for simple MO, 0-15 for MO with tap)
-- `tap_keycode`: Optional keycode to send on tap (0-255)
+- `layer_index`: Layer index (0-255)
 - Returns: Special keycode
 
-Without `tap_keycode`: Simple momentary layer switch
-With `tap_keycode`: Tap/hold behavior (tap sends keycode, hold activates layer)
+#### `LT(layer_index, tap_keycode)`
+Create Layer-Tap keycode.
+- `layer_index`: Layer index (0-15)
+- `tap_keycode`: Keycode to send on tap (0-255)
+- Returns: Special keycode
+
+Tap/hold behavior: tap sends keycode, hold activates layer.
+
+#### `MT(modifier_keycode, tap_keycode)`
+Create Mod-Tap keycode.
+- `modifier_keycode`: Modifier keycode (0xE0-0xE7: KC_LCTL-KC_RGUI)
+- `tap_keycode`: Keycode to send on tap (0-255)
+- Returns: Special keycode
+
+Tap/hold behavior: tap sends keycode, hold activates modifier.
 
 #### `TG(layer_index)`
 Create toggle layer switch keycode.
@@ -253,7 +292,7 @@ Create toggle layer switch keycode.
 
 - Layer indices are assigned in the order layers are added (0, 1, 2, ...)
 - The first layer added becomes the default layer automatically
-- MO and TG keys don't generate key events themselves
+- MO, LT, MT, and TG keys don't generate key events themselves
 - Multiple MO keys can be active simultaneously (last pressed has priority)
 - Only one TG layer can be locked at a time
 - KC_NO (0x00) is reserved for transparent keys

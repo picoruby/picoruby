@@ -21,19 +21,23 @@ kb = Keyboard.new(ROW_PINS, COL_PINS, debounce_ms: 40)
 kb.tap_threshold_ms = 200
 
 kb.add_layer(:default, [
-  MO(1, KC_SPACE), KC_A, KC_B, KC_LSFT
+  LT(1, KC_SPACE), KC_A, KC_B, MT(KC_LSFT, KC_ENTER)
 ])
 
-# Layer 1: Accessed by holding key[0,0]
+# Layer 1: Number layer (accessed via future MO key if needed)
 kb.add_layer(:layer1, [
-  MO(1, KC_SPACE), KC_1, KC_2, KC_LSFT
+  KC_NO, KC_1, KC_2, KC_NO
 ])
 
 # Start keyboard scanning
 puts "Meishi2 keyboard starting..."
 puts "Key layout:"
-puts "  default: [Space/L1] [A]  [B]  [Shift]"
-puts "  layer1:  [Space/L1] [1]  [2]  [Shift]"
+puts "  default: [Space/Layer1] [A]  [B]  [Enter/Shift]"
+puts "  Tap [0,0]: Space key"
+puts "  Hold [0,0]: Layer 1"
+puts "  Tap [1, 1]: Enter key"
+puts "  Hold [1, 1]: Left Shift key"
+puts "Press keys to see output..."
 
 kb.start do |event|
   USB::HID.keyboard_send(event[:modifier], event[:keycode])
