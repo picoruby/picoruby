@@ -1,0 +1,48 @@
+/*
+ * Copyright (c) 2025 HASUMI Hitoshi | MIT License
+ */
+
+#ifndef KEYBOARD_MATRIX_DEFINED_H_
+#define KEYBOARD_MATRIX_DEFINED_H_
+
+#include <stdint.h>
+#include <stdbool.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// Key event structure
+typedef struct {
+  uint8_t row;
+  uint8_t col;
+  bool pressed;
+} key_event_t;
+
+// Data structure for KeyboardMatrix instance
+typedef struct {
+  uint8_t row_pins[16];
+  uint8_t col_pins[16];
+  uint8_t row_count;
+  uint8_t col_count;
+  bool initialized;
+} picorb_keyboard_matrix_data;
+
+// Initialize keyboard matrix
+bool keyboard_matrix_init(const uint8_t* row_pins, uint8_t row_count,
+                          const uint8_t* col_pins, uint8_t col_count);
+
+// Scan keyboard matrix (call periodically)
+bool keyboard_matrix_scan(key_event_t* event);
+
+// Get debounce time in milliseconds
+uint32_t keyboard_matrix_get_debounce_ms(void);
+
+// Set debounce time in milliseconds
+void keyboard_matrix_set_debounce_ms(uint32_t ms);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif

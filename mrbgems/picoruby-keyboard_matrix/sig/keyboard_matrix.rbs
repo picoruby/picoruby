@@ -1,0 +1,24 @@
+# GPIO keyboard matrix scanner for R2P2
+
+class KeyboardMatrix
+  # Event hash structure returned by scan
+  type key_event = {
+    row: Integer,
+    col: Integer,
+    pressed: bool
+  }
+
+  # Initialize keyboard matrix
+  # @param row_pins [Array<Integer>] GPIO pin numbers for rows
+  # @param col_pins [Array<Integer>] GPIO pin numbers for columns
+  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins) -> KeyboardMatrix
+
+  # Scan matrix once and return event if available
+  def scan: () -> key_event?
+  # Get debounce time in milliseconds
+  def debounce_ms: () -> Integer
+  # Set debounce time in milliseconds
+  def debounce_ms=: (Integer ms) -> Integer
+  # Start continuous scanning with callback
+  def start: () { (key_event) -> void } -> void
+end

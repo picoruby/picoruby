@@ -165,6 +165,12 @@ mrb_s_uptime_us(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_s_board_millis(mrb_state *mrb, mrb_value self)
+{
+  return mrb_int_value(mrb, (mrb_int)(Machine_uptime_us() / 1000));
+}
+
+static mrb_value
 mrb_s_uptime_formatted(mrb_state *mrb, mrb_value self)
 {
   char buf[20] = {0};
@@ -350,6 +356,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_us), mrb_s_uptime_us, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(board_millis), mrb_s_board_millis, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_formatted), mrb_s_uptime_formatted, MRB_ARGS_NONE());
 
   mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));

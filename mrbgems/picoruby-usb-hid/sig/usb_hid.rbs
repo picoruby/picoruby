@@ -1,0 +1,30 @@
+# USB HID (Keyboard, Mouse, Consumer Control) support for R2P2
+
+module USB
+  class HID
+    include ::USB::HID::Keycode
+
+    # Low-level keyboard methods
+    def self.keyboard_send: (Integer modifier, Integer keycode) -> bool
+    def self.keyboard_ready: () -> bool
+    def self.keyboard_release: () -> bool
+    def self.keyboard_led_state: () -> Integer
+    # Low-level mouse methods
+    def self.mouse_move: (Integer x, Integer y, Integer wheel, Integer buttons) -> bool
+    def self.mouse_ready: () -> bool
+    # Low-level media control methods
+    def self.media_send: (Integer code) -> bool
+    def self.media_ready: () -> bool
+
+    # High-level keyboard methods
+    def self.send_key: (Integer keycode, ?Integer modifier) -> bool
+    def self.send_text: (String text) -> void
+    # High-level mouse methods
+    def self.move_mouse: (Integer x, Integer y, ?Integer wheel, ?Integer buttons) -> bool
+    def self.click_mouse: (?Integer button) -> void
+    # High-level media control methods
+    def self.send_media: (Integer code) -> void
+
+    private def self.char_to_keycode: (String char) -> [Integer, Integer]?
+  end
+end
