@@ -56,3 +56,8 @@ end
 class Exception
   def backtrace: () -> ::Array[String]
 end
+
+class Method
+  def call: (*untyped) -> untyped
+  def arity: () -> Integer
+end
