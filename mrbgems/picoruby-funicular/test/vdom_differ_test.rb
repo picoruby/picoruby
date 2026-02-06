@@ -7,13 +7,13 @@ class VDOMDifferTest < Picotest::Test
   def test_diff_returns_replace_when_old_is_nil
     new_node = Funicular::VDOM::Element.new('div')
     patches = @differ.diff(nil, new_node)
-    assert_equal([[:replace, new_node]], patches)
+    assert_equal([[:replace, new_node, nil]], patches)
   end
 
   def test_diff_returns_remove_when_new_is_nil
     old_node = Funicular::VDOM::Element.new('div')
     patches = @differ.diff(old_node, nil)
-    assert_equal([[:remove]], patches)
+    assert_equal([[:remove, old_node]], patches)
   end
 
   def test_diff_text_node_no_change
@@ -27,14 +27,14 @@ class VDOMDifferTest < Picotest::Test
     old_node = Funicular::VDOM::Text.new('hello')
     new_node = Funicular::VDOM::Text.new('world')
     patches = @differ.diff(old_node, new_node)
-    assert_equal([[:replace, new_node]], patches)
+    assert_equal([[:replace, new_node, old_node]], patches)
   end
 
   def test_diff_element_different_tag
     old_node = Funicular::VDOM::Element.new('div')
     new_node = Funicular::VDOM::Element.new('span')
     patches = @differ.diff(old_node, new_node)
-    assert_equal([[:replace, new_node]], patches)
+    assert_equal([[:replace, new_node, old_node]], patches)
   end
 
   def test_diff_element_same_tag_no_props_change
@@ -107,7 +107,7 @@ class VDOMDifferTest < Picotest::Test
     assert_equal(1, patches.length)
     assert_equal(1, patches[0][0]) # Child index 1
     new_li = new_element.children[1]
-    assert_equal([[:replace, new_li]], patches[0][1])
+    assert_equal([[:replace, new_li, nil]], patches[0][1])
   end
 
   def test_diff_children_by_index_child_removed
@@ -121,7 +121,8 @@ class VDOMDifferTest < Picotest::Test
     patches = @differ.diff(old_element, new_element)
     assert_equal(1, patches.length)
     assert_equal(1, patches[0][0]) # Child index 1
-    assert_equal([[:remove]], patches[0][1])
+    old_li = old_element.children[1]
+    assert_equal([[:remove, old_li]], patches[0][1])
   end
 
   # Children diff tests - key-based
@@ -167,7 +168,7 @@ class VDOMDifferTest < Picotest::Test
     assert_equal(1, patches.length)
     assert_equal(1, patches[0][0]) # Child index 1 (where 'c' should be inserted)
     new_c = new_element.children[1]
-    assert_equal([[:replace, new_c]], patches[0][1])
+    assert_equal([[:replace, new_c, nil]], patches[0][1])
   end
 
   def test_diff_children_with_keys_element_removed
@@ -183,7 +184,8 @@ class VDOMDifferTest < Picotest::Test
     patches = @differ.diff(old_element, new_element)
     assert_equal(1, patches.length)
     assert_equal(1, patches[0][0]) # Child index 1 (where 'b' was)
-    assert_equal([[:remove]], patches[0][1])
+    old_b = old_element.children[1]
+    assert_equal([[:remove, old_b]], patches[0][1])
   end
 
   def test_diff_children_with_keys_element_props_changed
@@ -214,7 +216,7 @@ class VDOMDifferTest < Picotest::Test
     # Should detect that child index 1 changed from span to p
     assert_equal(1, patches.length)
     assert_equal(1, patches[0][0])
-    assert_equal([[:replace, new_element.children[1]]], patches[0][1])
+    assert_equal([[:replace, new_element.children[1], old_element.children[1]]], patches[0][1])
   end
 
   # Component diff tests
@@ -222,7 +224,7 @@ class VDOMDifferTest < Picotest::Test
     old_node = Funicular::VDOM::Component.new(String, {foo: 'bar'})
     new_node = Funicular::VDOM::Component.new(Array, {foo: 'bar'})
     patches = @differ.diff(old_node, new_node)
-    assert_equal([[:replace, new_node]], patches)
+    assert_equal([[:replace, new_node, old_node]], patches)
   end
 
   def test_diff_component_same_class_same_props
@@ -236,6 +238,6 @@ class VDOMDifferTest < Picotest::Test
     old_node = Funicular::VDOM::Component.new(String, {foo: 'bar'})
     new_node = Funicular::VDOM::Component.new(String, {foo: 'baz'})
     patches = @differ.diff(old_node, new_node)
-    assert_equal([[:replace, new_node]], patches)
+    assert_equal([[:replace, new_node, old_node]], patches)
   end
 end
