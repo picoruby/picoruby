@@ -53,8 +53,8 @@ namespace :r2p2 do
   desc "Initialize git submodules for R2P2"
   task :setup do
     FileUtils.cd MRUBY_ROOT do
-      sh "git submodule update --init mrbgems/picoruby-r2p2/lib/pico-sdk"
-      sh "git submodule update --init mrbgems/picoruby-r2p2/lib/pico-extras"
+      sh "git submodule update --init --recursive mrbgems/picoruby-r2p2/lib/pico-sdk"
+      sh "git submodule update --init --recursive mrbgems/picoruby-r2p2/lib/pico-extras"
       sh "git submodule update --init mrbgems/picoruby-r2p2/lib/rp2040js"
     end
   end
