@@ -21,13 +21,13 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### Depends on
 
+- [mruby (mruby/mruby)](https://github.com/mruby/mruby)
 - [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc): Another implementation of mruby virtual machine
 
 ### Used by
 
-- [PRK Firmware](https://github.com/picoruby/prk_firmware): Keyboard firmware for Raspberry Pi Pico
-
 - [picoruby.wasm](https://www.npmjs.com/package/@picoruby/wasm-wasi): PicoRuby WASI runtime for WebAssembly
+- [PRK Firmware](https://github.com/picoruby/prk_firmware): Keyboard firmware for Raspberry Pi Pico
 
 ## Testing
 
@@ -38,14 +38,14 @@ For detailed information on testing PicoRuby, refer to the [Testing Guide](docs/
 - Prerequisites
   - C toolchain
   - git
-  - ruby (should be CRuby 3.0+)
+  - ruby (should be CRuby 3.4+)
 
 ```console
-git clone --recursive https://github.com/picoruby/picoruby
+git clone --recurse-submodules https://github.com/picoruby/picoruby
 cd picoruby/
-git submodule update --init --recursive # If you forget --recursive when git clone
+git submodule update --init --recursive # If you forgot --recurse-submodules when git clone
 rake
-# PICORUBY_DEBUG=1 rake                         # for debug build
+# PICORUBY_DEBUG=1 rake                           # for debug build
 # PICORUBY_DEBUG=1 PICORUBY_NO_LIBC_ALLOC=1 rake  # for debug build using mruby/c's memory allocator
 bin/picoruby -e 'puts "Hello World!"'
 ```
@@ -70,11 +70,11 @@ See an example: [build_config/r2p2-picoruby-pico.rb](build_config/r2p2-picoruby-
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
   - You can do like `bin/picoruby path/to/your_script.rb` to run your script
 - bin/r2p2
-  - POSIX version of R2P2 (See https://github.com/picoruby/R2P2 for the Raspi Pico edition)
+  - POSIX version of R2P2 (See [mrbgems/picoruby-r2p2](mrbgems/picoruby-r2p2) for the Raspi Pico edition)
 
 ### Roadmap
 
-PicoRuby is still developing halfway towards finishing as of 2024.
+PicoRuby is still developing halfway towards finishing as of 2026.
 
 See implementation roadmap on [issue/6](https://github.com/picoruby/picoruby/issues/6)
 
@@ -93,6 +93,6 @@ See also [picoruby/picoruby/wiki](https://github.com/picoruby/picoruby/wiki).
 
 ### License
 
-Copyright © 2020-2024 HASUMI Hitoshi. See MIT-LICENSE for further details.
+Copyright © 2020- HASUMI Hitoshi. See MIT-LICENSE for further details.
 
 Copyright © 2020-2021 Monstarlab. See MIT-LICENSE for further details.

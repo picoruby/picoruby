@@ -30,7 +30,12 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
     lwip_dir = "#{dir}/lib/lwip"
 
     # Clone or update LwIP repository
-    if File.directory?(lwip_dir)
+    if File.symlink?(lwip_dir)
+      # Symlink to pico-sdk's lwip (used in R2P2 builds)
+      unless File.directory?(lwip_dir)
+        raise "Symlink #{lwip_dir} exists but target is missing. Run: rake r2p2:setup"
+      end
+    elsif File.directory?(lwip_dir)
       if File.directory?("#{lwip_dir}/.git")
         current_branch = `cd #{lwip_dir} && git branch --show-current 2>/dev/null`.strip
         current_tag = `cd #{lwip_dir} && git describe --tags --exact-match HEAD 2>/dev/null`.strip

@@ -37,6 +37,7 @@ load "#{MRUBY_ROOT}/tasks/presym.rake"
 load "#{MRUBY_ROOT}/tasks/benchmark.rake"
 load "#{MRUBY_ROOT}/tasks/gitlab.rake"
 load "#{MRUBY_ROOT}/tasks/doc.rake"
+load "#{MRUBY_ROOT}/tasks/r2p2.rake" if File.exist?("#{MRUBY_ROOT}/tasks/r2p2.rake")
 
 task :runtime_gems => RuntimeGems.export(
   output_dir: "#{MRUBY_ROOT}/runtime_gems",

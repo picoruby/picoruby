@@ -33,6 +33,9 @@ module MRuby
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include"
       # Workaround: To avoid error in compiling gem_init.c
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
+      # Pass PICORUBY_VERSION to mruby-compiler2
+      version = File.read("#{MRUBY_ROOT}/include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
+      cc.defines << "PICORUBY_VERSION=\\\"#{version}\\\""
     end
 
     def microruby

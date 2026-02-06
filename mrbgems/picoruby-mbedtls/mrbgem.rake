@@ -10,7 +10,12 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   MBEDTLS_REPO = "https://github.com/Mbed-TLS/mbedtls.git"
   mbedtls_dir = "#{dir}/lib/mbedtls"
 
-  if File.directory?(mbedtls_dir)
+  if File.symlink?(mbedtls_dir)
+    # Symlink to pico-sdk's mbedtls (used in R2P2 builds)
+    unless File.directory?(mbedtls_dir)
+      raise "Symlink #{mbedtls_dir} exists but target is missing. Run: rake r2p2:setup"
+    end
+  elsif File.directory?(mbedtls_dir)
     # Check if it's a git repository and has the correct version
     if File.directory?("#{mbedtls_dir}/.git")
       current_tag = `cd #{mbedtls_dir} && git describe --tags --exact-match HEAD 2>/dev/null`.strip

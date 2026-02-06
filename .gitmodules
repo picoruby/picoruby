@@ -13,3 +13,12 @@
 [submodule "mrbgems/mruby-bin-mrbc2"]
 	path = mrbgems/mruby-bin-mrbc2
 	url = https://github.com/picoruby/mruby-bin-mrbc2
+[submodule "mrbgems/picoruby-r2p2/lib/pico-sdk"]
+	path = mrbgems/picoruby-r2p2/lib/pico-sdk
+	url = https://github.com/raspberrypi/pico-sdk.git
+[submodule "mrbgems/picoruby-r2p2/lib/pico-extras"]
+	path = mrbgems/picoruby-r2p2/lib/pico-extras
+	url = https://github.com/raspberrypi/pico-extras.git
+[submodule "mrbgems/picoruby-r2p2/lib/rp2040js"]
+	path = mrbgems/picoruby-r2p2/lib/rp2040js
+	url = https://github.com/wokwi/rp2040js.git
