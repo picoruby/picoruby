@@ -33,7 +33,8 @@ def r2p2_def_build_type(mode)
 end
 
 def r2p2_def_r2p2_name(vm, board)
-  "-D R2P2_NAME=R2P2-#{vm.upcase}-#{board.upcase}"
+  version = File.read("#{MRUBY_ROOT}/include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
+  "-D R2P2_NAME=R2P2-#{vm.upcase} -D R2P2_BOARD_NAME=#{board.upcase} -D R2P2_VERSION=#{version}"
 end
 
 def r2p2_def_msc(mode)

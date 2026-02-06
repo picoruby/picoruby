@@ -10,12 +10,11 @@ pico_sdk_init()
 
 execute_process (COMMAND date +%Y%m%d OUTPUT_VARIABLE CMAKE_BUILDDATE OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process (COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE CMAKE_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE WORKING_DIRECTORY ${PICORUBY_ROOT})
-execute_process (COMMAND git describe --tags --abbrev=0 OUTPUT_VARIABLE CMAKE_VERSION_NUMBER OUTPUT_STRIP_TRAILING_WHITESPACE WORKING_DIRECTORY ${PICORUBY_ROOT})
-set (R2P2_VERSION   ${CMAKE_VERSION_NUMBER})
+# R2P2_VERSION is passed via -D from rake task
 set (R2P2_BUILDDATE ${CMAKE_BUILDDATE})
 set (R2P2_REVISION  ${CMAKE_REVISION})
 
-project("${R2P2_NAME}-${R2P2_VERSION}-${R2P2_BUILDDATE}-${R2P2_REVISION}")
+project("${R2P2_NAME}-${R2P2_VERSION}-${R2P2_BOARD_NAME}-${R2P2_BUILDDATE}-${R2P2_REVISION}")
 
 add_compile_options(-Wall
   # int != int32_t as far as the compiler is concerned because gcc has int32_t as long int
