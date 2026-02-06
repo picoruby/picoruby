@@ -1,4 +1,10 @@
 MRuby::CrossBuild.new("picoruby-wasm") do |conf|
+  # Generate package.json from template with version from version.h
+  conf.generate_package_json_from_template(
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/package.json.template",
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/package.json"
+  )
+
   toolchain :clang
 
   conf.cc.defines << "MRB_TICK_UNIT=17"

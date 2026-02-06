@@ -38,4 +38,6 @@ tags
 
 /src/version.c
 
+/mrbgems/picoruby-wasm/npm/package.json
+
 .r2p2/

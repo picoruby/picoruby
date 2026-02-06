@@ -1,14 +1,9 @@
 MRuby::CrossBuild.new("picorbc-wasm") do |conf|
   # Generate package.json from template with version from version.h
-  package_json_template = "#{MRUBY_ROOT}/mrbgems/mruby-bin-mrbc2/npm/package.json.template"
-  package_json = "#{MRUBY_ROOT}/mrbgems/mruby-bin-mrbc2/npm/package.json"
-  if File.exist?(package_json_template)
-    version = File.read("#{MRUBY_ROOT}/include/version.h")
-                  .match(/#define PICORUBY_VERSION "(.+?)"/)[1]
-    template_content = File.read(package_json_template)
-    generated_content = template_content.gsub('{{VERSION}}', version)
-    File.write(package_json, generated_content)
-  end
+  conf.generate_package_json_from_template(
+    "#{MRUBY_ROOT}/mrbgems/mruby-bin-mrbc2/npm/package.json.template",
+    "#{MRUBY_ROOT}/mrbgems/mruby-bin-mrbc2/npm/package.json"
+  )
 
   toolchain :clang
 

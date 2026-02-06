@@ -1,6 +1,6 @@
 {
   "name": "@picoruby/wasm",
-  "version": "0.10.0",
+  "version": "{{VERSION}}",
   "description": "PicoRuby WebAssembly - mruby VM powered Ruby for WebAssembly",
   "main": "dist/init.iife.js",
   "files": ["README.md", "dist/init.iife.js", "dist/picoruby.js", "dist/picoruby.wasm"],
