@@ -88,6 +88,24 @@ eof_error(mrbc_vm *vm)
   mrbc_raise(vm, mrbc_class_EOFError, "end of file reached");
 }
 
+static void
+check_file_descriptor(mrbc_vm *vm, int fd)
+{
+#if defined(_WIN32) || defined(_WIN64)
+  /* Windows does not have fcntl, use _get_osfhandle instead */
+  if (_get_osfhandle(fd) == -1) {
+    mrbc_raisef(vm, MRBC_CLASS(IOError), "Bad file descriptor (%d)", fd);
+  }
+#else
+  /* Use fcntl to check if file descriptor is valid */
+  if (fcntl(fd, F_GETFL) == -1) {
+    if (errno == EBADF) {
+      mrbc_raisef(vm, MRBC_CLASS(IOError), "Bad file descriptor (%d)", fd);
+    }
+  }
+#endif
+}
+
 static int
 picorb_io_read_data_pending(mrbc_vm *vm, struct picorb_io *fptr)
 {
@@ -666,7 +684,7 @@ c_io_new(mrbc_vm *vm, mrbc_value v[], int argc)
     case 2: /* STDERR */
       break;
     default:
-      // TODO check_file_descriptor(fd);
+      check_file_descriptor(vm, fd);
       break;
   }
   flags = io_mode_to_flags(vm, mode);
