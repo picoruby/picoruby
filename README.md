@@ -72,12 +72,6 @@ See an example: [build_config/r2p2-picoruby-pico.rb](build_config/r2p2-picoruby-
 - bin/r2p2
   - POSIX version of R2P2 (See [mrbgems/picoruby-r2p2](mrbgems/picoruby-r2p2) for the Raspi Pico edition)
 
-### Roadmap
-
-PicoRuby is still developing halfway towards finishing as of 2026.
-
-See implementation roadmap on [issue/6](https://github.com/picoruby/picoruby/issues/6)
-
 ### Acknowledgement
 
 Part of this project was coded by [Monstarlab](https://monstar-lab.com/) with the support of
