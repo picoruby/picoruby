@@ -1,11 +1,13 @@
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <termios.h>
 
 #include "picoruby.h"
 #include "mruby_compiler.h"
+#include "version.h"
 
 #if !defined(PICORB_PLATFORM_POSIX)
 #define PICORB_PLATFORM_POSIX 1
@@ -25,6 +27,28 @@ volatile sig_atomic_t sigint_status = MACHINE_SIG_NONE;
 int exit_status = 0;
 
 static struct termios orig_termios;
+
+static void
+show_version(void)
+{
+  printf("%s\n", picorb_version());
+}
+
+static void
+usage(const char *name)
+{
+  static const char *const usage_msg[] = {
+  "switches:",
+  "-v, --version    print version number",
+  "-h, --help       print this help message",
+  NULL
+  };
+  const char *const *p = usage_msg;
+
+  printf("Usage: %s [switches]\n", name);
+  while (*p)
+    printf("  %s\n", *p++);
+}
 
 static void
 signal_handler(int signum)
@@ -76,8 +100,28 @@ init_posix(void)
 #if defined(PICORB_VM_MRUBYC)
 
 int
-main(void)
+main(int argc, char **argv)
 {
+  int i;
+
+  for (i = 1; i < argc; i++) {
+    if (argv[i][0] == '-') {
+      if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+        show_version();
+        return EXIT_SUCCESS;
+      }
+      else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+        usage(argv[0]);
+        return EXIT_SUCCESS;
+      }
+      else {
+        fprintf(stderr, "%s: unknown option '%s'\n", argv[0], argv[i]);
+        usage(argv[0]);
+        return EXIT_FAILURE;
+      }
+    }
+  }
+
   init_posix();
 
   mrbc_init(heap_pool, HEAP_SIZE);
@@ -93,8 +137,28 @@ main(void)
 mrb_state *global_mrb = NULL;
 
 int
-main(void)
+main(int argc, char **argv)
 {
+  int i;
+
+  for (i = 1; i < argc; i++) {
+    if (argv[i][0] == '-') {
+      if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) {
+        show_version();
+        return EXIT_SUCCESS;
+      }
+      else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
+        usage(argv[0]);
+        return EXIT_SUCCESS;
+      }
+      else {
+        fprintf(stderr, "%s: unknown option '%s'\n", argv[0], argv[i]);
+        usage(argv[0]);
+        return EXIT_FAILURE;
+      }
+    }
+  }
+
   init_posix();
 
   int ret = 0;
