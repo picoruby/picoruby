@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include <picoruby/string_utils.h>
 
 #include <sys/types.h>
 #if defined(_WIN32) || defined(_WIN64)
@@ -31,57 +32,6 @@
 struct picoruby_dir {
   DIR *dir;
 };
-
-// TODO: move to somewhere
-static bool
-is_valid_utf8(const unsigned char *str)
-{
-  while (*str) {
-    if (*str < 0x80) {
-      // ASCII
-      if (*str < 0x20 && *str != 0x0A && *str != 0x0D && *str != 0x09) {
-        return false;
-      }
-      str++;
-    }
-    else if ((*str & 0xE0) == 0xC0) {
-      // 2バイト文字
-      if (!(str[1] && (str[1] & 0xC0) == 0x80)) return false;
-      str += 2;
-    }
-    else if ((*str & 0xF0) == 0xE0) {
-      // 3バイト文字
-      if (!(str[1] && str[2] &&
-            (str[1] & 0xC0) == 0x80 &&
-            (str[2] & 0xC0) == 0x80)) return false;
-      str += 3;
-    }
-    else if ((*str & 0xF8) == 0xF0) {
-      // 4バイト文字
-      if (!(str[1] && str[2] && str[3] &&
-            (str[1] & 0xC0) == 0x80 &&
-            (str[2] & 0xC0) == 0x80 &&
-            (str[3] & 0xC0) == 0x80)) return false;
-      str += 4;
-    }
-    else {
-      return false;
-    }
-  }
-  return true;
-}
-
-//static void
-//dir_free(mrbc_vm *vm, void *ptr)
-//{
-//  struct picoruby_dir *mdir = (struct picoruby_dir*)ptr;
-//
-//  if (mdir->dir) {
-//    closedir(mdir->dir);
-//    mdir->dir = NULL;
-//  }
-//  mrbc_free(vm, mdir);
-//}
 
 static void
 c_dir_close(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -322,7 +272,7 @@ c_dir_read(mrbc_vm *vm, mrbc_value v[], int argc)
   memset(name_buf, 0, sizeof(name_buf));
   strncpy(name_buf, dp->d_name, sizeof(name_buf) - 1);
 
-  if (!is_valid_utf8((const unsigned char *)name_buf)) {
+  if (!picorb_is_valid_utf8((const unsigned char *)name_buf)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "invalid character encoding in directory entry");
     return;
   }
