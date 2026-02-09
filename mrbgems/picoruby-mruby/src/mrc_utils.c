@@ -44,33 +44,6 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
   }
 }
 
-MRC_API int
-mrc_string_run(mrc_ccontext *cc, const char *string)
-{
-  mrb_state *mrb = cc->mrb;
-  const uint8_t *source = (const uint8_t *)string; mrc_irep *irep = mrc_load_string_cxt(cc, &source, (size_t)strlen((const char *)string));
-
-  struct RClass *target = mrb->object_class;
-  struct RProc *proc = mrb_proc_new(mrb, (mrb_irep *)irep);
-  proc->c = NULL;
-  if (mrb->c->cibase && mrb->c->cibase->proc == proc->upper) {
-    proc->upper = NULL;
-  }
-  MRB_PROC_SET_TARGET_CLASS(proc, target);
-  if (mrb->c->ci) {
-    mrb_vm_ci_target_class_set(mrb->c->ci, target);
-  }
-  mrc_resolve_intern(cc, irep);
-  mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
-  mrb_vm_ci_env_clear(mrb, mrb->c->cibase);
-  if (mrb->exc) {
-    // TODO: MRB_EXC_CHECK_EXIT(mrb, mrb->exc) or something like that
-    return EXIT_FAILURE;
-  }
-  if (irep) mrc_irep_free(cc, irep);
-  return EXIT_SUCCESS;
-}
-
 MRC_API mrb_value
 mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_value name, mrb_value priority, mrb_value top_self)
 {
