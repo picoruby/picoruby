@@ -358,6 +358,21 @@ picorb_print_error(mrb_state *vm)
 #endif
 }
 
+static void
+picorb_print_diagnostics(mrc_ccontext *cc, const char *cmdline, picorb_bool verbose)
+{
+  if (cc->diagnostic_list) {
+    mrc_diagnostic_list *d = cc->diagnostic_list;
+    while (d) {
+      if (verbose || d->code == MRC_PARSER_ERROR || d->code == MRC_GENERATOR_ERROR) {
+        const char *filename = cc->filename_table ? cc->filename_table[0].filename : cmdline;
+        fprintf(stderr, "%s:%d:%d: %s\n", filename, d->line, d->column, d->message);
+      }
+      d = d->next;
+    }
+  }
+}
+
 #if defined(PICORB_VM_MRUBY)
 static int /* macro needs `mrb` */
 mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
@@ -409,14 +424,14 @@ mrbc_lib_run(mrbc_vm *vm, uint8_t *vm_code)
 #endif
 
 static mrc_irep *
-picorb_load_rb_file_cxt(mrc_ccontext *cc, const char *fname, uint8_t **source)
+picorb_load_rb_file_cxt(mrc_ccontext *cc, const char *fname, uint8_t **source, picorb_bool verbose)
 {
-  char *filenames[2];// = (char**)picorb_alloc(vm, sizeof(char*) * 2);
+  char *filenames[2];
   filenames[0] = (char *)fname;
   filenames[1] = NULL;
   mrc_irep *irep = mrc_load_file_cxt(cc, (const char **)filenames, source);
   if (irep == NULL) {
-    fprintf(stderr, "irep load error\n");
+    picorb_print_diagnostics(cc, fname, verbose);
   }
   return irep;
 }
@@ -523,7 +538,7 @@ main(int argc, char **argv)
       fclose(fp);
     }
     else {
-      irep = picorb_load_rb_file_cxt(cc, args.libv[i], &source);
+      irep = picorb_load_rb_file_cxt(cc, args.libv[i], &source, args.verbose);
     }
 
     if (irep) {
@@ -650,9 +665,8 @@ main(int argc, char **argv)
       source = picorb_alloc(vm, sizeof(uint8_t) * 2);
       source[0] = 0x0;
       source[1] = 0x0;
-      irep = picorb_load_rb_file_cxt(cc, fnames[i], &source);
+      irep = picorb_load_rb_file_cxt(cc, fnames[i], &source, args.verbose);
       if (irep == NULL) {
-        fprintf(stderr, "irep load error\n");
         exit(EXIT_FAILURE);
       }
     }
@@ -661,7 +675,7 @@ main(int argc, char **argv)
       if (!utf8) abort();
       irep = mrc_load_string_cxt(cc, (const uint8_t **)&utf8, strlen(utf8));
       if (irep == NULL) {
-        fprintf(stderr, "irep load error\n");
+        picorb_print_diagnostics(cc, "-e", args.verbose);
         exit(EXIT_FAILURE);
       }
       picorb_utf8_free(vm, utf8);
