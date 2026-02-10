@@ -13,14 +13,17 @@ MRuby::GemBox.new do |conf|
     conf.gem core: "picoruby-numeric-ext"
     conf.gem core: "picoruby-metaprog"
   elsif vm_mruby?
-    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-toplevel-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-object-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-kernel-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-array-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-hash-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-sprintf"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-objectspace"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-metaprog"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-error"
-    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-sprintf"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
   end
 end
