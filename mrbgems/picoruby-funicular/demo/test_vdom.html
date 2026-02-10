@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test VDOM - PicoRuby Funicular</title>
+  <link rel="stylesheet" href="../test.css">
+</head>
+<body>
+  <div><a href="../index.html">Back</a></div>
+  <h1>VDOM Test Suite</h1>
+  <div id="test-results"></div>
+  <div id="container"></div>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'funicular'
+
+    doc = JS.document
+    results = doc.getElementById('test-results')
+    container = doc.getElementById('container')
+
+    def test_case(name, &block)
+      doc = JS.document
+      results = doc.getElementById('test-results')
+      div = doc.createElement('div')
+      div.className = 'test-case'
+
+      begin
+        block.call
+        div.className = 'test-case pass'
+        div.textContent = "PASS: #{name}"
+      rescue => e
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: #{name} - #{e.message}"
+      end
+
+      results.appendChild(div)
+    end
+
+    test_case("Create Element VNode") do
+      vnode = Funicular::VDOM.create_element('div', { id: 'test' }, 'Hello')
+      raise "Element creation failed" unless vnode.is_a?(Funicular::VDOM::Element)
+      raise "Tag mismatch" unless vnode.tag == 'div'
+      raise "Props mismatch" unless vnode.props[:id] == 'test'
+    end
+
+    test_case("Create Text VNode") do
+      vnode = Funicular::VDOM.create_text('Hello World')
+      raise "Text creation failed" unless vnode.is_a?(Funicular::VDOM::Text)
+      raise "Content mismatch" unless vnode.content == 'Hello World'
+    end
+
+    test_case("Render simple element") do
+      container = doc.getElementById('container')
+      vnode = Funicular::VDOM.create_element('p', {}, 'Test paragraph')
+      Funicular::VDOM.render(vnode, container)
+      raise "Rendering failed" unless container.children.length.to_i > 0
+    end
+
+    test_case("Render element with attributes") do
+      container = doc.getElementById('container')
+      vnode = Funicular::VDOM.create_element('div', { id: 'test-id', class: 'test-class' })
+      Funicular::VDOM.render(vnode, container)
+      child = container.children[0]
+      raise "Attribute not set" unless child && child[:id].to_s == 'test-id'
+    end
+
+    test_case("Render nested elements") do
+      container = doc.getElementById('container')
+      vnode = Funicular::VDOM.create_element(
+        'div',
+        {},
+        Funicular::VDOM.create_element('h2', {}, 'Title'),
+        Funicular::VDOM.create_element('p', {}, 'Content')
+      )
+      Funicular::VDOM.render(vnode, container)
+      child = container.children[0]
+      raise "Nested rendering failed" unless child && child[:children].length.to_i == 2
+    end
+
+    test_case("Render text nodes") do
+      container = doc.getElementById('container')
+      vnode = Funicular::VDOM.create_element(
+        'p',
+        {},
+        Funicular::VDOM.create_text('Plain text')
+      )
+      Funicular::VDOM.render(vnode, container)
+      child = container.children[0]
+      raise "Text rendering failed" unless child && child[:textContent].to_s == 'Plain text'
+    end
+
+    summary = doc.createElement('h2')
+    summary.textContent = 'All tests completed!'
+    summary.style = 'color: green; margin-top: 20px;'
+    results.appendChild(summary)
+  </script>
+  <script src="../init.iife.js"></script>
+</body>
+</html>

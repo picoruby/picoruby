@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>Multi-Task Exception Test</h1>
+    <button id="test">Run Test</button>
+    <pre id="output"></pre>
+
+    <!-- Expected Result:
+Starting multi-task test...
+All tasks launched
+Task 1: Before raise
+Task 1 rescued: Error in task 1
+Task 2: Success
+Task 3: Before raise
+Task 3 rescued: Error in task 3
+    -->
+
+    <script type="text/ruby">
+      require 'js'
+
+      def log(msg)
+        output = JS.document.getElementById('output')
+        current = output.innerText.to_s
+        output.innerText = current + msg + "\n"
+      end
+
+      JS.document.getElementById('test').addEventListener('click') do
+        log "Starting multi-task test..."
+
+        # Task 1: Will raise
+        JS.global.fetch('../favicon.ico') do
+          log "Task 1: Before raise"
+          raise "Error in task 1"
+        rescue => e
+          log "Task 1 rescued: #{e.message}"
+        end
+
+        # Task 2: Will succeed
+        JS.global.fetch('favicon.ico') do
+          log "Task 2: Success"
+        rescue => e
+          log "Task 2 rescued: #{e.message} (should not happen)"
+        end
+
+        # Task 3: Will raise different error
+        JS.global.fetch('favicon.ico') do
+          log "Task 3: Before raise"
+          raise "Error in task 3"
+        rescue => e
+          log "Task 3 rescued: #{e.message}"
+        end
+
+        log "All tasks launched"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>

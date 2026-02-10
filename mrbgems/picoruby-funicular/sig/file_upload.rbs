@@ -1,0 +1,16 @@
+module Funicular
+  module FileUpload
+    JS_HELPER_CODE: String
+
+    def self.mount: () -> void
+    def self.select_file_with_preview: (String input_id) { (JS::Object? file, String? preview_url) -> void } -> void
+    def self.upload_with_formdata: (
+      String url,
+      ?fields: Hash[untyped, untyped],
+      ?file_field: String?,
+      ?file: JS::Object?
+    ) { (Hash[untyped, untyped] result) -> void } -> void
+    def self.store_file: (String input_id, ?String storage_key) -> JS::Object?
+    def self.retrieve_file: (?String storage_key) -> JS::Object?
+  end
+end

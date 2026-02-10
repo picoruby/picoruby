@@ -7,9 +7,6 @@ MRuby::GemBox.new do |conf|
     if vm_mrubyc?
       conf.gem core: 'picoruby-posix-io'
       conf.gem core: 'picoruby-dir'
-    elsif vm_mruby?
-      conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
-      conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-io"
     end
   else
     conf.gem core: "picoruby-vfs"

@@ -6,7 +6,11 @@
 #include <mruby/data.h>
 #include <mruby/string.h>
 #include <mruby/variable.h>
+#include <mruby/proc.h>
 // #include <mruby/debug.h>
+
+void mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep);
+mrb_value mrc_create_task(mrc_ccontext *cc, mrc_irep *irep, mrb_value name, mrb_value priority, mrb_value top_self);
 
 // Workaround for picoruby.h defines MRUBY_IREP_H
 void mrb_irep_incref(mrb_state *, struct mrb_irep *);
@@ -64,10 +68,12 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
   ss->cc = mrc_ccontext_new(mrb);
   ss->cc->options = ss->options;
   // TODO: Ask Matz
-  // if (ss->irep) mrb_irep_decref(mrb, ss->irep);
+  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
-  mrb_irep_incref(mrb, ss->irep);
+  if (ss->irep) {
+    mrb_irep_incref(mrb, (struct mrb_irep *)ss->irep);
+  }
   ss->options = ss->cc->options;
   ss->cc->options = NULL;
   if (!ss->irep) {
@@ -141,7 +147,7 @@ mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
 {
   SS();
   mrc_resolve_intern(ss->cc, ss->irep);
-  struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  struct RProc *proc = mrb_proc_new(mrb, (const mrb_irep *)ss->irep);
   proc->e.target_class = mrb->object_class;
   mrb_task_proc_set(mrb, ss->task, proc);
   mrb_task_reset_context(mrb, ss->task);
@@ -154,8 +160,7 @@ static mrb_value
 mrb_sandbox_state(mrb_state *mrb, mrb_value self)
 {
   SS();
-  mrb_value status_str = mrb_task_status(mrb, ss->task);
-  return mrb_str_intern(mrb, status_str);
+  return mrb_task_status(mrb, ss->task);
 }
 
 static mrb_value
@@ -230,7 +235,7 @@ mrb_sandbox_free_parser(mrb_state *mrb, mrb_value self)
 static mrb_bool
 sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss)
 {
-  struct RProc *proc = mrb_proc_new(mrb, ss->irep);
+  struct RProc *proc = mrb_proc_new(mrb, (const mrb_irep *)ss->irep);
   proc->e.target_class = mrb->object_class;
   proc->c = NULL;
   mrb_task_init_context(mrb, ss->task, proc);
@@ -249,7 +254,7 @@ mrb_sandbox_exec_vm_code(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "S", &vm_code);
   const uint8_t *code = (const uint8_t *)RSTRING_PTR(vm_code);
   if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
-  ss->irep = mrb_read_irep(mrb, code);
+  ss->irep = (mrc_irep *)mrb_read_irep(mrb, code);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
   } else {
@@ -264,7 +269,7 @@ mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
   mrb_int address;
   mrb_get_args(mrb, "i", &address);
   if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
-  ss->irep = mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
+  ss->irep = (mrc_irep *)mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
   } else {

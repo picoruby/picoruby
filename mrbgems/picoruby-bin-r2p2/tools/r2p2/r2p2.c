@@ -181,7 +181,7 @@ main(int argc, char **argv)
     ret = 1;
   }
   else {
-    mrb_tasks_run(mrb);
+    mrb_task_run(mrb);
   }
   mrb_close(mrb);
   mrc_ccontext_free(cc);

@@ -104,7 +104,7 @@ bool picoruby_load_model_by_name(const char *gem);
 #include <mruby/variable.h>
 #include <mruby/presym.h>
 #include <mruby/error.h>
-#include "../mrbgems/picoruby-mruby/include/task.h"
+//#include "../mrbgems/picoruby-mruby/include/task.h"
 #if defined(PICORB_ALOC_TLSF)
 #include "../mrbgems/picoruby-mruby/lib/tlsf/tlsf.h"
 #elif defined(PICORB_ALLOC_O1HEAP)
@@ -153,6 +153,8 @@ bool picoruby_load_model_by_name(const char *gem);
 
 // created in mruby/src/load.c
 mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
+
+mrb_value mrb_task_run(mrb_state *mrb);
 
 #else
 

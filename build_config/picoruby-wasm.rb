@@ -1,4 +1,10 @@
 MRuby::CrossBuild.new("picoruby-wasm") do |conf|
+  # Generate package.json from template with version from version.h
+  conf.generate_package_json_from_template(
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/package.json.template",
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/package.json"
+  )
+
   toolchain :clang
 
   conf.cc.defines << "MRB_TICK_UNIT=17"
@@ -20,10 +26,19 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.posix
   conf.microruby
 
+  conf.gembox "mruby-posix"
+
+  if ENV['PICORUBY_DEBUG']
+    conf.cc.defines << "MRB_USE_DEBUG_HOOK"
+    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-binding"
+  end
   # Add mruby-io for POSIX I/O support
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-math"
   conf.gem core: 'picoruby-wasm'
+  conf.gem core: 'picoruby-json'
+  conf.gem core: 'picoruby-funicular'
+  conf.gem core: 'picoruby-markdown'
   conf.gem core: 'picoruby-base16'
   conf.gem core: 'picoruby-base64'
   conf.gem core: 'picoruby-data'

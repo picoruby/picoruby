@@ -1,0 +1,134 @@
+module Funicular
+  class Component
+    class StateAccessor
+      def self.new: (Hash[Symbol, untyped] state_hash) -> StateAccessor
+      def []: (Symbol key) -> untyped
+      def method_missing: (Symbol method, *untyped args) -> untyped
+      def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
+      def errors: () -> Hash[Symbol, String]
+    end
+
+    HTML_TAGS: Array[String]
+
+    attr_accessor props: Hash[Symbol, untyped]
+    attr_accessor vdom: VDOM::VNode | VDOM::Text | nil
+    attr_accessor dom_element: JS::Object
+    attr_accessor mounted: bool
+    attr_reader refs: Hash[Symbol, JS::Object]
+
+    def self.new: (?Hash[Symbol, untyped] props) -> Component
+
+    # Styles DSL class methods
+    def self.styles: () { (StyleBuilder) -> void } -> void
+    def self.styles_definitions: () -> Hash[Symbol, Hash[Symbol, untyped]]
+
+    # Suspense DSL class methods
+    # Note: Using untyped for Proc types to avoid instance_exec block type mismatch warnings
+    type suspense_definition = { loader: untyped, on_resolve: untyped, min_delay: Integer? }
+    def self.use_suspense: (Symbol name, untyped loader, ?on_resolve: untyped, ?min_delay: Integer) -> void
+    def self.suspense_definitions: () -> Hash[Symbol, suspense_definition]
+
+    def state: () -> StateAccessor
+
+    # Styles DSL instance method
+    def s: () -> StyleAccessor
+
+    # Public API
+    def initialize_state: () -> Hash[Symbol, untyped]
+
+    # Suspense instance methods
+    def load_suspense_data: () -> void
+    def load_single_suspense: (Symbol name, ?suspense_definition? definition) -> void
+    def reload_suspense: (Symbol name) -> void
+    def suspense_loading?: (*Symbol names) -> bool
+    def suspense_error?: (Symbol name) -> bool
+    def suspense_error: (Symbol name) -> untyped
+    def suspense: (fallback: ^() -> void, ?error: ^(untyped) -> void) { () -> void } -> void
+
+    def patch: (Hash[Symbol, untyped] new_state) -> void
+    def mount: (JS::Object container) -> void
+    def unmount: () -> void
+    def render: () -> (VDOM::VNode | String | Integer | Float | Array[untyped] | nil)
+    def bind_events: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode) -> void
+    def build_vdom: () -> (VDOM::VNode | VDOM::Text | nil)
+
+    # Lifecycle hooks (public, can be overridden in subclasses)
+    def component_will_mount: () -> void
+    def component_mounted: () -> void
+    def component_will_update: () -> void
+    def component_updated: () -> void
+    def component_will_unmount: () -> void
+    def component_unmounted: () -> void
+    def component_raised: (Exception e) -> void
+
+    # Child component helper
+    def component: (Class component_class, ?Hash[Symbol, untyped] props) ?{ () -> untyped } -> VDOM::Component
+
+    # Rails-style form helper
+    def form_for: (Symbol model_key, ?Hash[Symbol, untyped] options) { (FormBuilder) -> void } -> VDOM::Element
+
+    # Rails-style routing helpers
+    def link_to: (String path, ?method: Symbol, ?navigate: bool, **untyped options) { -> untyped } -> VDOM::Element
+    def method_missing: (Symbol method, *untyped args) -> untyped
+    def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
+
+    # Transition helpers
+    def remove_via: (String element_id, String from, String to, ?duration: Integer) ?{ () -> void } -> void
+    def add_via: (String element_id, String from, String to, ?duration: Integer) ?{ () -> void } -> void
+
+    # Private methods
+    private def handle_link_click: (String path) -> void
+    private def handle_link_with_method: (String path, Symbol method) -> void
+    private def handle_link_response: (HTTP::Response response, String path, Symbol method) -> void
+    private def normalize_state_value: (untyped value) -> untyped
+    private def re_render: () -> void
+    private def normalize_vnode: (untyped value) -> (VDOM::VNode | VDOM::Text | nil)
+    private def add_data_component_attribute: (VDOM::VNode vnode) -> void
+    private def collect_refs: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
+    private def cleanup_events: () -> void
+    private def cleanup_suspense_timers: () -> void
+    private def add_child: (untyped child) -> void
+    private def collect_child_components: (VDOM::VNode | VDOM::Text | nil vnode) -> void
+    private def collect_child_components_recursive: (VDOM::VNode | VDOM::Text | nil vnode, Array[Component] components) -> void
+
+    # HTML element methods (DSL)
+    def div: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def span: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def p: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def a: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def h1: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def h2: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def h3: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def h4: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def h5: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def h6: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def ul: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def ol: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def li: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def table: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def thead: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def tbody: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def tr: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def th: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def td: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def form: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def input: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def textarea: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def button: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def select: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def option: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def label: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def header: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def footer: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def nav: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def section: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def article: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def aside: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def img: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def video: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def audio: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def canvas: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def br: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+    def hr: (?Hash[Symbol, untyped] props) ?{ -> untyped } -> VDOM::Element
+  end
+end

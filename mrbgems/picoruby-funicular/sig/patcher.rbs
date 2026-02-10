@@ -1,0 +1,15 @@
+module Funicular
+  module VDOM
+    BOOLEAN_ATTRIBUTES: Array[String]
+
+    class Patcher
+      def self.new: (?JS::Object? doc) -> Patcher
+      def apply: (JS::Object element, Array[patch_t] patches) -> JS::Object
+
+      private def update_props: (JS::Object element, Hash[Symbol, String?] props_patch) -> void
+      private def create_element: (untyped vnode) -> JS::Object
+      private def unmount_component: (VDOM::VNode vnode) -> void
+    end
+
+  end
+end

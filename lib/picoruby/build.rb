@@ -98,6 +98,15 @@ module MRuby
       cc.defines.include?("PICORB_PLATFORM_POSIX")
     end
 
+    def generate_package_json_from_template(template_path, output_path)
+      return unless File.exist?(template_path)
+      version = File.read("#{MRUBY_ROOT}/include/version.h")
+                    .match(/#define PICORUBY_VERSION "(.+?)"/)[1]
+      template_content = File.read(template_path)
+      generated_content = template_content.gsub('{{VERSION}}', version)
+      File.write(output_path, generated_content)
+    end
+
     private def debug_flag
       cc.flags.flatten!
       cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }
@@ -114,7 +123,7 @@ module MRuby
         cc.flags << "-fdata-sections"
         cc.flags << "-fomit-frame-pointer"
         # cc.flags << "-flto" # Build fails with -flto
-        unless cc.command == "clang"
+        unless cc.command == "clang" || cc.command == "emcc"
           cc.flags << "-s"
           linker.flags << "-Wl,--gc-sections"
         end

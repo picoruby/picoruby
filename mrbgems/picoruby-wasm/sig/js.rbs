@@ -1,50 +1,126 @@
-$js_document: JS::Object
-
 module JS
   class Object
-    type poro_t = JS::Object | String | Symbol | Array[JS::Object] | Integer | Float | nil | bool
-
-    $promise_responses: Hash[Integer, ::Object]
-    $js_events: Hash[Integer, ::Object]
+    # Global state (consider refactoring)
+    $promise_responses: Hash[Integer, JS::Object]
+    $js_events: Hash[Integer, JS::Object]
     CALLBACKS: Hash[Integer, Proc]
 
-    def to_poro: () -> poro_t
+    # Property Access
+    # Returns a JS::Object wrapper, or nil for null/undefined.
+    def []: (String | Symbol | Integer name) -> (JS::Object | nil)
+    # Setter automatically converts Ruby types to JS types.
+    def []=: (String | Symbol name, untyped value) -> untyped
 
-    def []: (Symbol name) -> JS::Object
-    def fetch: (String url) { (::Object response) -> void } -> void
-    def addEventListener: (String event_type) { (String event_json) -> void } -> Integer # callback_id
+    # Comparison operators
+    # == compares with Ruby native types (String, Integer, Float, true, false)
+    # or with other JS::Object (by ref_id)
+    def ==: (untyped other) -> bool
+
+    # Integer comparison operators (only work when JS type is number/bigint)
+    def <=>: (Integer | JS::Object other) -> Integer?
+    def >: (Integer | JS::Object other) -> bool
+    def >=: (Integer | JS::Object other) -> bool
+    def <: (Integer | JS::Object other) -> bool
+    def <=: (Integer | JS::Object other) -> bool
+
+    # Explicit Type Conversion Methods
+    def to_s: () -> String
+    def to_i: () -> Integer
+    def to_f: () -> Float
+    def to_a: () -> Array[JS::Object]
+
+    # Event Handling
+    def addEventListener: (String event_type) { (JS::Object event) -> void } -> Integer
+    def self.removeEventListener: (Integer callback_id) -> bool
+    def self.register_callback: (String name) { (*untyped args) -> untyped } -> Integer
+
+    # Async operations
+    def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
+    def then: () { (JS::Object result) -> void } -> void
     def to_binary: () -> String
 
+    # Timer operations
+    def setTimeout: (Integer delay_ms) { () -> void } -> Integer
+    def clearTimeout: (Integer callback_id) -> bool
 
-    # Methods
-    def querySelector: (String selector) -> JS::Object
-    def appendChild: (JS::Object child) -> JS::Object
-    def removeChild: (JS::Object child) -> JS::Object
-    def setAttribute: (String name, String value) -> void
-    def removeAttribute: (String name) -> void
-    def replaceChild: (JS::Object new_child, JS::Object old_child) -> JS::Object
+    # Debugging
+    def type: () -> Symbol
+    def refcount: () -> Integer
+
+    # DOM manipulation methods defined in C
     def createElement: (String tag_name) -> JS::Object
     def createTextNode: (String text) -> JS::Object
+    def appendChild: (JS::Object child) -> bool
+    def removeChild: (JS::Object child) -> bool
+    def replaceChild: (JS::Object new_child, JS::Object old_child) -> bool
+    def insertBefore: (JS::Object new_child, ?JS::Object? ref_child) -> bool
+    def setAttribute: (String name, String value) -> bool
+    def removeAttribute: (String name) -> bool
+    def preventDefault: () -> nil
+    def stopPropagation: () -> nil
+    def highlightAll: () -> void
 
-    # Properties
-    def className: () -> JS::Object
-    def classList: () -> JS::Object
-    def children: () -> JS::Object
-    def parentElement: () -> JS::Object
-    def tagName: () -> JS::Object
-    def innerHTML: () -> JS::Object
-    def innerHTML=: (String html) -> String
+    # Common properties/methods (examples)
+    # Note: All of these now return a JS::Object wrapper that may need explicit conversion.
+    def getElementById: (String id) -> JS::Object?
+    def querySelector: (String selector) -> JS::Object?
+    def querySelectorAll: (String selector) -> JS::Object # Use .to_a to iterate
+    def children: () -> JS::Object # Use .to_a to iterate
+    def parentElement: () -> JS::Object?
+    def tagName: () -> JS::Object # Use .to_s
     def style: () -> JS::Object
-    def style=: (String style) -> String
-    def textContent: () -> JS::Object
+    def item: (String | Integer num) -> JS::Object?
+    def innerHTML=: (String html) -> String
     def textContent=: (String text) -> String
+    def body: () -> JS::Object
+    def status: () -> JS::Object # Use .to_i
+    def push: (JS::Object item) -> JS::Object
+    def content: () -> JS::Object # Use .to_s
+    def classList: () -> JS::Object
+    def add: (*String class_names) -> bool
+    def remove: (*String class_names) -> bool
+    def target: () -> JS::Object
+    def getAttribute: (String name) -> JS::Object? # Use .to_s
+    def length: () -> JS::Object # Use .to_i
+    def hostname: () -> JS::Object # Use .to_s
+    def href: () -> JS::Object # Use .to_s
 
-    private def method_missing: (Symbol method_name, ?String arg) -> JS::Object
+    def URL: () -> JS::Object
+    def history: () -> JS::Object
+    def location: () -> JS::Object
+    def pathname: () -> JS::Object
+    def pushState: (untyped data, String title, String url) -> void
+    def replaceState: (untyped data, String title, String url) -> void
+    def createObjectURL: (JS::Object blob) -> JS::Object
+    def create_object: () -> JS::Object
+    def create_array: () -> JS::Object
+
+    # localStorage methods
+    def setItem: (String key, String value) -> void
+    def getItem: (String key) -> JS::Object?
+    def removeItem: (String key) -> void
+
+    def _js_remove_event_listener_wrapper: (Integer callback_id) -> bool
+
+    private def method_missing: (Symbol method_name, *untyped args) -> (JS::Object | nil)
     private def _add_event_listener: (Integer callback_id, String event_type) -> nil
+    private def self._register_callback: (Integer callback_id, String name) -> nil
+    private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
+    private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
     private def _to_binary_and_suspend: (Integer callback_id) -> nil
+    private def _set_timeout: (Integer callback_id, Integer delay_ms) -> Integer
+    private def _clear_timeout: (Integer callback_id) -> bool
   end
 
   def self.global: () -> JS::Object
+  def self.generic_callbacks: () -> JS::Object
   def self.document: () -> JS::Object
+
+  module Bridge
+    def self.to_js: (untyped value) -> untyped
+    def self.hash_to_js_object: (Hash[untyped, untyped] hash) -> JS::Object
+    def self.array_to_js_array: (Array[untyped] array) -> JS::Object
+  end
 end
+

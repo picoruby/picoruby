@@ -1,5 +1,6 @@
 #include <picoruby.h>
 #include <mruby/proc.h>
+#include <mruby/data.h>
 #include <task.h>
 
 MRC_API void

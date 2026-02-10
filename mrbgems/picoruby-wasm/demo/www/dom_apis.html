@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test DOM APIs - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+</head>
+<body>
+  <div><a href="index.html">Back</a></div>
+  <h1>DOM APIs Test Suite</h1>
+  <div id="test-results"></div>
+  <div id="container"></div>
+
+  <script type="text/ruby">
+    require 'js'
+
+    doc = JS.document
+    results = doc.getElementById('test-results')
+    container = doc.getElementById('container')
+
+    def test_case(name, &block)
+      doc = JS.document
+      results = doc.getElementById('test-results')
+      div = doc.createElement('div')
+      div.className = 'test-case'
+
+      begin
+        block.call
+        div.className = 'test-case pass'
+        div.textContent = "PASS: #{name}"
+      rescue => e
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: #{name} - #{e.message}"
+      end
+
+      results.appendChild(div)
+    end
+
+    test_case("createElement") do
+      elem = doc.createElement('div')
+      raise "createElement failed" unless elem
+    end
+
+    test_case("createTextNode") do
+      text = doc.createTextNode('Hello World')
+      raise "createTextNode failed" unless text
+    end
+
+    test_case("appendChild") do
+      container = doc.getElementById('container')
+      elem = doc.createElement('p')
+      text = doc.createTextNode('Test paragraph')
+      elem.appendChild(text)
+      container.appendChild(elem)
+    end
+
+    test_case("setAttribute") do
+      elem = doc.createElement('div')
+      elem.setAttribute('id', 'test-id')
+      elem.setAttribute('class', 'test-class')
+      doc.getElementById('container').appendChild(elem)
+      raise "setAttribute failed" unless elem[:id].to_s == 'test-id'
+    end
+
+    test_case("Property setter - string") do
+      elem = doc.createElement('div')
+      elem.textContent = 'String property'
+      raise "String property failed" unless elem[:textContent].to_s == 'String property'
+    end
+
+    test_case("Property setter - integer") do
+      elem = doc.createElement('div')
+      elem.tabIndex = 42
+      raise "Integer property failed" unless elem[:tabIndex].to_i == 42
+    end
+
+    test_case("Property setter - boolean") do
+      elem = doc.createElement('input')
+      elem.setAttribute('type', 'checkbox')
+      elem.checked = true
+      raise "Boolean property failed" unless elem.checked
+    end
+
+    test_case("removeChild") do
+      container = doc.getElementById('container')
+      elem = doc.createElement('div')
+      elem.textContent = 'Will be removed'
+      container.appendChild(elem)
+      container.removeChild(elem)
+    end
+
+    test_case("replaceChild") do
+      container = doc.getElementById('container')
+      old_elem = doc.createElement('div')
+      old_elem.textContent = 'Old'
+      container.appendChild(old_elem)
+
+      new_elem = doc.createElement('div')
+      new_elem.textContent = 'New'
+      container.replaceChild(new_elem, old_elem)
+    end
+
+    test_case("insertBefore") do
+      container = doc.getElementById('container')
+      ref_elem = doc.createElement('div')
+      ref_elem.textContent = 'Reference'
+      container.appendChild(ref_elem)
+
+      new_elem = doc.createElement('div')
+      new_elem.textContent = 'Inserted before'
+      container.insertBefore(new_elem, ref_elem)
+    end
+
+    test_case("addEventListener and removeEventListener") do
+      btn = doc.createElement('button')
+      btn.textContent = 'Test button'
+
+      clicked = false
+      callback_id = btn.addEventListener('click') do |event|
+        clicked = true
+      end
+
+      raise "addEventListener failed" unless callback_id
+      JS::Object.removeEventListener(callback_id)
+    end
+
+    test_case("removeAttribute") do
+      elem = doc.createElement('div')
+      elem.setAttribute('data-test', 'value')
+      attr = elem.getAttribute('data-test')
+      raise "setAttribute failed (got #{attr.inspect})" unless attr.to_s == 'value'
+
+      elem.removeAttribute('data-test')
+      attr_value = elem.getAttribute('data-test')
+      raise "removeAttribute failed" unless attr_value == nil
+    end
+
+    summary = doc.createElement('h2')
+    summary.textContent = 'All tests completed!'
+    summary.style = 'color: green; margin-top: 20px;'
+    results.appendChild(summary)
+
+    # Interactive demo
+    demo_section = doc.createElement('div')
+    demo_section.style = 'margin-top: 30px; padding: 20px; border: 2px dashed #007bff; border-radius: 8px;'
+
+    demo_title = doc.createElement('h3')
+    demo_title.textContent = 'Interactive Demo'
+    demo_section.appendChild(demo_title)
+
+    demo_btn = doc.createElement('button')
+    demo_btn.textContent = 'Click me!'
+    demo_btn.style = 'padding: 10px 20px; font-size: 16px; cursor: pointer;'
+    demo_btn.addEventListener('click') do |event|
+      event.preventDefault
+      event.target.textContent = 'Clicked!'
+      event.target.style = 'padding: 10px 20px; font-size: 16px; background-color: green; color: white; cursor: pointer;'
+    end
+    demo_section.appendChild(demo_btn)
+
+    container.appendChild(demo_section)
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

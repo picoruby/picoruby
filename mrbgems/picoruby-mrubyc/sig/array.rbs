@@ -1743,5 +1743,7 @@ class Array[unchecked out Elem] < Object
 
   def uniq: () -> ::Array[Elem]
   def uniq!: () -> self
+
+  def select: () { (Elem item) -> boolish } -> ::Array[Elem]
 end
 

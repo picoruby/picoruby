@@ -12,6 +12,7 @@ MRuby::GemBox.new do |conf|
     conf.gem core: "picoruby-pack"
     conf.gem core: "picoruby-numeric-ext"
     conf.gem core: "picoruby-metaprog"
+    conf.gem core: "picoruby-pack"
   elsif vm_mruby?
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-toplevel-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-object-ext"

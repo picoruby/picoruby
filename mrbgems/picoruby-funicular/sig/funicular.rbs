@@ -1,0 +1,14 @@
+module Funicular
+  VERSION: String
+
+  def self.version: () -> String
+  def self.env: () -> EnvironmentInquirer
+  def self.env=: (EnvironmentInquirer | String environment) -> EnvironmentInquirer?
+  def self.router: () -> Router?
+  def self.load_schemas: (Hash[singleton(Model), String] models) ?{ () -> void } -> void
+  def self.start: (?singleton(Component)? component_class, ?container: String | JS::Object, ?props: Hash[Symbol, untyped]) ?{ (Router router) -> void } -> (Component | Router)
+  def self.configure_forms: () ?{ (Hash[Symbol, String]) -> void } -> void
+  def self.configure_debug: () ?{ (self) -> void } -> void
+  def self.export_debug_config: () -> void
+
+end

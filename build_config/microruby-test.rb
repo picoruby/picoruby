@@ -15,6 +15,7 @@ MRuby::Build.new do |conf|
   conf.linker.libraries << 'ssl'
   conf.linker.libraries << 'crypto'
 
+  conf.gembox "mruby-posix"
   conf.gembox "minimum"
   conf.gembox "core"
   conf.gembox "stdlib"

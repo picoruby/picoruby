@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tic-Tac-Toe - Funicular</title>
+</head>
+<body>
+  <div><a href="../index.html">Back</a></div>
+  <h1>Tic-Tac-Toe (Funicular)</h1>
+  <div id="app"></div>
+  <p>This app is ported from the ReactJS Tic-Tac-Toe tutorial: <a href="https://react.dev/learn/tutorial-tic-tac-toe" target="_blank">https://react.dev/learn/tutorial-tic-tac-toe</a></p>
+
+  <script type="text/ruby">
+    def calculate_winner(squares)
+      lines = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6],
+      ]
+      lines.each do |line|
+        a, b, c = line
+        if squares[a] && squares[a] == squares[b] && squares[a] == squares[c]
+          return squares[a]
+        end
+      end
+      nil
+    end
+
+    class Square < Funicular::Component
+      def handle_click(event)
+        event.preventDefault
+        on_click = props[:on_click]
+        on_click.call if on_click
+      end
+
+      def render
+        button(class: 'square', onclick: :handle_click) do
+          props[:value] || ''
+        end
+      end
+    end
+
+    class Board < Funicular::Component
+      def handle_click(i)
+        -> {
+          squares = props[:squares]
+          return if calculate_winner(squares) || squares[i]
+          on_play = props[:on_play]
+          on_play.call(i) if on_play
+        }
+      end
+
+      def render
+        squares = props[:squares]
+        x_is_next = props[:x_is_next]
+
+        winner = calculate_winner(squares)
+        status = if winner
+          "Winner: #{winner}"
+        else
+          "Next player: #{x_is_next ? 'X' : 'O'}"
+        end
+
+        div do
+          div(class: 'status') { status }
+          div(class: 'board-row') do
+            component(Square, value: squares[0], on_click: handle_click(0))
+            component(Square, value: squares[1], on_click: handle_click(1))
+            component(Square, value: squares[2], on_click: handle_click(2))
+          end
+          div(class: 'board-row') do
+            component(Square, value: squares[3], on_click: handle_click(3))
+            component(Square, value: squares[4], on_click: handle_click(4))
+            component(Square, value: squares[5], on_click: handle_click(5))
+          end
+          div(class: 'board-row') do
+            component(Square, value: squares[6], on_click: handle_click(6))
+            component(Square, value: squares[7], on_click: handle_click(7))
+            component(Square, value: squares[8], on_click: handle_click(8))
+          end
+        end
+      end
+    end
+
+    class Game < Funicular::Component
+      def initialize_state
+        {
+          history: [Array.new(9, nil)],
+          current_move: 0
+        }
+      end
+
+      def handle_play(i)
+        history = state.history
+        current_move = state.current_move
+        current_squares = history[current_move].dup
+
+        current_squares[i] = (current_move % 2 == 0) ? 'X' : 'O'
+
+        next_history = history[0..current_move] + [current_squares]
+        patch(
+          history: next_history,
+          current_move: next_history.length - 1
+        )
+      end
+
+      def jump_to(move)
+        -> {
+          patch(current_move: move)
+        }
+      end
+
+      def render
+        history = state.history
+        current_move = state.current_move
+        x_is_next = (current_move % 2 == 0)
+        current_squares = history[current_move]
+
+        div(class: 'game') do
+          div(class: 'game-board') do
+            component(Board,
+              x_is_next: x_is_next,
+              squares: current_squares,
+              on_play: ->(i) { handle_play(i) }
+            )
+          end
+          div(class: 'game-info') do
+            ol do
+              history.each_with_index do |_squares, move|
+                description = if move > 0
+                  "Go to move ##{move}"
+                else
+                  'Go to game start'
+                end
+                li(key: move) do
+                  button(onclick: jump_to(move)) { description }
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+
+    puts "Starting Tic-Tac-Toe..."
+    Funicular.start(Game, container: 'app')
+    puts "Game started!"
+  </script>
+  <script src="../init.iife.js"></script>
+</body>
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: sans-serif;
+  margin: 20px;
+  padding: 0;
+}
+
+.square {
+  background: #fff;
+  border: 1px solid #999;
+  float: left;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 34px;
+  height: 34px;
+  margin-right: -1px;
+  margin-top: -1px;
+  padding: 0;
+  text-align: center;
+  width: 34px;
+}
+
+.board-row:after {
+  clear: both;
+  content: '';
+  display: table;
+}
+
+.status {
+  margin-bottom: 10px;
+}
+
+.game {
+  display: flex;
+  flex-direction: row;
+}
+
+.game-info {
+  margin-left: 20px;
+}
+</style>
+</html>

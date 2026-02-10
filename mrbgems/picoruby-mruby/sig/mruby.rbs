@@ -6,6 +6,58 @@ module GC
   def self.start: () -> bool
 end
 
+class BasicObject
+  def instance_exec: [U] (*untyped, **untyped) { (?) [self: self] -> U } -> U
+end
+
 class ObjectSpace
   def self.count_objects: () -> Hash[Symbol, Integer]
+end
+
+class Module
+  def define_method: (String | Symbol symbol, ^() [self: instance] -> untyped method) -> Symbol
+                   | (String | Symbol symbol) { () [self: instance] -> untyped } -> Symbol
+  def const_defined?: (String | Symbol name) -> bool
+  def include?: (Module mod) -> bool
+  def const_set: (String | Symbol name, untyped value) -> untyped
+end
+
+class Class < Module
+  def ancestors: () -> Array[Module]
+end
+
+class Proc
+  def arity: () -> Integer
+end
+
+class Array[unchecked out Elem] < Object
+  def concat: [U] (Array[U]) -> ::Array[Elem | U]
+  def compact: () -> ::Array[Elem]
+  def find: () ?{ (Elem) -> bool } -> Elem?
+end
+
+class String
+  def sub: (String pattern, String replacement) -> String
+  def capitalize: () -> String
+  def lines: () -> ::Array[String]
+  def chars: () -> ::Array[String]
+  def slice: (Integer start, Integer length) -> String?
+           | (Range[Integer] range) -> String?
+end
+
+class Hash[unchecked out Key, unchecked out Value] < Object
+  def key?: (Key) -> bool
+  def reject: [K, V] { (Key, Value) -> bool } -> ::Hash[Key, Value]
+  def any?: () ?{ (Key, Value) -> bool } -> bool
+  def dig: (Key, *Array[Key]) -> untyped
+  def each_key: () { (Key) -> untyped } -> ::Hash[Key, Value]
+end
+
+class Exception
+  def backtrace: () -> ::Array[String]
+end
+
+class Method
+  def call: (*untyped) -> untyped
+  def arity: () -> Integer
 end

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test WebSocket - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+</head>
+<body>
+  <div><a href="index.html">Back</a></div>
+  <h1>WebSocket Test Suite</h1>
+  <div id="test-results"></div>
+  <div id="messages"></div>
+
+  <script type="text/ruby">
+    require 'js'
+
+    doc = JS.document
+    results = doc.getElementById('test-results')
+    messages_div = doc.getElementById('messages')
+
+    def log_message(msg)
+      doc = JS.document
+      messages_div = doc.getElementById('messages')
+      p = doc.createElement('p')
+      p.textContent = "[#{Time.now}] #{msg}"
+      messages_div.appendChild(p)
+    end
+
+    def test_case(name, &block)
+      doc = JS.document
+      results = doc.getElementById('test-results')
+      div = doc.createElement('div')
+      div.className = 'test-case pending'
+      div.textContent = "RUNNING: #{name}"
+      results.appendChild(div)
+
+      begin
+        block.call(div)
+      rescue => e
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: #{name} - #{e.message}"
+        log_message("Test failed: #{e.message}")
+      end
+    end
+
+    test_case("WebSocket constants") do |div|
+      raise "CONNECTING not defined" unless WebSocket::CONNECTING == 0
+      raise "OPEN not defined" unless WebSocket::OPEN == 1
+      raise "CLOSING not defined" unless WebSocket::CLOSING == 2
+      raise "CLOSED not defined" unless WebSocket::CLOSED == 3
+      div.className = 'test-case pass'
+      div.textContent = "PASS: WebSocket constants"
+    end
+
+    test_case("WebSocket creation") do |div|
+      ws = WebSocket.new('wss://echo.websocket.org/')
+      raise "WebSocket creation failed" unless ws
+      raise "WebSocket state not CONNECTING" unless ws.connecting?
+      div.className = 'test-case pass'
+      div.textContent = "PASS: WebSocket creation"
+      # Close after connection is established to avoid error
+      ws.onopen do |event|
+        ws.close
+      end
+    end
+
+    test_case("WebSocket onopen callback") do |div|
+      ws = WebSocket.new('wss://echo.websocket.org/')
+      log_message("Connecting to echo server...")
+
+      ws.onopen do |event|
+        log_message("Connection opened!")
+        div.className = 'test-case pass'
+        div.textContent = "PASS: WebSocket onopen callback"
+        ws.close
+      end
+
+      ws.onerror do |event|
+        log_message("Connection error!")
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: WebSocket onopen callback - connection error"
+      end
+    end
+
+    test_case("WebSocket send and receive") do |div|
+      ws = WebSocket.new('wss://echo.websocket.org/')
+      log_message("Testing echo...")
+      message_count = 0
+
+      ws.onopen do |event|
+        log_message("Sending test message")
+        ws.send("Hello from PicoRuby!")
+      end
+
+      ws.onmessage do |event|
+        message = event[:data]
+        log_message("Received: #{message}")
+        message_count += 1
+        if message_count == 1
+          # First message is "Request served by ..."
+          log_message("Skipping server info message")
+        elsif message.to_s == "Hello from PicoRuby!"
+          div.className = 'test-case pass'
+          div.textContent = "PASS: WebSocket send and receive"
+          ws.close
+        else
+          div.className = 'test-case fail'
+          div.textContent = "FAIL: WebSocket send and receive - wrong message: #{message}"
+          ws.close
+        end
+      end
+
+      ws.onerror do |event|
+        log_message("Connection error!")
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: WebSocket send and receive - connection error"
+      end
+    end
+
+    test_case("WebSocket onclose callback") do |div|
+      ws = WebSocket.new('wss://echo.websocket.org/')
+      log_message("Testing close callback...")
+
+      ws.onopen do |event|
+        log_message("Closing connection")
+        ws.close
+      end
+
+      ws.onclose do |event|
+        log_message("Connection closed!")
+        div.className = 'test-case pass'
+        div.textContent = "PASS: WebSocket onclose callback"
+      end
+
+      ws.onerror do |event|
+        log_message("Connection error!")
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: WebSocket onclose callback - connection error"
+      end
+    end
+
+    summary = doc.createElement('h2')
+    summary.textContent = 'Tests running... Check messages below'
+    summary.style = 'color: orange; margin-top: 20px;'
+    results.appendChild(summary)
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

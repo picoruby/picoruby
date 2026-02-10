@@ -1,0 +1,62 @@
+module Funicular
+  module Cable
+    STORAGE_KEY: String
+
+    def self.create_consumer: (String url) -> Consumer
+
+    class Consumer
+      attr_reader url: String
+      attr_reader subscriptions: Subscriptions
+
+      def self.new: (String url) -> Consumer
+      def connect: () -> void
+      def send_command: (Hash[Symbol, untyped] command) -> void
+      def disconnect: () -> void
+      def cleanup: () -> void
+      def cleanup_event_listeners: () -> void
+
+      private def handle_message: (String data) -> void
+      private def flush_pending_commands: () -> void
+      private def schedule_reconnect: () -> void
+      private def calculate_backoff_delay: () -> Integer
+      private def setup_visibility_handler: () -> void
+      private def schedule_suspend: () -> void
+      private def cancel_suspend: () -> void
+      private def suspend_connection: () -> void
+      private def ensure_connected: () -> void
+      private def setup_beforeunload_handler: () -> void
+      private def save_pending_to_storage: () -> void
+      private def load_pending_from_storage: () -> Array[Hash[Symbol, untyped]]
+      private def clear_pending_storage: () -> void
+    end
+
+    class Subscriptions
+      def self.new: (Consumer consumer) -> Subscriptions
+      def create: (Hash[Symbol, untyped] params) ?{ (untyped message) -> void } -> Subscription
+      def find: (String identifier) -> Subscription?
+      def remove: (Subscription subscription) -> void
+      def notify_subscription_confirmed: (String identifier) -> void
+      def notify_subscription_rejected: (String identifier) -> void
+      def notify_message: (String identifier, untyped message) -> void
+    end
+
+    class Subscription
+      attr_reader consumer: Consumer
+      attr_reader identifier: String
+      attr_reader params: Hash[Symbol, untyped]
+
+      def self.new: (Consumer consumer, String identifier, Hash[Symbol, untyped] params) ?{ (untyped message) -> void } -> Subscription
+      def subscribe: () -> void
+      def unsubscribe: () -> void
+      def perform: (String action, ?Hash[Symbol, untyped] data) -> void
+      def on_connected: () { () -> void } -> void
+      def on_disconnected: () { () -> void } -> void
+      def on_rejected: () { () -> void } -> void
+      def notify_connected: () -> void
+      def notify_rejected: () -> void
+      def notify_received: (untyped message) -> void
+
+      private def generate_idempotency_key: () -> String
+    end
+  end
+end

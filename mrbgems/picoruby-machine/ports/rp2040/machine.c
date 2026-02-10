@@ -84,7 +84,7 @@ usb_irq_handler(void)
 
 void
 #if defined(PICORB_VM_MRUBY)
-hal_init(mrb_state *mrb)
+mrb_hal_task_init(mrb_state *mrb)
 #elif defined(PICORB_VM_MRUBYC)
 hal_init(void)
 #endif
@@ -127,6 +127,14 @@ hal_init(void)
       PICO_SHARED_IRQ_HANDLER_LOWEST_ORDER_PRIORITY);
 }
 
+#if defined(PICORB_VM_MRUBY)
+void
+mrb_hal_task_final(mrb_state *mrb)
+{
+  (void)mrb;
+}
+#endif
+
 void
 #if defined(PICORB_VM_MRUBYC)
 hal_enable_irq(void)
@@ -161,7 +169,7 @@ void
 #if defined(PICORB_VM_MRUBYC)
 hal_idle_cpu()
 #elif defined(PICORB_VM_MRUBY)
-hal_idle_cpu(mrb_state *mrb)
+mrb_hal_task_idle_cpu(mrb_state *mrb)
 #endif
 {
 #if defined(PICO_RP2040)
@@ -179,6 +187,15 @@ hal_idle_cpu(mrb_state *mrb)
   );
 #endif
 }
+
+#if defined(PICORB_VM_MRUBY)
+void
+mrb_hal_task_sleep_us(mrb_state *mrb, mrb_int usec)
+{
+  (void)mrb;
+  sleep_us((uint32_t)usec);
+}
+#endif
 
 int
 hal_write(int fd, const void *buf, int nbytes)

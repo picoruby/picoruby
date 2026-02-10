@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>Promise Chain Test</h1>
+    <button id="test">Run Test</button>
+    <pre id="output"></pre>
+
+    <!-- Expected Result:
+Starting promise chain test...
+Step 1: Got first response
+Step 2: Got second response
+Caught in outer: Error in chain
+    -->
+
+    <script type="text/ruby">
+      require 'js'
+
+      def log(msg)
+        output = JS.document.getElementById('output')
+        current = output.innerText.to_s
+        output.innerText = current + msg + "\n"
+      end
+
+      JS.document.getElementById('test').addEventListener('click') do
+        log "Starting promise chain test..."
+
+        begin
+          JS.global.fetch('../favicon.ico') do |r1|
+            log "Step 1: Got first response"
+
+            JS.global.fetch('favicon.ico') do |r2|
+              log "Step 2: Got second response"
+              raise "Error in chain"
+            end
+
+            log "Step 1: After second fetch (should not print)"
+          end
+        rescue => e
+          log "Caught in outer: #{e.message}"
+        end
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>

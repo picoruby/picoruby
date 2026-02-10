@@ -6,8 +6,8 @@ class Object
   def send: (Symbol | String name, *untyped args) -> untyped
   def methods: () -> Array[Symbol]
   def instance_variables: () -> Array[Symbol]
-  def instance_variable_get: (Symbol name) -> untyped
-  def instance_variable_set: (Symbol name, untyped value) -> untyped
+  def instance_variable_get: (Symbol | String name) -> untyped
+  def instance_variable_set: (Symbol | String name, untyped value) -> untyped
   def respond_to?: (Symbol | String name) -> bool
   def __id__: () -> Integer
   alias object_id __id__

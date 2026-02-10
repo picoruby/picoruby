@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Funicular Debugger</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #1e1e1e;
+      color: #cccccc;
+    }
+
+    .toolbar {
+      padding: 8px;
+      background: #2d2d2d;
+      border-bottom: 1px solid #454545;
+      display: flex;
+      align-items: center;
+    }
+
+    .status {
+      color: #888;
+      font-size: 11px;
+    }
+
+    .content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section {
+      border-bottom: 1px solid #454545;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-header {
+      padding: 8px;
+      background: #2d2d2d;
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #888;
+    }
+
+    .section-content {
+      padding: 8px;
+      overflow-y: auto;
+    }
+
+    .variable-list {
+      list-style: none;
+    }
+
+    .variable-item {
+      padding: 4px 0;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .variable-name {
+      color: #9cdcfe;
+    }
+
+    .variable-value {
+      color: #ce9178;
+    }
+
+    .call-stack {
+      list-style: none;
+    }
+
+    .stack-frame {
+      padding: 6px 8px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .stack-frame:hover {
+      background: #2a2d2e;
+    }
+
+    .stack-frame.active {
+      background: #094771;
+      border-left-color: #007acc;
+    }
+
+    .stack-frame-method {
+      color: #dcdcaa;
+    }
+
+    .stack-frame-location {
+      color: #888;
+      font-size: 10px;
+    }
+
+    .repl {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #1e1e1e;
+    }
+
+    .repl-output {
+      flex: 1;
+      padding: 8px;
+      overflow-y: auto;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .repl-entry {
+      margin-bottom: 8px;
+    }
+
+    .repl-input-line {
+      color: #569cd6;
+    }
+
+    .repl-output-line {
+      color: #ce9178;
+      margin-left: 16px;
+    }
+
+    .repl-error {
+      color: #f48771;
+      margin-left: 16px;
+    }
+
+    .repl-input-container {
+      display: flex;
+      padding: 8px;
+      background: #252526;
+      border-bottom: 1px solid #454545;
+    }
+
+    .repl-prompt {
+      padding: 4px 8px;
+      color: #569cd6;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    }
+
+    .repl-input {
+      flex: 1;
+      padding: 4px;
+      background: #1e1e1e;
+      color: #cccccc;
+      border: 1px solid #454545;
+      border-radius: 2px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .repl-input:focus {
+      outline: none;
+      border-color: #007acc;
+    }
+
+    .empty-state {
+      padding: 16px;
+      text-align: center;
+      color: #888;
+    }
+
+    /* Component Inspector Styles */
+    #componentsSection {
+      display: none;
+      flex-direction: column;
+      border-right: 1px solid #454545;
+      width: 350px;
+      background: #252526;
+    }
+
+    #inspectorSection {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      background: #252526;
+      min-width: 0;
+    }
+
+    #inspectorSection .section {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    #inspectorContent {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+
+
+    .component-item {
+      padding: 6px 8px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .component-item:hover {
+      background: #2a2d2e;
+    }
+
+    .component-item.selected {
+      background: #094771;
+      border-left-color: #007acc;
+    }
+
+    .component-class {
+      color: #4ec9b0;
+      flex: 1;
+    }
+
+    .component-id {
+      color: #888;
+      font-size: 10px;
+    }
+
+    .component-status {
+      color: #4ec9b0;
+      font-size: 14px;
+    }
+
+    .component-status-unmounted {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .tree-toggle {
+      color: #888;
+      cursor: pointer;
+      user-select: none;
+      font-size: 10px;
+      width: 12px;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .tree-toggle:hover {
+      color: #cccccc;
+    }
+
+    .tree-spacer {
+      width: 12px;
+      display: inline-block;
+    }
+
+    .inspector-section {
+      margin-top: 12px;
+      margin-bottom: 4px;
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .component-inspector-content {
+      padding: 8px;
+    }
+
+    .component-inspector-content h4 {
+      margin: 0 0 12px 0;
+      color: #cccccc;
+      font-size: 12px;
+    }
+
+    .event-listener-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      margin-left: 6px;
+      background: #f59e42;
+      color: #1e1e1e;
+      font-size: 9px;
+      font-weight: bold;
+      border-radius: 3px;
+      cursor: default;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <span class="status" id="status">Ready</span>
+  </div>
+
+  <div class="content">
+    <!-- Component Inspector Section -->
+    <div id="componentsSection">
+      <div class="section">
+        <div class="section-header">Components</div>
+        <div class="section-content">
+          <div id="componentTree">
+            <div class="empty-state">No components</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="inspectorSection">
+      <div class="section">
+        <div class="section-header">Inspector</div>
+        <div class="section-content" id="inspectorContent">
+          <div id="componentInspector">
+            <div class="empty-state">Select a component</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- REPL Section (hidden by default) -->
+    <div class="main" style="display: none;">
+      <div class="repl">
+        <div class="repl-input-container">
+          <span class="repl-prompt">&gt;&gt;</span>
+          <input type="text" class="repl-input" id="replInput" placeholder="Enter Ruby code...">
+        </div>
+        <div class="repl-output" id="replOutput">
+          <div class="empty-state">
+            PicoRuby REPL - Type Ruby code above and press Enter
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>

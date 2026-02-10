@@ -4,6 +4,7 @@
 #include "mruby/string.h"
 
 #include "mruby_compiler.h"
+#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdio.h>
@@ -15,6 +16,7 @@
 
 //extern void mrb_init_picoruby_gems(mrb_state *mrb);
 extern void mrb_js_init(mrb_state *mrb);
+extern void mrb_websocket_init(mrb_state *mrb);
 
 mrb_state *global_mrb = NULL;
 mrb_value main_task = {0};
@@ -49,9 +51,14 @@ mrb_run_step(void)
   (void)result;
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    fprintf(stderr, "Exception in main loop: %s\n", RSTRING_PTR(exc_str));
     global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "Exception in main loop (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Exception in main loop: %s\n", RSTRING_PTR(exc_str));
+    }
     return -1;
   }
 
@@ -72,6 +79,7 @@ picorb_init(void)
 
  // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);
+  mrb_websocket_init(global_mrb);
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
@@ -138,9 +146,66 @@ picorb_create_task(const char *code)
 
   if (global_mrb->exc) {
     mrb_value exc = mrb_obj_value(global_mrb->exc);
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    fprintf(stderr, "Ruby exception: %s\n", RSTRING_PTR(exc_str));
     global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "Ruby exception (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Ruby exception: %s\n", RSTRING_PTR(exc_str));
+    }
+    return -1;
+  }
+
+  return 0;
+}
+
+// Forward declaration to avoid including mruby/dump.h and causing redefinition errors.
+struct mrb_irep;
+struct mrb_irep* mrb_read_irep_buf(mrb_state *mrb, const void *buf, size_t bufsize);
+
+EMSCRIPTEN_KEEPALIVE
+int
+picorb_create_task_from_mrb(const char *mrb_data, size_t data_len)
+{
+  if (!global_mrb) {
+    fprintf(stderr, "mruby state not initialized\n");
+    return -1;
+  }
+
+  // mrb_read_irep_buf returns `mrb_irep*`, but `mrc_create_task` expects `mrc_irep*`.
+  // Other parts of the codebase suggest a direct cast is acceptable as the structs are compatible.
+  mrc_irep *irep = (mrc_irep *)mrb_read_irep_buf(global_mrb, (const uint8_t *)mrb_data, data_len);
+
+  if (!irep) {
+    fprintf(stderr, "Failed to load mrb data\n");
+    return -1;
+  }
+
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  if (!cc) {
+    fprintf(stderr, "Failed to create mruby compiler context\n");
+    return -1;
+  }
+
+  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
+  mrc_ccontext_free(cc);
+
+  if (mrb_nil_p(task)) {
+    fprintf(stderr, "Failed to create task from mrb\n");
+    return -1;
+  }
+
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "Ruby exception in mrb task (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Ruby exception in mrb task: %s\n", RSTRING_PTR(exc_str));
+    }
     return -1;
   }
 
@@ -151,6 +216,7 @@ void
 mrb_picoruby_wasm_gem_init(mrb_state* mrb)
 {
   mrb_js_init(mrb);
+  mrb_websocket_init(mrb);
 }
 
 void

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Funicular Chart.js Integration Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+    .test-result { margin: 10px 0; padding: 10px; }
+    .test-result.pass { background-color: #d4edda; color: #155724; }
+    .test-result.fail { background-color: #f8d7da; color: #721c24; }
+    #app { margin-top: 20px; padding: 20px; border: 2px solid #007bff; border-radius: 5px; }
+    #chart-container { width: 600px; height: 400px; margin: 20px auto; }
+    button { margin: 5px; padding: 8px 16px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div><a href="../index.html">Back</a></div>
+  <h1>Funicular Chart.js Integration Tests</h1>
+  <div id="test-results"></div>
+  <div id="app"></div>
+
+  <script src="../init.iife.js"></script>
+  <script type="text/ruby">
+    class DashboardComponent < Funicular::Component
+      def initialize_state
+        {
+          month_index: 0,
+          data_sets: [
+            { labels: ['Jan', 'Feb', 'Mar'], values: [10, 20, 15] },
+            { labels: ['Apr', 'May', 'Jun'], values: [25, 30, 28] },
+            { labels: ['Jul', 'Aug', 'Sep'], values: [35, 40, 38] }
+          ]
+        }
+      end
+
+      def component_mounted
+        puts "component_mounted: Initializing Chart.js"
+        canvas = @refs[:chart_canvas]
+
+        unless canvas
+          puts "ERROR: canvas ref not found!"
+          return
+        end
+
+        current_data = state.data_sets[state.month_index]
+
+        config = {
+          type: 'line',
+          data: {
+            labels: current_data[:labels],
+            datasets: [{
+              label: 'Sales',
+              data: current_data[:values],
+              borderColor: 'rgb(75, 192, 192)',
+              tension: 0.1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false
+          }
+        }
+
+        js_config = JS::Bridge.to_js(config)
+        @chart = JS.global[:Chart].new(canvas, js_config)
+        puts "Chart.js initialized successfully"
+      end
+
+      def component_updated
+        puts "component_updated: Updating Chart.js with data index #{state.month_index}"
+        update_chart
+      end
+
+      def component_will_unmount
+        puts "component_will_unmount: Destroying Chart.js"
+        @chart.destroy if @chart
+      end
+
+      def next_data_set(event)
+        event.preventDefault if event
+        new_index = (state.month_index + 1) % state.data_sets.size
+        puts "next_data_set: Changing index from #{state.month_index} to #{new_index}"
+        patch(month_index: new_index)
+      end
+
+      def prev_data_set(event)
+        event.preventDefault if event
+        new_index = (state.month_index - 1) % state.data_sets.size
+        puts "prev_data_set: Changing index from #{state.month_index} to #{new_index}"
+        patch(month_index: new_index)
+      end
+
+      def update_chart
+        return unless @chart
+
+        current_data = state.data_sets[state.month_index]
+        puts "update_chart: Setting data to #{current_data[:labels].join(', ')}"
+
+        # Convert to JS objects
+        new_labels = JS::Bridge.to_js(current_data[:labels])
+        new_data = JS::Bridge.to_js(current_data[:values])
+
+        puts "update_chart: new_labels type: #{new_labels.type}"
+        puts "update_chart: new_data type: #{new_data.type}"
+
+        # Update chart data
+        @chart[:data][:labels] = new_labels
+        @chart[:data][:datasets][0][:data] = new_data
+
+        # Verify the data was set
+        puts "update_chart: Chart labels after setting: #{@chart[:data][:labels][0]}"
+        puts "update_chart: Chart data after setting: #{@chart[:data][:datasets][0][:data][0]}"
+
+        # Call update() method with explicit argument to ensure method call
+        @chart.update("active")
+        puts "update_chart: Chart.js update('active') called"
+      end
+
+      def render
+        div(id: "dashboard") do
+          h2 { "Sales Dashboard" }
+          div(id: "chart-container") do
+            canvas(ref: :chart_canvas, id: "chart")
+          end
+          div do
+            button(id: "prev-btn", onclick: :prev_data_set) { "Previous Quarter" }
+            button(id: "next-btn", onclick: :next_data_set) { "Next Quarter" }
+          end
+          div(id: "info") do
+            current = state.data_sets[state.month_index]
+            "Current data: #{current[:labels].join(', ')}"
+          end
+        end
+      end
+    end
+
+    def log_test(name, passed)
+      results = JS.document.getElementById('test-results')
+      div = JS.document.createElement('div')
+      div.className = passed ? 'test-result pass' : 'test-result fail'
+      div.textContent = "#{passed ? 'PASS' : 'FAIL'}: #{name}"
+      results.appendChild(div)
+      puts "#{passed ? 'PASS' : 'FAIL'}: #{name}"
+    end
+
+    def run_tests
+      puts "Starting Chart.js integration tests..."
+
+      # Test 1: JS::Bridge.to_js with Hash
+      begin
+        hash = { a: 1, b: "test", c: true }
+        js_obj = JS::Bridge.to_js(hash)
+        test1 = js_obj[:a].to_i == 1 && js_obj[:b].to_s == "test"
+        log_test("JS::Bridge.to_js(Hash)", test1)
+      rescue => e
+        log_test("JS::Bridge.to_js(Hash)", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 2: JS::Bridge.to_js with nested Hash
+      begin
+        nested = { outer: { inner: 42 } }
+        js_nested = JS::Bridge.to_js(nested)
+        test2 = js_nested[:outer][:inner].to_i == 42
+        log_test("JS::Bridge.to_js(nested Hash)", test2)
+      rescue => e
+        log_test("JS::Bridge.to_js(nested Hash)", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 3: JS::Bridge.to_js with Array
+      begin
+        array = [1, 2, 3]
+        js_array = JS::Bridge.to_js(array)
+        test3 = js_array[0].to_i == 1 && js_array[2].to_i == 3
+        log_test("JS::Bridge.to_js(Array)", test3)
+      rescue => e
+        log_test("JS::Bridge.to_js(Array)", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 4: JS::Bridge.to_js with Array of Hashes
+      begin
+        complex = [{ x: 10 }, { x: 20 }]
+        js_complex = JS::Bridge.to_js(complex)
+        test4 = js_complex[0][:x].to_i == 10 && js_complex[1][:x].to_i == 20
+        log_test("JS::Bridge.to_js(Array of Hashes)", test4)
+      rescue => e
+        log_test("JS::Bridge.to_js(Array of Hashes)", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 5: Chart.js availability
+      begin
+        test5 = !JS.global[:Chart].nil?
+        log_test("Chart.js loaded", test5)
+      rescue => e
+        log_test("Chart.js loaded", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 6: Component with Chart.js
+      begin
+        container = JS.document.getElementById('app')
+        dashboard = DashboardComponent.new
+        dashboard.mount(container)
+        sleep 0.1
+
+        test6 = !dashboard.instance_variable_get(:@chart).nil?
+        log_test("Chart.js component integration", test6)
+      rescue => e
+        log_test("Chart.js component integration", false)
+        puts "Error: #{e.message}"
+      end
+
+      # Test 7: Ref attribute
+      begin
+        test7 = !dashboard.refs[:chart_canvas].nil?
+        log_test("Ref attribute for canvas", test7)
+      rescue => e
+        log_test("Ref attribute for canvas", false)
+        puts "Error: #{e.message}"
+      end
+
+      puts "All tests completed!"
+      puts ""
+      puts "Manual test: Click 'Next Quarter' and 'Previous Quarter' buttons to verify chart updates"
+    end
+
+    run_tests
+  </script>
+</body>
+</html>
