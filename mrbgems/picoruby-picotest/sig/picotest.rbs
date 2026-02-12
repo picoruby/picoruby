@@ -44,6 +44,7 @@ module Picotest
     @result: picotest_error_t
 
     def self.description: (String description) -> void
+    def self?.mruby?: () -> bool
     def list_tests: () -> Array[Symbol]
     def setup: () -> void
     def teardown: () -> void

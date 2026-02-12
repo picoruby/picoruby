@@ -1,3 +1,7 @@
+# Picotest entry point. Conditionally loads files based on RUBY_ENGINE:
+# - CRuby ("ruby"): loads test.rb + runner.rb (orchestration side)
+# - Target VM ("mruby"/"mruby/c"): test.rb + double.rb are loaded as pre-built gem
+
 require 'json'
 
 if RUBY_ENGINE == "mruby/c"
@@ -19,7 +23,6 @@ elsif RUBY_ENGINE == "ruby"
   end
   require_relative "./picotest/test"
   require_relative "./picotest/runner"
-#  require_relative "./workaround_dev"
 end
 
 module Picotest

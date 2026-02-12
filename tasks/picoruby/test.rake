@@ -12,7 +12,7 @@ namespace :test do
   ENV['TEST_TASK'] = "yes"
 
   desc "run all tests"
-  task :all => ["compiler:picoruby", "compiler:microruby", "gems:steep", "gems:microruby", "gems:picoruby"]
+  task :all => ["gems:steep", "gems:microruby", "gems:picoruby"]
 
   task :build_picoruby_test do
     puts "Building test runner with picoruby-test.rb..."
@@ -24,23 +24,6 @@ namespace :test do
     puts "Building test runner with microruby-test.rb..."
     sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake clean"
     sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake all"
-  end
-
-  namespace :compiler do
-    desc "run compiler tests with mruby VM"
-    task :microruby => :build_microruby_test do
-      ENV['USE_MRUBY'] = "yes"
-      ENV['PICORBC_COMMAND'] = picorbcfile
-      ENV['PICORUBY_COMMAND'] = microrubyfile
-      sh "mrbgems/mruby-compiler2/compiler_test/helper/test.rb"
-    end
-
-    desc "run compiler tests with mruby/c VM"
-    task :picoruby => :build_picoruby_test do
-      ENV['PICORUBY_COMMAND'] = picorubyfile
-      sh "mrbgems/mruby-compiler2/compiler_test/helper/test.rb"
-      ENV['PICORUBY_COMMAND'] = nil
-    end
   end
 
   namespace :gems do
@@ -107,7 +90,7 @@ def collect_gems(vm_type, specified_gem = nil)
   vm = vm_type == 'picoruby' ? 'mrubyc' : 'mruby'
   gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
   gems = []
-  Dir.glob("#{gems_dir}/picoruby-*").map do |gem_path|
+  Dir.glob(["#{gems_dir}/picoruby-*", "#{gems_dir}/mruby-*"]).map do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
     if File.exist?("#{gem_path}/test/target_vm")

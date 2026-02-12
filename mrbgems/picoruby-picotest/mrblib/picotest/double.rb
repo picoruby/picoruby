@@ -1,3 +1,6 @@
+# Picotest::Double - Stub/mock support (target VM only: PicoRuby/MicroRuby).
+# Provides stub() and mock() via method_missing on a BasicObject subclass.
+
 module Picotest
 
   if RUBY_ENGINE == 'mruby/c'

@@ -1,3 +1,8 @@
+# Picotest::Test - Base class for test cases.
+# Used by BOTH CRuby and target VM (PicoRuby/MicroRuby).
+# - CRuby: Runner loads test files and calls list_tests to discover test_* methods.
+# - Target VM: Actually executes assertions and collects results as JSON.
+
 module Picotest
 
   class Test
@@ -75,6 +80,40 @@ module Picotest
     end
 
     def teardown
+    end
+
+    def self.mruby?
+      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
+      ruby_path.include?("microruby")
+    end
+
+    def self.mrubyc?
+      !mruby?
+    end
+
+    def run_script(script)
+      picoruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND']
+      unless picoruby_path
+        raise "RUBY or PICORUBY_COMMAND environment variable not set"
+      end
+
+      if RUBY_ENGINE == "mruby"
+        GC.disable
+        actual = Kernel.send(:`, "#{picoruby_path} -e '#{script}'").chomp.gsub("\r", "")
+        GC.enable
+      else
+        actual = `#{picoruby_path} -e '#{script}'`.chomp
+      end
+      actual
+    end
+
+    def mruby?
+      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
+      ruby_path.include?("microruby")
+    end
+
+    def mrubyc?
+      !mruby?
     end
 
     def assert(result)
