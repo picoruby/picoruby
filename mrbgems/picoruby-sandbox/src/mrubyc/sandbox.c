@@ -167,7 +167,7 @@ c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   if (ss->irep && ss->cc) {
-    D("Warning: leaking irep\n");
+    D("Warning: leaking irep");
     mrc_irep_free(ss->cc, ss->irep);
     ss->irep = NULL;
   }
@@ -185,7 +185,7 @@ c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   if (ss->irep && ss->cc) {
-    D("Warning: leaking irep\n");
+    D("Warning: leaking irep");
     mrc_irep_free(ss->cc, ss->irep);
     ss->irep = NULL;
   }

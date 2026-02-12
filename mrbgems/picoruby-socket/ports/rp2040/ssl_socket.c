@@ -59,21 +59,21 @@ static err_t ssl_poll_callback(void *arg, struct altcp_pcb *pcb);
 static err_t
 ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
 {
-  D("SSL callback: connected\n");
+  D("SSL callback: connected");
   picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)arg;
   if (!ssl_sock) {
-    D("SSL callback: no sock\n");
+    D("SSL callback: no sock");
     return ERR_ARG;
   }
 
   if (err != ERR_OK) {
-    D("SSL callback: error\n");
+    D("SSL callback: error");
     ssl_sock->state = SSL_STATE_ERROR;
     ssl_sock->connected = false;
     return err;
   }
 
-  D("SSL callback: success\n");
+  D("SSL callback: success");
   ssl_sock->state = SSL_STATE_CONNECTED;
   ssl_sock->connected = true;
   return ERR_OK;
@@ -362,10 +362,10 @@ SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
 bool
 SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 {
-  D("SSL connect start\n");
+  D("SSL connect start");
 
   if (!ssl_sock || ssl_sock->connected || !ssl_sock->hostname) {
-    D("SSL: bad params\n");
+    D("SSL: bad params");
     return false;
   }
 
@@ -374,13 +374,13 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     ssl_sock->port = 443;  /* Default HTTPS port */
   }
 
-  D("SSL: resolving DNS\n");
+  D("SSL: resolving DNS");
   /* Resolve hostname to IP */
   ip_addr_t ip_addr;
   ip4_addr_set_zero(&ip_addr);
   int dns_result = Net_get_ip(ssl_sock->hostname, &ip_addr);
   if (dns_result != 0) {
-    D("SSL: DNS failed\n");
+    D("SSL: DNS failed");
     return false;
   }
   D("SSL: DNS ok, IP=");
@@ -391,7 +391,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     (unsigned int)ip4_addr4(&ip_addr));
 
   /* Create TLS config (always create new one, like picoruby-net) */
-  D("SSL: creating TLS config\n");
+  D("SSL: creating TLS config");
   struct altcp_tls_config *tls_config;
 
   /* Check if client certificate and key are provided for mutual TLS */
@@ -421,20 +421,20 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   }
 
   if (!tls_config) {
-    D("SSL: TLS config failed\n");
+    D("SSL: TLS config failed");
     return false;
   }
-  D("SSL: TLS config ok\n");
+  D("SSL: TLS config ok");
 
   /* Create TLS PCB */
-  D("SSL: creating TLS PCB\n");
+  D("SSL: creating TLS PCB");
   ssl_sock->tls_pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   if (!ssl_sock->tls_pcb) {
-    D("SSL: TLS PCB failed\n");
+    D("SSL: TLS PCB failed");
     altcp_tls_free_config(tls_config);
     return false;
   }
-  D("SSL: TLS PCB ok\n");
+  D("SSL: TLS PCB ok");
 
   /* Store config for cleanup */
   if (ssl_sock->ssl_ctx->tls_config) {
@@ -443,17 +443,17 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   ssl_sock->ssl_ctx->tls_config = tls_config;
 
   /* Set hostname for SNI */
-  D("SSL: setting hostname\n");
+  D("SSL: setting hostname");
   mbedtls_ssl_context *ssl_ctx = altcp_tls_context(ssl_sock->tls_pcb);
   if (!ssl_ctx) {
-    D("SSL: altcp_tls_context failed\n");
+    D("SSL: altcp_tls_context failed");
     altcp_tls_free_config(tls_config);
     return false;
   }
   mbedtls_ssl_set_hostname(ssl_ctx, ssl_sock->hostname);
 
   /* Setup callbacks (same order as picoruby-net, with altcp_arg last) */
-  D("SSL: setting callbacks\n");
+  D("SSL: setting callbacks");
   altcp_recv(ssl_sock->tls_pcb, ssl_recv_callback);
   altcp_sent(ssl_sock->tls_pcb, ssl_sent_callback);
   altcp_err(ssl_sock->tls_pcb, ssl_err_callback);
@@ -461,7 +461,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   altcp_arg(ssl_sock->tls_pcb, ssl_sock);
 
   /* Small delay before connecting (like picoruby-net's function boundary) */
-  D("SSL: waiting before connect\n");
+  D("SSL: waiting before connect");
   Net_busy_wait_ms(100);
 
   /* Initiate connection */
@@ -470,25 +470,25 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   lwip_begin();
   err_t err = altcp_connect(ssl_sock->tls_pcb, &ip_addr, ssl_sock->port, ssl_connected_callback);
   if (err != ERR_OK) {
-    D("SSL: altcp_connect failed\n");
+    D("SSL: altcp_connect failed");
     ssl_sock->state = SSL_STATE_ERROR;
     lwip_end();
     return false;
   }
   lwip_end();
-  D("SSL: altcp_connect ok\n");
+  D("SSL: altcp_connect ok");
 
   ssl_sock->state = SSL_STATE_CONNECTING;
 
   /* Wait for connection to establish */
-  D("SSL: waiting for connection\n");
+  D("SSL: waiting for connection");
   int max_wait = 1000;  /* 10 seconds (10ms * 1000) */
   while (ssl_sock->state == SSL_STATE_CONNECTING && max_wait-- > 0) {
     Net_busy_wait_ms(10);
   }
 
   if (ssl_sock->state == SSL_STATE_CONNECTED) {
-    D("SSL: connected\n");
+    D("SSL: connected");
     return true;
   } else {
     D("SSL: timeout or error, state=");

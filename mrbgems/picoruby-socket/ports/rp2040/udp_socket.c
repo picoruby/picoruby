@@ -79,7 +79,7 @@ UDPSocket_create(picorb_socket_t *sock)
   lwip_end();
 
   if (!sock->pcb) {
-    D("UDPSocket_create: udp_new failed\n");
+    D("UDPSocket_create: udp_new failed");
     return false;
   }
 
@@ -105,7 +105,7 @@ bool
 UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
 {
   if (!sock || !sock->pcb) {
-    D("UDPSocket_bind: sock or pcb is NULL\n");
+    D("UDPSocket_bind: sock or pcb is NULL");
     return false;
   }
 

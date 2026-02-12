@@ -34,7 +34,7 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
 static void
 reset_psg(mrb_state *mrb)
 {
-  D("PSG: Resetting...\n");
+  D("PSG: Resetting...");
   if (rb.buf) {
     mrb_free(mrb, rb.buf);
   }

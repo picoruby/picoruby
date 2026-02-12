@@ -38,7 +38,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   D("tcp_server.c tcp_recv_callback: sock=%p, pbuf=%p, err=%d\n", (void*)sock, (void*)pbuf, err);
 
   if (!sock) {
-    D("tcp_server.c tcp_recv_callback: sock is NULL\n");
+    D("tcp_server.c tcp_recv_callback: sock is NULL");
     return ERR_ARG;
   }
 
@@ -47,7 +47,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
-    D("tcp_server.c tcp_recv_callback: error, state set to ERROR\n");
+    D("tcp_server.c tcp_recv_callback: error, state set to ERROR");
     return err;
   }
 
@@ -56,7 +56,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
-    D("tcp_server.c tcp_recv_callback: connection closed\n");
+    D("tcp_server.c tcp_recv_callback: connection closed");
     return ERR_OK;
   }
 
@@ -70,7 +70,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (!new_buf) {
       pbuf_free(pbuf);
       sock->state = SOCKET_STATE_ERROR;
-      D("tcp_server.c tcp_recv_callback: failed to allocate buffer\n");
+      D("tcp_server.c tcp_recv_callback: failed to allocate buffer");
       return ERR_MEM;
     }
     sock->recv_buf = new_buf;
@@ -179,7 +179,7 @@ TCPServer_create(int port, int backlog)
   /* Create tcp_pcb directly to set SO_REUSEADDR */
   struct tcp_pcb *tpcb = tcp_new();
   if (!tpcb) {
-    D("TCPServer_create: tcp_new failed\n");
+    D("TCPServer_create: tcp_new failed");
     lwip_end();
     picorb_free(NULL, server);
     return NULL;
@@ -191,7 +191,7 @@ TCPServer_create(int port, int backlog)
   /* Wrap tcp_pcb in altcp_pcb */
   server->listen_pcb = altcp_tcp_wrap(tpcb);
   if (!server->listen_pcb) {
-    D("TCPServer_create: altcp_tcp_wrap failed\n");
+    D("TCPServer_create: altcp_tcp_wrap failed");
     tcp_close(tpcb);
     lwip_end();
     picorb_free(NULL, server);
@@ -220,7 +220,7 @@ TCPServer_create(int port, int backlog)
 
   server->listen_pcb = altcp_listen_with_backlog(server->listen_pcb, backlog);
   if (!server->listen_pcb) {
-    D("TCPServer_create: altcp_listen_with_backlog failed\n");
+    D("TCPServer_create: altcp_listen_with_backlog failed");
     lwip_end();
     picorb_free(NULL, server);
     return NULL;

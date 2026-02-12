@@ -73,7 +73,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
 {
   picorb_socket_t *sock = (picorb_socket_t *)arg;
   if (!sock) {
-    D("tcp_recv_callback: sock is NULL\n");
+    D("tcp_recv_callback: sock is NULL");
     return ERR_ARG;
   }
 
@@ -84,7 +84,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
-    D("tcp_recv_callback: error, state set to ERROR\n");
+    D("tcp_recv_callback: error, state set to ERROR");
     return err;
   }
 
@@ -93,7 +93,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
-    D("tcp_recv_callback: connection closed\n");
+    D("tcp_recv_callback: connection closed");
     return ERR_OK;
   }
 
@@ -166,27 +166,27 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   D("TCP connect: port=%d\n", port);
 
   if (!sock || !host || port <= 0 || port > 65535) {
-    D("TCP: bad params\n");
+    D("TCP: bad params");
     return false;
   }
 
   /* Create socket if not already created */
   if (!sock->pcb) {
     if (!TCPSocket_create(sock)) {
-      D("TCP: create failed\n");
+      D("TCP: create failed");
       return false;
     }
   }
 
   /* Resolve hostname to IP address */
   ip_addr_t ip_addr;
-  D("TCP: DNS lookup\n");
+  D("TCP: DNS lookup");
   int dns_result = Net_get_ip(host, &ip_addr);
   if (dns_result != 0) {
-    D("TCP: DNS failed\n");
+    D("TCP: DNS failed");
     return false;
   }
-  D("TCP: DNS ok\n");
+  D("TCP: DNS ok");
 
   /* Setup callbacks */
   lwip_begin();
@@ -197,7 +197,7 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   altcp_poll(sock->pcb, tcp_poll_callback, 4);  /* Poll every 2 seconds (4 * 500ms) */
 
   /* Initiate connection */
-  D("TCP: connecting\n");
+  D("TCP: connecting");
   err_t err = altcp_connect(sock->pcb, &ip_addr, port, tcp_connected_callback);
   lwip_end();
 
@@ -213,17 +213,17 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   sock->state = SOCKET_STATE_CONNECTING;
 
   /* Wait for connection to establish */
-  D("TCP: waiting\n");
+  D("TCP: waiting");
   int max_wait = 1000; /* 10 seconds (10ms * 1000) */
   while (sock->state == SOCKET_STATE_CONNECTING && max_wait-- > 0) {
     Net_busy_wait_ms(10);  /* Poll more frequently */
   }
 
   if (sock->state == SOCKET_STATE_CONNECTED) {
-    D("TCP: connected\n");
+    D("TCP: connected");
     return true;
   } else {
-    D("TCP: timeout state=%d\n", sock->state);
+    D("TCP: timeout state=%d", sock->state);
     /* Cleanup on timeout */
     if (sock->pcb) {
       lwip_begin();
@@ -287,13 +287,13 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
 
   /* Check if connection was closed */
   if (sock->recv_len == 0 && sock->state == SOCKET_STATE_CLOSED) {
-    D("TCPSocket_recv: connection closed (EOF)\n");
+    D("TCPSocket_recv: connection closed (EOF)");
     return 0; /* EOF */
   }
 
   /* Check for timeout or error */
   if (sock->recv_len == 0) {
-    D("TCPSocket_recv: timeout or no data\n");
+    D("TCPSocket_recv: timeout or no data");
     return 0;
   }
 
