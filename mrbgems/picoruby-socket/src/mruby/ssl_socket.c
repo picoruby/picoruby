@@ -297,6 +297,53 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
   return self;
 }
 
+/* SSLSocket.open(hostname, port, ssl_context) - connect directly without TCPSocket */
+static mrb_value
+mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
+{
+  const char *hostname;
+  mrb_int port;
+  mrb_value ssl_context_obj;
+  picorb_ssl_context_t *ssl_ctx;
+  picorb_ssl_socket_t *ssl_sock;
+
+  mrb_get_args(mrb, "zio", &hostname, &port, &ssl_context_obj);
+
+  ssl_ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, ssl_context_obj, &mrb_ssl_context_type);
+  if (!ssl_ctx) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "third argument must be an SSLContext");
+  }
+
+  ssl_sock = SSLSocket_create(ssl_ctx);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
+  }
+
+  if (!SSLSocket_set_hostname(ssl_sock, hostname)) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set hostname");
+  }
+
+  if (!SSLSocket_set_port(ssl_sock, (int)port)) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
+  }
+
+  if (!SSLSocket_connect(ssl_sock)) {
+    SSLSocket_close(ssl_sock);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL connection failed");
+  }
+
+  /* Create instance without calling initialize */
+  struct RClass *cls = mrb_class_ptr(klass);
+  struct RData *data = mrb_data_object_alloc(mrb, cls, ssl_sock, &mrb_ssl_socket_type);
+  mrb_value self = mrb_obj_value(data);
+
+  mrb_iv_set(mrb, self, MRB_IVSYM(ssl_context), ssl_context_obj);
+
+  return self;
+}
+
 /* ssl_socket.connect */
 static mrb_value
 mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
@@ -482,6 +529,7 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   MRB_SET_INSTANCE_TT(ssl_socket_class, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(initialize), mrb_ssl_socket_initialize, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, ssl_socket_class, MRB_SYM(open), mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(connect), mrb_ssl_socket_connect, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(write), mrb_ssl_socket_write, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(1));

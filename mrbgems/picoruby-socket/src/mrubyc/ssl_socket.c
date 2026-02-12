@@ -32,23 +32,119 @@ mrbc_ssl_context_free(mrbc_value *self)
 
 
 /*
- * SSLSocket.new(tcp_socket, ssl_context) -> SSLSocket
+ * SSLSocket.new(tcp_socket, ssl_context) - wraps existing TCPSocket with SSL
  */
 static void
 c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 2)");
     return;
   }
 
-  /* Get TCP socket and SSL context arguments */
   mrbc_value tcp_socket_obj = GET_ARG(1);
   mrbc_value ssl_context_obj = GET_ARG(2);
-  ssl_context_wrapper_t *ctx_wrapper = (ssl_context_wrapper_t *)ssl_context_obj.instance->data;
 
+  if (tcp_socket_obj.tt != MRBC_TT_OBJECT) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "first argument must be a TCPSocket");
+    return;
+  }
+
+  void *data = tcp_socket_obj.instance->data;
+  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
+  picorb_socket_t *tcp_sock = *sock_ptr;
+
+  if (!tcp_sock) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket is not initialized");
+    return;
+  }
+
+  const char *hostname = TCPSocket_remote_host(tcp_sock);
+  int port = TCPSocket_remote_port(tcp_sock);
+
+  if (!hostname) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket must have remote_host");
+    return;
+  }
+  if (port < 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket must have remote_port");
+    return;
+  }
+
+  ssl_context_wrapper_t *ctx_wrapper = (ssl_context_wrapper_t *)ssl_context_obj.instance->data;
   if (!ctx_wrapper->ptr) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "second argument must be an SSLContext");
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SSLContext argument is required");
+    return;
+  }
+
+  /* Close the original TCP socket to avoid resource leak */
+  if (!TCPSocket_closed(tcp_sock)) {
+    TCPSocket_close(tcp_sock);
+  }
+
+  /* Create instance with wrapper structure */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(ssl_socket_wrapper_t));
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)instance.instance->data;
+
+  /* Create SSL socket */
+  wrapper->ptr = SSLSocket_create(ctx_wrapper->ptr);
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
+    return;
+  }
+
+  /* Set hostname and port */
+  if (!SSLSocket_set_hostname(wrapper->ptr, hostname)) {
+    SSLSocket_close(wrapper->ptr);
+    wrapper->ptr = NULL;
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set hostname");
+    return;
+  }
+
+  if (!SSLSocket_set_port(wrapper->ptr, port)) {
+    SSLSocket_close(wrapper->ptr);
+    wrapper->ptr = NULL;
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set port");
+    return;
+  }
+
+  /* Store references for GC protection */
+  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@tcp_socket"), &tcp_socket_obj);
+  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@ssl_context"), &ssl_context_obj);
+
+  SET_RETURN(instance);
+}
+
+/*
+ * SSLSocket.open(hostname, port, ssl_context) - connect directly without TCPSocket
+ */
+static void
+c_ssl_socket_open(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 3) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 3)");
+    return;
+  }
+
+  mrbc_value hostname_arg = GET_ARG(1);
+  mrbc_value port_arg = GET_ARG(2);
+  mrbc_value ssl_context_obj = GET_ARG(3);
+
+  if (hostname_arg.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "hostname must be a String");
+    return;
+  }
+  if (port_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "port must be an Integer");
+    return;
+  }
+
+  const char *hostname = (const char *)hostname_arg.string->data;
+  int port = (int)port_arg.i;
+
+  ssl_context_wrapper_t *ctx_wrapper = (ssl_context_wrapper_t *)ssl_context_obj.instance->data;
+  if (!ctx_wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SSLContext argument is required");
     return;
   }
 
@@ -63,45 +159,8 @@ c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Get socket pointer from TCPSocket instance */
-  if (tcp_socket_obj.tt != MRBC_TT_OBJECT) {
-    SSLSocket_close(wrapper->ptr);
-    wrapper->ptr = NULL;
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "first argument must be a TCPSocket");
-    return;
-  }
-
-  void *data = tcp_socket_obj.instance->data;
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
-  picorb_socket_t *tcp_sock = *sock_ptr;
-
-  if (!tcp_sock) {
-    SSLSocket_close(wrapper->ptr);
-    wrapper->ptr = NULL;
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket is not initialized");
-    return;
-  }
-
-  /* Get remote_host and remote_port from TCPSocket */
-  const char *host = TCPSocket_remote_host(tcp_sock);
-  int port = TCPSocket_remote_port(tcp_sock);
-
-  if (!host) {
-    SSLSocket_close(wrapper->ptr);
-    wrapper->ptr = NULL;
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket must have remote_host");
-    return;
-  }
-
-  if (port < 0) {
-    SSLSocket_close(wrapper->ptr);
-    wrapper->ptr = NULL;
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket must have remote_port");
-    return;
-  }
-
-  /* Set hostname and port from TCPSocket */
-  if (!SSLSocket_set_hostname(wrapper->ptr, host)) {
+  /* Set hostname and port */
+  if (!SSLSocket_set_hostname(wrapper->ptr, hostname)) {
     SSLSocket_close(wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set hostname");
@@ -115,14 +174,15 @@ c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Close the original TCP socket to avoid resource leak */
-  /* The SSL connection will create its own TCP socket internally */
-  if (tcp_sock && !TCPSocket_closed(tcp_sock)) {
-    TCPSocket_close(tcp_sock);
+  /* Perform SSL handshake */
+  if (!SSLSocket_connect(wrapper->ptr)) {
+    SSLSocket_close(wrapper->ptr);
+    wrapper->ptr = NULL;
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL connection failed");
+    return;
   }
 
-  /* Store references for GC protection */
-  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@tcp_socket"), &tcp_socket_obj);
+  /* Store reference for GC protection */
   mrbc_instance_setiv(&instance, mrbc_str_to_symid("@ssl_context"), &ssl_context_obj);
 
   SET_RETURN(instance);
@@ -711,6 +771,7 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_destructor(class_SSLSocket, mrbc_ssl_socket_free);
 
   mrbc_define_method(vm, class_SSLSocket, "new", c_ssl_socket_new);
+  mrbc_define_method(vm, class_SSLSocket, "open", c_ssl_socket_open);
   mrbc_define_method(vm, class_SSLSocket, "connect", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "write", c_ssl_socket_write);
   mrbc_define_method(vm, class_SSLSocket, "read", c_ssl_socket_read);

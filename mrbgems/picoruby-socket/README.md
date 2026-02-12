@@ -92,16 +92,22 @@ ctx = SSLContext.new
 ctx.ca_file = "/etc/ssl/certs/ca-certificates.crt"  # Path to CA bundle
 ctx.verify_mode = SSLContext::VERIFY_PEER            # Enable verification (default)
 
-# Connect to HTTPS server
-tcp = TCPSocket.new('example.com', 443)
-ssl = SSLSocket.new(tcp, ctx)
-ssl.connect
+# Connect to HTTPS server (using SSLSocket.open for direct connection)
+ssl = SSLSocket.open('example.com', 443, ctx)
 
 # Use SSL socket like regular socket
 ssl.write("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
 response = ssl.read(1024)
 
 ssl.close
+```
+
+You can also wrap an existing TCPSocket:
+
+```ruby
+tcp = TCPSocket.new('example.com', 443)
+ssl = SSLSocket.new(tcp, ctx)
+ssl.connect
 ```
 
 #### On RP2040/Microcontrollers
@@ -123,10 +129,8 @@ ctx = SSLContext.new
 ctx.set_ca(addr, size)  # Load certificate from ROM address
 ctx.verify_mode = SSLContext::VERIFY_PEER
 
-# Connect to HTTPS server
-tcp = TCPSocket.new('example.com', 443)
-ssl = SSLSocket.new(tcp, ctx)
-ssl.connect
+# Connect to HTTPS server (direct mode, recommended for RP2040)
+ssl = SSLSocket.open('example.com', 443, ctx)
 
 # Use SSL socket
 ssl.write("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
@@ -199,7 +203,8 @@ Base class for all socket types. Provides common socket and IO-compatible method
 
 #### Class Methods
 
-- `SSLSocket.new(tcp_socket, ssl_context)` - Create SSL socket wrapping TCP context
+- `SSLSocket.new(tcp_socket, ssl_context)` - Create SSL socket from existing TCP connection
+- `SSLSocket.open(hostname, port, ssl_context)` - Create and connect SSL socket directly (recommended for RP2040)
 
 #### Instance Methods
 

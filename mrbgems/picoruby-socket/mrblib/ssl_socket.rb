@@ -10,13 +10,6 @@ class SSLSocket < BasicSocket
   # Keep references to prevent GC
   attr_reader :tcp_socket, :ssl_context
 
-  # Class methods
-
-  def self.open(tcp_socket, ssl_context)
-    sock = new(tcp_socket, ssl_context)
-    sock.connect
-  end
-
   # Instance methods
 
   def addr

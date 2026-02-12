@@ -42,10 +42,10 @@ module Net
           # Set verify mode (default to VERIFY_PEER if not specified)
           ssl_ctx.verify_mode = @verify_mode || SSLContext::VERIFY_PEER
 
-          # Create TCP socket first, then wrap with SSL
-          tcp_socket = TCPSocket.new(@address, @port)
-          @socket = SSLSocket.new(tcp_socket, ssl_ctx)
-          @socket.connect
+          # Connect directly with hostname and port
+          # (avoids unnecessary plain TCP connection on platforms like RP2040
+          # where SSLSocket creates its own TLS+TCP connection internally)
+          @socket = SSLSocket.open(@address, @port, ssl_ctx)
         else
           @socket = TCPSocket.new(@address, @port)
         end

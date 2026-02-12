@@ -3,7 +3,7 @@ class SSLSocket < BasicSocket
   attr_reader ssl_context: SSLContext
 
   def self.new: (TCPSocket tcp_socket, SSLContext ssl_context) -> SSLSocket
-  def self.open: (TCPSocket tcp_socket, SSLContext ssl_context) -> SSLSocket
+  def self.open: (String hostname, Integer port, SSLContext ssl_context) -> SSLSocket
   def connect: () -> self
   def addr: () -> Array[String | Integer]
   def connected?: () -> bool
