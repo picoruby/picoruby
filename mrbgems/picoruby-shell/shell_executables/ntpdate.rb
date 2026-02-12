@@ -24,9 +24,23 @@ end
 
 if dns_ready
   puts "Getting time from #{ntp_host} ..."
-  ts = Net::NTP.get(ntp_host, ntp_port)
-  Machine.set_hwclock(ts) if ts
-  puts "Current time: #{Time.now}"
+  ts = nil
+  max_ntp_retries = 3
+  max_ntp_retries.times do |i|
+    begin
+      ts = Net::NTP.get(ntp_host, ntp_port, 3)
+      break if ts
+    rescue => e
+      puts "Attempt #{i + 1}/#{max_ntp_retries} failed: #{e.message}"
+      sleep_ms 500
+    end
+  end
+  if ts.is_a?(Integer)
+    Machine.set_hwclock(ts)
+    puts "Current time: #{Time.now}"
+  else
+    puts "NTP request failed after #{max_ntp_retries} attempts"
+  end
 else
   puts "DNS initialization failed after #{max_dns_retries * 500}ms"
 end

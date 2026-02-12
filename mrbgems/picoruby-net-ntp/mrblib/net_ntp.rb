@@ -213,6 +213,7 @@ module Net
       socket.send(request_data, 0, host, port)
 
       start_time = Time.now.to_i
+      last_resend = start_time
       response_data = nil
 
       while true
@@ -221,6 +222,12 @@ module Net
         if 0 < timeout && timeout < (current_time - start_time)
           socket.close
           raise "NTP request timeout"
+        end
+
+        # Resend request every 1 second in case of UDP packet loss
+        if current_time - last_resend >= 1
+          socket.send(request_data, 0, host, port)
+          last_resend = current_time
         end
 
         # Try to receive data
