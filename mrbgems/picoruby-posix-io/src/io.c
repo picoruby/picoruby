@@ -284,10 +284,21 @@ io_modestr_to_flags(mrbc_vm *vm, const char *mode)
 }
 
 static void
+mrbc_io_free(mrbc_value *self)
+{
+  struct picorb_io *io = (struct picorb_io *)self->instance->data;
+  if (io && io->buf) {
+    mrbc_raw_free(io->buf);
+    io->buf = NULL;
+  }
+}
+
+static void
 io_init_buf(mrbc_vm *vm, struct picorb_io *fptr)
 {
   if (fptr->readable) {
-    fptr->buf = (struct picorb_io_buf*)mrbc_alloc(vm, sizeof(struct picorb_io_buf));
+    fptr->buf = (struct picorb_io_buf *)mrbc_alloc(vm, sizeof(struct picorb_io_buf));
+    memset(fptr->buf, 0, sizeof(struct picorb_io_buf));
     fptr->buf->start = 0;
     fptr->buf->len = 0;
   }
@@ -1934,6 +1945,8 @@ mrbc_posix_io_init(mrbc_vm *vm)
 {
   mrbc_class_EOFError = mrbc_define_class(vm, "EOFError", MRBC_CLASS(IOError));
   mrbc_class *mrbc_class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
+
+  mrbc_define_destructor(mrbc_class_IO, mrbc_io_free);
 
   // class methods
   mrbc_define_method(vm, mrbc_class_IO, "new", c_io_new);
