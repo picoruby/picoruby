@@ -69,7 +69,7 @@ main(void)
     ret = 1;
   }
   else {
-    mrb_tasks_run(mrb);
+    mrb_task_run(mrb);
   }
   if (mrb->exc) {
     mrb_print_error(mrb);

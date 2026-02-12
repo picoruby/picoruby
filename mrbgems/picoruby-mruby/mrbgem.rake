@@ -21,7 +21,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   if build.posix?
     spec.add_dependency 'hal-posix-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/hal-posix-task"
   else
-    spec.add_dependency 'hal-picoruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/hal-picoruby-task"
+    spec.add_dependency 'hal-picoruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/hal-picoruby-task"
   end
   spec.add_dependency 'mruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task"
 
