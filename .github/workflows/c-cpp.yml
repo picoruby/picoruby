@@ -30,6 +30,7 @@ jobs:
         fetch-depth: 0
 
     - name: Debug submodules
+      continue-on-error: true
       working-directory: ${{ github.workspace }}
       run: |
         git submodule status
@@ -38,7 +39,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '3.4'
+        ruby-version: '4.0.1'
         bundler-cache: false
 
     - name: Bundle install
@@ -46,25 +47,10 @@ jobs:
       run: |
         bundle install
 
-    - name: Setup mruby
-      env:
-        MRUBY_DIR: ${{ runner.temp }}/mruby
-        MRUBY_VERSION: '3.4.0'
-      run: |
-        rm -rf "$MRUBY_DIR"
-        git clone -b "$MRUBY_VERSION" --depth 1 \
-          https://github.com/mruby/mruby.git "$MRUBY_DIR"
-        cd "$MRUBY_DIR"
-        rake
-
     #- name: Setup tmate session
     #  uses: mxschmitt/action-tmate@v3
 
     - name: Test all
-      env:
-        MRUBY_DIR: ${{ runner.temp }}/mruby
-        PICORBC_COMMAND: $PWD/bin/picorbc
-        MRUBY_COMMAND: $MRUBY_DIR/bin/mruby
       run: rake test:all
 
     - name: Set up Git user
