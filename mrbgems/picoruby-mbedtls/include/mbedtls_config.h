@@ -19,7 +19,9 @@
 * ```
 * MBEDTLS_DEBUG_C is required for this.
 */
-// #define MBEDTLS_DEBUG_C
+#ifdef PICORUBY_DEBUG
+#define MBEDTLS_DEBUG_C
+#endif
 
 // See mbedtls/include/mbedtls/config.h about MBEDTLS_ERROR_STRERROR_DUMMY
 // #define MBEDTLS_ERROR_STRERROR_DUMMY

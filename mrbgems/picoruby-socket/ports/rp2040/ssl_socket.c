@@ -15,6 +15,9 @@
 #include "lwip/dns.h"
 #include "lwip/err.h"
 #include "mbedtls/ssl.h"
+#ifdef PICORUBY_DEBUG
+#include "mbedtls/debug.h"
+#endif
 
 /* SSL connection states */
 #define SSL_STATE_NONE           0
@@ -44,6 +47,22 @@ struct picorb_ssl_socket {
   char *hostname;
   int port;
 };
+
+#ifdef PICORUBY_DEBUG
+/* mbedTLS debug callback */
+static void
+mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str)
+{
+  (void)ctx;
+  (void)level;
+  (void)file;
+  (void)line;
+  char buffer[256];
+  memcpy(buffer, str, strlen(str) - 1); // remove "\n"
+  buffer[strlen(str) - 1] = '\0';
+  debug_printf("mbedtls: %s", buffer);
+}
+#endif
 
 /* Forward declarations */
 static err_t ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err);
@@ -143,8 +162,7 @@ ssl_sent_callback(void *arg, struct altcp_pcb *pcb, u16_t len)
 static void
 ssl_err_callback(void *arg, err_t err)
 {
-  D("SSL callback: error code=");
-  debug_printf("%d\n", (int)err);
+  D("SSL callback: error code=%d", (int)err);
   picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)arg;
   if (!ssl_sock) return;
 
@@ -383,8 +401,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     D("SSL: DNS failed");
     return false;
   }
-  D("SSL: DNS ok, IP=");
-  debug_printf("%u.%u.%u.%u\n",
+  D("SSL: DNS ok, IP=%u.%u.%u.%u",
     (unsigned int)ip4_addr1(&ip_addr),
     (unsigned int)ip4_addr2(&ip_addr),
     (unsigned int)ip4_addr3(&ip_addr),
@@ -426,6 +443,13 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   }
   D("SSL: TLS config ok");
 
+#ifdef PICORUBY_DEBUG
+  /* Enable mbedTLS debug output (level 3: informational)
+   * altcp_tls_config starts with mbedtls_ssl_config as first member */
+  mbedtls_ssl_conf_dbg((mbedtls_ssl_config *)tls_config, mbedtls_debug_cb, NULL);
+  mbedtls_debug_set_threshold(3);
+#endif
+
   /* Create TLS PCB */
   D("SSL: creating TLS PCB");
   ssl_sock->tls_pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
@@ -465,8 +489,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   Net_busy_wait_ms(100);
 
   /* Initiate connection */
-  D("SSL: initiating connection to port ");
-  debug_printf("%d\n", ssl_sock->port);
+  D("SSL: initiating connection to port %d", ssl_sock->port);
   lwip_begin();
   err_t err = altcp_connect(ssl_sock->tls_pcb, &ip_addr, ssl_sock->port, ssl_connected_callback);
   if (err != ERR_OK) {
@@ -491,8 +514,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     D("SSL: connected");
     return true;
   } else {
-    D("SSL: timeout or error, state=");
-    debug_printf("%d\n", ssl_sock->state);
+    D("SSL: timeout or error, state=%d", ssl_sock->state);
     /* Cleanup on timeout */
     if (ssl_sock->tls_pcb) {
       lwip_begin();
