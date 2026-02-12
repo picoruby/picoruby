@@ -5,6 +5,8 @@
 
 module Picotest
 
+  class Skip < StandardError; end
+
   class Test
 
     def self.description(text)
@@ -17,7 +19,9 @@ module Picotest
          "success_count" => 0,
          "failures" => [],
          "exceptions" => [],
-         "crashes" => []
+         "crashes" => [],
+         "skipped_count" => 0,
+         "skipped" => []
       }
     end
 
@@ -166,6 +170,16 @@ module Picotest
 
     def assert_in_delta(expected, actual, delta = 0.001)
       report((expected - actual).abs < delta, "Expected #{expected} but got #{actual}", expected, actual)
+    end
+
+    def skip(reason = "")
+      raise Picotest::Skip, reason
+    end
+
+    def report_skip(data)
+      print "#{Picotest::YELLOW}S#{Picotest::RESET}"
+      @result["skipped_count"] += 1
+      @result["skipped"] << data
     end
 
     def report_exception(data)

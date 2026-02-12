@@ -80,6 +80,8 @@ module Picotest
             f.puts "my_test.setup"
             f.puts "begin"
             f.puts "  my_test.#{t}"
+            f.puts "rescue Picotest::Skip => e"
+            f.puts "  my_test.report_skip({method: '#{t}', reason: e.message})"
             f.puts "rescue => e"
             f.puts "  my_test.report_exception({method: '#{t}', raise_message: e.message})"
             f.puts "end"
@@ -112,7 +114,9 @@ module Picotest
               "success_count" => 0,
               "failures" => [],
               "exceptions" => [],
-              "crashes" => []
+              "crashes" => [],
+              "skipped_count" => 0,
+              "skipped" => []
             }
             File.open(error_file) do |error|
               @result[klass.to_s]["crashes"] << error.read
@@ -127,6 +131,7 @@ module Picotest
       total_failure = 0
       total_exception = 0
       total_crash = 0
+      total_skip = 0
       puts
       puts "Summary"
       puts
@@ -135,13 +140,15 @@ module Picotest
         failure_count = v["failures"].size
         exception_count = v["exceptions"].size
         crash_count = v["crashes"].size
+        skip_count = v["skipped_count"] || 0
         error_count = failure_count + exception_count + crash_count
         total_failure += failure_count
         total_exception += exception_count
         total_crash += crash_count
+        total_skip += skip_count
         print (0 < error_count ? Picotest::RED : Picotest::GREEN)
         puts "#{k}:"
-        puts "  success: #{v["success_count"]}, failure: #{failure_count}, exception: #{exception_count}, crash: #{crash_count}"
+        puts "  success: #{v["success_count"]}, failure: #{failure_count}, exception: #{exception_count}, crash: #{crash_count}, skip: #{skip_count}"
         v["failures"].each do |e|
           puts "  #{e["method"]}: #{e["error_message"]}"
           puts "    expected: #{e["expected"].inspect}"
@@ -156,6 +163,11 @@ module Picotest
             puts "    #{line}"
           end
         end
+        (v["skipped"] || []).each do |e|
+          print Picotest::YELLOW
+          puts "  #{e["method"]}: skipped#{e["reason"].to_s.empty? ? "" : " (#{e["reason"]})"}"
+          print Picotest::RESET
+        end
         print Picotest::RESET
       end
       @load_crashes.each do |crash|
@@ -166,7 +178,7 @@ module Picotest
       puts
       total_error_count = total_failure + total_exception + total_crash + @load_crashes.size
       total_error_count == 0 ? print(Picotest::GREEN) : print(Picotest::RED)
-      puts "Total: success: #{total_success}, failure: #{total_failure}, exception: #{total_exception}, crash: #{total_crash}, crash in loading: #{@load_crashes.size}"
+      puts "Total: success: #{total_success}, failure: #{total_failure}, exception: #{total_exception}, crash: #{total_crash}, crash in loading: #{@load_crashes.size}, skip: #{total_skip}"
       puts Picotest::RESET
       return total_error_count
     end

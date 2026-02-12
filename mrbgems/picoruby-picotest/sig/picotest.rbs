@@ -5,12 +5,18 @@ module Picotest
     "success_count" => Integer,
     "failures" => Array[Hash[untyped, untyped]],
     "exceptions" => Array[Hash[untyped, untyped]],
-    "crashes" => Array[String]
+    "crashes" => Array[String],
+    "skipped_count" => Integer,
+    "skipped" => Array[Hash[untyped, untyped]]
   }
 
   GREEN: String
+  YELLOW: String
   RED: String
   RESET: String
+
+  class Skip < StandardError
+  end
 
   BasicObject: Object
 
@@ -56,6 +62,8 @@ module Picotest
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
     def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
+    def skip: (?String reason) -> void
+    def report_skip: (untyped data) -> void
     def report_exeption: (untyped data) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end

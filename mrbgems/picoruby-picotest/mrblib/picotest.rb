@@ -27,6 +27,7 @@ end
 
 module Picotest
   GREEN = "\e[32m"
+  YELLOW = "\e[33m"
   RED = "\e[31m"
   RESET = "\e[0m"
 end
