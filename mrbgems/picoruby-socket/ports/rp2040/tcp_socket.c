@@ -77,7 +77,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     return ERR_ARG;
   }
 
-  D("tcp_recv_callback: sock=%p, pbuf=%p, err=%d\n", (void*)sock, (void*)pbuf, err);
+  D("tcp_recv_callback: sock=%p, pbuf=%p, err=%d", (void*)sock, (void*)pbuf, err);
 
   /* Handle errors */
   if (err != ERR_OK) {
@@ -100,7 +100,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   /* Allocate or expand receive buffer */
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
-  D("tcp_recv_callback: receiving %zu bytes, current recv_len=%zu\n", total_len, sock->recv_len);
+  D("tcp_recv_callback: receiving %zu bytes, current recv_len=%zu", total_len, sock->recv_len);
 
   if (new_size > sock->recv_capacity) {
     char *new_buf = (char *)picorb_realloc(NULL, sock->recv_buf, new_size + 1);
@@ -146,6 +146,8 @@ tcp_err_callback(void *arg, err_t err)
   picorb_socket_t *sock = (picorb_socket_t *)arg;
   if (!sock) return;
 
+  D("TCP ERROR: err=%d", err);
+
   sock->state = SOCKET_STATE_ERROR;
   sock->connected = false;
   sock->pcb = NULL; /* PCB is already freed by LwIP */
@@ -163,7 +165,7 @@ tcp_poll_callback(void *arg, struct altcp_pcb *pcb)
 bool
 TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 {
-  D("TCP connect: port=%d\n", port);
+  D("TCP connect: port=%d", port);
 
   if (!sock || !host || port <= 0 || port > 65535) {
     D("TCP: bad params");
