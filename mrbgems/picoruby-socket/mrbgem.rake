@@ -32,6 +32,8 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
     # Clone or update LwIP repository
     if File.symlink?(lwip_dir)
       # Symlink to pico-sdk's lwip (used in R2P2 builds)
+      # Note: This modifies a submodule's submodule. To ignore the changes in git status,
+      # add 'ignore = dirty' to picoruby-r2p2/lib/pico-sdk in .gitmodules
       unless File.directory?(lwip_dir)
         raise "Symlink #{lwip_dir} exists but target is missing. Run: rake r2p2:setup"
       end
