@@ -10,7 +10,7 @@ module DRb
 
       # Parse URI to get host and port
       if uri.start_with?("druby://")
-        if domain = uri[7..-1]
+        if domain = uri[8..-1]
           port_index = domain.index(':')
           if port_index
             @host = domain[0..port_index - 1]
@@ -81,8 +81,9 @@ module DRb
         msg.send_reply(true, result)
 
       rescue => e
-        # Send error reply
-        msg.send_reply(false, e)
+        # Send error reply (convert exception to string for Marshal compatibility)
+        error_msg = "#{e.class}: #{e.message}"
+        msg.send_reply(false, error_msg)
       ensure
         client.close
       end

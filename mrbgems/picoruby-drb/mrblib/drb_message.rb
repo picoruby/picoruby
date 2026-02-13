@@ -6,28 +6,41 @@ module DRb
       @socket = socket
     end
 
-    # Send a request: [ref, msg_id, args, block]
+    # Send a request (CRuby-compatible: each field individually)
     def send_request(ref, msg_id, args, block = nil)
-      data = Marshal.dump([ref, msg_id, args, block])
-      send_message(data)
+      send_message(Marshal.dump(ref))
+      send_message(Marshal.dump(msg_id.to_s))
+      send_message(Marshal.dump(args.length))
+      args.each { |a| send_message(Marshal.dump(a)) }
+      send_message(Marshal.dump(block))
     end
 
-    # Receive a request: returns [ref, msg_id, args, block]
+    # Receive a request (CRuby-compatible: each field individually)
     def recv_request
-      data = recv_message
-      Marshal.load(data)
+      ref    = Marshal.load(recv_message)
+      # @type var msg_id_str: String
+      msg_id_str = Marshal.load(recv_message)
+      msg_id = msg_id_str.to_sym
+      # @type var argc: Integer
+      argc   = Marshal.load(recv_message)
+      args   = Array.new(argc) { Marshal.load(recv_message) } # steep:ignore
+      # @type var block: Proc?
+      block  = Marshal.load(recv_message)
+      [ref, msg_id, args, block]
     end
 
-    # Send a reply: [success, result]
+    # Send a reply (CRuby-compatible: success + result individually)
     def send_reply(success, result)
-      data = Marshal.dump([success, result])
-      send_message(data)
+      send_message(Marshal.dump(success))
+      send_message(Marshal.dump(result))
     end
 
-    # Receive a reply: returns [success, result]
+    # Receive a reply (CRuby-compatible: success + result individually)
     def recv_reply
-      data = recv_message
-      Marshal.load(data)
+      # @type var success: bool
+      success = Marshal.load(recv_message)
+      result  = Marshal.load(recv_message)
+      [success, result]
     end
 
     private

@@ -25,17 +25,25 @@ class DRbTest < Picotest::Test
   end
 
   def test_drb_message_format
-    # Test Marshal round-trip for dRuby message
-    msg = [nil, :hello, ["world"], nil]
-    data = Marshal.dump(msg)
-    result = Marshal.load(data)
-    assert_equal msg, result
+    # Test Marshal round-trip for individual fields (CRuby-compatible)
+    fields = [nil, "hello", 1, "world", nil]
+    fields.each do |field|
+      data = Marshal.dump(field)
+      result = Marshal.load(data)
+      assert_equal field, result
+    end
   end
 
   def test_drb_object_creation
     obj = DRb::DRbObject.new("druby://localhost:8787", :test_ref)
     assert_equal "druby://localhost:8787", obj.uri
     assert_equal :test_ref, obj.ref
+  end
+
+  def test_drb_object_default_ref
+    obj = DRb::DRbObject.new("druby://localhost:8787")
+    assert_equal "druby://localhost:8787", obj.uri
+    assert_nil obj.ref
   end
 
   def test_drb_object_equality

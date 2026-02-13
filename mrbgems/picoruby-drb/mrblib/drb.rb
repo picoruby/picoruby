@@ -62,7 +62,7 @@ module DRb
     def send_message(uri, ref, msg_id, args, block = nil)
       # Parse URI
       if uri.start_with?("druby://")
-        if domain = uri[7..-1]
+        if domain = uri[8..-1]
           port_index = domain.index(':')
           if port_index
             host = domain[0..port_index - 1]

@@ -2,7 +2,7 @@ module DRb
   class DRbObject
     def initialize(uri, ref = nil)
       @uri = uri
-      @ref = ref || self
+      @ref = ref
     end
 
     attr_reader :uri, :ref

@@ -20,9 +20,9 @@ module DRb
   class DRbMessage
     def self.new: (TCPSocket socket) -> DRbMessage
     def send_request: (untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> void
-    def recv_request: () -> ::Marshal::marshallable
+    def recv_request: () -> [untyped, Symbol, Array[untyped], Proc?]
     def send_reply: (bool success, untyped result) -> void
-    def recv_reply: () -> ::Marshal::marshallable
+    def recv_reply: () -> [bool, untyped]
 
     private def send_message: (String data) -> void
     private def recv_message: () -> String
