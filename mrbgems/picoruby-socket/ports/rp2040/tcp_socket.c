@@ -190,16 +190,18 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   }
   D("TCP: DNS ok");
 
-  /* Setup callbacks */
-  lwip_begin();
-  altcp_arg(sock->pcb, sock);
+  /* Setup callbacks (same order as picoruby-net, with altcp_arg last) */
   altcp_recv(sock->pcb, tcp_recv_callback);
   altcp_sent(sock->pcb, tcp_sent_callback);
   altcp_err(sock->pcb, tcp_err_callback);
   altcp_poll(sock->pcb, tcp_poll_callback, 4);  /* Poll every 2 seconds (4 * 500ms) */
+  altcp_arg(sock->pcb, sock);
+
+  Net_busy_wait_ms(100);
 
   /* Initiate connection */
   D("TCP: connecting");
+  lwip_begin();
   err_t err = altcp_connect(sock->pcb, &ip_addr, port, tcp_connected_callback);
   lwip_end();
 
