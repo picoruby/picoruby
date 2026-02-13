@@ -13,6 +13,7 @@ module Marshal
   TYPE_SYMBOL    = ':'
   TYPE_ARRAY     = '['
   TYPE_HASH      = '{'
+  TYPE_IVAR      = 'I'
 
   class << self
     def dump(obj)
@@ -148,6 +149,8 @@ module Marshal
         load_array(data, pos)
       when TYPE_HASH
         load_hash(data, pos)
+      when TYPE_IVAR
+        load_ivar(data, pos)
       else
         raise ArgumentError, "unsupported type: #{(type&.ord || 0).to_s(16)}"
       end
@@ -251,6 +254,24 @@ module Marshal
         hash[key] = value
       end
       [hash, pos]
+    end
+
+    def load_ivar(data, pos)
+      # Load the object with instance variables
+      obj, pos = load_object(data, pos)
+
+      # Load number of instance variables
+      num_ivars, pos = decode_fixnum(data, pos)
+
+      # Skip instance variables (we just return the base object)
+      num_ivars.times do
+        # Skip ivar name (symbol)
+        _, pos = load_object(data, pos)
+        # Skip ivar value
+        _, pos = load_object(data, pos)
+      end
+
+      [obj, pos]
     end
   end
 end
