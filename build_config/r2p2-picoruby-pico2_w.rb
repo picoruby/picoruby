@@ -55,9 +55,8 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.gembox "shell"
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
+  conf.gembox "networking"
   conf.gem core: 'picoruby-shinonome'
   conf.gem core: 'picoruby-ble'
-  conf.gem core: 'picoruby-net-http'
-  conf.gem core: 'picoruby-net-ntp'
   conf.gem core: 'picoruby-keyboard'
 end

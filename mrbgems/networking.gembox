@@ -1,0 +1,7 @@
+MRuby::GemBox.new do |conf|
+  conf.gem core: 'picoruby-net-http'
+  conf.gem core: 'picoruby-net-ntp'
+  if vm_mruby?
+    conf.gem core: 'picoruby-drb' # mruby/c can't support dRuby
+  end
+end

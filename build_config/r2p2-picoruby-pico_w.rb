@@ -49,9 +49,9 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   # This causes "region `RAM' overflow"
   # conf.gembox "peripheral_utils_2"
   conf.gembox "peripherals"
+  conf.gembox "networking"
 
   # Rapi Pico's flash ROM (2MB) can't hold both net and ble
-  conf.gem core: 'picoruby-net'
   # conf.gem core: 'picoruby-ble'
   conf.gem core: 'picoruby-keyboard'
 end

@@ -24,8 +24,7 @@ MRuby::Build.new do |conf|
   conf.gembox "core"
   conf.gembox "stdlib"
   conf.gembox "shell"
+  conf.gembox "networking"
   conf.gem core: "picoruby-shinonome"
   conf.gem core: "picoruby-bin-r2p2"
-  conf.gem core: "picoruby-net-http"
-  conf.gem core: "picoruby-net-ntp"
 end
