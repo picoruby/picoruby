@@ -230,11 +230,9 @@ module Net
           last_resend = current_time
         end
 
-        # Try to receive data
-        # recvfrom returns [data, addr_info] or nil if no data available
+        # Try to receive data (non-blocking to allow timeout check)
         begin
-          result = socket.recvfrom(48)
-          # result is nil when no data is available (non-blocking socket)
+          result = socket.recvfrom_nonblock(48)
           if result && result[0] && 48 <= result[0].length
             response_data = result[0]
             break
