@@ -23,7 +23,12 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate socket");
   }
-  memset(sock, 0, sizeof(picorb_socket_t));
+
+  /* Create socket */
+  if (!TCPSocket_create(sock)) {
+    mrb_free(mrb, sock);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create socket");
+  }
 
   /* Connect to remote host */
   if (!TCPSocket_connect(sock, host, (int)port)) {

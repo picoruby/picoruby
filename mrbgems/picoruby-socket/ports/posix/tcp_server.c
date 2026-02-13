@@ -71,9 +71,6 @@ TCPServer_create(int port, int backlog)
   server->backlog = backlog;
   server->listening = true;
 
-  fprintf(stderr, "DEBUG: TCPServer created, listen_fd=%d, port=%d, backlog=%d\n",
-          server->listen_fd, port, backlog);
-
   return (picorb_tcp_server_t*)server;
 }
 
@@ -84,11 +81,9 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
   picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
 
   if (!srv) {
-    fprintf(stderr, "DEBUG: accept_nonblock: srv is NULL\n");
     return NULL;
   }
   if (!srv->listening) {
-    fprintf(stderr, "DEBUG: accept_nonblock: srv->listening is false\n");
     return NULL;
   }
 
@@ -110,10 +105,6 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
   int client_fd = accept(srv->listen_fd,
                          (struct sockaddr*)&client_addr,
                          &addr_len);
-
-  if (client_fd >= 0) {
-    fprintf(stderr, "DEBUG: accept returned client_fd=%d, errno=%d\n", client_fd, errno);
-  }
 
   /* Save errno before fcntl potentially modifies it */
   int saved_errno = errno;
@@ -137,7 +128,7 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
   }
 
   /* Create TCPSocket object for client */
-  picorb_socket_t *client = (picorb_socket_t *)picorb_alloc(NULL, sizeof(picorb_socket_t));
+  picorb_socket_t *client = (picorb_socket_t *)malloc(sizeof(picorb_socket_t));
   if (!client) {
     close(client_fd);
     return NULL;
