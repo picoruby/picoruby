@@ -9,6 +9,7 @@ module Marshal
   TYPE_TRUE      = 'T'
   TYPE_FALSE     = 'F'
   TYPE_FIXNUM    = 'i'
+  TYPE_FLOAT     = 'f'
   TYPE_STRING    = '"'
   TYPE_SYMBOL    = ':'
   TYPE_ARRAY     = '['
@@ -50,6 +51,9 @@ module Marshal
       when Integer
         # @type var obj: Integer
         dump_integer(obj)
+      when Float
+        # @type var obj: Float
+        dump_float(obj)
       when String
         # @type var obj: String
         dump_string(obj)
@@ -100,6 +104,11 @@ module Marshal
       end
     end
 
+    def dump_float(f)
+      str = f.to_s
+      TYPE_FLOAT + encode_fixnum(str.size) + str
+    end
+
     def dump_string(s)
       TYPE_STRING + encode_fixnum(s.size) + s
     end
@@ -141,6 +150,8 @@ module Marshal
         [false, pos]
       when TYPE_FIXNUM
         load_integer(data, pos)
+      when TYPE_FLOAT
+        load_float(data, pos)
       when TYPE_STRING
         load_string(data, pos)
       when TYPE_SYMBOL
@@ -216,6 +227,14 @@ module Marshal
       else
         raise ArgumentError, "unknown fixnum encoding: #{c.to_s(16)}"
       end
+    end
+
+    def load_float(data, pos)
+      len, pos = decode_fixnum(data, pos)
+      raise ArgumentError, "marshal data too short" if pos + len > data.size
+      str = data[pos, len]
+      raise ArgumentError, "marshal data too short" if str.nil?
+      [str.to_f, pos + len]
     end
 
     def load_string(data, pos)
