@@ -1,10 +1,5 @@
 module Net
   module WebSocket
-    type fragment_t = {
-      opcode: Integer,
-      payload: String
-    }
-
     class Server
       @server: TCPServer
 
