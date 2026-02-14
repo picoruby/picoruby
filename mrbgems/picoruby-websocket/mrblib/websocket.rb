@@ -93,7 +93,7 @@ module WebSocket
     end
 
     def connected?
-      @socket && !@socket.closed?
+      @socket ? !@socket.closed? : false
     end
 
     def send_text(text)
