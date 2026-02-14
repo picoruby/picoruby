@@ -75,8 +75,8 @@ class WebSocketTest < Picotest::Test
     data = "Hello"
     mask_key = "\x01\x02\x03\x04"
 
-    masked = client.send(:mask_data, data, mask_key)
-    unmasked = client.send(:mask_data, masked, mask_key)
+    masked = client.__send__(:mask_data, data, mask_key)
+    unmasked = client.__send__(:mask_data, masked, mask_key)
 
     assert_equal(data, unmasked)
   end
@@ -86,7 +86,7 @@ class WebSocketTest < Picotest::Test
     data = ""
     mask_key = "\x01\x02\x03\x04"
 
-    masked = client.send(:mask_data, data, mask_key)
+    masked = client.__send__(:mask_data, data, mask_key)
     assert_equal("", masked)
   end
 
@@ -95,8 +95,8 @@ class WebSocketTest < Picotest::Test
     data = "Hello, World!"
     mask_key = "\xAB\xCD\xEF\x12"
 
-    masked = client.send(:mask_data, data, mask_key)
-    unmasked = client.send(:mask_data, masked, mask_key)
+    masked = client.__send__(:mask_data, data, mask_key)
+    unmasked = client.__send__(:mask_data, masked, mask_key)
 
     assert_equal(data, unmasked)
   end
@@ -151,21 +151,21 @@ class WebSocketTest < Picotest::Test
     # Close frame with code 1000 and reason "Normal"
     payload = [1000].pack("n") + "Normal"
     # This should not raise error
-    client.send(:handle_close_frame, payload)
+    client.__send__(:handle_close_frame, payload)
     assert(true)
   end
 
   def test_handle_close_frame_with_code_only
     client = WebSocket::Client.new("ws://example.com")
     payload = [1001].pack("n")
-    client.send(:handle_close_frame, payload)
+    client.__send__(:handle_close_frame, payload)
     assert(true)
   end
 
   def test_handle_close_frame_empty
     client = WebSocket::Client.new("ws://example.com")
     payload = ""
-    client.send(:handle_close_frame, payload)
+    client.__send__(:handle_close_frame, payload)
     assert(true)
   end
 
@@ -175,8 +175,8 @@ class WebSocketTest < Picotest::Test
     mask = "abcd"
 
     # Masking twice should return original
-    once = client.send(:mask_data, data, mask)
-    twice = client.send(:mask_data, once, mask)
+    once = client.__send__(:mask_data, data, mask)
+    twice = client.__send__(:mask_data, once, mask)
 
     assert_equal(data, twice)
   end
@@ -187,7 +187,7 @@ class WebSocketTest < Picotest::Test
     data = "\x00\x00\x00\x00\x00"
     mask = "\x01\x02\x03\x04"
 
-    masked = client.send(:mask_data, data, mask)
+    masked = client.__send__(:mask_data, data, mask)
 
     # Each byte should be XORed with corresponding mask byte
     assert_equal("\x01", masked[0])
