@@ -7,12 +7,14 @@ This directory contains test scripts to verify WebSocket communication between C
 Install the required CRuby gems:
 
 ```bash
-gem install em-websocket
+gem install em-websocket websocket-client-simple
 ```
 
 ## Running the Tests
 
-### Terminal 1: Start CRuby WebSocket Server
+### Test A: CRuby Server + PicoRuby Client
+
+#### Terminal 1: Start CRuby WebSocket Server
 
 ```bash
 cd mrbgems/picoruby-net-websocket/example
@@ -26,11 +28,34 @@ Press Ctrl+C to stop
 Server ready!
 ```
 
-### Terminal 2: Run PicoRuby Client
+#### Terminal 2: Run PicoRuby Client
 
 ```bash
 cd mrbgems/picoruby-net-websocket/example
 picoruby picoruby_client.rb
+```
+
+### Test B: PicoRuby Server + CRuby Client
+
+#### Terminal 1: Start PicoRuby WebSocket Server
+
+```bash
+cd mrbgems/picoruby-net-websocket/example
+picoruby picoruby_server.rb
+```
+
+You should see:
+```
+Starting PicoRuby WebSocket server on ws://0.0.0.0:8080
+Press Ctrl+C to stop
+Server ready!
+```
+
+#### Terminal 2: Run CRuby Client
+
+```bash
+cd mrbgems/picoruby-net-websocket/example
+ruby cruby_client.rb
 ```
 
 ## Test Cases

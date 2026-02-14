@@ -1,0 +1,43 @@
+module Net
+  module WebSocket
+    type fragment_t = {
+      opcode: Integer,
+      payload: String
+    }
+
+    class Client
+      @socket: TCPSocket | SSLSocket
+      @headers: Hash[String, String]
+      @fragments: Array[fragment_t]
+      @use_ssl: bool
+
+      attr_reader url: String
+      attr_reader host: String
+      attr_reader port: Integer
+      attr_reader path: String
+      attr_accessor ssl_context: SSLContext
+
+      def self.new: (String) -> Net::WebSocket::Client
+      def self.connect: (String) { (Client) -> void } -> void
+                      | (String) -> Client
+      def add_header: (String, String) -> void
+      def connect: () -> bool
+      def connected?: () -> bool
+      def send_text: (String) -> Integer
+      def send_binary: (String) -> Integer
+      def send: (String, ?type: Symbol) -> Integer
+      def receive: (?timeout: Integer?) -> String?
+      def ping: (?String) -> Integer
+      def close: (?Integer, ?String) -> void
+
+      private def parse_url: (String) -> void
+      private def perform_handshake: () -> bool
+      private def read_http_response: () -> String
+      private def read_line: () -> String
+      private def send_frame: (Integer, String) -> Integer
+      private def receive_frame: () -> [Integer, String]
+      private def mask_data: (String, String) -> String
+      private def handle_close_frame: (String) -> nil
+    end
+  end
+end

@@ -1,0 +1,44 @@
+module Net
+  module WebSocket
+    type fragment_t = {
+      opcode: Integer,
+      payload: String
+    }
+
+    class Server
+      @server: TCPServer
+
+      attr_reader host: String
+      attr_reader port: Integer
+
+      def self.new: (?host: String, ?port: Integer) -> Server
+      def start: () -> bool
+      def accept: () -> Server::Connection
+      def accept_loop: () { (Server::Connection) -> void } -> void
+      def close: () -> void
+
+      class Connection
+        @socket: TCPSocket
+        @fragments: Array[fragment_t]
+
+        def send_text: (String) -> Integer
+        def send_binary: (String) -> Integer
+        def send: (String, ?type: Symbol) -> Integer
+        def receive: (?timeout: Integer?) -> String?
+        def ping: (?String) -> Integer
+        def close: (?Integer, ?String) -> void
+        def closed?: () -> bool
+
+        private def perform_handshake: () -> void
+        private def read_http_request: () -> String
+        private def read_line: () -> String
+        private def parse_http_headers: (String) -> Hash[String, String]
+        private def compute_accept_key: (String) -> String
+        private def send_frame: (Integer, String, ?masked: bool) -> Integer
+        private def receive_frame: () -> [Integer, String]
+        private def mask_data: (String, String) -> String
+        private def handle_close_frame: (String) -> nil
+      end
+    end
+  end
+end
