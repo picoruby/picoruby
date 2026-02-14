@@ -1,4 +1,3 @@
-require 'socket'
 require 'marshal'
 
 module DRb
@@ -29,9 +28,21 @@ module DRb
       $drb_primary_server = server
     end
 
+    # Protocol extension point: create a socket for the given URI
+    # Override this method to support custom protocols
+    def create_socket(uri)
+      raise DRbBadURI, "unsupported protocol: #{uri}"
+    end
+
+    # Protocol extension point: create a server for the given URI
+    # Override this method to support custom protocols
+    def create_server(uri, front, config)
+      raise DRbBadURI, "unsupported protocol: #{uri}"
+    end
+
     # Start a DRb server
     def start_service(uri, front, config = {})
-      $drb_primary_server = DRbServer.new(uri, front, config)
+      $drb_primary_server = create_server(uri, front, config)
       $drb_primary_server&.start
       $drb_uri = uri
     end
@@ -60,22 +71,8 @@ module DRb
 
     # Send a message to a remote object
     def send_message(uri, ref, msg_id, args, block = nil)
-      # Parse URI
-      if uri.start_with?("druby://")
-        if domain = uri[8..-1]
-          port_index = domain.index(':')
-          if port_index
-            host = domain[0..port_index - 1]
-            port = domain[(port_index + 1)..-1]&.to_i
-          end
-        end
-      end
-      if host.nil? || port.nil?
-        raise DRbBadURI, "invalid URI: #{uri}"
-      end
-
-      # Connect to server
-      socket = TCPSocket.new(host, port)
+      # Connect to server using protocol handler
+      socket = create_socket(uri)
       msg = DRbMessage.new(socket)
 
       begin
