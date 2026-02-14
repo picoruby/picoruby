@@ -8,7 +8,7 @@
 #
 
 require 'socket'
-require 'base_encoding'
+require 'base64'
 
 module WebSocket
   class WebSocketError < StandardError; end
@@ -207,7 +207,7 @@ module WebSocket
       16.times do
         key_bytes += rand(256).chr
       end
-      sec_key = Base62.encode(key_bytes)  # Use Base62 as Base64 alternative
+      sec_key = Base64.encode(key_bytes)
 
       # Build HTTP request
       request = "GET #{@path} HTTP/1.1\r\n"
