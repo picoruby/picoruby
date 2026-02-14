@@ -220,6 +220,19 @@ class Shell
     end
   end
 
+  def self.setup_sdcard_sdmmc(clk, cmd, d0)
+    begin
+      print "Initializing SD card (SDMMC)... "
+      sd = FAT.new(:sd, label: "SD", driver: { sdmmc: { clk: clk, cmd: cmd, d0: d0 } })
+      sd_mountpoint = "/sd"
+      VFS.mount(sd, sd_mountpoint)
+      puts "Available at #{sd_mountpoint}"
+    rescue => e
+      puts "Not available"
+      puts "#{e.message} (#{e.class})"
+    end
+  end
+
   def self.simple_question(question, &block)
     while true
       print question

@@ -83,7 +83,9 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
   };
 
   esp_err_t ret = spi_bus_initialize(unit_info->unit_num, &buscfg, SPI_DMA_CH_AUTO);
-  if (ret != ESP_OK) {
+  if (ret != ESP_OK && ret != ESP_ERR_INVALID_STATE) {
+    // ESP_ERR_INVALID_STATE means bus is already initialized (e.g., by M5Unified)
+    // In that case, we can still add our device to the existing bus
     return SPI_ERROR_FAILED_TO_INIT;
   }
 
