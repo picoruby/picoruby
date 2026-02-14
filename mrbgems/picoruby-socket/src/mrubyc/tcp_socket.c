@@ -306,7 +306,6 @@ c_tcp_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Check if data is ready to read */
   bool is_ready = Socket_ready(sock);
-  mrbc_incref(&v[0]);
   if (is_ready) {
     SET_TRUE_RETURN();
   } else {
