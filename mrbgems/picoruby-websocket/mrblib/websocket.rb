@@ -375,7 +375,8 @@ module WebSocket
 
     def mask_data(data, mask_key)
       result = ""
-      data.each_byte.with_index do |byte, i|
+      data.length.times do |i|
+        byte = data[i].ord
         masked_byte = byte ^ mask_key[i % 4].ord
         result += masked_byte.chr
       end
