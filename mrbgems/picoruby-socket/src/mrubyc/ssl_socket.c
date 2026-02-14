@@ -422,6 +422,33 @@ c_ssl_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
+ * ssl_socket.ready? -> true or false
+ */
+static void
+c_ssl_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get SSL socket pointer from wrapper */
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    SET_FALSE_RETURN();
+    return;
+  }
+
+  /* Check if data is ready to read */
+  bool is_ready = SSLSocket_ready(wrapper->ptr);
+  if (is_ready) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+/*
  * SSLContext.new() -> SSLContext
  */
 static void
@@ -777,6 +804,7 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_SSLSocket, "read", c_ssl_socket_read);
   mrbc_define_method(vm, class_SSLSocket, "close", c_ssl_socket_close);
   mrbc_define_method(vm, class_SSLSocket, "closed?", c_ssl_socket_closed_q);
+  mrbc_define_method(vm, class_SSLSocket, "ready?", c_ssl_socket_ready_q);
   mrbc_define_method(vm, class_SSLSocket, "remote_host", c_ssl_socket_remote_host);
   mrbc_define_method(vm, class_SSLSocket, "remote_port", c_ssl_socket_remote_port);
 

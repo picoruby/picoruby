@@ -8,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -107,6 +108,22 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
   }
 
   return received;
+}
+
+/* Check if data is ready to read */
+bool
+Socket_ready(picorb_socket_t *sock)
+{
+  if (!sock || sock->fd < 0 || sock->closed) {
+    return false;
+  }
+
+  int available = 0;
+  if (ioctl(sock->fd, FIONREAD, &available) < 0) {
+    return false;
+  }
+
+  return available > 0;
 }
 
 bool

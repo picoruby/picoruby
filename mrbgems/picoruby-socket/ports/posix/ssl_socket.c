@@ -554,6 +554,18 @@ SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
 }
 
 /*
+ * Check if data is ready to read
+ */
+bool
+SSLSocket_ready(picorb_ssl_socket_t *ssl_sock)
+{
+  if (!ssl_sock || !ssl_sock->base_socket) {
+    return false;
+  }
+  return Socket_ready(ssl_sock->base_socket);
+}
+
+/*
  * Get remote host
  */
 const char*

@@ -117,8 +117,7 @@ module Net
           end
 
           # Check if data is available
-          ready = IO.select([@socket], nil, nil, 0.1)
-          if ready && ready[0]
+          if @socket.ready?
             opcode, payload = receive_frame
 
             case opcode
@@ -134,6 +133,8 @@ module Net
             when OPCODE_PONG
               # Ignore pong (could store for latency measurement)
             end
+          else
+            sleep_ms 100
           end
         end
         return nil
@@ -152,8 +153,13 @@ module Net
 
         # Wait for close frame from server
         begin
-          ready = IO.select([@socket], nil, nil, 1)
-          if ready && ready[0]
+          max_wait = 10  # Wait up to 1 second (10 * 100ms)
+          while max_wait > 0 && !@socket.ready?
+            sleep_ms 100
+            max_wait -= 1
+          end
+
+          if @socket.ready?
             opcode, response = receive_frame
             if opcode == OPCODE_CLOSE
               # Close acknowledged

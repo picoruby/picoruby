@@ -640,6 +640,15 @@ SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
   return !ssl_sock->connected;
 }
 
+bool
+SSLSocket_ready(picorb_ssl_socket_t *ssl_sock)
+{
+  if (!ssl_sock || !ssl_sock->base_socket) {
+    return false;
+  }
+  return Socket_ready(ssl_sock->base_socket);
+}
+
 const char*
 SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
 {

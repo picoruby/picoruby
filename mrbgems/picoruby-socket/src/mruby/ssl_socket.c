@@ -500,6 +500,20 @@ mrb_ssl_socket_remote_port(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(port);
 }
 
+/* ssl_socket.ready? */
+static mrb_value
+mrb_ssl_socket_ready_p(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    return mrb_false_value();
+  }
+
+  return mrb_bool_value(SSLSocket_ready(ssl_sock));
+}
+
 void
 ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 {
@@ -535,6 +549,7 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(close), mrb_ssl_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(closed), mrb_ssl_socket_closed_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(ready), mrb_ssl_socket_ready_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(remote_host), mrb_ssl_socket_remote_host, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(remote_port), mrb_ssl_socket_remote_port, MRB_ARGS_NONE());
 }

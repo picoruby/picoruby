@@ -316,6 +316,16 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
   return (ssize_t)to_copy;
 }
 
+/* Check if data is ready to read */
+bool
+Socket_ready(picorb_socket_t *sock)
+{
+  if (!sock) {
+    return false;
+  }
+  return sock->recv_len > 0;
+}
+
 /* Close socket */
 bool
 TCPSocket_close(picorb_socket_t *sock)
