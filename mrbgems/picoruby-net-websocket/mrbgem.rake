@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('picoruby-websocket') do |spec|
+MRuby::Gem::Specification.new('picoruby-net-websocket') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'WebSocket client for PicoRuby'

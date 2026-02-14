@@ -1,6 +1,6 @@
 class WebSocketTest < Picotest::Test
   def test_client_initialization
-    client = WebSocket::Client.new("ws://example.com:8080/socket")
+    client = Net::WebSocket::Client.new("ws://example.com:8080/socket")
     assert_equal("ws://example.com:8080/socket", client.url)
     assert_equal("example.com", client.host)
     assert_equal(8080, client.port)
@@ -8,52 +8,52 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_parse_url_with_default_port
-    client = WebSocket::Client.new("ws://example.com/path")
+    client = Net::WebSocket::Client.new("ws://example.com/path")
     assert_equal("example.com", client.host)
     assert_equal(80, client.port)
     assert_equal("/path", client.path)
   end
 
   def test_parse_url_with_root_path
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     assert_equal("/", client.path)
   end
 
   def test_parse_url_without_ws_prefix
-    client = WebSocket::Client.new("example.com:9000/ws")
+    client = Net::WebSocket::Client.new("example.com:9000/ws")
     assert_equal("example.com", client.host)
     assert_equal(9000, client.port)
     assert_equal("/ws", client.path)
   end
 
   def test_wss_url_parsing
-    client = WebSocket::Client.new("wss://secure.example.com")
+    client = Net::WebSocket::Client.new("wss://secure.example.com")
     assert_equal("secure.example.com", client.host)
     assert_equal(443, client.port)
     assert_equal("/", client.path)
   end
 
   def test_wss_url_with_port
-    client = WebSocket::Client.new("wss://secure.example.com:8443/socket")
+    client = Net::WebSocket::Client.new("wss://secure.example.com:8443/socket")
     assert_equal("secure.example.com", client.host)
     assert_equal(8443, client.port)
     assert_equal("/socket", client.path)
   end
 
   def test_wss_url_with_path
-    client = WebSocket::Client.new("wss://api.example.com/v1/stream")
+    client = Net::WebSocket::Client.new("wss://api.example.com/v1/stream")
     assert_equal("api.example.com", client.host)
     assert_equal(443, client.port)
     assert_equal("/v1/stream", client.path)
   end
 
   def test_connected_returns_false_initially
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     assert_equal(false, client.connected?)
   end
 
   def test_add_header
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     client.add_header("Authorization", "Bearer token123")
     client.add_header("X-Custom", "value")
     # Headers are stored internally
@@ -61,7 +61,7 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_ssl_context_accessor
-    client = WebSocket::Client.new("wss://example.com")
+    client = Net::WebSocket::Client.new("wss://example.com")
     assert_equal(nil, client.ssl_context)
 
     # Can set custom SSL context
@@ -71,7 +71,7 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_mask_data
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     data = "Hello"
     mask_key = "\x01\x02\x03\x04"
 
@@ -82,7 +82,7 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_mask_data_empty
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     data = ""
     mask_key = "\x01\x02\x03\x04"
 
@@ -91,7 +91,7 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_mask_data_longer_than_key
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     data = "Hello, World!"
     mask_key = "\xAB\xCD\xEF\x12"
 
@@ -102,52 +102,52 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_opcodes
-    assert_equal(0x0, WebSocket::OPCODE_CONTINUATION)
-    assert_equal(0x1, WebSocket::OPCODE_TEXT)
-    assert_equal(0x2, WebSocket::OPCODE_BINARY)
-    assert_equal(0x8, WebSocket::OPCODE_CLOSE)
-    assert_equal(0x9, WebSocket::OPCODE_PING)
-    assert_equal(0xA, WebSocket::OPCODE_PONG)
+    assert_equal(0x0, Net::WebSocket::OPCODE_CONTINUATION)
+    assert_equal(0x1, Net::WebSocket::OPCODE_TEXT)
+    assert_equal(0x2, Net::WebSocket::OPCODE_BINARY)
+    assert_equal(0x8, Net::WebSocket::OPCODE_CLOSE)
+    assert_equal(0x9, Net::WebSocket::OPCODE_PING)
+    assert_equal(0xA, Net::WebSocket::OPCODE_PONG)
   end
 
   def test_close_codes
-    assert_equal(1000, WebSocket::CLOSE_NORMAL)
-    assert_equal(1001, WebSocket::CLOSE_GOING_AWAY)
-    assert_equal(1002, WebSocket::CLOSE_PROTOCOL_ERROR)
-    assert_equal(1003, WebSocket::CLOSE_UNSUPPORTED_DATA)
-    assert_equal(1006, WebSocket::CLOSE_ABNORMAL)
+    assert_equal(1000, Net::WebSocket::CLOSE_NORMAL)
+    assert_equal(1001, Net::WebSocket::CLOSE_GOING_AWAY)
+    assert_equal(1002, Net::WebSocket::CLOSE_PROTOCOL_ERROR)
+    assert_equal(1003, Net::WebSocket::CLOSE_UNSUPPORTED_DATA)
+    assert_equal(1006, Net::WebSocket::CLOSE_ABNORMAL)
   end
 
   def test_websocket_guid
-    assert_equal("258EAFA5-E914-47DA-95CA-C5AB0DC85B11", WebSocket::WEBSOCKET_GUID)
+    assert_equal("258EAFA5-E914-47DA-95CA-C5AB0DC85B11", Net::WebSocket::WEBSOCKET_GUID)
   end
 
   def test_error_when_sending_without_connection
-    client = WebSocket::Client.new("ws://example.com")
-    assert_raise(WebSocket::WebSocketError) do
+    client = Net::WebSocket::Client.new("ws://example.com")
+    assert_raise(Net::WebSocket::WebSocketError) do
       client.send_text("test")
     end
   end
 
   def test_error_when_receiving_without_connection
-    client = WebSocket::Client.new("ws://example.com")
-    assert_raise(WebSocket::WebSocketError) do
+    client = Net::WebSocket::Client.new("ws://example.com")
+    assert_raise(Net::WebSocket::WebSocketError) do
       client.receive
     end
   end
 
   def test_parse_url_with_nested_path
-    client = WebSocket::Client.new("ws://example.com/api/v1/websocket")
+    client = Net::WebSocket::Client.new("ws://example.com/api/v1/websocket")
     assert_equal("/api/v1/websocket", client.path)
   end
 
   def test_parse_url_with_query_string
-    client = WebSocket::Client.new("ws://example.com/socket?token=abc123")
+    client = Net::WebSocket::Client.new("ws://example.com/socket?token=abc123")
     assert_equal("/socket?token=abc123", client.path)
   end
 
   def test_handle_close_frame_with_code_and_reason
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     # Close frame with code 1000 and reason "Normal"
     payload = [1000].pack("n") + "Normal"
     # This should not raise error
@@ -156,21 +156,21 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_handle_close_frame_with_code_only
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     payload = [1001].pack("n")
     client.__send__(:handle_close_frame, payload)
     assert(true)
   end
 
   def test_handle_close_frame_empty
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     payload = ""
     client.__send__(:handle_close_frame, payload)
     assert(true)
   end
 
   def test_mask_xor_property
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     data = "Test data 123!"
     mask = "abcd"
 
@@ -182,7 +182,7 @@ class WebSocketTest < Picotest::Test
   end
 
   def test_mask_each_byte_different_key_byte
-    client = WebSocket::Client.new("ws://example.com")
+    client = Net::WebSocket::Client.new("ws://example.com")
     # Test that each byte uses correct mask key byte
     data = "\x00\x00\x00\x00\x00"
     mask = "\x01\x02\x03\x04"
@@ -211,7 +211,7 @@ class WebSocketTest < Picotest::Test
     ]
 
     urls.each do |url, expected_host, expected_port, expected_path|
-      client = WebSocket::Client.new(url)
+      client = Net::WebSocket::Client.new(url)
       assert_equal(expected_host, client.host)
       assert_equal(expected_port, client.port)
       assert_equal(expected_path, client.path)
@@ -226,7 +226,7 @@ end
 #
 # class WebSocketIntegrationTest < Picotest::Test
 #   def test_connect_to_echo_server
-#     ws = WebSocket::Client.new("ws://echo.websocket.org")
+#     ws = Net::WebSocket::Client.new("ws://echo.websocket.org")
 #     ws.connect
 #     assert(ws.connected?)
 #
@@ -238,7 +238,7 @@ end
 #   end
 #
 #   def test_ping_pong
-#     ws = WebSocket::Client.new("ws://echo.websocket.org")
+#     ws = Net::WebSocket::Client.new("ws://echo.websocket.org")
 #     ws.connect
 #
 #     ws.ping("test")
