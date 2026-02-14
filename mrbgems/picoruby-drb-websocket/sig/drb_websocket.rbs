@@ -1,0 +1,45 @@
+IS_WASM: bool
+IS_MICROCONTROLLER: bool
+
+module DRb
+  module WebSocket
+    # WebSocket adapter for DRb
+    class Adapter
+      def initialize: (untyped ws) -> void
+      def write: (String data) -> void
+      def read: (Integer n) -> String
+      def close: -> void
+      def closed?: -> bool
+    end
+
+    # WebSocket server for DRb (microcontroller only)
+    class Server
+      attr_reader uri: String
+      attr_reader front: untyped
+
+      def initialize: (String uri, untyped front, Hash[untyped, untyped] config) -> void
+      def start: -> self
+      def stop: -> void
+      def alive?: -> bool
+      def run: -> void
+      def accept: -> untyped?
+
+      private def handle_client: (Adapter socket) -> void
+    end
+
+    # Browser WebSocket adapter (WASM only)
+    class BrowserSocket
+      def initialize: (String url) -> void
+      def write: (String data) -> void
+      def read: (Integer n) -> String
+      def close: -> void
+      def closed?: -> bool
+    end
+
+    def self.connect: (String uri) -> (Adapter | BrowserSocket)
+  end
+
+  def self.parse_ws_uri: (String uri) -> ([String, Integer] | String)
+  def self._ws_base_create_socket: (String uri) -> untyped
+  def self._ws_base_create_server: (String uri, untyped front, Hash[untyped, untyped] config) -> untyped
+end

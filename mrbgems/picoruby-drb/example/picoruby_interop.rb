@@ -2,20 +2,20 @@
 # frozen_string_literal: true
 
 # PicoRuby interop test script
-# Run with: picoruby picoruby_client.rb [client|server]
+# Run with: picoruby picoruby_interop.rb [client|server]
 #
 # Test A: CRuby server + PicoRuby client
-#   Terminal 1: ruby cruby_server.rb server
-#   Terminal 2: picoruby picoruby_client.rb client
+#   Terminal 1: ruby cruby_interop.rb server
+#   Terminal 2: picoruby picoruby_interop.rb client
 #
 # Test B: PicoRuby server + CRuby client
-#   Terminal 1: picoruby picoruby_client.rb server
-#   Terminal 2: ruby cruby_server.rb client
+#   Terminal 1: picoruby picoruby_interop.rb server
+#   Terminal 2: ruby cruby_interop.rb client
 
 require 'drb'
 
 SERVER_URI = "druby://localhost:8788"
-CLIENT_TARGET_URI = "druby://localhost:8787"
+CLIENT_TARGET_URI = "druby://localhost:8788"
 
 class TestService
   def hello(name)
@@ -130,7 +130,7 @@ when "server"
 when "client"
   run_client
 else
-  puts "Usage: picoruby picoruby_client.rb [server|client]"
+  puts "Usage: picoruby picoruby_interop.rb [server|client]"
   puts "  server - Start PicoRuby DRb server on #{SERVER_URI}"
   puts "  client - Connect to CRuby DRb server on #{CLIENT_TARGET_URI}"
 end

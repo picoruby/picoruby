@@ -18,7 +18,7 @@ module DRb
   end
 
   class DRbMessage
-    def self.new: (TCPSocket socket) -> DRbMessage
+    def self.new: (untyped socket) -> DRbMessage
     def send_request: (untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> void
     def recv_request: () -> [untyped, Symbol, Array[untyped], Proc?]
     def send_reply: (bool success, untyped result) -> void
@@ -74,4 +74,10 @@ module DRb
   def self.ref_object: (String uri) -> DRbObject
   def self.send_message: (String uri, untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> untyped
   def self.thread: () -> void
+
+  def self.create_socket: (String uri) -> untyped
+  def self.create_server: (String uri, untyped front, Hash[untyped, untyped] config) -> untyped
+  def self.parse_druby_uri: (String uri) -> [String, Integer]
+  def self._base_create_socket: (String uri) -> TCPSocket
+  def self._base_create_server: (String uri, untyped front, Hash[untyped, untyped] config) -> DRbServer
 end

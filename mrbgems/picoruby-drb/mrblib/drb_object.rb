@@ -5,6 +5,12 @@ module DRb
       @ref = ref
     end
 
+    # Create a reference to a remote object at the given URI
+    # Compatible with CRuby DRb API
+    def self.new_with_uri(uri)
+      new(uri)
+    end
+
     attr_reader :uri, :ref
 
     def method_missing(msg_id, *args, &block)

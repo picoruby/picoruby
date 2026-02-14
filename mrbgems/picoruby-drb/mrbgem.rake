@@ -7,7 +7,6 @@ MRuby::Gem::Specification.new('picoruby-drb') do |spec|
   spec.add_dependency 'picoruby-marshal'
 
   # Socket dependency is optional
-  # TCP protocol support is only available when socket is present
   unless build.cc.command =~ /emcc/
     spec.add_dependency 'picoruby-socket'
   end

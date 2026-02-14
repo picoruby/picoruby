@@ -104,7 +104,11 @@ begin
         port_index = domain.index(':')
         if port_index
           host = domain[0..port_index - 1]
-          port = domain[(port_index + 1)..-1]&.to_i
+          port_str = domain[(port_index + 1)..-1]
+          unless host && port_str
+            raise DRbBadURI, "invalid URI: #{uri}"
+          end
+          port = port_str.to_i
           [host, port]
         else
           raise DRbBadURI, "invalid URI: #{uri}"
