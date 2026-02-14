@@ -1,0 +1,56 @@
+module BaseEncoding
+  # @sidebar error
+  class EncodingError < StandardError
+  end
+  # @sidebar error
+  class DecodeError < EncodingError
+  end
+end
+
+module Base58
+  # @sidebar error
+  class Base58Error < BaseEncoding::EncodingError
+  end
+  # @sidebar error
+  class DecodeError < Base58Error
+  end
+
+  type alphabet_t = :bitcoin | :flickr
+
+  BITCOIN_ALPHABET: String
+  FLICKR_ALPHABET: String
+  ALPHABETS: Hash[alphabet_t, String]
+
+  def self.encode: (String, ?alphabet: alphabet_t) -> String
+  def self.decode: (String, ?alphabet: alphabet_t) -> String
+end
+
+module Base62
+  # @sidebar error
+  class Base62Error < BaseEncoding::EncodingError
+  end
+  # @sidebar error
+  class DecodeError < Base62Error
+  end
+
+  ALPHABET: String
+  BASE: Integer
+
+  def self.encode: (String) -> String
+  def self.decode: (String) -> String
+end
+
+module Base45
+  # @sidebar error
+  class Base45Error < BaseEncoding::EncodingError
+  end
+  # @sidebar error
+  class DecodeError < Base45Error
+  end
+
+  ALPHABET: String
+  BASE: Integer
+
+  def self.encode: (String) -> String
+  def self.decode: (String) -> String
+end
