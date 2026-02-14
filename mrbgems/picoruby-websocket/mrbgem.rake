@@ -4,5 +4,5 @@ MRuby::Gem::Specification.new('picoruby-websocket') do |spec|
   spec.summary = 'WebSocket client for PicoRuby'
 
   spec.add_dependency 'picoruby-socket'
-  spec.add_dependency 'picoruby-base_encoding'
+  spec.add_dependency 'picoruby-base64'
 end
