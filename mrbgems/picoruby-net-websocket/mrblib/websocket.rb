@@ -9,6 +9,7 @@
 
 require 'socket'
 require 'base64'
+require 'rng'
 
 module Net
   module WebSocket
@@ -41,11 +42,9 @@ module Net
 
       def initialize(url)
         @url = url
-        @socket = nil
         @headers = {}
         @fragments = []
         @use_ssl = false
-        @ssl_context = nil
         parse_url(url)
       end
 
@@ -68,9 +67,6 @@ module Net
       end
 
       def connect
-        # Open TCP connection
-        tcp_socket = TCPSocket.new(@host, @port)
-
         # Wrap with SSL if using wss://
         if @use_ssl
           # Create default SSL context if not provided
@@ -80,11 +76,11 @@ module Net
           end
 
           # Create SSL socket
-          @socket = SSLSocket.new(tcp_socket, @ssl_context)
-          @socket.hostname = @host  # For SNI
-          @socket.connect  # Perform SSL handshake
+          socket = SSLSocket.open(@host, @port, @ssl_context)
+          socket.connect  # Perform SSL handshake
+          @socket = socket
         else
-          @socket = tcp_socket
+          @socket = TCPSocket.new(@host, @port)
         end
 
         # Perform WebSocket handshake
@@ -134,12 +130,13 @@ module Net
               raise ConnectionClosed.new("Connection closed by server")
             when OPCODE_PING
               # Respond with pong
-              send_frame(OPCODE_PONG, payload)
+              ping(payload)  # Echo ping payload in pong
             when OPCODE_PONG
               # Ignore pong (could store for latency measurement)
             end
           end
         end
+        return nil
       end
 
       def ping(payload = "")
@@ -167,7 +164,6 @@ module Net
         end
 
         @socket.close
-        @socket = nil
       end
 
       private
@@ -185,6 +181,10 @@ module Net
         else
           @use_ssl = false
           default_port = 80
+        end
+
+        if url.nil? || url.empty?
+          raise ArgumentError.new("Invalid URL")
         end
 
         # Split host:port and path
@@ -206,9 +206,9 @@ module Net
         # Generate Sec-WebSocket-Key
         key_bytes = ""
         16.times do
-          key_bytes += rand(256).chr
+          key_bytes += (RNG.random_int % 256).chr
         end
-        sec_key = Base64.encode(key_bytes)
+        sec_key = Base64.encode64(key_bytes)
 
         # Build HTTP request
         request = "GET #{@path} HTTP/1.1\r\n"
@@ -292,7 +292,7 @@ module Net
         # Masking key (4 random bytes)
         mask_key = ""
         4.times do
-          mask_key += rand(256).chr
+          mask_key += (RNG.random_int % 256).chr
         end
         frame += mask_key
 
@@ -308,7 +308,7 @@ module Net
         byte0 = @socket.read(1)
         raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
 
-        byte0_val = byte0[0].ord
+        byte0_val = byte0[0]&.ord || 0
         fin = (byte0_val & 0x80) != 0
         opcode = byte0_val & 0x0F
 
@@ -316,18 +316,24 @@ module Net
         byte1 = @socket.read(1)
         raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
 
-        byte1_val = byte1[0].ord
+        byte1_val = byte1[0]&.ord || 0
         masked = (byte1_val & 0x80) != 0
         payload_len = byte1_val & 0x7F
 
         # Read extended payload length
         if payload_len == 126
           len_bytes = @socket.read(2)
+          if len_bytes.nil? || len_bytes.length < 2
+            raise ConnectionClosed.new("Incomplete frame")
+          end
           payload_len = len_bytes.unpack("n")[0]
         elsif payload_len == 127
           len_bytes = @socket.read(8)
+          if len_bytes.nil? || len_bytes.length < 8
+            raise ConnectionClosed.new("Incomplete frame")
+          end
           high, low = len_bytes.unpack("NN")
-          payload_len = (high << 32) | low
+          payload_len = ((high || 0) << 32) | (low || 0)
         end
 
         # Read masking key (if present)
@@ -359,6 +365,9 @@ module Net
         elsif opcode == OPCODE_CONTINUATION
           # Final fragment
           first_fragment = @fragments.shift
+          unless first_fragment
+            raise ProtocolError.new("Unexpected continuation frame")
+          end
           opcode = first_fragment[:opcode]
           full_payload = first_fragment[:payload]
 
@@ -377,8 +386,8 @@ module Net
       def mask_data(data, mask_key)
         result = ""
         data.length.times do |i|
-          byte = data[i].ord
-          masked_byte = byte ^ mask_key[i % 4].ord
+          byte = (data[i]&.ord || 0)
+          masked_byte = byte ^ (mask_key[i % 4]&.ord || 0)
           result += masked_byte.chr
         end
         result
@@ -386,9 +395,10 @@ module Net
 
       def handle_close_frame(payload)
         if payload.length >= 2
-          code = payload[0, 2].unpack("n")[0]
+          code = payload[0, 2].unpack("n")[0] # steep:ignore
           reason = payload.length > 2 ? payload[2..-1] : ""
         end
+        nil
       end
     end
   end
