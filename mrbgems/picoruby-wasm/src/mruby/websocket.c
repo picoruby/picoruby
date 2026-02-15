@@ -6,14 +6,18 @@
 #include "mruby/data.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
+#include "mruby/hash.h"
 
 #include "mruby_compiler.h"
+#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+extern mrb_state *global_mrb;
 
 typedef struct picorb_websocket {
   int ref_id;
@@ -89,6 +93,34 @@ EM_JS(int, ws_ready_state, (int ref_id), {
   }
 });
 
+EM_JS(void, ws_set_binary_type, (int ref_id, const char* type), {
+  try {
+    const ws = globalThis.picorubyRefs[ref_id];
+    if (ws) {
+      ws.binaryType = UTF8ToString(type);
+    }
+  } catch(e) {
+    console.error('WebSocket set_binary_type failed:', e);
+  }
+});
+
+EM_JS(int, ws_get_binary_type, (int ref_id, char* buffer, int buffer_size), {
+  try {
+    const ws = globalThis.picorubyRefs[ref_id];
+    if (ws && ws.binaryType) {
+      const type = ws.binaryType;
+      const bytes = lengthBytesUTF8(type) + 1;
+      if (bytes <= buffer_size) {
+        stringToUTF8(type, buffer, buffer_size);
+        return bytes - 1;
+      }
+    }
+    return 0;
+  } catch(e) {
+    return 0;
+  }
+});
+
 EM_JS(void, ws_set_onopen, (int ref_id, uintptr_t callback_id), {
   const ws = globalThis.picorubyRefs[ref_id];
   ws.onopen = (event) => {
@@ -102,16 +134,90 @@ EM_JS(void, ws_set_onopen, (int ref_id, uintptr_t callback_id), {
   };
 });
 
+EMSCRIPTEN_KEEPALIVE void
+call_ruby_callback_with_binary_data(uintptr_t callback_id, uint8_t *data, int length)
+{
+  if (!global_mrb) {
+    free(data);
+    return;
+  }
+
+  mrb_value data_str = mrb_str_new(global_mrb, (const char *)data, length);
+  free(data);
+
+  static int data_id = 0;
+  data_id++;
+
+  mrb_value events = mrb_gv_get(global_mrb, MRB_GVSYM(js_events));
+  if (mrb_nil_p(events)) {
+    events = mrb_hash_new(global_mrb);
+    mrb_gv_set(global_mrb, MRB_GVSYM(js_events), events);
+  }
+  mrb_hash_set(global_mrb, events, mrb_fixnum_value(data_id), data_str);
+
+  char script[256];
+  snprintf(script, sizeof(script),
+    "JS::Object::CALLBACKS[%lu]&.call($js_events[%d])",
+    (unsigned long)callback_id, data_id);
+
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  const uint8_t *script_ptr = (const uint8_t *)script;
+  size_t size = strlen(script);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
+
+  if (!irep) {
+    mrc_ccontext_free(cc);
+    return;
+  }
+
+  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
+
+  if (mrb_nil_p(task)) {
+    mrc_irep_free(cc, irep);
+    mrc_ccontext_free(cc);
+    fprintf(stderr, "WebSocket callback exception (failed to create task)\n");
+    return;
+  }
+
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "WebSocket callback exception (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "WebSocket callback exception: %s\n", RSTRING_PTR(exc_str));
+    }
+  }
+}
+
 EM_JS(void, ws_set_onmessage, (int ref_id, uintptr_t callback_id), {
   const ws = globalThis.picorubyRefs[ref_id];
   ws.onmessage = (event) => {
-    const eventRefId = globalThis.picorubyRefs.push(event) - 1;
-    ccall(
-      'call_ruby_callback',
-      'void',
-      ['number', 'number'],
-      [callback_id, eventRefId]
-    );
+    let data = event.data;
+
+    if (data instanceof ArrayBuffer) {
+      const uint8Array = new Uint8Array(data);
+      const length = uint8Array.length;
+      const ptr = _malloc(length);
+      HEAPU8.set(uint8Array, ptr);
+
+      ccall(
+        'call_ruby_callback_with_binary_data',
+        'void',
+        ['number', 'number', 'number'],
+        [callback_id, ptr, length]
+      );
+    } else {
+      const eventRefId = globalThis.picorubyRefs.push(event) - 1;
+      ccall(
+        'call_ruby_callback',
+        'void',
+        ['number', 'number'],
+        [callback_id, eventRefId]
+      );
+    }
   };
 });
 
@@ -277,6 +383,37 @@ mrb_websocket_set_onclose(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+static mrb_value
+mrb_websocket_set_binary_type(mrb_state *mrb, mrb_value self)
+{
+  mrb_value type;
+  mrb_get_args(mrb, "S", &type);
+
+  picorb_websocket *ws = (picorb_websocket *)DATA_PTR(self);
+  if (!ws) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "WebSocket not initialized");
+  }
+
+  ws_set_binary_type(ws->ref_id, RSTRING_PTR(type));
+  return type;
+}
+
+static mrb_value
+mrb_websocket_get_binary_type(mrb_state *mrb, mrb_value self)
+{
+  picorb_websocket *ws = (picorb_websocket *)DATA_PTR(self);
+  if (!ws) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "WebSocket not initialized");
+  }
+
+  char buffer[32];
+  int len = ws_get_binary_type(ws->ref_id, buffer, sizeof(buffer));
+  if (len > 0) {
+    return mrb_str_new(mrb, buffer, len);
+  }
+  return mrb_nil_value();
+}
+
 void
 mrb_websocket_init(mrb_state *mrb)
 {
@@ -288,6 +425,8 @@ mrb_websocket_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_WebSocket, MRB_SYM(send_binary), mrb_websocket_send_binary, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_WebSocket, MRB_SYM(close), mrb_websocket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_WebSocket, MRB_SYM(ready_state), mrb_websocket_ready_state, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_WebSocket, MRB_SYM(binary_type), mrb_websocket_get_binary_type, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_WebSocket, MRB_SYM_E(binaryType), mrb_websocket_set_binary_type, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, class_WebSocket, MRB_SYM(_set_onopen), mrb_websocket_set_onopen, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, class_WebSocket, MRB_SYM(_set_onmessage), mrb_websocket_set_onmessage, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, class_WebSocket, MRB_SYM(_set_onerror), mrb_websocket_set_onerror, MRB_ARGS_REQ(1));

@@ -14,6 +14,8 @@ class WebSocket
   def onmessage: () { (JS::Object event) -> void } -> void
   def onerror: () { (JS::Object event) -> void } -> void
   def onclose: () { (JS::Object event) -> void } -> void
+  def binary_type: () -> String?
+  def binary_type=: (String type) -> String
 
   def connecting?: () -> bool
   def open?: () -> bool
