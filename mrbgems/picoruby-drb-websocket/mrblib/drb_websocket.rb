@@ -120,25 +120,33 @@ module DRb
         private
 
         def handle_client(socket)
-          msg = DRbMessage.new(socket)
+          loop do
+            msg = DRbMessage.new(socket)
 
-          begin
-            ref, msg_id, args, block = msg.recv_request
-            obj = (ref.nil? || ref == @front) ? @front : ref
+            begin
+              ref, msg_id, args, block = msg.recv_request
+              obj = (ref.nil? || ref == @front) ? @front : ref
 
-            if msg_id.is_a?(Symbol)
-              result = obj.send(msg_id, *(args || []), &block)
-            else
-              raise DRbError, "invalid message ID"
+              if msg_id.is_a?(Symbol)
+                result = obj.send(msg_id, *(args || []), &block)
+              else
+                raise DRbError, "invalid message ID"
+              end
+
+              msg.send_reply(true, result)
+            rescue DRbConnError
+              break
+            rescue => e
+              error_msg = "#{e.class}: #{e.message}"
+              begin
+                msg.send_reply(false, error_msg)
+              rescue
+                break
+              end
             end
-
-            msg.send_reply(true, result)
-          rescue => e
-            error_msg = "#{e.class}: #{e.message}"
-            msg.send_reply(false, error_msg)
-          ensure
-            socket.close
           end
+        ensure
+          socket.close
         end
       end
 
@@ -153,19 +161,22 @@ module DRb
       class BrowserSocket
         def initialize(url)
           @ws = ::WebSocket.new(url)
+          @ws.binaryType = 'arraybuffer'
           @queue = []
           @buffer = ""
           @ready = false
           @error = nil
 
           @ws.onopen { @ready = true }
-          @ws.onmessage { |event| @queue << event.data }
+          @ws.onmessage { |data|
+            @queue << data
+          }
           @ws.onerror { |event| @error = event }
           @ws.onclose { @ready = false }
 
           timeout = 100
           until @ready || @error
-            Machine.sleep(0.1)
+            sleep_ms 100
             timeout -= 1
             if timeout <= 0
               @ws.close
@@ -183,7 +194,7 @@ module DRb
           unless @ready
             raise DRbConnError, "connection not ready"
           end
-          @ws.send(data)
+          @ws.send_binary(data)
         end
 
         def read(n)
@@ -193,7 +204,7 @@ module DRb
               unless @ready
                 raise DRbConnError, "connection closed"
               end
-              Machine.sleep(0.01)
+              sleep_ms 10
               timeout -= 1
               if timeout <= 0
                 raise DRbConnError, "read timeout"
@@ -209,16 +220,31 @@ module DRb
         end
 
         def close
-          @ws.close unless @ws.closed?
+          # No-op: keep connection alive for reuse.
+          # DRb calls close after each RPC, but WebSocket
+          # reconnection is too slow for per-call usage.
         end
 
         def closed?
-          @ws.closed?
+          !@ready
+        end
+
+        def real_close
+          @ws.close unless @ws.closed?
         end
       end
 
+      @connections = {}
+
       def self.connect(uri)
-        BrowserSocket.new(uri)
+        conn = @connections[uri]
+        if conn && !conn.closed?
+          conn
+        else
+          conn = BrowserSocket.new(uri)
+          @connections[uri] = conn
+          conn
+        end
       end
     end
   end
@@ -270,6 +296,7 @@ module DRb
     alias_method :_ws_base_create_socket, :create_socket
 
     def create_socket(uri)
+      uri = uri.to_s if uri.respond_to?(:to_s)
       if uri.start_with?("ws://") || uri.start_with?("wss://")
         WebSocket.connect(uri)
       else
@@ -281,6 +308,7 @@ module DRb
     alias_method :_ws_base_create_server, :create_server
 
     def create_server(uri, front, config)
+      uri = uri.to_s if uri.respond_to?(:to_s)
       if uri.start_with?("ws://")
         if IS_WASM
           raise DRbBadURI, "WebSocket server not supported in browser environment"
