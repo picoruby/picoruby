@@ -9,8 +9,8 @@
 
 require 'drb'
 
-SERVER_URI = 'ws://0.0.0.0:8080'
-DEFAULT_CLIENT_URI = 'ws://localhost:8080'
+SERVER_URI = 'ws://0.0.0.0:9090'
+DEFAULT_CLIENT_URI = 'ws://localhost:9090'
 
 # Sample service object
 class SensorService
@@ -19,31 +19,38 @@ class SensorService
   end
 
   def hello(name)
+    puts "[#{Time.now}] hello(#{name.inspect})"
     "Hello from PicoRuby, #{name}!"
   end
 
   def temperature
+    puts "[#{Time.now}] temperature()"
     # Simulate sensor reading
     20 + (RNG.random_int % 10)
   end
 
   def increment
+    puts "[#{Time.now}] increment()"
     @counter += 1
   end
 
   def counter
+    puts "[#{Time.now}] counter()"
     @counter
   end
 
   def echo(message)
+    puts "[#{Time.now}] echo(#{message.inspect})"
     message
   end
 
   def current_time
+    puts "[#{Time.now}] current_time()"
     Time.now.to_s
   end
 
   def data_types_test
+    puts "[#{Time.now}] data_types_test()"
     {
       string: "Hello",
       integer: 42,

@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PicoRuby DRb WebSocket Client (WASM)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .control-group {
+      margin: 20px 0;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px 5px 5px 0;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    #output {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      margin-top: 20px;
+    }
+    .success { color: #4CAF50; }
+    .error { color: #f44336; }
+    .info { color: #2196F3; }
+    .warning { color: #ff9800; }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .status.connected {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .status.disconnected {
+      background-color: #f44336;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      PicoRuby DRb WebSocket Client
+      <span id="status" class="status disconnected">Disconnected</span>
+    </h1>
+
+    <div class="control-group">
+      <label for="server-uri">Server URI:</label>
+      <input type="text" id="server-uri" value="ws://localhost:9090" placeholder="ws://localhost:9090">
+    </div>
+
+    <div class="control-group">
+      <button id="connect-btn">Connect</button>
+      <button id="disconnect-btn" disabled>Disconnect</button>
+    </div>
+
+    <hr>
+
+    <h2>Remote Method Calls</h2>
+    <div class="control-group">
+      <button id="test-hello" disabled>Test: hello(name)</button>
+      <button id="test-temperature" disabled>Test: temperature()</button>
+      <button id="test-counter" disabled>Test: counter operations</button>
+      <button id="test-echo" disabled>Test: echo(message)</button>
+      <button id="test-time" disabled>Test: current_time()</button>
+      <button id="test-data-types" disabled>Test: data_types_test()</button>
+      <button id="clear-output">Clear Output</button>
+    </div>
+
+    <div id="output"></div>
+  </div>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'drb'
+
+    doc = JS.document
+    $service = nil
+    $connected = false
+
+    def log_message(msg, type = 'info')
+      doc = JS.document
+      output = doc.getElementById('output')
+      timestamp = Time.now.to_s
+      line = doc.createElement('div')
+      line.className = type
+      line.textContent = "[#{timestamp}] #{msg}"
+      output.appendChild(line)
+      output.scrollTop = output.scrollHeight
+    end
+
+    def set_status(connected)
+      doc = JS.document
+      status_el = doc.getElementById('status')
+
+      if connected
+        status_el.textContent = 'Connected'
+        status_el.className = 'status connected'
+      else
+        status_el.textContent = 'Disconnected'
+        status_el.className = 'status disconnected'
+      end
+
+      # Enable/disable test buttons
+      test_buttons = doc.querySelectorAll('button[id^="test-"]')
+      test_buttons.to_a.each do |btn|
+        btn.disabled = !connected
+      end
+
+      doc.getElementById('connect-btn').disabled = connected
+      doc.getElementById('disconnect-btn').disabled = !connected
+    end
+
+    # Connect button
+    doc.getElementById('connect-btn').addEventListener('click') do
+      uri = doc.getElementById('server-uri').value
+      log_message("Connecting to #{uri}...", 'info')
+
+      begin
+        $service = DRb::DRbObject.new_with_uri(uri)
+        $connected = true
+        log_message("Connected to #{uri}", 'success')
+        set_status(true)
+      rescue => e
+        log_message("Connection failed: #{e.message}", 'error')
+        set_status(false)
+        $service = nil
+        $connected = false
+      end
+    end
+
+    # Disconnect button
+    doc.getElementById('disconnect-btn').addEventListener('click') do
+      $service = nil
+      $connected = false
+      log_message('Disconnected', 'info')
+      set_status(false)
+    end
+
+    # Test: hello
+    doc.getElementById('test-hello').addEventListener('click') do
+      begin
+        result = $service.hello('Browser Client')
+        log_message("hello('Browser Client') => #{result}", 'success')
+      rescue => e
+        log_message("Error: #{e.message}", 'error')
+      end
+    end
+
+    # Test: temperature
+    doc.getElementById('test-temperature').addEventListener('click') do
+      begin
+        result = $service.temperature
+        log_message("temperature() => #{result}°C", 'success')
+      rescue => e
+        log_message("Error: #{e.message}", 'error')
+      end
+    end
+
+    # Test: counter
+    doc.getElementById('test-counter').addEventListener('click') do
+      begin
+        initial = $service.counter
+        $service.increment
+        after1 = $service.counter
+        $service.increment
+        after2 = $service.counter
+        log_message("counter: #{initial} -> #{after1} -> #{after2}", 'success')
+      rescue => e
+        log_message("Error: #{e.message}", 'error')
+      end
+    end
+
+    # Test: echo
+    doc.getElementById('test-echo').addEventListener('click') do
+      begin
+        message = 'Hello from browser!'
+        result = $service.echo(message)
+        log_message("echo('#{message}') => #{result}", 'success')
+      rescue => e
+        log_message("Error: #{e.message}", 'error')
+      end
+    end
+
+    # Test: current_time
+    doc.getElementById('test-time').addEventListener('click') do
+      begin
+        result = $service.current_time
+        log_message("current_time() => #{result}", 'success')
+      rescue => e
+        log_message("Error: #{e.message}", 'error')
+      end
+    end
+
+    # Test: data_types_test
+    doc.getElementById('test-data-types').addEventListener('click') do
+      begin
+        result = $service.data_types_test
+        log_message("data_types_test() =>", 'success')
+        log_message("  #{result.inspect}", 'info')
+      rescue => e
+        log_message("Error: #{e.message}", 'error')
+      end
+    end
+
+    # Clear output
+    doc.getElementById('clear-output').addEventListener('click') do
+      output = doc.getElementById('output')
+      output.innerHTML = ''
+    end
+
+    # Initial messages
+    log_message('PicoRuby DRb WebSocket Client (WASM)', 'info')
+    log_message('Enter server URI and click Connect', 'info')
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

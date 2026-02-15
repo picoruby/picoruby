@@ -85,18 +85,18 @@ build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop
 
 These files demonstrate CRuby's `drb-websocket` gem usage, which uses a different protocol (36-byte UUID prefix). They are kept for reference only and cannot communicate with PicoRuby servers/clients.
 
-### `wasm/browser_client.html`
+### Browser Client (WASM)
 
-HTML/JavaScript client demonstrating DRb communication from browser.
+Browser-based DRb client using PicoRuby WASM.
 
-**Note**: This requires PicoRuby WASM build with `picoruby-drb-websocket` gem.
-The HTML file contains a UI demo and implementation guidelines.
+**Location**: `mrbgems/picoruby-wasm/demo/www/drb_client.html`
 
 To use:
-1. Build PicoRuby WASM with networking support
-2. Serve the HTML file via HTTP server
-3. Start a DRb WebSocket server
-4. Open in browser and connect
+1. Build PicoRuby WASM: `rake wasm:debug`
+2. Start DRb server on port 9090: `build/host/bin/microruby example/picoruby_interop.rb server` (edit to use port 9090)
+3. Start WASM server: `rake wasm:server`
+4. Open http://localhost:8080/drb_client.html in browser
+5. Click "Connect" and test remote method calls
 
 ## Interoperability Matrix
 
