@@ -26,24 +26,24 @@ DRb (Distributed Ruby) over WebSocket enables seamless remote method invocation 
 
 Terminal 1 (Server):
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb server
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb server
 ```
 
 Terminal 2 (Client):
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb client
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb client
 ```
 
 Or with custom URI:
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb client ws://192.168.1.100:8080
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb client ws://192.168.1.100:8080
 ```
 
 ### PicoRuby Server + Browser Client (WASM)
 
 Terminal 1 (Server):
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb server
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb server
 ```
 
 Browser:
@@ -53,7 +53,7 @@ Open wasm/browser_client.html in a web browser
 
 ## Example Files
 
-### `picoruby_interop.rb`
+### `server_client.rb`
 
 Unified PicoRuby DRb server/client example.
 
@@ -70,20 +70,20 @@ Unified PicoRuby DRb server/client example.
 Usage:
 ```bash
 # Start server
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb server
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb server
 
 # Run client (connects to ws://localhost:8080 by default)
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb client
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb client
 
 # Run client with custom URI
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/picoruby_interop.rb client ws://192.168.1.100:8080
+build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb client ws://192.168.1.100:8080
 ```
 
-### `cruby_server.rb` and `cruby_client.rb`
+### CRuby Interoperability
 
-**⚠️ These files are NOT compatible with PicoRuby!**
+**Note**: CRuby support requires a separate gem that implements PicoRuby's WebSocket protocol. The standard CRuby `drb-websocket` gem uses a different protocol and is not compatible.
 
-These files demonstrate CRuby's `drb-websocket` gem usage, which uses a different protocol (36-byte UUID prefix). They are kept for reference only and cannot communicate with PicoRuby servers/clients.
+Creating a PicoRuby-compatible CRuby gem is planned for future development.
 
 ### Browser Client (WASM)
 
@@ -93,7 +93,7 @@ Browser-based DRb client using PicoRuby WASM.
 
 To use:
 1. Build PicoRuby WASM: `rake wasm:debug`
-2. Start DRb server on port 9090: `build/host/bin/microruby example/picoruby_interop.rb server` (edit to use port 9090)
+2. Start DRb server on port 9090: `build/host/bin/microruby example/server_client.rb server` (edit to use port 9090)
 3. Start WASM server: `rake wasm:server`
 4. Open http://localhost:8080/drb_client.html in browser
 5. Click "Connect" and test remote method calls
@@ -103,11 +103,15 @@ To use:
 | Server | Client | Status |
 |--------|--------|--------|
 | PicoRuby | PicoRuby | ✅ Full support |
-| PicoRuby | Browser (WASM) | ✅ Client only |
-| CRuby (`drb-websocket`) | PicoRuby | ❌ Not compatible |
-| PicoRuby | CRuby (`drb-websocket`) | ❌ Not compatible |
+| PicoRuby | Browser (WASM) | ✅ Full support |
+| PicoRuby | CRuby | ⏳ Planned (requires new gem) |
+| CRuby | PicoRuby | ⏳ Planned (requires new gem) |
 
-**Note**: PicoRuby uses a simple protocol (direct DRb messages in WebSocket frames), while CRuby's `drb-websocket` gem uses a complex protocol with 36-byte UUID prefixes.
+**Current Status**:
+- ✅ PicoRuby ↔ PicoRuby communication works perfectly
+- ✅ PicoRuby ↔ Browser (WASM) communication works perfectly
+- ⏳ CRuby support is planned but requires a separate gem implementing PicoRuby's protocol
+- ❌ CRuby's `drb-websocket` gem is NOT compatible (uses different protocol)
 
 ## Protocol Details
 

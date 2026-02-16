@@ -85,7 +85,7 @@ def run_server
   puts ""
 
   DRb.start_service(SERVER_URI, service)
-  DRb.thread
+  DRb.thread.join
 end
 
 def run_client(uri)
