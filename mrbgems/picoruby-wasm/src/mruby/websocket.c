@@ -417,7 +417,8 @@ mrb_websocket_get_binary_type(mrb_state *mrb, mrb_value self)
 void
 mrb_websocket_init(mrb_state *mrb)
 {
-  class_WebSocket = mrb_define_class_id(mrb, MRB_SYM(WebSocket), mrb->object_class);
+  struct RClass *module_JS = mrb_define_module_id(mrb, MRB_SYM(JS));
+  class_WebSocket = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(WebSocket), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_WebSocket, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, class_WebSocket, MRB_SYM(initialize), mrb_websocket_initialize, MRB_ARGS_REQ(1));

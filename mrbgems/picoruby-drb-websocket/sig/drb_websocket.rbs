@@ -1,8 +1,8 @@
-IS_WASM: bool
-IS_MICROCONTROLLER: bool
-
 module DRb
+  IS_WASM: bool
+
   module WebSocket
+
     # WebSocket adapter for DRb
     class Adapter
       def initialize: (untyped ws) -> void

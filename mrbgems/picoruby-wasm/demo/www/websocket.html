@@ -44,16 +44,16 @@
     end
 
     test_case("WebSocket constants") do |div|
-      raise "CONNECTING not defined" unless WebSocket::CONNECTING == 0
-      raise "OPEN not defined" unless WebSocket::OPEN == 1
-      raise "CLOSING not defined" unless WebSocket::CLOSING == 2
-      raise "CLOSED not defined" unless WebSocket::CLOSED == 3
+      raise "CONNECTING not defined" unless JS::WebSocket::CONNECTING == 0
+      raise "OPEN not defined" unless JS::WebSocket::OPEN == 1
+      raise "CLOSING not defined" unless JS::WebSocket::CLOSING == 2
+      raise "CLOSED not defined" unless JS::WebSocket::CLOSED == 3
       div.className = 'test-case pass'
       div.textContent = "PASS: WebSocket constants"
     end
 
     test_case("WebSocket creation") do |div|
-      ws = WebSocket.new('wss://echo.websocket.org/')
+      ws = JS::WebSocket.new('wss://echo.websocket.org/')
       raise "WebSocket creation failed" unless ws
       raise "WebSocket state not CONNECTING" unless ws.connecting?
       div.className = 'test-case pass'
@@ -65,7 +65,7 @@
     end
 
     test_case("WebSocket onopen callback") do |div|
-      ws = WebSocket.new('wss://echo.websocket.org/')
+      ws = JS::WebSocket.new('wss://echo.websocket.org/')
       log_message("Connecting to echo server...")
 
       ws.onopen do |event|
@@ -83,7 +83,7 @@
     end
 
     test_case("WebSocket send and receive") do |div|
-      ws = WebSocket.new('wss://echo.websocket.org/')
+      ws = JS::WebSocket.new('wss://echo.websocket.org/')
       log_message("Testing echo...")
       message_count = 0
 
@@ -118,7 +118,7 @@
     end
 
     test_case("WebSocket onclose callback") do |div|
-      ws = WebSocket.new('wss://echo.websocket.org/')
+      ws = JS::WebSocket.new('wss://echo.websocket.org/')
       log_message("Testing close callback...")
 
       ws.onopen do |event|

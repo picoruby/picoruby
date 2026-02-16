@@ -1,35 +1,13 @@
-# DRb WebSocket Protocol Support
-#
-# This gem extends picoruby-drb to support WebSocket transport.
-# It works in two environments:
-# - Microcontroller: Uses picoruby-net-websocket
-# - WASM/Browser: Uses browser's WebSocket API
-#
-# All code is in this single file because PicoRuby only compiles
-# files in mrblib/ root directory.
-
-# Detect environment by checking for class existence
-IS_WASM = begin
-  ::WebSocket.instance_methods.include?(:onopen)
-rescue NameError
-  false
-end
-
-IS_MICROCONTROLLER = begin
-  Net::WebSocket
-  true
-rescue NameError
-  false
-end
-
-unless IS_WASM || IS_MICROCONTROLLER
-  raise LoadError, "No WebSocket implementation available. " \
-    "Either picoruby-wasm or picoruby-net-websocket is required."
-end
-
 module DRb
+  IS_WASM = begin ::JS::WebSocket
+              true
+            rescue NameError
+              false
+            end
+
   module WebSocket
-    if IS_MICROCONTROLLER
+
+    if !IS_WASM
       # Microcontroller implementation
       # WebSocket adapter wrapping Net::WebSocket
       # Simple protocol: WebSocket binary frames contain DRb messages directly
@@ -166,7 +144,7 @@ module DRb
       # Browser WebSocket adapter
       class BrowserSocket
         def initialize(url)
-          @ws = ::WebSocket.new(url)
+          @ws = ::JS::WebSocket.new(url)
           @ws.binaryType = 'arraybuffer'
           @queue = []
           @buffer = ""
