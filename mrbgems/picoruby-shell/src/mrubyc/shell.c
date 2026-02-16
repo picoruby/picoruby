@@ -1,13 +1,6 @@
 #include "mrubyc.h"
 
 static void
-c_exit(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  pid_t pid = getpid();
-  kill(pid, SIGINT);
-}
-
-static void
 c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   static int i = 0;
@@ -39,8 +32,6 @@ c_next_executable(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_shell_init(mrbc_vm *vm)
 {
-  mrbc_define_method(vm, mrbc_class_object, "exit", c_exit);
-
   mrbc_class *mrbc_class_Shell = mrbc_define_class(vm, "Shell", mrbc_class_object);
   mrbc_define_method(vm, mrbc_class_Shell, "next_executable", c_next_executable);
 }

@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <time.h>
 
@@ -98,9 +99,7 @@ Machine_mcu_name(void)
 void
 Machine_exit(int status)
 {
-  sigint_status = MACHINE_SIGINT_EXIT;
-  exit_status = status;
-  raise(SIGINT);
+  exit(status);
 }
 
 uint64_t
