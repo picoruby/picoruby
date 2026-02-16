@@ -15,18 +15,8 @@ module DRb
     attr_reader :err, :buf
   end
 
-  # Initialize global variables for mruby/c compatibility
-  $drb_primary_server = nil
-  $drb_uri = nil
-
   class << self
-    def primary_server
-      $drb_primary_server
-    end
-
-    def primary_server=(server)
-      $drb_primary_server = server
-    end
+    attr_accessor :primary_server
 
     # Protocol extension point: create a socket for the given URI
     # Override this method to support custom protocols
@@ -41,27 +31,35 @@ module DRb
     end
 
     # Start a DRb server
-    def start_service(uri, front, config = {})
-      $drb_primary_server = create_server(uri, front, config)
-      $drb_primary_server&.start
-      $drb_uri = uri
+    # If uri is nil, start in client-only mode (no server)
+    def start_service(uri = nil, front = nil, config = {})
+      if uri
+        @primary_server = create_server(uri, front, config)
+        @primary_server&.start
+        @uri = uri
+      end
+      # Client-only mode: no server started
     end
 
     # Stop the primary DRb server
     def stop_service
-      $drb_primary_server&.stop
-      $drb_primary_server = nil
-      $drb_uri = nil
+      @primary_server&.stop
+      @primary_server = nil
+      @uri = nil
+
+      # Terminate the server task if running
+      server_thread = Task.get("DRb server")
+      server_thread&.terminate
     end
 
     # Get the URI of the primary server
     def uri
-      $drb_uri
+      @uri
     end
 
     # Get the front object
     def front
-      $drb_primary_server&.front
+      @primary_server&.front
     end
 
     # Create a reference to a remote object
@@ -93,8 +91,12 @@ module DRb
     end
 
     # Run the main loop (for servers)
+    # Returns a Task object (compatible with CRuby's Thread#join)
     def thread
-      $drb_primary_server&.run
+      server = @primary_server
+      Task.new(name: "DRb server") do
+        server&.run
+      end
     end
   end
 end

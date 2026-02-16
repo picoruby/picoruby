@@ -1,20 +1,30 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# CRuby interop test script
+# Unified DRb interop test script
+# Works with both CRuby and PicoRuby
 #
 # Test A: CRuby server + PicoRuby client
-#   Terminal 1: ruby cruby_interop.rb server
-#   Terminal 2: picoruby picoruby_interop.rb client
+#   Terminal 1: ruby interop.rb server
+#   Terminal 2: picoruby interop.rb client
 #
 # Test B: PicoRuby server + CRuby client
-#   Terminal 1: picoruby picoruby_interop.rb server
-#   Terminal 2: ruby cruby_interop.rb client
+#   Terminal 1: picoruby interop.rb server
+#   Terminal 2: ruby interop.rb client
 
-require 'drb'
+if RUBY_ENGINE == 'ruby'
+  require 'bundler/inline'
+  gemfile do
+    source 'https://rubygems.org'
+    gem 'drb'
+  end
+elsif RUBY_ENGINE == 'mruby'
+  require 'drb'
+else
+  raise "Unsupported Ruby engine: #{RUBY_ENGINE}"
+end
 
 SERVER_URI = "druby://localhost:8787"
-CLIENT_TARGET_URI = "druby://localhost:8788"
 
 class TestService
   def hello(name)
@@ -30,21 +40,21 @@ class TestService
   end
 
   def raise_error
-    raise "test error from CRuby"
+    raise "test error"
   end
 end
 
 def run_server
   front = TestService.new
   DRb.start_service(SERVER_URI, front)
-  puts "CRuby DRb server started on #{SERVER_URI}"
+  puts "DRb server started on #{SERVER_URI}"
   puts "Press Ctrl+C to stop"
   DRb.thread.join
 end
 
 def run_client
   DRb.start_service
-  obj = DRbObject.new_with_uri(CLIENT_TARGET_URI)
+  obj = DRb::DRbObject.new_with_uri(SERVER_URI)
 
   passed = 0
   failed = 0
@@ -136,8 +146,8 @@ when "server"
 when "client"
   run_client
 else
-  puts "Usage: ruby cruby_interop.rb [server|client]"
-  puts "  server - Start CRuby DRb server on #{SERVER_URI}"
-  puts "  client - Connect to PicoRuby DRb server on #{CLIENT_TARGET_URI}"
+  puts "Usage: #{File.basename($0)} [server|client]"
+  puts "  server - Start DRb server on #{SERVER_URI}"
+  puts "  client - Connect to DRb server on #{SERVER_URI}"
   exit 1
 end

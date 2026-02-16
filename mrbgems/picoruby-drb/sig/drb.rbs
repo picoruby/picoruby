@@ -1,6 +1,3 @@
-$drb_primary_server: DRb::DRbServer?
-$drb_uri: String?
-
 module DRb
   class DRbError < StandardError
   end
@@ -67,13 +64,13 @@ module DRb
 
   def self.primary_server: () -> DRbServer?
   def self.primary_server=: (DRbServer? server) -> DRbServer?
-  def self.start_service: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
+  def self.start_service: (?String uri, ?untyped front, ?Hash[untyped, untyped] config) -> void
   def self.stop_service: () -> void
   def self.uri: () -> String?
   def self.front: () -> untyped
   def self.ref_object: (String uri) -> DRbObject
   def self.send_message: (String uri, untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> untyped
-  def self.thread: () -> void
+  def self.thread: () -> Task
 
   def self.create_socket: (String uri) -> untyped
   def self.create_server: (String uri, untyped front, Hash[untyped, untyped] config) -> untyped
