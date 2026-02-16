@@ -44,9 +44,9 @@ For detailed information on testing PicoRuby, refer to the [Testing Guide](docs/
 git clone --recurse-submodules https://github.com/picoruby/picoruby
 cd picoruby/
 git submodule update --init --recursive # If you forgot --recurse-submodules when git clone
-rake
-# PICORUBY_DEBUG=1 rake                           # for debug build
-# PICORUBY_DEBUG=1 PICORUBY_NO_LIBC_ALLOC=1 rake  # for debug build using mruby/c's memory allocator
+rake                    # same for `rake picoruby:prod`
+rake picoruby:debug     # for debug build
+
 bin/picoruby -e 'puts "Hello World!"'
 ```
 - Building on a mac

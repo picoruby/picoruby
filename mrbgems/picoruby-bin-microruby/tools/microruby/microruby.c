@@ -444,6 +444,10 @@ main(int argc, char **argv)
   mrb_state *vm = NULL;
   picorb_vm_init();
 
+  /* Define PICORUBY_VERSION cont */
+  picorb_value version = picorb_string_new(vm, PICORUBY_VERSION, strlen(PICORUBY_VERSION));
+  picorb_define_const(vm, "PICORUBY_VERSION", version);
+
   int n = -1;
   struct _args args;
   picorb_value ARGV;
@@ -479,7 +483,7 @@ main(int argc, char **argv)
     cmdline = "-e";
   }
   picorb_value cmd = picorb_string_new(vm, cmdline, strlen(cmdline));
-  picorb_define_global_const(vm, "$0", cmd);
+  picorb_gv_set(vm, "$0", cmd);
 
   uint8_t *source = NULL;
 

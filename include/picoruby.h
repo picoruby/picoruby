@@ -73,6 +73,8 @@ static inline void picorb_free(mrbc_vm *vm, void *ptr)
         mrbc_set_const(mrbc_str_to_symid(name),&value)
 #define picorb_define_global_const(vm,name,value) \
         mrbc_set_global(mrbc_str_to_symid(name),&value)
+#define picorb_gv_set(vm,name,value) \
+        mrbc_set_global(mrbc_str_to_symid(name),&value)
 
 void picoruby_init_require(mrbc_vm *vm);
 bool picoruby_load_model_by_name(const char *gem);
@@ -150,6 +152,8 @@ bool picoruby_load_model_by_name(const char *gem);
           mrb_define_global_const(vm,name,value)
 #define picorb_define_global_const(vm,name,value) \
           mrb_define_global_const(vm,name,value)
+#define picorb_gv_set(vm,name,value) \
+          mrb_gv_set(vm,mrb_intern_lit(vm,name),value)
 
 // created in mruby/src/load.c
 mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);

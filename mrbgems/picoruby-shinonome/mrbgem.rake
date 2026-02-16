@@ -34,7 +34,7 @@ MRuby::Gem::Specification.new('picoruby-shinonome') do |spec|
   end
 
   tasks = Rake.application.top_level_tasks
-  if (tasks & %w(default build all)).any?
+  if (tasks & %w(default all picoruby:debug picoruby:prod microruby:debug microruby:prod)).any?
     SHINONOME_FONTS.each do |font|
       Rake::Task[font[:dst]].invoke
     end
