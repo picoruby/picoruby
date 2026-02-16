@@ -56,7 +56,9 @@ module DRb
         end
 
         def close
-          @ws.close unless @ws.respond_to?(:closed?) && @ws.closed?
+          # No-op: keep connection alive for reuse
+          # DRb calls close after each RPC, but WebSocket
+          # reconnection is expensive
         end
 
         def closed?
@@ -146,7 +148,11 @@ module DRb
             end
           end
         ensure
-          socket.close
+          begin
+            socket.close
+          rescue
+            # Ignore errors during close (connection may already be closed)
+          end
         end
       end
 
@@ -298,7 +304,14 @@ module DRb
     def create_socket(uri)
       uri = uri.to_s if uri.respond_to?(:to_s)
       if uri.start_with?("ws://") || uri.start_with?("wss://")
-        WebSocket.connect(uri)
+        # Cache connections for reuse
+        @ws_connections ||= {}
+        socket = @ws_connections[uri]
+        if socket.nil? || socket.closed?
+          socket = WebSocket.connect(uri)
+          @ws_connections[uri] = socket
+        end
+        socket
       else
         _ws_base_create_socket(uri)
       end
