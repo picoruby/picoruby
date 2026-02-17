@@ -1,11 +1,11 @@
 #!/usr/bin/env picoruby
 
 # PicoRuby DRb WebSocket interop test script
-# Run with: picoruby picoruby_interop.rb [server|client]
+# Run with: picoruby websocket.rb [server|client]
 #
 # Usage:
-#   Server mode: picoruby picoruby_interop.rb server
-#   Client mode: picoruby picoruby_interop.rb client [ws://host:port]
+#   Server mode: picoruby websocket.rb server
+#   Client mode: picoruby websocket.rb client [ws://host:port]
 
 require 'drb'
 
@@ -245,12 +245,12 @@ when "client"
   uri = ARGV[1] || DEFAULT_CLIENT_URI
   run_client(uri)
 else
-  puts "Usage: picoruby picoruby_interop.rb [server|client] [uri]"
+  puts "Usage: microruby websocket.rb [server|client] [uri]"
   puts "  server           - Start PicoRuby DRb WebSocket server on #{SERVER_URI}"
   puts "  client [uri]     - Connect to DRb WebSocket server (default: #{DEFAULT_CLIENT_URI})"
   puts ""
   puts "Examples:"
-  puts "  picoruby picoruby_interop.rb server"
-  puts "  picoruby picoruby_interop.rb client"
-  puts "  picoruby picoruby_interop.rb client ws://192.168.1.100:8080"
+  puts "  bin/microruby websocket.rb server"
+  puts "  bin/microruby websocket.rb client"
+  puts "  bin/microruby websocket.rb client ws://192.168.1.100:8080"
 end

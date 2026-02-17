@@ -14,7 +14,7 @@ echo ""
 
 # Start server in background
 echo "Starting PicoRuby DRb WebSocket server..."
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb server &
+build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb server &
 SERVER_PID=$!
 
 # Wait for server to start
@@ -32,7 +32,7 @@ echo ""
 # Run client
 echo "Running PicoRuby client..."
 echo "=========================================="
-build/host/bin/microruby mrbgems/picoruby-drb-websocket/example/server_client.rb client
+build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb client
 CLIENT_EXIT=$?
 echo "=========================================="
 echo ""

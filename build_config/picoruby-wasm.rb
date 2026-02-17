@@ -38,5 +38,5 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.gem core: 'picoruby-wasm'
   conf.gem core: 'picoruby-funicular'
   conf.gem core: 'picoruby-markdown'
-  conf.gem core: 'picoruby-drb-websocket'
+  conf.gem core: 'picoruby-drb'
 end
