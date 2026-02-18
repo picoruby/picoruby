@@ -37,6 +37,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"
+  conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
   conf.mrubyc_hal_arm
   conf.picoruby(alloc_libc: false)
