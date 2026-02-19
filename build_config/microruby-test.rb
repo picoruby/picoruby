@@ -8,6 +8,8 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "ESTALLOC_DEBUG"
 
+  conf.cc.defines << "MRB_UTF8_STRING"
+
   conf.posix
   conf.microruby
 

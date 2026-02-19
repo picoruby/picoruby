@@ -10,6 +10,7 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2_w") do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=1"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
+  conf.cc.defines << "MRB_UTF8_STRING"
   conf.cc.defines << "MRB_INT64"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"

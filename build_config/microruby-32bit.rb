@@ -12,6 +12,8 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.defines << "MRB_INT64"
   conf.cc.defines << "MRB_32BIT"
 
+  conf.cc.defines << "MRB_UTF8_STRING"
+
   conf.cc.flags << '-m32'
   conf.cc.flags << '-static'
   conf.cc.flags << '-Wall'
