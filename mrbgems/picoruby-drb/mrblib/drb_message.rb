@@ -47,7 +47,7 @@ module DRb
 
     def send_message(data)
       # Send 4-byte header with message size (big-endian)
-      size = data.size
+      size = data.bytesize
       header = [size].pack('N')
       @socket.write(header)
       @socket.write(data)
@@ -56,7 +56,7 @@ module DRb
     def recv_message
       # Read 4-byte header
       header = @socket.read(4)
-      raise DRbConnError, "connection closed" if header.nil? || header.size < 4
+      raise DRbConnError, "connection closed" if header.nil? || header.bytesize < 4
 
       # Parse size (big-endian)
       size = header.unpack('N')[0]
@@ -64,7 +64,7 @@ module DRb
 
       # Read message data
       data = @socket.read(size)
-      raise DRbConnError, "connection closed" if data.nil? || data.size < size
+      raise DRbConnError, "connection closed" if data.nil? || data.bytesize < size
 
       data
     end

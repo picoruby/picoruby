@@ -30,21 +30,21 @@ module PRS
   SONGNAME_MAX_LEN = 16
 
   def self.check_header(header)
-    if header.nil? || header.size < HEADER_SIZE
+    if header.nil? || header.bytesize < HEADER_SIZE
       raise "Invalid PRS file header size"
     end
-    len1, len2, len3, len4 = header[LENGTH_OFFSET, 4]&.bytes
-    if len1.nil? || len2.nil? || len3.nil? || len4.nil?
-      raise "Invalid PRS file length bytes"
-    end
+    len1 = header.getbyte(LENGTH_OFFSET)     || 0
+    len2 = header.getbyte(LENGTH_OFFSET + 1) || 0
+    len3 = header.getbyte(LENGTH_OFFSET + 2) || 0
+    len4 = header.getbyte(LENGTH_OFFSET + 3) || 0
     length = (len1 & 0xFF) | (len2 << 8) | (len3 << 16) | (len4 << 24)
     unless header&.start_with?(SIGNATURE)
       raise "Invalid PRS signature in file"
     end
-    loop1, loop2, loop3, loop4 = header[LOOP_START_OFFSET, 4]&.bytes
-    if loop1.nil? || loop2.nil? || loop3.nil? || loop4.nil?
-      raise "Invalid PRS file loop start bytes"
-    end
+    loop1 = header.getbyte(LOOP_START_OFFSET)     || 0
+    loop2 = header.getbyte(LOOP_START_OFFSET + 1) || 0
+    loop3 = header.getbyte(LOOP_START_OFFSET + 2) || 0
+    loop4 = header.getbyte(LOOP_START_OFFSET + 3) || 0
     loop_start_pos = (loop1 & 0xFF) | (loop2 << 8) | (loop3 << 16) | (loop4 << 24)
     return [length, loop_start_pos]
   end

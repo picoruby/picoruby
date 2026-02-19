@@ -83,11 +83,11 @@ class BLE
 
   def packet_callback(event_packet)
     restrict_central
-    event_type = event_packet[0]&.ord
+    event_type = event_packet.getbyte(0)
     case event_type
     when BTSTACK_EVENT_STATE
       return if @state != :TC_OFF && @state != :TC_IDLE
-      if event_packet[2]&.ord == HCI_STATE_WORKING
+      if event_packet.getbyte(2) == HCI_STATE_WORKING
         debug_puts "Central is up and running on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
         start_scan
         @state = :TC_W4_SCAN_RESULT
@@ -99,9 +99,9 @@ class BLE
       advertising_report_callback(AdvertisingReport.new(event_packet))
     when HCI_EVENT_LE_META
       return unless @state == :TC_W4_CONNECT
-      case event_packet[2]&.ord
+      case event_packet.getbyte(2)
       when HCI_SUBEVENT_LE_CONNECTION_COMPLETE
-        @conn_handle = Utils.little_endian_to_int16(event_packet[4, 2])
+        @conn_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 2))
         debug_puts "Connected. Handle: `#{sprintf("0x%04X", @conn_handle)}`"
         @state = :TC_W4_SERVICE_RESULT
         @services.clear
@@ -120,9 +120,9 @@ class BLE
         case event_type
         when GATT_EVENT_SERVICE_QUERY_RESULT
           debug_puts "GATT_EVENT_SERVICE_QUERY_RESULT"
-          start_handle = Utils.little_endian_to_int16(event_packet[4])
-          end_handle = Utils.little_endian_to_int16(event_packet[6])
-          uuid128 = Utils.reverse_128(event_packet[8, 16])
+          start_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
+          end_handle = Utils.little_endian_to_int16(event_packet.byteslice(6, 1))
+          uuid128 = Utils.reverse_128(event_packet.byteslice(8, 16))
           @services << {
             start_handle: start_handle,
             end_handle: end_handle,
@@ -148,16 +148,16 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
-          start_handle = Utils.little_endian_to_int16(event_packet[4])
-          value_handle = Utils.little_endian_to_int16(event_packet[6])
-          end_handle = Utils.little_endian_to_int16(event_packet[8])
-          uuid128 = Utils.reverse_128(event_packet[12, 16])
+          start_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
+          value_handle = Utils.little_endian_to_int16(event_packet.byteslice(6, 1))
+          end_handle = Utils.little_endian_to_int16(event_packet.byteslice(8, 1))
+          uuid128 = Utils.reverse_128(event_packet.byteslice(12, 16))
           # @type var characteristic: characteristic_t
           characteristic = {
             start_handle: start_handle,
             value_handle: value_handle,
             end_handle: end_handle,
-            properties: Utils.little_endian_to_int16(event_packet[10]),
+            properties: Utils.little_endian_to_int16(event_packet.byteslice(10, 1)),
             uuid128: uuid128,
             uuid32: Utils.uuid128_to_uuid32(uuid128),
             value: nil,
@@ -192,8 +192,8 @@ class BLE
           debug_puts "GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT"
           @services.each do |service|
             service[:characteristics].each do |chara|
-              if chara[:value_handle] == Utils.little_endian_to_int16(event_packet[4])
-                chara[:value] = event_packet[8, Utils.little_endian_to_int16(event_packet[6])]
+              if chara[:value_handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
+                chara[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
                 break []
               end
             end
@@ -214,8 +214,8 @@ class BLE
         case event_type
         when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
           debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
-          handle = Utils.little_endian_to_int16(event_packet[4])
-          uuid128 = Utils.reverse_128(event_packet[6, 16])
+          handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
+          uuid128 = Utils.reverse_128(event_packet.byteslice(6, 16))
           @services.each do |service|
             service[:characteristics].each do |chara|
               if chara[:value_handle] < handle && handle <= chara[:end_handle]
@@ -248,8 +248,8 @@ class BLE
           @services.each do |service|
             service[:characteristics].each do |chara|
               chara[:descriptors].each do |descriptor|
-                if descriptor[:handle] == Utils.little_endian_to_int16(event_packet[4])
-                  descriptor[:value] = event_packet[8, Utils.little_endian_to_int16(event_packet[6])]
+                if descriptor[:handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
+                  descriptor[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
                   break []
                 end
               end

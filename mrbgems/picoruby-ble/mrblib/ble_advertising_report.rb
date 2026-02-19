@@ -23,19 +23,19 @@ class BLE
     attr_reader :event_type, :address_type_code, :address, :rssi, :reports
 
     def initialize(packet)
-      if packet.length < 14
+      if packet.bytesize < 14
         raise ArgumentError, "packet length must be 14 or more"
       end
-      event_code = packet[2]&.ord
+      event_code = packet.getbyte(2)
       @event_type = EVENT_TYPE[event_code || -1] || sprintf("0x%02x", event_code)
-      @address_type_code = packet[3]&.ord || 99
+      @address_type_code = packet.getbyte(3) || 99
       @address = ""
       5.downto(0) do |i|
-        @address << (packet[4 + i] || "\x00")
+        @address << [packet.getbyte(4 + i) || 0].pack('C')
       end
-      @rssi = (packet[10]&.ord || 0) - 256
-      data_length = packet[11]&.ord || 0
-      @reports = inspect_reports(packet[12, data_length] || "")
+      @rssi = (packet.getbyte(10) || 0) - 256
+      data_length = packet.getbyte(11) || 0
+      @reports = inspect_reports(packet.byteslice(12, data_length))
     end
 
     def format
@@ -59,13 +59,13 @@ class BLE
     def inspect_reports(data)
       reports = {}
       index = 0
-      while index < data.length
-        length = data[index]&.ord
+      while index < data.bytesize
+        length = data.getbyte(index)
         break if length.nil?
-        type_num = data[index + 1]&.ord
+        type_num = data.getbyte(index + 1)
         break if type_num.nil?
-        value = data[index + 2, length - 1] || ""
-        break if value.empty?
+        value = data.byteslice(index + 2, length - 1)
+        break if value&.empty?
         reports[EVENT_TYPE[type_num] || type_num] = value
         index += length + 1
       end

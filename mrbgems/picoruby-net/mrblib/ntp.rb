@@ -12,13 +12,11 @@ module Net
 
       r = UDPClient.send(ntp_server, ntp_port, ntp_packet, false)
 
-      if r&.size == ntp_packet.size
-        # steep:ignore:start
+      if r&.bytesize == ntp_packet.bytesize
         # NTP timestamp
-        ntp_t = r[40].ord << 24 | r[41].ord << 16 | r[42].ord << 8 | r[43].ord
+        ntp_t = r.getbyte(40) << 24 | r.getbyte(41) << 16 | r.getbyte(42) << 8 | r.getbyte(43)
         # NTP fraction (nanoseconds)
-        ntp_f = r[44].ord << 24 | r[45].ord << 16 | r[46].ord << 8 | r[47].ord
-        # steep:ignore:end
+        ntp_f = r.getbyte(44) << 24 | r.getbyte(45) << 16 | r.getbyte(46) << 8 | r.getbyte(47)
         # Convert NTP timestamp to UNIX timestamp
         timestamp = ntp_t - UNIX_TIME_BASE
         # Calculate nanoseconds

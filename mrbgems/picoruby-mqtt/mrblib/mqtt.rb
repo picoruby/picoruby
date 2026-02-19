@@ -237,10 +237,8 @@ module MQTT
       multiplier = 1
       value = 0
       loop do
-        sliced_data = data[offset]
-        break unless sliced_data.is_a?(String)
-
-        byte = sliced_data.ord
+        byte = data.getbyte(offset)
+        break if byte.nil?
         offset += 1
         value += (byte & 0x7F) * multiplier
         break if (byte & 0x80) == 0
@@ -252,7 +250,7 @@ module MQTT
 
     # Encode string with length prefix
     def encode_string(str)
-      [str.length].pack("n") + str
+      [str.bytesize].pack("n") + str
     end
 
     def send_connect
@@ -280,7 +278,7 @@ module MQTT
 
       # Fixed header
       packet_type = (CONNECT << 4)
-      remaining_length = variable_header.length + payload.length
+      remaining_length = variable_header.bytesize + payload.bytesize
 
       packet = [packet_type].pack("C") + encode_length(remaining_length) + variable_header + payload
 
@@ -294,12 +292,11 @@ module MQTT
         raise ProtocolError.new("Expected CONNACK, got #{packet_type}")
       end
 
-      if data.length < 2
+      if data.bytesize < 2
         raise ProtocolError.new("Invalid CONNACK packet")
       end
 
-      return_code_data = data[1]
-      return_code = return_code_data.is_a?(String) ? return_code_data.ord : -1
+      return_code = data.getbyte(1) || -1
 
       if return_code != CONNACK_ACCEPTED
         error_messages = {
@@ -327,7 +324,7 @@ module MQTT
       flags |= (qos << 1)
 
       packet_type = (PUBLISH << 4) | flags
-      remaining_length = variable_header.length + payload.length
+      remaining_length = variable_header.bytesize + payload.bytesize
 
       packet = [packet_type].pack("C") + encode_length(remaining_length) + variable_header + payload
 
@@ -348,7 +345,7 @@ module MQTT
 
       # Fixed header
       packet_type = (SUBSCRIBE << 4) | 0x02  # Reserved flags
-      remaining_length = variable_header.length + payload.length
+      remaining_length = variable_header.bytesize + payload.bytesize
 
       packet = [packet_type].pack("C") + encode_length(remaining_length) + variable_header + payload
 
@@ -381,7 +378,7 @@ module MQTT
 
       # Fixed header
       packet_type = (UNSUBSCRIBE << 4) | 0x02  # Reserved flags
-      remaining_length = variable_header.length + payload.length
+      remaining_length = variable_header.bytesize + payload.bytesize
 
       packet = [packet_type].pack("C") + encode_length(remaining_length) + variable_header + payload
 
@@ -417,8 +414,8 @@ module MQTT
       byte1 = @socket.read(1)
       raise ConnectionError.new("Connection closed") if byte1.nil? || byte1.empty?
 
-      packet_type = (byte1[0].ord >> 4) & 0x0F
-      flags = byte1[0].ord & 0x0F
+      packet_type = (byte1.getbyte(0) >> 4) & 0x0F
+      flags = byte1.getbyte(0) & 0x0F
 
       # Read remaining length
       remaining_length, offset = read_remaining_length
@@ -427,7 +424,7 @@ module MQTT
       data = ""
       if remaining_length > 0
         data = @socket.read(remaining_length)
-        if data.nil? || data.length < remaining_length
+        if data.nil? || data.bytesize < remaining_length
           raise ConnectionError.new("Incomplete packet")
         end
       end
@@ -442,7 +439,7 @@ module MQTT
         byte_str = @socket.read(1)
         raise ConnectionError.new("Connection closed") if byte_str.nil? || byte_str.empty?
 
-        byte = byte_str[0].ord
+        byte = byte_str.getbyte(0)
         value += (byte & 0x7F) * multiplier
         break if (byte & 0x80) == 0
         multiplier *= 128
@@ -454,11 +451,12 @@ module MQTT
     def parse_publish(flags, data)
       offset = 0
 
-      # Topic name
-      topic_data = data[offset, 2] || ''
-      topic_length = topic_data.unpack("n")[0]
+      # Topic length (2 bytes, big-endian)
+      topic_length = ((data.getbyte(offset) || 0) << 8) | (data.getbyte(offset + 1) || 0)
       offset += 2
-      topic = data[offset, topic_length] || ''
+
+      # Topic name
+      topic = data.byteslice(offset, topic_length) || ""
       offset += topic_length
 
       # QoS level
@@ -466,13 +464,11 @@ module MQTT
 
       # Packet ID (only for QoS > 0)
       if qos > 0
-        packet_id_data = data[offset, 2] || ''
-        packet_id = packet_id_data.unpack("n")[0]
         offset += 2
       end
 
       # Payload
-      payload = data[offset..-1] || ''
+      payload = data.byteslice(offset, data.bytesize - offset) || ""
 
       [topic, payload]
     end

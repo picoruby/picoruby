@@ -36,18 +36,18 @@ class BLE
     end
 
     def self.reverse_128(src)
-      if src.nil? || src.length != 16
+      if src.nil? || src.bytesize != 16
         raise ArgumentError, "invalid length of string: #{src.inspect}"
       end
       dst = ""
-      15.downto(0) { |i| dst << (src[i] || "") }
+      15.downto(0) { |i| dst << [src.getbyte(i) || 0].pack('C') }
       dst
     end
 
     # Bluetooth Base UUID: 00000000-0000-1000-8000-00805F9B34FB
     def self.uuid128_to_uuid32(uuid128)
-      if uuid128.length == 16 && uuid128[4, 12] == "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
-        ((uuid128[0]&.ord || 0) | ((uuid128[1]&.ord || 0) << 8) | ((uuid128[2]&.ord || 0) << 16) | ((uuid128[3]&.ord || 0 ) << 24))
+      if uuid128.bytesize == 16 && uuid128.byteslice(4, 12) == "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
+        ((uuid128.getbyte(0) || 0) | ((uuid128.getbyte(1) || 0) << 8) | ((uuid128.getbyte(2) || 0) << 16) | ((uuid128.getbyte(3) || 0) << 24))
       else
         nil
       end
@@ -62,17 +62,17 @@ class BLE
     end
 
     def self.little_endian_to_int16(str)
-      if str.nil? || 2 < str.length
+      if str.nil? || 2 < str.bytesize
         raise ArgumentError, "invalid length of string: #{str.inspect}"
       end
-      (str[0]&.ord || 0) | ((str[1]&.ord || 0) << 8)
+      (str.getbyte(0) || 0) | ((str.getbyte(1) || 0) << 8)
     end
 
     def self.little_endian_to_int32(str)
-      if str.nil? || 4 < str.length
+      if str.nil? || 4 < str.bytesize
         raise ArgumentError, "invalid length of string: #{str.inspect}"
       end
-      little_endian_to_int16(str[0, 2] || "") | (little_endian_to_int16(str[2, 2] || "") << 16)
+      little_endian_to_int16(str.byteslice(0, 2)) | (little_endian_to_int16(str.byteslice(2, 2)) << 16)
     end
 
     # private

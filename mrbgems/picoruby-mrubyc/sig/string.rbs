@@ -993,6 +993,10 @@ class String
   #
   # Related: String#setbyte.
   #
+  def byteslice: (int index) -> String?
+              | (int start, int length) -> String?
+              | (::Range[::Integer] | ::Range[::Integer?] range) -> String?
+
   def getbyte: (int index) -> Integer?
 
   # <!--
