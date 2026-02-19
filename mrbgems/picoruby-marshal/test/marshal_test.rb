@@ -47,6 +47,15 @@ class MarshalTest < Picotest::Test
     assert_equal 123456, result
   end
 
+  def test_marshal_integer_2byte_utf8_bytes
+    # 32960 (0x80C0) encodes as 2-byte LE bytes [0xC0, 0x80], which happen to form
+    # a valid UTF-8 2-byte sequence. String#[] in UTF-8 mode reads them as 1 char,
+    # causing the position counter to skip the type byte of the next array element.
+    data = Marshal.dump([32960, 1])
+    result = Marshal.load(data)
+    assert_equal [32960, 1], result
+  end
+
   def test_marshal_string_empty
     data = Marshal.dump("")
     result = Marshal.load(data)
