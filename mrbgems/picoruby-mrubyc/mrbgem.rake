@@ -18,10 +18,17 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     end
   end
 
+  autogen_task = "#{build.name}_mrubyc_autogen"
+  task autogen_task do
+    FileUtils.cd "#{mrubyc_dir}/src" do
+      sh "make autogen"
+    end
+  end
+
   Dir.glob("#{mrubyc_dir}/src/*.c").each do |mrubyc_src|
     obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
-    file obj => mrubyc_src do |f|
+    file obj => [mrubyc_src, autogen_task] do |f|
       cc.run f.name, f.prerequisites.first
     end
   end
