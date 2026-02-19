@@ -18,21 +18,20 @@ MRuby::Gem::Specification.new('picoruby-mrubyc') do |spec|
     end
   end
 
-  autogen_task = "#{build.name}_mrubyc_autogen"
-  task autogen_task do
-    FileUtils.cd "#{mrubyc_dir}/src" do
-      sh "make autogen"
-    end
+  next if %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
+
+  # Run autogen at rake load time so _autogen_*.h files exist before any
+  # compilation tasks run (including gems that include mrubyc headers).
+  FileUtils.cd "#{mrubyc_dir}/src" do
+    sh "make autogen"
   end
 
   Dir.glob("#{mrubyc_dir}/src/*.c").each do |mrubyc_src|
     obj = objfile(mrubyc_src.pathmap("#{build_dir}/src/%n"))
     build.libmruby_objs << obj
-    file obj => [mrubyc_src, autogen_task] do |f|
+    file obj => mrubyc_src do |f|
       cc.run f.name, f.prerequisites.first
     end
   end
-
-  next if %w(clean deep_clean).include?(Rake.application.top_level_tasks.first)
 
 end
