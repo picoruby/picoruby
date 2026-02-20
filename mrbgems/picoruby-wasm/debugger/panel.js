@@ -5,7 +5,7 @@ class PicoRubyDebugger {
     this.status = document.getElementById('status');
     this.replOutput = document.getElementById('replOutput');
     this.replInput = document.getElementById('replInput');
-    this.debugButtons = document.getElementById('debugButtons');
+    this.replPrompt = document.getElementById('replPrompt');
     this.localsContent = document.getElementById('localsContent');
     this.callstackContent = document.getElementById('callstackContent');
 
@@ -21,8 +21,10 @@ class PicoRubyDebugger {
     this.expandedComponents = new Set();
     this.autoRefreshInterval = null;
     this.lastComponentTreeHash = null;
+    this.lineNumber = 1;
 
     this.setupEventListeners();
+    this.updatePrompt();
     this.checkConnection();
   }
 
@@ -32,16 +34,6 @@ class PicoRubyDebugger {
         this.evalCode(this.replInput.value);
         this.replInput.value = '';
       }
-    });
-
-    document.getElementById('btnContinue').addEventListener('click', () => {
-      this.debugContinue();
-    });
-    document.getElementById('btnStep').addEventListener('click', () => {
-      this.debugStep();
-    });
-    document.getElementById('btnNext').addEventListener('click', () => {
-      this.debugNext();
     });
 
     // Keyboard shortcuts
@@ -121,7 +113,7 @@ class PicoRubyDebugger {
 
   enterDebugMode(status) {
     this.isPaused = true;
-    this.debugButtons.classList.add('active');
+    this.updatePrompt();
     const file = status.file || '(unknown)';
     const line = status.line || 0;
     this.updateStatus(`Paused at ${file}:${line}`, true);
@@ -136,7 +128,7 @@ class PicoRubyDebugger {
 
   exitDebugMode() {
     this.isPaused = false;
-    this.debugButtons.classList.remove('active');
+    this.updatePrompt();
     this.updateStatus('Connected to PicoRuby');
     this.localsContent.innerHTML = '<div class="empty-state">Not paused</div>';
     this.callstackContent.innerHTML = '<div class="empty-state">Not paused</div>';
@@ -183,7 +175,7 @@ class PicoRubyDebugger {
         this.appendReplError('Step error: ' + result.error);
       } else {
         this.isPaused = false;
-        this.debugButtons.classList.remove('active');
+        this.updatePrompt();
         this.updateStatus('Stepping...');
       }
     }).catch(err => {
@@ -207,7 +199,7 @@ class PicoRubyDebugger {
         this.appendReplError('Next error: ' + result.error);
       } else {
         this.isPaused = false;
-        this.debugButtons.classList.remove('active');
+        this.updatePrompt();
         this.updateStatus('Stepping...');
       }
     }).catch(err => {
@@ -299,15 +291,104 @@ class PicoRubyDebugger {
 
   // -- REPL --
 
+  parseDebugCommand(input) {
+    const cmd = input.trim();
+    switch (cmd) {
+      case 'c': case 'continue': return 'continue';
+      case 's': case 'step':     return 'step';
+      case 'n': case 'next':     return 'next';
+      case 'h': case 'help':     return 'help';
+      default:                   return null;
+    }
+  }
+
+  executeDebugCommand(cmd, entry) {
+    switch (cmd) {
+      case 'continue': {
+        const info = document.createElement('div');
+        info.className = 'repl-info';
+        info.textContent = '=> continue';
+        entry.appendChild(info);
+        this.debugContinue();
+        break;
+      }
+      case 'step': {
+        const info = document.createElement('div');
+        info.className = 'repl-info';
+        info.textContent = '=> step';
+        entry.appendChild(info);
+        this.debugStep();
+        break;
+      }
+      case 'next': {
+        const info = document.createElement('div');
+        info.className = 'repl-info';
+        info.textContent = '=> next';
+        entry.appendChild(info);
+        this.debugNext();
+        break;
+      }
+      case 'help': {
+        const lines = [
+          'Debug commands:',
+          '  c, continue  - Resume execution',
+          '  s, step      - Step into',
+          '  n, next      - Step over',
+          '  h, help      - Show this help',
+          '',
+          'Keyboard shortcuts:',
+          '  F8  - Continue',
+          '  F11 - Step into',
+          '  F10 - Step over',
+        ];
+        lines.forEach(line => {
+          const info = document.createElement('div');
+          info.className = 'repl-info';
+          info.textContent = line || '\u00A0';
+          entry.appendChild(info);
+        });
+        break;
+      }
+    }
+    this.replOutput.scrollTop = this.replOutput.scrollHeight;
+  }
+
+  getPromptText() {
+    const num = String(this.lineNumber).padStart(3, '0');
+    return this.isPaused ? `irb(debug):${num}> ` : `irb:${num}> `;
+  }
+
+  updatePrompt() {
+    this.replPrompt.textContent = this.getPromptText();
+    if (this.isPaused) {
+      this.replPrompt.classList.add('debug');
+    } else {
+      this.replPrompt.classList.remove('debug');
+    }
+  }
+
   evalCode(code) {
     if (!code.trim()) return;
 
+    const promptText = this.getPromptText();
     const entry = document.createElement('div');
     entry.className = 'repl-entry';
-    entry.innerHTML = `<div class="repl-input-line">&gt;&gt; ${this.escapeHtml(code)}</div>`;
+    entry.innerHTML = `<div class="repl-input-line">${this.escapeHtml(promptText)}${this.escapeHtml(code)}</div>`;
 
     this.clearEmptyState();
     this.replOutput.appendChild(entry);
+
+    this.lineNumber++;
+    this.updatePrompt();
+
+    // Check for debug commands when paused
+    if (this.isPaused) {
+      const cmd = this.parseDebugCommand(code);
+      if (cmd) {
+        this.executeDebugCommand(cmd, entry);
+        return;
+      }
+    }
 
     // Use debug eval when paused, otherwise normal eval
     const evalFn = this.isPaused ? 'mrb_debug_eval_in_binding' : 'mrb_eval_string';

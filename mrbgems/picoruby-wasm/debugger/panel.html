@@ -41,43 +41,8 @@
       color: #f0c674;
     }
 
-    .debug-buttons {
-      display: none;
-      gap: 4px;
-    }
-
-    .debug-buttons.active {
-      display: flex;
-    }
-
-    .debug-btn {
-      padding: 4px 10px;
-      border: 1px solid #454545;
-      border-radius: 3px;
-      background: #333333;
-      color: #cccccc;
-      cursor: pointer;
-      font-size: 11px;
-      font-family: inherit;
-    }
-
-    .debug-btn:hover {
-      background: #3e3e3e;
-      border-color: #007acc;
-    }
-
-    .debug-btn:active {
-      background: #094771;
-    }
-
-    .debug-btn.continue-btn {
-      background: #0e639c;
-      border-color: #0e639c;
-      color: #ffffff;
-    }
-
-    .debug-btn.continue-btn:hover {
-      background: #1177bb;
+    .repl-prompt.debug {
+      color: #f0c674;
     }
 
     /* Content */
@@ -351,11 +316,6 @@
   <!-- Toolbar -->
   <div class="toolbar">
     <span class="status" id="status">Connecting...</span>
-    <div class="debug-buttons" id="debugButtons">
-      <button class="debug-btn continue-btn" id="btnContinue" title="Continue (F8)">Continue</button>
-      <button class="debug-btn" id="btnStep" title="Step Into (F11)">Step</button>
-      <button class="debug-btn" id="btnNext" title="Step Over (F10)">Next</button>
-    </div>
   </div>
 
   <div class="content">
@@ -364,13 +324,18 @@
       <div class="repl-output" id="replOutput">
         <div class="empty-state">
           PicoRuby WASM Debugger<br><br>
-          Type Ruby code below and press Enter.<br>
-          Use <code>binding.irb</code> in your code to set breakpoints.
+          Type Ruby code and press Enter.<br>
+          Use <code>binding.irb</code> in your code to set breakpoints.<br><br>
+          Debug commands (when paused):<br>
+          &nbsp; c, continue &nbsp;- Resume execution<br>
+          &nbsp; s, step &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Step into<br>
+          &nbsp; n, next &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Step over<br>
+          &nbsp; h, help &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show commands
         </div>
       </div>
       <div class="repl-input-container">
-        <span class="repl-prompt">&gt;&gt;</span>
-        <input type="text" class="repl-input" id="replInput" placeholder="Enter Ruby code...">
+        <span class="repl-prompt" id="replPrompt">irb:001&gt; </span>
+        <input type="text" class="repl-input" id="replInput" placeholder="Ruby code or debug command...">
       </div>
     </div>
 
