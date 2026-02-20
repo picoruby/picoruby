@@ -166,10 +166,10 @@ langs.each_with_index do |lang, i|
   results << "#{i}: #{upper}"
 end
 
-# --- Pause 4: step / next ---
+# --- Pause 5: step / next ---
+binding.irb         # &larr; paused here (total and answer are nil)
 total  = double(count)
 answer = "#{name} v#{total}"
-binding.irb
 
 answer</code></pre>
       <button class="btn-run" id="btn-tutorial">Start Tutorial</button>
@@ -314,44 +314,38 @@ answer</code></pre>
         <div class="step-heading"><span class="step-num">15</span>Continue past remaining iterations</div>
         Type: <code>c</code>
         <div class="expected">
-          Pauses again at Pause 4 (third iteration). Type <code>c</code>
-          one more time to finish the loop and reach the final pause.
+          Pauses again inside the third iteration (<code>lang = "JavaScript"</code>).
         </div>
       </div>
 
-      <!-- ====== Pause 4 (after loop) ====== -->
-      <div class="pause-label">Pause 4 &mdash; After the loop</div>
-
       <div class="step">
-        <div class="step-heading"><span class="step-num">16</span>Oops, one more loop iteration</div>
-        If you paused inside the third iteration, type <code>c</code> to
-        finish the loop. When the prompt shows
-        <code>irb(debug):NNN&gt;</code> again, you are at the final pause.
+        <div class="step-heading"><span class="step-num">16</span>Continue past the third iteration</div>
+        Type: <code>c</code>
+        <div class="expected">
+          The loop finishes. We are now at Pause&nbsp;5, <strong>before</strong>
+          <code>total = double(count)</code>.
+        </div>
       </div>
 
       <!-- ====== Pause 5 (final) ====== -->
-      <div class="pause-label">Pause 5 &mdash; Final results &amp; step / next</div>
-      <p>We are now past the loop, after <code>total = double(count)</code>.</p>
+      <div class="pause-label">Pause 5 &mdash; step / next</div>
+      <p>We are now paused <strong>before</strong> <code>total = double(count)</code>.
+         Both <code>total</code> and <code>answer</code> are not yet assigned.</p>
 
       <div class="step">
-        <div class="step-heading"><span class="step-num">17</span>Check the modified variable took effect</div>
+        <div class="step-heading"><span class="step-num">17</span>Confirm they are not yet computed</div>
         Type: <code>total</code>
         <div class="expected">
-          <em>=&gt; 200</em> &mdash; Remember you changed <code>count</code>
-          to 100 in Step 6. <code>double(100)</code> returns 200.
+          <em>=&gt; nil</em> &mdash; The line has not executed yet.
         </div>
-      </div>
-
-      <div class="step">
-        <div class="step-heading"><span class="step-num">18</span>Check the final answer</div>
         Type: <code>answer</code>
         <div class="expected">
-          <em>=&gt; "PicoRuby v200"</em>
+          <em>=&gt; nil</em> &mdash; Same reason.
         </div>
       </div>
 
       <div class="step">
-        <div class="step-heading"><span class="step-num">19</span>Check all loop results</div>
+        <div class="step-heading"><span class="step-num">18</span>Check all loop results</div>
         Type: <code>results</code>
         <div class="expected">
           <em>=&gt; ["0: RUBY", "1: C", "2: JAVASCRIPT"]</em>
@@ -359,23 +353,39 @@ answer</code></pre>
       </div>
 
       <div class="step">
-        <div class="step-heading"><span class="step-num">20</span>Try step (s)</div>
+        <div class="step-heading"><span class="step-num">19</span>Step INTO <code>double()</code> with <code>s</code></div>
+        We are about to execute <code>total = double(count)</code>.
         Type: <code>s</code>
         <div class="expected">
-          The debugger advances one step <em>into</em> the next
-          expression. The status bar shows "Stepping..." briefly, then
-          re-pauses at the next line. Try <code>s</code> a few more times
-          to walk through the remaining code line by line.
+          The debugger enters the <code>double</code> method body.<br>
+          The sidebar now shows <em>n = 100</em>
+          (the argument; you changed <code>count</code> to 100 in Step&nbsp;6).
         </div>
       </div>
 
       <div class="step">
-        <div class="step-heading"><span class="step-num">21</span>Try next (n)</div>
+        <div class="step-heading"><span class="step-num">20</span>Step again to return from <code>double()</code></div>
+        We are now on the line <code>n * 2</code> inside the method.
+        Type: <code>s</code>
+        <div class="expected">
+          Returns from the method. The sidebar now shows
+          <em>total = 200</em>, <em>answer = nil</em>.<br>
+          We are now about to execute <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">21</span>Step OVER the next line with <code>n</code></div>
+        We are about to execute <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
         Type: <code>n</code>
         <div class="expected">
-          Like <code>s</code>, but steps <em>over</em> method calls
-          instead of into them. Use <code>n</code> when you want to skip
-          the internals of a method.
+          <em>n</em> (next) executes the entire line without stepping
+          into any method calls inside it.<br>
+          The sidebar now shows <em>answer = "PicoRuby v200"</em>.<br>
+          <strong>Key difference:</strong> if you had used <code>n</code>
+          at Step&nbsp;19 instead of <code>s</code>, the debugger would
+          have jumped straight past <code>double()</code> without entering it
+          &mdash; <code>total</code> would have become 200 in a single step.
         </div>
       </div>
 
@@ -427,10 +437,10 @@ answer</code></pre>
           results << "#{i}: #{upper}"
         end
 
-        # --- Pause 5: final results & step/next ---
+        # --- Pause 5: step & next demo ---
+        binding.irb
         total  = double(count)
         answer = "#{name} v#{total}"
-        binding.irb
 
         output.innerText = "Tutorial complete! answer=#{answer}, results=#{results.join(', ')}"
       end

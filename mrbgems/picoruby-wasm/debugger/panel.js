@@ -145,7 +145,6 @@ class PicoRubyDebugger {
 
     // Use debug eval when paused, otherwise normal eval
     const evalFn = this.isPaused ? 'mrb_debug_eval_in_binding' : 'mrb_eval_string';
-    console.log('[evalCode] isPaused:', this.isPaused, 'evalFn:', evalFn, 'code:', code);
 
     this.evalInPage(`
       (function() {
@@ -280,24 +279,18 @@ class PicoRubyDebugger {
       })()
     `).then(status => {
       if (!status) return;
-      console.log('[poll] status:', JSON.stringify(status),
-                  'isPaused:', this.isPaused, 'pauseId:', this.pauseId);
       if (status.mode === 'paused') {
         const newPause = status.pause_id !== this.pauseId;
         if (!this.isPaused || newPause) {
-          console.log('[poll] -> enterDebugMode (newPause:', newPause, ')');
           this.enterDebugMode(status);
         }
       } else if (this.isPaused) {
-        console.log('[poll] -> exitDebugMode');
         this.exitDebugMode();
       }
     }).catch(() => {});
   }
 
   enterDebugMode(status) {
-    console.log('[enterDebugMode] pause_id:', status.pause_id,
-                'file:', status.file, 'line:', status.line);
     this.isPaused = true;
     this.pauseId = status.pause_id;
     this.enableInput();
@@ -315,7 +308,6 @@ class PicoRubyDebugger {
   }
 
   exitDebugMode() {
-    console.log('[exitDebugMode] was isPaused:', this.isPaused);
     this.isPaused = false;
     this.updateStatus('Connected to PicoRuby');
     this.localsContent.innerHTML = '<div class="empty-state">Not paused</div>';
@@ -344,12 +336,9 @@ class PicoRubyDebugger {
    * paused status directly (mode === 'paused'); otherwise it returns
    * a running/stepping status and we fall back to polling. */
   handleDebugActionResult(result) {
-    console.log('[handleDebugActionResult] result:', JSON.stringify(result));
     if (result.mode === 'paused') {
-      console.log('[handleDebugActionResult] -> enterDebugMode');
       this.enterDebugMode(result);
     } else {
-      console.log('[handleDebugActionResult] -> pollDebugStatus');
       this.pollDebugStatus();
     }
   }
@@ -366,7 +355,6 @@ class PicoRubyDebugger {
         }
       })()
     `).then(result => {
-      console.log('[debugContinue] result:', JSON.stringify(result));
       if (result.error) {
         this.appendReplError('Continue error: ' + result.error);
       } else {
@@ -374,7 +362,6 @@ class PicoRubyDebugger {
         this.handleDebugActionResult(result);
       }
     }).catch(err => {
-      console.error('[debugContinue] catch:', err);
       this.appendReplError('Continue error: ' + err.message);
     });
   }
