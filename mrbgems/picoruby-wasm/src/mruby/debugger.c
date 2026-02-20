@@ -51,6 +51,7 @@ typedef struct wasm_debug_state {
   mrb_value binding;         /* Captured Binding object */
   const char *pause_file;
   int32_t pause_line;
+  int32_t pause_id;          /* Monotonic counter; incremented on each pause */
   /* For step/next tracking */
   const char *prev_file;
   int32_t prev_line;
@@ -162,6 +163,7 @@ mrb_binding_irb(mrb_state *mrb, mrb_value self)
 
   /* Enter paused mode */
   g_dbg.mode = WASM_DBG_PAUSED;
+  g_dbg.pause_id++;
 
   fprintf(stderr, "[debugger] Paused at %s:%d\n",
           g_dbg.pause_file ? g_dbg.pause_file : "(unknown)",
@@ -601,8 +603,9 @@ const char* mrb_debug_get_status(void)
 
       append_json_string(&p, &remaining,
                          g_dbg.pause_file ? g_dbg.pause_file : "(unknown)");
-      if (remaining > 32) {
-        int n = snprintf(p, remaining, ",\"line\":%d}", g_dbg.pause_line);
+      if (remaining > 64) {
+        int n = snprintf(p, remaining, ",\"line\":%d,\"pause_id\":%d}",
+                         g_dbg.pause_line, g_dbg.pause_id);
         p += n;
       }
       return status_buf;

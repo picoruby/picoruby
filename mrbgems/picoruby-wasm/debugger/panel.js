@@ -15,6 +15,7 @@ class PicoRubyDebugger {
     this.componentInspector = document.getElementById('componentInspector');
 
     this.isPaused = false;
+    this.pauseId = -1;
     this.isConnected = false;
     this.debugPollInterval = null;
     this.selectedComponentId = null;
@@ -103,9 +104,12 @@ class PicoRubyDebugger {
       })()
     `).then(status => {
       if (!status) return;
-      if (status.mode === 'paused' && !this.isPaused) {
-        this.enterDebugMode(status);
-      } else if (status.mode !== 'paused' && this.isPaused) {
+      if (status.mode === 'paused') {
+        const newPause = status.pause_id !== this.pauseId;
+        if (!this.isPaused || newPause) {
+          this.enterDebugMode(status);
+        }
+      } else if (this.isPaused) {
         this.exitDebugMode();
       }
     }).catch(() => {});
@@ -113,6 +117,7 @@ class PicoRubyDebugger {
 
   enterDebugMode(status) {
     this.isPaused = true;
+    this.pauseId = status.pause_id;
     this.updatePrompt();
     const file = status.file || '(unknown)';
     const line = status.line || 0;
@@ -152,7 +157,9 @@ class PicoRubyDebugger {
         this.appendReplError('Continue error: ' + result.error);
       } else {
         this.appendReplInfo('-- Continued --');
-        this.exitDebugMode();
+        // Don't exitDebugMode here; pollDebugStatus will detect the
+        // state transition (idle or re-paused at a new pause_id).
+        this.pollDebugStatus();
       }
     }).catch(err => {
       this.appendReplError('Continue error: ' + err.message);
@@ -174,9 +181,8 @@ class PicoRubyDebugger {
       if (result.error) {
         this.appendReplError('Step error: ' + result.error);
       } else {
-        this.isPaused = false;
-        this.updatePrompt();
         this.updateStatus('Stepping...');
+        this.pollDebugStatus();
       }
     }).catch(err => {
       this.appendReplError('Step error: ' + err.message);
@@ -198,9 +204,8 @@ class PicoRubyDebugger {
       if (result.error) {
         this.appendReplError('Next error: ' + result.error);
       } else {
-        this.isPaused = false;
-        this.updatePrompt();
         this.updateStatus('Stepping...');
+        this.pollDebugStatus();
       }
     }).catch(err => {
       this.appendReplError('Next error: ' + err.message);
