@@ -104,18 +104,24 @@ class PicoRubyDebugger {
       })()
     `).then(status => {
       if (!status) return;
+      console.log('[poll] status:', JSON.stringify(status),
+                  'isPaused:', this.isPaused, 'pauseId:', this.pauseId);
       if (status.mode === 'paused') {
         const newPause = status.pause_id !== this.pauseId;
         if (!this.isPaused || newPause) {
+          console.log('[poll] -> enterDebugMode (newPause:', newPause, ')');
           this.enterDebugMode(status);
         }
       } else if (this.isPaused) {
+        console.log('[poll] -> exitDebugMode');
         this.exitDebugMode();
       }
     }).catch(() => {});
   }
 
   enterDebugMode(status) {
+    console.log('[enterDebugMode] pause_id:', status.pause_id,
+                'file:', status.file, 'line:', status.line);
     this.isPaused = true;
     this.pauseId = status.pause_id;
     this.updatePrompt();
@@ -132,6 +138,7 @@ class PicoRubyDebugger {
   }
 
   exitDebugMode() {
+    console.log('[exitDebugMode] was isPaused:', this.isPaused);
     this.isPaused = false;
     this.updatePrompt();
     this.updateStatus('Connected to PicoRuby');
@@ -140,6 +147,21 @@ class PicoRubyDebugger {
   }
 
   // -- Debug actions --
+
+  /* Handle the response from continue/step/next.
+   * If the task synchronously re-paused, the C function returns the
+   * paused status directly (mode === 'paused'); otherwise it returns
+   * a running/stepping status and we fall back to polling. */
+  handleDebugActionResult(result) {
+    console.log('[handleDebugActionResult] result:', JSON.stringify(result));
+    if (result.mode === 'paused') {
+      console.log('[handleDebugActionResult] -> enterDebugMode');
+      this.enterDebugMode(result);
+    } else {
+      console.log('[handleDebugActionResult] -> pollDebugStatus');
+      this.pollDebugStatus();
+    }
+  }
 
   debugContinue() {
     this.evalInPage(`
@@ -153,15 +175,15 @@ class PicoRubyDebugger {
         }
       })()
     `).then(result => {
+      console.log('[debugContinue] result:', JSON.stringify(result));
       if (result.error) {
         this.appendReplError('Continue error: ' + result.error);
       } else {
         this.appendReplInfo('-- Continued --');
-        // Don't exitDebugMode here; pollDebugStatus will detect the
-        // state transition (idle or re-paused at a new pause_id).
-        this.pollDebugStatus();
+        this.handleDebugActionResult(result);
       }
     }).catch(err => {
+      console.error('[debugContinue] catch:', err);
       this.appendReplError('Continue error: ' + err.message);
     });
   }
@@ -181,8 +203,7 @@ class PicoRubyDebugger {
       if (result.error) {
         this.appendReplError('Step error: ' + result.error);
       } else {
-        this.updateStatus('Stepping...');
-        this.pollDebugStatus();
+        this.handleDebugActionResult(result);
       }
     }).catch(err => {
       this.appendReplError('Step error: ' + err.message);
@@ -204,8 +225,7 @@ class PicoRubyDebugger {
       if (result.error) {
         this.appendReplError('Next error: ' + result.error);
       } else {
-        this.updateStatus('Stepping...');
-        this.pollDebugStatus();
+        this.handleDebugActionResult(result);
       }
     }).catch(err => {
       this.appendReplError('Next error: ' + err.message);
@@ -397,6 +417,7 @@ class PicoRubyDebugger {
 
     // Use debug eval when paused, otherwise normal eval
     const evalFn = this.isPaused ? 'mrb_debug_eval_in_binding' : 'mrb_eval_string';
+    console.log('[evalCode] isPaused:', this.isPaused, 'evalFn:', evalFn, 'code:', code);
 
     this.evalInPage(`
       (function() {

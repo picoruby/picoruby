@@ -106,6 +106,9 @@ debug_eval_code(mrb_state *mrb, const char *code, size_t len)
 static mrb_value
 mrb_binding_irb(mrb_state *mrb, mrb_value self)
 {
+  fprintf(stderr, "[binding.irb] CALLED  mode=%d eval_in_progress=%d root_c=%d\n",
+          g_dbg.mode, g_dbg.eval_in_progress, (mrb->c == mrb->root_c));
+
   /* Must be called from task context (not root) */
   if (mrb->c == mrb->root_c) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "binding.irb requires task context");
@@ -113,6 +116,7 @@ mrb_binding_irb(mrb_state *mrb, mrb_value self)
 
   /* Ignore nested calls while already paused */
   if (g_dbg.mode == WASM_DBG_PAUSED) {
+    fprintf(stderr, "[binding.irb] SKIPPED (already paused)\n");
     return mrb_nil_value();
   }
 
@@ -165,13 +169,16 @@ mrb_binding_irb(mrb_state *mrb, mrb_value self)
   g_dbg.mode = WASM_DBG_PAUSED;
   g_dbg.pause_id++;
 
-  fprintf(stderr, "[debugger] Paused at %s:%d\n",
+  fprintf(stderr, "[binding.irb] PAUSING at %s:%d  pause_id=%d  task=%p\n",
           g_dbg.pause_file ? g_dbg.pause_file : "(unknown)",
-          g_dbg.pause_line);
+          g_dbg.pause_line, g_dbg.pause_id,
+          (void *)mrb_ptr(g_dbg.paused_task));
 
   /* Suspend the task - sets switching=TRUE, VM will exit */
   mrb_suspend_task(mrb, g_dbg.paused_task);
 
+  fprintf(stderr, "[binding.irb] RESUMED (back from suspend)  mode=%d\n",
+          g_dbg.mode);
   /* Execution continues here after mrb_debug_continue() resumes the task */
   return mrb_nil_value();
 }
@@ -625,7 +632,10 @@ const char* mrb_debug_get_status(void)
 EMSCRIPTEN_KEEPALIVE
 const char* mrb_debug_continue(void)
 {
+  fprintf(stderr, "[continue] ENTER  mode=%d\n", g_dbg.mode);
+
   if (!global_mrb || g_dbg.mode != WASM_DBG_PAUSED) {
+    fprintf(stderr, "[continue] ERROR not paused\n");
     return debug_json_error("not paused");
   }
 
@@ -635,6 +645,9 @@ const char* mrb_debug_continue(void)
   }
 
   mrb_value task = g_dbg.paused_task;
+  fprintf(stderr, "[continue] task=%p  task_nil=%d\n",
+          mrb_nil_p(task) ? NULL : (void *)mrb_ptr(task),
+          mrb_nil_p(task));
 
   /* Reset debug state before resuming */
   g_dbg.mode = WASM_DBG_IDLE;
@@ -650,13 +663,31 @@ const char* mrb_debug_continue(void)
   }
 #endif
 
-  /* Resume the suspended task */
+  /* Resume the suspended task.
+   * Unregister the GC root BEFORE resume so that if the task
+   * synchronously re-pauses (hitting another binding.irb), the
+   * re-registration inside mrb_binding_irb is not cancelled out. */
   if (!mrb_nil_p(task)) {
-    mrb_resume_task(global_mrb, task);
     mrb_gc_unregister(global_mrb, task);
+    fprintf(stderr, "[continue] calling mrb_resume_task...\n");
+    mrb_resume_task(global_mrb, task);
+    fprintf(stderr, "[continue] mrb_resume_task returned  mode=%d\n",
+            g_dbg.mode);
+  } else {
+    fprintf(stderr, "[continue] WARNING task is nil, cannot resume\n");
   }
 
-  fprintf(stderr, "[debugger] Continued\n");
+  /* If the task synchronously hit another binding.irb, report the
+   * new paused state directly so the JS side doesn't need to poll. */
+  if (g_dbg.mode == WASM_DBG_PAUSED) {
+    fprintf(stderr, "[continue] RE-PAUSED at %s:%d  pause_id=%d\n",
+            g_dbg.pause_file ? g_dbg.pause_file : "(unknown)",
+            g_dbg.pause_line, g_dbg.pause_id);
+    return mrb_debug_get_status();
+  }
+
+  fprintf(stderr, "[continue] NOT re-paused, returning running  mode=%d\n",
+          g_dbg.mode);
   return "{\"status\":\"running\"}";
 }
 
@@ -1115,14 +1146,17 @@ const char* mrb_debug_step(void)
   g_dbg.mode = WASM_DBG_STEP;
   global_mrb->code_fetch_hook = wasm_code_fetch_hook;
 
-  /* Resume the suspended task */
+  /* Resume the suspended task (unregister before resume; see continue) */
   mrb_value task = g_dbg.paused_task;
   g_dbg.paused_task = mrb_nil_value();
   if (!mrb_nil_p(task)) {
-    mrb_resume_task(global_mrb, task);
     mrb_gc_unregister(global_mrb, task);
+    mrb_resume_task(global_mrb, task);
   }
 
+  if (g_dbg.mode == WASM_DBG_PAUSED) {
+    return mrb_debug_get_status();
+  }
   return "{\"status\":\"stepping\"}";
 #else
   return debug_json_error("debug hook not available");
@@ -1153,14 +1187,17 @@ const char* mrb_debug_next(void)
   g_dbg.mode = WASM_DBG_NEXT;
   global_mrb->code_fetch_hook = wasm_code_fetch_hook;
 
-  /* Resume the suspended task */
+  /* Resume the suspended task (unregister before resume; see continue) */
   mrb_value task = g_dbg.paused_task;
   g_dbg.paused_task = mrb_nil_value();
   if (!mrb_nil_p(task)) {
-    mrb_resume_task(global_mrb, task);
     mrb_gc_unregister(global_mrb, task);
+    mrb_resume_task(global_mrb, task);
   }
 
+  if (g_dbg.mode == WASM_DBG_PAUSED) {
+    return mrb_debug_get_status();
+  }
   return "{\"status\":\"stepping\"}";
 #else
   return debug_json_error("debug hook not available");
