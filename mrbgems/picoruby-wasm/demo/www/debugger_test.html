@@ -144,12 +144,17 @@
     <div class="tutorial-section">
       <h3>Interactive Debugger Tutorial</h3>
       <p>This tutorial walks you through every debugger feature.
-         The following Ruby code will run and pause four times at
-         <code>binding.irb</code>.</p>
-      <pre><code>def double(n)
+         The code is split across two files.
+         <strong>tutorial_helper.rb</strong> defines a method;
+         <strong>tutorial_main.rb</strong> runs the demo.
+         Together they pause six times at <code>binding.irb</code>.</p>
+      <pre><code># tutorial_helper.rb
+def double(n)
+  binding.irb       # &larr; Pause 5b: paused inside the method
   n * 2
 end
 
+# tutorial_main.rb
 # --- Pause 1: basics ---
 name     = "PicoRuby"
 count    = 42
@@ -166,7 +171,7 @@ langs.each_with_index do |lang, i|
   results << "#{i}: #{upper}"
 end
 
-# --- Pause 5: step / next ---
+# --- Pause 5a: step / next ---
 binding.irb         # &larr; paused here (total and answer are nil)
 total  = double(count)
 answer = "#{name} v#{total}"
@@ -322,14 +327,15 @@ answer</code></pre>
         <div class="step-heading"><span class="step-num">16</span>Continue past the third iteration</div>
         Type: <code>c</code>
         <div class="expected">
-          The loop finishes. We are now at Pause&nbsp;5, <strong>before</strong>
+          The loop finishes. We are now at Pause&nbsp;5a, <strong>before</strong>
           <code>total = double(count)</code>.
         </div>
       </div>
 
-      <!-- ====== Pause 5 (final) ====== -->
-      <div class="pause-label">Pause 5 &mdash; step / next</div>
-      <p>We are now paused <strong>before</strong> <code>total = double(count)</code>.
+      <!-- ====== Pause 5a ====== -->
+      <div class="pause-label">Pause 5a &mdash; tutorial_main.rb &mdash; before calling double()</div>
+      <p>We are paused <strong>before</strong> <code>total = double(count)</code>
+         (in <code>tutorial_main.rb</code>).
          Both <code>total</code> and <code>answer</code> are not yet assigned.</p>
 
       <div class="step">
@@ -357,20 +363,34 @@ answer</code></pre>
         We are about to execute <code>total = double(count)</code>.
         Type: <code>s</code>
         <div class="expected">
-          The debugger enters the <code>double</code> method body.<br>
-          The sidebar now shows <em>n = 100</em>
+          The debugger steps into <code>double</code> and immediately hits
+          the <code>binding.irb</code> inside it &mdash; this is
+          <strong>Pause 5b</strong>.<br>
+          Notice the pause header now shows
+          <em>tutorial_helper.rb</em> instead of <em>tutorial_main.rb</em>
+          &mdash; the debugger crossed a file boundary!<br>
+          The sidebar shows <em>n = 100</em>
           (the argument; you changed <code>count</code> to 100 in Step&nbsp;6).
         </div>
       </div>
 
+      <!-- ====== Pause 5b ====== -->
+      <div class="pause-label">Pause 5b &mdash; tutorial_helper.rb &mdash; inside double()</div>
+      <p>We are now paused <strong>inside</strong> <code>double()</code>,
+         about to execute <code>n * 2</code>.</p>
+
       <div class="step">
-        <div class="step-heading"><span class="step-num">20</span>Step again to return from <code>double()</code></div>
-        We are now on the line <code>n * 2</code> inside the method.
-        Type: <code>s</code>
+        <div class="step-heading"><span class="step-num">20</span>Inspect the argument, then step out</div>
+        Type: <code>n</code> to check the argument value.
         <div class="expected">
-          Returns from the method. The sidebar now shows
-          <em>total = 200</em>, <em>answer = nil</em>.<br>
-          We are now about to execute <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
+          <em>=&gt; 100</em>
+        </div>
+        Now type: <code>s</code>
+        <div class="expected">
+          Executes <code>n * 2</code> and returns to the caller.<br>
+          The sidebar now shows <em>total = 200</em>, <em>answer = nil</em>.<br>
+          We are back in <em>tutorial_main.rb</em>, about to execute
+          <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
         </div>
       </div>
 
@@ -382,10 +402,12 @@ answer</code></pre>
           <em>n</em> (next) executes the entire line without stepping
           into any method calls inside it.<br>
           The sidebar now shows <em>answer = "PicoRuby v200"</em>.<br>
-          <strong>Key difference:</strong> if you had used <code>n</code>
-          at Step&nbsp;19 instead of <code>s</code>, the debugger would
-          have jumped straight past <code>double()</code> without entering it
-          &mdash; <code>total</code> would have become 200 in a single step.
+          <strong>Key difference vs <code>s</code>:</strong>
+          <code>n</code> would not have entered <code>double()</code> either
+          &mdash; but because <code>double</code> contains its own
+          <code>binding.irb</code>, it still would have paused there.
+          For methods <em>without</em> <code>binding.irb</code>,
+          <code>n</code> executes the whole call in one step.
         </div>
       </div>
 
@@ -408,43 +430,7 @@ answer</code></pre>
       </p>
     </div>
 
-    <script type="text/ruby">
-      require 'js'
-
-      doc    = JS.document
-      output = doc.getElementById('output-box')
-
-      def double(n)
-        n * 2
-      end
-
-      doc.getElementById('btn-tutorial').addEventListener('click') do |_e|
-        output.innerText = 'Tutorial running - follow the steps in the PicoRuby panel...'
-
-        # --- Pause 1: basics ---
-        name     = "PicoRuby"
-        count    = 42
-        ratio    = 3.14
-        langs    = ["Ruby", "C", "JavaScript"]
-        settings = { debug: true, level: 3 }
-        binding.irb
-
-        # --- Pause 2, 3, 4: loop iteration ---
-        results = []
-        langs.each_with_index do |lang, i|
-          upper = lang.upcase
-          binding.irb
-          results << "#{i}: #{upper}"
-        end
-
-        # --- Pause 5: step & next demo ---
-        binding.irb
-        total  = double(count)
-        answer = "#{name} v#{total}"
-
-        output.innerText = "Tutorial complete! answer=#{answer}, results=#{results.join(', ')}"
-      end
-    </script>
+    <script type="application/x-mrb" src="ruby/app.mrb"></script>
 
     <script src="init.iife.js"></script>
   </body>

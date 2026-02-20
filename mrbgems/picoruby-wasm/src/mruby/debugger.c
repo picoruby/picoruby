@@ -120,17 +120,34 @@ mrb_binding_irb(mrb_state *mrb, mrb_value self)
   g_dbg.binding = self;
   mrb_gc_register(mrb, self);
 
-  /* Extract source location from binding for display */
+  /* Extract source location from binding for display.
+   * Walk the call stack to find the Ruby frame that called binding.irb. */
   g_dbg.pause_file = NULL;
   g_dbg.pause_line = 0;
-  mrb_value pc_val = mrb_iv_get(mrb, self, MRB_SYM(pc));
-  if (!mrb_nil_p(pc_val)) {
-    const struct RProc *proc = mrb_binding_extract_proc(mrb, self);
-    if (proc && proc->upper && !MRB_PROC_CFUNC_P(proc->upper)) {
-      const mrb_irep *irep = proc->upper->body.irep;
-      mrb_int pc = mrb_integer(pc_val);
-      mrb_debug_get_position(mrb, irep, (uint32_t)pc,
-                             &g_dbg.pause_line, &g_dbg.pause_file);
+  {
+    mrb_callinfo *ci = mrb->c->ci;
+    int frame = 0;
+    /* ci points to the C function frame (mrb_binding_irb itself).
+     * Walk backwards to find the first Ruby frame with valid debug info. */
+    while (ci > mrb->c->cibase) {
+      ci--;
+      frame++;
+      int is_cfunc = ci->proc ? MRB_PROC_CFUNC_P(ci->proc) : -1;
+      if (ci->proc && !is_cfunc && ci->pc) {
+        const mrb_irep *irep = ci->proc->body.irep;
+        uint32_t pc_offset = (uint32_t)(ci->pc - irep->iseq);
+        const char *fn = NULL;
+        int32_t ln = -1;
+        if (pc_offset < irep->ilen) {
+          mrb_debug_get_position(mrb, irep, pc_offset, &ln, &fn);
+        }
+        if (fn && !g_dbg.pause_file) {
+          g_dbg.pause_line = ln;
+          g_dbg.pause_file = fn;
+        }
+      } else {
+        (void)frame; /* suppress unused variable warning */
+      }
     }
   }
 
