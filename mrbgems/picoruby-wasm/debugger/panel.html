@@ -116,6 +116,10 @@
       caret-color: #cccccc;
     }
 
+    .repl-current-input.session-ended .repl-prompt {
+      color: #555;
+    }
+
     /* Right sidebar */
     .sidebar {
       width: 280px;
@@ -277,6 +281,46 @@
     .tree-spacer {
       width: 12px;
       display: inline-block;
+    }
+
+    .repl-output-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+    }
+
+    .copy-btn {
+      flex-shrink: 0;
+      margin-left: 8px;
+      padding: 1px 6px;
+      background: transparent;
+      color: #666;
+      border: 1px solid #454545;
+      border-radius: 3px;
+      font-size: 10px;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .repl-entry:hover .copy-btn {
+      opacity: 1;
+    }
+
+    .copy-btn:hover {
+      color: #cccccc;
+      border-color: #888;
+    }
+
+    .copy-btn:active {
+      background: #333;
+    }
+
+    .copy-btn.copied {
+      color: #4ec9b0;
+      border-color: #4ec9b0;
+      opacity: 1;
     }
 
     .empty-state {

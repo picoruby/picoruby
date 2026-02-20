@@ -167,10 +167,27 @@ class PicoRubyDebugger {
         errorLine.textContent = response.error;
         frozenEntry.appendChild(errorLine);
       } else {
+        const row = document.createElement('div');
+        row.className = 'repl-output-row';
+
         const outputLine = document.createElement('div');
         outputLine.className = 'repl-output-line';
         outputLine.textContent = '=> ' + response.result;
-        frozenEntry.appendChild(outputLine);
+
+        const inputLine = frozenEntry.querySelector('.repl-input-line');
+        const copyText = (inputLine ? inputLine.textContent : '') +
+                         '\n=> ' + response.result;
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.copyToClipboard(copyText, copyBtn);
+        });
+
+        row.appendChild(outputLine);
+        row.appendChild(copyBtn);
+        frozenEntry.appendChild(row);
       }
       this.replOutput.scrollTop = this.replOutput.scrollHeight;
 
@@ -189,7 +206,8 @@ class PicoRubyDebugger {
   setupEventListeners() {
     // Click anywhere in the output area focuses the input
     this.replOutput.addEventListener('click', () => {
-      if (this.inputEditable) {
+      if (this.inputEditable &&
+          this.inputEditable.contentEditable !== 'false') {
         this.inputEditable.focus();
         this.moveCursorToEnd();
       }
@@ -282,6 +300,7 @@ class PicoRubyDebugger {
                 'file:', status.file, 'line:', status.line);
     this.isPaused = true;
     this.pauseId = status.pause_id;
+    this.enableInput();
     this.updatePrompt();
     const file = status.file || '(unknown)';
     const line = status.line || 0;
@@ -298,10 +317,24 @@ class PicoRubyDebugger {
   exitDebugMode() {
     console.log('[exitDebugMode] was isPaused:', this.isPaused);
     this.isPaused = false;
-    this.updatePrompt();
     this.updateStatus('Connected to PicoRuby');
     this.localsContent.innerHTML = '<div class="empty-state">Not paused</div>';
     this.callstackContent.innerHTML = '<div class="empty-state">Not paused</div>';
+    this.disableInput();
+  }
+
+  disableInput() {
+    if (!this.currentInputLine || !this.inputEditable) return;
+    this.inputEditable.contentEditable = 'false';
+    this.currentInputLine.classList.add('session-ended');
+    const prompt = this.currentInputLine.querySelector('.repl-prompt');
+    if (prompt) prompt.textContent = '-- session ended --';
+  }
+
+  enableInput() {
+    if (!this.currentInputLine || !this.inputEditable) return;
+    this.inputEditable.contentEditable = 'true';
+    this.currentInputLine.classList.remove('session-ended');
   }
 
   // -- Debug actions --
@@ -608,6 +641,38 @@ class PicoRubyDebugger {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  copyToClipboard(text, btn) {
+    const done = () => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 1500);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(() => {
+        this.copyFallback(text);
+        done();
+      });
+    } else {
+      this.copyFallback(text);
+      done();
+    }
+  }
+
+  copyFallback(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
   }
 
   // -- Component Debug Mode (Funicular) --
