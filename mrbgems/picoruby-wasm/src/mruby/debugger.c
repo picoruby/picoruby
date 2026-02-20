@@ -780,18 +780,46 @@ const char* mrb_debug_eval_in_binding(const char* code)
   }
   global_mrb->exc = NULL;
 
+  /* Debug: verify local_variable_get returns the correct type */
+  {
+    static char lv_test_buf[256];
+    snprintf(lv_test_buf, sizeof(lv_test_buf),
+             "$__debug_binding__.local_variables.map{|v|"
+             "[v.to_s,$__debug_binding__.local_variable_get(v).class.name]}");
+    mrb_value lv_test = debug_eval_code(global_mrb, lv_test_buf,
+                                        strlen(lv_test_buf));
+    global_mrb->exc = NULL;
+    if (mrb_array_p(lv_test)) {
+      fprintf(stderr, "[dbg] variable types:\n");
+      for (mrb_int i = 0; i < RARRAY_LEN(lv_test); i++) {
+        mrb_value pair = mrb_ary_ref(global_mrb, lv_test, i);
+        if (mrb_array_p(pair) && RARRAY_LEN(pair) >= 2) {
+          mrb_value nm = mrb_ary_ref(global_mrb, pair, 0);
+          mrb_value tp = mrb_ary_ref(global_mrb, pair, 1);
+          const char *ns = mrb_string_p(nm) ? mrb_str_to_cstr(global_mrb, nm) : "?";
+          const char *ts = mrb_string_p(tp) ? mrb_str_to_cstr(global_mrb, tp) : "?";
+          fprintf(stderr, "  %s => %s\n", ns, ts);
+        }
+      }
+    } else {
+      fprintf(stderr, "[dbg] lv_test type=%d\n", mrb_type(lv_test));
+    }
+  }
+
   /* Step 2: Build wrapper code with variable pre-loading.
+   * Use newlines as statement separators to avoid any parser ambiguity.
    * Format:
    *   __b__=$__debug_binding__
    *   var1=__b__.local_variable_get(:var1)
    *   ...
-   *   __debug_result__=begin; USER_CODE ;end
-   *   __b__.local_variable_set(:var1,var1)
-   *   ...
-   *   __debug_result__
+   *   (USER_CODE)
+   *
+   * Note: write-back is omitted here to keep the wrapper simple.
+   * Side effects from user code (e.g. assignments) are not propagated
+   * back to the binding. This is acceptable for a read-only REPL.
    */
   size_t user_len = strlen(code);
-  size_t buf_size = user_len + (size_t)num_vars * 256 + 512;
+  size_t buf_size = user_len + (size_t)num_vars * 64 + 256;
   char *wrapper = (char *)mrb_malloc_simple(global_mrb, buf_size);
   if (!wrapper) {
     g_dbg.eval_in_progress = FALSE;
@@ -805,36 +833,22 @@ const char* mrb_debug_eval_in_binding(const char* code)
   size_t wr = buf_size;
   int wn;
 
-  wn = snprintf(wp, wr, "__b__=$__debug_binding__;");
+  wn = snprintf(wp, wr, "__b__=$__debug_binding__\n");
   wp += wn; wr -= (size_t)wn;
 
   /* Pre-load each local variable */
-  for (mrb_int i = 0; i < num_vars && wr > 128; i++) {
+  for (mrb_int i = 0; i < num_vars && wr > 64; i++) {
     mrb_value sym = mrb_ary_ref(global_mrb, vars_ary, i);
     if (!mrb_symbol_p(sym)) continue;
     const char *vname = mrb_sym_name(global_mrb, mrb_symbol(sym));
     if (!vname || !*vname) continue;
-    wn = snprintf(wp, wr, "%s=__b__.local_variable_get(:%s);",
+    wn = snprintf(wp, wr, "%s=__b__.local_variable_get(:%s)\n",
                   vname, vname);
     wp += wn; wr -= (size_t)wn;
   }
 
-  /* User code wrapped in begin/end */
-  wn = snprintf(wp, wr, "__debug_result__=begin;%s;end;", code);
-  wp += wn; wr -= (size_t)wn;
-
-  /* Write back modified variables */
-  for (mrb_int i = 0; i < num_vars && wr > 128; i++) {
-    mrb_value sym = mrb_ary_ref(global_mrb, vars_ary, i);
-    if (!mrb_symbol_p(sym)) continue;
-    const char *vname = mrb_sym_name(global_mrb, mrb_symbol(sym));
-    if (!vname || !*vname) continue;
-    wn = snprintf(wp, wr, "__b__.local_variable_set(:%s,%s);",
-                  vname, vname);
-    wp += wn; wr -= (size_t)wn;
-  }
-
-  wn = snprintf(wp, wr, "__debug_result__");
+  /* User code as the last expression (return value) */
+  wn = snprintf(wp, wr, "(%s)", code);
   wp += wn;
 
   /* Step 3: Compile and execute the wrapper */
@@ -874,6 +888,11 @@ const char* mrb_debug_eval_in_binding(const char* code)
     if (eremaining > 2) { *ep++ = '}'; *ep = '\0'; }
     return json_buffer;
   }
+
+  fprintf(stderr, "[dbg] result mrb_type=%d classname=%s\n",
+          mrb_type(result),
+          mrb_obj_classname(global_mrb, result) ?
+            mrb_obj_classname(global_mrb, result) : "?");
 
   /* Return inspected result */
   mrb_value result_str = mrb_inspect(global_mrb, result);

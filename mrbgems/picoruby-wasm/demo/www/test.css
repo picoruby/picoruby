@@ -226,3 +226,8 @@ code {
   border-radius: 3px;
   font-family: monospace;
 }
+
+pre code {
+  padding: 0px;
+  background-color: transparent;
+}
