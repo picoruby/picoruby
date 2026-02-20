@@ -66,6 +66,7 @@
       overflow-y: auto;
       font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
       font-size: 11px;
+      cursor: text;
     }
 
     .repl-entry {
@@ -91,34 +92,28 @@
       margin-left: 16px;
     }
 
-    .repl-input-container {
+    .repl-current-input {
       display: flex;
-      padding: 8px;
-      background: #252526;
-      border-top: 1px solid #454545;
-      flex-shrink: 0;
+      align-items: baseline;
+      padding: 2px 0;
     }
 
     .repl-prompt {
-      padding: 4px 8px;
       color: #569cd6;
       font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      white-space: pre;
+      user-select: none;
+      flex-shrink: 0;
     }
 
-    .repl-input {
+    .repl-input-editable {
       flex: 1;
-      padding: 4px;
-      background: #1e1e1e;
       color: #cccccc;
-      border: 1px solid #454545;
-      border-radius: 2px;
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 11px;
-    }
-
-    .repl-input:focus {
       outline: none;
-      border-color: #007acc;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-width: 4px;
+      caret-color: #cccccc;
     }
 
     /* Right sidebar */
@@ -332,10 +327,6 @@
           &nbsp; n, next &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Step over<br>
           &nbsp; h, help &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show commands
         </div>
-      </div>
-      <div class="repl-input-container">
-        <span class="repl-prompt" id="replPrompt">irb:001&gt; </span>
-        <input type="text" class="repl-input" id="replInput" placeholder="Ruby code or debug command...">
       </div>
     </div>
 

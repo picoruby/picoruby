@@ -4,8 +4,6 @@ class PicoRubyDebugger {
   constructor() {
     this.status = document.getElementById('status');
     this.replOutput = document.getElementById('replOutput');
-    this.replInput = document.getElementById('replInput');
-    this.replPrompt = document.getElementById('replPrompt');
     this.localsContent = document.getElementById('localsContent');
     this.callstackContent = document.getElementById('callstackContent');
 
@@ -24,16 +22,176 @@ class PicoRubyDebugger {
     this.lastComponentTreeHash = null;
     this.lineNumber = 1;
 
+    // Console input state
+    this.currentInputLine = null;
+    this.inputEditable = null;
+    this.history = [];
+    this.historyIndex = -1;
+
     this.setupEventListeners();
-    this.updatePrompt();
+    this.createInputLine();
     this.checkConnection();
   }
 
+  // -- Console input --
+
+  createInputLine() {
+    const line = document.createElement('div');
+    line.className = 'repl-current-input';
+
+    const prompt = document.createElement('span');
+    prompt.className = 'repl-prompt';
+    if (this.isPaused) prompt.classList.add('debug');
+    prompt.textContent = this.getPromptText();
+
+    const editable = document.createElement('span');
+    editable.className = 'repl-input-editable';
+    editable.contentEditable = 'true';
+    editable.spellcheck = false;
+    editable.autocorrect = 'off';
+    editable.autocapitalize = 'off';
+
+    line.appendChild(prompt);
+    line.appendChild(editable);
+    this.replOutput.appendChild(line);
+
+    this.currentInputLine = line;
+    this.inputEditable = editable;
+
+    editable.addEventListener('keydown', (e) => this.handleInputKeydown(e));
+    editable.addEventListener('paste', (e) => this.handlePaste(e));
+    editable.focus();
+  }
+
+  handleInputKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.submitInput(this.inputEditable.textContent);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.historyBack();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.historyForward();
+    }
+  }
+
+  handlePaste(e) {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+  }
+
+  historyBack() {
+    if (this.history.length === 0) return;
+    if (this.historyIndex < this.history.length - 1) this.historyIndex++;
+    this.inputEditable.textContent =
+      this.history[this.history.length - 1 - this.historyIndex];
+    this.moveCursorToEnd();
+  }
+
+  historyForward() {
+    if (this.historyIndex <= 0) {
+      this.historyIndex = -1;
+      this.inputEditable.textContent = '';
+      return;
+    }
+    this.historyIndex--;
+    this.inputEditable.textContent =
+      this.history[this.history.length - 1 - this.historyIndex];
+    this.moveCursorToEnd();
+  }
+
+  moveCursorToEnd() {
+    const range = document.createRange();
+    const sel = window.getSelection();
+    range.selectNodeContents(this.inputEditable);
+    range.collapse(false);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  }
+
+  submitInput(code) {
+    // Freeze the current input line
+    const promptText = this.getPromptText();
+    const frozenEntry = this.currentInputLine;
+    frozenEntry.className = 'repl-entry';
+    frozenEntry.innerHTML =
+      `<div class="repl-input-line">${this.escapeHtml(promptText)}${this.escapeHtml(code)}</div>`;
+
+    this.lineNumber++;
+
+    if (code.trim()) {
+      this.history.push(code);
+      this.historyIndex = -1;
+    }
+
+    // Create new input line at bottom
+    this.createInputLine();
+    this.updatePrompt();
+    this.clearEmptyState();
+    this.replOutput.scrollTop = this.replOutput.scrollHeight;
+
+    if (!code.trim()) return;
+
+    // Check for debug commands when paused
+    if (this.isPaused) {
+      const cmd = this.parseDebugCommand(code);
+      if (cmd) {
+        this.executeDebugCommand(cmd, frozenEntry);
+        return;
+      }
+    }
+
+    // Use debug eval when paused, otherwise normal eval
+    const evalFn = this.isPaused ? 'mrb_debug_eval_in_binding' : 'mrb_eval_string';
+    console.log('[evalCode] isPaused:', this.isPaused, 'evalFn:', evalFn, 'code:', code);
+
+    this.evalInPage(`
+      (function() {
+        if (typeof window.picorubyModule === 'undefined') {
+          return { error: 'PicoRuby not available' };
+        }
+        try {
+          const jsonStr = window.picorubyModule.ccall(
+            '${evalFn}', 'string', ['string'], [${JSON.stringify(code)}]);
+          return JSON.parse(jsonStr);
+        } catch(e) {
+          return { error: e.toString() };
+        }
+      })()
+    `).then(response => {
+      if (response.error) {
+        const errorLine = document.createElement('div');
+        errorLine.className = 'repl-error';
+        errorLine.textContent = response.error;
+        frozenEntry.appendChild(errorLine);
+      } else {
+        const outputLine = document.createElement('div');
+        outputLine.className = 'repl-output-line';
+        outputLine.textContent = '=> ' + response.result;
+        frozenEntry.appendChild(outputLine);
+      }
+      this.replOutput.scrollTop = this.replOutput.scrollHeight;
+
+      if (this.isPaused) {
+        this.fetchLocals();
+      }
+    }).catch(err => {
+      const errorLine = document.createElement('div');
+      errorLine.className = 'repl-error';
+      errorLine.textContent = 'DevTools error: ' + err.message;
+      frozenEntry.appendChild(errorLine);
+      this.replOutput.scrollTop = this.replOutput.scrollHeight;
+    });
+  }
+
   setupEventListeners() {
-    this.replInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        this.evalCode(this.replInput.value);
-        this.replInput.value = '';
+    // Click anywhere in the output area focuses the input
+    this.replOutput.addEventListener('click', () => {
+      if (this.inputEditable) {
+        this.inputEditable.focus();
+        this.moveCursorToEnd();
       }
     });
 
@@ -384,79 +542,15 @@ class PicoRubyDebugger {
   }
 
   updatePrompt() {
-    this.replPrompt.textContent = this.getPromptText();
+    if (!this.currentInputLine) return;
+    const prompt = this.currentInputLine.querySelector('.repl-prompt');
+    if (!prompt) return;
+    prompt.textContent = this.getPromptText();
     if (this.isPaused) {
-      this.replPrompt.classList.add('debug');
+      prompt.classList.add('debug');
     } else {
-      this.replPrompt.classList.remove('debug');
+      prompt.classList.remove('debug');
     }
-  }
-
-  evalCode(code) {
-    if (!code.trim()) return;
-
-    const promptText = this.getPromptText();
-    const entry = document.createElement('div');
-    entry.className = 'repl-entry';
-    entry.innerHTML = `<div class="repl-input-line">${this.escapeHtml(promptText)}${this.escapeHtml(code)}</div>`;
-
-    this.clearEmptyState();
-    this.replOutput.appendChild(entry);
-
-    this.lineNumber++;
-    this.updatePrompt();
-
-    // Check for debug commands when paused
-    if (this.isPaused) {
-      const cmd = this.parseDebugCommand(code);
-      if (cmd) {
-        this.executeDebugCommand(cmd, entry);
-        return;
-      }
-    }
-
-    // Use debug eval when paused, otherwise normal eval
-    const evalFn = this.isPaused ? 'mrb_debug_eval_in_binding' : 'mrb_eval_string';
-    console.log('[evalCode] isPaused:', this.isPaused, 'evalFn:', evalFn, 'code:', code);
-
-    this.evalInPage(`
-      (function() {
-        if (typeof window.picorubyModule === 'undefined') {
-          return { error: 'PicoRuby not available' };
-        }
-        try {
-          const jsonStr = window.picorubyModule.ccall(
-            '${evalFn}', 'string', ['string'], [${JSON.stringify(code)}]);
-          return JSON.parse(jsonStr);
-        } catch(e) {
-          return { error: e.toString() };
-        }
-      })()
-    `).then(response => {
-      if (response.error) {
-        const errorLine = document.createElement('div');
-        errorLine.className = 'repl-error';
-        errorLine.textContent = response.error;
-        entry.appendChild(errorLine);
-      } else {
-        const outputLine = document.createElement('div');
-        outputLine.className = 'repl-output-line';
-        outputLine.textContent = '=> ' + response.result;
-        entry.appendChild(outputLine);
-      }
-      this.replOutput.scrollTop = this.replOutput.scrollHeight;
-
-      // Refresh locals after eval in debug mode
-      if (this.isPaused) {
-        this.fetchLocals();
-      }
-    }).catch(err => {
-      const errorLine = document.createElement('div');
-      errorLine.className = 'repl-error';
-      errorLine.textContent = 'DevTools error: ' + err.message;
-      entry.appendChild(errorLine);
-      this.replOutput.scrollTop = this.replOutput.scrollHeight;
-    });
   }
 
   // -- Helper methods --
@@ -466,7 +560,7 @@ class PicoRubyDebugger {
     const div = document.createElement('div');
     div.className = 'repl-info';
     div.textContent = message;
-    this.replOutput.appendChild(div);
+    this.replOutput.insertBefore(div, this.currentInputLine);
     this.replOutput.scrollTop = this.replOutput.scrollHeight;
   }
 
@@ -475,15 +569,13 @@ class PicoRubyDebugger {
     const div = document.createElement('div');
     div.className = 'repl-error';
     div.textContent = message;
-    this.replOutput.appendChild(div);
+    this.replOutput.insertBefore(div, this.currentInputLine);
     this.replOutput.scrollTop = this.replOutput.scrollHeight;
   }
 
   clearEmptyState() {
     const empty = this.replOutput.querySelector('.empty-state');
-    if (empty) {
-      this.replOutput.innerHTML = '';
-    }
+    if (empty) empty.remove();
   }
 
   updateStatus(message, paused) {
