@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PicoRuby Debugger</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 12px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #1e1e1e;
+      color: #cccccc;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      padding: 6px 8px;
+      background: #2d2d2d;
+      border-bottom: 1px solid #454545;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .status {
+      color: #888;
+      font-size: 11px;
+      flex: 1;
+    }
+
+    .status.paused {
+      color: #f0c674;
+    }
+
+    .debug-buttons {
+      display: none;
+      gap: 4px;
+    }
+
+    .debug-buttons.active {
+      display: flex;
+    }
+
+    .debug-btn {
+      padding: 4px 10px;
+      border: 1px solid #454545;
+      border-radius: 3px;
+      background: #333333;
+      color: #cccccc;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: inherit;
+    }
+
+    .debug-btn:hover {
+      background: #3e3e3e;
+      border-color: #007acc;
+    }
+
+    .debug-btn:active {
+      background: #094771;
+    }
+
+    .debug-btn.continue-btn {
+      background: #0e639c;
+      border-color: #0e639c;
+      color: #ffffff;
+    }
+
+    .debug-btn.continue-btn:hover {
+      background: #1177bb;
+    }
+
+    /* Content */
+    .content {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Left panel: REPL */
+    .repl-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .repl-output {
+      flex: 1;
+      padding: 8px;
+      overflow-y: auto;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .repl-entry {
+      margin-bottom: 8px;
+    }
+
+    .repl-input-line {
+      color: #569cd6;
+    }
+
+    .repl-output-line {
+      color: #ce9178;
+      margin-left: 16px;
+    }
+
+    .repl-error {
+      color: #f48771;
+      margin-left: 16px;
+    }
+
+    .repl-info {
+      color: #608b4e;
+      margin-left: 16px;
+    }
+
+    .repl-input-container {
+      display: flex;
+      padding: 8px;
+      background: #252526;
+      border-top: 1px solid #454545;
+      flex-shrink: 0;
+    }
+
+    .repl-prompt {
+      padding: 4px 8px;
+      color: #569cd6;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    }
+
+    .repl-input {
+      flex: 1;
+      padding: 4px;
+      background: #1e1e1e;
+      color: #cccccc;
+      border: 1px solid #454545;
+      border-radius: 2px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .repl-input:focus {
+      outline: none;
+      border-color: #007acc;
+    }
+
+    /* Right sidebar */
+    .sidebar {
+      width: 280px;
+      border-left: 1px solid #454545;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      display: flex;
+      flex-direction: column;
+      border-bottom: 1px solid #454545;
+    }
+
+    .sidebar-section.expanded {
+      flex: 1;
+    }
+
+    .section-header {
+      padding: 6px 8px;
+      background: #2d2d2d;
+      font-weight: 600;
+      font-size: 10px;
+      text-transform: uppercase;
+      color: #888;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .section-header:hover {
+      color: #cccccc;
+    }
+
+    .section-content {
+      padding: 4px 8px;
+      overflow-y: auto;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .variable-item {
+      padding: 3px 0;
+      display: flex;
+    }
+
+    .variable-name {
+      color: #9cdcfe;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+
+    .variable-sep {
+      color: #888;
+      margin-right: 4px;
+    }
+
+    .variable-value {
+      color: #ce9178;
+      word-break: break-all;
+    }
+
+    /* Call stack */
+    .stack-frame {
+      padding: 4px 8px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+    }
+
+    .stack-frame:hover {
+      background: #2a2d2e;
+    }
+
+    .stack-frame.active {
+      background: #094771;
+      border-left-color: #007acc;
+    }
+
+    .stack-frame-method {
+      color: #dcdcaa;
+    }
+
+    .stack-frame-location {
+      color: #888;
+      font-size: 10px;
+    }
+
+    /* Components section */
+    .components-panel {
+      display: none;
+      width: 300px;
+      border-left: 1px solid #454545;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .components-panel.visible {
+      display: flex;
+    }
+
+    .component-item {
+      padding: 6px 8px;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .component-item:hover {
+      background: #2a2d2e;
+    }
+
+    .component-item.selected {
+      background: #094771;
+      border-left-color: #007acc;
+    }
+
+    .component-class {
+      color: #4ec9b0;
+      flex: 1;
+    }
+
+    .component-id {
+      color: #888;
+      font-size: 10px;
+    }
+
+    .component-status {
+      color: #4ec9b0;
+      font-size: 14px;
+    }
+
+    .component-status-unmounted {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .tree-toggle {
+      color: #888;
+      cursor: pointer;
+      user-select: none;
+      font-size: 10px;
+      width: 12px;
+      display: inline-block;
+      text-align: center;
+    }
+
+    .tree-toggle:hover {
+      color: #cccccc;
+    }
+
+    .tree-spacer {
+      width: 12px;
+      display: inline-block;
+    }
+
+    .empty-state {
+      padding: 16px;
+      text-align: center;
+      color: #888;
+    }
+
+    .inspector-section {
+      margin-top: 8px;
+      margin-bottom: 4px;
+      color: #888;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .event-listener-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      margin-left: 6px;
+      background: #f59e42;
+      color: #1e1e1e;
+      font-size: 9px;
+      font-weight: bold;
+      border-radius: 3px;
+      cursor: default;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <span class="status" id="status">Connecting...</span>
+    <div class="debug-buttons" id="debugButtons">
+      <button class="debug-btn continue-btn" id="btnContinue" title="Continue (F8)">Continue</button>
+      <button class="debug-btn" id="btnStep" title="Step Into (F11)">Step</button>
+      <button class="debug-btn" id="btnNext" title="Step Over (F10)">Next</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- REPL panel -->
+    <div class="repl-panel">
+      <div class="repl-output" id="replOutput">
+        <div class="empty-state">
+          PicoRuby WASM Debugger<br><br>
+          Type Ruby code below and press Enter.<br>
+          Use <code>binding.irb</code> in your code to set breakpoints.
+        </div>
+      </div>
+      <div class="repl-input-container">
+        <span class="repl-prompt">&gt;&gt;</span>
+        <input type="text" class="repl-input" id="replInput" placeholder="Enter Ruby code...">
+      </div>
+    </div>
+
+    <!-- Right sidebar: locals + callstack -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-section expanded" id="localsSection">
+        <div class="section-header">Local Variables</div>
+        <div class="section-content" id="localsContent">
+          <div class="empty-state">Not paused</div>
+        </div>
+      </div>
+      <div class="sidebar-section" id="callstackSection">
+        <div class="section-header">Call Stack</div>
+        <div class="section-content" id="callstackContent">
+          <div class="empty-state">Not paused</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Components panel (only visible with Funicular) -->
+    <div class="components-panel" id="componentsPanel">
+      <div class="sidebar-section expanded">
+        <div class="section-header">Components</div>
+        <div class="section-content" id="componentTree">
+          <div class="empty-state">No components</div>
+        </div>
+      </div>
+      <div class="sidebar-section expanded">
+        <div class="section-header">Inspector</div>
+        <div class="section-content" id="componentInspector">
+          <div class="empty-state">Select a component</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>

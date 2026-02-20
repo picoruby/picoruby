@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>PicoRuby Debugger Test</title>
+    <link rel="stylesheet" href="test.css">
+    <style>
+      .scenario-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background: #fafafa;
+      }
+
+      .scenario-section h3 {
+        margin-top: 0;
+        color: #333;
+      }
+
+      .scenario-section pre {
+        margin: 10px 0 0 0;
+      }
+
+      .btn-run {
+        background-color: #007bff;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+
+      .btn-run:hover {
+        background-color: #0056b3;
+      }
+
+      #output-box {
+        margin: 20px 0;
+        padding: 15px;
+        border: 2px solid #28a745;
+        border-radius: 5px;
+        min-height: 40px;
+        background: #f8fff8;
+        font-family: monospace;
+        font-size: 14px;
+      }
+
+      .note {
+        background: #e7f3ff;
+        border-left: 4px solid #007bff;
+        padding: 10px 15px;
+        margin: 10px 0;
+        border-radius: 0 3px 3px 0;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>PicoRuby Debugger Test</h1>
+
+    <div class="instructions">
+      <h3>Setup</h3>
+      <ol>
+        <li>Load the PicoRuby DevTools extension:
+          Chrome menu &rarr; Extensions &rarr; Load unpacked &rarr;
+          <code>mrbgems/picoruby-wasm/debugger/</code>
+        </li>
+        <li>Open DevTools (F12) and select the <strong>PicoRuby</strong> tab.</li>
+        <li>Click a "Run" button below to start a scenario.</li>
+        <li>When the VM hits <code>binding.irb</code>, the panel shows
+          <em>Paused</em> state. Inspect locals, evaluate expressions, then
+          click <strong>Continue</strong> (or Step / Next).</li>
+      </ol>
+      <p class="note">
+        While paused, the page itself is frozen (WASM is single-threaded),
+        but the DevTools panel runs in a separate extension context and stays
+        responsive.
+      </p>
+    </div>
+
+    <h2>Output</h2>
+    <div id="output-box">Waiting for a scenario to run...</div>
+
+    <!-- ==================== Scenario 1 ==================== -->
+    <div class="scenario-section">
+      <h3>Scenario 1: Basic pause with local variables</h3>
+      <p>Pauses at <code>binding.irb</code> with several typed locals in scope.</p>
+      <pre><code>name    = "PicoRuby"
+count   = 42
+ratio   = 3.14
+active  = true
+langs   = ["Ruby", "C", "JavaScript"]
+config  = { debug: true, level: 3 }
+
+binding.irb   # inspect all of the above
+
+puts "#{name} has #{langs.size} language(s)"</code></pre>
+      <button class="btn-run" id="btn-scenario1">Run Scenario 1</button>
+    </div>
+
+    <!-- ==================== Scenario 2 ==================== -->
+    <div class="scenario-section">
+      <h3>Scenario 2: Pause inside a method call</h3>
+      <p>Pauses inside <code>greet</code>, showing method arguments as locals.</p>
+      <pre><code>class Greeter
+  def initialize(prefix)
+    @prefix = prefix
+  end
+
+  def greet(name, times)
+    message = "#{@prefix}, #{name}!"
+    binding.irb   # inspect: name, times, message (and self)
+    message * times
+  end
+end
+
+g = Greeter.new("Hello")
+g.greet("World", 3)</code></pre>
+      <button class="btn-run" id="btn-scenario2">Run Scenario 2</button>
+    </div>
+
+    <!-- ==================== Scenario 3 ==================== -->
+    <div class="scenario-section">
+      <h3>Scenario 3: Pause inside a loop (multiple hits)</h3>
+      <p>
+        <code>binding.irb</code> fires on every iteration. Click
+        <strong>Continue</strong> to advance to the next iteration and watch
+        <code>item</code>, <code>i</code>, and <code>acc</code> change.
+      </p>
+      <pre><code>words = ["alpha", "bravo", "charlie"]
+acc   = []
+
+words.each_with_index do |item, i|
+  upcased = item.upcase
+  binding.irb   # inspect: item, i, upcased, acc - hit 3 times
+  acc << upcased
+end
+
+acc.join(", ")</code></pre>
+      <button class="btn-run" id="btn-scenario3">Run Scenario 3</button>
+    </div>
+
+    <!-- ==================== Scenario 4 ==================== -->
+    <div class="scenario-section">
+      <h3>Scenario 4: Step / Next walkthrough</h3>
+      <p>
+        Use <strong>Step</strong> and <strong>Next</strong> buttons in the panel
+        to walk line by line through a calculation.
+      </p>
+      <pre><code>def fib(n)
+  return n if n <= 1
+  fib(n - 1) + fib(n - 2)
+end
+
+a = 10
+b = fib(a)     # Step into this to trace recursion (use Next to skip)
+c = b * 2
+
+binding.irb    # Inspect a, b, c after computation
+
+c</code></pre>
+      <button class="btn-run" id="btn-scenario4">Run Scenario 4</button>
+    </div>
+
+    <script type="text/ruby">
+      require 'js'
+
+      doc    = JS.document
+      output = doc.getElementById('output-box')
+
+      # Scenario 1: basic local variables
+      doc.getElementById('btn-scenario1').addEventListener('click') do |_e|
+        output.innerText = 'Scenario 1 running - waiting for binding.irb...'
+
+        name   = "PicoRuby"
+        count  = 42
+        ratio  = 3.14
+        active = true
+        langs  = ["Ruby", "C", "JavaScript"]
+        config = { debug: true, level: 3 }
+
+        binding.irb
+
+        result = "#{name} has #{langs.size} language(s)"
+        output.innerText = "Scenario 1 done: #{result}"
+      end
+
+      # Scenario 2: pause inside a method
+      class Greeter
+        def initialize(prefix)
+          @prefix = prefix
+        end
+
+        def greet(name, times)
+          message = "#{@prefix}, #{name}!"
+          binding.irb
+          message * times
+        end
+      end
+
+      doc.getElementById('btn-scenario2').addEventListener('click') do |_e|
+        output.innerText = 'Scenario 2 running - waiting for binding.irb inside Greeter#greet...'
+
+        g      = Greeter.new("Hello")
+        result = g.greet("World", 3)
+        output.innerText = "Scenario 2 done: #{result}"
+      end
+
+      # Scenario 3: pause inside a loop
+      doc.getElementById('btn-scenario3').addEventListener('click') do |_e|
+        output.innerText = 'Scenario 3 running - binding.irb fires 3 times, click Continue each time...'
+
+        words = ["alpha", "bravo", "charlie"]
+        acc   = []
+
+        words.each_with_index do |item, i|
+          upcased = item.upcase
+          binding.irb
+          acc << upcased
+        end
+
+        output.innerText = "Scenario 3 done: #{acc.join(', ')}"
+      end
+
+      # Scenario 4: step / next walkthrough
+      def fib(n)
+        return n if n <= 1
+        fib(n - 1) + fib(n - 2)
+      end
+
+      doc.getElementById('btn-scenario4').addEventListener('click') do |_e|
+        output.innerText = 'Scenario 4 running - use Step/Next in the panel...'
+
+        a = 10
+        b = fib(a)
+        c = b * 2
+
+        binding.irb
+
+        output.innerText = "Scenario 4 done: fib(#{a}) = #{b}, doubled = #{c}"
+      end
+    </script>
+
+    <script src="init.iife.js"></script>
+  </body>
+</html>

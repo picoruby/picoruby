@@ -17,6 +17,9 @@
 //extern void mrb_init_picoruby_gems(mrb_state *mrb);
 extern void mrb_js_init(mrb_state *mrb);
 extern void mrb_websocket_init(mrb_state *mrb);
+#ifdef PICORUBY_DEBUG
+extern void mrb_wasm_debugger_init(mrb_state *mrb);
+#endif
 
 mrb_state *global_mrb = NULL;
 mrb_value main_task = {0};
@@ -80,6 +83,9 @@ picorb_init(void)
  // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);
   mrb_websocket_init(global_mrb);
+#ifdef PICORUBY_DEBUG
+  mrb_wasm_debugger_init(global_mrb);
+#endif
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
