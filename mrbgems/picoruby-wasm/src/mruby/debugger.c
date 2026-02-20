@@ -806,20 +806,22 @@ const char* mrb_debug_eval_in_binding(const char* code)
     }
   }
 
-  /* Step 2: Build wrapper code with variable pre-loading.
+  /* Step 2: Build wrapper code with variable pre-loading and write-back.
    * Use newlines as statement separators to avoid any parser ambiguity.
    * Format:
    *   __b__=$__debug_binding__
    *   var1=__b__.local_variable_get(:var1)
    *   ...
-   *   (USER_CODE)
+   *   __r__=(USER_CODE)
+   *   __b__.local_variable_set(:var1, var1)
+   *   ...
+   *   __r__
    *
-   * Note: write-back is omitted here to keep the wrapper simple.
-   * Side effects from user code (e.g. assignments) are not propagated
-   * back to the binding. This is acceptable for a read-only REPL.
+   * Write-back propagates side effects (e.g. assignments) to the
+   * original binding so that subsequent evals see updated values.
    */
   size_t user_len = strlen(code);
-  size_t buf_size = user_len + (size_t)num_vars * 64 + 256;
+  size_t buf_size = user_len + (size_t)num_vars * 160 + 512;
   char *wrapper = (char *)mrb_malloc_simple(global_mrb, buf_size);
   if (!wrapper) {
     g_dbg.eval_in_progress = FALSE;
@@ -847,8 +849,23 @@ const char* mrb_debug_eval_in_binding(const char* code)
     wp += wn; wr -= (size_t)wn;
   }
 
-  /* User code as the last expression (return value) */
-  wn = snprintf(wp, wr, "(%s)", code);
+  /* User code - capture return value */
+  wn = snprintf(wp, wr, "__r__=(%s)\n", code);
+  wp += wn; wr -= (size_t)wn;
+
+  /* Write back each local variable to the binding */
+  for (mrb_int i = 0; i < num_vars && wr > 64; i++) {
+    mrb_value sym = mrb_ary_ref(global_mrb, vars_ary, i);
+    if (!mrb_symbol_p(sym)) continue;
+    const char *vname = mrb_sym_name(global_mrb, mrb_symbol(sym));
+    if (!vname || !*vname) continue;
+    wn = snprintf(wp, wr, "__b__.local_variable_set(:%s,%s)\n",
+                  vname, vname);
+    wp += wn; wr -= (size_t)wn;
+  }
+
+  /* Return the captured result */
+  wn = snprintf(wp, wr, "__r__");
   wp += wn;
 
   /* Step 3: Compile and execute the wrapper */
