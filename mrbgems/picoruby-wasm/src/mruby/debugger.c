@@ -138,27 +138,20 @@ mrb_binding_irb(mrb_state *mrb, mrb_value self)
     }
   }
 
-  /* Escape all on-stack REnvs in the binding's proc chain to the heap.
+  /* NOTE: We intentionally do NOT call mrb_env_unshare() here.
    *
-   * The binding's proc is an lvspace wrapper whose e.env is a stack-allocated
-   * REnv pointing into the current task's register file (stbase).  After
-   * mrb_suspend_task() the task is frozen, but when mrb_execute_proc_
-   * synchronously() later accesses the binding from a different task context,
-   * mrb->c differs from env->cxt.  Calling mrb_env_unshare() while we are
-   * still on the same task copies the register values to the heap and marks
-   * the env as closed (cxt = NULL), ensuring local_variable_get() reads
-   * stable heap memory regardless of which task is active. */
-  {
-    const struct RProc *p = mrb_binding_extract_proc(mrb, self);
-    while (p && !MRB_PROC_CFUNC_P(p)) {
-      struct REnv *e = MRB_PROC_ENV(p);
-      if (e && MRB_ENV_ONSTACK_P(e)) {
-        mrb_env_unshare(mrb, e, FALSE);
-      }
-      if (MRB_PROC_SCOPE_P(p)) break;
-      p = p->upper;
-    }
-  }
+   * mrb_env_unshare() copies the stack registers to a heap buffer and
+   * redirects env->stack to the copy.  However, when the task resumes
+   * after the debug pause, the bytecode interpreter still writes to the
+   * original stack registers (regs[]).  Inner blocks that access outer
+   * variables via OP_GETUPVAR read from env->stack (the heap copy),
+   * which is now stale.  This causes variables assigned after the pause
+   * point (e.g. `results = []`) to appear as nil in inner scopes.
+   *
+   * Instead, we leave the envs on-stack.  The suspended task's stack
+   * memory remains valid, so local_variable_get/set in the debug eval
+   * can access it directly.  The cross-context cxt mismatch is handled
+   * in mrb_debug_eval_in_binding by temporarily clearing env->cxt. */
 
   /* Get current task via pointer arithmetic on mrb->c */
   mrb_task *t = MRB2TASK(mrb);
@@ -593,6 +586,26 @@ debug_json_error(const char *msg)
   return err_buf;
 }
 
+/*
+ * Temporarily clear env->cxt for on-stack envs in the binding's proc
+ * chain so that local_variable_get/set can access the suspended task's
+ * stack from the root execution context.  Returns the number of envs
+ * patched; the caller must restore them with debug_env_cxt_restore().
+ */
+#define MAX_SAVED_ENVS 16
+typedef struct {
+  struct REnv *env;
+  struct mrb_context *cxt;
+} saved_env_cxt;
+
+static void
+debug_env_cxt_restore(saved_env_cxt *saved, int n)
+{
+  for (int i = 0; i < n; i++) {
+    saved[i].env->cxt = saved[i].cxt;
+  }
+}
+
 // Polled by JS to detect pause state (every ~200ms)
 EMSCRIPTEN_KEEPALIVE
 const char* mrb_debug_get_status(void)
@@ -691,6 +704,26 @@ const char* mrb_debug_continue(void)
   return "{\"status\":\"running\"}";
 }
 
+static int
+debug_env_cxt_clear(mrb_state *mrb, mrb_value binding,
+                    saved_env_cxt *saved, int max)
+{
+  int n = 0;
+  const struct RProc *p = mrb_binding_extract_proc(mrb, binding);
+  while (p && !MRB_PROC_CFUNC_P(p) && n < max) {
+    struct REnv *e = MRB_PROC_ENV(p);
+    if (e && MRB_ENV_ONSTACK_P(e)) {
+      saved[n].env = e;
+      saved[n].cxt = e->cxt;
+      e->cxt = NULL;   /* MRB_ENV_CLOSE - makes it look off-stack */
+      n++;
+    }
+    if (MRB_PROC_SCOPE_P(p)) break;
+    p = p->upper;
+  }
+  return n;
+}
+
 // Get local variables from the captured binding as JSON
 EMSCRIPTEN_KEEPALIVE
 const char* mrb_debug_get_locals(void)
@@ -701,6 +734,12 @@ const char* mrb_debug_get_locals(void)
   if (mrb_nil_p(g_dbg.binding)) {
     return debug_json_error("no binding captured");
   }
+
+  /* Temporarily clear env->cxt so local_variable_get can access
+   * the suspended task's on-stack envs from the root context. */
+  saved_env_cxt saved_envs[MAX_SAVED_ENVS];
+  int n_saved_envs = debug_env_cxt_clear(global_mrb, g_dbg.binding,
+                                         saved_envs, MAX_SAVED_ENVS);
 
   /* Store binding in a global variable for Ruby access */
   mrb_gv_set(global_mrb,
@@ -724,6 +763,8 @@ const char* mrb_debug_get_locals(void)
 
   global_mrb->exc = NULL;
   mrb_value result = debug_eval_code(global_mrb, code, strlen(code));
+
+  debug_env_cxt_restore(saved_envs, n_saved_envs);
 
   if (global_mrb->exc || mrb_undef_p(result) || !mrb_array_p(result)) {
     global_mrb->exc = NULL;
@@ -795,6 +836,12 @@ const char* mrb_debug_eval_in_binding(const char* code)
   global_mrb->code_fetch_hook = NULL;
 #endif
 
+  /* Temporarily clear env->cxt so local_variable_get/set can access
+   * the suspended task's on-stack envs from the root context. */
+  saved_env_cxt saved_envs[MAX_SAVED_ENVS];
+  int n_saved_envs = debug_env_cxt_clear(global_mrb, g_dbg.binding,
+                                         saved_envs, MAX_SAVED_ENVS);
+
   /* Store binding in global for Ruby access */
   mrb_gv_set(global_mrb,
              mrb_intern_lit(global_mrb, "$__debug_binding__"),
@@ -858,6 +905,7 @@ const char* mrb_debug_eval_in_binding(const char* code)
   size_t buf_size = user_len + (size_t)num_vars * 160 + 512;
   char *wrapper = (char *)mrb_malloc_simple(global_mrb, buf_size);
   if (!wrapper) {
+    debug_env_cxt_restore(saved_envs, n_saved_envs);
     g_dbg.eval_in_progress = FALSE;
 #ifdef MRB_USE_DEBUG_HOOK
     global_mrb->code_fetch_hook = saved_hook;
@@ -908,6 +956,7 @@ const char* mrb_debug_eval_in_binding(const char* code)
                                      (size_t)(wp - wrapper));
   mrb_free(global_mrb, wrapper);
 
+  debug_env_cxt_restore(saved_envs, n_saved_envs);
   g_dbg.eval_in_progress = FALSE;
 #ifdef MRB_USE_DEBUG_HOOK
   global_mrb->code_fetch_hook = saved_hook;
