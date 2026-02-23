@@ -38,6 +38,7 @@ module JS
 
       # Number of bytes available in the receive buffer
       def available: () -> Integer
+      def available?: () -> bool
 
       # Whether the device is currently connected
       def connected?: () -> bool

@@ -15,11 +15,6 @@ module JS
       attr_reader :device
 
       # Connect to a BLE UART device.
-      # @param service_uuid [String] Service UUID (default: NUS)
-      # @param tx_uuid [String] TX characteristic UUID (write direction)
-      # @param rx_uuid [String] RX characteristic UUID (notify direction)
-      # @param name [String, nil] exact device name filter
-      # @param name_prefix [String, nil] device name prefix filter
       def initialize(service_uuid: NUS_SERVICE_UUID,
                      tx_uuid: NUS_TX_CHAR_UUID,
                      rx_uuid: NUS_RX_CHAR_UUID,
@@ -53,45 +48,37 @@ module JS
       end
 
       # Write string data to the TX characteristic.
-      # @param data [String]
-      # @return [Integer] number of bytes written
       def write(data)
         @tx_char.write(data, without_response: true) # steep:ignore
-        data.length
+        data.bytesize
       end
 
       # Write string data with trailing newline.
-      # @param data [String]
       def puts(data)
         write(data + "\n")
         nil
       end
 
       # Read up to nbytes bytes. Blocks until enough data or timeout.
-      # @param nbytes [Integer]
-      # @param timeout [Integer, nil] timeout in seconds (nil = block forever)
-      # @return [String, nil] nil on timeout
       def read(nbytes, timeout: DEFAULT_TIMEOUT)
         deadline = timeout ? Time.now.to_f + timeout : nil
-        while @buffer.length < nbytes
+        while @buffer.bytesize < nbytes
           return nil if deadline && Time.now.to_f >= deadline
           sleep 0.05
         end
         result = @buffer.byteslice(0, nbytes)
-        @buffer = @buffer.byteslice(nbytes, @buffer.length - nbytes) || ""
+        @buffer = @buffer.byteslice(nbytes, @buffer.bytesize - nbytes) || ""
         result
       end
 
       # Read a line (blocks until newline or timeout).
-      # @param timeout [Integer, nil] timeout in seconds
-      # @return [String, nil] nil on timeout
       def gets(timeout: DEFAULT_TIMEOUT)
         deadline = timeout ? Time.now.to_f + timeout : nil
         while true
           idx = @buffer.index("\n")
           if idx
             line = @buffer.byteslice(0, idx + 1)
-            @buffer = @buffer.byteslice(idx + 1, @buffer.length - idx - 1) || ""
+            @buffer = @buffer.byteslice(idx + 1, @buffer.bytesize - idx - 1) || ""
             return line
           end
           return nil if deadline && Time.now.to_f >= deadline
@@ -100,24 +87,24 @@ module JS
       end
 
       # Non-blocking read: returns up to nbytes from buffer, or nil if empty.
-      # @param nbytes [Integer]
-      # @return [String, nil]
       def read_nonblock(nbytes)
         return nil if @buffer.empty?
-        actual = nbytes < @buffer.length ? nbytes : @buffer.length
+        actual = nbytes < @buffer.bytesize ? nbytes : @buffer.bytesize
         result = @buffer.byteslice(0, actual)
-        @buffer = @buffer.byteslice(actual, @buffer.length - actual) || ""
+        @buffer = @buffer.byteslice(actual, @buffer.bytesize - actual) || ""
         result
       end
 
       # Number of bytes available in the receive buffer.
-      # @return [Integer]
       def available
-        @buffer.length
+        @buffer.bytesize
+      end
+
+      def available?
+        0 < @buffer.bytesize
       end
 
       # Whether the device is currently connected.
-      # @return [Boolean]
       def connected?
         @connected && @device.connected? # steep:ignore
       end
