@@ -38,7 +38,7 @@ typedef enum {
   JS_TYPE_FUNCTION = 9
 } js_value_type;
 
-static struct RClass *class_JS_Object;
+struct RClass *class_JS_Object;
 
 static void
 picorb_js_obj_free(mrb_state *mrb, void *ptr)
@@ -46,7 +46,7 @@ picorb_js_obj_free(mrb_state *mrb, void *ptr)
   mrb_free(mrb, ptr);
 }
 
-static const struct mrb_data_type picorb_js_obj_type = {
+const struct mrb_data_type picorb_js_obj_type = {
   "picorb_js_obj", picorb_js_obj_free
 };
 
@@ -915,7 +915,7 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
 /*
  * Helper: wrap ref_id as JS::Object
  */
-static mrb_value
+mrb_value
 wrap_ref_as_js_object(mrb_state *mrb, int ref_id)
 {
   picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
