@@ -1,54 +1,62 @@
 module JS
   module BLE
-    # High-level IO-compatible wrapper for Nordic UART Service (NUS).
-    # Provides blocking and non-blocking read/write with internal buffer.
+    # High-level IO-compatible wrapper for BLE UART communication.
+    # Defaults to Nordic UART Service (NUS) UUIDs, but accepts custom UUIDs.
+    # TX = write direction (Central -> Peripheral)
+    # RX = read/notify direction (Peripheral -> Central)
     class UART
-      # Nordic UART Service UUIDs
-      SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-      TX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
-      RX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+      # Nordic UART Service UUIDs (defaults)
+      NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+      NUS_TX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
+      NUS_RX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
 
       DEFAULT_TIMEOUT = nil
 
       attr_reader :device
 
       # Connect to a BLE UART device.
-      # Accepts same filter options as GATT.request_device.
-      # The NUS service UUID is automatically added to optional_services.
-      def initialize(name: nil, name_prefix: nil,
-                     services: nil, optional_services: nil)
-        opt = optional_services ? optional_services.dup : []
-        opt << SERVICE_UUID unless opt.include?(SERVICE_UUID)
-
+      # @param service_uuid [String] Service UUID (default: NUS)
+      # @param tx_uuid [String] TX characteristic UUID (write direction)
+      # @param rx_uuid [String] RX characteristic UUID (notify direction)
+      # @param name [String, nil] exact device name filter
+      # @param name_prefix [String, nil] device name prefix filter
+      def initialize(service_uuid: NUS_SERVICE_UUID,
+                     tx_uuid: NUS_TX_CHAR_UUID,
+                     rx_uuid: NUS_RX_CHAR_UUID,
+                     name: nil, name_prefix: nil)
         @device = GATT.request_device(
           name: name,
           name_prefix: name_prefix,
-          services: services,
-          optional_services: opt
+          optional_services: [service_uuid]
         )
 
         @buffer = ""
-        @server = @device.connect
-        @service = @server.service(SERVICE_UUID)
-        @tx_char = @service.characteristic(TX_CHAR_UUID)
-        @rx_char = @service.characteristic(RX_CHAR_UUID)
+        @server = @device.connect # steep:ignore
+        @service = @server.service(service_uuid) # steep:ignore
+        @tx_char = @service.characteristic(tx_uuid) # steep:ignore
 
-        @rx_char.on_change do |data|
+        if tx_uuid == rx_uuid
+          @rx_char = @tx_char
+        else
+          @rx_char = @service.characteristic(rx_uuid) # steep:ignore
+        end
+
+        @rx_char.on_change do |data| # steep:ignore
           @buffer << data
         end
-        @rx_char.start_notify
+        @rx_char.start_notify # steep:ignore
 
-        @device.on_disconnected do
+        @device.on_disconnected do # steep:ignore
           @connected = false
         end
         @connected = true
       end
 
-      # Write string data to the UART TX characteristic.
+      # Write string data to the TX characteristic.
       # @param data [String]
       # @return [Integer] number of bytes written
       def write(data)
-        @tx_char.write(data, without_response: true)
+        @tx_char.write(data, without_response: true) # steep:ignore
         data.length
       end
 
@@ -111,13 +119,13 @@ module JS
       # Whether the device is currently connected.
       # @return [Boolean]
       def connected?
-        @connected && @device.connected?
+        @connected && @device.connected? # steep:ignore
       end
 
       # Disconnect and clean up.
       def close
-        @rx_char.stop_notify
-        @device.disconnect
+        @rx_char.stop_notify # steep:ignore
+        @device.disconnect # steep:ignore
         @connected = false
         @buffer = ""
       end

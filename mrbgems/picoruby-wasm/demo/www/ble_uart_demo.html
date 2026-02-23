@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>BLE UART Demo - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+  <style>
+    .controls { margin: 10px 0; }
+    .controls button { margin-right: 8px; padding: 6px 12px; }
+    .controls input { padding: 6px; width: 200px; }
+    #log { font-family: monospace; white-space: pre-wrap; background: #1a1a1a; color: #0f0; padding: 10px; height: 400px; overflow-y: auto; border: 1px solid #333; }
+    #status { font-weight: bold; margin: 8px 0; }
+    .connected { color: #0f0; }
+    .disconnected { color: #f00; }
+    fieldset { margin: 10px 0; padding: 10px; }
+    label { display: inline-block; width: 120px; }
+  </style>
+</head>
+<body>
+  <div><a href="index.html">Back</a> | <a href="ble_demo.html">GATT Demo</a></div>
+  <h1>BLE UART Demo</h1>
+  <p>IO-compatible UART interface over BLE.<br>
+     Uses JS::BLE::UART with configurable UUIDs.</p>
+
+  <details>
+    <summary>LightBlue (iOS/Android) Peripheral Setup</summary>
+    <ol>
+      <li>Open LightBlue &rarr; tap <b>Virtual Devices</b> tab</li>
+      <li>Tap <b>+</b> to create a new Virtual Peripheral</li>
+      <li>Add a Service with UUID <code>0xFFE0</code></li>
+      <li>Add a Characteristic under that service with UUID <code>0xFFE1</code></li>
+      <li>Enable these properties on the characteristic:
+        <ul>
+          <li><b>Read</b> &mdash; allows Central to read values</li>
+          <li><b>Write Without Response</b> &mdash; required for <code>write()</code> / <code>puts()</code> from browser</li>
+          <li><b>Notify</b> &mdash; allows Central to receive data via <code>read()</code> / <code>gets()</code></li>
+        </ul>
+      </li>
+      <li>Start advertising, then click <b>Connect</b> above</li>
+      <li>To send data from LightBlue to browser: tap the characteristic &rarr; write a value &rarr;
+          it will appear in the Log via Notify</li>
+    </ol>
+  </details>
+
+  <div id="status" class="disconnected">Disconnected</div>
+
+  <fieldset>
+    <legend>UUIDs</legend>
+    <div class="controls">
+      <label>Service:</label>
+      <input id="svc-uuid" type="text" value="0xffe0">
+    </div>
+    <div class="controls">
+      <label>TX (write):</label>
+      <input id="tx-uuid" type="text" value="0xffe1">
+    </div>
+    <div class="controls">
+      <label>RX (notify):</label>
+      <input id="rx-uuid" type="text" value="0xffe1">
+    </div>
+  </fieldset>
+
+  <div class="controls">
+    <button id="btn-connect">Connect</button>
+    <button id="btn-disconnect" disabled>Disconnect</button>
+  </div>
+
+  <fieldset>
+    <legend>Send</legend>
+    <div class="controls">
+      <input id="send-input" type="text" placeholder="Message..." disabled>
+      <button id="btn-send" disabled>Send</button>
+      <button id="btn-puts" disabled>puts</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Receive</legend>
+    <div class="controls">
+      <button id="btn-read" disabled>read</button>
+      <input id="read-size" type="number" value="10" min="1" style="width:60px" disabled> bytes,
+      timeout <input id="read-timeout" type="number" value="3" min="1" style="width:60px" disabled> s
+    </div>
+    <div class="controls">
+      <button id="btn-gets" disabled>gets</button>
+      timeout <input id="gets-timeout" type="number" value="3" min="1" style="width:60px" disabled> s
+    </div>
+    <div class="controls">
+      <button id="btn-read-nb" disabled>read_nonblock</button>
+      <input id="readnb-size" type="number" value="256" min="1" style="width:60px" disabled> bytes
+    </div>
+    <div class="controls">
+      <button id="btn-available" disabled>available</button>
+    </div>
+  </fieldset>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script type="text/ruby">
+    require 'js'
+
+    class App
+      CONTROL_IDS = %w[
+        btn-send btn-puts btn-read btn-gets btn-read-nb btn-available
+        send-input read-size read-timeout gets-timeout readnb-size
+      ]
+
+      def initialize
+        @uart = nil
+        @doc = JS.document
+        bind_events
+        append_log("[*] Ready. Click Connect to pair with a BLE UART device.")
+        append_log("[*] Default: Service 0xFFE0, TX/RX 0xFFE1 (same char)")
+      end
+
+      def el(id)
+        @doc.getElementById(id)
+      end
+
+      def append_log(msg)
+        log_el = el('log')
+        log_el[:textContent] = log_el[:textContent].to_s + msg + "\n"
+        log_el[:scrollTop] = log_el[:scrollHeight]
+      end
+
+      def hex_dump(str)
+        str.bytes.map { |b| "%02X" % b }.join(" ")
+      end
+
+      def ascii_dump(str)
+        str.bytes.map { |b| (0x20 <= b && b <= 0x7e) ? b.chr : "." }.join
+      end
+
+      def format_data(str)
+        "#{hex_dump(str)}  |#{ascii_dump(str)}| (#{str.length} bytes)"
+      end
+
+      def set_ui(connected)
+        if connected
+          el('status')[:textContent] = "Connected"
+          el('status')[:className] = "connected"
+          el('btn-connect').setAttribute("disabled", "true")
+          el('btn-disconnect').removeAttribute("disabled")
+          CONTROL_IDS.each { |id| el(id).removeAttribute("disabled") }
+        else
+          el('status')[:textContent] = "Disconnected"
+          el('status')[:className] = "disconnected"
+          el('btn-connect').removeAttribute("disabled")
+          el('btn-disconnect').setAttribute("disabled", "true")
+          CONTROL_IDS.each { |id| el(id).setAttribute("disabled", "true") }
+        end
+      end
+
+      def bind_events
+        el('btn-connect').addEventListener('click') do |_event|
+          do_connect
+        end
+        el('btn-disconnect').addEventListener('click') do |_event|
+          do_disconnect
+        end
+        el('btn-send').addEventListener('click') do |_event|
+          do_write
+        end
+        el('btn-puts').addEventListener('click') do |_event|
+          do_puts
+        end
+        el('btn-read').addEventListener('click') do |_event|
+          do_read
+        end
+        el('btn-gets').addEventListener('click') do |_event|
+          do_gets
+        end
+        el('btn-read-nb').addEventListener('click') do |_event|
+          do_read_nonblock
+        end
+        el('btn-available').addEventListener('click') do |_event|
+          do_available
+        end
+      end
+
+      def do_connect
+        svc = el('svc-uuid')[:value].to_s
+        tx = el('tx-uuid')[:value].to_s
+        rx = el('rx-uuid')[:value].to_s
+        append_log("[*] Connecting UART (svc=#{svc} tx=#{tx} rx=#{rx})...")
+        begin
+          @uart = JS::BLE::UART.new(
+            service_uuid: svc,
+            tx_uuid: tx,
+            rx_uuid: rx
+          )
+          append_log("[+] Connected to: #{@uart.device.name || '(unnamed)'}")
+          set_ui(true)
+        rescue => e
+          append_log("[-] Error: #{e.message}")
+        end
+      end
+
+      def do_disconnect
+        return unless @uart
+        @uart.close
+        @uart = nil
+        append_log("[*] Disconnected")
+        set_ui(false)
+      end
+
+      def do_write
+        return unless @uart && @uart.connected?
+        text = el('send-input')[:value].to_s
+        return if text.empty?
+        n = @uart.write(text)
+        append_log("[TX] #{format_data(text)} wrote=#{n}")
+        el('send-input')[:value] = ""
+      end
+
+      def do_puts
+        return unless @uart && @uart.connected?
+        text = el('send-input')[:value].to_s
+        return if text.empty?
+        @uart.puts(text)
+        append_log("[TX] puts: #{text.inspect}")
+        el('send-input')[:value] = ""
+      end
+
+      def do_read
+        return unless @uart && @uart.connected?
+        nbytes = el('read-size')[:value].to_s.to_i
+        timeout = el('read-timeout')[:value].to_s.to_i
+        append_log("[*] read(#{nbytes}, timeout: #{timeout})...")
+        data = @uart.read(nbytes, timeout: timeout)
+        if data
+          append_log("[RX] #{format_data(data)}")
+        else
+          append_log("[*] read: timeout")
+        end
+      end
+
+      def do_gets
+        return unless @uart && @uart.connected?
+        timeout = el('gets-timeout')[:value].to_s.to_i
+        append_log("[*] gets(timeout: #{timeout})...")
+        line = @uart.gets(timeout: timeout)
+        if line
+          append_log("[RX] gets: #{line.inspect}")
+        else
+          append_log("[*] gets: timeout (no newline)")
+        end
+      end
+
+      def do_read_nonblock
+        return unless @uart && @uart.connected?
+        nbytes = el('readnb-size')[:value].to_s.to_i
+        data = @uart.read_nonblock(nbytes)
+        if data
+          append_log("[RX] #{format_data(data)}")
+        else
+          append_log("[*] read_nonblock: buffer empty")
+        end
+      end
+
+      def do_available
+        return unless @uart && @uart.connected?
+        append_log("[*] available: #{@uart.available} bytes")
+      end
+    end
+
+    App.new
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>
