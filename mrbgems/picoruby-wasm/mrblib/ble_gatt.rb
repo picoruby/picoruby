@@ -1,14 +1,6 @@
 module JS
   module BLE
     module GATT
-      # Request a BLE device via browser picker.
-      # Must be called from a user gesture handler (click, etc.).
-      #
-      # @param name [String, nil] exact device name filter
-      # @param name_prefix [String, nil] device name prefix filter
-      # @param services [Array<String>, nil] required service UUIDs
-      # @param optional_services [Array<String>, nil] optional service UUIDs
-      # @return [JS::BLE::GATT::Device]
       # Convert UUID string to the format Web Bluetooth expects.
       # "0xffe0" -> Integer 0xffe0
       # "heart_rate" or "00001234-..." -> pass through as String
@@ -23,13 +15,16 @@ module JS
       # Build a JS array from Ruby array of UUID strings.
       def self.uuids_to_js_array(uuids)
         js_arr = JS.global.create_array
-        uuids.each { |u| js_arr.push(normalize_uuid(u)) }
+        uuids.each { |u| js_arr.push(normalize_uuid(u)) } # steep:ignore
         js_arr
       end
 
+      # Request a BLE device via browser picker.
+      # Must be called from a user gesture handler (click, etc.).
       def self.request_device(name: nil, name_prefix: nil,
                               services: nil, optional_services: nil)
-        navigator = JS.global[:navigator]
+        # @type var navigator: JS::Object
+        navigator = JS.global[:navigator] # steep:ignore
         bluetooth = navigator[:bluetooth]
         raise "Web Bluetooth API not supported" unless bluetooth
         options = JS.global.create_object
@@ -53,7 +48,7 @@ module JS
         end
 
         device = nil
-        bluetooth.requestDevice(options).then do |js_device|
+        bluetooth.requestDevice(options).then do |js_device| # steep:ignore
           device = Device.new(js_device)
         end
         device
@@ -70,10 +65,11 @@ module JS
         end
 
         # Connect to the GATT server on this device.
-        # @return [JS::BLE::GATT::Server]
         def connect
+          # @type var gatt: JS::Object
+          gatt = @js_device[:gatt] # steep:ignore
           server = nil
-          @js_device[:gatt].connect.then do |js_server|
+          gatt.connect.then do |js_server| # steep:ignore
             server = Server.new(js_server)
           end
           server
@@ -81,13 +77,17 @@ module JS
 
         # Disconnect from the GATT server.
         def disconnect
-          @js_device[:gatt].disconnect
+          # @type var gatt: JS::Object
+          gatt = @js_device[:gatt] # steep:ignore
+          gatt.disconnect # steep:ignore
         end
 
         # Whether the device is currently connected.
         # @return [Boolean]
         def connected?
-          @js_device[:gatt][:connected] == true
+          # @type var gatt: JS::Object
+          gatt = @js_device[:gatt] # steep:ignore
+          gatt[:connected] == true
         end
 
         # Register a callback for disconnection events.
@@ -107,11 +107,9 @@ module JS
         end
 
         # Get a primary service by UUID string.
-        # @param uuid [String]
-        # @return [JS::BLE::GATT::Service]
         def service(uuid)
           svc = nil
-          @js_server.getPrimaryService(GATT.normalize_uuid(uuid)).then do |js_service|
+          @js_server.getPrimaryService(GATT.normalize_uuid(uuid)).then do |js_service| # steep:ignore
             svc = Service.new(js_service)
           end
           svc
@@ -127,11 +125,9 @@ module JS
         end
 
         # Get a characteristic by UUID string.
-        # @param uuid [String]
-        # @return [JS::BLE::GATT::Characteristic]
         def characteristic(uuid)
           char = nil
-          @js_service.getCharacteristic(GATT.normalize_uuid(uuid)).then do |js_char|
+          @js_service.getCharacteristic(GATT.normalize_uuid(uuid)).then do |js_char| # steep:ignore
             char = Characteristic.new(js_char)
           end
           char
@@ -147,30 +143,26 @@ module JS
         end
 
         # Read the characteristic value.
-        # @return [String] binary string
         def read
           data = nil
-          @js_char.readValue.then do |js_dataview|
+          @js_char.readValue.then do |js_dataview| # steep:ignore
             data = JS::BLE._dataview_to_string(js_dataview)
           end
           data
         end
 
         # Write data to the characteristic.
-        # @param data [String] binary string to write
-        # @param without_response [Boolean] use writeValueWithoutResponse
         def write(data, without_response: false)
           js_uint8 = JS::BLE._string_to_uint8array(data)
           if without_response
-            @js_char.writeValueWithoutResponse(js_uint8).then {}
+            @js_char.writeValueWithoutResponse(js_uint8).then {} # steep:ignore
           else
-            @js_char.writeValueWithResponse(js_uint8).then {}
+            @js_char.writeValueWithResponse(js_uint8).then {} # steep:ignore
           end
         end
 
         # Register a notification callback.
         # The block receives binary String data on each notification.
-        # @yield [String] binary notification data
         def on_change(&block)
           callback_id = block.object_id
           JS::Object::CALLBACKS[callback_id] = block
@@ -179,12 +171,12 @@ module JS
 
         # Start receiving notifications.
         def start_notify
-          @js_char.startNotifications.then {}
+          @js_char.startNotifications.then {} # steep:ignore
         end
 
         # Stop receiving notifications.
         def stop_notify
-          @js_char.stopNotifications.then {}
+          @js_char.stopNotifications.then {} # steep:ignore
         end
       end
     end

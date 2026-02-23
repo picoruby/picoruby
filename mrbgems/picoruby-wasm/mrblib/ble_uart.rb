@@ -79,7 +79,7 @@ module JS
       # @return [String, nil] nil on timeout
       def gets(timeout: DEFAULT_TIMEOUT)
         deadline = timeout ? Time.now.to_f + timeout : nil
-        loop do
+        while true
           idx = @buffer.index("\n")
           if idx
             line = @buffer.byteslice(0, idx + 1)
