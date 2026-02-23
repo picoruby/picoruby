@@ -115,9 +115,9 @@ module JS
       JS.document.body.removeChild(script)
 
       # Poll for result
-      sleep 0.05 until JS.global[:"_promiseResult_#{callback_id}"]
+      sleep_ms 50 until JS.global[:"_promiseResult_#{callback_id}"]
 
-      result_id = JS.global[:"_promiseResult_#{callback_id}"]
+      result_id = JS.global[:"_promiseResult_#{callback_id}"].to_i
       JS.global[:"_promiseResult_#{callback_id}"] = nil
       JS.global[:"_tempPromise_#{callback_id}"] = nil
 
