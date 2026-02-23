@@ -1,0 +1,47 @@
+class BLE
+  class UART < BLE
+    NUS_SERVICE_UUID: String
+    NUS_RX_CHAR_UUID: String
+    NUS_TX_CHAR_UUID: String
+
+    BLUETOOTH_DATA_TYPE_FLAGS: Integer
+    BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS: Integer
+    BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME: Integer
+    APP_AD_FLAGS: Integer
+
+    BTSTACK_EVENT_STATE: Integer
+    HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+    ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
+    ATT_EVENT_CAN_SEND_NOW: Integer
+
+    NOTIFY_MTU: Integer
+
+    @adv_data: String
+    @rx_handle: Integer
+    @tx_handle: Integer
+    @cccd_handle: Integer
+    @rx_buffer: String
+    @tx_buffer: String
+    @notification_enabled: bool
+    @connected: bool
+    @user_block: (^() -> void | nil)
+
+    def initialize: (?name: String, ?service_uuid: String, ?rx_uuid: String, ?tx_uuid: String) -> void
+    def start: () ?{ () -> void } -> Integer
+    def heartbeat_callback: () -> void
+    def packet_callback: (String event_packet) -> void
+
+    def write: (untyped data) -> Integer
+    def puts: (?untyped data) -> nil
+    def read_nonblock: (?Integer nbytes) -> (String | nil)
+    def gets_nonblock: () -> (String | nil)
+    def available: () -> Integer
+    def available?: () -> bool
+    def connected?: () -> bool
+
+    def _drain_rx: () -> void
+    def _check_cccd: () -> void
+    def _request_send: () -> void
+    def _flush_tx: () -> void
+  end
+end
