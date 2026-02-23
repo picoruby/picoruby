@@ -144,7 +144,7 @@ def run_picotest_runner(gem, load_files)
 
   ENV['RUBY'] = ENV['PICORUBY_TEST_TARGET_VM']
 
-  runner = Picotest::Runner.new(test_dir, nil, "/tmp", lib_name, load_files, gem_dir)
+  runner = Picotest::Runner.new(test_dir, tmpdir: "/tmp", require_name: lib_name, load_files: load_files, load_path: gem_dir)
   error_count = runner.run
   return error_count == 0
 end

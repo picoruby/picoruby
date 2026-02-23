@@ -67,12 +67,21 @@ c_object_methods(mrbc_vm *vm, mrbc_value *v, int argc)
     }
     mrbc_method *method;
     if (cls) {
-      for( method = cls->method_link; method != 0; method = method->next ) {
-        mrbc_array_push(&methods, &mrbc_symbol_value(method->sym_id));
-      }
-      if (0 < cls->num_builtin_method) {
-        for (int i = 0; i < cls->num_builtin_method; i++) {
-          mrbc_array_push(&methods, &mrbc_symbol_value(((struct RBuiltinClass *)cls)->method_symbols[i]));
+      /* When flag_alias==1, the union holds 'aliased' (a class pointer) instead
+         of method_link. Resolve one level of alias to get the actual class.
+         When flag_builtin==1 and num_builtin_method==0 (RBuiltinNoMethodClass),
+         there is no method_link field - skip the dynamic method loop. */
+      mrbc_class *mcls = cls->flag_alias ? cls->aliased : cls;
+      if (mcls && !mcls->flag_alias) {
+        if (!mcls->flag_builtin || mcls->num_builtin_method > 0) {
+          for( method = mcls->method_link; method != 0; method = method->next ) {
+            mrbc_array_push(&methods, &mrbc_symbol_value(method->sym_id));
+          }
+        }
+        if (0 < mcls->num_builtin_method) {
+          for (int i = 0; i < mcls->num_builtin_method; i++) {
+            mrbc_array_push(&methods, &mrbc_symbol_value(((struct RBuiltinClass *)mcls)->method_symbols[i]));
+          }
         }
       }
     }

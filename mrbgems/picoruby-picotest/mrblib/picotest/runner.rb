@@ -8,7 +8,7 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter = nil, tmpdir = TMPDIR, require_name = nil, load_files = [], load_path = nil)
+    def initialize(dir, filter: nil, tmpdir: TMPDIR, require_name: nil, load_files: [], load_path: nil)
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
@@ -49,6 +49,7 @@ module Picotest
         test = klass.new
         tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
         File.open(tmpfile, "w") do |f|
+          f.puts "$LOAD_PATH = ['#{@load_path}']" if @load_path
           f.puts <<~KERNEL
             module Kernel
               alias :require_original :require
@@ -60,7 +61,6 @@ module Picotest
             end
           KERNEL
           f.puts "require 'picotest' # pre-built gem"
-          f.puts "$LOAD_PATH = ['#{@load_path}']" if @load_path
           f.puts "\n# implementation and mock"
           @load_files.each do |file|
             f.puts "load '#{file}'"
