@@ -22,12 +22,15 @@
   <p>Test BLE GATT operations with any BLE peripheral.<br>
      Use LightBlue app: Virtual Peripheral with Service 0xFFE0, Characteristic 0xFFE1.</p>
 
+<<<<<<< HEAD
   <p>If you are running the server on a different machine, launch the browser with this flag to allow BLE access (Google Chrome acceps the same option. DO NOT use it in the internet!):</p>
   <pre><code>
     "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" \
     --unsafely-treat-insecure-origin-as-secure=http://[server IP address]:8080
   </code></pre>
 
+=======
+>>>>>>> f7cfe1d5 (WIP)
   <div id="status" class="disconnected">Disconnected</div>
 
   <fieldset>
@@ -106,6 +109,7 @@
       str.bytes.map { |b| "%02X" % b }.join(" ")
     end
 
+<<<<<<< HEAD
     def ascii_dump(str)
       str.bytes.map { |b| (0x20 <= b && b <= 0x7e) ? b.chr : "." }.join
     end
@@ -114,6 +118,8 @@
       "#{hex_dump(str)}  |#{ascii_dump(str)}| (#{str.length} bytes)"
     end
 
+=======
+>>>>>>> f7cfe1d5 (WIP)
     # Connect
     doc.getElementById('btn-connect').addEventListener('click') do |_event|
       doc = JS.document
@@ -165,7 +171,11 @@
       if $char
         begin
           data = $char.read
+<<<<<<< HEAD
           append_log("[R] #{format_data(data)}")
+=======
+          append_log("[R] #{hex_dump(data)} (#{data.length} bytes) \"#{data}\"")
+>>>>>>> f7cfe1d5 (WIP)
         rescue => e
           append_log("[-] Read error: #{e.message}")
         end
@@ -180,7 +190,11 @@
         unless text.empty?
           begin
             $char.write(text)
+<<<<<<< HEAD
             append_log("[W] #{format_data(text)}")
+=======
+            append_log("[W] #{hex_dump(text)} (#{text.length} bytes) \"#{text}\"")
+>>>>>>> f7cfe1d5 (WIP)
             doc.getElementById('write-input')[:value] = ""
           rescue => e
             append_log("[-] Write error: #{e.message}")
@@ -194,7 +208,11 @@
       if $char
         begin
           $char.on_change do |data|
+<<<<<<< HEAD
             append_log("[N] #{format_data(data)}")
+=======
+            append_log("[N] #{hex_dump(data)} (#{data.length} bytes) \"#{data}\"")
+>>>>>>> f7cfe1d5 (WIP)
           end
           $char.start_notify
           append_log("[+] Notifications started")
