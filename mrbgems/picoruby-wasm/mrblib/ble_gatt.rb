@@ -9,12 +9,29 @@ module JS
       # @param services [Array<String>, nil] required service UUIDs
       # @param optional_services [Array<String>, nil] optional service UUIDs
       # @return [JS::BLE::GATT::Device]
+      # Convert UUID string to the format Web Bluetooth expects.
+      # "0xffe0" -> Integer 0xffe0
+      # "heart_rate" or "00001234-..." -> pass through as String
+      def self.normalize_uuid(uuid)
+        if uuid.start_with?("0x") || uuid.start_with?("0X")
+          uuid.to_i(16)
+        else
+          uuid
+        end
+      end
+
+      # Build a JS array from Ruby array of UUID strings.
+      def self.uuids_to_js_array(uuids)
+        js_arr = JS.global.create_array
+        uuids.each { |u| js_arr.push(normalize_uuid(u)) }
+        js_arr
+      end
+
       def self.request_device(name: nil, name_prefix: nil,
                               services: nil, optional_services: nil)
         navigator = JS.global[:navigator]
-        raise "Web Bluetooth not available" unless navigator
         bluetooth = navigator[:bluetooth]
-        raise "Web Bluetooth API not supported in this browser" unless bluetooth
+        raise "Web Bluetooth API not supported" unless bluetooth
         options = JS.global.create_object
 
         if name || name_prefix || services
@@ -23,7 +40,7 @@ module JS
           filter[:name] = name if name
           filter[:namePrefix] = name_prefix if name_prefix
           if services
-            filter[:services] = JS::Bridge.to_js(services)
+            filter[:services] = uuids_to_js_array(services)
           end
           filters.push(filter)
           options[:filters] = filters
@@ -32,7 +49,7 @@ module JS
         end
 
         if optional_services
-          options[:optionalServices] = JS::Bridge.to_js(optional_services)
+          options[:optionalServices] = uuids_to_js_array(optional_services)
         end
 
         device = nil
@@ -94,7 +111,7 @@ module JS
         # @return [JS::BLE::GATT::Service]
         def service(uuid)
           svc = nil
-          @js_server.getPrimaryService(uuid).then do |js_service|
+          @js_server.getPrimaryService(GATT.normalize_uuid(uuid)).then do |js_service|
             svc = Service.new(js_service)
           end
           svc
@@ -114,7 +131,7 @@ module JS
         # @return [JS::BLE::GATT::Characteristic]
         def characteristic(uuid)
           char = nil
-          @js_service.getCharacteristic(uuid).then do |js_char|
+          @js_service.getCharacteristic(GATT.normalize_uuid(uuid)).then do |js_char|
             char = Characteristic.new(js_char)
           end
           char
