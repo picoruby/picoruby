@@ -1671,8 +1671,8 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   if (argc == 0) {
     int js_type = get_js_property_type(js_obj->ref_id, method_name);
     if (js_type == JS_TYPE_FUNCTION) {
-      call_method_no_return(js_obj->ref_id, method_name);
-      return mrb_nil_value();
+      new_ref_id = call_method(js_obj->ref_id, method_name, "");
+      return js_ref_to_ruby_value(mrb, new_ref_id);
     }
     // Try to get property
     mrb_value property_obj = get_js_property(mrb, js_obj->ref_id, method_name);
