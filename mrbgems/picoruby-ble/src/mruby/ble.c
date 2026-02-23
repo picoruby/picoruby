@@ -2,6 +2,7 @@
 #include "mruby/presym.h"
 #include "mruby/string.h"
 #include "mruby/hash.h"
+#include "mruby/array.h"
 
 static mrb_state *_mrb = NULL;
 static mrb_value write_values;
@@ -35,9 +36,15 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   if (att_handle == 0 || size == 0 || _mrb == NULL || mrb_hash_p(write_values) == false) {
     return -1;
   }
+  mrb_value key = mrb_fixnum_value(att_handle);
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
   write_values_mutex = true;
-  mrb_hash_set(_mrb, write_values, mrb_fixnum_value(att_handle), write_value);
+  mrb_value queue = mrb_hash_get(_mrb, write_values, key);
+  if (!mrb_array_p(queue)) {
+    queue = mrb_ary_new_capa(_mrb, 4);
+    mrb_hash_set(_mrb, write_values, key, queue);
+  }
+  mrb_ary_push(_mrb, queue, write_value);
   write_values_mutex = false;
   return 0;
 }
@@ -84,7 +91,12 @@ mrb_pop_write_value(mrb_state *mrb, mrb_value self)
   if (write_values_mutex) return mrb_nil_value();
   mrb_int handle;
   mrb_get_args(mrb, "i", &handle);
-  return mrb_hash_delete_key(mrb, write_values, mrb_fixnum_value(handle));
+  mrb_value key = mrb_fixnum_value(handle);
+  mrb_value queue = mrb_hash_get(mrb, write_values, key);
+  if (!mrb_array_p(queue) || RARRAY_LEN(queue) == 0) {
+    return mrb_nil_value();
+  }
+  return mrb_ary_shift(mrb, queue);
 }
 
 static mrb_value

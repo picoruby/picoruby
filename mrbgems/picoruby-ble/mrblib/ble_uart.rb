@@ -151,13 +151,13 @@ class BLE
     private
 
     def _drain_rx
-      data = pop_write_value(@rx_handle)
-      @rx_buffer << data if data
+      while (data = pop_write_value(@rx_handle))
+        @rx_buffer << data
+      end
     end
 
     def _check_cccd
-      data = pop_write_value(@cccd_handle)
-      if data
+      while (data = pop_write_value(@cccd_handle))
         @notification_enabled = (data == "\x01\x00")
         debug_puts "Notifications #{@notification_enabled ? 'enabled' : 'disabled'}"
       end
