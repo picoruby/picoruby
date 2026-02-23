@@ -91,7 +91,7 @@ mrb__set_function(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_read(mrb_state *mrb, mrb_value self)
+mrb__read(mrb_state *mrb, mrb_value self)
 {
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
   size_t available_len = bufferDataSize(rx);
@@ -140,7 +140,7 @@ mrb_bytes_available(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_write(mrb_state *mrb, mrb_value self)
+mrb__write(mrb_state *mrb, mrb_value self)
 {
   mrb_value str;
   mrb_get_args(mrb, "S", &str);
@@ -212,6 +212,32 @@ mrb_break(mrb_state *mrb, mrb_value self)
   return self;
 }
 
+static mrb_value
+mrb__bitbang_tx_mode(mrb_state *mrb, mrb_value self)
+{
+  UART_bitbang_tx_mode();
+  return self;
+}
+
+static mrb_value
+mrb__bitbang_rx_mode(mrb_state *mrb, mrb_value self)
+{
+  UART_bitbang_rx_mode();
+  return self;
+}
+
+static mrb_value
+mrb__bitbang_read(mrb_state *mrb, mrb_value self)
+{
+  mrb_int len, timeout_ms;
+  mrb_get_args(mrb, "ii", &len, &timeout_ms);
+  if (len <= 0) return mrb_nil_value();
+  uint8_t buf[len];
+  int received = UART_bitbang_read_blocking(buf, (size_t)len, (uint32_t)timeout_ms);
+  if (received == 0) return mrb_nil_value();
+  return mrb_str_new(mrb, (const char *)buf, received);
+}
+
 
 void
 mrb_picoruby_uart_gem_init(mrb_state* mrb)
@@ -232,15 +258,18 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_flow_control), mrb__set_flow_control, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_format), mrb__set_format, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_function), mrb__set_function, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(read), mrb_read, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(_read), mrb__read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(readpartial), mrb_readpartial, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(bytes_available), mrb_bytes_available, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(write), mrb_write, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(_write), mrb__write, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(gets), mrb_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(flush), mrb_flush, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(clear_tx_buffer), mrb_clear_tx_buffer, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(clear_rx_buffer), mrb_clear_rx_buffer, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(break), mrb_break, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(_bitbang_tx_mode), mrb__bitbang_tx_mode, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(_bitbang_rx_mode), mrb__bitbang_rx_mode, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(_bitbang_read), mrb__bitbang_read, MRB_ARGS_REQ(2));
 }
 
 void

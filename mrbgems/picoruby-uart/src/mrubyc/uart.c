@@ -72,7 +72,7 @@ c__set_function(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_read(mrbc_vm *vm, mrbc_value v[], int argc)
+c__read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   size_t available_len = bufferDataSize(rx);
@@ -126,7 +126,7 @@ c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
-c_write(mrbc_vm *vm, mrbc_value v[], int argc)
+c__write(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
@@ -208,6 +208,35 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
   UART_break(unit_num, break_ms);
 }
 
+static void
+c__bitbang_tx_mode(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_bitbang_tx_mode();
+}
+
+static void
+c__bitbang_rx_mode(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  UART_bitbang_rx_mode();
+}
+
+static void
+c__bitbang_read(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc != 2) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 2");
+    return;
+  }
+  int len        = GET_INT_ARG(1);
+  int timeout_ms = GET_INT_ARG(2);
+  if (len <= 0) { SET_NIL_RETURN(); return; }
+  uint8_t buf[len];
+  int received = UART_bitbang_read_blocking(buf, (size_t)len, (uint32_t)timeout_ms);
+  if (received == 0) { SET_NIL_RETURN(); return; }
+  mrbc_value str = mrbc_string_new(vm, buf, received);
+  SET_RETURN(str);
+}
+
 #define SET_CLASS_CONST_INT(cls, cst) \
   mrbc_set_class_const(mrbc_class_##cls, mrbc_str_to_symid(#cst), &mrbc_integer_value(cst))
 
@@ -229,13 +258,16 @@ mrbc_uart_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_UART, "_set_flow_control", c__set_flow_control);
   mrbc_define_method(vm, mrbc_class_UART, "_set_format", c__set_format);
   mrbc_define_method(vm, mrbc_class_UART, "_set_function", c__set_function);
-  mrbc_define_method(vm, mrbc_class_UART, "read", c_read);
+  mrbc_define_method(vm, mrbc_class_UART, "_read", c__read);
   mrbc_define_method(vm, mrbc_class_UART, "readpartial", c_readpartial);
   mrbc_define_method(vm, mrbc_class_UART, "bytes_available", c_bytes_available);
-  mrbc_define_method(vm, mrbc_class_UART, "write", c_write);
+  mrbc_define_method(vm, mrbc_class_UART, "_write", c__write);
   mrbc_define_method(vm, mrbc_class_UART, "gets", c_gets);
   mrbc_define_method(vm, mrbc_class_UART, "flush", c_flush);
   mrbc_define_method(vm, mrbc_class_UART, "clear_tx_buffer", c_clear_tx_buffer);
   mrbc_define_method(vm, mrbc_class_UART, "clear_rx_buffer", c_clear_rx_buffer);
   mrbc_define_method(vm, mrbc_class_UART, "break", c_break);
+  mrbc_define_method(vm, mrbc_class_UART, "_bitbang_tx_mode", c__bitbang_tx_mode);
+  mrbc_define_method(vm, mrbc_class_UART, "_bitbang_rx_mode", c__bitbang_rx_mode);
+  mrbc_define_method(vm, mrbc_class_UART, "_bitbang_read", c__bitbang_read);
 }

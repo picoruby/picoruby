@@ -1,9 +1,17 @@
 #include <stddef.h>
+#include <string.h>
 #include "../../include/uart.h"
 
 int
 UART_unit_name_to_unit_num(const char *name)
 {
+  if (strcmp(name, "BITBANG") == 0) {
+    return PICORUBY_UART_BITBANG;
+  } else if (strcmp(name, "RP2040_UART0") == 0) {
+    return PICORUBY_UART_RP2040_UART0;
+  } else if (strcmp(name, "RP2040_UART1") == 0) {
+    return PICORUBY_UART_RP2040_UART1;
+  }
   return 0;
 }
 
@@ -74,6 +82,27 @@ UART_clear_rx_buffer(int unit_num)
 void
 UART_clear_tx_buffer(int unit_num)
 {
-  // no-op
+  /* no-op */
+}
+
+void
+UART_bitbang_tx_mode(void)
+{
+  /* no-op on posix */
+}
+
+void
+UART_bitbang_rx_mode(void)
+{
+  /* no-op on posix */
+}
+
+int
+UART_bitbang_read_blocking(uint8_t *dst, size_t len, uint32_t timeout_ms)
+{
+  (void)dst;
+  (void)len;
+  (void)timeout_ms;
+  return 0;
 }
 

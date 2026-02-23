@@ -17,11 +17,14 @@ class UART
   @unit_num: Integer
   @rx_buffer: UART::RxBuffer
   @line_ending: ("\n"|"\r\n"|"\r")
+  @bitbang: bool
 
   attr_reader baudrate: Integer
 
   def self.new: (
     unit: unit_t,
+    ?pin: Integer,
+    ?de_pin: Integer,
     ?txd_pin: Integer,
     ?rxd_pin: Integer,
     ?baudrate: Integer,
@@ -55,13 +58,21 @@ class UART
   private def _set_function: (Integer pin) -> void
   def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   private def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
-  def read: (?Integer len) -> (String | nil)
+  private def _read: (?Integer len) -> (String | nil)
+  private def _write: (String str) -> Integer
+  private def _bitbang_tx_mode: () -> self
+  private def _bitbang_rx_mode: () -> self
+  private def _bitbang_read: (Integer len, Integer timeout_ms) -> (String | nil)
+  def read: (?Integer len, ?timeout: Integer?) -> (String | nil)
   def readpartial: (Integer maxlen) -> String
   def bytes_available: () -> Integer
   def line_ending=: (("\n"|"\r\n"|"\r") line_ending) -> void
   def puts: (String str) -> nil
   def gets: () -> String?
   def write: (String str) -> Integer
+  def tx_mode: () -> self
+  def rx_mode: () -> self
+  def transmit: () { (instance) -> void } -> void
   def flush: () -> self
   def clear_tx_buffer: () -> self
   def clear_rx_buffer: () -> self

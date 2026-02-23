@@ -213,3 +213,24 @@ UART_clear_tx_buffer(int unit_num)
 {
   // no-op
 }
+
+void
+UART_bitbang_tx_mode(void)
+{
+  /* no-op on ESP32 */
+}
+
+void
+UART_bitbang_rx_mode(void)
+{
+  /* no-op on ESP32 */
+}
+
+int
+UART_bitbang_read_blocking(uint8_t *dst, size_t len, uint32_t timeout_ms)
+{
+  (void)dst;
+  (void)len;
+  (void)timeout_ms;
+  return 0;
+}

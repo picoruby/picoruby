@@ -3,6 +3,8 @@ require "gpio"
 class UART
   def initialize(
         unit:,
+        pin: -1,
+        de_pin: -1,
         txd_pin: -1,
         rxd_pin: -1,
         baudrate: 9600,
@@ -13,8 +15,13 @@ class UART
         rts_pin: -1,
         cts_pin: -1,
         rx_buffer_size: nil)
+    @bitbang = unit.to_s == "BITBANG"
     @rx_buffer = open_rx_buffer(rx_buffer_size)
-    @unit_num = open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
+    if @bitbang
+      @unit_num = open_connection(unit.to_s, pin, de_pin, @rx_buffer)
+    else
+      @unit_num = open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
+    end
     @baudrate = _set_baudrate(baudrate)
     setmode(
       baudrate: nil,
@@ -26,6 +33,7 @@ class UART
       cts_pin: cts_pin
     )
     @line_ending = "\n"
+    rx_mode if @bitbang
   end
 
   attr_reader :baudrate
@@ -37,12 +45,50 @@ class UART
     @line_ending = line_ending
   end
 
+  def write(str)
+    if @bitbang
+      _bitbang_tx_mode
+      result = _write(str)
+      _bitbang_rx_mode
+      result
+    else
+      _write(str)
+    end
+  end
+
   def puts(str)
     write str
     unless str.end_with?(@line_ending)
       write @line_ending
     end
     nil
+  end
+
+  def read(len = nil, timeout: nil)
+    if @bitbang
+      _bitbang_read(len || 1, timeout || 0)
+    else
+      _read(len)
+    end
+  end
+
+  def tx_mode
+    _bitbang_tx_mode if @bitbang
+    self
+  end
+
+  def rx_mode
+    _bitbang_rx_mode if @bitbang
+    self
+  end
+
+  def transmit
+    tx_mode
+    begin
+      yield self
+    ensure
+      rx_mode
+    end
   end
 
   def setmode(
@@ -54,7 +100,9 @@ class UART
     rts_pin:      nil,
     cts_pin:      nil)
     @baudrate = _set_baudrate(baudrate) if baudrate
-    set_flow_control(flow_control || FLOW_CONTROL_NONE, rts_pin || -1, cts_pin || -1)
+    unless @bitbang
+      set_flow_control(flow_control || FLOW_CONTROL_NONE, rts_pin || -1, cts_pin || -1)
+    end
     set_format(data_bits || 8, stop_bits || 1, parity || PARITY_NONE)
     self
   end

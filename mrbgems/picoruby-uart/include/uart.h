@@ -16,8 +16,9 @@ extern "C" {
 
 #define DEFAULT_BAUDRATE 115200
 
-#define PICORUBY_UART_RP2040_UART0      0
-#define PICORUBY_UART_RP2040_UART1      1
+#define PICORUBY_UART_BITBANG           0
+#define PICORUBY_UART_RP2040_UART0      1
+#define PICORUBY_UART_RP2040_UART1      2
 
 typedef enum {
  UART_ERROR_NONE          =  0,
@@ -35,6 +36,10 @@ typedef struct {
 typedef void (*PushBuffer)(RingBuffer *ring_buffer, uint8_t ch);
 
 bool UART_pushBuffer(RingBuffer *ring_buffer, uint8_t ch);
+
+void UART_bitbang_tx_mode(void);
+void UART_bitbang_rx_mode(void);
+int  UART_bitbang_read_blocking(uint8_t *dst, size_t len, uint32_t timeout_ms);
 
 int UART_unit_name_to_unit_num(const char *unit_name);
 void UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer);
