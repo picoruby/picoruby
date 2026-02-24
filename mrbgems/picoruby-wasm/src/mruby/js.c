@@ -2228,6 +2228,34 @@ mrb_js_refcount(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(0);
 }
 
+EM_JS(int, js_eval, (const char* script), {
+  try {
+    var result = (0, eval)(UTF8ToString(script));
+    if (result === undefined || result === null) return -1;
+    var refId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return refId;
+  } catch(e) {
+    console.error('JS.eval error:', e);
+    return -1;
+  }
+});
+
+/*
+ * JS.eval(script) - Evaluate JavaScript code synchronously
+ */
+static mrb_value
+mrb_js_eval(mrb_state *mrb, mrb_value klass)
+{
+  const char *script;
+  mrb_get_args(mrb, "z", &script);
+  int ref_id = js_eval(script);
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  return js_ref_to_ruby_value(mrb, ref_id);
+}
+
 
 void
 mrb_js_init(mrb_state *mrb)
@@ -2237,6 +2265,7 @@ mrb_js_init(mrb_state *mrb)
 
   struct RClass *module_JS = mrb_define_module(mrb, "JS");
   mrb_define_class_method_id(mrb, module_JS, MRB_SYM(global), mrb_js_global, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_JS, MRB_SYM(eval), mrb_js_eval, MRB_ARGS_REQ(1));
 
   class_JS_Object = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Object), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_JS_Object, MRB_TT_DATA);
