@@ -31,7 +31,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   file output_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
     if ENV['PICORUBY_DEBUG']
       optdebug = '-O0 -gsource-map --source-map-base http://127.0.0.1:8080/'
-      exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free", "_mrb_get_globals_json", "_mrb_eval_string", "_mrb_get_component_debug_info", "_mrb_get_component_state_by_id"]'
+      exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free", "_mrb_get_globals_json", "_mrb_eval_string", "_mrb_get_component_debug_info", "_mrb_get_component_state_by_id", "_mrb_debug_get_status", "_mrb_debug_continue", "_mrb_debug_get_locals", "_mrb_debug_eval_in_binding", "_mrb_debug_step", "_mrb_debug_next", "_mrb_debug_get_callstack"]'
     else
       optdebug = '-g0 -O2'
       exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free"]'

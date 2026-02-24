@@ -4,6 +4,8 @@
 #include "mruby/string.h"
 
 #include "mruby_compiler.h"
+#include "mrc_debug.h"
+#include "mrc_parser_util.h"
 #include "mrc_utils.h"
 #include "task.h"
 
@@ -17,9 +19,45 @@
 //extern void mrb_init_picoruby_gems(mrb_state *mrb);
 extern void mrb_js_init(mrb_state *mrb);
 extern void mrb_websocket_init(mrb_state *mrb);
+#ifdef PICORUBY_DEBUG
+extern void mrb_wasm_debugger_init(mrb_state *mrb);
+#endif
 
 mrb_state *global_mrb = NULL;
 mrb_value main_task = {0};
+
+/*
+ * Walk the irep tree recursively and re-intern filename_syms.
+ *
+ * mrc_irep_debug_info_file.filename_sym is a Prism constant pool ID (mrc_sym),
+ * not an mruby symbol (mrb_sym). They share the same C type (uint32_t) but are
+ * looked up in different symbol tables, so mrb_debug_get_filename returns the
+ * wrong string at runtime.  By re-interning the filename with mrb_intern here
+ * (while the mrc_ccontext cc is still alive so we can resolve the string),
+ * we overwrite the Prism ID with a proper mrb_sym before cc is freed.
+ */
+static void
+fix_irep_filename_syms(mrc_ccontext *cc, mrb_state *mrb, mrc_irep *irep)
+{
+  if (!irep) return;
+
+  if (irep->debug_info) {
+    mrc_irep_debug_info *di = irep->debug_info;
+    for (uint16_t i = 0; i < di->flen; i++) {
+      mrc_irep_debug_info_file *f = di->files[i];
+      if (!f) continue;
+      mrc_int len = 0;
+      const char *name = mrc_sym_name_len(cc, f->filename_sym, &len);
+      if (name && len > 0) {
+        f->filename_sym = (mrc_sym)mrb_intern(mrb, name, (size_t)len);
+      }
+    }
+  }
+
+  for (uint16_t i = 0; i < irep->rlen; i++) {
+    fix_irep_filename_syms(cc, mrb, (mrc_irep *)irep->reps[i]);
+  }
+}
 
 void*
 FILE_physical_address(void* p)
@@ -80,6 +118,9 @@ picorb_init(void)
  // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);
   mrb_websocket_init(global_mrb);
+#ifdef PICORUBY_DEBUG
+  mrb_wasm_debugger_init(global_mrb);
+#endif
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
@@ -136,6 +177,7 @@ picorb_create_task(const char *code)
     return -1;
   }
 
+  fix_irep_filename_syms(cc, global_mrb, irep);
   mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
   mrc_ccontext_free(cc);
 

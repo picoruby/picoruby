@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>PicoRuby Debugger Tutorial</title>
+    <link rel="stylesheet" href="test.css">
+    <style>
+      .tutorial-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background: #fafafa;
+      }
+
+      .tutorial-section h3 {
+        margin-top: 0;
+        color: #333;
+      }
+
+      .tutorial-section pre {
+        margin: 10px 0 0 0;
+      }
+
+      .btn-run {
+        background-color: #007bff;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+      }
+
+      .btn-run:hover {
+        background-color: #0056b3;
+      }
+
+      #output-box {
+        margin: 20px 0;
+        padding: 15px;
+        border: 2px solid #28a745;
+        border-radius: 5px;
+        min-height: 40px;
+        background: #f8fff8;
+        font-family: monospace;
+        font-size: 14px;
+      }
+
+      .note {
+        background: #e7f3ff;
+        border-left: 4px solid #007bff;
+        padding: 10px 15px;
+        margin: 10px 0;
+        border-radius: 0 3px 3px 0;
+        font-size: 13px;
+      }
+
+      .step {
+        margin: 12px 0;
+        padding: 10px 14px;
+        border-left: 3px solid #28a745;
+        background: #f0faf0;
+        border-radius: 0 4px 4px 0;
+      }
+
+      .step-num {
+        display: inline-block;
+        background: #28a745;
+        color: white;
+        width: 24px;
+        height: 24px;
+        text-align: center;
+        line-height: 24px;
+        border-radius: 50%;
+        font-size: 12px;
+        font-weight: bold;
+        margin-right: 8px;
+      }
+
+      .step code {
+        background: #e8e8e8;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-size: 13px;
+      }
+
+      .step-heading {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 4px;
+      }
+
+      .expected {
+        margin-top: 6px;
+        color: #555;
+        font-size: 12px;
+      }
+
+      .expected em {
+        color: #007bff;
+      }
+
+      .pause-label {
+        display: inline-block;
+        background: #f0c674;
+        color: #333;
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-weight: bold;
+        font-size: 12px;
+        margin: 12px 0 4px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>PicoRuby Debugger Tutorial</h1>
+
+    <div class="instructions">
+      <h3>Setup</h3>
+      <ol>
+        <li>Load the PicoRuby DevTools extension:
+          Chrome menu &rarr; Extensions &rarr; Load unpacked &rarr;
+          <code>mrbgems/picoruby-wasm/debugger/</code>
+        </li>
+        <li>Open DevTools (F12) and select the <strong>PicoRuby</strong> tab.</li>
+        <li>Click the <strong>Start Tutorial</strong> button below.</li>
+        <li>Follow the numbered steps in order. Each step tells you
+          exactly what to type in the REPL input at the bottom of the
+          PicoRuby panel.</li>
+      </ol>
+      <p class="note">
+        While paused, the page itself is frozen (WASM is single-threaded),
+        but the DevTools panel runs in a separate extension context and stays
+        responsive. You can freely type commands in the REPL.
+      </p>
+    </div>
+
+    <h2>Output</h2>
+    <div id="output-box">Waiting for tutorial to start...</div>
+
+    <div class="tutorial-section">
+      <h3>Interactive Debugger Tutorial</h3>
+      <p>This tutorial walks you through every debugger feature.
+         The code is split across two files.
+         <strong>tutorial_helper.rb</strong> defines a method;
+         <strong>tutorial_main.rb</strong> runs the demo.
+         Together they pause six times at <code>binding.irb</code>.</p>
+      <pre><code># tutorial_helper.rb
+def double(n)
+  binding.irb       # &larr; Pause 5b: paused inside the method
+  n * 2
+end
+
+# tutorial_main.rb
+# --- Pause 1: basics ---
+name     = "PicoRuby"
+count    = 42
+ratio    = 3.14
+langs    = ["Ruby", "C", "JavaScript"]
+settings = { debug: true, level: 3 }
+binding.irb
+
+# --- Pause 2 & 3: loop iteration ---
+results = []
+langs.each_with_index do |lang, i|
+  upper = lang.upcase
+  binding.irb
+  results << "#{i}: #{upper}"
+end
+
+# --- Pause 5a: step / next ---
+binding.irb         # &larr; paused here (total and answer are nil)
+total  = double(count)
+answer = "#{name} v#{total}"
+
+answer</code></pre>
+      <button class="btn-run" id="btn-tutorial">Start Tutorial</button>
+
+      <!-- ====== Pause 1 ====== -->
+      <div class="pause-label">Pause 1 &mdash; Learning the basics</div>
+      <p>The prompt changes to <code>irb(debug):NNN&gt;</code> and turns
+         yellow. The right sidebar shows local variables.</p>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">1</span>Show help</div>
+        Type: <code>h</code>
+        <div class="expected">
+          A list of all debug commands and keyboard shortcuts appears.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">2</span>Read a variable</div>
+        Type: <code>name</code>
+        <div class="expected">
+          <em>=&gt; "PicoRuby"</em> &mdash; You can evaluate any expression
+          to inspect its value.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">3</span>Read another variable</div>
+        Type: <code>langs</code>
+        <div class="expected">
+          <em>=&gt; ["Ruby", "C", "JavaScript"]</em>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">4</span>Call a method</div>
+        Type: <code>langs.size</code>
+        <div class="expected">
+          <em>=&gt; 3</em> &mdash; Any Ruby expression works, not just
+          variable names.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">5</span>Evaluate a complex expression</div>
+        Type: <code>settings[:level] + count</code>
+        <div class="expected">
+          <em>=&gt; 45</em> &mdash; You can combine multiple variables in
+          one expression.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">6</span>Modify a variable</div>
+        Type: <code>count = 100</code>
+        <div class="expected">
+          <em>=&gt; 100</em> &mdash; The right sidebar updates to show the
+          new value. Changes persist when you resume execution.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">7</span>Confirm the change</div>
+        Type: <code>count</code>
+        <div class="expected">
+          <em>=&gt; 100</em> &mdash; The variable now holds the value you
+          set.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">8</span>Continue execution</div>
+        Type: <code>c</code>
+        <div class="expected">
+          The debugger resumes. The prompt returns to normal
+          <code>irb:NNN&gt;</code> briefly, then immediately pauses again
+          inside the loop (Pause 2).
+        </div>
+      </div>
+
+      <!-- ====== Pause 2 ====== -->
+      <div class="pause-label">Pause 2 &mdash; First loop iteration</div>
+      <p>We are now inside the <code>each_with_index</code> block.
+         Check the sidebar &mdash; you should see <code>lang</code>,
+         <code>i</code>, <code>upper</code>, and <code>results</code>.</p>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">9</span>Inspect loop variables</div>
+        Type: <code>lang</code>
+        <div class="expected">
+          <em>=&gt; "Ruby"</em> &mdash; First iteration.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">10</span>Check the index</div>
+        Type: <code>i</code>
+        <div class="expected">
+          <em>=&gt; 0</em>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">11</span>Check the computed value</div>
+        Type: <code>upper</code>
+        <div class="expected">
+          <em>=&gt; "RUBY"</em>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">12</span>Continue to next iteration</div>
+        Type: <code>c</code>
+        <div class="expected">
+          Execution advances. <code>results</code> gets
+          <code>"0: RUBY"</code> appended, then we pause again at the
+          next iteration (Pause 3).
+        </div>
+      </div>
+
+      <!-- ====== Pause 3 ====== -->
+      <div class="pause-label">Pause 3 &mdash; Second loop iteration</div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">13</span>Verify the iteration advanced</div>
+        Type: <code>lang</code>
+        <div class="expected">
+          <em>=&gt; "C"</em> &mdash; The second element.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">14</span>Check accumulated results</div>
+        Type: <code>results</code>
+        <div class="expected">
+          <em>=&gt; ["0: RUBY"]</em> &mdash; The first iteration's result
+          is already collected.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">15</span>Continue past remaining iterations</div>
+        Type: <code>c</code>
+        <div class="expected">
+          Pauses again inside the third iteration (<code>lang = "JavaScript"</code>).
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">16</span>Continue past the third iteration</div>
+        Type: <code>c</code>
+        <div class="expected">
+          The loop finishes. We are now at Pause&nbsp;5a, <strong>before</strong>
+          <code>total = double(count)</code>.
+        </div>
+      </div>
+
+      <!-- ====== Pause 5a ====== -->
+      <div class="pause-label">Pause 5a &mdash; tutorial_main.rb &mdash; before calling double()</div>
+      <p>We are paused <strong>before</strong> <code>total = double(count)</code>
+         (in <code>tutorial_main.rb</code>).
+         Both <code>total</code> and <code>answer</code> are not yet assigned.</p>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">17</span>Confirm they are not yet computed</div>
+        Type: <code>total</code>
+        <div class="expected">
+          <em>=&gt; nil</em> &mdash; The line has not executed yet.
+        </div>
+        Type: <code>answer</code>
+        <div class="expected">
+          <em>=&gt; nil</em> &mdash; Same reason.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">18</span>Check all loop results</div>
+        Type: <code>results</code>
+        <div class="expected">
+          <em>=&gt; ["0: RUBY", "1: C", "2: JAVASCRIPT"]</em>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">19</span>Step INTO <code>double()</code> with <code>s</code></div>
+        We are about to execute <code>total = double(count)</code>.
+        Type: <code>s</code>
+        <div class="expected">
+          The debugger steps into <code>double</code> and immediately hits
+          the <code>binding.irb</code> inside it &mdash; this is
+          <strong>Pause 5b</strong>.<br>
+          Notice the pause header now shows
+          <em>tutorial_helper.rb</em> instead of <em>tutorial_main.rb</em>
+          &mdash; the debugger crossed a file boundary!<br>
+          The sidebar shows <em>n = 100</em>
+          (the argument; you changed <code>count</code> to 100 in Step&nbsp;6).
+        </div>
+      </div>
+
+      <!-- ====== Pause 5b ====== -->
+      <div class="pause-label">Pause 5b &mdash; tutorial_helper.rb &mdash; inside double()</div>
+      <p>We are now paused <strong>inside</strong> <code>double()</code>,
+         about to execute <code>n * 2</code>.</p>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">20</span>Inspect the argument, then step out</div>
+        Type: <code>n</code> to check the argument value.
+        <div class="expected">
+          <em>=&gt; 100</em>
+        </div>
+        Now type: <code>s</code>
+        <div class="expected">
+          Executes <code>n * 2</code> and returns to the caller.<br>
+          The sidebar now shows <em>total = 200</em>, <em>answer = nil</em>.<br>
+          We are back in <em>tutorial_main.rb</em>, about to execute
+          <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">21</span>Step OVER the next line with <code>n</code></div>
+        We are about to execute <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
+        Type: <code>n</code>
+        <div class="expected">
+          <em>n</em> (next) executes the entire line without stepping
+          into any method calls inside it.<br>
+          The sidebar now shows <em>answer = "PicoRuby v200"</em>.<br>
+          <strong>Key difference vs <code>s</code>:</strong>
+          <code>n</code> would not have entered <code>double()</code> either
+          &mdash; but because <code>double</code> contains its own
+          <code>binding.irb</code>, it still would have paused there.
+          For methods <em>without</em> <code>binding.irb</code>,
+          <code>n</code> executes the whole call in one step.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-heading"><span class="step-num">22</span>Finish the tutorial</div>
+        Type: <code>c</code>
+        <div class="expected">
+          Execution completes. The output box on this page shows the
+          final result. Congratulations &mdash; you have learned all the
+          debugger commands!
+        </div>
+      </div>
+
+      <p class="note">
+        <strong>Tip:</strong> You can also use keyboard shortcuts while
+        the REPL panel is focused:
+        <strong>F8</strong> = continue,
+        <strong>F10</strong> = next,
+        <strong>F11</strong> = step.
+      </p>
+    </div>
+
+    <script type="application/x-mrb" src="ruby/app.mrb"></script>
+
+    <script src="init.iife.js"></script>
+  </body>
+</html>
