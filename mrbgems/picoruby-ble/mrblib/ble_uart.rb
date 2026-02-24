@@ -80,6 +80,7 @@ class BLE
 
     def heartbeat_callback
       blink_led
+      _start_advertise unless @advertising_started
       _drain_rx
       _check_cccd
       _request_send
@@ -91,12 +92,13 @@ class BLE
       when BTSTACK_EVENT_STATE
         return unless event_packet[2]&.ord == HCI_STATE_WORKING
         debug_puts "UART Peripheral up on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
-        advertise(@adv_data)
+        _start_advertise
       when HCI_EVENT_DISCONNECTION_COMPLETE
         @connected = false
         @notification_enabled = false
+        @advertising_started = false
         debug_puts "Disconnected, re-advertising"
-        advertise(@adv_data)
+        _start_advertise
       when ATT_EVENT_MTU_EXCHANGE_COMPLETE
         @connected = true
         debug_puts "Connected (MTU exchange complete)"
@@ -172,10 +174,19 @@ class BLE
     def _flush_tx
       return if @tx_buffer.empty?
       chunk = @tx_buffer.byteslice(0, NOTIFY_MTU) || ""
-      @tx_buffer = @tx_buffer.byteslice(NOTIFY_MTU..-1) || ""
-      push_read_value(@tx_handle, chunk)
-      notify(@tx_handle)
-      _request_send
+      unless chunk.empty?
+        @tx_buffer = @tx_buffer.byteslice(NOTIFY_MTU..-1) || ""
+        push_read_value(@tx_handle, chunk)
+        notify(@tx_handle)
+        _request_send
+      end
+    end
+
+    def _start_advertise
+      return if @advertising_started
+      advertise(@adv_data)
+      @advertising_started = true
+      debug_puts "Advertising started"
     end
   end
 end

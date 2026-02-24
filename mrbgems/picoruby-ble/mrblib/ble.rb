@@ -144,7 +144,8 @@ class BLE
   end
 
   def debug_puts(*args)
-    puts(*args) if @debug
+    # STDOUT.puts not to use BLE::UART#puts
+    STDOUT.puts(*args) if @debug
   end
 
 end

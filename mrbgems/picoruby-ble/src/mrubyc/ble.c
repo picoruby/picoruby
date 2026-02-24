@@ -113,6 +113,7 @@ c_push_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value handle= GET_ARG(1);
   mrbc_value read_value = GET_ARG(2);
   mrbc_hash_set(&read_values, &handle, &read_value);
+  mrbc_incref(&read_value);
   SET_RETURN(read_value);
 }
 

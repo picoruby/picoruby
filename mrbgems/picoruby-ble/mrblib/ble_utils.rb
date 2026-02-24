@@ -1,3 +1,5 @@
+require 'pack'
+
 class BLE
   class Utils
     def self.bd_addr_to_str(addr)
