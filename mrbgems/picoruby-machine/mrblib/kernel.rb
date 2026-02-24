@@ -28,6 +28,10 @@ module Kernel
     return args[0] if len == 1
     args
   end
+
+  def exit(status = 0)
+    Machine.exit(status)
+  end
 end
 
 STDIN  = IO.open(0, "r")

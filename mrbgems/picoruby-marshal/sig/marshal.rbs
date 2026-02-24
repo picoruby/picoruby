@@ -7,13 +7,14 @@ module Marshal
   TYPE_TRUE: String
   TYPE_FALSE: String
   TYPE_FIXNUM: String
+  TYPE_FLOAT: String
   TYPE_STRING: String
   TYPE_SYMBOL: String
   TYPE_ARRAY: String
   TYPE_HASH: String
   TYPE_IVAR: String
 
-  type marshalable = nil | Proc | bool | Integer | String | Symbol | Array[marshalable] | Hash[marshalable, marshalable]
+  type marshalable = nil | Proc | bool | Integer | Float | String | Symbol | Array[marshalable] | Hash[marshalable, marshalable]
 
   def self.dump: (marshalable obj) -> String
   def self.load: (String data) -> marshalable
@@ -21,6 +22,7 @@ module Marshal
   private def self.dump_object: (marshalable obj) -> String
   private def self.dump_integer: (Integer n) -> String
   private def self.encode_fixnum: (Integer n) -> String
+  private def self.dump_float: (Float f) -> String
   private def self.dump_string: (String s) -> String
   private def self.dump_symbol: (Symbol sym) -> String
   #private def self.dump_array: (Array[marshalable] ary) -> String
@@ -30,6 +32,7 @@ module Marshal
   private def self.load_object: (String data, Integer pos) -> [marshalable, Integer]
   private def self.load_integer: (String data, Integer pos) -> [Integer, Integer]
   private def self.decode_fixnum: (String data, Integer pos) -> [Integer, Integer]
+  private def self.load_float: (String data, Integer pos) -> [Float, Integer]
   private def self.load_string: (String data, Integer pos) -> [String, Integer]
   private def self.load_symbol: (String data, Integer pos) -> [Symbol, Integer]
   private def self.load_array: (String data, Integer pos) -> [Array[marshalable], Integer]

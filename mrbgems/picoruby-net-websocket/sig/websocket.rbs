@@ -1,0 +1,36 @@
+module Net
+  module WebSocket
+    type fragment_t = {
+      opcode: Integer,
+      payload: String
+    }
+
+    # @sidebar error
+    class WebSocketError < StandardError
+    end
+    # @sidebar error
+    class HandshakeError < WebSocketError
+    end
+    # @sidebar error
+    class ProtocolError < WebSocketError
+    end
+    # @sidebar error
+    class ConnectionClosed < WebSocketError
+    end
+
+    OPCODE_CONTINUATION: Integer
+    OPCODE_TEXT: Integer
+    OPCODE_BINARY: Integer
+    OPCODE_CLOSE: Integer
+    OPCODE_PING: Integer
+    OPCODE_PONG: Integer
+
+    CLOSE_NORMAL: Integer
+    CLOSE_GOING_AWAY: Integer
+    CLOSE_PROTOCOL_ERROR: Integer
+    CLOSE_UNSUPPORTED_DATA: Integer
+    CLOSE_ABNORMAL: Integer
+
+    WEBSOCKET_GUID: String
+  end
+end

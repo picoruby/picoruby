@@ -77,6 +77,7 @@ bool TCPSocket_close(picorb_socket_t *sock);
 const char* TCPSocket_remote_host(picorb_socket_t *sock);
 int TCPSocket_remote_port(picorb_socket_t *sock);
 bool TCPSocket_closed(picorb_socket_t *sock);
+bool Socket_ready(picorb_socket_t *sock);
 
 /* UDP Socket API */
 bool UDPSocket_create(picorb_socket_t *sock);
@@ -163,6 +164,7 @@ ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t l
 ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
 bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock);
+bool SSLSocket_ready(picorb_ssl_socket_t *ssl_sock);
 const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock);
 int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock);
 

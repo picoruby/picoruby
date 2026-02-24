@@ -1,5 +1,6 @@
 #include "digest.h"
 #include "mbedtls/md.h"
+#include "mbedtls/sha1.h"
 #include "mbedtls/sha256.h"
 #include <string.h>
 
@@ -9,6 +10,8 @@ MbedTLS_digest_algorithm_name(const char * name)
   int ret;
   if (strcmp(name, "sha256") == 0) {
     ret = (int)MBEDTLS_MD_SHA256;
+  } else if (strcmp(name, "sha1") == 0) {
+    ret = (int)MBEDTLS_MD_SHA1;
   } else if (strcmp(name, "none") == 0) {
     ret = (int)MBEDTLS_MD_NONE;
   } else {

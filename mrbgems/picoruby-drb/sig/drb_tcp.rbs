@@ -1,0 +1,21 @@
+module DRb
+  class DRbTCPServer < DRbServer
+    @server: TCPServer
+    @host: String
+    @port: Integer
+    @running: bool
+
+    def initialize: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
+
+    attr_reader uri: String
+    attr_reader front: untyped
+
+    def start: () -> self
+    def stop: () -> void
+    def alive?: () -> bool
+    def run: () -> void
+    def accept: () -> void
+
+    private def handle_client: (TCPSocket client) -> void
+  end
+end

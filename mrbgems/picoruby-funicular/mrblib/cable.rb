@@ -34,7 +34,7 @@ module Funicular
       # Establish WebSocket connection
       def connect
         # puts "[Cable] Creating WebSocket connection to #{@url}"
-        @websocket = WebSocket.new(@url)
+        @websocket = JS::WebSocket.new(@url)
         # puts "[Cable] WebSocket object created, setting up handlers"
 
         @websocket.onopen do |event|
