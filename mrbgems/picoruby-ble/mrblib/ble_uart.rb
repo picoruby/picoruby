@@ -28,9 +28,9 @@ class BLE
 
       @adv_data = AdvertisingData.build do |a|
         a.add(BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS)
-        a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS,
-              Utils.reverse_128(service_uuid_bin))
         a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, name)
+        a.add(BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS,
+              service_uuid_bin)
       end
 
       db = GattDatabase.new do |d|
