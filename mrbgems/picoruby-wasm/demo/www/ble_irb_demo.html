@@ -147,7 +147,7 @@
         line.appendChild(inp)
         el('terminal').appendChild(line)
         scroll_bottom
-        JS.eval("document.getElementById('code-input')?.focus()")
+        focus_input
       end
 
       # Freeze the current live line (remove input, keep text as span)

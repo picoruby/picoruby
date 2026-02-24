@@ -295,6 +295,25 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
   }
 });
 
+EM_JS(int, call_method_no_arg, (int ref_id, const char* method), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+    if (typeof func !== 'function') {
+      console.error('Method not found or not a function:', methodName);
+      return -1;
+    }
+    let result = func.call(obj);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
 EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
@@ -1671,7 +1690,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   if (argc == 0) {
     int js_type = get_js_property_type(js_obj->ref_id, method_name);
     if (js_type == JS_TYPE_FUNCTION) {
-      new_ref_id = call_method(js_obj->ref_id, method_name, "");
+      new_ref_id = call_method_no_arg(js_obj->ref_id, method_name);
       return js_ref_to_ruby_value(mrb, new_ref_id);
     }
     // Try to get property
@@ -1680,7 +1699,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       return property_obj;
     }
     // If property doesn't exist, try calling as method
-    new_ref_id = call_method(js_obj->ref_id, method_name, "");
+    new_ref_id = call_method_no_arg(js_obj->ref_id, method_name);
     if (new_ref_id < 0) {
       return mrb_nil_value();
     }
