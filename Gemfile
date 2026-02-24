@@ -5,5 +5,5 @@ gem "guard"
 gem "guard-process"
 gem 'typeprof'
 gem "rbs"
-gem 'steep', '1.8.3'
+gem 'steep'#, '1.8.3'
 

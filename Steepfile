@@ -1,10 +1,10 @@
 MRUBYC_SIG = "mrbgems/picoruby-mrubyc/sig"
 
 target :mrbgems do
-  stdlib_path(
-    core_root:   MRUBYC_SIG,
-    stdlib_root: "" # Skip loading stdlib RBSs
-  )
+#  stdlib_path(
+#    core_root:   MRUBYC_SIG,
+#    stdlib_root: "" # Skip loading stdlib RBSs
+#  )
 
   Dir.glob("**/sig/").each do |dir|
     unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("-prk-")

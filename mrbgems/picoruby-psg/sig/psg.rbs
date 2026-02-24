@@ -1,4 +1,4 @@
-$DEBUG: bool
+#$DEBUG: bool
 
 module PSG
   class Driver

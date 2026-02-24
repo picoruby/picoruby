@@ -5,8 +5,8 @@
 
 # Classes
 
-$LOAD_PATH: Array[String]
-ARGV: Array[String]
+#$LOAD_PATH: Array[String]
+#ARGV: Array[String]
 
 class Shell
   type rtc_t = PCF8523
