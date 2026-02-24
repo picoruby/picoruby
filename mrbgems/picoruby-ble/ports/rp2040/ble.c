@@ -176,6 +176,7 @@ BLE_hci_power_control(uint8_t power_mode)
   hci_power_control(power_mode);
   if (power_mode == HCI_POWER_ON) {
     heartbeat_active = true;
+    btstack_run_loop_remove_timer(&heartbeat);
     btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
     btstack_run_loop_add_timer(&heartbeat);
   } else {
