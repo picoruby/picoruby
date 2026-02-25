@@ -45,6 +45,8 @@ uint8_t BLE_discover_primary_services(uint16_t conn_handle);
 uint8_t BLE_discover_characteristics_for_service(uint16_t conn_handle, uint16_t start_handle, uint16_t end_handle);
 uint8_t BLE_read_value_of_characteristic_using_value_handle(uint16_t conn_handle, uint16_t value_handle);
 uint8_t BLE_discover_characteristic_descriptors(uint16_t conn_handle, uint16_t value_handle, uint16_t end_handle);
+uint8_t BLE_write_value_of_characteristic_without_response(uint16_t conn_handle, uint16_t value_handle, const uint8_t *data, uint16_t size);
+uint8_t BLE_write_characteristic_descriptor_using_descriptor_handle(uint16_t conn_handle, uint16_t descriptor_handle, const uint8_t *data, uint16_t size);
 
 #ifdef __cplusplus
 }

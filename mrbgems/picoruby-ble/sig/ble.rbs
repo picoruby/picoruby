@@ -237,6 +237,8 @@ class BLE
     def read_value_of_characteristic_using_value_handle: (Integer conn_handle, Integer value_handle) -> Integer
     def discover_characteristic_descriptors: (Integer conn_handle, Integer value_handle, Integer end_handle) -> Integer
     def discover_characteristics_for_service: (Integer conn_handle, Integer start_handle, Integer end_handle) -> Integer
+    def write_value_of_characteristic_without_response: (Integer conn_handle, Integer value_handle, String data) -> Integer
+    def write_characteristic_descriptor_using_descriptor_handle: (Integer conn_handle, Integer descriptor_handle, String data) -> Integer
   # end
 
   class AdvertisingData

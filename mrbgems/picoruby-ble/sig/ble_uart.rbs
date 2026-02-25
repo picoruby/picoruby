@@ -16,17 +16,38 @@ class BLE
 
     NOTIFY_MTU: Integer
 
+    # peripheral-only state
     @adv_data: String
     @rx_handle: Integer
     @tx_handle: Integer
     @cccd_handle: Integer
+    @notification_enabled: bool
+    @advertising_started: bool
+
+    # central-only state
+    @uart_central_state: Symbol
+    @peer_rx_handle: Integer | nil
+    @peer_tx_handle: Integer | nil
+    @peer_cccd_handle: Integer | nil
+    @nus_start_handle: Integer | nil
+    @nus_end_handle: Integer | nil
+
+    # shared state
+    @service_uuid_bin: String
+    @rx_uuid_bin: String
+    @tx_uuid_bin: String
     @rx_buffer: String
     @tx_buffer: String
-    @notification_enabled: bool
     @connected: bool
     @user_block: (^() -> void | nil)
 
-    def initialize: (?name: String, ?service_uuid: String, ?rx_uuid: String, ?tx_uuid: String) -> void
+    def initialize: (
+      ?role: :peripheral | :central,
+      ?name: String,
+      ?service_uuid: String,
+      ?rx_uuid: String,
+      ?tx_uuid: String
+    ) -> void
     def start: () ?{ () -> void } -> Integer
     def heartbeat_callback: () -> void
     def packet_callback: (String event_packet) -> void
@@ -38,10 +59,18 @@ class BLE
     def available: () -> Integer
     def available?: () -> bool
     def connected?: () -> bool
+    def peripheral?: () -> bool
+    def central?: () -> bool
 
-    def _drain_rx: () -> void
-    def _check_cccd: () -> void
-    def _request_send: () -> void
-    def _flush_tx: () -> void
+    private def _peripheral_packet_callback: (String event_packet) -> void
+    private def _central_packet_callback: (String event_packet) -> void
+    private def _central_handle_gatt_event: (Integer event_type, String event_packet) -> void
+    private def _central_reset: () -> void
+    private def _flush_tx_central: () -> void
+    private def _drain_rx: () -> void
+    private def _check_cccd: () -> void
+    private def _request_send: () -> void
+    private def _flush_tx: () -> void
+    private def _start_advertise: () -> void
   end
 end

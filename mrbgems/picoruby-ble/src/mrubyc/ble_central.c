@@ -71,6 +71,46 @@ c_discover_characteristic_descriptors(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(res);
 }
 
+static void
+c_write_value_of_characteristic_without_response(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 3) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_INTEGER || GET_TT_ARG(3) != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
+    return;
+  }
+  uint8_t res = BLE_write_value_of_characteristic_without_response(
+    (uint16_t)GET_INT_ARG(1),
+    (uint16_t)GET_INT_ARG(2),
+    (const uint8_t *)v[3].string->data,
+    (uint16_t)v[3].string->size
+  );
+  SET_INT_RETURN(res);
+}
+
+static void
+c_write_characteristic_descriptor_using_descriptor_handle(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 3) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (GET_TT_ARG(1) != MRBC_TT_INTEGER || GET_TT_ARG(2) != MRBC_TT_INTEGER || GET_TT_ARG(3) != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong type of arguments");
+    return;
+  }
+  uint8_t res = BLE_write_characteristic_descriptor_using_descriptor_handle(
+    (uint16_t)GET_INT_ARG(1),
+    (uint16_t)GET_INT_ARG(2),
+    (const uint8_t *)v[3].string->data,
+    (uint16_t)v[3].string->size
+  );
+  SET_INT_RETURN(res);
+}
+
 /*
  * @param [Symbol] scan_type. :passive or :active
  * @param [Integer] scan_interval. 4..4000 (unit: 0.625ms)
@@ -147,4 +187,6 @@ mrbc_init_class_BLE_Central(mrbc_vm *vm, mrbc_class *class_BLE)
   mrbc_define_method(vm, class_BLE, "discover_characteristics_for_service", c_discover_characteristics_for_service);
   mrbc_define_method(vm, class_BLE, "read_value_of_characteristic_using_value_handle", c_read_value_of_characteristic_using_value_handle);
   mrbc_define_method(vm, class_BLE, "discover_characteristic_descriptors", c_discover_characteristic_descriptors);
+  mrbc_define_method(vm, class_BLE, "write_value_of_characteristic_without_response", c_write_value_of_characteristic_without_response);
+  mrbc_define_method(vm, class_BLE, "write_characteristic_descriptor_using_descriptor_handle", c_write_characteristic_descriptor_using_descriptor_handle);
 }
