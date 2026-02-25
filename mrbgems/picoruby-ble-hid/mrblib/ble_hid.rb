@@ -391,91 +391,81 @@ class BLE
     end
 
     # Build HID Report Descriptor (USB HID format)
+    # USB HID Report Descriptor constants.
+    # Each constant is a single binary string literal (no STRCAT at runtime).
+    #
+    # Byte-level reference (USB HID spec §6.2.2):
+    #   0x05 nn       = Usage Page (nn)
+    #   0x09 nn       = Usage (nn)
+    #   0xA1 nn       = Collection (01=Application, 00=Physical)
+    #   0xC0          = End Collection
+    #   0x85 nn       = Report ID (nn)
+    #   0x15 nn       = Logical Minimum (signed 8-bit)
+    #   0x25 nn       = Logical Maximum (signed 8-bit)
+    #   0x26 lo hi    = Logical Maximum (signed 16-bit, little-endian)
+    #   0x19 nn       = Usage Minimum (nn)
+    #   0x29 nn       = Usage Maximum (nn)
+    #   0x2A lo hi    = Usage Maximum (16-bit)
+    #   0x75 nn       = Report Size  (bits per field)
+    #   0x95 nn       = Report Count (number of fields)
+    #   0x81 nn       = Input  (02=Data/Var/Abs, 01=Const, 00=Data/Array, 06=Data/Var/Rel)
+    #   0x91 nn       = Output (same flag encoding as Input)
+
+    # Keyboard Report Descriptor (Report ID 1)
+    # Input  report: 8 bytes — [modifier(1), reserved(1), keycodes(6)]
+    # Output report: 1 byte  — [LED flags(5 bits) + padding(3 bits)]
+    #   05 01    UsagePage(GenericDesktop)  09 06    Usage(Keyboard)
+    #   A1 01    Collection(Application)   85 01    ReportID(1)
+    #   05 07    UsagePage(KeyCodes)        19 E0    UsageMin(0xE0)
+    #   29 E7    UsageMax(0xE7)             15 00    LogicalMin(0)
+    #   25 01    LogicalMax(1)              75 01    ReportSize(1)
+    #   95 08    ReportCount(8)             81 02    Input(Data/Var/Abs)
+    #   95 01    ReportCount(1)             75 08    ReportSize(8)
+    #   81 01    Input(Const)               05 08    UsagePage(LEDs)
+    #   19 01    UsageMin(1)                29 05    UsageMax(5)
+    #   95 05    ReportCount(5)             75 01    ReportSize(1)
+    #   91 02    Output(Data/Var/Abs)       95 01    ReportCount(1)
+    #   75 03    ReportSize(3)              91 01    Output(Const)
+    #   05 07    UsagePage(KeyCodes)        19 00    UsageMin(0)
+    #   29 65    UsageMax(0x65)             15 00    LogicalMin(0)
+    #   25 65    LogicalMax(0x65)           95 06    ReportCount(6)
+    #   75 08    ReportSize(8)              81 00    Input(Data/Array)
+    #   C0       EndCollection
+    KEYBOARD_REPORT_MAP = "\x05\x01\x09\x06\xA1\x01\x85\x01\x05\x07\x19\xE0\x29\xE7\x15\x00\x25\x01\x75\x01\x95\x08\x81\x02\x95\x01\x75\x08\x81\x01\x05\x08\x19\x01\x29\x05\x95\x05\x75\x01\x91\x02\x95\x01\x75\x03\x91\x01\x05\x07\x19\x00\x29\x65\x15\x00\x25\x65\x95\x06\x75\x08\x81\x00\xC0"
+
+    # Consumer Control Report Descriptor (Report ID 2)
+    # Input report: 2 bytes — [usage_lo, usage_hi] (16-bit consumer usage code)
+    #   05 0C       UsagePage(Consumer)     09 01       Usage(ConsumerControl)
+    #   A1 01       Collection(Application) 85 02       ReportID(2)
+    #   15 00       LogicalMin(0)           26 FF 03    LogicalMax(0x03FF)
+    #   19 00       UsageMin(0)             2A FF 03    UsageMax(0x03FF)
+    #   75 10       ReportSize(16)          95 01       ReportCount(1)
+    #   81 00       Input(Data/Array)       C0          EndCollection
+    CONSUMER_REPORT_MAP = "\x05\x0C\x09\x01\xA1\x01\x85\x02\x15\x00\x26\xFF\x03\x19\x00\x2A\xFF\x03\x75\x10\x95\x01\x81\x00\xC0"
+
+    # Mouse Report Descriptor (Report ID 3)
+    # Input report: 4 bytes — [buttons(3 bits+pad), x(signed 8), y(signed 8), wheel(signed 8)]
+    #   05 01    UsagePage(GenericDesktop)  09 02    Usage(Mouse)
+    #   A1 01    Collection(Application)   85 03    ReportID(3)
+    #   09 01    Usage(Pointer)             A1 00    Collection(Physical)
+    #   05 09    UsagePage(Buttons)         19 01    UsageMin(1)
+    #   29 03    UsageMax(3)                15 00    LogicalMin(0)
+    #   25 01    LogicalMax(1)              95 03    ReportCount(3)
+    #   75 01    ReportSize(1)              81 02    Input(Data/Var/Abs)
+    #   95 01    ReportCount(1)             75 05    ReportSize(5)
+    #   81 01    Input(Const)               05 01    UsagePage(GenericDesktop)
+    #   09 30    Usage(X)                   09 31    Usage(Y)
+    #   09 38    Usage(Wheel)               15 81    LogicalMin(-127)
+    #   25 7F    LogicalMax(127)            75 08    ReportSize(8)
+    #   95 03    ReportCount(3)             81 06    Input(Data/Var/Rel)
+    #   C0       EndCollection(Physical)    C0       EndCollection(Application)
+    MOUSE_REPORT_MAP = "\x05\x01\x09\x02\xA1\x01\x85\x03\x09\x01\xA1\x00\x05\x09\x19\x01\x29\x03\x15\x00\x25\x01\x95\x03\x75\x01\x81\x02\x95\x01\x75\x05\x81\x01\x05\x01\x09\x30\x09\x31\x09\x38\x15\x81\x25\x7F\x75\x08\x95\x03\x81\x06\xC0\xC0"
+
+    # Concatenate only the enabled descriptors (at most 2 String#<< calls)
     def _build_report_map
-      map = ""
-      # Keyboard (Report ID 1): 8 bytes [modifier, reserved, key1..key6]
-      map << "\x05\x01"      # Usage Page (Generic Desktop)
-      map << "\x09\x06"      # Usage (Keyboard)
-      map << "\xA1\x01"      # Collection (Application)
-      map << "\x85\x01"      #   Report ID (1)
-      map << "\x05\x07"      #   Usage Page (Key Codes)
-      map << "\x19\xE0"      #   Usage Minimum (0xE0)
-      map << "\x29\xE7"      #   Usage Maximum (0xE7)
-      map << "\x15\x00"      #   Logical Minimum (0)
-      map << "\x25\x01"      #   Logical Maximum (1)
-      map << "\x75\x01"      #   Report Size (1)
-      map << "\x95\x08"      #   Report Count (8)
-      map << "\x81\x02"      #   Input (Data, Variable, Absolute) — Modifier byte
-      map << "\x95\x01"      #   Report Count (1)
-      map << "\x75\x08"      #   Report Size (8)
-      map << "\x81\x01"      #   Input (Constant) — Reserved byte
-      map << "\x05\x08"      #   Usage Page (LEDs)
-      map << "\x19\x01"      #   Usage Minimum (Num Lock)
-      map << "\x29\x05"      #   Usage Maximum (Kana)
-      map << "\x95\x05"      #   Report Count (5)
-      map << "\x75\x01"      #   Report Size (1)
-      map << "\x91\x02"      #   Output (Data, Variable, Absolute) — LED report
-      map << "\x95\x01"      #   Report Count (1)
-      map << "\x75\x03"      #   Report Size (3)
-      map << "\x91\x01"      #   Output (Constant) — LED padding
-      map << "\x05\x07"      #   Usage Page (Key Codes)
-      map << "\x19\x00"      #   Usage Minimum (0)
-      map << "\x29\x65"      #   Usage Maximum (101)
-      map << "\x15\x00"      #   Logical Minimum (0)
-      map << "\x25\x65"      #   Logical Maximum (101)
-      map << "\x95\x06"      #   Report Count (6)
-      map << "\x75\x08"      #   Report Size (8)
-      map << "\x81\x00"      #   Input (Data, Array) — Keycodes
-      map << "\xC0"           # End Collection
-
-      if @consumer_enabled
-        # Consumer Control (Report ID 2): 2 bytes [usage_lo, usage_hi]
-        map << "\x05\x0C"    # Usage Page (Consumer)
-        map << "\x09\x01"    # Usage (Consumer Control)
-        map << "\xA1\x01"    # Collection (Application)
-        map << "\x85\x02"    #   Report ID (2)
-        map << "\x15\x00"    #   Logical Minimum (0)
-        map << "\x26\xFF\x03" #  Logical Maximum (1023)
-        map << "\x19\x00"    #   Usage Minimum (0)
-        map << "\x2A\xFF\x03" #  Usage Maximum (1023)
-        map << "\x75\x10"    #   Report Size (16)
-        map << "\x95\x01"    #   Report Count (1)
-        map << "\x81\x00"    #   Input (Data, Array, Absolute)
-        map << "\xC0"         # End Collection
-      end
-
-      if @mouse_enabled
-        # Mouse (Report ID 3): 4 bytes [buttons, x, y, wheel]
-        map << "\x05\x01"    # Usage Page (Generic Desktop)
-        map << "\x09\x02"    # Usage (Mouse)
-        map << "\xA1\x01"    # Collection (Application)
-        map << "\x85\x03"    #   Report ID (3)
-        map << "\x09\x01"    #   Usage (Pointer)
-        map << "\xA1\x00"    #   Collection (Physical)
-        map << "\x05\x09"    #     Usage Page (Buttons)
-        map << "\x19\x01"    #     Usage Minimum (1)
-        map << "\x29\x03"    #     Usage Maximum (3)
-        map << "\x15\x00"    #     Logical Minimum (0)
-        map << "\x25\x01"    #     Logical Maximum (1)
-        map << "\x95\x03"    #     Report Count (3)
-        map << "\x75\x01"    #     Report Size (1)
-        map << "\x81\x02"    #     Input (Data, Variable, Absolute) — Buttons
-        map << "\x95\x01"    #     Report Count (1)
-        map << "\x75\x05"    #     Report Size (5)
-        map << "\x81\x01"    #     Input (Constant) — Button padding
-        map << "\x05\x01"    #     Usage Page (Generic Desktop)
-        map << "\x09\x30"    #     Usage (X)
-        map << "\x09\x31"    #     Usage (Y)
-        map << "\x09\x38"    #     Usage (Wheel)
-        map << "\x15\x81"    #     Logical Minimum (-127)
-        map << "\x25\x7F"    #     Logical Maximum (127)
-        map << "\x75\x08"    #     Report Size (8)
-        map << "\x95\x03"    #     Report Count (3)
-        map << "\x81\x06"    #     Input (Data, Variable, Relative)
-        map << "\xC0"         #   End Collection (Physical)
-        map << "\xC0"         # End Collection (Application)
-      end
-
+      map = KEYBOARD_REPORT_MAP.dup
+      map << CONSUMER_REPORT_MAP if @consumer_enabled
+      map << MOUSE_REPORT_MAP if @mouse_enabled
       map
     end
   end

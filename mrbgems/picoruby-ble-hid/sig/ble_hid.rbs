@@ -31,6 +31,10 @@ class BLE
     HID_INFORMATION_VALUE: String
     PNP_ID_VALUE: String
 
+    KEYBOARD_REPORT_MAP: String
+    CONSUMER_REPORT_MAP: String
+    MOUSE_REPORT_MAP: String
+
     @mouse_enabled: bool
     @consumer_enabled: bool
     @connected: bool
