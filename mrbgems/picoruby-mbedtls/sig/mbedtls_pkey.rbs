@@ -21,6 +21,17 @@ module MbedTLS
       def public?: () -> bool
       def private?: () -> bool
     end
+
+    class EC < MbedTLS::PKey::PKeyBase
+      def self.new: (String key) -> MbedTLS::PKey::EC
+      def self.generate: (?String curve) -> MbedTLS::PKey::EC
+      def to_pem: () -> String
+      alias to_s to_pem
+      alias export to_pem
+      def public_key: () -> MbedTLS::PKey::PKeyBase
+      def public?: () -> bool
+      def private?: () -> bool
+    end
   end
 end
 

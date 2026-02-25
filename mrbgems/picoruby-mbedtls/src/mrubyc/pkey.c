@@ -156,6 +156,105 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_RETURN(self);
 }
 
+/* EC class methods */
+
+static void
+c_mbedtls_pkey_ec_generate(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  const char *curve_name = "secp256r1";
+  if (argc >= 1 && GET_ARG(1).tt == MRBC_TT_STRING) {
+    // Null-terminate curve name
+    mrbc_value arg = GET_ARG(1);
+    char *buf = mrbc_alloc(vm, arg.string->size + 1);
+    memcpy(buf, arg.string->data, arg.string->size);
+    buf[arg.string->size] = '\0';
+
+    mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_pkey_instance_size());
+    void *pk = self.instance->data;
+    MbedTLS_pkey_init(pk);
+
+    mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
+    int ret = MbedTLS_pkey_generate_ec(pk, buf, (const unsigned char *)mbedtls_pers->string->data, mbedtls_pers->string->size);
+    mrbc_free(vm, buf);
+
+    if (ret == PKEY_ERR_INVALID_CURVE) {
+      MbedTLS_pkey_free(pk);
+      mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Invalid curve name");
+      return;
+    } else if (ret != 0) {
+      MbedTLS_pkey_free(pk);
+      raise_pkey_error(vm, ret);
+      return;
+    }
+
+    SET_RETURN(self);
+    return;
+  }
+
+  // Default curve
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_pkey_instance_size());
+  void *pk = self.instance->data;
+  MbedTLS_pkey_init(pk);
+
+  mrbc_value *mbedtls_pers = mrbc_get_global(mrbc_str_to_symid("$_mbedtls_pers"));
+  int ret = MbedTLS_pkey_generate_ec(pk, curve_name, (const unsigned char *)mbedtls_pers->string->data, mbedtls_pers->string->size);
+
+  if (ret != 0) {
+    MbedTLS_pkey_free(pk);
+    raise_pkey_error(vm, ret);
+    return;
+  }
+
+  SET_RETURN(self);
+}
+
+static void
+c_mbedtls_pkey_ec_new(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  mrbc_value arg1 = GET_ARG(1);
+
+  if (arg1.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "argument must be String");
+    return;
+  }
+
+  char *pem_cstr = mrbc_alloc(vm, arg1.string->size + 1);
+  memcpy(pem_cstr, arg1.string->data, arg1.string->size);
+  pem_cstr[arg1.string->size] = '\0';
+
+  mrbc_value self = mrbc_instance_new(vm, v->cls, MbedTLS_pkey_instance_size());
+  void *pk = self.instance->data;
+  MbedTLS_pkey_init(pk);
+
+  int ret = MbedTLS_pkey_from_pem_ec(pk, (const unsigned char *)pem_cstr, strlen(pem_cstr) + 1);
+  mrbc_free(vm, pem_cstr);
+
+  if (ret != 0) {
+    MbedTLS_pkey_free(pk);
+    if (ret == PKEY_ERR_KEY_TYPE_NOT_EC) {
+      mrbc_raise(vm, class_MbedTLS_PKey_PKeyError, "Key type is not EC");
+    } else {
+      raise_pkey_error(vm, ret);
+    }
+    return;
+  }
+
+  SET_RETURN(self);
+}
+
+static void
+mrbc_pkey_ec_free(mrbc_value *self)
+{
+  void *pk = self->instance->data;
+  if (pk) {
+    MbedTLS_pkey_free(pk);
+  }
+}
+
 static void
 c_mbedtls_pkey_pkeybase_verify(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -231,4 +330,16 @@ gem_mbedtls_pkey_init(mrbc_vm *vm, mrbc_class *module_MbedTLS)
   mrbc_define_method(vm, class_MbedTLS_PKey_RSA, "private?", c_mbedtls_pkey_rsa_private_q);
 
   class_MbedTLS_PKey_PKeyError = mrbc_define_class_under(vm, module_MbedTLS_PKey, "PKeyError", MRBC_CLASS(StandardError));
+
+  mrbc_class *class_MbedTLS_PKey_EC = mrbc_define_class_under(vm, module_MbedTLS_PKey, "EC", class_MbedTLS_PKey_PKeyBase);
+  mrbc_define_destructor(class_MbedTLS_PKey_EC, mrbc_pkey_ec_free);
+
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "new", c_mbedtls_pkey_ec_new);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "generate", c_mbedtls_pkey_ec_generate);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "public_key", c_mbedtls_pkey_rsa_public_key);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "export", c_mbedtls_pkey_rsa_to_pem);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "to_pem", c_mbedtls_pkey_rsa_to_pem);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "to_s", c_mbedtls_pkey_rsa_to_pem);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "public?", c_mbedtls_pkey_rsa_public_q);
+  mrbc_define_method(vm, class_MbedTLS_PKey_EC, "private?", c_mbedtls_pkey_rsa_private_q);
 }

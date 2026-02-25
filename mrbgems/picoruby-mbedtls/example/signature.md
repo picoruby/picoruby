@@ -72,3 +72,70 @@ p pub_key.public?
 p pub_key.private?
 # => false
 ```
+
+## Sign with ECDSA and verify (CRuby ↔ PicoRuby interop)
+
+### Generate EC key pair and sign in CRuby
+
+```ruby
+# CRuby
+require 'openssl'
+require 'base64'
+
+ec_key = OpenSSL::PKey::EC.generate("prime256v1")
+PUBLIC_KEY_PEM = ec_key.public_to_pem
+p PUBLIC_KEY_PEM
+
+data = "Hello World!"
+signature = ec_key.sign("SHA256", data)
+signature_base64 = Base64.encode64(signature)
+p signature_base64
+```
+
+### Verify ECDSA signature in PicoRuby
+
+```ruby
+# PicoRuby
+require 'mbedtls'
+require 'base64'
+
+PUBLIC_KEY_PEM = File.open("ec_public_key.pem") {|f| f.read}
+signature_base64 = File.open("ec_signature_base64.txt") {|f| f.read}
+
+public_key = MbedTLS::PKey::EC.new(PUBLIC_KEY_PEM)
+data = "Hello World!"
+signature = Base64.decode64(signature_base64)
+digest = MbedTLS::Digest.new(:sha256)
+if public_key.verify(digest, signature, data)
+  p "Verified"
+else
+  p "Not verified"
+end
+```
+
+### Sign in PicoRuby, verify in CRuby
+
+```ruby
+# PicoRuby
+require 'mbedtls'
+require 'base64'
+
+ec = MbedTLS::PKey::EC.generate("secp256r1")
+digest = MbedTLS::Digest.new(:sha256)
+data = "Hello World!"
+signature = ec.sign(digest, data)
+
+p ec.public_key.to_pem       # save to ec_public_key.pem
+p Base64.encode64(signature)  # save to ec_signature_base64.txt
+```
+
+```ruby
+# CRuby
+require 'openssl'
+require 'base64'
+
+pub = OpenSSL::PKey::EC.new(PUBLIC_KEY_PEM)
+sig = Base64.decode64(SIGNATURE_BASE64)
+p pub.verify("SHA256", sig, "Hello World!")
+#=> true
+```

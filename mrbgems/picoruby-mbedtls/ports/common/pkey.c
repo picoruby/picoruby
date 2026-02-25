@@ -1,7 +1,10 @@
 #include "pkey.h"
+#define MBEDTLS_ALLOW_PRIVATE_ACCESS
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/rsa.h"
+#include "mbedtls/ecp.h"
+#include "mbedtls/ecdsa.h"
 #include "mbedtls/error.h"
 #include "mbedtls/pk.h"
 #include "mbedtls/md.h"
@@ -29,18 +32,29 @@ bool
 MbedTLS_pkey_is_public(void *ctx)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)ctx;
-  if (mbedtls_pk_get_type(pk) != MBEDTLS_PK_RSA) return false;
-  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  return mbedtls_rsa_check_pubkey(rsa) == 0;
+  mbedtls_pk_type_t type = mbedtls_pk_get_type(pk);
+  if (type == MBEDTLS_PK_RSA) {
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
+    return mbedtls_rsa_check_pubkey(rsa) == 0;
+  } else if (type == MBEDTLS_PK_ECKEY || type == MBEDTLS_PK_ECDSA) {
+    return true;
+  }
+  return false;
 }
 
 bool
 MbedTLS_pkey_is_private(void *ctx)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)ctx;
-  if (mbedtls_pk_get_type(pk) != MBEDTLS_PK_RSA) return false;
-  mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
-  return mbedtls_rsa_check_privkey(rsa) == 0;
+  mbedtls_pk_type_t type = mbedtls_pk_get_type(pk);
+  if (type == MBEDTLS_PK_RSA) {
+    mbedtls_rsa_context *rsa = mbedtls_pk_rsa(*pk);
+    return mbedtls_rsa_check_privkey(rsa) == 0;
+  } else if (type == MBEDTLS_PK_ECKEY || type == MBEDTLS_PK_ECDSA) {
+    mbedtls_ecp_keypair *ec = mbedtls_pk_ec(*pk);
+    return mbedtls_ecp_check_privkey(&ec->grp, &ec->d) == 0;
+  }
+  return false;
 }
 
 static int
@@ -84,6 +98,37 @@ cleanup:
 }
 
 int
+MbedTLS_pkey_generate_ec(void *ctx, const char *curve_name, const unsigned char *pers, size_t pers_len)
+{
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)ctx;
+  mbedtls_entropy_context entropy;
+  mbedtls_ctr_drbg_context ctr_drbg;
+  int ret;
+
+  const mbedtls_ecp_curve_info *curve_info = mbedtls_ecp_curve_info_from_name(curve_name);
+  if (curve_info == NULL) {
+    return PKEY_ERR_INVALID_CURVE;
+  }
+
+  ret = setup_rng(&ctr_drbg, &entropy, pers, pers_len);
+  if (ret != PKEY_SUCCESS) {
+    return ret;
+  }
+
+  ret = mbedtls_pk_setup(pk, mbedtls_pk_info_from_type(MBEDTLS_PK_ECKEY));
+  if (ret != 0) {
+    goto cleanup_ec;
+  }
+
+  ret = mbedtls_ecp_gen_key(curve_info->grp_id, mbedtls_pk_ec(*pk), mbedtls_ctr_drbg_random, &ctr_drbg);
+
+cleanup_ec:
+  mbedtls_ctr_drbg_free(&ctr_drbg);
+  mbedtls_entropy_free(&entropy);
+  return ret;
+}
+
+int
 MbedTLS_pkey_from_pem(void *ctx, const unsigned char *pem, size_t pem_len)
 {
   mbedtls_pk_context *pk = (mbedtls_pk_context *)ctx;
@@ -100,6 +145,28 @@ MbedTLS_pkey_from_pem(void *ctx, const unsigned char *pem, size_t pem_len)
 
   if (mbedtls_pk_get_type(pk) != MBEDTLS_PK_RSA) {
     return PKEY_ERR_KEY_TYPE_NOT_RSA;
+  }
+
+  return PKEY_SUCCESS;
+}
+
+int
+MbedTLS_pkey_from_pem_ec(void *ctx, const unsigned char *pem, size_t pem_len)
+{
+  mbedtls_pk_context *pk = (mbedtls_pk_context *)ctx;
+  int ret;
+
+  ret = mbedtls_pk_parse_public_key(pk, pem, pem_len);
+  if (ret != 0) {
+    ret = mbedtls_pk_parse_key(pk, pem, pem_len, NULL, 0, NULL, NULL);
+  }
+  if (ret != 0) {
+    return ret;
+  }
+
+  mbedtls_pk_type_t type = mbedtls_pk_get_type(pk);
+  if (type != MBEDTLS_PK_ECKEY && type != MBEDTLS_PK_ECDSA) {
+    return PKEY_ERR_KEY_TYPE_NOT_EC;
   }
 
   return PKEY_SUCCESS;

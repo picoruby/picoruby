@@ -140,6 +140,61 @@ mrb_mbedtls_pkey_rsa_s_new(mrb_state *mrb, mrb_value klass)
   return self;
 }
 
+/* EC class methods */
+
+static mrb_value
+mrb_mbedtls_pkey_ec_s_generate(mrb_state *mrb, mrb_value klass)
+{
+  const char *curve_name = "secp256r1";
+  mrb_int curve_name_len = 9;
+  mrb_get_args(mrb, "|s", &curve_name, &curve_name_len);
+
+  mrb_value self = mrb_obj_new(mrb, mrb_class_ptr(klass), 0, NULL);
+  void *pk = mrb_malloc(mrb, MbedTLS_pkey_instance_size());
+  DATA_PTR(self) = pk;
+  DATA_TYPE(self) = &mrb_pkey_type;
+  MbedTLS_pkey_init(pk);
+
+  mrb_value mbedtls_pers = mrb_gv_get(mrb, MRB_GVSYM(_mbedtls_pers));
+  int ret = MbedTLS_pkey_generate_ec(pk, curve_name, (const unsigned char *)RSTRING_PTR(mbedtls_pers), RSTRING_LEN(mbedtls_pers));
+
+  if (ret == PKEY_ERR_INVALID_CURVE) {
+    mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Invalid curve name");
+  } else if (ret != 0) {
+    raise_pkey_error(mrb, ret);
+  }
+
+  return self;
+}
+
+static mrb_value
+mrb_mbedtls_pkey_ec_s_new(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value arg1;
+  mrb_get_args(mrb, "S", &arg1);
+
+  // Ensure null termination for mbedtls
+  mrb_value pem_str = mrb_str_dup(mrb, arg1);
+  mrb_str_cat_cstr(mrb, pem_str, "");
+
+  mrb_value self = mrb_obj_new(mrb, mrb_class_ptr(klass), 0, NULL);
+  void *pk = mrb_malloc(mrb, MbedTLS_pkey_instance_size());
+  DATA_PTR(self) = pk;
+  DATA_TYPE(self) = &mrb_pkey_type;
+  MbedTLS_pkey_init(pk);
+
+  int ret = MbedTLS_pkey_from_pem_ec(pk, (const unsigned char *)RSTRING_PTR(pem_str), RSTRING_LEN(pem_str) + 1);
+  if (ret != 0) {
+    if (ret == PKEY_ERR_KEY_TYPE_NOT_EC) {
+      mrb_raise(mrb, class_MbedTLS_PKey_PKeyError, "Key type is not EC");
+    } else {
+      raise_pkey_error(mrb, ret);
+    }
+  }
+
+  return self;
+}
+
 static mrb_value
 mrb_mbedtls_pkey_pkeybase_verify(mrb_state *mrb, mrb_value self)
 {
@@ -204,4 +259,16 @@ gem_mbedtls_pkey_init(mrb_state *mrb, struct RClass *module_MbedTLS)
   mrb_define_method_id(mrb, class_MbedTLS_PKey_RSA, MRB_SYM_Q(private),   mrb_mbedtls_pkey_rsa_private_p, MRB_ARGS_NONE());
 
   class_MbedTLS_PKey_PKeyError = mrb_define_class_under_id(mrb, module_MbedTLS_PKey, MRB_SYM(PKeyError), E_STANDARD_ERROR);
+
+  struct RClass *class_MbedTLS_PKey_EC = mrb_define_class_under_id(mrb, module_MbedTLS_PKey, MRB_SYM(EC), class_MbedTLS_PKey_PKeyBase);
+  MRB_SET_INSTANCE_TT(class_MbedTLS_PKey_EC, MRB_TT_CDATA);
+
+  mrb_define_class_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM(new),        mrb_mbedtls_pkey_ec_s_new, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM(generate),   mrb_mbedtls_pkey_ec_s_generate, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM(public_key),  mrb_mbedtls_pkey_rsa_public_key, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM(export),      mrb_mbedtls_pkey_rsa_to_pem, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM(to_pem),      mrb_mbedtls_pkey_rsa_to_pem, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM(to_s),        mrb_mbedtls_pkey_rsa_to_pem, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM_Q(public),    mrb_mbedtls_pkey_rsa_public_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MbedTLS_PKey_EC, MRB_SYM_Q(private),   mrb_mbedtls_pkey_rsa_private_p, MRB_ARGS_NONE());
 }
