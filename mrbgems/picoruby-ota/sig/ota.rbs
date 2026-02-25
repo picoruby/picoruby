@@ -1,0 +1,49 @@
+module OTA
+  def self.ecdsa_public_key_pem: -> String
+
+  def self.confirm: -> true
+  def self.status: -> Hash[String, untyped]
+  def self.rollback: -> true
+
+  class Meta
+    META_DIR: String
+    META_PATH: String
+    META_TMP_PATH: String
+    DEFAULT: Hash[String, untyped]
+
+    def self.recover: -> void
+    def self.load: -> Hash[String, untyped]
+    def self.save: (Hash[String, untyped] data) -> void
+    def self.deep_copy: (Hash[String, untyped] hash) -> Hash[String, untyped]
+    def self.slot: (Hash[String, untyped] data, String slot_name) -> Hash[String, untyped]
+    def self.inactive_slot: (Hash[String, untyped] data) -> String
+    def self.firmware_path: (Hash[String, untyped] data, String slot_name) -> String?
+  end
+
+  module BootManager
+    def self.resolve: -> String?
+  end
+
+  class Updater
+    @verify_crc: bool
+    @verify_signature: bool
+    @target_slot: String
+    @file: File
+    @written: Integer
+    @size: Integer
+    @expected_crc32: Integer?
+    @expected_sig: String?
+    @ext: String?
+    @path: String
+
+    def initialize: (?verify_crc: bool, ?verify_signature: bool) -> void
+    def begin: (size: Integer, ext: String, ?crc32: Integer?, ?signature: String?) -> String
+    def write: (String data) -> Integer
+    def commit: -> true
+
+    private
+
+    def cleanup_on_failure: -> void
+    def verify_signature: (String firmware_data, String sig_base64) -> void
+  end
+end

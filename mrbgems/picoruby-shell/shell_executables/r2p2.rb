@@ -17,5 +17,12 @@ elsif File.exist?("#{ENV['HOME']}/app.rb")
   puts "Loading app.rb"
   load "#{ENV['HOME']}/app.rb"
 else
-  puts "No app.(mrb|rb) found"
+  require 'ota'
+  app = OTA::BootManager.resolve
+  if app
+    puts "Loading #{app}"
+    load app
+  else
+    puts "No app found"
+  end
 end
