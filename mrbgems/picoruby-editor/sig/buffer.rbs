@@ -38,5 +38,10 @@ module Editor
     def current_tail: (?Integer n) -> String
     def mark_dirty: (Symbol level) -> void
     def clear_dirty: () -> void
+    def replace_char: (String ch) -> void
+    def word_char?: (String? ch) -> bool
+    def word_forward: () -> void
+    def word_backward: () -> void
+    def word_end: () -> void
   end
 end

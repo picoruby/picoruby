@@ -199,6 +199,97 @@ module Editor
       @lines.insert @cursor_y, line
     end
 
+    def replace_char(ch)
+      line = current_line
+      return if @cursor_x >= line.length
+      @lines[@cursor_y] = line[0, @cursor_x].to_s + ch + line[@cursor_x + 1, 65535].to_s
+      @changed = true
+      mark_dirty(:content)
+    end
+
+    def word_char?(ch)
+      return false unless ch
+      c = ch.ord
+      (c >= 48 && c <= 57) ||   # 0-9
+      (c >= 65 && c <= 90) ||   # A-Z
+      (c >= 97 && c <= 122) ||  # a-z
+      c == 95                   # _
+    end
+
+    def word_forward
+      line = current_line
+      len = line.length
+      if @cursor_x >= len
+        if @cursor_y + 1 < @lines.length
+          down
+          head
+        end
+        return
+      end
+      x = @cursor_x
+      if word_char?(line[x])
+        x += 1 while x < len && word_char?(line[x])
+      elsif line[x] != " "
+        x += 1 while x < len && !word_char?(line[x]) && line[x] != " "
+      end
+      x += 1 while x < len && line[x] == " "
+      if x >= len && @cursor_y + 1 < @lines.length
+        down
+        head
+      else
+        @cursor_x = x < len ? x : [len - 1, 0].max
+        mark_dirty(:cursor)
+      end
+    end
+
+    def word_backward
+      if @cursor_x == 0
+        if 0 < @cursor_y
+          up
+          tail
+          @cursor_x = [current_line.length - 1, 0].max
+          mark_dirty(:cursor)
+        end
+        return
+      end
+      line = current_line
+      x = @cursor_x - 1
+      x -= 1 while x > 0 && line[x] == " "
+      if word_char?(line[x])
+        x -= 1 while x > 0 && word_char?(line[x - 1])
+      elsif x > 0
+        x -= 1 while x > 0 && !word_char?(line[x - 1]) && line[x - 1] != " "
+      end
+      @cursor_x = x
+      mark_dirty(:cursor)
+    end
+
+    def word_end
+      line = current_line
+      len = line.length
+      if @cursor_x >= len - 1
+        if @cursor_y + 1 < @lines.length
+          down
+          line = current_line
+          len = line.length
+          @cursor_x = 0
+        else
+          return
+        end
+      else
+        @cursor_x += 1
+      end
+      x = @cursor_x
+      x += 1 while x < len && line[x] == " "
+      if word_char?(line[x])
+        x += 1 while x < len && word_char?(line[x])
+      else
+        x += 1 while x < len && !word_char?(line[x]) && line[x] != " "
+      end
+      @cursor_x = x > 0 ? x - 1 : 0
+      mark_dirty(:cursor)
+    end
+
     def current_tail(n = 1)
       current_line[@cursor_x - n, 65535].to_s
     end

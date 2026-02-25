@@ -69,7 +69,11 @@ class Vim
           case c
           when  3 # Ctrl-C
             @command_buffer.lines[0] = "Type  :q  and press <Enter> to exit"
-          when  13 # LF
+          when  13 # Enter: move to next line head
+            if buffer.cursor_y + 1 < buffer.lines.length
+              buffer.put :DOWN
+              buffer.head
+            end
           when  27 # ESC
             case STDIN.read_nonblock(2)
             when "[A" # up
@@ -112,12 +116,18 @@ class Vim
           when 108 # l right
             buffer.put :RIGHT
           when  86 # V
-          when  98 # b begin
+          when  98 # b word backward
+            buffer.word_backward
           when 100 # d
             @mode = :cut
             @command_buffer.lines[0] = "d"
-          when 101 # e end
+          when 101 # e word end
+            buffer.word_end
           when 103 # g
+            cc = STDIN.getch.ord
+            if cc == 103 # gg: go to top
+              buffer.home
+            end
           when 104 # h left
             buffer.put :LEFT
           end
@@ -129,12 +139,21 @@ class Vim
               buffer.insert_line(@paste_board)
             end
           when 114 # r replace
+            rc = STDIN.getch
+            if rc && rc.ord >= 32 && rc.ord <= 126
+              buffer.replace_char(rc)
+            end
           when 117 # u undo
           when 118 # v visual
-          when 119 # w word
+          when 119 # w word forward
+            buffer.word_forward
           when 120 # x delete
             buffer.delete
           when 121 # y yank
+            yc = STDIN.getch.ord
+            if yc == 121 # yy: yank line
+              @paste_board = buffer.current_line.dup
+            end
           else
             puts c.chr
           end
