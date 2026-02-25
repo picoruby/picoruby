@@ -3,7 +3,7 @@ class BLE
     ATT_DB_VERSION = 0x01
 
     def initialize#(&block)
-      @profile_data = ATT_DB_VERSION.chr
+      @profile_data = [ATT_DB_VERSION].pack("C")
       @handle_table = {}
       @current_handle = 0
       @hash_src = ""
@@ -36,7 +36,7 @@ class BLE
       line = Utils.int16_to_little_endian(READ)
       tail = [ push_handle,
         Utils.int16_to_little_endian(GATT_CHARACTERISTIC_UUID),
-        (properties & 0xff).chr,
+        [properties & 0xff].pack("C"),
         seek_handle,
         uuid2str(char_uuid) ].join
       line << tail

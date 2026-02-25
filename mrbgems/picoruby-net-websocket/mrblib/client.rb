@@ -181,7 +181,7 @@ module Net
         # Generate Sec-WebSocket-Key
         key_bytes = ""
         16.times do
-          key_bytes += (RNG.random_int % 256).chr
+          key_bytes += [RNG.random_int % 256].pack("C")
         end
         sec_key = Base64.encode64(key_bytes)
 
@@ -267,7 +267,7 @@ module Net
         # Masking key (4 random bytes)
         mask_key = ""
         4.times do
-          mask_key += (RNG.random_int % 256).chr
+          mask_key += [RNG.random_int % 256].pack("C")
         end
         frame += mask_key
 
@@ -363,7 +363,7 @@ module Net
         data.length.times do |i|
           byte = (data[i]&.ord || 0)
           masked_byte = byte ^ (mask_key[i % 4]&.ord || 0)
-          result += masked_byte.chr
+          result += [masked_byte].pack("C")
         end
         result
       end

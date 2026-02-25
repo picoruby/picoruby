@@ -138,7 +138,7 @@ module Marshal
     def load_object(data, pos)
       raise ArgumentError, "marshal data too short" if pos >= data.bytesize
 
-      type = (data.getbyte(pos) || 0).chr
+      type = [(data.getbyte(pos) || 0)].pack("C")
       pos += 1
 
       case type

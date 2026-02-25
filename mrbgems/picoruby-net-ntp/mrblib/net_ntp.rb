@@ -84,7 +84,7 @@ module Net
 
         # Convert array to string
         result = ""
-        data.each { |byte| result << byte.chr }
+        data.each { |byte| result << [byte].pack("C") }
         result
       end
 

@@ -19,7 +19,7 @@ class BLE
             raise ArgumentError, "invalid uuid value: `#{value}`"
           end
           if valid_char_for_uuid?(c[0]) && valid_char_for_uuid?(c[1])
-            str[j] = c.to_i(16).chr
+            str[j] = [c.to_i(16)].pack("C")
           else
             str = ""
             break 0
@@ -54,7 +54,7 @@ class BLE
     end
 
     def self.int16_to_little_endian(value)
-      (value & 0xff).chr + (value >> 8 & 0xff).chr
+      [value & 0xff, value >> 8 & 0xff].pack("CC")
     end
 
     def self.int32_to_little_endian(value)
