@@ -60,5 +60,6 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2_w") do |conf|
   end
   conf.gem core: 'picoruby-psg'
   conf.gem core: 'picoruby-ble'
+  conf.gem core: 'picoruby-ble-uart'
   conf.gem core: 'picoruby-keyboard'
 end
