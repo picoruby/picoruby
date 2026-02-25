@@ -309,9 +309,9 @@ module Net
 
         def mask_data(data, mask_key)
           result = ""
-          data.length.times do |i|
-            byte = (data[i]&.ord || 0)
-            masked_byte = byte ^ (mask_key[i % 4]&.ord || 0)
+          data.bytesize.times do |i|
+            byte = (data.getbyte(i) || 0)
+            masked_byte = byte ^ (mask_key.getbyte(i % 4) || 0)
             result += [masked_byte].pack("C")
           end
           result

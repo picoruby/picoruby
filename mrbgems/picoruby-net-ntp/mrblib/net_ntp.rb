@@ -1,5 +1,6 @@
 require 'socket'
 require 'time'
+require 'pack'
 
 module Net
   class NTP
