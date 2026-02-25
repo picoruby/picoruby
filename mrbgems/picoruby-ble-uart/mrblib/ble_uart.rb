@@ -19,7 +19,7 @@ class BLE
     NOTIFY_MTU = 20
 
     def initialize(role: :peripheral,
-                   name: "PicoRuby",
+                   name: "RubyUART",
                    service_uuid: NUS_SERVICE_UUID,
                    rx_uuid: NUS_RX_CHAR_UUID,
                    tx_uuid: NUS_TX_CHAR_UUID)
