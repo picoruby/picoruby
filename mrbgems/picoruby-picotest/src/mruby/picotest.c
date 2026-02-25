@@ -9,6 +9,7 @@
 #include "mruby/presym.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
 // This function will be the body of all stubbed methods.
 static mrb_value
@@ -24,9 +25,9 @@ mruby_method_missing_for_double(mrb_state *mrb, mrb_value self)
 
   struct RClass *self_class = mrb_class(mrb, self);
 
-  // Find the correct double_data for this object and method
+  // Find the correct double_data for this object and method (newest first)
   mrb_int len = RARRAY_LEN(picotest_doubles);
-  for (mrb_int i = 0; i < len; i++) {
+  for (mrb_int i = len - 1; i >= 0; i--) {
     mrb_value double_data_val = mrb_ary_ref(mrb, picotest_doubles, i);
     if (mrb_hash_p(double_data_val)) {
       mrb_value doubled_obj_id_val = mrb_hash_get(mrb, double_data_val, mrb_symbol_value(MRB_SYM(doubled_obj_id)));
@@ -114,15 +115,26 @@ picotest_double_define_method(mrb_state *mrb, mrb_value self)
 
   if (tt == MRB_TT_OBJECT || tt == MRB_TT_PROC || tt == MRB_TT_ARRAY ||
       tt == MRB_TT_STRING || tt == MRB_TT_RANGE || tt == MRB_TT_HASH ||
-      tt == MRB_TT_EXCEPTION) {
+      tt == MRB_TT_CDATA || tt == MRB_TT_EXCEPTION) {
     char buf[64];
     snprintf(buf, sizeof(buf), "S_%p_%d", mrb_ptr(doubled_obj), method_name);
     singleton_class = mrb_define_class(mrb, buf, super_class);
     mrb_basic_ptr(doubled_obj)->c = singleton_class;
     mrb_define_method_id(mrb, singleton_class, method_name, mruby_method_missing_for_double, MRB_ARGS_ANY());
     return mrb_str_new_cstr(mrb, buf);
+  } else if (tt == MRB_TT_CLASS || tt == MRB_TT_MODULE || tt == MRB_TT_SCLASS) {
+    // Insert anonymous singleton class into metaclass chain (non-destructive)
+    struct RClass *metaclass = mrb_basic_ptr(doubled_obj)->c;
+    singleton_class = MRB_OBJ_ALLOC(mrb, MRB_TT_SCLASS, mrb->class_class);
+    singleton_class->super = metaclass;
+    singleton_class->mt = NULL;
+    singleton_class->iv = NULL;
+    mrb_basic_ptr(doubled_obj)->c = singleton_class;
+    mrb_define_method_id(mrb, singleton_class, method_name, mruby_method_missing_for_double, MRB_ARGS_ANY());
+    // Return class pointer as integer (for remove_singleton to find it)
+    return mrb_int_value(mrb, (mrb_int)(uintptr_t)singleton_class);
   } else {
-    mrb_define_method_id(mrb, super_class, method_name, mruby_method_missing_for_double, MRB_ARGS_ANY());
+    mrb_raisef(mrb, E_TYPE_ERROR, "Invalid target object type: %d", tt);
     return mrb_nil_value();
   }
 }
@@ -146,7 +158,7 @@ picotest_double_remove_singleton(mrb_state *mrb, mrb_value self)
   enum mrb_vtype tt = mrb_type(doubled_obj);
   if (tt == MRB_TT_OBJECT || tt == MRB_TT_PROC || tt == MRB_TT_ARRAY ||
       tt == MRB_TT_STRING || tt == MRB_TT_RANGE || tt == MRB_TT_HASH ||
-      tt == MRB_TT_EXCEPTION) {
+      tt == MRB_TT_CDATA || tt == MRB_TT_EXCEPTION) {
     mrb_value singleton_class_name = mrb_iv_get(mrb, self, MRB_SYM(singleton_class_name));
     if (mrb_string_p(singleton_class_name)) {
       struct RClass *singleton_class = mrb_class_get(mrb, mrb_string_cstr(mrb, singleton_class_name));
@@ -159,9 +171,18 @@ picotest_double_remove_singleton(mrb_state *mrb, mrb_value self)
       }
     }
   } else if (tt == MRB_TT_CLASS || tt == MRB_TT_MODULE || tt == MRB_TT_SCLASS) {
-    mrb_value method_id = mrb_iv_get(mrb, self, MRB_SYM(method_id));
-    struct RClass *klass = mrb_class_ptr(doubled_obj);
-    mrb_undef_method_id(mrb, klass, mrb_symbol(method_id));
+    // Class/Module stubs: singleton_class_name holds class pointer as integer
+    mrb_value ref = mrb_iv_get(mrb, self, MRB_SYM(singleton_class_name));
+    if (mrb_integer_p(ref)) {
+      struct RClass *singleton_class = (struct RClass*)(uintptr_t)mrb_integer(ref);
+      struct RClass **cls = &mrb_basic_ptr(doubled_obj)->c;
+      while (*cls && *cls != singleton_class) {
+        cls = &(*cls)->super;
+      }
+      if (*cls == singleton_class) {
+        *cls = singleton_class->super;
+      }
+    }
   }
   return mrb_nil_value();
 }

@@ -78,6 +78,8 @@ module Picotest
       @doubles.each do |double|
         double.remove_singleton
       end
+      $picotest_doubles = []
+      @doubles = []
     end
 
     def setup
