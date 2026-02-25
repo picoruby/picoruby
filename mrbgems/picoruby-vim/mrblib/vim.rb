@@ -161,13 +161,16 @@ class Vim
             clear_command_buffer
             @mode = :normal
           end
+          editor.redraw_mode = :footer
         when 8, 127 # 127 on UNIX
           @command_buffer.put :BSPACE
           if @command_buffer.lines[0] == ""
             @mode = :normal
           end
+          editor.redraw_mode = :footer
         when 32..126
           @command_buffer.put c.chr
+          editor.redraw_mode = :footer
         end
       when :insert
         case c

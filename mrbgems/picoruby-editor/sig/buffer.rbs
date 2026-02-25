@@ -10,11 +10,13 @@ end
 module Editor
   class Buffer
     @prev_c: :DOWN | :UP
+    @dirty: Symbol
 
     attr_accessor lines: Array[String]
     attr_accessor changed: bool
     attr_reader cursor_x: Integer
     attr_reader cursor_y: Integer
+    attr_reader dirty: Symbol
 
     def self.new: () -> instance
     def current_line: () -> String
@@ -34,5 +36,7 @@ module Editor
     def delete_line: () -> (String | nil)
     def insert_line: (String | nil line) -> void
     def current_tail: (?Integer n) -> String
+    def mark_dirty: (Symbol level) -> void
+    def clear_dirty: () -> void
   end
 end

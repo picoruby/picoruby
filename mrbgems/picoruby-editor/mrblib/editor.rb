@@ -280,10 +280,12 @@ module Editor
       @visual_cursor_x = 0
       @visual_cursor_y = 0
       @quit_by_sigint = true
+      @redraw_mode = nil
+      @cursor_line_wraps = 0
       super
     end
 
-    attr_accessor :footer_height, :quit_by_sigint
+    attr_accessor :footer_height, :quit_by_sigint, :redraw_mode
 
     def load_file_into_buffer(filepath)
       if File.file?(filepath)
@@ -385,6 +387,7 @@ module Editor
       print "\e[#{@height - @footer_height + 1};1H"
       @footer_proc&.call(self)
       @cursor_proc&.call(self)
+      update_cursor_line_wraps
     end
 
     def refresh_cursor(&block)
@@ -397,6 +400,108 @@ module Editor
 
     def show_cursor
       print "\e[#{@visual_cursor_y + 1};#{@visual_cursor_x + 5}H"
+    end
+
+    def dirty_to_mode(dirty)
+      case dirty
+      when :cursor    then :cursor
+      when :content   then :current_line
+      when :structure then :all
+      else :all
+      end
+    end
+
+    def smart_refresh
+      mode = @redraw_mode || dirty_to_mode(@buffer.dirty)
+      @redraw_mode = nil
+      @buffer.clear_dirty
+
+      case mode
+      when :cursor
+        refresh_cursor_and_footer
+      when :footer
+        refresh_footer_only
+      when :current_line
+        refresh_current_line
+      else
+        refresh
+      end
+    end
+
+    def refresh_cursor_and_footer
+      old_visual_offset = @visual_offset
+      calculate_visual_cursor
+      content_height = @height - @footer_height
+      if (offset = @visual_cursor_y - @content_margin_height) < 0
+        @visual_offset -= offset
+        @visual_offset = 0 if 0 < @visual_offset
+      elsif (offset = content_height - @content_margin_height - @visual_cursor_y - 1) < 0
+        @visual_offset += offset
+      end
+      if @visual_offset != old_visual_offset
+        refresh
+        return
+      end
+      calculate_visual_cursor
+      print "\e[#{@height - @footer_height + 1};1H"
+      print "\e[0J"
+      @footer_proc&.call(self)
+      @cursor_proc&.call(self)
+    end
+
+    def refresh_footer_only
+      print "\e[#{@height - @footer_height + 1};1H"
+      print "\e[0J"
+      @footer_proc&.call(self)
+      @cursor_proc&.call(self)
+    end
+
+    def refresh_current_line
+      old_visual_offset = @visual_offset
+      calculate_visual_cursor
+      content_height = @height - @footer_height
+      if (offset = @visual_cursor_y - @content_margin_height) < 0
+        @visual_offset -= offset
+        @visual_offset = 0 if 0 < @visual_offset
+      elsif (offset = content_height - @content_margin_height - @visual_cursor_y - 1) < 0
+        @visual_offset += offset
+      end
+      if @visual_offset != old_visual_offset
+        refresh
+        return
+      end
+      calculate_visual_cursor
+      content_width = @width - 4
+      line = @buffer.current_line
+      new_wraps = [1, ((line.length + content_width - 1) / content_width)].max || 1
+      if new_wraps != @cursor_line_wraps
+        refresh
+        return
+      end
+      # Calculate visual Y of current line start
+      visual_y = @visual_cursor_y - @buffer.cursor_x / content_width
+      # Redraw all visual rows of the current line
+      new_wraps.times do |i|
+        row = visual_y + i + 1
+        print "\e[#{row};1H\e[2K"
+        if i == 0
+          print "#{@buffer.cursor_y + 1} ".rjust(4)
+        else
+          print "    "
+        end
+        print line[i * content_width, content_width].to_s
+      end
+      print "\e[#{@height - @footer_height + 1};1H"
+      print "\e[0J"
+      @footer_proc&.call(self)
+      @cursor_proc&.call(self)
+      update_cursor_line_wraps
+    end
+
+    def update_cursor_line_wraps
+      content_width = @width - 4
+      line = @buffer.current_line
+      @cursor_line_wraps = [1, ((line.length + content_width - 1) / content_width)].max || 1
     end
 
     def calculate_visual_cursor
@@ -419,7 +524,7 @@ module Editor
     def start
       print "\e[m"
       while true
-        refresh
+        smart_refresh
         begin
           c = STDIN.getch.ord
         rescue Interrupt

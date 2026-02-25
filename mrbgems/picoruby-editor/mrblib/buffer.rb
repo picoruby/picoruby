@@ -26,11 +26,29 @@ module Editor
     def initialize
       @cursor_x = 0
       @cursor_y = 0
+      @dirty = :none
       clear
     end
 
     attr_accessor :lines, :changed
-    attr_reader :cursor_x, :cursor_y
+    attr_reader :cursor_x, :cursor_y, :dirty
+
+    def mark_dirty(level)
+      case @dirty
+      when :structure
+        # never downgrade
+      when :content
+        @dirty = level if level == :structure
+      when :cursor
+        @dirty = level if level == :content || level == :structure
+      else
+        @dirty = level
+      end
+    end
+
+    def clear_dirty
+      @dirty = :none
+    end
 
     def current_line
       @lines[@cursor_y]
@@ -54,24 +72,29 @@ module Editor
     def home
       @cursor_x = 0
       @cursor_y = 0
+      mark_dirty(:cursor)
     end
 
     def head
       @cursor_x = 0
+      mark_dirty(:cursor)
     end
 
     def tail
       @cursor_x = current_line.length
+      mark_dirty(:cursor)
     end
 
     def bottom
       @cursor_y = @lines.size - 1
+      mark_dirty(:cursor)
     end
 
     def left
       if 0 < @cursor_x && 0 < current_line.length
         tail if current_line.length < @cursor_x
         @cursor_x -= 1
+        mark_dirty(:cursor)
       elsif 0 < @cursor_y
         up
         tail
@@ -81,6 +104,7 @@ module Editor
     def right
       if @cursor_x < current_line.length
         @cursor_x += 1
+        mark_dirty(:cursor)
       else
         if @cursor_y + 1 < @lines.length
           down
@@ -93,6 +117,7 @@ module Editor
       if 0 < @cursor_y
         @cursor_y -= 1
         @prev_c = :UP
+        mark_dirty(:cursor)
       end
     end
 
@@ -100,6 +125,7 @@ module Editor
       if @cursor_y + 1 < @lines.length
         @cursor_y += 1
         @prev_c = :DOWN
+        mark_dirty(:cursor)
       end
     end
 
@@ -110,6 +136,7 @@ module Editor
         @changed = true
         line = line[0, @cursor_x].to_s + c + line[@cursor_x, 65535].to_s
         @lines[@cursor_y] = line
+        mark_dirty(:content)
         right
       else
         case c
@@ -122,6 +149,7 @@ module Editor
           new_line = line[@cursor_x, 65535]
           @lines[@cursor_y] = line[0, @cursor_x].to_s
           @lines.insert(@cursor_y + 1, new_line) if new_line
+          mark_dirty(:structure)
           head
           down
         when :BSPACE
@@ -134,11 +162,13 @@ module Editor
               @lines[@cursor_y][@cursor_x - 1] = ""
               left
             end
+            mark_dirty(:content)
           else
             if 0 < @cursor_y
               @cursor_x = @lines[@cursor_y - 1].length
               @lines[@cursor_y - 1] += current_line
               @lines.delete_at @cursor_y
+              mark_dirty(:structure)
               up
             end
           end
