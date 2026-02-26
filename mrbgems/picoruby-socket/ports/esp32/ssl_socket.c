@@ -33,6 +33,7 @@ struct picorb_ssl_context {
 
 /* SSL socket structure */
 struct picorb_ssl_socket {
+  picorb_socket_t *base_socket;   /* For buffer compatibility */
   picorb_ssl_context_t *ssl_ctx;
   mbedtls_net_context net_ctx;
   mbedtls_ssl_context ssl;
