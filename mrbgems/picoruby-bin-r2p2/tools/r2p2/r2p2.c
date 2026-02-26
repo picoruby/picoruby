@@ -4,6 +4,8 @@
 #include <string.h>
 #include <signal.h>
 #include <termios.h>
+#include <unistd.h>
+#include <limits.h>
 
 #include "picoruby.h"
 #include "mruby_compiler.h"
@@ -27,6 +29,10 @@ volatile sig_atomic_t sigint_status = MACHINE_SIG_NONE;
 int exit_status = 0;
 
 static struct termios orig_termios;
+static int saved_argc;
+static char **saved_argv;
+static char *resolved_exe_path;
+static char saved_cwd[PATH_MAX];
 
 static void
 show_version(void)
@@ -70,9 +76,19 @@ signal_handler(int signum)
 }
 
 static void
-restore_termios(void)
+cleanup_and_maybe_reboot(void)
 {
   tcsetattr(0, TCSANOW, &orig_termios);
+  if (exit_status == MACHINE_EXIT_REBOOT) {
+    if (saved_cwd[0] != '\0') {
+      chdir(saved_cwd);
+    }
+    const char *exe = resolved_exe_path ? resolved_exe_path : saved_argv[0];
+    execv(exe, saved_argv);
+    /* execv failed, retry with PATH search */
+    execvp(saved_argv[0], saved_argv);
+    perror("reboot: execv failed");
+  }
 }
 
 static void
@@ -81,8 +97,8 @@ init_posix(void)
   // Get the original terminal attributes
   tcgetattr(0, &orig_termios);
 
-  // Restore terminal on any exit path
-  atexit(restore_termios);
+  // Restore terminal on any exit path, and reboot if requested
+  atexit(cleanup_and_maybe_reboot);
 
   // Copy the original attributes to modify them
   struct termios newt = orig_termios;
@@ -110,6 +126,10 @@ init_posix(void)
 int
 main(int argc, char **argv)
 {
+  saved_argc = argc;
+  saved_argv = argv;
+  resolved_exe_path = realpath(argv[0], NULL);
+  getcwd(saved_cwd, sizeof(saved_cwd));
   int i;
 
   for (i = 1; i < argc; i++) {
@@ -147,6 +167,10 @@ mrb_state *global_mrb = NULL;
 int
 main(int argc, char **argv)
 {
+  saved_argc = argc;
+  saved_argv = argv;
+  resolved_exe_path = realpath(argv[0], NULL);
+  getcwd(saved_cwd, sizeof(saved_cwd));
   int i;
 
   for (i = 1; i < argc; i++) {

@@ -1,4 +1,4 @@
-class Machine
+module Machine
   def self.delay_ms: (Integer ms) -> Integer
   def self.busy_wait_ms: (Integer ms) -> Integer
   def self.sleep: (Integer | Float sec) -> Integer
@@ -15,6 +15,8 @@ class Machine
   def self.uptime_us: () -> Integer
   def self.board_millis: () -> Integer
   def self.uptime_formatted: () -> String
+  def self.reboot: (?Integer wait_ms) -> nil
+  private def self._reboot: () -> nil
 end
 
 module Kernel

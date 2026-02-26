@@ -102,6 +102,13 @@ Machine_exit(int status)
   exit(status);
 }
 
+void
+Machine_reboot(void)
+{
+  exit_status = MACHINE_EXIT_REBOOT;
+  exit(MACHINE_EXIT_REBOOT);
+}
+
 uint64_t
 Machine_uptime_us(void)
 {

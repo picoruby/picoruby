@@ -244,6 +244,17 @@ c_Machine_exit(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
+static void
+c_Machine__reboot(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#if defined(PICORB_PLATFORM_POSIX)
+  Machine_reboot();
+#else
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Machine.reboot is not available on this platform. Use Watchdog.reboot instead.");
+#endif
+  SET_NIL_RETURN();
+}
+
 #if !defined(PICORB_PLATFORM_POSIX)
 static void
 raise_interrupt(mrbc_vm *vm)
@@ -336,28 +347,29 @@ c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_machine_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Machine = mrbc_define_class(vm, "Machine", mrbc_class_object);
+  mrbc_class *module_Machine = mrbc_define_module(vm, "Machine");
 
-  mrbc_define_method(vm, mrbc_class_Machine, "tud_task", c_Machine_tud_task);
-  mrbc_define_method(vm, mrbc_class_Machine, "tud_mounted?", c_Machine_tud_mounted_q);
+  mrbc_define_method(vm, module_Machine, "tud_task", c_Machine_tud_task);
+  mrbc_define_method(vm, module_Machine, "tud_mounted?", c_Machine_tud_mounted_q);
 
-  mrbc_define_method(vm, mrbc_class_Machine, "delay_ms", c_Machine_delay_ms);
-  mrbc_define_method(vm, mrbc_class_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
-  mrbc_define_method(vm, mrbc_class_Machine, "sleep", c_Machine_sleep);
-  mrbc_define_method(vm, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
-  mrbc_define_method(vm, mrbc_class_Machine, "unique_id", c_Machine_unique_id);
-  mrbc_define_method(vm, mrbc_class_Machine, "read_memory", c_Machine_read_memory);
-  mrbc_define_method(vm, mrbc_class_Machine, "stack_usage", c_Machine_stack_usage);
-  mrbc_define_method(vm, mrbc_class_Machine, "mcu_name", c_Machine_mcu_name);
+  mrbc_define_method(vm, module_Machine, "delay_ms", c_Machine_delay_ms);
+  mrbc_define_method(vm, module_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
+  mrbc_define_method(vm, module_Machine, "sleep", c_Machine_sleep);
+  mrbc_define_method(vm, module_Machine, "deep_sleep", c_Machine_deep_sleep);
+  mrbc_define_method(vm, module_Machine, "unique_id", c_Machine_unique_id);
+  mrbc_define_method(vm, module_Machine, "read_memory", c_Machine_read_memory);
+  mrbc_define_method(vm, module_Machine, "stack_usage", c_Machine_stack_usage);
+  mrbc_define_method(vm, module_Machine, "mcu_name", c_Machine_mcu_name);
 
-  mrbc_define_method(vm, mrbc_class_Machine, "set_hwclock", c_Machine_set_hwclock);
-  mrbc_define_method(vm, mrbc_class_Machine, "get_hwclock", c_Machine_get_hwclock);
-  mrbc_define_method(vm, mrbc_class_Machine, "uptime_us", c_Machine_uptime_us);
-  mrbc_define_method(vm, mrbc_class_Machine, "board_millis", c_Machine_board_millis);
-  mrbc_define_method(vm, mrbc_class_Machine, "uptime_formatted", c_Machine_uptime_formatted);
+  mrbc_define_method(vm, module_Machine, "set_hwclock", c_Machine_set_hwclock);
+  mrbc_define_method(vm, module_Machine, "get_hwclock", c_Machine_get_hwclock);
+  mrbc_define_method(vm, module_Machine, "uptime_us", c_Machine_uptime_us);
+  mrbc_define_method(vm, module_Machine, "board_millis", c_Machine_board_millis);
+  mrbc_define_method(vm, module_Machine, "uptime_formatted", c_Machine_uptime_formatted);
 
-  mrbc_define_method(vm, mrbc_class_Machine, "exit", c_Machine_exit);
-  mrbc_define_method(vm, mrbc_class_Machine, "debug_puts", c_Machine_debug_puts);
+  mrbc_define_method(vm, module_Machine, "exit", c_Machine_exit);
+  mrbc_define_method(vm, module_Machine, "_reboot", c_Machine__reboot);
+  mrbc_define_method(vm, module_Machine, "debug_puts", c_Machine_debug_puts);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);

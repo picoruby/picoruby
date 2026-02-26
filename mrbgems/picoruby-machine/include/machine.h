@@ -44,7 +44,10 @@ const char* Machine_mcu_name(void);
 bool Machine_set_hwclock(const struct timespec *ts);
 bool Machine_get_hwclock(struct timespec *ts);
 void Machine_exit(int status);
+void Machine_reboot(void);
 uint64_t Machine_uptime_us(void);
+
+#define MACHINE_EXIT_REBOOT 120
 void Machine_uptime_formatted(char *buf, int maxlen);
 
 #ifdef __cplusplus

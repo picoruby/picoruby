@@ -716,16 +716,7 @@ class Shell
   end
 
   def _reboot(*args)
-    begin
-      if Watchdog.respond_to?(:reboot)
-        puts "\nrebooting..."
-        Watchdog.reboot 1000
-      else
-        raise NameError
-      end
-    rescue NameError
-      puts "error: reboot is not available on this platform"
-    end
+    Machine.reboot 500
   end
 
   def _pwd(*args)
