@@ -56,7 +56,6 @@ signal_handler(int signum)
   switch (signum) {
     case SIGINT:
       if (sigint_status == MACHINE_SIGINT_EXIT) {
-        tcsetattr(0, TCSANOW, &orig_termios);
         exit(exit_status);
       }
       sigint_status = MACHINE_SIGINT_RECEIVED;
@@ -71,10 +70,19 @@ signal_handler(int signum)
 }
 
 static void
+restore_termios(void)
+{
+  tcsetattr(0, TCSANOW, &orig_termios);
+}
+
+static void
 init_posix(void)
 {
   // Get the original terminal attributes
   tcgetattr(0, &orig_termios);
+
+  // Restore terminal on any exit path
+  atexit(restore_termios);
 
   // Copy the original attributes to modify them
   struct termios newt = orig_termios;
