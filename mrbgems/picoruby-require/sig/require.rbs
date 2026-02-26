@@ -1,5 +1,7 @@
 $LOADED_FEATURES: Array[String]
 
+RUBY_DESCRIPTION: String
+
 # @sidebar error
 # @added_by picoruby-require
 class LoadError < StandardError

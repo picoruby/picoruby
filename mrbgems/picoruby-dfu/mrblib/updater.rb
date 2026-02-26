@@ -26,7 +26,7 @@ module DFU
       end
 
       magic, ver, type, size, crc32, sig_len = header.unpack(HEADER_FORMAT)
-      puts "[recv] type=#{type} size=#{size} crc32=0x#{crc32.to_s(16)} sig_len=#{sig_len}"
+      puts "[recv] type=#{type} size=#{size} crc32=0x#{crc32&.to_s(16)} sig_len=#{sig_len}"
 
       unless magic == MAGIC
         # @type var magic: String
