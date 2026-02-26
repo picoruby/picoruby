@@ -163,4 +163,66 @@ class PackTest < Picotest::Test
       "\x01\x02\x03".unpack('N')
     end
   end
+
+  # a/A format tests
+
+  def test_array_pack_a_exact
+    result = ["DFU\0"].pack('a4')
+    assert_equal "DFU\0", result
+    assert_equal 4, result.size
+  end
+
+  def test_array_pack_a_shorter_pads_null
+    result = ["Hi"].pack('a4')
+    assert_equal "Hi\0\0", result
+    assert_equal 4, result.size
+  end
+
+  def test_array_pack_a_longer_truncates
+    result = ["Hello World"].pack('a4')
+    assert_equal "Hell", result
+    assert_equal 4, result.size
+  end
+
+  def test_array_pack_A_shorter_pads_space
+    result = ["Hi"].pack('A4')
+    assert_equal "Hi  ", result
+    assert_equal 4, result.size
+  end
+
+  def test_array_pack_a_mixed
+    result = ["DFU\0", 1, "RUBY"].pack('a4Ca4')
+    assert_equal "DFU\0\x01RUBY", result
+  end
+
+  def test_string_unpack_a
+    result = "DFU\0".unpack('a4')
+    assert_equal ["DFU\0"], result
+  end
+
+  def test_string_unpack_A_strips_trailing
+    result = "Hi\0\0".unpack('A4')
+    assert_equal ["Hi"], result
+  end
+
+  def test_string_unpack_A_strips_spaces
+    result = "Hi  ".unpack('A4')
+    assert_equal ["Hi"], result
+  end
+
+  def test_string_unpack_a_mixed
+    result = "DFU\0\x01RUBY".unpack('a4Ca4')
+    assert_equal ["DFU\0", 1, "RUBY"], result
+  end
+
+  def test_round_trip_a_format
+    packed = ["DFU\0", 1, "RITE", 1024, 0, 0].pack('a4Ca4NNn')
+    unpacked = packed.unpack('a4Ca4NNn')
+    assert_equal "DFU\0", unpacked[0]
+    assert_equal 1, unpacked[1]
+    assert_equal "RITE", unpacked[2]
+    assert_equal 1024, unpacked[3]
+    assert_equal 0, unpacked[4]
+    assert_equal 0, unpacked[5]
+  end
 end
