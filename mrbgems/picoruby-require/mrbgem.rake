@@ -17,6 +17,8 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
     end
   end
 
+  spec.cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
+
   mrbgems_dir = File.expand_path "..", build_dir
 
   # picogems to be required in Ruby
