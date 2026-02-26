@@ -319,6 +319,8 @@ module JSON
       result += ']'
     end
 
+    HEX_CHARS = "0123456789abcdef"
+
     def generate_string(obj)
       # Manually escape special characters since PicoRuby does not support gsub nor Regexp
       str = obj.to_s
@@ -342,7 +344,17 @@ module JSON
         when "\t"
           result += '\\t'
         else
-          result += char if char
+          if char
+            code = char.ord
+            if code < 0x20
+              # Escape control characters as \u00XX
+              result += '\\u00'
+              result += HEX_CHARS[code >> 4]
+              result += HEX_CHARS[code & 0x0f]
+            else
+              result += char
+            end
+          end
         end
         i += 1
       end
@@ -477,8 +489,27 @@ module JSON
           when 't'
             result += "\t"
           when 'u'
-            # TODO: Implement Unicode escape sequence
-            # result += [str[i + 2, 4].to_i(16)].pack('U')
+            hex = str[i + 1, 4]
+            if hex && hex.length == 4
+              code = 0
+              hex.each_char do |h|
+                code <<= 4
+                case h
+                when '0'..'9'
+                  code += h.ord - '0'.ord
+                when 'a'..'f'
+                  code += h.ord - 'a'.ord + 10
+                when 'A'..'F'
+                  code += h.ord - 'A'.ord + 10
+                else
+                  raise JSON::ParserError.new("Invalid hex in unicode escape: #{h}")
+                end
+              end
+              result += [code].pack('C*')
+              i += 4
+            else
+              raise JSON::ParserError.new("Incomplete unicode escape sequence")
+            end
           when nil
             raise JSON::ParserError.new("Unterminated escape sequence")
           else
