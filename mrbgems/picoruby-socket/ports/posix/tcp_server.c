@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <netinet/tcp.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -145,6 +146,15 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
   inet_ntop(AF_INET, &client_addr.sin_addr,
             client->remote_host, sizeof(client->remote_host));
   client->remote_port = ntohs(client_addr.sin_port);
+
+  /* Suppress Nagle algorithm on accepted socket to prevent ACK-Nagle deadlock
+   * when receiving large firmware payloads in DFU transfers. */
+  int nodelay = 1;
+  setsockopt(client_fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(nodelay));
+#ifdef TCP_QUICKACK
+  /* Linux: suppress delayed ACK so sender is not blocked waiting for ACK. */
+  setsockopt(client_fd, IPPROTO_TCP, TCP_QUICKACK, &nodelay, sizeof(nodelay));
+#endif
 
   return client;
 }

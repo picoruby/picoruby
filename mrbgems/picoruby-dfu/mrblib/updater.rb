@@ -17,15 +17,19 @@ module DFU
     # Reads binary header, then streams body to the inactive slot.
     def receive(io)
       # Read fixed header
-      header = io.read(HEADER_SIZE)
+      puts "[recv] reading header (#{HEADER_SIZE} bytes)..."
+      header = read_exact(io, HEADER_SIZE)
       got_size = header ? header.size : 0
+      puts "[recv] got #{got_size} bytes for header"
       unless header && got_size == HEADER_SIZE
         raise "DFU: incomplete header (expected #{HEADER_SIZE} bytes, got #{got_size})"
       end
 
       magic, ver, type, size, crc32, sig_len = header.unpack(HEADER_FORMAT)
+      puts "[recv] type=#{type} size=#{size} crc32=0x#{crc32.to_s(16)} sig_len=#{sig_len}"
 
       unless magic == MAGIC
+        # @type var magic: String
         hex = magic.unpack("C4").map { |b| b.to_s(16) }.join(" ")
         raise "DFU: invalid magic (got 0x#{hex}, expected \"DFU\\0\")"
       end
@@ -35,14 +39,19 @@ module DFU
       unless type == "RUBY" || type == "RITE"
         raise "DFU: invalid type (got \"#{type}\", expected \"RUBY\" or \"RITE\")"
       end
+      if sig_len.nil? || sig_len < 0
+        raise "DFU: invalid signature length (got #{sig_len})"
+      end
 
       ext = (type == "RITE") ? "mrb" : "rb"
 
       # Read optional signature (raw bytes)
       signature = nil
       if sig_len > 0
-        signature = io.read(sig_len)
+        puts "[recv] reading signature (#{sig_len} bytes)..."
+        signature = read_exact(io, sig_len)
         got_sig = signature ? signature.size : 0
+        puts "[recv] got #{got_sig} bytes for signature"
         unless signature && got_sig == sig_len
           raise "DFU: incomplete signature (expected #{sig_len} bytes, got #{got_sig})"
         end
@@ -73,13 +82,16 @@ module DFU
       # Stream body to file
       fw_path = "#{ENV['HOME']}/app_#{target_slot}.#{ext}"
       written = 0
+      puts "[recv] reading firmware body (#{size} bytes)..."
       begin
         File.open(fw_path, "w") do |f|
-          remaining = size
+          remaining = size || 0
           while remaining > 0
             chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
-            chunk = io.read(chunk_len)
-            unless chunk && chunk.size > 0
+            puts "[recv] read_exact(#{chunk_len}) (written=#{written}/#{size})..."
+            chunk = read_exact(io, chunk_len)
+            puts "[recv] got #{chunk.size} bytes"
+            if chunk.size == 0
               raise "DFU: connection lost (#{written}/#{size} bytes received)"
             end
             f.write(chunk)
@@ -129,6 +141,20 @@ module DFU
     end
 
     private
+
+    # Read exactly n bytes from io, looping over partial reads.
+    # TCPSocket#read may return "" (empty string, not nil) when no data
+    # is available yet; nil means EOF (connection closed).
+    def read_exact(io, n)
+      buf = ""
+      while buf.size < n
+        chunk = io.read(n - buf.size)
+        break if chunk.nil?       # EOF
+        next  if chunk.size == 0  # no data yet, retry
+        buf += chunk
+      end
+      buf
+    end
 
     def cleanup_on_failure(fw_path, target_slot)
       File.unlink(fw_path) if File.exist?(fw_path)

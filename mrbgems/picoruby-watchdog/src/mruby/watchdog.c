@@ -26,7 +26,7 @@ mrb_s_reboot(mrb_state *mrb, mrb_value klass)
   mrb_get_args(mrb, "i", &delay_ms);
   mrb_warn(mrb, "\nRebooting in %d ms\n", delay_ms);
   Watchdog_reboot(delay_ms);
-  return mrb_fixnum_value(0);
+  return mrb_nil_value();
 }
 
 /*

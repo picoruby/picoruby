@@ -349,8 +349,8 @@ module JSON
             if code < 0x20
               # Escape control characters as \u00XX
               result += '\\u00'
-              result += HEX_CHARS[code >> 4]
-              result += HEX_CHARS[code & 0x0f]
+              result += (HEX_CHARS[code >> 4] || '0')
+              result += (HEX_CHARS[code & 0x0f] || '0')
             else
               result += char
             end

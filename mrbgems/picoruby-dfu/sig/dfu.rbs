@@ -24,25 +24,24 @@ module DFU
   end
 
   class Updater
+    MAGIC: String
+    VERSION: Integer
+    HEADER_SIZE: Integer
+    HEADER_FORMAT: String
+    CHUNK_SIZE: Integer
+
     @verify_crc: bool
     @verify_signature: bool
-    @target_slot: String
-    @file: File
-    @written: Integer
-    @size: Integer
-    @expected_crc32: Integer?
-    @expected_sig: String?
-    @ext: String?
-    @path: String
 
     def initialize: (?verify_crc: bool, ?verify_signature: bool) -> void
-    def begin: (size: Integer, ext: String, ?crc32: Integer?, ?signature: String?) -> String
-    def write: (String data) -> Integer
-    def commit: -> true
+    #def receive: (_Reader io) -> true
+    def receive: (untyped io) -> true
 
     private
 
-    def cleanup_on_failure: -> void
-    def verify_signature: (String firmware_data, String sig_base64) -> void
+    #def read_exact: (_Reader io, Integer n) -> String
+    def read_exact: (untyped io, Integer n) -> String
+    def cleanup_on_failure: (String fw_path, String target_slot) -> void
+    def verify_signature: (String firmware_data, String signature, String fw_path, String target_slot) -> void
   end
 end

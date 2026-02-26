@@ -51,6 +51,8 @@ module JSON
   class Generator
     include JSON::Common
 
+    HEX_CHARS: String
+
     @obj: untyped
 
     def self.new: (untyped) -> Generator
