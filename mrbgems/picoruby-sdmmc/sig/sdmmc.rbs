@@ -1,0 +1,35 @@
+# @sidebar io_peripheral
+class SDMMC
+  WIDTH_1BIT: 1
+  WIDTH_4BIT: 4
+
+  type sdmmc_width_t = 1|4
+
+  def clk_pin: () -> Integer
+  def cmd_pin: () -> Integer
+  def d0_pin: () -> Integer
+  def d1_pin: () -> Integer
+  def d2_pin: () -> Integer
+  def d3_pin: () -> Integer
+  def width: () -> Integer
+
+  def self.new: (
+    clk_pin: Integer,
+    cmd_pin: Integer,
+    d0_pin: Integer,
+    ?d1_pin: Integer,
+    ?d2_pin: Integer,
+    ?d3_pin: Integer,
+    ?width: sdmmc_width_t
+  ) -> SDMMC
+
+  private def self._init: (
+    Integer clk_pin,
+    Integer cmd_pin,
+    Integer d0_pin,
+    Integer d1_pin,
+    Integer d2_pin,
+    Integer d3_pin,
+    Integer width
+  ) -> SDMMC
+end
