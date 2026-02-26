@@ -6,9 +6,6 @@ module DFU
   def self.rollback: -> true
 
   class Meta
-    META_DIR: String
-    META_PATH: String
-    META_TMP_PATH: String
     DEFAULT: Hash[String, untyped]
 
     def self.recover: -> void
@@ -18,6 +15,8 @@ module DFU
     def self.slot: (Hash[String, untyped] data, String slot_name) -> Hash[String, untyped]
     def self.inactive_slot: (Hash[String, untyped] data) -> String
     def self.firmware_path: (Hash[String, untyped] data, String slot_name) -> String?
+    private def self.meta_path: () -> String
+    private def self.meta_tmp_path: () -> String
   end
 
   module BootManager

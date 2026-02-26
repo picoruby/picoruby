@@ -153,10 +153,92 @@ class OtaConfirmTest < Picotest::Test
   end
 end
 
-class UpdaterTest < Picotest::Test
-  description "DFU::Updater basic validation"
+# Mock IO class for testing DFU::Updater#receive
+class MockIO
+  def initialize(data)
+    @data = data
+    @pos = 0
+  end
 
-  def test_rejects_update_during_testing_phase
+  def read(len)
+    return nil if @pos >= @data.size
+    chunk = @data[@pos, len]
+    @pos += chunk.size
+    chunk
+  end
+end
+
+class UpdaterReceiveTest < Picotest::Test
+  description "DFU::Updater#receive binary protocol"
+
+  def build_packet(body, type: "RUBY", ver: 1, crc32: 0, signature: nil)
+    sig_len = signature ? signature.size : 0
+    header = ["DFU\0", ver, type, body.size, crc32, sig_len].pack("a4Ca4NNn")
+    header + (signature || "") + body
+  end
+
+  def stub_meta_for_update
+    meta = {
+      "format_version"    => 1,
+      "active_slot"       => "a",
+      "try_slot"          => "a",
+      "boot_count"        => 0,
+      "max_boot_attempts" => 3,
+      "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
+      "slot_b" => { "state" => "empty",     "ext" => nil,   "crc32" => nil, "sig" => nil }
+    }
+    stub(DFU::Meta).load { meta }
+    stub(DFU::Meta).save {}
+    stub(File).exist? { false }
+    stub(File).unlink {}
+    meta
+  end
+
+  def test_receive_valid_ruby_constants
+    assert_equal 19, DFU::Updater::HEADER_SIZE
+    assert_equal "a4Ca4NNn", DFU::Updater::HEADER_FORMAT
+    assert_equal 1, DFU::Updater::VERSION
+  end
+
+  def test_receive_invalid_magic
+    data = "BAD\0" + "\x01RUBY" + "\x00\x00\x00\x04" + "\x00\x00\x00\x00" + "\x00\x00" + "test"
+    io = MockIO.new(data)
+
+    updater = DFU::Updater.new
+    assert_raise(RuntimeError) { updater.receive(io) }
+  end
+
+  def test_receive_unsupported_version
+    body = "test"
+    packet = build_packet(body, ver: 99)
+    io = MockIO.new(packet)
+
+    updater = DFU::Updater.new
+    assert_raise(RuntimeError) { updater.receive(io) }
+  end
+
+  def test_receive_invalid_type
+    body = "test"
+    sig_len = 0
+    header = ["DFU\0", 1, "JUNK", body.size, 0, sig_len].pack("a4Ca4NNn")
+    io = MockIO.new(header + body)
+
+    updater = DFU::Updater.new
+    assert_raise(RuntimeError) { updater.receive(io) }
+  end
+
+  def test_receive_incomplete_header
+    io = MockIO.new("DFU\0\x01RU")
+
+    updater = DFU::Updater.new
+    assert_raise(RuntimeError) { updater.receive(io) }
+  end
+
+  def test_receive_rejects_during_testing_phase
+    body = "test"
+    packet = build_packet(body)
+    io = MockIO.new(packet)
+
     meta = {
       "format_version"    => 1,
       "active_slot"       => "a",
@@ -169,36 +251,29 @@ class UpdaterTest < Picotest::Test
     stub(DFU::Meta).load { meta }
 
     updater = DFU::Updater.new
-    assert_raise(RuntimeError) do
-      updater.begin(size: 100, ext: "mrb")
-    end
+    assert_raise(RuntimeError) { updater.receive(io) }
   end
 
-  def test_rejects_invalid_ext
-    meta = {
-      "format_version"    => 1,
-      "active_slot"       => "a",
-      "try_slot"          => "a",
-      "boot_count"        => 0,
-      "max_boot_attempts" => 3,
-      "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
-      "slot_b" => { "state" => "empty",     "ext" => nil,   "crc32" => nil, "sig" => nil }
-    }
-    stub(DFU::Meta).load { meta }
-
-    updater = DFU::Updater.new
-    assert_raise(RuntimeError) do
-      updater.begin(size: 100, ext: "exe")
-    end
+  def test_receive_header_parse
+    # Build a valid header and verify it parses correctly
+    body = "test"
+    packet = build_packet(body, type: "RUBY", crc32: 12345)
+    header = packet[0, 19]
+    magic, ver, type, size, crc32, sig_len = header.unpack("a4Ca4NNn")
+    assert_equal 4, magic.size
+    assert_equal 1, ver
+    assert_equal "RUBY", type
+    assert_equal 4, size
+    assert_equal 12345, crc32
+    assert_equal 0, sig_len
   end
 
-  def test_write_raises_before_begin
-    updater = DFU::Updater.new
-    assert_raise(RuntimeError) { updater.write("data") }
-  end
-
-  def test_commit_raises_before_begin
-    updater = DFU::Updater.new
-    assert_raise(RuntimeError) { updater.commit }
+  def test_receive_header_parse_rite
+    body = "RITE0006"
+    packet = build_packet(body, type: "RITE")
+    header = packet[0, 19]
+    magic, ver, type, size, crc32, sig_len = header.unpack("a4Ca4NNn")
+    assert_equal "RITE", type
+    assert_equal 8, size
   end
 end

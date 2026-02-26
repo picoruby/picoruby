@@ -6,6 +6,11 @@ MRuby::Gem::Specification.new('picoruby-dfu') do |spec|
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-yaml'
   spec.add_dependency 'picoruby-crc'
+  if build.vm_mrubyc?
+    spec.add_dependency 'picoruby-pack'
+  elsif build.vm_mruby?
+    spec.add_dependency 'mruby-pack'
+  end
 
   spec.test_rbfiles = Dir.glob("#{spec.dir}/test/*.rb")
 

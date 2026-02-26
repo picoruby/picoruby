@@ -3,9 +3,6 @@ require 'yaml'
 module DFU
   class Meta
 
-    META_PATH     = "#{ENV['DFU_DIR']}/meta.yml"
-    META_TMP_PATH = "#{ENV['DFU_DIR']}/meta_tmp.yml"
-
     DEFAULT = {
       "format_version"   => 1,
       "active_slot"      => "a",
@@ -29,14 +26,14 @@ module DFU
     # Recover from interrupted meta write.
     # Call this before any meta read.
     def self.recover
-      tmp_exists  = File.exist?(META_TMP_PATH)
-      meta_exists = File.exist?(META_PATH)
+      tmp_exists  = File.exist?(meta_tmp_path)
+      meta_exists = File.exist?(meta_path)
 
       if tmp_exists
         # Validate meta_tmp.yml
         valid = false
         begin
-          data = YAML.load_file(META_TMP_PATH)
+          data = YAML.load_file(meta_tmp_path)
           valid = data.is_a?(Hash) && data["format_version"]
         rescue
           valid = false
@@ -44,11 +41,11 @@ module DFU
 
         if valid
           # meta_tmp.yml is valid — complete the transition
-          File.unlink(META_PATH) if meta_exists
-          File.rename(META_TMP_PATH, META_PATH)
+          File.unlink(meta_path) if meta_exists
+          File.rename(meta_tmp_path, meta_path)
         else
           # meta_tmp.yml is corrupt — discard it
-          File.unlink(META_TMP_PATH)
+          File.unlink(meta_tmp_path)
         end
       end
       # If neither file exists, load will create a default
@@ -56,10 +53,10 @@ module DFU
 
     # Load meta.yml. Creates default if not found.
     def self.load
-      unless File.exist?(META_PATH)
+      unless File.exist?(meta_path)
         save(deep_copy(DEFAULT))
       end
-      meta_data = YAML.load_file(META_PATH)
+      meta_data = YAML.load_file(meta_path)
       # @type var meta_data: Hash[String, untyped]
       return meta_data
     end
@@ -68,17 +65,16 @@ module DFU
     # Write to tmp, fsync, delete old, rename tmp.
     def self.save(data)
       # 1. Write to meta_tmp.yml
-      p META_TMP_PATH
-      File.open(META_TMP_PATH, "w") do |f|
+      File.open(meta_tmp_path, "w") do |f|
         f.write(YAML.dump(data))
         f.fsync
       end
 
       # 2. Delete old meta.yml
-      File.unlink(META_PATH) if File.exist?(META_PATH)
+      File.unlink(meta_path) if File.exist?(meta_path)
 
       # 3. Rename tmp to meta.yml
-      File.rename(META_TMP_PATH, META_PATH)
+      File.rename(meta_tmp_path, meta_path)
     end
 
     def self.deep_copy(hash)
@@ -105,5 +101,16 @@ module DFU
       return nil unless slot_data && slot_data["ext"]
       "#{ENV['HOME']}/app_#{slot_name}.#{slot_data['ext']}"
     end
+
+    private
+
+    def self.meta_path
+      "#{ENV['DFU_DIR']}/meta.yml"
+    end
+
+    def self.meta_tmp_path
+      "#{ENV['DFU_DIR']}/meta_tmp.yml"
+    end
+
   end
 end

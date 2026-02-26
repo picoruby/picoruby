@@ -1,101 +1,127 @@
+require 'pack'
+
 module DFU
   class Updater
+    MAGIC = "DFU\0"
+    VERSION = 1
+    HEADER_SIZE = 19  # a4Ca4NNn
+    HEADER_FORMAT = "a4Ca4NNn"
+    CHUNK_SIZE = 4096
+
     def initialize(verify_crc: true, verify_signature: false)
       @verify_crc = verify_crc
       @verify_signature = verify_signature
-      @written = 0
-      @size = 0
-      @expected_crc32 = nil
-      @expected_sig = nil
-      @ext = nil
     end
 
-    # Start an update to the inactive slot.
-    # Raises on error (e.g., testing state, invalid args).
-    def begin(size:, ext:, crc32: nil, signature: nil)
+    # Receive firmware from an IO-like object (must respond to #read).
+    # Reads binary header, then streams body to the inactive slot.
+    def receive(io)
+      # Read fixed header
+      header = io.read(HEADER_SIZE)
+      got_size = header ? header.size : 0
+      unless header && got_size == HEADER_SIZE
+        raise "DFU: incomplete header (expected #{HEADER_SIZE} bytes, got #{got_size})"
+      end
+
+      magic, ver, type, size, crc32, sig_len = header.unpack(HEADER_FORMAT)
+
+      unless magic == MAGIC
+        hex = magic.unpack("C4").map { |b| b.to_s(16) }.join(" ")
+        raise "DFU: invalid magic (got 0x#{hex}, expected \"DFU\\0\")"
+      end
+      unless ver == VERSION
+        raise "DFU: unsupported protocol version (got #{ver}, expected #{VERSION})"
+      end
+      unless type == "RUBY" || type == "RITE"
+        raise "DFU: invalid type (got \"#{type}\", expected \"RUBY\" or \"RITE\")"
+      end
+
+      ext = (type == "RITE") ? "mrb" : "rb"
+
+      # Read optional signature (raw bytes)
+      signature = nil
+      if sig_len > 0
+        signature = io.read(sig_len)
+        got_sig = signature ? signature.size : 0
+        unless signature && got_sig == sig_len
+          raise "DFU: incomplete signature (expected #{sig_len} bytes, got #{got_sig})"
+        end
+      end
+
+      # Prepare inactive slot
       meta = Meta.load
-
-      # Reject if in testing state
       if meta["try_slot"] != meta["active_slot"]
-        raise "DFU update rejected: firmware test in progress. Call DFU.confirm or DFU.rollback first."
+        raise "DFU: firmware test in progress (active=#{meta['active_slot']}, try=#{meta['try_slot']}). Call DFU.confirm or DFU.rollback first."
       end
 
-      unless ext == "mrb" || ext == "rb"
-        raise "DFU: ext must be 'mrb' or 'rb'"
-      end
-
-      @target_slot = Meta.inactive_slot(meta)
-      @size = size
-      @ext = ext
-      @expected_crc32 = crc32
-      @expected_sig = signature
-      @written = 0
+      target_slot = Meta.inactive_slot(meta)
 
       # Clean up existing firmware files in target slot
       ["mrb", "rb"].each do |e|
-        path = "#{ENV['HOME']}/app_#{@target_slot}.#{e}"
+        path = "#{ENV['HOME']}/app_#{target_slot}.#{e}"
         File.unlink(path) if File.exist?(path)
       end
 
       # Mark slot as updating
-      slot_data = Meta.slot(meta, @target_slot)
+      slot_data = Meta.slot(meta, target_slot)
       slot_data["state"] = "updating"
-      slot_data["ext"] = @ext
+      slot_data["ext"] = ext
       slot_data["crc32"] = nil
       slot_data["sig"] = nil
       Meta.save(meta)
 
-      # Open file for writing
-      @path = "#{ENV['HOME']}/app_#{@target_slot}.#{@ext}"
-      @file = File.open(@path, "w")
-
-      @target_slot
-    end
-
-    # Write a chunk of firmware data.
-    def write(data)
-      raise "DFU: update not started" unless @file
-      n = @file.write(data)
-      @written += n
-      n
-    end
-
-    # Finalize the update: close file, verify, update meta.
-    def commit
-      raise "DFU: update not started" unless @file
-      @file.fsync
-      @file.close
-      @file = nil
-
-      if @written != @size
-        cleanup_on_failure
-        raise "DFU: size mismatch (expected #{@size}, got #{@written})"
+      # Stream body to file
+      fw_path = "#{ENV['HOME']}/app_#{target_slot}.#{ext}"
+      written = 0
+      begin
+        File.open(fw_path, "w") do |f|
+          remaining = size
+          while remaining > 0
+            chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
+            chunk = io.read(chunk_len)
+            unless chunk && chunk.size > 0
+              raise "DFU: connection lost (#{written}/#{size} bytes received)"
+            end
+            f.write(chunk)
+            written += chunk.size
+            remaining -= chunk.size
+          end
+          f.fsync
+        end
+      rescue => e
+        cleanup_on_failure(fw_path, target_slot)
+        raise e
       end
 
-      firmware_data = File.open(@path, "r") { |f| f.read }
+      if written != size
+        cleanup_on_failure(fw_path, target_slot)
+        raise "DFU: size mismatch (expected #{size}, got #{written})"
+      end
+
+      firmware_data = File.open(fw_path, "r") { |f| f.read }
 
       # CRC32 verification
-      if @verify_crc && @expected_crc32
+      if @verify_crc && crc32 != 0
         actual_crc = CRC.crc32(firmware_data)
-        if actual_crc != @expected_crc32
-          cleanup_on_failure
-          raise "DFU: CRC32 mismatch (expected #{@expected_crc32}, got #{actual_crc})"
+        if actual_crc != crc32
+          cleanup_on_failure(fw_path, target_slot)
+          raise "DFU: CRC32 mismatch (expected #{crc32}, got #{actual_crc})"
         end
       end
 
       # Signature verification
-      if @verify_signature && @expected_sig
-        verify_signature(firmware_data, @expected_sig) # steep:ignore
+      if @verify_signature && signature
+        verify_signature(firmware_data, signature, fw_path, target_slot)
       end
 
       # Update meta: mark slot as ready, set try_slot
       meta = Meta.load
-      slot_data = Meta.slot(meta, @target_slot)
+      slot_data = Meta.slot(meta, target_slot)
       slot_data["state"] = "ready"
-      slot_data["ext"] = @ext
-      slot_data["crc32"] = @expected_crc32 || CRC.crc32(firmware_data)
-      slot_data["sig"] = @expected_sig
-      meta["try_slot"] = @target_slot
+      slot_data["ext"] = ext
+      slot_data["crc32"] = (crc32 != 0) ? crc32 : CRC.crc32(firmware_data)
+      slot_data["sig"] = nil
+      meta["try_slot"] = target_slot
       meta["boot_count"] = 0
       Meta.save(meta)
 
@@ -104,16 +130,11 @@ module DFU
 
     private
 
-    def cleanup_on_failure
-      if @file
-        @file.close
-        @file = nil
-      end
-      File.unlink(@path) if File.exist?(@path)
+    def cleanup_on_failure(fw_path, target_slot)
+      File.unlink(fw_path) if File.exist?(fw_path)
 
-      # Revert slot state to empty
       meta = Meta.load
-      slot_data = Meta.slot(meta, @target_slot)
+      slot_data = Meta.slot(meta, target_slot)
       slot_data["state"] = "empty"
       slot_data["ext"] = nil
       slot_data["crc32"] = nil
@@ -121,16 +142,15 @@ module DFU
       Meta.save(meta)
     end
 
-    def verify_signature(firmware_data, sig_base64)
+    def verify_signature(firmware_data, signature, fw_path, target_slot)
       unless DFU.respond_to?(:ecdsa_public_key_pem)
         raise "DFU: ecdsa_public_key_pem not available (public key not embedded at build time)"
       end
 
-      signature = Base64.decode64(sig_base64)
       public_key = MbedTLS::PKey::EC.new(DFU.ecdsa_public_key_pem)
       digest = MbedTLS::Digest.new(:sha256)
       unless public_key.verify(digest, signature, firmware_data)
-        cleanup_on_failure
+        cleanup_on_failure(fw_path, target_slot)
         raise "DFU: signature verification failed"
       end
     end

@@ -10,7 +10,28 @@ A/B slot management with power-failure safety and automatic rollback.
 - **Automatic rollback**: Falls back to previous firmware after repeated boot failures
 - **Signature verification** (optional): ECDSA (secp256r1 / NIST P-256) via MbedTLS
 - **CRC32 verification** (optional): Integrity check via picoruby-crc
-- **Transport-agnostic**: Core logic is independent of the communication layer (BLE, stdin, etc.)
+- **Transport-agnostic**: Single `receive(io)` API works with any IO-like object (TCP, BLE, etc.)
+
+## Binary Header Protocol
+
+The `receive(io)` method reads a fixed 19-byte binary header followed by optional signature and firmware body.
+
+```
+Offset  Size     Field      Description
+0x00    4 bytes  magic      "DFU\0"
+0x04    1 byte   version    protocol version (uint8, initially 1)
+0x05    4 bytes  type       "RUBY" or "RITE" (ASCII)
+0x09    4 bytes  size       firmware body size (big-endian uint32)
+0x0D    4 bytes  crc32      CRC32 (big-endian uint32, 0 if none)
+0x11    2 bytes  sig_len    signature length (big-endian uint16, 0 if none)
+0x13    N bytes  signature  raw ECDSA DER bytes (N = sig_len)
+0x13+N  ...      body       firmware data (size bytes)
+```
+
+Pack format: `"a4Ca4NNn"` (19 bytes fixed header)
+
+- `RUBY`: source code (.rb)
+- `RITE`: compiled bytecode (.mrb)
 
 ## Directory Layout (R2P2)
 
@@ -31,9 +52,9 @@ A/B slot management with power-failure safety and automatic rollback.
 
 `r2p2.rb` automatically uses DFU when no `/home/app.{mrb|rb}` exists:
 
-1. Check `/home/app.mrb` → load if exists
-2. Check `/home/app.rb` → load if exists
-3. Call `DFU::BootManager.resolve` → load the appropriate slot
+1. Check `/home/app.mrb` -> load if exists
+2. Check `/home/app.rb` -> load if exists
+3. Call `DFU::BootManager.resolve` -> load the appropriate slot
 
 ### Confirm Boot
 
@@ -45,24 +66,47 @@ DFU.confirm
 
 Without this call, the boot counter keeps incrementing and will trigger a rollback after `max_boot_attempts`.
 
-### Perform an Update
+### Receive an Update
 
 ```ruby
 require 'dfu'
 
 updater = DFU::Updater.new(verify_crc: true, verify_signature: false)
 
-# Start update (writes to the inactive slot)
-updater.begin(size: firmware_size, ext: "mrb", crc32: expected_crc32)
-
-# Write firmware data (can be called multiple times for chunked transfer)
-updater.write(chunk1)
-updater.write(chunk2)
-
-# Finalize: verify integrity and update meta.yml
-updater.commit
+# io can be any object with a #read method (TCPSocket, BLE::UART, etc.)
+updater.receive(io)
 
 # Reboot to activate the new firmware
+```
+
+### TCP Transport (dfutcp shell command)
+
+On the device:
+
+```
+dfutcp 4649
+```
+
+This starts a TCP server on port 4649 that accepts DFU binary protocol connections.
+
+### Sending Firmware (from host)
+
+```ruby
+# CRuby sender example
+require 'socket'
+require 'zlib'
+
+firmware = File.binread("app.mrb")
+type = "RITE"  # or "RUBY" for .rb source
+crc32 = Zlib.crc32(firmware)
+sig_len = 0
+
+header = ["DFU\0", 1, type, firmware.size, crc32, sig_len].pack("a4Ca4NNn")
+
+sock = TCPSocket.new("192.168.1.100", 4649)
+sock.write(header)
+sock.write(firmware)
+sock.close
 ```
 
 ### Check Status
@@ -122,60 +166,44 @@ openssl ec -in dfu_ecdsa_private.pem -pubout -out dfu_ecdsa_public.pem
 ```
 
 Place the keys in `mrbgems/picoruby-dfu/keys/`:
-- `dfu_ecdsa_public.pem` — embedded into the build as a read-only C function (committed to git)
-- `dfu_ecdsa_private.pem` — keep secret (gitignored)
+- `dfu_ecdsa_public.pem` -- embedded into the build as a read-only C function (committed to git)
+- `dfu_ecdsa_private.pem` -- keep secret (gitignored)
 
 The public key is available at runtime via `DFU.ecdsa_public_key_pem` (read-only class method defined in C).
 
-### Sign Firmware (on development machine)
+### Sign and Send with Signature
 
 ```ruby
-# CRuby + OpenSSL
+# CRuby sender with signature
+require 'socket'
 require 'openssl'
-require 'base64'
+require 'zlib'
 
 private_key = OpenSSL::PKey::EC.new(File.read("dfu_ecdsa_private.pem"))
 firmware = File.binread("app.mrb")
 signature = private_key.sign("SHA256", firmware)
-sig_base64 = Base64.strict_encode64(signature)
-puts sig_base64
+crc32 = Zlib.crc32(firmware)
+
+header = ["DFU\0", 1, "RITE", firmware.size, crc32, signature.size].pack("a4Ca4NNn")
+
+sock = TCPSocket.new("192.168.1.100", 4649)
+sock.write(header)
+sock.write(signature)
+sock.write(firmware)
+sock.close
 ```
 
-### Update with Signature
+On the device, use `verify_signature: true`:
 
 ```ruby
 updater = DFU::Updater.new(verify_crc: true, verify_signature: true)
-updater.begin(size: size, ext: "mrb", crc32: crc32, signature: sig_base64)
-updater.write(firmware_data)
-updater.commit
-```
-
-## Implementing a Transport Layer
-
-Transport layers (BLE, stdin, HTTP, etc.) should use `DFU::Updater`:
-
-```ruby
-# Example: stdin transport
-require 'dfu'
-
-updater = DFU::Updater.new(verify_crc: true)
-# Parse header from your protocol
-updater.begin(size: size, ext: "mrb", crc32: crc32)
-
-remaining = size
-while remaining > 0
-  chunk = STDIN.read([remaining, 4096].min)
-  updater.write(chunk)
-  remaining -= chunk.length
-end
-
-updater.commit
-puts "DFU update complete. Reboot to activate."
+updater.receive(io)
 ```
 
 ## Dependencies
 
-- `picoruby-yaml` — meta.yml parsing
-- `picoruby-vfs` — file operations
-- `picoruby-crc` — CRC32 verification
-- `picoruby-mbedtls` — ECDSA signature verification (optional, required only when `verify_signature: true`)
+- `picoruby-yaml` -- meta.yml parsing
+- `picoruby-vfs` -- file operations
+- `picoruby-crc` -- CRC32 verification
+- `picoruby-pack` / `mruby-pack` -- binary header parsing
+- `picoruby-mbedtls` -- ECDSA signature verification (optional, required only when `verify_signature: true`)
