@@ -61,6 +61,7 @@ class Shell
   end
 
   def self.ensure_system_file(path, code, crc = nil)
+    flawless = true
     10.times do
       if File.file?(path)
         print "Checking: #{path}"
@@ -74,9 +75,10 @@ class Shell
                        end
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
             puts " ... OK (#{code.length} bytes)"
-            return
+            return flawless
           else
             puts " ... NG! (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
+            flawless = false
           end
         end
         File.unlink(path)
@@ -92,9 +94,41 @@ class Shell
     end
     File.unlink(path) if File.file?(path)
     puts "Failed to save: #{path} (#{code.length} bytes)"
+    return false
   end
 
-  def self.setup_system_files(root = nil, force: false)
+  # To skip sanity check for each file, we create a description
+  # file after all files are confirmed to be flawless.
+  # If sanity check fails even once, the description file is
+  # removed to force sanity check on the next boot.
+  def self.sanity_check_system_files(root)
+    desc_file = "#{root}/etc/ruby-description"
+    if File.file?(desc_file)
+      File.open(desc_file, "r") do |f|
+        f.read.chomp == RUBY_DESCRIPTION and return
+      end
+    end
+    flawless = true
+    while exe = Shell.next_executable
+      path = "#{root}#{exe[:path]}"
+      unless self.ensure_system_file(path, exe[:code], exe[:crc])
+        flawless = false
+      end
+    end
+    path = "#{root}/etc/machine-id"
+    unless self.ensure_system_file(path, Machine.unique_id, nil)
+      flawless = false
+    end
+    if flawless
+      File.open(desc_file, "w") do |f|
+        f.write(RUBY_DESCRIPTION)
+      end
+    else
+      File.unlink(desc_file) if File.file?(desc_file)
+    end
+  end
+
+  def self.setup_system_files(root = nil)
     unless root.nil? || Dir.exist?(root)
       Dir.mkdir(root)
       puts "Created root directory: #{root}"
@@ -119,46 +153,11 @@ class Shell
           end
         end
       end
-      while exe = Shell.next_executable
-        path = "#{root}#{exe[:path]}"
-        self.ensure_system_file(path, exe[:code], exe[:crc])
-      end
-      path = "#{root}/etc/machine-id"
-      self.ensure_system_file(path, Machine.unique_id, nil)
+      self.sanity_check_system_files(root || "")
     end
     Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
-    config_file = "/etc/config.yml"
-    # example of `config.yml`:
-    #
-    # device:
-    #   gpio:
-    #     trigger_nmble: 22
-    #     led_ble: cyw43_led
-    #     led_wifi: 23
-    begin
-      if File.file?(config_file)
-        config = YAML.load_file(config_file)
-        # @type var config: Hash[String, untyped]
-        env = config['env']
-        if env&.respond_to?(:each)
-          env.each do |key, value|
-            ENV[key.upcase] = value.to_s
-          end
-        end
-        device = config['device']
-        if device&.respond_to?(:each)
-          device.each do |type, values|
-            values&.each do |key, value|
-              ENV["#{type}_#{key}".upcase] = value.to_s
-            end
-          end
-        end
-      end
-    rescue => e
-      puts "Failed to load config file: #{config_file}"
-      puts "  #{e.message} (#{e.class})"
-    end
+    self.read_config
 
     begin
       require "cyw43"
@@ -167,6 +166,37 @@ class Shell
       end
     rescue
     end
+  end
+
+  def self.read_config
+    config_file = "/etc/config.yml"
+    return unless File.file?(config_file)
+    # example of `config.yml`:
+    #
+    # device:
+    #   gpio:
+    #     trigger_nmble: 22
+    #     led_ble: cyw43_led
+    #     led_wifi: 23
+    config = YAML.load_file(config_file)
+    # @type var config: Hash[String, untyped]
+    env = config['env']
+    if env&.respond_to?(:each)
+      env.each do |key, value|
+        ENV[key.upcase] = value.to_s
+      end
+    end
+    device = config['device']
+    if device&.respond_to?(:each)
+      device.each do |type, values|
+        values&.each do |key, value|
+          ENV["#{type}_#{key}".upcase] = value.to_s
+        end
+      end
+    end
+  rescue => e
+    puts "Failed to load config file: #{config_file}"
+    puts "  #{e.message} (#{e.class})"
   end
 
   def self.bootstrap(file)

@@ -34,8 +34,10 @@ class Shell
   def self.setup_sdcard: (SPI spi) -> void
 
   def self.setup_root_volume: (Symbol drive, ?label: String) -> void
-  def self.ensure_system_file: (String path, String code, ?(Integer | nil) crc) -> void
-  def self.setup_system_files: (?(String | nil) root, ?force: bool) -> void
+  def self.ensure_system_file: (String path, String code, ?(Integer | nil) crc) -> bool
+  def self.setup_system_files: (?(String | nil) root) -> void
+  def self.sanity_check_system_files: (String root) -> void
+  def self.read_config: () -> void
   def self.bootstrap: (String file) -> bool
   def self.simple_question: (String question) { (String answer) -> boolish } -> void
   def self.find_executable: (String name) -> String?
