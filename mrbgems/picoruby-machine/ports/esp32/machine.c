@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
@@ -220,15 +221,15 @@ Machine_mcu_name(void)
 bool
 Machine_set_hwclock(const struct timespec *ts)
 {
-  // Not implemented
-  return false;
+  clock_settime(CLOCK_REALTIME, ts);
+  return true;
 }
 
 bool
 Machine_get_hwclock(struct timespec *ts)
 {
-  // Not implemented
-  return false;
+  clock_gettime(CLOCK_REALTIME, ts);
+  return true;
 }
 
 void
