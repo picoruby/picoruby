@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('picoruby-ota') do |spec|
+MRuby::Gem::Specification.new('picoruby-dfu') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'OTA update manager for R2P2'
@@ -10,17 +10,17 @@ MRuby::Gem::Specification.new('picoruby-ota') do |spec|
   spec.test_rbfiles = Dir.glob("#{spec.dir}/test/*.rb")
 
   # Embed ECDSA public key for signature verification (optional)
-  pem_file = "#{dir}/keys/ota_ecdsa_public.pem"
+  pem_file = "#{dir}/keys/dfu_ecdsa_public.pem"
   if File.exist?(pem_file)
-    spec.cc.defines << "OTA_HAS_ECDSA_KEY"
+    spec.cc.defines << "DFU_HAS_ECDSA_KEY"
     spec.cc.include_paths << build_dir
 
-    key_inc = "#{build_dir}/ota_public_key.c.inc"
+    key_inc = "#{build_dir}/dfu_public_key.c.inc"
     directory build_dir
     file key_inc => [pem_file, build_dir] do |t|
       pem = File.read(pem_file).strip
       File.open(t.name, 'w') do |f|
-        f.puts "static const char ota_ecdsa_public_key_pem[] ="
+        f.puts "static const char dfu_ecdsa_public_key_pem[] ="
         pem.each_line do |line|
           f.puts "  \"#{line.chomp}\\n\""
         end

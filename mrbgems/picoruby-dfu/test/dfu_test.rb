@@ -1,6 +1,6 @@
 class MetaUtilTest < Picotest::Test
 
-  description "OTA::Meta utility methods"
+  description "DFU::Meta utility methods"
   def test_deep_copy
     original = {
       "key" => "value",
@@ -8,7 +8,7 @@ class MetaUtilTest < Picotest::Test
         "inner" => "data"
       }
     }
-    copy = OTA::Meta.deep_copy(original)
+    copy = DFU::Meta.deep_copy(original)
     assert_equal "value", copy["key"]
     assert_equal "data", copy["nested"]["inner"]
     copy["nested"]["inner"] = "modified"
@@ -20,15 +20,15 @@ class MetaUtilTest < Picotest::Test
       "slot_a" => { "state" => "confirmed" },
       "slot_b" => { "state" => "empty" }
     }
-    assert_equal "confirmed", OTA::Meta.slot(meta, "a")["state"]
-    assert_equal "empty", OTA::Meta.slot(meta, "b")["state"]
+    assert_equal "confirmed", DFU::Meta.slot(meta, "a")["state"]
+    assert_equal "empty", DFU::Meta.slot(meta, "b")["state"]
   end
 
   def test_inactive_slot
     meta_a = { "try_slot" => "a" }
     meta_b = { "try_slot" => "b" }
-    assert_equal "b", OTA::Meta.inactive_slot(meta_a)
-    assert_equal "a", OTA::Meta.inactive_slot(meta_b)
+    assert_equal "b", DFU::Meta.inactive_slot(meta_a)
+    assert_equal "a", DFU::Meta.inactive_slot(meta_b)
   end
 
   def test_firmware_path_with_ext
@@ -36,8 +36,8 @@ class MetaUtilTest < Picotest::Test
       "slot_a" => { "ext" => "mrb" },
       "slot_b" => { "ext" => "rb" }
     }
-    path_a = OTA::Meta.firmware_path(meta, "a")
-    path_b = OTA::Meta.firmware_path(meta, "b")
+    path_a = DFU::Meta.firmware_path(meta, "a")
+    path_b = DFU::Meta.firmware_path(meta, "b")
     assert path_a.end_with?("/app_a.mrb")
     assert path_b.end_with?("/app_b.rb")
   end
@@ -46,11 +46,11 @@ class MetaUtilTest < Picotest::Test
     meta = {
       "slot_a" => { "ext" => nil }
     }
-    assert_nil OTA::Meta.firmware_path(meta, "a")
+    assert_nil DFU::Meta.firmware_path(meta, "a")
   end
 
   def test_default_has_required_keys
-    d = OTA::Meta::DEFAULT
+    d = DFU::Meta::DEFAULT
     assert_equal 1, d["format_version"]
     assert_equal "a", d["active_slot"]
     assert_equal "a", d["try_slot"]
@@ -62,10 +62,10 @@ class MetaUtilTest < Picotest::Test
 end
 
 class MetaYamlRoundtripTest < Picotest::Test
-  description "OTA meta.yml YAML serialization roundtrip"
+  description "DFU meta.yml YAML serialization roundtrip"
 
   def test_roundtrip
-    meta = OTA::Meta.deep_copy(OTA::Meta::DEFAULT)
+    meta = DFU::Meta.deep_copy(DFU::Meta::DEFAULT)
     meta["active_slot"] = "b"
     meta["try_slot"] = "b"
     meta["boot_count"] = 2
@@ -86,7 +86,7 @@ class MetaYamlRoundtripTest < Picotest::Test
 end
 
 class OtaConfirmTest < Picotest::Test
-  description "OTA.confirm and OTA.rollback"
+  description "DFU.confirm and DFU.rollback"
 
   def test_confirm_sets_active_and_resets_boot_count
     meta = {
@@ -98,10 +98,10 @@ class OtaConfirmTest < Picotest::Test
       "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
       "slot_b" => { "state" => "ready",     "ext" => "mrb", "crc32" => nil, "sig" => nil }
     }
-    stub(OTA::Meta).load { meta }
-    stub(OTA::Meta).save {}
+    stub(DFU::Meta).load { meta }
+    stub(DFU::Meta).save {}
 
-    OTA.confirm
+    DFU.confirm
 
     assert_equal "b", meta["active_slot"]
     assert_equal 0, meta["boot_count"]
@@ -118,10 +118,10 @@ class OtaConfirmTest < Picotest::Test
       "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
       "slot_b" => { "state" => "ready",     "ext" => "mrb", "crc32" => nil, "sig" => nil }
     }
-    stub(OTA::Meta).load { meta }
-    stub(OTA::Meta).save {}
+    stub(DFU::Meta).load { meta }
+    stub(DFU::Meta).save {}
 
-    OTA.rollback
+    DFU.rollback
 
     assert_equal "a", meta["try_slot"]
     assert_equal 0, meta["boot_count"]
@@ -137,24 +137,24 @@ class OtaConfirmTest < Picotest::Test
       "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
       "slot_b" => { "state" => "empty",     "ext" => nil,   "crc32" => nil, "sig" => nil }
     }
-    stub(OTA::Meta).load { meta }
+    stub(DFU::Meta).load { meta }
 
-    assert_raise(RuntimeError) { OTA.rollback }
+    assert_raise(RuntimeError) { DFU.rollback }
   end
 
   def test_boot_manager_returns_nil_when_no_firmware
-    meta = OTA::Meta.deep_copy(OTA::Meta::DEFAULT)
-    stub(OTA::Meta).recover {}
-    stub(OTA::Meta).load { meta }
-    stub(OTA::Meta).save {}
+    meta = DFU::Meta.deep_copy(DFU::Meta::DEFAULT)
+    stub(DFU::Meta).recover {}
+    stub(DFU::Meta).load { meta }
+    stub(DFU::Meta).save {}
 
-    result = OTA::BootManager.resolve
+    result = DFU::BootManager.resolve
     assert_nil result
   end
 end
 
 class UpdaterTest < Picotest::Test
-  description "OTA::Updater basic validation"
+  description "DFU::Updater basic validation"
 
   def test_rejects_update_during_testing_phase
     meta = {
@@ -166,9 +166,9 @@ class UpdaterTest < Picotest::Test
       "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
       "slot_b" => { "state" => "ready",     "ext" => "mrb", "crc32" => nil, "sig" => nil }
     }
-    stub(OTA::Meta).load { meta }
+    stub(DFU::Meta).load { meta }
 
-    updater = OTA::Updater.new
+    updater = DFU::Updater.new
     assert_raise(RuntimeError) do
       updater.begin(size: 100, ext: "mrb")
     end
@@ -184,21 +184,21 @@ class UpdaterTest < Picotest::Test
       "slot_a" => { "state" => "confirmed", "ext" => "mrb", "crc32" => nil, "sig" => nil },
       "slot_b" => { "state" => "empty",     "ext" => nil,   "crc32" => nil, "sig" => nil }
     }
-    stub(OTA::Meta).load { meta }
+    stub(DFU::Meta).load { meta }
 
-    updater = OTA::Updater.new
+    updater = DFU::Updater.new
     assert_raise(RuntimeError) do
       updater.begin(size: 100, ext: "exe")
     end
   end
 
   def test_write_raises_before_begin
-    updater = OTA::Updater.new
+    updater = DFU::Updater.new
     assert_raise(RuntimeError) { updater.write("data") }
   end
 
   def test_commit_raises_before_begin
-    updater = OTA::Updater.new
+    updater = DFU::Updater.new
     assert_raise(RuntimeError) { updater.commit }
   end
 end

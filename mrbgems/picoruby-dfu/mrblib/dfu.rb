@@ -1,4 +1,4 @@
-module OTA
+module DFU
   # Confirm the current boot.
   # Call this from the app after successful startup.
   def self.confirm
@@ -11,7 +11,7 @@ module OTA
     true
   end
 
-  # Get current OTA status.
+  # Get current DFU status.
   def self.status
     Meta.recover
     Meta.load
@@ -21,7 +21,7 @@ module OTA
   def self.rollback
     meta = Meta.load
     if meta["try_slot"] == meta["active_slot"]
-      raise "OTA: already on active slot, nothing to rollback"
+      raise "DFU: already on active slot, nothing to rollback"
     end
     meta["try_slot"] = meta["active_slot"]
     meta["boot_count"] = 0

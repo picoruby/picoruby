@@ -1,4 +1,4 @@
-module OTA
+module DFU
   def self.ecdsa_public_key_pem: -> String
 
   def self.confirm: -> true

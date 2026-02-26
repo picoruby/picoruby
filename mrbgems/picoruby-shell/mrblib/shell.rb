@@ -102,11 +102,11 @@ class Shell
     $LOAD_PATH = ["#{root}/lib"]
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
-    ENV['OTA_DIR'] = "#{root}/etc/ota"
+    ENV['DFU_DIR'] = "#{root}/etc/dfu"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
     Dir.chdir(root || "/") do
-      %w(bin home etc etc/init.d etc/network etc/ota var var/log lib).each do |dir|
+      %w(bin home etc etc/init.d etc/network etc/dfu var var/log lib).each do |dir|
         next if Dir.exist?(dir)
         puts "Creating directory: #{dir}"
         Dir.mkdir(dir)

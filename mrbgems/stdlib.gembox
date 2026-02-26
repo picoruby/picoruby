@@ -1,5 +1,5 @@
 MRuby::GemBox.new do |conf|
-  conf.gem core: "picoruby-ota"
+  conf.gem core: "picoruby-dfu"
   conf.gem core: "picoruby-rng"
   conf.gem core: 'picoruby-base16'
   conf.gem core: 'picoruby-base64'

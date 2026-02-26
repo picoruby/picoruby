@@ -1,6 +1,6 @@
-# picoruby-ota
+# picoruby-dfu
 
-OTA (Over-The-Air) update manager for R2P2.
+DFU (Device Firmware Update) update manager for R2P2.
 A/B slot management with power-failure safety and automatic rollback.
 
 ## Overview
@@ -15,12 +15,12 @@ A/B slot management with power-failure safety and automatic rollback.
 ## Directory Layout (R2P2)
 
 ```
-/etc/ota/
-  meta.yml          # OTA state management
+/etc/dfu/
+  meta.yml          # DFU state management
   meta_tmp.yml      # Temporary file for power-failure safety
 
 /home/
-  app.mrb / app.rb       # Legacy app (takes priority over OTA slots)
+  app.mrb / app.rb       # Legacy app (takes priority over DFU slots)
   app_a.mrb / app_a.rb   # Slot A firmware
   app_b.mrb / app_b.rb   # Slot B firmware
 ```
@@ -29,18 +29,18 @@ A/B slot management with power-failure safety and automatic rollback.
 
 ### Boot (automatic)
 
-`r2p2.rb` automatically uses OTA when no `/home/app.{mrb|rb}` exists:
+`r2p2.rb` automatically uses DFU when no `/home/app.{mrb|rb}` exists:
 
 1. Check `/home/app.mrb` → load if exists
 2. Check `/home/app.rb` → load if exists
-3. Call `OTA::BootManager.resolve` → load the appropriate slot
+3. Call `DFU::BootManager.resolve` → load the appropriate slot
 
 ### Confirm Boot
 
-The app **must** call `OTA.confirm` after successful startup to reset the boot counter:
+The app **must** call `DFU.confirm` after successful startup to reset the boot counter:
 
 ```ruby
-OTA.confirm
+DFU.confirm
 ```
 
 Without this call, the boot counter keeps incrementing and will trigger a rollback after `max_boot_attempts`.
@@ -48,9 +48,9 @@ Without this call, the boot counter keeps incrementing and will trigger a rollba
 ### Perform an Update
 
 ```ruby
-require 'ota'
+require 'dfu'
 
-updater = OTA::Updater.new(verify_crc: true, verify_signature: false)
+updater = DFU::Updater.new(verify_crc: true, verify_signature: false)
 
 # Start update (writes to the inactive slot)
 updater.begin(size: firmware_size, ext: "mrb", crc32: expected_crc32)
@@ -68,7 +68,7 @@ updater.commit
 ### Check Status
 
 ```ruby
-meta = OTA.status
+meta = DFU.status
 puts meta["active_slot"]  #=> "a"
 puts meta["try_slot"]     #=> "b"
 puts meta["boot_count"]   #=> 0
@@ -77,7 +77,7 @@ puts meta["boot_count"]   #=> 0
 ### Manual Rollback
 
 ```ruby
-OTA.rollback
+DFU.rollback
 ```
 
 ## meta.yml Format
@@ -115,17 +115,17 @@ slot_b:
 
 ```bash
 # Generate private key
-openssl ecparam -genkey -name prime256v1 -noout -out ota_ecdsa_private.pem
+openssl ecparam -genkey -name prime256v1 -noout -out dfu_ecdsa_private.pem
 
 # Extract public key
-openssl ec -in ota_ecdsa_private.pem -pubout -out ota_ecdsa_public.pem
+openssl ec -in dfu_ecdsa_private.pem -pubout -out dfu_ecdsa_public.pem
 ```
 
-Place the keys in `mrbgems/picoruby-ota/keys/`:
-- `ota_ecdsa_public.pem` — embedded into the build as a read-only C function (committed to git)
-- `ota_ecdsa_private.pem` — keep secret (gitignored)
+Place the keys in `mrbgems/picoruby-dfu/keys/`:
+- `dfu_ecdsa_public.pem` — embedded into the build as a read-only C function (committed to git)
+- `dfu_ecdsa_private.pem` — keep secret (gitignored)
 
-The public key is available at runtime via `OTA.ecdsa_public_key_pem` (read-only class method defined in C).
+The public key is available at runtime via `DFU.ecdsa_public_key_pem` (read-only class method defined in C).
 
 ### Sign Firmware (on development machine)
 
@@ -134,7 +134,7 @@ The public key is available at runtime via `OTA.ecdsa_public_key_pem` (read-only
 require 'openssl'
 require 'base64'
 
-private_key = OpenSSL::PKey::EC.new(File.read("ota_ecdsa_private.pem"))
+private_key = OpenSSL::PKey::EC.new(File.read("dfu_ecdsa_private.pem"))
 firmware = File.binread("app.mrb")
 signature = private_key.sign("SHA256", firmware)
 sig_base64 = Base64.strict_encode64(signature)
@@ -144,7 +144,7 @@ puts sig_base64
 ### Update with Signature
 
 ```ruby
-updater = OTA::Updater.new(verify_crc: true, verify_signature: true)
+updater = DFU::Updater.new(verify_crc: true, verify_signature: true)
 updater.begin(size: size, ext: "mrb", crc32: crc32, signature: sig_base64)
 updater.write(firmware_data)
 updater.commit
@@ -152,13 +152,13 @@ updater.commit
 
 ## Implementing a Transport Layer
 
-Transport layers (BLE, stdin, HTTP, etc.) should use `OTA::Updater`:
+Transport layers (BLE, stdin, HTTP, etc.) should use `DFU::Updater`:
 
 ```ruby
 # Example: stdin transport
-require 'ota'
+require 'dfu'
 
-updater = OTA::Updater.new(verify_crc: true)
+updater = DFU::Updater.new(verify_crc: true)
 # Parse header from your protocol
 updater.begin(size: size, ext: "mrb", crc32: crc32)
 
@@ -170,7 +170,7 @@ while remaining > 0
 end
 
 updater.commit
-puts "OTA update complete. Reboot to activate."
+puts "DFU update complete. Reboot to activate."
 ```
 
 ## Dependencies

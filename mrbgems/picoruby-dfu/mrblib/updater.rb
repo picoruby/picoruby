@@ -1,4 +1,4 @@
-module OTA
+module DFU
   class Updater
     def initialize(verify_crc: true, verify_signature: false)
       @verify_crc = verify_crc
@@ -17,11 +17,11 @@ module OTA
 
       # Reject if in testing state
       if meta["try_slot"] != meta["active_slot"]
-        raise "OTA update rejected: firmware test in progress. Call OTA.confirm or OTA.rollback first."
+        raise "DFU update rejected: firmware test in progress. Call DFU.confirm or DFU.rollback first."
       end
 
       unless ext == "mrb" || ext == "rb"
-        raise "OTA: ext must be 'mrb' or 'rb'"
+        raise "DFU: ext must be 'mrb' or 'rb'"
       end
 
       @target_slot = Meta.inactive_slot(meta)
@@ -54,7 +54,7 @@ module OTA
 
     # Write a chunk of firmware data.
     def write(data)
-      raise "OTA: update not started" unless @file
+      raise "DFU: update not started" unless @file
       n = @file.write(data)
       @written += n
       n
@@ -62,14 +62,14 @@ module OTA
 
     # Finalize the update: close file, verify, update meta.
     def commit
-      raise "OTA: update not started" unless @file
+      raise "DFU: update not started" unless @file
       @file.fsync
       @file.close
       @file = nil
 
       if @written != @size
         cleanup_on_failure
-        raise "OTA: size mismatch (expected #{@size}, got #{@written})"
+        raise "DFU: size mismatch (expected #{@size}, got #{@written})"
       end
 
       firmware_data = File.open(@path, "r") { |f| f.read }
@@ -79,7 +79,7 @@ module OTA
         actual_crc = CRC.crc32(firmware_data)
         if actual_crc != @expected_crc32
           cleanup_on_failure
-          raise "OTA: CRC32 mismatch (expected #{@expected_crc32}, got #{actual_crc})"
+          raise "DFU: CRC32 mismatch (expected #{@expected_crc32}, got #{actual_crc})"
         end
       end
 
@@ -122,16 +122,16 @@ module OTA
     end
 
     def verify_signature(firmware_data, sig_base64)
-      unless OTA.respond_to?(:ecdsa_public_key_pem)
-        raise "OTA: ecdsa_public_key_pem not available (public key not embedded at build time)"
+      unless DFU.respond_to?(:ecdsa_public_key_pem)
+        raise "DFU: ecdsa_public_key_pem not available (public key not embedded at build time)"
       end
 
       signature = Base64.decode64(sig_base64)
-      public_key = MbedTLS::PKey::EC.new(OTA.ecdsa_public_key_pem)
+      public_key = MbedTLS::PKey::EC.new(DFU.ecdsa_public_key_pem)
       digest = MbedTLS::Digest.new(:sha256)
       unless public_key.verify(digest, signature, firmware_data)
         cleanup_on_failure
-        raise "OTA: signature verification failed"
+        raise "DFU: signature verification failed"
       end
     end
   end

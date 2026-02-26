@@ -1,4 +1,4 @@
-module OTA
+module DFU
   module BootManager
     # Select the firmware to boot.
     # Returns the firmware file path, or nil if no firmware available.

@@ -1,10 +1,10 @@
 require 'yaml'
 
-module OTA
+module DFU
   class Meta
 
-    META_PATH     = "#{ENV['OTA_DIR']}/meta.yml"
-    META_TMP_PATH = "#{ENV['OTA_DIR']}/meta_tmp.yml"
+    META_PATH     = "#{ENV['DFU_DIR']}/meta.yml"
+    META_TMP_PATH = "#{ENV['DFU_DIR']}/meta_tmp.yml"
 
     DEFAULT = {
       "format_version"   => 1,

@@ -1,9 +1,9 @@
 #if defined(PICORB_VM_MRUBY)
 
-#include "mruby/ota.c"
+#include "mruby/dfu.c"
 
 #elif defined(PICORB_VM_MRUBYC)
 
-#include "mrubyc/ota.c"
+#include "mrubyc/dfu.c"
 
 #endif
