@@ -19,7 +19,7 @@ module DFU
       # Read fixed header
       puts "[recv] reading header (#{HEADER_SIZE} bytes)..."
       header = read_exact(io, HEADER_SIZE)
-      got_size = header ? header.size : 0
+      got_size = header ? header.bytesize : 0
       puts "[recv] got #{got_size} bytes for header"
       unless header && got_size == HEADER_SIZE
         raise "DFU: incomplete header (expected #{HEADER_SIZE} bytes, got #{got_size})"
@@ -50,7 +50,7 @@ module DFU
       if sig_len > 0
         puts "[recv] reading signature (#{sig_len} bytes)..."
         signature = read_exact(io, sig_len)
-        got_sig = signature ? signature.size : 0
+        got_sig = signature ? signature.bytesize : 0
         puts "[recv] got #{got_sig} bytes for signature"
         unless signature && got_sig == sig_len
           raise "DFU: incomplete signature (expected #{sig_len} bytes, got #{got_sig})"
@@ -90,13 +90,13 @@ module DFU
             chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
             puts "[recv] read_exact(#{chunk_len}) (written=#{written}/#{size})..."
             chunk = read_exact(io, chunk_len)
-            puts "[recv] got #{chunk.size} bytes"
-            if chunk.size == 0
+            puts "[recv] got #{chunk.bytesize} bytes"
+            if chunk.bytesize == 0
               raise "DFU: connection lost (#{written}/#{size} bytes received)"
             end
             f.write(chunk)
-            written += chunk.size
-            remaining -= chunk.size
+            written += chunk.bytesize
+            remaining -= chunk.bytesize
           end
           f.fsync
         end
@@ -147,10 +147,10 @@ module DFU
     # is available yet; nil means EOF (connection closed).
     def read_exact(io, n)
       buf = ""
-      while buf.size < n
-        chunk = io.read(n - buf.size)
-        break if chunk.nil?       # EOF
-        next  if chunk.size == 0  # no data yet, retry
+      while buf.bytesize < n
+        chunk = io.read(n - buf.bytesize)
+        break if chunk.nil?           # EOF
+        next  if chunk.bytesize == 0  # no data yet, retry
         buf += chunk
       end
       buf
