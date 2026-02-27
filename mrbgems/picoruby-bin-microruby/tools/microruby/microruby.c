@@ -7,6 +7,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#if !defined(_WIN32) && !defined(_WIN64)
+#include <termios.h>
+#include <unistd.h>
+
+static struct termios orig_termios;
+
+static void
+restore_termios(void)
+{
+  tcsetattr(0, TCSANOW, &orig_termios);
+}
+#endif
 
 #if defined(PICORB_VM_MRUBY)
 #define EXECUTABLE_NAME "microruby"
@@ -442,6 +454,12 @@ int
 main(int argc, char **argv)
 {
   mrb_state *vm = NULL;
+#if !defined(_WIN32) && !defined(_WIN64)
+  if (isatty(0)) {
+    tcgetattr(0, &orig_termios);
+    atexit(restore_termios);
+  }
+#endif
   picorb_vm_init();
 
   /* Define PICORUBY_VERSION cont */
