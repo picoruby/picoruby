@@ -11,6 +11,17 @@ end
 module Editor
   def self.get_screen_size: -> [Integer, Integer]
 
+  # UTF-8 helper methods
+  def self.utf8_byte_length: (Integer | nil lead_byte) -> Integer
+  def self.char_bytesize_at: (String str, Integer byte_pos) -> Integer
+  def self.prev_char_byte_pos: (String str, Integer byte_pos) -> Integer
+  def self.char_at_bytepos: (String str, Integer byte_pos) -> String?
+  def self.char_display_width: (String? ch) -> Integer
+  def self.display_width: (String str) -> Integer
+  def self.byte_to_display_col: (String str, Integer byte_pos) -> Integer
+  def self.display_col_to_byte: (String str, Integer col) -> Integer
+  def self.display_slice: (String str, Integer start_col, Integer max_width) -> String
+
   class Base
     @buffer: Editor::Buffer
     @prompt_margin: Integer
@@ -77,8 +88,8 @@ module Editor
     def refresh_footer: () { (self) -> void } -> void
     def show_cursor: -> untyped
     def calculate_visual_cursor: -> void
-    def highlighted_segment: (String line, Integer lineno, Integer start_col, Integer length) -> String
-    def start: () { (self, Editor::Buffer, Integer) -> void }  -> void
+    def highlighted_segment: (String line, Integer lineno, Integer start_col, Integer max_width) -> String
+    def start: () { (self, Editor::Buffer, Integer, String?) -> void }  -> void
   end
 end
 

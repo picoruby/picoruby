@@ -81,7 +81,7 @@ module Editor
       count = 0
       return count if @width == 0
       @buffer.lines.each do |line|
-        count += 1 + (@prompt_margin + line.length) / @width
+        count += 1 + (@prompt_margin + Editor.display_width(line)) / @width
       end
       count
     end
@@ -153,6 +153,7 @@ module Editor
       _line_count = physical_line_count
       _buffer_lines = @buffer.lines
       _buffer_cursor_x = @buffer.cursor_x
+      _buffer_cursor_display_x = Editor.byte_to_display_col(@buffer.current_line, _buffer_cursor_x)
       _prompt_margin = @prompt_margin
       _width = @width
 
@@ -172,13 +173,14 @@ module Editor
       # Write the buffer content
       _buffer_lines.each_with_index do |line, i|
         puts if 0 < i
+        _dw = Editor.display_width(line)
         print @prompt,
           (i == 0 ? "> " : "* "),
           line,
           "\e[0K",
           # if the last letter is on the right most of the window,
           # move cursor to the next line's head
-          ((_prompt_margin + line.length) % _width == 0 ? "\e[1E" : "")
+          ((_prompt_margin + _dw) % _width == 0 ? "\e[1E" : "")
       end
 
       # Delete all after cursor &&
@@ -188,14 +190,14 @@ module Editor
       @prev_cursor_y = -1
       _buffer_lines.each_with_index do |line, i|
         break [] if i == @buffer.cursor_y
-        a = (_prompt_margin + line.length) / _width + 1
+        a = (_prompt_margin + Editor.display_width(line)) / _width + 1
         print "\e[#{a}B"
         @prev_cursor_y += a
       end
 
       # Show cursor
-      b = (_prompt_margin + _buffer_cursor_x) / _width + 1
-      c = (_prompt_margin + _buffer_cursor_x) % _width
+      b = (_prompt_margin + _buffer_cursor_display_x) / _width + 1
+      c = (_prompt_margin + _buffer_cursor_display_x) % _width
       print 0 < c ? "\e[#{b}B\e[#{c}C\e[?25h" : "\e[#{b}B\e[?25h"
 
       @prev_cursor_y += b
@@ -219,7 +221,9 @@ module Editor
         end
         next unless line
         while true
-          break unless c = line[0]&.ord
+          ch = line[0]
+          break unless ch
+          c = ch.getbyte(0)
           line[0] = ''
           case c
           when 1 # Ctrl-A
@@ -260,10 +264,12 @@ module Editor
             end
           when 8, 127 # 127 on UNIX
             @buffer.put :BSPACE
-          when 32..126
-            @buffer.put c.chr
           else
-            yield self, @buffer, c
+            if c >= 32
+              @buffer.put ch
+            else
+              yield self, @buffer, c
+            end
           end
           refresh
         end
@@ -336,7 +342,8 @@ module Editor
       first_line_skip_count = 0
       # Show the content
       @buffer.lines.each_with_index do |line, lineno|
-        [1, ((line.length + content_width - 1) / content_width)].max&.times do |i|
+        dw = Editor.display_width(line)
+        [1, ((dw + content_width - 1) / content_width)].max&.times do |i|
           if visual_offset < 0
             visual_offset += 1
           else
@@ -366,14 +373,15 @@ module Editor
         ((first_line_skip_count - content_height)..first_lineno).each do |lineno|
           lineno = lineno.to_i
           line = @buffer.lines[lineno]
-          ([1, (line.length - 1) / content_width + 1].max || 0).times do |i|
+          dw = Editor.display_width(line)
+          ([1, (dw - 1) / content_width + 1].max || 0).times do |i|
             break 0 if lineno == first_lineno && first_line_skip_count - 1 < i
             str = if i == 0
               "\e[31m" + "#{lineno + 1} ".rjust(4)
             else
               "\e[31m    "
             end
-            str << line[i * content_width, content_width].to_s
+            str << Editor.display_slice(line, i * content_width, content_width)
             str << "\e[0m"
             blank_lines.unshift str
           end
@@ -473,13 +481,15 @@ module Editor
       calculate_visual_cursor
       content_width = @width - 4
       line = @buffer.current_line
-      new_wraps = [1, ((line.length + content_width - 1) / content_width)].max || 1
+      dw = Editor.display_width(line)
+      new_wraps = [1, ((dw + content_width - 1) / content_width)].max || 1
       if new_wraps != @cursor_line_wraps
         refresh
         return
       end
       # Calculate visual Y of current line start
-      visual_y = @visual_cursor_y - @buffer.cursor_x / content_width
+      cursor_display_x = Editor.byte_to_display_col(line, @buffer.cursor_x)
+      visual_y = @visual_cursor_y - cursor_display_x / content_width
       # Redraw all visual rows of the current line
       new_wraps.times do |i|
         row = visual_y + i + 1
@@ -501,7 +511,8 @@ module Editor
     def update_cursor_line_wraps
       content_width = @width - 4
       line = @buffer.current_line
-      @cursor_line_wraps = [1, ((line.length + content_width - 1) / content_width)].max || 1
+      dw = Editor.display_width(line)
+      @cursor_line_wraps = [1, ((dw + content_width - 1) / content_width)].max || 1
     end
 
     def calculate_visual_cursor
@@ -511,18 +522,20 @@ module Editor
       cursor_y = @buffer.cursor_y
       @buffer.lines.each_with_index do |line, i|
         break [] if i == cursor_y
-        y += [1, (line.length + content_width - 1) / content_width].max || 0
+        dw = Editor.display_width(line)
+        y += [1, (dw + content_width - 1) / content_width].max || 0
       end
-      @visual_cursor_y = y + cursor_x / content_width + @visual_offset.to_i
-      @visual_cursor_x = cursor_x % content_width
-      if @visual_cursor_x == 0 && 0 < cursor_x && @buffer.current_line.length == cursor_x
+      cursor_display_x = Editor.byte_to_display_col(@buffer.current_line, cursor_x)
+      @visual_cursor_y = y + cursor_display_x / content_width + @visual_offset.to_i
+      @visual_cursor_x = cursor_display_x % content_width
+      if @visual_cursor_x == 0 && 0 < cursor_x && @buffer.current_line.bytesize == cursor_x
         @visual_cursor_x = @width
         @visual_cursor_y -= 1
       end
     end
 
-    def highlighted_segment(line, lineno, start_col, length)
-      segment = line[start_col, length].to_s
+    def highlighted_segment(line, lineno, start_col, max_width)
+      segment = Editor.display_slice(line, start_col, max_width)
       return segment unless @buffer.has_selection?
       range = @buffer.selection_range
       return segment unless range
@@ -534,38 +547,46 @@ module Editor
         return segment
       end
       return segment if lineno < sy || lineno > ey
-      sel_start = (lineno == sy) ? sx : 0
-      line_len = line ? line.length : 0
-      sel_end = (lineno == ey) ? ex : line_len - 1
-      seg_end = start_col + segment.length - 1
-      sel_start = sel_start > start_col ? sel_start : start_col
-      sel_end = sel_end < seg_end ? sel_end : seg_end
-      return segment if sel_start > seg_end || sel_end < start_col
+      # Convert byte offsets to display columns for this line
+      sel_start_col = (lineno == sy) ? Editor.byte_to_display_col(line, sx) : 0
+      line_dw = line ? Editor.display_width(line) : 0
+      # ex is byte offset of last selected byte; convert to display col of end of that char
+      if lineno == ey
+        clen = Editor.char_bytesize_at(line, ex)
+        sel_end_col = Editor.byte_to_display_col(line, ex) + (clen > 1 ? 2 : 1) - 1
+      else
+        sel_end_col = line_dw - 1
+      end
+      seg_dw = Editor.display_width(segment)
+      seg_end_col = start_col + seg_dw - 1
+      sel_start_col = sel_start_col > start_col ? sel_start_col : start_col
+      sel_end_col = sel_end_col < seg_end_col ? sel_end_col : seg_end_col
+      return segment if sel_start_col > seg_end_col || sel_end_col < start_col
       result = ""
-      before_len = sel_start - start_col
-      if before_len > 0
-        result << segment[0, before_len].to_s
-      end
-      sel_len = sel_end - sel_start + 1
-      result << "\e[7m" << segment[sel_start - start_col, sel_len].to_s << "\e[m"
-      after_start = sel_end - start_col + 1
-      after_len = segment.length - after_start
-      if after_len > 0
-        result << segment[after_start, after_len].to_s
-      end
+      before = Editor.display_slice(segment, 0, sel_start_col - start_col)
+      result << before if before.bytesize > 0
+      sel_width = sel_end_col - sel_start_col + 1
+      mid = Editor.display_slice(segment, sel_start_col - start_col, sel_width)
+      result << "\e[7m" << mid << "\e[m"
+      after_col = sel_end_col - start_col + 1
+      after = Editor.display_slice(segment, after_col, seg_dw - after_col)
+      result << after if after.bytesize > 0
       result
     end
 
     def start
       print "\e[m"
+      refresh
       while true
         smart_refresh
         begin
-          c = STDIN.getch.ord
+          ch = STDIN.getch
+          c = ch.getbyte(0)
         rescue Interrupt
           return if @quit_by_sigint
         rescue SignalException
           c = 26 # Ctrl-Z
+          ch = nil
         end
         case c
         when 4 # Ctrl-D logout
@@ -577,7 +598,7 @@ module Editor
           # should not happen
         else
           begin
-            yield self, @buffer, c
+            yield self, @buffer, c, ch
           rescue => e
             return if e.message == "__quit()"
           end

@@ -22,6 +22,113 @@ if RUBY_ENGINE == "mruby/c"
 end
 
 module Editor
+
+  # Returns byte length of a UTF-8 character from its lead byte
+  def self.utf8_byte_length(lead_byte)
+    return 0 unless lead_byte
+    if lead_byte < 0x80
+      1
+    elsif lead_byte < 0xE0
+      2
+    elsif lead_byte < 0xF0
+      3
+    else
+      4
+    end
+  end
+
+  # Returns byte length of the character at byte_pos in str
+  def self.char_bytesize_at(str, byte_pos)
+    bs = str.bytesize
+    return 0 if byte_pos >= bs || byte_pos < 0
+    return 0 unless byte = str.getbyte(byte_pos)
+    utf8_byte_length(byte)
+  end
+
+  # Returns the start byte position of the character before byte_pos
+  def self.prev_char_byte_pos(str, byte_pos)
+    return 0 if byte_pos <= 0
+    pos = byte_pos - 1
+    while pos > 0 && (str.getbyte(pos) & 0xC0) == 0x80
+      pos -= 1
+    end
+    pos
+  end
+
+  # Returns the full UTF-8 character at byte_pos
+  def self.char_at_bytepos(str, byte_pos)
+    len = char_bytesize_at(str, byte_pos)
+    return nil if len == 0
+    str.byteslice(byte_pos, len)
+  end
+
+  # Returns display width of a single character (1 for ASCII, 2 for multibyte)
+  def self.char_display_width(ch)
+    return 0 unless ch
+    if ch.bytesize > 1
+      2
+    else
+      1
+    end
+  end
+
+  # Returns total display width of a string
+  def self.display_width(str)
+    width = 0
+    pos = 0
+    bs = str.bytesize
+    while pos < bs
+      clen = utf8_byte_length(str.getbyte(pos))
+      width += clen > 1 ? 2 : 1
+      pos += clen
+    end
+    width
+  end
+
+  # Converts byte offset to display column
+  def self.byte_to_display_col(str, byte_pos)
+    col = 0
+    pos = 0
+    bs = str.bytesize
+    while pos < byte_pos && pos < bs
+      clen = utf8_byte_length(str.getbyte(pos))
+      col += clen > 1 ? 2 : 1
+      pos += clen
+    end
+    col
+  end
+
+  # Converts display column to byte offset
+  def self.display_col_to_byte(str, col)
+    pos = 0
+    c = 0
+    bs = str.bytesize
+    while c < col && pos < bs
+      clen = utf8_byte_length(str.getbyte(pos))
+      c += clen > 1 ? 2 : 1
+      pos += clen
+    end
+    pos
+  end
+
+  # Slices a string by display columns (for line wrapping)
+  def self.display_slice(str, start_col, max_width)
+    byte_start = display_col_to_byte(str, start_col)
+    result = ""
+    pos = byte_start
+    width = 0
+    bs = str.bytesize
+    while pos < bs
+      clen = utf8_byte_length(str.getbyte(pos))
+      cw = clen > 1 ? 2 : 1
+      break if width + cw > max_width
+      result << (str.byteslice(pos, clen) || "")
+      width += cw
+      pos += clen
+    end
+    result
+  end
+
   class Buffer
     def initialize
       @cursor_x = 0
@@ -56,7 +163,7 @@ module Editor
     end
 
     def current_char
-      current_line[@cursor_x]
+      Editor.char_at_bytepos(current_line, @cursor_x)
     end
 
     def clear
@@ -67,7 +174,11 @@ module Editor
 
     def dump
       @lines.map do |line|
-        line[-1] == "\\" ? line[0, line.length - 1] : line
+        if line.bytesize > 0 && line.getbyte(line.bytesize - 1) == 0x5C # '\\'
+          line.byteslice(0, line.bytesize - 1)
+        else
+          line
+        end
       end.join("\n")
     end
 
@@ -83,7 +194,7 @@ module Editor
     end
 
     def tail
-      @cursor_x = current_line.length
+      @cursor_x = current_line.bytesize
       mark_dirty(:cursor)
     end
 
@@ -93,9 +204,9 @@ module Editor
     end
 
     def left
-      if 0 < @cursor_x && 0 < current_line.length
-        tail if current_line.length < @cursor_x
-        @cursor_x -= 1
+      if 0 < @cursor_x && 0 < current_line.bytesize
+        tail if current_line.bytesize < @cursor_x
+        @cursor_x = Editor.prev_char_byte_pos(current_line, @cursor_x)
         mark_dirty(:cursor)
       elsif 0 < @cursor_y
         up
@@ -104,8 +215,8 @@ module Editor
     end
 
     def right
-      if @cursor_x < current_line.length
-        @cursor_x += 1
+      if @cursor_x < current_line.bytesize
+        @cursor_x += Editor.char_bytesize_at(current_line, @cursor_x)
         mark_dirty(:cursor)
       else
         if @cursor_y + 1 < @lines.length
@@ -133,13 +244,13 @@ module Editor
 
     def put(c)
       line = current_line
-      tail if current_line.length < @cursor_x
+      tail if current_line.bytesize < @cursor_x
       if c.is_a?(String)
         @changed = true
-        line = line[0, @cursor_x].to_s + c + line[@cursor_x, 65535].to_s
+        line = line.byteslice(0, @cursor_x).to_s + c + line.byteslice(@cursor_x, 65535).to_s
         @lines[@cursor_y] = line
+        @cursor_x += c.bytesize
         mark_dirty(:content)
-        right
       else
         case c
         when :TAB
@@ -148,8 +259,8 @@ module Editor
           put " "
         when :ENTER
           @changed = true
-          new_line = line[@cursor_x, 65535]
-          @lines[@cursor_y] = line[0, @cursor_x].to_s
+          new_line = line.byteslice(@cursor_x, 65535)
+          @lines[@cursor_y] = line.byteslice(0, @cursor_x).to_s
           @lines.insert(@cursor_y + 1, new_line) if new_line
           mark_dirty(:structure)
           head
@@ -157,17 +268,15 @@ module Editor
         when :BSPACE
           @changed = true
           if 0 < @cursor_x
-            if current_line.length == @cursor_x
-              @lines[@cursor_y][-1] = ""
-              tail
-            else
-              @lines[@cursor_y][@cursor_x - 1] = ""
-              left
-            end
+            prev_pos = Editor.prev_char_byte_pos(current_line, @cursor_x)
+            clen = @cursor_x - prev_pos
+            l = @lines[@cursor_y]
+            @lines[@cursor_y] = l.byteslice(0, prev_pos).to_s + l.byteslice(@cursor_x, 65535).to_s
+            @cursor_x = prev_pos
             mark_dirty(:content)
           else
             if 0 < @cursor_y
-              @cursor_x = @lines[@cursor_y - 1].length
+              @cursor_x = @lines[@cursor_y - 1].bytesize
               @lines[@cursor_y - 1] += current_line
               @lines.delete_at @cursor_y
               mark_dirty(:structure)
@@ -189,7 +298,10 @@ module Editor
     end
 
     def delete
-      @lines[@cursor_y][@cursor_x] = ""
+      clen = Editor.char_bytesize_at(@lines[@cursor_y], @cursor_x)
+      return if clen == 0
+      l = @lines[@cursor_y]
+      @lines[@cursor_y] = l.byteslice(0, @cursor_x).to_s + l.byteslice(@cursor_x + clen, 65535).to_s
     end
 
     def delete_line
@@ -203,8 +315,9 @@ module Editor
 
     def replace_char(ch)
       line = current_line
-      return if @cursor_x >= line.length
-      @lines[@cursor_y] = line[0, @cursor_x].to_s + ch + line[@cursor_x + 1, 65535].to_s
+      return if @cursor_x >= line.bytesize
+      clen = Editor.char_bytesize_at(line, @cursor_x)
+      @lines[@cursor_y] = line.byteslice(0, @cursor_x).to_s + ch + line.byteslice(@cursor_x + clen, 65535).to_s
       @changed = true
       mark_dirty(:content)
     end
@@ -220,7 +333,7 @@ module Editor
 
     def word_forward
       line = current_line
-      len = line.length
+      len = line.bytesize
       if @cursor_x >= len
         if @cursor_y + 1 < @lines.length
           down
@@ -229,17 +342,35 @@ module Editor
         return
       end
       x = @cursor_x
-      if word_char?(line[x])
-        x += 1 while x < len && word_char?(line[x])
-      elsif line[x] != " "
-        x += 1 while x < len && !word_char?(line[x]) && line[x] != " "
+      ch = Editor.char_at_bytepos(line, x)
+      if word_char?(ch)
+        while x < len
+          ch = Editor.char_at_bytepos(line, x)
+          break unless word_char?(ch)
+          x += Editor.char_bytesize_at(line, x)
+        end
+      elsif ch != " "
+        while x < len
+          ch = Editor.char_at_bytepos(line, x)
+          break if word_char?(ch) || ch == " "
+          x += Editor.char_bytesize_at(line, x)
+        end
       end
-      x += 1 while x < len && line[x] == " "
+      while x < len
+        ch = Editor.char_at_bytepos(line, x)
+        break unless ch == " "
+        x += Editor.char_bytesize_at(line, x)
+      end
       if x >= len && @cursor_y + 1 < @lines.length
         down
         head
       else
-        @cursor_x = x < len ? x : [len - 1, 0].max
+        if x < len
+          @cursor_x = x
+        else
+          # Move to last character
+          @cursor_x = len > 0 ? Editor.prev_char_byte_pos(line, len) : 0
+        end
         mark_dirty(:cursor)
       end
     end
@@ -249,18 +380,33 @@ module Editor
         if 0 < @cursor_y
           up
           tail
-          @cursor_x = [current_line.length - 1, 0].max
+          line = current_line
+          @cursor_x = line.bytesize > 0 ? Editor.prev_char_byte_pos(line, line.bytesize) : 0
           mark_dirty(:cursor)
         end
         return
       end
       line = current_line
-      x = @cursor_x - 1
-      x -= 1 while x > 0 && line[x] == " "
-      if word_char?(line[x])
-        x -= 1 while x > 0 && word_char?(line[x - 1])
+      x = Editor.prev_char_byte_pos(line, @cursor_x)
+      ch = Editor.char_at_bytepos(line, x)
+      while x > 0 && ch == " "
+        x = Editor.prev_char_byte_pos(line, x)
+        ch = Editor.char_at_bytepos(line, x)
+      end
+      if word_char?(ch)
+        while x > 0
+          prev = Editor.prev_char_byte_pos(line, x)
+          pch = Editor.char_at_bytepos(line, prev)
+          break unless word_char?(pch)
+          x = prev
+        end
       elsif x > 0
-        x -= 1 while x > 0 && !word_char?(line[x - 1]) && line[x - 1] != " "
+        while x > 0
+          prev = Editor.prev_char_byte_pos(line, x)
+          pch = Editor.char_at_bytepos(line, prev)
+          break if word_char?(pch) || pch == " "
+          x = prev
+        end
       end
       @cursor_x = x
       mark_dirty(:cursor)
@@ -268,27 +414,41 @@ module Editor
 
     def word_end
       line = current_line
-      len = line.length
-      if @cursor_x >= len - 1
+      len = line.bytesize
+      last_char_pos = len > 0 ? Editor.prev_char_byte_pos(line, len) : 0
+      if @cursor_x >= last_char_pos
         if @cursor_y + 1 < @lines.length
           down
           line = current_line
-          len = line.length
+          len = line.bytesize
           @cursor_x = 0
         else
           return
         end
       else
-        @cursor_x += 1
+        @cursor_x += Editor.char_bytesize_at(line, @cursor_x)
       end
       x = @cursor_x
-      x += 1 while x < len && line[x] == " "
-      if word_char?(line[x])
-        x += 1 while x < len && word_char?(line[x])
-      else
-        x += 1 while x < len && !word_char?(line[x]) && line[x] != " "
+      while x < len
+        ch = Editor.char_at_bytepos(line, x)
+        break unless ch == " "
+        x += Editor.char_bytesize_at(line, x)
       end
-      @cursor_x = x > 0 ? x - 1 : 0
+      ch = Editor.char_at_bytepos(line, x)
+      if word_char?(ch)
+        while x < len
+          ch = Editor.char_at_bytepos(line, x)
+          break unless word_char?(ch)
+          x += Editor.char_bytesize_at(line, x)
+        end
+      else
+        while x < len
+          ch = Editor.char_at_bytepos(line, x)
+          break if word_char?(ch) || ch == " "
+          x += Editor.char_bytesize_at(line, x)
+        end
+      end
+      @cursor_x = x > 0 ? Editor.prev_char_byte_pos(line, x) : 0
       mark_dirty(:cursor)
     end
 
@@ -341,15 +501,16 @@ module Editor
         end
         result
       elsif sy == ey
-        @lines[sy][sx, ex - sx + 1].to_s
+        line = @lines[sy]
+        line.byteslice(sx, ex - sx + 1).to_s
       else
-        result = @lines[sy][sx, 65535].to_s
+        result = @lines[sy].byteslice(sx, 65535).to_s
         i = sy + 1
         while i < ey
           result << "\n" << @lines[i].to_s
           i += 1
         end
-        result << "\n" << @lines[ey][0, ex + 1].to_s
+        result << "\n" << @lines[ey].byteslice(0, ex + 1).to_s
         result
       end
     end
@@ -367,22 +528,25 @@ module Editor
         @cursor_x = 0
         mark_dirty(:structure)
       elsif sy == ey
-        @lines[sy] = @lines[sy][0, sx].to_s + @lines[sy][ex + 1, 65535].to_s
+        line = @lines[sy]
+        @lines[sy] = line.byteslice(0, sx).to_s + line.byteslice(ex + 1, 65535).to_s
         @cursor_y = sy
         @cursor_x = sx
-        if @lines[sy].length > 0 && @cursor_x >= @lines[sy].length
-          @cursor_x = @lines[sy].length - 1
+        bs = @lines[sy].bytesize
+        if bs > 0 && @cursor_x >= bs
+          @cursor_x = Editor.prev_char_byte_pos(@lines[sy], bs)
         end
         @cursor_x = 0 if @cursor_x < 0
         mark_dirty(:content)
       else
-        after = @lines[ey][ex + 1, 65535].to_s
-        @lines[sy] = @lines[sy][0, sx].to_s + after
+        after = @lines[ey].byteslice(ex + 1, 65535).to_s
+        @lines[sy] = @lines[sy].byteslice(0, sx).to_s + after
         (ey - sy).times { @lines.delete_at(sy + 1) }
         @cursor_y = sy
         @cursor_x = sx
-        if @lines[sy].length > 0 && @cursor_x >= @lines[sy].length
-          @cursor_x = @lines[sy].length - 1
+        bs = @lines[sy].bytesize
+        if bs > 0 && @cursor_x >= bs
+          @cursor_x = Editor.prev_char_byte_pos(@lines[sy], bs)
         end
         @cursor_x = 0 if @cursor_x < 0
         mark_dirty(:structure)
@@ -405,21 +569,22 @@ module Editor
 
     def insert_string_after_cursor(str)
       return unless str
-      pos = @cursor_x + 1
-      len = current_line.length
+      pos = @cursor_x + Editor.char_bytesize_at(current_line, @cursor_x)
+      len = current_line.bytesize
       pos = len if pos > len
       parts = str.split("\n")
       if parts.length <= 1
         s = parts[0].to_s
         line = current_line
-        @lines[@cursor_y] = line[0, pos].to_s + s + line[pos, 65535].to_s
-        @cursor_x = pos + s.length - 1
+        @lines[@cursor_y] = line.byteslice(0, pos).to_s + s + line.byteslice(pos, 65535).to_s
+        end_pos = pos + s.bytesize
+        @cursor_x = end_pos > 0 ? Editor.prev_char_byte_pos(@lines[@cursor_y], end_pos) : 0
         @cursor_x = 0 if @cursor_x < 0
         mark_dirty(:content)
       else
         line = current_line
-        after = line[pos, 65535].to_s
-        @lines[@cursor_y] = line[0, pos].to_s + parts[0].to_s
+        after = line.byteslice(pos, 65535).to_s
+        @lines[@cursor_y] = line.byteslice(0, pos).to_s + parts[0].to_s
         i = 1
         while i < parts.length
           @lines.insert(@cursor_y + i, parts[i].to_s)
@@ -429,14 +594,16 @@ module Editor
         @lines[last_idx] = @lines[last_idx].to_s + after
         @cursor_y = last_idx
         last_part = parts[-1].to_s
-        @cursor_x = last_part.length > 0 ? last_part.length - 1 : 0
+        @cursor_x = last_part.bytesize > 0 ? Editor.prev_char_byte_pos(@lines[last_idx], last_part.bytesize) : 0
         mark_dirty(:structure)
       end
       @changed = true
     end
 
     def current_tail(n = 1)
-      current_line[@cursor_x - n, 65535].to_s
+      pos = @cursor_x
+      n.times { pos = Editor.prev_char_byte_pos(current_line, pos) }
+      current_line.byteslice(pos, 65535).to_s
     end
 
   end

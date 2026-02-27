@@ -550,4 +550,153 @@ class BufferTest < Picotest::Test
     @buf.put :RIGHT
     assert_equal :structure, @buf.dirty
   end
+
+  # --- UTF-8 Helper Methods ---
+
+  def test_utf8_byte_length
+    assert_equal 1, Editor.utf8_byte_length(0x41)    # 'A'
+    assert_equal 2, Editor.utf8_byte_length(0xC3)    # 2-byte lead
+    assert_equal 3, Editor.utf8_byte_length(0xE3)    # 3-byte lead (Japanese)
+    assert_equal 4, Editor.utf8_byte_length(0xF0)    # 4-byte lead (emoji)
+  end
+
+  def test_char_bytesize_at
+    assert_equal 1, Editor.char_bytesize_at("abc", 0)
+    assert_equal 1, Editor.char_bytesize_at("abc", 1)
+    assert_equal 0, Editor.char_bytesize_at("abc", 5) # out of range
+  end
+
+  def test_char_at_bytepos
+    assert_equal "a", Editor.char_at_bytepos("abc", 0)
+    assert_equal "b", Editor.char_at_bytepos("abc", 1)
+    assert_nil Editor.char_at_bytepos("abc", 5)
+  end
+
+  def test_display_width_ascii
+    assert_equal 5, Editor.display_width("hello")
+    assert_equal 0, Editor.display_width("")
+  end
+
+  def test_byte_to_display_col_ascii
+    assert_equal 0, Editor.byte_to_display_col("hello", 0)
+    assert_equal 3, Editor.byte_to_display_col("hello", 3)
+    assert_equal 5, Editor.byte_to_display_col("hello", 5)
+  end
+
+  def test_display_col_to_byte_ascii
+    assert_equal 0, Editor.display_col_to_byte("hello", 0)
+    assert_equal 3, Editor.display_col_to_byte("hello", 3)
+  end
+
+  def test_display_slice_ascii
+    assert_equal "hel", Editor.display_slice("hello", 0, 3)
+    assert_equal "lo", Editor.display_slice("hello", 3, 5)
+    assert_equal "", Editor.display_slice("hello", 0, 0)
+  end
+
+  def test_prev_char_byte_pos_ascii
+    assert_equal 0, Editor.prev_char_byte_pos("abc", 0)
+    assert_equal 0, Editor.prev_char_byte_pos("abc", 1)
+    assert_equal 1, Editor.prev_char_byte_pos("abc", 2)
+  end
+
+  # --- UTF-8 Buffer operations ---
+
+  def test_put_ascii_uses_bytesize
+    @buf.put "a"
+    assert_equal 1, @buf.cursor_x
+    @buf.put "b"
+    assert_equal 2, @buf.cursor_x
+    assert_equal "ab", @buf.lines[0]
+  end
+
+  def test_tail_uses_bytesize
+    @buf.lines = ["hello"]
+    @buf.tail
+    assert_equal 5, @buf.cursor_x
+  end
+
+  def test_left_right_ascii_byte_movement
+    @buf.lines = ["abc"]
+    @buf.right
+    assert_equal 1, @buf.cursor_x
+    @buf.right
+    assert_equal 2, @buf.cursor_x
+    @buf.left
+    assert_equal 1, @buf.cursor_x
+  end
+
+  def test_delete_ascii_byteslice
+    @buf.lines = ["abc"]
+    @buf.move_to(1, @buf.cursor_y)
+    @buf.delete
+    assert_equal "ac", @buf.lines[0]
+  end
+
+  def test_replace_char_ascii
+    @buf.lines = ["abc"]
+    @buf.move_to(1, @buf.cursor_y)
+    @buf.replace_char("X")
+    assert_equal "aXc", @buf.lines[0]
+  end
+
+  def test_bspace_ascii_byteslice
+    @buf.lines = ["abc"]
+    @buf.move_to(2, @buf.cursor_y)
+    @buf.put :BSPACE
+    assert_equal "ac", @buf.lines[0]
+    assert_equal 1, @buf.cursor_x
+  end
+
+  def test_enter_ascii_byteslice
+    @buf.lines = ["abcd"]
+    @buf.move_to(2, @buf.cursor_y)
+    @buf.put :ENTER
+    assert_equal "ab", @buf.lines[0]
+    assert_equal "cd", @buf.lines[1]
+  end
+
+  def test_selected_text_byteslice
+    @buf.lines = ["abcdef"]
+    @buf.move_to(1, @buf.cursor_y)
+    @buf.start_selection(:char)
+    @buf.move_to(3, @buf.cursor_y)
+    text = @buf.selected_text
+    assert_equal "bcd", text
+  end
+
+  def test_delete_selected_text_byteslice
+    @buf.lines = ["abcdef"]
+    @buf.move_to(1, @buf.cursor_y)
+    @buf.start_selection(:char)
+    @buf.move_to(3, @buf.cursor_y)
+    deleted = @buf.delete_selected_text
+    assert_equal "bcd", deleted
+    assert_equal "aef", @buf.lines[0]
+  end
+
+  def test_insert_string_after_cursor_ascii
+    @buf.lines = ["abc"]
+    @buf.move_to(1, @buf.cursor_y)
+    @buf.insert_string_after_cursor("XY")
+    assert_equal "abXYc", @buf.lines[0]
+  end
+
+  def test_dump_byteslice_backslash
+    @buf.lines = ["hello\\"]
+    result = @buf.dump
+    assert_equal "hello", result
+  end
+
+  def test_dump_no_backslash
+    @buf.lines = ["hello"]
+    result = @buf.dump
+    assert_equal "hello", result
+  end
+
+  def test_current_tail_byteslice
+    @buf.lines = ["abcdef"]
+    @buf.move_to(3, @buf.cursor_y)
+    assert_equal "cdef", @buf.current_tail(1)
+  end
 end

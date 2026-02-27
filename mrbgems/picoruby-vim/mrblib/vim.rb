@@ -62,7 +62,7 @@ class Vim
   end
 
   def _start
-    @editor.start do |editor, buffer, c|
+    @editor.start do |editor, buffer, c, ch|
       case @mode
       when :normal
         if c < 112
@@ -147,7 +147,7 @@ class Vim
             end
           when 114 # r replace
             rc = STDIN.getch
-            if rc && rc.ord >= 32 && rc.ord <= 126
+            if rc && rc.ord >= 32
               buffer.replace_char(rc)
             end
           when 117 # u undo
@@ -225,8 +225,10 @@ class Vim
           buffer.put :TAB
         when 10, 13
           buffer.put :ENTER
-        when 32..126
-          buffer.put c.chr
+        else
+          if c >= 32 && ch
+            buffer.put ch
+          end
         end
       when :visual, :visual_line
         case c
