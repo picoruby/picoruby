@@ -17,6 +17,9 @@ module Editor
     attr_reader cursor_x: Integer
     attr_reader cursor_y: Integer
     attr_reader dirty: Symbol
+    attr_reader selection_start_x: Integer?
+    attr_reader selection_start_y: Integer?
+    attr_reader selection_mode: Symbol?
 
     def self.new: () -> instance
     def current_line: () -> String
@@ -43,5 +46,14 @@ module Editor
     def word_forward: () -> void
     def word_backward: () -> void
     def word_end: () -> void
+    def move_to: (Integer x, Integer y) -> void
+    def start_selection: (Symbol mode) -> void
+    def clear_selection: () -> void
+    def has_selection?: () -> bool
+    def selection_range: () -> ([Integer, Integer, Integer, Integer] | nil)
+    def selected_text: () -> (String | nil)
+    def delete_selected_text: () -> (String | nil)
+    def insert_lines_below: (Array[String] | nil lines_to_insert) -> void
+    def insert_string_after_cursor: (String | nil str) -> void
   end
 end

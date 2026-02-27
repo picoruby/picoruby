@@ -32,6 +32,7 @@ module Editor
 
     attr_accessor :lines, :changed
     attr_reader :cursor_x, :cursor_y, :dirty
+    attr_reader :selection_start_x, :selection_start_y, :selection_mode
 
     def mark_dirty(level)
       case @dirty
@@ -60,6 +61,7 @@ module Editor
 
     def clear
       @lines = [""]
+      clear_selection
       home
     end
 
@@ -288,6 +290,149 @@ module Editor
       end
       @cursor_x = x > 0 ? x - 1 : 0
       mark_dirty(:cursor)
+    end
+
+    def move_to(x, y)
+      @cursor_x = x
+      @cursor_y = y
+      mark_dirty(:cursor)
+    end
+
+    def start_selection(mode)
+      @selection_mode = mode
+      @selection_start_x = @cursor_x
+      @selection_start_y = @cursor_y
+    end
+
+    def clear_selection
+      @selection_mode = nil
+      @selection_start_x = nil
+      @selection_start_y = nil
+    end
+
+    def has_selection?
+      !@selection_mode.nil?
+    end
+
+    def selection_range
+      return nil unless has_selection?
+      sy = @selection_start_y.to_i
+      sx = @selection_start_x.to_i
+      ey = @cursor_y
+      ex = @cursor_x
+      if sy > ey || (sy == ey && sx > ex)
+        [ey, ex, sy, sx]
+      else
+        [sy, sx, ey, ex]
+      end
+    end
+
+    def selected_text
+      range = selection_range
+      return nil unless range
+      sy, sx, ey, ex = range
+      if @selection_mode == :line
+        result = ""
+        i = sy
+        while i <= ey
+          result << "\n" unless i == sy
+          result << @lines[i].to_s
+          i += 1
+        end
+        result
+      elsif sy == ey
+        @lines[sy][sx, ex - sx + 1].to_s
+      else
+        result = @lines[sy][sx, 65535].to_s
+        i = sy + 1
+        while i < ey
+          result << "\n" << @lines[i].to_s
+          i += 1
+        end
+        result << "\n" << @lines[ey][0, ex + 1].to_s
+        result
+      end
+    end
+
+    def delete_selected_text
+      text = selected_text
+      range = selection_range
+      return nil unless range && text
+      sy, sx, ey, ex = range
+      if @selection_mode == :line
+        (ey - sy + 1).times { @lines.delete_at(sy) }
+        @lines << "" if @lines.empty?
+        @cursor_y = sy
+        @cursor_y = @lines.length - 1 if @cursor_y >= @lines.length
+        @cursor_x = 0
+        mark_dirty(:structure)
+      elsif sy == ey
+        @lines[sy] = @lines[sy][0, sx].to_s + @lines[sy][ex + 1, 65535].to_s
+        @cursor_y = sy
+        @cursor_x = sx
+        if @lines[sy].length > 0 && @cursor_x >= @lines[sy].length
+          @cursor_x = @lines[sy].length - 1
+        end
+        @cursor_x = 0 if @cursor_x < 0
+        mark_dirty(:content)
+      else
+        after = @lines[ey][ex + 1, 65535].to_s
+        @lines[sy] = @lines[sy][0, sx].to_s + after
+        (ey - sy).times { @lines.delete_at(sy + 1) }
+        @cursor_y = sy
+        @cursor_x = sx
+        if @lines[sy].length > 0 && @cursor_x >= @lines[sy].length
+          @cursor_x = @lines[sy].length - 1
+        end
+        @cursor_x = 0 if @cursor_x < 0
+        mark_dirty(:structure)
+      end
+      @changed = true
+      text
+    end
+
+    def insert_lines_below(lines_to_insert)
+      return unless lines_to_insert
+      insert_at = @cursor_y + 1
+      lines_to_insert.each_with_index do |line, i|
+        @lines.insert(insert_at + i, line)
+      end
+      @cursor_y = insert_at
+      @cursor_x = 0
+      mark_dirty(:structure)
+      @changed = true
+    end
+
+    def insert_string_after_cursor(str)
+      return unless str
+      pos = @cursor_x + 1
+      len = current_line.length
+      pos = len if pos > len
+      parts = str.split("\n")
+      if parts.length <= 1
+        s = parts[0].to_s
+        line = current_line
+        @lines[@cursor_y] = line[0, pos].to_s + s + line[pos, 65535].to_s
+        @cursor_x = pos + s.length - 1
+        @cursor_x = 0 if @cursor_x < 0
+        mark_dirty(:content)
+      else
+        line = current_line
+        after = line[pos, 65535].to_s
+        @lines[@cursor_y] = line[0, pos].to_s + parts[0].to_s
+        i = 1
+        while i < parts.length
+          @lines.insert(@cursor_y + i, parts[i].to_s)
+          i += 1
+        end
+        last_idx = @cursor_y + parts.length - 1
+        @lines[last_idx] = @lines[last_idx].to_s + after
+        @cursor_y = last_idx
+        last_part = parts[-1].to_s
+        @cursor_x = last_part.length > 0 ? last_part.length - 1 : 0
+        mark_dirty(:structure)
+      end
+      @changed = true
     end
 
     def current_tail(n = 1)

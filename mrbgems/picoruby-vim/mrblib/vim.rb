@@ -115,7 +115,10 @@ class Vim
             buffer.put :UP
           when 108 # l right
             buffer.put :RIGHT
-          when  86 # V
+          when  86 # V visual line
+            @mode = :visual_line
+            buffer.start_selection(:line)
+            @command_buffer.lines[0] = "Visual Line"
           when  98 # b word backward
             buffer.word_backward
           when 100 # d
@@ -135,8 +138,12 @@ class Vim
           case c
           when 112 # p paste
             if @paste_board
-              buffer.put :DOWN
-              buffer.insert_line(@paste_board)
+              if @paste_type == :char
+                buffer.insert_string_after_cursor(@paste_board)
+              else
+                paste_lines = @paste_board.split("\n") # steep:ignore
+                buffer.insert_lines_below(paste_lines)
+              end
             end
           when 114 # r replace
             rc = STDIN.getch
@@ -145,6 +152,9 @@ class Vim
             end
           when 117 # u undo
           when 118 # v visual
+            @mode = :visual
+            buffer.start_selection(:char)
+            @command_buffer.lines[0] = "Visual"
           when 119 # w word forward
             buffer.word_forward
           when 120 # x delete
@@ -153,6 +163,7 @@ class Vim
             yc = STDIN.getch.ord
             if yc == 121 # yy: yank line
               @paste_board = buffer.current_line.dup
+              @paste_type = :line
             end
           else
             puts c.chr
@@ -217,12 +228,89 @@ class Vim
         when 32..126
           buffer.put c.chr
         end
-      when :visual
-      when :visual_line
+      when :visual, :visual_line
+        case c
+        when 27 # ESC
+          case STDIN.read_nonblock(2)
+          when "[A"
+            buffer.put :UP
+          when "[B"
+            buffer.put :DOWN
+          when "[C"
+            buffer.put :RIGHT
+          when "[D"
+            buffer.put :LEFT
+          when nil, ""
+            buffer.clear_selection
+            @mode = :normal
+            clear_command_buffer
+          end
+        when 104 # h left
+          buffer.put :LEFT
+        when 106 # j down
+          buffer.put :DOWN
+        when 107 # k up
+          buffer.put :UP
+        when 108 # l right
+          buffer.put :RIGHT
+        when 119 # w word forward
+          buffer.word_forward
+        when 98 # b word backward
+          buffer.word_backward
+        when 101 # e word end
+          buffer.word_end
+        when 103 # g
+          cc = STDIN.getch.ord
+          if cc == 103 # gg: go to top
+            buffer.home
+          end
+        when 121 # y yank
+          range = buffer.selection_range
+          @paste_board = buffer.selected_text
+          @paste_type = buffer.selection_mode
+          if range
+            buffer.move_to(range[1], range[0])
+          end
+          buffer.clear_selection
+          @mode = :normal
+          clear_command_buffer
+        when 100, 120 # d, x delete
+          @paste_type = buffer.selection_mode
+          @paste_board = buffer.delete_selected_text
+          buffer.clear_selection
+          @mode = :normal
+          clear_command_buffer
+        when 118 # v toggle visual
+          if @mode == :visual
+            buffer.clear_selection
+            @mode = :normal
+            clear_command_buffer
+          else
+            buffer.clear_selection
+            buffer.start_selection(:char)
+            @mode = :visual
+            @command_buffer.lines[0] = "Visual"
+          end
+        when 86 # V toggle visual line
+          if @mode == :visual_line
+            buffer.clear_selection
+            @mode = :normal
+            clear_command_buffer
+          else
+            buffer.clear_selection
+            buffer.start_selection(:line)
+            @mode = :visual_line
+            @command_buffer.lines[0] = "Visual Line"
+          end
+        end
+        if @mode == :visual || @mode == :visual_line
+          editor.redraw_mode = :all
+        end
       when :visual_block
       when :cut
         if c == 100 # d delete (cut)
           @paste_board = buffer.delete_line
+          @paste_type = :line
         end
         @mode = :normal
         clear_command_buffer

@@ -349,7 +349,7 @@ module Editor
             else
               print "#{lineno + 1} ".rjust(4)
             end
-            print line[i * content_width, content_width].to_s
+            print highlighted_segment(line, lineno, i * content_width, content_width)
             content_height -= 1
             break 0 if content_height == 0
             next_head
@@ -489,7 +489,7 @@ module Editor
         else
           print "    "
         end
-        print line[i * content_width, content_width].to_s
+        print highlighted_segment(line, @buffer.cursor_y, i * content_width, content_width)
       end
       print "\e[#{@height - @footer_height + 1};1H"
       print "\e[0J"
@@ -519,6 +519,41 @@ module Editor
         @visual_cursor_x = @width
         @visual_cursor_y -= 1
       end
+    end
+
+    def highlighted_segment(line, lineno, start_col, length)
+      segment = line[start_col, length].to_s
+      return segment unless @buffer.has_selection?
+      range = @buffer.selection_range
+      return segment unless range
+      sy, sx, ey, ex = range
+      if @buffer.selection_mode == :line
+        if lineno >= sy && lineno <= ey
+          return "\e[7m" + segment + "\e[m"
+        end
+        return segment
+      end
+      return segment if lineno < sy || lineno > ey
+      sel_start = (lineno == sy) ? sx : 0
+      line_len = line ? line.length : 0
+      sel_end = (lineno == ey) ? ex : line_len - 1
+      seg_end = start_col + segment.length - 1
+      sel_start = sel_start > start_col ? sel_start : start_col
+      sel_end = sel_end < seg_end ? sel_end : seg_end
+      return segment if sel_start > seg_end || sel_end < start_col
+      result = ""
+      before_len = sel_start - start_col
+      if before_len > 0
+        result << segment[0, before_len].to_s
+      end
+      sel_len = sel_end - sel_start + 1
+      result << "\e[7m" << segment[sel_start - start_col, sel_len].to_s << "\e[m"
+      after_start = sel_end - start_col + 1
+      after_len = segment.length - after_start
+      if after_len > 0
+        result << segment[after_start, after_len].to_s
+      end
+      result
     end
 
     def start

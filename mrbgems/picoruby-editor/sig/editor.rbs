@@ -77,6 +77,7 @@ module Editor
     def refresh_footer: () { (self) -> void } -> void
     def show_cursor: -> untyped
     def calculate_visual_cursor: -> void
+    def highlighted_segment: (String line, Integer lineno, Integer start_col, Integer length) -> String
     def start: () { (self, Editor::Buffer, Integer) -> void }  -> void
   end
 end
