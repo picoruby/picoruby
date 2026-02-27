@@ -8,6 +8,30 @@ module DFU
     HEADER_FORMAT = "a4Ca4NNn"
     CHUNK_SIZE = 4096
 
+    # Parse the first HEADER_SIZE bytes of a receive buffer and return the total
+    # expected byte count (header + optional signature + firmware body).
+    # Returns nil when the buffer is too short or the magic does not match.
+    # Useful for non-blocking receive loops that need to know when all data has
+    # arrived before calling #receive.
+    #
+    # DFU header layout (HEADER_FORMAT = "a4Ca4NNn", big-endian):
+    #   offset  0: magic   (4 bytes) "DFU\0"
+    #   offset  4: version (1 byte)
+    #   offset  5: type    (4 bytes) "RUBY" or "RITE"
+    #   offset  9: fw_size (4 bytes, big-endian uint32)
+    #   offset 13: crc32   (4 bytes, big-endian uint32)
+    #   offset 17: sig_len (2 bytes, big-endian uint16)
+    def self.expected_size(buf)
+      return nil if buf.bytesize < HEADER_SIZE
+      return nil unless buf.byteslice(0, 4) == MAGIC
+      fw_size = ((buf.getbyte(9)  || 0) << 24) |
+                ((buf.getbyte(10) || 0) << 16) |
+                ((buf.getbyte(11) || 0) << 8)  |
+                 (buf.getbyte(12) || 0)
+      sig_len = ((buf.getbyte(17) || 0) << 8) | (buf.getbyte(18) || 0)
+      HEADER_SIZE + sig_len + fw_size
+    end
+
     def initialize(verify_crc: true, verify_signature: false)
       @verify_crc = verify_crc
       @verify_signature = verify_signature

@@ -1,5 +1,16 @@
 class BLE
   class UART < BLE
+    # Minimal IO wrapper that reads sequentially from a binary String.
+    # Provides a #read(n) interface compatible with DFU::Updater#receive.
+    class BufferIO
+      @str: String
+      @pos: Integer
+
+      def self.new: (String str) -> BLE::UART::BufferIO
+      # Returns nil on EOF, or up to nbytes bytes from the buffer.
+      def read: (Integer nbytes) -> String?
+    end
+
     NUS_SERVICE_UUID: String
     NUS_RX_CHAR_UUID: String
     NUS_TX_CHAR_UUID: String
@@ -41,14 +52,14 @@ class BLE
     @connected: bool
     @user_block: (^() -> void | nil)
 
-    def initialize: (
+    def self.new: (
       ?role: :peripheral | :central,
       ?name: String,
       ?service_uuid: String,
       ?rx_uuid: String,
       ?tx_uuid: String
-    ) -> void
-    def start: () ?{ () -> void } -> Integer
+    ) -> BLE::UART
+    def start: () { () -> void } -> Integer
     def heartbeat_callback: () -> void
     def packet_callback: (String event_packet) -> void
 

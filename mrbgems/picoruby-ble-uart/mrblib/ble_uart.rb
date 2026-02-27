@@ -1,5 +1,25 @@
 class BLE
   class UART < BLE
+    # Minimal IO wrapper that reads sequentially from a binary String.
+    # Provides a #read(n) interface compatible with DFU::Updater#receive:
+    #   nil   => EOF (all bytes consumed)
+    #   chunk => next chunk of up to n bytes
+    class BufferIO
+      def initialize(str)
+        @str = str
+        @pos = 0
+      end
+
+      def read(nbytes)
+        return nil if @pos >= @str.bytesize
+        avail = @str.bytesize - @pos
+        count = nbytes < avail ? nbytes : avail
+        result = @str.byteslice(@pos, count)
+        @pos += count
+        result
+      end
+    end
+
     NUS_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e"
     NUS_RX_CHAR_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"
     NUS_TX_CHAR_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"
