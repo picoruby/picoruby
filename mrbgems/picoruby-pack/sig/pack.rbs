@@ -3,14 +3,4 @@ class PackHelper
   def self.unpack_string: (String string, String format) -> Array[Integer]
 end
 
-# @sidebar builtin
-# @added_by picoruby-pack
-class String
-  def unpack: (String format) -> Array[Integer]
-end
 
-# @sidebar builtin
-# @added_by picoruby-pack
-class Array[unchecked out Elem] < Object
-  def pack: (String format) -> String
-end

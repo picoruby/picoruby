@@ -5,7 +5,6 @@ class IO
   def self.get_cursor_position: -> ([Integer, Integer])
   def self.wait_terminal: (?timeout: Integer|Float) -> String
   def self.clear_screen: () -> nil
-  def read_nonblock: (Integer maxlen) -> (String | nil)
   def getch: () -> String
   def raw: () { (IO io) -> untyped } -> untyped
   def raw!: () -> self
@@ -14,8 +13,4 @@ class IO
   private def _restore_termios: -> self
   def echo?: () -> bool
   def echo=: (bool mode) -> bool
-end
-
-# @sidebar error
-class IO::EAGAINWaitReadable < StandardError
 end

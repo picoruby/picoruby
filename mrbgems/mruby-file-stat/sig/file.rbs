@@ -1,3 +1,0 @@
-class File
-  def mtime: () -> Time
-end
