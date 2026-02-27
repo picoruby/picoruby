@@ -5,7 +5,7 @@ module DRb
     @port: Integer
     @running: bool
 
-    def initialize: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
+    def self.new: (String uri, untyped front, ?Hash[untyped, untyped] config) -> DRb::DRbTCPServer
 
     attr_reader uri: String
     attr_reader front: untyped
