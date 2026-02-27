@@ -2,6 +2,7 @@
 /bin/cp
 /bin/date
 /bin/df
+/bin/dfuble
 /bin/dfutcp
 /bin/free
 /bin/head
