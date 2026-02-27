@@ -223,7 +223,7 @@ module Editor
         while true
           ch = line[0]
           break unless ch
-          c = ch.getbyte(0)
+          c = ch.getbyte(0) || 0
           line[0] = ''
           case c
           when 1 # Ctrl-A
