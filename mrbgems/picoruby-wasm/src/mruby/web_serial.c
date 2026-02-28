@@ -1,0 +1,374 @@
+#include <emscripten.h>
+
+#include "mruby.h"
+#include "mruby/presym.h"
+#include "mruby/class.h"
+#include "mruby/data.h"
+#include "mruby/string.h"
+#include "mruby/variable.h"
+
+#include "mruby_compiler.h"
+#include "mrc_utils.h"
+#include "task.h"
+
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+/* Shared types from js.c */
+typedef struct picorb_js_obj {
+  int ref_id;
+} picorb_js_obj;
+
+extern struct RClass *class_JS_Object;
+extern const struct mrb_data_type picorb_js_obj_type;
+extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
+extern mrb_state *global_mrb;
+
+/*****************************************************
+ * EM_JS helpers
+ *****************************************************/
+
+/* Write binary data to the serial port's writable stream */
+EM_JS(void, serial_write, (int ref_id, const uint8_t *data, int len), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port || !port.writable) {
+      console.error('serial_write: port not writable');
+      return;
+    }
+    const bytes = new Uint8Array(HEAPU8.buffer, data, len).slice();
+    const writer = port.writable.getWriter();
+    writer.write(bytes).then(() => writer.releaseLock());
+  } catch(e) {
+    console.error('serial_write failed:', e);
+  }
+});
+
+/* Start async read loop; calls serial_data_received for each chunk */
+EM_JS(void, serial_start_reading, (int ref_id, uintptr_t callback_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port) {
+      console.error('serial_start_reading: port not found');
+      return;
+    }
+    (async () => {
+      while (port.readable) {
+        const reader = port.readable.getReader();
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const len = value.length;
+            const ptr = _malloc(len);
+            HEAPU8.set(value, ptr);
+            ccall(
+              'serial_data_received',
+              'void',
+              ['number', 'number', 'number'],
+              [callback_id, ptr, len]
+            );
+            _free(ptr);
+          }
+        } catch(e) {
+          console.error('serial read error:', e);
+        } finally {
+          reader.releaseLock();
+        }
+      }
+    })();
+  } catch(e) {
+    console.error('serial_start_reading failed:', e);
+  }
+});
+
+/* Call port.open(options) and return the Promise ref_id */
+EM_JS(int, serial_port_open, (int port_ref_id, int options_ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[port_ref_id];
+    const options = globalThis.picorubyRefs[options_ref_id];
+    const promise = port.open(options);
+    return globalThis.picorubyRefs.push(promise) - 1;
+  } catch(e) {
+    console.error('serial_port_open failed:', e);
+    return -1;
+  }
+});
+
+/* Call port.close() — fire and forget */
+EM_JS(void, serial_port_close, (int ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (port) port.close();
+  } catch(e) {
+    console.error('serial_port_close failed:', e);
+  }
+});
+
+/* Set up disconnect event listener */
+EM_JS(void, serial_set_on_disconnect, (int ref_id, uintptr_t callback_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port) {
+      console.error('serial_set_on_disconnect: port not found');
+      return;
+    }
+    port.addEventListener('disconnect', () => {
+      ccall(
+        'serial_disconnect_callback',
+        'void',
+        ['number'],
+        [callback_id]
+      );
+    });
+  } catch(e) {
+    console.error('serial_set_on_disconnect failed:', e);
+  }
+});
+
+/*****************************************************
+ * EMSCRIPTEN_KEEPALIVE callbacks (called from JS)
+ *****************************************************/
+
+/*
+ * Called from JS for each chunk of received serial data.
+ * data pointer is allocated by JS (_malloc) and freed by JS (_free) after this call.
+ */
+EMSCRIPTEN_KEEPALIVE
+void
+serial_data_received(uintptr_t callback_id, const uint8_t *data, int length)
+{
+  if (!global_mrb) return;
+
+  mrb_value data_str = mrb_str_new(global_mrb, (const char *)data, length);
+  mrb_gv_set(global_mrb,
+    mrb_intern_lit(global_mrb, "$_serial_recv_data"),
+    data_str);
+
+  static char script[256];
+  snprintf(script, sizeof(script),
+    "JS::Object::CALLBACKS[%lu]&.call($_serial_recv_data)",
+    (unsigned long)callback_id);
+
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  const uint8_t *script_ptr = (const uint8_t *)script;
+  size_t size = strlen(script);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
+
+  if (!irep) {
+    mrc_ccontext_free(cc);
+    return;
+  }
+
+  mrb_value task = mrc_create_task(cc, irep,
+    mrb_nil_value(), mrb_nil_value(),
+    mrb_obj_value(global_mrb->object_class));
+
+  if (mrb_nil_p(task)) {
+    mrc_irep_free(cc, irep);
+    mrc_ccontext_free(cc);
+    fprintf(stderr, "serial_data_received: failed to create task\n");
+    return;
+  }
+
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "serial_data_received exception (inspect failed)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "serial_data_received exception: %s\n", RSTRING_PTR(exc_str));
+    }
+  }
+}
+
+/*
+ * Called from JS when the serial port disconnects.
+ */
+EMSCRIPTEN_KEEPALIVE
+void
+serial_disconnect_callback(uintptr_t callback_id)
+{
+  if (!global_mrb) return;
+
+  static char script[256];
+  snprintf(script, sizeof(script),
+    "JS::Object::CALLBACKS[%lu]&.call()",
+    (unsigned long)callback_id);
+
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  const uint8_t *script_ptr = (const uint8_t *)script;
+  size_t size = strlen(script);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
+
+  if (!irep) {
+    mrc_ccontext_free(cc);
+    return;
+  }
+
+  mrb_value task = mrc_create_task(cc, irep,
+    mrb_nil_value(), mrb_nil_value(),
+    mrb_obj_value(global_mrb->object_class));
+
+  if (mrb_nil_p(task)) {
+    mrc_irep_free(cc, irep);
+    mrc_ccontext_free(cc);
+    fprintf(stderr, "serial_disconnect_callback: failed to create task\n");
+    return;
+  }
+}
+
+/*****************************************************
+ * Ruby method implementations (class methods on JS::WebSerial)
+ *****************************************************/
+
+/*
+ * JS::WebSerial._open_port(js_port, options) -> JS::Object (Promise)
+ * Call port.open(options) on the SerialPort, returns the Promise.
+ * Exists because Kernel#open is a private method that shadows method_missing.
+ */
+static mrb_value
+mrb_web_serial_open_port(mrb_state *mrb, mrb_value self)
+{
+  mrb_value port_obj, options_obj;
+  mrb_get_args(mrb, "oo", &port_obj, &options_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, port_obj, class_JS_Object) ||
+      !mrb_obj_is_kind_of(mrb, options_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(port_obj);
+  picorb_js_obj *opts = (picorb_js_obj *)DATA_PTR(options_obj);
+  if (!port || !opts) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  int promise_id = serial_port_open(port->ref_id, opts->ref_id);
+  if (promise_id < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "serial_port_open failed");
+  }
+  return wrap_ref_as_js_object(mrb, promise_id);
+}
+
+/*
+ * JS::WebSerial._close_port(js_port) -> nil
+ * Call port.close() on the SerialPort.
+ */
+static mrb_value
+mrb_web_serial_close_port(mrb_state *mrb, mrb_value self)
+{
+  mrb_value port_obj;
+  mrb_get_args(mrb, "o", &port_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, port_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(port_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_port_close(port->ref_id);
+  return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial._write(js_port, str) -> nil
+ * Write binary String data to the serial port.
+ */
+static mrb_value
+mrb_web_serial_write(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj, data_str;
+  mrb_get_args(mrb, "oS", &js_obj, &data_str);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  const uint8_t *data = (const uint8_t *)RSTRING_PTR(data_str);
+  int length = RSTRING_LEN(data_str);
+
+  serial_write(port->ref_id, data, length);
+  return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial._start_reading(js_port, callback_id) -> nil
+ * Start async read loop; calls Ruby block for each received chunk.
+ */
+static mrb_value
+mrb_web_serial_start_reading(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_int callback_id;
+  mrb_get_args(mrb, "oi", &js_obj, &callback_id);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_start_reading(port->ref_id, (uintptr_t)callback_id);
+  return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial._set_on_disconnect(js_port, callback_id) -> nil
+ */
+static mrb_value
+mrb_web_serial_set_on_disconnect(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_int callback_id;
+  mrb_get_args(mrb, "oi", &js_obj, &callback_id);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_set_on_disconnect(port->ref_id, (uintptr_t)callback_id);
+  return mrb_nil_value();
+}
+
+/*****************************************************
+ * Module initialization
+ *****************************************************/
+
+void
+mrb_web_serial_init(mrb_state *mrb)
+{
+  struct RClass *module_JS = mrb_module_get_id(mrb, MRB_SYM(JS));
+  struct RClass *class_WebSerial = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(WebSerial), mrb->object_class);
+
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_write),
+    mrb_web_serial_write, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_start_reading),
+    mrb_web_serial_start_reading, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_set_on_disconnect),
+    mrb_web_serial_set_on_disconnect, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_open_port),
+    mrb_web_serial_open_port, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port),
+    mrb_web_serial_close_port, MRB_ARGS_REQ(1));
+}

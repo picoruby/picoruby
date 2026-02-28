@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>R2P2 Terminal - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
+  <style>
+    #not-supported {
+      color: #f44; font-weight: bold; padding: 10px;
+      background: #300; border: 1px solid #f44; margin: 10px 0;
+    }
+    .controls { margin: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls button { padding: 6px 14px; cursor: pointer; }
+    .controls select, .controls label { padding: 4px; }
+    #status { font-weight: bold; padding: 4px 8px; border-radius: 3px; }
+    #status.connected { color: #0f0; background: #030; border: 1px solid #0f0; }
+    #status.disconnected { color: #f44; background: #200; border: 1px solid #f44; }
+    #terminal-container {
+      margin: 8px 0;
+      border: 2px solid #555;
+      background: #000;
+      padding: 4px;
+    }
+    p.hint { color: #888; font-size: 0.85em; margin: 4px 0; }
+  </style>
+</head>
+<body>
+  <div><a href="index.html">Back</a></div>
+  <h1>R2P2 Terminal</h1>
+  <p>Terminal emulator for <a href="https://github.com/picoruby/R2P2" target="_blank">R2P2</a> over Web Serial API.<br>
+     Powered by <a href="https://xtermjs.org/" target="_blank">xterm.js</a>.
+     Full escape sequence support for picoruby-editor, picoruby-vim, picoruby-rapicco.</p>
+
+  <div id="not-supported" style="display:none">
+    ⚠ Web Serial API is not supported in this browser.<br>
+    Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop, version 89+).
+  </div>
+
+  <div class="controls">
+    <button id="connect-btn">Connect</button>
+    <label>Baud:
+      <select id="baud-rate">
+        <option value="9600">9600</option>
+        <option value="19200">19200</option>
+        <option value="38400">38400</option>
+        <option value="57600">57600</option>
+        <option value="115200" selected>115200</option>
+        <option value="230400">230400</option>
+        <option value="921600">921600</option>
+      </select>
+    </label>
+    <span id="status" class="disconnected">Disconnected</span>
+  </div>
+
+  <div id="terminal-container"></div>
+  <p class="hint">Click the terminal to focus, then type. Ctrl+C, Ctrl+D, arrow keys, F1–F12 are supported.</p>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const connectBtn = document.getElementById('connect-btn');
+      const baudSelect = document.getElementById('baud-rate');
+      const statusSpan = document.getElementById('status');
+      const notSupported = document.getElementById('not-supported');
+      const container = document.getElementById('terminal-container');
+
+      // Check Web Serial API support
+      if (!('serial' in navigator)) {
+        notSupported.style.display = 'block';
+        connectBtn.disabled = true;
+        return;
+      }
+
+      // Initialize xterm.js
+      // convertEol: R2P2 sends LF only, xterm.js needs CRLF for proper line breaks
+      const { Terminal } = window;
+      const { FitAddon } = window.FitAddon;
+      const terminal = new Terminal({
+        scrollback: 1000,
+        cursorBlink: true,
+        convertEol: true,
+        fontFamily: '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace',
+        fontSize: 15,
+        theme: {
+          background: '#000000',
+        },
+      });
+      const fitAddon = new FitAddon();
+      terminal.loadAddon(fitAddon);
+      terminal.open(container);
+      fitAddon.fit();
+
+      window.addEventListener('resize', () => fitAddon.fit());
+      container.addEventListener('click', () => terminal.focus());
+
+      let port = null;
+      let reader = null;
+      let autoReconnect = false;
+
+      function updateStatus(text, connected) {
+        statusSpan.textContent = text;
+        statusSpan.className = connected ? 'connected' : 'disconnected';
+      }
+
+      // Send keyboard input to serial port
+      terminal.onData((data) => {
+        if (port) {
+          const encoder = new TextEncoder();
+          const writer = port.writable.getWriter();
+          writer.write(encoder.encode(data)).then(() => writer.releaseLock());
+        }
+      });
+
+      async function readFromPort() {
+        const decoder = new TextDecoder('utf-8');
+        try {
+          reader = port.readable.getReader();
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value) {
+              const chars = decoder.decode(value, { stream: true });
+              terminal.write(chars);
+            }
+          }
+        } catch (err) {
+          console.error('Serial read error:', err);
+        } finally {
+          if (reader) reader.releaseLock();
+          disconnect();
+        }
+      }
+
+      async function openPort(serialPort) {
+        const baudRate = parseInt(baudSelect.value, 10);
+        port = serialPort;
+        await port.open({ baudRate });
+        autoReconnect = true;
+        updateStatus('Connected', true);
+        connectBtn.textContent = 'Disconnect';
+        terminal.focus();
+        readFromPort();
+      }
+
+      async function connect() {
+        if (port) { disconnect(); return; }
+        try {
+          const serialPort = await navigator.serial.requestPort();
+          terminal.reset();
+          await openPort(serialPort);
+        } catch (err) {
+          console.error('Connect error:', err);
+          updateStatus('Disconnected', false);
+          port = null;
+        }
+      }
+
+      async function disconnect() {
+        if (reader) {
+          try { await reader.cancel(); } catch (e) { /* ignore */ }
+          reader = null;
+        }
+        if (port) {
+          try { await port.close(); } catch (e) { /* ignore */ }
+          port = null;
+        }
+        updateStatus('Disconnected', false);
+        connectBtn.textContent = 'Connect';
+      }
+
+      // Auto-reconnect: when a previously-permitted device reappears,
+      // open it automatically (no user gesture needed)
+      navigator.serial.addEventListener('connect', async (e) => {
+        if (port || !autoReconnect) return;
+        const serialPort = e.target;
+        updateStatus('Reconnecting...', false);
+        // Brief delay for the device to finish USB enumeration
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          await openPort(serialPort);
+          terminal.writeln('[Reconnected]');
+        } catch (err) {
+          console.error('Auto-reconnect failed:', err);
+          updateStatus('Disconnected', false);
+        }
+      });
+
+      navigator.serial.addEventListener('disconnect', () => {
+        if (!port) return;
+        terminal.writeln('\r\n[Serial port disconnected]');
+        disconnect();
+      });
+
+      connectBtn.addEventListener('click', () => connect());
+    });
+  </script>
+
+  <script src="init.iife.js"></script>
+</body>
+</html>
