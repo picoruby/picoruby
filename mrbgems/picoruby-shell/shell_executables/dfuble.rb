@@ -8,7 +8,8 @@ rescue LoadError, NameError
   exit 1
 end
 
-name = ARGV[0] || "RubyOTA"
+name = "RubyOTA"
+path = ARGV[0]  # optional: destination path (skips A/B slot and meta)
 puts "DFU BLE server (name: #{name})"
 
 uart = BLE::UART.new(name: name)
@@ -37,12 +38,17 @@ uart.start do
   if !expected_total.nil? && expected_total <= dfu_buf.bytesize
     puts "DFU: received #{dfu_buf.bytesize} bytes, processing..."
     begin
-      updater = DFU::Updater.new
+      updater = DFU::Updater.new(path: path)
       updater.receive(BLE::UART::BufferIO.new(dfu_buf))
-      DFU.confirm
-      uart.puts("OK\n")
-      puts "DFU: update complete."
-      reboot_required = true
+      if path
+        uart.puts("OK\n")
+        puts "DFU: file saved to #{path}"
+      else
+        DFU.confirm
+        uart.puts("OK\n")
+        puts "DFU: update complete."
+        reboot_required = true
+      end
     rescue => e
       uart.puts("ERROR: #{e.message}\n")
       puts "DFU: error - #{e.message}"
