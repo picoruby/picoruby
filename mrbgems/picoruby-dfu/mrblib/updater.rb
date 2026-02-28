@@ -32,13 +32,16 @@ module DFU
       HEADER_SIZE + sig_len + fw_size
     end
 
-    def initialize(verify_crc: true, verify_signature: false)
+    def initialize(verify_crc: true, verify_signature: false, path: nil)
       @verify_crc = verify_crc
       @verify_signature = verify_signature
+      @path = path
     end
 
     # Receive firmware from an IO-like object (must respond to #read).
-    # Reads binary header, then streams body to the inactive slot.
+    # When path: was given at initialization, writes directly to that path
+    # without A/B slot management or meta file updates.
+    # When path: is nil, writes to the inactive A/B slot (existing behavior).
     def receive(io)
       # Read fixed header
       puts "[recv] reading header (#{HEADER_SIZE} bytes)..."
@@ -49,6 +52,8 @@ module DFU
         raise "DFU: incomplete header (expected #{HEADER_SIZE} bytes, got #{got_size})"
       end
 
+      # @type var size: Integer
+      # @type var crc32: Integer
       magic, ver, type, size, crc32, sig_len = header.unpack(HEADER_FORMAT)
       puts "[recv] type=#{type} size=#{size} crc32=0x#{crc32&.to_s(16)} sig_len=#{sig_len}"
 
@@ -81,7 +86,98 @@ module DFU
         end
       end
 
-      # Prepare inactive slot
+      if @path
+        receive_to_path(io, size, crc32, signature)
+      else
+        receive_to_slot(io, size, crc32, signature, ext)
+      end
+    end
+
+    private
+
+    # Read exactly n bytes from io, looping over partial reads.
+    # TCPSocket#read may return "" (empty string, not nil) when no data
+    # is available yet; nil means EOF (connection closed).
+    def read_exact(io, n)
+      buf = ""
+      while buf.bytesize < n
+        chunk = io.read(n - buf.bytesize)
+        break if chunk.nil?           # EOF
+        next  if chunk.bytesize == 0  # no data yet, retry
+        buf += chunk
+      end
+      buf
+    end
+
+    # Write received firmware body directly to @path.
+    # No A/B slot management or meta file updates are performed.
+    # The destination directory must already exist.
+    # Existing files at path are overwritten.
+    def receive_to_path(io, size, crc32, signature)
+      path = @path.to_s
+      dir = File.dirname(path)
+      unless File.directory?(dir)
+        raise "DFU: directory does not exist: #{dir}"
+      end
+
+      fw_path = path
+      written = 0
+      puts "[recv] reading firmware body (#{size} bytes) to #{fw_path}..."
+      begin
+        File.open(fw_path, "w") do |f|
+          remaining = size || 0
+          while remaining > 0
+            chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
+            puts "[recv] read_exact(#{chunk_len}) (written=#{written}/#{size})..."
+            chunk = read_exact(io, chunk_len)
+            puts "[recv] got #{chunk.bytesize} bytes"
+            if chunk.bytesize == 0
+              raise "DFU: connection lost (#{written}/#{size} bytes received)"
+            end
+            f.write(chunk)
+            written += chunk.bytesize
+            remaining -= chunk.bytesize
+          end
+          f.fsync
+        end
+      rescue => e
+        File.unlink(fw_path) if File.exist?(fw_path)
+        raise e
+      end
+
+      if written != size
+        File.unlink(fw_path) if File.exist?(fw_path)
+        raise "DFU: size mismatch (expected #{size}, got #{written})"
+      end
+
+      firmware_data = File.open(fw_path, "r") { |f| f.read }
+
+      if @verify_crc && crc32 != 0
+        actual_crc = CRC.crc32(firmware_data)
+        if actual_crc != crc32
+          File.unlink(fw_path) if File.exist?(fw_path)
+          raise "DFU: CRC32 mismatch (expected #{crc32}, got #{actual_crc})"
+        end
+      end
+
+      if @verify_signature && signature
+        unless DFU.respond_to?(:ecdsa_public_key_pem)
+          raise "DFU: ecdsa_public_key_pem not available (public key not embedded at build time)"
+        end
+        public_key = MbedTLS::PKey::EC.new(DFU.ecdsa_public_key_pem)
+        digest = MbedTLS::Digest.new(:sha256)
+        unless public_key.verify(digest, signature, firmware_data)
+          File.unlink(fw_path) if File.exist?(fw_path)
+          raise "DFU: signature verification failed"
+        end
+      end
+
+      true
+    end
+
+    # Write received firmware body to the inactive A/B slot.
+    # Updates meta.yml before and after writing (existing behavior).
+    def receive_to_slot(io, size, crc32, signature, ext)
       meta = Meta.load
       if meta["try_slot"] != meta["active_slot"]
         raise "DFU: firmware test in progress (active=#{meta['active_slot']}, try=#{meta['try_slot']}). Call DFU.confirm or DFU.rollback first."
@@ -162,22 +258,6 @@ module DFU
       Meta.save(meta)
 
       true
-    end
-
-    private
-
-    # Read exactly n bytes from io, looping over partial reads.
-    # TCPSocket#read may return "" (empty string, not nil) when no data
-    # is available yet; nil means EOF (connection closed).
-    def read_exact(io, n)
-      buf = ""
-      while buf.bytesize < n
-        chunk = io.read(n - buf.bytesize)
-        break if chunk.nil?           # EOF
-        next  if chunk.bytesize == 0  # no data yet, retry
-        buf += chunk
-      end
-      buf
     end
 
     def cleanup_on_failure(fw_path, target_slot)

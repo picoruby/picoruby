@@ -32,8 +32,9 @@ module DFU
 
     @verify_crc: bool
     @verify_signature: bool
+    @path: String?
 
-    def self.new: (?verify_crc: bool, ?verify_signature: bool) -> DFU::Updater
+    def self.new: (?verify_crc: bool, ?verify_signature: bool, ?path: String?) -> DFU::Updater
     def self.expected_size: (String buf) -> (Integer | nil)
 
     #def receive: (_Reader io) -> true
@@ -43,6 +44,8 @@ module DFU
 
     #def read_exact: (_Reader io, Integer n) -> String
     def read_exact: (untyped io, Integer n) -> String
+    def receive_to_path: (untyped io, Integer size, Integer crc32, String? signature) -> true
+    def receive_to_slot: (untyped io, Integer size, Integer crc32, String? signature, String ext) -> true
     def cleanup_on_failure: (String fw_path, String target_slot) -> void
     def verify_signature: (String firmware_data, String signature, String fw_path, String target_slot) -> void
   end
