@@ -176,6 +176,7 @@ BLE_hci_power_control(uint8_t power_mode)
   hci_power_control(power_mode);
   if (power_mode == HCI_POWER_ON) {
     heartbeat_active = true;
+    btstack_run_loop_remove_timer(&heartbeat);
     btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
     btstack_run_loop_add_timer(&heartbeat);
   } else {
@@ -225,5 +226,17 @@ BLE_discover_characteristic_descriptors(uint16_t conn_handle, uint16_t value_han
     .uuid128 = { 0 }
   };
   return gatt_client_discover_characteristic_descriptors(&packet_handler, conn_handle, &characteristic);
+}
+
+uint8_t
+BLE_write_value_of_characteristic_without_response(uint16_t conn_handle, uint16_t value_handle, const uint8_t *data, uint16_t size)
+{
+  return gatt_client_write_value_of_characteristic_without_response(conn_handle, value_handle, size, (uint8_t *)data);
+}
+
+uint8_t
+BLE_write_characteristic_descriptor_using_descriptor_handle(uint16_t conn_handle, uint16_t descriptor_handle, const uint8_t *data, uint16_t size)
+{
+  return gatt_client_write_characteristic_descriptor_using_descriptor_handle(&packet_handler, conn_handle, descriptor_handle, size, (uint8_t *)data);
 }
 

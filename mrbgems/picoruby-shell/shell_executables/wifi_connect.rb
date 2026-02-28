@@ -143,3 +143,5 @@ until CYW43.link_connected?
   end
 end
 puts "IP address obtained (#{CYW43.tcpip_link_status_name})"
+
+load "/bin/ntpdate"

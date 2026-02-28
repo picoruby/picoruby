@@ -1,0 +1,50 @@
+module JS
+  module BLE
+    class UART
+      # Nordic UART Service UUIDs (defaults)
+      NUS_SERVICE_UUID: String
+      NUS_TX_CHAR_UUID: String
+      NUS_RX_CHAR_UUID: String
+
+      # Default read timeout in seconds (nil = block forever)
+      DEFAULT_TIMEOUT: Integer?
+
+      # Connect to a BLE UART device
+      def initialize: (
+        ?service_uuid: String,
+        ?tx_uuid: String,
+        ?rx_uuid: String,
+        ?name: String,
+        ?name_prefix: String
+      ) -> void
+
+      # Write string data to the TX characteristic
+      # Returns the number of bytes written
+      def write: (String data) -> Integer
+
+      # Write string data with trailing newline
+      def puts: (String data) -> nil
+
+      # Read up to nbytes bytes (blocks until enough data or timeout)
+      # Returns nil on timeout
+      def read: (Integer nbytes, ?timeout: Integer?) -> String?
+
+      # Read a line (blocks until newline or timeout)
+      # Returns nil on timeout
+      def gets: (?timeout: Integer?) -> String?
+
+      # Non-blocking read: returns up to nbytes from buffer, or nil if empty
+      def read_nonblock: (Integer nbytes) -> String?
+
+      # Number of bytes available in the receive buffer
+      def available: () -> Integer
+      def available?: () -> bool
+
+      # Whether the device is currently connected
+      def connected?: () -> bool
+
+      # Disconnect and clean up
+      def close: () -> void
+    end
+  end
+end

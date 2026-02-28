@@ -57,7 +57,11 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
   conf.gembox "networking"
-  conf.gem core: 'picoruby-shinonome'
+  unless ENV['PICORUBY_DEBUG']
+    # Shinonome is too big for debug build
+    conf.gem core: 'picoruby-shinonome'
+  end
   conf.gem core: 'picoruby-ble'
+  conf.gem core: 'picoruby-ble-uart'
   conf.gem core: 'picoruby-keyboard'
 end

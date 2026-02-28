@@ -38,7 +38,7 @@ typedef enum {
   JS_TYPE_FUNCTION = 9
 } js_value_type;
 
-static struct RClass *class_JS_Object;
+struct RClass *class_JS_Object;
 
 static void
 picorb_js_obj_free(mrb_state *mrb, void *ptr)
@@ -46,7 +46,7 @@ picorb_js_obj_free(mrb_state *mrb, void *ptr)
   mrb_free(mrb, ptr);
 }
 
-static const struct mrb_data_type picorb_js_obj_type = {
+const struct mrb_data_type picorb_js_obj_type = {
   "picorb_js_obj", picorb_js_obj_free
 };
 
@@ -286,6 +286,25 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
       result = func.call(obj, argString);
     }
 
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error(e);
+    return -1;
+  }
+});
+
+EM_JS(int, call_method_no_arg, (int ref_id, const char* method), {
+  try {
+    const obj = globalThis.picorubyRefs[ref_id];
+    const methodName = UTF8ToString(method);
+    const func = obj[methodName];
+    if (typeof func !== 'function') {
+      console.error('Method not found or not a function:', methodName);
+      return -1;
+    }
+    let result = func.call(obj);
     const newRefId = globalThis.picorubyRefs.length;
     globalThis.picorubyRefs.push(result);
     return newRefId;
@@ -915,7 +934,7 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
 /*
  * Helper: wrap ref_id as JS::Object
  */
-static mrb_value
+mrb_value
 wrap_ref_as_js_object(mrb_state *mrb, int ref_id)
 {
   picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
@@ -1671,8 +1690,8 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   if (argc == 0) {
     int js_type = get_js_property_type(js_obj->ref_id, method_name);
     if (js_type == JS_TYPE_FUNCTION) {
-      call_method_no_return(js_obj->ref_id, method_name);
-      return mrb_nil_value();
+      new_ref_id = call_method_no_arg(js_obj->ref_id, method_name);
+      return js_ref_to_ruby_value(mrb, new_ref_id);
     }
     // Try to get property
     mrb_value property_obj = get_js_property(mrb, js_obj->ref_id, method_name);
@@ -1680,7 +1699,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       return property_obj;
     }
     // If property doesn't exist, try calling as method
-    new_ref_id = call_method(js_obj->ref_id, method_name, "");
+    new_ref_id = call_method_no_arg(js_obj->ref_id, method_name);
     if (new_ref_id < 0) {
       return mrb_nil_value();
     }
@@ -2228,6 +2247,34 @@ mrb_js_refcount(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(0);
 }
 
+EM_JS(int, js_eval, (const char* script), {
+  try {
+    var result = (0, eval)(UTF8ToString(script));
+    if (result === undefined || result === null) return -1;
+    var refId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return refId;
+  } catch(e) {
+    console.error('JS.eval error:', e);
+    return -1;
+  }
+});
+
+/*
+ * JS.eval(script) - Evaluate JavaScript code synchronously
+ */
+static mrb_value
+mrb_js_eval(mrb_state *mrb, mrb_value klass)
+{
+  const char *script;
+  mrb_get_args(mrb, "z", &script);
+  int ref_id = js_eval(script);
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  return js_ref_to_ruby_value(mrb, ref_id);
+}
+
 
 void
 mrb_js_init(mrb_state *mrb)
@@ -2237,6 +2284,7 @@ mrb_js_init(mrb_state *mrb)
 
   struct RClass *module_JS = mrb_define_module(mrb, "JS");
   mrb_define_class_method_id(mrb, module_JS, MRB_SYM(global), mrb_js_global, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_JS, MRB_SYM(eval), mrb_js_eval, MRB_ARGS_REQ(1));
 
   class_JS_Object = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Object), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_JS_Object, MRB_TT_DATA);

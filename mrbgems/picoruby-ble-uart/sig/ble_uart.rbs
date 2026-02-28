@@ -1,0 +1,87 @@
+class BLE
+  class UART < BLE
+    # Minimal IO wrapper that reads sequentially from a binary String.
+    # Provides a #read(n) interface compatible with DFU::Updater#receive.
+    class BufferIO
+      @str: String
+      @pos: Integer
+
+      def self.new: (String str) -> BLE::UART::BufferIO
+      # Returns nil on EOF, or up to nbytes bytes from the buffer.
+      def read: (Integer nbytes) -> String?
+    end
+
+    NUS_SERVICE_UUID: String
+    NUS_RX_CHAR_UUID: String
+    NUS_TX_CHAR_UUID: String
+
+    BLUETOOTH_DATA_TYPE_FLAGS: Integer
+    BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_128_BIT_SERVICE_CLASS_UUIDS: Integer
+    BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME: Integer
+    APP_AD_FLAGS: Integer
+
+    BTSTACK_EVENT_STATE: Integer
+    HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+    ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
+    ATT_EVENT_CAN_SEND_NOW: Integer
+
+    NOTIFY_MTU: Integer
+
+    # peripheral-only state
+    @adv_data: String
+    @rx_handle: Integer
+    @tx_handle: Integer
+    @cccd_handle: Integer
+    @notification_enabled: bool
+    @advertising_started: bool
+
+    # central-only state
+    @uart_central_state: Symbol
+    @peer_rx_handle: Integer | nil
+    @peer_tx_handle: Integer | nil
+    @peer_cccd_handle: Integer | nil
+    @nus_start_handle: Integer | nil
+    @nus_end_handle: Integer | nil
+
+    # shared state
+    @service_uuid_bin: String
+    @rx_uuid_bin: String
+    @tx_uuid_bin: String
+    @rx_buffer: String
+    @tx_buffer: String
+    @connected: bool
+    @user_block: (^() -> void | nil)
+
+    def self.new: (
+      ?role: :peripheral | :central,
+      ?name: String,
+      ?service_uuid: String,
+      ?rx_uuid: String,
+      ?tx_uuid: String
+    ) -> BLE::UART
+    def start: () { () -> void } -> Integer
+    def heartbeat_callback: () -> void
+    def packet_callback: (String event_packet) -> void
+
+    def write: (untyped data) -> Integer
+    def puts: (?untyped data) -> nil
+    def read_nonblock: (?Integer nbytes) -> (String | nil)
+    def gets_nonblock: () -> (String | nil)
+    def available: () -> Integer
+    def available?: () -> bool
+    def connected?: () -> bool
+    def peripheral?: () -> bool
+    def central?: () -> bool
+
+    private def _peripheral_packet_callback: (String event_packet) -> void
+    private def _central_packet_callback: (String event_packet) -> void
+    private def _central_handle_gatt_event: (Integer event_type, String event_packet) -> void
+    private def _central_reset: () -> void
+    private def _flush_tx_central: () -> void
+    private def _drain_rx: () -> void
+    private def _check_cccd: () -> void
+    private def _request_send: () -> void
+    private def _flush_tx: () -> void
+    private def _start_advertise: () -> void
+  end
+end

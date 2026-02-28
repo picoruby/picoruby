@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>BLE GATT Demo - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+  <style>
+    .controls { margin: 10px 0; }
+    .controls button { margin-right: 8px; padding: 6px 12px; }
+    .controls input { padding: 6px; width: 200px; }
+    #log { font-family: monospace; white-space: pre-wrap; background: #1a1a1a; color: #0f0; padding: 10px; height: 400px; overflow-y: auto; border: 1px solid #333; }
+    #status { font-weight: bold; margin: 8px 0; }
+    .connected { color: #0f0; }
+    .disconnected { color: #f00; }
+    fieldset { margin: 10px 0; padding: 10px; }
+    label { display: inline-block; width: 120px; }
+  </style>
+</head>
+<body>
+  <div><a href="index.html">Back</a></div>
+  <h1>BLE GATT Demo</h1>
+  <p>Test BLE GATT operations with any BLE peripheral.<br>
+     Use LightBlue app: Virtual Peripheral with Service 0xFFE0, Characteristic 0xFFE1.</p>
+
+  <p>If you are running the server on a different machine, launch the browser with this flag to allow BLE access (Google Chrome acceps the same option. DO NOT use it in the internet!):</p>
+  <pre><code>
+    "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" \
+    --unsafely-treat-insecure-origin-as-secure=http://[server IP address]:8080
+  </code></pre>
+
+  <div id="status" class="disconnected">Disconnected</div>
+
+  <fieldset>
+    <legend>Connection</legend>
+    <div class="controls">
+      <label>Service UUID:</label>
+      <input id="svc-uuid" type="text" value="0xffe0">
+    </div>
+    <div class="controls">
+      <label>Char UUID:</label>
+      <input id="char-uuid" type="text" value="0xffe1">
+    </div>
+    <div class="controls">
+      <button id="btn-connect">Connect</button>
+      <button id="btn-disconnect" disabled>Disconnect</button>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Operations</legend>
+    <div class="controls">
+      <button id="btn-read" disabled>Read</button>
+      <button id="btn-notify-start" disabled>Start Notify</button>
+      <button id="btn-notify-stop" disabled>Stop Notify</button>
+    </div>
+    <div class="controls">
+      <input id="write-input" type="text" placeholder="Data to write (text)" disabled>
+      <button id="btn-write" disabled>Write</button>
+    </div>
+  </fieldset>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script type="text/ruby">
+    require 'js'
+
+    doc = JS.document
+
+    $device = nil
+    $char = nil
+
+    def append_log(msg)
+      doc = JS.document
+      log_el = doc.getElementById('log')
+      log_el[:textContent] = log_el[:textContent].to_s + msg + "\n"
+      log_el[:scrollTop] = log_el[:scrollHeight]
+    end
+
+    def set_ui(connected)
+      doc = JS.document
+      if connected
+        doc.getElementById('status')[:textContent] = "Connected"
+        doc.getElementById('status')[:className] = "connected"
+        doc.getElementById('btn-connect').setAttribute("disabled", "true")
+        doc.getElementById('btn-disconnect').removeAttribute("disabled")
+        doc.getElementById('btn-read').removeAttribute("disabled")
+        doc.getElementById('btn-notify-start').removeAttribute("disabled")
+        doc.getElementById('btn-notify-stop').removeAttribute("disabled")
+        doc.getElementById('btn-write').removeAttribute("disabled")
+        doc.getElementById('write-input').removeAttribute("disabled")
+      else
+        doc.getElementById('status')[:textContent] = "Disconnected"
+        doc.getElementById('status')[:className] = "disconnected"
+        doc.getElementById('btn-connect').removeAttribute("disabled")
+        doc.getElementById('btn-disconnect').setAttribute("disabled", "true")
+        doc.getElementById('btn-read').setAttribute("disabled", "true")
+        doc.getElementById('btn-notify-start').setAttribute("disabled", "true")
+        doc.getElementById('btn-notify-stop').setAttribute("disabled", "true")
+        doc.getElementById('btn-write').setAttribute("disabled", "true")
+        doc.getElementById('write-input').setAttribute("disabled", "true")
+      end
+    end
+
+    def hex_dump(str)
+      str.bytes.map { |b| "%02X" % b }.join(" ")
+    end
+
+    def ascii_dump(str)
+      str.bytes.map { |b| (0x20 <= b && b <= 0x7e) ? b.chr : "." }.join
+    end
+
+    def format_data(str)
+      "#{hex_dump(str)}  |#{ascii_dump(str)}| (#{str.length} bytes)"
+    end
+
+    # Connect
+    doc.getElementById('btn-connect').addEventListener('click') do |_event|
+      doc = JS.document
+      svc_uuid = doc.getElementById('svc-uuid')[:value].to_s
+      char_uuid = doc.getElementById('char-uuid')[:value].to_s
+      append_log("[*] Requesting device... (service: #{svc_uuid})")
+
+      begin
+        $device = JS::BLE::GATT.request_device(optional_services: [svc_uuid])
+        append_log("[+] Device: #{$device.name || '(unnamed)'}")
+
+        append_log("[*] Connecting GATT server...")
+        server = $device.connect
+        append_log("[+] Connected")
+
+        append_log("[*] Getting service #{svc_uuid}...")
+        service = server.service(svc_uuid)
+        append_log("[+] Service found")
+
+        append_log("[*] Getting characteristic #{char_uuid}...")
+        $char = service.characteristic(char_uuid)
+        append_log("[+] Characteristic found")
+
+        $device.on_disconnected do
+          append_log("[!] Device disconnected")
+          set_ui(false)
+          $char = nil
+        end
+
+        set_ui(true)
+      rescue => e
+        append_log("[-] Error: #{e.message}")
+      end
+    end
+
+    # Disconnect
+    doc.getElementById('btn-disconnect').addEventListener('click') do |_event|
+      if $device
+        $device.disconnect
+        $device = nil
+        $char = nil
+        append_log("[*] Disconnected")
+        set_ui(false)
+      end
+    end
+
+    # Read
+    doc.getElementById('btn-read').addEventListener('click') do |_event|
+      if $char
+        begin
+          data = $char.read
+          append_log("[R] #{format_data(data)}")
+        rescue => e
+          append_log("[-] Read error: #{e.message}")
+        end
+      end
+    end
+
+    # Write
+    doc.getElementById('btn-write').addEventListener('click') do |_event|
+      if $char
+        doc = JS.document
+        text = doc.getElementById('write-input')[:value].to_s
+        unless text.empty?
+          begin
+            $char.write(text)
+            append_log("[W] #{format_data(text)}")
+            doc.getElementById('write-input')[:value] = ""
+          rescue => e
+            append_log("[-] Write error: #{e.message}")
+          end
+        end
+      end
+    end
+
+    # Start Notify
+    doc.getElementById('btn-notify-start').addEventListener('click') do |_event|
+      if $char
+        begin
+          $char.on_change do |data|
+            append_log("[N] #{format_data(data)}")
+          end
+          $char.start_notify
+          append_log("[+] Notifications started")
+        rescue => e
+          append_log("[-] Notify error: #{e.message}")
+        end
+      end
+    end
+
+    # Stop Notify
+    doc.getElementById('btn-notify-stop').addEventListener('click') do |_event|
+      if $char
+        begin
+          $char.stop_notify
+          append_log("[*] Notifications stopped")
+        rescue => e
+          append_log("[-] Stop notify error: #{e.message}")
+        end
+      end
+    end
+
+    append_log("[*] Ready. Click Connect to pair with a BLE device.")
+    append_log("[*] Default UUIDs: Service 0xFFE0, Char 0xFFE1")
+    append_log("[*] (LightBlue: create Virtual Peripheral with these UUIDs)")
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

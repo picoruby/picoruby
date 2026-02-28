@@ -33,7 +33,9 @@ module DFU
     @verify_crc: bool
     @verify_signature: bool
 
-    def initialize: (?verify_crc: bool, ?verify_signature: bool) -> void
+    def self.new: (?verify_crc: bool, ?verify_signature: bool) -> DFU::Updater
+    def self.expected_size: (String buf) -> (Integer | nil)
+
     #def receive: (_Reader io) -> true
     def receive: (untyped io) -> true
 

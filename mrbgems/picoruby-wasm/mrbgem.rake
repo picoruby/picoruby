@@ -8,6 +8,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_dependency 'mruby-compiler2'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-jwt'
+  spec.add_dependency 'picoruby-picorubyvm'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-time'
 

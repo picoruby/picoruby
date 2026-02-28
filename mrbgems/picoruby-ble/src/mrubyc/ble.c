@@ -32,10 +32,17 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   if (att_handle == 0 || size == 0 || write_values.tt == MRBC_TT_NIL) {
     return -1;
   }
-  write_values_mutex = true;
+  mrbc_value key = mrbc_integer_value(att_handle);
   mrbc_value write_value = mrbc_string_new(NULL, (const void *)data, size);
+  write_values_mutex = true;
+  mrbc_value queue = mrbc_hash_get(&write_values, &key);
+  if (queue.tt != MRBC_TT_ARRAY) {
+    queue = mrbc_array_new(NULL, 4);
+    mrbc_hash_set(&write_values, &key, &queue);
+  }
+  mrbc_array_push(&queue, &write_value);
   write_values_mutex = false;
-  return mrbc_hash_set(&write_values, &mrbc_integer_value(att_handle), &write_value);
+  return 0;
 }
 
 int
@@ -86,9 +93,14 @@ c_pop_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
     SET_NIL_RETURN();
     return;
   }
-  mrb_value handle = GET_ARG(1);
-  mrbc_value write_value = mrbc_hash_remove(&write_values, &handle);
-  SET_RETURN(write_value);
+  mrbc_value key = GET_ARG(1);
+  mrbc_value queue = mrbc_hash_get(&write_values, &key);
+  if (queue.tt != MRBC_TT_ARRAY || mrbc_array_size(&queue) == 0) {
+    SET_NIL_RETURN();
+    return;
+  }
+  mrbc_value value = mrbc_array_shift(&queue);
+  SET_RETURN(value);
 }
 
 static void
@@ -100,7 +112,9 @@ c_push_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   mrbc_value handle= GET_ARG(1);
   mrbc_value read_value = GET_ARG(2);
+  mrbc_incref(&read_value);  // for hash ownership
   mrbc_hash_set(&read_values, &handle, &read_value);
+  mrbc_incref(&read_value);  // for return value
   SET_RETURN(read_value);
 }
 
