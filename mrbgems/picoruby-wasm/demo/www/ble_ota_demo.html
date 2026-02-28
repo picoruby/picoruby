@@ -91,7 +91,7 @@
 # Example: blink the on-board LED via GPIO
 require 'gpio'
 
-led = GPIO.new(25, GPIO::OUT)
+led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
 10.times do
   led.write(1)
   sleep 0.3
