@@ -49,6 +49,7 @@ class File
         elsif last_sep == 0
           return '/'
         else
+          # @type var last_sep: Integer
           s = s[0, last_sep]
         end
         i += 1

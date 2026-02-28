@@ -1,0 +1,45 @@
+module JS
+  class WebSerial
+    @js_port: JS::Object
+    @opened: bool
+
+    # Returns true if the Web Serial API is available in this browser.
+    def self.supported?: () -> boolish
+
+    # Show the browser's port picker and return a JS::WebSerial wrapping the
+    # chosen port (or nil if the user cancelled).
+    # Yields the result to the block when a block is given.
+    def self.request_port: (?filters: Array[untyped]) -> JS::WebSerial?
+                         | (?filters: Array[untyped]) { (JS::WebSerial?) -> void } -> JS::WebSerial?
+
+    def self.new: (JS::Object js_port) -> JS::WebSerial
+
+    # Open the serial port with the given parameters.
+    # Yields self to the block once the port is open.
+    def open: (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) -> JS::WebSerial
+            | (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) { (JS::WebSerial) -> void } -> JS::WebSerial
+
+    # Write a binary String to the serial port.
+    def write: (String str) -> nil
+
+    # Register a block to be called with each received binary String chunk.
+    def on_receive: () { (String data) -> void } -> nil
+
+    # Register a block to be called when the port disconnects.
+    def on_disconnect: () { () -> void } -> nil
+
+    # Close the serial port.
+    def close: () -> nil
+
+    def opened?: () -> bool
+
+    private
+
+    # C-implemented class methods
+    def self._open_port: (JS::Object js_port, JS::Object options) -> JS::Object
+    def self._write: (JS::Object js_port, String str) -> nil
+    def self._start_reading: (JS::Object js_port, Integer callback_id) -> nil
+    def self._set_on_disconnect: (JS::Object js_port, Integer callback_id) -> nil
+    def self._close_port: (JS::Object js_port) -> nil
+  end
+end
