@@ -27,6 +27,35 @@ class File
       end
     end
 
+    def dirname(path, level = 1)
+      raise ArgumentError, "negative level: #{level}" if level < 0
+      return path.dup if level == 0
+      s = path
+      i = 0
+      while i < level
+        # Strip trailing slashes but preserve root "/"
+        while s.length > 1 && s[s.length - 1] == '/'
+          s = s[0, s.length - 1]
+        end
+        # Find the last path separator
+        last_sep = nil
+        j = 0
+        while j < s.length
+          last_sep = j if s[j] == '/'
+          j += 1
+        end
+        if last_sep.nil?
+          return '.'
+        elsif last_sep == 0
+          return '/'
+        else
+          s = s[0, last_sep]
+        end
+        i += 1
+      end
+      s
+    end
+
     def chmod(mode, *paths)
       count = 0
       paths.each do |path|
