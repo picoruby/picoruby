@@ -6,34 +6,67 @@
   <link rel="stylesheet" href="test.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
   <style>
+    body { margin: 4px auto; padding: 8px; }
     #not-supported {
       color: #f44; font-weight: bold; padding: 10px;
-      background: #300; border: 1px solid #f44; margin: 10px 0;
+      background: #300; border: 1px solid #f44; margin: 4px 0;
     }
-    .controls { margin: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls { margin: 6px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .controls button { padding: 6px 14px; cursor: pointer; }
     .controls select, .controls label { padding: 4px; }
     #status { font-weight: bold; padding: 4px 8px; border-radius: 3px; }
-    #status.connected { color: #0f0; background: #030; border: 1px solid #0f0; }
+    #status.connected    { color: #0f0; background: #030; border: 1px solid #0f0; }
     #status.disconnected { color: #f44; background: #200; border: 1px solid #f44; }
     #terminal-container {
-      margin: 8px 0;
+      margin: 6px 0;
       border: 2px solid #555;
       background: #000;
       padding: 4px;
+      resize: vertical;
+      overflow: hidden;
+      min-height: 60px;
     }
     p.hint { color: #888; font-size: 0.85em; margin: 4px 0; }
+    .font-ctrl { display: inline-flex; align-items: center; gap: 2px; }
+    .font-ctrl button { padding: 1px 7px; cursor: pointer; font-size: 14px; line-height: 1; }
+    .font-ctrl input[type=number] { width: 38px; text-align: center; padding: 2px 0; -moz-appearance: textfield; }
+    .font-ctrl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    /* DFU section */
+    #dfu-section { margin: 8px 0; padding: 8px 12px; border: 1px solid #555; }
+    #dfu-section legend { font-weight: bold; padding: 0 4px; }
+    #path-input { font-family: monospace; font-size: 13px; }
+    #editor {
+      width: 100%;
+      height: 260px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 15px;
+      background: #1a1a1a;
+      color: #f8f8f2;
+      border: 1px solid #444;
+      padding: 8px;
+      box-sizing: border-box;
+      resize: vertical;
+      tab-size: 2;
+      margin: 6px 0;
+      display: block;
+    }
+    #dfu-log {
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      background: #1a1a1a;
+      color: #0f0;
+      padding: 8px;
+      height: 100px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      margin-top: 6px;
+    }
   </style>
 </head>
 <body>
-  <div><a href="index.html">Back</a></div>
-  <h1>R2P2 Terminal</h1>
-  <p>Terminal emulator for <a href="https://github.com/picoruby/R2P2" target="_blank">R2P2</a> over Web Serial API.<br>
-     Powered by <a href="https://xtermjs.org/" target="_blank">xterm.js</a>.
-     Full escape sequence support for picoruby-editor, picoruby-vim, picoruby-rapicco.</p>
-
   <div id="not-supported" style="display:none">
-    ⚠ Web Serial API is not supported in this browser.<br>
+    Web Serial API is not supported in this browser.
     Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop, version 89+).
   </div>
 
@@ -50,31 +83,117 @@
         <option value="921600">921600</option>
       </select>
     </label>
+    <label>Term font:
+      <span class="font-ctrl">
+        <button id="term-font-minus">−</button>
+        <input id="term-font-size" type="number" value="15" min="8" max="32">
+        <button id="term-font-plus">+</button>
+      </span>
+    </label>
     <span id="status" class="disconnected">Disconnected</span>
   </div>
 
   <div id="terminal-container"></div>
-  <p class="hint">Click the terminal to focus, then type. Ctrl+C, Ctrl+D, arrow keys, F1–F12 are supported.</p>
+
+  <fieldset id="dfu-section">
+    <legend>File Updater (dfucli)</legend>
+    <div class="controls">
+      <input id="path-input" type="text" placeholder="/path/to/file.rb" style="width:220px">
+      <button id="load-btn" disabled>Load</button>
+      <button id="save-btn" disabled>Save</button>
+      <label>Editor font:
+        <span class="font-ctrl">
+          <button id="editor-font-minus">−</button>
+          <input id="editor-font-size" type="number" value="15" min="8" max="24">
+          <button id="editor-font-plus">+</button>
+        </span>
+      </label>
+    </div>
+    <textarea id="editor" spellcheck="false"></textarea>
+    <div id="dfu-log"></div>
+  </fieldset>
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const connectBtn = document.getElementById('connect-btn');
-      const baudSelect = document.getElementById('baud-rate');
-      const statusSpan = document.getElementById('status');
-      const notSupported = document.getElementById('not-supported');
-      const container = document.getElementById('terminal-container');
+    // ---------------------------------------------------------------------------
+    // Globals exposed to PicoRuby WASM
+    // ---------------------------------------------------------------------------
+    let port = null;
+    let captureMode = false;
+    let captureBuffer = '';
 
-      // Check Web Serial API support
+    window.isPortConnected = () => port !== null;
+
+    window.startCapture = () => {
+      captureBuffer = '';
+      captureMode = true;
+    };
+
+    window.peekCapture = () => captureBuffer;
+
+    window.stopAndGetCapture = () => {
+      captureMode = false;
+      return captureBuffer;
+    };
+
+    window.sendTextToPort = async (str) => {
+      if (!port) return;
+      const encoder = new TextEncoder();
+      const writer = port.writable.getWriter();
+      await writer.write(encoder.encode(str));
+      writer.releaseLock();
+    };
+
+    // Parse output from dfucat command: extract content between DFUCAT_BEGIN and DFUCAT_END.
+    // Returns { content } on success, { error } on DFUCAT_ERROR, or null if markers not found.
+    function parseDfucatOutput(raw) {
+      const stripped = raw
+        .replace(/\x1b\[[0-9;?<>=!]*[A-Za-z@`]/g, '')
+        .replace(/\x1b[^[]/g, '');
+      const normalized = stripped.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const errorMatch = normalized.match(/DFUCAT_ERROR:([^\n]*)/);
+      if (errorMatch) return { error: errorMatch[1] };
+      const beginIdx = normalized.indexOf('DFUCAT_BEGIN\n');
+      if (beginIdx === -1) return null;
+      const contentStart = beginIdx + 'DFUCAT_BEGIN\n'.length;
+      const endIdx = normalized.indexOf('DFUCAT_END', contentStart);
+      if (endIdx === -1) return null;
+      return { content: normalized.slice(contentStart, endIdx) };
+    }
+
+    // hex: string of hex pairs e.g. "44465500..." (no spaces)
+    window.sendHexToPort = async (hex) => {
+      if (!port) return;
+      const len = hex.length / 2;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+      }
+      const writer = port.writable.getWriter();
+      await writer.write(bytes);
+      writer.releaseLock();
+    };
+
+    // ---------------------------------------------------------------------------
+    // Terminal setup
+    // ---------------------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      const connectBtn  = document.getElementById('connect-btn');
+      const baudSelect  = document.getElementById('baud-rate');
+      const statusSpan  = document.getElementById('status');
+      const notSupported = document.getElementById('not-supported');
+      const container   = document.getElementById('terminal-container');
+      const saveBtnEl   = document.getElementById('save-btn');
+      const loadBtnEl   = document.getElementById('load-btn');
+      const pathInputEl = document.getElementById('path-input');
+
       if (!('serial' in navigator)) {
         notSupported.style.display = 'block';
         connectBtn.disabled = true;
         return;
       }
 
-      // Initialize xterm.js
-      // convertEol: R2P2 sends LF only, xterm.js needs CRLF for proper line breaks
       const { Terminal } = window;
       const { FitAddon } = window.FitAddon;
       const terminal = new Terminal({
@@ -83,9 +202,7 @@
         convertEol: true,
         fontFamily: '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace',
         fontSize: 15,
-        theme: {
-          background: '#000000',
-        },
+        theme: { background: '#000000' },
       });
       const fitAddon = new FitAddon();
       terminal.loadAddon(fitAddon);
@@ -93,9 +210,9 @@
       fitAddon.fit();
 
       window.addEventListener('resize', () => fitAddon.fit());
+      new ResizeObserver(() => fitAddon.fit()).observe(container);
       container.addEventListener('click', () => terminal.focus());
 
-      let port = null;
       let reader = null;
       let autoReconnect = false;
 
@@ -104,7 +221,17 @@
         statusSpan.className = connected ? 'connected' : 'disconnected';
       }
 
-      // Send keyboard input to serial port
+      function updateDfuButtons() {
+        const hasPath = pathInputEl.value.trim() !== '';
+        const connected = port !== null;
+        loadBtnEl.disabled = !(connected && hasPath);
+        saveBtnEl.disabled = !(connected && hasPath);
+      }
+
+      function setDfuConnected(_connected) {
+        updateDfuButtons();
+      }
+
       terminal.onData((data) => {
         if (port) {
           const encoder = new TextEncoder();
@@ -122,6 +249,7 @@
             if (done) break;
             if (value) {
               const chars = decoder.decode(value, { stream: true });
+              if (captureMode) captureBuffer += chars;
               terminal.write(chars);
             }
           }
@@ -139,6 +267,7 @@
         await port.open({ baudRate });
         autoReconnect = true;
         updateStatus('Connected', true);
+        setDfuConnected(true);
         connectBtn.textContent = 'Disconnect';
         terminal.focus();
         readFromPort();
@@ -167,16 +296,14 @@
           port = null;
         }
         updateStatus('Disconnected', false);
+        setDfuConnected(false);
         connectBtn.textContent = 'Connect';
       }
 
-      // Auto-reconnect: when a previously-permitted device reappears,
-      // open it automatically (no user gesture needed)
       navigator.serial.addEventListener('connect', async (e) => {
         if (port || !autoReconnect) return;
         const serialPort = e.target;
         updateStatus('Reconnecting...', false);
-        // Brief delay for the device to finish USB enumeration
         await new Promise(r => setTimeout(r, 1500));
         try {
           await openPort(serialPort);
@@ -193,8 +320,206 @@
         disconnect();
       });
 
+      function appendDfuLog(msg) {
+        const log = document.getElementById('dfu-log');
+        log.textContent += msg + '\n';
+        log.scrollTop = log.scrollHeight;
+      }
+
+      async function loadFileFromDevice(path) {
+        loadBtnEl.disabled = true;
+        saveBtnEl.disabled = true;
+        appendDfuLog('[*] Loading ' + path + ' ...');
+        captureBuffer = '';
+        captureMode = true;
+        await sendTextToPort('dfucat ' + path + '\n');
+        await new Promise((resolve) => {
+          const maxWait = 10000;
+          const interval = 200;
+          let waited = 0;
+          const check = () => {
+            waited += interval;
+            if (captureBuffer.includes('DFUCAT_END') ||
+                captureBuffer.includes('DFUCAT_ERROR:') ||
+                waited >= maxWait) {
+              resolve();
+            } else {
+              setTimeout(check, interval);
+            }
+          };
+          setTimeout(check, interval);
+        });
+        captureMode = false;
+        const result = parseDfucatOutput(captureBuffer);
+        if (result === null) {
+          appendDfuLog('[-] Load failed: no DFUCAT response');
+          console.log('[load] captureBuffer:', JSON.stringify(captureBuffer));
+        } else if (result.error) {
+          appendDfuLog('[-] ' + result.error);
+        } else {
+          document.getElementById('editor').value = result.content;
+          appendDfuLog('[+] Loaded ' + result.content.length + ' chars');
+        }
+        updateDfuButtons();
+      }
+
+      // Terminal font size
+      const termFontInput = document.getElementById('term-font-size');
+      function setTermFont(val) {
+        val = Math.max(8, Math.min(32, val));
+        termFontInput.value = val;
+        terminal.options.fontSize = val;
+        fitAddon.fit();
+      }
+      document.getElementById('term-font-minus').addEventListener('click', () => setTermFont(parseInt(termFontInput.value) - 1));
+      document.getElementById('term-font-plus').addEventListener('click',  () => setTermFont(parseInt(termFontInput.value) + 1));
+      termFontInput.addEventListener('change', () => setTermFont(parseInt(termFontInput.value) || 15));
+
+      // Editor font size
+      const editorEl2 = document.getElementById('editor');
+      const editorFontInput = document.getElementById('editor-font-size');
+      function setEditorFont(val) {
+        val = Math.max(8, Math.min(24, val));
+        editorFontInput.value = val;
+        editorEl2.style.fontSize = val + 'px';
+      }
+      document.getElementById('editor-font-minus').addEventListener('click', () => setEditorFont(parseInt(editorFontInput.value) - 1));
+      document.getElementById('editor-font-plus').addEventListener('click',  () => setEditorFont(parseInt(editorFontInput.value) + 1));
+      editorFontInput.addEventListener('change', () => setEditorFont(parseInt(editorFontInput.value) || 15));
+
       connectBtn.addEventListener('click', () => connect());
+      pathInputEl.addEventListener('input', updateDfuButtons);
+      loadBtnEl.addEventListener('click', () => {
+        const path = pathInputEl.value.trim();
+        if (path && port) loadFileFromDevice(path);
+      });
     });
+  </script>
+
+  <script type="text/ruby">
+    require 'js'
+
+    # ---------------------------------------------------------------------------
+    # CRC32 (standard polynomial 0xEDB88320, compatible with DFU::Updater)
+    # ---------------------------------------------------------------------------
+    CRC32_TABLE = Array.new(256) do |i|
+      c = i
+      8.times { c = ((c & 1) == 1) ? (0xEDB88320 ^ (c >> 1)) : (c >> 1) }
+      c
+    end
+
+    def crc32(data)
+      crc = 0xFFFFFFFF
+      data.bytes.each { |b| crc = CRC32_TABLE[(crc ^ b) & 0xFF] ^ (crc >> 8) }
+      crc ^ 0xFFFFFFFF
+    end
+
+    # ---------------------------------------------------------------------------
+    # DFU header helpers (big-endian)
+    # ---------------------------------------------------------------------------
+    def be32(n)
+      [((n >> 24) & 0xFF).chr,
+       ((n >> 16) & 0xFF).chr,
+       ((n >>  8) & 0xFF).chr,
+        (n        & 0xFF).chr].join
+    end
+
+    def be16(n)
+      [((n >> 8) & 0xFF).chr,
+        (n       & 0xFF).chr].join
+    end
+
+    # Build a 19-byte DFU header for Ruby source (type="RUBY").
+    def build_dfu_header(source)
+      crc = crc32(source)
+      "DFU\0" + 1.chr + "RUBY" + be32(source.bytesize) + be32(crc) + be16(0)
+    end
+
+    # Encode a binary String as a hex string for sendHexToPort().
+    def to_hex(str)
+      str.bytes.map { |b| b < 16 ? "0#{b.to_s(16)}" : b.to_s(16) }.join
+    end
+
+    # ---------------------------------------------------------------------------
+    # App
+    # ---------------------------------------------------------------------------
+    class App
+      DFU_RESPONSE_TIMEOUT = 5.0
+
+      def initialize
+        @doc = JS.document
+        bind_events
+        append_log("[*] Ready. Connect a serial port to use the file updater.")
+      end
+
+      def el(id)
+        @doc.getElementById(id)
+      end
+
+      def append_log(msg)
+        log = el('dfu-log')
+        log[:textContent] = log[:textContent].to_s + msg + "\n"
+        log[:scrollTop] = log[:scrollHeight]
+      end
+
+      def current_path
+        p = el('path-input')[:value].to_s.strip
+        p.empty? ? nil : p
+      end
+
+      def bind_events
+        el('save-btn').addEventListener('click') { |_| do_save }
+      end
+
+      # Send "dfucli [path]", wait, then send DFU packet containing editor source.
+      def do_save
+        unless JS.global.isPortConnected()
+          append_log("[-] Not connected")
+          return
+        end
+
+        code = el('editor')[:value].to_s
+        if code.strip.empty?
+          append_log("[-] Editor is empty")
+          return
+        end
+
+        path = current_path
+        cmd = path ? "dfucli #{path}\n" : "dfucli\n"
+        append_log("[*] Running: #{cmd.chomp}")
+        JS.global.sendTextToPort(cmd)
+        sleep 0.5  # wait for dfucli to start and enter receive loop
+
+        # Build DFU packet: 19-byte header + Ruby source
+        header  = build_dfu_header(code)
+        payload = header + code
+        append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
+
+        JS.global.startCapture()
+        JS.global.sendHexToPort(to_hex(payload))
+
+        # Wait for "OK" or "ERROR" from device (visible in terminal and capture)
+        waited = 0.0
+        while waited < DFU_RESPONSE_TIMEOUT
+          sleep 0.3
+          waited += 0.3
+          cap = JS.global.peekCapture().to_s
+          break if cap.index("OK") || cap.index("ERROR")
+        end
+
+        resp = JS.global.stopAndGetCapture().to_s
+        if resp.index("OK")
+          append_log("[+] Success!")
+        elsif resp.index("ERROR")
+          idx = resp.index("ERROR")
+          append_log("[-] #{resp[idx, 60].to_s.strip}")
+        else
+          append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}s (check terminal)")
+        end
+      end
+    end
+
+    App.new
   </script>
 
   <script src="init.iife.js"></script>
