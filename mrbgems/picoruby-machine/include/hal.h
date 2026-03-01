@@ -1,6 +1,8 @@
 #ifndef HAL_PORTING_H_
 #define HAL_PORTING_H_
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
