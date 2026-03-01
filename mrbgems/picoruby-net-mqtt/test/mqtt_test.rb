@@ -1,6 +1,6 @@
 class MQTTClientTest < Picotest::Test
   def test_mqtt_new
-    client = MQTT::Client.new('127.0.0.1', 1883)
+    client = Net::MQTT::Client.new('127.0.0.1', 1883)
     assert_equal('127.0.0.1', client.host)
     assert_equal(1883, client.port)
     assert_false(client.connected?)
@@ -15,7 +15,7 @@ class MQTTClientTest < Picotest::Test
 
   # def test_mqtt_connect_disconnect
   #   client = MQTT::Client.new('127.0.0.1', 1883)
-  #   client.connect(client_id:  "picoruby-mqtt-test-#{Time.now.to_i}")
+  #   client.connect(client_id:  "picoruby-net-mqtt-test-#{Time.now.to_i}")
   #   assert_true(client.connected?)
 
   #   client.disconnect
@@ -24,7 +24,7 @@ class MQTTClientTest < Picotest::Test
 
   # def test_mqtt_publish
   #   client = MQTT::Client.new('127.0.0.1', 1883)
-  #   client_id = "picoruby-mqtt-test-#{Time.now.to_i}"
+  #   client_id = "picoruby-net-mqtt-test-#{Time.now.to_i}"
   #   client.connect(client_id:  client_id)
 
   #   topic = "picoruby-test/topic-#{client_id}"
@@ -36,7 +36,7 @@ class MQTTClientTest < Picotest::Test
 
   # def test_mqtt_subscribe
   #   client = MQTT::Client.new('127.0.0.1', 1883)
-  #   client_id = "picoruby-mqtt-test-#{Time.now.to_i}"
+  #   client_id = "picoruby-net-mqtt-test-#{Time.now.to_i}"
   #   client.connect(client_id:  client_id)
 
   #   topic = "picoruby-test/topic-#{client_id}"

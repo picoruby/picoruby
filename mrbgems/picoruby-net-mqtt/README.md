@@ -1,4 +1,4 @@
-# picoruby-mqtt
+# picoruby-net-mqtt
 
 MQTT client for PicoRuby.
 
@@ -19,7 +19,7 @@ This is a pure Ruby implementation of MQTT 3.1.1 client for PicoRuby, designed f
 Add to your `build_config.rb`:
 
 ```ruby
-conf.gem :core => 'picoruby-mqtt'
+conf.gem :core => 'picoruby-net-mqtt'
 ```
 
 ## Usage
@@ -27,10 +27,10 @@ conf.gem :core => 'picoruby-mqtt'
 ### Connect and Publish
 
 ```ruby
-require 'mqtt'
+require 'net/mqtt'
 
 # Connect to MQTT broker
-client = MQTT::Client.new("test.mosquitto.org", 1883)
+client = Net::MQTT::Client.new("test.mosquitto.org", 1883)
 client.connect(client_id: "picoruby-device")
 
 # Publish a message
@@ -43,9 +43,9 @@ client.disconnect
 ### Subscribe to Topics
 
 ```ruby
-require 'mqtt'
+require 'net/mqtt'
 
-client = MQTT::Client.new("test.mosquitto.org", 1883)
+client = Net::MQTT::Client.new("test.mosquitto.org", 1883)
 client.connect(client_id: "picoruby-subscriber")
 
 # Subscribe to a topic
@@ -63,9 +63,9 @@ client.disconnect
 ### With Block
 
 ```ruby
-require 'mqtt'
+require 'net/mqtt'
 
-MQTT::Client.connect("test.mosquitto.org", 1883, client_id: "picoruby") do |client|
+Net::MQTT::Client.connect("test.mosquitto.org", 1883, client_id: "picoruby") do |client|
   client.publish("hello/world", "Hello from PicoRuby!")
 end
 ```
@@ -73,7 +73,7 @@ end
 ### Keep-Alive
 
 ```ruby
-client = MQTT::Client.new("test.mosquitto.org", 1883)
+client = Net:MQTT::Client.new("test.mosquitto.org", 1883)
 client.connect(
   client_id: "picoruby-device",
   keep_alive: 60  # Send PING every 60 seconds
@@ -86,7 +86,7 @@ client.connect(
 ### Retained Messages
 
 ```ruby
-client = MQTT::Client.new("test.mosquitto.org", 1883)
+client = Net::MQTT::Client.new("test.mosquitto.org", 1883)
 client.connect(client_id: "picoruby")
 
 # Publish a retained message
@@ -97,12 +97,12 @@ client.disconnect
 
 ## API Reference
 
-### MQTT::Client
+### Net::MQTT::Client
 
 #### Class Methods
 
-- `MQTT::Client.new(host, port = 1883)` - Create new MQTT client
-- `MQTT::Client.connect(host, port = 1883, **options) { |client| ... }` - Connect with block
+- `Net::MQTT::Client.new(host, port = 1883)` - Create new MQTT client
+- `Net::MQTT::Client.connect(host, port = 1883, **options) { |client| ... }` - Connect with block
 
 #### Instance Methods
 
@@ -152,14 +152,14 @@ client.disconnect
 ## Example: IoT Sensor
 
 ```ruby
-require 'mqtt'
+require 'net/mqtt'
 
 def read_temperature
   # Read from sensor
   22.5 + rand * 3
 end
 
-client = MQTT::Client.new("mqtt.example.com", 1883)
+client = Net::MQTT::Client.new("mqtt.example.com", 1883)
 client.connect(
   client_id: "sensor-001",
   keep_alive: 30
