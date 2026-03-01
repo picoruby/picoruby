@@ -1,29 +1,11 @@
-#include <stdio.h>
 #include <stdbool.h>
 #include <termios.h>
 #include <fcntl.h>
-#include "../../../picoruby-machine/include/machine.h"
+#include <unistd.h>
+#include <stdio.h>
 
 static struct termios save_settings;
 static int save_flags;
-
-int
-hal_getchar(void)
-{
-  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
-    sigint_status = MACHINE_SIG_NONE;
-    return 3; // Ctrl-C
-  } else if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
-    sigint_status = MACHINE_SIG_NONE;
-    return 26; // Ctrl-Z
-  }
-  int c = getchar();
-  if (c == EOF) {
-    return -1;
-  } else {
-    return c;
-  }
-}
 
 bool
 io_raw_q(void)

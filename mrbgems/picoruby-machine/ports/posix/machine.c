@@ -12,6 +12,30 @@
 
 #include "../../include/machine.h"
 
+int
+hal_getchar(void)
+{
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 3; // Ctrl-C
+  } else if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 26; // Ctrl-Z
+  }
+  int c = getchar();
+  if (c == EOF) {
+    return -1;
+  } else {
+    return c;
+  }
+}
+
+int
+hal_read_available(void)
+{
+  int c = fgetc(stdin);
+  return ungetc(c, stdin) == EOF ? 0 : 1;
+}
 
 void
 Machine_tud_task(void)

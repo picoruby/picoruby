@@ -5,8 +5,6 @@
 extern "C" {
 #endif
 
-int hal_getchar(void);
-
 bool io_raw_q(void);
 void io_raw_bang(bool nonblock);
 void io_cooked_bang(void);

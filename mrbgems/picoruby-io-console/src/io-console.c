@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "../include/io-console.h"
+#include "../../picoruby-machine/include/hal.h"
 
 #if defined(PICORB_VM_MRUBY)
 
