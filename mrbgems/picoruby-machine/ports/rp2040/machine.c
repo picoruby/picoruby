@@ -1,6 +1,7 @@
 #include "../../include/hal.h"
 #include "../../include/machine.h"
 #include "../../include/ringbuffer.h"
+#include "../../../picoruby-io-console/include/io-console.h"
 
 #if defined(PICO_RP2040)
   #include "hardware/rosc.h"
@@ -40,6 +41,84 @@ void
 hal_stdin_push(uint8_t ch)
 {
   RingBuffer_push(stdin_rb, ch);
+}
+
+/*-------------------------------------
+ *
+ * Canonical (cooked mode) line buffer
+ *
+ *------------------------------------*/
+
+#ifndef PICORUBY_CANONICAL_BUF_SIZE
+#define PICORUBY_CANONICAL_BUF_SIZE 256
+#endif
+
+static uint8_t canon_buf[PICORUBY_CANONICAL_BUF_SIZE];
+static int canon_len = 0;
+static int canon_read_pos = 0;
+static bool canon_eof = false;
+
+#define CANON_LINE_READY  1
+#define CANON_EOF         2
+#define CANON_ACCUMULATING 0
+
+/*
+ * Process one raw byte in canonical (cooked) mode.
+ * Handles echo, backspace editing, Ctrl-D (EOF).
+ * Returns CANON_LINE_READY, CANON_EOF, or CANON_ACCUMULATING.
+ */
+static int
+canon_process_char(uint8_t raw)
+{
+  if (raw == 8 || raw == 127) {
+    /* Backspace / DEL */
+    if (canon_len > 0) {
+      canon_len--;
+      if (io_echo_q()) {
+        hal_write(1, "\b \b", 3);
+      }
+    }
+    return CANON_ACCUMULATING;
+  }
+  if (raw == '\n' || raw == '\r') {
+    if (canon_len < PICORUBY_CANONICAL_BUF_SIZE) {
+      canon_buf[canon_len++] = raw;
+    }
+    if (io_echo_q()) {
+      hal_write(1, "\r\n", 2);
+    }
+    canon_read_pos = 0;
+    return CANON_LINE_READY;
+  }
+  if (raw == 4) {
+    /* Ctrl-D */
+    if (canon_len == 0) {
+      canon_eof = true;
+      return CANON_EOF;
+    }
+    /* Flush partial line without newline */
+    canon_read_pos = 0;
+    return CANON_LINE_READY;
+  }
+  if (raw == 27) {
+    /* ESC: ignore */
+    return CANON_ACCUMULATING;
+  }
+  /* Ctrl-C (3) and Ctrl-Z (26) pass through as raw values */
+  if (raw == 3 || raw == 26) {
+    canon_buf[0] = raw;
+    canon_len = 1;
+    canon_read_pos = 0;
+    return CANON_LINE_READY;
+  }
+  /* Printable or other control chars: append */
+  if (canon_len < PICORUBY_CANONICAL_BUF_SIZE) {
+    canon_buf[canon_len++] = raw;
+    if (io_echo_q()) {
+      hal_write(1, &raw, 1);
+    }
+  }
+  return CANON_ACCUMULATING;
 }
 
 /*-------------------------------------
@@ -247,17 +326,70 @@ int hal_flush(int fd) {
 int
 hal_read_available(void)
 {
-  return (RingBuffer_data_size(stdin_rb) > 0) ? 1 : 0;
+  if (io_raw_q()) {
+    return (RingBuffer_data_size(stdin_rb) > 0) ? 1 : 0;
+  }
+  /* Cooked mode: data available if canon_buf has unread bytes */
+  if (canon_read_pos < canon_len) {
+    return 1;
+  }
+  /* Check if ringbuffer contains a line terminator */
+  if (RingBuffer_search_char(stdin_rb, '\n') >= 0 ||
+      RingBuffer_search_char(stdin_rb, '\r') >= 0 ||
+      RingBuffer_search_char(stdin_rb, 4) >= 0) {
+    return 1;
+  }
+  return 0;
 }
 
 int
 hal_getchar(void)
 {
-  uint8_t ch;
-  if (RingBuffer_pop(stdin_rb, &ch)) {
+  if (io_raw_q()) {
+    /* Raw mode: pass through directly */
+    uint8_t ch;
+    if (RingBuffer_pop(stdin_rb, &ch)) {
+      return (int)ch;
+    }
+    return HAL_GETCHAR_NODATA;
+  }
+
+  /* Cooked mode */
+  /* Serve buffered characters first */
+  if (canon_read_pos < canon_len) {
+    uint8_t ch = canon_buf[canon_read_pos++];
+    if (canon_read_pos >= canon_len) {
+      /* Line fully consumed, reset buffer */
+      canon_len = 0;
+      canon_read_pos = 0;
+    }
     return (int)ch;
   }
-  return -1;
+
+  /* Check for pending EOF */
+  if (canon_eof) {
+    canon_eof = false;
+    return HAL_GETCHAR_EOF;
+  }
+
+  /* Try to read one byte from ringbuffer and process */
+  uint8_t raw;
+  if (!RingBuffer_pop(stdin_rb, &raw)) {
+    return HAL_GETCHAR_NODATA;
+  }
+
+  int result = canon_process_char(raw);
+  switch (result) {
+    case CANON_LINE_READY:
+      /* Start serving from canon_buf */
+      return hal_getchar();
+    case CANON_EOF:
+      canon_eof = false;
+      return HAL_GETCHAR_EOF;
+    default:
+      /* Still accumulating line */
+      return HAL_GETCHAR_NODATA;
+  }
 }
 
 void

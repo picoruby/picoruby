@@ -46,6 +46,9 @@ int hal_write(int fd, const void *buf, int nbytes);
 
 void hal_abort(const char *s);
 int hal_flush(int fd);
+#define HAL_GETCHAR_NODATA  (-1)
+#define HAL_GETCHAR_EOF     (-2)
+
 int hal_read_available(void);
 int hal_getchar(void);
 void hal_stdin_push(uint8_t ch);
