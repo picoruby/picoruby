@@ -166,6 +166,13 @@ class Shell
       end
     rescue
     end
+    begin
+      require "esp32"
+      if ESP32::WiFi.respond_to?(:init)
+        ENV['WIFI_MODULE'] = "esp32"
+      end
+    rescue
+    end
   end
 
   def self.read_config
