@@ -40,7 +40,6 @@ else()
 endif()
 
 file(GLOB SOURCE_FILES CONFIGURE_DEPENDS
-  ${R2P2_GEM_DIR}/src/ports/r2p2/*.c
   ${PICORUBY_ROOT}/mrbgems/*/ports/rp2040/*.c
   ${PICORUBY_ROOT}/mrbgems/*/ports/common/*.c
 )
