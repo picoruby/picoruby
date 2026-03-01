@@ -265,26 +265,21 @@ static mrb_value
 mrb_io_gets(mrb_state *mrb, mrb_value self)
 {
   mrb_value str = mrb_str_new(mrb, "", 0);
-  char buf[2];
-  buf[1] = '\0';
+  char buf[1];
   while (true) {
     int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
-      raise_interrupt(mrb); // mrb_noreturn
-    } else if (c == 26) { // Ctrl-Z
-      raise_sigtstp(mrb); // mrb_noreturn
-    } if (c == 27) { // ESC continue;
-    }
-    if (c == 8 || c == 127) { // Backspace
-      if (0 < RSTRING_LEN(str)) {
-        mrb_str_resize(mrb, str, RSTRING_LEN(str) - 1);
-        hal_write(1, "\b \b", 3);
+    if (c == 3) {
+      raise_interrupt(mrb);
+    } else if (c == 26) {
+      raise_sigtstp(mrb);
+    } else if (c == HAL_GETCHAR_EOF) {
+      if (RSTRING_LEN(str) == 0) {
+        return mrb_nil_value();
       }
-    } else
-    if (-1 < c) {
-      buf[0] = c;
-      mrb_str_cat(mrb, str, (const char *)buf, 1);
-      hal_write(1, buf, 1);
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
+      mrb_str_cat(mrb, str, buf, 1);
       if (c == '\n' || c == '\r') {
         break;
       }
@@ -299,6 +294,55 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
   mrb_value str = mrb_io_gets(mrb, self);
   if (1 < RSTRING_LEN(str)) {
     mrb_str_resize(mrb, str, 1);
+  }
+  return str;
+}
+
+static mrb_value
+mrb_io_read(mrb_state *mrb, mrb_value self)
+{
+  mrb_int len = -1;
+  mrb_get_args(mrb, "|i", &len);
+  if (len == 0) {
+    return mrb_str_new(mrb, "", 0);
+  }
+  if (0 < len) {
+    /* Read exactly len bytes (or until EOF) */
+    mrb_value str = mrb_str_new(mrb, NULL, len);
+    char *buf = RSTRING_PTR(str);
+    mrb_int i;
+    for (i = 0; i < len; ) {
+      int c = hal_getchar();
+      if (c == 3) {
+        raise_interrupt(mrb);
+      } else if (c == 26) {
+        raise_sigtstp(mrb);
+      } else if (c == HAL_GETCHAR_EOF) {
+        break;
+      } else if (0 <= c) {
+        buf[i++] = (char)c;
+      }
+    }
+    if (i < len) {
+      mrb_str_resize(mrb, str, i);
+    }
+    return str;
+  }
+  /* No argument (or negative): read until EOF */
+  mrb_value str = mrb_str_new(mrb, "", 0);
+  char buf[1];
+  while (true) {
+    int c = hal_getchar();
+    if (c == 3) {
+      raise_interrupt(mrb);
+    } else if (c == 26) {
+      raise_sigtstp(mrb);
+    } else if (c == HAL_GETCHAR_EOF) {
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
+      mrb_str_cat(mrb, str, buf, 1);
+    }
   }
   return str;
 }
@@ -380,6 +424,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_IO, MRB_SYM(puts), mrb_io_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(print), mrb_io_print, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(write), mrb_io_write, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(read), mrb_io_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif

@@ -29,7 +29,7 @@ mrb_open_rx_buffer(mrb_state *mrb, mrb_value self)
     rx_buffer_size = mrb_fixnum(buffer_size);
   }
   RingBuffer *rx = (RingBuffer *)mrb_malloc(mrb, sizeof(RingBuffer) + sizeof(uint8_t) * rx_buffer_size);
-  if (!initializeBuffer(rx, rx_buffer_size)) {
+  if (!RingBuffer_init(rx, rx_buffer_size)) {
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
     mrb_raise(mrb, IOError, "UART: rx_buffer_size is not power of two");
   }
@@ -94,7 +94,7 @@ static mrb_value
 mrb_read(mrb_state *mrb, mrb_value self)
 {
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  size_t available_len = bufferDataSize(rx);
+  size_t available_len = RingBuffer_data_size(rx);
   if (available_len == 0) {
     return mrb_nil_value();
   }
@@ -110,7 +110,7 @@ mrb_read(mrb_state *mrb, mrb_value self)
     }
   }
   uint8_t buf[available_len];
-  popBuffer(rx, buf, available_len);
+  RingBuffer_pop_n(rx, buf,available_len);
   return mrb_str_new(mrb, (const char *)buf, available_len);
 }
 
@@ -120,7 +120,7 @@ mrb_readpartial(mrb_state *mrb, mrb_value self)
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
   mrb_int maxlen;
   mrb_get_args(mrb, "i", &maxlen);
-  size_t available_len = bufferDataSize(rx);
+  size_t available_len = RingBuffer_data_size(rx);
   if (available_len == 0) {
     return mrb_nil_value();
   }
@@ -128,7 +128,7 @@ mrb_readpartial(mrb_state *mrb, mrb_value self)
     maxlen = available_len;
   }
   uint8_t buf[maxlen];
-  popBuffer(rx, buf, maxlen);
+  RingBuffer_pop_n(rx, buf,maxlen);
   return mrb_str_new(mrb, (const char *)buf, maxlen);
 }
 
@@ -136,7 +136,7 @@ static mrb_value
 mrb_bytes_available(mrb_state *mrb, mrb_value self)
 {
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  return mrb_fixnum_value(bufferDataSize(rx));
+  return mrb_fixnum_value(RingBuffer_data_size(rx));
 }
 
 static mrb_value
@@ -154,13 +154,13 @@ static mrb_value
 mrb_gets(mrb_state *mrb, mrb_value self)
 {
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  int pos = searchCharBuffer(rx, (uint8_t)'\n');
+  int pos = RingBuffer_search_char(rx,(uint8_t)'\n');
   if (pos < 0) {
     return mrb_nil_value();
   }
   pos++;
   uint8_t buf[pos];
-  popBuffer(rx, buf, pos);
+  RingBuffer_pop_n(rx, buf,pos);
   return mrb_str_new(mrb, (const char *)buf, pos);
 }
 
@@ -184,7 +184,7 @@ static mrb_value
 mrb_clear_rx_buffer(mrb_state *mrb, mrb_value self)
 {
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  clearBuffer(rx);
+  RingBuffer_clear(rx);
   int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   UART_clear_rx_buffer(unit_num);
   return self;

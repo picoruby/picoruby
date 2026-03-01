@@ -266,29 +266,23 @@ raise_interrupt(mrbc_vm *vm)
 static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrb_value str = mrbc_string_new(vm, NULL, 0);
+  mrbc_value str = mrbc_string_new(vm, NULL, 0);
   char buf[2];
   buf[1] = '\0';
   while (true) {
     int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
+    if (c == 3) {
       raise_interrupt(vm);
       return;
-    }
-    if (c == 27) { // ESC
-      continue;
-    }
-    if (c == 8 || c == 127) { // Backspace
-      if (0 < str.string->size) {
-        str.string->size--;
-        mrbc_realloc(vm, str.string->data, str.string->size);
-        hal_write(1, "\b \b", 3);
+    } else if (c == HAL_GETCHAR_EOF) {
+      if (str.string->size == 0) {
+        SET_NIL_RETURN();
+        return;
       }
-    } else
-    if (-1 < c) {
-      buf[0] = c;
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
       mrbc_string_append_cstr(&str, buf);
-      hal_write(1, buf, 1);
       if (c == '\n' || c == '\r') {
         break;
       }
@@ -306,6 +300,60 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_realloc(vm, str.string->data, 1);
     str.string->size = 1;
   }
+}
+
+static void
+c_io_read(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc > 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (argc == 1) {
+    int len = GET_INT_ARG(1);
+    if (len < 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "negative length");
+      return;
+    }
+    if (len == 0) {
+      SET_RETURN(mrbc_string_new(vm, NULL, 0));
+      return;
+    }
+    /* Read exactly len bytes (or until EOF) */
+    uint8_t buf[len];
+    int i;
+    for (i = 0; i < len; ) {
+      int c = hal_getchar();
+      if (c == 3) {
+        raise_interrupt(vm);
+        return;
+      } else if (c == HAL_GETCHAR_EOF) {
+        break;
+      } else if (0 <= c) {
+        buf[i++] = (uint8_t)c;
+      }
+    }
+    mrbc_value str = mrbc_string_new(vm, buf, i);
+    SET_RETURN(str);
+    return;
+  }
+  /* No argument: read until EOF */
+  mrbc_value str = mrbc_string_new(vm, NULL, 0);
+  char buf[2];
+  buf[1] = '\0';
+  while (true) {
+    int c = hal_getchar();
+    if (c == 3) {
+      raise_interrupt(vm);
+      return;
+    } else if (c == HAL_GETCHAR_EOF) {
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
+      mrbc_string_append_cstr(&str, buf);
+    }
+  }
+  SET_RETURN(str);
 }
 
 static void
@@ -373,6 +421,7 @@ mrbc_machine_init(mrbc_vm *vm)
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
+  mrbc_define_method(vm, class_IO, "read", c_io_read);
   mrbc_define_method(vm, class_IO, "gets", c_gets);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
   mrbc_define_method(vm, class_IO, "write", c_io_write);
