@@ -17,7 +17,17 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-require 'cyw43'
+
+wifi_module = ENV['WIFI_MODULE']
+case wifi_module
+when "cwy43"
+  require 'cyw43'
+when "esp32"
+  require 'esp32'
+else
+  puts "No WiFi module available"
+  return
+end
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -74,18 +84,30 @@ rescue
   return
 end
 
-country_code = config['country_code']
-unless country_code
-  puts "Country code not found in configuration file"
-  return
-end
-if CYW43.initialized?
-  puts "CYW43 already initialized. Skipping country code setting."
-else
-  puts "Setting country code to #{country_code}"
-  unless CYW43.init country_code
-    puts "Failed to initialize CYW43"
-    return # raising an exception here may cause a crash
+case wifi_module
+when "cwy43"
+  country_code = config['country_code']
+  unless country_code
+    puts "Country code not found in configuration file"
+    return
+  end
+  if CYW43.initialized?
+    puts "CYW43 already initialized. Skipping country code setting."
+  else
+    puts "Setting country code to #{country_code}"
+    unless CYW43.init country_code
+      puts "Failed to initialize CYW43"
+      return # raising an exception here may cause a crash
+    end
+  end
+when "esp32"
+  if ESP32::WiFi.initialized?
+    puts "ESP32::WiFi already initialized."
+  else
+    unless ESP32::WiFi.init
+      puts "Failed to initialize ESP32::WiFi"
+      return
+    end
   end
 end
 
@@ -94,16 +116,25 @@ if check_auto_connect && !config["wifi"]["auto_connect"]
   return
 end
 
-puts "Setting up WiFi as a station"
-CYW43.enable_sta_mode
-
 if encoded_password.nil? || encoded_password.empty?
-  auth = CYW43::Auth::OPEN
+  auth = case wifi_module
+         when "cwy43" then CYW43::Auth::OPEN
+         when "esp32" then ESP32::Auth::OPEN
+         end
   password = nil
 else
-  auth = CYW43::Auth::WPA2_MIXED_PSK
+  auth = case wifi_module
+         when "cwy43" then CYW43::Auth::WPA2_MIXED_PSK
+         when "esp32" then ESP32::Auth::WPA2_MIXED_PSK
+         end
   decoded_password = Base64.decode64(encoded_password)
   password = decrypt_proc.call(decoded_password)
+end
+
+case wifi_module
+when "cwy43"
+  puts "Setting up WiFi as a station"
+  CYW43.enable_sta_mode
 end
 
 if config["wifi"]["watchdog"]
@@ -113,9 +144,14 @@ end
 
 begin
   puts "Connecting to WiFi network: #{ssid}. Timeout in 5 seconds..."
-  CYW43.connect_timeout(ssid, password, auth, 5)
+  case wifi_module
+  when "cwy43"
+    CYW43.connect_timeout(ssid, password, auth, 5) # seconds
+  when "esp32"
+    ESP32::WiFi.connect_timeout(ssid, password, auth, 5000) # milliseconds
+  end
   puts "Connected."
-rescue CYW43::ConnectTimeout
+rescue => e
   if config["wifi"]["retry_if_failed"]
     puts "Failed to connect. Retrying..."
     sleep 1
@@ -131,10 +167,19 @@ if config["wifi"]["watchdog"]
   puts "Watchdog disabled"
 end
 
+link_up_check = case wifi_module
+                when "cwy43" then Proc.new { CYW43.link_connected? }
+                when "esp32" then Proc.new { ESP32::WiFi.tcpip_link_status == ESP32::WiFi::LINK_UP }
+                end
+link_status_name = case wifi_module
+                   when "cwy43" then Proc.new { CYW43.tcpip_link_status_name }
+                   when "esp32" then Proc.new { ESP32::WiFi.tcpip_link_status_name }
+                   end
+
 puts "Waiting for IP address..."
 retry_count = 0
 max_retries = 20
-until CYW43.link_connected?
+until link_up_check.call
   sleep_ms 100
   retry_count += 1
   if retry_count >= max_retries
@@ -142,7 +187,7 @@ until CYW43.link_connected?
     return
   end
 end
-puts "IP address obtained (#{CYW43.tcpip_link_status_name})"
+puts "IP address obtained (#{link_status_name.call})"
 
 ARGV.clear
 load "/bin/ntpdate"
