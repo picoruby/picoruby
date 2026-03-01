@@ -48,6 +48,7 @@ void hal_abort(const char *s);
 int hal_flush(int fd);
 int hal_read_available(void);
 int hal_getchar(void);
+void hal_stdin_push(uint8_t ch);
 
 
 #ifdef __cplusplus

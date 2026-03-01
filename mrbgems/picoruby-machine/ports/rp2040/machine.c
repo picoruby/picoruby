@@ -1,5 +1,6 @@
 #include "../../include/hal.h"
 #include "../../include/machine.h"
+#include "../../include/ringbuffer.h"
 
 #if defined(PICO_RP2040)
   #include "hardware/rosc.h"
@@ -20,6 +21,26 @@
 #include <stdlib.h>
 #include <time.h>
 #include <tusb.h>
+
+/*-------------------------------------
+ *
+ * stdin RingBuffer (ISR-driven input)
+ *
+ *------------------------------------*/
+
+#ifndef PICORUBY_STDIN_BUFFER_SIZE
+#define PICORUBY_STDIN_BUFFER_SIZE 256
+#endif
+
+static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORUBY_STDIN_BUFFER_SIZE]
+  __attribute__((aligned(4)));
+static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
+
+void
+hal_stdin_push(uint8_t ch)
+{
+  RingBuffer_push(stdin_rb, ch);
+}
 
 /*-------------------------------------
  *
@@ -92,6 +113,7 @@ hal_init(void)
 #if defined(PICORB_VM_MRUBY)
   mrb_ = (mrb_state *)mrb;
 #endif
+  RingBuffer_init(stdin_rb, PICORUBY_STDIN_BUFFER_SIZE);
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
@@ -225,23 +247,17 @@ int hal_flush(int fd) {
 int
 hal_read_available(void)
 {
-  int len = tud_cdc_available();
-  if (0 < len) {
-    return 1;
-  } else {
-    return 0;
-  }
+  return (RingBuffer_data_size(stdin_rb) > 0) ? 1 : 0;
 }
 
 int
 hal_getchar(void)
 {
-  int c = -1;
-  int len = tud_cdc_available();
-  if (0 < len) {
-    c = tud_cdc_read_char();
+  uint8_t ch;
+  if (RingBuffer_pop(stdin_rb, &ch)) {
+    return (int)ch;
   }
-  return c;
+  return -1;
 }
 
 void

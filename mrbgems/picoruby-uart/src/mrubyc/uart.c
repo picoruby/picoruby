@@ -22,7 +22,7 @@ c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_value rx_buffer_value = mrbc_instance_new(vm, mrbc_class_UART_RxBuffer, sizeof(RingBuffer) + sizeof(uint8_t) * rx_buffer_size);
 
   RingBuffer *rx = (RingBuffer *)rx_buffer_value.instance->data;
-  if (!initializeBuffer(rx, rx_buffer_size)) {
+  if (!RingBuffer_init(rx, rx_buffer_size)) {
     mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx_buffer_size is not power of two");
     return;
   }
@@ -75,7 +75,7 @@ static void
 c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  size_t available_len = bufferDataSize(rx);
+  size_t available_len = RingBuffer_data_size(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
     return;
@@ -90,7 +90,7 @@ c_read(mrbc_vm *vm, mrbc_value v[], int argc)
     }
   }
   uint8_t buf[available_len];
-  popBuffer(rx, buf, available_len);
+  RingBuffer_pop_n(rx, buf,available_len);
   mrbc_value str = mrbc_string_new(vm, buf, available_len);
   SET_RETURN(str);
 }
@@ -103,7 +103,7 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  size_t available_len = bufferDataSize(rx);
+  size_t available_len = RingBuffer_data_size(rx);
   if (available_len == 0) {
     SET_NIL_RETURN();
     return;
@@ -113,7 +113,7 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     maxlen = available_len;
   }
   uint8_t buf[maxlen];
-  popBuffer(rx, buf, maxlen);
+  RingBuffer_pop_n(rx, buf,maxlen);
   mrbc_value str = mrbc_string_new(vm, buf, maxlen);
   SET_RETURN(str);
 }
@@ -122,7 +122,7 @@ static void
 c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  SET_INT_RETURN(bufferDataSize(rx));
+  SET_INT_RETURN(RingBuffer_data_size(rx));
 }
 
 static void
@@ -150,14 +150,14 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  int pos = searchCharBuffer(rx, (uint8_t)'\n');
+  int pos = RingBuffer_search_char(rx,(uint8_t)'\n');
   if (pos < 0) {
     SET_NIL_RETURN();
     return;
   }
   pos++;
   uint8_t buf[pos];
-  popBuffer(rx, buf, pos);
+  RingBuffer_pop_n(rx, buf,pos);
   mrbc_value str = mrbc_string_new(vm, buf, pos);
   SET_RETURN(str);
 }
@@ -180,7 +180,7 @@ static void
 c_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  clearBuffer(rx);
+  RingBuffer_clear(rx);
   int unit_num = GETIV(unit_num).i;
   UART_clear_rx_buffer(unit_num);
 }

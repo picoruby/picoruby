@@ -302,6 +302,33 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
   }
   return str;
 }
+
+static mrb_value
+mrb_io_read(mrb_state *mrb, mrb_value self)
+{
+  mrb_int len;
+  mrb_get_args(mrb, "i", &len);
+  if (len < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "negative length");
+  }
+  if (len == 0) {
+    return mrb_str_new(mrb, "", 0);
+  }
+  mrb_value str = mrb_str_new(mrb, NULL, len);
+  char *buf = RSTRING_PTR(str);
+  mrb_int i;
+  for (i = 0; i < len; ) {
+    int c = hal_getchar();
+    if (c == 3) { // Ctrl-C
+      raise_interrupt(mrb); // mrb_noreturn
+    } else if (c == 26) { // Ctrl-Z (SIGTSTP)
+      raise_sigtstp(mrb); // mrb_noreturn
+    } else if (0 <= c) {
+      buf[i++] = (char)c;
+    }
+  }
+  return str;
+}
 #endif
 
 #if !defined(PICORB_PLATFORM_POSIX)
@@ -380,6 +407,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_IO, MRB_SYM(puts), mrb_io_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(print), mrb_io_print, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(write), mrb_io_write, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(read), mrb_io_read, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif

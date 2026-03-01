@@ -309,6 +309,37 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_io_read(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  int len = GET_INT_ARG(1);
+  if (len < 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "negative length");
+    return;
+  }
+  if (len == 0) {
+    SET_RETURN(mrbc_string_new(vm, NULL, 0));
+    return;
+  }
+  uint8_t buf[len];
+  int i;
+  for (i = 0; i < len; ) {
+    int c = hal_getchar();
+    if (c == 3) {
+      raise_interrupt(vm);
+      return;
+    } else if (0 <= c) {
+      buf[i++] = (uint8_t)c;
+    }
+  }
+  mrbc_value str = mrbc_string_new(vm, buf, len);
+  SET_RETURN(str);
+}
+
+static void
 c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
@@ -373,6 +404,7 @@ mrbc_machine_init(mrbc_vm *vm)
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
+  mrbc_define_method(vm, class_IO, "read", c_io_read);
   mrbc_define_method(vm, class_IO, "gets", c_gets);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
   mrbc_define_method(vm, class_IO, "write", c_io_write);
