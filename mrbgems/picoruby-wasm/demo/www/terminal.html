@@ -45,7 +45,7 @@
       overflow: hidden;
     }
     #editor {
-      flex: 0.7;
+      flex: 0.5;
       font-family: 'Courier Prime', Courier, monospace;
       font-size: 15px;
       background: #1a1a1a;
@@ -70,7 +70,7 @@
       background: linear-gradient(to right, #555, #fff, #555);
     }
     #dfu-log {
-      flex: 0.3;
+      flex: 0.5;
       font-family: monospace;
       font-size: 12px;
       white-space: pre-wrap;
@@ -118,7 +118,7 @@
     <legend>File Editor (by dfucat and dfucli)</legend>
     <div class="controls">
       <button id="load-btn" disabled>▼ Download</button>
-      <input id="path-input" type="text" placeholder="/path/to/file.rb" style="width:220px">
+      <input id="path-input" type="text" placeholder="/home/app.rb" style="width:220px">
       <button id="save-btn" disabled>▲ Upload</button>
       <label>Editor font:
         <span class="font-ctrl">
@@ -185,6 +185,7 @@
     }
 
     // hex: string of hex pairs e.g. "44465500..." (no spaces)
+    // Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
     window.sendHexToPort = async (hex) => {
       if (!port) return;
       const len = hex.length / 2;
@@ -192,8 +193,15 @@
       for (let i = 0; i < len; i++) {
         bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
       }
+      const CHUNK = 64;
       const writer = port.writable.getWriter();
-      await writer.write(bytes);
+      for (let off = 0; off < bytes.length; off += CHUNK) {
+        const end = Math.min(off + CHUNK, bytes.length);
+        await writer.write(bytes.subarray(off, end));
+        if (end < bytes.length) {
+          await new Promise(r => setTimeout(r, 10));
+        }
+      }
       writer.releaseLock();
     };
 
@@ -498,7 +506,7 @@
     # App
     # ---------------------------------------------------------------------------
     class App
-      DFU_RESPONSE_TIMEOUT = 5.0
+      DFU_RESPONSE_TIMEOUT = 5000
 
       def initialize
         @doc = JS.document
@@ -541,22 +549,39 @@
         path = current_path
         cmd = path ? "dfucli #{path}\n" : "dfucli\n"
         append_log("[*] Running: #{cmd.chomp}")
+        JS.global.startCapture()
         JS.global.sendTextToPort(cmd)
-        sleep 0.5  # wait for dfucli to start and enter receive loop
+
+        # Wait for dfucli to print "[recv]" (ready to receive)
+        waited = 0
+        ready = false
+        while waited < 3000
+          sleep_ms 100
+          waited += 100
+          cap = JS.global.peekCapture().to_s
+          if cap.index("[recv]")
+            ready = true
+            break
+          end
+        end
+        unless ready
+          JS.global.stopAndGetCapture()
+          append_log("[-] dfucli did not become ready within 3s")
+          return
+        end
 
         # Build DFU packet: 19-byte header + Ruby source
         header  = build_dfu_header(code)
         payload = header + code
         append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
 
-        JS.global.startCapture()
         JS.global.sendHexToPort(to_hex(payload))
 
         # Wait for "OK" or "ERROR" from device (visible in terminal and capture)
-        waited = 0.0
+        waited = 0
         while waited < DFU_RESPONSE_TIMEOUT
-          sleep 0.3
-          waited += 0.3
+          sleep_ms 300
+          waited += 300
           cap = JS.global.peekCapture().to_s
           break if cap.index("OK") || cap.index("ERROR")
         end
@@ -568,7 +593,7 @@
           idx = resp.index("ERROR")
           append_log("[-] #{resp[idx, 60].to_s.strip}")
         else
-          append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}s (check terminal)")
+          append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (check terminal)")
         end
       end
     end
