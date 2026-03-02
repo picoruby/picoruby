@@ -6,19 +6,19 @@
   <link rel="stylesheet" href="test.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
   <style>
-    body { margin: 4px auto; padding: 8px; }
+    body { margin: 2px auto; padding: 4px; }
     #not-supported {
       color: #f44; font-weight: bold; padding: 10px;
-      background: #300; border: 1px solid #f44; margin: 4px 0;
+      background: #300; border: 1px solid #f44; margin: 2px 0;
     }
-    .controls { margin: 6px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls { margin: 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .controls button { padding: 6px 14px; cursor: pointer; }
     .controls select, .controls label { padding: 4px; }
     #status { font-weight: bold; padding: 4px 8px; border-radius: 3px; }
     #status.connected    { color: #0f0; background: #030; border: 1px solid #0f0; }
     #status.disconnected { color: #f44; background: #200; border: 1px solid #f44; }
     #terminal-container {
-      margin: 6px 0;
+      margin: 2px 0;
       border: 2px solid #555;
       background: #000;
       padding: 4px;
@@ -28,39 +28,58 @@
     }
     p.hint { color: #888; font-size: 0.85em; margin: 4px 0; }
     .font-ctrl { display: inline-flex; align-items: center; gap: 2px; }
-    .font-ctrl button { padding: 1px 7px; cursor: pointer; font-size: 14px; line-height: 1; }
+    .font-ctrl button { padding: 1px 7px; cursor: pointer; font-size: 8px; line-height: 1; }
     .font-ctrl input[type=number] { width: 38px; text-align: center; padding: 2px 0; -moz-appearance: textfield; }
     .font-ctrl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     /* DFU section */
-    #dfu-section { margin: 8px 0; padding: 8px 12px; border: 1px solid #555; }
-    #dfu-section legend { font-weight: bold; padding: 0 4px; }
+    #dfu-section { margin: 2px 0; padding: 2px 4px; border: 1px solid #555; }
+    #dfu-section legend { font-weight: bold; padding: 0 2px; }
     #path-input { font-family: monospace; font-size: 13px; }
+    #editor-container {
+      display: flex;
+      height: 300px;
+      gap: 0;
+      margin: 2px 0;
+      border: 1px solid #444;
+      resize: vertical;
+      overflow: hidden;
+    }
     #editor {
-      width: 100%;
-      height: 260px;
-      font-family: 'Courier New', Courier, monospace;
+      flex: 0.7;
+      font-family: 'Courier Prime', Courier, monospace;
       font-size: 15px;
       background: #1a1a1a;
       color: #f8f8f2;
-      border: 1px solid #444;
+      border: none;
+      border-right: 1px solid #666;
       padding: 8px;
       box-sizing: border-box;
-      resize: vertical;
+      resize: none;
       tab-size: 2;
-      margin: 6px 0;
       display: block;
+      overflow-y: auto;
+    }
+    #resizer {
+      width: 4px;
+      background: linear-gradient(to right, #333, #555, #333);
+      cursor: col-resize;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    #resizer:hover {
+      background: linear-gradient(to right, #555, #fff, #555);
     }
     #dfu-log {
+      flex: 0.3;
       font-family: monospace;
       font-size: 12px;
       white-space: pre-wrap;
       background: #1a1a1a;
       color: #0f0;
-      padding: 8px;
-      height: 100px;
+      padding: 4px;
       overflow-y: auto;
-      border: 1px solid #333;
-      margin-top: 6px;
+      border: none;
+      border-left: 1px solid #666;
     }
   </style>
 </head>
@@ -96,11 +115,11 @@
   <div id="terminal-container"></div>
 
   <fieldset id="dfu-section">
-    <legend>File Updater (dfucli)</legend>
+    <legend>File Editor (by dfucat and dfucli)</legend>
     <div class="controls">
+      <button id="load-btn" disabled>▼ Download</button>
       <input id="path-input" type="text" placeholder="/path/to/file.rb" style="width:220px">
-      <button id="load-btn" disabled>Load</button>
-      <button id="save-btn" disabled>Save</button>
+      <button id="save-btn" disabled>▲ Upload</button>
       <label>Editor font:
         <span class="font-ctrl">
           <button id="editor-font-minus">−</button>
@@ -109,8 +128,11 @@
         </span>
       </label>
     </div>
-    <textarea id="editor" spellcheck="false"></textarea>
-    <div id="dfu-log"></div>
+    <div id="editor-container">
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="resizer"></div>
+      <div id="dfu-log"></div>
+    </div>
   </fieldset>
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
@@ -392,6 +414,38 @@
       loadBtnEl.addEventListener('click', () => {
         const path = pathInputEl.value.trim();
         if (path && port) loadFileFromDevice(path);
+      });
+
+      // Resizer functionality for editor and dfu-log
+      const resizer = document.getElementById('resizer');
+      const editorContainer = document.getElementById('editor-container');
+      let isResizing = false;
+
+      resizer.addEventListener('mousedown', () => {
+        isResizing = true;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'col-resize';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        const containerRect = editorContainer.getBoundingClientRect();
+        const newLeftX = e.clientX - containerRect.left;
+        const maxX = containerRect.width - 20; // min width for right panel
+        const minX = 100; // min width for left panel
+        const constrainedX = Math.max(minX, Math.min(newLeftX, maxX));
+        const leftRatio = constrainedX / containerRect.width;
+        const rightRatio = 1 - leftRatio;
+        editorEl2.style.flex = leftRatio;
+        document.getElementById('dfu-log').style.flex = rightRatio;
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isResizing) {
+          isResizing = false;
+          document.body.style.userSelect = '';
+          document.body.style.cursor = '';
+        }
       });
     });
   </script>
