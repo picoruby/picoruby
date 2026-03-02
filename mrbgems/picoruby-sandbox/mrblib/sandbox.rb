@@ -54,7 +54,7 @@ class Sandbox
   def loop(timeout, signal_self_manage)
     n = 5
     while self.state != :DORMANT && self.state != :SUSPENDED do
-      STDIN.read_nonblock(1) unless signal_self_manage
+      Machine.check_signal unless signal_self_manage
       sleep_ms 5
       if timeout
         n += 5

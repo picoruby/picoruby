@@ -2,6 +2,7 @@
 #include "mruby/string.h"
 #include "mruby/presym.h"
 #include "mruby/array.h"
+#include "../../include/machine.h"
 
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
@@ -179,7 +180,6 @@ mrb_s_uptime_formatted(mrb_state *mrb, mrb_value self)
 }
 
 
-#if !defined(PICORB_PLATFORM_POSIX)
 static mrb_noreturn void
 raise_interrupt(mrb_state *mrb)
 {
@@ -194,7 +194,21 @@ raise_sigtstp(mrb_state *mrb)
   mrb_raise(mrb, class_SignalException, "SIGTSTP");
 }
 
+static mrb_value
+mrb_machine_check_signal(mrb_state *mrb, mrb_value self)
+{
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_interrupt(mrb);
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_sigtstp(mrb);
+  }
+  return mrb_nil_value();
+}
 
+#if !defined(PICORB_PLATFORM_POSIX)
 static size_t
 print_sub(mrb_state *mrb, mrb_value obj)
 {
@@ -416,6 +430,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_reboot), mrb_s__reboot, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(check_signal), mrb_machine_check_signal, MRB_ARGS_NONE());
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(debug_puts), mrb_s_debug_puts, MRB_ARGS_ANY());

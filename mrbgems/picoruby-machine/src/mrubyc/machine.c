@@ -1,4 +1,5 @@
 #include "mrubyc.h"
+#include "../../include/machine.h"
 
 
 static void
@@ -255,7 +256,6 @@ c_Machine__reboot(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
-#if !defined(PICORB_PLATFORM_POSIX)
 static void
 raise_interrupt(mrbc_vm *vm)
 {
@@ -263,6 +263,30 @@ raise_interrupt(mrbc_vm *vm)
   mrbc_raise(vm, interrupt, "Interrupted");
 }
 
+static void
+raise_sigtstp(mrbc_vm *vm)
+{
+  mrbc_class *cls = mrbc_get_class_by_name("SignalException");
+  mrbc_raise(vm, cls, "SIGTSTP");
+}
+
+static void
+c_machine_check_signal(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_interrupt(vm);
+    return;
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_sigtstp(vm);
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
+#if !defined(PICORB_PLATFORM_POSIX)
 static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -418,6 +442,7 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, module_Machine, "exit", c_Machine_exit);
   mrbc_define_method(vm, module_Machine, "_reboot", c_Machine__reboot);
   mrbc_define_method(vm, module_Machine, "debug_puts", c_Machine_debug_puts);
+  mrbc_define_method(vm, module_Machine, "check_signal", c_machine_check_signal);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);

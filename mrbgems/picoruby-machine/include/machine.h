@@ -19,16 +19,18 @@
 extern "C" {
 #endif
 
-#if defined(PICORB_PLATFORM_POSIX)
-__attribute__((weak)) volatile sig_atomic_t sigint_status;
-__attribute__((weak)) int exit_status;
-
 enum {
   MACHINE_SIG_NONE = 0,
   MACHINE_SIGINT_EXIT,
   MACHINE_SIGINT_RECEIVED,
   MACHINE_SIGTSTP_RECEIVED,
 };
+
+#if defined(PICORB_PLATFORM_POSIX)
+__attribute__((weak)) volatile sig_atomic_t sigint_status;
+__attribute__((weak)) int exit_status;
+#else
+extern volatile int sigint_status;
 #endif
 
 void Machine_sleep(uint32_t seconds);

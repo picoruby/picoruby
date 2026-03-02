@@ -25,6 +25,14 @@
 
 /*-------------------------------------
  *
+ * Signal flag (shared with machine.h)
+ *
+ *------------------------------------*/
+
+volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
+
+/*-------------------------------------
+ *
  * stdin RingBuffer (ISR-driven input)
  *
  *------------------------------------*/
@@ -40,6 +48,18 @@ static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
 void
 hal_stdin_push(uint8_t ch)
 {
+  /* Only intercept signal chars in cooked mode (like POSIX).
+   * In raw mode, pass all bytes through for binary data (e.g. DFU). */
+  if (!io_raw_q()) {
+    if (ch == 3) {
+      sigint_status = MACHINE_SIGINT_RECEIVED;
+      return;
+    }
+    if (ch == 26) {
+      sigint_status = MACHINE_SIGTSTP_RECEIVED;
+      return;
+    }
+  }
   RingBuffer_push(stdin_rb, ch);
 }
 
@@ -103,13 +123,6 @@ canon_process_char(uint8_t raw)
   if (raw == 27) {
     /* ESC: ignore */
     return CANON_ACCUMULATING;
-  }
-  /* Ctrl-C (3) and Ctrl-Z (26) pass through as raw values */
-  if (raw == 3 || raw == 26) {
-    canon_buf[0] = raw;
-    canon_len = 1;
-    canon_read_pos = 0;
-    return CANON_LINE_READY;
   }
   /* Printable or other control chars: append */
   if (canon_len < PICORUBY_CANONICAL_BUF_SIZE) {
@@ -345,6 +358,15 @@ hal_read_available(void)
 int
 hal_getchar(void)
 {
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 3;
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 26;
+  }
+
   if (io_raw_q()) {
     /* Raw mode: pass through directly */
     uint8_t ch;
