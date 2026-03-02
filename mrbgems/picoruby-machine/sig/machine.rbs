@@ -16,6 +16,7 @@ module Machine
   def self.board_millis: () -> Integer
   def self.uptime_formatted: () -> String
   def self.reboot: (?Integer wait_ms) -> nil
+  def self.check_signal: () -> void
   private def self._reboot: () -> nil
 end
 
