@@ -257,6 +257,7 @@
         loadBtnEl.disabled = !(connected && hasPath);
         saveBtnEl.disabled = !(connected && hasPath);
       }
+      window.updateDfuButtons = updateDfuButtons;
 
       function setDfuConnected(_connected) {
         updateDfuButtons();
@@ -393,68 +394,30 @@
         updateDfuButtons();
       }
 
-      // Terminal font size
+      // Terminal font size (exposed for Ruby)
       const termFontInput = document.getElementById('term-font-size');
-      function setTermFont(val) {
+      window.setTermFont = function(val) {
         val = Math.max(8, Math.min(32, val));
         termFontInput.value = val;
         terminal.options.fontSize = val;
         fitAddon.fit();
-      }
-      document.getElementById('term-font-minus').addEventListener('click', () => setTermFont(parseInt(termFontInput.value) - 1));
-      document.getElementById('term-font-plus').addEventListener('click',  () => setTermFont(parseInt(termFontInput.value) + 1));
-      termFontInput.addEventListener('change', () => setTermFont(parseInt(termFontInput.value) || 15));
+      };
 
-      // Editor font size
+      // Editor font size (exposed for Ruby)
       const editorEl2 = document.getElementById('editor');
       const editorFontInput = document.getElementById('editor-font-size');
-      function setEditorFont(val) {
+      window.setEditorFont = function(val) {
         val = Math.max(8, Math.min(24, val));
         editorFontInput.value = val;
         editorEl2.style.fontSize = val + 'px';
-      }
-      document.getElementById('editor-font-minus').addEventListener('click', () => setEditorFont(parseInt(editorFontInput.value) - 1));
-      document.getElementById('editor-font-plus').addEventListener('click',  () => setEditorFont(parseInt(editorFontInput.value) + 1));
-      editorFontInput.addEventListener('change', () => setEditorFont(parseInt(editorFontInput.value) || 15));
+      };
 
       connectBtn.addEventListener('click', () => connect());
-      pathInputEl.addEventListener('input', updateDfuButtons);
       loadBtnEl.addEventListener('click', () => {
         const path = pathInputEl.value.trim();
         if (path && port) loadFileFromDevice(path);
       });
 
-      // Resizer functionality for editor and dfu-log
-      const resizer = document.getElementById('resizer');
-      const editorContainer = document.getElementById('editor-container');
-      let isResizing = false;
-
-      resizer.addEventListener('mousedown', () => {
-        isResizing = true;
-        document.body.style.userSelect = 'none';
-        document.body.style.cursor = 'col-resize';
-      });
-
-      document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
-        const containerRect = editorContainer.getBoundingClientRect();
-        const newLeftX = e.clientX - containerRect.left;
-        const maxX = containerRect.width - 20; // min width for right panel
-        const minX = 100; // min width for left panel
-        const constrainedX = Math.max(minX, Math.min(newLeftX, maxX));
-        const leftRatio = constrainedX / containerRect.width;
-        const rightRatio = 1 - leftRatio;
-        editorEl2.style.flex = leftRatio;
-        document.getElementById('dfu-log').style.flex = rightRatio;
-      });
-
-      document.addEventListener('mouseup', () => {
-        if (isResizing) {
-          isResizing = false;
-          document.body.style.userSelect = '';
-          document.body.style.cursor = '';
-        }
-      });
     });
   </script>
 
@@ -531,6 +494,56 @@
 
       def bind_events
         el('save-btn').addEventListener('click') { |_| do_save }
+        bind_font_controls
+        bind_resizer
+        el('path-input').addEventListener('input') { |_| JS.global.updateDfuButtons() }
+      end
+
+      def bind_font_controls
+        term_font_input = el('term-font-size')
+        el('term-font-minus').addEventListener('click') { |_| JS.global.setTermFont(term_font_input[:value].to_i - 1) }
+        el('term-font-plus').addEventListener('click')  { |_| JS.global.setTermFont(term_font_input[:value].to_i + 1) }
+        term_font_input.addEventListener('change') { |_| JS.global.setTermFont(term_font_input[:value].to_i) }
+
+        editor_font_input = el('editor-font-size')
+        el('editor-font-minus').addEventListener('click') { |_| JS.global.setEditorFont(editor_font_input[:value].to_i - 1) }
+        el('editor-font-plus').addEventListener('click')  { |_| JS.global.setEditorFont(editor_font_input[:value].to_i + 1) }
+        editor_font_input.addEventListener('change') { |_| JS.global.setEditorFont(editor_font_input[:value].to_i) }
+      end
+
+      def bind_resizer
+        resizer          = el('resizer')
+        editor_container = el('editor-container')
+        editor_el        = el('editor')
+        dfu_log_el       = el('dfu-log')
+        body             = @doc.body
+        is_resizing      = false
+
+        resizer.addEventListener('mousedown') { |_|
+          is_resizing = true
+          body.style.userSelect = 'none'
+          body.style.cursor = 'col-resize'
+        }
+
+        @doc.addEventListener('mousemove') { |e|
+          next unless is_resizing
+          rect        = editor_container.getBoundingClientRect()
+          new_left_x  = e.clientX.to_f - rect.left.to_f
+          max_x       = rect.width.to_f - 20.0
+          constrained = [100.0, [new_left_x, max_x].min].max
+          left_ratio  = constrained / rect.width.to_f
+          right_ratio = 1.0 - left_ratio
+          editor_el.style.flex  = left_ratio.to_s
+          dfu_log_el.style.flex = right_ratio.to_s
+        }
+
+        @doc.addEventListener('mouseup') { |_|
+          if is_resizing
+            is_resizing = false
+            body.style.userSelect = ''
+            body.style.cursor = ''
+          end
+        }
       end
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
