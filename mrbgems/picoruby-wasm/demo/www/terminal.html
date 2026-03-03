@@ -139,7 +139,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
   <script>
     // ---------------------------------------------------------------------------
-    // Globals exposed to PicoRuby WASM
+    // Shared serial/capture state
     // ---------------------------------------------------------------------------
     window.port = null;
     window.reader = null;
@@ -163,7 +163,6 @@
     // Terminal setup
     // ---------------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
-      const connectBtn  = document.getElementById('connect-btn');
       const container   = document.getElementById('terminal-container');
 
       const { Terminal } = window;
@@ -266,6 +265,18 @@
         status[:className] = connected ? 'connected' : 'disconnected'
       end
 
+      def set_connected_ui
+        update_status('Connected', true)
+        update_dfu_buttons
+        el('connect-btn')[:textContent] = 'Disconnect'
+      end
+
+      def set_disconnected_ui
+        update_status('Disconnected', false)
+        update_dfu_buttons
+        el('connect-btn')[:textContent] = 'Connect'
+      end
+
       def set_editor_font(val)
         val = [[8, val].max, 24].min
         el('editor-font-size')[:value] = val
@@ -318,8 +329,10 @@
       end
 
       def serial_supported?
+        # Browser capability check for initial UI gating.
         nav = JS.global[:navigator]
-        nav && (serial = nav[:serial]) && serial.type != "undefined"
+        serial = nav && nav[:serial]
+        serial && serial.type != "undefined"
       end
 
       def connected?
@@ -347,9 +360,8 @@
           txt = error_text(err)
           JS.global[:console].error("Connect error: #{txt}")
           append_log("[-] Connect error: #{txt}")
-          update_status('Disconnected', false)
           JS.global[:port] = nil
-          update_dfu_buttons
+          set_disconnected_ui
         end
       end
 
@@ -366,9 +378,7 @@
           disconnect(cancel_reader: false)
         end
         JS.global[:autoReconnect] = true
-        update_status('Connected', true)
-        update_dfu_buttons
-        el('connect-btn')[:textContent] = 'Disconnect'
+        set_connected_ui
         JS.global[:terminal].focus
         JS.global.readFromPort
       rescue => err
@@ -404,9 +414,7 @@
         JS.global[:port] = nil
         @webserial = nil
 
-        update_status('Disconnected', false)
-        update_dfu_buttons
-        el('connect-btn')[:textContent] = 'Connect'
+        set_disconnected_ui
       ensure
         @disconnecting = false
       end
@@ -456,7 +464,8 @@
             open_port(serial_port)
             JS.global[:terminal].writeln('[Reconnected]')
           rescue => err
-            JS.global[:console].error("Auto-reconnect failed: #{err}")
+            txt = error_text(err)
+            JS.global[:console].error("Auto-reconnect failed: #{txt}")
             update_status('Disconnected', false)
           end
         end
