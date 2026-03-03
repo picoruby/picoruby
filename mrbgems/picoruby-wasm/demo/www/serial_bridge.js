@@ -52,22 +52,6 @@
       return this.writeBytes(encoder.encode(String(str)));
     }
 
-    async sendHexToPort(hex) {
-      const len = hex.length / 2;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-      }
-      const chunk = 64;
-      for (let off = 0; off < bytes.length; off += chunk) {
-        const end = Math.min(off + chunk, bytes.length);
-        await this.writeBytes(bytes.subarray(off, end));
-        if (end < bytes.length) {
-          await new Promise((r) => setTimeout(r, 10));
-        }
-      }
-    }
-
     async requestConnect() {
       if (this.state.port) {
         this.win.dispatchEvent(new CustomEvent("serial-disconnect-request"));
@@ -133,6 +117,5 @@
   window.peekCapture = () => window.serialBridge.peekCapture();
   window.stopAndGetCapture = () => window.serialBridge.stopAndGetCapture();
   window.sendTextToPort = (str) => window.serialBridge.sendTextToPort(str);
-  window.sendHexToPort = (hex) => window.serialBridge.sendHexToPort(hex);
   window.readFromPort = () => window.serialBridge.readFromPort();
 })();
