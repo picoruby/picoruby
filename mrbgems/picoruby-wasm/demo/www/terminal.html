@@ -190,25 +190,28 @@
         opts[:theme] = theme
 
         terminal = JS.global[:Terminal].new(opts)
-        fit_addon = JS.global[:FitAddon][:FitAddon].new
-        terminal.loadAddon(fit_addon)
+        @fit_addon = JS.global[:FitAddon][:FitAddon].new
+        terminal.loadAddon(@fit_addon)
         container = el('terminal-container')
         terminal.method_missing(:open, container)
-        fit_addon.fit
+        fit_terminal
 
         resize_observer = JS.global[:ResizeObserver].new do |_entries|
-          fit_addon.fit
+          fit_terminal
         end
         resize_observer.observe(container)
 
         @terminal = terminal
-        @fit_addon = fit_addon
       end
 
       def update_status(text, connected)
         status = el('status')
         status[:textContent] = text
         status[:className] = connected ? 'connected' : 'disconnected'
+      end
+
+      def fit_terminal
+        @fit_addon.fit if @fit_addon
       end
 
       def set_editor_font(val)
@@ -221,7 +224,7 @@
         val = [[8, val].max, 32].min
         el('term-font-size')[:value] = val
         @terminal[:options][:fontSize] = val
-        @fit_addon.fit
+        fit_terminal
       end
 
       def update_dfu_buttons
@@ -363,7 +366,6 @@
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| @terminal.focus }
-        JS.global.addEventListener('resize') { |_| @fit_addon.fit }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect }
         bind_font_controls
         bind_resizer
