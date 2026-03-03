@@ -147,20 +147,19 @@
     let captureMode = false;
     let captureBuffer = '';
 
-    window.startCapture = () => {
-      captureBuffer = '';
-      captureMode = true;
-    };
-
-    window.peekCapture = () => captureBuffer;
-
-    window.stopAndGetCapture = () => {
-      captureMode = false;
-      return captureBuffer;
-    };
-
     // Small helper namespace for browser event normalization.
     window.serialHelpers = {
+      start_capture() {
+        captureBuffer = '';
+        captureMode = true;
+      },
+      peek_capture() {
+        return captureBuffer;
+      },
+      stop_and_get_capture() {
+        captureMode = false;
+        return captureBuffer;
+      },
       extract_port(e) {
         return (e && e.port) ? e.port : null;
       },
@@ -620,7 +619,7 @@
         el('load-btn')[:disabled] = true
         el('save-btn')[:disabled] = true
         append_log("[*] Loading #{path} ...")
-        JS.global.startCapture()
+        JS.global[:serialHelpers].start_capture()
         send_text_to_port("dfucat #{path}\n")
         max_wait = 10000
         interval = 200
@@ -628,10 +627,10 @@
         loop do
           sleep_ms interval
           waited += interval
-          cap = JS.global.peekCapture().to_s
+          cap = JS.global[:serialHelpers].peek_capture().to_s
           break if cap.index('DFUCAT_END') || cap.index('DFUCAT_ERROR:') || waited >= max_wait
         end
-        raw = JS.global.stopAndGetCapture().to_s
+        raw = JS.global[:serialHelpers].stop_and_get_capture().to_s
         handle_dfucat_result(raw)
         update_dfu_buttons
       end
@@ -652,7 +651,7 @@
         path = current_path
         cmd = path ? "dfucli #{path}\n" : "dfucli\n"
         append_log("[*] Running: #{cmd.chomp}")
-        JS.global.startCapture()
+        JS.global[:serialHelpers].start_capture()
         send_text_to_port(cmd)
 
         # Wait for dfucli to print "[recv]" (ready to receive)
@@ -661,14 +660,14 @@
         while waited < 3000
           sleep_ms 100
           waited += 100
-          cap = JS.global.peekCapture().to_s
+          cap = JS.global[:serialHelpers].peek_capture().to_s
           if cap.index("[recv]")
             ready = true
             break
           end
         end
         unless ready
-          JS.global.stopAndGetCapture()
+          JS.global[:serialHelpers].stop_and_get_capture()
           append_log("[-] dfucli did not become ready within 3s")
           return
         end
@@ -685,11 +684,11 @@
         while waited < DFU_RESPONSE_TIMEOUT
           sleep_ms 300
           waited += 300
-          cap = JS.global.peekCapture().to_s
+          cap = JS.global[:serialHelpers].peek_capture().to_s
           break if cap.index("OK") || cap.index("ERROR")
         end
 
-        resp = JS.global.stopAndGetCapture().to_s
+        resp = JS.global[:serialHelpers].stop_and_get_capture().to_s
         if resp.index("OK")
           append_log("[+] Success!")
         elsif resp.index("ERROR")
