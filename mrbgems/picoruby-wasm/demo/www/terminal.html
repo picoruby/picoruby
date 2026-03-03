@@ -244,6 +244,7 @@
 
       def initialize
         @doc = JS.document
+        @webserial = nil
         register_callbacks
         apply_serial_support_ui
         bind_events
@@ -350,9 +351,15 @@
       def open_port(serial_port)
         baud_rate = el('baud-rate')[:value].to_i
         JS.global[:port] = serial_port
+        @webserial = JS::WebSerial.new(serial_port)
         options = JS.global.create_object
         options[:baudRate] = baud_rate
         JS::WebSerial._open_port(serial_port, options).await
+        @webserial.on_disconnect do
+          next if @disconnecting
+          JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
+          disconnect(cancel_reader: false)
+        end
         JS.global[:autoReconnect] = true
         update_status('Connected', true)
         update_dfu_buttons
@@ -364,6 +371,7 @@
         JS.global[:console].error("Open port error: #{txt}")
         append_log("[-] Open port error: #{txt}")
         JS.global[:port] = nil
+        @webserial = nil
         JS.global[:reader] = nil
         raise
       end
@@ -389,6 +397,7 @@
           end
         end
         JS.global[:port] = nil
+        @webserial = nil
 
         update_status('Disconnected', false)
         update_dfu_buttons
@@ -445,11 +454,6 @@
             end
           end
 
-          serial.addEventListener('disconnect') do |_|
-            next unless JS.global[:port]
-            JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
-            disconnect
-          end
         end
       end
 
