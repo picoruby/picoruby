@@ -72,6 +72,18 @@ EM_JS(void, serial_start_reading, (int ref_id, uintptr_t callback_id), {
       console.error('serial_start_reading: port not found');
       return;
     }
+
+    if (!globalThis.picorubySerialReadStates) {
+      globalThis.picorubySerialReadStates = Object.create(null);
+    }
+    const key = String(ref_id);
+    const state = globalThis.picorubySerialReadStates[key] || { running: false };
+    if (state.running) {
+      return;
+    }
+    state.running = true;
+    globalThis.picorubySerialReadStates[key] = state;
+
     (async () => {
       while (port.readable) {
         const reader = port.readable.getReader();
@@ -91,12 +103,21 @@ EM_JS(void, serial_start_reading, (int ref_id, uintptr_t callback_id), {
             _free(ptr);
           }
         } catch(e) {
-          console.error('serial read error:', e);
+          const name = e && e.name ? e.name : "";
+          const message = e && e.message ? e.message : String(e);
+          const deviceLost = name === 'NetworkError' || message.includes('device has been lost');
+          if (!deviceLost) {
+            console.error('serial read error:', e);
+          }
         } finally {
           reader.releaseLock();
         }
       }
-    })();
+      state.running = false;
+    })().catch((e) => {
+      state.running = false;
+      console.error('serial_start_reading async failed:', e);
+    });
   } catch(e) {
     console.error('serial_start_reading failed:', e);
   }
@@ -120,6 +141,21 @@ EM_JS(void, serial_port_close, (int ref_id), {
   try {
     const port = globalThis.picorubyRefs[ref_id];
     if (port) port.close();
+
+    const key = String(ref_id);
+    if (globalThis.picorubySerialReadStates) {
+      delete globalThis.picorubySerialReadStates[key];
+    }
+    if (globalThis.picorubySerialWriteQueues) {
+      delete globalThis.picorubySerialWriteQueues[key];
+    }
+    if (globalThis.picorubySerialDisconnectHandlers && port) {
+      const prev = globalThis.picorubySerialDisconnectHandlers[key];
+      if (prev) {
+        port.removeEventListener('disconnect', prev);
+      }
+      delete globalThis.picorubySerialDisconnectHandlers[key];
+    }
   } catch(e) {
     console.error('serial_port_close failed:', e);
   }
@@ -133,14 +169,26 @@ EM_JS(void, serial_set_on_disconnect, (int ref_id, uintptr_t callback_id), {
       console.error('serial_set_on_disconnect: port not found');
       return;
     }
-    port.addEventListener('disconnect', () => {
+    if (!globalThis.picorubySerialDisconnectHandlers) {
+      globalThis.picorubySerialDisconnectHandlers = Object.create(null);
+    }
+
+    const key = String(ref_id);
+    const prev = globalThis.picorubySerialDisconnectHandlers[key];
+    if (prev) {
+      port.removeEventListener('disconnect', prev);
+    }
+
+    const handler = () => {
       ccall(
         'serial_disconnect_callback',
         'void',
         ['number'],
         [callback_id]
       );
-    });
+    };
+    globalThis.picorubySerialDisconnectHandlers[key] = handler;
+    port.addEventListener('disconnect', handler);
   } catch(e) {
     console.error('serial_set_on_disconnect failed:', e);
   }
