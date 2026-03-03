@@ -141,11 +141,13 @@
     // ---------------------------------------------------------------------------
     // Globals exposed to PicoRuby WASM
     // ---------------------------------------------------------------------------
-    let port = null;
+    window.port = null;
+    window.reader = null;
+    window.autoReconnect = false;
     let captureMode = false;
     let captureBuffer = '';
 
-    window.isPortConnected = () => port !== null;
+    window.isPortConnected = () => window.port !== null;
 
     window.startCapture = () => {
       captureBuffer = '';
@@ -160,9 +162,9 @@
     };
 
     window.sendTextToPort = async (str) => {
-      if (!port) return;
+      if (!window.port) return;
       const encoder = new TextEncoder();
-      const writer = port.writable.getWriter();
+      const writer = window.port.writable.getWriter();
       await writer.write(encoder.encode(str));
       writer.releaseLock();
     };
@@ -170,14 +172,14 @@
     // hex: string of hex pairs e.g. "44465500..." (no spaces)
     // Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
     window.sendHexToPort = async (hex) => {
-      if (!port) return;
+      if (!window.port) return;
       const len = hex.length / 2;
       const bytes = new Uint8Array(len);
       for (let i = 0; i < len; i++) {
         bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
       }
       const CHUNK = 64;
-      const writer = port.writable.getWriter();
+      const writer = window.port.writable.getWriter();
       for (let off = 0; off < bytes.length; off += CHUNK) {
         const end = Math.min(off + CHUNK, bytes.length);
         await writer.write(bytes.subarray(off, end));
@@ -193,8 +195,6 @@
     // ---------------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
       const connectBtn  = document.getElementById('connect-btn');
-      const baudSelect  = document.getElementById('baud-rate');
-      const statusSpan  = document.getElementById('status');
       const notSupported = document.getElementById('not-supported');
       const container   = document.getElementById('terminal-container');
 
@@ -223,31 +223,38 @@
 
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
-      let reader = null;
-      let autoReconnect = false;
-
-      function updateStatus(text, connected) {
-        globalThis.picorubyGenericCallbacks['updateStatus'](text, connected);
-      }
-
-      function updateDfuButtons() {
-        globalThis.picorubyGenericCallbacks['updateDfuButtons']();
-      }
-
       terminal.onData((data) => {
-        if (port) {
+        if (window.port) {
           const encoder = new TextEncoder();
-          const writer = port.writable.getWriter();
+          const writer = window.port.writable.getWriter();
           writer.write(encoder.encode(data)).then(() => writer.releaseLock());
         }
       });
 
-      async function readFromPort() {
-        const decoder = new TextDecoder('utf-8');
+      connectBtn.addEventListener('click', async () => {
+        if (window.port) {
+          window.dispatchEvent(new CustomEvent('serial-disconnect-request'));
+          return;
+        }
         try {
-          reader = port.readable.getReader();
+          window.pendingSerialPort = await navigator.serial.requestPort();
+          window.dispatchEvent(new CustomEvent('serial-connect-request'));
+        } catch (err) {
+          console.error('Connect error:', err);
+          const message = err && err.message ? err.message : String(err);
+          window.lastSerialConnectError = message;
+          window.dispatchEvent(new CustomEvent('serial-connect-error'));
+        }
+      });
+
+      window.readFromPort = async function() {
+        if (!window.port) return;
+        const decoder = new TextDecoder('utf-8');
+        const activeReader = window.port.readable.getReader();
+        window.reader = activeReader;
+        try {
           while (true) {
-            const { value, done } = await reader.read();
+            const { value, done } = await activeReader.read();
             if (done) break;
             if (value) {
               const chars = decoder.decode(value, { stream: true });
@@ -258,71 +265,11 @@
         } catch (err) {
           console.error('Serial read error:', err);
         } finally {
-          if (reader) reader.releaseLock();
-          disconnect();
+          activeReader.releaseLock();
+          if (window.reader === activeReader) window.reader = null;
+          window.dispatchEvent(new CustomEvent('serial-reader-closed'));
         }
-      }
-
-      async function openPort(serialPort) {
-        const baudRate = parseInt(baudSelect.value, 10);
-        port = serialPort;
-        await port.open({ baudRate });
-        autoReconnect = true;
-        updateStatus('Connected', true);
-        updateDfuButtons();
-        connectBtn.textContent = 'Disconnect';
-        terminal.focus();
-        readFromPort();
-      }
-
-      async function connect() {
-        if (port) { disconnect(); return; }
-        try {
-          const serialPort = await navigator.serial.requestPort();
-          terminal.reset();
-          await openPort(serialPort);
-        } catch (err) {
-          console.error('Connect error:', err);
-          updateStatus('Disconnected', false);
-          port = null;
-        }
-      }
-
-      async function disconnect() {
-        if (reader) {
-          try { await reader.cancel(); } catch (e) { /* ignore */ }
-          reader = null;
-        }
-        if (port) {
-          try { await port.close(); } catch (e) { /* ignore */ }
-          port = null;
-        }
-        updateStatus('Disconnected', false);
-        updateDfuButtons();
-        connectBtn.textContent = 'Connect';
-      }
-
-      navigator.serial.addEventListener('connect', async (e) => {
-        if (port || !autoReconnect) return;
-        const serialPort = e.target;
-        updateStatus('Reconnecting...', false);
-        await new Promise(r => setTimeout(r, 1500));
-        try {
-          await openPort(serialPort);
-          terminal.writeln('[Reconnected]');
-        } catch (err) {
-          console.error('Auto-reconnect failed:', err);
-          updateStatus('Disconnected', false);
-        }
-      });
-
-      navigator.serial.addEventListener('disconnect', () => {
-        if (!port) return;
-        terminal.writeln('\r\n[Serial port disconnected]');
-        disconnect();
-      });
-
-      window.connect = connect;
+      };
 
     });
   </script>
@@ -331,6 +278,7 @@
     require 'js'
     require 'crc'
     require 'pack'
+    require 'webserial'
 
     # ---------------------------------------------------------------------------
     # DFU header builder (19 bytes: magic(4) version(1) type(4) fw_size(4) crc32(4) sig_len(2))
@@ -380,20 +328,97 @@
 
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
-        connected = JS.global.isPortConnected() == true
+        connected = !JS.global[:port].nil?
         enabled = connected && has_path
         el('load-btn')[:disabled] = !enabled
         el('save-btn')[:disabled] = !enabled
       end
 
+      def error_text(err)
+        msg = err.message.to_s
+        msg = err.to_s if msg.empty?
+        klass = err.class.to_s
+        msg.empty? ? klass : "#{klass}: #{msg}"
+      end
+
+      def serial_supported?
+        nav = JS.global[:navigator]
+        nav && (serial = nav[:serial]) && serial.type != "undefined"
+      end
+
+      def connect(serial_port = nil)
+        if JS.global[:port]
+          disconnect
+          return
+        end
+
+        begin
+          serial_port ||= JS.global[:navigator][:serial].requestPort().await
+          raise "No serial port selected" unless serial_port
+          JS.global[:terminal].reset
+          open_port(serial_port)
+        rescue => err
+          txt = error_text(err)
+          JS.global[:console].error("Connect error: #{txt}")
+          append_log("[-] Connect error: #{txt}")
+          update_status('Disconnected', false)
+          JS.global[:port] = nil
+          update_dfu_buttons
+        end
+      end
+
+      def open_port(serial_port)
+        baud_rate = el('baud-rate')[:value].to_i
+        JS.global[:port] = serial_port
+        options = JS.global.create_object
+        options[:baudRate] = baud_rate
+        JS::WebSerial._open_port(serial_port, options).await
+        JS.global[:autoReconnect] = true
+        update_status('Connected', true)
+        update_dfu_buttons
+        el('connect-btn')[:textContent] = 'Disconnect'
+        JS.global[:terminal].focus
+        JS.global.readFromPort
+      rescue => err
+        txt = error_text(err)
+        JS.global[:console].error("Open port error: #{txt}")
+        append_log("[-] Open port error: #{txt}")
+        JS.global[:port] = nil
+        JS.global[:reader] = nil
+        raise
+      end
+
+      def disconnect(cancel_reader: true)
+        return if @disconnecting
+
+        @disconnecting = true
+        reader = JS.global[:reader]
+        if cancel_reader && reader
+          begin
+            reader.cancel.await
+          rescue
+          end
+        end
+        JS.global[:reader] = nil
+
+        port = JS.global[:port]
+        if port
+          begin
+            port.close.await
+          rescue
+          end
+        end
+        JS.global[:port] = nil
+
+        update_status('Disconnected', false)
+        update_dfu_buttons
+        el('connect-btn')[:textContent] = 'Connect'
+      ensure
+        @disconnecting = false
+      end
+
       def register_callbacks
         app = self
-        JS::Object.register_callback('updateStatus') do |text, connected|
-          app.update_status(text.to_s, connected == true)
-        end
-        JS::Object.register_callback('updateDfuButtons') do
-          app.update_dfu_buttons
-        end
         JS::Object.register_callback('appendDfuLog') do |msg|
           app.append_log(msg.to_s)
         end
@@ -414,14 +439,52 @@
       end
 
       def bind_events
-        el('connect-btn').addEventListener('click') { |_| JS.global.connect() }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
         JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
+        JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
+        JS.global.addEventListener('serial-connect-request') do |_|
+          port = JS.global[:pendingSerialPort]
+          JS.global[:pendingSerialPort] = nil
+          connect(port)
+        end
+        JS.global.addEventListener('serial-disconnect-request') { |_| disconnect }
+        JS.global.addEventListener('serial-connect-error') do |_|
+          message = JS.global[:lastSerialConnectError].to_s
+          JS.global[:lastSerialConnectError] = nil
+          JS.global[:console].error("Connect error: #{message}")
+          update_status('Disconnected', false)
+          JS.global[:port] = nil
+          update_dfu_buttons
+        end
         bind_font_controls
         bind_resizer
         el('path-input').addEventListener('input') { |_| update_dfu_buttons }
+
+        if serial_supported?
+          serial = JS.global[:navigator][:serial]
+          serial.addEventListener('connect') do |e|
+            next if JS.global[:port] || JS.global[:autoReconnect] != true
+            serial_port = e[:port]
+            next unless serial_port
+            update_status('Reconnecting...', false)
+            sleep_ms 1500
+            begin
+              open_port(serial_port)
+              JS.global[:terminal].writeln('[Reconnected]')
+            rescue => err
+              JS.global[:console].error("Auto-reconnect failed: #{err}")
+              update_status('Disconnected', false)
+            end
+          end
+
+          serial.addEventListener('disconnect') do |_|
+            next unless JS.global[:port]
+            JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
+            disconnect
+          end
+        end
       end
 
       def bind_font_controls
