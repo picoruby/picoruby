@@ -167,10 +167,6 @@
       writer.releaseLock();
     };
 
-    function handleDfucatResult(raw) {
-      globalThis.picorubyGenericCallbacks['handleDfucatResult'](raw);
-    }
-
     // hex: string of hex pairs e.g. "44465500..." (no spaces)
     // Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
     window.sendHexToPort = async (hex) => {
@@ -201,9 +197,6 @@
       const statusSpan  = document.getElementById('status');
       const notSupported = document.getElementById('not-supported');
       const container   = document.getElementById('terminal-container');
-      const saveBtnEl   = document.getElementById('save-btn');
-      const loadBtnEl   = document.getElementById('load-btn');
-      const pathInputEl = document.getElementById('path-input');
 
       if (!('serial' in navigator)) {
         notSupported.style.display = 'block';
@@ -329,40 +322,7 @@
         disconnect();
       });
 
-      function appendDfuLog(msg) {
-        globalThis.picorubyGenericCallbacks['appendDfuLog'](msg);
-      }
-
-      async function loadFileFromDevice(path) {
-        loadBtnEl.disabled = true;
-        saveBtnEl.disabled = true;
-        appendDfuLog('[*] Loading ' + path + ' ...');
-        captureBuffer = '';
-        captureMode = true;
-        await sendTextToPort('dfucat ' + path + '\n');
-        await new Promise((resolve) => {
-          const maxWait = 10000;
-          const interval = 200;
-          let waited = 0;
-          const check = () => {
-            waited += interval;
-            if (captureBuffer.includes('DFUCAT_END') ||
-                captureBuffer.includes('DFUCAT_ERROR:') ||
-                waited >= maxWait) {
-              resolve();
-            } else {
-              setTimeout(check, interval);
-            }
-          };
-          setTimeout(check, interval);
-        });
-        captureMode = false;
-        handleDfucatResult(captureBuffer);
-        updateDfuButtons();
-      }
-
       window.connect = connect;
-      window.loadFileFromDevice = loadFileFromDevice;
 
     });
   </script>
@@ -456,10 +416,7 @@
       def bind_events
         el('connect-btn').addEventListener('click') { |_| JS.global.connect() }
         el('save-btn').addEventListener('click') { |_| do_save }
-        el('load-btn').addEventListener('click') { |_|
-          path = current_path
-          JS.global.loadFileFromDevice(path) if path && JS.global.isPortConnected() == true
-        }
+        el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
         JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
         bind_font_controls
@@ -570,6 +527,30 @@
           el('editor')[:value] = result[:content]
           append_log("[+] Loaded #{result[:content].length} chars")
         end
+      end
+
+      # Send "dfucat [path]", wait, then load content into editor.
+      def do_load
+        return unless JS.global.isPortConnected() == true
+        path = current_path
+        return unless path
+        el('load-btn')[:disabled] = true
+        el('save-btn')[:disabled] = true
+        append_log("[*] Loading #{path} ...")
+        JS.global.startCapture()
+        JS.global.sendTextToPort("dfucat #{path}\n")
+        max_wait = 10000
+        interval = 200
+        waited = 0
+        loop do
+          sleep_ms interval
+          waited += interval
+          cap = JS.global.peekCapture().to_s
+          break if cap.index('DFUCAT_END') || cap.index('DFUCAT_ERROR:') || waited >= max_wait
+        end
+        raw = JS.global.stopAndGetCapture().to_s
+        handle_dfucat_result(raw)
+        update_dfu_buttons
       end
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
