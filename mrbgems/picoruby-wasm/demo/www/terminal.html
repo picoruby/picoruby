@@ -247,8 +247,7 @@
       let autoReconnect = false;
 
       function updateStatus(text, connected) {
-        statusSpan.textContent = text;
-        statusSpan.className = connected ? 'connected' : 'disconnected';
+        globalThis.picorubyGenericCallbacks['updateStatus'](text, connected);
       }
 
       function updateDfuButtons() {
@@ -393,15 +392,6 @@
         fitAddon.fit();
       };
 
-      // Editor font size (exposed for Ruby)
-      const editorEl2 = document.getElementById('editor');
-      const editorFontInput = document.getElementById('editor-font-size');
-      window.setEditorFont = function(val) {
-        val = Math.max(8, Math.min(24, val));
-        editorFontInput.value = val;
-        editorEl2.style.fontSize = val + 'px';
-      };
-
       window.connect = connect;
       window.loadFileFromDevice = loadFileFromDevice;
 
@@ -469,6 +459,18 @@
         @doc.getElementById(id)
       end
 
+      def update_status(text, connected)
+        status = el('status')
+        status[:textContent] = text
+        status[:className] = connected ? 'connected' : 'disconnected'
+      end
+
+      def set_editor_font(val)
+        val = [[8, val].max, 24].min
+        el('editor-font-size')[:value] = val
+        el('editor').style.fontSize = "#{val}px"
+      end
+
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
         connected = JS.global.isPortConnected() == true
@@ -479,6 +481,9 @@
 
       def register_callbacks
         app = self
+        JS::Object.register_callback('updateStatus') do |text, connected|
+          app.update_status(text.to_s, connected == true)
+        end
         JS::Object.register_callback('updateDfuButtons') do
           app.update_dfu_buttons
         end
@@ -517,9 +522,9 @@
         term_font_input.addEventListener('change') { |_| JS.global.setTermFont(term_font_input[:value].to_i) }
 
         editor_font_input = el('editor-font-size')
-        el('editor-font-minus').addEventListener('click') { |_| JS.global.setEditorFont(editor_font_input[:value].to_i - 1) }
-        el('editor-font-plus').addEventListener('click')  { |_| JS.global.setEditorFont(editor_font_input[:value].to_i + 1) }
-        editor_font_input.addEventListener('change') { |_| JS.global.setEditorFont(editor_font_input[:value].to_i) }
+        el('editor-font-minus').addEventListener('click') { |_| set_editor_font(editor_font_input[:value].to_i - 1) }
+        el('editor-font-plus').addEventListener('click')  { |_| set_editor_font(editor_font_input[:value].to_i + 1) }
+        editor_font_input.addEventListener('change') { |_| set_editor_font(editor_font_input[:value].to_i) }
       end
 
       def bind_resizer
