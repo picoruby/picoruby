@@ -200,7 +200,6 @@
         @doc = JS.document
         @current_port = nil
         @auto_reconnect = false
-        register_callbacks
         bind_events
         append_log("[*] Ready. Connect a serial port to use the file updater.")
       end
@@ -346,16 +345,6 @@
         el('connect-btn')[:textContent] = 'Connect'
       ensure
         @disconnecting = false
-      end
-
-      def register_callbacks
-        app = self
-        JS::Object.register_callback('appendDfuLog') do |msg|
-          app.append_log(msg.to_s)
-        end
-        JS::Object.register_callback('handleDfucatResult') do |raw|
-          app.handle_dfucat_result(raw.to_s)
-        end
       end
 
       def append_log(msg)
