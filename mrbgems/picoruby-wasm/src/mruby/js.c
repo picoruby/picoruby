@@ -631,6 +631,36 @@ EM_JS(void, js_register_generic_callback, (uintptr_t callback_id, const char* ca
   };
 });
 
+EM_JS(int, js_create_callback_function, (uintptr_t callback_id), {
+  try {
+    const fn = function(...args) {
+      const argRefIds = args.map(arg => globalThis.picorubyRefs.push(arg) - 1);
+      const argRefIdsPtr = _malloc(argRefIds.length * 4);
+      for (let i = 0; i < argRefIds.length; i++) {
+        HEAP32[(argRefIdsPtr >> 2) + i] = argRefIds[i];
+      }
+
+      const resultRefId = ccall(
+        'call_ruby_callback_sync_generic',
+        'number',
+        ['number', 'number', 'number'],
+        [callback_id, argRefIdsPtr, argRefIds.length]
+      );
+
+      _free(argRefIdsPtr);
+
+      if (resultRefId >= 0 && resultRefId < globalThis.picorubyRefs.length) {
+        return globalThis.picorubyRefs[resultRefId];
+      }
+      return undefined;
+    };
+    return globalThis.picorubyRefs.push(fn) - 1;
+  } catch (e) {
+    console.error('js_create_callback_function failed:', e);
+    return -1;
+  }
+});
+
 EM_JS(int, js_set_timeout, (uintptr_t callback_id, int delay_ms), {
   const timerId = setTimeout(function() {
     // Check if callback still exists before calling
@@ -1680,15 +1710,21 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
  * Returns the ref_id of the result, or -1 on error.
  */
 static int
-call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, mrb_value *argv, mrb_int argc)
+call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, mrb_value *argv, mrb_int argc, int extra_ref_id)
 {
   mrb_value json_array = mrb_str_new_lit(mrb, "[");
+  mrb_int total = argc + (extra_ref_id >= 0 ? 1 : 0);
 
-  for (mrb_int i = 0; i < argc; i++) {
+  for (mrb_int i = 0; i < total; i++) {
     if (i > 0) mrb_str_cat_lit(mrb, json_array, ",");
     mrb_str_cat_lit(mrb, json_array, "{\"type\":");
 
-    if (mrb_string_p(argv[i])) {
+    if (i == argc && extra_ref_id >= 0) {
+      mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
+      char ref_buf[32];
+      snprintf(ref_buf, sizeof(ref_buf), "%d", extra_ref_id);
+      mrb_str_cat_cstr(mrb, json_array, ref_buf);
+    } else if (mrb_string_p(argv[i])) {
       mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
       const char *str = mrb_string_value_cstr(mrb, &argv[i]);
       for (const char *p = str; *p; p++) {
@@ -1733,6 +1769,28 @@ call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, 
   return call_method_with_args(ref_id, method_name, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
 }
 
+static int
+register_ruby_block_as_js_callback(mrb_state *mrb, mrb_value blk)
+{
+  mrb_value callback_id_val = mrb_funcall_id(mrb, blk, mrb_intern_lit(mrb, "object_id"), 0);
+  if (!mrb_integer_p(callback_id_val)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "block object_id must be Integer");
+  }
+  mrb_int callback_id = mrb_integer(callback_id_val);
+
+  mrb_value callbacks = mrb_const_get(mrb, mrb_obj_value(class_JS_Object), mrb_intern_lit(mrb, "CALLBACKS"));
+  if (!mrb_hash_p(callbacks)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object::CALLBACKS is not Hash");
+  }
+  mrb_hash_set(mrb, callbacks, mrb_fixnum_value(callback_id), blk);
+
+  int callback_ref_id = js_create_callback_function((uintptr_t)callback_id);
+  if (callback_ref_id < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create JS callback function");
+  }
+  return callback_ref_id;
+}
+
 /*
  * JS::Object#method_missing
  */
@@ -1741,10 +1799,16 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
 {
   mrb_sym method_sym;
   mrb_value *argv;
+  mrb_value blk = mrb_nil_value();
   mrb_int argc;
-  mrb_get_args(mrb, "n*", &method_sym, &argv, &argc);
+  mrb_get_args(mrb, "n*&", &method_sym, &argv, &argc, &blk);
   const char *method_name = mrb_sym_name(mrb, method_sym);
   picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
+  bool has_block = !mrb_nil_p(blk);
+  int callback_ref_id = -1;
+  if (has_block) {
+    callback_ref_id = register_ruby_block_as_js_callback(mrb, blk);
+  }
 
   int self_js_type = get_js_type(js_obj->ref_id);
   if (self_js_type == JS_TYPE_UNDEFINED || self_js_type == JS_TYPE_NULL) {
@@ -1768,6 +1832,11 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   }
 
   int new_ref_id;
+
+  if (has_block) {
+    new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, callback_ref_id);
+    return js_ref_to_ruby_value(mrb, new_ref_id);
+  }
 
   if (argc == 0) {
     int js_type = get_js_property_type(js_obj->ref_id, method_name);
@@ -1808,7 +1877,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     } else if (mrb_string_p(argv[0]) && mrb_string_p(argv[1])) {
       new_ref_id = call_method_str(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_LEN(argv[0]), RSTRING_PTR(argv[1]), RSTRING_LEN(argv[1]));
     } else {
-      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc);
+      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     }
     return js_ref_to_ruby_value(mrb, new_ref_id);
   } else if (argc == 3) {
@@ -1817,12 +1886,12 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       picorb_js_obj *arg_obj_1 = (picorb_js_obj *)DATA_PTR(argv[0]);
       new_ref_id = call_method_with_ref_str_str(js_obj->ref_id, method_name, arg_obj_1->ref_id, RSTRING_PTR(argv[1]), RSTRING_LEN(argv[1]), RSTRING_PTR(argv[2]), RSTRING_LEN(argv[2]));
     } else {
-      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc);
+      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     }
     return js_ref_to_ruby_value(mrb, new_ref_id);
   } else {
     // argc >= 4: generic JSON-based dispatch for any argument types
-    new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc);
+    new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     return js_ref_to_ruby_value(mrb, new_ref_id);
   }
 

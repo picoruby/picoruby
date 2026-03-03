@@ -171,13 +171,6 @@
 
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
-      terminal.onData((data) => {
-        const callbacks = window.picorubyGenericCallbacks;
-        if (callbacks && callbacks.handleTerminalInput) {
-          callbacks.handleTerminalInput(data);
-        }
-      });
-
     });
   </script>
 
@@ -293,11 +286,6 @@
         end
       end
 
-      def serial_supported?
-        nav = JS.global[:navigator]
-        nav && (serial = nav[:serial]) && serial.type != "undefined"
-      end
-
       def connect(serial_port = nil)
         if current_port
           disconnect
@@ -362,9 +350,6 @@
 
       def register_callbacks
         app = self
-        JS::Object.register_callback('handleTerminalInput') do |data|
-          app.send_text_to_port(data.to_s)
-        end
         JS::Object.register_callback('appendDfuLog') do |msg|
           app.append_log(msg.to_s)
         end
@@ -385,6 +370,9 @@
       end
 
       def bind_events
+        JS.global[:terminal].onData do |data|
+          send_text_to_port(data.to_s)
+        end
         el('connect-btn').addEventListener('click') { |_| connect }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
@@ -395,7 +383,7 @@
         bind_resizer
         el('path-input').addEventListener('input') { |_| update_dfu_buttons }
 
-        if serial_supported?
+        if JS::WebSerial.supported?
           serial = JS.global[:navigator][:serial]
           serial.addEventListener('connect') do |e|
             next if current_port || !auto_reconnect?
