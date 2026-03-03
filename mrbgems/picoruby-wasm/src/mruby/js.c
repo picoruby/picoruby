@@ -523,6 +523,52 @@ EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* a
   }
 });
 
+EM_JS(int, call_constructor_with_args, (int ref_id, const char* args_json, int args_json_len), {
+  try {
+    const ctor = globalThis.picorubyRefs[ref_id];
+    if (typeof ctor !== 'function') {
+      console.error('Object is not a constructor function');
+      return -1;
+    }
+
+    const argsStr = UTF8ToString(args_json, args_json_len);
+    const argsData = JSON.parse(argsStr);
+
+    if (!Array.isArray(argsData)) {
+      console.error('args_json must be a JSON array');
+      return -1;
+    }
+
+    const args = argsData.map(arg => {
+      switch (arg.type) {
+        case 'string':
+          return arg.value;
+        case 'integer':
+          return arg.value;
+        case 'float':
+          return arg.value;
+        case 'boolean':
+          return arg.value;
+        case 'ref':
+          return globalThis.picorubyRefs[arg.value];
+        case 'nil':
+          return null;
+        default:
+          console.error('Unknown argument type:', arg.type);
+          return null;
+      }
+    });
+
+    const result = new ctor(...args);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error('Error in call_constructor_with_args:', e);
+    return -1;
+  }
+});
+
 EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const char* options_json), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
@@ -1770,6 +1816,66 @@ call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, 
 }
 
 static int
+call_constructor_with_ruby_args(mrb_state *mrb, int ref_id, mrb_value *argv, mrb_int argc, int extra_ref_id)
+{
+  mrb_value json_array = mrb_str_new_lit(mrb, "[");
+  mrb_int total = argc + (extra_ref_id >= 0 ? 1 : 0);
+
+  for (mrb_int i = 0; i < total; i++) {
+    if (i > 0) mrb_str_cat_lit(mrb, json_array, ",");
+    mrb_str_cat_lit(mrb, json_array, "{\"type\":");
+
+    if (i == argc && extra_ref_id >= 0) {
+      mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
+      char ref_buf[32];
+      snprintf(ref_buf, sizeof(ref_buf), "%d", extra_ref_id);
+      mrb_str_cat_cstr(mrb, json_array, ref_buf);
+    } else if (mrb_string_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
+      const char *str = mrb_string_value_cstr(mrb, &argv[i]);
+      for (const char *p = str; *p; p++) {
+        if (*p == '"' || *p == '\\') {
+          char escaped[3] = {'\\', *p, '\0'};
+          mrb_str_cat(mrb, json_array, escaped, 2);
+        } else {
+          mrb_str_cat(mrb, json_array, p, 1);
+        }
+      }
+      mrb_str_cat_lit(mrb, json_array, "\"");
+    } else if (mrb_integer_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"integer\",\"value\":");
+      char num_buf[32];
+      snprintf(num_buf, sizeof(num_buf), "%d", (int)mrb_integer(argv[i]));
+      mrb_str_cat_cstr(mrb, json_array, num_buf);
+    } else if (mrb_float_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"float\",\"value\":");
+      char num_buf[64];
+      snprintf(num_buf, sizeof(num_buf), "%f", mrb_float(argv[i]));
+      mrb_str_cat_cstr(mrb, json_array, num_buf);
+    } else if (mrb_nil_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"nil\",\"value\":null");
+    } else if (mrb_true_p(argv[i]) || mrb_false_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"boolean\",\"value\":");
+      mrb_str_cat_cstr(mrb, json_array, mrb_true_p(argv[i]) ? "true" : "false");
+    } else if (mrb_obj_is_kind_of(mrb, argv[i], class_JS_Object)) {
+      picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[i]);
+      mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
+      char ref_buf[32];
+      snprintf(ref_buf, sizeof(ref_buf), "%d", arg_obj->ref_id);
+      mrb_str_cat_cstr(mrb, json_array, ref_buf);
+    } else {
+      mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported constructor argument type at position: %d", (int)i);
+      return -1;
+    }
+
+    mrb_str_cat_lit(mrb, json_array, "}");
+  }
+
+  mrb_str_cat_lit(mrb, json_array, "]");
+  return call_constructor_with_args(ref_id, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
+}
+
+static int
 register_ruby_block_as_js_callback(mrb_state *mrb, mrb_value blk)
 {
   mrb_value callback_id_val = mrb_funcall_id(mrb, blk, mrb_intern_lit(mrb, "object_id"), 0);
@@ -1804,16 +1910,17 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "n*&", &method_sym, &argv, &argc, &blk);
   const char *method_name = mrb_sym_name(mrb, method_sym);
   picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
-  bool has_block = !mrb_nil_p(blk);
-  int callback_ref_id = -1;
-  if (has_block) {
-    callback_ref_id = register_ruby_block_as_js_callback(mrb, blk);
-  }
 
   int self_js_type = get_js_type(js_obj->ref_id);
   if (self_js_type == JS_TYPE_UNDEFINED || self_js_type == JS_TYPE_NULL) {
     return mrb_nil_value();
   }
+  bool has_block = !mrb_nil_p(blk);
+  int callback_ref_id = -1;
+  if (has_block) {
+    callback_ref_id = register_ruby_block_as_js_callback(mrb, blk);
+  }
+  bool is_constructor_call = (self_js_type == JS_TYPE_FUNCTION && strcmp(method_name, "new") == 0);
 
   if (method_name[strlen(method_name) - 1] == '=') {
     if (argc != 1) {
@@ -1832,6 +1939,11 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   }
 
   int new_ref_id;
+
+  if (is_constructor_call) {
+    new_ref_id = call_constructor_with_ruby_args(mrb, js_obj->ref_id, argv, argc, has_block ? callback_ref_id : -1);
+    return js_ref_to_ruby_value(mrb, new_ref_id);
+  }
 
   if (has_block) {
     new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, callback_ref_id);

@@ -137,27 +137,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
-  <script>
-    window.createTerminalContext = (container) => {
-      const { Terminal } = window;
-      const { FitAddon } = window.FitAddon;
-      const terminal = new Terminal({
-        scrollback: 1000,
-        cursorBlink: true,
-        convertEol: true,
-        fontFamily: '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace',
-        fontSize: 15,
-        theme: { background: '#000000' },
-      });
-      const fitAddon = new FitAddon();
-      terminal.loadAddon(fitAddon);
-      terminal.open(container);
-      fitAddon.fit();
-      const resizeObserver = new ResizeObserver(() => fitAddon.fit());
-      resizeObserver.observe(container);
-      return { terminal, fitAddon, resizeObserver };
-    };
-  </script>
 
   <script type="text/ruby">
     require 'js'
@@ -199,10 +178,31 @@
       end
 
       def setup_terminal
-        ctx = JS.global.createTerminalContext(el('terminal-container'))
-        JS.global[:terminal] = ctx[:terminal]
-        JS.global[:fitAddon] = ctx[:fitAddon]
-        @resize_observer = ctx[:resizeObserver]
+        opts = JS.global.create_object
+        opts[:scrollback] = 1000
+        opts[:cursorBlink] = true
+        opts[:convertEol] = true
+        opts[:fontFamily] = '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace'
+        opts[:fontSize] = 15
+
+        theme = JS.global.create_object
+        theme[:background] = '#000000'
+        opts[:theme] = theme
+
+        terminal = JS.global[:Terminal].new(opts)
+        fit_addon = JS.global[:FitAddon][:FitAddon].new
+        terminal.loadAddon(fit_addon)
+        container = el('terminal-container')
+        terminal.method_missing(:open, container)
+        fit_addon.fit
+
+        @resize_observer = JS.global[:ResizeObserver].new do |_entries|
+          fit_addon.fit
+        end
+        @resize_observer.observe(container)
+
+        JS.global[:terminal] = terminal
+        JS.global[:fitAddon] = fit_addon
       end
 
       def update_status(text, connected)
