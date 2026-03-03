@@ -161,35 +161,6 @@
       return captureBuffer;
     };
 
-    window.sendTextToPort = async (str) => {
-      if (!window.port) return;
-      const encoder = new TextEncoder();
-      const writer = window.port.writable.getWriter();
-      await writer.write(encoder.encode(str));
-      writer.releaseLock();
-    };
-
-    // hex: string of hex pairs e.g. "44465500..." (no spaces)
-    // Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
-    window.sendHexToPort = async (hex) => {
-      if (!window.port) return;
-      const len = hex.length / 2;
-      const bytes = new Uint8Array(len);
-      for (let i = 0; i < len; i++) {
-        bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-      }
-      const CHUNK = 64;
-      const writer = window.port.writable.getWriter();
-      for (let off = 0; off < bytes.length; off += CHUNK) {
-        const end = Math.min(off + CHUNK, bytes.length);
-        await writer.write(bytes.subarray(off, end));
-        if (end < bytes.length) {
-          await new Promise(r => setTimeout(r, 10));
-        }
-      }
-      writer.releaseLock();
-    };
-
     // ---------------------------------------------------------------------------
     // Terminal setup
     // ---------------------------------------------------------------------------
@@ -339,6 +310,29 @@
         msg = err.to_s if msg.empty?
         klass = err.class.to_s
         msg.empty? ? klass : "#{klass}: #{msg}"
+      end
+
+      def send_text_to_port(str)
+        port = JS.global[:port]
+        return unless port
+        JS::WebSerial._write(port, str.to_s)
+      end
+
+      # hex: string of hex pairs e.g. "44465500..." (no spaces)
+      # Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
+      def send_hex_to_port(hex)
+        port = JS.global[:port]
+        return unless port
+
+        bytes = [hex.to_s].pack("H*")
+        off = 0
+        chunk_size = 64
+        while off < bytes.bytesize
+          chunk = bytes.byteslice(off, chunk_size)
+          JS::WebSerial._write(port, chunk)
+          off += chunk.bytesize
+          sleep_ms 10 if off < bytes.bytesize
+        end
       end
 
       def serial_supported?
@@ -601,7 +595,7 @@
         el('save-btn')[:disabled] = true
         append_log("[*] Loading #{path} ...")
         JS.global.startCapture()
-        JS.global.sendTextToPort("dfucat #{path}\n")
+        send_text_to_port("dfucat #{path}\n")
         max_wait = 10000
         interval = 200
         waited = 0
@@ -633,7 +627,7 @@
         cmd = path ? "dfucli #{path}\n" : "dfucli\n"
         append_log("[*] Running: #{cmd.chomp}")
         JS.global.startCapture()
-        JS.global.sendTextToPort(cmd)
+        send_text_to_port(cmd)
 
         # Wait for dfucli to print "[recv]" (ready to receive)
         waited = 0
@@ -658,7 +652,7 @@
         payload = header + code
         append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
 
-        JS.global.sendHexToPort(payload.unpack("H*").first)
+        send_hex_to_port(payload.unpack("H*").first)
 
         # Wait for "OK" or "ERROR" from device (visible in terminal and capture)
         waited = 0
