@@ -147,8 +147,6 @@
     let captureMode = false;
     let captureBuffer = '';
 
-    window.isPortConnected = () => window.port !== null;
-
     window.startCapture = () => {
       captureBuffer = '';
       captureMode = true;
@@ -332,6 +330,10 @@
       def serial_supported?
         nav = JS.global[:navigator]
         nav && (serial = nav[:serial]) && serial.type != "undefined"
+      end
+
+      def connected?
+        !JS.global[:port].nil?
       end
 
       def apply_serial_support_ui
@@ -587,7 +589,7 @@
 
       # Send "dfucat [path]", wait, then load content into editor.
       def do_load
-        return unless JS.global.isPortConnected() == true
+        return unless connected?
         path = current_path
         return unless path
         el('load-btn')[:disabled] = true
@@ -611,7 +613,7 @@
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
       def do_save
-        unless JS.global.isPortConnected()
+        unless connected?
           append_log("[-] Not connected")
           return
         end
