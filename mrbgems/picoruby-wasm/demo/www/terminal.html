@@ -349,6 +349,11 @@
         JS::WebSerial._open_port(serial_port, options).await
       end
 
+      def close_serial_port(port)
+        return unless port
+        port.close.await
+      end
+
       def serial_supported?
         # Browser capability check for initial UI gating.
         nav = JS.global[:navigator]
@@ -424,11 +429,9 @@
         JS.global[:reader] = nil
 
         port = JS.global[:port]
-        if port
-          begin
-            port.close.await
-          rescue
-          end
+        begin
+          close_serial_port(port)
+        rescue
         end
         JS.global[:port] = nil
         @webserial = nil
