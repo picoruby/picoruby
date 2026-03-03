@@ -436,7 +436,6 @@
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
-        JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
         JS.global.addEventListener('serial-connect-request') do |_|
           port = JS.global[:pendingSerialPort]
