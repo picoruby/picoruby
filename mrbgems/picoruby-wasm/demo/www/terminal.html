@@ -339,6 +339,10 @@
         JS.global.readFromPort
       end
 
+      def request_serial_port
+        JS.global[:navigator][:serial].requestPort().await
+      end
+
       def serial_supported?
         # Browser capability check for initial UI gating.
         nav = JS.global[:navigator]
@@ -363,7 +367,7 @@
         end
 
         begin
-          serial_port ||= JS.global[:navigator][:serial].requestPort().await
+          serial_port ||= request_serial_port
           raise "No serial port selected" unless serial_port
           JS.global[:terminal].reset
           open_port(serial_port)
