@@ -137,7 +137,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
-  <script src="serial_bridge.js"></script>
   <script>
     // ---------------------------------------------------------------------------
     // Terminal setup
@@ -210,6 +209,8 @@
 
       def initialize
         @doc = JS.document
+        @current_port = nil
+        @auto_reconnect = false
         register_callbacks
         bind_events
         append_log("[*] Ready. Connect a serial port to use the file updater.")
@@ -246,32 +247,24 @@
         el('save-btn')[:disabled] = !enabled
       end
 
-      def serial_bridge
-        JS.global[:serialBridge]
-      end
-
       def connected?
-        serial_bridge.isPortConnected() == true
-      end
-
-      def bridge_state
-        serial_bridge[:state]
+        !@current_port.nil?
       end
 
       def current_port
-        bridge_state[:port]
+        @current_port
       end
 
       def current_port=(port)
-        bridge_state[:port] = port
+        @current_port = port
       end
 
       def auto_reconnect?
-        bridge_state[:autoReconnect] == true
+        @auto_reconnect == true
       end
 
       def auto_reconnect=(enabled)
-        bridge_state[:autoReconnect] = enabled == true
+        @auto_reconnect = enabled == true
       end
 
       def error_text(err)
