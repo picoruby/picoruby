@@ -224,6 +224,43 @@ EM_JS(int, serial_request_port, (), {
   }
 });
 
+/* Watch navigator.serial connect events and relay as window event */
+EM_JS(void, serial_watch_connect_events, (), {
+  try {
+    const serial = navigator && navigator.serial;
+    if (!serial || !serial.addEventListener) {
+      return;
+    }
+    if (globalThis.picorubySerialConnectWatcherInstalled) {
+      return;
+    }
+    globalThis.picorubySerialConnectWatcherInstalled = true;
+
+    serial.addEventListener('connect', (e) => {
+      const port = (e && e.target) || (e && e.port) || null;
+      if (!port) return;
+
+      globalThis.picorubyLastConnectedSerialPort = port;
+      globalThis.dispatchEvent(new CustomEvent('serial-port-connect'));
+    });
+  } catch (e) {
+    console.error('serial_watch_connect_events failed:', e);
+  }
+});
+
+/* Take and clear the last connected SerialPort (if any) */
+EM_JS(int, serial_take_last_connected_port, (), {
+  try {
+    const port = globalThis.picorubyLastConnectedSerialPort;
+    globalThis.picorubyLastConnectedSerialPort = null;
+    if (!port) return -1;
+    return globalThis.picorubyRefs.push(port) - 1;
+  } catch (e) {
+    console.error('serial_take_last_connected_port failed:', e);
+    return -1;
+  }
+});
+
 /* Call port.close() — fire and forget */
 EM_JS(void, serial_port_close, (int ref_id), {
   try {
@@ -480,6 +517,29 @@ mrb_web_serial_request_port(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::WebSerial._watch_connect_events() -> nil
+ */
+static mrb_value
+mrb_web_serial_watch_connect_events(mrb_state *mrb, mrb_value self)
+{
+  serial_watch_connect_events();
+  return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial._take_last_connected_port() -> JS::Object? (SerialPort)
+ */
+static mrb_value
+mrb_web_serial_take_last_connected_port(mrb_state *mrb, mrb_value self)
+{
+  int ref_id = serial_take_last_connected_port();
+  if (ref_id < 0) {
+    return mrb_nil_value();
+  }
+  return wrap_ref_as_js_object(mrb, ref_id);
+}
+
+/*
  * JS::WebSerial._close_port(js_port) -> nil
  * Call port.close() on the SerialPort.
  */
@@ -686,6 +746,10 @@ mrb_web_serial_init(mrb_state *mrb)
     mrb_web_serial_open_port, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_request_port),
     mrb_web_serial_request_port, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_watch_connect_events),
+    mrb_web_serial_watch_connect_events, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_take_last_connected_port),
+    mrb_web_serial_take_last_connected_port, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port),
     mrb_web_serial_close_port, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_start),

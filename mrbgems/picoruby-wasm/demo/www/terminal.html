@@ -375,7 +375,7 @@
           serial = JS.global[:navigator][:serial]
           serial.addEventListener('connect') do |e|
             next if current_port || !auto_reconnect?
-            serial_port = e[:port]
+            serial_port = e[:target] || e[:port]
             next unless serial_port
             update_status('Reconnecting...', false)
             sleep_ms 1500
