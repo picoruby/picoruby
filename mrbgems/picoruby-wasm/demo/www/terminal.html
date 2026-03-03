@@ -167,21 +167,8 @@
       writer.releaseLock();
     };
 
-    // Parse output from dfucat command: extract content between DFUCAT_BEGIN and DFUCAT_END.
-    // Returns { content } on success, { error } on DFUCAT_ERROR, or null if markers not found.
-    function parseDfucatOutput(raw) {
-      const stripped = raw
-        .replace(/\x1b\[[0-9;?<>=!]*[A-Za-z@`]/g, '')
-        .replace(/\x1b[^[]/g, '');
-      const normalized = stripped.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const errorMatch = normalized.match(/DFUCAT_ERROR:([^\n]*)/);
-      if (errorMatch) return { error: errorMatch[1] };
-      const beginIdx = normalized.indexOf('DFUCAT_BEGIN\n');
-      if (beginIdx === -1) return null;
-      const contentStart = beginIdx + 'DFUCAT_BEGIN\n'.length;
-      const endIdx = normalized.indexOf('DFUCAT_END', contentStart);
-      if (endIdx === -1) return null;
-      return { content: normalized.slice(contentStart, endIdx) };
+    function handleDfucatResult(raw) {
+      globalThis.picorubyGenericCallbacks['handleDfucatResult'](raw);
     }
 
     // hex: string of hex pairs e.g. "44465500..." (no spaces)
@@ -238,10 +225,10 @@
       terminal.loadAddon(fitAddon);
       terminal.open(container);
       fitAddon.fit();
+      window.terminal = terminal;
+      window.fitAddon = fitAddon;
 
-      window.addEventListener('resize', () => fitAddon.fit());
       new ResizeObserver(() => fitAddon.fit()).observe(container);
-      container.addEventListener('click', () => terminal.focus());
 
       let reader = null;
       let autoReconnect = false;
@@ -370,27 +357,9 @@
           setTimeout(check, interval);
         });
         captureMode = false;
-        const result = parseDfucatOutput(captureBuffer);
-        if (result === null) {
-          appendDfuLog('[-] Load failed: no DFUCAT response');
-          console.log('[load] captureBuffer:', JSON.stringify(captureBuffer));
-        } else if (result.error) {
-          appendDfuLog('[-] ' + result.error);
-        } else {
-          document.getElementById('editor').value = result.content;
-          appendDfuLog('[+] Loaded ' + result.content.length + ' chars');
-        }
+        handleDfucatResult(captureBuffer);
         updateDfuButtons();
       }
-
-      // Terminal font size (exposed for Ruby)
-      const termFontInput = document.getElementById('term-font-size');
-      window.setTermFont = function(val) {
-        val = Math.max(8, Math.min(32, val));
-        termFontInput.value = val;
-        terminal.options.fontSize = val;
-        fitAddon.fit();
-      };
 
       window.connect = connect;
       window.loadFileFromDevice = loadFileFromDevice;
@@ -471,6 +440,13 @@
         el('editor').style.fontSize = "#{val}px"
       end
 
+      def set_term_font(val)
+        val = [[8, val].max, 32].min
+        el('term-font-size')[:value] = val
+        JS.global[:terminal][:options][:fontSize] = val
+        JS.global[:fitAddon].fit
+      end
+
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
         connected = JS.global.isPortConnected() == true
@@ -489,6 +465,9 @@
         end
         JS::Object.register_callback('appendDfuLog') do |msg|
           app.append_log(msg.to_s)
+        end
+        JS::Object.register_callback('handleDfucatResult') do |raw|
+          app.handle_dfucat_result(raw.to_s)
         end
       end
 
@@ -510,6 +489,8 @@
           path = current_path
           JS.global.loadFileFromDevice(path) if path && JS.global.isPortConnected() == true
         }
+        el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
+        JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
         bind_font_controls
         bind_resizer
         el('path-input').addEventListener('input') { |_| update_dfu_buttons }
@@ -517,9 +498,9 @@
 
       def bind_font_controls
         term_font_input = el('term-font-size')
-        el('term-font-minus').addEventListener('click') { |_| JS.global.setTermFont(term_font_input[:value].to_i - 1) }
-        el('term-font-plus').addEventListener('click')  { |_| JS.global.setTermFont(term_font_input[:value].to_i + 1) }
-        term_font_input.addEventListener('change') { |_| JS.global.setTermFont(term_font_input[:value].to_i) }
+        el('term-font-minus').addEventListener('click') { |_| set_term_font(term_font_input[:value].to_i - 1) }
+        el('term-font-plus').addEventListener('click')  { |_| set_term_font(term_font_input[:value].to_i + 1) }
+        term_font_input.addEventListener('change') { |_| set_term_font(term_font_input[:value].to_i) }
 
         editor_font_input = el('editor-font-size')
         el('editor-font-minus').addEventListener('click') { |_| set_editor_font(editor_font_input[:value].to_i - 1) }
@@ -560,6 +541,64 @@
             body.style.cursor = ''
           end
         }
+      end
+
+      # Strip ANSI escape sequences from a string without regex.
+      def strip_ansi(str)
+        result = ""
+        i = 0
+        len = str.bytesize
+        while i < len
+          b = str.getbyte(i)
+          if b == 0x1b
+            i += 1
+            if i < len && str.getbyte(i) == 0x5b # '['
+              i += 1
+              while i < len
+                b = str.getbyte(i)
+                i += 1
+                break if (b >= 0x41 && b <= 0x5a) || (b >= 0x61 && b <= 0x7a) || b == 0x40 || b == 0x60
+              end
+            elsif i < len
+              i += 1
+            end
+          else
+            result << b.chr
+            i += 1
+          end
+        end
+        result
+      end
+
+      # Parse output from dfucat command: extract content between DFUCAT_BEGIN and DFUCAT_END.
+      # Returns { content: } on success, { error: } on DFUCAT_ERROR, or nil if markers not found.
+      def parse_dfucat_output(raw)
+        normalized = strip_ansi(raw).gsub("\r\n", "\n").gsub("\r", "\n")
+        error_marker = "DFUCAT_ERROR:"
+        error_idx = normalized.index(error_marker)
+        if error_idx
+          error_end = normalized.index("\n", error_idx) || normalized.length
+          return { error: normalized[(error_idx + error_marker.length)...error_end] }
+        end
+        begin_marker = "DFUCAT_BEGIN\n"
+        begin_idx = normalized.index(begin_marker)
+        return nil unless begin_idx
+        content_start = begin_idx + begin_marker.length
+        end_idx = normalized.index("DFUCAT_END", content_start)
+        return nil unless end_idx
+        { content: normalized[content_start...end_idx] }
+      end
+
+      def handle_dfucat_result(raw)
+        result = parse_dfucat_output(raw)
+        if result.nil?
+          append_log("[-] Load failed: no DFUCAT response")
+        elsif result[:error]
+          append_log("[-] #{result[:error]}")
+        else
+          el('editor')[:value] = result[:content]
+          append_log("[+] Loaded #{result[:content].length} chars")
+        end
       end
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
