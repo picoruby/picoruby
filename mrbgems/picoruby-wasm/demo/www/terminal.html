@@ -193,22 +193,6 @@
         }
       });
 
-      connectBtn.addEventListener('click', async () => {
-        if (window.port) {
-          window.dispatchEvent(new CustomEvent('serial-disconnect-request'));
-          return;
-        }
-        try {
-          window.pendingSerialPort = await navigator.serial.requestPort();
-          window.dispatchEvent(new CustomEvent('serial-connect-request'));
-        } catch (err) {
-          console.error('Connect error:', err);
-          const message = err && err.message ? err.message : String(err);
-          window.lastSerialConnectError = message;
-          window.dispatchEvent(new CustomEvent('serial-connect-error'));
-        }
-      });
-
       window.readFromPort = async function() {
         if (!window.port) return;
         const decoder = new TextDecoder('utf-8');
@@ -435,24 +419,11 @@
       end
 
       def bind_events
+        el('connect-btn').addEventListener('click') { |_| connect }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
-        JS.global.addEventListener('serial-connect-request') do |_|
-          port = JS.global[:pendingSerialPort]
-          JS.global[:pendingSerialPort] = nil
-          connect(port)
-        end
-        JS.global.addEventListener('serial-disconnect-request') { |_| disconnect }
-        JS.global.addEventListener('serial-connect-error') do |_|
-          message = JS.global[:lastSerialConnectError].to_s
-          JS.global[:lastSerialConnectError] = nil
-          JS.global[:console].error("Connect error: #{message}")
-          update_status('Disconnected', false)
-          JS.global[:port] = nil
-          update_dfu_buttons
-        end
         bind_font_controls
         bind_resizer
         el('path-input').addEventListener('input') { |_| update_dfu_buttons }
