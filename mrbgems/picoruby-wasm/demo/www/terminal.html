@@ -343,6 +343,12 @@
         JS.global[:navigator][:serial].requestPort().await
       end
 
+      def open_serial_port(serial_port, baud_rate)
+        options = JS.global.create_object
+        options[:baudRate] = baud_rate
+        JS::WebSerial._open_port(serial_port, options).await
+      end
+
       def serial_supported?
         # Browser capability check for initial UI gating.
         nav = JS.global[:navigator]
@@ -384,9 +390,7 @@
         baud_rate = el('baud-rate')[:value].to_i
         JS.global[:port] = serial_port
         @webserial = JS::WebSerial.new(serial_port)
-        options = JS.global.create_object
-        options[:baudRate] = baud_rate
-        JS::WebSerial._open_port(serial_port, options).await
+        open_serial_port(serial_port, baud_rate)
         @webserial.on_disconnect do
           next if @disconnecting
           JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
