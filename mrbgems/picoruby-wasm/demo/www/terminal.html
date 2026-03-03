@@ -159,6 +159,9 @@
       return captureBuffer;
     };
 
+    // Helper to extract SerialPort from a SerialConnectionEvent.
+    window.extractSerialPort = (e) => (e && e.port) ? e.port : null;
+
     // ---------------------------------------------------------------------------
     // Terminal setup
     // ---------------------------------------------------------------------------
@@ -189,13 +192,6 @@
           globalThis.picorubyGenericCallbacks['handleTerminalInput'](data);
         }
       });
-
-      if ('serial' in navigator) {
-        navigator.serial.addEventListener('connect', (e) => {
-          window.lastConnectedSerialPort = e.port;
-          window.dispatchEvent(new CustomEvent('serial-port-connect'));
-        });
-      }
 
       window.readFromPort = async function() {
         if (!window.port) return;
@@ -454,20 +450,22 @@
           bind_resizer
           el('path-input').addEventListener('input') { |_| update_dfu_buttons }
 
-          JS.global.addEventListener('serial-port-connect') do |_|
-            next if JS.global[:port] || JS.global[:autoReconnect] != true
-            serial_port = JS.global[:lastConnectedSerialPort]
-            JS.global[:lastConnectedSerialPort] = nil
-            next unless serial_port
-            update_status('Reconnecting...', false)
-            sleep_ms 1500
-            begin
-              open_port(serial_port)
-              JS.global[:terminal].writeln('[Reconnected]')
-            rescue => err
-              txt = error_text(err)
-              JS.global[:console].error("Auto-reconnect failed: #{txt}")
-              update_status('Disconnected', false)
+          if serial_supported?
+            serial = JS.global[:navigator][:serial]
+            serial.addEventListener('connect') do |e|
+              next if JS.global[:port] || JS.global[:autoReconnect] != true
+              serial_port = JS.global.extractSerialPort(e)
+              next unless serial_port
+              update_status('Reconnecting...', false)
+              sleep_ms 1500
+              begin
+                open_port(serial_port)
+                JS.global[:terminal].writeln('[Reconnected]')
+              rescue => err
+                txt = error_text(err)
+                JS.global[:console].error("Auto-reconnect failed: #{txt}")
+                update_status('Disconnected', false)
+              end
             end
           end
         rescue => err
@@ -505,6 +503,7 @@
 
         @doc.addEventListener('mousemove') { |e|
           next unless is_resizing
+          next unless e && e[:clientX]
           rect        = editor_container.getBoundingClientRect()
           new_left_x  = e.clientX.to_f - rect.left.to_f
           max_x       = rect.width.to_f - 20.0
