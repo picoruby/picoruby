@@ -354,6 +354,12 @@
         port.close.await
       end
 
+      def handle_connect_error(prefix, err)
+        txt = error_text(err)
+        JS.global[:console].error("#{prefix}: #{txt}")
+        append_log("[-] #{prefix}: #{txt}")
+      end
+
       def serial_supported?
         # Browser capability check for initial UI gating.
         nav = JS.global[:navigator]
@@ -383,9 +389,7 @@
           JS.global[:terminal].reset
           open_port(serial_port)
         rescue => err
-          txt = error_text(err)
-          JS.global[:console].error("Connect error: #{txt}")
-          append_log("[-] Connect error: #{txt}")
+          handle_connect_error("Connect error", err)
           JS.global[:port] = nil
           set_disconnected_ui
         end
@@ -406,9 +410,7 @@
         JS.global[:terminal].focus
         start_read_loop
       rescue => err
-        txt = error_text(err)
-        JS.global[:console].error("Open port error: #{txt}")
-        append_log("[-] Open port error: #{txt}")
+        handle_connect_error("Open port error", err)
         JS.global[:port] = nil
         @webserial = nil
         JS.global[:reader] = nil
