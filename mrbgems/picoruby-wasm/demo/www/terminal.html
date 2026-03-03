@@ -169,7 +169,6 @@
       fitAddon.fit();
       window.terminal = terminal;
       window.fitAddon = fitAddon;
-      window.serialBridge.setTerminal(terminal);
 
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
@@ -267,14 +266,6 @@
         bridge_state[:port] = port
       end
 
-      def current_reader
-        bridge_state[:reader]
-      end
-
-      def current_reader=(reader)
-        bridge_state[:reader] = reader
-      end
-
       def auto_reconnect?
         bridge_state[:autoReconnect] == true
       end
@@ -345,33 +336,24 @@
         options = JS.global.create_object
         options[:baudRate] = baud_rate
         JS::WebSerial._open_port(serial_port, options).await
+        JS::WebSerial._read_from_port(serial_port)
         self.auto_reconnect = true
         update_status('Connected', true)
         update_dfu_buttons
         el('connect-btn')[:textContent] = 'Disconnect'
         JS.global[:terminal].focus
-        serial_bridge.readFromPort
       rescue => err
         txt = error_text(err)
         JS.global[:console].error("Open port error: #{txt}")
         append_log("[-] Open port error: #{txt}")
         self.current_port = nil
-        self.current_reader = nil
         raise
       end
 
-      def disconnect(cancel_reader: true)
+      def disconnect
         return if @disconnecting
 
         @disconnecting = true
-        reader = current_reader
-        if cancel_reader && reader
-          begin
-            reader.cancel.await
-          rescue
-          end
-        end
-        self.current_reader = nil
 
         port = current_port
         if port
@@ -418,7 +400,7 @@
         el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
         JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
-        JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
+        JS.global.addEventListener('serial-reader-closed') { |_| disconnect }
         JS.global.addEventListener('serial-connect-click') { |_| connect }
         bind_font_controls
         bind_resizer

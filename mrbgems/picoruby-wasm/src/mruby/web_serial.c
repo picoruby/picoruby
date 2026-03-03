@@ -123,6 +123,79 @@ EM_JS(void, serial_start_reading, (int ref_id, uintptr_t callback_id), {
   }
 });
 
+/* Start async read loop and write decoded text directly to globalThis.terminal */
+EM_JS(void, serial_read_from_port, (int ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port) {
+      console.error('serial_read_from_port: port not found');
+      return;
+    }
+
+    if (!globalThis.picorubySerialReadStates) {
+      globalThis.picorubySerialReadStates = Object.create(null);
+    }
+    const key = String(ref_id);
+    const state = globalThis.picorubySerialReadStates[key] || { running: false, reader: null };
+    if (state.running) {
+      return;
+    }
+    state.running = true;
+    globalThis.picorubySerialReadStates[key] = state;
+
+    (async () => {
+      const decoder = new TextDecoder('utf-8');
+      while (port.readable) {
+        const reader = port.readable.getReader();
+        state.reader = reader;
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (!value) continue;
+
+            const chars = decoder.decode(value, { stream: true });
+            if (globalThis.picorubySerialCapture) {
+              globalThis.picorubySerialCapture.append(port, chars);
+            }
+            const terminal = globalThis.terminal;
+            if (terminal) terminal.write(chars);
+          }
+        } catch (e) {
+          const name = e && e.name ? e.name : "";
+          const message = e && e.message ? e.message : String(e);
+          const deviceLost = name === 'NetworkError' || message.includes('device has been lost');
+          if (!deviceLost) {
+            console.error('serial read error:', e);
+          }
+        } finally {
+          reader.releaseLock();
+          if (state.reader === reader) {
+            state.reader = null;
+          }
+        }
+      }
+
+      const tail = decoder.decode();
+      if (tail) {
+        if (globalThis.picorubySerialCapture) {
+          globalThis.picorubySerialCapture.append(port, tail);
+        }
+        const terminal = globalThis.terminal;
+        if (terminal) terminal.write(tail);
+      }
+      state.running = false;
+      globalThis.dispatchEvent(new CustomEvent('serial-reader-closed'));
+    })().catch((e) => {
+      state.running = false;
+      console.error('serial_read_from_port async failed:', e);
+      globalThis.dispatchEvent(new CustomEvent('serial-reader-closed'));
+    });
+  } catch (e) {
+    console.error('serial_read_from_port failed:', e);
+  }
+});
+
 /* Call port.open(options) and return the Promise ref_id */
 EM_JS(int, serial_port_open, (int port_ref_id, int options_ref_id), {
   try {
@@ -481,6 +554,29 @@ mrb_web_serial_start_reading(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::WebSerial._read_from_port(js_port) -> nil
+ * Start async read loop that decodes and writes text to terminal directly.
+ */
+static mrb_value
+mrb_web_serial_read_from_port(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_read_from_port(port->ref_id);
+  return mrb_nil_value();
+}
+
+/*
  * JS::WebSerial._set_on_disconnect(js_port, callback_id) -> nil
  */
 static mrb_value
@@ -581,6 +677,8 @@ mrb_web_serial_init(mrb_state *mrb)
     mrb_web_serial_write, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_start_reading),
     mrb_web_serial_start_reading, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_read_from_port),
+    mrb_web_serial_read_from_port, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_set_on_disconnect),
     mrb_web_serial_set_on_disconnect, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_open_port),

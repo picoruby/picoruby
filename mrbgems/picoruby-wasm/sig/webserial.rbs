@@ -40,6 +40,7 @@ module JS
     def self._open_port: (JS::Object js_port, JS::Object options) -> JS::Object
     def self._write: (JS::Object js_port, String str) -> nil
     def self._start_reading: (JS::Object js_port, Integer callback_id) -> nil
+    def self._read_from_port: (JS::Object js_port) -> nil
     def self._set_on_disconnect: (JS::Object js_port, Integer callback_id) -> nil
     def self._close_port: (JS::Object js_port) -> nil
     def self._capture_start: (JS::Object js_port) -> nil
