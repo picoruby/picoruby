@@ -186,10 +186,8 @@
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
       terminal.onData((data) => {
-        if (window.port) {
-          const encoder = new TextEncoder();
-          const writer = window.port.writable.getWriter();
-          writer.write(encoder.encode(data)).then(() => writer.releaseLock());
+        if (globalThis.picorubyGenericCallbacks && globalThis.picorubyGenericCallbacks['handleTerminalInput']) {
+          globalThis.picorubyGenericCallbacks['handleTerminalInput'](data);
         }
       });
 
@@ -420,6 +418,9 @@
         end
         JS::Object.register_callback('handleDfucatResult') do |raw|
           app.handle_dfucat_result(raw.to_s)
+        end
+        JS::Object.register_callback('handleTerminalInput') do |data|
+          app.send_text_to_port(data.to_s)
         end
       end
 
