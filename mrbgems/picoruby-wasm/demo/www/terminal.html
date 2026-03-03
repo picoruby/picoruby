@@ -169,6 +169,31 @@
         const message = err && err.message ? err.message : String(err);
         return name === 'NetworkError' || message.includes('device has been lost');
       },
+      async read_from_port(terminal) {
+        if (!window.port) return;
+        const decoder = new TextDecoder('utf-8');
+        const activeReader = window.port.readable.getReader();
+        window.reader = activeReader;
+        try {
+          while (true) {
+            const { value, done } = await activeReader.read();
+            if (done) break;
+            if (value) {
+              const chars = decoder.decode(value, { stream: true });
+              if (captureMode) captureBuffer += chars;
+              terminal.write(chars);
+            }
+          }
+        } catch (err) {
+          if (!window.serialHelpers.device_lost(err)) {
+            console.error('Serial read error:', err);
+          }
+        } finally {
+          activeReader.releaseLock();
+          if (window.reader === activeReader) window.reader = null;
+          window.dispatchEvent(new CustomEvent('serial-reader-closed'));
+        }
+      },
     };
 
     // ---------------------------------------------------------------------------
@@ -201,32 +226,6 @@
           globalThis.picorubyGenericCallbacks['handleTerminalInput'](data);
         }
       });
-
-      window.readFromPort = async function() {
-        if (!window.port) return;
-        const decoder = new TextDecoder('utf-8');
-        const activeReader = window.port.readable.getReader();
-        window.reader = activeReader;
-        try {
-          while (true) {
-            const { value, done } = await activeReader.read();
-            if (done) break;
-            if (value) {
-              const chars = decoder.decode(value, { stream: true });
-              if (captureMode) captureBuffer += chars;
-              terminal.write(chars);
-            }
-          }
-        } catch (err) {
-          if (!window.serialHelpers.device_lost(err)) {
-            console.error('Serial read error:', err);
-          }
-        } finally {
-          activeReader.releaseLock();
-          if (window.reader === activeReader) window.reader = null;
-          window.dispatchEvent(new CustomEvent('serial-reader-closed'));
-        }
-      };
 
     });
   </script>
@@ -336,7 +335,7 @@
       end
 
       def start_read_loop
-        JS.global.readFromPort
+        JS.global[:serialHelpers].read_from_port(JS.global[:terminal])
       end
 
       def request_serial_port
