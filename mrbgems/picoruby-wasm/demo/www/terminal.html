@@ -159,8 +159,12 @@
       return captureBuffer;
     };
 
-    // Helper to extract SerialPort from a SerialConnectionEvent.
-    window.extractSerialPort = (e) => (e && e.port) ? e.port : null;
+    // Small helper namespace for browser event normalization.
+    window.serialHelpers = {
+      extract_port(e) {
+        return (e && e.port) ? e.port : null;
+      },
+    };
 
     // ---------------------------------------------------------------------------
     // Terminal setup
@@ -454,7 +458,7 @@
             serial = JS.global[:navigator][:serial]
             serial.addEventListener('connect') do |e|
               next if JS.global[:port] || JS.global[:autoReconnect] != true
-              serial_port = JS.global.extractSerialPort(e)
+              serial_port = JS.global[:serialHelpers].extract_port(e)
               next unless serial_port
               update_status('Reconnecting...', false)
               sleep_ms 1500
