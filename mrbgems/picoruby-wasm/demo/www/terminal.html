@@ -369,46 +369,17 @@
 
   <script type="text/ruby">
     require 'js'
+    require 'crc'
+    require 'pack'
 
     # ---------------------------------------------------------------------------
-    # CRC32 (standard polynomial 0xEDB88320, compatible with DFU::Updater)
+    # DFU header builder (19 bytes: magic(4) version(1) type(4) fw_size(4) crc32(4) sig_len(2))
     # ---------------------------------------------------------------------------
-    CRC32_TABLE = Array.new(256) do |i|
-      c = i
-      8.times { c = ((c & 1) == 1) ? (0xEDB88320 ^ (c >> 1)) : (c >> 1) }
-      c
-    end
+    HEADER_FORMAT = "a4Ca4NNn"
 
-    def crc32(data)
-      crc = 0xFFFFFFFF
-      data.bytes.each { |b| crc = CRC32_TABLE[(crc ^ b) & 0xFF] ^ (crc >> 8) }
-      crc ^ 0xFFFFFFFF
-    end
-
-    # ---------------------------------------------------------------------------
-    # DFU header helpers (big-endian)
-    # ---------------------------------------------------------------------------
-    def be32(n)
-      [((n >> 24) & 0xFF).chr,
-       ((n >> 16) & 0xFF).chr,
-       ((n >>  8) & 0xFF).chr,
-        (n        & 0xFF).chr].join
-    end
-
-    def be16(n)
-      [((n >> 8) & 0xFF).chr,
-        (n       & 0xFF).chr].join
-    end
-
-    # Build a 19-byte DFU header for Ruby source (type="RUBY").
     def build_dfu_header(source)
-      crc = crc32(source)
-      "DFU\0" + 1.chr + "RUBY" + be32(source.bytesize) + be32(crc) + be16(0)
-    end
-
-    # Encode a binary String as a hex string for sendHexToPort().
-    def to_hex(str)
-      str.bytes.map { |b| b < 16 ? "0#{b.to_s(16)}" : b.to_s(16) }.join
+      crc = CRC.crc32(source)
+      ["DFU\0", 1, "RUBY", source.bytesize, crc, 0].pack(HEADER_FORMAT)
     end
 
     # ---------------------------------------------------------------------------
@@ -643,7 +614,7 @@
         payload = header + code
         append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
 
-        JS.global.sendHexToPort(to_hex(payload))
+        JS.global.sendHexToPort(payload.unpack("H*").first)
 
         # Wait for "OK" or "ERROR" from device (visible in terminal and capture)
         waited = 0
