@@ -1,228 +1,91 @@
 # Asynchronous Operations in PicoRuby.wasm
 
-This document explains the async operation patterns available in PicoRuby.wasm and when to use each one.
+| Pattern | Use Case | Blocks Task? | Repeatable? | Cancelable? |
+|---------|----------|-------------|-------------|-------------|
+| `addEventListener` | DOM events | No | Yes | Yes |
+| `setTimeout` | Delayed execution | No | No | Yes |
+| `await` / `then` | Any JS Promise | Yes | No | No |
 
-## Overview
-
-PicoRuby.wasm provides three main patterns for asynchronous operations:
-
-1. **Event Listeners** (`addEventListener`) - For DOM events
-2. **Timers** (`setTimeout`, `clearTimeout`) - For delayed execution
-3. **Promises** (`fetch`) - For synchronous-style async I/O
-
-Each pattern serves different use cases and has different execution models.
+When a task blocks, other Ruby tasks continue running. The JavaScript event loop is never blocked.
 
 ## Event Listeners
 
-Event listeners respond to DOM events asynchronously without blocking the UI.
-
-### Basic Usage
-
 ```ruby
-require 'js'
-
-button = JS.document.getElementById('myButton')
 callback_id = button.addEventListener('click') do |event|
-  puts "Button clicked at #{event[:clientX]}, #{event[:clientY]}"
-  event.preventDefault
+  puts event[:clientX].to_i
 end
-```
 
-### Execution Model
-
-- **Asynchronous**: The callback executes in a separate task
-- **Non-blocking**: Does not block JavaScript event loop
-- **Repeatable**: Can fire multiple times for the same event
-
-### Cleanup
-
-```ruby
-# Remove event listener when done
+# Remove when done
 JS::Object.removeEventListener(callback_id)
 ```
 
-### When to Use
+## Timers
 
-- User interactions (click, input, submit)
-- DOM events (load, resize, scroll)
-- Any event that may fire multiple times
-
-## Timers (setTimeout/clearTimeout)
-
-Timers execute code after a specified delay, similar to JavaScript's `setTimeout`.
-
-### Basic Usage
+`setTimeout` returns a `callback_id` usable with `clearTimeout`.
 
 ```ruby
-require 'js'
+timer_id = JS.global.setTimeout(2000) { puts "fired" }
+JS.global.clearTimeout(timer_id)
+```
 
-# Schedule a callback to run after 2 seconds
-callback_id = JS.global.setTimeout(2000) do
-  puts "Timer fired at #{Time.now}"
-  # Your code here
+Debounce pattern:
+
+```ruby
+$timer = nil
+input.addEventListener('input') do |e|
+  JS.global.clearTimeout($timer) if $timer
+  $timer = JS.global.setTimeout(300) { search(e.target[:value].to_s) }
 end
 ```
 
-### Canceling Timers
+## Promises: await and then
+
+Any JS method that returns a Promise can be awaited. The current Ruby task suspends until the Promise resolves.
+
+### `await` — returns the resolved value
 
 ```ruby
-callback_id = JS.global.setTimeout(5000) do
-  puts "This may not run"
-end
+port     = JS.global[:navigator][:serial].requestPort().await
+response = JS.global[:navigator][:bluetooth].requestDevice(options).await
+```
 
-# Cancel the timer before it fires
-if JS.global.clearTimeout(callback_id)
-  puts "Timer canceled successfully"
+### `then` — yields the resolved value to a block
+
+```ruby
+JS.global[:navigator][:serial].requestPort().then do |port|
+  # use port
 end
 ```
 
-### Execution Model
-
-- **Asynchronous**: The callback executes in a separate task
-- **Non-blocking**: Does not block JavaScript event loop
-- **One-shot**: Fires only once (unless you schedule another timer)
-- **Cancelable**: Can be canceled before it fires
-
-### Important Notes
-
-- Returns a `callback_id` (not a timer_id) for use with `clearTimeout`
-- The callback is removed automatically after firing or being canceled
-- If canceled successfully, the callback will not execute
-
-### When to Use
-
-- Delayed actions (animations, delayed UI updates)
-- Debouncing user input
-- Scheduling background tasks
-- Timeout handling for operations
-- Periodic checks (by rescheduling)
-
-### Example: Debouncing
+Both `await` and `then` propagate exceptions correctly across the async boundary:
 
 ```ruby
-$search_timer = nil
-
-search_input.addEventListener('input') do |event|
-  # Cancel previous timer
-  JS.global.clearTimeout($search_timer) if $search_timer
-
-  # Schedule new search after 300ms of inactivity
-  $search_timer = JS.global.setTimeout(300) do
-    query = event.target[:value].to_s
-    perform_search(query)
-  end
+begin
+  device = JS.global[:navigator][:bluetooth].requestDevice(options).await
+rescue => e
+  puts "User cancelled: #{e.message}"
 end
 ```
 
-### Example: Connection Suspension
+## HTTP Requests: fetch
+
+`JS.global.fetch` is a dedicated shorthand for HTTP. It combines the request and await:
 
 ```ruby
-class Connection
-  def initialize
-    @suspend_timer = nil
-  end
-
-  def schedule_suspend
-    @suspend_timer = JS.global.setTimeout(30000) do
-      puts "Suspending connection after 30s of inactivity"
-      disconnect
-    end
-  end
-
-  def cancel_suspend
-    if @suspend_timer
-      JS.global.clearTimeout(@suspend_timer)
-      @suspend_timer = nil
-    end
-  end
-end
-```
-
-## Promises (fetch)
-
-The `fetch` API provides a synchronous-style way to make HTTP requests using task suspension.
-
-### Basic Usage
-
-```ruby
-require 'js'
-
 JS.global.fetch('https://api.example.com/data') do |response|
-  if response[:status].to_i == 200
-    json = response.json
-    # Process data
-  else
-    puts "Request failed: #{response[:status]}"
-  end
+  puts response[:status].to_i
+end
+
+# With options
+JS.global.fetch('https://api.example.com', { method: 'POST', body: json }) do |response|
+  # ...
 end
 ```
 
-### Execution Model
-
-- **Appears synchronous**: Code after the block waits for the response
-- **Task suspension**: Current task is suspended until Promise resolves
-- **Blocking the task**: The task cannot continue until response arrives
-- **Non-blocking UI**: JavaScript event loop continues running
-
-### How It Works
-
-1. `fetch` suspends the current Ruby task
-2. JavaScript Promise is created and starts the HTTP request
-3. Ruby task is put to sleep (other tasks can run)
-4. When Promise resolves, the task resumes
-5. The block executes with the response
-6. Code after the block continues
-
-### When to Use
-
-- HTTP requests (GET, POST, etc.)
-- Loading remote resources
-- API calls
-- Any operation that should wait for completion before proceeding
-
-## Comparison Table
-
-| Pattern | Use Case | Blocking Task? | Repeatable? | Cancelable? |
-|---------|----------|----------------|-------------|-------------|
-| `addEventListener` | DOM events | No | Yes | Yes |
-| `setTimeout` | Delayed execution | No | No (one-shot) | Yes |
-| `fetch` | HTTP requests | Yes | No (one-shot) | No |
-
-## Choosing the Right Pattern
-
-### Use addEventListener when:
-- Responding to user interactions
-- Handling DOM events
-- Need to handle same event multiple times
-
-### Use setTimeout when:
-- Need to delay an action
-- Want to debounce or throttle
-- Need cancelable delayed execution
-- Implementing timeouts
-
-### Use fetch when:
-- Making HTTP requests
-- Loading data from APIs
-- Need to wait for result before proceeding
-- Want synchronous-style async code
-
-## Implementation Details
-
-All three patterns use the same underlying callback mechanism:
-
-1. Ruby block is stored in `JS::Object::CALLBACKS` hash
-2. JavaScript calls `call_ruby_callback` when event occurs
-3. A new Ruby task is created to execute the callback
-4. The callback runs without blocking the JavaScript event loop
-
-The key difference is how they integrate with the task scheduler:
-
-- **addEventListener/setTimeout**: Callbacks run in new tasks (non-blocking)
-- **fetch**: Current task suspends and resumes (appears blocking)
+Note: `JS.global.fetch` is a special Ruby method. For all other Promise-returning JS APIs, use `.await` or `.then`.
 
 ## See Also
 
-- [callback.md](callback.md) - Detailed explanation of callback system
+- [callback.md](callback.md) - Generic and async callback system
 - [architecture.md](architecture.md) - Task-based execution model
-- [interoperability_between_js_and_ruby.md](interoperability_between_js_and_ruby.md) - Data conversion
+- [interoperability_between_js_and_ruby.md](interoperability_between_js_and_ruby.md) - Type conversion

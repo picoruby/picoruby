@@ -1450,6 +1450,27 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/*
+ * JS::Object#_await_and_suspend
+ * Generic Promise await. self must be a JS Promise object.
+ * Suspends the current Ruby task until the Promise resolves,
+ * then stores the result in $promise_responses[callback_id].
+ */
+static mrb_value
+mrb_object__await_and_suspend(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  mrb_int callback_id;
+  mrb_get_args(mrb, "i", &callback_id);
+
+  mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
+  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+
+  mrb_suspend_task(mrb, current_task);
+  setup_promise_handler(obj->ref_id, (uintptr_t)callback_id, (uintptr_t)mrb, task_ptr);
+
+  return mrb_nil_value();
+}
 
 /*
  * JS::Object#==
@@ -1654,6 +1675,65 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
 
 
 /*
+ * Build a JSON-encoded argument array and call a JS method.
+ * Handles any combination of String, Integer, Float, nil, bool, JS::Object.
+ * Returns the ref_id of the result, or -1 on error.
+ */
+static int
+call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, mrb_value *argv, mrb_int argc)
+{
+  mrb_value json_array = mrb_str_new_lit(mrb, "[");
+
+  for (mrb_int i = 0; i < argc; i++) {
+    if (i > 0) mrb_str_cat_lit(mrb, json_array, ",");
+    mrb_str_cat_lit(mrb, json_array, "{\"type\":");
+
+    if (mrb_string_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
+      const char *str = mrb_string_value_cstr(mrb, &argv[i]);
+      for (const char *p = str; *p; p++) {
+        if (*p == '"' || *p == '\\') {
+          char escaped[3] = {'\\', *p, '\0'};
+          mrb_str_cat(mrb, json_array, escaped, 2);
+        } else {
+          mrb_str_cat(mrb, json_array, p, 1);
+        }
+      }
+      mrb_str_cat_lit(mrb, json_array, "\"");
+    } else if (mrb_integer_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"integer\",\"value\":");
+      char num_buf[32];
+      snprintf(num_buf, sizeof(num_buf), "%d", (int)mrb_integer(argv[i]));
+      mrb_str_cat_cstr(mrb, json_array, num_buf);
+    } else if (mrb_float_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"float\",\"value\":");
+      char num_buf[64];
+      snprintf(num_buf, sizeof(num_buf), "%f", mrb_float(argv[i]));
+      mrb_str_cat_cstr(mrb, json_array, num_buf);
+    } else if (mrb_nil_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"nil\",\"value\":null");
+    } else if (mrb_true_p(argv[i]) || mrb_false_p(argv[i])) {
+      mrb_str_cat_lit(mrb, json_array, "\"boolean\",\"value\":");
+      mrb_str_cat_cstr(mrb, json_array, mrb_true_p(argv[i]) ? "true" : "false");
+    } else if (mrb_obj_is_kind_of(mrb, argv[i], class_JS_Object)) {
+      picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[i]);
+      mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
+      char ref_buf[32];
+      snprintf(ref_buf, sizeof(ref_buf), "%d", arg_obj->ref_id);
+      mrb_str_cat_cstr(mrb, json_array, ref_buf);
+    } else {
+      mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported argument type for method: %s at position: %d", method_name, (int)i);
+      return -1;
+    }
+
+    mrb_str_cat_lit(mrb, json_array, "}");
+  }
+
+  mrb_str_cat_lit(mrb, json_array, "]");
+  return call_method_with_args(ref_id, method_name, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
+}
+
+/*
  * JS::Object#method_missing
  */
 static mrb_value
@@ -1719,7 +1799,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       return mrb_nil_value();
     }
     return js_ref_to_ruby_value(mrb, new_ref_id);
-  } else if (argc == 2){
+  } else if (argc == 2) {
     new_ref_id = -1;
     if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object) && mrb_obj_is_kind_of(mrb, argv[1], class_JS_Object)) {
       picorb_js_obj *arg_obj_1 = (picorb_js_obj *)DATA_PTR(argv[0]);
@@ -1728,77 +1808,21 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     } else if (mrb_string_p(argv[0]) && mrb_string_p(argv[1])) {
       new_ref_id = call_method_str(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_LEN(argv[0]), RSTRING_PTR(argv[1]), RSTRING_LEN(argv[1]));
     } else {
-      mrb_raisef(mrb, E_TYPE_ERROR, "method: %s, argc: %d", method_name, argc);
-      return mrb_nil_value();
+      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc);
     }
     return js_ref_to_ruby_value(mrb, new_ref_id);
-  } else if (argc == 3){
+  } else if (argc == 3) {
     new_ref_id = -1;
     if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object) && mrb_string_p(argv[1]) && mrb_string_p(argv[2])) {
       picorb_js_obj *arg_obj_1 = (picorb_js_obj *)DATA_PTR(argv[0]);
       new_ref_id = call_method_with_ref_str_str(js_obj->ref_id, method_name, arg_obj_1->ref_id, RSTRING_PTR(argv[1]), RSTRING_LEN(argv[1]), RSTRING_PTR(argv[2]), RSTRING_LEN(argv[2]));
     } else {
-      mrb_raisef(mrb, E_TYPE_ERROR, "method: %s, argc: %d. Expected (JS::Object, String, String)", method_name, argc);
-      return mrb_nil_value();
+      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc);
     }
     return js_ref_to_ruby_value(mrb, new_ref_id);
   } else {
-    // Handle variable-length arguments (argc >= 4) with mixed types
-    // Build JSON array with type tags: [{"type": "string", "value": "foo"}, ...]
-    mrb_value json_array = mrb_str_new_lit(mrb, "[");
-
-    for (int i = 0; i < argc; i++) {
-      if (i > 0) {
-        mrb_str_cat_lit(mrb, json_array, ",");
-      }
-
-      mrb_str_cat_lit(mrb, json_array, "{\"type\":");
-
-      if (mrb_string_p(argv[i])) {
-        mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
-        // Escape quotes and backslashes in the string
-        const char *str = mrb_string_value_cstr(mrb, &argv[i]);
-        for (const char *p = str; *p; p++) {
-          if (*p == '"' || *p == '\\') {
-            char escaped[3] = {'\\', *p, '\0'};
-            mrb_str_cat(mrb, json_array, escaped, 2);
-          } else {
-            mrb_str_cat(mrb, json_array, p, 1);
-          }
-        }
-        mrb_str_cat_lit(mrb, json_array, "\"");
-      } else if (mrb_integer_p(argv[i])) {
-        mrb_str_cat_lit(mrb, json_array, "\"integer\",\"value\":");
-        char num_buf[32];
-        snprintf(num_buf, sizeof(num_buf), "%d", (int)mrb_integer(argv[i]));
-        mrb_str_cat_cstr(mrb, json_array, num_buf);
-      } else if (mrb_float_p(argv[i])) {
-        mrb_str_cat_lit(mrb, json_array, "\"float\",\"value\":");
-        char num_buf[64];
-        snprintf(num_buf, sizeof(num_buf), "%f", mrb_float(argv[i]));
-        mrb_str_cat_cstr(mrb, json_array, num_buf);
-      } else if (mrb_nil_p(argv[i])) {
-        mrb_str_cat_lit(mrb, json_array, "\"nil\",\"value\":null");
-      } else if (mrb_true_p(argv[i]) || mrb_false_p(argv[i])) {
-        mrb_str_cat_lit(mrb, json_array, "\"boolean\",\"value\":");
-        mrb_str_cat_lit(mrb, json_array, mrb_true_p(argv[i]) ? "true" : "false");
-      } else if (mrb_obj_is_kind_of(mrb, argv[i], class_JS_Object)) {
-        picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[i]);
-        mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
-        char ref_buf[32];
-        snprintf(ref_buf, sizeof(ref_buf), "%d", arg_obj->ref_id);
-        mrb_str_cat_cstr(mrb, json_array, ref_buf);
-      } else {
-        mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported argument type for method: %s at position: %d", method_name, i);
-        return mrb_nil_value();
-      }
-
-      mrb_str_cat_lit(mrb, json_array, "}");
-    }
-
-    mrb_str_cat_lit(mrb, json_array, "]");
-
-    new_ref_id = call_method_with_args(js_obj->ref_id, method_name, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
+    // argc >= 4: generic JSON-based dispatch for any argument types
+    new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc);
     return js_ref_to_ruby_value(mrb, new_ref_id);
   }
 
@@ -2309,6 +2333,7 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_await_and_suspend), mrb_object__await_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_set_timeout), mrb_object__set_timeout, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_clear_timeout), mrb_object__clear_timeout, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
