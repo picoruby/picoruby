@@ -201,6 +201,8 @@
         end
         @resize_observer.observe(container)
 
+        @terminal = terminal
+        @fit_addon = fit_addon
         JS.global[:terminal] = terminal
         JS.global[:fitAddon] = fit_addon
       end
@@ -220,8 +222,8 @@
       def set_term_font(val)
         val = [[8, val].max, 32].min
         el('term-font-size')[:value] = val
-        JS.global[:terminal][:options][:fontSize] = val
-        JS.global[:fitAddon].fit
+        @terminal[:options][:fontSize] = val
+        @fit_addon.fit
       end
 
       def update_dfu_buttons
@@ -291,7 +293,7 @@
         begin
           serial_port ||= JS::WebSerial._request_port.await
           raise "No serial port selected" unless serial_port
-          JS.global[:terminal].reset
+          @terminal.reset
           open_port(serial_port)
         rescue => err
           txt = error_text(err)
@@ -314,7 +316,7 @@
         update_status('Connected', true)
         update_dfu_buttons
         el('connect-btn')[:textContent] = 'Disconnect'
-        JS.global[:terminal].focus
+        @terminal.focus
       rescue => err
         txt = error_text(err)
         JS.global[:console].error("Open port error: #{txt}")
@@ -356,14 +358,14 @@
       end
 
       def bind_events
-        JS.global[:terminal].onData do |data|
+        @terminal.onData do |data|
           send_text_to_port(data.to_s)
         end
         el('connect-btn').addEventListener('click') { |_| connect }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
-        el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
-        JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
+        el('terminal-container').addEventListener('click') { |_| @terminal.focus }
+        JS.global.addEventListener('resize') { |_| @fit_addon.fit }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect }
         bind_font_controls
         bind_resizer
@@ -379,7 +381,7 @@
             sleep_ms 1500
             begin
               open_port(serial_port)
-              JS.global[:terminal].writeln('[Reconnected]')
+              @terminal.writeln('[Reconnected]')
             rescue => err
               JS.global[:console].error("Auto-reconnect failed: #{err}")
               update_status('Disconnected', false)
@@ -388,7 +390,7 @@
 
           serial.addEventListener('disconnect') do |_|
             next unless current_port
-            JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
+            @terminal.writeln("\r\n[Serial port disconnected]")
             disconnect
           end
         end
