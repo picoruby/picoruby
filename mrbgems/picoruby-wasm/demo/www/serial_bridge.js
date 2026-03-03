@@ -18,22 +18,6 @@
       return this.state.port !== null;
     }
 
-    async requestConnect() {
-      if (this.state.port) {
-        this.win.dispatchEvent(new CustomEvent("serial-disconnect-request"));
-        return;
-      }
-      try {
-        this.win.pendingSerialPort = await navigator.serial.requestPort();
-        this.win.dispatchEvent(new CustomEvent("serial-connect-request"));
-      } catch (err) {
-        console.error("Connect error:", err);
-        const message = err && err.message ? err.message : String(err);
-        this.win.lastSerialConnectError = message;
-        this.win.dispatchEvent(new CustomEvent("serial-connect-error"));
-      }
-    }
-
     async readFromPort() {
       const port = this.state.port;
       if (!port) return;

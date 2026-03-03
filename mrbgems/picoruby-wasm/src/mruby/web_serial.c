@@ -136,6 +136,22 @@ EM_JS(int, serial_port_open, (int port_ref_id, int options_ref_id), {
   }
 });
 
+/* Call navigator.serial.requestPort() and return the Promise ref_id */
+EM_JS(int, serial_request_port, (), {
+  try {
+    const serial = navigator && navigator.serial;
+    if (!serial || !serial.requestPort) {
+      console.error('serial_request_port: Web Serial API is not available');
+      return -1;
+    }
+    const promise = serial.requestPort();
+    return globalThis.picorubyRefs.push(promise) - 1;
+  } catch(e) {
+    console.error('serial_request_port failed:', e);
+    return -1;
+  }
+});
+
 /* Call port.close() — fire and forget */
 EM_JS(void, serial_port_close, (int ref_id), {
   try {
@@ -379,6 +395,19 @@ mrb_web_serial_open_port(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::WebSerial._request_port() -> JS::Object (Promise)
+ */
+static mrb_value
+mrb_web_serial_request_port(mrb_state *mrb, mrb_value self)
+{
+  int promise_id = serial_request_port();
+  if (promise_id < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "serial_request_port failed");
+  }
+  return wrap_ref_as_js_object(mrb, promise_id);
+}
+
+/*
  * JS::WebSerial._close_port(js_port) -> nil
  * Call port.close() on the SerialPort.
  */
@@ -556,6 +585,8 @@ mrb_web_serial_init(mrb_state *mrb)
     mrb_web_serial_set_on_disconnect, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_open_port),
     mrb_web_serial_open_port, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_request_port),
+    mrb_web_serial_request_port, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port),
     mrb_web_serial_close_port, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_start),

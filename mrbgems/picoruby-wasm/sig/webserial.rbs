@@ -36,6 +36,7 @@ module JS
     private
 
     # C-implemented class methods
+    def self._request_port: () -> JS::Object
     def self._open_port: (JS::Object js_port, JS::Object options) -> JS::Object
     def self._write: (JS::Object js_port, String str) -> nil
     def self._start_reading: (JS::Object js_port, Integer callback_id) -> nil

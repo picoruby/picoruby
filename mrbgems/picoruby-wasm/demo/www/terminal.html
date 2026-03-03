@@ -174,13 +174,14 @@
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
       terminal.onData((data) => {
-        if (window.handleTerminalInput) {
-          window.handleTerminalInput(data);
+        const callbacks = window.picorubyGenericCallbacks;
+        if (callbacks && callbacks.handleTerminalInput) {
+          callbacks.handleTerminalInput(data);
         }
       });
 
-      connectBtn.addEventListener('click', async () => {
-        await window.serialBridge.requestConnect();
+      connectBtn.addEventListener('click', () => {
+        window.dispatchEvent(new CustomEvent('serial-connect-click'));
       });
 
     });
@@ -324,7 +325,7 @@
         end
 
         begin
-          serial_port ||= JS.global[:navigator][:serial].requestPort().await
+          serial_port ||= JS::WebSerial._request_port.await
           raise "No serial port selected" unless serial_port
           JS.global[:terminal].reset
           open_port(serial_port)
@@ -418,20 +419,7 @@
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
         JS.global.addEventListener('resize') { |_| JS.global[:fitAddon].fit }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
-        JS.global.addEventListener('serial-connect-request') do |_|
-          port = JS.global[:pendingSerialPort]
-          JS.global[:pendingSerialPort] = nil
-          connect(port)
-        end
-        JS.global.addEventListener('serial-disconnect-request') { |_| disconnect }
-        JS.global.addEventListener('serial-connect-error') do |_|
-          message = JS.global[:lastSerialConnectError].to_s
-          JS.global[:lastSerialConnectError] = nil
-          JS.global[:console].error("Connect error: #{message}")
-          update_status('Disconnected', false)
-          self.current_port = nil
-          update_dfu_buttons
-        end
+        JS.global.addEventListener('serial-connect-click') { |_| connect }
         bind_font_controls
         bind_resizer
         el('path-input').addEventListener('input') { |_| update_dfu_buttons }
