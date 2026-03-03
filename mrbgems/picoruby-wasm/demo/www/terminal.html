@@ -194,14 +194,6 @@
 
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
-      terminal.onData((data) => {
-        if (window.port) {
-          const encoder = new TextEncoder();
-          const writer = window.port.writable.getWriter();
-          writer.write(encoder.encode(data)).then(() => writer.releaseLock());
-        }
-      });
-
       connectBtn.addEventListener('click', async () => {
         if (window.port) {
           window.dispatchEvent(new CustomEvent('serial-disconnect-request'));
@@ -433,6 +425,7 @@
       end
 
       def bind_events
+        JS.global[:terminal].onData { |data| send_text_to_port(data.to_s) }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
         el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
