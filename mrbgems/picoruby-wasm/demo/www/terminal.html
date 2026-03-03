@@ -164,6 +164,11 @@
       extract_port(e) {
         return (e && e.port) ? e.port : null;
       },
+      device_lost(err) {
+        const name = err && err.name ? err.name : '';
+        const message = err && err.message ? err.message : String(err);
+        return name === 'NetworkError' || message.includes('device has been lost');
+      },
     };
 
     // ---------------------------------------------------------------------------
@@ -213,7 +218,9 @@
             }
           }
         } catch (err) {
-          console.error('Serial read error:', err);
+          if (!window.serialHelpers.device_lost(err)) {
+            console.error('Serial read error:', err);
+          }
         } finally {
           activeReader.releaseLock();
           if (window.reader === activeReader) window.reader = null;
