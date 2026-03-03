@@ -143,12 +143,14 @@
     // ---------------------------------------------------------------------------
     window.port = null;
     window.reader = null;
-    window.autoReconnect = false;
     let captureMode = false;
     let captureBuffer = '';
 
     // Small helper namespace for browser event normalization.
     window.serialHelpers = {
+      state: {
+        autoReconnect: false,
+      },
       start_capture() {
         captureBuffer = '';
         captureMode = true;
@@ -417,7 +419,7 @@
           JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
           disconnect(cancel_reader: false)
         end
-        JS.global[:autoReconnect] = true
+        JS.global[:serialHelpers][:state][:autoReconnect] = true
         set_connected_ui
         JS.global[:terminal].focus
         start_read_loop
@@ -493,7 +495,7 @@
           if serial_supported?
             serial = JS.global[:navigator][:serial]
             serial.addEventListener('connect') do |e|
-              next if JS.global[:port] || JS.global[:autoReconnect] != true
+              next if JS.global[:port] || JS.global[:serialHelpers][:state][:autoReconnect] != true
               serial_port = JS.global[:serialHelpers].extract_port(e)
               handle_auto_reconnect(serial_port)
             end
