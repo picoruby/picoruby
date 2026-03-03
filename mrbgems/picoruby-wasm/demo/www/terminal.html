@@ -142,15 +142,7 @@
     // Terminal setup
     // ---------------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
-      const connectBtn  = document.getElementById('connect-btn');
-      const notSupported = document.getElementById('not-supported');
       const container   = document.getElementById('terminal-container');
-
-      if (!('serial' in navigator)) {
-        notSupported.style.display = 'block';
-        connectBtn.disabled = true;
-        return;
-      }
 
       const { Terminal } = window;
       const { FitAddon } = window.FitAddon;
@@ -200,6 +192,10 @@
         @doc = JS.document
         @current_port = nil
         @auto_reconnect = false
+        unless JS::WebSerial.supported?
+          el('not-supported').style.display = 'block'
+          el('connect-btn')[:disabled] = true
+        end
         bind_events
         append_log("[*] Ready. Connect a serial port to use the file updater.")
       end
