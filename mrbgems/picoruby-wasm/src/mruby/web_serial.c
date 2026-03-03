@@ -123,10 +123,11 @@ EM_JS(void, serial_start_reading, (int ref_id, uintptr_t callback_id), {
   }
 });
 
-/* Start async read loop and write decoded text directly to globalThis.terminal */
-EM_JS(void, serial_read_from_port, (int ref_id), {
+/* Start async read loop and write decoded text to the provided terminal object */
+EM_JS(void, serial_read_from_port, (int ref_id, int terminal_ref_id), {
   try {
     const port = globalThis.picorubyRefs[ref_id];
+    const terminal = globalThis.picorubyRefs[terminal_ref_id];
     if (!port) {
       console.error('serial_read_from_port: port not found');
       return;
@@ -158,7 +159,6 @@ EM_JS(void, serial_read_from_port, (int ref_id), {
             if (globalThis.picorubySerialCapture) {
               globalThis.picorubySerialCapture.append(port, chars);
             }
-            const terminal = globalThis.terminal;
             if (terminal) terminal.write(chars);
           }
         } catch (e) {
@@ -181,7 +181,6 @@ EM_JS(void, serial_read_from_port, (int ref_id), {
         if (globalThis.picorubySerialCapture) {
           globalThis.picorubySerialCapture.append(port, tail);
         }
-        const terminal = globalThis.terminal;
         if (terminal) terminal.write(tail);
       }
       state.running = false;
@@ -554,25 +553,27 @@ mrb_web_serial_start_reading(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * JS::WebSerial._read_from_port(js_port) -> nil
+ * JS::WebSerial._read_from_port(js_port, terminal) -> nil
  * Start async read loop that decodes and writes text to terminal directly.
  */
 static mrb_value
 mrb_web_serial_read_from_port(mrb_state *mrb, mrb_value self)
 {
-  mrb_value js_obj;
-  mrb_get_args(mrb, "o", &js_obj);
+  mrb_value js_obj, terminal_obj;
+  mrb_get_args(mrb, "oo", &js_obj, &terminal_obj);
 
-  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object) ||
+      !mrb_obj_is_kind_of(mrb, terminal_obj, class_JS_Object)) {
     mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
-  if (!port) {
+  picorb_js_obj *terminal = (picorb_js_obj *)DATA_PTR(terminal_obj);
+  if (!port || !terminal) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
   }
 
-  serial_read_from_port(port->ref_id);
+  serial_read_from_port(port->ref_id, terminal->ref_id);
   return mrb_nil_value();
 }
 
@@ -678,7 +679,7 @@ mrb_web_serial_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_start_reading),
     mrb_web_serial_start_reading, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_read_from_port),
-    mrb_web_serial_read_from_port, MRB_ARGS_REQ(1));
+    mrb_web_serial_read_from_port, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_set_on_disconnect),
     mrb_web_serial_set_on_disconnect, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_open_port),

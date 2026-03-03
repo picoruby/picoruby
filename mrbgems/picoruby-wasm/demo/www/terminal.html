@@ -311,7 +311,7 @@
         options = JS.global.create_object
         options[:baudRate] = baud_rate
         JS::WebSerial._open_port(serial_port, options).await
-        JS::WebSerial._read_from_port(serial_port)
+        JS::WebSerial._read_from_port(serial_port, @terminal)
         self.auto_reconnect = true
         update_status('Connected', true)
         update_dfu_buttons
