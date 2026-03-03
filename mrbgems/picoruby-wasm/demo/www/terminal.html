@@ -138,12 +138,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
   <script>
-    // ---------------------------------------------------------------------------
-    // Terminal setup
-    // ---------------------------------------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      const container   = document.getElementById('terminal-container');
-
+    window.createTerminalContext = (container) => {
       const { Terminal } = window;
       const { FitAddon } = window.FitAddon;
       const terminal = new Terminal({
@@ -158,12 +153,10 @@
       terminal.loadAddon(fitAddon);
       terminal.open(container);
       fitAddon.fit();
-      window.terminal = terminal;
-      window.fitAddon = fitAddon;
-
-      new ResizeObserver(() => fitAddon.fit()).observe(container);
-
-    });
+      const resizeObserver = new ResizeObserver(() => fitAddon.fit());
+      resizeObserver.observe(container);
+      return { terminal, fitAddon, resizeObserver };
+    };
   </script>
 
   <script type="text/ruby">
@@ -192,6 +185,7 @@
         @doc = JS.document
         @current_port = nil
         @auto_reconnect = false
+        setup_terminal
         unless JS::WebSerial.supported?
           el('not-supported').style.display = 'block'
           el('connect-btn')[:disabled] = true
@@ -202,6 +196,13 @@
 
       def el(id)
         @doc.getElementById(id)
+      end
+
+      def setup_terminal
+        ctx = JS.global.createTerminalContext(el('terminal-container'))
+        JS.global[:terminal] = ctx[:terminal]
+        JS.global[:fitAddon] = ctx[:fitAddon]
+        @resize_observer = ctx[:resizeObserver]
       end
 
       def update_status(text, connected)
