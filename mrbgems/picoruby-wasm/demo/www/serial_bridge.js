@@ -9,7 +9,6 @@
         captureMode: false,
         captureBuffer: "",
       };
-      this.writeChain = Promise.resolve();
       this.terminal = null;
     }
 
@@ -35,20 +34,17 @@
       return this.state.captureBuffer;
     }
 
-    writeBytes(bytes) {
+    async writeBytes(bytes) {
       const port = this.state.port;
-      if (!port || !port.writable) return Promise.resolve();
-      this.writeChain = this.writeChain.then(async () => {
-        const writer = port.writable.getWriter();
-        try {
-          await writer.write(bytes);
-        } finally {
-          writer.releaseLock();
-        }
-      }).catch((err) => {
+      if (!port || !port.writable) return;
+      const writer = port.writable.getWriter();
+      try {
+        await writer.write(bytes);
+      } catch (err) {
         console.error("Serial write error:", err);
-      });
-      return this.writeChain;
+      } finally {
+        writer.releaseLock();
+      }
     }
 
     sendTextToPort(str) {
