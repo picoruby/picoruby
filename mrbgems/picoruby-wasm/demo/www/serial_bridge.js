@@ -6,8 +6,6 @@
         port: null,
         reader: null,
         autoReconnect: false,
-        captureMode: false,
-        captureBuffer: "",
       };
       this.terminal = null;
     }
@@ -18,20 +16,6 @@
 
     isPortConnected() {
       return this.state.port !== null;
-    }
-
-    startCapture() {
-      this.state.captureBuffer = "";
-      this.state.captureMode = true;
-    }
-
-    peekCapture() {
-      return this.state.captureBuffer;
-    }
-
-    stopAndGetCapture() {
-      this.state.captureMode = false;
-      return this.state.captureBuffer;
     }
 
     async writeBytes(bytes) {
@@ -80,7 +64,8 @@
           if (done) break;
           if (value) {
             const chars = decoder.decode(value, { stream: true });
-            if (this.state.captureMode) this.state.captureBuffer += chars;
+            const capture = globalThis.picorubySerialCapture;
+            if (capture && port) capture.append(port, chars);
             if (this.terminal) this.terminal.write(chars);
           }
         }

@@ -41,5 +41,8 @@ module JS
     def self._start_reading: (JS::Object js_port, Integer callback_id) -> nil
     def self._set_on_disconnect: (JS::Object js_port, Integer callback_id) -> nil
     def self._close_port: (JS::Object js_port) -> nil
+    def self._capture_start: (JS::Object js_port) -> nil
+    def self._capture_peek: (JS::Object js_port) -> JS::Object
+    def self._capture_stop: (JS::Object js_port) -> JS::Object
   end
 end

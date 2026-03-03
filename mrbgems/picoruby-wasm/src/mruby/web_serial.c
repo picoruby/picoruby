@@ -156,6 +156,9 @@ EM_JS(void, serial_port_close, (int ref_id), {
       }
       delete globalThis.picorubySerialDisconnectHandlers[key];
     }
+    if (globalThis.picorubySerialCapture && port) {
+      globalThis.picorubySerialCapture.clear(port);
+    }
   } catch(e) {
     console.error('serial_port_close failed:', e);
   }
@@ -191,6 +194,60 @@ EM_JS(void, serial_set_on_disconnect, (int ref_id, uintptr_t callback_id), {
     port.addEventListener('disconnect', handler);
   } catch(e) {
     console.error('serial_set_on_disconnect failed:', e);
+  }
+});
+
+EM_JS(void, serial_capture_start, (int ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port) return;
+
+    if (!globalThis.picorubySerialCapture) {
+      const buffers = new WeakMap();
+      const active = new WeakSet();
+      globalThis.picorubySerialCapture = {
+        start(p) {
+          buffers.set(p, "");
+          active.add(p);
+        },
+        append(p, chunk) {
+          if (!p || !active.has(p)) return;
+          const prev = buffers.get(p) || "";
+          buffers.set(p, prev + chunk);
+        },
+        peek(p) {
+          return buffers.get(p) || "";
+        },
+        stop(p) {
+          const out = buffers.get(p) || "";
+          active.delete(p);
+          return out;
+        },
+        clear(p) {
+          active.delete(p);
+          buffers.delete(p);
+        },
+      };
+    }
+
+    globalThis.picorubySerialCapture.start(port);
+  } catch (e) {
+    console.error('serial_capture_start failed:', e);
+  }
+});
+
+EM_JS(int, serial_capture_get, (int ref_id, int stop), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port || !globalThis.picorubySerialCapture) {
+      return globalThis.picorubyRefs.push("") - 1;
+    }
+    const cap = globalThis.picorubySerialCapture;
+    const out = stop ? cap.stop(port) : cap.peek(port);
+    return globalThis.picorubyRefs.push(out) - 1;
+  } catch (e) {
+    console.error('serial_capture_get failed:', e);
+    return globalThis.picorubyRefs.push("") - 1;
   }
 });
 
@@ -417,6 +474,70 @@ mrb_web_serial_set_on_disconnect(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/*
+ * JS::WebSerial._capture_start(js_port) -> nil
+ */
+static mrb_value
+mrb_web_serial_capture_start(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_capture_start(port->ref_id);
+  return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial._capture_peek(js_port) -> JS::Object (String)
+ */
+static mrb_value
+mrb_web_serial_capture_peek(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  return wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 0));
+}
+
+/*
+ * JS::WebSerial._capture_stop(js_port) -> JS::Object (String)
+ */
+static mrb_value
+mrb_web_serial_capture_stop(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  return wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 1));
+}
+
 /*****************************************************
  * Module initialization
  *****************************************************/
@@ -437,4 +558,10 @@ mrb_web_serial_init(mrb_state *mrb)
     mrb_web_serial_open_port, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port),
     mrb_web_serial_close_port, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_start),
+    mrb_web_serial_capture_start, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_peek),
+    mrb_web_serial_capture_peek, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_stop),
+    mrb_web_serial_capture_stop, MRB_ARGS_REQ(1));
 }
