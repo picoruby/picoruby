@@ -252,6 +252,34 @@
         serial_bridge.isPortConnected() == true
       end
 
+      def bridge_state
+        serial_bridge[:state]
+      end
+
+      def current_port
+        bridge_state[:port]
+      end
+
+      def current_port=(port)
+        bridge_state[:port] = port
+      end
+
+      def current_reader
+        bridge_state[:reader]
+      end
+
+      def current_reader=(reader)
+        bridge_state[:reader] = reader
+      end
+
+      def auto_reconnect?
+        bridge_state[:autoReconnect] == true
+      end
+
+      def auto_reconnect=(enabled)
+        bridge_state[:autoReconnect] = enabled == true
+      end
+
       def error_text(err)
         msg = err.message.to_s
         msg = err.to_s if msg.empty?
@@ -260,7 +288,7 @@
       end
 
       def send_text_to_port(str)
-        port = JS.global[:port]
+        port = current_port
         return unless port
         JS::WebSerial._write(port, str.to_s)
       end
@@ -268,7 +296,7 @@
       # hex: string of hex pairs e.g. "44465500..." (no spaces)
       # Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
       def send_hex_to_port(hex)
-        port = JS.global[:port]
+        port = current_port
         return unless port
 
         bytes = [hex.to_s].pack("H*")
@@ -288,7 +316,7 @@
       end
 
       def connect(serial_port = nil)
-        if JS.global[:port]
+        if current_port
           disconnect
           return
         end
@@ -303,18 +331,18 @@
           JS.global[:console].error("Connect error: #{txt}")
           append_log("[-] Connect error: #{txt}")
           update_status('Disconnected', false)
-          JS.global[:port] = nil
+          self.current_port = nil
           update_dfu_buttons
         end
       end
 
       def open_port(serial_port)
         baud_rate = el('baud-rate')[:value].to_i
-        JS.global[:port] = serial_port
+        self.current_port = serial_port
         options = JS.global.create_object
         options[:baudRate] = baud_rate
         JS::WebSerial._open_port(serial_port, options).await
-        JS.global[:autoReconnect] = true
+        self.auto_reconnect = true
         update_status('Connected', true)
         update_dfu_buttons
         el('connect-btn')[:textContent] = 'Disconnect'
@@ -324,8 +352,8 @@
         txt = error_text(err)
         JS.global[:console].error("Open port error: #{txt}")
         append_log("[-] Open port error: #{txt}")
-        JS.global[:port] = nil
-        JS.global[:reader] = nil
+        self.current_port = nil
+        self.current_reader = nil
         raise
       end
 
@@ -333,23 +361,23 @@
         return if @disconnecting
 
         @disconnecting = true
-        reader = JS.global[:reader]
+        reader = current_reader
         if cancel_reader && reader
           begin
             reader.cancel.await
           rescue
           end
         end
-        JS.global[:reader] = nil
+        self.current_reader = nil
 
-        port = JS.global[:port]
+        port = current_port
         if port
           begin
             port.close.await
           rescue
           end
         end
-        JS.global[:port] = nil
+        self.current_port = nil
 
         update_status('Disconnected', false)
         update_dfu_buttons
@@ -396,7 +424,7 @@
           JS.global[:lastSerialConnectError] = nil
           JS.global[:console].error("Connect error: #{message}")
           update_status('Disconnected', false)
-          JS.global[:port] = nil
+          self.current_port = nil
           update_dfu_buttons
         end
         bind_font_controls
@@ -406,7 +434,7 @@
         if serial_supported?
           serial = JS.global[:navigator][:serial]
           serial.addEventListener('connect') do |e|
-            next if JS.global[:port] || JS.global[:autoReconnect] != true
+            next if current_port || !auto_reconnect?
             serial_port = e[:port]
             next unless serial_port
             update_status('Reconnecting...', false)
@@ -421,7 +449,7 @@
           end
 
           serial.addEventListener('disconnect') do |_|
-            next unless JS.global[:port]
+            next unless current_port
             JS.global[:terminal].writeln("\r\n[Serial port disconnected]")
             disconnect
           end

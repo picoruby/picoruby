@@ -96,20 +96,4 @@
 
   window.serialBridge = new SerialBridge(window);
 
-  Object.defineProperty(window, "port", {
-    get() { return window.serialBridge.state.port; },
-    set(v) { window.serialBridge.state.port = v; },
-    configurable: true,
-  });
-  Object.defineProperty(window, "reader", {
-    get() { return window.serialBridge.state.reader; },
-    set(v) { window.serialBridge.state.reader = v; },
-    configurable: true,
-  });
-  Object.defineProperty(window, "autoReconnect", {
-    get() { return window.serialBridge.state.autoReconnect; },
-    set(v) { window.serialBridge.state.autoReconnect = !!v; },
-    configurable: true,
-  });
-
 })();
