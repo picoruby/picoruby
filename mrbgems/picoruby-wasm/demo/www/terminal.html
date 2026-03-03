@@ -196,15 +196,13 @@
         terminal.method_missing(:open, container)
         fit_addon.fit
 
-        @resize_observer = JS.global[:ResizeObserver].new do |_entries|
+        resize_observer = JS.global[:ResizeObserver].new do |_entries|
           fit_addon.fit
         end
-        @resize_observer.observe(container)
+        resize_observer.observe(container)
 
         @terminal = terminal
         @fit_addon = fit_addon
-        JS.global[:terminal] = terminal
-        JS.global[:fitAddon] = fit_addon
       end
 
       def update_status(text, connected)
@@ -333,7 +331,7 @@
         port = current_port
         if port
           begin
-            port.close.await
+            JS::WebSerial._close_port(port)
           rescue
           end
         end
