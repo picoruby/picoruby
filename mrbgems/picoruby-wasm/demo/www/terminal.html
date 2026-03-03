@@ -360,6 +360,20 @@
         append_log("[-] #{prefix}: #{txt}")
       end
 
+      def handle_auto_reconnect(serial_port)
+        return unless serial_port
+        update_status('Reconnecting...', false)
+        sleep_ms 1500
+        begin
+          open_port(serial_port)
+          JS.global[:terminal].writeln('[Reconnected]')
+        rescue => err
+          txt = error_text(err)
+          JS.global[:console].error("Auto-reconnect failed: #{txt}")
+          update_status('Disconnected', false)
+        end
+      end
+
       def serial_supported?
         # Browser capability check for initial UI gating.
         nav = JS.global[:navigator]
@@ -483,17 +497,7 @@
             serial.addEventListener('connect') do |e|
               next if JS.global[:port] || JS.global[:autoReconnect] != true
               serial_port = JS.global[:serialHelpers].extract_port(e)
-              next unless serial_port
-              update_status('Reconnecting...', false)
-              sleep_ms 1500
-              begin
-                open_port(serial_port)
-                JS.global[:terminal].writeln('[Reconnected]')
-              rescue => err
-                txt = error_text(err)
-                JS.global[:console].error("Auto-reconnect failed: #{txt}")
-                update_status('Disconnected', false)
-              end
+              handle_auto_reconnect(serial_port)
             end
           end
         rescue => err
