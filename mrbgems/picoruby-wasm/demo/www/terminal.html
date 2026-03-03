@@ -252,15 +252,7 @@
       }
 
       function updateDfuButtons() {
-        const hasPath = pathInputEl.value.trim() !== '';
-        const connected = port !== null;
-        loadBtnEl.disabled = !(connected && hasPath);
-        saveBtnEl.disabled = !(connected && hasPath);
-      }
-      window.updateDfuButtons = updateDfuButtons;
-
-      function setDfuConnected(_connected) {
-        updateDfuButtons();
+        globalThis.picorubyGenericCallbacks['updateDfuButtons']();
       }
 
       terminal.onData((data) => {
@@ -298,7 +290,7 @@
         await port.open({ baudRate });
         autoReconnect = true;
         updateStatus('Connected', true);
-        setDfuConnected(true);
+        updateDfuButtons();
         connectBtn.textContent = 'Disconnect';
         terminal.focus();
         readFromPort();
@@ -327,7 +319,7 @@
           port = null;
         }
         updateStatus('Disconnected', false);
-        setDfuConnected(false);
+        updateDfuButtons();
         connectBtn.textContent = 'Connect';
       }
 
@@ -352,9 +344,7 @@
       });
 
       function appendDfuLog(msg) {
-        const log = document.getElementById('dfu-log');
-        log.textContent += msg + '\n';
-        log.scrollTop = log.scrollHeight;
+        globalThis.picorubyGenericCallbacks['appendDfuLog'](msg);
       }
 
       async function loadFileFromDevice(path) {
@@ -412,11 +402,8 @@
         editorEl2.style.fontSize = val + 'px';
       };
 
-      connectBtn.addEventListener('click', () => connect());
-      loadBtnEl.addEventListener('click', () => {
-        const path = pathInputEl.value.trim();
-        if (path && port) loadFileFromDevice(path);
-      });
+      window.connect = connect;
+      window.loadFileFromDevice = loadFileFromDevice;
 
     });
   </script>
@@ -473,12 +460,31 @@
 
       def initialize
         @doc = JS.document
+        register_callbacks
         bind_events
         append_log("[*] Ready. Connect a serial port to use the file updater.")
       end
 
       def el(id)
         @doc.getElementById(id)
+      end
+
+      def update_dfu_buttons
+        has_path = !el('path-input')[:value].to_s.strip.empty?
+        connected = JS.global.isPortConnected() == true
+        enabled = connected && has_path
+        el('load-btn')[:disabled] = !enabled
+        el('save-btn')[:disabled] = !enabled
+      end
+
+      def register_callbacks
+        app = self
+        JS::Object.register_callback('updateDfuButtons') do
+          app.update_dfu_buttons
+        end
+        JS::Object.register_callback('appendDfuLog') do |msg|
+          app.append_log(msg.to_s)
+        end
       end
 
       def append_log(msg)
@@ -493,10 +499,15 @@
       end
 
       def bind_events
+        el('connect-btn').addEventListener('click') { |_| JS.global.connect() }
         el('save-btn').addEventListener('click') { |_| do_save }
+        el('load-btn').addEventListener('click') { |_|
+          path = current_path
+          JS.global.loadFileFromDevice(path) if path && JS.global.isPortConnected() == true
+        }
         bind_font_controls
         bind_resizer
-        el('path-input').addEventListener('input') { |_| JS.global.updateDfuButtons() }
+        el('path-input').addEventListener('input') { |_| update_dfu_buttons }
       end
 
       def bind_font_controls
