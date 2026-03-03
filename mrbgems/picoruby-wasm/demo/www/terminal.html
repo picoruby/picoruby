@@ -229,8 +229,10 @@
 
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
-        connected = connected?
-        enabled = connected && has_path
+        set_dfu_buttons_enabled(connected? && has_path)
+      end
+
+      def set_dfu_buttons_enabled(enabled)
         el('load-btn')[:disabled] = !enabled
         el('save-btn')[:disabled] = !enabled
       end
@@ -288,7 +290,6 @@
       def connect(serial_port = nil)
         if current_port
           disconnect
-          return
         end
 
         begin
@@ -334,7 +335,7 @@
         port = current_port
         if port
           begin
-            JS::WebSerial._close_port(port)
+            JS::WebSerial._close_port(port) # synchronized cleanup in C-side state
           rescue
           end
         end
@@ -365,7 +366,6 @@
         el('connect-btn').addEventListener('click') { |_| connect }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
-        el('terminal-container').addEventListener('click') { |_| @terminal.focus }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect }
         bind_font_controls
         bind_resizer
