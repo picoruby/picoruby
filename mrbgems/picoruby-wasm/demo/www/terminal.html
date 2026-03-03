@@ -444,30 +444,36 @@
       end
 
       def bind_events
-        el('connect-btn').addEventListener('click') { |_| connect }
-        el('save-btn').addEventListener('click') { |_| do_save }
-        el('load-btn').addEventListener('click') { |_| do_load }
-        el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
-        JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
-        bind_font_controls
-        bind_resizer
-        el('path-input').addEventListener('input') { |_| update_dfu_buttons }
+        begin
+          el('connect-btn').addEventListener('click') { |_| connect }
+          el('save-btn').addEventListener('click') { |_| do_save }
+          el('load-btn').addEventListener('click') { |_| do_load }
+          el('terminal-container').addEventListener('click') { |_| JS.global[:terminal].focus }
+          JS.global.addEventListener('serial-reader-closed') { |_| disconnect(cancel_reader: false) }
+          bind_font_controls
+          bind_resizer
+          el('path-input').addEventListener('input') { |_| update_dfu_buttons }
 
-        JS.global.addEventListener('serial-port-connect') do |_|
-          next if JS.global[:port] || JS.global[:autoReconnect] != true
-          serial_port = JS.global[:lastConnectedSerialPort]
-          JS.global[:lastConnectedSerialPort] = nil
-          next unless serial_port
-          update_status('Reconnecting...', false)
-          sleep_ms 1500
-          begin
-            open_port(serial_port)
-            JS.global[:terminal].writeln('[Reconnected]')
-          rescue => err
-            txt = error_text(err)
-            JS.global[:console].error("Auto-reconnect failed: #{txt}")
-            update_status('Disconnected', false)
+          JS.global.addEventListener('serial-port-connect') do |_|
+            next if JS.global[:port] || JS.global[:autoReconnect] != true
+            serial_port = JS.global[:lastConnectedSerialPort]
+            JS.global[:lastConnectedSerialPort] = nil
+            next unless serial_port
+            update_status('Reconnecting...', false)
+            sleep_ms 1500
+            begin
+              open_port(serial_port)
+              JS.global[:terminal].writeln('[Reconnected]')
+            rescue => err
+              txt = error_text(err)
+              JS.global[:console].error("Auto-reconnect failed: #{txt}")
+              update_status('Disconnected', false)
+            end
           end
+        rescue => err
+          txt = error_text(err)
+          JS.global[:console].error("bind_events failed: #{txt}")
+          append_log("[-] bind_events failed: #{txt}")
         end
       end
 
