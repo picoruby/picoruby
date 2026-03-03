@@ -166,14 +166,7 @@
     // ---------------------------------------------------------------------------
     document.addEventListener('DOMContentLoaded', () => {
       const connectBtn  = document.getElementById('connect-btn');
-      const notSupported = document.getElementById('not-supported');
       const container   = document.getElementById('terminal-container');
-
-      if (!('serial' in navigator)) {
-        notSupported.style.display = 'block';
-        connectBtn.disabled = true;
-        return;
-      }
 
       const { Terminal } = window;
       const { FitAddon } = window.FitAddon;
@@ -270,6 +263,7 @@
       def initialize
         @doc = JS.document
         register_callbacks
+        apply_serial_support_ui
         bind_events
         append_log("[*] Ready. Connect a serial port to use the file updater.")
       end
@@ -338,6 +332,12 @@
       def serial_supported?
         nav = JS.global[:navigator]
         nav && (serial = nav[:serial]) && serial.type != "undefined"
+      end
+
+      def apply_serial_support_ui
+        return if serial_supported?
+        el('not-supported').style.display = 'block'
+        el('connect-btn')[:disabled] = true
       end
 
       def connect(serial_port = nil)
