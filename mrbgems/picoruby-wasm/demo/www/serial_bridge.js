@@ -18,24 +18,6 @@
       return this.state.port !== null;
     }
 
-    async writeBytes(bytes) {
-      const port = this.state.port;
-      if (!port || !port.writable) return;
-      const writer = port.writable.getWriter();
-      try {
-        await writer.write(bytes);
-      } catch (err) {
-        console.error("Serial write error:", err);
-      } finally {
-        writer.releaseLock();
-      }
-    }
-
-    sendTextToPort(str) {
-      const encoder = new TextEncoder();
-      return this.writeBytes(encoder.encode(String(str)));
-    }
-
     async requestConnect() {
       if (this.state.port) {
         this.win.dispatchEvent(new CustomEvent("serial-disconnect-request"));

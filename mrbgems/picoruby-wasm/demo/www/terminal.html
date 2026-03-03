@@ -174,7 +174,9 @@
       new ResizeObserver(() => fitAddon.fit()).observe(container);
 
       terminal.onData((data) => {
-        window.serialBridge.sendTextToPort(data);
+        if (window.handleTerminalInput) {
+          window.handleTerminalInput(data);
+        }
       });
 
       connectBtn.addEventListener('click', async () => {
@@ -388,6 +390,9 @@
 
       def register_callbacks
         app = self
+        JS::Object.register_callback('handleTerminalInput') do |data|
+          app.send_text_to_port(data.to_s)
+        end
         JS::Object.register_callback('appendDfuLog') do |msg|
           app.append_log(msg.to_s)
         end
