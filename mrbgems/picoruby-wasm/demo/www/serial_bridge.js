@@ -112,10 +112,4 @@
     configurable: true,
   });
 
-  window.isPortConnected = () => window.serialBridge.isPortConnected();
-  window.startCapture = () => window.serialBridge.startCapture();
-  window.peekCapture = () => window.serialBridge.peekCapture();
-  window.stopAndGetCapture = () => window.serialBridge.stopAndGetCapture();
-  window.sendTextToPort = (str) => window.serialBridge.sendTextToPort(str);
-  window.readFromPort = () => window.serialBridge.readFromPort();
 })();

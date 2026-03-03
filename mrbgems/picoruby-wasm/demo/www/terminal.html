@@ -238,10 +238,18 @@
 
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
-        connected = !JS.global[:port].nil?
+        connected = connected?
         enabled = connected && has_path
         el('load-btn')[:disabled] = !enabled
         el('save-btn')[:disabled] = !enabled
+      end
+
+      def serial_bridge
+        JS.global[:serialBridge]
+      end
+
+      def connected?
+        serial_bridge.isPortConnected() == true
       end
 
       def error_text(err)
@@ -311,7 +319,7 @@
         update_dfu_buttons
         el('connect-btn')[:textContent] = 'Disconnect'
         JS.global[:terminal].focus
-        JS.global.readFromPort
+        serial_bridge.readFromPort
       rescue => err
         txt = error_text(err)
         JS.global[:console].error("Open port error: #{txt}")
@@ -527,13 +535,13 @@
 
       # Send "dfucat [path]", wait, then load content into editor.
       def do_load
-        return unless JS.global.isPortConnected() == true
+        return unless connected?
         path = current_path
         return unless path
         el('load-btn')[:disabled] = true
         el('save-btn')[:disabled] = true
         append_log("[*] Loading #{path} ...")
-        JS.global.startCapture()
+        serial_bridge.startCapture()
         send_text_to_port("dfucat #{path}\n")
         max_wait = 10000
         interval = 200
@@ -541,17 +549,17 @@
         loop do
           sleep_ms interval
           waited += interval
-          cap = JS.global.peekCapture().to_s
+          cap = serial_bridge.peekCapture().to_s
           break if cap.index('DFUCAT_END') || cap.index('DFUCAT_ERROR:') || waited >= max_wait
         end
-        raw = JS.global.stopAndGetCapture().to_s
+        raw = serial_bridge.stopAndGetCapture().to_s
         handle_dfucat_result(raw)
         update_dfu_buttons
       end
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
       def do_save
-        unless JS.global.isPortConnected()
+        unless connected?
           append_log("[-] Not connected")
           return
         end
@@ -565,7 +573,7 @@
         path = current_path
         cmd = path ? "dfucli #{path}\n" : "dfucli\n"
         append_log("[*] Running: #{cmd.chomp}")
-        JS.global.startCapture()
+        serial_bridge.startCapture()
         send_text_to_port(cmd)
 
         # Wait for dfucli to print "[recv]" (ready to receive)
@@ -574,14 +582,14 @@
         while waited < 3000
           sleep_ms 100
           waited += 100
-          cap = JS.global.peekCapture().to_s
+          cap = serial_bridge.peekCapture().to_s
           if cap.index("[recv]")
             ready = true
             break
           end
         end
         unless ready
-          JS.global.stopAndGetCapture()
+          serial_bridge.stopAndGetCapture()
           append_log("[-] dfucli did not become ready within 3s")
           return
         end
@@ -598,11 +606,11 @@
         while waited < DFU_RESPONSE_TIMEOUT
           sleep_ms 300
           waited += 300
-          cap = JS.global.peekCapture().to_s
+          cap = serial_bridge.peekCapture().to_s
           break if cap.index("OK") || cap.index("ERROR")
         end
 
-        resp = JS.global.stopAndGetCapture().to_s
+        resp = serial_bridge.stopAndGetCapture().to_s
         if resp.index("OK")
           append_log("[+] Success!")
         elsif resp.index("ERROR")
