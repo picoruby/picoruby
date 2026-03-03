@@ -38,9 +38,27 @@ EM_JS(void, serial_write, (int ref_id, const uint8_t *data, int len), {
       console.error('serial_write: port not writable');
       return;
     }
+
+    if (!globalThis.picorubySerialWriteQueues) {
+      globalThis.picorubySerialWriteQueues = Object.create(null);
+    }
+
     const bytes = new Uint8Array(HEAPU8.buffer, data, len).slice();
-    const writer = port.writable.getWriter();
-    writer.write(bytes).then(() => writer.releaseLock());
+    const key = String(ref_id);
+    const prev = globalThis.picorubySerialWriteQueues[key] || Promise.resolve();
+
+    const next = prev.then(async () => {
+      const writer = port.writable.getWriter();
+      try {
+        await writer.write(bytes);
+      } finally {
+        writer.releaseLock();
+      }
+    }).catch((e) => {
+      console.error('serial_write queue failed:', e);
+    });
+
+    globalThis.picorubySerialWriteQueues[key] = next;
   } catch(e) {
     console.error('serial_write failed:', e);
   }
