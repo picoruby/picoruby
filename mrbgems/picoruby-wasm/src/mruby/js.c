@@ -95,7 +95,7 @@ EM_JS(int, get_element, (int ref_id, int index), {
   }
 });
 
-EM_JS(bool, set_property, (int ref_id, const char* key, const char* value), {
+EM_JS(bool, set_property, (int ref_id, const char* key, const char* value, int value_len), {
   try {
     if (!globalThis.picorubyRefs || ref_id >= globalThis.picorubyRefs.length) {
       console.error('Invalid reference ID:', ref_id);
@@ -109,7 +109,7 @@ EM_JS(bool, set_property, (int ref_id, const char* key, const char* value), {
     }
 
     const property = UTF8ToString(key);
-    const val = UTF8ToString(value);
+    const val = UTF8ToString(value, value_len);
     obj[property] = val;
     return true;
   } catch(e) {
@@ -252,9 +252,9 @@ EM_JS(void, copy_string_value, (int ref_id, char* buffer, int buffer_size), {
 });
 
 // String comparison for JS::Object#==
-EM_JS(bool, js_string_equals, (int ref_id, const char* ruby_str), {
+EM_JS(bool, js_string_equals, (int ref_id, const char* ruby_str, int ruby_str_len), {
   const js_str = globalThis.picorubyRefs[ref_id];
-  return js_str === UTF8ToString(ruby_str);
+  return js_str === UTF8ToString(ruby_str, ruby_str_len);
 });
 
 EM_JS(int, get_length, (int ref_id), {
@@ -266,12 +266,12 @@ EM_JS(int, get_length, (int ref_id), {
   }
 })
 
-EM_JS(int, call_method, (int ref_id, const char* method, const char* arg), {
+EM_JS(int, call_method, (int ref_id, const char* method, const char* arg, int arg_len), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
-    const argString = UTF8ToString(arg);
+    const argString = UTF8ToString(arg, arg_len);
 
     let result;
     if (methodName === 'new') {
@@ -355,13 +355,13 @@ EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
   }
 });
 
-EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, const char *arg2), {
+EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, int arg1_len, const char *arg2, int arg2_len), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
-    const argString1 = UTF8ToString(arg1);
-    const argString2 = UTF8ToString(arg2);
+    const argString1 = UTF8ToString(arg1, arg1_len);
+    const argString2 = UTF8ToString(arg2, arg2_len);
 
     let result;
     if (methodName === 'new') {
@@ -446,15 +446,15 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
   }
 });
 
-EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int arg1_ref_id, const char* arg2_str, const char* arg3_str), {
+EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int arg1_ref_id, const char* arg2_str, int arg2_len, const char* arg3_str, int arg3_len), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
 
     const argObj1 = globalThis.picorubyRefs[arg1_ref_id];
-    const argString2 = UTF8ToString(arg2_str);
-    const argString3 = UTF8ToString(arg3_str);
+    const argString2 = UTF8ToString(arg2_str, arg2_len);
+    const argString3 = UTF8ToString(arg3_str, arg3_len);
 
     if (typeof func !== 'function') {
       console.error('Method not found or not a function:', methodName);
@@ -472,7 +472,7 @@ EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int ar
   }
 });
 
-EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* args_json), {
+EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* args_json, int args_json_len), {
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -483,7 +483,7 @@ EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* a
       return -1;
     }
 
-    const argsStr = UTF8ToString(args_json);
+    const argsStr = UTF8ToString(args_json, args_json_len);
     const argsData = JSON.parse(argsStr);
 
     if (!Array.isArray(argsData)) {
@@ -1006,12 +1006,13 @@ ruby_value_to_js_ref(mrb_state *mrb, mrb_value value)
 
   if (mrb_string_p(value)) {
     const char *str = RSTRING_PTR(value);
+    int len = RSTRING_LEN(value);
     int ref_id = js_create_object();
     if (ref_id < 0) return -1;
     EM_ASM_({
-      const str = UTF8ToString($1);
+      const str = UTF8ToString($1, $2);
       globalThis.picorubyRefs[$0] = str;
-    }, ref_id, str);
+    }, ref_id, str, len);
     return ref_id;
   }
 
@@ -1378,7 +1379,7 @@ set_js_property(mrb_state *mrb, int ref_id, const char* property_name, mrb_value
 {
   bool success = false;
   if (mrb_string_p(value)) {
-    success = set_property(ref_id, property_name, RSTRING_PTR(value));
+    success = set_property(ref_id, property_name, RSTRING_PTR(value), RSTRING_LEN(value));
   } else if (mrb_integer_p(value)) {
     success = set_property_int(ref_id, property_name, mrb_integer(value));
   } else if (mrb_float_p(value)) {
@@ -1466,8 +1467,9 @@ mrb_object_eq(mrb_state *mrb, mrb_value self)
   switch (js_type) {
     case JS_TYPE_STRING:
       if (mrb_string_p(other)) {
-        const char *ruby_str = RSTRING_CSTR(mrb, other);
-        return js_string_equals(js_obj->ref_id, ruby_str) ? mrb_true_value() : mrb_false_value();
+        const char *ruby_str = RSTRING_PTR(other);
+        int ruby_str_len = RSTRING_LEN(other);
+        return js_string_equals(js_obj->ref_id, ruby_str, ruby_str_len) ? mrb_true_value() : mrb_false_value();
       }
       break;
 
@@ -1706,7 +1708,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   } else if (argc == 1) { // One argument
     new_ref_id = -1;
     if (mrb_string_p(argv[0])) {
-      new_ref_id = call_method(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]));
+      new_ref_id = call_method(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_LEN(argv[0]));
     } else if (mrb_integer_p(argv[0])) {
       new_ref_id = call_method_int(js_obj->ref_id, method_name, mrb_integer(argv[0]));
     } else if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object)) {
@@ -1724,7 +1726,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       picorb_js_obj *arg_obj_2 = (picorb_js_obj *)DATA_PTR(argv[1]);
       new_ref_id = call_method_with_ref_ref(js_obj->ref_id, method_name, arg_obj_1->ref_id, arg_obj_2->ref_id);
     } else if (mrb_string_p(argv[0]) && mrb_string_p(argv[1])) {
-      new_ref_id = call_method_str(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_PTR(argv[1]));
+      new_ref_id = call_method_str(js_obj->ref_id, method_name, RSTRING_PTR(argv[0]), RSTRING_LEN(argv[0]), RSTRING_PTR(argv[1]), RSTRING_LEN(argv[1]));
     } else {
       mrb_raisef(mrb, E_TYPE_ERROR, "method: %s, argc: %d", method_name, argc);
       return mrb_nil_value();
@@ -1734,7 +1736,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     new_ref_id = -1;
     if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object) && mrb_string_p(argv[1]) && mrb_string_p(argv[2])) {
       picorb_js_obj *arg_obj_1 = (picorb_js_obj *)DATA_PTR(argv[0]);
-      new_ref_id = call_method_with_ref_str_str(js_obj->ref_id, method_name, arg_obj_1->ref_id, RSTRING_PTR(argv[1]), RSTRING_PTR(argv[2]));
+      new_ref_id = call_method_with_ref_str_str(js_obj->ref_id, method_name, arg_obj_1->ref_id, RSTRING_PTR(argv[1]), RSTRING_LEN(argv[1]), RSTRING_PTR(argv[2]), RSTRING_LEN(argv[2]));
     } else {
       mrb_raisef(mrb, E_TYPE_ERROR, "method: %s, argc: %d. Expected (JS::Object, String, String)", method_name, argc);
       return mrb_nil_value();
@@ -1796,7 +1798,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
 
     mrb_str_cat_lit(mrb, json_array, "]");
 
-    new_ref_id = call_method_with_args(js_obj->ref_id, method_name, RSTRING_PTR(json_array));
+    new_ref_id = call_method_with_args(js_obj->ref_id, method_name, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
     return js_ref_to_ruby_value(mrb, new_ref_id);
   }
 
@@ -1984,7 +1986,7 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
   char *url;
   mrb_int callback_id;
   mrb_get_args(mrb, "zi", &url, &callback_id);
-  int promise_id = call_method(obj->ref_id, "fetch", url);
+  int promise_id = call_method(obj->ref_id, "fetch", url, strlen(url));
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
