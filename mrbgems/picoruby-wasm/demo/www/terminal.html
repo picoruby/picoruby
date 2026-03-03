@@ -193,6 +193,13 @@
         }
       });
 
+      if ('serial' in navigator) {
+        navigator.serial.addEventListener('connect', (e) => {
+          window.lastConnectedSerialPort = e.port;
+          window.dispatchEvent(new CustomEvent('serial-port-connect'));
+        });
+      }
+
       window.readFromPort = async function() {
         if (!window.port) return;
         const decoder = new TextDecoder('utf-8');
@@ -437,23 +444,20 @@
         bind_resizer
         el('path-input').addEventListener('input') { |_| update_dfu_buttons }
 
-        if serial_supported?
-          serial = JS.global[:navigator][:serial]
-          serial.addEventListener('connect') do |e|
-            next if JS.global[:port] || JS.global[:autoReconnect] != true
-            serial_port = e[:port]
-            next unless serial_port
-            update_status('Reconnecting...', false)
-            sleep_ms 1500
-            begin
-              open_port(serial_port)
-              JS.global[:terminal].writeln('[Reconnected]')
-            rescue => err
-              JS.global[:console].error("Auto-reconnect failed: #{err}")
-              update_status('Disconnected', false)
-            end
+        JS.global.addEventListener('serial-port-connect') do |_|
+          next if JS.global[:port] || JS.global[:autoReconnect] != true
+          serial_port = JS.global[:lastConnectedSerialPort]
+          JS.global[:lastConnectedSerialPort] = nil
+          next unless serial_port
+          update_status('Reconnecting...', false)
+          sleep_ms 1500
+          begin
+            open_port(serial_port)
+            JS.global[:terminal].writeln('[Reconnected]')
+          rescue => err
+            JS.global[:console].error("Auto-reconnect failed: #{err}")
+            update_status('Disconnected', false)
           end
-
         end
       end
 
