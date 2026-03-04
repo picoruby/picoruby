@@ -31,6 +31,21 @@ module JS
     # Close the serial port.
     def close: () -> nil
 
+    # Wait for pending writes to flush (returns a Promise).
+    def drain: () -> JS::Object
+
+    # Pipe decoded serial text directly to an xterm.js terminal.
+    def start_terminal_read: (JS::Object terminal) -> nil
+
+    # Start capturing serial output.
+    def capture_start: () -> nil
+
+    # Peek at captured output without clearing it.
+    def capture_peek: () -> String
+
+    # Stop capturing and return the captured output.
+    def capture_stop: () -> String
+
     def opened?: () -> bool
 
     private
@@ -39,6 +54,7 @@ module JS
     def self._request_port: () -> JS::Object
     def self._open_port: (JS::Object js_port, JS::Object options) -> JS::Object
     def self._write: (JS::Object js_port, String str) -> nil
+    def self._drain: (JS::Object js_port) -> JS::Object
     def self._start_reading: (JS::Object js_port, Integer callback_id) -> nil
     def self._read_from_port: (JS::Object js_port, JS::Object terminal) -> nil
     def self._set_on_disconnect: (JS::Object js_port, Integer callback_id) -> nil

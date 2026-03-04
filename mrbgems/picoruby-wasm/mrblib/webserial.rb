@@ -10,10 +10,8 @@ module JS
     # Must be called from a user gesture handler (click, etc.).
     # Yields a JS::WebSerial instance (or nil if user cancelled) to the block.
     def self.request_port(filters: [], &block)
-      port_obj = nil
-      JS.global[:navigator][:serial].requestPort().then do |js_port| # steep:ignore
-        port_obj = new(js_port)
-      end
+      raw_port = JS::WebSerial._request_port.await
+      port_obj = raw_port ? new(raw_port) : nil
       block.call(port_obj) if block
       port_obj
     end
@@ -34,8 +32,9 @@ module JS
       options[:dataBits] = data_bits
       options[:stopBits] = stop_bits
       options[:parity] = parity
-      JS::WebSerial._open_port(@js_port, options).then { @opened = true } # steep:ignore
-      block.call(self) if block && @opened
+      JS::WebSerial._open_port(@js_port, options).await
+      @opened = true
+      block.call(self) if block
       self
     end
 
@@ -62,6 +61,31 @@ module JS
     def close
       @opened = false
       JS::WebSerial._close_port(@js_port)
+    end
+
+    # Wait for pending writes to flush (returns a Promise).
+    def drain
+      JS::WebSerial._drain(@js_port)
+    end
+
+    # Pipe decoded serial text directly to an xterm.js terminal.
+    def start_terminal_read(terminal)
+      JS::WebSerial._read_from_port(@js_port, terminal)
+    end
+
+    # Start capturing serial output.
+    def capture_start
+      JS::WebSerial._capture_start(@js_port)
+    end
+
+    # Peek at captured output without clearing it.
+    def capture_peek
+      JS::WebSerial._capture_peek(@js_port).to_s
+    end
+
+    # Stop capturing and return the captured output.
+    def capture_stop
+      JS::WebSerial._capture_stop(@js_port).to_s
     end
 
     def opened?

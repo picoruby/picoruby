@@ -280,7 +280,7 @@
       def send_text_to_port(str, port = nil)
         port ||= current_port
         return unless port
-        JS::WebSerial._write(port, str.to_s)
+        port.write(str.to_s)
       end
 
       # hex: string of hex pairs e.g. "44465500..." (no spaces)
@@ -302,24 +302,24 @@
         chunk_size = DFU_TX_CHUNK_SIZE
         while off < bytes.bytesize
           chunk = bytes.byteslice(off, chunk_size)
-          JS::WebSerial._write(port, chunk)
+          port.write(chunk)
           off += chunk.bytesize
           sleep_ms DFU_TX_CHUNK_GAP_MS if off < bytes.bytesize
         end
-        # Wait until JS write queue is fully flushed to the serial writable stream.
-        JS::WebSerial._drain(port).await
+        # Return promise that resolves when write queue is flushed
+        port.drain
       end
 
-      def connect(serial_port = nil)
+      def connect
         if current_port
           disconnect
         end
 
         begin
-          serial_port ||= JS::WebSerial._request_port.await
-          raise "No serial port selected" unless serial_port
+          ws = JS::WebSerial.request_port
+          raise "No serial port selected" unless ws
           @terminal.reset
-          open_port(serial_port)
+          open_port(ws)
         rescue => err
           txt = error_text(err)
           JS.global[:console].error("Connect error: #{txt}")
@@ -330,13 +330,11 @@
         end
       end
 
-      def open_port(serial_port)
+      def open_port(ws)
         baud_rate = el('baud-rate')[:value].to_i
-        self.current_port = serial_port
-        options = JS.global.create_object
-        options[:baudRate] = baud_rate
-        JS::WebSerial._open_port(serial_port, options).await
-        JS::WebSerial._read_from_port(serial_port, @terminal)
+        self.current_port = ws
+        ws.open(baud_rate: baud_rate)
+        ws.start_terminal_read(@terminal)
         self.auto_reconnect = true
         update_status('Connected', true)
         update_dfu_buttons
@@ -358,7 +356,7 @@
         port = current_port
         if port
           begin
-            JS::WebSerial._close_port(port) # synchronized cleanup in C-side state
+            port.close
           rescue
           end
         end
@@ -404,12 +402,13 @@
           serial = JS.global[:navigator][:serial]
           serial.addEventListener('connect') do |e|
             next if current_port || !auto_reconnect?
-            serial_port = e[:target] || e[:port]
-            next unless serial_port
+            raw_port = e[:target] || e[:port]
+            next unless raw_port
             update_status('Reconnecting...', false)
             sleep_ms 1500
             begin
-              open_port(serial_port)
+              ws = JS::WebSerial.new(raw_port)
+              open_port(ws)
               @terminal.writeln('[Reconnected]')
             rescue => err
               JS.global[:console].error("Auto-reconnect failed: #{err}")
@@ -533,17 +532,21 @@
       def wait_capture_until(port, timeout_ms, poll_ms, markers)
         waited = 0
         loop do
-          cap = JS::WebSerial._capture_peek(port).to_s
+          cap = port.capture_peek
           found = markers.find { |m| cap.index(m) }
           return [found, cap, waited] if found
-          return [nil, cap, waited] if waited >= timeout_ms
+          if waited >= timeout_ms
+            append_log("[!] Capture wait timeout after #{waited}ms (expected one of: #{markers.join(', ')})")
+            return [nil, cap, waited]
+          end
           sleep_ms poll_ms
           waited += poll_ms
         end
       end
 
       def send_ctrl_c(port = nil)
-        JS::WebSerial._write((port || current_port), "\u0003") if (port || current_port)
+        p = port || current_port
+        p.write("\u0003") if p
       end
 
       # Send "dfucat [path]", wait, then load content into editor.
@@ -557,12 +560,13 @@
         append_log("[*] Loading #{path} ...")
         raw = ""
         begin
-          JS::WebSerial._capture_start(port)
+          port.capture_start
+          sleep_ms 10  # Ensure capture is fully started
           send_text_to_port("dfucat #{path}\n", port)
           marker, _cap, waited = wait_capture_until(port, DFU_LOAD_TIMEOUT, DFU_CAPTURE_POLL_MS, ['DFUCAT_END', 'DFUCAT_ERROR:'])
           append_log("[.] Load wait: #{waited}ms marker=#{marker || 'timeout'}")
         ensure
-          raw = JS::WebSerial._capture_stop(port).to_s
+          raw = port.capture_stop
         end
         handle_dfucat_result(raw)
         update_dfu_buttons
@@ -602,8 +606,11 @@
 
         resp = ""
         begin
-          JS::WebSerial._capture_start(port)
+          port.capture_start
+          sleep_ms 10  # Ensure capture is fully started
+          debug_log("save:capture_started")
           send_text_to_port(cmd, port)
+          debug_log("save:dfucli_cmd_sent")
 
           # Wait for dfucli to print "[recv]" (ready to receive)
           marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]'])
@@ -623,15 +630,15 @@
             send_body_size = [send_body_size, body_size - 1].min
             send_payload = header + code.byteslice(0, send_body_size).to_s
             append_log("[TEST] timeout test mode: sending header=19 body=#{send_body_size}/#{body_size} bytes")
-            send_bytes_to_port(header, port)
+            send_bytes_to_port(header, port).await
             sleep_ms 50
-            send_bytes_to_port(code.byteslice(0, send_body_size).to_s, port)
+            send_bytes_to_port(code.byteslice(0, send_body_size).to_s, port).await
           else
             # Always split normal upload into header/body with a short gap.
             # This mirrors the "test mode" behavior that showed better stability.
-            send_bytes_to_port(header, port)
+            send_bytes_to_port(header, port).await
             sleep_ms DFU_TX_HEADER_GAP_MS
-            send_bytes_to_port(code, port)
+            send_bytes_to_port(code, port).await
           end
           debug_log("save:payload_sent bytes=#{send_payload.bytesize}")
           # Allow device-side parser/update task to catch up before response polling.
@@ -654,7 +661,7 @@
             end
           end
         ensure
-          resp = JS::WebSerial._capture_stop(port).to_s
+          resp = port.capture_stop
         end
 
         if resp.index("OK") ||
