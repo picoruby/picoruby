@@ -69,9 +69,11 @@ module JS
     end
 
     # Close the serial port.
+    # Stops the read loop gracefully before closing to avoid "locked stream" errors.
     def close
       @opened = false
-      JS::WebSerial._close_port(@js_port)
+      JS::WebSerial._close_port_promise(@js_port).await
+      nil
     end
 
     # Wait for pending writes to flush (returns a Promise).

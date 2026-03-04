@@ -325,10 +325,11 @@
         end
       end
 
-      def disconnect
+      def disconnect(manual: false)
         return if @disconnecting
 
         @disconnecting = true
+        self.auto_reconnect = false if manual
 
         port = current_port
         port&.close rescue nil
@@ -362,7 +363,7 @@
         @terminal.onData do |data|
           send_text_to_port(data.to_s)
         end
-        el('connect-btn').addEventListener('click') { |_| connect }
+        el('connect-btn').addEventListener('click') { |_| connected? ? disconnect(manual: true) : connect }
         el('save-btn').addEventListener('click') { |_| do_save }
         el('load-btn').addEventListener('click') { |_| do_load }
         JS.global.addEventListener('serial-reader-closed') { |_| disconnect }

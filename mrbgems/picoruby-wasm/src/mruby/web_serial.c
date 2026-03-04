@@ -154,7 +154,7 @@ EM_JS(void, serial_read_from_port, (int ref_id, int terminal_ref_id), {
       globalThis.picorubySerialReadStates = Object.create(null);
     }
     const key = String(ref_id);
-    const state = globalThis.picorubySerialReadStates[key] || { running: false, reader: null };
+    const state = globalThis.picorubySerialReadStates[key] || { running: false, reader: null, stopRequested: false, onStopped: null };
     if (state.running) {
       return;
     }
@@ -163,7 +163,7 @@ EM_JS(void, serial_read_from_port, (int ref_id, int terminal_ref_id), {
 
     (async () => {
       const decoder = new TextDecoder('utf-8');
-      while (port.readable) {
+      while (port.readable && !state.stopRequested) {
         const reader = port.readable.getReader();
         state.reader = reader;
         try {
@@ -201,11 +201,20 @@ EM_JS(void, serial_read_from_port, (int ref_id, int terminal_ref_id), {
         if (terminal) terminal.write(tail);
       }
       state.running = false;
-      globalThis.dispatchEvent(new CustomEvent('serial-reader-closed'));
+
+      if (state.onStopped) {
+        state.onStopped();
+      } else {
+        globalThis.dispatchEvent(new CustomEvent('serial-reader-closed'));
+      }
     })().catch((e) => {
       state.running = false;
       console.error('serial_read_from_port async failed:', e);
-      globalThis.dispatchEvent(new CustomEvent('serial-reader-closed'));
+      if (state.onStopped) {
+        state.onStopped();
+      } else {
+        globalThis.dispatchEvent(new CustomEvent('serial-reader-closed'));
+      }
     });
   } catch (e) {
     console.error('serial_read_from_port failed:', e);
@@ -278,7 +287,7 @@ EM_JS(int, serial_take_last_connected_port, (), {
   }
 });
 
-/* Call port.close() — fire and forget */
+/* Call port.close() — fire and forget (used for cleanup after physical disconnect) */
 EM_JS(void, serial_port_close, (int ref_id), {
   try {
     const port = globalThis.picorubyRefs[ref_id];
@@ -303,6 +312,60 @@ EM_JS(void, serial_port_close, (int ref_id), {
     }
   } catch(e) {
     console.error('serial_port_close failed:', e);
+  }
+});
+
+/*
+ * Signal the read loop to stop, then close the port.
+ * Returns a Promise ref_id that resolves when port.close() completes.
+ * Use this from Ruby via .await so that close is guaranteed before reconnect.
+ */
+EM_JS(int, serial_port_close_promise, (int ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    const key = String(ref_id);
+
+    if (globalThis.picorubySerialWriteQueues) {
+      delete globalThis.picorubySerialWriteQueues[key];
+    }
+    if (globalThis.picorubySerialDisconnectHandlers && port) {
+      const prev = globalThis.picorubySerialDisconnectHandlers[key];
+      if (prev) {
+        port.removeEventListener('disconnect', prev);
+      }
+      delete globalThis.picorubySerialDisconnectHandlers[key];
+    }
+    if (globalThis.picorubySerialCapture && port) {
+      globalThis.picorubySerialCapture.clear(port);
+    }
+
+    const state = globalThis.picorubySerialReadStates && globalThis.picorubySerialReadStates[key];
+    if (globalThis.picorubySerialReadStates) {
+      delete globalThis.picorubySerialReadStates[key];
+    }
+
+    const p = new Promise((resolve) => {
+      const doClose = () => {
+        if (!port) { resolve(true); return; }
+        port.close().then(() => resolve(true)).catch(() => resolve(false));
+      };
+
+      if (state && state.running) {
+        state.stopRequested = true;
+        state.onStopped = doClose;
+        if (state.reader) {
+          state.reader.cancel().catch(() => {});
+        }
+      } else {
+        doClose();
+      }
+    });
+
+    return globalThis.picorubyRefs.push(p) - 1;
+  } catch(e) {
+    console.error('serial_port_close_promise failed:', e);
+    const p = Promise.resolve(false);
+    return globalThis.picorubyRefs.push(p) - 1;
   }
 });
 
@@ -563,7 +626,7 @@ mrb_web_serial_take_last_connected_port(mrb_state *mrb, mrb_value self)
 
 /*
  * JS::WebSerial._close_port(js_port) -> nil
- * Call port.close() on the SerialPort.
+ * Call port.close() on the SerialPort (fire and forget).
  */
 static mrb_value
 mrb_web_serial_close_port(mrb_state *mrb, mrb_value self)
@@ -582,6 +645,29 @@ mrb_web_serial_close_port(mrb_state *mrb, mrb_value self)
 
   serial_port_close(port->ref_id);
   return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial._close_port_promise(js_port) -> JS::Object (Promise)
+ * Stop read loop gracefully then close; returns a Promise to await.
+ */
+static mrb_value
+mrb_web_serial_close_port_promise(mrb_state *mrb, mrb_value self)
+{
+  mrb_value port_obj;
+  mrb_get_args(mrb, "o", &port_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, port_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(port_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  int promise_id = serial_port_close_promise(port->ref_id);
+  return wrap_ref_as_js_object(mrb, promise_id);
 }
 
 /*
@@ -798,6 +884,8 @@ mrb_web_serial_init(mrb_state *mrb)
     mrb_web_serial_take_last_connected_port, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port),
     mrb_web_serial_close_port, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port_promise),
+    mrb_web_serial_close_port_promise, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_start),
     mrb_web_serial_capture_start, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_peek),
