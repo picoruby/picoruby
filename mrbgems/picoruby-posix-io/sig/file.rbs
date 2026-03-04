@@ -1,0 +1,9 @@
+class File
+  private def self._concat_path: (String base, String path) -> String
+  private def self._gethome: (?(String | nil) user) -> String
+  private def self._getwd: () -> String
+  private def self._size: () -> Integer
+  private def _atime: () -> Time
+  private def _ctime: () -> Time
+  private def _mtime: () -> Time
+end

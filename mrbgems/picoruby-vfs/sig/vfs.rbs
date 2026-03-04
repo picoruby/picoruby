@@ -42,4 +42,5 @@ end
 class File
   def physical_address: () -> Integer
   def sector_size: () -> Integer
+  def expand: (Integer size) -> Integer
 end
