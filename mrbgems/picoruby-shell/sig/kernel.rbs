@@ -1,8 +1,7 @@
-module Kernel
-  def system: (String command) -> bool
-end
-
 # @private
 class Object
+  # PicoRuby's system takes a single String command.
+  # Defined on Object as a workaround to avoid duplicating core Kernel#system.
+  def system: (String command) -> bool
   def gets: () -> String?
 end
