@@ -170,6 +170,8 @@
       DFU_TX_CHUNK_SIZE = 32
       DFU_TX_CHUNK_GAP_MS = 20
 
+      attr_accessor :current_port
+
       def initialize
         @doc = JS.document
         @current_port = nil
@@ -251,14 +253,6 @@
         !@current_port.nil?
       end
 
-      def current_port
-        @current_port
-      end
-
-      def current_port=(port)
-        @current_port = port
-      end
-
       def auto_reconnect?
         @auto_reconnect == true
       end
@@ -308,10 +302,7 @@
       end
 
       def connect
-        if current_port
-          disconnect
-        end
-
+        disconnect if current_port
         begin
           baud_rate = el('baud-rate')[:value].to_i
           @terminal.reset
@@ -340,12 +331,7 @@
         @disconnecting = true
 
         port = current_port
-        if port
-          begin
-            port.close
-          rescue
-          end
-        end
+        port&.close rescue nil
         self.current_port = nil
 
         update_status('Disconnected', false)
