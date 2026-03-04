@@ -118,42 +118,19 @@ end
 
   <script type="text/ruby">
     require 'js'
-
-    # ---------------------------------------------------------------------------
-    # CRC32 table (standard polynomial 0xEDB88320, used by zlib / DFU::Updater)
-    # ---------------------------------------------------------------------------
-    CRC32_TABLE = Array.new(256) do |i|
-      c = i
-      8.times { c = ((c & 1) == 1) ? (0xEDB88320 ^ (c >> 1)) : (c >> 1) }
-      c
-    end
-
-    def crc32(data)
-      crc = 0xFFFFFFFF
-      data.bytes.each { |b| crc = CRC32_TABLE[(crc ^ b) & 0xFF] ^ (crc >> 8) }
-      crc ^ 0xFFFFFFFF
-    end
+    require 'crc'
+    require 'pack'
 
     # ---------------------------------------------------------------------------
     # Build a 19-byte DFU header for a RITE (mrb) payload.
     # Format: a4Ca4NNn (all big-endian)
     #   magic(4) + version(1) + type(4) + fw_size(4) + crc32(4) + sig_len(2)
     # ---------------------------------------------------------------------------
-    def be32(n)
-      [((n >> 24) & 0xFF).chr,
-       ((n >> 16) & 0xFF).chr,
-       ((n >>  8) & 0xFF).chr,
-        (n        & 0xFF).chr].join
-    end
-
-    def be16(n)
-      [((n >> 8) & 0xFF).chr,
-        (n       & 0xFF).chr].join
-    end
+    HEADER_FORMAT = "a4Ca4NNn"
 
     def build_dfu_header(mrb_data)
-      crc = crc32(mrb_data)
-      "DFU\0" + 1.chr + "RITE" + be32(mrb_data.bytesize) + be32(crc) + be16(0)
+      crc = CRC.crc32(mrb_data)
+      ["DFU\0", 1, "RITE", mrb_data.bytesize, crc, 0].pack(HEADER_FORMAT)
     end
 
     # ---------------------------------------------------------------------------
