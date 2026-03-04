@@ -29,12 +29,14 @@ module DFU
     HEADER_SIZE: Integer
     HEADER_FORMAT: String
     CHUNK_SIZE: Integer
+    READ_TIMEOUT_SEC: Integer
+    READ_POLL_MS: Integer
 
     @verify_crc: bool
     @verify_signature: bool
     @path: String?
 
-    def self.new: (?verify_crc: bool, ?verify_signature: bool, ?path: String?) -> DFU::Updater
+    def self.new: (?verify_crc: bool, ?verify_signature: bool, ?path: String?, ?read_timeout_sec: Integer, ?read_poll_ms: Integer) -> DFU::Updater
     def self.expected_size: (String buf) -> (Integer | nil)
 
     #def receive: (_Reader io) -> true
