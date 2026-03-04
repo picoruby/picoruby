@@ -7,6 +7,8 @@ module DFU
     HEADER_SIZE = 19  # a4Ca4NNn
     HEADER_FORMAT = "a4Ca4NNn"
     CHUNK_SIZE = 4096
+    READ_TIMEOUT_SEC = 5.0
+    READ_POLL_MS = 10
 
     # Parse the first HEADER_SIZE bytes of a receive buffer and return the total
     # expected byte count (header + optional signature + firmware body).
@@ -32,10 +34,12 @@ module DFU
       HEADER_SIZE + sig_len + fw_size
     end
 
-    def initialize(verify_crc: true, verify_signature: false, path: nil)
+    def initialize(verify_crc: true, verify_signature: false, path: nil, read_timeout_sec: READ_TIMEOUT_SEC, read_poll_ms: READ_POLL_MS)
       @verify_crc = verify_crc
       @verify_signature = verify_signature
       @path = path
+      @read_timeout_sec = read_timeout_sec
+      @read_poll_ms = read_poll_ms
     end
 
     # Receive firmware from an IO-like object (must respond to #read).
@@ -96,15 +100,45 @@ module DFU
     private
 
     # Read exactly n bytes from io, looping over partial reads.
+    # Prefer non-blocking read when available so timeout can be enforced
+    # even on STDIN-backed transports.
     # TCPSocket#read may return "" (empty string, not nil) when no data
     # is available yet; nil means EOF (connection closed).
+    # Returns partial data when timeout is reached.
     def read_exact(io, n)
       buf = ""
+      deadline = Time.now.to_f + @read_timeout_sec
+      use_nonblock = io.respond_to?(:read_nonblock)
+      if io == STDIN && !use_nonblock
+        raise "DFU: STDIN.read_nonblock is unavailable; cannot enforce receive timeout"
+      end
       while buf.bytesize < n
-        chunk = io.read(n - buf.bytesize)
-        break if chunk.nil?           # EOF
-        next  if chunk.bytesize == 0  # no data yet, retry
+        chunk = if use_nonblock
+                  io.read_nonblock(n - buf.bytesize)
+                else
+                  io.read(n - buf.bytesize)
+                end
+        if chunk.nil?
+          if use_nonblock
+            if Time.now.to_f >= deadline
+              puts "[recv] timeout waiting for #{n - buf.bytesize} bytes"
+              break
+            end
+            sleep_ms @read_poll_ms
+            next
+          end
+          break # EOF for blocking read
+        end
+        if chunk.bytesize == 0        # no data yet, retry
+          if Time.now.to_f >= deadline
+            puts "[recv] timeout waiting for #{n - buf.bytesize} bytes"
+            break
+          end
+          sleep_ms @read_poll_ms
+          next
+        end
         buf += chunk
+        deadline = Time.now.to_f + @read_timeout_sec
       end
       buf
     end

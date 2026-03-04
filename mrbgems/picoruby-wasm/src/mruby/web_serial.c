@@ -330,6 +330,7 @@ EM_JS(void, serial_capture_start, (int ref_id), {
     if (!globalThis.picorubySerialCapture) {
       const buffers = new WeakMap();
       const active = new WeakSet();
+      const MAX_CHARS = 256 * 1024;
       globalThis.picorubySerialCapture = {
         start(p) {
           buffers.set(p, "");
@@ -338,7 +339,11 @@ EM_JS(void, serial_capture_start, (int ref_id), {
         append(p, chunk) {
           if (!p || !active.has(p)) return;
           const prev = buffers.get(p) || "";
-          buffers.set(p, prev + chunk);
+          let next = prev + chunk;
+          if (next.length > MAX_CHARS) {
+            next = next.slice(next.length - MAX_CHARS);
+          }
+          buffers.set(p, next);
         },
         peek(p) {
           return buffers.get(p) || "";

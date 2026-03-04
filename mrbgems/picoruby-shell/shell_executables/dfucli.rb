@@ -1,3 +1,4 @@
+require 'io-console'
 require 'dfu'
 
 path = ARGV[0]  # optional: destination path (skips A/B slot and meta)

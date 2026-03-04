@@ -158,7 +158,20 @@
     # App
     # ---------------------------------------------------------------------------
     class App
+      DFU_READY_TIMEOUT = 5000
       DFU_RESPONSE_TIMEOUT = 5000
+      DFU_LOAD_TIMEOUT = 10000
+      DFU_CAPTURE_POLL_MS = 200
+      # Temporary test switch: intentionally send a truncated payload to verify
+      # MCU-side timeout behavior in DFU::Updater#read_exact.
+      DFU_FORCE_TIMEOUT_TEST = false
+      DFU_FORCE_TIMEOUT_SEND_RATIO = 0.8
+      DFU_FORCE_TIMEOUT_MIN_BODY_BYTES = 1
+      DFU_DEBUG_LOG = true
+      # Throughput tuning for Pico USB-CDC stability
+      DFU_TX_HEADER_GAP_MS = 50
+      DFU_TX_CHUNK_SIZE = 32
+      DFU_TX_CHUNK_GAP_MS = 20
 
       def initialize
         @doc = JS.document
@@ -264,26 +277,34 @@
         msg.empty? ? klass : "#{klass}: #{msg}"
       end
 
-      def send_text_to_port(str)
-        port = current_port
+      def send_text_to_port(str, port = nil)
+        port ||= current_port
         return unless port
         JS::WebSerial._write(port, str.to_s)
       end
 
       # hex: string of hex pairs e.g. "44465500..." (no spaces)
       # Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
-      def send_hex_to_port(hex)
-        port = current_port
+      def send_hex_to_port(hex, port = nil)
+        port ||= current_port
         return unless port
 
         bytes = [hex.to_s].pack("H*")
+        send_bytes_to_port(bytes, port)
+      end
+
+      def send_bytes_to_port(bytes, port = nil)
+        port ||= current_port
+        return unless port
+        return if bytes.nil? || bytes.bytesize == 0
+
         off = 0
-        chunk_size = 64
+        chunk_size = DFU_TX_CHUNK_SIZE
         while off < bytes.bytesize
           chunk = bytes.byteslice(off, chunk_size)
           JS::WebSerial._write(port, chunk)
           off += chunk.bytesize
-          sleep_ms 10 if off < bytes.bytesize
+          sleep_ms DFU_TX_CHUNK_GAP_MS if off < bytes.bytesize
         end
       end
 
@@ -352,6 +373,12 @@
         log = el('dfu-log')
         log[:textContent] = log[:textContent].to_s + msg + "\n"
         log[:scrollTop] = log[:scrollHeight]
+      end
+
+      def debug_log(msg)
+        return unless DFU_DEBUG_LOG
+        t = Time.now.to_f
+        append_log("[DBG #{t}] #{msg}")
       end
 
       def current_path
@@ -501,36 +528,61 @@
         end
       end
 
+      def wait_capture_until(port, timeout_ms, poll_ms, markers)
+        waited = 0
+        loop do
+          cap = JS::WebSerial._capture_peek(port).to_s
+          found = markers.find { |m| cap.index(m) }
+          return [found, cap, waited] if found
+          return [nil, cap, waited] if waited >= timeout_ms
+          sleep_ms poll_ms
+          waited += poll_ms
+        end
+      end
+
+      def send_ctrl_c(port = nil)
+        JS::WebSerial._write((port || current_port), "\u0003") if (port || current_port)
+      end
+
       # Send "dfucat [path]", wait, then load content into editor.
       def do_load
         return unless connected?
+        port = current_port
         path = current_path
         return unless path
         el('load-btn')[:disabled] = true
         el('save-btn')[:disabled] = true
         append_log("[*] Loading #{path} ...")
-        JS::WebSerial._capture_start(current_port)
-        send_text_to_port("dfucat #{path}\n")
-        max_wait = 10000
-        interval = 200
-        waited = 0
-        loop do
-          sleep_ms interval
-          waited += interval
-          cap = JS::WebSerial._capture_peek(current_port).to_s
-          break if cap.index('DFUCAT_END') || cap.index('DFUCAT_ERROR:') || waited >= max_wait
+        raw = ""
+        begin
+          JS::WebSerial._capture_start(port)
+          send_text_to_port("dfucat #{path}\n", port)
+          marker, _cap, waited = wait_capture_until(port, DFU_LOAD_TIMEOUT, DFU_CAPTURE_POLL_MS, ['DFUCAT_END', 'DFUCAT_ERROR:'])
+          append_log("[.] Load wait: #{waited}ms marker=#{marker || 'timeout'}")
+        ensure
+          raw = JS::WebSerial._capture_stop(port).to_s
         end
-        raw = JS::WebSerial._capture_stop(current_port).to_s
         handle_dfucat_result(raw)
+        update_dfu_buttons
+      rescue => err
+        append_log("[-] Load error: #{error_text(err)}")
         update_dfu_buttons
       end
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
       def do_save
+        if @dfu_saving
+          append_log("[-] Upload already running")
+          return
+        end
+        @dfu_saving = true
+        set_dfu_buttons_enabled(false)
+
         unless connected?
           append_log("[-] Not connected")
           return
         end
+        port = current_port
 
         code = el('editor')[:value].to_s
         if code.strip.empty?
@@ -541,52 +593,88 @@
         path = current_path
         cmd = path ? "dfucli #{path}\n" : "dfucli\n"
         append_log("[*] Running: #{cmd.chomp}")
-        JS::WebSerial._capture_start(current_port)
-        send_text_to_port(cmd)
-
-        # Wait for dfucli to print "[recv]" (ready to receive)
-        waited = 0
-        ready = false
-        while waited < 3000
-          sleep_ms 100
-          waited += 100
-          cap = JS::WebSerial._capture_peek(current_port).to_s
-          if cap.index("[recv]")
-            ready = true
-            break
-          end
-        end
-        unless ready
-          JS::WebSerial._capture_stop(current_port)
-          append_log("[-] dfucli did not become ready within 3s")
-          return
-        end
-
-        # Build DFU packet: 19-byte header + Ruby source
         header  = build_dfu_header(code)
         payload = header + code
         append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
+        debug_log("save:start path=#{path} payload=#{payload.bytesize}")
 
-        send_hex_to_port(payload.unpack("H*").first)
+        resp = ""
+        begin
+          JS::WebSerial._capture_start(port)
+          send_text_to_port(cmd, port)
 
-        # Wait for "OK" or "ERROR" from device (visible in terminal and capture)
-        waited = 0
-        while waited < DFU_RESPONSE_TIMEOUT
-          sleep_ms 300
-          waited += 300
-          cap = JS::WebSerial._capture_peek(current_port).to_s
-          break if cap.index("OK") || cap.index("ERROR")
+          # Wait for dfucli to print "[recv]" (ready to receive)
+          marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]'])
+          unless marker
+            append_log("[-] dfucli did not become ready within #{DFU_READY_TIMEOUT}ms")
+            send_ctrl_c(port)
+            return
+          end
+          append_log("[.] dfucli ready in #{waited}ms")
+          debug_log("save:ready waited=#{waited}ms")
+
+          send_payload = payload
+          if DFU_FORCE_TIMEOUT_TEST
+            body_size = code.bytesize
+            send_body_size = (body_size * DFU_FORCE_TIMEOUT_SEND_RATIO).to_i
+            send_body_size = [send_body_size, [body_size, DFU_FORCE_TIMEOUT_MIN_BODY_BYTES].min].max
+            send_body_size = [send_body_size, body_size - 1].min
+            send_payload = header + code.byteslice(0, send_body_size).to_s
+            append_log("[TEST] timeout test mode: sending header=19 body=#{send_body_size}/#{body_size} bytes")
+            send_bytes_to_port(header, port)
+            sleep_ms 50
+            send_bytes_to_port(code.byteslice(0, send_body_size).to_s, port)
+          else
+            # Always split normal upload into header/body with a short gap.
+            # This mirrors the "test mode" behavior that showed better stability.
+            send_bytes_to_port(header, port)
+            sleep_ms DFU_TX_HEADER_GAP_MS
+            send_bytes_to_port(code, port)
+          end
+          debug_log("save:payload_sent bytes=#{send_payload.bytesize}")
+          # Allow device-side parser/update task to catch up before response polling.
+          sleep_ms 100
+
+          # Wait for device response (including DFU errors)
+          marker, _cap, waited = wait_capture_until(
+            port,
+            DFU_RESPONSE_TIMEOUT,
+            300,
+            ['OK', 'ERROR', 'DFU: error', 'DFU: file saved to ', 'DFU: update complete.']
+          )
+          append_log("[.] Upload response wait: #{waited}ms marker=#{marker || 'timeout'}")
+          if !marker
+            if DFU_FORCE_TIMEOUT_TEST
+              append_log("[TEST] no immediate response; waiting for MCU timeout path")
+            else
+              append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (sending Ctrl-C)")
+              send_ctrl_c(port)
+            end
+          end
+        ensure
+          resp = JS::WebSerial._capture_stop(port).to_s
         end
 
-        resp = JS::WebSerial._capture_stop(current_port).to_s
-        if resp.index("OK")
+        if resp.index("OK") ||
+           resp.index("DFU: file saved to ") ||
+           resp.index("DFU: update complete.")
           append_log("[+] Success!")
-        elsif resp.index("ERROR")
+        elsif resp.index("ERROR") || resp.index("DFU: error")
           idx = resp.index("ERROR")
-          append_log("[-] #{resp[idx, 60].to_s.strip}")
+          if idx
+            append_log("[-] #{resp[idx, 60].to_s.strip}")
+          else
+            idx = resp.index("DFU: error")
+            append_log("[-] #{resp[idx, 100].to_s.strip}")
+          end
         else
           append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (check terminal)")
         end
+      rescue => err
+        append_log("[-] Upload error: #{error_text(err)}")
+      ensure
+        @dfu_saving = false
+        update_dfu_buttons
       end
     end
 

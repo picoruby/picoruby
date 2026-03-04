@@ -56,7 +56,7 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
   } else if (len < 1) {
     return mrb_nil_value();
   } else {
-    outbuf = mrb_str_new_cstr(mrb, buf);
+    outbuf = mrb_str_new(mrb, buf, len);
     return outbuf;
   }
 }
