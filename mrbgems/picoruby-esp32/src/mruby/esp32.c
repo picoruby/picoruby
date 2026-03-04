@@ -76,7 +76,7 @@ mrb_picoruby_esp32_gem_init(mrb_state *mrb)
   ConnectTimeout = mrb_define_class_under_id(mrb, class_ESP32, MRB_SYM(ConnectTimeout), E_RUNTIME_ERROR);
   struct RClass *class_WiFi = mrb_define_class_under_id(mrb, class_ESP32, MRB_SYM(WiFi), mrb->object_class);
 
-  mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(init), c_esp32_wifi_init, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(_init), c_esp32_wifi_init, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM_Q(initialized), c_esp32_wifi_initialized, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(connect_timeout), c_esp32_wifi_connect_timeout, MRB_ARGS_ARG(3, 1));
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(disconnect), c_esp32_wifi_disconnect, MRB_ARGS_NONE());

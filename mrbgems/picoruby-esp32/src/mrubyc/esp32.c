@@ -35,9 +35,9 @@ c_esp32_wifi_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *ssid = (const char *)GET_STRING_ARG(1);
   const char *password = (const char *)GET_STRING_ARG(2);
   int auth = GET_INT_ARG(3);
-  int timeout_ms = 30000; // default 30 seconds
+  int timeout_ms = 60 * 1000; // default 60 seconds
   if (argc > 3) {
-    timeout_ms = GET_INT_ARG(4);
+    timeout_ms = GET_INT_ARG(4) * 1000;
   }
 
   int result = ESP32_WIFI_connect_timeout(ssid, password, auth, timeout_ms);
@@ -73,7 +73,7 @@ mrbc_esp32_init(mrbc_vm *vm)
   ConnectTimeout = mrbc_define_class_under(vm, class_ESP32, "ConnectTimeout", MRBC_CLASS(RuntimeError));
 
   mrbc_class *class_WiFi = mrbc_define_class_under(vm, class_ESP32, "WiFi", mrbc_class_object);
-  mrbc_define_method(vm, class_WiFi, "init", c_esp32_wifi_init);
+  mrbc_define_method(vm, class_WiFi, "_init", c_esp32_wifi_init);
   mrbc_define_method(vm, class_WiFi, "initialized?", c_esp32_wifi_initialized);
   mrbc_define_method(vm, class_WiFi, "connect_timeout", c_esp32_wifi_connect_timeout);
   mrbc_define_method(vm, class_WiFi, "disconnect", c_esp32_wifi_disconnect);
