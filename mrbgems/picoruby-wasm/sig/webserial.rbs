@@ -12,6 +12,11 @@ module JS
     def self.request_port: (?filters: Array[untyped]) -> JS::WebSerial?
                          | (?filters: Array[untyped]) { (JS::WebSerial?) -> void } -> JS::WebSerial?
 
+    # Request a serial port and open it with one call.
+    # Yields the opened JS::WebSerial instance to the block.
+    def self.connect: (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) -> JS::WebSerial
+                    | (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) { (JS::WebSerial) -> void } -> JS::WebSerial
+
     def self.new: (JS::Object js_port) -> JS::WebSerial
 
     # Open the serial port with the given parameters.

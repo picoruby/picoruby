@@ -16,6 +16,17 @@ module JS
       port_obj
     end
 
+    # Request and open a serial port with one call.
+    # Calls the block after successful open, allowing caller to configure.
+    def self.connect(baud_rate: 115200, data_bits: 8, stop_bits: 1, parity: "none", &block)
+      raw_port = JS::WebSerial._request_port.await
+      raise "No serial port selected" unless raw_port
+      ws = new(raw_port)
+      ws.open(baud_rate: baud_rate, data_bits: data_bits, stop_bits: stop_bits, parity: parity)
+      block.call(ws) if block
+      ws
+    end
+
     # js_port is a JS::Object wrapping a SerialPort.
     def initialize(js_port)
       @js_port = js_port

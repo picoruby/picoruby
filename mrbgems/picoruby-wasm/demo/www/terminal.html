@@ -313,10 +313,17 @@
         end
 
         begin
-          ws = JS::WebSerial.request_port
-          raise "No serial port selected" unless ws
+          baud_rate = el('baud-rate')[:value].to_i
           @terminal.reset
-          open_port(ws)
+          JS::WebSerial.connect(baud_rate: baud_rate) do |ws|
+            self.current_port = ws
+            ws.start_terminal_read(@terminal)
+            self.auto_reconnect = true
+            update_status('Connected', true)
+            update_dfu_buttons
+            el('connect-btn')[:textContent] = 'Disconnect'
+            @terminal.focus
+          end
         rescue => err
           txt = error_text(err)
           JS.global[:console].error("Connect error: #{txt}")
@@ -325,24 +332,6 @@
           self.current_port = nil
           update_dfu_buttons
         end
-      end
-
-      def open_port(ws)
-        baud_rate = el('baud-rate')[:value].to_i
-        self.current_port = ws
-        ws.open(baud_rate: baud_rate)
-        ws.start_terminal_read(@terminal)
-        self.auto_reconnect = true
-        update_status('Connected', true)
-        update_dfu_buttons
-        el('connect-btn')[:textContent] = 'Disconnect'
-        @terminal.focus
-      rescue => err
-        txt = error_text(err)
-        JS.global[:console].error("Open port error: #{txt}")
-        append_log("[-] Open port error: #{txt}")
-        self.current_port = nil
-        raise
       end
 
       def disconnect
@@ -405,7 +394,12 @@
             sleep_ms 1500
             begin
               ws = JS::WebSerial.new(raw_port)
-              open_port(ws)
+              baud_rate = el('baud-rate')[:value].to_i
+              ws.open(baud_rate: baud_rate)
+              ws.start_terminal_read(@terminal)
+              self.current_port = ws
+              update_status('Connected', true)
+              update_dfu_buttons
               @terminal.writeln('[Reconnected]')
             rescue => err
               JS.global[:console].error("Auto-reconnect failed: #{err}")
