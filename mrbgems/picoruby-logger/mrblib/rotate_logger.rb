@@ -71,7 +71,7 @@ class RotateLogger
 
   def delete_old_logs
     return if @keep_size.nil? || @keep_size <= 0
-    logs = []
+    logs = [] #: Array[String]
     Dir.open(@dir) do |dir|
       while entry = dir.read
         if File.file?("#{@dir}/#{entry}")

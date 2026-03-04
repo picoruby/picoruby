@@ -16,7 +16,7 @@ class Dir
 
   class << self
     def entries(path)
-      a = []
+      a = [] #: Array[String]
       self.open(path) do |d|
         while s = d.read
           a << s

@@ -9,7 +9,7 @@ module Net
     def initialize(method, path, initheader = nil)
       @method = method.to_s.upcase
       @path = path
-      @header = {}
+      @header = {} #: Hash[String, String]
       @body = nil
 
       # Initialize headers
@@ -65,7 +65,7 @@ module Net
 
     # Convert request to HTTP wire format
     def to_s
-      lines = []
+      lines = [] #: Array[String]
 
       # Request line
       lines << "#{@method} #{@path} HTTP/1.1"
@@ -74,7 +74,7 @@ module Net
       @header.each do |key, value|
         # Capitalize header names properly (manually since capitalize is not in mruby/c)
         parts = key.split('-')
-        formatted_parts = []
+        formatted_parts = [] #: Array[String]
         parts.each do |word|
           if word.length > 0
             # Capitalize first char, lowercase rest

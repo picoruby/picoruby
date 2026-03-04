@@ -238,7 +238,7 @@ class Keyboard
     index = row * @keymap_cols + col
 
     # Build layer priority list: locked -> momentary stack (LIFO) -> default
-    priority_layers = []
+    priority_layers = [] #: Array[Integer]
 
     # 1. Toggle locked layer
     if @locked_layer
@@ -495,7 +495,7 @@ class Keyboard
 
   # Update tap/hold key states (check for timeout and transitions)
   def update_tap_hold_keys
-    keys_to_delete = []
+    keys_to_delete = [] #: Array[Integer]
 
     @tap_hold_keys.each do |key_pos, state|
       case state[:state]
@@ -704,7 +704,7 @@ class Keyboard
     return if @combo_buffer.empty?
 
     now = Machine.board_millis
-    expired_entries = []
+    expired_entries = [] #: Array[Hash[Symbol, untyped]]
 
     @combo_buffer.each do |entry|
       if now - entry[:pressed_at] >= @combo_term_ms

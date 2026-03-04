@@ -96,7 +96,7 @@ class MCP3424
   def read(timeout_ms = nil)
     bit_resolution = self.bit_resolution
     read_length = (bit_resolution == 18) ? 4 : 3
-    data = []
+    data = [] #: Array[Integer]
     while true
       d0, d1, d2, d3 = @i2c.read(@address, read_length).bytes
       return nil unless config_byte = (bit_resolution == 18) ? d3 : d2

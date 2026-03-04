@@ -140,7 +140,7 @@ class File < IO
       drive_prefix = expanded_path[0, 2].to_s
       expanded_path = expanded_path[2, expanded_path.size]
     end
-    expand_path_array = []
+    expand_path_array = [] #: Array[String]
     if File::ALT_SEPARATOR && expanded_path&.include?(File::ALT_SEPARATOR)
       expand_path = expanded_path.gsub(File::ALT_SEPARATOR, '/')
     end
