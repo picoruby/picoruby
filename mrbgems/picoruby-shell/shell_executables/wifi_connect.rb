@@ -148,7 +148,7 @@ begin
   when "cwy43"
     CYW43.connect_timeout(ssid, password, auth, 5) # seconds
   when "esp32"
-    ESP32::WiFi.connect_timeout(ssid, password, auth, 5000) # milliseconds
+    ESP32::WiFi.connect_timeout(ssid, password, auth, 5) # seconds
   end
   puts "Connected."
 rescue => e
@@ -169,7 +169,7 @@ end
 
 link_up_check = case wifi_module
                 when "cwy43" then Proc.new { CYW43.link_connected? }
-                when "esp32" then Proc.new { ESP32::WiFi.tcpip_link_status == ESP32::WiFi::LINK_UP }
+                when "esp32" then Proc.new { ESP32::WiFi.link_connected? }
                 end
 link_status_name = case wifi_module
                    when "cwy43" then Proc.new { CYW43.tcpip_link_status_name }
