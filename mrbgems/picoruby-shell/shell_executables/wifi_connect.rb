@@ -143,12 +143,12 @@ if config["wifi"]["watchdog"]
 end
 
 begin
-  puts "Connecting to WiFi network: #{ssid}. Timeout in 5 seconds..."
+  puts "Connecting to WiFi network: #{ssid}. Timeout in 10 seconds..."
   case wifi_module
   when "cwy43"
-    CYW43.connect_timeout(ssid, password, auth, 5) # seconds
+    CYW43.connect_timeout(ssid, password, auth, 10) # seconds
   when "esp32"
-    ESP32::WiFi.connect_timeout(ssid, password, auth, 5) # seconds
+    ESP32::WiFi.connect_timeout(ssid, password, auth, 10) # seconds
   end
   puts "Connected."
 rescue => e
