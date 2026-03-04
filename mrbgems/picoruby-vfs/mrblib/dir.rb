@@ -20,7 +20,7 @@ class Dir
       if block_given?
         nil
       else
-        ary = []
+        ary = [] #: Array[String]
         pattern = [pattern].flatten
         self.open(ENV['PWD'].to_s) do |dir|
           pattern.each do |pat|

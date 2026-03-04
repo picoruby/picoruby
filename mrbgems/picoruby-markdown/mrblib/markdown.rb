@@ -7,13 +7,13 @@ class Markdown
     if lines[0] && lines[0].start_with?("---\n")
       parts = text.split("---\n", 3)
       if parts.length >= 3
-        @front_matter = YAML.load(parts[1]) || {}
+        @front_matter = YAML.load(parts[1]) || {} #: Hash[String, untyped]
         lines = parts[2].lines
       end
     end
 
-    @footnotes = {}
-    @footnote_order = []
+    @footnotes = {} #: Hash[String, String]
+    @footnote_order = [] #: Array[String]
     remaining_lines = []
     lines.each do |line|
       stripped = line.strip
@@ -399,7 +399,7 @@ class Markdown
   end
 
   def protect_html_tags(line)
-    protected_tags = []
+    protected_tags = [] #: Array[String]
     output = ""
     i = 0
 

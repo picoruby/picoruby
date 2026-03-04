@@ -257,7 +257,7 @@ class Shell
     require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
-    @jobs = []
+    @jobs = [] #: Array[Job]
   end
 
   LOGO = if RUBY_ENGINE == "mruby"
