@@ -3,9 +3,9 @@ require 'env'
 class Dir
   include Enumerable
 
-  def each(&block)
+  def each
     while s = self.read
-      block.call(s)
+      yield s
     end
     self
   end

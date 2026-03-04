@@ -3,7 +3,7 @@ module Funicular
   class StyleValue
     attr_reader value: String
     def self.new: (String | untyped value) -> StyleValue
-    def |: (StyleValue | String | nil other) -> StyleValue
+    def |: (StyleValue | String | nil | untyped other) -> StyleValue
     def to_s: () -> String
   end
 

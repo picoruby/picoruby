@@ -20,6 +20,7 @@ class File
 
   class << self
     def expand_path(path, default_path = '.')
+      # @type var path: String
       if path.start_with?("/")
         VFS.sanitize path
       else
@@ -119,28 +120,36 @@ class File
     @file.seek(0)
   end
 
-  def each_line(&block)
+  def each_line
     while line = gets do
-      block.call line
+      yield line
     end
   end
 
   def gets(*args, chomp: false)
+    # @type var rs: String
+    # @type var limit: Integer | nil
     case args.size
     when 0
       rs = "\n"
       limit = nil
     when 1
-      if args[0].is_a?(Integer)
+      # @type var arg0: String | Integer
+      arg0 = args[0]
+      if arg0.is_a?(Integer)
         rs = "\n"
-        limit = args[0]
+        limit = arg0
       else
-        rs = args[0]
+        rs = arg0
         limit = nil
       end
     when 2
-      rs = args[0].to_s
-      limit = args[1].to_i
+      # @type var arg0_rs: String
+      arg0_rs = args[0] #: String
+      # @type var arg1_lim: Integer
+      arg1_lim = args[1] #: Integer
+      rs = arg0_rs.to_s
+      limit = arg1_lim.to_i
     else
       raise ArgumentError.new("wrong number of arguments (expected 0..2)")
     end
@@ -185,6 +194,8 @@ class File
   end
 
   def read(length = nil, outbuf = "")
+    # @type var length: Integer | nil
+    # @type var outbuf: String
     if length && length < 0
       raise ArgumentError.new("negative length #{length} given")
     end
@@ -225,9 +236,9 @@ class File
   end
 
   def putc(ch)
-    case ch.class
+    # @type var ch: String | Integer
+    case ch
     when Integer
-      # @type var ch: Integer
       @file.write ch.chr
     when String
       @file.write ch[0].to_s

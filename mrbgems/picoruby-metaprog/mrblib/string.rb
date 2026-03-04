@@ -12,6 +12,8 @@ class String
   end
 
   def gsub(pattern, replacement)
+    # @type var pattern: String
+    # @type var replacement: String
     result = ''
     i = 0
     while i < self.size

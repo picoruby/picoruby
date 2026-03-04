@@ -190,7 +190,7 @@ module Picotest
     # private
 
     def report(result, error_message, expected, actual)
-      method = caller(2, 1)[0]
+      method = caller(2, 1)&.[](0)
       if result
         print "#{Picotest::GREEN}.#{Picotest::RESET}"
         @result["success_count"] += 1
