@@ -7,14 +7,14 @@ class Markdown
     if lines[0] && lines[0].start_with?("---\n")
       parts = text.split("---\n", 3)
       if parts.length >= 3
-        @front_matter = YAML.load(parts[1]) || {} #: Hash[String, untyped]
+        @front_matter = YAML.load(parts[1]) || ({} #: Hash[String, untyped])
         lines = parts[2].lines
       end
     end
 
     @footnotes = {} #: Hash[String, String]
     @footnote_order = [] #: Array[String]
-    remaining_lines = []
+    remaining_lines = [] #: Array[String]
     lines.each do |line|
       stripped = line.strip
       if stripped.start_with?('[^') && stripped.include?(']:')
