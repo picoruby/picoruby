@@ -7,7 +7,9 @@ class Markdown
     if lines[0] && lines[0].start_with?("---\n")
       parts = text.split("---\n", 3)
       if parts.length >= 3
-        @front_matter = YAML.load(parts[1]) || ({} #: Hash[String, untyped])
+        # @type var default_front_matter: Hash[String, untyped]
+        default_front_matter = {}
+        @front_matter = YAML.load(parts[1]) || default_front_matter
         lines = parts[2].lines
       end
     end
