@@ -61,7 +61,7 @@ module Funicular
 
   class StyleBuilder
     def initialize
-      @definitions = {}
+      @definitions = {} #: Hash[Symbol, Hash[Symbol, untyped]]
     end
 
     def method_missing(name, *args)

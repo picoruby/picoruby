@@ -26,7 +26,7 @@ module Funicular
       private
 
       def normalize_children(children)
-        result = []
+        result = [] #: Array[child_t]
         children.each do |child|
           case child
           when VNode
@@ -89,7 +89,7 @@ module Funicular
     class Renderer
       def initialize(doc = nil)
         @doc = doc || JS.document
-        @error_boundary_stack = []
+        @error_boundary_stack = [] #: Array[Funicular::ErrorBoundary]
       end
 
       def render(vnode, parent = nil)

@@ -267,7 +267,7 @@ module Funicular
     class Subscriptions
       def initialize(consumer)
         @consumer = consumer
-        @subscriptions = {}
+        @subscriptions = {} #: Hash[String, Subscription]
       end
 
       # Create a new subscription

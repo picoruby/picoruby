@@ -46,7 +46,7 @@ module Funicular
       end
 
       def self.diff_element(old_node, new_node)
-        patches = []
+        patches = [] #: Array[patch_t]
 
         if old_node.tag != new_node.tag
           return [[:replace, new_node, old_node]]
@@ -62,7 +62,7 @@ module Funicular
       end
 
       def self.diff_props(old_props, new_props)
-        patches = {}
+        patches = {} #: Hash[Symbol, untyped]
         new_props.each do |key, value|
           # Skip Proc/Lambda values as they are recreated on each render
           # and should be handled by event binding, not props patching
@@ -91,10 +91,10 @@ module Funicular
       end
 
       def self.diff_children_with_keys(old_children, new_children)
-        patches = []
+        patches = [] #: Array[patch_t]
 
         # 1. Build key map from old children
-        old_key_map = {}
+        old_key_map = {} #: Hash[untyped, [Integer, child_t]]
         old_children.each_with_index do |child, index|
           if child.is_a?(VNode) && child.respond_to?(:key) && child.key
             old_key_map[child.key] = [index, child]
@@ -102,7 +102,7 @@ module Funicular
         end
 
         # 2. Track matched old indices
-        matched_old_indices = {}
+        matched_old_indices = {} #: Hash[Integer, bool]
 
         # 3. Process new children
         new_children.each_with_index do |new_child, new_index|
@@ -161,8 +161,8 @@ module Funicular
       end
 
       def self.diff_children_by_index(old_children, new_children)
-        patches = []
-        remove_patches = [] # Collect remove patches separately to apply at the end
+        patches = [] #: Array[patch_t]
+        remove_patches = [] #: Array[patch_t]
         max_length = [old_children.length, new_children.length].max
         max_length&.times do |i|
           old_child = old_children[i]
