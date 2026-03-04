@@ -64,6 +64,23 @@ EM_JS(void, serial_write, (int ref_id, const uint8_t *data, int len), {
   }
 });
 
+/* Return a Promise that resolves when queued writes for this port are drained */
+EM_JS(int, serial_write_drain_promise, (int ref_id), {
+  try {
+    const key = String(ref_id);
+    const q = (globalThis.picorubySerialWriteQueues && globalThis.picorubySerialWriteQueues[key]) || Promise.resolve();
+    const p = q.then(() => true).catch((e) => {
+      console.error('serial_write_drain failed:', e);
+      return false;
+    });
+    return globalThis.picorubyRefs.push(p) - 1;
+  } catch (e) {
+    console.error('serial_write_drain_promise failed:', e);
+    const p = Promise.resolve(false);
+    return globalThis.picorubyRefs.push(p) - 1;
+  }
+});
+
 /* Start async read loop; calls serial_data_received for each chunk */
 EM_JS(void, serial_start_reading, (int ref_id, uintptr_t callback_id), {
   try {
@@ -594,6 +611,28 @@ mrb_web_serial_write(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::WebSerial._drain(js_port) -> JS::Object (Promise<boolean>)
+ * Resolve when pending serial write queue for this port is drained.
+ */
+static mrb_value
+mrb_web_serial_drain(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  return wrap_ref_as_js_object(mrb, serial_write_drain_promise(port->ref_id));
+}
+
+/*
  * JS::WebSerial._start_reading(js_port, callback_id) -> nil
  * Start async read loop; calls Ruby block for each received chunk.
  */
@@ -741,6 +780,8 @@ mrb_web_serial_init(mrb_state *mrb)
 
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_write),
     mrb_web_serial_write, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_drain),
+    mrb_web_serial_drain, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_start_reading),
     mrb_web_serial_start_reading, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_read_from_port),

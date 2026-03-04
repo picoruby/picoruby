@@ -306,6 +306,8 @@
           off += chunk.bytesize
           sleep_ms DFU_TX_CHUNK_GAP_MS if off < bytes.bytesize
         end
+        # Wait until JS write queue is fully flushed to the serial writable stream.
+        JS::WebSerial._drain(port).await
       end
 
       def connect(serial_port = nil)
