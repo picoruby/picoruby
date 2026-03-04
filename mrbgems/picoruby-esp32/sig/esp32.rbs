@@ -6,6 +6,14 @@ class ESP32
   end
 
   class WiFi
+    # @sidebar hardware_device
+    class Auth
+      OPEN: Integer
+      WPA_TKIP_PSK: Integer
+      WPA2_AES_PSK: Integer
+      WPA2_MIXED_PSK: Integer
+    end
+
     LINK_DOWN:    Integer
     LINK_NOIP:    Integer
     LINK_UP:      Integer
@@ -19,13 +27,7 @@ class ESP32
     def self.tcpip_link_status: () -> Integer
     def self.tcpip_link_status_name: () -> String
     def self.link_connected?: () -> bool
-  end
 
-  # @sidebar hardware_device
-  class Auth
-    OPEN: Integer
-    WPA_TKIP_PSK: Integer
-    WPA2_AES_PSK: Integer
-    WPA2_MIXED_PSK: Integer
+    private def self._init: () -> bool
   end
 end

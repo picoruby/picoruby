@@ -1,5 +1,12 @@
 class ESP32
   class WiFi
+    class Auth
+      OPEN           = 0
+      WPA_TKIP_PSK   = 2
+      WPA2_AES_PSK   = 3
+      WPA2_MIXED_PSK = 4
+    end
+
     LINK_DOWN  = 0
     LINK_NOIP  = 2
     LINK_UP    = 3
@@ -10,7 +17,7 @@ class ESP32
         puts "ESP32::WiFi already initialized"
         return true
       end
-      unless _init(country&.upcase, force)
+      unless _init
         puts "ESP32::WiFi.init failed. No ESP32 module is connected?"
         return false
       end
@@ -37,15 +44,9 @@ class ESP32
     end
 
     def self.enable_sta_mode
+      # TODO: Extract the process for setting the sta mode from ESP32_WIFI_init()
       true
     end
-  end
-
-  class Auth
-    OPEN           = 0
-    WPA_TKIP_PSK   = 2
-    WPA2_AES_PSK   = 3
-    WPA2_MIXED_PSK = 4
   end
 
   # Exception raised when WiFi connection times out
