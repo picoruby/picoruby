@@ -51,6 +51,12 @@ module JS
     # Stop capturing and return the captured output.
     def capture_stop: () -> String
 
+    # Write text to the port.
+    def write_text: (String str) -> nil
+
+    # Write bytes in chunks, returning a promise that resolves when flushed.
+    def write_bytes: (String bytes, ?chunk_size: Integer) -> JS::Object
+
     def opened?: () -> bool
 
     private

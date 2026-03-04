@@ -277,7 +277,7 @@
       def send_text_to_port(str, port = nil)
         port ||= current_port
         return unless port
-        port.write(str.to_s)
+        port.write_text(str)
       end
 
       # hex: string of hex pairs e.g. "44465500..." (no spaces)

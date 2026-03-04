@@ -99,6 +99,29 @@ module JS
       JS::WebSerial._capture_stop(@js_port).to_s
     end
 
+    # Write text to the port.
+    def write_text(str)
+      write(str.to_s)
+    end
+
+    # Write bytes in chunks, returning a promise that resolves when flushed.
+    # The caller is responsible for sleep_ms between chunks if needed.
+    def write_bytes(bytes, chunk_size: 32)
+      unless bytes && bytes.bytesize > 0
+        # Return a resolved promise
+        return JS::WebSerial._drain(@js_port)
+      end
+
+      off = 0
+      while off < bytes.bytesize
+        chunk = bytes.byteslice(off, chunk_size).to_s
+        write(chunk) if chunk.bytesize > 0
+        off += chunk.bytesize
+      end
+      # Return promise that resolves when write queue is flushed
+      drain
+    end
+
     def opened?
       @opened
     end
