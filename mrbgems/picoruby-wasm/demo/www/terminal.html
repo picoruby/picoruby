@@ -164,9 +164,6 @@
       DFU_CAPTURE_POLL_MS = 200
       # Temporary test switch: intentionally send a truncated payload to verify
       # MCU-side timeout behavior in DFU::Updater#read_exact.
-      DFU_FORCE_TIMEOUT_TEST = false
-      DFU_FORCE_TIMEOUT_SEND_RATIO = 0.8
-      DFU_FORCE_TIMEOUT_MIN_BODY_BYTES = 1
       DFU_DEBUG_LOG = true
       # Throughput tuning for Pico USB-CDC stability
       DFU_TX_HEADER_GAP_MS = 50
@@ -623,23 +620,12 @@
           debug_log("save:ready waited=#{waited}ms")
 
           send_payload = payload
-          if DFU_FORCE_TIMEOUT_TEST
-            body_size = code.bytesize
-            send_body_size = (body_size * DFU_FORCE_TIMEOUT_SEND_RATIO).to_i
-            send_body_size = [send_body_size, [body_size, DFU_FORCE_TIMEOUT_MIN_BODY_BYTES].min].max
-            send_body_size = [send_body_size, body_size - 1].min
-            send_payload = header + code.byteslice(0, send_body_size).to_s
-            append_log("[TEST] timeout test mode: sending header=19 body=#{send_body_size}/#{body_size} bytes")
-            send_bytes_to_port(header, port).await
-            sleep_ms 50
-            send_bytes_to_port(code.byteslice(0, send_body_size).to_s, port).await
-          else
-            # Always split normal upload into header/body with a short gap.
-            # This mirrors the "test mode" behavior that showed better stability.
-            send_bytes_to_port(header, port).await
-            sleep_ms DFU_TX_HEADER_GAP_MS
-            send_bytes_to_port(code, port).await
-          end
+
+          # Always split normal upload into header/body with a short gap.
+          # This mirrors the "test mode" behavior that showed better stability.
+          send_bytes_to_port(header, port).await
+          sleep_ms DFU_TX_HEADER_GAP_MS
+          send_bytes_to_port(code, port).await
           debug_log("save:payload_sent bytes=#{send_payload.bytesize}")
           # Allow device-side parser/update task to catch up before response polling.
           sleep_ms 100
@@ -653,12 +639,8 @@
           )
           append_log("[.] Upload response wait: #{waited}ms marker=#{marker || 'timeout'}")
           if !marker
-            if DFU_FORCE_TIMEOUT_TEST
-              append_log("[TEST] no immediate response; waiting for MCU timeout path")
-            else
-              append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (sending Ctrl-C)")
-              send_ctrl_c(port)
-            end
+            append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (sending Ctrl-C)")
+            send_ctrl_c(port)
           end
         ensure
           resp = port.capture_stop
