@@ -82,6 +82,21 @@ and
 
 See also [picoruby/picoruby/wiki](https://github.com/picoruby/picoruby/wiki).
 
+## MQTT Support
+
+Two MQTT implementations are available as optional gems:
+
+| Gem | Type | Best For | Installation |
+|-----|------|----------|--------------|
+| `picoruby-net-mqtt` | Pure Ruby | All boards, stability, debugging | `conf.gem core: 'picoruby-net-mqtt'` |
+| `picoruby-mqtt-lwip` | lwIP native | RP2040 (pico_w), high performance | `conf.gem core: 'picoruby-mqtt-lwip'` |
+
+Both gems provide the same API (`require 'net/mqtt'`) and are fully interchangeable. Choose based on your target platform and performance requirements.
+
+For detailed documentation, see:
+- [picoruby-net-mqtt README](mrbgems/picoruby-net-mqtt/README.md)
+- [picoruby-mqtt-lwip README](mrbgems/picoruby-mqtt-lwip/README.md)
+
 ### Stargazers over time
 [![Stargazers over time](https://starchart.cc/picoruby/picoruby.svg?variant=adaptive)](https://starchart.cc/picoruby/picoruby)
 

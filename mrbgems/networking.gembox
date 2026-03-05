@@ -2,16 +2,6 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-net-http'
   conf.gem core: 'picoruby-net-ntp'
   conf.gem core: 'picoruby-net-websocket'
-
-  # MQTT auto-selection based on board
-  if conf.name.include?('pico_w') && !conf.name.include?('pico2_w')
-    # Use lwIP native MQTT for pico_w
-    conf.gem core: 'picoruby-mqtt-lwip'
-  else
-    # Use pure Ruby MQTT for other boards
-    conf.gem core: 'picoruby-net-mqtt'
-  end
-
   if vm_mruby?
     conf.gem core: 'picoruby-drb' # mruby/c can't support dRuby
   end
