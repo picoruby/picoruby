@@ -88,6 +88,10 @@
 #define LWIP_ALTCP_TLS 1
 #define LWIP_ALTCP_TLS_MBEDTLS 1
 
+// Support MQTT
+#define LWIP_MQTT 1
+#define MQTT_REQ_MAX_IN_FLIGHT 5
+
 #ifndef LWIP_DEBUG
 #define LWIP_DEBUG 1
 #endif
