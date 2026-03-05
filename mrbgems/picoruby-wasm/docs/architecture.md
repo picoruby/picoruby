@@ -2,6 +2,12 @@
 
 This document explains the core architecture of PicoRuby.wasm, focusing on the task-based execution model and how asynchronous operations integrate with exception handling.
 
+## About sleep and sleep_ms
+
+These functions work like yield and do not block browser UI.
+See mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/src/task.c for details.
+
+
 ## Task-Based Execution Model
 
 PicoRuby WASM uses a **cooperative multitasking model** that integrates Ruby tasks with the JavaScript event loop:

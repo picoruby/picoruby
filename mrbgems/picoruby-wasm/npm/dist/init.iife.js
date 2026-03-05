@@ -50,7 +50,7 @@
       function run() {
         const result = Module.ccall('mrb_run_step', 'number', [], []);
         if (result < 0) {
-          return;
+          console.error('mrb_run_step returned', result, '- scheduler continues');
         }
         setTimeout(run, 0);
       }

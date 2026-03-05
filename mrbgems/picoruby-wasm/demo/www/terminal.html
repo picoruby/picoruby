@@ -498,26 +498,30 @@
       def handle_dfucat_result(raw)
         result = parse_dfucat_output(raw)
         if result.nil?
-          append_log("[-] Load failed: no DFUCAT response")
+          append_log("[-] Download failed: no DFUCAT response")
         elsif result[:error]
           append_log("[-] #{result[:error]}")
         else
           el('editor')[:value] = result[:content]
-          append_log("[+] Loaded #{result[:content].length} chars")
+          append_log("[+] Downloaded #{result[:content].length} chars")
         end
       end
 
       def wait_capture_until(port, timeout_ms, poll_ms, markers)
         waited = 0
         loop do
+          JS.global[:console].log("wcu: peek start")
           cap = port.capture_peek
+          JS.global[:console].log("wcu: peek done len=#{cap.length}")
           found = markers.find { |m| cap.index(m) }
           return [found, cap, waited] if found
           if waited >= timeout_ms
             append_log("[!] Capture wait timeout after #{waited}ms (expected one of: #{markers.join(', ')})")
             return [nil, cap, waited]
           end
+          JS.global[:console].log("wcu: sleep_ms #{poll_ms}")
           sleep_ms poll_ms
+          JS.global[:console].log("wcu: woke up")
           waited += poll_ms
         end
       end
@@ -535,21 +539,21 @@
         return unless path
         el('upload-btn')[:disabled] = true
         el('download-btn')[:disabled] = true
-        append_log("[*] Loading #{path} ...")
+        append_log("[*] Downloading #{path} ...")
         raw = ""
         begin
           port.capture_start
           sleep_ms 10  # Ensure capture is fully started
           send_text_to_port("dfucat #{path}\n", port)
           marker, _cap, waited = wait_capture_until(port, DFU_LOAD_TIMEOUT, DFU_CAPTURE_POLL_MS, ['DFUCAT_END', 'DFUCAT_ERROR:'])
-          append_log("[.] Load wait: #{waited}ms marker=#{marker || 'timeout'}")
+          append_log("[.] Download wait: #{waited}ms marker=#{marker || 'timeout'}")
         ensure
           raw = port.capture_stop
         end
         handle_dfucat_result(raw)
         update_dfu_buttons
       rescue => err
-        append_log("[-] Load error: #{error_text(err)}")
+        append_log("[-] Download error: #{error_text(err)}")
         update_dfu_buttons
       end
 

@@ -94,12 +94,12 @@ mrb_run_step(void)
     global_mrb->exc = NULL;
     mrb_value exc_str = mrb_inspect(global_mrb, exc);
     if (global_mrb->exc) {
-      fprintf(stderr, "Exception in main loop (failed to inspect exception)\n");
+      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
       global_mrb->exc = NULL;
     } else {
-      fprintf(stderr, "Exception in main loop: %s\n", RSTRING_PTR(exc_str));
+      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
     }
-    return -1;
+    /* Continue scheduler; one task exception must not stop others */
   }
 
   // Even if there is no task to run, return 0
