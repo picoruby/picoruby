@@ -17,43 +17,43 @@ module Net
         @connected = _connect_impl(@host, @port, @client_id)
       end
 
-    def disconnect
-      return unless @connected
-      _disconnect_impl
-      @connected = false
-    end
-
-    def connected?
-      @connected
-    end
-
-    def publish(topic, payload, retain: false, qos: 0)
-      return false unless @connected
-      _publish_impl(topic, payload.to_s)
-    end
-
-    def subscribe(topic)
-      return false unless @connected
-      _subscribe_impl(topic)
-    end
-
-    def get(&block)
-      return unless @connected
-
-      if block_given?
-        # Non-Blocking
-        loop do
-          message = _get_message_impl
-          if message
-            yield(message[0], message[1])
-          end
-          sleep_ms 10
-        end
-      else
-        # Blocking
-        _get_message_impl
+      def disconnect
+        return unless @connected
+        _disconnect_impl
+        @connected = false
       end
-    end
+
+      def connected?
+        @connected
+      end
+
+      def publish(topic, payload, retain: false, qos: 0)
+        return false unless @connected
+        _publish_impl(topic, payload.to_s)
+      end
+
+      def subscribe(topic)
+        return false unless @connected
+        _subscribe_impl(topic)
+      end
+
+      def get(&block)
+        return unless @connected
+
+        if block_given?
+          # Non-Blocking
+          loop do
+            message = _get_message_impl
+            if message
+              yield(message[0], message[1])
+            end
+            sleep_ms 10
+          end
+        else
+          # Blocking
+          _get_message_impl
+        end
+      end
     end
   end
 end
