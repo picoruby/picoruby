@@ -117,9 +117,9 @@
   <fieldset id="dfu-section">
     <legend>File Editor (by dfucat and dfucli)</legend>
     <div class="controls">
-      <button id="load-btn" disabled>▼ Download</button>
+      <button id="download-btn" disabled>▼ Download</button>
       <input id="path-input" type="text" placeholder="/home/app.rb" style="width:220px">
-      <button id="save-btn" disabled>▲ Upload</button>
+      <button id="upload-btn" disabled>▲ Upload</button>
       <label>Editor font:
         <span class="font-ctrl">
           <button id="editor-font-minus">−</button>
@@ -223,7 +223,7 @@
       end
 
       def fit_terminal
-        @fit_addon.fit if @fit_addon
+        @fit_addon&.fit
       end
 
       def set_editor_font(val)
@@ -245,8 +245,8 @@
       end
 
       def set_dfu_buttons_enabled(enabled)
-        el('load-btn')[:disabled] = !enabled
-        el('save-btn')[:disabled] = !enabled
+        el('upload-btn')[:disabled] = !enabled
+        el('download-btn')[:disabled] = !enabled
       end
 
       def connected?
@@ -363,13 +363,13 @@
         @terminal.onData do |data|
           send_text_to_port(data.to_s)
         end
-        el('connect-btn').addEventListener('click') { |_| connected? ? disconnect(manual: true) : connect }
-        el('save-btn').addEventListener('click') { |_| do_save }
-        el('load-btn').addEventListener('click') { |_| do_load }
-        JS.global.addEventListener('serial-reader-closed') { |_| disconnect }
+        el('connect-btn').addEventListener('click') { connected? ? disconnect(manual: true) : connect }
+        el('upload-btn').addEventListener('click') { do_upload }
+        el('download-btn').addEventListener('click') { do_download }
+        JS.global.addEventListener('serial-reader-closed') { disconnect }
         bind_font_controls
         bind_resizer
-        el('path-input').addEventListener('input') { |_| update_dfu_buttons }
+        el('path-input').addEventListener('input') { update_dfu_buttons }
 
         if JS::WebSerial.supported?
           serial = JS.global[:navigator][:serial]
@@ -394,7 +394,7 @@
             end
           end
 
-          serial.addEventListener('disconnect') do |_|
+          serial.addEventListener('disconnect') do
             next unless current_port
             @terminal.writeln("\r\n[Serial port disconnected]")
             disconnect
@@ -404,14 +404,14 @@
 
       def bind_font_controls
         term_font_input = el('term-font-size')
-        el('term-font-minus').addEventListener('click') { |_| set_term_font(term_font_input[:value].to_i - 1) }
-        el('term-font-plus').addEventListener('click')  { |_| set_term_font(term_font_input[:value].to_i + 1) }
-        term_font_input.addEventListener('change') { |_| set_term_font(term_font_input[:value].to_i) }
+        el('term-font-minus').addEventListener('click') { set_term_font(term_font_input[:value].to_i - 1) }
+        el('term-font-plus').addEventListener('click')  { set_term_font(term_font_input[:value].to_i + 1) }
+        term_font_input.addEventListener('change') { set_term_font(term_font_input[:value].to_i) }
 
         editor_font_input = el('editor-font-size')
-        el('editor-font-minus').addEventListener('click') { |_| set_editor_font(editor_font_input[:value].to_i - 1) }
-        el('editor-font-plus').addEventListener('click')  { |_| set_editor_font(editor_font_input[:value].to_i + 1) }
-        editor_font_input.addEventListener('change') { |_| set_editor_font(editor_font_input[:value].to_i) }
+        el('editor-font-minus').addEventListener('click') { set_editor_font(editor_font_input[:value].to_i - 1) }
+        el('editor-font-plus').addEventListener('click')  { set_editor_font(editor_font_input[:value].to_i + 1) }
+        editor_font_input.addEventListener('change') { set_editor_font(editor_font_input[:value].to_i) }
       end
 
       def bind_resizer
@@ -422,13 +422,13 @@
         body             = @doc.body
         is_resizing      = false
 
-        resizer.addEventListener('mousedown') { |_|
+        resizer.addEventListener('mousedown') do
           is_resizing = true
           body.style.userSelect = 'none'
           body.style.cursor = 'col-resize'
-        }
+        end
 
-        @doc.addEventListener('mousemove') { |e|
+        @doc.addEventListener('mousemove') do |e|
           next unless is_resizing
           rect        = editor_container.getBoundingClientRect()
           new_left_x  = e.clientX.to_f - rect.left.to_f
@@ -438,15 +438,15 @@
           right_ratio = 1.0 - left_ratio
           editor_el.style.flex  = left_ratio.to_s
           dfu_log_el.style.flex = right_ratio.to_s
-        }
+        end
 
-        @doc.addEventListener('mouseup') { |_|
+        @doc.addEventListener('mouseup') do
           if is_resizing
             is_resizing = false
             body.style.userSelect = ''
             body.style.cursor = ''
           end
-        }
+        end
       end
 
       # Strip ANSI escape sequences from a string without regex.
@@ -463,7 +463,7 @@
               while i < len
                 b = str.getbyte(i)
                 i += 1
-                break if (b >= 0x41 && b <= 0x5a) || (b >= 0x61 && b <= 0x7a) || b == 0x40 || b == 0x60
+                break if (0x41 <= b && b <= 0x5a) || (0x61 <= b && b <= 0x7a) || b == 0x40 || b == 0x60
               end
             elsif i < len
               i += 1
@@ -528,13 +528,13 @@
       end
 
       # Send "dfucat [path]", wait, then load content into editor.
-      def do_load
+      def do_download
         return unless connected?
         port = current_port
         path = current_path
         return unless path
-        el('load-btn')[:disabled] = true
-        el('save-btn')[:disabled] = true
+        el('upload-btn')[:disabled] = true
+        el('download-btn')[:disabled] = true
         append_log("[*] Loading #{path} ...")
         raw = ""
         begin
@@ -554,12 +554,12 @@
       end
 
       # Send "dfucli [path]", wait, then send DFU packet containing editor source.
-      def do_save
-        if @dfu_saving
+      def do_upload
+        if @dfu_uploading
           append_log("[-] Upload already running")
           return
         end
-        @dfu_saving = true
+        @dfu_uploading = true
         set_dfu_buttons_enabled(false)
 
         unless connected?
@@ -580,15 +580,15 @@
         header  = build_dfu_header(code)
         payload = header + code
         append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
-        debug_log("save:start path=#{path} payload=#{payload.bytesize}")
+        debug_log("upload:start path=#{path} payload=#{payload.bytesize}")
 
         resp = ""
         begin
           port.capture_start
           sleep_ms 10  # Ensure capture is fully started
-          debug_log("save:capture_started")
+          debug_log("upload:capture_started")
           send_text_to_port(cmd, port)
-          debug_log("save:dfucli_cmd_sent")
+          debug_log("upload:dfucli_cmd_sent")
 
           # Wait for dfucli to print "[recv]" (ready to receive)
           marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]'])
@@ -598,7 +598,7 @@
             return
           end
           append_log("[.] dfucli ready in #{waited}ms")
-          debug_log("save:ready waited=#{waited}ms")
+          debug_log("upload:ready waited=#{waited}ms")
 
           send_payload = payload
 
@@ -607,7 +607,7 @@
           send_bytes_to_port(header, port).await
           sleep_ms DFU_TX_HEADER_GAP_MS
           send_bytes_to_port(code, port).await
-          debug_log("save:payload_sent bytes=#{send_payload.bytesize}")
+          debug_log("upload:payload_sent bytes=#{send_payload.bytesize}")
           # Allow device-side parser/update task to catch up before response polling.
           sleep_ms 100
 
@@ -616,7 +616,7 @@
             port,
             DFU_RESPONSE_TIMEOUT,
             300,
-            ['OK', 'ERROR', 'DFU: error', 'DFU: file saved to ', 'DFU: update complete.']
+            ['OK', 'ERROR', 'DFU: error', 'DFU: file uploaded to ', 'DFU: update complete.']
           )
           append_log("[.] Upload response wait: #{waited}ms marker=#{marker || 'timeout'}")
           if !marker
@@ -628,7 +628,7 @@
         end
 
         if resp.index("OK") ||
-           resp.index("DFU: file saved to ") ||
+           resp.index("DFU: file uploaded to ") ||
            resp.index("DFU: update complete.")
           append_log("[+] Success!")
         elsif resp.index("ERROR") || resp.index("DFU: error")
@@ -645,7 +645,7 @@
       rescue => err
         append_log("[-] Upload error: #{error_text(err)}")
       ensure
-        @dfu_saving = false
+        @dfu_uploading = false
         update_dfu_buttons
       end
     end
