@@ -54,8 +54,9 @@ if(USE_WIFI)
       ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     )
   else()
+    # pico_w uses picoruby-socket instead of picoruby-net to avoid function conflicts
     file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-socket/ports/rp2040/*.c
+      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     )
   endif()
 else()
