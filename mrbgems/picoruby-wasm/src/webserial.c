@@ -1,6 +1,6 @@
 #if defined(PICORB_VM_MRUBY)
 
-#include "mruby/web_serial.c"
+#include "mruby/webserial.c"
 
 #elif defined(PICORB_VM_MRUBYC)
 
