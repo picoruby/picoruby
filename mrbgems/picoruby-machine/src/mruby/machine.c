@@ -3,6 +3,14 @@
 #include "mruby/presym.h"
 #include "mruby/array.h"
 #include "../../include/machine.h"
+#include "../../include/hal.h"
+
+static inline void
+io_wait_for_input(mrb_state *mrb)
+{
+  Machine_tud_task();
+  mrb_hal_task_idle_cpu(mrb);
+}
 
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
@@ -297,6 +305,8 @@ mrb_io_gets(mrb_state *mrb, mrb_value self)
       if (c == '\n' || c == '\r') {
         break;
       }
+    } else {
+      io_wait_for_input(mrb);
     }
   }
   return str;
@@ -335,6 +345,8 @@ mrb_io_read(mrb_state *mrb, mrb_value self)
         break;
       } else if (0 <= c) {
         buf[i++] = (char)c;
+      } else {
+        io_wait_for_input(mrb);
       }
     }
     if (i < len) {
@@ -356,6 +368,8 @@ mrb_io_read(mrb_state *mrb, mrb_value self)
     } else if (0 <= c) {
       buf[0] = (char)c;
       mrb_str_cat(mrb, str, buf, 1);
+    } else {
+      io_wait_for_input(mrb);
     }
   }
   return str;

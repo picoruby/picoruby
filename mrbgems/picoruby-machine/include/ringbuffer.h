@@ -58,7 +58,7 @@ RingBuffer_clear(RingBuffer *rb)
 static inline bool
 RingBuffer_push(RingBuffer *rb, uint8_t ch)
 {
-  if (RingBuffer_free_size(rb) < 1) {
+  if (RingBuffer_free_size(rb) <= 1) {
     return false;
   }
   rb->data[rb->tail] = ch;

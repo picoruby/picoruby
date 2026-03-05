@@ -1,4 +1,3 @@
-require 'io-console'
 require 'dfu'
 
 path = ARGV[0]  # optional: destination path (skips A/B slot and meta)
@@ -8,7 +7,7 @@ begin
   updater = DFU::Updater.new(path: path)
   updater.receive(STDIN)
   if path
-    puts "DFU: file saved to #{path}"
+    puts "DFU: file uploaded to #{path}"
   else
     DFU.confirm
     puts "DFU: update complete."
