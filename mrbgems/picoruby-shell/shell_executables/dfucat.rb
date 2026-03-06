@@ -4,10 +4,13 @@ unless path
   exit 1
 end
 begin
-  data = File.open(path, "r") { |f| f.read }
-  print "DFUCAT_BEGIN\n"
-  print data
-  print "DFUCAT_END\n"
+  puts "DFUCAT_BEGIN"
+  File.open(path, "r") do |f|
+    f.each_line do |line|
+      print line
+    end
+  end
+  puts "\nDFUCAT_END"
 rescue => e
-  print "DFUCAT_ERROR:#{e.message}\n"
+  puts "DFUCAT_ERROR:#{e.message}"
 end
