@@ -10,13 +10,14 @@ class Keyboard
 
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
-  def initialize(row_pins, col_pins, debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)
+  def initialize(row_pins, col_pins = [], debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)
     @row_count = row_pins.size
     @col_count = col_pins.size
 
     # For split keyboards: keymap dimensions can differ from matrix dimensions
     @keymap_rows = keymap_rows || @row_count
-    @keymap_cols = keymap_cols || @col_count
+    # In direct mode (col_pins empty), each row has only 1 column
+    @keymap_cols = keymap_cols || (col_pins.empty? ? 1 : @col_count)
 
     # Layer management
     @layers = {}                # layer_name => keymap array

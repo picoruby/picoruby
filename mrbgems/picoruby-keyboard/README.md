@@ -45,6 +45,56 @@ kb.start do |event|
 end
 ```
 
+## Direct Wiring Mode
+
+For simple single-button or direct GPIO applications, you can use direct wiring mode where each GPIO pin represents a single button (no matrix scanning needed).
+
+In direct wiring mode:
+- Each button connects a GPIO pin to GND (with pull-up resistor)
+- Pin reads LOW when pressed, HIGH at rest
+- Pass an empty array `[]` for `col_pins` to enable direct mode
+- Each row pin becomes an independent button with column index 0
+
+### Direct Wiring Example
+
+```ruby
+require 'keyboard'
+
+include USB::HID::Keycode
+include LayerKeycode
+
+# 3 buttons on GPIO pins 0, 1, 2
+# No column pins needed - use empty array []
+kb = Keyboard.new([0, 1, 2], [])
+
+# Add layer: 3 buttons = 3 keycodes
+kb.add_layer(:default, [
+  KC_A,    # Button 0
+  KC_B,    # Button 1
+  KC_C     # Button 2
+])
+
+kb.start do |event|
+  # Each button press generates event with col = 0
+  # Examples: {row: 0, col: 0, ...}, {row: 1, col: 0, ...}
+  USB::HID.keyboard_send(event[:modifier], event[:keycode])
+end
+```
+
+### Matrix Mode vs Direct Mode
+
+```ruby
+# Matrix mode: classic grid with separate rows and columns
+# 3 rows x 2 cols = 6 buttons
+kb_matrix = Keyboard.new([0, 1, 2], [3, 4])
+
+# Direct mode: each pin is a single button
+# 3 independent buttons
+kb_direct = Keyboard.new([0, 1, 2], [])
+
+# Both modes support all layer features (MO, LT, MT, TG, combos)
+```
+
 ## Layer Priority
 
 When multiple layers are active, keys are resolved in this order:
@@ -233,13 +283,15 @@ When MO(1) is pressed, all keys fall through to the default layer.
 
 ### Keyboard
 
-#### `initialize(row_pins, col_pins, debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)`
+#### `initialize(row_pins, col_pins = [], debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)`
 Create a new keyboard layer manager.
 - `row_pins`: Array of GPIO pin numbers for rows
-- `col_pins`: Array of GPIO pin numbers for columns
+- `col_pins`: Array of GPIO pin numbers for columns (optional, default: [])
+  - **Matrix mode**: Non-empty array. Each row/col combination is a button.
+  - **Direct mode**: Empty array []. Each row pin is a single button (no matrix scanning).
 - `debounce_ms`: Debounce time in milliseconds (default: 5, same as QMK)
 - `keymap_rows`: Total rows in keymap (default: row_pins.size). For split keyboards.
-- `keymap_cols`: Total columns in keymap (default: col_pins.size). For split keyboards.
+- `keymap_cols`: Total columns in keymap (default: 1 for direct mode, col_pins.size for matrix mode)
 
 #### `add_layer(name, keymap)`
 Add a layer with a name and keymap.
