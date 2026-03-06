@@ -86,53 +86,21 @@ module JS
       success
     end
 
-    # Promise#then support
-    # This allows calling .then on Promise objects returned from JavaScript
+    # Await a JS Promise. Suspends the current Ruby task until the Promise
+    # resolves and returns the result as a JS::Object.
+    def await
+      callback_id = self.object_id
+      _await_and_suspend(callback_id)
+      result = $promise_responses[callback_id]
+      $promise_responses.delete(callback_id)
+      result
+    end
+
+    # Promise#then - suspends task until Promise resolves, then calls block.
     def then(&block)
-      # Store promise in global variable temporarily
-      callback_id = block.object_id
-      JS.global[:"_tempPromise_#{callback_id}"] = self
-
-      # Create a JavaScript callback that will store the result
-      script = JS.document.createElement("script")
-      script[:textContent] = <<~JAVASCRIPT
-        (function() {
-          var promise = window._tempPromise_#{callback_id};
-          if (promise && typeof promise.then === 'function') {
-            promise.then(function(result) {
-              var resultId = window.picorubyRefs.push(result) - 1;
-              window._promiseResult_#{callback_id} = resultId;
-            }).catch(function(error) {
-              console.error('Promise rejected:', error);
-              window._promiseResult_#{callback_id} = -1;
-            });
-          } else {
-            window._promiseResult_#{callback_id} = -1;
-          }
-        })();
-      JAVASCRIPT
-      JS.document.body.appendChild(script)
-      JS.document.body.removeChild(script)
-
-      # Poll for result
-      sleep_ms 50 until JS.global[:"_promiseResult_#{callback_id}"]
-
-      result_id = JS.global[:"_promiseResult_#{callback_id}"].to_i
-      JS.global[:"_promiseResult_#{callback_id}"] = nil
-      JS.global[:"_tempPromise_#{callback_id}"] = nil
-
-      # @type var result_id: Integer
-      if 0 <= result_id
-        # Create JS::Object from result_id
-        refs = JS.global[:picorubyRefs]
-        if refs.is_a?(JS::Object)
-          result_obj = refs[result_id]
-          # @type var block: Proc
-          block.call(result_obj) if block
-        else
-          raise 'picorubyRefs is not available'
-        end
-      end
+      result = await
+      block.call(result) if block
+      result
     end
   end
 

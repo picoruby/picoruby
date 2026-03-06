@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>R2P2 Terminal - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css">
+  <style>
+    body { margin: 2px auto; padding: 4px; }
+    #not-supported {
+      color: #f44; font-weight: bold; padding: 10px;
+      background: #300; border: 1px solid #f44; margin: 2px 0;
+    }
+    .controls { margin: 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls button { padding: 6px 14px; cursor: pointer; }
+    .controls select, .controls label { padding: 4px; }
+    #status { font-weight: normal; padding: 2px 8px; border-radius: 3px; font-size: 14px; }
+    #status.connected    { color: #0f0; background: #030; border: 1px solid #0f0; }
+    #status.disconnected { color: #f44; background: #200; border: 1px solid #f44; }
+    #terminal-container {
+      margin: 2px 0;
+      border: 2px solid #555;
+      background: #000;
+      padding: 4px;
+      resize: vertical;
+      overflow: hidden;
+      height: 300px;
+      min-height: 60px;
+    }
+    p.hint { color: #888; font-size: 0.85em; margin: 4px 0; }
+    .font-ctrl { display: inline-flex; align-items: center; gap: 2px; }
+    .font-ctrl button { padding: 5px 7px; cursor: pointer; font-size: 8px; line-height: 1; }
+    .font-ctrl input[type=number] { width: 38px; text-align: center; padding: 2px 0; -moz-appearance: textfield; }
+    .font-ctrl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    /* DFU section */
+    #dfu-section { margin: 2px 0; padding: 2px 4px; border: 1px solid #555; }
+    #dfu-section legend { font-weight: bold; padding: 0 2px; }
+    #path-input { font-family: monospace; font-size: 14px; line-height: 1.6; color: #000; background-color: #fff; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; }
+    #editor-container {
+      display: flex;
+      height: 300px;
+      gap: 0;
+      margin: 2px 0;
+      border: 1px solid #444;
+      resize: vertical;
+      overflow: hidden;
+    }
+    #editor {
+      flex: 0.6;
+      font-family: 'Courier Prime', Courier, monospace;
+      font-size: 15px;
+      background: #1a1a1a;
+      color: #f8f8f2;
+      border: none;
+      border-right: 1px solid #666;
+      padding: 8px;
+      box-sizing: border-box;
+      resize: none;
+      tab-size: 2;
+      display: block;
+      overflow-y: auto;
+    }
+    #resizer {
+      width: 4px;
+      background: linear-gradient(to right, #333, #555, #333);
+      cursor: col-resize;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    #resizer:hover {
+      background: linear-gradient(to right, #555, #fff, #555);
+    }
+    #dfu-log {
+      flex: 0.4;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      background: #1a1a1a;
+      color: #0f0;
+      padding: 4px;
+      overflow-y: auto;
+      border: none;
+      border-left: 1px solid #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="not-supported" style="display:none">
+    Web Serial API is not supported in this browser.
+    Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop, version 89+).
+  </div>
+
+  <div class="controls">
+    <button id="connect-btn">Connect</button>
+    <label>Baud:
+      <select id="baud-rate">
+        <option value="9600">9600</option>
+        <option value="19200">19200</option>
+        <option value="38400">38400</option>
+        <option value="57600">57600</option>
+        <option value="115200" selected>115200</option>
+        <option value="230400">230400</option>
+        <option value="921600">921600</option>
+      </select>
+    </label>
+    <label>Term font:
+      <span class="font-ctrl">
+        <button id="term-font-minus">−</button>
+        <input id="term-font-size" type="number" value="15" min="8" max="32">
+        <button id="term-font-plus">+</button>
+      </span>
+    </label>
+    <span id="status" class="disconnected">Disconnected</span>
+  </div>
+
+  <div id="terminal-container"></div>
+
+  <fieldset id="dfu-section">
+    <legend>File Editor (by dfucat and dfucli)</legend>
+    <div class="controls">
+      <button id="download-btn" disabled>▼ Download</button>
+      <input id="path-input" type="text" placeholder="/home/app.rb" style="width:220px">
+      <button id="upload-btn" disabled>▲ Upload</button>
+      <label>Editor font:
+        <span class="font-ctrl">
+          <button id="editor-font-minus">−</button>
+          <input id="editor-font-size" type="number" value="15" min="8" max="24">
+          <button id="editor-font-plus">+</button>
+        </span>
+      </label>
+    </div>
+    <div id="editor-container">
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="resizer"></div>
+      <div id="dfu-log"></div>
+    </div>
+  </fieldset>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'crc'
+    require 'pack'
+    require 'webserial'
+
+    # ---------------------------------------------------------------------------
+    # DFU header builder (19 bytes: magic(4) version(1) type(4) fw_size(4) crc32(4) sig_len(2))
+    # ---------------------------------------------------------------------------
+    HEADER_FORMAT = "a4Ca4NNn"
+
+    def build_dfu_header(source)
+      crc = CRC.crc32(source)
+      ["DFU\0", 1, "RUBY", source.bytesize, crc, 0].pack(HEADER_FORMAT)
+    end
+
+    # ---------------------------------------------------------------------------
+    # App
+    # ---------------------------------------------------------------------------
+    class App
+      DFU_READY_TIMEOUT = 5000
+      DFU_RESPONSE_TIMEOUT = 5000
+      DFU_LOAD_TIMEOUT = 10000
+      DFU_CAPTURE_POLL_MS = 200
+      # Temporary test switch: intentionally send a truncated payload to verify
+      # MCU-side timeout behavior in DFU::Updater#read_exact.
+      DFU_DEBUG_LOG = true
+      # Throughput tuning for Pico USB-CDC stability
+      DFU_TX_HEADER_GAP_MS = 50
+      DFU_TX_CHUNK_SIZE = 32
+      DFU_TX_CHUNK_GAP_MS = 20
+
+      attr_accessor :current_port
+
+      def initialize
+        @doc = JS.document
+        @current_port = nil
+        @auto_reconnect = false
+        setup_terminal
+        unless JS::WebSerial.supported?
+          el('not-supported').style.display = 'block'
+          el('connect-btn')[:disabled] = true
+        end
+        bind_events
+        append_log("[*] Ready. Connect a serial port to use the file updater.")
+      end
+
+      def el(id)
+        @doc.getElementById(id)
+      end
+
+      def setup_terminal
+        opts = JS.global.create_object
+        opts[:scrollback] = 1000
+        opts[:cursorBlink] = true
+        opts[:convertEol] = true
+        opts[:fontFamily] = '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace'
+        opts[:fontSize] = 15
+
+        theme = JS.global.create_object
+        theme[:background] = '#000000'
+        opts[:theme] = theme
+
+        terminal = JS.global[:Terminal].new(opts)
+        @fit_addon = JS.global[:FitAddon][:FitAddon].new
+        terminal.loadAddon(@fit_addon)
+        container = el('terminal-container')
+        terminal.method_missing(:open, container)
+        fit_terminal
+
+        resize_observer = JS.global[:ResizeObserver].new do |_entries|
+          fit_terminal
+        end
+        resize_observer.observe(container)
+
+        @terminal = terminal
+      end
+
+      def update_status(text, connected)
+        status = el('status')
+        status[:textContent] = text
+        status[:className] = connected ? 'connected' : 'disconnected'
+      end
+
+      def fit_terminal
+        @fit_addon&.fit
+      end
+
+      def set_editor_font(val)
+        val = [[8, val].max, 24].min
+        el('editor-font-size')[:value] = val
+        el('editor').style.fontSize = "#{val}px"
+      end
+
+      def set_term_font(val)
+        val = [[8, val].max, 32].min
+        el('term-font-size')[:value] = val
+        @terminal[:options][:fontSize] = val
+        fit_terminal
+      end
+
+      def update_dfu_buttons
+        has_path = !el('path-input')[:value].to_s.strip.empty?
+        set_dfu_buttons_enabled(connected? && has_path)
+      end
+
+      def set_dfu_buttons_enabled(enabled)
+        el('upload-btn')[:disabled] = !enabled
+        el('download-btn')[:disabled] = !enabled
+      end
+
+      def connected?
+        !@current_port.nil?
+      end
+
+      def auto_reconnect?
+        @auto_reconnect == true
+      end
+
+      def auto_reconnect=(enabled)
+        @auto_reconnect = enabled == true
+      end
+
+      def error_text(err)
+        msg = err.message.to_s
+        msg = err.to_s if msg.empty?
+        klass = err.class.to_s
+        msg.empty? ? klass : "#{klass}: #{msg}"
+      end
+
+      def send_text_to_port(str, port = nil)
+        port ||= current_port
+        return unless port
+        port.write_text(str)
+      end
+
+      # hex: string of hex pairs e.g. "44465500..." (no spaces)
+      # Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
+      def send_hex_to_port(hex, port = nil)
+        port ||= current_port
+        return unless port
+
+        bytes = [hex.to_s].pack("H*")
+        send_bytes_to_port(bytes, port)
+      end
+
+      def send_bytes_to_port(bytes, port = nil)
+        port ||= current_port
+        return unless port
+        return if bytes.nil? || bytes.bytesize == 0
+
+        off = 0
+        chunk_size = DFU_TX_CHUNK_SIZE
+        while off < bytes.bytesize
+          chunk = bytes.byteslice(off, chunk_size)
+          port.write(chunk)
+          off += chunk.bytesize
+          sleep_ms DFU_TX_CHUNK_GAP_MS if off < bytes.bytesize
+        end
+        # Return promise that resolves when write queue is flushed
+        port.drain
+      end
+
+      def connect
+        disconnect if current_port
+        begin
+          baud_rate = el('baud-rate')[:value].to_i
+          @terminal.reset
+          JS::WebSerial.connect(baud_rate: baud_rate) do |ws|
+            self.current_port = ws
+            ws.start_terminal_read(@terminal)
+            self.auto_reconnect = true
+            update_status('Connected', true)
+            update_dfu_buttons
+            el('connect-btn')[:textContent] = 'Disconnect'
+            @terminal.focus
+          end
+        rescue => err
+          txt = error_text(err)
+          JS.global[:console].error("Connect error: #{txt}")
+          append_log("[-] Connect error: #{txt}")
+          update_status('Disconnected', false)
+          self.current_port = nil
+          update_dfu_buttons
+        end
+      end
+
+      def disconnect(manual: false)
+        return if @disconnecting
+
+        @disconnecting = true
+        self.auto_reconnect = false if manual
+
+        port = current_port
+        port&.close rescue nil
+        self.current_port = nil
+
+        update_status('Disconnected', false)
+        update_dfu_buttons
+        el('connect-btn')[:textContent] = 'Connect'
+      ensure
+        @disconnecting = false
+      end
+
+      def append_log(msg)
+        log = el('dfu-log')
+        log[:textContent] = log[:textContent].to_s + msg + "\n"
+        log[:scrollTop] = log[:scrollHeight]
+      end
+
+      def debug_log(msg)
+        return unless DFU_DEBUG_LOG
+        t = Time.now.to_f
+        append_log("[DBG #{t}] #{msg}")
+      end
+
+      def current_path
+        p = el('path-input')[:value].to_s.strip
+        p.empty? ? nil : p
+      end
+
+      def bind_events
+        @terminal.onData do |data|
+          send_text_to_port(data.to_s)
+        end
+        el('connect-btn').addEventListener('click') { connected? ? disconnect(manual: true) : connect }
+        el('upload-btn').addEventListener('click') { do_upload }
+        el('download-btn').addEventListener('click') { do_download }
+        JS.global.addEventListener('serial-reader-closed') { disconnect }
+        bind_font_controls
+        bind_resizer
+        el('path-input').addEventListener('input') { update_dfu_buttons }
+
+        if JS::WebSerial.supported?
+          serial = JS.global[:navigator][:serial]
+          serial.addEventListener('connect') do |e|
+            next if current_port || !auto_reconnect?
+            raw_port = e[:target] || e[:port]
+            next unless raw_port
+            update_status('Reconnecting...', false)
+            sleep_ms 1500
+            begin
+              ws = JS::WebSerial.new(raw_port)
+              baud_rate = el('baud-rate')[:value].to_i
+              ws.open(baud_rate: baud_rate)
+              ws.start_terminal_read(@terminal)
+              self.current_port = ws
+              update_status('Connected', true)
+              update_dfu_buttons
+              @terminal.writeln('[Reconnected]')
+            rescue => err
+              JS.global[:console].error("Auto-reconnect failed: #{err}")
+              update_status('Disconnected', false)
+            end
+          end
+
+          serial.addEventListener('disconnect') do
+            next unless current_port
+            @terminal.writeln("\r\n[Serial port disconnected]")
+            disconnect
+          end
+        end
+      end
+
+      def bind_font_controls
+        term_font_input = el('term-font-size')
+        el('term-font-minus').addEventListener('click') { set_term_font(term_font_input[:value].to_i - 1) }
+        el('term-font-plus').addEventListener('click')  { set_term_font(term_font_input[:value].to_i + 1) }
+        term_font_input.addEventListener('change') { set_term_font(term_font_input[:value].to_i) }
+
+        editor_font_input = el('editor-font-size')
+        el('editor-font-minus').addEventListener('click') { set_editor_font(editor_font_input[:value].to_i - 1) }
+        el('editor-font-plus').addEventListener('click')  { set_editor_font(editor_font_input[:value].to_i + 1) }
+        editor_font_input.addEventListener('change') { set_editor_font(editor_font_input[:value].to_i) }
+      end
+
+      def bind_resizer
+        resizer          = el('resizer')
+        editor_container = el('editor-container')
+        editor_el        = el('editor')
+        dfu_log_el       = el('dfu-log')
+        body             = @doc.body
+        is_resizing      = false
+
+        resizer.addEventListener('mousedown') do
+          is_resizing = true
+          body.style.userSelect = 'none'
+          body.style.cursor = 'col-resize'
+        end
+
+        @doc.addEventListener('mousemove') do |e|
+          next unless is_resizing
+          rect        = editor_container.getBoundingClientRect()
+          new_left_x  = e.clientX.to_f - rect.left.to_f
+          max_x       = rect.width.to_f - 20.0
+          constrained = [100.0, [new_left_x, max_x].min].max
+          left_ratio  = constrained / rect.width.to_f
+          right_ratio = 1.0 - left_ratio
+          editor_el.style.flex  = left_ratio.to_s
+          dfu_log_el.style.flex = right_ratio.to_s
+        end
+
+        @doc.addEventListener('mouseup') do
+          if is_resizing
+            is_resizing = false
+            body.style.userSelect = ''
+            body.style.cursor = ''
+          end
+        end
+      end
+
+      # Strip ANSI escape sequences from a string without regex.
+      def strip_ansi(str)
+        result = ""
+        i = 0
+        len = str.bytesize
+        while i < len
+          b = str.getbyte(i)
+          if b == 0x1b
+            i += 1
+            if i < len && str.getbyte(i) == 0x5b # '['
+              i += 1
+              while i < len
+                b = str.getbyte(i)
+                i += 1
+                break if (0x41 <= b && b <= 0x5a) || (0x61 <= b && b <= 0x7a) || b == 0x40 || b == 0x60
+              end
+            elsif i < len
+              i += 1
+            end
+          else
+            result << b.chr
+            i += 1
+          end
+        end
+        result
+      end
+
+      # Parse output from dfucat command: extract content between DFUCAT_BEGIN and DFUCAT_END.
+      # Returns { content: } on success, { error: } on DFUCAT_ERROR, or nil if markers not found.
+      def parse_dfucat_output(raw)
+        normalized = strip_ansi(raw).gsub("\r\n", "\n").gsub("\r", "\n")
+        error_marker = "DFUCAT_ERROR:"
+        error_idx = normalized.index(error_marker)
+        if error_idx
+          error_end = normalized.index("\n", error_idx) || normalized.length
+          return { error: normalized[(error_idx + error_marker.length)...error_end] }
+        end
+        begin_marker = "DFUCAT_BEGIN\n"
+        begin_idx = normalized.index(begin_marker)
+        return nil unless begin_idx
+        content_start = begin_idx + begin_marker.length
+        end_idx = normalized.index("DFUCAT_END", content_start)
+        return nil unless end_idx
+        { content: normalized[content_start...end_idx] }
+      end
+
+      def handle_dfucat_result(raw)
+        result = parse_dfucat_output(raw)
+        if result.nil?
+          append_log("[-] Download failed: no DFUCAT response")
+        elsif result[:error]
+          append_log("[-] #{result[:error]}")
+        else
+          el('editor')[:value] = result[:content]
+          append_log("[+] Downloaded #{result[:content].length} chars")
+        end
+      end
+
+      def wait_capture_until(port, timeout_ms, poll_ms, markers)
+        waited = 0
+        loop do
+          JS.global[:console].log("wcu: peek start")
+          cap = port.capture_peek
+          JS.global[:console].log("wcu: peek done len=#{cap.length}")
+          found = markers.find { |m| cap.index(m) }
+          return [found, cap, waited] if found
+          if waited >= timeout_ms
+            append_log("[!] Capture wait timeout after #{waited}ms (expected one of: #{markers.join(', ')})")
+            return [nil, cap, waited]
+          end
+          JS.global[:console].log("wcu: sleep_ms #{poll_ms}")
+          sleep_ms poll_ms
+          JS.global[:console].log("wcu: woke up")
+          waited += poll_ms
+        end
+      end
+
+      def send_ctrl_c(port = nil)
+        p = port || current_port
+        p.write("\u0003") if p
+      end
+
+      # Send "dfucat [path]", wait, then load content into editor.
+      def do_download
+        return unless connected?
+        port = current_port
+        path = current_path
+        return unless path
+        el('upload-btn')[:disabled] = true
+        el('download-btn')[:disabled] = true
+        append_log("[*] Downloading #{path} ...")
+        raw = ""
+        begin
+          port.capture_start
+          sleep_ms 10  # Ensure capture is fully started
+          send_text_to_port("dfucat #{path}\n", port)
+          marker, _cap, waited = wait_capture_until(port, DFU_LOAD_TIMEOUT, DFU_CAPTURE_POLL_MS, ['DFUCAT_END', 'DFUCAT_ERROR:'])
+          append_log("[.] Download wait: #{waited}ms marker=#{marker || 'timeout'}")
+        ensure
+          raw = port.capture_stop
+        end
+        handle_dfucat_result(raw)
+        update_dfu_buttons
+      rescue => err
+        append_log("[-] Download error: #{error_text(err)}")
+        update_dfu_buttons
+      end
+
+      # Send "dfucli [path]", wait, then send DFU packet containing editor source.
+      def do_upload
+        if @dfu_uploading
+          append_log("[-] Upload already running")
+          return
+        end
+        @dfu_uploading = true
+        set_dfu_buttons_enabled(false)
+
+        unless connected?
+          append_log("[-] Not connected")
+          return
+        end
+        port = current_port
+
+        code = el('editor')[:value].to_s
+        if code.strip.empty?
+          append_log("[-] Editor is empty")
+          return
+        end
+
+        path = current_path
+        cmd = path ? "dfucli #{path}\n" : "dfucli\n"
+        append_log("[*] Running: #{cmd.chomp}")
+        header  = build_dfu_header(code)
+        payload = header + code
+        append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
+        debug_log("upload:start path=#{path} payload=#{payload.bytesize}")
+
+        resp = ""
+        begin
+          port.capture_start
+          sleep_ms 10  # Ensure capture is fully started
+          debug_log("upload:capture_started")
+          send_text_to_port(cmd, port)
+          debug_log("upload:dfucli_cmd_sent")
+
+          # Wait for dfucli to print "[recv]" (ready to receive)
+          marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]'])
+          unless marker
+            append_log("[-] dfucli did not become ready within #{DFU_READY_TIMEOUT}ms")
+            send_ctrl_c(port)
+            return
+          end
+          append_log("[.] dfucli ready in #{waited}ms")
+          debug_log("upload:ready waited=#{waited}ms")
+
+          send_payload = payload
+
+          # Always split normal upload into header/body with a short gap.
+          # This mirrors the "test mode" behavior that showed better stability.
+          send_bytes_to_port(header, port).await
+          sleep_ms DFU_TX_HEADER_GAP_MS
+          send_bytes_to_port(code, port).await
+          debug_log("upload:payload_sent bytes=#{send_payload.bytesize}")
+          # Allow device-side parser/update task to catch up before response polling.
+          sleep_ms 100
+
+          # Wait for device response (including DFU errors)
+          marker, _cap, waited = wait_capture_until(
+            port,
+            DFU_RESPONSE_TIMEOUT,
+            300,
+            ['OK', 'ERROR', 'DFU: error', 'DFU: file uploaded to ', 'DFU: update complete.']
+          )
+          append_log("[.] Upload response wait: #{waited}ms marker=#{marker || 'timeout'}")
+          if !marker
+            append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (sending Ctrl-C)")
+            send_ctrl_c(port)
+          end
+        ensure
+          resp = port.capture_stop
+        end
+
+        if resp.index("OK") ||
+           resp.index("DFU: file uploaded to ") ||
+           resp.index("DFU: update complete.")
+          append_log("[+] Success!")
+        elsif resp.index("ERROR") || resp.index("DFU: error")
+          idx = resp.index("ERROR")
+          if idx
+            append_log("[-] #{resp[idx, 60].to_s.strip}")
+          else
+            idx = resp.index("DFU: error")
+            append_log("[-] #{resp[idx, 100].to_s.strip}")
+          end
+        else
+          append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (check terminal)")
+        end
+      rescue => err
+        append_log("[-] Upload error: #{error_text(err)}")
+      ensure
+        @dfu_uploading = false
+        update_dfu_buttons
+      end
+    end
+
+    App.new
+  </script>
+
+  <script src="init.iife.js"></script>
+</body>
+</html>

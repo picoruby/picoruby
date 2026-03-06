@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>Generic Promise Await Test</h1>
+    <button id="test">Run Test</button>
+    <pre id="output"></pre>
+
+    <!-- Expected Result:
+Starting await test...
+await: hello
+then: world
+then with raise caught: deliberate error
+Done
+    -->
+
+    <script>
+      // Helper: return a Promise that resolves with value after delay_ms.
+      window.makePromise = function(value, delay_ms) {
+        return new Promise(function(resolve) {
+          setTimeout(function() { resolve(value); }, delay_ms);
+        });
+      };
+    </script>
+
+    <script type="text/ruby">
+      require 'js'
+
+      def log(msg)
+        output = JS.document.getElementById('output')
+        output.innerText = output.innerText.to_s + msg + "\n"
+      end
+
+      JS.document.getElementById('test').addEventListener('click') do
+        log "Starting await test..."
+
+        # Test JS::Object#await
+        result = JS.global.makePromise("hello", 50).await
+        log "await: #{result.to_s}"
+
+        # Test JS::Object#then
+        JS.global.makePromise("world", 50).then do |r|
+          log "then: #{r.to_s}"
+        end
+
+        # Test then with exception handling across async boundary
+        begin
+          JS.global.makePromise("ignored", 50).then do |_r|
+            raise "deliberate error"
+          end
+        rescue => e
+          log "then with raise caught: #{e.message}"
+        end
+
+        log "Done"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>

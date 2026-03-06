@@ -358,6 +358,7 @@ hal_read_available(void)
 int
 hal_getchar(void)
 {
+  tud_task();
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
     sigint_status = MACHINE_SIG_NONE;
     return 3;

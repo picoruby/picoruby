@@ -23,6 +23,7 @@ extern void mrb_websocket_init(mrb_state *mrb);
 extern void mrb_wasm_debugger_init(mrb_state *mrb);
 #endif
 extern void mrb_ble_init(mrb_state *mrb);
+extern void mrb_web_serial_init(mrb_state *mrb);
 
 mrb_state *global_mrb = NULL;
 mrb_value main_task = {0};
@@ -93,12 +94,12 @@ mrb_run_step(void)
     global_mrb->exc = NULL;
     mrb_value exc_str = mrb_inspect(global_mrb, exc);
     if (global_mrb->exc) {
-      fprintf(stderr, "Exception in main loop (failed to inspect exception)\n");
+      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
       global_mrb->exc = NULL;
     } else {
-      fprintf(stderr, "Exception in main loop: %s\n", RSTRING_PTR(exc_str));
+      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
     }
-    return -1;
+    /* Continue scheduler; one task exception must not stop others */
   }
 
   // Even if there is no task to run, return 0
@@ -123,6 +124,7 @@ picorb_init(void)
   mrb_wasm_debugger_init(global_mrb);
 #endif
   mrb_ble_init(global_mrb);
+  mrb_web_serial_init(global_mrb);
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
@@ -262,6 +264,7 @@ mrb_picoruby_wasm_gem_init(mrb_state* mrb)
   mrb_js_init(mrb);
   mrb_websocket_init(mrb);
   mrb_ble_init(mrb);
+  mrb_web_serial_init(mrb);
 }
 
 void

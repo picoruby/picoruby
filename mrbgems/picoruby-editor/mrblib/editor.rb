@@ -219,7 +219,10 @@ module Editor
         rescue SignalException
           line = "\x1a" # Ctrl-Z
         end
-        next unless line
+        unless line
+          sleep_ms 1
+          next
+        end
         while true
           ch = line[0]
           break unless ch
