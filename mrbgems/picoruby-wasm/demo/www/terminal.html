@@ -14,7 +14,7 @@
     .controls { margin: 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .controls button { padding: 6px 14px; cursor: pointer; }
     .controls select, .controls label { padding: 4px; }
-    #status { font-weight: bold; padding: 4px 8px; border-radius: 3px; }
+    #status { font-weight: normal; padding: 2px 8px; border-radius: 3px; font-size: 14px; }
     #status.connected    { color: #0f0; background: #030; border: 1px solid #0f0; }
     #status.disconnected { color: #f44; background: #200; border: 1px solid #f44; }
     #terminal-container {
@@ -24,17 +24,18 @@
       padding: 4px;
       resize: vertical;
       overflow: hidden;
+      height: 300px;
       min-height: 60px;
     }
     p.hint { color: #888; font-size: 0.85em; margin: 4px 0; }
     .font-ctrl { display: inline-flex; align-items: center; gap: 2px; }
-    .font-ctrl button { padding: 1px 7px; cursor: pointer; font-size: 8px; line-height: 1; }
+    .font-ctrl button { padding: 5px 7px; cursor: pointer; font-size: 8px; line-height: 1; }
     .font-ctrl input[type=number] { width: 38px; text-align: center; padding: 2px 0; -moz-appearance: textfield; }
     .font-ctrl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
     /* DFU section */
     #dfu-section { margin: 2px 0; padding: 2px 4px; border: 1px solid #555; }
     #dfu-section legend { font-weight: bold; padding: 0 2px; }
-    #path-input { font-family: monospace; font-size: 13px; }
+    #path-input { font-family: monospace; font-size: 14px; line-height: 1.6; color: #000; background-color: #fff; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; }
     #editor-container {
       display: flex;
       height: 300px;
@@ -45,7 +46,7 @@
       overflow: hidden;
     }
     #editor {
-      flex: 0.5;
+      flex: 0.6;
       font-family: 'Courier Prime', Courier, monospace;
       font-size: 15px;
       background: #1a1a1a;
@@ -70,7 +71,7 @@
       background: linear-gradient(to right, #555, #fff, #555);
     }
     #dfu-log {
-      flex: 0.5;
+      flex: 0.4;
       font-family: monospace;
       font-size: 12px;
       white-space: pre-wrap;
