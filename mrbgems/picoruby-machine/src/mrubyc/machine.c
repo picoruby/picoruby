@@ -1,5 +1,6 @@
 #include "mrubyc.h"
 #include "../../include/machine.h"
+#include "../../../picoruby-io-console/include/io-console.h"
 
 
 static void
