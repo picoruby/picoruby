@@ -7,7 +7,7 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
 
   toolchain :clang
 
-  conf.cc.defines << "MRB_TICK_UNIT=17"
+  conf.cc.defines << "MRB_TICK_UNIT=4"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=1"
 
   conf.cc.defines << "MRB_INT64"
