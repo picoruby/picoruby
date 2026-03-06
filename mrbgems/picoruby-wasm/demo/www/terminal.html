@@ -527,11 +527,6 @@
         end
       end
 
-      def send_ctrl_c(port = nil)
-        p = port || current_port
-        p.write("\u0003") if p
-      end
-
       # Send "dfucat [path]", wait, then load content into editor.
       def do_download
         return unless connected?
@@ -599,7 +594,6 @@
           marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]'])
           unless marker
             append_log("[-] dfucli did not become ready within #{DFU_READY_TIMEOUT}ms")
-            send_ctrl_c(port)
             return
           end
           append_log("[.] dfucli ready in #{waited}ms")
@@ -625,8 +619,8 @@
           )
           append_log("[.] Upload response wait: #{waited}ms marker=#{marker || 'timeout'}")
           if !marker
-            append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (sending Ctrl-C)")
-            send_ctrl_c(port)
+            append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms")
+            return
           end
         ensure
           resp = port.capture_stop

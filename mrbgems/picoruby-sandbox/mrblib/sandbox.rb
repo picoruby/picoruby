@@ -7,7 +7,7 @@ class Sandbox
 
   def wait(timeout: TIMEOUT)
     sleep_ms 5
-    signal_self_manage = ENV.delete('SIGNAL_SELF_MANAGE')
+    signal_self_manage = Machine.pop_signal_self_manage
     loop(timeout, signal_self_manage)
   end
 

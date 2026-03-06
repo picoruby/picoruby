@@ -438,7 +438,7 @@ class Shell
       case c
       when 26 # Ctrl-Z
         Signal.trap(:CONT) do
-          ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+          Machine.signal_self_manage
         end
         puts "\n^Z\e[0J"
         Signal.raise(:TSTP)

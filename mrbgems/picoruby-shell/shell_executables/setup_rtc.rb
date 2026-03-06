@@ -1,4 +1,4 @@
-ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+Machine.signal_self_manage
 
 require "i2c"
 

@@ -4,6 +4,7 @@
 #include "mruby/array.h"
 #include "../../include/machine.h"
 #include "../../include/hal.h"
+#include "../../../picoruby-io-console/include/io-console.h"
 
 static inline void
 io_wait_for_input(mrb_state *mrb)
@@ -205,6 +206,9 @@ raise_sigtstp(mrb_state *mrb)
 static mrb_value
 mrb_machine_check_signal(mrb_state *mrb, mrb_value self)
 {
+  io_raw_bang(true);
+  Machine_tud_task();
+  io_cooked_bang();
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
     sigint_status = MACHINE_SIG_NONE;
     raise_interrupt(mrb);

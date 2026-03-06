@@ -1,3 +1,5 @@
+$_signal_self_manage: bool
+
 module Machine
   def self.delay_ms: (Integer ms) -> Integer
   def self.busy_wait_ms: (Integer ms) -> Integer
@@ -17,6 +19,8 @@ module Machine
   def self.uptime_formatted: () -> String
   def self.reboot: (?Integer wait_ms) -> nil
   def self.check_signal: () -> void
+  def self.signal_self_manage: () -> void
+  def self.pop_signal_self_manage: () -> bool
   private def self._reboot: () -> nil
 end
 

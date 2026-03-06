@@ -49,7 +49,7 @@ class Rapicco
             Signal.trap(:CONT) do
               print "\e[?25l" # hide cursor
               print "\e[?1049h" # DECSET 1049
-              ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+              Machine.signal_self_manage
             end
             Signal.raise(:TSTP)
           end

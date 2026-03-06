@@ -7,6 +7,8 @@ rescue LoadError
   exit 1
 end
 
+Machine.signal_self_manage
+
 port = (ARGV[0] || 4649).to_i
 path = ARGV[1]  # optional: destination path (skips A/B slot and meta)
 

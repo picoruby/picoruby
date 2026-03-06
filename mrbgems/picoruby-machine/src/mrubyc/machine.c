@@ -273,6 +273,9 @@ raise_sigtstp(mrbc_vm *vm)
 static void
 c_machine_check_signal(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  io_raw_bang(true);
+  Machine_tud_task();
+  io_cooked_bang();
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
     sigint_status = MACHINE_SIG_NONE;
     raise_interrupt(vm);
