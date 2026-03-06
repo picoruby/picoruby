@@ -231,10 +231,6 @@ module Editor
           case c
           when 1 # Ctrl-A
             @buffer.head
-          when 4 # Ctrl-D logout
-            puts
-            puts "^D\e[0J"
-            raise "Abort"
           when 5 # Ctrl-E
             @buffer.tail
           when 9
@@ -592,8 +588,6 @@ module Editor
           ch = nil
         end
         case c
-        when 4 # Ctrl-D logout
-          return
         when 12 # Ctrl-L
           # FIXME: in case that cursor has to relocate
           @height, @width = Editor.get_screen_size

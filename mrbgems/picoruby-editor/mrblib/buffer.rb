@@ -172,6 +172,10 @@ module Editor
       home
     end
 
+    def empty?
+      @lines.length == 1 && @lines[0].bytesize == 0
+    end
+
     def dump
       @lines.map do |line|
         if line.bytesize > 0 && line.getbyte(line.bytesize - 1) == 0x5C # '\\'

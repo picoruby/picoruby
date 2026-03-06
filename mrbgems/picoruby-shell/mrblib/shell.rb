@@ -402,6 +402,13 @@ class Shell
   def run_shell
     @editor.start do |editor, buffer, c|
       case c
+      when 4 # Ctrl-D EOF
+        if buffer.empty?
+          puts "\n^D" # Cannot logout
+        else
+          c = 10
+          redo # treat as Enter key to execute the command in buffer
+        end
       when 10, 13
         puts
         command_line = buffer.dump.chomp.strip
@@ -436,6 +443,8 @@ class Shell
     sandbox.suspend
     @editor.start do |editor, buffer, c|
       case c
+      when 4  # Ctrl-D EOF = logout
+        break if buffer.empty?
       when 26 # Ctrl-Z
         Signal.trap(:CONT) do
           Machine.signal_self_manage
