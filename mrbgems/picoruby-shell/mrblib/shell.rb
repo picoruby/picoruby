@@ -238,10 +238,10 @@ class Shell
     end
   end
 
-  def self.setup_sdcard(spi)
+  def self.setup_sdcard(driver)
     begin
-      print "Initializing SD card... "
-      sd = FAT.new(:sd, label: "SD", driver: spi)
+      print "Initializing SD card(#{driver.class})... "
+      sd = FAT.new(:sd, label: "SD", driver: driver)
       sd_mountpoint = "/sd"
       VFS.mount(sd, sd_mountpoint)
       puts "Available at #{sd_mountpoint}"
