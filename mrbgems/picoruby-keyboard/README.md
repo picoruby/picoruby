@@ -9,6 +9,7 @@ This gem provides layer management for keyboard matrix, enabling:
 - **LT (Layer-Tap)**: Send a keycode on tap, activate layer on hold
 - **MT (Mod-Tap)**: Send a keycode on tap, activate modifier on hold
 - **TG (Toggle Layer)**: Toggle a layer on/off with each key press
+- **S (Shift)**: Always send Left Shift + keycode simultaneously
 - **Layer stacking**: Multiple MO keys can be pressed simultaneously
 - **Transparent keys**: KC_NO falls through to lower layers
 
@@ -215,6 +216,49 @@ keymap = [
 ]
 ```
 
+### S(keycode) - Shift
+
+Always sends Left Shift + `keycode` simultaneously when pressed. Useful for placing shifted symbols directly in a layer keymap.
+
+```ruby
+include LayerKeycode
+
+keymap = [
+  S(KC_1),  # ! (Shift+1)
+  S(KC_2),  # @ (Shift+2)
+  S(KC_MINUS),  # _ (Shift+-)
+  S(KC_EQUAL),  # + (Shift+=)
+  S(KC_ENTER),  # Shift+Enter
+]
+```
+
+Unlike `MT`, `S()` has no tap/hold behavior — Shift is always applied on every press.
+
+Common shifted symbols:
+
+| `S()` call        | Output |
+|-------------------|--------|
+| `S(KC_1)`         | `!`    |
+| `S(KC_2)`         | `@`    |
+| `S(KC_3)`         | `#`    |
+| `S(KC_4)`         | `$`    |
+| `S(KC_5)`         | `%`    |
+| `S(KC_6)`         | `^`    |
+| `S(KC_7)`         | `&`    |
+| `S(KC_8)`         | `*`    |
+| `S(KC_9)`         | `(`    |
+| `S(KC_0)`         | `)`    |
+| `S(KC_MINUS)`     | `_`    |
+| `S(KC_EQUAL)`     | `+`    |
+| `S(KC_LBRACKET)`  | `{`    |
+| `S(KC_RBRACKET)`  | `}`    |
+| `S(KC_BSLASH)`    | `\|`   |
+| `S(KC_SCOLON)`    | `:`    |
+| `S(KC_QUOTE)`     | `"`    |
+| `S(KC_COMMA)`     | `<`    |
+| `S(KC_DOT)`       | `>`    |
+| `S(KC_SLASH)`     | `?`    |
+
 ## Advanced Example
 
 ```ruby
@@ -346,6 +390,11 @@ Tap/hold behavior: tap sends keycode, hold activates modifier.
 #### `TG(layer_index)`
 Create toggle layer switch keycode.
 - `layer_index`: Layer index (0-255)
+- Returns: Special keycode
+
+#### `S(keycode)`
+Create a Shift-modified keycode. Pressing the key always sends Left Shift + `keycode` simultaneously.
+- `keycode`: Base keycode (0-255)
 - Returns: Special keycode
 
 ## Combos
@@ -567,6 +616,7 @@ end
 - Only one TG layer can be locked at a time
 - KC_NO (0x00) is reserved for transparent keys
 - **Modifier keys** (0xE0-0xE7) are automatically detected and converted to modifier bits
+- **S() keys** always produce Left Shift (modifier bit 0x02) combined with the base keycode — no tap/hold logic involved
 - Multiple modifiers are accumulated via bitwise OR
 - On key release, `event[:keycode]` is automatically set to 0
 - The `event[:pressed]` field is available for debugging or custom logic

@@ -94,7 +94,7 @@ class Keyboard
   # @param keycodes [Array<Integer>] Array of keycodes that trigger the combo
   # @param action [Integer] Keycode to send when combo triggers
   def add_combo(keycodes, action)
-    unless keycodes.is_a?(Array) && keycodes.size >= 2
+    unless keycodes.is_a?(Array) && 2 <= keycodes.size
       raise ArgumentError, "Combo requires at least 2 keycodes"
     end
     @combos << {keycodes: keycodes.sort, action: action}
@@ -105,7 +105,7 @@ class Keyboard
   # @param col [Integer] Column index in keymap coordinates
   # @param pressed [Boolean] true for press, false for release
   def inject_event(row, col, pressed)
-    if row < 0 || row >= @keymap_rows || col < 0 || col >= @keymap_cols
+    if row < 0 || @keymap_rows <= row || col < 0 || @keymap_cols <= col
       raise ArgumentError, "Position (#{row}, #{col}) is out of keymap bounds (#{@keymap_rows}x#{@keymap_cols})"
     end
     @injected_events << {row: row, col: col, pressed: pressed}
@@ -139,7 +139,7 @@ class Keyboard
 
   def is_modifier_key?(keycode)
     # USB HID modifier keys are in the range 0xE0-0xE7
-    keycode >= 0xE0 && keycode <= 0xE7
+    0xE0 <= keycode && keycode <= 0xE7
   end
 
   def handle_event(event)
@@ -270,11 +270,14 @@ class Keyboard
       keycode = keymap[index]
       next if keycode == KC_NO  # Transparent - try next layer
 
-      # Found a key - check if it's a modifier
+      # Found a key - check if it's a modifier or shifted keycode
       if is_modifier_key?(keycode)
         # Convert modifier keycode (0xE0-0xE7) to modifier bit (0x01-0x80)
         modifier_bit = 1 << (keycode - 0xE0)
         return [0, modifier_bit]  # Return (keycode=0, modifier=bit)
+      elsif is_sm?(keycode)
+        # SM: always send Left Shift + base keycode
+        return [sm_keycode(keycode), 0x02]  # 0x02 = LSFT modifier bit
       else
         return [keycode, 0]  # Return (keycode=keycode, modifier=0)
       end
@@ -502,7 +505,7 @@ class Keyboard
       case state[:state]
       when :pressed
         elapsed = Machine.board_millis - state[:pressed_at]
-        if elapsed >= @tap_threshold_ms || state[:other_key_pressed]
+        if @tap_threshold_ms <= elapsed || state[:other_key_pressed]
           state[:state] = :holding
           # Activate based on tap_type
           if state[:tap_type] == :layer
@@ -515,7 +518,7 @@ class Keyboard
       when :tapped
         # Check if repush threshold has expired
         elapsed = Machine.board_millis - state[:released_at]
-        if elapsed >= @repush_threshold_ms
+        if @repush_threshold_ms <= elapsed
           keys_to_delete << key_pos
         end
       end
@@ -666,7 +669,7 @@ class Keyboard
       # Check if all combo keycodes are present in buffer
       if combo_keycodes.all? { |kc| buffered_keycodes.include?(kc) }
         # Prefer longer combos (more keys = higher priority)
-        if combo_keycodes.size > best_match_size
+        if best_match_size < combo_keycodes.size
           best_match = combo
           best_match_size = combo_keycodes.size
         end
@@ -708,7 +711,7 @@ class Keyboard
     expired_entries = []
 
     @combo_buffer.each do |entry|
-      if now - entry[:pressed_at] >= @combo_term_ms
+      if @combo_term_ms <= now - entry[:pressed_at]
         expired_entries << entry
       end
     end

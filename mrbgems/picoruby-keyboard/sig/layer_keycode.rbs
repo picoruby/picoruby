@@ -5,6 +5,7 @@ module LayerKeycode
   TG_BASE: Integer
   LT_BASE: Integer
   MT_BASE: Integer
+  SM_BASE: Integer
 
   # Create a momentary layer switch keycode
   def MO: (Integer layer_index) -> Integer
@@ -34,4 +35,10 @@ module LayerKeycode
   def mt_modifier_index: (Integer keycode) -> Integer
   # Extract tap keycode from MT keycode
   def mt_tap_keycode: (Integer keycode) -> Integer
+  # Create a Shift-modified keycode (always sends Left Shift + keycode)
+  def S: (Integer keycode) -> Integer
+  # Check if keycode is a Shift-modified keycode
+  def is_sm?: (Integer keycode) -> bool
+  # Extract base keycode from SM keycode
+  def sm_keycode: (Integer keycode) -> Integer
 end
