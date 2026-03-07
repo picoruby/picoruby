@@ -21,7 +21,7 @@ c_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   mrbc_value row_pins_ary = GET_ARG(1);
-  mrbc_value col_pins_ary = (argc >= 2) ? GET_ARG(2) : mrbc_ary_new(vm, NULL);
+  mrbc_value col_pins_ary = (argc >= 2) ? GET_ARG(2) : mrbc_array_new(vm, NULL);
 
   if (row_pins_ary.tt != MRBC_TT_ARRAY || col_pins_ary.tt != MRBC_TT_ARRAY) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "arguments must be arrays");

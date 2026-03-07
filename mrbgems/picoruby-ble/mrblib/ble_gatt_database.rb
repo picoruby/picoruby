@@ -178,7 +178,7 @@ class BLE
         flag |= WRITE_WITHOUT_RESPONSE
         flag |= DYNAMIC
       else
-        flag = properties
+        flag = att_flags(properties)
       end
       if uuid.is_a?(String) && uuid.length == 16
         Utils.int16_to_little_endian(flag|LONG_UUID)
