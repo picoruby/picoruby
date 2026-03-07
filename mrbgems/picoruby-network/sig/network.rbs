@@ -1,4 +1,7 @@
 module Network
+  class ConnectTimeout < RuntimeError
+  end
+
   type wifi_t = (CYW43 | ESP32::WiFi)
   WiFi: wifi_t
 end

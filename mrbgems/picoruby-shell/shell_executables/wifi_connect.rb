@@ -115,7 +115,7 @@ begin
   puts "Connecting to WiFi network: #{ssid}. Timeout in 10 seconds..."
   Network::WiFi.connect_timeout(ssid, password, auth, 10) # seconds
   puts "Connected."
-rescue
+rescue Network::ConnectTimeout
   if config["wifi"]["retry_if_failed"]
     puts "Failed to connect. Retrying..."
     sleep 1
