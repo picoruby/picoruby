@@ -137,7 +137,7 @@ keyboard_matrix_scan(key_event_t *event)
     for (uint8_t row = 0; row < row_count; row++) {
       // Set row low
       GPIO_write(row_pins[row], 0);
-      Machine_busy_wait_us(1);
+      Machine_busy_wait_us(5);
 
       for (uint8_t col = 0; col < col_count; col++) {
         bool current = !GPIO_read(col_pins[col]);
