@@ -387,12 +387,16 @@ c_mqtt_get_message(mrbc_vm *vm, mrbc_value v[], int argc)
   char *topic, *payload;
   int result = MQTT_get_message_impl(&topic, &payload);
 
-  if (result == 0) {
-    // Format as "topic\tpayload" string
-    static char message_buffer[512];
-    snprintf(message_buffer, sizeof(message_buffer), "%s\t%s", topic, payload);
-    mrbc_value ret = mrbc_string_new_cstr(vm, message_buffer);
-    SET_RETURN(ret);
+  if (result == 0 && topic && payload) {
+    // Return array [topic, payload]
+    mrbc_value array = mrbc_array_new(vm, 2);
+    mrbc_value topic_val = mrbc_string_new_cstr(vm, topic);
+    mrbc_value payload_val = mrbc_string_new_cstr(vm, payload);
+
+    mrbc_array_set(&array, 0, &topic_val);
+    mrbc_array_set(&array, 1, &payload_val);
+
+    SET_RETURN(array);
   } else {
     SET_NIL_RETURN();
   }
