@@ -635,7 +635,7 @@ module Funicular
     HTML_TAGS.each do |tag|
       define_method(tag) do |props = {}, &block|
         # @type self: Component
-        children = [] #: Array[VDOM::VNode | VDOM::Text | nil]
+        children = [] #: Array[Funicular::VDOM::child_t]
 
         if block
           prev_children = @current_children
