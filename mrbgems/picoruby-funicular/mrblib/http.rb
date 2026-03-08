@@ -58,6 +58,7 @@ module Funicular
     private
 
     def self.request(method, url, body, &block)
+      # @type var options: Hash[Symbol, String | Hash[String, String]]
       options = { method: method, credentials: "include" }
 
       headers = {} #: Hash[String, String]

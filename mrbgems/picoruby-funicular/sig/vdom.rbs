@@ -1,7 +1,7 @@
 module Funicular
   module VDOM
     type patch_t = Array[untyped]
-    type child_t = Element | Text | Component | Array[Element | Text | Component]
+    type child_t = Element | Text | Component | String | Array[Element | Text | Component | String]
 
     class VNode
       attr_reader type: Symbol
