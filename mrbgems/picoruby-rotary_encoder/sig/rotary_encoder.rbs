@@ -1,0 +1,26 @@
+# @sidebar io_peripheral
+class RotaryEncoder
+  @gpio_a: GPIO
+  @gpio_b: GPIO
+  @state_a: Integer
+  @state_b: Integer
+  @status: Integer
+  @proc_cw: Proc
+  @proc_ccw: Proc
+
+  def self.new: (Integer pin_a, Integer pin_b) -> instance
+
+  # Set clockwise rotation callback.
+  def clockwise: () { () -> void } -> void
+  alias cw clockwise
+
+  # Set counterclockwise rotation callback.
+  def counterclockwise: () { () -> void } -> void
+  alias ccw counterclockwise
+
+  # IRQ callback helpers (public for capture-based dispatch in mruby/c).
+  def on_pin_a: (Integer event_type) -> void
+  def on_pin_b: (Integer event_type) -> void
+
+  private def decode: () -> void
+end
