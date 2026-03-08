@@ -6,10 +6,12 @@ class File < IO
   def self.new(fd_or_path, mode = "r", perm = 0666, &block)
     # @type var fd_or_path: String | Integer
     if fd_or_path.is_a? Integer
-      super(fd_or_path, mode, &block)
+      # Core RBS defines IO.new as `(int fd) -> void` without mode or block params
+      super(fd_or_path, mode, &block) # steep:ignore UnexpectedPositionalArgument, UnexpectedBlockGiven
     else
       fd = IO.sysopen(fd_or_path, mode, perm) # steep:ignore ArgumentTypeMismatch
-      instance = super(fd, mode, &block)
+      # Core RBS defines IO.new as `(int fd) -> void` without mode or block params
+      instance = super(fd, mode, &block) # steep:ignore UnexpectedPositionalArgument, UnexpectedBlockGiven
       instance.path = fd_or_path
       instance
     end
