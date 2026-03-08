@@ -35,10 +35,12 @@ class Dir
     end
 
     def exist?(path)
+      # @type var path: String
       VFS.directory?(path)
     end
 
     def empty?(path)
+      # @type var path: String
       dir = self.open(path)
       res = dir.read
       dir.close
@@ -47,6 +49,7 @@ class Dir
     alias zero? empty?
 
     def chdir(path = "")
+      # @type var path: String
       # block_given? ? object : 0
       _pwd = pwd
       if block_given?
@@ -65,10 +68,13 @@ class Dir
     alias getwd pwd
 
     def mkdir(path, mode = 0777)
+      # @type var path: String
+      # @type var mode: Integer
       VFS.mkdir(path, mode)
     end
 
     def unlink(path)
+      # @type var path: String
       VFS.unlink(path)
     end
     alias delete unlink
@@ -76,6 +82,7 @@ class Dir
   end
 
   def initialize(path, encoding: nil)
+    # @type var path: String
     @dir = VFS::Dir.open(path)
   end
 

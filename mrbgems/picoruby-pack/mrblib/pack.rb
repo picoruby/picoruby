@@ -4,12 +4,14 @@
 
 class Array
   def pack(format, buffer: nil)
+    # @type var format: String
     PackHelper.pack_array(self, format)
   end
 end
 
 class String
   def unpack(format, offset: 0)
+    # @type var format: String
     PackHelper.unpack_string(self, format)
   end
 end
