@@ -185,7 +185,7 @@ class File < IO
         f.each {|l| yield l}
       end
     else
-      return self.new(file)
+      return self.new(file) # steep:ignore ReturnTypeMismatch
     end
   end
 
