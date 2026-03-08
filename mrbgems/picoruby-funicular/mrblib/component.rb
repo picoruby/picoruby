@@ -34,17 +34,17 @@ module Funicular
       @style_accessor = nil
       @vdom = nil
       @dom_element = nil
-      @refs = {}
-      @event_listeners = []
+      @refs = {} #: Hash[Symbol, JS::Object]
+      @event_listeners = [] #: Array[Integer]
       @mounted = false
       @updating = false
-      @child_components = []
+      @child_components = [] #: Array[Component]
 
       # Initialize suspense state
-      @suspense_data = {}
-      @suspense_states = {}   # :pending, :loading, :resolved, :rejected
-      @suspense_errors = {}
-      @suspense_pending_timers = []  # Track pending setTimeout IDs for cleanup
+      @suspense_data = {} #: Hash[Symbol, untyped]
+      @suspense_states = {} #: Hash[Symbol, Symbol]
+      @suspense_errors = {} #: Hash[Symbol, untyped]
+      @suspense_pending_timers = [] #: Array[Integer]
       self.class.suspense_definitions.each_key do |name|
         @suspense_states[name] = :pending
       end
@@ -224,7 +224,7 @@ module Funicular
     #     on_resolve: ->(user) { patch(user: { username: user.username }) },
     #     min_delay: 300  # Show loading spinner for at least 300ms
     def self.use_suspense(name, loader, on_resolve: nil, min_delay: nil)
-      @suspense_definitions ||= {}
+      @suspense_definitions ||= {} #: Hash[Symbol, suspense_definition]
       @suspense_definitions[name] = { loader: loader, on_resolve: on_resolve, min_delay: min_delay }
     end
 
@@ -247,7 +247,7 @@ module Funicular
         component_will_update if respond_to?(:component_will_update)
 
         # Convert JS::Object values to Ruby native types automatically
-        normalized_state = {}
+        normalized_state = {} #: Hash[Symbol, untyped]
         new_state.each do |key, value|
           normalized_state[key] = normalize_state_value(value)
         end
@@ -311,7 +311,7 @@ module Funicular
         @child_components.each do |child|
           child.unmount if child.respond_to?(:unmount)
         end
-        @child_components = []
+        @child_components = [] #: Array[Component]
 
         cleanup_events
         cleanup_suspense_timers
@@ -362,7 +362,7 @@ module Funicular
       return if vnode.is_a?(VDOM::Component)
       return unless vnode.is_a?(VDOM::Element)
 
-      event_types = []
+      event_types = [] #: Array[String]
 
       vnode.props.each do |key, value|
         key_str = key.to_s
@@ -477,7 +477,7 @@ module Funicular
       @event_listeners.each do |callback_id|
         JS::Object.removeEventListener(callback_id)
       end
-      @event_listeners = []
+      @event_listeners = [] #: Array[Integer]
 
       # NOTE: Do NOT cleanup child component events here!
       # Child components manage their own events and will cleanup
@@ -490,7 +490,7 @@ module Funicular
       @suspense_pending_timers.each do |timer_id|
         JS.global.clearTimeout(timer_id)
       end
-      @suspense_pending_timers = []
+      @suspense_pending_timers = [] #: Array[Integer]
     end
 
     private
@@ -499,7 +499,7 @@ module Funicular
     def normalize_state_value(value)
       if value.is_a?(Hash)
         # Recursively normalize hash values
-        normalized = {}
+        normalized = {} #: Hash[untyped, untyped]
         value.each do |k, v|
           normalized[k] = normalize_state_value(v)
         end
@@ -572,7 +572,8 @@ module Funicular
     end
 
     # Normalize render result to VNode
-    def normalize_vnode(value)
+    # VNode is abstract; actual instances are always Element, Text, or Component
+    def normalize_vnode(value) # steep:ignore MethodBodyTypeMismatch
       case value
       when VDOM::VNode
         value
@@ -601,7 +602,7 @@ module Funicular
 
     # Collect child component instances from VDOM tree
     def collect_child_components(vnode)
-      @child_components = []
+      @child_components = [] #: Array[Component]
       collect_child_components_recursive(vnode, @child_components)
     end
 
@@ -634,7 +635,8 @@ module Funicular
 
     HTML_TAGS.each do |tag|
       define_method(tag) do |props = {}, &block|
-        children = []
+        # @type self: Component
+        children = [] #: Array[Funicular::VDOM::child_t]
 
         if block
           prev_children = @current_children
@@ -719,14 +721,14 @@ module Funicular
           form_data = if model_data.is_a?(Hash)
             model_data
           elsif model_data.respond_to?(:instance_variables)
-            data = {}
+            data = {} #: Hash[Symbol, untyped]
             model_data.instance_variables.each do |var|
               key = var.to_s.sub('@', '').to_sym
               data[key] = model_data.instance_variable_get(var)
             end
             data
           else
-            {}
+            {} #: Hash[Symbol, untyped]
           end
 
           # Call the submit handler (Symbol, Method, or Proc)

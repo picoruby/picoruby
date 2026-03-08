@@ -4,11 +4,14 @@ class File < IO
   attr_accessor :path
 
   def self.new(fd_or_path, mode = "r", perm = 0666, &block)
+    # @type var fd_or_path: String | Integer
     if fd_or_path.is_a? Integer
-      super(fd_or_path, mode, &block)
+      # Core RBS defines IO.new as `(int fd) -> void` without mode or block params
+      super(fd_or_path, mode, &block) # steep:ignore UnexpectedPositionalArgument, UnexpectedBlockGiven
     else
-      fd = IO.sysopen(fd_or_path, mode, perm)
-      instance = super(fd, mode, perm, &block)
+      fd = IO.sysopen(fd_or_path, mode, perm) # steep:ignore ArgumentTypeMismatch
+      # Core RBS defines IO.new as `(int fd) -> void` without mode or block params
+      instance = super(fd, mode, &block) # steep:ignore UnexpectedPositionalArgument, UnexpectedBlockGiven
       instance.path = fd_or_path
       instance
     end
@@ -16,7 +19,7 @@ class File < IO
 
   # Alternative to File.read
   def self.load_file(path, length = nil, offset = nil)
-    File.open(path) do |f|
+    File.open(path) do |f| # steep:ignore BlockBodyTypeMismatch
       f.seek(offset) if offset
       f.read(length)
     end
@@ -50,6 +53,7 @@ class File < IO
     return "" if names.empty?
 
     names = names.map do |name|
+      # @type var name: String | Array[String]
       case name
       when String
         name
@@ -57,7 +61,7 @@ class File < IO
         if names == name
           raise ArgumentError, "recursive array"
         end
-        join(name)
+        join(*name)
       else
         raise TypeError, "no implicit conversion of #{name.class} into String"
       end
@@ -132,17 +136,20 @@ class File < IO
   end
 
   def self.expand_path(path, default_dir = '.')
+    # @type var path: String
+    # @type var default_dir: String
     expanded_path = _concat_path(path, default_dir)
     drive_prefix = ""
     if File::ALT_SEPARATOR && expanded_path.size > 2 && ("A".."Z")===(expanded_path[0]&.upcase) && expanded_path[1] == ":"
       drive_prefix = expanded_path[0, 2].to_s
-      expanded_path = expanded_path[2, expanded_path.size]
+      expanded_path = expanded_path[2, expanded_path.size] || raise("unreachable")
     end
-    expand_path_array = []
-    if File::ALT_SEPARATOR && expanded_path&.include?(File::ALT_SEPARATOR)
-      expand_path = expanded_path.gsub(File::ALT_SEPARATOR, '/')
+    expand_path_array = [] #: Array[String]
+    alt_sep = File::ALT_SEPARATOR
+    if alt_sep && expanded_path.include?(alt_sep)
+      expand_path = expanded_path.gsub(alt_sep, '/')
     end
-    while expanded_path&.include?('//')
+    while expanded_path.include?('//')
       expanded_path = expanded_path.gsub('//', '/')
     end
 
@@ -167,17 +174,18 @@ class File < IO
     if drive_prefix.empty?
       expanded_path.to_s
     else
-      drive_prefix + expanded_path&.gsub("/", File::ALT_SEPARATOR).to_s
+      drive_prefix + expanded_path.gsub("/", File::ALT_SEPARATOR || "/")
     end
   end
 
-  def self.foreach(file)
+  def self.foreach(file, sep = $/, limit = nil, **opts)
+    # @type var file: String
     if block_given?
-      self.open(file) do |f|
+      self.open(file) do |f| # steep:ignore BlockBodyTypeMismatch
         f.each {|l| yield l}
       end
     else
-      return self.new(file)
+      return self.new(file) # steep:ignore ReturnTypeMismatch
     end
   end
 
@@ -198,6 +206,7 @@ class File < IO
   end
 
   def self.size(file = nil)
+    # @type var file: String | IO | nil
     if (self.instance_of? self.class)
       _size
     else
@@ -228,10 +237,11 @@ class File < IO
     fname = self.basename(filename)
     epos = fname.rindex('.')
     return '' if epos == 0 || epos.nil?
-    return fname[epos, fname.size - epos]
+    return fname[epos, fname.size - epos].to_s
   end
 
   def self.path(filename = nil)
+    # @type var filename: String | nil
     if self.instance_of?(self.class)
       @path
     else

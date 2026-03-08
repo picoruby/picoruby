@@ -166,7 +166,8 @@ module Funicular
       def calculate_backoff_delay
         base_delay = 1
         max_delay = 60
-        delay = base_delay * (2 ** @reconnect_attempts)
+        exp = 2 ** @reconnect_attempts #: Integer
+        delay = base_delay * exp
         delay < max_delay ? delay : max_delay
       end
 
@@ -267,7 +268,7 @@ module Funicular
     class Subscriptions
       def initialize(consumer)
         @consumer = consumer
-        @subscriptions = {}
+        @subscriptions = {} #: Hash[String, Subscription]
       end
 
       # Create a new subscription

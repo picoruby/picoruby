@@ -6,7 +6,7 @@ class Shell
     @input: String
     @position: Integer
 
-    def self.new: (String input) -> Tokenizer
+    def initialize: (String input) -> void
     def next_token: () -> token_hash?
 
     private
@@ -24,6 +24,8 @@ class Shell
   class Parser
     class Node < Data
       def self.define: (:type, :data, :token) -> singleton(Node)
+      def self.new: (Symbol type, Hash[Symbol, untyped] data, String token) -> Node
+      def initialize: (Symbol type, Hash[Symbol, untyped] data, String token) -> void
 
       attr_reader type: Symbol
       attr_reader data: Hash[Symbol, untyped]
@@ -34,7 +36,7 @@ class Shell
     @current_token: token_hash?
     @input: String
 
-    def self.new: (String input) -> Parser
+    def initialize: (String input) -> void
     def parse: () -> Node?
 
     private

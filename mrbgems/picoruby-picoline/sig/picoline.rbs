@@ -6,7 +6,7 @@ class PicoLine
 
   attr_accessor default: String?
 
-  @answer: String
+  @answer: String?
 
-  def ask: (String, ?allow_empty: bool) ?{ (Question) -> void } -> String
+  def ask: (String, ?allow_empty: bool) ?{ (Question) -> void } -> String?
 end

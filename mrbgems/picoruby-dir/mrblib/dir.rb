@@ -3,9 +3,9 @@ require 'env'
 class Dir
   include Enumerable
 
-  def each(&block)
+  def each
     while s = self.read
-      block.call(s)
+      yield s
     end
     self
   end
@@ -15,8 +15,8 @@ class Dir
   alias pos= seek
 
   class << self
-    def entries(path)
-      a = []
+    def entries(path, encoding: nil)
+      a = [] #: Array[String]
       self.open(path) do |d|
         while s = d.read
           a << s
@@ -26,18 +26,21 @@ class Dir
     end
     alias children entries
 
-    def foreach(path, &block)
+    def foreach(path, encoding: nil, &block)
+      raise ArgumentError, "no block given" unless block
       self.open(path) do |d|
         d.each(&block)
       end
       nil
     end
 
-    def open(path, &block)
+    # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+    def open(path, encoding: nil, &block) # steep:ignore MethodBodyTypeMismatch
       if block
         d = self.new(path)
         begin
-          block.call(d)
+          # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+          block.call(d) # steep:ignore ArgumentTypeMismatch
         ensure
           begin
             d.close

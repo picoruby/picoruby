@@ -18,7 +18,7 @@ class SPI
   def copi_pin: () -> Integer
   def cs_pin: () -> Integer
 
-  def self.new: (
+  def initialize: (
     unit: Symbol | String,
     ?frequency: Integer,
     ?sck_pin: Integer,
@@ -27,7 +27,7 @@ class SPI
     ?cs_pin: Integer,
     ?mode: spi_mode_t,
     ?first_bit: spi_first_bit_t
-  ) -> SPI
+  ) -> void
   private def self.init: (
     String unit,
     Integer frequency,

@@ -3,7 +3,7 @@
 lines = 10
 
 # Parse options
-args = []
+args = [] #: Array[String]
 i = 0
 while i < ARGV.size
   arg = ARGV[i]
@@ -29,7 +29,7 @@ end
 begin
   if args.empty?
     # Read from stdin - use circular buffer for memory efficiency
-    buffer = []
+    buffer = [] #: Array[String]
     while line = gets
       buffer << line
       buffer.shift if buffer.size > lines
@@ -49,7 +49,7 @@ begin
       end
 
       # Use circular buffer to keep last N lines
-      buffer = []
+      buffer = [] #: Array[String]
       File.open(file, 'r') do |f|
         while line = f.gets
           buffer << line

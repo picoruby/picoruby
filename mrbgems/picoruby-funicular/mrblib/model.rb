@@ -16,8 +16,9 @@ module Funicular
 
         unless config["readonly"]
           define_method("#{name}=") do |value|
+            # @type self: Model
             instance_variable_set("@#{name}", value)
-            @changed_attributes ||= {}
+            @changed_attributes ||= {} #: Hash[String, untyped]
             @changed_attributes[name] = value
           end
         end
@@ -25,7 +26,7 @@ module Funicular
     end
 
     def initialize(attributes = {})
-      @changed_attributes = {}
+      @changed_attributes = {} #: Hash[String, untyped]
       # Set attributes based on schema
       self.class.schema.each do |name, config|
         value = attributes[name] || attributes[name.to_sym]
@@ -120,7 +121,7 @@ module Funicular
           response.data.each do |key, value|
             instance_variable_set("@#{key}", value)
           end
-          @changed_attributes = {}
+          @changed_attributes = {} #: Hash[String, untyped]
           block.call(true, response.data) if block
         end
       end
@@ -136,7 +137,7 @@ module Funicular
           instance.instance_variables.each do |var|
             instance_variable_set(var, instance.instance_variable_get(var))
           end
-          @changed_attributes = {}
+          @changed_attributes = {} #: Hash[String, untyped]
         end
         block.call(instance, error) if block
       end

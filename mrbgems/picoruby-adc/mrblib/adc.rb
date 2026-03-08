@@ -1,5 +1,6 @@
 class ADC
-  def initialize(pin, additional_params = {})
+  EMPTY_PARAMS = {} #: Hash[untyped, untyped]
+  def initialize(pin, additional_params = EMPTY_PARAMS)
     @additional_params = additional_params
     @input = _init(pin)
     begin

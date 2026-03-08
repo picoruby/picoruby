@@ -93,12 +93,12 @@ class Rapicco
 
         attrs = self.class.parse_attrs(attr_s)
 
-        font        = attrs[:font].to_sym        if attrs.has_key?(:font)
-        scale       = attrs[:scale].to_i         if attrs.has_key?(:scale)
-        align       = attrs[:align].to_sym       if attrs.has_key?(:align)
+        font        = attrs[:font].to_s.to_sym   if attrs.has_key?(:font)
+        scale       = attrs[:scale].to_s.to_i    if attrs.has_key?(:scale)
+        align       = attrs[:align].to_s.to_sym  if attrs.has_key?(:align)
         bullet      = (attrs[:bullet] == 'true') if attrs.has_key?(:bullet)
-        line_color  = attrs[:color].to_sym       if attrs.has_key?(:color)
-        skip        = attrs[:skip].to_i          if attrs.has_key?(:skip)
+        line_color  = attrs[:color].to_s.to_sym  if attrs.has_key?(:color)
+        skip        = attrs[:skip].to_s.to_i     if attrs.has_key?(:skip)
 
         idx += 1 while idx < line.length && line[idx] == ' '
       end
@@ -130,11 +130,13 @@ class Rapicco
 
     # ---------------- class helper methods ------------------------
     def self.parse_attrs(str)
-      h = {}
+      h = {} #: Hash[Symbol, String?]
       str.tr(',', ' ').split(' ').each do |pair|
         eq = pair.index('=')
         next unless eq
-        key = pair[0, eq]&.to_sym
+        key_str = pair[0, eq]
+        next unless key_str
+        key = key_str.to_sym
         val = pair[eq + 1, pair.length - eq - 1]
         h[key] = val
       end
@@ -142,7 +144,7 @@ class Rapicco
     end
 
     def self.parse_inline(src, base_color, bold_color)
-      segs = []
+      segs = [] #: Array[Hash[Symbol, untyped]]
       buf  = ""
       i    = 0
 

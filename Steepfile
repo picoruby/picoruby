@@ -7,7 +7,7 @@ target :mrbgems do
 #  )
 
   Dir.glob("**/sig/").each do |dir|
-    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("-prk-")
+    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?("task-ext") || dir.include?("-prk-")
       signature dir
     end
   end
@@ -33,4 +33,8 @@ target :mrbgems do
 
   # TODO: Fix after removal of picoruby-net
   ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
+  # Task class sig is excluded from signature loading (task-ext)
+  ignore "mrbgems/picoruby-shell/shell_executables/taskstat.rb"
+  # R2P2 uses IO.new without arguments (embedded environment)
+  ignore "mrbgems/picoruby-r2p2/mrblib/main_task.rb"
 end

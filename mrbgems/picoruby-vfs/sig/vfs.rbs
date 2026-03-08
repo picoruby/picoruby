@@ -28,7 +28,7 @@ class VFS
   class File
     def self.open: (String path, String mode) -> file_t
     def self.utime: (Time atime, Time mtime, *String filename) -> Integer
-    def self.new: (String path, String mode) -> VFS::File
+    def initialize: (String path, String mode) -> void
     def physical_address: () -> Integer
     def sector_size: () -> Integer
   end
@@ -40,6 +40,12 @@ class VFS
 end
 
 class File
+  CHUNK_SIZE: Integer
+  SEEK_SET: Integer
+  SEEK_CUR: Integer
+  SEEK_END: Integer
+  def self.contiguous?: (String path) -> bool
   def physical_address: () -> Integer
   def sector_size: () -> Integer
+  def expand: (Integer size) -> Integer
 end

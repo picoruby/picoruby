@@ -11,8 +11,8 @@ end
 
 class Vim
   def initialize(filepath)
-    unless filepath.to_s.empty?
-      @filepath = File.expand_path filepath, Dir.getwd
+    unless filepath.nil? || filepath.empty?
+      @filepath = File.expand_path filepath, (Dir.getwd || ".")
     end
     @mode = :normal
     @editor = Editor::Screen.new

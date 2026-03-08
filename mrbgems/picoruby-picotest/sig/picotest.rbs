@@ -51,6 +51,14 @@ module Picotest
 
     def self.description: (String description) -> void
     def self?.mruby?: () -> bool
+    def self?.mrubyc?: () -> bool
+    def stub: (untyped doubled_obj) -> Picotest::Double
+    def mock: (untyped doubled_obj) -> Picotest::Double
+    def stub_any_instance_of: (Class klass) -> Picotest::Double
+    def mock_any_instance_of: (Class klass) -> Picotest::Double
+    def mock_methods: () -> void
+    def clear_doubles: () -> void
+    def run_script: (String script) -> String
     def list_tests: () -> Array[Symbol]
     def setup: () -> void
     def teardown: () -> void
@@ -61,10 +69,10 @@ module Picotest
     def assert_equal: (untyped expected, untyped actual) -> void
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
-    def assert_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
+    def assert_in_delta: (Numeric expected, Numeric actual, ?Float delta) -> void
     def skip: (?String reason) -> void
     def report_skip: (untyped data) -> void
-    def report_exeption: (untyped data) -> void
+    def report_exception: (untyped data) -> void
     private def report: (bool result, String | nil error_message, untyped expected, untyped actual) -> void
   end
 
@@ -83,7 +91,7 @@ module Picotest
     @load_crashes: Array[{ entry: String, message: String }]
     @ruby_path: String
 
-    def self.new: (String dir, ?filter: (String | nil), ?tmpdir: String, ?lib_name: String, ?load_files: Array[String], ?load_path: String) -> Picotest::Runner
+    def initialize: (String dir, ?filter: (String | nil), ?tmpdir: String, ?lib_name: String, ?load_files: Array[String], ?load_path: String) -> void
     def run: () -> void
     private def run_test: (String entry) -> void
     private def summarize: () -> Integer

@@ -70,7 +70,7 @@ class Shell
                          CRC.crc32_from_address(f.physical_address, code.size)
                        else
                          actual_code = f.read if 0 < actual_len
-                         CRC.crc32(actual_code)
+                         CRC.crc32(actual_code.to_s)
                        end
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
             puts " ... OK (#{code.length} bytes)"
@@ -257,7 +257,7 @@ class Shell
     require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
     @editor = Editor::Line.new
-    @jobs = []
+    @jobs = [] #: Array[Job]
   end
 
   LOGO = if RUBY_ENGINE == "mruby"
@@ -308,10 +308,10 @@ class Shell
 
     LOGO.size.times do |y|
       print margin
-      split_line = []
+      split_line = [] #: Array[String]
       i = 0
       while i < LOGO[y].length
-        split_line << LOGO[y][i, grad_slice]
+        split_line << (LOGO[y][i, grad_slice] || raise("unreachable"))
         i += grad_slice
       end
       x = 0

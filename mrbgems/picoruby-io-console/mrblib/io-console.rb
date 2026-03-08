@@ -84,5 +84,6 @@ class IO
       sleep_ms 1
     end
     ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb"
+    ENV['TERM'].to_s
   end
 end

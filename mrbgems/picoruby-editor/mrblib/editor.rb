@@ -360,7 +360,7 @@ module Editor
         print "\e[#{content_height}T" # Scroll up
         @visual_offset += content_height
         # Fill the blank made by the scroll
-        blank_lines = []
+        blank_lines = [] #: Array[String]
         ((first_line_skip_count - content_height)..first_lineno).each do |lineno|
           lineno = lineno.to_i
           line = @buffer.lines[lineno]

@@ -93,7 +93,7 @@ class Shell
     private
 
     def parse_program
-      commands = []
+      commands = [] #: Array[Node]
       current = @current_token
       return nil unless current
       start_pos = current[:pos]
@@ -115,8 +115,8 @@ class Shell
 
     def parse_command
       name = expect_word_or_quoted_string()
-      args = []
-      redirects = []
+      args = [] #: Array[String]
+      redirects = [] #: Array[Node]
       start_pos = name[:pos]
 
       while @current_token

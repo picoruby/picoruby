@@ -287,7 +287,7 @@ module JSON
       when Array
         generate_array(obj)
       when String, Symbol
-        generate_string(obj)
+        generate_string(obj.to_s)
       when Integer, Float
         generate_number(obj)
       when TrueClass
@@ -387,7 +387,7 @@ module JSON
     # private
 
     def parse_object
-      result = {}
+      result = {} #: Hash[String, untyped]
       @index += 1  # Skip '{'
       skip_whitespace
 
@@ -411,7 +411,7 @@ module JSON
     end
 
     def parse_array
-      result = []
+      result = [] #: Array[untyped]
       @index += 1  # Skip '['
       skip_whitespace
 
