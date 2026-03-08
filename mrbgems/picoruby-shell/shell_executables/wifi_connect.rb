@@ -17,7 +17,7 @@ require 'env'
 require 'yaml'
 require "mbedtls"
 require "base64"
-require 'cyw43'
+require 'network'
 
 decrypt_proc = Proc.new do |decoded_password|
   cipher = MbedTLS::Cipher.new("AES-256-CBC")
@@ -79,12 +79,12 @@ unless country_code
   puts "Country code not found in configuration file"
   return
 end
-if CYW43.initialized?
-  puts "CYW43 already initialized. Skipping country code setting."
+if Network::WiFi.initialized?
+  puts "Network::WiFi already initialized. Skipping country code setting."
 else
   puts "Setting country code to #{country_code}"
-  unless CYW43.init country_code
-    puts "Failed to initialize CYW43"
+  unless Network::WiFi.init country_code
+    puts "Failed to initialize Network::WiFi"
     return # raising an exception here may cause a crash
   end
 end
@@ -95,13 +95,13 @@ if check_auto_connect && !config["wifi"]["auto_connect"]
 end
 
 puts "Setting up WiFi as a station"
-CYW43.enable_sta_mode
+Network::WiFi.enable_sta_mode
 
 if encoded_password.nil? || encoded_password.empty?
-  auth = CYW43::Auth::OPEN
+  auth = Network::WiFi::Auth::OPEN
   password = nil
 else
-  auth = CYW43::Auth::WPA2_MIXED_PSK
+  auth = Network::WiFi::Auth::WPA2_MIXED_PSK
   decoded_password = Base64.decode64(encoded_password)
   password = decrypt_proc.call(decoded_password)
 end
@@ -112,10 +112,10 @@ if config["wifi"]["watchdog"]
 end
 
 begin
-  puts "Connecting to WiFi network: #{ssid}. Timeout in 5 seconds..."
-  CYW43.connect_timeout(ssid, password, auth, 5)
+  puts "Connecting to WiFi network: #{ssid}. Timeout in 10 seconds..."
+  Network::WiFi.connect_timeout(ssid, password, auth, 10) # seconds
   puts "Connected."
-rescue CYW43::ConnectTimeout
+rescue Network::ConnectTimeout
   if config["wifi"]["retry_if_failed"]
     puts "Failed to connect. Retrying..."
     sleep 1
@@ -134,7 +134,7 @@ end
 puts "Waiting for IP address..."
 retry_count = 0
 max_retries = 20
-until CYW43.link_connected?
+until Network::WiFi.link_connected?
   sleep_ms 100
   retry_count += 1
   if retry_count >= max_retries
@@ -142,6 +142,7 @@ until CYW43.link_connected?
     return
   end
 end
-puts "IP address obtained (#{CYW43.tcpip_link_status_name})"
+puts "IP address obtained (#{Network::WiFi.tcpip_link_status_name})"
 
+ARGV.clear
 load "/bin/ntpdate"

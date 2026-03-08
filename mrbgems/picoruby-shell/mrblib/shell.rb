@@ -158,14 +158,7 @@ class Shell
     Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
     self.read_config
-
-    begin
-      require "cyw43"
-      if CYW43.respond_to?(:enable_sta_mode)
-        ENV['WIFI_MODULE'] = "cwy43"
-      end
-    rescue
-    end
+    require 'network'
   end
 
   def self.read_config

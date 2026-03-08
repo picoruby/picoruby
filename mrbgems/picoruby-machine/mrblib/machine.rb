@@ -21,4 +21,8 @@ module Machine
     $_signal_self_manage = false
     return s
   end
+
+  def self.wifi_available?
+    Object.const_defined?(:Network) && Network.const_defined?(:WiFi)
+  end
 end
