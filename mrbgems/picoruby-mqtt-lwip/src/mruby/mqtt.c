@@ -6,7 +6,7 @@
  */
 
 #include <mruby.h>
-#include "../../../include/mqtt.h"
+#include "../../include/mqtt.h"
 
 void
 mrb_picoruby_mqtt_lwip_gem_init(mrb_state* mrb)
