@@ -35,7 +35,8 @@ class Dir
       nil
     end
 
-    def open(path, &block)
+    # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+    def open(path, &block) # steep:ignore MethodBodyTypeMismatch
       if block
         d = self.new(path)
         begin

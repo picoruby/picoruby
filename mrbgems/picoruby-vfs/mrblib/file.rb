@@ -38,7 +38,8 @@ class File
       count
     end
 
-    def open(path, mode = "r")
+    # steep bug: `class << self` causes `instance` type to resolve to `singleton(File)` instead of `File`
+    def open(path, mode = "r") # steep:ignore MethodBodyTypeMismatch
       # @type var path: String
       # @type var mode: String
       if block_given?
@@ -142,6 +143,7 @@ class File
     while line = gets do
       block.call line
     end
+    self
   end
 
   def gets(*args, chomp: false)
