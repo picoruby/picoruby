@@ -4,7 +4,8 @@ class Dir
       if block_given?
         begin
           dir = self.new(path)
-          res = yield dir
+          # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+          res = yield dir # steep:ignore ArgumentTypeMismatch
         rescue => e
           puts e.message
         ensure
