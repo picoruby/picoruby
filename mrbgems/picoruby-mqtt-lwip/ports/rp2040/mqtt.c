@@ -26,8 +26,7 @@ static bool poll_state() {
   switch (g_ctx.fsm_state) {
   case MQTT_STATE_ACTIVE:
     if (g_ctx.topic_to_sub[0] != '\0') {
-      console_printf("[MQTT POLL] Processing subscription: %s\n",
-                     g_ctx.topic_to_sub);
+      console_printf("[MQTT POLL] Processing subscription\n");
       g_ctx.fsm_state = MQTT_STATE_SUBSCRIBING;
       cyw43_arch_lwip_begin();
       mqtt_subscribe((mqtt_client_t*)g_ctx.client, g_ctx.topic_to_sub, 0, mqtt_request_cb,
@@ -35,8 +34,7 @@ static bool poll_state() {
       cyw43_arch_lwip_end();
       g_ctx.topic_to_sub[0] = '\0';
     } else if (g_ctx.topic_to_pub[0] != '\0') {
-      console_printf("[MQTT POLL] Processing publish: %s\n",
-                     g_ctx.topic_to_pub);
+      console_printf("[MQTT POLL] Processing publish\n");
       g_ctx.fsm_state = MQTT_STATE_PUBLISHING;
       cyw43_arch_lwip_begin();
       mqtt_publish((mqtt_client_t*)g_ctx.client, g_ctx.topic_to_pub, g_ctx.payload_to_pub,
@@ -63,7 +61,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
   LWIP_UNUSED_ARG(client);
 
-  console_printf("[MQTT] Connection callback - status: %d\n", status);
+  console_printf("[MQTT] Connection callback\n");
 
   switch (status) {
   case MQTT_CONNECT_ACCEPTED:
@@ -75,7 +73,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
     ctx->fsm_state = MQTT_STATE_DISCONNECTING;
     break;
   default:
-    console_printf("[MQTT] Connection failed: %d\n", status);
+    console_printf("[MQTT] Connection failed\n");
     ctx->fsm_state = MQTT_STATE_ERROR;
     break;
   }
@@ -85,8 +83,7 @@ static void mqtt_incoming_publish_cb(void *arg, const char *topic,
                                      u32_t tot_len) {
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
 
-  console_printf("[MQTT] Incoming publish topic: %s (len: %d)\n", topic,
-                 tot_len);
+  console_printf("[MQTT] Incoming publish topic\n");
 
   if (tot_len >= sizeof(ctx->recv_topic)) {
     console_printf("[MQTT ERROR] Topic too long\n");
@@ -103,7 +100,7 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len,
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
   LWIP_UNUSED_ARG(flags);
 
-  console_printf("[MQTT] Incoming data: %d bytes\n", len);
+  console_printf("[MQTT] Incoming data\n");
 
   if (ctx->recv_payload_len + len >= sizeof(ctx->recv_payload)) {
     console_printf("[MQTT ERROR] Payload too long\n");
@@ -116,14 +113,14 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len,
 
   if (flags & MQTT_DATA_FLAG_LAST) {
     ctx->message_arrived = true;
-    console_printf("[MQTT] Complete message received: %s\n", ctx->recv_payload);
+    console_printf("[MQTT] Complete message received\n");
   }
 }
 
 static void mqtt_request_cb(void *arg, err_t err) {
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
 
-  console_printf("[MQTT] Request callback - err: %d\n", err);
+  console_printf("[MQTT] Request callback\n");
 
   if (err != ERR_OK) {
     ctx->fsm_state = MQTT_STATE_ERROR;
@@ -149,49 +146,55 @@ static void mqtt_request_cb(void *arg, err_t err) {
 }
 
 int MQTT_connect_impl(const char *host, int port, const char *client_id) {
-  console_printf("[MQTT] Connecting to %s:%d with ID %s\n", host, port,
-                 client_id);
+  console_printf("[MQTT] Connecting to host ");
+  console_printf(host);
+  console_printf(" port 1883\n");
 
   memset(&g_ctx, 0, sizeof(g_ctx));
 
   ip_addr_t ip;
   if (Net_get_ip(host, &ip) != 0) {
-    console_printf("[MQTT] Failed to resolve host: %s\n", host);
+    console_printf("[MQTT] Failed to resolve host\n");
     return -1;
   }
 
-  cyw43_arch_lwip_begin();
+  console_printf("[MQTT] Creating client without lwIP lock\n");
   g_ctx.client = (void*)mqtt_client_new();
-  cyw43_arch_lwip_end();
+  if (g_ctx.client) {
+    console_printf("[MQTT] mqtt_client_new succeeded\n");
+  } else {
+    console_printf("[MQTT] mqtt_client_new failed\n");
+  }
   if (g_ctx.client == NULL) {
     console_printf("[MQTT] Failed to create client\n");
     return -1;
   }
 
+  console_printf("[MQTT] Client created successfully\n");
+
   struct mqtt_connect_client_info_t client_info = {0};
   client_info.client_id = client_id;
   client_info.keep_alive = 60;
 
-  cyw43_arch_lwip_begin();
+  console_printf("[MQTT] Setting callbacks\n");
   mqtt_set_inpub_callback((mqtt_client_t*)g_ctx.client, mqtt_incoming_publish_cb,
                           mqtt_incoming_data_cb, &g_ctx);
-  cyw43_arch_lwip_end();
+  console_printf("[MQTT] Callbacks set successfully\n");
 
   console_printf("[MQTT] Setting FSM state to CONNECTING\n");
   g_ctx.fsm_state = MQTT_STATE_CONNECTING;
-  console_printf("[MQTT] Calling mqtt_client_connect (with lwIP locking)\n");
-  cyw43_arch_lwip_begin();
+  console_printf("[MQTT] Calling mqtt_client_connect\n");
   err_t err = mqtt_client_connect((mqtt_client_t*)g_ctx.client, &ip, port, mqtt_connection_cb,
                                   &g_ctx, &client_info);
-  cyw43_arch_lwip_end();
-  console_printf("[MQTT] mqtt_client_connect returned: %d (ERR_OK=%d)\n", err,
-                 ERR_OK);
+  if (err != ERR_OK) {
+    console_printf("[MQTT] mqtt_client_connect failed\n");
+  } else {
+    console_printf("[MQTT] mqtt_client_connect succeeded\n");
+  }
 
   if (err != ERR_OK) {
-    console_printf("[MQTT] Connection failed: %d\n", err);
-    cyw43_arch_lwip_begin();
+    console_printf("[MQTT] Connection setup failed\n");
     mqtt_client_free((mqtt_client_t*)g_ctx.client);
-    cyw43_arch_lwip_end();
     g_ctx.client = NULL;
     return -1;
   }
@@ -206,9 +209,7 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
   if (g_ctx.fsm_state != MQTT_STATE_ACTIVE) {
     console_printf("[MQTT] Connection timeout or failed\n");
     if (g_ctx.client) {
-      cyw43_arch_lwip_begin();
       mqtt_client_free((mqtt_client_t*)g_ctx.client);
-      cyw43_arch_lwip_end();
       g_ctx.client = NULL;
     }
     return -1;
@@ -224,7 +225,7 @@ int MQTT_publish_impl(const char *topic, const char *payload, int len) {
     return -1;
   }
 
-  console_printf("[MQTT] Publishing to %s: %s\n", topic, payload);
+  console_printf("[MQTT] Publishing message\n");
 
   strncpy(g_ctx.topic_to_pub, topic, sizeof(g_ctx.topic_to_pub) - 1);
   g_ctx.topic_to_pub[sizeof(g_ctx.topic_to_pub) - 1] = '\0';
@@ -249,7 +250,7 @@ int MQTT_subscribe_impl(const char *topic) {
     return -1;
   }
 
-  console_printf("[MQTT] Subscribing to %s\n", topic);
+  console_printf("[MQTT] Subscribing to topic\n");
 
   strncpy(g_ctx.topic_to_sub, topic, sizeof(g_ctx.topic_to_sub) - 1);
   g_ctx.topic_to_sub[sizeof(g_ctx.topic_to_sub) - 1] = '\0';
@@ -280,10 +281,8 @@ int MQTT_get_message_impl(char **topic, char **payload) {
 
 void MQTT_disconnect_impl() {
   if (g_ctx.fsm_state != MQTT_STATE_IDLE) {
-    cyw43_arch_lwip_begin();
     mqtt_disconnect((mqtt_client_t*)g_ctx.client);
     mqtt_client_free((mqtt_client_t*)g_ctx.client);
-    cyw43_arch_lwip_end();
     memset(&g_ctx, 0, sizeof(g_ctx));
   }
 }
