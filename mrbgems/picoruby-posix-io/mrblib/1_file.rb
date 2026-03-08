@@ -8,7 +8,7 @@ class File < IO
     if fd_or_path.is_a? Integer
       super(fd_or_path, mode, &block)
     else
-      fd = IO.sysopen(fd_or_path, mode, perm)
+      fd = IO.sysopen(fd_or_path, mode, perm) # steep:ignore ArgumentTypeMismatch
       instance = super(fd, mode, &block)
       instance.path = fd_or_path
       instance
@@ -59,7 +59,7 @@ class File < IO
         if names == name
           raise ArgumentError, "recursive array"
         end
-        join(name)
+        join(*name)
       else
         raise TypeError, "no implicit conversion of #{name.class} into String"
       end
@@ -143,8 +143,9 @@ class File < IO
       expanded_path = expanded_path[2, expanded_path.size] || raise("unreachable")
     end
     expand_path_array = [] #: Array[String]
-    if File::ALT_SEPARATOR && expanded_path.include?(File::ALT_SEPARATOR)
-      expand_path = expanded_path.gsub(File::ALT_SEPARATOR, '/')
+    alt_sep = File::ALT_SEPARATOR
+    if alt_sep && expanded_path.include?(alt_sep)
+      expand_path = expanded_path.gsub(alt_sep, '/')
     end
     while expanded_path.include?('//')
       expanded_path = expanded_path.gsub('//', '/')
@@ -171,7 +172,7 @@ class File < IO
     if drive_prefix.empty?
       expanded_path.to_s
     else
-      drive_prefix + expanded_path.gsub("/", File::ALT_SEPARATOR)
+      drive_prefix + expanded_path.gsub("/", File::ALT_SEPARATOR || "/")
     end
   end
 

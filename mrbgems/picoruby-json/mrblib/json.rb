@@ -287,7 +287,7 @@ module JSON
       when Array
         generate_array(obj)
       when String, Symbol
-        generate_string(obj)
+        generate_string(obj.to_s)
       when Integer, Float
         generate_number(obj)
       when TrueClass

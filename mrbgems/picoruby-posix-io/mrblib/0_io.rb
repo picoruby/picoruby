@@ -32,8 +32,11 @@ class IO
     if !self.respond_to?(:_popen)
       raise NotImplementedError, "popen is not supported on this platform"
     end
+    # @type var opt_in: IO::fd_t
     opt_in  = opts[:in]  || 0
+    # @type var opt_out: IO::fd_t
     opt_out = opts[:out] || 1
+    # @type var opt_err: IO::fd_t
     opt_err = opts[:err] || 2
     io = self._popen(command, mode, opt_in, opt_out, opt_err)
     return io unless block

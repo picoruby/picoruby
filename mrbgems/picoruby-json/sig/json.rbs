@@ -71,7 +71,7 @@ module JSON
     def parse: () -> untyped
     private def parse_object: () -> void
     private def parse_array: () -> void
-    private def parse_string: () -> void
+    private def parse_string: () -> String
     private def parse_number: () -> void
     private def parse_integer: (Integer, Integer) -> void
     private def parse_float: (Integer, Integer) -> void
