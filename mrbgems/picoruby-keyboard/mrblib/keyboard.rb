@@ -496,7 +496,7 @@ class Keyboard
 
   # Update tap/hold key states (check for timeout and transitions)
   def update_tap_hold_keys
-    keys_to_delete = [] #: Array[Integer]
+    keys_to_delete = [] #: Array[[Integer, Integer]]
 
     @tap_hold_keys.each do |key_pos, state|
       case state[:state]
@@ -705,7 +705,7 @@ class Keyboard
     return if @combo_buffer.empty?
 
     now = Machine.board_millis
-    expired_entries = [] #: Array[Hash[Symbol, untyped]]
+    expired_entries = [] #: Array[Keyboard::combo_buffer_entry_t]
 
     @combo_buffer.each do |entry|
       if now - entry[:pressed_at] >= @combo_term_ms
