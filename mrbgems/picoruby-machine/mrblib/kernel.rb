@@ -14,7 +14,7 @@ module Kernel
     $stdin.getc
   end
 
-  def gets
+  def gets(sep = $/, limit = nil, chomp: false)
     $stdin.gets
   end
 

@@ -16,7 +16,7 @@ class Dir
       end
     end
 
-    def glob(pattern, flags = 0, base: "")
+    def glob(pattern, flags = 0, base: "", sort: true)
       if block_given?
         nil
       else

@@ -6,7 +6,7 @@ class IO
 end
 
 class Object
-  # PicoRuby's open takes (String, String) instead of core Kernel#open signature.
-  def open: [T] (String file, ?String mode) { (IO) -> T } -> T
-          | (String file, ?String mode) -> (IO | nil)
+  # PicoRuby's open takes (String, String, Integer?) instead of core Kernel#open signature.
+  def open: [T] (String file, ?String mode, ?Integer? perm) { (IO) -> T } -> T
+          | (String file, ?String mode, ?Integer? perm) -> (IO | nil)
 end

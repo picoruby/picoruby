@@ -173,7 +173,7 @@ class File < IO
     end
   end
 
-  def self.foreach(file)
+  def self.foreach(file, sep = $/, limit = nil, **opts)
     if block_given?
       self.open(file) do |f|
         f.each {|l| yield l}

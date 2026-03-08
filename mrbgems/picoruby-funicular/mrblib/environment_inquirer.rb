@@ -16,7 +16,7 @@ module Funicular
       @environment == other.to_s
     end
 
-    def method_missing(method_name, *args, &block)
+    def method_missing(method_name, *args, **kwargs, &block)
       if method_name.to_s.end_with?("?")
         env_name = method_name.to_s.chomp("?")
         return @environment == env_name

@@ -15,7 +15,7 @@ class Dir
   alias pos= seek
 
   class << self
-    def entries(path)
+    def entries(path, encoding: nil)
       a = [] #: Array[String]
       self.open(path) do |d|
         while s = d.read
@@ -26,14 +26,14 @@ class Dir
     end
     alias children entries
 
-    def foreach(path, &block)
+    def foreach(path, encoding: nil, &block)
       self.open(path) do |d|
         d.each(&block)
       end
       nil
     end
 
-    def open(path, &block)
+    def open(path, encoding: nil, &block)
       if block
         d = self.new(path)
         begin

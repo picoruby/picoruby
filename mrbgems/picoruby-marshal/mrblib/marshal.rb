@@ -16,13 +16,13 @@ module Marshal
   TYPE_IVAR      = 'I'
 
   class << self
-    def dump(obj)
+    def dump(obj, port = nil, limit = -1)
       result = VERSION_STRING.dup
       result << dump_object(obj)
       result
     end
 
-    def load(data)
+    def load(data, proc = nil, freeze: false)
       # @type var data: String
       raise ArgumentError, "marshal data too short" if data.bytesize < 2
 

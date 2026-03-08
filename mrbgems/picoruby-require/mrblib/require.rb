@@ -12,7 +12,7 @@ module Kernel
     require_file(name)
   end
 
-  def load(path)
+  def load(path, wrap = false)
     result = extern(path, true)
     if result != nil
       $LOADED_FEATURES << path

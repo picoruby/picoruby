@@ -36,10 +36,10 @@ class File
       count
     end
 
-    def open(path, mode = "r")
-      if block_given?
+    def open(path, mode = "r", perm = 0666, &block)
+      if block
         file = self.new(path, mode)
-        result = yield(file)
+        result = block.call(file)
         file.close
         result
       else
@@ -88,7 +88,7 @@ class File
     end
   end
 
-  def initialize(path, mode = "r")
+  def initialize(path, mode = "r", perm = 0666)
     @path = path
     @file = VFS::File.open(path, mode)
   end
@@ -120,38 +120,20 @@ class File
     @file.seek(0)
   end
 
-  def each_line
+  def each_line(sep = $/, limit = nil, chomp: false)
     while line = gets do
       yield line
     end
   end
 
-  def gets(*args, chomp: false)
-    # @type var rs: String
+  def gets(sep = $/, limit = nil, chomp: false)
+    # @type var sep: String | nil
     # @type var limit: Integer | nil
-    case args.size
-    when 0
+    if sep.is_a?(Integer)
+      limit = sep
       rs = "\n"
-      limit = nil
-    when 1
-      # @type var arg0: String | Integer
-      arg0 = args[0]
-      if arg0.is_a?(Integer)
-        rs = "\n"
-        limit = arg0
-      else
-        rs = arg0
-        limit = nil
-      end
-    when 2
-      # @type var arg0_rs: String
-      arg0_rs = args[0] #: String
-      # @type var arg1_lim: Integer
-      arg1_lim = args[1] #: Integer
-      rs = arg0_rs.to_s
-      limit = arg1_lim.to_i
     else
-      raise ArgumentError.new("wrong number of arguments (expected 0..2)")
+      rs = sep || "\n"
     end
     result = ""
     chunk_size = CHUNK_SIZE

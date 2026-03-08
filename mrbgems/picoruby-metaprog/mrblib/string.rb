@@ -1,5 +1,5 @@
 class String
-  def rindex(needle)
+  def rindex(needle, offset = nil)
     index = nil
     (self.size - 1).downto(0) do |i|
       if self[i] == needle
