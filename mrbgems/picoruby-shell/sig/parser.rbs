@@ -24,6 +24,8 @@ class Shell
   class Parser
     class Node < Data
       def self.define: (:type, :data, :token) -> singleton(Node)
+      def self.new: (Symbol type, Hash[Symbol, untyped] data, String token) -> Node
+      def initialize: (Symbol type, Hash[Symbol, untyped] data, String token) -> void
 
       attr_reader type: Symbol
       attr_reader data: Hash[Symbol, untyped]
