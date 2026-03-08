@@ -89,7 +89,7 @@ module Funicular
     private def handle_link_response: (HTTP::Response response, String path, Symbol method) -> void
     private def normalize_state_value: (untyped value) -> untyped
     private def re_render: () -> void
-    private def normalize_vnode: (untyped value) -> (VDOM::VNode | VDOM::Text | nil)
+    private def normalize_vnode: (untyped value) -> (VDOM::child_t | nil)
     private def add_data_component_attribute: (VDOM::VNode vnode) -> void
     private def collect_refs: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
     private def cleanup_events: () -> void
