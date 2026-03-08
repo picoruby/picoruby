@@ -5,7 +5,12 @@
 #include <stdbool.h>
 
 #include "picoruby.h"
+
+// lwIP headers are only needed for the actual implementation, not for mruby builds
+#if defined(PICORB_VM_MRUBYC) && !defined(DISABLE_MRUBY)
+#include <mrubyc.h>
 #include "lwip/apps/mqtt.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,7 +32,11 @@ typedef enum {
 } mqtt_fsm_state_t;
 
 typedef struct {
+#if defined(PICORB_VM_MRUBYC) && !defined(DISABLE_MRUBY)
   mqtt_client_t *client;
+#else
+  void *client;  // Placeholder for mruby builds
+#endif
   mqtt_fsm_state_t fsm_state;
 
   char topic_to_sub[MQTT_TOPIC_MAX_LEN];
@@ -41,9 +50,8 @@ typedef struct {
   bool message_arrived;
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_state *mrb;
-  mrb_value callback_proc;
-#elif defined(PICORB_VM_MRUBYC)
+  // No callback support in mruby placeholder
+#elif defined(PICORB_VM_MRUBYC) && !defined(DISABLE_MRUBY)
   mrbc_vm *vm;
   mrbc_value callback_proc;
 #endif
@@ -58,6 +66,12 @@ int MQTT_get_message_impl(char **topic, char **payload);
 void MQTT_init_context(void *vm);
 void MQTT_set_callback(void *proc);
 
+#if defined(PICORB_VM_MRUBY)
+void mrb_picoruby_mqtt_lwip_gem_init(mrb_state* mrb);
+void mrb_picoruby_mqtt_lwip_gem_final(mrb_state* mrb);
+#elif defined(PICORB_VM_MRUBYC)
+void mrbc_mqtt_lwip_init(mrbc_vm *vm);
+#endif
 
 #ifdef __cplusplus
 }
