@@ -59,7 +59,7 @@ class Keyboard
   @injected_events: Array[injected_event_t]
 
   # Initialize keyboard layer manager
-  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> Keyboard
+  def initialize: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> void
   # Add a layer with name and keymap
   def add_layer: (Symbol name, Array[Integer] keymap) -> void
   # Set default layer

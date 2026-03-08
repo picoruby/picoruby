@@ -6,7 +6,7 @@ class Shell
     @input: String
     @position: Integer
 
-    def self.new: (String input) -> Tokenizer
+    def initialize: (String input) -> void
     def next_token: () -> token_hash?
 
     private
@@ -34,7 +34,7 @@ class Shell
     @current_token: token_hash?
     @input: String
 
-    def self.new: (String input) -> Parser
+    def initialize: (String input) -> void
     def parse: () -> Node?
 
     private

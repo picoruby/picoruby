@@ -5,7 +5,7 @@ module Funicular
       attr_reader status: Integer
       attr_reader ok: bool
 
-      def self.new: (Integer status, untyped data) -> Response
+      def initialize: (Integer status, untyped data) -> void
       def error?: () -> bool
       def error_message: () -> String?
     end

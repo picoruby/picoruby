@@ -28,7 +28,7 @@ module Net
     DEFAULT_PORT: Integer
     @host: String
     attr_reader port: Integer
-    def self.new: (String host) -> HTTPClientBase
+    def initialize: (String host) -> void
     private def build_request: (String method, String path, ?header_t headers, ?String body) -> String
     private def make_request: (String method, String path, ?header_t headers, ?String body) -> (httpreturn | nil)
     private def use_tls: -> bool
@@ -41,14 +41,14 @@ module Net
   class HTTPClient < HTTPClientBase
     DEFAULT_PORT: Integer
     @port: Integer
-    def self.new: (String host, Integer port) -> HTTPClient
+    def initialize: (String host, Integer port) -> void
     private def use_tls: -> bool
   end
 
   class HTTPSClient < HTTPClientBase
     DEFAULT_PORT: Integer
     @port: Integer
-    def self.new: (String host, Integer port) -> HTTPSClient
+    def initialize: (String host, Integer port) -> void
     private def use_tls: -> bool
   end
 end
