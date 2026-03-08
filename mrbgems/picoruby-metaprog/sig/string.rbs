@@ -1,1 +1,4 @@
-
+class String
+  # PicoRuby's simplified gsub accepts only String pattern and replacement
+  def gsub: (String pattern, String replacement) -> String
+end
