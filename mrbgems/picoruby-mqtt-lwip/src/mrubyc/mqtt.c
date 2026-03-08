@@ -1,9 +1,16 @@
 /*
  * MQTT mrubyc bindings
+ * lwIP-independent layer - only handles Ruby to C interface
  */
 
 #include <mrubyc.h>
-#include "../../include/mqtt.h"
+
+// External function declarations (implementations in ports/rp2040/mqtt.c)
+extern int MQTT_connect_impl(const char *host, int port, const char *client_id);
+extern int MQTT_publish_impl(const char *topic, const char *payload, int len);
+extern int MQTT_subscribe_impl(const char *topic);
+extern int MQTT_get_message_impl(char **topic, char **payload);
+extern void MQTT_disconnect_impl(void);
 
 // mrubyc C API bindings
 
