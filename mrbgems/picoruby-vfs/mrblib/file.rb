@@ -96,7 +96,7 @@ class File
     # Alternative to File.read
     def load_file(path, length = nil, offset = nil)
       # @type var path: String
-      File.open(path) do |f|
+      File.open(path) do |f| # steep:ignore BlockBodyTypeMismatch
         f.seek(offset) if offset
         f.read(length)
       end
