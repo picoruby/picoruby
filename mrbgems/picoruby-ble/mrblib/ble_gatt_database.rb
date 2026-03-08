@@ -98,9 +98,8 @@ class BLE
     end
 
     def att_flags(properties)
-      # drop Broadcast (0x01), Notify (0x10), Indicate (0x20), Extended Properties (0x80) - not used for flags
-      #properties &= 0xffffff4e
-      properties &= 0xfffff4e
+      # drop Broadcast, Notify, Indicate, Extended Properties - not used for ATT flags
+      properties &= ~(BROADCAST | NOTIFY | INDICATE | EXTENDED_PROPERTIES)
       # 0x1ff80000 =  READ_AUTHORIZED |
       #               READ_AUTHENTICATED_SC |
       #               READ_AUTHENTICATED |
@@ -178,7 +177,7 @@ class BLE
         flag |= WRITE_WITHOUT_RESPONSE
         flag |= DYNAMIC
       else
-        flag = properties
+        flag = att_flags(properties)
       end
       if uuid.is_a?(String) && uuid.length == 16
         Utils.int16_to_little_endian(flag|LONG_UUID)

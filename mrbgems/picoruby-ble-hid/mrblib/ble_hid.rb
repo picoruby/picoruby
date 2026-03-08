@@ -123,10 +123,10 @@ class BLE
           # Keyboard Input Report (Report ID=1, Type=Input)
           s.add_characteristic(
             READ | NOTIFY | DYNAMIC, HID_REPORT_UUID,
-            READ | DYNAMIC, ""
+            READ | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
           ) do |c|
             c.add_descriptor(
-              READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
+              READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | ENCRYPTION_KEY_SIZE_16,
               CLIENT_CHARACTERISTIC_CONFIGURATION, "\x00\x00"
             )
             c.add_descriptor(READ, REPORT_REFERENCE_DESCRIPTOR, "\x01\x01")
@@ -138,7 +138,7 @@ class BLE
           # Keyboard Output Report (Report ID=1, Type=Output) — LED state from host
           s.add_characteristic(
             READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC, HID_REPORT_UUID,
-            READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC, ""
+            READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
           ) do |c|
             c.add_descriptor(READ, REPORT_REFERENCE_DESCRIPTOR, "\x01\x02")
           end
@@ -154,10 +154,10 @@ class BLE
             # Consumer Input Report (Report ID=2, Type=Input)
             s.add_characteristic(
               READ | NOTIFY | DYNAMIC, HID_REPORT_UUID,
-              READ | DYNAMIC, ""
+              READ | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
             ) do |c|
               c.add_descriptor(
-                READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
+                READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | ENCRYPTION_KEY_SIZE_16,
                 CLIENT_CHARACTERISTIC_CONFIGURATION, "\x00\x00"
               )
               c.add_descriptor(READ, REPORT_REFERENCE_DESCRIPTOR, "\x02\x01")
@@ -170,10 +170,10 @@ class BLE
             # Mouse Input Report (Report ID=3, Type=Input)
             s.add_characteristic(
               READ | NOTIFY | DYNAMIC, HID_REPORT_UUID,
-              READ | DYNAMIC, ""
+              READ | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
             ) do |c|
               c.add_descriptor(
-                READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC,
+                READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | ENCRYPTION_KEY_SIZE_16,
                 CLIENT_CHARACTERISTIC_CONFIGURATION, "\x00\x00"
               )
               c.add_descriptor(READ, REPORT_REFERENCE_DESCRIPTOR, "\x03\x01")
