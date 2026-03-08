@@ -27,7 +27,7 @@ module YAML
   def self.parse(yaml_string)
     lines = yaml_string.split("\n")
     root = {} #: Hash[untyped, untyped]
-    stack = [root]
+    stack = [root] #: Array[untyped]
     indent_stack = [-1]
     prev_indent = -1
 
