@@ -6,10 +6,10 @@ class File < IO
   def self.new(fd_or_path, mode = "r", perm = 0666)
     # @type var fd_or_path: String | Integer
     if fd_or_path.is_a? Integer
-      super(fd_or_path, mode)
+      super(fd_or_path, mode) # steep:ignore UnexpectedPositionalArgument
     else
       fd = IO.sysopen(fd_or_path, mode, perm) # steep:ignore ArgumentTypeMismatch
-      instance = super(fd, mode)
+      instance = super(fd, mode) # steep:ignore UnexpectedPositionalArgument
       instance.path = fd_or_path
       instance
     end
