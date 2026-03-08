@@ -38,7 +38,8 @@ class Dir
       if block
         d = self.new(path)
         begin
-          block.call(d)
+          # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+          block.call(d) # steep:ignore ArgumentTypeMismatch
         ensure
           begin
             d.close

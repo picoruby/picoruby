@@ -6,6 +6,6 @@ class Dir
   def empty?: () -> bool
 
   # for VFS
-  def findnext: () -> Dir
+  def findnext: () -> String?
   def pat=: (String) -> String
 end
