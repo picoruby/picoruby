@@ -40,6 +40,10 @@ class VFS
 end
 
 class File
+  CHUNK_SIZE: Integer
+  SEEK_SET: Integer
+  SEEK_CUR: Integer
+  SEEK_END: Integer
   def self.contiguous?: (String path) -> bool
   def physical_address: () -> Integer
   def sector_size: () -> Integer
