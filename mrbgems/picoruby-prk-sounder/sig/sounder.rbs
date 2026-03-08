@@ -7,7 +7,7 @@ class Sounder
   @last_compiled_song: nil | Symbol
   @locked: bool
 
-  def self.new: (Integer pin) -> instance
+  def initialize: (Integer pin) -> void
 
   private def sounder_init: (Integer) -> void
   private def sounder_replay: () -> void

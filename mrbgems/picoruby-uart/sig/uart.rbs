@@ -20,7 +20,7 @@ class UART
 
   attr_reader baudrate: Integer
 
-  def self.new: (
+  def initialize: (
     unit: unit_t,
     ?txd_pin: Integer,
     ?rxd_pin: Integer,
@@ -32,7 +32,7 @@ class UART
     ?rts_pin: Integer,
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
-  ) -> instance
+  ) -> void
   private def open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
   private def open_connection: (
     String unit,

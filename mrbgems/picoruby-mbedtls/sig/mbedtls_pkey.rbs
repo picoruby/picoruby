@@ -11,7 +11,7 @@ module MbedTLS
     end
 
     class RSA < MbedTLS::PKey::PKeyBase
-      def self.new: (String key) -> MbedTLS::PKey::RSA
+      def initialize: (String key) -> void
                   | (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
       def self.generate: (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
       def to_pem: () -> String

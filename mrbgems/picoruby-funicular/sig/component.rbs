@@ -1,7 +1,7 @@
 module Funicular
   class Component
     class StateAccessor
-      def self.new: (Hash[Symbol, untyped] state_hash) -> StateAccessor
+      def initialize: (Hash[Symbol, untyped] state_hash) -> void
       def []: (Symbol key) -> untyped
       def method_missing: (Symbol method, *untyped args) -> untyped
       def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
@@ -16,7 +16,7 @@ module Funicular
     attr_accessor mounted: bool
     attr_reader refs: Hash[Symbol, JS::Object]
 
-    def self.new: (?Hash[Symbol, untyped] props) -> Component
+    def initialize: (?Hash[Symbol, untyped] props) -> void
 
     # Styles DSL class methods
     def self.styles: () { (StyleBuilder) -> void } -> void

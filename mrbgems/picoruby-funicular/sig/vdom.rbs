@@ -7,7 +7,7 @@ module Funicular
       attr_reader type: Symbol
       attr_reader key: untyped
 
-      def self.new: (Symbol type) -> VNode
+      def initialize: (Symbol type) -> void
     end
 
     class Element < VNode
@@ -15,7 +15,7 @@ module Funicular
       attr_reader props: Hash[Symbol, untyped]
       attr_reader children: Array[child_t]
 
-      def self.new: (String tag, ?Hash[Symbol, untyped] props, ?Array[child_t] children) -> Element
+      def initialize: (String tag, ?Hash[Symbol, untyped] props, ?Array[child_t] children) -> void
       def ==: (untyped other) -> bool
       private def normalize_children: (Array[child_t] children) -> Array[child_t]
     end
@@ -23,12 +23,12 @@ module Funicular
     class Text < VNode
       attr_reader content: String
 
-      def self.new: (String content) -> Text
+      def initialize: (String content) -> void
       def ==: (untyped other) -> bool
     end
 
     class Renderer
-      def self.new: (?JS::Object? doc) -> Renderer
+      def initialize: (?JS::Object? doc) -> void
       def render: (VDOM::VNode | VDOM::Text | nil vnode, ?JS::Object? parent) -> JS::Object
 
       private def current_error_boundary: () -> ErrorBoundary?
@@ -48,7 +48,7 @@ module Funicular
       attr_reader props: Hash[Symbol, untyped]
       attr_accessor instance: untyped
 
-      def self.new: (untyped component_class, ?Hash[Symbol, untyped] props) -> Component
+      def initialize: (untyped component_class, ?Hash[Symbol, untyped] props) -> void
       def ==: (untyped other) -> bool
     end
   end

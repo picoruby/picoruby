@@ -7,7 +7,7 @@ module MbedTLS
                     | "AES-192-GCM"
                     | "AES-256-GCM"
 
-    def self.new: (cipher_t cipher_suite) -> MbedTLS::Cipher
+    def initialize: (cipher_t cipher_suite) -> void
     def self.ciphers: () -> Array[cipher_t]
     def encrypt: () -> MbedTLS::Cipher
     def decrypt: () -> MbedTLS::Cipher

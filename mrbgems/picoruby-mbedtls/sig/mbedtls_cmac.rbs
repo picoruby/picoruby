@@ -4,7 +4,7 @@ module MbedTLS
 
     type digest_t = "AES" | "aes"
 
-    def self.new: (String key, digest_t digest) -> MbedTLS::CMAC
+    def initialize: (String key, digest_t digest) -> void
     def update: (String input) -> MbedTLS::CMAC
     def reset: () -> MbedTLS::CMAC
     def digest: () -> String

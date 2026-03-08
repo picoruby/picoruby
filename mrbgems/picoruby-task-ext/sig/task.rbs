@@ -9,7 +9,7 @@ class Task
 
   def self.list: () -> Array[Task]
 
-  def self.new: (*untyped) { (*untyped) -> void } -> instance
+  def initialize: (*untyped) { (*untyped) -> void } -> void
   def name=: (String name) -> String
   def suspend: () -> self
   def terminate: () -> self
