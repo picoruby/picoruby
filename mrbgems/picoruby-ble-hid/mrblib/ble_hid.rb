@@ -122,7 +122,7 @@ class BLE
 
           # Keyboard Input Report (Report ID=1, Type=Input)
           s.add_characteristic(
-            READ | NOTIFY | DYNAMIC | ENCRYPTION_KEY_SIZE_16, HID_REPORT_UUID,
+            READ | NOTIFY | DYNAMIC, HID_REPORT_UUID,
             READ | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
           ) do |c|
             c.add_descriptor(
@@ -137,7 +137,7 @@ class BLE
 
           # Keyboard Output Report (Report ID=1, Type=Output) — LED state from host
           s.add_characteristic(
-            READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | ENCRYPTION_KEY_SIZE_16, HID_REPORT_UUID,
+            READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC, HID_REPORT_UUID,
             READ | WRITE | WRITE_WITHOUT_RESPONSE | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
           ) do |c|
             c.add_descriptor(READ, REPORT_REFERENCE_DESCRIPTOR, "\x01\x02")
@@ -153,7 +153,7 @@ class BLE
           if @consumer_enabled
             # Consumer Input Report (Report ID=2, Type=Input)
             s.add_characteristic(
-              READ | NOTIFY | DYNAMIC | ENCRYPTION_KEY_SIZE_16, HID_REPORT_UUID,
+              READ | NOTIFY | DYNAMIC, HID_REPORT_UUID,
               READ | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
             ) do |c|
               c.add_descriptor(
@@ -169,7 +169,7 @@ class BLE
           if @mouse_enabled
             # Mouse Input Report (Report ID=3, Type=Input)
             s.add_characteristic(
-              READ | NOTIFY | DYNAMIC | ENCRYPTION_KEY_SIZE_16, HID_REPORT_UUID,
+              READ | NOTIFY | DYNAMIC, HID_REPORT_UUID,
               READ | DYNAMIC | ENCRYPTION_KEY_SIZE_16, ""
             ) do |c|
               c.add_descriptor(
