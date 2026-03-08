@@ -1,57 +1,75 @@
 # RBS TODO: steep check エラー分類
 
-steep check の結果、全 **297件** のエラー/警告を分類した。
+steep check の結果、残り **32件** のエラー/警告。
 
-## 1. RBS定義の不足・不整合系（134件）
-
-RBS側にメソッドや定数の定義を追加・修正すれば解消する。
+## 残存エラー一覧
 
 | Diagnostic ID | 件数 | 説明 |
 |---|---|---|
-| `Ruby::MethodParameterMismatch` | 102 | メソッドの引数がRBS宣言と不一致（`initialize`のパラメータ未宣言が多い） |
-| `Ruby::UndeclaredMethodDefinition` | 26 | RBSに宣言されていないメソッド定義 |
-| `Ruby::UnknownConstant` | 6 | RBSに宣言されていない定数・クラス（`Task`など） |
-
-## 2. 引数の型・個数の不一致系（105件）
-
-RBSのメソッドシグネチャを実装に合わせる修正が必要。
-
-| Diagnostic ID | 件数 | 説明 |
-|---|---|---|
-| `Ruby::ArgumentTypeMismatch` | 58 | 引数の型が宣言と不一致 |
-| `Ruby::UnexpectedPositionalArgument` | 43 | RBS宣言より多い位置引数 |
-| `Ruby::MethodArityMismatch` | 32 | メソッドのアリティ（引数の数）がRBSと不一致 |
-| `Ruby::UnexpectedKeywordArgument` | 2 | 予期しないキーワード引数 |
-| `Ruby::InsufficientPositionalArguments` | 2 | 位置引数が足りない |
-
-注: 1件が複数の Diagnostic ID に該当する場合があるため、合計は105件を超える。
-
-## 3. 戻り値・ブロックの型不一致系（22件）
-
-より細かい型修正が必要。
-
-| Diagnostic ID | 件数 | 説明 |
-|---|---|---|
-| `Ruby::MethodBodyTypeMismatch` | 10 | メソッド本体の型が宣言と合わない |
-| `Ruby::ReturnTypeMismatch` | 5 | 戻り値の型が不一致 |
-| `Ruby::UnresolvedOverloading` | 3 | オーバーロードの解決失敗 |
+| `Ruby::MethodBodyTypeMismatch` | 6 | メソッド本体の型が宣言と合わない |
+| `Ruby::UnresolvedOverloading` | 5 | オーバーロードの解決失敗 |
+| `Ruby::UnexpectedPositionalArgument` | 4 | RBS宣言より多い位置引数 |
+| `Ruby::ArgumentTypeMismatch` | 4 | 引数の型が宣言と不一致 |
+| `Ruby::ReturnTypeMismatch` | 3 | 戻り値の型が不一致 |
+| `Ruby::NoMethod` | 3 | 型にメソッドが存在しない |
 | `Ruby::BlockBodyTypeMismatch` | 3 | ブロック本体の型不一致 |
-| `Ruby::BlockTypeMismatch` | 2 | ブロック引数の型不一致 |
-| `Ruby::UnexpectedYield` | 1 | 予期しないyield |
+| `Ruby::UnexpectedBlockGiven` | 2 | 予期しないブロック渡し |
+| `Ruby::MethodParameterMismatch` | 1 | メソッドの引数がRBS宣言と不一致 |
+| `Ruby::BlockTypeMismatch` | 1 | ブロック引数の型不一致 |
 
-## 4. その他（2件）
+## 残存エラー詳細
 
-| Diagnostic ID | 件数 | 説明 |
-|---|---|---|
-| `Ruby::AnnotationSyntaxError` | 2 | 型注釈のシンタックスエラー |
+### Dir の self 型問題（カテゴリE、未着手）
+
+- `picoruby-dir/mrblib/dir.rb:41` — `Dir` を `singleton(Dir)` として渡せない
+- `picoruby-vfs/mrblib/dir.rb:7` — `Dir` を `instance` として渡せない
+- `picoruby-vfs/mrblib/dir.rb:29` — `Dir` を `String` として渡せない
+
+### File.new / super 呼び出し（IO.new のRBS問題）
+
+- `picoruby-posix-io/mrblib/1_file.rb:9,12` — `super` に位置引数・ブロックを渡せない（IO.new のRBS定義が合わない）
+
+### File.foreach の戻り値型
+
+- `picoruby-posix-io/mrblib/1_file.rb:182,186` — ブロックなし時に `File` を返すが、core RBS は `Enumerator | nil` を期待
+
+### File.open / load_file のブロック戻り値
+
+- `picoruby-posix-io/mrblib/1_file.rb:20` — `File.open` ブロックの戻り値型が `bool` と宣言されている
+- `picoruby-vfs/mrblib/file.rb:99` — 同上
+
+### String#gsub パラメータ
+
+- `picoruby-metaprog/mrblib/string.rb:14` — gsub のパラメータがcore RBSと不一致
+
+### VFS File#each_line 戻り値
+
+- `picoruby-vfs/mrblib/file.rb:140` — `each_line` のメソッド本体が `nil` だが `self | Enumerator` を期待
+
+### Kernel#open ブロック型
+
+- `picoruby-posix-io/mrblib/3_kernel.rb:12` — `IO` ブロックを `File` ブロックとして渡す（steep:ignore 済み）
+
+### Net の戻り値型
+
+- `picoruby-net/mrblib/net.rb:29` — 戻り値の Hash 型が `httpreturn` 型と合わない
+
+### Rapicco parser の NoMethod
+
+- `picoruby-rapicco/mrblib/parser.rb:96,98,100` — `String?` に対する `to_sym` 呼び出し
+
+### Funicular child_t 型
+
+- `picoruby-funicular/mrblib/component.rb:352` — `child_t` に `String` を追加したことで `VNode` → `child_t` の変換が必要に
 
 ## 解決済み
 
 - ~~`Ruby::NoMethod` (146件)~~ — PicoRuby固有のRBS定義の復活と型アノテーション追加で解消
 - ~~`Ruby::UnannotatedEmptyCollection` (90件)~~ — 空配列・空ハッシュに `#: Type` 注釈を追加で解消
-
-## 対処方針
-
-1. **RBS定義の追加・修正**（134件）— `MethodParameterMismatch`, `UndeclaredMethodDefinition`, `UnknownConstant` を一掃できる。最もインパクト大
-2. **引数・戻り値の型シグネチャ修正**（105件）— RBSのメソッドシグネチャを実装に合わせる
-3. **戻り値・ブロック型の修正**（22件）— `MethodBodyTypeMismatch`, `ReturnTypeMismatch` 等の細かい修正
+- ~~`Ruby::MethodParameterMismatch` (102件)~~ — `self.new` → `initialize` 変換、RBS修正で解消
+- ~~`Ruby::MethodArityMismatch` (32件)~~ — Ruby側にオプション引数追加で解消
+- ~~`Ruby::UndeclaredMethodDefinition` (26件)~~ — RBSにメソッド宣言を追加で解消
+- ~~`Ruby::UnknownConstant` (6件)~~ — RBSに定数追加、Steepfileにignore追加で解消
+- ~~`Ruby::AnnotationSyntaxError` (2件)~~ — 型注釈の構文修正で解消
+- ~~`Ruby::ArgumentTypeMismatch` (58件→4件)~~ — 型注釈、nilガード、RBS修正で大幅削減
+- ~~`Ruby::UnexpectedPositionalArgument` (43件→4件)~~ — RBS修正で大幅削減
