@@ -19,7 +19,7 @@ class File < IO
 
   # Alternative to File.read
   def self.load_file(path, length = nil, offset = nil)
-    File.open(path) do |f|
+    File.open(path) do |f| # steep:ignore BlockBodyTypeMismatch
       f.seek(offset) if offset
       f.read(length)
     end
@@ -181,7 +181,7 @@ class File < IO
   def self.foreach(file, sep = $/, limit = nil, **opts)
     # @type var file: String
     if block_given?
-      self.open(file) do |f|
+      self.open(file) do |f| # steep:ignore BlockBodyTypeMismatch
         f.each {|l| yield l}
       end
     else
