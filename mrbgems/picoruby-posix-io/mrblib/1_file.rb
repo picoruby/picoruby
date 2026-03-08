@@ -134,6 +134,8 @@ class File < IO
   end
 
   def self.expand_path(path, default_dir = '.')
+    # @type var path: String
+    # @type var default_dir: String
     expanded_path = _concat_path(path, default_dir)
     drive_prefix = ""
     if File::ALT_SEPARATOR && expanded_path.size > 2 && ("A".."Z")===(expanded_path[0]&.upcase) && expanded_path[1] == ":"
@@ -174,6 +176,7 @@ class File < IO
   end
 
   def self.foreach(file)
+    # @type var file: String
     if block_given?
       self.open(file) do |f|
         f.each {|l| yield l}

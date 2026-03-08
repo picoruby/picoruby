@@ -27,6 +27,8 @@ class IO
   end
 
   def self.popen(command, mode = 'r', **opts, &block)
+    # @type var command: String
+    # @type var mode: String
     if !self.respond_to?(:_popen)
       raise NotImplementedError, "popen is not supported on this platform"
     end
