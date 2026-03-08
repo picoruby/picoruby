@@ -13,6 +13,10 @@ module Funicular
     def self.get_component_instance_variables: (Integer) -> String
     def self.expose_to_global: () -> void
     def self.report_error: (ErrorBoundary boundary, Exception error, ?(Hash[Symbol, Component] | nil) error_info) -> Hash[Symbol, untyped]?
+    def self.clear_errors: () -> void
+    def self.error_list: () -> String
+    def self.last_error: () -> Hash[Symbol, untyped]?
+    def self.error_count: () -> Integer
 
     private def self.error_registry: () -> Array[Hash[Symbol, untyped]]
     private def self.get_state_keys: (Funicular::Component) -> Array[String]

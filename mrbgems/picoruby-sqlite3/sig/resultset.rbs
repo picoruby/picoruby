@@ -7,5 +7,11 @@ class SQLite3
     def each: () { (Array[sqlite3_var_t] | Hash[String, sqlite3_var_t]) -> void } -> nil
     def to_a: () -> Array[Array[sqlite3_var_t]]
     def next: () -> (Array[sqlite3_var_t] | Hash[String, sqlite3_var_t] | nil)
+    def reset: (*untyped bind_params) -> void
+    def eof?: () -> bool
+    def close: () -> void
+    def closed?: () -> bool
+    def types: () -> Array[String]
+    def columns: () -> Array[String]
   end
 end

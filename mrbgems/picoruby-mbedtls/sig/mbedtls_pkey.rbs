@@ -12,7 +12,8 @@ module MbedTLS
 
     class RSA < MbedTLS::PKey::PKeyBase
       def initialize: (String key) -> void
-                  | (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
+                    | (Integer bits, ?Integer exponent) -> void
+      def free: () -> nil
       def self.generate: (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
       def to_pem: () -> String
       alias to_s to_pem
