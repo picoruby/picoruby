@@ -35,4 +35,6 @@ target :mrbgems do
   ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
   # Task class sig is excluded from signature loading (task-ext)
   ignore "mrbgems/picoruby-shell/shell_executables/taskstat.rb"
+  # R2P2 uses IO.new without arguments (embedded environment)
+  ignore "mrbgems/picoruby-r2p2/mrblib/main_task.rb"
 end

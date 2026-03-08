@@ -4,10 +4,11 @@ module YAML
   def self.dump: (Object) -> String
 
   private def self.parse: (String) -> Object
-  private def self.parse_value: (String) -> Object
+  private def self.parse_value: (String) -> (Integer | Float | bool | nil | String)
   private def self.serialize: (Object, ?Integer) -> String
   private def self.count_leading_spaces: (String) -> Integer
   private def self.split_key_value: (String) -> [String, (String|nil)]
+  private def self.parse_list_item: (String) -> [nil, (String|nil)]
   private def self.parse_list_items: (String) -> Array[Object]
   private def self.is_integer?: (String) -> bool
   private def self.is_float?: (String) -> bool
