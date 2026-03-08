@@ -37,7 +37,7 @@ class Rapicco
     def initialize: () -> void
     def parse: (String raw_line) -> void
     def dump: () -> parser_dump_t
-    def self.parse_attrs: (String str) -> Hash[Symbol, String]
+    def self.parse_attrs: (String str) -> Hash[Symbol, String?]
     def self.parse_inline: (String src, Symbol base_color, Symbol | String bold_color) -> parser_dump_t
     def default_font: (String | nil str) -> (Symbol | String)
   end

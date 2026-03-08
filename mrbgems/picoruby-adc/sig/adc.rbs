@@ -3,6 +3,7 @@ class ADC
   type pin_t = (Integer|String|Symbol)
   type additional_params_t = Hash[untyped, untyped]
 
+  EMPTY_PARAMS: additional_params_t
   @additional_params: additional_params_t
 
   attr_reader input: Integer

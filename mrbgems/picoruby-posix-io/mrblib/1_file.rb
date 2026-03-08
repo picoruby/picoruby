@@ -231,7 +231,7 @@ class File < IO
     fname = self.basename(filename)
     epos = fname.rindex('.')
     return '' if epos == 0 || epos.nil?
-    return fname[epos, fname.size - epos]
+    return fname[epos, fname.size - epos].to_s
   end
 
   def self.path(filename = nil)

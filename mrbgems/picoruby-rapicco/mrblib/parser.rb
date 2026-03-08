@@ -134,7 +134,9 @@ class Rapicco
       str.tr(',', ' ').split(' ').each do |pair|
         eq = pair.index('=')
         next unless eq
-        key = pair[0, eq]&.to_sym
+        key_str = pair[0, eq]
+        next unless key_str
+        key = key_str.to_sym
         val = pair[eq + 1, pair.length - eq - 1]
         h[key] = val
       end
