@@ -47,8 +47,23 @@ class Keyboard
     @matrix = KeyboardMatrix.new(row_pins, col_pins)
     @matrix.debounce_ms = debounce_ms
 
+    # Macro key management: array of strings, indexed by MC keycode
+    @macros = []
+
     # User callback for key events
     @callback = nil
+  end
+
+  attr_reader :layers
+
+  # Register a macro string and return its keycode
+  # @param string [String] ASCII string to type when the key is pressed
+  # @return [Integer] MC keycode to use in a keymap layer
+  def add_macro(string)
+    raise ArgumentError, "Too many macros (max 256)" if 255 < @macros.size
+    index = @macros.size
+    @macros << string
+    MC(index)
   end
 
   def add_layer(name, keymap)
@@ -188,6 +203,10 @@ class Keyboard
       layer_index = tg_layer(keycode)
       handle_tg_key(layer_index, pressed)
       # TG keys don't generate key events
+      return
+    elsif is_mc?(keycode)
+      # Macro: type string on press, ignore release
+      handle_mc_key(mc_index(keycode)) if pressed
       return
     end
 
@@ -753,6 +772,49 @@ class Keyboard
   # Check if key_pos is in combo buffer
   def combo_buffer_has?(key_pos)
     @combo_buffer.any? { |entry| entry[:key_pos] == key_pos }
+  end
+
+  # Type a macro string by sending individual key press/release events
+  def handle_mc_key(macro_index)
+    string = @macros[macro_index]
+    return unless string
+    string.each_char do |char|
+      kc, mod = ascii_to_hid(char)
+      next if kc.nil?
+      @callback&.call(row: 0, col: 0, keycode: kc, modifier: (mod || 0), pressed: true)
+      sleep_ms(10)
+      @callback&.call(row: 0, col: 0, keycode: 0, modifier: 0, pressed: false)
+      sleep_ms(10)
+    end
+  end
+
+  # Convert an ASCII character to [keycode, modifier] for USB HID
+  # Returns nil for unsupported characters
+  def ascii_to_hid(char)
+    c = char.ord
+    if 97 <= c && c <= 122     # 'a'..'z'
+      [KC_A + (c - 97), 0]
+    elsif 65 <= c && c <= 90   # 'A'..'Z'
+      [KC_A + (c - 65), 0x02]  # 0x02 = LSFT bit
+    elsif 49 <= c && c <= 57   # '1'..'9'
+      [KC_1 + (c - 49), 0]
+    else
+      case c
+      when 48  then [KC_0,      0]      # '0'
+      when 32  then [KC_SPACE,  0]      # ' '
+      when 46  then [KC_DOT,    0]      # '.'
+      when 45  then [KC_MINUS,  0]      # '-'
+      when 95  then [KC_MINUS,  0x02]   # '_'  Shift+-
+      when 47  then [KC_SLASH,  0]      # '/'
+      when 58  then [KC_SCOLON, 0x02]   # ':'  Shift+;
+      when 64  then [KC_2,      0x02]   # '@'  Shift+2
+      when 33  then [KC_1,      0x02]   # '!'  Shift+1
+      when 61  then [KC_EQUAL,  0]      # '='
+      when 10  then [KC_ENTER,  0]      # '\n'
+      when 9   then [KC_TAB,    0]      # '\t'
+      else nil
+      end
+    end
   end
 
   # Handle release of a combo-buffered key

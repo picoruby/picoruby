@@ -7,11 +7,13 @@ module LayerKeycode
   # LT: 0xE200-0xF1FF (4096 = 16 layers * 256 keycodes)
   # MT: 0xF200-0xF9FF (2048 = 8 modifiers * 256 keycodes)
   # SM: 0xFA00-0xFAFF (256 keycodes, always sends Shift+keycode)
+  # MC: 0xFB00-0xFBFF (256 macro slots, types a string on press)
   MO_BASE = 0xE000
   TG_BASE = 0xE100
   LT_BASE = 0xE200
   MT_BASE = 0xF200
   SM_BASE = 0xFA00
+  MC_BASE = 0xFB00
 
   # Create a momentary layer switch keycode
   # While the key is pressed, the specified layer becomes active
@@ -106,6 +108,29 @@ module LayerKeycode
   # @return [Integer] Base keycode
   def sm_keycode(keycode)
     keycode - SM_BASE
+  end
+
+  # Create a macro keycode
+  # Pressing this key types the string registered at macro_index
+  # @param macro_index [Integer] Macro slot index (0-255)
+  # @return [Integer] Special keycode for MC(macro_index)
+  def MC(macro_index)
+    raise ArgumentError, "Macro index must be 0-255" unless 0 <= macro_index && macro_index <= 255
+    MC_BASE + macro_index
+  end
+
+  # Check if keycode is a macro keycode
+  # @param keycode [Integer] Keycode to check
+  # @return [Boolean] true if keycode is MC type
+  def is_mc?(keycode)
+    MC_BASE <= keycode && keycode < MC_BASE + 256
+  end
+
+  # Extract macro index from MC keycode
+  # @param keycode [Integer] MC keycode
+  # @return [Integer] Macro slot index
+  def mc_index(keycode)
+    keycode - MC_BASE
   end
 
   # Extract layer index from MO keycode
