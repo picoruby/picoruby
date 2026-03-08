@@ -19,6 +19,8 @@ module Signal
   }
 
   def self.trap(signal, command = nil, &block)
+    # @type var signal: Signal::signal_t
+    # @type var command: Signal::handler_t
     old_handler = HANDLERS[signum(signal)]
     HANDLERS[signum(signal)] = command || block
     old_handler
