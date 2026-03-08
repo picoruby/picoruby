@@ -1,4 +1,4 @@
-if ENV['WIFI_MODULE'] == "cwy43"
+if Machine.wifi_available?
   if Shell.get_device(:gpio, 'TRIGGER_NMBLE')&.low?
     load "/bin/nmble"
   end

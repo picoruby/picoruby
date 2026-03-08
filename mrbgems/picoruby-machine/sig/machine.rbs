@@ -21,6 +21,7 @@ module Machine
   def self.check_signal: () -> void
   def self.signal_self_manage: () -> void
   def self.pop_signal_self_manage: () -> bool
+  def self.wifi_available?: () -> bool
   private def self._reboot: () -> nil
 end
 
