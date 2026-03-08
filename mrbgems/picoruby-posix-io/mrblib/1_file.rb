@@ -140,13 +140,13 @@ class File < IO
     drive_prefix = ""
     if File::ALT_SEPARATOR && expanded_path.size > 2 && ("A".."Z")===(expanded_path[0]&.upcase) && expanded_path[1] == ":"
       drive_prefix = expanded_path[0, 2].to_s
-      expanded_path = expanded_path[2, expanded_path.size]
+      expanded_path = expanded_path[2, expanded_path.size] || raise("unreachable")
     end
     expand_path_array = [] #: Array[String]
-    if File::ALT_SEPARATOR && expanded_path&.include?(File::ALT_SEPARATOR)
+    if File::ALT_SEPARATOR && expanded_path.include?(File::ALT_SEPARATOR)
       expand_path = expanded_path.gsub(File::ALT_SEPARATOR, '/')
     end
-    while expanded_path&.include?('//')
+    while expanded_path.include?('//')
       expanded_path = expanded_path.gsub('//', '/')
     end
 
@@ -171,7 +171,7 @@ class File < IO
     if drive_prefix.empty?
       expanded_path.to_s
     else
-      drive_prefix + expanded_path&.gsub("/", File::ALT_SEPARATOR).to_s
+      drive_prefix + expanded_path.gsub("/", File::ALT_SEPARATOR)
     end
   end
 

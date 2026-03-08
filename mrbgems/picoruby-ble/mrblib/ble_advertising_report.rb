@@ -35,7 +35,7 @@ class BLE
       end
       @rssi = (packet.getbyte(10) || 0) - 256
       data_length = packet.getbyte(11) || 0
-      @reports = inspect_reports(packet.byteslice(12, data_length))
+      @reports = inspect_reports(packet.byteslice(12, data_length) || raise(ArgumentError, "packet too short"))
     end
 
     def format
@@ -65,7 +65,7 @@ class BLE
         type_num = data.getbyte(index + 1)
         break if type_num.nil?
         value = data.byteslice(index + 2, length - 1)
-        break if value&.empty?
+        break if value.nil? || value.empty?
         reports[EVENT_TYPE[type_num] || type_num] = value
         index += length + 1
       end

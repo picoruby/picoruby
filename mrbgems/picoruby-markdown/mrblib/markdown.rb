@@ -411,7 +411,7 @@ class Markdown
       if line_i == '<'
         tag_end = line.index('>', i)
         if tag_end
-          tag = line[i..tag_end]
+          tag = line[i..tag_end] || raise("unreachable")
           index = protected_tags.length
           protected_tags << tag
           output << "<<<HTMLTAG#{index}>>>"

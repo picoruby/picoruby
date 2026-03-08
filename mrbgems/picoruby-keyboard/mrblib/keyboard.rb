@@ -241,8 +241,9 @@ class Keyboard
     priority_layers = [] #: Array[Integer]
 
     # 1. Toggle locked layer
-    if @locked_layer
-      priority_layers << @locked_layer
+    locked = @locked_layer
+    if locked
+      priority_layers << locked
     end
 
     # 2. Momentary layers (LIFO - last pressed has highest priority)
