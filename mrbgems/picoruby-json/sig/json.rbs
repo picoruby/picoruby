@@ -57,7 +57,7 @@ module JSON
     def generate: (?untyped) -> String
     private def generate_object: (Hash[String, untyped]) -> String
     private def generate_array: (Array[untyped]) -> String
-    private def generate_string: (String) -> String
+    private def generate_string: (String | Symbol) -> String
     private def generate_number: (Integer|Float) -> String
   end
 
@@ -71,7 +71,7 @@ module JSON
     def parse: () -> untyped
     private def parse_object: () -> void
     private def parse_array: () -> void
-    private def parse_string: () -> void
+    private def parse_string: () -> String
     private def parse_number: () -> void
     private def parse_integer: (Integer, Integer) -> void
     private def parse_float: (Integer, Integer) -> void
