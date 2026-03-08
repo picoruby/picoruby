@@ -62,7 +62,7 @@ class PicoLine
       answer = q.default.to_s if answer.to_s.empty?
       break if !answer.to_s.empty? || allow_empty
     end
-    return(@answer = answer)
+    return(@answer = answer or raise)
   end
 end
 
