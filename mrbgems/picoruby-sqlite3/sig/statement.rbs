@@ -6,7 +6,7 @@ class SQLite3
     @columns: Array[String]
     @types: Array[String]
 
-    def self.new: (SQLite3::Database db, String sql) -> instance
+    def self.new: (SQLite3::Database db, String sql) -> SQLite3::Statement
     def bind_params: (*(sqlite3_var_t | Hash[Symbol, sqlite3_var_t]) bind_vars) -> Array[sqlite3_var_t | Hash[Symbol, sqlite3_var_t]]
     def bind_param: (Integer|Symbol|String key, sqlite3_var_t var) -> self
     def execute: (*sqlite3_var_t bind_vars) -> SQLite3::ResultSet

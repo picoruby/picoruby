@@ -8,7 +8,7 @@ module Funicular
     def self.endpoints: () -> Hash[String, Hash[String, String]]
     def self.endpoints=: (Hash[String, Hash[String, String]] endpoints) -> Hash[String, Hash[String, String]]
 
-    def self.new: (?Hash[untyped, untyped] attributes) -> Model
+    def initialize: (?Hash[untyped, untyped] attributes) -> void
     def self.load_schema: (Hash[String, untyped] schema_data) -> void
 
     def self.all: (?Hash[untyped, untyped] params) ?{ (Array[Model]? instances, String? error) -> void } -> void

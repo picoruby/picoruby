@@ -5,14 +5,14 @@ class MCP3x0x
   @spi: SPI
   @cs: GPIO
 
-  def self.new: (
+  def initialize: (
     unit: Symbol,
     ?frequency: Integer,
     ?sck_pin: Integer,
     ?cipo_pin: Integer,
     ?copi_pin: Integer,
     ?cs_pin: Integer
-  ) -> instance
+  ) -> void
   def read: (Integer channel, ?differential: bool) -> Integer
 end
 

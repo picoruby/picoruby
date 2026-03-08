@@ -8,7 +8,7 @@ module PSG
 
     def self.select_pwm: (Integer left, Integer right) -> void
     def self.select_mcp4922: (Integer ldac) -> void
-    def initalize: (Symbol type, **Integer opt) -> void
+    def initialize: (Symbol type, **Integer opt) -> void
     def join: () -> void
     def buffer_empty?: () -> bool
     def deinit: () -> nil
@@ -33,7 +33,7 @@ module PSG
     @ch_reg: Integer
     @driver: PSG::Driver
     def self.note_to_period: (Integer note) -> Integer
-    def self.new: (PSG::Driver driver, ?channel: Integer) -> PSG::Keyboard
+    def initialize: (PSG::Driver driver, ?channel: Integer) -> void
     def note_on: (Integer period) -> bool
     def note_off: () -> bool
     def start: () -> void

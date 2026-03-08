@@ -4,3 +4,9 @@ class IO
   private def self._popen: (String command, String mode, fd_t in, fd_t out, fd_t err) -> IO
   private def self._pipe: () -> [IO, IO]
 end
+
+class Object
+  # PicoRuby's open takes (String, String) instead of core Kernel#open signature.
+  def open: [T] (String file, ?String mode) { (IO) -> T } -> T
+          | (String file, ?String mode) -> (IO | nil)
+end

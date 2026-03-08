@@ -12,13 +12,13 @@ module DRb
   end
 
   class DRbUnknownError < DRbError
-    def self.new: (untyped err, String buf) -> DRbUnknownError
+    def initialize: (untyped err, String buf) -> void
     attr_reader err: untyped
     attr_reader buf: String
   end
 
   class DRbMessage
-    def self.new: (TCPSocket socket) -> DRbMessage
+    def initialize: (TCPSocket socket) -> void
     def send_request: (untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> void
     def recv_request: () -> [untyped, Symbol, Array[untyped], Proc?]
     def send_reply: (bool success, untyped result) -> void
@@ -29,7 +29,7 @@ module DRb
   end
 
   class DRbObject
-    def self.new: (String uri, ?untyped? ref) -> DRbObject
+    def initialize: (String uri, ?untyped? ref) -> void
 
     attr_reader uri: String
     attr_reader ref: untyped
@@ -42,7 +42,7 @@ module DRb
   end
 
   class DRbUnknown
-    def self.new: (untyped err, String buf) -> DRbUnknown
+    def initialize: (untyped err, String buf) -> void
 
     attr_reader err: untyped
     attr_reader buf: String
@@ -51,7 +51,7 @@ module DRb
   end
 
   class DRbServer
-    def self.new: (String uri, untyped front, ?Hash[untyped, untyped] config) -> DRbServer
+    def initialize: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
 
     attr_reader uri: String
     attr_reader front: untyped

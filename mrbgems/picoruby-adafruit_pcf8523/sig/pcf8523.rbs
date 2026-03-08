@@ -4,7 +4,7 @@ class PCF8523
 
   attr_reader i2c: I2C
 
-  def self.new : (i2c: I2C) -> instance
+  def initialize: (i2c: I2C) -> void
   def set_power_management : (?Integer pow) -> Integer
   def current_time= : (Time) -> Time
   def current_time : () -> Time
