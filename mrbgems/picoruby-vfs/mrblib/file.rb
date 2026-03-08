@@ -29,14 +29,18 @@ class File
     end
 
     def chmod(mode, *paths)
+      # @type var mode: Integer
       count = 0
       paths.each do |path|
+        # @type var path: String
         count += 1 if VFS.chmod(mode, path) == 0
       end
       count
     end
 
     def open(path, mode = "r")
+      # @type var path: String
+      # @type var mode: String
       if block_given?
         file = self.new(path, mode)
         result = yield(file)
@@ -48,39 +52,50 @@ class File
     end
 
     def exist?(name)
+      # @type var name: String
       VFS.exist?(name)
     end
 
     def directory?(name)
+      # @type var name: String
       VFS.directory?(name)
     end
 
     def file?(name)
+      # @type var name: String
       VFS.exist?(name) && !VFS.directory?(name)
     end
 
     def unlink(*filenames)
       count = 0
       filenames.each do |name|
+        # @type var name: String
         count += VFS.unlink(name)
       end
       return count
     end
 
     def rename(from, to)
+      # @type var from: String
+      # @type var to: String
       VFS.rename(from, to)
     end
 
     def utime(atime, mtime, *filename)
+      # @type var atime: Time
+      # @type var mtime: Time
+      # @type var filename: Array[String]
       VFS::File.utime(atime, mtime, *filename)
     end
 
     def contiguous?(path)
+      # @type var path: String
       VFS.contiguous?(path)
     end
 
     # Alternative to File.read
     def load_file(path, length = nil, offset = nil)
+      # @type var path: String
       File.open(path) do |f|
         f.seek(offset) if offset
         f.read(length)
@@ -89,6 +104,8 @@ class File
   end
 
   def initialize(path, mode = "r")
+    # @type var path: String
+    # @type var mode: String
     @path = path
     @file = VFS::File.open(path, mode)
   end
