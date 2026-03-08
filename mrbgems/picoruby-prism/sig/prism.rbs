@@ -16,3 +16,7 @@ class Prism
 
   def parse: (String script) -> String # TODO: Prism::ParseResult
 end
+
+class String
+  def prettyprint: () -> nil
+end
