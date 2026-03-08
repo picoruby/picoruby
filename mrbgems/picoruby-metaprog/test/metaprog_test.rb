@@ -4,7 +4,10 @@ class TestAliasClass
   end
 end
 
-METAPROG_TEST_CONST = 42
+module METAPROG_TEST_CONST
+  class Klass
+  end
+end
 
 class MetaprogTest < Picotest::Test
   def test_alias_method
@@ -19,5 +22,7 @@ class MetaprogTest < Picotest::Test
     assert_equal(false, const_defined?(:METAPROG_UNDEFINED_CONST))
     assert_equal(true, const_defined?("METAPROG_TEST_CONST"))
     assert_equal(false, const_defined?("METAPROG_UNDEFINED_CONST"))
+    assert_equal(true, METAPROG_TEST_CONST.const_defined?(:Klass))
+    assert_equal(false, Object.const_defined?(:Klass))
   end
 end

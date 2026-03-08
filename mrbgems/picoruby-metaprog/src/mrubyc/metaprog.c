@@ -245,6 +245,19 @@ c_object_instance_of_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static mrbc_value *
+const_lookup(mrbc_value *self, mrbc_sym sym_id)
+{
+  mrbc_value *value = NULL;
+  if (self->tt == MRBC_TT_CLASS || self->tt == MRBC_TT_MODULE) {
+    value = mrbc_get_class_const(self->cls, sym_id);
+  }
+  if (!value) {
+    value = mrbc_get_const(sym_id);
+  }
+  return value;
+}
+
 static void
 c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -252,7 +265,6 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  mrbc_value *value;
   mrbc_sym sym_id;
   if (v[1].tt == MRBC_TT_SYMBOL) {
     sym_id = v[1].sym_id;
@@ -262,7 +274,7 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
     return;
   }
-  value = mrbc_get_const(sym_id);
+  mrbc_value *value = const_lookup(&v[0], sym_id);
   if (!value) {
     mrbc_raisef(vm, MRBC_CLASS(NameError), "uninitialized constant %s", mrbc_symid_to_str(sym_id));
     return;
@@ -287,7 +299,7 @@ c_object_const_defined_q(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
     return;
   }
-  if (mrbc_get_const(sym_id)) {
+  if (const_lookup(&v[0], sym_id)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
