@@ -9,7 +9,7 @@ module Kernel
     if file[0] == "|"
       IO.popen(file[1, file.size - 1].to_s, mode, &block) # steep:ignore UnresolvedOverloading
     else
-      File.open(file, mode, &block) # steep:ignore ArgumentTypeMismatch
+      File.open(file, mode, &block) # steep:ignore ArgumentTypeMismatch, BlockTypeMismatch
     end
   end
 
