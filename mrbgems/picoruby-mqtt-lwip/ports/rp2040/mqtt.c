@@ -160,7 +160,9 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
     return -1;
   }
 
+  cyw43_arch_lwip_begin();
   g_ctx.client = (void*)mqtt_client_new();
+  cyw43_arch_lwip_end();
   if (g_ctx.client == NULL) {
     console_printf("[MQTT] Failed to create client\n");
     return -1;
@@ -170,8 +172,10 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
   client_info.client_id = client_id;
   client_info.keep_alive = 60;
 
+  cyw43_arch_lwip_begin();
   mqtt_set_inpub_callback((mqtt_client_t*)g_ctx.client, mqtt_incoming_publish_cb,
                           mqtt_incoming_data_cb, &g_ctx);
+  cyw43_arch_lwip_end();
 
   console_printf("[MQTT] Setting FSM state to CONNECTING\n");
   g_ctx.fsm_state = MQTT_STATE_CONNECTING;
@@ -185,7 +189,9 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
 
   if (err != ERR_OK) {
     console_printf("[MQTT] Connection failed: %d\n", err);
+    cyw43_arch_lwip_begin();
     mqtt_client_free((mqtt_client_t*)g_ctx.client);
+    cyw43_arch_lwip_end();
     g_ctx.client = NULL;
     return -1;
   }
@@ -200,7 +206,9 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
   if (g_ctx.fsm_state != MQTT_STATE_ACTIVE) {
     console_printf("[MQTT] Connection timeout or failed\n");
     if (g_ctx.client) {
+      cyw43_arch_lwip_begin();
       mqtt_client_free((mqtt_client_t*)g_ctx.client);
+      cyw43_arch_lwip_end();
       g_ctx.client = NULL;
     }
     return -1;
