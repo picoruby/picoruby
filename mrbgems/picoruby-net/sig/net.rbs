@@ -1,4 +1,4 @@
-type header_t = Hash[String, String]
+type header_t = Hash[String, String | nil]
 type httpreturn = {
   status: Integer,
   headers: header_t,
