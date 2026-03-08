@@ -9,7 +9,7 @@ class File < IO
       super(fd_or_path, mode, &block)
     else
       fd = IO.sysopen(fd_or_path, mode, perm)
-      instance = super(fd, mode, perm, &block)
+      instance = super(fd, mode, &block)
       instance.path = fd_or_path
       instance
     end

@@ -1,4 +1,6 @@
 class File
+  def self.new: (String | Integer fd_or_path, ?String mode, ?Integer perm) -> File
+              | [T] (String | Integer fd_or_path, ?String mode, ?Integer perm) { (File) -> T } -> T
   private def self._concat_path: (String base, String path) -> String
   private def self._gethome: (?(String | nil) user) -> String
   private def self._getwd: () -> String
