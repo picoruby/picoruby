@@ -27,6 +27,7 @@ class Dir
     alias children entries
 
     def foreach(path, encoding: nil, &block)
+      raise ArgumentError, "no block given" unless block
       self.open(path) do |d|
         d.each(&block)
       end
