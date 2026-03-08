@@ -33,4 +33,6 @@ target :mrbgems do
 
   # TODO: Fix after removal of picoruby-net
   ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
+  # Task class sig is excluded from signature loading (task-ext)
+  ignore "mrbgems/picoruby-shell/shell_executables/taskstat.rb"
 end
