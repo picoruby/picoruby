@@ -11,7 +11,8 @@ class String
     index
   end
 
-  def gsub(pattern, replacement)
+  # PicoRuby's simplified gsub only accepts String args, not Regexp or block
+  def gsub(pattern, replacement) # steep:ignore MethodParameterMismatch
     # @type var pattern: String
     # @type var replacement: String
     result = ''

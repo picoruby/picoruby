@@ -7,6 +7,7 @@ module Funicular
     class Consumer
       attr_reader url: String
       attr_reader subscriptions: Subscriptions
+      @reconnect_attempts: Integer
 
       def initialize: (String url) -> void
       def connect: () -> void
