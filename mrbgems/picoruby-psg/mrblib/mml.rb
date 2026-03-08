@@ -54,7 +54,7 @@ class MML # Music Macro Language
       if next_event
         # add tick if play or rest
         if event[0] == :play || event[0] == :mute # mute acts as rest
-          tick_table[min_track] += (event[-1] || 0)
+          tick_table[min_track] += (event[2] || 0)
         end
         event_table[min_track] = next_event
       else

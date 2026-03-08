@@ -69,7 +69,7 @@ module Picotest
     def assert_equal: (untyped expected, untyped actual) -> void
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
-    def assert_in_delta: (Integer | Float expected, Integer | Float actual, ?Float delta) -> void
+    def assert_in_delta: (Numeric expected, Numeric actual, ?Float delta) -> void
     def skip: (?String reason) -> void
     def report_skip: (untyped data) -> void
     def report_exception: (untyped data) -> void
