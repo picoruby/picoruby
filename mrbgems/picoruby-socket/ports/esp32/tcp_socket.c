@@ -51,6 +51,8 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
   struct hostent *he = gethostbyname(host);
   if (!he) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "getaddrinfo(\"%s\"): %s", host, hstrerror(h_errno));
     close(sock->fd);
     sock->fd = -1;
     return false;
@@ -63,6 +65,8 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
 
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "connect(\"%s\":%d): %s", host, port, strerror(errno));
     close(sock->fd);
     sock->fd = -1;
     return false;

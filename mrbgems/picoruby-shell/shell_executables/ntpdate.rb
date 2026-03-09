@@ -16,7 +16,7 @@ while retry_count < max_dns_retries
     puts "DNS ready"
     break
   rescue => e
-    print "."
+    puts "DNS check failed: #{e.class} - #{e.message}"
     retry_count += 1
     sleep_ms 500
   end

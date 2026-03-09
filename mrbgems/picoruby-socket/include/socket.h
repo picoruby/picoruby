@@ -10,6 +10,8 @@
   #define PICORB_PLATFORM_POSIX 1
 #endif
 
+#define SOCKET_ERROR_MSG_LEN 128
+
 /* Socket structure for POSIX */
 #ifdef PICORB_PLATFORM_POSIX
 typedef struct {
@@ -21,6 +23,7 @@ typedef struct {
   bool closed;
   char remote_host[256];
   int remote_port;
+  char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
 } picorb_socket_t;
 #endif
 
@@ -53,6 +56,7 @@ typedef struct {
   /* For UDP recvfrom - store last sender info */
   char last_sender_host[256];
   int last_sender_port;
+  char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -189,6 +193,9 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   /* Forward declaration for mruby data type */
   struct mrb_data_type;
   extern const struct mrb_data_type mrb_socket_type;
+
+  /* SocketError exception class (defined in socket.c gem init) */
+  #define E_SOCKET_ERROR (mrb_class_get(mrb, "SocketError"))
 #endif
 
 #endif /* PICORB_SOCKET_H */

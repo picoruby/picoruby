@@ -47,7 +47,7 @@ mrb_udp_socket_bind(mrb_state *mrb, mrb_value self)
   }
 
   if (!UDPSocket_bind(sock, host, (int)port)) {
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to bind to %s:%i", host, port);
+    mrb_raisef(mrb, E_SOCKET_ERROR, "%s", sock->errmsg[0] ? sock->errmsg : "failed to bind");
   }
 
   return mrb_nil_value();
@@ -73,7 +73,7 @@ mrb_udp_socket_connect(mrb_state *mrb, mrb_value self)
   }
 
   if (!UDPSocket_connect(sock, host, (int)port)) {
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to connect to %s:%i", host, port);
+    mrb_raisef(mrb, E_SOCKET_ERROR, "%s", sock->errmsg[0] ? sock->errmsg : "failed to connect");
   }
 
   return mrb_nil_value();
@@ -110,7 +110,11 @@ mrb_udp_socket_send(mrb_state *mrb, mrb_value self)
   }
 
   if (sent < 0) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "send failed");
+    if (host) {
+      mrb_raisef(mrb, E_SOCKET_ERROR, "%s", sock->errmsg[0] ? sock->errmsg : "send failed");
+    } else {
+      mrb_raise(mrb, E_SOCKET_ERROR, "send failed");
+    }
   }
 
   return mrb_fixnum_value(sent);

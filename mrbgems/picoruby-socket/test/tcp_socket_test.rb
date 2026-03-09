@@ -19,6 +19,28 @@ class TCPSocketTest < Picotest::Test
     assert_true(methods.include?(:addr))
   end
 
+  def test_socket_error_class_exists
+    assert_true(Object.const_defined?(:SocketError))
+    assert_true(SocketError.ancestors.include?(StandardError))
+  end
+
+  def test_tcp_connect_invalid_host_raises_socket_error
+    assert_raise(SocketError) do
+      TCPSocket.new('this.hostname.is.invalid.example', 80)
+    end
+  end
+
+  def test_tcp_connect_invalid_host_message_contains_hostname
+    error_message = nil
+    begin
+      TCPSocket.new('no-such-host.invalid', 80)
+    rescue SocketError => e
+      error_message = e.message
+    end
+    assert_true(!error_message.nil?)
+    assert_true(error_message.include?('no-such-host.invalid'))
+  end
+
   # Note: The following tests require external network connectivity
   # They are commented out because:
   # 1. They depend on external services (example.com)

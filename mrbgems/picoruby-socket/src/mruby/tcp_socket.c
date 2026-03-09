@@ -32,8 +32,11 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
 
   /* Connect to remote host */
   if (!TCPSocket_connect(sock, host, (int)port)) {
+    char errmsg[SOCKET_ERROR_MSG_LEN];
+    strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
+    errmsg[sizeof(errmsg) - 1] = '\0';
     mrb_free(mrb, sock);
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to connect to %s:%i", host, port);
+    mrb_raise(mrb, E_SOCKET_ERROR, errmsg[0] ? errmsg : "failed to connect");
   }
 
   mrb_data_init(self, sock, &mrb_socket_type);

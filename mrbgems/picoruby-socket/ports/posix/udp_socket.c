@@ -85,6 +85,8 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
 
       int err = getaddrinfo(host, NULL, &hints, &res);
       if (err != 0 || !res) {
+        snprintf(sock->errmsg, sizeof(sock->errmsg),
+                 "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
         return false;
       }
 
@@ -120,6 +122,8 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
     /* Not an IP address, try DNS resolution */
     struct hostent *he = gethostbyname(host);
     if (!he) {
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): %s", host, hstrerror(h_errno));
       return false;
     }
     memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(struct in_addr));
@@ -127,6 +131,8 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
   /* Connect socket (sets default destination) */
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "connect(\"%s\":%d): %s", host, port, strerror(errno));
     return false;
   }
 
@@ -178,6 +184,8 @@ UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
     /* Not an IP address, try DNS resolution */
     struct hostent *he = gethostbyname(host);
     if (!he) {
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): %s", host, hstrerror(h_errno));
       return -1;
     }
     memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(struct in_addr));

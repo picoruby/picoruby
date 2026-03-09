@@ -63,8 +63,12 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   int port_num = (int)port.i;
 
   if (!TCPSocket_connect(sock, host_str, port_num)) {
+    char errmsg[SOCKET_ERROR_MSG_LEN];
+    strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
+    errmsg[sizeof(errmsg) - 1] = '\0';
     mrbc_raw_free(sock);
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to connect");
+    mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
+                "%s", errmsg[0] ? errmsg : "failed to connect");
     return;
   }
 

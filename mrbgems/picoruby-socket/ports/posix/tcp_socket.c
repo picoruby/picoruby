@@ -1,4 +1,5 @@
 #include "../../include/socket.h"
+#include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -54,6 +55,8 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   /* Resolve hostname */
   struct hostent *he = gethostbyname(host);
   if (!he) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "getaddrinfo(\"%s\"): %s", host, hstrerror(h_errno));
     close(sock->fd);
     sock->fd = -1;
     return false;
@@ -68,6 +71,8 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
   /* Connect */
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "connect(\"%s\":%d): %s", host, port, strerror(errno));
     close(sock->fd);
     sock->fd = -1;
     return false;

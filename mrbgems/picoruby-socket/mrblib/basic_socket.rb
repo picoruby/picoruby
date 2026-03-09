@@ -1,3 +1,5 @@
+class SocketError < StandardError; end
+
 class BasicSocket
   # IO-compatible methods
 

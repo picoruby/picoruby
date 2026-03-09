@@ -90,7 +90,8 @@ c_udp_socket_bind(mrbc_vm *vm, mrbc_value *v, int argc)
   int port_num = (int)port.i;
 
   if (!UDPSocket_bind(sock, host_str, port_num)) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to bind");
+    mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
+                "%s", sock->errmsg[0] ? sock->errmsg : "failed to bind");
     return;
   }
 
@@ -141,7 +142,8 @@ c_udp_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
   int port_num = (int)port.i;
 
   if (!UDPSocket_connect(sock, host_str, port_num)) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to connect");
+    mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
+                "%s", sock->errmsg[0] ? sock->errmsg : "failed to connect");
     return;
   }
 
@@ -206,7 +208,8 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   if (sent < 0) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "send failed");
+    mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
+                "%s", sock->errmsg[0] ? sock->errmsg : "send failed");
     return;
   }
 
