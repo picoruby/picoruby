@@ -6,6 +6,7 @@
 #include "../../include/mqtt.h"
 #include "../../../picoruby-socket/include/socket.h"
 #include "lwip/apps/mqtt.h"
+#include "lwip/timeouts.h"
 #include "pico/stdlib.h"
 #include <string.h>
 
@@ -37,8 +38,6 @@ static void mqtt_request_cb(void *arg, err_t err);
 
 static bool poll_state() {
   // cyw43_arch_poll();  // Not needed in threadsafe_background mode
-
-  console_printf("[MQTT POLL] Entered poll_state, fsm_state=%d\n", g_ctx.fsm_state);
 
   static int poll_count = 0;
   poll_count++;
@@ -255,21 +254,22 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
   // Wait for connection
   int timeout = 1000;
   console_printf("[MQTT] Starting connection wait loop, timeout=%d\n", timeout);
-  console_printf("[MQTT] About to enter wait loop\n");
   while (g_ctx.fsm_state == MQTT_STATE_CONNECTING && timeout-- > 0) {
-    console_printf("[MQTT] Loop iteration: timeout=%d\n", timeout);
     if (timeout % 100 == 0) {
       console_printf("[MQTT] Wait loop: fsm_state=%s(%d), timeout=%d\n",
                      mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);
     }
-    console_printf("[MQTT] About to call poll_state()\n");
+
+    // Process lwIP timers and callbacks (required in NO_SYS=1 mode)
+    lwip_begin();
+    sys_check_timeouts();
+    lwip_end();
+
     if (!poll_state()) {
       console_printf("[MQTT] poll_state() returned false, breaking\n");
       break;
     }
-    console_printf("[MQTT] About to call Net_busy_wait_ms(10)\n");
     Net_busy_wait_ms(10);
-    console_printf("[MQTT] Net_busy_wait_ms completed\n");
   }
   console_printf("[MQTT] Wait loop ended: fsm_state=%s(%d), timeout=%d\n",
                  mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);

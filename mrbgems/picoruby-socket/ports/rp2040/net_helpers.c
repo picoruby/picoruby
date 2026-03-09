@@ -14,7 +14,6 @@
 void
 Net_busy_wait_ms(int ms)
 {
-  console_printf("[NET] Net_busy_wait_ms(%d) start\n", ms);
 #ifdef USE_WIFI
   cyw43_arch_poll();
 #endif
@@ -22,7 +21,6 @@ Net_busy_wait_ms(int ms)
 #ifdef USE_WIFI
   cyw43_arch_poll();
 #endif
-  console_printf("[NET] Net_busy_wait_ms(%d) end\n", ms);
 }
 
 /* Lock LwIP for thread safety */
