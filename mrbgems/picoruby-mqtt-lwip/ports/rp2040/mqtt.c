@@ -8,6 +8,7 @@
 #include "lwip/apps/mqtt.h"
 #include "lwip/timeouts.h"
 #include "pico/stdlib.h"
+#include "pico/cyw43_arch.h"
 #include <string.h>
 
 static mqtt_context_t g_ctx;
@@ -260,10 +261,8 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
                      mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);
     }
 
-    // Process lwIP timers and callbacks (required in NO_SYS=1 mode)
-    lwip_begin();
-    sys_check_timeouts();
-    lwip_end();
+    // Poll async context to process background workers and lwIP timers
+    cyw43_arch_poll();
 
     if (!poll_state()) {
       console_printf("[MQTT] poll_state() returned false, breaking\n");

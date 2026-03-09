@@ -17,7 +17,7 @@ Net_busy_wait_ms(int ms)
 #ifdef USE_WIFI
   cyw43_arch_poll();
 #endif
-  busy_wait_ms(ms);
+  sleep_ms(ms);
 #ifdef USE_WIFI
   cyw43_arch_poll();
 #endif
