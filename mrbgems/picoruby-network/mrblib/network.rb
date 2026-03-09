@@ -19,6 +19,6 @@ module Network
   when "POSIX"
     # no-op. Calling Network:WiFi raises error
   else
-    # Shouold not reach here
+    # Should not reach here
   end
 end
