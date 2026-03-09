@@ -7,7 +7,7 @@ rescue LoadError
   return
 end
 
-unless ARGV.count == 1
+unless ARGV.size == 1
   puts "Usage: ping hostname"
   return
 end

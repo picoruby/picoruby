@@ -1,6 +1,6 @@
 # cp - copy files
 
-unless ARGV.count == 2
+unless ARGV.size == 2
   puts "Usage: cp source_file target_file"
   return
 end
