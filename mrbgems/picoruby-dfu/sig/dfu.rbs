@@ -42,13 +42,12 @@ module DFU
     #def receive: (_Reader io) -> true
     def receive: (untyped io) -> true
 
-    private
-
-    #def read_exact: (_Reader io, Integer n) -> String
-    def read_exact: (untyped io, Integer n) -> String
-    def receive_to_path: (untyped io, Integer size, Integer crc32, String? signature) -> true
-    def receive_to_slot: (untyped io, Integer size, Integer crc32, String? signature, String ext) -> true
-    def cleanup_on_failure: (String fw_path, String target_slot) -> void
-    def verify_signature: (String firmware_data, String signature, String fw_path, String target_slot) -> void
+    #private def read_exact: (_Reader io, Integer n) -> String
+    private def read_exact: (untyped io, Integer n) -> String
+    private def receive_to_path: (untyped io, Integer size, Integer crc32, String? signature) -> true
+    private def receive_to_slot: (untyped io, Integer size, Integer crc32, String? signature, String ext) -> true
+    private def cleanup_on_failure: (String fw_path, String target_slot) -> void
+    private def verify_signature: (String firmware_data, String signature, String fw_path, String target_slot) -> void
+    private def read_firmware_body: (IO io, Integer size) -> String
   end
 end

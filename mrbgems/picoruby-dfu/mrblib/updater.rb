@@ -99,6 +99,29 @@ module DFU
 
     private
 
+    # Read the entire firmware body into RAM.
+    # Reads in CHUNK_SIZE pieces to allow timeout handling per chunk,
+    # but does not perform any flash I/O until all data is received.
+    def read_firmware_body(io, size)
+      buf = ""
+      remaining = size || 0
+      while remaining > 0
+        chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
+        puts "[recv] read_exact(#{chunk_len}) (received=#{buf.bytesize}/#{size})..."
+        chunk = read_exact(io, chunk_len)
+        puts "[recv] got #{chunk.bytesize} bytes"
+        if chunk.bytesize == 0
+          raise "DFU: connection lost (#{buf.bytesize}/#{size} bytes received)"
+        end
+        buf += chunk
+        remaining -= chunk.bytesize
+      end
+      if buf.bytesize != size
+        raise "DFU: size mismatch (expected #{size}, got #{buf.bytesize})"
+      end
+      buf
+    end
+
     # Read exactly n bytes from io, looping over partial reads.
     # Prefer non-blocking read when available so timeout can be enforced
     # even on STDIN-backed transports.
@@ -147,6 +170,10 @@ module DFU
     # No A/B slot management or meta file updates are performed.
     # The destination directory must already exist.
     # Existing files at path are overwritten.
+    #
+    # All firmware data is buffered in RAM before writing to flash.
+    # This prevents data loss caused by flash erase/write operations
+    # disabling interrupts and blocking USB CDC reception.
     def receive_to_path(io, size, crc32, signature)
       path = @path.to_s
       dir = File.dirname(path)
@@ -155,41 +182,12 @@ module DFU
       end
 
       fw_path = path
-      written = 0
       puts "[recv] reading firmware body (#{size} bytes) to #{fw_path}..."
-      begin
-        File.open(fw_path, "w") do |f|
-          remaining = size || 0
-          while remaining > 0
-            chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
-            puts "[recv] read_exact(#{chunk_len}) (written=#{written}/#{size})..."
-            chunk = read_exact(io, chunk_len)
-            puts "[recv] got #{chunk.bytesize} bytes"
-            if chunk.bytesize == 0
-              raise "DFU: connection lost (#{written}/#{size} bytes received)"
-            end
-            f.write(chunk)
-            written += chunk.bytesize
-            remaining -= chunk.bytesize
-          end
-          f.fsync
-        end
-      rescue => e
-        File.unlink(fw_path) if File.exist?(fw_path)
-        raise e
-      end
-
-      if written != size
-        File.unlink(fw_path) if File.exist?(fw_path)
-        raise "DFU: size mismatch (expected #{size}, got #{written})"
-      end
-
-      firmware_data = File.open(fw_path, "r") { |f| f.read }
+      firmware_data = read_firmware_body(io, size)
 
       if @verify_crc && crc32 != 0
         actual_crc = CRC.crc32(firmware_data)
         if actual_crc != crc32
-          File.unlink(fw_path) if File.exist?(fw_path)
           raise "DFU: CRC32 mismatch (expected #{crc32}, got #{actual_crc})"
         end
       end
@@ -201,9 +199,18 @@ module DFU
         public_key = MbedTLS::PKey::EC.new(DFU.ecdsa_public_key_pem)
         digest = MbedTLS::Digest.new(:sha256)
         unless public_key.verify(digest, signature, firmware_data)
-          File.unlink(fw_path) if File.exist?(fw_path)
           raise "DFU: signature verification failed"
         end
+      end
+
+      begin
+        File.open(fw_path, "w") do |f|
+          f.write(firmware_data)
+          f.fsync
+        end
+      rescue => e
+        File.unlink(fw_path) if File.exist?(fw_path)
+        raise e
       end
 
       true
@@ -211,6 +218,10 @@ module DFU
 
     # Write received firmware body to the inactive A/B slot.
     # Updates meta.yml before and after writing (existing behavior).
+    #
+    # All firmware data is buffered in RAM before writing to flash.
+    # This prevents data loss caused by flash erase/write operations
+    # disabling interrupts and blocking USB CDC reception.
     def receive_to_slot(io, size, crc32, signature, ext)
       meta = Meta.load
       if meta["try_slot"] != meta["active_slot"]
@@ -233,38 +244,9 @@ module DFU
       slot_data["sig"] = nil
       Meta.save(meta)
 
-      # Stream body to file
       fw_path = "#{ENV['HOME']}/app_#{target_slot}.#{ext}"
-      written = 0
       puts "[recv] reading firmware body (#{size} bytes)..."
-      begin
-        File.open(fw_path, "w") do |f|
-          remaining = size || 0
-          while remaining > 0
-            chunk_len = (remaining < CHUNK_SIZE) ? remaining : CHUNK_SIZE
-            puts "[recv] read_exact(#{chunk_len}) (written=#{written}/#{size})..."
-            chunk = read_exact(io, chunk_len)
-            puts "[recv] got #{chunk.bytesize} bytes"
-            if chunk.bytesize == 0
-              raise "DFU: connection lost (#{written}/#{size} bytes received)"
-            end
-            f.write(chunk)
-            written += chunk.bytesize
-            remaining -= chunk.bytesize
-          end
-          f.fsync
-        end
-      rescue => e
-        cleanup_on_failure(fw_path, target_slot)
-        raise e
-      end
-
-      if written != size
-        cleanup_on_failure(fw_path, target_slot)
-        raise "DFU: size mismatch (expected #{size}, got #{written})"
-      end
-
-      firmware_data = File.open(fw_path, "r") { |f| f.read }
+      firmware_data = read_firmware_body(io, size)
 
       # CRC32 verification
       if @verify_crc && crc32 != 0
@@ -278,6 +260,17 @@ module DFU
       # Signature verification
       if @verify_signature && signature
         verify_signature(firmware_data, signature, fw_path, target_slot)
+      end
+
+      # Write to flash after all data is received and verified
+      begin
+        File.open(fw_path, "w") do |f|
+          f.write(firmware_data)
+          f.fsync
+        end
+      rescue => e
+        cleanup_on_failure(fw_path, target_slot)
+        raise e
       end
 
       # Update meta: mark slot as ready, set try_slot

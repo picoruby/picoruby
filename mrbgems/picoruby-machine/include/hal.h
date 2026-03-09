@@ -2,6 +2,7 @@
 #define HAL_PORTING_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,7 +54,9 @@ int hal_flush(int fd);
 
 int hal_read_available(void);
 int hal_getchar(void);
-void hal_stdin_push(uint8_t ch);
+/* Push a byte into the stdin ring buffer.
+ * Returns true on success, false if the buffer is full (byte NOT stored). */
+bool hal_stdin_push(uint8_t ch);
 
 
 #ifdef __cplusplus

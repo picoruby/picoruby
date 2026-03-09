@@ -37,15 +37,17 @@ volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
  *
  *------------------------------------*/
 
+/* Must be a power of two AND >= CFG_TUD_CDC_RX_BUFSIZE (512) so that
+ * tud_cdc_rx_cb() can drain the entire CDC FIFO without overflow. */
 #ifndef PICORUBY_STDIN_BUFFER_SIZE
-#define PICORUBY_STDIN_BUFFER_SIZE 256
+#define PICORUBY_STDIN_BUFFER_SIZE 1024
 #endif
 
 static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORUBY_STDIN_BUFFER_SIZE]
   __attribute__((aligned(4)));
 static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
 
-void
+bool
 hal_stdin_push(uint8_t ch)
 {
   /* Only intercept signal chars in cooked mode (like POSIX).
@@ -53,14 +55,14 @@ hal_stdin_push(uint8_t ch)
   if (!io_raw_q()) {
     if (ch == 3) {
       sigint_status = MACHINE_SIGINT_RECEIVED;
-      return;
+      return true;  /* signal consumed, not an overflow */
     }
     if (ch == 26) {
       sigint_status = MACHINE_SIGTSTP_RECEIVED;
-      return;
+      return true;
     }
   }
-  RingBuffer_push(stdin_rb, ch);
+  return RingBuffer_push(stdin_rb, ch);
 }
 
 /*-------------------------------------
@@ -359,6 +361,15 @@ int
 hal_getchar(void)
 {
   tud_task();
+
+  /* Drain any bytes left in the CDC FIFO that tud_cdc_rx_cb() could
+   * not push because the ring buffer was full at the time.  Now that
+   * the caller has consumed at least one byte, there should be room. */
+  while (tud_cdc_available() && RingBuffer_free_size(stdin_rb) > 1) {
+    uint8_t cdc_ch = (uint8_t)tud_cdc_read_char();
+    hal_stdin_push(cdc_ch);
+  }
+
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
     sigint_status = MACHINE_SIG_NONE;
     return 3;
