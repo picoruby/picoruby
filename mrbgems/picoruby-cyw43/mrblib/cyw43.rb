@@ -2,7 +2,7 @@ require 'env'
 
 class CYW43
   def self.init(country = nil, force: false)
-    if CYW43.initialized?
+    if CYW43.initialized? && !force
       puts "CYW43 already initialized"
       return true
     end
@@ -14,7 +14,7 @@ class CYW43
       puts "CYW43.init failed. No CYW43 module is connected?"
       return false
     end
-    ENV['WIFI_MODULE'] = "CWY43"
+    ENV['WIFI_MODULE'] = "CYW43"
     return true
   end
 

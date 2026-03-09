@@ -258,6 +258,10 @@ TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
   err = altcp_output(sock->pcb);
   lwip_end();
 
+#ifdef PICO_CYW43_ARCH_POLL
+  cyw43_arch_poll();
+#endif
+
   if (err != ERR_OK) {
     return -1;
   }

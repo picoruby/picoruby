@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 int CYW43_arch_init_with_country(const uint8_t *);
+void CYW43_arch_deinit(void);
 #ifdef USE_WIFI
 void CYW43_arch_enable_sta_mode(void);
 void CYW43_arch_disable_sta_mode(void);
