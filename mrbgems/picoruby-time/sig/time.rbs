@@ -1,0 +1,7 @@
+class Time
+  class TimeMethods
+  end
+
+  def self.unixtime_offset: () -> Integer
+  def self.time_methods: () -> Time::TimeMethods
+end
