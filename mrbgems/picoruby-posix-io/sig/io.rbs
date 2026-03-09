@@ -1,0 +1,6 @@
+class IO
+  type fd_t = Integer | IO
+
+  private def self._popen: (String command, String mode, fd_t in, fd_t out, fd_t err) -> IO
+  private def self._pipe: () -> [IO, IO]
+end
