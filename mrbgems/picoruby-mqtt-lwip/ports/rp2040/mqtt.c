@@ -11,6 +11,22 @@
 
 static mqtt_context_t g_ctx;
 
+// Debug helper function
+static const char* mqtt_state_to_string(mqtt_fsm_state_t state) {
+  switch (state) {
+    case MQTT_STATE_IDLE: return "IDLE";
+    case MQTT_STATE_CONNECTING: return "CONNECTING";
+    case MQTT_STATE_CONNACK_WAIT: return "CONNACK_WAIT";
+    case MQTT_STATE_ACTIVE: return "ACTIVE";
+    case MQTT_STATE_SUBSCRIBING: return "SUBSCRIBING";
+    case MQTT_STATE_PUBLISHING: return "PUBLISHING";
+    case MQTT_STATE_DISCONNECTING: return "DISCONNECTING";
+    case MQTT_STATE_ERROR: return "ERROR";
+    case MQTT_STATE_TIMEOUT: return "TIMEOUT";
+    default: return "UNKNOWN";
+  }
+}
+
 static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
                                mqtt_connection_status_t status);
 static void mqtt_incoming_publish_cb(void *arg, const char *topic,
@@ -21,6 +37,15 @@ static void mqtt_request_cb(void *arg, err_t err);
 
 static bool poll_state() {
   // cyw43_arch_poll();  // Not needed in threadsafe_background mode
+
+  static int poll_count = 0;
+  poll_count++;
+
+  // Only print every 100 calls to avoid spam
+  if (poll_count % 100 == 0) {
+    console_printf("[MQTT POLL] poll_state() called %d times, current state=%s(%d)\n",
+                   poll_count, mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state);
+  }
 
   switch (g_ctx.fsm_state) {
   case MQTT_STATE_ACTIVE:
@@ -60,22 +85,34 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
   LWIP_UNUSED_ARG(client);
 
-  console_printf("[MQTT] Connection callback\n");
+  console_printf("[MQTT CALLBACK] Connection callback called! client=%p, arg=%p, status=%d\n",
+                 (void*)client, arg, status);
+
+  if (ctx == NULL) {
+    console_printf("[MQTT CALLBACK ERROR] ctx is NULL!\n");
+    return;
+  }
+
+  console_printf("[MQTT CALLBACK] Previous fsm_state=%s(%d)\n",
+                 mqtt_state_to_string(ctx->fsm_state), ctx->fsm_state);
 
   switch (status) {
   case MQTT_CONNECT_ACCEPTED:
-    console_printf("[MQTT] Connected to broker!\n");
+    console_printf("[MQTT CALLBACK] MQTT_CONNECT_ACCEPTED - Connected to broker!\n");
     ctx->fsm_state = MQTT_STATE_ACTIVE;
     break;
   case MQTT_CONNECT_DISCONNECTED:
-    console_printf("[MQTT] Disconnected from broker\n");
+    console_printf("[MQTT CALLBACK] MQTT_CONNECT_DISCONNECTED - Disconnected from broker\n");
     ctx->fsm_state = MQTT_STATE_DISCONNECTING;
     break;
   default:
-    console_printf("[MQTT] Connection failed\n");
+    console_printf("[MQTT CALLBACK] Unknown status %d - Connection failed\n", status);
     ctx->fsm_state = MQTT_STATE_ERROR;
     break;
   }
+
+  console_printf("[MQTT CALLBACK] New fsm_state=%s(%d)\n",
+                 mqtt_state_to_string(ctx->fsm_state), ctx->fsm_state);
 }
 
 static void mqtt_incoming_publish_cb(void *arg, const char *topic,
@@ -187,14 +224,21 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
   console_printf("[MQTT] Setting FSM state to CONNECTING\n");
   g_ctx.fsm_state = MQTT_STATE_CONNECTING;
   console_printf("[MQTT] Calling mqtt_client_connect\n");
+  console_printf("[MQTT] Args: ip=%d.%d.%d.%d, port=%d\n",
+                 (int)(ip.addr & 0xFF),
+                 (int)((ip.addr >> 8) & 0xFF),
+                 (int)((ip.addr >> 16) & 0xFF),
+                 (int)((ip.addr >> 24) & 0xFF),
+                 port);
   lwip_begin();
   err_t err = mqtt_client_connect((mqtt_client_t*)g_ctx.client, &ip, port, mqtt_connection_cb,
                                   &g_ctx, &client_info);
   lwip_end();
+  console_printf("[MQTT] mqtt_client_connect returned err=%d\n", err);
   if (err != ERR_OK) {
-    console_printf("[MQTT] mqtt_client_connect failed\n");
+    console_printf("[MQTT] mqtt_client_connect failed with error %d\n", err);
   } else {
-    console_printf("[MQTT] mqtt_client_connect succeeded\n");
+    console_printf("[MQTT] mqtt_client_connect succeeded (ERR_OK)\n");
   }
 
   if (err != ERR_OK) {
@@ -208,10 +252,20 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
 
   // Wait for connection
   int timeout = 1000;
+  console_printf("[MQTT] Starting connection wait loop, timeout=%d\n", timeout);
   while (g_ctx.fsm_state == MQTT_STATE_CONNECTING && timeout-- > 0) {
-    if (!poll_state()) break;
+    if (timeout % 100 == 0) {
+      console_printf("[MQTT] Wait loop: fsm_state=%s(%d), timeout=%d\n",
+                     mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);
+    }
+    if (!poll_state()) {
+      console_printf("[MQTT] poll_state() returned false, breaking\n");
+      break;
+    }
     Net_busy_wait_ms(10);
   }
+  console_printf("[MQTT] Wait loop ended: fsm_state=%s(%d), timeout=%d\n",
+                 mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);
 
   if (g_ctx.fsm_state != MQTT_STATE_ACTIVE) {
     console_printf("[MQTT] Connection timeout or failed\n");
