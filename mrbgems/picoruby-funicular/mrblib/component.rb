@@ -575,7 +575,7 @@ module Funicular
     def normalize_vnode(value)
       case value
       when VDOM::VNode
-        value
+        _ = value
       when String
         VDOM::Text.new(value)
       when Integer, Float
