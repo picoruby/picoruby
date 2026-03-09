@@ -572,7 +572,8 @@ module Funicular
     end
 
     # Normalize render result to VNode
-    def normalize_vnode(value)
+    # VNode is abstract; actual instances are always Element, Text, or Component
+    def normalize_vnode(value) # steep:ignore MethodBodyTypeMismatch
       case value
       when VDOM::VNode
         value
