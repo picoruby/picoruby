@@ -2,8 +2,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <mrubyc.h>
-#include "machine.h"
-#include "version.h"
 
 typedef struct picogems {
   const char *name;
@@ -99,10 +97,6 @@ picoruby_load_model_by_name(const char *gem)
 void
 picoruby_init_require(mrbc_vm *vm)
 {
-  mrbc_sym sym = mrbc_str_to_symid("RUBY_DESCRIPTION");
-  mrbc_value str = mrbc_string_new_cstr(vm, picorb_description(Machine_mcu_name()));
-  mrbc_set_const(sym, &str);
-
   mrbc_class *module_Kernel = mrbc_define_module(vm, "Kernel");
   mrbc_define_method(vm, module_Kernel, "extern", c_extern);
   mrbc_value self = mrbc_instance_new(vm, mrbc_class_object, 0);

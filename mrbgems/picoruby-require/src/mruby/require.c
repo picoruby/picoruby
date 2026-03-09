@@ -5,8 +5,6 @@
 #include <mruby/string.h>
 #include <mruby/variable.h>
 #include <mruby/presym.h>
-#include "machine.h"
-#include "version.h"
 #include <string.h>
 
 extern const char *prebuilt_gems[];
@@ -28,9 +26,6 @@ mrb_extern(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_require_gem_init(mrb_state* mrb)
 {
-  mrb_define_global_const(mrb, "RUBY_DESCRIPTION",
-    mrb_str_new_cstr(mrb, picorb_description(Machine_mcu_name())));
-
   struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
 
   mrb_define_private_method_id(mrb, module_Kernel, MRB_SYM(extern), mrb_extern, MRB_ARGS_ARG(1,1));

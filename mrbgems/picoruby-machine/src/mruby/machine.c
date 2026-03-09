@@ -5,6 +5,7 @@
 #include "../../include/machine.h"
 #include "../../include/hal.h"
 #include "../../../picoruby-io-console/include/io-console.h"
+#include "version.h"
 
 static inline void
 io_wait_for_input(mrb_state *mrb)
@@ -424,6 +425,9 @@ mrb_s__reboot(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_machine_gem_init(mrb_state* mrb)
 {
+  mrb_define_global_const(mrb, "RUBY_DESCRIPTION",
+    mrb_str_new_cstr(mrb, picorb_description(Machine_mcu_name())));
+
   mrb_define_class_id(mrb, MRB_SYM(IOError), E_STANDARD_ERROR);
 
   struct RClass *module_Machine = mrb_define_module_id(mrb, MRB_SYM(Machine));

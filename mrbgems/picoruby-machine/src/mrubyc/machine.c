@@ -1,6 +1,7 @@
 #include "mrubyc.h"
 #include "../../include/machine.h"
 #include "../../../picoruby-io-console/include/io-console.h"
+#include "version.h"
 
 
 static void
@@ -423,6 +424,10 @@ c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_machine_init(mrbc_vm *vm)
 {
+  mrbc_sym sym = mrbc_str_to_symid("RUBY_DESCRIPTION");
+  mrbc_value str = mrbc_string_new_cstr(vm, picorb_description(Machine_mcu_name()));
+  mrbc_set_const(sym, &str);
+
   mrbc_class *module_Machine = mrbc_define_module(vm, "Machine");
 
   mrbc_define_method(vm, module_Machine, "tud_task", c_Machine_tud_task);
