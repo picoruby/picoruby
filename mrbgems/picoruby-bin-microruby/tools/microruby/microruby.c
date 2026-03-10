@@ -110,7 +110,11 @@ struct options {
 static void
 picorb_show_version(void)
 {
-  fprintf(stdout, EXECUTABLE_NAME " %s\n", PICORUBY_VERSION);
+#if defined(PICORB_VM_MRUBY)
+  printf("microruby %s\n", picorb_version_with_build_info());
+#elif defined(PICORB_VM_MRUBYC)
+  printf("picoruby %s\n", picorb_version_with_build_info());
+#endif
 }
 
 static void
@@ -461,10 +465,6 @@ main(int argc, char **argv)
   }
 #endif
   picorb_vm_init();
-
-  /* Define PICORUBY_VERSION cont */
-  picorb_value version = picorb_string_new(vm, PICORUBY_VERSION, strlen(PICORUBY_VERSION));
-  picorb_define_const(vm, "PICORUBY_VERSION", version);
 
   int n = -1;
   struct _args args;

@@ -132,14 +132,6 @@ c_Machine_stack_usage(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-static void
-c_Machine_mcu_name(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  const char *name = Machine_mcu_name();
-  mrbc_value ret = mrbc_string_new_cstr(vm, name);
-  SET_RETURN(ret);
-}
-
 #if !defined(PICORB_PLATFORM_POSIX)
 #include <time.h>
 #endif
@@ -435,7 +427,6 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, module_Machine, "unique_id", c_Machine_unique_id);
   mrbc_define_method(vm, module_Machine, "read_memory", c_Machine_read_memory);
   mrbc_define_method(vm, module_Machine, "stack_usage", c_Machine_stack_usage);
-  mrbc_define_method(vm, module_Machine, "mcu_name", c_Machine_mcu_name);
 
   mrbc_define_method(vm, module_Machine, "set_hwclock", c_Machine_set_hwclock);
   mrbc_define_method(vm, module_Machine, "get_hwclock", c_Machine_get_hwclock);

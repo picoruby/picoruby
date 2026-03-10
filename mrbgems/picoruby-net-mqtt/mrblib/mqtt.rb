@@ -181,7 +181,7 @@ module Net
 
       def ssl_socket(host, port)
         ctx = SSLContext.new
-        if Machine.mcu_name == 'POSIX'
+        if Machine.posix?
           ctx.ca_file = @ca_file if @ca_file
           ctx.cert_file = @cert_file if @cert_file
           ctx.key_file = @key_file if @key_file

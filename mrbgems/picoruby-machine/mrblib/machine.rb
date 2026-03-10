@@ -1,15 +1,22 @@
 module Machine
   $_signal_self_manage = false
 
+  def self.posix?
+    # Platform name is defined in picoruby-require
+    !%w(RP2040 RP2350 ESP32).include?(RUBY_PLATFORM)
+  end
+
   def self.reboot(wait_ms = 0)
-    if Machine.mcu_name == 'POSIX'
+    if Object.const_defined?(:Watchdog)
+      if Watchdog.respond_to?(:reboot)
+        Watchdog.reboot(wait_ms)
+      else
+        raise "reboot is not supported on this platform"
+      end
+    else
       sleep_ms wait_ms
       self._reboot
-    else
-      Watchdog.reboot(wait_ms)
     end
-  rescue => e
-    puts "error: reboot is not available on this platform"
   end
 
   def self.signal_self_manage

@@ -18,7 +18,6 @@ Machine.deep_sleep(15, true, false)  # Sleep until pin 15 goes low
 # System information
 id = Machine.unique_id
 puts "Unique ID: #{id}"
-puts "MCU: #{Machine.mcu_name}"
 
 # Uptime
 us = Machine.uptime_us
@@ -56,7 +55,7 @@ Machine.debug_puts("Debug message")
 ### System Information
 
 - `Machine.unique_id()` - Get unique device ID
-- `Machine.mcu_name()` - Get MCU name string
+- `Machine.posix? - Return true if the plarform is a POSIX
 - `Machine.uptime_us()` - Get uptime in microseconds
 - `Machine.uptime_formatted()` - Get formatted uptime string
 

@@ -37,7 +37,7 @@ static char saved_cwd[PATH_MAX];
 static void
 show_version(void)
 {
-  printf("%s\n", picorb_version());
+  printf("r2p2 %s\n", picorb_version_with_build_info());
 }
 
 static void

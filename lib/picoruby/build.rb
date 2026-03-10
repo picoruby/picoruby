@@ -54,8 +54,6 @@ module MRuby
       branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
       build_date = Time.now.utc.strftime("%Y-%m-%d")
-      ruby_version = File.read("#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include/mruby/version.h")
-                         .match(/#define MRUBY_RUBY_VERSION "(.+?)"/)[1]
 
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
@@ -64,7 +62,6 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
-            .gsub('@PICORUBY_RUBY_VERSION@', ruby_version)
       )
 
       debug_flag
@@ -91,8 +88,6 @@ module MRuby
       branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
       build_date = Time.now.utc.strftime("%Y-%m-%d")
-      ruby_version = File.read("#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include/mruby/version.h")
-                         .match(/#define MRUBY_RUBY_VERSION "(.+?)"/)[1]
 
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
@@ -101,7 +96,6 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
-            .gsub('@PICORUBY_RUBY_VERSION@', ruby_version)
       )
 
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
