@@ -38,7 +38,7 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len,
 static void mqtt_request_cb(void *arg, err_t err);
 
 static bool poll_state() {
-  // cyw43_arch_poll();  // Not needed in threadsafe_background mode
+  cyw43_arch_poll();
 
   static int poll_count = 0;
   poll_count++;
