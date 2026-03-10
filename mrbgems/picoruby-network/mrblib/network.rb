@@ -1,7 +1,7 @@
 require "machine"
 
 module Network
-  case Machine.mcu_name
+  case RUBY_PLATFORM
   when "RP2040", "RP2350"
     begin
       require "cyw43"
