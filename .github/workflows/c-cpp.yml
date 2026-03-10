@@ -17,7 +17,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  build:
+
+  test-steep:
 
     runs-on: ubuntu-latest
 
@@ -29,29 +30,76 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
-    - name: Debug submodules
-      continue-on-error: true
-      working-directory: ${{ github.workspace }}
-      run: |
-        git submodule status
-        git submodule foreach 'git status --short'
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
+
+    - name: Test Steep
+      run: rake test:gems:steep
+
+  test-microruby:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
 
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
         ruby-version: '4.0.1'
-        bundler-cache: false
+        bundler-cache: true
 
-    - name: Bundle install
-      working-directory: ${{ github.workspace }}
-      run: |
-        bundle install
+    - name: Test MicroRuby
+      run: rake test:gems:microruby
 
-    #- name: Setup tmate session
-    #  uses: mxschmitt/action-tmate@v3
+  test-picoruby:
 
-    - name: Test all
-      run: rake test:all
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
+
+    - name: Test PicoRuby
+      run: rake test:gems:picoruby
+
+  runtime-gems:
+
+    if: github.event_name == 'push'
+    needs: [test-steep, test-microruby, test-picoruby]
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
 
     - name: Set up Git user
       if: github.event_name == 'push'
