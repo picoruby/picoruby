@@ -8,6 +8,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
 
   spec.add_dependency 'picoruby-require'
   spec.add_dependency 'picoruby-editor'
+  spec.add_dependency 'picoruby-io-console'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-crc'
