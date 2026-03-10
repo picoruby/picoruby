@@ -14,7 +14,31 @@ module Net
       end
 
       def connect
-        @connected = _connect_impl(@host, @port, @client_id)
+        # Initiate non-blocking connection
+        result = _connect_impl(@host, @port, @client_id)
+        puts "[Ruby] _connect_impl returned: #{result}"
+        return false unless result
+
+        puts "[Ruby] Starting connection check loop"
+
+        # Short test loop (1 second timeout)
+        10.times do |i|
+          puts "[Ruby] Check #{i}"
+
+          if _is_connected_impl
+            puts "[Ruby] Connected!"
+            @connected = true
+            return true
+          end
+
+          puts "[Ruby] About to sleep"
+          sleep(0.1)
+          puts "[Ruby] Woke up from sleep"
+        end
+
+        puts "[Ruby] Connection timeout"
+        @connected = false
+        false
       end
 
       def disconnect

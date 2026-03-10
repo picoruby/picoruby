@@ -7,6 +7,7 @@
 
 // External function declarations (implementations in ports/rp2040/mqtt.c)
 extern int MQTT_connect_impl(const char *host, int port, const char *client_id);
+extern int MQTT_is_connected_impl(void);
 extern int MQTT_publish_impl(const char *topic, const char *payload, int len);
 extern int MQTT_subscribe_impl(const char *topic);
 extern int MQTT_get_message_impl(char **topic, char **payload);
@@ -135,6 +136,17 @@ c_mqtt_get_message(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_mqtt_is_connected(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int connected = MQTT_is_connected_impl();
+  if (connected) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
 c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   console_printf("[MQTT] C API: disconnect\n");
@@ -144,6 +156,7 @@ c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
 
 void mrbc_mqtt_lwip_init(mrbc_vm *vm) {
   mrbc_define_method(0, mrbc_class_object, "_connect_impl", c_mqtt_connect);
+  mrbc_define_method(0, mrbc_class_object, "_is_connected_impl", c_mqtt_is_connected);
   mrbc_define_method(0, mrbc_class_object, "_publish_impl", c_mqtt_publish);
   mrbc_define_method(0, mrbc_class_object, "_subscribe_impl", c_mqtt_subscribe);
   mrbc_define_method(0, mrbc_class_object, "_get_message_impl", c_mqtt_get_message);

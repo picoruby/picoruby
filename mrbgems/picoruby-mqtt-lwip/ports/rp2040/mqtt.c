@@ -7,6 +7,7 @@
 #include "../../../picoruby-socket/include/socket.h"
 #include "lwip/apps/mqtt.h"
 #include "lwip/timeouts.h"
+#include "lwip/stats.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include <string.h>
@@ -38,7 +39,10 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len,
 static void mqtt_request_cb(void *arg, err_t err);
 
 static bool poll_state() {
-  cyw43_arch_poll();
+  // Multiple polling to ensure network events are processed
+  for (int i = 0; i < 10; i++) {
+    cyw43_arch_poll();
+  }
 
   static int poll_count = 0;
   poll_count++;
@@ -87,6 +91,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg,
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
   LWIP_UNUSED_ARG(client);
 
+  console_printf("[DEBUG] mqtt_connection_cb CALLED! status=%d\n", status);
   console_printf("[MQTT CALLBACK] Connection callback called! client=%p, arg=%p, status=%d\n",
                  (void*)client, arg, status);
 
@@ -158,9 +163,10 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len,
 static void mqtt_request_cb(void *arg, err_t err) {
   mqtt_context_t *ctx = (mqtt_context_t *)arg;
 
-  console_printf("[MQTT] Request callback\n");
+  console_printf("[DEBUG] mqtt_request_cb called: err=%d\n", err);
 
   if (err != ERR_OK) {
+    console_printf("[DEBUG] Request failed with error: %d\n", err);
     ctx->fsm_state = MQTT_STATE_ERROR;
     return;
   }
@@ -184,9 +190,7 @@ static void mqtt_request_cb(void *arg, err_t err) {
 }
 
 int MQTT_connect_impl(const char *host, int port, const char *client_id) {
-  console_printf("[MQTT] Connecting to host ");
-  console_printf(host);
-  console_printf(" port 1883\n");
+  console_printf("[MQTT] Starting non-blocking connect to %s:%d\n", host, port);
 
   memset(&g_ctx, 0, sizeof(g_ctx));
 
@@ -196,55 +200,39 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
     return -1;
   }
 
-  console_printf("[MQTT] Creating client with lwIP lock\n");
+  console_printf("[MQTT] DNS resolved successfully to: %d.%d.%d.%d\n",
+                 (int)(ip.addr & 0xFF),
+                 (int)((ip.addr >> 8) & 0xFF),
+                 (int)((ip.addr >> 16) & 0xFF),
+                 (int)((ip.addr >> 24) & 0xFF));
+
   lwip_begin();
   g_ctx.client = (void*)mqtt_client_new();
   lwip_end();
-  if (g_ctx.client) {
-    console_printf("[MQTT] mqtt_client_new succeeded\n");
-  } else {
-    console_printf("[MQTT] mqtt_client_new failed\n");
-  }
+
   if (g_ctx.client == NULL) {
     console_printf("[MQTT] Failed to create client\n");
     return -1;
   }
 
-  console_printf("[MQTT] Client created successfully\n");
-
   struct mqtt_connect_client_info_t client_info = {0};
   client_info.client_id = client_id;
   client_info.keep_alive = 60;
 
-  console_printf("[MQTT] Setting callbacks\n");
   lwip_begin();
   mqtt_set_inpub_callback((mqtt_client_t*)g_ctx.client, mqtt_incoming_publish_cb,
                           mqtt_incoming_data_cb, &g_ctx);
   lwip_end();
-  console_printf("[MQTT] Callbacks set successfully\n");
 
-  console_printf("[MQTT] Setting FSM state to CONNECTING\n");
   g_ctx.fsm_state = MQTT_STATE_CONNECTING;
-  console_printf("[MQTT] Calling mqtt_client_connect\n");
-  console_printf("[MQTT] Args: ip=%d.%d.%d.%d, port=%d\n",
-                 (int)(ip.addr & 0xFF),
-                 (int)((ip.addr >> 8) & 0xFF),
-                 (int)((ip.addr >> 16) & 0xFF),
-                 (int)((ip.addr >> 24) & 0xFF),
-                 port);
+
   lwip_begin();
   err_t err = mqtt_client_connect((mqtt_client_t*)g_ctx.client, &ip, port, mqtt_connection_cb,
                                   &g_ctx, &client_info);
   lwip_end();
-  console_printf("[MQTT] mqtt_client_connect returned err=%d\n", err);
-  if (err != ERR_OK) {
-    console_printf("[MQTT] mqtt_client_connect failed with error %d\n", err);
-  } else {
-    console_printf("[MQTT] mqtt_client_connect succeeded (ERR_OK)\n");
-  }
 
   if (err != ERR_OK) {
-    console_printf("[MQTT] Connection setup failed\n");
+    console_printf("[MQTT] mqtt_client_connect failed with error %d\n", err);
     lwip_begin();
     mqtt_client_free((mqtt_client_t*)g_ctx.client);
     lwip_end();
@@ -252,40 +240,8 @@ int MQTT_connect_impl(const char *host, int port, const char *client_id) {
     return -1;
   }
 
-  // Wait for connection
-  int timeout = 1000;
-  console_printf("[MQTT] Starting connection wait loop, timeout=%d\n", timeout);
-  while (g_ctx.fsm_state == MQTT_STATE_CONNECTING && timeout-- > 0) {
-    if (timeout % 100 == 0) {
-      console_printf("[MQTT] Wait loop: fsm_state=%s(%d), timeout=%d\n",
-                     mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);
-    }
-
-    // Poll async context to process background workers and lwIP timers
-    cyw43_arch_poll();
-
-    if (!poll_state()) {
-      console_printf("[MQTT] poll_state() returned false, breaking\n");
-      break;
-    }
-    Net_busy_wait_ms(10);
-  }
-  console_printf("[MQTT] Wait loop ended: fsm_state=%s(%d), timeout=%d\n",
-                 mqtt_state_to_string(g_ctx.fsm_state), g_ctx.fsm_state, timeout);
-
-  if (g_ctx.fsm_state != MQTT_STATE_ACTIVE) {
-    console_printf("[MQTT] Connection timeout or failed\n");
-    if (g_ctx.client) {
-      lwip_begin();
-      mqtt_client_free((mqtt_client_t*)g_ctx.client);
-      lwip_end();
-      g_ctx.client = NULL;
-    }
-    return -1;
-  }
-
-  console_printf("[MQTT] Successfully connected!\n");
-  return 0;
+  console_printf("[MQTT] Connection initiated successfully (non-blocking)\n");
+  return 0; // Return immediately, connection will complete asynchronously
 }
 
 int MQTT_publish_impl(const char *topic, const char *payload, int len) {
@@ -346,6 +302,28 @@ int MQTT_get_message_impl(char **topic, char **payload) {
 
   g_ctx.message_arrived = false;
   return 0;
+}
+
+int MQTT_is_connected_impl() {
+  console_printf("[C] MQTT_is_connected_impl called\n");
+
+  static int check_count = 0;
+
+  // Process network events to advance TCP connection
+  lwip_begin();
+  cyw43_arch_poll();      // Process async context
+  sys_check_timeouts();   // Process lwIP timers
+  lwip_end();
+
+  // Update MQTT state
+  poll_state();
+
+  // Debug log every call (since we're testing)
+  check_count++;
+  console_printf("[C] Connection check #%d: state=%s\n",
+                 check_count, mqtt_state_to_string(g_ctx.fsm_state));
+
+  return (g_ctx.fsm_state == MQTT_STATE_ACTIVE) ? 1 : 0;
 }
 
 void MQTT_disconnect_impl() {

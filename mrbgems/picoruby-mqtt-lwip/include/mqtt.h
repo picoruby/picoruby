@@ -44,6 +44,7 @@ typedef struct {
 } mqtt_context_t;
 
 int MQTT_connect_impl(const char *host, int port, const char *client_id);
+int MQTT_is_connected_impl(void);
 int MQTT_subscribe_impl(const char *topic);
 int MQTT_publish_impl(const char *topic, const char *payload, int len);
 void MQTT_disconnect_impl(void);
