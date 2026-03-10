@@ -38,9 +38,6 @@ mrb_picoruby_socket_gem_init(mrb_state *mrb)
 {
   struct RClass *basic_socket_class;
 
-  /* SocketError < StandardError */
-  mrb_define_class(mrb, "SocketError", mrb->eStandardError_class);
-
   /* BasicSocket class */
   basic_socket_class = mrb_define_class_id(mrb, MRB_SYM(BasicSocket), mrb->object_class);
 

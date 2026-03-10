@@ -6,6 +6,8 @@
 #include "mruby/class.h"
 #include "mruby/data.h"
 
+#define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
+
 /* UDPSocket.new() */
 static mrb_value
 mrb_udp_socket_initialize(mrb_state *mrb, mrb_value self)

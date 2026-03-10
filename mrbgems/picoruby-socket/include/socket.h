@@ -193,9 +193,6 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   /* Forward declaration for mruby data type */
   struct mrb_data_type;
   extern const struct mrb_data_type mrb_socket_type;
-
-  /* SocketError exception class (defined in socket.c gem init) */
-  #define E_SOCKET_ERROR (mrb_class_get(mrb, "SocketError"))
 #endif
 
 #endif /* PICORB_SOCKET_H */
