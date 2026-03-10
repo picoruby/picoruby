@@ -7,6 +7,8 @@
 
 // External function declarations (implementations in ports/rp2040/mqtt.c)
 extern int MQTT_connect_impl(const char *host, int port, const char *client_id);
+extern void MQTT_poll_impl(void);
+extern void MQTT_poll_sleep_impl(int ms);
 extern int MQTT_is_connected_impl(void);
 extern int MQTT_publish_impl(const char *topic, const char *payload, int len);
 extern int MQTT_subscribe_impl(const char *topic);
@@ -147,6 +149,25 @@ c_mqtt_is_connected(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_mqtt_poll(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  MQTT_poll_impl();
+  SET_NIL_RETURN();
+}
+
+static void
+c_mqtt_poll_sleep(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc != 1 || v[1].tt != MRBC_TT_INTEGER) {
+    console_printf("[MQTT ERROR] poll_sleep expects 1 integer argument\n");
+    SET_NIL_RETURN();
+    return;
+  }
+  MQTT_poll_sleep_impl(GET_INT_ARG(1));
+  SET_NIL_RETURN();
+}
+
+static void
 c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   console_printf("[MQTT] C API: disconnect\n");
@@ -157,6 +178,8 @@ c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
 void mrbc_mqtt_lwip_init(mrbc_vm *vm) {
   mrbc_define_method(0, mrbc_class_object, "_connect_impl", c_mqtt_connect);
   mrbc_define_method(0, mrbc_class_object, "_is_connected_impl", c_mqtt_is_connected);
+  mrbc_define_method(0, mrbc_class_object, "_poll_impl", c_mqtt_poll);
+  mrbc_define_method(0, mrbc_class_object, "_poll_sleep_impl", c_mqtt_poll_sleep);
   mrbc_define_method(0, mrbc_class_object, "_publish_impl", c_mqtt_publish);
   mrbc_define_method(0, mrbc_class_object, "_subscribe_impl", c_mqtt_subscribe);
   mrbc_define_method(0, mrbc_class_object, "_get_message_impl", c_mqtt_get_message);

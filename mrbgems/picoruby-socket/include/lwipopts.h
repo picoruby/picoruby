@@ -31,6 +31,16 @@
 # define LWIP_PLATFORM_DIAG(x) do { debug_printf x; } while(0)
 #endif
 
+// デバッグ設定を最優先で定義
+#define LWIP_DEBUG 1
+#define LWIP_DBG_MIN_LEVEL     LWIP_DBG_LEVEL_ALL
+#define LWIP_DBG_TYPES_ON      LWIP_DBG_ON
+
+// TCP層の詳細デバッグ
+#define TCP_DEBUG               LWIP_DBG_ON
+#define TCP_OUTPUT_DEBUG        LWIP_DBG_ON
+#define TCP_INPUT_DEBUG         LWIP_DBG_ON
+
 // You can show stats by `stats_display();`
 #define LWIP_STATS_DISPLAY 1
 #if !defined(S16_F)
@@ -70,8 +80,8 @@
 #define LWIP_NETIF_HOSTNAME 1
 #define LWIP_NETCONN 0
 #define MEM_STATS 1
-#define SYS_STATS 0
-#define MEMP_STATS 0
+#define SYS_STATS 1
+#define MEMP_STATS 1
 #define LINK_STATS 0
 #define LWIP_CHKSUM_ALGORITHM 3
 #define LWIP_DHCP 1
@@ -94,8 +104,19 @@
 // MQTT requires additional timer for keep-alive
 #define MEMP_NUM_SYS_TIMEOUT (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)
 
-#ifndef LWIP_DEBUG
-#define LWIP_DEBUG 1
-#endif
+// Enable MQTT debugging
+#define MQTT_DEBUG LWIP_DBG_ON
+
+// Enable CYW43 debugging to see flow control issues
+#define CYW43_DEBUG 1
+
+// Enable ALTCP debug to see connection issues
+#define ALTCP_DEBUG LWIP_DBG_ON
+
+// Enable TCP input debugging to see packet reception
+#define TCP_INPUT_DEBUG LWIP_DBG_ON
+
+// Enable timer debugging to see timeout processing
+#define TIMERS_DEBUG LWIP_DBG_ON
 
 #endif /* __LWIPOPTS_H__ */

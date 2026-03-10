@@ -92,4 +92,13 @@
 #define LWIP_DEBUG 1
 #endif
 
+// Support MQTT
+#define LWIP_MQTT 1
+#define MQTT_REQ_MAX_IN_FLIGHT 5
+// MQTT requires additional timer for keep-alive
+#define MEMP_NUM_SYS_TIMEOUT (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)
+
+// Enable MQTT debugging
+#define MQTT_DEBUG LWIP_DBG_ON
+
 #endif /* __LWIPOPTS_H__ */

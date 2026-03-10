@@ -21,10 +21,11 @@ module Net
 
         puts "[Ruby] Starting connection check loop"
 
-        # Short test loop (1 second timeout)
-        10.times do |i|
+        # Short test loop (~3 seconds timeout)
+        300.times do |i|
           puts "[Ruby] Check #{i}"
 
+          _poll_impl if respond_to?(:_poll_impl)
           if _is_connected_impl
             puts "[Ruby] Connected!"
             @connected = true
@@ -32,13 +33,26 @@ module Net
           end
 
           puts "[Ruby] About to sleep"
-          sleep(0.1)
+          poll_sleep_ms(10)
           puts "[Ruby] Woke up from sleep"
         end
 
         puts "[Ruby] Connection timeout"
         @connected = false
         false
+      end
+
+      def poll_sleep_ms(ms)
+        if respond_to?(:_poll_sleep_impl)
+          _poll_sleep_impl(ms)
+        elsif respond_to?(:_poll_impl)
+          ms.times do
+            _poll_impl
+            sleep_ms 1
+          end
+        else
+          sleep_ms(ms)
+        end
       end
 
       def disconnect
