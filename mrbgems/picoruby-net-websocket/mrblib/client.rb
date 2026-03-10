@@ -250,7 +250,7 @@ module Net
 
         # Byte 1: MASK + payload length
         mask_bit = 0x80  # Client must mask
-        length = payload.length
+        length = payload.bytesize
 
         if length < 126
           frame += [mask_bit | length].pack("C")
@@ -298,13 +298,13 @@ module Net
         # Read extended payload length
         if payload_len == 126
           len_bytes = @socket.read(2)
-          if len_bytes.nil? || len_bytes.length < 2
+          if len_bytes.nil? || len_bytes.bytesize < 2
             raise ConnectionClosed.new("Incomplete frame")
           end
           payload_len = len_bytes.unpack("n")[0]
         elsif payload_len == 127
           len_bytes = @socket.read(8)
-          if len_bytes.nil? || len_bytes.length < 8
+          if len_bytes.nil? || len_bytes.bytesize < 8
             raise ConnectionClosed.new("Incomplete frame")
           end
           high, low = len_bytes.unpack("NN")
@@ -321,7 +321,7 @@ module Net
         payload = ""
         if payload_len > 0
           payload = @socket.read(payload_len)
-          if payload.nil? || payload.length < payload_len
+          if payload.nil? || payload.bytesize < payload_len
             raise ConnectionClosed.new("Incomplete frame")
           end
         end
@@ -369,9 +369,9 @@ module Net
       end
 
       def handle_close_frame(payload)
-        if payload.length >= 2
-          code = payload[0, 2].unpack("n")[0] # steep:ignore
-          reason = payload.length > 2 ? payload[2..-1] : ""
+        if payload.bytesize >= 2
+          code = payload.byteslice(0, 2).unpack("n")[0] # steep:ignore
+          reason = payload.bytesize > 2 ? payload.byteslice(2..-1) : ""
         end
         nil
       end
