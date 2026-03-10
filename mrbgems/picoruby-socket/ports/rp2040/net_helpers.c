@@ -52,6 +52,7 @@ Net_get_ip(const char *name, void *ip)
   }
 
   ip_addr_t *addr = (ip_addr_t *)ip;
+  ip_addr_set_zero(addr);
 
   /* First try to parse as numeric IP address */
   if (ip4addr_aton(name, addr)) {

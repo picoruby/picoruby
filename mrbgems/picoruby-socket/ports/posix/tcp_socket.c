@@ -53,21 +53,33 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   }
 
   /* Resolve hostname */
-  struct hostent *he = gethostbyname(host);
-  if (!he) {
-    snprintf(sock->errmsg, sizeof(sock->errmsg),
-             "getaddrinfo(\"%s\"): %s", host, hstrerror(h_errno));
-    close(sock->fd);
-    sock->fd = -1;
-    return false;
-  }
-
-  /* Setup address structure */
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
-  memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
+
+  if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {
+    /* Not an IP address, try DNS resolution */
+    struct addrinfo hints;
+    struct addrinfo *res = NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int err = getaddrinfo(host, NULL, &hints, &res);
+    if (err != 0 || !res) {
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
+      close(sock->fd);
+      sock->fd = -1;
+      return false;
+    }
+
+    struct sockaddr_in *ai_addr = (struct sockaddr_in *)res->ai_addr;
+    addr.sin_addr = ai_addr->sin_addr;
+    freeaddrinfo(res);
+  }
 
   /* Connect */
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {

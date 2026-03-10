@@ -186,6 +186,8 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   int dns_result = Net_get_ip(host, &ip_addr);
   if (dns_result != 0) {
     D("TCP: DNS failed");
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "getaddrinfo(\"%s\"): Name or service not known", host);
     return false;
   }
   D("TCP: DNS ok");
