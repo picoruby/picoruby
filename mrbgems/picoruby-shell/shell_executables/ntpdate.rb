@@ -36,7 +36,7 @@ if dns_ready
       ts = Net::NTP.get(ntp_host, ntp_port, 5)
       break if ts
     rescue => e
-      puts "Attempt #{retries}/#{MAX_NTP_RETRIES}3 failed: #{e.message}"
+      puts "Attempt #{retries}/#{MAX_NTP_RETRIES} failed: #{e.message}"
       sleep_ms 500
     end
   end
