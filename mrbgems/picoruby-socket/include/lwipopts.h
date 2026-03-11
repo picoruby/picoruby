@@ -107,9 +107,6 @@
 // Enable MQTT debugging
 #define MQTT_DEBUG LWIP_DBG_ON
 
-// Enable CYW43 debugging to see flow control issues
-#define CYW43_DEBUG 1
-
 // Enable ALTCP debug to see connection issues
 #define ALTCP_DEBUG LWIP_DBG_ON
 
