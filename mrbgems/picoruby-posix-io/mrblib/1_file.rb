@@ -4,6 +4,7 @@ class File < IO
   attr_accessor :path
 
   def self.new(fd_or_path, mode = "r", perm = 0666)
+    # @type var fd_or_path: String | Integer
     if fd_or_path.is_a? Integer
       super(fd_or_path, mode)
     else
@@ -50,6 +51,7 @@ class File < IO
     return "" if names.empty?
 
     names = names.map do |name|
+      # @type var name: String | Array[String]
       case name
       when String
         name
@@ -198,6 +200,7 @@ class File < IO
   end
 
   def self.size(file = nil)
+    # @type var file: String | IO | nil
     if (self.instance_of? self.class)
       _size
     else
@@ -232,6 +235,7 @@ class File < IO
   end
 
   def self.path(filename = nil)
+    # @type var filename: String | nil
     if self.instance_of?(self.class)
       @path
     else

@@ -4,6 +4,7 @@ class Dir
   include Enumerable
 
   def each(&block)
+    # @type var block: ^(String) -> void
     while s = self.read
       block.call(s)
     end

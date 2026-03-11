@@ -634,6 +634,7 @@ module Funicular
 
     HTML_TAGS.each do |tag|
       define_method(tag) do |props = {}, &block|
+        # @type self: Component
         children = []
 
         if block

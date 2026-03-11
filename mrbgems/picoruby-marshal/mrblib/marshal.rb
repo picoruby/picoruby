@@ -23,6 +23,7 @@ module Marshal
     end
 
     def load(data)
+      # @type var data: String
       raise ArgumentError, "marshal data too short" if data.bytesize < 2
 
       major = data.getbyte(0) || 0

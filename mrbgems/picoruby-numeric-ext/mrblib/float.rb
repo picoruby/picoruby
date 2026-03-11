@@ -8,6 +8,7 @@ class Float
   end
 
   def round(digits = 0)
+    # @type var digits: Integer
     factor = 10.0 ** digits
     scaled = self * factor
     int_part = scaled.to_i
@@ -40,6 +41,7 @@ class Float
   end
 
   def ceil(digits = 0)
+    # @type var digits: Integer
     factor = 10.0 ** digits
     scaled = self * factor
     int_part = scaled.to_i
