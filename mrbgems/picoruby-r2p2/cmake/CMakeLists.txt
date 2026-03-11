@@ -216,7 +216,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/include
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-net/include
 
   ${R2P2_GEM_DIR}/cmake
   ${PICO_SDK_PATH}/src/rp2_common/pico_stdio_usb/include
