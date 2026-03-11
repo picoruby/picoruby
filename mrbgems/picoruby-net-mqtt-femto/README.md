@@ -100,11 +100,11 @@ This gem provides the same `Net::MQTT` module and client API surface as picoruby
 - `retain` flag
 - `unsubscribe`
 - QoS 1
+- QoS 2
 
 ### Not Planned
 - TLS/SSL
 - `clean_session` option
-- QoS 2
 
 ## Example: IoT Sensor
 
