@@ -510,19 +510,15 @@
 
       def wait_capture_until(port, timeout_ms, poll_ms, markers)
         waited = 0
-        loop do
-          JS.global[:console].log("wcu: peek start")
+        while true
           cap = port.capture_peek
-          JS.global[:console].log("wcu: peek done len=#{cap.length}")
           found = markers.find { |m| cap.index(m) }
           return [found, cap, waited] if found
           if waited >= timeout_ms
             append_log("[!] Capture wait timeout after #{waited}ms (expected one of: #{markers.join(', ')})")
             return [nil, cap, waited]
           end
-          JS.global[:console].log("wcu: sleep_ms #{poll_ms}")
           sleep_ms poll_ms
-          JS.global[:console].log("wcu: woke up")
           waited += poll_ms
         end
       end
@@ -591,9 +587,9 @@
           debug_log("upload:dfucli_cmd_sent")
 
           # Wait for dfucli to print "[recv]" (ready to receive)
-          marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]'])
-          unless marker
-            append_log("[-] dfucli did not become ready within #{DFU_READY_TIMEOUT}ms")
+          marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]', 'SIGINT', 'DFU: error'])
+          unless marker == '[recv]'
+            append_log("[-] dfucli did not become ready (#{marker || 'timeout'}) after #{waited}ms")
             return
           end
           append_log("[.] dfucli ready in #{waited}ms")
