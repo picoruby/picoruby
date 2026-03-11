@@ -404,7 +404,7 @@ module JSON
       skip_whitespace
 
       unless @json[@index] == '}'
-        loop do
+        while true
           key = parse_string
           skip_whitespace
           expect(':')
@@ -428,7 +428,7 @@ module JSON
       skip_whitespace
 
       unless @json[@index] == ']'
-        loop do
+        while true
           value = parse
           result << value
           skip_whitespace

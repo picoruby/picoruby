@@ -88,10 +88,13 @@ class IO
     res = ""
     STDIN.read_nonblock(100) # clear buffer
     STDOUT.print "\e[5n" # CSI DSR 5 to request terminal status report
-    (timeout * 1000).to_i.times do |i|
+    limit = (timeout * 1000).to_i
+    i = 0
+    while i < limit
       res << STDIN.read_nonblock(1).to_s
       break i if 3 < res.length
       sleep_ms 1
+      i += 1
     end
     ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb"
   end

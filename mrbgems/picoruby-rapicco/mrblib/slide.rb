@@ -47,17 +47,21 @@ class Rapicco
         next if line[:note]
         total_width_remaining = @page_w
         if line[:skip]
-          line[:skip].times do
+          i = 0
+          while i < line[:skip]
             print "\e[2K\e[E"
             check_height and return
+            i += 1
           end
           next
         end
         if code_block = line[:code] || line[:eval]
           unless in_code
-            @line_margin.times do
+            i = 0
+            while i < @line_margin
               print "\e[2K\e[1E"
               check_height and return
+              i += 1
             end
             in_code = true
             print "\e[0m"
@@ -98,7 +102,8 @@ class Rapicco
             end
             print @colors[text[:color] || :white]
             overflow = false
-            (height).times do |l|
+            l = 0
+            while l < height
               width_remaining = total_width_remaining
               overflow = false
               width_drew = 0
@@ -133,6 +138,7 @@ class Rapicco
               end
               # move to the next scan_line's beginning
               print "\e[B\e[#{width_drew}D" # down * 1 and left * width_drew
+              l += 1
             end
             next if overflow
             total_width_remaining -= div_width

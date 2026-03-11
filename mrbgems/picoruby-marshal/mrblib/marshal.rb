@@ -258,9 +258,11 @@ module Marshal
     def load_array(data, pos)
       len, pos = decode_fixnum(data, pos)
       ary = []
-      len.times do
+      i = 0
+      while i < len
         elem, pos = load_object(data, pos)
         ary << elem
+        i += 1
       end
       [ary, pos]
     end
@@ -268,10 +270,12 @@ module Marshal
     def load_hash(data, pos)
       len, pos = decode_fixnum(data, pos)
       hash = {}
-      len.times do
+      i = 0
+      while i < len
         key, pos = load_object(data, pos)
         value, pos = load_object(data, pos)
         hash[key] = value
+        i += 1
       end
       [hash, pos]
     end
@@ -284,11 +288,13 @@ module Marshal
       num_ivars, pos = decode_fixnum(data, pos)
 
       # Skip instance variables (we just return the base object)
-      num_ivars.times do
+      i = 0
+      while i < num_ivars
         # Skip ivar name (symbol)
         _, pos = load_object(data, pos)
         # Skip ivar value
         _, pos = load_object(data, pos)
+        i += 1
       end
 
       [obj, pos]

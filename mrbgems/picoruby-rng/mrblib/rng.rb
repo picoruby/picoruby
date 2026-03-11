@@ -1,7 +1,11 @@
 module RNG
   def self.uuid
     hex = ""
-    32.times { hex << (RNG.random_int % 16).to_s(16) }
+    i = 0
+    while i < 32
+      hex << (RNG.random_int % 16).to_s(16)
+      i += 1
+    end
     # Format UUID according to RFC 4122
     [ hex[0, 8],
       hex[8, 4],

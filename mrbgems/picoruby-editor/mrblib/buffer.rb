@@ -525,7 +525,11 @@ module Editor
       return nil unless range && text
       sy, sx, ey, ex = range
       if @selection_mode == :line
-        (ey - sy + 1).times { @lines.delete_at(sy) }
+        i = 0
+        while i < (ey - sy + 1)
+          @lines.delete_at(sy)
+          i += 1
+        end
         @lines << "" if @lines.empty?
         @cursor_y = sy
         @cursor_y = @lines.length - 1 if @cursor_y >= @lines.length
@@ -545,7 +549,11 @@ module Editor
       else
         after = @lines[ey].byteslice(ex + 1, 65535).to_s
         @lines[sy] = @lines[sy].byteslice(0, sx).to_s + after
-        (ey - sy).times { @lines.delete_at(sy + 1) }
+        j = 0
+        while j < (ey - sy)
+          @lines.delete_at(sy + 1)
+          j += 1
+        end
         @cursor_y = sy
         @cursor_x = sx
         bs = @lines[sy].bytesize
@@ -606,7 +614,11 @@ module Editor
 
     def current_tail(n = 1)
       pos = @cursor_x
-      n.times { pos = Editor.prev_char_byte_pos(current_line, pos) }
+      k = 0
+      while k < n
+        pos = Editor.prev_char_byte_pos(current_line, pos)
+        k += 1
+      end
       current_line.byteslice(pos, 65535).to_s
     end
 

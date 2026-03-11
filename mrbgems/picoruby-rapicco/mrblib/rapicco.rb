@@ -35,7 +35,8 @@ class Rapicco
     next_page
     start = now = Time.now.to_i
     while true
-      100.times do
+      i = 0
+      while i < 100
         sleep_ms 1
         begin
           c = STDIN.read_nonblock(1)&.ord
@@ -66,6 +67,7 @@ class Rapicco
         when 108 # l: next
           next_page
         end
+        i += 1
       end
       if now + @interval < Time.now.to_i
         camerlengo_pos = (Time.now.to_i - start) * 100 / @duration

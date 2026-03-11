@@ -133,7 +133,7 @@ class Keyboard
       raise "Callback block is required. Use on_key_event to set a callback."
     end
 
-    loop do
+    while true
       # Process injected events first (from split keyboard slave)
       while event = @injected_events.shift
         handle_event(event)

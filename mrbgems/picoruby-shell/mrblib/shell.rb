@@ -63,7 +63,8 @@ class Shell
 
   def self.ensure_system_file(path, code, crc = nil)
     flawless = true
-    10.times do
+    i = 0
+    while i < 10
       if File.file?(path)
         print "Checking: #{path}"
         File.open(path, "r") do |f|
@@ -92,6 +93,7 @@ class Shell
         end
         sleep_ms 100
       end
+      i += 1
     end
     File.unlink(path) if File.file?(path)
     puts "Failed to save: #{path} (#{code.length} bytes)"
@@ -200,13 +202,15 @@ class Shell
     end
     puts "Press 's' to skip running #{file}"
     skip = false
-    20.times do
+    j = 0
+    while j < 20
       print "."
       if STDIN.read_nonblock(1) == "s"
         skip = true
-        break 0
+        break
       end
       sleep 0.1
+      j += 1
     end
     STDIN.read_nonblock 1024 # discard remaining input
     if skip
@@ -316,13 +320,17 @@ class Shell
     margin = " " * ((@editor.width - LOGO_WIDTH) / 2)
 
     # Add shadow
-    LOGO.size.times do |y|
+    y = 0
+    while y < LOGO.size
       break if LOGO[y+1].nil?
-      LOGO[y].length.times do |x|
+      x = 0
+      while x < LOGO[y].length
         if LOGO[y][x] == '1' && LOGO[y+1][x-1] == '0'
           LOGO[y+1][x-1] = '2'
         end
+        x += 1
       end
+      y += 1
     end
 
     grad_start = 160 + (6 * color_num)
@@ -331,12 +339,13 @@ class Shell
     shadow_offset = 144
     shadow = "\e[38;5;235m:"
 
-    LOGO.size.times do |y|
+    y2 = 0
+    while y2 < LOGO.size
       print margin
       split_line = []
       i = 0
-      while i < LOGO[y].length
-        split_line << LOGO[y][i, grad_slice]
+      while i < LOGO[y2].length
+        split_line << LOGO[y2][i, grad_slice]
         i += grad_slice
       end
       x = 0
@@ -344,8 +353,8 @@ class Shell
         color = grad_start + i
         snip.each_char do |c|
           if c == '0'
-            if y == LOGO.size - 1
-              print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}"
+            if y2 == LOGO.size - 1
+              print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}" # steep:ignore
             else
               print " "
             end
@@ -353,8 +362,8 @@ class Shell
             print "\e[48;5;#{color}m\e[38;5;226m:\e[0m"
           elsif c == '2'
             print "\e[48;5;#{color - shadow_offset}m"
-            if y == LOGO.size - 1
-              a = AUTHOR[x]
+            if y2 == LOGO.size - 1
+              a = AUTHOR[x] # steep:ignore
               if a == " "
                 print shadow
               else
@@ -365,10 +374,11 @@ class Shell
             end
             print "\e[0m"
           end
-          x += 1
+          x += 1 # steep:ignore
         end
       end
       puts
+      y2 += 1
     end
     puts "\e[0m"
   end

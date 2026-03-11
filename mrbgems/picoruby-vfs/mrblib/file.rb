@@ -180,10 +180,13 @@ class File
     rs = "" unless rs
     rs_adjust = rs.length - 1
     if limit
-      (limit / chunk_size).times do
+      count = limit / chunk_size
+      i = 0
+      while i < count
         if chunk = @file.read(limit)
           result << chunk
         end
+        i += 1
       end
       if (chunk = @file.read(limit % chunk_size))
         result << chunk
