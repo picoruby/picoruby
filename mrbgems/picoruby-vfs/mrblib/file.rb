@@ -39,7 +39,7 @@ class File
     end
 
     # steep bug: `class << self` causes `instance` type to resolve to `singleton(File)` instead of `File`
-    def open(path, mode = "r") # steep:ignore MethodBodyTypeMismatch
+    def open(path, mode = "r") # steep:ignore MethodArityMismatch, MethodBodyTypeMismatch
       # @type var path: String
       # @type var mode: String
       if block_given?
@@ -104,7 +104,7 @@ class File
     end
   end
 
-  def initialize(path, mode = "r")
+  def initialize(path, mode = "r") # steep:ignore MethodArityMismatch
     # @type var path: String
     # @type var mode: String
     @path = path
@@ -146,7 +146,7 @@ class File
     self
   end
 
-  def gets(*args, chomp: false)
+  def gets(*args, chomp: false) # steep:ignore MethodArityMismatch
     # @type var rs: String
     # @type var limit: Integer | nil
     case args.size

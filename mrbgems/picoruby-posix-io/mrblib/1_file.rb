@@ -176,7 +176,7 @@ class File < IO
     end
   end
 
-  def self.foreach(file)
+  def self.foreach(file) # steep:ignore MethodArityMismatch
     # @type var file: String
     if block_given?
       self.open(file) do |f| # steep:ignore BlockBodyTypeMismatch

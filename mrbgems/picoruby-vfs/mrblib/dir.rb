@@ -18,7 +18,7 @@ class Dir
       end
     end
 
-    def glob(pattern, flags = 0, base: "")
+    def glob(pattern, flags = 0, base: "") # steep:ignore MethodArityMismatch
       if block_given?
         nil
       else

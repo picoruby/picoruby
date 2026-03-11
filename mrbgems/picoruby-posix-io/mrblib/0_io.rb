@@ -11,7 +11,7 @@ class IO
 
   include Enumerable
 
-  def self.open(*args, &block)
+  def self.open(*args, &block) # steep:ignore MethodArityMismatch
     io = self.new(*args)
 
     return io unless block
@@ -26,7 +26,7 @@ class IO
     end
   end
 
-  def self.popen(command, mode = 'r', **opts, &block)
+  def self.popen(command, mode = 'r', **opts, &block) # steep:ignore MethodArityMismatch
     # @type var command: String
     # @type var mode: String
     if !self.respond_to?(:_popen)
@@ -52,7 +52,7 @@ class IO
     end
   end
 
-  def self.pipe(&block)
+  def self.pipe(&block) # steep:ignore MethodArityMismatch
     if !self.respond_to?(:_pipe)
       raise NotImplementedError, "pipe is not supported on this platform"
     end
@@ -123,7 +123,7 @@ class IO
   end
 
   # 15.2.20.5.3
-  def each(&block)
+  def each(&block) # steep:ignore MethodArityMismatch
     unless block
       raise ArgumentError, "block not supplied"
     end

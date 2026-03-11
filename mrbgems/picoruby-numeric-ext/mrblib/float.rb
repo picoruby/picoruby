@@ -7,7 +7,7 @@ class Float
     left
   end
 
-  def round(digits = 0)
+  def round(digits = 0) # steep:ignore MethodArityMismatch
     # @type var digits: Integer
     factor = 10.0 ** digits
     scaled = self * factor
