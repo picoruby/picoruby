@@ -16,7 +16,7 @@ This is a native lwIP implementation of MQTT 3.1.1 client for PicoRuby, designed
 
 ## Installation
 
-Add to your `build_config.rb`:
+Add to your `build_config/r2p2-picoruby-pico_w.rb`:
 
 ```ruby
 conf.gem core: 'picoruby-net-mqtt-femto'
