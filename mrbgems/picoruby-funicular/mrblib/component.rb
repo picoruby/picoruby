@@ -224,12 +224,12 @@ module Funicular
     #     on_resolve: ->(user) { patch(user: { username: user.username }) },
     #     min_delay: 300  # Show loading spinner for at least 300ms
     def self.use_suspense(name, loader, on_resolve: nil, min_delay: nil)
-      @suspense_definitions ||= {}
+      @suspense_definitions ||= {} # steep:ignore UnannotatedEmptyCollection
       @suspense_definitions[name] = { loader: loader, on_resolve: on_resolve, min_delay: min_delay }
     end
 
     def self.suspense_definitions
-      @suspense_definitions ||= {}
+      @suspense_definitions ||= {} # steep:ignore UnannotatedEmptyCollection
     end
 
     # Instance method to access styles
@@ -247,7 +247,7 @@ module Funicular
         component_will_update if respond_to?(:component_will_update)
 
         # Convert JS::Object values to Ruby native types automatically
-        normalized_state = {}
+        normalized_state = {} #: Hash[Symbol, untyped]
         new_state.each do |key, value|
           normalized_state[key] = normalize_state_value(value)
         end
@@ -362,7 +362,7 @@ module Funicular
       return if vnode.is_a?(VDOM::Component)
       return unless vnode.is_a?(VDOM::Element)
 
-      event_types = []
+      event_types = [] #: Array[String]
 
       vnode.props.each do |key, value|
         key_str = key.to_s
@@ -499,7 +499,7 @@ module Funicular
     def normalize_state_value(value)
       if value.is_a?(Hash)
         # Recursively normalize hash values
-        normalized = {}
+        normalized = {} #: Hash[untyped, untyped]
         value.each do |k, v|
           normalized[k] = normalize_state_value(v)
         end
@@ -635,7 +635,7 @@ module Funicular
     HTML_TAGS.each do |tag|
       define_method(tag) do |props = {}, &block|
         # @type self: Component
-        children = []
+        children = [] #: Array[VDOM::VNode | VDOM::Text | nil]
 
         if block
           prev_children = @current_children
@@ -720,14 +720,14 @@ module Funicular
           form_data = if model_data.is_a?(Hash)
             model_data
           elsif model_data.respond_to?(:instance_variables)
-            data = {}
+            data = {} #: Hash[Symbol, untyped]
             model_data.instance_variables.each do |var|
               key = var.to_s.sub('@', '').to_sym
               data[key] = model_data.instance_variable_get(var)
             end
             data
           else
-            {}
+            {} #: Hash[Symbol, untyped]
           end
 
           # Call the submit handler (Symbol, Method, or Proc)

@@ -60,7 +60,7 @@ module Funicular
     def self.request(method, url, body, &block)
       options = { method: method, credentials: "include" }
 
-      headers = {}
+      headers = {} #: Hash[String, String]
 
       if body
         headers["Content-Type"] = "application/json"
@@ -73,7 +73,6 @@ module Funicular
         headers["X-CSRF-Token"] = token if token
       end
 
-      # @type var headers: String # steep's bug ?
       options[:headers] = headers unless headers.empty?
 
       JS.global.fetch(url, options) do |response|

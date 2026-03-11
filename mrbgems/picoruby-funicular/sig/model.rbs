@@ -1,6 +1,7 @@
 module Funicular
   class Model
     attr_reader id: untyped
+    @changed_attributes: Hash[String, untyped]
 
     def self.schema: () -> Hash[String, Hash[String, untyped]]
     def self.schema=: (Hash[String, Hash[String, untyped]] schema) -> Hash[String, Hash[String, untyped]]

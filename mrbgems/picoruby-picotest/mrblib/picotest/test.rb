@@ -28,7 +28,7 @@ module Picotest
     attr_reader :result
 
     def list_tests
-      result = []
+      result = [] #: Array[Symbol]
       self.methods.each do |m|
         if m.to_s.start_with?('test_')
           result.unshift(m)

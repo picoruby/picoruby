@@ -26,7 +26,7 @@ module Funicular
       private
 
       def normalize_children(children)
-        result = []
+        result = [] #: Array[child_t]
         children.each do |child|
           case child
           when VNode

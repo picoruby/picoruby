@@ -5,9 +5,9 @@ class MML # Music Macro Language
   #         a        b        c        d        e        f        g
 
   def self.compile_multi(tracks, exception: true, loop: false)
-    parsers = {}
-    tick_table = {}
-    event_table = {}
+    parsers = {} #: Hash[Integer, MML]
+    tick_table = {} #: Hash[Integer, Integer]
+    event_table = {} #: Hash[Integer, Array[Symbol | Integer]]
 
     if tracks.empty?
       raise "No tracks provided for MML compilation"

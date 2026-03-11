@@ -182,7 +182,7 @@ module Funicular
     end
 
     def extract_param_names(path_pattern)
-      param_names = []
+      param_names = [] #: Array[Symbol]
       i = 0
       while i < path_pattern.length
         if path_pattern[i] == ':'
@@ -209,7 +209,7 @@ module Funicular
 
     def find_route(path)
       path_segments = path.split('/').reject { |s| s.empty? }
-      params = {}
+      params = {} #: Hash[Symbol, untyped]
 
       @routes.each do |route|
         pattern_segments = route[:pattern_segments]
