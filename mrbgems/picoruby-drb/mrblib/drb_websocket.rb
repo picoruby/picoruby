@@ -100,7 +100,7 @@ module DRb
         private
 
         def handle_client(socket)
-          loop do
+          while true
             msg = DRbMessage.new(socket)
 
             begin
