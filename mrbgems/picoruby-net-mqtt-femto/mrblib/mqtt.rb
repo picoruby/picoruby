@@ -127,12 +127,19 @@ module Net
         raise MQTTError.new("Not connected") unless @connected
 
         deadline = timeout ? Time.now.to_f + timeout : nil
+        result = nil
         loop do
           message = _get_message_impl
-          return message if message
-          return nil if deadline && Time.now.to_f > deadline
+          if message
+            result = message
+            break
+          end
+          if deadline && Time.now.to_f > deadline
+            break
+          end
           sleep_ms 10
         end
+        result
       end
 
       def ping

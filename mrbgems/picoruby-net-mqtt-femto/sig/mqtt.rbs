@@ -1,0 +1,16 @@
+module Net
+  module MQTT
+    class Client
+      def poll_sleep_ms: (Integer) -> void
+
+      private def _connect_impl: (String, Integer, String) -> bool
+      private def _poll_impl: () -> void
+      private def _poll_sleep_impl: (Integer) -> void
+      private def _is_connected_impl: () -> bool
+      private def _publish_impl: (String, String) -> bool
+      private def _subscribe_impl: (String) -> bool
+      private def _get_message_impl: () -> [String, String]?
+      private def _disconnect_impl: () -> void
+    end
+  end
+end
