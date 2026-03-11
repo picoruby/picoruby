@@ -3,12 +3,12 @@ require 'time'
 class File < IO
   attr_accessor :path
 
-  def self.new(fd_or_path, mode = "r", perm = 0666, &block)
+  def self.new(fd_or_path, mode = "r", perm = 0666)
     if fd_or_path.is_a? Integer
-      super(fd_or_path, mode, &block)
+      super(fd_or_path, mode)
     else
       fd = IO.sysopen(fd_or_path, mode, perm)
-      instance = super(fd, mode, perm, &block)
+      instance = super(fd, mode)
       instance.path = fd_or_path
       instance
     end
