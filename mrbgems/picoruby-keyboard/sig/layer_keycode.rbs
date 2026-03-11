@@ -7,6 +7,7 @@ module LayerKeycode
   MT_BASE: Integer
   SM_BASE: Integer
   MC_BASE: Integer
+  X_OFFSET: Integer
 
   # Create a momentary layer switch keycode
   def MO: (Integer layer_index) -> Integer
@@ -48,4 +49,17 @@ module LayerKeycode
   def is_mc?: (Integer keycode) -> bool
   # Extract macro slot index from MC keycode
   def mc_index: (Integer keycode) -> Integer
+  # Create a vacancy keycode for visual layout alignment (negative = tenths of U)
+  def V: (Integer | Float val) -> Integer
+  # Check if keycode is a vacancy (range: -999...-1)
+  def is_v?: (Integer keycode) -> bool
+  # Extract vacancy width in U units from V keycode
+  def v_width: (Integer keycode) -> Float
+  # Create an extension keycode that stretches the previous key rightward
+  # Encoded as (val * -10).to_i - 1000: X(0.5) => -1005, X(1) => -1010
+  def X: (Integer | Float val) -> Integer
+  # Check if keycode is an extension (range: ...-1000)
+  def is_x?: (Integer keycode) -> bool
+  # Extract extension width in U units from X keycode
+  def x_width: (Integer keycode) -> Float
 end

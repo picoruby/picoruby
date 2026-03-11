@@ -14,14 +14,14 @@ BUTTON_PINS = [17,18,19,20,21,22]
 kb = Keyboard.new(BUTTON_PINS, [])
 
 # Default layer: one keycode per physical button
-kb.add_layer(:default, [
-  KC_LEFT,
-  KC_DOWN,
-  KC_UP,
-  KC_RIGHT,
-  KC_A,
-  KC_B
-])
+kb.layer do
+  row KC_LEFT
+  row KC_DOWN
+  row KC_UP
+  row KC_RIGHT
+  row KC_A
+  row KC_B
+end
 
 puts "Direct wiring keyboard starting..."
 puts "PINS: #{BUTTON_PINS.join(', ')}"

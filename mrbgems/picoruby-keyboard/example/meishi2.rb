@@ -20,18 +20,18 @@ kb = Keyboard.new(ROW_PINS, COL_PINS)
 # Tap threshold: 200ms (PRK uses different thresholds per key, but we use global setting)
 kb.tap_threshold_ms = 200
 
-kb.add_layer(:default, [
-  LT(1, KC_SPACE), KC_A, KC_B, MT(KC_LSFT, KC_ENTER)
-])
+kb.layer do
+  row LT(1, KC_SPACE), KC_A, KC_B, MT(KC_LSFT, KC_ENTER)
+end
 
 # Combos: Press multiple keys simultaneously to trigger action
 kb.add_combo([KC_A, KC_B], KC_C)  # A+B pressed together -> sends C
 kb.combo_term_ms = 30  # Detection window in milliseconds
 
 # Layer 1: Number layer (accessed via future MO key if needed)
-kb.add_layer(:layer1, [
-  KC_NO, KC_1, KC_2, KC_NO
-])
+kb.layer(:layer1) do
+  row KC_NO, KC_1, KC_2, KC_NO
+end
 
 # Start keyboard scanning
 puts "Meishi2 keyboard starting..."

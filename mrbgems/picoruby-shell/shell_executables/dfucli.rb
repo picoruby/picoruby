@@ -19,7 +19,7 @@ begin
 rescue => e
   puts "DFU: error - #{e.message}"
 ensure
-  STDIN._restore_termios
+  STDIN.cooked!
 end
 if reboot_required
   Machine.reboot

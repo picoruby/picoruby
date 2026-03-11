@@ -203,11 +203,12 @@
       0xE4 => "RCTL", 0xE5 => "RSFT", 0xE6 => "RALT", 0xE7 => "RGUI"
     }
 
-    MO_BASE = 0xE000
-    TG_BASE = 0xE100
-    LT_BASE = 0xE200
-    MT_BASE = 0xF200
-    SM_BASE = 0xFA00
+    MO_BASE  = 0xE000
+    TG_BASE  = 0xE100
+    LT_BASE  = 0xE200
+    MT_BASE  = 0xF200
+    SM_BASE  = 0xFA00
+    X_OFFSET = 1000
 
     def kc_name(kc)
       return "---" if kc == 0 || kc.nil?
@@ -319,9 +320,17 @@
     end
 
     # Returns the span in tenths-of-U for a layout cell.
-    # Normal keys are 1U = 10 tenths. Vacancies encode size as -kc tenths.
+    # Normal keys: 1U = 10 tenths.
+    # V (vacancy): encoded as -kc tenths (range (-X_OFFSET+1)...-1).
+    # X (extension): encoded as (-kc - X_OFFSET) tenths (range ...-X_OFFSET).
     def cell_span(kc)
-      kc < 0 ? -kc : 10
+      if kc <= -X_OFFSET
+        -kc - X_OFFSET
+      elsif kc < 0
+        -kc
+      else
+        10
+      end
     end
 
     def render_grid
@@ -346,23 +355,41 @@
 
       @layout.each_with_index do |layout_row, row_i|
         row_tenths = 0
+        last_cell = nil
+        last_cell_span = 0
         layout_row.each_with_index do |layout_kc, col_i|
           span = cell_span(layout_kc)
-          cell = doc.createElement('div')
-          cell.style.gridColumn = "span #{span}"
-          if layout_kc < 0
+          if layout_kc <= -X_OFFSET
+            # X: extend previous key's visual width (no new cell)
+            if last_cell
+              last_cell_span += span
+              last_cell.style.gridColumn = "span #{last_cell_span}"
+            end
+            row_tenths += span
+          elsif layout_kc < 0
+            # V: void spacer cell
+            cell = doc.createElement('div')
+            cell.style.gridColumn = "span #{span}"
             cell.className = 'key-cell void'
+            grid.appendChild(cell)
+            row_tenths += span
+            last_cell = nil
+            last_cell_span = 0
           else
             ki = layout_map[row_i][col_i]
             kc = @editing_keymap[ki]
+            cell = doc.createElement('div')
+            cell.style.gridColumn = "span #{span}"
             cell.textContent = kc_name(kc)
             cell.className = (kc == 0 || kc.nil?) ? 'key-cell transparent' : 'key-cell'
             cell.addEventListener('click') do
               open_picker(ki)
             end
+            grid.appendChild(cell)
+            row_tenths += span
+            last_cell = cell
+            last_cell_span = span
           end
-          grid.appendChild(cell)
-          row_tenths += span
         end
         # Pad short rows to max_tenths with a void spacer
         if row_tenths < max_tenths

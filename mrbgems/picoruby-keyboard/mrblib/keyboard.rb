@@ -1,6 +1,6 @@
 require 'keyboard_matrix'
 require 'usb/hid'
-
+require 'metaprog'
 
 # Keyboard class provides layer switching functionality
 # It wraps KeyboardMatrix and manages multiple layers (keymaps)
@@ -54,11 +54,36 @@ class Keyboard
     @callback = nil
   end
 
-  attr_reader :layers
+  attr_reader :layer_names, :layout
+
+  def layer(name = :default, &block)
+    unless block
+      raise ArgumentError, "block is required to define layer"
+    end
+    unless name.is_a?(Symbol)
+      raise ArgumentError, "Layer name must be a symbol"
+    end
+    @keymap = []
+    @layout = [] if @layout.nil?
+    instance_eval &block
+    add_layer(name, @keymap)
+  end
+
+  # Build keymap from row calls inside a layer block.
+  # For the first layer (@layer_names still empty), also build @layout.
+  # @layout includes V() vacancies for visual alignment; @keymap excludes them.
+  private def row(*keycodes)
+    @layout << keycodes.dup if @layer_names.empty?
+    keycodes.each do |kc|
+      @keymap << kc if 0 <= kc
+    end
+  end
+
+  def get_layer(name)
+    @layers[name]
+  end
 
   # Register a macro string and return its keycode
-  # @param string [String] ASCII string to type when the key is pressed
-  # @return [Integer] MC keycode to use in a keymap layer
   def add_macro(string)
     raise ArgumentError, "Too many macros (max 256)" if 255 < @macros.size
     index = @macros.size
@@ -66,7 +91,7 @@ class Keyboard
     MC(index)
   end
 
-  def add_layer(name, keymap)
+  private def add_layer(name, keymap)
     expected_size = @keymap_rows * @keymap_cols
     if keymap.size != expected_size
       raise ArgumentError, "Keymap size must be #{expected_size}, got #{keymap.size}"
@@ -106,8 +131,6 @@ class Keyboard
   end
 
   # Add a combo definition
-  # @param keycodes [Array<Integer>] Array of keycodes that trigger the combo
-  # @param action [Integer] Keycode to send when combo triggers
   def add_combo(keycodes, action)
     unless keycodes.is_a?(Array) && 2 <= keycodes.size
       raise ArgumentError, "Combo requires at least 2 keycodes"
@@ -116,9 +139,6 @@ class Keyboard
   end
 
   # Inject an external key event (for split keyboard support)
-  # @param row [Integer] Row index in keymap coordinates
-  # @param col [Integer] Column index in keymap coordinates
-  # @param pressed [Boolean] true for press, false for release
   def inject_event(row, col, pressed)
     if row < 0 || @keymap_rows <= row || col < 0 || @keymap_cols <= col
       raise ArgumentError, "Position (#{row}, #{col}) is out of keymap bounds (#{@keymap_rows}x#{@keymap_cols})"
