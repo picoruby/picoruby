@@ -1,6 +1,7 @@
 if RUBY_ENGINE == "mruby/c"
   class Array
     def insert(index, *vals)
+      # @type var index: Integer
       index_int = index.to_i
       if index_int < 0
         raise ArgumentError, "Negative index doesn't work"

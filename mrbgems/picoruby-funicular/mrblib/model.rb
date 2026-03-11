@@ -16,6 +16,7 @@ module Funicular
 
         unless config["readonly"]
           define_method("#{name}=") do |value|
+            # @type self: Model
             instance_variable_set("@#{name}", value)
             @changed_attributes ||= {}
             @changed_attributes[name] = value
