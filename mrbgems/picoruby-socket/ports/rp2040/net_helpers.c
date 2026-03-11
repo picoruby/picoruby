@@ -5,40 +5,30 @@
 #include "../../include/socket.h"
 #include "picoruby/debug.h"
 #include "pico/stdlib.h"
-#ifdef USE_WIFI
 #include "pico/cyw43_arch.h"
-#endif
 #include "lwip/dns.h"
 
 /* Busy wait with CYW43 polling for rp2040 */
 void
 Net_busy_wait_ms(int ms)
 {
-#ifdef USE_WIFI
   cyw43_arch_poll();
-#endif
-  sleep_ms(ms);
-#ifdef USE_WIFI
+  busy_wait_ms(ms);
   cyw43_arch_poll();
-#endif
 }
 
 /* Lock LwIP for thread safety */
 void
 lwip_begin(void)
 {
-#ifdef USE_WIFI
   cyw43_arch_lwip_begin();
-#endif
 }
 
 /* Unlock LwIP */
 void
 lwip_end(void)
 {
-#ifdef USE_WIFI
   cyw43_arch_lwip_end();
-#endif
 }
 
 /* DNS callback */
