@@ -33,13 +33,14 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "i|S", &maxlen, &outbuf);
   char buf[maxlen + 1];
   mrb_int len;
+  bool was_raw = io_raw_q();
   io_raw_bang(true);
   int c;
   for (len = 0; len < maxlen; len++) {
     c = hal_getchar();
-    if (c == 3) {
+    if (!was_raw && c == 3) {
       raise_interrupt(mrb); // mrb_noreturn
-    } else if (c == 26) {
+    } else if (!was_raw && c == 26) {
       raise_sigtstp(mrb); // mrb_noreturn
     } else if (c < 0) {
       break;
