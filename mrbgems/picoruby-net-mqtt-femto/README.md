@@ -74,7 +74,7 @@ client.disconnect
 
 - RP2040 board with WiFi (pico_w)
 - picoruby-socket with lwIP MQTT support enabled
-- mruby/c VM (RP2040 build)
+- mruby/c VM (RP2040 build only)
 
 ## API Compatibility
 

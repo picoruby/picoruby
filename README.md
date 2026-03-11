@@ -89,9 +89,9 @@ Two MQTT implementations are available as optional gems:
 | Gem | Type | Best For | Installation |
 |-----|------|----------|--------------|
 | `picoruby-net-mqtt` | Pure Ruby | All boards, stability, debugging | `conf.gem core: 'picoruby-net-mqtt'` |
-| `picoruby-net-mqtt-femto` | Low-memory native | RP2040 (pico_w), low memory footprint | `conf.gem core: 'picoruby-net-mqtt-femto'` |
+| `picoruby-net-mqtt-femto` | Low-memory native | RP2040 (pico_w, mrubyc only), low memory footprint | `conf.gem core: 'picoruby-net-mqtt-femto'` |
 
-Both gems provide the same API (`require 'net/mqtt'`) and are fully interchangeable. Choose based on your target platform and performance requirements.
+Both gems share the same API surface (`require 'net/mqtt'`), but femto has a reduced feature set. Choose based on your target platform and performance requirements.
 
 For detailed documentation, see:
 - [picoruby-net-mqtt README](mrbgems/picoruby-net-mqtt/README.md)
