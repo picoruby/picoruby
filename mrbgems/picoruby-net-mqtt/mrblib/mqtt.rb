@@ -127,7 +127,7 @@ module Net
         # Wait for PUBLISH packet
         deadline = timeout ? Time.now.to_f + timeout : nil
 
-        loop do
+        while true
           if deadline && Time.now.to_f > deadline
             return nil
           end
@@ -221,7 +221,7 @@ module Net
       # Encode variable length integer
       def encode_length(length)
         result = ""
-        loop do
+        while true
           byte = length % 128
           length = length / 128
           if length > 0
@@ -237,7 +237,7 @@ module Net
       def decode_length(data, offset = 0)
         multiplier = 1
         value = 0
-        loop do
+        while true
           byte = data.getbyte(offset)
           break if byte.nil?
           offset += 1
@@ -436,7 +436,7 @@ module Net
       def read_remaining_length
         multiplier = 1
         value = 0
-        loop do
+        while true
           byte_str = @socket.read(1)
           raise ConnectionError.new("Connection closed") if byte_str.nil? || byte_str.empty?
 

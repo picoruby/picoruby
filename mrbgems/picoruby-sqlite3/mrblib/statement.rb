@@ -56,9 +56,11 @@ class SQLite3
     def get_metadata
       @columns = Array.new(column_count)
       @types = Array.new(column_count)
-      column_count.times do |column|
+      column = 0
+      while column < column_count
         @columns[column] = column_name(column)
         @types[column] = column_decltype(column)
+        column += 1
       end
     end
   end

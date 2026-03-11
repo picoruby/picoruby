@@ -342,7 +342,9 @@ module Editor
       # Show the content
       @buffer.lines.each_with_index do |line, lineno|
         dw = Editor.display_width(line)
-        [1, ((dw + content_width - 1) / content_width)].max&.times do |i|
+        max_i = [1, ((dw + content_width - 1) / content_width)].max || 0
+        i = 0
+        while i < max_i
           if visual_offset < 0
             visual_offset += 1
           else
@@ -360,6 +362,7 @@ module Editor
             break 0 if content_height == 0
             next_head
           end
+          i += 1
         end
         break [] if content_height == 0
       end
@@ -373,7 +376,9 @@ module Editor
           lineno = lineno.to_i
           line = @buffer.lines[lineno]
           dw = Editor.display_width(line)
-          ([1, (dw - 1) / content_width + 1].max || 0).times do |i|
+          max_i = ([1, (dw - 1) / content_width + 1].max || 0)
+          i = 0
+          while i < max_i
             break 0 if lineno == first_lineno && first_line_skip_count - 1 < i
             str = if i == 0
               "\e[31m" + "#{lineno + 1} ".rjust(4)
@@ -383,6 +388,7 @@ module Editor
             str << Editor.display_slice(line, i * content_width, content_width)
             str << "\e[0m"
             blank_lines.unshift str
+            i += 1
           end
         end
         blank_lines.each do |line|
@@ -490,7 +496,8 @@ module Editor
       cursor_display_x = Editor.byte_to_display_col(line, @buffer.cursor_x)
       visual_y = @visual_cursor_y - cursor_display_x / content_width
       # Redraw all visual rows of the current line
-      new_wraps.times do |i|
+      i = 0
+      while i < new_wraps
         row = visual_y + i + 1
         print "\e[#{row};1H\e[2K"
         if i == 0
@@ -499,6 +506,7 @@ module Editor
           print "    "
         end
         print highlighted_segment(line, @buffer.cursor_y, i * content_width, content_width)
+        i += 1
       end
       print "\e[#{@height - @footer_height + 1};1H"
       print "\e[0J"

@@ -4,16 +4,19 @@ class BasicSocket
   # IO-compatible methods
 
   def puts(*args)
-    args.each do |arg|
+    i = 0
+    while i < args.length
+      arg = args[i]
       write(arg.to_s)
       write("\n") unless arg.to_s.end_with?("\n")
+      i += 1
     end
     nil
   end
 
   def gets(sep = "\n")
     buffer = ""
-    loop do
+    while true
       chunk = read(1)
       return nil if chunk.nil? || chunk.empty?
       buffer << chunk
@@ -23,8 +26,11 @@ class BasicSocket
   end
 
   def print(*args)
-    args.each do |arg|
+    i = 0
+    while i < args.length
+      arg = args[i]
       write(arg.to_s)
+      i += 1
     end
     nil
   end

@@ -5,9 +5,10 @@ ntp_port = 123
 
 puts "Initializing DNS..."
 retry_count = 0
-max_dns_retries = 10
+# @type const MAX_DNS_RETRIES: Integer
+MAX_DNS_RETRIES = 10
 dns_ready = false
-while retry_count < max_dns_retries
+while retry_count < MAX_DNS_RETRIES
   begin
     test_socket = UDPSocket.new
     test_socket.connect(ntp_host, ntp_port)
@@ -22,16 +23,20 @@ while retry_count < max_dns_retries
   end
 end
 
+# @type const MAX_NTP_RETRIES: Integer
+MAX_NTP_RETRIES = 3
+
 if dns_ready
   puts "Getting time from #{ntp_host} ..."
   ts = nil
-  max_ntp_retries = 3
-  max_ntp_retries.times do |i|
+  retries = 0
+  while retries < MAX_NTP_RETRIES
+    retries += 1
     begin
-      ts = Net::NTP.get(ntp_host, ntp_port, 3)
+      ts = Net::NTP.get(ntp_host, ntp_port, 5)
       break if ts
     rescue => e
-      puts "Attempt #{i + 1}/#{max_ntp_retries} failed: #{e.message}"
+      puts "Attempt #{retries}/#{MAX_NTP_RETRIES}3 failed: #{e.message}"
       sleep_ms 500
     end
   end
@@ -39,8 +44,8 @@ if dns_ready
     Machine.set_hwclock(ts)
     puts "Current time: #{Time.now}"
   else
-    puts "NTP request failed after #{max_ntp_retries} attempts"
+    puts "NTP request failed after #{MAX_NTP_RETRIES} attempts"
   end
 else
-  puts "DNS initialization failed after #{max_dns_retries * 500}ms"
+  puts "DNS initialization failed after #{MAX_DNS_RETRIES * 500}ms"
 end

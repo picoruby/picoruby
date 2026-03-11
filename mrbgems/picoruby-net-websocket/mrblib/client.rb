@@ -180,8 +180,10 @@ module Net
       def perform_handshake
         # Generate Sec-WebSocket-Key
         key_bytes = ""
-        16.times do
+        ki = 0
+        while ki < 16
           key_bytes += [RNG.random_int % 256].pack("C")
+          ki += 1
         end
         sec_key = Base64.encode64(key_bytes)
 
@@ -219,7 +221,7 @@ module Net
 
       def read_http_response
         response = ""
-        loop do
+        while true
           line = read_line
           response += line
           break if line == "\r\n"
@@ -229,7 +231,7 @@ module Net
 
       def read_line
         line = ""
-        loop do
+        while true
           char = @socket.read(1)
           raise ConnectionClosed.new("Connection closed during handshake") if char.nil? || char.empty?
           line += char
@@ -361,6 +363,8 @@ module Net
             return [opcode, payload]
           end
         end
+        # Should never reach here. Just for steep check
+        raise ConnectionClosed.new("Connection closed. Should never reach here")
       end
 
       def mask_data(data, mask_key)
