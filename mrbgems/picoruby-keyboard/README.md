@@ -24,19 +24,19 @@ include LayerKeycode
 # Initialize with row/col pins
 kb = Keyboard.new([0, 1, 2], [3, 4, 5])
 
-# Add default layer
-kb.add_layer(:default, [
-  KC_ESC,  KC_1,    MO(1),     # MO(1): Fn key
-  KC_TAB,  KC_Q,    KC_W,
-  KC_LSFT, KC_A,    KC_S       # KC_LSFT: modifier key (0xE1)
-])
+# Define default layer using block syntax
+kb.layer do
+  row KC_ESC,  KC_1,    MO(1)     # MO(1): Fn key
+  row KC_TAB,  KC_Q,    KC_W
+  row KC_LSFT, KC_A,    KC_S      # KC_LSFT: modifier key (0xE1)
+end
 
-# Add function layer
-kb.add_layer(:function, [
-  KC_GRV,  KC_F1,   KC_NO,     # KC_NO: transparent
-  KC_NO,   KC_NO,   KC_NO,
-  KC_NO,   KC_NO,   KC_NO
-])
+# Define function layer
+kb.layer(:function) do
+  row KC_GRV,  KC_F1,   KC_NO     # KC_NO: transparent
+  row KC_NO,   KC_NO,   KC_NO
+  row KC_NO,   KC_NO,   KC_NO
+end
 
 # Set callback for key events
 kb.start do |event|
@@ -68,12 +68,12 @@ include LayerKeycode
 # No column pins needed - use empty array []
 kb = Keyboard.new([0, 1, 2], [])
 
-# Add layer: 3 buttons = 3 keycodes
-kb.add_layer(:default, [
-  KC_A,    # Button 0
-  KC_B,    # Button 1
-  KC_C     # Button 2
-])
+# Add layer: 3 buttons = 3 keycodes (one row call per button)
+kb.layer do
+  row KC_A    # Button 0
+  row KC_B    # Button 1
+  row KC_C    # Button 2
+end
 
 kb.start do |event|
   # Each button press generates event with col = 0
@@ -259,6 +259,46 @@ Common shifted symbols:
 | `S(KC_DOT)`       | `>`    |
 | `S(KC_SLASH)`     | `?`    |
 
+### V(val) - Vacancy (visual spacing)
+
+`V(val)` inserts a vacant (empty) cell into the physical layout for visual alignment purposes.
+It is used only in `row` calls inside a `layer` block and has no effect on keymaps or keycodes.
+
+Vacancies are useful for row-staggered keyboards (standard keyboard style) where each row is
+offset horizontally from the previous one. The `val` argument specifies the width of the vacancy
+in key units (U), with 0.1U resolution.
+
+```ruby
+include LayerKeycode
+
+# Staggered keyboard: 5 rows x 10 cols, 50 physical keys
+# Each row is shifted right by 0.5U relative to the previous row.
+# V() inserts a left-edge vacancy to express that stagger visually.
+#
+# Row 1: [1 ][2 ][3 ][4 ][5 ][6 ][7 ][8 ][9 ][0 ]
+# Row 2:   [Q ][W ][E ][R ][T ][Y ][U ][I ][O ][P ]
+# Row 3:     [A ][S ][D ][F ][G ][H ][J ][K ][L ][; ]
+# Row 4:       [Z ][X ][C ][V ][B ][N ][M ][, ][. ][/ ]
+# Row 5:           [CTL][ALT][SPC][ALT][CTL][LFT][DWN][UP ][RGT][ENT]
+kb.layer do
+  row KC_1,    KC_2,    KC_3,     KC_4,     KC_5,    KC_6,    KC_7,    KC_8,    KC_9,    KC_0
+  row V(0.5),  KC_Q,    KC_W,     KC_E,     KC_R,    KC_T,    KC_Y,    KC_U,    KC_I,    KC_O,    KC_P
+  row V(1.0),  KC_A,    KC_S,     KC_D,     KC_F,    KC_G,    KC_H,    KC_J,    KC_K,    KC_L,    KC_SCOLON
+  row V(1.5),  KC_Z,    KC_X,     KC_C,     KC_V,    KC_B,    KC_N,    KC_M,    KC_COMMA,KC_DOT,  KC_SLASH
+  row V(2.5),  KC_LCTL, KC_LALT,  KC_SPACE, KC_RALT, KC_RCTL, KC_LEFT, KC_DOWN, KC_UP,   KC_RIGHT,KC_ENTER
+end
+```
+
+The `V()` values are encoded as negative integers (multiples of 0.1U):
+- `V(0.5)` = -5  (0.5U gap)
+- `V(1.0)` = -10 (1U gap)
+- `V(1.5)` = -15 (1.5U gap)
+- `V(2.5)` = -25 (2.5U gap)
+
+`V()` positions are recorded in `kb.layout` (the visual layout array) but are excluded from
+the keymap arrays returned by `kb.get_layer`. Tools such as the keymap editor use `kb.layout`
+to render the correct visual grid with vacancy cells rendered as transparent blank areas.
+
 ## Advanced Example
 
 ```ruby
@@ -268,28 +308,28 @@ include LayerKeycode
 kb = Keyboard.new([0, 1, 2, 3], [4, 5, 6, 7], debounce_ms: 5)
 
 # Base layer with Fn and Numpad toggle
-kb.add_layer(:base, [
-  KC_ESC,  KC_1,  KC_2,    KC_3,
-  KC_TAB,  KC_Q,  KC_W,    KC_E,
-  MO(1),   KC_A,  KC_S,    KC_D,                # MO(1): Fn key
-  MT(KC_LSFT, KC_SPC), KC_Z, TG(2), KC_C        # MT: tap=Space, hold=Shift
-])
+kb.layer(:base) do
+  row KC_ESC,  KC_1,  KC_2,    KC_3
+  row KC_TAB,  KC_Q,  KC_W,    KC_E
+  row MO(1),   KC_A,  KC_S,    KC_D               # MO(1): Fn key
+  row MT(KC_LSFT, KC_SPC), KC_Z, TG(2), KC_C      # MT: tap=Space, hold=Shift
+end
 
 # Function layer (accessed via MO(1))
-kb.add_layer(:function, [
-  KC_GRV,  KC_F1,  KC_F2,   KC_F3,
-  KC_NO,   KC_HOME, KC_UP,   KC_END,
-  KC_NO,   KC_LEFT, KC_DOWN, KC_RGHT,
-  KC_NO,   KC_NO,   KC_NO,   KC_NO
-])
+kb.layer(:function) do
+  row KC_GRV,  KC_F1,   KC_F2,   KC_F3
+  row KC_NO,   KC_HOME, KC_UP,   KC_END
+  row KC_NO,   KC_LEFT, KC_DOWN, KC_RIGHT
+  row KC_NO,   KC_NO,   KC_NO,   KC_NO
+end
 
 # Numpad layer (toggled via TG(2))
-kb.add_layer(:numpad, [
-  KC_NO,   KC_7,   KC_8,    KC_9,
-  KC_NO,   KC_4,   KC_5,    KC_6,
-  KC_NO,   KC_1,   KC_2,    KC_3,
-  KC_NO,   KC_0,   KC_NO,   KC_DOT
-])
+kb.layer(:numpad) do
+  row KC_NO,   KC_7,   KC_8,    KC_9
+  row KC_NO,   KC_4,   KC_5,    KC_6
+  row KC_NO,   KC_1,   KC_2,    KC_3
+  row KC_NO,   KC_0,   KC_NO,   KC_DOT
+end
 
 kb.default_layer = :base
 
@@ -337,10 +377,32 @@ Create a new keyboard layer manager.
 - `keymap_rows`: Total rows in keymap (default: row_pins.size). For split keyboards.
 - `keymap_cols`: Total columns in keymap (default: 1 for direct mode, col_pins.size for matrix mode)
 
-#### `add_layer(name, keymap)`
-Add a layer with a name and keymap.
+#### `layer(name = :default, &block)`
+Define a layer using a block. Each `row(*keycodes)` call inside the block adds one row.
+- `name`: Symbol for layer name (default: `:default`)
+- The block is evaluated in the keyboard context; call `row` to specify keycodes per row.
+- `V(val)` may be used in `row` for visual vacancy cells (excluded from keymap, recorded in layout).
+- The first `layer` call also populates `kb.layout` for use by visual tools such as the keymap editor.
+
+```ruby
+kb.layer(:fn1) do
+  row KC_1, KC_2, KC_3
+  row KC_4, KC_5, KC_6
+end
+```
+
+#### `get_layer(name)`
+Return the flat keycode array for the named layer (vacancies excluded).
 - `name`: Symbol for layer name
-- `keymap`: Array of keycodes (size must be keymap_rows * keymap_cols)
+- Returns: Array of integers
+
+#### `layer_names`
+Return the ordered list of layer name symbols (index 0 = first layer defined).
+
+#### `layout`
+Return the visual layout array populated from the first `layer` block.
+Each element is an array of per-row values: non-negative integers are keycodes,
+negative integers are `V()` vacancies.
 
 #### `default_layer=(name)`
 Set the default layer.
@@ -397,6 +459,12 @@ Create a Shift-modified keycode. Pressing the key always sends Left Shift + `key
 - `keycode`: Base keycode (0-255)
 - Returns: Special keycode
 
+#### `V(val)`
+Create a vacancy value for visual layout alignment. Used only inside `row` calls in a `layer` block.
+- `val`: Width in key units (U), positive Numeric with 0.1U resolution (e.g. 0.5, 1.0, 1.5, 2.5)
+- Returns: Negative integer (-10 per 1U; e.g. `V(1.5)` = -15)
+- The vacancy is stored in `kb.layout` for visual tools but excluded from the keymap.
+
 ## Combos
 
 Combos allow you to trigger a specific action when multiple keys are pressed simultaneously. This is a QMK-compatible feature.
@@ -445,8 +513,8 @@ kb.combo_reference_layer = :default
 
 ```ruby
 # Layer setup
-kb.add_layer(:default, [KC_A, KC_B, KC_C, KC_D])
-kb.add_layer(:layer1, [KC_1, KC_2, KC_3, KC_4])
+kb.layer(:default) { row KC_A, KC_B, KC_C, KC_D }
+kb.layer(:layer1)  { row KC_1, KC_2, KC_3, KC_4 }
 
 # Combo defined with KC_A and KC_B
 kb.add_combo([KC_A, KC_B], KC_ESC)
@@ -533,11 +601,10 @@ include LayerKeycode
 # Master: 2x3 matrix, full keymap is 2x6
 kb = Keyboard.new([0, 1], [2, 3, 4], keymap_cols: 6)
 
-kb.add_layer(:default, [
-  # Left (master cols 0-2)    Right (slave cols 3-5)
-  KC_A, KC_B, KC_C,           KC_D, KC_E, KC_F,
-  KC_1, KC_2, KC_3,           KC_4, KC_5, KC_6
-])
+kb.layer do
+  row KC_A, KC_B, KC_C,  KC_D, KC_E, KC_F   # Left (0-2) + Right (3-5)
+  row KC_1, KC_2, KC_3,  KC_4, KC_5, KC_6
+end
 
 # User handles UART protocol
 uart = UART.new(unit: 0, txd: 8, rxd: 9)
@@ -584,12 +651,11 @@ end
 # Full keymap: 3 rows x 7 cols
 kb = Keyboard.new([0, 1], [2, 3, 4], keymap_rows: 3, keymap_cols: 7)
 
-kb.add_layer(:default, [
-  # Cols: 0   1   2        3   4   5   6
-  KC_A, KC_B, KC_C,    KC_D, KC_E, KC_F, KC_G,    # Row 0 (master uses 0-2)
-  KC_1, KC_2, KC_3,    KC_4, KC_5, KC_6, KC_7,    # Row 1 (master uses 0-2)
-  KC_NO, KC_NO, KC_NO, KC_8, KC_9, KC_0, KC_MINS  # Row 2 (slave only)
-])
+kb.layer do
+  row KC_A,  KC_B,  KC_C,  KC_D, KC_E, KC_F, KC_G    # Row 0 (master cols 0-2, slave cols 3-6)
+  row KC_1,  KC_2,  KC_3,  KC_4, KC_5, KC_6, KC_7    # Row 1 (master cols 0-2, slave cols 3-6)
+  row KC_NO, KC_NO, KC_NO, KC_8, KC_9, KC_0, KC_MINS # Row 2 (slave only)
+end
 
 kb.start do |event|
   if data = uart.read_nonblock
