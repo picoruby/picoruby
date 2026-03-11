@@ -1,4 +1,5 @@
 require "env"
+require "io/console"
 require "picorubyvm"
 require "sandbox"
 require "crc"

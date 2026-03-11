@@ -1,3 +1,5 @@
+require 'io/console'
+
 module Kernel
 
   private
