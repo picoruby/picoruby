@@ -5,6 +5,10 @@
 
 static mrbc_class *ConnectTimeout;
 static bool cyw43_arch_init_flag = false;
+#ifdef USE_WIFI
+static bool cyw43_arch_sta_mode_enabled = false;
+static bool cyw43_arch_connected = false;
+#endif
 
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -46,8 +50,6 @@ c_CYW43_initialized_q(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 #ifdef USE_WIFI
-static bool cyw43_arch_sta_mode_enabled = false;
-
 static void
 c_CYW43_enable_sta_mode(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -79,8 +81,6 @@ c_CYW43_disable_sta_mode(mrbc_vm *vm, mrbc_value *v, int argc)
     SET_FALSE_RETURN();
   }
 }
-
-static bool cyw43_arch_connected = false;
 
 static void
 c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
