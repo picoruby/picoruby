@@ -70,24 +70,11 @@ client.disconnect
 - Using mruby/c VM
 - Need low memory footprint
 
-### Use picoruby-net-mqtt instead when:
-- Running on other platforms
-- Pure Ruby implementation is preferred
-- Development/debugging (easier to modify)
-- Maximum compatibility is needed
-
 ## Requirements
 
 - RP2040 board with WiFi (pico_w)
 - picoruby-socket with lwIP MQTT support enabled
 - mruby/c VM (RP2040 build)
-
-## Performance
-
-Compared to picoruby-net-mqtt (pure Ruby):
-- **Memory**: Lower memory usage due to native implementation
-- **Speed**: Faster message processing via lwIP
-- **CPU**: Reduced CPU overhead for protocol handling
 
 ## API Compatibility
 
@@ -97,6 +84,27 @@ This gem provides the same `Net::MQTT` module and client API surface as picoruby
 - username/password authentication is not supported yet
 - `keep_alive` and `clean_session` options are currently ignored (keep-alive is fixed at 60s)
 - `unsubscribe` and `ping` raise "not supported"
+
+## Support Status
+
+### Supported
+- CONNECT / CONNACK
+- PUBLISH / SUBSCRIBE
+- PINGREQ / PINGRESP (automatic keep-alive)
+- DISCONNECT
+- QoS 0
+
+### Planned
+- `keep_alive` option (set keep-alive value from Ruby)
+- `username` / `password` authentication
+- `retain` flag
+- `unsubscribe`
+- QoS 1
+
+### Not Planned
+- TLS/SSL
+- `clean_session` option
+- QoS 2
 
 ## Example: IoT Sensor
 
