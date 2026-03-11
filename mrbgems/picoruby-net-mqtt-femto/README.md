@@ -11,7 +11,7 @@ This is a native lwIP implementation of MQTT 3.1.1 client for PicoRuby, designed
 - QoS 0 (At most once delivery)
 - CONNECT, PUBLISH, SUBSCRIBE, PING, DISCONNECT
 - Keep-alive with automatic PING
-- API mostly compatible with picoruby-net-mqtt (see differences below)
+- API compatible with picoruby-net-mqtt (see support status below)
 - Optimized for RP2040 (pico_w) boards
 
 ## Installation
@@ -24,7 +24,7 @@ conf.gem core: 'picoruby-net-mqtt-femto'
 
 ## Usage
 
-The API is similar to picoruby-net-mqtt:
+The API is compatible with picoruby-net-mqtt:
 
 ### Connect and Publish
 
@@ -91,11 +91,12 @@ Compared to picoruby-net-mqtt (pure Ruby):
 
 ## API Compatibility
 
-This gem provides the same `Net::MQTT` module name, but it is not feature-complete. Notable differences:
-- QoS 0 only
-- No TLS or username/password support
-- `unsubscribe` and class-level `Client.connect` are not available
+This gem provides the same `Net::MQTT` module and client API surface as picoruby-net-mqtt. Feature support differs:
+- QoS 0 only (higher QoS not supported yet)
+- TLS/SSL is not supported
+- username/password authentication is not supported yet
 - `keep_alive` and `clean_session` options are currently ignored (keep-alive is fixed at 60s)
+- `unsubscribe` and `ping` raise "not supported"
 
 ## Example: IoT Sensor
 
