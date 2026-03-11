@@ -12,7 +12,7 @@ class IO
   include Enumerable
 
   def self.open(*args, &block) # steep:ignore MethodArityMismatch
-    io = self.new(*args)
+    io = self.new(*args) # steep:ignore UnexpectedPositionalArgument
 
     return io unless block
 
