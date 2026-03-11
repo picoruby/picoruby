@@ -308,7 +308,7 @@ class Shell
 
     LOGO.size.times do |y|
       print margin
-      split_line = []
+      split_line = [] #: Array[String]
       i = 0
       while i < LOGO[y].length
         split_line << LOGO[y][i, grad_slice]

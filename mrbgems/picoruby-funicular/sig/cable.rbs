@@ -31,6 +31,8 @@ module Funicular
     end
 
     class Subscriptions
+      @subscriptions: Hash[String, Subscription]
+
       def self.new: (Consumer consumer) -> Subscriptions
       def create: (Hash[Symbol, untyped] params) ?{ (untyped message) -> void } -> Subscription
       def find: (String identifier) -> Subscription?

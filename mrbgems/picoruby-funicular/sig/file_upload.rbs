@@ -1,5 +1,7 @@
 module Funicular
   module FileUpload
+    self.@callback_counters: Array[Integer]
+
     JS_HELPER_CODE: String
 
     def self.mount: () -> void

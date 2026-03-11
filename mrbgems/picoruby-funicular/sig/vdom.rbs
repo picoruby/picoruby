@@ -28,6 +28,8 @@ module Funicular
     end
 
     class Renderer
+      @error_boundary_stack: Array[Funicular::ErrorBoundary]
+
       def self.new: (?JS::Object? doc) -> Renderer
       def render: (VDOM::VNode | VDOM::Text | nil vnode, ?JS::Object? parent) -> JS::Object
 

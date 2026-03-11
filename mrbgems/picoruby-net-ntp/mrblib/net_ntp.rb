@@ -47,7 +47,7 @@ module Net
 
       def to_binary
         # Pack NTP packet into 48-byte binary format
-        data = []
+        data = [] #: Array[Integer]
 
         # Byte 0: LI (2 bits) + VN (3 bits) + Mode (3 bits)
         data << ((@leap_indicator << 6) | (@version << 3) | @mode)

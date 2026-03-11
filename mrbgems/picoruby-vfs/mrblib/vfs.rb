@@ -125,8 +125,8 @@ class VFS
         # Relative path
         dirs = (ENV["PWD"] || "").split("/") + dirs
       end
-      sanitized_dirs = []
-      prefix_dirs = []
+      sanitized_dirs = [] #: Array[String]
+      prefix_dirs = [] #: Array[String]
       dirs.each do |dir|
         next if dir == "." || dir == ""
         if dir == ".."

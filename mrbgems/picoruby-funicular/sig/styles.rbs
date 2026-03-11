@@ -16,6 +16,8 @@ module Funicular
 
   # StyleBuilder is used to define styles within the styles {} block
   class StyleBuilder
+    @definitions: Hash[Symbol, Hash[Symbol, untyped]]
+
     def self.new: () -> StyleBuilder
     def to_definitions: () -> Hash[Symbol, Hash[Symbol, untyped]]
     private def method_missing: (Symbol name, *untyped args) -> void

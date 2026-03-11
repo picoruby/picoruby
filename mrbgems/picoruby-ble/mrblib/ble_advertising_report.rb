@@ -57,7 +57,7 @@ class BLE
     # private
 
     def inspect_reports(data)
-      reports = {}
+      reports = {} #: Hash[Symbol | Integer, String]
       index = 0
       while index < data.bytesize
         length = data.getbyte(index)

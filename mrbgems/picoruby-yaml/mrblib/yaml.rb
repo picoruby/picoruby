@@ -26,7 +26,7 @@ module YAML
 
   def self.parse(yaml_string)
     lines = yaml_string.split("\n")
-    root = {}
+    root = {} #: Hash[untyped, untyped]
     stack = [root]
     indent_stack = [-1]
     prev_indent = -1
@@ -53,7 +53,7 @@ module YAML
 
       if is_list_item
         if !current_object.is_a?(Array)
-          new_array = []
+          new_array = [] #: Array[untyped]
           if 1 < stack.size && stack[-2].is_a?(Hash)
             last_key = stack[-2].keys.last
             stack[-2][last_key] = new_array
@@ -62,7 +62,7 @@ module YAML
           current_object = new_array
         end
         if value.nil? || value.empty?
-          new_item = {}
+          new_item = {} #: Hash[untyped, untyped]
           current_object << new_item
           stack.push(new_item)
           indent_stack.push(indent)
@@ -71,7 +71,7 @@ module YAML
         end
       else
         if value.nil? || value.empty?
-          new_item = {}
+          new_item = {} #: Hash[untyped, untyped]
           current_object[key] = new_item
           stack.push(new_item)
           indent_stack.push(indent)
@@ -119,7 +119,7 @@ module YAML
       yaml = ""
       # @type var object: Array
       object.each do |item|
-        # @type var item: (Hash | Array)
+        # @type var item: Hash[untyped, untyped] | Array[untyped]
         yaml << "#{' ' * indent}- "
         if item.nil?
           yaml << "null\n"

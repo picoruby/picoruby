@@ -239,7 +239,7 @@ module Marshal
 
     def load_array(data, pos)
       len, pos = decode_fixnum(data, pos)
-      ary = []
+      ary = [] #: Array[untyped]
       len.times do
         elem, pos = load_object(data, pos)
         ary << elem
@@ -249,7 +249,7 @@ module Marshal
 
     def load_hash(data, pos)
       len, pos = decode_fixnum(data, pos)
-      hash = {}
+      hash = {} #: Hash[untyped, untyped]
       len.times do
         key, pos = load_object(data, pos)
         value, pos = load_object(data, pos)

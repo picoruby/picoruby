@@ -15,6 +15,13 @@ module Funicular
     attr_accessor dom_element: JS::Object
     attr_accessor mounted: bool
     attr_reader refs: Hash[Symbol, JS::Object]
+    @event_listeners: Array[Integer]
+    @child_components: Array[Component]
+    @suspense_data: Hash[Symbol, untyped]
+    @suspense_states: Hash[Symbol, Symbol]
+    @suspense_errors: Hash[Symbol, untyped]
+    @suspense_pending_timers: Array[Integer]
+    self.@suspense_definitions: Hash[Symbol, suspense_definition]
 
     def self.new: (?Hash[Symbol, untyped] props) -> Component
 
