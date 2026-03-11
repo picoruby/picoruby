@@ -16,28 +16,19 @@ module Net
       def connect
         # Initiate non-blocking connection
         result = _connect_impl(@host, @port, @client_id)
-        puts "[Ruby] _connect_impl returned: #{result}"
         return false unless result
-
-        puts "[Ruby] Starting connection check loop"
 
         # Short test loop (~3 seconds timeout)
         300.times do |i|
-          puts "[Ruby] Check #{i}"
-
           _poll_impl if respond_to?(:_poll_impl)
           if _is_connected_impl
-            puts "[Ruby] Connected!"
             @connected = true
             return true
           end
 
-          puts "[Ruby] About to sleep"
           poll_sleep_ms(10)
-          puts "[Ruby] Woke up from sleep"
         end
 
-        puts "[Ruby] Connection timeout"
         @connected = false
         false
       end

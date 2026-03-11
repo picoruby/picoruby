@@ -21,25 +21,21 @@ static void
 c_mqtt_connect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if (argc != 3) {
-    console_printf("[MQTT ERROR] Wrong argument count: expected 3, got %d\n", argc);
     SET_FALSE_RETURN();
     return;
   }
 
   if (v[1].tt != MRBC_TT_STRING) {
-    console_printf("[MQTT ERROR] Host parameter is not string\n");
     SET_FALSE_RETURN();
     return;
   }
 
   if (v[2].tt != MRBC_TT_INTEGER) {
-    console_printf("[MQTT ERROR] Port parameter is not integer\n");
     SET_FALSE_RETURN();
     return;
   }
 
   if (v[3].tt != MRBC_TT_STRING) {
-    console_printf("[MQTT ERROR] Client_id parameter is not string\n");
     SET_FALSE_RETURN();
     return;
   }
@@ -47,8 +43,6 @@ c_mqtt_connect(mrbc_vm *vm, mrbc_value v[], int argc)
   const char *host = (const char *)GET_STRING_ARG(1);
   int port = GET_INT_ARG(2);
   const char *client_id = (const char *)GET_STRING_ARG(3);
-
-  console_printf("[MQTT] C API: connect %s:%d %s\n", host, port, client_id);
 
   int result = MQTT_connect_impl(host, port, client_id);
 
@@ -63,21 +57,17 @@ static void
 c_mqtt_publish(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if (argc != 2) {
-    console_printf("[MQTT ERROR] Wrong argument count: expected 2, got %d\n", argc);
     SET_FALSE_RETURN();
     return;
   }
 
   if (v[1].tt != MRBC_TT_STRING || v[2].tt != MRBC_TT_STRING) {
-    console_printf("[MQTT ERROR] Arguments must be strings\n");
     SET_FALSE_RETURN();
     return;
   }
 
   const char *topic = (const char *)GET_STRING_ARG(1);
   const char *payload = (const char *)GET_STRING_ARG(2);
-
-  console_printf("[MQTT] C API: publish %s %s\n", topic, payload);
 
   int result = MQTT_publish_impl(topic, payload, 0);
 
@@ -92,20 +82,16 @@ static void
 c_mqtt_subscribe(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if (argc != 1) {
-    console_printf("[MQTT ERROR] Wrong argument count: expected 1, got %d\n", argc);
     SET_FALSE_RETURN();
     return;
   }
 
   if (v[1].tt != MRBC_TT_STRING) {
-    console_printf("[MQTT ERROR] Topic must be string\n");
     SET_FALSE_RETURN();
     return;
   }
 
   const char *topic = (const char *)GET_STRING_ARG(1);
-
-  console_printf("[MQTT] C API: subscribe %s\n", topic);
 
   int result = MQTT_subscribe_impl(topic);
 
@@ -159,7 +145,6 @@ static void
 c_mqtt_poll_sleep(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   if (argc != 1 || v[1].tt != MRBC_TT_INTEGER) {
-    console_printf("[MQTT ERROR] poll_sleep expects 1 integer argument\n");
     SET_NIL_RETURN();
     return;
   }
@@ -170,7 +155,6 @@ c_mqtt_poll_sleep(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  console_printf("[MQTT] C API: disconnect\n");
   MQTT_disconnect_impl();
   SET_NIL_RETURN();
 }
