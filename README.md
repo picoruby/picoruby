@@ -89,13 +89,13 @@ Two MQTT implementations are available as optional gems:
 | Gem | Type | Best For | Installation |
 |-----|------|----------|--------------|
 | `picoruby-net-mqtt` | Pure Ruby | All boards, stability, debugging | `conf.gem core: 'picoruby-net-mqtt'` |
-| `picoruby-mqtt-lwip` | lwIP native | RP2040 (pico_w), high performance | `conf.gem core: 'picoruby-mqtt-lwip'` |
+| `picoruby-net-mqtt-femto` | Low-memory native | RP2040 (pico_w), low memory footprint | `conf.gem core: 'picoruby-net-mqtt-femto'` |
 
 Both gems provide the same API (`require 'net/mqtt'`) and are fully interchangeable. Choose based on your target platform and performance requirements.
 
 For detailed documentation, see:
 - [picoruby-net-mqtt README](mrbgems/picoruby-net-mqtt/README.md)
-- [picoruby-mqtt-lwip README](mrbgems/picoruby-mqtt-lwip/README.md)
+- [picoruby-net-mqtt-femto README](mrbgems/picoruby-net-mqtt-femto/README.md)
 
 ### Stargazers over time
 [![Stargazers over time](https://starchart.cc/picoruby/picoruby.svg?variant=adaptive)](https://starchart.cc/picoruby/picoruby)

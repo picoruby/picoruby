@@ -1,4 +1,4 @@
-MRuby::Gem::Specification.new('picoruby-mqtt-lwip') do |spec|
+MRuby::Gem::Specification.new('picoruby-net-mqtt-femto') do |spec|
   spec.license = 'MIT'
   spec.authors = ['Ryosuke Uchida']
   spec.summary = 'lwIP native MQTT client for PicoRuby (RP2040 optimized)'

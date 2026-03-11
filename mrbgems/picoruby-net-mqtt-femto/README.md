@@ -1,4 +1,4 @@
-# picoruby-mqtt-lwip
+# picoruby-net-mqtt-femto
 
 lwIP native MQTT client for PicoRuby (RP2040 optimized).
 
@@ -20,7 +20,7 @@ This is a native lwIP implementation of MQTT 3.1.1 client for PicoRuby, designed
 Add to your `build_config.rb`:
 
 ```ruby
-conf.gem core: 'picoruby-mqtt-lwip'
+conf.gem core: 'picoruby-net-mqtt-femto'
 ```
 
 ## Usage
@@ -75,7 +75,7 @@ end
 
 ## When to Use
 
-### Use picoruby-mqtt-lwip when:
+### Use picoruby-net-mqtt-femto when:
 - Running on RP2040-based boards (pico_w)
 - Performance is critical
 - Using mruby/c VM
