@@ -14,7 +14,7 @@ module Kernel
     $stdin.getc
   end
 
-  def gets
+  def gets # steep:ignore MethodArityMismatch
     $stdin.gets
   end
 

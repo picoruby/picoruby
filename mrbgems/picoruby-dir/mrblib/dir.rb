@@ -16,7 +16,7 @@ class Dir
   alias pos= seek
 
   class << self
-    def entries(path)
+    def entries(path) # steep:ignore MethodArityMismatch
       a = [] #: Array[String]
       self.open(path) do |d|
         while s = d.read
@@ -27,7 +27,7 @@ class Dir
     end
     alias children entries
 
-    def foreach(path, &block)
+    def foreach(path, &block) # steep:ignore MethodArityMismatch
       raise ArgumentError, "no block given" unless block
       self.open(path) do |d|
         d.each(&block)
@@ -36,7 +36,7 @@ class Dir
     end
 
     # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
-    def open(path, &block) # steep:ignore MethodBodyTypeMismatch
+    def open(path, &block) # steep:ignore MethodArityMismatch, MethodBodyTypeMismatch
       if block
         d = self.new(path)
         begin

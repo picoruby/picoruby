@@ -1,5 +1,5 @@
 module GC
-  def self.start
+  def self.start # steep:ignore MethodArityMismatch
     # no operation
   end
 end

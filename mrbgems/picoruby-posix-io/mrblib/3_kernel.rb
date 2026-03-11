@@ -3,7 +3,7 @@ module Kernel
     IO.popen(cmd) { |io| io.read }
   end
 
-  def open(file, mode, &block)
+  def open(file, mode, &block) # steep:ignore MethodArityMismatch, MethodParameterMismatch
     raise ArgumentError unless file.is_a?(String)
 
     if file[0] == "|"
