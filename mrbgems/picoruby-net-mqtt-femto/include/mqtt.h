@@ -57,9 +57,9 @@ int MQTT_get_message_impl(char **topic, char **payload);
 void MQTT_init_context(void *vm);
 void MQTT_set_callback(void *proc);
 
-void mrb_picoruby_mqtt_lwip_gem_init(void* mrb);
-void mrb_picoruby_mqtt_lwip_gem_final(void* mrb);
-void mrbc_mqtt_lwip_init(void *vm);
+void mrb_picoruby_net_mqtt_femto_gem_init(void* mrb);
+void mrb_picoruby_net_mqtt_femto_gem_final(void* mrb);
+void mrbc_net_mqtt_femto_init(void *vm);
 
 #ifdef __cplusplus
 }

@@ -159,7 +159,7 @@ c_mqtt_disconnect(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_NIL_RETURN();
 }
 
-void mrbc_mqtt_lwip_init(mrbc_vm *vm) {
+void mrbc_net_mqtt_femto_init(mrbc_vm *vm) {
   mrbc_define_method(0, mrbc_class_object, "_connect_impl", c_mqtt_connect);
   mrbc_define_method(0, mrbc_class_object, "_is_connected_impl", c_mqtt_is_connected);
   mrbc_define_method(0, mrbc_class_object, "_poll_impl", c_mqtt_poll);

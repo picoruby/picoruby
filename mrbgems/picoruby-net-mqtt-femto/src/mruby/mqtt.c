@@ -9,14 +9,14 @@
 #include "../../include/mqtt.h"
 
 void
-mrb_picoruby_mqtt_lwip_gem_init(mrb_state* mrb)
+mrb_picoruby_net_mqtt_femto_gem_init(mrb_state* mrb)
 {
   // Placeholder - MQTT functionality is not supported in mruby builds
   // All implementation is in mrubyc/mqtt.c for mrubyc builds
 }
 
 void
-mrb_picoruby_mqtt_lwip_gem_final(mrb_state* mrb)
+mrb_picoruby_net_mqtt_femto_gem_final(mrb_state* mrb)
 {
   // Placeholder cleanup
 }
