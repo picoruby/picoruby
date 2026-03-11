@@ -1,2 +1,5 @@
 ---
 BUNDLE_FORCE_RUBY_PLATFORM: "true"
+BUNDLE_PATH: "/home/runner/work/picoruby/picoruby/vendor/bundle"
+BUNDLE_DEPLOYMENT: "true"
+BUNDLE_JOBS: "4"

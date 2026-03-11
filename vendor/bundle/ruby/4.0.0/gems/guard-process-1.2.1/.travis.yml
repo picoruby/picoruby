@@ -1,0 +1,14 @@
+bundler_args: --without development
+
+notifications:
+  recipients:
+    - mark@socialreferral.com
+    - andre@socialreferral.com
+rvm:
+  - 1.9.3
+  - 2.0.0
+  - 2.1.4
+  - jruby-19mode
+
+# Use Travis AUFS containers
+sudo: false

@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+export DEBIAN_FRONTEND=noninteractive
+
+apt-get update > /dev/null
+apt-get -y install build-essential git-core ruby1.9.1-full ruby1.9.1-dev libyaml-dev libssl-dev zlib1g-dev libreadline-dev openssl libsqlite3-0 libsqlite3-dev sqlite3 libxml2-dev libxslt1-dev autoconf libc6-dev ncurses-dev automake libtool bison libffi-dev
+
+gem install bundler pry
+
+su -c 'cd /vagrant && bundle' vagrant

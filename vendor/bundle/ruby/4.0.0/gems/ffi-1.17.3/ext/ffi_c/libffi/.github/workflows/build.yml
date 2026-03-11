@@ -1,0 +1,358 @@
+name: CI
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build-linux:
+    name: Linux ${{ matrix.HOST }} ${{ matrix.CONFIGURE_OPTIONS }} \
+          ${{ matrix.MEVAL }} ${{ matrix.LIBFFI_TEST_OPTIMIZATION }}
+
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ---------- existing x86-64 variants ----------
+          - runner: ubuntu-latest
+            HOST:  x86_64-pc-linux-gnu
+            MEVAL: 'export CC=clang CXX=clang++'
+
+          - runner: ubuntu-latest
+            HOST:  i386-pc-linux-gnu
+            MEVAL: 'export CC="gcc -m32" CXX="g++ -m32"'
+
+          - runner: ubuntu-latest
+            HOST:  x86_64-pc-linux-gnu
+            CONFIGURE_OPTIONS: "--disable-shared"
+
+          - runner: ubuntu-latest
+            HOST:  x86_64-pc-linux-gnu
+            CONFIGURE_OPTIONS: "--enable-shared"
+
+          - runner: ubuntu-latest
+            HOST:  x86_64-pc-linux-gnu
+            CONFIGURE_OPTIONS: "--disable-exec-static-tramp"
+
+          # ---------- new native arm64 build ----------
+          - runner: ubuntu-22.04-arm     # or ubuntu-24.04-arm
+            HOST:  aarch64-unknown-linux-gnu
+            MEVAL: 'export CC=clang CXX=clang++'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - env:
+          MEVAL: ${{ matrix.MEVAL }}
+          HOST: ${{ matrix.HOST }}
+          LDFLAGS: ${{ matrix.LDFLAGS }}
+          RUNTESTFLAGS: ${{ matrix.RUNTESTFLAGS }}
+          CONFIGURE_OPTIONS: ${{ matrix.CONFIGURE_OPTIONS }}
+          QEMU_LD_PREFIX: ${{ matrix.QEMU_LD_PREFIX }}
+          QEMU_CPU: ${{ matrix.QEMU_CPU }}
+        run: |
+          if test x"$MEVAL" != x; then eval ${MEVAL}; fi
+          ./.ci/install.sh
+          ./.ci/build.sh
+
+  build-macos:
+    name: MacOS ${{ matrix.platform }} ${{ matrix.compilers }}
+    runs-on: ${{ matrix.platform }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-13, macos-14, macos-15]
+        compilers: [CC=gcc-15 CXX=g++-15, CC=clang CXX=g++-15]
+
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - run: ./.ci/install.sh
+      - run: ${{ matrix.compilers }} ./.ci/build.sh
+
+  build-non-msvc:
+    name: Windows ${{ matrix.width }}-bit ${{ matrix.compiler }}
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Cygwin 32-bit
+          - host: i686-pc-cygwin
+            width: 32
+            arch: x86
+            target: i686-pc-cygwin
+            gcc_prefix: /usr/i686-pc-cygwin
+            compiler: gcc
+          - host: i686-pc-cygwin
+            width: 32
+            arch: x86
+            target: i686-pc-cygwin
+            gcc_prefix: /usr/i686-pc-cygwin
+            compiler: clang
+          # MinGW-w64 64-bit
+          - host: x86_64-w64-mingw32
+            width: 64
+            arch: x64
+            target: x86_64-w64-mingw32
+            gcc_prefix: /usr/${{ github.workspace }}/mingw64      # unused but keeps the table homogeneous
+            compiler: clang
+          - host: x86_64-w64-mingw32
+            width: 64
+            arch: x64
+            target: x86_64-w64-mingw32
+            gcc_prefix: /usr/${{ github.workspace }}/mingw64      # unused but keeps the table homogeneous
+            compiler: gcc
+
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+
+      # ──────────────────────────────── Cygwin & tool-chains ────────────────────────────────
+      - uses: egor-tensin/setup-cygwin@v4
+        with:
+          # gcc / g++ are needed so Clang can reuse their start-files & libraries
+          packages: >
+            wget make dejagnu automake autoconf libtool texinfo unzip dos2unix
+            clang gcc-core gcc-g++
+            cygwin32-gcc-core cygwin32-gcc-g++ cygwin32-runtime cygwin32-libgcc1
+
+      # ──────────────────────────────── Common environment ────────────────────────────────
+      - name: Export build env
+        shell: bash
+        run: |
+          echo "GCC_PREFIX=${{ matrix.gcc_prefix }}"      >> $GITHUB_ENV
+          echo "CC=${{ matrix.compiler }} --target=${{ matrix.target }} -B${{ matrix.gcc_prefix }}/bin \
+                -L${{ matrix.gcc_prefix }}/lib -I${{ matrix.gcc_prefix }}/include"          >> $GITHUB_ENV
+          echo "CXX=${{ matrix.compiler }} --target=${{ matrix.target }} -B${{ matrix.gcc_prefix }}/bin \
+                -L${{ matrix.gcc_prefix }}/lib -I${{ matrix.gcc_prefix }}/include"          >> $GITHUB_ENV
+          # make sure the cross-gcc bin dir is found *before* /usr/bin (64-bit)
+          echo "${{ matrix.gcc_prefix }}/bin" >> $GITHUB_PATH
+
+      # ──────────────────────────────── Pick version from configure.ac ─────────────────────
+      - id: ver
+        name: Read libffi version
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+        run: |
+          cd "$(cygpath $RUNNER_WORKSPACE)/libffi"
+          version=$(sed -nE 's/^AC_INIT\(\[libffi\],[[:space:]]*\[([^]]+)\].*/\1/p' configure.ac)
+          [[ $version ]] || { echo "Could not parse version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # ──────────────────────────────── Build & test ───────────────────────────────────────
+      - name: Build and test
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+        run: |
+          set -euo pipefail
+          cd "$(cygpath $RUNNER_WORKSPACE)/libffi"
+          wget https://rl.gl/cli/rlgl-windows-amd64.zip
+          unzip rlgl-windows-amd64.zip
+          autoreconf -fvi
+          ./configure \
+            --enable-shared \
+            --build=${{ matrix.host }} --host=${{ matrix.host }} \
+            CPPFLAGS="-DFFI_BUILDING_DLL -DUSE_STATIC_RTL" \
+            CFLAGS="-DFFI_BUILDING_DLL -DUSE_STATIC_RTL"
+
+          make
+          # sanity-check
+          file */.libs/*ffi-*.dll
+
+          TERM=none DEJAGNU=$(pwd)/.ci/site.exp BOARDSDIR=$(pwd)/.ci GCC_COLORS= make check || true
+          ./rlgl/rlgl.exe l --key=0LIBFFI-0LIBFFI-0LIBFFI-0LIBFFI https://rl.gl
+          ./rlgl/rlgl.exe e \
+                          -l project=libffi \
+                          -l sha=${GITHUB_SHA:0:7} \
+                          -l CC=${{ matrix.compiler }} \
+                          -l host=${{ matrix.host }} \
+                          --policy=https://github.com/libffi/rlgl-policy.git $(find . -name libffi.log)
+
+  build-msvc:
+    name: Windows ${{ matrix.width }}-bit Visual C++
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: i686-pc-cygwin
+            width: 32
+            arch: x86
+            tools: amd64_x86
+          - host: x86_64-w64-mingw32
+            width: 64
+            arch: x64
+            tools: amd64
+
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - uses: egor-tensin/setup-cygwin@v4
+        with:
+          platform: x64
+          packages: wget make dejagnu automake autoconf libtool texinfo unzip dos2unix
+      - uses: ilammy/msvc-dev-cmd@v1.13.0
+        with:
+          arch: ${{ matrix.tools }}
+
+      - name: Read libffi version from configure.ac
+        id: ver
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+        run: |
+          cd $(cygpath $RUNNER_WORKSPACE)/libffi
+          # Pull the second bracketed field from the AC_INIT line.
+          # Example line: AC_INIT([libffi],[3.5.0],[http://…])
+          ls -l
+          grep AC_INIT configure.ac
+          ver=$(sed -nE 's/^AC_INIT\(\[libffi\],[[:space:]]*\[([^]]+)\].*/\1/p' configure.ac)
+          [[ -n "$ver" ]] || { echo "Could not parse version!"; exit 1; }
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+
+      - name: Build and test
+        run: |
+          cd $(cygpath $RUNNER_WORKSPACE)/libffi
+          wget https://rl.gl/cli/rlgl-windows-amd64.zip
+          unzip rlgl-windows-amd64.zip
+          autoreconf -f -v -i
+          ./configure \
+            --enable-shared \
+            --build="${{ matrix.host }}" --host="${{ matrix.host }}" \
+            --disable-docs \
+            CC="$(pwd)/msvcc.sh -m${{ matrix.width }}" \
+            CXX="$(pwd)/msvcc.sh -m${{ matrix.width }}" \
+            LD="link" \
+            LDFLAGS="-no-undefined" \
+            CPP="cl -nologo -EP" \
+            CXXCPP="cl -nologo -EP" \
+            CPPFLAGS="-DFFI_BUILDING_DLL -DUSE_STATIC_RTL" \
+            CFLAGS="-DFFI_BUILDING_DLL -DUSE_STATIC_RTL" \
+            AR='$(pwd)/.ci/ar-lib lib' \
+            NM='dumpbin -symbols' STRIP=':' \
+            $DEBUG_ARG || cat */config.log
+          make
+          find ./ -type f -name 'libffi*'
+          ls -l */.libs
+          cp $(find . -name 'libffi-?.dll') ${{ matrix.host }}/testsuite/
+          find ./ -name ffi.h
+          TERM=none DEJAGNU=$(pwd)/.ci/site.exp BOARDSDIR=$(pwd)/.ci GCC_COLORS= make check || true
+          ./rlgl/rlgl.exe l --key=0LIBFFI-0LIBFFI-0LIBFFI-0LIBFFI https://rl.gl
+          ./rlgl/rlgl.exe e \
+                          -l project=libffi \
+                          -l sha=${GITHUB_SHA:0:7} \
+                          -l CC=msvcc.sh \
+                          -l host=${{ matrix.host }} \
+                          --policy=https://github.com/libffi/rlgl-policy.git $(find . -name libffi.log)
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+
+      - name: Add meta information to DLL
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+        run: |
+          cd $(cygpath $RUNNER_WORKSPACE)/libffi
+
+          # Deconstruct the libffi version
+          ver=${{ steps.ver.outputs.version }}
+          echo "$ver"
+
+          base=${ver%%-*}
+          rc=${ver#*-}
+          [[ $rc == "$ver" ]] && rc=""             # no rc?  rc=""
+
+          maj=$(cut -d. -f1 <<<"$base")
+          min=$(cut -d. -f2 <<<"$base")
+          pat=$(cut -d. -f3 <<<"$base")
+
+          # Decide on build number
+          if [[ $rc =~ ^rc([0-9]+)$ ]]; then
+            build=${BASH_REMATCH[1]}               # rc1 → 1
+          else
+            build=0
+          fi
+
+          # Use rcedit to edit the DLLs resources
+          wget -O rcedit.exe https://github.com/electron/rcedit/releases/download/v2.0.0/rcedit-${{ matrix.arch }}.exe
+          chmod +x ./rcedit.exe
+
+          dll_filename=libffi-8.dll
+          ./rcedit.exe "${{ matrix.host }}"/.libs/$dll_filename \
+            --set-file-version "$maj.$min.$pat.$build" \
+            --set-product-version "$maj.$min.$pat.$build" \
+            --set-version-string "CompanyName" "https://github.com/libffi/libffi" \
+            --set-version-string "FileDescription" "Portable foreign function interface library (${{ matrix.arch }})" \
+            --set-version-string "ProductName" "libffi" \
+            --set-version-string "FileVersion" "${{ steps.ver.outputs.version }}" \
+            --set-version-string "LegalCopyright" "Copyright (c) 1996-2025 Anthony Green and others" \
+            --set-version-string "OriginalFilename" "$dll_filename"
+
+      - name: Create binary distribution
+        shell: C:\tools\cygwin\bin\bash.exe --login --norc -eo pipefail -o igncr '{0}'
+        run: |
+          cd $(cygpath $RUNNER_WORKSPACE)/libffi
+          set -euxo pipefail
+
+          pkgdir="libffi-${{ steps.ver.outputs.version }}-x86-${{ matrix.width }}bit-msvc-binaries"
+          mkdir -p "$pkgdir"
+
+          # Copy libraries, headers, and licence into the *same* directory
+          cp "${{ matrix.host }}"/.libs/libffi-8.*          "$pkgdir/"
+          cp "${{ matrix.host }}"/include/*.h               "$pkgdir/"
+          cp LICENSE                                        "$pkgdir/"
+
+      - name: Upload artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: libffi-${{ steps.ver.outputs.version }}-x86-${{ matrix.width }}bit-msvc-binaries
+          path: libffi-${{ steps.ver.outputs.version }}-x86-${{ matrix.width }}bit-msvc-binaries
+          if-no-files-found: error
+
+      - name: Upload to GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: libffi-${{ steps.ver.outputs.version }}-x86-${{ matrix.width }}bit-msvc-binaries.zip
+
+  build-android:
+    name: Android ${{ matrix.host }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [armv7a-linux-androideabi, aarch64-linux-android, i686-linux-android, x86_64-linux-android]
+
+    steps:
+      - run: git config --global core.autocrlf input
+      - uses: actions/checkout@v4
+      - run: ./.ci/install.sh
+      - env:
+          HOST: ${{ matrix.HOST }}
+          ANDROID_API_LEVEL: 23
+          CONFIGURE_OPTIONS: "--disable-shared --disable-multi-os-directory" # fixes warning about unsupported -print-multi-os-directory with clang
+        run: |
+          # Relevant documentation:
+          # https://developer.android.com/ndk/guides/other_build_systems
+          # https://android.googlesource.com/platform/ndk/+/master/docs/BuildSystemMaintainers.md
+          export TOOLCHAIN="${ANDROID_NDK_ROOT}"/toolchains/llvm/prebuilt/linux-x86_64
+          export CC="${TOOLCHAIN}"/bin/${HOST}${ANDROID_API_LEVEL}-clang
+          export CXX="${TOOLCHAIN}"/bin/${HOST}${ANDROID_API_LEVEL}-clang++
+          export CC_FOR_TARGET="${TOOLCHAIN}"/bin/${HOST}${ANDROID_API_LEVEL}-clang
+          export CXX_FOR_TARGET="${TOOLCHAIN}"/bin/${HOST}${ANDROID_API_LEVEL}-clang++
+          export LD="${TOOLCHAIN}"/bin/ld.lld
+          export AR="${TOOLCHAIN}"/bin/llvm-ar
+          export AS="${CC}"
+          export RANLIB="${TOOLCHAIN}"/bin/llvm-ranlib
+          export STRIP="${TOOLCHAIN}"/bin/llvm-strip
+          export NM="${TOOLCHAIN}"/bin/llvm-nm
+          export OBJDUMP="${TOOLCHAIN}"/bin/llvm-objdump
+          ./.ci/build.sh

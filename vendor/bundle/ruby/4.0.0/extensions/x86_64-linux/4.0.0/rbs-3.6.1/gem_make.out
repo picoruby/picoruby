@@ -1,0 +1,33 @@
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/rbs-3.6.1/ext/rbs_extension
+/opt/hostedtoolcache/Ruby/4.0.1/x64/bin/ruby extconf.rb
+checking for whether -std=gnu99 is accepted as CFLAGS... yes
+creating Makefile
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/rbs-3.6.1/ext/rbs_extension
+make -j5 DESTDIR\= sitearchdir\=./.gem.20260310-3028-nxxekz sitelibdir\=./.gem.20260310-3028-nxxekz clean
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/rbs-3.6.1/ext/rbs_extension
+make -j5 DESTDIR\= sitearchdir\=./.gem.20260310-3028-nxxekz sitelibdir\=./.gem.20260310-3028-nxxekz
+compiling constants.c
+compiling lexer.c
+compiling lexstate.c
+compiling location.c
+compiling main.c
+compiling parser.c
+compiling parserstate.c
+compiling ruby_objs.c
+parser.c:57:1: warning: ‘inline’ is not at beginning of declaration [-Wold-style-declaration]
+   57 | static void inline melt_array(VALUE *array) {
+      | ^~~~~~
+compiling unescape.c
+cc1: note: unrecognized command-line option ‘-Wno-self-assign’ may have been intended to silence earlier diagnostics
+cc1: note: unrecognized command-line option ‘-Wno-parentheses-equality’ may have been intended to silence earlier diagnostics
+cc1: note: unrecognized command-line option ‘-Wno-constant-logical-operand’ may have been intended to silence earlier diagnostics
+linking shared-object rbs_extension.so
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/rbs-3.6.1/ext/rbs_extension
+make -j5 DESTDIR\= sitearchdir\=./.gem.20260310-3028-nxxekz sitelibdir\=./.gem.20260310-3028-nxxekz install
+/usr/bin/install -c -m 0755 rbs_extension.so ./.gem.20260310-3028-nxxekz
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/rbs-3.6.1/ext/rbs_extension
+make DESTDIR\= sitearchdir\=./.gem.20260310-3028-nxxekz sitelibdir\=./.gem.20260310-3028-nxxekz clean

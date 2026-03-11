@@ -1,0 +1,22 @@
+// Experimental TypeProf configuration
+
+// The format is completely tentative and subject to change
+// (including whether to use JSON with Comments or TOML or Ruby DSL or something else)
+{
+    // The version of TypeProf; you need to specify "experimental"
+    "typeprof_version": "experimental",
+
+    // The directory containing RBS files that defines the interface between the analysis units
+    "rbs_dir": "sig/",
+
+    // The directories containing Ruby files to be analyzed by TypeProf
+    // Each directory will be independently analyzed
+    "analysis_unit_dirs": [
+        "lib/typeprof/core/",
+        "lib/typeprof/lsp"
+    ],
+
+    // Severity of diagnosis, selectable from "error", "warning", "info", "hint", and "none".
+    // Currently, TypeProf reports many false positives, so it is recommended to use "hint" or "none".
+    "diagnostic_severity": "warning"
+}

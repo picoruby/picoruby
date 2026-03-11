@@ -1,0 +1,18 @@
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/racc-1.8.1/ext/racc/cparse
+/opt/hostedtoolcache/Ruby/4.0.1/x64/bin/ruby extconf.rb
+creating Makefile
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/racc-1.8.1/ext/racc/cparse
+make -j5 DESTDIR\= sitearchdir\=./.gem.20260310-3028-iugncf sitelibdir\=./.gem.20260310-3028-iugncf clean
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/racc-1.8.1/ext/racc/cparse
+make -j5 DESTDIR\= sitearchdir\=./.gem.20260310-3028-iugncf sitelibdir\=./.gem.20260310-3028-iugncf
+compiling cparse.c
+linking shared-object racc/cparse.so
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/racc-1.8.1/ext/racc/cparse
+make -j5 DESTDIR\= sitearchdir\=./.gem.20260310-3028-iugncf sitelibdir\=./.gem.20260310-3028-iugncf install
+/usr/bin/install -c -m 0755 cparse.so ./.gem.20260310-3028-iugncf/racc
+
+current directory: /home/runner/work/picoruby/picoruby/vendor/bundle/ruby/4.0.0/gems/racc-1.8.1/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20260310-3028-iugncf sitelibdir\=./.gem.20260310-3028-iugncf clean
