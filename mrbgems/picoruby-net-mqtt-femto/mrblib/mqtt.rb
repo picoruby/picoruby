@@ -30,13 +30,12 @@ module Net
         @port = port
         @client_id = options[:client_id] || "picoruby-#{Time.now.to_i}"
         @keep_alive = options[:keep_alive] || 60
-        @clean_session = options[:clean_session] || true
-        @username = options[:username]
-        @password = options[:password]
-        @ssl = options[:ssl] || false
-        @ca_file = options[:ca_file]
-        @cert_file = options[:cert_file]
-        @key_file = options[:key_file]
+        # @username = options[:username] # not work
+        # @password = options[:password] # not work
+        # @ssl = options[:ssl] || false # not work
+        # @ca_file = options[:ca_file] # not work
+        # @cert_file = options[:cert_file] # not work
+        # @key_file = options[:key_file] # not work
         @connected = false
       end
 
