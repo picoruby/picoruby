@@ -45,10 +45,9 @@
     }
     .tab-btn:hover { background: #ddd; }
     .tab-btn.active { background: #2196F3; color: white; border-color: #2196F3; }
-    /* Gherkin grid: 10 keys per row, 3 rows */
+    /* Key grid: columns set dynamically via JS */
     .grid {
       display: grid;
-      grid-template-columns: repeat(10, 1fr);
       gap: 4px;
       margin: 12px 0;
     }
@@ -71,6 +70,13 @@
     .key-cell:hover { background: #c8e6fa; border-color: #2196F3; }
     .key-cell.selected { background: #2196F3; color: white; border-color: #1565C0; }
     .key-cell.transparent { color: #aaa; }
+    /* VOID: position has no key switch */
+    .key-cell.void {
+      background: transparent;
+      border-color: transparent;
+      cursor: default;
+      pointer-events: none;
+    }
     /* Modal */
     .modal {
       display: none;
@@ -140,10 +146,10 @@
       <div class="panel" id="layer-tabs"></div>
     </div>
 
-    <!-- Gherkin key grid -->
+    <!-- Key grid (layout determined dynamically from device) -->
     <div id="grid-panel" class="hidden">
       <h2>Layer: <span id="current-layer-name"></span></h2>
-      <div id="gherkin-grid" class="grid"></div>
+      <div id="key-grid" class="grid"></div>
       <div class="apply-row">
         <button id="apply-btn" class="success">Apply to Device</button>
         <button id="reload-btn">Reload from Device</button>
@@ -167,14 +173,6 @@
     require 'js'
     require 'drb'
 
-    doc = JS.document
-
-    $service = nil
-    $layers = nil
-    $current_layer = nil
-    $editing_keymap = nil
-    $editing_cell = nil
-
     # USB HID keycode names (from keycode.txt)
     KEYCODE_NAMES = {
       0x04 => "A",     0x05 => "B",     0x06 => "C",     0x07 => "D",
@@ -190,8 +188,8 @@
       0x28 => "ENTER", 0x29 => "ESC",   0x2A => "BSPC",  0x2B => "TAB",
       0x2C => "SPACE",
       0x2D => "-",     0x2E => "=",     0x2F => "[",     0x30 => "]",
-      0x31 => "\\",   0x33 => ";",     0x34 => "'",     0x35 => "`",
-      0x36 => ",",     0x37 => ".",     0x38 => "/",
+      0x31 => "\\",   0x33 => ";",     0x34 => "'",      0x35 => "`",
+      0x36 => ",",     0x37 => ".",     0x38 => "/",     0x39 => "CAPS",
       0x3A => "F1",    0x3B => "F2",    0x3C => "F3",    0x3D => "F4",
       0x3E => "F5",    0x3F => "F6",    0x40 => "F7",    0x41 => "F8",
       0x42 => "F9",    0x43 => "F10",   0x44 => "F11",   0x45 => "F12",
@@ -229,6 +227,8 @@
       elsif SM_BASE <= kc && kc < SM_BASE + 256
         base = kc - SM_BASE
         "S(#{KEYCODE_NAMES[base] || hex(base)})"
+      elsif MOD_NAMES.key?(kc)
+        MOD_NAMES[kc]
       elsif KEYCODE_NAMES.key?(kc)
         KEYCODE_NAMES[kc]
       else
@@ -238,6 +238,10 @@
 
     def hex(n)
       "0x" + n.to_s(16).upcase
+    end
+
+    def doc
+      @doc ||= JS.document
     end
 
     def log_message(msg, type = 'info')
@@ -264,22 +268,20 @@
     end
 
     def show_el(id)
-      doc.getElementById(id).className = doc.getElementById(id).className.gsub(' hidden', '').gsub('hidden', '')
+      doc.getElementById(id).classList.remove('hidden')
     end
 
     def hide_el(id)
-      el = doc.getElementById(id)
-      cls = el.className
-      el.className = cls.include?('hidden') ? cls : cls + ' hidden'
+      doc.getElementById(id).classList.add('hidden')
     end
 
     def render_layer_tabs
       tabs = doc.getElementById('layer-tabs')
       tabs.innerHTML = ''
-      $layers.each_key do |name|
+      @layers.each_key do |name|
         btn = doc.createElement('button')
         btn.textContent = name.to_s
-        btn.className = (name == $current_layer) ? 'tab-btn active' : 'tab-btn'
+        btn.className = (name == @current_layer) ? 'tab-btn active' : 'tab-btn'
         btn.addEventListener('click') do
           select_layer(name)
         end
@@ -289,33 +291,95 @@
     end
 
     def select_layer(name)
-      $current_layer = name
-      $editing_keymap = $layers[name].dup
+      @current_layer = name
+      @editing_keymap = @layers[name].dup
       doc.getElementById('current-layer-name').textContent = name.to_s
       render_layer_tabs
       render_grid
     end
 
-    def render_grid
-      grid = doc.getElementById('gherkin-grid')
-      grid.innerHTML = ''
-      $editing_keymap.each_with_index do |kc, i|
-        cell = doc.createElement('div')
-        label = kc_name(kc)
-        cell.textContent = label
-        cell.className = (kc == 0 || kc.nil?) ? 'key-cell transparent' : 'key-cell'
-        cell.addEventListener('click') do
-          open_picker(i)
+    # Build a mapping from [row_i][col_i] -> keymap_index.
+    # Vacancy positions (kc < 0) map to nil.
+    def build_layout_map(layout)
+      layout_map = []
+      keymap_index = 0
+      layout.each do |layout_row|
+        row_map = []
+        layout_row.each do |kc|
+          if kc < 0
+            row_map << nil
+          else
+            row_map << keymap_index
+            keymap_index += 1
+          end
         end
-        grid.appendChild(cell)
+        layout_map << row_map
       end
+      layout_map
+    end
+
+    # Returns the span in tenths-of-U for a layout cell.
+    # Normal keys are 1U = 10 tenths. Vacancies encode size as -kc tenths.
+    def cell_span(kc)
+      kc < 0 ? -kc : 10
+    end
+
+    def render_grid
+      grid = doc.getElementById('key-grid')
+      grid.innerHTML = ''
+
+      if @layout.nil? || @layout.empty?
+        show_el('grid-panel')
+        return
+      end
+
+      # Grid unit = 0.1U. Compute max total tenths per row.
+      max_tenths = 0
+      @layout.each do |layout_row|
+        tenths = 0
+        layout_row.each { |kc| tenths += cell_span(kc) }
+        max_tenths = tenths if max_tenths < tenths
+      end
+      grid.style.gridTemplateColumns = "repeat(#{max_tenths}, 1fr)"
+
+      layout_map = build_layout_map(@layout)
+
+      @layout.each_with_index do |layout_row, row_i|
+        row_tenths = 0
+        layout_row.each_with_index do |layout_kc, col_i|
+          span = cell_span(layout_kc)
+          cell = doc.createElement('div')
+          cell.style.gridColumn = "span #{span}"
+          if layout_kc < 0
+            cell.className = 'key-cell void'
+          else
+            ki = layout_map[row_i][col_i]
+            kc = @editing_keymap[ki]
+            cell.textContent = kc_name(kc)
+            cell.className = (kc == 0 || kc.nil?) ? 'key-cell transparent' : 'key-cell'
+            cell.addEventListener('click') do
+              open_picker(ki)
+            end
+          end
+          grid.appendChild(cell)
+          row_tenths += span
+        end
+        # Pad short rows to max_tenths with a void spacer
+        if row_tenths < max_tenths
+          spacer = doc.createElement('div')
+          spacer.style.gridColumn = "span #{max_tenths - row_tenths}"
+          spacer.className = 'key-cell void'
+          grid.appendChild(spacer)
+        end
+      end
+
       show_el('grid-panel')
     end
 
     def open_picker(cell_index)
-      $editing_cell = cell_index
+      @editing_cell = cell_index
       doc.getElementById('picker-pos').textContent =
-        "index #{cell_index} (#{kc_name($editing_keymap[cell_index])})"
+        "index #{cell_index} (#{kc_name(@editing_keymap[cell_index])})"
 
       body = doc.getElementById('picker-body')
       body.innerHTML = ''
@@ -360,11 +424,9 @@
       (0x3A..0x45).each { |c| fkeys[c] = KEYCODE_NAMES[c] }
       add_pick_section(body, "Function Keys", fkeys)
 
-      # Section: layer-tap (LT 0-4 with current key's tap code)
-      # Show LT(n, current_tap) for layers 0-4
-      current_tap = 0x2C  # SPACE as default tap
+      # Section: layer-tap (LT 0-4 with SPACE as tap code)
       lt_keys = {}
-      (0..4).each { |n| lt_keys[LT_BASE + (n << 8) + current_tap] = "LT(#{n},SPACE)" }
+      (0..4).each { |n| lt_keys[LT_BASE + (n << 8) + 0x2C] = "LT(#{n},SPACE)" }
       add_pick_section(body, "Layer-Tap LT(n,SPACE) - hold activates layer", lt_keys)
 
       # Section: momentary layer (MO)
@@ -402,10 +464,10 @@
     end
 
     def pick_keycode(kc)
-      if $editing_cell
-        $editing_keymap[$editing_cell] = kc
+      if @editing_cell
+        @editing_keymap[@editing_cell] = kc
         render_grid
-        $editing_cell = nil
+        @editing_cell = nil
       end
       doc.getElementById('picker-modal').style.display = 'none'
     end
@@ -417,21 +479,22 @@
       uri = "ws://#{ip}:9090"
       log_message("Connecting to #{uri}...")
       begin
-        $service = DRb::DRbObject.new_with_uri(uri)
+        @service = DRb::DRbObject.new_with_uri(uri)
         set_status(true)
         log_message("Connected to #{uri}", 'success')
       rescue => e
         log_message("Connection failed: #{e.message}", 'error')
         set_status(false)
-        $service = nil
+        @service = nil
       end
     end
 
     doc.getElementById('disconnect-btn').addEventListener('click') do
-      $service = nil
-      $layers = nil
-      $current_layer = nil
-      $editing_keymap = nil
+      @service = nil
+      @layout = nil
+      @layers = nil
+      @current_layer = nil
+      @editing_keymap = nil
       set_status(false)
       hide_el('layer-panel')
       hide_el('grid-panel')
@@ -440,12 +503,23 @@
 
     doc.getElementById('get-layers-btn').addEventListener('click') do
       begin
+        log_message('Fetching layout from device...')
+        @layout = @service.layout
+        max_cols = 0
+        @layout.each { |r| max_cols = r.size if max_cols < r.size }
+        log_message("Layout: #{@layout.size} rows x #{max_cols} cols max", 'success')
+        log_message("Layout row[0]: #{@layout[0].inspect}", 'info')
+
         log_message('Fetching layers from device...')
-        $layers = $service.layers
-        keys_str = $layers.keys.map { |k| k.to_s }.join(', ')
-        log_message("Got #{$layers.size} layer(s): #{keys_str}", 'success')
-        first = $layers.keys.first
-        select_layer(first)
+        names = @service.layer_names
+        log_message("Found #{names.size} layer(s): #{names.map { |k| k.to_s }.join(', ')}", 'success')
+        @layers = {}
+        names.each do |name|
+          log_message("Loading layer :#{name}...")
+          @layers[name] = @service.get_layer(name)
+        end
+        log_message("All layers loaded", 'success')
+        select_layer(names.first)
       rescue => e
         log_message("Error getting layers: #{e.message}", 'error')
       end
@@ -454,10 +528,10 @@
     doc.getElementById('apply-btn').addEventListener('click') do
       begin
         doc.getElementById('apply-status').textContent = 'Applying...'
-        $service.add_layer($current_layer, $editing_keymap)
-        $layers[$current_layer] = $editing_keymap.dup
+        @service.send(:add_layer, @current_layer, @editing_keymap)
+        @layers[@current_layer] = @editing_keymap.dup
         doc.getElementById('apply-status').textContent = 'Applied!'
-        log_message("Layer :#{$current_layer} updated on device", 'success')
+        log_message("Layer :#{@current_layer} updated on device", 'success')
       rescue => e
         doc.getElementById('apply-status').textContent = 'Error'
         log_message("Apply error: #{e.message}", 'error')
@@ -467,8 +541,12 @@
     doc.getElementById('reload-btn').addEventListener('click') do
       begin
         log_message('Reloading layers from device...')
-        $layers = $service.layers
-        select_layer($current_layer)
+        names = @service.layer_names
+        @layers = {}
+        names.each do |name|
+          @layers[name] = @service.get_layer(name)
+        end
+        select_layer(@current_layer)
         log_message('Reloaded', 'success')
       rescue => e
         log_message("Reload error: #{e.message}", 'error')
@@ -476,7 +554,7 @@
     end
 
     doc.getElementById('picker-cancel').addEventListener('click') do
-      $editing_cell = nil
+      @editing_cell = nil
       doc.getElementById('picker-modal').style.display = 'none'
     end
 
@@ -487,6 +565,6 @@
     log_message('4. Click any key cell to reassign it', 'info')
     log_message('5. Click "Apply to Device" to send changes', 'info')
   </script>
-  <script src="init.iife.js"></script>
+  <script src="../init.iife.js"></script>
 </body>
 </html>

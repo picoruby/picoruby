@@ -8,6 +8,13 @@ raise_interrupt(mrbc_vm *vm)
 }
 
 static void
+raise_sigtstp(mrbc_vm *vm)
+{
+  mrbc_class *cls = mrbc_get_class_by_name("SignalException");
+  mrbc_raise(vm, cls, "SIGTSTP");
+}
+
+static void
 c_raw_bang(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   io_raw_bang(false);
@@ -55,12 +62,16 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   char buf[maxlen + 1];
   mrbc_value outbuf;
   int len;
-  io_raw_bang(true); // TODO fix this
+  bool was_raw = io_raw_q();
+  io_raw_bang(true);
   int c;
   for (len = 0; len < maxlen; len++) {
     c = hal_getchar();
-    if (c == 3) {
+    if (!was_raw && c == 3) {
       raise_interrupt(vm);
+      return;
+    } else if (!was_raw && c == 26) {
+      raise_sigtstp(vm);
       return;
     } else if (c < 0) {
       break;

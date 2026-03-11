@@ -6,6 +6,7 @@ Machine.signal_self_manage
 
 reboot_required = false
 begin
+  STDIN.raw!
   updater = DFU::Updater.new(path: path)
   updater.receive(STDIN)
   if path
@@ -17,6 +18,8 @@ begin
   end
 rescue => e
   puts "DFU: error - #{e.message}"
+ensure
+  STDIN._restore_termios
 end
 if reboot_required
   Machine.reboot

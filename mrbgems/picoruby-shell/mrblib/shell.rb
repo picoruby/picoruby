@@ -406,6 +406,9 @@ class Shell
   def run_shell
     @editor.start do |editor, buffer, c|
       case c
+      when 3 # Ctrl-C
+        buffer.clear
+        puts "\n^C\e[0J"
       when 4 # Ctrl-D EOF
         if buffer.empty?
           puts "\n^D" # Cannot logout
@@ -447,6 +450,9 @@ class Shell
     sandbox.suspend
     @editor.start do |editor, buffer, c|
       case c
+      when 3 # Ctrl-C
+        buffer.clear
+        puts "\n^C\e[0J"
       when 4  # Ctrl-D EOF = logout
         break if buffer.empty?
       when 26 # Ctrl-Z
