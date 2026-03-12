@@ -208,7 +208,7 @@
     LT_BASE  = 0xE200
     MT_BASE  = 0xF200
     SM_BASE  = 0xFA00
-    X_OFFSET = 1000
+    X_OFFSET = 1000  # separates V range (-999...-1) from X range (...-1000)
 
     def kc_name(kc)
       return "---" if kc == 0 || kc.nil?
@@ -319,17 +319,17 @@
       layout_map
     end
 
-    # Returns the span in tenths-of-U for a layout cell.
-    # Normal keys: 1U = 10 tenths.
-    # V (vacancy): encoded as -kc tenths (range (-X_OFFSET+1)...-1).
-    # X (extension): encoded as (-kc - X_OFFSET) tenths (range ...-X_OFFSET).
+    # Returns the span in quarters-of-U for a layout cell.
+    # Normal keys: 1U = 4 quarters.
+    # V (vacancy): encoded as -kc quarters (range (-X_OFFSET+1)...-1).
+    # X (extension): encoded as (-kc - X_OFFSET) quarters (range ...-X_OFFSET).
     def cell_span(kc)
       if kc <= -X_OFFSET
         -kc - X_OFFSET
       elsif kc < 0
         -kc
       else
-        10
+        4
       end
     end
 
@@ -342,19 +342,19 @@
         return
       end
 
-      # Grid unit = 0.1U. Compute max total tenths per row.
-      max_tenths = 0
+      # Grid unit = 0.25U. Compute max total quarters per row.
+      max_quarters = 0
       @layout.each do |layout_row|
-        tenths = 0
-        layout_row.each { |kc| tenths += cell_span(kc) }
-        max_tenths = tenths if max_tenths < tenths
+        quarters = 0
+        layout_row.each { |kc| quarters += cell_span(kc) }
+        max_quarters = quarters if max_quarters < quarters
       end
-      grid.style.gridTemplateColumns = "repeat(#{max_tenths}, 1fr)"
+      grid.style.gridTemplateColumns = "repeat(#{max_quarters}, 1fr)"
 
       layout_map = build_layout_map(@layout)
 
       @layout.each_with_index do |layout_row, row_i|
-        row_tenths = 0
+        row_quarters = 0
         last_cell = nil
         last_cell_span = 0
         layout_row.each_with_index do |layout_kc, col_i|
@@ -365,14 +365,14 @@
               last_cell_span += span
               last_cell.style.gridColumn = "span #{last_cell_span}"
             end
-            row_tenths += span
+            row_quarters += span
           elsif layout_kc < 0
             # V: void spacer cell
             cell = doc.createElement('div')
             cell.style.gridColumn = "span #{span}"
             cell.className = 'key-cell void'
             grid.appendChild(cell)
-            row_tenths += span
+            row_quarters += span
             last_cell = nil
             last_cell_span = 0
           else
@@ -386,15 +386,15 @@
               open_picker(ki)
             end
             grid.appendChild(cell)
-            row_tenths += span
+            row_quarters += span
             last_cell = cell
             last_cell_span = span
           end
         end
-        # Pad short rows to max_tenths with a void spacer
-        if row_tenths < max_tenths
+        # Pad short rows to max_quarters with a void spacer
+        if row_quarters < max_quarters
           spacer = doc.createElement('div')
-          spacer.style.gridColumn = "span #{max_tenths - row_tenths}"
+          spacer.style.gridColumn = "span #{max_quarters - row_quarters}"
           spacer.className = 'key-cell void'
           grid.appendChild(spacer)
         end

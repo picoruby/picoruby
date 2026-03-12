@@ -49,14 +49,14 @@ module LayerKeycode
   def is_mc?: (Integer keycode) -> bool
   # Extract macro slot index from MC keycode
   def mc_index: (Integer keycode) -> Integer
-  # Create a vacancy keycode for visual layout alignment (negative = tenths of U)
+  # Create a vacancy keycode for visual layout alignment (negative = quarters of U)
   def V: (Integer | Float val) -> Integer
   # Check if keycode is a vacancy (range: -999...-1)
   def is_v?: (Integer keycode) -> bool
   # Extract vacancy width in U units from V keycode
   def v_width: (Integer keycode) -> Float
   # Create an extension keycode that stretches the previous key rightward
-  # Encoded as (val * -10).to_i - 1000: X(0.5) => -1005, X(1) => -1010
+  # Encoded as (val * -4).to_i - 1000: X(0.25) => -1001, X(0.5) => -1002, X(1) => -1004
   def X: (Integer | Float val) -> Integer
   # Check if keycode is an extension (range: ...-1000)
   def is_x?: (Integer keycode) -> bool

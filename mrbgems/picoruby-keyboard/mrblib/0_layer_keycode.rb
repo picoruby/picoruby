@@ -14,8 +14,8 @@ module LayerKeycode
   MT_BASE = 0xF200
   SM_BASE = 0xFA00
   MC_BASE = 0xFB00
-  # V (vacancy) is encoded as val * -10, range: -999...-1
-  # X (extension) uses X_OFFSET to distinguish from V: val * -10 - X_OFFSET, range: ...-X_OFFSET
+  # V (vacancy) is encoded as val * -4, range: -999...-1 (quarter-U units)
+  # X (extension) uses X_OFFSET to distinguish from V: val * -4 - X_OFFSET, range: ...-X_OFFSET
   X_OFFSET = 1000
 
   # Create a momentary layer switch keycode
@@ -179,11 +179,11 @@ module LayerKeycode
   end
 
   # Create a vacancy (blank space) keycode for visual layout alignment.
-  # val is the size in U units (e.g. 1.0, 0.5, 2.0).
-  # Encoded as a negative integer in tenths of U: V(1) => -10, V(0.5) => -5.
+  # val is the size in U units (e.g. 1.0, 0.5, 1.75). Use 0.25 multiples.
+  # Encoded as a negative integer in quarters of U: V(1) => -4, V(0.5) => -2.
   # val <= 0 is reserved as a safety guard and returns a non-void integer.
   def V(val)
-    val > 0 ? (val * -10).to_i : (val * 10).to_i
+    val > 0 ? (val * -4).to_i : (val * 4).to_i
   end
 
   # Check if keycode is a vacancy (blank space in layout)
@@ -193,12 +193,12 @@ module LayerKeycode
   end
 
   # Create an extension keycode that stretches the previous key rightward.
-  # val is the extension size in U units (e.g. 0.5 makes previous key 1.5U).
-  # Encoded as: (val * -10).to_i - X_OFFSET
-  # X(0.5) => -1005, X(1) => -1010
+  # val is the extension size in U units (e.g. 0.5 makes previous key 1.5U). Use 0.25 multiples.
+  # Encoded as: (val * -4).to_i - X_OFFSET
+  # X(0.25) => -1001, X(0.5) => -1002, X(1) => -1004
   # val <= 0 is reserved as a safety guard and returns a non-void integer.
   def X(val)
-    val > 0 ? (val * -10).to_i - X_OFFSET : (val * 10).to_i
+    val > 0 ? (val * -4).to_i - X_OFFSET : (val * 4).to_i
   end
 
   # Check if keycode is an extension (stretches previous key rightward)
@@ -209,11 +209,11 @@ module LayerKeycode
 
   # Extract extension width in U units from X keycode
   def x_width(keycode)
-    (keycode + X_OFFSET).abs / 10.0
+    (keycode + X_OFFSET).abs / 4.0
   end
 
   # Extract vacancy width in U units from V keycode
   def v_width(keycode)
-    keycode.abs / 10.0
+    keycode.abs / 4.0
   end
 end
