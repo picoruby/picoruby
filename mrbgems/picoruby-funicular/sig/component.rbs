@@ -1,7 +1,7 @@
 module Funicular
   class Component
     class StateAccessor
-      def self.new: (Hash[Symbol, untyped] state_hash) -> StateAccessor
+      def initialize: (Hash[Symbol, untyped] state_hash) -> void
       def []: (Symbol key) -> untyped
       def method_missing: (Symbol method, *untyped args) -> untyped
       def respond_to_missing?: (Symbol method, ?bool include_private) -> bool
@@ -15,8 +15,15 @@ module Funicular
     attr_accessor dom_element: JS::Object
     attr_accessor mounted: bool
     attr_reader refs: Hash[Symbol, JS::Object]
+    @event_listeners: Array[Integer]
+    @child_components: Array[Component]
+    @suspense_data: Hash[Symbol, untyped]
+    @suspense_states: Hash[Symbol, Symbol]
+    @suspense_errors: Hash[Symbol, untyped]
+    @suspense_pending_timers: Array[Integer]
+    self.@suspense_definitions: Hash[Symbol, suspense_definition]
 
-    def self.new: (?Hash[Symbol, untyped] props) -> Component
+    def initialize: (?Hash[Symbol, untyped] props) -> void
 
     # Styles DSL class methods
     def self.styles: () { (StyleBuilder) -> void } -> void
@@ -82,7 +89,7 @@ module Funicular
     private def handle_link_response: (HTTP::Response response, String path, Symbol method) -> void
     private def normalize_state_value: (untyped value) -> untyped
     private def re_render: () -> void
-    private def normalize_vnode: (untyped value) -> (VDOM::VNode | VDOM::Text | nil)
+    private def normalize_vnode: (untyped value) -> (VDOM::Element | VDOM::Text | VDOM::Component | nil)
     private def add_data_component_attribute: (VDOM::VNode vnode) -> void
     private def collect_refs: (JS::Object dom_element, VDOM::VNode | VDOM::Text | nil vnode, ?Hash[Symbol, JS::Object] refs_map) -> Hash[Symbol, JS::Object]
     private def cleanup_events: () -> void

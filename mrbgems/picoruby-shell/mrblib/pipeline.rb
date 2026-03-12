@@ -70,8 +70,8 @@ class Shell
     end
 
     def self.parse(command_line)
-      commands = []
-      current = []
+      commands = [] #: Array[Array[String]]
+      current = [] #: Array[String]
 
       # First, split by pipe character
       segments = command_line.split("|")

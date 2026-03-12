@@ -9,13 +9,13 @@ module Funicular
     def |(other)
       case other
       when StyleValue
-        # @type var other: StyleValue
         StyleValue.new("#{@value} #{other.value}".strip)
       when String
         StyleValue.new("#{@value} #{other}".strip)
       when nil
         self
       else
+        other = other #: untyped
         StyleValue.new("#{@value} #{other.to_s}".strip)
       end
     end

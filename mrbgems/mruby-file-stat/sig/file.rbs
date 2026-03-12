@@ -1,0 +1,5 @@
+class File
+  class Stat
+    def mode_str: () -> String
+  end
+end

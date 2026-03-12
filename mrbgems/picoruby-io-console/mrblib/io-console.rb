@@ -83,6 +83,6 @@ class IO
       break i if 3 < res.length
       sleep_ms 1
     end
-    ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb"
+    ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb" #: String
   end
 end

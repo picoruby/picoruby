@@ -1,0 +1,15 @@
+MRUBY_VERSION: String
+MRUBYC_VERSION: String
+
+class Object < BasicObject
+  def self?.sleep_ms: (Integer) -> Integer
+
+  def self?.sleep: (Integer | Float) -> Integer
+
+  def exit: (?Integer) -> void
+
+  def loop: () { () -> void } -> void
+
+  # mrbc
+  def relinquish: -> bool
+end

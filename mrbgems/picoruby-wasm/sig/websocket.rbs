@@ -4,7 +4,7 @@ class WebSocket
   CLOSING: Integer
   CLOSED: Integer
 
-  def self.new: (String url) -> WebSocket
+  def initialize: (String url) -> void
   def send: (String data) -> nil
   def send_binary: (String bytes) -> nil
   def close: () -> nil

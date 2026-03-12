@@ -20,6 +20,7 @@ class File
 
   class << self
     def expand_path(path, default_path = '.')
+      # @type var path: String
       if path.start_with?("/")
         VFS.sanitize path
       else
@@ -28,14 +29,19 @@ class File
     end
 
     def chmod(mode, *paths)
+      # @type var mode: Integer
       count = 0
       paths.each do |path|
+        # @type var path: String
         count += 1 if VFS.chmod(mode, path) == 0
       end
       count
     end
 
-    def open(path, mode = "r")
+    # steep bug: `class << self` causes `instance` type to resolve to `singleton(File)` instead of `File`
+    def open(path, mode = "r") # steep:ignore MethodArityMismatch, MethodBodyTypeMismatch
+      # @type var path: String
+      # @type var mode: String
       if block_given?
         file = self.new(path, mode)
         result = yield(file)
@@ -47,47 +53,60 @@ class File
     end
 
     def exist?(name)
+      # @type var name: String
       VFS.exist?(name)
     end
 
     def directory?(name)
+      # @type var name: String
       VFS.directory?(name)
     end
 
     def file?(name)
+      # @type var name: String
       VFS.exist?(name) && !VFS.directory?(name)
     end
 
     def unlink(*filenames)
       count = 0
       filenames.each do |name|
+        # @type var name: String
         count += VFS.unlink(name)
       end
       return count
     end
 
     def rename(from, to)
+      # @type var from: String
+      # @type var to: String
       VFS.rename(from, to)
     end
 
     def utime(atime, mtime, *filename)
+      # @type var atime: Time
+      # @type var mtime: Time
+      # @type var filename: Array[String]
       VFS::File.utime(atime, mtime, *filename)
     end
 
     def contiguous?(path)
+      # @type var path: String
       VFS.contiguous?(path)
     end
 
     # Alternative to File.read
     def load_file(path, length = nil, offset = nil)
-      File.open(path) do |f|
+      # @type var path: String
+      File.open(path) do |f| # steep:ignore BlockBodyTypeMismatch
         f.seek(offset) if offset
         f.read(length)
       end
     end
   end
 
-  def initialize(path, mode = "r")
+  def initialize(path, mode = "r") # steep:ignore MethodArityMismatch
+    # @type var path: String
+    # @type var mode: String
     @path = path
     @file = VFS::File.open(path, mode)
   end
@@ -119,26 +138,33 @@ class File
     @file.seek(0)
   end
 
-  def each_line(&block)
+  def each_line(&block) # steep:ignore MethodArityMismatch
+    # @type var block: ^(String line) -> void
     while line = gets do
       block.call line
     end
+    self
   end
 
-  def gets(*args, chomp: false)
+  def gets(*args, chomp: false) # steep:ignore MethodArityMismatch
+    # @type var rs: String
+    # @type var limit: Integer | nil
     case args.size
     when 0
       rs = "\n"
       limit = nil
     when 1
-      if args[0].is_a?(Integer)
+      # @type var arg0: String | Integer
+      arg0 = args[0]
+      if arg0.is_a?(Integer)
         rs = "\n"
-        limit = args[0]
+        limit = arg0
       else
-        rs = args[0]
+        rs = arg0
         limit = nil
       end
     when 2
+      # @type var args: [_ToS, _ToI]
       rs = args[0].to_s
       limit = args[1].to_i
     else
@@ -185,6 +211,8 @@ class File
   end
 
   def read(length = nil, outbuf = "")
+    # @type var length: Integer | nil
+    # @type var outbuf: String
     if length && length < 0
       raise ArgumentError.new("negative length #{length} given")
     end
@@ -225,9 +253,9 @@ class File
   end
 
   def putc(ch)
+    # @type var ch: String | Integer
     case ch.class
     when Integer
-      # @type var ch: Integer
       @file.write ch.chr
     when String
       @file.write ch[0].to_s

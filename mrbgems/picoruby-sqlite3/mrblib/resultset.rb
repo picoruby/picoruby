@@ -33,7 +33,7 @@ class SQLite3
     end
 
     def to_a
-      rows = []
+      rows = [] #: Array[untyped]
       while row = self.next
         rows << row
       end
@@ -50,7 +50,7 @@ class SQLite3
       row = @stmt.step
       return nil if @stmt.done? || row.nil?
       if @db.results_as_hash
-        row_hash = {}
+        row_hash = {} #: Hash[String, untyped]
         @stmt.columns&.each_with_index do |column, i|
           row_hash[column] = row[i]
         end

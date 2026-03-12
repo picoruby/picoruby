@@ -7,7 +7,7 @@ class ADC
 
   attr_reader input: Integer
 
-  def self.new: (pin_t pin, ?additional_params_t additional_params) -> instance
+  def initialize: (pin_t pin, ?additional_params_t additional_params) -> void
   def read: () -> Float
   def read_voltage: () -> Float
   def read_raw: () -> Integer

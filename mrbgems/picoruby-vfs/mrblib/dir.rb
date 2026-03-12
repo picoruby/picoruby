@@ -1,10 +1,12 @@
 class Dir
   class << self
-    def open(path, encoding: nil)
+    # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+    def open(path, encoding: nil) # steep:ignore MethodBodyTypeMismatch
       if block_given?
         begin
           dir = self.new(path)
-          res = yield dir
+          # steep bug: `class << self` causes `instance` type to resolve to `singleton(Dir)` instead of `Dir`
+          res = yield dir # steep:ignore ArgumentTypeMismatch
         rescue => e
           puts e.message
         ensure
@@ -16,11 +18,11 @@ class Dir
       end
     end
 
-    def glob(pattern, flags = 0, base: "")
+    def glob(pattern, flags = 0, base: "") # steep:ignore MethodArityMismatch
       if block_given?
         nil
       else
-        ary = []
+        ary = [] #: Array[String]
         pattern = [pattern].flatten
         self.open(ENV['PWD'].to_s) do |dir|
           pattern.each do |pat|
@@ -35,10 +37,12 @@ class Dir
     end
 
     def exist?(path)
+      # @type var path: String
       VFS.directory?(path)
     end
 
     def empty?(path)
+      # @type var path: String
       dir = self.open(path)
       res = dir.read
       dir.close
@@ -47,6 +51,7 @@ class Dir
     alias zero? empty?
 
     def chdir(path = "")
+      # @type var path: String
       # block_given? ? object : 0
       _pwd = pwd
       if block_given?
@@ -65,10 +70,13 @@ class Dir
     alias getwd pwd
 
     def mkdir(path, mode = 0777)
+      # @type var path: String
+      # @type var mode: Integer
       VFS.mkdir(path, mode)
     end
 
     def unlink(path)
+      # @type var path: String
       VFS.unlink(path)
     end
     alias delete unlink
@@ -76,6 +84,7 @@ class Dir
   end
 
   def initialize(path, encoding: nil)
+    # @type var path: String
     @dir = VFS::Dir.open(path)
   end
 

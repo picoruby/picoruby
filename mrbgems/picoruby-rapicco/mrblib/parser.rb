@@ -130,19 +130,19 @@ class Rapicco
 
     # ---------------- class helper methods ------------------------
     def self.parse_attrs(str)
-      h = {}
+      h = {} #: Hash[Symbol, String]
       str.tr(',', ' ').split(' ').each do |pair|
         eq = pair.index('=')
         next unless eq
-        key = pair[0, eq]&.to_sym
-        val = pair[eq + 1, pair.length - eq - 1]
+        key = pair[0, eq]&.to_sym or raise
+        val = pair[eq + 1, pair.length - eq - 1] or raise
         h[key] = val
       end
       h
     end
 
     def self.parse_inline(src, base_color, bold_color)
-      segs = []
+      segs = [] #: Array[Hash[Symbol, untyped]]
       buf  = ""
       i    = 0
 

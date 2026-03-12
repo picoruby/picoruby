@@ -10,7 +10,7 @@ class RMT
   # private
 
   def params_to_array(*params)
-    ary = []
+    ary = [] #: Array[Integer]
     params.each do |param|
       case param
       when Array

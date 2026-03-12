@@ -4,7 +4,7 @@ class PWM
   @frequency: Float
   @duty: Float
 
-  def self.new: (Integer pin, ?frequency: (Float|Integer), ?duty:  (Float|Integer)) -> instance
+  def initialize: (Integer pin, ?frequency: (Float|Integer), ?duty:  (Float|Integer)) -> void
   def frequency: (Float|Integer) -> Float
   def duty: (Float|Integer) -> Float
   def period_us: (Integer) -> Float

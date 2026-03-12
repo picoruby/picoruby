@@ -6,7 +6,7 @@ class Shell
 
     attr_reader name: String
 
-    def self.new: (*String params) -> instance
+    def initialize: (*String params) -> void
     def exec: () -> bool
     def resume: () -> void
     def state: () -> Symbol

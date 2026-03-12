@@ -60,7 +60,7 @@ module Funicular
 
         begin
           errors = error_registry.map do |entry|
-            pairs = []
+            pairs = [] #: Array[String]
             entry.each do |key, value|
               if value.is_a?(Array)
                 escaped_arr = value.map { |v| %Q("#{v.to_s.gsub('"', '\\"')}") }.join(',')
@@ -142,7 +142,7 @@ module Funicular
         return "{}" unless component
 
         state = component.instance_variable_get(:@state) || {}
-        pairs = []
+        pairs = [] #: Array[String]
 
         state.each do |key, value|
           begin
@@ -161,7 +161,7 @@ module Funicular
         component = get_component(id)
         return "{}" unless component
 
-        pairs = []
+        pairs = [] #: Array[String]
         component.instance_variables.each do |var|
           next if var == :@state # State is handled separately
           next if var.to_s.start_with?('@__debug') # Skip debug-internal variables
@@ -201,7 +201,7 @@ module Funicular
         vdom = component.instance_variable_get(:@vdom)
         return [] unless vdom
 
-        direct_children = []
+        direct_children = [] #: Array[Funicular::Component]
         collect_direct_children(vdom, direct_children)
         direct_children.map { |child| child.instance_variable_get(:@__debug_id__) }.compact
       end
