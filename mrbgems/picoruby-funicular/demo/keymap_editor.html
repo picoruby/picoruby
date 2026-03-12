@@ -137,7 +137,6 @@
       <span class="uri-suffix">:9090</span>
       <button id="connect-btn">Connect</button>
       <button id="disconnect-btn" disabled class="danger">Disconnect</button>
-      <button id="get-layers-btn" disabled>Get Layers</button>
     </div>
 
     <!-- Layer selector -->
@@ -265,7 +264,6 @@
       end
       doc.getElementById('connect-btn').disabled    = connected
       doc.getElementById('disconnect-btn').disabled = !connected
-      doc.getElementById('get-layers-btn').disabled = !connected
     end
 
     def show_el(id)
@@ -499,6 +497,18 @@
       doc.getElementById('picker-modal').style.display = 'none'
     end
 
+    def load_layers(select_name = nil)
+      names = @service.layer_names
+      log_message("Found #{names.size} layer(s): #{names.map { |k| k.to_s }.join(', ')}", 'success')
+      @layers = {}
+      names.each do |name|
+        log_message("Loading layer :#{name}...")
+        @layers[name] = @service.get_layer(name)
+      end
+      log_message('All layers loaded', 'success')
+      select_layer(select_name || names.first)
+    end
+
     # --- Event handlers ---
 
     doc.getElementById('connect-btn').addEventListener('click') do
@@ -509,6 +519,12 @@
         @service = DRb::DRbObject.new_with_uri(uri)
         set_status(true)
         log_message("Connected to #{uri}", 'success')
+        log_message('Fetching layout from device...')
+        @layout = @service.layout
+        max_cols = 0
+        @layout.each { |r| max_cols = r.size if max_cols < r.size }
+        log_message("Layout: #{@layout.size} rows x #{max_cols} cols max", 'success')
+        load_layers
       rescue => e
         log_message("Connection failed: #{e.message}", 'error')
         set_status(false)
@@ -528,30 +544,6 @@
       log_message('Disconnected')
     end
 
-    doc.getElementById('get-layers-btn').addEventListener('click') do
-      begin
-        log_message('Fetching layout from device...')
-        @layout = @service.layout
-        max_cols = 0
-        @layout.each { |r| max_cols = r.size if max_cols < r.size }
-        log_message("Layout: #{@layout.size} rows x #{max_cols} cols max", 'success')
-        log_message("Layout row[0]: #{@layout[0].inspect}", 'info')
-
-        log_message('Fetching layers from device...')
-        names = @service.layer_names
-        log_message("Found #{names.size} layer(s): #{names.map { |k| k.to_s }.join(', ')}", 'success')
-        @layers = {}
-        names.each do |name|
-          log_message("Loading layer :#{name}...")
-          @layers[name] = @service.get_layer(name)
-        end
-        log_message("All layers loaded", 'success')
-        select_layer(names.first)
-      rescue => e
-        log_message("Error getting layers: #{e.message}", 'error')
-      end
-    end
-
     doc.getElementById('apply-btn').addEventListener('click') do
       begin
         doc.getElementById('apply-status').textContent = 'Applying...'
@@ -568,13 +560,7 @@
     doc.getElementById('reload-btn').addEventListener('click') do
       begin
         log_message('Reloading layers from device...')
-        names = @service.layer_names
-        @layers = {}
-        names.each do |name|
-          @layers[name] = @service.get_layer(name)
-        end
-        select_layer(@current_layer)
-        log_message('Reloaded', 'success')
+        load_layers(@current_layer)
       rescue => e
         log_message("Reload error: #{e.message}", 'error')
       end
@@ -588,9 +574,8 @@
     log_message('Keymap Editor - DRb over WebSocket', 'info')
     log_message('1. Start keyboard server: picoruby gherkin_drb.rb', 'info')
     log_message('2. Type the device IP address and click Connect', 'info')
-    log_message('3. Click "Get Layers" to load the current keymap', 'info')
-    log_message('4. Click any key cell to reassign it', 'info')
-    log_message('5. Click "Apply to Device" to send changes', 'info')
+    log_message('3. Click any key cell to reassign it', 'info')
+    log_message('4. Click "Apply to Device" to send changes', 'info')
   </script>
   <script src="../init.iife.js"></script>
 </body>
