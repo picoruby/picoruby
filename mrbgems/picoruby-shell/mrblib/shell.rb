@@ -3,6 +3,7 @@ require "io/console"
 require "picorubyvm"
 require "sandbox"
 require "crc"
+require "picomodem"
 require "machine"
 require 'yaml'
 begin
@@ -406,6 +407,12 @@ class Shell
   def run_shell
     @editor.start do |editor, buffer, c|
       case c
+      when 2 # Ctrl-B (STX) - enter machine communication mode
+        buffer.clear
+        puts "\n^B"
+        $stdout.write("\x06") # ACK - signal browser to start binary capture
+        PicoModem.session($stdin, $stdout)
+        editor.raw_takeover
       when 3 # Ctrl-C
         buffer.clear
         puts "\n^C\e[0J"

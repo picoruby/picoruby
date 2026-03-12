@@ -32,7 +32,7 @@
     .font-ctrl button { padding: 5px 7px; cursor: pointer; font-size: 8px; line-height: 1; }
     .font-ctrl input[type=number] { width: 38px; text-align: center; padding: 2px 0; -moz-appearance: textfield; }
     .font-ctrl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-    /* DFU section */
+    /* File editor section */
     #dfu-section { margin: 2px 0; padding: 2px 4px; border: 1px solid #555; }
     #dfu-section legend { font-weight: bold; padding: 0 2px; }
     #path-input { font-family: monospace; font-size: 14px; line-height: 1.6; color: #000; background-color: #fff; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; }
@@ -105,7 +105,7 @@
     </label>
     <label>Term font:
       <span class="font-ctrl">
-        <button id="term-font-minus">−</button>
+        <button id="term-font-minus">-</button>
         <input id="term-font-size" type="number" value="15" min="8" max="32">
         <button id="term-font-plus">+</button>
       </span>
@@ -116,14 +116,14 @@
   <div id="terminal-container"></div>
 
   <fieldset id="dfu-section">
-    <legend>File Editor (by dfucat and dfucli)</legend>
+    <legend>File Editor (RBTP)</legend>
     <div class="controls">
-      <button id="download-btn" disabled>▼ Download</button>
+      <button id="download-btn" disabled>Download</button>
       <input id="path-input" type="text" placeholder="/home/app.rb" style="width:220px">
-      <button id="upload-btn" disabled>▲ Upload</button>
+      <button id="upload-btn" disabled>Upload</button>
       <label>Editor font:
         <span class="font-ctrl">
-          <button id="editor-font-minus">−</button>
+          <button id="editor-font-minus">-</button>
           <input id="editor-font-size" type="number" value="15" min="8" max="24">
           <button id="editor-font-plus">+</button>
         </span>
@@ -146,30 +146,35 @@
     require 'webserial'
 
     # ---------------------------------------------------------------------------
-    # DFU header builder (19 bytes: magic(4) version(1) type(4) fw_size(4) crc32(4) sig_len(2))
+    # RBTP - R2P2 Binary Transfer Protocol
     # ---------------------------------------------------------------------------
-    HEADER_FORMAT = "a4Ca4NNn"
+    # Command types (Host -> Device)
+    RBTP_FILE_READ  = 0x01
+    RBTP_FILE_WRITE = 0x02
+    RBTP_CHUNK      = 0x04
+    RBTP_ABORT      = 0xFF
 
-    def build_dfu_header(source)
-      crc = CRC.crc32(source)
-      ["DFU\0", 1, "RUBY", source.bytesize, crc, 0].pack(HEADER_FORMAT)
-    end
+    # Response types (Device -> Host)
+    RBTP_FILE_DATA  = 0x81
+    RBTP_FILE_ACK   = 0x82
+    RBTP_CHUNK_ACK  = 0x84
+    RBTP_DONE_ACK   = 0x8F
+    RBTP_ERROR      = 0xFE
+
+    # Status codes
+    RBTP_OK    = 0x00
+    RBTP_READY = 0x01
+
+    RBTP_CHUNK_SIZE    = 512
+    RBTP_TIMEOUT_MS    = 5000
+    RBTP_TX_CHUNK_SIZE = 32
+    RBTP_TX_CHUNK_GAP_MS = 20
 
     # ---------------------------------------------------------------------------
     # App
     # ---------------------------------------------------------------------------
     class App
-      DFU_READY_TIMEOUT = 5000
-      DFU_RESPONSE_TIMEOUT = 5000
-      DFU_LOAD_TIMEOUT = 10000
-      DFU_CAPTURE_POLL_MS = 200
-      # Temporary test switch: intentionally send a truncated payload to verify
-      # MCU-side timeout behavior in DFU::Updater#read_exact.
-      DFU_DEBUG_LOG = true
-      # Throughput tuning for Pico USB-CDC stability
-      DFU_TX_HEADER_GAP_MS = 50
-      DFU_TX_CHUNK_SIZE = 32
-      DFU_TX_CHUNK_GAP_MS = 20
+      DEBUG_LOG = true
 
       attr_accessor :current_port
 
@@ -183,7 +188,7 @@
           el('connect-btn')[:disabled] = true
         end
         bind_events
-        append_log("[*] Ready. Connect a serial port to use the file updater.")
+        append_log("[*] Ready. Connect a serial port to use the file editor.")
       end
 
       def el(id)
@@ -272,34 +277,7 @@
       def send_text_to_port(str, port = nil)
         port ||= current_port
         return unless port
-        port.write_text(str)
-      end
-
-      # hex: string of hex pairs e.g. "44465500..." (no spaces)
-      # Sends in small chunks to avoid overflowing the device ring buffer (256 bytes).
-      def send_hex_to_port(hex, port = nil)
-        port ||= current_port
-        return unless port
-
-        bytes = [hex.to_s].pack("H*")
-        send_bytes_to_port(bytes, port)
-      end
-
-      def send_bytes_to_port(bytes, port = nil)
-        port ||= current_port
-        return unless port
-        return if bytes.nil? || bytes.bytesize == 0
-
-        off = 0
-        chunk_size = DFU_TX_CHUNK_SIZE
-        while off < bytes.bytesize
-          chunk = bytes.byteslice(off, chunk_size)
-          port.write(chunk)
-          off += chunk.bytesize
-          sleep_ms DFU_TX_CHUNK_GAP_MS if off < bytes.bytesize
-        end
-        # Return promise that resolves when write queue is flushed
-        port.drain
+        port.write(str)
       end
 
       def connect
@@ -350,7 +328,7 @@
       end
 
       def debug_log(msg)
-        return unless DFU_DEBUG_LOG
+        return unless DEBUG_LOG
         t = Time.now.to_f
         append_log("[DBG #{t}] #{msg}")
       end
@@ -450,119 +428,243 @@
         end
       end
 
-      # Strip ANSI escape sequences from a string without regex.
-      def strip_ansi(str)
-        result = ""
-        i = 0
-        len = str.bytesize
-        while i < len
-          b = str.getbyte(i)
-          if b == 0x1b
-            i += 1
-            if i < len && str.getbyte(i) == 0x5b # '['
-              i += 1
-              while i < len
-                b = str.getbyte(i)
-                i += 1
-                break if (0x41 <= b && b <= 0x5a) || (0x61 <= b && b <= 0x7a) || b == 0x40 || b == 0x60
-              end
-            elsif i < len
-              i += 1
-            end
+      # -------------------------------------------------------------------
+      # RBTP protocol helpers
+      # -------------------------------------------------------------------
+
+      # Access the underlying JS port object for binary capture API
+      def js_port
+        current_port.instance_variable_get(:@js_port)
+      end
+
+      # Send raw bytes in small chunks for USB-CDC stability
+      def rbtp_send_bytes(data)
+        port = current_port
+        return unless port
+        off = 0
+        while off < data.bytesize
+          remain = data.bytesize - off
+          size = RBTP_TX_CHUNK_SIZE
+          size = remain if remain < size
+          chunk = data.byteslice(off, size)
+          port.write(chunk)
+          off += size
+          sleep_ms RBTP_TX_CHUNK_GAP_MS if off < data.bytesize
+        end
+        port.drain.await
+      end
+
+      # Build an RBTP frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
+      def rbtp_build_frame(cmd, payload = "")
+        body = cmd.chr + payload.to_s
+        length = body.size
+        crc = CRC.crc16(body)
+        frame = "\x02".b
+        frame << ((length >> 8) & 0xFF).chr
+        frame << (length & 0xFF).chr
+        frame << body
+        frame << ((crc >> 8) & 0xFF).chr
+        frame << (crc & 0xFF).chr
+        frame
+      end
+
+      # Send one RBTP frame
+      def rbtp_send_frame(cmd, payload = "")
+        rbtp_send_bytes(rbtp_build_frame(cmd, payload))
+      end
+
+      # Read exactly n bytes from binary capture with timeout
+      def rbtp_read_exact(n, timeout_ms)
+        buf = "".b
+        waited = 0
+        while buf.size < n
+          chunk = JS::WebSerial.binary_capture_read(js_port, n - buf.size)
+          if chunk && 0 < chunk.size
+            buf << chunk
+            waited = 0
           else
-            result << b.chr
-            i += 1
+            if timeout_ms <= waited
+              debug_log("rbtp:read_exact timeout need=#{n} got=#{buf.size}")
+              return nil
+            end
+            sleep_ms 10
+            waited += 10
           end
         end
-        result
+        buf
       end
 
-      # Parse output from dfucat command: extract content between DFUCAT_BEGIN and DFUCAT_END.
-      # Returns { content: } on success, { error: } on DFUCAT_ERROR, or nil if markers not found.
-      def parse_dfucat_output(raw)
-        normalized = strip_ansi(raw).gsub("\r\n", "\n").gsub("\r", "\n")
-        error_marker = "DFUCAT_ERROR:"
-        error_idx = normalized.index(error_marker)
-        if error_idx
-          error_end = normalized.index("\n", error_idx) || normalized.length
-          return { error: normalized[(error_idx + error_marker.length)...error_end] }
-        end
-        begin_marker = "DFUCAT_BEGIN\n"
-        begin_idx = normalized.index(begin_marker)
-        return nil unless begin_idx
-        content_start = begin_idx + begin_marker.length
-        end_idx = normalized.index("DFUCAT_END", content_start)
-        return nil unless end_idx
-        { content: normalized[content_start...end_idx] }
-      end
-
-      def handle_dfucat_result(raw)
-        result = parse_dfucat_output(raw)
-        if result.nil?
-          append_log("[-] Download failed: no DFUCAT response")
-        elsif result[:error]
-          append_log("[-] #{result[:error]}")
-        else
-          el('editor')[:value] = result[:content]
-          append_log("[+] Downloaded #{result[:content].length} chars")
-        end
-      end
-
-      def wait_capture_until(port, timeout_ms, poll_ms, markers)
+      # Receive one RBTP frame. Returns [cmd, payload] or nil on timeout/error.
+      # Skips any non-STX bytes (residual terminal output) until a valid
+      # STX frame start is found.
+      def rbtp_recv_frame(timeout_ms = RBTP_TIMEOUT_MS)
+        # Scan for STX, skipping residual terminal output
         waited = 0
         while true
-          cap = port.capture_peek
-          found = markers.find { |m| cap.index(m) }
-          return [found, cap, waited] if found
-          if waited >= timeout_ms
-            append_log("[!] Capture wait timeout after #{waited}ms (expected one of: #{markers.join(', ')})")
-            return [nil, cap, waited]
+          b = JS::WebSerial.binary_capture_read(js_port, 1)
+          if b && 0 < b.size
+            if b.getbyte(0) == 0x02
+              break
+            end
+            # Skip non-STX byte
+            next
           end
-          sleep_ms poll_ms
-          waited += poll_ms
+          if timeout_ms <= waited
+            debug_log("rbtp:recv timeout waiting for STX")
+            return nil
+          end
+          sleep_ms 10
+          waited += 10
         end
+        # Read length (2 bytes big-endian)
+        len_bytes = rbtp_read_exact(2, timeout_ms)
+        return nil unless len_bytes
+        length = (len_bytes.getbyte(0) << 8) | len_bytes.getbyte(1)
+        # Read body + CRC16
+        rest = rbtp_read_exact(length + 2, timeout_ms)
+        return nil unless rest
+        body = rest[0, length]
+        expected_crc = (rest.getbyte(length) << 8) | rest.getbyte(length + 1)
+        actual_crc = CRC.crc16(body)
+        unless actual_crc == expected_crc
+          debug_log("rbtp:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
+          return nil
+        end
+        cmd = body.getbyte(0)
+        payload = 1 < length ? body[1, length - 1] : "".b
+        [cmd, payload]
       end
 
-      # Send "dfucat [path]", wait, then load content into editor.
+      # Enter RBTP mode: send STX, wait for ACK, then start binary capture.
+      # The device prints "\n^B" (displayed on terminal) then sends ACK (0x06).
+      # Text capture detects ACK while terminal.write renders the ^B normally.
+      def rbtp_enter_mode
+        jsp = js_port
+        JS::WebSerial.capture_start(jsp)
+        current_port.write("\x02")
+        current_port.drain.await
+        # Wait for ACK (0x06) in text capture
+        waited = 0
+        while waited < RBTP_TIMEOUT_MS
+          captured = JS::WebSerial.capture_peek(jsp).to_s
+          if captured.include?("\x06")
+            break
+          end
+          sleep_ms 1
+          waited += 1
+        end
+        JS::WebSerial.capture_stop(jsp)
+        # Now start binary capture for RBTP frames
+        JS::WebSerial.binary_capture_start(jsp)
+      end
+
+      # Exit RBTP mode: optionally send ABORT, stop binary capture
+      def rbtp_exit_mode(send_abort = false)
+        if send_abort
+          begin
+            rbtp_send_frame(RBTP_ABORT)
+            sleep_ms 100
+          rescue
+            # best effort
+          end
+        end
+        JS::WebSerial.binary_capture_stop(js_port) rescue nil
+      end
+
+      # -------------------------------------------------------------------
+      # File download via RBTP
+      # -------------------------------------------------------------------
       def do_download
         return unless connected?
-        port = current_port
         path = current_path
         return unless path
-        el('upload-btn')[:disabled] = true
-        el('download-btn')[:disabled] = true
-        append_log("[*] Downloading #{path} ...")
-        raw = ""
+        set_dfu_buttons_enabled(false)
+        append_log("[*] Download: #{path}")
+
+        success = false
         begin
-          port.capture_start
-          sleep_ms 10  # Ensure capture is fully started
-          send_text_to_port("dfucat #{path}\n", port)
-          marker, _cap, waited = wait_capture_until(port, DFU_LOAD_TIMEOUT, DFU_CAPTURE_POLL_MS, ['DFUCAT_END', 'DFUCAT_ERROR:'])
-          append_log("[.] Download wait: #{waited}ms marker=#{marker || 'timeout'}")
+          rbtp_enter_mode
+
+          rbtp_send_frame(RBTP_FILE_READ, path)
+          debug_log("rbtp:file_read sent path=#{path}")
+
+          data = "".b
+          total = nil
+          while true
+            frame = rbtp_recv_frame
+            unless frame
+              append_log("[-] Timeout waiting for response")
+              return
+            end
+
+            cmd, payload = frame
+            case cmd
+            when RBTP_FILE_DATA
+              if total.nil?
+                # First chunk: 4-byte big-endian total size + data
+                if payload.size < 4
+                  append_log("[-] Invalid FILE_DATA: missing size header")
+                  return
+                end
+                total = (payload.getbyte(0) << 24) | (payload.getbyte(1) << 16) |
+                        (payload.getbyte(2) << 8) | payload.getbyte(3)
+                chunk = payload[4, payload.size - 4]
+                append_log("[.] File size: #{total} bytes")
+              else
+                chunk = payload
+              end
+              data << chunk if chunk && 0 < chunk.size
+              debug_log("rbtp:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
+              rbtp_send_frame(RBTP_CHUNK_ACK, RBTP_OK.chr)
+            when RBTP_DONE_ACK
+              if 5 <= payload.size
+                remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
+                             (payload.getbyte(3) << 8) | payload.getbyte(4)
+                local_crc = CRC.crc32(data)
+                if local_crc == remote_crc
+                  el('editor')[:value] = data
+                  append_log("[+] Downloaded #{data.size} bytes (CRC32 verified)")
+                  success = true
+                else
+                  append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
+                end
+              else
+                el('editor')[:value] = data
+                append_log("[+] Downloaded #{data.size} bytes")
+                success = true
+              end
+              return
+            when RBTP_ERROR
+              append_log("[-] Device error: #{payload}")
+              return
+            else
+              append_log("[-] Unexpected cmd=0x#{cmd.to_s(16)}")
+              return
+            end
+          end
+        rescue => err
+          append_log("[-] Download error: #{error_text(err)}")
         ensure
-          raw = port.capture_stop
+          rbtp_exit_mode(!success)
+          update_dfu_buttons
         end
-        handle_dfucat_result(raw)
-        update_dfu_buttons
-      rescue => err
-        append_log("[-] Download error: #{error_text(err)}")
-        update_dfu_buttons
       end
 
-      # Send "dfucli [path]", wait, then send DFU packet containing editor source.
+      # -------------------------------------------------------------------
+      # File upload via RBTP
+      # -------------------------------------------------------------------
       def do_upload
-        if @dfu_uploading
+        if @rbtp_uploading
           append_log("[-] Upload already running")
           return
         end
-        @dfu_uploading = true
+        @rbtp_uploading = true
         set_dfu_buttons_enabled(false)
 
         unless connected?
           append_log("[-] Not connected")
           return
         end
-        port = current_port
 
         code = el('editor')[:value].to_s
         if code.strip.empty?
@@ -571,77 +673,106 @@
         end
 
         path = current_path
-        cmd = path ? "dfucli #{path}\n" : "dfucli\n"
-        append_log("[*] Running: #{cmd.chomp}")
-        header  = build_dfu_header(code)
-        payload = header + code
-        append_log("[*] Sending DFU packet: #{payload.bytesize} bytes (header=19 source=#{code.bytesize})")
-        debug_log("upload:start path=#{path} payload=#{payload.bytesize}")
+        unless path
+          append_log("[-] No path specified")
+          return
+        end
 
-        resp = ""
+        append_log("[*] Upload: #{path} (#{code.bytesize} bytes)")
+        success = false
         begin
-          port.capture_start
-          sleep_ms 10  # Ensure capture is fully started
-          debug_log("upload:capture_started")
-          send_text_to_port(cmd, port)
-          debug_log("upload:dfucli_cmd_sent")
+          rbtp_enter_mode
 
-          # Wait for dfucli to print "[recv]" (ready to receive)
-          marker, _cap, waited = wait_capture_until(port, DFU_READY_TIMEOUT, 100, ['[recv]', 'SIGINT', 'DFU: error'])
-          unless marker == '[recv]'
-            append_log("[-] dfucli did not become ready (#{marker || 'timeout'}) after #{waited}ms")
+          # FILE_WRITE payload: 4-byte big-endian size + path
+          size_bytes = "".b
+          size_bytes << ((code.bytesize >> 24) & 0xFF).chr
+          size_bytes << ((code.bytesize >> 16) & 0xFF).chr
+          size_bytes << ((code.bytesize >> 8) & 0xFF).chr
+          size_bytes << (code.bytesize & 0xFF).chr
+          rbtp_send_frame(RBTP_FILE_WRITE, size_bytes + path)
+          debug_log("rbtp:file_write sent path=#{path} size=#{code.bytesize}")
+
+          # Wait for FILE_ACK READY
+          frame = rbtp_recv_frame
+          unless frame
+            append_log("[-] Timeout waiting for READY")
             return
           end
-          append_log("[.] dfucli ready in #{waited}ms")
-          debug_log("upload:ready waited=#{waited}ms")
-
-          send_payload = payload
-
-          # Always split normal upload into header/body with a short gap.
-          # This mirrors the "test mode" behavior that showed better stability.
-          send_bytes_to_port(header, port).await
-          sleep_ms DFU_TX_HEADER_GAP_MS
-          send_bytes_to_port(code, port).await
-          debug_log("upload:payload_sent bytes=#{send_payload.bytesize}")
-          # Allow device-side parser/update task to catch up before response polling.
-          sleep_ms 100
-
-          # Wait for device response (including DFU errors)
-          marker, _cap, waited = wait_capture_until(
-            port,
-            DFU_RESPONSE_TIMEOUT,
-            300,
-            ['OK', 'ERROR', 'DFU: error', 'DFU: file uploaded to ', 'DFU: update complete.']
-          )
-          append_log("[.] Upload response wait: #{waited}ms marker=#{marker || 'timeout'}")
-          if !marker
-            append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms")
+          if frame[0] == RBTP_ERROR
+            append_log("[-] Device error: #{frame[1]}")
             return
           end
-        ensure
-          resp = port.capture_stop
-        end
+          unless frame[0] == RBTP_FILE_ACK
+            append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
+            return
+          end
+          append_log("[.] Device ready, sending data...")
 
-        if resp.index("OK") ||
-           resp.index("DFU: file uploaded to ") ||
-           resp.index("DFU: update complete.")
-          append_log("[+] Success!")
-        elsif resp.index("ERROR") || resp.index("DFU: error")
-          idx = resp.index("ERROR")
-          if idx
-            append_log("[-] #{resp[idx, 60].to_s.strip}")
+          # Send chunks
+          offset = 0
+          while offset < code.bytesize
+            remain = code.bytesize - offset
+            size = RBTP_CHUNK_SIZE
+            size = remain if remain < size
+            chunk = code[offset, size]
+            rbtp_send_frame(RBTP_CHUNK, chunk)
+
+            ack = rbtp_recv_frame
+            unless ack
+              append_log("[-] Timeout waiting for ACK at offset #{offset}")
+              return
+            end
+            if ack[0] == RBTP_ERROR
+              append_log("[-] Device error: #{ack[1]}")
+              return
+            end
+            unless ack[0] == RBTP_CHUNK_ACK
+              append_log("[-] Unexpected response: cmd=0x#{ack[0].to_s(16)}")
+              return
+            end
+            offset += size
+            debug_log("rbtp:chunk_ack progress=#{offset}/#{code.bytesize}")
+          end
+
+          # Wait for DONE_ACK (device writes file then responds)
+          frame = rbtp_recv_frame
+          unless frame
+            append_log("[-] Timeout waiting for completion")
+            return
+          end
+
+          case frame[0]
+          when RBTP_DONE_ACK
+            payload = frame[1]
+            if 5 <= payload.size
+              status = payload.getbyte(0)
+              remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
+                           (payload.getbyte(3) << 8) | payload.getbyte(4)
+              local_crc = CRC.crc32(code)
+              if status == RBTP_OK && local_crc == remote_crc
+                append_log("[+] Upload complete (CRC32 verified)")
+                success = true
+              elsif status == RBTP_OK
+                append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
+              else
+                append_log("[-] Upload failed: status=0x#{status.to_s(16)}")
+              end
+            else
+              append_log("[+] Upload complete")
+              success = true
+            end
+          when RBTP_ERROR
+            append_log("[-] Device error: #{frame[1]}")
           else
-            idx = resp.index("DFU: error")
-            append_log("[-] #{resp[idx, 100].to_s.strip}")
+            append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
           end
-        else
-          append_log("[?] No response after #{DFU_RESPONSE_TIMEOUT}ms (check terminal)")
+        rescue => err
+          append_log("[-] Upload error: #{error_text(err)}")
+        ensure
+          @rbtp_uploading = false
+          rbtp_exit_mode(!success)
+          update_dfu_buttons
         end
-      rescue => err
-        append_log("[-] Upload error: #{error_text(err)}")
-      ensure
-        @dfu_uploading = false
-        update_dfu_buttons
       end
     end
 

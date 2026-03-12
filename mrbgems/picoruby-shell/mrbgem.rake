@@ -12,6 +12,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-crc'
+  spec.add_dependency 'picoruby-picomodem'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-yaml'
   spec.add_dependency 'picoruby-data'

@@ -1,0 +1,45 @@
+module PicoModem
+  FILE_READ: Integer
+  FILE_WRITE: Integer
+  DFU_START: Integer
+  CHUNK: Integer
+  DONE: Integer
+  ABORT: Integer
+
+  FILE_DATA: Integer
+  FILE_ACK: Integer
+  DFU_ACK: Integer
+  CHUNK_ACK: Integer
+  DONE_ACK: Integer
+  ERROR: Integer
+
+  OK: Integer
+  READY: Integer
+  FAIL: Integer
+
+  CHUNK_SIZE: Integer
+  TIMEOUT_MS: Integer
+
+  def self.session: (IO io_in, IO io_out) -> void
+  def self.recv_frame: (IO io) -> [Integer, String]?
+  def self.send_frame: (IO io, Integer cmd, ?String payload) -> void
+  def self.read_exact: (IO io, Integer n) -> String?
+  def self.handle_file_read: (IO io_in, IO io_out, String payload) -> void
+  def self.handle_file_write: (IO io_in, IO io_out, String payload) -> void
+  def self.handle_dfu: (IO io_in, IO io_out, String payload) -> void
+end
+
+class PicoModemStringReader
+  @data: String
+  @pos: Integer
+
+  def initialize: (String data) -> void
+  def read: (Integer n) -> String?
+  def read_nonblock: (Integer n) -> String?
+end
+
+class PicoModemNullIO
+  def write: (*untyped _args) -> nil
+  def puts: (*untyped _args) -> nil
+  def print: (*untyped _args) -> nil
+end

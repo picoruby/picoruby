@@ -53,6 +53,10 @@ module Editor
     attr_reader :width, :height
     attr_accessor :debug_tty
 
+    def raw_takeover
+      @raw_takeover = true
+    end
+
     def put_buffer(chr)
       @buffer.put chr
     end
@@ -267,7 +271,13 @@ module Editor
             if c >= 32
               @buffer.put ch
             else
+              @raw_takeover = false
               yield self, @buffer, c
+              if @raw_takeover
+                line = ''
+                refresh
+                break
+              end
             end
           end
           refresh
