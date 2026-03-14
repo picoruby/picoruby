@@ -59,8 +59,7 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
 
   int err = getaddrinfo(bind_host, port_str, &hints, &res);
   if (err != 0 || !res) {
-    snprintf(sock->errmsg, sizeof(sock->errmsg),
-             "getaddrinfo(\"%s\"): %s", bind_host, gai_strerror(err));
+    snprintf(sock->errmsg, sizeof(sock->errmsg), "getaddrinfo(\"%s\"): %d", bind_host, err);
     return false;
   }
 
@@ -90,8 +89,7 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
   int err = getaddrinfo(host, port_str, &hints, &res);
   if (err != 0 || !res) {
-    snprintf(sock->errmsg, sizeof(sock->errmsg),
-             "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
+    snprintf(sock->errmsg, sizeof(sock->errmsg), "getaddrinfo(\"%s\"): %d", host, err);
     return false;
   }
 
@@ -146,8 +144,7 @@ UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
 
   int err = getaddrinfo(host, port_str, &hints, &res);
   if (err != 0 || !res) {
-    snprintf(sock->errmsg, sizeof(sock->errmsg),
-             "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
+    snprintf(sock->errmsg, sizeof(sock->errmsg), "getaddrinfo(\"%s\"): %d", host, err);
     return -1;
   }
 
