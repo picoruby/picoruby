@@ -14,7 +14,8 @@ class Sandbox
     f = File.open(path, "r")
     # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
     # See Shell#setup_system_files
-    if f.respond_to?(:physical_address) && (f.size < f.sector_size || path.start_with?("/bin/"))
+    # SD card files (/sd/) are not memory-mapped, so physical_address cannot be used
+    if f.respond_to?(:physical_address) && !path.start_with?("/sd/") && (f.size < f.sector_size || path.start_with?("/bin/"))
       physical_address = f.physical_address
       rb = ""
       is_rite = (Machine.read_memory(physical_address, 8) == "RITE0300")

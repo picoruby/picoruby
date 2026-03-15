@@ -71,9 +71,8 @@ void mrbc_init_class_FAT_File(mrbc_vm *vm, mrbc_class *class_FAT);
 void mrbc_init_class_FAT_Dir(mrbc_vm *vm, mrbc_class *class_FAT);
 
 #ifdef USE_FAT_SD_DISK
-int 
-FAT_set_spi_unit(const char* name, int sck, int cipo, int copi, int cs)
-;
+int FAT_set_spi_unit(const char* name, int sck, int cipo, int copi, int cs);
+int FAT_set_sdmmc_pins(int clk, int cmd, int d0);
 #endif
 
 #endif /* PICORB_VM_MRUBYC */
