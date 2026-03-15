@@ -14,7 +14,6 @@ class CYW43
       puts "CYW43.init failed. No CYW43 module is connected?"
       return false
     end
-    ENV['WIFI_MODULE'] = "CYW43"
     return true
   end
 
