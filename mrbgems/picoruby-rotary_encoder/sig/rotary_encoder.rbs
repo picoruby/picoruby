@@ -2,8 +2,6 @@
 class RotaryEncoder
   @gpio_a: GPIO
   @gpio_b: GPIO
-  @state_a: Integer
-  @state_b: Integer
   @status: Integer
   @proc_cw: Proc
   @proc_ccw: Proc
@@ -22,5 +20,5 @@ class RotaryEncoder
   def on_pin_a: (Integer event_type) -> void
   def on_pin_b: (Integer event_type) -> void
 
-  private def decode: () -> void
+  private def read_and_decode: () -> void
 end

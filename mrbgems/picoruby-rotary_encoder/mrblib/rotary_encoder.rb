@@ -6,8 +6,6 @@ class RotaryEncoder
   def initialize(pin_a, pin_b)
     @gpio_a   = GPIO.new(pin_a, GPIO::IN | GPIO::PULL_UP)
     @gpio_b   = GPIO.new(pin_b, GPIO::IN | GPIO::PULL_UP)
-    @state_a  = 0b00
-    @state_b  = 0b00
     @status   = 0
     @proc_cw  = Proc.new {}
     @proc_ccw = @proc_cw
@@ -27,14 +25,12 @@ class RotaryEncoder
 
   # Public for capture-based dispatch
   def on_pin_a(event_type)
-    @state_a = (event_type & GPIO::EDGE_FALL != 0) ? 0b10 : 0b00
-    decode
+    read_and_decode
   end
 
   # Public for capture-based dispatch
   def on_pin_b(event_type)
-    @state_b = (event_type & GPIO::EDGE_FALL != 0) ? 0b01 : 0b00
-    decode
+    read_and_decode
   end
 
   def clockwise(&block)
@@ -69,8 +65,9 @@ class RotaryEncoder
   #   (B) When current returns to 0b00 (both at rest):
   #       rotation==0b100000 && prev==0b01 => CW  => @proc_cw.call
   #       rotation==0b010000 && prev==0b10 => CCW => @proc_ccw.call
-  def decode
-    current  = @state_a | @state_b
+  # Read both pins directly (like the C version) for accurate state
+  def read_and_decode
+    current  = (@gpio_a.low? ? 0b10 : 0) | (@gpio_b.low? ? 0b01 : 0)
     prev     = @status & 0b000011
     rotation = @status & 0b110000
     if current != prev
