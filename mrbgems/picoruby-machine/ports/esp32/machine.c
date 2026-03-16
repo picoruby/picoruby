@@ -29,6 +29,7 @@ static mrb_state *mrb_;
 #endif
 
 static esp_timer_handle_t periodic_timer;
+volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
 
 static void
 alarm_handler(void *arg)

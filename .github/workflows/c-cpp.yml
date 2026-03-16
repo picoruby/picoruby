@@ -112,14 +112,6 @@ jobs:
       run: |
         rake runtime_gems
 
-    - name: Commit RuntimeGems
-      if: github.event_name == 'push'
-      run: |
-        git add runtime_gems/
-        if ! git diff --cached --quiet; then
-          git commit -m "Update RuntimeGems [skip ci]"
-        fi
-
     - name: Create Pull Request for RuntimeGems update
       if: github.event_name == 'push'
       uses: peter-evans/create-pull-request@v5
@@ -129,3 +121,4 @@ jobs:
         body: "Automated update of RuntimeGems."
         branch: "auto/update-runtimegems"
         delete-branch: true
+        add-paths: runtime_gems/

@@ -49,12 +49,18 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
     }
   }
 
-  struct hostent *he = gethostbyname(host);
-  if (!he) {
-    snprintf(sock->errmsg, sizeof(sock->errmsg),
-             "getaddrinfo(\"%s\"): %s", host, hstrerror(h_errno));
-    close(sock->fd);
-    sock->fd = -1;
+  struct addrinfo hints;
+  struct addrinfo *res = NULL;
+  char port_str[6];
+  snprintf(port_str, sizeof(port_str), "%d", port);
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_STREAM;
+
+  int err = getaddrinfo(host, port_str, &hints, &res);
+  if (err != 0 || !res) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg), "getaddrinfo(\"%s\"): %d", host, err);
     return false;
   }
 
@@ -62,7 +68,7 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
-  memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
+  memcpy(&addr.sin_addr, &((struct sockaddr_in *)res->ai_addr)->sin_addr, sizeof(struct in_addr));
 
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
     snprintf(sock->errmsg, sizeof(sock->errmsg),
