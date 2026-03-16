@@ -33,7 +33,6 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico") do |conf|
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
-  conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 

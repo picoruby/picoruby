@@ -109,6 +109,7 @@ namespace :r2p2 do
       %w[pico pico_w pico2 pico2_w].each do |board|
         config_file = "#{MRUBY_ROOT}/build_config/r2p2-#{vm}-#{board}.rb"
         next unless File.exist?(config_file)
+        ENV['PICORB_BOARD'] = board
 
         namespace board do
           %w[debug prod].each do |mode|
