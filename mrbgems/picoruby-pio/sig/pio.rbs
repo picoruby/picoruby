@@ -1,0 +1,202 @@
+# @sidebar io_peripheral
+module PIO
+  PIO0: 0
+  PIO1: 1
+
+  FIFO_JOIN_NONE: 0
+  FIFO_JOIN_TX: 1
+  FIFO_JOIN_RX: 2
+
+  # JMP conditions
+  JMP_ALWAYS: Integer
+  JMP_NOT_X: Integer
+  JMP_X_DEC: Integer
+  JMP_NOT_Y: Integer
+  JMP_Y_DEC: Integer
+  JMP_X_NE_Y: Integer
+  JMP_PIN: Integer
+  JMP_NOT_OSRE: Integer
+  JMP_CONDITIONS: Hash[Symbol, Integer]
+
+  # WAIT sources
+  WAIT_GPIO: Integer
+  WAIT_PIN: Integer
+  WAIT_IRQ: Integer
+  WAIT_SOURCES: Hash[Symbol, Integer]
+
+  # IN sources
+  IN_PINS: Integer
+  IN_X: Integer
+  IN_Y: Integer
+  IN_NULL: Integer
+  IN_ISR: Integer
+  IN_OSR: Integer
+  IN_SOURCES: Hash[Symbol, Integer]
+
+  # OUT destinations
+  OUT_PINS: Integer
+  OUT_X: Integer
+  OUT_Y: Integer
+  OUT_NULL: Integer
+  OUT_PINDIRS: Integer
+  OUT_PC: Integer
+  OUT_ISR: Integer
+  OUT_EXEC: Integer
+  OUT_DESTINATIONS: Hash[Symbol, Integer]
+
+  # MOV destinations
+  MOV_DEST_PINS: Integer
+  MOV_DEST_X: Integer
+  MOV_DEST_Y: Integer
+  MOV_DEST_EXEC: Integer
+  MOV_DEST_PC: Integer
+  MOV_DEST_ISR: Integer
+  MOV_DEST_OSR: Integer
+  MOV_DESTINATIONS: Hash[Symbol, Integer]
+
+  # MOV sources
+  MOV_SRC_PINS: Integer
+  MOV_SRC_X: Integer
+  MOV_SRC_Y: Integer
+  MOV_SRC_NULL: Integer
+  MOV_SRC_STATUS: Integer
+  MOV_SRC_ISR: Integer
+  MOV_SRC_OSR: Integer
+  MOV_SOURCES: Hash[Symbol, Integer]
+
+  # MOV operations
+  MOV_OP_NONE: Integer
+  MOV_OP_INVERT: Integer
+  MOV_OP_REVERSE: Integer
+  MOV_OPS: Hash[Symbol, Integer]
+
+  # SET destinations
+  SET_PINS: Integer
+  SET_X: Integer
+  SET_Y: Integer
+  SET_PINDIRS: Integer
+  SET_DESTINATIONS: Hash[Symbol, Integer]
+
+  type pio_num_t = 0 | 1
+  type fifo_join_t = 0 | 1 | 2
+  type jmp_condition_t = :always | :not_x | :x_dec | :not_y | :y_dec | :x_ne_y | :pin | :not_osre
+  type wait_source_t = :gpio | :pin | :irq
+  type in_source_t = :pins | :x | :y | :null | :isr | :osr
+  type out_dest_t = :pins | :x | :y | :null | :pindirs | :pc | :isr | :exec
+  type mov_dest_t = :pins | :x | :y | :exec | :pc | :isr | :osr
+  type mov_source_t = :pins | :x | :y | :null | :status | :isr | :osr
+  type mov_op_t = :none | :invert | :reverse
+  type set_dest_t = :pins | :x | :y | :pindirs
+
+  def self.asm: (?side_set: Integer, ?side_set_optional: bool) { (?) -> void } -> Program
+
+  class Program
+    attr_reader instructions: Array[Integer]
+    attr_reader side_set_count: Integer
+    attr_reader side_set_optional: bool
+    attr_reader wrap_target_idx: Integer
+    attr_reader wrap_idx: Integer
+    def length: () -> Integer
+  end
+
+  class Assembler
+    @side_set_count: Integer
+    @side_set_optional: bool
+    @instructions: Array[Integer]
+    @labels: Hash[Symbol, Integer]
+    @pending_labels: Array[Symbol]
+    @wrap_target_idx: Integer
+    @wrap_idx: Integer?
+    @_jmp_targets: Array[[Integer, Symbol | Integer]]
+
+    def initialize: (?side_set: Integer, ?side_set_optional: bool) -> void
+    def label: (Symbol name) -> void
+    def wrap_target: () -> void
+    def wrap: () -> void
+    def jmp: (Symbol | Integer addr, ?cond: jmp_condition_t, ?side: Integer?, ?delay: Integer) -> void
+    def wait: (Integer polarity, wait_source_t source, Integer index, ?side: Integer?, ?delay: Integer) -> void
+    def in_: (in_source_t source, Integer bit_count, ?side: Integer?, ?delay: Integer) -> void
+    def out: (out_dest_t dest, Integer bit_count, ?side: Integer?, ?delay: Integer) -> void
+    def push: (?iffull: bool, ?block: bool, ?side: Integer?, ?delay: Integer) -> void
+    def pull: (?ifempty: bool, ?block: bool, ?side: Integer?, ?delay: Integer) -> void
+    def mov: (mov_dest_t dest, mov_source_t source, ?op: mov_op_t, ?side: Integer?, ?delay: Integer) -> void
+    def irq: (Integer index, ?wait: bool, ?clear: bool, ?relative: bool, ?side: Integer?, ?delay: Integer) -> void
+    def set: (set_dest_t dest, Integer value, ?side: Integer?, ?delay: Integer) -> void
+    def nop: (?side: Integer?, ?delay: Integer) -> void
+    def assemble: () -> Program
+    private def delay_side_bits: () -> Integer
+    private def max_delay: () -> Integer
+    private def apply_side_delay: (Integer instr, Integer? side, Integer delay) -> Integer
+    private def mark_jmp_target: (Symbol | Integer addr, Integer instr_idx) -> void
+    private def resolve_labels: () -> void
+  end
+
+  class StateMachine
+    def self.new: (
+      pio: pio_num_t,
+      sm: Integer,
+      program: Program,
+      ?freq: Integer,
+      ?out_pins: Integer,
+      ?out_pin_count: Integer,
+      ?set_pins: Integer,
+      ?set_pin_count: Integer,
+      ?in_pins: Integer,
+      ?sideset_pins: Integer,
+      ?jmp_pin: Integer,
+      ?out_shift_right: bool,
+      ?out_shift_autopull: bool,
+      ?out_shift_threshold: Integer,
+      ?in_shift_right: bool,
+      ?in_shift_autopush: bool,
+      ?in_shift_threshold: Integer,
+      ?fifo_join: fifo_join_t
+    ) -> StateMachine
+    private def self.init: (
+      Integer pio_num,
+      Integer sm_num,
+      Array[Integer] instructions,
+      Integer instr_count,
+      Integer side_set_count,
+      Integer side_set_optional,
+      Integer wrap_target,
+      Integer wrap_idx,
+      Integer freq,
+      Integer out_pins,
+      Integer out_pin_count,
+      Integer set_pins,
+      Integer set_pin_count,
+      Integer in_pins,
+      Integer sideset_pins,
+      Integer jmp_pin,
+      Integer out_shift_right,
+      Integer out_shift_autopull,
+      Integer out_shift_threshold,
+      Integer in_shift_right,
+      Integer in_shift_autopush,
+      Integer in_shift_threshold,
+      Integer fifo_join
+    ) -> StateMachine
+    def start: () -> void
+    def stop: () -> void
+    def restart: () -> void
+    def exec: (Integer instruction) -> void
+    def put: (Integer value) -> void
+    def put_nonblocking: (Integer value) -> bool
+    def get: () -> Integer
+    def get_nonblocking: () -> Integer?
+    def tx_level: () -> Integer
+    def rx_level: () -> Integer
+    def tx_full: () -> Integer
+    def tx_empty: () -> Integer
+    def rx_full: () -> Integer
+    def rx_empty: () -> Integer
+    def tx_full?: () -> bool
+    def tx_empty?: () -> bool
+    def rx_full?: () -> bool
+    def rx_empty?: () -> bool
+    def clear_fifos: () -> void
+    def drain_tx: () -> void
+    def put_bytes: (String | Array[Integer] data) -> void
+  end
+end
