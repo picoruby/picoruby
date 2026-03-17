@@ -64,6 +64,8 @@ class Keyboard
   attr_reader layer_names: Array[Symbol]
   # Get visual layout
   attr_reader layout: Array[Array[Integer]]
+  # Get currently pressed keys
+  attr_reader keys_pressed: Hash[[Integer, Integer], bool]
 
   # Get a single layer's keymap by name
   def get_layer: (Symbol name) -> Array[Integer]?
@@ -88,6 +90,8 @@ class Keyboard
   def combo_reference_layer=: (Symbol? layer_name) -> (Integer | nil)
   # Add a combo definition
   def add_combo: (Array[Integer] keycodes, Integer action) -> void
+  # Register a per-tick callback
+  def on_tick: () { (Keyboard) -> void } -> void
   # Inject an external key event (for split keyboard support)
   def inject_event: (Integer row, Integer col, bool pressed) -> void
   # Start scanning loop
