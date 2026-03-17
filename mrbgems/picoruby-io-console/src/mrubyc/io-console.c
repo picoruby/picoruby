@@ -100,7 +100,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   } else if (len < 1) {
     SET_NIL_RETURN();
   } else {
-    outbuf = mrbc_string_new_cstr(vm, buf);
+    outbuf = mrbc_string_new(vm, buf, len);
     SET_RETURN(outbuf);
   }
 }
