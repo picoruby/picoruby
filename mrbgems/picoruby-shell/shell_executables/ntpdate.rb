@@ -23,28 +23,18 @@ while retry_count < MAX_DNS_RETRIES
   end
 end
 
-# @type const MAX_NTP_RETRIES: Integer
-MAX_NTP_RETRIES = 3
-
 if dns_ready
   puts "Getting time from #{ntp_host} ..."
-  ts = nil
-  retries = 0
-  while retries < MAX_NTP_RETRIES
-    retries += 1
-    begin
-      ts = Net::NTP.get(ntp_host, ntp_port, 5)
-      break if ts
-    rescue => e
-      puts "Attempt #{retries}/#{MAX_NTP_RETRIES} failed: #{e.message}"
-      sleep_ms 500
+  begin
+    ts = Net::NTP.get(ntp_host, ntp_port, 10)
+    if ts.is_a?(Integer)
+      Machine.set_hwclock(ts)
+      puts "Current time: #{Time.now}"
+    else
+      puts "NTP request failed"
     end
-  end
-  if ts.is_a?(Integer)
-    Machine.set_hwclock(ts)
-    puts "Current time: #{Time.now}"
-  else
-    puts "NTP request failed after #{MAX_NTP_RETRIES} attempts"
+  rescue => e
+    puts "NTP request failed: #{e.message}"
   end
 else
   puts "DNS initialization failed after #{MAX_DNS_RETRIES * 500}ms"

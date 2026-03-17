@@ -211,10 +211,9 @@ module Net
       request = Packet.new
       request_data = request.to_binary
 
-      socket.send(request_data, 0, host, port)
-
       start_time = Time.now.to_i
-      last_resend = start_time
+      # Set last_send to one second before start so the first iteration sends immediately
+      last_send = start_time - 1
       response_data = nil
 
       while true
@@ -225,10 +224,15 @@ module Net
           raise "NTP request timeout"
         end
 
-        # Resend request every 1 second in case of UDP packet loss
-        if current_time - last_resend >= 1
-          socket.send(request_data, 0, host, port)
-          last_resend = current_time
+        # Send (or resend) request every 1 second.
+        # Done inside the loop so DNS resolution failures are retried within the timeout window.
+        if current_time - last_send >= 1
+          begin
+            socket.send(request_data, 0, host, port)
+            last_send = current_time
+          rescue => e
+            # DNS resolution or send failed; retry on next iteration
+          end
         end
 
         # Try to receive data (non-blocking to allow timeout check)
