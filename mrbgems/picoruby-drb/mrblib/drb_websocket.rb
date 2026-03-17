@@ -22,14 +22,14 @@ module DRb
         end
 
         def read(n)
-          while @buffer.length < n
+          while @buffer.bytesize < n
             msg = @ws.receive(timeout: 10)
             raise DRbConnError, "connection timeout" unless msg
             @buffer += msg
           end
 
-          result = @buffer[0, n]
-          @buffer = @buffer[n..-1]
+          result = @buffer.byteslice(0, n)
+          @buffer = @buffer.byteslice(n..-1) || ""
           result
         end
 
@@ -100,7 +100,7 @@ module DRb
         private
 
         def handle_client(socket)
-          loop do
+          while true
             msg = DRbMessage.new(socket)
 
             begin
@@ -182,7 +182,7 @@ module DRb
         end
 
         def read(n)
-          while @buffer.length < n
+          while @buffer.bytesize < n
             timeout = 1000
             while @queue.empty?
               unless @ready
@@ -198,8 +198,8 @@ module DRb
             @buffer += @queue.shift
           end
 
-          result = @buffer[0, n]
-          @buffer = @buffer[n..-1]
+          result = @buffer.byteslice(0, n)
+          @buffer = @buffer.byteslice(n..-1) || ""
           result
         end
 

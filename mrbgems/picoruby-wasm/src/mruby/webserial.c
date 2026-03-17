@@ -172,6 +172,10 @@ EM_JS(void, serial_read_from_port, (int ref_id, int terminal_ref_id), {
             if (done) break;
             if (!value) continue;
 
+            if (globalThis.picorubySerialBinCap && globalThis.picorubySerialBinCap.isActive(port)) {
+              globalThis.picorubySerialBinCap.append(port, value);
+              continue;
+            }
             const chars = decoder.decode(value, { stream: true });
             if (globalThis.picorubySerialCapture) {
               globalThis.picorubySerialCapture.append(port, chars);
@@ -446,6 +450,89 @@ EM_JS(void, serial_capture_start, (int ref_id), {
   }
 });
 
+/* Binary capture: stores raw Uint8Array chunks for RBTP protocol */
+EM_JS(void, serial_binary_capture_start, (int ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port) return;
+
+    if (!globalThis.picorubySerialBinCap) {
+      const buffers = new WeakMap();
+      const active = new WeakSet();
+      const MAX_BYTES = 256 * 1024;
+      globalThis.picorubySerialBinCap = {
+        start(p) {
+          buffers.set(p, { chunks: [], totalBytes: 0 });
+          active.add(p);
+        },
+        isActive(p) {
+          return active.has(p);
+        },
+        append(p, value) {
+          const buf = buffers.get(p);
+          if (!buf) return;
+          const copy = new Uint8Array(value);
+          buf.chunks.push(copy);
+          buf.totalBytes += copy.length;
+          while (buf.totalBytes > MAX_BYTES && buf.chunks.length > 1) {
+            const removed = buf.chunks.shift();
+            buf.totalBytes -= removed.length;
+          }
+        },
+        read(p, outPtr, maxBytes) {
+          const buf = buffers.get(p);
+          if (!buf || buf.totalBytes === 0) return 0;
+          let written = 0;
+          while (written < maxBytes && buf.chunks.length > 0) {
+            const chunk = buf.chunks[0];
+            const needed = maxBytes - written;
+            if (chunk.length <= needed) {
+              HEAPU8.set(chunk, outPtr + written);
+              written += chunk.length;
+              buf.chunks.shift();
+            } else {
+              HEAPU8.set(chunk.subarray(0, needed), outPtr + written);
+              buf.chunks[0] = chunk.subarray(needed);
+              written += needed;
+            }
+          }
+          buf.totalBytes -= written;
+          return written;
+        },
+        stop(p) {
+          active.delete(p);
+          buffers.delete(p);
+        },
+      };
+    }
+
+    globalThis.picorubySerialBinCap.start(port);
+  } catch (e) {
+    console.error('serial_binary_capture_start failed:', e);
+  }
+});
+
+EM_JS(int, serial_binary_capture_read, (int ref_id, uint8_t *out_buf, int max_bytes), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port || !globalThis.picorubySerialBinCap) return 0;
+    return globalThis.picorubySerialBinCap.read(port, out_buf, max_bytes);
+  } catch (e) {
+    console.error('serial_binary_capture_read failed:', e);
+    return 0;
+  }
+});
+
+EM_JS(void, serial_binary_capture_stop, (int ref_id), {
+  try {
+    const port = globalThis.picorubyRefs[ref_id];
+    if (!port || !globalThis.picorubySerialBinCap) return;
+    globalThis.picorubySerialBinCap.stop(port);
+  } catch (e) {
+    console.error('serial_binary_capture_stop failed:', e);
+  }
+});
+
 EM_JS(int, serial_capture_get, (int ref_id, int stop), {
   try {
     const port = globalThis.picorubyRefs[ref_id];
@@ -635,7 +722,7 @@ mrb_web_serial_close_port(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &port_obj);
 
   if (!mrb_obj_is_kind_of(mrb, port_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)8");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(port_obj);
@@ -658,7 +745,7 @@ mrb_web_serial_close_port_promise(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &port_obj);
 
   if (!mrb_obj_is_kind_of(mrb, port_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)10");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(port_obj);
@@ -671,17 +758,18 @@ mrb_web_serial_close_port_promise(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * JS::WebSerial._write(js_port, str) -> nil
+ * JS::WebSerial#write(str) -> nil
  * Write binary String data to the serial port.
  */
 static mrb_value
 mrb_web_serial_write(mrb_state *mrb, mrb_value self)
 {
   mrb_value js_obj, data_str;
-  mrb_get_args(mrb, "oS", &js_obj, &data_str);
+  js_obj = mrb_iv_get(mrb, self, MRB_IVSYM(js_port));
+  mrb_get_args(mrb, "S", &data_str);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)11");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -697,17 +785,16 @@ mrb_web_serial_write(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * JS::WebSerial._drain(js_port) -> JS::Object (Promise<boolean>)
+ * JS::WebSerial#drain -> JS::Object (Promise<boolean>)
  * Resolve when pending serial write queue for this port is drained.
  */
 static mrb_value
 mrb_web_serial_drain(mrb_state *mrb, mrb_value self)
 {
-  mrb_value js_obj;
-  mrb_get_args(mrb, "o", &js_obj);
+  mrb_value js_obj = mrb_iv_get(mrb, self, MRB_IVSYM(js_port));
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)12");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -730,7 +817,7 @@ mrb_web_serial_start_reading(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "oi", &js_obj, &callback_id);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)13");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -743,18 +830,19 @@ mrb_web_serial_start_reading(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * JS::WebSerial._read_from_port(js_port, terminal) -> nil
+ * JS::WebSerial#start_terminal_read(terminal) -> nil
  * Start async read loop that decodes and writes text to terminal directly.
  */
 static mrb_value
-mrb_web_serial_read_from_port(mrb_state *mrb, mrb_value self)
+mrb_web_serial_start_terminal_read(mrb_state *mrb, mrb_value self)
 {
   mrb_value js_obj, terminal_obj;
-  mrb_get_args(mrb, "oo", &js_obj, &terminal_obj);
+  js_obj = mrb_iv_get(mrb, self, MRB_IVSYM(js_port));
+  mrb_get_args(mrb, "o", &terminal_obj);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object) ||
       !mrb_obj_is_kind_of(mrb, terminal_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)14");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -778,7 +866,7 @@ mrb_web_serial_set_on_disconnect(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "oi", &js_obj, &callback_id);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)15");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -791,7 +879,7 @@ mrb_web_serial_set_on_disconnect(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * JS::WebSerial._capture_start(js_port) -> nil
+ * JS::WebSerial.capture_start -> nil
  */
 static mrb_value
 mrb_web_serial_capture_start(mrb_state *mrb, mrb_value self)
@@ -800,7 +888,7 @@ mrb_web_serial_capture_start(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &js_obj);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)1");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -813,7 +901,7 @@ mrb_web_serial_capture_start(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * JS::WebSerial._capture_peek(js_port) -> JS::Object (String)
+ * JS::WebSerial.capture_peek -> JS::Object (String)
  */
 static mrb_value
 mrb_web_serial_capture_peek(mrb_state *mrb, mrb_value self)
@@ -822,7 +910,7 @@ mrb_web_serial_capture_peek(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &js_obj);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)2");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -830,11 +918,12 @@ mrb_web_serial_capture_peek(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
   }
 
-  return wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 0));
+  mrb_value result = wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 0));
+  return mrb_obj_as_string(mrb, result);
 }
 
 /*
- * JS::WebSerial._capture_stop(js_port) -> JS::Object (String)
+ * JS::WebSerial.capture_stop -> JS::Object (String)
  */
 static mrb_value
 mrb_web_serial_capture_stop(mrb_state *mrb, mrb_value self)
@@ -843,7 +932,7 @@ mrb_web_serial_capture_stop(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &js_obj);
 
   if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
-    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)");
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)3");
   }
 
   picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
@@ -851,7 +940,85 @@ mrb_web_serial_capture_stop(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
   }
 
-  return wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 1));
+  mrb_value result = wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 1));
+  return mrb_obj_as_string(mrb, result);
+}
+
+/*
+ * JS::WebSerial.binary_capture_start(js_port) -> nil
+ */
+static mrb_value
+mrb_web_serial_binary_capture_start(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)4");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_binary_capture_start(port->ref_id);
+  return mrb_nil_value();
+}
+
+/*
+ * JS::WebSerial.binary_capture_read(js_port, max_bytes) -> String
+ * Returns raw binary data from the capture buffer (up to max_bytes).
+ * Returns empty string if no data available.
+ */
+static mrb_value
+mrb_web_serial_binary_capture_read(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_int max_bytes;
+  mrb_get_args(mrb, "oi", &js_obj, &max_bytes);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)6");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    return mrb_str_new(mrb, "", 0);
+  }
+
+  if (max_bytes <= 0) {
+    return mrb_str_new(mrb, "", 0);
+  }
+  if (max_bytes > 65536) max_bytes = 65536;
+
+  uint8_t *buf = (uint8_t *)mrb_malloc(mrb, max_bytes);
+  int count = serial_binary_capture_read(port->ref_id, buf, (int)max_bytes);
+  mrb_value result = mrb_str_new(mrb, (const char *)buf, count);
+  mrb_free(mrb, buf);
+  return result;
+}
+
+/*
+ * JS::WebSerial#binary_capture_stop(js_port) -> nil
+ */
+static mrb_value
+mrb_web_serial_binary_capture_stop(mrb_state *mrb, mrb_value self)
+{
+  mrb_value js_obj;
+  mrb_get_args(mrb, "o", &js_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, js_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (SerialPort)7");
+  }
+
+  picorb_js_obj *port = (picorb_js_obj *)DATA_PTR(js_obj);
+  if (!port) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+
+  serial_binary_capture_stop(port->ref_id);
+  return mrb_nil_value();
 }
 
 /*****************************************************
@@ -864,32 +1031,22 @@ mrb_web_serial_init(mrb_state *mrb)
   struct RClass *module_JS = mrb_module_get_id(mrb, MRB_SYM(JS));
   struct RClass *class_WebSerial = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(WebSerial), mrb->object_class);
 
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_write),
-    mrb_web_serial_write, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_drain),
-    mrb_web_serial_drain, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_start_reading),
-    mrb_web_serial_start_reading, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_read_from_port),
-    mrb_web_serial_read_from_port, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_set_on_disconnect),
-    mrb_web_serial_set_on_disconnect, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_open_port),
-    mrb_web_serial_open_port, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_request_port),
-    mrb_web_serial_request_port, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_watch_connect_events),
-    mrb_web_serial_watch_connect_events, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_take_last_connected_port),
-    mrb_web_serial_take_last_connected_port, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port),
-    mrb_web_serial_close_port, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port_promise),
-    mrb_web_serial_close_port_promise, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_start),
-    mrb_web_serial_capture_start, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_peek),
-    mrb_web_serial_capture_peek, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_capture_stop),
-    mrb_web_serial_capture_stop, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_WebSerial, MRB_SYM(start_terminal_read), mrb_web_serial_start_terminal_read, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(capture_start), mrb_web_serial_capture_start, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(capture_peek), mrb_web_serial_capture_peek, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(capture_stop), mrb_web_serial_capture_stop, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(binary_capture_start), mrb_web_serial_binary_capture_start, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(binary_capture_read), mrb_web_serial_binary_capture_read, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(binary_capture_stop), mrb_web_serial_binary_capture_stop, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_WebSerial, MRB_SYM(write), mrb_web_serial_write, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_WebSerial, MRB_SYM(drain), mrb_web_serial_drain, MRB_ARGS_NONE());
+
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_start_reading), mrb_web_serial_start_reading, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_set_on_disconnect), mrb_web_serial_set_on_disconnect, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_open_port), mrb_web_serial_open_port, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_request_port), mrb_web_serial_request_port, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_watch_connect_events), mrb_web_serial_watch_connect_events, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_take_last_connected_port), mrb_web_serial_take_last_connected_port, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port), mrb_web_serial_close_port, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_WebSerial, MRB_SYM(_close_port_promise), mrb_web_serial_close_port_promise, MRB_ARGS_REQ(1));
 }

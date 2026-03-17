@@ -32,6 +32,7 @@ module Editor
     def put_buffer: (String | Symbol chr) -> void
     def dump_buffer: () -> String
     def clear_buffer: () -> void
+    def raw_takeover: () -> bool
     def clear: () -> void
     def home: () -> void
     def next_head: () -> void

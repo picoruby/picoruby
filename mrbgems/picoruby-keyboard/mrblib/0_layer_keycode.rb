@@ -14,6 +14,9 @@ module LayerKeycode
   MT_BASE = 0xF200
   SM_BASE = 0xFA00
   MC_BASE = 0xFB00
+  # V (vacancy) is encoded as val * -4, range: -999...-1 (quarter-U units)
+  # X (extension) uses X_OFFSET to distinguish from V: val * -4 - X_OFFSET, range: ...-X_OFFSET
+  X_OFFSET = 1000
 
   # Create a momentary layer switch keycode
   # While the key is pressed, the specified layer becomes active
@@ -173,5 +176,44 @@ module LayerKeycode
   # @return [Integer] Tap keycode
   def mt_tap_keycode(keycode)
     (keycode - MT_BASE) & 0xFF
+  end
+
+  # Create a vacancy (blank space) keycode for visual layout alignment.
+  # val is the size in U units (e.g. 1.0, 0.5, 1.75). Use 0.25 multiples.
+  # Encoded as a negative integer in quarters of U: V(1) => -4, V(0.5) => -2.
+  # val <= 0 is reserved as a safety guard and returns a non-void integer.
+  def V(val)
+    val > 0 ? (val * -4).to_i : (val * 4).to_i
+  end
+
+  # Check if keycode is a vacancy (blank space in layout)
+  # V range: (-X_OFFSET + 1)...-1
+  def is_v?(keycode)
+    -X_OFFSET < keycode && keycode < 0
+  end
+
+  # Create an extension keycode that stretches the previous key rightward.
+  # val is the extension size in U units (e.g. 0.5 makes previous key 1.5U). Use 0.25 multiples.
+  # Encoded as: (val * -4).to_i - X_OFFSET
+  # X(0.25) => -1001, X(0.5) => -1002, X(1) => -1004
+  # val <= 0 is reserved as a safety guard and returns a non-void integer.
+  def X(val)
+    val > 0 ? (val * -4).to_i - X_OFFSET : (val * 4).to_i
+  end
+
+  # Check if keycode is an extension (stretches previous key rightward)
+  # X range: ...-X_OFFSET
+  def is_x?(keycode)
+    keycode <= -X_OFFSET
+  end
+
+  # Extract extension width in U units from X keycode
+  def x_width(keycode)
+    (keycode + X_OFFSET).abs / 4.0
+  end
+
+  # Extract vacancy width in U units from V keycode
+  def v_width(keycode)
+    keycode.abs / 4.0
   end
 end

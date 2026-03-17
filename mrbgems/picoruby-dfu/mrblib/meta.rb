@@ -79,8 +79,13 @@ module DFU
 
     def self.deep_copy(hash)
       result = {}
-      hash.each do |k, v|
+      keys = hash.keys
+      ki = 0
+      while ki < keys.size
+        k = keys[ki]
+        v = hash[k]
         result[k] = v.is_a?(Hash) ? deep_copy(v) : v
+        ki += 1
       end
       result
     end

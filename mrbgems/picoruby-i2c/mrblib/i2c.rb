@@ -11,7 +11,8 @@ class I2C
 
   def scan(timeout: @timeout)
     msg_format = "I2C device found at 7-bit address 0x%02x (0b%07b) +%s"
-    (0x08..0x77).each do |i2c_adrs_7|
+    i2c_adrs_7 = 0x08
+    while i2c_adrs_7 <= 0x77
       begin
         read(i2c_adrs_7, 1, timeout: timeout)
         puts sprintf(msg_format, i2c_adrs_7, i2c_adrs_7, "R")
@@ -24,6 +25,7 @@ class I2C
       rescue IOError => e
         # p e
       end
+      i2c_adrs_7 += 1
     end
     nil
   end

@@ -15,7 +15,9 @@ class Markdown
     @footnotes = {}
     @footnote_order = []
     remaining_lines = []
-    lines.each do |line|
+    li = 0
+    while li < lines.size
+      line = lines[li]
       stripped = line.strip
       if stripped.start_with?('[^') && stripped.include?(']:')
         key_end = stripped.index(']:')
@@ -29,6 +31,7 @@ class Markdown
       else
         remaining_lines << line
       end
+      li += 1
     end
     @lines = remaining_lines
   end
@@ -40,9 +43,12 @@ class Markdown
     in_code_block = false
     lines_to_skip = 0
 
-    @lines.each_with_index do |line, index|
+    index = 0
+    while index < @lines.size
+      line = @lines[index]
       if lines_to_skip > 0
         lines_to_skip -= 1
+        index += 1
         next
       end
 
@@ -60,23 +66,27 @@ class Markdown
           end
           in_code_block = true
         end
+        index += 1
         next
       end
 
       if in_code_block
         html << line
+        index += 1
         next
       end
 
       stripped_line = line.strip
 
       if stripped_line.empty?
+        index += 1
         next
       end
 
       # Horizontal rule parsing (---, ***, ___)
       if horizontal_rule?(stripped_line)
         html << "<hr>\n"
+        index += 1
         next
       end
 
@@ -105,6 +115,7 @@ class Markdown
             html << "</tbody></table>\n"
 
             lines_to_skip = (i - 1) - index
+            index += 1
             next
           end
         end
@@ -125,18 +136,23 @@ class Markdown
           list_html, lines_consumed = process_list(index, is_ulist_start ? :ul : :ol)
           html << list_html
           lines_to_skip = lines_consumed - 1
+          index += 1
           next
         end
 
         processed_line = process_inline_formats(stripped_line)
         html << "<p>#{processed_line}</p>\n"
       end
+      index += 1
     end
 
     if @footnotes.any?
       html << "<div class=\"footnotes\">\n<hr>\n<ol>\n"
-      @footnote_order.each_with_index do |key, index|
+      fi = 0
+      while fi < @footnote_order.size
+        key = @footnote_order[fi]
         html << "<li id=\"fn-#{key}\">#{@footnotes[key]} <a href=\"#fnref-#{key}\" rev=\"footnote\">&#8617;</a></li>\n"
+        fi += 1
       end
       html << "</ol>\n</div>\n"
     end
@@ -231,7 +247,9 @@ class Markdown
 
   def count_leading_spaces(line)
     count = 0
-    line.each_char do |char|
+    ci = 0
+    while ci < line.length
+      char = line[ci]
       if char == ' '
         count += 1
       elsif char == "\t"
@@ -239,6 +257,7 @@ class Markdown
       else
         break
       end
+      ci += 1
     end
     count
   end
@@ -353,10 +372,13 @@ class Markdown
 
   def replace_footnote_references(line)
     processed_line = line
-    @footnote_order.each_with_index do |key, index|
+    fi = 0
+    while fi < @footnote_order.size
+      key = @footnote_order[fi]
       ref_tag = "[^#{key}]"
-      sup_tag = "<sup><a href=\"#fn-#{key}\" id=\"fnref-#{key}\" rel=\"footnote\">#{index + 1}</a></sup>"
+      sup_tag = "<sup><a href=\"#fn-#{key}\" id=\"fnref-#{key}\" rel=\"footnote\">#{fi + 1}</a></sup>"
       processed_line = processed_line.gsub(ref_tag, sup_tag)
+      fi += 1
     end
     processed_line
   end
@@ -429,9 +451,11 @@ class Markdown
 
   def restore_html_tags(line, protected_tags)
     output = line
-    protected_tags.each_with_index do |tag, index|
-      placeholder = "<<<HTMLTAG#{index}>>>"
-      output = output.gsub(placeholder, tag)
+    ri = 0
+    while ri < protected_tags.size
+      placeholder = "<<<HTMLTAG#{ri}>>>"
+      output = output.gsub(placeholder, protected_tags[ri])
+      ri += 1
     end
     output
   end

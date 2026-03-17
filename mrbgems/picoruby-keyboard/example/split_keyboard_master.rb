@@ -34,16 +34,16 @@ end
 kb = Keyboard.new([0, 1], [2, 3, 4], keymap_cols: 6)
 
 # Full keymap: left side (cols 0-2) + right side (cols 3-5)
-kb.add_layer(:default, [
+kb.layer do
   # Left (master)         Right (slave)
-  KC_A,   KC_B,   KC_C,   KC_D,   KC_E,   KC_F,
-  KC_1,   MO(1),  KC_3,   KC_4,   MO(1),  KC_6
-])
+  row KC_A,   KC_B,   KC_C,   KC_D,   KC_E,   KC_F
+  row KC_1,   MO(1),  KC_3,   KC_4,   MO(1),  KC_6
+end
 
-kb.add_layer(:function, [
-  KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6,
-  KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO
-])
+kb.layer(:function) do
+  row KC_F1,  KC_F2,  KC_F3,  KC_F4,  KC_F5,  KC_F6
+  row KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO,  KC_NO
+end
 
 # Initialize UART for slave communication
 uart = UART.new(unit: 0, txd: 8, rxd: 9, baudrate: 115200)

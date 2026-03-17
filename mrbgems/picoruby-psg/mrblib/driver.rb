@@ -99,8 +99,10 @@ module PSG
         if op.nil? || val.nil?
           if 0 < loop_start_pos
             file.seek(loop_start_pos)
-            3.times do |tr|
+            tr = 0
+            while tr < 3
               invoke :mute, tr, 0, 0
+              tr += 1
             end
             next
           else

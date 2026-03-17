@@ -98,7 +98,9 @@ module JSON
     # attr_reader :json
 
     def dig(*keys)
-      keys.each do |key|
+      ki = 0
+      while ki < keys.size
+        key = keys[ki]
         case key
         when Integer
           if key < 0
@@ -116,6 +118,7 @@ module JSON
         @json.strip!
         reset
         # p @json
+        ki += 1
       end
       return self
     end
@@ -305,17 +308,25 @@ module JSON
 
     def generate_object(obj)
       result = '{'
-      result += obj.map do |key, value|
-        "#{generate_string(key)}:#{generate(value)}"
-      end.join(',')
+      keys = obj.keys
+      i = 0
+      while i < keys.size
+        result += ',' if 0 < i
+        key = keys[i]
+        result += "#{generate_string(key)}:#{generate(obj[key])}"
+        i += 1
+      end
       result += '}'
     end
 
     def generate_array(obj)
       result = '['
-      result += obj.map do |value|
-        generate(value)
-      end.join(',')
+      i = 0
+      while i < obj.size
+        result += ',' if 0 < i
+        result += generate(obj[i])
+        i += 1
+      end
       result += ']'
     end
 
@@ -404,7 +415,7 @@ module JSON
       skip_whitespace
 
       unless @json[@index] == '}'
-        loop do
+        while true
           key = parse_string
           skip_whitespace
           expect(':')
@@ -428,7 +439,7 @@ module JSON
       skip_whitespace
 
       unless @json[@index] == ']'
-        loop do
+        while true
           value = parse
           result << value
           skip_whitespace
@@ -567,10 +578,12 @@ module JSON
       is_negative = @json[start] == '-'
       start += 1 if is_negative
 
-      (start...end_index).each do |i|
+      i = start
+      while i < end_index
         # @type var ord: Integer
         ord = @json[i]&.ord
         result = result * 10 + (ord - '0'.ord)
+        i += 1
       end
 
       is_negative ? -result : result
@@ -585,7 +598,8 @@ module JSON
       parsing_exponent = false
       start += 1 if is_negative
 
-      (start...end_index).each do |i|
+      i = start
+      while i < end_index
         case @json[i]
         when '0'..'9'
           # @type var ord: Integer
@@ -607,6 +621,7 @@ module JSON
         when '+'
           # Do nothing for positive exponent
         end
+        i += 1
       end
 
       result *= (10.0 ** (exponent_negative ? -exponent : exponent))

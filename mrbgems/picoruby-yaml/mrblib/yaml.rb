@@ -31,7 +31,10 @@ module YAML
     indent_stack = [-1]
     prev_indent = -1
 
-    lines.each do |line|
+    li = 0
+    while li < lines.size
+      line = lines[li]
+      li += 1
       line_strip = line.strip
       next if line_strip.empty? || line_strip.start_with?('#')
 
@@ -104,7 +107,11 @@ module YAML
     case object
     when Hash
       yaml = ""
-      object.each do |key, value|
+      keys = object.keys
+      ki = 0
+      while ki < keys.size
+        key = keys[ki]
+        value = object[key]
         yaml << "#{' ' * indent}#{key}:"
         if value.nil?
           yaml << " null\n"
@@ -113,12 +120,15 @@ module YAML
         else
           yaml << " #{serialize(value)}\n"
         end
+        ki += 1
       end
       yaml
     when Array
       yaml = ""
       # @type var object: Array
-      object.each do |item|
+      ai = 0
+      while ai < object.size
+        item = object[ai]
         # @type var item: (Hash | Array)
         yaml << "#{' ' * indent}- "
         if item.nil?
@@ -128,6 +138,7 @@ module YAML
         else
           yaml << "#{serialize(item)}\n"
         end
+        ai += 1
       end
       yaml
     else
@@ -155,8 +166,12 @@ module YAML
     if string[0] == '-'
       string = string[1, string.length - 1]
     end
-    string.to_s.each_char do |char|
+    s = string.to_s
+    ci = 0
+    while ci < s.length
+      char = s[ci]
       return false unless '0' <= char && char <= '9'
+      ci += 1
     end
     true
   end

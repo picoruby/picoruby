@@ -11,7 +11,9 @@ class RMT
 
   def params_to_array(*params)
     ary = []
-    params.each do |param|
+    pi = 0
+    while pi < params.size
+      param = params[pi]
       case param
       when Array
         # @type var param: Array[Integer]
@@ -22,6 +24,7 @@ class RMT
         # @type var param: String
         ary += param.bytes
       end
+      pi += 1
     end
     return ary
   end

@@ -82,8 +82,11 @@ class RotateLogger
       end
     end
     logs.sort!
-    (logs.size - @keep_size).times do
+    delete_count = logs.size - @keep_size
+    i = 0
+    while i < delete_count
       File.unlink("#{@dir}/#{logs.shift}")
+      i += 1
     end
   end
 end

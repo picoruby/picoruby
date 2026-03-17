@@ -231,9 +231,12 @@ module DFU
       target_slot = Meta.inactive_slot(meta)
 
       # Clean up existing firmware files in target slot
-      ["mrb", "rb"].each do |e|
-        path = "#{ENV['HOME']}/app_#{target_slot}.#{e}"
+      exts = ["mrb", "rb"]
+      ei = 0
+      while ei < exts.size
+        path = "#{ENV['HOME']}/app_#{target_slot}.#{exts[ei]}"
         File.unlink(path) if File.exist?(path)
+        ei += 1
       end
 
       # Mark slot as updating

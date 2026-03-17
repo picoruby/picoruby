@@ -14,8 +14,11 @@ module Net
 
       # Initialize headers
       if initheader
-        initheader.each do |key, value|
-          self[key] = value
+        ih_keys = initheader.keys
+        ihi = 0
+        while ihi < ih_keys.size
+          self[ih_keys[ihi]] = initheader[ih_keys[ihi]]
+          ihi += 1
         end
       end
     end
@@ -37,8 +40,11 @@ module Net
 
     # Get all header keys
     def each_header
-      @header.each do |key, value|
-        yield key, value
+      hkeys = @header.keys
+      hi = 0
+      while hi < hkeys.size
+        yield hkeys[hi], @header[hkeys[hi]]
+        hi += 1
       end
     end
 
@@ -71,21 +77,29 @@ module Net
       lines << "#{@method} #{@path} HTTP/1.1"
 
       # Headers
-      @header.each do |key, value|
+      hkeys = @header.keys
+      hi = 0
+      while hi < hkeys.size
+        key = hkeys[hi]
+        value = @header[key]
         # Capitalize header names properly (manually since capitalize is not in mruby/c)
         parts = key.split('-')
         formatted_parts = []
-        parts.each do |word|
-          if word.length > 0
+        pi = 0
+        while pi < parts.size
+          word = parts[pi]
+          if 0 < word.length
             # Capitalize first char, lowercase rest
-            capitalized = word[0].upcase + (word.length > 1 ? word[1..-1].downcase : '')
+            capitalized = word[0].upcase + (1 < word.length ? word[1..-1].downcase : '')
             formatted_parts << capitalized
           else
             formatted_parts << word
           end
+          pi += 1
         end
         formatted_key = formatted_parts.join('-')
         lines << "#{formatted_key}: #{value}"
+        hi += 1
       end
 
       # Join headers with CRLF

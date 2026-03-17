@@ -6,14 +6,18 @@ if RUBY_ENGINE == "mruby/c"
         raise ArgumentError, "Negative index doesn't work"
       end
       tail = self[index_int, self.length]
-      vals.each_with_index do |val, i|
-        self[index_int + i] = val
+      i = 0
+      while i < vals.size
+        self[index_int + i] = vals[i]
+        i += 1
       end
       if tail
         tail_at = index_int + vals.size
-        tail.each do |elem|
-          self[tail_at] = elem
+        ti = 0
+        while ti < tail.size
+          self[tail_at] = tail[ti]
           tail_at += 1
+          ti += 1
         end
       end
       self
@@ -177,13 +181,18 @@ module Editor
     end
 
     def dump
-      @lines.map do |line|
+      result = []
+      li = 0
+      while li < @lines.size
+        line = @lines[li]
         if line.bytesize > 0 && line.getbyte(line.bytesize - 1) == 0x5C # '\\'
-          line.byteslice(0, line.bytesize - 1)
+          result << line.byteslice(0, line.bytesize - 1)
         else
-          line
+          result << line
         end
-      end.join("\n")
+        li += 1
+      end
+      result.join("\n")
     end
 
     def home
@@ -525,7 +534,11 @@ module Editor
       return nil unless range && text
       sy, sx, ey, ex = range
       if @selection_mode == :line
-        (ey - sy + 1).times { @lines.delete_at(sy) }
+        i = 0
+        while i < (ey - sy + 1)
+          @lines.delete_at(sy)
+          i += 1
+        end
         @lines << "" if @lines.empty?
         @cursor_y = sy
         @cursor_y = @lines.length - 1 if @cursor_y >= @lines.length
@@ -545,7 +558,11 @@ module Editor
       else
         after = @lines[ey].byteslice(ex + 1, 65535).to_s
         @lines[sy] = @lines[sy].byteslice(0, sx).to_s + after
-        (ey - sy).times { @lines.delete_at(sy + 1) }
+        j = 0
+        while j < (ey - sy)
+          @lines.delete_at(sy + 1)
+          j += 1
+        end
         @cursor_y = sy
         @cursor_x = sx
         bs = @lines[sy].bytesize
@@ -562,8 +579,10 @@ module Editor
     def insert_lines_below(lines_to_insert)
       return unless lines_to_insert
       insert_at = @cursor_y + 1
-      lines_to_insert.each_with_index do |line, i|
-        @lines.insert(insert_at + i, line)
+      i = 0
+      while i < lines_to_insert.size
+        @lines.insert(insert_at + i, lines_to_insert[i])
+        i += 1
       end
       @cursor_y = insert_at
       @cursor_x = 0
@@ -606,7 +625,11 @@ module Editor
 
     def current_tail(n = 1)
       pos = @cursor_x
-      n.times { pos = Editor.prev_char_byte_pos(current_line, pos) }
+      k = 0
+      while k < n
+        pos = Editor.prev_char_byte_pos(current_line, pos)
+        k += 1
+      end
       current_line.byteslice(pos, 65535).to_s
     end
 

@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Keymap Editor - DRb over WebSocket</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    h1 { color: #333; border-bottom: 3px solid #2196F3; padding-bottom: 8px; }
+    h2 { color: #444; margin: 16px 0 8px; }
+    .container { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .panel { margin: 16px 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    label { font-weight: bold; color: #555; }
+    input[type="text"] {
+      padding: 8px 12px; border: 2px solid #ddd; border-radius: 4px;
+      font-size: 14px; width: 280px;
+    }
+    button {
+      background: #2196F3; color: white; padding: 8px 16px;
+      border: none; border-radius: 4px; cursor: pointer; font-size: 14px;
+    }
+    button:hover { background: #1976D2; }
+    button:disabled { background: #bbb; cursor: not-allowed; }
+    button.danger { background: #f44336; }
+    button.danger:hover { background: #d32f2f; }
+    button.success { background: #4CAF50; }
+    button.success:hover { background: #388E3C; }
+    .uri-prefix, .uri-suffix { font-family: monospace; font-size: 14px; color: #555; }
+    .status {
+      display: inline-block; padding: 3px 10px; border-radius: 4px;
+      font-size: 12px; font-weight: bold; margin-left: 8px;
+    }
+    .status.connected { background: #4CAF50; color: white; }
+    .status.disconnected { background: #f44336; color: white; }
+    /* Layer tabs */
+    .tab-btn {
+      background: #eee; color: #333; margin: 2px;
+      border: 2px solid #ddd;
+    }
+    .tab-btn:hover { background: #ddd; }
+    .tab-btn.active { background: #2196F3; color: white; border-color: #2196F3; }
+    /* Key grid: columns set dynamically via JS */
+    .grid {
+      display: grid;
+      gap: 4px;
+      margin: 12px 0;
+    }
+    .key-cell {
+      background: #e8e8e8;
+      border: 2px solid #ccc;
+      border-radius: 4px;
+      padding: 6px 2px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      word-break: break-all;
+      color: #333;
+    }
+    .key-cell:hover { background: #c8e6fa; border-color: #2196F3; }
+    .key-cell.selected { background: #2196F3; color: white; border-color: #1565C0; }
+    .key-cell.transparent { color: #aaa; }
+    /* VOID: position has no key switch */
+    .key-cell.void {
+      background: transparent;
+      border-color: transparent;
+      cursor: default;
+      pointer-events: none;
+    }
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      justify-content: center;
+      align-items: flex-start;
+      padding-top: 60px;
+      z-index: 100;
+    }
+    .modal-content {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      max-width: 640px;
+      max-height: 70vh;
+      overflow-y: auto;
+      width: 90%;
+    }
+    .modal-content h3 { margin-top: 0; }
+    .pick-section { margin: 12px 0; }
+    .pick-section h4 { margin: 4px 0 6px; color: #555; font-size: 13px; }
+    .pick-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    .pick-btn {
+      background: #f5f5f5; color: #333; border: 1px solid #ccc;
+      padding: 5px 8px; font-size: 12px; font-weight: bold;
+      border-radius: 3px; min-width: 40px;
+    }
+    .pick-btn:hover { background: #2196F3; color: white; border-color: #2196F3; }
+    /* Output log */
+    #output {
+      background: #1e1e1e; color: #d4d4d4;
+      padding: 12px; border-radius: 4px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      max-height: 200px; overflow-y: auto;
+      white-space: pre-wrap; margin-top: 16px;
+    }
+    #output .success { color: #4CAF50; }
+    #output .error { color: #f44336; }
+    #output .info { color: #64B5F6; }
+    .hidden { display: none; }
+    .apply-row { margin: 12px 0; display: flex; gap: 8px; align-items: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div><a href="index.html">Back</a></div>
+    <h1>
+      Keymap Editor
+      <span id="status" class="status disconnected">Disconnected</span>
+    </h1>
+
+    <!-- Connection panel -->
+    <div class="panel">
+      <label>IP Address:</label>
+      <span class="uri-prefix">ws://</span>
+      <input type="text" id="server-ip" value="192.168.x.x" style="width:140px">
+      <span class="uri-suffix">:9090</span>
+      <button id="connect-btn">Connect</button>
+      <button id="disconnect-btn" disabled class="danger">Disconnect</button>
+    </div>
+
+    <!-- Layer selector -->
+    <div id="layer-panel" class="hidden">
+      <h2>Layers</h2>
+      <div class="panel" id="layer-tabs"></div>
+    </div>
+
+    <!-- Key grid (layout determined dynamically from device) -->
+    <div id="grid-panel" class="hidden">
+      <h2>Layer: <span id="current-layer-name"></span></h2>
+      <div id="key-grid" class="grid"></div>
+      <div class="apply-row">
+        <button id="apply-btn" class="success">Apply to Device</button>
+        <button id="reload-btn">Reload from Device</button>
+        <span id="apply-status"></span>
+      </div>
+    </div>
+
+    <div id="output"></div>
+  </div>
+
+  <!-- Key picker modal -->
+  <div id="picker-modal" class="modal">
+    <div class="modal-content">
+      <h3>Select Key (<span id="picker-pos"></span>)</h3>
+      <div id="picker-body"></div>
+      <button id="picker-cancel" class="danger" style="margin-top:12px">Cancel</button>
+    </div>
+  </div>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'drb'
+
+    # USB HID keycode names (from keycode.txt)
+    KEYCODE_NAMES = {
+      0x04 => "A",     0x05 => "B",     0x06 => "C",     0x07 => "D",
+      0x08 => "E",     0x09 => "F",     0x0A => "G",     0x0B => "H",
+      0x0C => "I",     0x0D => "J",     0x0E => "K",     0x0F => "L",
+      0x10 => "M",     0x11 => "N",     0x12 => "O",     0x13 => "P",
+      0x14 => "Q",     0x15 => "R",     0x16 => "S",     0x17 => "T",
+      0x18 => "U",     0x19 => "V",     0x1A => "W",     0x1B => "X",
+      0x1C => "Y",     0x1D => "Z",
+      0x1E => "1",     0x1F => "2",     0x20 => "3",     0x21 => "4",
+      0x22 => "5",     0x23 => "6",     0x24 => "7",     0x25 => "8",
+      0x26 => "9",     0x27 => "0",
+      0x28 => "ENTER", 0x29 => "ESC",   0x2A => "BSPC",  0x2B => "TAB",
+      0x2C => "SPACE",
+      0x2D => "-",     0x2E => "=",     0x2F => "[",     0x30 => "]",
+      0x31 => "\\",   0x33 => ";",     0x34 => "'",      0x35 => "`",
+      0x36 => ",",     0x37 => ".",     0x38 => "/",     0x39 => "CAPS",
+      0x3A => "F1",    0x3B => "F2",    0x3C => "F3",    0x3D => "F4",
+      0x3E => "F5",    0x3F => "F6",    0x40 => "F7",    0x41 => "F8",
+      0x42 => "F9",    0x43 => "F10",   0x44 => "F11",   0x45 => "F12",
+      0x49 => "INS",   0x4A => "HOME",  0x4B => "PGUP",
+      0x4C => "DEL",   0x4D => "END",   0x4E => "PGDN",
+      0x4F => "RIGHT", 0x50 => "LEFT",  0x51 => "DOWN",  0x52 => "UP"
+    }
+
+    MOD_NAMES = {
+      0xE0 => "LCTL", 0xE1 => "LSFT", 0xE2 => "LALT", 0xE3 => "LGUI",
+      0xE4 => "RCTL", 0xE5 => "RSFT", 0xE6 => "RALT", 0xE7 => "RGUI"
+    }
+
+    MO_BASE  = 0xE000
+    TG_BASE  = 0xE100
+    LT_BASE  = 0xE200
+    MT_BASE  = 0xF200
+    SM_BASE  = 0xFA00
+    X_OFFSET = 1000  # separates V range (-999...-1) from X range (...-1000)
+
+    def kc_name(kc)
+      return "---" if kc == 0 || kc.nil?
+      if MO_BASE <= kc && kc < MO_BASE + 256
+        "MO(#{kc - MO_BASE})"
+      elsif TG_BASE <= kc && kc < TG_BASE + 256
+        "TG(#{kc - TG_BASE})"
+      elsif LT_BASE <= kc && kc < LT_BASE + 4096
+        layer = (kc - LT_BASE) >> 8
+        tap   = (kc - LT_BASE) & 0xFF
+        "LT(#{layer},#{KEYCODE_NAMES[tap] || hex(tap)})"
+      elsif MT_BASE <= kc && kc < MT_BASE + 2048
+        mod_idx = (kc - MT_BASE) >> 8
+        tap     = (kc - MT_BASE) & 0xFF
+        mod_name = MOD_NAMES[0xE0 + mod_idx] || "MOD#{mod_idx}"
+        "MT(#{mod_name},#{KEYCODE_NAMES[tap] || hex(tap)})"
+      elsif SM_BASE <= kc && kc < SM_BASE + 256
+        base = kc - SM_BASE
+        "S(#{KEYCODE_NAMES[base] || hex(base)})"
+      elsif MOD_NAMES.key?(kc)
+        MOD_NAMES[kc]
+      elsif KEYCODE_NAMES.key?(kc)
+        KEYCODE_NAMES[kc]
+      else
+        hex(kc)
+      end
+    end
+
+    def hex(n)
+      "0x" + n.to_s(16).upcase
+    end
+
+    def doc
+      @doc ||= JS.document
+    end
+
+    def log_message(msg, type = 'info')
+      output = doc.getElementById('output')
+      line = doc.createElement('div')
+      line.className = type
+      line.textContent = msg
+      output.appendChild(line)
+      output.scrollTop = output.scrollHeight
+    end
+
+    def set_status(connected)
+      el = doc.getElementById('status')
+      if connected
+        el.textContent = 'Connected'
+        el.className = 'status connected'
+      else
+        el.textContent = 'Disconnected'
+        el.className = 'status disconnected'
+      end
+      doc.getElementById('connect-btn').disabled    = connected
+      doc.getElementById('disconnect-btn').disabled = !connected
+    end
+
+    def show_el(id)
+      doc.getElementById(id).classList.remove('hidden')
+    end
+
+    def hide_el(id)
+      doc.getElementById(id).classList.add('hidden')
+    end
+
+    def render_layer_tabs
+      tabs = doc.getElementById('layer-tabs')
+      tabs.innerHTML = ''
+      @layers.each_key do |name|
+        btn = doc.createElement('button')
+        btn.textContent = name.to_s
+        btn.className = (name == @current_layer) ? 'tab-btn active' : 'tab-btn'
+        btn.addEventListener('click') do
+          select_layer(name)
+        end
+        tabs.appendChild(btn)
+      end
+      show_el('layer-panel')
+    end
+
+    def select_layer(name)
+      @current_layer = name
+      @editing_keymap = @layers[name].dup
+      doc.getElementById('current-layer-name').textContent = name.to_s
+      render_layer_tabs
+      render_grid
+    end
+
+    # Build a mapping from [row_i][col_i] -> keymap_index.
+    # Vacancy positions (kc < 0) map to nil.
+    def build_layout_map(layout)
+      layout_map = []
+      keymap_index = 0
+      layout.each do |layout_row|
+        row_map = []
+        layout_row.each do |kc|
+          if kc < 0
+            row_map << nil
+          else
+            row_map << keymap_index
+            keymap_index += 1
+          end
+        end
+        layout_map << row_map
+      end
+      layout_map
+    end
+
+    # Returns the span in quarters-of-U for a layout cell.
+    # Normal keys: 1U = 4 quarters.
+    # V (vacancy): encoded as -kc quarters (range (-X_OFFSET+1)...-1).
+    # X (extension): encoded as (-kc - X_OFFSET) quarters (range ...-X_OFFSET).
+    def cell_span(kc)
+      if kc <= -X_OFFSET
+        -kc - X_OFFSET
+      elsif kc < 0
+        -kc
+      else
+        4
+      end
+    end
+
+    def render_grid
+      grid = doc.getElementById('key-grid')
+      grid.innerHTML = ''
+
+      if @layout.nil? || @layout.empty?
+        show_el('grid-panel')
+        return
+      end
+
+      # Grid unit = 0.25U. Compute max total quarters per row.
+      max_quarters = 0
+      @layout.each do |layout_row|
+        quarters = 0
+        layout_row.each { |kc| quarters += cell_span(kc) }
+        max_quarters = quarters if max_quarters < quarters
+      end
+      grid.style.gridTemplateColumns = "repeat(#{max_quarters}, 1fr)"
+
+      layout_map = build_layout_map(@layout)
+
+      @layout.each_with_index do |layout_row, row_i|
+        row_quarters = 0
+        last_cell = nil
+        last_cell_span = 0
+        layout_row.each_with_index do |layout_kc, col_i|
+          span = cell_span(layout_kc)
+          if layout_kc <= -X_OFFSET
+            # X: extend previous key's visual width (no new cell)
+            if last_cell
+              last_cell_span += span
+              last_cell.style.gridColumn = "span #{last_cell_span}"
+            end
+            row_quarters += span
+          elsif layout_kc < 0
+            # V: void spacer cell
+            cell = doc.createElement('div')
+            cell.style.gridColumn = "span #{span}"
+            cell.className = 'key-cell void'
+            grid.appendChild(cell)
+            row_quarters += span
+            last_cell = nil
+            last_cell_span = 0
+          else
+            ki = layout_map[row_i][col_i]
+            kc = @editing_keymap[ki]
+            cell = doc.createElement('div')
+            cell.style.gridColumn = "span #{span}"
+            cell.textContent = kc_name(kc)
+            cell.className = (kc == 0 || kc.nil?) ? 'key-cell transparent' : 'key-cell'
+            cell.addEventListener('click') do
+              open_picker(ki)
+            end
+            grid.appendChild(cell)
+            row_quarters += span
+            last_cell = cell
+            last_cell_span = span
+          end
+        end
+        # Pad short rows to max_quarters with a void spacer
+        if row_quarters < max_quarters
+          spacer = doc.createElement('div')
+          spacer.style.gridColumn = "span #{max_quarters - row_quarters}"
+          spacer.className = 'key-cell void'
+          grid.appendChild(spacer)
+        end
+      end
+
+      show_el('grid-panel')
+    end
+
+    def open_picker(cell_index)
+      @editing_cell = cell_index
+      doc.getElementById('picker-pos').textContent =
+        "index #{cell_index} (#{kc_name(@editing_keymap[cell_index])})"
+
+      body = doc.getElementById('picker-body')
+      body.innerHTML = ''
+
+      # Section: transparent / no key
+      add_pick_section(body, "Transparent / No Key", { 0x00 => "--- (transparent)" })
+
+      # Section: letters
+      letters = {}
+      (0x04..0x1D).each { |c| letters[c] = KEYCODE_NAMES[c] }
+      add_pick_section(body, "Letters", letters)
+
+      # Section: numbers
+      nums = {}
+      (0x1E..0x27).each { |c| nums[c] = KEYCODE_NAMES[c] }
+      add_pick_section(body, "Numbers", nums)
+
+      # Section: common keys
+      common = {
+        0x28 => "ENTER", 0x29 => "ESC", 0x2A => "BSPC", 0x2B => "TAB",
+        0x2C => "SPACE", 0x4C => "DEL", 0x4A => "HOME", 0x4D => "END",
+        0x4B => "PGUP",  0x4E => "PGDN"
+      }
+      add_pick_section(body, "Common Keys", common)
+
+      # Section: punctuation
+      punct = {
+        0x2D => "-", 0x2E => "=", 0x2F => "[", 0x30 => "]",
+        0x31 => "\\", 0x33 => ";", 0x34 => "'", 0x35 => "`",
+        0x36 => ",",  0x37 => ".", 0x38 => "/"
+      }
+      add_pick_section(body, "Punctuation", punct)
+
+      # Section: arrows
+      arrows = {
+        0x4F => "RIGHT", 0x50 => "LEFT", 0x51 => "DOWN", 0x52 => "UP"
+      }
+      add_pick_section(body, "Arrows", arrows)
+
+      # Section: function keys
+      fkeys = {}
+      (0x3A..0x45).each { |c| fkeys[c] = KEYCODE_NAMES[c] }
+      add_pick_section(body, "Function Keys", fkeys)
+
+      # Section: layer-tap (LT 0-4 with SPACE as tap code)
+      lt_keys = {}
+      (0..4).each { |n| lt_keys[LT_BASE + (n << 8) + 0x2C] = "LT(#{n},SPACE)" }
+      add_pick_section(body, "Layer-Tap LT(n,SPACE) - hold activates layer", lt_keys)
+
+      # Section: momentary layer (MO)
+      mo_keys = {}
+      (0..4).each { |n| mo_keys[MO_BASE + n] = "MO(#{n})" }
+      add_pick_section(body, "Momentary Layer MO(n)", mo_keys)
+
+      # Section: toggle layer (TG)
+      tg_keys = {}
+      (0..4).each { |n| tg_keys[TG_BASE + n] = "TG(#{n})" }
+      add_pick_section(body, "Toggle Layer TG(n)", tg_keys)
+
+      doc.getElementById('picker-modal').style.display = 'flex'
+    end
+
+    def add_pick_section(container, title, keycode_map)
+      section = doc.createElement('div')
+      section.className = 'pick-section'
+      h4 = doc.createElement('h4')
+      h4.textContent = title
+      section.appendChild(h4)
+      row = doc.createElement('div')
+      row.className = 'pick-row'
+      keycode_map.each do |kc, name|
+        btn = doc.createElement('button')
+        btn.textContent = name
+        btn.className = 'pick-btn'
+        btn.addEventListener('click') do
+          pick_keycode(kc)
+        end
+        row.appendChild(btn)
+      end
+      section.appendChild(row)
+      container.appendChild(section)
+    end
+
+    def pick_keycode(kc)
+      if @editing_cell
+        @editing_keymap[@editing_cell] = kc
+        render_grid
+        @editing_cell = nil
+      end
+      doc.getElementById('picker-modal').style.display = 'none'
+    end
+
+    def load_layers(select_name = nil)
+      names = @service.layer_names
+      log_message("Found #{names.size} layer(s): #{names.map { |k| k.to_s }.join(', ')}", 'success')
+      @layers = {}
+      names.each do |name|
+        log_message("Loading layer :#{name}...")
+        @layers[name] = @service.get_layer(name)
+      end
+      log_message('All layers loaded', 'success')
+      select_layer(select_name || names.first)
+    end
+
+    # --- Event handlers ---
+
+    doc.getElementById('connect-btn').addEventListener('click') do
+      ip  = doc.getElementById('server-ip').value
+      uri = "ws://#{ip}:9090"
+      log_message("Connecting to #{uri}...")
+      begin
+        @service = DRb::DRbObject.new_with_uri(uri)
+        set_status(true)
+        log_message("Connected to #{uri}", 'success')
+        log_message('Fetching layout from device...')
+        @layout = @service.layout
+        max_cols = 0
+        @layout.each { |r| max_cols = r.size if max_cols < r.size }
+        log_message("Layout: #{@layout.size} rows x #{max_cols} cols max", 'success')
+        load_layers
+      rescue => e
+        log_message("Connection failed: #{e.message}", 'error')
+        set_status(false)
+        @service = nil
+      end
+    end
+
+    doc.getElementById('disconnect-btn').addEventListener('click') do
+      @service = nil
+      @layout = nil
+      @layers = nil
+      @current_layer = nil
+      @editing_keymap = nil
+      set_status(false)
+      hide_el('layer-panel')
+      hide_el('grid-panel')
+      log_message('Disconnected')
+    end
+
+    doc.getElementById('apply-btn').addEventListener('click') do
+      begin
+        doc.getElementById('apply-status').textContent = 'Applying...'
+        @service.send(:add_layer, @current_layer, @editing_keymap)
+        @layers[@current_layer] = @editing_keymap.dup
+        doc.getElementById('apply-status').textContent = 'Applied!'
+        log_message("Layer :#{@current_layer} updated on device", 'success')
+      rescue => e
+        doc.getElementById('apply-status').textContent = 'Error'
+        log_message("Apply error: #{e.message}", 'error')
+      end
+    end
+
+    doc.getElementById('reload-btn').addEventListener('click') do
+      begin
+        log_message('Reloading layers from device...')
+        load_layers(@current_layer)
+      rescue => e
+        log_message("Reload error: #{e.message}", 'error')
+      end
+    end
+
+    doc.getElementById('picker-cancel').addEventListener('click') do
+      @editing_cell = nil
+      doc.getElementById('picker-modal').style.display = 'none'
+    end
+
+    log_message('Keymap Editor - DRb over WebSocket', 'info')
+    log_message('1. Start keyboard server: picoruby gherkin_drb.rb', 'info')
+    log_message('2. Type the device IP address and click Connect', 'info')
+    log_message('3. Click any key cell to reassign it', 'info')
+    log_message('4. Click "Apply to Device" to send changes', 'info')
+  </script>
+  <script src="../init.iife.js"></script>
+</body>
+</html>

@@ -28,7 +28,7 @@ module Net
       end
 
       def accept_loop(&block)
-        loop do
+        while true
           conn = accept
           block.call(conn)
         end
@@ -64,7 +64,7 @@ module Net
         def receive(timeout: nil)
           deadline = timeout ? Time.now.to_f + timeout : nil
 
-          loop do
+          while true
             if deadline && Time.now.to_f > deadline
               return nil
             end
@@ -149,7 +149,7 @@ module Net
 
         def read_http_request
           request = ""
-          loop do
+          while true
             line = read_line
             request += line
             break if line == "\r\n"
@@ -159,7 +159,7 @@ module Net
 
         def read_line
           line = ""
-          loop do
+          while true
             char = @socket.read(1)
             raise ConnectionClosed.new("Connection closed during handshake") if char.nil? || char.empty?
             line += char
@@ -172,7 +172,9 @@ module Net
           headers = {}
           lines = request.split("\r\n")
 
-          lines.each do |line|
+          li = 0
+          while li < lines.size
+            line = lines[li]
             colon_pos = line.index(':')
             if colon_pos
               key = line[0, colon_pos]&.downcase
@@ -189,6 +191,7 @@ module Net
               end
               headers[key] = value
             end
+            li += 1
           end
 
           headers
@@ -208,7 +211,7 @@ module Net
           frame += [fin | opcode].pack("C")
 
           mask_bit = masked ? 0x80 : 0x00
-          length = payload.length
+          length = payload.bytesize
 
           if length < 126
             frame += [mask_bit | length].pack("C")
@@ -224,8 +227,10 @@ module Net
 
           if masked
             mask_key = ""
-            4.times do
+            mi = 0
+            while mi < 4
               mask_key += [RNG.random_int % 256].pack("C")
+              mi += 1
             end
             frame += mask_key
             masked_payload = mask_data(payload, mask_key)
@@ -238,89 +243,98 @@ module Net
         end
 
         def receive_frame
-          byte0 = @socket.read(1)
-          raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
+          while true
+            byte0 = @socket.read(1)
+            raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
 
-          byte0_val = byte0[0]&.ord || 0
-          fin = (byte0_val & 0x80) != 0
-          opcode = byte0_val & 0x0F
+            byte0_val = byte0[0]&.ord || 0
+            fin = (byte0_val & 0x80) != 0
+            opcode = byte0_val & 0x0F
 
-          byte1 = @socket.read(1)
-          raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
+            byte1 = @socket.read(1)
+            raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
 
-          byte1_val = byte1[0]&.ord || 0
-          masked = (byte1_val & 0x80) != 0
-          payload_len = byte1_val & 0x7F
+            byte1_val = byte1[0]&.ord || 0
+            masked = (byte1_val & 0x80) != 0
+            payload_len = byte1_val & 0x7F
 
-          if payload_len == 126
-            len_bytes = @socket.read(2)
-            if len_bytes.nil? || len_bytes.length < 2
-              raise ConnectionClosed.new("Incomplete frame")
+            if payload_len == 126
+              len_bytes = @socket.read(2)
+              if len_bytes.nil? || len_bytes.bytesize < 2
+                raise ConnectionClosed.new("Incomplete frame")
+              end
+              payload_len = len_bytes.unpack("n")[0]
+            elsif payload_len == 127
+              len_bytes = @socket.read(8)
+              if len_bytes.nil? || len_bytes.bytesize < 8
+                raise ConnectionClosed.new("Incomplete frame")
+              end
+              high, low = len_bytes.unpack("NN")
+              payload_len = ((high || 0) << 32) | (low || 0)
             end
-            payload_len = len_bytes.unpack("n")[0]
-          elsif payload_len == 127
-            len_bytes = @socket.read(8)
-            if len_bytes.nil? || len_bytes.length < 8
-              raise ConnectionClosed.new("Incomplete frame")
+
+            mask_key = nil
+            if masked
+              mask_key = @socket.read(4)
             end
-            high, low = len_bytes.unpack("NN")
-            payload_len = ((high || 0) << 32) | (low || 0)
-          end
 
-          mask_key = nil
-          if masked
-            mask_key = @socket.read(4)
-          end
+            payload = ""
+            if payload_len > 0
+              payload = @socket.read(payload_len)
+              if payload.nil? || payload.bytesize < payload_len
+                raise ConnectionClosed.new("Incomplete frame")
+              end
+            end
 
-          payload = ""
-          if payload_len > 0
-            payload = @socket.read(payload_len)
-            if payload.nil? || payload.length < payload_len
-              raise ConnectionClosed.new("Incomplete frame")
+            if masked && mask_key
+              payload = mask_data(payload, mask_key)
+            end
+
+            if !fin
+              @fragments << {opcode: opcode, payload: payload}
+              # Continue loop to read next fragment
+            elsif opcode == OPCODE_CONTINUATION
+              first_fragment = @fragments.shift
+              unless first_fragment
+                raise ProtocolError.new("Unexpected continuation frame")
+              end
+              opcode = first_fragment[:opcode]
+              full_payload = first_fragment[:payload]
+
+              fi = 0
+              while fi < @fragments.length
+                full_payload += @fragments[fi][:payload]
+                fi += 1
+              end
+              full_payload += payload
+
+              @fragments = []
+              return [opcode, full_payload]
+            else
+              return [opcode, payload]
             end
           end
-
-          if masked && mask_key
-            payload = mask_data(payload, mask_key)
-          end
-
-          if !fin
-            @fragments << {opcode: opcode, payload: payload}
-            return receive_frame
-          elsif opcode == OPCODE_CONTINUATION
-            first_fragment = @fragments.shift
-            unless first_fragment
-              raise ProtocolError.new("Unexpected continuation frame")
-            end
-            opcode = first_fragment[:opcode]
-            full_payload = first_fragment[:payload]
-
-            @fragments.each do |frag|
-              full_payload += frag[:payload]
-            end
-            full_payload += payload
-
-            @fragments = []
-            payload = full_payload
-          end
-
-          [opcode, payload]
+          # Should never reach here. Just for steep check
+          raise ConnectionClosed.new("Connection closed. Should never reach here")
         end
 
         def mask_data(data, mask_key)
           result = ""
-          data.bytesize.times do |i|
+          i = 0
+          len = data.bytesize
+          while i < len
             byte = (data.getbyte(i) || 0)
             masked_byte = byte ^ (mask_key.getbyte(i % 4) || 0)
             result += [masked_byte].pack("C")
+            i += 1
           end
           result
         end
 
         def handle_close_frame(payload)
-          if payload.length >= 2
-            code = payload[0, 2].unpack("n")[0] # steep:ignore
-            reason = payload.length > 2 ? payload[2..-1] : ""
+          if payload.bytesize >= 2
+            code = payload.byteslice(0, 2).unpack("n")[0] # steep:ignore
+            reason = payload.bytesize > 2 ? payload.byteslice(2..-1) : ""
           end
           nil
         end

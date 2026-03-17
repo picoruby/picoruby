@@ -49,11 +49,6 @@ module JS
       self
     end
 
-    # Write a binary String to the serial port.
-    def write(str)
-      JS::WebSerial._write(@js_port, str)
-    end
-
     # Register a block to be called with each received binary String chunk.
     def on_receive(&block)
       callback_id = block.object_id
@@ -76,42 +71,12 @@ module JS
       nil
     end
 
-    # Wait for pending writes to flush (returns a Promise).
-    def drain
-      JS::WebSerial._drain(@js_port)
-    end
-
-    # Pipe decoded serial text directly to an xterm.js terminal.
-    def start_terminal_read(terminal)
-      JS::WebSerial._read_from_port(@js_port, terminal)
-    end
-
-    # Start capturing serial output.
-    def capture_start
-      JS::WebSerial._capture_start(@js_port)
-    end
-
-    # Peek at captured output without clearing it.
-    def capture_peek
-      JS::WebSerial._capture_peek(@js_port).to_s
-    end
-
-    # Stop capturing and return the captured output.
-    def capture_stop
-      JS::WebSerial._capture_stop(@js_port).to_s
-    end
-
-    # Write text to the port.
-    def write_text(str)
-      write(str.to_s)
-    end
-
     # Write bytes in chunks, returning a promise that resolves when flushed.
     # The caller is responsible for sleep_ms between chunks if needed.
     def write_bytes(bytes, chunk_size: 32)
       unless bytes && bytes.bytesize > 0
         # Return a resolved promise
-        return JS::WebSerial._drain(@js_port)
+        return drain
       end
 
       off = 0

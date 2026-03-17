@@ -44,8 +44,13 @@ class BLE
         "\nAddress: #{BLE::Utils.bd_addr_to_str(@address)}" +
         "\nRSSI: #{@rssi}" +
         "\nReports:\n"
-      @reports.each do |type, value|
+      rkeys = @reports.keys
+      ri = 0
+      while ri < rkeys.size
+        type = rkeys[ri]
+        value = @reports[type]
         format_str << "  #{type}: #{value.inspect}(len #{value.length})\n"
+        ri += 1
       end
       format_str
     end

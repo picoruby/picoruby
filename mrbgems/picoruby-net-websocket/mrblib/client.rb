@@ -80,7 +80,7 @@ module Net
 
         deadline = timeout ? Time.now.to_f + timeout : nil
 
-        loop do
+        while true
           if deadline && Time.now.to_f > deadline
             return nil
           end
@@ -180,8 +180,10 @@ module Net
       def perform_handshake
         # Generate Sec-WebSocket-Key
         key_bytes = ""
-        16.times do
+        ki = 0
+        while ki < 16
           key_bytes += [RNG.random_int % 256].pack("C")
+          ki += 1
         end
         sec_key = Base64.encode64(key_bytes)
 
@@ -194,8 +196,13 @@ module Net
         request += "Sec-WebSocket-Version: 13\r\n"
 
         # Add custom headers
-        @headers.each do |name, value|
+        header_keys = @headers.keys
+        hi = 0
+        while hi < header_keys.size
+          name = header_keys[hi]
+          value = @headers[name]
           request += "#{name}: #{value}\r\n"
+          hi += 1
         end
 
         request += "\r\n"
@@ -219,7 +226,7 @@ module Net
 
       def read_http_response
         response = ""
-        loop do
+        while true
           line = read_line
           response += line
           break if line == "\r\n"
@@ -229,7 +236,7 @@ module Net
 
       def read_line
         line = ""
-        loop do
+        while true
           char = @socket.read(1)
           raise ConnectionClosed.new("Connection closed during handshake") if char.nil? || char.empty?
           line += char
@@ -250,7 +257,7 @@ module Net
 
         # Byte 1: MASK + payload length
         mask_bit = 0x80  # Client must mask
-        length = payload.length
+        length = payload.bytesize
 
         if length < 126
           frame += [mask_bit | length].pack("C")
@@ -266,8 +273,10 @@ module Net
 
         # Masking key (4 random bytes)
         mask_key = ""
-        4.times do
+        mi = 0
+        while mi < 4
           mask_key += [RNG.random_int % 256].pack("C")
+          mi += 1
         end
         frame += mask_key
 
@@ -279,99 +288,107 @@ module Net
       end
 
       def receive_frame
-        # Read byte 0: FIN + opcode
-        byte0 = @socket.read(1)
-        raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
+        while true
+          # Read byte 0: FIN + opcode
+          byte0 = @socket.read(1)
+          raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
 
-        byte0_val = byte0[0]&.ord || 0
-        fin = (byte0_val & 0x80) != 0
-        opcode = byte0_val & 0x0F
+          byte0_val = byte0[0]&.ord || 0
+          fin = (byte0_val & 0x80) != 0
+          opcode = byte0_val & 0x0F
 
-        # Read byte 1: MASK + payload length
-        byte1 = @socket.read(1)
-        raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
+          # Read byte 1: MASK + payload length
+          byte1 = @socket.read(1)
+          raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
 
-        byte1_val = byte1[0]&.ord || 0
-        masked = (byte1_val & 0x80) != 0
-        payload_len = byte1_val & 0x7F
+          byte1_val = byte1[0]&.ord || 0
+          masked = (byte1_val & 0x80) != 0
+          payload_len = byte1_val & 0x7F
 
-        # Read extended payload length
-        if payload_len == 126
-          len_bytes = @socket.read(2)
-          if len_bytes.nil? || len_bytes.length < 2
-            raise ConnectionClosed.new("Incomplete frame")
+          # Read extended payload length
+          if payload_len == 126
+            len_bytes = @socket.read(2)
+            if len_bytes.nil? || len_bytes.bytesize < 2
+              raise ConnectionClosed.new("Incomplete frame")
+            end
+            payload_len = len_bytes.unpack("n")[0]
+          elsif payload_len == 127
+            len_bytes = @socket.read(8)
+            if len_bytes.nil? || len_bytes.bytesize < 8
+              raise ConnectionClosed.new("Incomplete frame")
+            end
+            high, low = len_bytes.unpack("NN")
+            payload_len = ((high || 0) << 32) | (low || 0)
           end
-          payload_len = len_bytes.unpack("n")[0]
-        elsif payload_len == 127
-          len_bytes = @socket.read(8)
-          if len_bytes.nil? || len_bytes.length < 8
-            raise ConnectionClosed.new("Incomplete frame")
+
+          # Read masking key (if present)
+          mask_key = nil
+          if masked
+            mask_key = @socket.read(4)
           end
-          high, low = len_bytes.unpack("NN")
-          payload_len = ((high || 0) << 32) | (low || 0)
-        end
 
-        # Read masking key (if present)
-        mask_key = nil
-        if masked
-          mask_key = @socket.read(4)
-        end
+          # Read payload
+          payload = ""
+          if payload_len > 0
+            payload = @socket.read(payload_len)
+            if payload.nil? || payload.bytesize < payload_len
+              raise ConnectionClosed.new("Incomplete frame")
+            end
+          end
 
-        # Read payload
-        payload = ""
-        if payload_len > 0
-          payload = @socket.read(payload_len)
-          if payload.nil? || payload.length < payload_len
-            raise ConnectionClosed.new("Incomplete frame")
+          # Unmask payload (if masked)
+          if masked && mask_key
+            payload = mask_data(payload, mask_key)
+          end
+
+          # Handle fragmentation
+          if !fin
+            # Fragmented message
+            @fragments << {opcode: opcode, payload: payload}
+            # Continue loop to read next fragment
+          elsif opcode == OPCODE_CONTINUATION
+            # Final fragment
+            first_fragment = @fragments.shift
+            unless first_fragment
+              raise ProtocolError.new("Unexpected continuation frame")
+            end
+            opcode = first_fragment[:opcode]
+            full_payload = first_fragment[:payload]
+
+            fi = 0
+            while fi < @fragments.length
+              full_payload += @fragments[fi][:payload]
+              fi += 1
+            end
+            full_payload += payload
+
+            @fragments = []
+            return [opcode, full_payload]
+          else
+            return [opcode, payload]
           end
         end
-
-        # Unmask payload (if masked)
-        if masked && mask_key
-          payload = mask_data(payload, mask_key)
-        end
-
-        # Handle fragmentation
-        if !fin
-          # Fragmented message
-          @fragments << {opcode: opcode, payload: payload}
-          # Continue reading fragments
-          return receive_frame
-        elsif opcode == OPCODE_CONTINUATION
-          # Final fragment
-          first_fragment = @fragments.shift
-          unless first_fragment
-            raise ProtocolError.new("Unexpected continuation frame")
-          end
-          opcode = first_fragment[:opcode]
-          full_payload = first_fragment[:payload]
-
-          @fragments.each do |frag|
-            full_payload += frag[:payload]
-          end
-          full_payload += payload
-
-          @fragments = []
-          payload = full_payload
-        end
-
-        [opcode, payload]
+        # Should never reach here. Just for steep check
+        raise ConnectionClosed.new("Connection closed. Should never reach here")
       end
 
       def mask_data(data, mask_key)
         result = ""
-        data.bytesize.times do |i|
+        i = 0
+        len = data.bytesize
+        while i < len
           byte = (data.getbyte(i) || 0)
           masked_byte = byte ^ (mask_key.getbyte(i % 4) || 0)
           result += [masked_byte].pack("C")
+          i += 1
         end
         result
       end
 
       def handle_close_frame(payload)
-        if payload.length >= 2
-          code = payload[0, 2].unpack("n")[0] # steep:ignore
-          reason = payload.length > 2 ? payload[2..-1] : ""
+        if payload.bytesize >= 2
+          code = payload.byteslice(0, 2).unpack("n")[0] # steep:ignore
+          reason = payload.bytesize > 2 ? payload.byteslice(2..-1) : ""
         end
         nil
       end

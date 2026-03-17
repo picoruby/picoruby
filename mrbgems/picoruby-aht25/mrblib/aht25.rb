@@ -21,9 +21,12 @@ class AHT25
   end
 
   def reset
-    [0x1b, 0x1c, 0x1e].each do |reg|
-      @i2c.write(ADDRESS, reg, 0x71)
+    regs = [0x1b, 0x1c, 0x1e]
+    ri = 0
+    while ri < regs.size
+      @i2c.write(ADDRESS, regs[ri], 0x71)
       sleep_ms 10
+      ri += 1
     end
     sleep_ms 100
   end

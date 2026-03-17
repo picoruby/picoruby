@@ -60,14 +60,22 @@ class Keyboard
   # Macro key management
   @macros: Array[String]
 
-  attr_reader layers: Hash[Symbol, Array[Integer]]
+  # Get list of layer names
+  attr_reader layer_names: Array[Symbol]
+  # Get visual layout
+  attr_reader layout: Array[Array[Integer]]
+
+  # Get a single layer's keymap by name
+  def get_layer: (Symbol name) -> Array[Integer]?
 
   # Initialize keyboard layer manager
   def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> Keyboard
+  # Add a layer with name and keymap
+  def layer: (?Symbol name) { (self) -> untyped } -> void
+  private def add_layer: (Symbol name, Array[Integer] keymap) -> void
+  private def row: (*Integer keycodes) -> void
   # Register a macro string and return its MC keycode
   def add_macro: (String string) -> Integer
-  # Add a layer with name and keymap
-  def add_layer: (Symbol name, Array[Integer] keymap) -> void
   # Set default layer
   def default_layer=: (Symbol name) -> void
   # Set tap threshold in milliseconds

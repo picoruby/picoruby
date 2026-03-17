@@ -120,17 +120,23 @@ module Marshal
 
     def dump_array(ary)
       result = TYPE_ARRAY + encode_fixnum(ary.size)
-      ary.each do |elem|
-        result << dump_object(elem)
+      i = 0
+      while i < ary.size
+        result << dump_object(ary[i])
+        i += 1
       end
       result
     end
 
     def dump_hash(hash)
       result = TYPE_HASH + encode_fixnum(hash.size)
-      hash.each do |key, value|
+      keys = hash.keys
+      i = 0
+      while i < keys.size
+        key = keys[i]
         result << dump_object(key)
-        result << dump_object(value)
+        result << dump_object(hash[key])
+        i += 1
       end
       result
     end
@@ -258,9 +264,11 @@ module Marshal
     def load_array(data, pos)
       len, pos = decode_fixnum(data, pos)
       ary = []
-      len.times do
+      i = 0
+      while i < len
         elem, pos = load_object(data, pos)
         ary << elem
+        i += 1
       end
       [ary, pos]
     end
@@ -268,10 +276,12 @@ module Marshal
     def load_hash(data, pos)
       len, pos = decode_fixnum(data, pos)
       hash = {}
-      len.times do
+      i = 0
+      while i < len
         key, pos = load_object(data, pos)
         value, pos = load_object(data, pos)
         hash[key] = value
+        i += 1
       end
       [hash, pos]
     end
@@ -284,11 +294,13 @@ module Marshal
       num_ivars, pos = decode_fixnum(data, pos)
 
       # Skip instance variables (we just return the base object)
-      num_ivars.times do
+      i = 0
+      while i < num_ivars
         # Skip ivar name (symbol)
         _, pos = load_object(data, pos)
         # Skip ivar value
         _, pos = load_object(data, pos)
+        i += 1
       end
 
       [obj, pos]

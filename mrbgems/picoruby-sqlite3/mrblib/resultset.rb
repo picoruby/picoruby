@@ -51,8 +51,13 @@ class SQLite3
       return nil if @stmt.done? || row.nil?
       if @db.results_as_hash
         row_hash = {}
-        @stmt.columns&.each_with_index do |column, i|
-          row_hash[column] = row[i]
+        columns = @stmt.columns
+        if columns
+          ci = 0
+          while ci < columns.size
+            row_hash[columns[ci]] = row[ci]
+            ci += 1
+          end
         end
         row_hash
       else

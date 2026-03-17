@@ -234,7 +234,7 @@ module Net
       chunked = false
 
       # Read status line and headers
-      loop do
+      while true
         line = @socket.read(8192)
         break unless line
 
@@ -293,7 +293,7 @@ module Net
         end
       elsif chunked
         # Read chunked encoding (simplified)
-        loop do
+        while true
           chunk = @socket.read(8192)
           break unless chunk
           response += chunk
@@ -302,7 +302,7 @@ module Net
         end
       else
         # Read until connection closes
-        loop do
+        while true
           chunk = @socket.read(8192)
           break unless chunk
           response += chunk

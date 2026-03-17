@@ -11,9 +11,9 @@ class IO
   def raw!: () -> self
   def cooked: () { (IO io) -> untyped } -> untyped
   def cooked!: () -> self
-  private def _restore_termios: -> self
   def echo?: () -> bool
   def echo=: (bool mode) -> bool
+  private def _restore_termios: -> self
 end
 
 # @sidebar error

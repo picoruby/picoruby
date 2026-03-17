@@ -9,11 +9,15 @@ module JWT
   class ExpiredSignature < StandardError; end
 
   def self.encode(payload, secret = nil, algorithm = 'none', headers = {})
-    headers.each do |key, value|
+    hkeys = headers.keys
+    hi = 0
+    while hi < hkeys.size
+      key = hkeys[hi]
       if key.is_a?(Symbol)
-        headers[key.to_s] = value
+        headers[key.to_s] = headers[key]
         headers.delete(key)
       end
+      hi += 1
     end
     headers['alg'] = algorithm
     headers['typ'] = "JWT"

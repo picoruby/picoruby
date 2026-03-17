@@ -33,13 +33,14 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "i|S", &maxlen, &outbuf);
   char buf[maxlen + 1];
   mrb_int len;
+  bool was_raw = io_raw_q();
   io_raw_bang(true);
   int c;
   for (len = 0; len < maxlen; len++) {
     c = hal_getchar();
-    if (c == 3) {
+    if (!was_raw && c == 3) {
       raise_interrupt(mrb); // mrb_noreturn
-    } else if (c == 26) {
+    } else if (!was_raw && c == 26) {
       raise_sigtstp(mrb); // mrb_noreturn
     } else if (c < 0) {
       break;
@@ -121,9 +122,9 @@ mrb_picoruby_io_console_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_IO, MRB_SYM(read_nonblock), mrb_io_read_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(raw), mrb_io_raw_b, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM_B(cooked), mrb_io_cooked_b, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_IO, MRB_SYM(_restore_termios), mrb_io__restore_termios, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM_E(echo), mrb_io_echo_e, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM_Q(echo), mrb_io_echo_q, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, class_IO, MRB_SYM(_restore_termios), mrb_io__restore_termios, MRB_ARGS_NONE());
 }
 
 void
