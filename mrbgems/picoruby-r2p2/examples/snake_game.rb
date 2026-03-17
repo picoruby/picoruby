@@ -8,6 +8,7 @@ require 'gpio'
 require 'irq'
 require 'rotary_encoder'
 require 'pio'
+require 'rng' # for Kernel#rand
 
 # ---------------------------------------------------------------------------
 # Constants
