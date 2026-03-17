@@ -196,8 +196,13 @@ module Net
         request += "Sec-WebSocket-Version: 13\r\n"
 
         # Add custom headers
-        @headers.each do |name, value|
+        header_keys = @headers.keys
+        hi = 0
+        while hi < header_keys.size
+          name = header_keys[hi]
+          value = @headers[name]
           request += "#{name}: #{value}\r\n"
+          hi += 1
         end
 
         request += "\r\n"

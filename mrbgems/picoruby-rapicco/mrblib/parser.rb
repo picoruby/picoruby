@@ -131,12 +131,17 @@ class Rapicco
     # ---------------- class helper methods ------------------------
     def self.parse_attrs(str)
       h = {}
-      str.tr(',', ' ').split(' ').each do |pair|
+      pairs = str.tr(',', ' ').split(' ')
+      pi = 0
+      while pi < pairs.size
+        pair = pairs[pi]
         eq = pair.index('=')
-        next unless eq
-        key = pair[0, eq]&.to_sym
-        val = pair[eq + 1, pair.length - eq - 1]
-        h[key] = val
+        if eq
+          key = pair[0, eq]&.to_sym
+          val = pair[eq + 1, pair.length - eq - 1]
+          h[key] = val
+        end
+        pi += 1
       end
       h
     end

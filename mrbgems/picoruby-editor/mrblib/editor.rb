@@ -84,8 +84,10 @@ module Editor
     def physical_line_count
       count = 0
       return count if @width == 0
-      @buffer.lines.each do |line|
-        count += 1 + (@prompt_margin + Editor.display_width(line)) / @width
+      li = 0
+      while li < @buffer.lines.size
+        count += 1 + (@prompt_margin + Editor.display_width(@buffer.lines[li])) / @width
+        li += 1
       end
       count
     end
@@ -175,7 +177,9 @@ module Editor
       end
 
       # Write the buffer content
-      _buffer_lines.each_with_index do |line, i|
+      i = 0
+      while i < _buffer_lines.size
+        line = _buffer_lines[i]
         puts if 0 < i
         _dw = Editor.display_width(line)
         print @prompt,
@@ -185,6 +189,7 @@ module Editor
           # if the last letter is on the right most of the window,
           # move cursor to the next line's head
           ((_prompt_margin + _dw) % _width == 0 ? "\e[1E" : "")
+        i += 1
       end
 
       # Delete all after cursor &&
@@ -192,11 +197,13 @@ module Editor
       print "\e[0J\e[#{_line_count}F"
 
       @prev_cursor_y = -1
-      _buffer_lines.each_with_index do |line, i|
-        break [] if i == @buffer.cursor_y
-        a = (_prompt_margin + Editor.display_width(line)) / _width + 1
+      i = 0
+      while i < _buffer_lines.size
+        break if i == @buffer.cursor_y
+        a = (_prompt_margin + Editor.display_width(_buffer_lines[i])) / _width + 1
         print "\e[#{a}B"
         @prev_cursor_y += a
+        i += 1
       end
 
       # Show cursor
@@ -306,8 +313,12 @@ module Editor
       if File.file?(filepath)
         @buffer.lines.clear
         File.open(filepath, 'r') do |f|
-          f.each_line do |line|
-            @buffer.lines << line.chomp
+          content = f.read
+          file_lines = content.split("\n")
+          fli = 0
+          while fli < file_lines.size
+            @buffer.lines << file_lines[fli]
+            fli += 1
           end
         end
         return true
@@ -320,8 +331,10 @@ module Editor
 
     def save_file_from_buffer(filepath)
       File.open(filepath, "w") do |f|
-        @buffer.lines.each do |line|
-          f.puts line
+        sli = 0
+        while sli < @buffer.lines.size
+          f.puts @buffer.lines[sli]
+          sli += 1
         end
       end
       @buffer.changed = false
@@ -350,7 +363,9 @@ module Editor
       first_lineno = -1
       first_line_skip_count = 0
       # Show the content
-      @buffer.lines.each_with_index do |line, lineno|
+      lineno = 0
+      while lineno < @buffer.lines.size
+        line = @buffer.lines[lineno]
         dw = Editor.display_width(line)
         max_i = [1, ((dw + content_width - 1) / content_width)].max || 0
         i = 0
@@ -374,7 +389,8 @@ module Editor
           end
           i += 1
         end
-        break [] if content_height == 0
+        break if content_height == 0
+        lineno += 1
       end
       # Adjust if cursor is close to the end of file
       if 0 < content_height && @visual_offset < 0
@@ -382,29 +398,33 @@ module Editor
         @visual_offset += content_height
         # Fill the blank made by the scroll
         blank_lines = []
-        ((first_line_skip_count - content_height)..first_lineno).each do |lineno|
-          lineno = lineno.to_i
-          line = @buffer.lines[lineno]
-          dw = Editor.display_width(line)
+        bln = first_line_skip_count - content_height
+        while bln <= first_lineno
+          bln_i = bln.to_i
+          bline = @buffer.lines[bln_i]
+          dw = Editor.display_width(bline)
           max_i = ([1, (dw - 1) / content_width + 1].max || 0)
           i = 0
           while i < max_i
-            break 0 if lineno == first_lineno && first_line_skip_count - 1 < i
+            break 0 if bln_i == first_lineno && first_line_skip_count - 1 < i
             str = if i == 0
-              "\e[31m" + "#{lineno + 1} ".rjust(4)
+              "\e[31m" + "#{bln_i + 1} ".rjust(4)
             else
               "\e[31m    "
             end
-            str << Editor.display_slice(line, i * content_width, content_width)
+            str << Editor.display_slice(bline, i * content_width, content_width)
             str << "\e[0m"
             blank_lines.unshift str
             i += 1
           end
+          bln += 1
         end
-        blank_lines.each do |line|
-          print "\e[#{content_height};1H#{line}"
+        bli = 0
+        while bli < blank_lines.size
+          print "\e[#{content_height};1H#{blank_lines[bli]}"
           content_height -= 1
-          break [] if content_height < 1
+          break if content_height < 1
+          bli += 1
         end
       end
       print "\e[#{@height - @footer_height + 1};1H"
@@ -537,10 +557,12 @@ module Editor
       y = 0
       cursor_x = @buffer.cursor_x
       cursor_y = @buffer.cursor_y
-      @buffer.lines.each_with_index do |line, i|
-        break [] if i == cursor_y
-        dw = Editor.display_width(line)
+      i = 0
+      while i < @buffer.lines.size
+        break if i == cursor_y
+        dw = Editor.display_width(@buffer.lines[i])
         y += [1, (dw + content_width - 1) / content_width].max || 0
+        i += 1
       end
       cursor_display_x = Editor.byte_to_display_col(@buffer.current_line, cursor_x)
       @visual_cursor_y = y + cursor_display_x / content_width + @visual_offset.to_i

@@ -144,18 +144,23 @@ class Shell
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
     Dir.chdir(root || "/") do
-      %w(bin home etc etc/init.d etc/network etc/dfu var var/log lib).each do |dir|
-        next if Dir.exist?(dir)
-        puts "Creating directory: #{dir}"
-        Dir.mkdir(dir)
-        i = 0
-        while !Dir.exist?(dir)
-          sleep_ms 200
-          i += 1
-          if 10 < i
-            raise "Failed to create directory: #{dir}. Please reboot"
+      dirs = %w(bin home etc etc/init.d etc/network etc/dfu var var/log lib)
+      di = 0
+      while di < dirs.size
+        dir = dirs[di]
+        unless Dir.exist?(dir)
+          puts "Creating directory: #{dir}"
+          Dir.mkdir(dir)
+          i = 0
+          while !Dir.exist?(dir)
+            sleep_ms 200
+            i += 1
+            if 10 < i
+              raise "Failed to create directory: #{dir}. Please reboot"
+            end
           end
         end
+        di += 1
       end
       self.sanity_check_system_files(root || "")
     end
@@ -178,17 +183,32 @@ class Shell
     config = YAML.load_file(config_file)
     # @type var config: Hash[String, untyped]
     env = config['env']
-    if env&.respond_to?(:each)
-      env.each do |key, value|
-        ENV[key.upcase] = value.to_s
+    if env&.respond_to?(:keys)
+      keys = env.keys
+      ki = 0
+      while ki < keys.size
+        key = keys[ki]
+        ENV[key.upcase] = env[key].to_s
+        ki += 1
       end
     end
     device = config['device']
-    if device&.respond_to?(:each)
-      device.each do |type, values|
-        values&.each do |key, value|
-          ENV["#{type}_#{key}".upcase] = value.to_s
+    if device&.respond_to?(:keys)
+      dev_keys = device.keys
+      dki = 0
+      while dki < dev_keys.size
+        type = dev_keys[dki]
+        values = device[type]
+        if values&.respond_to?(:keys)
+          val_keys = values.keys
+          vki = 0
+          while vki < val_keys.size
+            key = val_keys[vki]
+            ENV["#{type}_#{key}".upcase] = values[key].to_s
+            vki += 1
+          end
         end
+        dki += 1
       end
     end
   rescue => e
@@ -276,9 +296,14 @@ class Shell
       file = File.expand_path(name, Dir.pwd)
       return File.file?(name) ? name : nil
     end
-    ENV['PATH']&.split(";")&.each do |path|
-      file = "#{path}/#{name}"
-      return file if File.file? file
+    paths = ENV['PATH']&.split(";")
+    if paths
+      pi = 0
+      while pi < paths.size
+        file = "#{paths[pi]}/#{name}"
+        return file if File.file? file
+        pi += 1
+      end
     end
     nil
   end
@@ -350,9 +375,13 @@ class Shell
         i += grad_slice
       end
       x = 0
-      split_line.each_with_index do |snip, i|
-        color = grad_start + i
-        snip.each_char do |c|
+      si = 0
+      while si < split_line.size
+        snip = split_line[si]
+        color = grad_start + si
+        ci = 0
+        while ci < snip.length
+          c = snip[ci]
           if c == '0'
             if y2 == LOGO.size - 1
               print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}" # steep:ignore
@@ -376,7 +405,9 @@ class Shell
             print "\e[0m"
           end
           x += 1 # steep:ignore
+          ci += 1
         end
+        si += 1
       end
       puts
       y2 += 1
@@ -531,7 +562,9 @@ class Shell
     redirect_out = nil
     redirect_mode = nil
 
-    redirects.each do |redir|
+    ri = 0
+    while ri < redirects.size
+      redir = redirects[ri]
       case redir.data[:type]
       when :input
         redirect_in = redir.data[:target]
@@ -542,6 +575,7 @@ class Shell
         redirect_out = redir.data[:target]
         redirect_mode = :append
       end
+      ri += 1
     end
 
     # Check if builtin command
@@ -580,7 +614,9 @@ class Shell
     redirect_out = nil
     redirect_mode = nil
 
-    redirects.each do |redir|
+    ri = 0
+    while ri < redirects.size
+      redir = redirects[ri]
       case redir.data[:type]
       when :input
         redirect_in = redir.data[:target]
@@ -591,10 +627,15 @@ class Shell
         redirect_out = redir.data[:target]
         redirect_mode = :append
       end
+      ri += 1
     end
 
-    cmd_arrays = commands.map do |cmd_node|
-      [cmd_node.data[:name]] + cmd_node.data[:args]
+    cmd_arrays = []
+    ci = 0
+    while ci < commands.size
+      cmd_node = commands[ci]
+      cmd_arrays << ([cmd_node.data[:name]] + cmd_node.data[:args])
+      ci += 1
     end
 
     if redirect_in || redirect_out
@@ -750,8 +791,10 @@ class Shell
   #  unset
 
   def _type(*args)
-    args.each_with_index do |name, index|
-      puts if 0 < index
+    i = 0
+    while i < args.size
+      name = args[i]
+      puts if 0 < i
       if builtin?("_#{name}")
         print "#{name} is a shell builtin"
       elsif path = Shell.find_executable(name)
@@ -759,14 +802,17 @@ class Shell
       else
         print "type: #{name}: not found"
       end
+      i += 1
     end
     puts
   end
 
   def _echo(*args)
-    args.each_with_index do |param, index|
-      print " " if 0 < index
-      print param
+    i = 0
+    while i < args.size
+      print " " if 0 < i
+      print args[i]
+      i += 1
     end
     puts
   end
@@ -807,13 +853,16 @@ class Shell
   alias _quit _exit
 
   def _jobs(*args)
-    @jobs.each_with_index do |job, index|
-      mark = if index == @jobs.size - 1
+    i = 0
+    while i < @jobs.size
+      job = @jobs[i]
+      mark = if i == @jobs.size - 1
                "+"
              else
                " "
              end
-      puts "[#{index}]#{mark}  #{job.state.to_s.ljust(16, ' ')}#{job.name}"
+      puts "[#{i}]#{mark}  #{job.state.to_s.ljust(16, ' ')}#{job.name}"
+      i += 1
     end
   end
 
@@ -848,8 +897,12 @@ class Shell
   #     args[1] = "VALUE=A"
   def _export(*args)
     if args.empty?
-      ENV.each do |key, value|
-        puts "#{key}=\"#{value}\""
+      env_keys = ENV.keys
+      ei = 0
+      while ei < env_keys.size
+        key = env_keys[ei]
+        puts "#{key}=\"#{ENV[key]}\""
+        ei += 1
       end
       return
     end
@@ -867,8 +920,12 @@ class Shell
   end
 
   def cleanup_jobs
-    @jobs.reject! do |job|
-      job.state == :DORMANT
+    i = @jobs.size - 1
+    while 0 <= i
+      if @jobs[i].state == :DORMANT
+        @jobs.delete_at(i)
+      end
+      i -= 1
     end
   end
 

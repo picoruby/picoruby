@@ -59,8 +59,10 @@ class File
 
     def chmod(mode, *paths)
       count = 0
-      paths.each do |path|
-        count += 1 if VFS.chmod(mode, path) == 0
+      i = 0
+      while i < paths.size
+        count += 1 if VFS.chmod(mode, paths[i]) == 0
+        i += 1
       end
       count
     end
@@ -90,8 +92,10 @@ class File
 
     def unlink(*filenames)
       count = 0
-      filenames.each do |name|
-        count += VFS.unlink(name)
+      i = 0
+      while i < filenames.size
+        count += VFS.unlink(filenames[i])
+        i += 1
       end
       return count
     end
@@ -243,16 +247,20 @@ class File
 
   def write(*args)
     len = 0
-    args.each do |arg|
-      len += @file.write(arg.to_s)
+    i = 0
+    while i < args.size
+      len += @file.write(args[i].to_s)
+      i += 1
     end
     return len
   end
 
   def puts(*lines)
-    lines.each do |line|
-      @file.write line
+    i = 0
+    while i < lines.size
+      @file.write lines[i]
       @file.write "\n"
+      i += 1
     end
     return nil
   end

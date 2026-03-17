@@ -339,9 +339,11 @@ module Net
 
         # Payload
         payload = ""
-        topics.each do |topic|
-          payload += encode_string(topic)
+        ti = 0
+        while ti < topics.size
+          payload += encode_string(topics[ti])
           payload += [qos].pack("C")
+          ti += 1
         end
 
         # Fixed header
@@ -373,8 +375,10 @@ module Net
 
         # Payload
         payload = ""
-        topics.each do |topic|
-          payload += encode_string(topic)
+        ti = 0
+        while ti < topics.size
+          payload += encode_string(topics[ti])
+          ti += 1
         end
 
         # Fixed header

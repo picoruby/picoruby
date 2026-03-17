@@ -2,13 +2,16 @@ class SQLite3
   class Statement
     def bind_params(*bind_vars)
       index = 1
-      bind_vars.each do |var|
+      bvi = 0
+      while bvi < bind_vars.size
+        var = bind_vars[bvi]
         if var.is_a?(Hash)
           var.each { |key, val| bind_param(key, val) }
         else
           bind_param(index, var)
           index += 1
         end
+        bvi += 1
       end
     end
 

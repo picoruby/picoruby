@@ -172,7 +172,9 @@ module Net
           headers = {}
           lines = request.split("\r\n")
 
-          lines.each do |line|
+          li = 0
+          while li < lines.size
+            line = lines[li]
             colon_pos = line.index(':')
             if colon_pos
               key = line[0, colon_pos]&.downcase
@@ -189,6 +191,7 @@ module Net
               end
               headers[key] = value
             end
+            li += 1
           end
 
           headers

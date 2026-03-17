@@ -130,14 +130,25 @@ class SSD1306
   end
 
   def draw_terminus(name, x, y, text)
-    Terminus.draw(name, text) do |height, total_width, widths, glyphs|
-      glyph_x = x
-      widths.each_with_index do |char_width, char_idx|
-        # Use optimized draw_bitmap for each character
-        char_data = glyphs[char_idx]
-        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-        glyph_x += char_width
-      end
+    # Call C method directly to avoid send -> mrb_funcall -> mrb_vm_exec recursion
+    result = case name
+             when "6x12"  then Terminus._6x12(text)
+             when "8x16"  then Terminus._8x16(text)
+             when "12x24" then Terminus._12x24(text)
+             when "16x32" then Terminus._16x32(text)
+             else raise "Unsupported terminus font: #{name}"
+             end
+    height = result[0]
+    widths = result[2]
+    glyphs = result[3]
+    glyph_x = x
+    i = 0
+    while i < widths.size
+      char_width = widths[i]
+      char_data = glyphs[i]
+      draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
+      glyph_x += char_width
+      i += 1
     end
     nil
   end
@@ -146,14 +157,28 @@ class SSD1306
     require "shinonome"
     shinonome_available = true
     def draw_shinonome(name, x, y, text, scale = 1)
-      Shinonome.draw(name, text, scale) do |height, total_width, widths, glyphs|
-        glyph_x = x
-        widths.each_with_index do |char_width, char_idx|
-          # Use optimized draw_bitmap for each character
-          char_data = glyphs[char_idx]
-          draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-          glyph_x += char_width
-        end
+      # Call C method directly to avoid send -> mrb_funcall -> mrb_vm_exec recursion
+      result = case name
+               when "test12" then Shinonome.test12(text, scale)
+               when "test16" then Shinonome.test16(text, scale)
+               when "maru12" then Shinonome.maru12(text, scale)
+               when "go12"   then Shinonome.go12(text, scale)
+               when "min12"  then Shinonome.min12(text, scale)
+               when "go16"   then Shinonome.go16(text, scale)
+               when "min16"  then Shinonome.min16(text, scale)
+               else raise "Unsupported shinonome font: #{name}"
+               end
+      height = result[0]
+      widths = result[2]
+      glyphs = result[3]
+      glyph_x = x
+      i = 0
+      while i < widths.size
+        char_width = widths[i]
+        char_data = glyphs[i]
+        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
+        glyph_x += char_width
+        i += 1
       end
       nil
     end
@@ -168,22 +193,29 @@ class SSD1306
     @i2c.write(@address, 0x00, COLUMNADDR, 0, @width - 1)
     @i2c.write(@address, 0x00, PAGEADDR, 0, @pages - 1)
     # Send all page data to display
-    @vram.pages.each do |col, row, data|
-      @i2c.write(@address, 0x40, data)
+    pages = @vram.pages
+    i = 0
+    while i < pages.size
+      page = pages[i]
+      @i2c.write(@address, 0x40, page[2])
+      i += 1
     end
-    @vram.pages.size
+    pages.size
   end
 
   # Update only dirty pages for better performance
   def update_display_optimized
     dirty_pages = @vram.dirty_pages
     return 0 if dirty_pages.empty?
-    dirty_pages.each do |col, row, data|
+    i = 0
+    while i < dirty_pages.size
+      page = dirty_pages[i]
       # Set addressing range for this page only
       @i2c.write(@address, 0x00, COLUMNADDR, 0, @width - 1)
-      @i2c.write(@address, 0x00, PAGEADDR, row, row)
+      @i2c.write(@address, 0x00, PAGEADDR, page[1], page[1])
       # Send page data
-      @i2c.write(@address, 0x40, data)
+      @i2c.write(@address, 0x40, page[2])
+      i += 1
     end
     dirty_pages.size
   end

@@ -43,7 +43,10 @@ class Rapicco
       @current_page_h = @page_h
       print "\e[1;1H" # home
       in_code = false
-      lines.each do |line|
+      line_idx = 0
+      while line_idx < lines.size
+        line = lines[line_idx]
+        line_idx += 1
         next if line[:note]
         total_width_remaining = @page_w
         if line[:skip]
@@ -66,9 +69,11 @@ class Rapicco
             in_code = true
             print "\e[0m"
           end
-          code_block.each do |code_line|
-            print (" " * @code_indent), code_line, "\e[0K\e[E"
+          cb_i = 0
+          while cb_i < code_block.size
+            print (" " * @code_indent), code_block[cb_i], "\e[0K\e[E"
             check_height and return
+            cb_i += 1
           end
           if eval_code = line[:eval]&.join("\n")
             eval eval_code
@@ -76,7 +81,9 @@ class Rapicco
           next
         end
         div_count = line[:text].size
-        line[:text].each_with_index do |text, div_index|
+        div_index = 0
+        while div_index < div_count
+          text = line[:text][div_index]
           font, fontname = line[:font].to_s.split('_')
           case font.downcase
           when "shinonome"
@@ -90,7 +97,12 @@ class Rapicco
           else
             raise "Unknown font: #{line[:font]}"
           end
-          font_class&.draw(fontname, text[:div], line[:scale]||1) do |height, div_width, widths, glyphs|
+          result = font_class&.draw(fontname, text[:div], line[:scale]||1)
+          if result
+            height = result[0]
+            div_width = result[1]
+            widths = result[2]
+            glyphs = result[3]
             height /= 2
             if div_index == 0
               print "\e[2K\e[1E" * (height + @line_margin) + "\e[#{height}A" # clear the line
@@ -107,10 +119,13 @@ class Rapicco
               width_remaining = total_width_remaining
               overflow = false
               width_drew = 0
-              widths.each_with_index do |width, g|
+              g = 0
+              while g < widths.size
+                width = widths[g]
                 scan_line_upper = glyphs[g][l*2]
                 scan_line_lower = glyphs[g][l*2+1]
-                (width - 1).downto(0) do |shift|
+                shift = width - 1
+                while 0 <= shift
                   if (scan_line_upper>>shift)&1 == 1
                     if (scan_line_lower>>shift)&1 == 1
                       print "\xE2\x96\x88" # Full Block U+2588
@@ -128,10 +143,12 @@ class Rapicco
                   width_remaining -= 1
                   if width_remaining <= 1 # Just before wrapping
                     overflow = true
-                    break 0
+                    break
                   end
+                  shift -= 1
                 end
-                break [0] if overflow
+                break if overflow
+                g += 1
               end
               if div_index == 0
                 check_height and return
@@ -140,30 +157,32 @@ class Rapicco
               print "\e[B\e[#{width_drew}D" # down * 1 and left * width_drew
               l += 1
             end
-            next if overflow
-            total_width_remaining -= div_width
-            if div_index < div_count - 1
-              # move to the continue position
-              print "\e[#{height}A\e[#{div_width + 1}C"
-            else
-              # last text element
-              padding = if line[:bullet]
-                          0
-                        else
-                          case line[:align]
-                          when :center
-                            total_width_remaining / 2
-                          when :right
-                            total_width_remaining
-                          else # :left
+            unless overflow
+              total_width_remaining -= div_width
+              if div_index < div_count - 1
+                # move to the continue position
+                print "\e[#{height}A\e[#{div_width + 1}C"
+              else
+                # last text element
+                padding = if line[:bullet]
                             0
+                          else
+                            case line[:align]
+                            when :center
+                              total_width_remaining / 2
+                            when :right
+                              total_width_remaining
+                            else # :left
+                              0
+                            end
                           end
-                        end
-              if 0 < padding
-                print "\e[F\e[#{padding}@" * height + "\e[#{height}B"
+                if 0 < padding
+                  print "\e[F\e[#{padding}@" * height + "\e[#{height}B"
+                end
               end
             end
           end
+          div_index += 1
         end
       end
       print "\e[2K\e[E" * @current_page_h

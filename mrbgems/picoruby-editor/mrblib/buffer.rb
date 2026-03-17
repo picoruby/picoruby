@@ -6,14 +6,18 @@ if RUBY_ENGINE == "mruby/c"
         raise ArgumentError, "Negative index doesn't work"
       end
       tail = self[index_int, self.length]
-      vals.each_with_index do |val, i|
-        self[index_int + i] = val
+      i = 0
+      while i < vals.size
+        self[index_int + i] = vals[i]
+        i += 1
       end
       if tail
         tail_at = index_int + vals.size
-        tail.each do |elem|
-          self[tail_at] = elem
+        ti = 0
+        while ti < tail.size
+          self[tail_at] = tail[ti]
           tail_at += 1
+          ti += 1
         end
       end
       self
@@ -177,13 +181,18 @@ module Editor
     end
 
     def dump
-      @lines.map do |line|
+      result = []
+      li = 0
+      while li < @lines.size
+        line = @lines[li]
         if line.bytesize > 0 && line.getbyte(line.bytesize - 1) == 0x5C # '\\'
-          line.byteslice(0, line.bytesize - 1)
+          result << line.byteslice(0, line.bytesize - 1)
         else
-          line
+          result << line
         end
-      end.join("\n")
+        li += 1
+      end
+      result.join("\n")
     end
 
     def home
@@ -570,8 +579,10 @@ module Editor
     def insert_lines_below(lines_to_insert)
       return unless lines_to_insert
       insert_at = @cursor_y + 1
-      lines_to_insert.each_with_index do |line, i|
-        @lines.insert(insert_at + i, line)
+      i = 0
+      while i < lines_to_insert.size
+        @lines.insert(insert_at + i, lines_to_insert[i])
+        i += 1
       end
       @cursor_y = insert_at
       @cursor_x = 0

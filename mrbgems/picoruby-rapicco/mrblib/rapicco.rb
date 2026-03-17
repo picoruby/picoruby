@@ -134,7 +134,7 @@ class Rapicco
     @file.close unless @file.nil?
     @file = File.open(@path, 'r')
     if @file.gets&.chomp == "---" # Front-matter
-      @file.each_line do |line|
+      while (line = @file.gets)
         break if line.chomp == "---"
         yaml << line
       end
@@ -143,7 +143,7 @@ class Rapicco
     end
     pos = @file.tell
     in_code_block = false
-    @file.each_line do |line|
+    while (line = @file.gets)
       in_code_block = !in_code_block if line.start_with?('```')
       @positions << pos if line.start_with?('# ') && !in_code_block
       pos = @file.tell

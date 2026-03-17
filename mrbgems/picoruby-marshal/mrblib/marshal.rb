@@ -120,17 +120,23 @@ module Marshal
 
     def dump_array(ary)
       result = TYPE_ARRAY + encode_fixnum(ary.size)
-      ary.each do |elem|
-        result << dump_object(elem)
+      i = 0
+      while i < ary.size
+        result << dump_object(ary[i])
+        i += 1
       end
       result
     end
 
     def dump_hash(hash)
       result = TYPE_HASH + encode_fixnum(hash.size)
-      hash.each do |key, value|
+      keys = hash.keys
+      i = 0
+      while i < keys.size
+        key = keys[i]
         result << dump_object(key)
-        result << dump_object(value)
+        result << dump_object(hash[key])
+        i += 1
       end
       result
     end

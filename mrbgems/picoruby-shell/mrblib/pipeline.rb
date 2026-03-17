@@ -76,10 +76,11 @@ class Shell
       # First, split by pipe character
       segments = command_line.split("|")
 
-      segments.each do |segment|
-        # Trim and split each segment into arguments
-        args = segment.strip.split(" ")
+      i = 0
+      while i < segments.size
+        args = segments[i].strip.split(" ")
         commands << args unless args.empty?
+        i += 1
       end
 
       commands
@@ -101,7 +102,9 @@ class Shell
 
       # Pipeline execution
       input = nil
-      @commands.each_with_index do |cmd_args, idx|
+      idx = 0
+      while idx < @commands.size
+        cmd_args = @commands[idx]
         is_first = (idx == 0)
         is_last = (idx == @commands.size - 1)
 
@@ -119,6 +122,7 @@ class Shell
           execute_with_redirect(cmd_args, input, output)
           input = output
         end
+        idx += 1
       end
     end
 
