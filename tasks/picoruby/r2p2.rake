@@ -119,7 +119,7 @@ namespace :r2p2 do
               config = r2p2_mruby_config(vm, board)
               mruby_build_path = "#{MRUBY_ROOT}/build/r2p2-#{vm}-#{board}"
               FileUtils.cd MRUBY_ROOT do
-                sh "MRUBY_CONFIG=#{config} PICORUBY_BOARD=#{board} #{mode=='debug' ? 'PICORUBY_DEBUG=1' : ''} rake"
+                sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} #{mode=='debug' ? 'PICORUBY_DEBUG=1' : ''} rake"
               end
               defs = <<~DEFS
                 -D PICORUBY_ROOT=#{MRUBY_ROOT} \
