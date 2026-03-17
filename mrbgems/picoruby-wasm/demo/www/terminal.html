@@ -13,6 +13,7 @@
     }
     .controls { margin: 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .controls button { padding: 6px 14px; cursor: pointer; }
+    .controls button:disabled { opacity: 0.4; cursor: not-allowed; }
     .controls select, .controls label { padding: 4px; }
     #status { font-weight: normal; padding: 2px 8px; border-radius: 3px; font-size: 14px; }
     #status.connected    { color: #0f0; background: #030; border: 1px solid #0f0; }
@@ -118,6 +119,10 @@
   <fieldset id="dfu-section">
     <legend>File Editor (RBTP)</legend>
     <div class="controls">
+      <label style="margin-right:4px;">Mode:</label>
+      <label><input id="mode-plain" type="radio" name="upload-mode" value="plain" checked> Plain</label>
+      <label><input id="mode-compile" type="radio" name="upload-mode" value="compile"> Compile</label>
+      <span style="width:8px;display:inline-block;"></span>
       <button id="download-btn" disabled>Download</button>
       <input id="path-input" type="text" placeholder="/home/app.rb" style="width:220px">
       <button id="upload-btn" disabled>Upload</button>
@@ -245,15 +250,44 @@
         fit_terminal
       end
 
+      def compile_mode?
+        el('mode-compile')[:checked] == true
+      end
+
+      def force_mrb_extension
+        path_el = el('path-input')
+        path = path_el[:value].to_s.strip
+        return if path.empty?
+        return if path.end_with?('.mrb')
+        dot_pos = path.rindex('.')
+        if dot_pos
+          new_path = path[0, dot_pos] + '.mrb'
+          path_el[:value] = new_path
+          append_log("[*] Extension changed: #{path} -> #{new_path}")
+        else
+          new_path = path + '.mrb'
+          path_el[:value] = new_path
+          append_log("[*] Extension added: #{path} -> #{new_path}")
+        end
+      end
+
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
         set_dfu_buttons_enabled(connected? && has_path)
       end
 
       def set_dfu_buttons_enabled(enabled)
-        el('upload-btn')[:disabled] = !enabled
-        el('download-btn')[:disabled] = !enabled
+        if enabled
+          el('upload-btn').removeAttribute('disabled')
+          unless compile_mode?
+            el('download-btn').removeAttribute('disabled')
+          end
+        else
+          el('upload-btn').setAttribute('disabled', 'true')
+          el('download-btn').setAttribute('disabled', 'true')
+        end
       end
+
 
       def connected?
         !@current_port.nil?
@@ -349,6 +383,19 @@
         bind_font_controls
         bind_resizer
         el('path-input').addEventListener('input') { update_dfu_buttons }
+
+        # Mode radio buttons
+        el('mode-plain').addEventListener('change') { el('download-btn').removeAttribute('disabled') }
+        el('mode-compile').addEventListener('change') do
+          el('download-btn').setAttribute('disabled', 'true')
+          force_mrb_extension
+        end
+
+        # Force .mrb extension on blur when compile mode
+        el('path-input').addEventListener('blur') do
+          next unless compile_mode?
+          force_mrb_extension
+        end
 
         if JS::WebSerial.supported?
           serial = JS.global[:navigator][:serial]
@@ -676,6 +723,18 @@
         unless path
           append_log("[-] No path specified")
           return
+        end
+
+        # Compile to mrb if compile mode is selected
+        if compile_mode?
+          append_log("[*] Compiling Ruby to mrb...")
+          begin
+            code = PicoRubyVM::InstructionSequence.compile(code).to_binary
+          rescue => e
+            append_log("[-] Compile error: #{e.message}")
+            return
+          end
+          append_log("[+] Compiled: #{code.bytesize} bytes")
         end
 
         append_log("[*] Upload: #{path} (#{code.bytesize} bytes)")
