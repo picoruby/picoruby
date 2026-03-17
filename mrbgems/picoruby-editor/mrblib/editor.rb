@@ -402,11 +402,14 @@ module Editor
         while bln <= first_lineno
           bln_i = bln.to_i
           bline = @buffer.lines[bln_i]
+          # @type var dw: Integer
           dw = Editor.display_width(bline)
           max_i = ([1, (dw - 1) / content_width + 1].max || 0)
+          # @type var i: Integer
+          # @type var max_i: Integer
           i = 0
           while i < max_i
-            break 0 if bln_i == first_lineno && first_line_skip_count - 1 < i
+            break 0 if bln_i == first_lineno && i > first_line_skip_count - 1
             str = if i == 0
               "\e[31m" + "#{bln_i + 1} ".rjust(4)
             else

@@ -584,9 +584,9 @@ class Keyboard
       thi2 = 0
       while thi2 < th_keys2.size
         key_pos = th_keys2[thi2]
-        state = @tap_hold_keys[key_pos]
+        state = @tap_hold_keys[key_pos] # steep:ignore
         # Keep :tapped state (waiting for double-tap), clean up others
-        if state[:state] != :tapped
+        if state && state[:state] != :tapped
           keys_to_delete << key_pos
         end
         thi2 += 1
@@ -806,6 +806,7 @@ class Keyboard
     ei = 0
     while ei < expired_entries.size
       entry = expired_entries[ei]
+      break if entry.nil?
       flush_buffered_key(entry)
       @combo_buffer.delete_if { |e| e[:key_pos] == entry[:key_pos] }
       ei += 1
@@ -853,7 +854,7 @@ class Keyboard
     return unless string
     ci = 0
     while ci < string.length
-      char = string[ci]
+      char = string[ci] || ''
       kc, mod = ascii_to_hid(char)
       if kc
         @callback&.call(row: 0, col: 0, keycode: kc, modifier: (mod || 0), pressed: true)

@@ -159,10 +159,11 @@ class VFS
         i += 1
       end
       if volume
+        # @type var volume: volume_t
         cut = volume[:mountpoint] == "/" ? 0 : 1
         [volume, "/#{sanitized_path[volume[:mountpoint].length + cut, 255]}"]
       else
-        [VOLUMES[0], sanitized_path] # fallback
+        [VOLUMES[0], sanitized_path]
       end
     end
 

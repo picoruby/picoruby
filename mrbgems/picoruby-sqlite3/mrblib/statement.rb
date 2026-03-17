@@ -13,6 +13,7 @@ class SQLite3
         end
         bvi += 1
       end
+      bind_vars
     end
 
     def execute(*bind_vars)

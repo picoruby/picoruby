@@ -168,6 +168,9 @@ class SSD1306
                when "min16"  then Shinonome.min16(text, scale)
                else raise "Unsupported shinonome font: #{name}"
                end
+      if result.nil?
+        return # maybe test12 or test16
+      end
       height = result[0]
       widths = result[2]
       glyphs = result[3]
