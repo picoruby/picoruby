@@ -207,13 +207,8 @@
     end
 
     class UserDetailComponent < Funicular::Component
-      def initialize(params = {})
-        super(params)
-        @user_id = params[:id]
-      end
-
       def initialize_state
-        { user_id: @user_id }
+        { user_id: @props[:id] }
       end
 
       def go_back(event)

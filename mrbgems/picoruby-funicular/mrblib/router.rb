@@ -182,29 +182,7 @@ module Funicular
     end
 
     def extract_param_names(path_pattern)
-      param_names = []
-      i = 0
-      while i < path_pattern.length
-        if path_pattern[i] == ':'
-          # Found parameter marker, extract param name
-          i += 1
-          param_name = ""
-          while i < path_pattern.length
-            char = path_pattern[i] || ''
-            # Check if char is alphanumeric or underscore
-            if (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_'
-              param_name += char
-              i += 1
-            else
-              break
-            end
-          end
-          param_names << param_name.to_sym unless param_name.empty?
-        else
-          i += 1
-        end
-      end
-      param_names
+      path_pattern.split('/').select { |s| s.start_with?(':') }.map { |s| s[1..-1].to_sym }
     end
 
     def find_route(path)
