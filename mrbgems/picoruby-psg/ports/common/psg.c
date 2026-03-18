@@ -425,10 +425,10 @@ bool
 PSG_audio_cb(void)
 {
   if (psg_drv && psg_drv->write) {
-    if (((rd_idx + 1) & BUF_MASK) != wr_idx) {
-      uint32_t val = pcm_buf[rd_idx];
-      rd_idx = (rd_idx + 1) & BUF_MASK;
-      psg_drv->write(val>>16, val & 0xFFFF);
+    if (rd_idx != wr_idx) {
+      uint32_t val = pcm_buf[rd_idx & BUF_MASK];
+      rd_idx++;
+      psg_drv->write(val >> 16, val & 0xFFFF);
     }
   }
   return true;

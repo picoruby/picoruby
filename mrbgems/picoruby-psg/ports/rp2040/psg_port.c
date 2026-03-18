@@ -108,6 +108,26 @@ static alarm_pool_t *tick_alarm_pool = NULL;
 
 static volatile bool core1_alive = false;
 
+// Audio timer (must be declared before psg_core1_main)
+static repeating_timer_t audio_timer;
+
+#if 1
+#define DBG_PIN  5
+#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << DBG_PIN)
+#else
+#define DBG_TOGGLE()
+#endif
+
+static bool
+audio_cb(repeating_timer_t *t)
+{
+  (void)t;
+  DBG_TOGGLE();
+  PSG_audio_cb();
+  DBG_TOGGLE();
+  return true;
+}
+
 enum {
   ACK_CORE1_READY = 0xA5,
   CMD_NONE,
@@ -146,15 +166,15 @@ psg_core1_main(void)
 
   for (;;) {
     // core1 is responsible for rendering audio samples (heavy load)
-    uint32_t used = (wr_idx - rd_idx) & BUF_MASK; // 0..255
-    if (BUF_SAMPLES / 2 <= BUF_SAMPLES - used) {
+    uint32_t used = wr_idx - rd_idx;
+    if (used <= BUF_SAMPLES / 2) {
       uint32_t dst_pos = wr_idx & BUF_MASK;  // Start position to write
       // How many words can we write at the end of the buffer?
       uint32_t first_len = MIN(BUF_SAMPLES - dst_pos, BUF_SAMPLES / 2);
       PSG_render_block(&pcm_buf[dst_pos], first_len);
       // If there are remaining words, write them at the beginning of the buffer
       if (first_len < BUF_SAMPLES / 2) {
-        PSG_render_block(pcm_buf, (BUF_SAMPLES / 2 - first_len) / 2);
+        PSG_render_block(pcm_buf, BUF_SAMPLES / 2 - first_len);
       }
       wr_idx += BUF_SAMPLES / 2;
     }
@@ -176,27 +196,6 @@ psg_core1_main(void)
 }
 
 
-// Audio timer
-
-static repeating_timer_t audio_timer;
-
-#if 1
-#define DBG_PIN  5
-#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << DBG_PIN)
-#else
-#define DBG_TOGGLE()
-#endif
-
-static bool
-audio_cb(repeating_timer_t *t)
-{
-  (void)t;
-  DBG_TOGGLE();
-  PSG_audio_cb();
-  DBG_TOGGLE();
-  return true;
-}
-
 void
 PSG_tick_start_core1(uint8_t p1, uint8_t p2)
 {
@@ -207,6 +206,7 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2)
 #endif
 
   PSG_render_block(pcm_buf, BUF_SAMPLES);
+  rd_idx = 0;
   wr_idx = BUF_SAMPLES;
 
   if (!core1_alive) {
