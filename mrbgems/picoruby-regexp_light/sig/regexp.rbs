@@ -9,6 +9,7 @@ class Regexp
   def match: (String str) -> MatchData?
   def match?: (String str) -> bool
   def =~: (String str) -> Integer?
+  def ===: (String str) -> bool
   def source: () -> String
   def to_s: () -> String
   def inspect: () -> String

@@ -11,6 +11,7 @@ Wraps the [regex_light](lib/regex_light) C library with mruby and mrubyc binding
 - `Regexp.compile` / `Regexp.new`
 - `Regexp#match` -> `MatchData` or `nil`
 - `Regexp#match?` -> `true`/`false`
+- `Regexp#===` -> `true`/`false` (for `case`-`when`)
 - `Regexp#=~` -> match index or `nil`
 - `MatchData`: `[]`, `to_a`, `length`, `captures`, `pre_match`, `post_match`, `begin`, `end`
 - `String#match`, `String#match?`, `String#=~`
@@ -23,6 +24,9 @@ Wraps the [regex_light](lib/regex_light) C library with mruby and mrubyc binding
 | `?`    | Zero or one (greedy) |
 | `*`    | Zero or more (greedy) |
 | `+`    | One or more (greedy) |
+| `{n}`  | Exactly n repetitions |
+| `{n,m}` | Between n and m repetitions (greedy) |
+| `{n,}` | n or more repetitions (greedy) |
 | `^`    | Start of string |
 | `$`    | End of string |
 | `\A`   | Start of string (converted to `^`) |
@@ -89,4 +93,12 @@ constraint.match?("slug")  # => false
 
 # String extension
 "abc 42 def" =~ /\d+/      # => 4
+
+# case-when with ===
+case "2024-01-15"
+when /\A\d{4}-\d{2}-\d{2}\z/ then :date
+when /\A\d+\z/                then :number
+else                               :other
+end
+# => :date
 ```
