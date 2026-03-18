@@ -12,6 +12,7 @@ void mrbc_js_init(struct VM *vm);
 struct mrb_state;
 void mrb_js_init(struct mrb_state *mrb);
 void mrb_websocket_init(struct mrb_state *mrb);
+void mrb_regexp_init(struct mrb_state *mrb);
 #endif
 
 #ifdef __cplusplus

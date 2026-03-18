@@ -24,6 +24,7 @@ extern void mrb_wasm_debugger_init(mrb_state *mrb);
 #endif
 extern void mrb_ble_init(mrb_state *mrb);
 extern void mrb_web_serial_init(mrb_state *mrb);
+extern void mrb_regexp_init(mrb_state *mrb);
 
 mrb_state *global_mrb = NULL;
 mrb_value main_task = {0};
@@ -125,6 +126,7 @@ picorb_init(void)
 #endif
   mrb_ble_init(global_mrb);
   mrb_web_serial_init(global_mrb);
+  mrb_regexp_init(global_mrb);
 
   const uint8_t *script = (const uint8_t *)"Task.current.suspend";
   size_t size = strlen((const char *)script);
@@ -265,6 +267,7 @@ mrb_picoruby_wasm_gem_init(mrb_state* mrb)
   mrb_websocket_init(mrb);
   mrb_ble_init(mrb);
   mrb_web_serial_init(mrb);
+  mrb_regexp_init(mrb);
 }
 
 void
