@@ -10,6 +10,7 @@ This guide covers Funicular's built-in client-side routing and the Rails-style `
 - [Named Routes and URL Helpers](#named-routes-and-url-helpers)
 - [Programmatic Navigation](#programmatic-navigation)
 - [link_to Helper](#link_to-helper)
+- [Route Constraints](#route-constraints)
 - [Best Practices](#best-practices)
 
 ## Router Setup
@@ -82,6 +83,30 @@ class UserProfileComponent < Funicular::Component
   end
 end
 ```
+
+## Route Constraints
+
+You can add regular expression constraints to URL parameters. When a constraint is specified, the route only matches if the parameter value matches the pattern. This is useful for distinguishing routes that share the same structure but accept different parameter formats.
+
+```ruby
+Funicular.start(container: 'app') do |router|
+  # Only matches when :id is numeric
+  router.get('/users/:id', to: UserProfileComponent, as: 'user', constraints: { id: /\d+/ })
+
+  # Only matches when :channel_id is numeric
+  router.get('/chat/:channel_id', to: ChatComponent, as: 'chat_channel', constraints: { channel_id: /\d+/ })
+
+  # Multiple parameters can each have constraints
+  router.get('/posts/:year/:month', to: ArchiveComponent, as: 'archive', constraints: { year: /\d{4}/, month: /\d{1,2}/ })
+
+  # No constraint - matches any string
+  router.get('/pages/:slug', to: PageComponent, as: 'page')
+end
+```
+
+The `constraints` option takes a Hash mapping parameter names (as Symbols) to Regexp objects. If a segment does not match its constraint, the router skips that route and continues to the next candidate.
+
+**Note**: Constraints use `Regexp#match?`, which is backed by JavaScript's `RegExp` engine in PicoRuby.wasm.
 
 ## Named Routes and URL Helpers
 
