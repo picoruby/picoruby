@@ -1,8 +1,40 @@
 class Regexp
+  IGNORECASE: Integer
+  EXTENDED: Integer
+  MULTILINE: Integer
+
+  def self.compile: (String pattern, ?String | Integer | nil flags, ?untyped encoding) -> Regexp
+  def self.new: (String pattern, ?String | Integer | nil flags, ?untyped encoding) -> Regexp
+
   def match: (String str) -> MatchData?
   def match?: (String str) -> bool
+  def =~: (String str) -> Integer?
+  def source: () -> String
+  def to_s: () -> String
+  def inspect: () -> String
+  def casefold?: () -> bool
+  def options: () -> Integer
+  def free: () -> nil
 end
 
 class MatchData
-  def to_a: () -> Array[String]
+  def []: (Integer idx) -> String?
+  def to_a: () -> Array[String?]
+  def length: () -> Integer
+  def size: () -> Integer
+  def string: () -> String
+  def regexp: () -> Regexp
+  def pre_match: () -> String
+  def post_match: () -> String
+  def begin: (Integer idx) -> Integer?
+  def end: (Integer idx) -> Integer?
+  def captures: () -> Array[String?]
+  def to_s: () -> String
+  def inspect: () -> String
+end
+
+class String
+  def match: (Regexp | String pattern) -> MatchData?
+  def match?: (Regexp | String pattern) -> bool
+  def =~: (Regexp | String pattern) -> Integer?
 end
