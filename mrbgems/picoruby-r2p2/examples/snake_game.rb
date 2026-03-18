@@ -1,12 +1,14 @@
 # Snake Game Demo for PicoRuby official board (PRB)
 # Hardware: OLED(SSD1306), Joystick(ADC), RotaryEncoder, Buttons(GPIO)
-# TODO: Add PWM sound effects later
+#           Piezo buzzers on GPIO10 (push-pull with GPIO11)
 
 require 'ssd1306'
 require 'adc'
 require 'gpio'
 require 'irq'
 require 'rotary_encoder'
+require 'pio'
+require 'rng' # for Kernel#rand
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -101,6 +103,101 @@ def draw_paused(display)
 end
 
 # ---------------------------------------------------------------------------
+# PIO buzzer -- square wave on GPIO10/11 in push-pull
+# ---------------------------------------------------------------------------
+#
+# PIO clock = 1 MHz (125 MHz / 125).
+# Half-period counter X loaded from FIFO.
+# Frequency ~= 1_000_000 / (2 * X).
+# Write 0 to silence.
+
+BUZZER_PIN_BASE = 10
+BUZZER_PIO_FREQ = 1_000_000
+
+tone_prog = PIO.asm do
+  label :silence
+  set :pins, 0b00                      # both pins low -- no sound
+  pull                                 # blocking: wait until FIFO has data
+  label :new_period
+  mov :x, :osr                        # X = half-period counter
+  wrap_target
+  label :tone_loop
+  set :pins, 0b11                      # both buzzers high
+  mov :y, :x
+  label :high_wait
+  jmp :high_wait, cond: :y_dec
+  set :pins, 0b00                      # both buzzers low
+  mov :y, :x
+  label :low_wait
+  jmp :low_wait, cond: :y_dec
+  pull block: false                    # non-blocking: check for new value
+  mov :x, :osr
+  jmp :silence, cond: :not_x      # X == 0 -> silence
+  wrap                                 # implicit jump back to tone_loop
+end
+
+$buzzer_sm = PIO::StateMachine.new(
+  pio: PIO::PIO0,
+  sm: 0,
+  program: tone_prog,
+  freq: BUZZER_PIO_FREQ,
+  set_pins: BUZZER_PIN_BASE,
+  set_pin_count: 2
+)
+$buzzer_sm.start
+
+# Sound queue: [[period, duration_ms], ...]
+$sound_queue = []
+$sound_timer = 0
+
+def freq_to_period(freq)
+  BUZZER_PIO_FREQ / (2 * freq)
+end
+
+def sound_tone(freq, ms)
+  $sound_queue << [freq_to_period(freq), ms]
+end
+
+def sound_eat
+  sound_tone(1500, 60)
+end
+
+def sound_start
+  sound_tone(800, 80)
+  sound_tone(1200, 120)
+end
+
+def sound_game_over
+  sound_tone(400, 150)
+  sound_tone(200, 300)
+end
+
+def sound_silence
+  $sound_queue.clear
+  $sound_timer = 0
+  $buzzer_sm.put_nonblocking(0)
+end
+
+def sound_tick(elapsed)
+  if 0 < $sound_timer
+    $sound_timer -= elapsed
+    if $sound_timer <= 0
+      $sound_timer = 0
+      if $sound_queue.empty?
+        $buzzer_sm.put_nonblocking(0)
+      end
+    end
+  end
+  if $sound_timer <= 0 && !$sound_queue.empty?
+    tone = $sound_queue[0]
+    if $buzzer_sm.put_nonblocking(tone[0])
+      $sound_queue.shift
+      $sound_timer = tone[1]
+    end
+  end
+end
+
+# ---------------------------------------------------------------------------
 # Hardware initialization
 # ---------------------------------------------------------------------------
 
@@ -162,7 +259,6 @@ JOY_DEAD   = 200
 def read_joystick(joy_x_adc, joy_y_adc)
   raw_x = joy_x_adc.read_raw
   raw_y = joy_y_adc.read_raw
-  puts "Joystick raw: x=#{raw_x} y=#{raw_y}"
   dx = raw_x - JOY_CENTER
   dy = raw_y - JOY_CENTER
 
@@ -242,6 +338,7 @@ while true
   last_ms = now_ms
 
   IRQ.process
+  sound_tick(elapsed)
 
   # Process speed encoder
   if $speed_delta != 0
@@ -264,6 +361,7 @@ while true
       state = :playing
       needs_full_redraw = true
       tick_acc = 0
+      sound_start
     end
 
   when :playing
@@ -294,6 +392,7 @@ while true
       # Wall collision
       if new_x < 0 || COLS <= new_x || new_y < 0 || ROWS <= new_y
         state = :game_over
+        sound_game_over
         draw_game_over(display, score)
       else
         # Self collision
@@ -309,6 +408,7 @@ while true
 
         if hit_self
           state = :game_over
+          sound_game_over
           draw_game_over(display, score)
         else
           # Advance snake
@@ -316,6 +416,7 @@ while true
 
           if new_x == food_x && new_y == food_y
             # Ate food
+            sound_eat
             score += 1
             food = spawn_food(snake)
             food_x = food[0]

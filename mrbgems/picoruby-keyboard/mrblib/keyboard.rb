@@ -54,7 +54,7 @@ class Keyboard
     @callback = nil
   end
 
-  attr_reader :layer_names, :layout
+  attr_reader :layer_names, :layout, :keys_pressed
 
   def layer(name = :default, &block)
     unless block
@@ -142,6 +142,10 @@ class Keyboard
   end
 
   # Inject an external key event (for split keyboard support)
+  def on_tick(&block)
+    @on_tick = block
+  end
+
   def inject_event(row, col, pressed)
     if row < 0 || @keymap_rows <= row || col < 0 || @keymap_cols <= col
       raise ArgumentError, "Position (#{row}, #{col}) is out of keymap bounds (#{@keymap_rows}x#{@keymap_cols})"
@@ -169,6 +173,7 @@ class Keyboard
       # Always update LT/MT tap key states, even without key events
       # This ensures tap threshold timeout is properly detected
       update_tap_hold_keys
+      @on_tick&.call(self)
       sleep_ms(1)
     end
   end
