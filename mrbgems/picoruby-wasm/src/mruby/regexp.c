@@ -262,6 +262,22 @@ mrb_regexp_match_p(mrb_state *mrb, mrb_value self)
   return mrb_bool_value(result);
 }
 
+/* Regexp#===(str) -> true/false (for case-when) */
+static mrb_value
+mrb_regexp_case_eq(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str_val;
+  mrb_get_args(mrb, "S", &str_val);
+
+  picorb_regexp *re = (picorb_regexp *)DATA_PTR(self);
+  if (!re) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
+  }
+
+  int result = regexp_test(re->ref_id, RSTRING_PTR(str_val));
+  return mrb_bool_value(result);
+}
+
 /* Regexp#=~(str) -> Integer or nil */
 static mrb_value
 mrb_regexp_match_op(mrb_state *mrb, mrb_value self)
@@ -824,6 +840,7 @@ mrb_regexp_init(mrb_state *mrb)
 
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(match), mrb_regexp_match, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(match), mrb_regexp_match_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "==="), mrb_regexp_case_eq, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "=~"), mrb_regexp_match_op, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(source), mrb_regexp_source, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(to_s), mrb_regexp_to_s, MRB_ARGS_NONE());
