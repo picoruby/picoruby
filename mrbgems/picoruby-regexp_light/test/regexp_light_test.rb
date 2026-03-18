@@ -295,6 +295,26 @@ class RegexpLightTest < Picotest::Test
     assert_equal "world", md[0]
   end
 
+  # ---- Regexp#=== (for case-when) ----
+
+  def test_triple_equal_match
+    assert_true  /hello/ === "hello world"
+    assert_false /hello/ === "world"
+  end
+
+  def test_triple_equal_in_case_when
+    result = case "hello123"
+    when /\A\d+\z/ then :digits
+    when /[a-z]+/  then :has_lower
+    else                :other
+    end
+    assert_equal :has_lower, result
+  end
+
+  def test_triple_equal_no_match_returns_false
+    assert_false /\d+/ === "abc"
+  end
+
   # ---- Regexp constants ----
 
   def test_constants

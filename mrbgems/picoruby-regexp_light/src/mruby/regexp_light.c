@@ -258,6 +258,21 @@ mrb_regexp_light_match_p(mrb_state *mrb, mrb_value self)
   return mrb_bool_value(r == 0);
 }
 
+/* Regexp#===(str) -> bool (for case-when) */
+static mrb_value
+mrb_regexp_light_case_eq(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str_val;
+  mrb_get_args(mrb, "S", &str_val);
+
+  picorb_regexp_light *re = (picorb_regexp_light *)DATA_PTR(self);
+  if (!re) mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
+
+  regmatch_t pmatch[1];
+  int r = regexec(&re->regex, RSTRING_PTR(str_val), 1, pmatch, 0);
+  return mrb_bool_value(r == 0);
+}
+
 /* Regexp#=~(str) -> Integer or nil */
 static mrb_value
 mrb_regexp_light_match_op(mrb_state *mrb, mrb_value self)
@@ -612,6 +627,8 @@ mrb_picoruby_regexp_light_gem_init(mrb_state *mrb)
     mrb_regexp_light_match, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(match),
     mrb_regexp_light_match_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "==="),
+    mrb_regexp_light_case_eq, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "=~"),
     mrb_regexp_light_match_op, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(source),

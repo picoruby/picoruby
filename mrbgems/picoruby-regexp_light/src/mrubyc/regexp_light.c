@@ -254,6 +254,24 @@ c_regexp_match_p(mrbc_vm *vm, mrbc_value v[], int argc)
   }
 }
 
+/* Regexp#===(str) -> bool (for case-when) */
+static void
+c_regexp_case_eq(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc < 1 || v[1].tt != MRBC_TT_STRING) {
+    SET_FALSE_RETURN();
+    return;
+  }
+  regex_t *re = (regex_t *)v[0].instance->data;
+  regmatch_t pmatch[1];
+  int r = regexec(re, (const char *)v[1].string->data, 1, pmatch, 0);
+  if (r == 0) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
 /* Regexp#=~(str) -> Integer or nil */
 static void
 c_regexp_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
@@ -733,6 +751,7 @@ mrbc_regexp_light_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_Regexp, "new",       c_regexp_compile);
   mrbc_define_method(vm, class_Regexp, "match",     c_regexp_match);
   mrbc_define_method(vm, class_Regexp, "match?",    c_regexp_match_p);
+  mrbc_define_method(vm, class_Regexp, "===",       c_regexp_case_eq);
   mrbc_define_method(vm, class_Regexp, "=~",        c_regexp_match_op);
   mrbc_define_method(vm, class_Regexp, "source",    c_regexp_source);
   mrbc_define_method(vm, class_Regexp, "to_s",      c_regexp_to_s);
