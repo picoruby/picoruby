@@ -190,6 +190,29 @@ mrb_driver_mute(mrb_state *mrb, mrb_value self)
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
+/* Direct register write (bypasses ring buffer) */
+static mrb_value
+mrb_driver_write_reg_direct(mrb_state *mrb, mrb_value self)
+{
+  mrb_int reg, val;
+  mrb_get_args(mrb, "ii", &reg, &val);
+  PSG_write_reg((uint8_t)reg, (uint8_t)val);
+  return mrb_nil_value();
+}
+
+/* Direct mute (bypasses ring buffer) */
+static mrb_value
+mrb_driver_mute_direct(mrb_state *mrb, mrb_value self)
+{
+  mrb_int tr, flag;
+  mrb_get_args(mrb, "ii", &tr, &flag);
+  psg_cs_token_t t = PSG_enter_critical();
+  if (flag) psg.mute_mask |=  (1u << tr);
+  else      psg.mute_mask &= ~(1u << tr);
+  PSG_exit_critical(t);
+  return mrb_nil_value();
+}
+
 void
 mrb_picoruby_psg_gem_init(mrb_state* mrb)
 {
@@ -217,6 +240,8 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_timbre), mrb_driver_set_timbre, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_legato), mrb_driver_set_legato, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute), mrb_driver_mute, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(write_reg_direct), mrb_driver_write_reg_direct, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(mute_direct), mrb_driver_mute_direct, MRB_ARGS_REQ(2));
 }
 
 void

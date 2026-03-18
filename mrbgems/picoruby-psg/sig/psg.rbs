@@ -18,6 +18,8 @@ module PSG
     def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool
     def set_legato: (Integer ch, Integer legato, ?Integer tick_delay) -> bool
     def mute: (Integer ch, Integer flag, ?Integer tick_delay) -> bool
+    def write_reg_direct: (Integer reg, Integer value) -> nil
+    def mute_direct: (Integer ch, Integer flag) -> nil
 
     WAIT_MS: Integer
     def play_mml: (Array[String] tracks, ?terminate: bool) -> self

@@ -56,7 +56,7 @@ update_tone_inc(int tr)
   } while (0)
 
 // AY compatible registors
-static void
+void
 PSG_write_reg(uint8_t reg, uint8_t val)
 {
   psg_cs_token_t tok = PSG_enter_critical();
