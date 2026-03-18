@@ -52,7 +52,7 @@ class RuntimeGems
 
         file mrb_file => rb_file do
           puts "  Compiling #{relative_path}..."
-          system("#{picorbcfile} -o #{mrb_file} #{rb_file}") or raise "Compilation failed for #{rb_file}"
+          system("#{MRUBY_ROOT}/bin/picorbc -o #{mrb_file} #{rb_file}") or raise "Compilation failed for #{rb_file}"
         end
       end
     end
