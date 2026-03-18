@@ -133,9 +133,18 @@ pico_generate_pio_header(${PROJECT_NAME}
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
 
+# RP2040: 4KB stack fits in SCRATCH_Y, use SDK default linker script
+# RP2350: 8KB stack needs RAM, use custom linker script
+if(PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
+  set(PICORUBY_STACK_SIZE 0x1000) # 4KB
+elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
+  set(PICORUBY_STACK_SIZE 0x2000) # 8KB
+  pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld)
+endif()
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-  PICO_STACK_SIZE=0x1000       # 4KB
-  PICO_CORE1_STACK_SIZE=0x0800 # 2KB
+  PICO_STACK_SIZE=${PICORUBY_STACK_SIZE}
+  PICO_CORE1_STACK_SIZE=0x0800 # 2KB (in SCRATCH_X)
   PICO_HEAP_SIZE=0x0400        # 1KB
 )
 

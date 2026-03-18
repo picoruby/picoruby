@@ -7,6 +7,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 /* PicoRuby */
 #include "picoruby.h"
@@ -45,6 +46,9 @@
   mrb_state *global_mrb = NULL;
 #endif
 
+/* Linker symbol: bottom of C stack (top of heap region) */
+extern uint8_t __StackBottom[];
+
 int
 main(void)
 {
@@ -53,6 +57,11 @@ main(void)
   printf("R2P2 PicoRuby starting...\n");
   printf("Heap size: %d KB\n", HEAP_SIZE_KB);
   board_init();
+
+#if !defined(R2P2_ALLOC_LIBC)
+  assert((uint8_t *)heap_pool + HEAP_SIZE <= (uint8_t *)__StackBottom
+         && "heap_pool overlaps with C stack");
+#endif
 
   int ret = 0;
 
