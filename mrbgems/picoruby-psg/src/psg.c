@@ -92,6 +92,15 @@ mrb_driver_buffer_empty_p(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_driver_buffer_flush(mrb_state *mrb, mrb_value self)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  rb.head = rb.tail;
+  PSG_exit_critical(t);
+  return mrb_nil_value();
+}
+
+static mrb_value
 mrb_driver_deinit(mrb_state *mrb, mrb_value self)
 {
   PSG_tick_stop_core1();
@@ -234,6 +243,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(buffer_empty), mrb_driver_buffer_empty_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(buffer_flush), mrb_driver_buffer_flush, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(deinit), mrb_driver_deinit, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_lfo), mrb_driver_set_lfo, MRB_ARGS_ARG(3, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(set_pan), mrb_driver_set_pan, MRB_ARGS_ARG(2, 1));

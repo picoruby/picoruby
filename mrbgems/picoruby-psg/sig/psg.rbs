@@ -11,7 +11,10 @@ module PSG
     def initalize: (Symbol type, **Integer opt) -> void
     def join: () -> void
     def buffer_empty?: () -> bool
+    def buffer_flush: () -> nil
     def deinit: () -> nil
+    def replay: () -> Symbol
+    def stop_mml: () -> Symbol
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
     def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
     def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool

@@ -4,6 +4,7 @@ module PSG
     WAIT_MS = 500
 
     def initialize(type, **opt)
+      @mml_request = nil
       case type
       when :pwm
         if opt[:left].nil? || opt[:right].nil?
@@ -34,52 +35,88 @@ module PSG
       end
     end
 
+    def replay
+      @mml_request = :replay
+    end
+
+    def stop_mml
+      @mml_request = :stop
+    end
+
     def play_mml(tracks, terminate: true)
       trap
-      mixer = 0b111000 # Noise all off, Tone all on
-      # Give the ring buffer time to fill with some amount of packets
-      tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
-      MML.compile_multi(tracks, loop: true) do |delta, tr, command, arg0, arg1 = 0|
-        case command
-        when :segno
-          # Ignore. MML takes care of `$` macro
-        when :mute
-          invoke :mute, tr, arg0, delta
-        when :play
-          invoke :send_reg, tr * 2    , arg0 & 0xFF       , delta
-          invoke :send_reg, tr * 2 + 1, (arg0 >> 8) & 0x0F, 0
-        when :volume
-          invoke :send_reg, tr + 8, arg0, delta
-        when :env_period
-          invoke :send_reg, 11, arg0 & 0xFF, delta
-          invoke :send_reg, 12, arg0 >> 8  , 0
-        when :env_shape
-          invoke :send_reg, 13, arg0, delta
-        when :legato
-          invoke :set_legato, tr, arg0, delta
-        when :timbre
-          invoke :set_timbre, tr, arg0, delta
-        when :pan
-          invoke :set_pan, tr, arg0, delta
-        when :lfo
-          invoke :set_lfo, tr, arg0, arg1, delta
-        when :mixer
-          case arg0
-          when 0 # Tone on, Noise off
-            mixer |= (1 << (tr + 3))  # Set noise bit (off)
-            mixer &= ~(1 << tr)       # Clear tone bit (on)
-          when 1 # Tone off, Noise on
-            mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
-            mixer |= (1 << tr)        # Set tone bit (off)
-          when 2 # Tone on, Noise on
-            mixer &= ~(1 << tr)       # Clear tone bit (on)
-            mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
+
+      while true
+        # Wait if stopped (initial stop_mml before first play, or after game over)
+        if @mml_request == :stop
+          @mml_request = nil
+          sleep_ms(100) while @mml_request.nil?
+          # @mml_request is now :replay
+        end
+        @mml_request = nil
+
+        mixer = 0b111000 # Noise all off, Tone all on
+        # Give the ring buffer time to fill with some amount of packets
+        tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
+        MML.compile_multi(tracks, loop: true) do |delta, tr, command, arg0, arg1 = 0|
+          break unless @mml_request.nil?
+          case command
+          when :segno
+            # Ignore. MML takes care of `$` macro
+          when :mute
+            invoke :mute, tr, arg0, delta
+          when :play
+            invoke :send_reg, tr * 2    , arg0 & 0xFF       , delta
+            invoke :send_reg, tr * 2 + 1, (arg0 >> 8) & 0x0F, 0
+          when :volume
+            invoke :send_reg, tr + 8, arg0, delta
+          when :env_period
+            invoke :send_reg, 11, arg0 & 0xFF, delta
+            invoke :send_reg, 12, arg0 >> 8  , 0
+          when :env_shape
+            invoke :send_reg, 13, arg0, delta
+          when :legato
+            invoke :set_legato, tr, arg0, delta
+          when :timbre
+            invoke :set_timbre, tr, arg0, delta
+          when :pan
+            invoke :set_pan, tr, arg0, delta
+          when :lfo
+            invoke :set_lfo, tr, arg0, arg1, delta
+          when :mixer
+            case arg0
+            when 0 # Tone on, Noise off
+              mixer |= (1 << (tr + 3))  # Set noise bit (off)
+              mixer &= ~(1 << tr)       # Clear tone bit (on)
+            when 1 # Tone off, Noise on
+              mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
+              mixer |= (1 << tr)        # Set tone bit (off)
+            when 2 # Tone on, Noise on
+              mixer &= ~(1 << tr)       # Clear tone bit (on)
+              mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
+            end
+            invoke :send_reg, 7, mixer, delta
+          when :noise
+            invoke :send_reg, 6, arg0, delta
           end
-          invoke :send_reg, 7, mixer, delta
-        when :noise
-          invoke :send_reg, 6, arg0, delta
+        end
+
+        # Silence all channels used by tracks
+        tracks.size.times do |tr|
+          write_reg_direct(tr + 8, 0)
+          mute_direct(tr, 1)
+        end
+        buffer_flush
+
+        if @mml_request == :replay
+          next # restart from beginning
+        elsif @mml_request == :stop
+          next # will enter wait state at top of loop
+        else
+          break # natural end (non-looping MML finished)
         end
       end
+
       join if terminate
       return self
     rescue => e
@@ -153,6 +190,7 @@ module PSG
 
     def invoke(command, arg1, arg2, arg3, arg4 = 0)
       while true
+        return if @mml_request
         pushed = case command
         when :mute
           mute(arg1, arg2, arg3)
