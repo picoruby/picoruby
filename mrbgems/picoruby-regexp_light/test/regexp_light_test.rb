@@ -145,6 +145,58 @@ class RegexpLightTest < Picotest::Test
     assert_equal "hxllo", md2[0]
   end
 
+  # ---- Repeat quantifiers {n}, {n,m}, {n,} ----
+
+  def test_repeat_exact
+    md = /a{3}/.match("xaaay")
+    assert_equal "aaa", md[0]
+    assert_nil /a{3}/.match("aa")
+  end
+
+  def test_repeat_range
+    md = /a{2,4}/.match("aaaaa")
+    assert_equal "aaaa", md[0]
+    md2 = /a{2,4}/.match("aa")
+    assert_equal "aa", md2[0]
+    assert_nil /a{2,4}/.match("a")
+  end
+
+  def test_repeat_unbounded
+    md = /a{2,}b/.match("aaaab")
+    assert_equal "aaaab", md[0]
+    md2 = /a{2,}b/.match("aab")
+    assert_equal "aab", md2[0]
+    assert_nil /a{2,}b/.match("ab")
+  end
+
+  def test_repeat_with_bracket
+    md = /[0-9]{3}/.match("abc123def")
+    assert_equal "123", md[0]
+  end
+
+  def test_repeat_with_char_class
+    md = /\d{4}-\d{2}-\d{2}/.match("Date: 2024-01-15!")
+    assert_equal "2024-01-15", md[0]
+  end
+
+  def test_repeat_group_exact
+    md = /(ab){3}/.match("xabababx")
+    assert_equal "ababab", md[0]
+    assert_nil /(ab){3}/.match("abab")
+  end
+
+  def test_repeat_group_range
+    md = /(ab){2,3}c/.match("abababc")
+    assert_equal "abababc", md[0]
+    md2 = /(ab){2,3}c/.match("ababc")
+    assert_equal "ababc", md2[0]
+  end
+
+  def test_repeat_group_unbounded
+    md = /(ab){2,}c/.match("abababababc")
+    assert_equal "abababababc", md[0]
+  end
+
   # ---- Capture groups ----
 
   def test_capture_groups
