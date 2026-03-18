@@ -618,69 +618,42 @@ mrb_picoruby_regexp_light_gem_init(mrb_state *mrb)
   class_Regexp = mrb_define_class_id(mrb, MRB_SYM(Regexp), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_Regexp, MRB_TT_DATA);
 
-  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(compile),
-    mrb_regexp_light_compile, MRB_ARGS_ARG(1, 2));
-  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(new),
-    mrb_regexp_light_compile, MRB_ARGS_ARG(1, 2));
+  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(compile), mrb_regexp_light_compile, MRB_ARGS_ARG(1, 2));
+  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(new), mrb_regexp_light_compile, MRB_ARGS_ARG(1, 2));
 
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(match),
-    mrb_regexp_light_match, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(match),
-    mrb_regexp_light_match_p, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "==="),
-    mrb_regexp_light_case_eq, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "=~"),
-    mrb_regexp_light_match_op, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(source),
-    mrb_regexp_light_source, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(to_s),
-    mrb_regexp_light_to_s, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(inspect),
-    mrb_regexp_light_inspect, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(casefold),
-    mrb_regexp_light_casefold_p, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(options),
-    mrb_regexp_light_options, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(match), mrb_regexp_light_match, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(match), mrb_regexp_light_match_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "==="), mrb_regexp_light_case_eq, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "=~"), mrb_regexp_light_match_op, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(source), mrb_regexp_light_source, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(to_s), mrb_regexp_light_to_s, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(inspect), mrb_regexp_light_inspect, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(casefold), mrb_regexp_light_casefold_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(options), mrb_regexp_light_options, MRB_ARGS_NONE());
 
   /* MatchData class */
   class_MatchData = mrb_define_class_id(mrb, MRB_SYM(MatchData), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_MatchData, MRB_TT_DATA);
 
-  mrb_define_method_id(mrb, class_MatchData, MRB_OPSYM(aref),
-    mrb_match_data_aref, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(to_a),
-    mrb_match_data_to_a, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(length),
-    mrb_match_data_length, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(size),
-    mrb_match_data_length, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(string),
-    mrb_match_data_string, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(regexp),
-    mrb_match_data_regexp, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(pre_match),
-    mrb_match_data_pre_match, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(post_match),
-    mrb_match_data_post_match, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(begin),
-    mrb_match_data_begin, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(end),
-    mrb_match_data_end, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(captures),
-    mrb_match_data_captures, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(to_s),
-    mrb_match_data_to_s, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(inspect),
-    mrb_match_data_inspect, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_OPSYM(aref), mrb_match_data_aref, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(to_a), mrb_match_data_to_a, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(length), mrb_match_data_length, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(size), mrb_match_data_length, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(string), mrb_match_data_string, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(regexp), mrb_match_data_regexp, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(pre_match), mrb_match_data_pre_match, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(post_match), mrb_match_data_post_match, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(begin), mrb_match_data_begin, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(end), mrb_match_data_end, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(captures), mrb_match_data_captures, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(to_s), mrb_match_data_to_s, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(inspect), mrb_match_data_inspect, MRB_ARGS_NONE());
 
   /* String extensions */
   struct RClass *string_class = mrb->string_class;
-  mrb_define_method_id(mrb, string_class, MRB_SYM(match),
-    mrb_string_match_light, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, string_class, MRB_SYM_Q(match),
-    mrb_string_match_p_light, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, string_class, mrb_intern_lit(mrb, "=~"),
-    mrb_string_match_op_light, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(match), mrb_string_match_light, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM_Q(match), mrb_string_match_p_light, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, mrb_intern_lit(mrb, "=~"), mrb_string_match_op_light, MRB_ARGS_REQ(1));
 }
 
 void
