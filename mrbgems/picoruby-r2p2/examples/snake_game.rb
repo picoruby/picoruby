@@ -1,13 +1,13 @@
 # Snake Game Demo for PicoRuby official board (PRB)
 # Hardware: OLED(SSD1306), Joystick(ADC), RotaryEncoder, Buttons(GPIO)
-#           Piezo buzzers on GPIO10 (push-pull with GPIO11)
+#           PSG audio on GPIO10/11 (PWM)
 
 require 'ssd1306'
 require 'adc'
 require 'gpio'
 require 'irq'
 require 'rotary_encoder'
-require 'pio'
+require 'psg'
 require 'rng' # for Kernel#rand
 
 # ---------------------------------------------------------------------------
@@ -103,99 +103,65 @@ def draw_paused(display)
 end
 
 # ---------------------------------------------------------------------------
-# PIO buzzer -- square wave on GPIO10/11 in push-pull
+# Sound effects (channel C = PSG ch2, bypasses ring buffer)
+#   R4/R5: tone period, R10: volume
+#   Period = CHIP_CLOCK / (32 * freq_hz) = 62500 / freq_hz
 # ---------------------------------------------------------------------------
-#
-# PIO clock = 1 MHz (125 MHz / 125).
-# Half-period counter X loaded from FIFO.
-# Frequency ~= 1_000_000 / (2 * X).
-# Write 0 to silence.
 
-BUZZER_PIN_BASE = 10
-BUZZER_PIO_FREQ = 1_000_000
+$sfx_end_ms = 0
 
-tone_prog = PIO.asm do
-  label :silence
-  set :pins, 0b00                      # both pins low -- no sound
-  pull                                 # blocking: wait until FIFO has data
-  label :new_period
-  mov :x, :osr                        # X = half-period counter
-  wrap_target
-  label :tone_loop
-  set :pins, 0b11                      # both buzzers high
-  mov :y, :x
-  label :high_wait
-  jmp :high_wait, cond: :y_dec
-  set :pins, 0b00                      # both buzzers low
-  mov :y, :x
-  label :low_wait
-  jmp :low_wait, cond: :y_dec
-  pull block: false                    # non-blocking: check for new value
-  mov :x, :osr
-  jmp :silence, cond: :not_x      # X == 0 -> silence
-  wrap                                 # implicit jump back to tone_loop
+def sfx_set_tone(period, vol)
+  $psg.write_reg_direct(4, period & 0xFF)
+  $psg.write_reg_direct(5, (period >> 8) & 0x0F)
+  $psg.mute_direct(2, 0)
+  $psg.write_reg_direct(10, vol)
 end
 
-$buzzer_sm = PIO::StateMachine.new(
-  pio: PIO::PIO0,
-  sm: 0,
-  program: tone_prog,
-  freq: BUZZER_PIO_FREQ,
-  set_pins: BUZZER_PIN_BASE,
-  set_pin_count: 2
-)
-$buzzer_sm.start
-
-# Sound queue: [[period, duration_ms], ...]
-$sound_queue = []
-$sound_timer = 0
-
-def freq_to_period(freq)
-  BUZZER_PIO_FREQ / (2 * freq)
-end
-
-def sound_tone(freq, ms)
-  $sound_queue << [freq_to_period(freq), ms]
+def sfx_stop
+  $psg.write_reg_direct(10, 0)
+  $psg.mute_direct(2, 1)
+  $sfx_end_ms = 0
 end
 
 def sound_eat
-  sound_tone(1500, 60)
-end
-
-def sound_start
-  sound_tone(800, 80)
-  sound_tone(1200, 120)
+  sfx_set_tone(60, 12)  # C6 (~1047 Hz)
+  $sfx_end_ms = Machine.uptime_us / 1000 + 60
 end
 
 def sound_game_over
-  sound_tone(400, 150)
-  sound_tone(200, 300)
+  sfx_set_tone(238, 15) # C4 (~262 Hz)
+  $sfx_end_ms = Machine.uptime_us / 1000 + 400
 end
 
-def sound_silence
-  $sound_queue.clear
-  $sound_timer = 0
-  $buzzer_sm.put_nonblocking(0)
-end
-
-def sound_tick(elapsed)
-  if 0 < $sound_timer
-    $sound_timer -= elapsed
-    if $sound_timer <= 0
-      $sound_timer = 0
-      if $sound_queue.empty?
-        $buzzer_sm.put_nonblocking(0)
-      end
-    end
-  end
-  if $sound_timer <= 0 && !$sound_queue.empty?
-    tone = $sound_queue[0]
-    if $buzzer_sm.put_nonblocking(tone[0])
-      $sound_queue.shift
-      $sound_timer = tone[1]
+def update_sfx
+  if 0 < $sfx_end_ms
+    if $sfx_end_ms <= Machine.uptime_us / 1000
+      sfx_stop
     end
   end
 end
+
+def start_bgm
+  $psg.replay
+end
+
+def stop_bgm
+  $psg.stop_mml
+  $psg.write_reg_direct(8, 0)
+  $psg.write_reg_direct(9, 0)
+end
+
+# ---------------------------------------------------------------------------
+# BGM tracks (Twinkle Twinkle Little Star - 2ch PSG with loop)
+#   Track 0: Melody on channel A    Track 1: Bass on channel B
+#   $ = segno (loop restart point)
+#   Channel C is reserved for sound effects
+# ---------------------------------------------------------------------------
+
+BGM_TRACKS = [
+  '@0 T120 S0 M800 R4 L4 O5 $f f >c c | d d c2 |<b- b- a a | g g f2|>c c <b- b-| a a g2 |>c c <b- b- | a a g2 |f f >c c | d d c2 |<b- b- a a | g g f2',
+  '@1 T120 S0      R4 L8 O3 $f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2| f>ca4<cg>e4|<f>ca4<cg>e<b-| a>f>c4<<g>eb-4|<f>ca4c4 <c4 |f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2'
+]
 
 # ---------------------------------------------------------------------------
 # Hardware initialization
@@ -230,6 +196,16 @@ end
 encoder = RotaryEncoder.new(20, 21)
 encoder.cw  { $speed_delta += 1 }
 encoder.ccw { $speed_delta -= 1 }
+
+# PSG driver (PWM output on piezo buzzer pins)
+$psg = PSG::Driver.new(:pwm, left: 10, right: 11)
+
+# Mute channel C (reserved for sound effects)
+$psg.mute_direct(2, 1)
+
+# Start BGM task in standby (waits for $psg.replay)
+$psg.stop_mml
+Task.new { $psg.play_mml(BGM_TRACKS) }
 
 # ---------------------------------------------------------------------------
 # Game logic helpers
@@ -338,7 +314,7 @@ while true
   last_ms = now_ms
 
   IRQ.process
-  sound_tick(elapsed)
+  update_sfx
 
   # Process speed encoder
   if $speed_delta != 0
@@ -358,16 +334,20 @@ while true
     if $btn_flags[:start]
       $btn_flags[:start] = false
       snake, dir, next_dir, food_x, food_y, score = reset_game
+      start_bgm
       state = :playing
       needs_full_redraw = true
       tick_acc = 0
-      sound_start
     end
 
   when :playing
     if $btn_flags[:pause]
       $btn_flags[:pause] = false
       state = :paused
+      # Silence BGM by zeroing volume registers directly
+      $psg.write_reg_direct(8, 0)
+      $psg.write_reg_direct(9, 0)
+      sfx_stop
       draw_paused(display)
     end
     $btn_flags[:start] = false  # ignore start during play
@@ -391,8 +371,9 @@ while true
 
       # Wall collision
       if new_x < 0 || COLS <= new_x || new_y < 0 || ROWS <= new_y
-        state = :game_over
+        stop_bgm
         sound_game_over
+        state = :game_over
         draw_game_over(display, score)
       else
         # Self collision
@@ -407,8 +388,9 @@ while true
         end
 
         if hit_self
-          state = :game_over
+          stop_bgm
           sound_game_over
+          state = :game_over
           draw_game_over(display, score)
         else
           # Advance snake
@@ -416,8 +398,8 @@ while true
 
           if new_x == food_x && new_y == food_y
             # Ate food
-            sound_eat
             score += 1
+            sound_eat
             food = spawn_food(snake)
             food_x = food[0]
             food_y = food[1]
@@ -443,8 +425,15 @@ while true
     end
 
   when :paused
+    # Keep BGM silent by repeatedly zeroing volume registers.
+    # BGM task continues in background but output is silenced.
+    $psg.write_reg_direct(8, 0)
+    $psg.write_reg_direct(9, 0)
     if $btn_flags[:pause]
       $btn_flags[:pause] = false
+      # Restore BGM volume (envelope mode) on resume
+      $psg.write_reg_direct(8, 16)
+      $psg.write_reg_direct(9, 16)
       state = :playing
       tick_acc = 0
       needs_full_redraw = true
