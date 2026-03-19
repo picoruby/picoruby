@@ -196,6 +196,10 @@ bool
 PSG_rb_push(const psg_packet_t *p)
 {
   psg_cs_token_t t = PSG_enter_critical();
+  if (!rb.buf) {
+    PSG_exit_critical(t);
+    return false;  /* deinitialized */
+  }
   uint16_t next = (rb.head + 1) & PSG_PACKET_QUEUE_MASK;
   if (next == rb.tail) {
     PSG_exit_critical(t);
@@ -212,7 +216,7 @@ PSG_rb_push(const psg_packet_t *p)
 bool
 PSG_rb_peek(psg_packet_t *out)  // does not consume
 {
-  if (rb.tail == rb.head) return false;
+  if (!rb.buf || rb.tail == rb.head) return false;
   *out = rb.buf[rb.tail];
   return true;
 }

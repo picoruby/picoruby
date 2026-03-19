@@ -51,8 +51,9 @@ module PSG
         if @mml_request == :stop
           @mml_request = nil
           sleep_ms(100) while @mml_request.nil?
-          # @mml_request is now :replay
+          break if @mml_request == :quit
         end
+        break if @mml_request == :quit
         @mml_request = nil
 
         mixer = 0b111000 # Noise all off, Tone all on
@@ -184,8 +185,16 @@ module PSG
     def trap
       Signal.trap(:INT) do
         puts "Interrupt received, stopping playback..."
-        deinit
-        Signal.trap(:INT, "DEFAULT") # Reset the trap
+        # Immediately silence all channels (bypasses ring buffer, safe)
+        write_reg_direct(8, 0)
+        write_reg_direct(9, 0)
+        write_reg_direct(10, 0)
+        # Signal play_mml to exit cleanly.
+        # Do NOT call deinit here: the BGM task is still alive and would
+        # access the freed ring buffer, corrupting the heap.
+        # play_mml will call join -> deinit when it gets scheduled.
+        @mml_request = :quit
+        Signal.trap(:INT, "DEFAULT")
       end
     end
 
