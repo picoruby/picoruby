@@ -29,14 +29,12 @@ class MML # Music Macro Language
     prev_time = 0
 
     while true
-      # extract tracks with active events
-      active_tracks = event_table.keys
-      break if active_tracks.empty?
+      break if event_table.empty?
 
       # find the track with the earliest tick
       min_track = nil
       min_tick = nil
-      event_table.keys.each do |tid|
+      event_table.each do |tid, _|
         if min_tick.nil? || tick_table[tid] < min_tick
           min_tick = tick_table[tid]
           min_track = tid
@@ -292,7 +290,7 @@ class MML # Music Macro Language
   end
 
   def expand_loops(str)
-    expand(str, 0)[0]
+    str.include?('[') ? expand(str, 0)[0] : str
   end
 
   def expand(str, index, depth = 0)

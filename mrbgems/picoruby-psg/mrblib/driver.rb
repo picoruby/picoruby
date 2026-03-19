@@ -107,6 +107,7 @@ module PSG
           mute_direct(tr, 1)
         end
         buffer_flush
+        GC.start
 
         if @mml_request == :replay
           next # restart from beginning
