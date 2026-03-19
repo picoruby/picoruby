@@ -108,43 +108,42 @@ end
 #   Period = CHIP_CLOCK / (32 * freq_hz) = 62500 / freq_hz
 # ---------------------------------------------------------------------------
 
-$sfx_end_ms = 0
-
-def sfx_set_tone(period, vol)
-  $psg.write_reg_direct(4, period & 0xFF)
-  $psg.write_reg_direct(5, (period >> 8) & 0x0F)
-  $psg.mute_direct(2, 0)
-  $psg.write_reg_direct(10, vol)
+def sfx_set_tone(psg, period, vol)
+  psg.write_reg_direct(4, period & 0xFF)
+  psg.write_reg_direct(5, (period >> 8) & 0x0F)
+  psg.mute_direct(2, 0)
+  psg.write_reg_direct(10, vol)
 end
 
-def sfx_stop
-  $psg.write_reg_direct(10, 0)
-  $psg.mute_direct(2, 1)
-  $sfx_end_ms = 0
+def sfx_stop(psg)
+  psg.write_reg_direct(10, 0)
+  psg.mute_direct(2, 1)
+  0
 end
 
-def sound_eat
-  sfx_set_tone(60, 12)  # C6 (~1047 Hz)
-  $sfx_end_ms = Machine.uptime_us / 1000 + 60
+def sound_eat(psg)
+  sfx_set_tone(psg, 60, 12)  # C6 (~1047 Hz)
+  Machine.uptime_us / 1000 + 60
 end
 
-def sound_game_over
-  sfx_set_tone(238, 15) # C4 (~262 Hz)
-  $sfx_end_ms = Machine.uptime_us / 1000 + 400
+def sound_game_over(psg)
+  sfx_set_tone(psg, 238, 15) # C4 (~262 Hz)
+  Machine.uptime_us / 1000 + 400
 end
 
-def update_sfx
-  if 0 < $sfx_end_ms
-    if $sfx_end_ms <= Machine.uptime_us / 1000
-      sfx_stop
+def update_sfx(psg, sfx_end_ms)
+  if 0 < sfx_end_ms
+    if sfx_end_ms <= Machine.uptime_us / 1000
+      return sfx_stop(psg)
     end
   end
+  sfx_end_ms
 end
 
-def silence_bgm
-  $psg.stop_mml
-  $psg.write_reg_direct(8, 0)
-  $psg.write_reg_direct(9, 0)
+def silence_bgm(psg)
+  psg.stop_mml
+  psg.write_reg_direct(8, 0)
+  psg.write_reg_direct(9, 0)
 end
 
 # ---------------------------------------------------------------------------
@@ -172,7 +171,8 @@ display.clear
 joy_x = ADC.new(27)
 joy_y = ADC.new(26)
 
-# Global variables for IRQ callbacks (mruby/c closure limitation)
+# Global variables for IRQ callbacks
+# (mruby/c blocks cannot capture local variables)
 $btn_flags = { start: false, pause: false }
 $speed_delta = 0
 
@@ -194,13 +194,13 @@ encoder.cw  { $speed_delta += 1 }
 encoder.ccw { $speed_delta -= 1 }
 
 # PSG driver (PWM output on piezo buzzer pins)
-$psg = PSG::Driver.new(:pwm, left: 10, right: 11)
+psg = PSG::Driver.new(:pwm, left: 10, right: 11)
 
 # Mute channel C (reserved for sound effects)
-$psg.mute_direct(2, 1)
+psg.mute_direct(2, 1)
 
-# Start BGM task in standby (waits for $psg.replay)
-$psg.start_bgm(BGM_TRACKS)
+# Start BGM task in standby (waits for psg.replay)
+psg.start_bgm(BGM_TRACKS)
 
 # ---------------------------------------------------------------------------
 # Game logic helpers
@@ -286,6 +286,7 @@ food_x    = 0
 food_y    = 0
 score     = 0
 speed_idx = 2        # default speed level (0..4)
+sfx_end_ms = 0       # sound effect expiry time
 tick_acc  = 0        # accumulated ms for game tick
 gc_count  = 0        # loop counter for periodic GC
 needs_full_redraw = false
@@ -309,7 +310,7 @@ while true
   last_ms = now_ms
 
   IRQ.process
-  update_sfx
+  sfx_end_ms = update_sfx(psg, sfx_end_ms)
 
   # Process speed encoder
   if $speed_delta != 0
@@ -329,7 +330,7 @@ while true
     if $btn_flags[:start]
       $btn_flags[:start] = false
       snake, dir, next_dir, food_x, food_y, score = reset_game
-      $psg.replay
+      psg.replay
       state = :playing
       needs_full_redraw = true
       tick_acc = 0
@@ -340,9 +341,9 @@ while true
       $btn_flags[:pause] = false
       state = :paused
       # Silence BGM by zeroing volume registers directly
-      $psg.write_reg_direct(8, 0)
-      $psg.write_reg_direct(9, 0)
-      sfx_stop
+      psg.write_reg_direct(8, 0)
+      psg.write_reg_direct(9, 0)
+      sfx_end_ms = sfx_stop(psg)
       draw_paused(display)
     end
     $btn_flags[:start] = false  # ignore start during play
@@ -366,8 +367,8 @@ while true
 
       # Wall collision
       if new_x < 0 || COLS <= new_x || new_y < 0 || ROWS <= new_y
-        silence_bgm
-        sound_game_over
+        silence_bgm(psg)
+        sfx_end_ms = sound_game_over(psg)
         state = :game_over
         draw_game_over(display, score)
       else
@@ -383,8 +384,8 @@ while true
         end
 
         if hit_self
-          silence_bgm
-          sound_game_over
+          silence_bgm(psg)
+          sfx_end_ms = sound_game_over(psg)
           state = :game_over
           draw_game_over(display, score)
         else
@@ -394,7 +395,7 @@ while true
           if new_x == food_x && new_y == food_y
             # Ate food
             score += 1
-            sound_eat
+            sfx_end_ms = sound_eat(psg)
             food = spawn_food(snake)
             food_x = food[0]
             food_y = food[1]
@@ -422,13 +423,13 @@ while true
   when :paused
     # Keep BGM silent by repeatedly zeroing volume registers.
     # BGM task continues in background but output is silenced.
-    $psg.write_reg_direct(8, 0)
-    $psg.write_reg_direct(9, 0)
+    psg.write_reg_direct(8, 0)
+    psg.write_reg_direct(9, 0)
     if $btn_flags[:pause]
       $btn_flags[:pause] = false
       # Restore BGM volume (envelope mode) on resume
-      $psg.write_reg_direct(8, 16)
-      $psg.write_reg_direct(9, 16)
+      psg.write_reg_direct(8, 16)
+      psg.write_reg_direct(9, 16)
       state = :playing
       tick_acc = 0
       needs_full_redraw = true
