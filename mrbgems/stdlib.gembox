@@ -28,4 +28,7 @@ MRuby::GemBox.new do |conf|
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
   end
+  if ENV['CONFIG'] != 'picoruby-wasm' || ENV['MRUBY_CONFIG'] != 'picoruby-wasm'
+    conf.gem core: "picoruby-regexp_light"
+  end
 end

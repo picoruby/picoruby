@@ -4,6 +4,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.summary = 'PicoRuby for WebAssembly'
 
   spec.add_conflict 'picoruby-mrubyc'
+  spec.add_conflict 'picoruby-regexp_light'
 
   spec.add_dependency 'mruby-compiler2'
   spec.add_dependency 'picoruby-machine'

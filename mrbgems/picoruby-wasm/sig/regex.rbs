@@ -1,8 +1,0 @@
-class Regexp
-  def match: (String str) -> MatchData?
-  def match?: (String str) -> bool
-end
-
-class MatchData
-  def to_a: () -> Array[String]
-end
