@@ -211,7 +211,9 @@ module PicoModem
     end
     # Write to file
     begin
+      File.unlink(path) if File.exist?(path)
       File.open(path, "w") do |f|
+        f.expand(data.bytesize) if f.respond_to?(:expand)
         f.write(data)
       end
       file_crc = CRC.crc32(data)
