@@ -141,11 +141,7 @@ def update_sfx
   end
 end
 
-def start_bgm
-  $psg.replay
-end
-
-def stop_bgm
+def silence_bgm
   $psg.stop_mml
   $psg.write_reg_direct(8, 0)
   $psg.write_reg_direct(9, 0)
@@ -204,8 +200,7 @@ $psg = PSG::Driver.new(:pwm, left: 10, right: 11)
 $psg.mute_direct(2, 1)
 
 # Start BGM task in standby (waits for $psg.replay)
-$psg.stop_mml
-Task.new { $psg.play_mml(BGM_TRACKS) }
+$psg.start_bgm(BGM_TRACKS)
 
 # ---------------------------------------------------------------------------
 # Game logic helpers
@@ -334,7 +329,7 @@ while true
     if $btn_flags[:start]
       $btn_flags[:start] = false
       snake, dir, next_dir, food_x, food_y, score = reset_game
-      start_bgm
+      $psg.replay
       state = :playing
       needs_full_redraw = true
       tick_acc = 0
@@ -371,7 +366,7 @@ while true
 
       # Wall collision
       if new_x < 0 || COLS <= new_x || new_y < 0 || ROWS <= new_y
-        stop_bgm
+        silence_bgm
         sound_game_over
         state = :game_over
         draw_game_over(display, score)
@@ -388,7 +383,7 @@ while true
         end
 
         if hit_self
-          stop_bgm
+          silence_bgm
           sound_game_over
           state = :game_over
           draw_game_over(display, score)
