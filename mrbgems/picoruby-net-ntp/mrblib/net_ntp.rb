@@ -48,87 +48,42 @@ module Net
 
       def to_binary
         # Pack NTP packet into 48-byte binary format
-        data = []
-
-        # Byte 0: LI (2 bits) + VN (3 bits) + Mode (3 bits)
-        data << ((@leap_indicator << 6) | (@version << 3) | @mode)
-
-        # Bytes 1-3: Stratum, Poll, Precision
-        data << @stratum
-        data << @poll
-        data << @precision
-
-        # Bytes 4-7: Root Delay (32-bit)
-        data += pack_u32(@root_delay)
-
-        # Bytes 8-11: Root Dispersion (32-bit)
-        data += pack_u32(@root_dispersion)
-
-        # Bytes 12-15: Reference Identifier (32-bit)
-        data += pack_u32(@reference_identifier)
-
-        # Bytes 16-23: Reference Timestamp (64-bit)
-        data += pack_u32(@reference_timestamp_sec)
-        data += pack_u32(@reference_timestamp_frac)
-
-        # Bytes 24-31: Originate Timestamp (64-bit)
-        data += pack_u32(@originate_timestamp_sec)
-        data += pack_u32(@originate_timestamp_frac)
-
-        # Bytes 32-39: Receive Timestamp (64-bit)
-        data += pack_u32(@receive_timestamp_sec)
-        data += pack_u32(@receive_timestamp_frac)
-
-        # Bytes 40-47: Transmit Timestamp (64-bit)
-        data += pack_u32(@transmit_timestamp_sec)
-        data += pack_u32(@transmit_timestamp_frac)
-
-        # Convert array to string
-        result = ""
-        data.each { |byte| result << [byte].pack("C") }
-        result
+        # C4: LI/VN/Mode, Stratum, Poll, Precision (4 bytes)
+        # N11: Root Delay, Root Dispersion, Ref ID,
+        #      Ref/Orig/Recv/Xmit timestamps (sec+frac each) (44 bytes)
+        [
+          (@leap_indicator << 6) | (@version << 3) | @mode,
+          @stratum, @poll, @precision,
+          @root_delay, @root_dispersion, @reference_identifier,
+          @reference_timestamp_sec, @reference_timestamp_frac,
+          @originate_timestamp_sec, @originate_timestamp_frac,
+          @receive_timestamp_sec, @receive_timestamp_frac,
+          @transmit_timestamp_sec, @transmit_timestamp_frac
+        ].pack("C4N11")
       end
 
       def parse(data)
-        return unless data.length >= 48
+        return unless 48 <= data.bytesize
 
-        bytes = data.bytes
-
-        # Byte 0
-        byte0 = bytes[0]
+        fields = data.unpack("C4N11")
+        byte0 = fields[0]
         @leap_indicator = (byte0 >> 6) & 0x03
         @version = (byte0 >> 3) & 0x07
         @mode = byte0 & 0x07
-
-        # Bytes 1-3
-        @stratum = bytes[1]
-        @poll = bytes[2]
-        @precision = bytes[3]
-
-        # Bytes 4-7: Root Delay
-        @root_delay = unpack_u32(bytes, 4)
-
-        # Bytes 8-11: Root Dispersion
-        @root_dispersion = unpack_u32(bytes, 8)
-
-        # Bytes 12-15: Reference Identifier
-        @reference_identifier = unpack_u32(bytes, 12)
-
-        # Bytes 16-23: Reference Timestamp
-        @reference_timestamp_sec = unpack_u32(bytes, 16)
-        @reference_timestamp_frac = unpack_u32(bytes, 20)
-
-        # Bytes 24-31: Originate Timestamp
-        @originate_timestamp_sec = unpack_u32(bytes, 24)
-        @originate_timestamp_frac = unpack_u32(bytes, 28)
-
-        # Bytes 32-39: Receive Timestamp
-        @receive_timestamp_sec = unpack_u32(bytes, 32)
-        @receive_timestamp_frac = unpack_u32(bytes, 36)
-
-        # Bytes 40-47: Transmit Timestamp
-        @transmit_timestamp_sec = unpack_u32(bytes, 40)
-        @transmit_timestamp_frac = unpack_u32(bytes, 44)
+        @stratum = fields[1]
+        @poll = fields[2]
+        @precision = fields[3]
+        @root_delay = fields[4]
+        @root_dispersion = fields[5]
+        @reference_identifier = fields[6]
+        @reference_timestamp_sec = fields[7]
+        @reference_timestamp_frac = fields[8]
+        @originate_timestamp_sec = fields[9]
+        @originate_timestamp_frac = fields[10]
+        @receive_timestamp_sec = fields[11]
+        @receive_timestamp_frac = fields[12]
+        @transmit_timestamp_sec = fields[13]
+        @transmit_timestamp_frac = fields[14]
       end
 
       # Convert NTP timestamp (64-bit) to Unix timestamp (seconds since 1970)
@@ -175,31 +130,6 @@ module Net
         ntp_seconds - NTP_EPOCH_OFFSET
       end
 
-      def pack_u32(value)
-        # Pack 32-bit unsigned integer (big-endian)
-        [
-          (value >> 24) & 0xFF,
-          (value >> 16) & 0xFF,
-          (value >> 8) & 0xFF,
-          value & 0xFF
-        ]
-      end
-
-      def unpack_u32(bytes, offset)
-        # Unpack 32-bit unsigned integer (big-endian)
-        result = (bytes[offset] << 24) |
-                 (bytes[offset + 1] << 16) |
-                 (bytes[offset + 2] << 8) |
-                 bytes[offset + 3]
-        # Handle sign extension for values >= 0x80000000
-        # In PicoRuby, left shift can produce negative values for large numbers
-        if result < 0
-          # Convert to unsigned 32-bit by masking
-          result & 0xFFFFFFFF
-        else
-          result
-        end
-      end
     end
 
     # Get time from NTP server
@@ -238,7 +168,7 @@ module Net
         # Try to receive data (non-blocking to allow timeout check)
         begin
           result = socket.recvfrom_nonblock(48)
-          if result && result[0] && 48 <= result[0].length
+          if result && result[0] && 48 <= result[0].bytesize
             response_data = result[0]
             break
           end
