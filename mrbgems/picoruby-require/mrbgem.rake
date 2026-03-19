@@ -71,7 +71,5 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
     template = ERB.new(File.read(template_path), trim_mode: "%-")
     File.write(t.name, template.result(binding))
   end
-
-  spec.posix
 end
 

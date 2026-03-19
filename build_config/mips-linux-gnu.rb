@@ -16,6 +16,7 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
   conf.linker.flags << '-Wl,-rpath,/usr/mips-linux-gnu/lib'
   conf.archiver.command = 'mips-linux-gnu-ar'
 
+  conf.cc.defines << "PICORB_PLATFORM_POSIX"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
 
   conf.cc.defines << "MRBC_BIG_ENDIAN"
@@ -24,7 +25,6 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.posix
   conf.picoruby(alloc_libc: true)
 
   conf.gembox "minimum"

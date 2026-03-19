@@ -7,6 +7,8 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
 
   toolchain :clang
 
+  conf.cc.defines << "PICORB_PLATFORM_POSIX"
+  conf.cc.defines << "PICORB_PLATFORM_WASM"
   conf.cc.defines << "MRB_TICK_UNIT=4"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=1"
 
@@ -23,7 +25,6 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
 
-  conf.posix
   conf.microruby
 
   conf.gembox "mruby-posix"

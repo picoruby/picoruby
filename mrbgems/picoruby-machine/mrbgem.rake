@@ -5,8 +5,6 @@ MRuby::Gem::Specification.new('picoruby-machine') do |spec|
 
   spec.add_dependency 'picoruby-io-console'
 
-  spec.posix
-
   if build.gems.map(&:name).include?('picoruby-mruby')
     # Workaround:
     #   Locate mruby-io at the top of gem_init.c

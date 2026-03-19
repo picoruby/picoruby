@@ -4,5 +4,4 @@ MRuby::Gem::Specification.new('picoruby-pwm') do |spec|
   spec.summary = 'PWM class / General peripherals'
 
   spec.add_dependency 'picoruby-gpio'
-  spec.posix
 end

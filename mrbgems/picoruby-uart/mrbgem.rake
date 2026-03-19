@@ -6,6 +6,5 @@ MRuby::Gem::Specification.new('picoruby-uart') do |spec|
   spec.add_dependency 'picoruby-gpio'
   spec.add_dependency 'picoruby-machine'
   spec.cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
-  spec.posix
 end
 

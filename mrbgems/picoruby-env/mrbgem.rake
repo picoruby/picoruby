@@ -9,6 +9,4 @@ MRuby::Gem::Specification.new('picoruby-env') do |spec|
     #   to define Kernel#require earlier than other gems
     spec.add_dependency 'picoruby-mruby'
   end
-
-  spec.posix
 end

@@ -78,7 +78,7 @@ module MRuby
       cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
-      cc.defines << "MRBC_INT64" if cc.defines.include?("PICORUBY_INT64")
+      cc.defines << "MRBC_INT64" if cc.defines.include?("PICORB_INT64")
       %w(MRBC_USE_MATH=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|
         key, _value = define.split("=")
         cc.defines << define if cc.defines.none? { _1.start_with? key }
@@ -107,12 +107,12 @@ module MRuby
       debug_flag
     end
 
-    def posix
-      cc.defines << "PICORB_PLATFORM_POSIX"
-    end
-
     def posix?
       cc.defines.include?("PICORB_PLATFORM_POSIX")
+    end
+
+    def wasm?
+      ENV['CONFIG'] == 'picoruby-wasm' || ENV['MRUBY_CONFIG'] == 'picoruby-wasm'
     end
 
     def generate_package_json_from_template(template_path, output_path)
@@ -153,18 +153,11 @@ module MRuby
     class Specification
       attr_accessor :require_name
 
-      def define_gem_init_builder
-        file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
-          mkdir_p build_dir
-          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
-            rbfiles.clear
-          end
-          generate_gem_init("#{build_dir}/gem_init.c")
-        end
-      end
-
-      def posix
+      alias_method :original_setup_compilers, :setup_compilers
+      def setup_compilers
+        original_setup_compilers
         return unless cc.build.posix?
+        # setup for POSIX
         ["posix", "common"].each do |subdir|
           Dir.glob("#{dir}/ports/#{subdir}/**/*.c").each do |src|
             obj = objfile(src.pathmap("#{build_dir}/ports/#{subdir}/%n"))
@@ -173,6 +166,16 @@ module MRuby
               cc.run f.name, f.prerequisites.first
             end
           end
+        end
+      end
+
+      def define_gem_init_builder
+        file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
+          mkdir_p build_dir
+          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
+            rbfiles.clear
+          end
+          generate_gem_init("#{build_dir}/gem_init.c")
         end
       end
     end

@@ -34,16 +34,19 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
     define&.split("=")&.last || 4
   end
 
-  if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
-    heap_page_size = o1heap_page_size(13)
+  # MRB_BASELINE_PROFILE and MRB_CONSTRAINED_BASELINE_PROFILE define MRB_NO_METHOD_CACHE
+  # and it varies sizeof(mrb_state), so they should be build-wide define.
+  if spec.build.wasm? || spec.build.posix?
+    spec.build.defines << "MRB_BASELINE_PROFILE=1"
   else
-    heap_page_size = 128
+    if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
+      heap_page_size = o1heap_page_size(13)
+    else
+      heap_page_size = 128
+    end
+    spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
+    spec.build.defines << "MRB_CONSTRAINED_BASELINE_PROFILE=1"
   end
-  spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
-
-  # MRB_CONSTRAINED_BASELINE_PROFILE defines MRB_NO_METHOD_CACHE and it varies
-  # sizeof(mrb_state), so this should be build-wide define, not just for lib/mruby.
-  spec.build.defines << "MRB_CONSTRAINED_BASELINE_PROFILE=1"
 
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
     alloc_dir = "#{dir}/lib/tinyalloc"
