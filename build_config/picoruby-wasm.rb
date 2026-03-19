@@ -30,7 +30,7 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.gembox "mruby-posix"
   conf.gembox "stdlib"
 
-  if ENV['PICORUBY_DEBUG']
+  if ENV['PICORB_DEBUG']
     conf.cc.defines << "MRB_USE_DEBUG_HOOK"
     conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-binding"
   end

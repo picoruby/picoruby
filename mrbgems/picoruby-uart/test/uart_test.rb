@@ -1,6 +1,6 @@
 class UARTTest < Picotest::Test
   def setup
-    @uart = UART.new(unit: :PICORUBY_UART_RP2040_UART0, baudrate: 115200)
+    @uart = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
   end
 
   def test_initialize

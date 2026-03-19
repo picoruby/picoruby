@@ -39,11 +39,11 @@ volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
 
 /* Must be a power of two AND >= CFG_TUD_CDC_RX_BUFSIZE (512) so that
  * tud_cdc_rx_cb() can drain the entire CDC FIFO without overflow. */
-#ifndef PICORUBY_STDIN_BUFFER_SIZE
-#define PICORUBY_STDIN_BUFFER_SIZE 1024
+#ifndef PICORB_STDIN_BUFFER_SIZE
+#define PICORB_STDIN_BUFFER_SIZE 1024
 #endif
 
-static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORUBY_STDIN_BUFFER_SIZE]
+static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORB_STDIN_BUFFER_SIZE]
   __attribute__((aligned(4)));
 static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
 
@@ -71,11 +71,11 @@ hal_stdin_push(uint8_t ch)
  *
  *------------------------------------*/
 
-#ifndef PICORUBY_CANONICAL_BUF_SIZE
-#define PICORUBY_CANONICAL_BUF_SIZE 256
+#ifndef PICORB_CANONICAL_BUF_SIZE
+#define PICORB_CANONICAL_BUF_SIZE 256
 #endif
 
-static uint8_t canon_buf[PICORUBY_CANONICAL_BUF_SIZE];
+static uint8_t canon_buf[PICORB_CANONICAL_BUF_SIZE];
 static int canon_len = 0;
 static int canon_read_pos = 0;
 static bool canon_eof = false;
@@ -103,7 +103,7 @@ canon_process_char(uint8_t raw)
     return CANON_ACCUMULATING;
   }
   if (raw == '\n' || raw == '\r') {
-    if (canon_len < PICORUBY_CANONICAL_BUF_SIZE) {
+    if (canon_len < PICORB_CANONICAL_BUF_SIZE) {
       canon_buf[canon_len++] = raw;
     }
     if (io_echo_q()) {
@@ -127,7 +127,7 @@ canon_process_char(uint8_t raw)
     return CANON_ACCUMULATING;
   }
   /* Printable or other control chars: append */
-  if (canon_len < PICORUBY_CANONICAL_BUF_SIZE) {
+  if (canon_len < PICORB_CANONICAL_BUF_SIZE) {
     canon_buf[canon_len++] = raw;
     if (io_echo_q()) {
       hal_write(1, &raw, 1);
@@ -207,7 +207,7 @@ hal_init(void)
 #if defined(PICORB_VM_MRUBY)
   mrb_ = (mrb_state *)mrb;
 #endif
-  RingBuffer_init(stdin_rb, PICORUBY_STDIN_BUFFER_SIZE);
+  RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);

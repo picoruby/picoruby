@@ -11,8 +11,8 @@ static PIO
 pio_instance(uint8_t pio_num)
 {
   switch (pio_num) {
-    case PICORUBY_PIO0: return pio0;
-    case PICORUBY_PIO1: return pio1;
+    case PICORB_PIO0: return pio0;
+    case PICORB_PIO1: return pio1;
     default: return NULL;
   }
 }
@@ -107,10 +107,10 @@ PIO_init(pio_sm_config_t *config)
 
   /* FIFO join */
   switch (config->fifo_join) {
-    case PICORUBY_FIFO_JOIN_TX:
+    case PICORB_FIFO_JOIN_TX:
       sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
       break;
-    case PICORUBY_FIFO_JOIN_RX:
+    case PICORB_FIFO_JOIN_RX:
       sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
       break;
     default:

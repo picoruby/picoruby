@@ -19,7 +19,7 @@
 //extern void mrb_init_picoruby_gems(mrb_state *mrb);
 extern void mrb_js_init(mrb_state *mrb);
 extern void mrb_websocket_init(mrb_state *mrb);
-#ifdef PICORUBY_DEBUG
+#ifdef PICORB_DEBUG
 extern void mrb_wasm_debugger_init(mrb_state *mrb);
 #endif
 extern void mrb_ble_init(mrb_state *mrb);
@@ -121,7 +121,7 @@ picorb_init(void)
  // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);
   mrb_websocket_init(global_mrb);
-#ifdef PICORUBY_DEBUG
+#ifdef PICORB_DEBUG
   mrb_wasm_debugger_init(global_mrb);
 #endif
   mrb_ble_init(global_mrb);

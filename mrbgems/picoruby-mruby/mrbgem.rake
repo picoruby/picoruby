@@ -65,12 +65,12 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
         sh "git clone https://github.com/mattconte/tlsf"
       end
     end
-    if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
+    if spec.cc.defines.any?{ _1.start_with?("PICORB_DEBUG") }
       spec.cc.defines << "_DEBUG"
     end
   elsif spec.cc.defines.include?("PICORB_ALLOC_ESTALLOC")
     spec.cc.defines << "ESTALLOC_ALIGNMENT=#{align}"
-    if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
+    if spec.cc.defines.any?{ _1.start_with?("PICORB_DEBUG") }
       spec.cc.defines << "ESTALLOC_DEBUG=1"
     end
     alloc_dir = "#{dir}/lib/estalloc"

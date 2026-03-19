@@ -8,10 +8,10 @@
 
 #include "../../include/uart.h"
 
-#define PICORUBY_UART_ESP32_UART0 (UART_NUM_0)
-#define PICORUBY_UART_ESP32_UART1 (UART_NUM_1)
+#define PICORB_UART_ESP32_UART0 (UART_NUM_0)
+#define PICORB_UART_ESP32_UART1 (UART_NUM_1)
 #ifdef UART_NUM_2
-#define PICORUBY_UART_ESP32_UART2 (UART_NUM_2)
+#define PICORB_UART_ESP32_UART2 (UART_NUM_2)
 #endif
 #define RECEIVE_BUFF_SIZE         (128)
 #define QUEUE_LENGTH              (20)
@@ -53,14 +53,14 @@ int
 UART_unit_name_to_unit_num(const char *name)
 {
   if(strcmp(name, "ESP32_UART0") == 0) {
-    return PICORUBY_UART_ESP32_UART0;
+    return PICORB_UART_ESP32_UART0;
   }
   if(strcmp(name, "ESP32_UART1") == 0) {
-    return PICORUBY_UART_ESP32_UART1;
+    return PICORB_UART_ESP32_UART1;
   }
-#ifdef PICORUBY_UART_ESP32_UART2
+#ifdef PICORB_UART_ESP32_UART2
   if(strcmp(name, "ESP32_UART2") == 0) {
-    return PICORUBY_UART_ESP32_UART2;
+    return PICORB_UART_ESP32_UART2;
   }
 #endif
   return UART_ERROR_INVALID_UNIT;

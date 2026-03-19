@@ -16,14 +16,14 @@ namespace :test do
 
   task :build_picoruby_test do
     puts "Building test runner with picoruby-test.rb..."
-    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake clean"
-    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=picoruby-test rake all"
+    sh "PICORB_DEBUG=yes MRUBY_CONFIG=picoruby-test rake clean"
+    sh "PICORB_DEBUG=yes MRUBY_CONFIG=picoruby-test rake all"
   end
 
   task :build_microruby_test do
     puts "Building test runner with microruby-test.rb..."
-    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake clean"
-    sh "PICORUBY_DEBUG=yes MRUBY_CONFIG=microruby-test rake all"
+    sh "PICORB_DEBUG=yes MRUBY_CONFIG=microruby-test rake clean"
+    sh "PICORB_DEBUG=yes MRUBY_CONFIG=microruby-test rake all"
   end
 
   namespace :gems do
@@ -56,7 +56,7 @@ def run_test_for_gems(vm_type, specified_gem)
     puts "No gems found for testing."
     return false
   end
-  ENV['PICORUBY_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+  ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
   puts "Strategy: Full build for"
   # workaround. TODO: delete this after removal of picoruby-net
   if gems.any?{|gem| gem[:name] == 'picoruby-net' } && gems.any?{|gem| gem[:name] == 'picoruby-socket' }
@@ -66,8 +66,8 @@ def run_test_for_gems(vm_type, specified_gem)
   config_path = create_temp_build_config("#{vm_type}-test.rb", gems)
   puts "Building test binary on #{vm_type}..."
   unless ENV['SKIP_BUILD']
-    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-    sh "PICORUBY_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
+    sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
+    sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
   end
   gems.each do |gem|
     unless run_picotest_runner(gem, [])
@@ -137,12 +137,12 @@ def run_picotest_runner(gem, load_files)
 
   lib_name = gem[:require_name] || gem_name.sub(/^picoruby-/, '')
 
-  puts "Target VM: #{ENV['PICORUBY_TEST_TARGET_VM']}"
+  puts "Target VM: #{ENV['PICORB_TEST_TARGET_VM']}"
   puts "Test directory: #{test_dir}"
   puts "Library to require: #{lib_name}"
   puts "Files to load: #{load_files.join(', ')}" unless load_files.empty?
 
-  ENV['RUBY'] = ENV['PICORUBY_TEST_TARGET_VM']
+  ENV['RUBY'] = ENV['PICORB_TEST_TARGET_VM']
 
   runner = Picotest::Runner.new(test_dir, tmpdir: "/tmp", require_name: lib_name, load_files: load_files, load_path: gem_dir)
   error_count = runner.run

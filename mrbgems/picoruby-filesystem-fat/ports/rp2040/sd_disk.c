@@ -25,8 +25,8 @@ static int SPI_CIPO_PIN = -1;
 static int SPI_COPI_PIN = -1;
 static int SPI_CS_PIN   = -1;
 
-#define PICORUBY_SPI_RP2040_SPI0      spi0
-#define PICORUBY_SPI_RP2040_SPI1      spi1
+#define PICORB_SPI_RP2040_SPI0      spi0
+#define PICORB_SPI_RP2040_SPI1      spi1
 
 #define FCLK_FAST() { }
 #define FCLK_SLOW() { }
@@ -43,9 +43,9 @@ int
 FAT_set_spi_unit(const char* name, int sck, int cipo, int copi, int cs)
 {
   if (strcmp(name, "RP2040_SPI0") == 0) {
-    SPI_UNIT = PICORUBY_SPI_RP2040_SPI0;
+    SPI_UNIT = PICORB_SPI_RP2040_SPI0;
   } else if (strcmp(name, "RP2040_SPI1") == 0) {
-    SPI_UNIT = PICORUBY_SPI_RP2040_SPI1;
+    SPI_UNIT = PICORB_SPI_RP2040_SPI1;
   } else {
     return -1;
   }

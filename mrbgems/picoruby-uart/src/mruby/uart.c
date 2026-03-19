@@ -24,7 +24,7 @@ mrb_open_rx_buffer(mrb_state *mrb, mrb_value self)
   mrb_value buffer_size;
   mrb_get_args(mrb, "|o", &buffer_size);
   if (mrb_nil_p(buffer_size)) {
-    rx_buffer_size = PICORUBY_UART_RX_BUFFER_SIZE;
+    rx_buffer_size = PICORB_UART_RX_BUFFER_SIZE;
   } else {
     rx_buffer_size = mrb_fixnum(buffer_size);
   }

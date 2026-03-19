@@ -20,7 +20,7 @@ typedef struct
   struct tm   tm;
   mrb_int     unixtime_us;
   long int    timezone;
-} PICORUBY_TIME;
+} PICORB_TIME;
 
 typedef struct
 {
@@ -98,7 +98,7 @@ new_from_unixtime_us(mrb_state *mrb, mrb_value klass, mrb_int unixtime_us)
     cls = mrb_obj_class(mrb, klass);
   }
 
-  PICORUBY_TIME *data = (PICORUBY_TIME *)mrb_malloc(mrb, sizeof(PICORUBY_TIME));
+  PICORB_TIME *data = (PICORB_TIME *)mrb_malloc(mrb, sizeof(PICORB_TIME));
   mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, cls, &mrb_time_type, data));
 
   data->unixtime_us = unixtime_us + unixtime_offset * USEC;
@@ -117,7 +117,7 @@ new_from_tm(mrb_state *mrb, mrb_value klass, struct tm *tm)
 {
   struct RClass *cls = mrb_class_ptr(klass);
 
-  PICORUBY_TIME *data = (PICORUBY_TIME *)mrb_malloc(mrb, sizeof(PICORUBY_TIME));
+  PICORB_TIME *data = (PICORB_TIME *)mrb_malloc(mrb, sizeof(PICORB_TIME));
   mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, cls, &mrb_time_type, data));
 
   time_t unixtime = mktime(tm);
@@ -239,14 +239,14 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_to_i(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_int_value(mrb, (mrb_int)data->unixtime_us / USEC);
 }
 
 static mrb_value
 mrb_to_f(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_float_value(mrb, (mrb_float)data->unixtime_us / USEC);
 }
 
@@ -255,7 +255,7 @@ mrb_to_f(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_to_s(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   struct tm *tm = &data->tm;
   char str[INSPECT_LENGTH];
   long int a = labs(data->timezone) / 60;
@@ -290,7 +290,7 @@ mrb_time_inspect(mrb_state *mrb, mrb_value self)
     return mrb_str_new_cstr(mrb, "Time");
   }
 
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   struct tm *tm = &data->tm;
   char str[INSPECT_LENGTH];
   long int a = labs(data->timezone) / 60;
@@ -322,56 +322,56 @@ mrb_time_inspect(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_year(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_year + 1900);
 }
 
 static mrb_value
 mrb_mon(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_mon + 1);
 }
 
 static mrb_value
 mrb_mday(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_mday);
 }
 
 static mrb_value
 mrb_hour(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_hour);
 }
 
 static mrb_value
 mrb_min(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_min);
 }
 
 static mrb_value
 mrb_sec(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_sec);
 }
 
 static mrb_value
 mrb_usec(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->unixtime_us % USEC);
 }
 
 static mrb_value
 mrb_wday(mrb_state *mrb, mrb_value self)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)DATA_PTR(self);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_fixnum_value(data->tm.tm_wday);
 }
 
@@ -381,8 +381,8 @@ mrb_time_compare(mrb_state *mrb, mrb_value self, mrb_value other)
   if (!mrb_obj_is_instance_of(mrb, other, mrb_obj_class(mrb, self))) {
     return -2;
   }
-  mrb_int other_unixtime_us = ((PICORUBY_TIME *)DATA_PTR(other))->unixtime_us;
-  mrb_int self_unixtime_us = ((PICORUBY_TIME *)DATA_PTR(self))->unixtime_us;
+  mrb_int other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
+  mrb_int self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
   if (self_unixtime_us < other_unixtime_us) {
     return -1;
   } else if (other_unixtime_us < self_unixtime_us) {
@@ -493,14 +493,14 @@ mrb_sub(mrb_state *mrb, mrb_value self)
   mrb_value other;
   mrb_get_args(mrb, "o", &other);
 
-  mrb_int self_unixtime_us = ((PICORUBY_TIME *)DATA_PTR(self))->unixtime_us;
+  mrb_int self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
 
   if (mrb_integer_p(other)) {
     return new_from_unixtime_us(mrb, self, self_unixtime_us - mrb_integer(other) * USEC);
   } else if (mrb_float_p(other)) {
     return new_from_unixtime_us(mrb, self, self_unixtime_us - (mrb_int)(mrb_float(other) * USEC));
   } else if (mrb_obj_is_instance_of(mrb, other, mrb_obj_class(mrb, self))) {
-    mrb_int other_unixtime_us = ((PICORUBY_TIME *)DATA_PTR(other))->unixtime_us;
+    mrb_int other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
     mrb_float result = (mrb_float)(self_unixtime_us - other_unixtime_us) / (mrb_float)USEC;
     return mrb_float_value(mrb, result);
   } else {
@@ -515,7 +515,7 @@ mrb_add(mrb_state *mrb, mrb_value self)
   mrb_value other;
   mrb_get_args(mrb, "o", &other);
 
-  mrb_int self_unixtime_us = ((PICORUBY_TIME *)DATA_PTR(self))->unixtime_us;
+  mrb_int self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
 
   if (mrb_integer_p(other)) {
     return new_from_unixtime_us(mrb, self, self_unixtime_us + mrb_integer(other) * USEC);

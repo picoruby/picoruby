@@ -26,7 +26,7 @@ end
 def r2p2_def_build_type(mode)
   case mode
   when 'debug'
-    "-D CMAKE_BUILD_TYPE=Debug -D PICORUBY_DEBUG=1"
+    "-D CMAKE_BUILD_TYPE=Debug -D PICORB_DEBUG=1"
   else
     "-D CMAKE_BUILD_TYPE=Release -D NDEBUG=1"
   end
@@ -38,7 +38,7 @@ def r2p2_def_r2p2_name(vm, board)
 end
 
 def r2p2_def_msc(mode)
-  '-D PICORUBY_MSC_FLASH=1'
+  '-D PICORB_MSC_FLASH=1'
 end
 
 def r2p2_def_picorb_vm(vm)
@@ -119,10 +119,10 @@ namespace :r2p2 do
               config = r2p2_mruby_config(vm, board)
               mruby_build_path = "#{MRUBY_ROOT}/build/r2p2-#{vm}-#{board}"
               FileUtils.cd MRUBY_ROOT do
-                sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} #{mode=='debug' ? 'PICORUBY_DEBUG=1' : ''} rake"
+                sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} #{mode=='debug' ? 'PICORB_DEBUG=1' : ''} rake"
               end
               defs = <<~DEFS
-                -D PICORUBY_ROOT=#{MRUBY_ROOT} \
+                -D PICORB_ROOT=#{MRUBY_ROOT} \
                 -D R2P2_GEM_DIR=#{R2P2_GEM_DIR} \
                 -D EXTRA_LIBRARY_PATH=#{mruby_build_path}/lib \
                 -D EXTRA_INCLUDE_DIR=#{mruby_build_path}/include \

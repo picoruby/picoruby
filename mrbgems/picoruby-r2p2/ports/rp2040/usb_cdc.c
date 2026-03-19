@@ -43,7 +43,7 @@ void tud_cdc_rx_cb(uint8_t itf)
       // Ring buffer full.  The byte we just read from the CDC FIFO is
       // lost (TinyUSB has no un-read API).  Break immediately to
       // preserve the remaining bytes in the CDC FIFO.
-      // With PICORUBY_STDIN_BUFFER_SIZE >= CFG_TUD_CDC_RX_BUFSIZE
+      // With PICORB_STDIN_BUFFER_SIZE >= CFG_TUD_CDC_RX_BUFSIZE
       // this path should never be reached in practice.
       break;
     }

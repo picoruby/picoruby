@@ -80,7 +80,7 @@ mrbgems/picoruby-<gem>/
 | Variable | Description |
 |---|---|
 | `RUBY` | Path to target VM binary |
-| `PICORUBY_TEST_TARGET_VM` | Set by test.rake to `./build/host/bin/{vm_type}` |
+| `PICORB_TEST_TARGET_VM` | Set by test.rake to `./build/host/bin/{vm_type}` |
 | `SKIP_BUILD` | Skip building the target binary |
-| `PICORUBY_DEBUG` | Enable debug build |
+| `PICORB_DEBUG` | Enable debug build |
 | `MRUBY_CONFIG` | Build config path |

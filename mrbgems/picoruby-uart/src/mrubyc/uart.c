@@ -15,7 +15,7 @@ c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   } else
   if (v[1].tt == MRBC_TT_NIL) {
-    rx_buffer_size = PICORUBY_UART_RX_BUFFER_SIZE;
+    rx_buffer_size = PICORB_UART_RX_BUFFER_SIZE;
   } else {
     rx_buffer_size = GET_INT_ARG(1);
   }

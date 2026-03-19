@@ -1,5 +1,5 @@
-#ifndef PICORB_SOCKET_H
-#define PICORB_SOCKET_H
+#ifndef PICORUBY_SOCKET_H
+#define PICORUBY_SOCKET_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -195,4 +195,4 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   extern const struct mrb_data_type mrb_socket_type;
 #endif
 
-#endif /* PICORB_SOCKET_H */
+#endif /* PICORUBY_SOCKET_H */

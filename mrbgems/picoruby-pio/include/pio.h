@@ -8,12 +8,12 @@
 extern "C" {
 #endif
 
-#define PICORUBY_PIO0 0
-#define PICORUBY_PIO1 1
+#define PICORB_PIO0 0
+#define PICORB_PIO1 1
 
-#define PICORUBY_FIFO_JOIN_NONE 0
-#define PICORUBY_FIFO_JOIN_TX   1
-#define PICORUBY_FIFO_JOIN_RX   2
+#define PICORB_FIFO_JOIN_NONE 0
+#define PICORB_FIFO_JOIN_TX   1
+#define PICORB_FIFO_JOIN_RX   2
 
 typedef enum {
   PIO_ERROR_NONE             =  0,

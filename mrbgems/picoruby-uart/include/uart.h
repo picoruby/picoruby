@@ -18,8 +18,8 @@ extern "C" {
 
 #define DEFAULT_BAUDRATE 115200
 
-#define PICORUBY_UART_RP2040_UART0      0
-#define PICORUBY_UART_RP2040_UART1      1
+#define PICORB_UART_RP2040_UART0      0
+#define PICORB_UART_RP2040_UART1      1
 
 typedef enum {
  UART_ERROR_NONE          =  0,

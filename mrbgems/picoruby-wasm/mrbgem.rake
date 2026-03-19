@@ -31,8 +31,8 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   directory bin_dir
 
   file output_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
-    if ENV['PICORUBY_DEBUG']
-      server_ip = ENV['PICORUBY_DEBUG_SERVER_IP'] || '127.0.0.1'
+    if ENV['PICORB_DEBUG']
+      server_ip = ENV['PICORB_DEBUG_SERVER_IP'] || '127.0.0.1'
       optdebug = "-O0 -gsource-map --source-map-base http://#{server_ip}:8080/"
       exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_malloc", "_free", "_mrb_get_globals_json", "_mrb_eval_string", "_mrb_get_component_debug_info", "_mrb_get_component_state_by_id", "_mrb_debug_get_status", "_mrb_debug_continue", "_mrb_debug_get_locals", "_mrb_debug_eval_in_binding", "_mrb_debug_step", "_mrb_debug_next", "_mrb_debug_get_callstack"]'
     else
@@ -61,7 +61,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     output_wasm = Pathname(output_js).sub_ext('.wasm')
     output_wasm_map = Pathname(output_wasm).sub_ext('.wasm.map')
     npm_dir = 'npm'
-    if ENV['PICORUBY_DEBUG']
+    if ENV['PICORB_DEBUG']
       dist_dir = File.join(dir, npm_dir, 'debug')
     else
       dist_dir = File.join(dir, npm_dir, 'dist')
@@ -69,7 +69,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
     FileUtils.mkdir_p(dist_dir)
     sh "cp #{output_js} #{dist_dir}/"
     sh "cp #{output_wasm} #{dist_dir}/"
-    if ENV['PICORUBY_DEBUG'] && File.exist?(output_wasm_map)
+    if ENV['PICORB_DEBUG'] && File.exist?(output_wasm_map)
       sh "cp #{output_wasm_map} #{dist_dir}/"
     end
     sh "brotli -f #{dist_dir}/#{output_wasm.basename}"

@@ -9,7 +9,7 @@ extern "C" {
 
 int debug_printf(const char *format, ...);
 
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
 #define D(...) debug_printf(__VA_ARGS__)
 #else
 #define D(...)

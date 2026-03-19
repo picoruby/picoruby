@@ -26,8 +26,8 @@ add_compile_options(-Wall
   -mthumb
 )
 
-if(PICORUBY_DEBUG)
-  add_compile_definitions(PICORUBY_DEBUG=1)
+if(PICORB_DEBUG)
+  add_compile_definitions(PICORB_DEBUG=1)
   add_compile_options(
     -O0
     -g3
@@ -84,7 +84,7 @@ add_executable(${PROJECT_NAME}
 )
 
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
-if(PICORUBY_DEBUG)
+if(PICORB_DEBUG)
   pico_enable_stdio_uart(${PROJECT_NAME} 1)
 else()
   pico_enable_stdio_uart(${PROJECT_NAME} 0)
@@ -136,14 +136,14 @@ target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
 # RP2040: 4KB stack fits in SCRATCH_Y, use SDK default linker script
 # RP2350: 8KB stack needs RAM, use custom linker script
 if(PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
-  set(PICORUBY_STACK_SIZE 0x1000) # 4KB
+  set(PICORB_STACK_SIZE 0x1000) # 4KB
 elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
-  set(PICORUBY_STACK_SIZE 0x2000) # 8KB
+  set(PICORB_STACK_SIZE 0x2000) # 8KB
   pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld)
 endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-  PICO_STACK_SIZE=${PICORUBY_STACK_SIZE}
+  PICO_STACK_SIZE=${PICORB_STACK_SIZE}
   PICO_CORE1_STACK_SIZE=0x0800 # 2KB (in SCRATCH_X)
   PICO_HEAP_SIZE=0x0400        # 1KB
 )
@@ -197,12 +197,12 @@ endif()
 
 add_compile_definitions(MRB_INT64=1)
 
-if(PICORUBY_MSC_FLASH)
-  add_compile_definitions(PICORUBY_MSC_FLASH=1)
-elseif(PICORUBY_MSC_SD)
-  add_compile_definitions(PICORUBY_MSC_SD=1)
+if(PICORB_MSC_FLASH)
+  add_compile_definitions(PICORB_MSC_FLASH=1)
+elseif(PICORB_MSC_SD)
+  add_compile_definitions(PICORB_MSC_SD=1)
 else()
-  message(FATAL_ERROR "PICORUBY_MSC_xxxx is not defined.")
+  message(FATAL_ERROR "PICORB_MSC_xxxx is not defined.")
 endif()
 
 if(PICORB_VM_MRUBY)

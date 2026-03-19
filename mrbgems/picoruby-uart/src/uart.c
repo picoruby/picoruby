@@ -2,8 +2,8 @@
 #include <stddef.h>
 #include "../include/uart.h"
 
-#ifndef PICORUBY_UART_RX_BUFFER_SIZE
-#define PICORUBY_UART_RX_BUFFER_SIZE 1024
+#ifndef PICORB_UART_RX_BUFFER_SIZE
+#define PICORB_UART_RX_BUFFER_SIZE 1024
 #endif
 
 /* Called by ports (backward-compatible wrapper) */

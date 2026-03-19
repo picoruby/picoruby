@@ -5,7 +5,7 @@
 static mrb_value
 mrb_picorubyvm_s_memory_statistics(mrb_state *mrb, mrb_value klass)
 {
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
   return mrb_alloc_statistics(mrb);
 #else
   mrb_notimplement(mrb);

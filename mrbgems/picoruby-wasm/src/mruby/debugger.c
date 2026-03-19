@@ -188,7 +188,7 @@ mrb_binding_irb(mrb_state *mrb, mrb_value self)
 
 /*
  * Initialize the WASM debugger.
- * Called from picorb_init() when PICORUBY_DEBUG is defined.
+ * Called from picorb_init() when PICORB_DEBUG is defined.
  */
 void
 mrb_wasm_debugger_init(mrb_state *mrb)

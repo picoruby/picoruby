@@ -8,8 +8,8 @@
 extern "C" {
 #endif
 
-#define PICORUBY_I2C_RP2040_I2C0      0
-#define PICORUBY_I2C_RP2040_I2C1      1
+#define PICORB_I2C_RP2040_I2C0      0
+#define PICORB_I2C_RP2040_I2C1      1
 
 typedef enum {
  I2C_ERROR_NONE          =  0,

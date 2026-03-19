@@ -58,10 +58,10 @@ module MRuby
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
-            .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
+            .gsub('@PICORB_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORB_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
-            .gsub('@PICORUBY_BUILD_DATE@', build_date)
+            .gsub('@PICORB_BUILD_DATE@', build_date)
       )
 
       debug_flag
@@ -72,7 +72,7 @@ module MRuby
       disable_presym
 
       # Override by environment variable
-      alloc_libc = false if ENV["PICORUBY_NO_LIBC_ALLOC"]
+      alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
 
       cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
@@ -92,10 +92,10 @@ module MRuby
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
-            .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
+            .gsub('@PICORB_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORB_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
-            .gsub('@PICORUBY_BUILD_DATE@', build_date)
+            .gsub('@PICORB_BUILD_DATE@', build_date)
       )
 
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
@@ -127,8 +127,8 @@ module MRuby
     private def debug_flag
       cc.flags.flatten!
       cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }
-      if ENV["PICORUBY_DEBUG"]
-        cc.defines << "PICORUBY_DEBUG=1"
+      if ENV["PICORB_DEBUG"]
+        cc.defines << "PICORB_DEBUG=1"
         cc.flags << "-O0"
         cc.flags << "-g3"
         cc.flags << "-fno-inline"

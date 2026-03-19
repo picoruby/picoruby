@@ -130,12 +130,12 @@
 #define CFG_TUD_HID_EP_BUFSIZE    16
 
 // MSC Buffer size of Device Mass storage
-#if defined(PICORUBY_MSC_FLASH)
+#if defined(PICORB_MSC_FLASH)
   #define CFG_TUD_MSC_EP_BUFSIZE   4096
-#elif defined(PICORUBY_MSC_SD)
+#elif defined(PICORB_MSC_SD)
   #define CFG_TUD_MSC_EP_BUFSIZE    512
 #else
-  #error PICORUBY_MSC_devicename must be defined
+  #error PICORB_MSC_devicename must be defined
 #endif
 
 #ifdef __cplusplus
