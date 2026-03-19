@@ -117,7 +117,7 @@
   <div id="terminal-container"></div>
 
   <fieldset id="dfu-section">
-    <legend>File Editor (RBTP)</legend>
+    <legend>File Editor (PicoModem)</legend>
     <div class="controls">
       <label style="margin-right:4px;">Mode:</label>
       <label><input id="mode-plain" type="radio" name="upload-mode" value="plain" checked> Plain</label>
@@ -151,7 +151,7 @@
     require 'webserial'
 
     # ---------------------------------------------------------------------------
-    # RBTP - R2P2 Binary Transfer Protocol
+    # PicoModem - R2P2 Binary Transfer Protocol
     # ---------------------------------------------------------------------------
     # Command types (Host -> Device)
     RBTP_FILE_READ  = 0x01
@@ -476,7 +476,7 @@
       end
 
       # -------------------------------------------------------------------
-      # RBTP protocol helpers
+      # PicoModem protocol helpers
       # -------------------------------------------------------------------
 
       # Access the underlying JS port object for binary capture API
@@ -501,7 +501,7 @@
         port.drain.await
       end
 
-      # Build an RBTP frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
+      # Build an PicoModem frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
       def rbtp_build_frame(cmd, payload = "")
         body = cmd.chr + payload.to_s
         length = body.size
@@ -515,7 +515,7 @@
         frame
       end
 
-      # Send one RBTP frame
+      # Send one PicoModem frame
       def rbtp_send_frame(cmd, payload = "")
         rbtp_send_bytes(rbtp_build_frame(cmd, payload))
       end
@@ -531,7 +531,7 @@
             waited = 0
           else
             if timeout_ms <= waited
-              debug_log("rbtp:read_exact timeout need=#{n} got=#{buf.size}")
+              debug_log("PicoModem:read_exact timeout need=#{n} got=#{buf.size}")
               return nil
             end
             sleep_ms 10
@@ -541,7 +541,7 @@
         buf
       end
 
-      # Receive one RBTP frame. Returns [cmd, payload] or nil on timeout/error.
+      # Receive one PicoModem frame. Returns [cmd, payload] or nil on timeout/error.
       # Skips any non-STX bytes (residual terminal output) until a valid
       # STX frame start is found.
       def rbtp_recv_frame(timeout_ms = RBTP_TIMEOUT_MS)
@@ -557,7 +557,7 @@
             next
           end
           if timeout_ms <= waited
-            debug_log("rbtp:recv timeout waiting for STX")
+            debug_log("PicoModem:recv timeout waiting for STX")
             return nil
           end
           sleep_ms 10
@@ -574,7 +574,7 @@
         expected_crc = (rest.getbyte(length) << 8) | rest.getbyte(length + 1)
         actual_crc = CRC.crc16(body)
         unless actual_crc == expected_crc
-          debug_log("rbtp:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
+          debug_log("PicoModem:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
           return nil
         end
         cmd = body.getbyte(0)
@@ -582,7 +582,7 @@
         [cmd, payload]
       end
 
-      # Enter RBTP mode: send STX, wait for ACK, then start binary capture.
+      # Enter PicoModem mode: send STX, wait for ACK, then start binary capture.
       # The device prints "\n^B" (displayed on terminal) then sends ACK (0x06).
       # Text capture detects ACK while terminal.write renders the ^B normally.
       def rbtp_enter_mode
@@ -601,11 +601,11 @@
           waited += 1
         end
         JS::WebSerial.capture_stop(jsp)
-        # Now start binary capture for RBTP frames
+        # Now start binary capture for PicoModem frames
         JS::WebSerial.binary_capture_start(jsp)
       end
 
-      # Exit RBTP mode: optionally send ABORT, stop binary capture
+      # Exit PicoModem mode: optionally send ABORT, stop binary capture
       def rbtp_exit_mode(send_abort = false)
         if send_abort
           begin
@@ -619,7 +619,7 @@
       end
 
       # -------------------------------------------------------------------
-      # File download via RBTP
+      # File download via PicoModem
       # -------------------------------------------------------------------
       def do_download
         return unless connected?
@@ -633,7 +633,7 @@
           rbtp_enter_mode
 
           rbtp_send_frame(RBTP_FILE_READ, path)
-          debug_log("rbtp:file_read sent path=#{path}")
+          debug_log("PicoModem:file_read sent path=#{path}")
 
           data = "".b
           total = nil
@@ -661,7 +661,7 @@
                 chunk = payload
               end
               data << chunk if chunk && 0 < chunk.size
-              debug_log("rbtp:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
+              debug_log("PicoModem:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
               rbtp_send_frame(RBTP_CHUNK_ACK, RBTP_OK.chr)
             when RBTP_DONE_ACK
               if 5 <= payload.size
@@ -698,7 +698,7 @@
       end
 
       # -------------------------------------------------------------------
-      # File upload via RBTP
+      # File upload via PicoModem
       # -------------------------------------------------------------------
       def do_upload
         if @rbtp_uploading
@@ -749,7 +749,7 @@
           size_bytes << ((code.bytesize >> 8) & 0xFF).chr
           size_bytes << (code.bytesize & 0xFF).chr
           rbtp_send_frame(RBTP_FILE_WRITE, size_bytes + path)
-          debug_log("rbtp:file_write sent path=#{path} size=#{code.bytesize}")
+          debug_log("PicoModem:file_write sent path=#{path} size=#{code.bytesize}")
 
           # Wait for FILE_ACK READY
           frame = rbtp_recv_frame
@@ -790,7 +790,7 @@
               return
             end
             offset += size
-            debug_log("rbtp:chunk_ack progress=#{offset}/#{code.bytesize}")
+            debug_log("PicoModem:chunk_ack progress=#{offset}/#{code.bytesize}")
           end
 
           # Wait for DONE_ACK (device writes file then responds)
