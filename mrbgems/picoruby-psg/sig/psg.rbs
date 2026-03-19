@@ -6,6 +6,9 @@ module PSG
     SAMPLE_RATE: Integer
     TIMBRES: Hash[Symbol, Integer]
 
+    $__psg_bgm_tracks: Array[String]
+    $__psg_driver: ::PSG::Driver
+
     def self.select_pwm: (Integer left, Integer right) -> void
     def self.select_mcp4922: (Integer ldac) -> void
     def initalize: (Symbol type, **Integer opt) -> void
@@ -25,8 +28,11 @@ module PSG
     def mute_direct: (Integer ch, Integer flag) -> nil
 
     WAIT_MS: Integer
+    @bgm_task: Task?
     def play_mml: (Array[String] tracks, ?terminate: bool) -> self
     def play_prs: (String filename, ?terminate: bool) -> void
+    def start_bgm: (Array[String] tracks) -> void
+    def stop_bgm: () -> void
     private def trap: () -> void
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end

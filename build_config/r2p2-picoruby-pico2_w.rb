@@ -60,6 +60,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
     # Shinonome is too big for debug build
     conf.gem core: 'picoruby-shinonome'
   end
+  conf.gem core: 'picoruby-psg'
   conf.gem core: 'picoruby-ble'
   conf.gem core: 'picoruby-ble-uart'
   conf.gem core: 'picoruby-keyboard'

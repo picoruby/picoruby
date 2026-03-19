@@ -180,6 +180,47 @@ module PSG
       file&.close
     end
 
+    # Start BGM playback in a background Task.
+    # mruby/c: Task.new does not forward blocks to initialize,
+    #          so we compile a script string and use Task.create.
+    # mruby:   Task.new with block works normally.
+    # Uses terminate: false so the task does not call deinit on exit.
+    def start_bgm(tracks)
+      stop_bgm
+      stop_mml
+      if RUBY_ENGINE == "mruby/c"
+        $__psg_bgm_tracks = tracks
+        $__psg_driver = self
+        mrb = PicoRubyVM::InstructionSequence.compile(
+          '$__psg_driver.play_mml($__psg_bgm_tracks, terminate: false)'
+        ).to_binary
+        @bgm_task = Task.create(mrb)
+        if @bgm_task.nil?
+          raise "Failed to create BGM task"
+        end
+        @bgm_task&.run
+      else
+        psg = self
+        @bgm_task = Task.new { psg.play_mml(tracks, terminate: false) }
+      end
+    end
+
+    # Stop the BGM task and silence all channels.
+    def stop_bgm
+      return unless @bgm_task
+      @mml_request = :quit
+      @bgm_task&.join
+      tr = 0
+      while tr < 3
+        write_reg_direct(tr + 8, 0)
+        mute_direct(tr, 1)
+        tr += 1
+      end
+      buffer_flush
+      @bgm_task = nil
+      @mml_request = nil
+    end
+
     # private
 
     def trap

@@ -1,5 +1,6 @@
 class Task
   def self.new: (?name: String, ?priority: Integer) {() -> void} -> Task
+  def self.create: (String bytecode) -> Task
   def self.stat: () -> Task::Stat
   def self.pp_status: () -> void
   def self.current: () -> Task

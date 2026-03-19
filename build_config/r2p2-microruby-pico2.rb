@@ -52,6 +52,7 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2") do |conf|
   conf.gembox "shell"
   conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
+  conf.gem core: 'picoruby-psg'
   conf.gem core: 'picoruby-shinonome'
   conf.gem core: 'picoruby-psg'
   conf.gem core: 'picoruby-keyboard'
