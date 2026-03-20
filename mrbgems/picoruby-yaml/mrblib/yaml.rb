@@ -169,7 +169,7 @@ module YAML
     s = string.to_s
     ci = 0
     while ci < s.length
-      char = s[ci]
+      char = s[ci] or raise
       return false unless '0' <= char && char <= '9'
       ci += 1
     end

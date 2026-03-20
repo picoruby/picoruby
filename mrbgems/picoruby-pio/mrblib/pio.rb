@@ -256,6 +256,7 @@ module PIO
 
     def assemble
       resolve_labels
+      # @type var wrap_idx: Integer
       wrap_idx = @wrap_idx.nil? ? @instructions.length - 1 : @wrap_idx
       Program.new(@instructions.dup, @side_set_count, @side_set_optional, @wrap_target_idx, wrap_idx)
     end

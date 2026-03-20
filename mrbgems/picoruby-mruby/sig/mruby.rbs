@@ -1,3 +1,9 @@
 module GC
   def self.interval_ratio=: (Integer) -> Integer
 end
+
+class Object < BasicObject
+  def self?.sleep_ms: (Integer) -> Integer
+  def self?.sleep: (Integer | Float) -> Integer
+  def self?.relinquish: () -> bool
+end

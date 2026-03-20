@@ -589,7 +589,7 @@ class Keyboard
       th_keys2 = @tap_hold_keys.keys
       thi2 = 0
       while thi2 < th_keys2.size
-        key_pos = th_keys2[thi2]
+        key_pos = th_keys2[thi2] or raise
         state = @tap_hold_keys[key_pos] # steep:ignore
         # Keep :tapped state (waiting for double-tap), clean up others
         if state && state[:state] != :tapped

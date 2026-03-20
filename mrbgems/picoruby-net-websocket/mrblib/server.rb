@@ -270,7 +270,7 @@ module Net
                 raise ConnectionClosed.new("Incomplete frame")
               end
               high, low = len_bytes.unpack("NN")
-              payload_len = ((high || 0) << 32) | (low || 0)
+              payload_len = ((high || 0) << 32) | (low || 0) # steep:ignore NoMethod
             end
 
             mask_key = nil

@@ -39,4 +39,10 @@ target :mrbgems do
   ignore "mrbgems/picoruby-shell/shell_executables/taskstat.rb"
   # R2P2 uses IO.new without arguments (embedded environment)
   ignore "mrbgems/picoruby-r2p2/mrblib/main_task.rb"
+
+  # mrubyc submodule files that cannot be modified
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/object.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/global.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/numeric.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/hash.rb"
 end

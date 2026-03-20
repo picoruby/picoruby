@@ -29,6 +29,7 @@ class File
     end
 
     def dirname(path, level = 1)
+      # @type var path: String
       raise ArgumentError, "negative level: #{level}" if level < 0
       return path.dup if level == 0
       s = path

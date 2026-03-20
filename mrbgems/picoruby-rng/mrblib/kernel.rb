@@ -1,5 +1,6 @@
 module Kernel
-  def rand(max = 0)
+  def rand(max = 0) # steep:ignore
+    # @type var max: Integer
     if max == 0
       RNG.random_int
     else

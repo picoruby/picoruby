@@ -31,8 +31,9 @@ module Kernel
     args
   end
 
-  def exit(status = 0)
-    Machine.exit(status)
+  def exit(status = 0) # steep:ignore MethodBodyTypeMismatch
+    # @type var status: Integer
+    Machine.exit(status) # steep:ignore ArgumentTypeMismatch
   end
 end
 

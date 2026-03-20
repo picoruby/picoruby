@@ -27,6 +27,7 @@ module DRb
 
   class DRbObject
     def initialize: (String uri, ?untyped? ref) -> void
+    def self.new_with_uri: (String uri) -> DRbObject
 
     attr_reader uri: String
     attr_reader ref: untyped

@@ -34,6 +34,7 @@ module DRb
       def read: (Integer n) -> String
       def close: -> void
       def closed?: -> bool
+      def real_close: -> void
     end
 
     def self.connect: (String uri) -> (Adapter | BrowserSocket)

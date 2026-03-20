@@ -56,14 +56,17 @@ module DFU
         raise "DFU: incomplete header (expected #{HEADER_SIZE} bytes, got #{got_size})"
       end
 
+      # @type var magic: String
       # @type var size: Integer
       # @type var crc32: Integer
+      # @type var sig_len: Integer
       magic, ver, type, size, crc32, sig_len = header.unpack(HEADER_FORMAT)
       puts "[recv] type=#{type} size=#{size} crc32=0x#{crc32&.to_s(16)} sig_len=#{sig_len}"
 
       unless magic == MAGIC
-        # @type var magic: String
-        hex = magic.unpack("C4").map { |b| b.to_s(16) }.join(" ")
+        # @type var arr: Array[Integer]
+        arr = magic.unpack("C4")
+        hex = arr.map { |b| b.to_s(16) }.join(" ")
         raise "DFU: invalid magic (got 0x#{hex}, expected \"DFU\\0\")"
       end
       unless ver == VERSION
