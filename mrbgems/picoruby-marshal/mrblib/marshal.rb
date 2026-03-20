@@ -264,14 +264,9 @@ module Marshal
 
     def load_array(data, pos)
       len, pos = decode_fixnum(data, pos)
-<<<<<<< HEAD
       ary = [] #: Array[untyped]
-      len.times do
-=======
-      ary = []
       i = 0
       while i < len
->>>>>>> origin/master
         elem, pos = load_object(data, pos)
         ary << elem
         i += 1
@@ -281,14 +276,9 @@ module Marshal
 
     def load_hash(data, pos)
       len, pos = decode_fixnum(data, pos)
-<<<<<<< HEAD
       hash = {} #: Hash[untyped, untyped]
-      len.times do
-=======
-      hash = {}
       i = 0
       while i < len
->>>>>>> origin/master
         key, pos = load_object(data, pos)
         value, pos = load_object(data, pos)
         hash[key] = value

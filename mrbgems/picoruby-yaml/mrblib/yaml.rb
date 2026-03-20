@@ -126,15 +126,10 @@ module YAML
     when Array
       yaml = ""
       # @type var object: Array
-<<<<<<< HEAD
-      object.each do |item|
-        # @type var item: Hash[untyped, untyped] | Array[untyped]
-=======
       ai = 0
       while ai < object.size
         item = object[ai]
-        # @type var item: (Hash | Array)
->>>>>>> origin/master
+        # @type var item: Hash[untyped, untyped] | Array[untyped]
         yaml << "#{' ' * indent}- "
         if item.nil?
           yaml << "null\n"

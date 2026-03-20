@@ -61,16 +61,12 @@ class File
     def chmod(mode, *paths)
       # @type var mode: Integer
       count = 0
-<<<<<<< HEAD
-      paths.each do |path|
-        # @type var path: String
-        count += 1 if VFS.chmod(mode, path) == 0
-=======
       i = 0
       while i < paths.size
-        count += 1 if VFS.chmod(mode, paths[i]) == 0
+        # @type var path: String
+        path = paths[i]
+        count += 1 if VFS.chmod(mode, path) == 0
         i += 1
->>>>>>> origin/master
       end
       count
     end
@@ -106,16 +102,12 @@ class File
 
     def unlink(*filenames)
       count = 0
-<<<<<<< HEAD
-      filenames.each do |name|
-        # @type var name: String
-        count += VFS.unlink(name)
-=======
       i = 0
       while i < filenames.size
-        count += VFS.unlink(filenames[i])
+        # @type var name: String
+        name = filenames[i]
+        count += VFS.unlink(name)
         i += 1
->>>>>>> origin/master
       end
       return count
     end

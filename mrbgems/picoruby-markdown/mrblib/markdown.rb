@@ -16,15 +16,10 @@ class Markdown
 
     @footnotes = {}
     @footnote_order = []
-<<<<<<< HEAD
     remaining_lines = [] #: Array[String]
-    lines.each do |line|
-=======
-    remaining_lines = []
     li = 0
     while li < lines.size
       line = lines[li]
->>>>>>> origin/master
       stripped = line.strip
       if stripped.start_with?('[^') && stripped.include?(']:')
         key_end = stripped.index(']:')

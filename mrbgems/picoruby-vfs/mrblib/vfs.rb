@@ -125,17 +125,8 @@ class VFS
         # Relative path
         dirs = (ENV["PWD"] || "").split("/") + dirs
       end
-<<<<<<< HEAD
       sanitized_dirs = [] #: Array[String]
       prefix_dirs = [] #: Array[String]
-      dirs.each do |dir|
-        next if dir == "." || dir == ""
-        if dir == ".."
-          if sanitized_dirs.empty?
-            prefix_dirs << ".."
-=======
-      sanitized_dirs = []
-      prefix_dirs = []
       i = 0
       while i < dirs.size
         dir = dirs[i]
@@ -146,7 +137,6 @@ class VFS
             else
               sanitized_dirs.pop
             end
->>>>>>> origin/master
           else
             sanitized_dirs << dir
           end

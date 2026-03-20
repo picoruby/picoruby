@@ -397,15 +397,7 @@ module Editor
         print "\e[#{content_height}T" # Scroll up
         @visual_offset += content_height
         # Fill the blank made by the scroll
-<<<<<<< HEAD
         blank_lines = [] #: Array[String]
-        ((first_line_skip_count - content_height)..first_lineno).each do |lineno|
-          lineno = lineno.to_i
-          line = @buffer.lines[lineno]
-          ([1, (line.length - 1) / content_width + 1].max || 0).times do |i|
-            break 0 if lineno == first_lineno && first_line_skip_count - 1 < i
-=======
-        blank_lines = []
         bln = first_line_skip_count - content_height
         while bln <= first_lineno
           bln_i = bln.to_i
@@ -418,7 +410,6 @@ module Editor
           i = 0
           while i < max_i
             break 0 if bln_i == first_lineno && i > first_line_skip_count - 1
->>>>>>> origin/master
             str = if i == 0
               "\e[31m" + "#{bln_i + 1} ".rjust(4)
             else
