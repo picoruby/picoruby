@@ -9,7 +9,7 @@ include(pico_extras_import.cmake)
 pico_sdk_init()
 
 execute_process (COMMAND date +%Y%m%d OUTPUT_VARIABLE CMAKE_BUILDDATE OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process (COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE CMAKE_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE WORKING_DIRECTORY ${PICORUBY_ROOT})
+execute_process (COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE CMAKE_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE WORKING_DIRECTORY ${PICORB_ROOT})
 # R2P2_VERSION is passed via -D from rake task
 set (R2P2_BUILDDATE ${CMAKE_BUILDDATE})
 set (R2P2_REVISION  ${CMAKE_REVISION})
@@ -40,8 +40,8 @@ else()
 endif()
 
 file(GLOB SOURCE_FILES CONFIGURE_DEPENDS
-  ${PICORUBY_ROOT}/mrbgems/*/ports/rp2040/*.c
-  ${PICORUBY_ROOT}/mrbgems/*/ports/common/*.c
+  ${PICORB_ROOT}/mrbgems/*/ports/rp2040/*.c
+  ${PICORB_ROOT}/mrbgems/*/ports/common/*.c
 )
 if(USE_WIFI)
   add_compile_definitions(USE_WIFI=1)
@@ -51,21 +51,21 @@ if(USE_WIFI)
   list(APPEND SOURCE_FILES ${ADD_WIFI_SOURCE_FILES})
   if(PICO_BOARD STREQUAL "pico2_w")
     file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
+      ${PICORB_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     )
   else()
     # pico_w uses picoruby-socket instead of picoruby-net to avoid function conflicts
     file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
+      ${PICORB_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     )
   endif()
 else()
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-    ${PICORUBY_ROOT}/mrbgems/picoruby-cyw43/ports/rp2040/*.c
-    ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
-    ${PICORUBY_ROOT}/mrbgems/picoruby-socket/ports/rp2040/*.c
-    ${PICORUBY_ROOT}/mrbgems/picoruby-ble/ports/rp2040/*.c
-    ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/ports/**/*.c
+    ${PICORB_ROOT}/mrbgems/picoruby-cyw43/ports/rp2040/*.c
+    ${PICORB_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
+    ${PICORB_ROOT}/mrbgems/picoruby-socket/ports/rp2040/*.c
+    ${PICORB_ROOT}/mrbgems/picoruby-ble/ports/rp2040/*.c
+    ${PICORB_ROOT}/mrbgems/picoruby-mbedtls/ports/**/*.c
     ${PICO_SDK_PATH}/src/rp2_common/pico_mbedtls/pico_mbedtls.c
   )
 endif()
@@ -74,7 +74,7 @@ list(REMOVE_ITEM SOURCE_FILES ${REMOVE_WIFI_SRCS})
 
 if(PICORB_VM_MRUBYC)
   file(GLOB REMOVE_MRUBY_SRCS CONFIGURE_DEPENDS
-    ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/ports/rp2040/*.c
+    ${PICORB_ROOT}/mrbgems/picoruby-mruby/ports/rp2040/*.c
   )
   list(REMOVE_ITEM SOURCE_FILES ${REMOVE_MRUBY_SRCS})
 endif()
@@ -102,7 +102,7 @@ endif()
 # Core1 is used for PSG audio processing but doesn't access flash during BTStack operations
 add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE=1)
 
-set(PICORBC ${PICORUBY_ROOT}/bin/picorbc)
+set(PICORBC ${PICORB_ROOT}/bin/picorbc)
 
 add_custom_target(mrbdir ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/mrb
@@ -124,11 +124,11 @@ endforeach(rb)
 
 target_link_directories(${PROJECT_NAME} PRIVATE
   ${EXTRA_LIBRARY_PATH}
-  ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/lib
+  ${PICORB_ROOT}/build/${MRUBY_CONFIG}/lib
 )
 
 pico_generate_pio_header(${PROJECT_NAME}
-  ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
+  ${PICORB_ROOT}/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
@@ -191,7 +191,7 @@ if(USE_WIFI)
     pico_btstack_cyw43
   )
   target_include_directories(${PROJECT_NAME} PRIVATE
-    ${PICORUBY_ROOT}/mrbgems/picoruby-ble/include
+    ${PICORB_ROOT}/mrbgems/picoruby-ble/include
   )
 endif()
 
@@ -208,34 +208,34 @@ endif()
 if(PICORB_VM_MRUBY)
   add_compile_definitions(PICORB_VM_MRUBY=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
-    ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include
+    ${PICORB_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include
   )
 elseif(PICORB_VM_MRUBYC)
   add_compile_definitions(PICORB_VM_MRUBYC=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
-    ${PICORUBY_ROOT}/mrbgems/picoruby-mrubyc/lib/mrubyc/src
+    ${PICORB_ROOT}/mrbgems/picoruby-mrubyc/lib/mrubyc/src
   )
 endif()
 
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_BINARY_DIR}/mrb
   ${R2P2_GEM_DIR}/include
-  ${PICORUBY_ROOT}/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/include
-  ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
+  ${PICORB_ROOT}/include
+  ${PICORB_ROOT}/mrbgems/mruby-compiler2/lib/prism/include
+  ${PICORB_ROOT}/mrbgems/mruby-compiler2/include
+  ${PICORB_ROOT}/build/${MRUBY_CONFIG}/include
+  ${PICORB_ROOT}/mrbgems/picoruby-socket/include
 
   ${R2P2_GEM_DIR}/cmake
   ${PICO_SDK_PATH}/src/rp2_common/pico_stdio_usb/include
   ${PICO_SDK_PATH}/src/rp2_common/hardware_dma/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-machine/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/lib/ff14b/source
-  ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/mrbgems
-  ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/library
-  ${PICORUBY_ROOT}/mrbgems/picoruby-net/include
+  ${PICORB_ROOT}/mrbgems/picoruby-machine/include
+  ${PICORB_ROOT}/mrbgems/picoruby-filesystem-fat/lib/ff14b/source
+  ${PICORB_ROOT}/build/${MRUBY_CONFIG}/mrbgems
+  ${PICORB_ROOT}/mrbgems/picoruby-mbedtls/include
+  ${PICORB_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/include
+  ${PICORB_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/library
+  ${PICORB_ROOT}/mrbgems/picoruby-net/include
   ${EXTRA_INCLUDE_DIR}
 )
 
