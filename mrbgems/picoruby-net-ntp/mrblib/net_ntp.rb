@@ -48,47 +48,6 @@ module Net
 
       def to_binary
         # Pack NTP packet into 48-byte binary format
-<<<<<<< HEAD
-        data = [] #: Array[Integer]
-
-        # Byte 0: LI (2 bits) + VN (3 bits) + Mode (3 bits)
-        data << ((@leap_indicator << 6) | (@version << 3) | @mode)
-
-        # Bytes 1-3: Stratum, Poll, Precision
-        data << @stratum
-        data << @poll
-        data << @precision
-
-        # Bytes 4-7: Root Delay (32-bit)
-        data += pack_u32(@root_delay)
-
-        # Bytes 8-11: Root Dispersion (32-bit)
-        data += pack_u32(@root_dispersion)
-
-        # Bytes 12-15: Reference Identifier (32-bit)
-        data += pack_u32(@reference_identifier)
-
-        # Bytes 16-23: Reference Timestamp (64-bit)
-        data += pack_u32(@reference_timestamp_sec)
-        data += pack_u32(@reference_timestamp_frac)
-
-        # Bytes 24-31: Originate Timestamp (64-bit)
-        data += pack_u32(@originate_timestamp_sec)
-        data += pack_u32(@originate_timestamp_frac)
-
-        # Bytes 32-39: Receive Timestamp (64-bit)
-        data += pack_u32(@receive_timestamp_sec)
-        data += pack_u32(@receive_timestamp_frac)
-
-        # Bytes 40-47: Transmit Timestamp (64-bit)
-        data += pack_u32(@transmit_timestamp_sec)
-        data += pack_u32(@transmit_timestamp_frac)
-
-        # Convert array to string
-        result = ""
-        data.each { |byte| result << byte.chr }
-        result
-=======
         # C4: LI/VN/Mode, Stratum, Poll, Precision (4 bytes)
         # N11: Root Delay, Root Dispersion, Ref ID,
         #      Ref/Orig/Recv/Xmit timestamps (sec+frac each) (44 bytes)
@@ -101,7 +60,6 @@ module Net
           @receive_timestamp_sec, @receive_timestamp_frac,
           @transmit_timestamp_sec, @transmit_timestamp_frac
         ].pack("C4N11")
->>>>>>> origin/master
       end
 
       def parse(data)
