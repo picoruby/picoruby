@@ -34,7 +34,7 @@ module Net
 
     class Client
 
-      def self.new: (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) -> MQTT::Client
+      def initialize: (String host, ?Integer port, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) -> void
       def self.connect: (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) { (Client) -> void } -> void
                       | (String, ?Integer, ?client_id: String?, ?keep_alive: Integer, ?clean_session: bool, ?username: String?, ?password: String?, ?ssl: bool, ?ca_file: String?, ?cert_file: String?, ?key_file: String?) -> Client
 

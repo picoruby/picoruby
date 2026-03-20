@@ -169,7 +169,7 @@ module Net
         end
 
         def parse_http_headers(request)
-          headers = {}
+          headers = {} #: Hash[String, String]
           lines = request.split("\r\n")
 
           li = 0

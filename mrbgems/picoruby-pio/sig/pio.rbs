@@ -96,6 +96,8 @@ module PIO
     attr_reader side_set_optional: bool
     attr_reader wrap_target_idx: Integer
     attr_reader wrap_idx: Integer
+
+    def initialize: (Array[Integer] instructions, Integer side_set_count, bool side_set_optional, Integer wrap_target_idx, Integer wrap_idx) -> void
     def length: () -> Integer
   end
 

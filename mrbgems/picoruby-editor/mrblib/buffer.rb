@@ -182,7 +182,7 @@ module Editor
     end
 
     def dump
-      result = []
+      result = [] #: Array[String]
       li = 0
       while li < @lines.size
         line = @lines[li]

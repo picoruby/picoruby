@@ -24,6 +24,8 @@ module JS
         attr_reader js_device: JS::Object
         attr_reader name: String?
 
+        def initialize: (JS::Object js_device) -> void
+
         # Connect to the GATT server on this device
         def connect: () -> JS::BLE::GATT::Server?
 
@@ -40,6 +42,8 @@ module JS
       class Server
         attr_reader js_server: JS::Object
 
+        def initialize: (JS::Object js_server) -> void
+
         # Get a primary service by UUID string
         def service: (String uuid) -> JS::BLE::GATT::Service?
       end
@@ -47,12 +51,16 @@ module JS
       class Service
         attr_reader js_service: JS::Object
 
+        def initialize: (JS::Object js_service) -> void
+
         # Get a characteristic by UUID string
         def characteristic: (String uuid) -> JS::BLE::GATT::Characteristic?
       end
 
       class Characteristic
         attr_reader js_char: JS::Object
+
+        def initialize: (JS::Object js_char) -> void
 
         # Read the characteristic value (binary String)
         def read: () -> String?

@@ -146,7 +146,7 @@ module DRb
         def initialize(url)
           @ws = ::JS::WebSocket.new(url)
           @ws.binaryType = 'arraybuffer'
-          @queue = []
+          @queue = [] #: Array[untyped]
           @buffer = ""
           @ready = false
           @error = nil
@@ -218,7 +218,7 @@ module DRb
         end
       end
 
-      @connections = {}
+      @connections = {} #: Hash[String, BrowserSocket]
 
       def self.connect(uri)
         conn = @connections[uri]
@@ -283,7 +283,7 @@ module DRb
       uri = uri.to_s if uri.respond_to?(:to_s)
       if uri.start_with?("ws://") || uri.start_with?("wss://")
         # Cache connections for reuse
-        @ws_connections ||= {}
+        @ws_connections ||= {} #: Hash[String, untyped]
         socket = @ws_connections[uri]
         if socket.nil? || socket.closed?
           socket = WebSocket.connect(uri)

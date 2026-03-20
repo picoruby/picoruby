@@ -630,7 +630,7 @@ class Shell
       ri += 1
     end
 
-    cmd_arrays = []
+    cmd_arrays = [] #: Array[Array[String]]
     ci = 0
     while ci < commands.size
       cmd_node = commands[ci]

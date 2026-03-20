@@ -35,6 +35,8 @@ class Keyboard
   @col_count: Integer
   @keymap_rows: Integer
   @keymap_cols: Integer
+  @layers: Hash[Symbol, Array[Integer]]
+  @keymap: Array[Integer]
   @layer_names: Array[Symbol]
   @default_layer: Symbol | nil
   @locked_layer: Integer | nil

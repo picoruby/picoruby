@@ -17,7 +17,7 @@ module JS
     def self.connect: (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) -> JS::WebSerial
                     | (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) { (JS::WebSerial) -> void } -> JS::WebSerial
 
-    def self.new: (JS::Object js_port) -> JS::WebSerial
+    def initialize: (JS::Object js_port) -> void
 
     # Open the serial port with the given parameters.
     # Yields self to the block once the port is open.
