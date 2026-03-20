@@ -7,7 +7,13 @@ target :mrbgems do
 #  )
 
   Dir.glob("**/sig/").each do |dir|
+<<<<<<< HEAD
     unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?("task-ext") || dir.include?("-prk-")
+=======
+    # Exclude vendor/ because gems installed there (e.g. on GHA) have sig/ dirs
+    # that cause duplicate RBS declaration errors.
+    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("-prk-") || dir.include?("vendor/")
+>>>>>>> origin/master
       signature dir
     end
   end

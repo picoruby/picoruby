@@ -1,0 +1,96 @@
+module JS
+  class WebSerial
+    # Returns true if Web Serial API is available (Chrome / Edge).
+    def self.supported?
+      nav = JS.global[:navigator] # steep:ignore
+      nav && (serial = nav[:serial]) && serial.type != "undefined"
+    end
+
+    # Request a serial port via the browser picker.
+    # Must be called from a user gesture handler (click, etc.).
+    # Yields a JS::WebSerial instance (or nil if user cancelled) to the block.
+    def self.request_port(filters: [], &block)
+      raw_port = JS::WebSerial._request_port.await
+      port_obj = raw_port ? new(raw_port) : nil
+      block.call(port_obj) if block
+      port_obj
+    end
+
+    # Request and open a serial port with one call.
+    # Calls the block after successful open, allowing caller to configure.
+    def self.connect(baud_rate: 115200, data_bits: 8, stop_bits: 1, parity: "none", &block)
+      raw_port = JS::WebSerial._request_port.await
+      raise "No serial port selected" unless raw_port
+      ws = new(raw_port)
+      ws.open(baud_rate: baud_rate, data_bits: data_bits, stop_bits: stop_bits, parity: parity)
+      block.call(ws) if block
+      ws
+    end
+
+    # js_port is a JS::Object wrapping a SerialPort.
+    def initialize(js_port)
+      @js_port = js_port
+      @opened = false
+    end
+
+    # Open the serial port with given parameters.
+    # Yields self to the block when the port is successfully opened.
+    # Uses JS::WebSerial._open_port (C method) because Kernel#open is private
+    # and would shadow method_missing on JS::Object.
+    def open(baud_rate: 115200, data_bits: 8, stop_bits: 1, parity: "none", &block)
+      options = JS.global.create_object
+      options[:baudRate] = baud_rate
+      options[:dataBits] = data_bits
+      options[:stopBits] = stop_bits
+      options[:parity] = parity
+      JS::WebSerial._open_port(@js_port, options).await
+      @opened = true
+      block.call(self) if block
+      self
+    end
+
+    # Register a block to be called with each received binary String chunk.
+    def on_receive(&block)
+      callback_id = block.object_id
+      JS::Object::CALLBACKS[callback_id] = block
+      JS::WebSerial._start_reading(@js_port, callback_id)
+    end
+
+    # Register a block to be called when the port disconnects.
+    def on_disconnect(&block)
+      callback_id = block.object_id
+      JS::Object::CALLBACKS[callback_id] = block
+      JS::WebSerial._set_on_disconnect(@js_port, callback_id)
+    end
+
+    # Close the serial port.
+    # Stops the read loop gracefully before closing to avoid "locked stream" errors.
+    def close
+      @opened = false
+      JS::WebSerial._close_port_promise(@js_port).await
+      nil
+    end
+
+    # Write bytes in chunks, returning a promise that resolves when flushed.
+    # The caller is responsible for sleep_ms between chunks if needed.
+    def write_bytes(bytes, chunk_size: 32)
+      unless bytes && bytes.bytesize > 0
+        # Return a resolved promise
+        return drain
+      end
+
+      off = 0
+      while off < bytes.bytesize
+        chunk = bytes.byteslice(off, chunk_size).to_s
+        write(chunk) if chunk.bytesize > 0
+        off += chunk.bytesize
+      end
+      # Return promise that resolves when write queue is flushed
+      drain
+    end
+
+    def opened?
+      @opened
+    end
+  end
+end

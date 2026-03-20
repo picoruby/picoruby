@@ -46,7 +46,7 @@ c_Watchdog_reboot(mrbc_vm *vm, mrbc_value *v, int argc)
   int ms = GET_INT_ARG(1);
   console_printf("\nRebooting in %d ms\n", ms);
   Watchdog_reboot(ms);
-  SET_INT_RETURN(0);
+  SET_NIL_RETURN();
 }
 
 /*

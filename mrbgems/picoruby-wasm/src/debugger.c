@@ -1,5 +1,5 @@
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
 
 #include "mruby/debugger.c"
 
-#endif /* PICORUBY_DEBUG */
+#endif /* PICORB_DEBUG */

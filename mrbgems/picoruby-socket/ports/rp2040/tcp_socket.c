@@ -186,6 +186,8 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   int dns_result = Net_get_ip(host, &ip_addr);
   if (dns_result != 0) {
     D("TCP: DNS failed");
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "getaddrinfo(\"%s\"): Name or service not known", host);
     return false;
   }
   D("TCP: DNS ok");
@@ -258,6 +260,10 @@ TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
   err = altcp_output(sock->pcb);
   lwip_end();
 
+#ifdef PICO_CYW43_ARCH_POLL
+  cyw43_arch_poll();
+#endif
+
   if (err != ERR_OK) {
     return -1;
   }
@@ -314,6 +320,16 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
   }
 
   return (ssize_t)to_copy;
+}
+
+/* Check if data is ready to read */
+bool
+Socket_ready(picorb_socket_t *sock)
+{
+  if (!sock) {
+    return false;
+  }
+  return sock->recv_len > 0;
 }
 
 /* Close socket */

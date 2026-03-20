@@ -1,7 +1,9 @@
 require "env"
+require "io/console"
 require "picorubyvm"
 require "sandbox"
 require "crc"
+require "picomodem"
 require "machine"
 require 'yaml'
 begin
@@ -61,7 +63,9 @@ class Shell
   end
 
   def self.ensure_system_file(path, code, crc = nil)
-    10.times do
+    flawless = true
+    i = 0
+    while i < 10
       if File.file?(path)
         print "Checking: #{path}"
         File.open(path, "r") do |f|
@@ -74,9 +78,10 @@ class Shell
                        end
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
             puts " ... OK (#{code.length} bytes)"
-            return
+            return flawless
           else
             puts " ... NG! (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
+            flawless = false
           end
         end
         File.unlink(path)
@@ -89,12 +94,45 @@ class Shell
         end
         sleep_ms 100
       end
+      i += 1
     end
     File.unlink(path) if File.file?(path)
     puts "Failed to save: #{path} (#{code.length} bytes)"
+    return false
   end
 
-  def self.setup_system_files(root = nil, force: false)
+  # To skip sanity check for each file, we create a description
+  # file after all files are confirmed to be flawless.
+  # If sanity check fails even once, the description file is
+  # removed to force sanity check on the next boot.
+  def self.sanity_check_system_files(root)
+    desc_file = "#{root}/etc/ruby-description"
+    if File.file?(desc_file)
+      File.open(desc_file, "r") do |f|
+        f.read.chomp == RUBY_DESCRIPTION and return
+      end
+    end
+    flawless = true
+    while exe = Shell.next_executable
+      path = "#{root}#{exe[:path]}"
+      unless self.ensure_system_file(path, exe[:code], exe[:crc])
+        flawless = false
+      end
+    end
+    path = "#{root}/etc/machine-id"
+    unless self.ensure_system_file(path, Machine.unique_id, nil)
+      flawless = false
+    end
+    if flawless
+      File.open(desc_file, "w") do |f|
+        f.write(RUBY_DESCRIPTION)
+      end
+    else
+      File.unlink(desc_file) if File.file?(desc_file)
+    end
+  end
+
+  def self.setup_system_files(root = nil)
     unless root.nil? || Dir.exist?(root)
       Dir.mkdir(root)
       puts "Created root directory: #{root}"
@@ -102,32 +140,39 @@ class Shell
     $LOAD_PATH = ["#{root}/lib"]
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
+    ENV['DFU_DIR'] = "#{root}/etc/dfu"
     ENV['WIFI_CONFIG_PATH'] = "#{root}/etc/network/wifi.yml"
     ENV["WIFI_MODULE"] = "none" # possibly overwritten in CYW43.init
     Dir.chdir(root || "/") do
-      %w(bin home etc etc/init.d etc/network var var/log lib).each do |dir|
-        next if Dir.exist?(dir)
-        puts "Creating directory: #{dir}"
-        Dir.mkdir(dir)
-        i = 0
-        while !Dir.exist?(dir)
-          sleep_ms 200
-          i += 1
-          if 10 < i
-            raise "Failed to create directory: #{dir}. Please reboot"
+      dirs = %w(bin home etc etc/init.d etc/network etc/dfu var var/log lib)
+      di = 0
+      while di < dirs.size
+        dir = dirs[di]
+        unless Dir.exist?(dir)
+          puts "Creating directory: #{dir}"
+          Dir.mkdir(dir)
+          i = 0
+          while !Dir.exist?(dir)
+            sleep_ms 200
+            i += 1
+            if 10 < i
+              raise "Failed to create directory: #{dir}. Please reboot"
+            end
           end
         end
+        di += 1
       end
-      while exe = Shell.next_executable
-        path = "#{root}#{exe[:path]}"
-        self.ensure_system_file(path, exe[:code], exe[:crc])
-      end
-      path = "#{root}/etc/machine-id"
-      self.ensure_system_file(path, Machine.unique_id, nil)
+      self.sanity_check_system_files(root || "")
     end
     Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
+    self.read_config
+    require 'network'
+  end
+
+  def self.read_config
     config_file = "/etc/config.yml"
+    return unless File.file?(config_file)
     # example of `config.yml`:
     #
     # device:
@@ -135,37 +180,40 @@ class Shell
     #     trigger_nmble: 22
     #     led_ble: cyw43_led
     #     led_wifi: 23
-    begin
-      if File.file?(config_file)
-        config = YAML.load_file(config_file)
-        # @type var config: Hash[String, untyped]
-        env = config['env']
-        if env&.respond_to?(:each)
-          env.each do |key, value|
-            ENV[key.upcase] = value.to_s
+    config = YAML.load_file(config_file)
+    # @type var config: Hash[String, untyped]
+    env = config['env']
+    if env&.respond_to?(:keys)
+      keys = env.keys
+      ki = 0
+      while ki < keys.size
+        key = keys[ki]
+        ENV[key.upcase] = env[key].to_s
+        ki += 1
+      end
+    end
+    device = config['device']
+    if device&.respond_to?(:keys)
+      dev_keys = device.keys
+      dki = 0
+      while dki < dev_keys.size
+        type = dev_keys[dki]
+        values = device[type]
+        if values&.respond_to?(:keys)
+          val_keys = values.keys
+          vki = 0
+          while vki < val_keys.size
+            key = val_keys[vki]
+            ENV["#{type}_#{key}".upcase] = values[key].to_s
+            vki += 1
           end
         end
-        device = config['device']
-        if device&.respond_to?(:each)
-          device.each do |type, values|
-            values&.each do |key, value|
-              ENV["#{type}_#{key}".upcase] = value.to_s
-            end
-          end
-        end
+        dki += 1
       end
-    rescue => e
-      puts "Failed to load config file: #{config_file}"
-      puts "  #{e.message} (#{e.class})"
     end
-
-    begin
-      require "cyw43"
-      if CYW43.respond_to?(:enable_sta_mode)
-        ENV['WIFI_MODULE'] = "cwy43"
-      end
-    rescue
-    end
+  rescue => e
+    puts "Failed to load config file: #{config_file}"
+    puts "  #{e.message} (#{e.class})"
   end
 
   def self.bootstrap(file)
@@ -175,13 +223,15 @@ class Shell
     end
     puts "Press 's' to skip running #{file}"
     skip = false
-    20.times do
+    j = 0
+    while j < 20
       print "."
       if STDIN.read_nonblock(1) == "s"
         skip = true
-        break 0
+        break
       end
       sleep 0.1
+      j += 1
     end
     STDIN.read_nonblock 1024 # discard remaining input
     if skip
@@ -207,10 +257,10 @@ class Shell
     end
   end
 
-  def self.setup_sdcard(spi)
+  def self.setup_sdcard(driver)
     begin
-      print "Initializing SD card... "
-      sd = FAT.new(:sd, label: "SD", driver: spi)
+      print "Initializing SD card(#{driver.class})... "
+      sd = FAT.new(:sd, label: "SD", driver: driver)
       sd_mountpoint = "/sd"
       VFS.mount(sd, sd_mountpoint)
       puts "Available at #{sd_mountpoint}"
@@ -246,9 +296,14 @@ class Shell
       file = File.expand_path(name, Dir.pwd)
       return File.file?(name) ? name : nil
     end
-    ENV['PATH']&.split(";")&.each do |path|
-      file = "#{path}/#{name}"
-      return file if File.file? file
+    paths = ENV['PATH']&.split(";")
+    if paths
+      pi = 0
+      while pi < paths.size
+        file = "#{paths[pi]}/#{name}"
+        return file if File.file? file
+        pi += 1
+      end
     end
     nil
   end
@@ -291,13 +346,17 @@ class Shell
     margin = " " * ((@editor.width - LOGO_WIDTH) / 2)
 
     # Add shadow
-    LOGO.size.times do |y|
+    y = 0
+    while y < LOGO.size
       break if LOGO[y+1].nil?
-      LOGO[y].length.times do |x|
+      x = 0
+      while x < LOGO[y].length
         if LOGO[y][x] == '1' && LOGO[y+1][x-1] == '0'
           LOGO[y+1][x-1] = '2'
         end
+        x += 1
       end
+      y += 1
     end
 
     grad_start = 160 + (6 * color_num)
@@ -306,21 +365,31 @@ class Shell
     shadow_offset = 144
     shadow = "\e[38;5;235m:"
 
-    LOGO.size.times do |y|
+    y2 = 0
+    while y2 < LOGO.size
       print margin
       split_line = [] #: Array[String]
       i = 0
+<<<<<<< HEAD
       while i < LOGO[y].length
         split_line << (LOGO[y][i, grad_slice] || raise("unreachable"))
+=======
+      while i < LOGO[y2].length
+        split_line << LOGO[y2][i, grad_slice]
+>>>>>>> origin/master
         i += grad_slice
       end
       x = 0
-      split_line.each_with_index do |snip, i|
-        color = grad_start + i
-        snip.each_char do |c|
+      si = 0
+      while si < split_line.size
+        snip = split_line[si]
+        color = grad_start + si
+        ci = 0
+        while ci < snip.length
+          c = snip[ci]
           if c == '0'
-            if y == LOGO.size - 1
-              print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}"
+            if y2 == LOGO.size - 1
+              print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}" # steep:ignore
             else
               print " "
             end
@@ -328,8 +397,8 @@ class Shell
             print "\e[48;5;#{color}m\e[38;5;226m:\e[0m"
           elsif c == '2'
             print "\e[48;5;#{color - shadow_offset}m"
-            if y == LOGO.size - 1
-              a = AUTHOR[x]
+            if y2 == LOGO.size - 1
+              a = AUTHOR[x] # steep:ignore
               if a == " "
                 print shadow
               else
@@ -340,10 +409,13 @@ class Shell
             end
             print "\e[0m"
           end
-          x += 1
+          x += 1 # steep:ignore
+          ci += 1
         end
+        si += 1
       end
       puts
+      y2 += 1
     end
     puts "\e[0m"
   end
@@ -371,6 +443,22 @@ class Shell
   def run_shell
     @editor.start do |editor, buffer, c|
       case c
+      when 2 # Ctrl-B (STX) - enter machine communication mode
+        buffer.clear
+        puts "\n^B"
+        $stdout.write("\x06") # ACK - signal browser to start binary capture
+        PicoModem.session($stdin, $stdout)
+        editor.raw_takeover
+      when 3 # Ctrl-C
+        buffer.clear
+        puts "\n^C\e[0J"
+      when 4 # Ctrl-D EOF
+        if buffer.empty?
+          puts "\n^D" # Cannot logout
+        else
+          c = 10
+          redo # treat as Enter key to execute the command in buffer
+        end
       when 10, 13
         puts
         command_line = buffer.dump.chomp.strip
@@ -405,9 +493,14 @@ class Shell
     sandbox.suspend
     @editor.start do |editor, buffer, c|
       case c
+      when 3 # Ctrl-C
+        buffer.clear
+        puts "\n^C\e[0J"
+      when 4  # Ctrl-D EOF = logout
+        break if buffer.empty?
       when 26 # Ctrl-Z
         Signal.trap(:CONT) do
-          ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+          Machine.signal_self_manage
         end
         puts "\n^Z\e[0J"
         Signal.raise(:TSTP)
@@ -474,7 +567,9 @@ class Shell
     redirect_out = nil
     redirect_mode = nil
 
-    redirects.each do |redir|
+    ri = 0
+    while ri < redirects.size
+      redir = redirects[ri]
       case redir.data[:type]
       when :input
         redirect_in = redir.data[:target]
@@ -485,6 +580,7 @@ class Shell
         redirect_out = redir.data[:target]
         redirect_mode = :append
       end
+      ri += 1
     end
 
     # Check if builtin command
@@ -523,7 +619,9 @@ class Shell
     redirect_out = nil
     redirect_mode = nil
 
-    redirects.each do |redir|
+    ri = 0
+    while ri < redirects.size
+      redir = redirects[ri]
       case redir.data[:type]
       when :input
         redirect_in = redir.data[:target]
@@ -534,10 +632,15 @@ class Shell
         redirect_out = redir.data[:target]
         redirect_mode = :append
       end
+      ri += 1
     end
 
-    cmd_arrays = commands.map do |cmd_node|
-      [cmd_node.data[:name]] + cmd_node.data[:args]
+    cmd_arrays = []
+    ci = 0
+    while ci < commands.size
+      cmd_node = commands[ci]
+      cmd_arrays << ([cmd_node.data[:name]] + cmd_node.data[:args])
+      ci += 1
     end
 
     if redirect_in || redirect_out
@@ -693,8 +796,10 @@ class Shell
   #  unset
 
   def _type(*args)
-    args.each_with_index do |name, index|
-      puts if 0 < index
+    i = 0
+    while i < args.size
+      name = args[i]
+      puts if 0 < i
       if builtin?("_#{name}")
         print "#{name} is a shell builtin"
       elsif path = Shell.find_executable(name)
@@ -702,29 +807,23 @@ class Shell
       else
         print "type: #{name}: not found"
       end
+      i += 1
     end
     puts
   end
 
   def _echo(*args)
-    args.each_with_index do |param, index|
-      print " " if 0 < index
-      print param
+    i = 0
+    while i < args.size
+      print " " if 0 < i
+      print args[i]
+      i += 1
     end
     puts
   end
 
   def _reboot(*args)
-    begin
-      if Watchdog.respond_to?(:reboot)
-        puts "\nrebooting..."
-        Watchdog.reboot 1000
-      else
-        raise NameError
-      end
-    rescue NameError
-      puts "error: reboot is not available on this platform"
-    end
+    Machine.reboot 500
   end
 
   def _pwd(*args)
@@ -759,13 +858,16 @@ class Shell
   alias _quit _exit
 
   def _jobs(*args)
-    @jobs.each_with_index do |job, index|
-      mark = if index == @jobs.size - 1
+    i = 0
+    while i < @jobs.size
+      job = @jobs[i]
+      mark = if i == @jobs.size - 1
                "+"
              else
                " "
              end
-      puts "[#{index}]#{mark}  #{job.state.to_s.ljust(16, ' ')}#{job.name}"
+      puts "[#{i}]#{mark}  #{job.state.to_s.ljust(16, ' ')}#{job.name}"
+      i += 1
     end
   end
 
@@ -800,8 +902,12 @@ class Shell
   #     args[1] = "VALUE=A"
   def _export(*args)
     if args.empty?
-      ENV.each do |key, value|
-        puts "#{key}=\"#{value}\""
+      env_keys = ENV.keys
+      ei = 0
+      while ei < env_keys.size
+        key = env_keys[ei]
+        puts "#{key}=\"#{ENV[key]}\""
+        ei += 1
       end
       return
     end
@@ -819,8 +925,12 @@ class Shell
   end
 
   def cleanup_jobs
-    @jobs.reject! do |job|
-      job.state == :DORMANT
+    i = @jobs.size - 1
+    while 0 <= i
+      if @jobs[i].state == :DORMANT
+        @jobs.delete_at(i)
+      end
+      i -= 1
     end
   end
 

@@ -29,8 +29,10 @@ class SQLite3
         stmt.bind_params(*bind_vars)
         resultset = SQLite3::ResultSet.new(self, stmt)
         if block_given?
-          resultset.each do |row|
+          row = resultset.next
+          while row
             yield row
+            row = resultset.next
           end
         else
           resultset.to_a

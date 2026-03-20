@@ -38,8 +38,10 @@ class Shell
 
     def exec
       ARGV.clear
-      @params.each do |param|
-        ARGV << param
+      i = 0
+      while i < @params.size
+        ARGV << @params[i]
+        i += 1
       end
       trap
       @sandbox.load_file(@exefile)

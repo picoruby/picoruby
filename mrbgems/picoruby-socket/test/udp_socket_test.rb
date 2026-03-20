@@ -67,6 +67,15 @@ class UDPSocketTest < Picotest::Test
     assert_true(sock.eof?)
   end
 
+  def test_socket_error_class_exists
+    assert_true(Object.const_defined?(:SocketError))
+    assert_true(SocketError.ancestors.include?(StandardError))
+  end
+
+  # DNS-dependent tests (invalid host) are not run here because they
+  # require network access.  The C layer is tested on microcontroller
+  # builds where hardfault prevention matters most.
+
   # Note: recvfrom is not yet implemented in UDPSocket
   # Uncomment when recvfrom is implemented
   # def test_udp_socket_recvfrom

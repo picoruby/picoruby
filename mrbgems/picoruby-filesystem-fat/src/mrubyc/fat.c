@@ -254,6 +254,16 @@ c_FAT_init_spi(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   SET_INT_RETURN(0);
 }
+
+void
+c_FAT_init_sdmmc(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (FAT_set_sdmmc_pins(GET_INT_ARG(1), GET_INT_ARG(2), GET_INT_ARG(3)) < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Invalid SDMMC pins.");
+    return;
+  }
+  SET_INT_RETURN(0);
+}
 #endif
 
 
@@ -286,6 +296,7 @@ mrbc_filesystem_fat_init(mrbc_vm *vm)
 
 #ifdef USE_FAT_SD_DISK
   mrbc_define_method(vm, class_FAT, "init_spi", c_FAT_init_spi);
+  mrbc_define_method(vm, class_FAT, "init_sdmmc", c_FAT_init_sdmmc);
 #endif
 }
 

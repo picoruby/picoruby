@@ -36,7 +36,7 @@ static bool
 search_return_value(struct VM *vm, intptr_t doubled_obj_id, mrbc_sym called_method_id, mrbc_value *return_value)
 {
   mrbc_value *picotest_doubles = mrbc_get_global(mrbc_str_to_symid("$picotest_doubles"));
-  for (int i = 0 ; i < picotest_doubles->array->n_stored; i++) {
+  for (int i = picotest_doubles->array->n_stored - 1; i >= 0; i--) {
     mrbc_value double_method = picotest_doubles->array->data[i];
     if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("doubled_obj_id"))).i == doubled_obj_id &&
         mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).sym_id == called_method_id) {
@@ -104,7 +104,7 @@ static bool
 search_return_value_any_instance_of(struct VM *vm, mrbc_class *cls, mrbc_sym called_method_id, mrbc_value *return_value)
 {
   mrbc_value *picotest_doubles = mrbc_get_global(mrbc_str_to_symid("$picotest_doubles"));
-  for (int i = 0 ; i < picotest_doubles->array->n_stored; i++) {
+  for (int i = picotest_doubles->array->n_stored - 1; i >= 0; i--) {
     mrbc_value double_method = picotest_doubles->array->data[i];
     if (mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("doubled_obj_id"))).i == (intptr_t)cls &&
         mrbc_hash_get(&double_method, &mrbc_symbol_value(mrbc_str_to_symid("method_id"))).sym_id == called_method_id) {

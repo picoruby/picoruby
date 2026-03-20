@@ -3,8 +3,10 @@ MRuby::Gem::Specification.new('picoruby-sandbox') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Sandbox class for shell and picoirb'
 
-  spec.add_dependency 'picoruby-io-console'
-  if build.vm_mrubyc?
+
+  if build.vm_mruby?
+    spec.cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include"
+  elsif build.vm_mrubyc?
     spec.add_dependency 'picoruby-metaprog'
   end
 end

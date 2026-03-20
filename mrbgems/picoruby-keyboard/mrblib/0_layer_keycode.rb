@@ -6,10 +6,17 @@ module LayerKeycode
   # TG: 0xE100-0xE1FF (256)
   # LT: 0xE200-0xF1FF (4096 = 16 layers * 256 keycodes)
   # MT: 0xF200-0xF9FF (2048 = 8 modifiers * 256 keycodes)
+  # SM: 0xFA00-0xFAFF (256 keycodes, always sends Shift+keycode)
+  # MC: 0xFB00-0xFBFF (256 macro slots, types a string on press)
   MO_BASE = 0xE000
   TG_BASE = 0xE100
   LT_BASE = 0xE200
   MT_BASE = 0xF200
+  SM_BASE = 0xFA00
+  MC_BASE = 0xFB00
+  # V (vacancy) is encoded as val * -4, range: -999...-1 (quarter-U units)
+  # X (extension) uses X_OFFSET to distinguish from V: val * -4 - X_OFFSET, range: ...-X_OFFSET
+  X_OFFSET = 1000
 
   # Create a momentary layer switch keycode
   # While the key is pressed, the specified layer becomes active
@@ -46,7 +53,7 @@ module LayerKeycode
   # @param tap_keycode [Integer] Keycode to send on tap (0-255)
   # @return [Integer] Special keycode for MT(modifier_keycode, tap_keycode)
   def MT(modifier_keycode, tap_keycode)
-    unless modifier_keycode >= 0xE0 && modifier_keycode <= 0xE7
+    unless 0xE0 <= modifier_keycode && modifier_keycode <= 0xE7
       raise ArgumentError, "Modifier keycode must be 0xE0-0xE7 (KC_LCTL-KC_RGUI)"
     end
     raise ArgumentError, "Tap keycode must be 0-255" unless 0 <= tap_keycode && tap_keycode <= 255
@@ -59,28 +66,74 @@ module LayerKeycode
   # @param keycode [Integer] Keycode to check
   # @return [Boolean] true if keycode is MO type
   def is_mo?(keycode)
-    keycode >= MO_BASE && keycode < MO_BASE + 256
+    MO_BASE <= keycode && keycode < MO_BASE + 256
   end
 
   # Check if keycode is a Layer-Tap
   # @param keycode [Integer] Keycode to check
   # @return [Boolean] true if keycode is LT type
   def is_lt?(keycode)
-    keycode >= LT_BASE && keycode < LT_BASE + 4096
+    LT_BASE <= keycode && keycode < LT_BASE + 4096
   end
 
   # Check if keycode is a toggle layer switch
   # @param keycode [Integer] Keycode to check
   # @return [Boolean] true if keycode is TG type
   def is_tg?(keycode)
-    keycode >= TG_BASE && keycode < TG_BASE + 256
+    TG_BASE <= keycode && keycode < TG_BASE + 256
   end
 
   # Check if keycode is a Modifier-Tap
   # @param keycode [Integer] Keycode to check
   # @return [Boolean] true if keycode is MT type
   def is_mt?(keycode)
-    keycode >= MT_BASE && keycode < MT_BASE + 2048
+    MT_BASE <= keycode && keycode < MT_BASE + 2048
+  end
+
+  # Create a Shift-modified keycode
+  # Pressing the key always sends Left Shift + keycode simultaneously
+  # @param keycode [Integer] Keycode to shift (0-255)
+  # @return [Integer] Special keycode for S(keycode)
+  def S(keycode)
+    raise ArgumentError, "Keycode must be 0-255" unless 0 <= keycode && keycode <= 255
+    SM_BASE + keycode
+  end
+
+  # Check if keycode is a Shift-modified keycode
+  # @param keycode [Integer] Keycode to check
+  # @return [Boolean] true if keycode is SM type
+  def is_sm?(keycode)
+    SM_BASE <= keycode && keycode < SM_BASE + 256
+  end
+
+  # Extract base keycode from SM keycode
+  # @param keycode [Integer] SM keycode
+  # @return [Integer] Base keycode
+  def sm_keycode(keycode)
+    keycode - SM_BASE
+  end
+
+  # Create a macro keycode
+  # Pressing this key types the string registered at macro_index
+  # @param macro_index [Integer] Macro slot index (0-255)
+  # @return [Integer] Special keycode for MC(macro_index)
+  def MC(macro_index)
+    raise ArgumentError, "Macro index must be 0-255" unless 0 <= macro_index && macro_index <= 255
+    MC_BASE + macro_index
+  end
+
+  # Check if keycode is a macro keycode
+  # @param keycode [Integer] Keycode to check
+  # @return [Boolean] true if keycode is MC type
+  def is_mc?(keycode)
+    MC_BASE <= keycode && keycode < MC_BASE + 256
+  end
+
+  # Extract macro index from MC keycode
+  # @param keycode [Integer] MC keycode
+  # @return [Integer] Macro slot index
+  def mc_index(keycode)
+    keycode - MC_BASE
   end
 
   # Extract layer index from MO keycode
@@ -123,5 +176,44 @@ module LayerKeycode
   # @return [Integer] Tap keycode
   def mt_tap_keycode(keycode)
     (keycode - MT_BASE) & 0xFF
+  end
+
+  # Create a vacancy (blank space) keycode for visual layout alignment.
+  # val is the size in U units (e.g. 1.0, 0.5, 1.75). Use 0.25 multiples.
+  # Encoded as a negative integer in quarters of U: V(1) => -4, V(0.5) => -2.
+  # val <= 0 is reserved as a safety guard and returns a non-void integer.
+  def V(val)
+    val > 0 ? (val * -4).to_i : (val * 4).to_i
+  end
+
+  # Check if keycode is a vacancy (blank space in layout)
+  # V range: (-X_OFFSET + 1)...-1
+  def is_v?(keycode)
+    -X_OFFSET < keycode && keycode < 0
+  end
+
+  # Create an extension keycode that stretches the previous key rightward.
+  # val is the extension size in U units (e.g. 0.5 makes previous key 1.5U). Use 0.25 multiples.
+  # Encoded as: (val * -4).to_i - X_OFFSET
+  # X(0.25) => -1001, X(0.5) => -1002, X(1) => -1004
+  # val <= 0 is reserved as a safety guard and returns a non-void integer.
+  def X(val)
+    val > 0 ? (val * -4).to_i - X_OFFSET : (val * 4).to_i
+  end
+
+  # Check if keycode is an extension (stretches previous key rightward)
+  # X range: ...-X_OFFSET
+  def is_x?(keycode)
+    keycode <= -X_OFFSET
+  end
+
+  # Extract extension width in U units from X keycode
+  def x_width(keycode)
+    (keycode + X_OFFSET).abs / 4.0
+  end
+
+  # Extract vacancy width in U units from V keycode
+  def v_width(keycode)
+    keycode.abs / 4.0
   end
 end

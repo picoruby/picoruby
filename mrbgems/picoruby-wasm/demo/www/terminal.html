@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>R2P2 Terminal - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css">
+  <style>
+    body { margin: 2px auto; padding: 4px; }
+    #not-supported {
+      color: #f44; font-weight: bold; padding: 10px;
+      background: #300; border: 1px solid #f44; margin: 2px 0;
+    }
+    .controls { margin: 0 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .controls button { padding: 6px 14px; cursor: pointer; }
+    .controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .controls select, .controls label { padding: 4px; }
+    #status { font-weight: normal; padding: 2px 8px; border-radius: 3px; font-size: 14px; }
+    #status.connected    { color: #0f0; background: #030; border: 1px solid #0f0; }
+    #status.disconnected { color: #f44; background: #200; border: 1px solid #f44; }
+    #terminal-container {
+      margin: 2px 0;
+      border: 2px solid #555;
+      background: #000;
+      padding: 4px;
+      resize: vertical;
+      overflow: hidden;
+      height: 300px;
+      min-height: 60px;
+    }
+    p.hint { color: #888; font-size: 0.85em; margin: 4px 0; }
+    .font-ctrl { display: inline-flex; align-items: center; gap: 2px; }
+    .font-ctrl button { padding: 5px 7px; cursor: pointer; font-size: 8px; line-height: 1; }
+    .font-ctrl input[type=number] { width: 38px; text-align: center; padding: 2px 0; -moz-appearance: textfield; }
+    .font-ctrl input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+    /* File editor section */
+    #dfu-section { margin: 2px 0; padding: 2px 4px; border: 1px solid #555; }
+    #dfu-section legend { font-weight: bold; padding: 0 2px; }
+    #path-input { font-family: monospace; font-size: 14px; line-height: 1.6; color: #000; background-color: #fff; padding: 2px 4px; border: 1px solid #ccc; border-radius: 3px; }
+    #editor-container {
+      display: flex;
+      height: 300px;
+      gap: 0;
+      margin: 2px 0;
+      border: 1px solid #444;
+      resize: vertical;
+      overflow: hidden;
+    }
+    #editor {
+      flex: 0.6;
+      font-family: 'Courier Prime', Courier, monospace;
+      font-size: 15px;
+      background: #1a1a1a;
+      color: #f8f8f2;
+      border: none;
+      border-right: 1px solid #666;
+      padding: 8px;
+      box-sizing: border-box;
+      resize: none;
+      tab-size: 2;
+      display: block;
+      overflow-y: auto;
+    }
+    #resizer {
+      width: 4px;
+      background: linear-gradient(to right, #333, #555, #333);
+      cursor: col-resize;
+      user-select: none;
+      transition: background 0.2s;
+    }
+    #resizer:hover {
+      background: linear-gradient(to right, #555, #fff, #555);
+    }
+    #dfu-log {
+      flex: 0.4;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      background: #1a1a1a;
+      color: #0f0;
+      padding: 4px;
+      overflow-y: auto;
+      border: none;
+      border-left: 1px solid #666;
+    }
+  </style>
+</head>
+<body>
+  <div id="not-supported" style="display:none">
+    Web Serial API is not supported in this browser.
+    Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> (desktop, version 89+).
+  </div>
+
+  <div class="controls">
+    <button id="connect-btn">Connect</button>
+    <label>Baud:
+      <select id="baud-rate">
+        <option value="9600">9600</option>
+        <option value="19200">19200</option>
+        <option value="38400">38400</option>
+        <option value="57600">57600</option>
+        <option value="115200" selected>115200</option>
+        <option value="230400">230400</option>
+        <option value="921600">921600</option>
+      </select>
+    </label>
+    <label>Term font:
+      <span class="font-ctrl">
+        <button id="term-font-minus">-</button>
+        <input id="term-font-size" type="number" value="15" min="8" max="32">
+        <button id="term-font-plus">+</button>
+      </span>
+    </label>
+    <span id="status" class="disconnected">Disconnected</span>
+  </div>
+
+  <div id="terminal-container"></div>
+
+  <fieldset id="dfu-section">
+    <legend>File Editor (PicoModem)</legend>
+    <div class="controls">
+      <label style="margin-right:4px;">Mode:</label>
+      <label><input id="mode-plain" type="radio" name="upload-mode" value="plain" checked> Plain</label>
+      <label><input id="mode-compile" type="radio" name="upload-mode" value="compile"> Compile</label>
+      <span style="width:8px;display:inline-block;"></span>
+      <button id="download-btn" disabled>Download</button>
+      <input id="path-input" type="text" value="/home/app.rb" placeholder="/home/app.rb" style="width:220px">
+      <button id="upload-btn" disabled>Upload</button>
+      <label>Editor font:
+        <span class="font-ctrl">
+          <button id="editor-font-minus">-</button>
+          <input id="editor-font-size" type="number" value="15" min="8" max="24">
+          <button id="editor-font-plus">+</button>
+        </span>
+      </label>
+    </div>
+    <div id="editor-container">
+      <textarea id="editor" spellcheck="false"></textarea>
+      <div id="resizer"></div>
+      <div id="dfu-log"></div>
+    </div>
+  </fieldset>
+
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'crc'
+    require 'pack'
+    require 'webserial'
+
+    # ---------------------------------------------------------------------------
+    # PicoModem - R2P2 Binary Transfer Protocol
+    # ---------------------------------------------------------------------------
+    # Command types (Host -> Device)
+    RBTP_FILE_READ  = 0x01
+    RBTP_FILE_WRITE = 0x02
+    RBTP_CHUNK      = 0x04
+    RBTP_ABORT      = 0xFF
+
+    # Response types (Device -> Host)
+    RBTP_FILE_DATA  = 0x81
+    RBTP_FILE_ACK   = 0x82
+    RBTP_CHUNK_ACK  = 0x84
+    RBTP_DONE_ACK   = 0x8F
+    RBTP_ERROR      = 0xFE
+
+    # Status codes
+    RBTP_OK    = 0x00
+    RBTP_READY = 0x01
+
+    RBTP_CHUNK_SIZE    = 512
+    RBTP_TIMEOUT_MS    = 5000
+    RBTP_TX_CHUNK_SIZE = 32
+    RBTP_TX_CHUNK_GAP_MS = 20
+
+    # ---------------------------------------------------------------------------
+    # App
+    # ---------------------------------------------------------------------------
+    class App
+      DEBUG_LOG = true
+
+      attr_accessor :current_port
+
+      def initialize
+        @doc = JS.document
+        @current_port = nil
+        @auto_reconnect = false
+        setup_terminal
+        unless JS::WebSerial.supported?
+          el('not-supported').style.display = 'block'
+          el('connect-btn')[:disabled] = true
+        end
+        bind_events
+        append_log("[*] Ready. Connect a serial port to use the file editor.")
+      end
+
+      def el(id)
+        @doc.getElementById(id)
+      end
+
+      def setup_terminal
+        opts = JS.global.create_object
+        opts[:scrollback] = 1000
+        opts[:cursorBlink] = true
+        opts[:convertEol] = true
+        opts[:fontFamily] = '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace'
+        opts[:fontSize] = 15
+
+        theme = JS.global.create_object
+        theme[:background] = '#000000'
+        opts[:theme] = theme
+
+        terminal = JS.global[:Terminal].new(opts)
+        @fit_addon = JS.global[:FitAddon][:FitAddon].new
+        terminal.loadAddon(@fit_addon)
+        container = el('terminal-container')
+        terminal.method_missing(:open, container)
+        fit_terminal
+
+        resize_observer = JS.global[:ResizeObserver].new do |_entries|
+          fit_terminal
+        end
+        resize_observer.observe(container)
+
+        @terminal = terminal
+      end
+
+      def update_status(text, connected)
+        status = el('status')
+        status[:textContent] = text
+        status[:className] = connected ? 'connected' : 'disconnected'
+      end
+
+      def fit_terminal
+        @fit_addon&.fit
+      end
+
+      def set_editor_font(val)
+        val = [[8, val].max, 24].min
+        el('editor-font-size')[:value] = val
+        el('editor').style.fontSize = "#{val}px"
+      end
+
+      def set_term_font(val)
+        val = [[8, val].max, 32].min
+        el('term-font-size')[:value] = val
+        @terminal[:options][:fontSize] = val
+        fit_terminal
+      end
+
+      def compile_mode?
+        el('mode-compile')[:checked] == true
+      end
+
+      def force_mrb_extension
+        path_el = el('path-input')
+        path = path_el[:value].to_s.strip
+        return if path.empty?
+        return if path.end_with?('.mrb')
+        dot_pos = path.rindex('.')
+        if dot_pos
+          new_path = path[0, dot_pos] + '.mrb'
+          path_el[:value] = new_path
+          append_log("[*] Extension changed: #{path} -> #{new_path}")
+        else
+          new_path = path + '.mrb'
+          path_el[:value] = new_path
+          append_log("[*] Extension added: #{path} -> #{new_path}")
+        end
+      end
+
+      def update_dfu_buttons
+        has_path = !el('path-input')[:value].to_s.strip.empty?
+        set_dfu_buttons_enabled(connected? && has_path)
+      end
+
+      def set_dfu_buttons_enabled(enabled)
+        if enabled
+          el('upload-btn').removeAttribute('disabled')
+          unless compile_mode?
+            el('download-btn').removeAttribute('disabled')
+          end
+        else
+          el('upload-btn').setAttribute('disabled', 'true')
+          el('download-btn').setAttribute('disabled', 'true')
+        end
+      end
+
+
+      def connected?
+        !@current_port.nil?
+      end
+
+      def auto_reconnect?
+        @auto_reconnect == true
+      end
+
+      def auto_reconnect=(enabled)
+        @auto_reconnect = enabled == true
+      end
+
+      def error_text(err)
+        msg = err.message.to_s
+        msg = err.to_s if msg.empty?
+        klass = err.class.to_s
+        msg.empty? ? klass : "#{klass}: #{msg}"
+      end
+
+      def send_text_to_port(str, port = nil)
+        port ||= current_port
+        return unless port
+        port.write(str)
+      end
+
+      def connect
+        disconnect if current_port
+        begin
+          baud_rate = el('baud-rate')[:value].to_i
+          @terminal.reset
+          JS::WebSerial.connect(baud_rate: baud_rate) do |ws|
+            self.current_port = ws
+            ws.start_terminal_read(@terminal)
+            self.auto_reconnect = true
+            update_status('Connected', true)
+            update_dfu_buttons
+            el('connect-btn')[:textContent] = 'Disconnect'
+            @terminal.focus
+          end
+        rescue => err
+          txt = error_text(err)
+          JS.global[:console].error("Connect error: #{txt}")
+          append_log("[-] Connect error: #{txt}")
+          update_status('Disconnected', false)
+          self.current_port = nil
+          update_dfu_buttons
+        end
+      end
+
+      def disconnect(manual: false)
+        return if @disconnecting
+
+        @disconnecting = true
+        self.auto_reconnect = false if manual
+
+        port = current_port
+        port&.close rescue nil
+        self.current_port = nil
+
+        update_status('Disconnected', false)
+        update_dfu_buttons
+        el('connect-btn')[:textContent] = 'Connect'
+      ensure
+        @disconnecting = false
+      end
+
+      def append_log(msg)
+        log = el('dfu-log')
+        log[:textContent] = log[:textContent].to_s + msg + "\n"
+        log[:scrollTop] = log[:scrollHeight]
+      end
+
+      def debug_log(msg)
+        return unless DEBUG_LOG
+        t = Time.now.to_f
+        append_log("[DBG #{t}] #{msg}")
+      end
+
+      def current_path
+        p = el('path-input')[:value].to_s.strip
+        p.empty? ? nil : p
+      end
+
+      def bind_events
+        @terminal.onData do |data|
+          send_text_to_port(data.to_s)
+        end
+        el('connect-btn').addEventListener('click') { connected? ? disconnect(manual: true) : connect }
+        el('upload-btn').addEventListener('click') { do_upload }
+        el('download-btn').addEventListener('click') { do_download }
+        JS.global.addEventListener('serial-reader-closed') { disconnect }
+        bind_font_controls
+        bind_resizer
+        el('path-input').addEventListener('input') { update_dfu_buttons }
+
+        # Mode radio buttons
+        el('mode-plain').addEventListener('change') { el('download-btn').removeAttribute('disabled') }
+        el('mode-compile').addEventListener('change') do
+          el('download-btn').setAttribute('disabled', 'true')
+          force_mrb_extension
+        end
+
+        # Force .mrb extension on blur when compile mode
+        el('path-input').addEventListener('blur') do
+          next unless compile_mode?
+          force_mrb_extension
+        end
+
+        if JS::WebSerial.supported?
+          serial = JS.global[:navigator][:serial]
+          serial.addEventListener('connect') do |e|
+            next if current_port || !auto_reconnect?
+            raw_port = e[:target] || e[:port]
+            next unless raw_port
+            update_status('Reconnecting...', false)
+            sleep_ms 1500
+            begin
+              ws = JS::WebSerial.new(raw_port)
+              baud_rate = el('baud-rate')[:value].to_i
+              ws.open(baud_rate: baud_rate)
+              ws.start_terminal_read(@terminal)
+              self.current_port = ws
+              update_status('Connected', true)
+              update_dfu_buttons
+              @terminal.writeln('[Reconnected]')
+            rescue => err
+              JS.global[:console].error("Auto-reconnect failed: #{err}")
+              update_status('Disconnected', false)
+            end
+          end
+
+          serial.addEventListener('disconnect') do
+            next unless current_port
+            @terminal.writeln("\r\n[Serial port disconnected]")
+            disconnect
+          end
+        end
+      end
+
+      def bind_font_controls
+        term_font_input = el('term-font-size')
+        el('term-font-minus').addEventListener('click') { set_term_font(term_font_input[:value].to_i - 1) }
+        el('term-font-plus').addEventListener('click')  { set_term_font(term_font_input[:value].to_i + 1) }
+        term_font_input.addEventListener('change') { set_term_font(term_font_input[:value].to_i) }
+
+        editor_font_input = el('editor-font-size')
+        el('editor-font-minus').addEventListener('click') { set_editor_font(editor_font_input[:value].to_i - 1) }
+        el('editor-font-plus').addEventListener('click')  { set_editor_font(editor_font_input[:value].to_i + 1) }
+        editor_font_input.addEventListener('change') { set_editor_font(editor_font_input[:value].to_i) }
+      end
+
+      def bind_resizer
+        resizer          = el('resizer')
+        editor_container = el('editor-container')
+        editor_el        = el('editor')
+        dfu_log_el       = el('dfu-log')
+        body             = @doc.body
+        is_resizing      = false
+
+        resizer.addEventListener('mousedown') do
+          is_resizing = true
+          body.style.userSelect = 'none'
+          body.style.cursor = 'col-resize'
+        end
+
+        @doc.addEventListener('mousemove') do |e|
+          next unless is_resizing
+          rect        = editor_container.getBoundingClientRect()
+          new_left_x  = e.clientX.to_f - rect.left.to_f
+          max_x       = rect.width.to_f - 20.0
+          constrained = [100.0, [new_left_x, max_x].min].max
+          left_ratio  = constrained / rect.width.to_f
+          right_ratio = 1.0 - left_ratio
+          editor_el.style.flex  = left_ratio.to_s
+          dfu_log_el.style.flex = right_ratio.to_s
+        end
+
+        @doc.addEventListener('mouseup') do
+          if is_resizing
+            is_resizing = false
+            body.style.userSelect = ''
+            body.style.cursor = ''
+          end
+        end
+      end
+
+      # -------------------------------------------------------------------
+      # PicoModem protocol helpers
+      # -------------------------------------------------------------------
+
+      # Access the underlying JS port object for binary capture API
+      def js_port
+        current_port.instance_variable_get(:@js_port)
+      end
+
+      # Send raw bytes in small chunks for USB-CDC stability
+      def rbtp_send_bytes(data)
+        port = current_port
+        return unless port
+        off = 0
+        while off < data.bytesize
+          remain = data.bytesize - off
+          size = RBTP_TX_CHUNK_SIZE
+          size = remain if remain < size
+          chunk = data.byteslice(off, size)
+          port.write(chunk)
+          off += size
+          sleep_ms RBTP_TX_CHUNK_GAP_MS if off < data.bytesize
+        end
+        port.drain.await
+      end
+
+      # Build an PicoModem frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
+      def rbtp_build_frame(cmd, payload = "")
+        body = cmd.chr + payload.to_s
+        length = body.size
+        crc = CRC.crc16(body)
+        frame = "\x02".b
+        frame << ((length >> 8) & 0xFF).chr
+        frame << (length & 0xFF).chr
+        frame << body
+        frame << ((crc >> 8) & 0xFF).chr
+        frame << (crc & 0xFF).chr
+        frame
+      end
+
+      # Send one PicoModem frame
+      def rbtp_send_frame(cmd, payload = "")
+        rbtp_send_bytes(rbtp_build_frame(cmd, payload))
+      end
+
+      # Read exactly n bytes from binary capture with timeout
+      def rbtp_read_exact(n, timeout_ms)
+        buf = "".b
+        waited = 0
+        while buf.size < n
+          chunk = JS::WebSerial.binary_capture_read(js_port, n - buf.size)
+          if chunk && 0 < chunk.size
+            buf << chunk
+            waited = 0
+          else
+            if timeout_ms <= waited
+              debug_log("PicoModem:read_exact timeout need=#{n} got=#{buf.size}")
+              return nil
+            end
+            sleep_ms 10
+            waited += 10
+          end
+        end
+        buf
+      end
+
+      # Receive one PicoModem frame. Returns [cmd, payload] or nil on timeout/error.
+      # Skips any non-STX bytes (residual terminal output) until a valid
+      # STX frame start is found.
+      def rbtp_recv_frame(timeout_ms = RBTP_TIMEOUT_MS)
+        # Scan for STX, skipping residual terminal output
+        waited = 0
+        while true
+          b = JS::WebSerial.binary_capture_read(js_port, 1)
+          if b && 0 < b.size
+            if b.getbyte(0) == 0x02
+              break
+            end
+            # Skip non-STX byte
+            next
+          end
+          if timeout_ms <= waited
+            debug_log("PicoModem:recv timeout waiting for STX")
+            return nil
+          end
+          sleep_ms 10
+          waited += 10
+        end
+        # Read length (2 bytes big-endian)
+        len_bytes = rbtp_read_exact(2, timeout_ms)
+        return nil unless len_bytes
+        length = (len_bytes.getbyte(0) << 8) | len_bytes.getbyte(1)
+        # Read body + CRC16
+        rest = rbtp_read_exact(length + 2, timeout_ms)
+        return nil unless rest
+        body = rest[0, length]
+        expected_crc = (rest.getbyte(length) << 8) | rest.getbyte(length + 1)
+        actual_crc = CRC.crc16(body)
+        unless actual_crc == expected_crc
+          debug_log("PicoModem:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
+          return nil
+        end
+        cmd = body.getbyte(0)
+        payload = 1 < length ? body[1, length - 1] : "".b
+        [cmd, payload]
+      end
+
+      # Enter PicoModem mode: send STX, wait for ACK, then start binary capture.
+      # The device prints "\n^B" (displayed on terminal) then sends ACK (0x06).
+      # Text capture detects ACK while terminal.write renders the ^B normally.
+      def rbtp_enter_mode
+        jsp = js_port
+        JS::WebSerial.capture_start(jsp)
+        current_port.write("\x02")
+        current_port.drain.await
+        # Wait for ACK (0x06) in text capture
+        waited = 0
+        while waited < RBTP_TIMEOUT_MS
+          captured = JS::WebSerial.capture_peek(jsp).to_s
+          if captured.include?("\x06")
+            break
+          end
+          sleep_ms 1
+          waited += 1
+        end
+        JS::WebSerial.capture_stop(jsp)
+        # Now start binary capture for PicoModem frames
+        JS::WebSerial.binary_capture_start(jsp)
+      end
+
+      # Exit PicoModem mode: optionally send ABORT, stop binary capture
+      def rbtp_exit_mode(send_abort = false)
+        if send_abort
+          begin
+            rbtp_send_frame(RBTP_ABORT)
+            sleep_ms 100
+          rescue
+            # best effort
+          end
+        end
+        JS::WebSerial.binary_capture_stop(js_port) rescue nil
+      end
+
+      # -------------------------------------------------------------------
+      # File download via PicoModem
+      # -------------------------------------------------------------------
+      def do_download
+        return unless connected?
+        path = current_path
+        return unless path
+        set_dfu_buttons_enabled(false)
+        append_log("[*] Download: #{path}")
+
+        success = false
+        begin
+          rbtp_enter_mode
+
+          rbtp_send_frame(RBTP_FILE_READ, path)
+          debug_log("PicoModem:file_read sent path=#{path}")
+
+          data = "".b
+          total = nil
+          while true
+            frame = rbtp_recv_frame
+            unless frame
+              append_log("[-] Timeout waiting for response")
+              return
+            end
+
+            cmd, payload = frame
+            case cmd
+            when RBTP_FILE_DATA
+              if total.nil?
+                # First chunk: 4-byte big-endian total size + data
+                if payload.size < 4
+                  append_log("[-] Invalid FILE_DATA: missing size header")
+                  return
+                end
+                total = (payload.getbyte(0) << 24) | (payload.getbyte(1) << 16) |
+                        (payload.getbyte(2) << 8) | payload.getbyte(3)
+                chunk = payload[4, payload.size - 4]
+                append_log("[.] File size: #{total} bytes")
+              else
+                chunk = payload
+              end
+              data << chunk if chunk && 0 < chunk.size
+              debug_log("PicoModem:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
+              rbtp_send_frame(RBTP_CHUNK_ACK, RBTP_OK.chr)
+            when RBTP_DONE_ACK
+              if 5 <= payload.size
+                remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
+                             (payload.getbyte(3) << 8) | payload.getbyte(4)
+                local_crc = CRC.crc32(data)
+                if local_crc == remote_crc
+                  el('editor')[:value] = data
+                  append_log("[+] Downloaded #{data.size} bytes (CRC32 verified)")
+                  success = true
+                else
+                  append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
+                end
+              else
+                el('editor')[:value] = data
+                append_log("[+] Downloaded #{data.size} bytes")
+                success = true
+              end
+              return
+            when RBTP_ERROR
+              append_log("[-] Device error: #{payload}")
+              return
+            else
+              append_log("[-] Unexpected cmd=0x#{cmd.to_s(16)}")
+              return
+            end
+          end
+        rescue => err
+          append_log("[-] Download error: #{error_text(err)}")
+        ensure
+          rbtp_exit_mode(!success)
+          update_dfu_buttons
+        end
+      end
+
+      # -------------------------------------------------------------------
+      # File upload via PicoModem
+      # -------------------------------------------------------------------
+      def do_upload
+        if @rbtp_uploading
+          append_log("[-] Upload already running")
+          return
+        end
+        @rbtp_uploading = true
+        set_dfu_buttons_enabled(false)
+
+        unless connected?
+          append_log("[-] Not connected")
+          return
+        end
+
+        code = el('editor')[:value].to_s
+        if code.strip.empty?
+          append_log("[-] Editor is empty")
+          return
+        end
+
+        path = current_path
+        unless path
+          append_log("[-] No path specified")
+          return
+        end
+
+        # Compile to mrb if compile mode is selected
+        if compile_mode?
+          append_log("[*] Compiling Ruby to mrb...")
+          begin
+            code = PicoRubyVM::InstructionSequence.compile(code).to_binary
+          rescue => e
+            append_log("[-] Compile error: #{e.message}")
+            return
+          end
+          append_log("[+] Compiled: #{code.bytesize} bytes")
+        end
+
+        append_log("[*] Upload: #{path} (#{code.bytesize} bytes)")
+        success = false
+        begin
+          rbtp_enter_mode
+
+          # FILE_WRITE payload: 4-byte big-endian size + path
+          size_bytes = "".b
+          size_bytes << ((code.bytesize >> 24) & 0xFF).chr
+          size_bytes << ((code.bytesize >> 16) & 0xFF).chr
+          size_bytes << ((code.bytesize >> 8) & 0xFF).chr
+          size_bytes << (code.bytesize & 0xFF).chr
+          rbtp_send_frame(RBTP_FILE_WRITE, size_bytes + path)
+          debug_log("PicoModem:file_write sent path=#{path} size=#{code.bytesize}")
+
+          # Wait for FILE_ACK READY
+          frame = rbtp_recv_frame
+          unless frame
+            append_log("[-] Timeout waiting for READY")
+            return
+          end
+          if frame[0] == RBTP_ERROR
+            append_log("[-] Device error: #{frame[1]}")
+            return
+          end
+          unless frame[0] == RBTP_FILE_ACK
+            append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
+            return
+          end
+          append_log("[.] Device ready, sending data...")
+
+          # Send chunks
+          offset = 0
+          while offset < code.bytesize
+            remain = code.bytesize - offset
+            size = RBTP_CHUNK_SIZE
+            size = remain if remain < size
+            chunk = code[offset, size]
+            rbtp_send_frame(RBTP_CHUNK, chunk)
+
+            ack = rbtp_recv_frame
+            unless ack
+              append_log("[-] Timeout waiting for ACK at offset #{offset}")
+              return
+            end
+            if ack[0] == RBTP_ERROR
+              append_log("[-] Device error: #{ack[1]}")
+              return
+            end
+            unless ack[0] == RBTP_CHUNK_ACK
+              append_log("[-] Unexpected response: cmd=0x#{ack[0].to_s(16)}")
+              return
+            end
+            offset += size
+            debug_log("PicoModem:chunk_ack progress=#{offset}/#{code.bytesize}")
+          end
+
+          # Wait for DONE_ACK (device writes file then responds)
+          frame = rbtp_recv_frame
+          unless frame
+            append_log("[-] Timeout waiting for completion")
+            return
+          end
+
+          case frame[0]
+          when RBTP_DONE_ACK
+            payload = frame[1]
+            if 5 <= payload.size
+              status = payload.getbyte(0)
+              remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
+                           (payload.getbyte(3) << 8) | payload.getbyte(4)
+              local_crc = CRC.crc32(code)
+              if status == RBTP_OK && local_crc == remote_crc
+                append_log("[+] Upload complete (CRC32 verified)")
+                success = true
+              elsif status == RBTP_OK
+                append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
+              else
+                append_log("[-] Upload failed: status=0x#{status.to_s(16)}")
+              end
+            else
+              append_log("[+] Upload complete")
+              success = true
+            end
+          when RBTP_ERROR
+            append_log("[-] Device error: #{frame[1]}")
+          else
+            append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
+          end
+        rescue => err
+          append_log("[-] Upload error: #{error_text(err)}")
+        ensure
+          @rbtp_uploading = false
+          rbtp_exit_mode(!success)
+          update_dfu_buttons
+        end
+      end
+    end
+
+    App.new
+  </script>
+
+  <script src="init.iife.js"></script>
+</body>
+</html>

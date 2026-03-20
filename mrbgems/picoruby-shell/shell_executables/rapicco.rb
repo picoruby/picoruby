@@ -4,10 +4,10 @@ unless ARGV.size == 1
 end
 
 begin
-require 'rapicco'
+  require 'rapicco'
 rescue
   # maybe MicroRuby
 end
 
-ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+Machine.signal_self_manage
 Rapicco.new(ARGV[0]).run

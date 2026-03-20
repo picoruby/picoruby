@@ -247,6 +247,10 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
     return NULL;
   }
 
+#ifdef PICO_CYW43_ARCH_POLL
+  cyw43_arch_poll();
+#endif
+
   /* Check for already accepted socket */
   if (!server->accepted_socket) {
     return NULL; /* No pending connection */

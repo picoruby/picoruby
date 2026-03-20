@@ -125,6 +125,7 @@ class VFS
         # Relative path
         dirs = (ENV["PWD"] || "").split("/") + dirs
       end
+<<<<<<< HEAD
       sanitized_dirs = [] #: Array[String]
       prefix_dirs = [] #: Array[String]
       dirs.each do |dir|
@@ -132,34 +133,55 @@ class VFS
         if dir == ".."
           if sanitized_dirs.empty?
             prefix_dirs << ".."
+=======
+      sanitized_dirs = []
+      prefix_dirs = []
+      i = 0
+      while i < dirs.size
+        dir = dirs[i]
+        unless dir == "." || dir == ""
+          if dir == ".."
+            if sanitized_dirs.empty?
+              prefix_dirs << ".."
+            else
+              sanitized_dirs.pop
+            end
+>>>>>>> origin/master
           else
-            sanitized_dirs.pop
+            sanitized_dirs << dir
           end
-        else
-          sanitized_dirs << dir
         end
+        i += 1
       end
       "#{prefix_dirs.join("/")}/#{sanitized_dirs.join("/")}"
     end
 
     def split(sanitized_path)
-      found = false
-      volume = VOLUMES.map { |v|
-        sanitized_path.start_with?(v[:mountpoint]) ? v : nil
-      }.max {|v| v ? v[:mountpoint].length : -1}
+      volume = nil
+      best_len = -1
+      i = 0
+      while i < VOLUMES.size
+        v = VOLUMES[i]
+        if sanitized_path.start_with?(v[:mountpoint]) && best_len < v[:mountpoint].length
+          volume = v
+          best_len = v[:mountpoint].length
+        end
+        i += 1
+      end
       if volume
+        # @type var volume: volume_t
         cut = volume[:mountpoint] == "/" ? 0 : 1
         [volume, "/#{sanitized_path[volume[:mountpoint].length + cut, 255]}"]
       else
-        [VOLUMES[0], sanitized_path] # fallback
+        [VOLUMES[0], sanitized_path]
       end
     end
 
     def volume_index(mountpoint)
-      # mruby/c doesn't have Array#any?
-      # also, mruby/c's Array#index doesn't take block argument
-      VOLUMES.each_with_index do |v, i|
-        return i if v[:mountpoint] == mountpoint
+      i = 0
+      while i < VOLUMES.size
+        return i if VOLUMES[i][:mountpoint] == mountpoint
+        i += 1
       end
       nil
     end
@@ -181,9 +203,11 @@ class VFS
 
     def self.utime(atime, mtime, *filenames)
       count = 0
-      filenames.each do |filename|
-        volume, path = VFS.sanitize_and_split(filename)
+      i = 0
+      while i < filenames.size
+        volume, path = VFS.sanitize_and_split(filenames[i])
         count += volume[:driver].utime(atime, mtime, path)
+        i += 1
       end
       return count
     end

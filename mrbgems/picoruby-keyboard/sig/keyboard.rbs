@@ -35,7 +35,6 @@ class Keyboard
   @col_count: Integer
   @keymap_rows: Integer
   @keymap_cols: Integer
-  @layers: Hash[Symbol, Array[Integer]]
   @layer_names: Array[Symbol]
   @default_layer: Symbol | nil
   @locked_layer: Integer | nil
@@ -58,10 +57,27 @@ class Keyboard
   # Split keyboard support
   @injected_events: Array[injected_event_t]
 
+  # Macro key management
+  @macros: Array[String]
+
+  # Get list of layer names
+  attr_reader layer_names: Array[Symbol]
+  # Get visual layout
+  attr_reader layout: Array[Array[Integer]]
+  # Get currently pressed keys
+  attr_reader keys_pressed: Hash[[Integer, Integer], bool]
+
+  # Get a single layer's keymap by name
+  def get_layer: (Symbol name) -> Array[Integer]?
+
   # Initialize keyboard layer manager
   def initialize: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> void
   # Add a layer with name and keymap
-  def add_layer: (Symbol name, Array[Integer] keymap) -> void
+  def layer: (?Symbol name) { (self) -> untyped } -> void
+  private def add_layer: (Symbol name, Array[Integer] keymap) -> void
+  private def row: (*Integer keycodes) -> void
+  # Register a macro string and return its MC keycode
+  def add_macro: (String string) -> Integer
   # Set default layer
   def default_layer=: (Symbol name) -> void
   # Set tap threshold in milliseconds
@@ -74,6 +90,8 @@ class Keyboard
   def combo_reference_layer=: (Symbol? layer_name) -> (Integer | nil)
   # Add a combo definition
   def add_combo: (Array[Integer] keycodes, Integer action) -> void
+  # Register a per-tick callback
+  def on_tick: () { (Keyboard) -> void } -> void
   # Inject an external key event (for split keyboard support)
   def inject_event: (Integer row, Integer col, bool pressed) -> void
   # Start scanning loop
@@ -95,6 +113,10 @@ class Keyboard
   private def handle_mt_key: (Integer row, Integer col, Integer modifier_index, Integer tap_keycode, bool pressed) -> void
   # Handle LT tap/hold key press/release
   private def handle_lt_key: (Integer row, Integer col, Integer layer_index, Integer tap_keycode, bool pressed) -> void
+  # Type a macro string by sending individual key press/release events
+  private def handle_mc_key: (Integer macro_index) -> void
+  # Convert an ASCII character to [keycode, modifier] for USB HID
+  private def ascii_to_hid: (String char) -> ([Integer, Integer] | nil)
   # Update tap/hold key states
   private def update_tap_hold_keys: () -> void
   # Mark that another key was pressed

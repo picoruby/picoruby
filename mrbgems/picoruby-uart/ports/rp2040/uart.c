@@ -10,8 +10,8 @@
 #define UNIT_SELECT() \
   do { \
     switch (unit_num) { \
-      case PICORUBY_UART_RP2040_UART0: { unit = uart0; break; } \
-      case PICORUBY_UART_RP2040_UART1: { unit = uart1; break; } \
+      case PICORB_UART_RP2040_UART0: { unit = uart0; break; } \
+      case PICORB_UART_RP2040_UART1: { unit = uart1; break; } \
       default: { /* TODO: raise error */ } \
     } \
   } while (0)
@@ -40,9 +40,9 @@ int
 UART_unit_name_to_unit_num(const char *name)
 {
   if (strcmp(name, "RP2040_UART0") == 0) {
-    return PICORUBY_UART_RP2040_UART0;
+    return PICORB_UART_RP2040_UART0;
   } else if (strcmp(name, "RP2040_UART1") == 0) {
-    return PICORUBY_UART_RP2040_UART1;
+    return PICORB_UART_RP2040_UART1;
   } else {
     return UART_ERROR_INVALID_UNIT;
   }
@@ -59,11 +59,11 @@ UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buf
   gpio_set_function(txd_pin, GPIO_FUNC_UART);
   gpio_set_function(rxd_pin, GPIO_FUNC_UART);
 
-  if (unit_num == PICORUBY_UART_RP2040_UART0) {
+  if (unit_num == PICORB_UART_RP2040_UART0) {
     irq = UART0_IRQ;
     irq_set_exclusive_handler(irq, on_uart0_rx);
     rx_buffers[0] = ring_buffer;
-  } else if (unit_num == PICORUBY_UART_RP2040_UART1) {
+  } else if (unit_num == PICORB_UART_RP2040_UART1) {
     irq = UART1_IRQ;
     irq_set_exclusive_handler(irq, on_uart1_rx);
     rx_buffers[1] = ring_buffer;

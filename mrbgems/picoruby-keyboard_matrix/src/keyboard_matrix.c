@@ -69,18 +69,28 @@ keyboard_matrix_init(const uint8_t *rows, uint8_t r_count,
   memcpy(row_pins, rows, r_count);
   memcpy(col_pins, cols, c_count);
 
-  // Initialize row pins (outputs, set high)
-  for (uint8_t i = 0; i < row_count; i++) {
-    GPIO_init(row_pins[i]);
-    GPIO_set_dir(row_pins[i], OUT);
-    GPIO_write(row_pins[i], 1);
-  }
+  if (col_count == 0) {
+    // Direct mode: each row pin is an independent button
+    // row pins are inputs with pull-up (LOW when pressed)
+    for (uint8_t i = 0; i < row_count; i++) {
+      GPIO_init(row_pins[i]);
+      GPIO_set_dir(row_pins[i], IN);
+      GPIO_pull_up(row_pins[i]);
+    }
+  } else {
+    // Matrix mode: row pins are outputs, col pins are inputs
+    for (uint8_t i = 0; i < row_count; i++) {
+      GPIO_init(row_pins[i]);
+      GPIO_set_dir(row_pins[i], OUT);
+      GPIO_write(row_pins[i], 1);
+    }
 
-  // Initialize column pins (inputs with pull-up)
-  for (uint8_t i = 0; i < col_count; i++) {
-    GPIO_init(col_pins[i]);
-    GPIO_set_dir(col_pins[i], IN);
-    GPIO_pull_up(col_pins[i]);
+    // Initialize column pins (inputs with pull-up)
+    for (uint8_t i = 0; i < col_count; i++) {
+      GPIO_init(col_pins[i]);
+      GPIO_set_dir(col_pins[i], IN);
+      GPIO_pull_up(col_pins[i]);
+    }
   }
 
   // Initialize key state
@@ -99,26 +109,22 @@ keyboard_matrix_scan(key_event_t *event)
 {
   uint32_t now = Machine_uptime_us() / 1000;
 
-  // Scan matrix
-  for (uint8_t row = 0; row < row_count; row++) {
-    // Set row low
-    GPIO_write(row_pins[row], 0);
-    Machine_busy_wait_us(1);
-
-    for (uint8_t col = 0; col < col_count; col++) {
-      bool current = !GPIO_read(col_pins[col]);
+  if (col_count == 0) {
+    // Direct mode: scan each row pin as independent button
+    for (uint8_t row = 0; row < row_count; row++) {
+      bool current = !GPIO_read(row_pins[row]);
 
       // Check if state changed
-      if (current != key_state[row][col]) {
+      if (current != key_state[row][0]) {
         // Debounce check
-        if (now - key_debounce_ms[row][col] >= debounce_ms) {
-          key_state[row][col] = current;
-          key_debounce_ms[row][col] = now;
+        if (now - key_debounce_ms[row][0] >= debounce_ms) {
+          key_state[row][0] = current;
+          key_debounce_ms[row][0] = now;
 
           // Create event
           key_event_t ev;
           ev.row = row;
-          ev.col = col;
+          ev.col = 0;
           ev.pressed = current;
 
           // Push to queue
@@ -126,9 +132,38 @@ keyboard_matrix_scan(key_event_t *event)
         }
       }
     }
+  } else {
+    // Matrix mode: scan all row/col combinations
+    for (uint8_t row = 0; row < row_count; row++) {
+      // Set row low
+      GPIO_write(row_pins[row], 0);
+      Machine_busy_wait_us(5);
 
-    // Set row high
-    GPIO_write(row_pins[row], 1);
+      for (uint8_t col = 0; col < col_count; col++) {
+        bool current = !GPIO_read(col_pins[col]);
+
+        // Check if state changed
+        if (current != key_state[row][col]) {
+          // Debounce check
+          if (now - key_debounce_ms[row][col] >= debounce_ms) {
+            key_state[row][col] = current;
+            key_debounce_ms[row][col] = now;
+
+            // Create event
+            key_event_t ev;
+            ev.row = row;
+            ev.col = col;
+            ev.pressed = current;
+
+            // Push to queue
+            queue_push(&ev);
+          }
+        }
+      }
+
+      // Set row high
+      GPIO_write(row_pins[row], 1);
+    }
   }
 
   // Pop event from queue

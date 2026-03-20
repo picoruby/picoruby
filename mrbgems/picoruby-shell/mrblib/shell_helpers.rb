@@ -15,16 +15,19 @@ module Kernel
       end
     else
       # Read from files
-      ARGV.each do |filename|
+      i = 0
+      while i < ARGV.size
+        filename = ARGV[i]
         if File.file?(filename)
           File.open(filename, 'r') do |f|
-            f.each_line do |line|
+            while line = f.gets
               block.call(line)
             end
           end
         else
           $stderr.puts "#{File.basename($0)}: #{filename}: No such file"
         end
+        i += 1
       end
     end
   end

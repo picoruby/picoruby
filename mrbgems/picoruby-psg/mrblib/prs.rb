@@ -76,7 +76,7 @@ module PRS
       @file = File.open(filename, "w+")
       @file.write(SIGNATURE)
       @file.write(VERSION)
-      @file.write(@tracks.size.chr)
+      @file.write([@tracks.size].pack("C"))
       @file.write(RESERVED)
       @file.write("\0\0\0\0") # Placeholder for length
       @file.write("\0\0\0\0") # Placeholder for loop start position
@@ -130,15 +130,9 @@ module PRS
         end
       end
       @file.seek(LENGTH_OFFSET)
-      @file.write (@length & 0xFF).chr
-      @file.write ((@length >> 8) & 0xFF).chr
-      @file.write ((@length >> 16) & 0xFF).chr
-      @file.write ((@length >> 24) & 0xFF).chr
+      @file.write [@length].pack("V")
       @file.seek(LOOP_START_OFFSET)
-      @file.write (loop_start_pos & 0xFF).chr
-      @file.write ((loop_start_pos >> 8) & 0xFF).chr
-      @file.write ((loop_start_pos >> 16) & 0xFF).chr
-      @file.write ((loop_start_pos >> 24) & 0xFF).chr
+      @file.write [loop_start_pos].pack("V")
     ensure
       @file&.close
     end
@@ -146,13 +140,13 @@ module PRS
     # private
 
     def gen2(op, reg, value)
-      code = "#{((op|(reg&0xF)) & 0xFF).chr}#{(value & 0xFF).chr}"
+      code = [(op|(reg&0xF)) & 0xFF, value & 0xFF].pack("CC")
       @file.write code
       @length += code.size
     end
 
     def gen4(op, reg, val1, val2, val3)
-      code = "#{((op|(reg&0xF)) & 0xFF).chr}#{(val1 & 0xFF).chr}#{(val2 & 0xFF).chr}#{(val3 & 0xFF).chr}"
+      code = [(op|(reg&0xF)) & 0xFF, val1 & 0xFF, val2 & 0xFF, val3 & 0xFF].pack("CCCC")
       @file.write code
       @length += code.size
     end

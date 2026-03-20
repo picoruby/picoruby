@@ -245,6 +245,19 @@ c_object_instance_of_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static mrbc_value *
+const_lookup(mrbc_value *self, mrbc_sym sym_id)
+{
+  mrbc_value *value = NULL;
+  if (self->tt == MRBC_TT_CLASS || self->tt == MRBC_TT_MODULE) {
+    value = mrbc_get_class_const(self->cls, sym_id);
+  }
+  if (!value) {
+    value = mrbc_get_const(sym_id);
+  }
+  return value;
+}
+
 static void
 c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -252,7 +265,6 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  mrbc_value *value;
   mrbc_sym sym_id;
   if (v[1].tt == MRBC_TT_SYMBOL) {
     sym_id = v[1].sym_id;
@@ -262,13 +274,36 @@ c_object_const_get(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
     return;
   }
-  value = mrbc_get_const(sym_id);
+  mrbc_value *value = const_lookup(&v[0], sym_id);
   if (!value) {
     mrbc_raisef(vm, MRBC_CLASS(NameError), "uninitialized constant %s", mrbc_symid_to_str(sym_id));
     return;
   }
   mrbc_incref(value);
   SET_RETURN(*value);
+}
+
+static void
+c_object_const_defined_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  mrbc_sym sym_id;
+  if (v[1].tt == MRBC_TT_SYMBOL) {
+    sym_id = v[1].sym_id;
+  } else if (v[1].tt == MRBC_TT_STRING) {
+    sym_id = mrbc_str_to_symid((const char *)GET_STRING_ARG(1));
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
+    return;
+  }
+  if (const_lookup(&v[0], sym_id)) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
 }
 
 static void
@@ -515,6 +550,7 @@ mrbc_metaprog_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_object, "instance_of?", c_object_instance_of_q);
   mrbc_define_method(vm, mrbc_class_object, "respond_to?", c_object_respond_to_q);
   mrbc_define_method(vm, mrbc_class_object, "const_get", c_object_const_get);
+  mrbc_define_method(vm, mrbc_class_object, "const_defined?", c_object_const_defined_q);
   mrbc_define_method(vm, mrbc_class_object, "class?", c_object_class_q);
   mrbc_define_method(vm, mrbc_class_object, "ancestors", c_object_ancestors);
 

@@ -11,6 +11,10 @@ STDIN = IO.new
 
 Machine.set_hwclock(0)
 
+if RUBY_ENGINE == "mruby"
+  GC.interval_ratio = 110
+end
+
 begin
   sleep 1
   STDIN.echo = false

@@ -1,7 +1,7 @@
 # wifi_config.rb
 #   To create a wifi configuration file
 
-ENV['SIGNAL_SELF_MANAGE'] = 'yes'
+Machine.signal_self_manage
 
 require "yaml"
 require "picoline"

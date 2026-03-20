@@ -15,7 +15,7 @@
 #include "lwip/dns.h"
 #include "lwip/err.h"
 #include "mbedtls/ssl.h"
-#ifdef PICORUBY_DEBUG
+#ifdef PICORB_DEBUG
 #include "mbedtls/debug.h"
 #endif
 
@@ -48,7 +48,7 @@ struct picorb_ssl_socket {
   int port;
 };
 
-#ifdef PICORUBY_DEBUG
+#ifdef PICORB_DEBUG
 /* mbedTLS debug callback */
 static void
 mbedtls_debug_cb(void *ctx, int level, const char *file, int line, const char *str)
@@ -414,14 +414,14 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   /* Check if client certificate and key are provided for mutual TLS */
   bool has_cert = (ssl_sock->ssl_ctx->cert_data != NULL);
   bool has_key = (ssl_sock->ssl_ctx->key_data != NULL);
-  
+
   /* Validate that both cert and key are set together */
   if (has_cert != has_key) {
     D("SSL: ERROR - client cert and key must both be set for mutual TLS (cert=%s, key=%s)\n",
       has_cert ? "set" : "not set", has_key ? "set" : "not set");
     return false;
   }
-  
+
   if (has_cert && has_key) {
     D("SSL: using 2-way auth (client cert)\n");
     tls_config = altcp_tls_create_config_client_2wayauth(
@@ -443,7 +443,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   }
   D("SSL: TLS config ok");
 
-#ifdef PICORUBY_DEBUG
+#ifdef PICORB_DEBUG
   /* Enable mbedTLS debug output (level 3: informational)
    * altcp_tls_config starts with mbedtls_ssl_config as first member */
   mbedtls_ssl_conf_dbg((mbedtls_ssl_config *)tls_config, mbedtls_debug_cb, NULL);
@@ -638,6 +638,15 @@ SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
     return true;
   }
   return !ssl_sock->connected;
+}
+
+bool
+SSLSocket_ready(picorb_ssl_socket_t *ssl_sock)
+{
+  if (!ssl_sock || !ssl_sock->base_socket) {
+    return false;
+  }
+  return Socket_ready(ssl_sock->base_socket);
 }
 
 const char*

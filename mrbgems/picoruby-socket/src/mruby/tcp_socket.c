@@ -5,6 +5,8 @@
 #include "mruby/class.h"
 #include "mruby/data.h"
 
+#define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
+
 /* TCPSocket.new(host, port) */
 static mrb_value
 mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
@@ -32,8 +34,11 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
 
   /* Connect to remote host */
   if (!TCPSocket_connect(sock, host, (int)port)) {
+    char errmsg[SOCKET_ERROR_MSG_LEN];
+    strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
+    errmsg[sizeof(errmsg) - 1] = '\0';
     mrb_free(mrb, sock);
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to connect to %s:%i", host, port);
+    mrb_raise(mrb, E_SOCKET_ERROR, errmsg[0] ? errmsg : "failed to connect");
   }
 
   mrb_data_init(self, sock, &mrb_socket_type);
@@ -176,6 +181,20 @@ mrb_tcp_socket_remote_port(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(port);
 }
 
+/* socket.ready? */
+static mrb_value
+mrb_tcp_socket_ready_p(mrb_state *mrb, mrb_value self)
+{
+  picorb_socket_t *sock;
+
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
+  if (!sock) {
+    return mrb_false_value();
+  }
+
+  return mrb_bool_value(Socket_ready(sock));
+}
+
 void
 tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 {
@@ -189,6 +208,7 @@ tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(read), mrb_tcp_socket_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(close), mrb_tcp_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(closed), mrb_tcp_socket_closed_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(ready), mrb_tcp_socket_ready_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(remote_host), mrb_tcp_socket_remote_host, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(remote_port), mrb_tcp_socket_remote_port, MRB_ARGS_NONE());
 }

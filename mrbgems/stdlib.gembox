@@ -1,4 +1,5 @@
 MRuby::GemBox.new do |conf|
+  conf.gem core: "picoruby-dfu"
   conf.gem core: "picoruby-rng"
   conf.gem core: 'picoruby-base16'
   conf.gem core: 'picoruby-base64'
@@ -26,5 +27,8 @@ MRuby::GemBox.new do |conf|
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-error"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
+  end
+  unless wasm?
+    conf.gem core: "picoruby-regexp_light"
   end
 end

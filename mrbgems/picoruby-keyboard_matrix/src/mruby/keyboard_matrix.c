@@ -28,7 +28,8 @@ mrb_initialize(mrb_state *mrb, mrb_value self)
 {
   mrb_value row_pins_ary, col_pins_ary;
 
-  mrb_get_args(mrb, "AA", &row_pins_ary, &col_pins_ary);
+  col_pins_ary = mrb_ary_new(mrb);  // default empty array
+  mrb_get_args(mrb, "A|A", &row_pins_ary, &col_pins_ary);
 
   picorb_keyboard_matrix_data *data = (picorb_keyboard_matrix_data*)mrb_malloc(mrb, sizeof(picorb_keyboard_matrix_data));
   memset(data, 0, sizeof(picorb_keyboard_matrix_data));
@@ -98,7 +99,7 @@ mrb_picoruby_keyboard_matrix_gem_init(mrb_state *mrb)
   struct RClass *kb_matrix_class = mrb_define_class_id(mrb, MRB_SYM(KeyboardMatrix), mrb->object_class);
   MRB_SET_INSTANCE_TT(kb_matrix_class, MRB_TT_DATA);
 
-  mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(initialize), mrb_initialize, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(initialize), mrb_initialize, MRB_ARGS_REQ(1) | MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(scan), mrb_scan, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM(debounce_ms), mrb_get_debounce_ms, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, kb_matrix_class, MRB_SYM_E(debounce_ms), mrb_set_debounce_ms, MRB_ARGS_REQ(1));

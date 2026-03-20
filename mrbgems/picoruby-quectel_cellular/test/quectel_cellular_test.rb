@@ -1,6 +1,6 @@
 class QuectelCellularTest < Picotest::Test
   def setup
-    @mock_uart = UART.new(unit: :PICORUBY_UART_RP2040_UART0, baudrate: 115200)
+    @mock_uart = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
     @client = QuectelCellular.new(uart: @mock_uart, log_size: 5)
   end
 
@@ -19,7 +19,7 @@ class QuectelCellularTest < Picotest::Test
   end
 
   def test_initialize_default_log_size
-    mock_uart = UART.new(unit: :PICORUBY_UART_RP2040_UART0, baudrate: 115200)
+    mock_uart = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
     client = QuectelCellular.new(uart: mock_uart)
     assert_equal 10, client.instance_variable_get(:@log_size)
   end

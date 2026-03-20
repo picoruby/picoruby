@@ -6,6 +6,11 @@
 static mrbc_class *ConnectTimeout;
 static bool cyw43_arch_init_flag = false;
 
+#ifdef USE_WIFI
+static bool cyw43_arch_sta_mode_enabled = false;
+static bool cyw43_arch_connected = false;
+#endif
+
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -15,6 +20,14 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   int res = -1;
   if (cyw43_arch_init_flag && (argc < 2 || (1 < argc && GET_ARG(2).tt == MRBC_TT_FALSE))) {
     goto init_end;
+  }
+  if (cyw43_arch_init_flag) {
+    CYW43_arch_deinit();
+    cyw43_arch_init_flag = false;
+#ifdef USE_WIFI
+    cyw43_arch_sta_mode_enabled = false;
+    cyw43_arch_connected = false;
+#endif
   }
   if (0 < argc && GET_ARG(1).tt == MRBC_TT_STRING) {
     res = CYW43_arch_init_with_country(GET_STRING_ARG(1));
@@ -38,7 +51,6 @@ c_CYW43_initialized_q(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 #ifdef USE_WIFI
-static bool cyw43_arch_sta_mode_enabled = false;
 
 static void
 c_CYW43_enable_sta_mode(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -71,8 +83,6 @@ c_CYW43_disable_sta_mode(mrbc_vm *vm, mrbc_value *v, int argc)
     SET_FALSE_RETURN();
   }
 }
-
-static bool cyw43_arch_connected = false;
 
 static void
 c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)

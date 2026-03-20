@@ -9,8 +9,8 @@
 #define UNIT_SELECT() \
   do { \
     switch (unit_num) { \
-      case PICORUBY_I2C_RP2040_I2C0: { unit = i2c0; break; } \
-      case PICORUBY_I2C_RP2040_I2C1: { unit = i2c1; break; } \
+      case PICORB_I2C_RP2040_I2C0: { unit = i2c0; break; } \
+      case PICORB_I2C_RP2040_I2C1: { unit = i2c1; break; } \
       default: { return I2C_ERROR_INVALID_UNIT; } \
     } \
   } while (0)
@@ -35,9 +35,9 @@ int
 I2C_unit_name_to_unit_num(const char *unit_name)
 {
   if (strcmp(unit_name, "RP2040_I2C0") == 0) {
-    return PICORUBY_I2C_RP2040_I2C0;
+    return PICORB_I2C_RP2040_I2C0;
   } else if (strcmp(unit_name, "RP2040_I2C1") == 0) {
-    return PICORUBY_I2C_RP2040_I2C1;
+    return PICORB_I2C_RP2040_I2C1;
   } else {
     return I2C_ERROR_INVALID_UNIT;
   }

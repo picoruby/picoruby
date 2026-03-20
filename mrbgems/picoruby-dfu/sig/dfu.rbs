@@ -1,0 +1,53 @@
+module DFU
+  def self.ecdsa_public_key_pem: -> String
+
+  def self.confirm: -> true
+  def self.status: -> Hash[String, untyped]
+  def self.rollback: -> true
+
+  class Meta
+    DEFAULT: Hash[String, untyped]
+
+    def self.recover: -> void
+    def self.load: -> Hash[String, untyped]
+    def self.save: (Hash[String, untyped] data) -> void
+    def self.deep_copy: (Hash[String, untyped] hash) -> Hash[String, untyped]
+    def self.slot: (Hash[String, untyped] data, String slot_name) -> Hash[String, untyped]
+    def self.inactive_slot: (Hash[String, untyped] data) -> String
+    def self.firmware_path: (Hash[String, untyped] data, String slot_name) -> String?
+    private def self.meta_path: () -> String
+    private def self.meta_tmp_path: () -> String
+  end
+
+  module BootManager
+    def self.resolve: -> String?
+  end
+
+  class Updater
+    MAGIC: String
+    VERSION: Integer
+    HEADER_SIZE: Integer
+    HEADER_FORMAT: String
+    CHUNK_SIZE: Integer
+    READ_TIMEOUT_SEC: Integer
+    READ_POLL_MS: Integer
+
+    @verify_crc: bool
+    @verify_signature: bool
+    @path: String?
+
+    def self.new: (?verify_crc: bool, ?verify_signature: bool, ?path: String?, ?read_timeout_sec: Integer, ?read_poll_ms: Integer) -> DFU::Updater
+    def self.expected_size: (String buf) -> (Integer | nil)
+
+    #def receive: (_Reader io) -> true
+    def receive: (untyped io) -> true
+
+    #private def read_exact: (_Reader io, Integer n) -> String
+    private def read_exact: (untyped io, Integer n) -> String
+    private def receive_to_path: (untyped io, Integer size, Integer crc32, String? signature) -> true
+    private def receive_to_slot: (untyped io, Integer size, Integer crc32, String? signature, String ext) -> true
+    private def cleanup_on_failure: (String fw_path, String target_slot) -> void
+    private def verify_signature: (String firmware_data, String signature, String fw_path, String target_slot) -> void
+    private def read_firmware_body: (IO io, Integer size) -> String
+  end
+end

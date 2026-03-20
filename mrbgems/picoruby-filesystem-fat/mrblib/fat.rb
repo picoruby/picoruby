@@ -64,13 +64,17 @@ class FAT
 
   # device can be "0".."9", :ram, :flash, etc
   # The name is case-insensitive
+  # driver can be:
+  #   - nil: no initialization needed
+  #   - SPI object: SPI mode SD card
+  #   - SDMMC object: SDMMC mode SD card
   def initialize(device, label: "PICORUBY", driver: nil)
     @prefix = "#{device}:"
     @label = label
-    case driver
-    when nil
+    if driver.nil?
       # Do nothing
-    when SPI
+    elsif driver.class.to_s == "SPI"
+      # SPI mode SD card
       FAT.init_spi(
         driver.unit,
         driver.sck_pin,
@@ -78,6 +82,10 @@ class FAT
         driver.copi_pin,
         driver.cs_pin
       )
+      sleep_ms 10
+    elsif driver.class.to_s == "SDMMC"
+      # SDMMC mode SD card
+      FAT.init_sdmmc(driver.clk_pin, driver.cmd_pin, driver.d0_pin)
       sleep_ms 10
     end
   end

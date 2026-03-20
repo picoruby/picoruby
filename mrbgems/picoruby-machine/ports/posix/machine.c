@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <signal.h>
 #include <time.h>
 
@@ -11,6 +12,30 @@
 
 #include "../../include/machine.h"
 
+int
+hal_getchar(void)
+{
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 3; // Ctrl-C
+  } else if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 26; // Ctrl-Z
+  }
+  int c = getchar();
+  if (c == EOF) {
+    return -1;
+  } else {
+    return c;
+  }
+}
+
+int
+hal_read_available(void)
+{
+  int c = fgetc(stdin);
+  return ungetc(c, stdin) == EOF ? 0 : 1;
+}
 
 void
 Machine_tud_task(void)
@@ -89,18 +114,17 @@ Machine_stack_usage(void)
   return 0;
 }
 
-const char *
-Machine_mcu_name(void)
-{
-  return "POSIX";
-}
-
 void
 Machine_exit(int status)
 {
-  sigint_status = MACHINE_SIGINT_EXIT;
-  exit_status = status;
-  raise(SIGINT);
+  exit(status);
+}
+
+void
+Machine_reboot(void)
+{
+  exit_status = MACHINE_EXIT_REBOOT;
+  exit(MACHINE_EXIT_REBOOT);
 }
 
 uint64_t

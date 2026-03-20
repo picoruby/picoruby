@@ -1,5 +1,6 @@
 module Funicular
-  type route_definition_t = { method: Symbol, path: String, component: singleton(Component), name: String?, pattern_segments: Array[String] }
+  type route_constraints_t = Hash[Symbol, Regexp]
+  type route_definition_t = { method: Symbol, path: String, component: singleton(Component), name: String?, pattern_segments: Array[String], constraints: route_constraints_t }
 
   # URL helper methods are dynamically generated based on route definitions
   # Example: router.get('/users/:id', to: UserComponent, as: 'user')
@@ -18,6 +19,7 @@ module Funicular
     attr_reader current_component: Component?
     attr_reader current_path: String?
 
+<<<<<<< HEAD
     def initialize: (JS::Object container) -> void
     def get: (String path, to: singleton(Component), ?as: String?) -> void
     def post: (String path, to: singleton(Component), ?as: String?) -> void
@@ -25,6 +27,15 @@ module Funicular
     def patch: (String path, to: singleton(Component), ?as: String?) -> void
     def delete: (String path, to: singleton(Component), ?as: String?) -> void
     def add_route: (String path, singleton(Component) component_class, ?as: String?) -> void
+=======
+    def self.new: (JS::Object container) -> Router
+    def get: (String path, to: singleton(Component), ?as: String?, ?constraints: route_constraints_t?) -> void
+    def post: (String path, to: singleton(Component), ?as: String?, ?constraints: route_constraints_t?) -> void
+    def put: (String path, to: singleton(Component), ?as: String?, ?constraints: route_constraints_t?) -> void
+    def patch: (String path, to: singleton(Component), ?as: String?, ?constraints: route_constraints_t?) -> void
+    def delete: (String path, to: singleton(Component), ?as: String?, ?constraints: route_constraints_t?) -> void
+    def add_route: (String path, singleton(Component) component_class, ?as: String?, ?constraints: route_constraints_t?) -> void
+>>>>>>> origin/master
     def set_default: (String path) -> void
     def start: () -> void
     def stop: () -> void
@@ -32,7 +43,7 @@ module Funicular
     def current_hash_path: () -> String
     def current_location_path: () -> String
 
-    private def add_route_with_method: (Symbol method, String path, singleton(Component) component_class, String? name) -> void
+    private def add_route_with_method: (Symbol method, String path, singleton(Component) component_class, String? name, ?route_constraints_t? constraints) -> void
     private def generate_url_helper: (String name, String path_pattern) -> void
     private def extract_param_names: (String path_pattern) -> Array[Symbol]
     private def handle_route_change: () -> void

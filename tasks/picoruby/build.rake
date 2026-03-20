@@ -1,8 +1,8 @@
 namespace :picorbc do
   desc "create picorbc debug build"
   task :debug do
-    sh "MRUBY_CONFIG=picorbc PICORUBY_DEBUG=1 rake clean"
-    sh "MRUBY_CONFIG=picorbc PICORUBY_DEBUG=1 rake"
+    sh "MRUBY_CONFIG=picorbc PICORB_DEBUG=1 rake clean"
+    sh "MRUBY_CONFIG=picorbc PICORB_DEBUG=1 rake"
   end
 
   desc "create picorbc production build"
@@ -20,7 +20,7 @@ namespace :picoruby do
 
   desc "create debug build"
   task :debug do
-    sh 'PICORUBY_DEBUG=1 MRUBY_CONFIG=default rake'
+    sh 'PICORB_DEBUG=1 MRUBY_CONFIG=default rake'
   end
 
   desc "clean build files"
@@ -37,7 +37,7 @@ namespace :microruby do
 
   desc "create debug build"
   task :debug do
-    sh 'PICORUBY_DEBUG=1 MRUBY_CONFIG=microruby rake'
+    sh 'PICORB_DEBUG=1 MRUBY_CONFIG=microruby rake'
   end
 
   desc "clean build files"
@@ -49,7 +49,7 @@ end
 namespace :wasm do
   desc "Build PicroRuby WASM (mruby VM)"
   task :debug do
-    sh "CONFIG=picoruby-wasm PICORUBY_DEBUG=1 rake"
+    sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
   end
 
   desc "Build PicoRuby WASM production"

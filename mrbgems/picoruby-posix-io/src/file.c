@@ -536,6 +536,23 @@ c_file_flock(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_file_fsync(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int fd;
+
+  fd = picorb_io_fileno(vm, v[0]);
+#if defined(_WIN32) || defined(_WIN64)
+  if (_commit(fd) < 0) {
+#else
+  if (fsync(fd) < 0) {
+#endif
+    mrbc_raisef(vm, MRBC_CLASS(IOError), "fsync failed: %s", strerror(errno));
+    return;
+  }
+  SET_INT_RETURN(0);
+}
+
+static void
 c_file__size(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   picorb_stat st;
@@ -734,6 +751,7 @@ mrbc_io_file_init(mrbc_vm *vm, mrbc_class *io)
   mrbc_define_method(vm, file, "_gethome",  c_file__gethome);
 
   mrbc_define_method(vm, file, "flock",     c_file_flock);
+  mrbc_define_method(vm, file, "fsync",     c_file_fsync);
   mrbc_define_method(vm, file, "_atime",    c_file_atime);
   mrbc_define_method(vm, file, "_ctime",    c_file_ctime);
   mrbc_define_method(vm, file, "_mtime",    c_file_mtime);

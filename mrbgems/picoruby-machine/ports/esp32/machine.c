@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/time.h>
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/portmacro.h>
@@ -28,6 +29,7 @@ static mrb_state *mrb_;
 #endif
 
 static esp_timer_handle_t periodic_timer;
+volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
 
 static void
 alarm_handler(void *arg)
@@ -211,24 +213,18 @@ Machine_stack_usage(void)
   return 0;
 }
 
-const char *
-Machine_mcu_name(void)
-{
-  return "ESP32";
-}
-
 bool
 Machine_set_hwclock(const struct timespec *ts)
 {
-  // Not implemented
-  return false;
+  clock_settime(CLOCK_REALTIME, ts);
+  return true;
 }
 
 bool
 Machine_get_hwclock(struct timespec *ts)
 {
-  // Not implemented
-  return false;
+  clock_gettime(CLOCK_REALTIME, ts);
+  return true;
 }
 
 void

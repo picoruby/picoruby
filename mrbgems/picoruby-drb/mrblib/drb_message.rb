@@ -11,7 +11,11 @@ module DRb
       send_message(Marshal.dump(ref))
       send_message(Marshal.dump(msg_id.to_s))
       send_message(Marshal.dump(args.length))
-      args.each { |a| send_message(Marshal.dump(a)) }
+      i = 0
+      while i < args.length
+        send_message(Marshal.dump(args[i]))
+        i += 1
+      end
       send_message(Marshal.dump(block))
     end
 
@@ -23,7 +27,12 @@ module DRb
       msg_id = msg_id_str.to_sym
       # @type var argc: Integer
       argc   = Marshal.load(recv_message)
-      args   = Array.new(argc) { Marshal.load(recv_message) } # steep:ignore
+      args = []
+      i = 0
+      while i < argc
+        args << Marshal.load(recv_message)
+        i += 1
+      end
       # @type var block: Proc?
       block  = Marshal.load(recv_message)
       [ref, msg_id, args, block]

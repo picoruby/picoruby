@@ -12,6 +12,7 @@
 
 static enum BLE_role_t role = BLE_ROLE_NONE;
 static btstack_packet_callback_registration_t ble_hci_event_callback_registration;
+static btstack_packet_callback_registration_t sm_event_callback_registration;
 static btstack_timer_source_t heartbeat;
 
 static uint16_t
@@ -53,6 +54,9 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
         case ATT_EVENT_MTU_EXCHANGE_COMPLETE:
         case ATT_EVENT_CAN_SEND_NOW:
           BLE_push_event(packet, size);
+          break;
+        case SM_EVENT_JUST_WORKS_REQUEST:
+          sm_just_works_confirm(sm_event_just_works_request_get_handle(packet));
           break;
         default:
           break;
@@ -138,7 +142,7 @@ BLE_init(const uint8_t *profile_data, int ble_role)
   sm_init();
 
   sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-  sm_set_authentication_requirements(SM_AUTHREQ_BONDING);
+  sm_set_authentication_requirements(SM_AUTHREQ_SECURE_CONNECTION | SM_AUTHREQ_BONDING);
   sm_set_secure_connections_only_mode(false); // If true, LEGACY pairing will fail
 
   role = ble_role;
@@ -165,6 +169,10 @@ BLE_init(const uint8_t *profile_data, int ble_role)
   ble_hci_event_callback_registration.callback = &packet_handler;
   hci_add_event_handler(&ble_hci_event_callback_registration);
 
+  // register packet handler for SM events
+  sm_event_callback_registration.callback = &packet_handler;
+  sm_add_event_handler(&sm_event_callback_registration);
+
   heartbeat.process = &heartbeat_handler;
 
   return 0;
@@ -176,6 +184,7 @@ BLE_hci_power_control(uint8_t power_mode)
   hci_power_control(power_mode);
   if (power_mode == HCI_POWER_ON) {
     heartbeat_active = true;
+    btstack_run_loop_remove_timer(&heartbeat);
     btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
     btstack_run_loop_add_timer(&heartbeat);
   } else {
@@ -225,5 +234,17 @@ BLE_discover_characteristic_descriptors(uint16_t conn_handle, uint16_t value_han
     .uuid128 = { 0 }
   };
   return gatt_client_discover_characteristic_descriptors(&packet_handler, conn_handle, &characteristic);
+}
+
+uint8_t
+BLE_write_value_of_characteristic_without_response(uint16_t conn_handle, uint16_t value_handle, const uint8_t *data, uint16_t size)
+{
+  return gatt_client_write_value_of_characteristic_without_response(conn_handle, value_handle, size, (uint8_t *)data);
+}
+
+uint8_t
+BLE_write_characteristic_descriptor_using_descriptor_handle(uint16_t conn_handle, uint16_t descriptor_handle, const uint8_t *data, uint16_t size)
+{
+  return gatt_client_write_characteristic_descriptor_using_descriptor_handle(&packet_handler, conn_handle, descriptor_handle, size, (uint8_t *)data);
 }
 

@@ -10,7 +10,7 @@ MRuby::Build.new do |conf|
 
   conf.cc.defines << "MRB_UTF8_STRING"
 
-  if ENV['PICORUBY_DEBUG']
+  if ENV['PICORB_DEBUG']
     conf.cc.defines << "ESTALLOC_DEBUG"
     conf.enable_debug
   end

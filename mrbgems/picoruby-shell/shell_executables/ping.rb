@@ -7,7 +7,7 @@ rescue LoadError
   return
 end
 
-unless ARGV.count == 1
+unless ARGV.size == 1
   puts "Usage: ping hostname"
   return
 end
@@ -18,7 +18,7 @@ puts "PING #{host}"
 
 # Try DNS resolution and ping
 puts "Press Ctrl+C to stop"
-loop do
+while true
   tv_sec1, tv_nsec1 = Machine.get_hwclock
   # Try to make a simple connection to test reachability
   udp = UDPSocket.new

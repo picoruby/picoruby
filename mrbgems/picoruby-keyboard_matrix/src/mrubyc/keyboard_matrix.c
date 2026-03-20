@@ -14,14 +14,14 @@ mrbc_kb_matrix_free(mrbc_value *self)
 static void
 c_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  // Expected args: row_pins_ary, col_pins_ary
-  if (argc < 2) {
+  // Expected args: row_pins_ary, [col_pins_ary]
+  if (argc < 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
   mrbc_value row_pins_ary = GET_ARG(1);
-  mrbc_value col_pins_ary = GET_ARG(2);
+  mrbc_value col_pins_ary = (argc >= 2) ? GET_ARG(2) : mrbc_array_new(vm, 0);
 
   if (row_pins_ary.tt != MRBC_TT_ARRAY || col_pins_ary.tt != MRBC_TT_ARRAY) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "arguments must be arrays");

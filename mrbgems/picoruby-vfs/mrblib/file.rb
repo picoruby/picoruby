@@ -28,12 +28,49 @@ class File
       end
     end
 
+    def dirname(path, level = 1)
+      raise ArgumentError, "negative level: #{level}" if level < 0
+      return path.dup if level == 0
+      s = path
+      i = 0
+      while i < level
+        # Strip trailing slashes but preserve root "/"
+        while s.length > 1 && s[s.length - 1] == '/'
+          s = s[0, s.length - 1]
+        end
+        # Find the last path separator
+        last_sep = nil
+        j = 0
+        while j < s.length
+          last_sep = j if s[j] == '/'
+          j += 1
+        end
+        if last_sep.nil?
+          return '.'
+        elsif last_sep == 0
+          return '/'
+        else
+          # @type var last_sep: Integer
+          s = s[0, last_sep]
+        end
+        i += 1
+      end
+      s
+    end
+
     def chmod(mode, *paths)
       # @type var mode: Integer
       count = 0
+<<<<<<< HEAD
       paths.each do |path|
         # @type var path: String
         count += 1 if VFS.chmod(mode, path) == 0
+=======
+      i = 0
+      while i < paths.size
+        count += 1 if VFS.chmod(mode, paths[i]) == 0
+        i += 1
+>>>>>>> origin/master
       end
       count
     end
@@ -69,9 +106,16 @@ class File
 
     def unlink(*filenames)
       count = 0
+<<<<<<< HEAD
       filenames.each do |name|
         # @type var name: String
         count += VFS.unlink(name)
+=======
+      i = 0
+      while i < filenames.size
+        count += VFS.unlink(filenames[i])
+        i += 1
+>>>>>>> origin/master
       end
       return count
     end
@@ -176,10 +220,13 @@ class File
     rs = "" unless rs
     rs_adjust = rs.length - 1
     if limit
-      (limit / chunk_size).times do
+      count = limit / chunk_size
+      i = 0
+      while i < count
         if chunk = @file.read(limit)
           result << chunk
         end
+        i += 1
       end
       if (chunk = @file.read(limit % chunk_size))
         result << chunk
@@ -238,16 +285,20 @@ class File
 
   def write(*args)
     len = 0
-    args.each do |arg|
-      len += @file.write(arg.to_s)
+    i = 0
+    while i < args.size
+      len += @file.write(args[i].to_s)
+      i += 1
     end
     return len
   end
 
   def puts(*lines)
-    lines.each do |line|
-      @file.write line
+    i = 0
+    while i < lines.size
+      @file.write lines[i]
       @file.write "\n"
+      i += 1
     end
     return nil
   end

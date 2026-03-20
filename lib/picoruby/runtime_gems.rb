@@ -24,6 +24,8 @@ class RuntimeGems
     mrb_files = []
     FileUtils.mkdir_p(output_dir)
 
+    picorbc = MRuby.targets['host'].exefile("#{MRuby.targets['host'].build_dir}/bin/picorbc")
+
     # Check all gems for C source files
     gems.each do |gem|
       c_files = Dir.glob("#{gem.dir}/src/**/*.{c,cpp,cc,cxx,h,hpp}")
@@ -50,9 +52,9 @@ class RuntimeGems
         FileUtils.mkdir_p(mrb_dir)
         mrb_files << mrb_file
 
-        file mrb_file => rb_file do
+        file mrb_file => [rb_file, picorbc] do
           puts "  Compiling #{relative_path}..."
-          system("#{picorbcfile} -o #{mrb_file} #{rb_file}") or raise "Compilation failed for #{rb_file}"
+          system("#{picorbc} -o #{mrb_file} #{rb_file}") or raise "Compilation failed for #{rb_file}"
         end
       end
     end

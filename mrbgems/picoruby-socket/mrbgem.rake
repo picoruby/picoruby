@@ -84,6 +84,4 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
       spec.objs << obj
     end
   end
-
-  spec.posix
 end

@@ -115,6 +115,8 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
   } else {
     if (Net_get_ip(host, &addr) != 0) {
       D("UDPSocket_bind: failed to resolve host %s\n", host);
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): Name or service not known", host);
       return false;
     }
   }
@@ -138,6 +140,8 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
   ip_addr_t ip_addr;
   if (Net_get_ip(host, &ip_addr) != 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "getaddrinfo(\"%s\"): Name or service not known", host);
     return false;
   }
 
@@ -173,6 +177,10 @@ UDPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
 
   pbuf_free(pbuf);
 
+#ifdef PICO_CYW43_ARCH_POLL
+  cyw43_arch_poll();
+#endif
+
   return (err == ERR_OK) ? (ssize_t)len : -1;
 }
 
@@ -185,6 +193,8 @@ UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
 
   ip_addr_t ip_addr;
   if (Net_get_ip(host, &ip_addr) != 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "getaddrinfo(\"%s\"): Name or service not known", host);
     return -1;
   }
 
@@ -199,6 +209,10 @@ UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
 
   pbuf_free(pbuf);
 
+#ifdef PICO_CYW43_ARCH_POLL
+  cyw43_arch_poll();
+#endif
+
   return (err == ERR_OK) ? (ssize_t)len : -1;
 }
 
@@ -208,6 +222,10 @@ UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
                     char *host, size_t host_len, int *port)
 {
   if (!sock || !buf) return -1;
+
+#ifdef PICO_CYW43_ARCH_POLL
+  cyw43_arch_poll();
+#endif
 
   /* Check if data is available (non-blocking) */
   if (sock->recv_len == 0) {

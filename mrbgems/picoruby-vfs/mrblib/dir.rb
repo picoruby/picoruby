@@ -25,11 +25,13 @@ class Dir
         ary = [] #: Array[String]
         pattern = [pattern].flatten
         self.open(ENV['PWD'].to_s) do |dir|
-          pattern.each do |pat|
-            dir.pat = pat
+          pi = 0
+          while pi < pattern.size
+            dir.pat = pattern[pi]
             while entry = dir.findnext
               ary << entry
             end
+            pi += 1
           end
         end
         ary

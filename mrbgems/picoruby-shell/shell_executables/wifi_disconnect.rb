@@ -2,27 +2,27 @@
 #   Disconnect from the current WiFi network
 
 begin
-  require 'cyw43'
+  require 'network'
 rescue LoadError
-  puts "CYW43 not available"
+  puts "Network::WiFi not available"
   return
 end
 
-unless CYW43.initialized?
-  puts "CYW43 not initialized"
+unless Network::WiFi.initialized?
+  puts "Network::WiFi not initialized"
   return
 end
 
-unless CYW43.link_connected?
+unless Network::WiFi.link_connected?
   puts "WiFi not connected"
   return
 end
 
 puts "Disconnecting from WiFi..."
-if CYW43.disconnect
+if Network::WiFi.disconnect
   puts "Disconnected successfully"
-  puts "DHCP address released: #{!CYW43.dhcp_supplied?}"
-  puts "Link status: #{CYW43.link_connected? ? 'connected' : 'disconnected'}"
+  puts "DHCP address released: #{!Network::WiFi.dhcp_supplied?}"
+  puts "Link status: #{Network::WiFi.link_connected? ? 'connected' : 'disconnected'}"
 else
   puts "Failed to disconnect"
 end

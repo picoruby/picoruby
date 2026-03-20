@@ -7,7 +7,7 @@ class KeyboardMatrix
     unless block_given?
       raise ArgumentError, "A block is required to handle key events"
     end
-    loop do
+    while true
       if event = scan
         yield event
       end

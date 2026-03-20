@@ -1,7 +1,7 @@
 # Pico
 #led = GPIO.new(25, GPIO::OUT)
 
-# Pico W
+# for Pico W
 require "cyw43"
 CYW43.init
 led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)

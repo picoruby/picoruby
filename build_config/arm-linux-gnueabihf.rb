@@ -14,15 +14,14 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.linker.flags << '-Wl,-rpath,/usr/arm-linux-gnueabihf/lib'
   conf.archiver.command = 'arm-linux-gnueabihf-ar'
 
+  conf.cc.defines << "PICORB_PLATFORM_POSIX"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
-
   conf.cc.defines << "MRBC_NO_STDIO"
-  conf.cc.defines << "PICORUBY_INT64"
+  conf.cc.defines << "PICORB_INT64"
   conf.cc.defines << "MRBC_TICK_UNIT=4"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.posix
   conf.picoruby(alloc_libc: true)
 
   conf.gembox "minimum"

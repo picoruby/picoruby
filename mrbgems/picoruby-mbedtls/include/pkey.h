@@ -12,6 +12,8 @@ enum {
   PKEY_CREATE_MD_FAILED = 3,
   PKEY_VERIFY_FAILED = 4,
   PKEY_SIGN_FAILED = 5,
+  PKEY_ERR_KEY_TYPE_NOT_EC = 6,
+  PKEY_ERR_INVALID_CURVE = 7,
 };
 #define PKEY_SIGNATURE_MAX_SIZE (1024)
 
@@ -23,7 +25,9 @@ bool MbedTLS_pkey_is_public(void *ctx);
 bool MbedTLS_pkey_is_private(void *ctx);
 
 int MbedTLS_pkey_generate_rsa(void *ctx, int bits, long exponent, const unsigned char *pers, size_t pers_len);
+int MbedTLS_pkey_generate_ec(void *ctx, const char *curve_name, const unsigned char *pers, size_t pers_len);
 int MbedTLS_pkey_from_pem(void *ctx, const unsigned char *pem, size_t pem_len);
+int MbedTLS_pkey_from_pem_ec(void *ctx, const unsigned char *pem, size_t pem_len);
 int MbedTLS_pkey_to_pem(void *ctx, unsigned char *buf, size_t size);
 int MbedTLS_pkey_get_public_key(void *pub_ctx, void *prv_ctx);
 

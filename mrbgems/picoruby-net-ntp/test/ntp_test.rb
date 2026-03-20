@@ -9,7 +9,7 @@ class NTPTest < Picotest::Test
   def test_ntp_packet_to_binary
     packet = Net::NTP::Packet.new
     binary = packet.to_binary
-    assert_equal(48, binary.length)
+    assert_equal(48, binary.bytesize)
   end
 
   def test_ntp_packet_parse
@@ -44,11 +44,11 @@ class NTPTest < Picotest::Test
 
     # Check first byte (LI=0, VN=3, Mode=3)
     # 0b00_011_011 = 0x1B
-    first_byte = binary.bytes[0]
+    first_byte = binary.getbyte(0)
     assert_equal(0x1B, first_byte)
 
     # Verify packet length
-    assert_equal(48, binary.length)
+    assert_equal(48, binary.bytesize)
   end
 
   # Note: The following test requires external network connectivity

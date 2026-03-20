@@ -1,5 +1,5 @@
-#ifndef PICORB_SOCKET_H
-#define PICORB_SOCKET_H
+#ifndef PICORUBY_SOCKET_H
+#define PICORUBY_SOCKET_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -9,6 +9,8 @@
 #if defined(__linux__) || defined(__APPLE__) || defined(__unix__)
   #define PICORB_PLATFORM_POSIX 1
 #endif
+
+#define SOCKET_ERROR_MSG_LEN 128
 
 /* Socket structure for POSIX */
 #ifdef PICORB_PLATFORM_POSIX
@@ -21,6 +23,7 @@ typedef struct {
   bool closed;
   char remote_host[256];
   int remote_port;
+  char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
 } picorb_socket_t;
 #endif
 
@@ -53,6 +56,7 @@ typedef struct {
   /* For UDP recvfrom - store last sender info */
   char last_sender_host[256];
   int last_sender_port;
+  char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -77,6 +81,7 @@ bool TCPSocket_close(picorb_socket_t *sock);
 const char* TCPSocket_remote_host(picorb_socket_t *sock);
 int TCPSocket_remote_port(picorb_socket_t *sock);
 bool TCPSocket_closed(picorb_socket_t *sock);
+bool Socket_ready(picorb_socket_t *sock);
 
 /* UDP Socket API */
 bool UDPSocket_create(picorb_socket_t *sock);
@@ -163,6 +168,7 @@ ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t l
 ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
 bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock);
+bool SSLSocket_ready(picorb_ssl_socket_t *ssl_sock);
 const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock);
 int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock);
 
@@ -189,4 +195,4 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   extern const struct mrb_data_type mrb_socket_type;
 #endif
 
-#endif /* PICORB_SOCKET_H */
+#endif /* PICORUBY_SOCKET_H */

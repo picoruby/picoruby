@@ -1,4 +1,5 @@
 #include "../../include/socket.h"
+#include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -7,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/ioctl.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -51,22 +53,38 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   }
 
   /* Resolve hostname */
-  struct hostent *he = gethostbyname(host);
-  if (!he) {
-    close(sock->fd);
-    sock->fd = -1;
-    return false;
-  }
-
-  /* Setup address structure */
   struct sockaddr_in addr;
   memset(&addr, 0, sizeof(addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons(port);
-  memcpy(&addr.sin_addr, he->h_addr_list[0], he->h_length);
+
+  if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {
+    /* Not an IP address, try DNS resolution */
+    struct addrinfo hints;
+    struct addrinfo *res = NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int err = getaddrinfo(host, NULL, &hints, &res);
+    if (err != 0 || !res) {
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
+      close(sock->fd);
+      sock->fd = -1;
+      return false;
+    }
+
+    struct sockaddr_in *ai_addr = (struct sockaddr_in *)res->ai_addr;
+    addr.sin_addr = ai_addr->sin_addr;
+    freeaddrinfo(res);
+  }
 
   /* Connect */
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "connect(\"%s\":%d): %s", host, port, strerror(errno));
     close(sock->fd);
     sock->fd = -1;
     return false;
@@ -97,7 +115,10 @@ TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
   return sent;
 }
 
-/* Receive data */
+/* Receive data - blocks until len bytes are read or EOF/error.
+ * MSG_WAITALL tells the kernel to wait until the full request is satisfied,
+ * which avoids partial-read issues without requiring application-level loops
+ * or setsockopt calls between recv() invocations. */
 ssize_t
 TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
 {
@@ -105,17 +126,49 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
     return -1;
   }
 
-  ssize_t received = recv(sock->fd, buf, len, 0);
+#ifdef MSG_WAITALL
+  ssize_t received = recv(sock->fd, buf, len, MSG_WAITALL);
+#else
+  /* Fallback: loop until len bytes received or EOF/error. */
+  size_t total = 0;
+  char *p = (char *)buf;
+  while (total < len) {
+    ssize_t r = recv(sock->fd, p + total, len - total, 0);
+    if (r < 0) {
+      return -1;
+    }
+    if (r == 0) {
+      sock->connected = false;
+      return (ssize_t)total;
+    }
+    total += (size_t)r;
+  }
+  ssize_t received = (ssize_t)total;
+#endif
+
   if (received < 0) {
     return -1;
   }
-
-  /* EOF */
   if (received == 0) {
     sock->connected = false;
   }
-
   return received;
+}
+
+/* Check if data is ready to read */
+bool
+Socket_ready(picorb_socket_t *sock)
+{
+  if (!sock || sock->fd < 0 || sock->closed) {
+    return false;
+  }
+
+  int available = 0;
+  if (ioctl(sock->fd, FIONREAD, &available) < 0) {
+    return false;
+  }
+
+  return available > 0;
 }
 
 /* Close socket */

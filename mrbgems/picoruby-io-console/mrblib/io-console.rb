@@ -30,7 +30,10 @@ class IO
       rescue Interrupt
         return "\x03"
       end
-      next if c.nil?
+      if c.nil?
+        sleep_ms 1
+        next
+      end
       # @type var c: String
       return c
     end
@@ -43,15 +46,19 @@ class IO
     STDIN.read_nonblock(100) # discard buffer
     STDOUT.raw do
       STDOUT.print "\e[6n"
-      while true
+      timeout = 500
+      while timeout > 0
         c = STDIN.read_nonblock(1)&.ord || 0
         if 0x30 <= c && c <= 0x39 # "0".."9"
           row = row * 10 + c - 0x30
         elsif c == 0x3B # ";"
           break
+        elsif c == 0
+          sleep_ms 1
+          timeout -= 1
         end
       end
-      while true
+      while timeout > 0
         c = STDIN.read_nonblock(1)&.ord || 0
         # @type var c: Integer
         if 0x30 <= c && c <= 0x39
@@ -59,7 +66,10 @@ class IO
         elsif c == 0x52 # "R"
           break
         elsif c != 0
-          raise "Invalid cursor position response"
+          break
+        else
+          sleep_ms 1
+          timeout -= 1
         end
       end
     end
@@ -78,10 +88,13 @@ class IO
     res = ""
     STDIN.read_nonblock(100) # clear buffer
     STDOUT.print "\e[5n" # CSI DSR 5 to request terminal status report
-    (timeout * 1000).to_i.times do |i|
+    limit = (timeout * 1000).to_i
+    i = 0
+    while i < limit
       res << STDIN.read_nonblock(1).to_s
       break i if 3 < res.length
       sleep_ms 1
+      i += 1
     end
     ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb" #: String
   end

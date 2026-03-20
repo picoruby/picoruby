@@ -38,6 +38,41 @@ mrb_crc_s_crc32_from_address(mrb_state *mrb, mrb_value klass)
 }
 
 
+/*
+ * CRC.crc16(string = nil, crc = 0xFFFF) -> Integer
+ * CRC-16/CCITT (polynomial 0x1021, initial value 0xFFFF)
+ * when string is nil, returns the initial checksum value
+ */
+static mrb_value
+mrb_crc_s_crc16(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value string = mrb_nil_value();
+  mrb_int crc = 0xFFFF;
+  mrb_get_args(mrb, "|Si", &string, &crc);
+  if (mrb_nil_p(string)) {
+    return mrb_fixnum_value(0xFFFF);
+  }
+  uint16_t crc_value = generate_crc16((uint8_t *)RSTRING_PTR(string), (size_t)RSTRING_LEN(string), (uint16_t)crc);
+  return mrb_fixnum_value(crc_value);
+}
+
+/*
+ * CRC.crc16_from_address(address, length, crc = 0xFFFF) -> Integer
+ */
+static mrb_value
+mrb_crc_s_crc16_from_address(mrb_state *mrb, mrb_value klass)
+{
+  mrb_int address;
+  mrb_int length;
+  mrb_int crc = 0xFFFF;
+  mrb_get_args(mrb, "ii|i", &address, &length, &crc);
+  if (address == 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "Address must not be NULL");
+  }
+  uint16_t crc_value = generate_crc16((uint8_t *)((uintptr_t)address), (size_t)length, (uint16_t)crc);
+  return mrb_fixnum_value(crc_value);
+}
+
 void
 mrb_picoruby_crc_gem_init(mrb_state* mrb)
 {
@@ -45,6 +80,8 @@ mrb_picoruby_crc_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, module_CRC, MRB_SYM(crc32), mrb_crc_s_crc32, MRB_ARGS_OPT(2));
   mrb_define_class_method_id(mrb, module_CRC, MRB_SYM(crc32_from_address), mrb_crc_s_crc32_from_address, MRB_ARGS_ARG(2,1));
+  mrb_define_class_method_id(mrb, module_CRC, MRB_SYM(crc16), mrb_crc_s_crc16, MRB_ARGS_OPT(2));
+  mrb_define_class_method_id(mrb, module_CRC, MRB_SYM(crc16_from_address), mrb_crc_s_crc16_from_address, MRB_ARGS_ARG(2,1));
 }
 
 void

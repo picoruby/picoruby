@@ -9,6 +9,7 @@ module Marshal
   TYPE_TRUE      = 'T'
   TYPE_FALSE     = 'F'
   TYPE_FIXNUM    = 'i'
+  TYPE_FLOAT     = 'f'
   TYPE_STRING    = '"'
   TYPE_SYMBOL    = ':'
   TYPE_ARRAY     = '['
@@ -51,6 +52,9 @@ module Marshal
       when Integer
         # @type var obj: Integer
         dump_integer(obj)
+      when Float
+        # @type var obj: Float
+        dump_float(obj)
       when String
         # @type var obj: String
         dump_string(obj)
@@ -101,6 +105,11 @@ module Marshal
       end
     end
 
+    def dump_float(f)
+      str = f.to_s
+      TYPE_FLOAT + encode_fixnum(str.size) + str
+    end
+
     def dump_string(s)
       TYPE_STRING + encode_fixnum(s.bytesize) + s
     end
@@ -112,17 +121,23 @@ module Marshal
 
     def dump_array(ary)
       result = TYPE_ARRAY + encode_fixnum(ary.size)
-      ary.each do |elem|
-        result << dump_object(elem)
+      i = 0
+      while i < ary.size
+        result << dump_object(ary[i])
+        i += 1
       end
       result
     end
 
     def dump_hash(hash)
       result = TYPE_HASH + encode_fixnum(hash.size)
-      hash.each do |key, value|
+      keys = hash.keys
+      i = 0
+      while i < keys.size
+        key = keys[i]
         result << dump_object(key)
-        result << dump_object(value)
+        result << dump_object(hash[key])
+        i += 1
       end
       result
     end
@@ -130,7 +145,7 @@ module Marshal
     def load_object(data, pos)
       raise ArgumentError, "marshal data too short" if pos >= data.bytesize
 
-      type = (data.getbyte(pos) || 0).chr
+      type = [(data.getbyte(pos) || 0)].pack("C")
       pos += 1
 
       case type
@@ -142,6 +157,8 @@ module Marshal
         [false, pos]
       when TYPE_FIXNUM
         load_integer(data, pos)
+      when TYPE_FLOAT
+        load_float(data, pos)
       when TYPE_STRING
         load_string(data, pos)
       when TYPE_SYMBOL
@@ -225,6 +242,14 @@ module Marshal
       end
     end
 
+    def load_float(data, pos)
+      len, pos = decode_fixnum(data, pos)
+      raise ArgumentError, "marshal data too short" if pos + len > data.size
+      str = data[pos, len]
+      raise ArgumentError, "marshal data too short" if str.nil?
+      [str.to_f, pos + len]
+    end
+
     def load_string(data, pos)
       len, pos = decode_fixnum(data, pos)
       raise ArgumentError, "marshal data too short" if pos + len > data.bytesize
@@ -239,21 +264,35 @@ module Marshal
 
     def load_array(data, pos)
       len, pos = decode_fixnum(data, pos)
+<<<<<<< HEAD
       ary = [] #: Array[untyped]
       len.times do
+=======
+      ary = []
+      i = 0
+      while i < len
+>>>>>>> origin/master
         elem, pos = load_object(data, pos)
         ary << elem
+        i += 1
       end
       [ary, pos]
     end
 
     def load_hash(data, pos)
       len, pos = decode_fixnum(data, pos)
+<<<<<<< HEAD
       hash = {} #: Hash[untyped, untyped]
       len.times do
+=======
+      hash = {}
+      i = 0
+      while i < len
+>>>>>>> origin/master
         key, pos = load_object(data, pos)
         value, pos = load_object(data, pos)
         hash[key] = value
+        i += 1
       end
       [hash, pos]
     end
@@ -266,11 +305,13 @@ module Marshal
       num_ivars, pos = decode_fixnum(data, pos)
 
       # Skip instance variables (we just return the base object)
-      num_ivars.times do
+      i = 0
+      while i < num_ivars
         # Skip ivar name (symbol)
         _, pos = load_object(data, pos)
         # Skip ivar value
         _, pos = load_object(data, pos)
+        i += 1
       end
 
       [obj, pos]

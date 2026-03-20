@@ -48,7 +48,7 @@ UDPSocket_create(picorb_socket_t *sock)
 
   /* Set socket to non-blocking mode to prevent recvfrom from blocking forever */
   int flags = fcntl(sock->fd, F_GETFL, 0);
-  if (flags >= 0) {
+  if (0 <= flags) {
     fcntl(sock->fd, F_SETFL, flags | O_NONBLOCK);
   }
 
@@ -85,6 +85,8 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
 
       int err = getaddrinfo(host, NULL, &hints, &res);
       if (err != 0 || !res) {
+        snprintf(sock->errmsg, sizeof(sock->errmsg),
+                 "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
         return false;
       }
 
@@ -118,15 +120,29 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
   /* Try to parse as IP address */
   if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {
     /* Not an IP address, try DNS resolution */
-    struct hostent *he = gethostbyname(host);
-    if (!he) {
+    struct addrinfo hints;
+    struct addrinfo *res = NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    int err = getaddrinfo(host, NULL, &hints, &res);
+    if (err != 0 || !res) {
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
       return false;
     }
-    memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(struct in_addr));
+
+    struct sockaddr_in *ai_addr = (struct sockaddr_in *)res->ai_addr;
+    addr.sin_addr = ai_addr->sin_addr;
+    freeaddrinfo(res);
   }
 
   /* Connect socket (sets default destination) */
   if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    snprintf(sock->errmsg, sizeof(sock->errmsg),
+             "connect(\"%s\":%d): %s", host, port, strerror(errno));
     return false;
   }
 
@@ -176,11 +192,23 @@ UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
   /* Try to parse as IP address */
   if (inet_pton(AF_INET, host, &addr.sin_addr) != 1) {
     /* Not an IP address, try DNS resolution */
-    struct hostent *he = gethostbyname(host);
-    if (!he) {
+    struct addrinfo hints;
+    struct addrinfo *res = NULL;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    int err = getaddrinfo(host, NULL, &hints, &res);
+    if (err != 0 || !res) {
+      snprintf(sock->errmsg, sizeof(sock->errmsg),
+               "getaddrinfo(\"%s\"): %s", host, gai_strerror(err));
       return -1;
     }
-    memcpy(&addr.sin_addr, he->h_addr_list[0], sizeof(struct in_addr));
+
+    struct sockaddr_in *ai_addr = (struct sockaddr_in *)res->ai_addr;
+    addr.sin_addr = ai_addr->sin_addr;
+    freeaddrinfo(res);
   }
 
   ssize_t sent = sendto(sock->fd, data, len, 0,

@@ -1,0 +1,61 @@
+module JS
+  class WebSerial
+    @js_port: JS::Object
+    @opened: bool
+
+    # Returns true if the Web Serial API is available in this browser.
+    def self.supported?: () -> boolish
+
+    # Show the browser's port picker and return a JS::WebSerial wrapping the
+    # chosen port (or nil if the user cancelled).
+    # Yields the result to the block when a block is given.
+    def self.request_port: (?filters: Array[untyped]) -> JS::WebSerial?
+                         | (?filters: Array[untyped]) { (JS::WebSerial?) -> void } -> JS::WebSerial?
+
+    # Request a serial port and open it with one call.
+    # Yields the opened JS::WebSerial instance to the block.
+    def self.connect: (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) -> JS::WebSerial
+                    | (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) { (JS::WebSerial) -> void } -> JS::WebSerial
+
+    def self.new: (JS::Object js_port) -> JS::WebSerial
+
+    # Open the serial port with the given parameters.
+    # Yields self to the block once the port is open.
+    def open: (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) -> JS::WebSerial
+            | (?baud_rate: Integer, ?data_bits: Integer, ?stop_bits: Integer, ?parity: String) { (JS::WebSerial) -> void } -> JS::WebSerial
+    # Write a binary String to the serial port.
+    def write: (String str) -> nil
+    # Register a block to be called with each received binary String chunk.
+    def on_receive: () { (String data) -> void } -> nil
+    # Register a block to be called when the port disconnects.
+    def on_disconnect: () { () -> void } -> nil
+    # Close the serial port.
+    def close: () -> nil
+    def opened?: () -> bool
+    # Write bytes in chunks, returning a promise that resolves when flushed.
+    def write_bytes: (String bytes, ?chunk_size: Integer) -> JS::Object
+    # Wait for pending writes to flush (returns a Promise).
+    def drain: () -> JS::Object
+    # Pipe decoded serial text directly to an xterm.js terminal.
+    def start_terminal_read: () -> nil
+    # Start capturing serial output.
+    def self.capture_start: (JS::Object js_port) -> nil
+    # Peek at captured output without clearing it.
+    def self.capture_peek: (JS::Object js_port) -> String
+    # Stop capturing and return the captured output.
+    def self.capture_stop: (JS::Object js_port) -> String
+    def self.binary_capture_start: (JS::Object js_port) -> nil
+    def self.binary_capture_read: (JS::Object js_port, Integer max_bytes) -> String
+    def self.binary_capture_stop: (JS::Object js_port) -> nil
+
+    # Class methods for internal use by the JavaScript glue code.
+    def self._start_reading: (JS::Object js_port, Integer callback_id) -> nil
+    def self._set_on_disconnect: (JS::Object js_port, Integer callback_id) -> nil
+    def self._open_port: (JS::Object js_port, JS::Object options) -> JS::Object
+    def self._request_port: () -> JS::Object
+    def self._watch_connect_events: () -> nil
+    def self._take_last_connected_port: () -> JS::Object?
+    def self._close_port: (JS::Object js_port) -> nil
+    def self._close_port_promise: (JS::Object js_port) -> JS::Object
+  end
+end

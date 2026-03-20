@@ -11,6 +11,17 @@ end
 module Editor
   def self.get_screen_size: -> [Integer, Integer]
 
+  # UTF-8 helper methods
+  def self.utf8_byte_length: (Integer | nil lead_byte) -> Integer
+  def self.char_bytesize_at: (String str, Integer byte_pos) -> Integer
+  def self.prev_char_byte_pos: (String str, Integer byte_pos) -> Integer
+  def self.char_at_bytepos: (String str, Integer byte_pos) -> String?
+  def self.char_display_width: (String? ch) -> Integer
+  def self.display_width: (String str) -> Integer
+  def self.byte_to_display_col: (String str, Integer byte_pos) -> Integer
+  def self.display_col_to_byte: (String str, Integer col) -> Integer
+  def self.display_slice: (String str, Integer start_col, Integer max_width) -> String
+
   class Base
     @buffer: Editor::Buffer
     @prompt_margin: Integer
@@ -21,6 +32,7 @@ module Editor
     def put_buffer: (String | Symbol chr) -> void
     def dump_buffer: () -> String
     def clear_buffer: () -> void
+    def raw_takeover: () -> bool
     def clear: () -> void
     def home: () -> void
     def next_head: () -> void
@@ -57,18 +69,28 @@ module Editor
     @visual_cursor_y: Integer
     @footer_proc: untyped # FIXME:??? ^(self) -> void
     @cursor_proc: untyped # FIXME:??? ^(self) -> void
+    @redraw_mode: Symbol?
+    @cursor_line_wraps: Integer
 
     def initialize: () -> void
     attr_accessor footer_height: Integer
     attr_accessor quit_by_sigint: bool
+    attr_accessor redraw_mode: Symbol?
     def load_file_into_buffer: (untyped filepath) -> bool
     def save_file_from_buffer: (untyped filepath) -> String
     def refresh: -> void
+    def smart_refresh: -> void
+    def refresh_cursor_and_footer: -> void
+    def refresh_footer_only: -> void
+    def refresh_current_line: -> void
+    def dirty_to_mode: (Symbol dirty) -> Symbol
+    def update_cursor_line_wraps: -> void
     def refresh_cursor: () { (self) -> void } -> void
     def refresh_footer: () { (self) -> void } -> void
     def show_cursor: -> untyped
     def calculate_visual_cursor: -> void
-    def start: () { (self, Editor::Buffer, Integer) -> void }  -> void
+    def highlighted_segment: (String line, Integer lineno, Integer start_col, Integer max_width) -> String
+    def start: () { (self, Editor::Buffer, Integer, String?) -> void }  -> void
   end
 end
 

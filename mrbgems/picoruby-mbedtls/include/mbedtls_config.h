@@ -19,7 +19,7 @@
 * ```
 * MBEDTLS_DEBUG_C is required for this.
 */
-#ifdef PICORUBY_DEBUG
+#ifdef PICORB_DEBUG
 #define MBEDTLS_DEBUG_C
 #endif
 

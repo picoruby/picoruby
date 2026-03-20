@@ -130,6 +130,7 @@ class Rapicco
 
     # ---------------- class helper methods ------------------------
     def self.parse_attrs(str)
+<<<<<<< HEAD
       h = {} #: Hash[Symbol, String]
       str.tr(',', ' ').split(' ').each do |pair|
         eq = pair.index('=')
@@ -137,6 +138,20 @@ class Rapicco
         key = pair[0, eq]&.to_sym or raise
         val = pair[eq + 1, pair.length - eq - 1] or raise
         h[key] = val
+=======
+      h = {}
+      pairs = str.tr(',', ' ').split(' ')
+      pi = 0
+      while pi < pairs.size
+        pair = pairs[pi]
+        eq = pair.index('=')
+        if eq
+          key = pair[0, eq]&.to_sym
+          val = pair[eq + 1, pair.length - eq - 1]
+          h[key] = val
+        end
+        pi += 1
+>>>>>>> origin/master
       end
       h
     end

@@ -1,4 +1,6 @@
-class Machine
+$_signal_self_manage: bool
+
+module Machine
   def self.delay_ms: (Integer ms) -> Integer
   def self.busy_wait_ms: (Integer ms) -> Integer
   def self.sleep: (Integer | Float sec) -> Integer
@@ -7,12 +9,22 @@ class Machine
   def self.read_memory: (Integer address, Integer size) -> String
   def self.tud_task: () -> void
   def self.tud_mounted?: () -> bool
-  def self.mcu_name: () -> String
+  def self.posix?: () -> bool
   def self.set_hwclock: (Integer tv_sec) -> Integer
   def self.get_hwclock: () -> [Integer, Integer]
-  def self.exit: (Integer status) -> void
+  def self.exit: (?Integer status) -> void
   def self.debug_puts: (String str) -> nil
   def self.uptime_us: () -> Integer
   def self.board_millis: () -> Integer
   def self.uptime_formatted: () -> String
+  def self.reboot: (?Integer wait_ms) -> nil
+  def self.check_signal: () -> void
+  def self.signal_self_manage: () -> void
+  def self.pop_signal_self_manage: () -> bool
+  def self.wifi_available?: () -> bool
+  private def self._reboot: () -> nil
+end
+
+module Kernel
+  def exit: (?Integer status) -> void
 end

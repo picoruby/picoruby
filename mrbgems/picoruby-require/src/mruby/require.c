@@ -5,6 +5,7 @@
 #include <mruby/string.h>
 #include <mruby/variable.h>
 #include <mruby/presym.h>
+#include "version.h"
 #include <string.h>
 
 extern const char *prebuilt_gems[];
@@ -26,6 +27,15 @@ mrb_extern(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_require_gem_init(mrb_state* mrb)
 {
+  char platform[128];
+  char description[256];
+  Platform_name(platform, sizeof(platform));
+  picorb_description((const char *)platform, description, sizeof(description));
+  // RUBY_VERSION is defined in mruby
+  mrb_define_global_const(mrb, "PICORUBY_VERSION", mrb_str_new_static(mrb, picorb_version(), strlen(picorb_version())));
+  mrb_define_global_const(mrb, "RUBY_PLATFORM", mrb_str_new_cstr(mrb, platform));
+  mrb_define_global_const(mrb, "RUBY_DESCRIPTION", mrb_str_new_cstr(mrb, description));
+
   struct RClass *module_Kernel = mrb_define_module_id(mrb, MRB_SYM(Kernel));
 
   mrb_define_private_method_id(mrb, module_Kernel, MRB_SYM(extern), mrb_extern, MRB_ARGS_ARG(1,1));

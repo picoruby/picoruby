@@ -10,8 +10,15 @@ class RMT
   # private
 
   def params_to_array(*params)
+<<<<<<< HEAD
     ary = [] #: Array[Integer]
     params.each do |param|
+=======
+    ary = []
+    pi = 0
+    while pi < params.size
+      param = params[pi]
+>>>>>>> origin/master
       case param
       when Array
         # @type var param: Array[Integer]
@@ -22,6 +29,7 @@ class RMT
         # @type var param: String
         ary += param.bytes
       end
+      pi += 1
     end
     return ary
   end

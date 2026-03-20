@@ -1,6 +1,6 @@
 require 'keyboard_matrix'
 require 'usb/hid'
-
+require 'metaprog'
 
 # Keyboard class provides layer switching functionality
 # It wraps KeyboardMatrix and manages multiple layers (keymaps)
@@ -10,13 +10,14 @@ class Keyboard
 
   KC_NO = 0x00  # Transparent key - fallthrough to lower layer
 
-  def initialize(row_pins, col_pins, debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)
+  def initialize(row_pins, col_pins = [], debounce_ms: 5, keymap_rows: nil, keymap_cols: nil)
     @row_count = row_pins.size
     @col_count = col_pins.size
 
     # For split keyboards: keymap dimensions can differ from matrix dimensions
     @keymap_rows = keymap_rows || @row_count
-    @keymap_cols = keymap_cols || @col_count
+    # In direct mode (col_pins empty), each row has only 1 column
+    @keymap_cols = keymap_cols || (col_pins.empty? ? 1 : @col_count)
 
     # Layer management
     @layers = {}                # layer_name => keymap array
@@ -46,11 +47,54 @@ class Keyboard
     @matrix = KeyboardMatrix.new(row_pins, col_pins)
     @matrix.debounce_ms = debounce_ms
 
+    # Macro key management: array of strings, indexed by MC keycode
+    @macros = []
+
     # User callback for key events
     @callback = nil
   end
 
-  def add_layer(name, keymap)
+  attr_reader :layer_names, :layout, :keys_pressed
+
+  def layer(name = :default, &block)
+    unless block
+      raise ArgumentError, "block is required to define layer"
+    end
+    unless name.is_a?(Symbol)
+      raise ArgumentError, "Layer name must be a symbol"
+    end
+    @keymap = []
+    @layout = [] if @layout.nil?
+    instance_eval &block
+    add_layer(name, @keymap)
+  end
+
+  # Build keymap from row calls inside a layer block.
+  # For the first layer (@layer_names still empty), also build @layout.
+  # @layout includes V() vacancies for visual alignment; @keymap excludes them.
+  private def row(*keycodes)
+    @layout << keycodes.dup if @layer_names.empty?
+    ki = 0
+    while ki < keycodes.size
+      kc = keycodes[ki]
+      @keymap << kc if 0 <= kc
+      ki += 1
+    end
+  end
+
+  def get_layer(name)
+    @layers[name]
+  end
+
+  # Register a macro string and return its keycode
+  def add_macro(string)
+    raise ArgumentError, "Too many macros (max 256)" if 255 < @macros.size
+    index = @macros.size
+    @macros << string
+    MC(index)
+  end
+
+  private def add_layer(name, keymap)
     expected_size = @keymap_rows * @keymap_cols
     if keymap.size != expected_size
       raise ArgumentError, "Keymap size must be #{expected_size}, got #{keymap.size}"
@@ -90,21 +134,20 @@ class Keyboard
   end
 
   # Add a combo definition
-  # @param keycodes [Array<Integer>] Array of keycodes that trigger the combo
-  # @param action [Integer] Keycode to send when combo triggers
   def add_combo(keycodes, action)
-    unless keycodes.is_a?(Array) && keycodes.size >= 2
+    unless keycodes.is_a?(Array) && 2 <= keycodes.size
       raise ArgumentError, "Combo requires at least 2 keycodes"
     end
     @combos << {keycodes: keycodes.sort, action: action}
   end
 
   # Inject an external key event (for split keyboard support)
-  # @param row [Integer] Row index in keymap coordinates
-  # @param col [Integer] Column index in keymap coordinates
-  # @param pressed [Boolean] true for press, false for release
+  def on_tick(&block)
+    @on_tick = block
+  end
+
   def inject_event(row, col, pressed)
-    if row < 0 || row >= @keymap_rows || col < 0 || col >= @keymap_cols
+    if row < 0 || @keymap_rows <= row || col < 0 || @keymap_cols <= col
       raise ArgumentError, "Position (#{row}, #{col}) is out of keymap bounds (#{@keymap_rows}x#{@keymap_cols})"
     end
     @injected_events << {row: row, col: col, pressed: pressed}
@@ -117,7 +160,7 @@ class Keyboard
       raise "Callback block is required. Use on_key_event to set a callback."
     end
 
-    loop do
+    while true
       # Process injected events first (from split keyboard slave)
       while event = @injected_events.shift
         handle_event(event)
@@ -130,6 +173,7 @@ class Keyboard
       # Always update LT/MT tap key states, even without key events
       # This ensures tap threshold timeout is properly detected
       update_tap_hold_keys
+      @on_tick&.call(self)
       sleep_ms(1)
     end
   end
@@ -138,7 +182,7 @@ class Keyboard
 
   def is_modifier_key?(keycode)
     # USB HID modifier keys are in the range 0xE0-0xE7
-    keycode >= 0xE0 && keycode <= 0xE7
+    0xE0 <= keycode && keycode <= 0xE7
   end
 
   def handle_event(event)
@@ -188,6 +232,10 @@ class Keyboard
       handle_tg_key(layer_index, pressed)
       # TG keys don't generate key events
       return
+    elsif is_mc?(keycode)
+      # Macro: type string on press, ignore release
+      handle_mc_key(mc_index(keycode)) if pressed
+      return
     end
 
     # Combo handling (before normal key processing)
@@ -217,8 +265,11 @@ class Keyboard
 
     # Calculate accumulated modifier from all active keys
     accumulated_modifier = 0
-    @active_keys.each do |_, key_info|
-      accumulated_modifier |= key_info[:modifier]
+    ak_keys = @active_keys.keys
+    aki = 0
+    while aki < ak_keys.size
+      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
+      aki += 1
     end
 
     # Prepare keycode for USB HID: 0 on release, actual keycode on press
@@ -260,7 +311,10 @@ class Keyboard
     end
 
     # Search layers in priority order
-    priority_layers.each do |layer_index|
+    pli = 0
+    while pli < priority_layers.size
+      layer_index = priority_layers[pli]
+      pli += 1
       next unless layer_index && layer_index < @layer_names.size
 
       layer_name = @layer_names[layer_index]
@@ -270,11 +324,14 @@ class Keyboard
       keycode = keymap[index]
       next if keycode == KC_NO  # Transparent - try next layer
 
-      # Found a key - check if it's a modifier
+      # Found a key - check if it's a modifier or shifted keycode
       if is_modifier_key?(keycode)
         # Convert modifier keycode (0xE0-0xE7) to modifier bit (0x01-0x80)
         modifier_bit = 1 << (keycode - 0xE0)
         return [0, modifier_bit]  # Return (keycode=0, modifier=bit)
+      elsif is_sm?(keycode)
+        # SM: always send Left Shift + base keycode
+        return [sm_keycode(keycode), 0x02]  # 0x02 = LSFT modifier bit
       else
         return [keycode, 0]  # Return (keycode=keycode, modifier=0)
       end
@@ -498,11 +555,15 @@ class Keyboard
   def update_tap_hold_keys
     keys_to_delete = [] #: Array[[Integer, Integer]]
 
-    @tap_hold_keys.each do |key_pos, state|
+    th_keys = @tap_hold_keys.keys
+    thi = 0
+    while thi < th_keys.size
+      key_pos = th_keys[thi]
+      state = @tap_hold_keys[key_pos]
       case state[:state]
       when :pressed
         elapsed = Machine.board_millis - state[:pressed_at]
-        if elapsed >= @tap_threshold_ms || state[:other_key_pressed]
+        if @tap_threshold_ms <= elapsed || state[:other_key_pressed]
           state[:state] = :holding
           # Activate based on tap_type
           if state[:tap_type] == :layer
@@ -515,26 +576,34 @@ class Keyboard
       when :tapped
         # Check if repush threshold has expired
         elapsed = Machine.board_millis - state[:released_at]
-        if elapsed >= @repush_threshold_ms
+        if @repush_threshold_ms <= elapsed
           keys_to_delete << key_pos
         end
       end
+      thi += 1
     end
 
     # Safety: If no keys are physically pressed, clean up stuck states
     # (but keep :tapped state which is waiting for double-tap)
     if @keys_pressed.empty? && !@tap_hold_keys.empty?
-      @tap_hold_keys.each do |key_pos, state|
+      th_keys2 = @tap_hold_keys.keys
+      thi2 = 0
+      while thi2 < th_keys2.size
+        key_pos = th_keys2[thi2]
+        state = @tap_hold_keys[key_pos] # steep:ignore
         # Keep :tapped state (waiting for double-tap), clean up others
-        if state[:state] != :tapped
+        if state && state[:state] != :tapped
           keys_to_delete << key_pos
         end
+        thi2 += 1
       end
     end
 
     # Clean up keys marked for deletion
-    keys_to_delete.each do |key_pos|
-      @tap_hold_keys.delete(key_pos)
+    kdi = 0
+    while kdi < keys_to_delete.size
+      @tap_hold_keys.delete(keys_to_delete[kdi])
+      kdi += 1
     end
 
     # Clean up expired combo buffer entries
@@ -544,7 +613,11 @@ class Keyboard
   # Mark that another key was pressed (for tap/hold interruption)
   # Immediately activate layer/modifier when another key is pressed
   def mark_other_key_pressed
-    @tap_hold_keys.each do |key_pos, state|
+    th_keys = @tap_hold_keys.keys
+    thi = 0
+    while thi < th_keys.size
+      key_pos = th_keys[thi]
+      state = @tap_hold_keys[key_pos]
       if state[:state] == :pressed
         state[:other_key_pressed] = true
         state[:state] = :holding
@@ -555,6 +628,7 @@ class Keyboard
           activate_modifier(key_pos, state[:modifier_index])
         end
       end
+      thi += 1
     end
   end
 
@@ -578,8 +652,11 @@ class Keyboard
 
     # Send modifier state to USB HID
     accumulated_modifier = 0
-    @active_keys.each do |_, key_info|
-      accumulated_modifier |= key_info[:modifier]
+    ak_keys = @active_keys.keys
+    aki = 0
+    while aki < ak_keys.size
+      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
+      aki += 1
     end
 
     @callback&.call(
@@ -596,8 +673,11 @@ class Keyboard
 
     # Send modifier state to USB HID
     accumulated_modifier = 0
-    @active_keys.each do |_, key_info|
-      accumulated_modifier |= key_info[:modifier]
+    ak_keys = @active_keys.keys
+    aki = 0
+    while aki < ak_keys.size
+      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
+      aki += 1
     end
 
     @callback&.call(
@@ -661,16 +741,28 @@ class Keyboard
     best_match = nil
     best_match_size = 0
 
-    @combos.each do |combo|
+    ci = 0
+    while ci < @combos.size
+      combo = @combos[ci]
       combo_keycodes = combo[:keycodes]
       # Check if all combo keycodes are present in buffer
-      if combo_keycodes.all? { |kc| buffered_keycodes.include?(kc) }
+      all_present = true
+      cki = 0
+      while cki < combo_keycodes.size
+        unless buffered_keycodes.include?(combo_keycodes[cki])
+          all_present = false
+          break
+        end
+        cki += 1
+      end
+      if all_present
         # Prefer longer combos (more keys = higher priority)
-        if combo_keycodes.size > best_match_size
+        if best_match_size < combo_keycodes.size
           best_match = combo
           best_match_size = combo_keycodes.size
         end
       end
+      ci += 1
     end
 
     best_match
@@ -707,16 +799,23 @@ class Keyboard
     now = Machine.board_millis
     expired_entries = [] #: Array[Keyboard::combo_buffer_entry_t]
 
-    @combo_buffer.each do |entry|
-      if now - entry[:pressed_at] >= @combo_term_ms
+    cbi = 0
+    while cbi < @combo_buffer.size
+      entry = @combo_buffer[cbi]
+      if @combo_term_ms <= now - entry[:pressed_at]
         expired_entries << entry
       end
+      cbi += 1
     end
 
     # Flush expired entries (send original keycodes)
-    expired_entries.each do |entry|
+    ei = 0
+    while ei < expired_entries.size
+      entry = expired_entries[ei]
+      break if entry.nil?
       flush_buffered_key(entry)
       @combo_buffer.delete_if { |e| e[:key_pos] == entry[:key_pos] }
+      ei += 1
     end
   end
 
@@ -733,8 +832,11 @@ class Keyboard
 
     # Calculate accumulated modifier
     accumulated_modifier = 0
-    @active_keys.each do |_, key_info|
-      accumulated_modifier |= key_info[:modifier]
+    ak_keys = @active_keys.keys
+    aki = 0
+    while aki < ak_keys.size
+      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
+      aki += 1
     end
 
     # Send press event
@@ -752,15 +854,64 @@ class Keyboard
     @combo_buffer.any? { |entry| entry[:key_pos] == key_pos }
   end
 
+  # Type a macro string by sending individual key press/release events
+  def handle_mc_key(macro_index)
+    string = @macros[macro_index]
+    return unless string
+    ci = 0
+    while ci < string.length
+      char = string[ci] || ''
+      kc, mod = ascii_to_hid(char)
+      if kc
+        @callback&.call(row: 0, col: 0, keycode: kc, modifier: (mod || 0), pressed: true)
+        sleep_ms(10)
+        @callback&.call(row: 0, col: 0, keycode: 0, modifier: 0, pressed: false)
+        sleep_ms(10)
+      end
+      ci += 1
+    end
+  end
+
+  # Convert an ASCII character to [keycode, modifier] for USB HID
+  # Returns nil for unsupported characters
+  def ascii_to_hid(char)
+    c = char.ord
+    if 97 <= c && c <= 122     # 'a'..'z'
+      [KC_A + (c - 97), 0]
+    elsif 65 <= c && c <= 90   # 'A'..'Z'
+      [KC_A + (c - 65), 0x02]  # 0x02 = LSFT bit
+    elsif 49 <= c && c <= 57   # '1'..'9'
+      [KC_1 + (c - 49), 0]
+    else
+      case c
+      when 48  then [KC_0,      0]      # '0'
+      when 32  then [KC_SPACE,  0]      # ' '
+      when 46  then [KC_DOT,    0]      # '.'
+      when 45  then [KC_MINUS,  0]      # '-'
+      when 95  then [KC_MINUS,  0x02]   # '_'  Shift+-
+      when 47  then [KC_SLASH,  0]      # '/'
+      when 58  then [KC_SCOLON, 0x02]   # ':'  Shift+;
+      when 64  then [KC_2,      0x02]   # '@'  Shift+2
+      when 33  then [KC_1,      0x02]   # '!'  Shift+1
+      when 61  then [KC_EQUAL,  0]      # '='
+      when 10  then [KC_ENTER,  0]      # '\n'
+      when 9   then [KC_TAB,    0]      # '\t'
+      else nil
+      end
+    end
+  end
+
   # Handle release of a combo-buffered key
   def handle_combo_key_release(key_pos)
     # Find entry (mruby/c doesn't have Array#find)
     entry = nil
-    @combo_buffer.each do |e|
-      if e[:key_pos] == key_pos
-        entry = e
+    cbi = 0
+    while cbi < @combo_buffer.size
+      if @combo_buffer[cbi][:key_pos] == key_pos
+        entry = @combo_buffer[cbi]
         break
       end
+      cbi += 1
     end
     return if entry.nil?
 

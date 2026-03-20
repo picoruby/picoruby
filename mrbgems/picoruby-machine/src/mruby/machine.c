@@ -2,6 +2,16 @@
 #include "mruby/string.h"
 #include "mruby/presym.h"
 #include "mruby/array.h"
+#include "../../include/machine.h"
+#include "../../include/hal.h"
+#include "../../../picoruby-io-console/include/io-console.h"
+
+static inline void
+io_wait_for_input(mrb_state *mrb)
+{
+  Machine_tud_task();
+  mrb_hal_task_idle_cpu(mrb);
+}
 
 static mrb_value
 mrb_s_tud_task(mrb_state *mrb, mrb_value klass)
@@ -107,13 +117,6 @@ mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
   }
 }
 
-static mrb_value
-mrb_s_mcu_name(mrb_state *mrb, mrb_value klass)
-{
-  const char *name = Machine_mcu_name();
-  return mrb_str_new_cstr(mrb, name);
-}
-
 #if !defined(PICORB_PLATFORM_POSIX)
 #include <time.h>
 #endif
@@ -179,7 +182,6 @@ mrb_s_uptime_formatted(mrb_state *mrb, mrb_value self)
 }
 
 
-#if !defined(PICORB_PLATFORM_POSIX)
 static mrb_noreturn void
 raise_interrupt(mrb_state *mrb)
 {
@@ -194,7 +196,24 @@ raise_sigtstp(mrb_state *mrb)
   mrb_raise(mrb, class_SignalException, "SIGTSTP");
 }
 
+static mrb_value
+mrb_machine_check_signal(mrb_state *mrb, mrb_value self)
+{
+  io_raw_bang(true);
+  Machine_tud_task();
+  io_cooked_bang();
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_interrupt(mrb);
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_sigtstp(mrb);
+  }
+  return mrb_nil_value();
+}
 
+#if !defined(PICORB_PLATFORM_POSIX)
 static size_t
 print_sub(mrb_state *mrb, mrb_value obj)
 {
@@ -265,29 +284,26 @@ static mrb_value
 mrb_io_gets(mrb_state *mrb, mrb_value self)
 {
   mrb_value str = mrb_str_new(mrb, "", 0);
-  char buf[2];
-  buf[1] = '\0';
+  char buf[1];
   while (true) {
     int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
-      raise_interrupt(mrb); // mrb_noreturn
-    } else if (c == 26) { // Ctrl-Z
-      raise_sigtstp(mrb); // mrb_noreturn
-    } if (c == 27) { // ESC continue;
-    }
-    if (c == 8 || c == 127) { // Backspace
-      if (0 < RSTRING_LEN(str)) {
-        mrb_str_resize(mrb, str, RSTRING_LEN(str) - 1);
-        hal_write(1, "\b \b", 3);
+    if (c == 3) {
+      raise_interrupt(mrb);
+    } else if (c == 26) {
+      raise_sigtstp(mrb);
+    } else if (c == HAL_GETCHAR_EOF) {
+      if (RSTRING_LEN(str) == 0) {
+        return mrb_nil_value();
       }
-    } else
-    if (-1 < c) {
-      buf[0] = c;
-      mrb_str_cat(mrb, str, (const char *)buf, 1);
-      hal_write(1, buf, 1);
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
+      mrb_str_cat(mrb, str, buf, 1);
       if (c == '\n' || c == '\r') {
         break;
       }
+    } else {
+      io_wait_for_input(mrb);
     }
   }
   return str;
@@ -299,6 +315,59 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
   mrb_value str = mrb_io_gets(mrb, self);
   if (1 < RSTRING_LEN(str)) {
     mrb_str_resize(mrb, str, 1);
+  }
+  return str;
+}
+
+static mrb_value
+mrb_io_read(mrb_state *mrb, mrb_value self)
+{
+  mrb_int len = -1;
+  mrb_get_args(mrb, "|i", &len);
+  if (len == 0) {
+    return mrb_str_new(mrb, "", 0);
+  }
+  if (0 < len) {
+    /* Read exactly len bytes (or until EOF) */
+    mrb_value str = mrb_str_new(mrb, NULL, len);
+    char *buf = RSTRING_PTR(str);
+    mrb_int i;
+    for (i = 0; i < len; ) {
+      int c = hal_getchar();
+      if (c == 3) {
+        raise_interrupt(mrb);
+      } else if (c == 26) {
+        raise_sigtstp(mrb);
+      } else if (c == HAL_GETCHAR_EOF) {
+        break;
+      } else if (0 <= c) {
+        buf[i++] = (char)c;
+      } else {
+        io_wait_for_input(mrb);
+      }
+    }
+    if (i < len) {
+      mrb_str_resize(mrb, str, i);
+    }
+    return str;
+  }
+  /* No argument (or negative): read until EOF */
+  mrb_value str = mrb_str_new(mrb, "", 0);
+  char buf[1];
+  while (true) {
+    int c = hal_getchar();
+    if (c == 3) {
+      raise_interrupt(mrb);
+    } else if (c == 26) {
+      raise_sigtstp(mrb);
+    } else if (c == HAL_GETCHAR_EOF) {
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
+      mrb_str_cat(mrb, str, buf, 1);
+    } else {
+      io_wait_for_input(mrb);
+    }
   }
   return str;
 }
@@ -331,7 +400,18 @@ mrb_s_exit(mrb_state *mrb, mrb_value self)
   mrb_int status = 0;
   mrb_get_args(mrb, "|i", &status);
   Machine_exit(status);
-  return mrb_nil_value(); // This line will never be reached.
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_s__reboot(mrb_state *mrb, mrb_value self)
+{
+#if defined(PICORB_PLATFORM_POSIX)
+  Machine_reboot();
+#else
+  mrb_raise(mrb, E_NOTIMP_ERROR, "Machine._reboot is not supported on this platform");
+#endif
+  return mrb_nil_value();
 }
 
 void
@@ -339,35 +419,37 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
 {
   mrb_define_class_id(mrb, MRB_SYM(IOError), E_STANDARD_ERROR);
 
-  struct RClass *class_Machine = mrb_define_class_id(mrb, MRB_SYM(Machine), mrb->object_class);
+  struct RClass *module_Machine = mrb_define_module_id(mrb, MRB_SYM(Machine));
 
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(tud_task), mrb_s_tud_task, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM_Q(tud_mounted), mrb_s_tud_mounted_p, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(tud_task), mrb_s_tud_task, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM_Q(tud_mounted), mrb_s_tud_mounted_p, MRB_ARGS_NONE());
 
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(delay_ms), mrb_s_delay_ms, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(busy_wait_ms), mrb_s_busy_wait_ms, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(sleep), mrb_s_sleep, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(deep_sleep), mrb_s_deep_sleep, MRB_ARGS_REQ(3));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(stack_usage), mrb_s_stack_usage, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(mcu_name), mrb_s_mcu_name, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(delay_ms), mrb_s_delay_ms, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(busy_wait_ms), mrb_s_busy_wait_ms, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(sleep), mrb_s_sleep, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(deep_sleep), mrb_s_deep_sleep, MRB_ARGS_REQ(3));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(stack_usage), mrb_s_stack_usage, MRB_ARGS_NONE());
 
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_us), mrb_s_uptime_us, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(board_millis), mrb_s_board_millis, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(uptime_formatted), mrb_s_uptime_formatted, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(set_hwclock), mrb_s_set_hwclock, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(get_hwclock), mrb_s_get_hwclock, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(uptime_us), mrb_s_uptime_us, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(board_millis), mrb_s_board_millis, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(uptime_formatted), mrb_s_uptime_formatted, MRB_ARGS_NONE());
 
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_reboot), mrb_s__reboot, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(check_signal), mrb_machine_check_signal, MRB_ARGS_NONE());
 
 #if !defined(PICORB_PLATFORM_POSIX)
-  mrb_define_class_method_id(mrb, class_Machine, MRB_SYM(debug_puts), mrb_s_debug_puts, MRB_ARGS_ANY());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(debug_puts), mrb_s_debug_puts, MRB_ARGS_ANY());
 
   struct RClass *class_IO = mrb_define_class_id(mrb, MRB_SYM(IO), mrb->object_class);
   mrb_define_method_id(mrb, class_IO, MRB_SYM(puts), mrb_io_puts, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(print), mrb_io_print, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(write), mrb_io_write, MRB_ARGS_ANY());
+  mrb_define_method_id(mrb, class_IO, MRB_SYM(read), mrb_io_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif

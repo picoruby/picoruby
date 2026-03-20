@@ -56,7 +56,7 @@ update_tone_inc(int tr)
   } while (0)
 
 // AY compatible registors
-static void
+void
 PSG_write_reg(uint8_t reg, uint8_t val)
 {
   psg_cs_token_t tok = PSG_enter_critical();
@@ -196,6 +196,10 @@ bool
 PSG_rb_push(const psg_packet_t *p)
 {
   psg_cs_token_t t = PSG_enter_critical();
+  if (!rb.buf) {
+    PSG_exit_critical(t);
+    return false;  /* deinitialized */
+  }
   uint16_t next = (rb.head + 1) & PSG_PACKET_QUEUE_MASK;
   if (next == rb.tail) {
     PSG_exit_critical(t);
@@ -212,7 +216,7 @@ PSG_rb_push(const psg_packet_t *p)
 bool
 PSG_rb_peek(psg_packet_t *out)  // does not consume
 {
-  if (rb.tail == rb.head) return false;
+  if (!rb.buf || rb.tail == rb.head) return false;
   *out = rb.buf[rb.tail];
   return true;
 }
@@ -425,10 +429,10 @@ bool
 PSG_audio_cb(void)
 {
   if (psg_drv && psg_drv->write) {
-    if (((rd_idx + 1) & BUF_MASK) != wr_idx) {
-      uint32_t val = pcm_buf[rd_idx];
-      rd_idx = (rd_idx + 1) & BUF_MASK;
-      psg_drv->write(val>>16, val & 0xFFFF);
+    if (rd_idx != wr_idx) {
+      uint32_t val = pcm_buf[rd_idx & BUF_MASK];
+      rd_idx++;
+      psg_drv->write(val >> 16, val & 0xFFFF);
     }
   }
   return true;

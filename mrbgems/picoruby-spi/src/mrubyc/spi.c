@@ -226,7 +226,7 @@ c_cs_pin(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_s_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int unit_num = PICORUBY_SPI_BITBANG;
+  int unit_num = PICORB_SPI_BITBANG;
   if (strcmp((const char *)GET_STRING_ARG(1), "BITBANG") != 0) {
     unit_num = SPI_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
   }

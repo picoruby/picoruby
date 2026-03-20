@@ -156,7 +156,7 @@ class QuectelCellular
     end
 
     def configure_and_activate_context
-      [ 'ATE0', # echo off
+      cmds = [ 'ATE0', # echo off
         'AT+CCLK?', # check clock
         'AT+QHTTPCFG="contextid",1', # set context id
         'AT+QIACT?', # check context
@@ -169,9 +169,13 @@ class QuectelCellular
         "AT+QSSLCFG=\"cacert\",1,\"#{@cacert}\"", # set CA cert
         'AT+QHTTPCFG="responseheader",1', # enable response header
         'AT+QHTTPCFG="requestheader",1', # enable request header
-      ].each do |cmd|
+      ]
+      ci = 0
+      while ci < cmds.size
+        cmd = cmds[ci]
         command!(cmd, 'OK')
         puts @log.last
+        ci += 1
       end
     end
 
@@ -194,9 +198,11 @@ class QuectelCellular
       data_length = 0
       postdata.each { |line| data_length += line.length }
       command!("AT+QHTTPPOST=#{data_length},80,80", 'CONNECT')
-      postdata.each do |line|
-        @uart.write line
+      pdi = 0
+      while pdi < postdata.size
+        @uart.write postdata[pdi]
         sleep_ms 10
+        pdi += 1
       end
       res = uart_read
       if res.include?("NO CARRIER") || res.include?("CME ERROR")

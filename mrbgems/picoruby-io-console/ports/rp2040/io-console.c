@@ -38,11 +38,7 @@ void
 io_echo_eq(bool flag)
 {
   echo_mode_saved = echo_mode;
-  if (flag) {
-    echo_mode = false;
-  } else {
-    echo_mode = true;
-  }
+  echo_mode = flag;
 }
 
 bool

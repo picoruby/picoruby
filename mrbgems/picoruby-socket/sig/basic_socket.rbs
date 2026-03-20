@@ -1,3 +1,6 @@
+class SocketError < StandardError
+end
+
 class BasicSocket
   def puts: (*untyped args) -> nil
   def gets: (?String sep) -> String?
@@ -12,6 +15,7 @@ class BasicSocket
   def write: (String data) -> Integer
   def read: (Integer maxlen) -> String?
   def closed?: () -> bool
+  def ready?: () -> bool
   def close: () -> void
   def remote_host: () -> String
   def remote_port: () -> Integer

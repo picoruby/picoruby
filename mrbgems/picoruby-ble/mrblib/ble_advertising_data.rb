@@ -8,10 +8,12 @@ class BLE
 
     def add(type, *values)
       length_pos = @data.length
-      @data << 0.chr # dummy length
-      @data << type.chr
+      @data << [0].pack("C") # dummy length
+      @data << [type].pack("C")
       length = 1
-      values.each do |d|
+      vi = 0
+      while vi < values.size
+        d = values[vi]
         case d
         when String
           @data << d
@@ -21,7 +23,7 @@ class BLE
           length += 1
         when Integer
           while 0 < d
-            @data << (d & 0xff).chr
+            @data << [d & 0xff].pack("C")
             d >>= 8
             length += 1
           end
@@ -31,8 +33,9 @@ class BLE
         else
           raise ArgumentError, "invalid data type: `#{d}`"
         end
+        vi += 1
       end
-      @data[length_pos] = length.chr
+      @data[length_pos] = [length].pack("C")
     end
 
     def self.build(&block)

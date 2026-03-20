@@ -37,9 +37,12 @@ module Kernel
 
   def load_file(name_with_ext)
     path = ""
-    load_paths(name_with_ext).each do |load_path|
-      path = File.expand_path(name_with_ext, load_path)
+    lps = load_paths(name_with_ext)
+    lpi = 0
+    while lpi < lps.size
+      path = File.expand_path(name_with_ext, lps[lpi])
       File.file?(path) ? break : path = ""
+      lpi += 1
     end
     if path.empty?
       raise LoadError, "cannot load such file -- #{name_with_ext}"
@@ -57,13 +60,19 @@ module Kernel
   end
 
   def require_file(name)
-    load_paths(name).each do |load_path|
-      ["mrb", "rb"].each do |ext|
-        path = File.expand_path("#{name}.#{ext}", load_path)
+    lps = load_paths(name)
+    lpi = 0
+    while lpi < lps.size
+      exts = ["mrb", "rb"]
+      ei = 0
+      while ei < exts.size
+        path = File.expand_path("#{name}.#{exts[ei]}", lps[lpi])
         if File.file?(path)
           return (required?(path) ? false : load_file(path))
         end
+        ei += 1
       end
+      lpi += 1
     end
     raise LoadError, "cannot load such file -- #{name}"
   end

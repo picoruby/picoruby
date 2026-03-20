@@ -1,4 +1,6 @@
 #include "mrubyc.h"
+#include "../../include/machine.h"
+#include "../../../picoruby-io-console/include/io-console.h"
 
 
 static void
@@ -130,14 +132,6 @@ c_Machine_stack_usage(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-static void
-c_Machine_mcu_name(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  const char *name = Machine_mcu_name();
-  mrbc_value ret = mrbc_string_new_cstr(vm, name);
-  SET_RETURN(ret);
-}
-
 #if !defined(PICORB_PLATFORM_POSIX)
 #include <time.h>
 #endif
@@ -244,7 +238,17 @@ c_Machine_exit(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
-#if !defined(PICORB_PLATFORM_POSIX)
+static void
+c_Machine__reboot(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#if defined(PICORB_PLATFORM_POSIX)
+  Machine_reboot();
+#else
+  mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Machine.reboot is not available on this platform. Use Watchdog.reboot instead.");
+#endif
+  SET_NIL_RETURN();
+}
+
 static void
 raise_interrupt(mrbc_vm *vm)
 {
@@ -253,31 +257,52 @@ raise_interrupt(mrbc_vm *vm)
 }
 
 static void
+raise_sigtstp(mrbc_vm *vm)
+{
+  mrbc_class *cls = mrbc_get_class_by_name("SignalException");
+  mrbc_raise(vm, cls, "SIGTSTP");
+}
+
+static void
+c_machine_check_signal(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  io_raw_bang(true);
+  Machine_tud_task();
+  io_cooked_bang();
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_interrupt(vm);
+    return;
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    raise_sigtstp(vm);
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
+#if !defined(PICORB_PLATFORM_POSIX)
+static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrb_value str = mrbc_string_new(vm, NULL, 0);
+  mrbc_value str = mrbc_string_new(vm, NULL, 0);
   char buf[2];
   buf[1] = '\0';
   while (true) {
     int c = hal_getchar();
-    if (c == 3) { // Ctrl-C
+    if (c == 3) {
       raise_interrupt(vm);
       return;
-    }
-    if (c == 27) { // ESC
-      continue;
-    }
-    if (c == 8 || c == 127) { // Backspace
-      if (0 < str.string->size) {
-        str.string->size--;
-        mrbc_realloc(vm, str.string->data, str.string->size);
-        hal_write(1, "\b \b", 3);
+    } else if (c == HAL_GETCHAR_EOF) {
+      if (str.string->size == 0) {
+        SET_NIL_RETURN();
+        return;
       }
-    } else
-    if (-1 < c) {
-      buf[0] = c;
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
       mrbc_string_append_cstr(&str, buf);
-      hal_write(1, buf, 1);
       if (c == '\n' || c == '\r') {
         break;
       }
@@ -295,6 +320,60 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_realloc(vm, str.string->data, 1);
     str.string->size = 1;
   }
+}
+
+static void
+c_io_read(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc > 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  if (argc == 1) {
+    int len = GET_INT_ARG(1);
+    if (len < 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "negative length");
+      return;
+    }
+    if (len == 0) {
+      SET_RETURN(mrbc_string_new(vm, NULL, 0));
+      return;
+    }
+    /* Read exactly len bytes (or until EOF) */
+    uint8_t buf[len];
+    int i;
+    for (i = 0; i < len; ) {
+      int c = hal_getchar();
+      if (c == 3) {
+        raise_interrupt(vm);
+        return;
+      } else if (c == HAL_GETCHAR_EOF) {
+        break;
+      } else if (0 <= c) {
+        buf[i++] = (uint8_t)c;
+      }
+    }
+    mrbc_value str = mrbc_string_new(vm, buf, i);
+    SET_RETURN(str);
+    return;
+  }
+  /* No argument: read until EOF */
+  mrbc_value str = mrbc_string_new(vm, NULL, 0);
+  char buf[2];
+  buf[1] = '\0';
+  while (true) {
+    int c = hal_getchar();
+    if (c == 3) {
+      raise_interrupt(vm);
+      return;
+    } else if (c == HAL_GETCHAR_EOF) {
+      break;
+    } else if (0 <= c) {
+      buf[0] = (char)c;
+      mrbc_string_append_cstr(&str, buf);
+    }
+  }
+  SET_RETURN(str);
 }
 
 static void
@@ -336,31 +415,33 @@ c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
 void
 mrbc_machine_init(mrbc_vm *vm)
 {
-  mrbc_class *mrbc_class_Machine = mrbc_define_class(vm, "Machine", mrbc_class_object);
+  mrbc_class *module_Machine = mrbc_define_module(vm, "Machine");
 
-  mrbc_define_method(vm, mrbc_class_Machine, "tud_task", c_Machine_tud_task);
-  mrbc_define_method(vm, mrbc_class_Machine, "tud_mounted?", c_Machine_tud_mounted_q);
+  mrbc_define_method(vm, module_Machine, "tud_task", c_Machine_tud_task);
+  mrbc_define_method(vm, module_Machine, "tud_mounted?", c_Machine_tud_mounted_q);
 
-  mrbc_define_method(vm, mrbc_class_Machine, "delay_ms", c_Machine_delay_ms);
-  mrbc_define_method(vm, mrbc_class_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
-  mrbc_define_method(vm, mrbc_class_Machine, "sleep", c_Machine_sleep);
-  mrbc_define_method(vm, mrbc_class_Machine, "deep_sleep", c_Machine_deep_sleep);
-  mrbc_define_method(vm, mrbc_class_Machine, "unique_id", c_Machine_unique_id);
-  mrbc_define_method(vm, mrbc_class_Machine, "read_memory", c_Machine_read_memory);
-  mrbc_define_method(vm, mrbc_class_Machine, "stack_usage", c_Machine_stack_usage);
-  mrbc_define_method(vm, mrbc_class_Machine, "mcu_name", c_Machine_mcu_name);
+  mrbc_define_method(vm, module_Machine, "delay_ms", c_Machine_delay_ms);
+  mrbc_define_method(vm, module_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
+  mrbc_define_method(vm, module_Machine, "sleep", c_Machine_sleep);
+  mrbc_define_method(vm, module_Machine, "deep_sleep", c_Machine_deep_sleep);
+  mrbc_define_method(vm, module_Machine, "unique_id", c_Machine_unique_id);
+  mrbc_define_method(vm, module_Machine, "read_memory", c_Machine_read_memory);
+  mrbc_define_method(vm, module_Machine, "stack_usage", c_Machine_stack_usage);
 
-  mrbc_define_method(vm, mrbc_class_Machine, "set_hwclock", c_Machine_set_hwclock);
-  mrbc_define_method(vm, mrbc_class_Machine, "get_hwclock", c_Machine_get_hwclock);
-  mrbc_define_method(vm, mrbc_class_Machine, "uptime_us", c_Machine_uptime_us);
-  mrbc_define_method(vm, mrbc_class_Machine, "board_millis", c_Machine_board_millis);
-  mrbc_define_method(vm, mrbc_class_Machine, "uptime_formatted", c_Machine_uptime_formatted);
+  mrbc_define_method(vm, module_Machine, "set_hwclock", c_Machine_set_hwclock);
+  mrbc_define_method(vm, module_Machine, "get_hwclock", c_Machine_get_hwclock);
+  mrbc_define_method(vm, module_Machine, "uptime_us", c_Machine_uptime_us);
+  mrbc_define_method(vm, module_Machine, "board_millis", c_Machine_board_millis);
+  mrbc_define_method(vm, module_Machine, "uptime_formatted", c_Machine_uptime_formatted);
 
-  mrbc_define_method(vm, mrbc_class_Machine, "exit", c_Machine_exit);
-  mrbc_define_method(vm, mrbc_class_Machine, "debug_puts", c_Machine_debug_puts);
+  mrbc_define_method(vm, module_Machine, "exit", c_Machine_exit);
+  mrbc_define_method(vm, module_Machine, "_reboot", c_Machine__reboot);
+  mrbc_define_method(vm, module_Machine, "debug_puts", c_Machine_debug_puts);
+  mrbc_define_method(vm, module_Machine, "check_signal", c_machine_check_signal);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);
+  mrbc_define_method(vm, class_IO, "read", c_io_read);
   mrbc_define_method(vm, class_IO, "gets", c_gets);
   mrbc_define_method(vm, class_IO, "getc", c_getc);
   mrbc_define_method(vm, class_IO, "write", c_io_write);

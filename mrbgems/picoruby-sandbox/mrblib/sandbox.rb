@@ -1,4 +1,3 @@
-require 'io/console'
 require 'metaprog' if RUBY_ENGINE == 'mruby/c'
 
 class Sandbox
@@ -7,7 +6,7 @@ class Sandbox
 
   def wait(timeout: TIMEOUT)
     sleep_ms 5
-    signal_self_manage = ENV.delete('SIGNAL_SELF_MANAGE')
+    signal_self_manage = Machine.pop_signal_self_manage
     loop(timeout, signal_self_manage)
   end
 
@@ -15,7 +14,8 @@ class Sandbox
     f = File.open(path, "r")
     # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
     # See Shell#setup_system_files
-    if f.respond_to?(:physical_address) && (f.size < f.sector_size || path.start_with?("/bin/"))
+    # SD card files (/sd/) are not memory-mapped, so physical_address cannot be used
+    if f.respond_to?(:physical_address) && !path.start_with?("/sd/") && (f.size < f.sector_size || path.start_with?("/bin/"))
       physical_address = f.physical_address
       rb = ""
       is_rite = (Machine.read_memory(physical_address, 8) == "RITE0300")
@@ -54,7 +54,7 @@ class Sandbox
   def loop(timeout, signal_self_manage)
     n = 5
     while self.state != :DORMANT && self.state != :SUSPENDED do
-      STDIN.read_nonblock(1) unless signal_self_manage
+      Machine.check_signal unless signal_self_manage
       sleep_ms 5
       if timeout
         n += 5

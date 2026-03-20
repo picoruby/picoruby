@@ -6,5 +6,8 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-uart'
   conf.gem core: 'picoruby-pwm'
   conf.gem core: 'picoruby-irq'
+  if %w(pico pico2 pico_w pico2_w).include?(ENV['PICORB_BOARD'])
+    conf.gem core: 'picoruby-pio'
+  end
 end
 

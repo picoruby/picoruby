@@ -436,7 +436,7 @@ class Keyboard
   DRIVE_NAME = "PRK DRIVE"
 
   def self.mount_volume
-    case PICORUBY_MSC
+    case PICORB_MSC
     when "NO_MSC"
       return
     when "MSC_FLASH"
@@ -493,7 +493,7 @@ class Keyboard
     end
     puts "==============================================="
     puts PRK_DESCRIPTION
-    puts "PICORUBY_MSC: #{PICORUBY_MSC}"
+    puts "PICORB_MSC: #{PICORB_MSC}"
     puts "prk-conf: #{USB.prk_conf}"
     puts "==============================================="
     $keyboard_sandbox ||= Sandbox.new

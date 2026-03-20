@@ -84,6 +84,4 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
       f.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
     end
   end
-
-  spec.posix
 end

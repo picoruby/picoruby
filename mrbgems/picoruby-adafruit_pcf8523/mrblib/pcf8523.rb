@@ -50,7 +50,7 @@ class PCF8523
     if yy < 0 || 99 < yy
       raise ArgumentError.new("out of range :year. (expected 2000..2099)")
     end
-    [
+    time_values = [
       ((time.sec  / 10) << 4) | (time.sec  % 10),
       ((time.min  / 10) << 4) | (time.min  % 10),
       ((time.hour / 10) << 4) | (time.hour % 10),
@@ -58,8 +58,11 @@ class PCF8523
       time.wday,
       ((time.mon  / 10) << 4) | (time.mon  % 10),
       ((yy        / 10) << 4) | (yy        % 10),
-    ].each_with_index do |value, i|
-      @i2c.write(ADDRESS, i + 3, value)
+    ]
+    ti = 0
+    while ti < time_values.size
+      @i2c.write(ADDRESS, ti + 3, time_values[ti])
+      ti += 1
     end
     time
   end

@@ -33,6 +33,7 @@ struct picorb_ssl_context {
 
 /* SSL socket structure */
 struct picorb_ssl_socket {
+  picorb_socket_t *base_socket;   /* For buffer compatibility */
   picorb_ssl_context_t *ssl_ctx;
   mbedtls_net_context net_ctx;
   mbedtls_ssl_context ssl;
@@ -352,6 +353,15 @@ bool
 SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
 {
   return !ssl_sock || ssl_sock->state != SSL_STATE_CONNECTED;
+}
+
+bool
+SSLSocket_ready(picorb_ssl_socket_t *ssl_sock)
+{
+  if (!ssl_sock || !ssl_sock->base_socket) {
+    return false;
+  }
+  return Socket_ready(ssl_sock->base_socket);
 }
 
 const char*

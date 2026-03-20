@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="test.css">
+    <style>
+      #input-area { margin: 10px 0; }
+      #input-area label { display: block; margin: 5px 0; }
+      #input-area input { width: 400px; font-family: monospace; padding: 4px; }
+      #output { white-space: pre-wrap; font-family: monospace; background: #f4f4f4; padding: 10px; margin: 10px 0; min-height: 100px; border: 1px solid #ccc; }
+      .pass { color: green; }
+      .fail { color: red; }
+    </style>
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>Regular Expressions</h1>
+
+    <h2>Interactive</h2>
+    <div id="input-area">
+      <label>Pattern: <input id="pattern" type="text" value="(\w+)\s(\w+)"></label>
+      <label>Flags: <input id="flags" type="text" value="i"></label>
+      <label>String: <input id="subject" type="text" value="Hello World"></label>
+      <button id="run">Match</button>
+    </div>
+    <div id="output"></div>
+
+    <h2>Test Suite</h2>
+    <button id="run-tests">Run Tests</button>
+    <div id="test-output"></div>
+
+    <script type="text/ruby">
+      require 'js'
+
+      output = JS.document.getElementById('output')
+      test_output = JS.document.getElementById('test-output')
+
+      def format_match(md)
+        lines = []
+        lines << "Full match: #{md[0].inspect}"
+        lines << "Index:      #{md.regexp =~ md.string}"
+        lines << "Captures:   #{md.captures.inspect}"
+        lines << "Length:     #{md.length}"
+        lines << "Pre-match:  #{md.pre_match.inspect}"
+        lines << "Post-match: #{md.post_match.inspect}"
+        lines << "Begin(0):   #{md.begin(0)}"
+        lines << "End(0):     #{md.end(0)}"
+        i = 1
+        while i < md.length
+          lines << "  [#{i}]: #{md[i].inspect} begin=#{md.begin(i)} end=#{md.end(i)}"
+          i += 1
+        end
+        lines.join("\n")
+      end
+
+      JS.document.getElementById('run').addEventListener('click') do |event|
+        pattern = JS.document.getElementById('pattern').value.to_s
+        flags   = JS.document.getElementById('flags').value.to_s
+        subject = JS.document.getElementById('subject').value.to_s
+
+        begin
+          re = Regexp.new(pattern, flags)
+          md = re.match(subject)
+          if md
+            output.textContent = "Regexp: #{re.inspect}\n\n#{format_match(md)}"
+          else
+            output.textContent = "Regexp: #{re.inspect}\n\nNo match."
+          end
+        rescue => e
+          output.textContent = "Error: #{e.message}"
+        end
+      end
+
+      def assert_equal(expected, actual, label)
+        if expected == actual
+          "<span class='pass'>PASS</span> #{label}"
+        else
+          "<span class='fail'>FAIL</span> #{label}\n  expected: #{expected.inspect}\n  actual:   #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run-tests').addEventListener('click') do |event|
+        results = []
+
+        # Literal-style constructor
+        re = Regexp.compile("(\\w+)\\s(\\w+)", "i")
+        md = re.match("Hello World")
+        results << assert_equal("Hello World", md[0], "full match")
+        results << assert_equal("Hello", md[1], "capture 1")
+        results << assert_equal("World", md[2], "capture 2")
+        results << assert_equal(["Hello", "World"], md.captures, "captures")
+        results << assert_equal(3, md.length, "length")
+        results << assert_equal("", md.pre_match, "pre_match")
+        results << assert_equal("", md.post_match, "post_match")
+        results << assert_equal(0, md.begin(0), "begin(0)")
+        results << assert_equal(11, md.end(0), "end(0)")
+
+        # Regexp.new with integer flags
+        re2 = Regexp.new("hello", Regexp::IGNORECASE)
+        results << assert_equal(true, re2.match?("HELLO"), "match? with IGNORECASE")
+        results << assert_equal(true, re2.casefold?, "casefold?")
+        results << assert_equal(1, re2.options, "options")
+
+        # =~ operator
+        re3 = Regexp.new("ell")
+        results << assert_equal(1, re3 =~ "hello", "=~ match index")
+
+        # No match
+        results << assert_equal(nil, re3 =~ "world", "=~ no match returns nil")
+        results << assert_equal(nil, re3.match("world"), "match returns nil on no match")
+        results << assert_equal(false, re3.match?("world"), "match? returns false")
+
+        # String#match
+        md2 = "foo123bar".match(Regexp.new("(\\d+)"))
+        results << assert_equal("123", md2[1], "String#match capture")
+        results << assert_equal("foo", md2.pre_match, "String#match pre_match")
+        results << assert_equal("bar", md2.post_match, "String#match post_match")
+
+        # String#=~
+        results << assert_equal(1, "hello" =~ Regexp.new("ell"), "String#=~")
+
+        # String#match?
+        results << assert_equal(true, "hello".match?("ell"), "String#match? with string")
+
+        # source and inspect
+        re4 = Regexp.new("abc", "im")
+        results << assert_equal("abc", re4.source, "source")
+
+        # to_a
+        md3 = Regexp.new("(a)(b)(c)").match("abc")
+        results << assert_equal(["abc", "a", "b", "c"], md3.to_a, "to_a")
+
+        # to_s
+        results << assert_equal("abc", md3.to_s, "MatchData#to_s")
+
+        # MatchData#string returns frozen original
+        results << assert_equal("abc", md3.string, "MatchData#string")
+
+        # Optional capture (no match for group)
+        md4 = Regexp.new("(a)(b)?(c)").match("ac")
+        results << assert_equal(nil, md4[2], "optional capture returns nil")
+        results << assert_equal(["a", nil, "c"], md4.captures, "captures with nil")
+
+        # Constants
+        results << assert_equal(1, Regexp::IGNORECASE, "IGNORECASE constant")
+        results << assert_equal(2, Regexp::EXTENDED, "EXTENDED constant")
+        results << assert_equal(4, Regexp::MULTILINE, "MULTILINE constant")
+
+        pass_count = 0
+        fail_count = 0
+        results.each do |r|
+          if r.include?("PASS")
+            pass_count += 1
+          else
+            fail_count += 1
+          end
+        end
+
+        summary = "<b>#{pass_count} passed, #{fail_count} failed</b>\n\n"
+        test_output.innerHTML = summary + results.join("\n")
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>

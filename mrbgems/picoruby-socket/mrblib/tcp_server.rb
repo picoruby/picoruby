@@ -76,7 +76,7 @@ class TCPServer
   #     client.close
   #   end
   def accept_loop
-    loop do
+    while true
       client = accept
       yield client
     end

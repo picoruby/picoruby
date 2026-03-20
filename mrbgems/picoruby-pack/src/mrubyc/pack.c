@@ -111,6 +111,18 @@ c_pack_helper_pack_array(mrbc_vm *vm, mrbc_value *v, int argc)
       case 'L': case 'l': case 'N': case 'V':
         estimated_size += 4;
         break;
+      case 'a': case 'A':
+        {
+          /* Estimate: count bytes (look ahead for count digits) */
+          int est = 0;
+          int j = i + 1;
+          while (j < format_len && format[j] >= '0' && format[j] <= '9') {
+            est = est * 10 + (format[j] - '0');
+            j++;
+          }
+          estimated_size += (est > 0) ? est : 1;
+        }
+        break;
       case '*':
         estimated_size += array_len * 4; /* Rough estimate */
         break;
@@ -153,8 +165,9 @@ c_pack_helper_pack_array(mrbc_vm *vm, mrbc_value *v, int argc)
       continue;
     }
 
-    /* Parse count */
-    int count = parse_count(format, &format_index, array_len - args_index);
+    /* Parse count: for a/A, count is byte width (not clamped to array size) */
+    int max_count = (directive == 'a' || directive == 'A') ? INT32_MAX : (array_len - args_index);
+    int count = parse_count(format, &format_index, max_count);
     bool use_all = false;
 
     /* Check for '*' modifier */
@@ -162,6 +175,47 @@ c_pack_helper_pack_array(mrbc_vm *vm, mrbc_value *v, int argc)
       use_all = true;
       count = array_len - args_index;
       format_index++;
+    }
+
+    /* Handle string directives (a/A) separately: count = byte width, not repeat */
+    if (directive == 'a' || directive == 'A') {
+      if (args_index >= array_len) {
+        mrbc_raise(vm, MRBC_CLASS(ArgumentError), "too few arguments");
+        if (needs_free) mrbc_free(vm, buffer);
+        return;
+      }
+      mrbc_value arg = mrbc_array_get(array, args_index);
+      args_index++;
+      if (arg.tt != MRBC_TT_STRING) {
+        mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be String for a/A");
+        if (needs_free) mrbc_free(vm, buffer);
+        return;
+      }
+      int src_len = arg.string->size;
+      int copy_len = (src_len < count) ? src_len : count;
+      /* Ensure we have enough space */
+      while (buffer_size + count > buffer_capacity) {
+        int new_capacity = buffer_capacity * 2;
+        uint8_t *new_buffer = (uint8_t *)mrbc_alloc(vm, new_capacity);
+        if (!new_buffer) {
+          mrbc_raise(vm, MRBC_CLASS(StandardError), "failed to allocate memory");
+          if (needs_free) mrbc_free(vm, buffer);
+          return;
+        }
+        memcpy(new_buffer, buffer, buffer_size);
+        if (needs_free) mrbc_free(vm, buffer);
+        buffer = new_buffer;
+        buffer_capacity = new_capacity;
+        needs_free = true;
+      }
+      memcpy(&buffer[buffer_size], arg.string->data, copy_len);
+      /* Pad remaining bytes */
+      uint8_t pad = (directive == 'A') ? ' ' : '\0';
+      for (int i = copy_len; i < count; i++) {
+        buffer[buffer_size + i] = pad;
+      }
+      buffer_size += count;
+      continue;
     }
 
     /* Process directive */
@@ -387,7 +441,28 @@ c_pack_helper_unpack_string(mrbc_vm *vm, mrbc_value *v, int argc)
         case 'L': case 'l': case 'N': case 'V':
           count = (data_len - data_index) / 4;
           break;
+        case 'a': case 'A':
+          count = data_len - data_index;
+          break;
       }
+    }
+
+    /* Handle string directives (a/A) separately: count = byte width */
+    if (directive == 'a' || directive == 'A') {
+      CHECK_DATA_SIZE(count);
+      int str_len = count;
+      if (directive == 'A') {
+        /* Strip trailing nulls and spaces */
+        while (str_len > 0 &&
+               (data[data_index + str_len - 1] == '\0' ||
+                data[data_index + str_len - 1] == ' ')) {
+          str_len--;
+        }
+      }
+      mrbc_value val = mrbc_string_new(vm, &data[data_index], str_len);
+      mrbc_array_push(&result, &val);
+      data_index += count;
+      continue;
     }
 
     /* Process directive */

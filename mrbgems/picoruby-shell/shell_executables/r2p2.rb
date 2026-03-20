@@ -1,13 +1,10 @@
-if ENV['WIFI_MODULE'] == "cwy43"
+if Machine.wifi_available?
   if Shell.get_device(:gpio, 'TRIGGER_NMBLE')&.low?
     load "/bin/nmble"
   end
   ARGV[0] = "--check-auto-connect"
   load "/bin/wifi_connect"
   ARGV.clear
-  if CYW43.initialized?
-    load "/bin/ntpdate"
-  end
 end
 
 if File.exist?("#{ENV['HOME']}/app.mrb")
@@ -17,5 +14,12 @@ elsif File.exist?("#{ENV['HOME']}/app.rb")
   puts "Loading app.rb"
   load "#{ENV['HOME']}/app.rb"
 else
-  puts "No app.(mrb|rb) found"
+  require 'dfu'
+  app = DFU::BootManager.resolve
+  if app
+    puts "Loading #{app}"
+    load app
+  else
+    puts "No app found"
+  end
 end

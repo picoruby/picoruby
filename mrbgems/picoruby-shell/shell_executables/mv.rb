@@ -1,4 +1,4 @@
-unless ARGV.count == 2
+unless ARGV.size == 2
   puts "Usage: mv source_file target_file"
   return
 end

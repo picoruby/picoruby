@@ -29,7 +29,7 @@ prb_time_gettime_us(void)
   if (v->tt == MRBC_TT_NIL) {
     return 0;
   }
-  PICORUBY_TIME * data = (PICORUBY_TIME *)v[0].instance->data;
+  PICORB_TIME * data = (PICORB_TIME *)v[0].instance->data;
   mrbc_int_t ret = data->unixtime_us;
   mrbc_decref(&v[0]);
   return ret;

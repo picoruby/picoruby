@@ -7,6 +7,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#if !defined(_WIN32) && !defined(_WIN64)
+#include <termios.h>
+#include <unistd.h>
+
+static struct termios orig_termios;
+
+static void
+restore_termios(void)
+{
+  tcsetattr(0, TCSANOW, &orig_termios);
+}
+#endif
 
 #if defined(PICORB_VM_MRUBY)
 #define EXECUTABLE_NAME "microruby"
@@ -98,7 +110,11 @@ struct options {
 static void
 picorb_show_version(void)
 {
-  fprintf(stdout, EXECUTABLE_NAME " %s\n", PICORUBY_VERSION);
+#if defined(PICORB_VM_MRUBY)
+  printf("microruby %s\n", picorb_version_with_build_info());
+#elif defined(PICORB_VM_MRUBYC)
+  printf("picoruby %s\n", picorb_version_with_build_info());
+#endif
 }
 
 static void
@@ -442,11 +458,13 @@ int
 main(int argc, char **argv)
 {
   mrb_state *vm = NULL;
+#if !defined(_WIN32) && !defined(_WIN64)
+  if (isatty(0)) {
+    tcgetattr(0, &orig_termios);
+    atexit(restore_termios);
+  }
+#endif
   picorb_vm_init();
-
-  /* Define PICORUBY_VERSION cont */
-  picorb_value version = picorb_string_new(vm, PICORUBY_VERSION, strlen(PICORUBY_VERSION));
-  picorb_define_const(vm, "PICORUBY_VERSION", version);
 
   int n = -1;
   struct _args args;

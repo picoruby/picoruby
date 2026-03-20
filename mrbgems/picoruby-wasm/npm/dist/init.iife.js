@@ -43,14 +43,27 @@
     window.picorubyModule = Module;
 
     Module.picorubyRun = function() {
-      const tickTimer = setInterval(() => {
-        Module.ccall('mrb_tick_wasm', null, [], []);
-      }, 17); // 16.67ms: optimize for 60fps
-
+      const MRB_TICK_UNIT = 4; // Must match the value in build_config/picoruby-wasm.rb
+      const BATCH_DURATION = 16; // ~1 frame (16.67ms)
+      const MAX_CATCHUP_TICKS = 10; // Cap to avoid freeze when tab returns from background
+      let lastTick = performance.now();
       function run() {
-        const result = Module.ccall('mrb_run_step', 'number', [], []);
-        if (result < 0) {
-          return;
+        const now = performance.now();
+        let tickCount = 0;
+        while (now - lastTick >= MRB_TICK_UNIT && tickCount < MAX_CATCHUP_TICKS) {
+          Module._mrb_tick_wasm();
+          lastTick += MRB_TICK_UNIT;
+          tickCount++;
+        }
+        if (now - lastTick >= MRB_TICK_UNIT) {
+          lastTick = now;
+        }
+        const sliceStart = performance.now();
+        while (performance.now() - sliceStart < BATCH_DURATION) {
+          const result = Module._mrb_run_step();
+          if (result < 0) {
+            console.error('mrb_run_step returned', result, '- scheduler continues');
+          }
         }
         setTimeout(run, 0);
       }

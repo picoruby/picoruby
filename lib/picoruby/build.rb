@@ -49,6 +49,21 @@ module MRuby
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/include"
       cc.defines << "PICORB_VM_MRUBY"
       cc.defines << "MRB_USE_TASK_SCHEDULER"
+
+      timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+      branch = `git branch --show-current`.strip
+      commit_hash = `git log -1 --format=%h`.strip
+      build_date = Time.now.utc.strftime("%Y-%m-%d")
+
+      File.write(
+        "#{MRUBY_ROOT}/src/version.c",
+        File.read("#{MRUBY_ROOT}/src/version.c.in")
+            .gsub('@PICORB_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORB_COMMIT_BRANCH@', branch)
+            .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
+            .gsub('@PICORB_BUILD_DATE@', build_date)
+      )
+
       debug_flag
     end
 
@@ -57,13 +72,13 @@ module MRuby
       disable_presym
 
       # Override by environment variable
-      alloc_libc = false if ENV["PICORUBY_NO_LIBC_ALLOC"]
+      alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
 
       cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
-      cc.defines << "MRBC_INT64" if cc.defines.include?("PICORUBY_INT64")
+      cc.defines << "MRBC_INT64" if cc.defines.include?("PICORB_INT64")
       %w(MRBC_USE_MATH=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|
         key, _value = define.split("=")
         cc.defines << define if cc.defines.none? { _1.start_with? key }
@@ -72,13 +87,15 @@ module MRuby
       timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
       branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
+      build_date = Time.now.utc.strftime("%Y-%m-%d")
 
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
-            .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
+            .gsub('@PICORB_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORB_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
+            .gsub('@PICORB_BUILD_DATE@', build_date)
       )
 
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
@@ -90,12 +107,12 @@ module MRuby
       debug_flag
     end
 
-    def posix
-      cc.defines << "PICORB_PLATFORM_POSIX"
-    end
-
     def posix?
       cc.defines.include?("PICORB_PLATFORM_POSIX")
+    end
+
+    def wasm?
+      ENV['CONFIG'] == 'picoruby-wasm' || ENV['MRUBY_CONFIG'] == 'picoruby-wasm'
     end
 
     def generate_package_json_from_template(template_path, output_path)
@@ -110,8 +127,8 @@ module MRuby
     private def debug_flag
       cc.flags.flatten!
       cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }
-      if ENV["PICORUBY_DEBUG"]
-        cc.defines << "PICORUBY_DEBUG=1"
+      if ENV["PICORB_DEBUG"]
+        cc.defines << "PICORB_DEBUG=1"
         cc.flags << "-O0"
         cc.flags << "-g3"
         cc.flags << "-fno-inline"
@@ -136,18 +153,11 @@ module MRuby
     class Specification
       attr_accessor :require_name
 
-      def define_gem_init_builder
-        file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
-          mkdir_p build_dir
-          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
-            rbfiles.clear
-          end
-          generate_gem_init("#{build_dir}/gem_init.c")
-        end
-      end
-
-      def posix
+      alias_method :original_setup_compilers, :setup_compilers
+      def setup_compilers
+        original_setup_compilers
         return unless cc.build.posix?
+        # setup for POSIX
         ["posix", "common"].each do |subdir|
           Dir.glob("#{dir}/ports/#{subdir}/**/*.c").each do |src|
             obj = objfile(src.pathmap("#{build_dir}/ports/#{subdir}/%n"))
@@ -156,6 +166,16 @@ module MRuby
               cc.run f.name, f.prerequisites.first
             end
           end
+        end
+      end
+
+      def define_gem_init_builder
+        file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
+          mkdir_p build_dir
+          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
+            rbfiles.clear
+          end
+          generate_gem_init("#{build_dir}/gem_init.c")
         end
       end
     end

@@ -7,6 +7,9 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
 
   toolchain :clang
 
+  conf.cc.defines << 'PICORB_PLATFORM_WASM'
+  conf.cc.defines << "PICORB_PLATFORM_POSIX"
+
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
@@ -19,9 +22,6 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
 
   # Set executable extension to .js (generates both .js and .wasm)
   conf.exts.executable = '.js'
-
-  conf.posix
-  conf.microruby
 
   # Compiler gems
   conf.gem core: "mruby-compiler2"

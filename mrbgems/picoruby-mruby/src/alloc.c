@@ -8,7 +8,7 @@
 
 #include "../lib/tlsf/tlsf.h"
 
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
 static size_t peak_usage = 0;
 static size_t current_usage = 0;
 #endif
@@ -42,7 +42,7 @@ mrb_tlsf_walker(void *ptr, size_t size, int used, void *user)
 static void *
 mrb_tlsf_allocf(mrb_state *mrb, void *p, size_t size, void *tlsf)
 {
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
   if (size == 0) {
     current_usage -= tlsf_block_size(p);
     tlsf_free(tlsf, p);
@@ -77,14 +77,14 @@ mrb_alloc_statistics(mrb_state *mrb)
   struct walker_data data = { 0, 0, 0, 0, NULL };
   tlsf_t tlsf = (tlsf_t)mrb->allocf_ud;
   tlsf_walk_pool(tlsf_get_pool(tlsf), mrb_tlsf_walker, &data);
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
   mrb_value hash = mrb_hash_new_capa(mrb, 6);
 #else
   mrb_value hash = mrb_hash_new_capa(mrb, 5);
 #endif
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(MRB_SYM(TLSF)));
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(total)), mrb_fixnum_value(data.total));
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(peak)), mrb_fixnum_value(peak_usage));
 #endif
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(used)), mrb_fixnum_value(data.used));
@@ -282,7 +282,7 @@ mrb_open_with_custom_alloc(void* mem, size_t bytes)
 
 #include <malloc.h>
 
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
 
 static size_t peak_usage = 0;
 static size_t current_usage = 0;
@@ -336,7 +336,7 @@ mrb_alloc_statistics(mrb_state *mrb)
 {
   mrb_value hash = mrb_hash_new_capa(mrb, 1);
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(MRB_SYM(DEFAULT)));
-#if defined(PICORUBY_DEBUG)
+#if defined(PICORB_DEBUG)
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(peak)), mrb_fixnum_value(peak_usage));
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(current)), mrb_fixnum_value(current_usage));
 #endif

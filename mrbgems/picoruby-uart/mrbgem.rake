@@ -4,6 +4,7 @@ MRuby::Gem::Specification.new('picoruby-uart') do |spec|
   spec.summary = 'UART class / General peripherals'
 
   spec.add_dependency 'picoruby-gpio'
-  spec.posix
+  spec.add_dependency 'picoruby-machine'
+  spec.cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
 end
 

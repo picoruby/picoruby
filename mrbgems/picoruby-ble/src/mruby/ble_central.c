@@ -1,5 +1,6 @@
 #include "mruby.h"
 #include "mruby/presym.h"
+#include "mruby/string.h"
 
 static mrb_value
 mrb_discover_primary_services(mrb_state *mrb, mrb_value self)
@@ -47,6 +48,36 @@ mrb_discover_characteristic_descriptors(mrb_state *mrb, mrb_value self)
     (uint16_t)conn_handle,
     (uint16_t)value_handle,
     (uint16_t)end_handle
+  );
+  return mrb_fixnum_value(res);
+}
+
+static mrb_value
+mrb_write_value_of_characteristic_without_response(mrb_state *mrb, mrb_value self)
+{
+  mrb_int conn_handle, value_handle;
+  mrb_value data;
+  mrb_get_args(mrb, "iiS", &conn_handle, &value_handle, &data);
+  uint8_t res = BLE_write_value_of_characteristic_without_response(
+    (uint16_t)conn_handle,
+    (uint16_t)value_handle,
+    (const uint8_t *)RSTRING_PTR(data),
+    (uint16_t)RSTRING_LEN(data)
+  );
+  return mrb_fixnum_value(res);
+}
+
+static mrb_value
+mrb_write_characteristic_descriptor_using_descriptor_handle(mrb_state *mrb, mrb_value self)
+{
+  mrb_int conn_handle, descriptor_handle;
+  mrb_value data;
+  mrb_get_args(mrb, "iiS", &conn_handle, &descriptor_handle, &data);
+  uint8_t res = BLE_write_characteristic_descriptor_using_descriptor_handle(
+    (uint16_t)conn_handle,
+    (uint16_t)descriptor_handle,
+    (const uint8_t *)RSTRING_PTR(data),
+    (uint16_t)RSTRING_LEN(data)
   );
   return mrb_fixnum_value(res);
 }
@@ -115,5 +146,7 @@ mrb_init_class_BLE_Central(mrb_state *mrb, struct RClass *class_BLE)
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(discover_characteristics_for_service), mrb_discover_characteristics_for_service, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(read_value_of_characteristic_using_value_handle), mrb_read_value_of_characteristic_using_value_handle, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(discover_characteristic_descriptors), mrb_discover_characteristic_descriptors, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(write_value_of_characteristic_without_response), mrb_write_value_of_characteristic_without_response, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_BLE, MRB_SYM(write_characteristic_descriptor_using_descriptor_handle), mrb_write_characteristic_descriptor_using_descriptor_handle, MRB_ARGS_REQ(3));
 }
 

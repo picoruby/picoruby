@@ -50,9 +50,20 @@ class SQLite3
       row = @stmt.step
       return nil if @stmt.done? || row.nil?
       if @db.results_as_hash
+<<<<<<< HEAD
         row_hash = {} #: Hash[String, untyped]
         @stmt.columns&.each_with_index do |column, i|
           row_hash[column] = row[i]
+=======
+        row_hash = {}
+        columns = @stmt.columns
+        if columns
+          ci = 0
+          while ci < columns.size
+            row_hash[columns[ci]] = row[ci]
+            ci += 1
+          end
+>>>>>>> origin/master
         end
         row_hash
       else

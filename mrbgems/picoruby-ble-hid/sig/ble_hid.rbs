@@ -1,0 +1,98 @@
+class BLE
+  class HID < BLE
+    GAP_APPEARANCE_UUID: Integer
+    DEVICE_INFORMATION_UUID: Integer
+    PNP_ID_UUID: Integer
+    BATTERY_SERVICE_UUID: Integer
+    BATTERY_LEVEL_UUID: Integer
+    HID_SERVICE_UUID: Integer
+    HID_INFORMATION_UUID: Integer
+    HID_REPORT_MAP_UUID: Integer
+    HID_REPORT_UUID: Integer
+    HID_CONTROL_POINT_UUID: Integer
+    PROTOCOL_MODE_UUID: Integer
+    REPORT_REFERENCE_DESCRIPTOR: Integer
+
+    REPORT_TYPE_INPUT: Integer
+    REPORT_TYPE_OUTPUT: Integer
+
+    BLUETOOTH_DATA_TYPE_FLAGS: Integer
+    BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS: Integer
+    BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME: Integer
+    BLUETOOTH_DATA_TYPE_APPEARANCE: Integer
+    APP_AD_FLAGS: Integer
+    APPEARANCE_KEYBOARD: Integer
+
+    BTSTACK_EVENT_STATE: Integer
+    HCI_EVENT_DISCONNECTION_COMPLETE: Integer
+    ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
+    ATT_EVENT_CAN_SEND_NOW: Integer
+
+    HID_INFORMATION_VALUE: String
+    PNP_ID_VALUE: String
+
+    KEYBOARD_REPORT_MAP: String
+    CONSUMER_REPORT_MAP: String
+    MOUSE_REPORT_MAP: String
+
+    @mouse_enabled: bool
+    @consumer_enabled: bool
+    @connected: bool
+    @advertising_started: bool
+    @adv_data: String
+
+    @keyboard_report: String
+    @consumer_report: String
+    @mouse_report: String
+    @battery_level: Integer
+    @led_state: Integer
+
+    @keyboard_notify: bool
+    @consumer_notify: bool
+    @mouse_notify: bool
+    @battery_notify: bool
+
+    @keyboard_pending: bool
+    @consumer_pending: bool
+    @mouse_pending: bool
+
+    @keyboard_input_handle: Integer
+    @keyboard_cccd_handle: Integer
+    @keyboard_output_handle: Integer
+    @battery_handle: Integer
+    @battery_cccd_handle: Integer
+    @consumer_input_handle: Integer | nil
+    @consumer_cccd_handle: Integer | nil
+    @mouse_input_handle: Integer | nil
+    @mouse_cccd_handle: Integer | nil
+
+    @user_block: (^() -> void | nil)
+
+    def initialize: (
+      ?name: String,
+      ?mouse: bool,
+      ?consumer: bool
+    ) -> void
+
+    def keyboard_send: (Integer modifier, Integer keycode) -> bool
+    def keyboard_release: () -> bool
+    def keyboard_led_state: () -> Integer
+    def mouse_move: (Integer x, Integer y, ?Integer wheel, ?Integer buttons) -> bool
+    def media_send: (Integer code) -> bool
+    def send_key: (Integer keycode, ?Integer modifier) -> bool
+    def connected?: () -> bool
+    def battery_level=: (Integer level) -> Integer
+
+    def start: (?Integer? timeout_ms) ?{ () -> void } -> Integer
+    def heartbeat_callback: () -> void
+    def packet_callback: (String event_packet) -> void
+
+    private def _start_advertise: () -> void
+    private def _check_cccd: () -> void
+    private def _check_output_report: () -> void
+    private def _push_battery_level: () -> void
+    private def _request_send: () -> void
+    private def _flush_reports: () -> void
+    private def _build_report_map: () -> String
+  end
+end

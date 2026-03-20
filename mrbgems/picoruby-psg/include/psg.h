@@ -169,6 +169,9 @@ void PSG_tick_start_core1(uint8_t p1, uint8_t p2);
 void PSG_tick_stop_core1(void);
 void PSG_tick_1ms(void);
 
+// Direct register write (bypasses ring buffer, immediate)
+void PSG_write_reg(uint8_t reg, uint8_t val);
+
 // Packet dispatcher
 void PSG_process_packet(const psg_packet_t *pkt);
 

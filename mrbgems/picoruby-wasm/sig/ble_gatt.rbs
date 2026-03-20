@@ -1,0 +1,74 @@
+module JS
+  module BLE
+    # C helpers for binary data conversion
+    def self._dataview_to_string: (JS::Object js_dataview) -> String
+    def self._string_to_uint8array: (String data) -> JS::Object
+    def self._set_notify_handler: (JS::Object js_char, Integer callback_id) -> nil
+
+    module GATT
+      # Convert "0xffe0" to Integer, pass through full UUIDs
+      def self.normalize_uuid: (String uuid) -> (Integer | String)
+
+      # Build JS array from Ruby array of UUID strings
+      def self.uuids_to_js_array: (Array[String] uuids) -> JS::Object
+
+      # Request a BLE device via browser picker (must be called from user gesture)
+      def self.request_device: (
+        ?name: String,
+        ?name_prefix: String,
+        ?services: Array[String],
+        ?optional_services: Array[String]
+      ) -> JS::BLE::GATT::Device?
+
+      class Device
+        attr_reader js_device: JS::Object
+        attr_reader name: String?
+
+        # Connect to the GATT server on this device
+        def connect: () -> JS::BLE::GATT::Server?
+
+        # Disconnect from the GATT server
+        def disconnect: () -> void
+
+        # Whether the device is currently connected
+        def connected?: () -> bool
+
+        # Register a callback for disconnection events
+        def on_disconnected: () { () -> void } -> void
+      end
+
+      class Server
+        attr_reader js_server: JS::Object
+
+        # Get a primary service by UUID string
+        def service: (String uuid) -> JS::BLE::GATT::Service?
+      end
+
+      class Service
+        attr_reader js_service: JS::Object
+
+        # Get a characteristic by UUID string
+        def characteristic: (String uuid) -> JS::BLE::GATT::Characteristic?
+      end
+
+      class Characteristic
+        attr_reader js_char: JS::Object
+
+        # Read the characteristic value (binary String)
+        def read: () -> String?
+
+        # Write data to the characteristic
+        def write: (String data, ?without_response: bool) -> void
+
+        # Register a notification callback (data is binary String)
+        def on_change: () { (String data) -> void } -> void
+
+        # Start receiving notifications
+        def start_notify: () -> void
+
+        # Stop receiving notifications
+        def stop_notify: () -> void
+      end
+    end
+  end
+end

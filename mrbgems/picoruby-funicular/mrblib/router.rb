@@ -14,29 +14,29 @@ module Funicular
     end
 
     # Rails-style DSL methods
-    def get(path, to:, as: nil)
-      add_route_with_method(:get, path, to, as)
+    def get(path, to:, as: nil, constraints: nil)
+      add_route_with_method(:get, path, to, as, constraints)
     end
 
-    def post(path, to:, as: nil)
-      add_route_with_method(:post, path, to, as)
+    def post(path, to:, as: nil, constraints: nil)
+      add_route_with_method(:post, path, to, as, constraints)
     end
 
-    def put(path, to:, as: nil)
-      add_route_with_method(:put, path, to, as)
+    def put(path, to:, as: nil, constraints: nil)
+      add_route_with_method(:put, path, to, as, constraints)
     end
 
-    def patch(path, to:, as: nil)
-      add_route_with_method(:patch, path, to, as)
+    def patch(path, to:, as: nil, constraints: nil)
+      add_route_with_method(:patch, path, to, as, constraints)
     end
 
-    def delete(path, to:, as: nil)
-      add_route_with_method(:delete, path, to, as)
+    def delete(path, to:, as: nil, constraints: nil)
+      add_route_with_method(:delete, path, to, as, constraints)
     end
 
     # Add a route (backward compatibility)
-    def add_route(path, component_class, as: nil)
-      add_route_with_method(:get, path, component_class, as)
+    def add_route(path, component_class, as: nil, constraints: nil)
+      add_route_with_method(:get, path, component_class, as, constraints)
     end
 
     # Set default route (used when path is empty)
@@ -125,14 +125,15 @@ module Funicular
 
     private
 
-    def add_route_with_method(method, path, component_class, name = '')
+    def add_route_with_method(method, path, component_class, name = '', constraints = nil)
       pattern_segments = path.split('/').reject { |s| s.empty? }
       route = {
         method: method,
         path: path,
         component: component_class,
         name: name,
-        pattern_segments: pattern_segments
+        pattern_segments: pattern_segments,
+        constraints: constraints || {}
       }
       # @type var route: Funicular::route_definition_t
       @routes << route
@@ -182,6 +183,7 @@ module Funicular
     end
 
     def extract_param_names(path_pattern)
+<<<<<<< HEAD
       param_names = [] #: Array[Symbol]
       i = 0
       while i < path_pattern.length
@@ -205,6 +207,13 @@ module Funicular
         end
       end
       param_names
+=======
+      path_pattern.split('/').select { |s|
+        s.start_with?(':')
+      }.map {
+        |s| s[1..-1]&.to_sym
+      }.compact
+>>>>>>> origin/master
     end
 
     def find_route(path)
@@ -224,6 +233,11 @@ module Funicular
             param_name = pattern_segment[1..-1]&.to_sym
             if param_name.nil?
               raise "Invalid parameter name in route pattern: #{route[:path]}"
+            end
+            constraint = route[:constraints][param_name]
+            if constraint && !constraint.match?(path_segment)
+              match = false
+              break
             end
             params[param_name] = path_segment
           elsif pattern_segment != path_segment

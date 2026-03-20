@@ -9,7 +9,7 @@ class FAT
   def self.unixtime_offset=: (Integer) -> Integer
 
   type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
-  type driver_t = nil|SPI
+  type driver_t = nil|SPI|SDMMC
 
   class Stat
     LABEL: String
@@ -44,6 +44,7 @@ class FAT
   private def _chmod: (Integer mode, String path) -> 0
 
   def self.init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+  def self.init_sdmmc: (Integer clk_pin, Integer cmd_pin, Integer d0_pin) -> 0
   def getfree: (String path) -> Integer
 
   private def _mkfs: (String path) -> self

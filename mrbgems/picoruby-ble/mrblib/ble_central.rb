@@ -163,11 +163,14 @@ class BLE
             value: nil,
             descriptors: []
           }
-          @services.each do |service|
+          si = 0
+          while si < @services.size
+            service = @services[si]
             if service[:start_handle] < start_handle && end_handle <= service[:end_handle]
               service[:characteristics] << characteristic
-              break []
+              break
             end
+            si += 1
           end
           @value_handles << value_handle
           if value_handle < end_handle
@@ -190,13 +193,21 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT"
-          @services.each do |service|
-            service[:characteristics].each do |chara|
+          si = 0
+          found = false
+          while si < @services.size && !found
+            service = @services[si]
+            ci = 0
+            while ci < service[:characteristics].size
+              chara = service[:characteristics][ci]
               if chara[:value_handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
                 chara[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
-                break []
+                found = true
+                break
               end
+              ci += 1
             end
+            si += 1
           end
           if value_handle = @value_handles.shift
             read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
@@ -216,8 +227,12 @@ class BLE
           debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
           handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
           uuid128 = Utils.reverse_128(event_packet.byteslice(6, 16))
-          @services.each do |service|
-            service[:characteristics].each do |chara|
+          si = 0
+          while si < @services.size
+            service = @services[si]
+            ci = 0
+            while ci < service[:characteristics].size
+              chara = service[:characteristics][ci]
               if chara[:value_handle] < handle && handle <= chara[:end_handle]
                 chara[:descriptors] << {
                   handle: handle,
@@ -226,7 +241,9 @@ class BLE
                   value: nil
                 }
               end
+              ci += 1
             end
+            si += 1
           end
           @descriptor_handles << handle
         when GATT_EVENT_QUERY_COMPLETE
@@ -245,15 +262,26 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
-          @services.each do |service|
-            service[:characteristics].each do |chara|
-              chara[:descriptors].each do |descriptor|
+          si = 0
+          found = false
+          while si < @services.size && !found
+            service = @services[si]
+            ci = 0
+            while ci < service[:characteristics].size && !found
+              chara = service[:characteristics][ci]
+              di = 0
+              while di < chara[:descriptors].size
+                descriptor = chara[:descriptors][di]
                 if descriptor[:handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
                   descriptor[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
-                  break []
+                  found = true
+                  break
                 end
+                di += 1
               end
+              ci += 1
             end
+            si += 1
           end
           if descriptor_handle = @descriptor_handles.shift
             # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.

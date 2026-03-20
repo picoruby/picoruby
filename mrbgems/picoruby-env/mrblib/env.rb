@@ -1,7 +1,12 @@
 class ENVClass
   def each
-    _hash.each do |key, value|
-      yield(key, value)
+    h = _hash
+    keys = h.keys
+    i = 0
+    while i < keys.size
+      key = keys[i]
+      yield(key, h[key])
+      i += 1
     end
   end
 end

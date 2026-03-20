@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "ringbuffer.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -16,21 +18,13 @@ extern "C" {
 
 #define DEFAULT_BAUDRATE 115200
 
-#define PICORUBY_UART_RP2040_UART0      0
-#define PICORUBY_UART_RP2040_UART1      1
+#define PICORB_UART_RP2040_UART0      0
+#define PICORB_UART_RP2040_UART1      1
 
 typedef enum {
  UART_ERROR_NONE          =  0,
  UART_ERROR_INVALID_UNIT  = -1,
 } uart_status_t;
-
-typedef struct {
-  int head;
-  int tail;
-  size_t size;
-  int mask;
-  uint8_t data[];
-} RingBuffer;
 
 typedef void (*PushBuffer)(RingBuffer *ring_buffer, uint8_t ch);
 

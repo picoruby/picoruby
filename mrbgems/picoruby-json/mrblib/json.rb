@@ -98,7 +98,9 @@ module JSON
     # attr_reader :json
 
     def dig(*keys)
-      keys.each do |key|
+      ki = 0
+      while ki < keys.size
+        key = keys[ki]
         case key
         when Integer
           if key < 0
@@ -116,6 +118,7 @@ module JSON
         @json.strip!
         reset
         # p @json
+        ki += 1
       end
       return self
     end
@@ -305,19 +308,29 @@ module JSON
 
     def generate_object(obj)
       result = '{'
-      result += obj.map do |key, value|
-        "#{generate_string(key)}:#{generate(value)}"
-      end.join(',')
+      keys = obj.keys
+      i = 0
+      while i < keys.size
+        result += ',' if 0 < i
+        key = keys[i]
+        result += "#{generate_string(key)}:#{generate(obj[key])}"
+        i += 1
+      end
       result += '}'
     end
 
     def generate_array(obj)
       result = '['
-      result += obj.map do |value|
-        generate(value)
-      end.join(',')
+      i = 0
+      while i < obj.size
+        result += ',' if 0 < i
+        result += generate(obj[i])
+        i += 1
+      end
       result += ']'
     end
+
+    HEX_CHARS = "0123456789abcdef"
 
     def generate_string(obj)
       # Manually escape special characters since PicoRuby does not support gsub nor Regexp
@@ -342,7 +355,17 @@ module JSON
         when "\t"
           result += '\\t'
         else
-          result += char if char
+          if char
+            code = char.ord
+            if code < 0x20
+              # Escape control characters as \u00XX
+              result += '\\u00'
+              result += (HEX_CHARS[code >> 4] || '0')
+              result += (HEX_CHARS[code & 0x0f] || '0')
+            else
+              result += char
+            end
+          end
         end
         i += 1
       end
@@ -392,7 +415,7 @@ module JSON
       skip_whitespace
 
       unless @json[@index] == '}'
-        loop do
+        while true
           key = parse_string
           skip_whitespace
           expect(':')
@@ -416,7 +439,7 @@ module JSON
       skip_whitespace
 
       unless @json[@index] == ']'
-        loop do
+        while true
           value = parse
           result << value
           skip_whitespace
@@ -477,8 +500,27 @@ module JSON
           when 't'
             result += "\t"
           when 'u'
-            # TODO: Implement Unicode escape sequence
-            # result += [str[i + 2, 4].to_i(16)].pack('U')
+            hex = str[i + 1, 4]
+            if hex && hex.length == 4
+              code = 0
+              hex.each_char do |h|
+                code <<= 4
+                case h
+                when '0'..'9'
+                  code += h.ord - '0'.ord
+                when 'a'..'f'
+                  code += h.ord - 'a'.ord + 10
+                when 'A'..'F'
+                  code += h.ord - 'A'.ord + 10
+                else
+                  raise JSON::ParserError.new("Invalid hex in unicode escape: #{h}")
+                end
+              end
+              result += [code].pack('C*')
+              i += 4
+            else
+              raise JSON::ParserError.new("Incomplete unicode escape sequence")
+            end
           when nil
             raise JSON::ParserError.new("Unterminated escape sequence")
           else
@@ -536,10 +578,12 @@ module JSON
       is_negative = @json[start] == '-'
       start += 1 if is_negative
 
-      (start...end_index).each do |i|
+      i = start
+      while i < end_index
         # @type var ord: Integer
         ord = @json[i]&.ord
         result = result * 10 + (ord - '0'.ord)
+        i += 1
       end
 
       is_negative ? -result : result
@@ -554,7 +598,8 @@ module JSON
       parsing_exponent = false
       start += 1 if is_negative
 
-      (start...end_index).each do |i|
+      i = start
+      while i < end_index
         case @json[i]
         when '0'..'9'
           # @type var ord: Integer
@@ -576,6 +621,7 @@ module JSON
         when '+'
           # Do nothing for positive exponent
         end
+        i += 1
       end
 
       result *= (10.0 ** (exponent_negative ? -exponent : exponent))

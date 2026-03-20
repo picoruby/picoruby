@@ -95,6 +95,4 @@ MRuby::Gem::Specification.new('picoruby-net') do |spec|
       spec.objs << obj
     end
   end
-
-  spec.posix
 end

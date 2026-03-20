@@ -33,9 +33,9 @@
 #include "../../lib/ff14b/source/diskio.h"
 #include "disk.h"
 
-#ifndef PICORUBY_NO_MSC
+#ifndef PICORB_NO_MSC
 
-#if defined(PICORUBY_MSC_FLASH)
+#if defined(PICORB_MSC_FLASH)
   #include <hardware/flash.h>
   /* 4096 * 192 = 768 KiB */
   #define MSC_SECTOR_SIZE     FLASH_SECTOR_SIZE
@@ -44,7 +44,7 @@
   int FLASH_disk_write(const void *buff, int32_t sector, int count);
   #define DISK_READ(buff, sector, count)    FLASH_disk_read(buff, sector, count)
   #define DISK_WRITE(buff, sector, count)   FLASH_disk_write(buff, sector, count)
-#elif defined(PICORUBY_MSC_SD)
+#elif defined(PICORB_MSC_SD)
   #define MSC_SECTOR_SIZE     SD_SECTOR_SIZE
   int SD_disk_status(void);
   int SD_disk_ioctl(unsigned char cmd, void *buff);
@@ -60,9 +60,9 @@ static bool ejected = false;
 static bool
 check_sector_count(uint32_t lba)
 {
-#if defined(PICORUBY_MSC_FLASH)
+#if defined(PICORB_MSC_FLASH)
   if (lba >= MSC_SECTOR_COUNT) return false;
-#elif defined(PICORUBY_MSC_SD)
+#elif defined(PICORB_MSC_SD)
   //
   // FIXME: This code hangs
   //
@@ -97,7 +97,7 @@ tud_msc_inquiry_cb(uint8_t lun, uint8_t vendor_id[8], uint8_t product_id[16], ui
 bool
 tud_msc_test_unit_ready_cb(uint8_t lun)
 {
-#if defined(PICORUBY_MSC_SD)
+#if defined(PICORB_MSC_SD)
   if (0 < (SD_disk_status() & (STA_NOINIT|STA_NODISK))) {
     tud_msc_set_sense(lun, SCSI_SENSE_NOT_READY, 0x3a, 0x00);
     return false;
@@ -115,9 +115,9 @@ tud_msc_test_unit_ready_cb(uint8_t lun)
 void
 tud_msc_capacity_cb(uint8_t lun, uint32_t* block_count, uint16_t* block_size)
 {
-#if defined(PICORUBY_MSC_FLASH)
+#if defined(PICORB_MSC_FLASH)
   *block_count = MSC_SECTOR_COUNT;
-#elif defined(PICORUBY_MSC_SD)
+#elif defined(PICORB_MSC_SD)
   SD_disk_ioctl(GET_SECTOR_COUNT, block_count);
 #endif
   *block_size  = MSC_SECTOR_SIZE;
@@ -165,7 +165,7 @@ tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint
 bool
 tud_msc_is_writable_cb(uint8_t lun)
 {
-#ifdef PICORUBY_MSC_READONLY
+#ifdef PICORB_MSC_READONLY
   return false;
 #else
   return true;
@@ -229,5 +229,5 @@ tud_msc_scsi_cb(uint8_t lun, uint8_t const scsi_cmd[16], void* buffer, uint16_t 
   return resplen;
 }
 
-#endif /* PICORUBY_NO_MSC */
+#endif /* PICORB_NO_MSC */
 

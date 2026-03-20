@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <mrubyc.h>
+#include "version.h"
 
 typedef struct picogems {
   const char *name;
@@ -97,6 +98,19 @@ picoruby_load_model_by_name(const char *gem)
 void
 picoruby_init_require(mrbc_vm *vm)
 {
+  mrbc_value str;
+  char platform[128];
+  char description[256];
+  // RUBY_VERSION is defined in mruby/c
+  str = mrbc_string_new_cstr(vm, picorb_version());
+  mrbc_set_const(mrbc_str_to_symid("PICORUBY_VERSION"), &str);
+  Platform_name(platform, sizeof(platform));
+  picorb_description((const char *)platform, description, sizeof(description));
+  str = mrbc_string_new(vm, (const void *)platform, strlen(platform));
+  mrbc_set_const(mrbc_str_to_symid("RUBY_PLATFORM"), &str);
+  str = mrbc_string_new_cstr(vm, description);
+  mrbc_set_const(mrbc_str_to_symid("RUBY_DESCRIPTION"), &str);
+
   mrbc_class *module_Kernel = mrbc_define_module(vm, "Kernel");
   mrbc_define_method(vm, module_Kernel, "extern", c_extern);
   mrbc_value self = mrbc_instance_new(vm, mrbc_class_object, 0);

@@ -1,4 +1,3 @@
-require 'socket'
 require 'marshal'
 
 module DRb
@@ -16,41 +15,51 @@ module DRb
     attr_reader :err, :buf
   end
 
-  # Initialize global variables for mruby/c compatibility
-  $drb_primary_server = nil
-  $drb_uri = nil
-
   class << self
-    def primary_server
-      $drb_primary_server
+    attr_accessor :primary_server
+
+    # Protocol extension point: create a socket for the given URI
+    # Override this method to support custom protocols
+    def create_socket(uri)
+      raise DRbBadURI, "unsupported protocol: #{uri}"
     end
 
-    def primary_server=(server)
-      $drb_primary_server = server
+    # Protocol extension point: create a server for the given URI
+    # Override this method to support custom protocols
+    def create_server(uri, front, config)
+      raise DRbBadURI, "unsupported protocol: #{uri}"
     end
 
     # Start a DRb server
-    def start_service(uri, front, config = {})
-      $drb_primary_server = DRbServer.new(uri, front, config)
-      $drb_primary_server&.start
-      $drb_uri = uri
+    # If uri is nil, start in client-only mode (no server)
+    def start_service(uri = nil, front = nil, config = {})
+      if uri
+        @primary_server = create_server(uri, front, config)
+        @primary_server&.start
+        @uri = uri
+      end
+      # Client-only mode: no server started
     end
 
     # Stop the primary DRb server
     def stop_service
-      $drb_primary_server&.stop
-      $drb_primary_server = nil
-      $drb_uri = nil
+      @primary_server&.stop
+      @primary_server = nil
+      @uri = nil
+
+      # Terminate the server task if running
+      server_thread = Task.get("DRb server")
+      server_thread&.terminate
     end
 
     # Get the URI of the primary server
     def uri
-      $drb_uri
+      @uri
     end
 
     # Get the front object
     def front
-      $drb_primary_server&.front
+      @primary_server&.front
     end
 
     # Create a reference to a remote object
@@ -60,22 +69,8 @@ module DRb
 
     # Send a message to a remote object
     def send_message(uri, ref, msg_id, args, block = nil)
-      # Parse URI
-      if uri.start_with?("druby://")
-        if domain = uri[8..-1]
-          port_index = domain.index(':')
-          if port_index
-            host = domain[0..port_index - 1]
-            port = domain[(port_index + 1)..-1]&.to_i
-          end
-        end
-      end
-      if host.nil? || port.nil?
-        raise DRbBadURI, "invalid URI: #{uri}"
-      end
-
-      # Connect to server
-      socket = TCPSocket.new(host, port)
+      # Connect to server using protocol handler
+      socket = create_socket(uri)
       msg = DRbMessage.new(socket)
 
       begin
@@ -96,8 +91,12 @@ module DRb
     end
 
     # Run the main loop (for servers)
+    # Returns a Task object (compatible with CRuby's Thread#join)
     def thread
-      $drb_primary_server&.run
+      server = @primary_server
+      Task.new(name: "DRb server") do
+        server&.run
+      end
     end
   end
 end

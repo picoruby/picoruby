@@ -289,7 +289,10 @@ class Rapicco
       rows = DATA[author][name]
       palette = PALETTE[author]
       @pos = 0
-      @data = rows.map do |row|
+      @data = []
+      ri = 0
+      while ri < rows.size
+        row = rows[ri]
         out = (name == :rapiko) ? "\e[2K" : ""
         i = 0
         prev = nil
@@ -318,7 +321,8 @@ class Rapicco
         end
         out << "\e[0m" if prev
         out << "\e[#{row.length}D\e[B" # Carriage return
-        out
+        @data << out
+        ri += 1
       end
       @width = rows.map {|row| row.length}.max
       @height = @data.size

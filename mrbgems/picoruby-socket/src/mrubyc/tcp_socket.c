@@ -63,8 +63,12 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   int port_num = (int)port.i;
 
   if (!TCPSocket_connect(sock, host_str, port_num)) {
+    char errmsg[SOCKET_ERROR_MSG_LEN];
+    strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
+    errmsg[sizeof(errmsg) - 1] = '\0';
     mrbc_raw_free(sock);
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to connect");
+    mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
+                "%s", errmsg[0] ? errmsg : "failed to connect");
     return;
   }
 
@@ -285,6 +289,34 @@ c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_incref(&v[0]);
   SET_INT_RETURN(port);
 }
+
+/*
+ * socket.ready? -> true or false
+ */
+static void
+c_tcp_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  /* Get socket pointer from instance->data */
+  picorb_socket_t *sock = get_socket_ptr(v);
+  if (!sock) {
+    SET_FALSE_RETURN();
+    return;
+  }
+
+  /* Check if data is ready to read */
+  bool is_ready = Socket_ready(sock);
+  if (is_ready) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
 void
 tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 {
@@ -296,6 +328,7 @@ tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_TCPSocket, "read", c_tcp_socket_read);
   mrbc_define_method(vm, class_TCPSocket, "close", c_tcp_socket_close);
   mrbc_define_method(vm, class_TCPSocket, "closed?", c_tcp_socket_closed_q);
+  mrbc_define_method(vm, class_TCPSocket, "ready?", c_tcp_socket_ready_q);
   mrbc_define_method(vm, class_TCPSocket, "remote_host", c_tcp_socket_remote_host);
   mrbc_define_method(vm, class_TCPSocket, "remote_port", c_tcp_socket_remote_port);
 

@@ -25,7 +25,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   conf.cc.flags << "-fdata-sections"
 
   # These defines should not contradict platform's configuration
-  conf.cc.defines << "PICORUBY_INT64"
+  conf.cc.defines << "PICORB_INT64"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
   conf.cc.defines << "MRBC_USE_MATH=1"
@@ -33,7 +33,6 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
-  conf.cc.defines << "USE_FAT_SD_DISK=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"

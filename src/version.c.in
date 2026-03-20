@@ -1,15 +1,37 @@
 #include "version.h"
+#include <stdio.h>
 
 #define PICORUBY_COMMIT_TIMESTAMP "@PICORUBY_COMMIT_TIMESTAMP@"
 #define PICORUBY_COMMIT_BRANCH    "@PICORUBY_COMMIT_BRANCH@"
 #define PICORUBY_COMMIT_HASH      "@PICORUBY_COMMIT_HASH@"
+#define PICORUBY_BUILD_DATE        "@PICORUBY_BUILD_DATE@"
+
+#ifdef PICORB_VM_MRUBYC
+  #define PICORB_BUILD_TYPE_STR "picoruby"
+#else
+  #define PICORB_BUILD_TYPE_STR "microruby"
+#endif
 
 const char*
 picorb_version(void)
 {
+  return(PICORUBY_VERSION);
+}
+
+const char*
+picorb_version_with_build_info(void)
+{
   return(
-    "picoruby "
     PICORUBY_VERSION
     " (" PICORUBY_COMMIT_TIMESTAMP " " PICORUBY_COMMIT_BRANCH " " PICORUBY_COMMIT_HASH ") "
   );
+}
+
+void
+picorb_description(const char *platform, char *description, unsigned int description_size)
+{
+  snprintf(description, description_size,
+    PICORB_BUILD_TYPE_STR " " PICORUBY_VERSION
+    " (" PICORUBY_BUILD_DATE " revision " PICORUBY_COMMIT_HASH ") [%s]",
+    platform);
 }

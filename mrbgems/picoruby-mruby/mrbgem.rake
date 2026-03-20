@@ -20,6 +20,7 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   # Load HAL gem first so mruby-task can find it
   if build.posix?
     spec.add_dependency 'hal-posix-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/hal-posix-task"
+    spec.add_dependency 'mruby-io', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
   else
     spec.add_dependency 'hal-picoruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/hal-picoruby-task"
   end
@@ -33,12 +34,19 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
     define&.split("=")&.last || 4
   end
 
-  if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
-    heap_page_size = o1heap_page_size(13)
+  # MRB_BASELINE_PROFILE and MRB_CONSTRAINED_BASELINE_PROFILE define MRB_NO_METHOD_CACHE
+  # and it varies sizeof(mrb_state), so they should be build-wide define.
+  if spec.build.wasm? || spec.build.posix?
+    spec.build.defines << "MRB_BASELINE_PROFILE=1"
   else
-    heap_page_size = 128
+    if spec.cc.defines.include?("PICORB_ALLOC_O1HEAP")
+      heap_page_size = o1heap_page_size(13)
+    else
+      heap_page_size = 128
+    end
+    spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
+    spec.build.defines << "MRB_CONSTRAINED_BASELINE_PROFILE=1"
   end
-  spec.cc.defines << "MRB_HEAP_PAGE_SIZE=#{heap_page_size}"
 
   if spec.cc.defines.include?("PICORB_ALLOC_TINYALLOC")
     alloc_dir = "#{dir}/lib/tinyalloc"
@@ -57,12 +65,12 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
         sh "git clone https://github.com/mattconte/tlsf"
       end
     end
-    if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
+    if spec.cc.defines.any?{ _1.start_with?("PICORB_DEBUG") }
       spec.cc.defines << "_DEBUG"
     end
   elsif spec.cc.defines.include?("PICORB_ALLOC_ESTALLOC")
     spec.cc.defines << "ESTALLOC_ALIGNMENT=#{align}"
-    if spec.cc.defines.any?{ _1.start_with?("PICORUBY_DEBUG") }
+    if spec.cc.defines.any?{ _1.start_with?("PICORB_DEBUG") }
       spec.cc.defines << "ESTALLOC_DEBUG=1"
     end
     alloc_dir = "#{dir}/lib/estalloc"

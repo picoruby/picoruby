@@ -53,7 +53,7 @@ SPI_read_blocking(spi_unit_info_t *unit_info, uint8_t *dst, size_t len, uint8_t 
 {
   spi_inst_t *unit;
   UNIT_SELECT();
-  if (PICORUBY_SPI_BITBANG < unit) {
+  if (PICORB_SPI_BITBANG < unit) {
     return spi_read_blocking(unit, repeated_tx_data, dst, len);
   } else {
     return bitbang_read_blocking(unit_info, dst, len);
@@ -65,7 +65,7 @@ SPI_write_blocking(spi_unit_info_t *unit_info, uint8_t *src, size_t len)
 {
   spi_inst_t *unit;
   UNIT_SELECT();
-  if (PICORUBY_SPI_BITBANG < unit) {
+  if (PICORB_SPI_BITBANG < unit) {
     return spi_write_blocking(unit, src, len);
   } else {
     return bitbang_write_blocking(unit_info, src, len);
@@ -77,7 +77,7 @@ SPI_transfer(spi_unit_info_t *unit_info, uint8_t *txdata, uint8_t *rxdata, size_
 {
   spi_inst_t *unit;
   UNIT_SELECT();
-  if (PICORUBY_SPI_BITBANG < unit) {
+  if (PICORB_SPI_BITBANG < unit) {
     return spi_write_read_blocking(unit, txdata, rxdata, len);
   } else {
     return SPI_ERROR_NOT_IMPLEMENTED;
@@ -88,9 +88,9 @@ int
 SPI_unit_name_to_unit_num(const char *unit_name)
 {
   if (strcmp(unit_name, "RP2040_SPI0") == 0) {
-    return PICORUBY_SPI_RP2040_SPI0;
+    return PICORB_SPI_RP2040_SPI0;
   } else if (strcmp(unit_name, "RP2040_SPI1") == 0) {
-    return PICORUBY_SPI_RP2040_SPI1;
+    return PICORB_SPI_RP2040_SPI1;
   } else {
     return SPI_ERROR_INVALID_UNIT;
   }

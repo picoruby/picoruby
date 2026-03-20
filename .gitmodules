@@ -23,3 +23,6 @@
 [submodule "mrbgems/picoruby-r2p2/lib/rp2040js"]
 	path = mrbgems/picoruby-r2p2/lib/rp2040js
 	url = https://github.com/wokwi/rp2040js.git
+[submodule "mrbgems/picoruby-regexp_light/lib/regex_light"]
+	path = mrbgems/picoruby-regexp_light/lib/regex_light
+	url = https://github.com/hasumikin/regex_light

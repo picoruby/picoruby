@@ -5,7 +5,7 @@ typedef struct
   struct tm   tm;
   mrbc_int_t  unixtime_us;
   long int    timezone;
-} PICORUBY_TIME;
+} PICORB_TIME;
 
 typedef struct
 {
@@ -71,8 +71,8 @@ new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
     assert(v->tt == MRBC_TT_OBJECT);
     cls = v->instance->cls;
   }
-  mrbc_value value = mrbc_instance_new(vm, cls, sizeof(PICORUBY_TIME));
-  PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
+  mrbc_value value = mrbc_instance_new(vm, cls, sizeof(PICORB_TIME));
+  PICORB_TIME *data = (PICORB_TIME *)value.instance->data;
   data->unixtime_us = unixtime_us + unixtime_offset * USEC;
   time_t unixtime = data->unixtime_us / USEC;
   localtime_r(&unixtime, &data->tm);
@@ -89,8 +89,8 @@ new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
 inline static mrbc_value
 new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
 {
-  mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORUBY_TIME));
-  PICORUBY_TIME *data = (PICORUBY_TIME *)value.instance->data;
+  mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORB_TIME));
+  PICORB_TIME *data = (PICORB_TIME *)value.instance->data;
   time_t unixtime = mktime(tm);
   data->unixtime_us = unixtime * USEC;
   memcpy(&data->tm, tm, sizeof(struct tm));
@@ -191,14 +191,14 @@ c_new(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_to_i(struct VM *vm, mrbc_value v[], int argc)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
+  PICORB_TIME *data = (PICORB_TIME *)v->instance->data;
   SET_INT_RETURN((mrbc_int_t)data->unixtime_us / USEC);
 }
 
 static void
 c_to_f(struct VM *vm, mrbc_value v[], int argc)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
+  PICORB_TIME *data = (PICORB_TIME *)v->instance->data;
   SET_FLOAT_RETURN((mrbc_float_t)data->unixtime_us / USEC);
 }
 
@@ -207,7 +207,7 @@ c_to_f(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_to_s(struct VM *vm, mrbc_value v[], int argc)
 {
-  PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
+  PICORB_TIME *data = (PICORB_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
   char str[INSPECT_LENGTH];
   long int a = labs(data->timezone) / 60;
@@ -239,7 +239,7 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
     SET_RETURN(mrbc_string_new_cstr(vm, "Time"));
     return;
   }
-  PICORUBY_TIME *data = (PICORUBY_TIME *)v->instance->data;
+  PICORB_TIME *data = (PICORB_TIME *)v->instance->data;
   struct tm *tm = &data->tm;
   char str[INSPECT_LENGTH];
   long int a = labs(data->timezone) / 60;
@@ -268,42 +268,42 @@ c_inspect(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_year(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_year + 1900);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_year + 1900);
 }
 static void
 c_mon(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_mon + 1);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_mon + 1);
 }
 static void
 c_mday(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_mday);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_mday);
 }
 static void
 c_hour(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_hour);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_hour);
 }
 static void
 c_min(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_min);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_min);
 }
 static void
 c_sec(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_sec);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_sec);
 }
 static void
 c_usec(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->unixtime_us % USEC);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->unixtime_us % USEC);
 }
 static void
 c_wday(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORUBY_TIME *)v->instance->data)->tm.tm_wday);
+  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->tm.tm_wday);
 }
 
 static int
@@ -312,8 +312,8 @@ mrbc_time_compare(mrbc_value *self, mrbc_value *other)
   if (other->tt != MRBC_TT_OBJECT || self->instance->cls != other->instance->cls) {
     return -2;
   }
-  mrbc_int_t other_unixtime_us = ((PICORUBY_TIME *)other->instance->data)->unixtime_us;
-  mrbc_int_t self_unixtime_us = ((PICORUBY_TIME *)self->instance->data)->unixtime_us;
+  mrbc_int_t other_unixtime_us = ((PICORB_TIME *)other->instance->data)->unixtime_us;
+  mrbc_int_t self_unixtime_us = ((PICORB_TIME *)self->instance->data)->unixtime_us;
   if (self_unixtime_us < other_unixtime_us) {
     return -1;
   } else if (other_unixtime_us < self_unixtime_us) {
@@ -414,7 +414,7 @@ c_gte(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_sub(struct VM *vm, mrbc_value v[], int argc)
 {
-  mrbc_int_t self_unixtime_us = ((PICORUBY_TIME *)v[0].instance->data)->unixtime_us;
+  mrbc_int_t self_unixtime_us = ((PICORB_TIME *)v[0].instance->data)->unixtime_us;
   switch (v[1].tt) {
     case MRBC_TT_INTEGER:
     {
@@ -429,7 +429,7 @@ c_sub(struct VM *vm, mrbc_value v[], int argc)
     default:
     {
       if (v[0].instance->cls == v[1].instance->cls) {
-        mrbc_int_t other_unixtime_us = ((PICORUBY_TIME *)v[1].instance->data)->unixtime_us;
+        mrbc_int_t other_unixtime_us = ((PICORB_TIME *)v[1].instance->data)->unixtime_us;
         mrbc_float_t result = (mrbc_float_t)(self_unixtime_us - other_unixtime_us) / (mrbc_float_t)USEC;
         mrbc_value ret = mrbc_float_value(vm, result);
         SET_RETURN(ret);
@@ -443,7 +443,7 @@ c_sub(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_add(struct VM *vm, mrbc_value v[], int argc)
 {
-  mrbc_int_t self_unixtime_us = ((PICORUBY_TIME *)v[0].instance->data)->unixtime_us;
+  mrbc_int_t self_unixtime_us = ((PICORB_TIME *)v[0].instance->data)->unixtime_us;
   switch (v[1].tt) {
     case MRBC_TT_INTEGER:
     {

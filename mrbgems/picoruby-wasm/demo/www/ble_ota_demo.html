@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>BLE OTA Demo - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+  <style>
+    body { font-family: monospace; }
+    .controls { margin: 8px 0; }
+    .controls button { margin-right: 8px; padding: 6px 12px; }
+    #status { font-weight: bold; margin: 8px 0; }
+    .connected    { color: #0f0; }
+    .disconnected { color: #f00; }
+    fieldset { margin: 10px 0; padding: 10px; }
+    label { display: inline-block; width: 100px; }
+
+    #editor {
+      width: 100%;
+      height: 300px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      background: #1a1a1a;
+      color: #f8f8f2;
+      border: 1px solid #444;
+      padding: 8px;
+      box-sizing: border-box;
+      resize: vertical;
+      tab-size: 2;
+    }
+
+    #progress-bar-wrap {
+      width: 100%;
+      background: #333;
+      height: 16px;
+      border: 1px solid #555;
+      display: none;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #0f0;
+      transition: width 0.1s;
+    }
+    #progress-label { font-size: 12px; color: #aaa; margin-top: 2px; }
+
+    #log {
+      font-family: monospace;
+      white-space: pre-wrap;
+      background: #1a1a1a;
+      color: #0f0;
+      padding: 10px;
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #333;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div><a href="index.html">Back</a> | <a href="ble_uart_demo.html">UART Demo</a></div>
+  <h1>BLE OTA Demo</h1>
+  <p>Write Ruby code below, press <b>OTA</b> to compile to mrb in the browser and
+     flash to a Pico W / Pico 2 W running <code>dfuble</code> via BLE UART (NUS).</p>
+
+  <div id="status" class="disconnected">Disconnected</div>
+
+  <fieldset>
+    <legend>UUIDs (NUS defaults)</legend>
+    <div class="controls">
+      <label>Service:</label>
+      <input id="svc-uuid" type="text" value="6e400001-b5a3-f393-e0a9-e50e24dcca9e" style="width:300px">
+    </div>
+    <div class="controls">
+      <label>TX (write):</label>
+      <input id="tx-uuid" type="text" value="6e400002-b5a3-f393-e0a9-e50e24dcca9e" style="width:300px">
+    </div>
+    <div class="controls">
+      <label>RX (notify):</label>
+      <input id="rx-uuid" type="text" value="6e400003-b5a3-f393-e0a9-e50e24dcca9e" style="width:300px">
+    </div>
+  </fieldset>
+
+  <div class="controls">
+    <button id="btn-connect">Connect</button>
+    <button id="btn-disconnect" disabled>Disconnect</button>
+  </div>
+
+  <fieldset>
+    <legend>Ruby Code Editor</legend>
+    <textarea id="editor" spellcheck="false">
+# Example: blink the on-board LED via GPIO
+require 'gpio'
+
+led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+10.times do
+  led.write(1)
+  sleep 0.3
+  led.write(0)
+  sleep 0.3
+end
+    </textarea>
+  </fieldset>
+
+  <div class="controls">
+    <button id="btn-ota" disabled>OTA (Compile &amp; Flash)</button>
+    <span id="chunk-label" style="font-size:12px;color:#aaa;">
+      Chunk size: <input id="chunk-size" type="number" value="20" min="1" max="512" style="width:55px"> bytes
+    </span>
+  </div>
+
+  <div id="progress-bar-wrap">
+    <div id="progress-bar"></div>
+  </div>
+  <div id="progress-label"></div>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script type="text/ruby">
+    require 'js'
+    require 'crc'
+    require 'pack'
+
+    # ---------------------------------------------------------------------------
+    # Build a 19-byte DFU header for a RITE (mrb) payload.
+    # Format: a4Ca4NNn (all big-endian)
+    #   magic(4) + version(1) + type(4) + fw_size(4) + crc32(4) + sig_len(2)
+    # ---------------------------------------------------------------------------
+    HEADER_FORMAT = "a4Ca4NNn"
+
+    def build_dfu_header(mrb_data)
+      crc = CRC.crc32(mrb_data)
+      ["DFU\0", 1, "RITE", mrb_data.bytesize, crc, 0].pack(HEADER_FORMAT)
+    end
+
+    # ---------------------------------------------------------------------------
+    # App class
+    # ---------------------------------------------------------------------------
+    class App
+      OTA_TIMEOUT = 10
+
+      def initialize
+        @uart  = nil
+        @doc   = JS.document
+        bind_events
+        append_log("[*] Ready. Connect to a device running dfuble.")
+      end
+
+      def el(id) = @doc.getElementById(id)
+
+      def append_log(msg)
+        log_el = el('log')
+        log_el[:textContent] = log_el[:textContent].to_s + msg + "\n"
+        log_el[:scrollTop]   = log_el[:scrollHeight]
+      end
+
+      def set_ui(connected)
+        if connected
+          el('status')[:textContent] = "Connected"
+          el('status')[:className]   = "connected"
+          el('btn-connect').setAttribute("disabled", "true")
+          el('btn-disconnect').removeAttribute("disabled")
+          el('btn-ota').removeAttribute("disabled")
+        else
+          el('status')[:textContent] = "Disconnected"
+          el('status')[:className]   = "disconnected"
+          el('btn-connect').removeAttribute("disabled")
+          el('btn-disconnect').setAttribute("disabled", "true")
+          el('btn-ota').setAttribute("disabled", "true")
+        end
+      end
+
+      def set_progress(sent, total)
+        pct = total > 0 ? (sent * 100 / total) : 0
+        el('progress-bar')[:style][:width] = "#{pct}%"
+        el('progress-label')[:textContent] =
+          "#{sent} / #{total} bytes (#{pct}%)"
+      end
+
+      def bind_events
+        el('btn-connect').addEventListener('click')    { |_| do_connect    }
+        el('btn-disconnect').addEventListener('click') { |_| do_disconnect }
+        el('btn-ota').addEventListener('click')        { |_| do_ota        }
+      end
+
+      def do_connect
+        svc = el('svc-uuid')[:value].to_s
+        tx  = el('tx-uuid')[:value].to_s
+        rx  = el('rx-uuid')[:value].to_s
+        append_log("[*] Connecting (svc=#{svc})...")
+        begin
+          @uart = JS::BLE::UART.new(service_uuid: svc, tx_uuid: tx, rx_uuid: rx)
+          append_log("[+] Connected to: #{@uart.device.name || '(unnamed)'}")
+          set_ui(true)
+        rescue => e
+          append_log("[-] Connect error: #{e.message}")
+        end
+      end
+
+      def do_disconnect
+        return unless @uart
+        @uart.close
+        @uart = nil
+        append_log("[*] Disconnected")
+        set_ui(false)
+      end
+
+      def do_ota
+        return unless @uart && @uart.connected?
+
+        code = el('editor')[:value].to_s
+        if code.strip.empty?
+          append_log("[-] Editor is empty")
+          return
+        end
+
+        chunk_size = el('chunk-size')[:value].to_s.to_i
+        chunk_size = 20 if chunk_size < 1
+
+        # -- 1. Compile Ruby to mrb binary using PicoRuby WASM compiler ----------
+        append_log("[*] Compiling Ruby to mrb...")
+        begin
+          mrb_data = PicoRubyVM::InstructionSequence.compile(code).to_binary
+        rescue => e
+          append_log("[-] Compile error: #{e.message}")
+          return
+        end
+        append_log("[+] Compiled: #{mrb_data.bytesize} bytes")
+
+        # -- 2. Build DFU packet (header + mrb body) ----------------------------
+        header  = build_dfu_header(mrb_data)
+        payload = header + mrb_data
+        total   = payload.bytesize
+        append_log("[*] DFU payload: #{total} bytes (header=#{header.bytesize} mrb=#{mrb_data.bytesize})")
+
+        # -- 3. Send in chunks via BLE UART ------------------------------------
+        el('progress-bar-wrap')[:style][:display] = "block"
+        set_progress(0, total)
+        pos = 0
+        begin
+          while pos < total
+            chunk = payload.byteslice(pos, chunk_size)
+            break unless chunk
+            @uart.write(chunk)
+            pos += chunk.bytesize
+            set_progress(pos, total)
+            sleep 0.01
+          end
+          append_log("[*] Sent #{pos} bytes. Waiting for device response...")
+
+          # -- 4. Wait for "OK\n" or "ERROR:..." from device --------------------
+          response = @uart.gets(timeout: OTA_TIMEOUT)
+          if response
+            if response.start_with?("OK")
+              append_log("[+] OTA success! Device is rebooting.")
+            else
+              append_log("[-] Device error: #{response.chomp}")
+            end
+          else
+            append_log("[-] Timeout: no response from device (#{OTA_TIMEOUT}s)")
+          end
+        rescue => e
+          append_log("[-] Send error: #{e.message}")
+        ensure
+          el('progress-bar-wrap')[:style][:display] = "none"
+          set_progress(0, 0)
+        end
+      end
+    end
+
+    App.new
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

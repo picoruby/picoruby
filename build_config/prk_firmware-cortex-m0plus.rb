@@ -26,7 +26,7 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
 
   # These defines should correspond to
   # the platform's configuration
-  conf.cc.defines << "PICORUBY_INT64"
+  conf.cc.defines << "PICORB_INT64"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
@@ -36,11 +36,11 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=1800"
-  if ENV['PICORUBY_SQLITE3']
+  if ENV['PICORB_SQLITE3']
     conf.gem core: 'picoruby-sqlite3'
     conf.gem core: 'picoruby-adafruit_pcf8523'
   end
-  if ENV['PICORUBY_SD_CARD']
+  if ENV['PICORB_SD_CARD']
     conf.cc.defines << "USE_FAT_SD_DISK=1"
   end
 
