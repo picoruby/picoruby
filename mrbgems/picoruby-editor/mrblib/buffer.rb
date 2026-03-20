@@ -187,7 +187,7 @@ module Editor
       while li < @lines.size
         line = @lines[li]
         if line.bytesize > 0 && line.getbyte(line.bytesize - 1) == 0x5C # '\\'
-          result << line.byteslice(0, line.bytesize - 1)
+          result << (line.byteslice(0, line.bytesize - 1) or raise)
         else
           result << line
         end
