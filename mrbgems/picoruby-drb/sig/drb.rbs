@@ -15,11 +15,7 @@ module DRb
   end
 
   class DRbMessage
-<<<<<<< HEAD
-    def initialize: (TCPSocket socket) -> void
-=======
-    def self.new: (untyped socket) -> DRbMessage
->>>>>>> origin/master
+    def initialize: (untyped socket) -> void
     def send_request: (untyped ref, Symbol msg_id, Array[untyped] args, ?Proc? block) -> void
     def recv_request: () -> [untyped, Symbol, Array[untyped], Proc?]
     def send_reply: (bool success, untyped result) -> void

@@ -5,19 +5,11 @@ module JS
     CLOSING: Integer
     CLOSED: Integer
 
-<<<<<<< HEAD
-  def initialize: (String url) -> void
-  def send: (String data) -> nil
-  def send_binary: (String bytes) -> nil
-  def close: () -> nil
-  def ready_state: () -> Integer
-=======
-    def self.new: (String url) -> WebSocket
+    def initialize: (String url) -> void
     def send: (String data) -> nil
     def send_binary: (String bytes) -> nil
     def close: () -> nil
     def ready_state: () -> Integer
->>>>>>> origin/master
 
     def onopen: () { (JS::Object event) -> void } -> void
     def onmessage: () { (JS::Object event) -> void } -> void
