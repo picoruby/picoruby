@@ -370,13 +370,8 @@ class Shell
       print margin
       split_line = [] #: Array[String]
       i = 0
-<<<<<<< HEAD
-      while i < LOGO[y].length
-        split_line << (LOGO[y][i, grad_slice] || raise("unreachable"))
-=======
       while i < LOGO[y2].length
-        split_line << LOGO[y2][i, grad_slice]
->>>>>>> origin/master
+        split_line << (LOGO[y2][i, grad_slice] || raise("unreachable"))
         i += grad_slice
       end
       x = 0
