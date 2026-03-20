@@ -25,6 +25,3 @@ module Machine
   private def self._reboot: () -> nil
 end
 
-module Kernel
-  def exit: (?Integer status) -> void
-end

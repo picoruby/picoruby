@@ -1,15 +1,3 @@
-$LOADED_FEATURES: Array[String]
-
-RUBY_PLATFORM: String
-RUBY_DESCRIPTION: String
-
-# @sidebar error
-# @added_by picoruby-require
-class LoadError < StandardError
-end
-
-# @sidebar builtin
-# @added_by picoruby-require
 module Kernel
   private def load_paths: (String name) -> Array[String]
   private def required?: (String name) -> bool
