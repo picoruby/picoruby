@@ -241,6 +241,14 @@
         end
         resize_observer.observe(container)
 
+        # Ensure Escape key is captured by xterm instead of the browser
+        terminal.attachCustomKeyEventHandler do |event|
+          if event[:key].to_s == 'Escape'
+            event.preventDefault
+          end
+          true
+        end
+
         @terminal = terminal
       end
 
