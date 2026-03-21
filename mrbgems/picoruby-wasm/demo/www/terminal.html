@@ -71,6 +71,7 @@
     #resizer:hover {
       background: linear-gradient(to right, #555, #fff, #555);
     }
+    #editor::placeholder { color: #555; font-style: italic; }
     #dfu-log {
       flex: 0.4;
       font-family: monospace;
@@ -135,7 +136,7 @@
       </label>
     </div>
     <div id="editor-container">
-      <textarea id="editor" spellcheck="false"></textarea>
+      <textarea id="editor" spellcheck="false" placeholder="# Type or download Ruby code here..."></textarea>
       <div id="resizer"></div>
       <div id="dfu-log"></div>
     </div>
@@ -272,18 +273,20 @@
       end
 
       def update_dfu_buttons
-        has_path = !el('path-input')[:value].to_s.strip.empty?
-        set_dfu_buttons_enabled(connected? && has_path)
+        has_path    = !el('path-input')[:value].to_s.strip.empty?
+        has_content = !el('editor')[:value].to_s.strip.empty?
+        set_dfu_buttons_enabled(connected? && has_path, has_content)
       end
 
-      def set_dfu_buttons_enabled(enabled)
-        if enabled
+      def set_dfu_buttons_enabled(enabled, has_content = true)
+        if enabled && has_content
           el('upload-btn').removeAttribute('disabled')
-          unless compile_mode?
-            el('download-btn').removeAttribute('disabled')
-          end
         else
           el('upload-btn').setAttribute('disabled', 'true')
+        end
+        if enabled && !compile_mode?
+          el('download-btn').removeAttribute('disabled')
+        else
           el('download-btn').setAttribute('disabled', 'true')
         end
       end
@@ -383,6 +386,7 @@
         bind_font_controls
         bind_resizer
         el('path-input').addEventListener('input') { update_dfu_buttons }
+        el('editor').addEventListener('input') { update_dfu_buttons }
 
         # Mode radio buttons
         el('mode-plain').addEventListener('change') { el('download-btn').removeAttribute('disabled') }
