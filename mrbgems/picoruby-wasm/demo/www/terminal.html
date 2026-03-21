@@ -72,6 +72,18 @@
       background: linear-gradient(to right, #555, #fff, #555);
     }
     #editor::placeholder { color: #555; font-style: italic; }
+    #file-label {
+      padding: 5px 10px;
+      cursor: pointer;
+      border: 1px solid #777;
+      background: #2a2a2a;
+      color: #ccc;
+      font-size: 13px;
+      border-radius: 2px;
+      user-select: none;
+      white-space: nowrap;
+    }
+    #file-label:hover { background: #3a3a3a; color: #fff; }
     #dfu-log {
       flex: 0.4;
       font-family: monospace;
@@ -120,13 +132,22 @@
   <fieldset id="dfu-section">
     <legend>File Editor (PicoModem)</legend>
     <div class="controls">
-      <label style="margin-right:4px;">Mode:</label>
       <label><input id="mode-plain" type="radio" name="upload-mode" value="plain" checked> Plain</label>
       <label><input id="mode-compile" type="radio" name="upload-mode" value="compile"> Compile</label>
       <span style="width:8px;display:inline-block;"></span>
       <button id="download-btn" disabled>Download</button>
       <input id="path-input" type="text" value="/home/app.rb" placeholder="/home/app.rb" style="width:220px">
       <button id="upload-btn" disabled>Upload</button>
+      <input id="file-input" type="file" style="display:none">
+      <label id="file-label" for="file-input">Open local file</label>
+      <span id="local-file-path" style="font-family:monospace;font-size:12px;color:#888;"></span>
+    </div>
+    <div id="editor-container">
+      <textarea id="editor" spellcheck="false" placeholder="# Type or download Ruby code here..."></textarea>
+      <div id="resizer"></div>
+      <div id="dfu-log"></div>
+    </div>
+    <div class="controls" style="margin-top:2px;">
       <label>Editor font:
         <span class="font-ctrl">
           <button id="editor-font-minus">-</button>
@@ -134,11 +155,6 @@
           <button id="editor-font-plus">+</button>
         </span>
       </label>
-    </div>
-    <div id="editor-container">
-      <textarea id="editor" spellcheck="false" placeholder="# Type or download Ruby code here..."></textarea>
-      <div id="resizer"></div>
-      <div id="dfu-log"></div>
     </div>
   </fieldset>
 
@@ -206,7 +222,7 @@
         opts[:scrollback] = 1000
         opts[:cursorBlink] = true
         opts[:convertEol] = true
-        opts[:fontFamily] = '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace'
+        opts[:fontFamily] = '"Courier Prime", Courier, monospace'
         opts[:fontSize] = 15
 
         theme = JS.global.create_object
@@ -385,6 +401,7 @@
         JS.global.addEventListener('serial-reader-closed') { disconnect }
         bind_font_controls
         bind_resizer
+        bind_file_selector
         el('path-input').addEventListener('input') { update_dfu_buttons }
         el('editor').addEventListener('input') { update_dfu_buttons }
 
@@ -476,6 +493,21 @@
             body.style.userSelect = ''
             body.style.cursor = ''
           end
+        end
+      end
+
+      def bind_file_selector
+        el('file-input').addEventListener('change') do
+          file = el('file-input')[:files][0]
+          next unless file
+          reader = JS.global[:FileReader].new
+          reader.addEventListener('load') do |e|
+            el('editor')[:value] = e[:target][:result].to_s
+            el('local-file-path')[:textContent] = file[:name].to_s
+            el('file-input')[:value] = ''
+            update_dfu_buttons
+          end
+          reader.readAsText(file)
         end
       end
 
