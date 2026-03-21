@@ -548,15 +548,8 @@
       # Build an PicoModem frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
       def rbtp_build_frame(cmd, payload = "")
         body = cmd.chr + payload.to_s
-        length = body.size
         crc = CRC.crc16(body)
-        frame = "\x02".b
-        frame << ((length >> 8) & 0xFF).chr
-        frame << (length & 0xFF).chr
-        frame << body
-        frame << ((crc >> 8) & 0xFF).chr
-        frame << (crc & 0xFF).chr
-        frame
+        [0x02, body.size].pack("Cn") + body + [crc].pack("n")
       end
 
       # Send one PicoModem frame
@@ -610,12 +603,12 @@
         # Read length (2 bytes big-endian)
         len_bytes = rbtp_read_exact(2, timeout_ms)
         return nil unless len_bytes
-        length = (len_bytes.getbyte(0) << 8) | len_bytes.getbyte(1)
+        length = len_bytes.unpack("n")[0]
         # Read body + CRC16
         rest = rbtp_read_exact(length + 2, timeout_ms)
         return nil unless rest
         body = rest[0, length]
-        expected_crc = (rest.getbyte(length) << 8) | rest.getbyte(length + 1)
+        expected_crc = rest[length, 2].unpack("n")[0]
         actual_crc = CRC.crc16(body)
         unless actual_crc == expected_crc
           debug_log("PicoModem:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
@@ -697,8 +690,7 @@
                   append_log("[-] Invalid FILE_DATA: missing size header")
                   return
                 end
-                total = (payload.getbyte(0) << 24) | (payload.getbyte(1) << 16) |
-                        (payload.getbyte(2) << 8) | payload.getbyte(3)
+                total = payload[0, 4].unpack("N")[0]
                 chunk = payload[4, payload.size - 4]
                 append_log("[.] File size: #{total} bytes")
               else
@@ -709,8 +701,7 @@
               rbtp_send_frame(RBTP_CHUNK_ACK, RBTP_OK.chr)
             when RBTP_DONE_ACK
               if 5 <= payload.size
-                remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
-                             (payload.getbyte(3) << 8) | payload.getbyte(4)
+                remote_crc = payload[1, 4].unpack("N")[0]
                 local_crc = CRC.crc32(data)
                 if local_crc == remote_crc
                   el('editor')[:value] = data
@@ -787,12 +778,7 @@
           rbtp_enter_mode
 
           # FILE_WRITE payload: 4-byte big-endian size + path
-          size_bytes = "".b
-          size_bytes << ((code.bytesize >> 24) & 0xFF).chr
-          size_bytes << ((code.bytesize >> 16) & 0xFF).chr
-          size_bytes << ((code.bytesize >> 8) & 0xFF).chr
-          size_bytes << (code.bytesize & 0xFF).chr
-          rbtp_send_frame(RBTP_FILE_WRITE, size_bytes + path)
+          rbtp_send_frame(RBTP_FILE_WRITE, [code.bytesize].pack("N") + path)
           debug_log("PicoModem:file_write sent path=#{path} size=#{code.bytesize}")
 
           # Wait for FILE_ACK READY
@@ -848,9 +834,7 @@
           when RBTP_DONE_ACK
             payload = frame[1]
             if 5 <= payload.size
-              status = payload.getbyte(0)
-              remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
-                           (payload.getbyte(3) << 8) | payload.getbyte(4)
+              status, remote_crc = payload[0, 5].unpack("CN")
               local_crc = CRC.crc32(code)
               if status == RBTP_OK && local_crc == remote_crc
                 append_log("[+] Upload complete (CRC32 verified)")
