@@ -171,10 +171,10 @@ mrb__stat(mrb_state *mrb, mrb_value self)
 
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(size)),
-    mrb_fixnum_value(info.type == LFS_TYPE_DIR ? 0 : (mrb_int)info.size));
+    mrb_int_value(mrb, info.type == LFS_TYPE_DIR ? 0 : (mrb_int)info.size));
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(unixtime)),
-    mrb_fixnum_value((mrb_int)mtime));
+    mrb_int_value(mrb, (mrb_int)mtime));
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(mode)),
     mrb_fixnum_value(info.type));

@@ -125,7 +125,7 @@ mrb_size(mrb_state *mrb, mrb_value self)
   if (sz < 0) {
     mrb_raise_iff_lfs_error(mrb, (int)sz, "lfs_file_size");
   }
-  return mrb_fixnum_value(sz);
+  return mrb_int_value(mrb, sz);
 }
 
 static mrb_value
