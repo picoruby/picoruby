@@ -122,7 +122,7 @@ namespace :r2p2 do
                 sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} #{mode=='debug' ? 'PICORB_DEBUG=1' : ''} rake"
               end
               defs = <<~DEFS
-                -D PICORB_ROOT=#{MRUBY_ROOT} \
+                -D PICORUBY_ROOT=#{MRUBY_ROOT} \
                 -D R2P2_GEM_DIR=#{R2P2_GEM_DIR} \
                 -D EXTRA_LIBRARY_PATH=#{mruby_build_path}/lib \
                 -D EXTRA_INCLUDE_DIR=#{mruby_build_path}/include \
