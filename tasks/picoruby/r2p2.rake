@@ -37,10 +37,6 @@ def r2p2_def_r2p2_name(vm, board)
   "-D R2P2_NAME=R2P2-#{vm.upcase} -D R2P2_BOARD_NAME=#{board.upcase} -D R2P2_VERSION=#{version}"
 end
 
-def r2p2_def_msc(mode)
-  '-D PICORB_MSC_FLASH=1'
-end
-
 def r2p2_def_picorb_vm(vm)
   vm == 'picoruby' ? '-D PICORB_VM_MRUBYC=1' : '-D PICORB_VM_MRUBY=1'
 end
@@ -131,8 +127,7 @@ namespace :r2p2 do
                 #{r2p2_def_picorb_vm(vm)} \
                 #{r2p2_def_r2p2_name(vm, board)} \
                 #{r2p2_def_board(board)} \
-                #{r2p2_def_build_type(mode)} \
-                #{r2p2_def_msc(mode)}
+                #{r2p2_def_build_type(mode)}
               DEFS
               sh "cmake -S #{R2P2_GEM_DIR}/cmake -B #{dir} #{defs}"
               sh "cmake --build #{dir}"

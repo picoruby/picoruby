@@ -10,7 +10,7 @@ MRuby::Gem::Specification.new('picoruby-editor') do |spec|
       spec.add_dependency('mruby-io')
     end
   else
-    spec.add_dependency 'picoruby-filesystem-fat'
+    spec.add_dependency 'picoruby-littlefs'
     spec.add_dependency 'picoruby-vfs'
   end
   spec.add_dependency 'picoruby-env'

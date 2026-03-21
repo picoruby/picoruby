@@ -9,7 +9,6 @@ class File
     end
     def directory? = @stat.directory?
     def mode = @stat.mode
-    def mode_str = @stat.mode_str
     def writable? = @stat.writable?
     def mtime = @stat.mtime
     def birthtime = @stat.birthtime
@@ -130,10 +129,6 @@ class File
 
   def sector_size
     @file.sector_size
-  end
-
-  def physical_address
-    @file.physical_address
   end
 
   def tell

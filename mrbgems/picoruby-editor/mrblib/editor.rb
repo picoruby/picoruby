@@ -21,7 +21,7 @@ when "ruby", "jruby"
   end
 when "mruby/c", "mruby"
   begin
-    require "filesystem-fat"
+    require "littlefs"
     require "vfs"
   rescue LoadError
   end

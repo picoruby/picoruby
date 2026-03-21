@@ -181,15 +181,9 @@ module Net
 
       def ssl_socket(host, port)
         ctx = SSLContext.new
-        if Machine.posix?
-          ctx.ca_file = @ca_file if @ca_file
-          ctx.cert_file = @cert_file if @cert_file
-          ctx.key_file = @key_file if @key_file
-        else
-          File.open(@ca_file) { |f| ctx.set_ca(f.physical_address, f.size) } if @ca_file
-          File.open(@cert_file) { |f| ctx.set_cert(f.physical_address, f.size) } if @cert_file
-          File.open(@key_file) { |f| ctx.set_key(f.physical_address, f.size) } if @key_file
-        end
+        ctx.ca_file = @ca_file if @ca_file
+        ctx.cert_file = @cert_file if @cert_file
+        ctx.key_file = @key_file if @key_file
         ctx.verify_mode = @ssl ? SSLContext::VERIFY_PEER : SSLContext::VERIFY_NONE
         tcp = nil
         begin

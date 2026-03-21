@@ -8,7 +8,7 @@ require "machine"
 require 'yaml'
 begin
   require 'gpio'
-  require "filesystem-fat"
+  require "littlefs"
   require "vfs"
 rescue LoadError
   # ignore. maybe POSIX
@@ -48,7 +48,7 @@ class Shell
   def self.setup_root_volume(device, label: "PicoRuby")
     sleep 1 if device == :sd
     return if VFS.volume_index("/")
-    fat = FAT.new(device, label: label)
+    fat = Littlefs.new(device, label: label)
     retry_count = 0
     begin
       VFS.mount(fat, "/")
@@ -70,12 +70,8 @@ class Shell
         print "Checking: #{path}"
         File.open(path, "r") do |f|
           actual_len = f.size
-          actual_crc = if f.respond_to?(:physical_address)
-                         CRC.crc32_from_address(f.physical_address, code.size)
-                       else
-                         actual_code = f.read if 0 < actual_len
-                         CRC.crc32(actual_code)
-                       end
+          actual_code = f.read if 0 < actual_len
+          actual_crc = CRC.crc32(actual_code)
           if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
             puts " ... OK (#{code.length} bytes)"
             return flawless
@@ -249,7 +245,7 @@ class Shell
       print "Initializing RTC... "
       ENV['TZ'] = "JST-9"
       Machine.set_hwclock(rtc.current_time.to_i)
-      FAT.unixtime_offset = Time.unixtime_offset
+      Littlefs.unixtime_offset = Time.unixtime_offset
       puts "Available (#{Time.now})"
     rescue => e
       puts "Not available"
@@ -260,7 +256,7 @@ class Shell
   def self.setup_sdcard(driver)
     begin
       print "Initializing SD card(#{driver.class})... "
-      sd = FAT.new(:sd, label: "SD", driver: driver)
+      sd = Littlefs.new(:sd, label: "SD", driver: driver)
       sd_mountpoint = "/sd"
       VFS.mount(sd, sd_mountpoint)
       puts "Available at #{sd_mountpoint}"

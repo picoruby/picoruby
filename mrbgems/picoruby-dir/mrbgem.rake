@@ -4,6 +4,6 @@ MRuby::Gem::Specification.new('picoruby-dir') do |spec|
   spec.summary = 'Dir class for PicoRuby (ported from mruby-dir)'
 
   spec.add_dependency 'picoruby-env'
-  spec.add_conflict 'picoruby-filesystem-fat'
+  spec.add_conflict 'picoruby-littlefs'
 end
 
