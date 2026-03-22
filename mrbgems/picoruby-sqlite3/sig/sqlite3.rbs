@@ -1,7 +1,7 @@
 class SQLite3
   type sqlite3_var_t = String | Integer | Float | nil | bool
 
-  def self.vfs_methods=: (FAT::VFSMethods) -> FAT::VFSMethods
+  def self.vfs_methods=: (VFS::methods_t) -> VFS::methods_t
   def self.time_methods=: (Time::TimeMethods) -> Time::TimeMethods
 end
 

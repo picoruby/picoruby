@@ -5,5 +5,5 @@ MRuby::Gem::Specification.new('picoruby-posix-io') do |spec|
 
   spec.add_dependency 'picoruby-time'
   spec.add_dependency 'picoruby-metaprog'
-  spec.add_conflict 'picoruby-filesystem-fat'
+  spec.add_conflict 'picoruby-littlefs'
 end

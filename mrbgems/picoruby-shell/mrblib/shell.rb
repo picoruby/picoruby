@@ -8,7 +8,7 @@ require "machine"
 require 'yaml'
 begin
   require 'gpio'
-  require "filesystem-fat"
+  require "littlefs"
   require "vfs"
 rescue LoadError
   # ignore. maybe POSIX
@@ -48,7 +48,7 @@ class Shell
   def self.setup_root_volume(device, label: "PicoRuby")
     sleep 1 if device == :sd
     return if VFS.volume_index("/")
-    fat = FAT.new(device, label: label)
+    fat = Littlefs.new(device, label: label)
     retry_count = 0
     begin
       VFS.mount(fat, "/")
@@ -62,51 +62,38 @@ class Shell
     end
   end
 
-  def self.ensure_system_file(path, code, crc = nil)
-    flawless = true
-    i = 0
-    while i < 10
-      if File.file?(path)
-        print "Checking: #{path}"
-        File.open(path, "r") do |f|
-          actual_len = f.size
-          actual_crc = if f.respond_to?(:physical_address)
-                         CRC.crc32_from_address(f.physical_address, code.size)
-                       else
-                         actual_code = f.read if 0 < actual_len
-                         CRC.crc32(actual_code)
-                       end
-          if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
-            puts " ... OK (#{code.length} bytes)"
-            return flawless
-          else
-            puts " ... NG! (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
-            flawless = false
-          end
+  # Returns "flawless" or not
+  def self.ensure_system_file(path, code, crc)
+    if File.file?(path)
+      print "Found: #{path}"
+      File.open(path, "r") do |f|
+        if f.size == code.bytesize && CRC.crc32(f.read) == crc
+          puts " ... CRC match, skip writing"
+          return true
         end
-        File.unlink(path)
-        sleep_ms 100
-      else
-        puts "Writing : #{path}"
-        File.open(path, "w") do |f|
-          f.expand(code.length) if f.respond_to?(:expand)
-          f.write(code)
-        end
-        sleep_ms 100
+        print " ... CRC mismatch, "
       end
-      i += 1
+    else
+      print "Not found: #{path}, "
     end
-    File.unlink(path) if File.file?(path)
-    puts "Failed to save: #{path} (#{code.length} bytes)"
-    return false
+    puts "Writing #{code.bytesize} bytes"
+    File.open(path, "w") do |f|
+      f.write(code)
+    end
+    true
+  rescue => e
+    puts "Failed to save: #{path} (#{e.message})"
+    false
   end
 
-  # To skip sanity check for each file, we create a description
-  # file after all files are confirmed to be flawless.
-  # If sanity check fails even once, the description file is
-  # removed to force sanity check on the next boot.
-  def self.sanity_check_system_files(root)
+  # Write system executables to filesystem when firmware version
+  # changes (or on first boot / recovery).
+  # Fast path: skip if /etc/ruby-description matches current version.
+  # Recovery: delete /etc/ruby-description and reboot to force rewrite.
+  def self.setup_system_executables(root)
     desc_file = "#{root}/etc/ruby-description"
+    id_file = "#{root}/etc/machine-id"
+    unique_id = Machine.unique_id
     if File.file?(desc_file)
       File.open(desc_file, "r") do |f|
         f.read.chomp == RUBY_DESCRIPTION and return
@@ -119,16 +106,13 @@ class Shell
         flawless = false
       end
     end
-    path = "#{root}/etc/machine-id"
-    unless self.ensure_system_file(path, Machine.unique_id, nil)
+    unless self.ensure_system_file(id_file, unique_id, CRC.crc32(unique_id))
       flawless = false
     end
     if flawless
-      File.open(desc_file, "w") do |f|
-        f.write(RUBY_DESCRIPTION)
-      end
-    else
-      File.unlink(desc_file) if File.file?(desc_file)
+      File.open(desc_file, "w") { |f| f.write(RUBY_DESCRIPTION) }
+    elsif File.file?(desc_file)
+      File.unlink(desc_file)
     end
   end
 
@@ -151,18 +135,10 @@ class Shell
         unless Dir.exist?(dir)
           puts "Creating directory: #{dir}"
           Dir.mkdir(dir)
-          i = 0
-          while !Dir.exist?(dir)
-            sleep_ms 200
-            i += 1
-            if 10 < i
-              raise "Failed to create directory: #{dir}. Please reboot"
-            end
-          end
         end
         di += 1
       end
-      self.sanity_check_system_files(root || "")
+      self.setup_system_executables(root || "")
     end
     Dir.chdir ENV['HOME'] || ENV_DEFAULT_HOME
 
@@ -249,7 +225,7 @@ class Shell
       print "Initializing RTC... "
       ENV['TZ'] = "JST-9"
       Machine.set_hwclock(rtc.current_time.to_i)
-      FAT.unixtime_offset = Time.unixtime_offset
+      Littlefs.unixtime_offset = Time.unixtime_offset
       puts "Available (#{Time.now})"
     rescue => e
       puts "Not available"
@@ -260,7 +236,7 @@ class Shell
   def self.setup_sdcard(driver)
     begin
       print "Initializing SD card(#{driver.class})... "
-      sd = FAT.new(:sd, label: "SD", driver: driver)
+      sd = Littlefs.new(:sd, label: "SD", driver: driver)
       sd_mountpoint = "/sd"
       VFS.mount(sd, sd_mountpoint)
       puts "Available at #{sd_mountpoint}"
@@ -334,9 +310,9 @@ class Shell
       "00000000000000000000000000000000000000000000000000000000000000000000"
     ]
   end
-  LOGO_WIDTH = LOGO[0].length
+  LOGO_WIDTH = LOGO[0].bytesize
   author = "@hasumikin"
-  space = " " * ((LOGO_WIDTH - author.length) / 2)
+  space = " " * ((LOGO_WIDTH - author.bytesize) / 2)
   AUTHOR = space + author + space
   AUTHOR_COLOR = 207
 
@@ -350,7 +326,7 @@ class Shell
     while y < LOGO.size
       break if LOGO[y+1].nil?
       x = 0
-      while x < LOGO[y].length
+      while x < LOGO[y].bytesize
         if LOGO[y][x] == '1' && LOGO[y+1][x-1] == '0'
           LOGO[y+1][x-1] = '2'
         end
@@ -361,7 +337,7 @@ class Shell
 
     grad_start = 160 + (6 * color_num)
     grad_end = grad_start + 5
-    grad_slice = LOGO[0].length / 5
+    grad_slice = LOGO[0].bytesize / 5
     shadow_offset = 144
     shadow = "\e[38;5;235m:"
 
@@ -370,7 +346,7 @@ class Shell
       print margin
       split_line = []
       i = 0
-      while i < LOGO[y2].length
+      while i < LOGO[y2].bytesize
         split_line << LOGO[y2][i, grad_slice]
         i += grad_slice
       end
@@ -380,7 +356,7 @@ class Shell
         snip = split_line[si]
         color = grad_start + si
         ci = 0
-        while ci < snip.length
+        while ci < snip.bytesize
           c = snip[ci]
           if c == '0'
             if y2 == LOGO.size - 1

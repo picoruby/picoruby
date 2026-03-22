@@ -11,4 +11,8 @@ class SSLContext
   def set_key: (Integer addr, Integer size) -> nil
   def verify_mode=: (Integer mode) -> Integer
   def verify_mode: () -> Integer
+
+  private def set_ca_pem: (String pem) -> String
+  private def set_cert_pem: (String pem) -> String
+  private def set_key_pem: (String pem) -> String
 end

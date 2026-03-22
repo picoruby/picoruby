@@ -10,7 +10,7 @@ MRuby::GemBox.new do |conf|
     end
   else
     conf.gem core: "picoruby-vfs"
-    conf.gem core: "picoruby-filesystem-fat"
+    conf.gem core: "picoruby-littlefs"
     conf.gem core: "picoruby-watchdog"
   end
 end

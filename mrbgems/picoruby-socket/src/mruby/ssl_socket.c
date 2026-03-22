@@ -178,6 +178,72 @@ mrb_ssl_context_set_key(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/* ssl_context.set_ca_pem(str) -- store pointer to String buffer; ivar keeps it alive */
+static mrb_value
+mrb_ssl_context_set_ca_pem(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_context_t *ctx;
+  mrb_value str;
+
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "S", &str);
+  mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@ca_pem"), str);
+
+  if (!SSLContext_set_ca(ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
+  }
+
+  return mrb_nil_value();
+}
+
+/* ssl_context.set_cert_pem(str) */
+static mrb_value
+mrb_ssl_context_set_cert_pem(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_context_t *ctx;
+  mrb_value str;
+
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "S", &str);
+  mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@cert_pem"), str);
+
+  if (!SSLContext_set_cert(ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set certificate");
+  }
+
+  return mrb_nil_value();
+}
+
+/* ssl_context.set_key_pem(str) */
+static mrb_value
+mrb_ssl_context_set_key_pem(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_context_t *ctx;
+  mrb_value str;
+
+  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
+  if (!ctx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
+  }
+
+  mrb_get_args(mrb, "S", &str);
+  mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@key_pem"), str);
+
+  if (!SSLContext_set_key(ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set key");
+  }
+
+  return mrb_nil_value();
+}
+
 /* ssl_context.verify_mode = mode */
 static mrb_value
 mrb_ssl_context_set_verify_mode(mrb_state *mrb, mrb_value self)
@@ -527,10 +593,13 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(initialize), mrb_ssl_context_initialize, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(ca_file), mrb_ssl_context_set_ca_file, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_ca), mrb_ssl_context_set_ca, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_ca_pem), mrb_ssl_context_set_ca_pem, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(cert_file), mrb_ssl_context_set_cert_file, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_cert), mrb_ssl_context_set_cert, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_cert_pem), mrb_ssl_context_set_cert_pem, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(key_file), mrb_ssl_context_set_key_file, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_key), mrb_ssl_context_set_key, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(set_key_pem), mrb_ssl_context_set_key_pem, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM_E(verify_mode), mrb_ssl_context_set_verify_mode, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(verify_mode), mrb_ssl_context_get_verify_mode, MRB_ARGS_NONE());
 

@@ -55,7 +55,7 @@ c_driver_select_pwm(mrbc_vm *vm, mrbc_value v[], int argc)
   psg_drv = &psg_drv_pwm;
   int left  = GET_INT_ARG(1);
   int right = GET_INT_ARG(2);
-  console_printf("PSG: PWM left=%d, right=%d\n", left, right);
+  D("PSG: PWM left=%d, right=%d\n", left, right);
   reset_psg();
   PSG_tick_start_core1((uint8_t)left, (uint8_t)right);
   SET_NIL_RETURN();

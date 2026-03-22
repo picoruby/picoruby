@@ -51,16 +51,19 @@ if(USE_WIFI)
   list(APPEND SOURCE_FILES ${ADD_WIFI_SOURCE_FILES})
   if(PICO_BOARD STREQUAL "pico2_w")
     file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
+      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
       ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     )
   else()
     # pico_w uses picoruby-socket instead of picoruby-net to avoid function conflicts
     file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
+      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
       ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     )
   endif()
 else()
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
+      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-cyw43/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-socket/ports/rp2040/*.c
@@ -197,14 +200,6 @@ endif()
 
 add_compile_definitions(MRB_INT64=1)
 
-if(PICORB_MSC_FLASH)
-  add_compile_definitions(PICORB_MSC_FLASH=1)
-elseif(PICORB_MSC_SD)
-  add_compile_definitions(PICORB_MSC_SD=1)
-else()
-  message(FATAL_ERROR "PICORB_MSC_xxxx is not defined.")
-endif()
-
 if(PICORB_VM_MRUBY)
   add_compile_definitions(PICORB_VM_MRUBY=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
@@ -230,7 +225,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${PICO_SDK_PATH}/src/rp2_common/pico_stdio_usb/include
   ${PICO_SDK_PATH}/src/rp2_common/hardware_dma/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-machine/include
-  ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/lib/ff14b/source
+  ${PICORUBY_ROOT}/mrbgems/picoruby-littlefs/lib/littlefs
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/mrbgems
   ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/include

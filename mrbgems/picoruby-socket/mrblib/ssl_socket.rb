@@ -1,6 +1,23 @@
 class SSLContext
   # SSLContext is mostly implemented in C
   # This file provides additional Ruby-level methods
+
+  unless Machine.posix?
+    # On non-POSIX platforms, ca_file=/cert_file=/key_file= are not supported
+    # in C (no filesystem access from mbedtls). Read the file in Ruby and pass
+    # the buffer via set_ca_pem/set_cert_pem/set_key_pem.
+    def ca_file=(path)
+      set_ca_pem(File.open(path, "r") { |f| f.read })
+    end
+
+    def cert_file=(path)
+      set_cert_pem(File.open(path, "r") { |f| f.read })
+    end
+
+    def key_file=(path)
+      set_key_pem(File.open(path, "r") { |f| f.read })
+    end
+  end
 end
 
 class SSLSocket < BasicSocket
