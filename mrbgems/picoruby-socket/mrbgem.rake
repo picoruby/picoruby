@@ -11,6 +11,7 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
     spec.add_dependency 'picoruby-mbedtls'  # SSL/TLS support for non-POSIX platforms
   end
   spec.add_conflict 'picoruby-net'
+  spec.add_dependency 'picoruby-machine'
 
   # Add include directory
   spec.cc.include_paths << "#{dir}/include"

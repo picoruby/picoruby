@@ -13,6 +13,9 @@ MRuby::Gem::Specification.new('picoruby-editor') do |spec|
     spec.add_dependency 'picoruby-littlefs'
     spec.add_dependency 'picoruby-vfs'
   end
+  if build.vm_mruby?
+    spec.add_dependency 'mruby-string-ext', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
+  end
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-io-console'
 end
