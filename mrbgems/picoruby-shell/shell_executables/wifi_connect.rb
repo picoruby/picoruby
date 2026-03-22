@@ -111,17 +111,30 @@ if config["wifi"]["watchdog"]
   puts "Watchdog enabled (8388ms)"
 end
 
+retry_if_failed = config["wifi"]["retry_if_failed"]
 begin
   puts "Connecting to WiFi network: #{ssid}. Timeout in 10 seconds..."
-  Network::WiFi.connect_timeout(ssid, password, auth, 10) # seconds
+
+  while true
+    connected = Network::WiFi.connect_timeout(ssid, password, auth, 10) # seconds
+    break if connected
+
+    if retry_if_failed
+      puts "Failed to connect. Retrying..."
+      sleep 1
+    else
+      puts "Failed to connect. Abort."
+      return
+    end
+  end
   puts "Connected."
 rescue Network::ConnectTimeout
-  if config["wifi"]["retry_if_failed"]
-    puts "Failed to connect. Retrying..."
+  if retry_if_failed
+    puts "Connection timed out. Retrying..."
     sleep 1
     retry
   else
-    puts "Failed to connect. Abort."
+    puts "Connection timed out. Abort."
     return
   end
 end
