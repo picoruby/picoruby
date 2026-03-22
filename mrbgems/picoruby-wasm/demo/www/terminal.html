@@ -171,26 +171,26 @@
     # PicoModem - R2P2 Binary Transfer Protocol
     # ---------------------------------------------------------------------------
     # Command types (Host -> Device)
-    RBTP_FILE_READ  = 0x01
-    RBTP_FILE_WRITE = 0x02
-    RBTP_CHUNK      = 0x04
-    RBTP_ABORT      = 0xFF
+    PICOMODEM_FILE_READ  = 0x01
+    PICOMODEM_FILE_WRITE = 0x02
+    PICOMODEM_CHUNK      = 0x04
+    PICOMODEM_ABORT      = 0xFF
 
     # Response types (Device -> Host)
-    RBTP_FILE_DATA  = 0x81
-    RBTP_FILE_ACK   = 0x82
-    RBTP_CHUNK_ACK  = 0x84
-    RBTP_DONE_ACK   = 0x8F
-    RBTP_ERROR      = 0xFE
+    PICOMODEM_FILE_DATA  = 0x81
+    PICOMODEM_FILE_ACK   = 0x82
+    PICOMODEM_CHUNK_ACK  = 0x84
+    PICOMODEM_DONE_ACK   = 0x8F
+    PICOMODEM_ERROR      = 0xFE
 
     # Status codes
-    RBTP_OK    = 0x00
-    RBTP_READY = 0x01
+    PICOMODEM_OK    = 0x00
+    PICOMODEM_READY = 0x01
 
-    RBTP_CHUNK_SIZE    = 512
-    RBTP_TIMEOUT_MS    = 5000
-    RBTP_TX_CHUNK_SIZE = 32
-    RBTP_TX_CHUNK_GAP_MS = 20
+    PICOMODEM_CHUNK_SIZE    = 512
+    PICOMODEM_TIMEOUT_MS    = 5000
+    PICOMODEM_TX_CHUNK_SIZE = 32
+    PICOMODEM_TX_CHUNK_GAP_MS = 20
 
     # ---------------------------------------------------------------------------
     # App
@@ -529,36 +529,36 @@
       end
 
       # Send raw bytes in small chunks for USB-CDC stability
-      def rbtp_send_bytes(data)
+      def picomodem_send_bytes(data)
         port = current_port
         return unless port
         off = 0
         while off < data.bytesize
           remain = data.bytesize - off
-          size = RBTP_TX_CHUNK_SIZE
+          size = PICOMODEM_TX_CHUNK_SIZE
           size = remain if remain < size
           chunk = data.byteslice(off, size)
           port.write(chunk)
           off += size
-          sleep_ms RBTP_TX_CHUNK_GAP_MS if off < data.bytesize
+          sleep_ms PICOMODEM_TX_CHUNK_GAP_MS if off < data.bytesize
         end
         port.drain.await
       end
 
       # Build an PicoModem frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
-      def rbtp_build_frame(cmd, payload = "")
+      def picomodem_build_frame(cmd, payload = "")
         body = cmd.chr + payload.to_s
         crc = CRC.crc16(body)
         [0x02, body.size].pack("Cn") + body + [crc].pack("n")
       end
 
       # Send one PicoModem frame
-      def rbtp_send_frame(cmd, payload = "")
-        rbtp_send_bytes(rbtp_build_frame(cmd, payload))
+      def picomodem_send_frame(cmd, payload = "")
+        picomodem_send_bytes(picomodem_build_frame(cmd, payload))
       end
 
       # Read exactly n bytes from binary capture with timeout
-      def rbtp_read_exact(n, timeout_ms)
+      def picomodem_read_exact(n, timeout_ms)
         buf = "".b
         waited = 0
         while buf.size < n
@@ -581,7 +581,7 @@
       # Receive one PicoModem frame. Returns [cmd, payload] or nil on timeout/error.
       # Skips any non-STX bytes (residual terminal output) until a valid
       # STX frame start is found.
-      def rbtp_recv_frame(timeout_ms = RBTP_TIMEOUT_MS)
+      def picomodem_recv_frame(timeout_ms = PICOMODEM_TIMEOUT_MS)
         # Scan for STX, skipping residual terminal output
         waited = 0
         while true
@@ -601,11 +601,11 @@
           waited += 10
         end
         # Read length (2 bytes big-endian)
-        len_bytes = rbtp_read_exact(2, timeout_ms)
+        len_bytes = picomodem_read_exact(2, timeout_ms)
         return nil unless len_bytes
         length = len_bytes.unpack("n")[0]
         # Read body + CRC16
-        rest = rbtp_read_exact(length + 2, timeout_ms)
+        rest = picomodem_read_exact(length + 2, timeout_ms)
         return nil unless rest
         body = rest[0, length]
         expected_crc = rest[length, 2].unpack("n")[0]
@@ -622,14 +622,14 @@
       # Enter PicoModem mode: send STX, wait for ACK, then start binary capture.
       # The device prints "\n^B" (displayed on terminal) then sends ACK (0x06).
       # Text capture detects ACK while terminal.write renders the ^B normally.
-      def rbtp_enter_mode
+      def picomodem_enter_mode
         jsp = js_port
         JS::WebSerial.capture_start(jsp)
         current_port.write("\x02")
         current_port.drain.await
         # Wait for ACK (0x06) in text capture
         waited = 0
-        while waited < RBTP_TIMEOUT_MS
+        while waited < PICOMODEM_TIMEOUT_MS
           captured = JS::WebSerial.capture_peek(jsp).to_s
           if captured.include?("\x06")
             break
@@ -643,10 +643,10 @@
       end
 
       # Exit PicoModem mode: optionally send ABORT, stop binary capture
-      def rbtp_exit_mode(send_abort = false)
+      def picomodem_exit_mode(send_abort = false)
         if send_abort
           begin
-            rbtp_send_frame(RBTP_ABORT)
+            picomodem_send_frame(PICOMODEM_ABORT)
             sleep_ms 100
           rescue
             # best effort
@@ -667,15 +667,15 @@
 
         success = false
         begin
-          rbtp_enter_mode
+          picomodem_enter_mode
 
-          rbtp_send_frame(RBTP_FILE_READ, path)
+          picomodem_send_frame(PICOMODEM_FILE_READ, path)
           debug_log("PicoModem:file_read sent path=#{path}")
 
           data = "".b
           total = nil
           while true
-            frame = rbtp_recv_frame
+            frame = picomodem_recv_frame
             unless frame
               append_log("[-] Timeout waiting for response")
               return
@@ -683,7 +683,7 @@
 
             cmd, payload = frame
             case cmd
-            when RBTP_FILE_DATA
+            when PICOMODEM_FILE_DATA
               if total.nil?
                 # First chunk: 4-byte big-endian total size + data
                 if payload.size < 4
@@ -698,8 +698,8 @@
               end
               data << chunk if chunk && 0 < chunk.size
               debug_log("PicoModem:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
-              rbtp_send_frame(RBTP_CHUNK_ACK, RBTP_OK.chr)
-            when RBTP_DONE_ACK
+              picomodem_send_frame(PICOMODEM_CHUNK_ACK, PICOMODEM_OK.chr)
+            when PICOMODEM_DONE_ACK
               if 5 <= payload.size
                 remote_crc = payload[1, 4].unpack("N")[0]
                 local_crc = CRC.crc32(data)
@@ -716,7 +716,7 @@
                 success = true
               end
               return
-            when RBTP_ERROR
+            when PICOMODEM_ERROR
               append_log("[-] Device error: #{payload}")
               return
             else
@@ -727,7 +727,7 @@
         rescue => err
           append_log("[-] Download error: #{error_text(err)}")
         ensure
-          rbtp_exit_mode(!success)
+          picomodem_exit_mode(!success)
           update_dfu_buttons
         end
       end
@@ -736,11 +736,11 @@
       # File upload via PicoModem
       # -------------------------------------------------------------------
       def do_upload
-        if @rbtp_uploading
+        if @picomodem_uploading
           append_log("[-] Upload already running")
           return
         end
-        @rbtp_uploading = true
+        @picomodem_uploading = true
         set_dfu_buttons_enabled(false)
 
         unless connected?
@@ -775,23 +775,23 @@
         append_log("[*] Upload: #{path} (#{code.bytesize} bytes)")
         success = false
         begin
-          rbtp_enter_mode
+          picomodem_enter_mode
 
           # FILE_WRITE payload: 4-byte big-endian size + path
-          rbtp_send_frame(RBTP_FILE_WRITE, [code.bytesize].pack("N") + path)
+          picomodem_send_frame(PICOMODEM_FILE_WRITE, [code.bytesize].pack("N") + path)
           debug_log("PicoModem:file_write sent path=#{path} size=#{code.bytesize}")
 
           # Wait for FILE_ACK READY
-          frame = rbtp_recv_frame
+          frame = picomodem_recv_frame
           unless frame
             append_log("[-] Timeout waiting for READY")
             return
           end
-          if frame[0] == RBTP_ERROR
+          if frame[0] == PICOMODEM_ERROR
             append_log("[-] Device error: #{frame[1]}")
             return
           end
-          unless frame[0] == RBTP_FILE_ACK
+          unless frame[0] == PICOMODEM_FILE_ACK
             append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
             return
           end
@@ -801,21 +801,21 @@
           offset = 0
           while offset < code.bytesize
             remain = code.bytesize - offset
-            size = RBTP_CHUNK_SIZE
+            size = PICOMODEM_CHUNK_SIZE
             size = remain if remain < size
             chunk = code[offset, size]
-            rbtp_send_frame(RBTP_CHUNK, chunk)
+            picomodem_send_frame(PICOMODEM_CHUNK, chunk)
 
-            ack = rbtp_recv_frame
+            ack = picomodem_recv_frame
             unless ack
               append_log("[-] Timeout waiting for ACK at offset #{offset}")
               return
             end
-            if ack[0] == RBTP_ERROR
+            if ack[0] == PICOMODEM_ERROR
               append_log("[-] Device error: #{ack[1]}")
               return
             end
-            unless ack[0] == RBTP_CHUNK_ACK
+            unless ack[0] == PICOMODEM_CHUNK_ACK
               append_log("[-] Unexpected response: cmd=0x#{ack[0].to_s(16)}")
               return
             end
@@ -824,22 +824,22 @@
           end
 
           # Wait for DONE_ACK (device writes file then responds)
-          frame = rbtp_recv_frame
+          frame = picomodem_recv_frame
           unless frame
             append_log("[-] Timeout waiting for completion")
             return
           end
 
           case frame[0]
-          when RBTP_DONE_ACK
+          when PICOMODEM_DONE_ACK
             payload = frame[1]
             if 5 <= payload.size
               status, remote_crc = payload[0, 5].unpack("CN")
               local_crc = CRC.crc32(code)
-              if status == RBTP_OK && local_crc == remote_crc
+              if status == PICOMODEM_OK && local_crc == remote_crc
                 append_log("[+] Upload complete (CRC32 verified)")
                 success = true
-              elsif status == RBTP_OK
+              elsif status == PICOMODEM_OK
                 append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
               else
                 append_log("[-] Upload failed: status=0x#{status.to_s(16)}")
@@ -848,7 +848,7 @@
               append_log("[+] Upload complete")
               success = true
             end
-          when RBTP_ERROR
+          when PICOMODEM_ERROR
             append_log("[-] Device error: #{frame[1]}")
           else
             append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
@@ -856,8 +856,8 @@
         rescue => err
           append_log("[-] Upload error: #{error_text(err)}")
         ensure
-          @rbtp_uploading = false
-          rbtp_exit_mode(!success)
+          @picomodem_uploading = false
+          picomodem_exit_mode(!success)
           update_dfu_buttons
         end
       end
