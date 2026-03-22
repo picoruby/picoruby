@@ -37,20 +37,31 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
 
-  mrbc_value dir = mrbc_instance_new(vm, v->cls, sizeof(lfs_dir_t));
+  mrbc_value dir = mrbc_instance_new(vm, v->cls, sizeof(lfs_dir_data_t));
   lfs_dir_t *dp = (lfs_dir_t *)dir.instance->data;
   err = lfs_dir_open(littlefs_get_lfs(), dp, path);
   mrbc_raise_iff_lfs_error(vm, err, "lfs_dir_open");
+  ((lfs_dir_data_t *)dir.instance->data)->is_open = true;
   SET_RETURN(dir);
 }
 
 static void
 c_close(struct VM *vm, mrbc_value v[], int argc)
 {
-  lfs_dir_t *dp = (lfs_dir_t *)v->instance->data;
-  int err = lfs_dir_close(littlefs_get_lfs(), dp);
+  lfs_dir_data_t *dd = (lfs_dir_data_t *)v->instance->data;
+  dd->is_open = false;
+  int err = lfs_dir_close(littlefs_get_lfs(), &dd->dir);
   mrbc_raise_iff_lfs_error(vm, err, "lfs_dir_close");
   SET_NIL_RETURN();
+}
+
+static void
+dir_destructor(mrbc_value *v)
+{
+  lfs_dir_data_t *dd = (lfs_dir_data_t *)v->instance->data;
+  if (dd->is_open) {
+    lfs_dir_close(littlefs_get_lfs(), &dd->dir);
+  }
 }
 
 static void
@@ -112,6 +123,7 @@ void
 mrbc_init_class_Littlefs_Dir(mrbc_vm *vm, mrbc_class *class_LFS)
 {
   mrbc_class *class_LFS_Dir = mrbc_define_class_under(vm, class_LFS, "Dir", mrbc_class_object);
+  mrbc_define_destructor(class_LFS_Dir, dir_destructor);
 
   mrbc_define_method(vm, class_LFS_Dir, "new", c_new);
   mrbc_define_method(vm, class_LFS_Dir, "close", c_close);

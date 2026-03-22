@@ -48,6 +48,7 @@ c_new(mrbc_vm *vm, mrbc_value v[], int argc)
 
   err = lfs_file_open(littlefs_get_lfs(), &fd->file, path, flags);
   mrbc_raise_iff_lfs_error(vm, err, path);
+  fd->is_open = true;
   _file.instance->cls = class_Littlefs_File;
   SET_RETURN(_file);
 }
@@ -178,6 +179,7 @@ c_close(mrbc_vm *vm, mrbc_value v[], int argc)
   char path[LFS_NAME_MAX + 1];
   strncpy(path, fd->path, LFS_NAME_MAX);
   path[LFS_NAME_MAX] = '\0';
+  fd->is_open = false;
   int err = lfs_file_close(littlefs_get_lfs(), &fd->file);
   mrbc_raise_iff_lfs_error(vm, err, "lfs_file_close");
   if (writable) {
@@ -185,6 +187,15 @@ c_close(mrbc_vm *vm, mrbc_value v[], int argc)
     lfs_setattr(littlefs_get_lfs(), path, LFS_ATTR_MTIME, &ts, sizeof(ts));
   }
   SET_NIL_RETURN();
+}
+
+static void
+file_destructor(mrbc_value *v)
+{
+  lfs_file_data_t *fd = (lfs_file_data_t *)v->instance->data;
+  if (fd->is_open) {
+    lfs_file_close(littlefs_get_lfs(), &fd->file);
+  }
 }
 
 static void
@@ -229,6 +240,7 @@ void
 mrbc_init_class_Littlefs_File(mrbc_vm *vm, mrbc_class *class_LFS)
 {
   class_Littlefs_File = mrbc_define_class_under(vm, class_LFS, "File", mrbc_class_object);
+  mrbc_define_destructor(class_Littlefs_File, file_destructor);
   class_Littlefs_VFSMethods = mrbc_define_class_under(vm, class_LFS, "VFSMethods", mrbc_class_object);
 
   mrbc_define_method(vm, class_Littlefs_File, "new", c_new);

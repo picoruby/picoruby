@@ -25,7 +25,14 @@ typedef struct {
   lfs_file_t file;               /* must be first member */
   char path[LFS_NAME_MAX + 1];
   bool writable;
+  bool is_open;
 } lfs_file_data_t;
+
+/* Dir wrapper: stores handle + is_open flag for GC-safe auto-close */
+typedef struct {
+  lfs_dir_t dir;                 /* must be first member */
+  bool is_open;
+} lfs_dir_data_t;
 
 /* Global lfs instance accessors */
 lfs_t *littlefs_get_lfs(void);

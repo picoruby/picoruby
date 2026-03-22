@@ -225,7 +225,7 @@ c__rename(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 void
-mrbc_picoruby_littlefs_init(mrbc_vm *vm)
+mrbc_littlefs_init(mrbc_vm *vm)
 {
   mrbc_class *class_LFS = mrbc_define_class(vm, "Littlefs", mrbc_class_object);
   mrbc_define_method(vm, class_LFS, "unixtime_offset=", c_unixtime_offset_eq);
