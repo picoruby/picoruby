@@ -3,7 +3,6 @@ MRuby::Gem::Specification.new 'picoruby-bin-r2p2' do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'R2P2 executable for POSIX'
 
-  spec.add_dependency 'picoruby-numeric-ext'
   spec.add_dependency 'picoruby-shell'
 
   app_dir = "#{build_dir}/tools/mrblib"
