@@ -34,7 +34,7 @@ class Shell
   def self.setup_sdcard: (SPI | SDMMC driver) -> void
 
   def self.setup_root_volume: (Symbol drive, ?label: String) -> void
-  def self.ensure_system_file: (String path, String code, ?(Integer | nil) crc) -> bool
+  def self.ensure_system_file: (String path, String code, Integer crc) -> bool
   def self.setup_system_files: (?(String | nil) root) -> void
   def self.setup_system_executables: (String root) -> void
   def self.read_config: () -> void

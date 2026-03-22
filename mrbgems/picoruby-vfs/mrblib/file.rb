@@ -5,7 +5,7 @@ class File
   class Stat
     def initialize(path)
       volume, _path = VFS.sanitize_and_split(path)
-      @stat = volume[:driver].class::Stat.new(volume[:driver].prefix, _path)
+      @stat = volume[:driver].class::Stat.new(volume[:driver].prefix, _path) # steep:ignore
     end
     def directory? = @stat.directory?
     def mode = @stat.mode
@@ -287,7 +287,7 @@ class File
   end
 
   def expand(size)
-    @file.expand(size) if @file.respond_to? :expand
+    @file.expand(size) if @file.respond_to? :expand # steep:ignore
     size
   end
 
