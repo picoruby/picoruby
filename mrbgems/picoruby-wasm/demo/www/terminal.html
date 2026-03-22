@@ -549,7 +549,7 @@
       def picomodem_build_frame(cmd, payload = "")
         body = cmd.chr + payload.to_s
         crc = CRC.crc16(body)
-        [0x02, body.size].pack("Cn") + body + [crc].pack("n")
+        [0x02, body.bytesize].pack("Cn") + body + [crc].pack("n")
       end
 
       # Send one PicoModem frame
@@ -559,16 +559,16 @@
 
       # Read exactly n bytes from binary capture with timeout
       def picomodem_read_exact(n, timeout_ms)
-        buf = "".b
+        buf = ""
         waited = 0
-        while buf.size < n
-          chunk = JS::WebSerial.binary_capture_read(js_port, n - buf.size)
-          if chunk && 0 < chunk.size
+        while buf.bytesize < n
+          chunk = JS::WebSerial.binary_capture_read(js_port, n - buf.bytesize)
+          if chunk && 0 < chunk.bytesize
             buf << chunk
             waited = 0
           else
             if timeout_ms <= waited
-              debug_log("PicoModem:read_exact timeout need=#{n} got=#{buf.size}")
+              debug_log("PicoModem:read_exact timeout need=#{n} got=#{buf.bytesize}")
               return nil
             end
             sleep_ms 10
@@ -586,7 +586,7 @@
         waited = 0
         while true
           b = JS::WebSerial.binary_capture_read(js_port, 1)
-          if b && 0 < b.size
+          if b && 0 < b.bytesize
             if b.getbyte(0) == 0x02
               break
             end
@@ -607,15 +607,15 @@
         # Read body + CRC16
         rest = picomodem_read_exact(length + 2, timeout_ms)
         return nil unless rest
-        body = rest[0, length]
-        expected_crc = rest[length, 2].unpack("n")[0]
+        body = rest.byteslice(0, length)
+        expected_crc = rest.byteslice(length, 2).unpack("n")[0]
         actual_crc = CRC.crc16(body)
         unless actual_crc == expected_crc
           debug_log("PicoModem:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
           return nil
         end
         cmd = body.getbyte(0)
-        payload = 1 < length ? body[1, length - 1] : "".b
+        payload = 1 < length ? body.byteslice(1, length - 1) : ""
         [cmd, payload]
       end
 
@@ -672,7 +672,7 @@
           picomodem_send_frame(PICOMODEM_FILE_READ, path)
           debug_log("PicoModem:file_read sent path=#{path}")
 
-          data = "".b
+          data = ""
           total = nil
           while true
             frame = picomodem_recv_frame
@@ -686,33 +686,33 @@
             when PICOMODEM_FILE_DATA
               if total.nil?
                 # First chunk: 4-byte big-endian total size + data
-                if payload.size < 4
+                if payload.bytesize < 4
                   append_log("[-] Invalid FILE_DATA: missing size header")
                   return
                 end
-                total = payload[0, 4].unpack("N")[0]
-                chunk = payload[4, payload.size - 4]
+                total = payload.byteslice(0, 4).unpack("N")[0]
+                chunk = payload.byteslice(4, payload.bytesize - 4)
                 append_log("[.] File size: #{total} bytes")
               else
                 chunk = payload
               end
-              data << chunk if chunk && 0 < chunk.size
-              debug_log("PicoModem:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
+              data << chunk if chunk && 0 < chunk.bytesize
+              debug_log("PicoModem:chunk recv=#{chunk&.bytesize || 0} progress=#{data.bytesize}/#{total}")
               picomodem_send_frame(PICOMODEM_CHUNK_ACK, PICOMODEM_OK.chr)
             when PICOMODEM_DONE_ACK
-              if 5 <= payload.size
-                remote_crc = payload[1, 4].unpack("N")[0]
+              if 5 <= payload.bytesize
+                remote_crc = payload.byteslice(1, 4).unpack("N")[0]
                 local_crc = CRC.crc32(data)
                 if local_crc == remote_crc
                   el('editor')[:value] = data
-                  append_log("[+] Downloaded #{data.size} bytes (CRC32 verified)")
+                  append_log("[+] Downloaded #{data.bytesize} bytes (CRC32 verified)")
                   success = true
                 else
                   append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
                 end
               else
                 el('editor')[:value] = data
-                append_log("[+] Downloaded #{data.size} bytes")
+                append_log("[+] Downloaded #{data.bytesize} bytes")
                 success = true
               end
               return
@@ -803,7 +803,7 @@
             remain = code.bytesize - offset
             size = PICOMODEM_CHUNK_SIZE
             size = remain if remain < size
-            chunk = code[offset, size]
+            chunk = code.byteslice(offset, size)
             picomodem_send_frame(PICOMODEM_CHUNK, chunk)
 
             ack = picomodem_recv_frame
@@ -833,8 +833,8 @@
           case frame[0]
           when PICOMODEM_DONE_ACK
             payload = frame[1]
-            if 5 <= payload.size
-              status, remote_crc = payload[0, 5].unpack("CN")
+            if 5 <= payload.bytesize
+              status, remote_crc = payload.byteslice(0, 5).unpack("CN")
               local_crc = CRC.crc32(code)
               if status == PICOMODEM_OK && local_crc == remote_crc
                 append_log("[+] Upload complete (CRC32 verified)")
