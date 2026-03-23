@@ -62,29 +62,6 @@ class Shell
     end
   end
 
-<<<<<<< HEAD
-  def self.ensure_system_file(path, code, crc = nil)
-    flawless = true
-    i = 0
-    while i < 10
-      if File.file?(path)
-        print "Checking: #{path}"
-        File.open(path, "r") do |f|
-          actual_len = f.size
-          actual_crc = if f.respond_to?(:physical_address)
-                         CRC.crc32_from_address(f.physical_address, code.size)
-                       else
-                         actual_code = f.read if 0 < actual_len
-                         CRC.crc32(actual_code.to_s)
-                       end
-          if (actual_len == code.length) && ( crc.nil? || (actual_crc == crc) )
-            puts " ... OK (#{code.length} bytes)"
-            return flawless
-          else
-            puts " ... NG! (len: #{code.size}<=>#{actual_len} crc: #{crc}<=>#{actual_crc})"
-            flawless = false
-          end
-=======
   # Returns "flawless" or not
   def self.ensure_system_file(path, code, crc)
     if File.file?(path)
@@ -93,7 +70,6 @@ class Shell
         if f.size == code.bytesize && CRC.crc32(f.read) == crc
           puts " ... CRC match, skip writing"
           return true
->>>>>>> origin/master
         end
         print " ... CRC mismatch, "
       end
@@ -370,13 +346,8 @@ class Shell
       print margin
       split_line = [] #: Array[String]
       i = 0
-<<<<<<< HEAD
-      while i < LOGO[y2].length
-        split_line << (LOGO[y2][i, grad_slice] || raise("unreachable"))
-=======
       while i < LOGO[y2].bytesize
-        split_line << LOGO[y2][i, grad_slice]
->>>>>>> origin/master
+        split_line << (LOGO[y2][i, grad_slice] || raise("unreachable"))
         i += grad_slice
       end
       x = 0
