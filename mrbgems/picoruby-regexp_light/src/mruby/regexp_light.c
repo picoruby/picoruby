@@ -47,7 +47,9 @@ match_data_light_free(mrb_state *mrb, void *ptr)
 {
   picorb_match_data_light *md = (picorb_match_data_light *)ptr;
   if (md) {
-    if (md->pmatch) free(md->pmatch);
+    if (md->pmatch) mrb_free(mrb, md->pmatch);
+    if (!mrb_nil_p(md->str)) mrb_gc_unregister(mrb, md->str);
+    if (!mrb_nil_p(md->regexp)) mrb_gc_unregister(mrb, md->regexp);
     mrb_free(mrb, md);
   }
 }
@@ -144,14 +146,16 @@ match_data_light_create_obj(mrb_state *mrb, regmatch_t *pmatch, size_t nmatch,
   picorb_match_data_light *md =
     (picorb_match_data_light *)mrb_malloc(mrb, sizeof(picorb_match_data_light));
 
-  md->pmatch = (regmatch_t *)malloc(sizeof(regmatch_t) * nmatch);
+  md->pmatch = (regmatch_t *)mrb_malloc(mrb, sizeof(regmatch_t) * nmatch);
   if (!md->pmatch) {
     mrb_free(mrb, md);
     mrb_raise(mrb, E_RUNTIME_ERROR, "out of memory");
   }
   memcpy(md->pmatch, pmatch, sizeof(regmatch_t) * nmatch);
   md->nmatch = nmatch;
+  mrb_gc_register(mrb, str);
   md->str = str;
+  mrb_gc_register(mrb, regexp);
   md->regexp = regexp;
 
   struct RData *rdata =
@@ -168,20 +172,19 @@ do_match(mrb_state *mrb, mrb_value re_val, mrb_value str_val)
 
   const char *str = RSTRING_PTR(str_val);
   size_t nmatch = re->regex.re_nsub + 1;
-  regmatch_t *pmatch = (regmatch_t *)malloc(sizeof(regmatch_t) * nmatch);
+  regmatch_t *pmatch = (regmatch_t *)mrb_malloc(mrb, sizeof(regmatch_t) * nmatch);
   if (!pmatch) mrb_raise(mrb, E_RUNTIME_ERROR, "out of memory");
 
   int r = regexec(&re->regex, str, nmatch, pmatch, 0);
   if (r != 0 || pmatch[0].rm_so < 0) {
-    free(pmatch);
+    mrb_free(mrb, pmatch);
     return mrb_nil_value();
   }
 
-  mrb_value frozen_str =
-    mrb_str_new(mrb, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
+  mrb_value frozen_str = mrb_str_new(mrb, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
   mrb_obj_freeze(mrb, frozen_str);
   mrb_value md = match_data_light_create_obj(mrb, pmatch, nmatch, frozen_str, re_val);
-  free(pmatch);
+  mrb_free(mrb, pmatch);
   return md;
 }
 

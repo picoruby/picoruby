@@ -35,9 +35,9 @@ static mrbc_class *class_MatchData;
  * Caller must free() the returned buffer.
  */
 static char *
-convert_ruby_pattern(const char *pattern, int len)
+convert_ruby_pattern(mrbc_vm *vm, const char *pattern, int len)
 {
-  char *out = (char *)malloc((size_t)len + 1);
+  char *out = (char *)mrbc_alloc(vm, (size_t)len + 1);
   if (!out) return NULL;
   int i = 0, j = 0;
   while (i < len) {
@@ -91,13 +91,13 @@ create_regexp_obj(mrbc_vm *vm, const char *pattern, int plen,
   mrbc_value re_obj = mrbc_instance_new(vm, class_Regexp, sizeof(regex_t));
   regex_t *re = (regex_t *)re_obj.instance->data;
 
-  char *converted = convert_ruby_pattern(pattern, plen);
+  char *converted = convert_ruby_pattern(vm, pattern, plen);
   if (!converted) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "out of memory");
     return mrbc_nil_value();
   }
   int r = regcomp(re, converted, 0);
-  free(converted);
+  mrbc_free(vm, converted);
 
   if (r != 0) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid regular expression");
@@ -150,7 +150,7 @@ do_match(mrbc_vm *vm, mrbc_value re_obj, mrbc_value str_val)
 {
   regex_t *re = (regex_t *)re_obj.instance->data;
   int nmatch = (int)(re->re_nsub + 1);
-  regmatch_t *pmatch = (regmatch_t *)malloc(sizeof(regmatch_t) * (size_t)nmatch);
+  regmatch_t *pmatch = (regmatch_t *)mrbc_alloc(vm, sizeof(regmatch_t) * (size_t)nmatch);
   if (!pmatch) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "out of memory");
     return mrbc_nil_value();
@@ -159,12 +159,12 @@ do_match(mrbc_vm *vm, mrbc_value re_obj, mrbc_value str_val)
   const char *str = (const char *)str_val.string->data;
   int r = regexec(re, str, (size_t)nmatch, pmatch, 0);
   if (r != 0) {
-    free(pmatch);
+    mrbc_free(vm, pmatch);
     return mrbc_nil_value();
   }
 
   mrbc_value md = create_match_data_obj(vm, pmatch, nmatch, str_val, re_obj);
-  free(pmatch);
+  mrbc_free(vm, pmatch);
   return md;
 }
 
@@ -636,7 +636,7 @@ c_match_data_inspect(mrbc_vm *vm, mrbc_value v[], int argc)
   /* Build "#<MatchData \"match\">" possibly with group info */
   /* Estimate buffer size generously */
   int buf_size = 20 + match_len + (int)(nmatch - 1) * 32;
-  char *buf = (char *)malloc((size_t)buf_size);
+  char *buf = (char *)mrbc_alloc(vm, (size_t)buf_size);
   if (!buf) {
     mrbc_value empty = mrbc_string_new_cstr(vm, "#<MatchData>");
     SET_RETURN(empty);
@@ -670,7 +670,7 @@ c_match_data_inspect(mrbc_vm *vm, mrbc_value v[], int argc)
   snprintf(buf + pos, (size_t)(buf_size - pos), ">");
 
   mrbc_value result = mrbc_string_new_cstr(vm, buf);
-  free(buf);
+  mrbc_free(vm ,buf);
   SET_RETURN(result);
 }
 
