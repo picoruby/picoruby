@@ -105,10 +105,12 @@ class BLE
       end
     end
 
-    def start(&block)
+    def start(timeout_ms = nil, &block)
       @user_block = block
+      total_timeout_ms = 0
       hci_power_control(HCI_POWER_ON)
       while true
+        break if timeout_ms && timeout_ms <= total_timeout_ms
         packet = pop_packet
         packet_callback(packet) if packet
         heartbeat_callback if pop_heartbeat
@@ -120,7 +122,9 @@ class BLE
         end
         @user_block&.call
         sleep_ms POLLING_UNIT_MS
+        total_timeout_ms += POLLING_UNIT_MS
       end
+      return total_timeout_ms
     ensure
       hci_power_control(HCI_POWER_OFF)
       @ensure_proc&.call
