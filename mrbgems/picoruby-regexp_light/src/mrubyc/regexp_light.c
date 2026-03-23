@@ -35,6 +35,18 @@ typedef struct {
 static mrbc_class *class_Regexp;
 static mrbc_class *class_MatchData;
 
+static void *
+mrbc_regex_alloc_fn(void *ctx, size_t size)
+{
+  return mrbc_alloc((mrbc_vm *)ctx, size);
+}
+
+static void
+mrbc_regex_free_fn(void *ctx, void *ptr)
+{
+  mrbc_free((mrbc_vm *)ctx, ptr);
+}
+
 /* ---- destructors ---- */
 
 static void
@@ -125,7 +137,7 @@ create_regexp_obj(mrbc_vm *vm, const char *pattern, int plen,
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "out of memory");
     return mrbc_nil_value();
   }
-  int r = regcomp(&re->regex, converted, 0);
+  int r = regcomp(&re->regex, converted, 0, (void *)vm, mrbc_regex_alloc_fn, mrbc_regex_free_fn);
   mrbc_free(vm, converted);
 
   if (r != 0) {

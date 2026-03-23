@@ -54,6 +54,18 @@ match_data_light_free(mrb_state *mrb, void *ptr)
   }
 }
 
+static void *
+mrb_regex_alloc(void *ctx, size_t size)
+{
+  return mrb_malloc((mrb_state *)ctx, size);
+}
+
+static void
+mrb_regex_free(void *ctx, void *ptr)
+{
+  mrb_free((mrb_state *)ctx, ptr);
+}
+
 static const struct mrb_data_type picorb_regexp_light_type = {
   "picorb_regexp_light", regexp_light_free
 };
@@ -122,7 +134,7 @@ regexp_light_create_obj(mrb_state *mrb, const char *pattern, mrb_int plen,
   picorb_regexp_light *re =
     (picorb_regexp_light *)mrb_malloc(mrb, sizeof(picorb_regexp_light));
 
-  int r = regcomp(&re->regex, converted, 0);
+  int r = regcomp(&re->regex, converted, 0, (void *)mrb, mrb_regex_alloc, mrb_regex_free);
   mrb_free(mrb, converted);
 
   if (r != 0) {
