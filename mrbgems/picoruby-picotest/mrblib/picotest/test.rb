@@ -135,6 +135,10 @@ module Picotest
       report(obj.nil?, "Expected #{obj} to be nil", nil, obj)
     end
 
+    def assert_not_nil(obj)
+      report(!obj.nil?, "Expected #{obj} to not be nil", nil, obj)
+    end
+
     def assert_equal(expected, actual)
       report(expected == actual, "Expected #{expected} but got #{actual}", expected, actual)
     end

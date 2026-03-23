@@ -1,0 +1,113 @@
+# TypeProf 0.21.3
+
+# Classes
+class Littlefs
+  class VFSMethods
+  end
+
+  TYPE_REG: Integer
+  TYPE_DIR: Integer
+
+  def self.vfs_methods: -> Littlefs::VFSMethods
+  def self.unixtime_offset=: (Integer) -> Integer
+
+  type stat_t = {size: Integer?, unixtime: Integer?, mode: Integer}
+  type driver_t = nil|SPI|SDMMC
+
+  class Stat
+    LABEL: String
+    @mtime: Time
+    @stat_hash: stat_t
+    def self.new: (String device, String path) -> instance
+    def mode: () -> Integer
+    def writable?: () -> bool
+    def mtime: () -> Time
+    def birthtime: () -> untyped
+    def size: () -> Integer
+    def directory?: () -> bool
+    private def _stat: (String path) -> stat_t
+  end
+
+  AM_RDO: 1
+  AM_HID: 2
+  AM_SYS: 4
+  AM_DIR: 16
+  AM_ARC: 32
+
+  private def _contiguous?: (String path) -> bool
+  private def _directory?: (String path) -> bool
+  private def _exist?: (String path) -> bool
+  private def _unlink: (String path) -> 0
+  private def _rename: (String from, String to) -> 0
+  private def _chdir: (String path) -> 0
+  private def _utime: (Integer unixtime, String path) -> Integer
+  private def _mkdir: (String path, Integer mode) -> 0
+  private def _erase: () -> 0
+  private def _chmod: (Integer mode, String path) -> 0
+
+  def self.init_spi: (String unit, Integer sck_pin, Integer cipo_pin, Integer copi_pin, Integer cs_pin) -> 0
+  def self.init_sdmmc: (Integer clk_pin, Integer cmd_pin, Integer d0_pin) -> 0
+  def getfree: () -> Integer
+
+  private def _mkfs: () -> self
+  private def _setlabel: (String) -> 0
+  private def _getlabel: (String) -> String
+  private def _mount: () -> 0
+  private def _unmount: () -> 0
+
+  @fatfs: nil | 0
+  @label: String | nil
+
+  def self.new: (Symbol|String device, ?label: String?, ?driver: driver_t) -> Littlefs
+
+  attr_reader mountpoint: String
+  attr_reader prefix: String
+
+  def mkfs: -> Littlefs
+  def setlabel: -> 0
+  def getlabel: -> String
+  def sector_count: -> {total: Integer, free: Integer}
+  def mount: (String mountpoint) -> 0
+  def unmount: -> nil
+  def open_dir: (String path) -> Littlefs::Dir
+  def open_file: (String path, String mode) -> Littlefs::File
+  def chdir: (String path) -> 0
+  def erase: -> 0
+  def utime: (Time atime, Time mtime, String path) -> Integer
+  def mkdir: (String path, ?Integer mode) -> 0
+  def chmod: (Integer mode, String path) -> 0
+  def stat: (String path) -> Stat
+  def exist?: (String path) -> bool
+  def unlink: (String path) -> 0
+  def rename: (String from, String to) -> 0
+  def directory?: (String path) -> bool
+  def contiguous?: (String path) -> bool
+
+  class Dir
+    attr_accessor pat: String
+
+    def self.new: (String path) -> Dir
+    def rewind: -> self
+    def read: -> String?
+    def findnext: -> String?
+    def close: -> nil
+    def fullpath: -> String
+  end
+
+  class File
+    def self.new: (String path, String mode) -> File
+    def sector_size: () -> Integer
+    def each_line: () { (String) -> void } -> nil
+    def gets: () -> String?
+    def puts: (*String) -> nil
+    def tell: () -> Integer
+    def seek: (Integer offset, ?Integer whence) -> 0
+    def eof?: () -> bool
+    def read: (?Integer size) -> String?
+    def getbyte: () -> (Integer | nil)
+    def write: (String data) -> Integer
+    def close: () -> nil
+    def size: () -> Integer
+    def fsync: () -> 0
+  end
+end

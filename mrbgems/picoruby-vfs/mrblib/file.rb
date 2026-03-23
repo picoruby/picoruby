@@ -5,11 +5,10 @@ class File
   class Stat
     def initialize(path)
       volume, _path = VFS.sanitize_and_split(path)
-      @stat = volume[:driver].class::Stat.new(volume[:driver].prefix, _path)
+      @stat = volume[:driver].class::Stat.new(volume[:driver].prefix, _path) # steep:ignore
     end
     def directory? = @stat.directory?
     def mode = @stat.mode
-    def mode_str = @stat.mode_str
     def writable? = @stat.writable?
     def mtime = @stat.mtime
     def birthtime = @stat.birthtime
@@ -152,10 +151,6 @@ class File
 
   def sector_size
     @file.sector_size
-  end
-
-  def physical_address
-    @file.physical_address
   end
 
   def tell
@@ -323,7 +318,7 @@ class File
   end
 
   def expand(size)
-    @file.expand(size) if @file.respond_to? :expand
+    @file.expand(size) if @file.respond_to? :expand # steep:ignore
     size
   end
 

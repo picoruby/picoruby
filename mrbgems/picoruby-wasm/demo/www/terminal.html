@@ -71,6 +71,19 @@
     #resizer:hover {
       background: linear-gradient(to right, #555, #fff, #555);
     }
+    #editor::placeholder { color: #555; font-style: italic; }
+    #file-label {
+      padding: 5px 10px;
+      cursor: pointer;
+      border: 1px solid #777;
+      background: #2a2a2a;
+      color: #ccc;
+      font-size: 13px;
+      border-radius: 2px;
+      user-select: none;
+      white-space: nowrap;
+    }
+    #file-label:hover { background: #3a3a3a; color: #fff; }
     #dfu-log {
       flex: 0.4;
       font-family: monospace;
@@ -119,13 +132,22 @@
   <fieldset id="dfu-section">
     <legend>File Editor (PicoModem)</legend>
     <div class="controls">
-      <label style="margin-right:4px;">Mode:</label>
       <label><input id="mode-plain" type="radio" name="upload-mode" value="plain" checked> Plain</label>
       <label><input id="mode-compile" type="radio" name="upload-mode" value="compile"> Compile</label>
       <span style="width:8px;display:inline-block;"></span>
       <button id="download-btn" disabled>Download</button>
       <input id="path-input" type="text" value="/home/app.rb" placeholder="/home/app.rb" style="width:220px">
       <button id="upload-btn" disabled>Upload</button>
+      <input id="file-input" type="file" style="display:none">
+      <label id="file-label" for="file-input">Open local file</label>
+      <span id="local-file-path" style="font-family:monospace;font-size:12px;color:#888;"></span>
+    </div>
+    <div id="editor-container">
+      <textarea id="editor" spellcheck="false" placeholder="# Type or download Ruby code here..."></textarea>
+      <div id="resizer"></div>
+      <div id="dfu-log"></div>
+    </div>
+    <div class="controls" style="margin-top:2px;">
       <label>Editor font:
         <span class="font-ctrl">
           <button id="editor-font-minus">-</button>
@@ -133,11 +155,6 @@
           <button id="editor-font-plus">+</button>
         </span>
       </label>
-    </div>
-    <div id="editor-container">
-      <textarea id="editor" spellcheck="false"></textarea>
-      <div id="resizer"></div>
-      <div id="dfu-log"></div>
     </div>
   </fieldset>
 
@@ -154,26 +171,26 @@
     # PicoModem - R2P2 Binary Transfer Protocol
     # ---------------------------------------------------------------------------
     # Command types (Host -> Device)
-    RBTP_FILE_READ  = 0x01
-    RBTP_FILE_WRITE = 0x02
-    RBTP_CHUNK      = 0x04
-    RBTP_ABORT      = 0xFF
+    PICOMODEM_FILE_READ  = 0x01
+    PICOMODEM_FILE_WRITE = 0x02
+    PICOMODEM_CHUNK      = 0x04
+    PICOMODEM_ABORT      = 0xFF
 
     # Response types (Device -> Host)
-    RBTP_FILE_DATA  = 0x81
-    RBTP_FILE_ACK   = 0x82
-    RBTP_CHUNK_ACK  = 0x84
-    RBTP_DONE_ACK   = 0x8F
-    RBTP_ERROR      = 0xFE
+    PICOMODEM_FILE_DATA  = 0x81
+    PICOMODEM_FILE_ACK   = 0x82
+    PICOMODEM_CHUNK_ACK  = 0x84
+    PICOMODEM_DONE_ACK   = 0x8F
+    PICOMODEM_ERROR      = 0xFE
 
     # Status codes
-    RBTP_OK    = 0x00
-    RBTP_READY = 0x01
+    PICOMODEM_OK    = 0x00
+    PICOMODEM_READY = 0x01
 
-    RBTP_CHUNK_SIZE    = 512
-    RBTP_TIMEOUT_MS    = 5000
-    RBTP_TX_CHUNK_SIZE = 32
-    RBTP_TX_CHUNK_GAP_MS = 20
+    PICOMODEM_CHUNK_SIZE    = 512
+    PICOMODEM_TIMEOUT_MS    = 5000
+    PICOMODEM_TX_CHUNK_SIZE = 32
+    PICOMODEM_TX_CHUNK_GAP_MS = 20
 
     # ---------------------------------------------------------------------------
     # App
@@ -205,7 +222,7 @@
         opts[:scrollback] = 1000
         opts[:cursorBlink] = true
         opts[:convertEol] = true
-        opts[:fontFamily] = '"Ubuntu Mono", Menlo, Consolas, "DejaVu Sans Mono", "Courier New", Courier, monospace'
+        opts[:fontFamily] = '"Courier Prime", Courier, monospace'
         opts[:fontSize] = 15
 
         theme = JS.global.create_object
@@ -223,6 +240,14 @@
           fit_terminal
         end
         resize_observer.observe(container)
+
+        # Ensure Escape key is captured by xterm instead of the browser
+        terminal.attachCustomKeyEventHandler do |event|
+          if event[:key].to_s == 'Escape'
+            event.preventDefault
+          end
+          true
+        end
 
         @terminal = terminal
       end
@@ -272,18 +297,20 @@
       end
 
       def update_dfu_buttons
-        has_path = !el('path-input')[:value].to_s.strip.empty?
-        set_dfu_buttons_enabled(connected? && has_path)
+        has_path    = !el('path-input')[:value].to_s.strip.empty?
+        has_content = !el('editor')[:value].to_s.strip.empty?
+        set_dfu_buttons_enabled(connected? && has_path, has_content)
       end
 
-      def set_dfu_buttons_enabled(enabled)
-        if enabled
+      def set_dfu_buttons_enabled(enabled, has_content = true)
+        if enabled && has_content
           el('upload-btn').removeAttribute('disabled')
-          unless compile_mode?
-            el('download-btn').removeAttribute('disabled')
-          end
         else
           el('upload-btn').setAttribute('disabled', 'true')
+        end
+        if enabled && !compile_mode?
+          el('download-btn').removeAttribute('disabled')
+        else
           el('download-btn').setAttribute('disabled', 'true')
         end
       end
@@ -382,7 +409,9 @@
         JS.global.addEventListener('serial-reader-closed') { disconnect }
         bind_font_controls
         bind_resizer
+        bind_file_selector
         el('path-input').addEventListener('input') { update_dfu_buttons }
+        el('editor').addEventListener('input') { update_dfu_buttons }
 
         # Mode radio buttons
         el('mode-plain').addEventListener('change') { el('download-btn').removeAttribute('disabled') }
@@ -475,6 +504,21 @@
         end
       end
 
+      def bind_file_selector
+        el('file-input').addEventListener('change') do
+          file = el('file-input')[:files][0]
+          next unless file
+          reader = JS.global[:FileReader].new
+          reader.addEventListener('load') do |e|
+            el('editor')[:value] = e[:target][:result].to_s
+            el('local-file-path')[:textContent] = file[:name].to_s
+            el('file-input')[:value] = ''
+            update_dfu_buttons
+          end
+          reader.readAsText(file)
+        end
+      end
+
       # -------------------------------------------------------------------
       # PicoModem protocol helpers
       # -------------------------------------------------------------------
@@ -485,53 +529,46 @@
       end
 
       # Send raw bytes in small chunks for USB-CDC stability
-      def rbtp_send_bytes(data)
+      def picomodem_send_bytes(data)
         port = current_port
         return unless port
         off = 0
         while off < data.bytesize
           remain = data.bytesize - off
-          size = RBTP_TX_CHUNK_SIZE
+          size = PICOMODEM_TX_CHUNK_SIZE
           size = remain if remain < size
           chunk = data.byteslice(off, size)
           port.write(chunk)
           off += size
-          sleep_ms RBTP_TX_CHUNK_GAP_MS if off < data.bytesize
+          sleep_ms PICOMODEM_TX_CHUNK_GAP_MS if off < data.bytesize
         end
         port.drain.await
       end
 
       # Build an PicoModem frame: STX(1) + Length(2) + Cmd(1) + Payload(N) + CRC16(2)
-      def rbtp_build_frame(cmd, payload = "")
+      def picomodem_build_frame(cmd, payload = "")
         body = cmd.chr + payload.to_s
-        length = body.size
         crc = CRC.crc16(body)
-        frame = "\x02".b
-        frame << ((length >> 8) & 0xFF).chr
-        frame << (length & 0xFF).chr
-        frame << body
-        frame << ((crc >> 8) & 0xFF).chr
-        frame << (crc & 0xFF).chr
-        frame
+        [0x02, body.bytesize].pack("Cn") + body + [crc].pack("n")
       end
 
       # Send one PicoModem frame
-      def rbtp_send_frame(cmd, payload = "")
-        rbtp_send_bytes(rbtp_build_frame(cmd, payload))
+      def picomodem_send_frame(cmd, payload = "")
+        picomodem_send_bytes(picomodem_build_frame(cmd, payload))
       end
 
       # Read exactly n bytes from binary capture with timeout
-      def rbtp_read_exact(n, timeout_ms)
-        buf = "".b
+      def picomodem_read_exact(n, timeout_ms)
+        buf = ""
         waited = 0
-        while buf.size < n
-          chunk = JS::WebSerial.binary_capture_read(js_port, n - buf.size)
-          if chunk && 0 < chunk.size
+        while buf.bytesize < n
+          chunk = JS::WebSerial.binary_capture_read(js_port, n - buf.bytesize)
+          if chunk && 0 < chunk.bytesize
             buf << chunk
             waited = 0
           else
             if timeout_ms <= waited
-              debug_log("PicoModem:read_exact timeout need=#{n} got=#{buf.size}")
+              debug_log("PicoModem:read_exact timeout need=#{n} got=#{buf.bytesize}")
               return nil
             end
             sleep_ms 10
@@ -544,12 +581,12 @@
       # Receive one PicoModem frame. Returns [cmd, payload] or nil on timeout/error.
       # Skips any non-STX bytes (residual terminal output) until a valid
       # STX frame start is found.
-      def rbtp_recv_frame(timeout_ms = RBTP_TIMEOUT_MS)
+      def picomodem_recv_frame(timeout_ms = PICOMODEM_TIMEOUT_MS)
         # Scan for STX, skipping residual terminal output
         waited = 0
         while true
           b = JS::WebSerial.binary_capture_read(js_port, 1)
-          if b && 0 < b.size
+          if b && 0 < b.bytesize
             if b.getbyte(0) == 0x02
               break
             end
@@ -564,35 +601,35 @@
           waited += 10
         end
         # Read length (2 bytes big-endian)
-        len_bytes = rbtp_read_exact(2, timeout_ms)
+        len_bytes = picomodem_read_exact(2, timeout_ms)
         return nil unless len_bytes
-        length = (len_bytes.getbyte(0) << 8) | len_bytes.getbyte(1)
+        length = len_bytes.unpack("n")[0]
         # Read body + CRC16
-        rest = rbtp_read_exact(length + 2, timeout_ms)
+        rest = picomodem_read_exact(length + 2, timeout_ms)
         return nil unless rest
-        body = rest[0, length]
-        expected_crc = (rest.getbyte(length) << 8) | rest.getbyte(length + 1)
+        body = rest.byteslice(0, length)
+        expected_crc = rest.byteslice(length, 2).unpack("n")[0]
         actual_crc = CRC.crc16(body)
         unless actual_crc == expected_crc
           debug_log("PicoModem:crc16 mismatch expected=#{expected_crc} actual=#{actual_crc}")
           return nil
         end
         cmd = body.getbyte(0)
-        payload = 1 < length ? body[1, length - 1] : "".b
+        payload = 1 < length ? body.byteslice(1, length - 1) : ""
         [cmd, payload]
       end
 
       # Enter PicoModem mode: send STX, wait for ACK, then start binary capture.
       # The device prints "\n^B" (displayed on terminal) then sends ACK (0x06).
       # Text capture detects ACK while terminal.write renders the ^B normally.
-      def rbtp_enter_mode
+      def picomodem_enter_mode
         jsp = js_port
         JS::WebSerial.capture_start(jsp)
         current_port.write("\x02")
         current_port.drain.await
         # Wait for ACK (0x06) in text capture
         waited = 0
-        while waited < RBTP_TIMEOUT_MS
+        while waited < PICOMODEM_TIMEOUT_MS
           captured = JS::WebSerial.capture_peek(jsp).to_s
           if captured.include?("\x06")
             break
@@ -606,10 +643,10 @@
       end
 
       # Exit PicoModem mode: optionally send ABORT, stop binary capture
-      def rbtp_exit_mode(send_abort = false)
+      def picomodem_exit_mode(send_abort = false)
         if send_abort
           begin
-            rbtp_send_frame(RBTP_ABORT)
+            picomodem_send_frame(PICOMODEM_ABORT)
             sleep_ms 100
           rescue
             # best effort
@@ -630,15 +667,15 @@
 
         success = false
         begin
-          rbtp_enter_mode
+          picomodem_enter_mode
 
-          rbtp_send_frame(RBTP_FILE_READ, path)
+          picomodem_send_frame(PICOMODEM_FILE_READ, path)
           debug_log("PicoModem:file_read sent path=#{path}")
 
-          data = "".b
+          data = ""
           total = nil
           while true
-            frame = rbtp_recv_frame
+            frame = picomodem_recv_frame
             unless frame
               append_log("[-] Timeout waiting for response")
               return
@@ -646,42 +683,40 @@
 
             cmd, payload = frame
             case cmd
-            when RBTP_FILE_DATA
+            when PICOMODEM_FILE_DATA
               if total.nil?
                 # First chunk: 4-byte big-endian total size + data
-                if payload.size < 4
+                if payload.bytesize < 4
                   append_log("[-] Invalid FILE_DATA: missing size header")
                   return
                 end
-                total = (payload.getbyte(0) << 24) | (payload.getbyte(1) << 16) |
-                        (payload.getbyte(2) << 8) | payload.getbyte(3)
-                chunk = payload[4, payload.size - 4]
+                total = payload.byteslice(0, 4).unpack("N")[0]
+                chunk = payload.byteslice(4, payload.bytesize - 4)
                 append_log("[.] File size: #{total} bytes")
               else
                 chunk = payload
               end
-              data << chunk if chunk && 0 < chunk.size
-              debug_log("PicoModem:chunk recv=#{chunk&.size || 0} progress=#{data.size}/#{total}")
-              rbtp_send_frame(RBTP_CHUNK_ACK, RBTP_OK.chr)
-            when RBTP_DONE_ACK
-              if 5 <= payload.size
-                remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
-                             (payload.getbyte(3) << 8) | payload.getbyte(4)
+              data << chunk if chunk && 0 < chunk.bytesize
+              debug_log("PicoModem:chunk recv=#{chunk&.bytesize || 0} progress=#{data.bytesize}/#{total}")
+              picomodem_send_frame(PICOMODEM_CHUNK_ACK, PICOMODEM_OK.chr)
+            when PICOMODEM_DONE_ACK
+              if 5 <= payload.bytesize
+                remote_crc = payload.byteslice(1, 4).unpack("N")[0]
                 local_crc = CRC.crc32(data)
                 if local_crc == remote_crc
                   el('editor')[:value] = data
-                  append_log("[+] Downloaded #{data.size} bytes (CRC32 verified)")
+                  append_log("[+] Downloaded #{data.bytesize} bytes (CRC32 verified)")
                   success = true
                 else
                   append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
                 end
               else
                 el('editor')[:value] = data
-                append_log("[+] Downloaded #{data.size} bytes")
+                append_log("[+] Downloaded #{data.bytesize} bytes")
                 success = true
               end
               return
-            when RBTP_ERROR
+            when PICOMODEM_ERROR
               append_log("[-] Device error: #{payload}")
               return
             else
@@ -692,7 +727,7 @@
         rescue => err
           append_log("[-] Download error: #{error_text(err)}")
         ensure
-          rbtp_exit_mode(!success)
+          picomodem_exit_mode(!success)
           update_dfu_buttons
         end
       end
@@ -701,11 +736,11 @@
       # File upload via PicoModem
       # -------------------------------------------------------------------
       def do_upload
-        if @rbtp_uploading
+        if @picomodem_uploading
           append_log("[-] Upload already running")
           return
         end
-        @rbtp_uploading = true
+        @picomodem_uploading = true
         set_dfu_buttons_enabled(false)
 
         unless connected?
@@ -740,28 +775,23 @@
         append_log("[*] Upload: #{path} (#{code.bytesize} bytes)")
         success = false
         begin
-          rbtp_enter_mode
+          picomodem_enter_mode
 
           # FILE_WRITE payload: 4-byte big-endian size + path
-          size_bytes = "".b
-          size_bytes << ((code.bytesize >> 24) & 0xFF).chr
-          size_bytes << ((code.bytesize >> 16) & 0xFF).chr
-          size_bytes << ((code.bytesize >> 8) & 0xFF).chr
-          size_bytes << (code.bytesize & 0xFF).chr
-          rbtp_send_frame(RBTP_FILE_WRITE, size_bytes + path)
+          picomodem_send_frame(PICOMODEM_FILE_WRITE, [code.bytesize].pack("N") + path)
           debug_log("PicoModem:file_write sent path=#{path} size=#{code.bytesize}")
 
           # Wait for FILE_ACK READY
-          frame = rbtp_recv_frame
+          frame = picomodem_recv_frame
           unless frame
             append_log("[-] Timeout waiting for READY")
             return
           end
-          if frame[0] == RBTP_ERROR
+          if frame[0] == PICOMODEM_ERROR
             append_log("[-] Device error: #{frame[1]}")
             return
           end
-          unless frame[0] == RBTP_FILE_ACK
+          unless frame[0] == PICOMODEM_FILE_ACK
             append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
             return
           end
@@ -771,21 +801,21 @@
           offset = 0
           while offset < code.bytesize
             remain = code.bytesize - offset
-            size = RBTP_CHUNK_SIZE
+            size = PICOMODEM_CHUNK_SIZE
             size = remain if remain < size
-            chunk = code[offset, size]
-            rbtp_send_frame(RBTP_CHUNK, chunk)
+            chunk = code.byteslice(offset, size)
+            picomodem_send_frame(PICOMODEM_CHUNK, chunk)
 
-            ack = rbtp_recv_frame
+            ack = picomodem_recv_frame
             unless ack
               append_log("[-] Timeout waiting for ACK at offset #{offset}")
               return
             end
-            if ack[0] == RBTP_ERROR
+            if ack[0] == PICOMODEM_ERROR
               append_log("[-] Device error: #{ack[1]}")
               return
             end
-            unless ack[0] == RBTP_CHUNK_ACK
+            unless ack[0] == PICOMODEM_CHUNK_ACK
               append_log("[-] Unexpected response: cmd=0x#{ack[0].to_s(16)}")
               return
             end
@@ -794,24 +824,22 @@
           end
 
           # Wait for DONE_ACK (device writes file then responds)
-          frame = rbtp_recv_frame
+          frame = picomodem_recv_frame
           unless frame
             append_log("[-] Timeout waiting for completion")
             return
           end
 
           case frame[0]
-          when RBTP_DONE_ACK
+          when PICOMODEM_DONE_ACK
             payload = frame[1]
-            if 5 <= payload.size
-              status = payload.getbyte(0)
-              remote_crc = (payload.getbyte(1) << 24) | (payload.getbyte(2) << 16) |
-                           (payload.getbyte(3) << 8) | payload.getbyte(4)
+            if 5 <= payload.bytesize
+              status, remote_crc = payload.byteslice(0, 5).unpack("CN")
               local_crc = CRC.crc32(code)
-              if status == RBTP_OK && local_crc == remote_crc
+              if status == PICOMODEM_OK && local_crc == remote_crc
                 append_log("[+] Upload complete (CRC32 verified)")
                 success = true
-              elsif status == RBTP_OK
+              elsif status == PICOMODEM_OK
                 append_log("[-] CRC32 mismatch: local=0x#{local_crc.to_s(16)} remote=0x#{remote_crc.to_s(16)}")
               else
                 append_log("[-] Upload failed: status=0x#{status.to_s(16)}")
@@ -820,7 +848,7 @@
               append_log("[+] Upload complete")
               success = true
             end
-          when RBTP_ERROR
+          when PICOMODEM_ERROR
             append_log("[-] Device error: #{frame[1]}")
           else
             append_log("[-] Unexpected response: cmd=0x#{frame[0].to_s(16)}")
@@ -828,8 +856,8 @@
         rescue => err
           append_log("[-] Upload error: #{error_text(err)}")
         ensure
-          @rbtp_uploading = false
-          rbtp_exit_mode(!success)
+          @picomodem_uploading = false
+          picomodem_exit_mode(!success)
           update_dfu_buttons
         end
       end

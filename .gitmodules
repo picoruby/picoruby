@@ -26,3 +26,6 @@
 [submodule "mrbgems/picoruby-regexp_light/lib/regex_light"]
 	path = mrbgems/picoruby-regexp_light/lib/regex_light
 	url = https://github.com/hasumikin/regex_light
+[submodule "mrbgems/picoruby-littlefs/lib/littlefs"]
+	path = mrbgems/picoruby-littlefs/lib/littlefs
+	url = https://github.com/littlefs-project/littlefs

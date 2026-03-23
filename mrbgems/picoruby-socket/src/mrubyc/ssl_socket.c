@@ -683,6 +683,99 @@ c_ssl_context_set_key_file(mrbc_vm *vm, mrbc_value *v, int argc)
 #endif
 }
 
+/* ssl_context.set_ca_pem(str) -- store pointer to String buffer; keeps String alive via ivar */
+static void
+c_ssl_context_set_ca_pem(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  mrbc_value str = GET_ARG(1);
+  if (str.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a String");
+    return;
+  }
+
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("@ca_pem"), &str);
+
+  if (!SSLContext_set_ca(wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA certificate");
+    return;
+  }
+
+  SET_NIL_RETURN();
+}
+
+/* ssl_context.set_cert_pem(str) */
+static void
+c_ssl_context_set_cert_pem(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  mrbc_value str = GET_ARG(1);
+  if (str.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a String");
+    return;
+  }
+
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("@cert_pem"), &str);
+
+  if (!SSLContext_set_cert(wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate");
+    return;
+  }
+
+  SET_NIL_RETURN();
+}
+
+/* ssl_context.set_key_pem(str) */
+static void
+c_ssl_context_set_key_pem(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
+    return;
+  }
+
+  mrbc_value str = GET_ARG(1);
+  if (str.tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a String");
+    return;
+  }
+
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("@key_pem"), &str);
+
+  if (!SSLContext_set_key(wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key");
+    return;
+  }
+
+  SET_NIL_RETURN();
+}
+
 /* ssl_context.set_key(addr, size) */
 static void
 c_ssl_context_set_key(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -816,10 +909,13 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_SSLContext, "new", c_ssl_context_new);
   mrbc_define_method(vm, class_SSLContext, "ca_file=", c_ssl_context_set_ca_file);
   mrbc_define_method(vm, class_SSLContext, "set_ca", c_ssl_context_set_ca);
+  mrbc_define_method(vm, class_SSLContext, "set_ca_pem", c_ssl_context_set_ca_pem);
   mrbc_define_method(vm, class_SSLContext, "cert_file=", c_ssl_context_set_cert_file);
   mrbc_define_method(vm, class_SSLContext, "set_cert", c_ssl_context_set_cert);
+  mrbc_define_method(vm, class_SSLContext, "set_cert_pem", c_ssl_context_set_cert_pem);
   mrbc_define_method(vm, class_SSLContext, "key_file=", c_ssl_context_set_key_file);
   mrbc_define_method(vm, class_SSLContext, "set_key", c_ssl_context_set_key);
+  mrbc_define_method(vm, class_SSLContext, "set_key_pem", c_ssl_context_set_key_pem);
   mrbc_define_method(vm, class_SSLContext, "verify_mode=", c_ssl_context_set_verify_mode);
   mrbc_define_method(vm, class_SSLContext, "verify_mode", c_ssl_context_get_verify_mode);
 

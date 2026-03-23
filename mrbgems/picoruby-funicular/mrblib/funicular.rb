@@ -1,4 +1,18 @@
-require 'js'
+# The 'js' gem (picoruby-wasm) provides JavaScript interop and is only
+# available in wasm builds. During test builds, picoruby-wasm is excluded
+# from dependencies (see mrbgem.rake), so `require 'js'` raises LoadError.
+#
+# Additionally, gem init order is not guaranteed to be stable. A dummy
+# `require` in picoruby-mruby/mrblib/require.rb exists to suppress
+# LoadError during picogem_init, but if picoruby-require initializes
+# before this gem, the real `require` (which raises LoadError) will
+# already be active. Rescuing LoadError here makes the code robust
+# regardless of init order.
+begin
+  require 'js'
+rescue LoadError
+  # not available outside wasm environment
+end
 
 module Funicular
   VERSION = '0.1.0'

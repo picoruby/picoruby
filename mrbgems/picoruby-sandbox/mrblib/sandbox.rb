@@ -12,32 +12,14 @@ class Sandbox
 
   def load_file(path, join: true)
     f = File.open(path, "r")
-    # Executables in /bin/ were allocated in contiguous blocks by "File#expand"
-    # See Shell#setup_system_files
-    # SD card files (/sd/) are not memory-mapped, so physical_address cannot be used
-    if f.respond_to?(:physical_address) && !path.start_with?("/sd/") && (f.size < f.sector_size || path.start_with?("/bin/"))
-      physical_address = f.physical_address
-      rb = ""
-      is_rite = (Machine.read_memory(physical_address, 8) == "RITE0300")
-    else
-      physical_address = nil
+    begin
       return nil unless rb = f.read
       is_rite = rb.start_with?("RITE0300")
-    end
-    begin
       started = if is_rite
-        # assume mruby bytecode
-        physical_address ? exec_mrb_from_memory(physical_address) : exec_mrb(rb)
+        exec_mrb(rb)
       else
-        # assume Ruby script
-        if physical_address
-          unless compile_from_memory(physical_address, f.size)
-            raise RuntimeError, "#{path}: compile failed"
-          end
-        else
-          unless compile(rb)
-            raise RuntimeError, "#{path}: compile failed"
-          end
+        unless compile(rb)
+          raise RuntimeError, "#{path}: compile failed"
         end
         execute
       end

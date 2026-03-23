@@ -1,4 +1,5 @@
 class Float
+<<<<<<< HEAD
   def %(right)
     left = self.to_f
     while right < left
@@ -56,4 +57,6 @@ class Float
     end
   end
 
+=======
+>>>>>>> origin/master
 end

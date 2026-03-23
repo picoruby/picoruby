@@ -2,10 +2,11 @@
 
 # Classes
 class VFS
-  type driver_t = FAT
+  type driver_t = FAT | Littlefs
   type volume_t = {mountpoint: String, driver: driver_t}
-  type file_t = FAT::File
-  type dir_t = FAT::Dir
+  type file_t = FAT::File | Littlefs::File
+  type dir_t = FAT::Dir | Littlefs::Dir
+  type methods_t = FAT::VFSMethods | Littlefs::VFSMethods
 
   VOLUMES: Array[volume_t]
 
