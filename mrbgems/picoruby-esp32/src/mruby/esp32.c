@@ -7,6 +7,8 @@
 
 static struct RClass *ConnectTimeout;
 
+#if defined(CONFIG_ESP_WIFI_ENABLED)
+
 static mrb_value
 c_esp32_wifi_init(mrb_state *mrb, mrb_value self)
 {
@@ -68,12 +70,17 @@ c_esp32_wifi_tcpip_link_status(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(status);
 }
 
+#endif
+
 void
 mrb_picoruby_esp32_gem_init(mrb_state *mrb)
 {
   struct RClass *class_ESP32 = mrb_define_class_id(mrb, MRB_SYM(ESP32), mrb->object_class);
-  
+
   ConnectTimeout = mrb_define_class_under_id(mrb, class_ESP32, MRB_SYM(ConnectTimeout), E_RUNTIME_ERROR);
+
+  #if defined(CONFIG_ESP_WIFI_ENABLED)
+
   struct RClass *class_WiFi = mrb_define_class_under_id(mrb, class_ESP32, MRB_SYM(WiFi), mrb->object_class);
 
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(_init), c_esp32_wifi_init, MRB_ARGS_NONE());
@@ -81,6 +88,8 @@ mrb_picoruby_esp32_gem_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(connect_timeout), c_esp32_wifi_connect_timeout, MRB_ARGS_ARG(3, 1));
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(disconnect), c_esp32_wifi_disconnect, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(tcpip_link_status), c_esp32_wifi_tcpip_link_status, MRB_ARGS_NONE());
+
+  #endif
 }
 
 void
