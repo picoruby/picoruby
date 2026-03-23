@@ -113,9 +113,7 @@ class BLE
         packet_callback(packet) if packet
         heartbeat_callback if pop_heartbeat
         if peripheral?
-          _start_advertise unless @advertising_started
           _drain_rx
-          _check_cccd
           _request_send
         else
           _flush_tx_central if @connected
@@ -138,6 +136,10 @@ class BLE
 
     def heartbeat_callback
       blink_led
+      if peripheral?
+        _start_advertise unless @advertising_started
+        _check_cccd
+      end
     end
 
     def packet_callback(event_packet)
