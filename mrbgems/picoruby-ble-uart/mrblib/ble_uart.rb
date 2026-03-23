@@ -107,7 +107,25 @@ class BLE
 
     def start(&block)
       @user_block = block
-      super()
+      hci_power_control(HCI_POWER_ON)
+      while true
+        packet = pop_packet
+        packet_callback(packet) if packet
+        heartbeat_callback if pop_heartbeat
+        if peripheral?
+          _start_advertise unless @advertising_started
+          _drain_rx
+          _check_cccd
+          _request_send
+        else
+          _flush_tx_central if @connected
+        end
+        @user_block&.call
+        sleep_ms POLLING_UNIT_MS
+      end
+    ensure
+      hci_power_control(HCI_POWER_OFF)
+      @ensure_proc&.call
     end
 
     def peripheral?
@@ -120,15 +138,6 @@ class BLE
 
     def heartbeat_callback
       blink_led
-      if peripheral?
-        _start_advertise unless @advertising_started
-        _drain_rx
-        _check_cccd
-        _request_send
-      else
-        _flush_tx_central if @connected
-      end
-      @user_block&.call
     end
 
     def packet_callback(event_packet)
