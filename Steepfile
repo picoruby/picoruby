@@ -45,4 +45,5 @@ target :mrbgems do
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/global.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/numeric.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/hash.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/enum.rb"
 end
