@@ -4,22 +4,26 @@
 
 static mrbc_class *ConnectTimeout;
 
+static void
+c_esp32_wifi_initialized(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  #if defined(CONFIG_ESP_WIFI_ENABLED)
+  if (ESP32_WIFI_initialized()) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+  #else
+    SET_FALSE_RETURN();
+  #endif
+}
+
 #if defined(CONFIG_ESP_WIFI_ENABLED)
 
 static void
 c_esp32_wifi_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (ESP32_WIFI_init() == 0) {
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-static void
-c_esp32_wifi_initialized(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (ESP32_WIFI_initialized()) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -76,14 +80,12 @@ mrbc_esp32_init(mrbc_vm *vm)
 
   ConnectTimeout = mrbc_define_class_under(vm, class_ESP32, "ConnectTimeout", MRBC_CLASS(RuntimeError));
 
-  #if defined(CONFIG_ESP_WIFI_ENABLED)
-
   mrbc_class *class_WiFi = mrbc_define_class_under(vm, class_ESP32, "WiFi", mrbc_class_object);
-  mrbc_define_method(vm, class_WiFi, "_init", c_esp32_wifi_init);
   mrbc_define_method(vm, class_WiFi, "initialized?", c_esp32_wifi_initialized);
+  #if defined(CONFIG_ESP_WIFI_ENABLED)
+  mrbc_define_method(vm, class_WiFi, "_init", c_esp32_wifi_init);
   mrbc_define_method(vm, class_WiFi, "connect_timeout", c_esp32_wifi_connect_timeout);
   mrbc_define_method(vm, class_WiFi, "disconnect", c_esp32_wifi_disconnect);
   mrbc_define_method(vm, class_WiFi, "tcpip_link_status", c_esp32_wifi_tcpip_link_status);
-
   #endif
 }
