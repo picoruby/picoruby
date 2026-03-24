@@ -49,6 +49,64 @@
 /* Linker symbol: bottom of C stack (top of heap region) */
 extern uint8_t __StackBottom[];
 
+static void
+gpio_set_in_pull_up(uint pin)
+{
+  gpio_init(pin);
+  gpio_set_dir(pin, GPIO_IN);
+  gpio_pull_up(pin);
+}
+
+static void
+gpio_set_in_pull_down(uint pin)
+{
+  gpio_init(pin);
+  gpio_set_dir(pin, GPIO_IN);
+  gpio_pull_down(pin);
+}
+
+// All GPIOs will be input to maximize safety for
+// possible peripheral for PicoRuby official Board (PRB)
+static void
+gpio_init_safe(void)
+{
+#if !defined(PICORB_DEBUG)
+  // --- UART ---
+  // GPIO0: UART_TX
+  gpio_set_in_pull_up(0);
+  gpio_set_in_pull_up(1);
+#endif
+
+  // --- SPI (2-5) ---
+  for (int pin = 2; pin <= 4; pin++) {
+    gpio_set_in_pull_down(pin);
+  }
+  gpio_set_in_pull_up(5); // CS: Unselect
+
+  // --- I2C (6-7, 8-9) ---
+  // IN & PULLUP: emulate open-drain output
+  for (int pin = 6; pin <= 9; pin++) {
+    gpio_set_in_pull_up(pin);
+  }
+
+  // --- PWM * 2 (10-11) ---
+  gpio_set_in_pull_down(10);
+  gpio_set_in_pull_down(11);
+
+  // --- DAC (12-15) ---
+  for (int pin = 12; pin <= 15; pin++) {
+    gpio_set_in_pull_down(pin);
+  }
+
+  // --- LED (16) ---
+  gpio_set_in_pull_down(16);
+
+  // --- SWITCH, ENCODER, ADC (17-29) ---
+  for (int pin = 17; pin <= 29; pin++) {
+    gpio_set_in_pull_down(pin);
+  }
+}
+
 int
 main(void)
 {
@@ -57,6 +115,8 @@ main(void)
   printf("R2P2 PicoRuby starting...\n");
   printf("Heap size: %d KB\n", HEAP_SIZE_KB);
   board_init();
+
+  gpio_init_safe();
 
 #if !defined(R2P2_ALLOC_LIBC)
   assert((uint8_t *)heap_pool + HEAP_SIZE <= (uint8_t *)__StackBottom
