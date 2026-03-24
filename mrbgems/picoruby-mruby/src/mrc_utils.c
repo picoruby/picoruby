@@ -2,6 +2,7 @@
 #include <mruby/proc.h>
 #include <mruby/data.h>
 #include <task.h>
+#include <mrc_debug.h>
 
 MRC_API void
 mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
@@ -43,6 +44,17 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
     }
     mrc_free(cc, (mrc_sym *)irep->lv); // discard const
     irep->lv = new_lv;
+  }
+
+  // Debug info filenames
+  if (irep->debug_info) {
+    for (int i = 0; i < irep->debug_info->flen; i++) {
+      mrc_irep_debug_info_file *file = irep->debug_info->files[i];
+      pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, file->filename_sym);
+      const char *lit = (const char *)constant->start;
+      size_t len = constant->length;
+      file->filename_sym = (mrc_sym)mrb_intern(cc->mrb, lit, len);
+    }
   }
 
   for (int i = 0; i < irep->rlen; i++) {
