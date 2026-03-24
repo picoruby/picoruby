@@ -111,9 +111,12 @@ class BLE
       hci_power_control(HCI_POWER_ON)
       while true
         break if timeout_ms && timeout_ms <= total_timeout_ms
-        packet = pop_packet
-        packet_callback(packet) if packet
-        heartbeat_callback if pop_heartbeat
+        while (packet = pop_packet)
+          packet_callback(packet)
+        end
+        while pop_heartbeat
+          heartbeat_callback
+        end
         if peripheral?
           _drain_rx
           _request_send
