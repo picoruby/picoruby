@@ -66,6 +66,7 @@ module Picotest
     def assert_true: (bool result) -> void
     def assert_false: (bool result) -> void
     def assert_nil: (untyped obj) -> void
+    def assert_not_nil: (untyped obj) -> void
     def assert_equal: (untyped expected, untyped actual) -> void
     def assert_not_equal: (untyped expected, untyped actual) -> void
     def assert_raise: (*(Class | String) exceptions_and_message) { () -> void } -> void
