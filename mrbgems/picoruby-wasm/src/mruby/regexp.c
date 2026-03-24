@@ -61,21 +61,21 @@ EM_JS(int, regexp_new, (const char *pattern, const char *flags), {
   }
 });
 
-EM_JS(int, regexp_test, (int ref_id, const char *str), {
+EM_JS(int, regexp_test, (int ref_id, const char *str, int str_len), {
   try {
     var re = globalThis.picorubyRefs[ref_id];
     re.lastIndex = 0;
-    return re.test(UTF8ToString(str)) ? 1 : 0;
+    return re.test(UTF8ToString(str, str_len)) ? 1 : 0;
   } catch(e) {
     return 0;
   }
 });
 
-EM_JS(int, regexp_exec, (int ref_id, const char *str), {
+EM_JS(int, regexp_exec, (int ref_id, const char *str, int str_len), {
   try {
     var re = globalThis.picorubyRefs[ref_id];
     re.lastIndex = 0;
-    var result = re.exec(UTF8ToString(str));
+    var result = re.exec(UTF8ToString(str, str_len));
     if (result === null) return -1;
     return globalThis.picorubyRefs.push(result) - 1;
   } catch(e) {
@@ -236,7 +236,7 @@ mrb_regexp_match(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val));
+  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
   if (match_ref < 0) {
     return mrb_nil_value();
   }
@@ -258,7 +258,7 @@ mrb_regexp_match_p(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int result = regexp_test(re->ref_id, RSTRING_PTR(str_val));
+  int result = regexp_test(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
   return mrb_bool_value(result);
 }
 
@@ -274,7 +274,7 @@ mrb_regexp_case_eq(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int result = regexp_test(re->ref_id, RSTRING_PTR(str_val));
+  int result = regexp_test(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
   return mrb_bool_value(result);
 }
 
@@ -290,7 +290,7 @@ mrb_regexp_match_op(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val));
+  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
   if (match_ref < 0) {
     return mrb_nil_value();
   }
@@ -783,7 +783,7 @@ mrb_string_match(mrb_state *mrb, mrb_value self)
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self));
+  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self));
   if (match_ref < 0) {
     return mrb_nil_value();
   }
@@ -803,7 +803,7 @@ mrb_string_match_p(mrb_state *mrb, mrb_value self)
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  int result = regexp_test(re_data->ref_id, RSTRING_PTR(self));
+  int result = regexp_test(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self));
   return mrb_bool_value(result);
 }
 
@@ -817,7 +817,7 @@ mrb_string_match_op(mrb_state *mrb, mrb_value self)
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self));
+  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self));
   if (match_ref < 0) {
     return mrb_nil_value();
   }
