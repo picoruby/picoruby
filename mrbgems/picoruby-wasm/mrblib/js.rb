@@ -53,6 +53,7 @@ module JS
     end
 
     def fetch(url, options = nil, &block)
+      raise ArgumentError, "JS::Object#fetch requires a block: use `fetch(url) { |resp| ... }`" unless block
       callback_id = block.object_id
       if options
         options_json = JSON.generate(options)
