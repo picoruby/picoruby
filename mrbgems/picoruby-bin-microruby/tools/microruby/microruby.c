@@ -381,7 +381,7 @@ picorb_print_diagnostics(mrc_ccontext *cc, const char *cmdline, picorb_bool verb
     mrc_diagnostic_list *d = cc->diagnostic_list;
     while (d) {
       if (verbose || d->code == MRC_PARSER_ERROR || d->code == MRC_GENERATOR_ERROR) {
-        const char *filename = cc->filename_table ? cc->filename_table[0].filename : cmdline;
+        const char *filename = d->filename ? d->filename : (cc->filename_table ? cc->filename_table[0].filename : cmdline);
         fprintf(stderr, "%s:%d:%d: %s\n", filename, d->line, d->column, d->message);
       }
       d = d->next;

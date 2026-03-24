@@ -48,7 +48,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
       -s EXPORTED_FUNCTIONS='#{exported_funcs}' \
       -s INITIAL_MEMORY=32MB \
       -s ALLOW_MEMORY_GROWTH=1 \
-      -s STACK_SIZE=512KB \
+      -s STACK_SIZE=2MB \
       -s ENVIRONMENT=web \
       -s WASM_ASYNC_COMPILATION=1 \
       -s ERROR_ON_UNDEFINED_SYMBOLS=0 \

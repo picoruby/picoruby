@@ -58,10 +58,10 @@ module MRuby
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
-            .gsub('@PICORB_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORB_COMMIT_BRANCH@', branch)
+            .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
-            .gsub('@PICORB_BUILD_DATE@', build_date)
+            .gsub('@PICORUBY_BUILD_DATE@', build_date)
       )
 
       debug_flag
@@ -92,10 +92,10 @@ module MRuby
       File.write(
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
-            .gsub('@PICORB_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORB_COMMIT_BRANCH@', branch)
+            .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
+            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
-            .gsub('@PICORB_BUILD_DATE@', build_date)
+            .gsub('@PICORUBY_BUILD_DATE@', build_date)
       )
 
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
