@@ -58,7 +58,7 @@ class BLE
       ?service_uuid: String,
       ?rx_uuid: String,
       ?tx_uuid: String
-    ) -> BLE::UART
+    ) -> void
     def start: (?Integer? timeout_ms) ?{ () -> void } -> Integer
     def heartbeat_callback: () -> void
     def packet_callback: (String event_packet) -> void
