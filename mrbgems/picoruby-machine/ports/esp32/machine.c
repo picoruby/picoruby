@@ -43,7 +43,7 @@ alarm_handler(void *arg)
 
 void
 #if defined(PICORB_VM_MRUBY)
-machine_hal_init(mrb_state *mrb)
+mrb_hal_task_init(mrb_state *mrb)
 #elif defined(PICORB_VM_MRUBYC)
 machine_hal_init(void)
 #endif
@@ -64,6 +64,14 @@ machine_hal_init(void)
   esp_timer_start_periodic(periodic_timer, MRBC_TICK_UNIT * 1000);
 #endif
 }
+
+#if defined(PICORB_VM_MRUBY)
+void
+mrb_hal_task_final(mrb_state *mrb)
+{
+  (void)mrb;
+}
+#endif
 
 void
 #if defined(PICORB_VM_MRUBYC)
@@ -89,11 +97,20 @@ void
 #if defined(PICORB_VM_MRUBYC)
 hal_idle_cpu()
 #elif defined(PICORB_VM_MRUBY)
-hal_idle_cpu(mrb_state *mrb)
+mrb_hal_task_idle_cpu(mrb_state *mrb)
 #endif
 {
   vTaskDelay(1);
 }
+
+#if defined(PICORB_VM_MRUBY)
+void
+mrb_hal_task_sleep_us(mrb_state *mrb, mrb_int usec)
+{
+  (void)mrb;
+  ets_delay_us((uint32_t)usec);
+}
+#endif
 
 int
 hal_write(int fd, const void *buf, int nbytes)
