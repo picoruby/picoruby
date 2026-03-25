@@ -105,9 +105,32 @@ class BLE
       end
     end
 
-    def start(&block)
+    def start(timeout_ms = nil, &block)
       @user_block = block
-      super()
+      total_timeout_ms = 0
+      hci_power_control(HCI_POWER_ON)
+      while true
+        break if timeout_ms && timeout_ms <= total_timeout_ms
+        while (packet = pop_packet)
+          packet_callback(packet)
+        end
+        while pop_heartbeat
+          heartbeat_callback
+        end
+        if peripheral?
+          _drain_rx
+          _request_send
+        else
+          _flush_tx_central if @connected
+        end
+        @user_block&.call
+        sleep_ms POLLING_UNIT_MS
+        total_timeout_ms += POLLING_UNIT_MS
+      end
+      return total_timeout_ms
+    ensure
+      hci_power_control(HCI_POWER_OFF)
+      @ensure_proc&.call
     end
 
     def peripheral?
@@ -122,13 +145,8 @@ class BLE
       blink_led
       if peripheral?
         _start_advertise unless @advertising_started
-        _drain_rx
         _check_cccd
-        _request_send
-      else
-        _flush_tx_central if @connected
       end
-      @user_block&.call
     end
 
     def packet_callback(event_packet)
