@@ -59,6 +59,14 @@ module MRuby
       cc.defines << "MRC_COMMIT_HASH=\\\"#{commit_hash}\\\""
     end
 
+    def rite_version
+      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include/mrc_dump.h")
+      ident = mrc_dump[/#define RITE_BINARY_IDENT\s+"(.+?)"/, 1]
+      major = mrc_dump[/#define RITE_BINARY_MAJOR_VER\s+"(.+?)"/, 1]
+      minor = mrc_dump[/#define RITE_BINARY_MINOR_VER\s+"(.+?)"/, 1]
+      "#{ident}#{major}#{minor}"
+    end
+
     def microruby
       # Place picoruby-mruby at the top so that Kernel#require is defined first
       if gems.first
@@ -72,7 +80,6 @@ module MRuby
       cc.defines << "MRB_USE_TASK_SCHEDULER"
 
       timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
       build_date = Time.now.utc.strftime("%Y-%m-%d")
 
@@ -82,6 +89,7 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
+            .gsub('@RITE_VERSION@', rite_version)
       )
 
       debug_flag
@@ -104,7 +112,6 @@ module MRuby
       end
 
       timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
       build_date = Time.now.utc.strftime("%Y-%m-%d")
 
@@ -114,6 +121,7 @@ module MRuby
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
+            .gsub('@RITE_VERSION@', rite_version)
       )
 
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"

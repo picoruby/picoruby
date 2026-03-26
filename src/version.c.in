@@ -1,9 +1,7 @@
 #include "version.h"
 #include <stdio.h>
 
-#include "mrc_dump.h" // in mruby-compiler2
-
-#define RITE_VERSION              RITE_BINARY_IDENT RITE_BINARY_FORMAT_VER
+#define RITE_VERSION              "@RITE_VERSION@"
 #define PICORUBY_COMMIT_TIMESTAMP "@PICORUBY_COMMIT_TIMESTAMP@"
 #define PICORUBY_COMMIT_HASH      "@PICORUBY_COMMIT_HASH@"
 #define PICORUBY_BUILD_DATE        "@PICORUBY_BUILD_DATE@"
