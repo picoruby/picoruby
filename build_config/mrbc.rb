@@ -13,6 +13,5 @@ MRuby::Build.new do |conf|
 
   conf.instance_variable_set :@mrbcfile, "bin/picorbc"
   conf.disable_libmruby
-  conf.disable_presym
 end
 

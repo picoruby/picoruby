@@ -14,7 +14,7 @@ class Sandbox
     f = File.open(path, "r")
     begin
       return nil unless rb = f.read
-      is_rite = rb.start_with?("RITE0300")
+      is_rite = rb.start_with?("RITE0400")
       started = if is_rite
         exec_mrb(rb)
       else

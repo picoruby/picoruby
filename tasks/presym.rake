@@ -7,9 +7,6 @@ all_prerequisites = ->(task_name, prereqs) do
 end
 
 MRuby.each_target do |build|
-  gensym_task = task(:gensym)
-  next unless build.presym_enabled?
-
   presym = build.presym
 
   include_dir = "#{build.build_dir}/include"
@@ -32,17 +29,44 @@ MRuby.each_target do |build|
     end
   end
 
-  file presym.list_path => ppps do
+  presym_task = file presym.list_path => ppps do
     presyms = presym.scan(ppps)
     current_presyms = presym.read_list if File.exist?(presym.list_path)
-    update = presyms != current_presyms
-    presym.write_list(presyms) if update
-    mkdir_p presym.header_dir
-    %w[id table].each do |type|
-      next if !update && File.exist?(presym.send("#{type}_header_path"))
-      presym.send("write_#{type}_header", presyms)
+    if presyms != current_presyms
+      mkdir_p presym.header_dir
+      %w[id table].each do |type|
+        presym.send("write_#{type}_header", presyms)
+      end
+      presym.write_list(presyms)
     end
   end
 
-  gensym_task.enhance([presym.list_path])
+  # Don't directly write dependency tasks in the "task" arguments.
+  # The rake system tracks dependencies recursively
+  # (see Rake::Task#all_prerequisite_tasks and #collect_prerequisites).
+  # Therefore, indirect dependencies from ".o" to ".pi" must be eliminated.
+  # ref. https://github.com/mruby/mruby/issues/6721
+  # This task acts a proxy-like for the "presym.list_path" task.
+  presym_proxy = task "gensym:update:#{build.name}" do
+    presym_task.invoke
+  end
+
+  # Override the "timestamp" method to reflect the presym file.
+  presym_proxy.define_singleton_method :timestamp do
+    presym_task.timestamp
+  end
+
+  # Ensure .o files depend on presym headers being generated.
+  # This is critical when a build's .o files are compiled during another
+  # build's presym scanning chain (before :gensym completes), e.g.:
+  #   - internal sub-builds (mrbc) triggered by their parent build
+  #   - the implicit host build triggered by a cross build needing mrbc
+  prereqs.each_key do |prereq|
+    next unless File.extname(prereq) == build.exts.object
+    next unless prereq.start_with?(build_dir)
+    next if mrbc_build_dir && prereq.start_with?(mrbc_build_dir)
+    file prereq => presym_proxy
+  end
+
+  task gensym: presym.list_path
 end

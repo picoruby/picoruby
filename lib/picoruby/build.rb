@@ -12,8 +12,17 @@ module MRuby
       set_build_info
     end
 
+    alias_method :original_create_mrbc_build, :create_mrbc_build
+
     def create_mrbc_build
-      build_mrbc_exec
+      # picorbc is a standalone compiler; strip VM-specific defines so
+      # the sub-build does not pull in mruby.h (and presym/id.h).
+      vm_defines = %w[PICORB_VM_MRUBY MRB_USE_TASK_SCHEDULER]
+      saved = vm_defines.select { |d| cc.defines.include?(d) }
+      saved.each { |d| cc.defines.delete(d) }
+      build = original_create_mrbc_build
+      saved.each { |d| cc.defines << d }
+      build
     end
 
     def mrubyc_hal_arm
@@ -81,7 +90,6 @@ module MRuby
 
     def picoruby(alloc_libc: true)
       common
-      disable_presym
 
       # Override by environment variable
       alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
