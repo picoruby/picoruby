@@ -80,7 +80,6 @@ module MRuby
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
       )
@@ -113,7 +112,6 @@ module MRuby
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
       )

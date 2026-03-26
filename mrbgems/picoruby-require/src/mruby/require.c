@@ -32,6 +32,7 @@ mrb_picoruby_require_gem_init(mrb_state* mrb)
   Platform_name(platform, sizeof(platform));
   picorb_description((const char *)platform, description, sizeof(description));
   // RUBY_VERSION is defined in mruby
+  mrb_define_global_const(mrb, "RITE_VERSION", mrb_str_new_static(mrb, picorb_rite_version(), strlen(picorb_rite_version())));
   mrb_define_global_const(mrb, "PICORUBY_VERSION", mrb_str_new_static(mrb, picorb_version(), strlen(picorb_version())));
   mrb_define_global_const(mrb, "RUBY_PLATFORM", mrb_str_new_cstr(mrb, platform));
   mrb_define_global_const(mrb, "RUBY_DESCRIPTION", mrb_str_new_cstr(mrb, description));

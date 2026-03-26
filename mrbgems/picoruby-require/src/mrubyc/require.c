@@ -105,6 +105,8 @@ picoruby_init_require(mrbc_vm *vm)
   char platform[128];
   char description[256];
   // RUBY_VERSION is defined in mruby/c
+  str = mrbc_string_new_cstr(vm, picorb_rite_version());
+  mrbc_set_const(mrbc_str_to_symid("RITE_VERSION"), &str);
   str = mrbc_string_new_cstr(vm, picorb_version());
   mrbc_set_const(mrbc_str_to_symid("PICORUBY_VERSION"), &str);
   Platform_name(platform, sizeof(platform));
