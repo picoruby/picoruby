@@ -74,12 +74,14 @@ c_extern(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   if ((force || !prebuilt_gems[i].required)) {
     if (prebuilt_gems[i].initializer) prebuilt_gems[i].initializer(vm);
-    if (!picoruby_load_model(prebuilt_gems[i].mrb)) {
-      SET_NIL_RETURN();
-    } else {
-      prebuilt_gems[i].required = true;
-      SET_TRUE_RETURN();
+    if (prebuilt_gems[i].mrb) {
+      if (!picoruby_load_model(prebuilt_gems[i].mrb)) {
+        SET_NIL_RETURN();
+        return;
+      }
     }
+    prebuilt_gems[i].required = true;
+    SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
   }
@@ -92,6 +94,7 @@ picoruby_load_model_by_name(const char *gem)
 {
   int i = gem_index(gem);
   if (i < 0) return false;
+  if (!prebuilt_gems[i].mrb) return true;
   return picoruby_load_model(prebuilt_gems[i].mrb);
 }
 

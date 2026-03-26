@@ -6,6 +6,11 @@
 #include "<%= v[:mrbfile] %>"
 <%- end -%>
 <%- end -%>
+<%- picogems.each do |_require_name, v| -%>
+<%- if !File.exist?(v[:mrbfile]) && v[:initializer] != "NULL" -%>
+void <%= v[:initializer] %>(mrbc_vm *vm);
+<%- end -%>
+<%- end -%>
 
 typedef struct picogems {
   const char *name;
@@ -18,6 +23,8 @@ picogems prebuilt_gems[] = {
 <%- picogems.each do |require_name, v| -%>
 <%- if File.exist?(v[:mrbfile]) -%>
   {"<%= require_name %>", picogem_<%= File.basename(v[:mrbfile], ".c").gsub('-','_') %>, <%= v[:initializer] %>, false},
+<%- else -%>
+  {"<%= require_name %>", NULL, <%= v[:initializer] %>, false},
 <%- end -%>
 <%- end -%>
   {NULL, NULL, NULL, true} /* sentinel */

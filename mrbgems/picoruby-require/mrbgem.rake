@@ -38,15 +38,16 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
           initializer: initializer
         }
         rbfiles = Dir.glob("#{gem.dir}/mrblib/**/*.rb").sort
-        file mrbfile => rbfiles do |t|
-          next if t.prerequisites.empty?
-          mkdir_p File.dirname(t.name)
-          File.open(t.name, 'w') do |f|
-            name = "picogem_#{File.basename(t.name, ".c").gsub('-','_')}"
-            mrbc.run(f, t.prerequisites, name, cdump: false)
-            if initializer != "NULL"
-              f.puts
-              f.puts "void #{initializer}(mrbc_vm *vm);"
+        unless rbfiles.empty?
+          file mrbfile => rbfiles do |t|
+            mkdir_p File.dirname(t.name)
+            File.open(t.name, 'w') do |f|
+              name = "picogem_#{File.basename(t.name, ".c").gsub('-','_')}"
+              mrbc.run(f, t.prerequisites, name, cdump: false)
+              if initializer != "NULL"
+                f.puts
+                f.puts "void #{initializer}(mrbc_vm *vm);"
+              end
             end
           end
         end
@@ -61,7 +62,9 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
 
   file "#{mrbgems_dir}/picogem_init.c" => [*picogems.values.map{_1[:mrbfile]}, MRUBY_CONFIG, __FILE__, :collect_gems] do |t|
     picogems.each do |_require_name, v|
-      Rake::FileTask[v[:mrbfile]].invoke
+      if Rake::Task.task_defined?(v[:mrbfile])
+        Rake::FileTask[v[:mrbfile]].invoke
+      end
     end
     template_path = if build.vm_mruby?
                       File.join(spec.dir, "templates/mruby/picogem_init.c.erb")
