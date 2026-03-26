@@ -1,5 +1,0 @@
-# Utilities including C implementation
-MRuby::GemBox.new do |conf|
-  conf.gem core: 'picoruby-pitchdetector'
-  conf.gem core: 'picoruby-ssd1306'
-end

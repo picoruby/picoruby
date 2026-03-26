@@ -45,9 +45,6 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   conf.gembox "core"
   conf.gembox "stdlib"
   conf.gembox "shell"
-  conf.gembox "peripheral_utils_1"
-  # This causes "region `RAM' overflow"
-  # conf.gembox "peripheral_utils_2"
   conf.gembox "peripherals"
   conf.gembox "networking"
 

@@ -51,7 +51,6 @@ MRuby::CrossBuild.new("r2p2-microruby-pico2_w") do |conf|
   conf.gembox "core"
   conf.gembox "stdlib"
   conf.gembox "shell"
-  conf.gembox "peripheral_utils"
   conf.gembox "peripherals"
   conf.gembox "networking"
   unless ENV['PICORB_DEBUG']
