@@ -84,10 +84,30 @@ c_sm_restart(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-c_sm_put(mrbc_vm *vm, mrbc_value *v, int argc)
+c_sm_put_buffer(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)v->instance->data;
-  PIO_put_blocking(config, (uint32_t)GET_INT_ARG(1));
+  mrbc_value ary = GET_ARG(1);
+  int len = mrbc_array_size(&ary);
+  int i = 0;
+  while (i < len) {
+    PIO_put_blocking(config, (uint32_t)mrbc_integer(mrbc_array_get(&ary, i)));
+    i++;
+  }
+}
+
+static void
+c_sm_put_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  pio_sm_config_t *config = (pio_sm_config_t *)v->instance->data;
+  mrbc_value str = GET_ARG(1);
+  const uint8_t *p = (const uint8_t *)mrbc_string_cstr(&str);
+  int len = mrbc_string_size(&str);
+  int i = 0;
+  while (i < len) {
+    PIO_put_blocking(config, (uint32_t)p[i]);
+    i++;
+  }
 }
 
 static void
@@ -196,7 +216,8 @@ mrbc_pio_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_SM, "start", c_sm_start);
   mrbc_define_method(vm, mrbc_class_SM, "stop", c_sm_stop);
   mrbc_define_method(vm, mrbc_class_SM, "restart", c_sm_restart);
-  mrbc_define_method(vm, mrbc_class_SM, "put", c_sm_put);
+  mrbc_define_method(vm, mrbc_class_SM, "put_buffer", c_sm_put_buffer);
+  mrbc_define_method(vm, mrbc_class_SM, "put_bytes", c_sm_put_bytes);
   mrbc_define_method(vm, mrbc_class_SM, "put_nonblocking", c_sm_put_nonblocking);
   mrbc_define_method(vm, mrbc_class_SM, "get", c_sm_get);
   mrbc_define_method(vm, mrbc_class_SM, "get_nonblocking", c_sm_get_nonblocking);

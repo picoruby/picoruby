@@ -8,6 +8,8 @@
 # with PIO consumption rate and TX FIFO underruns, causing the SK6812
 # to see an unintended reset (LOW > 80 us).
 
+require 'pio'
+
 NUM_LEDS = 30
 GPIO_PIN = 0
 BRIGHTNESS = 32  # 0-255 (keep low to avoid eye strain)
@@ -69,26 +71,26 @@ while i < NUM_LEDS
 end
 
 # All LEDs off on exit
+$sm = sm  # mruby/c can't reach lvar outside callback
 Signal.trap(:INT) do
-  i = 0
-  while i < NUM_LEDS
-    sm.put(0)
-    i += 1
-  end
+  off_buf = Array.new(NUM_LEDS, 0)
+  $sm.put_buffer(off_buf)
 end
+
+# Build rotated buffer for put_buffer
+buf = Array.new(NUM_LEDS, 0)
 
 # Animation loop: rotate the rainbow pattern
 offset = 0
 while true
-  # Send all pixels as fast as possible to prevent FIFO underrun
+  # Build rotated pixel array
   i = 0
   while i < NUM_LEDS
-    sm.put(pixels[(i + offset) % NUM_LEDS])
+    buf[i] = pixels[(i + offset) % NUM_LEDS]
     i += 1
   end
-
-  # Reset signal (>80 us) + animation speed control
+  # Send all pixels in one C-level loop to prevent FIFO underrun
+  sm.put_buffer(buf)
   sleep_ms 50
-
   offset = (offset + 1) % NUM_LEDS
 end

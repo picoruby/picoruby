@@ -133,12 +133,32 @@ mrb_sm_restart(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
-mrb_sm_put(mrb_state *mrb, mrb_value self)
+mrb_sm_put_buffer(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  mrb_int value;
-  mrb_get_args(mrb, "i", &value);
-  PIO_put_blocking(config, (uint32_t)value);
+  mrb_value ary;
+  mrb_get_args(mrb, "A", &ary);
+  mrb_int len = RARRAY_LEN(ary);
+  mrb_int i = 0;
+  while (i < len) {
+    PIO_put_blocking(config, (uint32_t)mrb_integer(mrb_ary_entry(ary, i)));
+    i++;
+  }
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_sm_put_bytes(mrb_state *mrb, mrb_value self)
+{
+  pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
+  const char *str;
+  mrb_int len;
+  mrb_get_args(mrb, "s", &str, &len);
+  mrb_int i = 0;
+  while (i < len) {
+    PIO_put_blocking(config, (uint32_t)(uint8_t)str[i]);
+    i++;
+  }
   return mrb_nil_value();
 }
 
@@ -252,7 +272,8 @@ mrb_picoruby_pio_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_SM, MRB_SYM(start), mrb_sm_start, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SM, MRB_SYM(stop), mrb_sm_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SM, MRB_SYM(restart), mrb_sm_restart, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_SM, MRB_SYM(put), mrb_sm_put, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_SM, MRB_SYM(put_buffer), mrb_sm_put_buffer, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_SM, MRB_SYM(put_bytes), mrb_sm_put_bytes, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_SM, MRB_SYM(put_nonblocking), mrb_sm_put_nonblocking, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_SM, MRB_SYM(get), mrb_sm_get, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SM, MRB_SYM(get_nonblocking), mrb_sm_get_nonblocking, MRB_ARGS_NONE());

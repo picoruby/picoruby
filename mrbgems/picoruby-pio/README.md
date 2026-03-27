@@ -98,8 +98,8 @@ sm.exec(instruction)  # execute a single instruction immediately
 ### FIFO
 
 ```ruby
-sm.put(0xFF0000)          # blocking write (32-bit word)
-sm.put_nonblocking(val)   # => true / false
+sm.put_buffer([0xFF0000, 0x00FF00])  # blocking write (array of 32-bit words)
+sm.put_nonblocking(val)              # => true / false
 
 sm.get                    # blocking read
 sm.get_nonblocking        # => Integer or nil
@@ -155,13 +155,9 @@ sm = PIO::StateMachine.new(
 )
 sm.start
 
-# Send GRB data for 3 LEDs
-pixels = [0x00FF00, 0xFF0000, 0x0000FF]  # Green, Red, Blue
-i = 0
-while i < pixels.length
-  sm.put(pixels[i] << 8)  # left-align 24-bit data
-  i += 1
-end
+# Send GRB data for 3 LEDs (left-align 24-bit data)
+pixels = [0x00FF00 << 8, 0xFF0000 << 8, 0x0000FF << 8]  # Green, Red, Blue
+sm.put_buffer(pixels)
 ```
 
 ### UART TX

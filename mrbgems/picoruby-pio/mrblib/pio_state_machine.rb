@@ -47,25 +47,6 @@ module PIO
       )
     end
 
-    def put_bytes(data)
-      if data.is_a?(String)
-        i = 0
-        while i < data.length
-          b = data.getbyte(i)
-          put(b) if b
-          i += 1
-        end
-      elsif data.is_a?(Array)
-        i = 0
-        while i < data.length
-          put(data[i])
-          i += 1
-        end
-      else
-        raise ArgumentError, "data must be String or Array"
-      end
-    end
-
     def tx_full?
       0 < tx_full
     end

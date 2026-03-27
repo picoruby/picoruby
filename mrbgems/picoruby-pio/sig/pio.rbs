@@ -181,7 +181,7 @@ module PIO
     def stop: () -> void
     def restart: () -> void
     def exec: (Integer instruction) -> void
-    def put: (Integer value) -> void
+    def put_buffer: (Array[Integer] values) -> void
     def put_nonblocking: (Integer value) -> bool
     def get: () -> Integer
     def get_nonblocking: () -> Integer?
@@ -197,6 +197,6 @@ module PIO
     def rx_empty?: () -> bool
     def clear_fifos: () -> void
     def drain_tx: () -> void
-    def put_bytes: (String | Array[Integer] data) -> void
+    def put_bytes: (String data) -> void
   end
 end
