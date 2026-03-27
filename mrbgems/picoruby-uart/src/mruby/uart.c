@@ -227,7 +227,7 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_RTS_CTS), mrb_fixnum_value(FLOW_CONTROL_RTS_CTS));
 
   mrb_define_method_id(mrb, class_UART, MRB_SYM(open_rx_buffer), mrb_open_rx_buffer, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(open_connection), mrb_open_connection, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(open_connection), mrb_open_connection, MRB_ARGS_REQ(4));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_baudrate), mrb__set_baudrate, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_flow_control), mrb__set_flow_control, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_format), mrb__set_format, MRB_ARGS_REQ(3));
