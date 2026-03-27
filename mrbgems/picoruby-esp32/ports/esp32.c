@@ -1,3 +1,5 @@
+#if defined(CONFIG_ESP_WIFI_ENABLED)
+
 #include <string.h>
 #include "esp_wifi.h"
 #include "esp_event.h"
@@ -189,3 +191,5 @@ ESP32_WIFI_tcpip_link_status()
     return 0; // LINK_DOWN
   }
 }
+
+#endif
