@@ -11,7 +11,7 @@ class Vim
   @paste_board: String | nil
   @paste_type: Symbol | nil
 
-  def self.new: (String | nil filepath) -> instance
+  def initialize: (String | nil filepath) -> void
   def start: () -> void
   private def _start: () -> void
   def exec_command: (Editor::Buffer buffer) -> (:quit | String | nil)

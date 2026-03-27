@@ -169,7 +169,7 @@ module Net
         end
 
         def parse_http_headers(request)
-          headers = {}
+          headers = {} #: Hash[String, String]
           lines = request.split("\r\n")
 
           li = 0
@@ -270,7 +270,7 @@ module Net
                 raise ConnectionClosed.new("Incomplete frame")
               end
               high, low = len_bytes.unpack("NN")
-              payload_len = ((high || 0) << 32) | (low || 0)
+              payload_len = ((high || 0) << 32) | (low || 0) # steep:ignore NoMethod
             end
 
             mask_key = nil

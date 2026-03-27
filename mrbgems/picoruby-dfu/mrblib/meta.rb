@@ -78,7 +78,7 @@ module DFU
     end
 
     def self.deep_copy(hash)
-      result = {}
+      result = {} #: Hash[String, untyped]
       keys = hash.keys
       ki = 0
       while ki < keys.size

@@ -7,14 +7,16 @@ class Markdown
     if lines[0] && lines[0].start_with?("---\n")
       parts = text.split("---\n", 3)
       if parts.length >= 3
-        @front_matter = YAML.load(parts[1]) || {}
+        # @type var default_front_matter: Hash[String, untyped]
+        default_front_matter = {}
+        @front_matter = YAML.load(parts[1]) || default_front_matter
         lines = parts[2].lines
       end
     end
 
     @footnotes = {}
     @footnote_order = []
-    remaining_lines = []
+    remaining_lines = [] #: Array[String]
     li = 0
     while li < lines.size
       line = lines[li]
@@ -421,7 +423,7 @@ class Markdown
   end
 
   def protect_html_tags(line)
-    protected_tags = []
+    protected_tags = [] #: Array[String]
     output = ""
     i = 0
 
@@ -431,7 +433,7 @@ class Markdown
       if line_i == '<'
         tag_end = line.index('>', i)
         if tag_end
-          tag = line[i..tag_end]
+          tag = line[i..tag_end] || raise("unreachable")
           index = protected_tags.length
           protected_tags << tag
           output << "<<<HTMLTAG#{index}>>>"

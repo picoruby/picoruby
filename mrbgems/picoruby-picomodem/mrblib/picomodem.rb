@@ -98,6 +98,7 @@ module PicoModem
     # Read length (2 bytes big-endian)
     len_bytes = read_exact(io, 2)
     return nil unless len_bytes
+    # @type var length: Integer
     length = len_bytes.unpack("n")[0]
     # Read cmd + payload + CRC16
     rest = read_exact(io, length + 2)
@@ -186,6 +187,7 @@ module PicoModem
       send_frame(io_out, ERROR, "Invalid FILE_WRITE payload")
       return
     end
+    # @type var total: Integer
     total = (payload.byteslice(0, 4) || '').unpack("N")[0]
     path = payload.byteslice(4, payload.bytesize - 4)
     raise "Invalid file path" if path.nil? || path.empty?

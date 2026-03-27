@@ -1,3 +1,0 @@
-class VM
-  def self.tick: () -> Integer
-end

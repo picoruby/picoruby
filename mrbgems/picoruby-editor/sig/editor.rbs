@@ -26,7 +26,7 @@ module Editor
     @buffer: Editor::Buffer
     @prompt_margin: Integer
 
-    def self.new: -> Base
+    def initialize: () -> void
     attr_reader width: Integer
     attr_reader height: Integer
     def put_buffer: (String | Symbol chr) -> void
@@ -52,7 +52,7 @@ module Editor
     @prompt: String
     @prompt_margin: Integer
 
-    def self.new: -> Line
+    def initialize: () -> void
     def prompt=: (String word) -> Integer
     def history_head: -> Integer
     def save_history: -> Integer
@@ -72,7 +72,7 @@ module Editor
     @redraw_mode: Symbol?
     @cursor_line_wraps: Integer
 
-    def self.new: -> Screen
+    def initialize: () -> void
     attr_accessor footer_height: Integer
     attr_accessor quit_by_sigint: bool
     attr_accessor redraw_mode: Symbol?

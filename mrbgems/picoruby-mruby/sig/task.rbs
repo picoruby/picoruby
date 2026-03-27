@@ -13,6 +13,7 @@ class Task
   def name=: (String name) -> String
   def priority: () -> Integer
   def priority=: (Integer priority) -> Integer
+  def run: () -> self
   def suspend: () -> self
   def resume: () -> self
   def terminate: () -> self

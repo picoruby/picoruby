@@ -35,7 +35,7 @@ class GPIO
   @open_drain: bool
 
   # Ruby method
-  def self.new: (gpio_pin_t pin, Integer flags, ?Integer alt_function) -> instance
+  def initialize: (gpio_pin_t pin, Integer flags, ?Integer alt_function) -> void
   def setmode: (Integer flags, ?Integer alt_function) -> 0
 
   # C function

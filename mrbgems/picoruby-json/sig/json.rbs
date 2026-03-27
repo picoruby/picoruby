@@ -35,7 +35,7 @@ module JSON
     @start_index: Integer
     @stack: Array[stack_t]
 
-    def self.new: (String) -> Digger
+    def initialize: (String) -> void
     private def reset: () -> void
     def dig: (*dig_key_t) -> self
     def parse: () -> untyped
@@ -55,11 +55,11 @@ module JSON
 
     @obj: untyped
 
-    def self.new: (untyped) -> Generator
+    def initialize: (untyped) -> void
     def generate: (?untyped) -> String
     private def generate_object: (Hash[String, untyped]) -> String
     private def generate_array: (Array[untyped]) -> String
-    private def generate_string: (String) -> String
+    private def generate_string: (String | Symbol) -> String
     private def generate_number: (Integer|Float) -> String
   end
 
@@ -69,11 +69,11 @@ module JSON
     @json: String
     @index: Integer
 
-    def self.new: (String) -> Parser
+    def initialize: (String) -> void
     def parse: () -> untyped
     private def parse_object: () -> void
     private def parse_array: () -> void
-    private def parse_string: () -> void
+    private def parse_string: () -> String
     private def parse_number: () -> void
     private def parse_integer: (Integer, Integer) -> void
     private def parse_float: (Integer, Integer) -> void

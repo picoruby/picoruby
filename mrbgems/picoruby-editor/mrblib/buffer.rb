@@ -1,6 +1,7 @@
 if RUBY_ENGINE == "mruby/c"
   class Array
     def insert(index, *vals)
+      # @type var index: Integer
       index_int = index.to_i
       if index_int < 0
         raise ArgumentError, "Negative index doesn't work"
@@ -181,12 +182,12 @@ module Editor
     end
 
     def dump
-      result = []
+      result = [] #: Array[String]
       li = 0
       while li < @lines.size
         line = @lines[li]
         if line.bytesize > 0 && line.getbyte(line.bytesize - 1) == 0x5C # '\\'
-          result << line.byteslice(0, line.bytesize - 1)
+          result << (line.byteslice(0, line.bytesize - 1) or raise)
         else
           result << line
         end

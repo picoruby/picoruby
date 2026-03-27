@@ -192,7 +192,7 @@ module Funicular
 
     def find_route(path)
       path_segments = path.split('/').reject { |s| s.empty? }
-      params = {}
+      params = {} #: Hash[Symbol, untyped]
 
       @routes.each do |route|
         pattern_segments = route[:pattern_segments]

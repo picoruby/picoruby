@@ -18,7 +18,7 @@ class Littlefs
     LABEL: String
     @mtime: Time
     @stat_hash: stat_t
-    def self.new: (String device, String path) -> instance
+    def initialize: (String prefix, String path) -> void
     def mode: () -> Integer
     def writable?: () -> bool
     def mtime: () -> Time
@@ -58,7 +58,7 @@ class Littlefs
   @fatfs: nil | 0
   @label: String | nil
 
-  def self.new: (Symbol|String device, ?label: String?, ?driver: driver_t) -> Littlefs
+  def initialize: (Symbol | String device, ?label: String?, ?driver: driver_t) -> void
 
   attr_reader mountpoint: String
   attr_reader prefix: String

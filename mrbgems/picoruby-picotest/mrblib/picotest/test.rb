@@ -28,7 +28,7 @@ module Picotest
     attr_reader :result
 
     def list_tests
-      result = []
+      result = [] #: Array[Symbol]
       self.methods.each do |m|
         if m.to_s.start_with?('test_')
           result.unshift(m)
@@ -196,7 +196,7 @@ module Picotest
     # private
 
     def report(result, error_message, expected, actual)
-      method = caller(2, 1)[0]
+      method = (caller(2, 1) or raise)[0]
       if result
         print "#{Picotest::GREEN}.#{Picotest::RESET}"
         @result["success_count"] += 1

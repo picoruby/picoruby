@@ -78,8 +78,8 @@ module Funicular
     # @param block [Proc] Callback with response data
     def self.upload_with_formdata(url, fields: {}, file_field: nil, file: nil, &block)
       # Store file and callback ID
-      @callback_counters ||= []
-      callback_id = nil
+      @callback_counters ||= [] # steep:ignore UnannotatedEmptyCollection
+      callback_id = _ = nil
       while true
         callback_id = RNG.random_int
         break unless @callback_counters.include?(callback_id)

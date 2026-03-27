@@ -344,10 +344,10 @@ class Shell
     y2 = 0
     while y2 < LOGO.size
       print margin
-      split_line = []
+      split_line = [] #: Array[String]
       i = 0
       while i < LOGO[y2].bytesize
-        split_line << LOGO[y2][i, grad_slice]
+        split_line << (LOGO[y2][i, grad_slice] || raise("unreachable"))
         i += grad_slice
       end
       x = 0
@@ -606,7 +606,7 @@ class Shell
       ri += 1
     end
 
-    cmd_arrays = []
+    cmd_arrays = [] #: Array[Array[String]]
     ci = 0
     while ci < commands.size
       cmd_node = commands[ci]

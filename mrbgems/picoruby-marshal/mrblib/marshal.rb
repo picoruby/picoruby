@@ -17,13 +17,14 @@ module Marshal
   TYPE_IVAR      = 'I'
 
   class << self
-    def dump(obj)
+    def dump(obj) # steep:ignore MethodArityMismatch
       result = VERSION_STRING.dup
       result << dump_object(obj)
       result
     end
 
-    def load(data)
+    def load(data) # steep:ignore MethodArityMismatch
+      # @type var data: String
       raise ArgumentError, "marshal data too short" if data.bytesize < 2
 
       major = data.getbyte(0) || 0
@@ -263,7 +264,7 @@ module Marshal
 
     def load_array(data, pos)
       len, pos = decode_fixnum(data, pos)
-      ary = []
+      ary = [] #: Array[untyped]
       i = 0
       while i < len
         elem, pos = load_object(data, pos)
@@ -275,7 +276,7 @@ module Marshal
 
     def load_hash(data, pos)
       len, pos = decode_fixnum(data, pos)
-      hash = {}
+      hash = {} #: Hash[untyped, untyped]
       i = 0
       while i < len
         key, pos = load_object(data, pos)

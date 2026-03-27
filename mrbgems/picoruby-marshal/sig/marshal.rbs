@@ -1,6 +1,4 @@
 module Marshal
-  MAJOR_VERSION: Integer
-  MINOR_VERSION: Integer
   VERSION_STRING: String
 
   TYPE_NIL: String
@@ -16,18 +14,13 @@ module Marshal
 
   type marshalable = nil | Proc | bool | Integer | Float | String | Symbol | Array[marshalable] | Hash[marshalable, marshalable]
 
-  def self.dump: (marshalable obj) -> String
-  def self.load: (String data) -> marshalable
-
   private def self.dump_object: (marshalable obj) -> String
   private def self.dump_integer: (Integer n) -> String
   private def self.encode_fixnum: (Integer n) -> String
   private def self.dump_float: (Float f) -> String
   private def self.dump_string: (String s) -> String
   private def self.dump_symbol: (Symbol sym) -> String
-  #private def self.dump_array: (Array[marshalable] ary) -> String
   private def self.dump_array: (untyped ary) -> String
-  #private def self.dump_hash: (Hash[marshalable, marshalable] hash) -> String
   private def self.dump_hash: (untyped hash) -> String
   private def self.load_object: (String data, Integer pos) -> [marshalable, Integer]
   private def self.load_integer: (String data, Integer pos) -> [Integer, Integer]

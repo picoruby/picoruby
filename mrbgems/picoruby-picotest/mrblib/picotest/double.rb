@@ -32,7 +32,7 @@ module Picotest
       instance
     end
 
-    def method_missing(method_id = Kernel.caller(0, 1)[0].to_sym, expected_count = 1,&block)
+    def method_missing(method_id = (Kernel.caller(0, 1) or raise)[0].to_sym, expected_count = 1,&block)
                         #                        ^
                         # `method_mising' is not in callinfo link
       @method_id = method_id

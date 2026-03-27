@@ -410,7 +410,7 @@ module JSON
     # private
 
     def parse_object
-      result = {}
+      result = {} #: Hash[String, untyped]
       @index += 1  # Skip '{'
       skip_whitespace
 
@@ -434,7 +434,7 @@ module JSON
     end
 
     def parse_array
-      result = []
+      result = [] #: Array[untyped]
       @index += 1  # Skip '['
       skip_whitespace
 

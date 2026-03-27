@@ -1,11 +1,5 @@
 # TypeProf 0.21.3
 
-# @sidebar builtin
-# @added_by picoruby-editor
-class Array[unchecked out Elem] < Object
-  def insert: (Integer index, *Elem) -> void
-end
-
 # Classes
 module Editor
   class Buffer
@@ -21,7 +15,7 @@ module Editor
     attr_reader selection_start_y: Integer?
     attr_reader selection_mode: Symbol?
 
-    def self.new: () -> instance
+    def initialize: () -> void
     def current_line: () -> String
     def current_char: () -> String?
     def empty?: () -> bool

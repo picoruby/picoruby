@@ -71,7 +71,7 @@ module Net
 
     # Convert request to HTTP wire format
     def to_s
-      lines = []
+      lines = [] #: Array[String]
 
       # Request line
       lines << "#{@method} #{@path} HTTP/1.1"
@@ -84,13 +84,13 @@ module Net
         value = @header[key]
         # Capitalize header names properly (manually since capitalize is not in mruby/c)
         parts = key.split('-')
-        formatted_parts = []
+        formatted_parts = [] #: Array[String]
         pi = 0
         while pi < parts.size
           word = parts[pi]
           if 0 < word.length
             # Capitalize first char, lowercase rest
-            capitalized = word[0].upcase + (1 < word.length ? word[1..-1].downcase : '')
+            capitalized = (word[0] or raise).upcase + (1 < word.length ? (word[1..-1] or raise).downcase : '')
             formatted_parts << capitalized
           else
             formatted_parts << word

@@ -16,7 +16,7 @@ module Kernel
     $stdin.getc
   end
 
-  def gets
+  def gets # steep:ignore MethodArityMismatch
     $stdin.gets
   end
 
@@ -27,12 +27,13 @@ module Kernel
     end
     len = args.size
     return nil if len == 0
-    return args[0] if len == 1
+    return args[0] if len == 1 # steep:ignore ReturnTypeMismatch
     args
   end
 
-  def exit(status = 0)
-    Machine.exit(status)
+  def exit(status = 0) # steep:ignore MethodBodyTypeMismatch
+    # @type var status: Integer
+    Machine.exit(status) # steep:ignore ArgumentTypeMismatch
   end
 end
 

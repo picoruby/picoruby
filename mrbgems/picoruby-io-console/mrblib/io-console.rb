@@ -96,6 +96,6 @@ class IO
       sleep_ms 1
       i += 1
     end
-    ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb"
+    ENV['TERM'] = res.start_with?("\e[0n") ? "ansi" : "dumb" #: String
   end
 end
