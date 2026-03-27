@@ -30,6 +30,8 @@ class Keyboard
     # Tap/hold key management (LT and MT)
     @tap_hold_keys = {}         # {[row, col] => tap_hold_state}
     @tap_threshold_ms = 200     # Tap threshold in milliseconds
+    @tap_release_ms = 10        # Delay before sending deferred tap release (ms)
+    @tap_bounce_ms = 50         # Ignore re-press within this window after tap (ms)
     @repush_threshold_ms = 200  # Repush threshold for double-tap-hold
     @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
     @active_keys = {}           # Track active keys with their resolved keycode/modifier: {[row, col] => {keycode:, modifier:}}
@@ -384,10 +386,14 @@ class Keyboard
 
     if pressed
       if state = @tap_hold_keys[key_pos]
+        # Ignore bounce during tap release cooldown
+        if state[:state] == :tap_releasing
+          return
+        end
         # Re-press: check if within repush threshold for double-tap-hold
         if state[:state] == :tapped
           elapsed = Machine.board_millis - state[:released_at]
-          if elapsed < @repush_threshold_ms
+          if @tap_bounce_ms <= elapsed && elapsed < @repush_threshold_ms
             # Double-tap-hold: start repeating tap keycode
             state[:state] = :repeating
             state[:pressed_at] = Machine.board_millis
@@ -399,6 +405,9 @@ class Keyboard
               modifier: 0,
               pressed: true
             )
+            return
+          else
+            # Within bounce guard or past repush window: ignore
             return
           end
         end
@@ -419,9 +428,8 @@ class Keyboard
 
         case state[:state]
         when :pressed
-          # Tap action: send tap keycode press and release immediately
+          # Tap action: send press now, defer release to update_tap_hold_keys
           if elapsed < @tap_threshold_ms && !state[:other_key_pressed]
-            # Send press event
             @callback&.call(
               row: row,
               col: col,
@@ -429,20 +437,9 @@ class Keyboard
               modifier: 0,
               pressed: true
             )
-            # Small delay to ensure USB HID processes the press event
-            sleep_ms 5
-            # Send release event (keycode = 0 for release)
-            @callback&.call(
-              row: row,
-              col: col,
-              keycode: 0,
-              modifier: 0,
-              pressed: false
-            )
-            # Transition to :tapped state and wait for repush
-            state[:state] = :tapped
-            state[:released_at] = Machine.board_millis
-            return  # Keep in @tap_hold_keys for double-tap detection
+            state[:state] = :tap_releasing
+            state[:tap_sent_at] = Machine.board_millis
+            return
           end
         when :holding
           # Deactivate modifier
@@ -458,8 +455,10 @@ class Keyboard
           )
         end
 
-        # Delete from @tap_hold_keys (unless :tapped waiting for repush)
-        @tap_hold_keys.delete(key_pos) unless state[:state] == :tapped
+        # Delete from @tap_hold_keys (unless waiting for deferred release or repush)
+        unless state[:state] == :tapped || state[:state] == :tap_releasing
+          @tap_hold_keys.delete(key_pos)
+        end
       end
     end
   end
@@ -470,10 +469,14 @@ class Keyboard
 
     if pressed
       if state = @tap_hold_keys[key_pos]
+        # Ignore bounce during tap release cooldown
+        if state[:state] == :tap_releasing
+          return
+        end
         # Re-press: check if within repush threshold for double-tap-hold
         if state[:state] == :tapped
           elapsed = Machine.board_millis - state[:released_at]
-          if elapsed < @repush_threshold_ms
+          if @tap_bounce_ms <= elapsed && elapsed < @repush_threshold_ms
             # Double-tap-hold: start repeating tap keycode
             state[:state] = :repeating
             state[:pressed_at] = Machine.board_millis
@@ -485,6 +488,9 @@ class Keyboard
               modifier: 0,
               pressed: true
             )
+            return
+          else
+            # Within bounce guard or past repush window: ignore
             return
           end
         end
@@ -505,9 +511,8 @@ class Keyboard
 
         case state[:state]
         when :pressed
-          # Tap action: send tap keycode press and release immediately
+          # Tap action: send press now, defer release to update_tap_hold_keys
           if elapsed < @tap_threshold_ms && !state[:other_key_pressed]
-            # Send press event
             @callback&.call(
               row: row,
               col: col,
@@ -515,20 +520,9 @@ class Keyboard
               modifier: 0,
               pressed: true
             )
-            # Small delay to ensure USB HID processes the press event
-            sleep_ms 5
-            # Send release event (keycode = 0 for release)
-            @callback&.call(
-              row: row,
-              col: col,
-              keycode: 0,
-              modifier: 0,
-              pressed: false
-            )
-            # Transition to :tapped state and wait for repush
-            state[:state] = :tapped
-            state[:released_at] = Machine.board_millis
-            return  # Keep in @tap_hold_keys for double-tap detection
+            state[:state] = :tap_releasing
+            state[:tap_sent_at] = Machine.board_millis
+            return
           end
         when :holding
           # Deactivate layer
@@ -544,8 +538,10 @@ class Keyboard
           )
         end
 
-        # Delete from @tap_hold_keys (unless :tapped waiting for repush)
-        @tap_hold_keys.delete(key_pos) unless state[:state] == :tapped
+        # Delete from @tap_hold_keys (unless waiting for deferred release or repush)
+        unless state[:state] == :tapped || state[:state] == :tap_releasing
+          @tap_hold_keys.delete(key_pos)
+        end
       end
     end
   end
@@ -572,6 +568,21 @@ class Keyboard
           end
         end
 
+      when :tap_releasing
+        # Deferred release: send release after enough time for USB to process press
+        elapsed = Machine.board_millis - state[:tap_sent_at]
+        if @tap_release_ms <= elapsed
+          @callback&.call(
+            row: key_pos[0],
+            col: key_pos[1],
+            keycode: 0,
+            modifier: 0,
+            pressed: false
+          )
+          state[:state] = :tapped
+          state[:released_at] = Machine.board_millis
+        end
+
       when :tapped
         # Check if repush threshold has expired
         elapsed = Machine.board_millis - state[:released_at]
@@ -583,16 +594,34 @@ class Keyboard
     end
 
     # Safety: If no keys are physically pressed, clean up stuck states
-    # (but keep :tapped state which is waiting for double-tap)
     if @keys_pressed.empty? && !@tap_hold_keys.empty?
       th_keys2 = @tap_hold_keys.keys
       thi2 = 0
       while thi2 < th_keys2.size
         key_pos = th_keys2[thi2]
         state = @tap_hold_keys[key_pos] # steep:ignore
-        # Keep :tapped state (waiting for double-tap), clean up others
-        if state && state[:state] != :tapped
-          keys_to_delete << key_pos
+        if state
+          case state[:state]
+          when :tapped, :tap_releasing
+            # Keep these (will be handled normally by timer above)
+          when :holding
+            # Properly deactivate before cleanup
+            if state[:tap_type] == :layer
+              deactivate_layer(key_pos, state[:layer_index])
+            elsif state[:tap_type] == :modifier
+              deactivate_modifier(key_pos)
+            end
+            keys_to_delete << key_pos
+          when :repeating
+            # Send release before cleanup
+            @callback&.call(
+              row: key_pos[0], col: key_pos[1],
+              keycode: 0, modifier: 0, pressed: false
+            )
+            keys_to_delete << key_pos
+          else
+            keys_to_delete << key_pos
+          end
         end
         thi2 += 1
       end

@@ -118,17 +118,19 @@ keyboard_matrix_scan(key_event_t *event)
       if (current != key_state[row][0]) {
         // Debounce check
         if (now - key_debounce_ms[row][0] >= debounce_ms) {
-          key_state[row][0] = current;
-          key_debounce_ms[row][0] = now;
-
           // Create event
           key_event_t ev;
           ev.row = row;
           ev.col = 0;
           ev.pressed = current;
 
-          // Push to queue
-          queue_push(&ev);
+          // Only update state if event was successfully queued.
+          // If the queue is full, keep old state so the event
+          // will be regenerated on the next scan.
+          if (queue_push(&ev)) {
+            key_state[row][0] = current;
+            key_debounce_ms[row][0] = now;
+          }
         }
       }
     }
@@ -146,17 +148,19 @@ keyboard_matrix_scan(key_event_t *event)
         if (current != key_state[row][col]) {
           // Debounce check
           if (now - key_debounce_ms[row][col] >= debounce_ms) {
-            key_state[row][col] = current;
-            key_debounce_ms[row][col] = now;
-
             // Create event
             key_event_t ev;
             ev.row = row;
             ev.col = col;
             ev.pressed = current;
 
-            // Push to queue
-            queue_push(&ev);
+            // Only update state if event was successfully queued.
+            // If the queue is full, keep old state so the event
+            // will be regenerated on the next scan.
+            if (queue_push(&ev)) {
+              key_state[row][col] = current;
+              key_debounce_ms[row][col] = now;
+            }
           }
         }
       }
