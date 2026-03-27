@@ -45,7 +45,7 @@ CTL_Z    = MT(KC_LCTL, KC_Z) # tap: Z,         hold: Left Ctrl
 ALT_X    = MT(KC_LALT, KC_X) # tap: X,         hold: Left Alt
 ALT_N    = MT(KC_LALT, KC_N) # tap: N,         hold: Left Alt
 CTL_M    = MT(KC_LCTL, KC_M) # tap: M,         hold: Left Ctrl
-SFT_ENT  = S(KC_ENTER)       # Shift+Enter
+SFT_ENT  = MT(KC_LSFT, KC_ENTER) # tap: Enter, hold: Left Shift
 
 # Layer 0: default
 #   Q      W      E      R      T      Y      U      I      O      P
