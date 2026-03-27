@@ -5,7 +5,7 @@ module Net
         lines = raw_response.split("\r\n")
         line_number = 0
         status = 0
-        headers = {}
+        headers = {} #: Hash[String, String?]
         body = ""
         body_started = false
         while(true)

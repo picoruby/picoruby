@@ -65,6 +65,7 @@ module Net
       def parse(data)
         return unless 48 <= data.bytesize
 
+        # @type var fields: Array[Integer]
         fields = data.unpack("C4N11")
         byte0 = fields[0]
         @leap_indicator = (byte0 >> 6) & 0x03

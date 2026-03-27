@@ -7,7 +7,7 @@ module URI
     attr_reader query: String?
     attr_reader fragment: String?
 
-    def self.new: (String scheme, String host, Integer port, String path, ?String? query, ?String? fragment) -> URIClass
+    def initialize: (String scheme, String host, Integer port, String path, ?String? query, ?String? fragment) -> void
     def to_s: () -> String
     def default_port: () -> Integer?
     def request_uri: () -> String

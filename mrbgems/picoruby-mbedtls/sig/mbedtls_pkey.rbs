@@ -13,6 +13,7 @@ module MbedTLS
     class RSA < MbedTLS::PKey::PKeyBase
       def self.new: (String key) -> MbedTLS::PKey::RSA
                   | (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
+      def free: () -> nil
       def self.generate: (Integer bits, ?Integer exponent) -> MbedTLS::PKey::RSA
       def to_pem: () -> String
       alias to_s to_pem
@@ -25,6 +26,7 @@ module MbedTLS
     class EC < MbedTLS::PKey::PKeyBase
       def self.new: (String key) -> MbedTLS::PKey::EC
       def self.generate: (?String curve) -> MbedTLS::PKey::EC
+      def free: () -> nil
       def to_pem: () -> String
       alias to_s to_pem
       alias export to_pem

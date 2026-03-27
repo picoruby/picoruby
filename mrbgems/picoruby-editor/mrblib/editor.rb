@@ -397,7 +397,7 @@ module Editor
         print "\e[#{content_height}T" # Scroll up
         @visual_offset += content_height
         # Fill the blank made by the scroll
-        blank_lines = []
+        blank_lines = [] #: Array[String]
         bln = first_line_skip_count - content_height
         while bln <= first_lineno
           bln_i = bln.to_i

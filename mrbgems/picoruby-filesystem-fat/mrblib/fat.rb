@@ -75,6 +75,7 @@ class FAT
       # Do nothing
     elsif driver.class.to_s == "SPI"
       # SPI mode SD card
+      # @type var driver: SPI
       FAT.init_spi(
         driver.unit,
         driver.sck_pin,
@@ -85,6 +86,7 @@ class FAT
       sleep_ms 10
     elsif driver.class.to_s == "SDMMC"
       # SDMMC mode SD card
+      # @type var driver: SDMMC
       FAT.init_sdmmc(driver.clk_pin, driver.cmd_pin, driver.d0_pin)
       sleep_ms 10
     end

@@ -35,6 +35,8 @@ class Keyboard
   @col_count: Integer
   @keymap_rows: Integer
   @keymap_cols: Integer
+  @layers: Hash[Symbol, Array[Integer]]
+  @keymap: Array[Integer]
   @layer_names: Array[Symbol]
   @default_layer: Symbol | nil
   @locked_layer: Integer | nil
@@ -71,7 +73,7 @@ class Keyboard
   def get_layer: (Symbol name) -> Array[Integer]?
 
   # Initialize keyboard layer manager
-  def self.new: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> Keyboard
+  def initialize: (Array[Integer] row_pins, Array[Integer] col_pins, ?debounce_ms: Integer, ?keymap_rows: Integer?, ?keymap_cols: Integer?) -> void
   # Add a layer with name and keymap
   def layer: (?Symbol name) { (self) -> untyped } -> void
   private def add_layer: (Symbol name, Array[Integer] keymap) -> void

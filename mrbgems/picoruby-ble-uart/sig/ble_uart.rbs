@@ -6,7 +6,7 @@ class BLE
       @str: String
       @pos: Integer
 
-      def self.new: (String str) -> BLE::UART::BufferIO
+      def initialize: (String str) -> void
       # Returns nil on EOF, or up to nbytes bytes from the buffer.
       def read: (Integer nbytes) -> String?
     end
@@ -52,13 +52,13 @@ class BLE
     @connected: bool
     @user_block: (^() -> void | nil)
 
-    def self.new: (
+    def initialize: (
       ?role: :peripheral | :central,
       ?name: String,
       ?service_uuid: String,
       ?rx_uuid: String,
       ?tx_uuid: String
-    ) -> BLE::UART
+    ) -> void
     def start: (?Integer? timeout_ms) ?{ () -> void } -> Integer
     def heartbeat_callback: () -> void
     def packet_callback: (String event_packet) -> void

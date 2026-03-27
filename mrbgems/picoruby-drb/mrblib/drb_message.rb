@@ -27,7 +27,7 @@ module DRb
       msg_id = msg_id_str.to_sym
       # @type var argc: Integer
       argc   = Marshal.load(recv_message)
-      args = []
+      args = [] #: Array[untyped]
       i = 0
       while i < argc
         args << Marshal.load(recv_message)

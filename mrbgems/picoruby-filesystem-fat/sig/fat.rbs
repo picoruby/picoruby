@@ -15,7 +15,7 @@ class FAT
     LABEL: String
     @mtime: Time
     @stat_hash: stat_t
-    def self.new: (String device, String path) -> instance
+    def initialize: (String device, String path) -> void
     def mode: () -> Integer
     def mode_str: () -> String
     def writable?: () -> bool
@@ -56,7 +56,7 @@ class FAT
   @fatfs: nil | 0
   @label: String | nil
 
-  def self.new: (Symbol|String device, ?label: String?, ?driver: driver_t) -> FAT
+  def initialize: (Symbol|String device, ?label: String?, ?driver: driver_t) -> void
 
   attr_reader mountpoint: String
   attr_reader prefix: String
@@ -84,7 +84,7 @@ class FAT
   class Dir
     attr_accessor pat: String
 
-    def self.new: (String path) -> Dir
+    def self.new: (String path) -> FAT::Dir
     def rewind: -> self
     def read: -> String?
     def findnext: -> String?
@@ -93,7 +93,7 @@ class FAT
   end
 
   class File
-    def self.new: (String path, String mode) -> File
+    def self.new: (String path, String mode) -> FAT::File
     def physical_address: () -> Integer
     def sector_size: () -> Integer
     def each_line: () { (String) -> void } -> nil

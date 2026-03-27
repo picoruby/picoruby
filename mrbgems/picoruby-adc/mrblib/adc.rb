@@ -1,5 +1,5 @@
 class ADC
-  def initialize(pin, additional_params = {})
+  def initialize(pin, additional_params = {}) # steep:ignore UnannotatedEmptyCollection
     @additional_params = additional_params
     @input = _init(pin)
     begin

@@ -8,13 +8,13 @@ class I2C
   @unit_num: Integer
   @timeout: Integer
 
-  def self.new: (
+  def initialize: (
     unit: Symbol|nil,
     ?frequency: Integer,
     ?sda_pin: Integer,
     ?scl_pin: Integer,
     ?timeout: Integer
-  ) -> instance
+  ) -> void
   private def _init: (
     String unit,
     Integer frequency,

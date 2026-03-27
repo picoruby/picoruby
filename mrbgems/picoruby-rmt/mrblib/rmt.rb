@@ -10,7 +10,7 @@ class RMT
   # private
 
   def params_to_array(*params)
-    ary = []
+    ary = [] #: Array[Integer]
     pi = 0
     while pi < params.size
       param = params[pi]

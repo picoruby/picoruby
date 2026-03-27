@@ -21,7 +21,7 @@ module JWT
     end
     headers['alg'] = algorithm
     headers['typ'] = "JWT"
-    segments = []
+    segments = [] #: Array[String]
     segments << Base64.urlsafe_encode64(JSON.generate headers)
     segments << Base64.urlsafe_encode64(JSON.generate payload)
     signing_input = segments.join('.')

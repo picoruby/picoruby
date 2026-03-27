@@ -20,15 +20,6 @@ class Object
   def alias_method: (Symbol|String new_name, Symbol|String old_name) -> Symbol
 end
 
-# @added_by picoruby-metaprog
-module Kernel
-  def caller: (?Integer start, ?Integer length) -> Array[String]
-end
-
-# @added_by picoruby-metaprog
-module RbConfig
-  def self.ruby: () -> (String | nil)
-end
 
 # @added_by picoruby-metaprog
 class Proc

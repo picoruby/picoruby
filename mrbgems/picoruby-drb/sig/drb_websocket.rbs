@@ -5,7 +5,7 @@ module DRb
 
     # WebSocket adapter for DRb
     class Adapter
-      def self.new: (untyped ws) -> DRb::WebSocket::Adapter
+      def initialize: (untyped ws) -> void
       def write: (String data) -> void
       def read: (Integer n) -> String
       def close: -> void
@@ -17,7 +17,7 @@ module DRb
       attr_reader uri: String
       attr_reader front: untyped
 
-      def self.new: (String uri, untyped front, Hash[untyped, untyped] config) -> DRb::WebSocket::Server
+      def initialize: (String uri, untyped front, ?Hash[untyped, untyped] config) -> void
       def start: -> self
       def stop: -> void
       def alive?: -> bool
@@ -29,11 +29,12 @@ module DRb
 
     # Browser WebSocket adapter (WASM only)
     class BrowserSocket
-      def self.new: (String url) -> DRb::WebSocket::BrowserSocket
+      def initialize: (String url) -> void
       def write: (String data) -> void
       def read: (Integer n) -> String
       def close: -> void
       def closed?: -> bool
+      def real_close: -> void
     end
 
     def self.connect: (String uri) -> (Adapter | BrowserSocket)

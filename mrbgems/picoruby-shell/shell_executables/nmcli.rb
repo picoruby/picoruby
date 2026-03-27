@@ -24,7 +24,7 @@ end
 
 puts "Ctrd-D to exit"
 cli = PicoLine.new
-answers = {"wifi" => {}}
+answers = {"wifi" => {}} #: Hash[String, untyped]
 
 answers["country_code"] = cli.ask("Country Code?") do |q|
   q.default = "JP"

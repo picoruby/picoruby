@@ -289,11 +289,12 @@ class Keyboard
     index = row * @keymap_cols + col
 
     # Build layer priority list: locked -> momentary stack (LIFO) -> default
-    priority_layers = []
+    priority_layers = [] #: Array[Integer]
 
     # 1. Toggle locked layer
-    if @locked_layer
-      priority_layers << @locked_layer
+    locked = @locked_layer
+    if locked
+      priority_layers << locked
     end
 
     # 2. Momentary layers (LIFO - last pressed has highest priority)
@@ -552,7 +553,7 @@ class Keyboard
 
   # Update tap/hold key states (check for timeout and transitions)
   def update_tap_hold_keys
-    keys_to_delete = []
+    keys_to_delete = [] #: Array[[Integer, Integer]]
 
     th_keys = @tap_hold_keys.keys
     thi = 0
@@ -588,7 +589,7 @@ class Keyboard
       th_keys2 = @tap_hold_keys.keys
       thi2 = 0
       while thi2 < th_keys2.size
-        key_pos = th_keys2[thi2]
+        key_pos = th_keys2[thi2] or raise
         state = @tap_hold_keys[key_pos] # steep:ignore
         # Keep :tapped state (waiting for double-tap), clean up others
         if state && state[:state] != :tapped
@@ -796,7 +797,7 @@ class Keyboard
     return if @combo_buffer.empty?
 
     now = Machine.board_millis
-    expired_entries = []
+    expired_entries = [] #: Array[Keyboard::combo_buffer_entry_t]
 
     cbi = 0
     while cbi < @combo_buffer.size

@@ -147,7 +147,7 @@ class Keyboard
   def uart_anchor_init : (Integer) -> void
   def uart_partner_init : (Integer) -> void
 
-  def self.new: -> instance
+  def initialize: () -> void
   def anchor?: -> bool
   def via=: (bool val) -> void
   def via_layer_count=: (Integer count) -> void
@@ -199,7 +199,7 @@ class Keyboard
     @sandbox: Sandbox
     @off: bool
     @prev_chr: String | Symbol
-    def self.new: (Keyboard) -> instance
+    def initialize: (Keyboard) -> void
     def toggle: () -> bool
     def task: (Integer modifier, Integer | nil keycode) -> void
   end

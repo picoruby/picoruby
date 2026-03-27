@@ -3,7 +3,7 @@ module Net
     NTP_EPOCH_OFFSET: Integer
 
     class Packet
-      def self.new: (?String? data) -> Net::NTP::Packet
+      def initialize: (?String? data) -> void
       def to_binary: () -> String
       def parse: (String data) -> void
       def transmit_time: () -> (Integer | nil)

@@ -3,7 +3,7 @@
 lines = 10
 
 # Parse options
-args = []
+args = [] #: Array[String]
 i = 0
 while i < ARGV.size
   arg = ARGV[i]

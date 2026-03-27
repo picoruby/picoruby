@@ -6,7 +6,7 @@ module Net
       attr_reader host: String
       attr_reader port: Integer
 
-      def self.new: (?host: String, ?port: Integer) -> Server
+      def initialize: (?host: String, ?port: Integer) -> void
       def start: () -> bool
       def accept: () -> Server::Connection
       def accept_loop: () { (Server::Connection) -> void } -> void
@@ -15,6 +15,8 @@ module Net
       class Connection
         @socket: TCPSocket
         @fragments: Array[fragment_t]
+
+        def initialize: (TCPSocket socket) -> void
 
         def send_text: (String) -> Integer
         def send_binary: (String) -> Integer

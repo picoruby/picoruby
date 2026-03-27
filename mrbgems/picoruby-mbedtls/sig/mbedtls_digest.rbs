@@ -6,5 +6,6 @@ module MbedTLS
     def self.new: (algorithm_t algorithm) -> MbedTLS::Digest
     def update: (String input) -> MbedTLS::Digest
     def finish: () -> String
+    def free: () -> nil
   end
 end

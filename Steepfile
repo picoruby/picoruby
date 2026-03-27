@@ -1,10 +1,10 @@
 MRUBYC_SIG = "mrbgems/picoruby-mrubyc/sig"
 
 target :mrbgems do
-  stdlib_path(
-    core_root:   MRUBYC_SIG,
-    stdlib_root: "" # Skip loading stdlib RBSs
-  )
+#  stdlib_path(
+#    core_root:   MRUBYC_SIG,
+#    stdlib_root: "" # Skip loading stdlib RBSs
+#  )
 
   Dir.glob("**/sig/").each do |dir|
     # Exclude vendor/ because gems installed there (e.g. on GHA) have sig/ dirs
@@ -35,4 +35,15 @@ target :mrbgems do
 
   # TODO: Fix after removal of picoruby-net
   ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
+  # Task class sig is excluded from signature loading (task-ext)
+  ignore "mrbgems/picoruby-shell/shell_executables/taskstat.rb"
+  # R2P2 uses IO.new without arguments (embedded environment)
+  ignore "mrbgems/picoruby-r2p2/mrblib/main_task.rb"
+
+  # mrubyc submodule files that cannot be modified
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/object.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/global.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/numeric.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/hash.rb"
+  ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/enum.rb"
 end
