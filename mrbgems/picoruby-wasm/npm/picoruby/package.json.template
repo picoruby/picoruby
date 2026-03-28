@@ -1,5 +1,5 @@
 {
-  "name": "@picoruby/wasm",
+  "name": "@picoruby/wasm-wasi",
   "version": "{{VERSION}}",
   "description": "PicoRuby WebAssembly - mruby VM powered Ruby for WebAssembly",
   "main": "dist/init.iife.js",
@@ -15,7 +15,7 @@
     "type": "git",
     "url": "https://github.com/picoruby/picoruby"
   },
-  "homepage": "https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm/npm",
+  "homepage": "https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm/npm/picoruby",
   "keywords": [
     "Ruby",
     "PicoRuby",

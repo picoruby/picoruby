@@ -60,11 +60,10 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
     output_wasm = Pathname(output_js).sub_ext('.wasm')
     output_wasm_map = Pathname(output_wasm).sub_ext('.wasm.map')
-    npm_dir = 'npm'
     if ENV['PICORB_DEBUG']
-      dist_dir = File.join(dir, npm_dir, 'debug')
+      dist_dir = File.join(dir, 'npm', 'picoruby', 'debug')
     else
-      dist_dir = File.join(dir, npm_dir, 'dist')
+      dist_dir = File.join(dir, 'npm', 'picoruby', 'dist')
     end
     FileUtils.mkdir_p(dist_dir)
     sh "cp #{output_js} #{dist_dir}/"
