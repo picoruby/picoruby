@@ -7,6 +7,8 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
 
   toolchain :clang
 
+  conf.set_build_info
+
   conf.cc.defines << 'PICORB_PLATFORM_WASM'
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
@@ -19,6 +21,7 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
   conf.linker.flags << '-sNODERAWFS=1'
   conf.linker.flags << '-sALLOW_MEMORY_GROWTH=1'
   conf.linker.flags << '-sEXPORTED_RUNTIME_METHODS=["callMain"]'
+  conf.linker.flags << '-sEXIT_RUNTIME=1'
 
   # Set executable extension to .js (generates both .js and .wasm)
   conf.exts.executable = '.js'

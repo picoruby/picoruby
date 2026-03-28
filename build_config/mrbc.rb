@@ -6,6 +6,8 @@ MRuby::Build.new do |conf|
     conf.toolchain :gcc
   end
 
+  conf.set_build_info
+
   conf.gem core: "mruby-compiler2"
   conf.gem core: "mruby-bin-mrbc2"
 

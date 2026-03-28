@@ -9,6 +9,7 @@ module MRuby
       gem core: 'mruby-compiler2' unless @gems['mruby-compiler2']
       gem core: 'mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
       self.mrbcfile = "#{build_dir}/bin/picorbc"
+      set_build_info
     end
 
     def create_mrbc_build
@@ -36,6 +37,17 @@ module MRuby
       # Pass PICORUBY_VERSION to mruby-compiler2
       version = File.read("#{MRUBY_ROOT}/include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
       cc.defines << "PICORUBY_VERSION=\\\"#{version}\\\""
+      set_build_info
+    end
+
+    def set_build_info
+      return if cc.defines.any? { _1.start_with?("MRC_COMMIT_TIMESTAMP=") }
+      timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+      branch = `git branch --show-current`.strip
+      commit_hash = `git log -1 --format=%h`.strip
+      cc.defines << "MRC_COMMIT_TIMESTAMP=\\\"#{timestamp}\\\""
+      cc.defines << "MRC_COMMIT_BRANCH=\\\"#{branch}\\\""
+      cc.defines << "MRC_COMMIT_HASH=\\\"#{commit_hash}\\\""
     end
 
     def microruby
