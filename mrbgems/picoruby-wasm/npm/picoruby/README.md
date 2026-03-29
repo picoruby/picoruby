@@ -17,7 +17,7 @@ PicoRuby is a WebAssembly build of [PicoRuby](https://github.com/picoruby/picoru
 ## Installation
 
 ```bash
-npm install @picoruby/wasm
+npm install @picoruby/wasm-wasi
 ```
 
 ## Usage
