@@ -102,7 +102,7 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 }
 
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, int flags)
 {
   if (!sock || !buf || sock->fd < 0 || sock->closed) {
     return -1;

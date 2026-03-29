@@ -561,7 +561,7 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 }
 
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags)
 {
   if (!ssl_sock || !ssl_sock->base_socket || !buf) {
     return -1;

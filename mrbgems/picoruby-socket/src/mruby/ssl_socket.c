@@ -475,7 +475,7 @@ mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
   }
 
-  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen);
+  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, 0);
   if (received < 0) {
     mrb_free(mrb, read_buf);
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL recv failed");

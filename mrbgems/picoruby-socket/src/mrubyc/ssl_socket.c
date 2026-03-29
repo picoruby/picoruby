@@ -253,12 +253,15 @@ c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * ssl_socket.read(maxlen = 4096) -> String or nil
+ * ssl_socket.read(maxlen = 4096, flags = 0) -> String or nil
+ *
+ * When flags has PICORB_RECV_NONBLOCK set (i.e. BasicSocket::O_NONBLOCK),
+ * the receive is non-blocking and returns nil if no data is available.
  */
 static void
 c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc > 1) {
+  if (argc > 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -272,7 +275,7 @@ c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Get maxlen parameter (default: 4096) */
   int maxlen = 4096;
-  if (argc == 1) {
+  if (argc >= 1) {
     mrbc_value maxlen_arg = GET_ARG(1);
     if (maxlen_arg.tt != MRBC_TT_INTEGER) {
       mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
@@ -285,6 +288,17 @@ c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
 
+  /* Get flags parameter (default: 0) */
+  int flags = 0;
+  if (argc >= 2) {
+    mrbc_value flags_arg = GET_ARG(2);
+    if (flags_arg.tt != MRBC_TT_INTEGER) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "flags must be an Integer");
+      return;
+    }
+    flags = (int)flags_arg.i;
+  }
+
   /* Allocate buffer */
   char *buffer = (char *)picorb_alloc(vm, maxlen);
   if (!buffer) {
@@ -293,7 +307,14 @@ c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Receive data */
-  ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen);
+  ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen, flags);
+
+  if (received == PICORB_RECV_WOULD_BLOCK) {
+    /* Non-blocking mode: no data available */
+    mrbc_raw_free(buffer);
+    SET_NIL_RETURN();
+    return;
+  }
 
   if (received < 0) {
     picorb_free(vm, buffer);

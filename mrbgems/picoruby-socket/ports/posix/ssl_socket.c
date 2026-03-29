@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 
 #include <openssl/ssl.h>
@@ -492,20 +493,42 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 }
 
 /*
- * Receive data from SSL socket
+ * Receive data from SSL socket.
+ * When flags has PICORB_RECV_NONBLOCK set, the underlying fd is temporarily
+ * set to O_NONBLOCK so that SSL_read returns immediately if no data is available.
  */
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags)
 {
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
+  }
+
+  if (flags & PICORB_RECV_NONBLOCK) {
+    int fd = ssl_sock->base_socket->fd;
+    int fd_flags = fcntl(fd, F_GETFL, 0);
+    fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK);
+
+    int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
+    fcntl(fd, F_SETFL, fd_flags); /* restore */
+
+    if (ret < 0) {
+      int err = SSL_get_error(ssl_sock->ssl, ret);
+      if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        return PICORB_RECV_WOULD_BLOCK;
+      }
+      return -1;
+    }
+    if (ret == 0) {
+      ssl_sock->connected = false;
+    }
+    return (ssize_t)ret;
   }
 
   int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
   if (ret < 0) {
     int err = SSL_get_error(ssl_sock->ssl, ret);
     if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-      // Would block
       return 0;
     }
     fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
