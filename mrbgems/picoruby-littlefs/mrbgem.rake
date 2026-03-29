@@ -13,4 +13,10 @@ MRuby::Gem::Specification.new('picoruby-littlefs') do |spec|
     end
     spec.objs << obj
   end
+
+  if build.name == "nrf52"
+    src = "#{dir}/ports/nrf52/flash_hal.c"
+    obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
+    spec.objs << obj
+  end
 end
