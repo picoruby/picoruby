@@ -76,6 +76,14 @@ namespace :rbenv do
       rm_rf git_dir
     end
 
+    # Remove broken symlinks (e.g. mbedtls -> pico-sdk which is excluded)
+    Dir.glob("#{dest}/**/*", File::FNM_DOTMATCH).each do |path|
+      if File.symlink?(path) && !File.exist?(path)
+        puts "   REMOVE broken symlink: #{path.sub("#{dest}/", "")}"
+        rm path
+      end
+    end
+
     tarball_path = "#{tmpdir}/#{tarball_name}"
     puts "==> Creating #{tarball_name}..."
     sh "tar czf #{tarball_path} -C #{tmpdir} #{prefix}"
