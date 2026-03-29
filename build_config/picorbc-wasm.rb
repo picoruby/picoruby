@@ -34,5 +34,4 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
   # Set output binary name
   conf.instance_variable_set :@mrbcfile, "bin/picorbc.wasm"
   conf.disable_libmruby
-  conf.disable_presym
 end

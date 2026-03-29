@@ -1,8 +1,8 @@
 #include "version.h"
 #include <stdio.h>
 
+#define RITE_VERSION              "@RITE_VERSION@"
 #define PICORUBY_COMMIT_TIMESTAMP "@PICORUBY_COMMIT_TIMESTAMP@"
-#define PICORUBY_COMMIT_BRANCH    "@PICORUBY_COMMIT_BRANCH@"
 #define PICORUBY_COMMIT_HASH      "@PICORUBY_COMMIT_HASH@"
 #define PICORUBY_BUILD_DATE        "@PICORUBY_BUILD_DATE@"
 
@@ -11,6 +11,12 @@
 #else
   #define PICORB_BUILD_TYPE_STR "microruby"
 #endif
+
+const char*
+picorb_rite_version(void)
+{
+  return(RITE_VERSION);
+}
 
 const char*
 picorb_version(void)
@@ -23,7 +29,7 @@ picorb_version_with_build_info(void)
 {
   return(
     PICORUBY_VERSION
-    " (" PICORUBY_COMMIT_TIMESTAMP " " PICORUBY_COMMIT_BRANCH " " PICORUBY_COMMIT_HASH ") "
+    " (" PICORUBY_COMMIT_TIMESTAMP " " PICORUBY_COMMIT_HASH ") " RITE_VERSION
   );
 }
 

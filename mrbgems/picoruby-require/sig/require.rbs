@@ -1,3 +1,5 @@
+RITE_VERSION: String
+
 module Kernel
   private def load_paths: (String name) -> Array[String]
   private def required?: (String name) -> bool

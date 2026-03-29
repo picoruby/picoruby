@@ -12,8 +12,17 @@ module MRuby
       set_build_info
     end
 
+    alias_method :original_create_mrbc_build, :create_mrbc_build
+
     def create_mrbc_build
-      build_mrbc_exec
+      # picorbc is a standalone compiler; strip VM-specific defines so
+      # the sub-build does not pull in mruby.h (and presym/id.h).
+      vm_defines = %w[PICORB_VM_MRUBY MRB_USE_TASK_SCHEDULER]
+      saved = vm_defines.select { |d| cc.defines.include?(d) }
+      saved.each { |d| cc.defines.delete(d) }
+      build = original_create_mrbc_build
+      saved.each { |d| cc.defines << d }
+      build
     end
 
     def mrubyc_hal_arm
@@ -50,6 +59,14 @@ module MRuby
       cc.defines << "MRC_COMMIT_HASH=\\\"#{commit_hash}\\\""
     end
 
+    def rite_version
+      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include/mrc_dump.h")
+      ident = mrc_dump[/#define RITE_BINARY_IDENT\s+"(.+?)"/, 1]
+      major = mrc_dump[/#define RITE_BINARY_MAJOR_VER\s+"(.+?)"/, 1]
+      minor = mrc_dump[/#define RITE_BINARY_MINOR_VER\s+"(.+?)"/, 1]
+      "#{ident}#{major}#{minor}"
+    end
+
     def microruby
       # Place picoruby-mruby at the top so that Kernel#require is defined first
       if gems.first
@@ -63,7 +80,6 @@ module MRuby
       cc.defines << "MRB_USE_TASK_SCHEDULER"
 
       timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
       build_date = Time.now.utc.strftime("%Y-%m-%d")
 
@@ -71,9 +87,9 @@ module MRuby
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
+            .gsub('@RITE_VERSION@', rite_version)
       )
 
       debug_flag
@@ -81,7 +97,6 @@ module MRuby
 
     def picoruby(alloc_libc: true)
       common
-      disable_presym
 
       # Override by environment variable
       alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
@@ -97,7 +112,6 @@ module MRuby
       end
 
       timestamp = Time.at(`git log -1 --format=%ct`.to_i).utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-      branch = `git branch --show-current`.strip
       commit_hash = `git log -1 --format=%h`.strip
       build_date = Time.now.utc.strftime("%Y-%m-%d")
 
@@ -105,9 +119,9 @@ module MRuby
         "#{MRUBY_ROOT}/src/version.c",
         File.read("#{MRUBY_ROOT}/src/version.c.in")
             .gsub('@PICORUBY_COMMIT_TIMESTAMP@', timestamp)
-            .gsub('@PICORUBY_COMMIT_BRANCH@', branch)
             .gsub('@PICORUBY_COMMIT_HASH@', commit_hash)
             .gsub('@PICORUBY_BUILD_DATE@', build_date)
+            .gsub('@RITE_VERSION@', rite_version)
       )
 
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-machine/include"
