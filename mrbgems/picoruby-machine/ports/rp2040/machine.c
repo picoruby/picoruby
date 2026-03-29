@@ -455,6 +455,18 @@ Machine_tud_mounted_q(void)
   return tud_mounted();
 }
 
+/*
+ * Defined in tinyusb BSP (hw/bsp/rp2040/family.c).
+ * Returns raw QSPI CS pin state: HIGH when not pressed, LOW when pressed.
+ */
+extern bool get_bootsel_button(void);
+
+bool
+Machine_bootsel_pressed_q(void)
+{
+  return !get_bootsel_button();
+}
+
 
 /*-------------------------------------
  *
