@@ -115,15 +115,32 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
   return sent;
 }
 
-/* Receive data - blocks until len bytes are read or EOF/error.
+/* Receive data.
+ * If flags has PICORB_RECV_NONBLOCK set, uses MSG_DONTWAIT and returns
+ * PICORB_RECV_WOULD_BLOCK when no data is available.
+ * Otherwise blocks until len bytes are read or EOF/error.
  * MSG_WAITALL tells the kernel to wait until the full request is satisfied,
  * which avoids partial-read issues without requiring application-level loops
  * or setsockopt calls between recv() invocations. */
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, int flags)
 {
   if (!sock || !buf || sock->fd < 0 || sock->closed) {
     return -1;
+  }
+
+  if (flags & PICORB_RECV_NONBLOCK) {
+    ssize_t received = recv(sock->fd, buf, len, MSG_DONTWAIT);
+    if (received < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return PICORB_RECV_WOULD_BLOCK;
+      }
+      return -1;
+    }
+    if (received == 0) {
+      sock->connected = false;
+    }
+    return received;
   }
 
 #ifdef MSG_WAITALL

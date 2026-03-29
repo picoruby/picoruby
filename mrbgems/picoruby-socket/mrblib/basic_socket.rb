@@ -1,6 +1,8 @@
 class SocketError < StandardError; end
 
 class BasicSocket
+  O_NONBLOCK = 1
+
   # IO-compatible methods
 
   def puts(*args)
@@ -47,8 +49,11 @@ class BasicSocket
   end
 
   def recv(maxlen, flags = 0)
-    # For now, ignore flags (not supported in basic implementation)
-    read(maxlen)
+    read(maxlen, flags)
+  end
+
+  def recv_nonblock(maxlen, flags = 0)
+    read(maxlen, O_NONBLOCK | flags)
   end
 
   def peeraddr

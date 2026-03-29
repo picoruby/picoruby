@@ -284,7 +284,7 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 
 /* Receive data */
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, int flags)
 {
   if (!sock || !buf || sock->state == SOCKET_STATE_ERROR) {
     D("TCPSocket_recv: sock=%p, buf=%p, state=%d (ERROR)\n",

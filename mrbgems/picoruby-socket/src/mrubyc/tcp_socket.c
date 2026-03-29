@@ -121,12 +121,15 @@ c_tcp_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * socket.read(maxlen = 4096) -> String or nil
+ * socket.read(maxlen = 4096, flags = 0) -> String or nil
+ *
+ * When flags has PICORB_RECV_NONBLOCK set (i.e. BasicSocket::O_NONBLOCK),
+ * the receive is non-blocking and returns nil if no data is available.
  */
 static void
 c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc > 1) {
+  if (argc > 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -140,7 +143,7 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Get maxlen parameter (default: 4096) */
   int maxlen = 4096;
-  if (argc == 1) {
+  if (argc >= 1) {
     mrbc_value maxlen_arg = GET_ARG(1);
     if (maxlen_arg.tt != MRBC_TT_INTEGER) {
       mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
@@ -153,6 +156,17 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
     }
   }
 
+  /* Get flags parameter (default: 0) */
+  int flags = 0;
+  if (argc >= 2) {
+    mrbc_value flags_arg = GET_ARG(2);
+    if (flags_arg.tt != MRBC_TT_INTEGER) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "flags must be an Integer");
+      return;
+    }
+    flags = (int)flags_arg.i;
+  }
+
   /* Allocate buffer */
   char *buffer = (char *)picorb_alloc(vm, maxlen);
   if (!buffer) {
@@ -161,7 +175,14 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Receive data */
-  ssize_t received = TCPSocket_recv(vm, sock, buffer, maxlen);
+  ssize_t received = TCPSocket_recv(vm, sock, buffer, maxlen, flags);
+
+  if (received == PICORB_RECV_WOULD_BLOCK) {
+    /* Non-blocking mode: no data available */
+    mrbc_raw_free(buffer);
+    SET_NIL_RETURN();
+    return;
+  }
 
   if (received < 0) {
     picorb_free(vm, buffer);
@@ -330,7 +351,7 @@ tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 
   mrbc_define_method(vm, class_TCPSocket, "new", c_tcp_socket_new);
   mrbc_define_method(vm, class_TCPSocket, "write", c_tcp_socket_write);
-  mrbc_define_method(vm, class_TCPSocket, "read", c_tcp_socket_read);
+  mrbc_define_method(vm, class_TCPSocket, "read",  c_tcp_socket_read);
   mrbc_define_method(vm, class_TCPSocket, "close", c_tcp_socket_close);
   mrbc_define_method(vm, class_TCPSocket, "closed?", c_tcp_socket_closed_q);
   mrbc_define_method(vm, class_TCPSocket, "ready?", c_tcp_socket_ready_q);
