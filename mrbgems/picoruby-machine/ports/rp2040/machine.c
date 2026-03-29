@@ -23,6 +23,10 @@
 #include <time.h>
 #include <tusb.h>
 
+#include "hardware/gpio.h"
+#include "hardware/structs/ioqspi.h"
+#include "hardware/structs/sio.h"
+
 /*-------------------------------------
  *
  * Signal flag (shared with machine.h)
@@ -456,10 +460,42 @@ Machine_tud_mounted_q(void)
 }
 
 /*
- * Defined in tinyusb BSP (hw/bsp/rp2040/family.c).
- * Returns raw QSPI CS pin state: HIGH when not pressed, LOW when pressed.
+ * Read the BOOTSEL button via the QSPI chip select pin.
+ * Based on tinyusb BSP (hw/bsp/rp2040/family.c).
+ * Weak symbol: if tinyusb_board provides get_bootsel_button,
+ * the linker uses that version instead.
+ *
+ * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+ * Copyright (c) 2021, Ha Thach (tinyusb.org)
+ * SPDX-License-Identifier: MIT
  */
-extern bool get_bootsel_button(void);
+__attribute__((weak))
+bool __no_inline_not_in_flash_func(get_bootsel_button)(void) {
+  const uint CS_PIN_INDEX = 1;
+
+  uint32_t flags = save_and_disable_interrupts();
+
+  hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl,
+                  GPIO_OVERRIDE_LOW << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
+                  IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
+
+  for (volatile int i = 0; i < 1000; ++i);
+
+#ifdef __ARM_ARCH_6M__
+  #define CS_BIT (1u << 1)
+#else
+  #define CS_BIT SIO_GPIO_HI_IN_QSPI_CSN_BITS
+#endif
+  bool button_state = (sio_hw->gpio_hi_in & CS_BIT);
+
+  hw_write_masked(&ioqspi_hw->io[CS_PIN_INDEX].ctrl,
+                  GPIO_OVERRIDE_NORMAL << IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_LSB,
+                  IO_QSPI_GPIO_QSPI_SS_CTRL_OEOVER_BITS);
+
+  restore_interrupts(flags);
+
+  return button_state;
+}
 
 bool
 Machine_bootsel_pressed_q(void)
