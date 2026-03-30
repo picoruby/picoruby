@@ -278,6 +278,14 @@ mrb_open_with_custom_alloc(void* mem, size_t bytes)
   return mrb_open();
 }
 
+void
+mrb_alloc_set_critical_section(void (*enter)(void), void (*exit_func)(void))
+{
+  if (est) {
+    est_set_critical_section(est, enter, exit_func);
+  }
+}
+
 // PICORB_ALLOC_ESTALLOC
 #else
 // DEFAULT

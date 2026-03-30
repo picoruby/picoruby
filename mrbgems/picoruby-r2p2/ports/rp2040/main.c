@@ -1,6 +1,7 @@
 /* Raspi SDK */
 #include <pico/stdlib.h>
 #include <pico/bootrom.h>
+#include <pico/critical_section.h>
 #include <bsp/board.h>
 #include <tusb.h>
 #include <hardware/clocks.h>
@@ -14,6 +15,23 @@
 #include "picoruby/debug.h"
 #include "hal.h" // in picoruby-machine
 #include "main_task.c"
+
+#if defined(PICORB_ALLOC_ESTALLOC)
+#include "alloc.h"
+static critical_section_t heap_critsec;
+
+static void
+heap_enter_critical(void)
+{
+  critical_section_enter_blocking(&heap_critsec);
+}
+
+static void
+heap_exit_critical(void)
+{
+  critical_section_exit(&heap_critsec);
+}
+#endif
 
 #if !defined(HEAP_SIZE)
   #if defined(PICO_RP2040)
@@ -127,6 +145,10 @@ main(void)
 
 #if defined(PICORB_VM_MRUBY)
   mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
+#if defined(PICORB_ALLOC_ESTALLOC)
+  critical_section_init(&heap_critsec);
+  mrb_alloc_set_critical_section(heap_enter_critical, heap_exit_critical);
+#endif
   global_mrb = mrb;
   mrc_irep *irep = mrb_read_irep(mrb, main_task);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
