@@ -10,11 +10,6 @@ MRuby::Build.new do |conf|
 
   conf.cc.defines << "MRB_UTF8_STRING"
 
-  if ENV['PICORB_DEBUG']
-    conf.cc.defines << "ESTALLOC_DEBUG"
-    conf.enable_debug
-  end
-
   conf.picoruby
 
   # Link OpenSSL libraries for socket SSL support
