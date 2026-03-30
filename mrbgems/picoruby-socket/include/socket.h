@@ -70,7 +70,6 @@ extern int Net_get_ip(const char *name, void *ip);
 
 #endif
 
-<<<<<<< HEAD
 /* Portable VM state type for socket API */
 #if defined(PICORB_VM_MRUBY) && !defined(picorb_state)
 #include "mruby.h"
@@ -80,13 +79,6 @@ extern int Net_get_ip(const char *name, void *ip);
 #define picorb_state mrbc_vm
 #endif
 
-/* TCP Socket API */
-bool TCPSocket_create(picorb_state *vm, picorb_socket_t *sock);
-bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
-ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
-ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len);
-bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
-=======
 /* Flags for TCPSocket_recv */
 #define PICORB_RECV_NONBLOCK    1   /* Non-blocking receive (use MSG_DONTWAIT on POSIX) */
 
@@ -94,12 +86,11 @@ bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
 #define PICORB_RECV_WOULD_BLOCK (-2)
 
 /* TCP Socket API */
-bool TCPSocket_create(picorb_socket_t *sock);
-bool TCPSocket_connect(picorb_socket_t *sock, const char *host, int port);
-ssize_t TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len);
-ssize_t TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len, int flags);
-bool TCPSocket_close(picorb_socket_t *sock);
->>>>>>> c3b4cf74 (Add BasicSocket#recv_nonblock via read(maxlen, flags) on POSIX.)
+bool TCPSocket_create(picorb_state *vm, picorb_socket_t *sock);
+bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
+ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
+ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, int flags);
+bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
 
 /* Get socket info */
 const char* TCPSocket_remote_host(picorb_state *vm, picorb_socket_t *sock);
@@ -184,31 +175,17 @@ typedef struct picorb_ssl_socket {
 typedef struct picorb_ssl_socket picorb_ssl_socket_t;
 #endif
 
-<<<<<<< HEAD
 picorb_ssl_socket_t* SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx);
 bool SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
 bool SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port);
 bool SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 ssize_t SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
-ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
+ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags);
 bool SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 const char* SSLSocket_remote_host(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 int SSLSocket_remote_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
-=======
-picorb_ssl_socket_t* SSLSocket_create(picorb_ssl_context_t *ssl_ctx);
-bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname);
-bool SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port);
-bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock);
-ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
-ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags);
-bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock);
-bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock);
-bool SSLSocket_ready(picorb_ssl_socket_t *ssl_sock);
-const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock);
-int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock);
->>>>>>> c3b4cf74 (Add BasicSocket#recv_nonblock via read(maxlen, flags) on POSIX.)
 
 /* Address resolution */
 bool resolve_address(const char *host, char *ip, size_t ip_len);
