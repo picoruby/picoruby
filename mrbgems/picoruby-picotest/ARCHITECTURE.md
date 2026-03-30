@@ -2,13 +2,13 @@
 
 ## Overview
 
-Picotest is a test framework that runs test code on **target VMs** (PicoRuby / MicroRuby) while orchestrating the process from **CRuby**.
+Picotest is a test framework that runs test code on **target VMs** (FemtoRuby / PicoRuby) while orchestrating the process from **CRuby**.
 This two-process architecture is key to understanding how the files relate.
 
 ## Test Execution Flow
 
 ```
-CRuby (Rake)                          Target VM (PicoRuby / MicroRuby)
+CRuby (Rake)                          Target VM (FemtoRuby / PicoRuby)
 ============                          ==================================
 
 1. test.rake
@@ -42,8 +42,8 @@ CRuby (Rake)                          Target VM (PicoRuby / MicroRuby)
 
 Conditionally requires files based on `RUBY_ENGINE`:
 - CRuby (`"ruby"`): requires `test.rb` and `runner.rb`
-- MicroRuby (`"mruby"`): only `test.rb` and `double.rb` (loaded as gem)
-- PicoRuby (`"mruby/c"`): only `test.rb` and `double.rb` (loaded as gem)
+- PicoRuby (`"mruby"`): only `test.rb` and `double.rb` (loaded as gem)
+- FemtoRuby (`"mruby/c"`): only `test.rb` and `double.rb` (loaded as gem)
 
 ### `test.rb` — Test base class (both CRuby and target VM)
 
@@ -72,7 +72,7 @@ Conditionally requires files based on `RUBY_ENGINE`:
 mrbgems/picoruby-<gem>/
   test/
     *_test.rb          # Test files (loaded by both CRuby and target VM)
-    target_vm          # Optional file specifying "picoruby" or "microruby"
+    target_vm          # Optional file specifying "femtoruby" or "picoruby"
 ```
 
 ## Key Environment Variables

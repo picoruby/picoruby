@@ -1,6 +1,6 @@
 # Picotest::Runner - Test orchestrator (CRuby only).
 # Discovers test files, generates temporary scripts, spawns the target VM
-# (PicoRuby/MicroRuby) as a subprocess, and parses JSON results from stdout.
+# (FemtoRuby/PicoRuby) as a subprocess, and parses JSON results from stdout.
 
 module Picotest
   class Runner

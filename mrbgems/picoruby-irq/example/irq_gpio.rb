@@ -20,7 +20,7 @@ end
 # the irq block are not accessible from the callback.
 # `capture` is a way to pass local variables into the block.
 #
-# If you can use mruby-based PicoRuby (MicroRuby), you can
+# If you can use mruby-based PicoRuby, you can
 # write the code simply like below:
 # ```mruby
 # led = GPIO.new(16, GPIO::OUT)

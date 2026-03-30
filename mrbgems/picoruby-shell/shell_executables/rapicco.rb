@@ -6,7 +6,7 @@ end
 begin
   require 'rapicco'
 rescue
-  # maybe MicroRuby
+  # maybe PicoRuby
 end
 
 Machine.signal_self_manage

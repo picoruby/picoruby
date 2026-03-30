@@ -21,14 +21,14 @@ restore_termios(void)
 #endif
 
 #if defined(PICORB_VM_MRUBY)
-#define EXECUTABLE_NAME "microruby"
+#define EXECUTABLE_NAME "picoruby"
 struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
 mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
 
 #elif defined(PICORB_VM_MRUBYC)
 
-#define EXECUTABLE_NAME "picoruby"
+#define EXECUTABLE_NAME "femtoruby"
 #ifndef MAX_REGS_SIZE
 #define MAX_REGS_SIZE 255
 #endif
@@ -111,9 +111,9 @@ static void
 picorb_show_version(void)
 {
 #if defined(PICORB_VM_MRUBY)
-  printf("microruby %s\n", picorb_version_with_build_info());
-#elif defined(PICORB_VM_MRUBYC)
   printf("picoruby %s\n", picorb_version_with_build_info());
+#elif defined(PICORB_VM_MRUBYC)
+  printf("femtoruby %s\n", picorb_version_with_build_info());
 #endif
 }
 

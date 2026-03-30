@@ -26,24 +26,24 @@ DRb (Distributed Ruby) over WebSocket enables seamless remote method invocation 
 
 Terminal 1 (Server):
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb server
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb server
 ```
 
 Terminal 2 (Client):
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb client
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb client
 ```
 
 Or with custom URI:
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb client ws://192.168.1.100:8080
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb client ws://192.168.1.100:8080
 ```
 
 ### PicoRuby Server + Browser Client (WASM)
 
 Terminal 1 (Server):
 ```bash
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb server
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb server
 ```
 
 Browser:
@@ -70,13 +70,13 @@ Unified PicoRuby DRb server/client example.
 Usage:
 ```bash
 # Start server
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb server
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb server
 
 # Run client (connects to ws://localhost:8080 by default)
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb client
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb client
 
 # Run client with custom URI
-build/host/bin/microruby mrbgems/picoruby-drb/example/websocket.rb client ws://192.168.1.100:8080
+build/host/bin/picoruby mrbgems/picoruby-drb/example/websocket.rb client ws://192.168.1.100:8080
 ```
 
 ### CRuby Interoperability
@@ -93,7 +93,7 @@ Browser-based DRb client using PicoRuby WASM.
 
 To use:
 1. Build PicoRuby WASM: `rake wasm:debug`
-2. Start DRb server on port 9090: `build/host/bin/microruby example/websocket.rb server` (edit to use port 9090)
+2. Start DRb server on port 9090: `build/host/bin/picoruby example/websocket.rb server` (edit to use port 9090)
 3. Start WASM server: `rake wasm:server`
 4. Open http://localhost:8080/drb_client.html in browser
 5. Click "Connect" and test remote method calls

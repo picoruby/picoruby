@@ -11,7 +11,7 @@ namespace :picorbc do
   end
 end
 
-namespace :picoruby do
+namespace :femtoruby do
   desc "create production build"
   task :prod do
     sh 'MRUBY_CONFIG=default rake'
@@ -24,24 +24,24 @@ namespace :picoruby do
 
   desc "clean build files"
   task :clean do
-    sh "MRUBY_CONFIG=picoruby rake clean"
+    sh "MRUBY_CONFIG=default rake clean"
   end
 end
 
-namespace :microruby do
+namespace :picoruby do
   desc "create production build"
   task :prod do
-    sh 'MRUBY_CONFIG=microruby rake'
+    sh 'MRUBY_CONFIG=picoruby rake'
   end
 
   desc "create debug build"
   task :debug do
-    sh 'PICORB_DEBUG=1 MRUBY_CONFIG=microruby rake'
+    sh 'PICORB_DEBUG=1 MRUBY_CONFIG=picoruby rake'
   end
 
   desc "clean build files"
   task :clean do
-    sh "MRUBY_CONFIG=microruby rake clean"
+    sh "MRUBY_CONFIG=picoruby rake clean"
   end
 end
 
@@ -101,4 +101,3 @@ namespace :wasm do
     sh "npm view @picoruby/picorbc versions"
   end
 end
-

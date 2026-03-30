@@ -39,27 +39,6 @@ jobs:
     - name: Test Steep
       run: rake test:gems:steep
 
-  test-microruby:
-
-    runs-on: ubuntu-latest
-
-    steps:
-
-    - name: Checkout recursive
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-depth: 0
-
-    - name: Setup Ruby
-      uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: '4.0.1'
-        bundler-cache: true
-
-    - name: Test MicroRuby
-      run: rake test:gems:microruby
-
   test-picoruby:
 
     runs-on: ubuntu-latest
@@ -80,4 +59,25 @@ jobs:
 
     - name: Test PicoRuby
       run: rake test:gems:picoruby
+
+  test-femtoruby:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
+
+    - name: Test FemtoRuby
+      run: rake test:gems:femtoruby
 

@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-picoruby-pico") do |conf|
+MRuby::CrossBuild.new("r2p2-femtoruby-pico2_w") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -15,9 +15,18 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico") do |conf|
   conf.cc.host_command = "gcc"
 
   conf.cc.flags.flatten!
-  conf.cc.flags << "-mcpu=cortex-m0plus"
+  conf.cc.flags << "-mcpu=cortex-m33"
+#  conf.cc.flags << "-march=armv8-m.main+fp+dsp"
+#  conf.cc.flags << "-mabi=aapcs-linux"
+#  conf.cc.flags << "-mfloat-abi=softfp"
   conf.cc.flags << "-mthumb"
+
+  conf.cc.flags << "-fno-strict-aliasing"
+  conf.cc.flags << "-fno-unroll-loops"
+  conf.cc.flags << "-mslow-flash-data"
+
   conf.cc.flags << "-fshort-enums"
+
   conf.cc.flags << "-Wall"
   conf.cc.flags << "-Wno-format"
   conf.cc.flags << "-Wno-unused-function"
@@ -34,15 +43,24 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
+  conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
   conf.mrubyc_hal_arm
-  conf.picoruby(alloc_libc: false)
+  conf.femtoruby(alloc_libc: false)
 
   conf.gembox "minimum"
   conf.gembox "core"
   conf.gembox "stdlib"
   conf.gembox "shell"
   conf.gembox "peripherals"
+  conf.gembox "networking"
+  unless ENV['PICORB_DEBUG']
+    # Shinonome is too big for debug build
+    conf.gem core: 'picoruby-shinonome'
+  end
+  conf.gem core: 'picoruby-psg'
+  conf.gem core: 'picoruby-ble'
+  conf.gem core: 'picoruby-ble-uart'
   conf.gem core: 'picoruby-keyboard'
 end

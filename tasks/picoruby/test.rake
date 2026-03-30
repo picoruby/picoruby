@@ -12,18 +12,18 @@ namespace :test do
   ENV['TEST_TASK'] = "yes"
 
   desc "run all tests"
-  task :all => ["gems:steep", "gems:microruby", "gems:picoruby"]
+  task :all => ["gems:steep", "gems:picoruby", "gems:femtoruby"]
+
+  task :build_femtoruby_test do
+    puts "Building test runner with femtoruby-test.rb..."
+    sh "PICORB_DEBUG=yes MRUBY_CONFIG=femtoruby-test rake clean"
+    sh "PICORB_DEBUG=yes MRUBY_CONFIG=femtoruby-test rake all"
+  end
 
   task :build_picoruby_test do
     puts "Building test runner with picoruby-test.rb..."
     sh "PICORB_DEBUG=yes MRUBY_CONFIG=picoruby-test rake clean"
     sh "PICORB_DEBUG=yes MRUBY_CONFIG=picoruby-test rake all"
-  end
-
-  task :build_microruby_test do
-    puts "Building test runner with microruby-test.rb..."
-    sh "PICORB_DEBUG=yes MRUBY_CONFIG=microruby-test rake clean"
-    sh "PICORB_DEBUG=yes MRUBY_CONFIG=microruby-test rake all"
   end
 
   namespace :gems do
@@ -32,16 +32,16 @@ namespace :test do
       sh "bundle exec steep check"
     end
 
-    desc "run test for a gem on PicoRuby"
-    task :picoruby, [:specified_gem] do |t, args|
-      unless run_test_for_gems('picoruby', args[:specified_gem])
+    desc "run test for a gem on FemtoRuby"
+    task :femtoruby, [:specified_gem] do |t, args|
+      unless run_test_for_gems('femtoruby', args[:specified_gem])
         exit 1
       end
     end
 
-    desc "run test for a gem on MicroRuby"
-    task :microruby, [:specified_gem] do |t, args|
-      unless run_test_for_gems('microruby', args[:specified_gem])
+    desc "run test for a gem on PicoRuby"
+    task :picoruby, [:specified_gem] do |t, args|
+      unless run_test_for_gems('picoruby', args[:specified_gem])
         exit 1
       end
     end
@@ -87,7 +87,7 @@ ensure
 end
 
 def collect_gems(vm_type, specified_gem = nil)
-  vm = vm_type == 'picoruby' ? 'mrubyc' : 'mruby'
+  vm = vm_type == 'femtoruby' ? 'mrubyc' : 'mruby'
   gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
   gems = []
   Dir.glob(["#{gems_dir}/picoruby-*", "#{gems_dir}/mruby-*"]).map do |gem_path|
@@ -116,7 +116,7 @@ def create_temp_build_config(base_config_name, gems)
   base_config_path = File.expand_path("#{MRUBY_ROOT}/build_config/#{base_config_name}")
   config_content = File.read(base_config_path)
 
-  injection_point = /conf\.(picoruby|microruby)/
+  injection_point = /conf\.(femtoruby|picoruby)/
   injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
   config_content.sub!(injection_point, injection_text + '\1')
 
@@ -148,4 +148,3 @@ def run_picotest_runner(gem, load_files)
   error_count = runner.run
   return error_count == 0
 end
-

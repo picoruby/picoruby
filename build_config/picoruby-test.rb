@@ -1,22 +1,24 @@
 MRuby::Build.new do |conf|
-
-  conf.toolchain
+  conf.toolchain :gcc
 
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
-  conf.cc.defines << "PICORB_INT64"
-  conf.cc.defines << "MRBC_TICK_UNIT=4"
-  conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
-  conf.cc.defines << "MRBC_USE_STRING_UTF8"
+  conf.cc.defines << "MRB_TICK_UNIT=4"
+  conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
+  conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
+  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
+  conf.cc.defines << "ESTALLOC_DEBUG"
+  conf.cc.defines << "MRB_UTF8_STRING"
 
-  conf.picoruby(alloc_libc: true)
+  conf.picoruby
 
   # Link OpenSSL libraries for socket SSL support
   conf.linker.libraries << 'ssl'
   conf.linker.libraries << 'crypto'
 
+  conf.gembox "mruby-posix"
   conf.gembox "minimum"
   conf.gembox "core"
-  conf.gem core: "picoruby-picotest"
-  conf.gem core: "picoruby-metaprog"
-  conf.gem core: "picoruby-pack"
+  conf.gembox "stdlib"
+  conf.gem core: 'picoruby-bin-picoruby'
+  conf.gem core: 'picoruby-picotest'
 end

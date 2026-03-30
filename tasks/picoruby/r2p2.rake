@@ -38,7 +38,7 @@ def r2p2_def_r2p2_name(vm, board)
 end
 
 def r2p2_def_picorb_vm(vm)
-  vm == 'picoruby' ? '-D PICORB_VM_MRUBYC=1' : '-D PICORB_VM_MRUBY=1'
+  vm == 'femtoruby' ? '-D PICORB_VM_MRUBYC=1' : '-D PICORB_VM_MRUBY=1'
 end
 
 def r2p2_build_dir(vm, board, mode)
@@ -100,7 +100,7 @@ namespace :r2p2 do
     end
   end
 
-  %w[picoruby microruby].each do |vm|
+  %w[femtoruby picoruby].each do |vm|
     namespace vm do
       %w[pico pico_w pico2 pico2_w].each do |board|
         config_file = "#{MRUBY_ROOT}/build_config/r2p2-#{vm}-#{board}.rb"

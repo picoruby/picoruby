@@ -16,23 +16,22 @@ rake test:all
 
 This command will execute the following tasks:
 -   `compiler:picoruby`
--   `compiler:microruby`
 -   `gems:steep`
--   `gems:microruby`
 -   `gems:picoruby`
+-   `gems:femtoruby`
 
 ### Running Tests for a Specific Gem
 
-You can run tests for a specific gem by providing the `specified_gem` argument to the `test:gems:picoruby` or `test:gems:microruby` Rake tasks.
+You can run tests for a specific gem by providing the `specified_gem` argument to the `test:gems:picoruby` or `test:gems:femtoruby` Rake tasks.
 
-For PicoRuby:
+For PicoRuby (mruby VM):
 ```bash
 rake 'test:gems:picoruby[picoruby-some-gem]'
 ```
 
-For MicroRuby:
+For FemtoRuby (mruby/c VM):
 ```bash
-rake 'test:gems:microruby[picoruby-some-gem]'
+rake 'test:gems:femtoruby[picoruby-some-gem]'
 ```
 
 ## Testing Strategies
@@ -51,7 +50,7 @@ This strategy is used for two types of gems:
 1.  **Pure Ruby gems:** Gems that do not have a `src` directory.
 2.  **Platform-dependent gems:** Gems that have a `ports` directory.
 
-For these gems, a single, generic test runner is built for each VM (PicoRuby and MicroRuby). The test runner then dynamically loads the gem's Ruby files (`mrblib/**/*.rb`). If a `test/mock` directory exists, its contents are also loaded, which is useful for mocking hardware-dependent C extensions when testing on the host.
+For these gems, a single, generic test runner is built for each VM (PicoRuby and FemtoRuby). The test runner then dynamically loads the gem's Ruby files (`mrblib/**/*.rb`). If a `test/mock` directory exists, its contents are also loaded, which is useful for mocking hardware-dependent C extensions when testing on the host.
 
 A key aspect of this strategy is that the `require` method within the test runner is designed to ignore `LoadError` when attempting to load pre-built gems. This allows the test runner to proceed even if a pre-built gem is not available in the test environment. In such cases, if the gem under test depends on a pre-built gem that is not present, developers have two options: either provide a mock implementation of that dependency within the gem's `test/mock/` directory (e.g., if `picoruby-adc` requires `gpio`, and `gpio` is a pre-built gem not available, a mock `gpio.rb` should be placed in `picoruby-adc/test/mock/`), or utilize the mocking features provided by Picotest itself within the test files.
 
@@ -76,6 +75,6 @@ end
 
 The test runner is implemented in `mrbgems/picoruby-picotest/mrblib/picotest/runner.rb`. It is responsible for loading test files, running the tests, and summarizing the results.
 
-Note that the test runner itself runs in a CRuby process, while the dispatched test runs in a PicoRuby or MicroRuby process.
+Note that the test runner itself runs in a CRuby process, while the dispatched test runs in a PicoRuby or FemtoRuby process.
 
 A key feature of the runner is that it cleans up defined test classes after each run. This is done in an `ensure` block to prevent test definitions from leaking between different test files, which ensures test isolation.

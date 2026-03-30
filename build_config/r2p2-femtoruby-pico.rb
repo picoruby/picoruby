@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
+MRuby::CrossBuild.new("r2p2-femtoruby-pico") do |conf|
 
   ###############################################################
   # You need following tools:
@@ -34,21 +34,15 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico_w") do |conf|
   conf.cc.defines << "USE_FAT_FLASH_DISK=1"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
-  conf.cc.defines << "MRBC_USE_FLOAT=2"
-  conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
   conf.mrubyc_hal_arm
-  conf.picoruby(alloc_libc: false)
+  conf.femtoruby(alloc_libc: false)
 
   conf.gembox "minimum"
   conf.gembox "core"
   conf.gembox "stdlib"
   conf.gembox "shell"
   conf.gembox "peripherals"
-  conf.gembox "networking"
-
-  # Rapi Pico's flash ROM (2MB) can't hold both net and ble
-  # conf.gem core: 'picoruby-ble'
   conf.gem core: 'picoruby-keyboard'
 end

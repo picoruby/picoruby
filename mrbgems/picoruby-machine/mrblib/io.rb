@@ -1,4 +1,4 @@
-# puts and print is written in C for MicroRuby
+# puts and print is written in C for PicoRuby
 if RUBY_ENGINE == 'mruby/c'
   class IO
     def puts(*args)
