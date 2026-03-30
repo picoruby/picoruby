@@ -118,7 +118,7 @@ def create_temp_build_config(base_config_name, gems)
 
   injection_point = /conf\.(femtoruby|picoruby)/
   injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
-  config_content.sub!(injection_point, injection_text + '\1')
+  config_content.sub!(injection_point, injection_text + 'conf.\1')
 
   config_file.write(config_content)
   config_file.close
