@@ -258,7 +258,9 @@ mrb_basic_alloc_func(void* ptr, size_t size)
 mrb_value
 mrb_alloc_statistics(mrb_state *mrb)
 {
+#if defined(ESTALLOC_DEBUG)
   est_take_statistics(est);
+#endif
   ESTALLOC_STAT *stat = &est->stat;
   mrb_value hash = mrb_hash_new_capa(mrb, 5);
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(MRB_SYM(ESTALLOC)));
