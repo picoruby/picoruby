@@ -10,6 +10,7 @@ MRuby::CrossBuild.new('picoruby-32bit') do |conf|
   conf.cc.defines << "ESTALLOC_DEBUG"
 
   conf.cc.defines << "MRB_INT64"
+  conf.cc.defines << "MRB_NO_BOXING"
   conf.cc.defines << "MRB_32BIT"
 
   conf.cc.defines << "MRB_UTF8_STRING"

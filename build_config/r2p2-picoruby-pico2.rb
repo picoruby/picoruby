@@ -12,6 +12,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2") do |conf|
 
   conf.cc.defines << "MRB_UTF8_STRING"
   conf.cc.defines << "MRB_INT64"
+  conf.cc.defines << "MRB_NO_BOXING"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
