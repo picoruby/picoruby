@@ -351,7 +351,7 @@ tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 
   mrbc_define_method(vm, class_TCPSocket, "new", c_tcp_socket_new);
   mrbc_define_method(vm, class_TCPSocket, "write", c_tcp_socket_write);
-  mrbc_define_method(vm, class_TCPSocket, "read",  c_tcp_socket_read);
+  mrbc_define_method(vm, class_TCPSocket, "read", c_tcp_socket_read);
   mrbc_define_method(vm, class_TCPSocket, "close", c_tcp_socket_close);
   mrbc_define_method(vm, class_TCPSocket, "closed?", c_tcp_socket_closed_q);
   mrbc_define_method(vm, class_TCPSocket, "ready?", c_tcp_socket_ready_q);

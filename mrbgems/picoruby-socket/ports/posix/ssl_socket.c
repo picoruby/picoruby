@@ -507,6 +507,9 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
   if (flags & PICORB_RECV_NONBLOCK) {
     int fd = ssl_sock->base_socket->fd;
     int fd_flags = fcntl(fd, F_GETFL, 0);
+    if (fd_flags == -1) {
+      return -1;
+    }
     fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK);
 
     int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
