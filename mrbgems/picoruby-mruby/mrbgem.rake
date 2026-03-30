@@ -28,7 +28,8 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
 
   # I don't know why but removing this causes a problem
   # even if build_config has the same define
-  spec.cc.defines << "MRB_INT64"
+  build.cc.defines << "MRB_INT64"
+  build.cc.defines << "MRB_NO_BOXING"
 
   align = build.cc.defines.find{_1.start_with?("PICORB_ALLOC_ALIGN=")}.then do |define|
     define&.split("=")&.last || 4
