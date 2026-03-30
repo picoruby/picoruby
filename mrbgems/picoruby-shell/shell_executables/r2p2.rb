@@ -7,19 +7,23 @@ if Machine.wifi_available?
   ARGV.clear
 end
 
-if File.exist?("#{ENV['HOME']}/app.mrb")
-  puts "Loading app.mrb"
-  load "#{ENV['HOME']}/app.mrb"
-elsif File.exist?("#{ENV['HOME']}/app.rb")
-  puts "Loading app.rb"
-  load "#{ENV['HOME']}/app.rb"
-else
-  require 'dfu'
-  app = DFU::BootManager.resolve
-  if app
-    puts "Loading #{app}"
-    load app
+begin
+  if File.exist?("#{ENV['HOME']}/app.mrb")
+    puts "Loading app.mrb"
+    load "#{ENV['HOME']}/app.mrb"
+  elsif File.exist?("#{ENV['HOME']}/app.rb")
+    puts "Loading app.rb"
+    load "#{ENV['HOME']}/app.rb"
   else
-    puts "No app found"
+    require 'dfu'
+    app = DFU::BootManager.resolve
+    if app
+      puts "Loading #{app}"
+      load app
+    else
+      puts "No app found"
+    end
   end
+rescue => e
+  puts "Error loading app: #{e}"
 end
