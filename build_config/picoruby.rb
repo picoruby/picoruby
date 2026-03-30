@@ -8,6 +8,8 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
+  conf.cc.defines << "MRB_INT64"
+  conf.cc.defines << "MRB_NO_BOXING"
   conf.cc.defines << "MRB_UTF8_STRING"
 
   conf.picoruby
