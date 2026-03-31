@@ -46,6 +46,7 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico_w") do |conf|
   conf.gembox "stdlib"
   conf.gembox "shell"
   conf.gembox "peripherals"
+  conf.gembox "peripheral_utils"
   conf.gembox "networking"
 
   # Rapi Pico's flash ROM (2MB) can't hold both net and ble
