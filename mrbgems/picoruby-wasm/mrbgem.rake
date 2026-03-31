@@ -15,6 +15,11 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
   spec.require_name = 'js'
 
+  spec.cc.defines << "MRB_32BIT"
+  spec.cc.defines << "MRB_INT64"
+  spec.cc.defines << "MRB_NO_BOXING"
+  spec.cc.defines << "MRB_UTF8_STRING"
+
   # Ensure EM_NODE_JS is set for Emscripten
   unless ENV['EM_NODE_JS']
     node_path = `which node 2>/dev/null`.strip
