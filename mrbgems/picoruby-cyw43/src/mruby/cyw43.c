@@ -203,7 +203,7 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   struct RClass *class_ConnectTimeout = mrb_define_class_under_id(mrb, class_CYW43, MRB_SYM(ConnectTimeout), E_RUNTIME_ERROR);
   (void)class_ConnectTimeout;
 
-  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(_init), mrb_s__init, MRB_ARGS_OPT(1));
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(_init), mrb_s__init, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM_Q(initialized), mrb_s_initialized_p, MRB_ARGS_NONE());
 #ifdef USE_WIFI
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_sta_mode), mrb_s_enable_sta_mode, MRB_ARGS_NONE());

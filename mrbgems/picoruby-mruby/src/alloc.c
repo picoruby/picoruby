@@ -258,7 +258,9 @@ mrb_basic_alloc_func(void* ptr, size_t size)
 mrb_value
 mrb_alloc_statistics(mrb_state *mrb)
 {
+#if defined(ESTALLOC_DEBUG)
   est_take_statistics(est);
+#endif
   ESTALLOC_STAT *stat = &est->stat;
   mrb_value hash = mrb_hash_new_capa(mrb, 5);
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(MRB_SYM(ESTALLOC)));
@@ -274,6 +276,14 @@ mrb_open_with_custom_alloc(void* mem, size_t bytes)
 {
   est = est_init(mem, bytes);
   return mrb_open();
+}
+
+void
+mrb_alloc_set_critical_section(void (*enter)(void), void (*exit_func)(void))
+{
+  if (est) {
+    est_set_critical_section(est, enter, exit_func);
+  }
 }
 
 // PICORB_ALLOC_ESTALLOC

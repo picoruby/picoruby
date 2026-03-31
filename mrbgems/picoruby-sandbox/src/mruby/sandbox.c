@@ -89,6 +89,7 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
 {
   SS();
   const char *script;
+  mrb_int script_len;
 
   uint32_t kw_num = 1;
   uint32_t kw_required = 0;
@@ -96,11 +97,10 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
   mrb_value kw_values[kw_num];
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
-  mrb_get_args(mrb, "z:", &script, &kwargs);
+  mrb_get_args(mrb, "s:", &script, &script_len, &kwargs);
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
-  const size_t size = strlen(script);
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, size, kw_values[0])) {
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, (const size_t)script_len, kw_values[0])) {
     return mrb_false_value();
   }
   return mrb_true_value();

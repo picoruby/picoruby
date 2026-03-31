@@ -2,7 +2,7 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'mruby-compiler2'
   if posix?
     conf.gem core: 'mruby-bin-mrbc2'
-    conf.gem core: 'picoruby-bin-microruby'
+    conf.gem core: 'picoruby-bin-picoruby'
   end
   if vm_mrubyc?
     conf.gem core: 'picoruby-mrubyc'

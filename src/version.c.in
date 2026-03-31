@@ -7,9 +7,9 @@
 #define PICORUBY_BUILD_DATE        "@PICORUBY_BUILD_DATE@"
 
 #ifdef PICORB_VM_MRUBYC
-  #define PICORB_BUILD_TYPE_STR "picoruby"
+  #define PICORB_BUILD_TYPE_STR "femtoruby"
 #else
-  #define PICORB_BUILD_TYPE_STR "microruby"
+  #define PICORB_BUILD_TYPE_STR "picoruby"
 #endif
 
 const char*

@@ -62,7 +62,7 @@ Wraps the [regex_light](lib/regex_light) C library with mruby and mrubyc binding
 ## Memory note (mrubyc / PicoRuby)
 
 `Regexp` objects allocate memory for the compiled pattern (`atoms`) via `malloc`.
-This memory is freed automatically in the mruby (MicroRuby) build via a GC finalizer.
+This memory is freed automatically in the mruby (PicoRuby) build via a GC finalizer.
 
 In the mrubyc (PicoRuby) build there is no GC finalizer. Call `regexp.free` explicitly
 if you need to reclaim the atoms memory:

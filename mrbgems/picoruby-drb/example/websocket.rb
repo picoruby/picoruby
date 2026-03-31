@@ -245,12 +245,12 @@ when "client"
   uri = ARGV[1] || DEFAULT_CLIENT_URI
   run_client(uri)
 else
-  puts "Usage: microruby websocket.rb [server|client] [uri]"
+  puts "Usage: picoruby websocket.rb [server|client] [uri]"
   puts "  server           - Start PicoRuby DRb WebSocket server on #{SERVER_URI}"
   puts "  client [uri]     - Connect to DRb WebSocket server (default: #{DEFAULT_CLIENT_URI})"
   puts ""
   puts "Examples:"
-  puts "  bin/microruby websocket.rb server"
-  puts "  bin/microruby websocket.rb client"
-  puts "  bin/microruby websocket.rb client ws://192.168.1.100:8080"
+  puts "  bin/picoruby websocket.rb server"
+  puts "  bin/picoruby websocket.rb client"
+  puts "  bin/picoruby websocket.rb client ws://192.168.1.100:8080"
 end

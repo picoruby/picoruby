@@ -2,7 +2,7 @@
   Original source code from mruby/mrubyc:
     Copyright (C) 2015- Kyushu Institute of Technology.
     Copyright (C) 2015- Shimane IT Open-Innovation Center.
-  Modified source code for picoruby/microruby:
+  Modified source code for picoruby/femtoruby:
     Copyright (C) 2025 HASUMI Hitoshi.
 
   This file is distributed under BSD 3-Clause License.

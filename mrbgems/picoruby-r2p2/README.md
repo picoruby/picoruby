@@ -6,12 +6,12 @@ This picogem (`picoruby-r2p2`) contains the firmware sources, cmake configuratio
 
 ## Supported boards and VMs
 
-| Board     | Chip    | WiFi | picoruby (mruby/c VM) | microruby (mruby VM) |
-|-----------|---------|------|-----------------------|----------------------|
-| pico      | RP2040  | No   | Yes                   | -                    |
-| pico_w    | RP2040  | Yes  | Yes                   | -                    |
-| pico2     | RP2350  | No   | Yes                   | Yes                  |
-| pico2_w   | RP2350  | Yes  | Yes                   | Yes                  |
+| Board     | Chip    | WiFi | femtoruby (mruby/c VM) | picoruby (mruby VM) |
+|-----------|---------|------|------------------------|---------------------|
+| pico      | RP2040  | No   | Yes                    | -                   |
+| pico_w    | RP2040  | Yes  | Yes                    | -                   |
+| pico2     | RP2350  | No   | Yes                    | Yes                 |
+| pico2_w   | RP2350  | Yes  | Yes                    | Yes                 |
 
 ## Usage
 
@@ -97,22 +97,22 @@ Build tasks follow the pattern `r2p2:{vm}:{board}:{mode}`:
 
 ```sh
 # Debug build for Pico (RP2040, mruby/c VM)
-rake r2p2:picoruby:pico:debug
+rake r2p2:femtoruby:pico:debug
 
 # Production build for Pico W (RP2040, mruby/c VM, WiFi)
-rake r2p2:picoruby:pico_w:prod
+rake r2p2:femtoruby:pico_w:prod
 
 # Debug build for Pico 2 (RP2350, mruby/c VM)
-rake r2p2:picoruby:pico2:debug
+rake r2p2:femtoruby:pico2:debug
 
 # Production build for Pico 2 W (RP2350, mruby/c VM, WiFi)
-rake r2p2:picoruby:pico2_w:prod
+rake r2p2:femtoruby:pico2_w:prod
 
 # Debug build for Pico 2 (RP2350, mruby VM)
-rake r2p2:microruby:pico2:debug
+rake r2p2:picoruby:pico2:debug
 
 # Production build for Pico 2 W (RP2350, mruby VM, WiFi)
-rake r2p2:microruby:pico2_w:prod
+rake r2p2:picoruby:pico2_w:prod
 ```
 
 The output `.uf2` file is generated in:
@@ -123,8 +123,8 @@ build/r2p2/{vm}/{board}/{mode}/R2P2-{VM}-{BOARD}-{VERSION}-{DATE}-{REV}.uf2
 ### Clean
 
 ```sh
-rake r2p2:picoruby:pico:clean
-rake r2p2:microruby:pico2:clean
+rake r2p2:femtoruby:pico:clean
+rake r2p2:picoruby:pico2:clean
 ```
 
 ### Using an external pico-sdk
@@ -134,7 +134,7 @@ If you already have pico-sdk and pico-extras installed elsewhere, set the enviro
 ```sh
 export PICO_SDK_PATH=/path/to/pico-sdk
 export PICO_EXTRAS_PATH=/path/to/pico-extras
-rake r2p2:picoruby:pico:debug
+rake r2p2:femtoruby:pico:debug
 ```
 
 ### Debugging with Picoprobe

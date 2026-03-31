@@ -1,5 +1,5 @@
 # Picotest::Test - Base class for test cases.
-# Used by BOTH CRuby and target VM (PicoRuby/MicroRuby).
+# Used by BOTH CRuby and target VM (FemtoRuby/PicoRuby).
 # - CRuby: Runner loads test files and calls list_tests to discover test_* methods.
 # - Target VM: Actually executes assertions and collects results as JSON.
 
@@ -90,7 +90,7 @@ module Picotest
 
     def self.mruby?
       ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
-      ruby_path.include?("microruby")
+      File.basename(ruby_path).include?("picoruby")
     end
 
     def self.mrubyc?
@@ -115,7 +115,7 @@ module Picotest
 
     def mruby?
       ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
-      ruby_path.include?("microruby")
+      File.basename(ruby_path).include?("picoruby")
     end
 
     def mrubyc?

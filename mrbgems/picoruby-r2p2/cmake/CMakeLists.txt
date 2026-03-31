@@ -198,10 +198,14 @@ if(USE_WIFI)
   )
 endif()
 
-add_compile_definitions(MRB_INT64=1)
+add_compile_definitions(PICORB_ALLOC_ESTALLOC=1)
 
 if(PICORB_VM_MRUBY)
   add_compile_definitions(PICORB_VM_MRUBY=1)
+  add_compile_definitions(MRB_INT64=1)
+  add_compile_definitions(MRB_NO_BOXING=1)
+  add_compile_definitions(MRB_32BIT=1)
+  add_compile_definitions(MRB_UTF8_STRING=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
     ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include
   )

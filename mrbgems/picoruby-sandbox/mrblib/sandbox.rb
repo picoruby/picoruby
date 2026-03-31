@@ -18,6 +18,9 @@ class Sandbox
       started = if is_rite
         exec_mrb(rb)
       else
+        if rb.start_with?("RITE") # not valid RITE version
+          raise RuntimeError, "#{path}: invalid RITE version: #{rb.byteslice(0, 8)}"
+        end
         unless compile(rb)
           raise RuntimeError, "#{path}: compile failed"
         end

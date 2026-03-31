@@ -3,7 +3,7 @@ require 'terminus'
 begin
   require 'shinonome'
 rescue LoadError
-  # ignore. mayby MicroRuby
+  # ignore. maybe PicoRuby
 end
 
 class Rapicco

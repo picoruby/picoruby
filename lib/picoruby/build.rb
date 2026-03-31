@@ -67,7 +67,7 @@ module MRuby
       "#{ident}#{major}#{minor}"
     end
 
-    def microruby
+    def picoruby
       # Place picoruby-mruby at the top so that Kernel#require is defined first
       if gems.first
         gems.first.add_dependency 'picoruby-mruby'
@@ -95,7 +95,7 @@ module MRuby
       debug_flag
     end
 
-    def picoruby(alloc_libc: true)
+    def femtoruby(alloc_libc: true)
       common
 
       # Override by environment variable

@@ -1,4 +1,4 @@
-# Picotest::Double - Stub/mock support (target VM only: PicoRuby/MicroRuby).
+# Picotest::Double - Stub/mock support (target VM only: FemtoRuby/PicoRuby).
 # Provides stub() and mock() via method_missing on a BasicObject subclass.
 
 module Picotest

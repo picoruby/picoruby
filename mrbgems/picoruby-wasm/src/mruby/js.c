@@ -1518,7 +1518,7 @@ mrb_object__to_binary_and_suspend(mrb_state *mrb, mrb_value self)
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
-  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+  uintptr_t task_ptr = (uintptr_t)mrb_ptr(current_task);
 
   mrb_suspend_task(mrb, current_task);
   setup_binary_handler(js_obj->ref_id, (uintptr_t)mrb, task_ptr, (uintptr_t)callback_id);
@@ -1540,7 +1540,7 @@ mrb_object__await_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "i", &callback_id);
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
-  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+  uintptr_t task_ptr = (uintptr_t)mrb_ptr(current_task);
 
   mrb_suspend_task(mrb, current_task);
   setup_promise_handler(obj->ref_id, (uintptr_t)callback_id, (uintptr_t)mrb, task_ptr);
@@ -2195,7 +2195,7 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
-  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+  uintptr_t task_ptr = (uintptr_t)mrb_ptr(current_task);
 
   mrb_suspend_task(mrb, current_task);
   setup_promise_handler(promise_id, (uintptr_t)callback_id, (uintptr_t)mrb, task_ptr);
@@ -2218,7 +2218,7 @@ mrb_object__fetch_with_options_and_suspend(mrb_state *mrb, mrb_value self)
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
-  uintptr_t task_ptr = (uintptr_t)mrb_val_union(current_task).vp;
+  uintptr_t task_ptr = (uintptr_t)mrb_ptr(current_task);
 
   mrb_suspend_task(mrb, current_task);
   setup_promise_handler(promise_id, (uintptr_t)callback_id, (uintptr_t)mrb, task_ptr);

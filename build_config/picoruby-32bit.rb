@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new('microruby-32bit') do |conf|
+MRuby::CrossBuild.new('picoruby-32bit') do |conf|
   conf.toolchain :gcc
 
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
@@ -10,6 +10,7 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.defines << "ESTALLOC_DEBUG"
 
   conf.cc.defines << "MRB_INT64"
+  conf.cc.defines << "MRB_NO_BOXING"
   conf.cc.defines << "MRB_32BIT"
 
   conf.cc.defines << "MRB_UTF8_STRING"
@@ -27,7 +28,7 @@ MRuby::CrossBuild.new('microruby-32bit') do |conf|
   conf.cc.flags << '-falign-labels=2'
   conf.linker.flags << '-m32'
 
-  conf.microruby
+  conf.picoruby
 
   conf.gembox "minimum"
   conf.gembox "core"

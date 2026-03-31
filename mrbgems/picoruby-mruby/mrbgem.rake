@@ -26,9 +26,9 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   end
   spec.add_dependency 'mruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task"
 
-  # I don't know why but removing this causes a problem
-  # even if build_config has the same define
-  spec.cc.defines << "MRB_INT64"
+  build.cc.defines << "MRB_INT64"
+  build.cc.defines << "MRB_NO_BOXING"
+  build.cc.defines << "MRB_UTF8_STRING"
 
   align = build.cc.defines.find{_1.start_with?("PICORB_ALLOC_ALIGN=")}.then do |define|
     define&.split("=")&.last || 4
