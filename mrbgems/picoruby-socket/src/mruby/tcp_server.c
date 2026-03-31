@@ -12,7 +12,7 @@ mrb_tcp_server_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
     picorb_tcp_server_t *server = (picorb_tcp_server_t *)ptr;
-    TCPServer_close(server);
+    TCPServer_close(mrb, server);
   }
 }
 
@@ -63,7 +63,7 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
   (void)host;
 
   /* Create TCP server */
-  picorb_tcp_server_t *server = TCPServer_create(port, (int)backlog);
+  picorb_tcp_server_t *server = TCPServer_create(mrb, port, (int)backlog);
   if (!server) {
     mrb_raisef(mrb, E_RUNTIME_ERROR,
                "failed to create TCP server on port %i (port may be in TIME_WAIT state, wait ~2 minutes and retry)",
@@ -90,7 +90,7 @@ mrb_tcp_server_accept_nonblock(mrb_state *mrb, mrb_value self)
   }
 
   /* Accept client connection (non-blocking) */
-  client = TCPServer_accept_nonblock(server);
+  client = TCPServer_accept_nonblock(mrb, server);
   if (!client) {
     return mrb_nil_value();
   }
@@ -113,7 +113,7 @@ mrb_tcp_server_close(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "server is not initialized");
   }
 
-  if (!TCPServer_close(server)) {
+  if (!TCPServer_close(mrb, server)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to close server");
   }
 

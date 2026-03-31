@@ -70,30 +70,39 @@ extern int Net_get_ip(const char *name, void *ip);
 
 #endif
 
+/* Portable VM state type for socket API */
+#if defined(PICORB_VM_MRUBY) && !defined(picorb_state)
+#include "mruby.h"
+#define picorb_state mrb_state
+#elif defined(PICORB_VM_MRUBYC) && !defined(picorb_state)
+#include "mrubyc.h"
+#define picorb_state mrbc_vm
+#endif
+
 /* TCP Socket API */
-bool TCPSocket_create(picorb_socket_t *sock);
-bool TCPSocket_connect(picorb_socket_t *sock, const char *host, int port);
-ssize_t TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len);
-ssize_t TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len);
-bool TCPSocket_close(picorb_socket_t *sock);
+bool TCPSocket_create(picorb_state *vm, picorb_socket_t *sock);
+bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
+ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
+ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len);
+bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
 
 /* Get socket info */
-const char* TCPSocket_remote_host(picorb_socket_t *sock);
-int TCPSocket_remote_port(picorb_socket_t *sock);
-bool TCPSocket_closed(picorb_socket_t *sock);
-bool Socket_ready(picorb_socket_t *sock);
+const char* TCPSocket_remote_host(picorb_state *vm, picorb_socket_t *sock);
+int TCPSocket_remote_port(picorb_state *vm, picorb_socket_t *sock);
+bool TCPSocket_closed(picorb_state *vm, picorb_socket_t *sock);
+bool Socket_ready(picorb_state *vm, picorb_socket_t *sock);
 
 /* UDP Socket API */
-bool UDPSocket_create(picorb_socket_t *sock);
-bool UDPSocket_bind(picorb_socket_t *sock, const char *host, int port);
-bool UDPSocket_connect(picorb_socket_t *sock, const char *host, int port);
-ssize_t UDPSocket_send(picorb_socket_t *sock, const void *data, size_t len);
-ssize_t UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
+bool UDPSocket_create(picorb_state *vm, picorb_socket_t *sock);
+bool UDPSocket_bind(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
+bool UDPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
+ssize_t UDPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
+ssize_t UDPSocket_sendto(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len,
                           const char *host, int port);
-ssize_t UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
+ssize_t UDPSocket_recvfrom(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len,
                             char *host, size_t host_len, int *port);
-bool UDPSocket_close(picorb_socket_t *sock);
-bool UDPSocket_closed(picorb_socket_t *sock);
+bool UDPSocket_close(picorb_state *vm, picorb_socket_t *sock);
+bool UDPSocket_closed(picorb_state *vm, picorb_socket_t *sock);
 
 /* TCP Server API */
 #ifdef PICORB_PLATFORM_POSIX
@@ -107,11 +116,11 @@ typedef struct picorb_tcp_server {
 typedef struct picorb_tcp_server picorb_tcp_server_t;
 #endif
 
-picorb_tcp_server_t* TCPServer_create(int port, int backlog);
-picorb_socket_t* TCPServer_accept_nonblock(picorb_tcp_server_t *server);
-bool TCPServer_close(picorb_tcp_server_t *server);
-int TCPServer_port(picorb_tcp_server_t *server);
-bool TCPServer_listening(picorb_tcp_server_t *server);
+picorb_tcp_server_t* TCPServer_create(picorb_state *vm, int port, int backlog);
+picorb_socket_t* TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server);
+bool TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server);
+int TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server);
+bool TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server);
 
 /* SSL Context API */
 #define SSL_VERIFY_NONE 0
@@ -132,16 +141,16 @@ typedef struct picorb_ssl_context {
 typedef struct picorb_ssl_context picorb_ssl_context_t;
 #endif
 
-picorb_ssl_context_t* SSLContext_create(void);
-bool SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file);
-bool SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size);
-bool SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file);
-bool SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size);
-bool SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file);
-bool SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size);
-bool SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode);
-int SSLContext_get_verify_mode(picorb_ssl_context_t *ctx);
-void SSLContext_free(picorb_ssl_context_t *ctx);
+picorb_ssl_context_t* SSLContext_create(picorb_state *vm);
+bool SSLContext_set_ca_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *ca_file);
+bool SSLContext_set_ca(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size);
+bool SSLContext_set_cert_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *cert_file);
+bool SSLContext_set_cert(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size);
+bool SSLContext_set_key_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *key_file);
+bool SSLContext_set_key(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size);
+bool SSLContext_set_verify_mode(picorb_state *vm, picorb_ssl_context_t *ctx, int mode);
+int SSLContext_get_verify_mode(picorb_state *vm, picorb_ssl_context_t *ctx);
+void SSLContext_free(picorb_state *vm, picorb_ssl_context_t *ctx);
 
 /* SSL Socket API */
 #ifdef PICORB_PLATFORM_POSIX
@@ -160,23 +169,27 @@ typedef struct picorb_ssl_socket {
 typedef struct picorb_ssl_socket picorb_ssl_socket_t;
 #endif
 
-picorb_ssl_socket_t* SSLSocket_create(picorb_ssl_context_t *ssl_ctx);
-bool SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname);
-bool SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port);
-bool SSLSocket_connect(picorb_ssl_socket_t *ssl_sock);
-ssize_t SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
-ssize_t SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
-bool SSLSocket_close(picorb_ssl_socket_t *ssl_sock);
-bool SSLSocket_closed(picorb_ssl_socket_t *ssl_sock);
-bool SSLSocket_ready(picorb_ssl_socket_t *ssl_sock);
-const char* SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock);
-int SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock);
+picorb_ssl_socket_t* SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx);
+bool SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
+bool SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port);
+bool SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+ssize_t SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
+ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
+bool SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+bool SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+bool SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+const char* SSLSocket_remote_host(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+int SSLSocket_remote_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 
 /* Address resolution */
 bool resolve_address(const char *host, char *ip, size_t ip_len);
 
 #if defined(PICORB_VM_MRUBYC)
   #include "mrubyc.h"
+  typedef struct {
+    picorb_socket_t *ptr;
+    picorb_state *vm;
+  } socket_wrapper_t;
   void tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
   void udp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
   void ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);

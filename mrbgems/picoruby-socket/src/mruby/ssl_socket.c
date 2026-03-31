@@ -12,7 +12,7 @@ mrb_ssl_context_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
     picorb_ssl_context_t *ctx = (picorb_ssl_context_t *)ptr;
-    SSLContext_free(ctx);
+    SSLContext_free(mrb, ctx);
   }
 }
 
@@ -26,7 +26,7 @@ mrb_ssl_context_initialize(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_context_t *ctx;
 
-  ctx = SSLContext_create();
+  ctx = SSLContext_create(mrb);
   if (!ctx) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL context");
   }
@@ -51,7 +51,7 @@ mrb_ssl_context_set_ca_file(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "z", &ca_file);
 
-  if (!SSLContext_set_ca_file(ctx, ca_file)) {
+  if (!SSLContext_set_ca_file(mrb, ctx, ca_file)) {
     mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to set CA file: %s", ca_file);
   }
 
@@ -77,7 +77,7 @@ mrb_ssl_context_set_ca(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "ii", &addr, &size);
 
-  if (!SSLContext_set_ca(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
+  if (!SSLContext_set_ca(mrb, ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
   }
 
@@ -98,7 +98,7 @@ mrb_ssl_context_set_cert_file(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "z", &cert_file);
 
-  if (!SSLContext_set_cert_file(ctx, cert_file)) {
+  if (!SSLContext_set_cert_file(mrb, ctx, cert_file)) {
     mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to set cert file: %s", cert_file);
   }
 
@@ -124,7 +124,7 @@ mrb_ssl_context_set_cert(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "ii", &addr, &size);
 
-  if (!SSLContext_set_cert(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
+  if (!SSLContext_set_cert(mrb, ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set certificate");
   }
 
@@ -145,7 +145,7 @@ mrb_ssl_context_set_key_file(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "z", &key_file);
 
-  if (!SSLContext_set_key_file(ctx, key_file)) {
+  if (!SSLContext_set_key_file(mrb, ctx, key_file)) {
     mrb_raisef(mrb, E_RUNTIME_ERROR, "failed to set key file: %s", key_file);
   }
 
@@ -171,7 +171,7 @@ mrb_ssl_context_set_key(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "ii", &addr, &size);
 
-  if (!SSLContext_set_key(ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
+  if (!SSLContext_set_key(mrb, ctx, (const void *)(uintptr_t)addr, (size_t)size)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set key");
   }
 
@@ -193,7 +193,7 @@ mrb_ssl_context_set_ca_pem(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "S", &str);
   mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@ca_pem"), str);
 
-  if (!SSLContext_set_ca(ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+  if (!SSLContext_set_ca(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
   }
 
@@ -215,7 +215,7 @@ mrb_ssl_context_set_cert_pem(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "S", &str);
   mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@cert_pem"), str);
 
-  if (!SSLContext_set_cert(ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+  if (!SSLContext_set_cert(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set certificate");
   }
 
@@ -237,7 +237,7 @@ mrb_ssl_context_set_key_pem(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "S", &str);
   mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@key_pem"), str);
 
-  if (!SSLContext_set_key(ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+  if (!SSLContext_set_key(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set key");
   }
 
@@ -258,7 +258,7 @@ mrb_ssl_context_set_verify_mode(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "i", &mode);
 
-  if (!SSLContext_set_verify_mode(ctx, (int)mode)) {
+  if (!SSLContext_set_verify_mode(mrb, ctx, (int)mode)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set verify mode");
   }
 
@@ -277,7 +277,7 @@ mrb_ssl_context_get_verify_mode(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
   }
 
-  mode = SSLContext_get_verify_mode(ctx);
+  mode = SSLContext_get_verify_mode(mrb, ctx);
   if (mode < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to get verify mode");
   }
@@ -291,8 +291,8 @@ mrb_ssl_socket_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
     picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)ptr;
-    if (!SSLSocket_closed(ssl_sock)) {
-      SSLSocket_close(ssl_sock);
+    if (!SSLSocket_closed(mrb, ssl_sock)) {
+      SSLSocket_close(mrb, ssl_sock);
     }
   }
 }
@@ -318,7 +318,7 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
   }
 
   /* Create SSL socket */
-  ssl_sock = SSLSocket_create(ssl_ctx);
+  ssl_sock = SSLSocket_create(mrb, ssl_ctx);
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
   }
@@ -328,23 +328,23 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
   mrb_value port = mrb_funcall(mrb, tcp_socket_obj, "remote_port", 0);
 
   if (!mrb_string_p(host)) {
-    SSLSocket_close(ssl_sock);
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_ARGUMENT_ERROR, "TCPSocket must have remote_host");
   }
 
   if (!mrb_fixnum_p(port)) {
-    SSLSocket_close(ssl_sock);
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_ARGUMENT_ERROR, "TCPSocket must have remote_port");
   }
 
   /* Set hostname and port from TCPSocket */
-  if (!SSLSocket_set_hostname(ssl_sock, RSTRING_PTR(host))) {
-    SSLSocket_close(ssl_sock);
+  if (!SSLSocket_set_hostname(mrb, ssl_sock, RSTRING_PTR(host))) {
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set hostname");
   }
 
-  if (!SSLSocket_set_port(ssl_sock, (int)mrb_fixnum(port))) {
-    SSLSocket_close(ssl_sock);
+  if (!SSLSocket_set_port(mrb, ssl_sock, (int)mrb_fixnum(port))) {
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
   }
 
@@ -380,23 +380,23 @@ mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "third argument must be an SSLContext");
   }
 
-  ssl_sock = SSLSocket_create(ssl_ctx);
+  ssl_sock = SSLSocket_create(mrb, ssl_ctx);
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create SSL socket");
   }
 
-  if (!SSLSocket_set_hostname(ssl_sock, hostname)) {
-    SSLSocket_close(ssl_sock);
+  if (!SSLSocket_set_hostname(mrb, ssl_sock, hostname)) {
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set hostname");
   }
 
-  if (!SSLSocket_set_port(ssl_sock, (int)port)) {
-    SSLSocket_close(ssl_sock);
+  if (!SSLSocket_set_port(mrb, ssl_sock, (int)port)) {
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
   }
 
-  if (!SSLSocket_connect(ssl_sock)) {
-    SSLSocket_close(ssl_sock);
+  if (!SSLSocket_connect(mrb, ssl_sock)) {
+    SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL connection failed");
   }
 
@@ -421,7 +421,7 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  if (!SSLSocket_connect(ssl_sock)) {
+  if (!SSLSocket_connect(mrb, ssl_sock)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL handshake failed");
   }
 
@@ -442,7 +442,7 @@ mrb_ssl_socket_write(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "S", &data);
 
-  ssize_t sent = SSLSocket_send(ssl_sock, RSTRING_PTR(data), RSTRING_LEN(data));
+  ssize_t sent = SSLSocket_send(mrb, ssl_sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL send failed");
   }
@@ -475,7 +475,7 @@ mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
   }
 
-  ssize_t received = SSLSocket_recv(ssl_sock, read_buf, maxlen);
+  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen);
   if (received < 0) {
     mrb_free(mrb, read_buf);
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL recv failed");
@@ -504,7 +504,7 @@ mrb_ssl_socket_close(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  if (!SSLSocket_close(ssl_sock)) {
+  if (!SSLSocket_close(mrb, ssl_sock)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL close failed");
   }
 
@@ -525,7 +525,7 @@ mrb_ssl_socket_closed_p(mrb_state *mrb, mrb_value self)
     return mrb_true_value();
   }
 
-  return mrb_bool_value(SSLSocket_closed(ssl_sock));
+  return mrb_bool_value(SSLSocket_closed(mrb, ssl_sock));
 }
 
 /* ssl_socket.remote_host */
@@ -539,7 +539,7 @@ mrb_ssl_socket_remote_host(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  const char *host = SSLSocket_remote_host(ssl_sock);
+  const char *host = SSLSocket_remote_host(mrb, ssl_sock);
   if (!host) {
     return mrb_nil_value();
   }
@@ -558,7 +558,7 @@ mrb_ssl_socket_remote_port(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  int port = SSLSocket_remote_port(ssl_sock);
+  int port = SSLSocket_remote_port(mrb, ssl_sock);
   if (port < 0) {
     return mrb_nil_value();
   }
@@ -577,7 +577,7 @@ mrb_ssl_socket_ready_p(mrb_state *mrb, mrb_value self)
     return mrb_false_value();
   }
 
-  return mrb_bool_value(SSLSocket_ready(ssl_sock));
+  return mrb_bool_value(SSLSocket_ready(mrb, ssl_sock));
 }
 
 void

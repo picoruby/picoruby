@@ -6,6 +6,7 @@
 /* Wrapper structure for storing TCP server pointer in instance->data */
 typedef struct {
   picorb_tcp_server_t *ptr;
+  picorb_state *vm;
 } tcp_server_wrapper_t;
 
 
@@ -77,9 +78,10 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Create instance with wrapper structure */
   mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(tcp_server_wrapper_t));
   tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)instance.instance->data;
+  wrapper->vm = vm;
 
   /* Create TCP server and store pointer */
-  wrapper->ptr = TCPServer_create(port, backlog);
+  wrapper->ptr = TCPServer_create(vm, port, backlog);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError),
                "failed to create TCP server (port may be in TIME_WAIT state, wait ~2 minutes and retry)");
@@ -108,7 +110,7 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Accept client connection (non-blocking) */
-  picorb_socket_t *client = TCPServer_accept_nonblock(wrapper->ptr);
+  picorb_socket_t *client = TCPServer_accept_nonblock(vm, wrapper->ptr);
   if (!client) {
     SET_NIL_RETURN();
     return;
@@ -147,7 +149,7 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Close server (also frees the server structure) */
-  TCPServer_close(wrapper->ptr);
+  TCPServer_close(vm, wrapper->ptr);
 
   /* Clear the pointer */
   wrapper->ptr = NULL;
@@ -160,7 +162,7 @@ mrbc_tcp_server_free(mrbc_value *self)
 {
   tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)self->instance->data;
   if (wrapper->ptr) {
-    TCPServer_close(wrapper->ptr);
+    TCPServer_close(wrapper->vm, wrapper->ptr);
     wrapper->ptr = NULL;
   }
 }

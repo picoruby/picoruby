@@ -19,6 +19,11 @@
 #include "mbedtls/debug.h"
 #endif
 
+/* Pre-allocated receive buffer size for SSL/TLS. */
+#ifndef SSL_RECV_BUF_SIZE
+#define SSL_RECV_BUF_SIZE 4096
+#endif
+
 /* SSL connection states */
 #define SSL_STATE_NONE           0
 #define SSL_STATE_CONNECTING     1
@@ -119,20 +124,15 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     return ERR_OK;
   }
 
-  /* Allocate or expand receive buffer in base_socket */
+  /* Copy data into pre-allocated buffer (no heap allocation in callback) */
   picorb_socket_t *sock = ssl_sock->base_socket;
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
 
   if (new_size > sock->recv_capacity) {
-    char *new_buf = (char *)picorb_realloc(NULL, sock->recv_buf, new_size + 1);
-    if (!new_buf) {
-      pbuf_free(pbuf);
-      ssl_sock->state = SSL_STATE_ERROR;
-      return ERR_MEM;
-    }
-    sock->recv_buf = new_buf;
-    sock->recv_capacity = new_size;
+    /* Buffer full - cannot accept more data */
+    pbuf_free(pbuf);
+    return ERR_MEM;
   }
 
   /* Copy data from pbuf chain */
@@ -182,9 +182,9 @@ ssl_poll_callback(void *arg, struct altcp_pcb *pcb)
  * ======================================================================== */
 
 picorb_ssl_context_t*
-SSLContext_create(void)
+SSLContext_create(picorb_state *vm)
 {
-  picorb_ssl_context_t *ctx = (picorb_ssl_context_t *)picorb_alloc(NULL, sizeof(picorb_ssl_context_t));
+  picorb_ssl_context_t *ctx = (picorb_ssl_context_t *)picorb_alloc(vm, sizeof(picorb_ssl_context_t));
   if (!ctx) {
     return NULL;
   }
@@ -203,7 +203,7 @@ SSLContext_create(void)
 }
 
 bool
-SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+SSLContext_set_ca_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *ca_file)
 {
   (void)ctx;
   (void)ca_file;
@@ -211,7 +211,7 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 }
 
 bool
-SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_ca(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   if (!ctx || !addr || size == 0) {
     return false;
@@ -224,7 +224,7 @@ SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 }
 
 bool
-SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
+SSLContext_set_cert_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *cert_file)
 {
   (void)ctx;
   (void)cert_file;
@@ -232,7 +232,7 @@ SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
 }
 
 bool
-SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_cert(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   if (!ctx || !addr || size == 0) {
     return false;
@@ -245,7 +245,7 @@ SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 }
 
 bool
-SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
+SSLContext_set_key_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *key_file)
 {
   (void)ctx;
   (void)key_file;
@@ -253,7 +253,7 @@ SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
 }
 
 bool
-SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_key(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   if (!ctx || !addr || size == 0) {
     return false;
@@ -266,7 +266,7 @@ SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
 }
 
 bool
-SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
+SSLContext_set_verify_mode(picorb_state *vm, picorb_ssl_context_t *ctx, int mode)
 {
   if (!ctx) {
     return false;
@@ -277,7 +277,7 @@ SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
 }
 
 int
-SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
+SSLContext_get_verify_mode(picorb_state *vm, picorb_ssl_context_t *ctx)
 {
   if (!ctx) {
     return -1;
@@ -286,7 +286,7 @@ SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
 }
 
 void
-SSLContext_free(picorb_ssl_context_t *ctx)
+SSLContext_free(picorb_state *vm, picorb_ssl_context_t *ctx)
 {
   if (!ctx) {
     return;
@@ -297,7 +297,7 @@ SSLContext_free(picorb_ssl_context_t *ctx)
     ctx->tls_config = NULL;
   }
 
-  picorb_free(NULL, ctx);
+  picorb_free(vm, ctx);
 }
 
 /* ========================================================================
@@ -311,26 +311,35 @@ SSLContext_free(picorb_ssl_context_t *ctx)
  * but we create a new TLS connection internally rather than reusing the existing TCP connection.
  */
 picorb_ssl_socket_t*
-SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
+SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx)
 {
   if (!ssl_ctx) {
     return NULL;
   }
 
-  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)picorb_alloc(NULL, sizeof(picorb_ssl_socket_t));
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)picorb_alloc(vm, sizeof(picorb_ssl_socket_t));
   if (!ssl_sock) {
     return NULL;
   }
 
   memset(ssl_sock, 0, sizeof(picorb_ssl_socket_t));
 
-  /* Create a dummy base_socket for buffer management */
-  ssl_sock->base_socket = (picorb_socket_t *)picorb_alloc(NULL, sizeof(picorb_socket_t));
+  /* Create base_socket for buffer management */
+  ssl_sock->base_socket = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
   if (!ssl_sock->base_socket) {
-    picorb_free(NULL, ssl_sock);
+    picorb_free(vm, ssl_sock);
     return NULL;
   }
   memset(ssl_sock->base_socket, 0, sizeof(picorb_socket_t));
+
+  /* Pre-allocate receive buffer to eliminate heap allocation in callbacks. */
+  ssl_sock->base_socket->recv_buf = (char *)picorb_alloc(vm, SSL_RECV_BUF_SIZE + 1);
+  if (!ssl_sock->base_socket->recv_buf) {
+    picorb_free(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock);
+    return NULL;
+  }
+  ssl_sock->base_socket->recv_capacity = SSL_RECV_BUF_SIZE;
 
   ssl_sock->ssl_ctx = ssl_ctx;
   ssl_sock->tls_pcb = NULL;
@@ -343,17 +352,17 @@ SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
 }
 
 bool
-SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
+SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname)
 {
   if (!ssl_sock || !hostname) {
     return false;
   }
 
   if (ssl_sock->hostname) {
-    picorb_free(NULL, ssl_sock->hostname);
+    picorb_free(vm, ssl_sock->hostname);
   }
 
-  ssl_sock->hostname = (char *)picorb_alloc(NULL, strlen(hostname) + 1);
+  ssl_sock->hostname = (char *)picorb_alloc(vm, strlen(hostname) + 1);
   if (!ssl_sock->hostname) {
     return false;
   }
@@ -363,7 +372,7 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
 }
 
 bool
-SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
+SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port)
 {
   if (!ssl_sock || port <= 0 || port > 65535) {
     return false;
@@ -378,7 +387,7 @@ SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
  * Performs DNS resolution, creates TLS PCB, and initiates connection
  */
 bool
-SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   D("SSL connect start");
 
@@ -528,7 +537,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
 }
 
 ssize_t
-SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
+SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 {
   if (!ssl_sock || !ssl_sock->connected || !ssl_sock->tls_pcb || !data) {
     return -1;
@@ -552,7 +561,7 @@ SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 }
 
 ssize_t
-SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
 {
   if (!ssl_sock || !ssl_sock->base_socket || !buf) {
     return -1;
@@ -592,7 +601,7 @@ SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
 }
 
 bool
-SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return false;
@@ -615,24 +624,24 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
   }
 
   if (ssl_sock->hostname) {
-    picorb_free(NULL, ssl_sock->hostname);
+    picorb_free(vm, ssl_sock->hostname);
     ssl_sock->hostname = NULL;
   }
 
   if (ssl_sock->base_socket) {
     if (ssl_sock->base_socket->recv_buf) {
-      picorb_free(NULL, ssl_sock->base_socket->recv_buf);
+      picorb_free(vm, ssl_sock->base_socket->recv_buf);
     }
-    picorb_free(NULL, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
   }
 
-  picorb_free(NULL, ssl_sock);
+  picorb_free(vm, ssl_sock);
   return true;
 }
 
 bool
-SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return true;
@@ -641,16 +650,16 @@ SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
 }
 
 bool
-SSLSocket_ready(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock || !ssl_sock->base_socket) {
     return false;
   }
-  return Socket_ready(ssl_sock->base_socket);
+  return Socket_ready(vm, ssl_sock->base_socket);
 }
 
 const char*
-SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_remote_host(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return NULL;
@@ -659,7 +668,7 @@ SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
 }
 
 int
-SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_remote_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return -1;

@@ -16,7 +16,7 @@
 #endif
 
 bool
-TCPSocket_create(picorb_socket_t *sock)
+TCPSocket_create(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return false;
 
@@ -37,14 +37,14 @@ TCPSocket_create(picorb_socket_t *sock)
 }
 
 bool
-TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
+TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port)
 {
   if (!sock || !host || port <= 0 || port > 65535) {
     return false;
   }
 
   if (sock->family != AF_INET || sock->fd < 0) {
-    if (!TCPSocket_create(sock)) {
+    if (!TCPSocket_create(vm, sock)) {
       return false;
     }
   }
@@ -87,7 +87,7 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 }
 
 ssize_t
-TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
+TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len)
 {
   if (!sock || !data || sock->fd < 0 || sock->closed) {
     return -1;
@@ -102,7 +102,7 @@ TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
 }
 
 ssize_t
-TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
 {
   if (!sock || !buf || sock->fd < 0 || sock->closed) {
     return -1;
@@ -122,7 +122,7 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
 
 /* Check if data is ready to read */
 bool
-Socket_ready(picorb_socket_t *sock)
+Socket_ready(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock || sock->fd < 0 || sock->closed) {
     return false;
@@ -137,7 +137,7 @@ Socket_ready(picorb_socket_t *sock)
 }
 
 bool
-TCPSocket_close(picorb_socket_t *sock)
+TCPSocket_close(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock || sock->fd < 0) {
     return false;
@@ -152,21 +152,21 @@ TCPSocket_close(picorb_socket_t *sock)
 }
 
 const char*
-TCPSocket_remote_host(picorb_socket_t *sock)
+TCPSocket_remote_host(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return NULL;
   return sock->remote_host;
 }
 
 int
-TCPSocket_remote_port(picorb_socket_t *sock)
+TCPSocket_remote_port(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return -1;
   return sock->remote_port;
 }
 
 bool
-TCPSocket_closed(picorb_socket_t *sock)
+TCPSocket_closed(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return true;
   return sock->closed || sock->fd < 0;

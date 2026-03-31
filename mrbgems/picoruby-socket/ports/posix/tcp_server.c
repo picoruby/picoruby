@@ -20,15 +20,15 @@
 
 /* Create and start a TCP server */
 picorb_tcp_server_t*
-TCPServer_create(int port, int backlog)
+TCPServer_create(picorb_state *vm, int port, int backlog)
 {
-  picorb_tcp_server_t *server = malloc(sizeof(picorb_tcp_server_t));
+  picorb_tcp_server_t *server = picorb_alloc(vm, sizeof(picorb_tcp_server_t));
   if (!server) return NULL;
 
   /* Create socket */
   server->listen_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server->listen_fd < 0) {
-    free(server);
+    picorb_free(vm, server);
     return NULL;
   }
 
@@ -37,7 +37,7 @@ TCPServer_create(int port, int backlog)
   if (setsockopt(server->listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
     perror("setsockopt SO_REUSEADDR failed");
     close(server->listen_fd);
-    free(server);
+    picorb_free(vm, server);
     return NULL;
   }
 
@@ -57,14 +57,14 @@ TCPServer_create(int port, int backlog)
   if (bind(server->listen_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     perror("bind failed");
     close(server->listen_fd);
-    free(server);
+    picorb_free(vm, server);
     return NULL;
   }
 
   /* Start listening */
   if (listen(server->listen_fd, backlog) < 0) {
     close(server->listen_fd);
-    free(server);
+    picorb_free(vm, server);
     return NULL;
   }
 
@@ -77,7 +77,7 @@ TCPServer_create(int port, int backlog)
 
 /* Accept a client connection (non-blocking) */
 picorb_socket_t*
-TCPServer_accept_nonblock(picorb_tcp_server_t *server)
+TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
 {
   picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
 
@@ -129,7 +129,7 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
   }
 
   /* Create TCPSocket object for client */
-  picorb_socket_t *client = (picorb_socket_t *)malloc(sizeof(picorb_socket_t));
+  picorb_socket_t *client = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
   if (!client) {
     close(client_fd);
     return NULL;
@@ -161,7 +161,7 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
 
 /* Close the TCP server */
 bool
-TCPServer_close(picorb_tcp_server_t *server)
+TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server)
 {
   picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
 
@@ -173,13 +173,13 @@ TCPServer_close(picorb_tcp_server_t *server)
     srv->listening = false;
   }
 
-  free(srv);
+  picorb_free(vm, srv);
   return true;
 }
 
 /* Get server port */
 int
-TCPServer_port(picorb_tcp_server_t *server)
+TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server)
 {
   picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
   return srv ? srv->port : -1;
@@ -187,7 +187,7 @@ TCPServer_port(picorb_tcp_server_t *server)
 
 /* Check if server is listening */
 bool
-TCPServer_listening(picorb_tcp_server_t *server)
+TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server)
 {
   picorb_tcp_server_t *srv = (picorb_tcp_server_t*)server;
   return srv ? srv->listening : false;

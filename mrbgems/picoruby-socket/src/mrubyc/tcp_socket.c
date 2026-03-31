@@ -9,9 +9,8 @@
 static inline picorb_socket_t*
 get_socket_ptr(mrbc_value *v)
 {
-  void *data = v[0].instance->data;
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
-  return *sock_ptr;
+  socket_wrapper_t *wrapper = (socket_wrapper_t *)v[0].instance->data;
+  return wrapper ? wrapper->ptr : NULL;
 }
 
 /*
@@ -46,11 +45,22 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Allocate socket structure on heap */
-  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
+  picorb_socket_t *sock = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
     return;
   }
+
+  /* Create instance with wrapper containing socket and VM state */
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(socket_wrapper_t));
+  socket_wrapper_t *wrapper = (socket_wrapper_t *)instance.instance->data;
+  if (!wrapper) {
+    picorb_free(vm, sock);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket wrapper");
+    return;
+  }
+  wrapper->ptr = sock;
+  wrapper->vm = vm;
 
   /* Initialize socket structure to zero */
   memset(sock, 0, sizeof(picorb_socket_t));
@@ -62,20 +72,15 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *host_str = (const char *)host.string->data;
   int port_num = (int)port.i;
 
-  if (!TCPSocket_connect(sock, host_str, port_num)) {
+  if (!TCPSocket_connect(vm, sock, host_str, port_num)) {
     char errmsg[SOCKET_ERROR_MSG_LEN];
     strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
     errmsg[sizeof(errmsg) - 1] = '\0';
-    mrbc_raw_free(sock);
+    picorb_free(vm, sock);
     mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
                 "%s", errmsg[0] ? errmsg : "failed to connect");
     return;
   }
-
-  /* Create instance with pointer to socket structure */
-  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t *));
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)instance.instance->data;
-  *sock_ptr = sock;
 
   SET_RETURN(instance);
 }
@@ -105,7 +110,7 @@ c_tcp_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Send data */
-  ssize_t sent = TCPSocket_send(sock, (const void *)data.string->data, data.string->size);
+  ssize_t sent = TCPSocket_send(vm, sock, (const void *)data.string->data, data.string->size);
   if (sent < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "send failed");
     return;
@@ -149,31 +154,31 @@ c_tcp_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Allocate buffer */
-  char *buffer = (char *)mrbc_raw_alloc(maxlen);
+  char *buffer = (char *)picorb_alloc(vm, maxlen);
   if (!buffer) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
     return;
   }
 
   /* Receive data */
-  ssize_t received = TCPSocket_recv(sock, buffer, maxlen);
+  ssize_t received = TCPSocket_recv(vm, sock, buffer, maxlen);
 
   if (received < 0) {
-    mrbc_raw_free(buffer);
+    picorb_free(vm, buffer);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "recv failed");
     return;
   }
 
   if (received == 0) {
     /* EOF */
-    mrbc_raw_free(buffer);
+    picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
   }
 
   /* Create string and return */
   mrbc_value ret = mrbc_string_new(vm, buffer, received);
-  mrbc_raw_free(buffer);
+  picorb_free(vm, buffer);
   mrbc_incref(&v[0]);
   SET_RETURN(ret);
 }
@@ -198,7 +203,7 @@ c_tcp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Close socket */
-  TCPSocket_close(sock);
+  TCPSocket_close(vm, sock);
 
   mrbc_incref(&v[0]);
   SET_NIL_RETURN();
@@ -223,7 +228,7 @@ c_tcp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Check if socket is closed */
-  bool is_closed = TCPSocket_closed(sock);
+  bool is_closed = TCPSocket_closed(vm, sock);
   mrbc_incref(&v[0]);
   if (is_closed) {
     SET_TRUE_RETURN();
@@ -251,7 +256,7 @@ c_tcp_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get remote host */
-  const char *host = TCPSocket_remote_host(sock);
+  const char *host = TCPSocket_remote_host(vm, sock);
   if (!host || host[0] == '\0') {
     SET_NIL_RETURN();
     return;
@@ -280,7 +285,7 @@ c_tcp_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get remote port */
-  int port = TCPSocket_remote_port(sock);
+  int port = TCPSocket_remote_port(vm, sock);
   if (port < 0) {
     SET_NIL_RETURN();
     return;
@@ -309,7 +314,7 @@ c_tcp_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Check if data is ready to read */
-  bool is_ready = Socket_ready(sock);
+  bool is_ready = Socket_ready(vm, sock);
   if (is_ready) {
     SET_TRUE_RETURN();
   } else {

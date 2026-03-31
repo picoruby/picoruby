@@ -17,10 +17,17 @@
 /* CYW43 includes for polling */
 #include "pico/cyw43_arch.h"
 
+/* Pre-allocated receive buffer size for accepted TCP connections. */
+#ifndef TCP_SERVER_RECV_BUF_SIZE
+#define TCP_SERVER_RECV_BUF_SIZE 4096
+#endif
+
 /* TCP Server structure */
 struct picorb_tcp_server {
   struct altcp_pcb *listen_pcb;
   picorb_socket_t *accepted_socket;
+  picorb_socket_t *pending_socket; /* pre-allocated, ready for next accept */
+  picorb_state *vm;
   int port;
   int state;
 };
@@ -30,7 +37,8 @@ static err_t tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pb
 static err_t tcp_sent_callback(void *arg, struct altcp_pcb *pcb, u16_t len);
 static void tcp_err_callback(void *arg, err_t err);
 
-/* Receive callback - called when data is received */
+/* Receive callback - runs in LwIP callback context (may be IRQ/PendSV).
+ * Must NOT call heap allocator to avoid heap corruption. */
 static err_t
 tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
@@ -60,21 +68,16 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     return ERR_OK;
   }
 
-  /* Allocate or expand receive buffer */
+  /* Copy data into pre-allocated buffer (no heap allocation) */
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
   D("tcp_server.c tcp_recv_callback: receiving %zu bytes, current recv_len=%zu\n", total_len, sock->recv_len);
 
   if (new_size > sock->recv_capacity) {
-    char *new_buf = (char *)picorb_realloc(NULL, sock->recv_buf, new_size + 1);
-    if (!new_buf) {
-      pbuf_free(pbuf);
-      sock->state = SOCKET_STATE_ERROR;
-      D("tcp_server.c tcp_recv_callback: failed to allocate buffer");
-      return ERR_MEM;
-    }
-    sock->recv_buf = new_buf;
-    sock->recv_capacity = new_size;
+    /* Buffer full - cannot accept more data */
+    D("tcp_server.c tcp_recv_callback: buffer full, dropping data");
+    pbuf_free(pbuf);
+    return ERR_MEM;
   }
 
   /* Copy data from pbuf chain */
@@ -116,7 +119,8 @@ tcp_err_callback(void *arg, err_t err)
   sock->pcb = NULL; /* PCB is already freed by LwIP */
 }
 
-/* Accept callback */
+/* Accept callback - runs in LwIP callback context (may be IRQ/PendSV).
+ * Uses pre-allocated socket to avoid heap allocation in callback context. */
 static err_t
 tcp_accept_callback(void *arg, struct altcp_pcb *newpcb, err_t err)
 {
@@ -126,22 +130,25 @@ tcp_accept_callback(void *arg, struct altcp_pcb *newpcb, err_t err)
     return ERR_ABRT;
   }
 
-
-  /* Allocate socket structure immediately */
-  picorb_socket_t *sock = (picorb_socket_t *)picorb_alloc(NULL, sizeof(picorb_socket_t));
+  /* Use pre-allocated socket to avoid heap allocation in callback context. */
+  picorb_socket_t *sock = server->pending_socket;
   if (!sock) {
     altcp_abort(newpcb);
     return ERR_MEM;
   }
+  server->pending_socket = NULL;
 
-  /* Initialize socket structure */
+  /* Save recv_buf across memset, then reinitialize socket fields. */
+  char *recv_buf = sock->recv_buf;
+  size_t recv_capacity = sock->recv_capacity;
   memset(sock, 0, sizeof(picorb_socket_t));
+  sock->recv_buf = recv_buf;
+  sock->recv_capacity = recv_capacity;
+
   sock->pcb = newpcb;
   sock->state = SOCKET_STATE_CONNECTED;
   sock->socktype = 1; /* SOCK_STREAM */
-  sock->recv_buf = NULL;
   sock->recv_len = 0;
-  sock->recv_capacity = 0;
   sock->connected = true;
   sock->closed = false;
 
@@ -160,19 +167,35 @@ tcp_accept_callback(void *arg, struct altcp_pcb *newpcb, err_t err)
 
 /* Create TCP server */
 picorb_tcp_server_t*
-TCPServer_create(int port, int backlog)
+TCPServer_create(picorb_state *vm, int port, int backlog)
 {
   if (port <= 0 || port > 65535) {
     return NULL;
   }
 
-  picorb_tcp_server_t *server = (picorb_tcp_server_t *)picorb_alloc(NULL, sizeof(picorb_tcp_server_t));
+  picorb_tcp_server_t *server = (picorb_tcp_server_t *)picorb_alloc(vm, sizeof(picorb_tcp_server_t));
   if (!server) {
     return NULL;
   }
 
   memset(server, 0, sizeof(picorb_tcp_server_t));
+  server->vm = vm;
   server->port = port;
+
+  /* Pre-allocate socket for first accepted connection. */
+  server->pending_socket = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
+  if (!server->pending_socket) {
+    picorb_free(vm, server);
+    return NULL;
+  }
+  memset(server->pending_socket, 0, sizeof(picorb_socket_t));
+  server->pending_socket->recv_buf = (char *)picorb_alloc(vm, TCP_SERVER_RECV_BUF_SIZE + 1);
+  if (!server->pending_socket->recv_buf) {
+    picorb_free(vm, server->pending_socket);
+    picorb_free(vm, server);
+    return NULL;
+  }
+  server->pending_socket->recv_capacity = TCP_SERVER_RECV_BUF_SIZE;
 
   lwip_begin();
 
@@ -181,7 +204,9 @@ TCPServer_create(int port, int backlog)
   if (!tpcb) {
     D("TCPServer_create: tcp_new failed");
     lwip_end();
-    picorb_free(NULL, server);
+    picorb_free(vm, server->pending_socket->recv_buf);
+    picorb_free(vm, server->pending_socket);
+    picorb_free(vm, server);
     return NULL;
   }
 
@@ -194,7 +219,9 @@ TCPServer_create(int port, int backlog)
     D("TCPServer_create: altcp_tcp_wrap failed");
     tcp_close(tpcb);
     lwip_end();
-    picorb_free(NULL, server);
+    picorb_free(vm, server->pending_socket->recv_buf);
+    picorb_free(vm, server->pending_socket);
+    picorb_free(vm, server);
     return NULL;
   }
 
@@ -213,7 +240,9 @@ TCPServer_create(int port, int backlog)
     } else {
       altcp_close(server->listen_pcb);
       lwip_end();
-      picorb_free(NULL, server);
+      picorb_free(vm, server->pending_socket->recv_buf);
+      picorb_free(vm, server->pending_socket);
+      picorb_free(vm, server);
       return NULL;
     }
   }
@@ -222,7 +251,9 @@ TCPServer_create(int port, int backlog)
   if (!server->listen_pcb) {
     D("TCPServer_create: altcp_listen_with_backlog failed");
     lwip_end();
-    picorb_free(NULL, server);
+    picorb_free(vm, server->pending_socket->recv_buf);
+    picorb_free(vm, server->pending_socket);
+    picorb_free(vm, server);
     return NULL;
   }
 
@@ -241,7 +272,7 @@ TCPServer_create(int port, int backlog)
 
 /* Accept connection (non-blocking) */
 picorb_socket_t*
-TCPServer_accept_nonblock(picorb_tcp_server_t *server)
+TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
 {
   if (!server) {
     return NULL;
@@ -256,22 +287,46 @@ TCPServer_accept_nonblock(picorb_tcp_server_t *server)
     return NULL; /* No pending connection */
   }
 
-  /* Return the already-allocated socket */
+  /* Return the pre-allocated socket that was claimed by the callback. */
   picorb_socket_t *sock = server->accepted_socket;
 
   /* Clear from server */
   server->accepted_socket = NULL;
   server->state = 0;
 
+  /* Replenish pending_socket for the next accepted connection. */
+  if (!server->pending_socket) {
+    server->pending_socket = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
+    if (server->pending_socket) {
+      memset(server->pending_socket, 0, sizeof(picorb_socket_t));
+      server->pending_socket->recv_buf = (char *)picorb_alloc(vm, TCP_SERVER_RECV_BUF_SIZE + 1);
+      if (!server->pending_socket->recv_buf) {
+        picorb_free(vm, server->pending_socket);
+        server->pending_socket = NULL;
+      } else {
+        server->pending_socket->recv_capacity = TCP_SERVER_RECV_BUF_SIZE;
+      }
+    }
+  }
+
   return sock;
 }
 
 /* Close server */
 bool
-TCPServer_close(picorb_tcp_server_t *server)
+TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server)
 {
   if (!server) {
     return false;
+  }
+
+  /* Clean up pending pre-allocated socket if not yet used. */
+  if (server->pending_socket) {
+    if (server->pending_socket->recv_buf) {
+      picorb_free(vm, server->pending_socket->recv_buf);
+    }
+    picorb_free(vm, server->pending_socket);
+    server->pending_socket = NULL;
   }
 
   /* Clean up accepted socket if present */
@@ -281,7 +336,10 @@ TCPServer_close(picorb_tcp_server_t *server)
       altcp_close(server->accepted_socket->pcb);
     }
     lwip_end();
-    picorb_free(NULL, server->accepted_socket);
+    if (server->accepted_socket->recv_buf) {
+      picorb_free(vm, server->accepted_socket->recv_buf);
+    }
+    picorb_free(vm, server->accepted_socket);
     server->accepted_socket = NULL;
   }
 
@@ -295,13 +353,13 @@ TCPServer_close(picorb_tcp_server_t *server)
     Net_busy_wait_ms(50);
   }
 
-  picorb_free(NULL, server);
+  picorb_free(vm, server);
   return true;
 }
 
 /* Get server port */
 int
-TCPServer_port(picorb_tcp_server_t *server)
+TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server)
 {
   if (!server) {
     return -1;
@@ -311,7 +369,7 @@ TCPServer_port(picorb_tcp_server_t *server)
 
 /* Check if server is listening */
 bool
-TCPServer_listening(picorb_tcp_server_t *server)
+TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server)
 {
   if (!server) {
     return false;
