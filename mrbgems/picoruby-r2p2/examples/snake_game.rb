@@ -224,8 +224,8 @@ def opposite?(d1, d2)
   d1[0] + d2[0] == 0 && d1[1] + d2[1] == 0
 end
 
-JOY_CENTER = 1850
-JOY_DEAD   = 200
+JOY_CENTER = 2048
+JOY_DEAD   = 500
 
 def read_joystick(joy_x_adc, joy_y_adc)
   raw_x = joy_x_adc.read_raw
