@@ -16,8 +16,8 @@
 #include "hal.h" // in picoruby-machine
 #include "main_task.c"
 
-#if defined(PICORB_ALLOC_ESTALLOC)
-#include "alloc.h"
+#if defined(PICORB_VM_MRUBY) && defined(PICORB_ALLOC_ESTALLOC)
+#include "../../picoruby-mruby/include/alloc.h"
 static critical_section_t heap_critsec;
 
 static void

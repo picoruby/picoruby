@@ -198,6 +198,8 @@ if(USE_WIFI)
   )
 endif()
 
+add_compile_definitions(PICORB_ALLOC_ESTALLOC=1)
+
 if(PICORB_VM_MRUBY)
   add_compile_definitions(PICORB_VM_MRUBY=1)
   add_compile_definitions(MRB_INT64=1)
