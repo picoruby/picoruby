@@ -3,6 +3,10 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
 /*
  * Restriction: Methods written in Ruby can not be called by send.
  */
