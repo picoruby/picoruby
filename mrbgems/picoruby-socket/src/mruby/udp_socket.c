@@ -19,7 +19,7 @@ mrb_udp_socket_initialize(mrb_state *mrb, mrb_value self)
   }
 
   /* Create UDP socket */
-  if (!UDPSocket_create(sock)) {
+  if (!UDPSocket_create(mrb, sock)) {
     mrb_free(mrb, sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create UDP socket");
   }
@@ -48,7 +48,7 @@ mrb_udp_socket_bind(mrb_state *mrb, mrb_value self)
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid port number: %i", port);
   }
 
-  if (!UDPSocket_bind(sock, host, (int)port)) {
+  if (!UDPSocket_bind(mrb, sock, host, (int)port)) {
     mrb_raisef(mrb, E_SOCKET_ERROR, "%s", sock->errmsg[0] ? sock->errmsg : "failed to bind");
   }
 
@@ -74,7 +74,7 @@ mrb_udp_socket_connect(mrb_state *mrb, mrb_value self)
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid port number: %i", port);
   }
 
-  if (!UDPSocket_connect(sock, host, (int)port)) {
+  if (!UDPSocket_connect(mrb, sock, host, (int)port)) {
     mrb_raisef(mrb, E_SOCKET_ERROR, "%s", sock->errmsg[0] ? sock->errmsg : "failed to connect");
   }
 
@@ -105,10 +105,10 @@ mrb_udp_socket_send(mrb_state *mrb, mrb_value self)
     if (port < 0 || 65535 < port) {
       mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid port number: %i", port);
     }
-    sent = UDPSocket_sendto(sock, RSTRING_PTR(data), RSTRING_LEN(data), host, (int)port);
+    sent = UDPSocket_sendto(mrb, sock, RSTRING_PTR(data), RSTRING_LEN(data), host, (int)port);
   } else {
     /* Send to connected destination */
-    sent = UDPSocket_send(sock, RSTRING_PTR(data), RSTRING_LEN(data));
+    sent = UDPSocket_send(mrb, sock, RSTRING_PTR(data), RSTRING_LEN(data));
   }
 
   if (sent < 0) {
@@ -151,7 +151,7 @@ mrb_udp_socket_recvfrom_nonblock(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
   }
 
-  ssize_t received = UDPSocket_recvfrom(sock, buf, maxlen, host, sizeof(host), &port);
+  ssize_t received = UDPSocket_recvfrom(mrb, sock, buf, maxlen, host, sizeof(host), &port);
   if (received < 0) {
     mrb_free(mrb, buf);
     mrb_raise(mrb, E_RUNTIME_ERROR, "recvfrom failed");
@@ -193,7 +193,7 @@ mrb_udp_socket_close(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  if (!UDPSocket_close(sock)) {
+  if (!UDPSocket_close(mrb, sock)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "close failed");
   }
 
@@ -211,7 +211,7 @@ mrb_udp_socket_closed_p(mrb_state *mrb, mrb_value self)
     return mrb_true_value();
   }
 
-  return mrb_bool_value(UDPSocket_closed(sock));
+  return mrb_bool_value(UDPSocket_closed(mrb, sock));
 }
 
 void

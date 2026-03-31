@@ -1,23 +1,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include "picoruby.h"
 
 typedef struct {
   picorb_ssl_socket_t *ptr;
+  picorb_state *vm;
 } ssl_socket_wrapper_t;
 
 static void
 mrbc_ssl_socket_free(mrbc_value *self)
 {
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)self->instance->data;
-  if (wrapper->ptr && !SSLSocket_closed(wrapper->ptr)) {
-    SSLSocket_close(wrapper->ptr);
+  if (wrapper->ptr && !SSLSocket_closed(wrapper->vm, wrapper->ptr)) {
+    SSLSocket_close(wrapper->vm, wrapper->ptr);
     wrapper->ptr = NULL;
   }
 }
 
 typedef struct {
   picorb_ssl_context_t *ptr;
+  picorb_state *vm;
 } ssl_context_wrapper_t;
 
 static void
@@ -25,7 +28,7 @@ mrbc_ssl_context_free(mrbc_value *self)
 {
   ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)self->instance->data;
   if (wrapper->ptr) {
-    SSLContext_free(wrapper->ptr);
+    SSLContext_free(wrapper->vm, wrapper->ptr);
     wrapper->ptr = NULL;
   }
 }
@@ -59,8 +62,8 @@ c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  const char *hostname = TCPSocket_remote_host(tcp_sock);
-  int port = TCPSocket_remote_port(tcp_sock);
+  const char *hostname = TCPSocket_remote_host(vm, tcp_sock);
+  int port = TCPSocket_remote_port(vm, tcp_sock);
 
   if (!hostname) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "TCPSocket must have remote_host");
@@ -78,31 +81,32 @@ c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Close the original TCP socket to avoid resource leak */
-  if (!TCPSocket_closed(tcp_sock)) {
-    TCPSocket_close(tcp_sock);
+  if (!TCPSocket_closed(vm, tcp_sock)) {
+    TCPSocket_close(vm, tcp_sock);
   }
 
   /* Create instance with wrapper structure */
   mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(ssl_socket_wrapper_t));
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)instance.instance->data;
+  wrapper->vm = vm;
 
   /* Create SSL socket */
-  wrapper->ptr = SSLSocket_create(ctx_wrapper->ptr);
+  wrapper->ptr = SSLSocket_create(vm, ctx_wrapper->ptr);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
     return;
   }
 
   /* Set hostname and port */
-  if (!SSLSocket_set_hostname(wrapper->ptr, hostname)) {
-    SSLSocket_close(wrapper->ptr);
+  if (!SSLSocket_set_hostname(vm, wrapper->ptr, hostname)) {
+    SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set hostname");
     return;
   }
 
-  if (!SSLSocket_set_port(wrapper->ptr, port)) {
-    SSLSocket_close(wrapper->ptr);
+  if (!SSLSocket_set_port(vm, wrapper->ptr, port)) {
+    SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set port");
     return;
@@ -153,30 +157,30 @@ c_ssl_socket_open(mrbc_vm *vm, mrbc_value *v, int argc)
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)instance.instance->data;
 
   /* Create SSL socket */
-  wrapper->ptr = SSLSocket_create(ctx_wrapper->ptr);
+  wrapper->ptr = SSLSocket_create(vm, ctx_wrapper->ptr);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL socket");
     return;
   }
 
   /* Set hostname and port */
-  if (!SSLSocket_set_hostname(wrapper->ptr, hostname)) {
-    SSLSocket_close(wrapper->ptr);
+  if (!SSLSocket_set_hostname(vm, wrapper->ptr, hostname)) {
+    SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set hostname");
     return;
   }
 
-  if (!SSLSocket_set_port(wrapper->ptr, port)) {
-    SSLSocket_close(wrapper->ptr);
+  if (!SSLSocket_set_port(vm, wrapper->ptr, port)) {
+    SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set port");
     return;
   }
 
   /* Perform SSL handshake */
-  if (!SSLSocket_connect(wrapper->ptr)) {
-    SSLSocket_close(wrapper->ptr);
+  if (!SSLSocket_connect(vm, wrapper->ptr)) {
+    SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL connection failed");
     return;
@@ -207,7 +211,7 @@ c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Perform SSL handshake */
-  if (!SSLSocket_connect(wrapper->ptr)) {
+  if (!SSLSocket_connect(vm, wrapper->ptr)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL handshake failed");
     return;
   }
@@ -239,7 +243,7 @@ c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Send data */
-  ssize_t sent = SSLSocket_send(wrapper->ptr, (const void *)data.string->data, data.string->size);
+  ssize_t sent = SSLSocket_send(vm, wrapper->ptr, (const void *)data.string->data, data.string->size);
   if (sent < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL send failed");
     return;
@@ -282,31 +286,31 @@ c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Allocate buffer */
-  char *buffer = (char *)mrbc_raw_alloc(maxlen);
+  char *buffer = (char *)picorb_alloc(vm, maxlen);
   if (!buffer) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
     return;
   }
 
   /* Receive data */
-  ssize_t received = SSLSocket_recv(wrapper->ptr, buffer, maxlen);
+  ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen);
 
   if (received < 0) {
-    mrbc_raw_free(buffer);
+    picorb_free(vm, buffer);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL recv failed");
     return;
   }
 
   if (received == 0) {
     /* EOF */
-    mrbc_raw_free(buffer);
+    picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
   }
 
   /* Create string and return */
   mrbc_value ret = mrbc_string_new(vm, buffer, received);
-  mrbc_raw_free(buffer);
+  picorb_free(vm, buffer);
   SET_RETURN(ret);
 }
 
@@ -330,7 +334,7 @@ c_ssl_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Close SSL socket (also frees the SSL socket structure) */
-  SSLSocket_close(wrapper->ptr);
+  SSLSocket_close(vm, wrapper->ptr);
 
   /* Clear the pointer */
   wrapper->ptr = NULL;
@@ -357,7 +361,7 @@ c_ssl_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Check if SSL socket is closed */
-  bool is_closed = SSLSocket_closed(wrapper->ptr);
+  bool is_closed = SSLSocket_closed(vm, wrapper->ptr);
   if (is_closed) {
     SET_TRUE_RETURN();
   } else {
@@ -384,7 +388,7 @@ c_ssl_socket_remote_host(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get remote host */
-  const char *host = SSLSocket_remote_host(wrapper->ptr);
+  const char *host = SSLSocket_remote_host(vm, wrapper->ptr);
   if (!host || host[0] == '\0') {
     SET_NIL_RETURN();
     return;
@@ -412,7 +416,7 @@ c_ssl_socket_remote_port(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get remote port */
-  int port = SSLSocket_remote_port(wrapper->ptr);
+  int port = SSLSocket_remote_port(vm, wrapper->ptr);
   if (port < 0) {
     SET_NIL_RETURN();
     return;
@@ -440,7 +444,7 @@ c_ssl_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Check if data is ready to read */
-  bool is_ready = SSLSocket_ready(wrapper->ptr);
+  bool is_ready = SSLSocket_ready(vm, wrapper->ptr);
   if (is_ready) {
     SET_TRUE_RETURN();
   } else {
@@ -462,9 +466,10 @@ c_ssl_context_new(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Create instance with wrapper structure */
   mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(ssl_context_wrapper_t));
   ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)instance.instance->data;
+  wrapper->vm = vm;
 
   /* Create SSL context and store pointer */
-  wrapper->ptr = SSLContext_create();
+  wrapper->ptr = SSLContext_create(vm);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create SSL context");
     return;
@@ -502,7 +507,7 @@ c_ssl_context_set_ca_file(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *ca_file = (const char *)ca_file_arg.string->data;
 
   /* Set CA file */
-  if (!SSLContext_set_ca_file(wrapper->ptr, ca_file)) {
+  if (!SSLContext_set_ca_file(vm, wrapper->ptr, ca_file)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA file");
     return;
   }
@@ -549,7 +554,7 @@ c_ssl_context_set_ca(mrbc_vm *vm, mrbc_value *v, int argc)
   size_t size = (size_t)size_arg.i;
 
   /* Set CA certificate */
-  if (!SSLContext_set_ca(wrapper->ptr, addr, size)) {
+  if (!SSLContext_set_ca(vm, wrapper->ptr, addr, size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA certificate");
     return;
   }
@@ -586,7 +591,7 @@ c_ssl_context_set_cert_file(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *cert_file = (const char *)cert_file_arg.string->data;
 
   /* Set certificate file */
-  if (!SSLContext_set_cert_file(wrapper->ptr, cert_file)) {
+  if (!SSLContext_set_cert_file(vm, wrapper->ptr, cert_file)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate file");
     return;
   }
@@ -633,7 +638,7 @@ c_ssl_context_set_cert(mrbc_vm *vm, mrbc_value *v, int argc)
   size_t size = (size_t)size_arg.i;
 
   /* Set certificate */
-  if (!SSLContext_set_cert(wrapper->ptr, addr, size)) {
+  if (!SSLContext_set_cert(vm, wrapper->ptr, addr, size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate");
     return;
   }
@@ -669,7 +674,7 @@ c_ssl_context_set_key_file(mrbc_vm *vm, mrbc_value *v, int argc)
 
   const char *key_file = (const char *)key_file_arg.string->data;
   /* Set key file */
-  if (!SSLContext_set_key_file(wrapper->ptr, key_file)) {
+  if (!SSLContext_set_key_file(vm, wrapper->ptr, key_file)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key file");
     return;
   }
@@ -706,7 +711,7 @@ c_ssl_context_set_ca_pem(mrbc_vm *vm, mrbc_value *v, int argc)
 
   mrbc_instance_setiv(&v[0], mrbc_str_to_symid("@ca_pem"), &str);
 
-  if (!SSLContext_set_ca(wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+  if (!SSLContext_set_ca(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA certificate");
     return;
   }
@@ -737,7 +742,7 @@ c_ssl_context_set_cert_pem(mrbc_vm *vm, mrbc_value *v, int argc)
 
   mrbc_instance_setiv(&v[0], mrbc_str_to_symid("@cert_pem"), &str);
 
-  if (!SSLContext_set_cert(wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+  if (!SSLContext_set_cert(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate");
     return;
   }
@@ -768,7 +773,7 @@ c_ssl_context_set_key_pem(mrbc_vm *vm, mrbc_value *v, int argc)
 
   mrbc_instance_setiv(&v[0], mrbc_str_to_symid("@key_pem"), &str);
 
-  if (!SSLContext_set_key(wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+  if (!SSLContext_set_key(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key");
     return;
   }
@@ -809,7 +814,7 @@ c_ssl_context_set_key(mrbc_vm *vm, mrbc_value *v, int argc)
   size_t size = (size_t)size_arg.i;
 
   /* Set key */
-  if (!SSLContext_set_key(wrapper->ptr, addr, size)) {
+  if (!SSLContext_set_key(vm, wrapper->ptr, addr, size)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key");
     return;
   }
@@ -845,7 +850,7 @@ c_ssl_context_set_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
   int mode = mode_arg.i;
 
   /* Set verify mode */
-  if (!SSLContext_set_verify_mode(wrapper->ptr, mode)) {
+  if (!SSLContext_set_verify_mode(vm, wrapper->ptr, mode)) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set verify mode");
     return;
   }
@@ -873,7 +878,7 @@ c_ssl_context_get_verify_mode(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Get verify mode */
-  int mode = SSLContext_get_verify_mode(wrapper->ptr);
+  int mode = SSLContext_get_verify_mode(vm, wrapper->ptr);
   if (mode < 0) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to get verify mode");
     return;

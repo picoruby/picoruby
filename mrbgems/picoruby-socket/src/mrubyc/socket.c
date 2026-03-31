@@ -14,14 +14,14 @@
 void
 mrbc_socket_free(mrbc_value *self)
 {
-  void *data = self->instance->data;
-  if (!data) {
+  //void *data = self->instance->data;
+  socket_wrapper_t *wrapper = (socket_wrapper_t *)self->instance->data;
+  if (!wrapper) {
     return;
   }
 
   /* Get socket pointer (always stored as pointer now) */
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
-  picorb_socket_t *sock = *sock_ptr;
+  picorb_socket_t *sock = wrapper->ptr;
 
   if (!sock) {
     return;
@@ -30,14 +30,14 @@ mrbc_socket_free(mrbc_value *self)
   if (!sock->closed) {
     /* Close socket based on socket type */
     if (sock->socktype == SOCK_DGRAM) {
-      UDPSocket_close(sock);
+      UDPSocket_close(wrapper->vm, sock);
     } else {
-      TCPSocket_close(sock);
+      TCPSocket_close(wrapper->vm, sock);
     }
   }
 
   /* Free the allocated socket structure */
-  mrbc_raw_free(sock);
+  picorb_free(wrapper->vm, sock);
 }
 
 void

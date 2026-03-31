@@ -9,9 +9,8 @@
 static inline picorb_socket_t*
 get_udp_socket_ptr(mrbc_value *v)
 {
-  void *data = v[0].instance->data;
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)data;
-  return *sock_ptr;
+  socket_wrapper_t *wrapper = (socket_wrapper_t *)v[0].instance->data;
+  return wrapper ? wrapper->ptr : NULL;
 }
 
 /*
@@ -26,23 +25,24 @@ c_udp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Allocate socket structure on heap */
-  picorb_socket_t *sock = (picorb_socket_t *)mrbc_raw_alloc(sizeof(picorb_socket_t));
+  picorb_socket_t *sock = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
   if (!sock) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
     return;
   }
 
   /* Create UDP socket */
-  if (!UDPSocket_create(sock)) {
-    mrbc_raw_free(sock);
+  if (!UDPSocket_create(vm, sock)) {
+    picorb_free(vm, sock);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create UDP socket");
     return;
   }
 
   /* Create instance with pointer to socket structure */
-  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(picorb_socket_t *));
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)instance.instance->data;
-  *sock_ptr = sock;
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(socket_wrapper_t));
+  socket_wrapper_t *wrapper = (socket_wrapper_t *)instance.instance->data;
+  wrapper->ptr = sock;
+  wrapper->vm = vm;
 
   SET_RETURN(instance);
 }
@@ -89,7 +89,7 @@ c_udp_socket_bind(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *host_str = (const char *)host.string->data;
   int port_num = (int)port.i;
 
-  if (!UDPSocket_bind(sock, host_str, port_num)) {
+  if (!UDPSocket_bind(vm, sock, host_str, port_num)) {
     mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
                 "%s", sock->errmsg[0] ? sock->errmsg : "failed to bind");
     return;
@@ -141,7 +141,7 @@ c_udp_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
   const char *host_str = (const char *)host.string->data;
   int port_num = (int)port.i;
 
-  if (!UDPSocket_connect(sock, host_str, port_num)) {
+  if (!UDPSocket_connect(vm, sock, host_str, port_num)) {
     mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"),
                 "%s", sock->errmsg[0] ? sock->errmsg : "failed to connect");
     return;
@@ -201,10 +201,10 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
     const char *host_str = (const char *)host.string->data;
     int port_num = (int)port.i;
 
-    sent = UDPSocket_sendto(sock, (const void *)data.string->data, data.string->size, host_str, port_num);
+    sent = UDPSocket_sendto(vm, sock, (const void *)data.string->data, data.string->size, host_str, port_num);
   } else {
     /* Send to connected destination */
-    sent = UDPSocket_send(sock, (const void *)data.string->data, data.string->size);
+    sent = UDPSocket_send(vm, sock, (const void *)data.string->data, data.string->size);
   }
 
   if (sent < 0) {
@@ -249,7 +249,7 @@ c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Allocate buffer */
-  char *buffer = (char *)mrbc_raw_alloc(maxlen);
+  char *buffer = (char *)picorb_alloc(vm, maxlen);
   if (!buffer) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
     return;
@@ -259,24 +259,24 @@ c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   int port;
 
   /* Receive data */
-  ssize_t received = UDPSocket_recvfrom(sock, buffer, maxlen, host, sizeof(host), &port);
+  ssize_t received = UDPSocket_recvfrom(vm, sock, buffer, maxlen, host, sizeof(host), &port);
 
   if (received < 0) {
-    mrbc_raw_free(buffer);
+    picorb_free(vm, buffer);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "recvfrom failed");
     return;
   }
 
   /* If no data available (non-blocking socket), return nil */
   if (received == 0) {
-    mrbc_raw_free(buffer);
+    picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
   }
 
   /* Create data string */
   mrbc_value data = mrbc_string_new(vm, buffer, received);
-  mrbc_raw_free(buffer);
+  picorb_free(vm, buffer);
 
   /* Create address info array [family, port, host, host] */
   mrbc_value addr_info = mrbc_array_new(vm, 4);
@@ -324,7 +324,7 @@ c_udp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Close socket */
-  UDPSocket_close(sock);
+  UDPSocket_close(vm, sock);
 
   mrbc_incref(&v[0]);
   SET_NIL_RETURN();
@@ -349,7 +349,7 @@ c_udp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /* Check if socket is closed */
-  bool is_closed = UDPSocket_closed(sock);
+  bool is_closed = UDPSocket_closed(vm, sock);
   mrbc_incref(&v[0]);
   if (is_closed) {
     SET_TRUE_RETURN();

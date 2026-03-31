@@ -27,13 +27,13 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
   }
 
   /* Create socket */
-  if (!TCPSocket_create(sock)) {
+  if (!TCPSocket_create(mrb, sock)) {
     mrb_free(mrb, sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create socket");
   }
 
   /* Connect to remote host */
-  if (!TCPSocket_connect(sock, host, (int)port)) {
+  if (!TCPSocket_connect(mrb, sock, host, (int)port)) {
     char errmsg[SOCKET_ERROR_MSG_LEN];
     strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
     errmsg[sizeof(errmsg) - 1] = '\0';
@@ -60,7 +60,7 @@ mrb_tcp_socket_write(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "S", &data);
 
-  ssize_t sent = TCPSocket_send(sock, RSTRING_PTR(data), RSTRING_LEN(data));
+  ssize_t sent = TCPSocket_send(mrb, sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "send failed");
   }
@@ -93,7 +93,7 @@ mrb_tcp_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
   }
 
-  ssize_t received = TCPSocket_recv(sock, read_buf, maxlen);
+  ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen);
   if (received < 0) {
     mrb_free(mrb, read_buf);
     mrb_raise(mrb, E_RUNTIME_ERROR, "recv failed");
@@ -122,7 +122,7 @@ mrb_tcp_socket_close(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  if (!TCPSocket_close(sock)) {
+  if (!TCPSocket_close(mrb, sock)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "close failed");
   }
 
@@ -140,7 +140,7 @@ mrb_tcp_socket_closed_p(mrb_state *mrb, mrb_value self)
     return mrb_true_value();
   }
 
-  return mrb_bool_value(TCPSocket_closed(sock));
+  return mrb_bool_value(TCPSocket_closed(mrb, sock));
 }
 
 /* socket.remote_host */
@@ -154,7 +154,7 @@ mrb_tcp_socket_remote_host(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  const char *host = TCPSocket_remote_host(sock);
+  const char *host = TCPSocket_remote_host(mrb, sock);
   if (!host) {
     return mrb_nil_value();
   }
@@ -173,7 +173,7 @@ mrb_tcp_socket_remote_port(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  int port = TCPSocket_remote_port(sock);
+  int port = TCPSocket_remote_port(mrb, sock);
   if (port < 0) {
     return mrb_nil_value();
   }
@@ -192,7 +192,7 @@ mrb_tcp_socket_ready_p(mrb_state *mrb, mrb_value self)
     return mrb_false_value();
   }
 
-  return mrb_bool_value(Socket_ready(sock));
+  return mrb_bool_value(Socket_ready(mrb, sock));
 }
 
 void

@@ -3,6 +3,7 @@
  * Uses OpenSSL for TLS/SSL support over TCP sockets
  */
 
+#include "picoruby.h"
 #include "../../include/socket.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,11 +36,11 @@ ssl_init_once(void)
  * Create SSL context
  */
 picorb_ssl_context_t*
-SSLContext_create(void)
+SSLContext_create(picorb_state *vm)
 {
   ssl_init_once();
 
-  picorb_ssl_context_t *ctx = (picorb_ssl_context_t*)malloc(sizeof(picorb_ssl_context_t));
+  picorb_ssl_context_t *ctx = (picorb_ssl_context_t*)picorb_alloc(vm, sizeof(picorb_ssl_context_t));
   if (!ctx) {
     return NULL;
   }
@@ -51,7 +52,7 @@ SSLContext_create(void)
   if (!ctx->ctx) {
     fprintf(stderr, "SSL: SSL_CTX_new failed\n");
     ERR_print_errors_fp(stderr);
-    free(ctx);
+    picorb_free(vm, ctx);
     return NULL;
   }
 
@@ -71,7 +72,7 @@ SSLContext_create(void)
  * Set CA certificate file
  */
 bool
-SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
+SSLContext_set_ca_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *ca_file)
 {
   if (!ctx || !ca_file) {
     return false;
@@ -79,19 +80,22 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
 
   // Free previous ca_file if set
   if (ctx->ca_file) {
-    free(ctx->ca_file);
+    picorb_free(vm, ctx->ca_file);
     ctx->ca_file = NULL;
   }
 
   // Store ca_file path
-  ctx->ca_file = strdup(ca_file);
+  size_t ca_file_len = strlen(ca_file);
+  ctx->ca_file = (char *)picorb_alloc(vm, ca_file_len + 1);
   if (!ctx->ca_file) {
     return false;
   }
+  memcpy(ctx->ca_file, ca_file, ca_file_len);
+  ctx->ca_file[ca_file_len] = '\0';
 
   // Load CA certificate file
   if (SSL_CTX_load_verify_locations(ctx->ctx, ca_file, NULL) != 1) {
-    free(ctx->ca_file);
+    picorb_free(vm, ctx->ca_file);
     ctx->ca_file = NULL;
     fprintf(stderr, "SSL: Failed to load CA file: %s\n", ca_file);
     ERR_print_errors_fp(stderr);
@@ -106,7 +110,7 @@ SSLContext_set_ca_file(picorb_ssl_context_t *ctx, const char *ca_file)
  * Not supported on POSIX - use set_ca_file instead
  */
 bool
-SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_ca(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   (void)ctx;
   (void)addr;
@@ -119,7 +123,7 @@ SSLContext_set_ca(picorb_ssl_context_t *ctx, const void *addr, size_t size)
  * Set certificate file
  */
 bool
-SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
+SSLContext_set_cert_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *cert_file)
 {
   if (!ctx || !cert_file) {
     return false;
@@ -127,19 +131,22 @@ SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
 
   // Free previous cert_file if set
   if (ctx->cert_file) {
-    free(ctx->cert_file);
+    picorb_free(vm, ctx->cert_file);
     ctx->cert_file = NULL;
   }
 
   // Store cert_file path
-  ctx->cert_file = strdup(cert_file);
+  size_t cert_file_len = strlen(cert_file);
+  ctx->cert_file = (char *)picorb_alloc(vm, cert_file_len + 1);
   if (!ctx->cert_file) {
     return false;
   }
+  memcpy(ctx->cert_file, cert_file, cert_file_len);
+  ctx->cert_file[cert_file_len] = '\0';
 
   // Load certificate file
   if (SSL_CTX_use_certificate_file(ctx->ctx, cert_file, SSL_FILETYPE_PEM) != 1) {
-    free(ctx->cert_file);
+    picorb_free(vm, ctx->cert_file);
     ctx->cert_file = NULL;
     fprintf(stderr, "SSL: Failed to load certificate file: %s\n", cert_file);
     ERR_print_errors_fp(stderr);
@@ -154,7 +161,7 @@ SSLContext_set_cert_file(picorb_ssl_context_t *ctx, const char *cert_file)
  * Not supported on POSIX - use set_cert_file instead
  */
 bool
-SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_cert(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   (void)ctx;
   (void)addr;
@@ -167,7 +174,7 @@ SSLContext_set_cert(picorb_ssl_context_t *ctx, const void *addr, size_t size)
  * Set key file
  */
 bool
-SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
+SSLContext_set_key_file(picorb_state *vm, picorb_ssl_context_t *ctx, const char *key_file)
 {
   if (!ctx || !key_file) {
     return false;
@@ -175,19 +182,22 @@ SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
 
   // Free previous key_file if set
   if (ctx->key_file) {
-    free(ctx->key_file);
+    picorb_free(vm, ctx->key_file);
     ctx->key_file = NULL;
   }
 
   // Store key_file path
-  ctx->key_file = strdup(key_file);
+  size_t key_file_len = strlen(key_file);
+  ctx->key_file = (char *)picorb_alloc(vm, key_file_len + 1);
   if (!ctx->key_file) {
     return false;
   }
+  memcpy(ctx->key_file, key_file, key_file_len);
+  ctx->key_file[key_file_len] = '\0';
 
   // Load key file
   if (SSL_CTX_use_PrivateKey_file(ctx->ctx, key_file, SSL_FILETYPE_PEM) != 1) {
-    free(ctx->key_file);
+    picorb_free(vm, ctx->key_file);
     ctx->key_file = NULL;
     fprintf(stderr, "SSL: Failed to load key file: %s\n", key_file);
     ERR_print_errors_fp(stderr);
@@ -202,7 +212,7 @@ SSLContext_set_key_file(picorb_ssl_context_t *ctx, const char *key_file)
  * Not supported on POSIX - use set_key_file instead
  */
 bool
-SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
+SSLContext_set_key(picorb_state *vm, picorb_ssl_context_t *ctx, const void *addr, size_t size)
 {
   (void)ctx;
   (void)addr;
@@ -215,7 +225,7 @@ SSLContext_set_key(picorb_ssl_context_t *ctx, const void *addr, size_t size)
  * Set verification mode
  */
 bool
-SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
+SSLContext_set_verify_mode(picorb_state *vm, picorb_ssl_context_t *ctx, int mode)
 {
   if (!ctx) {
     return false;
@@ -236,7 +246,7 @@ SSLContext_set_verify_mode(picorb_ssl_context_t *ctx, int mode)
  * Get verification mode
  */
 int
-SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
+SSLContext_get_verify_mode(picorb_state *vm, picorb_ssl_context_t *ctx)
 {
   if (!ctx) {
     return -1;
@@ -248,7 +258,7 @@ SSLContext_get_verify_mode(picorb_ssl_context_t *ctx)
  * Free SSL context
  */
 void
-SSLContext_free(picorb_ssl_context_t *ctx)
+SSLContext_free(picorb_state *vm, picorb_ssl_context_t *ctx)
 {
   if (!ctx) {
     return;
@@ -259,16 +269,16 @@ SSLContext_free(picorb_ssl_context_t *ctx)
   }
 
   if (ctx->ca_file) {
-    free(ctx->ca_file);
+    picorb_free(vm, ctx->ca_file);
   }
   if (ctx->cert_file) {
-    free(ctx->cert_file);
+    picorb_free(vm, ctx->cert_file);
   }
   if (ctx->key_file) {
-    free(ctx->key_file);
+    picorb_free(vm, ctx->key_file);
   }
 
-  free(ctx);
+  picorb_free(vm, ctx);
 }
 
 /*
@@ -278,13 +288,13 @@ SSLContext_free(picorb_ssl_context_t *ctx)
  * but we create a new TCP connection internally rather than reusing the existing one.
  */
 picorb_ssl_socket_t*
-SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
+SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx)
 {
   if (!ssl_ctx || !ssl_ctx->ctx) {
     return NULL;
   }
 
-  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t*)malloc(sizeof(picorb_ssl_socket_t));
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t*)picorb_alloc(vm, sizeof(picorb_ssl_socket_t));
   if (!ssl_sock) {
     return NULL;
   }
@@ -305,7 +315,7 @@ SSLSocket_create(picorb_ssl_context_t *ssl_ctx)
  * Note: SNI is actually set during connect() when SSL structure is created
  */
 bool
-SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
+SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname)
 {
   if (!ssl_sock || !hostname) {
     return false;
@@ -313,13 +323,16 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
 
   /* Free previous hostname if set */
   if (ssl_sock->hostname) {
-    free(ssl_sock->hostname);
+    picorb_free(vm, ssl_sock->hostname);
   }
 
-  ssl_sock->hostname = strdup(hostname);
+  size_t hostname_len = strlen(hostname);
+  ssl_sock->hostname = (char *)picorb_alloc(vm, hostname_len + 1);
   if (!ssl_sock->hostname) {
     return false;
   }
+  memcpy(ssl_sock->hostname, hostname, hostname_len);
+  ssl_sock->hostname[hostname_len] = '\0';
 
   return true;
 }
@@ -328,7 +341,7 @@ SSLSocket_set_hostname(picorb_ssl_socket_t *ssl_sock, const char *hostname)
  * Set port for SSL socket
  */
 bool
-SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
+SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port)
 {
   if (!ssl_sock || port <= 0 || port > 65535) {
     return false;
@@ -343,7 +356,7 @@ SSLSocket_set_port(picorb_ssl_socket_t *ssl_sock, int port)
  * Performs TCP connection and SSL/TLS handshake
  */
 bool
-SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock || ssl_sock->connected || !ssl_sock->hostname) {
     return false;
@@ -355,25 +368,25 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   }
 
   /* Create underlying TCP socket */
-  ssl_sock->base_socket = (picorb_socket_t*)malloc(sizeof(picorb_socket_t));
+  ssl_sock->base_socket = (picorb_socket_t*)picorb_alloc(vm, sizeof(picorb_socket_t));
   if (!ssl_sock->base_socket) {
     fprintf(stderr, "SSL: Failed to allocate TCP socket\n");
     return false;
   }
 
-  if (!TCPSocket_create(ssl_sock->base_socket)) {
+  if (!TCPSocket_create(vm, ssl_sock->base_socket)) {
     fprintf(stderr, "SSL: Failed to create TCP socket\n");
-    free(ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
 
   /* Connect TCP socket */
-  if (!TCPSocket_connect(ssl_sock->base_socket, ssl_sock->hostname, ssl_sock->port)) {
+  if (!TCPSocket_connect(vm, ssl_sock->base_socket, ssl_sock->hostname, ssl_sock->port)) {
     fprintf(stderr, "SSL: Failed to connect TCP socket to %s:%d\n",
             ssl_sock->hostname, ssl_sock->port);
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
@@ -383,8 +396,8 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
   if (!ssl_sock->ssl) {
     fprintf(stderr, "SSL: SSL_new failed\n");
     ERR_print_errors_fp(stderr);
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
@@ -395,8 +408,8 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     ERR_print_errors_fp(stderr);
     SSL_free(ssl_sock->ssl);
     ssl_sock->ssl = NULL;
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
@@ -407,8 +420,8 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     ERR_print_errors_fp(stderr);
     SSL_free(ssl_sock->ssl);
     ssl_sock->ssl = NULL;
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
@@ -419,8 +432,8 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     ERR_print_errors_fp(stderr);
     SSL_free(ssl_sock->ssl);
     ssl_sock->ssl = NULL;
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
@@ -433,8 +446,8 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
     ERR_print_errors_fp(stderr);
     SSL_free(ssl_sock->ssl);
     ssl_sock->ssl = NULL;
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
     return false;
   }
@@ -446,8 +459,8 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
       fprintf(stderr, "SSL: Certificate verification failed: %ld\n", verify_result);
       SSL_free(ssl_sock->ssl);
       ssl_sock->ssl = NULL;
-      TCPSocket_close(ssl_sock->base_socket);
-      free(ssl_sock->base_socket);
+      TCPSocket_close(vm, ssl_sock->base_socket);
+      picorb_free(vm, ssl_sock->base_socket);
       ssl_sock->base_socket = NULL;
       return false;
     }
@@ -461,7 +474,7 @@ SSLSocket_connect(picorb_ssl_socket_t *ssl_sock)
  * Send data over SSL socket
  */
 ssize_t
-SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
+SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 {
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
@@ -482,7 +495,7 @@ SSLSocket_send(picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
  * Receive data from SSL socket
  */
 ssize_t
-SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
 {
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
@@ -507,7 +520,7 @@ SSLSocket_recv(picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
  * Close SSL socket
  */
 bool
-SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return false;
@@ -526,18 +539,18 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
 
   /* Free hostname */
   if (ssl_sock->hostname) {
-    free(ssl_sock->hostname);
+    picorb_free(vm, ssl_sock->hostname);
     ssl_sock->hostname = NULL;
   }
 
   /* Close and free underlying TCP socket */
   if (ssl_sock->base_socket) {
-    TCPSocket_close(ssl_sock->base_socket);
-    free(ssl_sock->base_socket);
+    TCPSocket_close(vm, ssl_sock->base_socket);
+    picorb_free(vm, ssl_sock->base_socket);
     ssl_sock->base_socket = NULL;
   }
 
-  free(ssl_sock);
+  picorb_free(vm, ssl_sock);
   return true;
 }
 
@@ -545,7 +558,7 @@ SSLSocket_close(picorb_ssl_socket_t *ssl_sock)
  * Check if SSL socket is closed
  */
 bool
-SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return true;
@@ -557,19 +570,19 @@ SSLSocket_closed(picorb_ssl_socket_t *ssl_sock)
  * Check if data is ready to read
  */
 bool
-SSLSocket_ready(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock || !ssl_sock->base_socket) {
     return false;
   }
-  return Socket_ready(ssl_sock->base_socket);
+  return Socket_ready(vm, ssl_sock->base_socket);
 }
 
 /*
  * Get remote host
  */
 const char*
-SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_remote_host(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return NULL;
@@ -581,7 +594,7 @@ SSLSocket_remote_host(picorb_ssl_socket_t *ssl_sock)
  * Get remote port
  */
 int
-SSLSocket_remote_port(picorb_ssl_socket_t *ssl_sock)
+SSLSocket_remote_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 {
   if (!ssl_sock) {
     return -1;

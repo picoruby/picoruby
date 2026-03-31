@@ -26,7 +26,7 @@
  * Create a new UDP socket
  */
 bool
-UDPSocket_create(picorb_socket_t *sock)
+UDPSocket_create(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return false;
 
@@ -59,7 +59,7 @@ UDPSocket_create(picorb_socket_t *sock)
  * Bind socket to local address and port
  */
 bool
-UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
+UDPSocket_bind(picorb_state *vm, picorb_socket_t *sock, const char *host, int port)
 {
   if (!sock || sock->fd < 0) return false;
 
@@ -108,7 +108,7 @@ UDPSocket_bind(picorb_socket_t *sock, const char *host, int port)
  * Connect socket to remote address (sets default destination)
  */
 bool
-UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
+UDPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port)
 {
   if (!sock || sock->fd < 0 || !host) return false;
 
@@ -159,7 +159,7 @@ UDPSocket_connect(picorb_socket_t *sock, const char *host, int port)
  * Send data to connected destination
  */
 ssize_t
-UDPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
+UDPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len)
 {
   if (!sock || sock->fd < 0 || !data || !sock->connected) {
     return -1;
@@ -177,7 +177,7 @@ UDPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
  * Send data to specified destination
  */
 ssize_t
-UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
+UDPSocket_sendto(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len,
                   const char *host, int port)
 {
   if (!sock || sock->fd < 0 || !data || !host) {
@@ -224,7 +224,7 @@ UDPSocket_sendto(picorb_socket_t *sock, const void *data, size_t len,
  * Receive data from any source
  */
 ssize_t
-UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
+UDPSocket_recvfrom(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len,
                     char *host, size_t host_len, int *port)
 {
   if (!sock || sock->fd < 0 || !buf) {
@@ -262,7 +262,7 @@ UDPSocket_recvfrom(picorb_socket_t *sock, void *buf, size_t len,
  * Close UDP socket
  */
 bool
-UDPSocket_close(picorb_socket_t *sock)
+UDPSocket_close(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock || sock->fd < 0) return false;
 
@@ -281,7 +281,7 @@ UDPSocket_close(picorb_socket_t *sock)
  * Check if socket is closed
  */
 bool
-UDPSocket_closed(picorb_socket_t *sock)
+UDPSocket_closed(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return true;
   return sock->closed || sock->fd < 0;

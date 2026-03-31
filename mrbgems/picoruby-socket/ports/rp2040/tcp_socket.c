@@ -14,6 +14,11 @@
 #include "lwip/dns.h"
 #include "lwip/err.h"
 
+/* Pre-allocated receive buffer size for TCP. */
+#ifndef TCP_RECV_BUF_SIZE
+#define TCP_RECV_BUF_SIZE 4096
+#endif
+
 /* Callback prototypes */
 static err_t tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err);
 static err_t tcp_sent_callback(void *arg, struct altcp_pcb *pcb, u16_t len);
@@ -22,24 +27,32 @@ static void tcp_err_callback(void *arg, err_t err);
 
 /* Create a new TCP socket */
 bool
-TCPSocket_create(picorb_socket_t *sock)
+TCPSocket_create(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return false;
 
   memset(sock, 0, sizeof(picorb_socket_t));
+
+  /* Pre-allocate receive buffer to eliminate heap allocation in callbacks. */
+  sock->recv_buf = (char *)picorb_alloc(vm, TCP_RECV_BUF_SIZE + 1);
+  if (!sock->recv_buf) {
+    return false;
+  }
+  sock->recv_capacity = TCP_RECV_BUF_SIZE;
+  sock->recv_len = 0;
 
   lwip_begin();
   sock->pcb = altcp_new(NULL);
   lwip_end();
 
   if (!sock->pcb) {
+    picorb_free(vm, sock->recv_buf);
+    sock->recv_buf = NULL;
+    sock->recv_capacity = 0;
     return false;
   }
 
   sock->state = SOCKET_STATE_NONE;
-  sock->recv_buf = NULL;
-  sock->recv_len = 0;
-  sock->recv_capacity = 0;
   sock->socktype = 1; /* SOCK_STREAM equivalent */
   sock->remote_host[0] = '\0';
   sock->remote_port = 0;
@@ -67,7 +80,9 @@ tcp_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
   return ERR_OK;
 }
 
-/* Receive callback - called when data is received */
+/* Receive callback - runs in LwIP callback context (may be IRQ/PendSV).
+ * Must NOT call heap allocator to avoid heap corruption. Uses only
+ * the pre-allocated recv_buf. */
 static err_t
 tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err)
 {
@@ -97,20 +112,16 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     return ERR_OK;
   }
 
-  /* Allocate or expand receive buffer */
+  /* Copy data into pre-allocated buffer (no heap allocation) */
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
   D("tcp_recv_callback: receiving %zu bytes, current recv_len=%zu", total_len, sock->recv_len);
 
   if (new_size > sock->recv_capacity) {
-    char *new_buf = (char *)picorb_realloc(NULL, sock->recv_buf, new_size + 1);
-    if (!new_buf) {
-      pbuf_free(pbuf);
-      sock->state = SOCKET_STATE_ERROR;
-      return ERR_MEM;
-    }
-    sock->recv_buf = new_buf;
-    sock->recv_capacity = new_size;
+    /* Buffer full - cannot accept more data */
+    D("tcp_recv_callback: buffer full, dropping data");
+    pbuf_free(pbuf);
+    return ERR_MEM;
   }
 
   /* Copy data from pbuf chain */
@@ -163,7 +174,7 @@ tcp_poll_callback(void *arg, struct altcp_pcb *pcb)
 
 /* Connect to remote host */
 bool
-TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
+TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port)
 {
   D("TCP connect: port=%d", port);
 
@@ -174,7 +185,7 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
   /* Create socket if not already created */
   if (!sock->pcb) {
-    if (!TCPSocket_create(sock)) {
+    if (!TCPSocket_create(vm, sock)) {
       D("TCP: create failed");
       return false;
     }
@@ -244,7 +255,7 @@ TCPSocket_connect(picorb_socket_t *sock, const char *host, int port)
 
 /* Send data */
 ssize_t
-TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
+TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len)
 {
   if (!sock || !data || !sock->pcb || sock->state != SOCKET_STATE_CONNECTED) {
     return -1;
@@ -273,7 +284,7 @@ TCPSocket_send(picorb_socket_t *sock, const void *data, size_t len)
 
 /* Receive data */
 ssize_t
-TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
 {
   if (!sock || !buf || sock->state == SOCKET_STATE_ERROR) {
     D("TCPSocket_recv: sock=%p, buf=%p, state=%d (ERROR)\n",
@@ -324,7 +335,7 @@ TCPSocket_recv(picorb_socket_t *sock, void *buf, size_t len)
 
 /* Check if data is ready to read */
 bool
-Socket_ready(picorb_socket_t *sock)
+Socket_ready(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) {
     return false;
@@ -334,7 +345,7 @@ Socket_ready(picorb_socket_t *sock)
 
 /* Close socket */
 bool
-TCPSocket_close(picorb_socket_t *sock)
+TCPSocket_close(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) {
     return false;
@@ -359,7 +370,7 @@ TCPSocket_close(picorb_socket_t *sock)
   }
 
   if (sock->recv_buf) {
-    picorb_free(NULL, sock->recv_buf);
+    picorb_free(vm, sock->recv_buf);
     sock->recv_buf = NULL;
   }
 
@@ -374,7 +385,7 @@ TCPSocket_close(picorb_socket_t *sock)
 
 /* Get remote host */
 const char*
-TCPSocket_remote_host(picorb_socket_t *sock)
+TCPSocket_remote_host(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return NULL;
   return sock->remote_host;
@@ -382,7 +393,7 @@ TCPSocket_remote_host(picorb_socket_t *sock)
 
 /* Get remote port */
 int
-TCPSocket_remote_port(picorb_socket_t *sock)
+TCPSocket_remote_port(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return -1;
   return sock->remote_port;
@@ -390,7 +401,7 @@ TCPSocket_remote_port(picorb_socket_t *sock)
 
 /* Check if socket is closed */
 bool
-TCPSocket_closed(picorb_socket_t *sock)
+TCPSocket_closed(picorb_state *vm, picorb_socket_t *sock)
 {
   if (!sock) return true;
   return sock->state == SOCKET_STATE_CLOSED ||

@@ -23,9 +23,9 @@ mrb_socket_free(mrb_state *mrb, void *ptr)
     if (!sock->closed) {
       /* Close socket based on socket type */
       if (sock->socktype == SOCK_DGRAM) {
-        UDPSocket_close(sock);
+        UDPSocket_close(mrb, sock);
       } else {
-        TCPSocket_close(sock);
+        TCPSocket_close(mrb, sock);
       }
     }
     mrb_free(mrb, sock);
