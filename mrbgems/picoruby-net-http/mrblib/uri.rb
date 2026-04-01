@@ -53,10 +53,10 @@ module URI
 
     if uri_string.start_with?('http://')
       scheme = 'http'
-      rest = uri_string[7..-1]  # Remove 'http://'
+      rest = uri_string.byteslice(7..-1)  # Remove 'http://'
     elsif uri_string.start_with?('https://')
       scheme = 'https'
-      rest = uri_string[8..-1]  # Remove 'https://'
+      rest = uri_string.byteslice(8..-1)  # Remove 'https://'
     else
       raise ArgumentError, "URI scheme must be http or https"
     end
@@ -65,24 +65,24 @@ module URI
     fragment = nil
     fragment_idx = rest&.index('#')
     if fragment_idx && rest
-      fragment = rest[(fragment_idx + 1)..-1]
-      rest = rest[0..(fragment_idx - 1)]
+      fragment = rest.byteslice((fragment_idx + 1)..-1)
+      rest = rest.byteslice(0..(fragment_idx - 1))
     end
 
     # Extract query
     query = nil
     query_idx = rest&.index('?')
     if query_idx && rest
-      query = rest[(query_idx + 1)..-1]
-      rest = rest[0..(query_idx - 1)]
+      query = rest.byteslice((query_idx + 1)..-1)
+      rest = rest.byteslice(0..(query_idx - 1))
     end
 
     # Extract path
     path = '/'
     slash_idx = rest&.index('/')
     if slash_idx && rest
-      host_port = rest[0..(slash_idx - 1)]
-      path = rest[slash_idx..-1]
+      host_port = rest.byteslice(0..(slash_idx - 1))
+      path = rest.byteslice(slash_idx..-1)
     else
       host_port = rest
     end
@@ -90,8 +90,8 @@ module URI
     # Extract host and port
     colon_idx = host_port&.index(':')
     if colon_idx && host_port
-      host = host_port[0..(colon_idx - 1)]
-      port_str = host_port[(colon_idx + 1)..-1]
+      host = host_port.byteslice(0..(colon_idx - 1))
+      port_str = host_port.byteslice((colon_idx + 1)..-1)
       # Convert port string to integer manually
       port = 0
       port_str&.each_char do |c|
@@ -121,7 +121,7 @@ module URI
         # Percent-encode the character
         byte = char.ord
         hex = byte.to_s(16).upcase
-        hex = '0' + hex if hex.length == 1
+        hex = '0' + hex if hex.bytesize == 1
         result += '%' + hex
       end
     end

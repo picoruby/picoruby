@@ -34,7 +34,7 @@ module Net
       if status_line && status_line.start_with?('HTTP/')
         parts = status_line.split(' ', 3)
         if parts.length >= 3
-          http_version = parts[0][5..-1]  # Remove "HTTP/" prefix
+          http_version = parts[0].byteslice(5..-1)  # Remove "HTTP/" prefix
           code = parts[1]
           message = parts[2]
         else
@@ -50,8 +50,8 @@ module Net
       while !lines.empty? && (line = lines.shift) && line != ""
         colon_idx = line.index(':')
         if colon_idx
-          key = line[0..(colon_idx - 1)]&.strip
-          value = line[(colon_idx + 1)..-1]&.strip
+          key = line.byteslice(0, colon_idx)&.strip
+          value = line.byteslice((colon_idx + 1)..-1)&.strip
           response.header[key.downcase] = value || '' if key
         end
       end

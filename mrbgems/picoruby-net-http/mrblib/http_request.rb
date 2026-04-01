@@ -84,13 +84,15 @@ module Net
         value = @header[key]
         # Capitalize header names properly (manually since capitalize is not in mruby/c)
         parts = key.split('-')
+        parts_len = parts.size
         formatted_parts = [] #: Array[String]
         pi = 0
-        while pi < parts.size
+        while pi < parts_len
           word = parts[pi]
-          if 0 < word.length
+          word_len = word.bytesize
+          if 0 < word_len
             # Capitalize first char, lowercase rest
-            capitalized = (word[0] or raise).upcase + (1 < word.length ? (word[1..-1] or raise).downcase : '')
+            capitalized = (word[0] or raise).upcase + (1 < word_len ? (word.byteslice(1, word_len - 1) or raise).downcase : '')
             formatted_parts << capitalized
           else
             formatted_parts << word

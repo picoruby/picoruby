@@ -285,8 +285,7 @@ module Net
       # Read body based on headers
       if content_length
         # Read exact content length
-        body_start = response.length
-        remaining = content_length - (response.length - header_end - 4)
+        remaining = content_length - (response.bytesize - header_end - 4)
         if remaining > 0
           body_part = @socket.read(remaining)
           response += body_part if body_part
