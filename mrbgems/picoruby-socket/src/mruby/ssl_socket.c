@@ -450,12 +450,13 @@ mrb_ssl_socket_write(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(sent);
 }
 
-/* ssl_socket.read(maxlen = nil) */
+/* ssl_socket.read(maxlen = 4096, flags = 0) */
 static mrb_value
 mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_socket_t *ssl_sock;
   mrb_int maxlen = 4096;
+  mrb_int flags = 0;
   mrb_value buf;
 
   ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
@@ -463,7 +464,7 @@ mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  mrb_get_args(mrb, "|i", &maxlen);
+  mrb_get_args(mrb, "|ii", &maxlen, &flags);
 
   if (maxlen <= 0) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "maxlen must be positive");
@@ -475,7 +476,13 @@ mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
   }
 
-  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, 0);
+  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, (int)flags);
+
+  if (received == PICORB_RECV_WOULD_BLOCK) {
+    mrb_free(mrb, read_buf);
+    return mrb_nil_value();
+  }
+
   if (received < 0) {
     mrb_free(mrb, read_buf);
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL recv failed");
@@ -615,7 +622,7 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_class_method_id(mrb, ssl_socket_class, MRB_SYM(open), mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(connect), mrb_ssl_socket_connect, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(write), mrb_ssl_socket_write, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(2));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(close), mrb_ssl_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(closed), mrb_ssl_socket_closed_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(ready), mrb_ssl_socket_ready_p, MRB_ARGS_NONE());
