@@ -7,11 +7,11 @@
 #include "../../include/littlefs.h"
 
 #if !defined(LFS_FLASH_TARGET_OFFSET)
-  #define LFS_FLASH_TARGET_OFFSET  0x000D4000
+  #define LFS_FLASH_TARGET_OFFSET  0x000BC000
 #endif
 
 #define LFS_FLASH_BLOCK_SIZE   4096
-#define LFS_FLASH_BLOCK_COUNT  32
+#define LFS_FLASH_BLOCK_COUNT  56
 #define LFS_FLASH_PROG_SIZE    4
 #define LFS_FLASH_READ_SIZE    16
 #define LFS_FLASH_CACHE_SIZE   64
