@@ -569,20 +569,31 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
 
   picorb_socket_t *sock = ssl_sock->base_socket;
 
-  /* Wait for data with timeout */
-  int max_wait = 600;  /* 60 seconds */
-  while (sock->recv_len == 0 && ssl_sock->connected && max_wait-- > 0) {
-    Net_busy_wait_ms(100);
-  }
+  if (flags & PICORB_RECV_NONBLOCK) {
+    /* Non-blocking: return immediately if no data available */
+    if (sock->recv_len == 0) {
+      if (!ssl_sock->connected) {
+        return 0; /* EOF */
+      }
+      return PICORB_RECV_WOULD_BLOCK;
+    }
+    /* Fall through to copy data below */
+  } else {
+    /* Wait for data with timeout */
+    int max_wait = 600;  /* 60 seconds */
+    while (sock->recv_len == 0 && ssl_sock->connected && max_wait-- > 0) {
+      Net_busy_wait_ms(100);
+    }
 
-  /* Check if connection was closed */
-  if (sock->recv_len == 0 && !ssl_sock->connected) {
-    return 0;  /* EOF */
-  }
+    /* Check if connection was closed */
+    if (sock->recv_len == 0 && !ssl_sock->connected) {
+      return 0;  /* EOF */
+    }
 
-  /* Check for timeout */
-  if (sock->recv_len == 0) {
-    return 0;
+    /* Check for timeout */
+    if (sock->recv_len == 0) {
+      return 0;
+    }
   }
 
   /* Copy available data */

@@ -5,6 +5,8 @@
 #include "../../include/socket.h"
 #include "picoruby.h"
 
+#include <fcntl.h>
+
 /* mbedtls includes */
 #include "mbedtls/net_sockets.h"
 #include "mbedtls/ssl.h"
@@ -311,19 +313,45 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
 {
   if (!ssl_sock || ssl_sock->state != SSL_STATE_CONNECTED || !buf) return -1;
 
+  if (flags & PICORB_RECV_NONBLOCK) {
+    int fd = ssl_sock->net_ctx.fd;
+    int old_flags = fcntl(fd, F_GETFL, 0);
+    if (old_flags == -1) return -1;
+    fcntl(fd, F_SETFL, old_flags | O_NONBLOCK);
+
+    int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
+
+    fcntl(fd, F_SETFL, old_flags); /* restore */
+
+    if (ret > 0) return (ssize_t)ret;
+    if (ret == 0) {
+      ssl_sock->state = SSL_STATE_NONE;
+      return 0;
+    }
+    if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+      return PICORB_RECV_WOULD_BLOCK;
+    }
+    if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
+      ssl_sock->state = SSL_STATE_NONE;
+      return 0;
+    }
+    ssl_sock->state = SSL_STATE_ERROR;
+    return -1;
+  }
+
+  /* Blocking path */
   int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
   if (ret < 0) {
     if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-      return 0; // Would block
+      return 0;
     }
     if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-      // Connection closed by peer
+      /* Connection closed by peer */
     }
     ssl_sock->state = SSL_STATE_ERROR;
     return -1;
   }
   if (ret == 0) {
-    // EOF
     ssl_sock->state = SSL_STATE_NONE;
   }
   return (ssize_t)ret;

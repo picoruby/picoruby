@@ -108,6 +108,21 @@ TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, i
     return -1;
   }
 
+  if (flags & PICORB_RECV_NONBLOCK) {
+    ssize_t received = recv(sock->fd, buf, len, MSG_DONTWAIT);
+    if (received < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return PICORB_RECV_WOULD_BLOCK;
+      }
+      return -1;
+    }
+    if (received == 0) {
+      sock->connected = false;
+    }
+    return received;
+  }
+
+  /* Blocking path */
   ssize_t received = recv(sock->fd, buf, len, 0);
   if (received < 0) {
     return -1;
