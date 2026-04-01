@@ -1,6 +1,5 @@
 #include <stdbool.h>
 #include <string.h>
-
 #include "nrf_fstorage.h"
 #include "nrf_fstorage_nvmc.h"
 
@@ -8,14 +7,15 @@
 #include "../../include/littlefs.h"
 
 #if !defined(LFS_FLASH_TARGET_OFFSET)
-  #define LFS_FLASH_TARGET_OFFSET  0x000B4000
+  #define LFS_FLASH_TARGET_OFFSET  0x000D4000
 #endif
 
 #define LFS_FLASH_BLOCK_SIZE   4096
-#define LFS_FLASH_BLOCK_COUNT  64
+#define LFS_FLASH_BLOCK_COUNT  32
 #define LFS_FLASH_PROG_SIZE    4
 #define LFS_FLASH_READ_SIZE    16
 #define LFS_FLASH_CACHE_SIZE   64
+#define LFS_FLASH_STAGE_SIZE   64
 
 static void
 fstorage_evt_handler(nrf_fstorage_evt_t *p_evt)
@@ -26,10 +26,12 @@ fstorage_evt_handler(nrf_fstorage_evt_t *p_evt)
 NRF_FSTORAGE_DEF(nrf_fstorage_t littlefs_fstorage) = {
   .evt_handler = fstorage_evt_handler,
   .start_addr = LFS_FLASH_TARGET_OFFSET,
-  .end_addr = LFS_FLASH_TARGET_OFFSET + (LFS_FLASH_BLOCK_SIZE * LFS_FLASH_BLOCK_COUNT),
+  .end_addr = LFS_FLASH_TARGET_OFFSET +
+    (LFS_FLASH_BLOCK_SIZE * LFS_FLASH_BLOCK_COUNT) - 1,
 };
 
 static bool littlefs_fstorage_initialized = false;
+static uint32_t littlefs_stage_words[LFS_FLASH_STAGE_SIZE / sizeof(uint32_t)];
 
 static void
 littlefs_hal_init_fstorage(void)
@@ -49,9 +51,8 @@ lfs_flash_read(const struct lfs_config *c, lfs_block_t block,
                lfs_off_t off, void *buffer, lfs_size_t size)
 {
   const uint32_t addr = LFS_FLASH_TARGET_OFFSET + block * c->block_size + off;
-  littlefs_hal_init_fstorage();
-  ret_code_t rc = nrf_fstorage_read(&littlefs_fstorage, addr, buffer, size);
-  return rc == NRF_SUCCESS ? LFS_ERR_OK : LFS_ERR_IO;
+  memcpy(buffer, (void const *)addr, size);
+  return LFS_ERR_OK;
 }
 
 static int
@@ -59,10 +60,26 @@ lfs_flash_prog(const struct lfs_config *c, lfs_block_t block,
                lfs_off_t off, const void *buffer, lfs_size_t size)
 {
   uint32_t addr = LFS_FLASH_TARGET_OFFSET + block * c->block_size + off;
+  uint8_t const *src = (uint8_t const *)buffer;
   littlefs_hal_init_fstorage();
-  ret_code_t rc = nrf_fstorage_write(&littlefs_fstorage, addr, buffer, size, NULL);
-  while (nrf_fstorage_is_busy(&littlefs_fstorage)) {}
-  return rc == NRF_SUCCESS ? LFS_ERR_OK : LFS_ERR_IO;
+
+  while (size > 0) {
+    uint32_t chunk = (size > LFS_FLASH_STAGE_SIZE) ? LFS_FLASH_STAGE_SIZE : (uint32_t)size;
+    ret_code_t rc;
+
+    memcpy(littlefs_stage_words, src, chunk);
+    rc = nrf_fstorage_write(&littlefs_fstorage, addr, littlefs_stage_words, chunk, NULL);
+    while (nrf_fstorage_is_busy(&littlefs_fstorage)) {}
+    if (rc != NRF_SUCCESS) {
+      return LFS_ERR_IO;
+    }
+
+    addr += chunk;
+    src += chunk;
+    size -= chunk;
+  }
+
+  return LFS_ERR_OK;
 }
 
 static int
@@ -106,8 +123,11 @@ littlefs_hal_erase_all(void)
 {
   littlefs_hal_init_fstorage();
   for (uint32_t i = 0; i < LFS_FLASH_BLOCK_COUNT; i++) {
-    (void)nrf_fstorage_erase(&littlefs_fstorage,
+    ret_code_t rc = nrf_fstorage_erase(&littlefs_fstorage,
       LFS_FLASH_TARGET_OFFSET + (i * LFS_FLASH_BLOCK_SIZE), 1, NULL);
     while (nrf_fstorage_is_busy(&littlefs_fstorage)) {}
+    if (rc != NRF_SUCCESS) {
+      break;
+    }
   }
 }
