@@ -163,14 +163,15 @@ module YAML
   def self.is_integer?(string)
     string = string.strip
     return false if string.empty?
-    if string[0] == '-'
-      string = string[1, string.length - 1]
+    if string.getbyte(0) == 45 # '-'.ord
+      string = string.byteslice(1, string.length - 1)
     end
     s = string.to_s
+    s_len = s.bytesize
     ci = 0
-    while ci < s.length
-      char = s[ci] or raise
-      return false unless '0' <= char && char <= '9'
+    while ci < s_len
+      char = s.getbyte(ci) or raise
+      return false unless 48 <= char && char <= 57 # '0'.ord..'9'.ord
       ci += 1
     end
     true

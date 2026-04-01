@@ -581,8 +581,8 @@ module JSON
       i = start
       while i < end_index
         # @type var ord: Integer
-        ord = @json[i]&.ord
-        result = result * 10 + (ord - '0'.ord)
+        ord = @json.getbyte(i) or raise JSON::ParserError.new("Invalid number format")
+        result = result * 10 + (ord - 48) # '0'.ord is 48
         i += 1
       end
 
@@ -603,14 +603,14 @@ module JSON
         case @json[i]
         when '0'..'9'
           # @type var ord: Integer
-          ord = @json[i]&.ord
+          byte = @json.getbyte(i) or raise JSON::ParserError.new("Invalid number format")
           if parsing_exponent
-            exponent = exponent * 10 + (ord - '0'.ord)
+            exponent = exponent * 10 + (byte - 48) # '0'.ord is 48
           elsif decimal_divider == 1.0
-            result = result * 10 + (ord - '0'.ord)
+            result = result * 10 + (byte - 48)
           else
             decimal_divider *= 10
-            result += (ord - '0'.ord) / decimal_divider
+            result += (byte - 48) / decimal_divider
           end
         when '.'
           # Do nothing, just move to the next character
