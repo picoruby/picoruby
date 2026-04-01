@@ -173,21 +173,22 @@ module Net
           lines = request.split("\r\n")
 
           li = 0
+          range = 1..-1
           while li < lines.size
             line = lines[li]
             colon_pos = line.index(':')
             if colon_pos
-              key = line[0, colon_pos]&.downcase
+              key = line.byteslice(0, colon_pos)&.downcase
               if key.nil? || key.empty?
                 raise HandshakeError.new("Invalid header line: #{line}")
               end
-              value = line[colon_pos + 1..-1]
+              value = line.byteslice(colon_pos + 1..-1)
               if value.nil?
                 raise HandshakeError.new("Invalid header line: #{line}")
               end
               # Strip leading whitespace
-              while value.length > 0 && (value[0] == ' ' || value[0] == "\t")
-                value = value[1..-1]
+              while value.length > 0 && (byte = value.getbyte(0)) && (byte == 32 || byte == 9) # " " or "\t"
+                value = value.byteslice(range) || ""
               end
               headers[key] = value
             end
@@ -247,14 +248,14 @@ module Net
             byte0 = @socket.read(1)
             raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
 
-            byte0_val = byte0[0]&.ord || 0
+            byte0_val = byte0.getbyte(0) || 0
             fin = (byte0_val & 0x80) != 0
             opcode = byte0_val & 0x0F
 
             byte1 = @socket.read(1)
             raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
 
-            byte1_val = byte1[0]&.ord || 0
+            byte1_val = byte1.getbyte(0) || 0
             masked = (byte1_val & 0x80) != 0
             payload_len = byte1_val & 0x7F
 
@@ -302,13 +303,14 @@ module Net
               full_payload = first_fragment[:payload]
 
               fi = 0
-              while fi < @fragments.length
+              len = @fragments.length
+              while fi < len
                 full_payload += @fragments[fi][:payload]
                 fi += 1
               end
               full_payload += payload
 
-              @fragments = []
+              @fragments.clear
               return [opcode, full_payload]
             else
               return [opcode, payload]

@@ -147,11 +147,11 @@ module Net
         # Simple URL parser for ws://host:port/path or wss://host:port/path
         if url.start_with?("wss://")
           @use_ssl = true
-          url = url[6..-1]
+          url = url.byteslice(6..-1) || ""
           default_port = 443
         elsif url.start_with?("ws://")
           @use_ssl = false
-          url = url[5..-1]
+          url = url.byteslice(5..-1) || ""
           default_port = 80
         else
           @use_ssl = false
@@ -293,7 +293,7 @@ module Net
           byte0 = @socket.read(1)
           raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
 
-          byte0_val = byte0[0]&.ord || 0
+          byte0_val = byte0.getbyte(0) || 0
           fin = (byte0_val & 0x80) != 0
           opcode = byte0_val & 0x0F
 
@@ -301,7 +301,7 @@ module Net
           byte1 = @socket.read(1)
           raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
 
-          byte1_val = byte1[0]&.ord || 0
+          byte1_val = byte1.getbyte(0) || 0
           masked = (byte1_val & 0x80) != 0
           payload_len = byte1_val & 0x7F
 
