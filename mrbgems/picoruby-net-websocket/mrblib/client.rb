@@ -388,12 +388,12 @@ module Net
       def handle_close_frame(payload)
         if payload.bytesize >= 2
           code = payload.byteslice(0, 2).unpack("n")[0] # steep:ignore
-          reason = payload.bytesize > 2 ? payload.byteslice(2..-1) : ""
+          reason = payload.bytesize > 2 ? (payload.byteslice(2..-1) || "") : ""
         else
           code = CLOSE_NORMAL
           reason = ""
         end
-        send_frame(OPCODE_CLOSE, [code].pack("n") + reason) # steep:ignore
+        send_frame(OPCODE_CLOSE, [code].pack("n") + reason) if connected?
         nil
       end
     end

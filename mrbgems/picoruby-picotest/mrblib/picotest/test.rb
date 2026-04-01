@@ -114,12 +114,12 @@ module Picotest
     end
 
     def mruby?
-      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
-      File.basename(ruby_path).include?("picoruby")
+      !mrubyc?
     end
 
     def mrubyc?
-      !mruby?
+      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
+      File.basename(ruby_path).include?("femtoruby")
     end
 
     def assert(result)
