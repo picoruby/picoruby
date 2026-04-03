@@ -23,11 +23,6 @@ class UDPSocket
     data
   end
 
-  # Write data to connected destination
-  def write(data)
-    send(data.to_s, 0)
-  end
-
   # Check if socket is at end of file (UDP doesn't have EOF concept)
   def eof?
     closed?

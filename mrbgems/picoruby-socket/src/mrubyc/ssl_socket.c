@@ -218,12 +218,12 @@ c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * ssl_socket.write(data) -> Integer
+ * ssl_socket.send(data, flags) -> Integer
  */
 static void
-c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
+c_ssl_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 1) {
+  if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
@@ -235,10 +235,15 @@ c_ssl_socket_write(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Check argument type */
+  /* Check argument types */
   mrbc_value data = GET_ARG(1);
   if (data.tt != MRBC_TT_STRING) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "data must be a String");
+    return;
+  }
+  mrbc_value flags = GET_ARG(2);
+  if (flags.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "flags must be an Integer");
     return;
   }
 
@@ -919,7 +924,7 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_SSLSocket, "new", c_ssl_socket_new);
   mrbc_define_method(vm, class_SSLSocket, "open", c_ssl_socket_open);
   mrbc_define_method(vm, class_SSLSocket, "connect", c_ssl_socket_connect);
-  mrbc_define_method(vm, class_SSLSocket, "write", c_ssl_socket_write);
+  mrbc_define_method(vm, class_SSLSocket, "send", c_ssl_socket_send);
   mrbc_define_method(vm, class_SSLSocket, "read", c_ssl_socket_read);
   mrbc_define_method(vm, class_SSLSocket, "close", c_ssl_socket_close);
   mrbc_define_method(vm, class_SSLSocket, "closed?", c_ssl_socket_closed_q);

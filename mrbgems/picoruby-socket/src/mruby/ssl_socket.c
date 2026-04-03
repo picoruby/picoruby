@@ -428,19 +428,20 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
   return self;
 }
 
-/* ssl_socket.write(data) */
+/* ssl_socket.send(data, flags) */
 static mrb_value
-mrb_ssl_socket_write(mrb_state *mrb, mrb_value self)
+mrb_ssl_socket_send(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_socket_t *ssl_sock;
   mrb_value data;
+  mrb_int flags;
 
   ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  mrb_get_args(mrb, "S", &data);
+  mrb_get_args(mrb, "Si", &data, &flags);
 
   ssize_t sent = SSLSocket_send(mrb, ssl_sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {
@@ -621,7 +622,7 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(initialize), mrb_ssl_socket_initialize, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, ssl_socket_class, MRB_SYM(open), mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(connect), mrb_ssl_socket_connect, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(write), mrb_ssl_socket_write, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(send), mrb_ssl_socket_send, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(2));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(close), mrb_ssl_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(closed), mrb_ssl_socket_closed_p, MRB_ARGS_NONE());

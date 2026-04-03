@@ -46,19 +46,20 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
   return self;
 }
 
-/* socket.write(data) */
+/* socket.send(data, flags) */
 static mrb_value
-mrb_tcp_socket_write(mrb_state *mrb, mrb_value self)
+mrb_tcp_socket_send(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
   mrb_value data;
+  mrb_int flags;
 
   sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  mrb_get_args(mrb, "S", &data);
+  mrb_get_args(mrb, "Si", &data, &flags);
 
   ssize_t sent = TCPSocket_send(mrb, sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {
@@ -211,7 +212,7 @@ tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   MRB_SET_INSTANCE_TT(tcp_socket_class, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(initialize), mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(write), mrb_tcp_socket_write, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(send), mrb_tcp_socket_send, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(read), mrb_tcp_socket_read, MRB_ARGS_OPT(2));
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(close), mrb_tcp_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(closed), mrb_tcp_socket_closed_p, MRB_ARGS_NONE());

@@ -5,12 +5,24 @@ class BasicSocket
 
   # IO-compatible methods
 
+  def write(*str_ary)
+    write_len = 0
+    i = 0
+    str_ary_len = str_ary.length
+    while i < str_ary_len
+      write_len += send(str_ary[i].to_s, 0)
+      i += 1
+    end
+    write_len
+  end
+
   def puts(*args)
     i = 0
-    while i < args.length
-      arg = args[i]
-      write(arg.to_s)
-      write("\n") unless arg.to_s.end_with?("\n")
+    args_len = args.length
+    while i < args_len
+      arg_str = args[i]&.to_s
+      send(arg_str, 0) if arg_str
+      send("\n", 0) unless arg_str&.end_with?("\n")
       i += 1
     end
     nil
@@ -29,9 +41,9 @@ class BasicSocket
 
   def print(*args)
     i = 0
-    while i < args.length
-      arg = args[i]
-      write(arg.to_s)
+    args_len = args.length
+    while i < args_len
+      send(args[i].to_s, 0)
       i += 1
     end
     nil
@@ -42,11 +54,6 @@ class BasicSocket
   end
 
   # Socket-specific methods
-
-  def send(data, flags)
-    # For now, ignore flags (not supported in basic implementation)
-    write(data)
-  end
 
   def recv(maxlen, flags = 0)
     read(maxlen, flags)
