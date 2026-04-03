@@ -22,7 +22,7 @@ class SSLSocketTest < Picotest::Test
     methods = SSLSocket.instance_methods
     assert_true(methods.include?(:connect))
     assert_true(methods.include?(:write))
-    assert_true(methods.include?(:read))
+    assert_true(methods.include?(:readpartial))
     assert_true(methods.include?(:close))
     assert_true(methods.include?(:closed?))
     assert_true(methods.include?(:remote_host))
@@ -44,7 +44,8 @@ class SSLSocketTest < Picotest::Test
     assert_true(methods.include?(:gets))
     assert_true(methods.include?(:print))
     assert_true(methods.include?(:send))
-    assert_true(methods.include?(:recv))
+    assert_true(methods.include?(:read))
+    assert_true(methods.include?(:readpartial))
   end
 
   # Note: The following tests require external network connectivity and HTTPS server
@@ -84,7 +85,7 @@ class SSLSocketTest < Picotest::Test
   #   assert_true(bytes_sent > 0)
   #
   #   # Read response
-  #   response = ssl_socket.read(100)
+  #   response = ssl_socket.readpartial(100)
   #   assert_true(response.length > 0)
   #   assert_true(response.include?('HTTP'))
   #

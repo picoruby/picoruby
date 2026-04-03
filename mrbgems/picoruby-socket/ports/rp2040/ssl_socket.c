@@ -561,7 +561,7 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 }
 
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock)
 {
   if (!ssl_sock || !ssl_sock->base_socket || !buf) {
     return -1;
@@ -569,7 +569,7 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
 
   picorb_socket_t *sock = ssl_sock->base_socket;
 
-  if (flags & PICORB_RECV_NONBLOCK) {
+  if (nonblock) {
     /* Non-blocking: return immediately if no data available */
     if (sock->recv_len == 0) {
       if (!ssl_sock->connected) {

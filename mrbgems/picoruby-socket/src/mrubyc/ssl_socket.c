@@ -258,85 +258,116 @@ c_ssl_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 /*
- * ssl_socket.read(maxlen = 4096, flags = 0) -> String or nil
- *
- * When flags has PICORB_RECV_NONBLOCK set (i.e. BasicSocket::O_NONBLOCK),
- * the receive is non-blocking and returns nil if no data is available.
+ * ssl_socket.readpartial(maxlen) -> String
+ * Raises EOFError on EOF.
  */
 static void
-c_ssl_socket_read(mrbc_vm *vm, mrbc_value *v, int argc)
+c_ssl_socket_readpartial(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc > 2) {
+  if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
 
-  /* Get SSL socket pointer from wrapper */
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
     return;
   }
 
-  /* Get maxlen parameter (default: 4096) */
-  int maxlen = 4096;
-  if (argc >= 1) {
-    mrbc_value maxlen_arg = GET_ARG(1);
-    if (maxlen_arg.tt != MRBC_TT_INTEGER) {
-      mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
-      return;
-    }
-    maxlen = (int)maxlen_arg.i;
-    if (maxlen <= 0) {
-      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "maxlen must be positive");
-      return;
-    }
+  mrbc_value maxlen_arg = GET_ARG(1);
+  if (maxlen_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
+    return;
+  }
+  int maxlen = (int)maxlen_arg.i;
+  if (maxlen <= 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "maxlen must be positive");
+    return;
   }
 
-  /* Get flags parameter (default: 0) */
-  int flags = 0;
-  if (argc >= 2) {
-    mrbc_value flags_arg = GET_ARG(2);
-    if (flags_arg.tt != MRBC_TT_INTEGER) {
-      mrbc_raise(vm, MRBC_CLASS(TypeError), "flags must be an Integer");
-      return;
-    }
-    flags = (int)flags_arg.i;
-  }
-
-  /* Allocate buffer */
-  char *buffer = (char *)picorb_alloc(vm, maxlen);
+  char stack_buf[PICORB_SOCKET_STACK_BUF_SIZE];
+  char *buffer = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
+    ? stack_buf
+    : (char *)picorb_alloc(vm, maxlen);
   if (!buffer) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
     return;
   }
 
-  /* Receive data */
-  ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen, flags);
+  ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen, false);
 
-  if (received == PICORB_RECV_WOULD_BLOCK) {
-    /* Non-blocking mode: no data available */
-    mrbc_raw_free(buffer);
+  if (received == 0) {
+    if (buffer != stack_buf) picorb_free(vm, buffer);
+    mrbc_raise(vm, mrbc_get_class_by_name("EOFError"), "end of file reached");
+    return;
+  }
+
+  if (received < 0) {
+    if (buffer != stack_buf) picorb_free(vm, buffer);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL read failed");
+    return;
+  }
+
+  mrbc_value ret = mrbc_string_new(vm, buffer, received);
+  if (buffer != stack_buf) picorb_free(vm, buffer);
+  SET_RETURN(ret);
+}
+
+/*
+ * ssl_socket.read_nonblock(maxlen) -> String or nil
+ */
+static void
+c_ssl_socket_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL socket is not initialized");
+    return;
+  }
+
+  mrbc_value maxlen_arg = GET_ARG(1);
+  if (maxlen_arg.tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "maxlen must be an Integer");
+    return;
+  }
+
+  int maxlen = (int)maxlen_arg.i;
+  if (maxlen <= 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "maxlen must be positive");
+    return;
+  }
+
+  char stack_buf[PICORB_SOCKET_STACK_BUF_SIZE];
+  char *buffer = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
+    ? stack_buf
+    : (char *)picorb_alloc(vm, maxlen);
+  if (!buffer) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate buffer");
+    return;
+  }
+
+  ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen, true);
+
+  if (received == PICORB_RECV_WOULD_BLOCK || received == 0) {
+    if (buffer != stack_buf) picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
   }
 
   if (received < 0) {
-    picorb_free(vm, buffer);
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL recv failed");
+    if (buffer != stack_buf) picorb_free(vm, buffer);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL read failed");
     return;
   }
 
-  if (received == 0) {
-    /* EOF */
-    picorb_free(vm, buffer);
-    SET_NIL_RETURN();
-    return;
-  }
-
-  /* Create string and return */
   mrbc_value ret = mrbc_string_new(vm, buffer, received);
-  picorb_free(vm, buffer);
+  if (buffer != stack_buf) picorb_free(vm, buffer);
   SET_RETURN(ret);
 }
 
@@ -925,7 +956,8 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_SSLSocket, "open", c_ssl_socket_open);
   mrbc_define_method(vm, class_SSLSocket, "connect", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "send", c_ssl_socket_send);
-  mrbc_define_method(vm, class_SSLSocket, "read", c_ssl_socket_read);
+  mrbc_define_method(vm, class_SSLSocket, "readpartial", c_ssl_socket_readpartial);
+  mrbc_define_method(vm, class_SSLSocket, "read_nonblock", c_ssl_socket_read_nonblock);
   mrbc_define_method(vm, class_SSLSocket, "close", c_ssl_socket_close);
   mrbc_define_method(vm, class_SSLSocket, "closed?", c_ssl_socket_closed_q);
   mrbc_define_method(vm, class_SSLSocket, "ready?", c_ssl_socket_ready_q);

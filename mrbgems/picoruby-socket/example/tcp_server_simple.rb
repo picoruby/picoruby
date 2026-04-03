@@ -7,7 +7,7 @@ loop do
   client = server.accept
   puts "Client connected"
 
-  data = client.recv(1024)
+  data = client.readpartial(1024)
   puts "Received: #{data.inspect}"
 
   client.send("ACK", 0)

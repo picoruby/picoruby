@@ -2,20 +2,18 @@ class SocketError < StandardError
 end
 
 class BasicSocket
-  O_NONBLOCK: Integer
-
   def puts: (*untyped args) -> nil
   def gets: (?String sep) -> String?
   def print: (*untyped args) -> nil
   def eof?: () -> bool
-  def recv: (Integer maxlen, ?Integer flags) -> String?
-  def recv_nonblock: (Integer maxlen, ?Integer flags) -> String?
   def peeraddr: () -> Array[String | Integer]
   def remote_address: () -> String
   def local_address: () -> nil
   def write: (*String str) -> Integer
   def send: (String data, Integer flags) -> Integer
-  def read: (Integer maxlen, ?Integer flags) -> String?
+  def read: (?Integer maxlen) -> (String | nil)
+  def readpartial: (Integer maxlen) -> String
+  def read_nonblock: (Integer maxlen) -> String?
   def closed?: () -> bool
   def ready?: () -> bool
   def close: () -> void

@@ -1,9 +1,38 @@
 class SocketError < StandardError; end
 
-class BasicSocket
-  O_NONBLOCK = 1
+class EOFError < IOError; end
 
+class BasicSocket
   # IO-compatible methods
+
+  def read(maxlen = nil)
+    if maxlen.nil?
+      res = ''
+      begin
+        while true
+          res << readpartial(100)
+        end
+      rescue EOFError
+      end
+      return res
+    elsif maxlen < 0
+      raise ArgumentError, "negative length #{maxlen} given"
+    elsif maxlen == 0
+      return ''
+    else
+      res = ''
+      remaining = maxlen
+      begin
+        while 0 < remaining
+          chunk = readpartial(remaining)
+          res << chunk
+          remaining -= chunk.bytesize
+        end
+      rescue EOFError
+      end
+      return res.empty? ? nil : res
+    end
+  end
 
   def write(*str_ary)
     write_len = 0
@@ -31,7 +60,7 @@ class BasicSocket
   def gets(sep = "\n")
     buffer = ""
     while true
-      chunk = read(1)
+      chunk = readpartial(1)
       return nil if chunk.nil? || chunk.empty?
       buffer << chunk
       break if buffer.end_with?(sep)
@@ -51,16 +80,6 @@ class BasicSocket
 
   def eof?
     closed?
-  end
-
-  # Socket-specific methods
-
-  def recv(maxlen, flags = 0)
-    read(maxlen, flags)
-  end
-
-  def recv_nonblock(maxlen, flags = 0)
-    read(maxlen, O_NONBLOCK | flags)
   end
 
   def peeraddr

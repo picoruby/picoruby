@@ -1,22 +1,18 @@
 require 'socket'
 
 class TCPSocketTest < Picotest::Test
-  def test_basic_socket_methods_exist
-    # Ruby-defined methods should be visible
-    methods = BasicSocket.instance_methods
-    assert_true(methods.include?(:puts))
-    assert_true(methods.include?(:gets))
-    assert_true(methods.include?(:print))
-    assert_true(methods.include?(:send))
-    assert_true(methods.include?(:recv))
-    assert_true(methods.include?(:peeraddr))
-  end
-
-  def test_tcp_socket_ruby_methods_exist
+  def test_tcp_socket_methods_exist
     # Ruby-defined methods should be visible
     methods = TCPSocket.instance_methods
     assert_true(methods.include?(:connected?))
     assert_true(methods.include?(:addr))
+    assert_true(methods.include?(:puts))
+    assert_true(methods.include?(:gets))
+    assert_true(methods.include?(:print))
+    assert_true(methods.include?(:send))
+    assert_true(methods.include?(:read))
+    assert_true(methods.include?(:readpartial))
+    assert_true(methods.include?(:peeraddr))
   end
 
   def test_socket_error_class_exists
@@ -53,7 +49,7 @@ class TCPSocketTest < Picotest::Test
   #   assert_true(bytes_sent > 0)
   #
   #   # Read response
-  #   response = socket.read(100)
+  #   response = socket.readpartial(100)
   #   assert_true(response.length > 0)
   #   assert_true(response.include?('HTTP'))
   #

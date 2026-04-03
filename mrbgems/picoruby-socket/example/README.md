@@ -154,7 +154,7 @@ ssl.connect
 
 # Use the SSL socket
 ssl.write("GET / HTTP/1.1\r\nHost: example.com\r\n\r\n")
-response = ssl.read(1024)
+response = ssl.readpartial(1024)
 
 # Close
 ssl.close

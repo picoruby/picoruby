@@ -102,13 +102,13 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 }
 
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, int flags)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock)
 {
   if (!sock || !buf || sock->fd < 0 || sock->closed) {
     return -1;
   }
 
-  if (flags & PICORB_RECV_NONBLOCK) {
+  if (nonblock) {
     ssize_t received = recv(sock->fd, buf, len, MSG_DONTWAIT);
     if (received < 0) {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {

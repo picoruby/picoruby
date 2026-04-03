@@ -13,7 +13,7 @@ begin
   sock.send(message, 0)
   puts "Sent: #{message.inspect}"
 
-  response = sock.recv(1024)
+  response = sock.readpartial(1024)
   puts "Received: #{response.inspect}"
 
   sock.close

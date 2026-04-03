@@ -284,7 +284,7 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 
 /* Receive data */
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, int flags)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock)
 {
   if (!sock || !buf || sock->state == SOCKET_STATE_ERROR) {
     D("TCPSocket_recv: sock=%p, buf=%p, state=%d (ERROR)\n",
@@ -295,7 +295,7 @@ TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, i
   D("TCPSocket_recv: start, state=%d, recv_len=%zu, connected=%d\n",
     sock->state, sock->recv_len, sock->connected);
 
-  if (flags & PICORB_RECV_NONBLOCK) {
+  if (nonblock) {
     /* Non-blocking: return immediately if no data available */
     if (sock->recv_len == 0) {
       if (sock->state == SOCKET_STATE_CLOSED) {

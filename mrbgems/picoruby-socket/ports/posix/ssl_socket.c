@@ -494,17 +494,17 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 
 /*
  * Receive data from SSL socket.
- * When flags has PICORB_RECV_NONBLOCK set, the underlying fd is temporarily
+ * When nonblock is true, the underlying fd is temporarily
  * set to O_NONBLOCK so that SSL_read returns immediately if no data is available.
  */
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock)
 {
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
   }
 
-  if (flags & PICORB_RECV_NONBLOCK) {
+  if (nonblock) {
     int fd = ssl_sock->base_socket->fd;
     int fd_flags = fcntl(fd, F_GETFL, 0);
     if (fd_flags == -1) {

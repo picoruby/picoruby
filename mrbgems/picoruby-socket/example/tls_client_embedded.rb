@@ -60,7 +60,7 @@ begin
   # Read response headers
   response = ""
   5.times do
-    chunk = ssl_sock.read(512)
+    chunk = ssl_sock.readpartial(512)
     break unless chunk
     response += chunk
     break if response.include?("\r\n\r\n")

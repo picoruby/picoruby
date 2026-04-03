@@ -309,11 +309,11 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 }
 
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, int flags)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock)
 {
   if (!ssl_sock || ssl_sock->state != SSL_STATE_CONNECTED || !buf) return -1;
 
-  if (flags & PICORB_RECV_NONBLOCK) {
+  if (nonblock) {
     int fd = ssl_sock->net_ctx.fd;
     int old_flags = fcntl(fd, F_GETFL, 0);
     if (old_flags == -1) return -1;
