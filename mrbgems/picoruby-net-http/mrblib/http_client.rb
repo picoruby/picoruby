@@ -257,7 +257,7 @@ module Net
       # Check for Content-Length (case-insensitive search)
       headers_lower = headers_part.downcase
       cl_idx = headers_lower.index('content-length:')
-      content_length = 0
+      content_length = nil
       if cl_idx
         # Extract the value after "content-length:"
         start_idx = cl_idx + 15  # length of "content-length:"
@@ -269,9 +269,10 @@ module Net
           i = 0
           while c = value_str.getbyte(i)
             if 48 <= c && c <= 57 # '0'..'9'
-              content_length = content_length * 10 + (c - 48) # '0'.ord
+              content_length = (content_length || 0) * 10 + (c - 48) # '0'.ord
             else
-              break if content_length > 0  # Stop at first non-digit after digits
+              # Stop at first non-digit after digits
+              break if content_length && 0 < content_length # steep:ignore
             end
             i += 1
           end
@@ -279,8 +280,9 @@ module Net
       end
 
       # Read body based on headers
-      if 0 < content_length
+      if content_length && 0 < content_length # steep:ignore
         # Read exact content length
+        # @type var content_length: Integer
         remaining = content_length - (response.bytesize - header_end - 4)
         if remaining > 0
           body = @socket.read(remaining)

@@ -340,17 +340,21 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
   }
 
   /* Blocking path */
-  int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
-  if (ret < 0) {
+  int ret;
+  do {
+    ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
     if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-      return 0;
+      continue;
     }
     if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-      /* Connection closed by peer */
+      ssl_sock->state = SSL_STATE_NONE;
+      return 0;
     }
-    ssl_sock->state = SSL_STATE_ERROR;
-    return -1;
-  }
+    if (ret < 0) {
+      ssl_sock->state = SSL_STATE_ERROR;
+      return -1;
+    }
+  } while (ret < 0);
   if (ret == 0) {
     ssl_sock->state = SSL_STATE_NONE;
   }

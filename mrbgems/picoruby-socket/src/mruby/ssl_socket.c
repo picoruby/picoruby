@@ -521,9 +521,14 @@ mrb_ssl_socket_read_nonblock(mrb_state *mrb, mrb_value self)
 
   ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, true);
 
-  if (received == PICORB_RECV_WOULD_BLOCK || received == 0) {
+  if (received == PICORB_RECV_WOULD_BLOCK) {
     if (read_buf != stack_buf) mrb_free(mrb, read_buf);
     return mrb_nil_value();
+  }
+
+  if (received == 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
   }
 
   if (received < 0) {

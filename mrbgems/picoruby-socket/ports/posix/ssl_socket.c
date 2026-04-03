@@ -528,16 +528,19 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
     return (ssize_t)ret;
   }
 
-  int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
-  if (ret < 0) {
-    int err = SSL_get_error(ssl_sock->ssl, ret);
-    if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-      return 0;
+  int ret;
+  do {
+    ret = SSL_read(ssl_sock->ssl, buf, (int)len);
+    if (ret < 0) {
+      int err = SSL_get_error(ssl_sock->ssl, ret);
+      if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        continue;
+      }
+      fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
+      ERR_print_errors_fp(stderr);
+      return -1;
     }
-    fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
-    ERR_print_errors_fp(stderr);
-    return -1;
-  }
+  } while (ret < 0);
 
   return (ssize_t)ret;
 }

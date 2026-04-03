@@ -592,7 +592,7 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
 
     /* Check for timeout */
     if (sock->recv_len == 0) {
-      return 0;
+      return PICORB_RECV_WOULD_BLOCK;
     }
   }
 

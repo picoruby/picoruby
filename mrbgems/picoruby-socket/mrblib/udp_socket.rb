@@ -18,7 +18,7 @@ class UDPSocket
   end
 
   # Read data from any source (simplified version of recvfrom)
-  # Imcompatible with CRuby but maxlen should be specified in restricted environments
+  # Incompatible with CRuby but maxlen should be specified in restricted environments
   def read(maxlen)
     data, _addr = recvfrom(maxlen)
     data

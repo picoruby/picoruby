@@ -354,9 +354,15 @@ c_ssl_socket_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 
   ssize_t received = SSLSocket_recv(vm, wrapper->ptr, buffer, maxlen, true);
 
-  if (received == PICORB_RECV_WOULD_BLOCK || received == 0) {
+  if (received == PICORB_RECV_WOULD_BLOCK) {
     if (buffer != stack_buf) picorb_free(vm, buffer);
     SET_NIL_RETURN();
+    return;
+  }
+
+  if (received == 0) {
+    if (buffer != stack_buf) picorb_free(vm, buffer);
+    mrbc_raise(vm, mrbc_get_class_by_name("EOFError"), "end of file reached");
     return;
   }
 

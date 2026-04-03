@@ -143,25 +143,8 @@ TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, b
     return received;
   }
 
-#ifdef MSG_WAITALL
-  ssize_t received = recv(sock->fd, buf, len, MSG_WAITALL);
-#else
-  /* Fallback: loop until len bytes received or EOF/error. */
-  size_t total = 0;
-  char *p = (char *)buf;
-  while (total < len) {
-    ssize_t r = recv(sock->fd, p + total, len - total, 0);
-    if (r < 0) {
-      return -1;
-    }
-    if (r == 0) {
-      sock->connected = false;
-      return (ssize_t)total;
-    }
-    total += (size_t)r;
-  }
-  ssize_t received = (ssize_t)total;
-#endif
+  /* Return as soon as any data is available (readpartial semantics). */
+  ssize_t received = recv(sock->fd, buf, len, 0);
 
   if (received < 0) {
     return -1;
