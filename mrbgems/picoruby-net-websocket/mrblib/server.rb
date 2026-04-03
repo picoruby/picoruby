@@ -124,7 +124,7 @@ module Net
         end
 
         def closed?
-          @close_sent || @socket.nil? || @socket.closed?
+          @socket.nil? || @socket.closed?
         end
 
         private
