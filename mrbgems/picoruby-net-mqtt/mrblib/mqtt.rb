@@ -130,7 +130,11 @@ module Net
 
           check_keepalive
 
-          first_byte = @socket.read_nonblock(1)
+          begin
+            first_byte = @socket.read_nonblock(1)
+          rescue EOFError
+            raise MQTTError.new("Connection closed by broker")
+          end
           if first_byte
             packet_type, flags, data = receive_packet(first_byte)
 

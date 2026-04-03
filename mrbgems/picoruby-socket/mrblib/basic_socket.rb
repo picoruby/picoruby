@@ -46,6 +46,10 @@ class BasicSocket
   end
 
   def puts(*args)
+    if args.length == 0
+      send("\n", 0)
+      return nil
+    end
     i = 0
     args_len = args.length
     while i < args_len
