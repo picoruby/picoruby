@@ -279,7 +279,7 @@ module Net
       end
 
       # Read body based on headers
-      if content_length && 0 < content_length # steep:ignore
+      if !content_length.nil? # steep:ignore
         # Read exact content length
         # @type var content_length: Integer
         remaining = content_length - (response.bytesize - header_end - 4)
