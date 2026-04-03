@@ -45,7 +45,7 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
   size_t size = strlen((const char *)script);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
 
-  mrb_value name;
+  mrb_value name = mrb_nil_value();
   mrb_get_args(mrb, "|S", &name);
   if (mrb_nil_p(name)) {
     name = mrb_str_new_cstr(mrb, "sandbox");
