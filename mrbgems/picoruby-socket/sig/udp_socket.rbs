@@ -5,5 +5,7 @@ class UDPSocket < BasicSocket
   def send: (String data, Integer flags, ?String? host, ?Integer? port) -> Integer
   def recvfrom: (Integer maxlen, ?Integer flags) -> [String, Array[String | Integer]]
   def recvfrom_nonblock: (Integer maxlen, ?Integer flags) -> ([String, Array[String | Integer]] | nil)
-  def read: (?Integer maxlen) -> String?
+
+  # Imcompatible with CRuby but maxlen should be specified in restricted environments
+  def read: (Integer maxlen) -> String?
 end
