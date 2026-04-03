@@ -121,10 +121,6 @@ module Net
       def receive(timeout: nil)
         raise MQTTError.new("Not connected") unless connected?
 
-        # Check if we need to send PING
-        check_keepalive
-
-        # Wait for PUBLISH packet
         deadline = timeout ? Time.now.to_f + timeout : nil
 
         while true
@@ -132,23 +128,22 @@ module Net
             return nil
           end
 
-          # Non-blocking receive with short timeout
-          packet_type, flags, data = receive_packet
-
-          case packet_type
-          when PUBLISH
-            # Parse PUBLISH packet
-            topic, payload = parse_publish(flags, data)
-            return [topic, payload]
-          when PINGRESP
-            # Update last ping time
-            @last_ping = Time.now
-          else
-            # Unexpected packet, ignore
-          end
-
-          # Check keepalive even while waiting
           check_keepalive
+
+          first_byte = @socket.read_nonblock(1)
+          if first_byte
+            packet_type, flags, data = receive_packet(first_byte)
+
+            case packet_type
+            when PUBLISH
+              topic, payload = parse_publish(flags, data)
+              return [topic, payload]
+            when PINGRESP
+              @last_ping = Time.now
+            end
+          else
+            sleep_ms 100 unless deadline && Time.now.to_f >= deadline
+          end
         end
 
         nil # never reached
@@ -408,22 +403,28 @@ module Net
         @socket.write(packet)
       end
 
-      def receive_packet
+      def receive_packet(first_byte = nil)
         # Read fixed header
-        begin
-          byte1 = @socket.readpartial(1)
-        rescue EOFError
-          raise ConnectionError.new("Connection closed")
+        if first_byte
+          byte1 = first_byte
+        else
+          begin
+            byte1 = @socket.readpartial(1)
+          rescue EOFError
+            raise ConnectionError.new("Connection closed")
+          end
         end
 
-        packet_type = (byte1.getbyte(0) >> 4) & 0x0F
-        flags = byte1.getbyte(0) & 0x0F
+        byte = byte1.getbyte(0) || 0
+
+        packet_type = (byte >> 4) & 0x0F
+        flags = byte & 0x0F
 
         # Read remaining length
         remaining_length, offset = read_remaining_length
 
         # Read data
-        data = ""
+        data = nil
         if remaining_length > 0
           data = @socket.read(remaining_length)
           if data.nil? || data.bytesize < remaining_length

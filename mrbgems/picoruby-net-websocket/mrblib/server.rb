@@ -70,8 +70,9 @@ module Net
               return nil
             end
 
-            if @socket.ready?
-              opcode, payload = receive_frame
+            byte0 = @socket.read_nonblock(1)
+            if byte0
+              opcode, payload = receive_frame(byte0)
 
               case opcode
               when OPCODE_TEXT, OPCODE_BINARY
@@ -85,7 +86,7 @@ module Net
                 # Ignore pong
               end
             else
-              sleep_ms 100
+              sleep_ms 100 unless deadline && Time.now.to_f >= deadline
             end
           end
           return nil
@@ -247,12 +248,17 @@ module Net
           @socket.write(frame)
         end
 
-        def receive_frame
+        def receive_frame(first_byte = nil)
           while true
-            begin
-              byte0 = @socket.readpartial(1)
-            rescue EOFError
-              raise ConnectionClosed.new("Connection closed")
+            if first_byte
+              byte0 = first_byte
+              first_byte = nil
+            else
+              begin
+                byte0 = @socket.readpartial(1)
+              rescue EOFError
+                raise ConnectionClosed.new("Connection closed")
+              end
             end
 
             byte0_val = byte0.getbyte(0) || 0

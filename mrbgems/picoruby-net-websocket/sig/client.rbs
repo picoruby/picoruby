@@ -30,7 +30,7 @@ module Net
       private def read_http_response: () -> String
       private def read_line: () -> String
       private def send_frame: (Integer, String) -> Integer
-      private def receive_frame: () -> [Integer, String]
+      private def receive_frame: (?String firstbyte) -> [Integer, String]
       private def mask_data: (String, String) -> String
       private def handle_close_frame: (String) -> nil
     end
