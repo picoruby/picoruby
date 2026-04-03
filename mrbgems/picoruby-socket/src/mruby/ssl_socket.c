@@ -6,7 +6,8 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 
-#define E_EOF_ERROR (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
+#define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
+#define E_EOF_ERROR    (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
 
 /* Data type for SSLContext */
 static void
@@ -482,6 +483,11 @@ mrb_ssl_socket_readpartial(mrb_state *mrb, mrb_value self)
   if (received == 0) {
     if (read_buf != stack_buf) mrb_free(mrb, read_buf);
     mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
+  }
+
+  if (received == PICORB_RECV_TIMEOUT) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_SOCKET_ERROR, "read timeout");
   }
 
   if (received < 0) {

@@ -81,6 +81,8 @@ extern int Net_get_ip(const char *name, void *ip);
 
 /* Special return value from read functions: no data available in non-blocking mode */
 #define PICORB_RECV_WOULD_BLOCK (-2)
+/* Special return value from blocking read functions: timed out waiting for data */
+#define PICORB_RECV_TIMEOUT     (-3)
 
 /* Stack buffer threshold: use stack allocation for small reads to avoid heap overhead */
 #define PICORB_SOCKET_STACK_BUF_SIZE 101

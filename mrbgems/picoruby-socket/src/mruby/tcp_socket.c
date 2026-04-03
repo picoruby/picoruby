@@ -101,6 +101,11 @@ mrb_tcp_socket_readpartial(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
   }
 
+  if (received == PICORB_RECV_TIMEOUT) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_SOCKET_ERROR, "read timeout");
+  }
+
   if (received < 0) {
     if (read_buf != stack_buf) mrb_free(mrb, read_buf);
     mrb_raise(mrb, E_RUNTIME_ERROR, "read failed");

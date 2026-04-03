@@ -325,7 +325,7 @@ TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, b
     /* Check for timeout or error */
     if (sock->recv_len == 0) {
       D("TCPSocket_recv: timeout or no data");
-      return PICORB_RECV_WOULD_BLOCK;
+      return PICORB_RECV_TIMEOUT;
     }
   }
 

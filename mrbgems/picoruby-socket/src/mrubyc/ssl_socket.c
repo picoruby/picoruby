@@ -303,6 +303,12 @@ c_ssl_socket_readpartial(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  if (received == PICORB_RECV_TIMEOUT) {
+    if (buffer != stack_buf) picorb_free(vm, buffer);
+    mrbc_raise(vm, mrbc_get_class_by_name("SocketError"), "read timeout");
+    return;
+  }
+
   if (received < 0) {
     if (buffer != stack_buf) picorb_free(vm, buffer);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL read failed");
