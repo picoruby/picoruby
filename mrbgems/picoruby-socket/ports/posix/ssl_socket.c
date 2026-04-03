@@ -542,6 +542,9 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
     }
   } while (ret < 0);
 
+  if (ret == 0) {
+    ssl_sock->connected = false;
+  }
   return (ssize_t)ret;
 }
 

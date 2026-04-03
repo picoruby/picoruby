@@ -93,6 +93,9 @@ mrb_tcp_socket_readpartial(mrb_state *mrb, mrb_value self)
   char *read_buf = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
     ? stack_buf
     : (char *)mrb_malloc(mrb, maxlen);
+  if (!read_buf) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
+  }
 
   ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen, false);
 
@@ -140,6 +143,9 @@ mrb_tcp_socket_read_nonblock(mrb_state *mrb, mrb_value self)
   char *read_buf = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
     ? stack_buf
     : (char *)mrb_malloc(mrb, maxlen);
+  if (!read_buf) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
+  }
 
   ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen, true);
 

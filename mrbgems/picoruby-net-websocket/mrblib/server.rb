@@ -70,7 +70,11 @@ module Net
               return nil
             end
 
-            byte0 = @socket.read_nonblock(1)
+            begin
+              byte0 = @socket.read_nonblock(1)
+            rescue EOFError
+              raise ConnectionClosed.new("Connection closed by client")
+            end
             if byte0
               opcode, payload = receive_frame(byte0)
 

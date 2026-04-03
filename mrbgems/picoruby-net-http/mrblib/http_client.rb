@@ -265,7 +265,6 @@ module Net
         if line_end
           value_str = headers_part[start_idx..(line_end - 1)]&.strip || ''
           # Parse integer from string
-          value_str_len = value_str.bytesize
           i = 0
           while c = value_str.getbyte(i)
             if 48 <= c && c <= 57 # '0'..'9'

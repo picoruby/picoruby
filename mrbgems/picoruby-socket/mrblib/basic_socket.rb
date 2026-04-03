@@ -63,11 +63,13 @@ class BasicSocket
 
   def gets(sep = "\n")
     buffer = ""
-    while true
-      chunk = readpartial(1)
-      return nil if chunk.nil? || chunk.empty?
-      buffer << chunk
-      break if buffer.end_with?(sep)
+    begin
+      while true
+        buffer << readpartial(1)
+        break if buffer.end_with?(sep)
+      end
+    rescue EOFError
+      return nil if buffer.empty?
     end
     buffer
   end
