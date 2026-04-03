@@ -317,11 +317,14 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
     int fd = ssl_sock->net_ctx.fd;
     int old_flags = fcntl(fd, F_GETFL, 0);
     if (old_flags == -1) return -1;
-    fcntl(fd, F_SETFL, old_flags | O_NONBLOCK);
+    if (fcntl(fd, F_SETFL, old_flags | O_NONBLOCK) == -1) return -1;
 
     int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
 
-    fcntl(fd, F_SETFL, old_flags); /* restore */
+    if (fcntl(fd, F_SETFL, old_flags) == -1) {
+      ssl_sock->state = SSL_STATE_ERROR;
+      return -1;
+    }
 
     if (ret > 0) return (ssize_t)ret;
     if (ret == 0) {

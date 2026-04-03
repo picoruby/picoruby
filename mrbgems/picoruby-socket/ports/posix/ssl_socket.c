@@ -510,10 +510,14 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
     if (fd_flags == -1) {
       return -1;
     }
-    fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK);
+    if (fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) return -1;
 
     int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
-    fcntl(fd, F_SETFL, fd_flags); /* restore */
+
+    if (fcntl(fd, F_SETFL, fd_flags) == -1) {
+      ssl_sock->connected = false;
+      return -1;
+    }
 
     if (ret < 0) {
       int err = SSL_get_error(ssl_sock->ssl, ret);
