@@ -361,8 +361,12 @@ module Net
             code = CLOSE_NORMAL
             reason = ""
           end
-          send_frame(OPCODE_CLOSE, [code].pack("n") + reason) # steep:ignore
-          @close_sent = true
+          begin
+            send_frame(OPCODE_CLOSE, [code].pack("n") + reason) # steep:ignore
+          ensure
+            @close_sent = true
+            @socket&.close
+          end
           nil
         end
       end
