@@ -231,20 +231,19 @@ module Net
       response = ""
       headers_done = false
       content_length = nil
-      chunked = false
 
       # Read status line and headers
-      while true
-        line = @socket.read(8192)
-        break unless line
+      begin
+        while true
+          response << @socket.readpartial(100)
 
-        response += line
-
-        # Check if we have complete headers
-        if response.include?("\r\n\r\n")
-          headers_done = true
-          break
+          # Check if we have complete headers
+          if response.include?("\r\n\r\n")
+            headers_done = true
+            break
+          end
         end
+      rescue EOFError
       end
 
       unless headers_done
@@ -258,6 +257,7 @@ module Net
       # Check for Content-Length (case-insensitive search)
       headers_lower = headers_part.downcase
       cl_idx = headers_lower.index('content-length:')
+      content_length = 0
       if cl_idx
         # Extract the value after "content-length:"
         start_idx = cl_idx + 15  # length of "content-length:"
@@ -265,47 +265,40 @@ module Net
         if line_end
           value_str = headers_part[start_idx..(line_end - 1)]&.strip || ''
           # Parse integer from string
-          content_length = 0
-          value_str.each_char do |c|
-            if c >= '0' && c <= '9'
-              content_length = content_length * 10 + (c.ord - '0'.ord)
+          value_str_len = value_str.bytesize
+          i = 0
+          while c = value_str.getbyte(i)
+            if 48 <= c && c <= 57 # '0'..'9'
+              content_length = content_length * 10 + (c - 48) # '0'.ord
             else
               break if content_length > 0  # Stop at first non-digit after digits
             end
+            i += 1
           end
         end
       end
 
-      # Check for Transfer-Encoding: chunked (case-insensitive)
-      if headers_lower.index('transfer-encoding:') &&
-         headers_lower.index('chunked')
-        chunked = true
-      end
-
       # Read body based on headers
-      if content_length
+      if 0 < content_length
         # Read exact content length
         remaining = content_length - (response.bytesize - header_end - 4)
         if remaining > 0
-          body_part = @socket.read(remaining)
-          response += body_part if body_part
+          body = @socket.read(remaining)
+          response << body if body
         end
-      elsif chunked
+      elsif headers_lower.index('transfer-encoding:') && headers_lower.index('chunked')
         # Read chunked encoding (simplified)
-        while true
-          chunk = @socket.read(8192)
-          break unless chunk
-          response += chunk
-          # Simple check for end of chunks
-          break if response.end_with?("\r\n0\r\n\r\n")
+        begin
+          while true
+            response << @socket.readpartial(100)
+            break if response.end_with?("\r\n0\r\n\r\n")
+          end
+        rescue EOFError
         end
       else
         # Read until connection closes
-        while true
-          chunk = @socket.read(8192)
-          break unless chunk
-          response += chunk
-        end
+        body = @socket.read
+        response << body unless body.empty?
       end
 
       response

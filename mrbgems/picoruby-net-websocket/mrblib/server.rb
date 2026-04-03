@@ -45,6 +45,7 @@ module Net
         def initialize(socket)
           @socket = socket
           @fragments = []
+          @close_sent = false
           perform_handshake
         end
 
@@ -118,7 +119,7 @@ module Net
         end
 
         def closed?
-          @socket.nil? || @socket.closed?
+          @close_sent || @socket.nil? || @socket.closed?
         end
 
         private
@@ -139,10 +140,10 @@ module Net
           accept_key = compute_accept_key(sec_key)
 
           response = "HTTP/1.1 101 Switching Protocols\r\n"
-          response += "Upgrade: websocket\r\n"
-          response += "Connection: Upgrade\r\n"
-          response += "Sec-WebSocket-Accept: #{accept_key}\r\n"
-          response += "\r\n"
+          response << "Upgrade: websocket\r\n"
+          response << "Connection: Upgrade\r\n"
+          response << "Sec-WebSocket-Accept: #{accept_key}\r\n"
+          response << "\r\n"
 
           @socket.write(response)
         end
@@ -151,7 +152,7 @@ module Net
           request = ""
           while true
             line = read_line
-            request += line
+            request << line
             break if line == "\r\n"
           end
           request
@@ -159,11 +160,14 @@ module Net
 
         def read_line
           line = ""
-          while true
-            char = @socket.read(1)
-            raise ConnectionClosed.new("Connection closed during handshake") if char.nil? || char.empty?
-            line += char
-            break if line.end_with?("\r\n")
+          begin
+            while true
+              char = @socket.readpartial(1)
+              line << char
+              break if line.end_with?("\r\n")
+            end
+          rescue EOFError
+            raise ConnectionClosed.new("Connection closed during handshake")
           end
           line
         end
@@ -209,35 +213,35 @@ module Net
           frame = ""
 
           fin = 0x80
-          frame += [fin | opcode].pack("C")
+          frame << [fin | opcode].pack("C")
 
           mask_bit = masked ? 0x80 : 0x00
           length = payload.bytesize
 
           if length < 126
-            frame += [mask_bit | length].pack("C")
+            frame << [mask_bit | length].pack("C")
           elsif length < 65536
-            frame += [mask_bit | 126].pack("C")
-            frame += [length].pack("n")
+            frame << [mask_bit | 126].pack("C")
+            frame << [length].pack("n")
           else
-            frame += [mask_bit | 127].pack("C")
+            frame << [mask_bit | 127].pack("C")
             high = length >> 32
             low = length & 0xffffffff
-            frame += [high, low].pack("NN")
+            frame << [high, low].pack("NN")
           end
 
           if masked
             mask_key = ""
             mi = 0
             while mi < 4
-              mask_key += [RNG.random_int % 256].pack("C")
+              mask_key << [RNG.random_int % 256].pack("C")
               mi += 1
             end
-            frame += mask_key
+            frame << mask_key
             masked_payload = mask_data(payload, mask_key)
-            frame += masked_payload
+            frame << masked_payload
           else
-            frame += payload
+            frame << payload
           end
 
           @socket.write(frame)
@@ -245,15 +249,21 @@ module Net
 
         def receive_frame
           while true
-            byte0 = @socket.read(1)
-            raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
+            begin
+              byte0 = @socket.readpartial(1)
+            rescue EOFError
+              raise ConnectionClosed.new("Connection closed")
+            end
 
             byte0_val = byte0.getbyte(0) || 0
             fin = (byte0_val & 0x80) != 0
             opcode = byte0_val & 0x0F
 
-            byte1 = @socket.read(1)
-            raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
+            begin
+              byte1 = @socket.readpartial(1)
+            rescue EOFError
+              raise ConnectionClosed.new("Connection closed")
+            end
 
             byte1_val = byte1.getbyte(0) || 0
             masked = (byte1_val & 0x80) != 0
@@ -305,10 +315,10 @@ module Net
               fi = 0
               len = @fragments.length
               while fi < len
-                full_payload += @fragments[fi][:payload]
+                full_payload << @fragments[fi][:payload]
                 fi += 1
               end
-              full_payload += payload
+              full_payload << payload
 
               @fragments.clear
               return [opcode, full_payload]
@@ -327,7 +337,7 @@ module Net
           while i < len
             byte = (data.getbyte(i) || 0)
             masked_byte = byte ^ (mask_key.getbyte(i % 4) || 0)
-            result += [masked_byte].pack("C")
+            result << [masked_byte].pack("C")
             i += 1
           end
           result
@@ -342,6 +352,7 @@ module Net
             reason = ""
           end
           send_frame(OPCODE_CLOSE, [code].pack("n") + reason) # steep:ignore
+          @close_sent = true
           nil
         end
       end

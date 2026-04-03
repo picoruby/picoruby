@@ -10,5 +10,5 @@ puts "UDP server started on #{host}:#{port}"
 loop do
   message, sender = sock.recvfrom(1024)
   puts "from #{sender[3]}:#{sender[1]} => #{message.inspect}"
-  sock.send("OK", 0)
+  sock.send("OK", 0, sender[3], sender[1])
 end

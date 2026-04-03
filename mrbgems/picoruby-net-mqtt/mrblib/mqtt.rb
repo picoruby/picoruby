@@ -410,8 +410,11 @@ module Net
 
       def receive_packet
         # Read fixed header
-        byte1 = @socket.read(1)
-        raise ConnectionError.new("Connection closed") if byte1.nil? || byte1.empty?
+        begin
+          byte1 = @socket.readpartial(1)
+        rescue EOFError
+          raise ConnectionError.new("Connection closed")
+        end
 
         packet_type = (byte1.getbyte(0) >> 4) & 0x0F
         flags = byte1.getbyte(0) & 0x0F
@@ -435,8 +438,11 @@ module Net
         multiplier = 1
         value = 0
         while true
-          byte_str = @socket.read(1)
-          raise ConnectionError.new("Connection closed") if byte_str.nil? || byte_str.empty?
+          begin
+            byte_str = @socket.readpartial(1)
+          rescue EOFError
+            raise ConnectionError.new("Connection closed")
+          end
 
           byte = byte_str.getbyte(0)
           value += (byte & 0x7F) * multiplier
