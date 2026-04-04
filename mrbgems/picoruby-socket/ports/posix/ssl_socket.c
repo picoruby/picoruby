@@ -542,14 +542,23 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
     if (ret < 0) {
       int err = SSL_get_error(ssl_sock->ssl, ret);
       if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        int ready;
+
         /* Wait for fd readiness to avoid busy-looping during renegotiation. */
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(fd, &fds);
-        if (err == SSL_ERROR_WANT_READ) {
-          select(fd + 1, &fds, NULL, NULL, NULL);
-        } else {
-          select(fd + 1, NULL, &fds, NULL, NULL);
+        do {
+          fd_set fds;
+          FD_ZERO(&fds);
+          FD_SET(fd, &fds);
+          if (err == SSL_ERROR_WANT_READ) {
+            ready = select(fd + 1, &fds, NULL, NULL, NULL);
+          } else {
+            ready = select(fd + 1, NULL, &fds, NULL, NULL);
+          }
+        } while (ready < 0 && errno == EINTR);
+
+        if (ready < 0) {
+          fprintf(stderr, "SSL: select failed during SSL_read retry: %s\n", strerror(errno));
+          return -1;
         }
         continue;
       }
