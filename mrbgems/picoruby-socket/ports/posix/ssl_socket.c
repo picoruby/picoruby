@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 
 #include <openssl/ssl.h>
@@ -532,11 +533,21 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
   }
 
   int ret;
+  int fd = ssl_sock->base_socket->fd;
   do {
     ret = SSL_read(ssl_sock->ssl, buf, (int)len);
     if (ret < 0) {
       int err = SSL_get_error(ssl_sock->ssl, ret);
       if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        /* Wait for fd readiness to avoid busy-looping during renegotiation. */
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd, &fds);
+        if (err == SSL_ERROR_WANT_READ) {
+          select(fd + 1, &fds, NULL, NULL, NULL);
+        } else {
+          select(fd + 1, NULL, &fds, NULL, NULL);
+        }
         continue;
       }
       fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
