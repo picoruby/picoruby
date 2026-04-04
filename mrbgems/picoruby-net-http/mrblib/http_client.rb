@@ -257,7 +257,6 @@ module Net
       # Check for Content-Length (case-insensitive search)
       headers_lower = headers_part.downcase
       cl_idx = headers_lower.index('content-length:')
-      content_length = nil
       if cl_idx
         # Extract the value after "content-length:"
         start_idx = cl_idx + 15  # length of "content-length:"
