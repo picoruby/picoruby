@@ -271,7 +271,7 @@ module Net
               content_length = (content_length || 0) * 10 + (c - 48) # '0'.ord
             else
               # Stop at first non-digit after digits
-              break if content_length && 0 < content_length # steep:ignore
+              break unless content_length.nil?
             end
             i += 1
           end
@@ -279,7 +279,7 @@ module Net
       end
 
       # Read body based on headers
-      if !content_length.nil? # steep:ignore
+      if !content_length.nil?
         # Read exact content length
         # @type var content_length: Integer
         remaining = content_length - (response.bytesize - header_end - 4)
