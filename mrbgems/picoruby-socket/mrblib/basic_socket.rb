@@ -6,6 +6,7 @@ class BasicSocket
   # IO-compatible methods
 
   def read(maxlen = nil)
+    raise TypeError, "no implicit conversion into Integer" unless maxlen.nil? || maxlen.is_a?(Integer)
     if maxlen.nil?
       res = ''
       begin
