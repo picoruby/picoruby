@@ -515,7 +515,6 @@ SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_
     int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
 
     if (fcntl(fd, F_SETFL, fd_flags) == -1) {
-      ssl_sock->connected = false;
       return -1;
     }
 
