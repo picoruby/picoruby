@@ -44,7 +44,9 @@ class BasicSocket
       offset = 0
       str_len = str.bytesize
       while offset < str_len
-        sent = send(str.byteslice(offset, str_len - offset), 0)
+        rest = str.byteslice(offset, str_len - offset)
+        raise RuntimeError, "write failed" if rest.nil? || rest.empty?
+        sent = send(rest, 0)
         raise RuntimeError, "write failed" if sent <= 0
         offset += sent
         write_len += sent
