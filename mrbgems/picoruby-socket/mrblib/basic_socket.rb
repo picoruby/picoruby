@@ -40,7 +40,15 @@ class BasicSocket
     i = 0
     str_ary_len = str_ary.length
     while i < str_ary_len
-      write_len += send(str_ary[i].to_s, 0)
+      str = str_ary[i].to_s
+      offset = 0
+      str_len = str.bytesize
+      while offset < str_len
+        sent = send(str.byteslice(offset, str_len - offset), 0)
+        raise RuntimeError, "write failed" if sent <= 0
+        offset += sent
+        write_len += sent
+      end
       i += 1
     end
     write_len
@@ -48,15 +56,15 @@ class BasicSocket
 
   def puts(*args)
     if args.length == 0
-      send("\n", 0)
+      write("\n")
       return nil
     end
     i = 0
     args_len = args.length
     while i < args_len
       arg_str = args[i]&.to_s
-      send(arg_str, 0) if arg_str
-      send("\n", 0) unless arg_str&.end_with?("\n")
+      write(arg_str) if arg_str
+      write("\n") unless arg_str&.end_with?("\n")
       i += 1
     end
     nil
@@ -79,7 +87,7 @@ class BasicSocket
     i = 0
     args_len = args.length
     while i < args_len
-      send(args[i].to_s, 0)
+      write(args[i].to_s)
       i += 1
     end
     nil

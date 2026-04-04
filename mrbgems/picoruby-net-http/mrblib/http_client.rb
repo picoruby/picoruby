@@ -265,12 +265,13 @@ module Net
           value_str = headers_part[start_idx..(line_end - 1)]&.strip || ''
           # Parse integer from string
           i = 0
+          started = false
           while c = value_str.getbyte(i)
             if 48 <= c && c <= 57 # '0'..'9'
               content_length = (content_length || 0) * 10 + (c - 48) # '0'.ord
+              started = true
             else
-              # Stop at first non-digit after digits
-              break unless content_length.nil?
+              break if started # stop at first non-digit after digits
             end
             i += 1
           end
