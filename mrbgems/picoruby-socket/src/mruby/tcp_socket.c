@@ -53,6 +53,8 @@ mrb_tcp_socket_send(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
   mrb_value data;
+  // flags is required parameter for compatibility with CRuby.
+  // Currently check only if it's an Integer. It can be used for future extensions
   mrb_int flags;
 
   sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
@@ -61,6 +63,7 @@ mrb_tcp_socket_send(mrb_state *mrb, mrb_value self)
   }
 
   mrb_get_args(mrb, "Si", &data, &flags);
+  (void)flags; // Unused for now
 
   ssize_t sent = TCPSocket_send(mrb, sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {

@@ -437,6 +437,8 @@ mrb_ssl_socket_send(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_socket_t *ssl_sock;
   mrb_value data;
+  // flags is required parameter for compatibility with CRuby.
+  // Currently check only if it's an Integer. It can be used for future extensions
   mrb_int flags;
 
   ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
@@ -445,6 +447,7 @@ mrb_ssl_socket_send(mrb_state *mrb, mrb_value self)
   }
 
   mrb_get_args(mrb, "Si", &data, &flags);
+  (void)flags; // Unused for now
 
   ssize_t sent = SSLSocket_send(mrb, ssl_sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {

@@ -108,6 +108,8 @@ c_tcp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "data must be a String");
     return;
   }
+  // flags is required parameter for compatibility with CRuby.
+  // Currently check only if it's an Integer. It can be used for future extensions
   mrbc_value flags = GET_ARG(2);
   if (flags.tt != MRBC_TT_INTEGER) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "flags must be an Integer");
