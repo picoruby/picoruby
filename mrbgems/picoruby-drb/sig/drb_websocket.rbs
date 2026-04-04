@@ -8,7 +8,7 @@ module DRb
       @ws: untyped
       @buffer: String
       @read_timeout: Integer | nil
-      def initialize: (untyped ws, ?read_timeout: Integer) -> void
+      def initialize: (untyped ws, ?read_timeout: Integer?) -> void
       def write: (String data) -> void
       def read: (Integer n) -> String
       def close: -> void
