@@ -73,7 +73,7 @@ namespace :wasm do
   end
 
   task :check_npm_login do
-    sh "npm whoami"
+    sh "npm whoami --registry=https://registry.npmjs.org/"
   rescue RuntimeError
     abort "Not logged in to npm. Run `npm login` first."
   end
@@ -81,10 +81,10 @@ namespace :wasm do
   desc "Build production and publish to npm"
   task :release => [:check_npm_login, :clean, :prod] do
     FileUtils.cd "mrbgems/picoruby-wasm/npm/picoruby" do
-      sh "npm publish --access public"
+      sh "npm publish --access public --registry=https://registry.npmjs.org/"
     end
     FileUtils.cd "mrbgems/picoruby-wasm/npm/picorbc" do
-      sh "npm publish --access public"
+      sh "npm publish --access public --registry=https://registry.npmjs.org/"
     end
   end
 
