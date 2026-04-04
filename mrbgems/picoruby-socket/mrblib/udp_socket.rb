@@ -28,4 +28,16 @@ class UDPSocket
   def eof?
     closed?
   end
+
+  def gets(separator = "\n")
+    raise NotImplementedError, "UDPSocket does not support gets method"
+  end
+
+  def readpartial(maxlen)
+    raise NotImplementedError, "UDPSocket does not support readpartial method"
+  end
+
+  def read_nonblock(maxlen)
+    raise NotImplementedError, "UDPSocket does not support read_nonblock method"
+  end
 end
