@@ -79,11 +79,19 @@ extern int Net_get_ip(const char *name, void *ip);
 #define picorb_state mrbc_vm
 #endif
 
+/* Special return value from read functions: no data available in non-blocking mode */
+#define PICORB_RECV_WOULD_BLOCK (-2)
+/* Special return value from blocking read functions: timed out waiting for data */
+#define PICORB_RECV_TIMEOUT     (-3)
+
+/* Stack buffer threshold: use stack allocation for small reads to avoid heap overhead */
+#define PICORB_SOCKET_STACK_BUF_SIZE 101
+
 /* TCP Socket API */
 bool TCPSocket_create(picorb_state *vm, picorb_socket_t *sock);
 bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
 ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
-ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len);
+ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock);
 bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
 
 /* Get socket info */
@@ -174,7 +182,7 @@ bool SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, con
 bool SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port);
 bool SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 ssize_t SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
-ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len);
+ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock);
 bool SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);

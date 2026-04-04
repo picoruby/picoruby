@@ -29,7 +29,7 @@ namespace :test do
   namespace :gems do
     desc "steep check"
     task :steep do
-      sh "bundle exec steep check"
+      sh "bundle exec steep check --log-level=fatal"
     end
 
     desc "run test for a gem on FemtoRuby"

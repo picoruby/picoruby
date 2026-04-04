@@ -7,7 +7,6 @@
 
 #include <string.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <sys/ioctl.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
@@ -102,12 +101,27 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 }
 
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock)
 {
   if (!sock || !buf || sock->fd < 0 || sock->closed) {
     return -1;
   }
 
+  if (nonblock) {
+    ssize_t received = recv(sock->fd, buf, len, MSG_DONTWAIT);
+    if (received < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return PICORB_RECV_WOULD_BLOCK;
+      }
+      return -1;
+    }
+    if (received == 0) {
+      sock->connected = false;
+    }
+    return received;
+  }
+
+  /* Blocking path */
   ssize_t received = recv(sock->fd, buf, len, 0);
   if (received < 0) {
     return -1;

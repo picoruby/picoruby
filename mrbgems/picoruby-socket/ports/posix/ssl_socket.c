@@ -10,6 +10,8 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 
 #include <openssl/ssl.h>
@@ -492,27 +494,83 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 }
 
 /*
- * Receive data from SSL socket
+ * Receive data from SSL socket.
+ * When nonblock is true, the underlying fd is temporarily
+ * set to O_NONBLOCK so that SSL_read returns immediately if no data is available.
  */
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock)
 {
   if (!ssl_sock || !ssl_sock->connected) {
     return -1;
   }
 
-  int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
-  if (ret < 0) {
-    int err = SSL_get_error(ssl_sock->ssl, ret);
-    if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-      // Would block
-      return 0;
+  if (nonblock) {
+    int fd = ssl_sock->base_socket->fd;
+    int fd_flags = fcntl(fd, F_GETFL, 0);
+    if (fd_flags == -1) {
+      return -1;
     }
-    fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
-    ERR_print_errors_fp(stderr);
-    return -1;
+    if (fcntl(fd, F_SETFL, fd_flags | O_NONBLOCK) == -1) return -1;
+
+    int ret = SSL_read(ssl_sock->ssl, buf, (int)len);
+
+    if (fcntl(fd, F_SETFL, fd_flags) == -1) {
+      /* Restoration failed: fd may be stuck in non-blocking mode.
+       * Mark socket unusable to prevent silent misuse. */
+      ssl_sock->connected = false;
+      return -1;
+    }
+
+    if (ret < 0) {
+      int err = SSL_get_error(ssl_sock->ssl, ret);
+      if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        return PICORB_RECV_WOULD_BLOCK;
+      }
+      return -1;
+    }
+    if (ret == 0) {
+      ssl_sock->connected = false;
+    }
+    return (ssize_t)ret;
   }
 
+  int ret;
+  int fd = ssl_sock->base_socket->fd;
+  do {
+    ret = SSL_read(ssl_sock->ssl, buf, (int)len);
+    if (ret < 0) {
+      int err = SSL_get_error(ssl_sock->ssl, ret);
+      if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
+        int ready;
+
+        /* Wait for fd readiness to avoid busy-looping during renegotiation. */
+        do {
+          fd_set fds;
+          FD_ZERO(&fds);
+          FD_SET(fd, &fds);
+          if (err == SSL_ERROR_WANT_READ) {
+            ready = select(fd + 1, &fds, NULL, NULL, NULL);
+          } else {
+            ready = select(fd + 1, NULL, &fds, NULL, NULL);
+          }
+        } while (ready < 0 && errno == EINTR);
+
+        if (ready < 0) {
+          fprintf(stderr, "SSL: select failed during SSL_read retry: %s\n", strerror(errno));
+          return -1;
+        }
+        continue;
+      }
+      fprintf(stderr, "SSL: SSL_read failed with error %d\n", err);
+      ERR_print_errors_fp(stderr);
+      return -1;
+    }
+  } while (ret < 0);
+
+  if (ret == 0) {
+    ssl_sock->connected = false;
+  }
   return (ssize_t)ret;
 }
 

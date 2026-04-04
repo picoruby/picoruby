@@ -5,6 +5,8 @@
 #include "../../include/socket.h"
 #include "picoruby.h"
 
+#include <fcntl.h>
+
 /* mbedtls includes */
 #include "mbedtls/net_sockets.h"
 #include "mbedtls/ssl.h"
@@ -307,23 +309,56 @@ SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data
 }
 
 ssize_t
-SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len)
+SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock)
 {
   if (!ssl_sock || ssl_sock->state != SSL_STATE_CONNECTED || !buf) return -1;
 
-  int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
-  if (ret < 0) {
+  if (nonblock) {
+    int fd = ssl_sock->net_ctx.fd;
+    int old_flags = fcntl(fd, F_GETFL, 0);
+    if (old_flags == -1) return -1;
+    if (fcntl(fd, F_SETFL, old_flags | O_NONBLOCK) == -1) return -1;
+
+    int ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
+
+    if (fcntl(fd, F_SETFL, old_flags) == -1) {
+      ssl_sock->state = SSL_STATE_ERROR;
+      return -1;
+    }
+
+    if (ret > 0) return (ssize_t)ret;
+    if (ret == 0) {
+      ssl_sock->state = SSL_STATE_NONE;
+      return 0;
+    }
     if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
-      return 0; // Would block
+      return PICORB_RECV_WOULD_BLOCK;
     }
     if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
-      // Connection closed by peer
+      ssl_sock->state = SSL_STATE_NONE;
+      return 0;
     }
     ssl_sock->state = SSL_STATE_ERROR;
     return -1;
   }
+
+  /* Blocking path */
+  int ret;
+  do {
+    ret = mbedtls_ssl_read(&ssl_sock->ssl, (unsigned char *)buf, len);
+    if (ret == MBEDTLS_ERR_SSL_WANT_READ || ret == MBEDTLS_ERR_SSL_WANT_WRITE) {
+      continue;
+    }
+    if (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) {
+      ssl_sock->state = SSL_STATE_NONE;
+      return 0;
+    }
+    if (ret < 0) {
+      ssl_sock->state = SSL_STATE_ERROR;
+      return -1;
+    }
+  } while (ret < 0);
   if (ret == 0) {
-    // EOF
     ssl_sock->state = SSL_STATE_NONE;
   }
   return (ssize_t)ret;
@@ -361,7 +396,7 @@ SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   if (!ssl_sock || !ssl_sock->base_socket) {
     return false;
   }
-  return Socket_ready(ssl_sock->base_socket);
+  return Socket_ready(vm, ssl_sock->base_socket);
 }
 
 const char*

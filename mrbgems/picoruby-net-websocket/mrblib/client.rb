@@ -85,9 +85,13 @@ module Net
             return nil
           end
 
-          # Check if data is available
-          if @socket.ready?
-            opcode, payload = receive_frame
+          begin
+            byte0 = @socket.read_nonblock(1)
+          rescue EOFError
+            raise ConnectionClosed.new("Connection closed by server")
+          end
+          if byte0
+            opcode, payload = receive_frame(byte0)
 
             case opcode
             when OPCODE_TEXT, OPCODE_BINARY
@@ -103,7 +107,7 @@ module Net
               # Ignore pong (could store for latency measurement)
             end
           else
-            sleep_ms 100
+            sleep_ms 100 unless deadline && Time.now.to_f >= deadline
           end
         end
         return nil
@@ -182,18 +186,18 @@ module Net
         key_bytes = ""
         ki = 0
         while ki < 16
-          key_bytes += [RNG.random_int % 256].pack("C")
+          key_bytes << [RNG.random_int % 256].pack("C")
           ki += 1
         end
         sec_key = Base64.encode64(key_bytes)
 
         # Build HTTP request
         request = "GET #{@path} HTTP/1.1\r\n"
-        request += "Host: #{@host}\r\n"
-        request += "Upgrade: websocket\r\n"
-        request += "Connection: Upgrade\r\n"
-        request += "Sec-WebSocket-Key: #{sec_key}\r\n"
-        request += "Sec-WebSocket-Version: 13\r\n"
+        request << "Host: #{@host}\r\n"
+        request << "Upgrade: websocket\r\n"
+        request << "Connection: Upgrade\r\n"
+        request << "Sec-WebSocket-Key: #{sec_key}\r\n"
+        request << "Sec-WebSocket-Version: 13\r\n"
 
         # Add custom headers
         header_keys = @headers.keys
@@ -201,11 +205,11 @@ module Net
         while hi < header_keys.size
           name = header_keys[hi]
           value = @headers[name]
-          request += "#{name}: #{value}\r\n"
+          request << "#{name}: #{value}\r\n"
           hi += 1
         end
 
-        request += "\r\n"
+        request << "\r\n"
 
         # Send request
         @socket.write(request)
@@ -228,7 +232,7 @@ module Net
         response = ""
         while true
           line = read_line
-          response += line
+          response << line
           break if line == "\r\n"
         end
         response
@@ -236,11 +240,14 @@ module Net
 
       def read_line
         line = ""
-        while true
-          char = @socket.read(1)
-          raise ConnectionClosed.new("Connection closed during handshake") if char.nil? || char.empty?
-          line += char
-          break if line.end_with?("\r\n")
+        begin
+          while true
+            char = @socket.readpartial(1)
+            line << char
+            break if line.end_with?("\r\n")
+          end
+        rescue EOFError
+          raise ConnectionClosed.new("Connection closed during handshake")
         end
         line
       end
@@ -253,53 +260,64 @@ module Net
 
         # Byte 0: FIN + opcode
         fin = 0x80  # FIN bit set
-        frame += [fin | opcode].pack("C")
+        frame << [fin | opcode].pack("C")
 
         # Byte 1: MASK + payload length
         mask_bit = 0x80  # Client must mask
         length = payload.bytesize
 
         if length < 126
-          frame += [mask_bit | length].pack("C")
+          frame << [mask_bit | length].pack("C")
         elsif length < 65536
-          frame += [mask_bit | 126].pack("C")
-          frame += [length].pack("n")
+          frame << [mask_bit | 126].pack("C")
+          frame << [length].pack("n")
         else
-          frame += [mask_bit | 127].pack("C")
+          frame << [mask_bit | 127].pack("C")
           high = length >> 32
           low = length & 0xffffffff
-          frame += [high, low].pack("NN")
+          frame << [high, low].pack("NN")
         end
 
         # Masking key (4 random bytes)
         mask_key = ""
         mi = 0
         while mi < 4
-          mask_key += [RNG.random_int % 256].pack("C")
+          mask_key << [RNG.random_int % 256].pack("C")
           mi += 1
         end
-        frame += mask_key
+        frame << mask_key
 
         # Masked payload
         masked_payload = mask_data(payload, mask_key)
-        frame += masked_payload
+        frame << masked_payload
 
         @socket.write(frame)
       end
 
-      def receive_frame
+      def receive_frame(first_byte = nil)
         while true
           # Read byte 0: FIN + opcode
-          byte0 = @socket.read(1)
-          raise ConnectionClosed.new("Connection closed") if byte0.nil? || byte0.empty?
+          if first_byte
+            byte0 = first_byte
+            first_byte = nil
+          else
+            begin
+              byte0 = @socket.readpartial(1)
+            rescue EOFError
+              raise ConnectionClosed.new("Connection closed")
+            end
+          end
 
           byte0_val = byte0.getbyte(0) || 0
           fin = (byte0_val & 0x80) != 0
           opcode = byte0_val & 0x0F
 
           # Read byte 1: MASK + payload length
-          byte1 = @socket.read(1)
-          raise ConnectionClosed.new("Connection closed") if byte1.nil? || byte1.empty?
+          begin
+            byte1 = @socket.readpartial(1)
+          rescue EOFError
+            raise ConnectionClosed.new("Connection closed")
+          end
 
           byte1_val = byte1.getbyte(0) || 0
           masked = (byte1_val & 0x80) != 0
@@ -357,10 +375,10 @@ module Net
 
             fi = 0
             while fi < @fragments.length
-              full_payload += @fragments[fi][:payload]
+              full_payload << @fragments[fi][:payload]
               fi += 1
             end
-            full_payload += payload
+            full_payload << payload
 
             @fragments = []
             return [opcode, full_payload]
@@ -379,7 +397,7 @@ module Net
         while i < len
           byte = (data.getbyte(i) || 0)
           masked_byte = byte ^ (mask_key.getbyte(i % 4) || 0)
-          result += [masked_byte].pack("C")
+          result << [masked_byte].pack("C")
           i += 1
         end
         result

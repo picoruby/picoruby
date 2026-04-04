@@ -26,7 +26,7 @@ request += "\r\n"
 ssl.write(request)
 
 # Read first line of response
-response = ssl.read(100)
+response = ssl.readpartial(100)
 puts "Response: #{response[0..50]}..."
 
 ssl.close

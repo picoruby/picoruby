@@ -7,7 +7,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <sys/ioctl.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
@@ -115,36 +114,34 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
   return sent;
 }
 
-/* Receive data - blocks until len bytes are read or EOF/error.
- * MSG_WAITALL tells the kernel to wait until the full request is satisfied,
- * which avoids partial-read issues without requiring application-level loops
- * or setsockopt calls between recv() invocations. */
+/* Receive data.
+ * If nonblock is true, uses MSG_DONTWAIT and returns
+ * PICORB_RECV_WOULD_BLOCK when no data is available.
+ * Otherwise uses a blocking recv() and returns as soon as any data
+ * is available, or 0 on EOF, or -1 on error (readpartial semantics). */
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock)
 {
   if (!sock || !buf || sock->fd < 0 || sock->closed) {
     return -1;
   }
 
-#ifdef MSG_WAITALL
-  ssize_t received = recv(sock->fd, buf, len, MSG_WAITALL);
-#else
-  /* Fallback: loop until len bytes received or EOF/error. */
-  size_t total = 0;
-  char *p = (char *)buf;
-  while (total < len) {
-    ssize_t r = recv(sock->fd, p + total, len - total, 0);
-    if (r < 0) {
+  if (nonblock) {
+    ssize_t received = recv(sock->fd, buf, len, MSG_DONTWAIT);
+    if (received < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        return PICORB_RECV_WOULD_BLOCK;
+      }
       return -1;
     }
-    if (r == 0) {
+    if (received == 0) {
       sock->connected = false;
-      return (ssize_t)total;
     }
-    total += (size_t)r;
+    return received;
   }
-  ssize_t received = (ssize_t)total;
-#endif
+
+  /* Return as soon as any data is available (readpartial semantics). */
+  ssize_t received = recv(sock->fd, buf, len, 0);
 
   if (received < 0) {
     return -1;

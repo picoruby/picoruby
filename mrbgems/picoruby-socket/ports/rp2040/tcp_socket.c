@@ -284,7 +284,7 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 
 /* Receive data */
 ssize_t
-TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
+TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock)
 {
   if (!sock || !buf || sock->state == SOCKET_STATE_ERROR) {
     D("TCPSocket_recv: sock=%p, buf=%p, state=%d (ERROR)\n",
@@ -295,27 +295,38 @@ TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len)
   D("TCPSocket_recv: start, state=%d, recv_len=%zu, connected=%d\n",
     sock->state, sock->recv_len, sock->connected);
 
-  /* Wait for data with timeout */
-  int max_wait = 600; /* 60 seconds */
-  while (sock->recv_len == 0 &&
-         sock->state == SOCKET_STATE_CONNECTED &&
-         max_wait-- > 0) {
-    Net_busy_wait_ms(100);
-  }
+  if (nonblock) {
+    /* Non-blocking: return immediately if no data available */
+    if (sock->recv_len == 0) {
+      if (sock->state == SOCKET_STATE_CLOSED) {
+        return 0; /* EOF */
+      }
+      return PICORB_RECV_WOULD_BLOCK;
+    }
+    /* Fall through to copy data below */
+  } else {
+    /* Wait for data with timeout */
+    int max_wait = 600; /* 60 seconds */
+    while (sock->recv_len == 0 &&
+           sock->state == SOCKET_STATE_CONNECTED &&
+           max_wait-- > 0) {
+      Net_busy_wait_ms(100);
+    }
 
-  D("TCPSocket_recv: after wait, recv_len=%zu, state=%d, max_wait=%d\n",
-    sock->recv_len, sock->state, max_wait);
+    D("TCPSocket_recv: after wait, recv_len=%zu, state=%d, max_wait=%d\n",
+      sock->recv_len, sock->state, max_wait);
 
-  /* Check if connection was closed */
-  if (sock->recv_len == 0 && sock->state == SOCKET_STATE_CLOSED) {
-    D("TCPSocket_recv: connection closed (EOF)");
-    return 0; /* EOF */
-  }
+    /* Check if connection was closed */
+    if (sock->recv_len == 0 && sock->state == SOCKET_STATE_CLOSED) {
+      D("TCPSocket_recv: connection closed (EOF)");
+      return 0; /* EOF */
+    }
 
-  /* Check for timeout or error */
-  if (sock->recv_len == 0) {
-    D("TCPSocket_recv: timeout or no data");
-    return 0;
+    /* Check for timeout or error */
+    if (sock->recv_len == 0) {
+      D("TCPSocket_recv: timeout or no data");
+      return PICORB_RECV_TIMEOUT;
+    }
   }
 
   /* Copy available data */

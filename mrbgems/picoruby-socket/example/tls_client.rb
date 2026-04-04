@@ -36,8 +36,11 @@ begin
   # Read response
   response = ""
   loop do
-    chunk = ssl_sock.read(1024)
-    break unless chunk
+    begin
+      chunk = ssl_sock.readpartial(1024)
+    rescue EOFError
+      break
+    end
     response += chunk
     break if response.include?("\r\n\r\n")
   end

@@ -12,9 +12,10 @@ module DRb
       # WebSocket adapter wrapping Net::WebSocket
       # Simple protocol: WebSocket binary frames contain DRb messages directly
       class Adapter
-        def initialize(ws)
+        def initialize(ws, read_timeout: nil)
           @ws = ws
           @buffer = ""
+          @read_timeout = read_timeout
         end
 
         def write(data)
@@ -22,13 +23,22 @@ module DRb
         end
 
         def read(n)
+          deadline = @read_timeout ? Time.now.to_f + @read_timeout : nil # steep:ignore
           while @buffer.bytesize < n
-            msg = @ws.receive(timeout: 10)
-            raise DRbConnError, "connection timeout" unless msg
+            if deadline
+              # @type var deadline: Float
+              remaining = deadline - Time.now.to_f
+              raise DRbConnError, "connection timeout" if remaining <= 0
+              msg = @ws.receive(timeout: remaining)
+            else
+              msg = @ws.receive
+            end
+            raise DRbConnError, "connection closed" unless msg
             @buffer += msg
           end
 
           result = @buffer.byteslice(0, n)
+          raise DRbConnError, "buffer underflow" unless result
           @buffer = @buffer.byteslice(n..-1) || ""
           result
         end
@@ -199,6 +209,7 @@ module DRb
           end
 
           result = @buffer.byteslice(0, n)
+          raise DRbConnError, "buffer underflow" unless result
           @buffer = @buffer.byteslice(n..-1) || ""
           result
         end

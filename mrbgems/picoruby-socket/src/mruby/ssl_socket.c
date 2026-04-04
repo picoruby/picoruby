@@ -6,6 +6,9 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 
+#define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
+#define E_EOF_ERROR    (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
+
 /* Data type for SSLContext */
 static void
 mrb_ssl_context_free(mrb_state *mrb, void *ptr)
@@ -428,19 +431,23 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
   return self;
 }
 
-/* ssl_socket.write(data) */
+/* ssl_socket.send(data, flags) */
 static mrb_value
-mrb_ssl_socket_write(mrb_state *mrb, mrb_value self)
+mrb_ssl_socket_send(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_socket_t *ssl_sock;
   mrb_value data;
+  // flags is required parameter for compatibility with CRuby.
+  // Currently check only if it's an Integer. It can be used for future extensions
+  mrb_int flags;
 
   ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  mrb_get_args(mrb, "S", &data);
+  mrb_get_args(mrb, "Si", &data, &flags);
+  (void)flags; // Unused for now
 
   ssize_t sent = SSLSocket_send(mrb, ssl_sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {
@@ -450,12 +457,12 @@ mrb_ssl_socket_write(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(sent);
 }
 
-/* ssl_socket.read(maxlen = nil) */
+/* ssl_socket.readpartial(maxlen) */
 static mrb_value
-mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
+mrb_ssl_socket_readpartial(mrb_state *mrb, mrb_value self)
 {
   picorb_ssl_socket_t *ssl_sock;
-  mrb_int maxlen = 4096;
+  mrb_int maxlen;
   mrb_value buf;
 
   ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
@@ -463,32 +470,89 @@ mrb_ssl_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
-  mrb_get_args(mrb, "|i", &maxlen);
+  mrb_get_args(mrb, "i", &maxlen);
 
   if (maxlen <= 0) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "maxlen must be positive");
   }
 
-  /* Allocate buffer */
-  char *read_buf = (char *)mrb_malloc(mrb, maxlen);
+  char stack_buf[PICORB_SOCKET_STACK_BUF_SIZE];
+  char *read_buf = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
+    ? stack_buf
+    : (char *)mrb_malloc(mrb, maxlen);
   if (!read_buf) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
   }
 
-  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen);
-  if (received < 0) {
-    mrb_free(mrb, read_buf);
-    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL recv failed");
-  }
+  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, false);
 
-  /* EOF */
   if (received == 0) {
-    mrb_free(mrb, read_buf);
-    return mrb_nil_value();
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
+  }
+
+  if (received == PICORB_RECV_TIMEOUT) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_SOCKET_ERROR, "read timeout");
+  }
+
+  if (received < 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL read failed");
   }
 
   buf = mrb_str_new(mrb, read_buf, received);
-  mrb_free(mrb, read_buf);
+  if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+
+  return buf;
+}
+
+/* ssl_socket.read_nonblock(maxlen) */
+static mrb_value
+mrb_ssl_socket_read_nonblock(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+  mrb_int maxlen;
+  mrb_value buf;
+
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+
+  mrb_get_args(mrb, "i", &maxlen);
+
+  if (maxlen <= 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "maxlen must be positive");
+  }
+
+  char stack_buf[PICORB_SOCKET_STACK_BUF_SIZE];
+  char *read_buf = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
+    ? stack_buf
+    : (char *)mrb_malloc(mrb, maxlen);
+  if (!read_buf) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
+  }
+
+  ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, true);
+
+  if (received == PICORB_RECV_WOULD_BLOCK) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    return mrb_nil_value();
+  }
+
+  if (received == 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
+  }
+
+  if (received < 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL read failed");
+  }
+
+  buf = mrb_str_new(mrb, read_buf, received);
+  if (read_buf != stack_buf) mrb_free(mrb, read_buf);
 
   return buf;
 }
@@ -614,8 +678,9 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(initialize), mrb_ssl_socket_initialize, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, ssl_socket_class, MRB_SYM(open), mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(connect), mrb_ssl_socket_connect, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(write), mrb_ssl_socket_write, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read), mrb_ssl_socket_read, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(send), mrb_ssl_socket_send, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(readpartial), mrb_ssl_socket_readpartial, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read_nonblock), mrb_ssl_socket_read_nonblock, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(close), mrb_ssl_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(closed), mrb_ssl_socket_closed_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(ready), mrb_ssl_socket_ready_p, MRB_ARGS_NONE());

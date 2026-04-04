@@ -62,7 +62,7 @@ module Net
       private def receive_unsuback: () -> bool
       private def send_ping: () -> void
       private def send_disconnect: () -> void
-      private def receive_packet: () -> [Integer, Integer, String]
+      private def receive_packet: (?String first_byte) -> [Integer, Integer, String]
       private def read_remaining_length: () -> [Integer, Integer]
       private def parse_publish: (Integer, String) -> [String, String]
     end

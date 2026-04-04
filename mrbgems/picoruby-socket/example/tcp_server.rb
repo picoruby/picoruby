@@ -13,7 +13,7 @@ begin
     puts "Client connected"
 
     begin
-      data = client.recv(1024)
+      data = client.readpartial(1024)
       if data && data.length > 0
         puts "Received: #{data.inspect}"
         client.send("Echo: #{data}", 0)

@@ -18,18 +18,26 @@ class UDPSocket
   end
 
   # Read data from any source (simplified version of recvfrom)
-  def read(maxlen = 4096)
+  # Incompatible with CRuby but maxlen should be specified in restricted environments
+  def read(maxlen)
     data, _addr = recvfrom(maxlen)
     data
-  end
-
-  # Write data to connected destination
-  def write(data)
-    send(data.to_s, 0)
   end
 
   # Check if socket is at end of file (UDP doesn't have EOF concept)
   def eof?
     closed?
+  end
+
+  def gets(separator = "\n")
+    raise NotImplementedError, "UDPSocket does not support gets method"
+  end
+
+  def readpartial(maxlen)
+    raise NotImplementedError, "UDPSocket does not support readpartial method"
+  end
+
+  def read_nonblock(maxlen)
+    raise NotImplementedError, "UDPSocket does not support read_nonblock method"
   end
 end

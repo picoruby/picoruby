@@ -6,6 +6,7 @@
 #include "mruby/data.h"
 
 #define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
+#define E_EOF_ERROR    (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
 
 /* TCPSocket.new(host, port) */
 static mrb_value
@@ -46,19 +47,23 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
   return self;
 }
 
-/* socket.write(data) */
+/* socket.send(data, flags) */
 static mrb_value
-mrb_tcp_socket_write(mrb_state *mrb, mrb_value self)
+mrb_tcp_socket_send(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
   mrb_value data;
+  // flags is required parameter for compatibility with CRuby.
+  // Currently check only if it's an Integer. It can be used for future extensions
+  mrb_int flags;
 
   sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  mrb_get_args(mrb, "S", &data);
+  mrb_get_args(mrb, "Si", &data, &flags);
+  (void)flags; // Unused for now
 
   ssize_t sent = TCPSocket_send(mrb, sock, RSTRING_PTR(data), RSTRING_LEN(data));
   if (sent < 0) {
@@ -68,12 +73,12 @@ mrb_tcp_socket_write(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(sent);
 }
 
-/* socket.read(maxlen = nil) */
+/* socket.readpartial(maxlen) */
 static mrb_value
-mrb_tcp_socket_read(mrb_state *mrb, mrb_value self)
+mrb_tcp_socket_readpartial(mrb_state *mrb, mrb_value self)
 {
   picorb_socket_t *sock;
-  mrb_int maxlen = 4096;
+  mrb_int maxlen;
   mrb_value buf;
 
   sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
@@ -81,32 +86,89 @@ mrb_tcp_socket_read(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
 
-  mrb_get_args(mrb, "|i", &maxlen);
+  mrb_get_args(mrb, "i", &maxlen);
 
   if (maxlen <= 0) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "maxlen must be positive");
   }
 
-  /* Allocate buffer */
-  char *read_buf = (char *)mrb_malloc(mrb, maxlen);
+  char stack_buf[PICORB_SOCKET_STACK_BUF_SIZE];
+  char *read_buf = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
+    ? stack_buf
+    : (char *)mrb_malloc(mrb, maxlen);
   if (!read_buf) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate read buffer");
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
   }
 
-  ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen);
-  if (received < 0) {
-    mrb_free(mrb, read_buf);
-    mrb_raise(mrb, E_RUNTIME_ERROR, "recv failed");
-  }
+  ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen, false);
 
-  /* EOF */
   if (received == 0) {
-    mrb_free(mrb, read_buf);
-    return mrb_nil_value();
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
+  }
+
+  if (received == PICORB_RECV_TIMEOUT) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_SOCKET_ERROR, "read timeout");
+  }
+
+  if (received < 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "read failed");
   }
 
   buf = mrb_str_new(mrb, read_buf, received);
-  mrb_free(mrb, read_buf);
+  if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+
+  return buf;
+}
+
+/* socket.read_nonblock(maxlen) */
+static mrb_value
+mrb_tcp_socket_read_nonblock(mrb_state *mrb, mrb_value self)
+{
+  picorb_socket_t *sock;
+  mrb_int maxlen;
+  mrb_value buf;
+
+  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
+  if (!sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
+  }
+
+  mrb_get_args(mrb, "i", &maxlen);
+
+  if (maxlen <= 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "maxlen must be positive");
+  }
+
+  char stack_buf[PICORB_SOCKET_STACK_BUF_SIZE];
+  char *read_buf = (maxlen < PICORB_SOCKET_STACK_BUF_SIZE)
+    ? stack_buf
+    : (char *)mrb_malloc(mrb, maxlen);
+  if (!read_buf) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate buffer");
+  }
+
+  ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen, true);
+
+  if (received == PICORB_RECV_WOULD_BLOCK) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    return mrb_nil_value();
+  }
+
+  if (received == 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_EOF_ERROR, "end of file reached");
+  }
+
+  if (received < 0) {
+    if (read_buf != stack_buf) mrb_free(mrb, read_buf);
+    mrb_raise(mrb, E_RUNTIME_ERROR, "read failed");
+  }
+
+  buf = mrb_str_new(mrb, read_buf, received);
+  if (read_buf != stack_buf) mrb_free(mrb, read_buf);
 
   return buf;
 }
@@ -204,8 +266,9 @@ tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   MRB_SET_INSTANCE_TT(tcp_socket_class, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(initialize), mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(write), mrb_tcp_socket_write, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(read), mrb_tcp_socket_read, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(send), mrb_tcp_socket_send, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(readpartial), mrb_tcp_socket_readpartial, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(read_nonblock), mrb_tcp_socket_read_nonblock, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(close), mrb_tcp_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(closed), mrb_tcp_socket_closed_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(ready), mrb_tcp_socket_ready_p, MRB_ARGS_NONE());

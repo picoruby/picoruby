@@ -5,7 +5,10 @@ module DRb
 
     # WebSocket adapter for DRb
     class Adapter
-      def initialize: (untyped ws) -> void
+      @ws: untyped
+      @buffer: String
+      @read_timeout: Integer | nil
+      def initialize: (untyped ws, ?read_timeout: Integer?) -> void
       def write: (String data) -> void
       def read: (Integer n) -> String
       def close: -> void
