@@ -1,4 +1,7 @@
 #include "../../include/hal.h"
+#include "../../include/machine.h"
+#include "../../include/ringbuffer.h"
+#include "../../../picoruby-io-console/include/io-console.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -35,6 +38,57 @@ static mrb_state *mrb_;
 static esp_timer_handle_t periodic_timer;
 volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
 
+/*-------------------------------------
+ *
+ * stdin RingBuffer
+ *
+ *------------------------------------*/
+
+#ifndef PICORB_STDIN_BUFFER_SIZE
+#define PICORB_STDIN_BUFFER_SIZE 1024
+#endif
+
+static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORB_STDIN_BUFFER_SIZE]
+  __attribute__((aligned(4)));
+static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
+
+bool
+hal_stdin_push(uint8_t ch)
+{
+  if (!io_raw_q()) {
+    if (ch == 3) {
+      sigint_status = MACHINE_SIGINT_RECEIVED;
+      return true;
+    }
+    if (ch == 26) {
+      sigint_status = MACHINE_SIGTSTP_RECEIVED;
+      return true;
+    }
+  }
+  return RingBuffer_push(stdin_rb, ch);
+}
+
+static void
+stdin_reader_task(void *arg)
+{
+  (void)arg;
+  for (;;) {
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+    if (usb_serial_jtag_ll_rxfifo_data_available()) {
+      uint8_t ch;
+      usb_serial_jtag_ll_read_rxfifo(&ch, 1);
+      hal_stdin_push(ch);
+    }
+#else
+    int c = fgetc(stdin);
+    if (c != EOF) {
+      hal_stdin_push((uint8_t)c);
+    }
+#endif
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+
 static void
 alarm_handler(void *arg)
 {
@@ -67,6 +121,9 @@ machine_hal_init(void)
 #else
   esp_timer_start_periodic(periodic_timer, MRBC_TICK_UNIT * 1000);
 #endif
+
+  RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);
+  xTaskCreate(stdin_reader_task, "stdin_reader", 2048, NULL, tskIDLE_PRIORITY + 1, NULL);
 }
 
 #if defined(PICORB_VM_MRUBY)
@@ -143,27 +200,26 @@ int hal_flush(int fd) {
 int
 hal_read_available(void)
 {
-#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
-  return usb_serial_jtag_ll_rxfifo_data_available() ? 1 : 0;
-#else
-  int c = fgetc(stdin);
-  return ungetc(c, stdin) == EOF ? 0 : 1;
-#endif
+  return (RingBuffer_data_size(stdin_rb) > 0) ? 1 : 0;
 }
 
 int
 hal_getchar(void)
 {
-#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
-  if (usb_serial_jtag_ll_rxfifo_data_available()) {
-    uint8_t ch;
-    usb_serial_jtag_ll_read_rxfifo(&ch, 1);
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 3;
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return 26;
+  }
+
+  uint8_t ch;
+  if (RingBuffer_pop(stdin_rb, &ch)) {
     return (int)ch;
   }
   return HAL_GETCHAR_NODATA;
-#else
-  return fgetc(stdin);
-#endif
 }
 
 void
