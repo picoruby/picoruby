@@ -17,6 +17,10 @@
 #include "hal/efuse_hal.h"
 #include "rom/ets_sys.h"
 
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+#include "hal/usb_serial_jtag_ll.h"
+#endif
+
 #define ESP32_MSEC_PER_TICK       (10)
 #define ESP32_TIMER_UNIT_PER_SEC  (1000000)
 
@@ -120,25 +124,46 @@ hal_write(int fd, const void *buf, int nbytes)
     fputc(((char*)buf)[i], stream);
   }
   fflush(stream);
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+  usb_serial_jtag_ll_txfifo_flush();
+#endif
   return nbytes;
 }
 
 int hal_flush(int fd) {
   FILE *stream = (fd == 1) ? stdout : stderr;
-  return fflush(stream);
+  int ret = fflush(stream);
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+  usb_serial_jtag_ll_txfifo_flush();
+#endif
+  return ret;
 }
+
 
 int
 hal_read_available(void)
 {
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+  return usb_serial_jtag_ll_rxfifo_data_available() ? 1 : 0;
+#else
   int c = fgetc(stdin);
   return ungetc(c, stdin) == EOF ? 0 : 1;
+#endif
 }
 
 int
 hal_getchar(void)
 {
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+  if (usb_serial_jtag_ll_rxfifo_data_available()) {
+    uint8_t ch;
+    usb_serial_jtag_ll_read_rxfifo(&ch, 1);
+    return (int)ch;
+  }
+  return HAL_GETCHAR_NODATA;
+#else
   return fgetc(stdin);
+#endif
 }
 
 void
