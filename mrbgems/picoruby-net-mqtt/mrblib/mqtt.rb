@@ -428,7 +428,7 @@ module Net
         remaining_length, offset = read_remaining_length
 
         # Read data
-        data = nil
+        data = ""
         if remaining_length > 0
           data = @socket.read(remaining_length)
           if data.nil? || data.bytesize < remaining_length
