@@ -45,7 +45,6 @@ module Net
         def initialize(socket)
           @socket = socket
           @fragments = []
-          @close_sent = false
           perform_handshake
         end
 
@@ -364,7 +363,6 @@ module Net
           begin
             send_frame(OPCODE_CLOSE, [code].pack("n") + reason) # steep:ignore
           ensure
-            @close_sent = true
             @socket&.close
           end
           nil
