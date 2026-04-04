@@ -256,6 +256,7 @@ c_ssl_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  mrbc_incref(&v[0]);
   SET_INT_RETURN(sent);
 }
 
@@ -319,6 +320,7 @@ c_ssl_socket_readpartial(mrbc_vm *vm, mrbc_value *v, int argc)
 
   mrbc_value ret = mrbc_string_new(vm, buffer, received);
   if (buffer != stack_buf) picorb_free(vm, buffer);
+  mrbc_incref(&v[0]);
   SET_RETURN(ret);
 }
 
@@ -382,6 +384,7 @@ c_ssl_socket_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 
   mrbc_value ret = mrbc_string_new(vm, buffer, received);
   if (buffer != stack_buf) picorb_free(vm, buffer);
+  mrbc_incref(&v[0]);
   SET_RETURN(ret);
 }
 
