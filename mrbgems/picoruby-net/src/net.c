@@ -41,7 +41,7 @@ Net_get_ipv4_address(char *buf, size_t buflen)
   if (ip && ip->addr != 0) {
     res = ipaddr_ntoa_r(ip, buf, buflen);
   } else {
-    return NULL;
+    res = NULL;
   }
   lwip_end();
   return res;

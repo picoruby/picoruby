@@ -143,7 +143,7 @@ CYW43_ipv4_address(char *buf, size_t buflen)
   if (ip && ip->addr != 0) {
     res = ipaddr_ntoa_r(ip, buf, buflen);
   } else {
-    return NULL;
+    res = NULL;
   }
   lwip_end();
   return res;
@@ -158,7 +158,7 @@ CYW43_ipv4_netmask(char *buf, size_t buflen)
   if (netmask && netmask->addr != 0) {
     res = ipaddr_ntoa_r(netmask, buf, buflen);
   } else {
-    return NULL;
+    res = NULL;
   }
   lwip_end();
   return res;
@@ -173,7 +173,7 @@ CYW43_ipv4_gateway(char *buf, size_t buflen)
   if (gateway && gateway->addr != 0) {
     res = ipaddr_ntoa_r(gateway, buf, buflen);
   } else {
-    return NULL;
+    res = NULL;
   }
   lwip_end();
   return res;

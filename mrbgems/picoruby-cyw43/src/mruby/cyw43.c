@@ -148,6 +148,9 @@ mrb_s_dhcp_supplied_p(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_cyw43_s_ipv4_address(mrb_state *mrb, mrb_value self)
 {
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
   char addr_str[16] = {0};
   if (!CYW43_ipv4_address(addr_str, 16)) {
     return mrb_nil_value();
@@ -159,6 +162,9 @@ mrb_cyw43_s_ipv4_address(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_cyw43_s_ipv4_netmask(mrb_state *mrb, mrb_value self)
 {
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
   char netmask_str[16] = {0};
   if (!CYW43_ipv4_netmask(netmask_str, 16)) {
     return mrb_nil_value();
@@ -170,6 +176,9 @@ mrb_cyw43_s_ipv4_netmask(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_cyw43_s_ipv4_gateway(mrb_state *mrb, mrb_value self)
 {
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
   char gateway_str[16] = {0};
   if (!CYW43_ipv4_gateway(gateway_str, 16)) {
     return mrb_nil_value();
