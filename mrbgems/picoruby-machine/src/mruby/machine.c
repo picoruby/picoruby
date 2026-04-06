@@ -34,7 +34,8 @@ static mrb_value
 mrb_s_bootsel_pressed_p(mrb_state *mrb, mrb_value klass)
 {
 #if defined(PICORB_PLATFORM_POSIX)
-  return mrb_false_value();
+  mrb_raise(mrb, E_NOTIMP_ERROR, "Machine.bootsel_pressed? is not supported on this platform");
+  return mrb_nil_value();
 #else
   if (Machine_bootsel_pressed_q()) {
     return mrb_true_value();
