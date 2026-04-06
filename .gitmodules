@@ -29,3 +29,6 @@
 [submodule "mrbgems/picoruby-littlefs/lib/littlefs"]
 	path = mrbgems/picoruby-littlefs/lib/littlefs
 	url = https://github.com/littlefs-project/littlefs
+[submodule "mrbgems/picoruby-funicular"]
+	path = mrbgems/picoruby-funicular
+	url = https://github.com/picoruby/funicular
