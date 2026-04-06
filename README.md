@@ -4,14 +4,23 @@
 
 PicoRuby is an alternative mruby implementation which is:
 
-- Small foot print
-  - ROM: 256 KB (depending on build config)
-  - RAM: 128 KB or less (depending on app code)
-  - (Figures in 32 bit architecture)
+- Small foot print (depending on build config)
+  - RAM: 512 KB or less (PicoRuby with networking)
+  - RAM: 128 KB or less (FemtoRuby)
 - Portable
-  - Depends on only standard C library such as glibc, Newlib or Newlib-nano
+  - Depends on only standard C library such as glibc, Newlib or Newlib-nano, and emcc
 - Reference microcontroller boards
+  - Raspberry Pi Pico 2 W - Arm Cortex-M33, 520 KB RAM, 4 MB Flash with CYW43 network module
   - Raspberry Pi Pico - Arm Cortex-M0+, 264 KB RAM, 2 MB Flash
+
+### FemtoRuby?
+
+From version 4.x, we call the artifacts below:
+
+- PicoRuby (used to be MicroRuby) ... mruby VM version
+- FemtoRuby (used to be PicoRuby) ... mruby/c VM version
+
+mruby VM version is mainly being developed.
 
 ### API documentation with some demo videos
 
@@ -21,12 +30,17 @@ PicoRuby is an alternative mruby implementation which is:
 
 ### Depends on
 
+- [PicoRuby compiler (picoruby/mruby-compiler2)](https://github.com/picoruby/mruby-compiler2)
+- [Estalloc (picoruby/estalloc)](https://github.com/picoruby/estalloc)
+- [Littlefs (littlefs-project/littlefs)](https://github.com/littlefs-project/littlefs)
 - [mruby (mruby/mruby)](https://github.com/mruby/mruby)
-- [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc): Another implementation of mruby virtual machine
+- [mruby/c (mrubyc/mrubyc)](https://github.com/mrubyc/mrubyc)
 
 ### Used by
 
-- [picoruby.wasm](https://www.npmjs.com/package/@picoruby/wasm-wasi): PicoRuby WASI runtime for WebAssembly
+- [R2P2](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-r2p2): PicoRuby shell system for Raspberry Pi Pico
+- [R2P2-ESP32](https://github.com/picoruby/R2P2-ESP32): ESP32 port
+- [PicoRuby.wasm](https://www.npmjs.com/package/@picoruby/wasm-wasi): PicoRuby WASI runtime for WebAssembly
 - [PRK Firmware](https://github.com/picoruby/prk_firmware): Keyboard firmware for Raspberry Pi Pico
 
 ## Testing
@@ -68,7 +82,7 @@ See an example: [build_config/r2p2-picoruby-pico.rb](build_config/r2p2-picoruby-
   - `bin/picorbc path/to/source.rb` makes `path/to/source.mrb` that is VM code runs on an mruby-compatible virtual machine
 - bin/picoruby
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
-  - You can do like `bin/picoruby path/to/your_script.rb` to run your script
+  - `bin/picoruby -e "puts 'Hello1'"` also works
 - bin/r2p2
   - POSIX version of R2P2 (See [mrbgems/picoruby-r2p2](mrbgems/picoruby-r2p2) for the Raspi Pico edition)
 
