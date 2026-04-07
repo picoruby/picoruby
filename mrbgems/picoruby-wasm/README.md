@@ -1,139 +1,54 @@
 # picoruby-wasm
 
-PicoRuby for WebAssembly - Ruby runtime in the browser powered by mruby VM.
+This mrbgem builds PicoRuby as WebAssembly, producing the [`@picoruby/wasm-wasi`](npm/picoruby/) npm package.
+It uses the mruby VM to run Ruby in the browser with full JavaScript interoperability.
 
-## Overview
+If you want to **use** PicoRuby.wasm rather than develop it, see the [npm package README](npm/picoruby/README.md).
 
-This mrbgem provides WebAssembly bindings for PicoRuby, enabling Ruby code to run in web browsers with seamless JavaScript interoperability.
+## Architecture
 
-```ruby
-require 'js'
+PicoRuby.wasm uses a task suspension model instead of Emscripten's ASYNCIFY:
 
-# Access DOM
-button = JS.document.getElementById('myButton')
+- Ruby tasks cooperatively yield to the JavaScript event loop (60fps via `requestAnimationFrame`)
+- Async operations (setTimeout, fetch, addEventListener) suspend the current task, cleanly exiting the `setjmp` scope
+- When the Promise resolves, the task resumes on a fresh C stack with a new `setjmp`
+- Ruby exceptions therefore work correctly across async boundaries without ASYNCIFY overhead
 
-# Add event listener
-button.addEventListener('click') do |event|
-  puts "Button clicked at #{event[:clientX]}, #{event[:clientY]}"
-end
-
-# Schedule delayed execution
-JS.global.setTimeout(2000) do
-  puts "Timer fired!"
-end
-
-# Make HTTP requests
-JS.global.fetch('https://api.example.com/data') do |response|
-  puts "Status: #{response[:status]}"
-end
-```
-
-## Quick Start
-
-### Using in HTML
-
-```html
-<!DOCTYPE html>
-<html>
-<head>
-  <title>PicoRuby.wasm Example</title>
-</head>
-<body>
-  <button id="myButton">Click me!</button>
-
-  <script type="text/ruby">
-    require 'js'
-
-    button = JS.document.getElementById('myButton')
-    button.addEventListener('click') do |event|
-      event.target[:textContent] = 'Clicked!'
-    end
-  </script>
-
-  <script src="init.iife.js"></script>
-</body>
-</html>
-```
-
-### Using as NPM Package
-
-```bash
-npm install picoruby-wasm
-```
-
-```javascript
-import init from 'picoruby-wasm';
-
-init().then(picoruby => {
-  picoruby.evalRubyCode(`
-    puts "Hello from Ruby!"
-  `);
-});
-```
-
-## Key Features
-
-### Task-Based Execution
-- Cooperative multitasking integrated with JavaScript event loop
-- Multiple Ruby tasks can run concurrently
-- No ASYNCIFY overhead (50% smaller WASM file)
-
-### Seamless JavaScript Interop
-- Call JavaScript functions from Ruby
-- Access DOM APIs naturally
-- Automatic type conversion between Ruby and JavaScript
-
-### Exception Safety
-- Ruby exceptions work correctly across async boundaries
-- No need for ASYNCIFY=1 flag
-- Comprehensive test suite validates exception handling
+See [docs/architecture.md](docs/architecture.md) for the full design including invariants that must be preserved.
 
 ## Documentation
 
-### Core Concepts
-- **[Architecture](docs/architecture.md)** - Task-based execution model and exception safety
-- **[Async Operations](docs/async_operations.md)** - addEventListener, setTimeout, fetch patterns
-- **[Callbacks](docs/callback.md)** - How callbacks work in PicoRuby.wasm
-- **[JS-Ruby Interoperability](docs/interoperability_between_js_and_ruby.md)** - Data conversion and type handling
+- [Architecture](docs/architecture.md) - Task suspension model, exception safety, design invariants
+- [Async Operations](docs/async_operations.md) - addEventListener, setTimeout, fetch patterns
+- [Callbacks](docs/callback.md) - Callback system internals
+- [JS-Ruby Interoperability](docs/interoperability_between_js_and_ruby.md) - Type conversion reference
 
-### API Reference
-- **[JS::Object Guide](docs/js_object_guide.md)** - Complete guide to JS::Object API (TODO)
+## Prerequisites
 
-### Examples
-See `demo/www/` for working examples:
-- `dom.html` - DOM manipulation
-- `timeout.html` - setTimeout/clearTimeout
-- `websocket.html` - WebSocket client
-- `multitasks.html` - Concurrent tasks
-- And many more...
-
-## Building from Source
-
-### Prerequisites
-- Emscripten SDK (emsdk)
+- [Emscripten SDK](https://emscripten.org/docs/getting_started/downloads.html)
 - Ruby
 - Rake
 
-### Build Commands
+## Build
 
 ```bash
-# Build WASM (debug mode)
+# Debug build
 rake wasm:debug
 
-# Build WASM (release mode)
+# Release build
 rake wasm:release
 
 # Clean build artifacts
 rake wasm:clean
 
-# Run development server
+# Start local dev server
 rake wasm:server
 # Open http://localhost:8080/www/
 ```
 
 ## Testing
 
-Run the comprehensive test suite to validate exception handling:
+Run the exception-handling test suite after any change to async/task/exception code:
 
 ```bash
 rake wasm:debug
@@ -141,52 +56,49 @@ rake wasm:server
 # Open http://localhost:8080/www/test_index.html
 ```
 
-All tests must pass to ensure async boundary safety.
-
-## Build Configuration
-
-Key Emscripten flags (see `mrbgem.rake`):
-
-```ruby
--s WASM=1                      # WebAssembly output
--s EXPORT_ES6=1                # ES6 module export
--s MODULARIZE=1                # Wrap in module
--s INITIAL_MEMORY=16MB         # Initial heap size
--s ALLOW_MEMORY_GROWTH=1       # Dynamic memory
--s ENVIRONMENT=web             # Browser target
-```
-
-**Note**: `ASYNCIFY=1` is NOT used. Our task suspension model eliminates the need for it, saving 50%+ in code size.
+All tests must pass. If any test fails, an async/exception boundary invariant has been broken.
+See [docs/architecture.md](docs/architecture.md) for what each invariant means.
 
 ## Project Structure
 
 ```
 picoruby-wasm/
-├── README.md                # This file
-├── docs/                    # Detailed documentation
+├── docs/                     # Design documentation
 │   ├── architecture.md
 │   ├── async_operations.md
 │   ├── callback.md
 │   └── interoperability_between_js_and_ruby.md
-├── mrbgem.rake             # Build configuration
-├── src/
-│   └── mruby/
-│       ├── js.c            # JavaScript interop
-│       └── wasm.c          # WASM initialization
-├── mrblib/                 # Ruby code
-│   └── js.rb              # JS module
-├── demo/
-│   └── www/               # Examples and tests
-└── npm/                   # NPM package
+├── mrbgem.rake               # Build configuration (emcc flags)
+├── src/mruby/
+│   ├── js.c                  # JS interop: callbacks, timers, DOM events
+│   └── wasm.c                # WASM init, main loop
+├── mrblib/
+│   └── js.rb                 # JS module (Ruby side)
+├── demo/www/                 # Examples and test cases
+└── npm/picoruby/             # NPM package
 ```
+
+### Key Emscripten Flags
+
+```
+-s WASM=1                 # WebAssembly output
+-s EXPORT_ES6=1           # ES6 module export
+-s MODULARIZE=1           # Wrap in module
+-s INITIAL_MEMORY=16MB    # Initial heap size
+-s ALLOW_MEMORY_GROWTH=1  # Dynamic memory growth
+-s ENVIRONMENT=web        # Browser target
+```
+
+`ASYNCIFY=1` is NOT used. The task suspension model eliminates the need for it,
+keeping the WASM binary ~50% smaller than an ASYNCIFY build.
 
 ## Contributing
 
-Contributions are welcome! When modifying async/exception handling code:
+Before modifying async/exception handling code:
 
-1. Read [docs/architecture.md](docs/architecture.md) for design principles
+1. Read [docs/architecture.md](docs/architecture.md)
 2. Make your changes
-3. Run the full test suite
+3. Run the full test suite (see Testing above)
 4. Ensure all tests pass
 
 ## License
@@ -195,6 +107,6 @@ MIT
 
 ## See Also
 
-- [PicoRuby](https://github.com/picoruby/picoruby) - The main PicoRuby project
-- [mruby](https://github.com/mruby/mruby) - The Ruby VM used by PicoRuby
-- [Emscripten](https://emscripten.org/) - Compiler toolchain for WebAssembly
+- [PicoRuby](https://github.com/picoruby/picoruby)
+- [mruby](https://github.com/mruby/mruby)
+- [Emscripten](https://emscripten.org/)

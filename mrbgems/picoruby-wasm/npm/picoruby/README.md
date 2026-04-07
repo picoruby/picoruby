@@ -1,43 +1,23 @@
 # PicoRuby.wasm
 
-PicoRuby WebAssembly - Ruby for the browser powered by mruby VM
+Run Ruby in the browser. Powered by the mruby VM compiled to WebAssembly.
 
-## What is PicoRuby?
+## Quick Start
 
-PicoRuby is a WebAssembly build of [PicoRuby](https://github.com/picoruby/picoruby) using the full **mruby VM** (as opposed to PicoRuby.wasm which uses mruby/c).
-
-### Key Features
-
-- **Full mruby VM**: Complete Ruby implementation with rich features
-- **Task Scheduler**: Built-in cooperative multitasking for concurrent Ruby code
-- **JavaScript Interop**: Seamless integration with JavaScript APIs
-- **Browser Compatible**: Runs directly in modern web browsers
-- **Same API as PicoRuby**: Consistent interface across VM variants
-
-## Installation
-
-```bash
-npm install @picoruby/wasm-wasi
-```
-
-## Usage
-
-### HTML (IIFE)
+Add one `<script>` tag and write Ruby directly in your HTML:
 
 ```html
 <!DOCTYPE html>
 <html>
 <head>
-  <script type="module" src="node_modules/@picoruby/wasm/dist/init.iife.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi/dist/init.iife.js"></script>
+  <!-- If you want to specify a version: @picoruby/wasm-wasi@4.0.0/dist/init.iife.js -->
 </head>
 <body>
   <script type="text/ruby">
-    puts "Hello from PicoRuby!"
+    require 'js'
 
-    # JavaScript interop
-    js_global = JS.global
-    document = js_global[:document]
-    document.getElementById("output").innerText = "Hello from Ruby!"
+    JS.document.getElementById('output')[:textContent] = "Hello from Ruby!"
   </script>
 
   <div id="output"></div>
@@ -45,75 +25,92 @@ npm install @picoruby/wasm-wasi
 </html>
 ```
 
-### Loading External Ruby Files
+Load an external Ruby file:
 
 ```html
 <script type="text/ruby" src="app.rb"></script>
 ```
 
-### JavaScript API
+## Installation (npm)
 
-```javascript
-// Initialize manually
-await window.initPicoRuby();
-
-// Access the module
-const Module = window.Module;
-
-// Execute Ruby code
-Module.ccall('picorb_create_task', 'number', ['string'], ['puts "Hello!"']);
-```
-
-## Differences from PicoRuby.wasm
-
-| Feature | PicoRuby (mruby/c) | PicoRuby (mruby) |
-|---------|-------------------|-------------------|
-| VM | mruby/c (compact) | mruby (full-featured) |
-| Size | ~780KB | ~1.6MB |
-| Performance | Faster startup | Richer features |
-| Memory | Lower footprint | More memory needed |
-| API | Same | Same |
-
-## Architecture
-
-PicoRuby uses **explicit execution loop model**:
-
-```
-JavaScript (60fps)
-  ├─ mrb_tick_wasm()  → Timer processing & task wakeup
-  └─ mrb_run_step()   → Execute one task step
-```
-
-This architecture:
-- ✅ Provides fine-grained control from JavaScript
-- ✅ Enables easy debugging and profiling
-- ✅ Consistent with PicoRuby.wasm interface
-- ✅ Cooperative multitasking via Task Scheduler
-
-## Development
-
-### Building
+For bundler-based workflows:
 
 ```bash
-# Build debug version
-rake wasm:debug
-
-# Build production version
-rake wasm:prod
-
-# Start local server
-rake wasm:server
+npm install @picoruby/wasm-wasi
 ```
 
-### Testing
+## JavaScript Interoperability
 
-Visit http://localhost:8080 after starting the server.
+`JS.global` (window) and `JS.document` are the two entry points into the JavaScript world.
+
+### Reading properties
+
+```ruby
+require 'js'
+
+title  = JS.document[:title].to_s
+width  = JS.document.getElementById('box')[:offsetWidth].to_i
+items  = JS.document.querySelectorAll('.item').to_a
+nav    = JS.global[:navigator]
+```
+
+Property access returns a `JS::Object`. Convert with `.to_s`, `.to_i`, `.to_f`, or `.to_a`.
+`null` and `undefined` become `nil` automatically.
+
+### Writing properties and calling methods
+
+```ruby
+element = JS.document.getElementById('output')
+element[:textContent] = "updated"
+element.setAttribute('class', 'active')
+element.focus
+```
+
+Ruby values (String, Integer, Float, true/false, nil, Array, Hash) are auto-converted
+to their JavaScript equivalents.
+
+For deeply nested structures passed to JS libraries, use `JS::Bridge.to_js`:
+
+```ruby
+config = JS::Bridge.to_js({
+  type: 'bar',
+  data: { labels: ['Jan', 'Feb'], datasets: [{ data: [10, 20] }] }
+})
+JS.global[:Chart].new(canvas, config)
+```
+
+### Async operations
+
+Callbacks run as cooperative tasks. Multiple async operations can run concurrently
+without blocking the browser.
+
+```ruby
+# setTimeout
+JS.global.setTimeout(1000) do
+  puts "one second later"
+end
+
+# fetch
+JS.global.fetch('https://api.example.com/data') do |response|
+  puts response[:status].to_i
+end
+
+# addEventListener
+button = JS.document.getElementById('btn')
+button.addEventListener('click') do |event|
+  puts "clicked at #{event[:clientX].to_i}, #{event[:clientY].to_i}"
+end
+```
+
+Ruby exceptions raised inside callbacks are caught correctly by `rescue`/`ensure`.
 
 ## License
 
 MIT
 
+Copyright © 2026 HASUMI Hitoshi.
+
 ## Links
 
+- [Source and documentation](https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm)
 - [PicoRuby](https://github.com/picoruby/picoruby)
-- [mruby](https://github.com/mruby/mruby)
