@@ -48,22 +48,22 @@ end
 namespace :wasm do
   picorbc_npm_dir = "mrbgems/picoruby-wasm/npm/picorbc"
 
-  desc "Build PicoRuby WASM and picorbc WASM (debug)"
-  task :debug do
-    sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
+  desc "Build picorbc WASM"
+  task :picorbc do
     sh "CONFIG=picorbc-wasm PICORB_DEBUG=1 rake"
     FileUtils.mkdir_p("#{picorbc_npm_dir}/debug")
     sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/debug/"
     sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/debug/"
   end
 
+  desc "Build PicoRuby WASM and picorbc WASM (debug)"
+  task :debug => :picorbc do
+    sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
+  end
+
   desc "Build PicoRuby WASM and picorbc WASM (production)"
   task :prod do
     sh "CONFIG=picoruby-wasm rake"
-    sh "CONFIG=picorbc-wasm rake"
-    FileUtils.mkdir_p("#{picorbc_npm_dir}/dist")
-    sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/dist/"
-    sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/dist/"
   end
 
   desc "Clean PicoRuby WASM build"
