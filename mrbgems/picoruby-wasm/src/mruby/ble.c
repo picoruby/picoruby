@@ -5,6 +5,7 @@
 #include "mruby/array.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
+#include "mruby/hash.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
 
@@ -108,6 +109,13 @@ ble_notify_callback(uintptr_t callback_id, const uint8_t *data, int length)
 {
   if (!global_mrb) return;
 
+  mrb_value callbacks = mrb_const_get(global_mrb,
+    mrb_obj_value(class_JS_Object), mrb_intern_lit(global_mrb, "CALLBACKS"));
+  if (!mrb_hash_p(callbacks)) return;
+  mrb_value callback = mrb_hash_get(global_mrb, callbacks,
+    mrb_fixnum_value((mrb_int)callback_id));
+  if (mrb_nil_p(callback)) return;
+
   /* Push binary data to queue array */
   mrb_sym queue_sym = mrb_intern_lit(global_mrb, "$_ble_notify_queue");
   mrb_value queue = mrb_gv_get(global_mrb, queue_sym);
@@ -121,7 +129,7 @@ ble_notify_callback(uintptr_t callback_id, const uint8_t *data, int length)
   /* Build and execute callback script */
   static char script[256];
   snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu]&.call($_ble_notify_queue.shift)",
+    "JS::Object::CALLBACKS[%lu].call($_ble_notify_queue.shift)",
     (unsigned long)callback_id);
 
   mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
