@@ -49,6 +49,10 @@ module DRb
           # reconnection is expensive
         end
 
+        def real_close
+          @ws.close rescue nil
+        end
+
         def closed?
           @ws.respond_to?(:closed?) ? @ws.closed? : false
         end
@@ -90,7 +94,7 @@ module DRb
         def run
           while @running
             ws_conn = @server.accept
-            socket = Adapter.new(ws_conn)
+            socket = Adapter.new(ws_conn, read_timeout: 30)
             handle_client(socket)
           end
         rescue => e
@@ -137,7 +141,7 @@ module DRb
           end
         ensure
           begin
-            socket.close
+            socket.real_close
           rescue
             # Ignore errors during close (connection may already be closed)
           end
