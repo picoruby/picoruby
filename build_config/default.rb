@@ -1,19 +1,24 @@
 MRuby::Build.new do |conf|
+  conf.toolchain :gcc
 
-  conf.toolchain
+  conf.cc.defines << "MRB_TICK_UNIT=4"
+  conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
 
+  conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
+  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
-  conf.cc.defines << "PICORB_INT64"
-  conf.cc.defines << "MRBC_TICK_UNIT=4"
-  conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
-  conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.femtoruby(alloc_libc: false)
+  conf.cc.defines << "MRB_INT64"
+  conf.cc.defines << "MRB_NO_BOXING"
+  conf.cc.defines << "MRB_UTF8_STRING"
+
+  conf.picoruby
 
   # Link OpenSSL libraries for socket SSL support
   conf.linker.libraries << 'ssl'
   conf.linker.libraries << 'crypto'
 
+  conf.gembox "mruby-posix"
   conf.gembox "minimum"
   conf.gembox "core"
   conf.gembox "stdlib"
@@ -22,4 +27,3 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-shinonome"
   conf.gem core: "picoruby-bin-r2p2"
 end
-

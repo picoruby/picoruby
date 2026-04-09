@@ -62,12 +62,22 @@ rake                    # same for `rake picoruby:prod`
 rake picoruby:debug     # for debug build
 
 bin/picoruby -e 'puts "Hello World!"'
+
 ```
 - Building on a mac
   - openssl is not linked in homebrew to avoid mixing with system ssl
   - extend the C/LD flags to point to the right locations:
-```
+
+```console
 rake LDFLAGS=-L$(brew --prefix openssl@3)/lib CFLAGS=-I$(brew --prefix openssl@3)/include
+```
+
+#### FemtoRuby (mruby/c VM version)
+
+```console
+rake femtoruby:prod
+# or
+rake femtoruby:debug
 ```
 
 #### Cross compilation
