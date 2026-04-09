@@ -12,6 +12,7 @@ module DRb
       def write: (String data) -> void
       def read: (Integer n) -> String
       def close: -> void
+      def real_close: -> void
       def closed?: -> bool
     end
 
