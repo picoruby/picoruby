@@ -88,6 +88,20 @@ namespace :wasm do
     end
   end
 
+  desc "Build production and publish @picoruby/wasm-wasi to npm with 'head' dist-tag"
+  task :release_head => [:check_npm_login, :clean, :prod] do
+    require 'json'
+    date_suffix = Time.now.strftime('%Y%m%d')
+    base_version = File.read("include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
+    head_version = "#{base_version}-head.#{date_suffix}"
+    FileUtils.cd "mrbgems/picoruby-wasm/npm/picoruby" do
+      pkg = JSON.parse(File.read("package.json"))
+      pkg["version"] = head_version
+      File.write("package.json", JSON.generate(pkg))
+      sh "npm publish --access public --tag head --registry=https://registry.npmjs.org/"
+    end
+  end
+
   desc "Start local server for PicoRuby WASM"
   task :server do
     sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
