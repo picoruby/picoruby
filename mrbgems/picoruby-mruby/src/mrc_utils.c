@@ -17,6 +17,10 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
     picorb_sym *new_syms = (picorb_sym *)mrc_malloc(cc, sizeof(picorb_sym) *irep->slen);
     for (int i = 0; i < irep->slen; i++) {
       mrc_sym sym = irep->syms[i];
+      if (sym == 0) {
+        new_syms[i] = 0;
+        continue;
+      }
       pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
       const char *lit = (const char *)constant->start;
       size_t len = constant->length;
