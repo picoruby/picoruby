@@ -72,14 +72,20 @@ namespace :wasm do
     sh "CONFIG=picorbc-wasm rake clean"
   end
 
-  task :check_npm_login do
+  desc "Login to npm (if not already logged in)"
+  task :npm_login do
+    sh "npm login --registry=https://registry.npmjs.org/"
+  end
+
+  desc "Check if logged in to npm"
+  task :npm_whoami do
     sh "npm whoami --registry=https://registry.npmjs.org/"
   rescue RuntimeError
-    abort "Not logged in to npm. Run `npm login` first."
+    abort "Not logged in to npm. Run `rake wasm:npm_login` first."
   end
 
   desc "Build production and publish to npm"
-  task :release => [:check_npm_login, :clean, :prod] do
+  task :release => [:npm_whoami, :clean, :prod] do
     FileUtils.cd "mrbgems/picoruby-wasm/npm/picoruby" do
       sh "npm publish --access public --registry=https://registry.npmjs.org/"
     end
@@ -89,7 +95,7 @@ namespace :wasm do
   end
 
   desc "Build production and publish @picoruby/wasm-wasi to npm with 'head' dist-tag"
-  task :release_head => [:check_npm_login, :clean, :prod] do
+  task :release_head => [:npm_whoami, :clean, :prod] do
     require 'json'
     date_suffix = Time.now.strftime('%Y%m%d')
     base_version = File.read("include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
