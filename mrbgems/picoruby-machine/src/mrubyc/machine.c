@@ -23,15 +23,15 @@ c_Machine_tud_mounted_q(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_Machine_bootsel_pressed_q(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-#if defined(PICORB_PLATFORM_POSIX)
-  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Machine.bootsel_pressed? is not supported on this platform");
-#else
+  if (!Machine_bootsel_pressed_q) {
+    mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Machine.bootsel_pressed? is not supported on this platform");
+    return;
+  }
   if (Machine_bootsel_pressed_q()) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
   }
-#endif
 }
 
 static void

@@ -50,7 +50,7 @@ uint64_t Machine_uptime_us(void);
 
 #define MACHINE_EXIT_REBOOT 120
 void Machine_uptime_formatted(char *buf, int maxlen);
-bool Machine_bootsel_pressed_q(void);
+__attribute__((weak)) bool Machine_bootsel_pressed_q(void);
 
 #ifdef __cplusplus
 }
