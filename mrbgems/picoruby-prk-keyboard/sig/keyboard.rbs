@@ -105,7 +105,6 @@ class Keyboard
   @joystick: Joystick
   @mouse: Mouse
   @output_report_cb: ^(Integer)->void
-  @prev_rgb_effect: RGB::rgb_effect_t
   @rgb_sandbox: Sandbox
   @irb: Keyboard::Irb
   @via: VIA
