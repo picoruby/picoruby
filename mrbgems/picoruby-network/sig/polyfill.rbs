@@ -1,0 +1,7 @@
+class CYW43
+end
+
+class ESP32
+  class WiFi
+  end
+end

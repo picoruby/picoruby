@@ -1,0 +1,29 @@
+class Sounder
+end
+
+class RotaryEncoder
+end
+
+class Joystick
+end
+
+class Mouse
+end
+
+class RGB
+end
+
+class VIA
+end
+
+class DebounceBase
+end
+
+class DebounceNone < DebounceBase
+end
+
+class DebouncePerRow < DebounceBase
+end
+
+class DebouncePerKey < DebounceBase
+end

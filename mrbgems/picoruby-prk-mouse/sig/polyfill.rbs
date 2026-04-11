@@ -1,0 +1,14 @@
+class Keyboard
+end
+
+class I2C
+end
+
+class SPI
+end
+
+class ADC
+end
+
+class Task
+end
