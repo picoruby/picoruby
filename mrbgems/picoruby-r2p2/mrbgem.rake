@@ -5,5 +5,5 @@ MRuby::Gem::Specification.new('picoruby-r2p2') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'R2P2 firmware for Raspberry Pi Pico'
 
-  spac.add_dependency 'picoruby-pio'
+  spec.add_dependency 'picoruby-pio'
 end

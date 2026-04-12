@@ -30,11 +30,12 @@ class CYW43
 
   # @sidebar hardware_device
   class GPIO
+    type gpio_logic_t = (0 | 1)
     LED_PIN: Integer
     @pin: Integer
     def initialize: (Integer pin) -> void
     def write: (Integer) -> Integer
-    def read: () -> GPIO::gpio_logic_t
+    def read: () -> gpio_logic_t
     def high?: () -> bool
     def low?: () -> bool
   end
