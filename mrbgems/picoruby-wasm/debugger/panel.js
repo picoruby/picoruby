@@ -1,4 +1,4 @@
-// PicoRuby WASM Debugger - DevTools panel script
+// PicoRuby.WASM Debugger - DevTools panel script
 
 class PicoRubyDebugger {
   constructor() {
@@ -236,10 +236,24 @@ class PicoRubyDebugger {
           return;
         }
 
-        this.isConnected = true;
-        this.updateStatus('Connected to PicoRuby');
-        this.startDebugPolling();
-        this.checkComponentDebugMode();
+        return this.evalInPage(
+          'typeof window.picorubyModule._mrb_debug_get_status'
+        ).then(apiResult => {
+          if (apiResult === 'undefined') {
+            this.updateStatus('Release build detected — use @picoruby/wasm-wasi@debug');
+            this.appendReplInfo(
+              'This page uses a release build of PicoRuby.WASM.\n' +
+              'The debug API is not available.\n' +
+              'Switch to @picoruby/wasm-wasi@debug to use the debugger.'
+            );
+            return;
+          }
+
+          this.isConnected = true;
+          this.updateStatus('Connected to PicoRuby');
+          this.startDebugPolling();
+          this.checkComponentDebugMode();
+        });
       })
       .catch(err => {
         console.error('Connection check error:', err);

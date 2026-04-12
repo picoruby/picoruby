@@ -22,6 +22,7 @@ See [docs/architecture.md](docs/architecture.md) for the full design including i
 - [Async Operations](docs/async_operations.md) - addEventListener, setTimeout, fetch patterns
 - [Callbacks](docs/callback.md) - Callback system internals
 - [JS-Ruby Interoperability](docs/interoperability_between_js_and_ruby.md) - Type conversion reference
+- [Debugging](docs/debugging.md) - Chrome DevTools extension, binding.irb breakpoints, REPL
 
 ## Prerequisites
 

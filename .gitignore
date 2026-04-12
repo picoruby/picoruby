@@ -28,6 +28,7 @@ tags
 /bin
 /build
 /mruby-source-*.gem
+/picoruby-debugger-*.zip
 
 /benchmark/**/*.dat
 /benchmark/*.pdf

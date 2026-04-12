@@ -6,6 +6,6 @@ chrome.devtools.panels.create(
   "icons/icon16.png",
   "panel.html",
   (panel) => {
-    console.log("PicoRuby DevTools panel created");
+    console.log("PicoRuby.WASM DevTools panel created");
   }
 );

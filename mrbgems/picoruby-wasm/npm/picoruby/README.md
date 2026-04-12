@@ -2,6 +2,17 @@
 
 Run Ruby in the browser. Powered by the mruby VM compiled to WebAssembly.
 
+## PicoRuby Version Support
+
+|Version|Package|
+|:-----:|:-----:|
+|debug|@picoruby/wasm-wasi@debug|
+|head|@picoruby/wasm-wasi@head|
+|3.4.5|@picoruby/wasm-wasi@3.4.5|
+|0.9.6|@picoruby/wasm-wasi@0.9.6|
+
+If you want to debug your application with Chrome extension PicoRuby Debugger, you need to use `@picoruby/wasm-wasi@debug`.
+
 ## Quick Start
 
 Add one `<script>` tag and write Ruby directly in your HTML:
@@ -11,7 +22,7 @@ Add one `<script>` tag and write Ruby directly in your HTML:
 <html>
 <head>
   <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi/dist/init.iife.js"></script>
-  <!-- If you want to specify a version: @picoruby/wasm-wasi@4.0.0/dist/init.iife.js -->
+  <!-- If you want to specify a version: @picoruby/wasm-wasi@3.4.5/dist/init.iife.js -->
 </head>
 <body>
   <script type="text/ruby">
@@ -103,6 +114,22 @@ end
 ```
 
 Ruby exceptions raised inside callbacks are caught correctly by `rescue`/`ensure`.
+
+## Debugging
+
+Use the **PicoRuby Debugger** Chrome extension to inspect running applications
+with an interactive Ruby REPL, `binding.irb` breakpoints, a step debugger,
+and a local-variable/call-stack inspector.
+
+The debugger requires the `@debug` dist-tag build:
+
+```html
+<!-- Use this during development instead of @latest -->
+<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@debug/dist/init.iife.js"></script>
+```
+
+For full setup instructions see the
+[Debugging guide](https://github.com/picoruby/picoruby/blob/master/mrbgems/picoruby-wasm/docs/debugging.md).
 
 ## License
 
