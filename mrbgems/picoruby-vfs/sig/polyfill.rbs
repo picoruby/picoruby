@@ -1,0 +1,21 @@
+class FAT
+  class File
+  end
+
+  class Dir
+  end
+
+  class VFSMethods
+  end
+end
+
+class Littlefs
+  class File
+  end
+
+  class Dir
+  end
+
+  class VFSMethods
+  end
+end

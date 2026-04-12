@@ -1,0 +1,11 @@
+class MCP3424
+end
+
+class MCP3208
+end
+
+class GPIO
+end
+
+class ADC
+end

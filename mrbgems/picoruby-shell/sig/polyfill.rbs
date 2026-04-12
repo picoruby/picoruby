@@ -1,0 +1,32 @@
+class BLE
+  class Utils
+  end
+end
+
+class GPIO
+end
+
+class ADC
+end
+
+class I2C
+end
+
+class UART
+end
+
+class PWM
+end
+
+class CYW43
+  class GPIO
+  end
+end
+
+class ESP32
+  class WiFi
+  end
+end
+
+class PCF8523
+end
