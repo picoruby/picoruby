@@ -1,6 +1,7 @@
 class UC8151
   WIDTH: 296
   HEIGHT: 128
+  FRAME_SIZE: Integer
 
   PSR:  Integer
   PWR:  Integer
@@ -31,4 +32,11 @@ class UC8151
   def draw_text: (String fontname, Integer x, Integer y, String text, ?Integer scale) -> void
   def draw_terminus: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
   def draw_shinonome: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
+  private def reset: () -> void
+  private def busy_wait: () -> void
+  private def command: (Integer cmd) -> void
+  private def send_data: (*Integer bytes) -> void
+  private def send_data_chunked: (String data) -> void
+  private def init_display: () -> void
+  private def deep_clean: () -> void
 end
