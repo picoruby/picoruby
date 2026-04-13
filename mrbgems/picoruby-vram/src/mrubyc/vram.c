@@ -18,55 +18,15 @@ mrbc_vram_free(mrb_value *self)
   }
 }
 
-static void
-mrubyc_mono_page_set_pixel(struct display_page *page, int x, int y, uint32_t color)
-{
-  if (x < 0 || x >= page->w || y < 0 || y >= page->h) return;
-
-  unsigned char *data = (unsigned char *)page->buffer.string->data;
-  int byte_idx = x + (y / 8) * page->w;
-  int bit_idx = y % 8;
-
-  if (byte_idx < 0 || byte_idx >= (int)page->buffer.string->size) return;
-
-  if (color) {
-    data[byte_idx] |= (1 << bit_idx);
-  } else {
-    data[byte_idx] &= ~(1 << bit_idx);
-  }
-  page->dirty = true;
-}
-
-static uint32_t
-mrubyc_mono_page_get_pixel(struct display_page *page, int x, int y)
-{
-  if (x < 0 || x >= page->w || y < 0 || y >= page->h) return 0;
-
-  unsigned char *data = (unsigned char *)page->buffer.string->data;
-  int byte_idx = x + (y / 8) * page->w;
-  int bit_idx = y % 8;
-
-  if (byte_idx < 0 || byte_idx >= (int)page->buffer.string->size) return 0;
-
-  return (data[byte_idx] >> bit_idx) & 1;
-}
-
-static void
-mrubyc_mono_page_fill(struct display_page *page, uint32_t color)
-{
-  unsigned char *data = (unsigned char *)page->buffer.string->data;
-  memset(data, color ? 0xFF : 0x00, page->buffer.string->size);
-  page->dirty = true;
-}
-
 /*
  * VRAM.new(w: 128, h: 64, cols: 1, rows: 8)
+ * VRAM.new(w: 200, h: 200, cols: 1, rows: 1, layout: :horizontal, invert: true)
  */
 static void
 c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrbc_value w_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
-  mrbc_value h_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("h")));
+  mrbc_value w_val    = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
+  mrbc_value h_val    = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("h")));
   mrbc_value cols_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("cols")));
   mrbc_value rows_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("rows")));
 
@@ -76,8 +36,21 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  int w = w_val.i;
-  int h = h_val.i;
+  /* Optional: layout (:vertical default, :horizontal for UC8151) */
+  mrbc_value layout_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("layout")));
+  bool horizontal = (mrbc_type(layout_val) == MRBC_TT_SYMBOL) &&
+                    (layout_val.i == (int32_t)mrbc_str_to_symid("horizontal"));
+
+  /* Optional: invert (false default) */
+  mrbc_value invert_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("invert")));
+  bool invert = (mrbc_type(invert_val) == MRBC_TT_TRUE);
+
+  /* Optional: rotate (0 default, clockwise degrees: 0/90/180/270) */
+  mrbc_value rotate_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("rotate")));
+  int rotate = (mrbc_type(rotate_val) == MRBC_TT_INTEGER) ? rotate_val.i : 0;
+
+  int w    = w_val.i;
+  int h    = h_val.i;
   int cols = cols_val.i;
   int rows = rows_val.i;
   int page_w = w / cols;
@@ -94,7 +67,7 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
   disp->h = h;
   disp->page_count = rows * cols;
 
-  int page_size = page_w * ((page_h + 7) / 8);
+  size_t page_size = display_page_buffer_size(page_w, page_h, horizontal, rotate);
 
   for (int ty = 0; ty < rows; ty++) {
     for (int tx = 0; tx < cols; tx++) {
@@ -103,17 +76,18 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
       page->y = ty * page_h;
       page->w = page_w;
       page->h = page_h;
+      page->invert = invert;
+      page->rotate = rotate;
 
-      // Create buffer string
-      page->buffer = mrbc_string_new(vm, NULL, page_size);
+      /* Create buffer string */
+      page->buffer = mrbc_string_new(vm, NULL, (int)page_size);
       memset(page->buffer.string->data, 0, page_size);
-      // TODO: memory leak of page->buffer happens
+      page->raw_data = (uint8_t *)page->buffer.string->data;
+      page->raw_size = page_size;
+      /* TODO: memory leak of page->buffer happens */
 
       page->dirty = false;
-      page->pixel_format = PIXEL_FORMAT_MONO;
-      page->set_pixel = mrubyc_mono_page_set_pixel;
-      page->get_pixel = mrubyc_mono_page_get_pixel;
-      page->fill = mrubyc_mono_page_fill;
+      display_page_init_format(page, horizontal);
       page->fill(page, 0);
     }
   }
@@ -181,22 +155,7 @@ c_vram_set_pixel(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
-
-  int x = GET_INT_ARG(1);
-  int y = GET_INT_ARG(2);
-  int color = GET_INT_ARG(3);
-
-  for (int i = 0; i < disp->page_count; i++) {
-    display_page_t *page = &disp->pages[i];
-    if (x >= page->x && x < page->x + page->w &&
-        y >= page->y && y < page->y + page->h) {
-      page->set_pixel(page, x - page->x, y - page->y, color);
-      break;
-    }
-  }
-
-  //mrbc_incref(&v[0]);
-  //SET_RETURN(v[0]);
+  display_set_pixel(disp, GET_INT_ARG(1), GET_INT_ARG(2), (uint32_t)GET_INT_ARG(3));
 }
 
 /*
@@ -207,49 +166,10 @@ c_vram_draw_line(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
-
-  int x0 = GET_INT_ARG(1);
-  int y0 = GET_INT_ARG(2);
-  int x1 = GET_INT_ARG(3);
-  int y1 = GET_INT_ARG(4);
-  int color = GET_INT_ARG(5);
-
-  // Bresenham's line algorithm
-  int dx = x1 > x0 ? x1 - x0 : x0 - x1;
-  int dy = y1 > y0 ? y1 - y0 : y0 - y1;
-  int sx = x0 < x1 ? 1 : -1;
-  int sy = y0 < y1 ? 1 : -1;
-  int err = dx - dy;
-
-  int x = x0;
-  int y = y0;
-
-  while (1) {
-    // Set pixel at current position
-    for (int i = 0; i < disp->page_count; i++) {
-      display_page_t *page = &disp->pages[i];
-      if (x >= page->x && x < page->x + page->w &&
-          y >= page->y && y < page->y + page->h) {
-        page->set_pixel(page, x - page->x, y - page->y, color);
-        break;
-      }
-    }
-
-    if (x == x1 && y == y1) break;
-
-    int e2 = 2 * err;
-    if (e2 > -dy) {
-      err -= dy;
-      x += sx;
-    }
-    if (e2 < dx) {
-      err += dx;
-      y += sy;
-    }
-  }
-
-  //mrbc_incref(&v[0]);
-  //SET_RETURN(v[0]);
+  display_draw_line(disp,
+                    GET_INT_ARG(1), GET_INT_ARG(2),
+                    GET_INT_ARG(3), GET_INT_ARG(4),
+                    (uint32_t)GET_INT_ARG(5));
 }
 
 /*
@@ -260,30 +180,10 @@ c_vram_draw_rect(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
-
-  int x = GET_INT_ARG(1);
-  int y = GET_INT_ARG(2);
-  int w = GET_INT_ARG(3);
-  int h = GET_INT_ARG(4);
-  int color = GET_INT_ARG(5);
-
-  for (int i = 0; i < h; i++) {
-    for (int j = 0; j < w; j++) {
-      int px = x + j;
-      int py = y + i;
-      for (int k = 0; k < disp->page_count; k++) {
-        display_page_t *page = &disp->pages[k];
-        if (px >= page->x && px < page->x + page->w &&
-            py >= page->y && py < page->y + page->h) {
-          page->set_pixel(page, px - page->x, py - page->y, color);
-          break;
-        }
-      }
-    }
-  }
-
-  //mrbc_incref(&v[0]);
-  //SET_RETURN(v[0]);
+  display_draw_rect(disp,
+                    GET_INT_ARG(1), GET_INT_ARG(2),
+                    GET_INT_ARG(3), GET_INT_ARG(4),
+                    (uint32_t)GET_INT_ARG(5));
 }
 
 /*
@@ -294,32 +194,21 @@ c_vram_fill(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
-
-  int color = GET_INT_ARG(1);
-  for (int i = 0; i < disp->page_count; i++) {
-    display_page_t *page = &disp->pages[i];
-    page->fill(page, color);
-  }
-
-  //mrbc_incref(&v[0]);
-  //SET_RETURN(v[0]);
+  display_fill(disp, (uint32_t)GET_INT_ARG(1));
 }
 
-/*
- * vram.draw_bitmap(x:, y:, w:, h:, data:)
- * data: Array[Integer] - each element represents a row's bit pattern
- */
+/* draw_bitmap: VM-specific because it takes an Array[Integer] */
 static void
 c_vram_draw_bitmap(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
 
-  mrbc_value x_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("x")));
-  mrbc_value y_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("y")));
-  mrbc_value width_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
+  mrbc_value x_val      = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("x")));
+  mrbc_value y_val      = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("y")));
+  mrbc_value width_val  = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
   mrbc_value height_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("h")));
-  mrbc_value data_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("data")));
+  mrbc_value data_val   = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("data")));
 
   if (mrbc_type(x_val) != MRBC_TT_INTEGER || mrbc_type(y_val) != MRBC_TT_INTEGER ||
       mrbc_type(width_val) != MRBC_TT_INTEGER || mrbc_type(height_val) != MRBC_TT_INTEGER ||
@@ -341,17 +230,7 @@ c_vram_draw_bitmap(mrbc_vm *vm, mrbc_value *v, int argc)
       uint64_t row_data = (uint64_t)row_val.i;
       for (int img_x = 0; img_x < width; img_x++) {
         uint8_t pixel = (row_data >> (width - 1 - img_x)) & 1;
-        int screen_x = x + img_x;
-        int screen_y = y + img_y;
-
-        for (int i = 0; i < disp->page_count; i++) {
-          display_page_t *page = &disp->pages[i];
-          if (screen_x >= page->x && screen_x < page->x + page->w &&
-              screen_y >= page->y && screen_y < page->y + page->h) {
-            page->set_pixel(page, screen_x - page->x, screen_y - page->y, pixel);
-            break;
-          }
-        }
+        display_set_pixel(disp, x + img_x, y + img_y, pixel);
       }
     }
   }
@@ -359,7 +238,6 @@ c_vram_draw_bitmap(mrbc_vm *vm, mrbc_value *v, int argc)
 
 /*
  * vram.draw_bytes(x:, y:, w:, h:, data:)
- * data: String - packed byte array
  */
 static void
 c_vram_draw_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -367,11 +245,11 @@ c_vram_draw_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
 
-  mrbc_value x_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("x")));
-  mrbc_value y_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("y")));
-  mrbc_value width_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
+  mrbc_value x_val      = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("x")));
+  mrbc_value y_val      = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("y")));
+  mrbc_value width_val  = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("w")));
   mrbc_value height_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("h")));
-  mrbc_value data_val = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("data")));
+  mrbc_value data_val   = mrbc_hash_get(v + 1, &mrbc_symbol_value(mrbc_str_to_symid("data")));
 
   if (mrbc_type(x_val) != MRBC_TT_INTEGER || mrbc_type(y_val) != MRBC_TT_INTEGER ||
       mrbc_type(width_val) != MRBC_TT_INTEGER || mrbc_type(height_val) != MRBC_TT_INTEGER ||
@@ -387,32 +265,9 @@ c_vram_draw_bytes(mrbc_vm *vm, mrbc_value *v, int argc)
 
   if (width <= 0 || height <= 0) return;
 
-  const uint8_t *image_data = (const uint8_t *)data_val.string->data;
-  int data_size = data_val.string->size;
-
-  for (int img_y = 0; img_y < height; img_y++) {
-    for (int img_x = 0; img_x < width; img_x++) {
-      int byte_idx = (img_y * ((width + 7) / 8)) + (img_x / 8);
-      int bit_idx = 7 - (img_x % 8);
-
-      uint8_t pixel = 0;
-      if (byte_idx < data_size) {
-        pixel = (image_data[byte_idx] >> bit_idx) & 1;
-      }
-
-      int screen_x = x + img_x;
-      int screen_y = y + img_y;
-
-      for (int i = 0; i < disp->page_count; i++) {
-        display_page_t *page = &disp->pages[i];
-        if (screen_x >= page->x && screen_x < page->x + page->w &&
-            screen_y >= page->y && screen_y < page->y + page->h) {
-          page->set_pixel(page, screen_x - page->x, screen_y - page->y, pixel);
-          break;
-        }
-      }
-    }
-  }
+  display_draw_bytes(disp, x, y, width, height,
+                     (const uint8_t *)data_val.string->data,
+                     (size_t)data_val.string->size);
 }
 
 /*
@@ -423,26 +278,7 @@ c_vram_erase(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   display_t *disp = (display_t *)v[0].instance->data;
   if (!disp) return;
-
-  int x = GET_INT_ARG(1);
-  int y = GET_INT_ARG(2);
-  int w = GET_INT_ARG(3);
-  int h = GET_INT_ARG(4);
-
-  for (int i = 0; i < h; i++) {
-    for (int j = 0; j < w; j++) {
-      int px = x + j;
-      int py = y + i;
-      for (int k = 0; k < disp->page_count; k++) {
-        display_page_t *page = &disp->pages[k];
-        if (px >= page->x && px < page->x + page->w &&
-            py >= page->y && py < page->y + page->h) {
-          page->set_pixel(page, px - page->x, py - page->y, 0);
-          break;
-        }
-      }
-    }
-  }
+  display_erase(disp, GET_INT_ARG(1), GET_INT_ARG(2), GET_INT_ARG(3), GET_INT_ARG(4));
 }
 
 void

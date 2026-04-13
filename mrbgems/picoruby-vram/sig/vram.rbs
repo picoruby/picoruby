@@ -2,7 +2,9 @@ class VRAM
   type page_t = [Integer, Integer, String]
   attr_accessor name: String
 
-  def self.new: (w: Integer, h: Integer, cols: Integer, rows: Integer) -> VRAM
+  def self.new: (w: Integer, h: Integer, cols: Integer, rows: Integer,
+                 ?layout: :vertical | :horizontal, ?invert: bool,
+                 ?rotate: 0 | 90 | 180 | 270) -> VRAM
   def pages: (?bool clear_dirty) -> Array[page_t]
   def dirty_pages: (?bool clear_dirty) -> Array[page_t]
   def set_pixel: (Integer x, Integer y, Integer color) -> self
