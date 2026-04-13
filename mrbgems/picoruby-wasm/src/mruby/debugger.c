@@ -724,7 +724,9 @@ debug_env_cxt_clear(mrb_state *mrb, mrb_value binding,
   return n;
 }
 
-// Get local variables from the captured binding as JSON
+// Get local variables from the captured binding as JSON.
+// Uses the same two-step approach as mrb_debug_eval_in_binding:
+// (1) get variable names, (2) build wrapper with pre-loaded variables.
 EMSCRIPTEN_KEEPALIVE
 const char* mrb_debug_get_locals(void)
 {
@@ -746,23 +748,77 @@ const char* mrb_debug_get_locals(void)
              mrb_intern_lit(global_mrb, "$__debug_binding__"),
              g_dbg.binding);
 
-  /* Execute Ruby code to extract locals as a flat array:
-   * [name1_str, val1_inspect, name2_str, val2_inspect, ...] */
-  static const char *code =
-    "__b__=$__debug_binding__;"
-    "__r__=[];"
-    "__b__.local_variables.each{|__v__|"
-    "  __r__ << __v__.to_s;"
-    "  __r__ << __b__.local_variable_get(__v__).inspect"
-    "};"
-    "__r__ << \"__self__\";"
-    "__r__ << __b__.receiver.inspect;"
-    "__r__ << \"__source__\";"
-    "__r__ << __b__.source_location.inspect;"
-    "__r__";
-
+  /* Step 1: Get local variable names (same as mrb_debug_eval_in_binding) */
+  static const char *get_vars_code =
+    "$__debug_binding__.local_variables";
   global_mrb->exc = NULL;
-  mrb_value result = debug_eval_code(global_mrb, code, strlen(code));
+  mrb_value vars_ary = debug_eval_code(global_mrb,
+                                       get_vars_code,
+                                       strlen(get_vars_code));
+
+  mrb_int num_vars = 0;
+  if (!global_mrb->exc && mrb_array_p(vars_ary)) {
+    num_vars = RARRAY_LEN(vars_ary);
+  }
+  global_mrb->exc = NULL;
+
+  /* Step 2: Build wrapper code with pre-loaded variables.
+   * Pre-load each variable from the binding into a local (matching the
+   * approach used in mrb_debug_eval_in_binding), then collect names
+   * and inspected values into a flat result array. */
+  size_t buf_size = (size_t)num_vars * 256 + 512;
+  char *wrapper = (char *)mrb_malloc_simple(global_mrb, buf_size);
+  if (!wrapper) {
+    debug_env_cxt_restore(saved_envs, n_saved_envs);
+    return debug_json_error("out of memory");
+  }
+
+  char *wp = wrapper;
+  size_t wr = buf_size;
+  int wn;
+
+  wn = snprintf(wp, wr, "__b__=$__debug_binding__\n");
+  wp += wn; wr -= (size_t)wn;
+
+  /* Pre-load each local variable from binding */
+  for (mrb_int i = 0; i < num_vars && wr > 64; i++) {
+    mrb_value sym = mrb_ary_ref(global_mrb, vars_ary, i);
+    if (!mrb_symbol_p(sym)) continue;
+    const char *vname = mrb_sym_name(global_mrb, mrb_symbol(sym));
+    if (!vname || !*vname) continue;
+    wn = snprintf(wp, wr, "%s=__b__.local_variable_get(:%s)\n",
+                  vname, vname);
+    wp += wn; wr -= (size_t)wn;
+  }
+
+  /* Build result array with [name, value, name, value, ...] */
+  wn = snprintf(wp, wr, "__r__=[]\n");
+  wp += wn; wr -= (size_t)wn;
+
+  for (mrb_int i = 0; i < num_vars && wr > 64; i++) {
+    mrb_value sym = mrb_ary_ref(global_mrb, vars_ary, i);
+    if (!mrb_symbol_p(sym)) continue;
+    const char *vname = mrb_sym_name(global_mrb, mrb_symbol(sym));
+    if (!vname || !*vname) continue;
+    wn = snprintf(wp, wr, "__r__ << \"%s\"\n__r__ << %s.inspect\n",
+                  vname, vname);
+    wp += wn; wr -= (size_t)wn;
+  }
+
+  /* Append self and source_location */
+  wn = snprintf(wp, wr,
+    "__r__ << \"__self__\"\n"
+    "__r__ << __b__.receiver.inspect\n"
+    "__r__ << \"__source__\"\n"
+    "__r__ << __b__.source_location.inspect\n"
+    "__r__");
+  wp += wn;
+
+  /* Step 3: Execute the wrapper */
+  global_mrb->exc = NULL;
+  mrb_value result = debug_eval_code(global_mrb, wrapper,
+                                     (size_t)(wp - wrapper));
+  mrb_free(global_mrb, wrapper);
 
   debug_env_cxt_restore(saved_envs, n_saved_envs);
 
@@ -1264,14 +1320,13 @@ const char* mrb_debug_get_callstack(void)
     return debug_json_error("no paused task");
   }
 
-  /* Get the task's context.
-     NULL type arg: mrb_task_type is static in task.c,
-     but g_dbg.paused_task is always set by our own code. */
-  mrb_task *t = (mrb_task *)mrb_data_check_get_ptr(
-    global_mrb, g_dbg.paused_task, NULL);
-  if (!t) {
+  /* g_dbg.paused_task is always set by our own code in mrb_binding_irb
+     or debug_code_fetch_hook, so we can safely extract the pointer directly.
+     mrb_task_type is static in task.c and not accessible from here. */
+  if (!mrb_data_p(g_dbg.paused_task) || !DATA_PTR(g_dbg.paused_task)) {
     return debug_json_error("invalid task");
   }
+  mrb_task *t = (mrb_task *)DATA_PTR(g_dbg.paused_task);
 
   struct mrb_context *c = &t->c;
   if (!c->cibase || !c->ci) {
