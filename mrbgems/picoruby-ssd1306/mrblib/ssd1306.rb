@@ -123,19 +123,19 @@ class SSD1306
     when 'shinonome'
       draw_shinonome(name.to_s, x, y, text, scale)
     when 'terminus'
-      draw_terminus(name.to_s, x, y, text)
+      draw_terminus(name.to_s, x, y, text, scale)
     else
       raise "Unsupported font: #{font}"
     end
   end
 
-  def draw_terminus(name, x, y, text)
+  def draw_terminus(name, x, y, text, scale = 1)
     # Call C method directly to avoid send -> mrb_funcall -> mrb_vm_exec recursion
     result = case name
-             when "6x12"  then Terminus._6x12(text)
-             when "8x16"  then Terminus._8x16(text)
-             when "12x24" then Terminus._12x24(text)
-             when "16x32" then Terminus._16x32(text)
+             when "6x12"  then Terminus._6x12(text, scale)
+             when "8x16"  then Terminus._8x16(text, scale)
+             when "12x24" then Terminus._12x24(text, scale)
+             when "16x32" then Terminus._16x32(text, scale)
              else raise "Unsupported terminus font: #{name}"
              end
     height = result[0]

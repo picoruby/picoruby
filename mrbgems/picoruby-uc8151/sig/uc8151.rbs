@@ -1,0 +1,34 @@
+class UC8151
+  WIDTH: 296
+  HEIGHT: 128
+
+  PSR:  Integer
+  PWR:  Integer
+  POF:  Integer
+  POFS: Integer
+  PON:  Integer
+  BTST: Integer
+  DSLP: Integer
+  DTM1: Integer
+  DSP:  Integer
+  DRF:  Integer
+  DTM2: Integer
+  PLL:  Integer
+  CDI:  Integer
+  TCON: Integer
+  TRES: Integer
+
+  def initialize: (spi: SPI, cs_pin: Integer, dc_pin: Integer,
+                   rst_pin: Integer, busy_pin: Integer) -> void
+
+  def update: () -> void
+  def fill: (?Integer color) -> void
+  def set_pixel: (Integer x, Integer y, ?Integer color) -> void
+  def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color) -> void
+  def draw_rect: (Integer x, Integer y, Integer w, Integer h, ?Integer color, ?bool fill) -> nil
+  def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
+  def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> nil
+  def draw_text: (String fontname, Integer x, Integer y, String text, ?Integer scale) -> void
+  def draw_terminus: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
+  def draw_shinonome: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
+end

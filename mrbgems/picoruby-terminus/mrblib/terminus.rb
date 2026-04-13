@@ -1,11 +1,10 @@
 module Terminus
-  def self.draw(name, line, scale = 0)
+  def self.draw(name, line, scale = 1)
     name = "_#{name}"
-    # No scaling available. Just for compability with Shinonome font
     if block_given?
-      yield(send(name, line.chomp))
+      yield(send(name, line.chomp, scale))
     else
-      send(name, line.chomp)
+      send(name, line.chomp, scale)
     end
   end
 end

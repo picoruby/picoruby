@@ -7,6 +7,51 @@
 #include "terminus_12x24_table.h"
 #include "terminus_16x32_table.h"
 
+static uint64_t
+expand_bits(uint64_t src, int bit_count, int scale)
+{
+  uint64_t dst __attribute__((aligned(8))) = 0;
+  for (int i = 0; i < bit_count; i++) {
+    uint8_t bit = (src >> (bit_count - 1 - i)) & 1;
+    dst <<= scale;
+    if (bit) {
+      dst |= (1 << scale) - 1;
+    }
+  }
+  return dst;
+}
+
+#define GET_BIT(row, x, w) (((row) >> (w - 1 - (x))) & 1)
+#define SET_BIT(row, x, w) ((row) |= ((uint64_t)1 << (w - 1 - (x))))
+
+static void
+smooth_edges(uint64_t *input, int w, int h)
+{
+  uint64_t tmp[h] __attribute__((aligned(8)));
+  memcpy(tmp, input, sizeof(uint64_t) * h);
+
+  for (int y = 0; y < h - 1; y++) {
+    for (int x = 0; x < w - 1; x++) {
+      int a = GET_BIT(input[y], x, w);
+      int b = GET_BIT(input[y], x + 1, w);
+      int c = GET_BIT(input[y + 1], x, w);
+      int d = GET_BIT(input[y + 1], x + 1, w);
+
+      if (b && c && !a && !d) {
+        SET_BIT(tmp[y], x, w);
+        SET_BIT(tmp[y + 1], x + 1, w);
+      }
+      if (a && d && !b && !c) {
+        SET_BIT(tmp[y], x + 1, w);
+        SET_BIT(tmp[y + 1], x, w);
+      }
+    }
+  }
+  for (int i = 0; i < h; i++) {
+    input[i] = tmp[i];
+  }
+}
+
 static inline uint32_t
 utf8_to_unicode(const char **p)
 {
