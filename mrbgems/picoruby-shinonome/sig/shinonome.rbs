@@ -11,4 +11,9 @@ module Shinonome
 
   def self.draw: (Symbol | String name, String line, Integer scale) { (shinonome_t) -> void } -> void
                | (Symbol | String name, String line, Integer scale) -> shinonome_t
+
+  module Drawable
+    def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
+    def draw_shinonome: (String size, Integer x, Integer y, String text, ?Integer scale) -> nil
+  end
 end

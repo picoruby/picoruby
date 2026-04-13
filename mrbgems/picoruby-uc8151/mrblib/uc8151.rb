@@ -2,10 +2,21 @@ require "spi"
 require "gpio"
 require "vram"
 require "terminus"
+begin
+  require "shinonome"
+rescue LoadError
+end
 
 class UC8151
-  WIDTH  = 296
-  HEIGHT = 128
+  include VRAM::Delegatable
+  include Terminus::Drawable
+  if Object.const_defined?(:Shinonome)
+    include Shinonome::Drawable
+  else
+    def draw_shinonome(name, x, y, text, scale = 1)
+      puts "Shinonome gem not available, skip text rendering"
+    end
+  end
 
   # UC8151 command registers
   PSR  = 0x00  # Panel Setting
@@ -24,19 +35,20 @@ class UC8151
   TCON = 0x60  # Gate/Source Non-overlap Period
   TRES = 0x61  # Resolution Setting
 
-  FRAME_SIZE = WIDTH * HEIGHT / 8  # 4736 bytes
-
-  def initialize(spi:, cs_pin:, dc_pin:, rst_pin:, busy_pin:)
+  def initialize(spi:, cs_pin:, dc_pin:, rst_pin:, busy_pin:, w: 296, h: 128)
     @spi  = spi
     @cs   = GPIO.new(cs_pin,   GPIO::OUT)
     @cs.write(1)
     @dc   = GPIO.new(dc_pin,   GPIO::OUT)
     @rst  = GPIO.new(rst_pin,  GPIO::OUT)
     @busy = GPIO.new(busy_pin, GPIO::IN)
+    @width  = w
+    @height = h
+    @frame_size = @width * @height / 8
     # rotate: 90 maps landscape (x=0..295, y=0..127) to the column-major
     # buffer format the UC8151 expects: (buf_x=y, buf_y=295-x).
     # invert: true because bit=1 means white (paper) in KW mode.
-    @vram = VRAM.new(w: WIDTH, h: HEIGHT, cols: 1, rows: 1,
+    @vram = VRAM.new(w: @width, h: @height, cols: 1, rows: 1,
                      layout: :horizontal, invert: true, rotate: 90)
     @vram.name = "UC8151"
     reset
@@ -88,7 +100,7 @@ class UC8151
     i = 0
     while i < data.size
       chunk_size = (data.size - i) < 1024 ? (data.size - i) : 1024
-      @spi.write(data[i, chunk_size])
+      @spi.write(data[i, chunk_size]) # steep:ignore
       i += 1024
     end
     @cs.write(1)
@@ -119,9 +131,9 @@ class UC8151
   # Reset the panel memory before first use to avoid ghost images.
   private def deep_clean
     command(DTM1)
-    send_data_chunked("\x00" * FRAME_SIZE)
+    send_data_chunked("\x00" * @frame_size)
     command(DTM2)
-    send_data_chunked("\xFF" * FRAME_SIZE)
+    send_data_chunked("\xFF" * @frame_size)
     command(DRF)
     busy_wait
   end
@@ -131,7 +143,7 @@ class UC8151
     pages = @vram.pages
     # DTM1 carries the previous frame (all-white = no ghost)
     command(DTM1)
-    send_data_chunked("\xFF" * FRAME_SIZE)
+    send_data_chunked("\xFF" * @frame_size)
     # DTM2 carries the new frame
     command(DTM2)
     send_data_chunked(pages[0][2])
@@ -144,38 +156,6 @@ class UC8151
     @vram.fill(color)
   end
 
-  def set_pixel(x, y, color = 1)
-    return if x < 0 || WIDTH <= x
-    return if y < 0 || HEIGHT <= y
-    @vram.set_pixel(x, y, color)
-  end
-
-  def draw_line(x0, y0, x1, y1, color = 1)
-    @vram.draw_line(x0, y0, x1, y1, color)
-  end
-
-  def draw_rect(x, y, w, h, color = 1, fill = false)
-    if fill
-      @vram.draw_rect(x, y, w, h, color)
-    else
-      draw_line(x,         y,         x + w - 1, y,         color)
-      draw_line(x,         y + h - 1, x + w - 1, y + h - 1, color)
-      draw_line(x,         y,         x,         y + h - 1, color)
-      draw_line(x + w - 1, y,         x + w - 1, y + h - 1, color)
-    end
-    nil
-  end
-
-  def draw_bitmap(x:, y:, w:, h:, data:)
-    @vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data)
-    nil
-  end
-
-  def draw_bytes(x:, y:, w:, h:, data:)
-    @vram.draw_bytes(x: x, y: y, w: w, h: h, data: data)
-    nil
-  end
-
   def draw_text(fontname, x, y, text, scale = 1)
     font, name = fontname.to_s.split("_")
     case font
@@ -185,63 +165,6 @@ class UC8151
       draw_shinonome(name.to_s, x, y, text, scale)
     else
       raise "Unsupported font: #{font}"
-    end
-  end
-
-  def draw_terminus(name, x, y, text, scale = 1)
-    result = case name
-             when "6x12"  then Terminus._6x12(text, scale)
-             when "8x16"  then Terminus._8x16(text, scale)
-             when "12x24" then Terminus._12x24(text, scale)
-             when "16x32" then Terminus._16x32(text, scale)
-             else raise "Unsupported terminus font: #{name}"
-             end
-    height = result[0]
-    widths = result[2]
-    glyphs = result[3]
-    glyph_x = x
-    i = 0
-    while i < widths.size
-      char_width = widths[i]
-      char_data = glyphs[i]
-      draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-      glyph_x += char_width
-      i += 1
-    end
-    nil
-  end
-
-  begin
-    require "shinonome"
-    def draw_shinonome(name, x, y, text, scale = 1)
-      result = case name
-               when "test12" then Shinonome.test12(text, scale)
-               when "test16" then Shinonome.test16(text, scale)
-               when "maru12" then Shinonome.maru12(text, scale)
-               when "go12"   then Shinonome.go12(text, scale)
-               when "min12"  then Shinonome.min12(text, scale)
-               when "go16"   then Shinonome.go16(text, scale)
-               when "min16"  then Shinonome.min16(text, scale)
-               else raise "Unsupported shinonome font: #{name}"
-               end
-      return if result.nil?
-      height = result[0]
-      widths = result[2]
-      glyphs = result[3]
-      glyph_x = x
-      i = 0
-      while i < widths.size
-        char_width = widths[i]
-        char_data = glyphs[i]
-        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-        glyph_x += char_width
-        i += 1
-      end
-      nil
-    end
-  rescue LoadError
-    def draw_shinonome(name, x, y, text, scale = 1)
-      puts "Shinonome gem not available, skip text rendering"
     end
   end
 end

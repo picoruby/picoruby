@@ -1,8 +1,21 @@
 require "i2c"
 require "vram"
 require "terminus"
+begin
+  require "shinonome"
+rescue LoadError
+end
 
 class SSD1306
+  include VRAM::Delegatable
+  include Terminus::Drawable
+  if Object.const_defined?(:Shinonome)
+    include Shinonome::Drawable
+  else
+    def draw_shinonome(name, x, y, text, scale = 1)
+      puts "Shinonome gem not available, skip text rendering"
+    end
+  end
   DISPLAYOFF = 0xAE
   DISPLAYON = 0xAF
   SETCONTRAST = 0x81
@@ -84,39 +97,6 @@ class SSD1306
     update_display
   end
 
-  def set_pixel(x, y, color = 1)
-    return if x < 0 || x >= @width || y < 0 || y >= @height
-    @vram.set_pixel(x, y, color)
-  end
-
-  def draw_line(x0, y0, x1, y1, color = 1)
-    @vram.draw_line(x0, y0, x1, y1, color)
-    nil
-  end
-
-  def draw_rect(x, y, w, h, color = 1, fill = false)
-    if fill
-      @vram.draw_rect(x, y, w, h, color)
-    else
-      # Draw outline using lines
-      draw_line(x, y, x + w - 1, y, color)                   # Top
-      draw_line(x, y + h - 1, x + w - 1, y + h - 1, color)   # Bottom
-      draw_line(x, y, x, y + h - 1, color)                   # Left
-      draw_line(x + w - 1, y, x + w - 1, y + h - 1, color)   # Right
-    end
-    nil
-  end
-
-  def draw_bitmap(x:, y:, w:, h:, data:)
-    @vram.draw_bitmap(x: x, y: y, w: w, h: h, data: data)
-    nil
-  end
-
-  def draw_bytes(x:, y:, w:, h:, data:)
-    @vram.draw_bytes(x: x, y: y, w: w, h: h, data: data)
-    nil
-  end
-
   def draw_text(fontname, x, y, text, scale = 1)
     font, name = fontname.to_s.split("_")
     case font
@@ -126,68 +106,6 @@ class SSD1306
       draw_terminus(name.to_s, x, y, text, scale)
     else
       raise "Unsupported font: #{font}"
-    end
-  end
-
-  def draw_terminus(name, x, y, text, scale = 1)
-    # Call C method directly to avoid send -> mrb_funcall -> mrb_vm_exec recursion
-    result = case name
-             when "6x12"  then Terminus._6x12(text, scale)
-             when "8x16"  then Terminus._8x16(text, scale)
-             when "12x24" then Terminus._12x24(text, scale)
-             when "16x32" then Terminus._16x32(text, scale)
-             else raise "Unsupported terminus font: #{name}"
-             end
-    height = result[0]
-    widths = result[2]
-    glyphs = result[3]
-    glyph_x = x
-    i = 0
-    while i < widths.size
-      char_width = widths[i]
-      char_data = glyphs[i]
-      draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-      glyph_x += char_width
-      i += 1
-    end
-    nil
-  end
-
-  begin
-    require "shinonome"
-    shinonome_available = true
-    def draw_shinonome(name, x, y, text, scale = 1)
-      # Call C method directly to avoid send -> mrb_funcall -> mrb_vm_exec recursion
-      result = case name
-               when "test12" then Shinonome.test12(text, scale)
-               when "test16" then Shinonome.test16(text, scale)
-               when "maru12" then Shinonome.maru12(text, scale)
-               when "go12"   then Shinonome.go12(text, scale)
-               when "min12"  then Shinonome.min12(text, scale)
-               when "go16"   then Shinonome.go16(text, scale)
-               when "min16"  then Shinonome.min16(text, scale)
-               else raise "Unsupported shinonome font: #{name}"
-               end
-      if result.nil?
-        return # maybe test12 or test16
-      end
-      height = result[0]
-      widths = result[2]
-      glyphs = result[3]
-      glyph_x = x
-      i = 0
-      while i < widths.size
-        char_width = widths[i]
-        char_data = glyphs[i]
-        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-        glyph_x += char_width
-        i += 1
-      end
-      nil
-    end
-  rescue LoadError
-    def draw_shinonome(fontname, x, y, text, scale = 1)
-      puts "Shinonome gem not available, skip text rendering"
     end
   end
 
