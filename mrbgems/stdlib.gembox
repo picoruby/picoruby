@@ -27,8 +27,6 @@ MRuby::GemBox.new do |conf|
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-error"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
-    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-fiber"
-    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-enumerator"
   end
   unless wasm?
     conf.gem core: "picoruby-regexp_light"
