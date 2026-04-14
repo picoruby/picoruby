@@ -1,8 +1,4 @@
 class UC8151
-  WIDTH: 296
-  HEIGHT: 128
-  FRAME_SIZE: Integer
-
   PSR:  Integer
   PWR:  Integer
   POF:  Integer
@@ -19,19 +15,22 @@ class UC8151
   TCON: Integer
   TRES: Integer
 
+  @spi: SPI
+  @width: Integer
+  @height: Integer
+  @frame_size: Integer
+  @vram: VRAM
+
   def initialize: (spi: SPI, cs_pin: Integer, dc_pin: Integer,
-                   rst_pin: Integer, busy_pin: Integer) -> void
+                   rst_pin: Integer, busy_pin: Integer,
+                   ?w: Integer, ?h: Integer) -> void
 
   def update: () -> void
   def fill: (?Integer color) -> void
-  def set_pixel: (Integer x, Integer y, ?Integer color) -> void
-  def draw_line: (Integer x0, Integer y0, Integer x1, Integer y1, ?Integer color) -> void
-  def draw_rect: (Integer x, Integer y, Integer w, Integer h, ?Integer color, ?bool fill) -> nil
-  def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
-  def draw_bytes: (x: Integer, y: Integer, w: Integer, h: Integer, data: String) -> nil
+  include VRAM::Delegatable
+  include Terminus::Drawable
+  include Shinonome::Drawable
   def draw_text: (String fontname, Integer x, Integer y, String text, ?Integer scale) -> void
-  def draw_terminus: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
-  def draw_shinonome: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
   private def reset: () -> void
   private def busy_wait: () -> void
   private def command: (Integer cmd) -> void

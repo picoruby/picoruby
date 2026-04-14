@@ -8,4 +8,9 @@ module Terminus
 
   def self.draw: (String name, String line, ?Integer scale) { (terminus_t) -> void } -> void
                | (String name, String line, ?Integer scale) -> terminus_t
+
+  module Drawable
+    def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
+    def draw_terminus: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
+  end
 end
