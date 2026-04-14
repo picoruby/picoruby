@@ -25,7 +25,7 @@ class BLE
     ATT_EVENT_MTU_EXCHANGE_COMPLETE: Integer
     ATT_EVENT_CAN_SEND_NOW: Integer
 
-    NOTIFY_MTU: Integer
+    DEFAULT_ATT_MTU: Integer
 
     # peripheral-only state
     @adv_data: String
@@ -50,6 +50,7 @@ class BLE
     @rx_buffer: String
     @tx_buffer: String
     @connected: bool
+    @notify_chunk_size: Integer
     @user_block: (^() -> void | nil)
 
     def initialize: (
