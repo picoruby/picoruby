@@ -1,5 +1,6 @@
 require 'yaml'
 require 'terminus'
+require 'karmatic_arcade'
 begin
   require 'shinonome'
 rescue LoadError

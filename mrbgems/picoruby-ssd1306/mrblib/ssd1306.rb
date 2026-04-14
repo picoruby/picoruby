@@ -1,6 +1,7 @@
 require "i2c"
 require "vram"
 require "terminus"
+require "karmatic_arcade"
 begin
   require "shinonome"
 rescue LoadError
@@ -9,6 +10,7 @@ end
 class SSD1306
   include VRAM::Delegatable
   include Terminus::Drawable
+  include KarmaticArcade::Drawable
   if Object.const_defined?(:Shinonome)
     include Shinonome::Drawable
   else
@@ -104,6 +106,8 @@ class SSD1306
       draw_shinonome(name.to_s, x, y, text, scale)
     when 'terminus'
       draw_terminus(name.to_s, x, y, text, scale)
+    when 'karmatic-arcade'
+      draw_karmatic_arcade(name.to_s, x, y, text, scale)
     else
       raise "Unsupported font: #{font}"
     end

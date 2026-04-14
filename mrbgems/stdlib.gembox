@@ -9,6 +9,8 @@ MRuby::GemBox.new do |conf|
   conf.gem core: "picoruby-marshal"
   conf.gem core: 'picoruby-data'
   conf.gem core: 'picoruby-logger'
+  conf.gem core: 'picoruby-terminus'
+  conf.gem core: 'picoruby-karmatic_arcade'
   if vm_mrubyc?
     conf.gem core: "picoruby-pack"
     conf.gem core: "picoruby-numeric-ext"

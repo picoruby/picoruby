@@ -29,6 +29,7 @@ class UC8151
   def fill: (?Integer color) -> void
   include VRAM::Delegatable
   include Terminus::Drawable
+  include KarmaticArcade::Drawable
   include Shinonome::Drawable
   def draw_text: (String fontname, Integer x, Integer y, String text, ?Integer scale) -> void
   private def reset: () -> void

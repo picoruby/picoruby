@@ -14,6 +14,9 @@ display = UC8151.new(
   busy_pin: 26
 )
 display.fill(0)
-display.draw_text("shinonome_min16", 28, 20, "Lチカは情操教育", 2)
-display.draw_text("terminus_12x24", 28, 70, "@hasumikin", 2)
+display.draw_text("karmatic-arcade_10", 10,  20, "hasumikin", 3)
+display.draw_text("karmatic-arcade_10", 10,  55, "hasumi hitoshi")
+display.draw_line(0, 70, 296, 70)
+display.draw_text("terminus_12x24",     10,  75, "Creator of PicoRuby")
+display.draw_text("shinonome_go16",     10, 105, "座右の銘: Lチカは情操教育")
 display.update

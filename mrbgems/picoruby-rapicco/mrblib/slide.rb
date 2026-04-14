@@ -94,6 +94,8 @@ class Rapicco
             end
           when "terminus"
             font_class = Terminus
+          when "karmatic-arcade"
+            font_class = KarmaticArcade
           else
             raise "Unknown font: #{line[:font]}"
           end
