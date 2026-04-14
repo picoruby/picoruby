@@ -2,6 +2,7 @@ require "spi"
 require "gpio"
 require "vram"
 require "terminus"
+require "karmatic_arcade"
 begin
   require "shinonome"
 rescue LoadError
@@ -10,6 +11,7 @@ end
 class UC8151
   include VRAM::Delegatable
   include Terminus::Drawable
+  include KarmaticArcade::Drawable
   if Object.const_defined?(:Shinonome)
     include Shinonome::Drawable
   else
@@ -163,6 +165,8 @@ class UC8151
       draw_terminus(name.to_s, x, y, text, scale)
     when "shinonome"
       draw_shinonome(name.to_s, x, y, text, scale)
+    when 'karmatic-arcade'
+      draw_karmatic_arcade(name.to_s, x, y, text, scale)
     else
       raise "Unsupported font: #{font}"
     end

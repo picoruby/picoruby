@@ -33,6 +33,7 @@ class SSD1306
   def fill_screen: (?Integer pattern) -> Integer
   include VRAM::Delegatable
   include Terminus::Drawable
+  include KarmaticArcade::Drawable
   include Shinonome::Drawable
   def draw_text: (Symbol | String fontname, Integer x, Integer y, String text, ?Integer scale) -> nil
   def update_display: () -> Integer
