@@ -1,9 +1,22 @@
-require_relative 'utils/karmatic_arcade_font_convert.rb'
+require "pathname"
+require_relative "../picoruby-bdffont/utils/bdffont_font_convert.rb"
+
+module KarmaticArcadeFontConvert
+  def self.make(dst_path, bdf_path)
+    puts "Building #{dst_path}"
+    font  = BDFFontConvert::PropBdfFont.new(bdf_path)
+    table = BDFFontConvert::PropAsciiTableGenerator.new(font, "karmatic_arcade")
+    File.write(dst_path, table.to_c)
+  end
+end
 
 MRuby::Gem::Specification.new('picoruby-karmatic_arcade') do |spec|
   spec.license = ['MIT', 'FFC']
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'KarmaticArcade font'
+
+  spec.add_dependency 'picoruby-bdffont'
+  cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-bdffont/include"
 
   include_dir = "#{build_dir}/include"
   cc.include_paths << include_dir

@@ -1,87 +1,19 @@
-#include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 
+#include "bdffont.h"
 #include "terminus_6x12_table.h"
 #include "terminus_8x16_table.h"
 #include "terminus_12x24_table.h"
 #include "terminus_16x32_table.h"
 
-static uint64_t
-expand_bits(uint64_t src, int bit_count, int scale)
-{
-  uint64_t dst __attribute__((aligned(8))) = 0;
-  for (int i = 0; i < bit_count; i++) {
-    uint8_t bit = (src >> (bit_count - 1 - i)) & 1;
-    dst <<= scale;
-    if (bit) {
-      dst |= (1 << scale) - 1;
-    }
-  }
-  return dst;
-}
-
-#define GET_BIT(row, x, w) (((row) >> (w - 1 - (x))) & 1)
-#define SET_BIT(row, x, w) ((row) |= ((uint64_t)1 << (w - 1 - (x))))
-
-static void
-smooth_edges(uint64_t *input, int w, int h)
-{
-  uint64_t tmp[h] __attribute__((aligned(8)));
-  memcpy(tmp, input, sizeof(uint64_t) * h);
-
-  for (int y = 0; y < h - 1; y++) {
-    for (int x = 0; x < w - 1; x++) {
-      int a = GET_BIT(input[y], x, w);
-      int b = GET_BIT(input[y], x + 1, w);
-      int c = GET_BIT(input[y + 1], x, w);
-      int d = GET_BIT(input[y + 1], x + 1, w);
-
-      if (b && c && !a && !d) {
-        SET_BIT(tmp[y], x, w);
-        SET_BIT(tmp[y + 1], x + 1, w);
-      }
-      if (a && d && !b && !c) {
-        SET_BIT(tmp[y], x + 1, w);
-        SET_BIT(tmp[y + 1], x, w);
-      }
-    }
-  }
-  for (int i = 0; i < h; i++) {
-    input[i] = tmp[i];
-  }
-}
-
-static inline uint32_t
-utf8_to_unicode(const char **p)
-{
-  const uint8_t *s = (const uint8_t *)*p;
-  uint32_t cp;
-
-  if (s[0] < 0x80) {
-    cp = s[0];
-    *p += 1;
-  } else if ((s[0] & 0xE0) == 0xC0) {
-    cp = ((s[0] & 0x1F) << 6) | (s[1] & 0x3F);
-    *p += 2;
-  } else if ((s[0] & 0xF0) == 0xE0) {
-    cp = ((s[0] & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
-    *p += 3;
-  } else {
-    // unsupported
-    cp = 0xFFFD;
-    *p += 1;
-  }
-  return cp;
-}
-
 static bool
 array_of_terminus_sub(const char **p, uint64_t *lines, int w, int h, const uint8_t *ascii_table)
 {
-  uint32_t c = utf8_to_unicode(p);
+  uint32_t c = bdffont_utf8_to_unicode(p);
 
-  // Only ASCII supported
-  if (c < 0x20 || c > 0x7E) {
+  /* Only ASCII supported */
+  if (c < 0x20 || 0x7E < c) {
     return false;
   }
 
@@ -89,13 +21,14 @@ array_of_terminus_sub(const char **p, uint64_t *lines, int w, int h, const uint8
   int bytes_per_char = ((w * h) + 7) / 8;
   const uint8_t *data = &ascii_table[(c - 0x20) * bytes_per_char];
 
-  // Convert byte data to lines
   int byte_idx = 0;
-  int bit_idx = 0;
+  int bit_idx  = 0;
 
-  for (int y = 1; y <= h; y++) {
+  int y = 1;
+  while (y <= h) {
     uint64_t line = 0;
-    for (int x = 0; x < w; x++) {
+    int x = 0;
+    while (x < w) {
       if (byte_idx < bytes_per_char) {
         int bit = (data[byte_idx] >> (7 - bit_idx)) & 1;
         if (bit) {
@@ -107,8 +40,10 @@ array_of_terminus_sub(const char **p, uint64_t *lines, int w, int h, const uint8
           byte_idx++;
         }
       }
+      x++;
     }
     lines[y] = line;
+    y++;
   }
 
   return true;

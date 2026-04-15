@@ -8,6 +8,8 @@ module Shinonome
   end
 
   module Drawable
+    include BDFFont::Drawable
+
     def draw_shinonome(name, x, y, text, scale = 1)
       # Call C method directly to avoid send -> mrb_funcall -> mrb_vm_exec recursion
       result = case name
@@ -23,19 +25,7 @@ module Shinonome
       if result.nil?
         return # maybe test12 or test16
       end
-      height = result[0]
-      widths = result[2]
-      glyphs = result[3]
-      glyph_x = x
-      i = 0
-      while i < widths.size
-        char_width = widths[i]
-        char_data = glyphs[i]
-        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-        glyph_x += char_width
-        i += 1
-      end
-      nil
+      bdffont_draw_result(result, x, y)
     end
   end
 end

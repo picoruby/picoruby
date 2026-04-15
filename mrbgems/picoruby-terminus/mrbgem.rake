@@ -1,9 +1,22 @@
-require_relative 'utils/terminus_font_convert.rb'
+require "pathname"
+require_relative "../picoruby-bdffont/utils/bdffont_font_convert.rb"
+
+module TerminusFontConvert
+  def self.make(f)
+    puts "Building #{f[:dst]}"
+    font  = BDFFontConvert::BdfFont.new(f[:name], f[:src], f[:w], f[:h])
+    table = BDFFontConvert::AsciiTableGenerator.new(font, "terminus_#{f[:name]}")
+    File.write(f[:dst], table.to_c)
+  end
+end
 
 MRuby::Gem::Specification.new('picoruby-terminus') do |spec|
   spec.license = ['MIT', 'OFL-1.1']
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Terminus font'
+
+  spec.add_dependency 'picoruby-bdffont'
+  cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-bdffont/include"
 
   include_dir = "#{build_dir}/include"
   cc.include_paths << include_dir

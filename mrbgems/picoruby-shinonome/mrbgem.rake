@@ -6,6 +6,9 @@ MRuby::Gem::Specification.new('picoruby-shinonome') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Shinonome font'
 
+  spec.add_dependency 'picoruby-bdffont'
+  cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-bdffont/include"
+
   include_dir = "#{build_dir}/include"
   cc.include_paths << include_dir
   directory include_dir

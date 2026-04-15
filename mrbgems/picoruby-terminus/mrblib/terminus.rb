@@ -9,6 +9,8 @@ module Terminus
   end
 
   module Drawable
+    include BDFFont::Drawable
+
     def draw_terminus(name, x, y, text, scale = 1)
       result = case name
                when "6x12"  then Terminus._6x12(text, scale)
@@ -17,20 +19,7 @@ module Terminus
                when "16x32" then Terminus._16x32(text, scale)
                else raise "Unsupported terminus font: #{name}"
                end
-      height = result[0]
-      widths = result[2]
-      glyphs = result[3]
-      glyph_x = x
-      i = 0
-      while i < widths.size
-        char_width = widths[i]
-        char_data = glyphs[i]
-        draw_bitmap(x: glyph_x, y: y, w: char_width, h: height, data: char_data)
-        glyph_x += char_width
-        i += 1
-      end
-      nil
+      bdffont_draw_result(result, x, y)
     end
   end
 end
-
