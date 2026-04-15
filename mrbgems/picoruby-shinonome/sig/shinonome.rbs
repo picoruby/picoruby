@@ -1,19 +1,18 @@
 module Shinonome
-  type shinonome_t = [Integer, Integer,     Array[Integer], Array[Array[Integer]]]
-  #                   height,  total_width, widths,         glyphs
   def self.test12: (String text, ?Integer scale) -> nil
   def self.test16: (String text, ?Integer scale) -> nil
-  def self.min12: (String text, ?Integer scale) -> shinonome_t
-  def self.go12: (String text, ?Integer scale) -> shinonome_t
-  def self.maru12: (String text, ?Integer scale) -> shinonome_t
-  def self.min16: (String text, ?Integer scale) -> shinonome_t
-  def self.go16: (String text, ?Integer scale) -> shinonome_t
+  def self.min12: (String text, ?Integer scale) -> bdffont_result_t
+  def self.go12: (String text, ?Integer scale) -> bdffont_result_t
+  def self.maru12: (String text, ?Integer scale) -> bdffont_result_t
+  def self.min16: (String text, ?Integer scale) -> bdffont_result_t
+  def self.go16: (String text, ?Integer scale) -> bdffont_result_t
 
-  def self.draw: (Symbol | String name, String line, Integer scale) { (shinonome_t) -> void } -> void
-               | (Symbol | String name, String line, Integer scale) -> shinonome_t
+  def self.draw: (Symbol | String name, String line, Integer scale) { (bdffont_result_t) -> void } -> void
+               | (Symbol | String name, String line, Integer scale) -> bdffont_result_t
 
   module Drawable
     def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
     def draw_shinonome: (String size, Integer x, Integer y, String text, ?Integer scale) -> nil
+    def bdffont_draw_result: (bdffont_result_t result, Integer x, Integer y) -> nil
   end
 end

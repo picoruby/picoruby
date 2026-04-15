@@ -1,16 +1,15 @@
 module Terminus
-  type terminus_t = [Integer, Integer,     Array[Integer], Array[Array[Integer]]]
-  #                   height,  total_width, widths,         glyphs
-  def self._6x12: (String text, ?Integer scale) -> terminus_t
-  def self._8x16: (String text, ?Integer scale) -> terminus_t
-  def self._12x24: (String text, ?Integer scale) -> terminus_t
-  def self._16x32: (String text, ?Integer scale) -> terminus_t
+  def self._6x12: (String text, ?Integer scale) -> bdffont_result_t
+  def self._8x16: (String text, ?Integer scale) -> bdffont_result_t
+  def self._12x24: (String text, ?Integer scale) -> bdffont_result_t
+  def self._16x32: (String text, ?Integer scale) -> bdffont_result_t
 
-  def self.draw: (String name, String line, ?Integer scale) { (terminus_t) -> void } -> void
-               | (String name, String line, ?Integer scale) -> terminus_t
+  def self.draw: (String name, String line, ?Integer scale) { (bdffont_result_t) -> void } -> void
+               | (String name, String line, ?Integer scale) -> bdffont_result_t
 
   module Drawable
     def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
     def draw_terminus: (String name, Integer x, Integer y, String text, ?Integer scale) -> nil
+    def bdffont_draw_result: (bdffont_result_t result, Integer x, Integer y) -> nil
   end
 end

@@ -2,6 +2,9 @@
 
 SSD1306 OLED display driver for PicoRuby.
 
+> [!NOTE]
+> picoruby-ssd1306 supports PicoRuby 4.0.0+
+
 ## Usage
 
 ```ruby

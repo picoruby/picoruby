@@ -6,5 +6,5 @@ MRuby::Gem::Specification.new('picoruby-uc8151') do |spec|
   spec.add_dependency 'picoruby-spi'
   spec.add_dependency 'picoruby-gpio'
   spec.add_dependency 'picoruby-vram'
-  spec.add_dependency 'picoruby-terminus'
+  spec.add_dependency 'picoruby-bdffont'
 end

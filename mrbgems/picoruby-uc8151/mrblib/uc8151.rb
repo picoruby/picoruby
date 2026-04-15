@@ -1,24 +1,12 @@
 require "spi"
 require "gpio"
 require "vram"
-require "terminus"
-require "karmatic_arcade"
-begin
-  require "shinonome"
-rescue LoadError
-end
+require "bdffont"
 
 class UC8151
   include VRAM::Delegatable
-  include Terminus::Drawable
-  include KarmaticArcade::Drawable
-  if Object.const_defined?(:Shinonome)
-    include Shinonome::Drawable
-  else
-    def draw_shinonome(name, x, y, text, scale = 1)
-      puts "Shinonome gem not available, skip text rendering"
-    end
-  end
+
+  BDFFont.setup(self)
 
   # UC8151 command registers
   PSR  = 0x00  # Panel Setting
@@ -156,19 +144,5 @@ class UC8151
 
   def fill(color = 0)
     @vram.fill(color)
-  end
-
-  def draw_text(fontname, x, y, text, scale = 1)
-    font, name = fontname.to_s.split("_")
-    case font
-    when "terminus"
-      draw_terminus(name.to_s, x, y, text, scale)
-    when "shinonome"
-      draw_shinonome(name.to_s, x, y, text, scale)
-    when 'karmatic-arcade'
-      draw_karmatic_arcade(name.to_s, x, y, text, scale)
-    else
-      raise "Unsupported font: #{font}"
-    end
   end
 end

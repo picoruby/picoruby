@@ -1,0 +1,15 @@
+type bdffont_result_t = [Integer, Integer,     Array[Integer], Array[Array[Integer]]]
+#                        height,  total_width, widths,         glyphs
+
+module BDFFont
+  def self.setup: (Module klass) -> void
+
+  module Drawable
+    def draw_bitmap: (x: Integer, y: Integer, w: Integer, h: Integer, data: Array[Integer]) -> nil
+    def draw_shinonome: (String size, Integer x, Integer y, String text, ?Integer scale) -> nil
+    def draw_terminus: (String size, Integer x, Integer y, String text, ?Integer scale) -> nil
+    def draw_karmatic_arcade: (String size, Integer x, Integer y, String text, ?Integer scale) -> nil
+    def bdffont_draw_result: (bdffont_result_t result, Integer x, Integer y) -> nil
+    def draw_text: (String fontname, Integer x, Integer y, String text, ?Integer scale) -> void
+  end
+end
