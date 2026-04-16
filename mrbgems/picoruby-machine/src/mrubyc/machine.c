@@ -21,6 +21,20 @@ c_Machine_tud_mounted_q(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_Machine_bootsel_pressed_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#if defined(PICORB_PLATFORM_POSIX)
+  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Machine.bootsel_pressed? is not supported on this platform");
+#else
+  if (Machine_bootsel_pressed_q()) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+#endif
+}
+
+static void
 c_Machine_delay_ms(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 1) {
@@ -419,6 +433,7 @@ mrbc_machine_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, module_Machine, "tud_task", c_Machine_tud_task);
   mrbc_define_method(vm, module_Machine, "tud_mounted?", c_Machine_tud_mounted_q);
+  mrbc_define_method(vm, module_Machine, "bootsel_pressed?", c_Machine_bootsel_pressed_q);
 
   mrbc_define_method(vm, module_Machine, "delay_ms", c_Machine_delay_ms);
   mrbc_define_method(vm, module_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);

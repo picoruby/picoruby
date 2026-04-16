@@ -31,6 +31,21 @@ mrb_s_tud_mounted_p(mrb_state *mrb, mrb_value klass)
 }
 
 static mrb_value
+mrb_s_bootsel_pressed_p(mrb_state *mrb, mrb_value klass)
+{
+#if defined(PICORB_PLATFORM_POSIX)
+  mrb_raise(mrb, E_NOTIMP_ERROR, "Machine.bootsel_pressed? is not supported on this platform");
+  return mrb_nil_value();
+#else
+  if (Machine_bootsel_pressed_q()) {
+    return mrb_true_value();
+  } else {
+    return mrb_false_value();
+  }
+#endif
+}
+
+static mrb_value
 mrb_s_delay_ms(mrb_state *mrb, mrb_value klass)
 {
   mrb_int ms;
@@ -423,6 +438,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(tud_task), mrb_s_tud_task, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM_Q(tud_mounted), mrb_s_tud_mounted_p, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM_Q(bootsel_pressed), mrb_s_bootsel_pressed_p, MRB_ARGS_NONE());
 
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(delay_ms), mrb_s_delay_ms, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(busy_wait_ms), mrb_s_busy_wait_ms, MRB_ARGS_REQ(1));
