@@ -33,15 +33,14 @@ mrb_s_tud_mounted_p(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_s_bootsel_pressed_p(mrb_state *mrb, mrb_value klass)
 {
-#if defined(PICORB_PLATFORM_POSIX)
-  mrb_raise(mrb, E_NOTIMP_ERROR, "Machine.bootsel_pressed? is not supported on this platform");
-  return mrb_nil_value();
-#else
+#if defined(PICORB_PLATFORM_RP2)
   if (Machine_bootsel_pressed_q()) {
     return mrb_true_value();
   } else {
     return mrb_false_value();
   }
+#else
+  mrb_raise(mrb, E_NOTIMP_ERROR, "Machine.bootsel_pressed? is not supported on this platform");
 #endif
 }
 

@@ -7,6 +7,8 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
 
   conf.toolchain("gcc")
 
+  conf.cc.defines << "PICORB_PLATFORM_RP2"
+
   conf.cc.defines << "MRB_TICK_UNIT=1"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 

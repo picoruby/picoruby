@@ -24,6 +24,8 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico_w") do |conf|
   conf.cc.flags << "-ffunction-sections"
   conf.cc.flags << "-fdata-sections"
 
+  conf.cc.defines << "PICORB_PLATFORM_RP2"
+
   # These defines should not contradict platform's configuration
   conf.cc.defines << "PICORB_INT64"
   conf.cc.defines << "MRBC_REQUIRE_32BIT_ALIGNMENT=1"
