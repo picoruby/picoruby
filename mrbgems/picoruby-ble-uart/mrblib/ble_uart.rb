@@ -220,6 +220,7 @@ class BLE
         @connected = false
         @notification_enabled = false
         @advertising_started = false
+        @notify_chunk_size = DEFAULT_ATT_MTU - 3
         debug_puts "Disconnected, re-advertising"
         _start_advertise
       when ATT_EVENT_MTU_EXCHANGE_COMPLETE
