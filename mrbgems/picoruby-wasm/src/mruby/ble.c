@@ -2,8 +2,10 @@
 
 #include "mruby.h"
 #include "mruby/presym.h"
+#include "mruby/array.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
+#include "mruby/hash.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
 
@@ -107,16 +109,27 @@ ble_notify_callback(uintptr_t callback_id, const uint8_t *data, int length)
 {
   if (!global_mrb) return;
 
-  /* Store binary data in global variable */
+  mrb_value callbacks = mrb_const_get(global_mrb,
+    mrb_obj_value(class_JS_Object), mrb_intern_lit(global_mrb, "CALLBACKS"));
+  if (!mrb_hash_p(callbacks)) return;
+  mrb_value callback = mrb_hash_get(global_mrb, callbacks,
+    mrb_fixnum_value((mrb_int)callback_id));
+  if (mrb_nil_p(callback)) return;
+
+  /* Push binary data to queue array */
+  mrb_sym queue_sym = mrb_intern_lit(global_mrb, "$_ble_notify_queue");
+  mrb_value queue = mrb_gv_get(global_mrb, queue_sym);
+  if (!mrb_array_p(queue)) {
+    queue = mrb_ary_new(global_mrb);
+    mrb_gv_set(global_mrb, queue_sym, queue);
+  }
   mrb_value data_str = mrb_str_new(global_mrb, (const char *)data, length);
-  mrb_gv_set(global_mrb,
-    mrb_intern_lit(global_mrb, "$_ble_notify_data"),
-    data_str);
+  mrb_ary_push(global_mrb, queue, data_str);
 
   /* Build and execute callback script */
   static char script[256];
   snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu]&.call($_ble_notify_data)",
+    "JS::Object::CALLBACKS[%lu].call($_ble_notify_queue.shift)",
     (unsigned long)callback_id);
 
   mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
