@@ -212,11 +212,10 @@ class PicoRubyDebugger {
     this.btnNext.addEventListener('click', () => this.debugNext());
   }
 
-  setDebugButtonsVisible(visible) {
-    const method = visible ? 'add' : 'remove';
-    this.btnContinue.classList[method]('visible');
-    this.btnStep.classList[method]('visible');
-    this.btnNext.classList[method]('visible');
+  setDebugButtonsEnabled(enabled) {
+    this.btnContinue.disabled = !enabled;
+    this.btnStep.disabled = !enabled;
+    this.btnNext.disabled = !enabled;
   }
 
   setupEventListeners() {
@@ -324,7 +323,7 @@ class PicoRubyDebugger {
   enterDebugMode(status) {
     this.isPaused = true;
     this.pauseId = status.pause_id;
-    this.setDebugButtonsVisible(true);
+    this.setDebugButtonsEnabled(true);
     this.enableInput();
     this.updatePrompt();
     const file = status.file || '(unknown)';
@@ -346,7 +345,7 @@ class PicoRubyDebugger {
 
   exitDebugMode() {
     this.isPaused = false;
-    this.setDebugButtonsVisible(false);
+    this.setDebugButtonsEnabled(false);
     this.updateStatus('Connected to PicoRuby');
     this.localsContent.innerHTML = '<div class="empty-state">Not paused</div>';
     this.callstackContent.innerHTML = '<div class="empty-state">Not paused</div>';
