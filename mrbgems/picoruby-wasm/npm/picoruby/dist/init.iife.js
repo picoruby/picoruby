@@ -12,9 +12,11 @@
           if (!response.ok) {
             throw new Error(`Failed to load ${script.src}: ${response.statusText}`);
           }
-          return await response.text();
+          const code = await response.text();
+          const filename = script.src.split('/').pop() || script.src;
+          return { code, filename };
         }
-        return script.textContent.trim();
+        return { code: script.textContent.trim(), filename: null };
       });
       return Promise.all(taskPromises);
     }
@@ -77,7 +79,12 @@
     try {
       const rubyTasks = await collectRubyScripts();
       rubyTasks.forEach(function(task) {
-        Module.ccall('picorb_create_task', 'number', ['string'], [task]);
+        if (task.filename) {
+          Module.ccall('picorb_create_task_with_filename', 'number',
+                       ['string', 'string'], [task.code, task.filename]);
+        } else {
+          Module.ccall('picorb_create_task', 'number', ['string'], [task.code]);
+        }
       });
     } catch (error) {
       console.error('Error loading Ruby tasks:', error);
@@ -108,7 +115,8 @@
     // Also support window.userTasks if present (for backward compatibility)
     if (window.userTasks) {
       window.userTasks.forEach(function(task) {
-        Module.ccall('picorb_create_task', 'number', ['string'], [task]);
+        Module.ccall('picorb_create_task', 'number', ['string'],
+                     [typeof task === 'string' ? task : task.code]);
       });
     }
 

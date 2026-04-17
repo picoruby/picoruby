@@ -173,6 +173,72 @@ picorb_create_task(const char *code)
   return 0;
 }
 
+/* picorb_create_task_with_filename - compile Ruby string with a given filename.
+ * The filename is stored in the irep debug_info, enabling accurate source
+ * locations in error messages and step/next output (equivalent to
+ * `picorbc -g <filename>`). */
+EMSCRIPTEN_KEEPALIVE
+int
+picorb_create_task_with_filename(const char *code, const char *filename)
+{
+  if (!global_mrb) {
+    fprintf(stderr, "mruby state not initialized\n");
+    return -1;
+  }
+
+  char* utf8 = picorb_utf8_from_locale(code, -1);
+  if (!utf8) {
+    fprintf(stderr, "Failed to convert code to UTF-8\n");
+    return -1;
+  }
+
+  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
+  if (!cc) {
+    fprintf(stderr, "Failed to create mruby compiler context\n");
+    picorb_utf8_free(utf8);
+    return -1;
+  }
+
+  if (filename && *filename) {
+    mrc_ccontext_filename(cc, filename);
+  }
+
+  const uint8_t *script_ptr = (const uint8_t *)utf8;
+  size_t size = strlen(utf8);
+  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
+
+  picorb_utf8_free(utf8);
+
+  if (!irep) {
+    fprintf(stderr, "Failed to compile script\n");
+    mrc_ccontext_free(cc);
+    return -1;
+  }
+
+  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
+  mrc_ccontext_free(cc);
+
+  if (mrb_nil_p(task)) {
+    fprintf(stderr, "Failed to create task\n");
+    return -1;
+  }
+
+  if (global_mrb->exc) {
+    mrb_value exc = mrb_obj_value(global_mrb->exc);
+    global_mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(global_mrb, exc);
+    if (global_mrb->exc) {
+      fprintf(stderr, "Ruby exception (failed to inspect exception)\n");
+      global_mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Ruby exception: %s\n", RSTRING_PTR(exc_str));
+    }
+    return -1;
+  }
+
+  return 0;
+}
+
 // Forward declaration to avoid including mruby/dump.h and causing redefinition errors.
 struct mrb_irep;
 struct mrb_irep* mrb_read_irep_buf(mrb_state *mrb, const void *buf, size_t bufsize);
