@@ -33,6 +33,7 @@ class PicoRubyDebugger {
 
     this.setupEventListeners();
     this.setupDebugButtons();
+    this.setupResizeHandles();
     this.createInputLine();
     this.checkConnection();
   }
@@ -216,6 +217,114 @@ class PicoRubyDebugger {
     this.btnContinue.disabled = !enabled;
     this.btnStep.disabled = !enabled;
     this.btnNext.disabled = !enabled;
+  }
+
+  setupResizeHandles() {
+    const sidebar = document.getElementById('sidebar');
+    const localsSection = document.getElementById('localsSection');
+    const componentsPanel = document.getElementById('componentsPanel');
+
+    this.setupColResizeHandle(
+      document.getElementById('replSidebarHandle'),
+      sidebar,
+      150, 600
+    );
+    this.setupRowResizeHandle(
+      document.getElementById('localCallstackHandle'),
+      localsSection,
+      60, null
+    );
+    this.setupSplitColResizeHandle(
+      document.getElementById('sidebarComponentsHandle'),
+      sidebar,
+      componentsPanel,
+      150, 600
+    );
+  }
+
+  setupColResizeHandle(handle, targetEl, minWidth, maxWidth) {
+    if (!handle || !targetEl) return;
+    handle.addEventListener('mousedown', (e) => {
+      const startX = e.clientX;
+      const startWidth = targetEl.offsetWidth;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = (e) => {
+        const delta = startX - e.clientX;
+        const newWidth = Math.max(minWidth, Math.min(maxWidth || 9999, startWidth + delta));
+        targetEl.style.width = newWidth + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    });
+  }
+
+  setupSplitColResizeHandle(handle, leftEl, rightEl, minWidth, maxWidth) {
+    if (!handle || !leftEl || !rightEl) return;
+    handle.addEventListener('mousedown', (e) => {
+      const startX = e.clientX;
+      const startLeftWidth = leftEl.offsetWidth;
+      const startRightWidth = rightEl.offsetWidth;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = (e) => {
+        const delta = e.clientX - startX;
+        const newLeftWidth = Math.max(minWidth, Math.min(maxWidth, startLeftWidth + delta));
+        const actualDelta = newLeftWidth - startLeftWidth;
+        leftEl.style.width = newLeftWidth + 'px';
+        rightEl.style.width = Math.max(minWidth, startRightWidth - actualDelta) + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    });
+  }
+
+  setupRowResizeHandle(handle, topEl, minHeight, maxHeight) {
+    if (!handle || !topEl) return;
+    handle.addEventListener('mousedown', (e) => {
+      const startY = e.clientY;
+      const startHeight = topEl.offsetHeight;
+      handle.classList.add('dragging');
+      document.body.style.cursor = 'row-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = (e) => {
+        const delta = e.clientY - startY;
+        const newHeight = Math.max(minHeight, Math.min(maxHeight || 9999, startHeight + delta));
+        topEl.style.flex = 'none';
+        topEl.style.height = newHeight + 'px';
+      };
+      const onUp = () => {
+        handle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+      };
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      e.preventDefault();
+    });
   }
 
   setupEventListeners() {
@@ -725,6 +834,8 @@ class PicoRubyDebugger {
   enableComponentDebug() {
     if (!this.componentsPanel) return;
     this.componentsPanel.classList.add('visible');
+    const h = document.getElementById('sidebarComponentsHandle');
+    if (h) h.classList.remove('hidden');
     setTimeout(() => {
       this.refreshComponents();
       this.startComponentAutoRefresh();

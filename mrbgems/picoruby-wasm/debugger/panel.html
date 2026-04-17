@@ -245,6 +245,37 @@
       background: #1a3a35;
     }
 
+    /* Resize handles */
+    .resize-handle-col {
+      width: 4px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .resize-handle-col:hover,
+    .resize-handle-col.dragging {
+      background: #007acc;
+    }
+
+    .resize-handle-row {
+      height: 4px;
+      cursor: row-resize;
+      background: transparent;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .resize-handle-row:hover,
+    .resize-handle-row.dragging {
+      background: #007acc;
+    }
+
+    .resize-handle-col.hidden {
+      display: none;
+    }
+
     /* Components section */
     .components-panel {
       display: none;
@@ -412,6 +443,8 @@
       </div>
     </div>
 
+    <div class="resize-handle-col" id="replSidebarHandle"></div>
+
     <!-- Right sidebar: locals + callstack -->
     <div class="sidebar" id="sidebar">
       <div class="sidebar-section expanded" id="localsSection">
@@ -420,13 +453,16 @@
           <div class="empty-state">Not paused</div>
         </div>
       </div>
-      <div class="sidebar-section" id="callstackSection">
+      <div class="resize-handle-row" id="localCallstackHandle"></div>
+      <div class="sidebar-section expanded" id="callstackSection">
         <div class="section-header">Call Stack</div>
         <div class="section-content" id="callstackContent">
           <div class="empty-state">Not paused</div>
         </div>
       </div>
     </div>
+
+    <div class="resize-handle-col hidden" id="sidebarComponentsHandle"></div>
 
     <!-- Components panel (only visible with Funicular) -->
     <div class="components-panel" id="componentsPanel">
