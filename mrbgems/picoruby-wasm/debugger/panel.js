@@ -337,6 +337,11 @@ class PicoRubyDebugger {
     // Fetch locals and callstack
     this.fetchLocals();
     this.fetchCallstack();
+
+    if (this.inputEditable) {
+      this.inputEditable.focus();
+      this.moveCursorToEnd();
+    }
   }
 
   exitDebugMode() {
