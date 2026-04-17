@@ -1277,10 +1277,15 @@ const char* mrb_debug_next(void)
     return debug_json_error("not paused");
   }
 
-  /* Record current position and call depth */
+  /* Record current position and call depth.
+   * Must use the paused task's ci (not root context ci), because the
+   * hook fires in the task context where mrb->c->ci == task->c.ci. */
   g_dbg.prev_file = g_dbg.pause_file;
   g_dbg.prev_line = g_dbg.pause_line;
-  g_dbg.prev_ci = global_mrb->c->ci;
+  {
+    mrb_task *t = (mrb_task *)DATA_PTR(g_dbg.paused_task);
+    g_dbg.prev_ci = t ? t->c.ci : global_mrb->c->ci;
+  }
 
   /* Clean up current binding */
   if (!mrb_nil_p(g_dbg.binding)) {

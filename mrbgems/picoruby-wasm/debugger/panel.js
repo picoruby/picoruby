@@ -6,6 +6,9 @@ class PicoRubyDebugger {
     this.replOutput = document.getElementById('replOutput');
     this.localsContent = document.getElementById('localsContent');
     this.callstackContent = document.getElementById('callstackContent');
+    this.btnContinue = document.getElementById('btnContinue');
+    this.btnStep = document.getElementById('btnStep');
+    this.btnNext = document.getElementById('btnNext');
 
     // Component debug elements
     this.componentsPanel = document.getElementById('componentsPanel');
@@ -29,6 +32,7 @@ class PicoRubyDebugger {
     this.historyIndex = -1;
 
     this.setupEventListeners();
+    this.setupDebugButtons();
     this.createInputLine();
     this.checkConnection();
   }
@@ -202,6 +206,19 @@ class PicoRubyDebugger {
     });
   }
 
+  setupDebugButtons() {
+    this.btnContinue.addEventListener('click', () => this.debugContinue());
+    this.btnStep.addEventListener('click', () => this.debugStep());
+    this.btnNext.addEventListener('click', () => this.debugNext());
+  }
+
+  setDebugButtonsVisible(visible) {
+    const method = visible ? 'add' : 'remove';
+    this.btnContinue.classList[method]('visible');
+    this.btnStep.classList[method]('visible');
+    this.btnNext.classList[method]('visible');
+  }
+
   setupEventListeners() {
     // Click anywhere in the output area focuses the input
     this.replOutput.addEventListener('click', () => {
@@ -307,6 +324,7 @@ class PicoRubyDebugger {
   enterDebugMode(status) {
     this.isPaused = true;
     this.pauseId = status.pause_id;
+    this.setDebugButtonsVisible(true);
     this.enableInput();
     this.updatePrompt();
     const file = status.file || '(unknown)';
@@ -323,6 +341,7 @@ class PicoRubyDebugger {
 
   exitDebugMode() {
     this.isPaused = false;
+    this.setDebugButtonsVisible(false);
     this.updateStatus('Connected to PicoRuby');
     this.localsContent.innerHTML = '<div class="empty-state">Not paused</div>';
     this.callstackContent.innerHTML = '<div class="empty-state">Not paused</div>';

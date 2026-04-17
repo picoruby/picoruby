@@ -210,6 +210,41 @@
       font-size: 10px;
     }
 
+    /* Debug buttons */
+    .debug-btn {
+      padding: 3px 10px;
+      background: #3c3c3c;
+      color: #cccccc;
+      border: 1px solid #555;
+      border-radius: 3px;
+      font-size: 11px;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: none;
+    }
+
+    .debug-btn:hover {
+      background: #4a4a4a;
+      border-color: #777;
+    }
+
+    .debug-btn:active {
+      background: #555;
+    }
+
+    .debug-btn.visible {
+      display: inline-block;
+    }
+
+    .debug-btn-continue {
+      color: #4ec9b0;
+      border-color: #4ec9b0;
+    }
+
+    .debug-btn-continue:hover {
+      background: #1a3a35;
+    }
+
     /* Components section */
     .components-panel {
       display: none;
@@ -354,6 +389,9 @@
 <body>
   <!-- Toolbar -->
   <div class="toolbar">
+    <button class="debug-btn debug-btn-continue" id="btnContinue" title="Continue (F8)">&#9654; Continue</button>
+    <button class="debug-btn" id="btnStep" title="Step Into (F11)">&#8595; Step Into</button>
+    <button class="debug-btn" id="btnNext" title="Next (F10)">&#8594; Next</button>
     <span class="status" id="status">Connecting...</span>
   </div>
 
