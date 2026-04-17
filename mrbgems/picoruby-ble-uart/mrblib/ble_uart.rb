@@ -36,7 +36,7 @@ class BLE
     ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
     ATT_EVENT_CAN_SEND_NOW = 0xB7
 
-    NOTIFY_MTU = 20
+    DEFAULT_ATT_MTU = 23 # BLE 4.0 minimum; payload = MTU - 3 for notifications
 
     def initialize(role: :peripheral,
                    name: "RubyUART",
@@ -49,6 +49,7 @@ class BLE
       @rx_buffer = ""
       @tx_buffer = ""
       @connected = false
+      @notify_chunk_size = DEFAULT_ATT_MTU - 3
 
       if role == :peripheral
         adv_data = AdvertisingData.build do |a|
@@ -219,11 +220,14 @@ class BLE
         @connected = false
         @notification_enabled = false
         @advertising_started = false
+        @notify_chunk_size = DEFAULT_ATT_MTU - 3
         debug_puts "Disconnected, re-advertising"
         _start_advertise
       when ATT_EVENT_MTU_EXCHANGE_COMPLETE
         @connected = true
-        debug_puts "Connected (MTU exchange complete)"
+        mtu = Utils.little_endian_to_int16(event_packet.byteslice(4, 2))
+        @notify_chunk_size = mtu - 3 if mtu && mtu >= DEFAULT_ATT_MTU
+        debug_puts "Connected (MTU=#{mtu}, chunk=#{@notify_chunk_size})"
       when ATT_EVENT_CAN_SEND_NOW
         _flush_tx
       end
@@ -250,9 +254,9 @@ class BLE
 
     def _flush_tx
       return if @tx_buffer.empty?
-      chunk = @tx_buffer.byteslice(0, NOTIFY_MTU) || ""
+      chunk = @tx_buffer.byteslice(0, @notify_chunk_size) || ""
       unless chunk.empty?
-        @tx_buffer = @tx_buffer.byteslice(NOTIFY_MTU..-1) || ""
+        @tx_buffer = @tx_buffer.byteslice(@notify_chunk_size..-1) || ""
         push_read_value(@tx_handle, chunk)
         notify(@tx_handle)
         _request_send
@@ -392,9 +396,9 @@ class BLE
       rx_handle = @peer_rx_handle
       return unless rx_handle
       while !@tx_buffer.empty?
-        chunk = @tx_buffer.byteslice(0, NOTIFY_MTU) || ""
+        chunk = @tx_buffer.byteslice(0, @notify_chunk_size) || ""
         break if chunk.empty?
-        @tx_buffer = @tx_buffer.byteslice(NOTIFY_MTU..-1) || ""
+        @tx_buffer = @tx_buffer.byteslice(@notify_chunk_size..-1) || ""
         write_value_of_characteristic_without_response(@conn_handle, rx_handle, chunk)
       end
     end
