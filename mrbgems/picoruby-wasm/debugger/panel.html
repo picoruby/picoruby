@@ -133,6 +133,7 @@
     .sidebar-section {
       display: flex;
       flex-direction: column;
+      min-height: 0;
       border-bottom: 1px solid #454545;
     }
 
@@ -156,8 +157,11 @@
     }
 
     .section-content {
+      flex: 1;
+      min-height: 0;
       padding: 4px 8px;
       overflow-y: auto;
+      overflow-x: auto;
       font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
       font-size: 11px;
     }
