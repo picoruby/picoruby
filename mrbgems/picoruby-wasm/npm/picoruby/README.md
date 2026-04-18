@@ -6,40 +6,32 @@ Run Ruby in the browser. Powered by the mruby VM compiled to WebAssembly.
 
 |Version|Package|
 |:-----:|:-----:|
+|latest (recommended)|@picoruby/wasm-wasi@latest|
 |debug|@picoruby/wasm-wasi@debug|
 |head|@picoruby/wasm-wasi@head|
 |3.4.5|@picoruby/wasm-wasi@3.4.5|
 |0.9.6|@picoruby/wasm-wasi@0.9.6|
 
+Use `@picoruby/wasm-wasi@latest` (or omit the tag entirely) to always get the most recent stable release.
 If you want to debug your application with Chrome extension PicoRuby Debugger, you need to use `@picoruby/wasm-wasi@debug`.
 
 ## Quick Start
 
-Add one `<script>` tag and write Ruby directly in your HTML:
+Add the loader `<script>` tag, then choose one of the following ways to run Ruby:
 
 ```html
-<!DOCTYPE html>
-<html>
-<head>
-  <script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi/dist/init.iife.js"></script>
-  <!-- If you want to specify a version: @picoruby/wasm-wasi@3.4.5/dist/init.iife.js -->
-</head>
-<body>
-  <script type="text/ruby">
-    require 'js'
+<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@latest/dist/init.iife.js"></script>
 
-    JS.document.getElementById('output')[:textContent] = "Hello from Ruby!"
-  </script>
+<!-- Embedded Ruby Script -->
+<script type="text/ruby">
+  puts "Hello, World!"
+</script>
 
-  <div id="output"></div>
-</body>
-</html>
-```
+<!-- Remote Ruby Script file (.rb) -->
+<script type="text/ruby" src="hello.rb"></script>
 
-Load an external Ruby file:
-
-```html
-<script type="text/ruby" src="app.rb"></script>
+<!-- Remote Precompiled Ruby VM Code file (.mrb) -->
+<script type="application/x-mrb" src="hello.mrb"></script>
 ```
 
 ## Installation (npm)
