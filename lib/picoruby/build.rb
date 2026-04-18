@@ -167,8 +167,9 @@ module MRuby
         cc.flags << "-fomit-frame-pointer"
         # cc.flags << "-flto" # Build fails with -flto
         unless cc.command == "clang" || cc.command == "emcc"
-          cc.flags << "-s"
-          linker.flags << "-Wl,--gc-sections"
+          cc.flags << "-s" unless RUBY_PLATFORM.include?("darwin")
+          linker.flags << "-Wl"
+          linker.flags << (RUBY_PLATFORM.include?("darwin") ? "-dead_strip" : "--gc-sections")
         end
       end
     end
