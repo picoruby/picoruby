@@ -42,17 +42,17 @@ c_esp32_wifi_connect_timeout(mrb_state *mrb, mrb_value self)
 {
   const char *ssid;
   const char *password;
-  int auth;
-  mrb_int timeout_ms;// = 3 < argc ? GET_INT_ARG(4)*1000 : 60*1000;
-  mrb_value timeout;
-  mrb_get_args(mrb, "zzi|o", &ssid, &password, &auth, &timeout_ms);
+  mrb_int auth;
+  mrb_int timeout_ms;
+  mrb_value timeout = mrb_nil_value();
+  mrb_get_args(mrb, "zzi|o", &ssid, &password, &auth, &timeout);
   if (mrb_nil_p(timeout)) {
     timeout_ms = 60 * 1000;
   } else {
     timeout_ms = mrb_fixnum(timeout) * 1000;
   }
 
-  int result = ESP32_WIFI_connect_timeout(ssid, password, auth, timeout_ms);
+  int result = ESP32_WIFI_connect_timeout(ssid, password, (int)auth, (int)timeout_ms);
 
   if (result == 0) {
     return mrb_true_value();
