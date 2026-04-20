@@ -5,8 +5,11 @@ namespace :wasm do
   task :picorbc do
     sh "CONFIG=picorbc-wasm PICORB_DEBUG=1 rake"
     FileUtils.mkdir_p("#{picorbc_npm_dir}/debug")
+    FileUtils.mkdir_p("#{picorbc_npm_dir}/dist")
     sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/debug/"
     sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/debug/"
+    sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/dist/"
+    sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/dist/"
   end
 
   desc "Build PicoRuby WASM and picorbc WASM (debug)"
@@ -38,7 +41,7 @@ namespace :wasm do
   end
 
   desc "Build production and publish to npm"
-  task :release => [:npm_whoami, :clean, :prod] do
+  task :release => [:npm_whoami, :clean, :picorbc, :prod] do
     FileUtils.cd "mrbgems/picoruby-wasm/npm/picoruby" do
       sh "npm publish --access public --registry=https://registry.npmjs.org/"
     end
