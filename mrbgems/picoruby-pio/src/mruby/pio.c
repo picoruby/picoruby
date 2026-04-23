@@ -260,6 +260,24 @@ mrb_sm_exec(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+static mrb_value
+mrb_sm_freq(mrb_state *mrb, mrb_value self)
+{
+  pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
+  return mrb_int_value(mrb, (mrb_int)config->freq);
+}
+
+static mrb_value
+mrb_sm_freq_e(mrb_state *mrb, mrb_value self)
+{
+  pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
+  mrb_int freq;
+  mrb_get_args(mrb, "i", &freq);
+  if (freq <= 0) mrb_raise(mrb, E_ARGUMENT_ERROR, "freq must be positive");
+  PIO_set_freq(config, (uint32_t)freq);
+  return mrb_int_value(mrb, freq);
+}
+
 void
 mrb_picoruby_pio_gem_init(mrb_state* mrb)
 {
@@ -286,6 +304,8 @@ mrb_picoruby_pio_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_SM, MRB_SYM(clear_fifos), mrb_sm_clear_fifos, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SM, MRB_SYM(drain_tx), mrb_sm_drain_tx, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SM, MRB_SYM(exec), mrb_sm_exec, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_SM, MRB_SYM(freq), mrb_sm_freq, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SM, MRB_SYM_E(freq), mrb_sm_freq_e, MRB_ARGS_REQ(1));
 }
 
 void
