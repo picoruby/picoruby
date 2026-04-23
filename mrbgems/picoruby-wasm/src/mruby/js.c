@@ -2482,6 +2482,116 @@ mrb_js_eval(mrb_state *mrb, mrb_value klass)
   return js_ref_to_ruby_value(mrb, ref_id);
 }
 
+/*
+ * Build a short, human-readable preview of the JS value at ref_id
+ * and write it into buf (UTF-8, NUL-terminated).
+ * Used by JS::Object#inspect.
+ */
+EM_JS(void, js_inspect_to_buffer, (int ref_id, char* buf, int buf_size), {
+  function clip(s, max) {
+    if (s.length > max) return s.slice(0, max - 3) + '...';
+    return s;
+  }
+  function previewValue(val) {
+    if (val === null) return 'null';
+    if (val === undefined) return 'undefined';
+    const t = typeof val;
+    if (t === 'string') return JSON.stringify(val);
+    if (t === 'number' || t === 'boolean') return String(val);
+    if (t === 'bigint') return val.toString() + 'n';
+    if (t === 'symbol') return val.toString();
+    if (t === 'function') return 'function';
+    return '...';
+  }
+  let result;
+  try {
+    const v = globalThis.picorubyRefs[ref_id];
+    if (v === null) {
+      result = 'null';
+    } else if (v === undefined) {
+      result = 'undefined';
+    } else if (typeof v === 'string') {
+      result = 'String ' + clip(JSON.stringify(v), 120);
+    } else if (typeof v === 'number') {
+      result = 'Number ' + String(v);
+    } else if (typeof v === 'boolean') {
+      result = 'Boolean ' + (v ? 'true' : 'false');
+    } else if (typeof v === 'bigint') {
+      result = 'BigInt ' + v.toString() + 'n';
+    } else if (typeof v === 'symbol') {
+      result = 'Symbol ' + v.toString();
+    } else if (typeof v === 'function') {
+      const name = v.name && v.name.length > 0 ? v.name : '(anonymous)';
+      result = 'Function ' + name;
+    } else if (Array.isArray(v)) {
+      const len = v.length;
+      const sample = v.slice(0, 5).map(previewValue).join(',');
+      const preview = len > 5 ? '[' + sample + ',...]' : '[' + sample + ']';
+      result = 'Array length=' + len + ' ' + clip(preview, 120);
+    } else {
+      let ctor = 'Object';
+      try {
+        if (v.constructor && v.constructor.name) ctor = v.constructor.name;
+      } catch (e) {}
+      let extras = '';
+      try {
+        if (typeof Event !== 'undefined' && v instanceof Event) {
+          if (v.type) extras += ' type=' + JSON.stringify(String(v.type));
+        } else if (typeof Response !== 'undefined' && v instanceof Response) {
+          if (v.status !== undefined) extras += ' status=' + v.status;
+          if (v.url) extras += ' url=' + JSON.stringify(String(v.url));
+        } else if (typeof Element !== 'undefined' && v instanceof Element) {
+          if (v.id) extras += ' id=' + JSON.stringify(String(v.id));
+          const cls = v.getAttribute && v.getAttribute('class');
+          if (cls) extras += ' class=' + JSON.stringify(String(cls));
+        } else {
+          const keys = Object.keys(v).slice(0, 3);
+          if (keys.length > 0) {
+            const items = keys.map(function(k) {
+              return k + '=' + previewValue(v[k]);
+            });
+            extras = ' ' + items.join(' ');
+            if (Object.keys(v).length > 3) extras += ' ...';
+          }
+        }
+      } catch (e) {}
+      result = ctor + extras;
+    }
+  } catch (e) {
+    result = '<inspect error: ' + (e && e.message ? e.message : 'unknown') + '>';
+  }
+  if (buf_size > 0) {
+    if (result.length > buf_size - 1) {
+      result = result.slice(0, buf_size - 4) + '...';
+    }
+    stringToUTF8(result, buf, buf_size);
+  }
+});
+
+/*
+ * JS::Object#inspect
+ * Returns a readable representation such as:
+ *   #<JS::Object ref:87 HTMLDivElement id="foo" class="bar">
+ *   #<JS::Object ref:42 Array length=3 [1,2,"x"]>
+ *   #<JS::Object ref:8 Number 3.14>
+ */
+static mrb_value
+mrb_object_inspect(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
+  char body[384];
+  body[0] = '\0';
+  js_inspect_to_buffer(obj->ref_id, body, sizeof(body));
+
+  char head[48];
+  snprintf(head, sizeof(head), "#<JS::Object ref:%d ", obj->ref_id);
+
+  mrb_value result = mrb_str_new_cstr(mrb, head);
+  mrb_str_cat_cstr(mrb, result, body);
+  mrb_str_cat_lit(mrb, result, ">");
+  return result;
+}
+
 
 void
 mrb_js_init(mrb_state *mrb)
@@ -2507,6 +2617,7 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(method_missing), mrb_object_method_missing, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_a), mrb_object_to_a, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_s), mrb_object_to_s, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(inspect), mrb_object_inspect, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_f), mrb_object_to_f, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_i), mrb_object_to_i, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_add_event_listener), mrb_object__add_event_listener, MRB_ARGS_REQ(2));
