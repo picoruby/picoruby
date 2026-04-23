@@ -39,6 +39,16 @@ typedef enum {
 } js_value_type;
 
 struct RClass *class_JS_Object;
+struct RClass *class_JS_Array;
+struct RClass *class_JS_Function;
+struct RClass *class_JS_Promise;
+
+typedef enum {
+  JS_COMPOSITE_PLAIN = 0,
+  JS_COMPOSITE_ARRAY = 1,
+  JS_COMPOSITE_FUNCTION = 2,
+  JS_COMPOSITE_PROMISE = 3
+} js_composite_kind;
 
 static void
 picorb_js_obj_free(mrb_state *mrb, void *ptr)
@@ -235,6 +245,21 @@ EM_JS(int, get_js_property_type, (int ref_id, const char* property_name), {
 
 EM_JS(bool, get_boolean_value, (int ref_id), {
   return globalThis.picorubyRefs[ref_id] ? true : false;
+});
+
+// Classify a composite JS value into an enum used to pick the Ruby class
+// (JS::Object / JS::Array / JS::Function / JS::Promise) when wrapping.
+// Only meaningful for values that get_js_type returned as composite.
+EM_JS(int, js_classify_composite, (int ref_id), {
+  try {
+    const v = globalThis.picorubyRefs[ref_id];
+    if (Array.isArray(v)) return 1;
+    if (typeof v === 'function') return 2;
+    if (typeof Promise !== 'undefined' && v instanceof Promise) return 3;
+    return 0;
+  } catch(e) {
+    return 0;
+  }
 });
 
 EM_JS(double, get_number_value, (int ref_id), {
@@ -559,6 +584,46 @@ EM_JS(int, call_constructor_with_args, (int ref_id, const char* args_json, int a
     return newRefId;
   } catch(e) {
     console.error('Error in call_constructor_with_args:', e);
+    return -1;
+  }
+});
+
+// Invoke a JS function value directly (no `this` binding). The caller passes
+// arguments as a JSON array encoded with the same tagged-value format used by
+// call_method_with_args. Used by JS::Function#call.
+EM_JS(int, js_function_apply_args, (int func_ref_id, const char* args_json, int args_json_len), {
+  try {
+    const fn = globalThis.picorubyRefs[func_ref_id];
+    if (typeof fn !== 'function') {
+      console.error('js_function_apply_args: not a function');
+      return -1;
+    }
+    const argsData = JSON.parse(UTF8ToString(args_json, args_json_len));
+    if (!Array.isArray(argsData)) {
+      console.error('js_function_apply_args: args_json must be a JSON array');
+      return -1;
+    }
+    const args = argsData.map(arg => {
+      switch (arg.type) {
+        case 'string':
+        case 'integer':
+        case 'float':
+        case 'boolean':
+          return arg.value;
+        case 'ref':
+          return globalThis.picorubyRefs[arg.value];
+        case 'nil':
+          return null;
+        default:
+          return null;
+      }
+    });
+    const result = fn(...args);
+    const newRefId = globalThis.picorubyRefs.length;
+    globalThis.picorubyRefs.push(result);
+    return newRefId;
+  } catch(e) {
+    console.error('Error in js_function_apply_args:', e);
     return -1;
   }
 });
@@ -1002,14 +1067,23 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
  *****************************************************/
 
 /*
- * Helper: wrap ref_id as JS::Object
+ * Helper: wrap ref_id as the most specific JS::* subclass.
+ * Picks JS::Array / JS::Function / JS::Promise for array-like / function /
+ * Promise values, otherwise falls back to JS::Object.
  */
 mrb_value
 wrap_ref_as_js_object(mrb_state *mrb, int ref_id)
 {
+  struct RClass *klass = class_JS_Object;
+  switch (js_classify_composite(ref_id)) {
+    case JS_COMPOSITE_ARRAY:    klass = class_JS_Array; break;
+    case JS_COMPOSITE_FUNCTION: klass = class_JS_Function; break;
+    case JS_COMPOSITE_PROMISE:  klass = class_JS_Promise; break;
+    default: break;
+  }
   picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
   data->ref_id = ref_id;
-  return mrb_obj_value(Data_Wrap_Struct(mrb, class_JS_Object, &picorb_js_obj_type, data));
+  return mrb_obj_value(Data_Wrap_Struct(mrb, klass, &picorb_js_obj_type, data));
 }
 
 /*
@@ -1602,8 +1676,15 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
  * Handles any combination of String, Integer, Float, nil, bool, JS::Object.
  * Returns the ref_id of the result, or -1 on error.
  */
-static int
-call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, mrb_value *argv, mrb_int argc, int extra_ref_id)
+/*
+ * Build a JSON-encoded tagged-value argument array for the EM_JS call helpers.
+ * `context` is a human-readable label used in error messages (e.g. the method
+ * name or "constructor"). Passing a non-negative `extra_ref_id` appends one
+ * more argument of type "ref" after argv[].
+ * Raises on unsupported argument types; does not return in that case.
+ */
+static mrb_value
+build_args_json(mrb_state *mrb, mrb_value *argv, mrb_int argc, int extra_ref_id, const char *context)
 {
   mrb_value json_array = mrb_str_new_lit(mrb, "[");
   mrb_int total = argc + (extra_ref_id >= 0 ? 1 : 0);
@@ -1651,75 +1732,35 @@ call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, 
       snprintf(ref_buf, sizeof(ref_buf), "%d", arg_obj->ref_id);
       mrb_str_cat_cstr(mrb, json_array, ref_buf);
     } else {
-      mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported argument type for method: %s at position: %d", method_name, (int)i);
-      return -1;
+      mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported argument type for %s at position: %d", context, (int)i);
     }
 
     mrb_str_cat_lit(mrb, json_array, "}");
   }
 
   mrb_str_cat_lit(mrb, json_array, "]");
-  return call_method_with_args(ref_id, method_name, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
+  return json_array;
+}
+
+static int
+call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, mrb_value *argv, mrb_int argc, int extra_ref_id)
+{
+  mrb_value json = build_args_json(mrb, argv, argc, extra_ref_id, method_name);
+  return call_method_with_args(ref_id, method_name, RSTRING_PTR(json), RSTRING_LEN(json));
 }
 
 static int
 call_constructor_with_ruby_args(mrb_state *mrb, int ref_id, mrb_value *argv, mrb_int argc, int extra_ref_id)
 {
-  mrb_value json_array = mrb_str_new_lit(mrb, "[");
-  mrb_int total = argc + (extra_ref_id >= 0 ? 1 : 0);
+  mrb_value json = build_args_json(mrb, argv, argc, extra_ref_id, "constructor");
+  return call_constructor_with_args(ref_id, RSTRING_PTR(json), RSTRING_LEN(json));
+}
 
-  for (mrb_int i = 0; i < total; i++) {
-    if (i > 0) mrb_str_cat_lit(mrb, json_array, ",");
-    mrb_str_cat_lit(mrb, json_array, "{\"type\":");
-
-    if (i == argc && extra_ref_id >= 0) {
-      mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
-      char ref_buf[32];
-      snprintf(ref_buf, sizeof(ref_buf), "%d", extra_ref_id);
-      mrb_str_cat_cstr(mrb, json_array, ref_buf);
-    } else if (mrb_string_p(argv[i])) {
-      mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
-      const char *str = mrb_string_value_cstr(mrb, &argv[i]);
-      for (const char *p = str; *p; p++) {
-        if (*p == '"' || *p == '\\') {
-          char escaped[3] = {'\\', *p, '\0'};
-          mrb_str_cat(mrb, json_array, escaped, 2);
-        } else {
-          mrb_str_cat(mrb, json_array, p, 1);
-        }
-      }
-      mrb_str_cat_lit(mrb, json_array, "\"");
-    } else if (mrb_integer_p(argv[i])) {
-      mrb_str_cat_lit(mrb, json_array, "\"integer\",\"value\":");
-      char num_buf[32];
-      snprintf(num_buf, sizeof(num_buf), "%d", (int)mrb_integer(argv[i]));
-      mrb_str_cat_cstr(mrb, json_array, num_buf);
-    } else if (mrb_float_p(argv[i])) {
-      mrb_str_cat_lit(mrb, json_array, "\"float\",\"value\":");
-      char num_buf[64];
-      snprintf(num_buf, sizeof(num_buf), "%f", mrb_float(argv[i]));
-      mrb_str_cat_cstr(mrb, json_array, num_buf);
-    } else if (mrb_nil_p(argv[i])) {
-      mrb_str_cat_lit(mrb, json_array, "\"nil\",\"value\":null");
-    } else if (mrb_true_p(argv[i]) || mrb_false_p(argv[i])) {
-      mrb_str_cat_lit(mrb, json_array, "\"boolean\",\"value\":");
-      mrb_str_cat_cstr(mrb, json_array, mrb_true_p(argv[i]) ? "true" : "false");
-    } else if (mrb_obj_is_kind_of(mrb, argv[i], class_JS_Object)) {
-      picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[i]);
-      mrb_str_cat_lit(mrb, json_array, "\"ref\",\"value\":");
-      char ref_buf[32];
-      snprintf(ref_buf, sizeof(ref_buf), "%d", arg_obj->ref_id);
-      mrb_str_cat_cstr(mrb, json_array, ref_buf);
-    } else {
-      mrb_raisef(mrb, E_TYPE_ERROR, "Unsupported constructor argument type at position: %d", (int)i);
-      return -1;
-    }
-
-    mrb_str_cat_lit(mrb, json_array, "}");
-  }
-
-  mrb_str_cat_lit(mrb, json_array, "]");
-  return call_constructor_with_args(ref_id, RSTRING_PTR(json_array), RSTRING_LEN(json_array));
+static int
+apply_function_with_ruby_args(mrb_state *mrb, int func_ref_id, mrb_value *argv, mrb_int argc)
+{
+  mrb_value json = build_args_json(mrb, argv, argc, -1, "function call");
+  return js_function_apply_args(func_ref_id, RSTRING_PTR(json), RSTRING_LEN(json));
 }
 
 static int
@@ -1823,8 +1864,9 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       picorb_js_obj *arg_obj = (picorb_js_obj *)DATA_PTR(argv[0]);
       new_ref_id = call_method_with_ref(js_obj->ref_id, method_name, arg_obj->ref_id);
     } else {
-      mrb_raise(mrb, E_TYPE_ERROR, "argument must be a String, Integer, or JS::Object");
-      return mrb_nil_value();
+      // Fall back to the generic JSON dispatch so boolean / nil / Float
+      // (and any other supported Ruby type) are forwarded correctly.
+      new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     }
     return js_ref_to_ruby_value(mrb, new_ref_id);
   } else if (argc == 2) {
@@ -1881,6 +1923,21 @@ mrb_object_to_a(mrb_state *mrb, mrb_value self)
     mrb_ary_push(mrb, array, element);
   }
   return array;
+}
+
+/*
+ * JS::Function#call(*args)
+ * Invokes the wrapped JS function value directly with no `this` binding.
+ */
+static mrb_value
+mrb_function_call(mrb_state *mrb, mrb_value self)
+{
+  picorb_js_obj *js_obj = (picorb_js_obj *)DATA_PTR(self);
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  int result_ref_id = apply_function_with_ruby_args(mrb, js_obj->ref_id, argv, argc);
+  return js_ref_to_ruby_value(mrb, result_ref_id);
 }
 
 /*
@@ -2411,4 +2468,16 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeAttribute), mrb_object_remove_attribute, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(preventDefault), mrb_object_prevent_default, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(stopPropagation), mrb_object_stop_propagation, MRB_ARGS_NONE());
+
+  // Composite-type subclasses. wrap_ref_as_js_object dispatches to these
+  // based on the JS runtime type of the wrapped value.
+  class_JS_Array = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Array), class_JS_Object);
+  MRB_SET_INSTANCE_TT(class_JS_Array, MRB_TT_DATA);
+
+  class_JS_Function = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Function), class_JS_Object);
+  MRB_SET_INSTANCE_TT(class_JS_Function, MRB_TT_DATA);
+  mrb_define_method_id(mrb, class_JS_Function, MRB_SYM(call), mrb_function_call, MRB_ARGS_ANY());
+
+  class_JS_Promise = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Promise), class_JS_Object);
+  MRB_SET_INSTANCE_TT(class_JS_Promise, MRB_TT_DATA);
 }

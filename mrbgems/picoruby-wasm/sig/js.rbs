@@ -22,7 +22,7 @@ module JS
     def to_s: () -> String
     def to_i: () -> Integer
     def to_f: () -> Float
-    def to_a: () -> Array[untyped]
+    def to_a: () -> ::Array[untyped]
 
     # Event Handling
     def addEventListener: (String event_type) { (JS::Object event) -> void } -> Integer
@@ -31,8 +31,6 @@ module JS
 
     # Async operations
     def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Object response) -> void } -> void
-    def await: () -> untyped
-    def then: () { (untyped result) -> void } -> untyped
     def to_binary: () -> String
 
     # Timer operations
@@ -112,6 +110,24 @@ module JS
     private def _clear_timeout: (Integer callback_id) -> bool
   end
 
+  # Composite-type subclasses. wrap_ref_as_js_object in js.c dispatches
+  # to these based on the JS runtime type.
+  class Array < Object
+    include Enumerable[untyped]
+    def each: () { (untyped) -> void } -> self
+    def size: () -> Integer
+    def length: () -> Integer
+  end
+
+  class Function < Object
+    def call: (*untyped) -> untyped
+  end
+
+  class Promise < Object
+    def await: () -> untyped
+    def then: () { (untyped result) -> void } -> untyped
+  end
+
   def self.global: () -> JS::Object
   def self.generic_callbacks: () -> JS::Object
   def self.document: () -> JS::Object
@@ -119,6 +135,6 @@ module JS
   module Bridge
     def self.to_js: (untyped value) -> untyped
     def self.hash_to_js_object: (Hash[untyped, untyped] hash) -> JS::Object
-    def self.array_to_js_array: (Array[untyped] array) -> JS::Object
+    def self.array_to_js_array: (::Array[untyped] array) -> JS::Object
   end
 end
