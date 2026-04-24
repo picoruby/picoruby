@@ -1,7 +1,7 @@
 # picoruby-regexp_light
 
 Lightweight regular expression engine for PicoRuby (microcontrollers).
-Wraps the [regex_light](lib/regex_light) C library with mruby and mrubyc bindings.
+Wraps the [regex_light](https://github.com/hasumikin/regex_light) C library with mruby and mrubyc bindings.
 
 **ASCII only. UTF-8 is not supported.**
 
