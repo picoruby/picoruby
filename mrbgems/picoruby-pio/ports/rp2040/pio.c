@@ -262,6 +262,17 @@ PIO_exec(pio_sm_config_t *config, uint16_t instruction)
 }
 
 void
+PIO_set_freq(pio_sm_config_t *config, uint32_t freq)
+{
+  PIO pio = pio_instance(config->pio_num);
+  if (!pio) return;
+  float clk_div = (float)clock_get_hz(clk_sys) / (float)freq;
+  if (clk_div < 1.0f) clk_div = 1.0f;
+  pio_sm_set_clkdiv(pio, config->sm_num, clk_div);
+  config->freq = freq;
+}
+
+void
 PIO_deinit(pio_sm_config_t *config)
 {
   PIO pio = pio_instance(config->pio_num);
