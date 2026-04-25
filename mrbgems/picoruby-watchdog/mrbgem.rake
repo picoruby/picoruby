@@ -4,4 +4,3 @@ MRuby::Gem::Specification.new('picoruby-watchdog') do |spec|
   spec.summary = 'Watchdog class'
 end
 
-
