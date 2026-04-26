@@ -14,10 +14,4 @@ MRuby::Gem::Specification.new('picoruby-machine') do |spec|
       spec.add_dependency 'mruby-io'
     end
   end
-
-  if build.name == "nrf52"
-    src = "#{dir}/ports/nrf52/machine.c"
-    obj = src.relative_path_from(dir).pathmap("#{build_dir}/%X.o")
-    spec.objs << obj
-  end
 end
