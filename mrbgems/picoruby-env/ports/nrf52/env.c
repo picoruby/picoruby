@@ -1,3 +1,6 @@
+/* nRF52: process environment variables do not exist on bare-metal.
+ * All functions are intentional NOPs. When implementing, consider persisting
+ * key-value pairs via littlefs (e.g. /etc/env) as the simplest option. */
 #include <stddef.h>
 
 void

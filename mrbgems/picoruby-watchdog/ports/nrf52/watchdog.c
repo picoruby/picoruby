@@ -1,3 +1,6 @@
+/* nRF52: WDT cannot be disabled once enabled (hardware constraint).
+ * Watchdog_enable/disable/update are intentional NOPs to avoid unexpected
+ * reboots while debugging. Use nrfx_wdt when ready to implement. */
 #include "machine.h"
 
 void
