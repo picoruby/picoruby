@@ -38,6 +38,8 @@ class BLE
 
     DEFAULT_ATT_MTU = 23 # BLE 4.0 minimum; payload = MTU - 3 for notifications
 
+    USER_BLOCK_CALL_COUNT_PER_POLL = 5
+
     def initialize(role: :peripheral,
                    name: "RubyUART",
                    service_uuid: NUS_SERVICE_UUID,
@@ -124,8 +126,11 @@ class BLE
         else
           _flush_tx_central if @connected
         end
-        @user_block&.call
-        sleep_ms POLLING_UNIT_MS
+        sub_sleep_ms = POLLING_UNIT_MS / USER_BLOCK_CALL_COUNT_PER_POLL
+        USER_BLOCK_CALL_COUNT_PER_POLL.times do
+          @user_block&.call
+          sleep_ms sub_sleep_ms
+        end
         total_timeout_ms += POLLING_UNIT_MS
       end
       return total_timeout_ms

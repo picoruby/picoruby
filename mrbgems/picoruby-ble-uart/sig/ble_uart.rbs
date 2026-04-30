@@ -27,6 +27,8 @@ class BLE
 
     DEFAULT_ATT_MTU: Integer
 
+    USER_BLOCK_CALL_COUNT_PER_POLL: Integer
+
     # peripheral-only state
     @adv_data: String
     @rx_handle: Integer
