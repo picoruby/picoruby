@@ -21,6 +21,17 @@ module JSON
     @wasm_build = RUBY_DESCRIPTION.include?("wasm32")
   end
 
+  # Toggle for Regexp optimization (can be set to false for benchmarking)
+  # Defaults to wasm_build? but can be overridden: JSON.use_regexp = false
+  def self.use_regexp?
+    return @use_regexp unless @use_regexp.nil?
+    @use_regexp = wasm_build?
+  end
+
+  def self.use_regexp=(val)
+    @use_regexp = val
+  end
+
   # Regexp patterns (lazy initialization)
   def self.ws_pattern
     @ws_pattern ||= /^[ \t\n\r]+/
@@ -43,7 +54,7 @@ module JSON
     end
 
     def skip_whitespace
-      if JSON.wasm_build?
+      if JSON.use_regexp?
         if md = JSON.ws_pattern.match(@json, @index)
           @index = md.end(0)
         end
@@ -160,6 +171,13 @@ module JSON
       @stack = []
     end
 
+    # Override to never use Regexp for Digger (performance)
+    def skip_whitespace
+      while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index])
+        @index += 1
+      end
+    end
+
     def push_stack(type)
       @stack.push(type)
       #puts "push_stack: #{@stack}, index: #{@index}"
@@ -184,32 +202,18 @@ module JSON
           @index += 1
           return str
         else
-          if JSON.wasm_build?
-            if md = JSON.string_content_pattern.match(@json, @index)
-              @index = md.end(0)
-            else
-              @index += 1
-            end
-          else
-            @index += 1
-          end
+          @index += 1
         end
       end
       raise JSON::DiggerError.new("Unterminated string")
     end
 
     def dig_number
-      if JSON.wasm_build?
-        if md = JSON.number_pattern.match(@json, @index)
-          @index = md.end(0)
-        end
-      else
-        while char = @json[@index]
-          if char == '-' || char == '.' || char == 'e' || char == 'E' || ('0' <= char && char <= '9')
-            @index += 1
-          else
-            break
-          end
+      while char = @json[@index]
+        if char == '-' || char == '.' || char == 'e' || char == 'E' || ('0' <= char && char <= '9')
+          @index += 1
+        else
+          break
         end
       end
     end
@@ -503,7 +507,7 @@ module JSON
             @index += snip.length
           end
         else
-          if JSON.wasm_build?
+          if JSON.use_regexp?
             if md = JSON.string_content_pattern.match(@json, @index)
               result += md[0]
               @index = md.end(0)
@@ -587,7 +591,7 @@ module JSON
     end
 
     def parse_number
-      if JSON.wasm_build?
+      if JSON.use_regexp?
         md = JSON.number_pattern.match(@json, @index)
         unless md
           raise JSON::ParserError.new("Invalid number at index #{@index}")

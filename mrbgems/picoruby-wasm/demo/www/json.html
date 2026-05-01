@@ -14,13 +14,14 @@
     <h1>JSON Tests</h1>
 
     <button id="run-tests">Run Tests</button>
+    <button id="run-benchmark">Run Benchmark</button>
     <div id="output"></div>
 
     <script type="text/ruby">
       require 'js'
 
       output = JS.document.getElementById('output')
-      output.textContent = "Ready. Click Run Tests."
+      output.textContent = "Ready. Click Run Tests or Run Benchmark."
 
       def assert_equal(expected, actual, label)
         if expected == actual
@@ -104,6 +105,87 @@
 
         summary = "<b>#{pass_count} passed, #{fail_count} failed</b>\n\n"
         output.innerHTML = summary + results.join("\n")
+      end
+
+      JS.document.getElementById('run-benchmark').addEventListener('click') do |event|
+        output.textContent = "Generating test data...\n"
+
+        # Generate JSON with longer strings
+        long_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 10
+        items = []
+        i = 0
+        while i < 50
+          items << '{"id":' + i.to_s + ',"description":"' + long_text + '","tags":["tag1","tag2","tag3"],"score":' + (i * 1.5).to_s + '}'
+          i += 1
+        end
+        large_json = '[' + items.join(',') + ']'
+
+        output.textContent += "JSON size: #{large_json.length} bytes\n"
+        iterations = 5
+
+        # Benchmark with Regexp
+        JSON.use_regexp = true
+        output.textContent += "\n=== With Regexp ===\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          JSON.parse(large_json)
+          j += 1
+        end
+        regexp_parse_time = Time.now - start_time
+        output.textContent += "JSON.parse x #{iterations}: #{(regexp_parse_time * 1000).to_i} ms\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          digger = JSON::Digger.new(large_json)
+          digger.dig(25, "description").parse
+          j += 1
+        end
+        regexp_digger_time = Time.now - start_time
+        output.textContent += "Digger x #{iterations}: #{(regexp_digger_time * 1000).to_i} ms\n"
+
+        # Benchmark without Regexp
+        JSON.use_regexp = false
+        output.textContent += "\n=== Without Regexp ===\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          JSON.parse(large_json)
+          j += 1
+        end
+        no_regexp_parse_time = Time.now - start_time
+        output.textContent += "JSON.parse x #{iterations}: #{(no_regexp_parse_time * 1000).to_i} ms\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          digger = JSON::Digger.new(large_json)
+          digger.dig(25, "description").parse
+          j += 1
+        end
+        no_regexp_digger_time = Time.now - start_time
+        output.textContent += "Digger x #{iterations}: #{(no_regexp_digger_time * 1000).to_i} ms\n"
+
+        # Comparison
+        output.textContent += "\n=== Comparison ===\n"
+        if no_regexp_parse_time > 0
+          parse_speedup = no_regexp_parse_time / regexp_parse_time
+          output.textContent += "Parse speedup: #{parse_speedup.to_s[0, 4]}x\n"
+        end
+        if no_regexp_digger_time > 0
+          digger_speedup = no_regexp_digger_time / regexp_digger_time
+          output.textContent += "Digger speedup: #{digger_speedup.to_s[0, 4]}x\n"
+        end
+
+        # Reset to default
+        JSON.use_regexp = nil
       end
     </script>
     <script src="init.iife.js"></script>
