@@ -35,6 +35,17 @@ CYW43.disconnect
 CYW43.disable_sta_mode
 ```
 
+### Access Point Mode
+
+```ruby
+require "cyw43"
+
+CYW43.init("JP")
+CYW43.enable_ap_mode("PICO-TIMER", "12345678")
+
+puts "AP started"
+```
+
 ## API
 
 ### CYW43 Module Methods
@@ -43,6 +54,8 @@ CYW43.disable_sta_mode
 - `CYW43.initialized?()` - Check if initialized
 - `CYW43.enable_sta_mode()` - Enable station mode
 - `CYW43.disable_sta_mode()` - Disable station mode
+- `CYW43.enable_ap_mode(ssid, password, auth = CYW43::Auth::WPA2_AES_PSK)` - Enable access point mode
+- `CYW43.disable_ap_mode()` - Disable access point mode
 - `CYW43.connect_timeout(ssid, password, auth, timeout_ms)` - Connect to WiFi with timeout
 - `CYW43.disconnect()` - Disconnect from WiFi
 - `CYW43.link_connected?(print_status = false)` - Check connection status
@@ -80,3 +93,8 @@ CYW43.disable_sta_mode
 - Specific to Raspberry Pi Pico W and similar boards
 - Country code affects allowed WiFi channels
 - Timeout is in milliseconds
+- `enable_ap_mode` only enables the CYW43 AP radio/auth path for now
+- PicoRuby does not yet expose AP-side DHCP server, AP IP configuration, or connected client listing
+- Clients may associate to the SSID without receiving an IP address until DHCP/IP helpers are added
+- See `mrbgems/picoruby-cyw43/example/pico_w_ap_mode.rb` for the minimal AP sample
+- TODO: add AP-side IP/DHCP helpers before documenting a supported HTTP server sample
