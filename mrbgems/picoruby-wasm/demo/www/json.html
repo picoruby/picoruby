@@ -39,6 +39,26 @@
         # JSON.parse basic tests
         results << assert_equal({"a" => 1, "b" => "hello"}, JSON.parse('{"a":1,"b":"hello"}'), "JSON.parse object")
         results << assert_equal([1, "two", true, nil], JSON.parse('[1, "two", true, null]'), "JSON.parse array")
+        results << assert_equal({"nested" => {"key" => "value"}}, JSON.parse('{"nested":{"key":"value"}}'), "JSON.parse nested")
+
+        # Whitespace handling
+        results << assert_equal({"a" => 1}, JSON.parse('  {  "a"  :  1  }  '), "JSON.parse whitespace")
+        results << assert_equal([1, 2, 3], JSON.parse('  [  1  ,  2  ,  3  ]  '), "JSON.parse array whitespace")
+
+        # More numbers
+        results << assert_equal(0, JSON.parse('[0]')[0], "JSON.parse zero")
+        results << assert_equal(-2.5, JSON.parse('[-2.5]')[0], "JSON.parse negative float")
+        results << assert_equal(1.0e10, JSON.parse('[1e10]')[0], "JSON.parse exponential")
+
+        # Boolean and null
+        results << assert_equal(true, JSON.parse('[true]')[0], "JSON.parse true")
+        results << assert_equal(false, JSON.parse('[false]')[0], "JSON.parse false")
+        results << assert_equal(nil, JSON.parse('[null]')[0], "JSON.parse null")
+
+        # More generate
+        results << assert_equal('[1,2,3]', JSON.generate([1, 2, 3]), "JSON.generate array")
+        results << assert_equal('true', JSON.generate(true), "JSON.generate true")
+        results << assert_equal('null', JSON.generate(nil), "JSON.generate null")
 
         # Numbers
         results << assert_equal(123, JSON.parse('[123]')[0], "JSON.parse integer")
@@ -50,6 +70,8 @@
 
         # UTF-8
         results << assert_equal("日本語", JSON.parse('["日本語"]')[0], "JSON.parse UTF-8")
+        results << assert_equal("😀", JSON.parse('["😀"]')[0], "JSON.parse emoji")
+        results << assert_equal({"name" => "田中"}, JSON.parse('{"name":"田中"}'), "JSON.parse UTF-8 object")
 
         # JSON.generate
         results << assert_equal('{"a":1}', JSON.generate({a: 1}), "JSON.generate object")
@@ -58,6 +80,16 @@
         json_str = '{"user":{"name":"Taro"}}'
         digger = JSON::Digger.new(json_str)
         results << assert_equal("Taro", digger.dig("user", "name").parse, "JSON::Digger")
+
+        # Digger with array
+        json_arr = '{"posts":[{"title":"Post 1"},{"title":"Post 2"}]}'
+        digger2 = JSON::Digger.new(json_arr)
+        results << assert_equal("Post 2", digger2.dig("posts", 1, "title").parse, "JSON::Digger array")
+
+        # Digger UTF-8
+        json_utf8 = '{"user":{"name":"田中太郎"}}'
+        digger3 = JSON::Digger.new(json_utf8)
+        results << assert_equal("田中太郎", digger3.dig("user", "name").parse, "JSON::Digger UTF-8")
 
         # Summary
         pass_count = 0

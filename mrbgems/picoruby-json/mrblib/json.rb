@@ -426,6 +426,7 @@ module JSON
     end
 
     def parse
+      skip_whitespace
       case @json[@index]
       when '{'
         parse_object
