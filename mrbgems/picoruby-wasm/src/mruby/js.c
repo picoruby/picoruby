@@ -42,6 +42,9 @@ struct RClass *class_JS_Object;
 struct RClass *class_JS_Array;
 struct RClass *class_JS_Function;
 struct RClass *class_JS_Promise;
+struct RClass *class_JS_Event;
+struct RClass *class_JS_Response;
+struct RClass *class_JS_Element;
 
 typedef enum {
   JS_COMPOSITE_PLAIN = 0,
@@ -49,6 +52,13 @@ typedef enum {
   JS_COMPOSITE_FUNCTION = 2,
   JS_COMPOSITE_PROMISE = 3
 } js_composite_kind;
+
+typedef enum {
+  JS_DOM_PLAIN = 0,
+  JS_DOM_EVENT = 1,
+  JS_DOM_RESPONSE = 2,
+  JS_DOM_ELEMENT = 3
+} js_dom_kind;
 
 static void
 picorb_js_obj_free(mrb_state *mrb, void *ptr)
@@ -256,6 +266,23 @@ EM_JS(int, js_classify_composite, (int ref_id), {
     if (Array.isArray(v)) return 1;
     if (typeof v === 'function') return 2;
     if (typeof Promise !== 'undefined' && v instanceof Promise) return 3;
+    return 0;
+  } catch(e) {
+    return 0;
+  }
+});
+
+// Classify a plain-object JS value into a DOM-related Ruby subclass.
+// Document is treated as Element-like so that doc.createElement /
+// doc.appendChild dispatch to JS::Element methods (Document is a Node but
+// not technically an Element in the DOM standard).
+EM_JS(int, js_classify_dom, (int ref_id), {
+  try {
+    const v = globalThis.picorubyRefs[ref_id];
+    if (typeof Event !== 'undefined' && v instanceof Event) return 1;
+    if (typeof Response !== 'undefined' && v instanceof Response) return 2;
+    if (typeof Element !== 'undefined' && (v instanceof Element ||
+        (typeof Document !== 'undefined' && v instanceof Document))) return 3;
     return 0;
   } catch(e) {
     return 0;
@@ -1069,7 +1096,9 @@ EM_JS(void, js_get_type_info, (int ref_id, js_type_info* info), {
 /*
  * Helper: wrap ref_id as the most specific JS::* subclass.
  * Picks JS::Array / JS::Function / JS::Promise for array-like / function /
- * Promise values, otherwise falls back to JS::Object.
+ * Promise values; for plain objects, picks JS::Event / JS::Response /
+ * JS::Element when the underlying value is a DOM Event / Response / Element
+ * (or Document, treated as Element-like). Falls back to JS::Object.
  */
 mrb_value
 wrap_ref_as_js_object(mrb_state *mrb, int ref_id)
@@ -1079,7 +1108,14 @@ wrap_ref_as_js_object(mrb_state *mrb, int ref_id)
     case JS_COMPOSITE_ARRAY:    klass = class_JS_Array; break;
     case JS_COMPOSITE_FUNCTION: klass = class_JS_Function; break;
     case JS_COMPOSITE_PROMISE:  klass = class_JS_Promise; break;
-    default: break;
+    case JS_COMPOSITE_PLAIN:
+      switch (js_classify_dom(ref_id)) {
+        case JS_DOM_EVENT:    klass = class_JS_Event; break;
+        case JS_DOM_RESPONSE: klass = class_JS_Response; break;
+        case JS_DOM_ELEMENT:  klass = class_JS_Element; break;
+        default: break;
+      }
+      break;
   }
   picorb_js_obj *data = (picorb_js_obj *)mrb_malloc(mrb, sizeof(picorb_js_obj));
   data->ref_id = ref_id;
@@ -2449,25 +2485,14 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_JS_Object, MRB_SYM(_register_callback), mrb_object_s__register_callback, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_await_and_suspend), mrb_object__await_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_set_timeout), mrb_object__set_timeout, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_clear_timeout), mrb_object__clear_timeout, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(type), mrb_object_type, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(typeof), mrb_object_type, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(refcount), mrb_js_refcount, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_removeEventListener), mrb_object__remove_event_listener, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(createTextNode), mrb_object_create_text_node, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(create_object), mrb_object_create_object, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(create_array), mrb_object_create_array, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(appendChild), mrb_object_append_child, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeChild), mrb_object_remove_child, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(replaceChild), mrb_object_replace_child, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(insertBefore), mrb_object_insert_before, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(setAttribute), mrb_object_set_attribute, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(removeAttribute), mrb_object_remove_attribute, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(preventDefault), mrb_object_prevent_default, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(stopPropagation), mrb_object_stop_propagation, MRB_ARGS_NONE());
 
   // Composite-type subclasses. wrap_ref_as_js_object dispatches to these
   // based on the JS runtime type of the wrapped value.
@@ -2480,4 +2505,27 @@ mrb_js_init(mrb_state *mrb)
 
   class_JS_Promise = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Promise), class_JS_Object);
   MRB_SET_INSTANCE_TT(class_JS_Promise, MRB_TT_DATA);
+
+  // DOM-domain subclasses for Event / Response / Element. Methods that only
+  // make sense on these types live here so type checkers can reject misuse
+  // (e.g. calling preventDefault on a plain JS::Object).
+  class_JS_Event = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Event), class_JS_Object);
+  MRB_SET_INSTANCE_TT(class_JS_Event, MRB_TT_DATA);
+  mrb_define_method_id(mrb, class_JS_Event, MRB_SYM(preventDefault), mrb_object_prevent_default, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Event, MRB_SYM(stopPropagation), mrb_object_stop_propagation, MRB_ARGS_NONE());
+
+  class_JS_Response = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Response), class_JS_Object);
+  MRB_SET_INSTANCE_TT(class_JS_Response, MRB_TT_DATA);
+  mrb_define_method_id(mrb, class_JS_Response, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
+
+  class_JS_Element = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Element), class_JS_Object);
+  MRB_SET_INSTANCE_TT(class_JS_Element, MRB_TT_DATA);
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(createElement), mrb_object_create_element, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(createTextNode), mrb_object_create_text_node, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(appendChild), mrb_object_append_child, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(removeChild), mrb_object_remove_child, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(replaceChild), mrb_object_replace_child, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(insertBefore), mrb_object_insert_before, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(setAttribute), mrb_object_set_attribute, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Element, MRB_SYM(removeAttribute), mrb_object_remove_attribute, MRB_ARGS_REQ(1));
 }

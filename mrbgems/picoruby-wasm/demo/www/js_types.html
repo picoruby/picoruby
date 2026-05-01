@@ -183,6 +183,94 @@
       raise "then block did not run: got #{seen.inspect}" unless seen == 7
     end
 
+    # ----- Phase 4: DOM domain subclasses -----
+
+    test_case("JS::Element: dispatch and ancestry") do
+      div = doc.createElement('div')
+      raise "not a JS::Element: #{div.class}" unless div.is_a?(JS::Element)
+      raise "not a JS::Object" unless div.is_a?(JS::Object)
+    end
+
+    test_case("JS::Element: JS.document is detected") do
+      raise "document is not JS::Element: #{doc.class}" unless doc.is_a?(JS::Element)
+    end
+
+    test_case("JS::Element: setAttribute moved to subclass") do
+      div = doc.createElement('div')
+      div.setAttribute('data-foo', 'bar')
+      raise "setAttribute did not stick" unless div.getAttribute('data-foo') == 'bar'
+    end
+
+    test_case("JS::Element: appendChild on Document works") do
+      div = doc.createElement('div')
+      div.setAttribute('id', 'phase4-tmp')
+      doc.body.appendChild(div)
+      found = doc.getElementById('phase4-tmp')
+      raise "appended element not found" unless found
+      doc.body.removeChild(div)
+    end
+
+    test_case("JS::Event: dispatch via click handler") do
+      btn = doc.createElement('button')
+      btn.setAttribute('id', 'phase4-event-btn')
+      btn.textContent = 'tmp'
+      doc.body.appendChild(btn)
+      seen_class = nil #: Class?
+      btn.addEventListener('click') do |event|
+        seen_class = event.class
+        event.preventDefault
+      end
+      # Trigger the click from JS, then yield so the task scheduler can
+      # run the queued Ruby callback before we inspect seen_class.
+      JS.eval('document.getElementById("phase4-event-btn").click()')
+      sleep 0.05
+      doc.body.removeChild(btn)
+      raise "no click captured" unless seen_class
+      raise "event class is #{seen_class}" unless seen_class == JS::Event
+    end
+
+    test_case("JS::Event: preventDefault not on plain JS::Object") do
+      obj = JS.global.create_object
+      raise "should not respond to preventDefault" if obj.respond_to?(:preventDefault)
+    end
+
+    test_case("#typeof renamed from #type") do
+      arr = JS.global.create_array
+      raise "typeof: #{arr.typeof}" unless arr.typeof == :array
+      obj = JS.global.create_object
+      raise "typeof: #{obj.typeof}" unless obj.typeof == :object
+    end
+
+    test_case("JS::Event#target is JS::Element") do
+      btn = doc.createElement('button')
+      btn.setAttribute('id', 'phase4-target-btn')
+      doc.body.appendChild(btn)
+      target_class = nil #: Class?
+      btn.addEventListener('click') do |event|
+        target_class = event.target.class
+      end
+      JS.eval('document.getElementById("phase4-target-btn").click()')
+      sleep 0.05
+      doc.body.removeChild(btn)
+      raise "target class: #{target_class}" unless target_class == JS::Element
+    end
+
+    test_case("fetch block argument is JS::Response") do
+      seen_class = nil #: Class?
+      JS.global.fetch('data:text/plain,fetched') do |response|
+        seen_class = response.class
+      end
+      raise "response class: #{seen_class}" unless seen_class == JS::Response
+    end
+
+    test_case("JS::Response#to_binary returns the body") do
+      body = nil #: String?
+      JS.global.fetch('data:text/plain,hello-binary') do |response|
+        body = response.to_binary
+      end
+      raise "body: #{body.inspect}" unless body == 'hello-binary'
+    end
+
     # ----- Summary -----
 
     summary = doc.createElement('h2')

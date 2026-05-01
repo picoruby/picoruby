@@ -4,7 +4,7 @@ require 'json'
 module JS
   def self.document
     document = global[:document]
-    if document.is_a?(JS::Object)
+    if document.is_a?(JS::Element)
       document
     else
       raise 'Document object is not available'
@@ -65,14 +65,6 @@ module JS
       $promise_responses.delete(callback_id)
     end
 
-    def to_binary
-      callback_id = self.object_id
-      _to_binary_and_suspend(callback_id)
-      result = $promise_responses[callback_id]
-      $promise_responses.delete(callback_id)
-      result.to_s
-    end
-
     def setTimeout(delay_ms, &block)
       callback_id = block.object_id
       CALLBACKS[callback_id] = block
@@ -118,6 +110,27 @@ module JS
   class Function < Object
     # #call is defined in C on class_JS_Function and invokes the wrapped JS
     # function value directly (no `this` binding).
+  end
+
+  class Response < Object
+    # Read the response body as a binary String. Suspends the current Ruby
+    # task until the underlying ArrayBuffer is materialized.
+    def to_binary
+      callback_id = self.object_id
+      _to_binary_and_suspend(callback_id)
+      result = $promise_responses[callback_id]
+      $promise_responses.delete(callback_id)
+      result.to_s
+    end
+  end
+
+  class Event < Object
+    # #preventDefault and #stopPropagation are defined in C on class_JS_Event.
+  end
+
+  class Element < Object
+    # DOM element / Document. Methods (createElement, appendChild,
+    # setAttribute, etc.) are defined in C on class_JS_Element.
   end
 
   class Promise < Object
