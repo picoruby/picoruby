@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="test.css">
+    <style>
+      #output { white-space: pre-wrap; font-family: monospace; background: #f4f4f4; padding: 10px; margin: 10px 0; min-height: 100px; border: 1px solid #ccc; }
+      .pass { color: green; }
+      .fail { color: red; }
+    </style>
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>JSON Tests</h1>
+
+    <button id="run-tests">Run Tests</button>
+    <div id="output"></div>
+
+    <script type="text/ruby">
+      require 'js'
+
+      output = JS.document.getElementById('output')
+      output.textContent = "Ready. Click Run Tests."
+
+      def assert_equal(expected, actual, label)
+        if expected == actual
+          "<span class='pass'>PASS</span> #{label}"
+        else
+          "<span class='fail'>FAIL</span> #{label}\n  expected: #{expected.inspect}\n  actual:   #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run-tests').addEventListener('click') do |event|
+        results = []
+
+        # WASM build check
+        results << assert_equal(true, JSON.wasm_build?, "JSON.wasm_build? is true")
+
+        # JSON.parse basic tests
+        results << assert_equal({"a" => 1, "b" => "hello"}, JSON.parse('{"a":1,"b":"hello"}'), "JSON.parse object")
+        results << assert_equal([1, "two", true, nil], JSON.parse('[1, "two", true, null]'), "JSON.parse array")
+
+        # Numbers
+        results << assert_equal(123, JSON.parse('[123]')[0], "JSON.parse integer")
+        results << assert_equal(-456, JSON.parse('[-456]')[0], "JSON.parse negative")
+        results << assert_equal(3.14, JSON.parse('[3.14]')[0], "JSON.parse float")
+
+        # Strings
+        results << assert_equal("hello", JSON.parse('["hello"]')[0], "JSON.parse string")
+
+        # UTF-8
+        results << assert_equal("日本語", JSON.parse('["日本語"]')[0], "JSON.parse UTF-8")
+
+        # JSON.generate
+        results << assert_equal('{"a":1}', JSON.generate({a: 1}), "JSON.generate object")
+
+        # Digger
+        json_str = '{"user":{"name":"Taro"}}'
+        digger = JSON::Digger.new(json_str)
+        results << assert_equal("Taro", digger.dig("user", "name").parse, "JSON::Digger")
+
+        # Summary
+        pass_count = 0
+        fail_count = 0
+        results.each do |r|
+          if r.include?("PASS")
+            pass_count += 1
+          else
+            fail_count += 1
+          end
+        end
+
+        summary = "<b>#{pass_count} passed, #{fail_count} failed</b>\n\n"
+        output.innerHTML = summary + results.join("\n")
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>
