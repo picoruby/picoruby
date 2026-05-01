@@ -146,6 +146,167 @@
         results << assert_equal(2, Regexp::EXTENDED, "EXTENDED constant")
         results << assert_equal(4, Regexp::MULTILINE, "MULTILINE constant")
 
+        # match with pos (2nd argument)
+        re_pos = Regexp.new("\\d+")
+        md_pos = re_pos.match("ab12cd34", 4)
+        results << assert_equal("34", md_pos[0], "Regexp#match with pos skips earlier match")
+        results << assert_equal(6, md_pos.begin(0), "Regexp#match with pos: begin reflects original index")
+        results << assert_equal(8, md_pos.end(0), "Regexp#match with pos: end reflects original index")
+        results << assert_equal("ab12cd", md_pos.pre_match, "Regexp#match with pos: pre_match")
+        results << assert_equal("", md_pos.post_match, "Regexp#match with pos: post_match")
+        results << assert_equal(nil, re_pos.match("ab12cd34", 9), "Regexp#match with pos beyond length returns nil")
+        results << assert_equal(true, re_pos.match?("ab12cd34", 4), "Regexp#match? with pos")
+        results << assert_equal(false, re_pos.match?("abcdef", 0), "Regexp#match? with pos no match")
+
+        md_str_pos = "foo123bar456".match(Regexp.new("(\\d+)"), 6)
+        results << assert_equal("456", md_str_pos[1], "String#match with pos: capture")
+        results << assert_equal(9, md_str_pos.begin(0), "String#match with pos: begin")
+        results << assert_equal(true, "foo123bar".match?(Regexp.new("\\d+"), 3), "String#match? with pos")
+
+        # String#gsub with replacement string
+        results << assert_equal("abXXcdXX",
+          "ab12cd34".gsub(Regexp.new("\\d+"), "XX"),
+          "String#gsub with literal replacement")
+        results << assert_equal("ab[12]cd[34]",
+          "ab12cd34".gsub(Regexp.new("(\\d+)"), "[\\1]"),
+          "String#gsub with capture backreference")
+        results << assert_equal("<&>foo<&>",
+          "abcfoodef".gsub(Regexp.new("(abc|def)"), "<&>"),
+          "String#gsub treats \\& as separator literal")
+        results << assert_equal("<abc>foo<def>",
+          "abcfoodef".gsub(Regexp.new("(abc|def)"), "<\\&>"),
+          "String#gsub with \\& expands to full match")
+        results << assert_equal("a\\b",
+          "axb".gsub(Regexp.new("x"), "\\\\"),
+          "String#gsub with escaped backslash")
+        results << assert_equal("",
+          "".gsub(Regexp.new("x"), "Y"),
+          "String#gsub on empty string returns empty")
+        results << assert_equal("abc",
+          "abc".gsub(Regexp.new("z"), "Y"),
+          "String#gsub no match returns original")
+
+        # String#gsub with block
+        results << assert_equal("ab[12]cd[34]",
+          "ab12cd34".gsub(Regexp.new("\\d+")) { |m| "[#{m}]" },
+          "String#gsub with block")
+        results << assert_equal("AB12CD34",
+          "ab12cd34".gsub(Regexp.new("[a-z]+")) { |m| m.upcase },
+          "String#gsub block calls upcase")
+
+        # String#sub (only first match)
+        results << assert_equal("abXXcd34",
+          "ab12cd34".sub(Regexp.new("\\d+"), "XX"),
+          "String#sub only replaces first match")
+        results << assert_equal("ab[12]cd34",
+          "ab12cd34".sub(Regexp.new("(\\d+)")) { |m| "[#{m}]" },
+          "String#sub with block")
+
+        # UTF-8 in gsub: replace Japanese characters
+        results << assert_equal("hello[world]",
+          "helloworld".sub(Regexp.new("world"), "[\\&]"),
+          "sub with \\& in ASCII")
+        results << assert_equal("XXあいうXX",
+          "12あいう34".gsub(Regexp.new("\\d+"), "XX"),
+          "gsub preserves multibyte chars between matches")
+        results << assert_equal("[あ][い][う]",
+          "あいう".gsub(Regexp.new(".")) { |c| "[#{c}]" },
+          "gsub with multibyte target")
+
+        # Zero-width match should advance one char (no infinite loop)
+        results << assert_equal("|a|b|c|",
+          "abc".gsub(Regexp.new("")) { "|" },
+          "gsub with zero-width: surrounds each char with |")
+
+        # ---- UTF-8 (multibyte) tests ----
+
+        # BMP characters (Japanese): each is 3 UTF-8 bytes but 1 code point.
+        md_jp = Regexp.new("世界").match("こんにちは世界")
+        results << assert_equal("世界", md_jp[0], "UTF-8: BMP literal match")
+        results << assert_equal(5, md_jp.begin(0), "UTF-8: BMP begin uses char index")
+        results << assert_equal(7, md_jp.end(0), "UTF-8: BMP end uses char index")
+        results << assert_equal("こんにちは", md_jp.pre_match, "UTF-8: BMP pre_match")
+        results << assert_equal("", md_jp.post_match, "UTF-8: BMP post_match (end)")
+
+        md_jp2 = Regexp.new("世").match("こんにちは世界")
+        results << assert_equal(5, md_jp2.begin(0), "UTF-8: single-kanji begin")
+        results << assert_equal(6, md_jp2.end(0), "UTF-8: single-kanji end")
+        results << assert_equal("界", md_jp2.post_match, "UTF-8: single-kanji post_match")
+
+        # Hiragana character class
+        md_hira = Regexp.new("[ぁ-ん]+").match("Hello こんにちは World")
+        results << assert_equal("こんにちは", md_hira[0], "UTF-8: hiragana class match")
+        results << assert_equal(6, md_hira.begin(0), "UTF-8: hiragana class begin")
+        results << assert_equal(11, md_hira.end(0), "UTF-8: hiragana class end")
+        results << assert_equal("Hello ", md_hira.pre_match, "UTF-8: hiragana class pre_match")
+        results << assert_equal(" World", md_hira.post_match, "UTF-8: hiragana class post_match")
+
+        # Unicode property escape requires the 'u' flag, which we auto-add.
+        # NOTE: JS RegExp accepts \p{Script=Hiragana} (or sc=Hiragana). The
+        # Onigmo shorthand \p{Hiragana} is not portable to JS RegExp.
+        md_prop = Regexp.new("\\p{sc=Hiragana}+").match("Hello こんにちは World")
+        results << assert_equal("こんにちは", md_prop[0], "UTF-8: \\p{sc=Hiragana} match (auto-u flag)")
+
+        # Multiple captures spanning multibyte boundaries.
+        md_caps = Regexp.new("(\\d+)(\\D+)(\\d+)").match("12あいう34")
+        results << assert_equal("12", md_caps[1], "UTF-8: cap1 ASCII digits")
+        results << assert_equal("あいう", md_caps[2], "UTF-8: cap2 Japanese")
+        results << assert_equal("34", md_caps[3], "UTF-8: cap3 ASCII digits")
+        results << assert_equal(0, md_caps.begin(1), "UTF-8: cap1 begin")
+        results << assert_equal(2, md_caps.end(1), "UTF-8: cap1 end")
+        results << assert_equal(2, md_caps.begin(2), "UTF-8: cap2 begin")
+        results << assert_equal(5, md_caps.end(2), "UTF-8: cap2 end")
+        results << assert_equal(5, md_caps.begin(3), "UTF-8: cap3 begin")
+        results << assert_equal(7, md_caps.end(3), "UTF-8: cap3 end")
+
+        # Astral plane (emoji): 'u' flag should make . match a full code point.
+        md_emoji = Regexp.new("a(.)b").match("a😀b")
+        results << assert_equal("😀", md_emoji[1], "UTF-8: astral . capture")
+        results << assert_equal(1, md_emoji.begin(1), "UTF-8: astral begin")
+        results << assert_equal(2, md_emoji.end(1), "UTF-8: astral end")
+
+        md_emoji2 = Regexp.new("(.)😀(.)").match("a😀b")
+        results << assert_equal("a", md_emoji2[1], "UTF-8: pre-astral cap")
+        results << assert_equal("b", md_emoji2[2], "UTF-8: post-astral cap")
+        results << assert_equal(2, md_emoji2.begin(2), "UTF-8: post-astral begin")
+
+        # pos with multibyte input.
+        re_p = Regexp.new("\\d+")
+        md_pos_jp = re_p.match("ab12あいう34", 5)
+        results << assert_equal("34", md_pos_jp[0], "UTF-8: pos skips multibyte chars")
+        results << assert_equal(7, md_pos_jp.begin(0), "UTF-8: pos: begin reflects original char index")
+        results << assert_equal("ab12あいう", md_pos_jp.pre_match, "UTF-8: pos: pre_match correct")
+        results << assert_equal(true, "あいう123".match?(Regexp.new("\\d+"), 3), "UTF-8: match? with pos past multibyte")
+        results << assert_equal(false, "あいう123".match?(Regexp.new("\\d+"), 6), "UTF-8: match? with pos beyond all chars")
+
+        # gsub keeps multibyte chars between matches.
+        results << assert_equal("XXあいうXX",
+          "12あいう34".gsub(Regexp.new("\\d+"), "XX"),
+          "UTF-8: gsub keeps multibyte chars")
+
+        # gsub block called per code point with .
+        results << assert_equal("[あ][い][う]",
+          "あいう".gsub(Regexp.new(".")) { |c| "[#{c}]" },
+          "UTF-8: gsub with . matches each code point")
+
+        # gsub replaces astral code point.
+        results << assert_equal("a-b-c",
+          "a😀b😀c".gsub(Regexp.new("😀"), "-"),
+          "UTF-8: gsub replaces astral code point")
+
+        # gsub with capture backreference containing multibyte.
+        results << assert_equal("<こんにちは>世界",
+          "こんにちは世界".sub(Regexp.new("([ぁ-ん]+)"), "<\\1>"),
+          "UTF-8: sub with multibyte capture backref")
+
+        # =~ returns character index (not byte) for multibyte input.
+        results << assert_equal(6,
+          "Hello 世界" =~ Regexp.new("世"),
+          "UTF-8: =~ returns char index")
+        results << assert_equal(1,
+          "a😀b" =~ Regexp.new("😀"),
+          "UTF-8: =~ char index across astral")
+
         pass_count = 0
         fail_count = 0
         results.each do |r|
