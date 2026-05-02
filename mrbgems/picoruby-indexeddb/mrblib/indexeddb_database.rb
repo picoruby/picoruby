@@ -93,6 +93,25 @@ module IndexedDB
       Store.new(self, name, js_store: js_store, upgrading: @upgrading)
     end
 
+    # Atomic multi-store transaction.
+    #
+    #   db.batch(['users', 'cache'], mode: :readwrite) do |tx|
+    #     tx['users'].put({ id: 1, name: 'Alice' })
+    #     tx['cache'].put('hot', key: 'tier')
+    #   end
+    #
+    # No await is permitted inside the block. Reads (get/count/keys/...) on
+    # tx[name] raise AwaitInBatchError. The whole group commits atomically
+    # on block exit, or rolls back if any request errors.
+    def batch(store_names, mode: :readwrite, &block)
+      _ensure_not_upgrading!
+      raise ArgumentError, "batch requires a block" unless block
+      names = store_names.is_a?(Array) ? store_names.map { |n| n.to_s } : [store_names.to_s]
+      tx = Batch.new(self, names, mode)
+      block.call(tx)
+      tx._await_complete
+    end
+
     # Internal: marks the upgrade phase complete. After this, the Database
     # rejects schema mutations.
     def _mark_upgrade_done
@@ -112,6 +131,11 @@ module IndexedDB
     def _ensure_upgrading!(op)
       return if @upgrading
       raise SchemaError, "#{op} can only be called inside the upgrade block"
+    end
+
+    def _ensure_not_upgrading!
+      return unless @upgrading
+      raise SchemaError, "batch cannot be called inside the upgrade block"
     end
   end
 end

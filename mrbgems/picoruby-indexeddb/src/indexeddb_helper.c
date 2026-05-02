@@ -24,7 +24,7 @@ extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
 /*****************************************************
  * EM_JS helpers
  *
- * Two entry points only:
+ * Three entry points:
  *   1. idb_request_to_promise(req_ref_id)
  *      Wraps an IDBRequest in a Promise so Ruby can use JS::Promise#await.
  *   2. idb_open_with_upgrade(name, version, upgrade_callback_id)
@@ -32,6 +32,10 @@ extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
  *      is invoked synchronously via call_ruby_callback_sync_generic so that
  *      schema mutations (createObjectStore / createIndex) run on the JS
  *      stack as required by the spec.
+ *   3. idb_transaction_to_promise(tx_ref_id)
+ *      Wraps an IDBTransaction's oncomplete/onerror/onabort events as a
+ *      single Promise. Used by Database#batch to atomically commit a group
+ *      of write operations.
  *****************************************************/
 
 EM_JS(int, idb_request_to_promise, (int req_ref_id), {
@@ -111,6 +115,31 @@ EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t 
   }
 });
 
+EM_JS(int, idb_transaction_to_promise, (int tx_ref_id), {
+  try {
+    const tx = globalThis.picorubyRefs[tx_ref_id];
+    if (!tx) {
+      console.error('idb_transaction_to_promise: invalid ref_id', tx_ref_id);
+      return -1;
+    }
+    const promise = new Promise((resolve, reject) => {
+      tx.oncomplete = () => { resolve(true); };
+      tx.onerror = () => {
+        const msg = (tx.error && tx.error.message) || 'IDB transaction error';
+        reject(new Error(msg));
+      };
+      tx.onabort = () => {
+        const msg = (tx.error && tx.error.message) || 'IDB transaction aborted';
+        reject(new Error(msg));
+      };
+    });
+    return globalThis.picorubyRefs.push(promise) - 1;
+  } catch (e) {
+    console.error('idb_transaction_to_promise failed:', e);
+    return -1;
+  }
+});
+
 /*****************************************************
  * mruby methods
  *****************************************************/
@@ -134,6 +163,29 @@ mrb_idb_helper_request_to_promise(mrb_state *mrb, mrb_value self)
   int promise_id = idb_request_to_promise(req->ref_id);
   if (promise_id < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "idb_request_to_promise failed");
+  }
+  return wrap_ref_as_js_object(mrb, promise_id);
+}
+
+/*
+ * IndexedDB::Helper._transaction_to_promise(js_transaction) -> JS::Promise
+ */
+static mrb_value
+mrb_idb_helper_transaction_to_promise(mrb_state *mrb, mrb_value self)
+{
+  mrb_value tx_obj;
+  mrb_get_args(mrb, "o", &tx_obj);
+
+  if (!mrb_obj_is_kind_of(mrb, tx_obj, class_JS_Object)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "expected JS::Object (IDBTransaction)");
+  }
+  picorb_js_obj *tx = (picorb_js_obj *)DATA_PTR(tx_obj);
+  if (!tx) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
+  }
+  int promise_id = idb_transaction_to_promise(tx->ref_id);
+  if (promise_id < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "idb_transaction_to_promise failed");
   }
   return wrap_ref_as_js_object(mrb, promise_id);
 }
@@ -173,6 +225,8 @@ mrb_picoruby_indexeddb_gem_init(mrb_state *mrb)
     mrb_idb_helper_request_to_promise, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(_open_with_upgrade),
     mrb_idb_helper_open_with_upgrade, MRB_ARGS_REQ(3));
+  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(_transaction_to_promise),
+    mrb_idb_helper_transaction_to_promise, MRB_ARGS_REQ(1));
 }
 
 void

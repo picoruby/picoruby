@@ -19,6 +19,7 @@ module IndexedDB
   module Helper
     def self._request_to_promise: (untyped js_request) -> untyped
     def self._open_with_upgrade: (String name, Integer version, Integer callback_id) -> untyped
+    def self._transaction_to_promise: (untyped js_transaction) -> untyped
   end
 
   module KeyRange
@@ -40,6 +41,7 @@ module IndexedDB
     def create_store: (String name, ?key_path: String?, ?auto_increment: bool) -> Store
     def delete_store: (String name) -> nil
     def store: (String name) -> Store
+    def batch: (String | Array[String] store_names, ?mode: Symbol | String) { (Batch) -> void } -> nil
 
     def _store_for: (untyped js_store, String name) -> Store
     def _mark_upgrade_done: () -> void
@@ -47,6 +49,28 @@ module IndexedDB
     def _upgrading?: () -> bool
 
     private def _ensure_upgrading!: (String op) -> void
+    private def _ensure_not_upgrading!: () -> void
+  end
+
+  class Batch
+    def initialize: (Database database, Array[String] store_names, Symbol | String mode) -> void
+    def []: (String | Symbol store_name) -> StoreView
+    def _await_complete: () -> nil
+
+    class StoreView
+      attr_reader name: String
+      def initialize: (untyped js_store, String name) -> void
+      def put: (untyped value, ?key: untyped?) -> nil
+      def add: (untyped value, ?key: untyped?) -> nil
+      def delete: (untyped key) -> nil
+      def clear: () -> nil
+      def get: (untyped key) -> untyped
+      def count: (?untyped? key_or_range) -> Integer
+      def keys: (?untyped? range) -> Array[untyped]
+      def to_a: (?untyped? range) -> Array[untyped]
+      def each: (*untyped) -> untyped
+      def index: (untyped name) -> untyped
+    end
   end
 
   class Store
@@ -120,6 +144,7 @@ module IndexedDB
     def create_store: (String name, ?key_path: String?, ?auto_increment: bool) -> InMemoryStore
     def delete_store: (String name) -> nil
     def store: (String name) -> InMemoryStore?
+    def batch: (String | Array[String] store_names, ?mode: Symbol | String) { (InMemoryBatch) -> void } -> nil
 
     def _mark_upgrade_done: () -> void
     def _upgrading?: () -> bool
@@ -128,6 +153,26 @@ module IndexedDB
     def _store_data: (String store_name) -> Hash[untyped, untyped]
 
     private def _ensure_upgrading!: (String op) -> void
+  end
+
+  class InMemoryBatch
+    def initialize: (InMemoryDatabase database, Array[String] store_names, Symbol | String mode) -> void
+    def []: (String | Symbol store_name) -> InMemoryBatchView
+  end
+
+  class InMemoryBatchView
+    attr_reader name: String
+    def initialize: (InMemoryDatabase database, String name) -> void
+    def put: (untyped value, ?key: untyped?) -> nil
+    def add: (untyped value, ?key: untyped?) -> nil
+    def delete: (untyped key) -> nil
+    def clear: () -> nil
+    def get: (untyped key) -> untyped
+    def count: (?untyped? key_or_range) -> Integer
+    def keys: (?untyped? range) -> Array[untyped]
+    def to_a: (?untyped? range) -> Array[untyped]
+    def each: (*untyped) -> untyped
+    def index: (untyped name) -> untyped
   end
 
   class InMemoryStore

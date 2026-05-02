@@ -101,6 +101,17 @@ module IndexedDB
       InMemoryStore.new(self, store_name, upgrading: @upgrading)
     end
 
+    # In-memory batch: synchronous, no real transaction. The block runs
+    # against InMemoryBatchView which mirrors Batch::StoreView semantics.
+    def batch(store_names, mode: :readwrite, &block)
+      raise SchemaError, "batch cannot be called inside the upgrade block" if @upgrading
+      raise ArgumentError, "batch requires a block" unless block
+      names = store_names.is_a?(Array) ? store_names.map { |n| n.to_s } : [store_names.to_s]
+      tx = InMemoryBatch.new(self, names, mode)
+      block.call(tx)
+      nil
+    end
+
     def _mark_upgrade_done
       @upgrading = false
     end
@@ -280,6 +291,82 @@ module IndexedDB
     def _ensure_upgrading!(op)
       return if @upgrading
       raise SchemaError, "#{op} can only be called inside the upgrade block"
+    end
+  end
+
+  # In-memory batch wrapper. Mirrors Batch's API surface so the same user
+  # block runs against either backend. Reads still raise AwaitInBatchError
+  # so users do not write code that only works on the in-memory path.
+  class InMemoryBatch
+    def initialize(database, store_names, mode)
+      @database = database
+      @store_names = store_names
+      @mode = mode.to_s
+      @views = {} #: Hash[String, InMemoryBatchView]
+    end
+
+    def [](store_name)
+      key = store_name.to_s
+      view = @views[key]
+      return view if view
+      raise Error, "store '#{key}' not in this batch's scope" unless @store_names.include?(key)
+      v = InMemoryBatchView.new(@database, key)
+      @views[key] = v
+      v
+    end
+  end
+
+  class InMemoryBatchView
+    attr_reader :name
+
+    def initialize(database, name)
+      @database = database
+      @name = name
+      @store = InMemoryStore.new(database, name, upgrading: false)
+    end
+
+    def put(value, key: nil)
+      @store.put(value, key: key)
+      nil
+    end
+
+    def add(value, key: nil)
+      @store.put(value, key: key)
+      nil
+    end
+
+    def delete(key)
+      @store.delete(key)
+      nil
+    end
+
+    def clear
+      @store.clear
+      nil
+    end
+
+    def get(_key)
+      raise AwaitInBatchError, "get cannot be called inside batch"
+    end
+
+    def count(_key_or_range = nil)
+      raise AwaitInBatchError, "count cannot be called inside batch"
+    end
+
+    def keys(_range = nil)
+      raise AwaitInBatchError, "keys cannot be called inside batch"
+    end
+
+    def to_a(_range = nil)
+      raise AwaitInBatchError, "to_a cannot be called inside batch"
+    end
+
+    def each(*_args)
+      raise AwaitInBatchError, "each cannot be called inside batch"
+    end
+
+    def index(_name)
+      raise AwaitInBatchError, "index cannot be called inside batch"
     end
   end
 
