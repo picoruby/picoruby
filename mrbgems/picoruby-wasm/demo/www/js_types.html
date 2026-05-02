@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>JS type system - PicoRuby WASM</title>
+  <link rel="stylesheet" href="test.css">
+</head>
+<body>
+  <div><a href="index.html">Back</a></div>
+  <h1>JS::Object type system</h1>
+  <p>
+    Covers the JS wrapper redesign:
+    primitive auto-conversion, <code>#inspect</code>,
+    and the <code>JS::Array</code> / <code>JS::Function</code> /
+    <code>JS::Promise</code> subclasses.
+  </p>
+  <div id="test-results"></div>
+
+  <script type="text/ruby">
+    require 'js'
+
+    doc = JS.document
+    results = doc.getElementById('test-results')
+
+    def test_case(name, &block)
+      doc = JS.document
+      results = doc.getElementById('test-results')
+      div = doc.createElement('div')
+      div.className = 'test-case'
+
+      begin
+        block.call
+        div.className = 'test-case pass'
+        div.textContent = "PASS: #{name}"
+      rescue => e
+        div.className = 'test-case fail'
+        div.textContent = "FAIL: #{name} - #{e.message}"
+      end
+
+      results.appendChild(div)
+    end
+
+    # ----- Phase 2: primitive auto-conversion -----
+
+    test_case("property getter: string returns Ruby String") do
+      elem = doc.createElement('div')
+      elem.textContent = 'hello'
+      v = elem[:textContent]
+      raise "expected String, got #{v.class}" unless v.is_a?(String)
+      raise "unexpected value: #{v.inspect}" unless v == 'hello'
+    end
+
+    test_case("property getter: number returns Ruby Integer") do
+      elem = doc.createElement('div')
+      elem.tabIndex = 42
+      v = elem[:tabIndex]
+      raise "expected Integer, got #{v.class}" unless v.is_a?(Integer)
+      raise "unexpected value: #{v.inspect}" unless v == 42
+    end
+
+    test_case("property getter: boolean returns true/false") do
+      input = doc.createElement('input')
+      input.setAttribute('type', 'checkbox')
+      input.checked = true
+      v = input[:checked]
+      raise "expected true, got #{v.inspect}" unless v == true
+      raise "class should be TrueClass, got #{v.class}" unless v.is_a?(TrueClass)
+    end
+
+    test_case("property getter: missing returns nil") do
+      elem = doc.createElement('div')
+      raise "missing property should be nil" unless elem[:nonexistent].nil?
+    end
+
+    test_case("method return: native numeric comparison") do
+      elem = doc.createElement('div')
+      elem.tabIndex = 100
+      # No explicit .to_i; Integer operators just work
+      raise "comparison failed" unless elem[:tabIndex] > 50
+      raise "equality failed" unless elem[:tabIndex] == 100
+    end
+
+    # ----- Phase 1: #inspect -----
+
+    test_case("inspect: DOM element shows constructor and attributes") do
+      elem = doc.createElement('section')
+      elem.setAttribute('id', 'foo')
+      elem.setAttribute('class', 'bar')
+      s = elem.inspect
+      raise "no JS::Object prefix: #{s}" unless s.start_with?('#<JS::Object ref:')
+      raise "missing constructor name: #{s}" unless s.include?('HTMLElement') || s.include?('HTMLSectionElement')
+      raise "missing id: #{s}" unless s.include?('id="foo"')
+    end
+
+    test_case("inspect: array shows length and preview") do
+      arr = JS.global.create_array
+      arr.push('a')
+      arr.push(1)
+      arr.push(true)
+      s = arr.inspect
+      raise "no Array label: #{s}" unless s.include?('Array')
+      raise "no length: #{s}" unless s.include?('length=3')
+    end
+
+    test_case("inspect: plain JS object shows keys") do
+      obj = JS.global.create_object
+      obj[:name] = 'alice'
+      obj[:age] = 30
+      s = obj.inspect
+      raise "no name preview: #{s}" unless s.include?('name=')
+    end
+
+    # ----- Phase 3: composite-type subclasses -----
+
+    test_case("JS::Array: dispatch and ancestry") do
+      arr = JS.global.create_array
+      raise "not a JS::Array: #{arr.class}" unless arr.is_a?(JS::Array)
+      raise "not a JS::Object" unless arr.is_a?(JS::Object)
+      raise "Ruby Array conflict" if arr.is_a?(::Array)
+    end
+
+    test_case("JS::Array#size and #length") do
+      arr = JS.global.create_array
+      arr.push(10)
+      arr.push(20)
+      arr.push(30)
+      raise "size mismatch: #{arr.size}" unless arr.size == 3
+      raise "length mismatch: #{arr.length}" unless arr.length == 3
+    end
+
+    test_case("JS::Array#each yields primitives as Ruby values") do
+      arr = JS.global.create_array
+      arr.push(1)
+      arr.push(2)
+      arr.push(3)
+      collected = [] #: ::Array[Integer]
+      arr.each { |v| collected << v }
+      raise "unexpected: #{collected.inspect}" unless collected == [1, 2, 3]
+    end
+
+    test_case("JS::Array Enumerable: #map and #select") do
+      arr = JS.global.create_array
+      arr.push(1)
+      arr.push(2)
+      arr.push(3)
+      arr.push(4)
+      doubled = arr.map { |v| v.to_i * 2 }
+      raise "map: #{doubled.inspect}" unless doubled == [2, 4, 6, 8]
+      evens = arr.select { |v| v.to_i % 2 == 0 }
+      raise "select: #{evens.inspect}" unless evens == [2, 4]
+    end
+
+    test_case("JS::Function: dispatch and #call") do
+      fn = JS.eval('(function(x, y) { return x * y; })')
+      raise "not a JS::Function: #{fn.class}" unless fn.is_a?(JS::Function)
+      raise "not a JS::Object" unless fn.is_a?(JS::Object)
+      result = fn.call(6, 7)
+      raise "call result: #{result.inspect}" unless result == 42
+    end
+
+    test_case("JS::Function#call with string arg") do
+      fn = JS.eval('(function(s) { return s.toUpperCase(); })')
+      result = fn.call('hello')
+      raise "call result: #{result.inspect}" unless result == 'HELLO'
+    end
+
+    test_case("JS::Promise: dispatch via JS.eval") do
+      p = JS.eval('Promise.resolve(99)')
+      raise "not a JS::Promise: #{p.class}" unless p.is_a?(JS::Promise)
+      raise "not a JS::Object" unless p.is_a?(JS::Object)
+    end
+
+    test_case("JS::Promise#await resolves primitive") do
+      p = JS.eval('Promise.resolve("awaited")')
+      value = p.await
+      raise "await result: #{value.inspect}" unless value == 'awaited'
+    end
+
+    test_case("JS::Promise#then yields resolved value") do
+      p = JS.eval('Promise.resolve(7)')
+      seen = nil #: Integer?
+      p.then { |v| seen = v.to_i }
+      raise "then block did not run: got #{seen.inspect}" unless seen == 7
+    end
+
+    # ----- Phase 4: DOM domain subclasses -----
+
+    test_case("JS::Element: dispatch and ancestry") do
+      div = doc.createElement('div')
+      raise "not a JS::Element: #{div.class}" unless div.is_a?(JS::Element)
+      raise "not a JS::Object" unless div.is_a?(JS::Object)
+    end
+
+    test_case("JS::Element: JS.document is detected") do
+      raise "document is not JS::Element: #{doc.class}" unless doc.is_a?(JS::Element)
+    end
+
+    test_case("JS::Element: setAttribute moved to subclass") do
+      div = doc.createElement('div')
+      div.setAttribute('data-foo', 'bar')
+      raise "setAttribute did not stick" unless div.getAttribute('data-foo') == 'bar'
+    end
+
+    test_case("JS::Element: appendChild on Document works") do
+      div = doc.createElement('div')
+      div.setAttribute('id', 'phase4-tmp')
+      doc.body.appendChild(div)
+      found = doc.getElementById('phase4-tmp')
+      raise "appended element not found" unless found
+      doc.body.removeChild(div)
+    end
+
+    test_case("JS::Event: dispatch via click handler") do
+      btn = doc.createElement('button')
+      btn.setAttribute('id', 'phase4-event-btn')
+      btn.textContent = 'tmp'
+      doc.body.appendChild(btn)
+      seen_class = nil #: Class?
+      btn.addEventListener('click') do |event|
+        seen_class = event.class
+        event.preventDefault
+      end
+      # Trigger the click from JS, then yield so the task scheduler can
+      # run the queued Ruby callback before we inspect seen_class.
+      JS.eval('document.getElementById("phase4-event-btn").click()')
+      sleep 0.05
+      doc.body.removeChild(btn)
+      raise "no click captured" unless seen_class
+      raise "event class is #{seen_class}" unless seen_class == JS::Event
+    end
+
+    test_case("JS::Event: preventDefault not on plain JS::Object") do
+      obj = JS.global.create_object
+      raise "should not respond to preventDefault" if obj.respond_to?(:preventDefault)
+    end
+
+    test_case("#typeof renamed from #type") do
+      arr = JS.global.create_array
+      raise "typeof: #{arr.typeof}" unless arr.typeof == :array
+      obj = JS.global.create_object
+      raise "typeof: #{obj.typeof}" unless obj.typeof == :object
+    end
+
+    test_case("JS::Event#target is JS::Element") do
+      btn = doc.createElement('button')
+      btn.setAttribute('id', 'phase4-target-btn')
+      doc.body.appendChild(btn)
+      target_class = nil #: Class?
+      btn.addEventListener('click') do |event|
+        target_class = event.target.class
+      end
+      JS.eval('document.getElementById("phase4-target-btn").click()')
+      sleep 0.05
+      doc.body.removeChild(btn)
+      raise "target class: #{target_class}" unless target_class == JS::Element
+    end
+
+    test_case("fetch block argument is JS::Response") do
+      seen_class = nil #: Class?
+      JS.global.fetch('data:text/plain,fetched') do |response|
+        seen_class = response.class
+      end
+      raise "response class: #{seen_class}" unless seen_class == JS::Response
+    end
+
+    test_case("JS::Response#to_binary returns the body") do
+      body = nil #: String?
+      JS.global.fetch('data:text/plain,hello-binary') do |response|
+        body = response.to_binary
+      end
+      raise "body: #{body.inspect}" unless body == 'hello-binary'
+    end
+
+    # ----- Summary -----
+
+    summary = doc.createElement('h2')
+    summary.textContent = 'All tests completed!'
+    summary.style = 'color: green; margin-top: 20px;'
+    results.appendChild(summary)
+  </script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

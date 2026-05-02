@@ -4,7 +4,7 @@ require 'json'
 module JS
   def self.document
     document = global[:document]
-    if document.is_a?(JS::Object)
+    if document.is_a?(JS::Element)
       document
     else
       raise 'Document object is not available'
@@ -65,14 +65,6 @@ module JS
       $promise_responses.delete(callback_id)
     end
 
-    def to_binary
-      callback_id = self.object_id
-      _to_binary_and_suspend(callback_id)
-      result = $promise_responses[callback_id]
-      $promise_responses.delete(callback_id)
-      result.to_s
-    end
-
     def setTimeout(delay_ms, &block)
       callback_id = block.object_id
       CALLBACKS[callback_id] = block
@@ -87,8 +79,64 @@ module JS
       success
     end
 
+  end
+
+  # Composite-type subclasses. wrap_ref_as_js_object in js.c picks the right
+  # class based on the JS runtime type of the wrapped value.
+
+  class Array < Object
+    include Enumerable
+
+    # Iterate over the wrapped JS array, yielding each element converted via
+    # js_ref_to_ruby_value (primitives become Ruby native values).
+    # Uses indexed access directly; calling #to_a here would infinite-loop
+    # via Enumerable#to_a -> #each.
+    def each(&block)
+      return self unless block
+      i = 0
+      n = length
+      while i < n
+        yield self[i]
+        i += 1
+      end
+      self
+    end
+
+    def size
+      length
+    end
+  end
+
+  class Function < Object
+    # #call is defined in C on class_JS_Function and invokes the wrapped JS
+    # function value directly (no `this` binding).
+  end
+
+  class Response < Object
+    # Read the response body as a binary String. Suspends the current Ruby
+    # task until the underlying ArrayBuffer is materialized.
+    def to_binary
+      callback_id = self.object_id
+      _to_binary_and_suspend(callback_id)
+      result = $promise_responses[callback_id]
+      $promise_responses.delete(callback_id)
+      result.to_s
+    end
+  end
+
+  class Event < Object
+    # #preventDefault and #stopPropagation are defined in C on class_JS_Event.
+  end
+
+  class Element < Object
+    # DOM element / Document. Methods (createElement, appendChild,
+    # setAttribute, etc.) are defined in C on class_JS_Element.
+  end
+
+  class Promise < Object
     # Await a JS Promise. Suspends the current Ruby task until the Promise
-    # resolves and returns the result as a JS::Object.
+    # resolves and returns the resolved value (auto-converted to a Ruby
+    # native value if it is a primitive, otherwise wrapped as JS::Object).
     def await
       callback_id = self.object_id
       _await_and_suspend(callback_id)
@@ -113,7 +161,7 @@ module JS
       case value
       when Hash
         hash_to_js_object(value)
-      when Array
+      when ::Array
         array_to_js_array(value)
       else
         value

@@ -2,8 +2,9 @@ module JS
   class WebSerial
     # Returns true if Web Serial API is available (Chrome / Edge).
     def self.supported?
-      nav = JS.global[:navigator] # steep:ignore
-      nav && (serial = nav[:serial]) && serial.type != "undefined"
+      nav = JS.global[:navigator]
+      return false unless nav.is_a?(JS::Object)
+      nav[:serial].is_a?(JS::Object)
     end
 
     # Request a serial port via the browser picker.

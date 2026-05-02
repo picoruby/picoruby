@@ -2,35 +2,46 @@
 
 `JS.global` (= `window`) and `JS.document` are the two entry points into the JavaScript world.
 
-**Reading** always returns a `JS::Object` wrapper (except `null`/`undefined` which become `nil`). **Writing** auto-converts Ruby primitives to JS equivalents.
+**Reading** auto-converts JS primitives (string, number, boolean, null, undefined) into Ruby native values. Composite JS values (object, array, function) are returned as `JS::Object` wrappers. **Writing** auto-converts Ruby primitives to JS equivalents.
 
 ## Reading from JS
 
-Use `[]` for property access, or call methods directly. Always returns `JS::Object`.
+Use `[]` for property access, or call methods directly.
 
 ```ruby
-element  = JS.document.getElementById('myElement')
-nav      = JS.global[:navigator]
-width    = element[:offsetWidth]   #=> JS::Object (JS number)
-text     = element[:textContent]   #=> JS::Object (JS string)
+element  = JS.document.getElementById('myElement')  # JS::Object (DOM element)
+nav      = JS.global[:navigator]                    # JS::Object
+width    = element[:offsetWidth]                    #=> Integer
+text     = element[:textContent]                    #=> String
+hidden   = element[:hidden]                         #=> true / false
+tag      = element[:tagName]                        #=> String
 ```
 
-Convert with explicit methods:
+### Type mapping (JS to Ruby, auto-converted)
 
-| Method | Ruby type |
-|--------|-----------|
-| `.to_s` | String |
-| `.to_i` | Integer |
-| `.to_f` | Float |
-| `.to_a` | Array of JS::Object |
+| JS type     | Ruby type |
+|-------------|-----------|
+| `string`    | `String`   |
+| `number` (integer) | `Integer` |
+| `number` (float)   | `Float`   |
+| `boolean`   | `true` / `false` |
+| `null` / `undefined` | `nil` |
+| `object`    | `JS::Object` |
+| `array`     | `JS::Object` (use `#to_a` to iterate) |
+| `function`  | `JS::Object` |
+| `symbol`    | `JS::Object` |
+| `bigint`    | `JS::Object` |
+
+### Iterating array-like values
+
+`querySelectorAll`, `HTMLCollection`, `NodeList` come back as `JS::Object`. Convert with `#to_a`:
 
 ```ruby
-text  = element[:textContent].to_s
-width = element[:offsetWidth].to_i
-items = doc.querySelectorAll('.item').to_a  # then .each, .map, etc.
+items = JS.document.querySelectorAll('.item').to_a
+items.each { |el| puts el[:textContent] }  # el is a JS::Object, [:textContent] is String
 ```
 
-Only `null` and `undefined` convert automatically to `nil`.
+`#to_a` recursively auto-converts primitives too, so an array of numbers becomes `Array[Integer]`.
 
 ## Writing to JS
 
@@ -82,12 +93,26 @@ JS.global[:Chart].new(canvas, config)
 
 ## Comparison
 
-`==` compares `JS::Object` with Ruby primitives directly. Numeric operators work on JS numbers:
+Primitives come back as Ruby native values, so `==` and numeric operators just work:
 
 ```ruby
-checkbox[:checked] == true          # boolean comparison
-element[:offsetWidth] > 100         # numeric comparison
-element[:id] == "myElement"         # string comparison
+checkbox[:checked] == true          # boolean == boolean
+element[:offsetWidth] > 100         # Integer > Integer
+element[:id] == "myElement"         # String == String
+```
+
+Between two `JS::Object` wrappers, `==` compares the underlying ref_id (identity). A `JS::Object` is never `==` to a Ruby primitive.
+
+## Debugging
+
+`#inspect` returns a readable preview that reflects the JS constructor and key properties:
+
+```ruby
+p JS.document.getElementById('app')
+#=> #<JS::Object ref:87 HTMLDivElement id="app" class="root">
+
+p some_fetch_response
+#=> #<JS::Object ref:42 Response status=200 url="https://...">
 ```
 
 ## See Also
