@@ -56,7 +56,7 @@ mrb_driver_s_select_pwm(mrb_state *mrb, mrb_value klass)
   psg_drv = &psg_drv_pwm;
   mrb_int left, right;
   mrb_get_args(mrb, "ii", &left, &right);
-  D(mrb, "PSG: PWM left=%d, right=%d\n", left, right);
+  D("PSG: PWM left=%d, right=%d\n", left, right);
   reset_psg(mrb);
   PSG_tick_start_core1((uint8_t)left, (uint8_t)right);
   return mrb_nil_value();
