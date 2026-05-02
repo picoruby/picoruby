@@ -1,0 +1,71 @@
+module IndexedDB
+  class Error < StandardError end
+  class NotSupportedError < Error end
+  class OpenError < Error end
+  class BlockedError < Error end
+  class AwaitInBatchError < Error end
+  class SchemaError < Error end
+
+  # Either backend (real IDB or in-memory fallback) implements the same
+  # observable API. Returned from IndexedDB.open and yielded to upgrade blocks.
+  type db_like = Database | InMemoryDatabase
+
+  def self.available?: () -> bool
+  def self.open: (String name, ?version: Integer, ?fallback: bool) ?{ (db_like, Integer, Integer) -> void } -> db_like
+  def self._open_real: (String name, Integer version) ?{ (db_like, Integer, Integer) -> void } -> Database
+  def self._open_fallback: (String name, Integer version) ?{ (db_like, Integer, Integer) -> void } -> InMemoryDatabase
+
+  module Helper
+    def self._request_to_promise: (untyped js_request) -> untyped
+    def self._open_with_upgrade: (String name, Integer version, Integer callback_id) -> untyped
+  end
+
+  class Database
+    attr_reader name: String
+
+    def initialize: (untyped js_db, name: String, upgrading: bool) -> void
+    def closed?: () -> bool
+    def close: () -> void
+    def version: () -> Integer
+    def store_names: () -> Array[String]
+    def has_store?: (String name) -> bool
+    def create_store: (String name, ?key_path: String?, ?auto_increment: bool) -> Store
+    def delete_store: (String name) -> nil
+    def store: (String name) -> Store
+
+    def _store_for: (untyped js_store, String name) -> Store
+    def _mark_upgrade_done: () -> void
+    def _js_db: () -> untyped
+    def _upgrading?: () -> bool
+
+    private def _ensure_upgrading!: (String op) -> void
+  end
+
+  class Store
+    attr_reader name: String
+
+    def initialize: (Database database, String name, ?js_store: untyped, ?upgrading: bool) -> void
+
+    def _js_store: () -> untyped
+  end
+
+  class InMemoryDatabase
+    def self.open: (String name, Integer version) ?{ (db_like, Integer, Integer) -> void } -> InMemoryDatabase
+
+    def initialize: (String name, Integer version) -> void
+
+    def name: () -> String
+    def version: () -> Integer
+    def closed?: () -> bool
+    def close: () -> void
+    def store_names: () -> Array[String]
+    def has_store?: (String name) -> bool
+    def create_store: (String name, ?key_path: String?, ?auto_increment: bool) -> nil
+    def delete_store: (String name) -> nil
+    def store: (String name) -> Store?
+
+    def _mark_upgrade_done: () -> void
+
+    private def _ensure_upgrading!: (String op) -> void
+  end
+end
