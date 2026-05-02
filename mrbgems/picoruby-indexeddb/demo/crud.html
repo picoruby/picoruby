@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+    <title>IndexedDB Phase B: Store CRUD operations</title>
+  </head>
+  <body>
+    <div><a href="../index.html">Back</a></div>
+    <h1>IndexedDB Phase B: Store CRUD</h1>
+    <p>
+      Verifies <code>Store#put</code>, <code>Store#get</code>,
+      <code>Store#delete</code>, <code>Store#count</code>,
+      <code>Store#clear</code>, <code>Store#keys</code>,
+      <code>Store#to_a</code>, and <code>Store#each</code>.
+    </p>
+    <button id="run">Run Test</button>
+    <button id="reset">Delete Test DB</button>
+    <pre id="output"></pre>
+
+    <script type="text/ruby">
+      require 'js'
+
+      $log = JS.document.getElementById('output')
+
+      def log(msg)
+        $log.innerText = $log.innerText.to_s + msg.to_s + "\n"
+      end
+
+      def reset_log
+        $log.innerText = ''
+      end
+
+      def assert(label, expected, actual)
+        if expected == actual
+          log "✓ #{label}"
+        else
+          log "✗ #{label}: expected #{expected.inspect}, got #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run').addEventListener('click') do
+        reset_log
+        log "=== Phase B: Store CRUD ==="
+        log ""
+
+        db_name = 'picoruby_idb_phase_b'
+
+        # Open with a store that has key_path
+        db = IndexedDB.open(db_name, version: 1) do |d, old_v, new_v|
+          log "upgrade: old=#{old_v} new=#{new_v}"
+          d.create_store('users', key_path: 'id') unless d.has_store?('users')
+          d.create_store('kv') unless d.has_store?('kv')
+        end
+
+        log "opened: #{db.name} v#{db.version}"
+        log ""
+
+        users = db.store('users')
+        kv = db.store('kv')
+
+        # --- Test put/get with key_path ---
+        log "-- put/get with key_path --"
+        users.put({ 'id' => 1, 'name' => 'Alice' })
+        users.put({ 'id' => 2, 'name' => 'Bob' })
+        users.put({ 'id' => 3, 'name' => 'Carol' })
+
+        alice = users.get(1)
+        assert "get(1) returns Alice", 'Alice', alice['name']
+
+        bob = users.get(2)
+        assert "get(2) returns Bob", 'Bob', bob['name']
+
+        missing = users.get(999)
+        assert "get(999) returns nil", nil, missing
+
+        log ""
+
+        # --- Test put/get with explicit key ---
+        log "-- put/get with explicit key --"
+        kv.put('value1', key: 'key1')
+        kv.put('value2', key: 'key2')
+
+        assert "kv.get('key1')", 'value1', kv.get('key1')
+        assert "kv.get('key2')", 'value2', kv.get('key2')
+
+        log ""
+
+        # --- Test count ---
+        log "-- count --"
+        assert "users.count", 3, users.count
+        assert "kv.count", 2, kv.count
+
+        log ""
+
+        # --- Test delete ---
+        log "-- delete --"
+        users.delete(2)
+        assert "users.count after delete", 2, users.count
+        assert "get(2) after delete", nil, users.get(2)
+
+        log ""
+
+        # --- Test keys ---
+        log "-- keys --"
+        user_keys = users.keys
+        assert "users.keys includes 1", true, user_keys.include?(1)
+        assert "users.keys includes 3", true, user_keys.include?(3)
+        assert "users.keys excludes 2", false, user_keys.include?(2)
+
+        log ""
+
+        # --- Test to_a ---
+        log "-- to_a --"
+        all_users = users.to_a
+        assert "users.to_a length", 2, all_users.length
+        names = all_users.map { |u| u['name'] }.sort
+        assert "users names", ['Alice', 'Carol'], names
+
+        log ""
+
+        # --- Test each ---
+        log "-- each --"
+        collected = []
+        users.each do |key, value|
+          collected << [key, value['name']]
+        end
+        assert "each yielded 2 pairs", 2, collected.length
+        log "  collected: #{collected.inspect}"
+
+        log ""
+
+        # --- Test clear ---
+        log "-- clear --"
+        kv.clear
+        assert "kv.count after clear", 0, kv.count
+
+        log ""
+
+        # --- Test update (put overwrites) ---
+        log "-- update via put --"
+        users.put({ 'id' => 1, 'name' => 'Alice Updated' })
+        updated = users.get(1)
+        assert "updated name", 'Alice Updated', updated['name']
+        assert "count unchanged", 2, users.count
+
+        db.close
+        log ""
+        log "=== All tests complete ==="
+
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+        log e.backtrace.first(5).join("\n") if e.backtrace
+      end
+
+      JS.document.getElementById('reset').addEventListener('click') do
+        reset_log
+        log "deleting 'picoruby_idb_phase_b'..."
+        req = JS.global[:indexedDB].deleteDatabase('picoruby_idb_phase_b')
+        IndexedDB::Helper._request_to_promise(req).await
+        log "deleted; reload then click Run Test"
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>
