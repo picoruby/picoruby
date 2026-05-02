@@ -54,7 +54,7 @@ done
         db = IndexedDB.open(db_name, version: 1) do |d, old_v, new_v|
           upgrade_seen = true
           log "upgrade fired: old=#{old_v} new=#{new_v}"
-          log "  inside upgrade: db.upgrading? #{d._upgrading?}"
+          log "  inside upgrade: db.upgrading? #{d.upgrading?}"
           unless d.has_store?('kv')
             d.create_store('kv')
             log "  created store 'kv'"
@@ -64,7 +64,7 @@ done
         end
 
         log "upgrade was skipped (already at version 1)" unless upgrade_seen
-        log "open returned: name=#{db.name} version=#{db.version} upgrading?=#{db._upgrading?}"
+        log "open returned: name=#{db.name} version=#{db.version} upgrading?=#{db.upgrading?}"
         log "store_names: #{db.store_names.inspect}"
         log "has_store?(kv): #{db.has_store?('kv')}"
         log "has_store?(missing): #{db.has_store?('missing')}"
@@ -78,7 +78,7 @@ done
         reset_log
         log "deleting 'picoruby_idb_phase_a'..."
         req = JS.global[:indexedDB].deleteDatabase('picoruby_idb_phase_a')
-        IndexedDB::Helper._request_to_promise(req).await
+        IndexedDB::Helper.request_to_promise(req).await
         log "deleted; reload then click Run Test to re-trigger upgrade"
       rescue => e
         log "ERROR: #{e.class}: #{e.message}"

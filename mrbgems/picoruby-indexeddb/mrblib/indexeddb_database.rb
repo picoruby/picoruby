@@ -50,16 +50,16 @@ module IndexedDB
     # ---- Schema mutations (upgrade-only) -----------------------------------
 
     def create_store(name, key_path: nil, auto_increment: false)
-      _ensure_upgrading!('create_store')
+      ensure_upgrading!('create_store')
       opts = JS.global.create_object
       opts[:keyPath] = key_path.to_s if key_path
       opts[:autoIncrement] = true if auto_increment
       js_store = @js_db.createObjectStore(name.to_s, opts)
-      _store_for(js_store, name.to_s)
+      store_for(js_store, name.to_s)
     end
 
     def delete_store(name)
-      _ensure_upgrading!('delete_store')
+      ensure_upgrading!('delete_store')
       @js_db.deleteObjectStore(name.to_s)
       nil
     end
@@ -79,18 +79,10 @@ module IndexedDB
         if tx.nil?
           raise SchemaError, "no active versionchange transaction"
         end
-        _store_for(tx.objectStore(name.to_s), name.to_s)
+        store_for(tx.objectStore(name.to_s), name.to_s)
       else
-        # Phase B: returns a Store that opens a one-shot transaction per op.
         Store.new(self, name.to_s)
       end
-    end
-
-    # Internal: build a Store wrapping a specific IDBObjectStore (used
-    # during upgrade so create_store / store(name) return upgrade-mode
-    # stores backed by the versionchange transaction).
-    def _store_for(js_store, name)
-      Store.new(self, name, js_store: js_store, upgrading: @upgrading)
     end
 
     # Atomic multi-store transaction.
@@ -104,36 +96,40 @@ module IndexedDB
     # tx[name] raise AwaitInBatchError. The whole group commits atomically
     # on block exit, or rolls back if any request errors.
     def batch(store_names, mode: :readwrite, &block)
-      _ensure_not_upgrading!
+      ensure_not_upgrading!
       raise ArgumentError, "batch requires a block" unless block
       names = store_names.is_a?(Array) ? store_names.map { |n| n.to_s } : [store_names.to_s]
       tx = Batch.new(self, names, mode)
       block.call(tx)
-      tx._await_complete
+      tx.await_complete
     end
 
-    # Internal: marks the upgrade phase complete. After this, the Database
-    # rejects schema mutations.
-    def _mark_upgrade_done
+    # Marks the upgrade phase complete. Called from IndexedDB.open after the
+    # upgrade callback returns. Public because it crosses module boundaries.
+    def mark_upgrade_done
       @upgrading = false
     end
 
-    def _js_db
+    def js_db
       @js_db
     end
 
-    def _upgrading?
+    def upgrading?
       @upgrading
     end
 
     private
 
-    def _ensure_upgrading!(op)
+    def store_for(js_store, name)
+      Store.new(self, name, js_store: js_store, upgrading: @upgrading)
+    end
+
+    def ensure_upgrading!(op)
       return if @upgrading
       raise SchemaError, "#{op} can only be called inside the upgrade block"
     end
 
-    def _ensure_not_upgrading!
+    def ensure_not_upgrading!
       return unless @upgrading
       raise SchemaError, "batch cannot be called inside the upgrade block"
     end

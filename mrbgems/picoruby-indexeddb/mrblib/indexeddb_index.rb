@@ -11,38 +11,38 @@ module IndexedDB
 
     # Retrieve the first record matching the given index key.
     def get(key)
-      @store._with_readonly_store do |js_store|
+      @store.with_readonly_store do |js_store|
         idx = js_store.index(@name)
-        req = idx.get(@store._to_js_key(key))
-        @store._await_request(req)
+        req = idx.get(@store.to_js_key(key))
+        @store.await_request(req)
       end
     end
 
     # Retrieve all records matching the given index key (or range).
     def get_all(key_or_range = nil, count: nil)
-      @store._with_readonly_store do |js_store|
+      @store.with_readonly_store do |js_store|
         idx = js_store.index(@name)
         req = if key_or_range.nil?
                 count.nil? ? idx.getAll : idx.getAll(nil, count) # steep:ignore
               else
-                js_key = @store._to_js_key(key_or_range)
+                js_key = @store.to_js_key(key_or_range)
                 count.nil? ? idx.getAll(js_key) : idx.getAll(js_key, count)
               end
-        js_arr = @store._await_request(req)
-        @store._js_array_to_ruby(js_arr)
+        js_arr = @store.await_request(req)
+        @store.js_array_to_ruby(js_arr)
       end
     end
 
     # Count records matching the key or range.
     def count(key_or_range = nil)
-      @store._with_readonly_store do |js_store|
+      @store.with_readonly_store do |js_store|
         idx = js_store.index(@name)
         req = if key_or_range.nil?
                 idx.count
               else
-                idx.count(@store._to_js_key(key_or_range))
+                idx.count(@store.to_js_key(key_or_range))
               end
-        @store._await_request(req).to_i
+        @store.await_request(req).to_i
       end
     end
 
@@ -59,7 +59,6 @@ module IndexedDB
       all_keys = keys(range)
       all_values = to_a(range)
 
-      # Build pairs manually (Array#zip not available in PicoRuby)
       pairs = [] #: Array[[untyped, untyped]]
       i = 0
       while i < all_keys.length
@@ -76,15 +75,15 @@ module IndexedDB
 
     # Return all primary keys in index order.
     def keys(range = nil)
-      @store._with_readonly_store do |js_store|
+      @store.with_readonly_store do |js_store|
         idx = js_store.index(@name)
         req = if range.nil?
                 idx.getAllKeys
               else
-                idx.getAllKeys(@store._to_js_key(range))
+                idx.getAllKeys(@store.to_js_key(range))
               end
-        js_arr = @store._await_request(req)
-        @store._js_array_to_ruby(js_arr)
+        js_arr = @store.await_request(req)
+        @store.js_array_to_ruby(js_arr)
       end
     end
   end

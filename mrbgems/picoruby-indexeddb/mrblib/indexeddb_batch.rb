@@ -11,7 +11,7 @@ module IndexedDB
   class Batch
     def initialize(database, store_names, mode)
       @database = database
-      js_db = database._js_db
+      js_db = database.js_db
       mode_str = mode.to_s
 
       tx = if store_names.length == 1
@@ -37,8 +37,8 @@ module IndexedDB
       v
     end
 
-    def _await_complete
-      promise = Helper._transaction_to_promise(@tx)
+    def await_complete
+      promise = Helper.transaction_to_promise(@tx)
       promise.await
       nil
     end

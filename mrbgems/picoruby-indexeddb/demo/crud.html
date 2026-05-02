@@ -157,7 +157,7 @@
         reset_log
         log "deleting 'picoruby_idb_phase_b'..."
         req = JS.global[:indexedDB].deleteDatabase('picoruby_idb_phase_b')
-        IndexedDB::Helper._request_to_promise(req).await
+        IndexedDB::Helper.request_to_promise(req).await
         log "deleted; reload then click Run Test"
       rescue => e
         log "ERROR: #{e.class}: #{e.message}"

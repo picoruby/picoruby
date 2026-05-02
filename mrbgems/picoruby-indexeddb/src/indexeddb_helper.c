@@ -145,7 +145,7 @@ EM_JS(int, idb_transaction_to_promise, (int tx_ref_id), {
  *****************************************************/
 
 /*
- * IndexedDB::Helper._request_to_promise(js_request) -> JS::Promise
+ * IndexedDB::Helper.request_to_promise(js_request) -> JS::Promise
  */
 static mrb_value
 mrb_idb_helper_request_to_promise(mrb_state *mrb, mrb_value self)
@@ -168,7 +168,7 @@ mrb_idb_helper_request_to_promise(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * IndexedDB::Helper._transaction_to_promise(js_transaction) -> JS::Promise
+ * IndexedDB::Helper.transaction_to_promise(js_transaction) -> JS::Promise
  */
 static mrb_value
 mrb_idb_helper_transaction_to_promise(mrb_state *mrb, mrb_value self)
@@ -191,7 +191,7 @@ mrb_idb_helper_transaction_to_promise(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * IndexedDB::Helper._open_with_upgrade(name, version, callback_id) -> JS::Promise
+ * IndexedDB::Helper.open_with_upgrade(name, version, callback_id) -> JS::Promise
  *
  * callback_id may be 0 to skip the upgrade hook (e.g. when opening at the
  * current version with no schema work to do).
@@ -221,11 +221,11 @@ mrb_picoruby_indexeddb_gem_init(mrb_state *mrb)
   struct RClass *module_IndexedDB = mrb_define_module_id(mrb, MRB_SYM(IndexedDB));
   struct RClass *module_Helper = mrb_define_module_under_id(mrb, module_IndexedDB, MRB_SYM(Helper));
 
-  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(_request_to_promise),
+  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(request_to_promise),
     mrb_idb_helper_request_to_promise, MRB_ARGS_REQ(1));
-  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(_open_with_upgrade),
+  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(open_with_upgrade),
     mrb_idb_helper_open_with_upgrade, MRB_ARGS_REQ(3));
-  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(_transaction_to_promise),
+  mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(transaction_to_promise),
     mrb_idb_helper_transaction_to_promise, MRB_ARGS_REQ(1));
 }
 
