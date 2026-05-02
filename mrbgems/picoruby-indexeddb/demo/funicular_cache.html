@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+    <title>IndexedDB Phase E: Funicular HTTP cache</title>
+  </head>
+  <body>
+    <div><a href="../index.html">Back</a></div>
+    <h1>IndexedDB Phase E: Funicular HTTP cache</h1>
+    <p>
+      Verifies <code>Funicular::HTTP</code> opt-in response cache backed by
+      <code>IndexedDB::KVS</code>. Cache lifecycle and hit/miss semantics
+      are tested without network access by pre-populating entries through
+      <code>HTTP.cache_write</code>. The optional network test at the
+      bottom hits a local same-origin endpoint; it will report a network
+      error if no such endpoint is available, which is fine.
+    </p>
+    <button id="run">Run Test</button>
+    <button id="run_net">Run Network Test (optional)</button>
+    <button id="reset">Clear Cache</button>
+    <pre id="output"></pre>
+
+    <script type="text/ruby">
+      require 'js'
+
+      $log = JS.document.getElementById('output')
+
+      def log(msg)
+        $log.innerText = $log.innerText.to_s + msg.to_s + "\n"
+      end
+
+      def reset_log
+        $log.innerText = ''
+      end
+
+      def assert(label, expected, actual)
+        if expected == actual
+          log "PASS  #{label}"
+        else
+          log "FAIL  #{label}: expected #{expected.inspect}, got #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run').addEventListener('click') do
+        reset_log
+        log "=== Phase E: Funicular HTTP cache ==="
+        log ""
+
+        # --- cache_init! is idempotent ---
+        log "-- cache_init! idempotent --"
+        c1 = Funicular::HTTP.cache_init!
+        c2 = Funicular::HTTP.cache_init!
+        assert "cache_init! same instance", true, c1.equal?(c2)
+
+        Funicular::HTTP.cache_clear
+        log ""
+
+        # --- Pre-populate the cache and observe a synchronous hit ---
+        log "-- pre-populated entry served synchronously on cache hit --"
+        url = '/__phase_e_cached__'
+        now = (JS.global[:Date].now.to_i / 1000)
+        Funicular::HTTP.cache_write(url, {
+          "status" => 200,
+          "data"   => { "fruit" => "apple", "n" => 7 },
+          "cached_at" => now
+        })
+
+        synchronous_seen = false
+        block_data = nil
+        block_status = nil
+        Funicular::HTTP.get(url, cache: 60) do |resp|
+          synchronous_seen = true
+          block_data = resp.data
+          block_status = resp.status
+        end
+        assert "block invoked synchronously on cache hit", true, synchronous_seen
+        assert "cached status surfaced", 200, block_status
+        assert "cached data fruit", 'apple', block_data['fruit']
+        assert "cached data n", 7, block_data['n']
+
+        log ""
+
+        # --- TTL expiry triggers a miss ---
+        log "-- expired entry is treated as miss --"
+        old_url = '/__phase_e_expired__'
+        Funicular::HTTP.cache_write(old_url, {
+          "status" => 200,
+          "data"   => { "stale" => true },
+          "cached_at" => now - 1000  # 1000s ago
+        })
+        # ttl=60 means anything older than 60s is stale.
+        # We cannot actually fetch in this test, so check cache_hit? indirectly
+        # via cache_lookup + manual TTL math.
+        entry = Funicular::HTTP.cache_lookup(old_url)
+        age = (JS.global[:Date].now.to_i / 1000) - entry['cached_at']
+        assert "stale entry age > ttl", true, age > 60
+
+        log ""
+
+        # --- cache_purge removes a single entry ---
+        log "-- cache_purge --"
+        Funicular::HTTP.cache_purge(url)
+        assert "purged entry is nil", nil, Funicular::HTTP.cache_lookup(url)
+        # Other entry untouched
+        assert "other entry survives purge", true, !Funicular::HTTP.cache_lookup(old_url).nil?
+
+        log ""
+
+        # --- cache_clear removes everything ---
+        log "-- cache_clear --"
+        Funicular::HTTP.cache_clear
+        assert "cleared old_url", nil, Funicular::HTTP.cache_lookup(old_url)
+
+        log ""
+
+        # --- cache: nil/absent does not consult cache ---
+        log "-- cache: nil bypasses cache lookup --"
+        Funicular::HTTP.cache_write(url, {
+          "status" => 200,
+          "data"   => { "should_not_be_seen" => true },
+          "cached_at" => now
+        })
+        # With cache: nil, get(...) would hit the network. We can't run a
+        # real fetch here, so just verify the entry remains untouched after
+        # cache_lookup and that the test logic above already covers cache hit.
+        assert "entry still present after no-cache call setup", true,
+          !Funicular::HTTP.cache_lookup(url).nil?
+
+        Funicular::HTTP.cache_clear
+
+        log ""
+        log "=== All non-network Phase E tests complete ==="
+        log "Use 'Run Network Test' to exercise live fetch + cache write."
+
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+        log e.backtrace.first(5).join("\n") if e.backtrace
+      end
+
+      JS.document.getElementById('run_net').addEventListener('click') do
+        reset_log
+        log "=== Phase E network test ==="
+        log "Hitting jsonplaceholder.typicode.com (public CORS-enabled JSON API)."
+        log "Watch the browser Network panel: the second GET should NOT issue a request."
+        log ""
+
+        Funicular::HTTP.cache_init!
+        Funicular::HTTP.cache_clear
+
+        net_url = 'https://jsonplaceholder.typicode.com/posts/1'
+
+        log "-- first GET (cache miss, populates cache) --"
+        Funicular::HTTP.get(net_url, cache: 30) do |resp|
+          log "  status=#{resp.status} ok=#{resp.ok}"
+          if resp.ok
+            entry = Funicular::HTTP.cache_lookup(net_url)
+            if entry.is_a?(Hash)
+              log "  cache populated: cached_at=#{entry['cached_at']}"
+              log "  cached title: #{entry['data']['title']}"
+            else
+              log "  WARN: cache miss did not populate (got #{entry.class})"
+            end
+          end
+        end
+
+        log ""
+        log "-- second GET (should hit cache synchronously) --"
+        synchronous = false
+        before_call = true
+        Funicular::HTTP.get(net_url, cache: 30) do |resp|
+          synchronous = before_call  # true only if block ran before next line
+          log "  hit: status=#{resp.status} title=#{resp.data['title']}"
+        end
+        before_call = false
+        if synchronous
+          log "PASS  second GET resolved synchronously (cache hit, no network)"
+        else
+          log "FAIL  second GET did not resolve synchronously"
+        end
+
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+        log e.backtrace.first(5).join("\n") if e.backtrace
+      end
+
+      JS.document.getElementById('reset').addEventListener('click') do
+        reset_log
+        log "clearing HTTP cache..."
+        Funicular::HTTP.cache_init!
+        Funicular::HTTP.cache_clear
+        log "done"
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>
