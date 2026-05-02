@@ -211,4 +211,31 @@ module IndexedDB
     def to_a: () -> Array[untyped]
     def each: () ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
   end
+
+  class KVS
+    DEFAULT_STORE: String
+
+    attr_reader name: String
+
+    def self.open: (String name, ?store: String | Symbol, ?fallback: bool) -> KVS
+
+    def initialize: (db_like database, String store_name) -> void
+
+    def []: (String | Symbol key) -> untyped
+    def []=: (String | Symbol key, untyped value) -> untyped
+    def delete: (String | Symbol key) -> nil
+    def has_key?: (String | Symbol key) -> bool
+    def size: () -> Integer
+    alias length size
+    def empty?: () -> bool
+    def clear: () -> nil
+    def keys: () -> Array[String]
+    def values: () -> Array[untyped]
+    def each: () ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
+    def to_h: () -> Hash[String, untyped]
+    def close: () -> void
+    def database: () -> db_like
+
+    private def store: () -> store_like
+  end
 end
