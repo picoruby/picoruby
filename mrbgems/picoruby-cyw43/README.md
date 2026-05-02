@@ -47,6 +47,15 @@ puts "AP started"
 puts "AP IP: #{CYW43.ap_ipv4_address}"
 ```
 
+### Experimental AP + HTTP Sample
+
+See:
+
+- `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb`
+
+This sample is intentionally experimental.
+It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` over AP mode with the current SDK-default AP behavior.
+
 ## API
 
 ### CYW43 Module Methods
@@ -101,4 +110,5 @@ puts "AP IP: #{CYW43.ap_ipv4_address}"
 - PicoRuby now exposes AP-side IPv4 information, but not AP-side DHCP control, custom AP IP configuration, or connected client listing
 - AP usability beyond SSID visibility still needs more hardware verification
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_mode.rb` for the minimal AP sample
-- TODO: add AP-side IP/DHCP helpers before documenting a supported HTTP server sample
+- See `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb` for the experimental AP + HTTP sample
+- TODO: add AP status/IP control helpers as needed before documenting a supported AP HTTP workflow
