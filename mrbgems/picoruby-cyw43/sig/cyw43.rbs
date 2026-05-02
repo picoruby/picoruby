@@ -28,6 +28,9 @@ class CYW43
   def self.ipv4_address: () -> (String | nil)
   def self.ipv4_netmask: () -> (String | nil)
   def self.ipv4_gateway: () -> (String | nil)
+  def self.ap_ipv4_address: () -> (String | nil)
+  def self.ap_ipv4_netmask: () -> (String | nil)
+  def self.ap_ipv4_gateway: () -> (String | nil)
   private def self._init: (String | nil country, bool force) -> bool
 
   # @sidebar hardware_device

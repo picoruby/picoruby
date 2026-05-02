@@ -7,7 +7,7 @@ CYW43.init("JP")
 CYW43.enable_ap_mode("PICO-TIMER", "12345678")
 
 puts "AP started"
-puts "Clients may need a static IP until DHCP support is added."
+puts "AP IP: #{CYW43.ap_ipv4_address || 'unassigned'}"
 
 led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
 
