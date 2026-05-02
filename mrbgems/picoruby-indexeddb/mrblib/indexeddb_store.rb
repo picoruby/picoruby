@@ -20,11 +20,13 @@ module IndexedDB
 
     # ---- One-shot autocommit operations ------------------------------------
 
-    # Retrieve a value by primary key. Returns nil if not found.
+    # Retrieve a value by primary key. Returns nil if not found. Composite
+    # values come back as Ruby Hashes/Arrays, not JS::Object, so callers can
+    # use `is_a?(Hash)` and pattern matching uniformly.
     def get(key)
       with_readonly_store do |store|
         req = store.get(to_js_key(key))
-        await_request(req)
+        js_to_ruby(await_request(req))
       end
     end
 
@@ -199,6 +201,16 @@ module IndexedDB
       result
     end
 
+    def js_to_ruby(js_val)
+      return nil if js_val.nil?
+      if js_val.is_a?(JS::Object)
+        json_str = JS.global[:JSON].stringify(js_val).to_s # steep:ignore
+        JSON.parse(json_str)
+      else
+        js_val
+      end
+    end
+
     private
 
     def with_readwrite_store
@@ -211,16 +223,6 @@ module IndexedDB
     def get_readonly_store
       tx = @database.js_db.transaction(@name, 'readonly')
       tx.objectStore(@name)
-    end
-
-    def js_to_ruby(js_val)
-      return nil if js_val.nil?
-      if js_val.is_a?(JS::Object)
-        json_str = JS.global[:JSON].stringify(js_val).to_s # steep:ignore
-        JSON.parse(json_str)
-      else
-        js_val
-      end
     end
 
     def ensure_upgrading!(op)

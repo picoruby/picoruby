@@ -102,10 +102,10 @@ module IndexedDB
     def await_request: (untyped req) -> untyped
     def to_js_key: (untyped key) -> untyped
     def js_array_to_ruby: (untyped js_arr) -> Array[untyped]
+    def js_to_ruby: (untyped js_val) -> untyped
 
     private def with_readwrite_store: [T] () { (untyped) -> T } -> T
     private def get_readonly_store: () -> untyped
-    private def js_to_ruby: (untyped js_val) -> untyped
     private def ensure_upgrading!: (String op) -> void
     private def ensure_not_upgrading!: () -> void
   end

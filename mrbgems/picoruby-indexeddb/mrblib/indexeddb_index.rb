@@ -14,7 +14,7 @@ module IndexedDB
       @store.with_readonly_store do |js_store|
         idx = js_store.index(@name)
         req = idx.get(@store.to_js_key(key))
-        @store.await_request(req)
+        @store.js_to_ruby(@store.await_request(req))
       end
     end
 
