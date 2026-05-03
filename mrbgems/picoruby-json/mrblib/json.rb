@@ -173,7 +173,7 @@ module JSON
 
     # Override to never use Regexp for Digger (performance)
     def skip_whitespace
-      while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index])
+      while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index] || "")
         @index += 1
       end
     end
@@ -509,7 +509,7 @@ module JSON
         else
           if JSON.use_regexp?
             if md = JSON.string_content_pattern.match(@json, @index)
-              result += md[0]
+              result += md[0] || ""
               @index = md.end(0)
             else
               result += @json[@index].to_s
@@ -596,7 +596,7 @@ module JSON
         unless md
           raise JSON::ParserError.new("Invalid number at index #{@index}")
         end
-        matched = md[0]
+        matched = md[0] || ""
         start = @index
         @index = md.end(0)
         is_float = matched.include?('.') || matched.include?('e') || matched.include?('E')

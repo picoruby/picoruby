@@ -12,8 +12,21 @@ module JSON
   class DiggerError < JSONError
   end
 
+  @wasm_build: bool?
+  @use_regexp: bool?
+  @ws_pattern: Regexp?
+  @string_content_pattern: Regexp?
+  @number_pattern: Regexp?
+
+  def self.wasm_build?: () -> bool
+  def self.use_regexp?: () -> bool
+  def self.use_regexp=: (bool) -> bool
+  def self.ws_pattern: () -> Regexp
+  def self.string_content_pattern: () -> Regexp
+  def self.number_pattern: () -> Regexp
+
   module Common
-    private def expect: (String) -> void
+    private def expect: (String?) -> void
     private def skip_whitespace: () -> void
     private def parse_true: () -> true
     private def parse_false: () -> false
