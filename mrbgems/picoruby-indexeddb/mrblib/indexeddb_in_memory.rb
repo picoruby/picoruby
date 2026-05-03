@@ -265,7 +265,7 @@ module IndexedDB
     def deep_copy(obj)
       case obj
       when Hash
-        result = {}
+        result = {} #: Hash[String, untyped]
         obj.each { |k, v| result[k] = deep_copy(v) }
         result
       when Array
