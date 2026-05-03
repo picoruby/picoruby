@@ -73,11 +73,13 @@ const struct mrb_data_type picorb_js_obj_type = {
 EM_JS(void, init_js_refs, (), {
   if (typeof globalThis.picorubyRefs === 'undefined') {
     globalThis.picorubyRefs = [];
-    globalThis.picorubyRefs.push(window);
+    // Use window in browser, globalThis in Node.js
+    const rootObject = typeof window !== 'undefined' ? window : globalThis;
+    globalThis.picorubyRefs.push(rootObject);
   }
 
-  // Helper to remove event listeners from Ruby code
-  if (typeof window._js_remove_event_listener_wrapper === 'undefined') {
+  // Helper to remove event listeners from Ruby code (browser only)
+  if (typeof window !== 'undefined' && typeof window._js_remove_event_listener_wrapper === 'undefined') {
     window._js_remove_event_listener_wrapper = function(callback_id) {
       if (!globalThis.picorubyEventHandlers) return false;
       const info = globalThis.picorubyEventHandlers[callback_id];
@@ -91,9 +93,11 @@ EM_JS(void, init_js_refs, (), {
 
 EM_JS(bool, is_array_like, (int ref_id), {
   const obj = globalThis.picorubyRefs[ref_id];
-  // NodeList or HTMLCollection
-  return obj instanceof NodeList ||
-         obj instanceof HTMLCollection ||
+  // NodeList or HTMLCollection (browser only)
+  const isNodeList = typeof NodeList !== 'undefined' && obj instanceof NodeList;
+  const isHTMLCollection = typeof HTMLCollection !== 'undefined' && obj instanceof HTMLCollection;
+  return isNodeList ||
+         isHTMLCollection ||
          // Just in case, check the length property and numeric index access
          (typeof obj === 'object' &&
           obj !== null &&
