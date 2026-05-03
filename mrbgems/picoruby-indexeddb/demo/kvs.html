@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+    <title>IndexedDB Phase D: KVS facade</title>
+  </head>
+  <body>
+    <div><a href="../index.html">Back</a></div>
+    <h1>IndexedDB Phase D: KVS</h1>
+    <p>
+      Verifies <code>IndexedDB::KVS</code> single-store facade:
+      <code>[]</code>, <code>[]=</code>, <code>delete</code>,
+      <code>has_key?</code>, <code>size</code>, <code>empty?</code>,
+      <code>clear</code>, <code>keys</code>, <code>values</code>,
+      <code>each</code>, <code>to_h</code>.
+    </p>
+    <button id="run">Run Test</button>
+    <button id="reset">Delete Test DB</button>
+    <pre id="output"></pre>
+
+    <script type="text/ruby">
+      require 'js'
+
+      $log = JS.document.getElementById('output')
+
+      def log(msg)
+        $log.innerText = $log.innerText.to_s + msg.to_s + "\n"
+      end
+
+      def reset_log
+        $log.innerText = ''
+      end
+
+      def assert(label, expected, actual)
+        if expected == actual
+          log "PASS  #{label}"
+        else
+          log "FAIL  #{label}: expected #{expected.inspect}, got #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run').addEventListener('click') do
+        reset_log
+        log "=== Phase D: KVS ==="
+        log ""
+
+        kv = IndexedDB::KVS.open('picoruby_idb_phase_d')
+        log "opened: #{kv.name}"
+
+        # Start clean
+        kv.clear
+
+        # --- []= and [] ---
+        log ""
+        log "-- []= and [] --"
+        kv['theme'] = 'dark'
+        kv['lang']  = 'ja'
+        kv['count'] = 42
+        assert "kv['theme']", 'dark', kv['theme']
+        assert "kv['lang']",  'ja',   kv['lang']
+        assert "kv['count']", 42,     kv['count']
+        assert "kv['missing']", nil,  kv['missing']
+
+        # --- []= returns assigned value ---
+        ret = (kv['x'] = 'y')
+        assert "[]= returns value", 'y', ret
+
+        # --- size and empty? ---
+        log ""
+        log "-- size / empty? --"
+        assert "size", 4, kv.size
+        assert "length alias", 4, kv.length
+        assert "empty?", false, kv.empty?
+
+        # --- has_key? ---
+        log ""
+        log "-- has_key? --"
+        assert "has_key?('theme')", true, kv.has_key?('theme')
+        assert "has_key?('missing')", false, kv.has_key?('missing')
+
+        # --- symbol coerced to string ---
+        log ""
+        log "-- symbol keys are stringified --"
+        kv[:foo] = 'bar'
+        assert "kv[:foo] (sym in)", 'bar', kv[:foo]
+        assert "kv['foo'] (str out)", 'bar', kv['foo']
+
+        # --- delete ---
+        log ""
+        log "-- delete --"
+        kv.delete('lang')
+        assert "after delete: has_key?", false, kv.has_key?('lang')
+        assert "after delete: size", 4, kv.size
+
+        # --- keys / values ---
+        log ""
+        log "-- keys / values --"
+        all_keys = kv.keys.sort
+        log "  keys: #{all_keys.inspect}"
+        assert "keys length", 4, all_keys.length
+        assert "keys include theme", true, all_keys.include?('theme')
+
+        # --- each ---
+        log ""
+        log "-- each --"
+        collected = {} #: Hash[untyped, untyped]
+        kv.each do |pair|
+          k = pair[0]
+          v = pair[1]
+          collected[k.to_s] = v
+        end
+        assert "each yielded 4 pairs", 4, collected.size
+        assert "each: theme value", 'dark', collected['theme']
+        assert "each: count value", 42, collected['count']
+
+        # --- to_h ---
+        log ""
+        log "-- to_h --"
+        h = kv.to_h
+        assert "to_h class", true, h.is_a?(Hash)
+        assert "to_h size", 4, h.size
+        assert "to_h theme", 'dark', h['theme']
+        assert "to_h count", 42, h['count']
+
+        # --- overwrite ---
+        log ""
+        log "-- overwrite --"
+        kv['theme'] = 'light'
+        assert "overwritten value", 'light', kv['theme']
+        assert "size unchanged", 4, kv.size
+
+        # --- clear ---
+        log ""
+        log "-- clear --"
+        kv.clear
+        assert "size after clear", 0, kv.size
+        assert "empty? after clear", true, kv.empty?
+
+        kv.close
+        log ""
+        log "=== All Phase D tests complete ==="
+
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+        log e.backtrace.first(5).join("\n") if e.backtrace
+      end
+
+      JS.document.getElementById('reset').addEventListener('click') do
+        reset_log
+        log "deleting 'picoruby_idb_phase_d'..."
+        req = JS.global[:indexedDB].deleteDatabase('picoruby_idb_phase_d')
+        IndexedDB::Helper.request_to_promise(req).await
+        log "deleted; reload then click Run Test"
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>

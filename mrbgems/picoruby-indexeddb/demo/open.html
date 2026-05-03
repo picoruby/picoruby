@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+    <title>IndexedDB Phase A: open + upgrade</title>
+  </head>
+  <body>
+    <div><a href="../index.html">Back</a></div>
+    <h1>IndexedDB Phase A: open + upgrade</h1>
+    <p>
+      Verifies <code>IndexedDB.available?</code>, <code>IndexedDB.open</code>
+      with a synchronous upgrade callback, and schema introspection
+      (<code>store_names</code>, <code>has_store?</code>).
+    </p>
+    <button id="run">Run Test</button>
+    <button id="reset">Delete Test DB</button>
+    <pre id="output"></pre>
+
+    <!-- Expected on first run:
+available?: true
+opening 'picoruby_idb_phase_a' v1...
+upgrade fired: old=0 new=1
+  inside upgrade: db.upgrading? true
+  created store 'kv'
+open returned: name=picoruby_idb_phase_a version=1 upgrading?=false
+store_names: ["kv"]
+has_store?(kv): true
+has_store?(missing): false
+done
+    -->
+
+    <script type="text/ruby">
+      require 'js'
+
+      $log = JS.document.getElementById('output')
+
+      def log(msg)
+        $log.innerText = $log.innerText.to_s + msg.to_s + "\n"
+      end
+
+      def reset_log
+        $log.innerText = ''
+      end
+
+      JS.document.getElementById('run').addEventListener('click') do
+        reset_log
+        log "available?: #{IndexedDB.available?}"
+
+        db_name = 'picoruby_idb_phase_a'
+        log "opening '#{db_name}' v1..."
+
+        upgrade_seen = false
+        db = IndexedDB.open(db_name, version: 1) do |d, old_v, new_v|
+          upgrade_seen = true
+          log "upgrade fired: old=#{old_v} new=#{new_v}"
+          log "  inside upgrade: db.upgrading? #{d.upgrading?}"
+          unless d.has_store?('kv')
+            d.create_store('kv')
+            log "  created store 'kv'"
+          else
+            log "  store 'kv' already exists"
+          end
+        end
+
+        log "upgrade was skipped (already at version 1)" unless upgrade_seen
+        log "open returned: name=#{db.name} version=#{db.version} upgrading?=#{db.upgrading?}"
+        log "store_names: #{db.store_names.inspect}"
+        log "has_store?(kv): #{db.has_store?('kv')}"
+        log "has_store?(missing): #{db.has_store?('missing')}"
+        db.close
+        log "done"
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+      end
+
+      JS.document.getElementById('reset').addEventListener('click') do
+        reset_log
+        log "deleting 'picoruby_idb_phase_a'..."
+        req = JS.global[:indexedDB].deleteDatabase('picoruby_idb_phase_a')
+        IndexedDB::Helper.request_to_promise(req).await
+        log "deleted; reload then click Run Test to re-trigger upgrade"
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>

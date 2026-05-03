@@ -43,6 +43,7 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   end
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-math"
   conf.gem core: 'picoruby-wasm'
+  conf.gem core: 'picoruby-indexeddb'
   conf.gem core: 'picoruby-funicular'
   conf.gem core: 'picoruby-markdown'
   conf.gem core: 'picoruby-drb'
