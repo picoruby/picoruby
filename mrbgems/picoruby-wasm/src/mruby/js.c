@@ -2399,7 +2399,7 @@ EM_JS(void, js_inspect_to_buffer, (int ref_id, char* buf, int buf_size), {
       try {
         if (v.constructor && v.constructor.name) ctor = v.constructor.name;
       } catch (e) {}
-      let extras = '';
+      let extras = "";
       try {
         if (typeof Event !== 'undefined' && v instanceof Event) {
           if (v.type) extras += ' type=' + JSON.stringify(String(v.type));

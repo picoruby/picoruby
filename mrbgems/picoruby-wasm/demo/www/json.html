@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="test.css">
+    <style>
+      #output { white-space: pre-wrap; font-family: monospace; background: #f4f4f4; padding: 10px; margin: 10px 0; min-height: 100px; border: 1px solid #ccc; }
+      .pass { color: green; }
+      .fail { color: red; }
+    </style>
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>JSON Tests</h1>
+
+    <button id="run-tests">Run Tests</button>
+    <button id="run-benchmark">Run Benchmark</button>
+    <div id="output"></div>
+
+    <script type="text/ruby">
+      require 'js'
+
+      output = JS.document.getElementById('output')
+      output.textContent = "Ready. Click Run Tests or Run Benchmark."
+
+      def assert_equal(expected, actual, label)
+        if expected == actual
+          "<span class='pass'>PASS</span> #{label}"
+        else
+          "<span class='fail'>FAIL</span> #{label}\n  expected: #{expected.inspect}\n  actual:   #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run-tests').addEventListener('click') do |event|
+        results = []
+
+        # WASM build check
+        results << assert_equal(true, JSON.wasm_build?, "JSON.wasm_build? is true")
+
+        # JSON.parse basic tests
+        results << assert_equal({"a" => 1, "b" => "hello"}, JSON.parse('{"a":1,"b":"hello"}'), "JSON.parse object")
+        results << assert_equal([1, "two", true, nil], JSON.parse('[1, "two", true, null]'), "JSON.parse array")
+        results << assert_equal({"nested" => {"key" => "value"}}, JSON.parse('{"nested":{"key":"value"}}'), "JSON.parse nested")
+
+        # Whitespace handling
+        results << assert_equal({"a" => 1}, JSON.parse('  {  "a"  :  1  }  '), "JSON.parse whitespace")
+        results << assert_equal([1, 2, 3], JSON.parse('  [  1  ,  2  ,  3  ]  '), "JSON.parse array whitespace")
+
+        # More numbers
+        results << assert_equal(0, JSON.parse('[0]')[0], "JSON.parse zero")
+        results << assert_equal(-2.5, JSON.parse('[-2.5]')[0], "JSON.parse negative float")
+        results << assert_equal(1.0e10, JSON.parse('[1e10]')[0], "JSON.parse exponential")
+
+        # Boolean and null
+        results << assert_equal(true, JSON.parse('[true]')[0], "JSON.parse true")
+        results << assert_equal(false, JSON.parse('[false]')[0], "JSON.parse false")
+        results << assert_equal(nil, JSON.parse('[null]')[0], "JSON.parse null")
+
+        # More generate
+        results << assert_equal('[1,2,3]', JSON.generate([1, 2, 3]), "JSON.generate array")
+        results << assert_equal('true', JSON.generate(true), "JSON.generate true")
+        results << assert_equal('null', JSON.generate(nil), "JSON.generate null")
+
+        # Numbers
+        results << assert_equal(123, JSON.parse('[123]')[0], "JSON.parse integer")
+        results << assert_equal(-456, JSON.parse('[-456]')[0], "JSON.parse negative")
+        results << assert_equal(3.14, JSON.parse('[3.14]')[0], "JSON.parse float")
+
+        # Strings
+        results << assert_equal("hello", JSON.parse('["hello"]')[0], "JSON.parse string")
+
+        # UTF-8
+        results << assert_equal("日本語", JSON.parse('["日本語"]')[0], "JSON.parse UTF-8")
+        results << assert_equal("😀", JSON.parse('["😀"]')[0], "JSON.parse emoji")
+        results << assert_equal({"name" => "田中"}, JSON.parse('{"name":"田中"}'), "JSON.parse UTF-8 object")
+
+        # JSON.generate
+        results << assert_equal('{"a":1}', JSON.generate({a: 1}), "JSON.generate object")
+
+        # Digger
+        json_str = '{"user":{"name":"Taro"}}'
+        digger = JSON::Digger.new(json_str)
+        results << assert_equal("Taro", digger.dig("user", "name").parse, "JSON::Digger")
+
+        # Digger with array
+        json_arr = '{"posts":[{"title":"Post 1"},{"title":"Post 2"}]}'
+        digger2 = JSON::Digger.new(json_arr)
+        results << assert_equal("Post 2", digger2.dig("posts", 1, "title").parse, "JSON::Digger array")
+
+        # Digger UTF-8
+        json_utf8 = '{"user":{"name":"田中太郎"}}'
+        digger3 = JSON::Digger.new(json_utf8)
+        results << assert_equal("田中太郎", digger3.dig("user", "name").parse, "JSON::Digger UTF-8")
+
+        # Summary
+        pass_count = 0
+        fail_count = 0
+        results.each do |r|
+          if r.include?("PASS")
+            pass_count += 1
+          else
+            fail_count += 1
+          end
+        end
+
+        summary = "<b>#{pass_count} passed, #{fail_count} failed</b>\n\n"
+        output.innerHTML = summary + results.join("\n")
+      end
+
+      JS.document.getElementById('run-benchmark').addEventListener('click') do |event|
+        output.textContent = "Generating test data...\n"
+
+        # Generate JSON with longer strings
+        long_text = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. " * 10
+        items = []
+        i = 0
+        while i < 50
+          items << '{"id":' + i.to_s + ',"description":"' + long_text + '","tags":["tag1","tag2","tag3"],"score":' + (i * 1.5).to_s + '}'
+          i += 1
+        end
+        large_json = '[' + items.join(',') + ']'
+
+        output.textContent += "JSON size: #{large_json.length} bytes\n"
+        iterations = 5
+
+        # Benchmark with Regexp
+        JSON.use_regexp = true
+        output.textContent += "\n=== With Regexp ===\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          JSON.parse(large_json)
+          j += 1
+        end
+        regexp_parse_time = Time.now - start_time
+        output.textContent += "JSON.parse x #{iterations}: #{(regexp_parse_time * 1000).to_i} ms\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          digger = JSON::Digger.new(large_json)
+          digger.dig(25, "description").parse
+          j += 1
+        end
+        regexp_digger_time = Time.now - start_time
+        output.textContent += "Digger x #{iterations}: #{(regexp_digger_time * 1000).to_i} ms\n"
+
+        # Benchmark without Regexp
+        JSON.use_regexp = false
+        output.textContent += "\n=== Without Regexp ===\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          JSON.parse(large_json)
+          j += 1
+        end
+        no_regexp_parse_time = Time.now - start_time
+        output.textContent += "JSON.parse x #{iterations}: #{(no_regexp_parse_time * 1000).to_i} ms\n"
+
+        GC.start
+        start_time = Time.now
+        j = 0
+        while j < iterations
+          digger = JSON::Digger.new(large_json)
+          digger.dig(25, "description").parse
+          j += 1
+        end
+        no_regexp_digger_time = Time.now - start_time
+        output.textContent += "Digger x #{iterations}: #{(no_regexp_digger_time * 1000).to_i} ms\n"
+
+        # Comparison
+        output.textContent += "\n=== Comparison ===\n"
+        if no_regexp_parse_time > 0
+          parse_speedup = no_regexp_parse_time / regexp_parse_time
+          output.textContent += "Parse speedup: #{parse_speedup.to_s[0, 4]}x\n"
+        end
+        if no_regexp_digger_time > 0
+          digger_speedup = no_regexp_digger_time / regexp_digger_time
+          output.textContent += "Digger speedup: #{digger_speedup.to_s[0, 4]}x\n"
+        end
+
+        # Reset to default
+        JSON.use_regexp = nil
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>

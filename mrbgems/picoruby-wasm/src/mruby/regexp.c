@@ -7,6 +7,7 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 #include "mruby/array.h"
+#include "mruby/proc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +54,13 @@ static const struct mrb_data_type picorb_match_data_type = {
 
 EM_JS(int, regexp_new, (const char *pattern, const char *flags), {
   try {
-    var re = new RegExp(UTF8ToString(pattern), UTF8ToString(flags));
+    var flagStr = UTF8ToString(flags);
+    // Auto-add 'd' flag (ES2022) so result.indices is available for per-capture offsets.
+    if (flagStr.indexOf('d') < 0) flagStr += 'd';
+    // Auto-add 'u' flag so '.', char classes and \p{...} operate on Unicode
+    // code points -- mruby strings here are UTF-8 (MRB_UTF8_STRING).
+    if (flagStr.indexOf('u') < 0) flagStr += 'u';
+    var re = new RegExp(UTF8ToString(pattern), flagStr);
     return globalThis.picorubyRefs.push(re) - 1;
   } catch(e) {
     console.error('RegExp creation failed:', e);
@@ -71,31 +78,98 @@ EM_JS(int, regexp_test, (int ref_id, const char *str, int str_len), {
   }
 });
 
-EM_JS(int, regexp_exec, (int ref_id, const char *str, int str_len), {
+// regexp_exec stores a "match info" object with per-capture offsets translated
+// into UTF-8 bytes (for slicing mruby strings) and Unicode code points (for
+// MRI-compatible char indices in #begin/#end).
+//
+// base_byte and base_char let the caller match against a tail-slice of the
+// original string (for the second `pos` argument to Regexp#match etc.) while
+// keeping returned offsets relative to the original string.
+EM_JS(int, regexp_exec, (int ref_id, const char *str, int str_len, int base_byte, int base_char), {
   try {
     var re = globalThis.picorubyRefs[ref_id];
     re.lastIndex = 0;
-    var result = re.exec(UTF8ToString(str, str_len));
+    var jsStr = UTF8ToString(str, str_len);
+    var result = re.exec(jsStr);
     if (result === null) return -1;
-    return globalThis.picorubyRefs.push(result) - 1;
+
+    var entries = [];
+    for (var i = 0; i < result.length; i++) {
+      var item = result[i];
+      if (item === undefined) {
+        entries.push(null);
+        continue;
+      }
+      var startU16, endU16;
+      if (i === 0) {
+        startU16 = result.index;
+        endU16 = result.index + item.length;
+      } else if (result.indices && result.indices[i]) {
+        startU16 = result.indices[i][0];
+        endU16 = result.indices[i][1];
+      } else {
+        // Fallback when 'd' flag is unavailable: search from match start.
+        startU16 = jsStr.indexOf(item, result.index);
+        endU16 = startU16 < 0 ? -1 : startU16 + item.length;
+      }
+      var prefix = jsStr.slice(0, startU16);
+      var matchPart = jsStr.slice(startU16, endU16);
+      var byteStart = lengthBytesUTF8(prefix);
+      var byteLen = lengthBytesUTF8(matchPart);
+      var charStart = 0;
+      for (var _c1 of prefix) charStart++;
+      var charLen = 0;
+      for (var _c2 of matchPart) charLen++;
+      entries.push({
+        byteStart: base_byte + byteStart,
+        byteEnd: base_byte + byteStart + byteLen,
+        charStart: base_char + charStart,
+        charEnd: base_char + charStart + charLen,
+        text: item
+      });
+    }
+    var info = { entries: entries, length: result.length };
+    return globalThis.picorubyRefs.push(info) - 1;
   } catch(e) {
+    console.error('RegExp exec failed:', e);
     return -1;
   }
 });
 
-EM_JS(int, regexp_match_index, (int ref_id), {
-  var result = globalThis.picorubyRefs[ref_id];
-  return result.index;
+EM_JS(int, regexp_match_length, (int ref_id), {
+  var info = globalThis.picorubyRefs[ref_id];
+  return info.length;
 });
 
-EM_JS(int, regexp_match_length, (int ref_id), {
-  var result = globalThis.picorubyRefs[ref_id];
-  return result.length;
+EM_JS(int, regexp_match_byte_begin, (int ref_id, int idx), {
+  var info = globalThis.picorubyRefs[ref_id];
+  var e = info.entries[idx];
+  return (e == null) ? -1 : e.byteStart;
+});
+
+EM_JS(int, regexp_match_byte_end, (int ref_id, int idx), {
+  var info = globalThis.picorubyRefs[ref_id];
+  var e = info.entries[idx];
+  return (e == null) ? -1 : e.byteEnd;
+});
+
+EM_JS(int, regexp_match_char_begin, (int ref_id, int idx), {
+  var info = globalThis.picorubyRefs[ref_id];
+  var e = info.entries[idx];
+  return (e == null) ? -1 : e.charStart;
+});
+
+EM_JS(int, regexp_match_char_end, (int ref_id, int idx), {
+  var info = globalThis.picorubyRefs[ref_id];
+  var e = info.entries[idx];
+  return (e == null) ? -1 : e.charEnd;
 });
 
 EM_JS(char *, regexp_match_item, (int ref_id, int idx), {
-  var result = globalThis.picorubyRefs[ref_id];
-  var item = result[idx];
+  var info = globalThis.picorubyRefs[ref_id];
+  var e = info.entries[idx];
+  if (e == null) return 0;
+  var item = e.text;
   if (item === undefined) return 0;
   var len = lengthBytesUTF8(item) + 1;
   var ptr = _malloc(len);
@@ -104,8 +178,17 @@ EM_JS(char *, regexp_match_item, (int ref_id, int idx), {
 });
 
 EM_JS(int, regexp_match_item_is_undefined, (int ref_id, int idx), {
-  var result = globalThis.picorubyRefs[ref_id];
-  return (result[idx] === undefined) ? 1 : 0;
+  var info = globalThis.picorubyRefs[ref_id];
+  var e = info.entries[idx];
+  return (e == null) ? 1 : 0;
+});
+
+// Drop a transient match-info object (used by gsub/sub loops to avoid
+// growing globalThis.picorubyRefs without bound).
+EM_JS(void, regexp_release_ref, (int ref_id), {
+  if (globalThis.picorubyRefs && ref_id >= 0 && ref_id < globalThis.picorubyRefs.length) {
+    globalThis.picorubyRefs[ref_id] = null;
+  }
 });
 
 EM_JS(char *, regexp_source, (int ref_id), {
@@ -125,6 +208,31 @@ EM_JS(char *, regexp_flags, (int ref_id), {
   stringToUTF8(str, ptr, len);
   return ptr;
 });
+
+/* Helper: convert a character (code point) offset into a UTF-8 byte offset
+ * within str. Returns the byte offset, or -1 if char_pos exceeds the number
+ * of code points in str. char_pos == 0 returns 0; char_pos == char_length(str)
+ * returns str_len (i.e. one-past-the-end is allowed). */
+static int
+utf8_char_to_byte(const char *str, int str_len, int char_pos)
+{
+  if (char_pos <= 0) return 0;
+  int b = 0;
+  int c = 0;
+  while (c < char_pos && b < str_len) {
+    unsigned char ch = (unsigned char)str[b];
+    int step;
+    if (ch < 0x80)      step = 1;
+    else if (ch < 0xC0) step = 1; /* stray continuation byte; advance defensively */
+    else if (ch < 0xE0) step = 2;
+    else if (ch < 0xF0) step = 3;
+    else                step = 4;
+    b += step;
+    c++;
+  }
+  if (c < char_pos) return -1;
+  return b;
+}
 
 /* Helper: build JS flags string from Ruby flags string */
 static void
@@ -224,19 +332,33 @@ mrb_regexp_compile(mrb_state *mrb, mrb_value self)
   return regexp_create_obj(mrb, ref_id);
 }
 
-/* Regexp#match(str) -> MatchData or nil */
+/* Regexp#match(str, pos=0) -> MatchData or nil */
 static mrb_value
 mrb_regexp_match(mrb_state *mrb, mrb_value self)
 {
   mrb_value str_val;
-  mrb_get_args(mrb, "S", &str_val);
+  mrb_int pos = 0;
+  mrb_get_args(mrb, "S|i", &str_val, &pos);
 
   picorb_regexp *re = (picorb_regexp *)DATA_PTR(self);
   if (!re) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
+  if (pos < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "negative pos is not supported");
+  }
+
+  int byte_off = utf8_char_to_byte(RSTRING_PTR(str_val), RSTRING_LEN(str_val), (int)pos);
+  if (byte_off < 0) {
+    return mrb_nil_value();
+  }
+
+  int match_ref = regexp_exec(re->ref_id,
+                              RSTRING_PTR(str_val) + byte_off,
+                              RSTRING_LEN(str_val) - byte_off,
+                              byte_off,
+                              (int)pos);
   if (match_ref < 0) {
     return mrb_nil_value();
   }
@@ -246,19 +368,31 @@ mrb_regexp_match(mrb_state *mrb, mrb_value self)
   return match_data_create_obj(mrb, match_ref, frozen_str, self);
 }
 
-/* Regexp#match?(str) -> true/false */
+/* Regexp#match?(str, pos=0) -> true/false */
 static mrb_value
 mrb_regexp_match_p(mrb_state *mrb, mrb_value self)
 {
   mrb_value str_val;
-  mrb_get_args(mrb, "S", &str_val);
+  mrb_int pos = 0;
+  mrb_get_args(mrb, "S|i", &str_val, &pos);
 
   picorb_regexp *re = (picorb_regexp *)DATA_PTR(self);
   if (!re) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int result = regexp_test(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
+  if (pos < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "negative pos is not supported");
+  }
+
+  int byte_off = utf8_char_to_byte(RSTRING_PTR(str_val), RSTRING_LEN(str_val), (int)pos);
+  if (byte_off < 0) {
+    return mrb_false_value();
+  }
+
+  int result = regexp_test(re->ref_id,
+                           RSTRING_PTR(str_val) + byte_off,
+                           RSTRING_LEN(str_val) - byte_off);
   return mrb_bool_value(result);
 }
 
@@ -290,12 +424,12 @@ mrb_regexp_match_op(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val));
+  int match_ref = regexp_exec(re->ref_id, RSTRING_PTR(str_val), RSTRING_LEN(str_val), 0, 0);
   if (match_ref < 0) {
     return mrb_nil_value();
   }
 
-  int idx = regexp_match_index(match_ref);
+  int idx = regexp_match_char_begin(match_ref, 0);
   return mrb_fixnum_value(idx);
 }
 
@@ -545,8 +679,9 @@ mrb_match_data_pre_match(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
   }
 
-  int match_idx = regexp_match_index(md->ref_id);
-  return mrb_str_new(mrb, RSTRING_PTR(md->str), match_idx);
+  int byte_start = regexp_match_byte_begin(md->ref_id, 0);
+  if (byte_start < 0) return mrb_str_new_lit(mrb, "");
+  return mrb_str_new(mrb, RSTRING_PTR(md->str), byte_start);
 }
 
 /* MatchData#post_match -> String */
@@ -558,21 +693,13 @@ mrb_match_data_post_match(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
   }
 
-  int match_idx = regexp_match_index(md->ref_id);
-  char *full_match = regexp_match_item(md->ref_id, 0);
-  if (!full_match) return mrb_str_new_lit(mrb, "");
-
-  int full_len = (int)strlen(full_match);
-  free(full_match);
-
-  int post_start = match_idx + full_len;
+  int byte_end = regexp_match_byte_end(md->ref_id, 0);
   int str_len = RSTRING_LEN(md->str);
-  if (str_len <= post_start) return mrb_str_new_lit(mrb, "");
-
-  return mrb_str_new(mrb, RSTRING_PTR(md->str) + post_start, str_len - post_start);
+  if (byte_end < 0 || str_len <= byte_end) return mrb_str_new_lit(mrb, "");
+  return mrb_str_new(mrb, RSTRING_PTR(md->str) + byte_end, str_len - byte_end);
 }
 
-/* MatchData#begin(idx) -> Integer */
+/* MatchData#begin(idx) -> Integer (character offset) */
 static mrb_value
 mrb_match_data_begin(mrb_state *mrb, mrb_value self)
 {
@@ -584,43 +711,12 @@ mrb_match_data_begin(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
   }
 
-  if (idx == 0) {
-    return mrb_fixnum_value(regexp_match_index(md->ref_id));
-  }
-
-  /* For captures (idx > 0), compute position by searching in original string */
-  int match_start = regexp_match_index(md->ref_id);
-  char *full_match = regexp_match_item(md->ref_id, 0);
-  if (!full_match) return mrb_nil_value();
-
-  if (regexp_match_item_is_undefined(md->ref_id, (int)idx)) {
-    free(full_match);
-    return mrb_nil_value();
-  }
-
-  char *capture = regexp_match_item(md->ref_id, (int)idx);
-  if (!capture) {
-    free(full_match);
-    return mrb_nil_value();
-  }
-
-  /* Find capture within the original string starting from match_start */
-  const char *str_ptr = RSTRING_PTR(md->str) + match_start;
-  const char *found = strstr(str_ptr, capture);
-  int result;
-  if (found) {
-    result = (int)(found - RSTRING_PTR(md->str));
-  } else {
-    result = -1;
-  }
-
-  free(full_match);
-  free(capture);
-  if (result < 0) return mrb_nil_value();
-  return mrb_fixnum_value(result);
+  int char_begin = regexp_match_char_begin(md->ref_id, (int)idx);
+  if (char_begin < 0) return mrb_nil_value();
+  return mrb_fixnum_value(char_begin);
 }
 
-/* MatchData#end(idx) -> Integer */
+/* MatchData#end(idx) -> Integer (character offset) */
 static mrb_value
 mrb_match_data_end(mrb_state *mrb, mrb_value self)
 {
@@ -632,35 +728,9 @@ mrb_match_data_end(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
   }
 
-  if (idx == 0) {
-    int start = regexp_match_index(md->ref_id);
-    char *full_match = regexp_match_item(md->ref_id, 0);
-    if (!full_match) return mrb_nil_value();
-    int end_pos = start + (int)strlen(full_match);
-    free(full_match);
-    return mrb_fixnum_value(end_pos);
-  }
-
-  if (regexp_match_item_is_undefined(md->ref_id, (int)idx)) {
-    return mrb_nil_value();
-  }
-
-  char *capture = regexp_match_item(md->ref_id, (int)idx);
-  if (!capture) return mrb_nil_value();
-
-  int match_start = regexp_match_index(md->ref_id);
-  const char *str_ptr = RSTRING_PTR(md->str) + match_start;
-  const char *found = strstr(str_ptr, capture);
-  int result;
-  if (found) {
-    result = (int)(found - RSTRING_PTR(md->str)) + (int)strlen(capture);
-  } else {
-    result = -1;
-  }
-
-  free(capture);
-  if (result < 0) return mrb_nil_value();
-  return mrb_fixnum_value(result);
+  int char_end = regexp_match_char_end(md->ref_id, (int)idx);
+  if (char_end < 0) return mrb_nil_value();
+  return mrb_fixnum_value(char_end);
 }
 
 /* MatchData#captures -> Array (excluding [0]) */
@@ -773,17 +843,31 @@ ensure_regexp(mrb_state *mrb, mrb_value pattern)
   return mrb_nil_value(); /* not reached */
 }
 
-/* String#match(regexp_or_str) -> MatchData or nil */
+/* String#match(regexp_or_str, pos=0) -> MatchData or nil */
 static mrb_value
 mrb_string_match(mrb_state *mrb, mrb_value self)
 {
   mrb_value pattern;
-  mrb_get_args(mrb, "o", &pattern);
+  mrb_int pos = 0;
+  mrb_get_args(mrb, "o|i", &pattern, &pos);
+
+  if (pos < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "negative pos is not supported");
+  }
 
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self));
+  int byte_off = utf8_char_to_byte(RSTRING_PTR(self), RSTRING_LEN(self), (int)pos);
+  if (byte_off < 0) {
+    return mrb_nil_value();
+  }
+
+  int match_ref = regexp_exec(re_data->ref_id,
+                              RSTRING_PTR(self) + byte_off,
+                              RSTRING_LEN(self) - byte_off,
+                              byte_off,
+                              (int)pos);
   if (match_ref < 0) {
     return mrb_nil_value();
   }
@@ -793,17 +877,29 @@ mrb_string_match(mrb_state *mrb, mrb_value self)
   return match_data_create_obj(mrb, match_ref, frozen_str, re);
 }
 
-/* String#match?(regexp_or_str) -> true/false */
+/* String#match?(regexp_or_str, pos=0) -> true/false */
 static mrb_value
 mrb_string_match_p(mrb_state *mrb, mrb_value self)
 {
   mrb_value pattern;
-  mrb_get_args(mrb, "o", &pattern);
+  mrb_int pos = 0;
+  mrb_get_args(mrb, "o|i", &pattern, &pos);
+
+  if (pos < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "negative pos is not supported");
+  }
 
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  int result = regexp_test(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self));
+  int byte_off = utf8_char_to_byte(RSTRING_PTR(self), RSTRING_LEN(self), (int)pos);
+  if (byte_off < 0) {
+    return mrb_false_value();
+  }
+
+  int result = regexp_test(re_data->ref_id,
+                           RSTRING_PTR(self) + byte_off,
+                           RSTRING_LEN(self) - byte_off);
   return mrb_bool_value(result);
 }
 
@@ -817,13 +913,182 @@ mrb_string_match_op(mrb_state *mrb, mrb_value self)
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self));
+  int match_ref = regexp_exec(re_data->ref_id, RSTRING_PTR(self), RSTRING_LEN(self), 0, 0);
   if (match_ref < 0) {
     return mrb_nil_value();
   }
 
-  int idx = regexp_match_index(match_ref);
+  int idx = regexp_match_char_begin(match_ref, 0);
   return mrb_fixnum_value(idx);
+}
+
+/* Helper: width in bytes of the UTF-8 character starting at byte_pos. */
+static int
+utf8_step(const char *str, int str_len, int byte_pos)
+{
+  if (byte_pos >= str_len) return 0;
+  unsigned char ch = (unsigned char)str[byte_pos];
+  if (ch < 0x80)      return 1;
+  if (ch < 0xC0)      return 1; /* stray continuation byte; advance defensively */
+  if (ch < 0xE0)      return 2;
+  if (ch < 0xF0)      return 3;
+  return 4;
+}
+
+/* Helper: append a captured-text item to a result string, freeing the
+ * malloc'd C string returned by regexp_match_item. */
+static void
+append_match_item(mrb_state *mrb, mrb_value result, int match_ref, int capture_idx)
+{
+  if (regexp_match_item_is_undefined(match_ref, capture_idx)) return;
+  char *item = regexp_match_item(match_ref, capture_idx);
+  if (!item) return;
+  mrb_str_cat_cstr(mrb, result, item);
+  free(item);
+}
+
+/* Helper: expand a replacement template (\\0/\\&, \\1..\\9, \\\\) against the
+ * captures of the given match. Other backslash sequences are kept literally. */
+static mrb_value
+expand_replacement(mrb_state *mrb, const char *repl, int repl_len, int match_ref)
+{
+  mrb_value result = mrb_str_new(mrb, NULL, 0);
+  int capture_count = regexp_match_length(match_ref);
+  int i = 0;
+  while (i < repl_len) {
+    char ch = repl[i];
+    if (ch == '\\' && i + 1 < repl_len) {
+      char next = repl[i + 1];
+      if (next >= '0' && next <= '9') {
+        int idx = next - '0';
+        if (idx < capture_count) {
+          append_match_item(mrb, result, match_ref, idx);
+        }
+        i += 2;
+        continue;
+      }
+      if (next == '&') {
+        append_match_item(mrb, result, match_ref, 0);
+        i += 2;
+        continue;
+      }
+      if (next == '\\') {
+        mrb_str_cat(mrb, result, "\\", 1);
+        i += 2;
+        continue;
+      }
+      /* Unknown escape: keep the backslash and the following character. */
+      mrb_str_cat(mrb, result, &repl[i], 2);
+      i += 2;
+      continue;
+    }
+    mrb_str_cat(mrb, result, &ch, 1);
+    i += 1;
+  }
+  return result;
+}
+
+/* Shared implementation of String#sub / String#gsub for both block and
+ * replacement-string forms. */
+static mrb_value
+do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
+{
+  mrb_value pattern;
+  mrb_value replacement = mrb_undef_value();
+  mrb_value block = mrb_nil_value();
+  mrb_get_args(mrb, "o|S&", &pattern, &replacement, &block);
+
+  mrb_bool has_replacement = !mrb_undef_p(replacement);
+  mrb_bool has_block = !mrb_nil_p(block);
+
+  if (has_replacement && has_block) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "both block and replacement argument given");
+  }
+  if (!has_replacement && !has_block) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given 1, expected 2)");
+  }
+
+  mrb_value re = ensure_regexp(mrb, pattern);
+  picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
+
+  const char *str_ptr = RSTRING_PTR(self);
+  int str_len = RSTRING_LEN(self);
+
+  mrb_value result = mrb_str_new(mrb, NULL, 0);
+  int byte_pos = 0;
+  int char_pos = 0;
+
+  while (byte_pos <= str_len) {
+    int match_ref = regexp_exec(re_data->ref_id,
+                                str_ptr + byte_pos,
+                                str_len - byte_pos,
+                                byte_pos,
+                                char_pos);
+    if (match_ref < 0) break;
+
+    int byte_begin = regexp_match_byte_begin(match_ref, 0);
+    int byte_end   = regexp_match_byte_end(match_ref, 0);
+    int char_end   = regexp_match_char_end(match_ref, 0);
+
+    /* Append the unmatched prefix between the previous position and this match. */
+    if (byte_begin > byte_pos) {
+      mrb_str_cat(mrb, result, str_ptr + byte_pos, byte_begin - byte_pos);
+    }
+
+    /* Compute and append the replacement text. */
+    if (has_block) {
+      char *full = regexp_match_item(match_ref, 0);
+      mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
+      if (full) free(full);
+      mrb_value yielded = mrb_yield(mrb, block, full_str);
+      mrb_value yield_str = mrb_obj_as_string(mrb, yielded);
+      mrb_str_cat_str(mrb, result, yield_str);
+    } else {
+      mrb_value expanded = expand_replacement(mrb,
+                                              RSTRING_PTR(replacement),
+                                              RSTRING_LEN(replacement),
+                                              match_ref);
+      mrb_str_cat_str(mrb, result, expanded);
+    }
+
+    regexp_release_ref(match_ref);
+
+    /* Advance position. For zero-width matches, also append and skip one
+     * UTF-8 character so we don't loop forever. */
+    if (byte_end == byte_begin) {
+      int step = utf8_step(str_ptr, str_len, byte_pos);
+      if (step == 0) break;
+      mrb_str_cat(mrb, result, str_ptr + byte_pos, step);
+      byte_pos += step;
+      char_pos += 1;
+    } else {
+      byte_pos = byte_end;
+      char_pos = char_end;
+    }
+
+    if (!global) break;
+  }
+
+  /* Append the remainder. */
+  if (byte_pos < str_len) {
+    mrb_str_cat(mrb, result, str_ptr + byte_pos, str_len - byte_pos);
+  }
+
+  return result;
+}
+
+/* String#gsub(pattern, replacement) / String#gsub(pattern) { |m| ... } */
+static mrb_value
+mrb_string_gsub(mrb_state *mrb, mrb_value self)
+{
+  return do_string_sub_gsub(mrb, self, TRUE);
+}
+
+/* String#sub(pattern, replacement) / String#sub(pattern) { |m| ... } */
+static mrb_value
+mrb_string_sub(mrb_state *mrb, mrb_value self)
+{
+  return do_string_sub_gsub(mrb, self, FALSE);
 }
 
 /* ---- Init function ---- */
@@ -838,8 +1103,8 @@ mrb_regexp_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(compile), mrb_regexp_compile, MRB_ARGS_ARG(1, 2));
   mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(new), mrb_regexp_compile, MRB_ARGS_ARG(1, 2));
 
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(match), mrb_regexp_match, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(match), mrb_regexp_match_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(match), mrb_regexp_match, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(match), mrb_regexp_match_p, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "==="), mrb_regexp_case_eq, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, mrb_intern_lit(mrb, "=~"), mrb_regexp_match_op, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(source), mrb_regexp_source, MRB_ARGS_NONE());
@@ -872,7 +1137,9 @@ mrb_regexp_init(mrb_state *mrb)
 
   /* String extensions */
   struct RClass *string_class = mrb->string_class;
-  mrb_define_method_id(mrb, string_class, MRB_SYM(match), mrb_string_match, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, string_class, MRB_SYM_Q(match), mrb_string_match_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(match), mrb_string_match, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM_Q(match), mrb_string_match_p, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, string_class, mrb_intern_lit(mrb, "=~"), mrb_string_match_op, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(gsub), mrb_string_gsub, MRB_ARGS_ARG(1, 1) | MRB_ARGS_BLOCK());
+  mrb_define_method_id(mrb, string_class, MRB_SYM(sub), mrb_string_sub, MRB_ARGS_ARG(1, 1) | MRB_ARGS_BLOCK());
 }

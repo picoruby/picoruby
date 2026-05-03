@@ -15,6 +15,36 @@ module JSON
   class GeneratorError < JSONError; end
   class DiggerError < JSONError; end
 
+  # Detect WASM build for Regexp-based optimization (lazy, cached)
+  def self.wasm_build?
+    return @wasm_build unless @wasm_build.nil?
+    @wasm_build = RUBY_DESCRIPTION.include?("wasm32")
+  end
+
+  # Toggle for Regexp optimization (can be set to false for benchmarking)
+  # Defaults to wasm_build? but can be overridden: JSON.use_regexp = false
+  def self.use_regexp?
+    return @use_regexp unless @use_regexp.nil?
+    @use_regexp = wasm_build?
+  end
+
+  def self.use_regexp=(val)
+    @use_regexp = val
+  end
+
+  # Regexp patterns (lazy initialization)
+  def self.ws_pattern
+    @ws_pattern ||= /^[ \t\n\r]+/
+  end
+
+  def self.string_content_pattern
+    @string_content_pattern ||= /^[^"\\]+/
+  end
+
+  def self.number_pattern
+    @number_pattern ||= /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/
+  end
+
   module Common
     def expect(char)
       if @json[@index] != char
@@ -24,8 +54,14 @@ module JSON
     end
 
     def skip_whitespace
-      while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index])
-        @index += 1
+      if JSON.use_regexp?
+        if md = JSON.ws_pattern.match(@json, @index)
+          @index = md.end(0)
+        end
+      else
+        while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index])
+          @index += 1
+        end
       end
     end
 
@@ -133,6 +169,13 @@ module JSON
       @start_index = 0
       @index = 0
       @stack = []
+    end
+
+    # Override to never use Regexp for Digger (performance)
+    def skip_whitespace
+      while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index] || "")
+        @index += 1
+      end
     end
 
     def push_stack(type)
@@ -387,6 +430,7 @@ module JSON
     end
 
     def parse
+      skip_whitespace
       case @json[@index]
       when '{'
         parse_object
@@ -463,8 +507,18 @@ module JSON
             @index += snip.length
           end
         else
-          result += @json[@index].to_s
-          @index += 1
+          if JSON.use_regexp?
+            if md = JSON.string_content_pattern.match(@json, @index)
+              result += md[0] || ""
+              @index = md.end(0)
+            else
+              result += @json[@index].to_s
+              @index += 1
+            end
+          else
+            result += @json[@index].to_s
+            @index += 1
+          end
         end
         if @index >= @json.length
           raise JSON::ParserError.new("Unterminated string")
@@ -537,39 +591,55 @@ module JSON
     end
 
     def parse_number
-      start = @index
-      is_float = false
-      is_negative = @json[@index] == '-'
-      @index += 1 if is_negative
-
-      # Integer part
-      while @index < @json.length && is_digit?(@json[@index])
-        @index += 1
-      end
-
-      # Fractional part
-      if @index < @json.length && @json[@index] == '.'
-        is_float = true
-        @index += 1
-        while @index < @json.length && is_digit?(@json[@index])
-          @index += 1
+      if JSON.use_regexp?
+        md = JSON.number_pattern.match(@json, @index)
+        unless md
+          raise JSON::ParserError.new("Invalid number at index #{@index}")
         end
-      end
-
-      # Exponent part
-      if @index < @json.length && (@json[@index] == 'e' || @json[@index] == 'E')
-        is_float = true
-        @index += 1
-        @index += 1 if @index < @json.length && (@json[@index] == '+' || @json[@index] == '-')
-        while @index < @json.length && is_digit?(@json[@index])
-          @index += 1
+        matched = md[0] || ""
+        start = @index
+        @index = md.end(0)
+        is_float = matched.include?('.') || matched.include?('e') || matched.include?('E')
+        if is_float
+          parse_float(start, @index)
+        else
+          parse_integer(start, @index)
         end
-      end
-
-      if is_float
-        parse_float(start, @index)
       else
-        parse_integer(start, @index)
+        start = @index
+        is_float = false
+        is_negative = @json[@index] == '-'
+        @index += 1 if is_negative
+
+        # Integer part
+        while @index < @json.length && is_digit?(@json[@index])
+          @index += 1
+        end
+
+        # Fractional part
+        if @index < @json.length && @json[@index] == '.'
+          is_float = true
+          @index += 1
+          while @index < @json.length && is_digit?(@json[@index])
+            @index += 1
+          end
+        end
+
+        # Exponent part
+        if @index < @json.length && (@json[@index] == 'e' || @json[@index] == 'E')
+          is_float = true
+          @index += 1
+          @index += 1 if @index < @json.length && (@json[@index] == '+' || @json[@index] == '-')
+          while @index < @json.length && is_digit?(@json[@index])
+            @index += 1
+          end
+        end
+
+        if is_float
+          parse_float(start, @index)
+        else
+          parse_integer(start, @index)
+        end
       end
     end
 
@@ -609,11 +679,11 @@ module JSON
           elsif decimal_divider == 1.0
             result = result * 10 + (byte - 48)
           else
-            decimal_divider *= 10
             result += (byte - 48) / decimal_divider
+            decimal_divider *= 10
           end
         when '.'
-          # Do nothing, just move to the next character
+          decimal_divider = 10.0
         when 'e', 'E'
           parsing_exponent = true
         when '-'
