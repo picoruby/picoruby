@@ -54,6 +54,15 @@ heap_exit_critical(void)
   #define HEAP_SIZE (HEAP_SIZE_KB * 1024)
 #endif
 
+#if defined(PICORB_VM_MRUBY)
+  #ifndef MRB_GC_POOL_SIZE
+    #define MRB_GC_POOL_SIZE (HEAP_SIZE / 6)
+  #endif
+  #define MRB_ESTALLOC_POOL_SIZE (HEAP_SIZE - MRB_GC_POOL_SIZE)
+#else
+  #define MRB_ESTALLOC_POOL_SIZE HEAP_SIZE
+#endif
+
 #if defined(R2P2_ALLOC_LIBC)
   #define heap_pool NULL
 #else
@@ -144,7 +153,8 @@ main(void)
   int ret = 0;
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
+  mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool + MRB_GC_POOL_SIZE, MRB_ESTALLOC_POOL_SIZE);
+  mrb_gc_add_region(mrb, heap_pool, MRB_GC_POOL_SIZE);
 #if defined(PICORB_ALLOC_ESTALLOC)
   critical_section_init(&heap_critsec);
   mrb_alloc_set_critical_section(heap_enter_critical, heap_exit_critical);
