@@ -265,8 +265,9 @@ module IndexedDB
     def deep_copy(obj)
       case obj
       when Hash
-        obj.each_with_object({} #: Hash[untyped, untyped]
-        ) { |(k, v), h| h[k] = deep_copy(v) }
+        result = {}
+        obj.each { |k, v| result[k] = deep_copy(v) }
+        result
       when Array
         obj.map { |v| deep_copy(v) }
       else
