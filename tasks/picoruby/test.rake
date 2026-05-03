@@ -12,7 +12,7 @@ namespace :test do
   ENV['TEST_TASK'] = "yes"
 
   desc "run all tests"
-  task :all => ["gems:steep", "gems:picoruby", "gems:femtoruby"]
+  task :all => ["gems:steep", "gems:picoruby", "gems:femtoruby", "gems:wasm"]
 
   task :build_femtoruby_test do
     puts "Building test runner with femtoruby-test.rb..."
@@ -24,6 +24,12 @@ namespace :test do
     puts "Building test runner with picoruby-test.rb..."
     sh "PICORB_DEBUG=yes MRUBY_CONFIG=picoruby-test rake clean"
     sh "PICORB_DEBUG=yes MRUBY_CONFIG=picoruby-test rake all"
+  end
+
+  task :build_wasm_test do
+    puts "Building test runner with picoruby-wasm-test.rb..."
+    sh "MRUBY_CONFIG=picoruby-wasm-test rake clean"
+    sh "MRUBY_CONFIG=picoruby-wasm-test rake all"
   end
 
   namespace :gems do
@@ -46,6 +52,13 @@ namespace :test do
       end
     end
 
+    desc "run test for a gem on WASM (Node.js runtime)"
+    task :wasm, [:specified_gem] do |t, args|
+      unless run_test_for_gems('wasm', args[:specified_gem])
+        exit 1
+      end
+    end
+
   end
 end
 
@@ -56,14 +69,22 @@ def run_test_for_gems(vm_type, specified_gem)
     puts "No gems found for testing."
     return false
   end
-  ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+
+  if vm_type == 'wasm'
+    # WASM uses Node.js runner
+    wasm_runner = File.expand_path("#{MRUBY_ROOT}/mrbgems/picoruby-wasm/tools/wasm-runner.mjs")
+    ENV['PICORB_TEST_TARGET_VM'] = "node #{wasm_runner}"
+  else
+    ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+  end
+
   puts "Strategy: Full build for"
   # workaround. TODO: delete this after removal of picoruby-net
   if gems.any?{|gem| gem[:name] == 'picoruby-net' } && gems.any?{|gem| gem[:name] == 'picoruby-socket' }
     gems.reject!{|gem| gem[:name] == 'picoruby-net' }
   end
   gems.each { |gem| puts "  - #{gem[:name]}" }
-  config_path = create_temp_build_config("#{vm_type}-test.rb", gems)
+  config_path = create_temp_build_config("#{vm_type}-test.rb", gems, vm_type)
   puts "Building test binary on #{vm_type}..."
   unless ENV['SKIP_BUILD']
     sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
@@ -87,14 +108,28 @@ ensure
 end
 
 def collect_gems(vm_type, specified_gem = nil)
-  vm = vm_type == 'femtoruby' ? 'mrubyc' : 'mruby'
+  vm = case vm_type
+       when 'femtoruby' then 'mrubyc'
+       when 'wasm' then 'mruby'  # WASM uses mruby VM
+       else 'mruby'
+       end
   gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
   gems = []
   Dir.glob(["#{gems_dir}/picoruby-*", "#{gems_dir}/mruby-*"]).map do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
     if File.exist?("#{gem_path}/test/target_vm")
-      next unless File.read("#{gem_path}/test/target_vm").chomp == vm_type
+      target = File.read("#{gem_path}/test/target_vm").chomp
+      # For wasm, only run gems explicitly marked with 'wasm'
+      # For picoruby/femtoruby, run gems marked with their name or without target_vm
+      if vm_type == 'wasm'
+        next unless target == 'wasm'
+      else
+        next unless target == vm_type
+      end
+    else
+      # No target_vm file: skip for wasm, include for picoruby/femtoruby
+      next if vm_type == 'wasm'
     end
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM
@@ -111,14 +146,26 @@ def collect_gems(vm_type, specified_gem = nil)
   gems
 end
 
-def create_temp_build_config(base_config_name, gems)
+def create_temp_build_config(base_config_name, gems, vm_type = nil)
   config_file = Tempfile.new(['test_config_', '.rb'])
+
+  # Handle wasm-test specially since it uses a different base config
+  if vm_type == 'wasm'
+    base_config_name = 'picoruby-wasm-test.rb'
+  end
+
   base_config_path = File.expand_path("#{MRUBY_ROOT}/build_config/#{base_config_name}")
   config_content = File.read(base_config_path)
 
-  injection_point = /conf\.(femtoruby|picoruby)/
-  injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
-  config_content.sub!(injection_point, injection_text + 'conf.\1')
+  if vm_type == 'wasm'
+    # For WASM, inject gems before the final 'end'
+    injection_text = gems.map { |gem| "  conf.gem core: '#{gem[:name]}'" }.join("\n") + "\n"
+    config_content.sub!(/^end$/, injection_text + "end")
+  else
+    injection_point = /conf\.(femtoruby|picoruby)/
+    injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
+    config_content.sub!(injection_point, injection_text + 'conf.\1')
+  end
 
   config_file.write(config_content)
   config_file.close

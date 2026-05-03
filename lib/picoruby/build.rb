@@ -138,7 +138,10 @@ module MRuby
     end
 
     def wasm?
-      ENV['CONFIG'] == 'picoruby-wasm' || ENV['MRUBY_CONFIG'] == 'picoruby-wasm'
+      config = ENV['CONFIG'] || ENV['MRUBY_CONFIG']
+      return true if config&.include?('picoruby-wasm')
+      # Also check defines for WASM platform
+      cc.defines.include?("PICORB_PLATFORM_WASM")
     end
 
     def generate_package_json_from_template(template_path, output_path)
