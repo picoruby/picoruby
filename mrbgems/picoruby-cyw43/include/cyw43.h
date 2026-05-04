@@ -14,10 +14,13 @@ void CYW43_arch_deinit(void);
 #ifdef USE_WIFI
 void CYW43_arch_enable_sta_mode(void);
 void CYW43_arch_disable_sta_mode(void);
+void CYW43_arch_enable_ap_mode(const char *ssid, const char *pw, uint32_t auth);
+void CYW43_arch_disable_ap_mode(void);
 int CYW43_wifi_connect_with_dhcp(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms);
 int CYW43_wifi_disconnect(void);
 int CYW43_tcpip_link_status(void);
 bool CYW43_dhcp_supplied(void);
+int CYW43_CONST_auth_wpa2_aes_psk(void);
 int CYW43_CONST_link_down(void);
 int CYW43_CONST_link_join(void);
 int CYW43_CONST_link_noip(void);
@@ -39,4 +42,3 @@ uint8_t CYW43_GPIO_read(uint8_t pin);
 #endif
 
 #endif /* CYW43_DEFINED_H_ */
-
