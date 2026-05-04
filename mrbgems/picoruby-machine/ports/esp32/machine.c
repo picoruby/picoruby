@@ -122,6 +122,10 @@ machine_hal_init(void)
   esp_timer_start_periodic(periodic_timer, MRBC_TICK_UNIT * 1000);
 #endif
 
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+  Machine_delay_ms(3000);
+#endif
+
   RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);
   xTaskCreate(stdin_reader_task, "stdin_reader", 2048, NULL, tskIDLE_PRIORITY + 1, NULL);
 }
