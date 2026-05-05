@@ -15,6 +15,13 @@ module Network
     def self.ipv4_address: () -> (String | nil)
     def self.ipv4_netmask: () -> (String | nil)
     def self.ipv4_gateway: () -> (String | nil)
+    def self.ap_active?: () -> bool
+    def self.ap_ssid: () -> (String | nil)
+    def self.ap_max_stations: () -> Integer
+    def self.ap_station_count: () -> Integer
+    def self.ap_ipv4_address: () -> (String | nil)
+    def self.ap_ipv4_netmask: () -> (String | nil)
+    def self.ap_ipv4_gateway: () -> (String | nil)
     def self.dhcp_supplied?: () -> bool
   end
 end
