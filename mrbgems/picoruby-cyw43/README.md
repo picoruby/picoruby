@@ -45,6 +45,7 @@ CYW43.enable_ap_mode("PICO-TIMER", "12345678")
 
 puts "AP started"
 puts "AP IP: #{CYW43.ap_ipv4_address}"
+puts "Connect a client, then open http://#{CYW43.ap_ipv4_address}/"
 ```
 
 ### Experimental AP + HTTP Sample
@@ -54,7 +55,7 @@ See:
 - `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb`
 
 This sample is intentionally experimental.
-It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` over AP mode with the current SDK-default AP behavior.
+It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` over AP mode with PicoRuby's current built-in AP + DHCP behavior.
 
 ## API
 
@@ -106,9 +107,9 @@ It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` ov
 - Specific to Raspberry Pi Pico W and similar boards
 - Country code affects allowed WiFi channels
 - Timeout is in milliseconds
-- `enable_ap_mode` only enables the CYW43 AP radio/auth path for now
-- PicoRuby now exposes AP-side IPv4 information, but not AP-side DHCP control, custom AP IP configuration, or connected client listing
-- AP usability beyond SSID visibility still needs more hardware verification
+- `enable_ap_mode` starts a minimal DHCP-backed AP on the default `192.168.4.0/24` network
+- PicoRuby exposes AP-side IPv4 information, but not custom AP IP configuration, DHCP control, or connected client listing yet
+- AP + HTTP behavior still needs more hardware verification across client devices
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_mode.rb` for the minimal AP sample
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb` for the experimental AP + HTTP sample
-- TODO: add AP status/IP control helpers as needed before documenting a supported AP HTTP workflow
+- TODO: add AP status/IP control helpers before documenting a fully supported AP HTTP workflow

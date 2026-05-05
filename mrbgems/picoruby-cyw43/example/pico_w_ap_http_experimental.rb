@@ -3,7 +3,8 @@ require "socket"
 
 # Experimental AP + HTTP sample for Pico W / Pico 2 W.
 # This is intended for hardware confirmation only.
-# If a client cannot reach the page, future AP status/IP/DHCP work may still be needed.
+# AP mode now starts a minimal DHCP server for the default 192.168.4.0/24 network.
+# If a client still cannot reach the page, future AP status/IP control work may still be needed.
 
 CYW43.init("JP")
 CYW43.enable_ap_mode("PICO-TIMER", "12345678")

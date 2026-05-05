@@ -1,4 +1,5 @@
 #include "../../include/cyw43.h"
+#include "ap_dhcp_server.h"
 
 #include "pico/cyw43_arch.h"
 #include "lwip/dhcp.h"
@@ -109,11 +110,13 @@ void
 CYW43_arch_enable_ap_mode(const char *ssid, const char *pw, uint32_t auth)
 {
   cyw43_arch_enable_ap_mode(ssid, pw, auth);
+  picoruby_ap_dhcp_server_start();
 }
 
 void
 CYW43_arch_disable_ap_mode(void)
 {
+  picoruby_ap_dhcp_server_stop();
   cyw43_arch_disable_ap_mode();
 }
 
