@@ -60,7 +60,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
     */
   int maxlen = GET_INT_ARG(1);
   char buf[maxlen + 1];
-  mrbc_value outbuf;
+  mrbc_value outbuf = argc >= 2 ? GET_ARG(2) : mrbc_nil_value();
   int len;
   bool was_raw = io_raw_q();
   io_raw_bang(true);
@@ -81,8 +81,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   buf[len] = '\0';
   io__restore_termios();
-  if (GET_ARG(2).tt == MRBC_TT_STRING) {
-    outbuf = GET_ARG(2);
+  if (outbuf.tt == MRBC_TT_STRING) {
     uint8_t *str = outbuf.string->data;
     int orig_len = outbuf.string->size;
     if (orig_len != len) {
