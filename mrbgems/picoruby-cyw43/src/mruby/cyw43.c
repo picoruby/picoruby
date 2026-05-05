@@ -237,6 +237,47 @@ mrb_cyw43_s_ap_ipv4_address(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_cyw43_s_ap_active_p(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_false_value();
+  }
+  return mrb_bool_value(CYW43_ap_active());
+}
+
+static mrb_value
+mrb_cyw43_s_ap_ssid(mrb_state *mrb, mrb_value self)
+{
+  char ssid[33] = {0};
+
+  if (!cyw43_arch_init_flag) {
+    return mrb_nil_value();
+  }
+  if (!CYW43_ap_ssid(ssid, sizeof(ssid))) {
+    return mrb_nil_value();
+  }
+  return mrb_str_new_cstr(mrb, ssid);
+}
+
+static mrb_value
+mrb_cyw43_s_ap_max_stations(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_fixnum_value(0);
+  }
+  return mrb_fixnum_value(CYW43_ap_max_stations());
+}
+
+static mrb_value
+mrb_cyw43_s_ap_station_count(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_fixnum_value(0);
+  }
+  return mrb_fixnum_value(CYW43_ap_station_count());
+}
+
+static mrb_value
 mrb_cyw43_s_ap_ipv4_netmask(mrb_state *mrb, mrb_value self)
 {
   if (!cyw43_arch_init_flag) {
@@ -303,6 +344,10 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_address), mrb_cyw43_s_ipv4_address, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_netmask), mrb_cyw43_s_ipv4_netmask, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_gateway), mrb_cyw43_s_ipv4_gateway, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_active?"), mrb_cyw43_s_ap_active_p, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ssid"), mrb_cyw43_s_ap_ssid, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_max_stations"), mrb_cyw43_s_ap_max_stations, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_station_count"), mrb_cyw43_s_ap_station_count, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ipv4_address"), mrb_cyw43_s_ap_ipv4_address, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ipv4_netmask"), mrb_cyw43_s_ap_ipv4_netmask, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ipv4_gateway"), mrb_cyw43_s_ap_ipv4_gateway, MRB_ARGS_NONE());

@@ -30,11 +30,13 @@ else
 end
 
 puts "  Access Point:"
-ap_ip = Network::WiFi.ap_ipv4_address
-ap_netmask = Network::WiFi.ap_ipv4_netmask
-ap_gateway = Network::WiFi.ap_ipv4_gateway
-if ap_ip || ap_netmask || ap_gateway
+if Network::WiFi.ap_active?
+  ap_ip = Network::WiFi.ap_ipv4_address
+  ap_netmask = Network::WiFi.ap_ipv4_netmask
+  ap_gateway = Network::WiFi.ap_ipv4_gateway
   puts "    Status: UP"
+  puts "    SSID: #{Network::WiFi.ap_ssid || 'unknown'}"
+  puts "    Stations: #{Network::WiFi.ap_station_count}/#{Network::WiFi.ap_max_stations}"
   puts "    IP Address: #{ap_ip || 'unassigned'}"
   puts "    Netmask:    #{ap_netmask || 'unassigned'}"
   puts "    Gateway:    #{ap_gateway || 'unassigned'}"

@@ -11,7 +11,10 @@ CYW43.enable_ap_mode("PICO-TIMER", "12345678")
 
 ap_ip = CYW43.ap_ipv4_address
 puts "AP started"
+puts "AP active?: #{CYW43.ap_active?}"
+puts "AP SSID: #{CYW43.ap_ssid || 'unknown'}"
 puts "AP IP: #{ap_ip || 'unassigned'}"
+puts "AP stations: #{CYW43.ap_station_count}/#{CYW43.ap_max_stations}"
 puts "Open: http://#{ap_ip}/" if ap_ip
 
 server = TCPServer.new("0.0.0.0", 80)

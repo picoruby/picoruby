@@ -238,6 +238,52 @@ c_CYW43_ap_ipv4_address(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_CYW43_ap_active_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    SET_FALSE_RETURN();
+    return;
+  }
+  SET_BOOL_RETURN(CYW43_ap_active());
+}
+
+static void
+c_CYW43_ap_ssid(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char ssid[33] = {0};
+
+  if (!cyw43_arch_init_flag) {
+    SET_NIL_RETURN();
+    return;
+  }
+  if (!CYW43_ap_ssid(ssid, sizeof(ssid))) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, ssid));
+}
+
+static void
+c_CYW43_ap_max_stations(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    SET_INT_RETURN(0);
+    return;
+  }
+  SET_INT_RETURN(CYW43_ap_max_stations());
+}
+
+static void
+c_CYW43_ap_station_count(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    SET_INT_RETURN(0);
+    return;
+  }
+  SET_INT_RETURN(CYW43_ap_station_count());
+}
+
+static void
 c_CYW43_ap_ipv4_netmask(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   char netmask_str[16] = {0};
@@ -293,6 +339,10 @@ mrbc_cyw43_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_CYW43, "ipv4_address", c_CYW43_ipv4_address);
   mrbc_define_method(vm, class_CYW43, "ipv4_netmask", c_CYW43_ipv4_netmask);
   mrbc_define_method(vm, class_CYW43, "ipv4_gateway", c_CYW43_ipv4_gateway);
+  mrbc_define_method(vm, class_CYW43, "ap_active?", c_CYW43_ap_active_q);
+  mrbc_define_method(vm, class_CYW43, "ap_ssid", c_CYW43_ap_ssid);
+  mrbc_define_method(vm, class_CYW43, "ap_max_stations", c_CYW43_ap_max_stations);
+  mrbc_define_method(vm, class_CYW43, "ap_station_count", c_CYW43_ap_station_count);
   mrbc_define_method(vm, class_CYW43, "ap_ipv4_address", c_CYW43_ap_ipv4_address);
   mrbc_define_method(vm, class_CYW43, "ap_ipv4_netmask", c_CYW43_ap_ipv4_netmask);
   mrbc_define_method(vm, class_CYW43, "ap_ipv4_gateway", c_CYW43_ap_ipv4_gateway);

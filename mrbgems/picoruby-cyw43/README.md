@@ -44,7 +44,10 @@ CYW43.init("JP")
 CYW43.enable_ap_mode("PICO-TIMER", "12345678")
 
 puts "AP started"
+puts "AP active?: #{CYW43.ap_active?}"
+puts "AP SSID: #{CYW43.ap_ssid}"
 puts "AP IP: #{CYW43.ap_ipv4_address}"
+puts "AP stations: #{CYW43.ap_station_count}/#{CYW43.ap_max_stations}"
 puts "Connect a client, then open http://#{CYW43.ap_ipv4_address}/"
 ```
 
@@ -73,6 +76,10 @@ It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` ov
 - `CYW43.tcpip_link_status()` - Get link status code
 - `CYW43.tcpip_link_status_name()` - Get link status name
 - `CYW43.dhcp_supplied?()` - Check if DHCP supplied IP
+- `CYW43.ap_active?()` - Check whether AP mode is currently enabled
+- `CYW43.ap_ssid()` - Get the active AP SSID
+- `CYW43.ap_max_stations()` - Get the AP association capacity reported by CYW43
+- `CYW43.ap_station_count()` - Get the number of currently associated stations
 - `CYW43.ap_ipv4_address()` - Get AP-side IPv4 address
 - `CYW43.ap_ipv4_netmask()` - Get AP-side IPv4 netmask
 - `CYW43.ap_ipv4_gateway()` - Get AP-side IPv4 gateway
@@ -108,8 +115,8 @@ It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` ov
 - Country code affects allowed WiFi channels
 - Timeout is in milliseconds
 - `enable_ap_mode` starts a minimal DHCP-backed AP on the default `192.168.4.0/24` network
-- PicoRuby exposes AP-side IPv4 information, but not custom AP IP configuration, DHCP control, or connected client listing yet
+- PicoRuby exposes AP-side active/SSID/station-count state and AP-side IPv4 information, but not custom AP IP configuration or DHCP control yet
 - AP + HTTP behavior still needs more hardware verification across client devices
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_mode.rb` for the minimal AP sample
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb` for the experimental AP + HTTP sample
-- TODO: add AP status/IP control helpers before documenting a fully supported AP HTTP workflow
+- TODO: add custom AP IP control helpers before documenting a fully supported AP HTTP workflow

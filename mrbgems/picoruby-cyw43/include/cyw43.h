@@ -20,6 +20,10 @@ int CYW43_wifi_connect_with_dhcp(const char *ssid, const char *pw, uint32_t auth
 int CYW43_wifi_disconnect(void);
 int CYW43_tcpip_link_status(void);
 bool CYW43_dhcp_supplied(void);
+bool CYW43_ap_active(void);
+const char *CYW43_ap_ssid(char *buf, size_t buflen);
+int CYW43_ap_max_stations(void);
+int CYW43_ap_station_count(void);
 int CYW43_CONST_auth_wpa2_aes_psk(void);
 int CYW43_CONST_link_down(void);
 int CYW43_CONST_link_join(void);

@@ -5,6 +5,8 @@
 #include "lwip/dhcp.h"
 #include "lwip/netif.h"
 
+#include <string.h>
+
 int
 CYW43_CONST_link_down(void)
 {
@@ -58,6 +60,61 @@ CYW43_dhcp_supplied(void)
 {
   struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
   return dhcp_supplied_address(netif);
+}
+
+bool
+CYW43_ap_active(void)
+{
+  return (cyw43_state.itf_state & (1 << CYW43_ITF_AP)) != 0;
+}
+
+const char *
+CYW43_ap_ssid(char *buf, size_t buflen)
+{
+  size_t ssid_len = 0;
+  const uint8_t *ssid = NULL;
+
+  if (!CYW43_ap_active() || buflen == 0) {
+    return NULL;
+  }
+
+  cyw43_wifi_ap_get_ssid(&cyw43_state, &ssid_len, &ssid);
+  if (!ssid || ssid_len == 0) {
+    return NULL;
+  }
+
+  size_t copy_len = ssid_len < (buflen - 1) ? ssid_len : (buflen - 1);
+  memcpy(buf, ssid, copy_len);
+  buf[copy_len] = '\0';
+  return buf;
+}
+
+int
+CYW43_ap_max_stations(void)
+{
+  int max_stations = 0;
+
+  if (!CYW43_ap_active()) {
+    return 0;
+  }
+
+  cyw43_wifi_ap_get_max_stas(&cyw43_state, &max_stations);
+  return max_stations;
+}
+
+int
+CYW43_ap_station_count(void)
+{
+  int max_stations = CYW43_ap_max_stations();
+
+  if (max_stations <= 0) {
+    return 0;
+  }
+
+  uint8_t macs[max_stations * 6];
+  int num_stations = max_stations;
+  cyw43_wifi_ap_get_stas(&cyw43_state, &num_stations, macs);
+  return num_stations;
 }
 
 int
