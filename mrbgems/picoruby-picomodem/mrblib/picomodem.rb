@@ -180,7 +180,7 @@ module PicoModem
     send_frame(io_out, DONE_ACK, [OK, file_crc].pack("CN"))
   end
 
-  # Handle FILE_WRITE: receive file contents in chunks
+  # Handle FILE_WRITE: receive file contents in chunks and stream them to flash
   def self.handle_file_write(io_in, io_out, payload)
     # Payload: 4 bytes total size (big-endian) + path
     if payload.bytesize < 5
@@ -192,36 +192,46 @@ module PicoModem
     path = payload.byteslice(4, payload.bytesize - 4)
     raise "Invalid file path" if path.nil? || path.empty?
     send_frame(io_out, FILE_ACK, [READY].pack("C"))
-    # Receive chunks
-    data = ""
-    while data.bytesize < total
-      frame = recv_frame(io_in)
-      unless frame
-        send_frame(io_out, ERROR, "Timeout receiving chunk")
-        return
-      end
-      case frame[0]
-      when CHUNK
-        data << frame[1]
-        send_frame(io_out, CHUNK_ACK, [OK].pack("C"))
-      when ABORT
-        return
-      else
-        send_frame(io_out, ERROR, "Unexpected command during transfer")
-        return
+
+    written = 0
+    file_crc = 0
+    aborted = false
+    error_message = nil
+
+    File.unlink(path) if File.exist?(path)
+    File.open(path, "w") do |file|
+      file.expand(total) if file.respond_to?(:expand)
+
+      while written < total
+        frame = recv_frame(io_in)
+        unless frame
+          error_message = "Timeout receiving chunk"
+          break
+        end
+        case frame[0]
+        when CHUNK
+          chunk = frame[1]
+          file.write(chunk)
+          file_crc = CRC.crc32(chunk, file_crc)
+          written += chunk.bytesize
+          send_frame(io_out, CHUNK_ACK, [OK].pack("C"))
+        when ABORT
+          aborted = true
+          break
+        else
+          error_message = "Unexpected command during transfer"
+          break
+        end
       end
     end
-    # Write to file
-    begin
+
+    if error_message
       File.unlink(path) if File.exist?(path)
-      File.open(path, "w") do |f|
-        f.expand(data.bytesize) if f.respond_to?(:expand)
-        f.write(data)
-      end
-      file_crc = CRC.crc32(data)
+      send_frame(io_out, ERROR, error_message.to_s)
+    elsif aborted
+      File.unlink(path) if File.exist?(path)
+    else
       send_frame(io_out, DONE_ACK, [OK, file_crc].pack("CN"))
-    rescue => e
-      send_frame(io_out, ERROR, e.message)
     end
   end
 
