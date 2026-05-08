@@ -10,7 +10,7 @@ static inline void
 io_wait_for_input(mrb_state *mrb)
 {
   Machine_tud_task();
-  mrb_hal_task_idle_cpu(mrb);
+  picorb_hal_idle_cpu(mrb);
 }
 
 static mrb_value
@@ -234,7 +234,7 @@ print_sub(mrb_state *mrb, mrb_value obj)
   mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
   const char *cstr = RSTRING_PTR(str);
   size_t len = RSTRING_LEN(str);
-  hal_write(1, cstr, len);
+  picorb_hal_write(1, cstr, len);
   return len;
 }
 
@@ -244,7 +244,7 @@ debug_print_sub(mrb_state *mrb, mrb_value obj)
   mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
   const char *cstr = RSTRING_PTR(str);
   size_t len = RSTRING_LEN(str);
-  hal_write(2, cstr, len);
+  picorb_hal_write(2, cstr, len);
   return len;
 }
 
@@ -255,12 +255,12 @@ mrb_io_puts(mrb_state *mrb, mrb_value self)
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
   if (argc == 0) {
-    hal_write(1, "\n", 1);
+    picorb_hal_write(1, "\n", 1);
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
       print_sub(mrb, argv[i]);
-      hal_write(1, "\n", 1);
+      picorb_hal_write(1, "\n", 1);
     }
     mrb_gc_arena_restore(mrb, ai);
   }
@@ -300,7 +300,7 @@ mrb_io_gets(mrb_state *mrb, mrb_value self)
   mrb_value str = mrb_str_new(mrb, "", 0);
   char buf[1];
   while (true) {
-    int c = hal_getchar();
+    int c = picorb_hal_getchar();
     if (c == 3) {
       raise_interrupt(mrb);
     } else if (c == 26) {
@@ -347,7 +347,7 @@ mrb_io_read(mrb_state *mrb, mrb_value self)
     char *buf = RSTRING_PTR(str);
     mrb_int i;
     for (i = 0; i < len; ) {
-      int c = hal_getchar();
+      int c = picorb_hal_getchar();
       if (c == 3) {
         raise_interrupt(mrb);
       } else if (c == 26) {
@@ -369,7 +369,7 @@ mrb_io_read(mrb_state *mrb, mrb_value self)
   mrb_value str = mrb_str_new(mrb, "", 0);
   char buf[1];
   while (true) {
-    int c = hal_getchar();
+    int c = picorb_hal_getchar();
     if (c == 3) {
       raise_interrupt(mrb);
     } else if (c == 26) {
@@ -395,12 +395,12 @@ mrb_s_debug_puts(mrb_state *mrb, mrb_value self)
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
   if (argc == 0) {
-    hal_write(2, "\n", 1);
+    picorb_hal_write(2, "\n", 1);
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
       debug_print_sub(mrb, argv[i]);
-      hal_write(2, "\n", 1);
+      picorb_hal_write(2, "\n", 1);
     }
     mrb_gc_arena_restore(mrb, ai);
   }

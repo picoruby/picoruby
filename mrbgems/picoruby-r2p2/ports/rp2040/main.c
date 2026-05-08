@@ -156,7 +156,7 @@ main(void)
   mrb_value task = mrc_create_task(cc, irep, name, mrb_nil_value(), mrb_obj_value(mrb->top_self));
   if (mrb_nil_p(task)) {
     const char *msg = "mrbc_create_task failed\n";
-    hal_write(1, msg, strlen(msg));
+    picorb_hal_write(1, msg, strlen(msg));
     ret = 1;
   }
   else {
@@ -173,7 +173,7 @@ main(void)
   mrbc_tcb *main_tcb = mrbc_create_task(main_task, 0);
   if (!main_tcb) {
     const char *msg = "mrbc_create_task failed\n";
-    hal_write(1, msg, strlen(msg));
+    picorb_hal_write(1, msg, strlen(msg));
     ret = 1;
   }
   else {

@@ -13,7 +13,7 @@
 #include "../../include/machine.h"
 
 int
-hal_getchar(void)
+picorb_hal_getchar(void)
 {
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
     sigint_status = MACHINE_SIG_NONE;
@@ -31,7 +31,7 @@ hal_getchar(void)
 }
 
 int
-hal_read_available(void)
+picorb_hal_read_available(void)
 {
   int c = fgetc(stdin);
   return ungetc(c, stdin) == EOF ? 0 : 1;

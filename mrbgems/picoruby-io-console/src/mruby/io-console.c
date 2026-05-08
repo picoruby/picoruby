@@ -37,7 +37,7 @@ mrb_io_read_nonblock(mrb_state *mrb, mrb_value self)
   io_raw_bang(true);
   int c;
   for (len = 0; len < maxlen; len++) {
-    c = hal_getchar();
+    c = picorb_hal_getchar();
     if (!was_raw && c == 3) {
       raise_interrupt(mrb); // mrb_noreturn
     } else if (!was_raw && c == 26) {

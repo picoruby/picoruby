@@ -219,14 +219,14 @@ static void
 c_Machine_debug_puts(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc == 0) {
-    hal_write(2, "\n", 1);
+    picorb_hal_write(2, "\n", 1);
   } else {
     for (int i = 1; i <= argc; i++) {
       mrbc_value arg = GET_ARG(i);
       mrbc_value str = mrbc_send(vm, v, argc, &arg, "to_s", 0);
       if (str.tt == MRBC_TT_STRING) {
-        hal_write(2, (const char *)str.string->data, str.string->size);
-        hal_write(2, "\n", 1);
+        picorb_hal_write(2, (const char *)str.string->data, str.string->size);
+        picorb_hal_write(2, "\n", 1);
       }
     }
   }
@@ -304,7 +304,7 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
   char buf[2];
   buf[1] = '\0';
   while (true) {
-    int c = hal_getchar();
+    int c = picorb_hal_getchar();
     if (c == 3) {
       raise_interrupt(vm);
       return;
@@ -357,7 +357,7 @@ c_io_read(mrbc_vm *vm, mrbc_value *v, int argc)
     uint8_t buf[len];
     int i;
     for (i = 0; i < len; ) {
-      int c = hal_getchar();
+      int c = picorb_hal_getchar();
       if (c == 3) {
         raise_interrupt(vm);
         return;
@@ -376,7 +376,7 @@ c_io_read(mrbc_vm *vm, mrbc_value *v, int argc)
   char buf[2];
   buf[1] = '\0';
   while (true) {
-    int c = hal_getchar();
+    int c = picorb_hal_getchar();
     if (c == 3) {
       raise_interrupt(vm);
       return;
@@ -420,7 +420,7 @@ c_io_write(mrbc_vm *vm, mrbc_value *v, int argc)
     fd = fd_val.i;
   }
 
-  int written = hal_write(fd, str, len);
+  int written = picorb_hal_write(fd, str, len);
   SET_INT_RETURN(written);
 }
 #endif

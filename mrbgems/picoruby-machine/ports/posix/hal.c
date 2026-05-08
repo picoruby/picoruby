@@ -33,10 +33,9 @@ static sigset_t sigset_, sigset2_;
 
 #if defined(PICORB_VM_MRUBY)
 static mrb_state *mrb_;
+void picorb_tick(mrb_state *mrb);
 #elif defined(PICORB_VM_MRUBYC)
 typedef void mrb_state;
-#define mrb_tick(mrb) mrbc_tick()
-#define hal_init(mrb) hal_init()
 #define MRB_TICK_UNIT MRBC_TICK_UNIT
 #endif
 
@@ -62,18 +61,22 @@ static void
 sig_alarm(int dummy)
 {
   (void)dummy;
-  mrb_tick(mrb_);
+#if defined(PICORB_VM_MRUBY)
+  picorb_tick(mrb_);
+#elif defined(PICORB_VM_MRUBYC)
+  picorb_tick();
+#endif
 }
 #endif
 
 #if defined(PICORB_VM_MRUBY)
 void
-hal_init(mrb_state *mrb)
+picorb_hal_init(mrb_state *mrb)
 {
   mrb_ = mrb;
 #else
 void
-hal_init(void)
+picorb_hal_init(void)
 {
 #endif
 #ifndef __EMSCRIPTEN__
@@ -98,14 +101,14 @@ hal_init(void)
 }
 
 #if defined(PICORB_VM_MRUBYC)
-void hal_enable_irq(void)
+void picorb_hal_enable_irq(void)
 {
 #ifndef __EMSCRIPTEN__
   sigprocmask(SIG_SETMASK, &sigset2_, 0);
 #endif
 }
 
-void hal_disable_irq(void)
+void picorb_hal_disable_irq(void)
 {
 #ifndef __EMSCRIPTEN__
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
@@ -113,13 +116,13 @@ void hal_disable_irq(void)
 }
 
 void
-hal_idle_cpu(void){
+picorb_hal_idle_cpu(void){
   sleep(1);
 }
 #endif
 
 int
-hal_write(int fd, const void *buf, int nbytes)
+picorb_hal_write(int fd, const void *buf, int nbytes)
 {
   return (int)write(1, buf, nbytes);
 }
@@ -131,7 +134,7 @@ hal_write(int fd, const void *buf, int nbytes)
 
 */
 void
-mrb_task_enable_irq(void)
+picorb_enable_irq(void)
 {
 #ifndef __EMSCRIPTEN__
   sigprocmask(SIG_SETMASK, &sigset2_, 0);
@@ -145,7 +148,7 @@ mrb_task_enable_irq(void)
 
 */
 void
-mrb_task_disable_irq(void)
+picorb_disable_irq(void)
 {
 #ifndef __EMSCRIPTEN__
   sigprocmask(SIG_BLOCK, &sigset_, &sigset2_);
@@ -159,10 +162,10 @@ mrb_task_disable_irq(void)
 
 */
 void
-hal_abort(const char *s)
+picorb_hal_abort(const char *s)
 {
   if (s) {
-    hal_write(1, s, strlen(s));
+    picorb_hal_write(1, s, strlen(s));
   }
   exit(1);
 }
