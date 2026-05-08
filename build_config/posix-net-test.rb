@@ -7,7 +7,7 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "MRBC_TICK_UNIT=4"
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
 
-  conf.picoruby
+  conf.femtoruby
 
   conf.gembox "minimum"
   conf.gembox "core"

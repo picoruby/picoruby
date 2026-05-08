@@ -22,7 +22,7 @@ MRuby::CrossBuild.new("arm-linux-gnueabihf") do |conf|
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.picoruby
+  conf.femtoruby(alloc_libc: true)
 
   conf.gembox "minimum"
   conf.gembox "core"
