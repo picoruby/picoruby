@@ -17,7 +17,7 @@ puts "AP IP: #{ap_ip || 'unassigned'}"
 puts "AP stations: #{CYW43.ap_station_count}/#{CYW43.ap_max_stations}"
 puts "Open: http://#{ap_ip}/" if ap_ip
 
-server = TCPServer.new("0.0.0.0", 80)
+server = TCPServer.new(nil, 80)
 puts "HTTP server listening on port 80"
 
 response = "Hello from PicoRuby AP mode\n"

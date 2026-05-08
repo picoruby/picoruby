@@ -60,6 +60,22 @@ See:
 This sample is intentionally experimental.
 It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` over AP mode with PicoRuby's current built-in AP + DHCP behavior.
 
+### AP Web Skeleton
+
+See:
+
+- `mrbgems/picoruby-cyw43/example/pico_w_ap_web_skeleton.rb`
+
+This sample is a small AP web-app skeleton closer to the future PicoRuby replacement of `pcw_timer.py`.
+It exposes:
+
+- `/`
+- `/status`
+- `/start`
+- `/stop`
+
+and keeps a minimal timer state using `Machine.board_millis`.
+
 ## API
 
 ### CYW43 Module Methods
@@ -119,4 +135,5 @@ It is meant to confirm whether a client can reach a tiny PicoRuby `TCPServer` ov
 - AP + HTTP behavior still needs more hardware verification across client devices
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_mode.rb` for the minimal AP sample
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb` for the experimental AP + HTTP sample
+- See `mrbgems/picoruby-cyw43/example/pico_w_ap_web_skeleton.rb` for a small AP web-app skeleton aimed at the future `pcw_timer.py` replacement
 - TODO: add custom AP IP control helpers before documenting a fully supported AP HTTP workflow
