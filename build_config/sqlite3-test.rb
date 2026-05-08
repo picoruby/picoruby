@@ -9,7 +9,7 @@ MRuby::CrossBuild.new("no-libc-host") do |conf|
   conf.cc.defines << "MRBC_USE_MATH"
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
 
-  conf.picoruby(alloc_libc: true)
+  conf.picoruby
 
   conf.gem core: "picoruby-bin-sqlite3-test"
 end
