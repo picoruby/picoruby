@@ -81,7 +81,7 @@ cleanup_and_maybe_reboot(void)
   tcsetattr(0, TCSANOW, &orig_termios);
   if (exit_status == MACHINE_EXIT_REBOOT) {
     if (saved_cwd[0] != '\0') {
-      chdir(saved_cwd);
+      if (chdir(saved_cwd) != 0) perror("reboot: chdir failed");
     }
     const char *exe = resolved_exe_path ? resolved_exe_path : saved_argv[0];
     execv(exe, saved_argv);
@@ -129,7 +129,7 @@ main(int argc, char **argv)
   saved_argc = argc;
   saved_argv = argv;
   resolved_exe_path = realpath(argv[0], NULL);
-  getcwd(saved_cwd, sizeof(saved_cwd));
+  if (getcwd(saved_cwd, sizeof(saved_cwd)) == NULL) saved_cwd[0] = '\0';
   int i;
 
   for (i = 1; i < argc; i++) {
@@ -170,7 +170,7 @@ main(int argc, char **argv)
   saved_argc = argc;
   saved_argv = argv;
   resolved_exe_path = realpath(argv[0], NULL);
-  getcwd(saved_cwd, sizeof(saved_cwd));
+  if (getcwd(saved_cwd, sizeof(saved_cwd)) == NULL) saved_cwd[0] = '\0';
   int i;
 
   for (i = 1; i < argc; i++) {
