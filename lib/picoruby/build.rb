@@ -102,6 +102,7 @@ module MRuby
       alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
 
       cc.defines << "PICORB_VM_MRUBYC"
+      cc.defines << "MRBC_SCHEDULER_EXIT=1"
       cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
