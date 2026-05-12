@@ -76,6 +76,29 @@ It exposes:
 
 and keeps a minimal timer state using `Machine.board_millis`.
 
+### Pico Timer App
+
+See:
+
+- `mrbgems/picoruby-cyw43/example/pico_w_pico_timer.rb`
+
+This sample is a practical next step toward replacing `pcw_timer.py` with PicoRuby.
+It exposes:
+
+- `/`
+- `/status`
+- `/set`
+- `/stop`
+- `/ledoff`
+
+and includes:
+
+- timer state management
+- AP runtime info in the page/status payload
+- onboard heartbeat LED activity
+- optional external alert LED control on `GP15`
+- a simple browser-first flow that uses `GET` forms for stability on current PicoRuby networking
+
 ## API
 
 ### CYW43 Module Methods
@@ -136,4 +159,6 @@ and keeps a minimal timer state using `Machine.board_millis`.
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_mode.rb` for the minimal AP sample
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_http_experimental.rb` for the experimental AP + HTTP sample
 - See `mrbgems/picoruby-cyw43/example/pico_w_ap_web_skeleton.rb` for a small AP web-app skeleton aimed at the future `pcw_timer.py` replacement
+- See `mrbgems/picoruby-cyw43/example/pico_w_pico_timer.rb` for a more application-shaped timer sample closer to `pcw_timer.py`
+- Larger AP web-app samples may be easier to transfer and run as precompiled `.mrb` files
 - TODO: add custom AP IP control helpers before documenting a fully supported AP HTTP workflow
