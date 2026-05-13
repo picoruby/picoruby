@@ -23,6 +23,7 @@ temp_path = "#{path}.part"
 received = 0
 waited_ms = 0
 timeout_ms = 5000
+read_chunk_size = 1024
 
 begin
   STDIN.raw!
@@ -31,7 +32,7 @@ begin
   File.unlink(temp_path) if File.exist?(temp_path)
   File.open(temp_path, "w") do |file|
     while received < size
-      chunk = STDIN.read_nonblock([size - received, 256].min)
+      chunk = STDIN.read_nonblock([size - received, read_chunk_size].min)
       if chunk
         file.write(chunk)
         received += chunk.bytesize

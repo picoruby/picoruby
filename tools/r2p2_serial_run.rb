@@ -47,6 +47,25 @@ end
 
 payload = File.binread(local_path)
 
+def monotonic_now
+  Process.clock_gettime(Process::CLOCK_MONOTONIC)
+end
+
+def format_bytes_per_sec(bytes_per_sec)
+  return "0 B/s" if bytes_per_sec <= 0
+  if bytes_per_sec >= 1024 * 1024
+    format("%.2f MiB/s", bytes_per_sec / (1024.0 * 1024.0))
+  elsif bytes_per_sec >= 1024
+    format("%.2f KiB/s", bytes_per_sec / 1024.0)
+  else
+    format("%.0f B/s", bytes_per_sec)
+  end
+end
+
+def format_duration(seconds)
+  format("%.3fs", seconds)
+end
+
 def configure_serial!(path, baud)
   port_flag = RUBY_PLATFORM.include?("darwin") ? "-f" : "-F"
   command = [
@@ -163,6 +182,7 @@ File.open(serial_port, "r+") do |io|
   io.write("\n")
   wait_for_prompt(io, timeout_ms: 3_000, prompt: SHELL_PROMPT)
 
+  puts "Uploading #{local_path} -> #{options[:remote_path]} (#{payload.bytesize} bytes)"
   recv_command = "recv #{options[:remote_path]} #{payload.bytesize}\n"
   io.write(recv_command)
   recv_status = read_until_status(io, timeout_ms: 10_000, ok_markers: [RECV_READY_MARKER])
@@ -172,6 +192,7 @@ File.open(serial_port, "r+") do |io|
   end
   puts recv_status
 
+  transfer_start = monotonic_now
   io.write(payload)
 
   recv_result = read_until_status(io, timeout_ms: 10_000, ok_markers: ["OK"])
@@ -179,10 +200,16 @@ File.open(serial_port, "r+") do |io|
     warn recv_result
     exit 1
   end
+  transfer_duration = monotonic_now - transfer_start
   puts recv_result
+  puts "Transfer complete: #{payload.bytesize} bytes in #{format_duration(transfer_duration)} (#{format_bytes_per_sec(payload.bytesize / transfer_duration)})"
 
   run_command = "run #{options[:remote_path]}\n"
+  puts "Running #{options[:remote_path]}"
   io.write(run_command)
   sleep(options[:command_delay_ms] / 1000.0)
+  run_start = monotonic_now
   read_until_marker(io, RUN_DONE_MARKER, timeout_ms: 30_000, discard_until_newline: true)
+  run_duration = monotonic_now - run_start
+  puts "Run complete in #{format_duration(run_duration)}"
 end
