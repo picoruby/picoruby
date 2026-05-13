@@ -26,6 +26,7 @@ timeout_ms = 5000
 
 begin
   STDIN.raw!
+  puts "READY"
 
   File.unlink(temp_path) if File.exist?(temp_path)
   File.open(temp_path, "w") do |file|

@@ -5,11 +5,13 @@ require "optparse"
 RUN_DONE_MARKER = "__PICORUBY_RUN_DONE__"
 DEFAULT_REMOTE_PATH = "/home/app.rb"
 DEFAULT_BAUD = 115200
+SHELL_PROMPT = "$> "
+RECV_READY_MARKER = "READY"
 
 options = {
   remote_path: DEFAULT_REMOTE_PATH,
   baud: DEFAULT_BAUD,
-  command_delay_ms: 50,
+  command_delay_ms: 200,
 }
 
 parser = OptionParser.new do |opt|
@@ -69,7 +71,13 @@ def drain_input(io)
   end
 end
 
-def read_until_line(io, timeout_ms:)
+def print_sanitized(text)
+  return if text.nil? || text.empty?
+  sanitized = text.gsub("\e", "").gsub(/[^\t\r\n[:print:]]/, "")
+  print sanitized unless sanitized.empty?
+end
+
+def read_until_status(io, timeout_ms:, ok_markers:)
   buffer = +""
   deadline = Time.now + (timeout_ms / 1000.0)
 
@@ -81,14 +89,43 @@ def read_until_line(io, timeout_ms:)
     raise "timeout waiting for response" unless ready
 
     chunk = io.read_nonblock(4096)
-    buffer << chunk if chunk
+    if chunk
+      print_sanitized(chunk)
+      buffer << chunk
+      if buffer.include?("command not found")
+        raise "shell command not found; did you flash the latest serial-runner firmware?"
+      end
+    end
 
     while (idx = buffer.index("\n"))
       line = buffer.slice!(0, idx + 1)
       yield line if block_given?
       stripped = line.strip
-      return stripped if stripped == "OK" || stripped.start_with?("ERROR:")
+      return stripped if ok_markers.include?(stripped) || stripped.start_with?("ERROR:")
     end
+  rescue IO::WaitReadable
+    next
+  end
+end
+
+def wait_for_prompt(io, timeout_ms:, prompt:)
+  buffer = +""
+  deadline = Time.now + (timeout_ms / 1000.0)
+
+  loop do
+    return if buffer.include?(prompt)
+
+    remaining = deadline - Time.now
+    raise "timeout waiting for shell prompt #{prompt.inspect}" if remaining <= 0
+
+    ready = IO.select([io], nil, nil, remaining)
+    raise "timeout waiting for shell prompt #{prompt.inspect}" unless ready
+
+    chunk = io.read_nonblock(4096)
+    next unless chunk
+
+    print_sanitized(chunk)
+    buffer << chunk
   rescue IO::WaitReadable
     next
   end
@@ -108,7 +145,7 @@ def read_until_marker(io, marker, timeout_ms:)
     chunk = io.read_nonblock(4096)
     next unless chunk
 
-    print chunk
+    print_sanitized(chunk)
     buffer << chunk
     return if buffer.include?(marker)
   rescue IO::WaitReadable
@@ -121,13 +158,20 @@ configure_serial!(serial_port, options[:baud])
 File.open(serial_port, "r+") do |io|
   io.sync = true
   drain_input(io)
+  io.write("\n")
+  wait_for_prompt(io, timeout_ms: 3_000, prompt: SHELL_PROMPT)
 
   recv_command = "recv #{options[:remote_path]} #{payload.bytesize}\n"
   io.write(recv_command)
-  sleep(options[:command_delay_ms] / 1000.0)
+  recv_status = read_until_status(io, timeout_ms: 10_000, ok_markers: [RECV_READY_MARKER])
+  unless recv_status == RECV_READY_MARKER
+    warn recv_status
+    exit 1
+  end
+
   io.write(payload)
 
-  recv_result = read_until_line(io, timeout_ms: 10_000)
+  recv_result = read_until_status(io, timeout_ms: 10_000, ok_markers: ["OK"])
   unless recv_result == "OK"
     warn recv_result
     exit 1
@@ -135,5 +179,6 @@ File.open(serial_port, "r+") do |io|
 
   run_command = "run #{options[:remote_path]}\n"
   io.write(run_command)
+  sleep(options[:command_delay_ms] / 1000.0)
   read_until_marker(io, RUN_DONE_MARKER, timeout_ms: 30_000)
 end
