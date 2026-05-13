@@ -21,38 +21,51 @@ Machine.signal_self_manage
 
 temp_path = "#{path}.part"
 received = 0
-waited_ms = 0
-read_chunk_size = 1024
-timeout_ms = 5000 + (((size + read_chunk_size - 1) / read_chunk_size) * 1000)
+chunk_size = 256
+chunk_timeout_ms = 5000
+
+read_exact = ->(expected_size) do
+  buffer = +""
+  waited_ms = 0
+
+  while buffer.bytesize < expected_size
+    chunk = STDIN.read_nonblock(expected_size - buffer.bytesize)
+    if chunk && !chunk.empty?
+      buffer << chunk
+      waited_ms = 0
+    else
+      if chunk_timeout_ms <= waited_ms
+        raise "timeout while receiving data (#{received}/#{size} bytes)"
+      end
+      sleep_ms 1
+      waited_ms += 1
+    end
+  end
+
+  buffer
+end
 
 begin
   STDIN.raw!
-  puts "READY"
+  puts "READY chunk=#{chunk_size}"
 
   File.unlink(temp_path) if File.exist?(temp_path)
   File.open(temp_path, "w") do |file|
     while received < size
-      chunk = STDIN.read_nonblock([size - received, read_chunk_size].min)
-      if chunk
-        file.write(chunk)
-        received += chunk.bytesize
-        waited_ms = 0
-      else
-        if timeout_ms <= waited_ms
-          raise "timeout while receiving data (#{received}/#{size} bytes)"
-        end
-        sleep_ms 1
-        waited_ms += 1
-      end
+      expected_size = [size - received, chunk_size].min
+      chunk = read_exact.call(expected_size)
+      file.write(chunk)
+      received += chunk.bytesize
+      puts "ACK #{received}"
     end
   end
 
   File.unlink(path) if File.exist?(path)
   File.rename(temp_path, path)
-  puts "OK"
+  puts "OK #{size}"
 rescue => e
   File.unlink(temp_path) if File.exist?(temp_path)
-  puts "ERROR: #{e.message}"
+  puts "ERR #{e.message}"
 ensure
   STDIN.cooked!
 end

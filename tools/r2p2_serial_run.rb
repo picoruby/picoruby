@@ -6,12 +6,13 @@ RUN_DONE_MARKER = "__PICORUBY_RUN_DONE__"
 DEFAULT_REMOTE_PATH = "/home/app.rb"
 DEFAULT_BAUD = 115200
 SHELL_PROMPT = "$> "
-RECV_READY_MARKER = "READY"
 
 options = {
   remote_path: DEFAULT_REMOTE_PATH,
   baud: DEFAULT_BAUD,
   command_delay_ms: 200,
+  chunk_timeout_ms: 5_000,
+  skip_run: false,
 }
 
 parser = OptionParser.new do |opt|
@@ -28,6 +29,14 @@ parser = OptionParser.new do |opt|
   opt.on("--command-delay-ms MS", Integer, "Delay after each shell command before sending payload") do |value|
     options[:command_delay_ms] = value
   end
+
+  opt.on("--chunk-timeout-ms MS", Integer, "Per-chunk ACK timeout in milliseconds (default: #{options[:chunk_timeout_ms]})") do |value|
+    options[:chunk_timeout_ms] = value
+  end
+
+  opt.on("--skip-run", "Upload only; do not run the remote file") do
+    options[:skip_run] = true
+  end
 end
 
 parser.parse!(ARGV)
@@ -42,6 +51,11 @@ end
 
 unless File.file?(local_path)
   warn "File not found: #{local_path}"
+  exit 1
+end
+
+if options[:chunk_timeout_ms] <= 0
+  warn "--chunk-timeout-ms must be positive"
   exit 1
 end
 
@@ -90,7 +104,11 @@ def drain_input(io)
   end
 end
 
-def read_until_status(io, timeout_ms:, ok_markers:)
+def sanitize_serial_text(text)
+  text.gsub("\e", "").gsub(/[^\t\r\n[:print:]]/, "")
+end
+
+def read_transfer_status(io, timeout_ms:)
   buffer = +""
   deadline = Time.now + (timeout_ms / 1000.0)
 
@@ -104,16 +122,16 @@ def read_until_status(io, timeout_ms:, ok_markers:)
     chunk = io.read_nonblock(4096)
     if chunk
       buffer << chunk
-      if buffer.include?("command not found")
-        raise "shell command not found; did you flash the latest serial-runner firmware?"
-      end
     end
 
     while (idx = buffer.index("\n"))
       line = buffer.slice!(0, idx + 1)
-      yield line if block_given?
-      stripped = line.strip
-      return stripped if ok_markers.include?(stripped) || stripped.start_with?("ERROR:")
+      sanitized = sanitize_serial_text(line).strip
+      next if sanitized.empty?
+      if sanitized.include?("command not found")
+        raise "shell command not found; did you flash the latest serial-runner firmware?"
+      end
+      return sanitized if sanitized.start_with?("READY", "ACK ", "OK", "ERR ")
     end
   rescue IO::WaitReadable
     next
@@ -157,7 +175,7 @@ def read_until_marker(io, marker, timeout_ms:, discard_until_newline: false)
     chunk = io.read_nonblock(4096)
     next unless chunk
 
-    sanitized = chunk.gsub("\e", "").gsub(/[^\t\r\n[:print:]]/, "")
+    sanitized = sanitize_serial_text(chunk)
     if discard
       if (idx = sanitized.index("\n"))
         sanitized = sanitized[(idx + 1)..] || ""
@@ -174,6 +192,78 @@ def read_until_marker(io, marker, timeout_ms:, discard_until_newline: false)
   end
 end
 
+def print_transfer_progress(acked_bytes, total_bytes, started_at)
+  elapsed = monotonic_now - started_at
+  percent = total_bytes.zero? ? 100.0 : (acked_bytes * 100.0 / total_bytes)
+  speed = elapsed > 0 ? acked_bytes / elapsed : 0
+  print "\rProgress: #{acked_bytes}/#{total_bytes} bytes (#{format("%.1f", percent)}%) ack=#{acked_bytes} elapsed=#{format_duration(elapsed)} speed=#{format_bytes_per_sec(speed)}"
+  $stdout.flush
+end
+
+def send_chunked_payload(io, payload, chunk_size, chunk_timeout_ms)
+  offset = 0
+  transfer_start = monotonic_now
+  last_ack_offset = 0
+
+  while offset < payload.bytesize
+    chunk = payload.byteslice(offset, [payload.bytesize - offset, chunk_size].min)
+    written = io.write(chunk)
+    raise "short serial write" unless written == chunk.bytesize
+
+    begin
+      status = read_transfer_status(io, timeout_ms: chunk_timeout_ms)
+    rescue => e
+      raise "#{e.message} (last ACK #{last_ack_offset}/#{payload.bytesize} bytes)"
+    end
+    if status.start_with?("ERR ")
+      raise "device error after ACK #{last_ack_offset}: #{status.sub(/\AERR\s+/, "")}"
+    end
+
+    unless status =~ /\AACK (\d+)\z/
+      raise "unexpected transfer status after sending chunk: #{status.inspect}"
+    end
+
+    ack_offset = Regexp.last_match(1).to_i
+    expected_offset = offset + chunk.bytesize
+    unless ack_offset == expected_offset
+      raise "unexpected ACK offset #{ack_offset} (expected #{expected_offset})"
+    end
+
+    last_ack_offset = ack_offset
+    offset = ack_offset
+    print_transfer_progress(last_ack_offset, payload.bytesize, transfer_start)
+  end
+
+  begin
+    final_status = read_transfer_status(io, timeout_ms: chunk_timeout_ms)
+  rescue => e
+    raise "#{e.message} (last ACK #{last_ack_offset}/#{payload.bytesize} bytes)"
+  end
+  puts
+
+  if final_status.start_with?("ERR ")
+    raise "device error after ACK #{last_ack_offset}: #{final_status.sub(/\AERR\s+/, "")}"
+  end
+
+  unless final_status =~ /\AOK (\d+)\z/
+    raise "unexpected final transfer status: #{final_status.inspect}"
+  end
+
+  committed_size = Regexp.last_match(1).to_i
+  unless committed_size == payload.bytesize
+    raise "device committed unexpected size #{committed_size} (expected #{payload.bytesize})"
+  end
+
+  {
+    duration: monotonic_now - transfer_start,
+    ack_offset: last_ack_offset,
+    committed_size: committed_size,
+  }
+rescue => e
+  puts
+  raise "#{e.message}"
+end
+
 configure_serial!(serial_port, options[:baud])
 
 File.open(serial_port, "r+") do |io|
@@ -185,24 +275,18 @@ File.open(serial_port, "r+") do |io|
   puts "Uploading #{local_path} -> #{options[:remote_path]} (#{payload.bytesize} bytes)"
   recv_command = "recv #{options[:remote_path]} #{payload.bytesize}\n"
   io.write(recv_command)
-  recv_status = read_until_status(io, timeout_ms: 10_000, ok_markers: [RECV_READY_MARKER])
-  unless recv_status == RECV_READY_MARKER
+  recv_status = read_transfer_status(io, timeout_ms: 10_000)
+  unless recv_status =~ /\AREADY chunk=(\d+)\z/
     warn recv_status
     exit 1
   end
+  negotiated_chunk_size = Regexp.last_match(1).to_i
   puts recv_status
 
-  transfer_start = monotonic_now
-  io.write(payload)
+  transfer_result = send_chunked_payload(io, payload, negotiated_chunk_size, options[:chunk_timeout_ms])
+  puts "Transfer complete: #{payload.bytesize} bytes in #{format_duration(transfer_result[:duration])} (#{format_bytes_per_sec(payload.bytesize / transfer_result[:duration])})"
 
-  recv_result = read_until_status(io, timeout_ms: 10_000, ok_markers: ["OK"])
-  unless recv_result == "OK"
-    warn recv_result
-    exit 1
-  end
-  transfer_duration = monotonic_now - transfer_start
-  puts recv_result
-  puts "Transfer complete: #{payload.bytesize} bytes in #{format_duration(transfer_duration)} (#{format_bytes_per_sec(payload.bytesize / transfer_duration)})"
+  next if options[:skip_run]
 
   run_command = "run #{options[:remote_path]}\n"
   puts "Running #{options[:remote_path]}"

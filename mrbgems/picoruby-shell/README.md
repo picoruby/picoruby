@@ -64,7 +64,7 @@ Hello, PicoRuby!
 
 For R2P2-based targets, the shell can be used as a minimal serial upload/run target:
 
-- `recv <path> <size>` reads exactly `<size>` bytes from serial input and saves them to `<path>`
+- `recv <path> <size>` receives a file over serial using a chunked ACK protocol and saves it to `<path>`
 - `run <path>` loads the file and always prints `__PICORUBY_RUN_DONE__` when execution ends
 
 A host-side helper script is available at:
@@ -82,3 +82,37 @@ ruby tools/r2p2_serial_run.rb /dev/cu.usbmodemXXXX examples/hello.rb
 ```
 
 This sends the file to `/home/app.rb`, runs it with `run /home/app.rb`, streams `puts` output back to the host, and stops reading when `__PICORUBY_RUN_DONE__` is received.
+
+### Transfer protocol
+
+The current `recv` implementation is intentionally conservative and prioritizes reliability:
+
+1. Host sends `recv <path> <size>`
+2. Device replies `READY chunk=<chunk_size>`
+3. Host sends one chunk
+4. Device writes the chunk to `<path>.part`
+5. Device replies `ACK <offset>`
+6. After the last chunk, device renames `<path>.part` to `<path>` and replies `OK <size>`
+
+If anything fails, the device replies `ERR <message>` and removes the temporary file.
+
+### Useful options
+
+- `--skip-run` uploads the file but does not call `run`
+- `--chunk-timeout-ms MS` adjusts the per-chunk ACK timeout
+
+### Large-file verification samples
+
+You can generate larger Ruby files for transfer testing with:
+
+```sh
+ruby tools/generate_serial_transfer_samples.rb
+```
+
+By default this writes:
+
+- `/private/tmp/picoruby-serial-transfer-samples/sample_12kb.rb`
+- `/private/tmp/picoruby-serial-transfer-samples/sample_100kb.rb`
+- `/private/tmp/picoruby-serial-transfer-samples/sample_1mb.rb`
+
+These files are valid Ruby programs that print a short summary when run.
