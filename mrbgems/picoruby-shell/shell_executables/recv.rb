@@ -38,19 +38,19 @@ rescue => e
 end
 
 begin
-  if defined?(VFS)
-    volume, = VFS.send(:sanitize_and_split, path)
-    driver = volume && volume[:driver]
-    if driver && driver.respond_to?(:sector_count)
-      counts = driver.sector_count
-      free_blocks = counts[:free] || 0
-      free_bytes = free_blocks * littlefs_block_size
-      if free_bytes < size
-        puts "ERR no space: need=#{size} free=#{free_bytes}"
-        return
-      end
+  vfs = Object.const_get(:VFS)
+  volume, = vfs.send(:sanitize_and_split, path)
+  driver = volume && volume[:driver]
+  if driver && driver.respond_to?(:sector_count)
+    counts = driver.sector_count
+    free_blocks = counts[:free] || 0
+    free_bytes = free_blocks * littlefs_block_size
+    if free_bytes < size
+      puts "ERR no space: need=#{size} free=#{free_bytes}"
+      return
     end
   end
+rescue NameError
 rescue => e
   puts "ERR #{e.message}"
   return
