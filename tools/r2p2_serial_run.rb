@@ -71,12 +71,6 @@ def drain_input(io)
   end
 end
 
-def print_sanitized(text)
-  return if text.nil? || text.empty?
-  sanitized = text.gsub("\e", "").gsub(/[^\t\r\n[:print:]]/, "")
-  print sanitized unless sanitized.empty?
-end
-
 def read_until_status(io, timeout_ms:, ok_markers:)
   buffer = +""
   deadline = Time.now + (timeout_ms / 1000.0)
@@ -90,7 +84,6 @@ def read_until_status(io, timeout_ms:, ok_markers:)
 
     chunk = io.read_nonblock(4096)
     if chunk
-      print_sanitized(chunk)
       buffer << chunk
       if buffer.include?("command not found")
         raise "shell command not found; did you flash the latest serial-runner firmware?"
@@ -124,15 +117,15 @@ def wait_for_prompt(io, timeout_ms:, prompt:)
     chunk = io.read_nonblock(4096)
     next unless chunk
 
-    print_sanitized(chunk)
     buffer << chunk
   rescue IO::WaitReadable
     next
   end
 end
 
-def read_until_marker(io, marker, timeout_ms:)
+def read_until_marker(io, marker, timeout_ms:, discard_until_newline: false)
   buffer = +""
+  discard = discard_until_newline
   deadline = Time.now + (timeout_ms / 1000.0)
 
   loop do
@@ -145,7 +138,16 @@ def read_until_marker(io, marker, timeout_ms:)
     chunk = io.read_nonblock(4096)
     next unless chunk
 
-    print_sanitized(chunk)
+    sanitized = chunk.gsub("\e", "").gsub(/[^\t\r\n[:print:]]/, "")
+    if discard
+      if (idx = sanitized.index("\n"))
+        sanitized = sanitized[(idx + 1)..] || ""
+        discard = false
+      else
+        sanitized = ""
+      end
+    end
+    print sanitized unless sanitized.empty?
     buffer << chunk
     return if buffer.include?(marker)
   rescue IO::WaitReadable
@@ -168,6 +170,7 @@ File.open(serial_port, "r+") do |io|
     warn recv_status
     exit 1
   end
+  puts recv_status
 
   io.write(payload)
 
@@ -176,9 +179,10 @@ File.open(serial_port, "r+") do |io|
     warn recv_result
     exit 1
   end
+  puts recv_result
 
   run_command = "run #{options[:remote_path]}\n"
   io.write(run_command)
   sleep(options[:command_delay_ms] / 1000.0)
-  read_until_marker(io, RUN_DONE_MARKER, timeout_ms: 30_000)
+  read_until_marker(io, RUN_DONE_MARKER, timeout_ms: 30_000, discard_until_newline: true)
 end
