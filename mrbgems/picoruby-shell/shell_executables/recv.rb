@@ -22,8 +22,8 @@ Machine.signal_self_manage
 temp_path = "#{path}.part"
 received = 0
 waited_ms = 0
-timeout_ms = 5000
 read_chunk_size = 1024
+timeout_ms = 5000 + (((size + read_chunk_size - 1) / read_chunk_size) * 1000)
 
 begin
   STDIN.raw!
@@ -39,7 +39,7 @@ begin
         waited_ms = 0
       else
         if timeout_ms <= waited_ms
-          raise "timeout while receiving data"
+          raise "timeout while receiving data (#{received}/#{size} bytes)"
         end
         sleep_ms 1
         waited_ms += 1
