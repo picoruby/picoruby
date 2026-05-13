@@ -94,7 +94,9 @@ The current `recv` implementation is intentionally conservative and prioritizes 
 5. Device replies `ACK <offset>`
 6. After the last chunk, device renames `<path>.part` to `<path>` and replies `OK <size>`
 
-If anything fails, the device replies `ERR <message>` and removes the temporary file.
+Before receiving data, the device removes any stale `<path>.part` file and checks free space on the target volume. If there is not enough room, it replies `ERR no space: need=<bytes> free=<bytes>` without starting the transfer.
+
+If anything else fails, the device replies `ERR <message>` and removes the temporary file.
 
 ### Useful options
 

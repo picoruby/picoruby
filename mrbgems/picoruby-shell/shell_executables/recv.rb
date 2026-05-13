@@ -1,3 +1,8 @@
+begin
+  require "vfs"
+rescue LoadError
+end
+
 unless ARGV.size == 2
   puts "ERROR: Usage: recv <path> <size>"
   return
@@ -21,8 +26,35 @@ Machine.signal_self_manage
 
 temp_path = "#{path}.part"
 received = 0
-chunk_size = 256
-chunk_timeout_ms = 5000
+chunk_size = 512
+chunk_timeout_ms = 15_000
+littlefs_block_size = 4096
+
+begin
+  File.unlink(temp_path) if File.exist?(temp_path)
+rescue => e
+  puts "ERR #{e.message}"
+  return
+end
+
+begin
+  if defined?(VFS)
+    volume, = VFS.send(:sanitize_and_split, path)
+    driver = volume && volume[:driver]
+    if driver && driver.respond_to?(:sector_count)
+      counts = driver.sector_count
+      free_blocks = counts[:free] || 0
+      free_bytes = free_blocks * littlefs_block_size
+      if free_bytes < size
+        puts "ERR no space: need=#{size} free=#{free_bytes}"
+        return
+      end
+    end
+  end
+rescue => e
+  puts "ERR #{e.message}"
+  return
+end
 
 read_exact = ->(expected_size) do
   buffer = +""
@@ -46,10 +78,10 @@ read_exact = ->(expected_size) do
 end
 
 begin
+  GC.start
   STDIN.raw!
   puts "READY chunk=#{chunk_size}"
 
-  File.unlink(temp_path) if File.exist?(temp_path)
   File.open(temp_path, "w") do |file|
     while received < size
       expected_size = [size - received, chunk_size].min

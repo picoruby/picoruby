@@ -11,7 +11,7 @@ options = {
   remote_path: DEFAULT_REMOTE_PATH,
   baud: DEFAULT_BAUD,
   command_delay_ms: 200,
-  chunk_timeout_ms: 5_000,
+  chunk_timeout_ms: 15_000,
   skip_run: false,
 }
 
@@ -276,6 +276,10 @@ File.open(serial_port, "r+") do |io|
   recv_command = "recv #{options[:remote_path]} #{payload.bytesize}\n"
   io.write(recv_command)
   recv_status = read_transfer_status(io, timeout_ms: 10_000)
+  if recv_status.start_with?("ERR ")
+    warn recv_status
+    exit 1
+  end
   unless recv_status =~ /\AREADY chunk=(\d+)\z/
     warn recv_status
     exit 1
