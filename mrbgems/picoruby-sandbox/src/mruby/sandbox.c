@@ -61,11 +61,12 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_bool
-sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, const size_t size, mrb_value remove_lv)
+sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, const size_t size, mrb_value remove_lv, const char *filename)
 {
   free_ccontext(ss);
   init_options(ss->options);
   ss->cc = mrc_ccontext_new(mrb);
+  if (filename) mrc_ccontext_filename(ss->cc, filename);
   ss->cc->options = ss->options;
   // TODO: Ask Matz
   if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
@@ -91,16 +92,24 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
   const char *script;
   mrb_int script_len;
 
-  uint32_t kw_num = 1;
+  uint32_t kw_num = 2;
   uint32_t kw_required = 0;
-  mrb_sym kw_names[] = { MRB_SYM(remove_lv) };
+  mrb_sym kw_names[] = { MRB_SYM(remove_lv), MRB_SYM(filename) };
   mrb_value kw_values[kw_num];
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
   mrb_get_args(mrb, "s:", &script, &script_len, &kwargs);
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, (const size_t)script_len, kw_values[0])) {
+  const char *filename = NULL;
+  if (!mrb_undef_p(kw_values[1]) && !mrb_nil_p(kw_values[1])) {
+    filename = mrb_string_cstr(mrb, kw_values[1]);
+    if (strlen(filename) >= UINT16_MAX) {
+      mrb_raise(mrb, E_ARGUMENT_ERROR, "filename too long");
+    }
+  }
+
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, (const size_t)script_len, kw_values[0], filename)) {
     return mrb_false_value();
   }
   return mrb_true_value();
@@ -128,7 +137,7 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   }
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(uintptr_t)address, size, kw_values[0])) {
+  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(uintptr_t)address, size, kw_values[0], NULL)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
   }
   return mrb_true_value();
@@ -294,7 +303,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   MRB_SET_INSTANCE_TT(class_Sandbox, MRB_TT_CDATA);
 
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(initialize), mrb_sandbox_initialize, MRB_ARGS_OPT(1));
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1)|MRB_ARGS_KEY(1,1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1)|MRB_ARGS_KEY(2,1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile_from_memory), mrb_sandbox_compile_from_memory, MRB_ARGS_REQ(2)|MRB_ARGS_KEY(1,1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(resume), mrb_sandbox_resume, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(execute), mrb_sandbox_execute, MRB_ARGS_NONE());
