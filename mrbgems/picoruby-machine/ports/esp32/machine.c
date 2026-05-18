@@ -151,7 +151,11 @@ picorb_hal_disable_irq(void)
 }
 
 void
-picorb_hal_idle_cpu(void)
+#if defined(PICORB_VM_MRUBYC)
+picorb_hal_idle_cpu()
+#elif defined(PICORB_VM_MRUBY)
+picorb_hal_idle_cpu(mrb_state *mrb)
+#endif
 {
   vTaskDelay(1);
 }
