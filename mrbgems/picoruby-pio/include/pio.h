@@ -68,6 +68,7 @@ void PIO_clear_fifos(pio_sm_config_t *config);
 void PIO_drain_tx(pio_sm_config_t *config);
 void PIO_restart(pio_sm_config_t *config);
 void PIO_exec(pio_sm_config_t *config, uint16_t instruction);
+void PIO_set_freq(pio_sm_config_t *config, uint32_t freq);
 void PIO_deinit(pio_sm_config_t *config);
 
 #ifdef __cplusplus
