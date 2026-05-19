@@ -259,8 +259,15 @@ mrb_io_puts(mrb_state *mrb, mrb_value self)
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
-      print_sub(mrb, argv[i]);
-      picorb_hal_write(1, "\n", 1);
+      mrb_value str = mrb_funcall(mrb, argv[i], "to_s", 0);
+      const char *cstr = RSTRING_PTR(str);
+      size_t len = RSTRING_LEN(str);
+      picorb_hal_write(1, cstr, len);
+      /* IO#puts only appends a newline when the string does not
+         already end with one (empty string still gets one). */
+      if (len == 0 || cstr[len - 1] != '\n') {
+        picorb_hal_write(1, "\n", 1);
+      }
     }
     mrb_gc_arena_restore(mrb, ai);
   }

@@ -1,4 +1,4 @@
-path = ARGV[0]
+path = Shell::ARGV[0]
 unless path
   print "DFUCAT_ERROR:Usage: dfucat <path>\n"
   exit 1

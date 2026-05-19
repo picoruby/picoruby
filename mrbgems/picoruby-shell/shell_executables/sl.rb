@@ -311,7 +311,7 @@ class SL
   def self.run
     opts = []
 
-    ARGV.each do |arg|
+    Shell::ARGV.each do |arg|
       if arg.start_with?("-")
         s = arg[1, 255]
         if s

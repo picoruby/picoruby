@@ -24,7 +24,7 @@ module Kernel
   #     print line
   #   end
   def each_line_from_files_or_stdin(&block)
-    if ARGV.empty?
+    if Shell::ARGV.empty?
       # Read from stdin
       while line = gets
         block.call(line)
@@ -32,8 +32,8 @@ module Kernel
     else
       # Read from files
       i = 0
-      while i < ARGV.size
-        filename = ARGV[i]
+      while i < Shell::ARGV.size
+        filename = Shell::ARGV[i]
         if File.file?(filename)
           File.open(filename, 'r') do |f|
             while line = f.gets
@@ -41,7 +41,12 @@ module Kernel
             end
           end
         else
-          $stderr.puts "#{File.basename($0)}: #{filename}: No such file"
+          # Raise so the failure flows through Shell.report_exception in the
+          # parent shell, giving the same "<message> (<Class>)" format as
+          # every other shell-side error. Note: this stops further file
+          # arguments from being processed; multi-file cat won't continue
+          # past the first missing file. Acceptable trade for now.
+          raise "#{filename}: No such file"
         end
         i += 1
       end

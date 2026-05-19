@@ -17,6 +17,7 @@ class Sandbox
   def free_parser: () -> nil
   def state: () -> Symbol
   def result: () -> untyped
+  def argv=: (Array[String]) -> Array[String]
   def wait: (?timeout: (Integer|nil)) -> bool
   def execute: () -> bool
   def exec_mrb: (String mrb) -> bool

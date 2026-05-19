@@ -7,12 +7,12 @@ rescue LoadError
   return
 end
 
-unless ARGV.size == 1
+unless Shell::ARGV.size == 1
   puts "Usage: ping hostname"
   return
 end
 
-host = ARGV[0]
+host = Shell::ARGV[0]
 
 puts "PING #{host}"
 

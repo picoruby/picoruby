@@ -35,7 +35,7 @@ end
 
 check_auto_connect = false
 
-ARGV.each do |arg|
+Shell::ARGV.each do |arg|
   if arg == "--check-auto-connect"
     check_auto_connect = true
   else
@@ -157,5 +157,5 @@ until Network::WiFi.link_connected?
 end
 puts "IP address obtained (#{Network::WiFi.tcpip_link_status_name})"
 
-ARGV.clear
+Shell::ARGV.clear
 load "/bin/ntpdate"

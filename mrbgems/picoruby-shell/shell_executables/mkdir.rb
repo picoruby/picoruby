@@ -1,1 +1,1 @@
-Dir.mkdir(ARGV[0])
+Dir.mkdir(Shell::ARGV[0])

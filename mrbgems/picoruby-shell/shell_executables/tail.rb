@@ -5,10 +5,10 @@ lines = 10
 # Parse options
 args = [] #: Array[String]
 i = 0
-while i < ARGV.size
-  arg = ARGV[i]
-  if arg == "-n" && i + 1 < ARGV.size
-    lines = ARGV[i + 1].to_i
+while i < Shell::ARGV.size
+  arg = Shell::ARGV[i]
+  if arg == "-n" && i + 1 < Shell::ARGV.size
+    lines = Shell::ARGV[i + 1].to_i
     i += 2
   elsif arg.start_with?("-")
     # Try to parse -N format

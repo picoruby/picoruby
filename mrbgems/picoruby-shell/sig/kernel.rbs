@@ -4,4 +4,5 @@ class Object
   # Defined on Object as a workaround to avoid duplicating core Kernel#system.
   def system: (String command) -> bool
   def gets: () -> String?
+  def getc: () -> String?
 end

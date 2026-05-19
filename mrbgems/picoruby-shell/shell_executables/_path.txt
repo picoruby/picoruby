@@ -31,5 +31,6 @@
 /bin/touch
 /bin/uptime
 /bin/vim
+/bin/wc
 /bin/wifi_connect
 /bin/wifi_disconnect
