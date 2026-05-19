@@ -1,10 +1,10 @@
-unless ARGV.size == 2
+unless Shell::ARGV.size == 2
   puts "Usage: mv source_file target_file"
   return
 end
 
-source = ARGV[0]
-target = ARGV[1]
+source = Shell::ARGV[0]
+target = Shell::ARGV[1]
 
 unless File.exist?(source)
   puts "mv: cannot stat '#{source}': No such file or directory"

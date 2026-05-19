@@ -5,10 +5,10 @@ lines = 10
 # Parse options
 args = [] #: Array[String]
 i = 0
-while i < ARGV.size
-  arg = ARGV[i]
-  if arg == "-n" && i + 1 < ARGV.size
-    lines = ARGV[i + 1].to_i
+while i < Shell::ARGV.size
+  arg = Shell::ARGV[i]
+  if arg == "-n" && i + 1 < Shell::ARGV.size
+    lines = Shell::ARGV[i + 1].to_i
     i += 2
   elsif arg.start_with?("-")
     # Try to parse -N format
@@ -36,15 +36,18 @@ begin
     end
   else
     # Read from files
-    args.each_with_index do |file, idx|
+    idx = 0
+    while idx < args.size
+      file = args[idx]
       unless File.exist?(file)
         puts "head: cannot open '#{file}': No such file or directory"
+        idx += 1
         next
       end
 
       if 1 < args.size
-        puts "==> #{file} <==" if idx > 0 || idx == 0
         puts if 0 < idx
+        puts "==> #{file} <=="
       end
 
       File.open(file, 'r') do |f|
@@ -54,6 +57,7 @@ begin
           count += 1
         end
       end
+      idx += 1
     end
   end
 rescue => e

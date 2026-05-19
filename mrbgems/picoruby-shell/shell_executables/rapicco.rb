@@ -1,4 +1,4 @@
-unless ARGV.size == 1
+unless Shell::ARGV.size == 1
   puts "Usage: rapicco <path_to_rapicco_file>"
   return
 end
@@ -10,4 +10,4 @@ rescue
 end
 
 Machine.signal_self_manage
-Rapicco.new(ARGV[0]).run
+Rapicco.new(Shell::ARGV[0]).run

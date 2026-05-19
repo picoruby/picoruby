@@ -52,8 +52,12 @@ class Shell
   def execute_ast: (Parser::Node ast) -> void
   def execute_command_node: (Parser::Node node) -> void
   def execute_pipeline_node: (Parser::Node node) -> void
-  def execute_with_file_redirect: (Array[String] cmd_args, String? redirect_in, String? redirect_out, Symbol? redirect_mode) -> void
-  def execute_builtin_with_redirect: (String name, Array[String] args, String? redirect_in, String? redirect_out, Symbol? redirect_mode) -> void
+  type redirect_spec = { in: String?, out: String?, out_mode: Symbol?, err: String?, err_mode: Symbol?, err_to_out: bool }
+  def classify_redirects: (Array[Parser::Node] redirects) -> redirect_spec
+  def redirect_spec_any?: (redirect_spec spec) -> boolish
+  def with_io_redirects: (redirect_spec spec) { () -> void } -> bool
+  def execute_with_file_redirect: (Array[String] cmd_args, redirect_spec spec) -> void
+  def execute_builtin_with_redirect: (String name, Array[String] args, redirect_spec spec) -> void
 
   private def _type: (*untyped args) -> void
   private def _echo: (*untyped args) -> void

@@ -1,6 +1,6 @@
 require 'dfu'
 
-path = ARGV[0]  # optional: destination path (skips A/B slot and meta)
+path = Shell::ARGV[0]  # optional: destination path (skips A/B slot and meta)
 
 Machine.signal_self_manage
 

@@ -1,3 +1,3 @@
 require "vim"
 
-Vim.new(ARGV[0]).start
+Vim.new(Shell::ARGV[0]).start

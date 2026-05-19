@@ -11,7 +11,7 @@ end
 Machine.signal_self_manage
 
 name = "RubyOTA"
-path = ARGV[0]  # optional: destination path (skips A/B slot and meta)
+path = Shell::ARGV[0]  # optional: destination path (skips A/B slot and meta)
 puts "DFU BLE server (name: #{name})"
 
 uart = BLE::UART.new(name: name)

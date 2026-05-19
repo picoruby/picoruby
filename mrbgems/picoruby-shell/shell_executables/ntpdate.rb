@@ -1,6 +1,6 @@
 require 'net/ntp'
 
-ntp_host = ARGV[0] || "pool.ntp.org"
+ntp_host = Shell::ARGV[0] || "pool.ntp.org"
 ntp_port = 123
 
 puts "Initializing DNS..."

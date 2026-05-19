@@ -24,6 +24,23 @@ class Shell
         else
           create_token(:special, start_pos, 1)
         end
+      when '2'
+        # Bash-style stderr redirects:
+        #   2>, 2>>, 2>&1
+        # If 2 is not immediately followed by >, fall back to word tokenizing
+        # (so head -n 2, etc., still works).
+        if @input[@position + 1] == '>'
+          after = @input[@position + 2]
+          if after == '>'
+            create_token(:special, start_pos, 3)  # 2>>
+          elsif after == '&' && @input[@position + 3] == '1'
+            create_token(:special, start_pos, 4)  # 2>&1
+          else
+            create_token(:special, start_pos, 2)  # 2>
+          end
+        else
+          tokenize_word(start_pos)
+        end
       when '"', "'"
         tokenize_quoted_string(char, start_pos)
       when ' ', "\t", "\n"
@@ -102,14 +119,24 @@ class Shell
         break unless consume(:special, '|')
       end
 
+      # Trailing `&` marks the whole program (single command or pipeline) as
+      # background. It must appear after every other token of the program.
+      background = consume(:special, '&') ? true : false
+
       current = @current_token
       end_pos = current ? current[:pos] : @input.length
       token = @input[start_pos...end_pos] || ""
 
       if commands.length > 1
-        Node.new(:pipeline, { commands: commands }, token)
+        Node.new(:pipeline, { commands: commands, background: background }, token)
       else
-        commands.first
+        first = commands.first
+        return nil unless first
+        if background
+          Node.new(:command, first.data.merge(background: true), first.token)
+        else
+          first
+        end
       end
     end
 
@@ -127,7 +154,7 @@ class Shell
         when :word, :quoted_string
           args << parse_argument
         when :special
-          if ['>', '<', '>>', '<<'].include?(token_value)
+          if ['>', '<', '>>', '<<', '2>', '2>>', '2>&1'].include?(token_value)
             redir = parse_redirection
             redirects << redir if redir
           else
@@ -161,8 +188,19 @@ class Shell
              when '>>' then :append
              when '<' then :input
              when '<<' then :here_document
+             when '2>' then :stderr_output
+             when '2>>' then :stderr_append
+             when '2>&1' then :stderr_to_stdout
              else raise("Unexpected redirection type: #{token_value(type_token)}")
              end
+
+      # 2>&1 has no target; it duplicates the current fd 1 into fd 2.
+      if type == :stderr_to_stdout
+        current = @current_token
+        end_pos = current ? current[:pos] : @input.length
+        full_token = (@input[start_pos...end_pos] || "").strip
+        return Node.new(:redirection, { type: type, target: nil }, full_token)
+      end
 
       skip_whitespace
       target = expect_word_or_quoted_string()

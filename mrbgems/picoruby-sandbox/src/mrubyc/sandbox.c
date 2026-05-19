@@ -292,6 +292,46 @@ c_sandbox_terminate(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
+// Sandbox#argv=(ary)
+//
+// mruby/c has no usable per-task ivar storage (Task.current returns a
+// fresh wrapper around the same tcb on every call, and instance_variable_set
+// on those wrappers triggers an incref assertion). Instead we mutate the
+// top-level ARGV constant in place, which is the canonical container that
+// Shell::ARGV aliases to on mruby/c. Sequential shell commands therefore
+// see fresh args. Pipelines are not supported on mruby/c (rejected in
+// execute_pipeline_node), so the single-slot global is sufficient.
+static void
+c_sandbox_set_argv(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc < 1 || v[1].tt != MRBC_TT_ARRAY) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "argv= requires an Array");
+    return;
+  }
+
+  mrbc_sym argv_sym = mrbc_search_symid("ARGV");
+  if (argv_sym < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "global ARGV not defined");
+    return;
+  }
+  mrbc_value *argv_const = mrbc_get_const(argv_sym);
+  if (!argv_const || argv_const->tt != MRBC_TT_ARRAY) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "global ARGV is not an Array");
+    return;
+  }
+
+  mrbc_array_clear(argv_const);
+  int len = mrbc_array_size(&v[1]);
+  for (int i = 0; i < len; i++) {
+    mrbc_value elem = mrbc_array_get(&v[1], i);
+    mrbc_incref(&elem);
+    mrbc_array_push(argv_const, &elem);
+  }
+
+  mrbc_incref(&v[1]);
+  SET_RETURN(v[1]);
+}
+
 void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
@@ -312,4 +352,5 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);
   mrbc_define_method(vm, class_Sandbox, "new",     c_sandbox_new);
   mrbc_define_method(vm, class_Sandbox, "terminate", c_sandbox_terminate);
+  mrbc_define_method(vm, class_Sandbox, "argv=",   c_sandbox_set_argv);
 }
