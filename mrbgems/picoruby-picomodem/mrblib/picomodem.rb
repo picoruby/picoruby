@@ -199,30 +199,34 @@ module PicoModem
     error_message = nil
 
     File.unlink(path) if File.exist?(path)
-    File.open(path, "w") do |file|
-      file.expand(total) if file.respond_to?(:expand)
+    begin
+      File.open(path, "w") do |file|
+        file.expand(total) if file.respond_to?(:expand)
 
-      while written < total
-        frame = recv_frame(io_in)
-        unless frame
-          error_message = "Timeout receiving chunk"
-          break
-        end
-        case frame[0]
-        when CHUNK
-          chunk = frame[1]
-          file.write(chunk)
-          file_crc = CRC.crc32(chunk, file_crc)
-          written += chunk.bytesize
-          send_frame(io_out, CHUNK_ACK, [OK].pack("C"))
-        when ABORT
-          aborted = true
-          break
-        else
-          error_message = "Unexpected command during transfer"
-          break
+        while written < total
+          frame = recv_frame(io_in)
+          unless frame
+            error_message = "Timeout receiving chunk"
+            break
+          end
+          case frame[0]
+          when CHUNK
+            chunk = frame[1]
+            file.write(chunk)
+            file_crc = CRC.crc32(chunk, file_crc)
+            written += chunk.bytesize
+            send_frame(io_out, CHUNK_ACK, [OK].pack("C"))
+          when ABORT
+            aborted = true
+            break
+          else
+            error_message = "Unexpected command during transfer"
+            break
+          end
         end
       end
+    rescue => e
+      error_message = e.message
     end
 
     if error_message
