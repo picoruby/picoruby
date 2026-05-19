@@ -4,9 +4,9 @@ if Machine.wifi_available?
   end
   wifi_config_path = ENV['WIFI_CONFIG_PATH'] || ENV_DEFAULT_WIFI_CONFIG_PATH
   if File.file?(wifi_config_path)
-    ARGV[0] = "--check-auto-connect"
+    $*[0] = "--check-auto-connect"
     load "/bin/wifi_connect"
-    ARGV.clear
+    $*.clear
   end
 end
 

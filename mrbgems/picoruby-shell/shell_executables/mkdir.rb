@@ -1,1 +1,1 @@
-Dir.mkdir(ARGV[0])
+Dir.mkdir($*[0])

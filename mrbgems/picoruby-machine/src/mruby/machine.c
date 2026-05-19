@@ -227,6 +227,31 @@ mrb_machine_check_signal(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/*
+ * signal_self_manage is a process-wide flag (not per-task): an interactive
+ * context such as the IRB line editor sets it so the cooperative wait loops
+ * (sandbox.rb) skip Machine.check_signal and let the editor handle Ctrl-C/Z.
+ * It must NOT live in a Ruby global ($-var), because Task#fork gives a forked
+ * task its own global table, so a flag set inside a forked task would not be
+ * visible to the task waiting on it. A C static is shared across all tasks.
+ */
+static mrb_bool signal_self_manage_flag = FALSE;
+
+static mrb_value
+mrb_machine_signal_self_manage(mrb_state *mrb, mrb_value self)
+{
+  signal_self_manage_flag = TRUE;
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_machine_pop_signal_self_manage(mrb_state *mrb, mrb_value self)
+{
+  mrb_bool s = signal_self_manage_flag;
+  signal_self_manage_flag = FALSE;
+  return mrb_bool_value(s);
+}
+
 #if !defined(PICORB_PLATFORM_POSIX)
 static size_t
 print_sub(mrb_state *mrb, mrb_value obj)
@@ -259,8 +284,15 @@ mrb_io_puts(mrb_state *mrb, mrb_value self)
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
-      print_sub(mrb, argv[i]);
-      picorb_hal_write(1, "\n", 1);
+      mrb_value str = mrb_funcall(mrb, argv[i], "to_s", 0);
+      const char *cstr = RSTRING_PTR(str);
+      size_t len = RSTRING_LEN(str);
+      picorb_hal_write(1, cstr, len);
+      /* IO#puts only appends a newline when the string does not
+         already end with one (empty string still gets one). */
+      if (len == 0 || cstr[len - 1] != '\n') {
+        picorb_hal_write(1, "\n", 1);
+      }
     }
     mrb_gc_arena_restore(mrb, ai);
   }
@@ -462,6 +494,8 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_reboot), mrb_s__reboot, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(check_signal), mrb_machine_check_signal, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(signal_self_manage), mrb_machine_signal_self_manage, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(pop_signal_self_manage), mrb_machine_pop_signal_self_manage, MRB_ARGS_NONE());
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(debug_puts), mrb_s_debug_puts, MRB_ARGS_ANY());

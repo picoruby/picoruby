@@ -1,6 +1,6 @@
 args = [] #: Array[String]
 opts = [] #: Array[String]
-ARGV.each do |arg|
+$*.each do |arg|
   if arg.start_with?("-")
     arg[1, 255]&.each_char do |ch|
       opts << ch

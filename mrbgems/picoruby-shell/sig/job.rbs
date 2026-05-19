@@ -6,10 +6,15 @@ class Shell
 
     attr_reader name: String
 
-    def initialize: (*String params) -> void
+    def initialize: (*String params, ?stdout: untyped, ?stdin: untyped, ?stderr: untyped) -> void
     def exec: () -> bool
+    def exec_async: () -> bool
+    def wait: () -> bool
     def resume: () -> void
     def state: () -> Symbol
+    def error: () -> untyped
+    def terminate: () -> void
+    def report_error: (?ignore_closed_queue: bool) -> void
     private def trap: () -> void
   end
 end

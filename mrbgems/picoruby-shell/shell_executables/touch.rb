@@ -1,5 +1,5 @@
 now = Time.now
-path = ARGV[0]
+path = $*[0]
 if File.exist? path
   File.utime(now, now, path)
 else

@@ -296,6 +296,35 @@ c_machine_check_signal(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
+/*
+ * signal_self_manage is a process-wide flag (not per-task): an interactive
+ * context such as the IRB line editor sets it so the cooperative wait loops
+ * (sandbox.rb) skip Machine.check_signal and let the editor handle Ctrl-C/Z.
+ * It must NOT live in a Ruby global ($-var), because Task#fork gives a forked
+ * task its own global table, so a flag set inside a forked task would not be
+ * visible to the task waiting on it. A C static is shared across all tasks.
+ */
+static bool signal_self_manage_flag = false;
+
+static void
+c_machine_signal_self_manage(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  signal_self_manage_flag = true;
+  SET_NIL_RETURN();
+}
+
+static void
+c_machine_pop_signal_self_manage(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  bool s = signal_self_manage_flag;
+  signal_self_manage_flag = false;
+  if (s) {
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
 /* gets/getc read stdin through the HAL so Ctrl-C (byte 0x03) and the
  * pseudo-SIGINT set by the stdin reader become Interrupt. Compiled on
  * every platform; on POSIX they are wired to bareword Kernel#gets/#getc
@@ -469,6 +498,8 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, module_Machine, "_reboot", c_Machine__reboot);
   mrbc_define_method(vm, module_Machine, "debug_puts", c_Machine_debug_puts);
   mrbc_define_method(vm, module_Machine, "check_signal", c_machine_check_signal);
+  mrbc_define_method(vm, module_Machine, "signal_self_manage", c_machine_signal_self_manage);
+  mrbc_define_method(vm, module_Machine, "pop_signal_self_manage", c_machine_pop_signal_self_manage);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);

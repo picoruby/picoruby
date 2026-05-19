@@ -1,6 +1,6 @@
 class Shell
   class Job
-    def initialize(*params)
+    def initialize(*params, stdout: nil, stdin: nil, stderr: nil)
       if params.empty?
         raise ArgumentError, "Job requires at least one parameter"
       end
@@ -13,7 +13,13 @@ class Shell
       unless @exefile = Shell.find_executable(command)
         raise "#{command}: command not found"
       end
-      @sandbox = Sandbox.new(command)
+      @in_pipeline = !stdout.nil? || !stdin.nil?
+      if @in_pipeline
+        @sandbox = Sandbox.new(command, stdout: stdout, stdin: stdin, stderr: stderr)
+      else
+        @sandbox = Sandbox.new(command)
+      end
+      @task_name = command
     end
 
     attr_reader :name
@@ -24,11 +30,11 @@ class Shell
       @sandbox.resume
       @sandbox.wait(timeout: nil)
       if error = @sandbox.error
-        puts "#{error.message} (#{error.class})"
+        Shell.report_exception(error)
       end
       return true
     rescue Exception => e
-      puts "#{e.message} (#{e.class})"
+      Shell.report_exception(e)
       return false
     end
 
@@ -37,32 +43,61 @@ class Shell
     end
 
     def exec
-      ARGV.clear
-      i = 0
-      while i < @params.size
-        ARGV << @params[i]
-        i += 1
-      end
+      @sandbox.argv = @params.dup
       trap
       @sandbox.load_file(@exefile)
       if error = @sandbox.error
-        puts "\n#{error.message} (#{error.class})"
+        Shell.report_exception(error)
       end
       return true
     rescue Exception => e
-      puts "#{e.message} (#{e.class})"
-      # backtrace uses a lot of memory
-      #if e.respond_to?(:backtrace)
-      #  e.backtrace.each do |line|
-      #    puts "  #{line}"
-      #  end
-      #end
+      Shell.report_exception(e)
       return false
+    end
+
+    def exec_async
+      @sandbox.argv = @params.dup
+      trap
+      @sandbox.load_file(@exefile, join: false)
+      return true
+    rescue Exception => e
+      Shell.report_exception(e)
+      return false
+    end
+
+    def wait
+      @sandbox.wait(timeout: nil)
+      report_error
+      return true
+    rescue Exception => e
+      Shell.report_exception(e)
+      return false
+    end
+
+    def error
+      @sandbox.error
+    end
+
+    def terminate
+      @sandbox.terminate
+    rescue Exception
+      # ignore: task may already be DORMANT or in a transient state
+    end
+
+    def report_error(ignore_closed_queue: false)
+      return unless error = @sandbox.error
+      if ignore_closed_queue &&
+         error.class.to_s == "Task::Error" &&
+         error.message == "queue closed"
+        return
+      end
+      Shell.report_exception(error)
     end
 
     private
 
     def trap
+      return if @in_pipeline
       Signal.trap(:TSTP) do
         @sandbox.suspend
         puts "Suspended"

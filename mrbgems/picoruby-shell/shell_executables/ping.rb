@@ -7,12 +7,12 @@ rescue LoadError
   return
 end
 
-unless ARGV.size == 1
+unless $*.size == 1
   puts "Usage: ping hostname"
   return
 end
 
-host = ARGV[0]
+host = $*[0]
 
 puts "PING #{host}"
 

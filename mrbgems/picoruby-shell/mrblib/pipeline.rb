@@ -1,91 +1,5 @@
 class Shell
   class Pipeline
-    class PipeIO
-      def initialize
-        @buffer = []
-        @remainder = ""
-      end
-
-      def puts(str = "")
-        append "#{str}\n"
-        nil
-      end
-
-      def print(str)
-        append str.to_s
-        nil
-      end
-
-      def write(str)
-        print(str)
-        str.size
-      end
-
-      def flush
-        self
-      end
-
-      def gets
-        if line = @buffer.shift
-          return line
-        end
-
-        # If remainder has content, return it all
-        if !@remainder.empty?
-          line = @remainder
-          @remainder = ""
-          return line
-        end
-
-        # No data
-        nil
-      end
-
-      def each_line
-        while line = gets
-          yield line
-        end
-      end
-
-      def empty?
-        @buffer.empty? && @remainder.empty?
-      end
-
-      def clear
-        @buffer.clear
-        @remainder = ""
-      end
-
-      private
-
-      def append(str)
-        while idx = str.index("\n")
-          line = @remainder + (str[0..idx] || "")
-          @buffer << line
-          str = str[(idx + 1)..-1] || ""
-          @remainder = ""
-        end
-        @remainder += str
-      end
-    end
-
-    def self.parse(command_line)
-      commands = [] #: Array[Array[String]]
-      current = [] #: Array[String]
-
-      # First, split by pipe character
-      segments = command_line.split("|")
-
-      i = 0
-      while i < segments.size
-        args = segments[i].strip.split(" ")
-        commands << args unless args.empty?
-        i += 1
-      end
-
-      commands
-    end
-
     def initialize(commands)
       @commands = commands
     end
@@ -94,54 +8,100 @@ class Shell
       return if @commands.empty?
 
       if @commands.size == 1
-        # Single command - no pipeline needed
-        job = Job.new(*@commands[0])
-        job.exec
+        Job.new(*@commands[0]).exec
         return
       end
 
-      # Pipeline execution
-      input = nil
-      idx = 0
-      while idx < @commands.size
-        cmd_args = @commands[idx]
-        is_first = (idx == 0)
-        is_last = (idx == @commands.size - 1)
-
-        if is_first
-          # First command: capture output
-          output = PipeIO.new
-          execute_with_redirect(cmd_args, nil, output)
-          input = output
-        elsif is_last
-          # Last command: use captured input, normal output
-          execute_with_redirect(cmd_args, input, nil)
-        else
-          # Middle command: use captured input, capture output
-          output = PipeIO.new
-          execute_with_redirect(cmd_args, input, output)
-          input = output
-        end
-        idx += 1
+      # Build one Task::Pipe per inter-stage link.
+      # pipes[i] connects stage i (producer) to stage i+1 (consumer).
+      pipes = [] #: Array[Task::Pipe]
+      i = 0
+      while i < @commands.size - 1
+        pipes << Task::Pipe.new(Task::Queue.new)
+        i += 1
       end
-    end
 
-    private
+      jobs = [] #: Array[Job]
+      i = 0
+      while i < @commands.size
+        out_pipe = i < pipes.size ? pipes[i] : nil
+        in_pipe  = 0 < i ? pipes[i - 1] : nil
+        jobs << Job.new(*@commands[i], stdout: out_pipe, stdin: in_pipe)
+        i += 1
+      end
 
-    def execute_with_redirect(cmd_args, input, output)
-      old_stdin = $stdin
-      old_stdout = $stdout
+      i = jobs.size - 1
+      while 0 <= i
+        jobs[i].exec_async
+        i -= 1
+      end
 
+      finished = [] #: Array[bool]
+      i = 0
+      while i < jobs.size
+        finished << false
+        i += 1
+      end
+
+      interrupted = false
       begin
-        $stdin = input if input
-        $stdout = output if output
+        remaining = jobs.size
+        while 0 < remaining
+          Machine.check_signal
+          progressed = false
+          i = 0
+          while i < jobs.size
+            unless finished[i]
+              state = jobs[i].state
+              if state == :DORMANT || state == :SUSPENDED
+                finished[i] = true
+                remaining -= 1
+                progressed = true
+                # Close the outgoing pipe of this stage so the downstream
+                # consumer's pop() unblocks (SIGPIPE-equivalent).
+                pipes[i].close if i < pipes.size
+                # Close the incoming pipe of the preceding stage too so
+                # a still-running producer gets a closed-queue error and stops.
+                pipes[i - 1].close if 0 < i && !pipes[i - 1].closed?
+              end
+            end
+            i += 1
+          end
+          sleep_ms 1 if 0 < remaining && !progressed
+        end
+      rescue Interrupt
+        interrupted = true
+        STDOUT.puts "^C"
+        i = 0
+        while i < jobs.size
+          unless finished[i]
+            jobs[i].terminate
+          end
+          i += 1
+        end
+        i = 0
+        while i < pipes.size
+          pipes[i].close unless pipes[i].closed?
+          i += 1
+        end
+        Signal.raise(:INT)
+      end
 
-        # Execute command using Job (which uses Sandbox)
-        job = Job.new(*cmd_args)
-        job.exec
-      ensure
-        $stdin = old_stdin
-        $stdout = old_stdout
+      unless interrupted
+        i = 0
+        while i < jobs.size
+          jobs[i].report_error(ignore_closed_queue: i + 1 < jobs.size)
+          i += 1
+        end
+      end
+    ensure
+      # Close any pipes that were not already closed (e.g. on exceptions).
+      if pipes
+        i = 0
+        while i < pipes.size
+          pipes[i].close unless pipes[i].closed?
+          i += 1
+        end
       end
     end
   end

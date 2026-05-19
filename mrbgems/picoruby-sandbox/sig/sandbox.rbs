@@ -7,7 +7,9 @@ class Sandbox
 
   attr_accessor error: Exception?
 
-  def self.new: (?String name) -> Sandbox
+  def self.new: (?String name, ?stdout: untyped, ?stdin: untyped, ?stderr: untyped) -> Sandbox
+  def initialize: (?String name, ?stdout: untyped, ?stdin: untyped, ?stderr: untyped) -> void
+  private def _init: (String? name, untyped stdout, untyped stdin, untyped stderr) -> void
   def compile: (String script, ?remove_lv: bool, ?filename: String?) -> bool
   def compile_from_memory: (Integer address, Integer size, ?remove_lv: bool) -> bool
   def resume: () -> bool
@@ -17,6 +19,7 @@ class Sandbox
   def free_parser: () -> nil
   def state: () -> Symbol
   def result: () -> untyped
+  def argv=: (Array[String]) -> Array[String]
   def wait: (?timeout: (Integer|nil)) -> bool
   def execute: () -> bool
   def exec_mrb: (String mrb) -> bool

@@ -292,6 +292,29 @@ c_sandbox_terminate(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
+// Sandbox#argv=(ary)
+//
+// Expose the arguments as the global $* (Ruby's ARGV alias). mruby/c has no
+// per-task global namespace (no Task#fork), so this is a single shared global
+// rather than a per-task one. Shell commands run sequentially on mruby/c, so
+// each command overwrites $* before it runs; pipelines are rejected in
+// execute_pipeline_node, so a single slot is sufficient.
+static void
+c_sandbox_set_argv(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc < 1 || v[1].tt != MRBC_TT_ARRAY) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "argv= requires an Array");
+    return;
+  }
+
+  mrbc_sym star_sym = mrbc_str_to_symid("$*");
+  mrbc_incref(&v[1]);
+  mrbc_set_global(star_sym, &v[1]);
+
+  mrbc_incref(&v[1]);
+  SET_RETURN(v[1]);
+}
+
 void
 mrbc_sandbox_init(mrbc_vm *vm)
 {
@@ -312,4 +335,5 @@ mrbc_sandbox_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);
   mrbc_define_method(vm, class_Sandbox, "new",     c_sandbox_new);
   mrbc_define_method(vm, class_Sandbox, "terminate", c_sandbox_terminate);
+  mrbc_define_method(vm, class_Sandbox, "argv=",   c_sandbox_set_argv);
 }

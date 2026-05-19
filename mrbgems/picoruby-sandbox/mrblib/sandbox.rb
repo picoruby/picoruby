@@ -4,6 +4,14 @@ class Sandbox
 
   TIMEOUT = 10_000 # 10 sec
 
+  # Ruby-layer initialize: parses kwargs and forwards to the private C _init.
+  # stdout:/stdin:/stderr: accept any IO-like object (Task::Pipe, File, etc.).
+  # When any redirect is given, the task's global namespace is forked so that
+  # plain `puts` / `gets` inside the loaded script see the redirect objects.
+  def initialize(name = nil, stdout: nil, stdin: nil, stderr: nil)
+    _init(name, stdout, stdin, stderr)
+  end
+
   def wait(timeout: TIMEOUT)
     sleep_ms 5
     signal_self_manage = Machine.pop_signal_self_manage

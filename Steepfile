@@ -9,7 +9,7 @@ target :mrbgems do
   Dir.glob("**/sig/").each do |dir|
     # Exclude vendor/ because gems installed there (e.g. on GHA) have sig/ dirs
     # that cause duplicate RBS declaration errors.
-    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("-prk-") || dir.include?("vendor/")
+    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("-prk-") || dir.include?("vendor/")
       signature dir
     end
   end
@@ -27,7 +27,6 @@ target :mrbgems do
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/array.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/range.rb"
   ignore "mrbgems/picoruby-mrubyc/lib/mrubyc/mrblib/string.rb"
-  ignore "mrbgems/picoruby-task-ext/mrblib/task.rb"
   ignore "mrbgems/picoruby-mruby/lib/mruby"
   ignore "mrblib"
   ignore "build"

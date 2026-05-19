@@ -1,4 +1,4 @@
-ARGV.each do |arg|
+$*.each do |arg|
   if File.exist?(arg)
     File.unlink(arg)
   else

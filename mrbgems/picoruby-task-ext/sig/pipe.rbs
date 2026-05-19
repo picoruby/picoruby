@@ -1,0 +1,17 @@
+class Task
+  class Pipe
+    @q: untyped
+    @buf: String
+
+    def initialize: (untyped queue) -> void
+    def puts: (*untyped args) -> void
+    def print: (*untyped args) -> void
+    def write: (untyped str) -> void
+    def gets: () -> String?
+    def getc: () -> String?
+    def fileno: () -> Integer
+    def flush: () -> void
+    def close: () -> void
+    def closed?: () -> bool
+  end
+end

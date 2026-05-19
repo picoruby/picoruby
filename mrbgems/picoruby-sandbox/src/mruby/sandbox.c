@@ -4,9 +4,12 @@
 #include <mruby/presym.h>
 #include <mruby/class.h>
 #include <mruby/data.h>
+#include <mruby/array.h>
+#include <mruby/object.h>
 #include <mruby/string.h>
 #include <mruby/variable.h>
 #include <mruby/proc.h>
+#include "task.h"
 // #include <mruby/debug.h>
 
 void mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep);
@@ -31,8 +34,17 @@ struct mrb_data_type mrb_sandbox_state_type = {
 #define SS() \
   SandboxState *ss = (SandboxState *)mrb_data_get_ptr(mrb, self, &mrb_sandbox_state_type)
 
+/*
+ * Private C implementation: _init(name, stdout_val, stdin_val, stderr_val)
+ * Called from the Ruby-layer Sandbox#initialize via mrblib/sandbox.rb.
+ *
+ * When any redirect is non-nil, the task's global namespace is forked from
+ * the current mrb->globals and the redirect objects are written directly into
+ * the fork's globals table before the task first runs.  Plain `puts` / `gets`
+ * in the task script then see the redirected $stdout / $stdin automatically.
+ */
 static mrb_value
-mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
+mrb_sandbox_init(mrb_state *mrb, mrb_value self)
 {
   SandboxState *ss = (SandboxState *)mrb_malloc(mrb, sizeof(SandboxState));
   memset(ss, 0, sizeof(SandboxState));
@@ -41,12 +53,18 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
 
   ss->cc = mrc_ccontext_new(mrb);
 
-  const uint8_t *script = (const uint8_t *)"Task.current.suspend";
-  size_t size = strlen((const char *)script);
-  ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
+  mrb_value name;
+  mrb_value stdout_val;
+  mrb_value stdin_val;
+  mrb_value stderr_val;
+  mrb_get_args(mrb, "oooo", &name, &stdout_val, &stdin_val, &stderr_val);
 
-  mrb_value name = mrb_nil_value();
-  mrb_get_args(mrb, "|S", &name);
+  static const char suspend_str[] = "Task.current.suspend";
+  const uint8_t *script = (const uint8_t *)suspend_str;
+  size_t size = sizeof(suspend_str) - 1;
+  ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
+  if (ss->irep) mrb_irep_incref(mrb, (struct mrb_irep *)ss->irep);
+
   if (mrb_nil_p(name)) {
     name = mrb_str_new_cstr(mrb, "sandbox");
   }
@@ -56,6 +74,24 @@ mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
 
   mrb_gc_register(mrb, task);
   ss->task = task;
+
+  /* Fork globals and inject redirects when any IO redirect is given */
+  mrb_bool need_fork = (!mrb_nil_p(stdout_val) || !mrb_nil_p(stdin_val) || !mrb_nil_p(stderr_val));
+  if (need_fork) {
+    mrb_task *t = (mrb_task*)mrb_data_get_ptr(mrb, ss->task, &mrb_task_type);
+    if (t) {
+      mrb_task_fork_globals(mrb, t, mrb->globals);
+      /* Temporarily swap to write redirects into the fork's table */
+      struct iv_tbl *saved_g = mrb->globals;
+      mrb->globals = ((struct RObject *)mrb_obj_ptr(t->gv_holder))->iv;
+      if (!mrb_nil_p(stdout_val)) mrb_gv_set(mrb, mrb_intern_lit(mrb, "$stdout"), stdout_val);
+      if (!mrb_nil_p(stdin_val))  mrb_gv_set(mrb, mrb_intern_lit(mrb, "$stdin"),  stdin_val);
+      if (!mrb_nil_p(stderr_val)) mrb_gv_set(mrb, mrb_intern_lit(mrb, "$stderr"), stderr_val);
+      /* Persist the fork table pointer in case iv_put triggered a realloc */
+      ((struct RObject *)mrb_obj_ptr(t->gv_holder))->iv = mrb->globals;
+      mrb->globals = saved_g;
+    }
+  }
 
   return self;
 }
@@ -235,6 +271,39 @@ mrb_sandbox_suspend(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_sandbox_set_argv(mrb_state *mrb, mrb_value self)
+{
+  SS();
+  mrb_value argv;
+  mrb_get_args(mrb, "A", &argv);
+
+  mrb_int len = RARRAY_LEN(argv);
+  mrb_value dup = mrb_ary_new_from_values(mrb, len, RARRAY_PTR(argv));
+
+  /* Expose the arguments as the per-task global $* (Ruby's ARGV alias).
+     The task's global namespace is forked first so that $* is isolated to
+     this task; otherwise concurrently running tasks (e.g. `cmd &`) would share
+     it. This mirrors the redirect injection in mrb_sandbox_init(). */
+  mrb_task *t = (mrb_task*)mrb_data_get_ptr(mrb, ss->task, &mrb_task_type);
+  if (t && mrb_nil_p(t->gv_holder)) {
+    mrb_task_fork_globals(mrb, t, mrb->globals);
+  }
+  if (t && !mrb_nil_p(t->gv_holder)) {
+    struct iv_tbl *saved_g = mrb->globals;
+    mrb->globals = ((struct RObject *)mrb_obj_ptr(t->gv_holder))->iv;
+    mrb_gv_set(mrb, mrb_intern_lit(mrb, "$*"), dup);
+    /* Persist the fork table pointer in case iv_put triggered a realloc */
+    ((struct RObject *)mrb_obj_ptr(t->gv_holder))->iv = mrb->globals;
+    mrb->globals = saved_g;
+  }
+  else {
+    /* No task or globals not yet allocated: fall back to the shared global. */
+    mrb_gv_set(mrb, mrb_intern_lit(mrb, "$*"), dup);
+  }
+  return dup;
+}
+
+static mrb_value
 mrb_sandbox_free_parser(mrb_state *mrb, mrb_value self)
 {
   mrb_notimplement(mrb);
@@ -302,7 +371,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
 
   MRB_SET_INSTANCE_TT(class_Sandbox, MRB_TT_CDATA);
 
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(initialize), mrb_sandbox_initialize, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(_init), mrb_sandbox_init, MRB_ARGS_REQ(4));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1)|MRB_ARGS_KEY(2,0));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile_from_memory), mrb_sandbox_compile_from_memory, MRB_ARGS_REQ(2)|MRB_ARGS_KEY(1,1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(resume), mrb_sandbox_resume, MRB_ARGS_NONE());
@@ -310,6 +379,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(state), mrb_sandbox_state, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(result), mrb_sandbox_result, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(error), mrb_sandbox_error, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM_E(argv), mrb_sandbox_set_argv, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(stop), mrb_sandbox_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(suspend), mrb_sandbox_suspend, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());

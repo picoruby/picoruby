@@ -6,6 +6,7 @@ require "crc"
 require "picomodem"
 require "machine"
 require 'yaml'
+require 'task-ext'
 begin
   require 'gpio'
   require "littlefs"
@@ -15,10 +16,13 @@ rescue LoadError
   require "dir" if RUBY_ENGINE == 'mruby/c'
 end
 
-ARGV = []
+# Shell command arguments are exposed to each executable as the per-task global
+# $* (Ruby's ARGV alias). Sandbox#argv= forks the task's globals and writes $*
+# there, so each command sees its own arguments without a shared container.
+# Initialise it here so the shell main task's $* is never nil.
+$* = []
 
 class Shell
-
   DeviceInstances = {}
 
   def self.get_device(type, name)
@@ -284,6 +288,14 @@ class Shell
     nil
   end
 
+  # Unified exception reporter. All shell-side error reporting funnels
+  # through this so the user sees a consistent "<message> (<ExceptionClass>)"
+  # format regardless of where the exception was raised (parser, Job
+  # lifecycle, builtin dispatch, pipeline executor, ...).
+  def self.report_exception(e)
+    $stderr.puts "#{e.message} (#{e.class})"
+  end
+
   def initialize(clean: false)
     require 'editor' # To save memory
     clean and IO.wait_terminal(timeout: 2) and IO.clear_screen
@@ -444,8 +456,8 @@ class Shell
             ast = parser.parse
 
             execute_ast(ast) if ast
-          rescue => e
-            puts e.message
+          rescue Exception => e
+            Shell.report_exception(e)
           end
         end
       when 26 # Ctrl-Z
@@ -528,51 +540,82 @@ class Shell
     end
   end
 
-  def execute_command_node(node)
-    data = node.data
-    name = data[:name]
-    args = data[:args]
-    redirects = data[:redirects]
-
-    # Handle redirections
-    redirect_in = nil
-    redirect_out = nil
-    redirect_mode = nil
-
+  # Categorize a redirects AST array into a flat spec hash.
+  # Returns: { in:, out:, out_mode:, err:, err_mode:, err_to_out: }
+  # Later redirects of the same kind override earlier ones (last one wins).
+  def classify_redirects(redirects)
+    spec = {
+      in: nil, out: nil, out_mode: nil,
+      err: nil, err_mode: nil, err_to_out: false
+    } #: redirect_spec
     ri = 0
     while ri < redirects.size
       redir = redirects[ri]
       case redir.data[:type]
       when :input
-        redirect_in = redir.data[:target]
+        spec[:in] = redir.data[:target]
       when :output
-        redirect_out = redir.data[:target]
-        redirect_mode = :write
+        spec[:out] = redir.data[:target]
+        spec[:out_mode] = :write
       when :append
-        redirect_out = redir.data[:target]
-        redirect_mode = :append
+        spec[:out] = redir.data[:target]
+        spec[:out_mode] = :append
+      when :stderr_output
+        spec[:err] = redir.data[:target]
+        spec[:err_mode] = :write
+        spec[:err_to_out] = false
+      when :stderr_append
+        spec[:err] = redir.data[:target]
+        spec[:err_mode] = :append
+        spec[:err_to_out] = false
+      when :stderr_to_stdout
+        spec[:err] = nil
+        spec[:err_mode] = nil
+        spec[:err_to_out] = true
       end
       ri += 1
     end
+    spec
+  end
 
-    # Check if builtin command
+  def redirect_spec_any?(spec)
+    spec[:in] || spec[:out] || spec[:err] || spec[:err_to_out]
+  end
+
+  def execute_command_node(node)
+    data = node.data
+    name = data[:name]
+    args = data[:args]
+    background = data[:background]
+    spec = classify_redirects(data[:redirects])
+
     if builtin?("_#{name}")
-      if redirect_in || redirect_out
-        # Execute builtin with file redirection
-        execute_builtin_with_redirect(name, args, redirect_in, redirect_out, redirect_mode)
+      # Builtins run synchronously in the shell main task; `&` cannot apply.
+      if background
+        puts "shell: '#{name}' is a builtin; '&' ignored"
+      end
+      if redirect_spec_any?(spec)
+        execute_builtin_with_redirect(name, args, spec)
       else
-        # Normal builtin execution
         send("_#{name}", *args)
       end
     else
-      # Execute external command
       cmd_args = [name] + args
 
-      if redirect_in || redirect_out
-        # Execute with file redirection
-        execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
+      if redirect_spec_any?(spec)
+        if background
+          # The redirect file handles are scoped to the with_io_redirects
+          # ensure block; running async would close them before the sandbox
+          # task finishes writing. Not supported yet.
+          puts "shell: background with redirect not supported yet; running in foreground"
+        end
+        execute_with_file_redirect(cmd_args, spec)
+      elsif background
+        job = Job.new(*cmd_args)
+        @jobs << job
+        job.exec_async
+        puts "[#{@jobs.size - 1}] #{job.name}"
       else
-        # Normal execution
         job = Job.new(*cmd_args)
         @jobs << job
         job.exec
@@ -581,30 +624,95 @@ class Shell
   end
 
   def execute_pipeline_node(node)
+    if RUBY_ENGINE == "mruby/c"
+      # Pipelines require Task#fork (per-task forked global namespace) to
+      # isolate $stdout/$stdin per segment. mruby/c has Task::Queue now but
+      # not Task#fork yet, so warn and stop gracefully instead of raising an
+      # error. Once mruby/c gains Task#fork this guard can be removed.
+      puts "shell: pipelines (`|`) are not supported on FemtoRuby yet"
+      return
+    end
+    if node.data[:background]
+      # Backgrounding a pipeline would require lifecycle tracking for the
+      # whole segment group (queues, sandboxes, eventual pipe cleanup).
+      # Not implemented yet.
+      puts "shell: background pipeline not supported yet; running in foreground"
+    end
     commands = node.data[:commands]
 
-    # Extract redirects from the last command
-    last_cmd = commands.last
-    redirects = last_cmd.data[:redirects]
-
-    redirect_in = nil
-    redirect_out = nil
-    redirect_mode = nil
-
-    ri = 0
-    while ri < redirects.size
-      redir = redirects[ri]
-      case redir.data[:type]
-      when :input
-        redirect_in = redir.data[:target]
-      when :output
-        redirect_out = redir.data[:target]
-        redirect_mode = :write
-      when :append
-        redirect_out = redir.data[:target]
-        redirect_mode = :append
+    # Builtins (cd, echo, pwd, jobs, ...) run synchronously in the shell
+    # main task; they can't be sandboxed into a pipeline segment. Reject
+    # the whole pipeline up front so the user sees a clear message instead
+    # of a downstream "command not found".
+    ci = 0
+    while ci < commands.size
+      bname = commands[ci].data[:name]
+      if builtin?("_#{bname}")
+        puts "shell: builtin '#{bname}' cannot be used as a pipeline segment"
+        return
       end
-      ri += 1
+      ci += 1
+    end
+
+    last_idx = commands.size - 1
+
+    # Build a per-pipeline redirect spec.
+    # Rules:
+    # - input (`<`) is taken from the FIRST segment only.
+    # - output (`>`, `>>`) and stderr (`2>`, `2>>`, `2>&1`) are taken from the
+    #   LAST segment only.
+    # - Other placements (middle segments, output on first, input on last,
+    #   stderr on non-last) are warned about and ignored.
+    spec = {
+      in: nil, out: nil, out_mode: nil,
+      err: nil, err_mode: nil, err_to_out: false
+    } #: redirect_spec
+
+    ci = 0
+    while ci < commands.size
+      cmd_redirects = commands[ci].data[:redirects]
+      ri = 0
+      while ri < cmd_redirects.size
+        redir = cmd_redirects[ri]
+        case redir.data[:type]
+        when :input
+          if ci == 0
+            spec[:in] = redir.data[:target]
+          else
+            puts "Warning: input redirect on non-first segment ignored"
+          end
+        when :output
+          if ci == last_idx
+            spec[:out] = redir.data[:target]
+            spec[:out_mode] = :write
+          else
+            puts "Warning: output redirect on non-last segment ignored"
+          end
+        when :append
+          if ci == last_idx
+            spec[:out] = redir.data[:target]
+            spec[:out_mode] = :append
+          else
+            puts "Warning: append redirect on non-last segment ignored"
+          end
+        when :stderr_output
+          # Stderr redirects are accepted on any segment because $stderr is
+          # a global swapped once for the whole pipeline. Last writer wins.
+          spec[:err] = redir.data[:target]
+          spec[:err_mode] = :write
+          spec[:err_to_out] = false
+        when :stderr_append
+          spec[:err] = redir.data[:target]
+          spec[:err_mode] = :append
+          spec[:err_to_out] = false
+        when :stderr_to_stdout
+          spec[:err] = nil
+          spec[:err_mode] = nil
+          spec[:err_to_out] = true
+        end
+        ri += 1
+      end
+      ci += 1
     end
 
     cmd_arrays = [] #: Array[Array[String]]
@@ -615,37 +723,14 @@ class Shell
       ci += 1
     end
 
-    if redirect_in || redirect_out
-      # Execute pipeline with file redirection
-      old_stdin = $stdin
-      old_stdout = $stdout
-
-      begin
-        if redirect_in
-          input_file = redirect_in
-          # @type var input_file: String
-          if File.exist?(input_file)
-            $stdin = File.open(input_file, 'r')
-          else
-            puts "#{input_file}: No such file or directory"
-            return
-          end
+    if redirect_spec_any?(spec)
+      with_io_redirects(spec) do
+        begin
+          pipeline = Pipeline.new(cmd_arrays)
+          pipeline.exec
+        rescue Exception => e
+          Shell.report_exception(e)
         end
-
-        if redirect_out
-          output_file = redirect_out
-          mode = redirect_mode == :append ? 'a' : 'w'
-          # @type var output_file: String
-          $stdout = File.open(output_file, mode)
-        end
-
-        pipeline = Pipeline.new(cmd_arrays)
-        pipeline.exec
-      ensure
-        $stdin.close if redirect_in && $stdin != old_stdin
-        $stdout.close if redirect_out && $stdout != old_stdout
-        $stdin = old_stdin
-        $stdout = old_stdout
       end
     else
       pipeline = Pipeline.new(cmd_arrays)
@@ -653,68 +738,112 @@ class Shell
     end
   end
 
-  def execute_with_file_redirect(cmd_args, redirect_in, redirect_out, redirect_mode)
-    old_stdin = $stdin
-    old_stdout = $stdout
-
+  # Apply a redirect spec, run the given block, then restore globals.
+  # Returns true on success, false if a required input file is missing.
+  # Order applied: stdin -> stdout -> stderr (so `> out 2>&1` lands stderr on
+  # the redirected stdout). `2>&1` written BEFORE the stdout redirect on the
+  # same command will still resolve stderr to the post-redirect stdout in
+  # this implementation, which differs slightly from bash; see plan doc.
+  def with_io_redirects(spec, &block)
+    saved_stdin = $stdin
+    saved_stdout = $stdout
+    saved_stderr = $stderr
+    opened = [] #: Array[File]
+    applied = false
     begin
-      # Setup input redirection
-      if redirect_in
-        if File.exist?(redirect_in)
-          $stdin = File.open(redirect_in, 'r')
-        else
-          puts "#{redirect_in}: No such file or directory"
-          return
+      if spec[:in]
+        unless File.exist?(spec[:in])
+          puts "#{spec[:in]}: No such file or directory"
+          return false
         end
+        f = File.open(spec[:in], 'r')
+        opened << f
+        $stdin = f
       end
-
-      # Setup output redirection
-      if redirect_out
-        mode = redirect_mode == :append ? 'a' : 'w'
-        $stdout = File.open(redirect_out, mode)
+      if spec[:out]
+        mode = spec[:out_mode] == :append ? 'a' : 'w'
+        f = File.open(spec[:out], mode)
+        opened << f
+        $stdout = f
       end
-
-      # Execute command
-      job = Job.new(*cmd_args)
-      job.exec
+      if spec[:err]
+        mode = spec[:err_mode] == :append ? 'a' : 'w'
+        f = File.open(spec[:err], mode)
+        opened << f
+        $stderr = f
+      elsif spec[:err_to_out]
+        # snapshot current $stdout (may already be a redirected file)
+        $stderr = $stdout
+      end
+      applied = true
+      block.call
+      true
     ensure
-      # Close and restore
-      $stdin.close if redirect_in && $stdin != old_stdin
-      $stdout.close if redirect_out && $stdout != old_stdout
-      $stdin = old_stdin
-      $stdout = old_stdout
+      if applied
+        opened.each do |f|
+          begin
+            f.close
+          rescue Exception
+            # ignore close errors
+          end
+        end
+        $stdin = saved_stdin
+        $stdout = saved_stdout
+        $stderr = saved_stderr
+      end
     end
   end
 
-  def execute_builtin_with_redirect(name, args, redirect_in, redirect_out, redirect_mode)
-    old_stdin = $stdin
-    old_stdout = $stdout
-
+  def execute_with_file_redirect(cmd_args, spec)
+    if RUBY_ENGINE == "mruby/c"
+      # External commands run in a Sandbox task whose $stdin/$stdout/$stderr
+      # must be rebound per task via Task#fork, which mruby/c does not have
+      # yet. Without it the redirect is silently ignored and the command
+      # blocks on the real terminal, so warn and stop gracefully instead.
+      # Once mruby/c gains Task#fork this guard can be removed.
+      puts "shell: file redirection (`<`, `>`) is not supported on FemtoRuby yet"
+      return
+    end
+    out_f = nil #: File?
+    in_f  = nil #: File?
+    err_f = nil #: File?
     begin
-      # Setup input redirection
-      if redirect_in
-        if File.exist?(redirect_in)
-          $stdin = File.open(redirect_in, 'r')
-        else
-          puts "#{redirect_in}: No such file or directory"
-          return
+      if spec[:out]
+        mode = spec[:out_mode] == :append ? 'a' : 'w'
+        out_f = File.open(spec[:out], mode)
+      end
+      if spec[:in]
+        unless File.exist?(spec[:in])
+          puts "#{spec[:in]}: No such file or directory"
+          return false
         end
+        in_f = File.open(spec[:in], 'r')
       end
-
-      # Setup output redirection
-      if redirect_out
-        mode = redirect_mode == :append ? 'a' : 'w'
-        $stdout = File.open(redirect_out, mode)
+      if spec[:err]
+        mode = spec[:err_mode] == :append ? 'a' : 'w'
+        err_f = File.open(spec[:err], mode)
+      elsif spec[:err_to_out]
+        err_f = out_f
       end
-
-      # Execute builtin command
-      send("_#{name}", *args)
+      job = Job.new(*cmd_args, stdout: out_f, stdin: in_f, stderr: err_f)
+      job.exec
+    rescue Exception => e
+      Shell.report_exception(e)
     ensure
-      # Close and restore
-      $stdin.close if redirect_in && $stdin != old_stdin
-      $stdout.close if redirect_out && $stdout != old_stdout
-      $stdin = old_stdin
-      $stdout = old_stdout
+      out_f.close if out_f && !out_f.closed?
+      in_f.close  if in_f  && !in_f.closed?
+      # Only close err_f if it is distinct from out_f (err_to_out case shares the handle)
+      err_f.close if err_f && err_f != out_f && !err_f.closed?
+    end
+  end
+
+  def execute_builtin_with_redirect(name, args, spec)
+    with_io_redirects(spec) do
+      begin
+        send("_#{name}", *args)
+      rescue Exception => e
+        Shell.report_exception(e)
+      end
     end
   end
 
@@ -907,4 +1036,3 @@ class Shell
   end
 
 end
-
