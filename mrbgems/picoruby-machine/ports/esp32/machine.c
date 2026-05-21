@@ -22,6 +22,8 @@
 
 #if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
 #include "hal/usb_serial_jtag_ll.h"
+#include "esp_intr_alloc.h"
+#include "soc/periph_defs.h"
 #endif
 
 #define ESP32_MSEC_PER_TICK       (10)
@@ -68,26 +70,50 @@ picorb_hal_stdin_push(uint8_t ch)
   return RingBuffer_push(stdin_rb, ch);
 }
 
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+
+static TaskHandle_t stdin_task_handle = NULL;
+
+static void IRAM_ATTR
+usb_serial_jtag_rx_isr(void *arg)
+{
+  (void)arg;
+  usb_serial_jtag_ll_clr_intsts_mask(USB_SERIAL_JTAG_INTR_SERIAL_OUT_RECV_PKT);
+  BaseType_t woken = pdFALSE;
+  vTaskNotifyGiveFromISR(stdin_task_handle, &woken);
+  portYIELD_FROM_ISR(woken);
+}
+
 static void
 stdin_reader_task(void *arg)
 {
   (void)arg;
   for (;;) {
-#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
-    if (usb_serial_jtag_ll_rxfifo_data_available()) {
-      uint8_t ch;
-      usb_serial_jtag_ll_read_rxfifo(&ch, 1);
-      picorb_hal_stdin_push(ch);
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
+    uint8_t buf[64];
+    uint32_t len = usb_serial_jtag_ll_read_rxfifo(buf, sizeof(buf));
+    for (uint32_t i = 0; i < len; i++) {
+      if (!picorb_hal_stdin_push(buf[i])) break;
     }
-#else
-    int c = fgetc(stdin);
-    if (c != EOF) {
-      picorb_hal_stdin_push((uint8_t)c);
+  }
+}
+
+#else /* !CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG */
+
+static void
+stdin_reader_task(void *arg)
+{
+  (void)arg;
+  for (;;) {
+    int c;
+    while ((c = fgetc(stdin)) != EOF) {
+      if (!picorb_hal_stdin_push((uint8_t)c)) break;
     }
-#endif
     vTaskDelay(pdMS_TO_TICKS(10));
   }
 }
+
+#endif /* CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG */
 
 static void
 alarm_handler(void *arg)
@@ -127,7 +153,19 @@ picorb_hal_init(void)
 #endif
 
   RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);
+#if CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG
+  {
+    TaskHandle_t h;
+    xTaskCreate(stdin_reader_task, "stdin_reader", 2048, NULL, tskIDLE_PRIORITY + 2, &h);
+    stdin_task_handle = h;
+    usb_serial_jtag_ll_clr_intsts_mask(USB_SERIAL_JTAG_INTR_SERIAL_OUT_RECV_PKT);
+    usb_serial_jtag_ll_ena_intr_mask(USB_SERIAL_JTAG_INTR_SERIAL_OUT_RECV_PKT);
+    esp_intr_alloc(ETS_USB_SERIAL_JTAG_INTR_SOURCE, ESP_INTR_FLAG_IRAM,
+                   usb_serial_jtag_rx_isr, NULL, NULL);
+  }
+#else
   xTaskCreate(stdin_reader_task, "stdin_reader", 2048, NULL, tskIDLE_PRIORITY + 1, NULL);
+#endif
 }
 
 #if defined(PICORB_VM_MRUBY)
