@@ -149,8 +149,8 @@ mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
   mrc_resolve_intern(ss->cc, ss->irep);
   struct RProc *proc = mrb_proc_new(mrb, (const mrb_irep *)ss->irep);
   proc->e.target_class = mrb->object_class;
-  mrb_task_proc_set(mrb, ss->task, proc);
   mrb_task_reset_context(mrb, ss->task);
+  mrb_task_proc_set(mrb, ss->task, proc);
 
   mrb_resume_task(mrb, ss->task);
   return mrb_true_value();
