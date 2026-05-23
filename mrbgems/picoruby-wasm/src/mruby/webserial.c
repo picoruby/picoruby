@@ -7,8 +7,6 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 
-#include "mruby_compiler.h"
-#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdbool.h>
@@ -25,6 +23,8 @@ extern struct RClass *class_JS_Object;
 extern const struct mrb_data_type picorb_js_obj_type;
 extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
 extern mrb_state *global_mrb;
+extern void push_event_to_callback_queue(mrb_state *mrb, uintptr_t callback_id, mrb_value event);
+extern void close_event_queue(mrb_state *mrb, uintptr_t callback_id);
 
 /*****************************************************
  * EM_JS helpers
@@ -555,91 +555,29 @@ EM_JS(int, serial_capture_get, (int ref_id, int stop), {
 /*
  * Called from JS for each chunk of received serial data.
  * data pointer is allocated by JS (_malloc) and freed by JS (_free) after this call.
+ * Each chunk is pushed directly into the consumer task's queue, eliminating
+ * the $_serial_recv_data global and the race where rapid chunks overwrote it.
  */
 EMSCRIPTEN_KEEPALIVE
 void
 serial_data_received(uintptr_t callback_id, const uint8_t *data, int length)
 {
   if (!global_mrb) return;
-
   mrb_value data_str = mrb_str_new(global_mrb, (const char *)data, length);
-  mrb_gv_set(global_mrb,
-    mrb_intern_lit(global_mrb, "$_serial_recv_data"),
-    data_str);
-
-  static char script[256];
-  snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu]&.call($_serial_recv_data)",
-    (unsigned long)callback_id);
-
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  const uint8_t *script_ptr = (const uint8_t *)script;
-  size_t size = strlen(script);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return;
-  }
-
-  mrb_value task = mrc_create_task(cc, irep,
-    mrb_nil_value(), mrb_nil_value(),
-    mrb_obj_value(global_mrb->object_class));
-
-  if (mrb_nil_p(task)) {
-    mrc_irep_free(cc, irep);
-    mrc_ccontext_free(cc);
-    fprintf(stderr, "serial_data_received: failed to create task\n");
-    return;
-  }
-
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
-    global_mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    if (global_mrb->exc) {
-      fprintf(stderr, "serial_data_received exception (inspect failed)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "serial_data_received exception: %s\n", RSTRING_PTR(exc_str));
-    }
-  }
+  push_event_to_callback_queue(global_mrb, callback_id, data_str);
 }
 
 /*
- * Called from JS when the serial port disconnects.
+ * Called from JS when the serial port disconnects (one-shot).
+ * Pushes a true sentinel and closes the queue so the consumer exits cleanly.
  */
 EMSCRIPTEN_KEEPALIVE
 void
 serial_disconnect_callback(uintptr_t callback_id)
 {
   if (!global_mrb) return;
-
-  static char script[256];
-  snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu]&.call()",
-    (unsigned long)callback_id);
-
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  const uint8_t *script_ptr = (const uint8_t *)script;
-  size_t size = strlen(script);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return;
-  }
-
-  mrb_value task = mrc_create_task(cc, irep,
-    mrb_nil_value(), mrb_nil_value(),
-    mrb_obj_value(global_mrb->object_class));
-
-  if (mrb_nil_p(task)) {
-    mrc_irep_free(cc, irep);
-    mrc_ccontext_free(cc);
-    fprintf(stderr, "serial_disconnect_callback: failed to create task\n");
-    return;
-  }
+  push_event_to_callback_queue(global_mrb, callback_id, mrb_true_value());
+  close_event_queue(global_mrb, callback_id);
 }
 
 /*****************************************************

@@ -804,10 +804,10 @@ EM_JS(int, js_set_timeout, (uintptr_t callback_id, int delay_ms), {
       return;
     }
     ccall(
-      'call_ruby_callback',
+      'call_ruby_callback_oneshot',
       'void',
       ['number', 'number'],
-      [callback_id, -1]  // -1 means no event object
+      [callback_id, -1]  // -1 means no event object; queue is closed inside oneshot
     );
     // Clean up after one-shot timer
     delete globalThis.picorubyTimeoutHandlers[callback_id];
@@ -1296,70 +1296,64 @@ ruby_value_to_js_ref(mrb_state *mrb, mrb_value value)
  * callback functions
  *****************************************************/
 
-inline static char*
-callback_script(uintptr_t callback_id, int event_ref_id)
-{
-  static char script[512];
-  snprintf(script, sizeof(script),
-    // Use safe navigation operator (&.) to avoid errors if callback is removed
-    // Chrome's autofill triggers events after removing listeners
-    "JS::Object::CALLBACKS[%lu]&.call($js_events[%d])",
-    callback_id, event_ref_id);
-  return script;
-}
-
 extern mrb_state *global_mrb;
 extern mrb_value main_task;
 
+/* Push one event value into the Task::Queue registered for callback_id. */
+void
+push_event_to_callback_queue(mrb_state *mrb, uintptr_t callback_id, mrb_value event)
+{
+  mrb_value queues = mrb_const_get(mrb, mrb_obj_value(class_JS_Object),
+    mrb_intern_lit(mrb, "EVENT_QUEUES"));
+  if (!mrb_hash_p(queues)) return;
+  mrb_value q = mrb_hash_get(mrb, queues, mrb_fixnum_value((mrb_int)callback_id));
+  if (mrb_nil_p(q)) return;
+  mrb_funcall_id(mrb, q, mrb_intern_lit(mrb, "push"), 1, event);
+}
+
+/* Close the Task::Queue for callback_id so its consumer task exits cleanly. */
+void
+close_event_queue(mrb_state *mrb, uintptr_t callback_id)
+{
+  mrb_value queues = mrb_const_get(mrb, mrb_obj_value(class_JS_Object),
+    mrb_intern_lit(mrb, "EVENT_QUEUES"));
+  if (!mrb_hash_p(queues)) return;
+  mrb_value q = mrb_hash_get(mrb, queues, mrb_fixnum_value((mrb_int)callback_id));
+  if (mrb_nil_p(q)) return;
+  mrb_funcall_id(mrb, q, mrb_intern_lit(mrb, "close"), 0);
+}
+
+/*
+ * Wrap event_ref_id as a Ruby value for pushing to the queue.
+ * Negative ref_id (no JS event, e.g. setTimeout) becomes true rather than nil
+ * so it does not trigger the consumer's loop-termination nil check.
+ */
+static mrb_value
+event_ref_to_ruby(mrb_state *mrb, int event_ref_id)
+{
+  return (event_ref_id < 0) ? mrb_true_value()
+                             : wrap_ref_as_js_object(mrb, event_ref_id);
+}
+
+/* Push event to queue (persistent listeners: addEventListener, onmessage, etc.) */
 EMSCRIPTEN_KEEPALIVE
 void
 call_ruby_callback(uintptr_t callback_id, int event_ref_id)
 {
-  if (!global_mrb) {
-    return;
-  }
+  if (!global_mrb) return;
+  push_event_to_callback_queue(global_mrb, callback_id,
+    event_ref_to_ruby(global_mrb, event_ref_id));
+}
 
-  mrb_value event = wrap_ref_as_js_object(global_mrb, event_ref_id);
-
-  mrb_value events = mrb_gv_get(global_mrb, MRB_GVSYM(js_events));
-  if (mrb_nil_p(events)) {
-    events = mrb_hash_new(global_mrb);
-    mrb_gv_set(global_mrb, MRB_GVSYM(js_events), events);
-  }
-  mrb_hash_set(global_mrb, events, mrb_fixnum_value(event_ref_id), event);
-
-  char *script = callback_script(callback_id, event_ref_id);
-
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  const uint8_t *script_ptr = (const uint8_t *)script;
-  size_t size = strlen(script);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return;
-  }
-
-  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
-
-  if (mrb_nil_p(task)) {
-    mrc_irep_free(cc, irep);
-    mrc_ccontext_free(cc);
-    fprintf(stderr, "Callback exception (failed to create task)\n");
-    return;
-  }
-
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
-    global_mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    if (global_mrb->exc) {
-      fprintf(stderr, "Callback exception (failed to inspect exception)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "Callback exception: %s\n", RSTRING_PTR(exc_str));
-    }
-  }
+/* Push event to queue then close it (one-shot listeners: setTimeout, onopen, etc.) */
+EMSCRIPTEN_KEEPALIVE
+void
+call_ruby_callback_oneshot(uintptr_t callback_id, int event_ref_id)
+{
+  if (!global_mrb) return;
+  push_event_to_callback_queue(global_mrb, callback_id,
+    event_ref_to_ruby(global_mrb, event_ref_id));
+  close_event_queue(global_mrb, callback_id);
 }
 
 

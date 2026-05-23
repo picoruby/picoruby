@@ -8,8 +8,6 @@
 #include "mruby/variable.h"
 #include "mruby/hash.h"
 
-#include "mruby_compiler.h"
-#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdbool.h>
@@ -18,6 +16,8 @@
 #include <string.h>
 
 extern mrb_state *global_mrb;
+extern void push_event_to_callback_queue(mrb_state *mrb, uintptr_t callback_id, mrb_value event);
+extern void close_event_queue(mrb_state *mrb, uintptr_t callback_id);
 
 typedef struct picorb_websocket {
   int ref_id;
@@ -126,7 +126,7 @@ EM_JS(void, ws_set_onopen, (int ref_id, uintptr_t callback_id), {
   ws.onopen = (event) => {
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
     ccall(
-      'call_ruby_callback',
+      'call_ruby_callback_oneshot',
       'void',
       ['number', 'number'],
       [callback_id, eventRefId]
@@ -141,55 +141,9 @@ call_ruby_callback_with_binary_data(uintptr_t callback_id, uint8_t *data, int le
     free(data);
     return;
   }
-
   mrb_value data_str = mrb_str_new(global_mrb, (const char *)data, length);
   free(data);
-
-  static int data_id = 0;
-  data_id++;
-
-  mrb_value events = mrb_gv_get(global_mrb, MRB_GVSYM(js_events));
-  if (mrb_nil_p(events)) {
-    events = mrb_hash_new(global_mrb);
-    mrb_gv_set(global_mrb, MRB_GVSYM(js_events), events);
-  }
-  mrb_hash_set(global_mrb, events, mrb_fixnum_value(data_id), data_str);
-
-  char script[256];
-  snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu]&.call($js_events[%d])",
-    (unsigned long)callback_id, data_id);
-
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  const uint8_t *script_ptr = (const uint8_t *)script;
-  size_t size = strlen(script);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return;
-  }
-
-  mrb_value task = mrc_create_task(cc, irep, mrb_nil_value(), mrb_nil_value(), mrb_obj_value(global_mrb->object_class));
-
-  if (mrb_nil_p(task)) {
-    mrc_irep_free(cc, irep);
-    mrc_ccontext_free(cc);
-    fprintf(stderr, "WebSocket callback exception (failed to create task)\n");
-    return;
-  }
-
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
-    global_mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    if (global_mrb->exc) {
-      fprintf(stderr, "WebSocket callback exception (failed to inspect exception)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "WebSocket callback exception: %s\n", RSTRING_PTR(exc_str));
-    }
-  }
+  push_event_to_callback_queue(global_mrb, callback_id, data_str);
 }
 
 EM_JS(void, ws_set_onmessage, (int ref_id, uintptr_t callback_id), {
@@ -226,7 +180,7 @@ EM_JS(void, ws_set_onerror, (int ref_id, uintptr_t callback_id), {
   ws.onerror = (event) => {
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
     ccall(
-      'call_ruby_callback',
+      'call_ruby_callback_oneshot',
       'void',
       ['number', 'number'],
       [callback_id, eventRefId]
@@ -239,7 +193,7 @@ EM_JS(void, ws_set_onclose, (int ref_id, uintptr_t callback_id), {
   ws.onclose = (event) => {
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
     ccall(
-      'call_ruby_callback',
+      'call_ruby_callback_oneshot',
       'void',
       ['number', 'number'],
       [callback_id, eventRefId]

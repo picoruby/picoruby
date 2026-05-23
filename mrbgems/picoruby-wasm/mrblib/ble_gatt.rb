@@ -165,7 +165,7 @@ module JS
         # The block receives binary String data on each notification.
         def on_change(&block)
           callback_id = block.object_id
-          JS::Object::CALLBACKS[callback_id] = block
+          JS::Object._spawn_event_consumer(callback_id, block)
           JS::BLE._set_notify_handler(@js_char, callback_id)
         end
 
