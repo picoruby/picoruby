@@ -76,6 +76,7 @@ module MRuby
       end
       common
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include"
       cc.defines << "PICORB_VM_MRUBY"
       cc.defines << "MRB_USE_TASK_SCHEDULER"
 

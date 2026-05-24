@@ -25,6 +25,7 @@ module MRuby
       alias :author= :authors=
 
       attr_accessor :rbfiles, :objs
+      attr_reader :port_objs
       attr_writer :test_objs, :test_rbfiles
       attr_accessor :test_args, :test_preload
 
@@ -43,6 +44,7 @@ module MRuby
       def initialize(name, &block)
         @name = name
         @initializer = block
+        @post_user_config = nil
         @version = "0.0.0"
         @dependencies = []
         @conflicts = []
@@ -53,13 +55,27 @@ module MRuby
         return if defined?(@bins)  # return if already set up
 
         MRuby::Gem.current = self
-        MRuby::Build::COMMANDS.each do |command|
-          instance_variable_set("@#{command}", @build.send(command).clone)
-        end
-        @linker.run_attrs.each(&:clear)
+        reset_commands # for backward compatibility, reset the commands from the beginning.
+        @build_settings = nil
 
         @rbfiles = Dir.glob("#{@dir}/mrblib/**/*.rb").sort
         @objs = srcs_to_objs("src")
+
+        # Add platform-specific sources from the first matching
+        # ports/<name>/ directory.  effective_ports is a fallback
+        # chain: later names act as defaults for gems that don't ship
+        # a port for the earlier names.  These objs are tracked
+        # separately so List#resolve_external_hal! can drop them when
+        # an external HAL provider (gem named hal-<short>-*) is loaded.
+        @port_objs = []
+        build.effective_ports.each do |port|
+          port_dir = "#{@dir}/ports/#{port}"
+          if File.directory?(port_dir)
+            @port_objs = srcs_to_objs("ports/#{port}")
+            @objs += @port_objs
+            break
+          end
+        end
 
         @test_preload = nil # 'test/assert.rb'
         @test_args = {}
@@ -70,7 +86,10 @@ module MRuby
 
         @requirements = []
         @export_include_paths = []
-        @export_include_paths << "#{dir}/include" if File.directory? "#{dir}/include"
+        # Headers in include/ are for inter-gem use only
+        # Headers in include/export/ are exported to external users via mruby-config
+        export_dir = "#{dir}/include/export"
+        @export_include_paths << export_dir if File.directory?(export_dir)
 
         instance_eval(&@initializer)
 
@@ -84,6 +103,7 @@ module MRuby
         build.libmruby_objs << @objs
 
         instance_eval(&@build_config_initializer) if @build_config_initializer
+        instance_eval(&@post_user_config) if @post_user_config
 
         repo_url = build.gem_dir_to_repo_url[dir]
         build.locks[repo_url]['version'] = version if repo_url
@@ -108,7 +128,8 @@ module MRuby
         if build.kind_of?(MRuby::CrossBuild)
           return %w(x86_64-w64-mingw32 i686-w64-mingw32).include?(build.host_target)
         elsif build.kind_of?(MRuby::Build)
-          return ('A'..'Z').to_a.any? { |vol| Dir.exist?("#{vol}:") }
+          return ('A'..'Z').to_a.any? { |vol| Dir.exist?("#{vol}:") } ||
+                 ('a'..'z').to_a.any? { |vol| Dir.exist?("/#{vol}/") }
         end
         return false
       end
@@ -189,6 +210,32 @@ module MRuby
         exts = compilers.flat_map{|c| c.source_exts} * ","
         Dir["#{@dir}/#{src_dir_from_gem_dir}/*{#{exts}}"].map do |f|
           objfile(f.relative_path_from(@dir).to_s.pathmap("#{build_dir}/%X"))
+        end
+      end
+
+      # Register a block that runs after the user's `build.gem` block has
+      # been processed.  Intended for gem authors to fill in defaults that
+      # depend on user-supplied configuration (e.g. auto-detect a library
+      # only if the user didn't specify which to use).
+      #
+      # Initialization order:
+      #   1. block in `MRuby::Gem::Specification.new` (gem author)
+      #   2. block in `build.gem` (user's build_config)
+      #   3. block in `post_user_config` (gem author, this hook)
+      def post_user_config(&block)
+        @post_user_config = block
+      end
+
+      def build_settings(&blk)
+        @build_settings = blk
+      end
+
+      def setup_build
+        if @build_settings
+          # by this point, build.cc or other commands may have been modified.
+          # therefore, reset the commands again before calling build_settings.
+          reset_commands
+          @build_settings.call(self)
         end
       end
 
@@ -303,6 +350,13 @@ module MRuby
 
         self
       end
+
+      private def reset_commands
+        MRuby::Build::COMMANDS.each do |command|
+          instance_variable_set("@#{command}", @build.send(command).clone)
+        end
+        @linker.run_attrs.each(&:clear)
+      end
     end # Specification
 
     class Version
@@ -401,7 +455,43 @@ module MRuby
         end
       end
 
-      def generate_gem_table build
+      def setup(build)
+        gemset = nil
+        begin
+          gemset_prev = gemset
+          self.each(&:setup)
+          gemset = self.setup_dependencies(build).keys.sort
+        end until gemset == gemset_prev
+        resolve_external_hal!
+      end
+
+      # A gem named `hal-<short>-<conf>` is treated as the external
+      # HAL provider for the gem whose name's last `-`-separated
+      # segment is <short> (e.g., hal-task-glib provides the HAL for
+      # mruby-task).  The target gem's ports/* sources are dropped
+      # from its object list -- the matching gem supplies the
+      # implementation.  Two or more matches is a build error.
+      def resolve_external_hal!
+        each do |target|
+          next if target.port_objs.nil? || target.port_objs.empty?
+          short = target.name.split('-').last
+          pattern = /\Ahal-#{Regexp.escape(short)}-.+\z/
+          overriders = select { |g| g != target && g.name =~ pattern }
+          next if overriders.empty?
+          if overriders.size > 1
+            fail "Multiple HAL providers for '#{target.name}': " +
+                 overriders.map(&:name).join(", ")
+          end
+          target.objs.reject! { |o| target.port_objs.include?(o) }
+        end
+      end
+
+      def setup_build
+        each(&:setup_build)
+        self
+      end
+
+      def setup_dependencies(build)
         gem_table = each_with_object({}) { |spec, h| h[spec.name] = spec }
 
         default_gems = {}
@@ -423,6 +513,12 @@ module MRuby
             default_gems[dep[:gem]] ||= default_gem_params(dep)
           end
         end
+
+        gem_table
+      end
+
+      def generate_gem_table(build)
+        gem_table = setup_dependencies(build)
 
         each do |g|
           g.dependencies.each do |dep|
@@ -504,6 +600,16 @@ module MRuby
           # as circular dependency has already detected in the caller.
           import_include_paths(dep_g)
 
+          # Add dependency's include/ to compiler paths (for inter-gem use)
+          dep_include = "#{dep_g.dir}/include"
+          if File.directory?(dep_include)
+            g.compilers.each do |compiler|
+              compiler.include_paths << dep_include
+              compiler.include_paths.uniq!
+            end
+          end
+
+          # Propagate any explicitly set export_include_paths
           dep_g.export_include_paths.uniq!
           g.compilers.each do |compiler|
             compiler.include_paths += dep_g.export_include_paths
