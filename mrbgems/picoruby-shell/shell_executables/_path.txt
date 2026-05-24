@@ -25,6 +25,7 @@
 /bin/rm
 /bin/setup_rtc
 /bin/setup_sdcard
+/bin/sl
 /bin/tail
 /bin/taskstat
 /bin/touch
