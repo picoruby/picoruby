@@ -2,8 +2,9 @@ module JS
   class Object
     # Global state (consider refactoring)
     $promise_responses: Hash[Integer, untyped]
-    $js_events: Hash[Integer, JS::Object]
     CALLBACKS: Hash[Integer, Proc]
+    EVENT_QUEUES: Hash[Integer, Task::Queue]
+    EVENT_TASKS: Hash[Integer, Task]
 
     # Property Access
     # Primitive JS values (string, number, boolean, null, undefined) are
@@ -28,6 +29,8 @@ module JS
     def addEventListener: (String event_type) { (JS::Event event) -> void } -> Integer
     def self.removeEventListener: (Integer callback_id) -> bool
     def self.register_callback: (String name) { (*untyped args) -> untyped } -> Integer
+    def self._spawn_event_consumer: (Integer callback_id, Proc block) -> Integer
+    def self._close_event_queue: (Integer callback_id) -> (Task::Queue | nil)
 
     # Async operations
     def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Response response) -> void } -> void

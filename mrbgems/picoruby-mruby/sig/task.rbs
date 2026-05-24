@@ -23,4 +23,21 @@ class Task
     @data: Hash[Symbol, untyped]
     def []: (Symbol key) -> untyped
   end
+
+  class Queue
+    def self.new: () -> Task::Queue
+    def push: (untyped obj) -> self
+    alias enq push
+    alias << push
+    def pop: (?bool non_block) -> untyped
+    alias deq pop
+    alias shift pop
+    def size: () -> Integer
+    alias length size
+    def empty?: () -> bool
+    def clear: () -> self
+    def close: () -> self
+    def closed?: () -> bool
+    def num_waiting: () -> Integer
+  end
 end
