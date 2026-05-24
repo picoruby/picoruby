@@ -9,8 +9,6 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 
-#include "mruby_compiler.h"
-#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdbool.h>
@@ -27,6 +25,7 @@ extern struct RClass *class_JS_Object;
 extern const struct mrb_data_type picorb_js_obj_type;
 extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
 extern mrb_state *global_mrb;
+extern void push_event_to_callback_queue(mrb_state *mrb, uintptr_t callback_id, mrb_value event);
 
 /*****************************************************
  * EM_JS helpers for binary data conversion
@@ -108,63 +107,8 @@ void
 ble_notify_callback(uintptr_t callback_id, const uint8_t *data, int length)
 {
   if (!global_mrb) return;
-
-  mrb_value callbacks = mrb_const_get(global_mrb,
-    mrb_obj_value(class_JS_Object), mrb_intern_lit(global_mrb, "CALLBACKS"));
-  if (!mrb_hash_p(callbacks)) return;
-  mrb_value callback = mrb_hash_get(global_mrb, callbacks,
-    mrb_fixnum_value((mrb_int)callback_id));
-  if (mrb_nil_p(callback)) return;
-
-  /* Push binary data to queue array */
-  mrb_sym queue_sym = mrb_intern_lit(global_mrb, "$_ble_notify_queue");
-  mrb_value queue = mrb_gv_get(global_mrb, queue_sym);
-  if (!mrb_array_p(queue)) {
-    queue = mrb_ary_new(global_mrb);
-    mrb_gv_set(global_mrb, queue_sym, queue);
-  }
   mrb_value data_str = mrb_str_new(global_mrb, (const char *)data, length);
-  mrb_ary_push(global_mrb, queue, data_str);
-
-  /* Build and execute callback script */
-  static char script[256];
-  snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu].call($_ble_notify_queue.shift)",
-    (unsigned long)callback_id);
-
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  const uint8_t *script_ptr = (const uint8_t *)script;
-  size_t size = strlen(script);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return;
-  }
-
-  mrb_value task = mrc_create_task(cc, irep,
-    mrb_nil_value(), mrb_nil_value(),
-    mrb_obj_value(global_mrb->object_class));
-
-  if (mrb_nil_p(task)) {
-    mrc_irep_free(cc, irep);
-    mrc_ccontext_free(cc);
-    fprintf(stderr, "BLE notify callback: failed to create task\n");
-    return;
-  }
-
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
-    global_mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    if (global_mrb->exc) {
-      fprintf(stderr, "BLE notify callback exception (inspect failed)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "BLE notify callback exception: %s\n",
-        RSTRING_PTR(exc_str));
-    }
-  }
+  push_event_to_callback_queue(global_mrb, callback_id, data_str);
 }
 
 /*****************************************************

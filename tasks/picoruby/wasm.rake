@@ -66,7 +66,9 @@ namespace :wasm do
 
   desc "Start local server for PicoRuby WASM"
   task :server do
-    sh "./mrbgems/picoruby-wasm/demo/bin/server.rb"
+    demo_dir = "mrbgems/picoruby-wasm/demo"
+    sh "./bin/picorbc -o #{demo_dir}/www/ruby/app.mrb #{demo_dir}/www/ruby/tutorial_helper.rb #{demo_dir}/www/ruby/tutorial_main.rb"
+    sh "./#{demo_dir}/bin/server.rb"
   end
 
   desc "Build debug and publish @picoruby/wasm-wasi to npm with 'debug' dist-tag"

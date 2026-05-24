@@ -21,14 +21,43 @@ module JS
   end
 
   class Object
-    CALLBACKS = {}
+    CALLBACKS    = {}
+    EVENT_QUEUES = {}
+    EVENT_TASKS  = {}
     $promise_responses = {}
-    $js_events = {}
+
+    # Spawn a long-lived consumer task that drains one Task::Queue per callback.
+    # The C dispatcher pushes events into the queue; the consumer calls the block.
+    def self._spawn_event_consumer(callback_id, block)
+      q = Task::Queue.new
+      EVENT_QUEUES[callback_id] = q
+      CALLBACKS[callback_id]    = block
+      EVENT_TASKS[callback_id]  = Task.new(name: "js-cb-#{callback_id}") do
+        loop do
+          ev = q.pop
+          break if ev.nil?
+          begin
+            block.call(ev)
+          rescue => e
+            warn "Callback #{callback_id}: #{e.class}: #{e.message}"
+          end
+        end
+        CALLBACKS.delete(callback_id)
+        EVENT_QUEUES.delete(callback_id)
+        EVENT_TASKS.delete(callback_id)
+      end
+      callback_id
+    end
+
+    def self._close_event_queue(callback_id)
+      q = EVENT_QUEUES[callback_id]
+      q&.close
+    end
 
     def addEventListener(event_type, &block)
       callback_id = block.object_id
       _add_event_listener(callback_id, event_type)
-      CALLBACKS[callback_id] = block
+      JS::Object._spawn_event_consumer(callback_id, block)
       callback_id
     end
 
@@ -43,11 +72,10 @@ module JS
       return false unless callback_id
       begin
         result = JS.global._js_remove_event_listener_wrapper(callback_id)
-        CALLBACKS.delete(callback_id) if result
+        _close_event_queue(callback_id) if result
         result
       rescue
-        # Ignore errors if wrapper doesn't exist
-        CALLBACKS.delete(callback_id)
+        _close_event_queue(callback_id)
         false
       end
     end
@@ -67,15 +95,15 @@ module JS
 
     def setTimeout(delay_ms, &block)
       callback_id = block.object_id
-      CALLBACKS[callback_id] = block
-      timer_id = _set_timeout(callback_id, delay_ms)
-      callback_id  # Return callback_id to use with clearTimeout
+      JS::Object._spawn_event_consumer(callback_id, block)
+      _set_timeout(callback_id, delay_ms)
+      callback_id
     end
 
     def clearTimeout(callback_id)
       return false unless callback_id
       success = _clear_timeout(callback_id)
-      CALLBACKS.delete(callback_id) if success
+      JS::Object._close_event_queue(callback_id) if success
       success
     end
 

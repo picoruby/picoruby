@@ -53,14 +53,14 @@ module JS
     # Register a block to be called with each received binary String chunk.
     def on_receive(&block)
       callback_id = block.object_id
-      JS::Object::CALLBACKS[callback_id] = block
+      JS::Object._spawn_event_consumer(callback_id, block)
       JS::WebSerial._start_reading(@js_port, callback_id)
     end
 
     # Register a block to be called when the port disconnects.
     def on_disconnect(&block)
       callback_id = block.object_id
-      JS::Object::CALLBACKS[callback_id] = block
+      JS::Object._spawn_event_consumer(callback_id, block)
       JS::WebSerial._set_on_disconnect(@js_port, callback_id)
     end
 
