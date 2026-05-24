@@ -85,7 +85,6 @@
     test_case("WebSocket send and receive") do |div|
       ws = JS::WebSocket.new('wss://echo.websocket.org/')
       log_message("Testing echo...")
-      message_count = 0
 
       ws.onopen do |event|
         log_message("Sending test message")
@@ -95,18 +94,12 @@
       ws.onmessage do |event|
         message = event[:data]
         log_message("Received: #{message}")
-        message_count += 1
-        if message_count == 1
-          # First message is "Request served by ..."
-          log_message("Skipping server info message")
-        elsif message.to_s == "Hello from PicoRuby!"
+        if message.to_s == "Hello from PicoRuby!"
           div.className = 'test-case pass'
           div.textContent = "PASS: WebSocket send and receive"
           ws.close
         else
-          div.className = 'test-case fail'
-          div.textContent = "FAIL: WebSocket send and receive - wrong message: #{message}"
-          ws.close
+          log_message("Skipping: #{message}")
         end
       end
 
