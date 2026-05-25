@@ -21,7 +21,7 @@ class Sandbox
         if rb.start_with?("RITE") # not valid RITE version
           raise RuntimeError, "#{path}: invalid RITE version: #{rb.byteslice(0, 8)}"
         end
-        unless compile(rb)
+        unless compile(rb, filename: path)
           raise RuntimeError, "#{path}: compile failed"
         end
         execute

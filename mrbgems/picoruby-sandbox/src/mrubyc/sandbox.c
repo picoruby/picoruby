@@ -93,12 +93,13 @@ c_sandbox_suspend(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
-sandbox_compile_sub(mrbc_vm *vm, mrbc_value *v, uint8_t *script, size_t size)
+sandbox_compile_sub(mrbc_vm *vm, mrbc_value *v, uint8_t *script, size_t size, const char *filename)
 {
   SS();
   free_ccontext(ss);
   init_options(ss->options);
   ss->cc = mrc_ccontext_new(NULL);
+  if (filename) mrc_ccontext_filename(ss->cc, filename);
   ss->cc->options = ss->options;
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep) mrc_irep_remove_lv(ss->cc, ss->irep);
@@ -125,7 +126,24 @@ c_sandbox_compile(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   uint8_t *script = GET_STRING_ARG(1);
   size_t size = strlen((const char *)script);
-  sandbox_compile_sub(vm, v, script, size);
+
+  MRBC_KW_ARG(filename);
+  const char *fn = NULL;
+  if (MRBC_KW_ISVALID(filename)) {
+    if (mrbc_type(filename) != MRBC_TT_STRING) {
+      MRBC_KW_DELETE(filename);
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "filename must be String");
+      return;
+    }
+    fn = (const char *)mrbc_string_cstr(&filename);
+    if (strlen(fn) >= UINT16_MAX) {
+      MRBC_KW_DELETE(filename);
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "filename too long");
+      return;
+    }
+  }
+  sandbox_compile_sub(vm, v, script, size, fn);
+  MRBC_KW_DELETE(filename);
 }
 
 static void
@@ -133,7 +151,7 @@ c_sandbox_compile_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   uint8_t *script = (uint8_t *)(intptr_t)GET_INT_ARG(1);
   size_t size = GET_INT_ARG(2);
-  sandbox_compile_sub(vm, v, script, size);
+  sandbox_compile_sub(vm, v, script, size, NULL);
 }
 
 static void
