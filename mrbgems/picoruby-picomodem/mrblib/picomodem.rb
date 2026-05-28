@@ -37,6 +37,8 @@ module PicoModem
 
   CHUNK_SIZE = 480
   TIMEOUT_MS = 5000
+  # Cap per-call read_nonblock so io-console's caller-sized stack VLA stays small on ESP32/mruby-c.
+  READ_NONBLOCK_MAX = 64
 
   # Run a PicoModem session: read frames, dispatch commands, return to shell
   def self.session(io_in, io_out)
@@ -132,7 +134,9 @@ module PicoModem
     buf = ""
     waited = 0
     while buf.bytesize < n
-      chunk = io.read_nonblock(n - buf.bytesize)
+      want = n - buf.bytesize
+      want = READ_NONBLOCK_MAX if READ_NONBLOCK_MAX < want
+      chunk = io.read_nonblock(want)
       if chunk
         buf << chunk
         waited = 0
