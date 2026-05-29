@@ -260,26 +260,66 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
   if (!sock || !data || !sock->pcb || sock->state != SOCKET_STATE_CONNECTED) {
     return -1;
   }
+  const uint8_t *ptr = (const uint8_t *)data;
+  size_t total_sent = 0;
+  int wait_loops = 200; /* about 2 seconds with 10ms waits */
 
-  lwip_begin();
-  err_t err = altcp_write(sock->pcb, data, len, TCP_WRITE_FLAG_COPY);
-  if (err != ERR_OK) {
+  while (total_sent < len) {
+    u16_t sndbuf;
+    size_t chunk_len;
+
+    lwip_begin();
+    sndbuf = altcp_sndbuf(sock->pcb);
     lwip_end();
-    return -1;
-  }
 
-  err = altcp_output(sock->pcb);
-  lwip_end();
+    if (sndbuf == 0) {
+      if (sock->state != SOCKET_STATE_CONNECTED) {
+        return total_sent > 0 ? (ssize_t)total_sent : -1;
+      }
+      if (wait_loops-- <= 0) {
+        return total_sent > 0 ? (ssize_t)total_sent : -1;
+      }
+      Net_busy_wait_ms(10);
+      continue;
+    }
+
+    chunk_len = len - total_sent;
+    if (chunk_len > sndbuf) {
+      chunk_len = sndbuf;
+    }
+
+    lwip_begin();
+    err_t err = altcp_write(sock->pcb, ptr + total_sent, chunk_len, TCP_WRITE_FLAG_COPY);
+    if (err == ERR_OK) {
+      err = altcp_output(sock->pcb);
+    }
+    lwip_end();
 
 #ifdef PICO_CYW43_ARCH_POLL
-  cyw43_arch_poll();
+    cyw43_arch_poll();
 #endif
 
-  if (err != ERR_OK) {
-    return -1;
+    if (err == ERR_OK) {
+      total_sent += chunk_len;
+      wait_loops = 200;
+      continue;
+    }
+
+    if (err == ERR_MEM) {
+      if (sock->state != SOCKET_STATE_CONNECTED) {
+        return total_sent > 0 ? (ssize_t)total_sent : -1;
+      }
+      if (wait_loops-- <= 0) {
+        return total_sent > 0 ? (ssize_t)total_sent : -1;
+      }
+      Net_busy_wait_ms(10);
+      continue;
+    }
+
+    return total_sent > 0 ? (ssize_t)total_sent : -1;
   }
 
-  return (ssize_t)len;
+  return (ssize_t)total_sent;
 }
 
 /* Receive data */
