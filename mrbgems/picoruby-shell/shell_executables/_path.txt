@@ -23,6 +23,8 @@
 /etc/init.d/r2p2
 /bin/rapicco
 /bin/rm
+/bin/run
+/bin/recv
 /bin/setup_rtc
 /bin/setup_sdcard
 /bin/sl
