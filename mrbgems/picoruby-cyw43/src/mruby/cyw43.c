@@ -40,6 +40,7 @@ mrb_s_initialized_p(mrb_state *mrb, mrb_value klass)
 
 #ifdef USE_WIFI
 static bool cyw43_arch_sta_mode_enabled = false;
+static bool cyw43_arch_ap_mode_enabled = false;
 
 static mrb_value
 mrb_s_enable_sta_mode(mrb_state *mrb, mrb_value klass)
@@ -72,6 +73,40 @@ mrb_s_disable_sta_mode(mrb_state *mrb, mrb_value klass)
 }
 
 static bool cyw43_arch_connected = false;
+
+static mrb_value
+mrb_s_enable_ap_mode(mrb_state *mrb, mrb_value klass)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  const char *ssid;
+  const char *pass;
+  mrb_int auth = CYW43_CONST_auth_wpa2_aes_psk();
+  mrb_get_args(mrb, "zz|i", &ssid, &pass, &auth);
+  if (!cyw43_arch_ap_mode_enabled) {
+    CYW43_arch_enable_ap_mode(ssid, pass, auth);
+    cyw43_arch_ap_mode_enabled = true;
+    return mrb_true_value();
+  } else {
+    return mrb_false_value();
+  }
+}
+
+static mrb_value
+mrb_s_disable_ap_mode(mrb_state *mrb, mrb_value klass)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  if (cyw43_arch_ap_mode_enabled) {
+    CYW43_arch_disable_ap_mode();
+    cyw43_arch_ap_mode_enabled = false;
+    return mrb_true_value();
+  } else {
+    return mrb_false_value();
+  }
+}
 
 static mrb_value
 mrb_s_connect_timeout(mrb_state *mrb, mrb_value klass)
@@ -217,6 +252,8 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
 #ifdef USE_WIFI
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_sta_mode), mrb_s_enable_sta_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disable_sta_mode), mrb_s_disable_sta_mode, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_ap_mode), mrb_s_enable_ap_mode, MRB_ARGS_ARG(2, 1));
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disable_ap_mode), mrb_s_disable_ap_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(connect_timeout), mrb_s_connect_timeout, MRB_ARGS_ARG(3, 1));
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disconnect), mrb_s_disconnect, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(tcpip_link_status), mrb_s_tcpip_link_status, MRB_ARGS_NONE());
