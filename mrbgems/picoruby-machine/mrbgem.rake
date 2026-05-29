@@ -6,6 +6,13 @@ MRuby::Gem::Specification.new('picoruby-machine') do |spec|
   spec.add_dependency 'picoruby-require'
   spec.add_dependency 'picoruby-io-console'
 
+  if build.posix?
+    # The POSIX port runs a dedicated stdin reader thread to emulate the
+    # UART/CDC RX interrupt used on bare-metal targets (see ports/posix/machine.c).
+    spec.cc.flags << '-pthread'
+    spec.linker.flags << '-pthread'
+  end
+
   if build.gems.map(&:name).include?('picoruby-mruby')
     # Workaround:
     #   Locate mruby-io at the top of gem_init.c

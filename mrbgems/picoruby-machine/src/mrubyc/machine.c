@@ -296,7 +296,10 @@ c_machine_check_signal(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
-#if !defined(PICORB_PLATFORM_POSIX)
+/* gets/getc read stdin through the HAL so Ctrl-C (byte 0x03) and the
+ * pseudo-SIGINT set by the stdin reader become Interrupt. Compiled on
+ * every platform; on POSIX they are wired to bareword Kernel#gets/#getc
+ * (see mrblib/kernel.rb) so posix-io keeps handling file IO. */
 static void
 c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -308,6 +311,11 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
     if (c == 3) {
       raise_interrupt(vm);
       return;
+#if defined(PICORB_PLATFORM_POSIX)
+    } else if (c == 26) {
+      raise_sigtstp(vm);
+      return;
+#endif
     } else if (c == HAL_GETCHAR_EOF) {
       if (str.string->size == 0) {
         SET_NIL_RETURN();
@@ -320,6 +328,12 @@ c_gets(mrbc_vm *vm, mrbc_value *v, int argc)
       if (c == '\n' || c == '\r') {
         break;
       }
+#if defined(PICORB_PLATFORM_POSIX)
+    } else {
+      /* HAL_GETCHAR_NODATA: yield so we do not busy-spin while the stdin
+       * reader thread fills the ring buffer. */
+      Machine_busy_wait_ms(1);
+#endif
     }
   }
   SET_RETURN(str);
@@ -335,6 +349,8 @@ c_getc(mrbc_vm *vm, mrbc_value *v, int argc)
     str.string->size = 1;
   }
 }
+
+#if !defined(PICORB_PLATFORM_POSIX)
 
 static void
 c_io_read(mrbc_vm *vm, mrbc_value *v, int argc)
@@ -464,5 +480,11 @@ mrbc_machine_init(mrbc_vm *vm)
    * puts, print are implemented in mrblib/io.rb using write method
    * p is implemented in mrblib/kernel.rb
    */
+#else
+  /* POSIX keeps posix-io for general IO (files), but stdin must be read
+   * through the HAL ring buffer so Ctrl-C becomes Interrupt. mrblib/kernel.rb
+   * wires these onto bareword Kernel#gets/#getc. */
+  mrbc_define_method(vm, module_Machine, "_stdin_gets", c_gets);
+  mrbc_define_method(vm, module_Machine, "_stdin_getc", c_getc);
 #endif
 }

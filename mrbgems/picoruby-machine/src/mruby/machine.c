@@ -293,7 +293,12 @@ mrb_io_write(mrb_state *mrb, mrb_value self)
   }
   return mrb_fixnum_value(total);
 }
+#endif
 
+/* gets/getc read stdin through the HAL so Ctrl-C (byte 0x03) and the
+ * pseudo-SIGINT set by the stdin reader become Interrupt. Compiled on
+ * every platform; on POSIX they are wired to the STDIN singleton (see
+ * mrblib/kernel.rb) so mruby-io keeps handling file IO. */
 static mrb_value
 mrb_io_gets(mrb_state *mrb, mrb_value self)
 {
@@ -333,6 +338,7 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
   return str;
 }
 
+#if !defined(PICORB_PLATFORM_POSIX)
 static mrb_value
 mrb_io_read(mrb_state *mrb, mrb_value self)
 {
@@ -467,6 +473,12 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_IO, MRB_SYM(read), mrb_io_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
+#else
+  /* POSIX keeps mruby-io for general IO (files), but stdin must be read
+   * through the HAL ring buffer so Ctrl-C becomes Interrupt. mrblib/kernel.rb
+   * wires these onto the STDIN singleton. */
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_gets), mrb_io_gets, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif
 }
 
