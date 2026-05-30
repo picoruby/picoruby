@@ -494,10 +494,11 @@ class Shell
               sandbox.suspend
             end
             if executed
-              if sandbox.result.is_a?(Exception)
-                puts "#{sandbox.result.message} (#{sandbox.result.class})"
+              result = sandbox.result
+              if result.is_a?(Exception)
+                puts "#{result.message} (#{result.class})"
               else
-                puts "=> #{sandbox.result.inspect}"
+                puts "=> #{result.inspect}"
               end
             end
             buffer.clear
