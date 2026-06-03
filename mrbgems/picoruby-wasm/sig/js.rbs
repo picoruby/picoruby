@@ -53,6 +53,7 @@ module JS
     def querySelectorAll: (String selector) -> JS::Object # Use .to_a to iterate
     def children: () -> JS::Object # Use .to_a to iterate
     def parentElement: () -> JS::Element?
+    def parentNode: () -> JS::Element?
     def tagName: () -> String
     def style: () -> JS::Object
     def item: (String | Integer num) -> JS::Object?
