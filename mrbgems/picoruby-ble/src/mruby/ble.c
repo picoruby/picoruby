@@ -124,7 +124,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
 
   if (mrb_string_p(profile)) {
     /* Protect profile_data from GC */
-    //mrbc_incref(&v[1]);
+    mrb_gc_register(mrb, profile);
     profile_data = (const uint8_t *)RSTRING_PTR(profile);
   } else if (mrb_nil_p(profile)) {
     profile_data = NULL;
