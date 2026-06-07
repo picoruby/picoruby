@@ -1,5 +1,9 @@
 require 'mbedtls'
-require 'cyw43'
+begin
+  require 'cyw43'
+rescue LoadError
+  # CYW43 only exists on RP2040W builds. ESP32 / host builds skip.
+end
 
 class BLE
   HCI_STATE_OFF = 0
@@ -78,9 +82,11 @@ class BLE
   def initialize(role, profile_data = nil)
     @role = role
     @debug = false
-    unless CYW43.init
-      puts "Failed to initialize CYW43"
-      return # raising an exception here may cause a crash
+    if Object.const_defined?(:CYW43)
+      unless CYW43.init
+        puts "Failed to initialize CYW43"
+        return # raising an exception here may cause a crash
+      end
     end
     _init(profile_data)
     init_central if @role == :central
