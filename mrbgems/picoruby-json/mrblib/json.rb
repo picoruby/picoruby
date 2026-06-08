@@ -650,9 +650,12 @@ module JSON
 
       i = start
       while i < end_index
-        # @type var ord: Integer
-        ord = @json.getbyte(i) or raise JSON::ParserError.new("Invalid number format")
-        result = result * 10 + (ord - 48) # '0'.ord is 48
+        # start/end_index are character indices (consistent with @index and
+        # Regexp match offsets), so index by character here. getbyte takes a
+        # byte offset and would read the wrong byte once a multibyte character
+        # appears earlier in the string.
+        char = @json[i] or raise JSON::ParserError.new("Invalid number format")
+        result = result * 10 + (char.ord - 48) # '0'.ord is 48
         i += 1
       end
 
@@ -672,8 +675,10 @@ module JSON
       while i < end_index
         case @json[i]
         when '0'..'9'
-          # @type var ord: Integer
-          byte = @json.getbyte(i) or raise JSON::ParserError.new("Invalid number format")
+          # Index by character: start/end_index are character indices, so
+          # getbyte (byte offset) would misread once a multibyte character
+          # appears earlier in the string.
+          byte = @json[i].ord
           if parsing_exponent
             exponent = exponent * 10 + (byte - 48) # '0'.ord is 48
           elsif decimal_divider == 1.0
