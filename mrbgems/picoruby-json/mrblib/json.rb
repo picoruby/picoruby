@@ -678,7 +678,7 @@ module JSON
           # Index by character: start/end_index are character indices, so
           # getbyte (byte offset) would misread once a multibyte character
           # appears earlier in the string.
-          byte = @json[i].ord
+          byte = @json[i]&.ord or raise "Invalid number format"
           if parsing_exponent
             exponent = exponent * 10 + (byte - 48) # '0'.ord is 48
           elsif decimal_divider == 1.0
