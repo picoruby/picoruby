@@ -25,7 +25,11 @@ class Shell
     key = "#{type}_#{name}".upcase
     DeviceInstances[key] ||= case key
     when 'GPIO_TRIGGER_NMBLE'
-      GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
+      if ENV[key] == false # skip if explicit false
+        nil
+      else
+        GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
+      end
     when 'GPIO_LED_BLE', 'GPIO_LED_WIFI'
       begin
         if ENV[key].nil? || ENV[key] == 'cyw43_led'

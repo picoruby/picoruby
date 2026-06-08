@@ -25,11 +25,6 @@ module MRuby
       build
     end
 
-    def mrubyc_hal_arm
-      cc.defines << "MRBC_TICK_UNIT=1"
-      cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
-    end
-
     def vm_mruby?
       cc.defines.include?("PICORB_VM_MRUBY")
     end
