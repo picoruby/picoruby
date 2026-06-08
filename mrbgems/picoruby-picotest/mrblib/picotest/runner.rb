@@ -101,7 +101,10 @@ module Picotest
             print Picotest::RESET
             puts outputs[0]
             print Picotest::RESET
-            unless outputs[1].nil?
+            if outputs[1].nil?
+              @result[klass.to_s] = empty_result
+              @result[klass.to_s]["crashes"] << "Test runner exited before emitting Picotest result JSON"
+            else
               @result[klass.to_s] = JSON.parse(outputs[1])
             end
           end
@@ -124,6 +127,17 @@ module Picotest
           end
         end
       end
+    end
+
+    def empty_result
+      {
+        "success_count" => 0,
+        "failures" => [],
+        "exceptions" => [],
+        "crashes" => [],
+        "skipped_count" => 0,
+        "skipped" => []
+      }
     end
 
     def summarize
