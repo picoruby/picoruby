@@ -15,7 +15,7 @@ applications in the browser.
 ## Requirements
 
 - Chrome 102 or later
-- A PicoRuby.WASM application loaded from the **`@debug` dist-tag**
+- A PicoRuby.WASM application loaded from a debug package such as `@picoruby/wasm-wasi@X.Y.Z-debug`
 
 The debugger requires the `mrb_debug_*` API which is only present in debug
 builds. The production package (`@picoruby/wasm-wasi@latest`) does not include
@@ -24,17 +24,19 @@ remains inactive.
 
 ### Using the debug package (no local build required)
 
-Replace your script tag or import with the `@debug` dist-tag:
+Replace your script tag or import with a debug package:
 
 ```html
 <!-- CDN -->
-<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@debug/dist/init.iife.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@X.Y.Z-debug/dist/init.iife.js"></script>
 ```
 
 ```js
 // npm
-import { loadPicoRuby } from '@picoruby/wasm-wasi@debug';
+import { loadPicoRuby } from '@picoruby/wasm-wasi@X.Y.Z-debug';
 ```
+
+Use `@head-debug` when you need the latest HEAD debug build.
 
 Switch back to `@latest` before deploying to production.
 

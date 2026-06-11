@@ -365,11 +365,11 @@ class PicoRubyDebugger {
           'typeof window.picorubyModule._mrb_debug_get_status'
         ).then(apiResult => {
           if (apiResult === 'undefined') {
-            this.updateStatus('Release build detected — use @picoruby/wasm-wasi@debug');
+            this.updateStatus('Release build detected — use a debug PicoRuby.wasm package');
             this.appendReplInfo(
               'This page uses a release build of PicoRuby.WASM.\n' +
               'The debug API is not available.\n' +
-              'Switch to @picoruby/wasm-wasi@debug to use the debugger.'
+              'Switch to @picoruby/wasm-wasi@X.Y.Z-debug or @picoruby/wasm-wasi@head-debug to use the debugger.'
             );
             return;
           }
