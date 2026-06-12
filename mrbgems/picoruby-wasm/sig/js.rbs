@@ -2,6 +2,7 @@ module JS
   class Object
     # Global state (consider refactoring)
     $promise_responses: Hash[Integer, untyped]
+    $promise_errors: Hash[Integer, untyped]
     CALLBACKS: Hash[Integer, Proc]
     EVENT_QUEUES: Hash[Integer, Task::Queue]
     EVENT_TASKS: Hash[Integer, Task]
