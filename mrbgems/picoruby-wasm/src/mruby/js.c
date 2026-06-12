@@ -5,6 +5,7 @@
 #include "mruby/class.h"
 #include "mruby/compile.h"
 #include "mruby/data.h"
+#include "mruby/error.h"
 #include "mruby/hash.h"
 #include "mruby/numeric.h"
 #include "mruby/presym.h"
@@ -90,6 +91,34 @@ EM_JS(void, init_js_refs, (), {
     };
   }
 });
+
+EM_JS(int, js_last_error_length, (), {
+  const message = globalThis.picorubyLastError;
+  return message ? lengthBytesUTF8(message) : 0;
+});
+
+EM_JS(void, js_copy_last_error, (char *buffer, int buffer_size), {
+  const message = globalThis.picorubyLastError;
+  if (!message) {
+    globalThis.picorubyLastError = null;
+    return;
+  }
+  stringToUTF8(message, buffer, buffer_size);
+  globalThis.picorubyLastError = null;
+});
+
+static void
+raise_js_last_error(mrb_state *mrb)
+{
+  int len = js_last_error_length();
+  if (len <= 0) return;
+
+  char *buffer = (char *)mrb_malloc(mrb, len + 1);
+  js_copy_last_error(buffer, len + 1);
+  mrb_value message = mrb_str_new_cstr(mrb, buffer);
+  mrb_free(mrb, buffer);
+  mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, message));
+}
 
 EM_JS(bool, is_array_like, (int ref_id), {
   const obj = globalThis.picorubyRefs[ref_id];
@@ -317,6 +346,7 @@ EM_JS(int, get_length, (int ref_id), {
 })
 
 EM_JS(int, call_method, (int ref_id, const char* method, const char* arg, int arg_len), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -340,12 +370,13 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg, int ar
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_method_no_arg, (int ref_id, const char* method), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -359,12 +390,13 @@ EM_JS(int, call_method_no_arg, (int ref_id, const char* method), {
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -373,11 +405,12 @@ EM_JS(void, call_method_no_return, (int ref_id, const char* method), {
       func.call(obj);
     }
   } catch(e) {
-    console.error('call_method_no_return error:', e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
   }
 });
 
 EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -400,12 +433,13 @@ EM_JS(int, call_method_int, (int ref_id, const char* method, int arg), {
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, int arg1_len, const char *arg2, int arg2_len), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -430,12 +464,13 @@ EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, i
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -460,12 +495,13 @@ EM_JS(int, call_method_with_ref, (int ref_id, const char* method, int arg_ref_id
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_ref_1_id, int arg_ref_2_id), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -491,12 +527,13 @@ EM_JS(int, call_method_with_ref_ref, (int ref_id, const char* method, int arg_re
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int arg1_ref_id, const char* arg2_str, int arg2_len, const char* arg3_str, int arg3_len), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -517,12 +554,13 @@ EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int ar
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error('Error in call_method_with_ref_str_str:', e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* args_json, int args_json_len), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
@@ -568,12 +606,13 @@ EM_JS(int, call_method_with_args, (int ref_id, const char* method, const char* a
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error('Error in call_method_with_args:', e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_constructor_with_args, (int ref_id, const char* args_json, int args_json_len), {
+  globalThis.picorubyLastError = null;
   try {
     const ctor = globalThis.picorubyRefs[ref_id];
     if (typeof ctor !== 'function') {
@@ -614,7 +653,7 @@ EM_JS(int, call_constructor_with_args, (int ref_id, const char* args_json, int a
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error('Error in call_constructor_with_args:', e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
@@ -623,6 +662,7 @@ EM_JS(int, call_constructor_with_args, (int ref_id, const char* args_json, int a
 // arguments as a JSON array encoded with the same tagged-value format used by
 // call_method_with_args. Used by JS::Function#call.
 EM_JS(int, js_function_apply_args, (int func_ref_id, const char* args_json, int args_json_len), {
+  globalThis.picorubyLastError = null;
   try {
     const fn = globalThis.picorubyRefs[func_ref_id];
     if (typeof fn !== 'function') {
@@ -654,12 +694,13 @@ EM_JS(int, js_function_apply_args, (int func_ref_id, const char* args_json, int 
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error('Error in js_function_apply_args:', e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
 
 EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const char* options_json), {
+  globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
     const urlStr = UTF8ToString(url);
@@ -670,7 +711,7 @@ EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const cha
     globalThis.picorubyRefs.push(result);
     return newRefId;
   } catch(e) {
-    console.error(e);
+    globalThis.picorubyLastError = e && typeof e.message === 'string' ? e.message : String(e);
     return -1;
   }
 });
@@ -688,18 +729,21 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
         [mrb_ptr, task_ptr, callback_id, resultId]
       );
     }
-//  ).catch(
-//    (error) => {
-//      console.error('Promise rejected:', error);
-//      const errorString = (error && error.toString) ? error.toString() : 'Unknown error';
-//      const errPtr = stringToUTF8(errorString);
-//      ccall(
-//        'resume_promise_error_task',
-//        'void',
-//        ['number', 'number', 'number', 'number'],
-//        [mrb_ptr, task_ptr, callback_id, errPtr]
-//      );
-//    }
+  ).catch(
+    (error) => {
+      const message = error && typeof error.message === 'string'
+        ? error.message
+        : String(error);
+      const size = lengthBytesUTF8(message) + 1;
+      const errorPtr = _malloc(size);
+      stringToUTF8(message, errorPtr, size);
+      ccall(
+        'resume_promise_error_task',
+        'void',
+        ['number', 'number', 'number', 'number'],
+        [mrb_ptr, task_ptr, callback_id, errorPtr]
+      );
+    }
   );
 });
 
@@ -1167,6 +1211,16 @@ js_ref_to_ruby_value(mrb_state *mrb, int ref_id)
   }
 }
 
+static mrb_value
+js_ref_to_ruby_value_or_raise(mrb_state *mrb, int ref_id)
+{
+  if (ref_id < 0) {
+    raise_js_last_error(mrb);
+    return mrb_nil_value();
+  }
+  return js_ref_to_ruby_value(mrb, ref_id);
+}
+
 /*
  * Convert Ruby value to JavaScript reference ID
  * Returns ref_id on success, -1 on error
@@ -1381,18 +1435,28 @@ resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id
   mrb_resume_task(mrb, task);
 }
 
-//EMSCRIPTEN_KEEPALIVE
-//void
-//resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, char *errmsg)
-//{
-//  fprintf(stderr, "Promise rejected: %s\n", errmsg);
-//  mrb_state *mrb = (mrb_state *)mrb_ptr;
-//  if (!mrb) return;
-//  mrb_value exc = mrb_exc_new_str(mrb, E_RUNTIME_ERROR, mrb_str_new_cstr(mrb, errmsg));
-//  mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
-//  mrb_resume_task_with_raise(mrb, task, exc);
-//  free(errmsg);
-//}
+EMSCRIPTEN_KEEPALIVE
+void
+resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, char *errmsg)
+{
+  mrb_state *mrb = (mrb_state *)mrb_ptr;
+  if (!mrb) {
+    free(errmsg);
+    return;
+  }
+
+  mrb_value errors = mrb_gv_get(mrb, MRB_GVSYM(promise_errors));
+  if (mrb_nil_p(errors)) {
+    errors = mrb_hash_new(mrb);
+    mrb_gv_set(mrb, MRB_GVSYM(promise_errors), errors);
+  }
+
+  mrb_hash_set(mrb, errors, mrb_fixnum_value(callback_id), mrb_str_new_cstr(mrb, errmsg));
+  free(errmsg);
+
+  mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
+  mrb_resume_task(mrb, task);
+}
 
 EMSCRIPTEN_KEEPALIVE
 void
@@ -1864,19 +1928,19 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
 
   if (is_constructor_call) {
     new_ref_id = call_constructor_with_ruby_args(mrb, js_obj->ref_id, argv, argc, has_block ? callback_ref_id : -1);
-    return js_ref_to_ruby_value(mrb, new_ref_id);
+    return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
   }
 
   if (has_block) {
     new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, callback_ref_id);
-    return js_ref_to_ruby_value(mrb, new_ref_id);
+    return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
   }
 
   if (argc == 0) {
     int js_type = get_js_property_type(js_obj->ref_id, method_name);
     if (js_type == JS_TYPE_FUNCTION) {
       new_ref_id = call_method_no_arg(js_obj->ref_id, method_name);
-      return js_ref_to_ruby_value(mrb, new_ref_id);
+      return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
     }
     // Try to get property
     mrb_value property_obj = get_js_property(mrb, js_obj->ref_id, method_name);
@@ -1886,6 +1950,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     // If property doesn't exist, try calling as method
     new_ref_id = call_method_no_arg(js_obj->ref_id, method_name);
     if (new_ref_id < 0) {
+      raise_js_last_error(mrb);
       return mrb_nil_value();
     }
   } else if (argc == 1) { // One argument
@@ -1902,7 +1967,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
       // (and any other supported Ruby type) are forwarded correctly.
       new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     }
-    return js_ref_to_ruby_value(mrb, new_ref_id);
+    return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
   } else if (argc == 2) {
     new_ref_id = -1;
     if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object) && mrb_obj_is_kind_of(mrb, argv[1], class_JS_Object)) {
@@ -1914,7 +1979,7 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     } else {
       new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     }
-    return js_ref_to_ruby_value(mrb, new_ref_id);
+    return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
   } else if (argc == 3) {
     new_ref_id = -1;
     if (mrb_obj_is_kind_of(mrb, argv[0], class_JS_Object) && mrb_string_p(argv[1]) && mrb_string_p(argv[2])) {
@@ -1923,11 +1988,11 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
     } else {
       new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
     }
-    return js_ref_to_ruby_value(mrb, new_ref_id);
+    return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
   } else {
     // argc >= 4: generic JSON-based dispatch for any argument types
     new_ref_id = call_method_with_ruby_args(mrb, js_obj->ref_id, method_name, argv, argc, -1);
-    return js_ref_to_ruby_value(mrb, new_ref_id);
+    return js_ref_to_ruby_value_or_raise(mrb, new_ref_id);
   }
 
   return mrb_nil_value();
@@ -1971,7 +2036,7 @@ mrb_function_call(mrb_state *mrb, mrb_value self)
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
   int result_ref_id = apply_function_with_ruby_args(mrb, js_obj->ref_id, argv, argc);
-  return js_ref_to_ruby_value(mrb, result_ref_id);
+  return js_ref_to_ruby_value_or_raise(mrb, result_ref_id);
 }
 
 /*
@@ -2056,6 +2121,10 @@ mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_int callback_id;
   mrb_get_args(mrb, "zi", &url, &callback_id);
   int promise_id = call_method(obj->ref_id, "fetch", url, strlen(url));
+  if (promise_id < 0) {
+    raise_js_last_error(mrb);
+    return mrb_nil_value();
+  }
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 
@@ -2079,6 +2148,10 @@ mrb_object__fetch_with_options_and_suspend(mrb_state *mrb, mrb_value self)
   mrb_int callback_id;
   mrb_get_args(mrb, "zzi", &url, &options_json, &callback_id);
   int promise_id = call_fetch_with_json_options(obj->ref_id, url, options_json);
+  if (promise_id < 0) {
+    raise_js_last_error(mrb);
+    return mrb_nil_value();
+  }
 
   mrb_value current_task = mrb_funcall_id(mrb, mrb_obj_value(mrb_class_get_id(mrb, MRB_SYM(Task))), MRB_SYM(current), 0);
 

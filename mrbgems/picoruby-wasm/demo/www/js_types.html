@@ -164,6 +164,18 @@
       raise "call result: #{result.inspect}" unless result == 'HELLO'
     end
 
+    test_case("JS method throw is rescued as RuntimeError") do
+      JS.eval('globalThis.picorubyThrowSyncError = function() { throw new Error("sync error"); }')
+      begin
+        JS.global.picorubyThrowSyncError
+      rescue => e
+        raise "class: #{e.class}" unless e.is_a?(RuntimeError)
+        raise "message: #{e.message}" unless e.message == 'sync error'
+      else
+        raise "JS exception was not rescued"
+      end
+    end
+
     test_case("JS::Promise: dispatch via JS.eval") do
       p = JS.eval('Promise.resolve(99)')
       raise "not a JS::Promise: #{p.class}" unless p.is_a?(JS::Promise)
@@ -181,6 +193,18 @@
       seen = nil #: Integer?
       p.then { |v| seen = v.to_i }
       raise "then block did not run: got #{seen.inspect}" unless seen == 7
+    end
+
+    test_case("JS::Promise#await rescues rejected Error") do
+      p = JS.eval('Promise.reject(new Error("async error"))')
+      begin
+        p.await
+      rescue => e
+        raise "class: #{e.class}" unless e.is_a?(RuntimeError)
+        raise "message: #{e.message}" unless e.message == 'async error'
+      else
+        raise "Promise rejection was not rescued"
+      end
     end
 
     # ----- Phase 4: DOM domain subclasses -----

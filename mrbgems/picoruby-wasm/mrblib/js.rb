@@ -25,6 +25,7 @@ module JS
     EVENT_QUEUES = {}
     EVENT_TASKS  = {}
     $promise_responses = {}
+    $promise_errors = {}
 
     # Spawn a long-lived consumer task that drains one Task::Queue per callback.
     # The C dispatcher pushes events into the queue; the consumer calls the block.
@@ -88,6 +89,12 @@ module JS
         _fetch_with_options_and_suspend(url, options_json, callback_id)
       else
         _fetch_and_suspend(url, callback_id)
+      end
+      if $promise_errors.key?(callback_id)
+        message = $promise_errors[callback_id]
+        $promise_errors.delete(callback_id)
+        $promise_responses.delete(callback_id)
+        raise message
       end
       block.call($promise_responses[callback_id])
       $promise_responses.delete(callback_id)
@@ -168,6 +175,12 @@ module JS
     def await
       callback_id = self.object_id
       _await_and_suspend(callback_id)
+      if $promise_errors.key?(callback_id)
+        message = $promise_errors[callback_id]
+        $promise_errors.delete(callback_id)
+        $promise_responses.delete(callback_id)
+        raise message
+      end
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)
       result
