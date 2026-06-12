@@ -19,6 +19,7 @@ module PicoModem
 
   CHUNK_SIZE: Integer
   TIMEOUT_MS: Integer
+  READ_NONBLOCK_MAX: Integer
 
   def self.session: (IO io_in, IO io_out) -> void
   def self.recv_frame: (IO io) -> [Integer, String]?
