@@ -156,6 +156,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   pico_stdio
   pico_stdio_uart
   pico_bootsel_via_double_reset
+  pico_rand
   tinyusb_device
   tinyusb_board
   hardware_flash
