@@ -134,6 +134,14 @@ module MRuby
       cc.defines.include?("PICORB_PLATFORM_POSIX")
     end
 
+    def esp32?
+      name.start_with?('esp32')
+    end
+
+    def rp2040?
+      cc.defines.include?("PICORB_PLATFORM_RP2")
+    end
+
     def wasm?
       config = ENV['CONFIG'] || ENV['MRUBY_CONFIG']
       return true if config&.include?('picoruby-wasm')
