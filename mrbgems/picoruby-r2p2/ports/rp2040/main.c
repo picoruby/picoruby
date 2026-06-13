@@ -84,7 +84,7 @@ run_mruby_irep_task(const uint8_t *irep_blob, const char *task_name, int fallbac
   mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
   if (!mrb) {
     const char *msg = "mrb_open failed\n";
-    hal_write(1, msg, strlen(msg));
+    picorb_hal_write(1, msg, strlen(msg));
     return 1;
   }
 
@@ -98,8 +98,8 @@ run_mruby_irep_task(const uint8_t *irep_blob, const char *task_name, int fallbac
   {
     const char *tag = Machine_firmware_tag();
     if (tag) {
-      hal_write(1, tag, strlen(tag));
-      hal_write(1, "\n", 1);
+      picorb_hal_write(1, tag, strlen(tag));
+      picorb_hal_write(1, "\n", 1);
     }
   }
 #endif
@@ -109,7 +109,7 @@ run_mruby_irep_task(const uint8_t *irep_blob, const char *task_name, int fallbac
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
   if (!irep || !cc) {
     const char *msg = "mrb_read_irep failed\n";
-    hal_write(1, msg, strlen(msg));
+    picorb_hal_write(1, msg, strlen(msg));
     ret = 1;
     goto cleanup;
   }
@@ -118,7 +118,7 @@ run_mruby_irep_task(const uint8_t *irep_blob, const char *task_name, int fallbac
   mrb_value task = mrc_create_task(cc, irep, name, mrb_nil_value(), mrb_obj_value(mrb->top_self));
   if (mrb_nil_p(task)) {
     const char *msg = "mrbc_create_task failed\n";
-    hal_write(1, msg, strlen(msg));
+    picorb_hal_write(1, msg, strlen(msg));
     ret = 1;
   }
   else {
@@ -228,7 +228,7 @@ main(void)
   mrbc_tcb *main_tcb = mrbc_create_task(main_task, 0);
   if (!main_tcb) {
     const char *msg = "mrbc_create_task failed\n";
-    hal_write(1, msg, strlen(msg));
+    picorb_hal_write(1, msg, strlen(msg));
     ret = 1;
   }
   else {
