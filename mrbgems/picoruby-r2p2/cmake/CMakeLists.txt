@@ -107,15 +107,14 @@ add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE=1)
 
 set(PICORBC ${PICORUBY_ROOT}/bin/picorbc)
 
+option(PICORB_DEV_BOOT_STA_TIMER "Boot embedded STA timer app on pico2_w" OFF)
+
 add_custom_target(mrbdir ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/mrb
 )
 
 set(RUBY_FILES main_task)
-add_dependencies(${PROJECT_NAME}
-  mrbdir
-  ${RUBY_FILES}
-)
+set(RUBY_TARGETS ${RUBY_FILES})
 foreach(rb ${RUBY_FILES})
   add_custom_target(${rb}
     COMMAND
@@ -124,6 +123,23 @@ foreach(rb ${RUBY_FILES})
     DEPENDS ${R2P2_GEM_DIR}/mrblib/${rb}.rb
   )
 endforeach(rb)
+
+if(PICORB_DEV_BOOT_STA_TIMER AND PICO_BOARD STREQUAL "pico2_w" AND PICORB_VM_MRUBY)
+  add_compile_definitions(PICORB_DEV_BOOT_STA_TIMER=1)
+  set(STA_TIMER_BOOT_RB ${PICORUBY_ROOT}/mrbgems/picoruby-cyw43/example/pico_w_sta_timer.rb)
+  add_custom_target(sta_timer_boot
+    COMMAND
+      mkdir -p ${CMAKE_BINARY_DIR}/mrb &&
+      ${PICORBC} -Bsta_timer_boot -o${CMAKE_BINARY_DIR}/mrb/sta_timer_boot.c ${STA_TIMER_BOOT_RB}
+    DEPENDS ${STA_TIMER_BOOT_RB}
+  )
+  list(APPEND RUBY_TARGETS sta_timer_boot)
+endif()
+
+add_dependencies(${PROJECT_NAME}
+  mrbdir
+  ${RUBY_TARGETS}
+)
 
 target_link_directories(${PROJECT_NAME} PRIVATE
   ${EXTRA_LIBRARY_PATH}

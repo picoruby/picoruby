@@ -15,6 +15,9 @@
 #include "picoruby/debug.h"
 #include "hal.h" // in picoruby-machine
 #include "main_task.c"
+#if defined(PICORB_DEV_BOOT_STA_TIMER) && defined(PICORB_VM_MRUBY)
+#include "sta_timer_boot.c"
+#endif
 
 #if defined(PICORB_VM_MRUBY) && defined(PICORB_ALLOC_ESTALLOC)
 #include "../../picoruby-mruby/include/alloc.h"
@@ -64,8 +67,80 @@ heap_exit_critical(void)
   mrb_state *global_mrb = NULL;
 #endif
 
+#if defined(PICORB_VM_MRUBY) && defined(PICORB_DEV_BOOT_STA_TIMER)
+extern void Machine_devboot_register_api(mrb_state *mrb);
+extern const char *Machine_firmware_tag(void);
+#endif
+
 /* Linker symbol: bottom of C stack (top of heap region) */
 extern uint8_t __StackBottom[];
+
+#if defined(PICORB_VM_MRUBY)
+static int
+run_mruby_irep_task(const uint8_t *irep_blob, const char *task_name, int fallback_on_exit)
+{
+  int ret = 0;
+
+  mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
+  if (!mrb) {
+    const char *msg = "mrb_open failed\n";
+    hal_write(1, msg, strlen(msg));
+    return 1;
+  }
+
+#if defined(PICORB_ALLOC_ESTALLOC)
+  critical_section_init(&heap_critsec);
+  mrb_alloc_set_critical_section(heap_enter_critical, heap_exit_critical);
+#endif
+
+#if defined(PICORB_DEV_BOOT_STA_TIMER)
+  Machine_devboot_register_api(mrb);
+  {
+    const char *tag = Machine_firmware_tag();
+    if (tag) {
+      hal_write(1, tag, strlen(tag));
+      hal_write(1, "\n", 1);
+    }
+  }
+#endif
+
+  global_mrb = mrb;
+  mrc_irep *irep = mrb_read_irep(mrb, irep_blob);
+  mrc_ccontext *cc = mrc_ccontext_new(mrb);
+  if (!irep || !cc) {
+    const char *msg = "mrb_read_irep failed\n";
+    hal_write(1, msg, strlen(msg));
+    ret = 1;
+    goto cleanup;
+  }
+
+  mrb_value name = mrb_str_new_cstr(mrb, task_name);
+  mrb_value task = mrc_create_task(cc, irep, name, mrb_nil_value(), mrb_obj_value(mrb->top_self));
+  if (mrb_nil_p(task)) {
+    const char *msg = "mrbc_create_task failed\n";
+    hal_write(1, msg, strlen(msg));
+    ret = 1;
+  }
+  else {
+    mrb_task_run(mrb);
+    if (fallback_on_exit) {
+      ret = 1;
+    }
+  }
+
+  if (mrb->exc) {
+    mrb_print_error(mrb);
+    ret = 1;
+  }
+
+cleanup:
+  mrb_close(mrb);
+  if (cc) {
+    mrc_ccontext_free(cc);
+  }
+  return ret;
+}
+#endif
 
 static void
 gpio_set_in_pull_up(uint pin)
@@ -144,30 +219,10 @@ main(void)
   int ret = 0;
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
-#if defined(PICORB_ALLOC_ESTALLOC)
-  critical_section_init(&heap_critsec);
-  mrb_alloc_set_critical_section(heap_enter_critical, heap_exit_critical);
+#if defined(PICORB_DEV_BOOT_STA_TIMER)
+  run_mruby_irep_task(sta_timer_boot, "STA_TIMER", 1);
 #endif
-  global_mrb = mrb;
-  mrc_irep *irep = mrb_read_irep(mrb, main_task);
-  mrc_ccontext *cc = mrc_ccontext_new(mrb);
-  mrb_value name = mrb_str_new_lit(mrb, "R2P2");
-  mrb_value task = mrc_create_task(cc, irep, name, mrb_nil_value(), mrb_obj_value(mrb->top_self));
-  if (mrb_nil_p(task)) {
-    const char *msg = "mrbc_create_task failed\n";
-    hal_write(1, msg, strlen(msg));
-    ret = 1;
-  }
-  else {
-    mrb_task_run(mrb);
-  }
-  if (mrb->exc) {
-    mrb_print_error(mrb);
-    ret = 1;
-  }
-  mrb_close(mrb);
-  mrc_ccontext_free(cc);
+  ret = run_mruby_irep_task(main_task, "R2P2", 0);
 #elif defined(PICORB_VM_MRUBYC)
   mrbc_init(heap_pool, HEAP_SIZE);
   mrbc_tcb *main_tcb = mrbc_create_task(main_task, 0);
@@ -185,4 +240,3 @@ main(void)
 #endif
   return ret;
 }
-

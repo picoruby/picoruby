@@ -27,6 +27,13 @@
 #include "hardware/structs/ioqspi.h"
 #include "hardware/structs/sio.h"
 
+#if defined(PICORB_VM_MRUBY) && defined(PICORB_DEV_BOOT_STA_TIMER)
+#include "../../../picoruby-mruby/lib/mruby/include/mruby.h"
+#include "../../../picoruby-mruby/lib/mruby/include/mruby/hash.h"
+#include "../../../picoruby-mruby/lib/mruby/include/mruby/string.h"
+#include "../../../picoruby-mruby/lib/mruby/include/mruby/presym.h"
+#endif
+
 /*-------------------------------------
  *
  * Signal flag (shared with machine.h)
@@ -34,6 +41,228 @@
  *------------------------------------*/
 
 volatile int sigint_status = 0; /* MACHINE_SIG_NONE */
+
+#if defined(PICORB_DEV_BOOT_STA_TIMER)
+#define MACHINE_DEVBOOT_FIRMWARE_TAG "DEVBOOT_STA_TIMER sha=7f13cc3e date=20260609"
+#define MACHINE_BOOTLOG_MAX_LINES 64
+#define MACHINE_BOOTLOG_LINE_SIZE 128
+
+static char machine_bootlog_lines[MACHINE_BOOTLOG_MAX_LINES][MACHINE_BOOTLOG_LINE_SIZE];
+static uint8_t machine_bootlog_lengths[MACHINE_BOOTLOG_MAX_LINES];
+static uint8_t machine_bootlog_head = 0;
+static uint8_t machine_bootlog_count = 0;
+
+void
+Machine_bootlog_clear(void)
+{
+  memset(machine_bootlog_lines, 0, sizeof(machine_bootlog_lines));
+  memset(machine_bootlog_lengths, 0, sizeof(machine_bootlog_lengths));
+  machine_bootlog_head = 0;
+  machine_bootlog_count = 0;
+}
+
+void
+Machine_bootlog_append(const char *ptr, size_t len)
+{
+  if (!ptr || len == 0) {
+    return;
+  }
+
+  size_t line_len = 0;
+  while (line_len < len) {
+    char ch = ptr[line_len];
+    if (ch == '\r' || ch == '\n') {
+      break;
+    }
+    line_len++;
+  }
+  if (line_len == 0) {
+    return;
+  }
+  if (MACHINE_BOOTLOG_LINE_SIZE <= line_len) {
+    line_len = MACHINE_BOOTLOG_LINE_SIZE - 1;
+  }
+
+  uint8_t index;
+  if (machine_bootlog_count < MACHINE_BOOTLOG_MAX_LINES) {
+    index = (uint8_t)((machine_bootlog_head + machine_bootlog_count) % MACHINE_BOOTLOG_MAX_LINES);
+    machine_bootlog_count++;
+  } else {
+    index = machine_bootlog_head;
+    machine_bootlog_head = (uint8_t)((machine_bootlog_head + 1) % MACHINE_BOOTLOG_MAX_LINES);
+  }
+
+  memcpy(machine_bootlog_lines[index], ptr, line_len);
+  machine_bootlog_lines[index][line_len] = '\0';
+  machine_bootlog_lengths[index] = (uint8_t)line_len;
+}
+
+typedef void (*machine_bootlog_each_callback)(const char *line, size_t len, void *user);
+
+void
+Machine_bootlog_each(machine_bootlog_each_callback callback, void *user)
+{
+  if (!callback) {
+    return;
+  }
+  for (uint8_t i = 0; i < machine_bootlog_count; i++) {
+    uint8_t index = (uint8_t)((machine_bootlog_head + i) % MACHINE_BOOTLOG_MAX_LINES);
+    size_t len = machine_bootlog_lengths[index];
+    if (len == 0) {
+      continue;
+    }
+    callback(machine_bootlog_lines[index], len, user);
+  }
+}
+
+#if defined(PICORB_VM_MRUBY)
+#include "../../../picoruby-mruby/lib/mruby/include/mruby.h"
+#include "../../../picoruby-mruby/lib/mruby/include/mruby/hash.h"
+#include "../../../picoruby-mruby/lib/mruby/include/mruby/string.h"
+#include "../../../picoruby-mruby/lib/mruby/include/mruby/presym.h"
+
+mrb_value mrb_alloc_statistics(mrb_state *mrb);
+void Machine_memstats_print(mrb_state *mrb, const char *label, size_t label_len);
+
+struct machine_bootlog_collect_ctx {
+  mrb_state *mrb;
+  mrb_value result;
+};
+
+static void
+machine_bootlog_collect_line(const char *line, size_t len, void *user)
+{
+  struct machine_bootlog_collect_ctx *ctx = (struct machine_bootlog_collect_ctx *)user;
+  if (len > 0) {
+    ctx->result = mrb_str_cat(ctx->mrb, ctx->result, line, len);
+  }
+  ctx->result = mrb_str_cat(ctx->mrb, ctx->result, "\n", 1);
+}
+
+static void
+machine_bootlog_print_line(const char *line, size_t len, void *user)
+{
+  (void)user;
+  if (!line || len == 0) {
+    return;
+  }
+
+  hal_write(1, line, len);
+  hal_write(1, "\n", 1);
+}
+
+static mrb_value
+mrb_s_bootlog_add(mrb_state *mrb, mrb_value self)
+{
+  mrb_value text;
+  mrb_get_args(mrb, "S", &text);
+  Machine_bootlog_append(RSTRING_PTR(text), (size_t)RSTRING_LEN(text));
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_s_bootlog_clear(mrb_state *mrb, mrb_value self)
+{
+  Machine_bootlog_clear();
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_s_bootlog(mrb_state *mrb, mrb_value self)
+{
+  int ai = mrb_gc_arena_save(mrb);
+  struct machine_bootlog_collect_ctx ctx;
+  ctx.mrb = mrb;
+  ctx.result = mrb_str_new(mrb, NULL, 0);
+  mrb_gc_protect(mrb, ctx.result);
+
+  Machine_bootlog_each(machine_bootlog_collect_line, &ctx);
+
+  mrb_gc_arena_restore(mrb, ai);
+  return ctx.result;
+}
+
+static mrb_value
+mrb_s_bootlog_print(mrb_state *mrb, mrb_value self)
+{
+  (void)mrb;
+  (void)self;
+  Machine_bootlog_each(machine_bootlog_print_line, NULL);
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_s_memstats(mrb_state *mrb, mrb_value self)
+{
+  mrb_value label;
+  mrb_get_args(mrb, "S", &label);
+  Machine_memstats_print(mrb, RSTRING_PTR(label), (size_t)RSTRING_LEN(label));
+  return mrb_nil_value();
+}
+
+void
+Machine_memstats_print(mrb_state *mrb, const char *label, size_t label_len)
+{
+  int ai = mrb_gc_arena_save(mrb);
+  mrb_value stats = mrb_alloc_statistics(mrb);
+  mrb_gc_protect(mrb, stats);
+  mrb_value total_val = mrb_hash_get(mrb, stats, mrb_symbol_value(MRB_SYM(total)));
+  mrb_value used_val = mrb_hash_get(mrb, stats, mrb_symbol_value(MRB_SYM(used)));
+  mrb_value free_val = mrb_hash_get(mrb, stats, mrb_symbol_value(MRB_SYM(free)));
+  mrb_value frag_val = mrb_hash_get(mrb, stats, mrb_symbol_value(MRB_SYM(frag)));
+  if (mrb_nil_p(frag_val)) {
+    frag_val = mrb_hash_get(mrb, stats, mrb_symbol_value(MRB_SYM(fragment)));
+  }
+  mrb_int total = mrb_nil_p(total_val) ? -1 : mrb_integer(total_val);
+  mrb_int used = mrb_nil_p(used_val) ? -1 : mrb_integer(used_val);
+  mrb_int free = mrb_nil_p(free_val) ? -1 : mrb_integer(free_val);
+  mrb_int frag = mrb_nil_p(frag_val) ? -1 : mrb_integer(frag_val);
+
+  char buf[160];
+  int len = snprintf(buf, sizeof(buf),
+    "MEM: label=%.*s total=%ld used=%ld free=%ld frag=%ld\n",
+    (int)label_len, label ? label : "",
+    (long)total, (long)used, (long)free, (long)frag);
+  if (0 < len) {
+    if ((size_t)len >= sizeof(buf)) {
+      len = (int)(sizeof(buf) - 1);
+    }
+    hal_write(1, buf, len);
+    Machine_bootlog_append(buf, (size_t)len);
+  }
+
+  mrb_gc_arena_restore(mrb, ai);
+}
+
+const char *
+Machine_firmware_tag(void)
+{
+  return MACHINE_DEVBOOT_FIRMWARE_TAG;
+}
+
+static mrb_value
+mrb_s_firmware_tag(mrb_state *mrb, mrb_value self)
+{
+  return mrb_str_new_cstr(mrb, Machine_firmware_tag());
+}
+
+void
+Machine_devboot_register_api(mrb_state *mrb)
+{
+  struct RClass *module_Machine = mrb_module_get(mrb, "Machine");
+  if (!module_Machine) {
+    module_Machine = mrb_define_module(mrb, "Machine");
+  }
+
+  mrb_define_class_method(mrb, module_Machine, "bootlog_add", mrb_s_bootlog_add, MRB_ARGS_REQ(1));
+  mrb_define_class_method(mrb, module_Machine, "bootlog", mrb_s_bootlog, MRB_ARGS_NONE());
+  mrb_define_class_method(mrb, module_Machine, "bootlog_print", mrb_s_bootlog_print, MRB_ARGS_NONE());
+  mrb_define_class_method(mrb, module_Machine, "bootlog_clear", mrb_s_bootlog_clear, MRB_ARGS_NONE());
+  mrb_define_class_method(mrb, module_Machine, "memstats", mrb_s_memstats, MRB_ARGS_REQ(1));
+  mrb_define_class_method(mrb, module_Machine, "firmware_tag", mrb_s_firmware_tag, MRB_ARGS_NONE());
+}
+#endif
+#endif
 
 /*-------------------------------------
  *
