@@ -43,6 +43,26 @@ class JsonTest < Picotest::Test
     assert_equal('"\\t"', JSON.generate("\t"))
   end
 
+  def test_parse_number_after_multibyte
+    # Regression: parse_integer/parse_float must index by character, not byte.
+    # A multibyte character earlier in the string makes the character index
+    # diverge from the byte index, which previously corrupted every number
+    # parsed after it (e.g. message ids collapsing to duplicate garbage values).
+    assert_equal([1, 2, 3],
+      JSON.parse('[{"id":1,"n":"a"},{"id":2,"n":"b"},{"id":3,"n":"c"}]').map { |m| m["id"] })
+    assert_equal([1, 2, 3],
+      JSON.parse('[{"id":1,"n":"マン"},{"id":2,"n":"b"},{"id":3,"n":"c"}]').map { |m| m["id"] })
+    # Multibyte UTF-8 bytes directly in the source string (not \u escaped).
+    assert_equal([1, 2, 3],
+      JSON.parse('[{"id":1,"n":"マン"},{"id":2,"n":"x"},{"id":3,"n":"y"}]').map { |m| m["id"] })
+    # Nested objects with a multibyte value, mirroring real ActionCable payloads.
+    nested = '[{"id":1,"u":{"n":"L-chikaマン"}},{"id":2,"u":{"n":"x"}},{"id":3,"u":{"n":"y"}}]'
+    assert_equal([1, 2, 3], JSON.parse(nested).map { |m| m["id"] })
+    # Floats and negatives after a multibyte character must also stay correct.
+    assert_equal({"name" => "日本", "lat" => 35.5, "offset" => -7},
+      JSON.parse('{"name":"日本","lat":35.5,"offset":-7}'))
+  end
+
   def test_generate_nested_json_string
     # Test for ActionCable-like nested JSON
     inner = JSON.generate({channel: "ChatChannel", room: "lobby"})

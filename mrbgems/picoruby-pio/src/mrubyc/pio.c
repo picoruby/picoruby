@@ -206,6 +206,26 @@ c_sm_exec(mrbc_vm *vm, mrbc_value *v, int argc)
   PIO_exec(config, (uint16_t)GET_INT_ARG(1));
 }
 
+static void
+c_sm_freq(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  pio_sm_config_t *config = (pio_sm_config_t *)v->instance->data;
+  SET_INT_RETURN((mrbc_int_t)config->freq);
+}
+
+static void
+c_sm_freq_eq(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  pio_sm_config_t *config = (pio_sm_config_t *)v->instance->data;
+  mrbc_int_t freq = GET_INT_ARG(1);
+  if (freq <= 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "freq must be positive");
+    return;
+  }
+  PIO_set_freq(config, (uint32_t)freq);
+  SET_INT_RETURN(freq);
+}
+
 void
 mrbc_pio_init(mrbc_vm *vm)
 {
@@ -230,4 +250,6 @@ mrbc_pio_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_SM, "clear_fifos", c_sm_clear_fifos);
   mrbc_define_method(vm, mrbc_class_SM, "drain_tx", c_sm_drain_tx);
   mrbc_define_method(vm, mrbc_class_SM, "exec", c_sm_exec);
+  mrbc_define_method(vm, mrbc_class_SM, "freq", c_sm_freq);
+  mrbc_define_method(vm, mrbc_class_SM, "freq=", c_sm_freq_eq);
 }

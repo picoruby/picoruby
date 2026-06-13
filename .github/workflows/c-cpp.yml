@@ -81,3 +81,33 @@ jobs:
     - name: Test FemtoRuby
       run: rake test:gems:femtoruby
 
+  test-wasm:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: '3.1.64'
+
+    - name: Test WASM
+      run: rake test:gems:wasm

@@ -20,10 +20,10 @@ debug_printf(const char *format, ...)
 #else
   char buffer[256];
   int len = vsnprintf(buffer, sizeof(buffer), format, args);
-  hal_write(2, buffer, len);
-  hal_write(2, "\r\n", 2);
+  picorb_hal_write(2, buffer, len);
+  picorb_hal_write(2, "\r\n", 2);
   len += 2;
-  hal_flush(2);
+  picorb_hal_flush(2);
 #endif
   va_end(args);
   return len;

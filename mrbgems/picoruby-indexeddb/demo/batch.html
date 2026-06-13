@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="../test.css">
+    <title>IndexedDB Phase C: Batch atomic transactions</title>
+  </head>
+  <body>
+    <div><a href="../index.html">Back</a></div>
+    <h1>IndexedDB Phase C: Batch</h1>
+    <p>
+      Verifies <code>Database#batch</code> atomic multi-store writes and
+      that await-bearing operations on <code>Batch::StoreView</code> raise
+      <code>AwaitInBatchError</code>.
+    </p>
+    <button id="run">Run Test</button>
+    <button id="reset">Delete Test DB</button>
+    <pre id="output"></pre>
+
+    <script type="text/ruby">
+      require 'js'
+
+      $log = JS.document.getElementById('output')
+
+      def log(msg)
+        $log.innerText = $log.innerText.to_s + msg.to_s + "\n"
+      end
+
+      def reset_log
+        $log.innerText = ''
+      end
+
+      def assert(label, expected, actual)
+        if expected == actual
+          log "PASS  #{label}"
+        else
+          log "FAIL  #{label}: expected #{expected.inspect}, got #{actual.inspect}"
+        end
+      end
+
+      JS.document.getElementById('run').addEventListener('click') do
+        reset_log
+        log "=== Phase C: Batch ==="
+        log ""
+
+        db_name = 'picoruby_idb_phase_c'
+
+        db = IndexedDB.open(db_name, version: 1) do |d, old_v, new_v|
+          log "upgrade: old=#{old_v} new=#{new_v}"
+          d.create_store('users', key_path: 'id') unless d.has_store?('users')
+          d.create_store('cache') unless d.has_store?('cache')
+        end
+
+        log "opened: #{db.name} v#{db.version}"
+        log ""
+
+        # Make sure stores are empty
+        db.store('users').clear
+        db.store('cache').clear
+
+        # --- Atomic multi-store batch write ---
+        log "-- batch: writes to two stores --"
+        db.batch(['users', 'cache'], mode: :readwrite) do |tx|
+          tx['users'].put({ 'id' => 1, 'name' => 'Alice' })
+          tx['users'].put({ 'id' => 2, 'name' => 'Bob' })
+          tx['users'].put({ 'id' => 3, 'name' => 'Carol' })
+          tx['cache'].put('hot', key: 'tier')
+          tx['cache'].put(42, key: 'count')
+        end
+
+        # Reads happen outside the batch (so they may await)
+        assert "users count after batch", 3, db.store('users').count
+        assert "cache count after batch", 2, db.store('cache').count
+        assert "users.get(1)", 'Alice', db.store('users').get(1)['name']
+        assert "cache.get('tier')", 'hot', db.store('cache').get('tier')
+        assert "cache.get('count')", 42, db.store('cache').get('count')
+
+        log ""
+
+        # --- Single-store batch (string instead of array) ---
+        log "-- batch: single-store, string arg --"
+        db.batch('users') do |tx|
+          tx['users'].delete(2)
+          tx['users'].put({ 'id' => 4, 'name' => 'Dave' })
+        end
+        assert "users count after single-store batch", 3, db.store('users').count
+        assert "users.get(2) deleted in batch", nil, db.store('users').get(2)
+        assert "users.get(4) added in batch", 'Dave', db.store('users').get(4)['name']
+
+        log ""
+
+        # --- Await guard: read inside batch raises ---
+        log "-- batch: read inside batch raises --"
+        raised = nil
+        begin
+          db.batch(['users']) do |tx|
+            tx['users'].get(1)
+          end
+        rescue IndexedDB::AwaitInBatchError => e
+          raised = e.message
+        end
+        if raised
+          log "PASS  AwaitInBatchError raised: #{raised}"
+        else
+          log "FAIL  expected AwaitInBatchError on tx['users'].get(...)"
+        end
+
+        log ""
+        log "-- batch: count inside batch raises --"
+        raised = nil
+        begin
+          db.batch(['users']) do |tx|
+            tx['users'].count
+          end
+        rescue IndexedDB::AwaitInBatchError => e
+          raised = e.message
+        end
+        if raised
+          log "PASS  AwaitInBatchError raised: #{raised}"
+        else
+          log "FAIL  expected AwaitInBatchError on tx['users'].count"
+        end
+
+        log ""
+
+        # --- StoreView caching: same view returned twice ---
+        log "-- batch: tx[name] returns cached view --"
+        cached_check = false
+        db.batch(['users']) do |tx|
+          v1 = tx['users']
+          v2 = tx['users']
+          cached_check = v1.equal?(v2)
+        end
+        assert "tx['users'] is cached", true, cached_check
+
+        log ""
+
+        # --- clear inside batch ---
+        log "-- batch: clear inside batch --"
+        db.batch(['cache']) do |tx|
+          tx['cache'].clear
+        end
+        assert "cache count after clear-batch", 0, db.store('cache').count
+
+        db.close
+        log ""
+        log "=== All Phase C tests complete ==="
+
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+        log e.backtrace.first(5).join("\n") if e.backtrace
+      end
+
+      JS.document.getElementById('reset').addEventListener('click') do
+        reset_log
+        log "deleting 'picoruby_idb_phase_c'..."
+        req = JS.global[:indexedDB].deleteDatabase('picoruby_idb_phase_c')
+        IndexedDB::Helper.request_to_promise(req).await
+        log "deleted; reload then click Run Test"
+      rescue => e
+        log "ERROR: #{e.class}: #{e.message}"
+      end
+    </script>
+    <script src="../init.iife.js"></script>
+  </body>
+</html>

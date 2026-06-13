@@ -4,16 +4,21 @@ Run Ruby in the browser. Powered by the mruby VM compiled to WebAssembly.
 
 ## PicoRuby Version Support
 
-|Version|Package|
-|:-----:|:-----:|
-|latest (recommended)|@picoruby/wasm-wasi@latest|
-|debug|@picoruby/wasm-wasi@debug|
-|head|@picoruby/wasm-wasi@head|
-|3.4.5|@picoruby/wasm-wasi@3.4.5|
-|0.9.6|@picoruby/wasm-wasi@0.9.6|
+|Tag or version      |Package                        |Build                 |
+|:------------------:|:-----------------------------:|:--------------------:|
+|latest (recommended)|@picoruby/wasm-wasi@latest     |production            |
+|X.Y.Z               |@picoruby/wasm-wasi@X.Y.Z      |production            |
+|X.Y.Z-debug         |@picoruby/wasm-wasi@X.Y.Z-debug|debug                 |
+|debug               |@picoruby/wasm-wasi@debug      |latest versioned debug|
+|head                |@picoruby/wasm-wasi@head       |production HEAD       |
+|head-debug          |@picoruby/wasm-wasi@head-debug |debug HEAD            |
 
 Use `@picoruby/wasm-wasi@latest` (or omit the tag entirely) to always get the most recent stable release.
-If you want to debug your application with Chrome extension PicoRuby Debugger, you need to use `@picoruby/wasm-wasi@debug`.
+If you want to debug your application with Chrome extension PicoRuby Debugger, use a debug build such as `@picoruby/wasm-wasi@X.Y.Z-debug`. The `@debug` tag points to the latest versioned debug build, and `@head-debug` points to the latest HEAD debug build.
+
+All published packages expose the runtime from the `dist/` path. For `@latest`, `@head`, and versioned production packages, `dist/` contains the production build. For `@X.Y.Z-debug`, `@debug`, and `@head-debug`, `dist/` contains the debug build.
+
+Maintainers build local artifacts with `rake wasm:prod` and `rake wasm:debug`. These write to `npm/picoruby/dist` and `npm/picoruby/debug` respectively. Publishing is handled by `rake wasm:npm:publish` for versioned production+debug packages, or `rake wasm:npm:publish_head` for HEAD production+debug packages.
 
 ## Quick Start
 
@@ -113,12 +118,14 @@ Use the **PicoRuby Debugger** Chrome extension to inspect running applications
 with an interactive Ruby REPL, `binding.irb` breakpoints, a step debugger,
 and a local-variable/call-stack inspector.
 
-The debugger requires the `@debug` dist-tag build:
+The debugger requires a debug build:
 
 ```html
 <!-- Use this during development instead of @latest -->
-<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@debug/dist/init.iife.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@X.Y.Z-debug/dist/init.iife.js"></script>
 ```
+
+The path still uses `dist/` because npm package entrypoints are always published from `dist/`; debug packages put debug artifacts there. Use `@head-debug` when you need the latest HEAD debug build.
 
 For full setup instructions see the
 [Debugging guide](https://github.com/picoruby/picoruby/blob/master/mrbgems/picoruby-wasm/docs/debugging.md).

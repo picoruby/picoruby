@@ -77,16 +77,21 @@ module Picotest
           test.list_tests.each do |t|
             f.puts "puts"
             f.puts "print '  #{klass.to_s}##{t} '"
-            f.puts "my_test.setup"
             f.puts "begin"
+            f.puts "  my_test.setup"
             f.puts "  my_test.#{t}"
             f.puts "rescue Picotest::Skip => e"
             f.puts "  my_test.report_skip({method: '#{t}', reason: e.message})"
             f.puts "rescue => e"
             f.puts "  my_test.report_exception({method: '#{t}', raise_message: e.message})"
+            f.puts "ensure"
+            f.puts "  begin"
+            f.puts "    my_test.teardown"
+            f.puts "  rescue => e"
+            f.puts "    my_test.report_exception({method: '#{t}', raise_message: \"teardown \#{e.class}: \#{e.message}\"})"
+            f.puts "  end"
+            f.puts "  my_test.clear_doubles"
             f.puts "end"
-            f.puts "my_test.teardown"
-            f.puts "my_test.clear_doubles"
           end
           f.puts "puts"
           f.print 'puts "', SEPARATOR, '"', "\n"
@@ -101,7 +106,10 @@ module Picotest
             print Picotest::RESET
             puts outputs[0]
             print Picotest::RESET
-            unless outputs[1].nil?
+            if outputs[1].nil?
+              @result[klass.to_s] = empty_result
+              @result[klass.to_s]["crashes"] << "Test runner exited before emitting Picotest result JSON"
+            else
               @result[klass.to_s] = JSON.parse(outputs[1])
             end
           end
@@ -124,6 +132,17 @@ module Picotest
           end
         end
       end
+    end
+
+    def empty_result
+      {
+        "success_count" => 0,
+        "failures" => [],
+        "exceptions" => [],
+        "crashes" => [],
+        "skipped_count" => 0,
+        "skipped" => []
+      }
     end
 
     def summarize

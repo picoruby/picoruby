@@ -46,9 +46,6 @@ MRuby::CrossBuild.new("prk_firmware-cortex-m0plus") do |conf|
 
   conf.gembox "prk_firmware"
 
-  conf.mrubyc_hal_arm
-  conf.picoruby(alloc_libc: false)
+  conf.femtoruby(alloc_libc: false)
 
 end
-
-

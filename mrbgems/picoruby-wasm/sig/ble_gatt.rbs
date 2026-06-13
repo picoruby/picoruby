@@ -10,14 +10,14 @@ module JS
       def self.normalize_uuid: (String uuid) -> (Integer | String)
 
       # Build JS array from Ruby array of UUID strings
-      def self.uuids_to_js_array: (Array[String] uuids) -> JS::Object
+      def self.uuids_to_js_array: (::Array[String] uuids) -> JS::Object
 
       # Request a BLE device via browser picker (must be called from user gesture)
       def self.request_device: (
         ?name: String,
         ?name_prefix: String,
-        ?services: Array[String],
-        ?optional_services: Array[String]
+        ?services: ::Array[String],
+        ?optional_services: ::Array[String]
       ) -> JS::BLE::GATT::Device?
 
       class Device

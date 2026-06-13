@@ -60,7 +60,11 @@ module MRuby
       def mruby_config_path
         path = ENV['MRUBY_CONFIG'] || ENV['CONFIG']
         if path.nil? || path.empty?
-          path = "#{MRUBY_ROOT}/build_config/default.rb"
+          path = if Dir.pwd != MRUBY_ROOT && File.file?("./build_config.rb")
+            "./build_config.rb"
+          else
+            "#{MRUBY_ROOT}/build_config/default.rb"
+          end
         elsif !File.file?(path) && !Pathname.new(path).absolute?
           f = "#{MRUBY_ROOT}/build_config/#{path}.rb"
           path = File.exist?(f) ? f : File.extname(path).empty? ? f : path
@@ -77,7 +81,7 @@ module MRuby
     include LoadGems
     attr_accessor :name, :bins, :exts, :file_separator, :build_dir, :gem_clone_dir, :defines, :libdir_name
     attr_reader :products, :libmruby_core_objs, :libmruby_objs, :gems, :toolchains, :presym, :mrbc_build, :gem_dir_to_repo_url
-    attr_reader :install_excludes
+    attr_reader :install_excludes, :port_names
 
     alias libmruby libmruby_objs
 
@@ -134,6 +138,7 @@ module MRuby
         @mrbcfile_external = false
         @internal = internal
         @toolchains = []
+        @port_names = nil
         @gem_dir_to_repo_url = {}
 
         # Add lambda instead of string because libdir_name or lib may be changed by user configuration
@@ -177,6 +182,30 @@ module MRuby
       @mrbc.compile_options += ' -g'
 
       @enable_debug = true
+    end
+
+    # Set target port names for this build.
+    # Each gem compiles the first matching ports/<name>/ directory;
+    # later names in the list act as fallbacks for gems that don't
+    # ship a port for the earlier names.
+    #   conf.ports :esp32
+    #   conf.ports :rp2040, :posix    # use rp2040 if available, else posix
+    def ports(*names)
+      @port_names = names.map { |n| n.to_s }
+    end
+
+    # Returns the effective port names for this build.
+    # If not explicitly set, auto-detects :posix or :win for host builds.
+    def effective_ports
+      return @port_names if @port_names
+      if kind_of?(MRuby::CrossBuild)
+        []
+      elsif ENV['OS'] == 'Windows_NT' ||
+            ('A'..'Z').any? { |v| Dir.exist?("#{v}:") }
+        ['win']
+      else
+        ['posix']
+      end
     end
 
     def disable_lock
@@ -595,9 +624,6 @@ EOS
       puts ">>> Bintest #{name} <<<"
       targets = @gems.select { |v| File.directory? "#{v.dir}/bintest" }.map { |v| filename v.dir }
       mrbc = @gems["mruby-bin-mrbc"] ? exefile("#{@build_dir}/bin/mrbc") : mrbcfile
-
-      emulator = @test_runner.command
-      emulator = @test_runner.shellquote(emulator) if emulator
 
       env = {
         "BUILD_DIR" => @build_dir,

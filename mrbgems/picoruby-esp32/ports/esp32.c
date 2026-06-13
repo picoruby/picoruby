@@ -1,4 +1,4 @@
-#if defined(CONFIG_ESP_WIFI_ENABLED)
+#if defined(USE_WIFI)
 
 #include <string.h>
 #include "esp_wifi.h"

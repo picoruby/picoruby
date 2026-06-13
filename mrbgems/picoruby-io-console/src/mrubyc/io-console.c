@@ -66,7 +66,7 @@ c_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   io_raw_bang(true);
   int c;
   for (len = 0; len < maxlen; len++) {
-    c = hal_getchar();
+    c = picorb_hal_getchar();
     if (!was_raw && c == 3) {
       raise_interrupt(vm);
       return;

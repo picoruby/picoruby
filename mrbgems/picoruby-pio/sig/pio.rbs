@@ -200,5 +200,7 @@ module PIO
     def clear_fifos: () -> void
     def drain_tx: () -> void
     def put_bytes: (String data) -> void
+    def freq: () -> Integer
+    def freq=: (Integer) -> Integer
   end
 end

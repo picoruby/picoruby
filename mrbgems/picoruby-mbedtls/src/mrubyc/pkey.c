@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <string.h>
+#include "mbedtls/platform_util.h"
 #include "mrubyc.h"
 
 #include "pkey.h"
@@ -141,6 +142,7 @@ c_mbedtls_pkey_rsa_new(mrbc_vm *vm, mrbc_value *v, int argc)
   MbedTLS_pkey_init(pk);
 
   int ret = MbedTLS_pkey_from_pem(pk, (const unsigned char *)pem_cstr, strlen(pem_cstr) + 1);
+  mbedtls_platform_zeroize(pem_cstr, arg1.string->size + 1);
   mrbc_free(vm, pem_cstr);
 
   if (ret != 0) {
@@ -231,6 +233,7 @@ c_mbedtls_pkey_ec_new(mrbc_vm *vm, mrbc_value *v, int argc)
   MbedTLS_pkey_init(pk);
 
   int ret = MbedTLS_pkey_from_pem_ec(pk, (const unsigned char *)pem_cstr, strlen(pem_cstr) + 1);
+  mbedtls_platform_zeroize(pem_cstr, arg1.string->size + 1);
   mrbc_free(vm, pem_cstr);
 
   if (ret != 0) {

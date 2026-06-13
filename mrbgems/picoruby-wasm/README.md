@@ -36,8 +36,8 @@ See [docs/architecture.md](docs/architecture.md) for the full design including i
 # Debug build
 rake wasm:debug
 
-# Release build
-rake wasm:release
+# Production build
+rake wasm:prod
 
 # Clean build artifacts
 rake wasm:clean

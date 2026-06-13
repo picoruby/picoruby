@@ -25,11 +25,6 @@ module MRuby
       build
     end
 
-    def mrubyc_hal_arm
-      cc.defines << "MRBC_TICK_UNIT=1"
-      cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
-    end
-
     def vm_mruby?
       cc.defines.include?("PICORB_VM_MRUBY")
     end
@@ -76,6 +71,7 @@ module MRuby
       end
       common
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include"
       cc.defines << "PICORB_VM_MRUBY"
       cc.defines << "MRB_USE_TASK_SCHEDULER"
 
@@ -102,6 +98,7 @@ module MRuby
       alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
 
       cc.defines << "PICORB_VM_MRUBYC"
+      cc.defines << "MRBC_SCHEDULER_EXIT=1"
       cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
       cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
@@ -138,7 +135,10 @@ module MRuby
     end
 
     def wasm?
-      ENV['CONFIG'] == 'picoruby-wasm' || ENV['MRUBY_CONFIG'] == 'picoruby-wasm'
+      config = ENV['CONFIG'] || ENV['MRUBY_CONFIG']
+      return true if config&.include?('picoruby-wasm')
+      # Also check defines for WASM platform
+      cc.defines.include?("PICORB_PLATFORM_WASM")
     end
 
     def generate_package_json_from_template(template_path, output_path)

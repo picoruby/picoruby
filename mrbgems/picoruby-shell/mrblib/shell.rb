@@ -25,7 +25,11 @@ class Shell
     key = "#{type}_#{name}".upcase
     DeviceInstances[key] ||= case key
     when 'GPIO_TRIGGER_NMBLE'
-      GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
+      if ENV[key] == false # skip if explicit false
+        nil
+      else
+        GPIO.new((ENV[key] || 22).to_i, GPIO::IN|GPIO::PULL_UP)
+      end
     when 'GPIO_LED_BLE', 'GPIO_LED_WIFI'
       begin
         if ENV[key].nil? || ENV[key] == 'cyw43_led'
@@ -482,7 +486,7 @@ class Shell
         when "quit", "exit"
           break
         else
-          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("begin; _ = (#{script}); rescue Exception => _; end; _")
+          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("begin; _ = (#{script}); rescue Exception => _; end; _", filename: "(irb)")
             buffer.put :ENTER
           else
             editor.feed_at_bottom
@@ -494,10 +498,11 @@ class Shell
               sandbox.suspend
             end
             if executed
-              if sandbox.result.is_a?(Exception)
-                puts "#{sandbox.result.message} (#{sandbox.result.class})"
+              result = sandbox.result
+              if result.is_a?(Exception)
+                puts "#{result.message} (#{result.class})"
               else
-                puts "=> #{sandbox.result.inspect}"
+                puts "=> #{result.inspect}"
               end
             end
             buffer.clear

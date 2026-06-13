@@ -147,8 +147,8 @@ machine_bootlog_print_line(const char *line, size_t len, void *user)
     return;
   }
 
-  hal_write(1, line, len);
-  hal_write(1, "\n", 1);
+  picorb_hal_write(1, line, len);
+  picorb_hal_write(1, "\n", 1);
 }
 
 static mrb_value
@@ -227,7 +227,7 @@ Machine_memstats_print(mrb_state *mrb, const char *label, size_t label_len)
     if ((size_t)len >= sizeof(buf)) {
       len = (int)(sizeof(buf) - 1);
     }
-    hal_write(1, buf, len);
+    picorb_hal_write(1, buf, len);
     Machine_bootlog_append(buf, (size_t)len);
   }
 
@@ -281,7 +281,7 @@ static uint8_t stdin_buf_mem[sizeof(RingBuffer) + PICORB_STDIN_BUFFER_SIZE]
 static RingBuffer *stdin_rb = (RingBuffer *)stdin_buf_mem;
 
 bool
-hal_stdin_push(uint8_t ch)
+picorb_hal_stdin_push(uint8_t ch)
 {
   /* Only intercept signal chars in cooked mode (like POSIX).
    * In raw mode, pass all bytes through for binary data (e.g. DFU). */
@@ -330,7 +330,7 @@ canon_process_char(uint8_t raw)
     if (canon_len > 0) {
       canon_len--;
       if (io_echo_q()) {
-        hal_write(1, "\b \b", 3);
+        picorb_hal_write(1, "\b \b", 3);
       }
     }
     return CANON_ACCUMULATING;
@@ -340,7 +340,7 @@ canon_process_char(uint8_t raw)
       canon_buf[canon_len++] = raw;
     }
     if (io_echo_q()) {
-      hal_write(1, "\r\n", 2);
+      picorb_hal_write(1, "\r\n", 2);
     }
     canon_read_pos = 0;
     return CANON_LINE_READY;
@@ -363,7 +363,7 @@ canon_process_char(uint8_t raw)
   if (canon_len < PICORB_CANONICAL_BUF_SIZE) {
     canon_buf[canon_len++] = raw;
     if (io_echo_q()) {
-      hal_write(1, &raw, 1);
+      picorb_hal_write(1, &raw, 1);
     }
   }
   return CANON_ACCUMULATING;
@@ -413,9 +413,9 @@ alarm_handler(void)
   hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_tick(mrb_);
+  picorb_tick(mrb_);
 #elif defined(PICORB_VM_MRUBYC)
-  mrbc_tick();
+  picorb_tick();
 #else
 #error "One of PICORB_VM_MRUBY or PICORB_VM_MRUBYC must be defined"
 #endif
@@ -432,9 +432,9 @@ usb_irq_handler(void)
 
 void
 #if defined(PICORB_VM_MRUBY)
-mrb_hal_task_init(mrb_state *mrb)
+picorb_hal_init(mrb_state *mrb)
 #elif defined(PICORB_VM_MRUBYC)
-hal_init(void)
+picorb_hal_init(void)
 #endif
 {
 #if defined(PICORB_VM_MRUBY)
@@ -478,18 +478,14 @@ hal_init(void)
 
 #if defined(PICORB_VM_MRUBY)
 void
-mrb_hal_task_final(mrb_state *mrb)
+picorb_hal_final(mrb_state *mrb)
 {
   (void)mrb;
 }
 #endif
 
 void
-#if defined(PICORB_VM_MRUBYC)
-hal_enable_irq(void)
-#elif defined(PICORB_VM_MRUBY)
-mrb_task_enable_irq(void)
-#endif
+picorb_hal_enable_irq(void)
 {
   if (interrupt_nesting == 0) {
 //    return; // wrong state???
@@ -503,11 +499,7 @@ mrb_task_enable_irq(void)
 }
 
 void
-#if defined(PICORB_VM_MRUBYC)
-hal_disable_irq(void)
-#elif defined(PICORB_VM_MRUBY)
-mrb_task_disable_irq(void)
-#endif
+picorb_hal_disable_irq(void)
 {
   asm volatile ("cpsid i" : : : "memory");
   __dmb();
@@ -516,9 +508,9 @@ mrb_task_disable_irq(void)
 
 void
 #if defined(PICORB_VM_MRUBYC)
-hal_idle_cpu()
+picorb_hal_idle_cpu()
 #elif defined(PICORB_VM_MRUBY)
-mrb_hal_task_idle_cpu(mrb_state *mrb)
+picorb_hal_idle_cpu(mrb_state *mrb)
 #endif
 {
 #if defined(PICO_RP2040)
@@ -539,7 +531,7 @@ mrb_hal_task_idle_cpu(mrb_state *mrb)
 
 #if defined(PICORB_VM_MRUBY)
 void
-mrb_hal_task_sleep_us(mrb_state *mrb, mrb_int usec)
+picorb_hal_sleep_us(mrb_state *mrb, mrb_int usec)
 {
   (void)mrb;
   sleep_us((uint32_t)usec);
@@ -547,7 +539,7 @@ mrb_hal_task_sleep_us(mrb_state *mrb, mrb_int usec)
 #endif
 
 int
-hal_write(int fd, const void *buf, int nbytes)
+picorb_hal_write(int fd, const void *buf, int nbytes)
 {
 #if CFG_TUD_CDC >= 2
   // Use separate CDC instances: stdout -> CDC0, stderr -> CDC1
@@ -561,7 +553,7 @@ hal_write(int fd, const void *buf, int nbytes)
   return len;
 }
 
-int hal_flush(int fd) {
+int picorb_hal_flush(int fd) {
 #if CFG_TUD_CDC >= 2
   uint8_t cdc_instance = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
   int len = tud_cdc_n_write_flush(cdc_instance);
@@ -572,7 +564,7 @@ int hal_flush(int fd) {
 }
 
 int
-hal_read_available(void)
+picorb_hal_read_available(void)
 {
   if (io_raw_q()) {
     return (RingBuffer_data_size(stdin_rb) > 0) ? 1 : 0;
@@ -591,7 +583,7 @@ hal_read_available(void)
 }
 
 int
-hal_getchar(void)
+picorb_hal_getchar(void)
 {
   tud_task();
 
@@ -600,7 +592,7 @@ hal_getchar(void)
    * the caller has consumed at least one byte, there should be room. */
   while (tud_cdc_available() && RingBuffer_free_size(stdin_rb) > 1) {
     uint8_t cdc_ch = (uint8_t)tud_cdc_read_char();
-    hal_stdin_push(cdc_ch);
+    picorb_hal_stdin_push(cdc_ch);
   }
 
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
@@ -649,7 +641,7 @@ hal_getchar(void)
   switch (result) {
     case CANON_LINE_READY:
       /* Start serving from canon_buf */
-      return hal_getchar();
+      return picorb_hal_getchar();
     case CANON_EOF:
       canon_eof = false;
       return HAL_GETCHAR_EOF;
@@ -660,10 +652,10 @@ hal_getchar(void)
 }
 
 void
-hal_abort(const char *s)
+picorb_hal_abort(const char *s)
 {
   if( s ) {
-    hal_write(1, s, strlen(s));
+    picorb_hal_write(1, s, strlen(s));
   }
 
   abort();

@@ -10,7 +10,7 @@ static inline void
 io_wait_for_input(mrb_state *mrb)
 {
   Machine_tud_task();
-  mrb_hal_task_idle_cpu(mrb);
+  picorb_hal_idle_cpu(mrb);
 }
 
 static mrb_value
@@ -234,7 +234,7 @@ print_sub(mrb_state *mrb, mrb_value obj)
   mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
   const char *cstr = RSTRING_PTR(str);
   size_t len = RSTRING_LEN(str);
-  hal_write(1, cstr, len);
+  picorb_hal_write(1, cstr, len);
   return len;
 }
 
@@ -244,7 +244,7 @@ debug_print_sub(mrb_state *mrb, mrb_value obj)
   mrb_value str = mrb_funcall(mrb, obj, "to_s", 0);
   const char *cstr = RSTRING_PTR(str);
   size_t len = RSTRING_LEN(str);
-  hal_write(2, cstr, len);
+  picorb_hal_write(2, cstr, len);
   return len;
 }
 
@@ -255,12 +255,12 @@ mrb_io_puts(mrb_state *mrb, mrb_value self)
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
   if (argc == 0) {
-    hal_write(1, "\n", 1);
+    picorb_hal_write(1, "\n", 1);
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
       print_sub(mrb, argv[i]);
-      hal_write(1, "\n", 1);
+      picorb_hal_write(1, "\n", 1);
     }
     mrb_gc_arena_restore(mrb, ai);
   }
@@ -293,14 +293,19 @@ mrb_io_write(mrb_state *mrb, mrb_value self)
   }
   return mrb_fixnum_value(total);
 }
+#endif
 
+/* gets/getc read stdin through the HAL so Ctrl-C (byte 0x03) and the
+ * pseudo-SIGINT set by the stdin reader become Interrupt. Compiled on
+ * every platform; on POSIX they are wired to the STDIN singleton (see
+ * mrblib/kernel.rb) so mruby-io keeps handling file IO. */
 static mrb_value
 mrb_io_gets(mrb_state *mrb, mrb_value self)
 {
   mrb_value str = mrb_str_new(mrb, "", 0);
   char buf[1];
   while (true) {
-    int c = hal_getchar();
+    int c = picorb_hal_getchar();
     if (c == 3) {
       raise_interrupt(mrb);
     } else if (c == 26) {
@@ -333,6 +338,7 @@ mrb_io_getc(mrb_state *mrb, mrb_value self)
   return str;
 }
 
+#if !defined(PICORB_PLATFORM_POSIX)
 static mrb_value
 mrb_io_read(mrb_state *mrb, mrb_value self)
 {
@@ -347,7 +353,7 @@ mrb_io_read(mrb_state *mrb, mrb_value self)
     char *buf = RSTRING_PTR(str);
     mrb_int i;
     for (i = 0; i < len; ) {
-      int c = hal_getchar();
+      int c = picorb_hal_getchar();
       if (c == 3) {
         raise_interrupt(mrb);
       } else if (c == 26) {
@@ -369,7 +375,7 @@ mrb_io_read(mrb_state *mrb, mrb_value self)
   mrb_value str = mrb_str_new(mrb, "", 0);
   char buf[1];
   while (true) {
-    int c = hal_getchar();
+    int c = picorb_hal_getchar();
     if (c == 3) {
       raise_interrupt(mrb);
     } else if (c == 26) {
@@ -395,12 +401,12 @@ mrb_s_debug_puts(mrb_state *mrb, mrb_value self)
   mrb_int argc;
   mrb_get_args(mrb, "*", &argv, &argc);
   if (argc == 0) {
-    hal_write(2, "\n", 1);
+    picorb_hal_write(2, "\n", 1);
   } else {
     int ai = mrb_gc_arena_save(mrb);
     for (mrb_int i = 0; i < argc; i++) {
       debug_print_sub(mrb, argv[i]);
-      hal_write(2, "\n", 1);
+      picorb_hal_write(2, "\n", 1);
     }
     mrb_gc_arena_restore(mrb, ai);
   }
@@ -467,6 +473,12 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_IO, MRB_SYM(read), mrb_io_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_IO, MRB_SYM(gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_IO, MRB_SYM(getc), mrb_io_getc, MRB_ARGS_NONE());
+#else
+  /* POSIX keeps mruby-io for general IO (files), but stdin must be read
+   * through the HAL ring buffer so Ctrl-C becomes Interrupt. mrblib/kernel.rb
+   * wires these onto the STDIN singleton. */
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_gets), mrb_io_gets, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_getc), mrb_io_getc, MRB_ARGS_NONE());
 #endif
 }
 

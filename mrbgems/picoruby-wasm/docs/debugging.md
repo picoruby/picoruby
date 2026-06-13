@@ -7,7 +7,7 @@ local-variable/call-stack inspector.
 ## Requirements
 
 - Chrome 102 or later
-- A page loaded from the **`@debug` dist-tag** of `@picoruby/wasm-wasi`
+- A page loaded from a debug build such as `@picoruby/wasm-wasi@X.Y.Z-debug`
 
 The debug API (`mrb_debug_*`) is compiled only into debug builds.
 Production builds (`@latest`) do not include it.
@@ -27,24 +27,26 @@ Or load unpacked for local development:
 
 ## Using the debug package
 
-Switch your page to the `@debug` dist-tag. No local build is required.
+Switch your page to a debug package. No local build is required.
 
 ```html
 <!-- CDN (development only) -->
-<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@debug/dist/init.iife.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@picoruby/wasm-wasi@X.Y.Z-debug/dist/init.iife.js"></script>
 ```
 
 ```js
 // npm
-import { loadPicoRuby } from '@picoruby/wasm-wasi@debug';
+import { loadPicoRuby } from '@picoruby/wasm-wasi@X.Y.Z-debug';
 ```
+
+Use `@head-debug` when you need the latest HEAD debug build.
 
 Switch back to `@latest` before deploying to production.
 
-To publish a new debug build from source:
+To publish new production and debug builds from source:
 
 ```bash
-rake wasm:release_debug
+rake wasm:npm:publish
 ```
 
 ## Breakpoints with `binding.irb`

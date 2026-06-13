@@ -24,6 +24,8 @@ module Machine
   def self.pop_signal_self_manage: () -> bool
   def self.wifi_available?: () -> bool
   def self.mcu_name: () -> String
+  def self._stdin_getc: () -> (String | nil)
+  def self._stdin_gets: () -> (String | nil)
   private def self._reboot: () -> nil
 end
 

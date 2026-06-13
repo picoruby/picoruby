@@ -28,7 +28,7 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
 // Only transfer bytes while the stdin ring buffer has space.
 // When the ring buffer is full we stop reading from the CDC FIFO so
 // remaining bytes stay safely in TinyUSB's 512-byte software FIFO.
-// They will be drained on the next hal_getchar() call after the
+// They will be drained on the next picorb_hal_getchar() call after the
 // application has consumed some ring buffer bytes.
 //
 // Previously this function drained the ENTIRE CDC FIFO regardless of
@@ -39,7 +39,7 @@ void tud_cdc_rx_cb(uint8_t itf)
   (void) itf;
   while (tud_cdc_available()) {
     uint8_t ch = (uint8_t)tud_cdc_read_char();
-    if (!hal_stdin_push(ch)) {
+    if (!picorb_hal_stdin_push(ch)) {
       // Ring buffer full.  The byte we just read from the CDC FIFO is
       // lost (TinyUSB has no un-read API).  Break immediately to
       // preserve the remaining bytes in the CDC FIFO.
