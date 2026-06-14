@@ -23,4 +23,5 @@ MRuby::CrossBuild.new("picoruby-wasm-test") do |conf|
 
   conf.gem core: 'picoruby-wasm'
   conf.gem core: 'picoruby-picotest'
+  conf.gem core: 'picoruby-funicular'
 end
