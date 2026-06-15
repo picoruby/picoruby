@@ -56,7 +56,7 @@ namespace :wasm do
   end
 
   desc "Build picorbc WASM"
-  task :picorbc do
+  task :build_picorbc do
     sh "CONFIG=picorbc-wasm PICORB_DEBUG=1 rake"
     FileUtils.mkdir_p("#{picorbc_npm_dir}/debug")
     FileUtils.mkdir_p("#{picorbc_npm_dir}/dist")
@@ -67,19 +67,19 @@ namespace :wasm do
   end
 
   desc "Build debug PicoRuby WASM into npm/picoruby/debug and picorbc WASM"
-  task :debug => :picorbc do
+  task :build_debug => :build_picorbc do
     sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
   end
 
   desc "Build production PicoRuby WASM into npm/picoruby/dist"
-  task :prod do
+  task :build_prod do
     sh "CONFIG=picoruby-wasm rake"
   end
 
   desc "Build all WASM artifacts required by Funicular release"
-  task :release_artifacts do
+  task :build_release_artifacts do
     sh "CONFIG=picorbc-wasm rake clean"
-    Rake::Task["wasm:picorbc"].invoke
+    Rake::Task["wasm:build_picorbc"].invoke
 
     sh "CONFIG=picoruby-wasm rake clean"
     sh "CONFIG=picoruby-wasm rake"
@@ -155,7 +155,7 @@ namespace :wasm do
   task :npm_login => "wasm:npm:login"
   task :npm_whoami => "wasm:npm:whoami"
   task :release => "wasm:npm:publish"
-  task :release_head => "wasm:npm:publish_head"
+  task :build_release_head => "wasm:npm:publish_head"
   task :versions => "wasm:npm:versions"
 
   desc "Start local server for PicoRuby WASM"
