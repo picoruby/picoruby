@@ -119,16 +119,11 @@ mrb__init(mrb_state *mrb, mrb_value self)
   mrb_gc_register(mrb, read_values);
 
   mrb_value profile;
-  const uint8_t *profile_data;
+  mrb_value profile_copy = mrb_nil_value();
+  const uint8_t *profile_data = NULL;
   mrb_get_args(mrb, "o", &profile);
 
-  if (mrb_string_p(profile)) {
-    /* Protect profile_data from GC */
-    //mrbc_incref(&v[1]);
-    profile_data = (const uint8_t *)RSTRING_PTR(profile);
-  } else if (mrb_nil_p(profile)) {
-    profile_data = NULL;
-  } else {
+  if (!mrb_string_p(profile) && !mrb_nil_p(profile)) {
     mrb_raise(mrb, E_TYPE_ERROR, "BLE._init: wrong argument type");
   }
   int ble_role;
@@ -149,8 +144,16 @@ mrb__init(mrb_state *mrb, mrb_value self)
     default:
       mrb_raise(mrb, E_TYPE_ERROR, "BLE._init: wrong role type");
   }
+  if (ble_role == BLE_ROLE_PERIPHERAL && mrb_string_p(profile)) {
+    profile_copy = mrb_str_dup(mrb, profile);
+    profile_data = (const uint8_t *)RSTRING_PTR(profile_copy);
+  }
   if (BLE_init(profile_data, ble_role) < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "BLE init failed");
+  }
+  if (!mrb_nil_p(profile_copy)) {
+    /* BTstack keeps profile_data by pointer after BLE_init(). */
+    mrb_gc_register(mrb, profile_copy);
   }
   return self;
 }

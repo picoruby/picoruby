@@ -124,14 +124,9 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   write_values = mrbc_hash_new(vm, 0);
   read_values = mrbc_hash_new(vm, 0);
 
-  const uint8_t *profile_data;
-  if (GET_TT_ARG(1) == MRBC_TT_STRING) {
-    /* Protect profile_data from GC */
-    mrbc_incref(&v[1]);
-    profile_data = GET_STRING_ARG(1);
-  } else if (GET_TT_ARG(1) == MRBC_TT_NIL) {
-    profile_data = NULL;
-  } else {
+  mrbc_value profile_copy = mrbc_nil_value();
+  const uint8_t *profile_data = NULL;
+  if (GET_TT_ARG(1) != MRBC_TT_STRING && GET_TT_ARG(1) != MRBC_TT_NIL) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong argument type");
     return;
   }
@@ -149,11 +144,19 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong role type");
     return;
   }
+  if (ble_role == BLE_ROLE_PERIPHERAL && GET_TT_ARG(1) == MRBC_TT_STRING) {
+    profile_copy = mrbc_string_dup(vm, &v[1]);
+    profile_data = mrbc_string_cstr(&profile_copy);
+  }
   Machine_tud_task();
   if (BLE_init(profile_data, ble_role) < 0) {
+    if (profile_copy.tt == MRBC_TT_STRING) {
+      mrbc_decref(&profile_copy);
+    }
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
+  /* Keep profile_copy's initial reference count for BTstack's profile_data pointer. */
   Machine_tud_task();
 }
 
