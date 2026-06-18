@@ -29,14 +29,6 @@ module MRuby
         end
       end
 
-      def vm_mruby?
-        cc.defines.include?("PICORB_VM_MRUBY")
-      end
-
-      def vm_mrubyc?
-        cc.defines.include?("PICORB_VM_MRUBYC")
-      end
-
     end
   end
 end

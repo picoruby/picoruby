@@ -25,13 +25,15 @@ module MRuby
       build
     end
 
-    def vm_mruby?
+    def picoruby?
       cc.defines.include?("PICORB_VM_MRUBY")
     end
+    alias_method :vm_mruby?, :picoruby?
 
-    def vm_mrubyc?
+    def femtoruby?
       cc.defines.include?("PICORB_VM_MRUBYC")
     end
+    alias_method :vm_mrubyc?, :femtoruby?
 
     def common
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include"

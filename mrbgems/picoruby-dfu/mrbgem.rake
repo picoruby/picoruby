@@ -6,9 +6,9 @@ MRuby::Gem::Specification.new('picoruby-dfu') do |spec|
   spec.add_dependency 'picoruby-env'
   spec.add_dependency 'picoruby-yaml'
   spec.add_dependency 'picoruby-crc'
-  if build.vm_mrubyc?
+  if build.femtoruby?
     spec.add_dependency 'picoruby-pack'
-  elsif build.vm_mruby?
+  elsif build.picoruby?
     spec.add_dependency 'mruby-pack'
   end
 

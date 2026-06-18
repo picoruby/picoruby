@@ -61,6 +61,19 @@ module Picotest
             end
           KERNEL
           f.puts "require 'picotest' # pre-built gem"
+          f.puts <<~PICOTEST_COMPAT
+            class Picotest::Test
+              def femtoruby?
+                (ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || "").include?("femtoruby")
+              end
+              def picoruby?
+                !femtoruby?
+              end
+              def wasm?
+                (ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || "").include?("wasm-runner")
+              end
+            end
+          PICOTEST_COMPAT
           f.puts "\n# implementation and mock"
           @load_files.each do |file|
             f.puts "load '#{file}'"

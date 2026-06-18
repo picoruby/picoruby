@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-picotest') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Minitest-like testing framework for PicoRuby'
 
-  if build.vm_mrubyc?
+  if build.femtoruby?
     spec.add_dependency 'picoruby-metaprog'
     spec.add_dependency 'picoruby-dir'
     spec.add_dependency 'picoruby-posix-io'

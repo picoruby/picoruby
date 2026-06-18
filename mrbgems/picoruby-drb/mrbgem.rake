@@ -6,8 +6,6 @@ MRuby::Gem::Specification.new('picoruby-drb') do |spec|
   spec.add_dependency 'picoruby-mruby' # picoruby-drb doesn't support mruby/c
   spec.add_dependency 'picoruby-marshal'
 
-  spec.test_rbfiles = [] unless build.vm_mruby? && !build.wasm?
-
   if build.cc.command =~ /emcc/
     spec.add_dependency 'picoruby-wasm'          # includes JS::WebSocket
   else

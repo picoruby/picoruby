@@ -7,7 +7,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
 
   spec.add_dependency 'picoruby-sandbox'
 
-  if build.vm_mrubyc?
+  if build.femtoruby?
     if build.posix?
       # TODO: in Wasm, you may need to implement File class with File System Access API
       spec.add_dependency 'picoruby-posix-io'
@@ -66,7 +66,7 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         Rake::FileTask[v[:mrbfile]].invoke
       end
     end
-    template_path = if build.vm_mruby?
+    template_path = if build.picoruby?
                       File.join(spec.dir, "templates/mruby/picogem_init.c.erb")
                     else
                       File.join(spec.dir, "templates/mrubyc/picogem_init.c.erb")

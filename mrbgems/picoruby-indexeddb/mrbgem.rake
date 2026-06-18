@@ -3,8 +3,6 @@ MRuby::Gem::Specification.new('picoruby-indexeddb') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Ruby-idiomatic IndexedDB wrapper for PicoRuby.wasm'
 
-  spec.test_rbfiles = build.wasm? ? Dir["#{spec.dir}/test/**/*.rb"].sort : []
-
   spec.add_dependency 'picoruby-wasm'
   spec.add_dependency 'picoruby-json'
 

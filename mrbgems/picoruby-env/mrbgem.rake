@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-env') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'ENV'
 
-  if build.vm_mruby?
+  if build.picoruby?
     # Workaround:
     #   Locate picoruby-mruby at the (almost) top of gem_init.c
     #   to define Kernel#require earlier than other gems

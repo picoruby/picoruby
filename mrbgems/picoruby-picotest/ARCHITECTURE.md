@@ -74,11 +74,11 @@ mrbgems/picoruby-<gem>/
     *_test.rb          # Test files (loaded by both CRuby and target VM)
 ```
 
-Gems can control target-specific test discovery in `mrbgem.rake` by setting
-`spec.test_rbfiles`, for example:
+Tests are discovered automatically from `test/**/*_test.rb`. Target-specific
+unsupported behavior should be skipped inside the test case, for example:
 
 ```
-spec.test_rbfiles = build.wasm? ? Dir["#{spec.dir}/test/**/*.rb"].sort : []
+skip "WASM only" unless wasm?
 ```
 
 ## Key Environment Variables

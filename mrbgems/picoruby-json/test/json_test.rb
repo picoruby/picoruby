@@ -1,4 +1,8 @@
 class JsonTest < Picotest::Test
+  def setup
+    skip "Not supported on FemtoRuby" if femtoruby?
+  end
+
   def test_parse
     assert_equal({"a" => 1, "b" => "hello"}, JSON.parse('{"a":1,"b":"hello"}'))
     assert_equal([1, "two", true, nil], JSON.parse('[1, "two", true, null]'))

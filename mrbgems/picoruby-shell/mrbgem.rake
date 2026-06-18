@@ -18,9 +18,9 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-data'
   spec.add_dependency 'picoruby-network'
   if build.posix?
-    if build.vm_mrubyc?
+    if build.femtoruby?
       spec.add_dependency 'picoruby-dir'
-    elsif build.vm_mruby?
+    elsif build.picoruby?
       spec.add_dependency 'mruby-dir', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"
     end
   end

@@ -15,7 +15,6 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_dependency 'picoruby-time'
 
   spec.require_name = 'js'
-  spec.test_rbfiles = build.wasm? ? Dir["#{spec.dir}/test/**/*.rb"].sort : []
 
   spec.cc.defines << "MRB_32BIT"
   spec.cc.defines << "MRB_INT64"

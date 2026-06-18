@@ -50,8 +50,12 @@ module Picotest
     @result: picotest_error_t
 
     def self.description: (String description) -> void
+    def self?.picoruby?: () -> bool
+    def self?.femtoruby?: () -> bool
     def self?.mruby?: () -> bool
     def self?.mrubyc?: () -> bool
+    def self?.wasm?: () -> bool
+    def self?.ruby_command: () -> String
     def stub: (untyped doubled_obj) -> Picotest::Double
     def mock: (untyped doubled_obj) -> Picotest::Double
     def stub_any_instance_of: (Class klass) -> Picotest::Double
