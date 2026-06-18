@@ -72,7 +72,13 @@ Conditionally requires files based on `RUBY_ENGINE`:
 mrbgems/picoruby-<gem>/
   test/
     *_test.rb          # Test files (loaded by both CRuby and target VM)
-    target_vm          # Optional file specifying "femtoruby" or "picoruby"
+```
+
+Gems can control target-specific test discovery in `mrbgem.rake` by setting
+`spec.test_rbfiles`, for example:
+
+```
+spec.test_rbfiles = build.wasm? ? Dir["#{spec.dir}/test/**/*.rb"].sort : []
 ```
 
 ## Key Environment Variables

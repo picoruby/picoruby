@@ -8,7 +8,7 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter: nil, tmpdir: TMPDIR, require_name: nil, load_files: [], load_path: nil)
+    def initialize(dir, filter: nil, tmpdir: TMPDIR, require_name: nil, load_files: [], load_path: nil, entries: nil)
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
@@ -17,7 +17,7 @@ module Picotest
       @tmpdir = tmpdir
       @require_name = require_name
       @load_files = load_files
-      @entries = find_tests(dir, filter)
+      @entries = entries || find_tests(dir, filter)
       @result = {}
       @test_classes = []
       @load_crashes = []

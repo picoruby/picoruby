@@ -15,6 +15,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_dependency 'picoruby-time'
 
   spec.require_name = 'js'
+  spec.test_rbfiles = build.wasm? ? Dir["#{spec.dir}/test/**/*.rb"].sort : []
 
   spec.cc.defines << "MRB_32BIT"
   spec.cc.defines << "MRB_INT64"
@@ -22,7 +23,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.cc.defines << "MRB_UTF8_STRING"
 
   # Ensure EM_NODE_JS is set for Emscripten
-  unless ENV['EM_NODE_JS']
+  if build.wasm? && !ENV['EM_NODE_JS']
     node_path = `which node 2>/dev/null`.strip
     if !node_path.empty? && File.executable?(node_path)
       ENV['EM_NODE_JS'] = node_path

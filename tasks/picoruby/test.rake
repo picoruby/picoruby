@@ -113,24 +113,12 @@ def collect_gems(vm_type, specified_gem = nil)
        when 'wasm' then 'mruby'  # WASM uses mruby VM
        else 'mruby'
        end
+  build = create_test_collection_build(vm_type)
   gems_dir = File.expand_path("#{MRUBY_ROOT}/mrbgems/")
   gems = []
   Dir.glob(["#{gems_dir}/picoruby-*", "#{gems_dir}/mruby-*"]).map do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
     next if specified_gem && File.basename(gem_path) != specified_gem
-    if File.exist?("#{gem_path}/test/target_vm")
-      target = File.read("#{gem_path}/test/target_vm").chomp
-      # For wasm, only run gems explicitly marked with 'wasm'
-      # For picoruby/femtoruby, run gems marked with their name or without target_vm
-      if vm_type == 'wasm'
-        next unless target == 'wasm'
-      else
-        next unless target == vm_type
-      end
-    else
-      # No target_vm file: skip for wasm, include for picoruby/femtoruby
-      next if vm_type == 'wasm'
-    end
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM
       name = File.basename(gem_path)
@@ -140,10 +128,67 @@ def collect_gems(vm_type, specified_gem = nil)
     else
       next
     end
-    matchdata = File.read("#{gem_path}/mrbgem.rake").match(/require_name\s*=\s*['"](.+)['"]/)
-    gems << {name: name, require_name: matchdata ? matchdata[1] : nil}
+    spec = load_test_gem_spec(build, name)
+    next unless spec
+    test_rbfiles = collect_test_rbfiles(spec, gem_path, vm_type)
+    next if test_rbfiles.empty?
+    gems << {name: name, require_name: spec.require_name, test_rbfiles: test_rbfiles}
   end
   gems
+end
+
+def create_test_collection_build(vm_type)
+  build_name = "#{vm_type}-test-collection"
+  build_dir = "#{MRUBY_ROOT}/build/test-collection"
+  build = if vm_type == 'wasm'
+    MRuby::CrossBuild.new(build_name, build_dir) do |conf|
+      configure_test_collection_build(conf, vm_type)
+    end
+  else
+    MRuby::Build.new(build_name, build_dir, internal: true) do |conf|
+      configure_test_collection_build(conf, vm_type)
+    end
+  end
+  build
+end
+
+def configure_test_collection_build(conf, vm_type)
+  conf.disable_libmruby
+  conf.cc.defines << "PICORB_PLATFORM_POSIX"
+  if vm_type == 'femtoruby'
+    conf.cc.defines << "PICORB_VM_MRUBYC"
+  else
+    conf.cc.defines << "PICORB_VM_MRUBY"
+  end
+  if vm_type == 'wasm'
+    conf.cc.defines << "PICORB_PLATFORM_WASM"
+    conf.cc.command = 'emcc'
+  end
+end
+
+def load_test_gem_spec(build, name)
+  spec = build.gem core: name
+  spec&.setup
+  spec
+rescue => e
+  warn "WARNING: Failed to load #{name} for test discovery: #{e.class}: #{e.message}"
+  nil
+end
+
+def collect_test_rbfiles(spec, gem_path, vm_type)
+  if spec.instance_variable_defined?(:@test_rbfiles)
+    return Array(spec.test_rbfiles)
+  end
+
+  if File.exist?("#{gem_path}/test/target_vm")
+    target = File.read("#{gem_path}/test/target_vm").chomp
+    return [] unless target == vm_type
+  else
+    # No target metadata: skip for wasm, include for picoruby/femtoruby.
+    return [] if vm_type == 'wasm'
+  end
+
+  Array(spec.test_rbfiles)
 end
 
 def create_temp_build_config(base_config_name, gems, vm_type = nil)
@@ -188,10 +233,11 @@ def run_picotest_runner(gem, load_files)
   puts "Test directory: #{test_dir}"
   puts "Library to require: #{lib_name}"
   puts "Files to load: #{load_files.join(', ')}" unless load_files.empty?
+  puts "Test files: #{gem[:test_rbfiles].join(', ')}" if gem[:test_rbfiles]
 
   ENV['RUBY'] = ENV['PICORB_TEST_TARGET_VM']
 
-  runner = Picotest::Runner.new(test_dir, tmpdir: "/tmp", require_name: lib_name, load_files: load_files, load_path: gem_dir)
+  runner = Picotest::Runner.new(test_dir, tmpdir: "/tmp", require_name: lib_name, load_files: load_files, load_path: gem_dir, entries: gem[:test_rbfiles])
   error_count = runner.run
   return error_count == 0
 end
