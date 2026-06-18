@@ -13,6 +13,7 @@ $LOAD_PATH << File.join(MRUBY_ROOT, "lib")
 require "mruby/core_ext"
 require "mruby/build"
 require "picoruby/build"
+require "picoruby/gem"
 
 # load configuration file
 MRUBY_CONFIG = MRuby::Build.mruby_config_path
