@@ -6,9 +6,9 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem core: 'mruby-compiler2' unless @gems['mruby-compiler2']
-      gem core: 'mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
-      self.mrbcfile = "#{build_dir}/bin/picorbc"
+      gem core: 'mruby-compiler-prism' unless @gems['mruby-compiler-prism']
+      gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bin-mrbc-prism" unless @gems['mruby-bin-mrbc-prism']
+      self.mrbcfile = "#{build_dir}/bin/mrbc-prism"
       set_build_info
     end
 
@@ -36,11 +36,11 @@ module MRuby
     alias_method :vm_mrubyc?, :femtoruby?
 
     def common
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include"
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler-prism/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler-prism/lib/prism/include"
       # Workaround: To avoid error in compiling gem_init.c
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
-      # Pass PICORUBY_VERSION to mruby-compiler2
+      # Pass PICORUBY_VERSION to mruby-compiler-prism
       version = File.read("#{MRUBY_ROOT}/include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
       cc.defines << "PICORUBY_VERSION=\\\"#{version}\\\""
       set_build_info
@@ -57,7 +57,7 @@ module MRuby
     end
 
     def rite_version
-      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include/mrc_dump.h")
+      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler-prism/include/mrc_dump.h")
       ident = mrc_dump[/#define RITE_BINARY_IDENT\s+"(.+?)"/, 1]
       major = mrc_dump[/#define RITE_BINARY_MAJOR_VER\s+"(.+?)"/, 1]
       minor = mrc_dump[/#define RITE_BINARY_MINOR_VER\s+"(.+?)"/, 1]

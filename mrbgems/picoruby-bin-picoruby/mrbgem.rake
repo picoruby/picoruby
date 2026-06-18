@@ -8,7 +8,7 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby') do |spec|
     build.compile_as_cxx("#{spec.dir}/tools/picoruby/picoruby.c")
   end
 
-  spec.add_dependency('mruby-compiler2')
+  spec.add_dependency('mruby-compiler-prism')
 
   if build.picoruby?
     BINNAME = 'picoruby'
