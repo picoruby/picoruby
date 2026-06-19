@@ -133,12 +133,43 @@ enum {
 #endif
 
 static void __attribute__((noreturn))
+psg_core1_cleanup(void)
+{
+  if (audio_alarm_pool) {
+    cancel_repeating_timer(&audio_timer);
+    alarm_pool_destroy(audio_alarm_pool);
+    audio_alarm_pool = NULL;
+  }
+  if (tick_alarm_pool) {
+    cancel_repeating_timer(&tick_timer);
+    alarm_pool_destroy(tick_alarm_pool);
+    tick_alarm_pool = NULL;
+  }
+  if (psg_drv) {
+    psg_drv->stop();
+    psg_drv = NULL;
+  }
+  multicore_fifo_push_blocking(ACK_DONE);
+  for (;;) tight_loop_contents();
+}
+
+static inline void
+psg_core1_poll_command(void)
+{
+  if (multicore_fifo_rvalid()) {
+    uint32_t cmd = multicore_fifo_pop_blocking();
+    if (cmd == CMD_CLEANUP) psg_core1_cleanup();
+  }
+}
+
+static void __attribute__((noreturn))
 psg_core1_main(void)
 {
   uint8_t p1 = (uint8_t)multicore_fifo_pop_blocking();
   uint8_t p2 = (uint8_t)multicore_fifo_pop_blocking();
   psg_drv->init(p1, p2); /* init PSG driver */
   psg_drv->start();
+  bool use_buffer_output = psg_drv->write_buffer != NULL;
 
   if (!tick_alarm_pool) {
     tick_alarm_pool = alarm_pool_create(ALARM_TICK, 2);
@@ -151,57 +182,50 @@ psg_core1_main(void)
     assert(false && "Failed to add repeating timer");
   }
 
-  if (!audio_alarm_pool) {
-    audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
-    assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
-    irq_set_priority(PICORB_IRQ_1, 0);
-  }
-  memset(&audio_timer, 0, sizeof(repeating_timer_t));
-  /* 22.05 kHz */
-  if (!alarm_pool_add_repeating_timer_us(audio_alarm_pool, -1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer)) {
-    assert(false && "Failed to add repeating timer");
+  if (!use_buffer_output) {
+    if (!audio_alarm_pool) {
+      audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
+      assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
+      irq_set_priority(PICORB_IRQ_1, 0);
+    }
+    memset(&audio_timer, 0, sizeof(repeating_timer_t));
+    /* 22.05 kHz */
+    if (!alarm_pool_add_repeating_timer_us(audio_alarm_pool, -1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer)) {
+      assert(false && "Failed to add repeating timer");
+    }
   }
 
   multicore_fifo_push_blocking(ACK_CORE1_READY);
 
+  uint32_t buffer_output_pos = 0;
+
   for (;;) {
-    // core1 is responsible for rendering audio samples (heavy load)
-    uint32_t used = wr_idx - rd_idx;
-    if (used <= BUF_SAMPLES / 2) {
-      uint32_t dst_pos = wr_idx & BUF_MASK;  // Start position to write
-      // How many words can we write at the end of the buffer?
-      uint32_t first_len = MIN(BUF_SAMPLES - dst_pos, BUF_SAMPLES / 2);
-      PSG_render_block(&pcm_buf[dst_pos], first_len);
-      // If there are remaining words, write them at the beginning of the buffer
-      if (first_len < BUF_SAMPLES / 2) {
-        PSG_render_block(pcm_buf, BUF_SAMPLES / 2 - first_len);
+    if (use_buffer_output) {
+      uint32_t *dst = &pcm_buf[buffer_output_pos];
+      PSG_render_block(dst, BUF_SAMPLES / 2);
+      while (!psg_drv->write_buffer(dst, BUF_SAMPLES / 2)) {
+        tight_loop_contents();
+        psg_core1_poll_command();
       }
-      wr_idx += BUF_SAMPLES / 2;
+      buffer_output_pos ^= BUF_SAMPLES / 2;
+    } else {
+      // core1 is responsible for rendering audio samples (heavy load)
+      uint32_t used = wr_idx - rd_idx;
+      if (used <= BUF_SAMPLES / 2) {
+        uint32_t dst_pos = wr_idx & BUF_MASK;  // Start position to write
+        // How many words can we write at the end of the buffer?
+        uint32_t first_len = MIN(BUF_SAMPLES - dst_pos, BUF_SAMPLES / 2);
+        PSG_render_block(&pcm_buf[dst_pos], first_len);
+        // If there are remaining words, write them at the beginning of the buffer
+        if (first_len < BUF_SAMPLES / 2) {
+          PSG_render_block(pcm_buf, BUF_SAMPLES / 2 - first_len);
+        }
+        wr_idx += BUF_SAMPLES / 2;
+      }
     }
 
     tight_loop_contents();
-
-    if (multicore_fifo_rvalid()) {
-      uint32_t cmd = multicore_fifo_pop_blocking();
-      if (cmd == CMD_CLEANUP) {
-        if (audio_alarm_pool) {
-          cancel_repeating_timer(&audio_timer);
-          alarm_pool_destroy(audio_alarm_pool);
-          audio_alarm_pool = NULL;
-        }
-        if (tick_alarm_pool) {
-          cancel_repeating_timer(&tick_timer);
-          alarm_pool_destroy(tick_alarm_pool);
-          tick_alarm_pool = NULL;
-        }
-        if (psg_drv) {
-          psg_drv->stop();
-          psg_drv = NULL;
-        }
-        multicore_fifo_push_blocking(ACK_DONE);
-        for (;;) tight_loop_contents();
-      }
-    }
+    psg_core1_poll_command();
   }
 
 }
@@ -212,9 +236,14 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2)
 {
   debug_audio_pin_init();
 
-  PSG_render_block(pcm_buf, BUF_SAMPLES);
-  rd_idx = 0;
-  wr_idx = BUF_SAMPLES;
+  if (psg_drv && psg_drv->write_buffer) {
+    rd_idx = 0;
+    wr_idx = 0;
+  } else {
+    PSG_render_block(pcm_buf, BUF_SAMPLES);
+    rd_idx = 0;
+    wr_idx = BUF_SAMPLES;
+  }
 
   if (!core1_alive) {
     multicore_launch_core1(psg_core1_main);

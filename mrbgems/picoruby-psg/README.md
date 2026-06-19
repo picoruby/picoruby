@@ -7,6 +7,31 @@ PSG (Programmable Sound Generator) emulator for PicoRuby.
 Use the **prod** build when running PSG on R2P2 for Raspberry Pi Pico.
 The debug build is too slow for real-time audio playback and can cause severe audio dropouts.
 
+## MCP4922 DMA output
+
+For MCP4922 output on R2P2, the DMA path is enabled by default. It lets core1
+render audio in blocks and feed the MCP4922 PIO TX FIFO by DMA instead of
+writing one sample at a time from the audio timer callback.
+
+Build normally to use the DMA path:
+
+```sh
+rake r2p2:picoruby:pico2:prod
+```
+
+To use the legacy blocking PIO write path, disable DMA explicitly:
+
+```sh
+PICORUBY_PSG_MCP4922_DMA=off rake r2p2:picoruby:pico2:prod
+```
+
+Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the
+environment variable is not set, R2P2 passes
+`PICORUBY_PSG_MCP4922_DMA=ON` to CMake.
+
+When changing this option, check normal playback, stop/restart playback, a
+longer song, and any tempo-changing or live-control use cases.
+
 ## Wiring (RP2040 and RP2350)
 
 ### MCP492x --- 12bit DAC (SPI)
