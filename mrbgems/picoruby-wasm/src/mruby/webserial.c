@@ -26,6 +26,8 @@ extern mrb_state *global_mrb;
 extern void push_event_to_callback_queue(mrb_state *mrb, uintptr_t callback_id, mrb_value event);
 extern void close_event_queue(mrb_state *mrb, uintptr_t callback_id);
 
+#define SERIAL_CAPTURE_MAX_BYTES (256 * 1024)
+
 /*****************************************************
  * EM_JS helpers
  *****************************************************/
@@ -533,18 +535,28 @@ EM_JS(void, serial_binary_capture_stop, (int ref_id), {
   }
 });
 
-EM_JS(int, serial_capture_get, (int ref_id, int stop), {
+EM_JS(int, serial_capture_copy, (int ref_id, int stop, char *out_buf, int max_bytes), {
   try {
     const port = globalThis.picorubyRefs[ref_id];
     if (!port || !globalThis.picorubySerialCapture) {
-      return globalThis.picorubyRefs.push("") - 1;
+      if (max_bytes > 0) HEAPU8[out_buf] = 0;
+      return 0;
     }
     const cap = globalThis.picorubySerialCapture;
     const out = stop ? cap.stop(port) : cap.peek(port);
-    return globalThis.picorubyRefs.push(out) - 1;
+    const bytes = new TextEncoder().encode(out);
+    const n = Math.min(bytes.length, Math.max(0, max_bytes - 1));
+    if (n > 0) {
+      HEAPU8.set(bytes.subarray(0, n), out_buf);
+    }
+    if (max_bytes > 0) {
+      HEAPU8[out_buf + n] = 0;
+    }
+    return n;
   } catch (e) {
-    console.error('serial_capture_get failed:', e);
-    return globalThis.picorubyRefs.push("") - 1;
+    console.error('serial_capture_copy failed:', e);
+    if (max_bytes > 0) HEAPU8[out_buf] = 0;
+    return 0;
   }
 });
 
@@ -838,8 +850,18 @@ mrb_web_serial_capture_start(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+static mrb_value
+mrb_web_serial_capture_string(mrb_state *mrb, picorb_js_obj *port, int stop)
+{
+  char *buf = (char *)mrb_malloc(mrb, SERIAL_CAPTURE_MAX_BYTES + 1);
+  int len = serial_capture_copy(port->ref_id, stop, buf, SERIAL_CAPTURE_MAX_BYTES + 1);
+  mrb_value result = mrb_str_new(mrb, buf, len);
+  mrb_free(mrb, buf);
+  return result;
+}
+
 /*
- * JS::WebSerial.capture_peek -> JS::Object (String)
+ * JS::WebSerial.capture_peek -> String
  */
 static mrb_value
 mrb_web_serial_capture_peek(mrb_state *mrb, mrb_value self)
@@ -856,12 +878,11 @@ mrb_web_serial_capture_peek(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
   }
 
-  mrb_value result = wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 0));
-  return mrb_obj_as_string(mrb, result);
+  return mrb_web_serial_capture_string(mrb, port, 0);
 }
 
 /*
- * JS::WebSerial.capture_stop -> JS::Object (String)
+ * JS::WebSerial.capture_stop -> String
  */
 static mrb_value
 mrb_web_serial_capture_stop(mrb_state *mrb, mrb_value self)
@@ -878,8 +899,7 @@ mrb_web_serial_capture_stop(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object has no data");
   }
 
-  mrb_value result = wrap_ref_as_js_object(mrb, serial_capture_get(port->ref_id, 1));
-  return mrb_obj_as_string(mrb, result);
+  return mrb_web_serial_capture_string(mrb, port, 1);
 }
 
 /*
