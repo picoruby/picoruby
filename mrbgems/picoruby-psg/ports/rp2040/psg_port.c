@@ -14,10 +14,7 @@
 #include "../../include/psg.h"
 
 // Critical section
-#if defined(PICO_RP2040)
-
-#include "pico/multicore.h"
-#include "hardware/sync.h"
+#if defined(PICO_RP2040) || defined(PICO_RP2350)
 
 static spin_lock_t *psg_spin;
 
@@ -28,44 +25,20 @@ __attribute__((constructor))
 static void
 psg_port_init(void)
 {
-  /* Obtain a free HW spin-lock for inter-core critical sections:
-   *   1) spin_lock_claim_unused(true)  -> find & reserve an unused lock ID (panic if none)
-   *   2) spin_lock_instance(id)        -> convert that ID into a spin_lock_t* handle
-   * Use the handle with spin_lock_blocking()/spin_unlock() to guard shared PSG state. */
+  /* The packet ring buffer and PSG state are shared by core0 and core1. */
   psg_spin = spin_lock_instance(spin_lock_claim_unused(true));
 }
 
 psg_cs_token_t
 PSG_enter_critical(void)
 {
-  uint32_t irq_state = save_and_disable_interrupts();
-  spin_lock_unsafe_blocking(psg_spin);
-  return irq_state; // token = IRQ
+  return spin_lock_blocking(psg_spin);
 }
 
 void
 PSG_exit_critical(psg_cs_token_t token)
 {
   spin_unlock(psg_spin, token);
-}
-
-#elif defined(PICO_RP2350)
-
-#include "cmsis_gcc.h"
-static volatile uint32_t psg_lock = 0;
-
-psg_cs_token_t
-PSG_enter_critical(void)
-{
-  uint32_t irq_state = __get_PRIMASK();
-  __disable_irq();
-  return irq_state;
-}
-
-void
-PSG_exit_critical(psg_cs_token_t token)
-{
-  if (!token) __enable_irq();
 }
 
 #endif
@@ -111,11 +84,27 @@ static volatile bool core1_alive = false;
 // Audio timer (must be declared before psg_core1_main)
 static repeating_timer_t audio_timer;
 
-#if 1
-#define DBG_PIN  5
-#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << DBG_PIN)
+#ifndef PSG_DEBUG_AUDIO_PIN
+#define PSG_DEBUG_AUDIO_PIN -1
+#endif
+
+#if PSG_DEBUG_AUDIO_PIN >= 0
+#define DBG_TOGGLE()  (sio_hw->gpio_togl = 1u << PSG_DEBUG_AUDIO_PIN)
+
+static inline void
+debug_audio_pin_init(void)
+{
+  gpio_init(PSG_DEBUG_AUDIO_PIN);
+  gpio_set_dir(PSG_DEBUG_AUDIO_PIN, GPIO_OUT);
+  gpio_put(PSG_DEBUG_AUDIO_PIN, 0);
+}
 #else
-#define DBG_TOGGLE()
+#define DBG_TOGGLE()  ((void)0)
+
+static inline void
+debug_audio_pin_init(void)
+{
+}
 #endif
 
 static bool
@@ -199,11 +188,7 @@ psg_core1_main(void)
 void
 PSG_tick_start_core1(uint8_t p1, uint8_t p2)
 {
-#if 1
-  gpio_init(DBG_PIN);
-  gpio_set_dir(DBG_PIN, GPIO_OUT);
-  gpio_put(DBG_PIN, 0);
-#endif
+  debug_audio_pin_init();
 
   PSG_render_block(pcm_buf, BUF_SAMPLES);
   rd_idx = 0;
