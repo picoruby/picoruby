@@ -8,20 +8,29 @@ module PSG
     attr_accessor :tempo_scale
 
     def self.__register(playback)
-      @__registry ||= {}
-      @__next_id ||= 0
-      @__next_id += 1
-      @__registry[@__next_id] = playback
-      @__next_id
+      registry = @__registry
+      unless registry
+        registry = {} #: Hash[Integer, PSG::Playback]
+        @__registry = registry
+      end
+
+      next_id = @__next_id || 0
+      next_id += 1
+      @__next_id = next_id
+      registry[next_id] = playback
+      next_id
     end
 
     def self.__fetch(id)
-      return nil unless @__registry
-      @__registry[id]
+      registry = @__registry
+      return nil unless registry
+      registry[id]
     end
 
     def self.__unregister(id)
-      @__registry.delete(id) if @__registry
+      return unless id
+      registry = @__registry
+      registry.delete(id) if registry
     end
 
     def self.__run_task(id, kind)
@@ -79,7 +88,7 @@ module PSG
     end
 
     def __create_task(kind)
-      id = @registry_id
+      id = @registry_id || raise("playback is not registered")
       if Task.respond_to?(:create)
         source = "PSG::Playback.__run_task(#{id}, :#{kind})"
         binary = PicoRubyVM::InstructionSequence.compile(source).to_binary

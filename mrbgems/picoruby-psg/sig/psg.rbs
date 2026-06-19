@@ -5,6 +5,9 @@ module PSG
     WAIT_RETRY_MS: Integer
     WAIT_SLICE_MS: Integer
 
+    self.@__registry: Hash[Integer, PSG::Playback]?
+    self.@__next_id: Integer?
+
     @driver: untyped
     @tracks: Array[String]
     @queue: Task::Queue
@@ -14,14 +17,23 @@ module PSG
     @replay_requested: bool
     @sequencer_task: Task?
     @sound_task: Task?
+    @registry_id: Integer?
+    @running_tasks: Integer
 
     attr_reader queue: Task::Queue
     attr_reader tracks: Array[String]
     attr_accessor tempo_scale: Float
 
+    def self.__register: (PSG::Playback playback) -> Integer
+    def self.__fetch: (Integer id) -> PSG::Playback?
+    def self.__unregister: (Integer? id) -> void
+    def self.__run_task: (Integer id, Symbol kind) -> void
+
     def initialize: (untyped driver, Array[String] tracks, ?loop: bool, ?terminate: bool) -> void
     def start: () -> self
     def join: () -> self
+    def __create_task: (Symbol kind) -> Task
+    def __task_finished: () -> void
     def stop: () -> self
     def pause: () -> self
     def resume: () -> self
