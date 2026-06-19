@@ -202,12 +202,12 @@ psg_core1_main(void)
   for (;;) {
     if (use_buffer_output) {
       uint32_t *dst = &pcm_buf[buffer_output_pos];
-      PSG_render_block(dst, BUF_SAMPLES / 2);
-      while (!psg_drv->write_buffer(dst, BUF_SAMPLES / 2)) {
+      PSG_render_block(dst, PSG_BUFFER_OUTPUT_SAMPLES);
+      while (!psg_drv->write_buffer(dst, PSG_BUFFER_OUTPUT_SAMPLES)) {
         tight_loop_contents();
         psg_core1_poll_command();
       }
-      buffer_output_pos ^= BUF_SAMPLES / 2;
+      buffer_output_pos = (buffer_output_pos + PSG_BUFFER_OUTPUT_SAMPLES) & BUF_MASK;
     } else {
       // core1 is responsible for rendering audio samples (heavy load)
       uint32_t used = wr_idx - rd_idx;

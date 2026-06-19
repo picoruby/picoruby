@@ -19,7 +19,7 @@
 
 #define DAC_SPI_BAUD  16000000   /* 16 MHz */
 #define MCP4922_PIO_CYCLES_PER_SAMPLE 151.0f
-#define MCP4922_DMA_SAMPLES (BUF_SAMPLES / 2)
+#define MCP4922_DMA_SAMPLES PSG_BUFFER_OUTPUT_SAMPLES
 
 // MCP4922 DAC configuration structure
 typedef struct {

@@ -199,6 +199,13 @@ extern const psg_output_api_t psg_drv_mcp4922;
 /* Audio sampling buffer */
 #define BUF_SAMPLES   256
 #define BUF_MASK      (BUF_SAMPLES - 1)
+#ifndef PSG_BUFFER_OUTPUT_SAMPLES
+#if defined(PICO_RP2350)
+#define PSG_BUFFER_OUTPUT_SAMPLES (BUF_SAMPLES / 4)
+#else
+#define PSG_BUFFER_OUTPUT_SAMPLES (BUF_SAMPLES / 2)
+#endif
+#endif
 extern uint32_t pcm_buf[BUF_SAMPLES]; // 32-bit stereo samples
 extern volatile uint32_t wr_idx; // only core0 writes
 extern volatile uint32_t rd_idx; // only core1 writes
