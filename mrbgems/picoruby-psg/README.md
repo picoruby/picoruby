@@ -32,6 +32,32 @@ environment variable is not set, R2P2 passes
 When changing this option, check normal playback, stop/restart playback, a
 longer song, and any tempo-changing or live-control use cases.
 
+## PWM DMA output
+
+For PWM output on R2P2, the DMA path is also enabled by default. It lets core1
+render audio in blocks and feed the PWM compare register by DMA instead of
+updating PWM levels from the audio timer callback.
+
+Build normally to use the DMA path:
+
+```sh
+rake r2p2:picoruby:pico2:prod
+```
+
+To use the legacy timer callback path, disable DMA explicitly:
+
+```sh
+PICORUBY_PSG_PWM_DMA=off rake r2p2:picoruby:pico2:prod
+```
+
+Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the
+environment variable is not set, R2P2 passes `PICORUBY_PSG_PWM_DMA=ON` to
+CMake.
+
+PWM DMA is paced by the PWM wrap DREQ, so the PWM carrier follows the PSG sample
+rate. When changing this option, check normal playback, stop/restart playback,
+and high-frequency noise character on the target speaker or filter circuit.
+
 ## Wiring (RP2040 and RP2350)
 
 ### MCP492x --- 12bit DAC (SPI)

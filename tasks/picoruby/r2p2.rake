@@ -49,7 +49,7 @@ end
 
 def r2p2_def_psg_pwm_dma
   value = ENV["PICORUBY_PSG_PWM_DMA"]
-  enabled = value && !%w[0 off false no n].include?(value.downcase)
+  enabled = !value || !%w[0 off false no n].include?(value.downcase)
   "-D PICORUBY_PSG_PWM_DMA=#{enabled ? 'ON' : 'OFF'}"
 end
 
