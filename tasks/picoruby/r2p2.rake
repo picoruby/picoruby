@@ -47,6 +47,12 @@ def r2p2_def_psg_mcp4922_dma
   "-D PICORUBY_PSG_MCP4922_DMA=#{enabled ? 'ON' : 'OFF'}"
 end
 
+def r2p2_def_psg_pwm_dma
+  value = ENV["PICORUBY_PSG_PWM_DMA"]
+  enabled = value && !%w[0 off false no n].include?(value.downcase)
+  "-D PICORUBY_PSG_PWM_DMA=#{enabled ? 'ON' : 'OFF'}"
+end
+
 def r2p2_build_dir(vm, board, mode)
   "#{MRUBY_ROOT}/build/r2p2/#{vm}/#{board}/#{mode}"
 end
@@ -134,7 +140,8 @@ namespace :r2p2 do
                 #{r2p2_def_r2p2_name(vm, board)} \
                 #{r2p2_def_board(board)} \
                 #{r2p2_def_build_type(mode)} \
-                #{r2p2_def_psg_mcp4922_dma}
+                #{r2p2_def_psg_mcp4922_dma} \
+                #{r2p2_def_psg_pwm_dma}
               DEFS
               sh "cmake -S #{R2P2_GEM_DIR}/cmake -B #{dir} #{defs}"
               sh "cmake --build #{dir}"
