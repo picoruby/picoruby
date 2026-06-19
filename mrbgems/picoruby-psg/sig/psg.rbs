@@ -90,6 +90,7 @@ module PSG
     TONE_K: Float
     CH: Integer
     @ch_reg: Integer
+    @channel: Integer
     @driver: PSG::Driver
     def self.note_to_period: (Integer note) -> Integer
     def initialize: (PSG::Driver driver, ?channel: Integer) -> void
