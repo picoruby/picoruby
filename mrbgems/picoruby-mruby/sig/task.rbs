@@ -1,4 +1,6 @@
 class Task
+  class Error < StandardError
+  end
   def self.new: (?name: String, ?priority: Integer) {() -> void} -> Task
   def self.create: (String bytecode) -> Task
   def self.stat: () -> Task::Stat
@@ -8,6 +10,7 @@ class Task
   def self.list: () -> Array[Task]
   def self.pass: () -> nil
   def self.tick: () -> Integer
+  def self.run: () -> bool
   def status: () -> String
   def name: () -> (String | nil)
   def name=: (String name) -> String
