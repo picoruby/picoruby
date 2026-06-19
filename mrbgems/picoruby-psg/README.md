@@ -2,6 +2,11 @@
 
 PSG (Programmable Sound Generator) emulator for PicoRuby.
 
+## Build note for Raspberry Pi Pico
+
+Use the **prod** build when running PSG on R2P2 for Raspberry Pi Pico.
+The debug build is too slow for real-time audio playback and can cause severe audio dropouts.
+
 ## Wiring (RP2040 and RP2350)
 
 ### MCP492x --- 12bit DAC (SPI)
@@ -72,13 +77,13 @@ You can choose a GPIO combination as follows:
 For stereo output, you must choose a PWM pair that shares the same slice.
 This ensures that both left and right channels are updated simultaneously.
 
-|Slice|PWM A|PWM B|
-|-----|-----|-----|
-|PWM0 |GPIO0|GPIO1|
-|PWM1 |GPIO2|GPIO3|
-|PWM2 |GPIO4|GPIO5|
-|PWM3 |GPIO6|GPIO7|
-|PWM4 |GPIO8|GPIO9|
+|Slice|PWM A |PWM B |
+|-----|------|------|
+|PWM0 |GPIO0 |GPIO1 |
+|PWM1 |GPIO2 |GPIO3 |
+|PWM2 |GPIO4 |GPIO5 |
+|PWM3 |GPIO6 |GPIO7 |
+|PWM4 |GPIO8 |GPIO9 |
 |PWM5 |GPIO10|GPIO11|
 |PWM6 |GPIO12|GPIO13|
 |PWM7 |GPIO14|GPIO15|
@@ -89,3 +94,7 @@ This ensures that both left and right channels are updated simultaneously.
 |PWM4 |GPIO24|GPIO25|
 |PWM5 |GPIO26|GPIO27|
 |PWM6 |GPIO28|GPIO29|
+
+## Usage
+
+See README_MML.md
