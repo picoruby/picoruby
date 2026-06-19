@@ -1,10 +1,234 @@
 module PSG
+  class Playback
+
+    WAIT_RETRY_MS = 1
+    WAIT_SLICE_MS = 10
+
+    attr_reader :queue, :tracks
+    attr_accessor :tempo_scale
+
+    def initialize(driver, tracks, loop: true, terminate: false)
+      @driver = driver
+      @tracks = tracks
+      @loop = loop
+      @terminate = terminate
+      @queue = Task::Queue.new
+      @tempo_scale = 1.0
+      @stopped = false
+      @paused = false
+      @replay_requested = false
+      @mixer = 0b111000
+      @sequencer_task = nil
+      @sound_task = nil
+    end
+
+    def start
+      playback = self
+      @sound_task = Task.new { playback.__sound_loop }
+      @sequencer_task = Task.new { playback.__sequencer_loop }
+      self
+    end
+
+    def join
+      begin
+        @sequencer_task&.join
+        @sound_task&.join
+      rescue RuntimeError
+        Task.run
+      end
+      @driver.join if @terminate
+      self
+    end
+
+    def stop
+      @stopped = true
+      silence_direct
+      @queue.clear unless @queue.closed?
+      @queue.close unless @queue.closed?
+      @driver.buffer_flush
+      self
+    end
+
+    def pause
+      @paused = true
+      silence_direct
+      @driver.buffer_flush
+      self
+    end
+
+    def resume
+      @paused = false
+      self
+    end
+
+    def paused?
+      @paused
+    end
+
+    def stopped?
+      @stopped
+    end
+
+    def replay
+      @replay_requested = true
+      self
+    end
+
+    def __sound_loop
+      while true
+        command = @queue.pop
+        break if command.nil?
+        __write_command(command)
+      end
+    rescue => e
+      puts "Error during PSG sound task: #{e.message}"
+      silence_direct
+    end
+
+    def __sequencer_loop
+      while !@stopped
+        @replay_requested = false
+        @mixer = 0b111000
+        @tracks.size.times { |tr| __enqueue([:mute, tr, 0]) }
+
+        MML.compile_multi(@tracks, loop: @loop) do |delta, tr, command, arg0, arg1 = 0|
+          break if @stopped || @replay_requested
+          __wait_delta(delta)
+          break if @stopped || @replay_requested
+          __enqueue_mml_event(tr, command, arg0, arg1)
+        end
+
+        __enqueue_silence
+        break unless @replay_requested
+      end
+    rescue => e
+      puts "Error during PSG sequencer task: #{e.message}"
+      silence_direct
+    ensure
+      @queue.close unless @queue.closed?
+    end
+
+    def __wait_delta(delta)
+      remaining = delta.to_f
+      while 0 < remaining && !@stopped && !@replay_requested
+        while @paused && !@stopped && !@replay_requested
+          sleep_ms WAIT_SLICE_MS
+        end
+        break if @stopped || @replay_requested
+
+        scale = @tempo_scale || 1.0
+        scale = 0.01 if scale <= 0
+        score_slice = WAIT_SLICE_MS * scale
+        if remaining < score_slice
+          wall_ms = (remaining / scale).to_i
+          wall_ms = 1 if wall_ms < 1
+        else
+          wall_ms = WAIT_SLICE_MS
+        end
+        sleep_ms wall_ms
+        remaining -= wall_ms * scale
+      end
+    end
+
+    def __enqueue_mml_event(tr, command, arg0, arg1)
+      case command
+      when :segno
+        # MML handles the loop point internally.
+      when :mute
+        __enqueue([:mute, tr, arg0])
+      when :play
+        __enqueue([:send_reg, tr * 2, arg0 & 0xFF])
+        __enqueue([:send_reg, tr * 2 + 1, (arg0 >> 8) & 0x0F])
+      when :volume
+        __enqueue([:send_reg, tr + 8, arg0])
+      when :env_period
+        __enqueue([:send_reg, 11, arg0 & 0xFF])
+        __enqueue([:send_reg, 12, arg0 >> 8])
+      when :env_shape
+        __enqueue([:send_reg, 13, arg0])
+      when :legato
+        __enqueue([:set_legato, tr, arg0])
+      when :timbre
+        __enqueue([:set_timbre, tr, arg0])
+      when :pan
+        __enqueue([:set_pan, tr, arg0])
+      when :lfo
+        __enqueue([:set_lfo, tr, arg0, arg1])
+      when :mixer
+        case arg0
+        when 0 # Tone on, Noise off
+          @mixer |= (1 << (tr + 3))
+          @mixer &= ~(1 << tr)
+        when 1 # Tone off, Noise on
+          @mixer &= ~(1 << (tr + 3))
+          @mixer |= (1 << tr)
+        when 2 # Tone on, Noise on
+          @mixer &= ~(1 << tr)
+          @mixer &= ~(1 << (tr + 3))
+        end
+        __enqueue([:send_reg, 7, @mixer])
+      when :noise
+        __enqueue([:send_reg, 6, arg0])
+      end
+    end
+
+    def __enqueue_silence
+      @tracks.size.times do |tr|
+        __enqueue([:send_reg, tr + 8, 0])
+        __enqueue([:mute, tr, 1])
+      end
+    end
+
+    def __enqueue(command)
+      return false if @stopped || @queue.closed?
+      @queue.push(command)
+      true
+    rescue Task::Error
+      false
+    end
+
+    def __write_command(command)
+      while !@stopped
+        pushed = case command[0]
+        when :send_reg
+          @driver.send_reg(command[1], command[2], 0)
+        when :mute
+          @driver.mute(command[1], command[2], 0)
+        when :set_pan
+          @driver.set_pan(command[1], command[2], 0)
+        when :set_timbre
+          @driver.set_timbre(command[1], command[2], 0)
+        when :set_legato
+          @driver.set_legato(command[1], command[2], 0)
+        when :set_lfo
+          @driver.set_lfo(command[1], command[2], command[3], 0)
+        else
+          true
+        end
+        return if pushed
+        GC.start
+        sleep_ms WAIT_RETRY_MS
+      end
+    end
+
+    def silence_direct
+      tr = 0
+      while tr < @tracks.size
+        @driver.write_reg_direct(tr + 8, 0)
+        @driver.mute_direct(tr, 1)
+        tr += 1
+      end
+    end
+  end
+
   class Driver
 
     WAIT_MS = 500
 
     def initialize(type, **opt)
       @mml_request = nil
+      @mml_playback = nil
+      @bgm_playback = nil
       case type
       when :pwm
         if opt[:left].nil? || opt[:right].nil?
@@ -36,96 +260,37 @@ module PSG
     end
 
     def replay
+      @mml_playback&.replay
       @mml_request = :replay
     end
 
     def stop_mml
+      @mml_playback&.stop
+      @bgm_playback = nil if @bgm_playback.equal?(@mml_playback)
+      @mml_playback = nil
       @mml_request = :stop
     end
 
-    def play_mml(tracks, terminate: true)
+    def start_mml(tracks, loop: true, terminate: false)
+      stop_mml
       trap
+      @mml_request = nil
+      @mml_playback = Playback.new(self, tracks, loop: loop, terminate: terminate)
+      # @type ivar @mml_playback: Playback
+      @mml_playback.start
+    end
 
-      while true
-        # Wait if stopped (initial stop_mml before first play, or after game over)
-        if @mml_request == :stop
-          @mml_request = nil
-          sleep_ms(100) while @mml_request.nil?
-          break if @mml_request == :quit
-        end
-        break if @mml_request == :quit
-        @mml_request = nil
-
-        mixer = 0b111000 # Noise all off, Tone all on
-        # Give the ring buffer time to fill with some amount of packets
-        tracks.size.times { |tr| invoke :mute, tr, 0, WAIT_MS }
-        MML.compile_multi(tracks, loop: true) do |delta, tr, command, arg0, arg1 = 0|
-          break unless @mml_request.nil?
-          case command
-          when :segno
-            # Ignore. MML takes care of `$` macro
-          when :mute
-            invoke :mute, tr, arg0, delta
-          when :play
-            invoke :send_reg, tr * 2    , arg0 & 0xFF       , delta
-            invoke :send_reg, tr * 2 + 1, (arg0 >> 8) & 0x0F, 0
-          when :volume
-            invoke :send_reg, tr + 8, arg0, delta
-          when :env_period
-            invoke :send_reg, 11, arg0 & 0xFF, delta
-            invoke :send_reg, 12, arg0 >> 8  , 0
-          when :env_shape
-            invoke :send_reg, 13, arg0, delta
-          when :legato
-            invoke :set_legato, tr, arg0, delta
-          when :timbre
-            invoke :set_timbre, tr, arg0, delta
-          when :pan
-            invoke :set_pan, tr, arg0, delta
-          when :lfo
-            invoke :set_lfo, tr, arg0, arg1, delta
-          when :mixer
-            case arg0
-            when 0 # Tone on, Noise off
-              mixer |= (1 << (tr + 3))  # Set noise bit (off)
-              mixer &= ~(1 << tr)       # Clear tone bit (on)
-            when 1 # Tone off, Noise on
-              mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
-              mixer |= (1 << tr)        # Set tone bit (off)
-            when 2 # Tone on, Noise on
-              mixer &= ~(1 << tr)       # Clear tone bit (on)
-              mixer &= ~(1 << (tr + 3)) # Clear noise bit (on)
-            end
-            invoke :send_reg, 7, mixer, delta
-          when :noise
-            invoke :send_reg, 6, arg0, delta
-          end
-        end
-
-        # Silence all channels used by tracks
-        tracks.size.times do |tr|
-          write_reg_direct(tr + 8, 0)
-          mute_direct(tr, 1)
-        end
-        buffer_flush
-        GC.start
-
-        if @mml_request == :replay
-          next # restart from beginning
-        elsif @mml_request == :stop
-          next # will enter wait state at top of loop
-        else
-          break # natural end (non-looping MML finished)
-        end
-      end
-
-      join if terminate
-      return self
+    def play_mml(tracks, terminate: true)
+      playback = start_mml(tracks, loop: true, terminate: terminate)
+      playback.join
+      self
     rescue => e
       puts "Error during MML playback: #{e.message}"
-      tracks.size.times { |tr| invoke :mute, tr, 1, 0 }
+      tracks.size.times { |tr| mute_direct(tr, 1) }
       deinit
       return self
+    ensure
+      @mml_playback = nil if @mml_playback.equal?(playback)
     end
 
     def play_prs(filename, terminate: true)
@@ -180,44 +345,19 @@ module PSG
       file&.close
     end
 
-    # Start BGM playback in a background Task.
-    # mruby/c: Task.new does not forward blocks to initialize,
-    #          so we compile a script string and use Task.create.
-    # mruby:   Task.new with block works normally.
-    # Uses terminate: false so the task does not call deinit on exit.
+    # Start BGM playback in background PSG tasks.
     def start_bgm(tracks)
       stop_bgm
-      stop_mml
-      if RUBY_ENGINE == "mruby/c"
-        $__psg_bgm_tracks = tracks
-        $__psg_driver = self
-        mrb = PicoRubyVM::InstructionSequence.compile(
-          '$__psg_driver.play_mml($__psg_bgm_tracks, terminate: false)'
-        ).to_binary
-        @bgm_task = Task.create(mrb)
-        if @bgm_task.nil?
-          raise "Failed to create BGM task"
-        end
-        @bgm_task&.run
-      else
-        psg = self
-        @bgm_task = Task.new { psg.play_mml(tracks, terminate: false) }
-      end
+      @bgm_playback = start_mml(tracks, loop: true, terminate: false)
     end
 
     # Stop the BGM task and silence all channels.
     def stop_bgm
-      return unless @bgm_task
-      @mml_request = :quit
-      @bgm_task&.join
-      tr = 0
-      while tr < 3
-        write_reg_direct(tr + 8, 0)
-        mute_direct(tr, 1)
-        tr += 1
-      end
-      buffer_flush
-      @bgm_task = nil
+      return unless @bgm_playback
+      # @type ivar @bgm_playback: Playback
+      @bgm_playback.stop
+      @mml_playback = nil if @mml_playback.equal?(@bgm_playback)
+      @bgm_playback = nil
       @mml_request = nil
     end
 
@@ -234,6 +374,7 @@ module PSG
         # Do NOT call deinit here: the BGM task is still alive and would
         # access the freed ring buffer, corrupting the heap.
         # play_mml will call join -> deinit when it gets scheduled.
+        @mml_playback&.stop
         @mml_request = :quit
         Signal.trap(:INT, "DEFAULT")
       end

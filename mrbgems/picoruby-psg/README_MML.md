@@ -28,6 +28,39 @@ driver.play_mml(tracks)
 
 ```
 
+## Playback model
+
+`PSG::Driver#play_mml` keeps the historical synchronous API. Internally it
+uses two tasks and a `Task::Queue`:
+
+```text
+Sequencer task -> Task::Queue -> Sound task -> PSG ring buffer
+```
+
+The sequencer parses MML incrementally and sleeps for each delta in real time
+before pushing immediate PSG commands into the queue. The sound task blocks on
+`queue.pop`, writes the command to PSG registers as soon as it receives one,
+and then immediately waits for the next command.
+
+For asynchronous playback, use `start_mml`:
+
+```ruby
+playback = driver.start_mml(tracks)
+playback.tempo_scale = 1.25
+playback.pause
+playback.resume
+playback.stop
+```
+
+`playback.queue` is public so application tasks can enqueue short live-play or
+sound-effect commands. Commands are arrays:
+
+```ruby
+playback.queue << [:send_reg, 0, period & 0xff]
+playback.queue << [:send_reg, 1, period >> 8]
+playback.queue << [:mute, 0, 0]
+```
+
 ## 🎼 Supported MML Commands
 
 | Command         | Description                                                     |
@@ -70,12 +103,24 @@ driver.play_mml(tracks)
 The `MML#compile_multi` method yields timed events in the following form:
 
 ```ruby
-yield(delta_ms, channel, pitch, duration_ms, pan, volume, env_shape, env_period, lfo_depth, lfo_rate)
+yield(delta_ms, track, command, arg0, arg1 = 0)
 ```
-Additionally, control events are emitted when state changes occur:
 
-- `[:lfo, depth, rate]` : Vibrato (LFO) settings updated
-- `[:env, shape, period]` : Envelope settings updated
+Commands include:
 
-Use the delta_ms value to determine when to trigger each event.
+- `:play` : `arg0` is the tone period, `arg1` is sustain duration in ms
+- `:mute` : `arg0` is 1 to mute or 0 to unmute
+- `:volume` : `arg0` is the channel volume register value
+- `:env_period` : `arg0` is the 16-bit envelope period
+- `:env_shape` : `arg0` is the envelope shape
+- `:legato` : `arg0` is 1 to keep envelope state or 0 to reset on tone update
+- `:timbre` : `arg0` is the timbre index
+- `:pan` : `arg0` is the pan value
+- `:lfo` : `arg0` is depth and `arg1` is rate
+- `:mixer` : `arg0` selects tone/noise mode
+- `:noise` : `arg0` is the noise period
+- `:segno` : loop marker handled by the MML parser
 
+Use `delta_ms` to determine when to trigger each event. `PSG::Playback`
+consumes that delta in the sequencer task rather than precomputing all event
+times up front.
