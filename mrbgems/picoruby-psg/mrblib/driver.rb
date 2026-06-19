@@ -266,7 +266,7 @@ module PSG
 
     def stop_mml
       @mml_playback&.stop
-      @bgm_playback = nil if @bgm_playback.equal?(@mml_playback)
+      @bgm_playback = nil if @bgm_playback == @mml_playback
       @mml_playback = nil
       @mml_request = :stop
     end
@@ -290,7 +290,7 @@ module PSG
       deinit
       return self
     ensure
-      @mml_playback = nil if @mml_playback.equal?(playback)
+      @mml_playback = nil if @mml_playback == playback
     end
 
     def play_prs(filename, terminate: true)
@@ -356,7 +356,7 @@ module PSG
       return unless @bgm_playback
       # @type ivar @bgm_playback: Playback
       @bgm_playback.stop
-      @mml_playback = nil if @mml_playback.equal?(@bgm_playback)
+      @mml_playback = nil if @mml_playback == @bgm_playback
       @bgm_playback = nil
       @mml_request = nil
     end
