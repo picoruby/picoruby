@@ -7,6 +7,36 @@ module PSG
     attr_reader :queue, :tracks
     attr_accessor :tempo_scale
 
+    def self.__register(playback)
+      @__registry ||= {}
+      @__next_id ||= 0
+      @__next_id += 1
+      @__registry[@__next_id] = playback
+      @__next_id
+    end
+
+    def self.__fetch(id)
+      return nil unless @__registry
+      @__registry[id]
+    end
+
+    def self.__unregister(id)
+      @__registry.delete(id) if @__registry
+    end
+
+    def self.__run_task(id, kind)
+      playback = __fetch(id)
+      return unless playback
+
+      if kind == :sound
+        playback.__sound_loop
+      else
+        playback.__sequencer_loop
+      end
+    ensure
+      playback.__task_finished if playback
+    end
+
     def initialize(driver, tracks, loop: true, terminate: false)
       @driver = driver
       @tracks = tracks
@@ -20,13 +50,21 @@ module PSG
       @mixer = 0b111000
       @sequencer_task = nil
       @sound_task = nil
+      @registry_id = nil
+      @running_tasks = 0
     end
 
     def start
-      playback = self
-      @sound_task = Task.new { playback.__sound_loop }
-      @sequencer_task = Task.new { playback.__sequencer_loop }
+      @registry_id = self.class.__register(self)
+      @running_tasks = 2
+      @sound_task = __create_task(:sound)
+      @sequencer_task = __create_task(:sequencer)
       self
+    rescue
+      self.class.__unregister(@registry_id) if @registry_id
+      @registry_id = nil
+      @running_tasks = 0
+      raise
     end
 
     def join
@@ -38,6 +76,28 @@ module PSG
       end
       @driver.join if @terminate
       self
+    end
+
+    def __create_task(kind)
+      id = @registry_id
+      if Task.respond_to?(:create)
+        source = "PSG::Playback.__run_task(#{id}, :#{kind})"
+        binary = PicoRubyVM::InstructionSequence.compile(source).to_binary
+        task = Task.create(binary)
+        task.run
+        task
+      else
+        Task.new { PSG::Playback.__run_task(id, kind) }
+      end
+    end
+
+    def __task_finished
+      return unless @registry_id
+      @running_tasks -= 1 if 0 < @running_tasks
+      return unless @running_tasks == 0
+
+      self.class.__unregister(@registry_id)
+      @registry_id = nil
     end
 
     def stop
