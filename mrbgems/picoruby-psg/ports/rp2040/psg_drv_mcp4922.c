@@ -111,9 +111,9 @@ psg_mcp4922_write(uint16_t l, uint16_t r)
 }
 
 const psg_output_api_t psg_drv_mcp4922 = {
-  .init  = psg_mcp4922_init,
-  .start = psg_mcp4922_start,
-  .stop  = psg_mcp4922_stop,
-  .write = psg_mcp4922_write
+  .init         = psg_mcp4922_init,
+  .start        = psg_mcp4922_start,
+  .stop         = psg_mcp4922_stop,
+  .write        = psg_mcp4922_write,
+  .write_buffer = NULL
 };
-

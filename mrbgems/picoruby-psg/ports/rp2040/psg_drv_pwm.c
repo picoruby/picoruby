@@ -58,8 +58,9 @@ psg_pwm_write(uint16_t l, uint16_t r)
 }
 
 const psg_output_api_t psg_drv_pwm = {
-  .init  = psg_pwm_init,
-  .start = psg_pwm_start,
-  .stop  = psg_pwm_stop,
-  .write = psg_pwm_write
+  .init         = psg_pwm_init,
+  .start        = psg_pwm_start,
+  .stop         = psg_pwm_stop,
+  .write        = psg_pwm_write,
+  .write_buffer = NULL
 };

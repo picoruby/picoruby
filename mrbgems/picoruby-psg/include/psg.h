@@ -186,6 +186,7 @@ typedef struct {
   void (*start)(void);
   void (*stop)(void);
   void (*write)(uint16_t l, uint16_t r);
+  bool (*write_buffer)(const uint32_t *samples, uint32_t count);
 } psg_output_api_t;
 
 /* one global pointer, switched at runtime */
