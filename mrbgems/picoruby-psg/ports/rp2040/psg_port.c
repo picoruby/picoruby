@@ -151,6 +151,17 @@ psg_core1_main(void)
     assert(false && "Failed to add repeating timer");
   }
 
+  if (!audio_alarm_pool) {
+    audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
+    assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
+    irq_set_priority(PICORB_IRQ_1, 0);
+  }
+  memset(&audio_timer, 0, sizeof(repeating_timer_t));
+  /* 22.05 kHz */
+  if (!alarm_pool_add_repeating_timer_us(audio_alarm_pool, -1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer)) {
+    assert(false && "Failed to add repeating timer");
+  }
+
   multicore_fifo_push_blocking(ACK_CORE1_READY);
 
   for (;;) {
@@ -173,9 +184,20 @@ psg_core1_main(void)
     if (multicore_fifo_rvalid()) {
       uint32_t cmd = multicore_fifo_pop_blocking();
       if (cmd == CMD_CLEANUP) {
-        cancel_repeating_timer(&tick_timer);
-        alarm_pool_destroy(tick_alarm_pool);
-        tick_alarm_pool  = NULL;
+        if (audio_alarm_pool) {
+          cancel_repeating_timer(&audio_timer);
+          alarm_pool_destroy(audio_alarm_pool);
+          audio_alarm_pool = NULL;
+        }
+        if (tick_alarm_pool) {
+          cancel_repeating_timer(&tick_timer);
+          alarm_pool_destroy(tick_alarm_pool);
+          tick_alarm_pool = NULL;
+        }
+        if (psg_drv) {
+          psg_drv->stop();
+          psg_drv = NULL;
+        }
         multicore_fifo_push_blocking(ACK_DONE);
         for (;;) tight_loop_contents();
       }
@@ -206,35 +228,20 @@ PSG_tick_start_core1(uint8_t p1, uint8_t p2)
     core1_alive = true;
   }
 
-  if (!audio_alarm_pool) {
-    audio_alarm_pool = alarm_pool_create(ALARM_AUDIO, 2);
-    assert(audio_alarm_pool && "Failed to create alarm audio_alarm_pool");
-    irq_set_priority(PICORB_IRQ_1, 0);
-  }
-  memset(&audio_timer, 0, sizeof(repeating_timer_t));
-  /* 22.05 kHz */
-  if (!alarm_pool_add_repeating_timer_us(audio_alarm_pool, -1000000 / SAMPLE_RATE, audio_cb, NULL, &audio_timer)) {
-    assert(false && "Failed to add repeating timer");
-  }
 }
 
 void
 PSG_tick_stop_core1(void)
 {
-  if (psg_drv) {
-    psg_drv->stop();
-    psg_drv = NULL;
-  }
   if (core1_alive) {
     multicore_fifo_push_blocking(CMD_CLEANUP);
     while (multicore_fifo_pop_blocking() != ACK_DONE) {
       // wait
     }
     multicore_reset_core1();
-
-    cancel_repeating_timer(&audio_timer);
-    alarm_pool_destroy(audio_alarm_pool);
-    audio_alarm_pool = NULL;
     core1_alive = false;
+  } else if (psg_drv) {
+    psg_drv->stop();
+    psg_drv = NULL;
   }
 }
