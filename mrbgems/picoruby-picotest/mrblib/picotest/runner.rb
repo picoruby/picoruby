@@ -70,7 +70,7 @@ module Picotest
                 !femtoruby?
               end
               def wasm?
-                (ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || "").include?("wasm-runner")
+                RUBY_PLATFORM.include?("wasm")
               end
             end
           PICOTEST_COMPAT
