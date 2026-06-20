@@ -161,7 +161,7 @@ namespace :wasm do
   desc "Start local server for PicoRuby WASM"
   task :server do
     demo_dir = "mrbgems/picoruby-wasm/demo"
-    sh "./bin/picorbc -o #{demo_dir}/www/ruby/app.mrb #{demo_dir}/www/ruby/tutorial_helper.rb #{demo_dir}/www/ruby/tutorial_main.rb"
+    sh "./bin/mrbc-prism -o #{demo_dir}/www/ruby/app.mrb #{demo_dir}/www/ruby/tutorial_helper.rb #{demo_dir}/www/ruby/tutorial_main.rb"
     sh "./#{demo_dir}/bin/server.rb"
   end
 

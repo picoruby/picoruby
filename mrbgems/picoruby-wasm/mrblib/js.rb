@@ -40,7 +40,7 @@ module JS
           begin
             block.call(ev)
           rescue => e
-            warn "Callback #{callback_id}: #{e.class}: #{e.message}"
+            $stderr.puts "Callback #{callback_id}: #{e.class}: #{e.message}"
           end
         end
         CALLBACKS.delete(callback_id)
