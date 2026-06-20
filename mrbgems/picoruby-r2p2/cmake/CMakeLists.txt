@@ -105,7 +105,7 @@ endif()
 # Core1 is used for PSG audio processing but doesn't access flash during BTStack operations
 add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE=1)
 
-set(PICORBC ${PICORUBY_ROOT}/bin/picorbc)
+set(PICORBC ${PICORUBY_ROOT}/bin/mrbc-prism)
 
 add_custom_target(mrbdir ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/mrb

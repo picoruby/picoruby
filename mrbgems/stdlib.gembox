@@ -5,7 +5,12 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-base64'
   conf.gem core: 'picoruby-json'
   conf.gem core: 'picoruby-yaml'
-  conf.gem core: "picoruby-eval"
+  if vm_mruby?
+    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-binding"
+    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-eval-prism"
+  else
+    conf.gem core: "picoruby-eval"
+  end
   conf.gem core: "picoruby-marshal"
   conf.gem core: 'picoruby-data'
   conf.gem core: 'picoruby-logger'
