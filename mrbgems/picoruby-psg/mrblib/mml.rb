@@ -45,7 +45,7 @@ class MML # Music Macro Language
       # @type var min_tick: Integer
       delta = min_tick - prev_time
       # @type var min_track: Integer
-      yield(delta, min_track, event[0], event[1])
+      yield(delta, min_track, event[0], event[1], event[2])
       prev_time = min_tick
 
       next_event = parsers[min_track].reduce_next

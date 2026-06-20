@@ -1,13 +1,59 @@
 #$DEBUG: bool
 
 module PSG
+  class Playback
+    WAIT_RETRY_MS: Integer
+    WAIT_SLICE_MS: Integer
+
+    self.@__registry: Hash[Integer, PSG::Playback]?
+    self.@__next_id: Integer?
+
+    @driver: untyped
+    @tracks: Array[String]
+    @queue: Task::Queue
+    @tempo_scale: Float
+    @stopped: bool
+    @paused: bool
+    @replay_requested: bool
+    @sequencer_task: Task?
+    @sound_task: Task?
+    @registry_id: Integer?
+    @running_tasks: Integer
+
+    attr_reader queue: Task::Queue
+    attr_reader tracks: Array[String]
+    attr_accessor tempo_scale: Float
+
+    def self.__register: (PSG::Playback playback) -> Integer
+    def self.__fetch: (Integer id) -> PSG::Playback?
+    def self.__unregister: (Integer? id) -> void
+    def self.__run_task: (Integer id, Symbol kind) -> void
+
+    def initialize: (untyped driver, Array[String] tracks, ?loop: bool, ?terminate: bool) -> void
+    def start: () -> self
+    def join: () -> self
+    def __create_task: (Symbol kind) -> Task
+    def __task_finished: () -> void
+    def stop: () -> self
+    def pause: () -> self
+    def resume: () -> self
+    def paused?: () -> bool
+    def stopped?: () -> bool
+    def replay: () -> self
+    def __sound_loop: () -> void
+    def __sequencer_loop: () -> void
+    def __wait_delta: (Integer | Float delta) -> void
+    def __enqueue_mml_event: (Integer tr, Symbol command, Integer arg0, Integer arg1) -> void
+    def __enqueue_silence: () -> void
+    def __enqueue: (Array[untyped] command) -> bool
+    def __write_command: (Array[untyped] command) -> void
+    def silence_direct: () -> void
+  end
+
   class Driver
     CHIP_CLOCK: Integer
     SAMPLE_RATE: Integer
     TIMBRES: Hash[Symbol, Integer]
-
-    $__psg_bgm_tracks: Array[String]
-    $__psg_driver: ::PSG::Driver
 
     def self.select_pwm: (Integer left, Integer right) -> void
     def self.select_mcp4922: (Integer ldac) -> void
@@ -28,10 +74,12 @@ module PSG
     def mute_direct: (Integer ch, Integer flag) -> nil
 
     WAIT_MS: Integer
-    @bgm_task: Task?
+    @mml_playback: PSG::Playback?
+    @bgm_playback: PSG::Playback?
     def play_mml: (Array[String] tracks, ?terminate: bool) -> self
+    def start_mml: (Array[String] tracks, ?loop: bool, ?terminate: bool) -> PSG::Playback
     def play_prs: (String filename, ?terminate: bool) -> void
-    def start_bgm: (Array[String] tracks) -> void
+    def start_bgm: (Array[String] tracks) -> PSG::Playback
     def stop_bgm: () -> void
     private def trap: () -> void
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
@@ -42,6 +90,7 @@ module PSG
     TONE_K: Float
     CH: Integer
     @ch_reg: Integer
+    @channel: Integer
     @driver: PSG::Driver
     def self.note_to_period: (Integer note) -> Integer
     def initialize: (PSG::Driver driver, ?channel: Integer) -> void

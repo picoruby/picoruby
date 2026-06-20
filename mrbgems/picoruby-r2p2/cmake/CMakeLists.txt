@@ -151,6 +151,16 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   PICO_HEAP_SIZE=0x0400        # 1KB
 )
 
+option(PICORUBY_PSG_MCP4922_DMA "Use DMA for PSG MCP4922 output" ON)
+if(PICORUBY_PSG_MCP4922_DMA)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE PSG_MCP4922_DMA=1)
+endif()
+
+option(PICORUBY_PSG_PWM_DMA "Use DMA for PSG PWM output" ON)
+if(PICORUBY_PSG_PWM_DMA)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE PSG_PWM_DMA=1)
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE
   pico_stdlib
   pico_stdio
