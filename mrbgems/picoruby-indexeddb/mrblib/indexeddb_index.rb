@@ -23,7 +23,7 @@ module IndexedDB
       @store.with_readonly_store do |js_store|
         idx = js_store.index(@name)
         req = if key_or_range.nil?
-                count.nil? ? idx.getAll : idx.getAll(nil, count) # steep:ignore
+                count.nil? ? idx.getAll : idx.getAll(nil, count)
               else
                 js_key = @store.to_js_key(key_or_range)
                 count.nil? ? idx.getAll(js_key) : idx.getAll(js_key, count)

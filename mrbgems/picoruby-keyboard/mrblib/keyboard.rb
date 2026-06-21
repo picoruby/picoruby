@@ -600,7 +600,7 @@ class Keyboard
       thi2 = 0
       while thi2 < th_keys2.size
         key_pos = th_keys2[thi2] or raise
-        state = @tap_hold_keys[key_pos] # steep:ignore
+        state = @tap_hold_keys[key_pos]
         if state
           case state[:state]
           when :tapped, :tap_releasing

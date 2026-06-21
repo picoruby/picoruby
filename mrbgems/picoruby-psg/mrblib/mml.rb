@@ -158,10 +158,11 @@ class MML # Music Macro Language
         end
       when 107 # 'k' # Transpose (Key)
         sign = @track.getbyte(@cursor + 1)
+        transpose_sign = sign == 43 ? 1 : -1
         if sign == 43 || sign == 45 # '+' or '-'
           @cursor += 1
           n = subvalue || 0
-          @transpose = sign == "+" ? n : -n
+          @transpose = transpose_sign * n
         end
       when 108 # 'l' # Length
         fraction = subvalue

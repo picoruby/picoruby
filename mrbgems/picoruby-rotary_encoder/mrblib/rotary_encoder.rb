@@ -68,11 +68,12 @@ class RotaryEncoder
   # Read both pins directly (like the C version) for accurate state
   def read_and_decode
     current  = (@gpio_a.low? ? 0b10 : 0) | (@gpio_b.low? ? 0b01 : 0)
+    pending_rotation = current << 4
     prev     = @status & 0b000011
     rotation = @status & 0b110000
     if current != prev
       if rotation == 0b000000
-        rotation = current << 4 if current == 0b01 || current == 0b10
+        rotation = pending_rotation if current == 0b01 || current == 0b10
       elsif current == 0b00
         if rotation == 0b100000 && prev == 0b01
           @proc_cw.call
