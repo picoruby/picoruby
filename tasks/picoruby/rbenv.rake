@@ -55,7 +55,7 @@ namespace :rbenv do
       rm_rf dst
       cp_r src, dst
 
-      # Handle nested submodules (e.g. mruby-compiler2/lib/prism)
+      # Handle nested submodules (e.g. mruby-compiler-prism/lib/prism)
       nested_gitmodules = "#{src}/.gitmodules"
       if File.exist?(nested_gitmodules)
         File.read(nested_gitmodules).scan(/path = (.+?)$/).each do |nested_path,|

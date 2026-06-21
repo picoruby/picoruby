@@ -231,8 +231,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_BINARY_DIR}/mrb
   ${R2P2_GEM_DIR}/include
   ${PICORUBY_ROOT}/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler-prism/lib/prism/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler-prism/include
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
 

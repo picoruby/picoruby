@@ -260,7 +260,7 @@ end
 def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type != 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-wasm')
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
-  return false if spec.name == 'mruby-compiler2'
+  return false if spec.name == 'mruby-compiler-prism'
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-net')
 

@@ -30,7 +30,7 @@ mruby VM version is mainly being developed.
 
 ### Depends on
 
-- [PicoRuby compiler (picoruby/mruby-compiler2)](https://github.com/picoruby/mruby-compiler2)
+- [PicoRuby compiler (picoruby/mruby-compiler2)](https://github.com/picoruby/mruby-compiler2) as mruby-compiler-prism
 - [Estalloc (picoruby/estalloc)](https://github.com/picoruby/estalloc)
 - [Littlefs (littlefs-project/littlefs)](https://github.com/littlefs-project/littlefs)
 - [mruby (mruby/mruby)](https://github.com/mruby/mruby)

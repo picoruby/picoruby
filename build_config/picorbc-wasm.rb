@@ -28,8 +28,8 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
   conf.exts.executable = '.js'
 
   # Compiler gems
-  conf.gem core: "mruby-compiler2"
-  conf.gem core: "mruby-bin-mrbc2"
+  conf.gem core: "mruby-compiler-prism"
+  conf.gem core: "mruby-bin-mrbc-prism"
 
   # Set output binary name
   conf.instance_variable_set :@mrbcfile, "bin/picorbc.wasm"
