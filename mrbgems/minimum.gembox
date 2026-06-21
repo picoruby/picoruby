@@ -1,7 +1,7 @@
 MRuby::GemBox.new do |conf|
   conf.gem core: 'mruby-compiler-prism'
   if posix?
-    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bin-mrbc-prism"
+    conf.gem core: "mruby-bin-mrbc-prism"
     conf.gem core: 'picoruby-bin-picoruby'
   end
   if vm_mrubyc?

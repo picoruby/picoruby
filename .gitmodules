@@ -11,7 +11,7 @@
 	path = mrbgems/mruby-compiler-prism
 	url = https://github.com/picoruby/mruby-compiler2
 [submodule "mrbgems/mruby-bin-mrbc2"]
-	path = mrbgems/mruby-bin-mrbc2
+	path = mrbgems/mruby-bin-mrbc-prism
 	url = https://github.com/picoruby/mruby-bin-mrbc2
 [submodule "mrbgems/picoruby-r2p2/lib/pico-sdk"]
 	path = mrbgems/picoruby-r2p2/lib/pico-sdk

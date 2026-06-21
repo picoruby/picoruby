@@ -7,7 +7,7 @@ module MRuby
     # Override
     def build_mrbc_exec
       gem core: 'mruby-compiler-prism' unless @gems['mruby-compiler-prism']
-      gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bin-mrbc-prism" unless @gems['mruby-bin-mrbc-prism']
+      gem core: "mruby-bin-mrbc-prism" unless @gems['mruby-bin-mrbc-prism']
       self.mrbcfile = "#{build_dir}/bin/mrbc-prism"
       set_build_info
     end
