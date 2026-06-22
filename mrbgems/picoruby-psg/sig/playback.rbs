@@ -3,13 +3,13 @@ module PSG
     WAIT_RETRY_MS: Integer
     WAIT_SLICE_MS: Integer
 
-    self.@__registry: Hash[Integer, PSG::Playback]?
-    self.@__next_id: Integer?
+    self.@registry: Hash[Integer, PSG::Playback]
+    self.@next_id: Integer
 
     @driver: untyped
     @tracks: Array[String]
     @queue: Task::Queue
-    @tempo_scale: Float
+    @tempo_scale: Integer
     @stopped: bool
     @paused: bool
     @replay_requested: bool
@@ -20,12 +20,11 @@ module PSG
 
     attr_reader queue: Task::Queue
     attr_reader tracks: Array[String]
-    attr_accessor tempo_scale: Float
+    attr_accessor tempo_scale: Integer
 
     def self.register: (PSG::Playback playback) -> Integer
     def self.unregister: (Integer? id) -> void
     def self.run_task: (Integer id, Symbol kind) -> void
-    private def self.fetch: (Integer id) -> PSG::Playback?
 
     def initialize: (untyped driver, Array[String] tracks, ?loop: bool, ?terminate: bool) -> void
     def start: () -> self
@@ -40,7 +39,7 @@ module PSG
     def sequencer_loop: () -> void
     def task_finished: () -> void
     private def create_task: (Symbol kind) -> Task
-    private def wait_delta: (Integer | Float delta) -> void
+    private def wait_delta: (Integer delta_ms) -> void
     private def enqueue_mml_event: (Integer tr, Symbol command, Integer arg0, Integer arg1) -> void
     private def enqueue_silence: () -> void
     private def enqueue: (Array[untyped] command) -> bool

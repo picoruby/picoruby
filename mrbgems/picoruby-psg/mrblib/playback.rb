@@ -9,34 +9,19 @@ module PSG
 
     class << self
       def register(playback)
-        registry = @__registry
-        unless registry
-          registry = {} #: Hash[Integer, PSG::Playback]
-          @__registry = registry
-        end
-
-        next_id = @__next_id || 0
-        next_id += 1
-        @__next_id = next_id
-        registry[next_id] = playback
-        next_id
-      end
-
-      private def fetch(id)
-        registry = @__registry
-        return nil unless registry
-        registry[id]
+        @registry ||= {} #: Hash[Integer, PSG::Playback]
+        @next_id ||= 0
+        @registry[@next_id += 1] = playback
+        @next_id
       end
 
       def unregister(id)
-        return unless id
-        registry = @__registry
-        registry.delete(id) if registry
+        id.nil? and return
+        @registry.delete(id)
       end
 
       def run_task(id, kind)
-        playback = fetch(id)
-        return unless playback
+        playback = @registry[id] or return
 
         if kind == :sound
           playback.sound_loop
@@ -44,7 +29,7 @@ module PSG
           playback.sequencer_loop
         end
       ensure
-        playback.task_finished if playback
+        playback&.task_finished
       end
     end
 
@@ -54,7 +39,7 @@ module PSG
       @loop = loop
       @terminate = terminate
       @queue = Task::Queue.new
-      @tempo_scale = 1.0
+      @tempo_scale = 100
       @stopped = false
       @paused = false
       @replay_requested = false
@@ -72,7 +57,7 @@ module PSG
       @sequencer_task = create_task(:sequencer)
       self
     rescue
-      self.class.unregister(@registry_id) if @registry_id
+      self.class.unregister(@registry_id)
       @registry_id = nil
       @running_tasks = 0
       raise
@@ -162,9 +147,9 @@ module PSG
         @mixer = 0b111000
         @tracks.size.times { |tr| enqueue([:mute, tr, 0]) }
 
-        MML.compile_multi(@tracks, loop: @loop) do |delta, tr, command, arg0, arg1 = 0|
+        MML.compile_multi(@tracks, loop: @loop) do |delta_ms, tr, command, arg0, arg1 = 0|
           break if @stopped || @replay_requested
-          wait_delta(delta)
+          wait_delta(delta_ms)
           break if @stopped || @replay_requested
           enqueue_mml_event(tr, command, arg0, arg1)
         end
@@ -179,25 +164,24 @@ module PSG
       @queue.close unless @queue.closed?
     end
 
-    private def wait_delta(delta)
-      remaining = delta.to_f
-      while 0 < remaining && !@stopped && !@replay_requested
+    private def wait_delta(delta_ms)
+      remaining_us = delta_ms * 1000
+      scale = [1, @tempo_scale].max * 10
+      score_slice_us = WAIT_SLICE_MS * scale
+      while 0 < remaining_us && !@stopped && !@replay_requested
         while @paused && !@stopped && !@replay_requested
           sleep_ms WAIT_SLICE_MS
         end
         break if @stopped || @replay_requested
 
-        scale = @tempo_scale || 1.0
-        scale = 0.01 if scale <= 0
-        score_slice = WAIT_SLICE_MS * scale
-        if remaining < score_slice
-          wall_ms = (remaining / scale).to_i
+        if remaining_us < score_slice_us
+          wall_ms = remaining_us / scale
           wall_ms = 1 if wall_ms < 1
         else
           wall_ms = WAIT_SLICE_MS
         end
         sleep_ms wall_ms
-        remaining -= wall_ms * scale
+        remaining_us -= wall_ms * scale
       end
     end
 

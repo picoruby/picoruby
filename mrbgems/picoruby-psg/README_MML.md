@@ -46,7 +46,7 @@ For asynchronous playback, use `start_mml`:
 
 ```ruby
 playback = driver.start_mml(tracks)
-playback.tempo_scale = 1.25
+playback.tempo_scale = 125 # Default: 100
 playback.pause
 playback.resume
 playback.stop
