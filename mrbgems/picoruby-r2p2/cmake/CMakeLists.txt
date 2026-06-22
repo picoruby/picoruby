@@ -105,7 +105,7 @@ endif()
 # Core1 is used for PSG audio processing but doesn't access flash during BTStack operations
 add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE=1)
 
-set(PICORBC ${PICORUBY_ROOT}/bin/mrbc-prism)
+set(PICORBC ${PICORUBY_ROOT}/bin/mrbc)
 
 add_custom_target(mrbdir ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/mrb
@@ -231,8 +231,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_BINARY_DIR}/mrb
   ${R2P2_GEM_DIR}/include
   ${PICORUBY_ROOT}/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler-prism/lib/prism/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler-prism/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler/include
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
 

@@ -25,7 +25,7 @@ extern void mrb_ble_init(mrb_state *mrb);
 extern void mrb_web_serial_init(mrb_state *mrb);
 extern void mrb_regexp_init(mrb_state *mrb);
 
-mrb_state *global_mrb = NULL;
+extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
 mrb_value main_task = {0};
 
 void*
@@ -184,7 +184,7 @@ picorb_create_task(const char *code)
 /* picorb_create_task_with_filename - compile Ruby string with a given filename.
  * The filename is stored in the irep debug_info, enabling accurate source
  * locations in error messages and step/next output (equivalent to
- * `picorbc -g <filename>`). */
+ * `mrbc -g <filename>`). */
 EMSCRIPTEN_KEEPALIVE
 int
 picorb_create_task_with_filename(const char *code, const char *filename)

@@ -452,7 +452,11 @@ picorb_load_rb_file_cxt(mrc_ccontext *cc, const char *fname, uint8_t **source, p
   return irep;
 }
 
+#if defined(PICORB_VM_MRUBY)
+extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
+#else
 mrb_state *global_mrb = NULL;
+#endif
 
 int
 main(int argc, char **argv)

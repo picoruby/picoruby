@@ -5,8 +5,8 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
     "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picoruby/package.json"
   )
   conf.generate_package_json_from_template(
-    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picorbc/package.json.template",
-    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picorbc/package.json"
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/mrbc/package.json.template",
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/mrbc/package.json"
   )
 
   toolchain :clang

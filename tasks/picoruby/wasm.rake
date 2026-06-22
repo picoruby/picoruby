@@ -1,6 +1,6 @@
 namespace :wasm do
   picoruby_npm_dir = "mrbgems/picoruby-wasm/npm/picoruby"
-  picorbc_npm_dir = "mrbgems/picoruby-wasm/npm/picorbc"
+  mrbc_npm_dir = "mrbgems/picoruby-wasm/npm/mrbc"
   npm_registry = "https://registry.npmjs.org/"
 
   picoruby_version = lambda do
@@ -36,13 +36,13 @@ namespace :wasm do
     end
   end
 
-  publish_picorbc_npm = lambda do |version|
+  publish_mrbc_npm = lambda do |version|
     require 'json'
     require 'tmpdir'
 
-    Dir.mktmpdir("picorbc-npm-") do |tmp_dir|
-      package_dir = File.join(tmp_dir, "picorbc")
-      FileUtils.cp_r(picorbc_npm_dir, package_dir)
+    Dir.mktmpdir("mrbc-npm-") do |tmp_dir|
+      package_dir = File.join(tmp_dir, "mrbc")
+      FileUtils.cp_r(mrbc_npm_dir, package_dir)
 
       package_json_path = File.join(package_dir, "package.json")
       pkg = JSON.parse(File.read(package_json_path))
@@ -55,19 +55,19 @@ namespace :wasm do
     end
   end
 
-  desc "Build picorbc WASM"
-  task :build_picorbc do
-    sh "CONFIG=picorbc-wasm PICORB_DEBUG=1 rake"
-    FileUtils.mkdir_p("#{picorbc_npm_dir}/debug")
-    FileUtils.mkdir_p("#{picorbc_npm_dir}/dist")
-    sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/debug/"
-    sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/debug/"
-    sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/dist/"
-    sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/dist/"
+  desc "Build mrbc WASM"
+  task :build_mrbc do
+    sh "CONFIG=mrbc-wasm PICORB_DEBUG=1 rake"
+    FileUtils.mkdir_p("#{mrbc_npm_dir}/debug")
+    FileUtils.mkdir_p("#{mrbc_npm_dir}/dist")
+    sh "cp build/mrbc-wasm/bin/mrbc.js #{mrbc_npm_dir}/debug/"
+    sh "cp build/mrbc-wasm/bin/mrbc.wasm #{mrbc_npm_dir}/debug/"
+    sh "cp build/mrbc-wasm/bin/mrbc.js #{mrbc_npm_dir}/dist/"
+    sh "cp build/mrbc-wasm/bin/mrbc.wasm #{mrbc_npm_dir}/dist/"
   end
 
-  desc "Build debug PicoRuby WASM into npm/picoruby/debug and picorbc WASM"
-  task :build_debug => :build_picorbc do
+  desc "Build debug PicoRuby WASM into npm/picoruby/debug and mrbc WASM"
+  task :build_debug => :build_mrbc do
     sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
   end
 
@@ -78,8 +78,8 @@ namespace :wasm do
 
   desc "Build all WASM artifacts required by Funicular release"
   task :build_release_artifacts do
-    sh "CONFIG=picorbc-wasm rake clean"
-    Rake::Task["wasm:build_picorbc"].invoke
+    sh "CONFIG=mrbc-wasm rake clean"
+    Rake::Task["wasm:build_mrbc"].invoke
 
     sh "CONFIG=picoruby-wasm rake clean"
     sh "CONFIG=picoruby-wasm rake"
@@ -93,7 +93,7 @@ namespace :wasm do
   desc "Clean PicoRuby WASM build"
   task :clean do
     sh "CONFIG=picoruby-wasm rake clean"
-    sh "CONFIG=picorbc-wasm rake clean"
+    sh "CONFIG=mrbc-wasm rake clean"
   end
 
   namespace :npm do
@@ -114,9 +114,9 @@ namespace :wasm do
       version = picoruby_version.call
       debug_version = "#{version}-debug"
 
-      sh "CONFIG=picorbc-wasm rake clean"
-      Rake::Task["wasm:picorbc"].invoke
-      publish_picorbc_npm.call(version)
+      sh "CONFIG=mrbc-wasm rake clean"
+      Rake::Task["wasm:mrbc"].invoke
+      publish_mrbc_npm.call(version)
 
       sh "CONFIG=picoruby-wasm rake clean"
       sh "CONFIG=picoruby-wasm rake"
@@ -147,8 +147,8 @@ namespace :wasm do
     task :versions do
       print "PicoRuby WASM versions:"
       sh "npm view @picoruby/wasm-wasi versions"
-      print "picorbc WASM versions:"
-      sh "npm view @picoruby/picorbc versions"
+      print "mrbc WASM versions:"
+      sh "npm view @picoruby/mrbc versions"
     end
   end
 
@@ -161,7 +161,7 @@ namespace :wasm do
   desc "Start local server for PicoRuby WASM"
   task :server do
     demo_dir = "mrbgems/picoruby-wasm/demo"
-    sh "./bin/mrbc-prism -o #{demo_dir}/www/ruby/app.mrb #{demo_dir}/www/ruby/tutorial_helper.rb #{demo_dir}/www/ruby/tutorial_main.rb"
+    sh "./bin/mrbc -o #{demo_dir}/www/ruby/app.mrb #{demo_dir}/www/ruby/tutorial_helper.rb #{demo_dir}/www/ruby/tutorial_main.rb"
     sh "./#{demo_dir}/bin/server.rb"
   end
 

@@ -61,7 +61,7 @@ heap_exit_critical(void)
 #endif
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_state *global_mrb = NULL;
+  extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
 #endif
 
 /* Linker symbol: bottom of C stack (top of heap region) */
@@ -185,4 +185,3 @@ main(void)
 #endif
   return ret;
 }
-

@@ -1,8 +1,8 @@
-MRuby::CrossBuild.new("picorbc-wasm") do |conf|
+MRuby::CrossBuild.new("mrbc-wasm") do |conf|
   # Generate package.json from template with version from version.h
   conf.generate_package_json_from_template(
-    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picorbc/package.json.template",
-    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picorbc/package.json"
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/mrbc/package.json.template",
+    "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/mrbc/package.json"
   )
 
   toolchain :clang
@@ -28,10 +28,10 @@ MRuby::CrossBuild.new("picorbc-wasm") do |conf|
   conf.exts.executable = '.js'
 
   # Compiler gems
-  conf.gem core: "mruby-compiler-prism"
-  conf.gem core: "mruby-bin-mrbc-prism"
+  conf.gem core: "mruby-compiler"
+  conf.gem core: "mruby-bin-mrbc"
 
   # Set output binary name
-  conf.instance_variable_set :@mrbcfile, "bin/picorbc.wasm"
+  conf.instance_variable_set :@mrbcfile, "bin/mrbc.wasm"
   conf.disable_libmruby
 end

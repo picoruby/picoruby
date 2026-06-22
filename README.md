@@ -30,7 +30,7 @@ mruby VM version is mainly being developed.
 
 ### Depends on
 
-- [PicoRuby compiler (picoruby/mruby-compiler2)](https://github.com/picoruby/mruby-compiler2) as mruby-compiler-prism
+- [PicoRuby compiler (picoruby/mruby-compiler2)](https://github.com/picoruby/mruby-compiler2) as mruby-compiler
 - [Estalloc (picoruby/estalloc)](https://github.com/picoruby/estalloc)
 - [Littlefs (littlefs-project/littlefs)](https://github.com/littlefs-project/littlefs)
 - [mruby (mruby/mruby)](https://github.com/mruby/mruby)
@@ -88,8 +88,8 @@ See an example: [build_config/r2p2-picoruby-pico.rb](build_config/r2p2-picoruby-
 
 `rake` command will make three kinds of executable binary
 
-- bin/picorbc
-  - `bin/picorbc path/to/source.rb` makes `path/to/source.mrb` that is VM code runs on an mruby-compatible virtual machine
+- bin/mrbc
+  - `bin/mrbc path/to/source.rb` makes `path/to/source.mrb` that is VM code runs on an mruby-compatible virtual machine
 - bin/picoruby
   - `bin/picoruby source.rb` executes Ruby just like normal `ruby` command
   - `bin/picoruby -e "puts 'Hello1'"` also works

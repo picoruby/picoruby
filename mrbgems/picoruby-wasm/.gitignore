@@ -7,9 +7,9 @@ npm/picoruby/debug/picoruby.wasm
 npm/picoruby/debug/picoruby.wasm.br
 npm/picoruby/debug/picoruby.js
 npm/picoruby/package.json
-npm/picorbc/dist/picorbc.js
-npm/picorbc/dist/picorbc.wasm
-npm/picorbc/debug/picorbc.js
-npm/picorbc/debug/picorbc.wasm
-npm/picorbc/package.json
+npm/mrbc/dist/mrbc.js
+npm/mrbc/dist/mrbc.wasm
+npm/mrbc/debug/mrbc.js
+npm/mrbc/debug/mrbc.wasm
+npm/mrbc/package.json
 npm/**/*.tgz
