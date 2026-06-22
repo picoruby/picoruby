@@ -1,0 +1,50 @@
+module PSG
+  class Playback
+    WAIT_RETRY_MS: Integer
+    WAIT_SLICE_MS: Integer
+
+    self.@__registry: Hash[Integer, PSG::Playback]?
+    self.@__next_id: Integer?
+
+    @driver: untyped
+    @tracks: Array[String]
+    @queue: Task::Queue
+    @tempo_scale: Float
+    @stopped: bool
+    @paused: bool
+    @replay_requested: bool
+    @sequencer_task: Task?
+    @sound_task: Task?
+    @registry_id: Integer?
+    @running_tasks: Integer
+
+    attr_reader queue: Task::Queue
+    attr_reader tracks: Array[String]
+    attr_accessor tempo_scale: Float
+
+    def self.register: (PSG::Playback playback) -> Integer
+    def self.unregister: (Integer? id) -> void
+    def self.run_task: (Integer id, Symbol kind) -> void
+    private def self.fetch: (Integer id) -> PSG::Playback?
+
+    def initialize: (untyped driver, Array[String] tracks, ?loop: bool, ?terminate: bool) -> void
+    def start: () -> self
+    def join: () -> self
+    def stop: () -> self
+    def pause: () -> self
+    def resume: () -> self
+    def paused?: () -> bool
+    def stopped?: () -> bool
+    def replay: () -> self
+    def sound_loop: () -> void
+    def sequencer_loop: () -> void
+    def task_finished: () -> void
+    private def create_task: (Symbol kind) -> Task
+    private def wait_delta: (Integer | Float delta) -> void
+    private def enqueue_mml_event: (Integer tr, Symbol command, Integer arg0, Integer arg1) -> void
+    private def enqueue_silence: () -> void
+    private def enqueue: (Array[untyped] command) -> bool
+    private def write_command: (Array[untyped] command) -> void
+    private def silence_direct: () -> void
+  end
+end
