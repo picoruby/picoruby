@@ -6,7 +6,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_conflict 'picoruby-mrubyc'
   spec.add_conflict 'picoruby-regexp_light'
 
-  spec.add_dependency 'mruby-compiler-prism'
+  spec.add_dependency 'mruby-compiler'
   spec.add_dependency 'mruby-task'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-jwt'

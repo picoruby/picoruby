@@ -7,7 +7,7 @@ MRuby::GemBox.new do |conf|
   conf.gem core: 'picoruby-yaml'
   if vm_mruby?
     conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-binding"
-    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-eval-prism"
+    conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-eval"
   else
     conf.gem core: "picoruby-eval"
   end

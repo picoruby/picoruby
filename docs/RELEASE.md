@@ -41,7 +41,7 @@ PicoRuby can be installed via `rbenv install picoruby-X.Y.Z`.
 
 GitHub's default source archive (`/archive/<tag>.tar.gz`) does not include
 git submodules. Since PicoRuby depends on several submodules
-(mruby-compiler-prism, prism, mrubyc, etc.), `rake rbenv:release` creates a
+(mruby-compiler, prism, mrubyc, etc.), `rake rbenv:release` creates a
 self-contained tarball with all required submodules bundled, uploads it to
 the GitHub Release, and prints the ruby-build definition with a SHA256
 checksum.

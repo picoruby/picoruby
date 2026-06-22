@@ -162,7 +162,7 @@ main(int argc, char **argv)
 
 #elif defined(PICORB_VM_MRUBY)
 
-mrb_state *global_mrb = NULL;
+extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
 
 int
 main(int argc, char **argv)

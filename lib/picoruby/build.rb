@@ -6,16 +6,16 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem core: 'mruby-compiler-prism' unless @gems['mruby-compiler-prism']
-      gem core: "mruby-bin-mrbc-prism" unless @gems['mruby-bin-mrbc-prism']
-      self.mrbcfile = "#{build_dir}/bin/mrbc-prism"
+      gem core: 'mruby-compiler' unless @gems['mruby-compiler']
+      gem core: "mruby-bin-mrbc" unless @gems['mruby-bin-mrbc']
+      self.mrbcfile = "#{build_dir}/bin/mrbc"
       set_build_info
     end
 
     alias_method :original_create_mrbc_build, :create_mrbc_build
 
     def create_mrbc_build
-      # picorbc is a standalone compiler; strip VM-specific defines so
+      # mrbc is a standalone compiler; strip VM-specific defines so
       # the sub-build does not pull in mruby.h (and presym/id.h).
       vm_defines = %w[PICORB_VM_MRUBY MRB_USE_TASK_SCHEDULER]
       saved = vm_defines.select { |d| cc.defines.include?(d) }
@@ -36,11 +36,11 @@ module MRuby
     alias_method :vm_mrubyc?, :femtoruby?
 
     def common
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler-prism/include"
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler-prism/lib/prism/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include"
       # Workaround: To avoid error in compiling gem_init.c
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
-      # Pass PICORUBY_VERSION to mruby-compiler-prism
+      # Pass PICORUBY_VERSION to mruby-compiler
       version = File.read("#{MRUBY_ROOT}/include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
       cc.defines << "PICORUBY_VERSION=\\\"#{version}\\\""
       set_build_info
@@ -57,7 +57,7 @@ module MRuby
     end
 
     def rite_version
-      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler-prism/include/mrc_dump.h")
+      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler/include/mrc_dump.h")
       ident = mrc_dump[/#define RITE_BINARY_IDENT\s+"(.+?)"/, 1]
       major = mrc_dump[/#define RITE_BINARY_MAJOR_VER\s+"(.+?)"/, 1]
       minor = mrc_dump[/#define RITE_BINARY_MINOR_VER\s+"(.+?)"/, 1]

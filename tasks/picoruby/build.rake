@@ -1,13 +1,13 @@
-namespace :picorbc do
-  desc "create picorbc debug build"
+namespace :mrbc do
+  desc "create mrbc debug build"
   task :debug do
-    sh "MRUBY_CONFIG=picorbc PICORB_DEBUG=1 rake"
+    sh "MRUBY_CONFIG=mrbc PICORB_DEBUG=1 rake"
   end
 
-  desc "create picorbc production build"
+  desc "create mrbc production build"
   task :prod do
-    sh "MRUBY_CONFIG=picorbc rake clean"
-    sh "MRUBY_CONFIG=picorbc rake"
+    sh "MRUBY_CONFIG=mrbc rake clean"
+    sh "MRUBY_CONFIG=mrbc rake"
   end
 end
 

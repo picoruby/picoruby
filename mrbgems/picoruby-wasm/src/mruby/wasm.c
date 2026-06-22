@@ -25,7 +25,7 @@ extern void mrb_ble_init(mrb_state *mrb);
 extern void mrb_web_serial_init(mrb_state *mrb);
 extern void mrb_regexp_init(mrb_state *mrb);
 
-mrb_state *global_mrb = NULL;
+extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
 mrb_value main_task = {0};
 
 void*

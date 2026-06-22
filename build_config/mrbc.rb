@@ -8,10 +8,10 @@ MRuby::Build.new do |conf|
 
   conf.set_build_info
 
-  conf.gem core: "mruby-compiler-prism"
-  conf.gem core: "mruby-bin-mrbc-prism"
+  conf.gem core: "mruby-compiler"
+  conf.gem core: "mruby-bin-mrbc"
 
-  conf.instance_variable_set :@mrbcfile, "bin/mrbc-prism"
+  conf.instance_variable_set :@mrbcfile, "bin/picorbc"
   conf.disable_libmruby
 end
 
