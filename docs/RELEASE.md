@@ -4,8 +4,8 @@ This document is intended for maintainers of the PicoRuby project.
 
 ## WASM packages (npm)
 
-Both `@picoruby/wasm` and `@picoruby/picorbc` are published from
-`mrbgems/picoruby-wasm/npm/picoruby/` and `mrbgems/picoruby-wasm/npm/picorbc/`
+Both `@picoruby/wasm` and `@picoruby/mrbc` are published from
+`mrbgems/picoruby-wasm/npm/picoruby/` and `mrbgems/picoruby-wasm/npm/mrbc/`
 respectively.
 
 ### Prerequisites
@@ -23,10 +23,10 @@ rake wasm:release
 This runs the following steps automatically:
 
 1. `CONFIG=picoruby-wasm rake clean`
-2. `CONFIG=picorbc-wasm rake clean`
+2. `CONFIG=mrbc-wasm rake clean`
 3. `CONFIG=picoruby-wasm rake` (build picoruby.wasm)
-4. `CONFIG=picorbc-wasm rake` (build picorbc.wasm)
-5. Copy picorbc artifacts to `mrbgems/picoruby-wasm/npm/picorbc/dist/`
+4. `CONFIG=mrbc-wasm rake` (build mrbc.wasm)
+5. Copy mrbc artifacts to `mrbgems/picoruby-wasm/npm/mrbc/dist/`
 6. `npm publish --access public` for both packages
 
 ### Verify

@@ -11,7 +11,7 @@ MRuby::Build.new do |conf|
   conf.gem core: "mruby-compiler"
   conf.gem core: "mruby-bin-mrbc"
 
-  conf.instance_variable_set :@mrbcfile, "bin/picorbc"
+  conf.instance_variable_set :@mrbcfile, "bin/mrbc"
   conf.disable_libmruby
 end
 
