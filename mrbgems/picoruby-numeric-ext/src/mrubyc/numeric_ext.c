@@ -111,6 +111,56 @@ c_flo_mod(struct VM *vm, mrbc_value v[], int argc)
   SET_FLOAT_RETURN(mod);
 }
 
+/* Sign predicates shared by Integer and Float */
+
+static mrbc_int_t
+c_num_sign(mrbc_value *v)
+{
+  if (mrbc_type(*v) == MRBC_TT_FLOAT) {
+    mrbc_float_t f = mrbc_float(*v);
+    return (f > 0.0) - (f < 0.0);
+  }
+  mrbc_int_t i = mrbc_integer(*v);
+  return (i > 0) - (i < 0);
+}
+
+static void
+c_num_zero_p(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_BOOL_RETURN(c_num_sign(&v[0]) == 0);
+}
+
+static void
+c_num_nonzero_p(struct VM *vm, mrbc_value v[], int argc)
+{
+  if (c_num_sign(&v[0]) == 0) {
+    SET_NIL_RETURN();
+  } else {
+    SET_RETURN(v[0]);
+  }
+}
+
+static void
+c_num_positive_p(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_BOOL_RETURN(c_num_sign(&v[0]) > 0);
+}
+
+static void
+c_num_negative_p(struct VM *vm, mrbc_value v[], int argc)
+{
+  SET_BOOL_RETURN(c_num_sign(&v[0]) < 0);
+}
+
+static void
+define_sign_predicates(mrbc_vm *vm, mrbc_class *cls)
+{
+  mrbc_define_method(vm, cls, "zero?",     c_num_zero_p);
+  mrbc_define_method(vm, cls, "nonzero?",  c_num_nonzero_p);
+  mrbc_define_method(vm, cls, "positive?", c_num_positive_p);
+  mrbc_define_method(vm, cls, "negative?", c_num_negative_p);
+}
+
 void
 mrbc_numeric_ext_init(mrbc_vm *vm)
 {
@@ -119,4 +169,7 @@ mrbc_numeric_ext_init(mrbc_vm *vm)
   mrbc_define_method(vm, fl, "floor", c_flo_floor);
   mrbc_define_method(vm, fl, "ceil",  c_flo_ceil);
   mrbc_define_method(vm, fl, "%",     c_flo_mod);
+
+  define_sign_predicates(vm, fl);
+  define_sign_predicates(vm, mrbc_get_class_by_name("Integer"));
 }
