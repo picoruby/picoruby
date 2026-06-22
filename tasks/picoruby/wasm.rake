@@ -60,10 +60,10 @@ namespace :wasm do
     sh "CONFIG=picorbc-wasm PICORB_DEBUG=1 rake"
     FileUtils.mkdir_p("#{picorbc_npm_dir}/debug")
     FileUtils.mkdir_p("#{picorbc_npm_dir}/dist")
-    sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/debug/"
-    sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/debug/"
-    sh "cp build/picorbc-wasm/bin/picorbc.js #{picorbc_npm_dir}/dist/"
-    sh "cp build/picorbc-wasm/bin/picorbc.wasm #{picorbc_npm_dir}/dist/"
+    sh "cp build/picorbc-wasm/bin/mrbc-prism.js #{picorbc_npm_dir}/debug/"
+    sh "cp build/picorbc-wasm/bin/mrbc-prism.wasm #{picorbc_npm_dir}/debug/"
+    sh "cp build/picorbc-wasm/bin/mrbc-prism.js #{picorbc_npm_dir}/dist/"
+    sh "cp build/picorbc-wasm/bin/mrbc-prism.wasm #{picorbc_npm_dir}/dist/"
   end
 
   desc "Build debug PicoRuby WASM into npm/picoruby/debug and picorbc WASM"

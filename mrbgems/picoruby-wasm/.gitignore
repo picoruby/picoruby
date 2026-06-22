@@ -11,5 +11,9 @@ npm/picorbc/dist/picorbc.js
 npm/picorbc/dist/picorbc.wasm
 npm/picorbc/debug/picorbc.js
 npm/picorbc/debug/picorbc.wasm
+npm/picorbc/dist/mrbc-prism.js
+npm/picorbc/dist/mrbc-prism.wasm
+npm/picorbc/debug/mrbc-prism.js
+npm/picorbc/debug/mrbc-prism.wasm
 npm/picorbc/package.json
 npm/**/*.tgz
