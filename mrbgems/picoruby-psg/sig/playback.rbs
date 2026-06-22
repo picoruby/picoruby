@@ -9,7 +9,7 @@ module PSG
     @driver: untyped
     @tracks: Array[String]
     @queue: Task::Queue
-    @tempo_scale: Integer
+    @tempo_scale_mille: Integer
     @stopped: bool
     @paused: bool
     @replay_requested: bool
@@ -20,13 +20,14 @@ module PSG
 
     attr_reader queue: Task::Queue
     attr_reader tracks: Array[String]
-    attr_accessor tempo_scale: Integer
 
     def self.register: (PSG::Playback playback) -> Integer
     def self.unregister: (Integer? id) -> void
     def self.run_task: (Integer id, Symbol kind) -> void
 
     def initialize: (untyped driver, Array[String] tracks, ?loop: bool, ?terminate: bool) -> void
+    def tempo_scale=: (Integer scale) -> Float
+    def tempo_scale: () -> Float
     def start: () -> self
     def join: () -> self
     def stop: () -> self

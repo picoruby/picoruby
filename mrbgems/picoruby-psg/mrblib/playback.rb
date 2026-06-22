@@ -5,7 +5,6 @@ module PSG
     WAIT_SLICE_MS = 10
 
     attr_reader :queue, :tracks
-    attr_accessor :tempo_scale
 
     class << self
       def register(playback)
@@ -39,7 +38,7 @@ module PSG
       @loop = loop
       @terminate = terminate
       @queue = Task::Queue.new
-      @tempo_scale = 100
+      @tempo_scale_mille = 1000
       @stopped = false
       @paused = false
       @replay_requested = false
@@ -48,6 +47,15 @@ module PSG
       @sound_task = nil
       @registry_id = nil
       @running_tasks = 0
+    end
+
+    def tempo_scale=(scale)
+      @tempo_scale_mille = (scale * 1000).to_i
+      tempo_scale
+    end
+
+    def tempo_scale
+      @tempo_scale_mille / 1000.0
     end
 
     def start
@@ -145,7 +153,11 @@ module PSG
       while !@stopped
         @replay_requested = false
         @mixer = 0b111000
-        @tracks.size.times { |tr| enqueue([:mute, tr, 0]) }
+        tr = 0
+        while tr < @tracks.size
+          enqueue([:mute, tr, 0])
+          tr += 1
+        end
 
         MML.compile_multi(@tracks, loop: @loop) do |delta_ms, tr, command, arg0, arg1 = 0|
           break if @stopped || @replay_requested
@@ -166,7 +178,7 @@ module PSG
 
     private def wait_delta(delta_ms)
       remaining_us = delta_ms * 1000
-      scale = [1, @tempo_scale].max * 10
+      scale = @tempo_scale_mille
       score_slice_us = WAIT_SLICE_MS * scale
       while 0 < remaining_us && !@stopped && !@replay_requested
         while @paused && !@stopped && !@replay_requested
@@ -177,11 +189,12 @@ module PSG
         if remaining_us < score_slice_us
           wall_ms = remaining_us / scale
           wall_ms = 1 if wall_ms < 1
+          remaining_us = 0
         else
           wall_ms = WAIT_SLICE_MS
+          remaining_us -= wall_ms * scale
         end
         sleep_ms wall_ms
-        remaining_us -= wall_ms * scale
       end
     end
 
@@ -228,9 +241,11 @@ module PSG
     end
 
     private def enqueue_silence
-      @tracks.size.times do |tr|
+      tr = 0
+      while tr < @tracks.size
         enqueue([:send_reg, tr + 8, 0])
         enqueue([:mute, tr, 1])
+        tr += 1
       end
     end
 
