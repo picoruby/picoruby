@@ -1011,8 +1011,11 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  const char *str_ptr = RSTRING_PTR(self);
-  int str_len = RSTRING_LEN(self);
+  /* Keep a stable snapshot while a replacement block runs arbitrary Ruby.
+   * The block must not be allowed to invalidate the buffer being scanned. */
+  mrb_value source = has_block ? mrb_str_dup(mrb, self) : self;
+  const char *str_ptr = RSTRING_PTR(source);
+  int str_len = RSTRING_LEN(source);
 
   mrb_value result = mrb_str_new(mrb, NULL, 0);
   int byte_pos = 0;
@@ -1040,8 +1043,13 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
       char *full = regexp_match_item(match_ref, 0);
       mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
       if (full) free(full);
+      regexp_release_ref(match_ref);
+      match_ref = -1;
       mrb_value yielded = mrb_yield(mrb, block, full_str);
       mrb_value yield_str = mrb_obj_as_string(mrb, yielded);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
       mrb_str_cat_str(mrb, result, yield_str);
     } else {
       mrb_value expanded = expand_replacement(mrb,
@@ -1051,7 +1059,9 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
       mrb_str_cat_str(mrb, result, expanded);
     }
 
-    regexp_release_ref(match_ref);
+    if (0 <= match_ref) {
+      regexp_release_ref(match_ref);
+    }
 
     /* Advance position. For zero-width matches, also append and skip one
      * UTF-8 character so we don't loop forever. */
