@@ -822,6 +822,34 @@ mrb_match_data_inspect(mrb_state *mrb, mrb_value self)
 
 /* ---- String extension methods ---- */
 
+/* Helper: build a Regexp that matches a String pattern LITERALLY.
+ * String#sub/#gsub/#split treat a String pattern as plain text (unlike
+ * String#match), so escape every regex metacharacter before compiling. */
+static mrb_value
+regexp_from_literal(mrb_state *mrb, mrb_value str)
+{
+  const char *p = RSTRING_PTR(str);
+  int len = RSTRING_LEN(str);
+  mrb_value escaped = mrb_str_new(mrb, NULL, 0);
+  for (int i = 0; i < len; i++) {
+    char c = p[i];
+    if (c == '\\' || c == '.' || c == '*' || c == '+' || c == '?' ||
+        c == '^' || c == '$' || c == '{' || c == '}' || c == '(' ||
+        c == ')' || c == '|' || c == '[' || c == ']' || c == '/') {
+      char bs = '\\';
+      mrb_str_cat(mrb, escaped, &bs, 1);
+    }
+    mrb_str_cat(mrb, escaped, &c, 1);
+  }
+  char js_flags[16];
+  build_js_flags("", 0, js_flags, sizeof(js_flags));
+  int ref_id = regexp_new(RSTRING_PTR(escaped), js_flags);
+  if (ref_id < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "invalid regular expression");
+  }
+  return regexp_create_obj(mrb, ref_id);
+}
+
 /* Helper: get or create Regexp from value */
 static mrb_value
 ensure_regexp(mrb_state *mrb, mrb_value pattern)
@@ -1008,7 +1036,9 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given 1, expected 2)");
   }
 
-  mrb_value re = ensure_regexp(mrb, pattern);
+  /* A String pattern matches literally (unlike String#match). */
+  mrb_value re = mrb_string_p(pattern) ? regexp_from_literal(mrb, pattern)
+                                       : ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
   const char *str_ptr = RSTRING_PTR(self);
