@@ -64,6 +64,7 @@ class UART
   def puts: (String str) -> nil
   def gets: () -> String?
   def write: (String str) -> Integer
+  def putc: ((Integer | String) ch) -> (Integer | String)
   def flush: () -> self
   def clear_tx_buffer: () -> self
   def clear_rx_buffer: () -> self
