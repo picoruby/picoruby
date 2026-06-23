@@ -113,4 +113,50 @@ class NumericExtTest < Picotest::Test
   def test_mod_zero_division_float
     assert_raise(ZeroDivisionError) { 1.0 % 0.0 }
   end
+
+  # Sign predicates (Integer)
+  def test_integer_zero?
+    assert_equal true, 0.zero?
+    assert_equal false, 1.zero?
+  end
+
+  def test_integer_nonzero?
+    assert_equal nil, 0.nonzero?
+    assert_equal 7, 7.nonzero?
+  end
+
+  def test_integer_positive?
+    assert_equal true, 1.positive?
+    assert_equal false, 0.positive?
+    assert_equal false, (-1).positive?
+  end
+
+  def test_integer_negative?
+    assert_equal true, (-1).negative?
+    assert_equal false, 0.negative?
+    assert_equal false, 1.negative?
+  end
+
+  # Sign predicates (Float)
+  def test_float_zero?
+    assert_equal true, 0.0.zero?
+    assert_equal false, 0.1.zero?
+  end
+
+  def test_float_nonzero?
+    assert_equal nil, 0.0.nonzero?
+    assert_equal 2.5, 2.5.nonzero?
+  end
+
+  def test_float_positive?
+    assert_equal true, 0.1.positive?
+    assert_equal false, 0.0.positive?
+    assert_equal false, (-0.1).positive?
+  end
+
+  def test_float_negative?
+    assert_equal true, (-0.1).negative?
+    assert_equal false, 0.0.negative?
+    assert_equal false, 0.1.negative?
+  end
 end
