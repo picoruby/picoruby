@@ -119,6 +119,41 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (0 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 0");
+    return;
+  }
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  uint8_t byte;
+  if (!RingBuffer_pop(rx, &byte)) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_INT_RETURN(byte);
+}
+
+static void
+c_ungetbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
+    return;
+  }
+  if (v[1].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected Integer)");
+    return;
+  }
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  if (!RingBuffer_unshift(rx, (uint8_t)(GET_INT_ARG(1) & 0xff))) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx buffer is full");
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
+static void
 c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
@@ -231,6 +266,8 @@ mrbc_uart_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_UART, "_set_function", c__set_function);
   mrbc_define_method(vm, mrbc_class_UART, "read", c_read);
   mrbc_define_method(vm, mrbc_class_UART, "readpartial", c_readpartial);
+  mrbc_define_method(vm, mrbc_class_UART, "getbyte", c_getbyte);
+  mrbc_define_method(vm, mrbc_class_UART, "ungetbyte", c_ungetbyte);
   mrbc_define_method(vm, mrbc_class_UART, "bytes_available", c_bytes_available);
   mrbc_define_method(vm, mrbc_class_UART, "write", c_write);
   mrbc_define_method(vm, mrbc_class_UART, "gets", c_gets);

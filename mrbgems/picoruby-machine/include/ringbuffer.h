@@ -78,6 +78,17 @@ RingBuffer_pop(RingBuffer *rb, uint8_t *out)
 }
 
 static inline bool
+RingBuffer_unshift(RingBuffer *rb, uint8_t ch)
+{
+  if (RingBuffer_free_size(rb) <= 1) {
+    return false;
+  }
+  rb->head = (rb->head - 1) & rb->mask;
+  rb->data[rb->head] = ch;
+  return true;
+}
+
+static inline bool
 RingBuffer_pop_n(RingBuffer *rb, uint8_t *out, size_t len)
 {
   if (len > rb->size) {

@@ -133,6 +133,30 @@ mrb_readpartial(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_getbyte(mrb_state *mrb, mrb_value self)
+{
+  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
+  uint8_t byte;
+  if (!RingBuffer_pop(rx, &byte)) {
+    return mrb_nil_value();
+  }
+  return mrb_fixnum_value(byte);
+}
+
+static mrb_value
+mrb_ungetbyte(mrb_state *mrb, mrb_value self)
+{
+  mrb_int value;
+  mrb_get_args(mrb, "i", &value);
+  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
+  if (!RingBuffer_unshift(rx, (uint8_t)(value & 0xff))) {
+    struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+    mrb_raise(mrb, IOError, "UART: rx buffer is full");
+  }
+  return mrb_nil_value();
+}
+
+static mrb_value
 mrb_bytes_available(mrb_state *mrb, mrb_value self)
 {
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
@@ -234,6 +258,8 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_function), mrb__set_function, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(read), mrb_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(readpartial), mrb_readpartial, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(getbyte), mrb_getbyte, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(ungetbyte), mrb_ungetbyte, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(bytes_available), mrb_bytes_available, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(write), mrb_write, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(gets), mrb_gets, MRB_ARGS_NONE());
