@@ -7,6 +7,7 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 #include "mruby/array.h"
+#include "mruby/hash.h"
 #include "mruby/proc.h"
 
 #include <stdio.h>
@@ -1024,16 +1025,21 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
   mrb_value pattern;
   mrb_value replacement = mrb_undef_value();
   mrb_value block = mrb_nil_value();
-  mrb_get_args(mrb, "o|S&", &pattern, &replacement, &block);
+  mrb_get_args(mrb, "o|o&", &pattern, &replacement, &block);
 
   mrb_bool has_replacement = !mrb_undef_p(replacement);
   mrb_bool has_block = !mrb_nil_p(block);
+  mrb_bool hash_replacement = has_replacement && mrb_hash_p(replacement);
 
   if (has_replacement && has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "both block and replacement argument given");
   }
   if (!has_replacement && !has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given 1, expected 2)");
+  }
+  /* A non-Hash replacement must be a String. */
+  if (has_replacement && !hash_replacement) {
+    replacement = mrb_ensure_string_type(mrb, replacement);
   }
 
   /* A String pattern matches literally (unlike String#match). */
@@ -1073,6 +1079,14 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
       mrb_value yielded = mrb_yield(mrb, block, full_str);
       mrb_value yield_str = mrb_obj_as_string(mrb, yielded);
       mrb_str_cat_str(mrb, result, yield_str);
+    } else if (hash_replacement) {
+      char *full = regexp_match_item(match_ref, 0);
+      mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
+      if (full) free(full);
+      mrb_value rep = mrb_hash_get(mrb, replacement, full_str);
+      if (!mrb_nil_p(rep)) {
+        mrb_str_cat_str(mrb, result, mrb_obj_as_string(mrb, rep));
+      }
     } else {
       mrb_value expanded = expand_replacement(mrb,
                                               RSTRING_PTR(replacement),
