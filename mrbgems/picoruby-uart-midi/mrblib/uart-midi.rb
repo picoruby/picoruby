@@ -9,6 +9,7 @@ class UART
           unit:,
           txd_pin: -1,
           rxd_pin: -1,
+          baudrate: 31_250, # some deveces require 38_400 baudrate
           rx_buffer_size: nil,
           time_signature: [4, 4],
           max_sysex_bytes: MIDIBASE::DEFAULT_MAX_SYSEX_BYTES)
@@ -16,7 +17,7 @@ class UART
         unit: unit,
         txd_pin: txd_pin,
         rxd_pin: rxd_pin,
-        baudrate: 31_250,
+        baudrate: baudrate,
         data_bits: 8,
         stop_bits: 1,
         parity: ::UART::PARITY_NONE,
