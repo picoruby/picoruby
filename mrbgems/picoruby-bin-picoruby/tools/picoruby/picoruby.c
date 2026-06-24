@@ -21,6 +21,8 @@ restore_termios(void)
 #endif
 
 #if defined(PICORB_VM_MRUBY)
+#include <task.h>
+
 #define EXECUTABLE_NAME "picoruby"
 struct RProc* read_irep(mrb_state *vm, const uint8_t *bin, size_t bufsize, uint8_t flags);
 
@@ -753,15 +755,22 @@ main(int argc, char **argv)
   /* run tasks */
   if (!args.check_syntax) {
 #if defined(PICORB_VM_MRUBY)
-    mrb_value v = mrb_task_run(vm);
+    mrb_task_run(vm);
     mrb_vm_ci_env_clear(vm, vm->c->cibase);
     n = EXIT_SUCCESS;
     if (vm->exc) {
       MRB_EXC_CHECK_EXIT(vm, vm->exc);
-      if (!mrb_undef_p(v)) {
-        picorb_print_error(vm);
-      }
+      picorb_print_error(vm);
       n = EXIT_FAILURE;
+    }
+    for (int i = 0; i < tcb_list_size; i++) {
+      mrb_value result = mrb_task_value(vm, tcb_list[i]);
+      if (mrb_exception_p(result)) {
+        vm->exc = mrb_obj_ptr(result);
+        MRB_EXC_CHECK_EXIT(vm, vm->exc);
+        picorb_print_error(vm);
+        n = EXIT_FAILURE;
+      }
     }
     mrc_irep_free(cc, irep);
     if (source) mrc_free(cc, source);
