@@ -8,6 +8,7 @@ class UART
       unit: UART::unit_t,
       ?txd_pin: Integer,
       ?rxd_pin: Integer,
+      ?baudrate: Integer,
       ?rx_buffer_size: Integer?,
       ?time_signature: Array[Integer],
       ?max_sysex_bytes: Integer
