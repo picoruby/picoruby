@@ -4,7 +4,7 @@ module PSG
     WAIT_RETRY_MS = 1
     WAIT_SLICE_MS = 10
 
-    attr_reader :queue, :tracks
+    attr_reader :queue, :tracks, :external_bpm
 
     class << self
       def register(playback)
@@ -39,6 +39,9 @@ module PSG
       @terminate = terminate
       @queue = Task::Queue.new
       @tempo_scale_mille = 1000
+      @external_bpm = nil
+      @external_bpm_milli = nil
+      @score_bpm = 120
       @stopped = false
       @paused = false
       @replay_requested = false
@@ -50,12 +53,25 @@ module PSG
     end
 
     def tempo_scale=(scale)
+      raise ArgumentError, "tempo_scale must be positive" unless 0 < scale
       @tempo_scale_mille = (scale * 1000).to_i
       tempo_scale
     end
 
     def tempo_scale
       @tempo_scale_mille / 1000.0
+    end
+
+    def external_bpm=(bpm)
+      if bpm.nil?
+        @external_bpm = nil
+        @external_bpm_milli = nil
+      else
+        raise ArgumentError, "external_bpm must be positive" unless 0 < bpm
+        @external_bpm = bpm.to_f
+        @external_bpm_milli = (bpm * 1000).to_i
+      end
+      @external_bpm
     end
 
     def start
@@ -153,6 +169,7 @@ module PSG
       while !@stopped
         @replay_requested = false
         @mixer = 0b111000
+        @score_bpm = 120
         tr = 0
         while tr < @tracks.size
           enqueue([:mute, tr, 0])
@@ -178,14 +195,14 @@ module PSG
 
     private def wait_delta(delta_ms)
       remaining_us = delta_ms * 1000
-      scale = @tempo_scale_mille
-      score_slice_us = WAIT_SLICE_MS * scale
       while 0 < remaining_us && !@stopped && !@replay_requested
         while @paused && !@stopped && !@replay_requested
           sleep_ms WAIT_SLICE_MS
         end
         break if @stopped || @replay_requested
 
+        scale = effective_tempo_scale_mille
+        score_slice_us = WAIT_SLICE_MS * scale
         if remaining_us < score_slice_us
           wall_ms = remaining_us / scale
           wall_ms = 1 if wall_ms < 1
@@ -198,8 +215,21 @@ module PSG
       end
     end
 
+    private def effective_tempo_scale_mille
+      if @external_bpm_milli
+        external_bpm_milli = @external_bpm_milli
+        # @type var external_bpm_milli: Integer
+        scale = external_bpm_milli / @score_bpm
+        scale < 1 ? 1 : scale
+      else
+        @tempo_scale_mille
+      end
+    end
+
     private def enqueue_mml_event(tr, command, arg0, arg1)
       case command
+      when :tempo
+        @score_bpm = arg0
       when :segno
         # MML handles the loop point internally.
       when :mute

@@ -2,6 +2,34 @@
 
 PSG (Programmable Sound Generator) emulator for PicoRuby.
 
+## Live MIDI input
+
+`PSG::MIDIPlayer` maps MIDI notes to the three PSG voices. It supports note
+velocity, pitch bend, channel volume/expression/pan, sustain, All Sound Off,
+and All Notes Off. When all voices are active, the oldest voice is reused.
+
+```ruby
+player = PSG::MIDIPlayer.new(driver, channels: [0], pitch_bend_range: 2)
+loop do
+  player.handle(midi.getevent)
+end
+```
+
+For MIDI Clock tempo control, explicitly pass the measured BPM to a running
+MML playback. Transport control remains in the application:
+
+```ruby
+event = midi.getevent
+playback.external_bpm = midi.bpm if event[0] == :timing_clock && midi.bpm
+playback.replay.resume if event[0] == :start
+playback.resume        if event[0] == :continue
+playback.pause         if event[0] == :stop
+```
+
+While `external_bpm` is set, MML `tN` commands are normalized so the resulting
+quarter-note tempo matches the external BPM. Set it to `nil` to return to
+`tempo_scale` control. Multi-track scores should use a shared tempo map.
+
 ## Build note for Raspberry Pi Pico
 
 Use the **prod** build when running PSG on R2P2 for Raspberry Pi Pico.

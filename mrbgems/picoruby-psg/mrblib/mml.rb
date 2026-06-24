@@ -187,6 +187,7 @@ class MML # Music Macro Language
       when 116 # 't' # Tempo
         @tempo = subvalue
         update_common_duration(4) # Note: common fraction is also reset
+        push_event(:tempo, @tempo)
       when 118 # 'v' # Volume
         @volume = [subvalue, 15].min
         push_event(:volume, @volume || 15)
@@ -241,8 +242,6 @@ class MML # Music Macro Language
     @common_duration = (DURATION_BASE / @tempo / fraction + 0.5).to_i
   end
 
-  PERIOD_FACTOR = PSG::Driver::CHIP_CLOCK / 32
-
   def get_tone_period(note, semitone)
     val = NOTES[note]
     raise "Invalid note: #{note}" if val.nil?
@@ -260,10 +259,9 @@ class MML # Music Macro Language
       @cursor += 1
       val += 1
     end
-    pitch = 6.875 * (2<<(@octave + octave_fix)) * 2 ** (val / 12.0)
-    pitch *= 2 ** (@transpose / 12.0) if @transpose != 0
-    pitch /= (2 ** (@detune / 128.0)) if @detune != 0
-    (PERIOD_FACTOR / pitch).to_i
+    midi_note = 9 + 12 * (@octave + octave_fix) + val + @transpose
+    midi_note -= @detune * 12.0 / 128 if @detune != 0
+    PSG.note_to_period(midi_note, round: false)
   end
 
   def subvalue

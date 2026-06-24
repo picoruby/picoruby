@@ -1,11 +1,10 @@
 module PSG
   class Keyboard
     def self.note_to_period(note)
-      freq = 440.0 * (2.0 ** ((note - 69) / 12.0))
-      (TONE_K / freq + 0.5).to_i
+      PSG.note_to_period(note)
     end
 
-    TONE_K = PSG::Driver::CHIP_CLOCK / 32.0 # clock factor
+    TONE_K = PSG::TONE_K # Backward-compatible clock factor
     KEY2PERIOD = {
        97 => note_to_period(60), # 'a' => (C4)
       119 => note_to_period(61), # 'w' => (C#4)
