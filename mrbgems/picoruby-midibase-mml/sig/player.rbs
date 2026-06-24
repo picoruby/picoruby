@@ -1,0 +1,21 @@
+module MIDIBASE
+  module MML
+    class Player
+      attr_reader sequence: Sequence
+      attr_reader clock: untyped
+      def initialize: (Sequence sequence, ?clock: untyped, output: untyped) -> void
+      def start: () -> self
+      def join: () -> self
+      def stop: () -> self
+      def pause: () -> self
+      def resume: () -> self
+      def rewind: () -> self
+      def stopped?: () -> bool
+      def paused?: () -> bool
+      def position: () -> Array[Integer]
+      def run: () -> void
+      private def reset_playback: () -> void
+      private def dispatch: (event_t event) -> void
+    end
+  end
+end

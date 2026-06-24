@@ -1,0 +1,17 @@
+module MIDIBASE
+  class Router
+    class Emitter
+      @router: Router
+      @source: untyped
+      def initialize: (Router router, untyped source) -> void
+      def handle: (event_t event, ?timestamp_us: Integer?, **untyped context) -> event_t
+    end
+
+    @routes: Array[Array[untyped]]
+    def initialize: () -> void
+    def connect: (untyped source, untyped sink, ?priority: Integer, ?only: Array[Symbol]?, ?except: Array[Symbol]?) -> self
+    def output: (untyped source) -> Emitter
+    def emit: (untyped source, event_t event, ?timestamp_us: Integer?) -> event_t
+    private def route_accepts?: (Array[untyped] route, Symbol command) -> bool
+  end
+end

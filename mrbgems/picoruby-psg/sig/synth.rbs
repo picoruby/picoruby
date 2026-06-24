@@ -1,0 +1,49 @@
+module PSG
+  class Synth
+    DEFAULT_PITCH_BEND_RANGE: Integer
+    WAIT_RETRY_MS: Integer
+
+    @driver: Driver
+    @allocator: MIDIBASE::VoiceAllocator
+    @velocities: Array[Integer]
+    @states: Hash[Array[untyped], Array[untyped]]
+    @sustained: Hash[Array[untyped], bool]
+    @queue: Task::Queue
+    @mixer: Integer
+    @stopped: bool
+    @task: Task?
+
+    attr_reader allocator: MIDIBASE::VoiceAllocator
+    def initialize: (Driver driver, ?voices: Integer) -> void
+    def start: () -> self
+    def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
+    def stop: () -> self
+    def join: () -> self
+    def run: () -> void
+    private def process: (MIDIBASE::event_t event, untyped source, Integer priority) -> void
+    private def note_on: (untyped source, Integer channel, Integer note, Integer velocity, Integer priority) -> void
+    private def note_off: (untyped source, Integer channel, Integer note) -> void
+    private def pitch_bend: (untyped source, Integer channel, Integer value) -> void
+    private def program_change: (untyped source, Integer channel, Integer program) -> void
+    private def control_change: (untyped source, Integer channel, Integer controller, Integer value) -> void
+    private def psg_event: (untyped source, Integer channel, MIDIBASE::event_t event) -> void
+    private def state_for: (untyped source, Integer channel) -> Array[untyped]
+    private def sustain_change: (untyped source, Integer channel, Array[untyped] state, bool enabled) -> void
+    private def all_notes_off: (untyped source, Integer channel, bool immediate) -> void
+    private def release_voice: (Integer voice, untyped source, Integer channel, Integer note) -> void
+    private def update_periods: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def update_volumes: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def update_pan: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def update_legato: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def update_lfo: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def update_mixer: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def apply_mixer: (Integer voice, Integer mode) -> void
+    private def voice_volume: (Integer voice, Array[untyped] state) -> Integer
+    private def midi_pan: (Array[untyped] state) -> Integer
+    private def write_period: (Integer voice, Integer note, Array[untyped] state) -> void
+    private def owned_by?: (Array[untyped]? entry, untyped source, Integer channel) -> bool
+    private def note_key: (untyped source, Integer channel, Integer note) -> Array[untyped]
+    private def silence_all: () -> void
+    private def write_driver: (Symbol command, *Integer args) -> bool
+  end
+end

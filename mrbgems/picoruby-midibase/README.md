@@ -6,6 +6,10 @@ Shared MIDI 1.0 support for PicoRuby transports and sound generators.
 `MIDIBASE::Clock` tracks BPM and musical position from MIDI Clock, and
 `MIDIBASE::VoiceAllocator` assigns polyphonic notes to a fixed number of voices.
 
+`MIDIBASE::Router` explicitly connects named event sources to sinks. Routes can
+filter commands and attach a priority used by constrained synthesizers. The
+Router never creates an implicit MIDI Thru connection.
+
 Transport classes include `MIDIBASE`, initialize it with
 `initialize_midibase`, and implement the private `midi_read_byte` and
 `midi_write_byte` methods. This gives every transport the same blocking
@@ -22,3 +26,10 @@ the transport is created. The default is `[4, 4]`.
 System Exclusive messages are buffered without their `F0`/`F7` delimiters.
 The default input limit is 1024 bytes. An oversized message produces
 `[:system_exclusive_error, :too_large]` after its terminating `F7`.
+
+```ruby
+router = MIDIBASE::Router.new
+router.connect(:mml, synth, priority: 0)
+router.connect(:uart, synth, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
+router.connect(:mml, midi, only: MIDIBASE::WIRE_EVENTS)
+```
