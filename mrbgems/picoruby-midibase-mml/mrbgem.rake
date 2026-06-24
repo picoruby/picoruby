@@ -1,7 +1,7 @@
-MRuby::Gem::Specification.new('picoruby-psg') do |spec|
+MRuby::Gem::Specification.new('picoruby-midibase-mml') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
-  spec.summary = 'Emulator of Programmable Sound Generator (PSG)'
+  spec.summary = 'MIDI-oriented Music Macro Language sequencer for PicoRuby'
 
   spec.add_conflict 'picoruby-mrubyc'
   spec.add_dependency 'picoruby-midibase'

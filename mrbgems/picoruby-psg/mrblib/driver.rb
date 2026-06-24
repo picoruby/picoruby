@@ -4,9 +4,6 @@ module PSG
     WAIT_MS = 500
 
     def initialize(type, **opt)
-      @mml_request = nil
-      @mml_playback = nil
-      @bgm_playback = nil
       case type
       when :pwm
         if opt[:left].nil? || opt[:right].nil?
@@ -35,40 +32,6 @@ module PSG
         end
         sleep_ms WAIT_MS
       end
-    end
-
-    def replay
-      @mml_playback&.replay
-      @mml_request = :replay
-    end
-
-    def stop_mml
-      @mml_playback&.stop
-      @bgm_playback = nil if @bgm_playback == @mml_playback
-      @mml_playback = nil
-      @mml_request = :stop
-    end
-
-    def start_mml(tracks, loop: true, terminate: false)
-      stop_mml
-      trap
-      @mml_request = nil
-      @mml_playback = Playback.new(self, tracks, loop: loop, terminate: terminate)
-      # @type ivar @mml_playback: Playback
-      @mml_playback.start
-    end
-
-    def play_mml(tracks, terminate: true)
-      playback = start_mml(tracks, loop: true, terminate: terminate)
-      playback.join
-      self
-    rescue => e
-      puts "Error during MML playback: #{e.message}"
-      tracks.size.times { |tr| mute_direct(tr, 1) }
-      deinit
-      return self
-    ensure
-      @mml_playback = nil if @mml_playback == playback
     end
 
     def play_prs(filename, terminate: true)
@@ -116,51 +79,19 @@ module PSG
         delta = 0
       end
     rescue => e
-      puts "Error during MML playback: #{e.message}"
-      3.times { |tr| invoke :mute, tr, 1, 0 }
+      puts "Error during PRS playback: #{e.message}"
+      tr = 0
+      while tr < 3
+        invoke :mute, tr, 1, 0
+        tr += 1
+      end
       deinit
     ensure
       file&.close
     end
 
-    # Start BGM playback in background PSG tasks.
-    def start_bgm(tracks)
-      stop_bgm
-      @bgm_playback = start_mml(tracks, loop: true, terminate: false)
-    end
-
-    # Stop the BGM task and silence all channels.
-    def stop_bgm
-      return unless @bgm_playback
-      # @type ivar @bgm_playback: Playback
-      @bgm_playback.stop
-      @mml_playback = nil if @mml_playback == @bgm_playback
-      @bgm_playback = nil
-      @mml_request = nil
-    end
-
-    # private
-
-    def trap
-      Signal.trap(:INT) do
-        puts "Interrupt received, stopping playback..."
-        # Immediately silence all channels (bypasses ring buffer, safe)
-        write_reg_direct(8, 0)
-        write_reg_direct(9, 0)
-        write_reg_direct(10, 0)
-        # Signal play_mml to exit cleanly.
-        # Do NOT call deinit here: the BGM task is still alive and would
-        # access the freed ring buffer, corrupting the heap.
-        # play_mml will call join -> deinit when it gets scheduled.
-        @mml_playback&.stop
-        @mml_request = :quit
-        Signal.trap(:INT, "DEFAULT")
-      end
-    end
-
     def invoke(command, arg1, arg2, arg3, arg4 = 0)
       while true
-        return if @mml_request
         pushed = case command
         when :mute
           mute(arg1, arg2, arg3)

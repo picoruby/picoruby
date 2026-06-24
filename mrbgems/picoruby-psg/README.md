@@ -2,33 +2,45 @@
 
 PSG (Programmable Sound Generator) emulator for PicoRuby.
 
-## Live MIDI input
+## MIDI synthesis
 
-`PSG::MIDIPlayer` maps MIDI notes to the three PSG voices. It supports note
-velocity, pitch bend, channel volume/expression/pan, sustain, All Sound Off,
-and All Notes Off. When all voices are active, the oldest voice is reused.
+`PSG::Synth` consumes events from `MIDIBASE::Router` and maps them to the three
+PSG voices. It supports note velocity, pitch bend, volume, expression, pan,
+sustain, programs, and PSG-specific extension events.
+
+`start` creates a PicoRuby task that consumes events from a queue. FemtoRuby/
+mruby-c is not supported.
 
 ```ruby
-player = PSG::MIDIPlayer.new(driver, channels: [0], pitch_bend_range: 2)
-loop do
-  player.handle(midi.getevent)
+synth = PSG::Synth.new(driver).start
+router = MIDIBASE::Router.new
+router.connect(:uart, synth, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
+
+while true
+  router.emit(:uart, midi.getevent)
 end
 ```
 
-For MIDI Clock tempo control, explicitly pass the measured BPM to a running
-MML playback. Transport control remains in the application:
+Voice ownership includes the Router source. A high-priority live UART source
+can steal an MML voice, while a lower-priority MML source cannot steal a live
+voice.
+
+MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A
+single Router can combine autonomous or MIDI-clocked MML with live input:
 
 ```ruby
-event = midi.getevent
-playback.external_bpm = midi.bpm if event[0] == :timing_clock && midi.bpm
-playback.replay.resume if event[0] == :start
-playback.resume        if event[0] == :continue
-playback.pause         if event[0] == :stop
-```
+clock = MIDIBASE::MML::MIDIClock.new
+sequence = MIDIBASE::MML::Sequence.new(tracks, loop: true)
+player = MIDIBASE::MML::Player.new(
+  sequence,
+  clock: clock,
+  output: router.output(:mml)
+)
 
-While `external_bpm` is set, MML `tN` commands are normalized so the resulting
-quarter-note tempo matches the external BPM. Set it to `nil` to return to
-`tempo_scale` control. Multi-track scores should use a shared tempo map.
+router.connect(:mml, synth, priority: 0)
+router.connect(:uart, clock, only: MIDIBASE::TRANSPORT_EVENTS)
+player.start
+```
 
 ## Build note for Raspberry Pi Pico
 
@@ -176,4 +188,4 @@ This ensures that both left and right channels are updated simultaneously.
 
 ## Usage
 
-See README_MML.md
+See the examples in `example/` and the `picoruby-midibase-mml` README.

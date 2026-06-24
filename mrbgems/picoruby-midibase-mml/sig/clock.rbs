@@ -1,0 +1,33 @@
+module MIDIBASE
+  module MML
+    PPQN: Integer
+    DEFAULT_TEMPO: Integer
+    NOTE_OFF: Integer
+    type event_t = Array[untyped]
+    type timed_event_t = [Integer, event_t]
+
+    class InternalClock
+      WAIT_SLICE_MS: Integer
+      def external?: () -> false
+      def wait_ticks: (Integer delta_ticks, Integer ppqn, Integer tempo, Player player) -> Symbol
+    end
+
+    class MIDIClock
+      TICKS_PER_CLOCK: Integer
+      @running: bool
+      @generation: Integer
+      @confirmed_tick: Integer
+      @last_pulse_us: Integer?
+      @interval_us: Integer?
+      def initialize: () -> void
+      def external?: () -> true
+      def generation: () -> Integer
+      def handle: (MIDIBASE::event_t event, ?timestamp_us: Integer?, **untyped context) -> self
+      def wait_until: (Integer target_tick, Player player, Integer generation) -> Symbol
+      def wait_until_running: (Player player) -> Integer
+      def wait_for_restart: (Player player, Integer generation) -> Integer
+      private def observe_pulse: (Integer timestamp_us) -> void
+      private def estimated_tick: () -> Integer
+    end
+  end
+end

@@ -21,65 +21,9 @@ module MIDIBASE
   ACTIVE_SENSING: Integer
   SYSTEM_RESET: Integer
   DEFAULT_MAX_SYSEX_BYTES: Integer
-
-  class Parser
-    @max_sysex_bytes: Integer
-    @running_status: Integer?
-    @status: Integer?
-    @expected: Integer
-    @data: Array[Integer]
-    @sysex: String?
-    @sysex_overflow: bool
-
-    def initialize: (?max_sysex_bytes: Integer) -> void
-    def reset: () -> self
-    def feed: (Integer byte) -> event_t?
-    private def receive_status: (Integer status) -> event_t?
-    private def cancel_running_status: () -> void
-    private def begin_message: (Integer status) -> void
-    private def realtime_event: (Integer status) -> event_t?
-    private def build_event: (Integer status, Array[Integer] data) -> event_t?
-  end
-
-  class Clock
-    CLOCKS_PER_QUARTER_NOTE: Integer
-
-    @bpm: Float?
-    @running: bool
-    @pulse: Integer
-    @sample_started_at: Integer?
-    @sample_intervals: Integer
-    @time_signature: Array[Integer]
-    @clocks_per_beat: Integer
-
-    attr_reader bpm: Float?
-    attr_reader time_signature: Array[Integer]
-    def initialize: (?time_signature: Array[Integer]) -> void
-    def time_signature=: (Array[Integer] signature) -> Array[Integer]
-    def observe: (event_t event, ?Integer? timestamp_us) -> event_t
-    def reset: () -> self
-    def clock_running?: () -> bool
-    def position: () -> Array[Integer]
-    def bar: () -> Integer
-    def beat: () -> Integer
-    def tick: () -> Integer
-    private def observe_timing_clock: (Integer now_us) -> void
-    private def restart_tempo_sample: () -> void
-  end
-
-  class VoiceAllocator
-    @voice_count: Integer
-    @voices: Array[Array[Integer]?]
-    @age: Integer
-
-    attr_reader voice_count: Integer
-    def initialize: (?voices: Integer) -> void
-    def allocate: (Integer channel, Integer note) -> Integer
-    def release: (Integer channel, Integer note) -> Integer?
-    def voice_for: (Integer channel, Integer note) -> Integer?
-    def each_active: () { (Integer voice, Integer channel, Integer note) -> void } -> self
-    def release_all: () -> self
-  end
+  CHANNEL_EVENTS: Array[Symbol]
+  TRANSPORT_EVENTS: Array[Symbol]
+  WIRE_EVENTS: Array[Symbol]
 
   def self.encode: (Symbol command, *(Integer | String) values) -> Array[Integer]
   def self.channel_event: (Integer status, Array[Integer | String] values, Integer count) -> Array[Integer]
@@ -95,6 +39,7 @@ module MIDIBASE
   def initialize_midibase: (?time_signature: Array[Integer], ?max_sysex_bytes: Integer) -> self
   def getevent: () -> event_t
   def putevent: (Symbol command, *(Integer | String) values) -> Integer
+  def handle: (event_t event, **untyped context) -> Integer
   def bpm: () -> Float?
   def clock_running?: () -> bool
   def time_signature: () -> Array[Integer]?

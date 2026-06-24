@@ -1,3 +1,13 @@
+class MIDIBASERouterSink
+  attr_reader :received
+  def initialize
+    @received = []
+  end
+  def handle(event, **context)
+    @received << [event, context]
+  end
+end
+
 class MIDIBASETest < Picotest::Test
   def events_for(bytes, max_sysex_bytes: 1024)
     parser = MIDIBASE::Parser.new(max_sysex_bytes: max_sysex_bytes)
@@ -145,5 +155,27 @@ class MIDIBASETest < Picotest::Test
     assert_nil allocator.voice_for(0, 60)
     assert_equal 1, allocator.release(0, 64)
     assert_nil allocator.release(0, 64)
+  end
+
+  def test_voice_allocator_respects_source_priority
+    allocator = MIDIBASE::VoiceAllocator.new(voices: 2)
+    assert_equal 0, allocator.allocate(0, 60, source: :mml, priority: 0)
+    assert_equal 1, allocator.allocate(0, 62, source: :uart, priority: 100)
+    assert_equal 0, allocator.allocate(0, 64, source: :mml, priority: 0)
+    assert_nil allocator.allocate(0, 65, source: :mml, priority: -1)
+    assert_equal 1, allocator.voice_for(0, 62, source: :uart)
+    assert_nil allocator.voice_for(0, 62, source: :mml)
+  end
+
+  def test_router_filters_and_passes_context
+    sink = MIDIBASERouterSink.new
+    router = MIDIBASE::Router.new
+    router.connect(:uart, sink, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
+    router.emit(:uart, [:timing_clock], timestamp_us: 10)
+    router.emit(:uart, [:note_on, 0, 60, 100], timestamp_us: 20)
+    assert_equal 1, sink.received.size
+    assert_equal :uart, sink.received[0][1][:source]
+    assert_equal 100, sink.received[0][1][:priority]
+    assert_equal 20, sink.received[0][1][:timestamp_us]
   end
 end

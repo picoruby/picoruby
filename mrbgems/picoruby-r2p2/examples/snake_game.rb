@@ -8,6 +8,7 @@ require 'gpio'
 require 'irq'
 require 'rotary_encoder'
 require 'psg'
+require 'midibase-mml'
 require 'rng' # for Kernel#rand
 
 # ---------------------------------------------------------------------------
@@ -140,8 +141,8 @@ def update_sfx(psg, sfx_end_ms)
   sfx_end_ms
 end
 
-def silence_bgm(psg)
-  psg.stop_mml
+def silence_bgm(psg, player)
+  player.pause
   psg.write_reg_direct(8, 0)
   psg.write_reg_direct(9, 0)
 end
@@ -196,11 +197,18 @@ encoder.ccw { $speed_delta -= 1 }
 # PSG driver (PWM output on piezo buzzer pins)
 psg = PSG::Driver.new(:pwm, left: 10, right: 11)
 
+bgm_synth = PSG::Synth.new(psg, voices: 2).start
+bgm_router = MIDIBASE::Router.new
+bgm_router.connect(:mml, bgm_synth, priority: 0)
+bgm_sequence = MIDIBASE::MML::Sequence.new(BGM_TRACKS, loop: true)
+bgm_player = MIDIBASE::MML::Player.new(
+  bgm_sequence,
+  output: bgm_router.output(:mml)
+).start
+bgm_player.pause
+
 # Mute channel C (reserved for sound effects)
 psg.mute_direct(2, 1)
-
-# Start BGM task in standby (waits for psg.replay)
-psg.start_bgm(BGM_TRACKS)
 
 # ---------------------------------------------------------------------------
 # Game logic helpers
@@ -330,7 +338,7 @@ while true
     if $btn_flags[:start]
       $btn_flags[:start] = false
       snake, dir, next_dir, food_x, food_y, score = reset_game
-      psg.replay
+      bgm_player.rewind.resume
       state = :playing
       needs_full_redraw = true
       tick_acc = 0
@@ -367,7 +375,7 @@ while true
 
       # Wall collision
       if new_x < 0 || COLS <= new_x || new_y < 0 || ROWS <= new_y
-        silence_bgm(psg)
+        silence_bgm(psg, bgm_player)
         sfx_end_ms = sound_game_over(psg)
         state = :game_over
         draw_game_over(display, score)
@@ -384,7 +392,7 @@ while true
         end
 
         if hit_self
-          silence_bgm(psg)
+          silence_bgm(psg, bgm_player)
           sfx_end_ms = sound_game_over(psg)
           state = :game_over
           draw_game_over(display, score)
