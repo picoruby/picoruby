@@ -10,6 +10,9 @@ module PSG
     @tracks: Array[String]
     @queue: Task::Queue
     @tempo_scale_mille: Integer
+    @external_bpm: Float?
+    @external_bpm_milli: Integer?
+    @score_bpm: Integer
     @stopped: bool
     @paused: bool
     @replay_requested: bool
@@ -20,14 +23,16 @@ module PSG
 
     attr_reader queue: Task::Queue
     attr_reader tracks: Array[String]
+    attr_reader external_bpm: Float?
 
     def self.register: (PSG::Playback playback) -> Integer
     def self.unregister: (Integer? id) -> void
     def self.run_task: (Integer id, Symbol kind) -> void
 
     def initialize: (untyped driver, Array[String] tracks, ?loop: bool, ?terminate: bool) -> void
-    def tempo_scale=: (Integer scale) -> Float
+    def tempo_scale=: (Integer | Float scale) -> Float
     def tempo_scale: () -> Float
+    def external_bpm=: ((Integer | Float)? bpm) -> Float?
     def start: () -> self
     def join: () -> self
     def stop: () -> self
@@ -41,6 +46,7 @@ module PSG
     def task_finished: () -> void
     private def create_task: (Symbol kind) -> Task
     private def wait_delta: (Integer delta_ms) -> void
+    private def effective_tempo_scale_mille: () -> Integer
     private def enqueue_mml_event: (Integer tr, Symbol command, Integer arg0, Integer arg1) -> void
     private def enqueue_silence: () -> void
     private def enqueue: (Array[untyped] command) -> bool

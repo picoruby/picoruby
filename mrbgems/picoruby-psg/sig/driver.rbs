@@ -1,6 +1,9 @@
 #$DEBUG: bool
 
 module PSG
+  TONE_K: Float
+  def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
+
   class Driver
     CHIP_CLOCK: Integer
     SAMPLE_RATE: Integer
@@ -43,7 +46,7 @@ module PSG
     @ch_reg: Integer
     @channel: Integer
     @driver: PSG::Driver
-    def self.note_to_period: (Integer note) -> Integer
+    def self.note_to_period: (Integer | Float note) -> Integer
     def initialize: (PSG::Driver driver, ?channel: Integer) -> void
     def note_on: (Integer period) -> bool
     def note_off: () -> bool
