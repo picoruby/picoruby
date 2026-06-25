@@ -1,7 +1,6 @@
 #$DEBUG: bool
 
 module PSG
-  TONE_K: Float
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
   def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
 
@@ -30,19 +29,4 @@ module PSG
     def play_prs: (String filename, ?terminate: bool) -> void
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end
-
-  class Keyboard
-    KEY2PERIOD: Hash[Integer, Integer]
-    TONE_K: Float
-    CH: Integer
-    @ch_reg: Integer
-    @channel: Integer
-    @driver: PSG::Driver
-    def self.note_to_period: (Integer | Float note) -> Integer
-    def initialize: (PSG::Driver driver, ?channel: Integer) -> void
-    def note_on: (Integer period) -> bool
-    def note_off: () -> bool
-    def start: () -> void
-  end
-
 end
