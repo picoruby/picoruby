@@ -85,7 +85,7 @@ class MIDIBASEMMLTest < Picotest::Test
   end
 
   def test_internal_player_dispatches_sequence
-    collector = MIDIMMLCollector.new
+    collector = MIDIBASEMMLCollector.new
     sequence = MIDIBASE::MML::Sequence.new(["t60000 l4 c"])
     player = MIDIBASE::MML::Player.new(sequence, output: collector).start
     player.join
@@ -100,7 +100,7 @@ class MIDIBASEMMLTest < Picotest::Test
   end
 
   def test_external_clock_drives_player
-    collector = MIDIMMLCollector.new
+    collector = MIDIBASEMMLCollector.new
     clock = MIDIBASE::MML::MIDIClock.new
     sequence = MIDIBASE::MML::Sequence.new(["l4 c"])
     player = MIDIBASE::MML::Player.new(

@@ -36,8 +36,11 @@ module MIDIBASE
         return queued if queued
         return nil if @finished
 
+        source = @source
+        channel = @channel
         while true
-          c = @source.getbyte(@cursor)
+          cursor = @cursor
+          c = source.getbyte(cursor)
           if c.nil?
             if @loop && @segno_pos
               @cursor = @segno_pos
@@ -49,7 +52,7 @@ module MIDIBASE
 
           case c
           when 36 # $
-            @segno_pos = @cursor + 1
+            @segno_pos = cursor + 1
             push([:loop_point])
           when 60 # <
             @octave -= 1 if 1 < @octave
@@ -57,44 +60,44 @@ module MIDIBASE
             @octave += 1 if @octave < 8
           when 64 # @
             value = read_number_after_cursor || 0
-            push([:program_change, @channel, clamp(value, 0, 127)])
+            push([:program_change, channel, clamp(value, 0, 127)])
           when 97..103 # a..g
-            note = read_note(c, @source.getbyte(@cursor + 1))
+            note = read_note(c, source.getbyte(@cursor + 1))
             length = read_length
             sustain = length * @gate / 8
             release = length - sustain
-            push([:note_on, @channel, note, 127])
-            push([:note_off, @channel, note, NOTE_OFF], sustain)
+            push([:note_on, channel, note, 127])
+            push([:note_off, channel, note, NOTE_OFF], sustain)
             @pending_ticks += release
           when 114 # r
             @pending_ticks += read_length
           when 106 # j
             depth = read_number_after_cursor || 0
             rate = 0
-            if @source.getbyte(@cursor + 1) == 44
+            if source.getbyte(@cursor + 1) == 44
               @cursor += 1
               rate = read_number_after_cursor || 0
             end
-            push([:control_change, @channel, 1, clamp(depth, 0, 127)])
-            push([:psg, @channel, :lfo, depth * 100, rate], 0)
+            push([:control_change, channel, 1, clamp(depth, 0, 127)])
+            push([:psg, channel, :lfo, depth * 100, rate], 0)
           when 107 # k
             read_transpose
           when 108 # l
             fraction = read_number_after_cursor
             @default_length = length_ticks(fraction, count_dots) if fraction
           when 109 # m
-            push([:psg, @channel, :env_period, (read_number_after_cursor || 0) & 0xFFFF])
+            push([:psg, channel, :env_period, (read_number_after_cursor || 0) & 0xFFFF])
           when 111 # o
             value = read_number_after_cursor
             @octave = clamp(value || 4, 1, 8)
           when 112 # p
             value = clamp(read_number_after_cursor || 8, 0, 15)
-            push([:control_change, @channel, 10, scale_15_to_127(value)])
+            push([:control_change, channel, 10, scale_15_to_127(value)])
           when 113 # q
             value = read_number_after_cursor || 8
             @gate = clamp(value, 1, 8)
           when 115 # s
-            push([:psg, @channel, :env_shape, (read_number_after_cursor || 0) & 0x0F])
+            push([:psg, channel, :env_shape, (read_number_after_cursor || 0) & 0x0F])
           when 116 # t
             value = read_number_after_cursor
             if value && 0 < value
@@ -103,21 +106,21 @@ module MIDIBASE
             end
           when 118 # v
             value = clamp(read_number_after_cursor || 15, 0, 15)
-            push([:control_change, @channel, 7, scale_15_to_127(value)])
+            push([:control_change, channel, 7, scale_15_to_127(value)])
           when 120 # x
-            push([:psg, @channel, :mixer, clamp(read_number_after_cursor || 0, 0, 2)])
+            push([:psg, channel, :mixer, clamp(read_number_after_cursor || 0, 0, 2)])
           when 121 # y
-            push([:psg, @channel, :noise, clamp(read_number_after_cursor || 0, 0, 31)])
+            push([:psg, channel, :noise, clamp(read_number_after_cursor || 0, 0, 31)])
           when 122 # z
             detune = clamp(read_number_after_cursor || 0, 0, 128)
-            push([:pitch_bend, @channel, 8192 - detune * 8192 / 128])
+            push([:pitch_bend, channel, 8192 - detune * 8192 / 128])
           when 123 # {
-            push([:control_change, @channel, 68, 127])
+            push([:control_change, channel, 68, 127])
           when 124 # |
             push([:barline, @bar])
             @bar += 1
           when 125 # }
-            push([:control_change, @channel, 68, 0])
+            push([:control_change, channel, 68, 0])
           when 32, 9, 10, 13
             # whitespace
           else
@@ -131,12 +134,13 @@ module MIDIBASE
       end
 
       private def enqueue_rpn
-        push([:control_change, @channel, 101, 0], 0)
-        push([:control_change, @channel, 100, 0], 0)
-        push([:control_change, @channel, 6, 12], 0)
-        push([:control_change, @channel, 38, 0], 0)
-        push([:control_change, @channel, 101, 127], 0)
-        push([:control_change, @channel, 100, 127], 0)
+        channel = @channel
+        push([:control_change, channel, 101, 0], 0)
+        push([:control_change, channel, 100, 0], 0)
+        push([:control_change, channel, 6, 12], 0)
+        push([:control_change, channel, 38, 0], 0)
+        push([:control_change, channel, 101, 127], 0)
+        push([:control_change, channel, 100, 127], 0)
       end
 
       private def push(event, delta = nil)
@@ -144,16 +148,22 @@ module MIDIBASE
           delta = @pending_ticks
           @pending_ticks = 0
         end
-        @queue << [delta, event]
+        queue = @queue
+        queue << [delta, event]
       end
 
       private def shift_event
-        return nil if @queue_index >= @queue.size
-        event = @queue[@queue_index]
-        @queue_index += 1
-        if @queue_index >= @queue.size
-          @queue.clear
+        queue = @queue
+        queue_index = @queue_index
+        queue_size = queue.size
+        return nil if queue_index >= queue_size
+        event = queue[queue_index]
+        queue_index += 1
+        if queue_index >= queue_size
+          queue.clear
           @queue_index = 0
+        else
+          @queue_index = queue_index
         end
         event
       end
@@ -178,7 +188,8 @@ module MIDIBASE
       end
 
       private def read_length
-        next_byte = @source.getbyte(@cursor + 1)
+        source = @source
+        next_byte = source.getbyte(@cursor + 1)
         if next_byte && 48 <= next_byte && next_byte <= 57
           fraction = read_number_after_cursor
           length_ticks(fraction || 4, count_dots)
@@ -196,24 +207,32 @@ module MIDIBASE
 
       private def length_ticks_from_base(base, dots)
         index = dots
-        index = DOT_NUMERATORS.size - 1 if index >= DOT_NUMERATORS.size
-        (base * DOT_NUMERATORS[index] + DOT_DENOMINATORS[index] / 2) / DOT_DENOMINATORS[index]
+        numerators = DOT_NUMERATORS
+        denominators = DOT_DENOMINATORS
+        numerators_size = numerators.size
+        index = numerators_size - 1 if index >= numerators_size
+        denominator = denominators[index]
+        (base * numerators[index] + denominator / 2) / denominator
       end
 
       private def count_dots
         dots = 0
-        while @source.getbyte(@cursor + 1) == 46
-          @cursor += 1
+        source = @source
+        cursor = @cursor
+        while source.getbyte(cursor + 1) == 46
+          cursor += 1
           dots += 1
         end
+        @cursor = cursor
         dots
       end
 
       private def read_number_after_cursor
+        source = @source
         i = @cursor + 1
         value = 0
         found = false
-        while (c = @source.getbyte(i)) && 48 <= c && c <= 57
+        while (c = source.getbyte(i)) && 48 <= c && c <= 57
           value = value * 10 + c - 48
           found = true
           i += 1

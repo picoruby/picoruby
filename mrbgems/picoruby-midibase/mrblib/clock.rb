@@ -14,7 +14,7 @@ module MIDIBASE
     end
 
     def time_signature=(signature)
-      unless signature.is_a?(Array) && signature.size == 2
+      unless signature.size == 2
         raise ArgumentError, "time_signature must be [numerator, denominator]"
       end
       numerator = signature[0]
@@ -64,9 +64,10 @@ module MIDIBASE
     end
 
     def position
-      clocks_per_bar = @time_signature[0] * @clocks_per_beat
+      clocks_per_beat = @clocks_per_beat # memoize for performance
+      clocks_per_bar = @time_signature[0] * clocks_per_beat
       in_bar = @pulse % clocks_per_bar
-      [@pulse / clocks_per_bar + 1, in_bar / @clocks_per_beat + 1, in_bar % @clocks_per_beat]
+      [@pulse / clocks_per_bar + 1, in_bar / clocks_per_beat + 1, in_bar % clocks_per_beat]
     end
 
     def bar

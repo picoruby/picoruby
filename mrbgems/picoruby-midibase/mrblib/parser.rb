@@ -24,7 +24,7 @@ module MIDIBASE
     end
 
     def feed(byte)
-      unless byte.is_a?(Integer) && 0 <= byte && byte <= 0xFF
+      if byte < 0 || 0xFF < byte
         raise ArgumentError, "MIDI byte must be an Integer in 0..255"
       end
 

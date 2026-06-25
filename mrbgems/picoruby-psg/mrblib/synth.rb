@@ -8,7 +8,7 @@ module PSG
     attr_reader :allocator
 
     def initialize(driver, voices: 3)
-      unless voices.is_a?(Integer) && 0 < voices && voices <= 3
+      unless 0 < voices && voices <= 3
         raise ArgumentError, "PSG voices must be in 1..3"
       end
       @driver = driver
@@ -31,8 +31,9 @@ module PSG
     def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
       return false if @stopped
 
-      return false if @queue.closed?
-      @queue.push([event, source, priority, timestamp_us])
+      queue = @queue
+      return false if queue.closed?
+      queue.push([event, source, priority, timestamp_us])
       true
     rescue Task::Error
       false
@@ -41,7 +42,8 @@ module PSG
     def stop
       return self if @stopped
       @stopped = true
-      @queue.close unless @queue.closed?
+      queue = @queue
+      queue.close unless queue.closed?
       silence_all
       self
     end
@@ -55,8 +57,9 @@ module PSG
     end
 
     def run
+      queue = @queue
       while !@stopped
-        envelope = @queue.pop
+        envelope = queue.pop
         break if envelope.nil?
         process(envelope[0], envelope[1], envelope[2])
       end
@@ -84,10 +87,11 @@ module PSG
     end
 
     private def note_on(source, channel, note, velocity, priority)
-      old_voice = @allocator.voice_for(channel, note, source: source)
-      voice = @allocator.allocate(channel, note, source: source, priority: priority)
+      allocator = @allocator
+      old_voice = allocator.voice_for(channel, note, source: source)
+      voice = allocator.allocate(channel, note, source: source, priority: priority)
       return if voice.nil?
-      stolen = @allocator.last_stolen
+      stolen = allocator.last_stolen
       if stolen || old_voice
         write_driver(:mute, voice, 1, 0)
         if stolen
@@ -97,18 +101,24 @@ module PSG
       @velocities[voice] = velocity
       @sustained.delete(note_key(source, channel, note))
       state = state_for(source, channel)
+      timbre = state[8]
+      legato = state[9]
+      lfo_depth = state[10]
+      lfo_rate = state[11]
+      mixer = state[12]
       write_period(voice, note, state)
-      write_driver(:set_timbre, voice, state[8], 0)
+      write_driver(:set_timbre, voice, timbre, 0)
       write_driver(:set_pan, voice, midi_pan(state), 0)
-      write_driver(:set_legato, voice, state[9], 0)
-      write_driver(:set_lfo, voice, state[10], state[11], 0)
-      apply_mixer(voice, state[12])
+      write_driver(:set_legato, voice, legato, 0)
+      write_driver(:set_lfo, voice, lfo_depth, lfo_rate, 0)
+      apply_mixer(voice, mixer)
       write_driver(:send_reg, voice + 8, voice_volume(voice, state), 0)
       write_driver(:mute, voice, 0, 0)
     end
 
     private def note_off(source, channel, note)
-      voice = @allocator.voice_for(channel, note, source: source)
+      allocator = @allocator
+      voice = allocator.voice_for(channel, note, source: source)
       return if voice.nil?
       state = state_for(source, channel)
       if state[4]
@@ -128,9 +138,12 @@ module PSG
       state = state_for(source, channel)
       state[8] = program & 0x03
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
-        write_driver(:set_timbre, i, state[8], 0) if owned_by?(entry, source, channel)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      timbre = state[8]
+      while i < voice_count
+        entry = allocator.entry(i)
+        write_driver(:set_timbre, i, timbre, 0) if owned_by?(entry, source, channel)
         i += 1
       end
     end
@@ -197,11 +210,12 @@ module PSG
 
     private def state_for(source, channel)
       key = [source, channel]
-      state = @states[key]
+      states = @states
+      state = states[key]
       unless state
         state = [127, 127, 64, 8192, false, 127, 127,
                  DEFAULT_PITCH_BEND_RANGE, 0, 0, 0, 0, 0, false]
-        @states[key] = state
+        states[key] = state
       end
       state
     end
@@ -211,9 +225,12 @@ module PSG
       state[4] = enabled
       return if enabled || !was_enabled
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
-        if entry && owned_by?(entry, source, channel) && @sustained[note_key(source, channel, entry[2])]
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      sustained = @sustained
+      while i < voice_count
+        entry = allocator.entry(i)
+        if entry && owned_by?(entry, source, channel) && sustained[note_key(source, channel, entry[2])]
           release_voice(i, source, channel, entry[2])
         end
         i += 1
@@ -222,14 +239,17 @@ module PSG
 
     private def all_notes_off(source, channel, immediate)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      state = state_for(source, channel)
+      sustained = @sustained
+      while i < voice_count
+        entry = allocator.entry(i)
         if entry && owned_by?(entry, source, channel)
-          state = state_for(source, channel)
           if immediate || !state[4]
             release_voice(i, source, channel, entry[2])
           else
-            @sustained[note_key(source, channel, entry[2])] = true
+            sustained[note_key(source, channel, entry[2])] = true
           end
         end
         i += 1
@@ -238,15 +258,18 @@ module PSG
 
     private def release_voice(voice, source, channel, note)
       write_driver(:mute, voice, 1, 0)
-      @allocator.release(channel, note, source: source)
+      allocator = @allocator
+      allocator.release(channel, note, source: source)
       @velocities[voice] = 0
       @sustained.delete(note_key(source, channel, note))
     end
 
     private def update_periods(source, channel, state)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      while i < voice_count
+        entry = allocator.entry(i)
         write_period(i, entry[2], state) if entry && owned_by?(entry, source, channel)
         i += 1
       end
@@ -254,8 +277,10 @@ module PSG
 
     private def update_volumes(source, channel, state)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      while i < voice_count
+        entry = allocator.entry(i)
         write_driver(:send_reg, i + 8, voice_volume(i, state), 0) if owned_by?(entry, source, channel)
         i += 1
       end
@@ -263,65 +288,82 @@ module PSG
 
     private def update_pan(source, channel, state)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
-        write_driver(:set_pan, i, midi_pan(state), 0) if owned_by?(entry, source, channel)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      pan = midi_pan(state)
+      while i < voice_count
+        entry = allocator.entry(i)
+        write_driver(:set_pan, i, pan, 0) if owned_by?(entry, source, channel)
         i += 1
       end
     end
 
     private def update_legato(source, channel, state)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
-        write_driver(:set_legato, i, state[9], 0) if owned_by?(entry, source, channel)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      legato = state[9]
+      while i < voice_count
+        entry = allocator.entry(i)
+        write_driver(:set_legato, i, legato, 0) if owned_by?(entry, source, channel)
         i += 1
       end
     end
 
     private def update_lfo(source, channel, state)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
-        write_driver(:set_lfo, i, state[10], state[11], 0) if owned_by?(entry, source, channel)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      depth = state[10]
+      rate = state[11]
+      while i < voice_count
+        entry = allocator.entry(i)
+        write_driver(:set_lfo, i, depth, rate, 0) if owned_by?(entry, source, channel)
         i += 1
       end
     end
 
     private def update_mixer(source, channel, state)
       i = 0
-      while i < @allocator.voice_count
-        entry = @allocator.entry(i)
-        apply_mixer(i, state[12]) if owned_by?(entry, source, channel)
+      allocator = @allocator
+      voice_count = allocator.voice_count
+      mixer = state[12]
+      while i < voice_count
+        entry = allocator.entry(i)
+        apply_mixer(i, mixer) if owned_by?(entry, source, channel)
         i += 1
       end
     end
 
     private def apply_mixer(voice, mode)
+      mixer = @mixer
       case mode
       when 0
-        @mixer |= 1 << (voice + 3)
-        @mixer &= ~(1 << voice)
+        mixer |= 1 << (voice + 3)
+        mixer &= ~(1 << voice)
       when 1
-        @mixer &= ~(1 << (voice + 3))
-        @mixer |= 1 << voice
+        mixer &= ~(1 << (voice + 3))
+        mixer |= 1 << voice
       when 2
-        @mixer &= ~(1 << voice)
-        @mixer &= ~(1 << (voice + 3))
+        mixer &= ~(1 << voice)
+        mixer &= ~(1 << (voice + 3))
       end
-      write_driver(:send_reg, 7, @mixer, 0)
+      @mixer = mixer
+      write_driver(:send_reg, 7, mixer, 0)
     end
 
     private def voice_volume(voice, state)
       return 16 if state[13]
       volume = state[0]
       expression = state[1]
+      velocities = @velocities
+      velocity = velocities[voice]
       # @type var volume: Integer
       # @type var expression: Integer
-      numerator = @velocities[voice] * volume * expression * 15
+      numerator = velocity * volume * expression * 15
       denominator = 127 * 127 * 127
       value = (numerator + denominator / 2) / denominator
-      value = 1 if 0 < @velocities[voice] && value == 0
+      value = 1 if 0 < velocity && value == 0
       value
     end
 
@@ -346,31 +388,36 @@ module PSG
     end
 
     private def silence_all
-      @allocator.release_all
+      allocator = @allocator
+      driver = @driver
+      velocities = @velocities
+      allocator.release_all
       i = 0
-      while i < @allocator.voice_count
-        @driver.mute_direct(i, 1)
-        @velocities[i] = 0
+      voice_count = allocator.voice_count
+      while i < voice_count
+        driver.mute_direct(i, 1)
+        velocities[i] = 0
         i += 1
       end
-      @driver.buffer_flush
+      driver.buffer_flush
     end
 
-    private def write_driver(command, *args)
+    private def write_driver(command, arg1, arg2, arg3, arg4 = 0)
+      driver = @driver
       while !@stopped
         pushed = case command
                  when :send_reg
-                   @driver.send_reg(args[0], args[1], args[2])
+                   driver.send_reg(arg1, arg2, arg3)
                  when :mute
-                   @driver.mute(args[0], args[1], args[2])
+                   driver.mute(arg1, arg2, arg3)
                  when :set_pan
-                   @driver.set_pan(args[0], args[1], args[2])
+                   driver.set_pan(arg1, arg2, arg3)
                  when :set_timbre
-                   @driver.set_timbre(args[0], args[1], args[2])
+                   driver.set_timbre(arg1, arg2, arg3)
                  when :set_legato
-                   @driver.set_legato(args[0], args[1], args[2])
+                   driver.set_legato(arg1, arg2, arg3)
                  when :set_lfo
-                   @driver.set_lfo(args[0], args[1], args[2], args[3])
+                   driver.set_lfo(arg1, arg2, arg3, arg4)
                  else
                    raise ArgumentError, "unknown PSG command: #{command}"
                  end
