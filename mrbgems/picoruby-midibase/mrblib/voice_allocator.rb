@@ -3,7 +3,7 @@ module MIDIBASE
     attr_reader :voice_count, :last_stolen
 
     def initialize(voices: 3)
-      unless voices.is_a?(Integer) && 0 < voices
+      if voices <= 0
         raise ArgumentError, "voices must be a positive Integer"
       end
       @voice_count = voices
@@ -13,24 +13,26 @@ module MIDIBASE
     end
 
     def allocate(channel, note, source: nil, priority: 0)
-      @age += 1
+      age = @age + 1
+      @age = age
       @last_stolen = nil
-      voice = voice_for(channel, note, source: source)
-      unless voice.nil?
-        entry = @voices[voice]
-        # @type var entry: Array[untyped]
-        entry[4] = @age
-        return voice
-      end
 
-      voice = @voices.index(nil)
-      if voice.nil?
-        candidate_voice = nil
-        candidate_priority = nil
-        candidate_age = nil
-        i = 0
-        while i < @voices.size
-          entry = @voices[i]
+      voices = @voices
+      voice_count = @voice_count
+      free_voice = nil
+      candidate_voice = nil
+      candidate_priority = nil
+      candidate_age = nil
+
+      i = 0
+      while i < voice_count
+        entry = voices[i]
+        if entry
+          if entry[0] == source && entry[1] == channel && entry[2] == note
+            entry[4] = age
+            return i
+          end
+
           # @type var entry: Array[untyped]
           entry_priority = entry[3]
           entry_age = entry[4]
@@ -41,14 +43,22 @@ module MIDIBASE
             candidate_priority = entry_priority
             candidate_age = entry_age
           end
-          i += 1
+        elsif free_voice.nil?
+          free_voice = i
         end
-        voice = candidate_voice
+        i += 1
       end
-      return nil if voice.nil?
 
-      @last_stolen = @voices[voice]
-      @voices[voice] = [source, channel, note, priority, @age]
+      if free_voice.nil?
+        voice = candidate_voice
+        return nil if voice.nil?
+        # @type var voice: Integer
+        @last_stolen = voices[voice]
+      else
+        voice = free_voice
+        # @type var voice: Integer
+      end
+      voices[voice] = [source, channel, note, priority, age]
       voice
     end
 
@@ -60,8 +70,10 @@ module MIDIBASE
 
     def voice_for(channel, note, source: nil)
       i = 0
-      while i < @voices.size
-        entry = @voices[i]
+      voices = @voices
+      voice_count = @voice_count
+      while i < voice_count
+        entry = voices[i]
         return i if entry && entry[0] == source && entry[1] == channel && entry[2] == note
         i += 1
       end
@@ -69,14 +81,16 @@ module MIDIBASE
     end
 
     def entry(voice)
-      return nil unless voice.is_a?(Integer) && 0 <= voice && voice < @voices.size
+      return nil unless 0 <= voice && voice < @voice_count
       @voices[voice]
     end
 
     def release_all
       i = 0
-      while i < @voices.size
-        @voices[i] = nil
+      voices = @voices
+      voice_count = @voice_count
+      while i < voice_count
+        voices[i] = nil
         i += 1
       end
       self

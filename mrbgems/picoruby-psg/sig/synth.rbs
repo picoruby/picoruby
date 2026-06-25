@@ -44,6 +44,6 @@ module PSG
     private def owned_by?: (Array[untyped]? entry, untyped source, Integer channel) -> bool
     private def note_key: (untyped source, Integer channel, Integer note) -> Array[untyped]
     private def silence_all: () -> void
-    private def write_driver: (Symbol command, *Integer args) -> bool
+    private def write_driver: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> bool
   end
 end

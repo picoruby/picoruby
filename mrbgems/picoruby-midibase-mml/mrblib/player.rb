@@ -58,34 +58,39 @@ module MIDIBASE
       end
 
       def position
-        numerator = @sequence.time_signature[0]
-        denominator = @sequence.time_signature[1]
-        ticks_per_beat = @sequence.ppqn * 4 / denominator
+        sequence = @sequence
+        time_signature = sequence.time_signature
+        numerator = time_signature[0]
+        denominator = time_signature[1]
+        ticks_per_beat = sequence.ppqn * 4 / denominator
         ticks_per_bar = ticks_per_beat * numerator
         in_bar = @tick % ticks_per_bar
         [@tick / ticks_per_bar + 1, in_bar / ticks_per_beat + 1, in_bar % ticks_per_beat]
       end
 
       def run
-        generation = @clock.external? ? @clock.wait_until_running(self) : 0
+        clock = @clock
+        sequence = @sequence
+        external_clock = clock.external?
+        generation = external_clock ? clock.wait_until_running(self) : 0
         while !@stopped
           reset_playback
-          generation = @clock.generation if @clock.external?
+          generation = clock.generation if external_clock
           restart = false
           while !@stopped
             if @rewind_requested
               restart = true
               break
             end
-            item = @sequence.next_event
+            item = sequence.next_event
             break if item.nil?
             delta = item[0]
             event = item[1]
             target_tick = @tick + delta
-            result = if @clock.external?
-                       @clock.wait_until(target_tick, self, generation)
+            result = if external_clock
+                       clock.wait_until(target_tick, self, generation)
                      else
-                       @clock.wait_ticks(delta, @sequence.ppqn, @tempo, self)
+                       clock.wait_ticks(delta, sequence.ppqn, @tempo, self)
                      end
             if result == :restart
               restart = true
@@ -95,8 +100,8 @@ module MIDIBASE
             @tick = target_tick
             dispatch(event)
           end
-          if !restart && @clock.external? && !@stopped
-            next_generation = @clock.wait_for_restart(self, generation)
+          if !restart && external_clock && !@stopped
+            next_generation = clock.wait_for_restart(self, generation)
             restart = next_generation != generation
           end
           break unless restart
@@ -104,7 +109,8 @@ module MIDIBASE
       end
 
       private def reset_playback
-        @sequence.reset
+        sequence = @sequence
+        sequence.reset
         @tempo = DEFAULT_TEMPO
         @tick = 0
         @rewind_requested = false

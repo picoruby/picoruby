@@ -28,14 +28,16 @@ module MIDIBASE
     end
 
     def emit(source, event, timestamp_us: nil)
-      unless event.is_a?(Array) && event[0].is_a?(Symbol)
+      command = event[0]
+      unless command.is_a?(Symbol)
         raise ArgumentError, "MIDI event must start with a command Symbol"
       end
       timestamp_us ||= Machine.uptime_us
-      command = event[0]
       i = 0
-      while i < @routes.size
-        route = @routes[i]
+      routes = @routes
+      routes_size = routes.size # memoize for performance
+      while i < routes_size
+        route = routes[i]
         if route[0] == source && route_accepts?(route, command)
           route[1].handle(
             event,
