@@ -9,11 +9,7 @@ tracks = [
 
 driver = PSG::Driver.new(:pwm, left: 10, right: 11)
 synth = PSG::Synth.new(driver).start
-midi = UART::MIDI.new(
-  unit: :PICORB_UART_RP2040_UART0,
-  txd_pin: 0,
-  rxd_pin: 1
-)
+midi = UART::MIDI.new(unit: :RP2040_UART1, txd_pin: 4, rxd_pin: 5)
 
 router = MIDIBASE::Router.new
 clock = MIDIBASE::MML::MIDIClock.new
