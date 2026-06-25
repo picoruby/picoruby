@@ -2,6 +2,48 @@
 
 PSG (Programmable Sound Generator) emulator for PicoRuby.
 
+## Tuning
+
+`PSG.note_to_period(note, round: true)` converts a MIDI note number to a PSG
+tone period. Notes `0..127` use the current tuning table; notes outside that
+range are calculated as equal temperament from the current A4 pitch.
+
+```ruby
+PSG.note_to_period(60)                 #=> 239
+PSG.note_to_period(60, round: false)   #=> 238
+```
+
+`PSG.set_tuning(tuning = :equal, pitch: 440)` rebuilds the tuning table and
+returns the selected tuning symbol. `pitch:` sets the A4 frequency.
+
+```ruby
+PSG.set_tuning                         # equal temperament, A4 = 440 Hz
+PSG.set_tuning(:equal, pitch: 442)
+PSG.set_tuning(:just_f_major, pitch: 440)
+```
+
+Pure just intonation tables are available for major and minor keys:
+
+```ruby
+:just_c_major       :just_c_minor
+:just_c_sharp_major :just_c_sharp_minor
+:just_d_flat_major  :just_d_flat_minor
+:just_d_major       :just_d_minor
+:just_d_sharp_major :just_d_sharp_minor
+:just_e_flat_major  :just_e_flat_minor
+:just_e_major       :just_e_minor
+:just_f_major       :just_f_minor
+:just_f_sharp_major :just_f_sharp_minor
+:just_g_flat_major  :just_g_flat_minor
+:just_g_major       :just_g_minor
+:just_g_sharp_major :just_g_sharp_minor
+:just_a_flat_major  :just_a_flat_minor
+:just_a_major       :just_a_minor
+:just_a_sharp_major :just_a_sharp_minor
+:just_b_flat_major  :just_b_flat_minor
+:just_b_major       :just_b_minor
+```
+
 ## MIDI synthesis
 
 `PSG::Synth` consumes events from `MIDIBASE::Router` and maps them to the three

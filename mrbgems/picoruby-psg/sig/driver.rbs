@@ -3,6 +3,7 @@
 module PSG
   TONE_K: Float
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
+  def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
 
   class Driver
     CHIP_CLOCK: Integer

@@ -1,3 +1,36 @@
+class PSGTuningTest < Picotest::Test
+  def teardown
+    PSG.set_tuning
+  end
+
+  def test_note_to_period_supports_round_keyword
+    PSG.set_tuning
+    assert_equal 239, PSG.note_to_period(60)
+    assert_equal 238, PSG.note_to_period(60, round: false)
+  end
+
+  def test_set_tuning_supports_pitch_keyword
+    PSG.set_tuning(pitch: 880)
+    assert_equal 71, PSG.note_to_period(69)
+    PSG.set_tuning(:equal, pitch: 440)
+    assert_equal 142, PSG.note_to_period(69)
+  end
+
+  def test_just_tuning_updates_period_table
+    PSG.set_tuning
+    equal_e = PSG.note_to_period(64)
+    PSG.set_tuning(:just_c_major)
+    assert_not_equal equal_e, PSG.note_to_period(64)
+  end
+
+  def test_enharmonic_just_tunings_share_table
+    PSG.set_tuning(:just_e_flat_minor)
+    e_flat = PSG.note_to_period(63)
+    PSG.set_tuning(:just_d_sharp_minor)
+    assert_equal e_flat, PSG.note_to_period(63)
+  end
+end
+
 class PSGSynthFakeDriver
   attr_reader :calls
 
