@@ -268,6 +268,9 @@ module PSG
     end
 
     private def prepare_drum_voice(source, note, timestamp_us)
+      duration = PSG.drum_duration(note)
+      return nil if duration <= 0
+
       allocator = @allocator
       voice = nil
       drum_voice = @drum_voice
@@ -287,7 +290,7 @@ module PSG
       @drum_voice = voice
       @velocities[voice] = 0
       @sustained.delete(note_key(entry[0], entry[1], entry[2])) if entry && entry[1] != PSG::DRUM_CHANNEL
-      @drum_until_us = event_time_us(timestamp_us) + PSG.drum_duration(note) * 1000
+      @drum_until_us = event_time_us(timestamp_us) + duration * 1000
       write_driver(:mute, voice, 1, 0)
       voice
     end
