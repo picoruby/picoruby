@@ -988,6 +988,114 @@ expand_replacement(mrb_state *mrb, const char *repl, int repl_len, int match_ref
   return result;
 }
 
+static int
+find_literal_match(const char *str, int str_len, const char *pattern, int pattern_len, int byte_pos)
+{
+  if (pattern_len == 0) return byte_pos;
+  if (pattern_len > str_len - byte_pos) return -1;
+
+  int limit = str_len - pattern_len;
+  int i = byte_pos;
+  while (i <= limit) {
+    if (memcmp(str + i, pattern, pattern_len) == 0) {
+      return i;
+    }
+    i++;
+  }
+  return -1;
+}
+
+static mrb_value
+expand_literal_replacement(mrb_state *mrb, const char *repl, int repl_len, const char *matched, int matched_len)
+{
+  mrb_value result = mrb_str_new(mrb, NULL, 0);
+  int i = 0;
+  while (i < repl_len) {
+    char ch = repl[i];
+    if (ch == '\\' && i + 1 < repl_len) {
+      char next = repl[i + 1];
+      if (next == '0' || next == '&') {
+        mrb_str_cat(mrb, result, matched, matched_len);
+        i += 2;
+        continue;
+      }
+      if (next >= '1' && next <= '9') {
+        i += 2;
+        continue;
+      }
+      if (next == '\\') {
+        mrb_str_cat(mrb, result, "\\", 1);
+        i += 2;
+        continue;
+      }
+      mrb_str_cat(mrb, result, &repl[i], 2);
+      i += 2;
+      continue;
+    }
+    mrb_str_cat(mrb, result, &ch, 1);
+    i += 1;
+  }
+  return result;
+}
+
+static mrb_value
+do_string_sub_gsub_literal(mrb_state *mrb, mrb_value self, mrb_value pattern, mrb_value replacement, mrb_value block, mrb_bool global)
+{
+  mrb_bool has_block = !mrb_nil_p(block);
+  mrb_value source = has_block ? mrb_str_dup(mrb, self) : self;
+  const char *str_ptr = RSTRING_PTR(source);
+  int str_len = RSTRING_LEN(source);
+  const char *pattern_ptr = RSTRING_PTR(pattern);
+  int pattern_len = RSTRING_LEN(pattern);
+
+  mrb_value result = mrb_str_new(mrb, NULL, 0);
+  int byte_pos = 0;
+
+  while (byte_pos <= str_len) {
+    int byte_begin = find_literal_match(str_ptr, str_len, pattern_ptr, pattern_len, byte_pos);
+    if (byte_begin < 0) break;
+    int byte_end = byte_begin + pattern_len;
+
+    if (byte_begin > byte_pos) {
+      mrb_str_cat(mrb, result, str_ptr + byte_pos, byte_begin - byte_pos);
+    }
+
+    if (has_block) {
+      mrb_value full_str = mrb_str_new(mrb, str_ptr + byte_begin, pattern_len);
+      mrb_value yielded = mrb_yield(mrb, block, full_str);
+      mrb_value yield_str = mrb_obj_as_string(mrb, yielded);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
+      mrb_str_cat_str(mrb, result, yield_str);
+    } else {
+      mrb_value expanded = expand_literal_replacement(mrb,
+                                                      RSTRING_PTR(replacement),
+                                                      RSTRING_LEN(replacement),
+                                                      str_ptr + byte_begin,
+                                                      pattern_len);
+      mrb_str_cat_str(mrb, result, expanded);
+    }
+
+    if (pattern_len == 0) {
+      int step = utf8_step(str_ptr, str_len, byte_pos);
+      if (step == 0) break;
+      mrb_str_cat(mrb, result, str_ptr + byte_pos, step);
+      byte_pos += step;
+    } else {
+      byte_pos = byte_end;
+    }
+
+    if (!global) break;
+  }
+
+  if (byte_pos < str_len) {
+    mrb_str_cat(mrb, result, str_ptr + byte_pos, str_len - byte_pos);
+  }
+
+  return result;
+}
+
 /* Shared implementation of String#sub / String#gsub for both block and
  * replacement-string forms. */
 static mrb_value
@@ -1006,6 +1114,10 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
   }
   if (!has_replacement && !has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given 1, expected 2)");
+  }
+
+  if (mrb_string_p(pattern)) {
+    return do_string_sub_gsub_literal(mrb, self, pattern, replacement, block, global);
   }
 
   mrb_value re = ensure_regexp(mrb, pattern);
