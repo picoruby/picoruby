@@ -28,7 +28,8 @@ typedef enum {
   PSG_PKT_CH_MUTE       = 2,  // ch, 0/1
   PSG_PKT_PAN_SET       = 3,  // ch, bal(0-15)
   PSG_PKT_TIMBRE_SET    = 4,  // ch, timbre
-  PSG_PKT_LEGATO_SET    = 5   // ch, legato
+  PSG_PKT_LEGATO_SET    = 5,  // ch, legato
+  PSG_PKT_DRUM_STEP     = 6   // volume, noise_period
 } psg_opcode_t;
 
 /* ----- packet layout -------------------------------------------------- */
@@ -143,6 +144,8 @@ typedef struct {
   uint8_t pan[3];
   // tone type
   psg_timbre_t timbre[3];
+  // Drum step generation. Used to ignore stale queued drum steps.
+  uint8_t drum_generation;
 } psg_t;
 
 #define SAMPLE_RATE       22050

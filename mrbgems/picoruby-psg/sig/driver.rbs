@@ -1,8 +1,13 @@
 #$DEBUG: bool
 
 module PSG
+  DRUM_CHANNEL: Integer
+  DRUMS: Hash[Symbol, Integer]
+
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
   def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
+  def self.drum_data: (Symbol | Integer kind) -> Array[Array[Integer]]
+  def self.set_drum_data: (Symbol | Integer kind, Array[Array[Integer]] data) -> Symbol
 
   class Driver
     CHIP_CLOCK: Integer
@@ -17,6 +22,7 @@ module PSG
     def buffer_flush: () -> nil
     def deinit: () -> nil
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
+    def drum: (Integer | Symbol note_or_kind, ?Integer velocity) -> bool
     def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
     def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool
     def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool
