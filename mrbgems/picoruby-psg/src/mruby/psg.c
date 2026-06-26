@@ -276,14 +276,15 @@ mrb_psg_s_drum_data(mrb_state *mrb, mrb_value klass)
   }
 
   const psg_drum_data_t *data = &psg_drum_data[kind];
-  mrb_value ary = mrb_ary_new_capa(mrb, data->len);
+  int len = data->len - 1;
+  mrb_value ary = mrb_ary_new_capa(mrb, len);
   int i = 0;
-  while (i < data->len) {
+  while (i < len) {
     mrb_value step = mrb_ary_new_capa(mrb, 4);
-    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].delay));
-    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].volume));
     mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].tone_period));
     mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].noise_period));
+    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].volume));
+    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i + 1].delay - data->steps[i].delay));
     mrb_ary_push(mrb, ary, step);
     i++;
   }
@@ -316,41 +317,39 @@ mrb_psg_s_set_drum_data(mrb_state *mrb, mrb_value klass)
   }
 
   mrb_int len = RARRAY_LEN(steps_value);
-  if (len <= 0 || PSG_DRUM_MAX_STEPS < len) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum data must have 1..%d steps", PSG_DRUM_MAX_STEPS);
+  if (len <= 0 || PSG_DRUM_MAX_STEPS <= len) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum data must have 1..%d steps", PSG_DRUM_MAX_STEPS - 1);
   }
 
   psg_drum_data_t data;
-  data.len = (uint8_t)len;
+  data.len = (uint8_t)(len + 1);
+  uint32_t delay = 0;
   mrb_int i = 0;
   while (i < len) {
     mrb_value step = mrb_ary_ref(mrb, steps_value, i);
     if (!mrb_array_p(step)) {
-      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [delay_ms, volume, noise_period] or [delay_ms, volume, tone_period, noise_period]: %S", step);
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [tone_period, noise_period, volume, duration_ms]: %S", step);
     }
     mrb_int step_len = RARRAY_LEN(step);
-    if (step_len != 3 && step_len != 4) {
-      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [delay_ms, volume, noise_period] or [delay_ms, volume, tone_period, noise_period]: %S", step);
+    if (step_len != 4) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [tone_period, noise_period, volume, duration_ms]: %S", step);
     }
-    mrb_value delay_value = mrb_ary_ref(mrb, step, 0);
-    mrb_value volume_value = mrb_ary_ref(mrb, step, 1);
-    mrb_value tone_value = mrb_fixnum_value(0);
-    mrb_value noise_value;
-    if (step_len == 3) {
-      noise_value = mrb_ary_ref(mrb, step, 2);
-    } else {
-      tone_value = mrb_ary_ref(mrb, step, 2);
-      noise_value = mrb_ary_ref(mrb, step, 3);
-    }
-    if (!mrb_integer_p(delay_value) || !mrb_integer_p(volume_value) || !mrb_integer_p(tone_value) || !mrb_integer_p(noise_value)) {
+    mrb_value tone_value = mrb_ary_ref(mrb, step, 0);
+    mrb_value noise_value = mrb_ary_ref(mrb, step, 1);
+    mrb_value volume_value = mrb_ary_ref(mrb, step, 2);
+    mrb_value duration_value = mrb_ary_ref(mrb, step, 3);
+    if (!mrb_integer_p(tone_value) || !mrb_integer_p(noise_value) || !mrb_integer_p(volume_value) || !mrb_integer_p(duration_value)) {
       mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step values must be integers: %S", step);
     }
-    mrb_int delay = mrb_integer(delay_value);
-    mrb_int volume = mrb_integer(volume_value);
     mrb_int tone_period = mrb_integer(tone_value);
     mrb_int noise_period = mrb_integer(noise_value);
-    if (delay < 0 || volume < 0 || 15 < volume || tone_period < 0 || 0x0FFF < tone_period || noise_period < 0 || 31 < noise_period) {
+    mrb_int volume = mrb_integer(volume_value);
+    mrb_int duration = mrb_integer(duration_value);
+    if (tone_period < 0 || 0x0FFF < tone_period || noise_period < 0 || 31 < noise_period || volume < 0 || 15 < volume || duration < 0) {
       mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid PSG drum step: %S", step);
+    }
+    if ((uint64_t)UINT32_MAX - delay < (uint64_t)duration) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum duration is too long: %S", step);
     }
     uint8_t mixer_flags = 0;
     if (0 < volume) {
@@ -366,8 +365,14 @@ mrb_psg_s_set_drum_data(mrb_state *mrb, mrb_value klass)
     data.steps[i].volume = (uint8_t)volume;
     data.steps[i].noise_period = (uint8_t)noise_period;
     data.steps[i].mixer_flags = mixer_flags;
+    delay += (uint32_t)duration;
     i++;
   }
+  data.steps[len].delay = delay;
+  data.steps[len].tone_period = 0;
+  data.steps[len].volume = 0;
+  data.steps[len].noise_period = 0;
+  data.steps[len].mixer_flags = 0;
   psg_drum_data[kind] = data;
   return psg_drum_kind_symbol(kind);
 }

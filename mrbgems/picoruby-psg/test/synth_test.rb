@@ -31,6 +31,29 @@ class PSGTuningTest < Picotest::Test
   end
 end
 
+class PSGDrumDataTest < Picotest::Test
+  def teardown
+    PSG.set_drum_data(:snare, [
+      [220, 3, 15, 35],
+      [260, 3, 13, 45],
+      [0, 4, 9, 60]
+    ])
+  end
+
+  def test_set_drum_data_converts_durations_and_adds_mute
+    steps = [
+      [220, 3, 15, 35],
+      [260, 3, 13, 45],
+      [0, 4, 9, 60]
+    ]
+    result = PSG.set_drum_data(:snare, steps)
+
+    assert_equal :snare, result
+    assert_equal steps, PSG.drum_data(:snare)
+    assert_equal 140, PSG.drum_duration(:snare)
+  end
+end
+
 class PSGSynthFakeDriver
   attr_reader :calls
 
