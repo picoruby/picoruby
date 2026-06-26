@@ -167,6 +167,17 @@ class MIDIBASETest < Picotest::Test
     assert_nil allocator.voice_for(0, 62, source: :mml)
   end
 
+  def test_voice_allocator_reserves_specific_voice
+    allocator = MIDIBASE::VoiceAllocator.new(voices: 3)
+    assert_equal 0, allocator.allocate(0, 60, source: :mml, priority: 0)
+    assert_equal 1, allocator.allocate(0, 64, source: :mml, priority: 0)
+    assert_equal 2, allocator.allocate(0, 67, source: :mml, priority: 0)
+    assert_equal 2, allocator.reserve(2, 9, 38, source: :uart, priority: 100)
+    assert_equal [:mml, 0, 67, 0, 3], allocator.last_stolen
+    assert_equal 2, allocator.voice_for(9, 38, source: :uart)
+    assert_nil allocator.voice_for(0, 67, source: :mml)
+  end
+
   def test_router_filters_and_passes_context
     sink = MIDIBASERouterSink.new
     router = MIDIBASE::Router.new

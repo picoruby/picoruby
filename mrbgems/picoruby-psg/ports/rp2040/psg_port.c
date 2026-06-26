@@ -56,11 +56,12 @@ psg_process_packets(void)
 {
   psg_packet_t pkt;
   while (PSG_rb_peek(&pkt)) {
-    if (0 < (int32_t)(pkt.tick - g_tick_ms)) break;
+    if (0 < (int32_t)(pkt.tick - g_tick_ms)) return;
     g_tick_ms -= pkt.tick;
     PSG_rb_pop();
     PSG_process_packet(&pkt);
   }
+  g_tick_ms = 0;
 }
 
 static bool

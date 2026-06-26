@@ -59,18 +59,20 @@ end
 
 Voice ownership includes the Router source. A high-priority live UART source can steal an MML voice, while a lower-priority MML source cannot steal a live voice.
 
-MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger and asks the C driver to expand one event into PSG noise steps. The default note mapping accepts General MIDI-style drum notes; representative values are kick `35`/`36`, snare `38`/`40`, closed hi-hat `42`/`44`, and open hi-hat `46`.
+MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the drum duration, and asks the C driver to expand one event into PSG drum steps. If all voices are active, the oldest voice is stolen. The default note mapping accepts General MIDI-style drum notes; representative values are kick `35`/`36`, snare `38`/`40`, closed hi-hat `42`/`44`, and open hi-hat `46`.
 
 Drum sound data is global to the PSG module and can be replaced at runtime:
 
 ```ruby
 PSG.set_drum_data(:snare, [
-  [0, 15, 3],    # time_ms, volume(0..15), noise_period(0..31)
-  [35, 13, 3],
-  [80, 9, 4],
-  [140, 0, 0]    # volume 0 ends the drum noise
+  [0, 15, 220, 3, PSG::DRUM_TONE | PSG::DRUM_NOISE],
+  [35, 13, 260, 3, PSG::DRUM_TONE | PSG::DRUM_NOISE],
+  [80, 9, 0, 4, PSG::DRUM_NOISE],
+  [140, 0, 0, 0, 0]
 ])
 ```
+
+Each drum step is `[time_ms, volume, tone_period, noise_period, mixer_flags]`. `time_ms` is elapsed time from the trigger. `mixer_flags` uses `PSG::DRUM_TONE` and `PSG::DRUM_NOISE`. The older `[time_ms, volume, noise_period]` noise-only form is still accepted.
 
 MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A single Router can combine autonomous or MIDI-clocked MML with live input:
 

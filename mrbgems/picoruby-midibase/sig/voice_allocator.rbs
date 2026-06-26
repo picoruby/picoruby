@@ -9,6 +9,7 @@ module MIDIBASE
     attr_reader last_stolen: Array[untyped]?
     def initialize: (?voices: Integer) -> void
     def allocate: (Integer channel, Integer note, ?source: untyped, ?priority: Integer) -> Integer?
+    def reserve: (Integer voice, Integer channel, Integer note, ?source: untyped, ?priority: Integer) -> Integer?
     def release: (Integer channel, Integer note, ?source: untyped) -> Integer?
     def voice_for: (Integer channel, Integer note, ?source: untyped) -> Integer?
     def entry: (Integer voice) -> Array[untyped]?
