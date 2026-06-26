@@ -4,6 +4,7 @@
 #include "mruby/presym.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
+#include "mruby/hash.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
 #include "mruby/array.h"
@@ -1042,7 +1043,8 @@ static mrb_value
 do_string_sub_gsub_literal(mrb_state *mrb, mrb_value self, mrb_value pattern, mrb_value replacement, mrb_value block, mrb_bool global)
 {
   mrb_bool has_block = !mrb_nil_p(block);
-  mrb_value source = has_block ? mrb_str_dup(mrb, self) : self;
+  mrb_bool has_hash_replacement = mrb_hash_p(replacement);
+  mrb_value source = (has_block || has_hash_replacement) ? mrb_str_dup(mrb, self) : self;
   const char *str_ptr = RSTRING_PTR(source);
   int str_len = RSTRING_LEN(source);
   const char *pattern_ptr = RSTRING_PTR(pattern);
@@ -1068,6 +1070,19 @@ do_string_sub_gsub_literal(mrb_state *mrb, mrb_value self, mrb_value pattern, mr
         mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
       }
       mrb_str_cat_str(mrb, result, yield_str);
+    } else if (has_hash_replacement) {
+      mrb_value full_str = mrb_str_new(mrb, str_ptr + byte_begin, pattern_len);
+      mrb_value hash_value = mrb_hash_get(mrb, replacement, full_str);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
+      if (!mrb_nil_p(hash_value)) {
+        mrb_value hash_str = mrb_obj_as_string(mrb, hash_value);
+        if (!mrb_str_equal(mrb, self, source)) {
+          mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+        }
+        mrb_str_cat_str(mrb, result, hash_str);
+      }
     } else {
       mrb_value expanded = expand_literal_replacement(mrb,
                                                       RSTRING_PTR(replacement),
@@ -1104,16 +1119,20 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
   mrb_value pattern;
   mrb_value replacement = mrb_undef_value();
   mrb_value block = mrb_nil_value();
-  mrb_get_args(mrb, "o|S&", &pattern, &replacement, &block);
+  mrb_get_args(mrb, "o|o&", &pattern, &replacement, &block);
 
   mrb_bool has_replacement = !mrb_undef_p(replacement);
   mrb_bool has_block = !mrb_nil_p(block);
+  mrb_bool has_hash_replacement = has_replacement && mrb_hash_p(replacement);
 
   if (has_replacement && has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "both block and replacement argument given");
   }
   if (!has_replacement && !has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given 1, expected 2)");
+  }
+  if (has_replacement && !has_hash_replacement && !mrb_string_p(replacement)) {
+    replacement = mrb_obj_as_string(mrb, replacement);
   }
 
   if (mrb_string_p(pattern)) {
@@ -1125,7 +1144,7 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
 
   /* Keep a stable snapshot while a replacement block runs arbitrary Ruby.
    * The block must not be allowed to invalidate the buffer being scanned. */
-  mrb_value source = has_block ? mrb_str_dup(mrb, self) : self;
+  mrb_value source = (has_block || has_hash_replacement) ? mrb_str_dup(mrb, self) : self;
   const char *str_ptr = RSTRING_PTR(source);
   int str_len = RSTRING_LEN(source);
 
@@ -1163,6 +1182,21 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
         mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
       }
       mrb_str_cat_str(mrb, result, yield_str);
+    } else if (has_hash_replacement) {
+      char *full = regexp_match_item(match_ref, 0);
+      mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
+      if (full) free(full);
+      mrb_value hash_value = mrb_hash_get(mrb, replacement, full_str);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
+      if (!mrb_nil_p(hash_value)) {
+        mrb_value hash_str = mrb_obj_as_string(mrb, hash_value);
+        if (!mrb_str_equal(mrb, self, source)) {
+          mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+        }
+        mrb_str_cat_str(mrb, result, hash_str);
+      }
     } else {
       mrb_value expanded = expand_replacement(mrb,
                                               RSTRING_PTR(replacement),
