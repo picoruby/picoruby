@@ -59,7 +59,16 @@ end
 
 Voice ownership includes the Router source. A high-priority live UART source can steal an MML voice, while a lower-priority MML source cannot steal a live voice.
 
-MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the drum duration, and asks the C driver to expand one event into PSG drum steps. If all voices are active, the oldest voice is stolen. The default note mapping accepts General MIDI-style drum notes; representative values are kick `35`/`36`, snare `38`/`40`, closed hi-hat `42`/`44`, and open hi-hat `46`.
+MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the drum duration, and asks the C driver to expand one event into PSG drum steps.
+If all voices are active, the oldest voice is stolen.
+The default note mapping accepts common General MIDI drum notes listed below and other notes are ignored:
+- `:kick => 35`/`36`
+- `:snare => 38`/`40`
+- `:closed_hihat => 42`/`44`
+- `:open_hihat => 46`
+- `:low_tom => 41`/`43`
+- `:mid_tom => 45`/`47`
+- `:high_tom => 48`/`50`
 
 Drum sound data is global to the PSG module and can be replaced at runtime:
 

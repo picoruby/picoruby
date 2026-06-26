@@ -103,9 +103,10 @@ class PSGSynthTest < Picotest::Test
     assert_equal 0, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
   end
 
-  def test_midi_channel_10_unknown_note_still_goes_to_drum
+  def test_midi_channel_10_ignores_unknown_drum_note
     process([:note_on, PSG::DRUM_CHANNEL, 60, 100], :uart, 100)
-    assert @driver.calls.include?([:drum, 60, 100, 0])
+    assert !@driver.calls.include?([:drum, 60, 100, 0])
+    assert_nil @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 60, source: :uart)
   end
 
   def test_midi_channel_10_steals_oldest_voice_for_drum_headroom

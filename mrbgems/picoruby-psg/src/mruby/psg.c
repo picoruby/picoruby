@@ -31,6 +31,9 @@ typedef enum {
   PSG_DRUM_SNARE,
   PSG_DRUM_CLOSED_HIHAT,
   PSG_DRUM_OPEN_HIHAT,
+  PSG_DRUM_LOW_TOM,
+  PSG_DRUM_MID_TOM,
+  PSG_DRUM_HIGH_TOM,
   PSG_DRUM_KIND_COUNT
 } psg_drum_kind_t;
 
@@ -51,7 +54,10 @@ static psg_drum_data_t psg_drum_data[PSG_DRUM_KIND_COUNT] = {
   { 4, { { 0, 380, 15, 0, PSG_DRUM_TONE }, { 35, 520, 13, 0, PSG_DRUM_TONE }, { 90, 760, 8, 0, PSG_DRUM_TONE }, { 160, 0, 0, 0, 0 } } },
   { 4, { { 0, 220, 15, 3, PSG_DRUM_TONE | PSG_DRUM_NOISE }, { 35, 260, 13, 3, PSG_DRUM_TONE | PSG_DRUM_NOISE }, { 80, 0, 9, 4, PSG_DRUM_NOISE }, { 140, 0, 0, 0, 0 } } },
   { 3, { { 0, 0, 15, 1, PSG_DRUM_NOISE }, { 18, 0, 10, 1, PSG_DRUM_NOISE }, { 45, 0, 0, 0, 0 } } },
-  { 5, { { 0, 0, 15, 1, PSG_DRUM_NOISE }, { 45, 0, 13, 1, PSG_DRUM_NOISE }, { 110, 0, 9, 2, PSG_DRUM_NOISE }, { 220, 0, 5, 3, PSG_DRUM_NOISE }, { 320, 0, 0, 0, 0 } } }
+  { 5, { { 0, 0, 15, 1, PSG_DRUM_NOISE }, { 45, 0, 13, 1, PSG_DRUM_NOISE }, { 110, 0, 9, 2, PSG_DRUM_NOISE }, { 220, 0, 5, 3, PSG_DRUM_NOISE }, { 320, 0, 0, 0, 0 } } },
+  { 4, { { 0, 300, 15, 0, PSG_DRUM_TONE }, { 45, 360, 12, 0, PSG_DRUM_TONE }, { 110, 460, 7, 0, PSG_DRUM_TONE }, { 220, 0, 0, 0, 0 } } },
+  { 4, { { 0, 240, 15, 0, PSG_DRUM_TONE }, { 40, 300, 12, 0, PSG_DRUM_TONE }, { 100, 390, 7, 0, PSG_DRUM_TONE }, { 190, 0, 0, 0, 0 } } },
+  { 4, { { 0, 190, 15, 0, PSG_DRUM_TONE }, { 35, 240, 12, 0, PSG_DRUM_TONE }, { 90, 320, 7, 0, PSG_DRUM_TONE }, { 170, 0, 0, 0, 0 } } }
 };
 
 static const uint16_t psg_just_major_num[12] = { 1, 16, 9, 6, 5, 4, 45, 3, 8, 5, 9, 15 };
@@ -153,6 +159,33 @@ psg_parse_just_tuning(mrb_sym sym, int *tonic, bool *minor)
   return false;
 }
 
+/* From https://musescore.org/sites/musescore.org/files/General%20MIDI%20Standard%20Percussion%20Set%20Key%20Map.pdf
+  | Key# | Note | Drum Sound         | | Key# | Note | Drum Sound         |
+  |------|------|--------------------| |------|------|--------------------|
+  |  35  |  B0  | Acoustic Bass Drum | |  59  |  B2  | Ride Cymbal 2      |
+  |  36  |  C1  | Bass Drum 1        | |  60  |  C3  | Hi Bongo           |
+  |  37  |  C#1 | Side Stick         | |  61  |  C#3 | Low Bongo          |
+  |  38  |  D1  | Acoustic Snare     | |  62  |  D3  | Mute Hi Conga      |
+  |  39  |  Eb1 | Hand Clap          | |  63  |  Eb3 | Open Hi Conga      |
+  |  40  |  E1  | Electric Snare     | |  64  |  E3  | Low Conga          |
+  |  41  |  F1  | Low Floor Tom      | |  65  |  F3  | High Timbale       |
+  |  42  |  F#1 | Closed Hi Hat      | |  66  |  F#3 | Low Timbale        |
+  |  43  |  G1  | High Floor Tom     | |  67  |  G3  | High Agogo         |
+  |  44  |  Ab1 | Pedal Hi-Hat       | |  68  |  Ab3 | Low Agogo          |
+  |  45  |  A1  | Low Tom            | |  69  |  A3  | Cabasa             |
+  |  46  |  Bb1 | Open Hi-Hat        | |  70  |  Bb3 | Maracas            |
+  |  47  |  B1  | Low-Mid Tom        | |  71  |  B3  | Short Whistle      |
+  |  48  |  C2  | Hi Mid Tom         | |  72  |  C4  | Long Whistle       |
+  |  49  |  C#2 | Crash Cymbal 1     | |  73  |  C#4 | Short Guiro        |
+  |  50  |  D2  | High Tom           | |  74  |  D4  | Long Guiro         |
+  |  51  |  Eb2 | Ride Cymbal 1      | |  75  |  Eb4 | Claves             |
+  |  52  |  E2  | Chinese Cymbal     | |  76  |  E4  | Hi Wood Block      |
+  |  53  |  F2  | Ride Bell          | |  77  |  F4  | Low Wood Block     |
+  |  54  |  F#2 | Tambourine         | |  78  |  F#4 | Mute Cuica         |
+  |  55  |  G2  | Splash Cymbal      | |  79  |  G4  | Open Cuica         |
+  |  56  |  Ab2 | Cowbell            | |  80  |  Ab4 | Mute Triangle      |
+  |  57  |  A2  | Crash Cymbal 2     | |  81  |  A4  | Open Triangle      |
+  |  58  |  Bb2 | Vibraslap          |                                       */
 static bool
 psg_drum_kind_from_value(mrb_state *mrb, mrb_value value, psg_drum_kind_t *kind)
 {
@@ -170,23 +203,38 @@ psg_drum_kind_from_value(mrb_state *mrb, mrb_value value, psg_drum_kind_t *kind)
     } else if (sym == MRB_SYM(open_hihat) || sym == MRB_SYM(open_hi_hat)) {
       *kind = PSG_DRUM_OPEN_HIHAT;
       return true;
+    } else if (sym == MRB_SYM(low_tom)) {
+      *kind = PSG_DRUM_LOW_TOM;
+      return true;
+    } else if (sym == MRB_SYM(mid_tom)) {
+      *kind = PSG_DRUM_MID_TOM;
+      return true;
+    } else if (sym == MRB_SYM(high_tom)) {
+      *kind = PSG_DRUM_HIGH_TOM;
+      return true;
     }
   } else if (mrb_integer_p(value)) {
     mrb_int note = mrb_integer(value);
-    if (note == 35 || note == 36 || note == 41 || note == 43 || note == 45) {
+    if (note == 35 || note == 36) {
       *kind = PSG_DRUM_KICK;
       return true;
-    } else if (note == 37 || note == 38 || note == 39 || note == 40 || note == 48 || note == 50) {
+    } else if (note == 38 || note == 40) {
       *kind = PSG_DRUM_SNARE;
       return true;
-    } else if (note == 42 || note == 44 || note == 54 || note == 56 || note == 58 || note == 69 || note == 70 || note == 73 || note == 78) {
+    } else if (note == 42 || note == 44) {
       *kind = PSG_DRUM_CLOSED_HIHAT;
       return true;
-    } else if (note == 46 || note == 49 || note == 51 || note == 52 || note == 55 || note == 57 || note == 59) {
+    } else if (note == 46) {
       *kind = PSG_DRUM_OPEN_HIHAT;
       return true;
-    } else if (0 <= note && note <= 127) {
-      *kind = PSG_DRUM_SNARE;
+    } else if (note == 41 || note == 43) {
+      *kind = PSG_DRUM_LOW_TOM;
+      return true;
+    } else if (note == 45 || note == 47) {
+      *kind = PSG_DRUM_MID_TOM;
+      return true;
+    } else if (note == 48 || note == 50) {
+      *kind = PSG_DRUM_HIGH_TOM;
       return true;
     }
   }
@@ -205,6 +253,12 @@ psg_drum_kind_symbol(psg_drum_kind_t kind)
       return mrb_symbol_value(MRB_SYM(closed_hihat));
     case PSG_DRUM_OPEN_HIHAT:
       return mrb_symbol_value(MRB_SYM(open_hihat));
+    case PSG_DRUM_LOW_TOM:
+      return mrb_symbol_value(MRB_SYM(low_tom));
+    case PSG_DRUM_MID_TOM:
+      return mrb_symbol_value(MRB_SYM(mid_tom));
+    case PSG_DRUM_HIGH_TOM:
+      return mrb_symbol_value(MRB_SYM(high_tom));
     default:
       return mrb_nil_value();
   }
@@ -243,7 +297,8 @@ mrb_psg_s_drum_duration(mrb_state *mrb, mrb_value klass)
   psg_drum_kind_t kind;
   mrb_get_args(mrb, "o", &kind_value);
   if (!psg_drum_kind_from_value(mrb, kind_value, &kind)) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Unsupported PSG drum: %S", kind_value);
+    // Do not raise an error here, just return 0 for unsupported drum kinds
+    return mrb_fixnum_value(0);
   }
 
   const psg_drum_data_t *data = &psg_drum_data[kind];
@@ -687,6 +742,9 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(snare)), mrb_fixnum_value(PSG_DRUM_SNARE));
   mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(closed_hihat)), mrb_fixnum_value(PSG_DRUM_CLOSED_HIHAT));
   mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(open_hihat)), mrb_fixnum_value(PSG_DRUM_OPEN_HIHAT));
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(low_tom)), mrb_fixnum_value(PSG_DRUM_LOW_TOM));
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(mid_tom)), mrb_fixnum_value(PSG_DRUM_MID_TOM));
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(high_tom)), mrb_fixnum_value(PSG_DRUM_HIGH_TOM));
   mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUMS), drums);
 
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
