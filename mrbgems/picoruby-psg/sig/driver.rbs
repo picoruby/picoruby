@@ -1,14 +1,16 @@
 #$DEBUG: bool
 
 module PSG
+  type drum_data_t = Array[[Integer, Integer, Integer, Integer]]
+
   DRUM_CHANNEL: Integer
   DRUMS: Hash[Symbol, Integer]
 
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
   def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
-  def self.drum_data: (Symbol | Integer kind) -> Array[Array[Integer]]
+  def self.drum_data: (Symbol | Integer kind) -> drum_data_t
   def self.drum_duration: (Symbol | Integer kind) -> Integer
-  def self.set_drum_data: (Symbol | Integer kind, Array[Array[Integer]] data) -> Symbol
+  def self.set_drum_data: (Symbol | Integer kind, drum_data_t data) -> Symbol
 
   class Driver
     CHIP_CLOCK: Integer
