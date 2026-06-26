@@ -74,14 +74,14 @@ Drum sound data is global to the PSG module and can be replaced at runtime:
 
 ```ruby
 PSG.set_drum_data(:snare, [
-  [0, 15, 220, 3, PSG::DRUM_TONE | PSG::DRUM_NOISE],
-  [35, 13, 260, 3, PSG::DRUM_TONE | PSG::DRUM_NOISE],
-  [80, 9, 0, 4, PSG::DRUM_NOISE],
-  [140, 0, 0, 0, 0]
+  [0, 15, 220, 3],
+  [35, 13, 260, 3],
+  [80, 9, 0, 4],
+  [140, 0, 0, 0]
 ])
 ```
 
-Each drum step is `[time_ms, volume, tone_period, noise_period, mixer_flags]`. `time_ms` is elapsed time from the trigger. `mixer_flags` uses `PSG::DRUM_TONE` and `PSG::DRUM_NOISE`. The older `[time_ms, volume, noise_period]` noise-only form is still accepted.
+Each drum step is `[time_ms, volume, tone_period, noise_period]`. `time_ms` is elapsed time from the trigger. Tone output is enabled when `tone_period` is greater than zero, and noise output is enabled when `noise_period` is greater than zero. The older `[time_ms, volume, noise_period]` noise-only form is still accepted.
 
 MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A single Router can combine autonomous or MIDI-clocked MML with live input:
 

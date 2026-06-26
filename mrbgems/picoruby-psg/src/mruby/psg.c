@@ -25,6 +25,7 @@ static double psg_a4_frequency = 440.0;
 #define PSG_DRUM_MAX_STEPS 16
 #define PSG_DRUM_TONE  1
 #define PSG_DRUM_NOISE 2
+#define PSG_DRUM_MIX   (PSG_DRUM_TONE|PSG_DRUM_NOISE)
 
 typedef enum {
   PSG_DRUM_KICK = 0,
@@ -39,10 +40,10 @@ typedef enum {
 
 typedef struct {
   uint32_t delay;
-  uint16_t tone_period;
-  uint8_t volume;
-  uint8_t noise_period;
-  uint8_t mixer_flags;
+  uint16_t tone_period; // 0..4095 A4(440Hz)=142, A3(220Hz)=284, A2(110Hz)=568, A1(55Hz)=1136
+  uint8_t volume;       // 0..15
+  uint8_t noise_period; // 0..31   4000Hz=31, 7812Hz=16, 15625Hz=8, 31250Hz=4, 62500Hz=2, 125000Hz=1
+  uint8_t mixer_flags;  // 0..2
 } psg_drum_step_t;
 
 typedef struct {
@@ -51,13 +52,13 @@ typedef struct {
 } psg_drum_data_t;
 
 static psg_drum_data_t psg_drum_data[PSG_DRUM_KIND_COUNT] = {
-  { 4, { { 0, 380, 15, 0, PSG_DRUM_TONE }, { 35, 520, 13, 0, PSG_DRUM_TONE }, { 90, 760, 8, 0, PSG_DRUM_TONE }, { 160, 0, 0, 0, 0 } } },
-  { 4, { { 0, 220, 15, 3, PSG_DRUM_TONE | PSG_DRUM_NOISE }, { 35, 260, 13, 3, PSG_DRUM_TONE | PSG_DRUM_NOISE }, { 80, 0, 9, 4, PSG_DRUM_NOISE }, { 140, 0, 0, 0, 0 } } },
-  { 3, { { 0, 0, 15, 1, PSG_DRUM_NOISE }, { 18, 0, 10, 1, PSG_DRUM_NOISE }, { 45, 0, 0, 0, 0 } } },
-  { 5, { { 0, 0, 15, 1, PSG_DRUM_NOISE }, { 45, 0, 13, 1, PSG_DRUM_NOISE }, { 110, 0, 9, 2, PSG_DRUM_NOISE }, { 220, 0, 5, 3, PSG_DRUM_NOISE }, { 320, 0, 0, 0, 0 } } },
-  { 4, { { 0, 300, 15, 0, PSG_DRUM_TONE }, { 45, 360, 12, 0, PSG_DRUM_TONE }, { 110, 460, 7, 0, PSG_DRUM_TONE }, { 220, 0, 0, 0, 0 } } },
-  { 4, { { 0, 240, 15, 0, PSG_DRUM_TONE }, { 40, 300, 12, 0, PSG_DRUM_TONE }, { 100, 390, 7, 0, PSG_DRUM_TONE }, { 190, 0, 0, 0, 0 } } },
-  { 4, { { 0, 190, 15, 0, PSG_DRUM_TONE }, { 35, 240, 12, 0, PSG_DRUM_TONE }, { 90, 320, 7, 0, PSG_DRUM_TONE }, { 170, 0, 0, 0, 0 } } }
+  /* kick  */ { 4, { { 0, 380, 15, 0, PSG_DRUM_TONE  }, { 35, 520, 13, 0, PSG_DRUM_TONE  }, {  90, 760, 8, 0, PSG_DRUM_TONE  }, { 160, 0, 0, 0, 0 } } },
+  /* snare */ { 4, { { 0, 220, 15, 3, PSG_DRUM_MIX   }, { 35, 260, 13, 3, PSG_DRUM_MIX   }, {  80,   0, 9, 4, PSG_DRUM_NOISE }, { 140, 0, 0, 0, 0 } } },
+  /* c-hat */ { 3, { { 0,   0, 15, 1, PSG_DRUM_NOISE }, { 18,   0, 10, 1, PSG_DRUM_NOISE }, {  45,   0, 0, 0, 0 } } },
+  /* o-hat */ { 5, { { 0,   0, 15, 1, PSG_DRUM_NOISE }, { 45,   0, 13, 1, PSG_DRUM_NOISE }, { 110,   0, 9, 2, PSG_DRUM_NOISE }, { 220, 0, 5, 3, PSG_DRUM_NOISE }, { 320, 0, 0, 0, 0 } } },
+  /* l-tom */ { 4, { { 0, 300, 15, 0, PSG_DRUM_TONE  }, { 45, 360, 12, 0, PSG_DRUM_TONE  }, { 110, 460, 7, 0, PSG_DRUM_TONE  }, { 220, 0, 0, 0, 0 } } },
+  /* m-tom */ { 4, { { 0, 240, 15, 0, PSG_DRUM_TONE  }, { 40, 300, 12, 0, PSG_DRUM_TONE  }, { 100, 390, 7, 0, PSG_DRUM_TONE  }, { 190, 0, 0, 0, 0 } } },
+  /* h-tom */ { 4, { { 0, 190, 15, 0, PSG_DRUM_TONE  }, { 35, 240, 12, 0, PSG_DRUM_TONE  }, {  90, 320, 7, 0, PSG_DRUM_TONE  }, { 170, 0, 0, 0, 0 } } }
 };
 
 static const uint16_t psg_just_major_num[12] = { 1, 16, 9, 6, 5, 4, 45, 3, 8, 5, 9, 15 };
@@ -278,12 +279,11 @@ mrb_psg_s_drum_data(mrb_state *mrb, mrb_value klass)
   mrb_value ary = mrb_ary_new_capa(mrb, data->len);
   int i = 0;
   while (i < data->len) {
-    mrb_value step = mrb_ary_new_capa(mrb, 5);
+    mrb_value step = mrb_ary_new_capa(mrb, 4);
     mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].delay));
     mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].volume));
     mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].tone_period));
     mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].noise_period));
-    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].mixer_flags));
     mrb_ary_push(mrb, ary, step);
     i++;
   }
@@ -325,39 +325,47 @@ mrb_psg_s_set_drum_data(mrb_state *mrb, mrb_value klass)
   mrb_int i = 0;
   while (i < len) {
     mrb_value step = mrb_ary_ref(mrb, steps_value, i);
-    if (!mrb_array_p(step) || RARRAY_LEN(step) < 3) {
-      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [delay_ms, volume, noise_period] or [delay_ms, volume, tone_period, noise_period, mixer_flags]: %S", step);
+    if (!mrb_array_p(step)) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [delay_ms, volume, noise_period] or [delay_ms, volume, tone_period, noise_period]: %S", step);
     }
     mrb_int step_len = RARRAY_LEN(step);
+    if (step_len != 3 && step_len != 4) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [delay_ms, volume, noise_period] or [delay_ms, volume, tone_period, noise_period]: %S", step);
+    }
     mrb_value delay_value = mrb_ary_ref(mrb, step, 0);
     mrb_value volume_value = mrb_ary_ref(mrb, step, 1);
     mrb_value tone_value = mrb_fixnum_value(0);
     mrb_value noise_value;
-    mrb_value mixer_value;
-    if (step_len < 5) {
+    if (step_len == 3) {
       noise_value = mrb_ary_ref(mrb, step, 2);
-      mixer_value = mrb_integer_p(volume_value) && 0 < mrb_integer(volume_value) ? mrb_fixnum_value(PSG_DRUM_NOISE) : mrb_fixnum_value(0);
     } else {
       tone_value = mrb_ary_ref(mrb, step, 2);
       noise_value = mrb_ary_ref(mrb, step, 3);
-      mixer_value = mrb_ary_ref(mrb, step, 4);
     }
-    if (!mrb_integer_p(delay_value) || !mrb_integer_p(volume_value) || !mrb_integer_p(tone_value) || !mrb_integer_p(noise_value) || !mrb_integer_p(mixer_value)) {
+    if (!mrb_integer_p(delay_value) || !mrb_integer_p(volume_value) || !mrb_integer_p(tone_value) || !mrb_integer_p(noise_value)) {
       mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step values must be integers: %S", step);
     }
     mrb_int delay = mrb_integer(delay_value);
     mrb_int volume = mrb_integer(volume_value);
     mrb_int tone_period = mrb_integer(tone_value);
     mrb_int noise_period = mrb_integer(noise_value);
-    mrb_int mixer_flags = mrb_integer(mixer_value);
-    if (delay < 0 || volume < 0 || 15 < volume || tone_period < 0 || 0x0FFF < tone_period || noise_period < 0 || 31 < noise_period || mixer_flags < 0 || 3 < mixer_flags) {
+    if (delay < 0 || volume < 0 || 15 < volume || tone_period < 0 || 0x0FFF < tone_period || noise_period < 0 || 31 < noise_period) {
       mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid PSG drum step: %S", step);
+    }
+    uint8_t mixer_flags = 0;
+    if (0 < volume) {
+      if (0 < tone_period) {
+        mixer_flags |= PSG_DRUM_TONE;
+      }
+      if (0 < noise_period) {
+        mixer_flags |= PSG_DRUM_NOISE;
+      }
     }
     data.steps[i].delay = (uint32_t)delay;
     data.steps[i].tone_period = (uint16_t)tone_period;
     data.steps[i].volume = (uint8_t)volume;
     data.steps[i].noise_period = (uint8_t)noise_period;
-    data.steps[i].mixer_flags = (uint8_t)mixer_flags;
+    data.steps[i].mixer_flags = mixer_flags;
     i++;
   }
   psg_drum_data[kind] = data;
@@ -734,8 +742,6 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(drum_duration), mrb_psg_s_drum_duration, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(set_drum_data), mrb_psg_s_set_drum_data, MRB_ARGS_REQ(2));
   mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_CHANNEL), mrb_fixnum_value(PSG_DRUM_CHANNEL));
-  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_TONE), mrb_fixnum_value(PSG_DRUM_TONE));
-  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_NOISE), mrb_fixnum_value(PSG_DRUM_NOISE));
 
   mrb_value drums = mrb_hash_new(mrb);
   mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(kick)), mrb_fixnum_value(PSG_DRUM_KICK));
