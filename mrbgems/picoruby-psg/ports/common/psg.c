@@ -189,22 +189,36 @@ PSG_process_packet(const psg_packet_t *pkt)
     }
     case PSG_PKT_DRUM_STEP: {
       uint8_t volume = pkt->val & 0x0F;
+      uint8_t tr = (pkt->val >> 4) & 0x03;
+      uint8_t mixer_flags = (pkt->val >> 6) & 0x03;
+      if (2 < tr) break;
       psg_cs_token_t t = PSG_enter_critical();
       if (pkt->reg != psg.drum_generation) {
         PSG_exit_critical(t);
         break;
       }
       if (volume) {
-        psg.r.noise_period = pkt->arg & 0x1F;
-        psg.noise_shift = 0x1FFFF;
-        psg.noise_cnt = 0;
-        psg.r.mixer = (psg.r.mixer | (1u << 2)) & ~(1u << 5);
-        psg.r.volume[2] = volume;
-        psg.pan[2] = 8;
-        psg.mute_mask &= ~(1u << 2);
+        uint16_t tone_period = pkt->aux & 0x0FFF;
+        if (mixer_flags & 0x01) {
+          psg.r.tone_period[tr] = tone_period;
+          psg.timbre[tr] = PSG_TIMBRE_SQUARE;
+          update_tone_inc(tr);
+        }
+        if (mixer_flags & 0x02) {
+          psg.r.noise_period = pkt->arg & 0x1F;
+          psg.noise_shift = 0x1FFFF;
+          psg.noise_cnt = 0;
+        }
+        if (mixer_flags & 0x01) psg.r.mixer &= ~(1u << tr);
+        else psg.r.mixer |= (1u << tr);
+        if (mixer_flags & 0x02) psg.r.mixer &= ~(1u << (tr + 3));
+        else psg.r.mixer |= (1u << (tr + 3));
+        psg.r.volume[tr] = volume;
+        psg.pan[tr] = 8;
+        psg.mute_mask &= ~(1u << tr);
       } else {
-        psg.r.volume[2] = 0;
-        psg.mute_mask |= (1u << 2);
+        psg.r.volume[tr] = 0;
+        psg.mute_mask |= (1u << tr);
       }
       PSG_exit_critical(t);
       break;

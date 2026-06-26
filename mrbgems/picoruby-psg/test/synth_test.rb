@@ -97,24 +97,26 @@ class PSGSynthTest < Picotest::Test
     assert @driver.calls.include?([:set_lfo, 0, 200, 5, 0])
   end
 
-  def test_midi_channel_10_triggers_drum_without_voice_allocation
+  def test_midi_channel_10_triggers_drum_with_reserved_voice
     process([:note_on, PSG::DRUM_CHANNEL, 38, 100], :uart, 100)
-    assert @driver.calls.include?([:drum, 38, 100])
-    assert_nil @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
+    assert @driver.calls.include?([:drum, 38, 100, 0])
+    assert_equal 0, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
   end
 
   def test_midi_channel_10_unknown_note_still_goes_to_drum
     process([:note_on, PSG::DRUM_CHANNEL, 60, 100], :uart, 100)
-    assert @driver.calls.include?([:drum, 60, 100])
+    assert @driver.calls.include?([:drum, 60, 100, 0])
   end
 
-  def test_midi_channel_10_releases_last_voice_for_drum_headroom
+  def test_midi_channel_10_steals_oldest_voice_for_drum_headroom
     process([:note_on, 0, 60, 100], :uart, 100)
     process([:note_on, 0, 62, 100], :uart, 100)
     process([:note_on, 0, 64, 100], :uart, 100)
-    assert_not_nil @synth.allocator.entry(2)
+    assert_equal [:uart, 0, 60, 100, 1], @synth.allocator.entry(0)
     process([:note_on, PSG::DRUM_CHANNEL, 38, 100], :uart, 100)
-    assert @driver.calls.include?([:mute_direct, 2, 1])
-    assert_nil @synth.allocator.entry(2)
+    assert @driver.calls.include?([:mute, 0, 1, 0])
+    assert @driver.calls.include?([:drum, 38, 100, 0])
+    assert_equal 0, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
+    assert_nil @synth.allocator.voice_for(0, 60, source: :uart)
   end
 end

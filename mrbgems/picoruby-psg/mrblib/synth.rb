@@ -3,6 +3,7 @@ require "midibase"
 module PSG
   class Synth
     DEFAULT_PITCH_BEND_RANGE = 2
+    DRUM_PRIORITY = 1_000_000
     WAIT_RETRY_MS = 1
 
     attr_reader :allocator
@@ -16,6 +17,8 @@ module PSG
       @velocities = Array.new(voices, 0)
       @states = {}
       @sustained = {}
+      @drum_voice = nil
+      @drum_until_us = 0
       @queue = Task::Queue.new
       @mixer = 0b111000
       @stopped = false
@@ -61,18 +64,19 @@ module PSG
       while !@stopped
         envelope = queue.pop
         break if envelope.nil?
-        process(envelope[0], envelope[1], envelope[2])
+        process(envelope[0], envelope[1], envelope[2], envelope[3])
       end
     ensure
       silence_all
     end
 
-    private def process(event, source, priority)
+    private def process(event, source, priority, timestamp_us)
+      release_expired_drum_voice(timestamp_us)
       command = event[0]
       channel = event[1]
       case command
       when :note_on
-        note_on(source, channel, event[2], event[3], priority)
+        note_on(source, channel, event[2], event[3], priority, timestamp_us)
       when :note_off
         note_off(source, channel, event[2])
       when :pitch_bend
@@ -86,10 +90,11 @@ module PSG
       end
     end
 
-    private def note_on(source, channel, note, velocity, priority)
+    private def note_on(source, channel, note, velocity, priority, timestamp_us)
       if channel == PSG::DRUM_CHANNEL
-        prepare_drum_voice
-        write_driver(:drum, note, velocity, 0)
+        return if velocity <= 0
+        voice = prepare_drum_voice(source, note, timestamp_us)
+        write_driver(:drum, note, velocity, voice) unless voice.nil?
         return
       end
       allocator = @allocator
@@ -262,17 +267,48 @@ module PSG
       end
     end
 
-    private def prepare_drum_voice
+    private def prepare_drum_voice(source, note, timestamp_us)
       allocator = @allocator
-      voice = allocator.voice_count - 1
-      return if voice < 0
-      entry = allocator.entry(voice)
-      return if entry.nil?
+      voice = nil
+      drum_voice = @drum_voice
+      if drum_voice
+        entry = allocator.entry(drum_voice)
+        if entry && entry[1] == PSG::DRUM_CHANNEL
+          voice = allocator.reserve(drum_voice, PSG::DRUM_CHANNEL, note, source: source, priority: DRUM_PRIORITY)
+        else
+          @drum_voice = nil
+          @drum_until_us = 0
+        end
+      end
+      voice = allocator.allocate(PSG::DRUM_CHANNEL, note, source: source, priority: DRUM_PRIORITY) if voice.nil?
+      return nil if voice.nil?
 
-      @driver.mute_direct(voice, 1)
-      allocator.release(entry[1], entry[2], source: entry[0])
+      entry = allocator.last_stolen
+      @drum_voice = voice
       @velocities[voice] = 0
-      @sustained.delete(note_key(entry[0], entry[1], entry[2]))
+      @sustained.delete(note_key(entry[0], entry[1], entry[2])) if entry && entry[1] != PSG::DRUM_CHANNEL
+      @drum_until_us = event_time_us(timestamp_us) + PSG.drum_duration(note) * 1000
+      write_driver(:mute, voice, 1, 0)
+      voice
+    end
+
+    private def release_expired_drum_voice(timestamp_us)
+      drum_until_us = @drum_until_us
+      return if drum_until_us <= 0
+      return if event_time_us(timestamp_us) < drum_until_us
+
+      voice = @drum_voice
+      return if voice.nil?
+      entry = @allocator.entry(voice)
+      @allocator.release(entry[1], entry[2], source: entry[0]) if entry && entry[1] == PSG::DRUM_CHANNEL
+      @drum_voice = nil
+      @drum_until_us = 0
+    end
+
+    private def event_time_us(timestamp_us)
+      return timestamp_us unless timestamp_us.nil?
+      return Machine.uptime_us if defined?(Machine)
+      0
     end
 
     private def release_voice(voice, source, channel, note)
@@ -411,6 +447,8 @@ module PSG
       driver = @driver
       velocities = @velocities
       allocator.release_all
+      @drum_voice = nil
+      @drum_until_us = 0
       i = 0
       voice_count = allocator.voice_count
       while i < voice_count
@@ -438,7 +476,7 @@ module PSG
                  when :set_lfo
                    driver.set_lfo(arg1, arg2, arg3, arg4)
                  when :drum
-                   driver.drum(arg1, arg2)
+                   driver.drum(arg1, arg2, arg3)
                  else
                    raise ArgumentError, "unknown PSG command: #{command}"
                  end

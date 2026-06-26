@@ -62,6 +62,24 @@ module MIDIBASE
       voice
     end
 
+    def reserve(voice, channel, note, source: nil, priority: 0)
+      return nil unless 0 <= voice && voice < @voice_count
+
+      age = @age + 1
+      @age = age
+      voices = @voices
+      entry = voices[voice]
+      if entry && entry[0] == source && entry[1] == channel && entry[2] == note
+        entry[3] = priority
+        entry[4] = age
+        @last_stolen = nil
+      else
+        @last_stolen = entry
+        voices[voice] = [source, channel, note, priority, age]
+      end
+      voice
+    end
+
     def release(channel, note, source: nil)
       voice = voice_for(channel, note, source: source)
       @voices[voice] = nil unless voice.nil?
