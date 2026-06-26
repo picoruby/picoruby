@@ -2,8 +2,6 @@
 
 module PSG
   DRUM_CHANNEL: Integer
-  DRUM_TONE: Integer
-  DRUM_NOISE: Integer
   DRUMS: Hash[Symbol, Integer]
 
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
