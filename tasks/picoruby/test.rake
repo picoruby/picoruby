@@ -231,6 +231,8 @@ end
 
 def test_target_base_gem_names(vm_type)
   case vm_type
+  when 'femtoruby'
+    ['picoruby-mrubyc']
   when 'wasm'
     ['picoruby-wasm']
   else
@@ -260,11 +262,22 @@ end
 def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type != 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-wasm')
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
-  return false if spec.name == 'mruby-compiler-prism'
+  return false if vm_type == 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'picoruby-mrubyc')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-net')
 
   true
+end
+
+def conflicts_with_gem?(build, spec, gem_name, seen = {})
+  return false if seen[spec.name]
+  seen[spec.name] = true
+  return true if spec.conflicts.any? { |conflict| conflict[:gem] == gem_name }
+
+  spec.dependencies.any? do |dependency|
+    dependency_spec = load_dependency_spec(build, dependency)
+    dependency_spec && conflicts_with_gem?(build, dependency_spec, gem_name, seen)
+  end
 end
 
 def depends_on_gem?(build, spec, dependency_name, seen = {})
