@@ -7,6 +7,7 @@
 #include "picoruby.h"
 #include "mruby/presym.h"
 #include "mruby/class.h"
+#include "mruby/array.h"
 #include "mruby/hash.h"
 
 #include <stdint.h>
@@ -19,6 +20,35 @@
 
 static uint32_t psg_period_q8[128];
 static double psg_a4_frequency = 440.0;
+
+#define PSG_DRUM_CHANNEL 9
+#define PSG_DRUM_MAX_STEPS 16
+
+typedef enum {
+  PSG_DRUM_KICK = 0,
+  PSG_DRUM_SNARE,
+  PSG_DRUM_CLOSED_HIHAT,
+  PSG_DRUM_OPEN_HIHAT,
+  PSG_DRUM_KIND_COUNT
+} psg_drum_kind_t;
+
+typedef struct {
+  uint32_t delay;
+  uint8_t volume;
+  uint8_t noise_period;
+} psg_drum_step_t;
+
+typedef struct {
+  uint8_t len;
+  psg_drum_step_t steps[PSG_DRUM_MAX_STEPS];
+} psg_drum_data_t;
+
+static psg_drum_data_t psg_drum_data[PSG_DRUM_KIND_COUNT] = {
+  { 4, { { 0, 15, 4 }, { 40, 13, 5 }, { 85, 9, 7 }, { 130, 0, 0 } } },
+  { 4, { { 0, 15, 3 }, { 35, 13, 3 }, { 80, 9, 4 }, { 140, 0, 0 } } },
+  { 3, { { 0, 15, 1 }, { 18, 10, 1 }, { 45, 0, 0 } } },
+  { 5, { { 0, 15, 1 }, { 45, 13, 1 }, { 110, 9, 2 }, { 220, 5, 3 }, { 320, 0, 0 } } }
+};
 
 static const uint16_t psg_just_major_num[12] = { 1, 16, 9, 6, 5, 4, 45, 3, 8, 5, 9, 15 };
 static const uint16_t psg_just_major_den[12] = { 1, 15, 8, 5, 4, 3, 32, 2, 5, 3, 5, 8 };
@@ -119,6 +149,131 @@ psg_parse_just_tuning(mrb_sym sym, int *tonic, bool *minor)
   return false;
 }
 
+static bool
+psg_drum_kind_from_value(mrb_state *mrb, mrb_value value, psg_drum_kind_t *kind)
+{
+  if (mrb_symbol_p(value)) {
+    mrb_sym sym = mrb_symbol(value);
+    if (sym == MRB_SYM(kick)) {
+      *kind = PSG_DRUM_KICK;
+      return true;
+    } else if (sym == MRB_SYM(snare)) {
+      *kind = PSG_DRUM_SNARE;
+      return true;
+    } else if (sym == MRB_SYM(closed_hihat) || sym == MRB_SYM(closed_hi_hat)) {
+      *kind = PSG_DRUM_CLOSED_HIHAT;
+      return true;
+    } else if (sym == MRB_SYM(open_hihat) || sym == MRB_SYM(open_hi_hat)) {
+      *kind = PSG_DRUM_OPEN_HIHAT;
+      return true;
+    }
+  } else if (mrb_integer_p(value)) {
+    mrb_int note = mrb_integer(value);
+    if (note == 35 || note == 36 || note == 41 || note == 43 || note == 45) {
+      *kind = PSG_DRUM_KICK;
+      return true;
+    } else if (note == 37 || note == 38 || note == 39 || note == 40 || note == 48 || note == 50) {
+      *kind = PSG_DRUM_SNARE;
+      return true;
+    } else if (note == 42 || note == 44 || note == 54 || note == 56 || note == 58 || note == 69 || note == 70 || note == 73 || note == 78) {
+      *kind = PSG_DRUM_CLOSED_HIHAT;
+      return true;
+    } else if (note == 46 || note == 49 || note == 51 || note == 52 || note == 55 || note == 57 || note == 59) {
+      *kind = PSG_DRUM_OPEN_HIHAT;
+      return true;
+    } else if (0 <= note && note <= 127) {
+      *kind = PSG_DRUM_SNARE;
+      return true;
+    }
+  }
+  return false;
+}
+
+static mrb_value
+psg_drum_kind_symbol(psg_drum_kind_t kind)
+{
+  switch (kind) {
+    case PSG_DRUM_KICK:
+      return mrb_symbol_value(MRB_SYM(kick));
+    case PSG_DRUM_SNARE:
+      return mrb_symbol_value(MRB_SYM(snare));
+    case PSG_DRUM_CLOSED_HIHAT:
+      return mrb_symbol_value(MRB_SYM(closed_hihat));
+    case PSG_DRUM_OPEN_HIHAT:
+      return mrb_symbol_value(MRB_SYM(open_hihat));
+    default:
+      return mrb_nil_value();
+  }
+}
+
+static mrb_value
+mrb_psg_s_drum_data(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value kind_value;
+  psg_drum_kind_t kind;
+  mrb_get_args(mrb, "o", &kind_value);
+  if (!psg_drum_kind_from_value(mrb, kind_value, &kind)) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Unsupported PSG drum: %S", kind_value);
+  }
+
+  const psg_drum_data_t *data = &psg_drum_data[kind];
+  mrb_value ary = mrb_ary_new_capa(mrb, data->len);
+  int i = 0;
+  while (i < data->len) {
+    mrb_value step = mrb_ary_new_capa(mrb, 3);
+    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].delay));
+    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].volume));
+    mrb_ary_push(mrb, step, mrb_fixnum_value(data->steps[i].noise_period));
+    mrb_ary_push(mrb, ary, step);
+    i++;
+  }
+  return ary;
+}
+
+static mrb_value
+mrb_psg_s_set_drum_data(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value kind_value, steps_value;
+  psg_drum_kind_t kind;
+  mrb_get_args(mrb, "oA", &kind_value, &steps_value);
+  if (!psg_drum_kind_from_value(mrb, kind_value, &kind)) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Unsupported PSG drum: %S", kind_value);
+  }
+
+  mrb_int len = RARRAY_LEN(steps_value);
+  if (len <= 0 || PSG_DRUM_MAX_STEPS < len) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum data must have 1..%d steps", PSG_DRUM_MAX_STEPS);
+  }
+
+  psg_drum_data_t data;
+  data.len = (uint8_t)len;
+  mrb_int i = 0;
+  while (i < len) {
+    mrb_value step = mrb_ary_ref(mrb, steps_value, i);
+    if (!mrb_array_p(step) || RARRAY_LEN(step) < 3) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step must be [delay_ms, volume, noise_period]: %S", step);
+    }
+    mrb_value delay_value = mrb_ary_ref(mrb, step, 0);
+    mrb_value volume_value = mrb_ary_ref(mrb, step, 1);
+    mrb_value noise_value = mrb_ary_ref(mrb, step, 2);
+    if (!mrb_integer_p(delay_value) || !mrb_integer_p(volume_value) || !mrb_integer_p(noise_value)) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "PSG drum step values must be integers: %S", step);
+    }
+    mrb_int delay = mrb_integer(delay_value);
+    mrb_int volume = mrb_integer(volume_value);
+    mrb_int noise_period = mrb_integer(noise_value);
+    if (delay < 0 || volume < 0 || 15 < volume || noise_period < 0 || 31 < noise_period) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid PSG drum step: %S", step);
+    }
+    data.steps[i].delay = (uint32_t)delay;
+    data.steps[i].volume = (uint8_t)volume;
+    data.steps[i].noise_period = (uint8_t)noise_period;
+    i++;
+  }
+  psg_drum_data[kind] = data;
+  return psg_drum_kind_symbol(kind);
+}
+
 static mrb_value
 mrb_psg_s_set_tuning(mrb_state *mrb, mrb_value klass)
 {
@@ -203,6 +358,94 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
+static uint16_t
+psg_rb_free_slots(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  if (!rb.buf) {
+    PSG_exit_critical(t);
+    return 0;
+  }
+  uint16_t used = (rb.head - rb.tail) & PSG_PACKET_QUEUE_MASK;
+  uint16_t free_slots = (PSG_PACKET_QUEUE_LEN - 1) - used;
+  PSG_exit_critical(t);
+  return free_slots;
+}
+
+static uint8_t
+psg_drum_direct(uint8_t noise_period, uint8_t volume)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  psg.drum_generation++;
+  if (!psg.drum_generation) {
+    psg.drum_generation = 1;
+  }
+  volume &= 0x0F;
+  if (volume) {
+    psg.r.noise_period = noise_period & 0x1F;
+    psg.noise_shift = 0x1FFFF;
+    psg.noise_cnt = 0;
+    psg.r.mixer = (psg.r.mixer | (1u << 2)) & ~(1u << 5);
+    psg.r.volume[2] = volume;
+    psg.pan[2] = 8;
+    psg.mute_mask &= ~(1u << 2);
+  } else {
+    psg.r.volume[2] = 0;
+    psg.mute_mask |= (1u << 2);
+  }
+  uint8_t generation = psg.drum_generation;
+  PSG_exit_critical(t);
+  return generation;
+}
+
+static mrb_value
+mrb_driver_drum(mrb_state *mrb, mrb_value self)
+{
+  mrb_value kind_value;
+  mrb_int velocity = 127;
+  psg_drum_kind_t kind;
+  mrb_get_args(mrb, "o|i", &kind_value, &velocity);
+  if (velocity <= 0) {
+    return mrb_true_value();
+  }
+  if (127 < velocity) {
+    velocity = 127;
+  }
+  if (!psg_drum_kind_from_value(mrb, kind_value, &kind)) {
+    return mrb_true_value();
+  }
+
+  const psg_drum_data_t *data = &psg_drum_data[kind];
+  uint16_t required_slots = data->len;
+  if (psg_rb_free_slots() < required_slots) {
+    return mrb_false_value();
+  }
+
+  uint8_t generation = psg_drum_direct(data->steps[0].noise_period, (uint8_t)((data->steps[0].volume * velocity + 63) / 127));
+
+  int i = 0;
+  uint32_t prev_delay = 0;
+  while (i < data->len) {
+    uint32_t delay = data->steps[i].delay;
+    uint32_t tick = prev_delay <= delay ? delay - prev_delay : 0;
+    uint8_t volume = (uint8_t)((data->steps[i].volume * velocity + 63) / 127);
+    psg_packet_t step = {
+      .tick = tick,
+      .op   = PSG_PKT_DRUM_STEP,
+      .reg  = generation,
+      .val  = volume,
+      .arg  = data->steps[i].noise_period,
+    };
+    if (!PSG_rb_push(&step)) {
+      return mrb_false_value();
+    }
+    prev_delay = delay;
+    i++;
+  }
+
+  return mrb_true_value();
+}
+
 static void
 reset_psg(mrb_state *mrb)
 {
@@ -215,6 +458,7 @@ reset_psg(mrb_state *mrb)
   rb.tail = 0;
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
+  psg.noise_shift = 0x1FFFF;
   psg.r.volume[0] = psg.r.volume[1] = psg.r.volume[2] = 15; // max volume. no envelope
   psg.r.mixer = 0x38; // all noise off, all tone on
   psg.mute_mask = 0x07; // all tracks muted. The driver must unmute first!
@@ -404,6 +648,16 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 
   mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(note_to_period), mrb_psg_s_note_to_period, MRB_ARGS_REQ(1) | MRB_ARGS_KEY(1, 0));
   mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(set_tuning), mrb_psg_s_set_tuning, MRB_ARGS_OPT(1) | MRB_ARGS_KEY(1, 0));
+  mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(drum_data), mrb_psg_s_drum_data, MRB_ARGS_REQ(1));
+  mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(set_drum_data), mrb_psg_s_set_drum_data, MRB_ARGS_REQ(2));
+  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_CHANNEL), mrb_fixnum_value(PSG_DRUM_CHANNEL));
+
+  mrb_value drums = mrb_hash_new(mrb);
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(kick)), mrb_fixnum_value(PSG_DRUM_KICK));
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(snare)), mrb_fixnum_value(PSG_DRUM_SNARE));
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(closed_hihat)), mrb_fixnum_value(PSG_DRUM_CLOSED_HIHAT));
+  mrb_hash_set(mrb, drums, mrb_symbol_value(MRB_SYM(open_hihat)), mrb_fixnum_value(PSG_DRUM_OPEN_HIHAT));
+  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUMS), drums);
 
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_fixnum_value(SAMPLE_RATE));
@@ -419,6 +673,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp4922), mrb_driver_s_select_mcp4922, MRB_ARGS_REQ(1));
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(drum), mrb_driver_drum, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(buffer_empty), mrb_driver_buffer_empty_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(buffer_flush), mrb_driver_buffer_flush, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(deinit), mrb_driver_deinit, MRB_ARGS_NONE());

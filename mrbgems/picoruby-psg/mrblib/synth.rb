@@ -87,6 +87,11 @@ module PSG
     end
 
     private def note_on(source, channel, note, velocity, priority)
+      if channel == PSG::DRUM_CHANNEL
+        prepare_drum_voice
+        write_driver(:drum, note, velocity, 0)
+        return
+      end
       allocator = @allocator
       old_voice = allocator.voice_for(channel, note, source: source)
       voice = allocator.allocate(channel, note, source: source, priority: priority)
@@ -117,6 +122,7 @@ module PSG
     end
 
     private def note_off(source, channel, note)
+      return if channel == PSG::DRUM_CHANNEL
       allocator = @allocator
       voice = allocator.voice_for(channel, note, source: source)
       return if voice.nil?
@@ -254,6 +260,19 @@ module PSG
         end
         i += 1
       end
+    end
+
+    private def prepare_drum_voice
+      allocator = @allocator
+      voice = allocator.voice_count - 1
+      return if voice < 0
+      entry = allocator.entry(voice)
+      return if entry.nil?
+
+      @driver.mute_direct(voice, 1)
+      allocator.release(entry[1], entry[2], source: entry[0])
+      @velocities[voice] = 0
+      @sustained.delete(note_key(entry[0], entry[1], entry[2]))
     end
 
     private def release_voice(voice, source, channel, note)
@@ -418,6 +437,8 @@ module PSG
                    driver.set_legato(arg1, arg2, arg3)
                  when :set_lfo
                    driver.set_lfo(arg1, arg2, arg3, arg4)
+                 when :drum
+                   driver.drum(arg1, arg2)
                  else
                    raise ArgumentError, "unknown PSG command: #{command}"
                  end

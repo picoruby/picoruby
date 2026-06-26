@@ -4,17 +4,14 @@ PSG (Programmable Sound Generator) emulator for PicoRuby.
 
 ## Tuning
 
-`PSG.note_to_period(note, round: true)` converts a MIDI note number to a PSG
-tone period. Notes `0..127` use the current tuning table; notes outside that
-range are calculated as equal temperament from the current A4 pitch.
+`PSG.note_to_period(note, round: true)` converts a MIDI note number to a PSG tone period. Notes `0..127` use the current tuning table; notes outside that range are calculated as equal temperament from the current A4 pitch.
 
 ```ruby
 PSG.note_to_period(60)                 #=> 239
 PSG.note_to_period(60, round: false)   #=> 238
 ```
 
-`PSG.set_tuning(tuning = :equal, pitch: 440)` rebuilds the tuning table and
-returns the selected tuning symbol. `pitch:` sets the A4 frequency.
+`PSG.set_tuning(tuning = :equal, pitch: 440)` rebuilds the tuning table and returns the selected tuning symbol. `pitch:` sets the A4 frequency.
 
 ```ruby
 PSG.set_tuning                         # equal temperament, A4 = 440 Hz
@@ -46,12 +43,9 @@ Pure just intonation tables are available for major and minor keys:
 
 ## MIDI synthesis
 
-`PSG::Synth` consumes events from `MIDIBASE::Router` and maps them to the three
-PSG voices. It supports note velocity, pitch bend, volume, expression, pan,
-sustain, programs, and PSG-specific extension events.
+`PSG::Synth` consumes events from `MIDIBASE::Router` and maps them to the three PSG voices. It supports note velocity, pitch bend, volume, expression, pan, sustain, programs, and PSG-specific extension events.
 
-`start` creates a PicoRuby task that consumes events from a queue. FemtoRuby/
-mruby-c is not supported.
+`start` creates a PicoRuby task that consumes events from a queue. FemtoRuby/mruby-c is not supported.
 
 ```ruby
 synth = PSG::Synth.new(driver).start
@@ -63,12 +57,22 @@ while true
 end
 ```
 
-Voice ownership includes the Router source. A high-priority live UART source
-can steal an MML voice, while a lower-priority MML source cannot steal a live
-voice.
+Voice ownership includes the Router source. A high-priority live UART source can steal an MML voice, while a lower-priority MML source cannot steal a live voice.
 
-MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A
-single Router can combine autonomous or MIDI-clocked MML with live input:
+MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger and asks the C driver to expand one event into PSG noise steps. The default note mapping accepts General MIDI-style drum notes; representative values are kick `35`/`36`, snare `38`/`40`, closed hi-hat `42`/`44`, and open hi-hat `46`.
+
+Drum sound data is global to the PSG module and can be replaced at runtime:
+
+```ruby
+PSG.set_drum_data(:snare, [
+  [0, 15, 3],    # time_ms, volume(0..15), noise_period(0..31)
+  [35, 13, 3],
+  [80, 9, 4],
+  [140, 0, 0]    # volume 0 ends the drum noise
+])
+```
+
+MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A single Router can combine autonomous or MIDI-clocked MML with live input:
 
 ```ruby
 clock = MIDIBASE::MML::MIDIClock.new
@@ -91,9 +95,7 @@ The debug build is too slow for real-time audio playback and can cause severe au
 
 ## MCP4922 DMA output
 
-For MCP4922 output on R2P2, the DMA path is enabled by default. It lets core1
-render audio in blocks and feed the MCP4922 PIO TX FIFO by DMA instead of
-writing one sample at a time from the audio timer callback.
+For MCP4922 output on R2P2, the DMA path is enabled by default. It lets core1 render audio in blocks and feed the MCP4922 PIO TX FIFO by DMA instead of writing one sample at a time from the audio timer callback.
 
 Build normally to use the DMA path:
 
@@ -107,18 +109,14 @@ To use the legacy blocking PIO write path, disable DMA explicitly:
 PICORUBY_PSG_MCP4922_DMA=off rake r2p2:picoruby:pico2:prod
 ```
 
-Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the
-environment variable is not set, R2P2 passes
+Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the environment variable is not set, R2P2 passes
 `PICORUBY_PSG_MCP4922_DMA=ON` to CMake.
 
-When changing this option, check normal playback, stop/restart playback, a
-longer song, and any tempo-changing or live-control use cases.
+When changing this option, check normal playback, stop/restart playback, a longer song, and any tempo-changing or live-control use cases.
 
 ## PWM DMA output
 
-For PWM output on R2P2, the DMA path is also enabled by default. It lets core1
-render audio in blocks and feed the PWM compare register by DMA instead of
-updating PWM levels from the audio timer callback.
+For PWM output on R2P2, the DMA path is also enabled by default. It lets core1 render audio in blocks and feed the PWM compare register by DMA instead of updating PWM levels from the audio timer callback.
 
 Build normally to use the DMA path:
 
@@ -132,13 +130,9 @@ To use the legacy timer callback path, disable DMA explicitly:
 PICORUBY_PSG_PWM_DMA=off rake r2p2:picoruby:pico2:prod
 ```
 
-Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the
-environment variable is not set, R2P2 passes `PICORUBY_PSG_PWM_DMA=ON` to
-CMake.
+Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the environment variable is not set, R2P2 passes `PICORUBY_PSG_PWM_DMA=ON` to CMake.
 
-PWM DMA is paced by the PWM wrap DREQ, so the PWM carrier follows the PSG sample
-rate. When changing this option, check normal playback, stop/restart playback,
-and high-frequency noise character on the target speaker or filter circuit.
+PWM DMA is paced by the PWM wrap DREQ, so the PWM carrier follows the PSG sample rate. When changing this option, check normal playback, stop/restart playback, and high-frequency noise character on the target speaker or filter circuit.
 
 ## Wiring (RP2040 and RP2350)
 

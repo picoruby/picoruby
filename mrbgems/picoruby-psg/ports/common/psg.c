@@ -96,6 +96,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
     /* ---- Noise ---- */
     case 6:
       psg.r.noise_period = val & 0x1F;
+      if (!psg.noise_shift) psg.noise_shift = 0x1FFFF;
       break;
     /* ---- Mixer ---- */
     case 7:
@@ -183,6 +184,28 @@ PSG_process_packet(const psg_packet_t *pkt)
       uint8_t legato = pkt->val; // 0=reset envelope, 1=no reset
       psg_cs_token_t t = PSG_enter_critical();
       psg.legato[tr] = (bool)legato;
+      PSG_exit_critical(t);
+      break;
+    }
+    case PSG_PKT_DRUM_STEP: {
+      uint8_t volume = pkt->val & 0x0F;
+      psg_cs_token_t t = PSG_enter_critical();
+      if (pkt->reg != psg.drum_generation) {
+        PSG_exit_critical(t);
+        break;
+      }
+      if (volume) {
+        psg.r.noise_period = pkt->arg & 0x1F;
+        psg.noise_shift = 0x1FFFF;
+        psg.noise_cnt = 0;
+        psg.r.mixer = (psg.r.mixer | (1u << 2)) & ~(1u << 5);
+        psg.r.volume[2] = volume;
+        psg.pan[2] = 8;
+        psg.mute_mask &= ~(1u << 2);
+      } else {
+        psg.r.volume[2] = 0;
+        psg.mute_mask |= (1u << 2);
+      }
       PSG_exit_critical(t);
       break;
     }
