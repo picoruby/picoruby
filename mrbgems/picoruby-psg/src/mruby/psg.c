@@ -39,7 +39,7 @@ typedef enum {
 } psg_drum_kind_t;
 
 typedef struct {
-  uint32_t delay;
+  uint16_t delay;
   uint16_t tone_period; // 0..4095 A4(440Hz)=142, A3(220Hz)=284, A2(110Hz)=568, A1(55Hz)=1136
   uint8_t volume;       // 0..15
   uint8_t noise_period; // 0..31   4000Hz=31, 7812Hz=16, 15625Hz=8, 31250Hz=4, 62500Hz=2, 125000Hz=1
@@ -323,7 +323,7 @@ mrb_psg_s_set_drum_data(mrb_state *mrb, mrb_value klass)
 
   psg_drum_data_t data;
   data.len = (uint8_t)(len + 1);
-  uint32_t delay = 0;
+  uint16_t delay = 0;
   mrb_int i = 0;
   while (i < len) {
     mrb_value step = mrb_ary_ref(mrb, steps_value, i);
@@ -360,7 +360,7 @@ mrb_psg_s_set_drum_data(mrb_state *mrb, mrb_value klass)
         mixer_flags |= PSG_DRUM_NOISE;
       }
     }
-    data.steps[i].delay = (uint32_t)delay;
+    data.steps[i].delay = (uint16_t)delay;
     data.steps[i].tone_period = (uint16_t)tone_period;
     data.steps[i].volume = (uint8_t)volume;
     data.steps[i].noise_period = (uint8_t)noise_period;
@@ -520,7 +520,7 @@ mrb_driver_drum(mrb_state *mrb, mrb_value self)
   int i = 0;
   uint32_t prev_delay = 0;
   while (i < data->len) {
-    uint32_t delay = data->steps[i].delay;
+    uint16_t delay = data->steps[i].delay;
     uint32_t tick = prev_delay <= delay ? delay - prev_delay : 0;
     uint8_t volume = (uint8_t)((data->steps[i].volume * velocity + 63) / 127);
     psg_packet_t step = {
