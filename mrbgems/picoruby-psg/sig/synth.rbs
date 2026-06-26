@@ -1,6 +1,7 @@
 module PSG
   class Synth
     DEFAULT_PITCH_BEND_RANGE: Integer
+    DRUM_PRIORITY: Integer
     WAIT_RETRY_MS: Integer
 
     @driver: Driver
@@ -8,6 +9,8 @@ module PSG
     @velocities: Array[Integer]
     @states: Hash[Array[untyped], Array[untyped]]
     @sustained: Hash[Array[untyped], bool]
+    @drum_voice: Integer?
+    @drum_until_us: Integer
     @queue: Task::Queue
     @mixer: Integer
     @stopped: bool
@@ -20,8 +23,8 @@ module PSG
     def stop: () -> self
     def join: () -> self
     def run: () -> void
-    private def process: (MIDIBASE::event_t event, untyped source, Integer priority) -> void
-    private def note_on: (untyped source, Integer channel, Integer note, Integer velocity, Integer priority) -> void
+    private def process: (MIDIBASE::event_t event, untyped source, Integer priority, Integer? timestamp_us) -> void
+    private def note_on: (untyped source, Integer channel, Integer note, Integer velocity, Integer priority, Integer? timestamp_us) -> void
     private def note_off: (untyped source, Integer channel, Integer note) -> void
     private def pitch_bend: (untyped source, Integer channel, Integer value) -> void
     private def program_change: (untyped source, Integer channel, Integer program) -> void
@@ -30,6 +33,9 @@ module PSG
     private def state_for: (untyped source, Integer channel) -> Array[untyped]
     private def sustain_change: (untyped source, Integer channel, Array[untyped] state, bool enabled) -> void
     private def all_notes_off: (untyped source, Integer channel, bool immediate) -> void
+    private def prepare_drum_voice: (untyped source, Integer note, Integer? timestamp_us) -> Integer?
+    private def release_expired_drum_voice: (Integer? timestamp_us) -> void
+    private def event_time_us: (Integer? timestamp_us) -> Integer
     private def release_voice: (Integer voice, untyped source, Integer channel, Integer note) -> void
     private def update_periods: (untyped source, Integer channel, Array[untyped] state) -> void
     private def update_volumes: (untyped source, Integer channel, Array[untyped] state) -> void
