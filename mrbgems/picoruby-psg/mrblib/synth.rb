@@ -8,12 +8,13 @@ module PSG
 
     attr_reader :allocator
 
-    def initialize(driver, voices: 3)
+    def initialize(driver, voices: 3, voice_pools: nil)
       unless 0 < voices && voices <= 3
         raise ArgumentError, "PSG voices must be in 1..3"
       end
       @driver = driver
       @allocator = ::MIDIBASE::VoiceAllocator.new(voices: voices)
+      @voice_pools = build_voice_pools(voice_pools, voices)
       @velocities = Array.new(voices, 0)
       @states = {}
       @sustained = {}
@@ -87,6 +88,8 @@ module PSG
         program_change(source, channel, event[2])
       when :psg
         psg_event(source, channel, event)
+      when :psg_global
+        psg_global_event(event)
       end
     end
 
@@ -98,8 +101,16 @@ module PSG
         return
       end
       allocator = @allocator
+      voice_ids = voice_ids_for(source)
+      return if @voice_pools && voice_ids.nil?
       old_voice = allocator.voice_for(channel, note, source: source)
-      voice = allocator.allocate(channel, note, source: source, priority: priority)
+      voice = allocator.allocate(
+        channel,
+        note,
+        source: source,
+        priority: priority,
+        voice_ids: voice_ids
+      )
       return if voice.nil?
       stolen = allocator.last_stolen
       if stolen || old_voice
@@ -163,7 +174,7 @@ module PSG
       state = state_for(source, channel)
       case controller
       when 1
-        state[10] = value * 100
+        state[10] = value
         update_lfo(source, channel, state)
       when 7
         state[0] = value
@@ -207,15 +218,37 @@ module PSG
         state[13] = true
         write_driver(:send_reg, 13, event[3], 0)
         update_volumes(source, channel, state)
+      when :env_enabled
+        state[13] = event[3] != 0
+        update_volumes(source, channel, state)
       when :lfo
         state[10] = event[3]
         state[11] = event[4]
         update_lfo(source, channel, state)
+      when :lfo_rate
+        state[11] = event[3]
+        update_lfo(source, channel, state)
+      when :bend_range
+        state[7] = event[3]
+        update_periods(source, channel, state)
       when :mixer
         state[12] = event[3]
         update_mixer(source, channel, state)
       when :noise
         write_driver(:send_reg, 6, event[3], 0)
+      end
+    end
+
+    private def psg_global_event(event)
+      case event[1]
+      when :env_period
+        value = event[2]
+        write_driver(:send_reg, 11, value & 0xFF, 0)
+        write_driver(:send_reg, 12, value >> 8, 0)
+      when :env_shape
+        write_driver(:send_reg, 13, event[2], 0)
+      when :noise_period
+        write_driver(:send_reg, 6, event[2], 0)
       end
     end
 
@@ -272,18 +305,32 @@ module PSG
       return nil if duration <= 0
 
       allocator = @allocator
+      voice_ids = voice_ids_for(source)
+      return nil if @voice_pools && voice_ids.nil?
       voice = nil
       drum_voice = @drum_voice
       if drum_voice
         entry = allocator.entry(drum_voice)
-        if entry && entry[1] == PSG::DRUM_CHANNEL
+        if entry && entry[1] == PSG::DRUM_CHANNEL && voice_allowed?(drum_voice, voice_ids)
           voice = allocator.reserve(drum_voice, PSG::DRUM_CHANNEL, note, source: source, priority: DRUM_PRIORITY)
         else
+          if entry && entry[1] == PSG::DRUM_CHANNEL
+            allocator.release(entry[1], entry[2], source: entry[0])
+            write_driver(:mute, drum_voice, 1, 0)
+          end
           @drum_voice = nil
           @drum_until_us = 0
         end
       end
-      voice = allocator.allocate(PSG::DRUM_CHANNEL, note, source: source, priority: DRUM_PRIORITY) if voice.nil?
+      if voice.nil?
+        voice = allocator.allocate(
+          PSG::DRUM_CHANNEL,
+          note,
+          source: source,
+          priority: DRUM_PRIORITY,
+          voice_ids: voice_ids
+        )
+      end
       return nil if voice.nil?
 
       entry = allocator.last_stolen
@@ -443,6 +490,53 @@ module PSG
 
     private def note_key(source, channel, note)
       [source, channel, note]
+    end
+
+    private def build_voice_pools(config, voice_count)
+      return nil if config.nil?
+      raise ArgumentError, "voice_pools must be a Hash" unless config.is_a?(Hash)
+
+      pools = {} #: Hash[untyped, Array[Integer]]
+      keys = config.keys
+      key_count = keys.size
+      key_index = 0
+      next_voice = 0
+      while key_index < key_count
+        source = keys[key_index]
+        count = config[source]
+        unless count.is_a?(Integer) && 0 < count
+          raise ArgumentError, "voice pool size must be a positive Integer"
+        end
+        if voice_count < next_voice + count
+          raise ArgumentError, "voice pool sizes exceed available PSG voices"
+        end
+        ids = [] #: Array[Integer]
+        i = 0
+        while i < count
+          ids << next_voice
+          next_voice += 1
+          i += 1
+        end
+        pools[source] = ids
+        key_index += 1
+      end
+      pools
+    end
+
+    private def voice_ids_for(source)
+      pools = @voice_pools
+      pools ? pools[source] : nil
+    end
+
+    private def voice_allowed?(voice, voice_ids)
+      return true if voice_ids.nil?
+      i = 0
+      voice_ids_size = voice_ids.size
+      while i < voice_ids_size
+        return true if voice_ids[i] == voice
+        i += 1
+      end
+      false
     end
 
     private def silence_all

@@ -12,7 +12,7 @@ module MIDIBASE
       @last_stolen = nil
     end
 
-    def allocate(channel, note, source: nil, priority: 0)
+    def allocate(channel, note, source: nil, priority: 0, voice_ids: nil)
       age = @age + 1
       @age = age
       @last_stolen = nil
@@ -25,12 +25,18 @@ module MIDIBASE
       candidate_age = nil
 
       i = 0
-      while i < voice_count
-        entry = voices[i]
+      candidate_count = voice_ids ? voice_ids.size : voice_count
+      while i < candidate_count
+        voice_id = voice_ids ? voice_ids[i] : i
+        unless voice_id && 0 <= voice_id && voice_id < voice_count
+          i += 1
+          next
+        end
+        entry = voices[voice_id]
         if entry
           if entry[0] == source && entry[1] == channel && entry[2] == note
             entry[4] = age
-            return i
+            return voice_id
           end
 
           # @type var entry: Array[untyped]
@@ -39,12 +45,12 @@ module MIDIBASE
           if entry_priority <= priority &&
              (candidate_priority.nil? || entry_priority < candidate_priority ||
               (entry_priority == candidate_priority && entry_age < candidate_age))
-            candidate_voice = i
+            candidate_voice = voice_id
             candidate_priority = entry_priority
             candidate_age = entry_age
           end
         elsif free_voice.nil?
-          free_voice = i
+          free_voice = voice_id
         end
         i += 1
       end

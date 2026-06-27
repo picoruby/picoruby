@@ -34,9 +34,9 @@ end
 class PSGSoundTest < Picotest::Test
   def teardown
     PSG.set_sound_data(:snare, [
-      [220, 3, 15, 35],
-      [260, 3, 13, 45],
-      [0, 4, 9, 60]
+      [200, 4, 15, 30],
+      [210, 5, 13, 40],
+      [0, 6, 9, 50]
     ])
     PSG.assign_drum_sound(60, nil)
   end
@@ -67,10 +67,10 @@ class PSGSoundTest < Picotest::Test
   end
 
   def test_default_sound_durations_match_previous_drums
-    assert_equal 160, PSG.sound_duration(:kick)
-    assert_equal 140, PSG.sound_duration(:snare)
-    assert_equal 45, PSG.sound_duration(:closed_hihat)
-    assert_equal 320, PSG.sound_duration(:open_hihat)
+    assert_equal 105, PSG.sound_duration(:kick)
+    assert_equal 120, PSG.sound_duration(:snare)
+    assert_equal 38, PSG.sound_duration(:closed_hihat)
+    assert_equal 318, PSG.sound_duration(:open_hihat)
     assert_equal 220, PSG.sound_duration(:low_tom)
     assert_equal 190, PSG.sound_duration(:mid_tom)
     assert_equal 170, PSG.sound_duration(:high_tom)
@@ -118,6 +118,87 @@ class PSGSynthFakeDriver
   def buffer_flush; nil; end
 end
 
+class PSGMIDISink
+  attr_reader :events
+
+  def initialize
+    @events = []
+  end
+
+  def handle(event, **context)
+    @events << [event, context]
+    true
+  end
+end
+
+class PSGMIDILogger
+  attr_reader :lines
+
+  def initialize
+    @lines = []
+  end
+
+  def puts(line)
+    @lines << line
+  end
+end
+
+class PSGMIDIControllerTest < Picotest::Test
+  def setup
+    @sink = PSGMIDISink.new
+    @logger = PSGMIDILogger.new
+    @controller = PSG::MIDIController.new(@sink, logger: @logger)
+  end
+
+  def handle(event, source: :uart, priority: 100, timestamp_us: 123)
+    @controller.handle(event, source: source, priority: priority, timestamp_us: timestamp_us)
+  end
+
+  def test_maps_live_and_global_controls
+    handle([:control_change, 0, PSG::MIDIController::CC_TIMBRE, 2])
+    handle([:control_change, 0, PSG::MIDIController::CC_ENV_ENABLED, 127])
+    handle([:control_change, 0, PSG::MIDIController::CC_LFO_RATE, 127])
+    handle([:control_change, 0, PSG::MIDIController::CC_MIXER, 2])
+    handle([:control_change, 0, PSG::MIDIController::CC_BEND_RANGE, 20])
+    handle([:control_change, 0, PSG::MIDIController::CC_ENV_PERIOD, 32])
+    handle([:control_change, 0, PSG::MIDIController::CC_ENV_SHAPE, 10])
+    handle([:control_change, 0, PSG::MIDIController::CC_NOISE_PERIOD, 12])
+
+    events = @sink.events
+    assert_equal [:program_change, 0, 2], events[0][0]
+    assert_equal [:psg, 0, :env_enabled, 1], events[1][0]
+    assert_equal [:psg, 0, :lfo_rate, 255], events[2][0]
+    assert_equal [:psg, 0, :mixer, 2], events[3][0]
+    assert_equal [:psg, 0, :bend_range, 12], events[4][0]
+    assert_equal [:psg_global, :env_period, 4096], events[5][0]
+    assert_equal [:psg_global, :env_shape, 10], events[6][0]
+    assert_equal [:psg_global, :noise_period, 12], events[7][0]
+    assert_equal :uart, events[0][1][:source]
+    assert_equal 100, events[0][1][:priority]
+    assert_equal 123, events[0][1][:timestamp_us]
+  end
+
+  def test_envelope_period_covers_endpoints
+    handle([:control_change, 0, PSG::MIDIController::CC_ENV_PERIOD, 0])
+    handle([:control_change, 0, PSG::MIDIController::CC_ENV_PERIOD, 127])
+    assert_equal [:psg_global, :env_period, 0], @sink.events[0][0]
+    assert_equal [:psg_global, :env_period, 65_535], @sink.events[1][0]
+  end
+
+  def test_passes_notes_without_logging_and_deduplicates_reports
+    handle([:note_on, 0, 60, 100])
+    handle([:control_change, 0, 10, 64])
+    handle([:control_change, 0, 10, 64])
+    assert_equal [:note_on, 0, 60, 100], @sink.events[0][0]
+    assert_equal 1, @logger.lines.size
+    assert @logger.lines[0].include?("pan=8")
+  end
+
+  def test_validates_dependencies
+    assert_raise(ArgumentError) { PSG::MIDIController.new(Object.new) }
+  end
+end
+
 class PSGSynthTest < Picotest::Test
   def setup
     @driver = PSGSynthFakeDriver.new
@@ -132,6 +213,12 @@ class PSGSynthTest < Picotest::Test
   def process(event, source = :mml, priority = 0)
     @synth.handle(event, source: source, priority: priority)
     Task.pass
+  end
+
+  def use_synth(voice_pools)
+    @synth.stop.join
+    @driver = PSGSynthFakeDriver.new
+    @synth = PSG::Synth.new(@driver, voice_pools: voice_pools).start
   end
 
   def test_note_ownership_includes_source
@@ -165,6 +252,84 @@ class PSGSynthTest < Picotest::Test
     process([:note_on, 0, 60, 100])
     process([:psg, 0, :lfo, 200, 5])
     assert @driver.calls.include?([:set_lfo, 0, 200, 5, 0])
+  end
+
+  def test_live_parameter_extensions_are_applied
+    process([:note_on, 0, 60, 100], :uart)
+    process([:control_change, 0, 1, 80], :uart)
+    process([:psg, 0, :lfo_rate, 25], :uart)
+    process([:psg, 0, :env_enabled, 1], :uart)
+    process([:psg, 0, :bend_range, 12], :uart)
+    assert @driver.calls.include?([:set_lfo, 0, 80, 0, 0])
+    assert @driver.calls.include?([:set_lfo, 0, 80, 25, 0])
+    assert @driver.calls.include?([:send_reg, 8, 16, 0])
+  end
+
+  def test_global_extensions_write_shared_registers
+    process([:psg_global, :env_period, 0x1234], :uart)
+    process([:psg_global, :env_shape, 10], :uart)
+    process([:psg_global, :noise_period, 7], :uart)
+    assert @driver.calls.include?([:send_reg, 11, 0x34, 0])
+    assert @driver.calls.include?([:send_reg, 12, 0x12, 0])
+    assert @driver.calls.include?([:send_reg, 13, 10, 0])
+    assert @driver.calls.include?([:send_reg, 6, 7, 0])
+  end
+
+  def test_voice_pools_prevent_cross_source_stealing
+    use_synth({mml: 1, uart: 2})
+    process([:note_on, 0, 60, 100], :uart, 100)
+    process([:note_on, 0, 64, 100], :uart, 100)
+    process([:note_on, 0, 48, 100], :mml, 0)
+    process([:note_on, 0, 67, 100], :uart, 100)
+    assert_equal 0, @synth.allocator.voice_for(0, 48, source: :mml)
+    assert_not_nil @synth.allocator.voice_for(0, 67, source: :uart)
+    assert_nil @synth.allocator.voice_for(0, 60, source: :uart)
+  end
+
+  def test_live_controls_update_only_live_pool_voices
+    use_synth({mml: 1, uart: 2})
+    process([:note_on, 0, 48, 100], :mml)
+    process([:note_on, 0, 60, 100], :uart, 100)
+    process([:note_on, 0, 64, 100], :uart, 100)
+    @driver.calls.clear
+    process([:control_change, 0, 10, 127], :uart, 100)
+    assert !@driver.calls.include?([:set_pan, 0, 15, 0])
+    assert @driver.calls.include?([:set_pan, 1, 15, 0])
+    assert @driver.calls.include?([:set_pan, 2, 15, 0])
+  end
+
+  def test_two_sequence_voices_leave_one_live_voice
+    use_synth({mml: 2, uart: 1})
+    process([:note_on, 0, 48, 100], :mml)
+    process([:note_on, 1, 52, 100], :mml)
+    process([:note_on, 0, 60, 100], :uart, 100)
+    process([:note_on, 0, 64, 100], :uart, 100)
+    assert_not_nil @synth.allocator.voice_for(0, 48, source: :mml)
+    assert_not_nil @synth.allocator.voice_for(1, 52, source: :mml)
+    assert_nil @synth.allocator.voice_for(0, 60, source: :uart)
+    assert_equal 2, @synth.allocator.voice_for(0, 64, source: :uart)
+  end
+
+  def test_unconfigured_pool_source_cannot_sound
+    use_synth({mml: 2})
+    process([:note_on, 0, 60, 100], :uart)
+    assert_nil @synth.allocator.voice_for(0, 60, source: :uart)
+  end
+
+  def test_voice_pool_validation
+    assert_raise(ArgumentError) { PSG::Synth.new(@driver, voice_pools: []) }
+    assert_raise(ArgumentError) { PSG::Synth.new(@driver, voice_pools: {mml: 0}) }
+    assert_raise(ArgumentError) { PSG::Synth.new(@driver, voice_pools: {mml: 2, uart: 2}) }
+  end
+
+  def test_drum_stays_in_source_pool
+    use_synth({mml: 2, uart: 1})
+    process([:note_on, 0, 48, 100], :mml)
+    process([:note_on, 1, 52, 100], :mml)
+    process([:note_on, PSG::DRUM_CHANNEL, 38, 100], :uart, 100)
+    assert_equal 2, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
+    assert_not_nil @synth.allocator.voice_for(0, 48, source: :mml)
+    assert_not_nil @synth.allocator.voice_for(1, 52, source: :mml)
   end
 
   def test_midi_channel_10_triggers_drum_with_reserved_voice
