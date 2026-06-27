@@ -1,16 +1,26 @@
 #$DEBUG: bool
 
 module PSG
-  type drum_data_t = Array[[Integer, Integer, Integer, Integer]]
+  type sound_data_t = Array[[Integer, Integer, Integer, Integer]]
 
   DRUM_CHANNEL: Integer
-  DRUMS: Hash[Symbol, Integer]
+
+  @sound_table: Hash[Symbol, Sound]
+  @drum_sound_map: Hash[Integer, Symbol]
 
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
   def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
-  def self.drum_data: (Symbol | Integer kind) -> drum_data_t
-  def self.drum_duration: (Symbol | Integer kind) -> Integer
-  def self.set_drum_data: (Symbol | Integer kind, drum_data_t data) -> Symbol
+  def self.set_sound_data: (Symbol name, sound_data_t data) -> Sound
+  def self.sound_data: (Symbol name) -> sound_data_t
+  def self.sound_duration: (Symbol | Integer | Sound sound) -> Integer
+  def self.assign_drum_sound: (Integer note, Symbol? sound_name) -> Symbol?
+  private def self.sound_for: (Symbol | Integer | Sound value, bool raise_unknown) -> Sound?
+
+  class Sound
+    def initialize: (sound_data_t data) -> void
+    def data: () -> sound_data_t
+    def duration: () -> Integer
+  end
 
   class Driver
     CHIP_CLOCK: Integer
@@ -25,7 +35,7 @@ module PSG
     def buffer_flush: () -> nil
     def deinit: () -> nil
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
-    def drum: (Integer | Symbol note_or_kind, ?Integer velocity, ?Integer voice) -> bool
+    def sound: (Integer | Symbol | Sound sound, ?Integer velocity, ?Integer voice) -> bool
     def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
     def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool
     def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool

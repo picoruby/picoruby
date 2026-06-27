@@ -59,7 +59,7 @@ end
 
 Voice ownership includes the Router source. A high-priority live UART source can steal an MML voice, while a lower-priority MML source cannot steal a live voice.
 
-MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the drum duration, and asks the C driver to expand one event into PSG drum steps.
+MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the sound duration, and asks the C driver to expand one event into PSG sound steps.
 If all voices are active, the oldest voice is stolen.
 The default note mapping accepts common General MIDI drum notes listed below and other notes are ignored:
 - `:kick => 35`/`36`
@@ -70,18 +70,34 @@ The default note mapping accepts common General MIDI drum notes listed below and
 - `:mid_tom => 45`/`47`
 - `:high_tom => 48`/`50`
 
-Drum sound data is global to the PSG module and can be replaced at runtime:
+Named sounds are global to the PSG module and can be added or replaced at runtime:
 
 ```ruby
-PSG.set_drum_data(:snare, [
+sound = PSG.set_sound_data(:snare, [
   [220, 3, 15, 35],
   [260, 3, 13, 45],
   [0, 4, 9, 60]
 ])
+
+driver.sound(:snare)
+driver.sound(sound)
 ```
 
-Each drum step is `[tone_period, noise_period, volume, duration_ms]`. Tone output is enabled when `tone_period` is greater than zero, and noise output is enabled when `noise_period` is greater than zero. `duration_ms` specifies how long the step plays. A final mute step is added automatically.
-`PSG.drum_data(:snare)` returns the same format, without the internal mute step.
+Each sound step is `[tone_period, noise_period, volume, duration_ms]`. Tone output is enabled when `tone_period` is greater than zero, and noise output is enabled when `noise_period` is greater than zero. `duration_ms` specifies how long the step plays. A final mute step is added automatically. `PSG.sound_data(:snare)` returns the same format, without the internal mute step.
+
+Custom effects use the same API:
+
+```ruby
+PSG.set_sound_data(:get_coin, [[180, 0, 15, 40]])
+driver.sound(:get_coin)
+```
+
+MIDI drum notes can be assigned to any registered sound. Passing `nil` removes an assignment:
+
+```ruby
+PSG.assign_drum_sound(60, :get_coin)
+PSG.assign_drum_sound(60, nil)
+```
 
 MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A single Router can combine autonomous or MIDI-clocked MML with live input:
 

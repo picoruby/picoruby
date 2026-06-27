@@ -187,13 +187,13 @@ PSG_process_packet(const psg_packet_t *pkt)
       PSG_exit_critical(t);
       break;
     }
-    case PSG_PKT_DRUM_STEP: {
+    case PSG_PKT_SOUND_STEP: {
       uint8_t volume = pkt->val & 0x0F;
       uint8_t tr = (pkt->val >> 4) & 0x03;
       uint8_t mixer_flags = (pkt->val >> 6) & 0x03;
       if (2 < tr) break;
       psg_cs_token_t t = PSG_enter_critical();
-      if (pkt->reg != psg.drum_generation) {
+      if (pkt->reg != psg.sound_generation) {
         PSG_exit_critical(t);
         break;
       }
