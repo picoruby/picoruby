@@ -31,26 +31,72 @@ class PSGTuningTest < Picotest::Test
   end
 end
 
-class PSGDrumDataTest < Picotest::Test
+class PSGSoundTest < Picotest::Test
   def teardown
-    PSG.set_drum_data(:snare, [
+    PSG.set_sound_data(:snare, [
       [220, 3, 15, 35],
       [260, 3, 13, 45],
       [0, 4, 9, 60]
     ])
+    PSG.assign_drum_sound(60, nil)
   end
 
-  def test_set_drum_data_converts_durations_and_adds_mute
+  def test_set_sound_data_round_trips_through_sound
     steps = [
       [220, 3, 15, 35],
       [260, 3, 13, 45],
       [0, 4, 9, 60]
     ]
-    result = PSG.set_drum_data(:snare, steps)
+    sound = PSG.set_sound_data(:snare, steps)
 
-    assert_equal :snare, result
-    assert_equal steps, PSG.drum_data(:snare)
-    assert_equal 140, PSG.drum_duration(:snare)
+    assert_equal PSG::Sound, sound.class
+    assert_equal steps, sound.data
+    assert_equal steps, PSG.sound_data(:snare)
+    assert_equal 140, sound.duration
+    assert_equal 140, PSG.sound_duration(:snare)
+  end
+
+  def test_arbitrary_sound_can_be_assigned_to_midi_drum_note
+    sound = PSG.set_sound_data(:fire, [[120, 0, 15, 25]])
+    assert_equal :fire, PSG.assign_drum_sound(60, :fire)
+    assert_equal sound.duration, PSG.sound_duration(60)
+    PSG.set_sound_data(:fire, [[100, 1, 12, 40]])
+    assert_equal 40, PSG.sound_duration(60)
+    assert_nil PSG.assign_drum_sound(60, nil)
+    assert_equal 0, PSG.sound_duration(60)
+  end
+
+  def test_default_sound_durations_match_previous_drums
+    assert_equal 160, PSG.sound_duration(:kick)
+    assert_equal 140, PSG.sound_duration(:snare)
+    assert_equal 45, PSG.sound_duration(:closed_hihat)
+    assert_equal 320, PSG.sound_duration(:open_hihat)
+    assert_equal 220, PSG.sound_duration(:low_tom)
+    assert_equal 190, PSG.sound_duration(:mid_tom)
+    assert_equal 170, PSG.sound_duration(:high_tom)
+  end
+
+  def test_sound_rejects_invalid_data
+    assert_raise(ArgumentError) { PSG::Sound.new([]) }
+    assert_raise(ArgumentError) { PSG::Sound.new([[4096, 0, 15, 1]]) }
+    assert_raise(ArgumentError) { PSG::Sound.new([[0, 32, 15, 1]]) }
+    assert_raise(ArgumentError) { PSG::Sound.new([[0, 1, 16, 1]]) }
+    assert_raise(ArgumentError) { PSG::Sound.new([[0, 1, 15, 65_536]]) }
+  end
+
+  def test_assignment_rejects_invalid_note_and_unknown_sound
+    assert_raise(ArgumentError) { PSG.assign_drum_sound(128, :snare) }
+    assert_raise(ArgumentError) { PSG.assign_drum_sound(60, :missing) }
+    assert_raise(ArgumentError) { PSG.sound_data(:missing) }
+  end
+
+  def test_driver_accepts_sound_name_instance_and_midi_note
+    driver = PSG::Driver.allocate
+    sound = PSG::Sound.new([[120, 0, 15, 25]])
+    assert_equal false, driver.sound(:snare)
+    assert_equal false, driver.sound(sound)
+    assert_equal true, driver.sound(60)
+    assert_raise(ArgumentError) { driver.sound(:missing) }
   end
 end
 
@@ -67,7 +113,7 @@ class PSGSynthFakeDriver
   def set_timbre(*args); @calls << [:set_timbre, *args]; true; end
   def set_legato(*args); @calls << [:set_legato, *args]; true; end
   def set_lfo(*args); @calls << [:set_lfo, *args]; true; end
-  def drum(*args); @calls << [:drum, *args]; true; end
+  def sound(*args); @calls << [:sound, *args]; true; end
   def mute_direct(*args); @calls << [:mute_direct, *args]; nil; end
   def buffer_flush; nil; end
 end
@@ -80,6 +126,7 @@ class PSGSynthTest < Picotest::Test
 
   def teardown
     @synth.stop.join
+    PSG.assign_drum_sound(60, nil)
   end
 
   def process(event, source = :mml, priority = 0)
@@ -122,13 +169,13 @@ class PSGSynthTest < Picotest::Test
 
   def test_midi_channel_10_triggers_drum_with_reserved_voice
     process([:note_on, PSG::DRUM_CHANNEL, 38, 100], :uart, 100)
-    assert @driver.calls.include?([:drum, 38, 100, 0])
+    assert @driver.calls.include?([:sound, 38, 100, 0])
     assert_equal 0, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
   end
 
   def test_midi_channel_10_ignores_unknown_drum_note
     process([:note_on, PSG::DRUM_CHANNEL, 60, 100], :uart, 100)
-    assert !@driver.calls.include?([:drum, 60, 100, 0])
+    assert !@driver.calls.include?([:sound, 60, 100, 0])
     assert_nil @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 60, source: :uart)
   end
 
@@ -139,8 +186,15 @@ class PSGSynthTest < Picotest::Test
     assert_equal [:uart, 0, 60, 100, 1], @synth.allocator.entry(0)
     process([:note_on, PSG::DRUM_CHANNEL, 38, 100], :uart, 100)
     assert @driver.calls.include?([:mute, 0, 1, 0])
-    assert @driver.calls.include?([:drum, 38, 100, 0])
+    assert @driver.calls.include?([:sound, 38, 100, 0])
     assert_equal 0, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :uart)
     assert_nil @synth.allocator.voice_for(0, 60, source: :uart)
+  end
+
+  def test_midi_channel_10_uses_custom_sound_assignment
+    PSG.set_sound_data(:fire, [[120, 0, 15, 25]])
+    PSG.assign_drum_sound(60, :fire)
+    process([:note_on, PSG::DRUM_CHANNEL, 60, 100], :uart, 100)
+    assert @driver.calls.include?([:sound, 60, 100, 0])
   end
 end
