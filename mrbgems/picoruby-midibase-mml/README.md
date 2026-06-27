@@ -47,4 +47,28 @@ MIDI Clock controls both tempo and transport. START rewinds, CONTINUE resumes, a
 
 `MIDIBASE::MML::Sequence#next_event` returns `[delta_ticks, event]` at 480 PPQN. Standard commands are emitted as MIDI events. PSG-only envelope, mixer, noise, and LFO controls use `[:psg, channel, command, *values]` extension events.
 
+## Named drums
+
+Prefix a drum name with `!` to emit General MIDI percussion events on MIDI channel 10. Drum hits use the same default length, explicit length, dots, and `q` gate as regular notes:
+
+```ruby
+sequence = MIDIBASE::MML::Sequence.new([
+  "t120 l8 !kick !snare !ch !snare !kick4."
+])
+```
+
+Full names and short aliases are available:
+
+| Full name      | Alias | MIDI note |
+|----------------|-------|----------:|
+| `kick`         | `bd`  | 35        |
+| `snare`        | `sd`  | 38        |
+| `closed_hihat` | `ch`  | 42        |
+| `open_hihat`   | `oh`  | 46        |
+| `low_tom`      | `lt`  | 41        |
+| `mid_tom`      | `mt`  | 45        |
+| `high_tom`     | `ht`  | 48        |
+
+Names are case-insensitive. Because these are standard MIDI note events, the same MML works with `PSG::Synth` and external MIDI sound modules.
+
 This gem supports PicoRuby's mruby VM. FemtoRuby/mruby-c is not supported.

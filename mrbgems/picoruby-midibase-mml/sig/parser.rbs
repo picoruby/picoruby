@@ -2,6 +2,8 @@ module MIDIBASE
   module MML
     class Parser
       NOTES: Hash[Integer, Integer]
+      DRUM_CHANNEL: Integer
+      DRUM_NOTES: Hash[String, Integer]
       DOT_NUMERATORS: Array[Integer]
       DOT_DENOMINATORS: Array[Integer]
       @source: String
@@ -27,6 +29,8 @@ module MIDIBASE
       private def enqueue_rpn: () -> void
       private def push: (event_t event, ?Integer? delta) -> void
       private def shift_event: () -> timed_event_t?
+      private def enqueue_note: (Integer channel, Integer note) -> void
+      private def read_drum: () -> Integer?
       private def read_note: (Integer letter, Integer? accidental) -> Integer
       private def read_length: () -> Integer
       private def length_ticks: (Integer fraction, Integer dots) -> Integer
@@ -37,6 +41,7 @@ module MIDIBASE
       private def scale_15_to_127: (Integer value) -> Integer
       private def clamp: (Integer value, Integer min, Integer max) -> Integer
       private def invalid_character: (Integer c) -> void
+      private def invalid_drum: (String message, Integer position) -> void
       private def expand_loops: (String source) -> String
       private def expand: (String source, Integer index, Integer depth) -> [String, Integer]
     end

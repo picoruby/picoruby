@@ -32,6 +32,16 @@ class MIDIBASEMMLTest < Picotest::Test
     !find_command(events, command).nil?
   end
 
+  def find_notes(events, command)
+    notes = []
+    i = 0
+    while i < events.size
+      notes << events[i] if events[i][1][0] == command
+      i += 1
+    end
+    notes
+  end
+
   def test_sequence_emits_midi_and_psg_events_in_ticks
     sequence = MIDIBASE::MML::Sequence.new([
       "t120 o4 l4 q4 v8 p15 @2 z128 s3 m800 x2 y7 j2,5 c | r4 d"
@@ -63,6 +73,58 @@ class MIDIBASEMMLTest < Picotest::Test
     assert_equal 480, notes[1][0]
     assert_equal 960, notes[2][0]
     assert_equal 1, notes[2][1][1]
+  end
+
+  def test_named_drums_emit_midi_channel_10_notes
+    events = collect(MIDIBASE::MML::Sequence.new([
+      "l8 !kick !snare !closed_hihat !open_hihat !low_tom !mid_tom !high_tom"
+    ]))
+    notes = find_notes(events, :note_on)
+    assert_equal 7, notes.size
+    assert_equal [35, 38, 42, 46, 41, 45, 48], notes.map { |item| item[1][2] }
+    i = 0
+    while i < notes.size
+      assert_equal 9, notes[i][1][1]
+      assert_equal i * 240, notes[i][0]
+      i += 1
+    end
+  end
+
+  def test_drum_aliases_are_case_insensitive_and_can_be_adjacent
+    events = collect(MIDIBASE::MML::Sequence.new([
+      "!BD8!SD8!CH8!OH8!LT8!MT8!HT8"
+    ]))
+    notes = find_notes(events, :note_on)
+    assert_equal [35, 38, 42, 46, 41, 45, 48], notes.map { |item| item[1][2] }
+  end
+
+  def test_drum_length_and_gate_match_regular_notes
+    events = collect(MIDIBASE::MML::Sequence.new(["q4 !kick4. c4"], channels: [3]))
+    note_ons = find_notes(events, :note_on)
+    note_offs = find_notes(events, :note_off)
+    assert_equal [:note_on, 9, 35, 127], note_ons[0][1]
+    assert_equal 360, note_offs[0][0] - note_ons[0][0]
+    assert_equal 720, note_ons[1][0]
+    assert_equal 3, note_ons[1][1][1]
+  end
+
+  def test_named_drums_work_inside_loops
+    events = collect(MIDIBASE::MML::Sequence.new(["[!bd8 !sd8]2"]))
+    notes = find_notes(events, :note_on)
+    assert_equal [35, 38, 35, 38], notes.map { |item| item[1][2] }
+  end
+
+  def test_unknown_drum_obeys_exception_setting
+    assert_raise(RuntimeError) do
+      collect(MIDIBASE::MML::Sequence.new(["!cowbell4"]))
+    end
+    assert_raise(RuntimeError) do
+      collect(MIDIBASE::MML::Sequence.new(["!4"]))
+    end
+    events = collect(MIDIBASE::MML::Sequence.new(["!cowbell4 c4"], exception: false))
+    note = find_command(events, :note_on)
+    assert_equal 0, note[0]
+    assert_equal 60, note[1][2]
   end
 
   def test_barline_is_preserved_as_metadata
