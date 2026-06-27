@@ -4,6 +4,9 @@ MIDI-oriented Music Macro Language parser and sequencer for PicoRuby.
 
 The library emits MIDI event arrays instead of driving a sound generator. Sequence parsing is incremental and uses a pull API, so a complete song is not expanded into an in-memory event list.
 
+See [README_MML.md](README_MML.md) for the complete MML command and event
+format reference.
+
 ## Autonomous playback
 
 ```ruby
@@ -15,6 +18,9 @@ player = MIDIBASE::MML::Player.new(
 )
 player.start
 ```
+
+With `loop: true`, each track repeats from its `$` segno when it reaches the
+end. Without `$`, the track finishes normally.
 
 ## External MIDI Clock
 
