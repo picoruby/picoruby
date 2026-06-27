@@ -2,6 +2,16 @@ module MIDIBASE
   module MML
     class Parser
       NOTES = { 97 => 0, 98 => 2, 99 => 3, 100 => 5, 101 => 7, 102 => 8, 103 => 10 }
+      DRUM_CHANNEL = 9
+      DRUM_NOTES = {
+        "kick" => 35, "bd" => 35,
+        "snare" => 38, "sd" => 38,
+        "closed_hihat" => 42, "ch" => 42,
+        "open_hihat" => 46, "oh" => 46,
+        "low_tom" => 41, "lt" => 41,
+        "mid_tom" => 45, "mt" => 45,
+        "high_tom" => 48, "ht" => 48
+      }
       DOT_NUMERATORS = [1, 3, 7, 15]
       DOT_DENOMINATORS = [1, 2, 4, 8]
 
@@ -51,6 +61,9 @@ module MIDIBASE
           end
 
           case c
+          when 33 # !
+            note = read_drum
+            enqueue_note(DRUM_CHANNEL, note) if note
           when 36 # $
             @segno_pos = cursor + 1
             push([:loop_point])
@@ -63,12 +76,7 @@ module MIDIBASE
             push([:program_change, channel, clamp(value, 0, 127)])
           when 97..103 # a..g
             note = read_note(c, source.getbyte(@cursor + 1))
-            length = read_length
-            sustain = length * @gate / 8
-            release = length - sustain
-            push([:note_on, channel, note, 127])
-            push([:note_off, channel, note, NOTE_OFF], sustain)
-            @pending_ticks += release
+            enqueue_note(channel, note)
           when 114 # r
             @pending_ticks += read_length
           when 106 # j
@@ -166,6 +174,37 @@ module MIDIBASE
           @queue_index = queue_index
         end
         event
+      end
+
+      private def enqueue_note(channel, note)
+        length = read_length
+        sustain = length * @gate / 8
+        release = length - sustain
+        push([:note_on, channel, note, 127])
+        push([:note_off, channel, note, NOTE_OFF], sustain)
+        @pending_ticks += release
+      end
+
+      private def read_drum
+        source = @source
+        position = @cursor
+        i = position + 1
+        start = i
+        while (c = source.getbyte(i)) && ((97 <= c && c <= 122) || c == 95)
+          i += 1
+        end
+        @cursor = i - 1 if start < i
+        name = source[start, i - start] || ""
+        note = DRUM_NOTES[name]
+        return note if note
+
+        if name.empty?
+          invalid_drum("Missing MML drum name", position)
+        else
+          invalid_drum("Unknown MML drum: `#{name}`", position)
+        end
+        read_length unless @raise_error
+        nil
       end
 
       private def read_note(letter, accidental)
@@ -266,6 +305,12 @@ module MIDIBASE
 
       private def invalid_character(c)
         message = "Invalid MML character: `#{c.chr}` at position #{@cursor}"
+        raise message if @raise_error
+        puts "[WARN] #{message}"
+      end
+
+      private def invalid_drum(message, position)
+        message = "#{message} at position #{position}"
         raise message if @raise_error
         puts "[WARN] #{message}"
       end

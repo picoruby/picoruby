@@ -41,6 +41,71 @@ Pure just intonation tables are available for major and minor keys:
 :just_b_major       :just_b_minor
 ```
 
+## Timbres and envelopes
+
+Each of the three PSG voices can use one of four waveforms. `PSG::Synth` selects the waveform from the MIDI program number modulo 4; in MML, use `@0` through `@3`:
+
+| MML  | Driver value | Symbol         | Waveform         |
+|------|-------------:|----------------|------------------|
+| `@0` | 0            | `:square`      | Square           |
+| `@1` | 1            | `:triangle`    | Triangle         |
+| `@2` | 2            | `:sawtooth`    | Rising sawtooth  |
+| `@3` | 3            | `:invsawtooth` | Falling sawtooth |
+
+The same values are available through `PSG::Driver::TIMBRES` when controlling the driver directly:
+
+```ruby
+driver.set_timbre(0, PSG::Driver::TIMBRES[:triangle])
+driver.set_timbre(1, PSG::Driver::TIMBRES[:sawtooth])
+```
+
+The envelope generator uses the AY-compatible period and shape registers. MML provides `m<period>` for the 16-bit envelope period and `s<shape>` for the 4-bit shape. Setting a shape enables envelope volume for that MML channel; a later `v0` through `v15` command returns it to fixed volume.
+
+```ruby
+tracks = [
+  # Triangle wave with a repeating descending envelope
+  "t120 @1 o4 l8 m800 s8 c d e f g a b >c",
+  # Rising/falling triangle envelope, continued across notes
+  "t120 @2 o3 l4 m500 s14 { c g a f }"
+]
+```
+
+The equivalent low-level driver setup writes envelope period registers 11 and 12, shape register 13, and sets bit 4 of the voice volume register:
+
+```ruby
+voice = 0
+period = 800
+driver.send_reg(11, period & 0xFF)
+driver.send_reg(12, period >> 8)
+driver.send_reg(13, 10)
+driver.send_reg(8 + voice, 0x10) # use envelope volume
+driver.set_legato(voice, 1)      # optional: do not reset on note changes
+```
+
+The shape value is the bit field `C A Alt H`:
+
+| Bit | Name      | Effect when set                                     |
+|----:|-----------|-----------------------------------------------------|
+| 3   | Continue  | Continue after reaching an envelope endpoint        |
+| 2   | Attack    | Start at 0 and rise; otherwise start at 15 and fall |
+| 1   | Alternate | Reverse direction after each cycle                  |
+| 0   | Hold      | Stop at the first endpoint when Continue is set     |
+
+Useful shapes include `s0`/`s4` for one-shot falling/rising envelopes, `s8`/`s12` for repeating sawtooth envelopes, `s10`/`s14` for alternating triangle envelopes, and `s9`/`s13` for falling/rising hold envelopes.
+
+At the 22,050 Hz sample rate, one level step lasts `period / 22_050` seconds, and a complete 16-level sweep is approximately `0.726 * period` milliseconds. A period of zero stops envelope progression. Envelope period and shape are shared PSG registers; changing either affects all voices currently using envelope volume. Writing a shape resets the envelope state, while ordinary note changes reset it unless legato is enabled. MML braces enable legato for the enclosed notes.
+
+Additional PSG-oriented MML controls are:
+
+| MML              | Effect                                    |
+|------------------|-------------------------------------------|
+| `x0`, `x1`, `x2` | Tone only, noise only, or tone plus noise |
+| `y0`..`y31`      | Noise period                              |
+| `p0`..`p15`      | Left-to-right pan                         |
+| `j1,5`           | Vibrato with 100-cent depth at 0.5 Hz     |
+
+For direct control, `set_lfo(voice, depth, rate)` takes depth in cents (`0..127`) and rate in 0.1 Hz units (`0..255`). The MML `j` depth is expressed as an integer number of semitones, so the current engine range permits `j0` or `j1`.
+
 ## MIDI synthesis
 
 `PSG::Synth` consumes events from `MIDIBASE::Router` and maps them to the three PSG voices. It supports note velocity, pitch bend, volume, expression, pan, sustain, programs, and PSG-specific extension events.
@@ -113,6 +178,12 @@ player = MIDIBASE::MML::Player.new(
 router.connect(:mml, synth, priority: 0)
 router.connect(:uart, clock, only: MIDIBASE::TRANSPORT_EVENTS)
 player.start
+```
+
+`picoruby-midibase-mml` can trigger the registered drum sounds by name. These tokens emit MIDI channel 10 events and therefore use the current `assign_drum_sound` mappings:
+
+```ruby
+tracks = ["t120 l8 !kick !snare !ch !snare"]
 ```
 
 ## Build note for Raspberry Pi Pico
