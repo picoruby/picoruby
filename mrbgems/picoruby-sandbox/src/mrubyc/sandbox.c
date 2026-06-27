@@ -66,6 +66,10 @@ static void
 c_sandbox_stop(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
+  if (ss->tcb->state == TASKSTATE_DORMANT) {
+    SET_FALSE_RETURN();
+    return;
+  }
   mrbc_terminate_task(ss->tcb);
   SET_TRUE_RETURN();
 }
