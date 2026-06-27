@@ -28,6 +28,6 @@ router.connect(:uart, clock, only: MIDIBASE::TRANSPORT_EVENTS)
 
 player.start
 
-while true
+MIDIBASE::Session.new(player, synth, driver).run do
   router.emit(:uart, midi.getevent)
 end

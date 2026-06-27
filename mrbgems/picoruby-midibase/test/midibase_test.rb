@@ -8,6 +8,29 @@ class MIDIBASERouterSink
   end
 end
 
+class MIDIBASESessionResource
+  def initialize(log, name, stoppable: true, joinable: true)
+    @log = log
+    @name = name
+    @stoppable = stoppable
+    @joinable = joinable
+  end
+
+  def respond_to?(name)
+    return @stoppable if name == :stop
+    return @joinable if name == :join
+    super
+  end
+
+  def stop
+    @log << [@name, :stop]
+  end
+
+  def join
+    @log << [@name, :join]
+  end
+end
+
 class MIDIBASETest < Picotest::Test
   def events_for(bytes, max_sysex_bytes: 1024)
     parser = MIDIBASE::Parser.new(max_sysex_bytes: max_sysex_bytes)
@@ -198,5 +221,45 @@ class MIDIBASETest < Picotest::Test
     assert_equal :uart, sink.received[0][1][:source]
     assert_equal 100, sink.received[0][1][:priority]
     assert_equal 20, sink.received[0][1][:timestamp_us]
+  end
+
+  def test_session_handles_interrupt_and_restores_handler
+    log = []
+    player = MIDIBASESessionResource.new(log, :player)
+    synth = MIDIBASESessionResource.new(log, :synth)
+    driver = MIDIBASESessionResource.new(log, :driver, stoppable: false)
+    previous = Signal.trap(:INT, "DEFAULT")
+    session = MIDIBASE::Session.new(player, synth, driver)
+    count = 0
+    session.run do
+      count += 1
+      Signal.raise(:INT)
+    end
+    assert_equal 1, count
+    assert session.stopped?
+    assert_equal [
+      [:player, :stop], [:player, :join],
+      [:synth, :stop], [:synth, :join],
+      [:driver, :join]
+    ], log
+    assert_equal "DEFAULT", Signal.trap(:INT, "DEFAULT")
+  ensure
+    Signal.trap(:INT, previous || "DEFAULT")
+  end
+
+  def test_session_rejects_invalid_resource
+    assert_raise(ArgumentError) { MIDIBASE::Session.new(Object.new) }
+  end
+
+  def test_session_shuts_down_after_block_error
+    log = []
+    resource = MIDIBASESessionResource.new(log, :resource)
+    session = MIDIBASE::Session.new(resource)
+    assert_raise(RuntimeError) do
+      session.run do
+        raise "event loop failed"
+      end
+    end
+    assert_equal [[:resource, :stop], [:resource, :join]], log
   end
 end

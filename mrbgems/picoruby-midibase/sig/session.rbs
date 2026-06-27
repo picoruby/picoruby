@@ -1,0 +1,19 @@
+module MIDIBASE
+  class Session
+    @resources: Array[untyped]
+    @stopped: bool
+    @handler_installed: bool
+    @previous_int_handler: untyped
+    @shutdown_error: Exception?
+
+    attr_reader shutdown_error: Exception?
+
+    def initialize: (*untyped resources) -> void
+    def run: () { () -> untyped } -> self
+    def stop: () -> self
+    def stopped?: () -> bool
+    private def shutdown: () -> void
+    private def invoke_shutdown: (untyped resource, Symbol method_name) -> void
+    private def restore_int_handler: () -> void
+  end
+end

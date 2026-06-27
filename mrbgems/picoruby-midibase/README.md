@@ -21,3 +21,15 @@ router.connect(:mml, synth, priority: 0)
 router.connect(:uart, synth, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
 router.connect(:mml, midi, only: MIDIBASE::WIRE_EVENTS)
 ```
+
+`MIDIBASE::Session` runs a repeated event-processing block and owns the
+lifecycle of the resources passed to it. On Ctrl-C, normal return, or an
+exception, it calls `stop` and then `join` on each resource when those methods
+are available. Resources are shut down in argument order, and the previous
+SIGINT handler is restored afterward.
+
+```ruby
+MIDIBASE::Session.new(player, synth, driver).run do
+  router.emit(:uart, midi.getevent)
+end
+```

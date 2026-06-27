@@ -257,6 +257,16 @@ router.connect(:uart, clock, only: MIDIBASE::TRANSPORT_EVENTS)
 player.start
 ```
 
+When such a program runs from the PicoRuby shell, use `MIDIBASE::Session` to
+manage its Player, Synth, and Driver. The session repeats the block and shuts
+down those resources on Ctrl-C, normal return, or an exception:
+
+```ruby
+MIDIBASE::Session.new(player, synth, driver).run do
+  router.emit(:uart, midi.getevent)
+end
+```
+
 `picoruby-midibase-mml` can trigger the registered drum sounds by name. These tokens emit MIDI channel 10 events and therefore use the current `assign_drum_sound` mappings:
 
 ```ruby

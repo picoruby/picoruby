@@ -79,7 +79,7 @@ module PSG
   ])
   set_sound_data(:open_hihat, [
     [0, 2, 13,  18],
-    [0, 1, 11, 300],
+    [0, 1, 11, 200],
   ])
   set_sound_data(:low_tom, [
     [300, 0, 15,  45],
