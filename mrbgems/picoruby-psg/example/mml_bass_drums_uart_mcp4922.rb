@@ -4,7 +4,7 @@ require "uart-midi"
 
 tracks = [
   # Bass
-  "t120 @0 s0 m1200 o4 l8 $ [ccegbgec|<aa>cegec<a|>ddfacafd|<ggb>dfd<bg>]4",
+  "t120 @0 v10 s0 m1200 o4 l8 $ [ccegbgec|<aa>cegec<a|>ddfacafd|<ggb>dfd<bg>]4",
   # Drums (General MIDI channel 10)
   "t120 l8 $ [!bd !ch !sd !ch !bd !oh !sd !bd]16"
 ]
@@ -24,6 +24,6 @@ player = MIDIBASE::MML::Player.new(
   output: router.output(:mml)
 ).start
 
-while true
+MIDIBASE::Session.new(player, synth, driver).run do
   router.emit(:uart, midi.getevent)
 end
