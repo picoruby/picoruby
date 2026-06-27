@@ -114,15 +114,85 @@ For direct control, `set_lfo(voice, depth, rate)` takes depth in cents (`0..127`
 
 ```ruby
 synth = PSG::Synth.new(driver).start
+controller = PSG::MIDIController.new(synth, logger: STDOUT)
 router = MIDIBASE::Router.new
-router.connect(:uart, synth, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
+router.connect(:uart, controller, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
 
 while true
   router.emit(:uart, midi.getevent)
 end
 ```
 
-Voice ownership includes the Router source. A high-priority live UART source can steal an MML voice, while a lower-priority MML source cannot steal a live voice.
+Without voice pools, ownership includes the Router source. A high-priority live
+UART source can steal an MML voice, while a lower-priority MML source cannot
+steal a live voice.
+
+### Voice pools
+
+Use `voice_pools:` when score playback must not lose voices to live input. The
+keys are Router source names and the values are reserved voice counts. A full
+pool steals only its own oldest voice. Sources absent from the map cannot start
+notes.
+
+```ruby
+# One score track and two-voice live playing
+synth = PSG::Synth.new(driver, voice_pools: {mml: 1, uart: 2}).start
+
+# Two score tracks and one-voice live playing
+synth = PSG::Synth.new(driver, voice_pools: {mml: 2, uart: 1}).start
+```
+
+Without `voice_pools:`, the historical shared allocator and route priorities
+remain in effect. Pool sizes must be positive integers whose sum does not
+exceed the configured voice count.
+
+### Live PSG controls
+
+`PSG::MIDIController` is a Router sink that forwards normal MIDI channel events
+and translates the PicoRuby PSG controls below. Supplying `logger: STDOUT`
+prints accepted parameter changes but not notes, pitch bend, or aftertouch.
+
+```ruby
+controller = PSG::MIDIController.new(synth, logger: STDOUT)
+router.connect(:uart, controller, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
+```
+
+For a Launchkey Mini 25 MK4, create an Encoder Custom Mode in Novation
+Components with these assignments. Use MIDI channel 1 for the keys and Custom
+Mode controls.
+
+| Encoder | Name       | CC | Range  | Scope        |
+|--------:|------------|---:|--------|--------------|
+| 1       | LEVEL      | 7  | 0..127 | Live channel |
+| 2       | PAN        | 10 | 0..127 | Live channel |
+| 3       | WAVE       | 20 | 0..3   | Live channel |
+| 4       | ENV ON     | 23 | 0..127 | Live channel |
+| 5       | VIB DEPTH  | 1  | 0..127 | Live channel |
+| 6       | VIB RATE   | 24 | 0..127 | Live channel |
+| 7       | MIXER      | 25 | 0..2   | Live channel |
+| 8       | LEGATO     | 68 | 0..127 | Live channel |
+| 9       | ENV TIME   | 21 | 0..127 | PSG global   |
+| 10      | ENV SHAPE  | 22 | 0..15  | PSG global   |
+| 11      | NOISE      | 26 | 0..31  | PSG global   |
+| 12      | EXPRESSION | 11 | 0..127 | Live channel |
+| 13      | BEND RANGE | 27 | 0..12  | Live channel |
+| 14      | SUSTAIN    | 64 | 0..127 | Live channel |
+| 15–16  | OFF        | — | —     | —           |
+
+The first eight controls are page 1 and the remaining controls are page 2.
+Envelope time uses a quadratic curve so short periods have finer control.
+Vibrato depth is in cents; rate covers `0..25.5 Hz`.
+
+A Pad Custom Mode may use Program Change `0..3` for the four waveforms, CC25
+values `0..2` for tone/noise modes, CC23 and CC68 as toggles, CC120 for panic,
+and CC22 values `0`, `4`, `8`, `10`, `12`, and `14` as envelope-shape presets.
+The normal Launchkey Drum mode remains available separately.
+
+Envelope period, envelope shape, and noise period are shared PSG registers.
+Changing a global control also affects MML or looper voices. Writing an
+envelope shape resets the envelope progress of every voice currently using it.
+While envelope volume is enabled, channel level and expression cannot scale
+its amplitude; moving CC7 returns that channel to fixed volume.
 
 MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the sound duration, and asks the C driver to expand one event into PSG sound steps.
 If all voices are active, the oldest voice is stolen.
@@ -166,7 +236,13 @@ PSG.assign_drum_sound(60, nil)
 
 MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A single Router can combine autonomous or MIDI-clocked MML with live input:
 
+See `example/mml_bass_drums_uart_mcp4922.rb` for a complete MCP4922 example
+that loops an MML bass and drum pattern while reserving one voice for a UART
+MIDI keyboard.
+
 ```ruby
+synth = PSG::Synth.new(driver, voice_pools: {mml: 2, uart: 1}).start
+controller = PSG::MIDIController.new(synth, logger: STDOUT)
 clock = MIDIBASE::MML::MIDIClock.new
 sequence = MIDIBASE::MML::Sequence.new(tracks, loop: true)
 player = MIDIBASE::MML::Player.new(
@@ -176,6 +252,7 @@ player = MIDIBASE::MML::Player.new(
 )
 
 router.connect(:mml, synth, priority: 0)
+router.connect(:uart, controller, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
 router.connect(:uart, clock, only: MIDIBASE::TRANSPORT_EVENTS)
 player.start
 ```
