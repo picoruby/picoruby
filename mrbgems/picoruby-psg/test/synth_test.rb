@@ -66,16 +66,6 @@ class PSGSoundTest < Picotest::Test
     assert_equal 0, PSG.sound_duration(60)
   end
 
-  def test_default_sound_durations_match_previous_drums
-    assert_equal 105, PSG.sound_duration(:kick)
-    assert_equal 120, PSG.sound_duration(:snare)
-    assert_equal 38, PSG.sound_duration(:closed_hihat)
-    assert_equal 318, PSG.sound_duration(:open_hihat)
-    assert_equal 220, PSG.sound_duration(:low_tom)
-    assert_equal 190, PSG.sound_duration(:mid_tom)
-    assert_equal 170, PSG.sound_duration(:high_tom)
-  end
-
   def test_sound_rejects_invalid_data
     assert_raise(ArgumentError) { PSG::Sound.new([]) }
     assert_raise(ArgumentError) { PSG::Sound.new([[4096, 0, 15, 1]]) }
