@@ -41,7 +41,7 @@ module MIDIBASE
   def putevent: (Symbol command, *(Integer | String) values) -> Integer
   def handle: (event_t event, **untyped context) -> Integer
   def bpm: () -> Float?
-  def clock_running?: () -> bool
+  def clock_running?: () -> boolish
   def time_signature: () -> Array[Integer]?
   def time_signature=: (Array[Integer] signature) -> Array[Integer]
   def position: () -> Array[Integer]

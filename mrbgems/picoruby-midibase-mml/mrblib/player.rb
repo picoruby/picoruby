@@ -109,8 +109,7 @@ module MIDIBASE
       end
 
       private def reset_playback
-        sequence = @sequence
-        sequence.reset
+        @sequence.reset
         @tempo = DEFAULT_TEMPO
         @tick = 0
         @rewind_requested = false

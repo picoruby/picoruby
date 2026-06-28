@@ -42,8 +42,9 @@ module MIDIBASE
       end
 
       def next_event
-        queued = shift_event
-        return queued if queued
+        if queued = shift_event
+          return queued
+        end
         return nil if @finished
 
         source = @source
@@ -136,8 +137,9 @@ module MIDIBASE
           end
 
           @cursor += 1
-          queued = shift_event
-          return queued if queued
+          if queued = shift_event
+            return queued
+          end
         end
       end
 
@@ -195,8 +197,9 @@ module MIDIBASE
         end
         @cursor = i - 1 if start < i
         name = source[start, i - start] || ""
-        note = DRUM_NOTES[name]
-        return note if note
+        if note = DRUM_NOTES[name]
+          return note
+        end
 
         if name.empty?
           invalid_drum("Missing MML drum name", position)
@@ -286,11 +289,7 @@ module MIDIBASE
         return unless positive || sign == 45
         @cursor += 1
         value = read_number_after_cursor || 0
-        if positive
-          @transpose = value
-        else
-          @transpose = -value
-        end
+        @transpose = (positive ? value : -value)
       end
 
       private def scale_15_to_127(value)

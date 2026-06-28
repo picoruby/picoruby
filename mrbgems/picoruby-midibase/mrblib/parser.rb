@@ -36,8 +36,7 @@ module MIDIBASE
         return receive_status(byte)
       end
 
-      if @sysex
-        sysex = @sysex
+      if sysex = @sysex
         # @type var sysex: String
         if @sysex_overflow
           return nil
@@ -55,18 +54,19 @@ module MIDIBASE
         begin_message(running_status)
       end
 
-      @data << byte
-      return nil if @data.size < @expected
+      data = @data
+      data << byte
+      return nil if data.size < @expected
 
       status = @status
       return nil if status.nil?
-      event = build_event(status, @data)
+      event = build_event(status, data)
       if status < 0xF0
         begin_message(status)
       else
         @status = nil
         @expected = 0
-        @data.clear
+        data.clear
       end
       event
     end
@@ -129,7 +129,8 @@ module MIDIBASE
       @status = status
       @data.clear
       high = status & 0xF0
-      @expected = if high == PROGRAM_CHANGE || high == CHANNEL_PRESSURE || status == TIME_CODE_QUARTER_FRAME || status == SONG_SELECT
+      @expected = if high == PROGRAM_CHANGE || high == CHANNEL_PRESSURE ||
+                      status == TIME_CODE_QUARTER_FRAME || status == SONG_SELECT
                     1
                   else
                     2
