@@ -1,15 +1,18 @@
 module MIDIBASE
   class VoiceAllocator
-    attr_reader :voice_count, :last_stolen
-
-    def initialize(voices: 3)
-      if voices <= 0
+    def initialize(voice_count = 3)
+      if voice_count <= 0
         raise ArgumentError, "voices must be a positive Integer"
       end
-      @voice_count = voices
-      @voices = Array.new(voices)
+      @voices = Array.new(voice_count)
       @age = 0
       @last_stolen = nil
+    end
+
+    attr_reader :last_stolen
+
+    def voice_count
+      @voices.size
     end
 
     def allocate(channel, note, source: nil, priority: 0, voice_ids: nil)
@@ -18,7 +21,7 @@ module MIDIBASE
       @last_stolen = nil
 
       voices = @voices
-      voice_count = @voice_count
+      voice_count = voices.size
       free_voice = nil
       candidate_voice = nil
       candidate_priority = nil
@@ -56,34 +59,34 @@ module MIDIBASE
       end
 
       if free_voice.nil?
-        voice = candidate_voice
-        return nil if voice.nil?
-        # @type var voice: Integer
-        @last_stolen = voices[voice]
+        voice_id = candidate_voice
+        return nil if voice_id.nil?
+        # @type var voice_id: Integer
+        @last_stolen = voices[voice_id]
       else
-        voice = free_voice
+        voice_id = free_voice
         # @type var voice: Integer
       end
-      voices[voice] = [source, channel, note, priority, age]
-      voice
+      voices[voice_id] = [source, channel, note, priority, age]
+      voice_id
     end
 
-    def reserve(voice, channel, note, source: nil, priority: 0)
-      return nil unless 0 <= voice && voice < @voice_count
+    def reserve(id, channel, note, source: nil, priority: 0)
+      return nil unless 0 <= id && id < @voices.size
 
       age = @age + 1
       @age = age
       voices = @voices
-      entry = voices[voice]
+      entry = voices[id]
       if entry && entry[0] == source && entry[1] == channel && entry[2] == note
         entry[3] = priority
         entry[4] = age
         @last_stolen = nil
       else
         @last_stolen = entry
-        voices[voice] = [source, channel, note, priority, age]
+        voices[id] = [source, channel, note, priority, age]
       end
-      voice
+      id
     end
 
     def release(channel, note, source: nil)
@@ -93,26 +96,25 @@ module MIDIBASE
     end
 
     def voice_for(channel, note, source: nil)
-      i = 0
+      id = 0
       voices = @voices
-      voice_count = @voice_count
-      while i < voice_count
-        entry = voices[i]
-        return i if entry && entry[0] == source && entry[1] == channel && entry[2] == note
-        i += 1
+      voice_count = voices.size
+      while id < voice_count
+        entry = voices[id]
+        return id if entry && entry[0] == source && entry[1] == channel && entry[2] == note
+        id += 1
       end
       nil
     end
 
-    def entry(voice)
-      return nil unless 0 <= voice && voice < @voice_count
-      @voices[voice]
+    def entry(id)
+      id < 0 ? nil : @voices[id]
     end
 
     def release_all
       i = 0
       voices = @voices
-      voice_count = @voice_count
+      voice_count = voices.size
       while i < voice_count
         voices[i] = nil
         i += 1

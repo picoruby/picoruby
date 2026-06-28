@@ -138,7 +138,6 @@ module MIDIBASE
   end
 
   def getevent
-    initialize_midibase unless @midi_parser
     parser = @midi_parser
     clock = @midi_clock
     raise "MIDI is not initialized" unless parser && clock
@@ -179,7 +178,7 @@ module MIDIBASE
   end
 
   def clock_running?
-    @midi_clock&.clock_running? || false
+    @midi_clock&.clock_running?
   end
 
   def time_signature
@@ -187,7 +186,6 @@ module MIDIBASE
   end
 
   def time_signature=(signature)
-    initialize_midibase unless @midi_clock
     clock = @midi_clock
     raise "MIDI is not initialized" unless clock
     clock.time_signature = signature

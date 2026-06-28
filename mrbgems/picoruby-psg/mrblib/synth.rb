@@ -8,14 +8,14 @@ module PSG
 
     attr_reader :allocator
 
-    def initialize(driver, voices: 3, voice_pools: nil)
-      unless 0 < voices && voices <= 3
-        raise ArgumentError, "PSG voices must be in 1..3"
+    def initialize(driver, voice_count: 3, voice_pools: nil)
+      unless 0 < voice_count && voice_count <= 3
+        raise ArgumentError, "PSG voice_count must be in 1..3"
       end
       @driver = driver
-      @allocator = ::MIDIBASE::VoiceAllocator.new(voices: voices)
-      @voice_pools = build_voice_pools(voice_pools, voices)
-      @velocities = Array.new(voices, 0)
+      @allocator = ::MIDIBASE::VoiceAllocator.new(voice_count)
+      @voice_pools = build_voice_pools(voice_pools, voice_count)
+      @velocities = Array.new(voice_count, 0)
       @states = {}
       @sustained = {}
       @drum_voice = nil

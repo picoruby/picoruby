@@ -52,11 +52,14 @@ module MIDIBASE
     end
 
     private def route_accepts?(route, command)
+      # route[3]: only
+      # route[4]: except
       only = route[3]
-      except = route[4]
-      return false if only && !only.include?(command)
-      return false if except && except.include?(command)
-      true
+      if (only && !only.include?(command)) || route[4]&.include?(command)
+        false
+      else
+        true
+      end
     end
   end
 end

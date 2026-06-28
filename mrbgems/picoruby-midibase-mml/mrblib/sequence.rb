@@ -5,8 +5,7 @@ module MIDIBASE
 
       def initialize(tracks, channels: nil, loop: false, ppqn: PPQN, time_signature: [4, 4], exception: true)
         raise ArgumentError, "tracks must not be empty" if tracks.empty?
-        tracks_size = tracks.size
-        raise ArgumentError, "MML supports at most 16 tracks" if 16 < tracks_size
+        raise ArgumentError, "MML supports at most 16 tracks" if 16 < tracks.size
         @tracks = tracks
         @channels = channels
         @loop = loop

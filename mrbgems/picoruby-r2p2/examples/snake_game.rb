@@ -197,7 +197,7 @@ encoder.ccw { $speed_delta -= 1 }
 # PSG driver (PWM output on piezo buzzer pins)
 psg = PSG::Driver.new(:pwm, left: 10, right: 11)
 
-bgm_synth = PSG::Synth.new(psg, voices: 2).start
+bgm_synth = PSG::Synth.new(psg, voice_count: 2).start
 bgm_router = MIDIBASE::Router.new
 bgm_router.connect(:mml, bgm_synth, priority: 0)
 bgm_sequence = MIDIBASE::MML::Sequence.new(BGM_TRACKS, loop: true)

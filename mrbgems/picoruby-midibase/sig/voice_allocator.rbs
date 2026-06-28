@@ -1,18 +1,19 @@
 module MIDIBASE
   class VoiceAllocator
-    @voice_count: Integer
-    @voices: Array[Array[untyped]?]
+    type voice_t = [Integer, Integer, Integer, Integer, Integer]
+
+    @voices: Array[voice_t?]
     @age: Integer
-    @last_stolen: Array[untyped]?
+    @last_stolen: voice_t?
 
     attr_reader voice_count: Integer
-    attr_reader last_stolen: Array[untyped]?
-    def initialize: (?voices: Integer) -> void
+    attr_reader last_stolen: voice_t?
+    def initialize: (?Integer voice_count) -> void
     def allocate: (Integer channel, Integer note, ?source: untyped, ?priority: Integer, ?voice_ids: Array[Integer]?) -> Integer?
-    def reserve: (Integer voice, Integer channel, Integer note, ?source: untyped, ?priority: Integer) -> Integer?
+    def reserve: (Integer id, Integer channel, Integer note, ?source: untyped, ?priority: Integer) -> Integer?
     def release: (Integer channel, Integer note, ?source: untyped) -> Integer?
     def voice_for: (Integer channel, Integer note, ?source: untyped) -> Integer?
-    def entry: (Integer voice) -> Array[untyped]?
+    def entry: (Integer id) -> voice_t?
     def release_all: () -> self
   end
 end

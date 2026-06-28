@@ -100,8 +100,7 @@ module MIDIBASE
       end
 
       private def observe_pulse(timestamp_us)
-        last = @last_pulse_us
-        if last
+        if last = @last_pulse_us
           interval = timestamp_us - last
           if 0 < interval
             current_interval = @interval_us
@@ -113,14 +112,13 @@ module MIDIBASE
       end
 
       private def estimated_tick
-        tick = @confirmed_tick
         interval = @interval_us
         last = @last_pulse_us
-        return tick unless interval && last && 0 < interval
+        return @confirmed_tick unless interval && last && 0 < interval
         elapsed = Machine.uptime_us - last
         elapsed = 0 if elapsed < 0
         elapsed = interval if interval < elapsed
-        tick + elapsed * TICKS_PER_CLOCK / interval
+        @confirmed_tick + elapsed * TICKS_PER_CLOCK / interval
       end
     end
   end

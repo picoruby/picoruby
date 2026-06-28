@@ -170,7 +170,7 @@ class MIDIBASETest < Picotest::Test
   end
 
   def test_voice_allocator_steals_oldest_voice
-    allocator = MIDIBASE::VoiceAllocator.new(voices: 3)
+    allocator = MIDIBASE::VoiceAllocator.new(3)
     assert_equal 0, allocator.allocate(0, 60)
     assert_equal 1, allocator.allocate(0, 64)
     assert_equal 2, allocator.allocate(0, 67)
@@ -181,7 +181,7 @@ class MIDIBASETest < Picotest::Test
   end
 
   def test_voice_allocator_respects_source_priority
-    allocator = MIDIBASE::VoiceAllocator.new(voices: 2)
+    allocator = MIDIBASE::VoiceAllocator.new(2)
     assert_equal 0, allocator.allocate(0, 60, source: :mml, priority: 0)
     assert_equal 1, allocator.allocate(0, 62, source: :uart, priority: 100)
     assert_equal 0, allocator.allocate(0, 64, source: :mml, priority: 0)
@@ -191,7 +191,7 @@ class MIDIBASETest < Picotest::Test
   end
 
   def test_voice_allocator_reserves_specific_voice
-    allocator = MIDIBASE::VoiceAllocator.new(voices: 3)
+    allocator = MIDIBASE::VoiceAllocator.new(3)
     assert_equal 0, allocator.allocate(0, 60, source: :mml, priority: 0)
     assert_equal 1, allocator.allocate(0, 64, source: :mml, priority: 0)
     assert_equal 2, allocator.allocate(0, 67, source: :mml, priority: 0)
@@ -202,7 +202,7 @@ class MIDIBASETest < Picotest::Test
   end
 
   def test_voice_allocator_limits_candidates
-    allocator = MIDIBASE::VoiceAllocator.new(voices: 3)
+    allocator = MIDIBASE::VoiceAllocator.new(3)
     assert_equal 0, allocator.allocate(0, 48, source: :mml, voice_ids: [0])
     assert_equal 1, allocator.allocate(0, 60, source: :uart, voice_ids: [1, 2])
     assert_equal 2, allocator.allocate(0, 64, source: :uart, voice_ids: [1, 2])

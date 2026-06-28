@@ -18,7 +18,7 @@ module PSG
     @task: Task?
 
     attr_reader allocator: MIDIBASE::VoiceAllocator
-    def initialize: (Driver driver, ?voices: Integer, ?voice_pools: Hash[untyped, Integer]?) -> void
+    def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: Hash[untyped, Integer]?) -> void
     def start: () -> self
     def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
     def stop: () -> self
