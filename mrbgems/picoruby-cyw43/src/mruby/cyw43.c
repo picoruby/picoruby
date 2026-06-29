@@ -40,6 +40,7 @@ mrb_s_initialized_p(mrb_state *mrb, mrb_value klass)
 
 #ifdef USE_WIFI
 static bool cyw43_arch_sta_mode_enabled = false;
+static bool cyw43_arch_ap_mode_enabled = false;
 
 static mrb_value
 mrb_s_enable_sta_mode(mrb_state *mrb, mrb_value klass)
@@ -72,6 +73,40 @@ mrb_s_disable_sta_mode(mrb_state *mrb, mrb_value klass)
 }
 
 static bool cyw43_arch_connected = false;
+
+static mrb_value
+mrb_s_enable_ap_mode(mrb_state *mrb, mrb_value klass)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  const char *ssid;
+  const char *pass;
+  mrb_int auth = CYW43_CONST_auth_wpa2_aes_psk();
+  mrb_get_args(mrb, "zz|i", &ssid, &pass, &auth);
+  if (!cyw43_arch_ap_mode_enabled) {
+    CYW43_arch_enable_ap_mode(ssid, pass, auth);
+    cyw43_arch_ap_mode_enabled = true;
+    return mrb_true_value();
+  } else {
+    return mrb_false_value();
+  }
+}
+
+static mrb_value
+mrb_s_disable_ap_mode(mrb_state *mrb, mrb_value klass)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  if (cyw43_arch_ap_mode_enabled) {
+    CYW43_arch_disable_ap_mode();
+    cyw43_arch_ap_mode_enabled = false;
+    return mrb_true_value();
+  } else {
+    return mrb_false_value();
+  }
+}
 
 static mrb_value
 mrb_s_connect_timeout(mrb_state *mrb, mrb_value klass)
@@ -186,6 +221,89 @@ mrb_cyw43_s_ipv4_gateway(mrb_state *mrb, mrb_value self)
     return mrb_str_new_cstr(mrb, gateway_str);
   }
 }
+
+static mrb_value
+mrb_cyw43_s_ap_ipv4_address(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  char addr_str[16] = {0};
+  if (!CYW43_ap_ipv4_address(addr_str, 16)) {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, addr_str);
+  }
+}
+
+static mrb_value
+mrb_cyw43_s_ap_active_p(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_false_value();
+  }
+  return mrb_bool_value(CYW43_ap_active());
+}
+
+static mrb_value
+mrb_cyw43_s_ap_ssid(mrb_state *mrb, mrb_value self)
+{
+  char ssid[33] = {0};
+
+  if (!cyw43_arch_init_flag) {
+    return mrb_nil_value();
+  }
+  if (!CYW43_ap_ssid(ssid, sizeof(ssid))) {
+    return mrb_nil_value();
+  }
+  return mrb_str_new_cstr(mrb, ssid);
+}
+
+static mrb_value
+mrb_cyw43_s_ap_max_stations(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_fixnum_value(0);
+  }
+  return mrb_fixnum_value(CYW43_ap_max_stations());
+}
+
+static mrb_value
+mrb_cyw43_s_ap_station_count(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    return mrb_fixnum_value(0);
+  }
+  return mrb_fixnum_value(CYW43_ap_station_count());
+}
+
+static mrb_value
+mrb_cyw43_s_ap_ipv4_netmask(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  char netmask_str[16] = {0};
+  if (!CYW43_ap_ipv4_netmask(netmask_str, 16)) {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, netmask_str);
+  }
+}
+
+static mrb_value
+mrb_cyw43_s_ap_ipv4_gateway(mrb_state *mrb, mrb_value self)
+{
+  if (!cyw43_arch_init_flag) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
+  }
+  char gateway_str[16] = {0};
+  if (!CYW43_ap_ipv4_gateway(gateway_str, 16)) {
+    return mrb_nil_value();
+  } else {
+    return mrb_str_new_cstr(mrb, gateway_str);
+  }
+}
 #endif
 
 static mrb_value
@@ -217,6 +335,8 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
 #ifdef USE_WIFI
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_sta_mode), mrb_s_enable_sta_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disable_sta_mode), mrb_s_disable_sta_mode, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(enable_ap_mode), mrb_s_enable_ap_mode, MRB_ARGS_ARG(2, 1));
+  mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disable_ap_mode), mrb_s_disable_ap_mode, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(connect_timeout), mrb_s_connect_timeout, MRB_ARGS_ARG(3, 1));
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(disconnect), mrb_s_disconnect, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(tcpip_link_status), mrb_s_tcpip_link_status, MRB_ARGS_NONE());
@@ -224,6 +344,13 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_address), mrb_cyw43_s_ipv4_address, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_netmask), mrb_cyw43_s_ipv4_netmask, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_gateway), mrb_cyw43_s_ipv4_gateway, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_active?"), mrb_cyw43_s_ap_active_p, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ssid"), mrb_cyw43_s_ap_ssid, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_max_stations"), mrb_cyw43_s_ap_max_stations, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_station_count"), mrb_cyw43_s_ap_station_count, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ipv4_address"), mrb_cyw43_s_ap_ipv4_address, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ipv4_netmask"), mrb_cyw43_s_ap_ipv4_netmask, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_CYW43, mrb_intern_lit(mrb, "ap_ipv4_gateway"), mrb_cyw43_s_ap_ipv4_gateway, MRB_ARGS_NONE());
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_DOWN), mrb_fixnum_value(CYW43_CONST_link_down()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_JOIN), mrb_fixnum_value(CYW43_CONST_link_join()));
   mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NOIP), mrb_fixnum_value(CYW43_CONST_link_noip()));
