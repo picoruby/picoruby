@@ -129,10 +129,11 @@ steal a live voice.
 
 ### Voice pools
 
-Use `voice_pools:` when score playback must not lose voices to live input. The
-keys are Router source names and the values are reserved voice counts. A full
-pool steals only its own oldest voice. Sources absent from the map cannot start
-notes.
+Use `voice_pools:` when sources need restricted physical voices. The keys are
+Router source names. An Integer value reserves that many consecutive voices;
+an Array explicitly selects voice IDs and may overlap another source's Array.
+A full pool steals only its own oldest eligible voice. Sources absent from the
+map cannot start notes.
 
 ```ruby
 # One score track and two-voice live playing
@@ -140,11 +141,14 @@ synth = PSG::Synth.new(driver, voice_pools: {mml: 1, uart: 2}).start
 
 # Two score tracks and one-voice live playing
 synth = PSG::Synth.new(driver, voice_pools: {mml: 2, uart: 1}).start
+
+# Music shares all voices, while a high-priority click always uses voice 2
+synth = PSG::Synth.new(driver, voice_pools: {music: [0, 1, 2], click: [2]}).start
 ```
 
 Without `voice_pools:`, the historical shared allocator and route priorities
-remain in effect. Pool sizes must be positive integers whose sum does not
-exceed the configured voice count.
+remain in effect. Integer pool sizes must fit within the configured voice
+count. Explicit voice IDs must be valid and unique within each source pool.
 
 ### Live PSG controls
 

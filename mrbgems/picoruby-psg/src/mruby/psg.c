@@ -423,6 +423,15 @@ psg_next_sound_generation(void)
 }
 
 static mrb_value
+mrb_driver_sound_stop(mrb_state *mrb, mrb_value self)
+{
+  (void)mrb;
+  (void)self;
+  psg_next_sound_generation();
+  return mrb_nil_value();
+}
+
+static mrb_value
 mrb_driver_sound(mrb_state *mrb, mrb_value self)
 {
   mrb_value sound_value;
@@ -700,6 +709,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(sound), mrb_driver_sound, MRB_ARGS_ARG(1, 2));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(sound_stop), mrb_driver_sound_stop, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(buffer_empty), mrb_driver_buffer_empty_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(buffer_flush), mrb_driver_buffer_flush, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(deinit), mrb_driver_deinit, MRB_ARGS_NONE());
