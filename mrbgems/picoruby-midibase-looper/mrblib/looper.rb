@@ -6,6 +6,8 @@ module MIDIBASE
     DEFAULT_TEMPO = 120
     DEFAULT_MAX_EVENTS = 256
     DEFAULT_VOICE_CAPACITY = 3
+    CLICK_DURATION_US = 50_000
+    CLICK_VELOCITY = 127
 
     LIVE_SOURCE = :looper_live
     CLICK_SOURCE = :looper_click
@@ -548,10 +550,9 @@ module MIDIBASE
       while (tick = @next_click_tick) && tick <= current_tick
         accent = tick % ticks_per_bar == 0
         note = accent ? 84 : 76
-        velocity = accent ? 127 : 96
         timestamp_us = time_at_tick(tick)
-        emit(@click_source, [:note_on, 15, note, velocity], timestamp_us)
-        @click_notes << [timestamp_us + 10_000, note]
+        emit(@click_source, [:note_on, 15, note, CLICK_VELOCITY], timestamp_us)
+        @click_notes << [timestamp_us + CLICK_DURATION_US, note]
         @next_click_tick = tick + interval
       end
     end
@@ -568,6 +569,7 @@ module MIDIBASE
     private def click_active?
       return false if @metronome == :off
       return true if @state == :count_in
+      return true if @state == :recording && @tracks.empty?
       @metronome == :beat || @metronome == :subdivision
     end
 
@@ -631,7 +633,7 @@ module MIDIBASE
         used += tracks[i].voice_limit
         i += 1
       end
-      if tracks.empty? && @metronome != :off && 0 < @count_in_bars
+      if tracks.empty? && @metronome != :off
         used += 1 unless continuous_click?
       end
       @voice_capacity - used

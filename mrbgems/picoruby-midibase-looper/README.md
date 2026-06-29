@@ -67,6 +67,6 @@ Track 1 recorded: voices=1, events=8.
 Playback continues automatically.
 ```
 
-`record` remains asynchronous, so `stop` can cancel an armed or active recording. State changes and the resulting track are reported automatically.
+`record` remains asynchronous, so `stop` can cancel an armed or active recording. State changes and the resulting track are reported automatically. In the default `count-in` metronome mode, the click continues through the entire first-track recording and stops when loop playback begins.
 
 MIDI channel 10 events are recorded unchanged. PSG drum sounds retain voices for their sound-specific duration, so their physical PSG voice stealing is not covered by the looper's logical track voice limit.
