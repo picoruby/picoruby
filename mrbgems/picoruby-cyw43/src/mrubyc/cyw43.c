@@ -8,6 +8,7 @@ static bool cyw43_arch_init_flag = false;
 
 #ifdef USE_WIFI
 static bool cyw43_arch_sta_mode_enabled = false;
+static bool cyw43_arch_ap_mode_enabled = false;
 static bool cyw43_arch_connected = false;
 #endif
 
@@ -26,6 +27,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     cyw43_arch_init_flag = false;
 #ifdef USE_WIFI
     cyw43_arch_sta_mode_enabled = false;
+    cyw43_arch_ap_mode_enabled = false;
     cyw43_arch_connected = false;
 #endif
   }
@@ -105,6 +107,45 @@ c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
       return;
     }
     cyw43_arch_connected = true;
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_CYW43_enable_ap_mode(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43 not initialized");
+    return;
+  }
+  if (argc < 2 || 3 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  const char *ssid = (const char *)GET_STRING_ARG(1);
+  const char *pass = (const char *)GET_STRING_ARG(2);
+  int auth = argc < 3 ? CYW43_CONST_auth_wpa2_aes_psk() : GET_INT_ARG(3);
+  if (!cyw43_arch_ap_mode_enabled) {
+    CYW43_arch_enable_ap_mode(ssid, pass, auth);
+    cyw43_arch_ap_mode_enabled = true;
+    SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
+  }
+}
+
+static void
+c_CYW43_disable_ap_mode(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (!cyw43_arch_init_flag) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "CYW43 not initialized");
+    return;
+  }
+  if (cyw43_arch_ap_mode_enabled) {
+    CYW43_arch_disable_ap_mode();
+    cyw43_arch_ap_mode_enabled = false;
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -210,6 +251,8 @@ mrbc_cyw43_init(mrbc_vm *vm)
 #ifdef USE_WIFI
   mrbc_define_method(vm, class_CYW43, "enable_sta_mode", c_CYW43_enable_sta_mode);
   mrbc_define_method(vm, class_CYW43, "disable_sta_mode", c_CYW43_disable_sta_mode);
+  mrbc_define_method(vm, class_CYW43, "enable_ap_mode", c_CYW43_enable_ap_mode);
+  mrbc_define_method(vm, class_CYW43, "disable_ap_mode", c_CYW43_disable_ap_mode);
   mrbc_define_method(vm, class_CYW43, "connect_timeout", c_CYW43_connect_timeout);
   mrbc_define_method(vm, class_CYW43, "disconnect", c_CYW43_disconnect);
   mrbc_define_method(vm, class_CYW43, "tcpip_link_status", c_CYW43_tcpip_link_status);
