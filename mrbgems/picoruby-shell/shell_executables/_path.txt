@@ -13,6 +13,7 @@
 /bin/install
 /bin/irb
 /bin/ls
+/bin/looper
 /bin/machine-id
 /bin/mkdir
 /bin/mv

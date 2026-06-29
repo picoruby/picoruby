@@ -1,0 +1,135 @@
+module MIDIBASE
+  class Looper
+    PPQN: Integer
+    DEFAULT_TEMPO: Integer
+    DEFAULT_MAX_EVENTS: Integer
+    DEFAULT_VOICE_CAPACITY: Integer
+    LIVE_SOURCE: Symbol
+    CLICK_SOURCE: Symbol
+    QUANTIZE_GRIDS: Hash[Symbol, Integer?]
+    METRONOME_MODES: Array[Symbol]
+    TIME_SIGNATURES: Array[Array[Integer]]
+
+    @output: untyped
+    @time_source: untyped
+    @voice_capacity: Integer
+    @max_events_per_track: Integer
+    @live_source: Symbol
+    @click_source: Symbol
+    @track_sources: Array[Symbol]
+    @tracks: Array[Track]
+    @live_notes: Array[Array[untyped]]
+    @click_notes: Array[Array[Integer]]
+    @queue: Task::Queue
+    @task: Task?
+    @shutdown: bool
+    @state: Symbol
+    @anchor_us: Integer?
+    @anchor_tick: Integer
+    @next_click_tick: Integer?
+    @recorder: Recorder?
+    @record_voice_limit: Integer?
+    @record_start_tick: Integer?
+    @record_end_tick: Integer?
+    @last_error: String?
+    @tempo: Integer
+    @time_signature: Array[Integer]
+    @bars: Integer
+    @count_in_bars: Integer
+    @quantize: Symbol
+    @grid_ticks: Integer?
+    @metronome: Symbol
+
+    attr_reader state: Symbol
+    attr_reader tracks: Array[Track]
+    attr_reader live_source: Symbol
+    attr_reader click_source: Symbol
+    attr_reader track_sources: Array[Symbol]
+
+    def initialize: (
+      output: untyped,
+      ?tempo: Integer,
+      ?time_signature: Array[Integer],
+      ?bars: Integer,
+      ?count_in_bars: Integer,
+      ?quantize: Symbol,
+      ?metronome: Symbol,
+      ?voice_capacity: Integer,
+      ?max_events_per_track: Integer,
+      ?time_source: untyped
+    ) -> void
+    def start: () -> self
+    def run: () -> void
+    def stop: () -> self
+    def join: () -> self
+    def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
+    def play: () -> untyped
+    def transport_stop: () -> untyped
+    def record: (?voices: Integer) -> untyped
+    def mute: (Integer index) -> untyped
+    def unmute: (Integer index) -> untyped
+    def delete: (Integer index) -> untyped
+    def undo: () -> untyped
+    def clear: () -> untyped
+    def tempo=: (Integer value) -> untyped
+    def time_signature=: (Array[Integer] value) -> untyped
+    def bars=: (Integer value) -> untyped
+    def count_in_bars=: (Integer value) -> untyped
+    def quantize=: (Symbol value) -> untyped
+    def metronome=: (Symbol value) -> untyped
+    def status: () -> Hash[Symbol, untyped]
+    def advance: (Integer now_us) -> self
+
+    private def submit: (Symbol command, *untyped args) -> untyped
+    private def drain_queue: () -> void
+    private def process_command: (Symbol command, Array[untyped] args, Integer now_us) -> untyped
+    private def command_play: (Integer now_us) -> self
+    private def command_transport_stop: (Integer now_us) -> self
+    private def command_record: (Integer voices, Integer now_us) -> self
+    private def command_mute: (Integer index, Integer now_us) -> self
+    private def command_delete: (Integer index, Integer now_us) -> self
+    private def command_undo: (Integer now_us) -> self
+    private def command_clear: (Integer now_us) -> self
+    private def command_tempo: (Integer value, Integer now_us) -> Integer
+    private def process_midi: (MIDIBASE::event_t event, Integer timestamp_us) -> MIDIBASE::event_t
+    private def process_live_note_on: (MIDIBASE::event_t event, Integer timestamp_us) -> untyped
+    private def process_live_note_off: (MIDIBASE::event_t event, Integer timestamp_us) -> MIDIBASE::event_t
+    private def begin_recording: (Integer start_tick) -> self
+    private def finish_recording: (Integer now_us) -> Integer
+    private def process_track_events: (Integer current_tick) -> void
+    private def earliest_track_tick: () -> Integer?
+    private def dispatch_track_phase: (Integer due_tick, Symbol command) -> void
+    private def process_clicks: (Integer current_tick) -> void
+    private def configure_click: (Integer current_tick) -> void
+    private def click_active?: () -> bool
+    private def click_interval: () -> Integer
+    private def flush_click_note_offs: (Integer now_us) -> void
+    private def start_transport: (Integer now_us) -> void
+    private def tick_at_time: (Integer timestamp_us) -> Integer
+    private def time_at_tick: (Integer tick) -> Integer
+    private def emit: (untyped source, MIDIBASE::event_t event, Integer timestamp_us) -> untyped
+    private def monitoring_voice_limit: () -> Integer
+    private def continuous_click?: () -> bool
+    private def available_recording_voices: () -> Integer
+    private def limit_live_notes: (Integer limit, Integer timestamp_us) -> void
+    private def live_note_index: (Integer channel, Integer note) -> Integer?
+    private def silence_live: (Integer timestamp_us) -> void
+    private def silence_track: (Track track, Integer timestamp_us) -> void
+    private def silence_all: (Integer timestamp_us) -> void
+    private def reset_tracks: () -> void
+    private def next_track_source: () -> Symbol
+    private def track_at: (Integer index) -> Track
+    private def status_snapshot: (Integer now_us) -> Hash[Symbol, untyped]
+    private def set_tempo: (Integer value) -> Integer
+    private def set_time_signature: (Array[Integer] value) -> Array[Integer]
+    private def set_bars: (Integer value) -> Integer
+    private def set_count_in_bars: (Integer value) -> Integer
+    private def set_quantize: (Symbol value) -> Integer?
+    private def set_metronome: (Symbol value) -> Symbol
+    private def ticks_per_bar: () -> Integer
+    private def loop_ticks: () -> Integer
+    private def used_track_voices: () -> Integer
+    private def ensure_configuration_change_allowed: () -> void
+    private def now_us: () -> Integer
+  end
+end

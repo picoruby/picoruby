@@ -1,0 +1,16 @@
+module MIDIBASE
+  class Looper
+    class InputPump
+      @input: untyped
+      @output: untyped
+      @source: untyped
+      @stopped: bool
+      @task: Task?
+      def initialize: (untyped input, output: untyped, source: untyped) -> void
+      def start: () -> self
+      def run: () -> void
+      def stop: () -> self
+      def join: () -> self
+    end
+  end
+end
