@@ -1,83 +1,48 @@
+require "picooptparse"
+
 class LooperCLIOptions
   attr_reader :audio, :midi_out, :click_out, :midi_thru
   attr_reader :uart_unit, :rx, :tx, :baud
   attr_reader :left, :right, :ldac, :cs, :sck, :copi
 
-  def initialize
-    @audio = :mcp4922
-    @midi_out = :off
-    @click_out = :audio
-    @midi_thru = true
-    @uart_unit = :RP2040_UART1
-    @rx = 5
-    @tx = 4
-    @baud = 31_250
-    @left = 10
-    @right = 11
-    @ldac = 12
-    @cs = 13
-    @sck = 14
-    @copi = 15
+  def self.build_parser
+    parser = PicoOptionParser.new
+    parser.flag("--help", "-h", help: true, desc: "show this help")
+    parser.flag("--no-midi-thru", default: true, desc: "send recorded tracks only")
+    parser.on("--midi-in", type: :string, choices: ["uart"], default: nil, desc: "MIDI input (uart only)")
+    parser.on("--audio", type: :symbol, choices: [:mcp4922, :pwm, :off], default: :mcp4922, desc: "audio backend")
+    parser.on("--midi-out", type: :symbol, choices: [:off, :uart], default: :off, desc: "MIDI output")
+    parser.on("--click-out", type: :symbol, choices: [:audio, :midi, :both], default: :audio, desc: "metronome routing")
+    parser.on("--uart-unit", type: :symbol, default: :RP2040_UART1, desc: "UART unit")
+    parser.on("--rx", type: :integer, default: 5, desc: "UART RX pin")
+    parser.on("--tx", type: :integer, default: 4, desc: "UART TX pin")
+    parser.on("--baud", type: :integer, default: 31_250, desc: "UART baud")
+    parser.on("--left", type: :integer, default: 10, desc: "PWM left pin")
+    parser.on("--right", type: :integer, default: 11, desc: "PWM right pin")
+    parser.on("--ldac", type: :integer, default: 12, desc: "MCP4922 LDAC pin")
+    parser.on("--cs", type: :integer, default: 13, desc: "MCP4922 CS pin")
+    parser.on("--sck", type: :integer, default: 14, desc: "MCP4922 SCK pin")
+    parser.on("--copi", type: :integer, default: 15, desc: "MCP4922 COPI pin")
+    parser
   end
 
   def parse(args)
-    i = 0
-    args_size = args.size
-    while i < args_size
-      arg = args[i]
-      case arg
-      when "--help", "-h"
-        return :help
-      when "--no-midi-thru"
-        @midi_thru = false
-      when "--midi-in"
-        value = option_value(args, i, arg)
-        raise ArgumentError, "--midi-in supports only uart" unless value == "uart"
-        i += 1
-      when "--audio"
-        @audio = parse_choice(option_value(args, i, arg), arg, [:mcp4922, :pwm, :off])
-        i += 1
-      when "--midi-out"
-        @midi_out = parse_choice(option_value(args, i, arg), arg, [:off, :uart])
-        i += 1
-      when "--click-out"
-        @click_out = parse_choice(option_value(args, i, arg), arg, [:audio, :midi, :both])
-        i += 1
-      when "--uart-unit"
-        @uart_unit = option_value(args, i, arg).to_sym
-        i += 1
-      when "--rx"
-        @rx = integer_value(args, i, arg)
-        i += 1
-      when "--tx"
-        @tx = integer_value(args, i, arg)
-        i += 1
-      when "--baud"
-        @baud = integer_value(args, i, arg)
-        i += 1
-      when "--left"
-        @left = integer_value(args, i, arg)
-        i += 1
-      when "--right"
-        @right = integer_value(args, i, arg)
-        i += 1
-      when "--ldac"
-        @ldac = integer_value(args, i, arg)
-        i += 1
-      when "--cs"
-        @cs = integer_value(args, i, arg)
-        i += 1
-      when "--sck"
-        @sck = integer_value(args, i, arg)
-        i += 1
-      when "--copi"
-        @copi = integer_value(args, i, arg)
-        i += 1
-      else
-        raise ArgumentError, "unknown option: #{arg}"
-      end
-      i += 1
-    end
+    result = self.class.build_parser.parse(args)
+    return :help if result == :help
+    @audio = result[:audio]
+    @midi_out = result[:midi_out]
+    @click_out = result[:click_out]
+    @midi_thru = result[:midi_thru]
+    @uart_unit = result[:uart_unit]
+    @rx = result[:rx]
+    @tx = result[:tx]
+    @baud = result[:baud]
+    @left = result[:left]
+    @right = result[:right]
+    @ldac = result[:ldac]
+    @cs = result[:cs]
+    @sck = result[:sck]
+    @copi = result[:copi]
     normalize
     self
   end
@@ -96,31 +61,5 @@ class LooperCLIOptions
       @click_out = :midi
     end
     self
-  end
-
-  private def option_value(args, index, option)
-    value = args[index + 1]
-    raise ArgumentError, "#{option} requires a value" if value.nil?
-    value
-  end
-
-  private def integer_value(args, index, option)
-    value = option_value(args, index, option)
-    number = value.to_i
-    if number.to_s != value && value != "0"
-      raise ArgumentError, "#{option} requires an Integer"
-    end
-    number
-  end
-
-  private def parse_choice(value, option, choices)
-    selected = value.tr("-", "_").to_sym
-    i = 0
-    choices_size = choices.size
-    while i < choices_size
-      return selected if choices[i] == selected
-      i += 1
-    end
-    raise ArgumentError, "invalid #{option}: #{value}"
   end
 end

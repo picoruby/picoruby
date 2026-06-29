@@ -1,0 +1,51 @@
+class PicoOptionParser
+  type opt_type = :string | :integer | :symbol | :boolean
+
+  HELP: Symbol
+
+  class Option
+    @key: Symbol
+    @names: Array[String]
+    @type: PicoOptionParser::opt_type
+    @choices: Array[untyped]?
+    @default: untyped
+    @desc: String?
+    @help: bool
+    @negate: bool
+
+    attr_reader key: Symbol
+    attr_reader names: Array[String]
+    attr_reader type: PicoOptionParser::opt_type
+    attr_reader choices: Array[untyped]?
+    attr_reader default: untyped
+    attr_reader desc: String?
+    attr_reader help: bool
+    attr_reader negate: bool
+
+    def initialize: (Symbol key, Array[String] names, PicoOptionParser::opt_type type, Array[untyped]? choices, untyped default, String? desc, bool help, bool negate) -> void
+  end
+
+  class Result
+    @values: Hash[Symbol, untyped]
+
+    def initialize: (Hash[Symbol, untyped] values) -> void
+    def []: (Symbol key) -> untyped
+    def fetch: (Symbol key) -> untyped
+    def to_h: () -> Hash[Symbol, untyped]
+  end
+
+  @options: Array[Option]
+  @by_name: Hash[String, Option]
+
+  def initialize: () -> void
+  def on: (*String names, ?type: opt_type, ?choices: Array[untyped]?, ?default: untyped, ?desc: String?, ?key: Symbol?) -> void
+  def flag: (*String names, ?default: untyped, ?desc: String?, ?help: bool, ?key: Symbol?) -> void
+  def parse: (Array[String] args) -> (Result | Symbol)
+  def usage: (String program) -> String
+  private def register: (Array[String] names, opt_type type, Array[untyped]? choices, untyped default, String? desc, bool help, Symbol? key) -> void
+  private def normalize_key: (String name) -> Symbol
+  private def coerce: (Option opt, String name, String value) -> untyped
+  private def validate_choice: (Option opt, String name, String raw, untyped coerced) -> untyped
+  private def format_option: (Option opt) -> String
+  private def metavar: (Option opt) -> String
+end
