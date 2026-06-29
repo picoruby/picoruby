@@ -36,8 +36,59 @@ class PicoLine
     end
   end
 
-  def initialize
+  def initialize(editor: nil)
     @answer = ""
+    @editor = editor
+    @reading = false
+    @messages = [] #: Array[String]
+    # Editor::Line must render notifications in its own task to serialize
+    # cursor-position queries with terminal input.
+    @idle_handler = -> { flush_messages }
+  end
+
+  # Reads one command line while allowing other PicoRuby tasks to run.
+  # Editor::Line owns terminal echo, cursor movement, history, and deletion.
+  def readline(prompt)
+    editor = line_editor
+    editor.prompt = prompt
+    editor.clear_buffer
+    editor.idle_handler = @idle_handler
+    answer = nil #: String?
+    @reading = true
+    # Editor::Line requires a callback to return control characters.
+    editor.start do |current_editor, buffer, c|
+      if c == 4 # Ctrl-D
+        if buffer.empty?
+          puts
+          break
+        else
+          puts
+          answer = buffer.dump.chomp
+          current_editor.save_history
+          break
+        end
+      elsif c == 10 || c == 13
+        puts
+        current_answer = buffer.dump.chomp
+        answer = current_answer
+        current_editor.save_history unless current_answer.empty?
+        break
+      end
+    end
+    answer
+  ensure
+    @reading = false
+    @editor&.idle_handler = nil
+  end
+
+  # Prints asynchronous output without corrupting an active input line.
+  def say(message)
+    if @reading
+      @messages << message
+    else
+      puts message
+    end
+    self
   end
 
   def ask(prompt, allow_empty: false)
@@ -47,8 +98,10 @@ class PicoLine
       prompt += " [#{q.default}]"
     end
     prompt += " "
-    editor = Editor::Line.new
+    editor = line_editor
     editor.prompt = prompt
+    editor.idle_handler = @idle_handler
+    @reading = true
     while true
       editor.clear_buffer
       answer = nil
@@ -63,6 +116,24 @@ class PicoLine
       break if !answer.to_s.empty? || allow_empty
     end
     return(@answer = answer or raise)
+  ensure
+    @reading = false
+    @editor&.idle_handler = nil
+  end
+
+  private def flush_messages
+    messages = @messages
+    return if messages.empty?
+    editor = @editor
+    return unless editor
+    editor.feed_at_bottom
+    while 0 < messages.size
+      puts messages.shift
+    end
+    editor.refresh
+  end
+
+  private def line_editor
+    @editor ||= Editor::Line.new
   end
 end
-
