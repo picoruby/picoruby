@@ -1,3 +1,5 @@
+require "picoline"
+
 class LooperConsole
   QUANTIZE = {
     "off" => :off,
@@ -18,7 +20,7 @@ class LooperConsole
     @options = options
     @record_watch_task = nil
     @console_stopped = false
-    @skip_lf = false
+    @line = PicoLine.new
   end
 
   def self.usage
@@ -37,8 +39,7 @@ class LooperConsole
     puts "Type `help` for commands."
     print_io_configuration
     while !session.stopped?
-      print "looper> "
-      line = read_console_line(session)
+      line = @line.readline("looper")
       if line.nil?
         session.stop
         break
@@ -52,47 +53,6 @@ class LooperConsole
   ensure
     @console_stopped = true
     @record_watch_task&.terminate
-  end
-
-  private def read_console_line(session)
-    line = ""
-    while !session.stopped?
-      char = read_console_char
-      if char == "\x03"
-        session.stop
-        return nil
-      end
-      if char.nil?
-        # Native `gets` blocks every other PicoRuby task on R2P2. Polling the
-        # console keeps the looper clock, UART input, and PSG synth runnable.
-        sleep_ms 1
-        next
-      end
-      if @skip_lf
-        @skip_lf = false
-        next if char == "\n"
-      end
-      if char == "\r"
-        @skip_lf = true
-        return line
-      elsif char == "\n"
-        @skip_lf = false
-        return line
-      end
-      return nil if char == "\x04" && line.empty?
-      if char == "\x08" || char == "\x7f"
-        line = line[0...-1] || "" unless line.empty?
-      else
-        line << char
-      end
-    end
-    nil
-  end
-
-  private def read_console_char
-    STDIN.read_nonblock(1)
-  rescue Interrupt
-    "\x03"
   end
 
   private def execute(line, session)
@@ -186,9 +146,7 @@ class LooperConsole
       if current != state
         state = current
         if recording_pending?(state)
-          print "\n"
-          report_recording_state(state, @looper.status)
-          print "looper> "
+          report_recording_state(state, @looper.status, asynchronous: true)
         end
       end
     end
@@ -196,17 +154,15 @@ class LooperConsole
 
     status = @looper.status
     tracks = status[:tracks]
-    print "\n"
     if before_tracks < tracks.size
       track = tracks[-1]
-      puts "Track #{tracks.size} recorded: voices=#{track[:voices]}, events=#{track[:events]}."
-      puts "Playback continues automatically."
+      @line.say("Track #{tracks.size} recorded: voices=#{track[:voices]}, events=#{track[:events]}.")
+      @line.say("Playback continues automatically.")
     elsif status[:last_error]
-      puts "Recording failed: #{status[:last_error]}"
+      @line.say("Recording failed: #{status[:last_error]}")
     else
-      puts "Recording stopped without creating a track."
+      @line.say("Recording stopped without creating a track.")
     end
-    print "looper> "
   rescue RuntimeError
     nil
   end
@@ -215,14 +171,25 @@ class LooperConsole
     state == :armed || state == :count_in || state == :recording
   end
 
-  private def report_recording_state(state, status)
+  private def report_recording_state(state, status, asynchronous: false)
+    messages = [] #: Array[String]
     if state == :armed
-      puts "Armed. Recording starts at the next loop boundary."
+      messages << "Armed. Recording starts at the next loop boundary."
     elsif state == :count_in
-      puts "Count-in: #{status[:count_in_bars]} bar(s) via #{click_destination}."
-      puts "Start playing after the count-in."
+      messages << "Count-in: #{status[:count_in_bars]} bar(s) via #{click_destination}."
+      messages << "Start playing after the count-in."
     elsif state == :recording
-      puts "Recording #{status[:bars]} bar(s) at #{status[:tempo]} BPM..."
+      messages << "Recording #{status[:bars]} bar(s) at #{status[:tempo]} BPM..."
+    end
+    i = 0
+    messages_size = messages.size
+    while i < messages_size
+      if asynchronous
+        @line.say(messages[i])
+      else
+        puts messages[i]
+      end
+      i += 1
     end
   end
 

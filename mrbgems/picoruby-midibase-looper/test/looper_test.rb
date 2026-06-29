@@ -149,8 +149,48 @@ class MIDIBASELooperTest < Picotest::Test
     looper.record(voices: 2)
     looper.advance(0)
     assert_equal 1, events_for(looper.click_source, :note_on).size
-    looper.advance(10_000)
+    looper.advance(MIDIBASE::Looper::CLICK_DURATION_US)
     assert_equal 1, events_for(looper.click_source, :note_off).size
+  end
+
+  def test_first_take_click_continues_until_recording_finishes
+    looper = build_looper(count_in_bars: 1, metronome: :count_in)
+    looper.record(voices: 2)
+
+    looper.advance(0)
+    looper.advance(500_000)
+    looper.advance(1_000_000)
+    looper.advance(1_500_000)
+    @time.now = 2_000_000
+    looper.advance(@time.now)
+    assert_equal :recording, looper.state
+    count_at_recording_start = events_for(looper.click_source, :note_on).size
+    assert_equal 5, count_at_recording_start
+
+    @time.now = 2_500_000
+    looper.advance(@time.now)
+    assert_equal count_at_recording_start + 1, events_for(looper.click_source, :note_on).size
+
+    @time.now = 3_000_000
+    looper.advance(@time.now)
+    @time.now = 3_500_000
+    looper.advance(@time.now)
+    count_before_finish = events_for(looper.click_source, :note_on).size
+    assert_equal count_at_recording_start + 3, count_before_finish
+
+    @time.now = 4_000_000
+    looper.advance(@time.now)
+    assert_equal :playing, looper.state
+    assert_equal count_before_finish, events_for(looper.click_source, :note_on).size
+  end
+
+  def test_first_take_without_count_in_still_reserves_click_voice
+    looper = build_looper(count_in_bars: 0, metronome: :count_in)
+    assert_raise(ArgumentError) { looper.record(voices: 3) }
+    looper.record(voices: 2)
+    looper.advance(0)
+    click = events_for(looper.click_source, :note_on)[0]
+    assert_equal MIDIBASE::Looper::CLICK_VELOCITY, click[1][3]
   end
 
   def test_latest_note_priority_is_recorded

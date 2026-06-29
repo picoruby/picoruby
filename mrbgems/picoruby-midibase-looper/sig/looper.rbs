@@ -4,6 +4,8 @@ module MIDIBASE
     DEFAULT_TEMPO: Integer
     DEFAULT_MAX_EVENTS: Integer
     DEFAULT_VOICE_CAPACITY: Integer
+    CLICK_DURATION_US: Integer
+    CLICK_VELOCITY: Integer
     LIVE_SOURCE: Symbol
     CLICK_SOURCE: Symbol
     QUANTIZE_GRIDS: Hash[Symbol, Integer?]
