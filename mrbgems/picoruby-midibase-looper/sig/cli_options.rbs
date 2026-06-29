@@ -27,10 +27,7 @@ class LooperCLIOptions
   attr_reader cs: Integer
   attr_reader sck: Integer
   attr_reader copi: Integer
-  def initialize: () -> void
+  def self.build_parser: () -> PicoOptionParser
   def parse: (Array[String] args) -> (self | Symbol)
   private def normalize: () -> self
-  private def option_value: (Array[String] args, Integer index, String option) -> String
-  private def integer_value: (Array[String] args, Integer index, String option) -> Integer
-  private def parse_choice: (String value, String option, Array[Symbol] choices) -> Symbol
 end
