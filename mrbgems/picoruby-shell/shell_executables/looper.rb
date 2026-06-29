@@ -33,7 +33,20 @@ begin
           copi: options.copi
         )
       end
-      synth = PSG::Synth.new(driver).start
+      voice_pools = nil #: Hash[Symbol, Array[Integer]]?
+      if options.click_out == :audio || options.click_out == :both
+        shared_voices = [0, 1, 2]
+        voice_pools = {} #: Hash[Symbol, Array[Integer]]
+        voice_pools[looper.live_source] = shared_voices
+        i = 0
+        track_sources = looper.track_sources
+        while i < track_sources.size
+          voice_pools[track_sources[i]] = shared_voices
+          i += 1
+        end
+        voice_pools[looper.click_source] = [2]
+      end
+      synth = PSG::Synth.new(driver, voice_pools: voice_pools).start
       controller = PSG::MIDIController.new(synth, logger: STDOUT)
       router.connect(looper.live_source, controller, priority: 0, only: MIDIBASE::CHANNEL_EVENTS)
       i = 0
@@ -43,7 +56,13 @@ begin
         i += 1
       end
       if options.click_out == :audio || options.click_out == :both
-        router.connect(looper.click_source, synth, priority: 200, only: MIDIBASE::CHANNEL_EVENTS)
+        click_priority = PSG::Synth::DRUM_PRIORITY + 1
+        router.connect(
+          looper.click_source,
+          synth,
+          priority: click_priority,
+          only: MIDIBASE::CHANNEL_EVENTS
+        )
       end
     end
 

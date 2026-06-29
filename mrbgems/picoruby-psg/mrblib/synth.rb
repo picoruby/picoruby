@@ -113,6 +113,13 @@ module PSG
       )
       return if voice.nil?
       stolen = allocator.last_stolen
+      if stolen && stolen[1] == PSG::DRUM_CHANNEL
+        @driver.sound_stop
+        if @drum_voice == voice
+          @drum_voice = nil
+          @drum_until_us = 0
+        end
+      end
       if stolen || old_voice
         write_driver(:mute, voice, 1, 0)
         if stolen
@@ -503,19 +510,34 @@ module PSG
       next_voice = 0
       while key_index < key_count
         source = keys[key_index]
-        count = config[source]
-        unless count.is_a?(Integer) && 0 < count
-          raise ArgumentError, "voice pool size must be a positive Integer"
-        end
-        if voice_count < next_voice + count
-          raise ArgumentError, "voice pool sizes exceed available PSG voices"
-        end
+        value = config[source]
         ids = [] #: Array[Integer]
-        i = 0
-        while i < count
-          ids << next_voice
-          next_voice += 1
-          i += 1
+        if value.is_a?(Integer)
+          unless 0 < value
+            raise ArgumentError, "voice pool size must be a positive Integer"
+          end
+          if voice_count < next_voice + value
+            raise ArgumentError, "voice pool sizes exceed available PSG voices"
+          end
+          i = 0
+          while i < value
+            ids << next_voice
+            next_voice += 1
+            i += 1
+          end
+        elsif value.is_a?(Array) && 0 < value.size
+          i = 0
+          value_size = value.size
+          while i < value_size
+            id = value[i]
+            unless id.is_a?(Integer) && 0 <= id && id < voice_count && !ids.include?(id)
+              raise ArgumentError, "voice pool IDs must be unique Integers in the available voice range"
+            end
+            ids << id
+            i += 1
+          end
+        else
+          raise ArgumentError, "voice pool must be a positive Integer or a non-empty Array"
         end
         pools[source] = ids
         key_index += 1

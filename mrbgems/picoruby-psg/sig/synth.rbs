@@ -18,7 +18,7 @@ module PSG
     @task: Task?
 
     attr_reader allocator: MIDIBASE::VoiceAllocator
-    def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: Hash[untyped, Integer]?) -> void
+    def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: Hash[untyped, Integer | Array[Integer]]?) -> void
     def start: () -> self
     def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
     def stop: () -> self
@@ -51,7 +51,7 @@ module PSG
     private def write_period: (Integer voice, Integer note, Array[untyped] state) -> void
     private def owned_by?: (Array[untyped]? entry, untyped source, Integer channel) -> bool
     private def note_key: (untyped source, Integer channel, Integer note) -> Array[untyped]
-    private def build_voice_pools: (Hash[untyped, Integer]? config, Integer voice_count) -> Hash[untyped, Array[Integer]]?
+    private def build_voice_pools: (Hash[untyped, Integer | Array[Integer]]? config, Integer voice_count) -> Hash[untyped, Array[Integer]]?
     private def voice_ids_for: (untyped source) -> Array[Integer]?
     private def voice_allowed?: (Integer voice, Array[Integer]? voice_ids) -> bool
     private def silence_all: () -> void
