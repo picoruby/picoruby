@@ -198,7 +198,7 @@ envelope shape resets the envelope progress of every voice currently using it.
 While envelope volume is enabled, channel level and expression cannot scale
 its amplitude; moving CC7 returns that channel to fixed volume.
 
-MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger, reserves a physical PSG voice for the sound duration, and asks the C driver to expand one event into PSG sound steps.
+MIDI channel 10 is represented as `PSG::DRUM_CHANNEL` (`9`, because channels are zero-based internally). `PSG::Synth` treats `note_on` on that channel as a drum pad trigger and runs its voice program on a normally allocated physical PSG voice. A matching `note_off` stops the program immediately.
 If all voices are active, the oldest voice is stolen.
 The default note mapping accepts common General MIDI drum notes listed below and other notes are ignored:
 - `:kick => 35`/`36`
@@ -209,33 +209,33 @@ The default note mapping accepts common General MIDI drum notes listed below and
 - `:mid_tom => 45`/`47`
 - `:high_tom => 48`/`50`
 
-Named sounds are global to the PSG module and can be added or replaced at runtime:
+Named voice programs are global to the PSG module and can be added or replaced at runtime:
 
 ```ruby
-sound = PSG.set_sound_data(:snare, [
+PSG.define_voice_program(:snare, [
   [220, 3, 15, 35],
   [260, 3, 13, 45],
   [0, 4, 9, 60]
 ])
 
-driver.sound(:snare)
-driver.sound(sound)
+synth.trigger_program(:snare)
+synth.stop_program(:snare)
 ```
 
-Each sound step is `[tone_period, noise_period, volume, duration_ms]`. Tone output is enabled when `tone_period` is greater than zero, and noise output is enabled when `noise_period` is greater than zero. `duration_ms` specifies how long the step plays. A final mute step is added automatically. `PSG.sound_data(:snare)` returns the same format, without the internal mute step.
+Each program step is `[tone_period, noise_period, volume, duration_ms]`. Tone output is enabled when `tone_period` is greater than zero, and noise output is enabled when `noise_period` is greater than zero. `duration_ms` specifies how long the step plays. The Synth mutes and releases the voice after the last step.
 
 Custom effects use the same API:
 
 ```ruby
-PSG.set_sound_data(:get_coin, [[180, 0, 15, 40]])
-driver.sound(:get_coin)
+PSG.define_voice_program(:get_coin, [[180, 0, 15, 40]])
+synth.trigger_program(:get_coin, source: :game)
 ```
 
-MIDI drum notes can be assigned to any registered sound. Passing `nil` removes an assignment:
+MIDI drum notes can be assigned to any registered voice program. Passing `nil` removes an assignment:
 
 ```ruby
-PSG.assign_drum_sound(60, :get_coin)
-PSG.assign_drum_sound(60, nil)
+PSG.assign_drum_program(60, :get_coin)
+PSG.assign_drum_program(60, nil)
 ```
 
 MML parsing and sequencing live in the separate `picoruby-midibase-mml` gem. A single Router can combine autonomous or MIDI-clocked MML with live input:
@@ -271,7 +271,7 @@ MIDIBASE::Session.new(player, synth, driver).run do
 end
 ```
 
-`picoruby-midibase-mml` can trigger the registered drum sounds by name. These tokens emit MIDI channel 10 events and therefore use the current `assign_drum_sound` mappings:
+`picoruby-midibase-mml` can trigger the registered drum programs by name. These tokens emit MIDI channel 10 events and therefore use the current `assign_drum_program` mappings:
 
 ```ruby
 tracks = ["t120 l8 !kick !snare !ch !snare"]

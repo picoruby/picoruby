@@ -2,6 +2,7 @@ module PSG
   class Synth
     DEFAULT_PITCH_BEND_RANGE: Integer
     DRUM_PRIORITY: Integer
+    PROGRAM_CHANNEL: Integer
     WAIT_RETRY_MS: Integer
 
     @driver: Driver
@@ -10,10 +11,10 @@ module PSG
     @velocities: Array[Integer]
     @states: Hash[Array[untyped], Array[untyped]]
     @sustained: Hash[Array[untyped], bool]
-    @drum_voice: Integer?
-    @drum_until_us: Integer
+    @program_cursors: Array[Array[untyped]?]
     @queue: Task::Queue
     @mixer: Integer
+    @noise_period: Integer
     @stopped: bool
     @task: Task?
 
@@ -21,6 +22,8 @@ module PSG
     def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: Hash[untyped, Integer | Array[Integer]]?) -> void
     def start: () -> self
     def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
+    def trigger_program: (Symbol name, ?velocity: Integer, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?) -> bool
+    def stop_program: (Symbol name, ?source: untyped, ?timestamp_us: Integer?) -> bool
     def stop: () -> self
     def join: () -> self
     def run: () -> void
@@ -35,9 +38,14 @@ module PSG
     private def state_for: (untyped source, Integer channel) -> Array[untyped]
     private def sustain_change: (untyped source, Integer channel, Array[untyped] state, bool enabled) -> void
     private def all_notes_off: (untyped source, Integer channel, bool immediate) -> void
-    private def prepare_drum_voice: (untyped source, Integer note, Integer? timestamp_us) -> Integer?
-    private def release_expired_drum_voice: (Integer? timestamp_us) -> void
-    private def event_time_us: (Integer? timestamp_us) -> Integer
+    private def start_voice_program: (untyped source, Integer channel, Integer note, voice_program_t program, Integer velocity, Integer priority) -> void
+    private def stop_voice_program: (untyped source, Integer channel, Integer note) -> void
+    private def process_due_programs: (Integer now_us) -> void
+    private def process_due_program_voice: (Integer voice, Integer now_us) -> void
+    private def next_program_timeout_ms: (Integer now_us) -> Integer?
+    private def finish_voice_program: (Integer voice) -> void
+    private def cancel_program_cursor: (Integer voice) -> void
+    private def current_time_us: () -> Integer
     private def release_voice: (Integer voice, untyped source, Integer channel, Integer note) -> void
     private def update_periods: (untyped source, Integer channel, Array[untyped] state) -> void
     private def update_volumes: (untyped source, Integer channel, Array[untyped] state) -> void
@@ -46,15 +54,18 @@ module PSG
     private def update_lfo: (untyped source, Integer channel, Array[untyped] state) -> void
     private def update_mixer: (untyped source, Integer channel, Array[untyped] state) -> void
     private def apply_mixer: (Integer voice, Integer mode) -> void
+    private def mixer_flags: (Integer mode) -> Integer
+    private def update_mixer_bits: (Integer voice, Integer flags) -> Integer
     private def voice_volume: (Integer voice, Array[untyped] state) -> Integer
     private def midi_pan: (Array[untyped] state) -> Integer
     private def write_period: (Integer voice, Integer note, Array[untyped] state) -> void
+    private def period_for: (Integer note, Array[untyped] state) -> Integer
+    private def write_voice: (Integer voice, Integer tone_period, Integer noise_period, Integer volume, Integer flags) -> bool
     private def owned_by?: (Array[untyped]? entry, untyped source, Integer channel) -> bool
     private def note_key: (untyped source, Integer channel, Integer note) -> Array[untyped]
     private def build_voice_pools: (Hash[untyped, Integer | Array[Integer]]? config, Integer voice_count) -> Hash[untyped, Array[Integer]]?
     private def voice_ids_for: (untyped source) -> Array[Integer]?
-    private def voice_allowed?: (Integer voice, Array[Integer]? voice_ids) -> bool
     private def silence_all: () -> void
-    private def write_driver: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> bool
+    private def write_driver: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4, ?Integer arg5) -> bool
   end
 end

@@ -30,12 +30,14 @@ class Task
   class Queue
     def self.new: () -> Task::Queue
     def __push: (untyped obj) -> void
-    def __pop_try: (?bool non_block) -> untyped
+    def __pop_try: (?bool non_block, ?Integer? timeout_ms) -> untyped
     def __retry?: (untyped obj) -> bool
+    def __deadline: (Integer timeout_ms) -> Integer
+    def __timeout?: (Object v) -> bool # Only in mruby/c
     def push: (untyped obj) -> self
     alias enq push
     alias << push
-    def pop: (?bool non_block) -> untyped
+    def pop: (?bool non_block, ?timeout_ms: Integer?) -> untyped
     alias deq pop
     alias shift pop
     def size: () -> Integer

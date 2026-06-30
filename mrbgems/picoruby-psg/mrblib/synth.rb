@@ -4,6 +4,7 @@ module PSG
   class Synth
     DEFAULT_PITCH_BEND_RANGE = 2
     DRUM_PRIORITY = 1_000_000
+    PROGRAM_CHANNEL = 16
     WAIT_RETRY_MS = 1
 
     attr_reader :allocator
@@ -18,10 +19,10 @@ module PSG
       @velocities = Array.new(voice_count, 0)
       @states = {}
       @sustained = {}
-      @drum_voice = nil
-      @drum_until_us = 0
+      @program_cursors = Array.new(voice_count)
       @queue = Task::Queue.new
       @mixer = 0b111000
+      @noise_period = 0
       @stopped = false
       @task = nil
     end
@@ -41,6 +42,15 @@ module PSG
       true
     rescue Task::Error
       false
+    end
+
+    def trigger_program(name, velocity: 127, source: nil, priority: DRUM_PRIORITY, timestamp_us: nil)
+      PSG.voice_program(name)
+      handle([:voice_program, name, velocity], source: source, priority: priority, timestamp_us: timestamp_us)
+    end
+
+    def stop_program(name, source: nil, timestamp_us: nil)
+      handle([:voice_program_off, name], source: source, timestamp_us: timestamp_us)
     end
 
     def stop
@@ -63,8 +73,13 @@ module PSG
     def run
       queue = @queue
       while !@stopped
-        envelope = queue.pop
-        break if envelope.nil?
+        now_us = current_time_us
+        process_due_programs(now_us)
+        envelope = queue.pop(timeout_ms: next_program_timeout_ms(now_us))
+        if envelope.nil?
+          break if queue.closed?
+          next
+        end
         process(envelope[0], envelope[1], envelope[2], envelope[3])
       end
     ensure
@@ -72,8 +87,14 @@ module PSG
     end
 
     private def process(event, source, priority, timestamp_us)
-      release_expired_drum_voice(timestamp_us)
       command = event[0]
+      if command == :voice_program
+        start_voice_program(source, PROGRAM_CHANNEL, event[1].object_id, PSG.voice_program(event[1]), event[2], priority)
+        return
+      elsif command == :voice_program_off
+        stop_voice_program(source, PROGRAM_CHANNEL, event[1].object_id)
+        return
+      end
       channel = event[1]
       case command
       when :note_on
@@ -91,13 +112,14 @@ module PSG
       when :psg_global
         psg_global_event(event)
       end
+      process_due_programs(current_time_us)
     end
 
-    private def note_on(source, channel, note, velocity, priority, timestamp_us)
+    private def note_on(source, channel, note, velocity, priority, _timestamp_us)
       if channel == PSG::DRUM_CHANNEL
         return if velocity <= 0
-        voice = prepare_drum_voice(source, note, timestamp_us)
-        write_driver(:sound, note, velocity, voice) unless voice.nil?
+        program = PSG.drum_program(note)
+        start_voice_program(source, channel, note, program, velocity, DRUM_PRIORITY) if program
         return
       end
       allocator = @allocator
@@ -113,15 +135,9 @@ module PSG
       )
       return if voice.nil?
       stolen = allocator.last_stolen
-      if stolen && stolen[1] == PSG::DRUM_CHANNEL
-        @driver.sound_stop
-        if @drum_voice == voice
-          @drum_voice = nil
-          @drum_until_us = 0
-        end
-      end
       if stolen || old_voice
         write_driver(:mute, voice, 1, 0)
+        cancel_program_cursor(voice)
         if stolen
           @sustained.delete(note_key(stolen[0], stolen[1], stolen[2]))
         end
@@ -134,18 +150,18 @@ module PSG
       lfo_depth = state[10]
       lfo_rate = state[11]
       mixer = state[12]
-      write_period(voice, note, state)
       write_driver(:set_timbre, voice, timbre, 0)
       write_driver(:set_pan, voice, midi_pan(state), 0)
       write_driver(:set_legato, voice, legato, 0)
       write_driver(:set_lfo, voice, lfo_depth, lfo_rate, 0)
-      apply_mixer(voice, mixer)
-      write_driver(:send_reg, voice + 8, voice_volume(voice, state), 0)
-      write_driver(:mute, voice, 0, 0)
+      write_voice(voice, period_for(note, state), @noise_period, voice_volume(voice, state), mixer_flags(mixer))
     end
 
     private def note_off(source, channel, note)
-      return if channel == PSG::DRUM_CHANNEL
+      if channel == PSG::DRUM_CHANNEL
+        stop_voice_program(source, channel, note)
+        return
+      end
       allocator = @allocator
       voice = allocator.voice_for(channel, note, source: source)
       return if voice.nil?
@@ -242,7 +258,8 @@ module PSG
         state[12] = event[3]
         update_mixer(source, channel, state)
       when :noise
-        write_driver(:send_reg, 6, event[3], 0)
+        @noise_period = event[3]
+        write_driver(:send_reg, 6, @noise_period, 0)
       end
     end
 
@@ -255,7 +272,8 @@ module PSG
       when :env_shape
         write_driver(:send_reg, 13, event[2], 0)
       when :noise_period
-        write_driver(:send_reg, 6, event[2], 0)
+        @noise_period = event[2]
+        write_driver(:send_reg, 6, @noise_period, 0)
       end
     end
 
@@ -307,69 +325,122 @@ module PSG
       end
     end
 
-    private def prepare_drum_voice(source, note, timestamp_us)
-      duration = PSG.sound_duration(note)
-      return nil if duration <= 0
+    private def start_voice_program(source, channel, note, program, velocity, priority)
+      return if program.nil? || velocity <= 0
+      velocity = 127 if 127 < velocity
 
       allocator = @allocator
       voice_ids = voice_ids_for(source)
-      return nil if @voice_pools && voice_ids.nil?
-      voice = nil
-      drum_voice = @drum_voice
-      if drum_voice
-        entry = allocator.entry(drum_voice)
-        if entry && entry[1] == PSG::DRUM_CHANNEL && voice_allowed?(drum_voice, voice_ids)
-          voice = allocator.reserve(drum_voice, PSG::DRUM_CHANNEL, note, source: source, priority: DRUM_PRIORITY)
-        else
-          if entry && entry[1] == PSG::DRUM_CHANNEL
-            allocator.release(entry[1], entry[2], source: entry[0])
-            write_driver(:mute, drum_voice, 1, 0)
-          end
-          @drum_voice = nil
-          @drum_until_us = 0
-        end
-      end
-      if voice.nil?
-        voice = allocator.allocate(
-          PSG::DRUM_CHANNEL,
-          note,
-          source: source,
-          priority: DRUM_PRIORITY,
-          voice_ids: voice_ids
-        )
-      end
-      return nil if voice.nil?
-
-      entry = allocator.last_stolen
-      @drum_voice = voice
-      @velocities[voice] = 0
-      @sustained.delete(note_key(entry[0], entry[1], entry[2])) if entry && entry[1] != PSG::DRUM_CHANNEL
-      @drum_until_us = event_time_us(timestamp_us) + duration * 1000
-      write_driver(:mute, voice, 1, 0)
-      voice
-    end
-
-    private def release_expired_drum_voice(timestamp_us)
-      drum_until_us = @drum_until_us
-      return if drum_until_us <= 0
-      return if event_time_us(timestamp_us) < drum_until_us
-
-      voice = @drum_voice
+      return if @voice_pools && voice_ids.nil?
+      old_voice = allocator.voice_for(channel, note, source: source)
+      voice = allocator.allocate(
+        channel,
+        note,
+        source: source,
+        priority: priority,
+        voice_ids: voice_ids
+      )
       return if voice.nil?
-      entry = @allocator.entry(voice)
-      @allocator.release(entry[1], entry[2], source: entry[0]) if entry && entry[1] == PSG::DRUM_CHANNEL
-      @drum_voice = nil
-      @drum_until_us = 0
+
+      stolen = allocator.last_stolen
+      if stolen || old_voice
+        write_driver(:mute, voice, 1, 0)
+        cancel_program_cursor(voice)
+        @sustained.delete(note_key(stolen[0], stolen[1], stolen[2])) if stolen
+      end
+      @velocities[voice] = velocity
+      write_driver(:set_timbre, voice, 0, 0)
+      write_driver(:set_pan, voice, 8, 0)
+      write_driver(:set_legato, voice, 0, 0)
+      write_driver(:set_lfo, voice, 0, 0, 0)
+      now_us = current_time_us
+      @program_cursors[voice] = [program, 0, now_us, velocity, source, channel, note]
+      process_due_program_voice(voice, now_us)
     end
 
-    private def event_time_us(timestamp_us)
-      return timestamp_us unless timestamp_us.nil?
+    private def stop_voice_program(source, channel, note)
+      voice = @allocator.voice_for(channel, note, source: source)
+      return if voice.nil? || @program_cursors[voice].nil?
+      finish_voice_program(voice)
+    end
+
+    private def process_due_programs(now_us)
+      i = 0
+      cursors = @program_cursors
+      cursor_count = cursors.size
+      while i < cursor_count
+        process_due_program_voice(i, now_us) if cursors[i]
+        i += 1
+      end
+    end
+
+    private def process_due_program_voice(voice, now_us)
+      cursors = @program_cursors
+      cursor = cursors[voice]
+      while cursor && cursor[2] <= now_us
+        program = cursor[0]
+        index = cursor[1]
+        if program.size <= index
+          finish_voice_program(voice)
+          return
+        end
+        step = program[index]
+        volume = (step[2] * cursor[3] + 63) / 127
+        flags = 0
+        if 0 < volume
+          flags |= 1 if 0 < step[0]
+          flags |= 2 if 0 < step[1]
+        end
+        write_voice(voice, step[0], step[1], volume, flags)
+        cursor[1] = index + 1
+        cursor[2] += step[3] * 1000
+        cursor = cursors[voice]
+      end
+    end
+
+    private def next_program_timeout_ms(now_us)
+      next_due_us = nil
+      cursors = @program_cursors
+      cursor_count = cursors.size
+      i = 0
+      while i < cursor_count
+        cursor = cursors[i]
+        if cursor && (next_due_us.nil? || cursor[2] < next_due_us)
+          next_due_us = cursor[2]
+        end
+        i += 1
+      end
+      return nil if next_due_us.nil?
+      # @type var next_due_us: Integer
+      remaining_us = next_due_us - now_us
+      return 0 if remaining_us <= 0
+      (remaining_us + 999) / 1000
+    end
+
+    private def finish_voice_program(voice)
+      cursor = @program_cursors[voice]
+      return if cursor.nil?
+      write_voice(voice, 0, 0, 0, 0)
+      entry = @allocator.entry(voice)
+      if entry && entry[0] == cursor[4] && entry[1] == cursor[5] && entry[2] == cursor[6]
+        @allocator.release(entry[1], entry[2], source: entry[0])
+      end
+      @velocities[voice] = 0
+      @program_cursors[voice] = nil
+    end
+
+    private def cancel_program_cursor(voice)
+      @program_cursors[voice] = nil
+    end
+
+    private def current_time_us
       return Machine.uptime_us if defined?(Machine)
-      0
+      Task.tick * 1000
     end
 
     private def release_voice(voice, source, channel, note)
       write_driver(:mute, voice, 1, 0)
+      cancel_program_cursor(voice)
       allocator = @allocator
       allocator.release(channel, note, source: source)
       @velocities[voice] = 0
@@ -448,20 +519,35 @@ module PSG
     end
 
     private def apply_mixer(voice, mode)
-      mixer = @mixer
+      mixer = update_mixer_bits(voice, mixer_flags(mode))
+      write_driver(:send_reg, 7, mixer, 0)
+    end
+
+    private def mixer_flags(mode)
       case mode
-      when 0
-        mixer |= 1 << (voice + 3)
-        mixer &= ~(1 << voice)
       when 1
-        mixer &= ~(1 << (voice + 3))
-        mixer |= 1 << voice
+        2
       when 2
+        3
+      else
+        1
+      end
+    end
+
+    private def update_mixer_bits(voice, flags)
+      mixer = @mixer
+      if flags & 1 == 0
+        mixer |= 1 << voice
+      else
         mixer &= ~(1 << voice)
+      end
+      if flags & 2 == 0
+        mixer |= 1 << (voice + 3)
+      else
         mixer &= ~(1 << (voice + 3))
       end
       @mixer = mixer
-      write_driver(:send_reg, 7, mixer, 0)
+      mixer
     end
 
     private def voice_volume(voice, state)
@@ -484,11 +570,20 @@ module PSG
     end
 
     private def write_period(voice, note, state)
-      bend_range = state[7]
-      semitones = (state[3] - 8192) * bend_range.to_f / 8192.0
-      period = PSG.note_to_period(note + semitones)
+      period = period_for(note, state)
       write_driver(:send_reg, voice * 2, period & 0xFF, 0)
       write_driver(:send_reg, voice * 2 + 1, period >> 8 & 0x0F, 0)
+    end
+
+    private def period_for(note, state)
+      bend_range = state[7]
+      semitones = (state[3] - 8192) * bend_range.to_f / 8192.0
+      PSG.note_to_period(note + semitones)
+    end
+
+    private def write_voice(voice, tone_period, noise_period, volume, flags)
+      update_mixer_bits(voice, flags)
+      write_driver(:voice_write, voice, tone_period, noise_period, volume, flags)
     end
 
     private def owned_by?(entry, source, channel)
@@ -550,35 +645,24 @@ module PSG
       pools ? pools[source] : nil
     end
 
-    private def voice_allowed?(voice, voice_ids)
-      return true if voice_ids.nil?
-      i = 0
-      voice_ids_size = voice_ids.size
-      while i < voice_ids_size
-        return true if voice_ids[i] == voice
-        i += 1
-      end
-      false
-    end
-
     private def silence_all
       allocator = @allocator
       driver = @driver
       velocities = @velocities
+      cursors = @program_cursors
       allocator.release_all
-      @drum_voice = nil
-      @drum_until_us = 0
       i = 0
       voice_count = allocator.voice_count
       while i < voice_count
         driver.mute_direct(i, 1)
         velocities[i] = 0
+        cursors[i] = nil
         i += 1
       end
       driver.buffer_flush
     end
 
-    private def write_driver(command, arg1, arg2, arg3, arg4 = 0)
+    private def write_driver(command, arg1, arg2, arg3, arg4 = 0, arg5 = 0)
       driver = @driver
       while !@stopped
         pushed = case command
@@ -594,8 +678,8 @@ module PSG
                    driver.set_legato(arg1, arg2, arg3)
                  when :set_lfo
                    driver.set_lfo(arg1, arg2, arg3, arg4)
-                 when :sound
-                   driver.sound(arg1, arg2, arg3)
+                 when :voice_write
+                   driver.voice_write(arg1, arg2, arg3, arg4, arg5)
                  else
                    raise ArgumentError, "unknown PSG command: #{command}"
                  end

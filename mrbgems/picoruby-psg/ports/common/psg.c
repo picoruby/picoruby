@@ -32,14 +32,6 @@ psg_ringbuf_t rb = {
   .buf = NULL,  // will be allocated later
 };
 
-static psg_packet_t sound_packet_buffer[PSG_SOUND_QUEUE_LEN];
-
-static psg_ringbuf_t sound_rb = {
-  .head = 0,
-  .tail = 0,
-  .buf = NULL,
-};
-
 static inline uint32_t
 calc_inc(uint16_t period)
 {
@@ -195,25 +187,19 @@ PSG_process_packet(const psg_packet_t *pkt)
       PSG_exit_critical(t);
       break;
     }
-    case PSG_PKT_SOUND_STEP: {
-      uint8_t volume = pkt->val & 0x0F;
-      uint8_t tr = (pkt->val >> 4) & 0x03;
-      uint8_t mixer_flags = (pkt->val >> 6) & 0x03;
+    case PSG_PKT_VOICE_WRITE: {
+      uint8_t tr = pkt->reg & 0x03;
+      uint8_t volume = pkt->val & 0x1F;
+      uint8_t noise_period = pkt->arg & 0x1F;
+      uint8_t mixer_flags = (pkt->arg >> 6) & 0x03;
       if (2 < tr) break;
       psg_cs_token_t t = PSG_enter_critical();
-      if (pkt->reg != psg.sound_generation) {
-        PSG_exit_critical(t);
-        break;
-      }
       if (volume) {
         uint16_t tone_period = pkt->aux & 0x0FFF;
-        if (mixer_flags & 0x01) {
-          psg.r.tone_period[tr] = tone_period;
-          psg.timbre[tr] = PSG_TIMBRE_SQUARE;
-          update_tone_inc(tr);
-        }
+        psg.r.tone_period[tr] = tone_period;
+        update_tone_inc(tr);
         if (mixer_flags & 0x02) {
-          psg.r.noise_period = pkt->arg & 0x1F;
+          psg.r.noise_period = noise_period;
           psg.noise_shift = 0x1FFFF;
           psg.noise_cnt = 0;
         }
@@ -222,7 +208,7 @@ PSG_process_packet(const psg_packet_t *pkt)
         if (mixer_flags & 0x02) psg.r.mixer &= ~(1u << (tr + 3));
         else psg.r.mixer |= (1u << (tr + 3));
         psg.r.volume[tr] = volume;
-        psg.pan[tr] = 8;
+        if ((volume & 0x10) && !psg.legato[tr]) RESET_ENVELOPE(tr);
         psg.mute_mask &= ~(1u << tr);
       } else {
         psg.r.volume[tr] = 0;
@@ -274,117 +260,6 @@ PSG_rb_pop(void)  // consumes one slot
   PSG_COMPILER_BARRIER();
   PSG_exit_critical(t);
 }
-
-void
-PSG_sound_rb_init(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  sound_rb.head = 0;
-  sound_rb.tail = 0;
-  sound_rb.buf = sound_packet_buffer;
-  PSG_exit_critical(t);
-}
-
-void
-PSG_sound_rb_deinit(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  sound_rb.head = 0;
-  sound_rb.tail = 0;
-  sound_rb.buf = NULL;
-  PSG_exit_critical(t);
-}
-
-void
-PSG_sound_rb_flush(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  sound_rb.head = sound_rb.tail;
-  PSG_exit_critical(t);
-}
-
-bool
-PSG_sound_rb_empty(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  bool empty = !sound_rb.buf || sound_rb.head == sound_rb.tail;
-  PSG_exit_critical(t);
-  return empty;
-}
-
-uint16_t
-PSG_sound_rb_free_slots(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  if (!sound_rb.buf) {
-    PSG_exit_critical(t);
-    return 0;
-  }
-  uint16_t used = (sound_rb.head - sound_rb.tail) & PSG_SOUND_QUEUE_MASK;
-  uint16_t free_slots = (PSG_SOUND_QUEUE_LEN - 1) - used;
-  PSG_exit_critical(t);
-  return free_slots;
-}
-
-bool
-PSG_sound_rb_peek(psg_packet_t *out)
-{
-  if (!sound_rb.buf || sound_rb.tail == sound_rb.head) return false;
-  *out = sound_rb.buf[sound_rb.tail];
-  return true;
-}
-
-void
-PSG_sound_rb_pop(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  sound_rb.tail = (sound_rb.tail + 1) & PSG_SOUND_QUEUE_MASK;
-  PSG_COMPILER_BARRIER();
-  PSG_exit_critical(t);
-}
-
-bool
-PSG_sound_rb_push(const psg_packet_t *p)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  if (!sound_rb.buf) {
-    PSG_exit_critical(t);
-    return false;
-  }
-  uint16_t next = (sound_rb.head + 1) & PSG_SOUND_QUEUE_MASK;
-  if (next == sound_rb.tail) {
-    PSG_exit_critical(t);
-    return false;
-  }
-  sound_rb.buf[sound_rb.head] = *p;
-  PSG_COMPILER_BARRIER();
-  sound_rb.head = next;
-  PSG_exit_critical(t);
-  return true;
-}
-
-uint8_t
-PSG_next_sound_generation(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  psg.sound_generation++;
-  if (!psg.sound_generation) {
-    psg.sound_generation = 1;
-  }
-  uint8_t generation = psg.sound_generation;
-  PSG_exit_critical(t);
-  return generation;
-}
-
-bool
-PSG_sound_generation_matches(uint8_t generation)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  bool matches = generation == psg.sound_generation;
-  PSG_exit_critical(t);
-  return matches;
-}
-
 
 // volume table: 1.5 dB steps with 3.0 dB headroom for 12-bit range
 static const uint16_t vol_tab[16] = {
