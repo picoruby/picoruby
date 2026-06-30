@@ -69,10 +69,11 @@ Playback continues automatically.
 
 `record` remains asynchronous, so `stop` can cancel an armed or active recording. State changes and the resulting track are reported automatically. In the default `count-in` metronome mode, the click continues through the entire first-track recording and stops when loop playback begins.
 
-Recording is unquantized by default so captured Note On timing is preserved. Use
-`quantize 1/4`, `quantize 1/8`, `quantize 1/16`, or `quantize 1/8t` before
-recording when grid quantization is desired. Quantization moves Note On to the
-nearest grid and moves the paired Note Off by the same amount.
+Recording uses sixteenth-note quantization by default. Use `quantize off` before
+recording to preserve captured Note On timing, or select `quantize 1/4`,
+`quantize 1/8`, `quantize 1/16`, or `quantize 1/8t` for a different grid.
+Quantization moves Note On to the nearest grid and moves the paired Note Off by
+the same amount.
 
 For local PSG output, `/bin/looper` fixes the click to physical PSG voice 2 and protects it with a priority above channel-10 drums. Music may use all three voices while no click sounds. If the click reclaims voice 2 from a drum, the queued drum steps are cancelled before the click registers are written.
 
