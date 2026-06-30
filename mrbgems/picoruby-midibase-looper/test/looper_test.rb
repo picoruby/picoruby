@@ -19,6 +19,12 @@ class MIDIBASELooperOutput
   end
 end
 
+class MIDIBASELooperInput
+  def getevent
+    [:note_on, 0, 60, 100]
+  end
+end
+
 class MIDIBASELooperTest < Picotest::Test
   def setup
     @time = MIDIBASELooperFakeTime.new
@@ -66,6 +72,38 @@ class MIDIBASELooperTest < Picotest::Test
     assert_equal 20, buffer.tick_at(2)
   end
 
+  def test_event_buffer_capacity_clear_and_validation
+    buffer = MIDIBASE::Looper::EventBuffer.new(1)
+    assert_equal 0, buffer.append(65_535, :note_on, 15, 127, 127)
+    assert_nil buffer.append(0, :note_off, 0, 0, 0)
+    assert_equal 1, buffer.count
+    assert_equal 65_535, buffer.tick_at(0)
+    assert_equal [:note_on, 15, 127, 127], buffer.event_at(0)
+
+    buffer.clear
+    assert_equal 0, buffer.count
+    assert_raise(ArgumentError) { buffer.append(-1, :note_on, 0, 60, 100) }
+    assert_raise(ArgumentError) { buffer.append(0, :control_change, 0, 60, 100) }
+    assert_raise(ArgumentError) { buffer.append(0, :note_on, 16, 60, 100) }
+  end
+
+  def test_default_recording_quantizes_to_sixteenth_notes
+    looper = MIDIBASE::Looper.new(output: @output, time_source: @time)
+    assert_equal :sixteenth, looper.status[:quantize]
+  end
+
+  def test_input_pump_uses_high_priority_task
+    pump = MIDIBASE::Looper::InputPump.new(
+      MIDIBASELooperInput.new,
+      output: @output,
+      source: :midi_in
+    ).start
+    task = pump.instance_variable_get(:@task)
+    assert_equal MIDIBASE::Looper::InputPump::DEFAULT_PRIORITY, task.priority
+  ensure
+    pump&.stop
+  end
+
   def test_quantize_wraps_end_to_tick_zero
     recorder = MIDIBASE::Looper::Recorder.new(
       loop_ticks: 1920,
@@ -110,6 +148,24 @@ class MIDIBASELooperTest < Picotest::Test
     @time.now = 2_250_000
     looper.advance(@time.now)
     assert_equal 1, events_for(track_source, :note_off).size
+  end
+
+  def test_queued_events_after_recording_boundary_are_recorded
+    looper = build_looper(count_in_bars: 1)
+    looper.record(voices: 1)
+    looper.instance_variable_set(:@task, true)
+
+    looper.handle([:note_on, 0, 60, 100], timestamp_us: 2_050_000)
+    looper.handle([:note_off, 0, 60, 0], timestamp_us: 2_100_000)
+    looper.send(:drain_queue)
+
+    recorder = looper.instance_variable_get(:@recorder)
+    assert_equal :recording, looper.state
+    assert_equal 2, recorder.buffer.count
+    assert_equal 48, recorder.buffer.tick_at(0)
+    assert_equal 96, recorder.buffer.tick_at(1)
+  ensure
+    looper&.instance_variable_set(:@task, nil)
   end
 
   def test_track_priority_sources_are_distinct_from_live

@@ -600,7 +600,6 @@ module PSG
                    raise ArgumentError, "unknown PSG command: #{command}"
                  end
         return true if pushed
-        GC.start
         sleep_ms WAIT_RETRY_MS
       end
       false
