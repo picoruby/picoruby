@@ -36,7 +36,9 @@ module MIDIBASE
 
   @midi_parser: Parser?
   @midi_clock: Clock?
+  @last_event_timestamp_us: Integer?
   def initialize_midibase: (?time_signature: Array[Integer], ?max_sysex_bytes: Integer) -> self
+  attr_reader last_event_timestamp_us: Integer?
   def getevent: () -> event_t
   def putevent: (Symbol command, *(Integer | String) values) -> Integer
   def handle: (event_t event, **untyped context) -> Integer
@@ -49,5 +51,6 @@ module MIDIBASE
   def beat: () -> Integer
   def tick: () -> Integer
   private def midi_read_byte: () -> Integer?
+  private def midi_read_timestamp_us: () -> Integer
   private def midi_write_byte: (Integer byte) -> untyped
 end

@@ -134,8 +134,11 @@ module MIDIBASE
   def initialize_midibase(time_signature: [4, 4], max_sysex_bytes: DEFAULT_MAX_SYSEX_BYTES)
     @midi_parser = Parser.new(max_sysex_bytes: max_sysex_bytes)
     @midi_clock = Clock.new(time_signature: time_signature)
+    @last_event_timestamp_us = nil
     self
   end
+
+  attr_reader :last_event_timestamp_us
 
   def getevent
     parser = @midi_parser
@@ -147,9 +150,11 @@ module MIDIBASE
         sleep_ms 1
         next
       end
+      timestamp_us = midi_read_timestamp_us
       event = parser.feed(byte)
       next if event.nil?
-      clock.observe(event)
+      @last_event_timestamp_us = timestamp_us
+      clock.observe(event, timestamp_us)
       return event
     end
     raise "unreachable"
@@ -206,5 +211,9 @@ module MIDIBASE
 
   def tick
     position[2]
+  end
+
+  private def midi_read_timestamp_us
+    Machine.uptime_us
   end
 end

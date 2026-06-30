@@ -25,6 +25,25 @@ class MIDIBASELooperInput
   end
 end
 
+class MIDIBASELooperTimestampedInput
+  attr_reader :last_event_timestamp_us
+
+  def initialize
+    @last_event_timestamp_us = 123_456
+  end
+
+  def getevent
+    [:note_on, 0, 60, 100]
+  end
+end
+
+class MIDIBASELooperStoppingOutput < MIDIBASELooperOutput
+  def emit(source, event, timestamp_us: nil)
+    super(source, event, timestamp_us: timestamp_us)
+    raise "stop after first event"
+  end
+end
+
 class MIDIBASELooperTest < Picotest::Test
   def setup
     @time = MIDIBASELooperFakeTime.new
@@ -102,6 +121,17 @@ class MIDIBASELooperTest < Picotest::Test
     assert_equal MIDIBASE::Looper::InputPump::DEFAULT_PRIORITY, task.priority
   ensure
     pump&.stop
+  end
+
+  def test_input_pump_preserves_captured_input_timestamp
+    output = MIDIBASELooperStoppingOutput.new
+    pump = MIDIBASE::Looper::InputPump.new(
+      MIDIBASELooperTimestampedInput.new,
+      output: output,
+      source: :midi_in
+    )
+    assert_raise(RuntimeError) { pump.run }
+    assert_equal 123_456, output.events[0][2]
   end
 
   def test_quantize_wraps_end_to_tick_zero

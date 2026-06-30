@@ -28,7 +28,14 @@ typedef enum {
 
 typedef void (*PushBuffer)(RingBuffer *ring_buffer, uint8_t ch);
 
+size_t UART_rx_buffer_allocation_size(size_t capacity);
+bool UART_rx_buffer_init(RingBuffer *ring_buffer, size_t capacity);
 bool UART_pushBuffer(RingBuffer *ring_buffer, uint8_t ch);
+bool UART_pushBufferAt(RingBuffer *ring_buffer, uint8_t ch, uint32_t timestamp_us);
+bool UART_popBuffer(RingBuffer *ring_buffer, uint8_t *ch);
+bool UART_unshiftBuffer(RingBuffer *ring_buffer, uint8_t ch);
+bool UART_lastReadTimestamp(RingBuffer *ring_buffer, uint64_t *timestamp_us);
+uint32_t UART_rxOverflowCount(RingBuffer *ring_buffer);
 
 int UART_unit_name_to_unit_num(const char *unit_name);
 void UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer);
@@ -49,4 +56,3 @@ void UART_clear_tx_buffer(int unit_num);
 #endif
 
 #endif /* UART_DEFINED_H_ */
-

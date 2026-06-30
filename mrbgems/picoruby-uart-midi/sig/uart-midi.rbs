@@ -15,6 +15,7 @@ class UART
     ) -> void
 
     private def midi_read_byte: () -> Integer?
+    private def midi_read_timestamp_us: () -> Integer
     private def midi_write_byte: (Integer byte) -> (Integer | String)
   end
 end
