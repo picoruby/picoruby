@@ -233,6 +233,9 @@ module MIDIBASE
       while !queue.empty?
         message = queue.pop(true)
         if message[0] == :midi
+          # The engine task may wake after a recording boundary. Move transport
+          # to the captured input time before deciding whether to record it.
+          advance(message[2])
           process_midi(message[1], message[2])
         else
           reply = message[3]

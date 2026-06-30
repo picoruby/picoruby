@@ -109,7 +109,6 @@ module PSG
           raise "Unknown command: #{command}"
         end
         return if pushed
-        GC.start
         if $DEBUG
           puts "Buffer full, retrying command: #{command} with args: #{arg1}, #{arg2}, #{arg3}, #{arg4}"
           p PicoRubyVM.memory_statistics

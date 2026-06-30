@@ -1,12 +1,16 @@
 module MIDIBASE
   class Looper
     class InputPump
+      DEFAULT_PRIORITY: Integer
+
       @input: untyped
       @output: untyped
       @source: untyped
       @stopped: bool
       @task: Task?
-      def initialize: (untyped input, output: untyped, source: untyped) -> void
+      @priority: Integer
+
+      def initialize: (untyped input, output: untyped, source: untyped, ?priority: Integer) -> void
       def start: () -> self
       def run: () -> void
       def stop: () -> self

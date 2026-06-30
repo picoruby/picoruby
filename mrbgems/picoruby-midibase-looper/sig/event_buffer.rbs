@@ -2,9 +2,6 @@ module MIDIBASE
   class Looper
     class EventBuffer
       RECORD_SIZE: Integer
-      @data: String
-      @count: Integer
-      @max_events: Integer
       attr_reader count: Integer
       attr_reader max_events: Integer
       def initialize: (Integer max_events) -> void
@@ -14,10 +11,6 @@ module MIDIBASE
       def event_at: (Integer index) -> MIDIBASE::event_t
       def sort!: () -> self
       def clear: () -> self
-      private def checked_offset: (Integer index) -> Integer
-      private def compare: (Integer left, Integer right) -> Integer
-      private def swap: (Integer left, Integer right) -> void
-      private def validate_event: (Integer tick, Symbol command, Integer channel, Integer note, Integer velocity) -> void
     end
   end
 end

@@ -1,23 +1,29 @@
 module MIDIBASE
   class Looper
     class InputPump
-      def initialize(input, output:, source:)
+      DEFAULT_PRIORITY = 64
+
+      def initialize(input, output:, source:, priority: DEFAULT_PRIORITY)
         unless input.respond_to?(:getevent)
           raise ArgumentError, "input must respond to getevent"
         end
         unless output.respond_to?(:emit)
           raise ArgumentError, "output must respond to emit"
         end
+        unless priority.is_a?(Integer) && 0 <= priority && priority <= 255
+          raise ArgumentError, "priority must be in 0..255"
+        end
         @input = input
         @output = output
         @source = source
+        @priority = priority
         @stopped = false
         @task = nil
       end
 
       def start
         pump = self
-        @task = Task.new(name: "MIDIBASE::Looper::InputPump") { pump.run }
+        @task = Task.new(name: "MIDIBASE::Looper::InputPump", priority: @priority) { pump.run }
         self
       end
 
