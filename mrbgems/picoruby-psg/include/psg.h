@@ -50,6 +50,15 @@ typedef struct __attribute__((packed, aligned(4))) {
 #define PSG_PACKET_QUEUE_LEN  (1u << PSG_PACKET_QUEUE_BITS)
 #define PSG_PACKET_QUEUE_MASK (PSG_PACKET_QUEUE_LEN - 1)
 
+/* Sound envelopes use a separate queue so their delayed steps do not block
+ * live register writes in the main packet queue. */
+#ifndef PSG_SOUND_QUEUE_BITS
+#define PSG_SOUND_QUEUE_BITS 5 // 2^5 = 32 packets
+#endif
+
+#define PSG_SOUND_QUEUE_LEN  (1u << PSG_SOUND_QUEUE_BITS)
+#define PSG_SOUND_QUEUE_MASK (PSG_SOUND_QUEUE_LEN - 1)
+
 /* ----- ring buffer descriptor ---------------------------------------- */
 typedef struct {
   volatile uint16_t head;  // writer cursor (next free)
@@ -162,6 +171,20 @@ void PSG_render_block(uint32_t *dst, uint32_t samples);
 bool PSG_rb_peek(psg_packet_t *out);
 void PSG_rb_pop(void);
 bool PSG_rb_push(const psg_packet_t *p);
+
+// Delayed sound-step ring buffer
+void PSG_sound_rb_init(void);
+void PSG_sound_rb_deinit(void);
+void PSG_sound_rb_flush(void);
+bool PSG_sound_rb_empty(void);
+uint16_t PSG_sound_rb_free_slots(void);
+bool PSG_sound_rb_peek(psg_packet_t *out);
+void PSG_sound_rb_pop(void);
+bool PSG_sound_rb_push(const psg_packet_t *p);
+
+// Sound generation
+uint8_t PSG_next_sound_generation(void);
+bool PSG_sound_generation_matches(uint8_t generation);
 
 // Cross core critical section
 typedef uint32_t psg_cs_token_t;

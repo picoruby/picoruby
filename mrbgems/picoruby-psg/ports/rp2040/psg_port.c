@@ -49,6 +49,7 @@ PSG_exit_critical(psg_cs_token_t token)
 // Tick timer
 
 static volatile uint32_t g_tick_ms = 0;
+static volatile uint32_t g_sound_tick_ms = 0;
 static repeating_timer_t tick_timer;
 
 static inline void
@@ -64,12 +65,34 @@ psg_process_packets(void)
   g_tick_ms = 0;
 }
 
+static inline void
+psg_process_sound_packets(void)
+{
+  psg_packet_t pkt;
+  while (PSG_sound_rb_peek(&pkt)) {
+    /* A replacement sound or sound_stop invalidates the remaining envelope.
+     * Discard it without waiting for its relative delay. */
+    if (!PSG_sound_generation_matches(pkt.reg)) {
+      PSG_sound_rb_pop();
+      g_sound_tick_ms = 0;
+      continue;
+    }
+    if (0 < (int32_t)(pkt.tick - g_sound_tick_ms)) return;
+    g_sound_tick_ms -= pkt.tick;
+    PSG_sound_rb_pop();
+    PSG_process_packet(&pkt);
+  }
+  g_sound_tick_ms = 0;
+}
+
 static bool
 tick_cb(repeating_timer_t *t)
 {
   (void)t;
   g_tick_ms++;
+  g_sound_tick_ms++;
   psg_process_packets();
+  psg_process_sound_packets();
   PSG_tick_1ms();   /* update internal LFO etc. */
 //  if (psg_drv == &psg_drv_usbaudio) {
 //    audio_task();
@@ -236,6 +259,8 @@ void
 PSG_tick_start_core1(uint8_t p1, uint8_t p2)
 {
   debug_audio_pin_init();
+  g_tick_ms = 0;
+  g_sound_tick_ms = 0;
 
   if (psg_drv && psg_drv->write_buffer) {
     rd_idx = 0;
