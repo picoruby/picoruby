@@ -395,39 +395,12 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
-static uint16_t
-psg_rb_free_slots(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  if (!rb.buf) {
-    PSG_exit_critical(t);
-    return 0;
-  }
-  uint16_t used = (rb.head - rb.tail) & PSG_PACKET_QUEUE_MASK;
-  uint16_t free_slots = (PSG_PACKET_QUEUE_LEN - 1) - used;
-  PSG_exit_critical(t);
-  return free_slots;
-}
-
-static uint8_t
-psg_next_sound_generation(void)
-{
-  psg_cs_token_t t = PSG_enter_critical();
-  psg.sound_generation++;
-  if (!psg.sound_generation) {
-    psg.sound_generation = 1;
-  }
-  uint8_t generation = psg.sound_generation;
-  PSG_exit_critical(t);
-  return generation;
-}
-
 static mrb_value
 mrb_driver_sound_stop(mrb_state *mrb, mrb_value self)
 {
   (void)mrb;
   (void)self;
-  psg_next_sound_generation();
+  PSG_next_sound_generation();
   return mrb_nil_value();
 }
 
@@ -453,11 +426,11 @@ mrb_driver_sound(mrb_state *mrb, mrb_value self)
   }
 
   uint16_t required_slots = data->len;
-  if (psg_rb_free_slots() < required_slots) {
+  if (PSG_sound_rb_free_slots() < required_slots) {
     return mrb_false_value();
   }
 
-  uint8_t generation = psg_next_sound_generation();
+  uint8_t generation = PSG_next_sound_generation();
 
   int i = 0;
   uint32_t prev_delay = 0;
@@ -473,7 +446,7 @@ mrb_driver_sound(mrb_state *mrb, mrb_value self)
       .arg  = data->steps[i].noise_period,
       .aux  = data->steps[i].tone_period,
     };
-    if (!PSG_rb_push(&step)) {
+    if (!PSG_sound_rb_push(&step)) {
       return mrb_false_value();
     }
     prev_delay = delay;
@@ -493,6 +466,7 @@ reset_psg(mrb_state *mrb)
   rb.buf = mrb_malloc(mrb, sizeof(psg_packet_t) * PSG_PACKET_QUEUE_LEN);
   rb.head = 0;
   rb.tail = 0;
+  PSG_sound_rb_init();
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
   psg.noise_shift = 0x1FFFF;
@@ -537,7 +511,7 @@ mrb_driver_s_select_mcp4922(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_driver_buffer_empty_p(mrb_state *mrb, mrb_value self)
 {
-  if (rb.head == rb.tail) {
+  if (rb.head == rb.tail && PSG_sound_rb_empty()) {
     return mrb_true_value();
   } else {
     return mrb_false_value();
@@ -550,6 +524,7 @@ mrb_driver_buffer_flush(mrb_state *mrb, mrb_value self)
   psg_cs_token_t t = PSG_enter_critical();
   rb.head = rb.tail;
   PSG_exit_critical(t);
+  PSG_sound_rb_flush();
   return mrb_nil_value();
 }
 
@@ -561,6 +536,7 @@ mrb_driver_deinit(mrb_state *mrb, mrb_value self)
     mrb_free(mrb, rb.buf);
     rb.buf = NULL;
   }
+  PSG_sound_rb_deinit();
   return mrb_nil_value();
 }
 

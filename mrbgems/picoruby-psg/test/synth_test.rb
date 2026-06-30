@@ -365,6 +365,18 @@ class PSGSynthTest < Picotest::Test
     assert @driver.calls.include?([:sound_stop])
   end
 
+  def test_drum_does_not_steal_active_click_voice
+    use_synth({looper_live: [0, 1, 2], looper_click: [2]})
+    click_priority = PSG::Synth::DRUM_PRIORITY + 1
+    process([:note_on, 15, 84, 127], :looper_click, click_priority)
+    process([:note_on, PSG::DRUM_CHANNEL, 38, 100], :looper_live, 0)
+
+    assert_equal 2, @synth.allocator.voice_for(15, 84, source: :looper_click)
+    assert_equal 0, @synth.allocator.voice_for(PSG::DRUM_CHANNEL, 38, source: :looper_live)
+    assert @driver.calls.include?([:sound, 38, 100, 0])
+    assert !@driver.calls.include?([:sound_stop])
+  end
+
   def test_midi_channel_10_uses_custom_sound_assignment
     PSG.set_sound_data(:fire, [[120, 0, 15, 25]])
     PSG.assign_drum_sound(60, :fire)

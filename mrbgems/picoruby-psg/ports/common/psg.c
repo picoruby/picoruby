@@ -32,6 +32,14 @@ psg_ringbuf_t rb = {
   .buf = NULL,  // will be allocated later
 };
 
+static psg_packet_t sound_packet_buffer[PSG_SOUND_QUEUE_LEN];
+
+static psg_ringbuf_t sound_rb = {
+  .head = 0,
+  .tail = 0,
+  .buf = NULL,
+};
+
 static inline uint32_t
 calc_inc(uint16_t period)
 {
@@ -265,6 +273,116 @@ PSG_rb_pop(void)  // consumes one slot
   rb.tail = (rb.tail + 1) & PSG_PACKET_QUEUE_MASK;
   PSG_COMPILER_BARRIER();
   PSG_exit_critical(t);
+}
+
+void
+PSG_sound_rb_init(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  sound_rb.head = 0;
+  sound_rb.tail = 0;
+  sound_rb.buf = sound_packet_buffer;
+  PSG_exit_critical(t);
+}
+
+void
+PSG_sound_rb_deinit(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  sound_rb.head = 0;
+  sound_rb.tail = 0;
+  sound_rb.buf = NULL;
+  PSG_exit_critical(t);
+}
+
+void
+PSG_sound_rb_flush(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  sound_rb.head = sound_rb.tail;
+  PSG_exit_critical(t);
+}
+
+bool
+PSG_sound_rb_empty(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  bool empty = !sound_rb.buf || sound_rb.head == sound_rb.tail;
+  PSG_exit_critical(t);
+  return empty;
+}
+
+uint16_t
+PSG_sound_rb_free_slots(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  if (!sound_rb.buf) {
+    PSG_exit_critical(t);
+    return 0;
+  }
+  uint16_t used = (sound_rb.head - sound_rb.tail) & PSG_SOUND_QUEUE_MASK;
+  uint16_t free_slots = (PSG_SOUND_QUEUE_LEN - 1) - used;
+  PSG_exit_critical(t);
+  return free_slots;
+}
+
+bool
+PSG_sound_rb_peek(psg_packet_t *out)
+{
+  if (!sound_rb.buf || sound_rb.tail == sound_rb.head) return false;
+  *out = sound_rb.buf[sound_rb.tail];
+  return true;
+}
+
+void
+PSG_sound_rb_pop(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  sound_rb.tail = (sound_rb.tail + 1) & PSG_SOUND_QUEUE_MASK;
+  PSG_COMPILER_BARRIER();
+  PSG_exit_critical(t);
+}
+
+bool
+PSG_sound_rb_push(const psg_packet_t *p)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  if (!sound_rb.buf) {
+    PSG_exit_critical(t);
+    return false;
+  }
+  uint16_t next = (sound_rb.head + 1) & PSG_SOUND_QUEUE_MASK;
+  if (next == sound_rb.tail) {
+    PSG_exit_critical(t);
+    return false;
+  }
+  sound_rb.buf[sound_rb.head] = *p;
+  PSG_COMPILER_BARRIER();
+  sound_rb.head = next;
+  PSG_exit_critical(t);
+  return true;
+}
+
+uint8_t
+PSG_next_sound_generation(void)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  psg.sound_generation++;
+  if (!psg.sound_generation) {
+    psg.sound_generation = 1;
+  }
+  uint8_t generation = psg.sound_generation;
+  PSG_exit_critical(t);
+  return generation;
+}
+
+bool
+PSG_sound_generation_matches(uint8_t generation)
+{
+  psg_cs_token_t t = PSG_enter_critical();
+  bool matches = generation == psg.sound_generation;
+  PSG_exit_critical(t);
+  return matches;
 }
 
 
