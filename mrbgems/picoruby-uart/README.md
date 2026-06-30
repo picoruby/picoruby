@@ -24,8 +24,12 @@ line = uart.gets      # Read until line ending
 
 # Check available bytes
 if uart.bytes_available > 0
-  data = uart.read
+  byte = uart.getbyte
+  received_at_us = uart.last_read_timestamp_us
 end
+
+# Detect bytes dropped because the RX ring buffer was full
+dropped_bytes = uart.rx_overflow_count
 
 # Clear buffers
 uart.clear_rx_buffer
@@ -50,6 +54,8 @@ uart.clear_tx_buffer
 - `putc(ch)` - Write the low 8 bits of an Integer or the first character of a String
 - `puts(string)` - Write string with line ending
 - `getbyte()` - Read 1 byte from RX
+- `last_read_timestamp_us()` - Return the receive timestamp in microseconds for the byte most recently returned by `getbyte`, or `nil` before the first byte
+- `rx_overflow_count()` - Return the cumulative number of bytes dropped because the RX ring buffer was full
 - `read(length = nil)` - Read data from RX
 - `gets()` - Read line (until line ending)
 - `readpartial(maxlen)` - Read available data up to maxlen

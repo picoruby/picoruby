@@ -130,6 +130,37 @@ class MIDIBASETest < Picotest::Test
     assert_equal [0x80, 60, 20], transport.written
   end
 
+  def test_getevent_uses_timestamp_of_completing_byte
+    skip "dynamic transport test requires Class" if femtoruby?
+    transport_class = Class.new do
+      include ::MIDIBASE
+
+      def initialize(bytes, timestamps)
+        @bytes = bytes
+        @timestamps = timestamps
+        @current_timestamp = nil
+        initialize_midibase
+      end
+
+      private def midi_read_byte
+        byte = @bytes.shift
+        @current_timestamp = @timestamps.shift unless byte.nil?
+        byte
+      end
+
+      private def midi_read_timestamp_us
+        @current_timestamp
+      end
+
+      private def midi_write_byte(byte)
+        byte
+      end
+    end
+    transport = transport_class.new([0x90, 60, 100], [1_000, 1_320, 1_640])
+    assert_equal [:note_on, 0, 60, 100], transport.getevent
+    assert_equal 1_640, transport.last_event_timestamp_us
+  end
+
   def test_clock_bpm_and_transport_position
     clock = MIDIBASE::Clock.new
     clock.observe([:start], 0)

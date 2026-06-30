@@ -34,6 +34,10 @@ class UART
       @uart.getbyte
     end
 
+    private def midi_read_timestamp_us
+      @uart.last_read_timestamp_us || Machine.uptime_us
+    end
+
     private def midi_write_byte(byte)
       @uart.putc(byte)
     end

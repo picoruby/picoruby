@@ -14,6 +14,7 @@ class UARTMIDITest < Picotest::Test
     uart.ungetbyte(60)
     uart.ungetbyte(0x90)
     assert_equal [:note_on, 0, 60, 100], @midi.getevent
+    assert @midi.last_event_timestamp_us.is_a?(Integer)
   end
 
   def test_handle_writes_event_bytes_for_router_sink

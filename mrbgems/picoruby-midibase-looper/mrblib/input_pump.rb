@@ -17,6 +17,7 @@ module MIDIBASE
         @output = output
         @source = source
         @priority = priority
+        @timestamped_input = input.respond_to?(:last_event_timestamp_us)
         @stopped = false
         @task = nil
       end
@@ -31,9 +32,12 @@ module MIDIBASE
         input = @input
         output = @output
         source = @source
+        timestamped_input = @timestamped_input
         while !@stopped
           event = input.getevent
-          output.emit(source, event, timestamp_us: Machine.uptime_us)
+          timestamp_us = timestamped_input ? input.last_event_timestamp_us : nil
+          timestamp_us ||= Machine.uptime_us
+          output.emit(source, event, timestamp_us: timestamp_us)
         end
       end
 

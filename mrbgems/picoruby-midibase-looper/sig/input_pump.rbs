@@ -9,6 +9,7 @@ module MIDIBASE
       @stopped: bool
       @task: Task?
       @priority: Integer
+      @timestamped_input: bool
 
       def initialize: (untyped input, output: untyped, source: untyped, ?priority: Integer) -> void
       def start: () -> self

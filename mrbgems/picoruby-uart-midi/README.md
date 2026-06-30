@@ -34,7 +34,10 @@ end
 ```
 
 `getevent` blocks until a complete event is available. `putevent` accepts the
-same command and values used by received event arrays.
+same command and values used by received event arrays. After `getevent`,
+`last_event_timestamp_us` contains the receive timestamp of the byte that
+completed the event. On RP2040/RP2350 this timestamp is captured by the UART
+RX interrupt handler, before Ruby task scheduling or GC can delay processing.
 
 ## Router input
 
