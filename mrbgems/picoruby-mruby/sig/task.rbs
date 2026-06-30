@@ -32,7 +32,7 @@ class Task
     def push: (untyped obj) -> self
     alias enq push
     alias << push
-    def pop: (?bool non_block) -> untyped
+    def pop: (?bool non_block, ?timeout_ms: Integer?) -> untyped
     alias deq pop
     alias shift pop
     def size: () -> Integer

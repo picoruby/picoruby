@@ -1,26 +1,21 @@
 #$DEBUG: bool
 
 module PSG
-  type sound_data_t = Array[[Integer, Integer, Integer, Integer]]
+  type voice_program_step_t = [Integer, Integer, Integer, Integer]
+  type voice_program_t = Array[voice_program_step_t]
 
   DRUM_CHANNEL: Integer
+  MAX_VOICE_PROGRAM_STEPS: Integer
 
-  @sound_table: Hash[Symbol, Sound]
-  @drum_sound_map: Hash[Integer, Symbol]
+  @voice_programs: Hash[Symbol, voice_program_t]
+  @drum_program_map: Hash[Integer, Symbol]
 
   def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
   def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
-  def self.set_sound_data: (Symbol name, sound_data_t data) -> Sound
-  def self.sound_data: (Symbol name) -> sound_data_t
-  def self.sound_duration: (Symbol | Integer | Sound sound) -> Integer
-  def self.assign_drum_sound: (Integer note, Symbol? sound_name) -> Symbol?
-  private def self.sound_for: (Symbol | Integer | Sound value, bool raise_unknown) -> Sound?
-
-  class Sound
-    def initialize: (sound_data_t data) -> void
-    def data: () -> sound_data_t
-    def duration: () -> Integer
-  end
+  def self.define_voice_program: (Symbol name, voice_program_t steps) -> voice_program_t
+  def self.voice_program: (Symbol name) -> voice_program_t
+  def self.assign_drum_program: (Integer note, Symbol? program_name) -> Symbol?
+  def self.drum_program: (Integer note) -> voice_program_t?
 
   class Driver
     CHIP_CLOCK: Integer
@@ -35,8 +30,7 @@ module PSG
     def buffer_flush: () -> nil
     def deinit: () -> nil
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
-    def sound: (Integer | Symbol | Sound sound, ?Integer velocity, ?Integer voice) -> bool
-    def sound_stop: () -> nil
+    def voice_write: (Integer voice, Integer tone_period, Integer noise_period, Integer volume, Integer mixer_flags) -> bool
     def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
     def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool
     def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool

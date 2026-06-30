@@ -28,7 +28,7 @@ class LooperCLIOptions
 
   def parse(args)
     result = self.class.build_parser.parse(args)
-    return :help if result == :help
+    return :help unless result.is_a?(PicoOptionParser::Result)
     @audio = result[:audio]
     @midi_out = result[:midi_out]
     @click_out = result[:click_out]
