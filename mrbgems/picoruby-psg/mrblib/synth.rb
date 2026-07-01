@@ -7,6 +7,7 @@ module PSG
     PROGRAM_CHANNEL = 16
     WAIT_RETRY_MS = 1
     MIDI_MESSAGE_POOL_SIZE = 16
+    DEFAULT_SOURCE = MIDIBASE::DEFAULT_SOURCE
 
     attr_reader :allocator
 
@@ -40,7 +41,7 @@ module PSG
       self
     end
 
-    def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
+    def handle(event, source: DEFAULT_SOURCE, priority: 0, timestamp_us: nil, **_context)
       handle_midi(event, source, priority, timestamp_us)
     end
 
@@ -62,12 +63,12 @@ module PSG
       false
     end
 
-    def trigger_program(name, velocity: 127, source: nil, priority: DRUM_PRIORITY, timestamp_us: nil)
+    def trigger_program(name, velocity: 127, source: DEFAULT_SOURCE, priority: DRUM_PRIORITY, timestamp_us: nil)
       PSG.voice_program(name)
       handle([:voice_program, name, velocity], source: source, priority: priority, timestamp_us: timestamp_us)
     end
 
-    def stop_program(name, source: nil, timestamp_us: nil)
+    def stop_program(name, source: DEFAULT_SOURCE, timestamp_us: nil)
       handle([:voice_program_off, name], source: source, timestamp_us: timestamp_us)
     end
 
@@ -622,7 +623,7 @@ module PSG
     end
 
     private def owned_by?(entry, source, channel)
-      entry && entry[0] == source && entry[1] == channel
+      !entry.nil? && entry[0] == source && entry[1] == channel
     end
 
     private def note_key(source, channel, note)

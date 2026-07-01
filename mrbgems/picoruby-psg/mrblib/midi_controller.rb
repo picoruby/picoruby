@@ -8,6 +8,7 @@ module PSG
     CC_MIXER = 25
     CC_NOISE_PERIOD = 26
     CC_BEND_RANGE = 27
+    DEFAULT_SOURCE = :midi
 
     TIMBRE_NAMES = ["square", "triangle", "sawtooth", "inverse_sawtooth"]
     MIXER_NAMES = ["tone", "noise", "tone+noise"]
@@ -25,7 +26,7 @@ module PSG
       @last_reported = {}
     end
 
-    def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
+    def handle(event, source: DEFAULT_SOURCE, priority: 0, timestamp_us: nil, **_context)
       handle_midi(event, source, priority, timestamp_us)
     end
 
@@ -142,7 +143,7 @@ module PSG
       prefix = if scope == :global
                  "[PSG Global]"
                else
-                 "[PSG #{source || :midi} ch#{channel + 1}]"
+                 "[PSG #{source} ch#{channel + 1}]"
                end
       logger.puts "#{prefix} #{parameter}=#{value}"
     end

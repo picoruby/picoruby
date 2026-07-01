@@ -1,12 +1,15 @@
 module MIDIBASE
   module MML
     class Player
+      SOURCE = :mml
+
       attr_reader :sequence, :clock
 
-      def initialize(sequence, clock: InternalClock.new, output:)
+      def initialize(sequence, clock: InternalClock.new, output:, source: SOURCE)
         @sequence = sequence
         @clock = clock
         @output = output
+        @source = source
         @tempo = DEFAULT_TEMPO
         @tick = 0
         @stopped = false
@@ -119,7 +122,7 @@ module MIDIBASE
         if event[0] == :tempo
           @tempo = event[1]
         else
-          @output.handle(event)
+          @output.handle(event, source: @source)
         end
       end
     end

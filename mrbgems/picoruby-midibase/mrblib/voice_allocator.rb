@@ -15,7 +15,7 @@ module MIDIBASE
       @voices.size
     end
 
-    def allocate(channel, note, source: nil, priority: 0, voice_ids: nil)
+    def allocate(channel, note, source: DEFAULT_SOURCE, priority: 0, voice_ids: nil)
       age = @age + 1
       @age = age
       @last_stolen = nil
@@ -71,7 +71,7 @@ module MIDIBASE
       voice_id
     end
 
-    def reserve(id, channel, note, source: nil, priority: 0)
+    def reserve(id, channel, note, source: DEFAULT_SOURCE, priority: 0)
       return nil unless 0 <= id && id < @voices.size
 
       age = @age + 1
@@ -89,13 +89,13 @@ module MIDIBASE
       id
     end
 
-    def release(channel, note, source: nil)
+    def release(channel, note, source: DEFAULT_SOURCE)
       voice = voice_for(channel, note, source: source)
       @voices[voice] = nil unless voice.nil?
       voice
     end
 
-    def voice_for(channel, note, source: nil)
+    def voice_for(channel, note, source: DEFAULT_SOURCE)
       id = 0
       voices = @voices
       voice_count = voices.size

@@ -128,7 +128,7 @@ module MIDIBASE
       self
     end
 
-    def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
+    def handle(event, source: LIVE_SOURCE, priority: 0, timestamp_us: nil, **_context)
       handle_midi(event, source, priority, timestamp_us || now_us)
     end
 

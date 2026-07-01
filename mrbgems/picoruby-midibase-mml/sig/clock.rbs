@@ -3,7 +3,8 @@ module MIDIBASE
     PPQN: Integer
     DEFAULT_TEMPO: Integer
     NOTE_OFF: Integer
-    type event_t = Array[untyped]
+    type event_value_t = untyped
+    type event_t = Array[event_value_t]
     type timed_event_t = [Integer, event_t]
 
     class InternalClock
@@ -22,7 +23,7 @@ module MIDIBASE
       def initialize: () -> void
       def external?: () -> true
       def generation: () -> Integer
-      def handle: (MIDIBASE::event_t event, ?timestamp_us: Integer?, **untyped context) -> self
+      def handle: (MIDIBASE::event_t event, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> self
       def wait_until: (Integer target_tick, Player player, Integer generation) -> Symbol
       def wait_until_running: (Player player) -> Integer
       def wait_for_restart: (Player player, Integer generation) -> Integer
