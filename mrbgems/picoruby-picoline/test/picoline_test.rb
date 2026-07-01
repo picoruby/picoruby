@@ -70,7 +70,7 @@ class PicoLineTest < Picotest::Test
   def test_say_preserves_active_editor
     editor = PicoLineFakeEditor.new(text: "status")
     line = PicoLine.new(editor: editor)
-    editor.on_start = -> { line.say("event") }
+    editor.on_start = Proc.new { line.say("event") }
 
     line.readline("looper")
 

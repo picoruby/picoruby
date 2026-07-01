@@ -43,7 +43,9 @@ class PicoLine
     @messages = [] #: Array[String]
     # Editor::Line must render notifications in its own task to serialize
     # cursor-position queries with terminal input.
-    @idle_handler = -> { flush_messages }
+    # Proc.new instead of a stabby lambda: mruby/c (FemtoRuby) does not
+    # implement OP_LAMBDA.
+    @idle_handler = Proc.new { flush_messages }
   end
 
   # Reads one command line while allowing other PicoRuby tasks to run.
