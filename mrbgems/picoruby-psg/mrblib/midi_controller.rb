@@ -134,6 +134,7 @@ module PSG
       channel = original_event[1]
       report_channel = scope == :global ? nil : channel
       key = [source, scope, report_channel, parameter]
+      # @type var key: PSG::MIDIController::report_key_t
       last_reported = @last_reported
       return if last_reported[key] == value
       last_reported[key] = value

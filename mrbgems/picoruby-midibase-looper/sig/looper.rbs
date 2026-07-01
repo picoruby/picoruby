@@ -7,8 +7,8 @@ module MIDIBASE
     MIDI_MESSAGE_POOL_SIZE: Integer
     CLICK_DURATION_US: Integer
     CLICK_VELOCITY: Integer
-    LIVE_SOURCE: Symbol
-    CLICK_SOURCE: Symbol
+    LIVE_SOURCE: Router::source_t
+    CLICK_SOURCE: Router::source_t
     QUANTIZE_GRIDS: Hash[Symbol, Integer?]
     METRONOME_MODES: Array[Symbol]
     TIME_SIGNATURES: Array[Array[Integer]]
@@ -18,9 +18,9 @@ module MIDIBASE
     @time_source: untyped
     @voice_capacity: Integer
     @max_events_per_track: Integer
-    @live_source: Symbol
-    @click_source: Symbol
-    @track_sources: Array[Symbol]
+    @live_source: Router::source_t
+    @click_source: Router::source_t
+    @track_sources: Array[Router::source_t]
     @tracks: Array[Track]
     @live_notes: Array[untyped]
     @click_notes: Array[Integer]
@@ -47,9 +47,9 @@ module MIDIBASE
 
     attr_reader state: Symbol
     attr_reader tracks: Array[Track]
-    attr_reader live_source: Symbol
-    attr_reader click_source: Symbol
-    attr_reader track_sources: Array[Symbol]
+    attr_reader live_source: Router::source_t
+    attr_reader click_source: Router::source_t
+    attr_reader track_sources: Array[Router::source_t]
 
     def initialize: (
       output: untyped,

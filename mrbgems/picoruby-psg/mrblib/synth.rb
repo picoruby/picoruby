@@ -22,7 +22,7 @@ module PSG
       @sustained = {}
       @program_cursors = Array.new(voice_count)
       @queue = Task::Queue.new
-      @free_midi_messages = [] #: Array[Array[untyped]]
+      @free_midi_messages = [] #: Array[PSG::Synth::midi_message_t]
       i = 0
       while i < MIDI_MESSAGE_POOL_SIZE
         @free_midi_messages << [nil, nil, 0, nil]
@@ -51,7 +51,7 @@ module PSG
       return false if queue.closed?
       free_messages = @free_midi_messages
       message = free_messages.empty? ? [nil, nil, 0, nil] : free_messages.pop
-      # @type var message: Array[untyped]
+      # @type var message: PSG::Synth::midi_message_t
       message[0] = event
       message[1] = source
       message[2] = priority
@@ -312,11 +312,13 @@ module PSG
 
     private def state_for(source, channel)
       key = [source, channel]
+      # @type var key: PSG::Synth::state_key_t
       states = @states
       state = states[key]
       unless state
         state = [127, 127, 64, 8192, false, 127, 127,
                  DEFAULT_PITCH_BEND_RANGE, 0, 0, 0, 0, 0, false]
+        # @type var state: PSG::Synth::state_t
         states[key] = state
       end
       state

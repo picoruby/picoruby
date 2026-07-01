@@ -2,20 +2,22 @@ module MIDIBASE
   class Router
     class Emitter
       @router: Router
-      @source: untyped
-      def initialize: (Router router, untyped source) -> void
-      def handle: (event_t event, ?timestamp_us: Integer?, **untyped context) -> event_t
-      def handle_midi: (event_t event, untyped source, Integer priority, Integer timestamp_us) -> event_t
+      @source: source_t
+      def initialize: (Router router, source_t source) -> void
+      def handle: (event_t event, ?timestamp_us: Integer?, **context_value_t context) -> event_t
+      def handle_midi: (event_t event, source_t source, Integer priority, Integer timestamp_us) -> event_t
     end
 
-    type route_t = [untyped, untyped, Integer, Array[Symbol]?, Array[Symbol]?, bool]
+    type source_t = Symbol
+    type sink_t = untyped
+    type route_t = [source_t, sink_t, Integer, Array[Symbol]?, Array[Symbol]?, bool]
 
     @routes: Array[route_t]
     def initialize: () -> void
-    def connect: (untyped source, untyped sink, ?priority: Integer, ?only: Array[Symbol]?, ?except: Array[Symbol]?) -> self
-    def output: (untyped source) -> Emitter
-    def emit: (untyped source, event_t event, ?timestamp_us: Integer?) -> event_t
-    def emit_midi: (untyped source, event_t event, Integer timestamp_us) -> event_t
+    def connect: (source_t source, sink_t sink, ?priority: Integer, ?only: Array[Symbol]?, ?except: Array[Symbol]?) -> self
+    def output: (source_t source) -> Emitter
+    def emit: (source_t source, event_t event, ?timestamp_us: Integer?) -> event_t
+    def emit_midi: (source_t source, event_t event, Integer timestamp_us) -> event_t
     private def route_accepts?: (route_t route, Symbol command) -> bool
   end
 end

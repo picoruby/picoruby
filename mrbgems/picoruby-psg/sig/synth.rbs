@@ -6,69 +6,78 @@ module PSG
     WAIT_RETRY_MS: Integer
     MIDI_MESSAGE_POOL_SIZE: Integer
 
+    type voice_pool_config_t = Hash[MIDIBASE::Router::source_t?, Integer | Array[Integer]]
+    type voice_pool_t = Hash[MIDIBASE::Router::source_t?, Array[Integer]]
+    type state_key_t = [MIDIBASE::Router::source_t?, Integer]
+    type state_t = [Integer, Integer, Integer, Integer, bool, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, bool]
+    type note_key_t = [MIDIBASE::Router::source_t?, Integer, Integer]
+    type program_cursor_t = [voice_program_t, Integer, Integer, Integer, MIDIBASE::Router::source_t?, Integer, Integer]
+    type midi_message_value_t = untyped
+    type midi_message_t = Array[midi_message_value_t]
+
     @driver: Driver
     @allocator: MIDIBASE::VoiceAllocator
-    @voice_pools: Hash[untyped, Array[Integer]]?
+    @voice_pools: voice_pool_t?
     @velocities: Array[Integer]
-    @states: Hash[Array[untyped], Array[untyped]]
-    @sustained: Hash[Array[untyped], bool]
-    @program_cursors: Array[Array[untyped]?]
+    @states: Hash[state_key_t, state_t]
+    @sustained: Hash[note_key_t, bool]
+    @program_cursors: Array[program_cursor_t?]
     @queue: Task::Queue
-    @free_midi_messages: Array[Array[untyped]]
+    @free_midi_messages: Array[midi_message_t]
     @mixer: Integer
     @noise_period: Integer
     @stopped: bool
     @task: Task?
 
     attr_reader allocator: MIDIBASE::VoiceAllocator
-    def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: Hash[untyped, Integer | Array[Integer]]?) -> void
+    def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: voice_pool_config_t?) -> void
     def start: () -> self
-    def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
-    def handle_midi: (MIDIBASE::event_t event, untyped source, Integer priority, Integer? timestamp_us) -> bool
-    def trigger_program: (Symbol name, ?velocity: Integer, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?) -> bool
-    def stop_program: (Symbol name, ?source: untyped, ?timestamp_us: Integer?) -> bool
+    def handle: (MIDIBASE::event_t event, ?source: MIDIBASE::Router::source_t?, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool
+    def handle_midi: (MIDIBASE::event_t event, MIDIBASE::Router::source_t? source, Integer priority, Integer? timestamp_us) -> bool
+    def trigger_program: (Symbol name, ?velocity: Integer, ?source: MIDIBASE::Router::source_t?, ?priority: Integer, ?timestamp_us: Integer?) -> bool
+    def stop_program: (Symbol name, ?source: MIDIBASE::Router::source_t?, ?timestamp_us: Integer?) -> bool
     def stop: () -> self
     def join: () -> self
     def run: () -> void
-    private def pop_queue: (Task::Queue queue, Integer? timeout_ms) -> untyped
-    private def process: (MIDIBASE::event_t event, untyped source, Integer priority, Integer? timestamp_us) -> void
-    private def note_on: (untyped source, Integer channel, Integer note, Integer velocity, Integer priority, Integer? timestamp_us) -> void
-    private def note_off: (untyped source, Integer channel, Integer note) -> void
-    private def pitch_bend: (untyped source, Integer channel, Integer value) -> void
-    private def program_change: (untyped source, Integer channel, Integer program) -> void
-    private def control_change: (untyped source, Integer channel, Integer controller, Integer value) -> void
-    private def psg_event: (untyped source, Integer channel, MIDIBASE::event_t event) -> void
+    private def pop_queue: (Task::Queue queue, Integer? timeout_ms) -> midi_message_t?
+    private def process: (MIDIBASE::event_t event, MIDIBASE::Router::source_t? source, Integer priority, Integer? timestamp_us) -> void
+    private def note_on: (MIDIBASE::Router::source_t? source, Integer channel, Integer note, Integer velocity, Integer priority, Integer? timestamp_us) -> void
+    private def note_off: (MIDIBASE::Router::source_t? source, Integer channel, Integer note) -> void
+    private def pitch_bend: (MIDIBASE::Router::source_t? source, Integer channel, Integer value) -> void
+    private def program_change: (MIDIBASE::Router::source_t? source, Integer channel, Integer program) -> void
+    private def control_change: (MIDIBASE::Router::source_t? source, Integer channel, Integer controller, Integer value) -> void
+    private def psg_event: (MIDIBASE::Router::source_t? source, Integer channel, MIDIBASE::event_t event) -> void
     private def psg_global_event: (MIDIBASE::event_t event) -> void
-    private def state_for: (untyped source, Integer channel) -> Array[untyped]
-    private def sustain_change: (untyped source, Integer channel, Array[untyped] state, bool enabled) -> void
-    private def all_notes_off: (untyped source, Integer channel, bool immediate) -> void
-    private def start_voice_program: (untyped source, Integer channel, Integer note, voice_program_t program, Integer velocity, Integer priority) -> void
-    private def stop_voice_program: (untyped source, Integer channel, Integer note) -> void
+    private def state_for: (MIDIBASE::Router::source_t? source, Integer channel) -> state_t
+    private def sustain_change: (MIDIBASE::Router::source_t? source, Integer channel, state_t state, bool enabled) -> void
+    private def all_notes_off: (MIDIBASE::Router::source_t? source, Integer channel, bool immediate) -> void
+    private def start_voice_program: (MIDIBASE::Router::source_t? source, Integer channel, Integer note, voice_program_t program, Integer velocity, Integer priority) -> void
+    private def stop_voice_program: (MIDIBASE::Router::source_t? source, Integer channel, Integer note) -> void
     private def process_due_programs: (Integer now_us) -> void
     private def process_due_program_voice: (Integer voice, Integer now_us) -> void
     private def next_program_timeout_ms: (Integer now_us) -> Integer?
     private def finish_voice_program: (Integer voice) -> void
     private def cancel_program_cursor: (Integer voice) -> void
     private def current_time_us: () -> Integer
-    private def release_voice: (Integer voice, untyped source, Integer channel, Integer note) -> void
-    private def update_periods: (untyped source, Integer channel, Array[untyped] state) -> void
-    private def update_volumes: (untyped source, Integer channel, Array[untyped] state) -> void
-    private def update_pan: (untyped source, Integer channel, Array[untyped] state) -> void
-    private def update_legato: (untyped source, Integer channel, Array[untyped] state) -> void
-    private def update_lfo: (untyped source, Integer channel, Array[untyped] state) -> void
-    private def update_mixer: (untyped source, Integer channel, Array[untyped] state) -> void
+    private def release_voice: (Integer voice, MIDIBASE::Router::source_t? source, Integer channel, Integer note) -> void
+    private def update_periods: (MIDIBASE::Router::source_t? source, Integer channel, state_t state) -> void
+    private def update_volumes: (MIDIBASE::Router::source_t? source, Integer channel, state_t state) -> void
+    private def update_pan: (MIDIBASE::Router::source_t? source, Integer channel, state_t state) -> void
+    private def update_legato: (MIDIBASE::Router::source_t? source, Integer channel, state_t state) -> void
+    private def update_lfo: (MIDIBASE::Router::source_t? source, Integer channel, state_t state) -> void
+    private def update_mixer: (MIDIBASE::Router::source_t? source, Integer channel, state_t state) -> void
     private def apply_mixer: (Integer voice, Integer mode) -> void
     private def mixer_flags: (Integer mode) -> Integer
     private def update_mixer_bits: (Integer voice, Integer flags) -> Integer
-    private def voice_volume: (Integer voice, Array[untyped] state) -> Integer
-    private def midi_pan: (Array[untyped] state) -> Integer
-    private def write_period: (Integer voice, Integer note, Array[untyped] state) -> void
-    private def period_for: (Integer note, Array[untyped] state) -> Integer
+    private def voice_volume: (Integer voice, state_t state) -> Integer
+    private def midi_pan: (state_t state) -> Integer
+    private def write_period: (Integer voice, Integer note, state_t state) -> void
+    private def period_for: (Integer note, state_t state) -> Integer
     private def write_voice: (Integer voice, Integer tone_period, Integer noise_period, Integer volume, Integer flags) -> bool
-    private def owned_by?: (Array[untyped]? entry, untyped source, Integer channel) -> bool
-    private def note_key: (untyped source, Integer channel, Integer note) -> Array[untyped]
-    private def build_voice_pools: (Hash[untyped, Integer | Array[Integer]]? config, Integer voice_count) -> Hash[untyped, Array[Integer]]?
-    private def voice_ids_for: (untyped source) -> Array[Integer]?
+    private def owned_by?: (MIDIBASE::VoiceAllocator::voice_t? entry, MIDIBASE::Router::source_t? source, Integer channel) -> boolish
+    private def note_key: (MIDIBASE::Router::source_t? source, Integer channel, Integer note) -> note_key_t
+    private def build_voice_pools: (voice_pool_config_t? config, Integer voice_count) -> voice_pool_t?
+    private def voice_ids_for: (MIDIBASE::Router::source_t? source) -> Array[Integer]?
     private def silence_all: () -> void
     private def write_driver: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4, ?Integer arg5) -> bool
   end
