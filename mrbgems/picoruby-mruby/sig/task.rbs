@@ -28,6 +28,8 @@ class Task
   end
 
   class Queue
+    WAIT_RETRY: Object
+    WAIT_TIMEOUT: Object
     def self.new: () -> Task::Queue
     def push: (untyped obj) -> self
     alias enq push

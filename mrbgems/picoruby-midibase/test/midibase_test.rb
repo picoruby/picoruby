@@ -8,6 +8,23 @@ class MIDIBASERouterSink
   end
 end
 
+class MIDIBASEFastRouterSink
+  attr_reader :received
+
+  def initialize
+    @received = nil
+  end
+
+  def handle(_event, **_context)
+    raise "slow path called"
+  end
+
+  def handle_midi(event, source, priority, timestamp_us)
+    @received = [event, source, priority, timestamp_us]
+    true
+  end
+end
+
 class MIDIBASESessionResource
   def initialize(log, name, stoppable: true, joinable: true)
     @log = log
@@ -252,6 +269,15 @@ class MIDIBASETest < Picotest::Test
     assert_equal :uart, sink.received[0][1][:source]
     assert_equal 100, sink.received[0][1][:priority]
     assert_equal 20, sink.received[0][1][:timestamp_us]
+  end
+
+  def test_router_uses_positional_fast_path
+    sink = MIDIBASEFastRouterSink.new
+    router = MIDIBASE::Router.new
+    event = [:note_on, 0, 60, 100]
+    router.connect(:uart, sink, priority: 100, only: MIDIBASE::CHANNEL_EVENTS)
+    router.emit_midi(:uart, event, 123_456)
+    assert_equal [event, :uart, 100, 123_456], sink.received
   end
 
   def test_session_handles_interrupt_and_restores_handler

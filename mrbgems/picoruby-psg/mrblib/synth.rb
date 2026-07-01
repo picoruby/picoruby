@@ -6,6 +6,7 @@ module PSG
     DRUM_PRIORITY = 1_000_000
     PROGRAM_CHANNEL = 16
     WAIT_RETRY_MS = 1
+    MIDI_MESSAGE_POOL_SIZE = 16
 
     attr_reader :allocator
 
@@ -21,6 +22,12 @@ module PSG
       @sustained = {}
       @program_cursors = Array.new(voice_count)
       @queue = Task::Queue.new
+      @free_midi_messages = [] #: Array[Array[untyped]]
+      i = 0
+      while i < MIDI_MESSAGE_POOL_SIZE
+        @free_midi_messages << [nil, nil, 0, nil]
+        i += 1
+      end
       @mixer = 0b111000
       @noise_period = 0
       @stopped = false
@@ -34,11 +41,22 @@ module PSG
     end
 
     def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
+      handle_midi(event, source, priority, timestamp_us)
+    end
+
+    def handle_midi(event, source, priority, timestamp_us)
       return false if @stopped
 
       queue = @queue
       return false if queue.closed?
-      queue.push([event, source, priority, timestamp_us])
+      free_messages = @free_midi_messages
+      message = free_messages.empty? ? [nil, nil, 0, nil] : free_messages.pop
+      # @type var message: Array[untyped]
+      message[0] = event
+      message[1] = source
+      message[2] = priority
+      message[3] = timestamp_us
+      queue.push(message)
       true
     rescue Task::Error
       false
@@ -75,15 +93,30 @@ module PSG
       while !@stopped
         now_us = current_time_us
         process_due_programs(now_us)
-        envelope = queue.pop(timeout_ms: next_program_timeout_ms(now_us))
+        envelope = pop_queue(queue, next_program_timeout_ms(now_us))
         if envelope.nil?
           break if queue.closed?
           next
         end
         process(envelope[0], envelope[1], envelope[2], envelope[3])
+        envelope[0] = nil
+        envelope[1] = nil
+        envelope[2] = 0
+        envelope[3] = nil
+        @free_midi_messages << envelope
       end
     ensure
       silence_all
+    end
+
+    private def pop_queue(queue, timeout_ms)
+      deadline = timeout_ms.nil? ? nil : queue.__deadline(timeout_ms)
+      while true
+        value = queue.__pop_try(false, deadline)
+        return nil if value.equal?(Task::Queue::WAIT_TIMEOUT)
+        return value unless value.equal?(Task::Queue::WAIT_RETRY)
+      end
+      nil
     end
 
     private def process(event, source, priority, timestamp_us)

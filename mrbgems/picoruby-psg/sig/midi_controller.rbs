@@ -12,11 +12,13 @@ module PSG
     MIXER_NAMES: Array[String]
 
     @synth: untyped
+    @fast_synth: bool
     @logger: untyped
     @last_reported: Hash[Array[untyped], untyped]
 
     def initialize: (untyped synth, ?logger: untyped) -> void
     def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
+    def handle_midi: (MIDIBASE::event_t event, untyped source, Integer priority, Integer? timestamp_us) -> bool
     private def map_event: (MIDIBASE::event_t event) -> Array[untyped]
     private def map_control_change: (MIDIBASE::event_t event) -> Array[untyped]
     private def standard_control_report: (Integer controller, Integer value) -> Array[untyped]?

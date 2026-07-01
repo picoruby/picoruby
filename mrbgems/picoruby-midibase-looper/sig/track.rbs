@@ -7,7 +7,8 @@ module MIDIBASE
       @muted: bool
       @cursor: Integer
       @cycle: Integer
-      @active: Array[Array[Integer]]
+      @current_event: MIDIBASE::event_t?
+      @active: Array[Integer]
       attr_reader events: EventBuffer
       attr_reader source: Symbol
       attr_reader voice_limit: Integer
@@ -18,9 +19,9 @@ module MIDIBASE
       def current_event: () -> MIDIBASE::event_t
       def advance: (Integer loop_ticks) -> Integer
       def seek: (Integer absolute_tick, Integer loop_ticks) -> self
-      def note_started: (MIDIBASE::event_t event) -> Array[Array[Integer]]
+      def note_started: (MIDIBASE::event_t event) -> Array[Integer]
       def note_stopped: (MIDIBASE::event_t event) -> void
-      def take_active_notes: () -> Array[Array[Integer]]
+      def take_active_notes: () -> Array[Integer]
     end
   end
 end

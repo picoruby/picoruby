@@ -20,18 +20,33 @@ module PSG
         raise ArgumentError, "logger must respond to puts"
       end
       @synth = synth
+      @fast_synth = synth.respond_to?(:handle_midi)
       @logger = logger
       @last_reported = {}
     end
 
     def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
-      mapped, report = map_event(event)
-      accepted = @synth.handle(
-        mapped,
-        source: source,
-        priority: priority,
-        timestamp_us: timestamp_us
-      )
+      handle_midi(event, source, priority, timestamp_us)
+    end
+
+    def handle_midi(event, source, priority, timestamp_us)
+      command = event[0]
+      if command == :control_change || command == :program_change
+        mapped, report = map_event(event)
+      else
+        mapped = event
+        report = nil
+      end
+      if @fast_synth
+        accepted = @synth.handle_midi(mapped, source, priority, timestamp_us)
+      else
+        accepted = @synth.handle(
+          mapped,
+          source: source,
+          priority: priority,
+          timestamp_us: timestamp_us
+        )
+      end
       report_change(source, event, report) if accepted && report
       accepted
     end

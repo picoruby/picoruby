@@ -5,7 +5,7 @@ module MIDIBASE
       @grid_ticks: Integer?
       @voice_limit: Integer
       @buffer: EventBuffer
-      @active: Array[Array[Integer]]
+      @active: Array[Integer]
       @overflow: bool
       attr_reader buffer: EventBuffer
       attr_reader voice_limit: Integer
@@ -15,7 +15,6 @@ module MIDIBASE
       def finish: () -> EventBuffer?
       def overflow?: () -> bool
       private def active_index: (Integer channel, Integer note) -> Integer?
-      private def quantize_pair: (Integer raw_on, Integer raw_off) -> [Integer, Integer]
     end
   end
 end

@@ -4,6 +4,7 @@ module MIDIBASE
     DEFAULT_TEMPO: Integer
     DEFAULT_MAX_EVENTS: Integer
     DEFAULT_VOICE_CAPACITY: Integer
+    MIDI_MESSAGE_POOL_SIZE: Integer
     CLICK_DURATION_US: Integer
     CLICK_VELOCITY: Integer
     LIVE_SOURCE: Symbol
@@ -13,6 +14,7 @@ module MIDIBASE
     TIME_SIGNATURES: Array[Array[Integer]]
 
     @output: untyped
+    @fast_output: bool
     @time_source: untyped
     @voice_capacity: Integer
     @max_events_per_track: Integer
@@ -20,9 +22,10 @@ module MIDIBASE
     @click_source: Symbol
     @track_sources: Array[Symbol]
     @tracks: Array[Track]
-    @live_notes: Array[Array[untyped]]
-    @click_notes: Array[Array[Integer]]
+    @live_notes: Array[untyped]
+    @click_notes: Array[Integer]
     @queue: Task::Queue
+    @free_midi_messages: Array[Array[untyped]]
     @task: Task?
     @shutdown: bool
     @state: Symbol
@@ -65,6 +68,7 @@ module MIDIBASE
     def stop: () -> self
     def join: () -> self
     def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
+    def handle_midi: (MIDIBASE::event_t event, untyped source, Integer priority, Integer timestamp_us) -> bool
     def play: () -> untyped
     def transport_stop: () -> untyped
     def record: (?voices: Integer) -> untyped

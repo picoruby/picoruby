@@ -10,6 +10,7 @@ module MIDIBASE
       @task: Task?
       @priority: Integer
       @timestamped_input: bool
+      @fast_output: bool
 
       def initialize: (untyped input, output: untyped, source: untyped, ?priority: Integer) -> void
       def start: () -> self

@@ -42,6 +42,7 @@ module MIDIBASE
   def getevent: () -> event_t
   def putevent: (Symbol command, *(Integer | String) values) -> Integer
   def handle: (event_t event, **untyped context) -> Integer
+  def handle_midi: (event_t event, untyped source, Integer priority, Integer timestamp_us) -> Integer
   def bpm: () -> Float?
   def clock_running?: () -> boolish
   def time_signature: () -> Array[Integer]?

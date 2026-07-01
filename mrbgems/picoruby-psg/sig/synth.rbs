@@ -4,6 +4,7 @@ module PSG
     DRUM_PRIORITY: Integer
     PROGRAM_CHANNEL: Integer
     WAIT_RETRY_MS: Integer
+    MIDI_MESSAGE_POOL_SIZE: Integer
 
     @driver: Driver
     @allocator: MIDIBASE::VoiceAllocator
@@ -13,6 +14,7 @@ module PSG
     @sustained: Hash[Array[untyped], bool]
     @program_cursors: Array[Array[untyped]?]
     @queue: Task::Queue
+    @free_midi_messages: Array[Array[untyped]]
     @mixer: Integer
     @noise_period: Integer
     @stopped: bool
@@ -22,11 +24,13 @@ module PSG
     def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: Hash[untyped, Integer | Array[Integer]]?) -> void
     def start: () -> self
     def handle: (MIDIBASE::event_t event, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?, **untyped context) -> bool
+    def handle_midi: (MIDIBASE::event_t event, untyped source, Integer priority, Integer? timestamp_us) -> bool
     def trigger_program: (Symbol name, ?velocity: Integer, ?source: untyped, ?priority: Integer, ?timestamp_us: Integer?) -> bool
     def stop_program: (Symbol name, ?source: untyped, ?timestamp_us: Integer?) -> bool
     def stop: () -> self
     def join: () -> self
     def run: () -> void
+    private def pop_queue: (Task::Queue queue, Integer? timeout_ms) -> untyped
     private def process: (MIDIBASE::event_t event, untyped source, Integer priority, Integer? timestamp_us) -> void
     private def note_on: (untyped source, Integer channel, Integer note, Integer velocity, Integer priority, Integer? timestamp_us) -> void
     private def note_off: (untyped source, Integer channel, Integer note) -> void

@@ -11,12 +11,14 @@ module MIDIBASE
         @muted = false
         @cursor = 0
         @cycle = 0
-        @active = [] #: Array[Array[Integer]]
+        @current_event = nil
+        @active = [] #: Array[Integer]
       end
 
       def reset
         @cursor = 0
         @cycle = 0
+        @current_event = nil
         @active.clear
         self
       end
@@ -27,10 +29,16 @@ module MIDIBASE
       end
 
       def current_event
-        @events.event_at(@cursor)
+        event = @current_event
+        unless event
+          event = @events.event_at(@cursor)
+          @current_event = event
+        end
+        event
       end
 
       def advance(loop_ticks)
+        @current_event = nil
         @cursor += 1
         if @events.count <= @cursor
           @cursor = 0
@@ -43,6 +51,7 @@ module MIDIBASE
 
       def seek(absolute_tick, loop_ticks)
         @active.clear
+        @current_event = nil
         cycle = absolute_tick / loop_ticks
         in_loop = absolute_tick % loop_ticks
         count = @events.count
@@ -61,7 +70,9 @@ module MIDIBASE
       end
 
       def note_started(event)
-        @active << [event[1], event[2]]
+        active = @active
+        active << event[1]
+        active << event[2]
       end
 
       def note_stopped(event)
@@ -71,18 +82,18 @@ module MIDIBASE
         active = @active
         active_size = active.size
         while i < active_size
-          item = active[i]
-          if item[0] == channel && item[1] == note
+          if active[i] == channel && active[i + 1] == note
+            active.delete_at(i)
             active.delete_at(i)
             break
           end
-          i += 1
+          i += 2
         end
       end
 
       def take_active_notes
         active = @active
-        @active = [] #: Array[Array[Integer]]
+        @active = [] #: Array[Integer]
         active
       end
     end

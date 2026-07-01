@@ -123,6 +123,30 @@ class MIDIBASELooperTest < Picotest::Test
     pump&.stop
   end
 
+  def test_midi_queue_recycles_message_envelope
+    looper = build_looper
+    looper.instance_variable_set(:@task, true)
+    free_messages = looper.instance_variable_get(:@free_midi_messages)
+    initial_size = free_messages.size
+    looper.handle_midi([:note_on, 0, 60, 100], :midi_in, 0, 123)
+    assert_equal initial_size - 1, free_messages.size
+    looper.send(:drain_queue)
+    assert_equal initial_size, free_messages.size
+  ensure
+    looper&.instance_variable_set(:@task, nil)
+  end
+
+  def test_track_caches_current_event_until_advance
+    buffer = MIDIBASE::Looper::EventBuffer.new(2)
+    buffer.append(0, :note_on, 0, 60, 100)
+    buffer.append(10, :note_off, 0, 60, 0)
+    track = MIDIBASE::Looper::Track.new(buffer, source: :track, voice_limit: 1)
+    first = track.current_event
+    assert_equal first.object_id, track.current_event.object_id
+    track.advance(20)
+    assert_not_equal first.object_id, track.current_event.object_id
+  end
+
   def test_input_pump_preserves_captured_input_timestamp
     output = MIDIBASELooperStoppingOutput.new
     pump = MIDIBASE::Looper::InputPump.new(
