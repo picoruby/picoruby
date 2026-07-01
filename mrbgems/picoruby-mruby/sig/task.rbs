@@ -28,6 +28,8 @@ class Task
   end
 
   class Queue
+    WAIT_RETRY: Object
+    WAIT_TIMEOUT: Object
     def self.new: () -> Task::Queue
     def __push: (untyped obj) -> void
     def __pop_try: (?bool non_block, ?Integer? timeout_ms) -> untyped

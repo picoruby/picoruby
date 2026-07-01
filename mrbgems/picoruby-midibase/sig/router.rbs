@@ -5,15 +5,17 @@ module MIDIBASE
       @source: untyped
       def initialize: (Router router, untyped source) -> void
       def handle: (event_t event, ?timestamp_us: Integer?, **untyped context) -> event_t
+      def handle_midi: (event_t event, untyped source, Integer priority, Integer timestamp_us) -> event_t
     end
 
-    type route_t = [untyped, untyped, Integer, Array[Symbol]?, Array[Symbol]?]
+    type route_t = [untyped, untyped, Integer, Array[Symbol]?, Array[Symbol]?, bool]
 
     @routes: Array[route_t]
     def initialize: () -> void
     def connect: (untyped source, untyped sink, ?priority: Integer, ?only: Array[Symbol]?, ?except: Array[Symbol]?) -> self
     def output: (untyped source) -> Emitter
     def emit: (untyped source, event_t event, ?timestamp_us: Integer?) -> event_t
+    def emit_midi: (untyped source, event_t event, Integer timestamp_us) -> event_t
     private def route_accepts?: (route_t route, Symbol command) -> bool
   end
 end

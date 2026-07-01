@@ -172,10 +172,21 @@ module MIDIBASE
   end
 
   def handle(event, **_context)
+    handle_midi(event, nil, 0, 0)
+  end
+
+  def handle_midi(event, _source, _priority, _timestamp_us)
     command = event[0]
     raise ArgumentError, "MIDI event must start with a command Symbol" unless command.is_a?(Symbol)
-    values = event[1..-1] || []
-    putevent(command, *values)
+    case event.size
+    when 1 then putevent(command)
+    when 2 then putevent(command, event[1])
+    when 3 then putevent(command, event[1], event[2])
+    when 4 then putevent(command, event[1], event[2], event[3])
+    else
+      values = event[1..-1] || []
+      putevent(command, *values)
+    end
   end
 
   def bpm

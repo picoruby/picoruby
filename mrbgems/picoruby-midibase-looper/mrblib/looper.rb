@@ -6,6 +6,7 @@ module MIDIBASE
     DEFAULT_TEMPO = 120
     DEFAULT_MAX_EVENTS = 256
     DEFAULT_VOICE_CAPACITY = 3
+    MIDI_MESSAGE_POOL_SIZE = 16
     CLICK_DURATION_US = 50_000
     CLICK_VELOCITY = 127
 
@@ -46,6 +47,7 @@ module MIDIBASE
       end
 
       @output = output
+      @fast_output = output.respond_to?(:emit_midi)
       unless time_source.respond_to?(:uptime_us)
         raise ArgumentError, "time_source must respond to uptime_us"
       end
@@ -62,9 +64,16 @@ module MIDIBASE
       end
 
       @tracks = [] #: Array[Track]
-      @live_notes = [] #: Array[Array[untyped]]
-      @click_notes = [] #: Array[Array[Integer]]
+      # Flat records: channel, note, timestamp_us, recorded, velocity.
+      @live_notes = [] #: Array[untyped]
+      @click_notes = [] #: Array[Integer]
       @queue = Task::Queue.new
+      @free_midi_messages = [] #: Array[Array[untyped]]
+      i = 0
+      while i < MIDI_MESSAGE_POOL_SIZE
+        @free_midi_messages << [:midi, nil, nil]
+        i += 1
+      end
       @task = nil
       @shutdown = false
       @state = :stopped
@@ -120,10 +129,20 @@ module MIDIBASE
     end
 
     def handle(event, source: nil, priority: 0, timestamp_us: nil, **_context)
+      handle_midi(event, source, priority, timestamp_us || now_us)
+    end
+
+    # Router fast path. MIDI message envelopes are recycled after the engine
+    # consumes them, avoiding one short-lived Array for every input event.
+    def handle_midi(event, _source, _priority, timestamp_us)
       return false if @shutdown
-      timestamp_us ||= now_us
       if @task
-        @queue.push([:midi, event, timestamp_us])
+        free_messages = @free_midi_messages
+        message = free_messages.empty? ? [:midi, nil, nil] : free_messages.pop
+        # @type var message: Array[untyped]
+        message[1] = event
+        message[2] = timestamp_us
+        @queue.push(message)
       else
         process_midi(event, timestamp_us)
       end
@@ -231,12 +250,17 @@ module MIDIBASE
     private def drain_queue
       queue = @queue
       while !queue.empty?
-        message = queue.pop(true)
+        # The queue has one consumer and was just checked for emptiness. Calling
+        # the C primitive directly avoids Queue#pop's timeout keyword Hash.
+        message = queue.__pop_try(true, nil)
         if message[0] == :midi
           # The engine task may wake after a recording boundary. Move transport
           # to the captured input time before deciding whether to record it.
           advance(message[2])
           process_midi(message[1], message[2])
+          message[1] = nil
+          message[2] = nil
+          @free_midi_messages << message
         else
           reply = message[3]
           begin
@@ -391,12 +415,16 @@ module MIDIBASE
       velocity = event[3]
       process_live_note_off([:note_off, channel, note, 0], timestamp_us) unless live_note_index(channel, note).nil?
       capacity = monitoring_voice_limit
-      while capacity <= @live_notes.size
-        stolen = @live_notes[0]
-        process_live_note_off([:note_off, stolen[0], stolen[1], 0], timestamp_us)
+      live_notes = @live_notes
+      while capacity * 5 <= live_notes.size
+        process_live_note_off([:note_off, live_notes[0], live_notes[1], 0], timestamp_us)
       end
-      entry = [channel, note, timestamp_us, false, velocity]
-      @live_notes << entry
+      entry_offset = live_notes.size
+      live_notes << channel
+      live_notes << note
+      live_notes << timestamp_us
+      live_notes << false
+      live_notes << velocity
       emit(@live_source, event, timestamp_us)
 
       record_start_tick = @record_start_tick
@@ -405,7 +433,7 @@ module MIDIBASE
         raw_tick = tick_at_time(timestamp_us) - record_start_tick
         if 0 <= raw_tick && raw_tick < loop_ticks
           recorder.note_on(raw_tick, channel, note, velocity)
-          entry[3] = true
+          live_notes[entry_offset + 3] = true
         end
       end
     end
@@ -413,11 +441,17 @@ module MIDIBASE
     private def process_live_note_off(event, timestamp_us)
       index = live_note_index(event[1], event[2])
       return event if index.nil?
-      entry = @live_notes.delete_at(index)
+      live_notes = @live_notes
+      recorded = live_notes[index + 3]
+      live_notes.delete_at(index)
+      live_notes.delete_at(index)
+      live_notes.delete_at(index)
+      live_notes.delete_at(index)
+      live_notes.delete_at(index)
       emit(@live_source, event, timestamp_us)
       record_start_tick = @record_start_tick
       recorder = @recorder
-      if entry[3] && recorder && record_start_tick
+      if recorded && recorder && record_start_tick
         raw_tick = tick_at_time(timestamp_us) - record_start_tick
         raw_tick = loop_ticks if loop_ticks < raw_tick
         raw_tick = 0 if raw_tick < 0
@@ -444,13 +478,12 @@ module MIDIBASE
       live_notes = @live_notes
       live_notes_size = live_notes.size
       while i < live_notes_size
-        entry = live_notes[i]
-        on_tick = tick_at_time(entry[2])
+        on_tick = tick_at_time(live_notes[i + 2])
         if start_tick - lead_ticks <= on_tick
-          recorder.note_on(0, entry[0], entry[1], entry[4])
-          entry[3] = true
+          recorder.note_on(0, live_notes[i], live_notes[i + 1], live_notes[i + 4])
+          live_notes[i + 3] = true
         end
-        i += 1
+        i += 5
       end
       @state = :recording
       configure_click(start_tick)
@@ -555,7 +588,9 @@ module MIDIBASE
         note = accent ? 84 : 76
         timestamp_us = time_at_tick(tick)
         emit(@click_source, [:note_on, 15, note, CLICK_VELOCITY], timestamp_us)
-        @click_notes << [timestamp_us + CLICK_DURATION_US, note]
+        click_notes = @click_notes
+        click_notes << timestamp_us + CLICK_DURATION_US
+        click_notes << note
         @next_click_tick = tick + interval
       end
     end
@@ -588,9 +623,10 @@ module MIDIBASE
 
     private def flush_click_note_offs(now_us)
       notes = @click_notes
-      while 0 < notes.size && notes[0][0] <= now_us
-        item = notes.shift
-        emit(@click_source, [:note_off, 15, item[1], 0], item[0])
+      while 0 < notes.size && notes[0] <= now_us
+        timestamp_us = notes.shift
+        note = notes.shift
+        emit(@click_source, [:note_off, 15, note, 0], timestamp_us)
       end
     end
 
@@ -616,7 +652,11 @@ module MIDIBASE
     end
 
     private def emit(source, event, timestamp_us)
-      @output.emit(source, event, timestamp_us: timestamp_us)
+      if @fast_output
+        @output.emit_midi(source, event, timestamp_us)
+      else
+        @output.emit(source, event, timestamp_us: timestamp_us)
+      end
     end
 
     private def monitoring_voice_limit
@@ -643,9 +683,9 @@ module MIDIBASE
     end
 
     private def limit_live_notes(limit, timestamp_us)
-      while limit < @live_notes.size
-        entry = @live_notes[0]
-        process_live_note_off([:note_off, entry[0], entry[1], 0], timestamp_us)
+      live_notes = @live_notes
+      while limit * 5 < live_notes.size
+        process_live_note_off([:note_off, live_notes[0], live_notes[1], 0], timestamp_us)
       end
     end
 
@@ -654,18 +694,21 @@ module MIDIBASE
       notes = @live_notes
       notes_size = notes.size
       while i < notes_size
-        item = notes[i]
-        return i if item[0] == channel && item[1] == note
-        i += 1
+        return i if notes[i] == channel && notes[i + 1] == note
+        i += 5
       end
       nil
     end
 
     private def silence_live(timestamp_us)
-      while 0 < @live_notes.size
-        item = @live_notes[0]
-        emit(@live_source, [:note_off, item[0], item[1], 0], timestamp_us)
-        @live_notes.shift
+      live_notes = @live_notes
+      while 0 < live_notes.size
+        emit(@live_source, [:note_off, live_notes[0], live_notes[1], 0], timestamp_us)
+        live_notes.shift
+        live_notes.shift
+        live_notes.shift
+        live_notes.shift
+        live_notes.shift
       end
     end
 
@@ -674,9 +717,8 @@ module MIDIBASE
       i = 0
       active_size = active.size
       while i < active_size
-        item = active[i]
-        emit(track.source, [:note_off, item[0], item[1], 0], timestamp_us)
-        i += 1
+        emit(track.source, [:note_off, active[i], active[i + 1], 0], timestamp_us)
+        i += 2
       end
     end
 
@@ -691,8 +733,9 @@ module MIDIBASE
       end
       notes = @click_notes
       while 0 < notes.size
-        item = notes.shift
-        emit(@click_source, [:note_off, 15, item[1], 0], timestamp_us)
+        notes.shift
+        note = notes.shift
+        emit(@click_source, [:note_off, 15, note, 0], timestamp_us)
       end
     end
 
