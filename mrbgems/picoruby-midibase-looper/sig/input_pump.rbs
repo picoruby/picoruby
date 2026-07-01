@@ -3,16 +3,19 @@ module MIDIBASE
     class InputPump
       DEFAULT_PRIORITY: Integer
 
-      @input: untyped
-      @output: untyped
-      @source: untyped
+      type input_t = untyped
+      type output_t = untyped
+
+      @input: input_t
+      @output: output_t
+      @source: Router::source_t
       @stopped: bool
       @task: Task?
       @priority: Integer
       @timestamped_input: bool
       @fast_output: bool
 
-      def initialize: (untyped input, output: untyped, source: untyped, ?priority: Integer) -> void
+      def initialize: (input_t input, output: output_t, source: Router::source_t, ?priority: Integer) -> void
       def start: () -> self
       def run: () -> void
       def stop: () -> self

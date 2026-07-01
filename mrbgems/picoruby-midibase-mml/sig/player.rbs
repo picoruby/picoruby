@@ -1,9 +1,14 @@
 module MIDIBASE
   module MML
     class Player
+      SOURCE: MIDIBASE::Router::source_t
+      type clock_t = untyped
+      type output_t = untyped
+
+      @source: MIDIBASE::Router::source_t
       attr_reader sequence: Sequence
-      attr_reader clock: untyped
-      def initialize: (Sequence sequence, ?clock: untyped, output: untyped) -> void
+      attr_reader clock: clock_t
+      def initialize: (Sequence sequence, ?clock: clock_t, output: output_t, ?source: MIDIBASE::Router::source_t) -> void
       def start: () -> self
       def join: () -> self
       def stop: () -> self

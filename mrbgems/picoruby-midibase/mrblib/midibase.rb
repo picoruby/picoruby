@@ -1,4 +1,5 @@
 module MIDIBASE
+  DEFAULT_SOURCE          = :default
   NOTE_OFF               = 0x80
   NOTE_ON                = 0x90
   POLYPHONIC_KEY_PRESSURE = 0xA0
@@ -172,7 +173,7 @@ module MIDIBASE
   end
 
   def handle(event, **_context)
-    handle_midi(event, nil, 0, 0)
+    handle_midi(event, DEFAULT_SOURCE, 0, 0)
   end
 
   def handle_midi(event, _source, _priority, _timestamp_us)

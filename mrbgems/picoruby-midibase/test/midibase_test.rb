@@ -223,6 +223,7 @@ class MIDIBASETest < Picotest::Test
     assert_equal 1, allocator.allocate(0, 64)
     assert_equal 2, allocator.allocate(0, 67)
     assert_equal 0, allocator.allocate(0, 69)
+    assert_equal MIDIBASE::DEFAULT_SOURCE, allocator.last_stolen[0]
     assert_nil allocator.voice_for(0, 60)
     assert_equal 1, allocator.release(0, 64)
     assert_nil allocator.release(0, 64)

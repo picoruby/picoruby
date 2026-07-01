@@ -1,10 +1,12 @@
 class MIDIBASEMMLCollector
-  attr_reader :events
+  attr_reader :events, :sources
   def initialize
     @events = []
+    @sources = []
   end
-  def handle(event, **_context)
+  def handle(event, source:, **_context)
     @events << event
+    @sources << source
   end
 end
 
@@ -151,6 +153,7 @@ class MIDIBASEMMLTest < Picotest::Test
     sequence = MIDIBASE::MML::Sequence.new(["t60000 l4 c"])
     player = MIDIBASE::MML::Player.new(sequence, output: collector).start
     player.join
+    assert_equal MIDIBASE::MML::Player::SOURCE, collector.sources[0]
     wrapped = []
     i = 0
     while i < collector.events.size

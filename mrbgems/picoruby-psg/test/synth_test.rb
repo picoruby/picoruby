@@ -212,6 +212,16 @@ class PSGSynthTest < Picotest::Test
     assert_not_nil @synth.allocator.voice_for(0, 60, source: :uart)
   end
 
+  def test_direct_handle_uses_default_source
+    @synth.handle([:note_on, 0, 60, 100])
+    Task.pass
+    assert_not_nil @synth.allocator.voice_for(
+      0,
+      60,
+      source: PSG::Synth::DEFAULT_SOURCE
+    )
+  end
+
   def test_uart_priority_prevents_mml_steal
     process([:note_on, 0, 60, 100], :uart, 100)
     process([:note_on, 0, 62, 100], :uart, 100)

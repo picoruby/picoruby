@@ -8,6 +8,7 @@ module PSG
     CC_MIXER: Integer
     CC_NOISE_PERIOD: Integer
     CC_BEND_RANGE: Integer
+    DEFAULT_SOURCE: MIDIBASE::Router::source_t
     TIMBRE_NAMES: Array[String]
     MIXER_NAMES: Array[String]
 
@@ -16,7 +17,7 @@ module PSG
     type report_value_t = Integer | String
     type report_t = [Symbol, Symbol, report_value_t]
     type mapping_t = [MIDIBASE::event_t, report_t?]
-    type report_key_t = [MIDIBASE::Router::source_t?, Symbol, Integer?, Symbol]
+    type report_key_t = [MIDIBASE::Router::source_t, Symbol, Integer?, Symbol]
 
     @synth: synth_t
     @fast_synth: bool
@@ -24,13 +25,13 @@ module PSG
     @last_reported: Hash[report_key_t, report_value_t]
 
     def initialize: (synth_t synth, ?logger: logger_t) -> void
-    def handle: (MIDIBASE::event_t event, ?source: MIDIBASE::Router::source_t?, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool
-    def handle_midi: (MIDIBASE::event_t event, MIDIBASE::Router::source_t? source, Integer priority, Integer? timestamp_us) -> bool
+    def handle: (MIDIBASE::event_t event, ?source: MIDIBASE::Router::source_t, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool
+    def handle_midi: (MIDIBASE::event_t event, MIDIBASE::Router::source_t source, Integer priority, Integer? timestamp_us) -> bool
     private def map_event: (MIDIBASE::event_t event) -> mapping_t
     private def map_control_change: (MIDIBASE::event_t event) -> mapping_t
     private def standard_control_report: (Integer controller, Integer value) -> report_t?
     private def envelope_period: (Integer value) -> Integer
-    private def report_change: (MIDIBASE::Router::source_t? source, MIDIBASE::event_t original_event, report_t report) -> void
+    private def report_change: (MIDIBASE::Router::source_t source, MIDIBASE::event_t original_event, report_t report) -> void
     private def clamp: (Integer value, Integer min, Integer max) -> Integer
   end
 end
