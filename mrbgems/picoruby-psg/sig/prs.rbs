@@ -16,15 +16,17 @@ module PSG
     OP_WAIT: Integer
     SONGNAME_MAX_LEN: Integer
 
+    type sequence_t = untyped
+
     def self.check_header: (String header) -> [Integer, Integer]
 
     class Compiler
-      def self.save: (untyped sequence, String filename, ?songname: String) -> void
-      attr_reader sequence: untyped
+      def self.save: (sequence_t sequence, String filename, ?songname: String) -> void
+      attr_reader sequence: sequence_t
       attr_reader songname: String
       @file: File
       @length: Integer
-      def initialize: (untyped sequence) -> void
+      def initialize: (sequence_t sequence) -> void
       def songname=: (String name) -> String
       def save_to: (String filename) -> void
       private def gen2: (Integer op, Integer reg, Integer value) -> void

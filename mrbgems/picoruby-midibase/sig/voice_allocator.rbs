@@ -1,6 +1,6 @@
 module MIDIBASE
   class VoiceAllocator
-    type voice_t = [Integer, Integer, Integer, Integer, Integer]
+    type voice_t = [Router::source_t?, Integer, Integer, Integer, Integer]
 
     @voices: Array[voice_t?]
     @age: Integer
@@ -9,10 +9,10 @@ module MIDIBASE
     attr_reader voice_count: Integer
     attr_reader last_stolen: voice_t?
     def initialize: (?Integer voice_count) -> void
-    def allocate: (Integer channel, Integer note, ?source: untyped, ?priority: Integer, ?voice_ids: Array[Integer]?) -> Integer?
-    def reserve: (Integer id, Integer channel, Integer note, ?source: untyped, ?priority: Integer) -> Integer?
-    def release: (Integer channel, Integer note, ?source: untyped) -> Integer?
-    def voice_for: (Integer channel, Integer note, ?source: untyped) -> Integer?
+    def allocate: (Integer channel, Integer note, ?source: Router::source_t?, ?priority: Integer, ?voice_ids: Array[Integer]?) -> Integer?
+    def reserve: (Integer id, Integer channel, Integer note, ?source: Router::source_t?, ?priority: Integer) -> Integer?
+    def release: (Integer channel, Integer note, ?source: Router::source_t?) -> Integer?
+    def voice_for: (Integer channel, Integer note, ?source: Router::source_t?) -> Integer?
     def entry: (Integer id) -> voice_t?
     def release_all: () -> self
   end
