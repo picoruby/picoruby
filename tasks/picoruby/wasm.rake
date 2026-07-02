@@ -87,6 +87,7 @@ namespace :wasm do
     sh "CONFIG=picoruby-wasm rake clean"
     sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
 
+    sh "MRUBY_CONFIG=picoruby-wasm-test rake clean"
     sh "MRUBY_CONFIG=picoruby-wasm-test rake all"
   end
 
@@ -115,7 +116,7 @@ namespace :wasm do
       debug_version = "#{version}-debug"
 
       sh "CONFIG=mrbc-wasm rake clean"
-      Rake::Task["wasm:mrbc"].invoke
+      Rake::Task["wasm:build_mrbc"].invoke
       publish_mrbc_npm.call(version)
 
       sh "CONFIG=picoruby-wasm rake clean"

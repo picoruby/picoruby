@@ -66,6 +66,7 @@ task :clean do
     rm_rf build.build_dir
     rm_f build.products
   end
+  rm_f "#{MRUBY_ROOT}/build/.last_host_build"
   puts "Cleaned up target build folder"
 end
 
