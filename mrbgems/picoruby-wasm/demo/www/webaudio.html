@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PicoRuby CDC Synth Scope</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css">
+  <style>
+    :root { color-scheme: dark; --bg:#050b13; --panel:#0b1725; --line:#1d354b; --ink:#e5f3ff; --muted:#7e9bb3; --accent:#5eead4; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(circle at 20% 0,#10283d 0,var(--bg) 42%); color:var(--ink); font:14px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; }
+    button,select,input { font:inherit; }
+    button { border:1px solid #31516c; border-radius:8px; padding:.65rem .85rem; background:#10253a; color:var(--ink); cursor:pointer; }
+    button:hover,.primary { border-color:var(--accent); box-shadow:0 0 18px #5eead42a; }
+    .app-shell { width:min(1500px,96vw); margin:0 auto; padding:28px 0 48px; }
+    .hero { display:flex; justify-content:space-between; align-items:end; gap:24px; }
+    h1 { margin:0; font:700 clamp(2.2rem,5vw,5rem)/.9 system-ui,sans-serif; letter-spacing:-.06em; }
+    h2 { margin:.1rem 0 1rem; font:700 1rem system-ui,sans-serif; letter-spacing:.04em; }
+    .eyebrow { color:var(--accent); letter-spacing:.15em; }.lede,.muted { color:var(--muted); }.actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .status-row { display:flex; flex-wrap:wrap; gap:10px; padding:18px 0; }.status { border:1px solid var(--line); border-radius:999px; padding:5px 10px; }.error { color:#fb7185; }
+    .scope-panel,.panel { border:1px solid var(--line); background:#08131fdd; box-shadow:0 16px 50px #0007; }
+    .scope-panel { height:600px; border-radius:14px; overflow:hidden; }#scope { width:100%; height:100%; display:block; }
+    .workspace { display:grid; grid-template-columns:minmax(250px,320px) minmax(380px,1fr) minmax(320px,1fr); gap:14px; margin-top:14px; }
+    .panel { border-radius:12px; padding:16px; min-width:0; }.controls label { display:grid; gap:5px; margin:0 0 11px; }.controls input,.controls select { width:100%; }
+    .control-label,.terminal-heading,.terminal-actions { display:flex; align-items:center; justify-content:space-between; gap:7px; }.reset-control { padding:2px 7px; font-size:11px; }
+    select { background:#10253a; color:var(--ink); border:1px solid #31516c; border-radius:6px; padding:6px; }
+    input[type=range] { accent-color:var(--accent); }
+    .keyboard { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:22px; }.key { min-width:48px; height:72px; background:#dceef6; color:#07111f; align-self:start; }.key.black { height:54px; background:#17293a; color:#e5f3ff; }
+    .voice-list { display:flex; flex-wrap:wrap; gap:6px; min-height:34px; }.voice-chip { background:#123047; border-left:3px solid var(--accent); padding:5px 7px; }
+    .channel-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:18px; }.channel-card { display:grid; padding:7px; color:var(--muted); border:1px solid var(--line); }.channel-card.active { color:var(--ink); border-color:var(--accent); background:#0e302f; }
+    .channel-number { font-weight:700; color:var(--ink); }
+    .terminal-heading { align-items:flex-start; flex-wrap:wrap; }.terminal-actions { justify-content:flex-end; flex-wrap:wrap; }.terminal-actions button { padding:4px 7px; }.terminal-status { color:var(--accent); }
+    #terminal-container { height:540px; min-height:220px; background:#050b13; overflow:hidden; border:1px solid var(--line); padding:4px; }.terminal-panel .xterm { height:100%; }
+    @media (max-width:1050px) { .workspace { grid-template-columns:1fr 1fr; }.monitor { grid-column:1/-1; } }
+    @media (max-width:700px) { .hero { align-items:start; flex-direction:column; }.workspace { grid-template-columns:1fr; }.monitor { grid-column:auto; }.scope-panel { height:210px; } }
+  </style>
+</head>
+<body>
+  <main id="app"></main>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
+  <script src="visualizer.js"></script>
+  <script type="text/ruby" src="webaudio.rb"></script>
+  <script src="init.iife.js"></script>
+</body>
+</html>

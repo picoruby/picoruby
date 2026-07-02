@@ -57,6 +57,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2") do |conf|
   conf.gem core: 'picoruby-midibase-mml'
   conf.gem core: 'picoruby-midibase-looper'
   conf.gem core: 'picoruby-uart-midi'
+  conf.gem core: 'picoruby-usb-cdc-midi'
   conf.gem core: 'picoruby-shinonome'
   conf.gem core: 'picoruby-keyboard'
 end

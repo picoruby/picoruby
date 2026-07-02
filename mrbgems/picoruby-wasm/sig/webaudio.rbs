@@ -1,0 +1,87 @@
+module JS
+  module WebAudio
+    type source_t = MIDIBASE::Router::source_t
+    type js_node_t = untyped
+    type tone_value_t = String | Integer | Float
+    type tone_t = Hash[Symbol, tone_value_t]
+    type snapshot_t = Hash[Symbol, untyped]
+
+    WAVEFORMS: Array[String]
+    DEFAULT_SOURCE: source_t
+    DEFAULT_VOICE_COUNT: Integer
+    DEFAULT_MASTER_VOLUME: Float
+    DEFAULT_PITCH_BEND_RANGE: Integer
+    ANALYSER_FFT_SIZE: Integer
+    DEFAULT_TONE: tone_t
+    PRESETS: Array[tone_t]
+
+    def self.supported?: () -> bool
+    def self.create_context: () -> js_node_t
+
+    class Channel
+      attr_reader source: source_t
+      attr_reader number: Integer
+      attr_reader program: Integer
+      attr_reader tone: tone_t
+      def initialize: (js_node_t context, js_node_t destination, source_t source, Integer number) -> void
+      def reset: () -> self
+      def destination: () -> js_node_t
+      def volume=: (Integer value) -> Integer
+      def expression=: (Integer value) -> Integer
+      def pan=: (Integer value) -> Integer
+      def pitch_bend=: (Integer value) -> Integer
+      def program=: (Integer value) -> Integer
+      def update_tone: (tone_t attributes) -> self
+      def bend_cents: () -> Float
+      def snapshot: () -> snapshot_t
+    end
+
+    class Voice
+      attr_reader id: Integer
+      attr_reader analyser: js_node_t
+      attr_reader source: source_t
+      attr_reader channel: Channel?
+      attr_reader note: Integer
+      attr_reader generation: Integer
+      attr_reader status: Symbol
+      def initialize: (Synth owner, js_node_t context, Integer id) -> void
+      def start: (source_t source, Channel channel, Integer note, Integer velocity) -> self
+      def release: () -> self
+      def silence: () -> self
+      def update_tone: (Array[Symbol] changed_keys) -> void
+      def update_pitch: () -> void
+      def ended: (Integer generation) -> void
+      def snapshot: () -> snapshot_t
+    end
+
+    class Synth
+      attr_reader allocator: MIDIBASE::VoiceAllocator
+      attr_reader context: js_node_t
+      attr_reader mix_analyser: js_node_t
+      def initialize: (?voice_count: Integer, ?master_volume: Float, ?context: js_node_t?) -> void
+      def resume: () -> self
+      def stop: () -> self
+      def close: () -> self
+      def handle: (MIDIBASE::event_t event, ?source: source_t, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool
+      def handle_midi: (MIDIBASE::event_t event, source_t source, Integer priority, Integer? timestamp_us) -> bool
+      def update_tone: (?source: source_t, channel: Integer, **tone_value_t attributes) -> snapshot_t
+      def channel_state: (?source: source_t, channel: Integer) -> snapshot_t
+      def active_voices: () -> Array[snapshot_t]
+      def voice_analysers: () -> Array[js_node_t]
+      def voice_ended: (Voice voice, Integer generation) -> bool?
+      def reset: () -> bool
+    end
+
+    class WebSerialMIDIInput
+      attr_reader state: Symbol
+      attr_reader error: Exception?
+      attr_reader port: JS::WebSerial?
+      def initialize: (router: MIDIBASE::Router, ?source: source_t, ?on_state_change: Proc?, ?parser: MIDIBASE::Parser?) -> void
+      def connect: (?baud_rate: Integer) -> self
+      def disconnect: () -> self
+      def feed: (String bytes, ?timestamp_us: Integer) -> Integer
+      def stop: () -> self
+      def disconnected: () -> self
+    end
+  end
+end
