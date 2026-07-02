@@ -296,6 +296,29 @@ c_machine_check_signal(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
+/* Like check_signal but returns the pending signal as a symbol (:INT / :TSTP)
+ * instead of raising Interrupt / SignalException. Lets a waiter (e.g. the
+ * shell's JobControl.wait loop) handle Ctrl-C / Ctrl-Z with plain control flow
+ * rather than rescuing exceptions. */
+static void
+c_machine_poll_signal(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  io_raw_bang(true);
+  Machine_tud_task();
+  io_cooked_bang();
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    SET_RETURN(mrbc_symbol_value(mrbc_str_to_symid("INT")));
+    return;
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    SET_RETURN(mrbc_symbol_value(mrbc_str_to_symid("TSTP")));
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
 /* gets/getc read stdin through the HAL so Ctrl-C (byte 0x03) and the
  * pseudo-SIGINT set by the stdin reader become Interrupt. Compiled on
  * every platform; on POSIX they are wired to bareword Kernel#gets/#getc
@@ -469,6 +492,7 @@ mrbc_machine_init(mrbc_vm *vm)
   mrbc_define_method(vm, module_Machine, "_reboot", c_Machine__reboot);
   mrbc_define_method(vm, module_Machine, "debug_puts", c_Machine_debug_puts);
   mrbc_define_method(vm, module_Machine, "check_signal", c_machine_check_signal);
+  mrbc_define_method(vm, module_Machine, "poll_signal", c_machine_poll_signal);
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrbc_class *class_IO = mrbc_define_class(vm, "IO", mrbc_class_object);

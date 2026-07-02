@@ -227,6 +227,27 @@ mrb_machine_check_signal(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/* Like check_signal but returns the pending signal as a symbol (:INT / :TSTP)
+ * instead of raising Interrupt / SignalException. Lets a waiter (e.g. the
+ * shell's JobControl.wait loop) handle Ctrl-C / Ctrl-Z with plain control flow
+ * rather than rescuing exceptions. */
+static mrb_value
+mrb_machine_poll_signal(mrb_state *mrb, mrb_value self)
+{
+  io_raw_bang(true);
+  Machine_tud_task();
+  io_cooked_bang();
+  if (sigint_status == MACHINE_SIGINT_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return mrb_symbol_value(MRB_SYM(INT));
+  }
+  if (sigint_status == MACHINE_SIGTSTP_RECEIVED) {
+    sigint_status = MACHINE_SIG_NONE;
+    return mrb_symbol_value(MRB_SYM(TSTP));
+  }
+  return mrb_nil_value();
+}
+
 #if !defined(PICORB_PLATFORM_POSIX)
 static size_t
 print_sub(mrb_state *mrb, mrb_value obj)
@@ -462,6 +483,7 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(exit), mrb_s_exit, MRB_ARGS_OPT(1));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_reboot), mrb_s__reboot, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(check_signal), mrb_machine_check_signal, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(poll_signal), mrb_machine_poll_signal, MRB_ARGS_NONE());
 
 #if !defined(PICORB_PLATFORM_POSIX)
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(debug_puts), mrb_s_debug_puts, MRB_ARGS_ANY());
