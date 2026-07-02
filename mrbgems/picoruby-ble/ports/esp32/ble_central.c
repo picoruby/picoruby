@@ -1,49 +1,87 @@
+// ports/esp32/ble_central.c
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "../../include/ble.h"
 #include "../../include/ble_central.h"
 
-#include "btstack.h"
+#include "host/ble_hs.h"
+#include "host/ble_gap.h"
+#include "esp_log.h"
 
 #include "ble_common.h"
+#include "nimble_owner.h"
+
+static const char *TAG = "prb_ble";
+
+static struct ble_gap_disc_params scan_params = {
+  .itvl = 0x60,   // 60 ms, Ruby-side defaults (0.625 ms units)
+  .window = 0x30, // 30 ms
+  .passive = 1,
+};
 
 /**
- * @brief Set parameters for LE Scan
  * @param scan_type 0 = passive, 1 = active
  * @param scan_interval range 0x0004..0x4000, unit 0.625 ms
  * @param scan_window range 0x0004..0x4000, unit 0.625 ms
  * @param scanning_filter_policy 0 = all devices, 1 = all from whitelist
  */
 void
-BLE_central_set_scan_params(uint8_t scan_type, uint16_t scan_interval, uint16_t scan_window, uint8_t scanning_filter_policy) {
-  gap_set_scan_params(scan_type, scan_interval, scan_window, scanning_filter_policy);
+BLE_central_set_scan_params(uint8_t scan_type, uint16_t scan_interval, uint16_t scan_window, uint8_t scanning_filter_policy)
+{
+  scan_params.itvl = scan_interval;
+  scan_params.window = scan_window;
+  scan_params.passive = (scan_type == 0);
+  scan_params.filter_policy = scanning_filter_policy;
+  scan_params.filter_duplicates = 0;
 }
 
 void
-BLE_central_start_scan(void){
-  gap_start_scan();
+BLE_central_start_scan(void)
+{
+  int rc = ble_gap_disc(picoruby_nimble_own_addr_type(), BLE_HS_FOREVER,
+                        &scan_params, picoruby_ble_gap_event, NULL);
+  if (rc != 0 && rc != BLE_HS_EALREADY) {
+    ESP_LOGW(TAG, "scan start failed: %d", rc);
+  }
 }
 
 void
-BLE_central_stop_scan(void){
-  gap_stop_scan();
+BLE_central_stop_scan(void)
+{
+  ble_gap_disc_cancel(); // BLE_HS_EALREADY when not scanning
 }
 
 uint8_t
 BLE_central_gap_connect(const uint8_t *addr, uint8_t addr_type)
 {
+  if (ble_gap_disc_active()) {
+    ble_gap_disc_cancel();
+  }
 
-  uint16_t conn_scan_interval = 60000 / 625;
-  uint16_t conn_scan_window = 30000 / 625;
-  uint16_t conn_interval_min = 10000 / 1250;
-  uint16_t conn_interval_max = 30000 / 1250;
-  uint16_t conn_latency = 4;
-  uint16_t supervision_timeout = 7200 / 10; // default = 720
-  uint16_t min_ce_length = 10000 / 625;
-  uint16_t max_ce_length = 30000 / 625;
+  // Ruby hands the address in printed (big-endian) order; NimBLE wants
+  // little-endian.
+  ble_addr_t peer;
+  peer.type = addr_type;
+  for (int i = 0; i < 6; i++) peer.val[i] = addr[5 - i];
 
-  gap_set_connection_parameters(conn_scan_interval, conn_scan_window, conn_interval_min, conn_interval_max, conn_latency, supervision_timeout, min_ce_length, max_ce_length);
+  // Connection parameters carried over from the rp2040/BTstack port:
+  // conn interval 10-30 ms, latency 4, supervision timeout 7.2 s.
+  struct ble_gap_conn_params params = {
+    .scan_itvl = 60000 / 625,
+    .scan_window = 30000 / 625,
+    .itvl_min = 10000 / 1250,
+    .itvl_max = 30000 / 1250,
+    .latency = 4,
+    .supervision_timeout = 7200 / 10,
+    .min_ce_len = 10000 / 625,
+    .max_ce_len = 30000 / 625,
+  };
 
-  return gap_connect(addr, (bd_addr_type_t)addr_type);
+  int rc = ble_gap_connect(picoruby_nimble_own_addr_type(), &peer, 30000,
+                           &params, picoruby_ble_gap_event, NULL);
+  if (rc == 0) return 0;
+  ESP_LOGW(TAG, "gap connect failed: %d", rc);
+  return (rc & 0xff) ? (uint8_t)rc : 0xff;
 }
