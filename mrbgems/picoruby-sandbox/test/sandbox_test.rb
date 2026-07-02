@@ -30,6 +30,16 @@ class SandboxTest < Picotest::Test
     assert_equal "/myscript.rb", sandbox.result
   end
 
+  def test_stop_is_idempotent_after_task_finishes
+    sandbox = Sandbox.new
+    sandbox.compile(":done")
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+
+    assert_equal false, sandbox.stop
+    assert_equal false, sandbox.stop
+  end
+
   # Regression test for sandbox re-running the previous script
   # when its task was suspended inside a method call.
   def test_execute_runs_new_script_after_suspend_in_method

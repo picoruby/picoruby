@@ -111,6 +111,8 @@ module Editor
 
     MAX_HISTORY_COUNT = 10
 
+    attr_accessor :idle_handler
+
     def prompt=(word)
       @prompt = word
       @prompt_margin = 2 + @prompt.length
@@ -231,6 +233,9 @@ module Editor
           line = "\x1a" # Ctrl-Z
         end
         unless line
+          # The handler runs in the editor task, so terminal queries and input
+          # consumption cannot race with a producer task.
+          @idle_handler&.call
           sleep_ms 1
           next
         end
@@ -647,4 +652,3 @@ module Editor
     end
   end
 end
-

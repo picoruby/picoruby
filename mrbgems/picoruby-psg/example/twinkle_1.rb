@@ -1,4 +1,5 @@
 require 'psg'
+require 'midibase-mml'
 
 tracks = [
   '@0 T120 S0 M800 L4 O5 f  f >c   c |  d    d   c2    |<b-  b-  a  a | g  g f2|>c  c <b- b-| a  a  g2     |>c   c  <b- b- | a  a g2        |f  f> c   c |  d    d   c2    | <b- b-  a  a | g  g f2',
@@ -7,7 +8,12 @@ tracks = [
 ]
 
 driver = PSG::Driver.new(:pwm, left: 10, right: 11)
-
-driver.play_mml(tracks)
-
+synth = PSG::Synth.new(driver).start
+router = MIDIBASE::Router.new
+router.connect(:mml, synth, priority: 0)
+sequence = MIDIBASE::MML::Sequence.new(tracks)
+player = MIDIBASE::MML::Player.new(sequence, output: router.output(:mml)).start
+player.join
+synth.stop.join
+driver.join
 

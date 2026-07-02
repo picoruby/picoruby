@@ -1,0 +1,22 @@
+module MIDIBASE
+  module MML
+    class Sequence
+      @tracks: Array[String]
+      @channels: Array[Integer]?
+      @loop: bool
+      @ppqn: Integer
+      @time_signature: Array[Integer]
+      @exception: bool
+      @parsers: Array[Parser]
+      @ticks: Array[Integer?]
+      @events: Array[event_t?]
+      @previous_tick: Integer
+      attr_reader ppqn: Integer
+      attr_reader time_signature: Array[Integer]
+      def initialize: (Array[String] tracks, ?channels: Array[Integer]?, ?loop: bool, ?ppqn: Integer, ?time_signature: Array[Integer], ?exception: bool) -> void
+      def reset: () -> self
+      def next_event: () -> timed_event_t?
+      private def earliest_track: () -> Integer?
+    end
+  end
+end

@@ -1,0 +1,27 @@
+module MIDIBASE
+  class Clock
+    CLOCKS_PER_QUARTER_NOTE: Integer
+
+    @bpm: Float?
+    @running: bool
+    @pulse: Integer
+    @sample_started_at: Integer?
+    @sample_intervals: Integer
+    @time_signature: Array[Integer]
+    @clocks_per_beat: Integer
+
+    attr_reader bpm: Float?
+    attr_reader time_signature: Array[Integer]
+    def initialize: (?time_signature: Array[Integer]) -> void
+    def time_signature=: (Array[Integer] signature) -> Array[Integer]
+    def observe: (event_t event, ?Integer? timestamp_us) -> event_t
+    def reset: () -> self
+    def clock_running?: () -> bool
+    def position: () -> Array[Integer]
+    def bar: () -> Integer
+    def beat: () -> Integer
+    def tick: () -> Integer
+    private def observe_timing_clock: (Integer now_us) -> void
+    private def restart_tempo_sample: () -> void
+  end
+end

@@ -1,0 +1,20 @@
+module MIDIBASE
+  class Parser
+    @max_sysex_bytes: Integer
+    @running_status: Integer?
+    @status: Integer?
+    @expected: Integer
+    @data: Array[Integer]
+    @sysex: String?
+    @sysex_overflow: bool
+
+    def initialize: (?max_sysex_bytes: Integer) -> void
+    def reset: () -> self
+    def feed: (Integer byte) -> event_t?
+    private def receive_status: (Integer status) -> event_t?
+    private def cancel_running_status: () -> void
+    private def begin_message: (Integer status) -> void
+    private def realtime_event: (Integer status) -> event_t?
+    private def build_event: (Integer status, Array[Integer] data) -> event_t?
+  end
+end

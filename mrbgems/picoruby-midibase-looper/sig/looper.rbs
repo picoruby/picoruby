@@ -1,0 +1,150 @@
+module MIDIBASE
+  class Looper
+    PPQN: Integer
+    DEFAULT_TEMPO: Integer
+    DEFAULT_MAX_EVENTS: Integer
+    DEFAULT_VOICE_CAPACITY: Integer
+    MIDI_MESSAGE_POOL_SIZE: Integer
+    CLICK_DURATION_US: Integer
+    CLICK_VELOCITY: Integer
+    LIVE_SOURCE: Router::source_t
+    CLICK_SOURCE: Router::source_t
+    QUANTIZE_GRIDS: Hash[Symbol, Integer?]
+    METRONOME_MODES: Array[Symbol]
+    TIME_SIGNATURES: Array[Array[Integer]]
+
+    type output_t = untyped
+    type time_source_t = untyped
+    type live_note_value_t = untyped
+    type midi_message_value_t = untyped
+    type command_arg_t = untyped
+    type command_result_t = untyped
+    type status_value_t = untyped
+    type emit_result_t = untyped
+
+    @output: output_t
+    @fast_output: bool
+    @time_source: time_source_t
+    @voice_capacity: Integer
+    @max_events_per_track: Integer
+    @live_source: Router::source_t
+    @click_source: Router::source_t
+    @track_sources: Array[Router::source_t]
+    @tracks: Array[Track]
+    @live_notes: Array[live_note_value_t]
+    @click_notes: Array[Integer]
+    @queue: Task::Queue
+    @free_midi_messages: Array[Array[midi_message_value_t]]
+    @task: Task?
+    @shutdown: bool
+    @state: Symbol
+    @anchor_us: Integer?
+    @anchor_tick: Integer
+    @next_click_tick: Integer?
+    @recorder: Recorder?
+    @record_voice_limit: Integer?
+    @record_start_tick: Integer?
+    @record_end_tick: Integer?
+    @last_error: String?
+    @tempo: Integer
+    @time_signature: Array[Integer]
+    @bars: Integer
+    @count_in_bars: Integer
+    @quantize: Symbol
+    @grid_ticks: Integer?
+    @metronome: Symbol
+
+    attr_reader state: Symbol
+    attr_reader tracks: Array[Track]
+    attr_reader live_source: Router::source_t
+    attr_reader click_source: Router::source_t
+    attr_reader track_sources: Array[Router::source_t]
+
+    def initialize: (
+      output: output_t,
+      ?tempo: Integer,
+      ?time_signature: Array[Integer],
+      ?bars: Integer,
+      ?count_in_bars: Integer,
+      ?quantize: Symbol,
+      ?metronome: Symbol,
+      ?voice_capacity: Integer,
+      ?max_events_per_track: Integer,
+      ?time_source: time_source_t
+    ) -> void
+    def start: () -> self
+    def run: () -> void
+    def stop: () -> self
+    def join: () -> self
+    def handle: (MIDIBASE::event_t event, ?source: Router::source_t, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool
+    def handle_midi: (MIDIBASE::event_t event, Router::source_t source, Integer priority, Integer timestamp_us) -> bool
+    def play: () -> command_result_t
+    def transport_stop: () -> command_result_t
+    def record: (?voices: Integer) -> command_result_t
+    def mute: (Integer index) -> command_result_t
+    def unmute: (Integer index) -> command_result_t
+    def delete: (Integer index) -> command_result_t
+    def undo: () -> command_result_t
+    def clear: () -> command_result_t
+    def tempo=: (Integer value) -> command_result_t
+    def time_signature=: (Array[Integer] value) -> command_result_t
+    def bars=: (Integer value) -> command_result_t
+    def count_in_bars=: (Integer value) -> command_result_t
+    def quantize=: (Symbol value) -> command_result_t
+    def metronome=: (Symbol value) -> command_result_t
+    def status: () -> Hash[Symbol, status_value_t]
+    def advance: (Integer now_us) -> self
+
+    private def submit: (Symbol command, *command_arg_t args) -> command_result_t
+    private def drain_queue: () -> void
+    private def process_command: (Symbol command, Array[command_arg_t] args, Integer now_us) -> command_result_t
+    private def command_play: (Integer now_us) -> self
+    private def command_transport_stop: (Integer now_us) -> self
+    private def command_record: (Integer voices, Integer now_us) -> self
+    private def command_mute: (Integer index, Integer now_us) -> self
+    private def command_delete: (Integer index, Integer now_us) -> self
+    private def command_undo: (Integer now_us) -> self
+    private def command_clear: (Integer now_us) -> self
+    private def command_tempo: (Integer value, Integer now_us) -> Integer
+    private def process_midi: (MIDIBASE::event_t event, Integer timestamp_us) -> MIDIBASE::event_t
+    private def process_live_note_on: (MIDIBASE::event_t event, Integer timestamp_us) -> command_result_t
+    private def process_live_note_off: (MIDIBASE::event_t event, Integer timestamp_us) -> MIDIBASE::event_t
+    private def begin_recording: (Integer start_tick) -> self
+    private def finish_recording: (Integer now_us) -> Integer
+    private def process_track_events: (Integer current_tick) -> void
+    private def earliest_track_tick: () -> Integer?
+    private def dispatch_track_phase: (Integer due_tick, Symbol command) -> void
+    private def process_clicks: (Integer current_tick) -> void
+    private def configure_click: (Integer current_tick) -> void
+    private def click_active?: () -> bool
+    private def click_interval: () -> Integer
+    private def flush_click_note_offs: (Integer now_us) -> void
+    private def start_transport: (Integer now_us) -> void
+    private def tick_at_time: (Integer timestamp_us) -> Integer
+    private def time_at_tick: (Integer tick) -> Integer
+    private def emit: (Router::source_t source, MIDIBASE::event_t event, Integer timestamp_us) -> emit_result_t
+    private def monitoring_voice_limit: () -> Integer
+    private def continuous_click?: () -> bool
+    private def available_recording_voices: () -> Integer
+    private def limit_live_notes: (Integer limit, Integer timestamp_us) -> void
+    private def live_note_index: (Integer channel, Integer note) -> Integer?
+    private def silence_live: (Integer timestamp_us) -> void
+    private def silence_track: (Track track, Integer timestamp_us) -> void
+    private def silence_all: (Integer timestamp_us) -> void
+    private def reset_tracks: () -> void
+    private def next_track_source: () -> Router::source_t
+    private def track_at: (Integer index) -> Track
+    private def status_snapshot: (Integer now_us) -> Hash[Symbol, status_value_t]
+    private def set_tempo: (Integer value) -> Integer
+    private def set_time_signature: (Array[Integer] value) -> Array[Integer]
+    private def set_bars: (Integer value) -> Integer
+    private def set_count_in_bars: (Integer value) -> Integer
+    private def set_quantize: (Symbol value) -> Integer?
+    private def set_metronome: (Symbol value) -> Symbol
+    private def ticks_per_bar: () -> Integer
+    private def loop_ticks: () -> Integer
+    private def used_track_voices: () -> Integer
+    private def ensure_configuration_change_allowed: () -> void
+    private def now_us: () -> Integer
+  end
+end

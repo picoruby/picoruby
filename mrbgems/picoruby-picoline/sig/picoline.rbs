@@ -4,9 +4,16 @@ class PicoLine
     attr_accessor default_hint_show: bool
   end
 
-  attr_accessor default: String?
-
   @answer: String
+  @editor: Editor::Line?
+  @reading: bool
+  @messages: Array[String]
+  @idle_handler: ^() -> void
 
+  def initialize: (?editor: Editor::Line?) -> void
+  def readline: (String prompt) -> String?
+  def say: (String message) -> self
   def ask: (String, ?allow_empty: bool) ?{ (Question) -> void } -> String
+  private def flush_messages: () -> void
+  private def line_editor: () -> Editor::Line
 end

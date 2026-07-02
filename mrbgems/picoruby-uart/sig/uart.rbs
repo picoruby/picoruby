@@ -60,6 +60,8 @@ class UART
   def getbyte: () -> (Integer | nil)
   def ungetbyte: (Integer byte) -> nil
   def bytes_available: () -> Integer
+  def last_read_timestamp_us: () -> Integer?
+  def rx_overflow_count: () -> Integer
   def line_ending=: (("\n"|"\r\n"|"\r") line_ending) -> void
   def puts: (String str) -> nil
   def gets: () -> String?

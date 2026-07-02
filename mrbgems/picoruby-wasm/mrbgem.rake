@@ -13,6 +13,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_dependency 'picoruby-picorubyvm'
   spec.add_dependency 'picoruby-sandbox'
   spec.add_dependency 'picoruby-time'
+  spec.add_dependency 'picoruby-midibase'
 
   spec.require_name = 'js'
 
