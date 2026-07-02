@@ -6,10 +6,10 @@ gemfile do
   gem 'webrick'
 end
 
-variant = 'picoruby'
+variant = ENV.fetch("WASM_BUILD", "debug")
 
 ROOT = File.expand_path('../../www', __FILE__)
-DIST = File.expand_path("../../../npm/picoruby/debug", __FILE__)
+DIST = File.expand_path("../../../npm/picoruby/#{variant}", __FILE__)
 
 server = WEBrick::HTTPServer.new(
   Port: 8080,
@@ -25,9 +25,9 @@ server = WEBrick::HTTPServer.new(
 
 server.config[:MimeTypes]['wasm'] = 'application/wasm'
 
-js_filename = "#{variant}.js"
-wasm_filename = "#{variant}.wasm"
-wasm_map_filename = "#{variant}.wasm.map"
+js_filename = "picoruby.js"
+wasm_filename = "picoruby.wasm"
+wasm_map_filename = "picoruby.wasm.map"
 
 ROUTES = {
   "/#{js_filename}" => [js_filename, 'application/javascript', DIST],
@@ -46,7 +46,7 @@ ROUTES.each do |path, (filename, content_type, dir)|
   end
 end
 
-puts "Starting server for #{variant} on http://localhost:8080"
+puts "Starting server for picoruby on http://localhost:8080"
 puts "Available routes:"
 ROUTES.keys.each { |path| puts "  http://localhost:8080#{path}" }
 

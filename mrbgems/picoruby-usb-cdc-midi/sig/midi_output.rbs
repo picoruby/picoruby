@@ -1,0 +1,20 @@
+module USB
+  module CDC
+    def self._midi_connected?: () -> bool
+    def self._midi_write: (String bytes, Integer offset) -> Integer
+
+    class MIDIOutput
+      DEFAULT_WRITE_TIMEOUT_MS: Integer
+      DEFAULT_SOURCE: MIDIBASE::Router::source_t
+
+      @write_timeout_ms: Integer
+
+      def initialize: (?write_timeout_ms: Integer) -> void
+      def connected?: () -> bool
+      def putevent: (Symbol command, *(Integer | String) values) -> (Integer | false)
+      def handle: (MIDIBASE::event_t event, **MIDIBASE::context_value_t context) -> (Integer | false)
+      def handle_midi: (MIDIBASE::event_t event, MIDIBASE::Router::source_t source, Integer priority, Integer? timestamp_us) -> (Integer | false)
+      private def write_bytes: (String bytes) -> bool
+    end
+  end
+end
