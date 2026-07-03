@@ -6,6 +6,22 @@ module JS
     DEFAULT_MASTER_VOLUME = 0.8
     DEFAULT_PITCH_BEND_RANGE = 2
     ANALYSER_FFT_SIZE = 256
+    PERCUSSION_CHANNEL = 9
+    PERCUSSION_NOTES = {
+      35 => :kick,
+      36 => :kick,
+      38 => :snare,
+      40 => :snare,
+      41 => :low_tom,
+      42 => :closed_hat,
+      43 => :low_tom,
+      44 => :closed_hat,
+      45 => :mid_tom,
+      46 => :open_hat,
+      47 => :mid_tom,
+      48 => :high_tom,
+      50 => :high_tom
+    }
 
     DEFAULT_TONE = {
       waveform: "sine",

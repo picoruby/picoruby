@@ -1,5 +1,13 @@
 class WebAudioApp < Funicular::Component
   NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+  DRUM_NOTES = [
+    [35, "Kick"], [36, "Kick"],
+    [38, "Snare"], [40, "Snare"],
+    [41, "Low Tom"], [43, "Low Tom"],
+    [42, "Closed hat"], [44, "Closed hat"], [46, "Open hat"],
+    [45, "Mid Tom"], [47, "Mid Tom"],
+    [48, "High Tom"], [50, "High Tom"]
+  ]
 
   def initialize_state
     {
@@ -277,8 +285,8 @@ class WebAudioApp < Funicular::Component
       header(class: "hero") do
         div do
           p(class: "eyebrow") { "PICORUBY · WEBSERIAL · JS::WEBAUDIO" }
-          h1 { "CDC Synth Scope" }
-          p(class: "lede") { "Raw MIDI from CDC2, interpreted by PicoRuby.WASM." }
+          h1 { "CDC Synth & Drum Scope" }
+          p(class: "lede") { "Raw MIDI from CDC2, including fixed drums on Channel 10." }
         end
         div(class: "actions") do
           button(onclick: :enable_audio, class: "primary") { "Enable audio" }
@@ -307,47 +315,59 @@ class WebAudioApp < Funicular::Component
               16.times { |index| option(value: index.to_s) { (index + 1).to_s } }
             end
           end
-          label do
-            span { "Program" }
-            select(onchange: :program_changed, value: selected_channel_value(:program, 0).to_s) do
-              JS::WebAudio::WAVEFORMS.each_with_index do |waveform, index|
-                option(value: index.to_s) { "#{index}: #{waveform}" }
+          if percussion_channel?
+            p(class: "muted") { "Channel 10 · fixed percussion kit" }
+          else
+            label do
+              span { "Program" }
+              select(onchange: :program_changed, value: selected_channel_value(:program, 0).to_s) do
+                JS::WebAudio::WAVEFORMS.each_with_index do |waveform, index|
+                  option(value: index.to_s) { "#{index}: #{waveform}" }
+                end
               end
             end
+            tone_select
+            tone_slider("Attack", :attack, 0, 2, 0.005)
+            tone_slider("Decay", :decay, 0, 2, 0.005)
+            tone_slider("Sustain", :sustain, 0, 1, 0.01)
+            tone_slider("Release", :release, 0, 3, 0.01)
+            tone_slider("Detune", :detune, -1200, 1200, 1, reset: true)
+            tone_slider("Cutoff", :cutoff, 20, 20_000, 10)
+            tone_slider("Resonance", :resonance, 0, 30, 0.1)
           end
-          tone_select
-          tone_slider("Attack", :attack, 0, 2, 0.005)
-          tone_slider("Decay", :decay, 0, 2, 0.005)
-          tone_slider("Sustain", :sustain, 0, 1, 0.01)
-          tone_slider("Release", :release, 0, 3, 0.01)
-          tone_slider("Detune", :detune, -1200, 1200, 1, reset: true)
-          tone_slider("Cutoff", :cutoff, 20, 20_000, 10)
-          tone_slider("Resonance", :resonance, 0, 30, 0.1)
           channel_slider("Volume", 7, 0, 127, selected_channel_value(:volume, 100), reset: 100)
           channel_slider("Pan", 10, 0, 127, selected_channel_value(:pan, 64), reset: 64)
-          label do
-            bend = selected_channel_value(:pitch_bend, 8192)
-            div(class: "control-label") do
-              span { "Pitch bend: #{bend}" }
-              button(type: "button", class: "reset-control", onclick: :reset_pitch) { "Reset" }
+          unless percussion_channel?
+            label do
+              bend = selected_channel_value(:pitch_bend, 8192)
+              div(class: "control-label") do
+                span { "Pitch bend: #{bend}" }
+                button(type: "button", class: "reset-control", onclick: :reset_pitch) { "Reset" }
+              end
+              input(type: "range", min: 0, max: 16_383, step: 1,
+                    value: bend, oninput: :pitch_changed)
             end
-            input(type: "range", min: 0, max: 16_383, step: 1,
-                  value: bend, oninput: :pitch_changed)
           end
         end
 
         section(class: "panel performance") do
           h2 { "Audition" }
           div(class: "keyboard") do
-            note = 60
-            while note <= 72
-              name = NOTE_NAMES[note % 12]
-              button(
-                onclick: :play_note,
-                class: name.include?("#") ? "key black" : "key",
-                "data-note": note.to_s
-              ) { "#{name}#{note / 12 - 1}" }
-              note += 1
+            if percussion_channel?
+              DRUM_NOTES.each do |note, name|
+                button(onclick: :play_note, class: "key", "data-note": note.to_s) { name }
+              end
+            else
+              note = 60
+              while note <= 72
+                name = NOTE_NAMES[note % 12]
+                button(
+                  onclick: :play_note,
+                  class: name.include?("#") ? "key black" : "key",
+                  "data-note": note.to_s
+                ) { "#{name}#{note / 12 - 1}" }
+                note += 1
+              end
             end
           end
           h2 { "Active voices" }
@@ -430,12 +450,18 @@ class WebAudioApp < Funicular::Component
         state.voices.each { |voice| active += 1 if voice[:channel] == channel[:channel] }
         div(class: active > 0 ? "channel-card active" : "channel-card") do
           span(class: "channel-number") { (channel[:channel] + 1).to_s }
-          span { JS::WebAudio::WAVEFORMS[channel[:program] % 4] }
+          span do
+            channel[:percussion] ? "drums" : JS::WebAudio::WAVEFORMS[channel[:program] % 4]
+          end
           span { "vol #{channel[:volume]}" }
           span { "#{active} voice" }
         end
       end
     end
+  end
+
+  def percussion_channel?
+    state.selected_channel == JS::WebAudio::PERCUSSION_CHANNEL
   end
 end
 

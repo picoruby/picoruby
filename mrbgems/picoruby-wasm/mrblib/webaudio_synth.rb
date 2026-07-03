@@ -23,6 +23,7 @@ module JS
         @master_gain.connect(@mix_analyser)
         @mix_analyser.connect(@context[:destination])
         @voices = []
+        @noise_buffer = nil
         i = 0
         while i < voice_count
           @voices << Voice.new(self, @context, i)
@@ -78,6 +79,8 @@ module JS
 
       def update_tone(source: DEFAULT_SOURCE, channel:, **attributes)
         state = channel_for(source, channel)
+        return state.snapshot if state.percussion?
+        # @type var attributes: JS::WebAudio::tone_attributes_t
         state.update_tone(attributes)
         update_channel_voices(source, channel, attributes.keys, false)
         state.snapshot
@@ -88,7 +91,7 @@ module JS
       end
 
       def active_voices
-        result = []
+        result = [] #: ::Array[JS::WebAudio::Voice::voice_snapshot_t]
         voices = @voices
         i = 0
         voices_size = voices.size
@@ -101,7 +104,7 @@ module JS
       end
 
       def voice_analysers
-        result = []
+        result = [] #: ::Array[js_node_t]
         voices = @voices
         i = 0
         voices_size = voices.size
@@ -114,8 +117,27 @@ module JS
 
       def voice_ended(voice, generation)
         return unless voice.generation == generation
-        @allocator.release(voice.channel.number, voice.note, source: voice.source)
+        channel = voice.channel
+        return unless channel
+        @allocator.release(channel.number, voice.note, source: voice.source)
         true
+      end
+
+      def noise_buffer
+        return @noise_buffer if @noise_buffer
+        context = @context
+        sample_rate = context[:sampleRate] || 44_100
+        sample_count = sample_rate / 2
+        buffer = context.createBuffer(1, sample_count, sample_rate)
+        samples = buffer.getChannelData(0)
+        seed = 0x1357_9BDF
+        i = 0
+        while i < sample_count
+          seed = (seed * 1_664_525 + 1_013_904_223) & 0xFFFF_FFFF
+          samples[i] = ((seed & 0xFFFF) / 32_767.5) - 1.0
+          i += 1
+        end
+        @noise_buffer = buffer
       end
 
       def reset
@@ -133,6 +155,13 @@ module JS
       private def note_on(source, channel_number, note, velocity, priority)
         return note_off(source, channel_number, note) if velocity <= 0
         state = channel_for(source, channel_number)
+        if state.percussion?
+          instrument = WebAudio::PERCUSSION_NOTES[note]
+          return false unless instrument
+          if instrument == :closed_hat || instrument == :open_hat
+            choke_hats(source, channel_number)
+          end
+        end
         allocator = @allocator
         voice_id = allocator.allocate(channel_number, note, source: source, priority: priority)
         return false if voice_id.nil?
@@ -143,6 +172,8 @@ module JS
       end
 
       private def note_off(source, channel_number, note)
+        state = channel_for(source, channel_number)
+        return true if state.percussion? && WebAudio::PERCUSSION_NOTES.key?(note)
         voice_id = @allocator.voice_for(channel_number, note, source: source)
         return false if voice_id.nil?
         @voices[voice_id].release
@@ -162,7 +193,8 @@ module JS
           all_notes(source, channel_number, true)
         when 121
           state.reset
-          update_channel_voices(source, channel_number, state.tone.keys, true)
+          keys = state.tone.keys #: ::Array[JS::WebAudio::tone_key_t]
+          update_channel_voices(source, channel_number, keys, true)
         when 123
           all_notes(source, channel_number, false)
         else
@@ -173,13 +205,16 @@ module JS
 
       private def program_change(source, channel_number, program)
         state = channel_for(source, channel_number)
+        return true if state.percussion?
         state.program = program
-        update_channel_voices(source, channel_number, state.tone.keys, false)
+        keys = state.tone.keys #: ::Array[JS::WebAudio::tone_key_t]
+        update_channel_voices(source, channel_number, keys, false)
         true
       end
 
       private def pitch_bend(source, channel_number, value)
         state = channel_for(source, channel_number)
+        return true if state.percussion?
         state.pitch_bend = value
         update_channel_voices(source, channel_number, [], true)
         true
@@ -222,6 +257,24 @@ module JS
             else
               voice.release
             end
+          end
+          i += 1
+        end
+      end
+
+      private def choke_hats(source, channel_number)
+        voices = @voices
+        i = 0
+        voices_size = voices.size
+        while i < voices_size
+          voice = voices[i]
+          if voice.source == source && voice.channel &&
+             voice.channel.number == channel_number &&
+             (WebAudio::PERCUSSION_NOTES[voice.note] == :closed_hat ||
+              WebAudio::PERCUSSION_NOTES[voice.note] == :open_hat) &&
+             voice.status != :idle
+            voice.silence
+            @allocator.release(channel_number, voice.note, source: source)
           end
           i += 1
         end

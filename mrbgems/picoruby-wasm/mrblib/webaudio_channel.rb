@@ -52,12 +52,14 @@ module JS
       end
 
       def program=(value)
+        return self if percussion?
         presets = WebAudio::PRESETS
         @program = value
         @tone = presets[value % presets.size].dup
       end
 
       def update_tone(attributes)
+        return self if percussion?
         keys = attributes.keys
         i = 0
         keys_size = keys.size
@@ -71,6 +73,7 @@ module JS
       end
 
       def bend_cents
+        return 0.0 if percussion?
         delta = @pitch_bend - 8192
         divisor = delta < 0 ? 8192.0 : 8191.0
         delta * WebAudio::DEFAULT_PITCH_BEND_RANGE * 100.0 / divisor
@@ -85,8 +88,13 @@ module JS
           expression: @expression,
           pan: @pan,
           pitch_bend: @pitch_bend,
-          tone: @tone.dup
+          tone: @tone.dup,
+          percussion: percussion?
         }
+      end
+
+      def percussion?
+        @number == WebAudio::PERCUSSION_CHANNEL
       end
 
       private def apply_gain
@@ -114,7 +122,7 @@ module JS
       private def validate_tone_value(key, value)
         case key
         when :waveform
-          unless WebAudio::WAVEFORMS.include?(value)
+          unless value.is_a?(String) && WebAudio::WAVEFORMS.include?(value)
             raise ArgumentError, "waveform must be sine, square, triangle, or sawtooth"
           end
           value

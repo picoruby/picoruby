@@ -20,6 +20,11 @@ class WebAudioTestParam
     @calls << [:ramp, value, time]
   end
 
+  def exponentialRampToValueAtTime(value, time)
+    @value = value
+    @calls << [:exponential_ramp, value, time]
+  end
+
   def cancelScheduledValues(time)
     @calls << [:cancel, time]
   end
@@ -74,13 +79,27 @@ class WebAudioTestOscillator < WebAudioTestNode
   end
 end
 
+class WebAudioTestBuffer < WebAudioTestNode
+  attr_reader :samples
+
+  def initialize(length)
+    super()
+    @samples = Array.new(length, 0.0)
+  end
+
+  def getChannelData(_channel)
+    @samples
+  end
+end
+
 class WebAudioTestContext
-  attr_reader :oscillators, :gains, :panners
+  attr_reader :oscillators, :buffer_sources, :gains, :panners
 
   def initialize
     @current_time = 1.0
     @destination = WebAudioTestNode.new
     @oscillators = []
+    @buffer_sources = []
     @gains = []
     @panners = []
   end
@@ -120,6 +139,16 @@ class WebAudioTestContext
     oscillator
   end
 
+  def createBuffer(_channels, length, _sample_rate)
+    WebAudioTestBuffer.new(length)
+  end
+
+  def createBufferSource
+    source = WebAudioTestOscillator.new
+    @buffer_sources << source
+    source
+  end
+
   def resume
     true
   end
@@ -132,7 +161,7 @@ end
 class WebAudioSynthTest < Picotest::Test
   def setup
     @context = WebAudioTestContext.new
-    @synth = WebAudio::Synth.new(context: @context, voice_count: 2)
+    @synth = JS::WebAudio::Synth.new(context: @context, voice_count: 2)
   end
 
   def test_note_on_builds_oscillator_and_voice_state
@@ -153,7 +182,7 @@ class WebAudioSynthTest < Picotest::Test
   end
 
   def test_old_ended_callback_does_not_release_reused_slot
-    synth = WebAudio::Synth.new(context: @context, voice_count: 1)
+    synth = JS::WebAudio::Synth.new(context: @context, voice_count: 1)
     synth.handle_midi([:note_on, 0, 60, 100], :serial, 0, 10)
     old = @context.oscillators[-1]
     synth.handle_midi([:note_on, 0, 64, 100], :serial, 0, 20)
@@ -172,9 +201,9 @@ class WebAudioSynthTest < Picotest::Test
 
   def test_pan_matches_the_demo_control_direction
     @synth.handle_midi([:control_change, 0, 10, 127], :serial, 0, 10)
-    assert_equal(-1.0, @context.panners[-1][:pan].value)
-    @synth.handle_midi([:control_change, 0, 10, 0], :serial, 0, 20)
     assert_equal 1.0, @context.panners[-1][:pan].value
+    @synth.handle_midi([:control_change, 0, 10, 0], :serial, 0, 20)
+    assert_equal(-1.0, @context.panners[-1][:pan].value)
     @synth.handle_midi([:control_change, 0, 10, 64], :serial, 0, 30)
     assert_equal 0.0, @context.panners[-1][:pan].value
   end
@@ -193,6 +222,65 @@ class WebAudioSynthTest < Picotest::Test
       error = e
     end
     assert_equal ArgumentError, error.class
+  end
+
+  def test_channel_10_has_a_fixed_percussion_tone
+    before = @synth.channel_state(source: :serial, channel: 9)
+    assert before[:percussion]
+    @synth.handle_midi([:program_change, 9, 3], :serial, 0, 10)
+    @synth.update_tone(source: :serial, channel: 9, waveform: "square")
+    after = @synth.channel_state(source: :serial, channel: 9)
+    assert_equal 0, after[:program]
+    assert_equal before[:tone], after[:tone]
+  end
+
+  def test_channel_10_kick_uses_a_falling_sine_oscillator
+    assert @synth.handle_midi([:note_on, 9, 35, 100], :serial, 0, 10)
+    oscillator = @context.oscillators[-1]
+    assert_equal "sine", oscillator.properties[:type]
+    assert_equal 46.0, oscillator[:frequency].value
+    assert @synth.handle_midi([:note_off, 9, 35, 0], :serial, 0, 20)
+    assert_equal :active, @synth.active_voices[0][:status]
+  end
+
+  def test_channel_10_snare_and_hats_use_noise
+    assert @synth.handle_midi([:note_on, 9, 38, 100], :serial, 0, 10)
+    assert_equal 1, @context.buffer_sources.size
+    @context.buffer_sources[-1].finish
+
+    assert @synth.handle_midi([:note_on, 9, 46, 100], :serial, 0, 20)
+    open_hat = @context.buffer_sources[-1]
+    assert_equal 1.5, open_hat.stopped_at
+    assert @synth.handle_midi([:note_on, 9, 44, 100], :serial, 0, 30)
+    assert_equal 1.075, @context.buffer_sources[-1].stopped_at
+    assert_equal 1, @synth.active_voices.size
+  end
+
+  def test_channel_10_duplicate_notes_share_instruments
+    notes = JS::WebAudio::PERCUSSION_NOTES
+    assert_equal :kick, notes[35]
+    assert_equal :kick, notes[36]
+    assert_equal :snare, notes[38]
+    assert_equal :snare, notes[40]
+    assert_equal :closed_hat, notes[42]
+    assert_equal :closed_hat, notes[44]
+  end
+
+  def test_channel_10_toms_have_distinct_falling_pitches
+    expected = [[41, 78.0], [43, 78.0], [45, 110.0], [47, 110.0],
+                [48, 150.0], [50, 150.0]]
+    expected.each do |note, end_frequency|
+      assert @synth.handle_midi([:note_on, 9, note, 100], :serial, 0, 10)
+      oscillator = @context.oscillators[-1]
+      assert_equal "triangle", oscillator.properties[:type]
+      assert_equal end_frequency, oscillator[:frequency].value
+      oscillator.finish
+    end
+  end
+
+  def test_channel_10_ignores_unassigned_notes
+    assert_equal false, @synth.handle_midi([:note_on, 9, 39, 100], :serial, 0, 10)
+    assert_equal [], @synth.active_voices
   end
 end
 
@@ -214,7 +302,7 @@ class WebSerialMIDIInputTest < Picotest::Test
     @router = MIDIBASE::Router.new
     @sink = Sink.new
     @router.connect(:webserial, @sink)
-    @input = WebAudio::WebSerialMIDIInput.new(router: @router)
+    @input = JS::WebAudio::WebSerialMIDIInput.new(router: @router)
   end
 
   def test_parses_multiple_events_and_running_status_across_chunks

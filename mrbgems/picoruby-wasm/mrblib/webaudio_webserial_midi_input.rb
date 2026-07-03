@@ -22,11 +22,12 @@ module JS
       def connect(baud_rate: 115_200)
         change_state(:connecting)
         input = self
-        @port = JS::WebSerial.connect(baud_rate: baud_rate)
-        @port.on_receive do |chunk|
+        port = JS::WebSerial.connect(baud_rate: baud_rate)
+        @port = port
+        port.on_receive do |chunk|
           input.feed(chunk, timestamp_us: Machine.uptime_us)
         end
-        @port.on_disconnect do
+        port.on_disconnect do
           input.disconnected
         end
         change_state(:connected)
