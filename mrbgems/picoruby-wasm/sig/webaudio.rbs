@@ -19,7 +19,6 @@ module JS
     type snapshot_t = {
       source: js_node_t,
       channel: Integer,
-      program: Integer,
       volume: Integer,
       expression: Integer,
       pan: Integer,
@@ -38,7 +37,6 @@ module JS
     PERCUSSION_CHANNEL: Integer
     PERCUSSION_NOTES: Hash[Integer, Symbol]
     DEFAULT_TONE: tone_t
-    PRESETS: ::Array[tone_t]
 
     def self.supported?: () -> bool
     def self.create_context: () -> js_node_t
@@ -46,7 +44,6 @@ module JS
     class Channel
       attr_reader source: source_t
       attr_reader number: Integer
-      attr_reader program: Integer
       attr_reader tone: tone_t
       def initialize: (js_node_t context, js_node_t destination, source_t source, Integer number) -> void
       def reset: () -> self
@@ -55,7 +52,6 @@ module JS
       def expression=: (Integer value) -> Integer
       def pan=: (Integer value) -> Integer
       def pitch_bend=: (Integer value) -> Integer
-      def program=: (Integer value) -> Integer
       def update_tone: (tone_attributes_t attributes) -> self
       def bend_cents: () -> Float
       def snapshot: () -> snapshot_t
@@ -126,7 +122,6 @@ module JS
       private def note_on: (source_t source, Integer channel_number, Integer note, Integer velocity, Integer priority) -> bool
       private def note_off: (source_t source, Integer channel_number, Integer note) -> bool
       private def control_change: (source_t source, Integer channel_number, Integer controller, Integer value) -> bool
-      private def program_change: (source_t source, Integer channel_number, Integer program) -> bool
       private def pitch_bend: (source_t source, Integer channel_number, Integer value) -> bool
       private def channel_for: (source_t source, Integer channel_number) -> Channel
       private def update_channel_voices: (source_t source, Integer channel_number, ::Array[tone_key_t] keys, bool pitch) -> nil

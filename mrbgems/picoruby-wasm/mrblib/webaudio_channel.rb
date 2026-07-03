@@ -1,7 +1,7 @@
 module JS
   module WebAudio
     class Channel
-      attr_reader :source, :number, :program, :tone
+      attr_reader :source, :number, :tone
 
       def initialize(context, destination, source, number)
         @context = context
@@ -19,7 +19,6 @@ module JS
         @expression = 127
         @pan = 64
         @pitch_bend = 8192
-        @program = 0
         @tone = WebAudio::DEFAULT_TONE.dup
         apply_gain
         apply_pan
@@ -51,13 +50,6 @@ module JS
         @pitch_bend = value
       end
 
-      def program=(value)
-        return self if percussion?
-        presets = WebAudio::PRESETS
-        @program = value
-        @tone = presets[value % presets.size].dup
-      end
-
       def update_tone(attributes)
         return self if percussion?
         keys = attributes.keys
@@ -83,7 +75,6 @@ module JS
         {
           source: @source,
           channel: @number,
-          program: @program,
           volume: @volume,
           expression: @expression,
           pan: @pan,

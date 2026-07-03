@@ -190,13 +190,11 @@ class WebAudioSynthTest < Picotest::Test
     assert_equal 64, synth.active_voices[0][:note]
   end
 
-  def test_pitch_bend_and_program_update_active_voice
+  def test_pitch_bend_updates_active_voice
     @synth.handle_midi([:note_on, 0, 69, 100], :serial, 0, 10)
     oscillator = @context.oscillators[-1]
     @synth.handle_midi([:pitch_bend, 0, 16_383], :serial, 0, 20)
     assert_equal 200.0, oscillator[:detune].value
-    @synth.handle_midi([:program_change, 0, 3], :serial, 0, 30)
-    assert_equal "sawtooth", oscillator.properties[:type]
   end
 
   def test_pan_matches_the_demo_control_direction
@@ -227,10 +225,8 @@ class WebAudioSynthTest < Picotest::Test
   def test_channel_10_has_a_fixed_percussion_tone
     before = @synth.channel_state(source: :serial, channel: 9)
     assert before[:percussion]
-    @synth.handle_midi([:program_change, 9, 3], :serial, 0, 10)
     @synth.update_tone(source: :serial, channel: 9, waveform: "square")
     after = @synth.channel_state(source: :serial, channel: 9)
-    assert_equal 0, after[:program]
     assert_equal before[:tone], after[:tone]
   end
 

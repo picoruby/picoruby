@@ -18,7 +18,6 @@ class WebAudioApp < Funicular::Component
       terminal_state: "disconnected",
       error: nil,
       selected_channel: 0,
-      program: 0,
       voices: [],
       channels: [],
       waveform: "sine",
@@ -129,7 +128,7 @@ class WebAudioApp < Funicular::Component
     channel = event.target[:value].to_i
     snapshot = @synth ? @synth.channel_state(source: :webserial, channel: channel) : nil
     tone = snapshot ? snapshot[:tone] : {}
-    values = { selected_channel: channel, program: snapshot ? snapshot[:program] : 0 }
+    values = { selected_channel: channel }
     tone.each { |key, value| values[key] = value }
     patch(**values)
   end
@@ -146,16 +145,6 @@ class WebAudioApp < Funicular::Component
     patch(**{ key => value, error: nil })
   rescue => e
     patch(error: e.message)
-  end
-
-  def program_changed(event)
-    return unless @synth
-    program = event.target[:value].to_i
-    channel = state.selected_channel
-    @router.emit(:webserial, [:program_change, channel, program])
-    @router.emit(:ui, [:program_change, channel, program])
-    tone = @synth.channel_state(source: :webserial, channel: channel)[:tone]
-    patch(program: program, **tone)
   end
 
   def pitch_changed(event)
@@ -334,14 +323,6 @@ class WebAudioApp < Funicular::Component
           if percussion_channel?
             p(class: "muted") { "Channel 10 · fixed percussion kit" }
           else
-            label do
-              span { "Program" }
-              select(onchange: :program_changed, value: selected_channel_value(:program, 0).to_s) do
-                JS::WebAudio::WAVEFORMS.each_with_index do |waveform, index|
-                  option(value: index.to_s) { "#{index}: #{waveform}" }
-                end
-              end
-            end
             tone_select
             tone_slider("Attack", :attack, 0, 2, 0.005)
             tone_slider("Decay", :decay, 0, 2, 0.005)
@@ -497,7 +478,7 @@ class WebAudioApp < Funicular::Component
         div(class: active > 0 ? "channel-card active" : "channel-card") do
           span(class: "channel-number") { (channel[:channel] + 1).to_s }
           span do
-            channel[:percussion] ? "drums" : JS::WebAudio::WAVEFORMS[channel[:program] % 4]
+            channel[:percussion] ? "drums" : channel[:tone][:waveform]
           end
           span { "vol #{channel[:volume]}" }
           span { "#{active} voice" }

@@ -66,8 +66,6 @@ module JS
           note_off(source, event[1], event[2])
         when :control_change
           control_change(source, event[1], event[2], event[3])
-        when :program_change
-          program_change(source, event[1], event[2])
         when :pitch_bend
           pitch_bend(source, event[1], event[2])
         when :system_reset
@@ -200,15 +198,6 @@ module JS
         else
           return false
         end
-        true
-      end
-
-      private def program_change(source, channel_number, program)
-        state = channel_for(source, channel_number)
-        return true if state.percussion?
-        state.program = program
-        keys = state.tone.keys #: ::Array[JS::WebAudio::tone_key_t]
-        update_channel_voices(source, channel_number, keys, false)
         true
       end
 

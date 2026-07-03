@@ -15,14 +15,14 @@ input.connect      # opens the browser's WebSerial picker
 ```
 
 The initial implementation supports Note On/Off, velocity, channel volume,
-expression, pan, pitch bend, four oscillator waveforms, Program Change,
-All Sound Off, Reset Controllers, and All Notes Off. Sustain pedal is monitored
+expression, pan, pitch bend, four oscillator waveforms, All Sound Off,
+Reset Controllers, and All Notes Off. Sustain pedal is monitored
 but intentionally deferred.
 
 MIDI Channel 10 is a fixed percussion channel. Notes 35/36 (kick), 38/40
 (snare), 41/43 (low tom), 42/44 (closed hi-hat), 45/47 (mid tom), 46
-(open hi-hat), and 48/50 (high tom) are synthesized as one-shots. Program
-Change, tone editing, and pitch bend do not alter this channel.
+(open hi-hat), and 48/50 (high tom) are synthesized as one-shots. Tone editing
+and pitch bend do not alter this channel.
 
 ## Standalone demo
 

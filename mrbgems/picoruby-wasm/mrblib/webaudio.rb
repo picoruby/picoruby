@@ -34,13 +34,6 @@ module JS
       resonance: 0.0
     }
 
-    PRESETS = [
-      DEFAULT_TONE,
-      DEFAULT_TONE.merge(waveform: "square", cutoff: 8_000.0),
-      DEFAULT_TONE.merge(waveform: "triangle", attack: 0.015),
-      DEFAULT_TONE.merge(waveform: "sawtooth", cutoff: 4_500.0, resonance: 2.0)
-    ]
-
     def self.supported?
       global = JS.global
       global[:AudioContext].is_a?(JS::Object) ||
