@@ -4,6 +4,7 @@ module MIDIBASE
       @events: EventBuffer
       @source: Symbol
       @voice_limit: Integer
+      @channel_mask: Integer
       @muted: bool
       @cursor: Integer
       @cycle: Integer
@@ -12,8 +13,10 @@ module MIDIBASE
       attr_reader events: EventBuffer
       attr_reader source: Symbol
       attr_reader voice_limit: Integer
+      attr_reader channel_mask: Integer
       attr_accessor muted: bool
-      def initialize: (EventBuffer events, source: Symbol, voice_limit: Integer) -> void
+      def initialize: (EventBuffer events, source: Symbol, voice_limit: Integer, ?channel_mask: Integer) -> void
+      def copy: () -> Track
       def reset: () -> self
       def next_tick: (Integer loop_ticks) -> Integer?
       def current_event: () -> MIDIBASE::event_t

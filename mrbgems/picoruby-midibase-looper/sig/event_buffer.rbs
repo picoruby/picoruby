@@ -11,6 +11,8 @@ module MIDIBASE
       def event_at: (Integer index) -> MIDIBASE::event_t
       def sort!: () -> self
       def clear: () -> self
+      def seal!: () -> self
+      def sealed?: () -> bool
     end
   end
 end

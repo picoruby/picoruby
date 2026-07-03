@@ -1,6 +1,7 @@
 require "midibase-looper"
 require "psg"
 require "uart-midi"
+require "usb/cdc/midi"
 
 resources = [] #: Array[untyped]
 session = nil
@@ -10,13 +11,17 @@ begin
     LooperConsole.usage
   else
     router = MIDIBASE::Router.new
-    midi = UART::MIDI.new(
+    midi_input = UART::MIDI.new(
       unit: options.uart_unit,
       txd_pin: options.tx,
       rxd_pin: options.rx,
       baudrate: options.baud
     )
-    looper = MIDIBASE::Looper.new(output: router)
+    looper = MIDIBASE::Looper.new(
+      output: router,
+      voice_capacity: options.polyphony,
+      click_voice_cost: options.click_voice_cost
+    )
     router.connect(:midi_in, looper, only: MIDIBASE::CHANNEL_EVENTS)
 
     driver = nil
@@ -66,20 +71,28 @@ begin
       end
     end
 
+    midi_output = nil
     if options.midi_out == :uart
-      router.connect(looper.live_source, midi, only: MIDIBASE::WIRE_EVENTS) if options.midi_thru
+      midi_output = midi_input
+    elsif options.midi_out == :cdc
+      midi_output = USB::CDC::MIDIOutput.new
+    end
+    if midi_output
+      # Keep MIDI Thru on the same direct path as usb/cdc/midi's uart_bridge
+      # example. Recording still receives the event through the Looper route.
+      router.connect(:midi_in, midi_output, only: MIDIBASE::WIRE_EVENTS) if options.midi_thru
       i = 0
       track_sources = looper.track_sources
       while i < track_sources.size
-        router.connect(track_sources[i], midi, only: MIDIBASE::WIRE_EVENTS)
+        router.connect(track_sources[i], midi_output, only: MIDIBASE::WIRE_EVENTS)
         i += 1
       end
       if options.click_out == :midi || options.click_out == :both
-        router.connect(looper.click_source, midi, only: MIDIBASE::WIRE_EVENTS)
+        router.connect(looper.click_source, midi_output, only: MIDIBASE::WIRE_EVENTS)
       end
     end
 
-    pump = MIDIBASE::Looper::InputPump.new(midi, output: router, source: :midi_in)
+    pump = MIDIBASE::Looper::InputPump.new(midi_input, output: router, source: :midi_in)
     resources << pump
     resources << looper
     resources << synth if synth

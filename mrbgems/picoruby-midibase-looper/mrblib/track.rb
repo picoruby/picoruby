@@ -1,18 +1,30 @@
 module MIDIBASE
   class Looper
     class Track
-      attr_reader :events, :source, :voice_limit
+      attr_reader :events, :source, :voice_limit, :channel_mask
       attr_accessor :muted
 
-      def initialize(events, source:, voice_limit:)
+      def initialize(events, source:, voice_limit:, channel_mask: 0)
         @events = events
         @source = source
         @voice_limit = voice_limit
+        @channel_mask = channel_mask
         @muted = false
         @cursor = 0
         @cycle = 0
         @current_event = nil
         @active = [] #: Array[Integer]
+      end
+
+      def copy
+        track = Track.new(
+          @events,
+          source: @source,
+          voice_limit: @voice_limit,
+          channel_mask: @channel_mask
+        )
+        track.muted = @muted
+        track
       end
 
       def reset

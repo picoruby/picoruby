@@ -1,7 +1,7 @@
 module MIDIBASE
   class Looper
     class Recorder
-      attr_reader :buffer, :voice_limit
+      attr_reader :buffer, :voice_limit, :channel_mask
 
       def initialize(loop_ticks:, grid_ticks:, voice_limit:, max_events:)
         @loop_ticks = loop_ticks
@@ -10,9 +10,11 @@ module MIDIBASE
         @buffer = EventBuffer.new(max_events)
         @active = [] #: Array[Integer]
         @overflow = false
+        @channel_mask = 0
       end
 
       def note_on(tick, channel, note, velocity)
+        @channel_mask |= 1 << channel
         existing = active_index(channel, note)
         note_off(tick, channel, note, 0) unless existing.nil?
         offset = @buffer.append(tick, :note_on, channel, note, velocity)
@@ -70,7 +72,9 @@ module MIDIBASE
           note_off(@loop_ticks, active[0], active[1], 0)
         end
         @buffer.sort!
-        @overflow ? nil : @buffer
+        return nil if @overflow
+        @buffer.seal!
+        @buffer
       end
 
       def overflow?

@@ -26,8 +26,9 @@ class LooperConsole
   def self.usage
     puts "Usage: looper [options]"
     puts "  --audio mcp4922|pwm|off       (default: mcp4922)"
-    puts "  --midi-out off|uart           (default: off)"
+    puts "  --midi-out off|uart|cdc       (default: off)"
     puts "  --click-out audio|midi|both   (default: audio)"
+    puts "  --polyphony N                  (default: 3 with PSG, 16 MIDI-only)"
     puts "  --no-midi-thru"
     puts "  --uart-unit NAME --rx PIN --tx PIN --baud RATE"
     puts "  --ldac PIN --cs PIN --sck PIN --copi PIN"
@@ -71,6 +72,16 @@ class LooperConsole
       record_and_report(voices)
     when "tracks"
       print_tracks
+    when "parts"
+      print_parts
+    when "part"
+      execute_part(args)
+    when "arrange"
+      execute_arrange(args)
+    when "song"
+      raise ArgumentError, "song requires play" unless args[1] == "play" && args.size == 2
+      @looper.play_song
+      puts "Song playback started."
     when "mute"
       index = track_index(args[1])
       @looper.mute(index)
@@ -85,10 +96,13 @@ class LooperConsole
       puts "Track #{index + 1} deleted."
     when "undo"
       @looper.undo
-      puts "Last track deleted."
+      puts "Undone."
+    when "redo"
+      @looper.redo
+      puts "Redone."
     when "clear"
       @looper.clear
-      puts "All tracks cleared."
+      puts "Song cleared."
     when "tempo"
       @looper.tempo = required_integer(args[1], "tempo")
       puts "Tempo: #{@looper.status[:tempo]} BPM"
@@ -127,6 +141,7 @@ class LooperConsole
 
   private def record_and_report(voices)
     before = @looper.status
+    part_id = before[:selected_part]
     before_tracks = before[:tracks].size
     @looper.record(voices: voices)
     status = @looper.status
@@ -135,11 +150,11 @@ class LooperConsole
     console = self
     # A task is required here because the console must remain able to accept `stop`.
     @record_watch_task = Task.new(name: "LooperConsole::record") do
-      console.watch_recording(before_tracks, state)
+      console.watch_recording(part_id, before_tracks, state)
     end
   end
 
-  def watch_recording(before_tracks, state)
+  def watch_recording(part_id, before_tracks, state)
     while recording_pending?(state) && !@console_stopped
       sleep_ms 20
       current = @looper.state
@@ -153,10 +168,11 @@ class LooperConsole
     return if @console_stopped
 
     status = @looper.status
-    tracks = status[:tracks]
+    part = part_status(status, part_id)
+    tracks = part ? part[:tracks] : [] #: Array[Hash[Symbol, untyped]]
     if before_tracks < tracks.size
       track = tracks[-1]
-      @line.say("Track #{tracks.size} recorded: voices=#{track[:voices]}, events=#{track[:events]}.")
+      @line.say("Part #{part_id} track #{tracks.size} recorded: voices=#{track[:voices]}, events=#{track[:events]}.")
       @line.say("Playback continues automatically.")
     elsif status[:last_error]
       @line.say("Recording failed: #{status[:last_error]}")
@@ -174,12 +190,12 @@ class LooperConsole
   private def report_recording_state(state, status, asynchronous: false)
     messages = [] #: Array[String]
     if state == :armed
-      messages << "Armed. Recording starts at the next loop boundary."
+      messages << "Part #{status[:selected_part]} armed. Recording starts at the next part boundary."
     elsif state == :count_in
       messages << "Count-in: #{status[:count_in_bars]} bar(s) via #{click_destination}."
       messages << "Start playing after the count-in."
     elsif state == :recording
-      messages << "Recording #{status[:bars]} bar(s) at #{status[:tempo]} BPM..."
+      messages << "Recording Part #{status[:selected_part]}: #{status[:bars]} bar(s) at #{status[:tempo]} BPM..."
     end
     i = 0
     messages_size = messages.size
@@ -206,6 +222,8 @@ class LooperConsole
     end
     if options.midi_out == :uart
       puts "MIDI out: #{options.uart_unit} TX GPIO#{options.tx}"
+    elsif options.midi_out == :cdc
+      puts "MIDI out: USB CDC2 (raw MIDI for WebSerial)"
     else
       puts "MIDI out: off"
     end
@@ -215,6 +233,79 @@ class LooperConsole
   private def click_destination
     options = @options
     options ? options.click_out.to_s : "configured output"
+  end
+
+  private def execute_part(args)
+    action = args[1]
+    if action == "new"
+      id = args[2]
+      bars = args[3]
+      if id && integer_text?(id)
+        bars = id
+        id = nil
+      end
+      raise ArgumentError, "part new accepts [ID] [BARS]" if args.size > 4
+      part = @looper.create_part(id, bars: bars ? required_integer(bars, "bars") : nil)
+      puts "Part #{part.id} created and selected."
+    elsif action == "copy"
+      raise ArgumentError, "part copy requires SOURCE [ID]" unless args[2]
+      part = @looper.copy_part(args[2], args[3])
+      puts "Part #{part.id} copied from #{args[2].upcase} and selected."
+    elsif action == "select"
+      raise ArgumentError, "part select requires ID" unless args[2]
+      part = @looper.select_part(args[2])
+      puts "Part #{part.id} selected."
+    elsif action == "clear"
+      part = @looper.clear_part(args[2])
+      puts "Part #{part.id} cleared."
+    elsif action == "delete"
+      raise ArgumentError, "part delete requires ID" unless args[2]
+      part = @looper.delete_part(args[2])
+      puts "Part #{part.id} deleted."
+    else
+      raise ArgumentError, "part requires new, copy, select, clear, or delete"
+    end
+  end
+
+  private def execute_arrange(args)
+    if args.size == 1
+      print_arrangement
+      return
+    end
+    if args[1] == "clear"
+      raise ArgumentError, "arrange clear takes no values" unless args.size == 2
+      @looper.arrangement = []
+      puts "Arrangement cleared."
+      return
+    end
+    entries = [] #: Array[Array[untyped]]
+    i = 1
+    while i < args.size
+      fields = args[i].split(":")
+      unless fields.size == 2 && !fields[0].empty?
+        raise ArgumentError, "arrangement entries must be PART:REPEATS"
+      end
+      entries << [fields[0], required_integer(fields[1], "repeats")]
+      i += 1
+    end
+    @looper.arrangement = entries
+    print_arrangement
+  end
+
+  private def integer_text?(value)
+    number = value.to_i
+    number.to_s == value || value == "0"
+  end
+
+  private def part_status(status, id)
+    parts = status[:parts]
+    i = 0
+    parts_size = parts.size
+    while i < parts_size
+      return parts[i] if parts[i][:id] == id
+      i += 1
+    end
+    nil
   end
 
   private def required_integer(value, name)
@@ -240,9 +331,11 @@ class LooperConsole
   end
 
   private def print_tracks
-    tracks = @looper.status[:tracks]
+    status = @looper.status
+    part_id = status[:selected_part]
+    tracks = status[:tracks]
     if tracks.empty?
-      puts "No tracks"
+      puts "Part #{part_id}: no tracks"
       return
     end
     i = 0
@@ -250,24 +343,65 @@ class LooperConsole
     while i < tracks_size
       track = tracks[i]
       state = track[:muted] ? "muted" : "playing"
-      puts "#{i + 1}: #{state}, voices=#{track[:voices]}, events=#{track[:events]}"
+      channels = track[:channels]
+      puts "#{i + 1}: #{state}, channels=#{channels.join(',')}, voices=#{track[:voices]}, events=#{track[:events]}"
       i += 1
     end
+  end
+
+  private def print_parts
+    status = @looper.status
+    parts = status[:parts]
+    i = 0
+    while i < parts.size
+      part = parts[i]
+      markers = ""
+      markers += "*" if part[:id] == status[:selected_part]
+      markers += ">" if part[:id] == status[:active_part]
+      markers += "+" if part[:id] == status[:queued_part]
+      puts "#{part[:id]}#{markers}: bars=#{part[:bars]}, tracks=#{part[:tracks].size}"
+      i += 1
+    end
+    puts "*=selected >=playing +=queued"
+  end
+
+  private def print_arrangement
+    arrangement = @looper.status[:arrangement]
+    if arrangement.empty?
+      puts "Arrangement: empty"
+      return
+    end
+    values = [] #: Array[String]
+    i = 0
+    while i < arrangement.size
+      entry = arrangement[i]
+      values << "#{entry[:part]}:#{entry[:repeats]}"
+      i += 1
+    end
+    puts "Arrangement: #{values.join(' ')}"
   end
 
   private def print_status
     status = @looper.status
     signature = status[:time_signature]
-    puts "state=#{status[:state]} tick=#{status[:tick]} tempo=#{status[:tempo]}"
+    puts "state=#{status[:state]} mode=#{status[:play_mode]} tick=#{status[:tick]} tempo=#{status[:tempo]}"
+    puts "selected=#{status[:selected_part]} active=#{status[:active_part]} queued=#{status[:queued_part]}"
     puts "meter=#{signature[0]}/#{signature[1]} bars=#{status[:bars]} countin=#{status[:count_in_bars]}"
     puts "quantize=#{status[:quantize]} metronome=#{status[:metronome]} available_voices=#{status[:available_voices]}"
+    if status[:play_mode] == :song && status[:song_step]
+      puts "song_step=#{status[:song_step] + 1} repeat=#{status[:song_repeat]}"
+    end
+    puts "undo=#{status[:can_undo]} redo=#{status[:can_redo]}"
     puts "last_error=#{status[:last_error]}" if status[:last_error]
   end
 
   private def print_help
-    puts "play | stop | record [voices] | tracks"
+    puts "play | stop | record [voices] | tracks | parts"
     puts "  record: count-in, then record the configured number of bars"
-    puts "mute N | unmute N | delete N | undo | clear"
+    puts "part new [ID] [BARS] | part copy SOURCE [ID] | part select ID"
+    puts "part clear [ID] | part delete ID"
+    puts "arrange [PART:REPEATS ...] | arrange clear | song play"
+    puts "mute N | unmute N | delete N | undo | redo | clear"
     puts "tempo N | meter N/D | bars N | countin N"
     puts "quantize off|1/4|1/8|1/16|1/8t"
     puts "metronome off|count-in|beat|subdivision"

@@ -3,6 +3,8 @@ class LooperCLIOptions
   @midi_out: Symbol
   @click_out: Symbol
   @midi_thru: bool
+  @polyphony: Integer
+  @click_voice_cost: Integer
   @uart_unit: Symbol
   @rx: Integer
   @tx: Integer
@@ -17,6 +19,8 @@ class LooperCLIOptions
   attr_reader midi_out: Symbol
   attr_reader click_out: Symbol
   attr_reader midi_thru: bool
+  attr_reader polyphony: Integer
+  attr_reader click_voice_cost: Integer
   attr_reader uart_unit: Symbol
   attr_reader rx: Integer
   attr_reader tx: Integer

@@ -358,4 +358,165 @@ class MIDIBASELooperTest < Picotest::Test
     assert_raise(RuntimeError) { looper.time_signature = [3, 4] }
     assert_raise(RuntimeError) { looper.bars = 2 }
   end
+
+  def test_default_part_a_preserves_legacy_track_view
+    looper = build_looper
+    status = looper.status
+    assert_equal :A, status[:selected_part]
+    assert_equal 1, status[:parts].size
+    assert_equal status[:tracks], status[:parts][0][:tracks]
+  end
+
+  def test_part_copy_shares_sealed_events_but_has_independent_track_state
+    looper = build_looper
+    looper.record(voices: 1)
+    looper.handle([:note_on, 0, 60, 100], timestamp_us: 0)
+    looper.handle([:note_off, 0, 60, 0], timestamp_us: 100_000)
+    @time.now = 2_000_000
+    looper.advance(@time.now)
+    original = looper.tracks[0]
+
+    copied = looper.copy_part(:A, :B)
+    assert_equal :B, copied.id
+    assert_equal original.events.object_id, looper.tracks[0].events.object_id
+    assert looper.tracks[0].events.sealed?
+    assert_raise(RuntimeError) { looper.tracks[0].events.clear }
+
+    looper.mute(0)
+    assert looper.tracks[0].muted
+    looper.select_part(:A)
+    assert_false looper.tracks[0].muted
+  end
+
+  def test_records_selected_part_at_active_part_boundary
+    looper = build_looper
+    looper.record(voices: 1)
+    looper.handle([:note_on, 0, 60, 100], timestamp_us: 0)
+    looper.handle([:note_off, 0, 60, 0], timestamp_us: 100_000)
+    @time.now = 2_000_000
+    looper.advance(@time.now)
+
+    looper.create_part(:B, bars: 2)
+    @time.now = 2_100_000
+    looper.record(voices: 1)
+    assert_equal :B, looper.status[:queued_part]
+    @time.now = 4_000_000
+    looper.advance(@time.now)
+    assert_equal :recording, looper.state
+    assert_equal :B, looper.status[:active_part]
+    looper.handle([:note_on, 1, 64, 90], timestamp_us: 4_000_000)
+    looper.handle([:note_off, 1, 64, 0], timestamp_us: 4_100_000)
+    @time.now = 8_000_000
+    looper.advance(@time.now)
+
+    assert_equal [2], looper.status[:tracks][0][:channels]
+    looper.select_part(:A)
+    assert_equal [1], looper.status[:tracks][0][:channels]
+  end
+
+  def test_arrangement_repeats_parts_and_stops_after_last_step
+    looper = build_looper
+    looper.create_part(:B)
+    looper.create_part(:C)
+    looper.arrangement = [[:A, 2], [:B, 4], [:A, 2], [:C, 1]]
+    looper.play_song
+
+    @time.now = 4_000_000
+    looper.advance(@time.now)
+    assert_equal :B, looper.status[:active_part]
+    assert_equal 1, looper.status[:song_step]
+
+    @time.now = 12_000_000
+    looper.advance(@time.now)
+    assert_equal :A, looper.status[:active_part]
+    @time.now = 16_000_000
+    looper.advance(@time.now)
+    assert_equal :C, looper.status[:active_part]
+    @time.now = 18_000_000
+    looper.advance(@time.now)
+    assert_equal :stopped, looper.state
+  end
+
+  def test_part_delete_cascades_arrangement_and_undo_restores_it
+    looper = build_looper
+    looper.create_part(:B)
+    looper.arrangement = [[:A, 1], [:B, 2]]
+    looper.delete_part(:B)
+    assert_equal 1, looper.status[:parts].size
+    assert_equal 1, looper.status[:arrangement].size
+
+    looper.undo
+    assert_equal 2, looper.status[:parts].size
+    assert_equal :B, looper.status[:arrangement][1][:part]
+    looper.redo
+    assert_equal 1, looper.status[:parts].size
+  end
+
+  def test_recording_undo_and_redo_work_during_playback
+    looper = build_looper
+    looper.record(voices: 1)
+    looper.handle([:note_on, 0, 60, 100], timestamp_us: 0)
+    looper.handle([:note_off, 0, 60, 0], timestamp_us: 100_000)
+    @time.now = 2_000_000
+    looper.advance(@time.now)
+    assert_equal 1, looper.tracks.size
+
+    looper.undo
+    assert_equal 0, looper.tracks.size
+    looper.redo
+    assert_equal 1, looper.tracks.size
+  end
+
+  def test_voice_budget_is_scoped_to_selected_part
+    looper = build_looper(voice_capacity: 3)
+    looper.record(voices: 2)
+    looper.handle([:note_on, 0, 60, 100], timestamp_us: 0)
+    looper.handle([:note_off, 0, 60, 0], timestamp_us: 100_000)
+    @time.now = 2_000_000
+    looper.advance(@time.now)
+    assert_equal 1, looper.status[:available_voices]
+
+    looper.create_part(:B)
+    assert_equal 3, looper.status[:available_voices]
+  end
+
+  def test_midi_click_does_not_consume_a_music_voice
+    looper = build_looper(
+      voice_capacity: 3,
+      click_voice_cost: 0,
+      count_in_bars: 1,
+      metronome: :count_in
+    )
+    looper.record(voices: 3)
+    assert_equal :count_in, looper.state
+  end
+
+  def test_cli_uses_sixteen_voices_and_free_click_for_midi_only
+    options = LooperCLIOptions.new
+    options.parse(["--audio", "off", "--midi-out", "uart"])
+    assert_equal 16, options.polyphony
+    assert_equal 0, options.click_voice_cost
+    assert_equal :midi, options.click_out
+  end
+
+  def test_cli_accepts_usb_cdc_midi_output
+    options = LooperCLIOptions.new
+    options.parse(["--audio", "off", "--midi-out", "cdc"])
+    assert_equal :cdc, options.midi_out
+    assert options.midi_thru
+    assert_equal 16, options.polyphony
+    assert_equal 0, options.click_voice_cost
+    assert_equal :midi, options.click_out
+  end
+
+  def test_cli_can_disable_midi_thru_for_usb_cdc_output
+    options = LooperCLIOptions.new
+    options.parse(["--audio", "off", "--midi-out", "cdc", "--no-midi-thru"])
+    assert_false options.midi_thru
+  end
+
+  def test_cli_rejects_more_than_three_psg_voices
+    options = LooperCLIOptions.new
+    assert_raise(ArgumentError) { options.parse(["--polyphony", "4"]) }
+  end
 end

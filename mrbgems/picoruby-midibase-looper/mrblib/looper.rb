@@ -6,6 +6,8 @@ module MIDIBASE
     DEFAULT_TEMPO = 120
     DEFAULT_MAX_EVENTS = 256
     DEFAULT_VOICE_CAPACITY = 3
+    DEFAULT_MAX_PARTS = 8
+    DEFAULT_MAX_ARRANGEMENT_STEPS = 64
     MIDI_MESSAGE_POOL_SIZE = 16
     CLICK_DURATION_US = 50_000
     CLICK_VELOCITY = 127
@@ -22,8 +24,12 @@ module MIDIBASE
     }
     METRONOME_MODES = [:off, :count_in, :beat, :subdivision]
     TIME_SIGNATURES = [[3, 4], [4, 4], [6, 8], [12, 8]]
+    PART_IDS = [
+      :A, :B, :C, :D, :E, :F, :G, :H, :I, :J, :K, :L, :M,
+      :N, :O, :P, :Q, :R, :S, :T, :U, :V, :W, :X, :Y, :Z
+    ]
 
-    attr_reader :state, :tracks, :live_source, :click_source, :track_sources
+    attr_reader :state, :live_source, :click_source, :track_sources
 
     def initialize(
           output:,
@@ -34,6 +40,9 @@ module MIDIBASE
           quantize: :sixteenth,
           metronome: :count_in,
           voice_capacity: DEFAULT_VOICE_CAPACITY,
+          click_voice_cost: 1,
+          max_parts: DEFAULT_MAX_PARTS,
+          max_arrangement_steps: DEFAULT_MAX_ARRANGEMENT_STEPS,
           max_events_per_track: DEFAULT_MAX_EVENTS,
           time_source: Machine)
       unless output.respond_to?(:emit)
@@ -45,6 +54,15 @@ module MIDIBASE
       unless max_events_per_track.is_a?(Integer) && 0 < max_events_per_track
         raise ArgumentError, "max_events_per_track must be a positive Integer"
       end
+      unless click_voice_cost.is_a?(Integer) && 0 <= click_voice_cost && click_voice_cost <= 1
+        raise ArgumentError, "click_voice_cost must be 0 or 1"
+      end
+      unless max_parts.is_a?(Integer) && 1 <= max_parts && max_parts <= 26
+        raise ArgumentError, "max_parts must be in 1..26"
+      end
+      unless max_arrangement_steps.is_a?(Integer) && 0 < max_arrangement_steps
+        raise ArgumentError, "max_arrangement_steps must be a positive Integer"
+      end
 
       @output = output
       @fast_output = output.respond_to?(:emit_midi)
@@ -53,6 +71,9 @@ module MIDIBASE
       end
       @time_source = time_source
       @voice_capacity = voice_capacity
+      @click_voice_cost = click_voice_cost
+      @max_parts = max_parts
+      @max_arrangement_steps = max_arrangement_steps
       @max_events_per_track = max_events_per_track
       @live_source = LIVE_SOURCE
       @click_source = CLICK_SOURCE
@@ -63,7 +84,22 @@ module MIDIBASE
         i += 1
       end
 
-      @tracks = [] #: Array[Track]
+      @parts = [] #: Array[Part]
+      @selected_part = Part.new(:A, bars: bars)
+      @parts << @selected_part
+      @active_part = nil
+      @queued_part = nil
+      @record_part = nil
+      @play_mode = :part
+      @part_start_tick = 0
+      @next_part_tick = nil
+      # Flat records: Part, repeat count.
+      @arrangement = [] #: Array[untyped]
+      @arrangement_step = nil
+      @arrangement_repeat = nil
+      @pending_song = false
+      @undo_action = nil
+      @redo_action = nil
       # Flat records: channel, note, timestamp_us, recorded, velocity.
       @live_notes = [] #: Array[untyped]
       @click_notes = [] #: Array[Integer]
@@ -88,10 +124,14 @@ module MIDIBASE
 
       set_tempo(tempo)
       set_time_signature(time_signature)
-      set_bars(bars)
+      validate_bars(bars)
       set_count_in_bars(count_in_bars)
       set_quantize(quantize)
       set_metronome(metronome)
+    end
+
+    def tracks
+      @selected_part.tracks
     end
 
     def start
@@ -155,6 +195,10 @@ module MIDIBASE
       submit(:play)
     end
 
+    def play_song
+      submit(:play_song)
+    end
+
     def transport_stop
       submit(:transport_stop)
     end
@@ -179,8 +223,36 @@ module MIDIBASE
       submit(:undo)
     end
 
+    def redo
+      submit(:redo)
+    end
+
     def clear
       submit(:clear)
+    end
+
+    def create_part(id = nil, bars: nil)
+      submit(:create_part, id, bars)
+    end
+
+    def copy_part(source, id = nil)
+      submit(:copy_part, source, id)
+    end
+
+    def select_part(id)
+      submit(:select_part, id)
+    end
+
+    def clear_part(id = nil)
+      submit(:clear_part, id)
+    end
+
+    def delete_part(id)
+      submit(:delete_part, id)
+    end
+
+    def arrangement=(entries)
+      submit(:arrangement, entries)
     end
 
     def tempo=(value)
@@ -216,16 +288,17 @@ module MIDIBASE
       return self if @state == :stopped
 
       current_tick = tick_at_time(now_us)
-      record_start_tick = @record_start_tick
-      if @state == :count_in && record_start_tick && record_start_tick <= current_tick
-        begin_recording(record_start_tick)
-      elsif @state == :armed && record_start_tick && record_start_tick <= current_tick
-        begin_recording(record_start_tick)
-      end
-
-      record_end_tick = @record_end_tick
-      if @state == :recording && record_end_tick && record_end_tick <= current_tick
-        current_tick = finish_recording(now_us)
+      while (boundary = next_boundary_tick) && boundary <= current_tick
+        recording_end = @state == :recording && @record_end_tick == boundary
+        process_clicks(boundary) unless recording_end
+        process_track_events(boundary, exclusive: true)
+        if recording_end
+          finish_recording(boundary, now_us)
+        elsif (@state == :armed || @state == :count_in) && @record_start_tick == boundary
+          begin_recording(boundary, now_us)
+        elsif @next_part_tick == boundary
+          process_part_boundary(boundary, now_us)
+        end
       end
 
       process_clicks(current_tick)
@@ -277,13 +350,21 @@ module MIDIBASE
     private def process_command(command, args, now_us)
       case command
       when :play then command_play(now_us)
+      when :play_song then command_play_song(now_us)
       when :transport_stop then command_transport_stop(now_us)
       when :record then command_record(args[0], now_us)
       when :mute then command_mute(args[0], now_us)
       when :unmute then track_at(args[0]).muted = false
       when :delete then command_delete(args[0], now_us)
       when :undo then command_undo(now_us)
+      when :redo then command_redo(now_us)
       when :clear then command_clear(now_us)
+      when :create_part then command_create_part(args[0], args[1])
+      when :copy_part then command_copy_part(args[0], args[1])
+      when :select_part then command_select_part(args[0])
+      when :clear_part then command_clear_part(args[0], now_us)
+      when :delete_part then command_delete_part(args[0])
+      when :arrangement then command_arrangement(args[0])
       when :tempo then command_tempo(args[0], now_us)
       when :time_signature then set_time_signature(args[0])
       when :bars then set_bars(args[0])
@@ -296,10 +377,35 @@ module MIDIBASE
     end
 
     private def command_play(now_us)
-      return self unless @state == :stopped
-      start_transport(now_us)
-      @state = :playing
+      ensure_not_recording
+      @play_mode = :part
+      @pending_song = false
+      @arrangement_step = nil
+      @arrangement_repeat = nil
+      if @state == :stopped
+        start_transport(now_us)
+        activate_part(@selected_part, 0, now_us)
+        @state = :playing
+      elsif @active_part != @selected_part
+        @queued_part = @selected_part
+        @next_part_tick = next_active_part_boundary(tick_at_time(now_us))
+      end
       configure_click(tick_at_time(now_us))
+      self
+    end
+
+    private def command_play_song(now_us)
+      ensure_not_recording
+      raise RuntimeError, "arrangement is empty" if @arrangement.empty?
+      if @state == :stopped
+        start_transport(now_us)
+        begin_song(0, now_us)
+        @state = :playing
+      else
+        @pending_song = true
+        @queued_part = nil
+        @next_part_tick = next_active_part_boundary(tick_at_time(now_us))
+      end
       self
     end
 
@@ -310,10 +416,17 @@ module MIDIBASE
       @record_voice_limit = nil
       @record_start_tick = nil
       @record_end_tick = nil
+      @record_part = nil
       @anchor_us = nil
       @anchor_tick = 0
       @next_click_tick = nil
-      reset_tracks
+      @active_part = nil
+      @queued_part = nil
+      @next_part_tick = nil
+      @pending_song = false
+      @arrangement_step = nil
+      @arrangement_repeat = nil
+      reset_all_tracks
       self
     end
 
@@ -324,32 +437,47 @@ module MIDIBASE
       unless @state == :stopped || @state == :playing
         raise RuntimeError, "recording is already armed"
       end
-      available = available_recording_voices
+      target = @selected_part
+      available = available_recording_voices(target)
       if available < voices
         raise ArgumentError, "only #{available} recording voice(s) available"
       end
-      if @tracks.size >= @track_sources.size
+      if target.tracks.size >= @track_sources.size
         raise RuntimeError, "track limit reached"
       end
 
       @last_error = nil
       @record_voice_limit = voices
+      @record_part = target
       limit_live_notes(voices, now_us)
-      if @tracks.empty?
-        start_transport(now_us) if @state == :stopped
+      @play_mode = :part
+      @pending_song = false
+      @arrangement_step = nil
+      @arrangement_repeat = nil
+      if @state == :stopped
+        start_transport(now_us)
+        activate_part(target, 0, now_us)
         current = tick_at_time(now_us)
-        count_ticks = @count_in_bars * ticks_per_bar
-        @record_start_tick = current + count_ticks
-        @state = count_ticks == 0 ? :recording : :count_in
-        if @state == :recording
-          begin_recording(current)
+        if target.tracks.empty?
+          count_ticks = @count_in_bars * ticks_per_bar
+          @record_start_tick = current + count_ticks
+          @state = count_ticks == 0 ? :recording : :count_in
+          if @state == :recording
+            begin_recording(current, now_us)
+            configure_click(current)
+          else
+            configure_click(current)
+          end
         else
+          @record_start_tick = part_ticks(target)
+          @state = :armed
           configure_click(current)
         end
       else
-        start_transport(now_us) if @state == :stopped
         current = tick_at_time(now_us)
-        @record_start_tick = (current / loop_ticks + 1) * loop_ticks
+        @record_start_tick = next_active_part_boundary(current)
+        @queued_part = target if @active_part != target
+        @next_part_tick = nil
         @state = :armed
         configure_click(current)
       end
@@ -358,33 +486,137 @@ module MIDIBASE
 
     private def command_mute(index, now_us)
       track = track_at(index)
-      silence_track(track, now_us)
+      silence_track(track, now_us) if @active_part == @selected_part
       track.muted = true
       self
     end
 
     private def command_delete(index, now_us)
+      part = @selected_part
       track = track_at(index)
-      silence_track(track, now_us)
-      @tracks.delete_at(index)
+      silence_track(track, now_us) if @active_part == part
+      part.tracks.delete_at(index)
+      remember([:track_insert, part.id, index, track])
       self
     end
 
     private def command_undo(now_us)
-      raise RuntimeError, "no track to undo" if @tracks.empty?
-      command_delete(@tracks.size - 1, now_us)
+      action = @undo_action
+      raise RuntimeError, "nothing to undo" unless action
+      ensure_stopped_for_structure if structural_history?(action)
+      inverse = apply_history(action, now_us)
+      @undo_action = nil
+      @redo_action = inverse
+      self
+    end
+
+    private def command_redo(now_us)
+      action = @redo_action
+      raise RuntimeError, "nothing to redo" unless action
+      ensure_stopped_for_structure if structural_history?(action)
+      inverse = apply_history(action, now_us)
+      @redo_action = nil
+      @undo_action = inverse
+      self
     end
 
     private def command_clear(now_us)
+      old_parts = @parts
+      old_selected = @selected_part
+      old_arrangement = @arrangement
+      command_transport_stop(now_us)
+      @selected_part = Part.new(:A, bars: old_selected.bars)
+      @parts = [@selected_part]
+      @arrangement = [] #: Array[untyped]
+      remember([:song_replace, old_parts, old_selected.id, old_arrangement])
+      self
+    end
+
+    private def command_create_part(id, bars)
+      ensure_structure_change_allowed
+      part_id = id ? normalize_part_id(id) : next_part_id
+      raise ArgumentError, "part #{part_id} already exists" if find_part(part_id)
+      raise RuntimeError, "part limit reached" if @max_parts <= @parts.size
+      part_bars = bars.nil? ? @selected_part.bars : validate_bars(bars)
+      part = Part.new(part_id, bars: part_bars)
+      @parts << part
+      @selected_part = part
+      remember([:part_remove, @parts.size - 1])
+      part
+    end
+
+    private def command_copy_part(source_id, id)
+      ensure_structure_change_allowed
+      source = part_for(source_id)
+      part_id = id ? normalize_part_id(id) : next_part_id
+      raise ArgumentError, "part #{part_id} already exists" if find_part(part_id)
+      raise RuntimeError, "part limit reached" if @max_parts <= @parts.size
+      part = source.copy(part_id)
+      @parts << part
+      @selected_part = part
+      remember([:part_remove, @parts.size - 1])
+      part
+    end
+
+    private def command_select_part(id)
+      ensure_not_recording
+      @selected_part = part_for(id)
+      @selected_part
+    end
+
+    private def command_clear_part(id, _now_us)
+      ensure_stopped_for_structure
+      part = id ? part_for(id) : @selected_part
+      old_tracks = part.tracks
+      part.instance_variable_set(:@tracks, [])
+      remember([:tracks_replace, part.id, old_tracks])
+      part
+    end
+
+    private def command_delete_part(id)
+      ensure_stopped_for_structure
+      raise RuntimeError, "the last part cannot be deleted" if @parts.size == 1
+      part = part_for(id)
+      index = @parts.index(part)
+      raise RuntimeError, "part index is missing" unless index
+      # @type var index: Integer
+      old_arrangement = @arrangement
+      old_selected_id = @selected_part.id
+      @parts.delete_at(index)
+      remove_part_from_arrangement(part)
+      @selected_part = @parts[0] if @selected_part == part
+      remember([:part_insert, index, part, old_arrangement, old_selected_id])
+      part
+    end
+
+    private def command_arrangement(entries)
+      ensure_stopped_for_structure
+      unless entries.is_a?(Array)
+        raise ArgumentError, "arrangement must be an Array"
+      end
+      if @max_arrangement_steps < entries.size
+        raise ArgumentError, "arrangement is limited to #{@max_arrangement_steps} steps"
+      end
+      normalized = [] #: Array[untyped]
       i = 0
-      tracks = @tracks
-      tracks_size = tracks.size
-      while i < tracks_size
-        silence_track(tracks[i], now_us)
+      entries_size = entries.size
+      while i < entries_size
+        entry = entries[i]
+        unless entry.is_a?(Array) && entry.size == 2
+          raise ArgumentError, "arrangement entries must be [part, repeats]"
+        end
+        repeats = entry[1]
+        unless repeats.is_a?(Integer) && 1 <= repeats && repeats <= 255
+          raise ArgumentError, "arrangement repeats must be in 1..255"
+        end
+        normalized << part_for(entry[0])
+        normalized << repeats
         i += 1
       end
-      tracks.clear
-      command_transport_stop(now_us)
+      old = @arrangement
+      @arrangement = normalized
+      remember([:arrangement_replace, old])
+      normalized
     end
 
     private def command_tempo(value, now_us)
@@ -429,9 +661,11 @@ module MIDIBASE
 
       record_start_tick = @record_start_tick
       recorder = @recorder
-      if @state == :recording && record_start_tick && recorder
+      part = @record_part
+      if @state == :recording && record_start_tick && recorder && part
         raw_tick = tick_at_time(timestamp_us) - record_start_tick
-        if 0 <= raw_tick && raw_tick < loop_ticks
+        ticks = part_ticks(part)
+        if 0 <= raw_tick && raw_tick < ticks
           recorder.note_on(raw_tick, channel, note, velocity)
           live_notes[entry_offset + 3] = true
         end
@@ -451,22 +685,33 @@ module MIDIBASE
       emit(@live_source, event, timestamp_us)
       record_start_tick = @record_start_tick
       recorder = @recorder
-      if recorded && recorder && record_start_tick
+      part = @record_part
+      if recorded && recorder && record_start_tick && part
         raw_tick = tick_at_time(timestamp_us) - record_start_tick
-        raw_tick = loop_ticks if loop_ticks < raw_tick
+        ticks = part_ticks(part)
+        raw_tick = ticks if ticks < raw_tick
         raw_tick = 0 if raw_tick < 0
         recorder.note_off(raw_tick, event[1], event[2], event[3])
       end
       event
     end
 
-    private def begin_recording(start_tick)
+    private def begin_recording(start_tick, now_us)
       voice_limit = @record_voice_limit
-      raise RuntimeError, "recording voice limit is missing" unless voice_limit
+      part = @record_part
+      unless voice_limit && part
+        raise RuntimeError, "recording target is incomplete"
+      end
+      if @active_part != part
+        activate_part(part, start_tick, now_us)
+      end
+      @queued_part = nil
+      @next_part_tick = nil
       @record_start_tick = start_tick
-      @record_end_tick = start_tick + loop_ticks
+      ticks = part_ticks(part)
+      @record_end_tick = start_tick + ticks
       recorder = Recorder.new(
-        loop_ticks: loop_ticks,
+        loop_ticks: ticks,
         grid_ticks: @grid_ticks,
         voice_limit: voice_limit,
         max_events: @max_events_per_track
@@ -486,24 +731,30 @@ module MIDIBASE
         i += 5
       end
       @state = :recording
-      configure_click(start_tick)
+      configure_click(start_tick + 1)
       self
     end
 
-    private def finish_recording(now_us)
-      first_track = @tracks.empty?
+    private def finish_recording(boundary, now_us)
+      part = @record_part
       recorder = @recorder
       voice_limit = @record_voice_limit
-      boundary = @record_end_tick
-      unless recorder && voice_limit && boundary
+      unless recorder && voice_limit && part
         raise RuntimeError, "recording state is incomplete"
       end
+      first_track = part.tracks.empty?
       buffer = recorder.finish
       silence_live(now_us)
       if buffer
         source = next_track_source
-        track = Track.new(buffer, source: source, voice_limit: voice_limit)
-        @tracks << track
+        track = Track.new(
+          buffer,
+          source: source,
+          voice_limit: voice_limit,
+          channel_mask: recorder.channel_mask
+        )
+        part.tracks << track
+        remember([:track_remove, part.id, part.tracks.size - 1])
       else
         @last_error = "recording exceeded #{@max_events_per_track} events"
       end
@@ -511,39 +762,129 @@ module MIDIBASE
       @record_voice_limit = nil
       @record_start_tick = nil
       @record_end_tick = nil
+      @record_part = nil
       @state = :playing
 
       if first_track
-        boundary_us = time_at_tick(boundary)
-        @anchor_us = boundary_us
-        @anchor_tick = 0
-        reset_tracks
+        @part_start_tick = boundary
+        reset_part_tracks(part)
       else
-        track = @tracks[-1]
-        track.seek(boundary, loop_ticks) if track && buffer
+        track = part.tracks[-1]
+        relative = boundary - @part_start_tick
+        track.seek(relative, part_ticks(part)) if track && buffer
       end
-      current = tick_at_time(now_us)
-      configure_click(current)
-      current
+      configure_click(boundary)
+      boundary
     end
 
-    private def process_track_events(current_tick)
+    private def next_boundary_tick
+      selected = nil #: Integer?
+      if @state == :recording
+        selected = @record_end_tick
+      elsif @state == :armed || @state == :count_in
+        selected = @record_start_tick
+      end
+      part_tick = @next_part_tick
+      if part_tick && (selected.nil? || part_tick < selected)
+        selected = part_tick
+      end
+      selected
+    end
+
+    private def process_part_boundary(boundary, now_us)
+      if @pending_song
+        @pending_song = false
+        begin_song(boundary, now_us)
+        return
+      end
+      if @play_mode == :song
+        step = @arrangement_step
+        repeat = @arrangement_repeat
+        unless step && repeat
+          raise RuntimeError, "song playback state is incomplete"
+        end
+        arrangement = @arrangement
+        repeats = arrangement[step + 1]
+        if repeat < repeats
+          @arrangement_repeat = repeat + 1
+          active = @active_part
+          raise RuntimeError, "active song part is missing" unless active
+          @next_part_tick = boundary + part_ticks(active)
+          return
+        end
+        step += 2
+        if arrangement.size <= step
+          command_transport_stop(time_at_tick(boundary))
+          return
+        end
+        @arrangement_step = step
+        @arrangement_repeat = 1
+        part_value = arrangement[step]
+        raise RuntimeError, "arrangement part is missing" unless part_value
+        part = part_value #: Part
+        activate_part(part, boundary, now_us)
+        @next_part_tick = boundary + part_ticks(part)
+      elsif @queued_part
+        part = @queued_part #: Part
+        @queued_part = nil
+        activate_part(part, boundary, now_us)
+        @next_part_tick = nil
+      else
+        @next_part_tick = nil
+      end
+    end
+
+    private def begin_song(start_tick, now_us)
+      @play_mode = :song
+      @queued_part = nil
+      @arrangement_step = 0
+      @arrangement_repeat = 1
+      part = @arrangement[0]
+      activate_part(part, start_tick, now_us)
+      @next_part_tick = start_tick + part_ticks(part)
+      configure_click(start_tick + 1)
+      self
+    end
+
+    private def activate_part(part, start_tick, _now_us)
+      timestamp_us = time_at_tick(start_tick)
+      active = @active_part
+      silence_part(active, timestamp_us) if active
+      @active_part = part
+      @part_start_tick = start_tick
+      reset_part_tracks(part)
+      part
+    end
+
+    private def next_active_part_boundary(current_tick)
+      part = @active_part
+      return current_tick unless part
+      ticks = part_ticks(part)
+      elapsed = current_tick - @part_start_tick
+      elapsed = 0 if elapsed < 0
+      @part_start_tick + (elapsed / ticks + 1) * ticks
+    end
+
+    private def process_track_events(current_tick, exclusive: false)
       while true
         due = earliest_track_tick
-        break if due.nil? || current_tick < due
+        break if due.nil? || current_tick < due || (exclusive && due == current_tick)
         dispatch_track_phase(due, :note_off)
         dispatch_track_phase(due, :note_on)
       end
     end
 
     private def earliest_track_tick
+      part = @active_part
+      return nil unless part
       selected = nil #: Integer?
       i = 0
-      tracks = @tracks
+      tracks = part.tracks
       tracks_size = tracks.size
-      ticks = loop_ticks
+      ticks = part_ticks(part)
       while i < tracks_size
         tick = tracks[i].next_tick(ticks)
+        tick += @part_start_tick if tick
         current_selected = selected
         selected = tick if tick && (current_selected.nil? || tick < current_selected)
         i += 1
@@ -552,14 +893,17 @@ module MIDIBASE
     end
 
     private def dispatch_track_phase(due_tick, command)
+      part = @active_part
+      return unless part
       i = 0
-      tracks = @tracks
+      tracks = part.tracks
       tracks_size = tracks.size
-      ticks = loop_ticks
+      ticks = part_ticks(part)
+      relative_due = due_tick - @part_start_tick
       timestamp_us = time_at_tick(due_tick)
       while i < tracks_size
         track = tracks[i]
-        while track.next_tick(ticks) == due_tick && track.current_event[0] == command
+        while track.next_tick(ticks) == relative_due && track.current_event[0] == command
           event = track.current_event
           unless track.muted
             emit(track.source, event, timestamp_us)
@@ -607,7 +951,8 @@ module MIDIBASE
     private def click_active?
       return false if @metronome == :off
       return true if @state == :count_in
-      return true if @state == :recording && @tracks.empty?
+      record_part = @record_part
+      return true if @state == :recording && record_part && record_part.tracks.empty?
       @metronome == :beat || @metronome == :subdivision
     end
 
@@ -633,7 +978,7 @@ module MIDIBASE
     private def start_transport(now_us)
       @anchor_us = now_us
       @anchor_tick = 0
-      reset_tracks
+      reset_all_tracks
     end
 
     private def tick_at_time(timestamp_us)
@@ -667,17 +1012,17 @@ module MIDIBASE
       @metronome == :beat || @metronome == :subdivision
     end
 
-    private def available_recording_voices
-      used = continuous_click? ? 1 : 0
+    private def available_recording_voices(part = @selected_part)
+      used = continuous_click? ? @click_voice_cost : 0
       i = 0
-      tracks = @tracks
+      tracks = part.tracks
       tracks_size = tracks.size
       while i < tracks_size
         used += tracks[i].voice_limit
         i += 1
       end
       if tracks.empty? && @metronome != :off
-        used += 1 unless continuous_click?
+        used += @click_voice_cost unless continuous_click?
       end
       @voice_capacity - used
     end
@@ -724,13 +1069,8 @@ module MIDIBASE
 
     private def silence_all(timestamp_us)
       silence_live(timestamp_us)
-      i = 0
-      tracks = @tracks
-      tracks_size = tracks.size
-      while i < tracks_size
-        silence_track(tracks[i], timestamp_us)
-        i += 1
-      end
+      active = @active_part
+      silence_part(active, timestamp_us) if active
       notes = @click_notes
       while 0 < notes.size
         notes.shift
@@ -739,12 +1079,32 @@ module MIDIBASE
       end
     end
 
-    private def reset_tracks
+    private def silence_part(part, timestamp_us)
+      tracks = part.tracks
       i = 0
-      tracks = @tracks
+      tracks_size = tracks.size
+      while i < tracks_size
+        silence_track(tracks[i], timestamp_us)
+        i += 1
+      end
+    end
+
+    private def reset_part_tracks(part)
+      i = 0
+      tracks = part.tracks
       tracks_size = tracks.size
       while i < tracks_size
         tracks[i].reset
+        i += 1
+      end
+    end
+
+    private def reset_all_tracks
+      parts = @parts
+      i = 0
+      parts_size = parts.size
+      while i < parts_size
+        reset_part_tracks(parts[i])
         i += 1
       end
     end
@@ -753,11 +1113,13 @@ module MIDIBASE
       sources = @track_sources
       i = 0
       sources_size = sources.size
+      part = @record_part || @selected_part
+      part_tracks = part.tracks
       while i < sources_size
         source = sources[i]
         used = false
         j = 0
-        tracks = @tracks
+        tracks = part_tracks
         tracks_size = tracks.size
         while j < tracks_size
           if tracks[j].source == source
@@ -773,39 +1135,81 @@ module MIDIBASE
     end
 
     private def track_at(index)
-      unless index.is_a?(Integer) && 0 <= index && index < @tracks.size
+      tracks = @selected_part.tracks
+      unless index.is_a?(Integer) && 0 <= index && index < tracks.size
         raise IndexError, "track index out of range"
       end
-      @tracks[index]
+      tracks[index]
     end
 
     private def status_snapshot(now_us)
-      track_status = [] #: Array[Hash[Symbol, untyped]]
+      parts_status = [] #: Array[Hash[Symbol, untyped]]
+      selected_tracks = nil #: Array[Hash[Symbol, untyped]]?
+      selected_part = @selected_part
       i = 0
-      tracks = @tracks
-      tracks_size = tracks.size
-      while i < tracks_size
-        track = tracks[i]
-        track_status << {
-          index: i,
-          voices: track.voice_limit,
-          events: track.events.count,
-          muted: track.muted,
-          source: track.source
-        }
+      parts = @parts
+      parts_size = parts.size
+      while i < parts_size
+        part = parts[i]
+        track_status = [] #: Array[Hash[Symbol, untyped]]
+        j = 0
+        tracks = part.tracks
+        tracks_size = tracks.size
+        while j < tracks_size
+          track = tracks[j]
+          channels = [] #: Array[Integer]
+          channel = 0
+          mask = track.channel_mask
+          while channel < 16
+            channels << channel + 1 if mask & (1 << channel) != 0
+            channel += 1
+          end
+          track_status << {
+            index: j,
+            voices: track.voice_limit,
+            events: track.events.count,
+            muted: track.muted,
+            source: track.source,
+            channels: channels
+          }
+          j += 1
+        end
+        parts_status << {id: part.id, bars: part.bars, tracks: track_status}
+        selected_tracks = track_status if part == selected_part
         i += 1
       end
+      arrangement_status = [] #: Array[Hash[Symbol, untyped]]
+      i = 0
+      arrangement = @arrangement
+      while i < arrangement.size
+        arrangement_status << {part: arrangement[i].id, repeats: arrangement[i + 1]}
+        i += 2
+      end
+      current_tick = @anchor_us ? tick_at_time(now_us) : 0
+      active = @active_part
+      display_tick = active ? (current_tick - @part_start_tick) % part_ticks(active) : 0
+      song_step = @arrangement_step
       {
         state: @state,
+        play_mode: @play_mode,
         tempo: @tempo,
         time_signature: @time_signature,
-        bars: @bars,
+        bars: selected_part.bars,
         count_in_bars: @count_in_bars,
         quantize: @quantize,
         metronome: @metronome,
-        tick: @anchor_us ? tick_at_time(now_us) % loop_ticks : 0,
-        tracks: track_status,
-        available_voices: available_recording_voices,
+        tick: display_tick,
+        tracks: selected_tracks || [],
+        parts: parts_status,
+        selected_part: selected_part.id,
+        active_part: active&.id,
+        queued_part: (@queued_part || @record_part)&.id,
+        arrangement: arrangement_status,
+        song_step: song_step ? song_step / 2 : nil,
+        song_repeat: @arrangement_repeat,
+        available_voices: available_recording_voices(selected_part),
+        can_undo: !@undo_action.nil?,
+        can_redo: !@redo_action.nil?,
         last_error: @last_error
       }
     end
@@ -819,7 +1223,7 @@ module MIDIBASE
 
     private def set_time_signature(value)
       ensure_configuration_change_allowed
-      raise RuntimeError, "meter is locked after recording" unless @tracks.empty?
+      raise RuntimeError, "meter is locked after recording" if any_tracks?
       valid = false
       i = 0
       while i < TIME_SIGNATURES.size
@@ -835,13 +1239,10 @@ module MIDIBASE
 
     private def set_bars(value)
       ensure_configuration_change_allowed
-      raise RuntimeError, "bars are locked after recording" unless @tracks.empty?
-      unless value.is_a?(Integer) && 1 <= value && value <= 16
-        raise ArgumentError, "bars must be in 1..16"
-      end
-      @bars = value
-      raise ArgumentError, "loop is too long" if 0xFFFF < loop_ticks
-      @bars
+      raise RuntimeError, "bars can only be changed while stopped" unless @state == :stopped
+      part = @selected_part
+      raise RuntimeError, "bars are locked after recording" unless part.tracks.empty?
+      part.bars = validate_bars(value)
     end
 
     private def set_count_in_bars(value)
@@ -866,7 +1267,7 @@ module MIDIBASE
       unless METRONOME_MODES.include?(value)
         raise ArgumentError, "invalid metronome mode"
       end
-      if (value == :beat || value == :subdivision) && @voice_capacity < used_track_voices + 1
+      if (value == :beat || value == :subdivision) && @voice_capacity < max_used_track_voices + @click_voice_cost
         raise RuntimeError, "no voice available for continuous metronome"
       end
       @metronome = value
@@ -879,19 +1280,195 @@ module MIDIBASE
     end
 
     private def loop_ticks
-      ticks_per_bar * @bars
+      part_ticks(@selected_part)
     end
 
-    private def used_track_voices
+    private def part_ticks(part)
+      ticks_per_bar * part.bars
+    end
+
+    private def used_track_voices(part = @selected_part)
       total = 0
       i = 0
-      tracks = @tracks
+      tracks = part.tracks
       tracks_size = tracks.size
       while i < tracks_size
         total += tracks[i].voice_limit
         i += 1
       end
       total
+    end
+
+    private def max_used_track_voices
+      maximum = 0
+      i = 0
+      parts = @parts
+      parts_size = parts.size
+      while i < parts_size
+        used = used_track_voices(parts[i])
+        maximum = used if maximum < used
+        i += 1
+      end
+      maximum
+    end
+
+    private def validate_bars(value)
+      unless value.is_a?(Integer) && 1 <= value && value <= 16
+        raise ArgumentError, "bars must be in 1..16"
+      end
+      if 0xFFFF < ticks_per_bar * value
+        raise ArgumentError, "loop is too long"
+      end
+      value
+    end
+
+    private def normalize_part_id(value)
+      text = value.to_s.upcase
+      unless text.size == 1
+        raise ArgumentError, "part ID must be A..Z"
+      end
+      index = text.getbyte(0) - 65
+      unless 0 <= index && index < @max_parts
+        raise ArgumentError, "part ID must be A..#{PART_IDS[@max_parts - 1]}"
+      end
+      PART_IDS[index]
+    end
+
+    private def find_part(id)
+      i = 0
+      parts = @parts
+      parts_size = parts.size
+      while i < parts_size
+        return parts[i] if parts[i].id == id
+        i += 1
+      end
+      nil
+    end
+
+    private def part_for(value)
+      id = normalize_part_id(value)
+      part = find_part(id)
+      raise ArgumentError, "part #{id} does not exist" unless part
+      part
+    end
+
+    private def next_part_id
+      i = 0
+      while i < @max_parts
+        id = PART_IDS[i]
+        return id unless find_part(id)
+        i += 1
+      end
+      raise RuntimeError, "part limit reached"
+    end
+
+    private def remove_part_from_arrangement(part)
+      result = [] #: Array[untyped]
+      arrangement = @arrangement
+      i = 0
+      while i < arrangement.size
+        unless arrangement[i] == part
+          result << arrangement[i]
+          result << arrangement[i + 1]
+        end
+        i += 2
+      end
+      @arrangement = result
+    end
+
+    private def any_tracks?
+      i = 0
+      parts = @parts
+      parts_size = parts.size
+      while i < parts_size
+        return true unless parts[i].tracks.empty?
+        i += 1
+      end
+      false
+    end
+
+    private def remember(action)
+      @undo_action = action
+      @redo_action = nil
+      action
+    end
+
+    private def apply_history(action, now_us)
+      kind = action[0]
+      if kind == :track_insert
+        part = part_for(action[1])
+        index = action[2]
+        track = action[3]
+        part.tracks.insert(index, track)
+        if part == @active_part
+          relative = tick_at_time(now_us) - @part_start_tick
+          track.seek(relative, part_ticks(part))
+        end
+        return [:track_remove, part.id, index]
+      elsif kind == :track_remove
+        part = part_for(action[1])
+        index = action[2]
+        track = part.tracks[index]
+        raise RuntimeError, "undo track no longer exists" unless track
+        silence_track(track, now_us) if part == @active_part
+        part.tracks.delete_at(index)
+        return [:track_insert, part.id, index, track]
+      elsif kind == :part_remove
+        index = action[1]
+        part = @parts[index]
+        raise RuntimeError, "undo part no longer exists" unless part
+        arrangement = @arrangement
+        @parts.delete_at(index)
+        remove_part_from_arrangement(part)
+        @selected_part = @parts[0] if @selected_part == part
+        return [:part_insert, index, part, arrangement, part.id]
+      elsif kind == :part_insert
+        index = action[1]
+        part = action[2]
+        current_arrangement = @arrangement
+        @parts.insert(index, part)
+        @arrangement = action[3]
+        selected = find_part(action[4])
+        @selected_part = selected if selected
+        return [:part_remove, index, current_arrangement]
+      elsif kind == :tracks_replace
+        part = part_for(action[1])
+        current = part.tracks
+        part.instance_variable_set(:@tracks, action[2])
+        return [:tracks_replace, part.id, current]
+      elsif kind == :arrangement_replace
+        current = @arrangement
+        @arrangement = action[1]
+        return [:arrangement_replace, current]
+      elsif kind == :song_replace
+        current_parts = @parts
+        current_selected = @selected_part.id
+        current_arrangement = @arrangement
+        @parts = action[1]
+        @selected_part = find_part(action[2]) || @parts[0]
+        @arrangement = action[3]
+        return [:song_replace, current_parts, current_selected, current_arrangement]
+      end
+      raise RuntimeError, "unknown undo action"
+    end
+
+    private def structural_history?(action)
+      kind = action[0]
+      kind != :track_insert && kind != :track_remove
+    end
+
+    private def ensure_not_recording
+      unless @state == :stopped || @state == :playing
+        raise RuntimeError, "operation is unavailable while recording is armed"
+      end
+    end
+
+    private def ensure_structure_change_allowed
+      ensure_not_recording
+    end
+
+    private def ensure_stopped_for_structure
+      raise RuntimeError, "operation requires stopped transport" unless @state == :stopped
     end
 
     private def ensure_configuration_change_allowed

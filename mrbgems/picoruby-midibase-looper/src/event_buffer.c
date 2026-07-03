@@ -14,8 +14,17 @@
 typedef struct {
   mrb_int count;
   mrb_int max_events;
+  mrb_bool sealed;
   uint8_t data[];
 } event_buffer;
+
+static void
+ensure_mutable(mrb_state *mrb, event_buffer *buffer)
+{
+  if (buffer->sealed) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "event buffer is sealed");
+  }
+}
 
 static void
 event_buffer_free(mrb_state *mrb, void *ptr)
@@ -91,6 +100,7 @@ event_buffer_initialize(mrb_state *mrb, mrb_value self)
   event_buffer *buffer = (event_buffer *)mrb_malloc(mrb, size);
   buffer->count = 0;
   buffer->max_events = max_events;
+  buffer->sealed = FALSE;
   void *old_buffer = DATA_PTR(self);
   if (old_buffer) {
     mrb_free(mrb, old_buffer);
@@ -117,6 +127,7 @@ event_buffer_append(mrb_state *mrb, mrb_value self)
   mrb_value tick_value, command_value, channel_value, note_value, velocity_value;
   mrb_get_args(mrb, "ooooo", &tick_value, &command_value, &channel_value, &note_value, &velocity_value);
   event_buffer *buffer = get_event_buffer(mrb, self);
+  ensure_mutable(mrb, buffer);
   if (buffer->max_events <= buffer->count) {
     return mrb_nil_value();
   }
@@ -171,6 +182,7 @@ event_buffer_set_tick_at(mrb_state *mrb, mrb_value self)
   mrb_int tick = integer_in_range(mrb, tick_value, 0, UINT16_MAX,
                                   "tick must be in 0..65535");
   event_buffer *buffer = get_event_buffer(mrb, self);
+  ensure_mutable(mrb, buffer);
   size_t offset = checked_offset(mrb, buffer, index);
   buffer->data[offset] = (uint8_t)(tick & 0xff);
   buffer->data[offset + 1] = (uint8_t)((tick >> 8) & 0xff);
@@ -198,6 +210,7 @@ static mrb_value
 event_buffer_sort(mrb_state *mrb, mrb_value self)
 {
   event_buffer *buffer = get_event_buffer(mrb, self);
+  ensure_mutable(mrb, buffer);
   uint8_t temporary[EVENT_RECORD_SIZE];
   mrb_int i = 1;
   while (i < buffer->count) {
@@ -219,8 +232,23 @@ event_buffer_sort(mrb_state *mrb, mrb_value self)
 static mrb_value
 event_buffer_clear(mrb_state *mrb, mrb_value self)
 {
-  get_event_buffer(mrb, self)->count = 0;
+  event_buffer *buffer = get_event_buffer(mrb, self);
+  ensure_mutable(mrb, buffer);
+  buffer->count = 0;
   return self;
+}
+
+static mrb_value
+event_buffer_seal(mrb_state *mrb, mrb_value self)
+{
+  get_event_buffer(mrb, self)->sealed = TRUE;
+  return self;
+}
+
+static mrb_value
+event_buffer_sealed_p(mrb_state *mrb, mrb_value self)
+{
+  return mrb_bool_value(get_event_buffer(mrb, self)->sealed);
 }
 
 void
@@ -244,6 +272,8 @@ mrb_picoruby_midibase_looper_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, event_buffer_class, MRB_SYM(event_at), event_buffer_event_at, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, event_buffer_class, MRB_SYM_B(sort), event_buffer_sort, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, event_buffer_class, MRB_SYM(clear), event_buffer_clear, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, event_buffer_class, MRB_SYM_B(seal), event_buffer_seal, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, event_buffer_class, MRB_SYM_Q(sealed), event_buffer_sealed_p, MRB_ARGS_NONE());
 }
 
 void

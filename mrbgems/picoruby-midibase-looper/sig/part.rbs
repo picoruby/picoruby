@@ -1,0 +1,16 @@
+module MIDIBASE
+  class Looper
+    class Part
+      @id: Symbol
+      @bars: Integer
+      @tracks: Array[Track]
+
+      attr_reader id: Symbol
+      attr_reader tracks: Array[Track]
+      attr_accessor bars: Integer
+
+      def initialize: (Symbol id, bars: Integer) -> void
+      def copy: (Symbol id) -> Part
+    end
+  end
+end

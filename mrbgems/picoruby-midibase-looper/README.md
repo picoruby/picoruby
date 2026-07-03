@@ -2,7 +2,7 @@
 
 Tick-based MIDI looper for PicoRuby. It records Note On/Off events at 480 PPQN and emits ordinary MIDIBASE event arrays through a `MIDIBASE::Router`.
 
-The looper does not depend on a particular synthesizer. R2P2's `/bin/looper` routes its sources to `PSG::Synth`, UART MIDI output, or both.
+The looper does not depend on a particular synthesizer. R2P2's `/bin/looper` routes its sources to `PSG::Synth`, UART MIDI, or USB CDC2 raw MIDI; PSG can be combined with either MIDI output.
 
 ```ruby
 router = MIDIBASE::Router.new
@@ -45,9 +45,15 @@ looper --midi-out uart
 
 # External MIDI sound module only
 looper --audio off --midi-out uart
+
+# Raw MIDI bytes over USB CDC2 for WebSerial
+looper --audio off --midi-out cdc
+
+# Limit an external MIDI session to eight simultaneous voices/tracks per part
+looper --audio off --midi-out uart --polyphony 8
 ```
 
-UART MIDI Thru is enabled by default when MIDI output is selected.
+MIDI Thru is enabled by default when UART or CDC output is selected.
 Use `--no-midi-thru` to send recorded tracks only. Metronome routing is selected with `--click-out audio|midi|both`; audio is the default, with automatic MIDI fallback when local audio is disabled.
 
 The console prints the active MIDI, audio, and metronome routing at startup. A short first recording can be made with:
@@ -68,6 +74,43 @@ Playback continues automatically.
 ```
 
 `record` remains asynchronous, so `stop` can cancel an armed or active recording. State changes and the resulting track are reported automatically. In the default `count-in` metronome mode, the click continues through the entire first-track recording and stops when loop playback begins.
+
+## Parts and song arrangement
+
+Each recording creates a new track in the selected part. MIDI channels are
+preserved, so changing the keyboard's channel before another `record` layers
+that channel over the same part. Track numbers are local to a part.
+
+```text
+looper> parts
+A*: bars=4, tracks=1
+looper> part new B 8
+Part B created and selected.
+looper> record
+Part B armed. Recording starts at the next part boundary.
+```
+
+Selecting a different part does not interrupt playback. `play` queues the
+selected part, and `record` queues it and starts recording when the currently
+playing part ends. Part changes therefore remain on musical boundaries.
+
+Use `part copy A B` to create a variation without copying the immutable MIDI
+event storage. Mute and delete state remain independent in the copy. `part
+clear B` removes B's tracks but keeps B as an empty part; `part delete B`
+removes the part and its arrangement entries while transport is stopped.
+
+An arrangement references parts without duplicating their recordings:
+
+```text
+looper> arrange A:2 B:4 A:2 C:1
+Arrangement: A:2 B:4 A:2 C:1
+looper> song play
+Song playback started.
+```
+
+Song playback stops after the last repetition. `undo` and `redo` provide one
+level of recovery for recordings, track deletion, part edits, arrangement
+replacement, and whole-song clearing.
 
 Recording uses sixteenth-note quantization by default. Use `quantize off` before
 recording to preserve captured Note On timing, or select `quantize 1/4`,
