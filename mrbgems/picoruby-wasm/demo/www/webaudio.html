@@ -25,7 +25,19 @@
     .control-label,.terminal-heading,.terminal-actions { display:flex; align-items:center; justify-content:space-between; gap:7px; }.reset-control { padding:2px 7px; font-size:11px; }
     select { background:#10253a; color:var(--ink); border:1px solid #31516c; border-radius:6px; padding:6px; }
     input[type=range] { accent-color:var(--accent); }
-    .keyboard { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:22px; }.key { min-width:48px; height:72px; background:#dceef6; color:#07111f; align-self:start; }.key.black { height:54px; background:#17293a; color:#e5f3ff; }
+    .keyboard { margin-bottom:22px; touch-action:none; user-select:none; }
+    .piano { overflow-x:auto; padding:2px 0 8px; }
+    .piano-keys { width:max-content; }
+    .piano-row { display:flex; }
+    .black-row { height:82px; }
+    .black-slot { width:52px; height:82px; flex:0 0 52px; display:flex; justify-content:flex-end; }
+    .key { padding:6px 3px; touch-action:none; }
+    .key.white { width:52px; min-width:52px; height:82px; border-radius:0; border-right:0; background:#dceef6; color:#07111f; }
+    .key.white:first-child { border-radius:7px 0 0 7px; }
+    .key.white:last-child { border-radius:0 7px 7px 0; border-right:1px solid #31516c; }
+    .key.black { width:34px; min-width:34px; height:82px; transform:translateX(50%); z-index:1; background:#17293a; color:#e5f3ff; }
+    .key:active { border-color:var(--accent); background:var(--accent); color:#07111f; box-shadow:0 0 18px #5eead466; }
+    .drum-pads { display:flex; flex-wrap:wrap; gap:6px; }.drum-pad { min-width:72px; height:58px; }
     .voice-list { display:flex; flex-wrap:wrap; gap:6px; min-height:34px; }.voice-chip { background:#123047; border-left:3px solid var(--accent); padding:5px 7px; }
     .channel-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:18px; }.channel-card { display:grid; padding:7px; color:var(--muted); border:1px solid var(--line); }.channel-card.active { color:var(--ink); border-color:var(--accent); background:#0e302f; }
     .channel-number { font-weight:700; color:var(--ink); }

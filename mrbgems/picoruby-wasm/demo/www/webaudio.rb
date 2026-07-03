@@ -1,5 +1,7 @@
 class WebAudioApp < Funicular::Component
   NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+  WHITE_NOTES = [60, 62, 64, 65, 67, 69, 71, 72]
+  BLACK_NOTES = [61, 63, nil, 66, 68, 70, nil, nil]
   DRUM_NOTES = [
     [35, "Kick"], [36, "Kick"],
     [38, "Snare"], [40, "Snare"],
@@ -32,6 +34,7 @@ class WebAudioApp < Funicular::Component
 
   def component_mounted
     @router = MIDIBASE::Router.new
+    @pressed_notes = {}
     setup_terminal
     component = self
     @poll_task = Task.new(name: "JS::WebAudio UI poll") do
@@ -202,15 +205,28 @@ class WebAudioApp < Funicular::Component
     patch(error: e.message)
   end
 
-  def play_note(event)
+  def press_note(event)
+    event.preventDefault
     enable_audio unless @synth
-    note = event.target.getAttribute("data-note").to_i
+    target = event.target
+    note = target.getAttribute("data-note").to_i
     channel = state.selected_channel
-    @router.emit(:ui, [:note_on, channel, note, 110])
-    component = self
-    JS.global.setTimeout(240) do
-      component.router_emit_note_off(channel, note)
+    pointer_id = event[:pointerId].to_i
+    return if @pressed_notes[pointer_id]
+    @pressed_notes[pointer_id] = [channel, note]
+    begin
+      target.setPointerCapture(pointer_id)
+    rescue
     end
+    @router.emit(:ui, [:note_on, channel, note, 110])
+  end
+
+  def release_note(event)
+    event.preventDefault
+    pointer_id = event[:pointerId].to_i
+    pressed = @pressed_notes.delete(pointer_id)
+    return unless pressed
+    router_emit_note_off(pressed[0], pressed[1])
   end
 
   def router_emit_note_off(channel, note)
@@ -352,21 +368,35 @@ class WebAudioApp < Funicular::Component
 
         section(class: "panel performance") do
           h2 { "Audition" }
-          div(class: "keyboard") do
-            if percussion_channel?
+          if percussion_channel?
+            div(class: "keyboard drum-pads") do
               DRUM_NOTES.each do |note, name|
-                button(onclick: :play_note, class: "key", "data-note": note.to_s) { name }
+                audition_key(note, name, "drum-pad")
               end
-            else
-              note = 60
-              while note <= 72
-                name = NOTE_NAMES[note % 12]
-                button(
-                  onclick: :play_note,
-                  class: name.include?("#") ? "key black" : "key",
-                  "data-note": note.to_s
-                ) { "#{name}#{note / 12 - 1}" }
-                note += 1
+            end
+          else
+            div(class: "keyboard piano") do
+              div(class: "piano-keys") do
+                div(class: "piano-row black-row") do
+                  i = 0
+                  while i < BLACK_NOTES.size
+                    note = BLACK_NOTES[i]
+                    div(class: "black-slot") do
+                      if note
+                        audition_key(note, note_name(note), "black")
+                      end
+                    end
+                    i += 1
+                  end
+                end
+                div(class: "piano-row white-row") do
+                  i = 0
+                  while i < WHITE_NOTES.size
+                    note = WHITE_NOTES[i]
+                    audition_key(note, note_name(note), "white")
+                    i += 1
+                  end
+                end
               end
             end
           end
@@ -408,6 +438,22 @@ class WebAudioApp < Funicular::Component
         end
       end
     end
+  end
+
+  def audition_key(note, label, key_class)
+    button(
+      type: "button",
+      class: "key #{key_class}",
+      "data-note": note.to_s,
+      onpointerdown: :press_note,
+      onpointerup: :release_note,
+      onpointercancel: :release_note,
+      onlostpointercapture: :release_note
+    ) { label }
+  end
+
+  def note_name(note)
+    "#{NOTE_NAMES[note % 12]}#{note / 12 - 1}"
   end
 
   def tone_slider(label_text, key, min, max, step, reset: false)
