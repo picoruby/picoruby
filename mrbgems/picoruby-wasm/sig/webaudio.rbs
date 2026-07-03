@@ -3,17 +3,42 @@ module JS
     type source_t = MIDIBASE::Router::source_t
     type js_node_t = untyped
     type tone_value_t = String | Integer | Float
-    type tone_t = Hash[Symbol, tone_value_t]
-    type snapshot_t = Hash[Symbol, untyped]
+    type validated_tone_value_t = String | Float
+    type tone_key_t = :waveform | :attack | :decay | :sustain | :release | :detune | :cutoff | :resonance
+    type tone_t = {
+      waveform: String,
+      attack: Float,
+      decay: Float,
+      sustain: Float,
+      release: Float,
+      detune: Float,
+      cutoff: Float,
+      resonance: Float
+    }
+    type tone_attributes_t = Hash[tone_key_t, tone_value_t]
+    type snapshot_t = {
+      source: js_node_t,
+      channel: Integer,
+      program: Integer,
+      volume: Integer,
+      expression: Integer,
+      pan: Integer,
+      pitch_bend: Integer,
+      tone: tone_t,
+      percussion: bool
+    }
 
-    WAVEFORMS: Array[String]
+
+    WAVEFORMS: ::Array[String]
     DEFAULT_SOURCE: source_t
     DEFAULT_VOICE_COUNT: Integer
     DEFAULT_MASTER_VOLUME: Float
     DEFAULT_PITCH_BEND_RANGE: Integer
     ANALYSER_FFT_SIZE: Integer
+    PERCUSSION_CHANNEL: Integer
+    PERCUSSION_NOTES: Hash[Integer, Symbol]
     DEFAULT_TONE: tone_t
-    PRESETS: Array[tone_t]
+    PRESETS: ::Array[tone_t]
 
     def self.supported?: () -> bool
     def self.create_context: () -> js_node_t
@@ -31,30 +56,57 @@ module JS
       def pan=: (Integer value) -> Integer
       def pitch_bend=: (Integer value) -> Integer
       def program=: (Integer value) -> Integer
-      def update_tone: (tone_t attributes) -> self
+      def update_tone: (tone_attributes_t attributes) -> self
       def bend_cents: () -> Float
       def snapshot: () -> snapshot_t
+      def percussion?: () -> bool
+      private def apply_gain: () -> untyped
+      private def apply_pan: () -> untyped
+      private def midi_value: (Integer value) -> Integer
+      private def validate_tone_value: (tone_key_t key, tone_value_t value) -> validated_tone_value_t
+      private def validate_range: (tone_key_t key, tone_value_t value, Float min, Float max) -> Float
     end
 
     class Voice
+      type status_t = :idle | :active | :releasing
+      type voice_snapshot_t = {
+        id: Integer,
+        source: js_node_t,
+        channel: Integer?,
+        note: Integer,
+        status: Voice::status_t
+      }
+
+      @sources: ::Array[js_node_t]
       attr_reader id: Integer
       attr_reader analyser: js_node_t
       attr_reader source: source_t
       attr_reader channel: Channel?
       attr_reader note: Integer
       attr_reader generation: Integer
-      attr_reader status: Symbol
+      attr_reader status: status_t
       def initialize: (Synth owner, js_node_t context, Integer id) -> void
       def start: (source_t source, Channel channel, Integer note, Integer velocity) -> self
       def release: () -> self
       def silence: () -> self
-      def update_tone: (Array[Symbol] changed_keys) -> void
+      def update_tone: (::Array[tone_key_t] changed_keys) -> void
       def update_pitch: () -> void
       def ended: (Integer generation) -> void
-      def snapshot: () -> snapshot_t
+      def snapshot: () -> voice_snapshot_t
+      private def apply_filter: (tone_t tone, untyped now) -> untyped
+      private def frequency_for: (Integer note) -> Float
+      private def start_percussion: (Integer note, untyped now, Integer generation) -> untyped
+      private def start_kick: (untyped now, Integer generation) -> untyped
+      private def start_snare: (untyped now, Integer generation) -> untyped
+      private def start_hat: (untyped now, Integer generation, Float duration) -> untyped
+      private def start_tom: (untyped now, Integer generation, Float start_frequency, Float end_frequency, Float duration) -> untyped
+      private def schedule_percussion_envelope: (untyped now, Float duration, Float attack) -> untyped
+      private def start_one_shot: (js_node_t source, untyped now, Float duration, Integer generation) -> untyped
     end
 
     class Synth
+      @channels: Hash[::Array[source_t | Integer], Channel]
+      @voices: ::Array[Voice]
       attr_reader allocator: MIDIBASE::VoiceAllocator
       attr_reader context: js_node_t
       attr_reader mix_analyser: js_node_t
@@ -64,16 +116,28 @@ module JS
       def close: () -> self
       def handle: (MIDIBASE::event_t event, ?source: source_t, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool
       def handle_midi: (MIDIBASE::event_t event, source_t source, Integer priority, Integer? timestamp_us) -> bool
-      def update_tone: (?source: source_t, channel: Integer, **tone_value_t attributes) -> snapshot_t
+      def update_tone: (?source: source_t, channel: Integer, **tone_attributes_t attributes) -> snapshot_t
       def channel_state: (?source: source_t, channel: Integer) -> snapshot_t
-      def active_voices: () -> Array[snapshot_t]
-      def voice_analysers: () -> Array[js_node_t]
+      def active_voices: () -> ::Array[Voice::voice_snapshot_t]
+      def voice_analysers: () -> ::Array[js_node_t]
       def voice_ended: (Voice voice, Integer generation) -> bool?
+      def noise_buffer: () -> js_node_t
       def reset: () -> bool
+      private def note_on: (source_t source, Integer channel_number, Integer note, Integer velocity, Integer priority) -> bool
+      private def note_off: (source_t source, Integer channel_number, Integer note) -> bool
+      private def control_change: (source_t source, Integer channel_number, Integer controller, Integer value) -> bool
+      private def program_change: (source_t source, Integer channel_number, Integer program) -> bool
+      private def pitch_bend: (source_t source, Integer channel_number, Integer value) -> bool
+      private def channel_for: (source_t source, Integer channel_number) -> Channel
+      private def update_channel_voices: (source_t source, Integer channel_number, ::Array[tone_key_t] keys, bool pitch) -> nil
+      private def all_notes: (source_t source, Integer channel_number, bool immediate) -> nil
+      private def choke_hats: (source_t source, Integer channel_number) -> nil
+      private def silence_all: () -> MIDIBASE::VoiceAllocator
     end
 
     class WebSerialMIDIInput
-      attr_reader state: Symbol
+      type serial_state_t = :connecting | :connected | :disconnected | :error
+      attr_reader state: serial_state_t
       attr_reader error: Exception?
       attr_reader port: JS::WebSerial?
       def initialize: (router: MIDIBASE::Router, ?source: source_t, ?on_state_change: Proc?, ?parser: MIDIBASE::Parser?) -> void
@@ -82,6 +146,7 @@ module JS
       def feed: (String bytes, ?timestamp_us: Integer) -> Integer
       def stop: () -> self
       def disconnected: () -> self
+      private def change_state: (serial_state_t state) -> void
     end
   end
 end

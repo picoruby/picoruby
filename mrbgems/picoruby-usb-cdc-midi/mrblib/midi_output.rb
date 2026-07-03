@@ -38,7 +38,7 @@ module USB
         unless command.is_a?(Symbol)
           raise ArgumentError, "MIDI event must start with a command Symbol"
         end
-        values = []
+        values = [] #: Array[Integer]
         i = 1
         event_size = event.size
         while i < event_size
