@@ -28,7 +28,10 @@ static const char *TAG = "prb_ble";
 // back-to-back, so pushing directly would lose all but the last packet.
 // Dispatch one queued packet per 150 ms (> Ruby's polling period).
 
-#define EVQ_DEPTH 16
+// Depth must absorb a whole ATT response worth of discovery callbacks: one
+// read-by-type response at the default 256-byte MTU carries up to ~28
+// 16-bit-uuid characteristic entries, each synthesized as a separate event.
+#define EVQ_DEPTH 32
 #define EVQ_PKT_MAX 100
 #define EVQ_DISPATCH_PERIOD_US (150 * 1000)
 #define HEARTBEAT_PERIOD_US (1000 * 1000)
