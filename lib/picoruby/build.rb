@@ -130,8 +130,12 @@ module MRuby
       debug_flag
     end
 
+    def platform?(name)
+      cc.defines.include?("PICORB_PLATFORM_#{name.to_s.upcase}")
+    end
+
     def posix?
-      cc.defines.include?("PICORB_PLATFORM_POSIX")
+      platform?(:posix)
     end
 
     def wasm?
