@@ -87,7 +87,8 @@ module IndexedDB
     def clear: () -> nil
     def keys: (?untyped? range) -> Array[untyped]
     def to_a: (?untyped? range) -> Array[untyped]
-    def each: (?untyped? range, ?direction: Symbol) ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
+    def each: (?untyped? range, ?direction: Symbol) -> Enumerator[[untyped, untyped], untyped]
+            | (?untyped? range, ?direction: Symbol) { ([untyped, untyped]) -> void } -> untyped
 
     # Index access
     def index: (String index_name) -> Index
@@ -119,7 +120,8 @@ module IndexedDB
     def get_all: (?untyped? key_or_range, ?count: Integer?) -> Array[untyped]
     def count: (?untyped? key_or_range) -> Integer
     def to_a: (?untyped? range) -> Array[untyped]
-    def each: (?untyped? range, ?direction: Symbol) ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
+    def each: (?untyped? range, ?direction: Symbol) -> Enumerator[[untyped, untyped], untyped]
+            | (?untyped? range, ?direction: Symbol) { ([untyped, untyped]) -> void } -> untyped
     def keys: (?untyped? range) -> Array[untyped]
   end
 
@@ -166,7 +168,8 @@ module IndexedDB
     def clear: () -> nil
     def keys: (?untyped? range) -> Array[untyped]
     def to_a: (?untyped? range) -> Array[untyped]
-    def each: (?untyped? range, ?direction: Symbol) ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
+    def each: (?untyped? range, ?direction: Symbol) -> Enumerator[[untyped, untyped], untyped]
+            | (?untyped? range, ?direction: Symbol) { ([untyped, untyped]) -> void } -> untyped
 
     def index: (String index_name) -> InMemoryIndex
 
@@ -209,7 +212,8 @@ module IndexedDB
 
     def get: (untyped key) -> untyped
     def to_a: () -> Array[untyped]
-    def each: () ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
+    def each: () -> Enumerator[[untyped, untyped], untyped]
+            | () { ([untyped, untyped]) -> void } -> untyped
   end
 
   class KVS
@@ -231,7 +235,8 @@ module IndexedDB
     def clear: () -> nil
     def keys: () -> Array[String]
     def values: () -> Array[untyped]
-    def each: () ?{ ([untyped, untyped]) -> void } -> (Enumerator[[untyped, untyped], void] | void)
+    def each: () -> Enumerator[[untyped, untyped], untyped]
+            | () { ([untyped, untyped]) -> void } -> untyped
     def to_h: () -> Hash[String, untyped]
     def close: () -> void
     def database: () -> db_like

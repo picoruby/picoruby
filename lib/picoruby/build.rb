@@ -6,16 +6,16 @@ module MRuby
   class Build
     # Override
     def build_mrbc_exec
-      gem core: 'mruby-compiler2' unless @gems['mruby-compiler2']
-      gem core: 'mruby-bin-mrbc2' unless @gems['mruby-bin-mrbc2']
-      self.mrbcfile = "#{build_dir}/bin/picorbc"
+      gem core: 'mruby-compiler' unless @gems['mruby-compiler']
+      gem core: "mruby-bin-mrbc" unless @gems['mruby-bin-mrbc']
+      self.mrbcfile = "#{build_dir}/bin/mrbc"
       set_build_info
     end
 
     alias_method :original_create_mrbc_build, :create_mrbc_build
 
     def create_mrbc_build
-      # picorbc is a standalone compiler; strip VM-specific defines so
+      # mrbc is a standalone compiler; strip VM-specific defines so
       # the sub-build does not pull in mruby.h (and presym/id.h).
       vm_defines = %w[PICORB_VM_MRUBY MRB_USE_TASK_SCHEDULER]
       saved = vm_defines.select { |d| cc.defines.include?(d) }
@@ -25,20 +25,22 @@ module MRuby
       build
     end
 
-    def vm_mruby?
+    def picoruby?
       cc.defines.include?("PICORB_VM_MRUBY")
     end
+    alias_method :vm_mruby?, :picoruby?
 
-    def vm_mrubyc?
+    def femtoruby?
       cc.defines.include?("PICORB_VM_MRUBYC")
     end
+    alias_method :vm_mrubyc?, :femtoruby?
 
     def common
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include"
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include"
       # Workaround: To avoid error in compiling gem_init.c
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
-      # Pass PICORUBY_VERSION to mruby-compiler2
+      # Pass PICORUBY_VERSION to mruby-compiler
       version = File.read("#{MRUBY_ROOT}/include/version.h").match(/#define PICORUBY_VERSION "(.+?)"/)[1]
       cc.defines << "PICORUBY_VERSION=\\\"#{version}\\\""
       set_build_info
@@ -55,7 +57,7 @@ module MRuby
     end
 
     def rite_version
-      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler2/include/mrc_dump.h")
+      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler/include/mrc_dump.h")
       ident = mrc_dump[/#define RITE_BINARY_IDENT\s+"(.+?)"/, 1]
       major = mrc_dump[/#define RITE_BINARY_MAJOR_VER\s+"(.+?)"/, 1]
       minor = mrc_dump[/#define RITE_BINARY_MINOR_VER\s+"(.+?)"/, 1]
@@ -177,38 +179,6 @@ module MRuby
       end
     end
 
-  end
-
-  module Gem
-    class Specification
-      attr_accessor :require_name
-
-      alias_method :original_setup_compilers, :setup_compilers
-      def setup_compilers
-        original_setup_compilers
-        return unless cc.build.posix?
-        # setup for POSIX
-        ["posix", "common"].each do |subdir|
-          Dir.glob("#{dir}/ports/#{subdir}/**/*.c").each do |src|
-            obj = objfile(src.pathmap("#{build_dir}/ports/#{subdir}/%n"))
-            build.libmruby_objs << obj
-            file obj => src do |f|
-              cc.run f.name, f.prerequisites.first
-            end
-          end
-        end
-      end
-
-      def define_gem_init_builder
-        file "#{build_dir}/gem_init.c" => [build.mrbcfile, __FILE__] + [rbfiles].flatten do |t|
-          mkdir_p build_dir
-          if build.cc.defines.include?("PICORB_VM_MRUBYC") && name.start_with?("picoruby-")
-            rbfiles.clear
-          end
-          generate_gem_init("#{build_dir}/gem_init.c")
-        end
-      end
-    end
   end
 
 end

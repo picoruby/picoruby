@@ -4,6 +4,7 @@
 #include "mruby/presym.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
+#include "mruby/hash.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
 #include "mruby/array.h"
@@ -988,6 +989,128 @@ expand_replacement(mrb_state *mrb, const char *repl, int repl_len, int match_ref
   return result;
 }
 
+static int
+find_literal_match(const char *str, int str_len, const char *pattern, int pattern_len, int byte_pos)
+{
+  if (pattern_len == 0) return byte_pos;
+  if (pattern_len > str_len - byte_pos) return -1;
+
+  int limit = str_len - pattern_len;
+  int i = byte_pos;
+  while (i <= limit) {
+    if (memcmp(str + i, pattern, pattern_len) == 0) {
+      return i;
+    }
+    i++;
+  }
+  return -1;
+}
+
+static mrb_value
+expand_literal_replacement(mrb_state *mrb, const char *repl, int repl_len, const char *matched, int matched_len)
+{
+  mrb_value result = mrb_str_new(mrb, NULL, 0);
+  int i = 0;
+  while (i < repl_len) {
+    char ch = repl[i];
+    if (ch == '\\' && i + 1 < repl_len) {
+      char next = repl[i + 1];
+      if (next == '0' || next == '&') {
+        mrb_str_cat(mrb, result, matched, matched_len);
+        i += 2;
+        continue;
+      }
+      if (next >= '1' && next <= '9') {
+        i += 2;
+        continue;
+      }
+      if (next == '\\') {
+        mrb_str_cat(mrb, result, "\\", 1);
+        i += 2;
+        continue;
+      }
+      mrb_str_cat(mrb, result, &repl[i], 2);
+      i += 2;
+      continue;
+    }
+    mrb_str_cat(mrb, result, &ch, 1);
+    i += 1;
+  }
+  return result;
+}
+
+static mrb_value
+do_string_sub_gsub_literal(mrb_state *mrb, mrb_value self, mrb_value pattern, mrb_value replacement, mrb_value block, mrb_bool global)
+{
+  mrb_bool has_block = !mrb_nil_p(block);
+  mrb_bool has_hash_replacement = mrb_hash_p(replacement);
+  mrb_value source = (has_block || has_hash_replacement) ? mrb_str_dup(mrb, self) : self;
+  const char *str_ptr = RSTRING_PTR(source);
+  int str_len = RSTRING_LEN(source);
+  const char *pattern_ptr = RSTRING_PTR(pattern);
+  int pattern_len = RSTRING_LEN(pattern);
+
+  mrb_value result = mrb_str_new(mrb, NULL, 0);
+  int byte_pos = 0;
+
+  while (byte_pos <= str_len) {
+    int byte_begin = find_literal_match(str_ptr, str_len, pattern_ptr, pattern_len, byte_pos);
+    if (byte_begin < 0) break;
+    int byte_end = byte_begin + pattern_len;
+
+    if (byte_begin > byte_pos) {
+      mrb_str_cat(mrb, result, str_ptr + byte_pos, byte_begin - byte_pos);
+    }
+
+    if (has_block) {
+      mrb_value full_str = mrb_str_new(mrb, str_ptr + byte_begin, pattern_len);
+      mrb_value yielded = mrb_yield(mrb, block, full_str);
+      mrb_value yield_str = mrb_obj_as_string(mrb, yielded);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
+      mrb_str_cat_str(mrb, result, yield_str);
+    } else if (has_hash_replacement) {
+      mrb_value full_str = mrb_str_new(mrb, str_ptr + byte_begin, pattern_len);
+      mrb_value hash_value = mrb_hash_get(mrb, replacement, full_str);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
+      if (!mrb_nil_p(hash_value)) {
+        mrb_value hash_str = mrb_obj_as_string(mrb, hash_value);
+        if (!mrb_str_equal(mrb, self, source)) {
+          mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+        }
+        mrb_str_cat_str(mrb, result, hash_str);
+      }
+    } else {
+      mrb_value expanded = expand_literal_replacement(mrb,
+                                                      RSTRING_PTR(replacement),
+                                                      RSTRING_LEN(replacement),
+                                                      str_ptr + byte_begin,
+                                                      pattern_len);
+      mrb_str_cat_str(mrb, result, expanded);
+    }
+
+    if (pattern_len == 0) {
+      int step = utf8_step(str_ptr, str_len, byte_pos);
+      if (step == 0) break;
+      mrb_str_cat(mrb, result, str_ptr + byte_pos, step);
+      byte_pos += step;
+    } else {
+      byte_pos = byte_end;
+    }
+
+    if (!global) break;
+  }
+
+  if (byte_pos < str_len) {
+    mrb_str_cat(mrb, result, str_ptr + byte_pos, str_len - byte_pos);
+  }
+
+  return result;
+}
+
 /* Shared implementation of String#sub / String#gsub for both block and
  * replacement-string forms. */
 static mrb_value
@@ -996,10 +1119,11 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
   mrb_value pattern;
   mrb_value replacement = mrb_undef_value();
   mrb_value block = mrb_nil_value();
-  mrb_get_args(mrb, "o|S&", &pattern, &replacement, &block);
+  mrb_get_args(mrb, "o|o&", &pattern, &replacement, &block);
 
   mrb_bool has_replacement = !mrb_undef_p(replacement);
   mrb_bool has_block = !mrb_nil_p(block);
+  mrb_bool has_hash_replacement = has_replacement && mrb_hash_p(replacement);
 
   if (has_replacement && has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "both block and replacement argument given");
@@ -1007,12 +1131,22 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
   if (!has_replacement && !has_block) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given 1, expected 2)");
   }
+  if (has_replacement && !has_hash_replacement && !mrb_string_p(replacement)) {
+    replacement = mrb_obj_as_string(mrb, replacement);
+  }
+
+  if (mrb_string_p(pattern)) {
+    return do_string_sub_gsub_literal(mrb, self, pattern, replacement, block, global);
+  }
 
   mrb_value re = ensure_regexp(mrb, pattern);
   picorb_regexp *re_data = (picorb_regexp *)DATA_PTR(re);
 
-  const char *str_ptr = RSTRING_PTR(self);
-  int str_len = RSTRING_LEN(self);
+  /* Keep a stable snapshot while a replacement block runs arbitrary Ruby.
+   * The block must not be allowed to invalidate the buffer being scanned. */
+  mrb_value source = (has_block || has_hash_replacement) ? mrb_str_dup(mrb, self) : self;
+  const char *str_ptr = RSTRING_PTR(source);
+  int str_len = RSTRING_LEN(source);
 
   mrb_value result = mrb_str_new(mrb, NULL, 0);
   int byte_pos = 0;
@@ -1040,9 +1174,29 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
       char *full = regexp_match_item(match_ref, 0);
       mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
       if (full) free(full);
+      regexp_release_ref(match_ref);
+      match_ref = -1;
       mrb_value yielded = mrb_yield(mrb, block, full_str);
       mrb_value yield_str = mrb_obj_as_string(mrb, yielded);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
       mrb_str_cat_str(mrb, result, yield_str);
+    } else if (has_hash_replacement) {
+      char *full = regexp_match_item(match_ref, 0);
+      mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
+      if (full) free(full);
+      mrb_value hash_value = mrb_hash_get(mrb, replacement, full_str);
+      if (!mrb_str_equal(mrb, self, source)) {
+        mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+      }
+      if (!mrb_nil_p(hash_value)) {
+        mrb_value hash_str = mrb_obj_as_string(mrb, hash_value);
+        if (!mrb_str_equal(mrb, self, source)) {
+          mrb_raise(mrb, E_RUNTIME_ERROR, "string modified");
+        }
+        mrb_str_cat_str(mrb, result, hash_str);
+      }
     } else {
       mrb_value expanded = expand_replacement(mrb,
                                               RSTRING_PTR(replacement),
@@ -1051,7 +1205,9 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
       mrb_str_cat_str(mrb, result, expanded);
     }
 
-    regexp_release_ref(match_ref);
+    if (0 <= match_ref) {
+      regexp_release_ref(match_ref);
+    }
 
     /* Advance position. For zero-width matches, also append and skip one
      * UTF-8 character so we don't loop forever. */

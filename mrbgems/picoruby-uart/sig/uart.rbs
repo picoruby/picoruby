@@ -57,11 +57,14 @@ class UART
   private def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   def read: (?Integer len) -> (String | nil)
   def readpartial: (Integer maxlen) -> String
+  def getbyte: () -> (Integer | nil)
+  def ungetbyte: (Integer byte) -> nil
   def bytes_available: () -> Integer
   def line_ending=: (("\n"|"\r\n"|"\r") line_ending) -> void
   def puts: (String str) -> nil
   def gets: () -> String?
   def write: (String str) -> Integer
+  def putc: ((Integer | String) ch) -> (Integer | String)
   def flush: () -> self
   def clear_tx_buffer: () -> self
   def clear_rx_buffer: () -> self

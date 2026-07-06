@@ -1,7 +1,7 @@
 MRuby::GemBox.new do |conf|
-  conf.gem core: 'mruby-compiler2'
+  conf.gem core: 'mruby-compiler'
   if posix?
-    conf.gem core: 'mruby-bin-mrbc2'
+    conf.gem core: "mruby-bin-mrbc"
     conf.gem core: 'picoruby-bin-picoruby'
   end
   if vm_mrubyc?

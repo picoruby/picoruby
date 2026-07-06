@@ -75,7 +75,7 @@ class WebSocketTest < Picotest::Test
     data = "Hello"
     mask_key = "\x01\x02\x03\x04"
 
-    if mruby?
+    if picoruby?
       masked = client.__send__(:mask_data, data, mask_key)
       unmasked = client.__send__(:mask_data, masked, mask_key)
     else
@@ -91,7 +91,7 @@ class WebSocketTest < Picotest::Test
     data = ""
     mask_key = "\x01\x02\x03\x04"
 
-    if mruby?
+    if picoruby?
       masked = client.__send__(:mask_data, data, mask_key)
     else
       masked = client.mask_data(data, mask_key)
@@ -104,7 +104,7 @@ class WebSocketTest < Picotest::Test
     data = "Hello, World!"
     mask_key = "\xAB\xCD\xEF\x12"
 
-    if mruby?
+    if picoruby?
       masked = client.__send__(:mask_data, data, mask_key)
       unmasked = client.__send__(:mask_data, masked, mask_key)
     else
@@ -165,7 +165,7 @@ class WebSocketTest < Picotest::Test
     # Close frame with code 1000 and reason "Normal"
     payload = [1000].pack("n") + "Normal"
     # This should not raise error
-    if mruby?
+    if picoruby?
       client.__send__(:handle_close_frame, payload)
     else
       client.handle_close_frame(payload)
@@ -176,7 +176,7 @@ class WebSocketTest < Picotest::Test
   def test_handle_close_frame_with_code_only
     client = Net::WebSocket::Client.new("ws://example.com")
     payload = [1001].pack("n")
-    if mruby?
+    if picoruby?
       client.__send__(:handle_close_frame, payload)
     else
       client.handle_close_frame(payload)
@@ -187,7 +187,7 @@ class WebSocketTest < Picotest::Test
   def test_handle_close_frame_empty
     client = Net::WebSocket::Client.new("ws://example.com")
     payload = ""
-    if mruby?
+    if picoruby?
       client.__send__(:handle_close_frame, payload)
     else
       client.handle_close_frame(payload)
@@ -201,7 +201,7 @@ class WebSocketTest < Picotest::Test
     mask = "abcd"
 
     # Masking twice should return original
-    if mruby?
+    if picoruby?
       once = client.__send__(:mask_data, data, mask)
       twice = client.__send__(:mask_data, once, mask)
     else
@@ -218,7 +218,7 @@ class WebSocketTest < Picotest::Test
     data = "\x00\x00\x00\x00\x00"
     mask = "\x01\x02\x03\x04"
 
-    if mruby?
+    if picoruby?
       masked = client.__send__(:mask_data, data, mask)
     else
       masked = client.mask_data(data, mask)

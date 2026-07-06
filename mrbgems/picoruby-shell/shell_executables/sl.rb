@@ -1,4 +1,4 @@
-# sl.rb for PicoRuby / mruby-compiler2
+# sl.rb for PicoRuby / mruby-compiler
 # final tuned edition: closer ASCII placement to original sl.c
 #
 # options:

@@ -8,13 +8,13 @@ MRuby::Gem::Specification.new('picoruby-bin-picoruby') do |spec|
     build.compile_as_cxx("#{spec.dir}/tools/picoruby/picoruby.c")
   end
 
-  spec.add_dependency('mruby-compiler2')
+  spec.add_dependency('mruby-compiler')
 
-  if build.vm_mruby?
+  if build.picoruby?
     BINNAME = 'picoruby'
     spec.add_dependency 'picoruby-mruby'
     spec.add_dependency 'mruby-io', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-io"
-  elsif build.vm_mrubyc?
+  elsif build.femtoruby?
     BINNAME = 'femtoruby'
     spec.add_dependency 'picoruby-mrubyc'
   end

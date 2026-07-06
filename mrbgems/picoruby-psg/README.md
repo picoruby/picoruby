@@ -2,6 +2,62 @@
 
 PSG (Programmable Sound Generator) emulator for PicoRuby.
 
+## Build note for Raspberry Pi Pico
+
+Use the **prod** build when running PSG on R2P2 for Raspberry Pi Pico.
+The debug build is too slow for real-time audio playback and can cause severe audio dropouts.
+
+## MCP4922 DMA output
+
+For MCP4922 output on R2P2, the DMA path is enabled by default. It lets core1
+render audio in blocks and feed the MCP4922 PIO TX FIFO by DMA instead of
+writing one sample at a time from the audio timer callback.
+
+Build normally to use the DMA path:
+
+```sh
+rake r2p2:picoruby:pico2:prod
+```
+
+To use the legacy blocking PIO write path, disable DMA explicitly:
+
+```sh
+PICORUBY_PSG_MCP4922_DMA=off rake r2p2:picoruby:pico2:prod
+```
+
+Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the
+environment variable is not set, R2P2 passes
+`PICORUBY_PSG_MCP4922_DMA=ON` to CMake.
+
+When changing this option, check normal playback, stop/restart playback, a
+longer song, and any tempo-changing or live-control use cases.
+
+## PWM DMA output
+
+For PWM output on R2P2, the DMA path is also enabled by default. It lets core1
+render audio in blocks and feed the PWM compare register by DMA instead of
+updating PWM levels from the audio timer callback.
+
+Build normally to use the DMA path:
+
+```sh
+rake r2p2:picoruby:pico2:prod
+```
+
+To use the legacy timer callback path, disable DMA explicitly:
+
+```sh
+PICORUBY_PSG_PWM_DMA=off rake r2p2:picoruby:pico2:prod
+```
+
+Accepted false values are `0`, `off`, `false`, `no`, and `n`. If the
+environment variable is not set, R2P2 passes `PICORUBY_PSG_PWM_DMA=ON` to
+CMake.
+
+PWM DMA is paced by the PWM wrap DREQ, so the PWM carrier follows the PSG sample
+rate. When changing this option, check normal playback, stop/restart playback,
+and high-frequency noise character on the target speaker or filter circuit.
+
 ## Wiring (RP2040 and RP2350)
 
 ### MCP492x --- 12bit DAC (SPI)
@@ -72,13 +128,13 @@ You can choose a GPIO combination as follows:
 For stereo output, you must choose a PWM pair that shares the same slice.
 This ensures that both left and right channels are updated simultaneously.
 
-|Slice|PWM A|PWM B|
-|-----|-----|-----|
-|PWM0 |GPIO0|GPIO1|
-|PWM1 |GPIO2|GPIO3|
-|PWM2 |GPIO4|GPIO5|
-|PWM3 |GPIO6|GPIO7|
-|PWM4 |GPIO8|GPIO9|
+|Slice|PWM A |PWM B |
+|-----|------|------|
+|PWM0 |GPIO0 |GPIO1 |
+|PWM1 |GPIO2 |GPIO3 |
+|PWM2 |GPIO4 |GPIO5 |
+|PWM3 |GPIO6 |GPIO7 |
+|PWM4 |GPIO8 |GPIO9 |
 |PWM5 |GPIO10|GPIO11|
 |PWM6 |GPIO12|GPIO13|
 |PWM7 |GPIO14|GPIO15|
@@ -89,3 +145,7 @@ This ensures that both left and right channels are updated simultaneously.
 |PWM4 |GPIO24|GPIO25|
 |PWM5 |GPIO26|GPIO27|
 |PWM6 |GPIO28|GPIO29|
+
+## Usage
+
+See README_MML.md

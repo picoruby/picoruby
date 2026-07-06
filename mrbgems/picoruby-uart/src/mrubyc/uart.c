@@ -119,6 +119,41 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
 }
 
 static void
+c_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (0 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 0");
+    return;
+  }
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  uint8_t byte;
+  if (!RingBuffer_pop(rx, &byte)) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_INT_RETURN(byte);
+}
+
+static void
+c_ungetbyte(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
+    return;
+  }
+  if (v[1].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected Integer)");
+    return;
+  }
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  if (!RingBuffer_unshift(rx, (uint8_t)(GET_INT_ARG(1) & 0xff))) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx buffer is full");
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
+static void
 c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
@@ -140,6 +175,57 @@ c_write(mrbc_vm *vm, mrbc_value v[], int argc)
   int unit_num = GETIV(unit_num).i;
   UART_write_blocking(unit_num, (const uint8_t *)v[1].string->data, len);
   SET_INT_RETURN(len);
+}
+
+#if MRBC_USE_STRING_UTF8
+static size_t
+first_character_size(const uint8_t *str, size_t len)
+{
+  size_t char_len = mrbc_string_utf8_size((const char *)str);
+  if (char_len == 0 || len < char_len) {
+    return 1;
+  }
+  for (size_t i = 1; i < char_len; i++) {
+    if ((str[i] & 0xc0) != 0x80) {
+      return 1;
+    }
+  }
+  return char_len;
+}
+#endif
+
+static void
+c_putc(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc != 1) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
+    return;
+  }
+
+  int unit_num = GETIV(unit_num).i;
+  if (v[1].tt == MRBC_TT_INTEGER) {
+    uint8_t byte = (uint8_t)(GET_INT_ARG(1) & 0xff);
+    UART_write_blocking(unit_num, &byte, 1);
+    mrbc_incref(&v[1]);
+    SET_RETURN(v[1]);
+    return;
+  }
+  if (v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected Integer or String)");
+    return;
+  }
+
+  size_t len = v[1].string->size;
+  if (0 < len) {
+#if MRBC_USE_STRING_UTF8
+    len = first_character_size(v[1].string->data, len);
+#else
+    len = 1;
+#endif
+    UART_write_blocking(unit_num, (const uint8_t *)v[1].string->data, len);
+  }
+  mrbc_incref(&v[1]);
+  SET_RETURN(v[1]);
 }
 
 static void
@@ -231,8 +317,11 @@ mrbc_uart_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_UART, "_set_function", c__set_function);
   mrbc_define_method(vm, mrbc_class_UART, "read", c_read);
   mrbc_define_method(vm, mrbc_class_UART, "readpartial", c_readpartial);
+  mrbc_define_method(vm, mrbc_class_UART, "getbyte", c_getbyte);
+  mrbc_define_method(vm, mrbc_class_UART, "ungetbyte", c_ungetbyte);
   mrbc_define_method(vm, mrbc_class_UART, "bytes_available", c_bytes_available);
   mrbc_define_method(vm, mrbc_class_UART, "write", c_write);
+  mrbc_define_method(vm, mrbc_class_UART, "putc", c_putc);
   mrbc_define_method(vm, mrbc_class_UART, "gets", c_gets);
   mrbc_define_method(vm, mrbc_class_UART, "flush", c_flush);
   mrbc_define_method(vm, mrbc_class_UART, "clear_tx_buffer", c_clear_tx_buffer);

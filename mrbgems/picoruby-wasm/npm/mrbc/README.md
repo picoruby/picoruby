@@ -1,17 +1,17 @@
-# @picoruby/picorbc
+# @picoruby/mrbc
 
-Cross-platform PicoRuby Compiler (picorbc) - Compile Ruby scripts to mruby bytecode (.mrb files)
+Cross-platform PicoRuby Compiler (mrbc) - Compile Ruby scripts to mruby bytecode (.mrb files)
 
 ## Installation
 
 ```bash
-npm install -g @picoruby/picorbc
+npm install -g @picoruby/mrbc
 ```
 
 ## Usage
 
 ```bash
-picorbc script.rb
+mrbc script.rb
 ```
 
 This will generate `script.mrb` in the same directory.
@@ -19,7 +19,7 @@ This will generate `script.mrb` in the same directory.
 ### Options
 
 ```bash
-picorbc [switches] programfile...
+mrbc [switches] programfile...
 
 switches:
   -c           check syntax only
@@ -41,19 +41,19 @@ switches:
 
 ```bash
 # Compile a single Ruby file
-picorbc hello.rb
+mrbc hello.rb
 
 # Specify output file
-picorbc -o output.mrb script.rb
+mrbc -o output.mrb script.rb
 
 # Compile multiple files
-picorbc -o combined.mrb file1.rb file2.rb file3.rb
+mrbc -o combined.mrb file1.rb file2.rb file3.rb
 
 # Check syntax only
-picorbc -c script.rb
+mrbc -c script.rb
 
 # Verbose mode
-picorbc -v script.rb
+mrbc -v script.rb
 ```
 
 ## About PicoRuby

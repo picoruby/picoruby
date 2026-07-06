@@ -72,7 +72,13 @@ Conditionally requires files based on `RUBY_ENGINE`:
 mrbgems/picoruby-<gem>/
   test/
     *_test.rb          # Test files (loaded by both CRuby and target VM)
-    target_vm          # Optional file specifying "femtoruby" or "picoruby"
+```
+
+Tests are discovered automatically from `test/**/*_test.rb`. Target-specific
+unsupported behavior should be skipped inside the test case, for example:
+
+```
+skip "WASM only" unless wasm?
 ```
 
 ## Key Environment Variables

@@ -14,6 +14,10 @@ class Sandbox
     f = File.open(path, "r")
     begin
       return nil unless rb = f.read
+      # exec_mrb keeps only a pointer into this string's data (it is not copied),
+      # so retain it on the instance to keep it alive for the task's lifetime and
+      # prevent GC from freeing the bytecode while the task is still running.
+      @code = rb
       is_rite = rb.start_with?(RITE_VERSION)
       started = if is_rite
         exec_mrb(rb)
@@ -39,7 +43,27 @@ class Sandbox
   def loop(timeout, signal_self_manage)
     n = 5
     while self.state != :DORMANT && self.state != :SUSPENDED do
-      Machine.check_signal unless signal_self_manage
+      unless signal_self_manage
+        # poll_signal reports the pending signal as a value (:INT / :TSTP / nil)
+        # instead of raising Interrupt / SignalException, so Ctrl-C and Ctrl-Z
+        # are handled with plain control flow rather than rescue clauses.
+        case Machine.poll_signal
+        when :INT
+          begin
+            Watchdog.disable
+            puts "Watchdog disabled"
+          rescue NameError
+            # ignore. maybe POSIX
+          end
+          puts "^C"
+          Signal.raise(:INT)
+          self.stop
+          return true # should be false?
+        when :TSTP
+          Signal.raise(:TSTP)
+          return false
+        end
+      end
       sleep_ms 5
       if timeout
         n += 5
@@ -50,22 +74,6 @@ class Sandbox
       end
     end
     return true
-  rescue Interrupt
-    begin
-      Watchdog.disable
-      puts "Watchdog disabled"
-    rescue NameError
-      # ignore. maybe POSIX
-    end
-    puts "^C"
-    Signal.raise(:INT)
-    self.stop
-    return true # should be false?
-  rescue SignalException => e
-    if e.message == "SIGTSTP"
-      Signal.raise(:TSTP)
-    end
-    return false
   end
 
 end

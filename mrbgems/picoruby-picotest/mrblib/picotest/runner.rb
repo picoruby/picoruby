@@ -8,7 +8,7 @@ module Picotest
     TMPDIR = "/tmp"
     SEPARATOR = "----\n"
 
-    def initialize(dir, filter: nil, tmpdir: TMPDIR, require_name: nil, load_files: [], load_path: nil)
+    def initialize(dir, filter: nil, tmpdir: TMPDIR, require_name: nil, load_files: [], load_path: nil, entries: nil)
       unless dir.start_with? "/"
         dir = File.join Dir.pwd, dir
       end
@@ -17,7 +17,7 @@ module Picotest
       @tmpdir = tmpdir
       @require_name = require_name
       @load_files = load_files
-      @entries = find_tests(dir, filter)
+      @entries = entries || find_tests(dir, filter)
       @result = {}
       @test_classes = []
       @load_crashes = []
@@ -61,6 +61,19 @@ module Picotest
             end
           KERNEL
           f.puts "require 'picotest' # pre-built gem"
+          f.puts <<~PICOTEST_COMPAT
+            class Picotest::Test
+              def femtoruby?
+                (ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || "").include?("femtoruby")
+              end
+              def picoruby?
+                !femtoruby?
+              end
+              def wasm?
+                RUBY_PLATFORM.include?("wasm")
+              end
+            end
+          PICOTEST_COMPAT
           f.puts "\n# implementation and mock"
           @load_files.each do |file|
             f.puts "load '#{file}'"

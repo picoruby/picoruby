@@ -9,11 +9,21 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   MBEDTLS_VERSION = "v3.6.2"
   MBEDTLS_REPO = "https://github.com/Mbed-TLS/mbedtls.git"
   mbedtls_dir = "#{dir}/lib/mbedtls"
+  mbedtls_header = "#{mbedtls_dir}/include/mbedtls/cipher.h"
 
   if File.symlink?(mbedtls_dir)
     # Symlink to pico-sdk's mbedtls (used in R2P2 builds)
-    unless File.directory?(mbedtls_dir)
-      raise "Symlink #{mbedtls_dir} exists but target is missing. Run: rake r2p2:setup"
+    unless File.file?(mbedtls_header)
+      pico_sdk_path = "mrbgems/picoruby-r2p2/lib/pico-sdk"
+      pico_sdk_dir = File.join(MRUBY_ROOT, pico_sdk_path)
+
+      puts "Mbed TLS submodule is not initialized. Initializing it..."
+      sh "git", "-C", MRUBY_ROOT, "submodule", "update", "--init", pico_sdk_path
+      sh "git", "-C", pico_sdk_dir, "submodule", "update", "--init", "lib/mbedtls"
+    end
+
+    unless File.file?(mbedtls_header)
+      raise "Mbed TLS header was not found: #{mbedtls_header}"
     end
   elsif File.directory?(mbedtls_dir)
     # Check if it's a git repository and has the correct version

@@ -6,7 +6,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.add_conflict 'picoruby-mrubyc'
   spec.add_conflict 'picoruby-regexp_light'
 
-  spec.add_dependency 'mruby-compiler2'
+  spec.add_dependency 'mruby-compiler'
   spec.add_dependency 'mruby-task'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-jwt'
@@ -22,11 +22,24 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   spec.cc.defines << "MRB_UTF8_STRING"
 
   # Ensure EM_NODE_JS is set for Emscripten
-  unless ENV['EM_NODE_JS']
+  if build.wasm? && !ENV['EM_NODE_JS']
     node_path = `which node 2>/dev/null`.strip
     if !node_path.empty? && File.executable?(node_path)
       ENV['EM_NODE_JS'] = node_path
       puts "Auto-detected Node.js: #{node_path}"
+    end
+  end
+
+  wasm_src = "#{dir}/src/wasm.c"
+  wasm_impl = "#{dir}/src/mruby/wasm.c"
+  wasm_base = wasm_src.pathmap("#{build_dir}/src/%n")
+  wasm_outputs = [
+    objfile(wasm_base),
+    "#{wasm_base}#{build.exts.presym_preprocessed}",
+  ]
+  wasm_outputs.each do |output|
+    file output => [wasm_src, wasm_impl] do
+      cc.run output, wasm_src
     end
   end
 

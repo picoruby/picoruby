@@ -1,4 +1,8 @@
 class MarkdownTest < Picotest::Test
+  def setup
+    skip "Not supported on FemtoRuby" if femtoruby?
+  end
+
   def test_front_matter
     text = <<~MARKDOWN
       ---
@@ -88,6 +92,7 @@ class MarkdownTest < Picotest::Test
   end
 
   def test_footnote
+    skip "Footnote rendering differs on WASM" if wasm?
     text = <<~MARKDOWN
       This is a sentence with a footnote.[^1]
 

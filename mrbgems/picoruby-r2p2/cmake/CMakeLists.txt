@@ -105,7 +105,7 @@ endif()
 # Core1 is used for PSG audio processing but doesn't access flash during BTStack operations
 add_compile_definitions(PICO_FLASH_ASSUME_CORE1_SAFE=1)
 
-set(PICORBC ${PICORUBY_ROOT}/bin/picorbc)
+set(PICORBC ${PICORUBY_ROOT}/bin/mrbc)
 
 add_custom_target(mrbdir ALL
   COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/mrb
@@ -150,6 +150,16 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
   PICO_CORE1_STACK_SIZE=0x0800 # 2KB (in SCRATCH_X)
   PICO_HEAP_SIZE=0x0400        # 1KB
 )
+
+option(PICORUBY_PSG_MCP4922_DMA "Use DMA for PSG MCP4922 output" ON)
+if(PICORUBY_PSG_MCP4922_DMA)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE PSG_MCP4922_DMA=1)
+endif()
+
+option(PICORUBY_PSG_PWM_DMA "Use DMA for PSG PWM output" ON)
+if(PICORUBY_PSG_PWM_DMA)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE PSG_PWM_DMA=1)
+endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
   pico_stdlib
@@ -221,8 +231,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_BINARY_DIR}/mrb
   ${R2P2_GEM_DIR}/include
   ${PICORUBY_ROOT}/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/lib/prism/include
-  ${PICORUBY_ROOT}/mrbgems/mruby-compiler2/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler/include
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
 

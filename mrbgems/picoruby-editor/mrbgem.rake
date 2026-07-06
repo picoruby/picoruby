@@ -4,16 +4,16 @@ MRuby::Gem::Specification.new('picoruby-editor') do |spec|
   spec.summary = 'Library for editor-like application'
 
   if build.posix?
-    if build.vm_mrubyc?
+    if build.femtoruby?
       spec.add_dependency('picoruby-posix-io')
-    elsif build.vm_mruby?
+    elsif build.picoruby?
       spec.add_dependency('mruby-io')
     end
   else
     spec.add_dependency 'picoruby-littlefs'
     spec.add_dependency 'picoruby-vfs'
   end
-  if build.vm_mruby?
+  if build.picoruby?
     spec.add_dependency 'mruby-string-ext', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
   end
   spec.add_dependency 'picoruby-env'

@@ -11,4 +11,25 @@ class UARTTest < Picotest::Test
   def test_puts
     assert_equal nil, @uart.puts("Hello, UART!")
   end
+
+  def test_getbyte_returns_nil_when_rx_buffer_is_empty
+    assert_nil @uart.getbyte
+  end
+
+  def test_ungetbyte
+    assert_nil @uart.ungetbyte(0x141)
+    assert_equal 0x41, @uart.getbyte
+    assert_nil @uart.getbyte
+  end
+
+  def test_putc
+    assert_equal 0x141, @uart.putc(0x141)
+    assert_equal "ABC", @uart.putc("ABC")
+    assert_equal "あいう", @uart.putc("あいう")
+    assert_equal "", @uart.putc("")
+  end
+
+  def test_putc_rejects_other_types
+    assert_raise(TypeError) { @uart.putc(nil) }
+  end
 end

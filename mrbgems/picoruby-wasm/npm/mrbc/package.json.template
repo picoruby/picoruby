@@ -1,14 +1,14 @@
 {
-  "name": "@picoruby/picorbc",
+  "name": "@picoruby/mrbc",
   "version": "{{VERSION}}",
-  "description": "PicoRuby Compiler (picorbc) - Cross-platform Ruby to mruby bytecode compiler",
+  "description": "PicoRuby Compiler (mrbc) - Cross-platform Ruby to mruby bytecode compiler",
   "bin": {
-    "picorbc": "./dist/picorbc.js"
+    "mrbc": "./dist/mrbc.js"
   },
   "files": [
     "README.md",
-    "dist/picorbc.js",
-    "dist/picorbc.wasm"
+    "dist/mrbc.js",
+    "dist/mrbc.wasm"
   ],
   "author": "HASUMI Hitoshi",
   "license": "MIT",
@@ -16,14 +16,14 @@
     "type": "git",
     "url": "https://github.com/picoruby/picoruby"
   },
-  "homepage": "https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm/npm/picorbc",
+  "homepage": "https://github.com/picoruby/picoruby/tree/master/mrbgems/picoruby-wasm/npm/mrbc",
   "keywords": [
     "Ruby",
     "PicoRuby",
     "mruby",
     "compiler",
     "bytecode",
-    "picorbc",
+    "mrbc",
     "WASM",
     "WebAssembly"
   ],

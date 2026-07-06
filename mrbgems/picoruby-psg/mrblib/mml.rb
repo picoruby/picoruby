@@ -45,7 +45,7 @@ class MML # Music Macro Language
       # @type var min_tick: Integer
       delta = min_tick - prev_time
       # @type var min_track: Integer
-      yield(delta, min_track, event[0], event[1])
+      yield(delta, min_track, event[0], event[1], event[2])
       prev_time = min_tick
 
       next_event = parsers[min_track].reduce_next
@@ -158,10 +158,11 @@ class MML # Music Macro Language
         end
       when 107 # 'k' # Transpose (Key)
         sign = @track.getbyte(@cursor + 1)
+        transpose_sign = sign == 43 ? 1 : -1
         if sign == 43 || sign == 45 # '+' or '-'
           @cursor += 1
           n = subvalue || 0
-          @transpose = sign == "+" ? n : -n
+          @transpose = transpose_sign * n
         end
       when 108 # 'l' # Length
         fraction = subvalue

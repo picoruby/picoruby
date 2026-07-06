@@ -3,4 +3,3 @@ MRuby::Gem::Specification.new('picoruby-json') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'JSON parser for PicoRuby'
 end
-

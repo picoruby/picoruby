@@ -46,9 +46,11 @@ uart.clear_tx_buffer
 ### Methods
 
 - `UART.new(unit:, txd_pin:, rxd_pin:, baudrate: 115200, data_bits: 8, stop_bits: 1, parity: PARITY_NONE, flow_control: FLOW_CONTROL_NONE, rx_buffer_size: nil)` - Initialize UART
-- `write(string)` - Write string to UART
+- `write(string)` - Write string to TX
+- `putc(ch)` - Write the low 8 bits of an Integer or the first character of a String
 - `puts(string)` - Write string with line ending
-- `read(length = nil)` - Read data from UART
+- `getbyte()` - Read 1 byte from RX
+- `read(length = nil)` - Read data from RX
 - `gets()` - Read line (until line ending)
 - `readpartial(maxlen)` - Read available data up to maxlen
 - `bytes_available()` - Return number of bytes in RX buffer

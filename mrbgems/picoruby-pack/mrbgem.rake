@@ -5,4 +5,3 @@ MRuby::Gem::Specification.new('picoruby-pack') do |spec|
 
   spec.add_conflict 'mruby-pack'
 end
-

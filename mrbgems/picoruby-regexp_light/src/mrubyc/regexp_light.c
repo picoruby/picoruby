@@ -6,13 +6,13 @@
 
 /*
  * Storage layout for Regexp instances:
- *   instance->data  : picorbc_regexp_t
+ *   instance->data  : picorb_regexp_t
  *     .regex        : compiled regex_t (atoms heap-allocated by regcomp)
  *     .flags        : integer flags (REG_ICASE | REG_NEWLINE)
  *     .source       : mrbc_value String (original pattern, ref-counted)
  *
  * Storage layout for MatchData instances:
- *   instance->data  : picorbc_match_data_t (variable size)
+ *   instance->data  : picorb_match_data_t (variable size)
  *     .nmatch       : number of capture groups + 1
  *     .str          : mrbc_value String (original string, ref-counted)
  *     .regexp       : mrbc_value Regexp (ref-counted)
@@ -23,14 +23,14 @@ typedef struct {
   regex_t regex;
   int flags;
   mrbc_value source;
-} picorbc_regexp_t;
+} picorb_regexp_t;
 
 typedef struct {
   int nmatch;
   mrbc_value str;
   mrbc_value regexp;
   regmatch_t pmatch[];
-} picorbc_match_data_t;
+} picorb_match_data_t;
 
 static mrbc_class *class_Regexp;
 static mrbc_class *class_MatchData;
@@ -52,7 +52,7 @@ mrbc_regex_free_fn(void *ctx, void *ptr)
 static void
 regexp_destructor(mrbc_value *self)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)self->instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)self->instance->data;
   if (re->regex.atoms) {
     regfree(&re->regex);
     re->regex.atoms = NULL;
@@ -63,7 +63,7 @@ regexp_destructor(mrbc_value *self)
 static void
 match_data_destructor(mrbc_value *self)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)self->instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)self->instance->data;
   mrbc_decref(&md->str);
   mrbc_decref(&md->regexp);
 }
@@ -129,8 +129,8 @@ static mrbc_value
 create_regexp_obj(mrbc_vm *vm, const char *pattern, int plen,
                    const char *flags, int flen)
 {
-  mrbc_value re_obj = mrbc_instance_new(vm, class_Regexp, sizeof(picorbc_regexp_t));
-  picorbc_regexp_t *re = (picorbc_regexp_t *)re_obj.instance->data;
+  mrbc_value re_obj = mrbc_instance_new(vm, class_Regexp, sizeof(picorb_regexp_t));
+  picorb_regexp_t *re = (picorb_regexp_t *)re_obj.instance->data;
 
   char *converted = convert_ruby_pattern(vm, pattern, plen);
   if (!converted) {
@@ -162,9 +162,9 @@ static mrbc_value
 create_match_data_obj(mrbc_vm *vm, const regmatch_t *pmatch, int nmatch,
                        mrbc_value str_val, mrbc_value re_val)
 {
-  size_t data_size = sizeof(picorbc_match_data_t) + sizeof(regmatch_t) * (size_t)nmatch;
+  size_t data_size = sizeof(picorb_match_data_t) + sizeof(regmatch_t) * (size_t)nmatch;
   mrbc_value md_obj = mrbc_instance_new(vm, class_MatchData, data_size);
-  picorbc_match_data_t *md = (picorbc_match_data_t *)md_obj.instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)md_obj.instance->data;
 
   md->nmatch = nmatch;
   mrbc_incref(&str_val);
@@ -183,7 +183,7 @@ create_match_data_obj(mrbc_vm *vm, const regmatch_t *pmatch, int nmatch,
 static mrbc_value
 do_match(mrbc_vm *vm, mrbc_value re_obj, mrbc_value str_val)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)re_obj.instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)re_obj.instance->data;
   int nmatch = (int)(re->regex.re_nsub + 1);
   regmatch_t *pmatch = (regmatch_t *)mrbc_alloc(vm, sizeof(regmatch_t) * (size_t)nmatch);
   if (!pmatch) {
@@ -279,7 +279,7 @@ c_regexp_match_p(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   regmatch_t pmatch[1];
   int r = regexec(&re->regex, (const char *)v[1].string->data, 1, pmatch, 0);
   if (r == 0) {
@@ -297,7 +297,7 @@ c_regexp_case_eq(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_FALSE_RETURN();
     return;
   }
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   regmatch_t pmatch[1];
   int r = regexec(&re->regex, (const char *)v[1].string->data, 1, pmatch, 0);
   if (r == 0) {
@@ -315,7 +315,7 @@ c_regexp_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_NIL_RETURN();
     return;
   }
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   regmatch_t pmatch[1];
   int r = regexec(&re->regex, (const char *)v[1].string->data, 1, pmatch, 0);
   if (r != 0) {
@@ -329,7 +329,7 @@ c_regexp_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_source(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   mrbc_incref(&re->source);
   SET_RETURN(re->source);
 }
@@ -338,7 +338,7 @@ c_regexp_source(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_to_s(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
 
   char flags[8];
   int fi = 0;
@@ -366,7 +366,7 @@ c_regexp_to_s(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_inspect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
 
   char flags[8];
   int fi = 0;
@@ -392,7 +392,7 @@ c_regexp_inspect(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_casefold_p(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   if (re->flags & REG_ICASE) {
     SET_TRUE_RETURN();
   } else {
@@ -404,7 +404,7 @@ c_regexp_casefold_p(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_options(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   mrbc_int_t opts = 0;
   if (re->flags & REG_ICASE)   opts |= 1;
   if (re->flags & REG_NEWLINE) opts |= 4;
@@ -415,7 +415,7 @@ c_regexp_options(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_free(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_regexp_t *re = (picorbc_regexp_t *)v[0].instance->data;
+  picorb_regexp_t *re = (picorb_regexp_t *)v[0].instance->data;
   if (re->regex.atoms) {
     regfree(&re->regex);
     re->regex.atoms = NULL;
@@ -433,7 +433,7 @@ c_match_data_aref(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_NIL_RETURN();
     return;
   }
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   mrbc_int_t idx = v[1].i;
 
   if (idx < 0) idx += md->nmatch;
@@ -457,7 +457,7 @@ c_match_data_aref(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_to_a(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   mrbc_value ary = mrbc_array_new(vm, md->nmatch);
 
   for (int i = 0; i < md->nmatch; i++) {
@@ -478,7 +478,7 @@ c_match_data_to_a(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_length(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   SET_INT_RETURN(md->nmatch);
 }
 
@@ -486,7 +486,7 @@ c_match_data_length(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_string(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   mrbc_incref(&md->str);
   SET_RETURN(md->str);
 }
@@ -495,7 +495,7 @@ c_match_data_string(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_regexp(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   mrbc_incref(&md->regexp);
   SET_RETURN(md->regexp);
 }
@@ -504,7 +504,7 @@ c_match_data_regexp(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_pre_match(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   regmatch_t *m = &md->pmatch[0];
 
   if (m->rm_so < 0) {
@@ -521,7 +521,7 @@ c_match_data_pre_match(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_post_match(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   regmatch_t *m = &md->pmatch[0];
 
   if (m->rm_eo < 0) {
@@ -543,7 +543,7 @@ c_match_data_begin(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_NIL_RETURN();
     return;
   }
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   mrbc_int_t idx = v[1].i;
 
   if (idx < 0 || idx >= md->nmatch) {
@@ -567,7 +567,7 @@ c_match_data_end(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_NIL_RETURN();
     return;
   }
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   mrbc_int_t idx = v[1].i;
 
   if (idx < 0 || idx >= md->nmatch) {
@@ -587,7 +587,7 @@ c_match_data_end(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_captures(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   if (md->nmatch <= 1) {
     mrbc_value empty = mrbc_array_new(vm, 0);
     SET_RETURN(empty);
@@ -613,7 +613,7 @@ c_match_data_captures(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_to_s(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   regmatch_t *m = &md->pmatch[0];
 
   if (m->rm_so < 0) {
@@ -630,7 +630,7 @@ c_match_data_to_s(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_match_data_inspect(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  picorbc_match_data_t *md = (picorbc_match_data_t *)v[0].instance->data;
+  picorb_match_data_t *md = (picorb_match_data_t *)v[0].instance->data;
   regmatch_t *m = &md->pmatch[0];
 
   if (m->rm_so < 0) {
@@ -711,7 +711,7 @@ c_string_match_p(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_FALSE_RETURN();
     return;
   }
-  picorbc_regexp_t *regex = (picorbc_regexp_t *)re.instance->data;
+  picorb_regexp_t *regex = (picorb_regexp_t *)re.instance->data;
   regmatch_t pmatch[1];
   int r = regexec(&regex->regex, (const char *)v[0].string->data, 1, pmatch, 0);
   if (r == 0) {
@@ -734,7 +734,7 @@ c_string_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
     SET_NIL_RETURN();
     return;
   }
-  picorbc_regexp_t *regex = (picorbc_regexp_t *)re.instance->data;
+  picorb_regexp_t *regex = (picorb_regexp_t *)re.instance->data;
   regmatch_t pmatch[1];
   int r = regexec(&regex->regex, (const char *)v[0].string->data, 1, pmatch, 0);
   if (r != 0) {

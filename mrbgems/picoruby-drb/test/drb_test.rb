@@ -19,6 +19,7 @@ class DRbTest < Picotest::Test
   end
 
   def test_drb_uri_parsing
+    skip "DRbServer is not available on WASM" if wasm?
     uri = "druby://localhost:8787"
     server = DRb::DRbServer.new(uri, TestService.new)
     assert_equal uri, server.uri

@@ -5,7 +5,7 @@ module PSG
       (TONE_K / freq + 0.5).to_i
     end
 
-    TONE_K = PSG::Driver::SAMPLE_RATE / 32.0 # clock factor
+    TONE_K = PSG::Driver::CHIP_CLOCK / 32.0 # clock factor
     KEY2PERIOD = {
        97 => note_to_period(60), # 'a' => (C4)
       119 => note_to_period(61), # 'w' => (C#4)
@@ -25,35 +25,35 @@ module PSG
 
     def initialize(driver, channel: CH)
       @driver = driver
+      @channel = channel
       @ch_reg = channel * 2
     end
 
     def note_on(period)
-      @driver.send_reg(@ch_reg,     period & 0xFF, 0)
-      @driver.send_reg(@ch_reg + 1, period >> 8, 0)
+      ok = @driver.send_reg(@ch_reg,     period & 0xFF, 0)
+      ok = @driver.send_reg(@ch_reg + 1, period >> 8, 0) && ok
+      @driver.mute(@channel, 0, 0) && ok
     end
 
     def note_off
-      @driver.send_reg(@ch_reg,     0, 0)
-      @driver.send_reg(@ch_reg + 1, 0, 0)
+      @driver.mute(@channel, 1, 0)
     end
 
     def start
       prev_key = nil
       while true
-        key = STDIN.read_nonblock(1)&.ord
-        if key.nil?
-           note_off
-          prev_key = nil
-          next
-        elsif key == 27 # ESC
+        input = STDIN.read_nonblock(1)
+        key = input&.getbyte(0)
+
+        if key == 27 # ESC
           note_off
           break
-        elsif key != prev_key
-          # previous key released
+        elsif key == 32 || key == 13 # Space or Enter
+          note_off if prev_key
+          prev_key = nil
+        elsif key && key != prev_key
           # @type var prev_key: Integer
           note_off if prev_key
-          # new key pressed
           if period = KEY2PERIOD[key]
             note_on(period)
             prev_key = key

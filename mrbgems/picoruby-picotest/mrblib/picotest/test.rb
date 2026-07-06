@@ -88,13 +88,45 @@ module Picotest
     def teardown
     end
 
+    def self.ruby_command
+      ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
+    end
+
+    def self.picoruby?
+      !femtoruby?
+    end
+
+    def self.femtoruby?
+      ruby_command.include?("femtoruby")
+    end
+
+    def self.wasm?
+      ruby_command.include?("wasm-runner")
+    end
+
     def self.mruby?
-      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
-      File.basename(ruby_path).include?("picoruby")
+      picoruby?
     end
 
     def self.mrubyc?
-      !mruby?
+      femtoruby?
+    end
+
+    def ruby_command
+      ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
+    end
+
+    def picoruby?
+      !femtoruby?
+    end
+
+    def femtoruby?
+      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
+      ruby_path.include?("femtoruby")
+    end
+
+    def wasm?
+      ruby_command.include?("wasm-runner")
     end
 
     def run_script(script)
@@ -113,14 +145,9 @@ module Picotest
       actual
     end
 
-    def mruby?
-      !mrubyc?
-    end
+    alias_method :mruby?, :picoruby?
 
-    def mrubyc?
-      ruby_path = ENV['RUBY'] || ENV['PICORUBY_COMMAND'] || ""
-      File.basename(ruby_path).include?("femtoruby")
-    end
+    alias_method :mrubyc?, :femtoruby?
 
     def assert(result)
       report(result, "Expected truthy but got falsy", nil, nil)

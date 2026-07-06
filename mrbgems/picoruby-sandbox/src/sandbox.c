@@ -21,9 +21,6 @@ static void
 free_ccontext(SandboxState *ss)
 {
   if (ss->cc) {
-    if (ss->cc->options) {
-      pm_options_free(ss->cc->options);
-    }
     mrc_ccontext_free(ss->cc);
     ss->cc = NULL;
   }

@@ -8,9 +8,9 @@ MRuby::Gem::Specification.new('picoruby-net-mqtt') do |spec|
 
   spec.require_name = 'net/mqtt'
 
-  if build.vm_mruby?
+  if build.picoruby?
     spec.add_dependency 'mruby-pack', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
-  elsif build.vm_mrubyc?
+  elsif build.femtoruby?
     spec.add_dependency 'picoruby-pack'
   end
 end
