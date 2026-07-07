@@ -172,6 +172,16 @@ class WebAudioSynthTest < Picotest::Test
     assert_equal :active, @synth.active_voices[0][:status]
   end
 
+  def test_note_on_schedules_a_short_attack_after_current_time
+    assert @synth.handle_midi([:note_on, 0, 69, 100], :serial, 0, 10)
+    oscillator = @context.oscillators[-1]
+    gain = @context.gains[1][:gain]
+    start_time = 1.0 + JS::WebAudio::NOTE_START_DELAY
+    assert_equal start_time, oscillator.started_at
+    assert_equal [:set, 0.0, start_time], gain.calls[1]
+    assert_equal [:ramp, 100 / 127.0, start_time + JS::WebAudio::DEFAULT_TONE[:attack]], gain.calls[2]
+  end
+
   def test_note_off_releases_then_ended_callback_frees_voice
     @synth.handle_midi([:note_on, 0, 60, 100], :serial, 0, 10)
     oscillator = @context.oscillators[-1]

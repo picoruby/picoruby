@@ -43,6 +43,7 @@ module JS
           return self
         end
 
+        now += WebAudio::NOTE_START_DELAY
         apply_filter(tone, now)
 
         oscillator = context.createOscillator
@@ -56,7 +57,9 @@ module JS
         gain = @envelope[:gain]
         gain.cancelScheduledValues(now)
         gain.setValueAtTime(0.0, now)
-        attack_end = now + tone[:attack]
+        attack = tone[:attack]
+        attack = WebAudio::MIN_ATTACK if attack < WebAudio::MIN_ATTACK
+        attack_end = now + attack
         decay_end = attack_end + tone[:decay]
         gain.linearRampToValueAtTime(@velocity_gain, attack_end)
         gain.linearRampToValueAtTime(@velocity_gain * tone[:sustain], decay_end)
