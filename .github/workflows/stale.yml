@@ -1,0 +1,56 @@
+name: Mark and close stale issues and PRs
+
+on:
+  schedule:
+    - cron: '30 0 * * *'
+  workflow_dispatch:
+    inputs:
+      debug-only:
+        description: Run without changing issues or pull requests
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  actions: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/stale@v10.3.0
+        with:
+          stale-issue-label: stale
+          stale-pr-label: stale
+
+          days-before-issue-stale: 180
+          days-before-issue-close: 30
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had
+            recent activity for 180 days. It will be closed in 30 days if no further
+            activity occurs. Comment or remove the stale label to keep it open.
+          close-issue-message: >
+            This issue was automatically closed because it had no activity for 30 days
+            after being marked stale.
+          close-issue-reason: not_planned
+
+          days-before-pr-stale: 60
+          days-before-pr-close: 14
+          stale-pr-message: >
+            This pull request has been automatically marked as stale because it has not
+            had recent activity for 60 days. It will be closed in 14 days if no further
+            activity occurs. Comment or remove the stale label to keep it open.
+          close-pr-message: >
+            This pull request was automatically closed because it had no activity for
+            14 days after being marked stale.
+
+          exempt-issue-labels: help wanted,good first issue
+          exempt-all-issue-milestones: true
+          exempt-all-pr-milestones: true
+          exempt-draft-pr: true
+          remove-stale-when-updated: true
+          operations-per-run: 50
+          debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
