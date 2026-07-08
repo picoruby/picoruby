@@ -15,11 +15,11 @@ typedef struct ENV {
 static void
 mrb_env_free(mrb_state *mrb, void *ptr) {
   ENV *env = (ENV *)ptr;
-  mrb_value hash = env->hash;
-  if (mrb_hash_p(hash)) {
-    mrb_hash_clear(mrb, hash);
-  }
-  mrb_gc_unregister(mrb, hash);
+  /* Do NOT touch the hash's contents here: during mrb_close teardown
+   * the hash (and its table) may already be freed — mrb_hash_clear
+   * here is a use-after-free. Dropping our GC registration is enough;
+   * the GC owns the hash and frees it with its table. */
+  mrb_gc_unregister(mrb, env->hash);
   mrb_free(mrb, ptr);
 }
 
