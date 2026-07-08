@@ -21,6 +21,9 @@ static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
   mrb_gc_unregister(mrb, ss->task);
+  /* Drop the sandbox's counted reference; procs created from this irep
+     hold their own refs and the irep is freed when the last one dies. */
+  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   free_ccontext(ss);
   mrb_free(mrb, ss);
 }
@@ -68,13 +71,18 @@ sandbox_compile_sub(mrb_state *mrb, SandboxState *ss, const uint8_t *script, con
   ss->cc = mrc_ccontext_new(mrb);
   if (filename) mrc_ccontext_filename(ss->cc, filename);
   ss->cc->options = ss->options;
-  // TODO: Ask Matz
+  /* Drop our ref to the previous irep (procs keep it alive if needed).
+     The compiler returns the new irep with refcnt=1 which becomes the
+     sandbox's reference — do NOT incref again or it leaks forever. */
   if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   ss->irep = mrc_load_string_cxt(ss->cc, (const uint8_t **)&script, size);
   if (ss->irep && mrb_test(remove_lv)) mrc_irep_remove_lv(ss->cc, ss->irep);
-  if (ss->irep) {
-    mrb_irep_incref(mrb, (struct mrb_irep *)ss->irep);
-  }
+  /* Resolve symbols NOW, while `script` is still alive: the compiler's
+     constant pool points into the script buffer, and by execute time the
+     GC may have freed it (the script is a Ruby string owned by the
+     caller). Deferring mrc_resolve_intern() to Sandbox#execute reads
+     freed memory. */
+  if (ss->irep) mrc_resolve_intern(ss->cc, ss->irep);
   ss->options = ss->cc->options;
   ss->cc->options = NULL;
   if (!ss->irep) {
@@ -89,8 +97,7 @@ static mrb_value
 mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
 {
   SS();
-  const char *script;
-  mrb_int script_len;
+  mrb_value script_val;
 
   uint32_t kw_num = 2;
   uint32_t kw_required = 0;
@@ -98,7 +105,9 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
   mrb_value kw_values[kw_num];
   mrb_kwargs kwargs = { kw_num, kw_required, kw_names, kw_values, NULL };
 
-  mrb_get_args(mrb, "s:", &script, &script_len, &kwargs);
+  mrb_get_args(mrb, "S:", &script_val, &kwargs);
+  const char *script = RSTRING_PTR(script_val);
+  mrb_int script_len = RSTRING_LEN(script_val);
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
   const char *filename = NULL;
@@ -155,7 +164,8 @@ static mrb_value
 mrb_sandbox_execute(mrb_state *mrb, mrb_value self)
 {
   SS();
-  mrc_resolve_intern(ss->cc, ss->irep);
+  /* Symbols were already resolved at compile time (sandbox_compile_sub);
+     resolving again would misread mrb_syms as constant-pool ids. */
   struct RProc *proc = mrb_proc_new(mrb, (const mrb_irep *)ss->irep);
   proc->e.target_class = mrb->object_class;
   mrb_task_reset_context(mrb, ss->task);
@@ -262,7 +272,9 @@ mrb_sandbox_exec_vm_code(mrb_state *mrb, mrb_value self)
   mrb_value vm_code;
   mrb_get_args(mrb, "S", &vm_code);
   const uint8_t *code = (const uint8_t *)RSTRING_PTR(vm_code);
-  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
+  /* mrc_irep_free() would destroy the irep even while live procs still
+     reference it (use-after-free in the GC sweep); drop our ref instead. */
+  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   ss->irep = (mrc_irep *)mrb_read_irep(mrb, code);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
@@ -277,7 +289,7 @@ mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
   SS();
   mrb_int address;
   mrb_get_args(mrb, "i", &address);
-  if (ss->irep) mrc_irep_free(ss->cc, ss->irep);
+  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   ss->irep = (mrc_irep *)mrb_read_irep(mrb, (const uint8_t *)(uintptr_t)address);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
