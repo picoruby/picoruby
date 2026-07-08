@@ -50,7 +50,6 @@ jobs:
           exempt-issue-labels: help wanted,good first issue
           exempt-all-issue-milestones: true
           exempt-all-pr-milestones: true
-          exempt-draft-pr: true
           remove-stale-when-updated: true
           operations-per-run: 50
           debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
