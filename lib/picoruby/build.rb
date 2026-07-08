@@ -132,15 +132,19 @@ module MRuby
       debug_flag
     end
 
+    def platform?(name)
+      cc.defines.include?("PICORB_PLATFORM_#{name.to_s.upcase}")
+    end
+
     def posix?
-      cc.defines.include?("PICORB_PLATFORM_POSIX")
+      platform?(:posix)
     end
 
     def wasm?
       config = ENV['CONFIG'] || ENV['MRUBY_CONFIG']
       return true if config&.include?('picoruby-wasm')
       # Also check defines for WASM platform
-      cc.defines.include?("PICORB_PLATFORM_WASM")
+      platform?(:wasm)
     end
 
     def generate_package_json_from_template(template_path, output_path)

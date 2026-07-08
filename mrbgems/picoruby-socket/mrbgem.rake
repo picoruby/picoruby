@@ -17,14 +17,14 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
   spec.cc.include_paths << "#{dir}/include"
 
   # Add mbedtls include path for SSL support (non-POSIX only)
-  unless build.posix? || build.name == "esp32"
+  unless build.posix? || build.platform?(:esp32)
     mbedtls_dir = "#{MRUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls"
     if File.directory?(mbedtls_dir)
       spec.cc.include_paths << "#{mbedtls_dir}/include"
     end
   end
 
-  unless build.posix? || build.name == "esp32"
+  unless build.posix? || build.platform?(:esp32)
     # LwIP configuration
     LWIP_VERSION = "STABLE-2_2_1_RELEASE"
     LWIP_REPO = "https://github.com/lwip-tcpip/lwip"
