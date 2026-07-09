@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include <string.h>
 
 #define GETIV(str)       mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
 #define WRITE(pin, val)  CYW43_GPIO_write(pin.i, val)
@@ -97,6 +98,14 @@ c_CYW43_connect_timeout(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   const char *ssid = (const char *)GET_STRING_ARG(1);
   const char *pass = (const char *)GET_STRING_ARG(2);
+  if (strlen(ssid) > 32) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SSID too long (max 32 bytes)");
+    return;
+  }
+  if (strlen(pass) > 63) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "PSK too long (max 63 bytes)");
+    return;
+  }
   int auth = GET_INT_ARG(3);
   int timeout_ms = 3 < argc ? GET_INT_ARG(4)*1000 : 60*1000;
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
