@@ -110,6 +110,7 @@ module JS
 
       private def gc_yield(ms)
         sleep_ms ms
+        nil
       rescue
         nil
       end

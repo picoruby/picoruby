@@ -100,6 +100,7 @@ module JS
       private def start_tom: (untyped now, Integer generation, Float start_frequency, Float end_frequency, Float duration) -> untyped
       private def schedule_percussion_envelope: (untyped now, Float duration, Float attack) -> untyped
       private def start_one_shot: (js_node_t source, untyped now, Float duration, Integer generation) -> untyped
+      private def schedule_ended: (Float delay, Integer generation) -> untyped
     end
 
     class Synth

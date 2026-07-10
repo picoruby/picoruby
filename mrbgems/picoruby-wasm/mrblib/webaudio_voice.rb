@@ -64,11 +64,6 @@ module JS
         gain.linearRampToValueAtTime(@velocity_gain, attack_end)
         gain.linearRampToValueAtTime(@velocity_gain * tone[:sustain], decay_end)
 
-        voice = self
-        callback_id = oscillator.addEventListener("ended") do |_event|
-          JS::Object.removeEventListener(callback_id)
-          voice.ended(generation)
-        end
         oscillator.start(now)
         self
       end
@@ -81,12 +76,14 @@ module JS
         channel = @channel
         return self unless channel
         release_time = channel.tone[:release]
+        stop_delay = release_time + 0.005
         gain = @envelope[:gain]
         current = gain[:value] || 0.0
         gain.cancelScheduledValues(now)
         gain.setValueAtTime(current, now)
         gain.linearRampToValueAtTime(0.0, now + release_time)
-        @oscillator.stop(now + release_time + 0.005) if @oscillator
+        @oscillator.stop(now + stop_delay) if @oscillator
+        schedule_ended(stop_delay, @generation)
         self
       end
 
@@ -154,6 +151,7 @@ module JS
 
       def ended(generation)
         return unless generation == @generation
+        return if @status == :idle
         @oscillator = nil
         @sources = []
         @status = :idle
@@ -270,14 +268,18 @@ module JS
       end
 
       private def start_one_shot(source, now, duration, generation)
-        voice = self
-        callback_id = source.addEventListener("ended") do |_event|
-          JS::Object.removeEventListener(callback_id)
-          voice.ended(generation)
-        end
         @sources << source
         source.start(now)
         source.stop(now + duration)
+        schedule_ended(duration, generation)
+      end
+
+      private def schedule_ended(delay, generation)
+        voice = self
+        Task.new do
+          sleep(delay)
+          voice.ended(generation)
+        end
       end
     end
   end
