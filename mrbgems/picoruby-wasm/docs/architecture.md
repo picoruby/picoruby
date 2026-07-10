@@ -24,7 +24,9 @@ JavaScript Event Loop (setTimeout-driven host loop)
             └─> mrb_vm_exec()  // Execute Ruby bytecode
 ```
 
-The host loop may call `mrb_run_step()` multiple times per JavaScript callback, bounded by the configured time budget, so PicoRuby does not depend on a browser frame callback for progress.
+The host loop may call `mrb_run_step_status()` multiple times per JavaScript callback, bounded by the configured time budget, so PicoRuby does not depend on a browser frame callback for progress. The older `mrb_run_step()` export remains as a compatibility wrapper.
+
+`mrb_task_run_once()` also integrates with `GC.scheduler_driven`: when no Ruby task is ready, it advances one scheduler-driven GC step if GC work is pending. PicoRuby.wasm does not enable `GC.scheduler_driven` by default, but the host loop distinguishes progress from true idle so an application that enables it can keep GC moving without busy-pumping the VM while idle.
 
 Each Ruby task is a separate execution context with its own:
 - Call stack (stored in heap via `mrb_context`)

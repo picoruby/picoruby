@@ -28,6 +28,41 @@ extern void mrb_regexp_init(mrb_state *mrb);
 extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
 mrb_value main_task = {0};
 
+#define MRB_WASM_STEP_UNINITIALIZED -1
+#define MRB_WASM_STEP_IDLE           0
+#define MRB_WASM_STEP_PROGRESS       1
+#define MRB_WASM_STEP_EXCEPTION      2
+
+EMSCRIPTEN_KEEPALIVE int mrb_run_step_status(void);
+
+static mrb_bool
+log_task_exception(mrb_state *mrb, mrb_value result)
+{
+  if (mrb_exception_p(result)) {
+    mrb_value exc_str = mrb_inspect(mrb, result);
+    if (mrb->exc) {
+      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
+      mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
+    }
+    return TRUE;
+  }
+  else if (mrb->exc) {
+    mrb_value exc = mrb_obj_value(mrb->exc);
+    mrb->exc = NULL;
+    mrb_value exc_str = mrb_inspect(mrb, exc);
+    if (mrb->exc) {
+      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
+      mrb->exc = NULL;
+    } else {
+      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
+    }
+    return TRUE;
+  }
+  return FALSE;
+}
+
 void*
 FILE_physical_address(void* p)
 {
@@ -52,34 +87,43 @@ EMSCRIPTEN_KEEPALIVE
 int
 mrb_run_step(void)
 {
-  if (!global_mrb) return -1;
+  int status = mrb_run_step_status();
+  if (status == MRB_WASM_STEP_UNINITIALIZED) return -1;
 
-  mrb_value result = mrb_task_run_once(global_mrb);
-  if (mrb_exception_p(result)) {
-    mrb_value exc_str = mrb_inspect(global_mrb, result);
-    if (global_mrb->exc) {
-      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
-    }
-  }
-  else if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
-    global_mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    if (global_mrb->exc) {
-      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
-    }
-    /* Continue scheduler; one task exception must not stop others */
-  }
-
-  // Even if there is no task to run, return 0
-  // so to wait for callbacks like event listener
+  // Compatibility API: keep returning 0 even when idle or a task exception was
+  // logged, so callbacks like event listeners can still arrive later.
   return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int
+mrb_run_step_status(void)
+{
+  if (!global_mrb) return MRB_WASM_STEP_UNINITIALIZED;
+
+  mrb_state *mrb = global_mrb;
+  mrb_bool had_ready_task = (q_ready_ != NULL);
+  mrb_bool had_gc_work = mrb_gc_scheduler_pending(mrb);
+  mrb_value result = mrb_task_run_once(mrb);
+
+  if (log_task_exception(mrb, result)) {
+    /* Continue scheduler; one task exception must not stop others */
+    return MRB_WASM_STEP_EXCEPTION;
+  }
+
+  if (had_ready_task || had_gc_work || !mrb_nil_p(result)) {
+    return MRB_WASM_STEP_PROGRESS;
+  }
+
+  return MRB_WASM_STEP_IDLE;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int
+mrb_gc_scheduler_pending_wasm(void)
+{
+  if (!global_mrb) return MRB_WASM_STEP_UNINITIALIZED;
+  return mrb_gc_scheduler_pending(global_mrb) ? 1 : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

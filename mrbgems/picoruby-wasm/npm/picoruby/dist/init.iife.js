@@ -47,7 +47,15 @@
     Module.picorubyRun = function() {
       const MRB_TICK_UNIT = 4; // Must match the value in build_config/picoruby-wasm.rb
       const BATCH_DURATION = 16; // ~1 frame (16.67ms)
+      const IDLE_DELAY = 4;
       const MAX_CATCHUP_TICKS = 10; // Cap to avoid freeze when tab returns from background
+      const runStepStatus = Module._mrb_run_step_status || function() {
+        const result = Module._mrb_run_step();
+        return result < 0 ? -1 : 1;
+      };
+      const gcSchedulerPending = Module._mrb_gc_scheduler_pending_wasm || function() {
+        return 0;
+      };
       let lastTick = performance.now();
       function run() {
         const now = performance.now();
@@ -61,13 +69,20 @@
           lastTick = now;
         }
         const sliceStart = performance.now();
+        let progressed = false;
         while (performance.now() - sliceStart < BATCH_DURATION) {
-          const result = Module._mrb_run_step();
-          if (result < 0) {
-            console.error('mrb_run_step returned', result, '- scheduler continues');
+          const status = runStepStatus();
+          if (status < 0) {
+            console.error('mrb_run_step_status returned', status, '- scheduler continues');
+            break;
           }
+          if (status === 0) {
+            break;
+          }
+          progressed = true;
         }
-        setTimeout(run, 0);
+        const delay = progressed || gcSchedulerPending() === 1 ? 0 : IDLE_DELAY;
+        setTimeout(run, delay);
       }
       run();
     };
