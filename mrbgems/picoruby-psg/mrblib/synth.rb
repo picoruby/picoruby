@@ -94,7 +94,7 @@ module PSG
       while !@stopped
         now_us = current_time_us
         process_due_programs(now_us)
-        envelope = pop_queue(queue, next_program_timeout_ms(now_us))
+        envelope = queue.pop(timeout_ms: next_program_timeout_ms(now_us))
         if envelope.nil?
           break if queue.closed?
           next
@@ -108,16 +108,6 @@ module PSG
       end
     ensure
       silence_all
-    end
-
-    private def pop_queue(queue, timeout_ms)
-      deadline = timeout_ms.nil? ? nil : queue.__deadline(timeout_ms)
-      while true
-        value = queue.__pop_try(false, deadline)
-        return nil if value.equal?(Task::Queue::WAIT_TIMEOUT)
-        return value unless value.equal?(Task::Queue::WAIT_RETRY)
-      end
-      nil
     end
 
     private def process(event, source, priority, timestamp_us)

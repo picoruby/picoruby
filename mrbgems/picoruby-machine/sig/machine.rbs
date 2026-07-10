@@ -13,7 +13,7 @@ module Machine
   def self.posix?: () -> bool
   def self.set_hwclock: (Integer tv_sec) -> Integer
   def self.get_hwclock: () -> [Integer, Integer]
-  def self.exit: (?Integer status) -> void
+  def self.exit: (?Integer status) -> bot
   def self.debug_puts: (String str) -> nil
   def self.uptime_us: () -> Integer
   def self.board_millis: () -> Integer
@@ -27,6 +27,5 @@ module Machine
   def self.mcu_name: () -> String
   def self._stdin_getc: () -> (String | nil)
   def self._stdin_gets: () -> (String | nil)
-  def self.poll_signal: () -> (Symbol | nil)
   private def self._reboot: () -> nil
 end

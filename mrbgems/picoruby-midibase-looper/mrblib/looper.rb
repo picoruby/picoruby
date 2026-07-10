@@ -323,9 +323,7 @@ module MIDIBASE
     private def drain_queue
       queue = @queue
       while !queue.empty?
-        # The queue has one consumer and was just checked for emptiness. Calling
-        # the C primitive directly avoids Queue#pop's timeout keyword Hash.
-        message = queue.__pop_try(true, nil)
+        message = queue.pop(true)
         if message[0] == :midi
           # The engine task may wake after a recording boundary. Move transport
           # to the captured input time before deciding whether to record it.

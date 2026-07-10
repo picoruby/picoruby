@@ -37,6 +37,8 @@ module JS
     PERCUSSION_CHANNEL: Integer
     PERCUSSION_NOTES: Hash[Integer, Symbol]
     DEFAULT_TONE: tone_t
+    MIN_ATTACK: Float
+    NOTE_START_DELAY: Float
 
     def self.supported?: () -> bool
     def self.create_context: () -> js_node_t

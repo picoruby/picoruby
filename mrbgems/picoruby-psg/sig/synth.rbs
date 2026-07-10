@@ -40,7 +40,6 @@ module PSG
     def stop: () -> self
     def join: () -> self
     def run: () -> void
-    private def pop_queue: (Task::Queue queue, Integer? timeout_ms) -> midi_message_t?
     private def process: (MIDIBASE::event_t event, MIDIBASE::Router::source_t source, Integer priority, Integer? timestamp_us) -> void
     private def note_on: (MIDIBASE::Router::source_t source, Integer channel, Integer note, Integer velocity, Integer priority, Integer? timestamp_us) -> void
     private def note_off: (MIDIBASE::Router::source_t source, Integer channel, Integer note) -> void

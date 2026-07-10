@@ -492,4 +492,6 @@ class WebAudioApp < Funicular::Component
   end
 end
 
+GC.scheduler_driven = true
+
 Funicular.start(WebAudioApp, container: "app")
