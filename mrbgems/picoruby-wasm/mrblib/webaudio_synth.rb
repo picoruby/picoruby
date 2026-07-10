@@ -30,6 +30,8 @@ module JS
           i += 1
         end
         @stopped = false
+        @cleanup_task_running = true
+        start_cleanup_task
       end
 
       def resume
@@ -47,6 +49,7 @@ module JS
 
       def close
         stop
+        @cleanup_task_running = false
         promise = @context.close
         promise.await if promise.respond_to?(:await)
         self
@@ -278,6 +281,37 @@ module JS
           i += 1
         end
         @allocator.release_all
+      end
+
+      def cleanup_finished_voices
+        now = @context[:currentTime]
+        voices = @voices
+        i = 0
+        voices_size = voices.size
+        while i < voices_size
+          voices[i].cleanup_finished(now)
+          i += 1
+        end
+        nil
+      end
+
+      private def start_cleanup_task
+        synth = self
+        Task.new do
+          while synth.cleanup_task_running?
+            synth.cleanup_finished_voices unless synth.stopped?
+            sleep WebAudio::VOICE_CLEANUP_INTERVAL
+          end
+        end
+        nil
+      end
+
+      def cleanup_task_running?
+        @cleanup_task_running
+      end
+
+      def stopped?
+        @stopped
       end
     end
   end

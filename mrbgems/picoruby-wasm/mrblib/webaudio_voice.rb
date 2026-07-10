@@ -20,6 +20,7 @@ module JS
         @generation = 0
         @status = :idle
         @velocity_gain = 0.0
+        @end_time = nil
       end
 
       def start(source, channel, note, velocity)
@@ -77,13 +78,14 @@ module JS
         return self unless channel
         release_time = channel.tone[:release]
         stop_delay = release_time + 0.005
+        stop_at = now + stop_delay
         gain = @envelope[:gain]
         current = gain[:value] || 0.0
         gain.cancelScheduledValues(now)
         gain.setValueAtTime(current, now)
         gain.linearRampToValueAtTime(0.0, now + release_time)
-        @oscillator.stop(now + stop_delay) if @oscillator
-        schedule_ended(stop_delay, @generation)
+        @oscillator.stop(stop_at) if @oscillator
+        @end_time = stop_at
         self
       end
 
@@ -106,6 +108,7 @@ module JS
         end
         @sources = []
         @oscillator = nil
+        @end_time = nil
         @status = :idle
         self
       end
@@ -154,8 +157,19 @@ module JS
         return if @status == :idle
         @oscillator = nil
         @sources = []
+        @end_time = nil
         @status = :idle
         @owner.voice_ended(self, generation)
+      end
+
+      # Avoid one Task per note: long MIDI runs produce many short-lived voices.
+      # Synth owns a single cleanup task and polls this timestamp instead.
+      def cleanup_finished(now)
+        end_time = @end_time
+        return false unless end_time
+        return false if now < end_time
+        ended(@generation)
+        true
       end
 
       def snapshot
@@ -269,17 +283,12 @@ module JS
 
       private def start_one_shot(source, now, duration, generation)
         @sources << source
+        stop_at = now + duration
         source.start(now)
-        source.stop(now + duration)
-        schedule_ended(duration, generation)
-      end
-
-      private def schedule_ended(delay, generation)
-        voice = self
-        Task.new do
-          sleep(delay)
-          voice.ended(generation)
-        end
+        source.stop(stop_at)
+        # Do not spawn a Task per note. Long-running MIDI streams can create
+        # many short-lived voices, so Synth's single cleanup task polls this.
+        @end_time = stop_at
       end
     end
   end
