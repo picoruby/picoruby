@@ -1,4 +1,5 @@
 #include <mruby.h>
+#include <string.h>
 #include <mruby/presym.h>
 #include <mruby/variable.h>
 #include <mruby/string.h>
@@ -89,6 +90,12 @@ mrb_s_connect_timeout(mrb_state *mrb, mrb_value klass)
     timeout_ms = 60 * 1000;
   } else {
     timeout_ms = mrb_fixnum(timeout) * 1000;
+  }
+  if (strlen(ssid) > 32) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "SSID too long (max 32 bytes)");
+  }
+  if (strlen(pass) > 63) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "PSK too long (max 63 bytes)");
   }
   if (cyw43_arch_sta_mode_enabled && !cyw43_arch_connected) {
     if (CYW43_wifi_connect_with_dhcp(ssid, pass, auth, timeout_ms) != 0) {
