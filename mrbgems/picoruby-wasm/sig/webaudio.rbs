@@ -137,13 +137,16 @@ module JS
       attr_reader state: serial_state_t
       attr_reader error: Exception?
       attr_reader port: JS::WebSerial?
-      def initialize: (router: MIDIBASE::Router, ?source: source_t, ?on_state_change: Proc?, ?parser: MIDIBASE::Parser?) -> void
+      attr_reader gc_yield_event_count: Integer?
+      attr_reader gc_yield_ms: Integer
+      def initialize: (router: MIDIBASE::Router, ?source: source_t, ?on_state_change: Proc?, ?parser: MIDIBASE::Parser?, ?gc_yield_event_count: Integer?, ?gc_yield_ms: Integer) -> void
       def connect: (?baud_rate: Integer) -> self
       def disconnect: () -> self
       def feed: (String bytes, ?timestamp_us: Integer) -> Integer
       def stop: () -> self
       def disconnected: () -> self
       private def change_state: (serial_state_t state) -> void
+      private def gc_yield: (Integer ms) -> nil
     end
   end
 end

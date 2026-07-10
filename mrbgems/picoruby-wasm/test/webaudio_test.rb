@@ -324,4 +324,19 @@ class WebSerialMIDIInputTest < Picotest::Test
     assert_equal [:timing_clock], @sink.events[0][0]
     assert_equal [:note_on, 0, 60, 100], @sink.events[1][0]
   end
+
+  def test_gc_yield_defaults_are_enabled
+    assert_equal 64, @input.gc_yield_event_count
+    assert_equal 1, @input.gc_yield_ms
+  end
+
+  def test_gc_yield_can_be_disabled
+    input = JS::WebAudio::WebSerialMIDIInput.new(
+      router: @router,
+      gc_yield_event_count: nil,
+      gc_yield_ms: 0
+    )
+    assert_equal nil, input.gc_yield_event_count
+    assert_equal 0, input.gc_yield_ms
+  end
 end

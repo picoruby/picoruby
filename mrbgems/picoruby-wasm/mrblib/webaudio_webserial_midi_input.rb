@@ -1,19 +1,28 @@
 module JS
   module WebAudio
     class WebSerialMIDIInput
-      attr_reader :state, :error, :port
+      attr_reader :state, :error, :port, :gc_yield_event_count, :gc_yield_ms
 
-      def initialize(router:, source: :webserial, on_state_change: nil, parser: nil)
+      def initialize(router:, source: :webserial, on_state_change: nil, parser: nil,
+                     gc_yield_event_count: 64, gc_yield_ms: 1)
         unless router.respond_to?(:emit_midi)
           raise ArgumentError, "router must respond to emit_midi"
         end
         unless on_state_change.nil? || on_state_change.respond_to?(:call)
           raise ArgumentError, "on_state_change must respond to call"
         end
+        unless gc_yield_event_count.nil? || (gc_yield_event_count.is_a?(Integer) && 0 <= gc_yield_event_count)
+          raise ArgumentError, "gc_yield_event_count must be nil or a non-negative Integer"
+        end
+        unless gc_yield_ms.is_a?(Integer) && 0 <= gc_yield_ms
+          raise ArgumentError, "gc_yield_ms must be a non-negative Integer"
+        end
         @router = router
         @source = source
         @on_state_change = on_state_change
         @parser = parser || MIDIBASE::Parser.new
+        @gc_yield_event_count = gc_yield_event_count
+        @gc_yield_ms = gc_yield_ms
         @state = :disconnected
         @error = nil
         @port = nil
@@ -59,6 +68,9 @@ module JS
         router = @router
         source = @source
         count = 0
+        yield_count = @gc_yield_event_count
+        gc_yield_ms = @gc_yield_ms
+        events_since_yield = 0
         i = 0
         bytesize = bytes.bytesize
         while i < bytesize
@@ -66,6 +78,13 @@ module JS
           if event
             router.emit_midi(source, event, timestamp_us)
             count += 1
+            if yield_count && 0 < yield_count && 0 < gc_yield_ms
+              events_since_yield += 1
+              if yield_count <= events_since_yield
+                gc_yield(gc_yield_ms)
+                events_since_yield = 0
+              end
+            end
           end
           i += 1
         end
@@ -87,6 +106,12 @@ module JS
         @state = state
         callback = @on_state_change
         callback.call(state, @error) if callback
+      end
+
+      private def gc_yield(ms)
+        sleep_ms ms
+      rescue
+        nil
       end
     end
   end

@@ -73,6 +73,8 @@ class WebAudioApp < Funicular::Component
     component = self
     @input ||= JS::WebAudio::WebSerialMIDIInput.new(
       router: @router,
+      gc_yield_event_count: 32,
+      gc_yield_ms: 1,
       on_state_change: proc do |connection_state, error|
         component.patch(
           serial_state: connection_state.to_s,
@@ -493,5 +495,6 @@ class WebAudioApp < Funicular::Component
 end
 
 GC.scheduler_driven = true
+GC.step_limit = 128
 
 Funicular.start(WebAudioApp, container: "app")
