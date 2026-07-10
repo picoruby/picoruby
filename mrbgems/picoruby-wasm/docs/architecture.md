@@ -10,19 +10,21 @@ See mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/src/task.c for details.
 
 ## Task-Based Execution Model
 
-PicoRuby WASM uses a **cooperative multitasking model** that integrates Ruby tasks with the JavaScript event loop:
+PicoRuby WASM uses a **cooperative multitasking model** that integrates Ruby tasks with the JavaScript event loop. The browser bootstrap schedules a small `setTimeout(run, 0)` loop; each loop advances PicoRuby ticks and pumps the mruby-task single-step scheduler for a short time budget:
 
 ```
-JavaScript Event Loop (requestAnimationFrame, 60fps)
+JavaScript Event Loop (setTimeout-driven host loop)
   |
   ├─> mrb_tick_wasm()    // Timer processing, wake sleeping tasks
   |
-  └─> mrb_run_step()     // Execute one time slice of one task
+  └─> mrb_run_step()     // Advance one ready task or one scheduler-driven GC step
        |
        └─> mrb_task_run_once()
             |
             └─> mrb_vm_exec()  // Execute Ruby bytecode
 ```
+
+The host loop may call `mrb_run_step()` multiple times per JavaScript callback, bounded by the configured time budget, so PicoRuby does not depend on a browser frame callback for progress.
 
 Each Ruby task is a separate execution context with its own:
 - Call stack (stored in heap via `mrb_context`)

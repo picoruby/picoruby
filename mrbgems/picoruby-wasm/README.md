@@ -9,7 +9,8 @@ If you want to **use** PicoRuby.wasm rather than develop it, see the [npm packag
 
 PicoRuby.wasm uses a task suspension model instead of Emscripten's ASYNCIFY:
 
-- Ruby tasks cooperatively yield to the JavaScript event loop (60fps via `requestAnimationFrame`)
+- Ruby tasks cooperatively yield to the JavaScript event loop, which pumps the
+  mruby-task single-step scheduler from a small `setTimeout`-driven batch loop
 - Async operations (setTimeout, fetch, addEventListener) suspend the current task, cleanly exiting the `setjmp` scope
 - When the Promise resolves, the task resumes on a fresh C stack with a new `setjmp`
 - Ruby exceptions therefore work correctly across async boundaries without ASYNCIFY overhead
