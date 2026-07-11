@@ -19,7 +19,7 @@ class WebAudioApp < Funicular::Component
       error: nil,
       selected_channel: 0,
       voices: [],
-      channels: [],
+      channels: initial_channel_states,
       waveform: "sine",
       attack: 0.005,
       decay: 0.08,
@@ -61,7 +61,7 @@ class WebAudioApp < Funicular::Component
     end
     @synth.resume
     attach_visualizer
-    patch(audio_state: "running", error: nil)
+    patch(audio_state: "running", error: nil, channels: current_channel_states)
   rescue => e
     message = "#{e.class}: #{e.message}"
     $stderr.puts "JS::WebAudio enable failed: #{message}"
@@ -131,6 +131,7 @@ class WebAudioApp < Funicular::Component
     snapshot = @synth ? @synth.channel_state(source: :webserial, channel: channel) : nil
     tone = snapshot ? snapshot[:tone] : {}
     values = { selected_channel: channel }
+    values[:channels] = current_channel_states if @synth
     tone.each { |key, value| values[key] = value }
     patch(**values)
   end
@@ -226,13 +227,25 @@ class WebAudioApp < Funicular::Component
 
   def refresh_runtime_state
     return unless @synth
-    channels = []
-    channel = 0
-    while channel < 16
-      channels << @synth.channel_state(source: :webserial, channel: channel)
-      channel += 1
+    voices = @synth.active_voices
+    status = refs[:voice_status]
+    status[:textContent] = "Voices: #{voices.size}" if status
+    list = refs[:voice_list]
+    if list
+      if voices.empty?
+        list[:textContent] = "No active notes"
+      else
+        parts = []
+        i = 0
+        voices_size = voices.size
+        while i < voices_size
+          voice = voices[i]
+          parts << "v#{voice[:id]} ch#{voice[:channel] + 1} n#{voice[:note]} #{voice[:status]}"
+          i += 1
+        end
+        list[:textContent] = parts.join("  ")
+      end
     end
-    patch(voices: @synth.active_voices, channels: channels)
   end
 
   def setup_terminal
@@ -305,7 +318,7 @@ class WebAudioApp < Funicular::Component
       div(class: "status-row") do
         span(class: "status") { "Audio: #{state.audio_state}" }
         span(class: "status") { "Serial: #{state.serial_state}" }
-        span(class: "status") { "Voices: #{state.voices.size}" }
+        span(ref: :voice_status, class: "status") { "Voices: 0" }
         span(class: "error") { state.error.to_s }
       end
 
@@ -384,14 +397,8 @@ class WebAudioApp < Funicular::Component
             end
           end
           h2 { "Active voices" }
-          div(class: "voice-list") do
-            if state.voices.empty?
-              span(class: "muted") { "No active notes" }
-            else
-              state.voices.each do |voice|
-                span(class: "voice-chip") { "v#{voice[:id]} ch#{voice[:channel] + 1} n#{voice[:note]} #{voice[:status]}" }
-              end
-            end
+          div(ref: :voice_list, class: "voice-list") do
+            span(class: "muted") { "No active notes" }
           end
           channel_grid
         end
@@ -470,6 +477,35 @@ class WebAudioApp < Funicular::Component
   def selected_channel_value(key, fallback)
     channel = state.channels[state.selected_channel]
     channel ? channel[key] : fallback
+  end
+
+  def initial_channel_states
+    channels = []
+    channel = 0
+    while channel < 16
+      channels << {
+        source: :webserial,
+        channel: channel,
+        volume: 100,
+        expression: 127,
+        pan: 64,
+        pitch_bend: 8192,
+        tone: JS::WebAudio::DEFAULT_TONE.dup,
+        percussion: channel == JS::WebAudio::PERCUSSION_CHANNEL
+      }
+      channel += 1
+    end
+    channels
+  end
+
+  def current_channel_states
+    channels = []
+    channel = 0
+    while channel < 16
+      channels << @synth.channel_state(source: :webserial, channel: channel)
+      channel += 1
+    end
+    channels
   end
 
   def channel_grid
