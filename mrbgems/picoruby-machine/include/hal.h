@@ -47,6 +47,8 @@ void picorb_hal_idle_cpu(void);
 #endif
 
 int picorb_hal_write(int fd, const void *buf, int nbytes);
+bool picorb_hal_cdc_connected(uint8_t itf);
+int picorb_hal_cdc_write(uint8_t itf, const void *buf, int nbytes, uint32_t timeout_ms);
 void picorb_hal_enable_irq(void);
 void picorb_hal_disable_irq(void);
 void picorb_hal_abort(const char *s);
