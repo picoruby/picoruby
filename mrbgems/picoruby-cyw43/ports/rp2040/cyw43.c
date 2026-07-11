@@ -1,5 +1,7 @@
 #include "../../include/cyw43.h"
 
+#include <string.h>
+
 #include "pico/cyw43_arch.h"
 #include "lwip/dhcp.h"
 #include "lwip/netif.h"
@@ -99,16 +101,48 @@ CYW43_arch_disable_sta_mode(void)
   cyw43_arch_disable_sta_mode();
 }
 
+/* Response shape of CYW43_IOCTL_GET_SSID (wlc_ssid_t; cyw43_ll.h defines
+ * only the ioctl number). */
+typedef struct {
+  uint32_t ssid_len;
+  uint8_t ssid[32];
+} cyw43_wlc_ssid_t;
+
+static bool
+sta_associated_ssid_matches(const char *want)
+{
+  cyw43_wlc_ssid_t resp = {0};
+  if (cyw43_ioctl(&cyw43_state, CYW43_IOCTL_GET_SSID, sizeof(resp), (uint8_t *)&resp, CYW43_ITF_STA) != 0) {
+    return false;
+  }
+  size_t want_len = strlen(want);
+  return resp.ssid_len == want_len && memcmp(resp.ssid, want, want_len) == 0;
+}
+
 int
 CYW43_wifi_connect_with_dhcp(const char *ssid, const char *pw, uint32_t auth, uint32_t timeout_ms)
 {
   int result = cyw43_arch_wifi_connect_timeout_ms(ssid, pw, auth, timeout_ms);
+  if (result == 0 && !sta_associated_ssid_matches(ssid)) {
+    /* A join that timed out on a PREVIOUS call keeps running in the
+     * firmware (the SDK's connect loop abandons it without aborting), and
+     * survives leave/re-up via the firmware's auto-rejoin of the stored
+     * SSID. The SDK's success poll checks link status only — never which
+     * network — so without this check the call reports success while
+     * associated to the wrong SSID. */
+    result = PICO_ERROR_CONNECT_FAILED;
+  }
   if (result == 0) {
     struct netif *netif = &cyw43_state.netif[CYW43_ITF_STA];
     if (!dhcp_supplied_address(netif)) {
       dhcp_set_struct(netif, &cyw43_state.dhcp_client);
       dhcp_start(netif);
     }
+  }
+  else {
+    /* Abort whatever join is still in flight (or wrongly completed) so it
+     * cannot outlive this call and leak into a later connect. */
+    cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
   }
   return result;
 }

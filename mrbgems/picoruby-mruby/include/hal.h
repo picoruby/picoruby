@@ -50,7 +50,7 @@ MRB_BEGIN_DECL
 
 void hal_init(mrb_state *mrb);
 /* Avoid conflict with hal_init() from libpp used in ESP-IDF. */
-#ifdef ESP32_PLATFORM
+#ifdef PICORB_PLATFORM_ESP32
 void machine_hal_init(mrb_state *mrb);
 #define hal_init(mrb) machine_hal_init(mrb)
 #endif

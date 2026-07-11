@@ -73,10 +73,19 @@ async function main() {
   let exitCode = 0;
   let idleCount = 0;
   const MAX_IDLE = 100;  // Exit after N consecutive idle cycles
+  const runStepStatus = Module._mrb_run_step_status
+    ? () => Module.ccall('mrb_run_step_status', 'number', [], [])
+    : () => {
+        const result = Module.ccall('mrb_run_step', 'number', [], []);
+        return result < 0 ? -1 : 1;
+      };
+  const gcSchedulerPending = Module._mrb_gc_scheduler_pending_wasm
+    ? () => Module.ccall('mrb_gc_scheduler_pending_wasm', 'number', [], [])
+    : () => 0;
 
   while (true) {
-    const result = Module.ccall('mrb_run_step', 'number', [], []);
-    if (result < 0) {
+    const status = runStepStatus();
+    if (status < 0) {
       exitCode = 1;
       break;
     }
@@ -84,9 +93,11 @@ async function main() {
     // Tick the VM
     Module.ccall('mrb_tick_wasm', null, [], []);
 
-    // Check if we've been idle for a while (no tasks running)
-    // This is a heuristic - in real usage, tasks finish when all code executes
-    idleCount++;
+    if (status === 0 && gcSchedulerPending() !== 1) {
+      idleCount++;
+    } else {
+      idleCount = 0;
+    }
     if (idleCount > MAX_IDLE) {
       break;
     }

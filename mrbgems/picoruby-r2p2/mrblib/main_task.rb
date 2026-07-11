@@ -12,7 +12,7 @@ STDIN = IO.new
 Machine.set_hwclock(0)
 
 if RUBY_ENGINE == "mruby"
-  GC.interval_ratio = 110
+  GC.scheduler_driven = true
 end
 
 begin
