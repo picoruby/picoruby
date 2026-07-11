@@ -94,6 +94,7 @@ end
 
 class WebAudioTestContext
   attr_reader :oscillators, :buffer_sources, :gains, :panners
+  attr_writer :current_time
 
   def initialize
     @current_time = 1.0
@@ -164,6 +165,17 @@ class WebAudioSynthTest < Picotest::Test
     @synth = JS::WebAudio::Synth.new(context: @context, voice_count: 2)
   end
 
+  def teardown
+    @synth.close if @synth
+  end
+
+  def cleanup_at(time)
+    current_time = @context[:currentTime]
+    @context.current_time = time
+    @synth.cleanup_finished_voices
+    @context.current_time = current_time
+  end
+
   def test_note_on_builds_oscillator_and_voice_state
     assert @synth.handle_midi([:note_on, 0, 69, 100], :serial, 0, 10)
     oscillator = @context.oscillators[-1]
@@ -184,10 +196,9 @@ class WebAudioSynthTest < Picotest::Test
 
   def test_note_off_releases_then_ended_callback_frees_voice
     @synth.handle_midi([:note_on, 0, 60, 100], :serial, 0, 10)
-    oscillator = @context.oscillators[-1]
     assert @synth.handle_midi([:note_off, 0, 60, 0], :serial, 0, 20)
     assert_equal :releasing, @synth.active_voices[0][:status]
-    oscillator.finish
+    cleanup_at 1.2
     assert_equal [], @synth.active_voices
   end
 
@@ -252,7 +263,7 @@ class WebAudioSynthTest < Picotest::Test
   def test_channel_10_snare_and_hats_use_noise
     assert @synth.handle_midi([:note_on, 9, 38, 100], :serial, 0, 10)
     assert_equal 1, @context.buffer_sources.size
-    @context.buffer_sources[-1].finish
+    cleanup_at 1.21
 
     assert @synth.handle_midi([:note_on, 9, 46, 100], :serial, 0, 20)
     open_hat = @context.buffer_sources[-1]
