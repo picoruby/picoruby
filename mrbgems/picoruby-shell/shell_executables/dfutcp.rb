@@ -14,7 +14,7 @@ path = ARGV[1]  # optional: destination path (skips A/B slot and meta)
 
 puts "DFU TCP server listening on port #{port}"
 
-server = TCPServer.new("0.0.0.0", port)
+server = TCPServer.new(nil, port)
 
 conn = server.accept
 puts "DFU: connection accepted"
